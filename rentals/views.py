@@ -8,9 +8,24 @@ from datetime import datetime
 
 def dashboard(request):
     active_contracts = Contract.objects.filter(status='ACTIVE')
+    tenants = Tenant.objects.all()
     
-    # Financial Stats
+    tenant_id = request.GET.get('tenant')
+    if tenant_id:
+        active_contracts = active_contracts.filter(tenant_id=tenant_id)
+    
+    # Financial Stats (should likely reflect filtered view or global? Usually dashboard stats are global, but context implies tailored view. I'll keep stats global for now unless requested, but filtering the list.)
+    # Actually, usually if I filter the dashboard, I expect stats to update too.
+    # Let's update stats to reflect the filtered contracts?
+    # "Financial Stats"
     total_revenue = Contract.objects.aggregate(Sum('paid_amount'))['paid_amount__sum'] or 0
+    # Total Receivable usually is for ALL active debt.
+    # But if I filter by agency, maybe I want to see THEIR debt?
+    # I will calculate stats based on the potentially filtered list for 'total_receivable' context but total_revenue might be historical.
+    # To be safe and simple, I will keep stats Global for now as they are labelled "Total Revenue".
+    # But wait, user might want to see specific agency debt.
+    # Let's just filter the list first as requested.
+    
     total_receivable = Contract.objects.filter(status='ACTIVE').aggregate(
         debt=Sum(F('total_amount') - F('paid_amount'))
     )['debt'] or 0
@@ -18,7 +33,9 @@ def dashboard(request):
     return render(request, 'rentals/dashboard.html', {
         'contracts': active_contracts,
         'total_revenue': total_revenue,
-        'total_receivable': total_receivable
+        'total_receivable': total_receivable,
+        'tenants': tenants,
+        'selected_tenant': int(tenant_id) if tenant_id else None
     })
 
 def asset_list(request):
@@ -98,11 +115,14 @@ def contract_create(request):
                 
                 # Calculate Total Amount
                 monthly_total = sum(a.monthly_rate for a in assets_to_rent)
-                # Pro-rate: (Monthly Rate / 30) * Days
-                start = datetime.strptime(start_date_str, '%Y-%m-%d')
-                end = datetime.strptime(end_date_str, '%Y-%m-%d')
-                days = (end - start).days
-                total_amount = (monthly_total / Decimal('30')) * Decimal(str(days))
+                
+                # Calculate duration in months (rounding up to nearest month)
+                import math
+                num_months = math.ceil(days / 30)
+                if num_months < 1:
+                    num_months = 1
+                
+                total_amount = monthly_total * Decimal(num_months)
                 total_amount = round(total_amount, 2)
 
                 tenant = Tenant.objects.get(id=tenant_id)

@@ -16,9 +16,21 @@
     </div>
 
     <!-- Active Contracts -->
-    <div class="flex justify-between items-center">
-        <h1 class="text-2xl font-bold text-slate-900">Active Contracts</h1>
-        <a href="{% url 'rentals:contract_create' %}" class="bg-primary hover:bg-blue-600 text-white font-medium py-2 px-4 rounded-lg shadow-md transition-colors">
+    <div class="flex flex-col sm:flex-row justify-between items-center gap-4">
+        <div class="flex items-center gap-4 w-full sm:w-auto">
+            <h1 class="text-2xl font-bold text-slate-900">Active Contracts</h1>
+            <form method="get" class="flex-grow sm:flex-grow-0">
+                <select name="tenant" class="rounded-lg border-slate-300 text-sm focus:ring-primary focus:border-primary" onchange="this.form.submit()">
+                    <option value="">All Agencies</option>
+                    {% for tenant in tenants %}
+                    <option value="{{ tenant.id }}" {% if selected_tenant == tenant.id %}selected{% endif %}>
+                        {{ tenant.agency_name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </form>
+        </div>
+        <a href="{% url 'rentals:contract_create' %}" class="bg-primary hover:bg-blue-600 text-white font-medium py-2 px-4 rounded-lg shadow-md transition-colors whitespace-nowrap">
             + New Contract
         </a>
     </div>
@@ -32,7 +44,10 @@
                     <div>
                         <h3 class="text-lg font-semibold text-slate-900">{{ contract.tenant.agency_name }}</h3>
                         <p class="text-xs text-slate-500 mb-1">Contact: {{ contract.tenant.contact_person }}</p>
-                        <p class="text-sm text-slate-500">{{ contract.contract_number }}</p>
+                        <p class="text-sm text-slate-500 mb-1">{{ contract.contract_number }}</p>
+                        <p class="text-xs text-slate-600 bg-slate-50 px-2 py-1 rounded border border-slate-200 inline-block">
+                            {{ contract.start_date|date:"d M Y" }} - {{ contract.end_date|date:"d M Y" }}
+                        </p>
                     </div>
                     <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
                         {{ contract.get_status_display }}
