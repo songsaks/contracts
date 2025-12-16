@@ -1,0 +1,53 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="max-w-md mx-auto">
+    <div class="bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden">
+        <div class="px-6 py-4 border-b border-slate-200 bg-slate-50">
+            <h1 class="text-2xl font-bold text-slate-900">Edit Asset</h1>
+        </div>
+        
+        <form method="post" class="p-6 space-y-6">
+            {% csrf_token %}
+            
+            <div>
+                <label for="name" class="block text-sm font-medium text-slate-700 mb-1">Asset Name</label>
+                <input type="text" name="name" id="name" value="{{ asset.name }}" required class="shadow-sm focus:ring-primary focus:border-primary block w-full sm:text-sm border-slate-300 rounded-md border p-2">
+            </div>
+
+            <div>
+                <label for="monthly_rate" class="block text-sm font-medium text-slate-700 mb-1">Monthly Rate (&#3647;)</label>
+                <input type="number" step="0.01" name="monthly_rate" id="monthly_rate" value="{{ asset.monthly_rate }}" required class="shadow-sm focus:ring-primary focus:border-primary block w-full sm:text-sm border-slate-300 rounded-md border p-2">
+            </div>
+
+            <div>
+                <label for="description" class="block text-sm font-medium text-slate-700 mb-1">Description</label>
+                <textarea name="description" id="description" rows="3" class="shadow-sm focus:ring-primary focus:border-primary block w-full sm:text-sm border-slate-300 rounded-md border p-2">{{ asset.description }}</textarea>
+            </div>
+
+            <div>
+                <label for="status" class="block text-sm font-medium text-slate-700 mb-1">Status</label>
+                {% if asset.status == 'RENTED' %}
+                    <input type="text" value="Rented (Cannot change manually)" disabled class="bg-slate-100 block w-full sm:text-sm border-slate-300 rounded-md border p-2 text-slate-500">
+                    <input type="hidden" name="status" value="RENTED">
+                    <p class="mt-1 text-xs text-slate-500">Status is managed by active contracts.</p>
+                {% else %}
+                    <select name="status" id="status" class="shadow-sm focus:ring-primary focus:border-primary block w-full sm:text-sm border-slate-300 rounded-md border p-2">
+                        <option value="AVAILABLE" {% if asset.status == 'AVAILABLE' %}selected{% endif %}>Available</option>
+                        <option value="MAINTENANCE" {% if asset.status == 'MAINTENANCE' %}selected{% endif %}>Maintenance</option>
+                    </select>
+                {% endif %}
+            </div>
+
+            <div class="flex justify-end pt-4">
+                <a href="{% url 'rentals:asset_list' %}" class="bg-white py-2 px-4 border border-slate-300 rounded-md shadow-sm text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary mr-3">
+                    Cancel
+                </a>
+                <button type="submit" class="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-primary hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary">
+                    Save Changes
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

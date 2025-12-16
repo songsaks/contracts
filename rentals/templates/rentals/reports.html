@@ -1,0 +1,211 @@
+{% extends 'base.html' %}
+{% load humanize %}
+
+{% block content %}
+<div class="space-y-6 print:space-y-0">
+    <div class="flex justify-between items-center print:hidden">
+        <h1 class="text-3xl font-bold text-slate-900">Rental Reports</h1>
+        <button onclick="window.print()" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-slate-800 hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-500">
+            <svg class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+            </svg>
+            Print Report
+        </button>
+    </div>
+
+    <!-- Print Header -->
+    <div class="hidden print:block mb-6 text-center">
+        <h1 class="text-2xl font-bold text-slate-900">Rental Contract Report</h1>
+        <p class="text-sm text-slate-500">Generated on: {% now "jS F Y H:i" %}</p>
+    </div>
+
+    <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 print:hidden">
+        <form method="get" class="flex items-center space-x-4">
+            <div class="flex-grow max-w-xs">
+                <label for="tenant" class="block text-sm font-medium text-slate-700 mb-1">Filter by Tenant</label>
+                <select name="tenant" id="tenant" class="block w-full rounded-md border-slate-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm border p-2" onchange="this.form.submit()">
+                    <option value="">All Tenants</option>
+                    {% for tenant in tenants %}
+                    <option value="{{ tenant.id }}" {% if selected_tenant == tenant.id %}selected{% endif %}>
+                        {{ tenant.agency_name }} ({{ tenant.contact_person }})
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="mt-6">
+                <a href="{% url 'rentals:reports' %}" class="text-sm text-slate-500 hover:text-slate-700 underline">Clear Filter</a>
+            </div>
+        </form>
+    </div>
+
+    <!-- Screen View Table (Filtered) -->
+    <div class="bg-white shadow-sm rounded-xl border border-slate-200 overflow-hidden print:hidden">
+        <div class="px-6 py-4 border-b border-slate-200">
+            <h2 class="text-lg font-medium text-slate-900">
+                {% if selected_tenant %}
+                    Contracts for Tenant
+                {% else %}
+                    All Contracts
+                {% endif %}
+            </h2>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-slate-200 text-sm">
+                <thead class="bg-slate-50">
+                    <tr>
+                        <th class="px-4 py-3 text-left font-medium text-slate-500 uppercase tracking-wider">ID</th>
+                        <th class="px-4 py-3 text-left font-medium text-slate-500 uppercase tracking-wider">Tenant</th>
+                        <th class="px-4 py-3 text-left font-medium text-slate-500 uppercase tracking-wider">Assets</th>
+                        <th class="px-4 py-3 text-left font-medium text-slate-500 uppercase tracking-wider">Duration</th>
+                        <th class="px-4 py-3 text-left font-medium text-slate-500 uppercase tracking-wider">Status</th>
+                        <th class="px-4 py-3 text-right font-medium text-slate-500 uppercase tracking-wider">Total</th>
+                        <th class="px-4 py-3 text-right font-medium text-slate-500 uppercase tracking-wider">Paid</th>
+                        <th class="px-4 py-3 text-right font-medium text-slate-500 uppercase tracking-wider">Unpaid</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-slate-200">
+                    {% for rental in rentals %}
+                    <tr class="hover:bg-slate-50">
+                        <td class="px-4 py-3 whitespace-nowrap text-slate-500 font-mono">{{ rental.contract_number }}</td>
+                        <td class="px-4 py-3 whitespace-nowrap">
+                            <div class="font-medium text-slate-900">{{ rental.tenant.agency_name }}</div>
+                            <div class="text-xs text-slate-500">{{ rental.tenant.contact_person }}</div>
+                            <div class="text-xs text-slate-500">{{ rental.tenant.phone }}</div>
+                        </td>
+                        <td class="px-4 py-3 text-slate-500">
+                            <ul class="list-disc list-inside text-xs">
+                                {% for asset in rental.assets.all %}
+                                <li>{{ asset.name }}</li>
+                                {% endfor %}
+                            </ul>
+                        </td>
+                        <td class="px-4 py-3 whitespace-nowrap text-slate-500">
+                            <div>{{ rental.start_date|date:"d M Y" }}</div>
+                            <div class="text-xs text-slate-400">to {{ rental.end_date|date:"d M Y" }}</div>
+                        </td>
+                        <td class="px-4 py-3 whitespace-nowrap">
+                            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border
+                                {% if rental.status == 'ACTIVE' %}bg-green-50 text-green-700 border-green-200
+                                {% elif rental.status == 'COMPLETED' %}bg-slate-100 text-slate-700 border-slate-200
+                                {% else %}bg-red-50 text-red-700 border-red-200{% endif %}">
+                                {{ rental.get_status_display }}
+                            </span>
+                        </td>
+                        <td class="px-4 py-3 whitespace-nowrap text-right font-medium text-slate-900">&#3647;{{ rental.total_amount|floatformat:2|intcomma }}</td>
+                        <td class="px-4 py-3 whitespace-nowrap text-right text-green-600">&#3647;{{ rental.paid_amount|floatformat:2|intcomma }}</td>
+                        <td class="px-4 py-3 whitespace-nowrap text-right text-red-600 font-medium">&#3647;{{ rental.remaining_amount|floatformat:2|intcomma }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="8" class="px-6 py-12 text-center text-slate-500 italic">No contracts found.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Print Only Table (Always All Contract) -->
+    <div class="hidden print:block relative">
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-slate-200 text-sm border border-slate-200">
+                <thead class="bg-white">
+                    <tr>
+                        <th class="px-4 py-3 text-left font-medium text-slate-500 uppercase tracking-wider border text-xs">ID</th>
+                        <th class="px-4 py-3 text-left font-medium text-slate-500 uppercase tracking-wider border text-xs">Tenant</th>
+                        <th class="px-4 py-3 text-left font-medium text-slate-500 uppercase tracking-wider border text-xs">Assets</th>
+                        <th class="px-4 py-3 text-left font-medium text-slate-500 uppercase tracking-wider border text-xs">Duration</th>
+                        <th class="px-4 py-3 text-left font-medium text-slate-500 uppercase tracking-wider border text-xs">Status</th>
+                        <th class="px-4 py-3 text-right font-medium text-slate-500 uppercase tracking-wider border text-xs">Total</th>
+                        <th class="px-4 py-3 text-right font-medium text-slate-500 uppercase tracking-wider border text-xs">Paid</th>
+                        <th class="px-4 py-3 text-right font-medium text-slate-500 uppercase tracking-wider border text-xs">Unpaid</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-slate-200">
+                    {% for rental in all_rentals %}
+                    <tr>
+                        <td class="px-4 py-2 whitespace-nowrap text-slate-500 font-mono border">{{ rental.contract_number }}</td>
+                        <td class="px-4 py-2 whitespace-nowrap border">
+                            <div class="font-medium text-slate-900">{{ rental.tenant.agency_name }}</div>
+                            <div class="text-xs text-slate-500">{{ rental.tenant.contact_person }}</div>
+                            <div class="text-xs text-slate-500">{{ rental.tenant.phone }}</div>
+                        </td>
+                        <td class="px-4 py-2 text-slate-500 border">
+                            <ul class="list-disc list-inside text-xs">
+                                {% for asset in rental.assets.all %}
+                                <li>{{ asset.name }}</li>
+                                {% endfor %}
+                            </ul>
+                        </td>
+                        <td class="px-4 py-2 whitespace-nowrap text-slate-500 border">
+                            <div>{{ rental.start_date|date:"d M Y" }}</div>
+                            <div class="text-xs text-slate-400">to {{ rental.end_date|date:"d M Y" }}</div>
+                        </td>
+                        <td class="px-4 py-2 whitespace-nowrap border">
+                            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border
+                                {% if rental.status == 'ACTIVE' %}text-green-700 border-green-200
+                                {% elif rental.status == 'COMPLETED' %}text-slate-700 border-slate-200
+                                {% else %}text-red-700 border-red-200{% endif %}">
+                                {{ rental.get_status_display }}
+                            </span>
+                        </td>
+                        <td class="px-4 py-2 whitespace-nowrap text-right font-medium text-slate-900 border">&#3647;{{ rental.total_amount|floatformat:2|intcomma }}</td>
+                        <td class="px-4 py-2 whitespace-nowrap text-right text-green-600 border">&#3647;{{ rental.paid_amount|floatformat:2|intcomma }}</td>
+                        <td class="px-4 py-2 whitespace-nowrap text-right text-red-600 font-medium border">&#3647;{{ rental.remaining_amount|floatformat:2|intcomma }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="8" class="px-6 py-12 text-center text-slate-500 italic">No contracts found.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<style>
+@media print {
+    body * {
+        visibility: hidden;
+    }
+    .print\:block {
+        display: block !important;
+    }
+    .print\:hidden {
+        display: none !important;
+    }
+    /* Show ALL content that isn't specifically hidden */
+    #content-wrapper {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+        margin: 0;
+        padding: 0;
+        visibility: visible;
+    }
+    #content-wrapper * {
+        visibility: visible;
+    }
+    /* Explicitly hide things marked print:hidden */
+    .print\:hidden {
+        display: none !important;
+    }
+
+    /* Ensure table borders show up */
+    table {
+        border-collapse: collapse !important;
+        width: 100% !important;
+    }
+    th, td {
+        border: 1px solid #ddd !important;
+        padding: 8px !important;
+    }
+    /* Hide the main sidebar and header of the base layout if they exist outside content-wrapper */
+    nav, aside, header {
+        display: none !important;
+    }
+}
+</style>
+{% endblock %}

@@ -1,0 +1,184 @@
+from django.shortcuts import render, redirect, get_object_or_404
+from django.db import transaction
+from django.db.models import Sum, F
+from django.contrib import messages
+from .models import Asset, Contract, Tenant
+from decimal import Decimal
+from datetime import datetime
+
+def dashboard(request):
+    active_contracts = Contract.objects.filter(status='ACTIVE')
+    
+    # Financial Stats
+    total_revenue = Contract.objects.aggregate(Sum('paid_amount'))['paid_amount__sum'] or 0
+    total_receivable = Contract.objects.filter(status='ACTIVE').aggregate(
+        debt=Sum(F('total_amount') - F('paid_amount'))
+    )['debt'] or 0
+
+    return render(request, 'rentals/dashboard.html', {
+        'contracts': active_contracts,
+        'total_revenue': total_revenue,
+        'total_receivable': total_receivable
+    })
+
+def asset_list(request):
+    assets = Asset.objects.all()
+    return render(request, 'rentals/asset_list.html', {'assets': assets})
+
+def asset_create(request):
+    if request.method == 'POST':
+        name = request.POST.get('name')
+        description = request.POST.get('description')
+        monthly_rate = request.POST.get('monthly_rate')
+        Asset.objects.create(name=name, description=description, monthly_rate=monthly_rate)
+        messages.success(request, 'Asset created successfully.')
+        return redirect('rentals:asset_list')
+    return render(request, 'rentals/asset_form.html')
+
+def asset_edit(request, pk):
+    asset = get_object_or_404(Asset, pk=pk)
+    if request.method == 'POST':
+        asset.name = request.POST.get('name')
+        asset.description = request.POST.get('description')
+        asset.monthly_rate = request.POST.get('monthly_rate')
+        
+        # Only allow status change if not RENTED, or ensure we don't accidentally force it if hidden
+        new_status = request.POST.get('status')
+        if asset.status != 'RENTED' and new_status in ['AVAILABLE', 'MAINTENANCE']:
+            asset.status = new_status
+            
+        asset.save()
+        messages.success(request, 'Asset updated successfully.')
+        return redirect('rentals:asset_list')
+    return render(request, 'rentals/asset_edit.html', {'asset': asset})
+
+def tenant_create(request):
+    if request.method == 'POST':
+        Tenant.objects.create(
+            agency_name=request.POST.get('agency_name'),
+            contact_person=request.POST.get('contact_person'),
+            email=request.POST.get('email'),
+            phone=request.POST.get('phone'),
+            document_id=request.POST.get('document_id'),
+            address=request.POST.get('address')
+        )
+        messages.success(request, 'Tenant registered successfully.')
+        return redirect('rentals:contract_create')
+    return render(request, 'rentals/tenant_form.html')
+
+def contract_create(request):
+    if request.method == 'POST':
+        tenant_id = request.POST.get('tenant')
+        asset_ids = request.POST.getlist('assets')
+        start_date_str = request.POST.get('start_date')
+        end_date_str = request.POST.get('end_date')
+        payment_frequency = request.POST.get('payment_frequency')
+        
+        if not asset_ids:
+            messages.error(request, 'Please select at least one asset.')
+            return redirect('rentals:contract_create')
+
+        try:
+            with transaction.atomic():
+                start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
+                end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
+                days = (end_date - start_date).days
+                
+                if days <= 0:
+                    raise ValueError("End date must be after start date.")
+
+                assets_to_rent = Asset.objects.filter(id__in=asset_ids)
+                
+                # Check availability
+                for asset in assets_to_rent:
+                    if asset.status != 'AVAILABLE':
+                        raise ValueError(f"Asset {asset.name} is no longer available.")
+                
+                # Calculate Total Amount
+                monthly_total = sum(a.monthly_rate for a in assets_to_rent)
+                # Pro-rate: (Monthly Rate / 30) * Days
+                start = datetime.strptime(start_date_str, '%Y-%m-%d')
+                end = datetime.strptime(end_date_str, '%Y-%m-%d')
+                days = (end - start).days
+                total_amount = (monthly_total / Decimal('30')) * Decimal(str(days))
+                total_amount = round(total_amount, 2)
+
+                tenant = Tenant.objects.get(id=tenant_id)
+                contract = Contract.objects.create(
+                    tenant=tenant,
+                    start_date=start_date,
+                    end_date=end_date,
+                    payment_frequency=payment_frequency,
+                    total_amount=total_amount,
+                    status='ACTIVE'
+                )
+                contract.assets.set(assets_to_rent)
+                
+                assets_to_rent.update(status='RENTED')
+                
+                messages.success(request, f'Contract created. Total: \u0e3f{total_amount}')
+                return redirect('rentals:dashboard')
+        except ValueError as e:
+            messages.error(request, str(e))
+        except Exception as e:
+            messages.error(request, f"An error occurred: {str(e)}")
+            
+    # GET context
+    tenants = Tenant.objects.all()
+    available_assets = Asset.objects.filter(status='AVAILABLE')
+    return render(request, 'rentals/contract_form.html', {
+        'tenants': tenants,
+        'assets': available_assets
+    })
+
+def contract_cancel(request, pk):
+    contract = get_object_or_404(Contract, pk=pk)
+    if contract.status == 'ACTIVE':
+        with transaction.atomic():
+            contract.status = 'CANCELLED'
+            contract.save()
+            contract.assets.update(status='AVAILABLE')
+            messages.success(request, 'Contract cancelled.')
+    return redirect('rentals:dashboard')
+
+def contract_complete(request, pk):
+    contract = get_object_or_404(Contract, pk=pk)
+    if contract.status == 'ACTIVE':
+        with transaction.atomic():
+            contract.status = 'COMPLETED'
+            contract.save()
+            contract.assets.update(status='AVAILABLE')
+            messages.success(request, 'Contract completed.')
+    return redirect('rentals:dashboard')
+
+def contract_payment(request, pk):
+    contract = get_object_or_404(Contract, pk=pk)
+    if request.method == 'POST':
+        amount = Decimal(request.POST.get('payment_amount', '0'))
+        if amount > 0:
+            with transaction.atomic():
+                contract.paid_amount += amount
+                contract.save()
+                messages.success(request, f'Payment of \u0e3f{amount} recorded.')
+        return redirect('rentals:dashboard')
+    return render(request, 'rentals/contract_payment.html', {'contract': contract})
+
+def reports(request):
+    # Base query for both
+    base_query = Contract.objects.all().order_by('-created_at')
+    
+    # Filtered rentals for screen view
+    rentals = base_query
+    
+    tenants = Tenant.objects.all()
+    
+    tenant_id = request.GET.get('tenant')
+    if tenant_id:
+        rentals = rentals.filter(tenant_id=tenant_id)
+        
+    return render(request, 'rentals/reports.html', {
+        'rentals': rentals,       # Filtered
+        'all_rentals': base_query, # Unfiltered for print
+        'tenants': tenants,
+        'selected_tenant': int(tenant_id) if tenant_id else None
+    })
