@@ -10,6 +10,7 @@ class Asset(models.Model):
     ]
     
     name = models.CharField(max_length=100)
+    serial_number = models.CharField(max_length=100, blank=True, null=True, unique=True, help_text="Asset Serial Number")
     description = models.TextField(blank=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='AVAILABLE')
     monthly_rate = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))

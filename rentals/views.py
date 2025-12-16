@@ -28,9 +28,10 @@ def asset_list(request):
 def asset_create(request):
     if request.method == 'POST':
         name = request.POST.get('name')
+        serial_number = request.POST.get('serial_number')
         description = request.POST.get('description')
         monthly_rate = request.POST.get('monthly_rate')
-        Asset.objects.create(name=name, description=description, monthly_rate=monthly_rate)
+        Asset.objects.create(name=name, serial_number=serial_number, description=description, monthly_rate=monthly_rate)
         messages.success(request, 'Asset created successfully.')
         return redirect('rentals:asset_list')
     return render(request, 'rentals/asset_form.html')
@@ -39,6 +40,7 @@ def asset_edit(request, pk):
     asset = get_object_or_404(Asset, pk=pk)
     if request.method == 'POST':
         asset.name = request.POST.get('name')
+        asset.serial_number = request.POST.get('serial_number')
         asset.description = request.POST.get('description')
         asset.monthly_rate = request.POST.get('monthly_rate')
         
@@ -175,10 +177,16 @@ def reports(request):
     tenant_id = request.GET.get('tenant')
     if tenant_id:
         rentals = rentals.filter(tenant_id=tenant_id)
+
+    status = request.GET.get('status')
+    if status:
+        rentals = rentals.filter(status=status)
         
     return render(request, 'rentals/reports.html', {
         'rentals': rentals,       # Filtered
         'all_rentals': base_query, # Unfiltered for print
         'tenants': tenants,
-        'selected_tenant': int(tenant_id) if tenant_id else None
+        'selected_tenant': int(tenant_id) if tenant_id else None,
+        'status_choices': Contract.STATUS_CHOICES,
+        'selected_status': status,
     })

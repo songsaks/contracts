@@ -3,9 +3,9 @@ from .models import Asset, Tenant, Contract
 
 @admin.register(Asset)
 class AssetAdmin(admin.ModelAdmin):
-    list_display = ('name', 'monthly_rate', 'status', 'created_at')
+    list_display = ('name', 'serial_number', 'monthly_rate', 'status', 'created_at')
     list_filter = ('status',)
-    search_fields = ('name', 'description')
+    search_fields = ('name', 'description', 'serial_number')
 
 @admin.register(Tenant)
 class TenantAdmin(admin.ModelAdmin):
