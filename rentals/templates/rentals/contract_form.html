@@ -62,7 +62,7 @@
                                 <label for="asset_{{ asset.id }}" class="font-medium text-slate-900">{{ asset.name }}</label>
                                 <span class="text-xs font-bold text-green-600 border border-green-200 bg-green-50 px-2 py-0.5 rounded-full">&#3647;{{ asset.monthly_rate }}/mo</span>
                             </div>
-                            <p class="text-slate-500 text-xs mt-1">{{ asset.description|truncatechars:40 }}</p>
+                            <p class="text-slate-500 text-xs mt-1 font-mono">SN: {{ asset.serial_number|default:"-" }}</p>
                         </div>
                     </div>
                     {% empty %}
