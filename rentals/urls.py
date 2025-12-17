@@ -8,6 +8,7 @@ urlpatterns = [
     path('assets/', views.asset_list, name='asset_list'),
     path('assets/new/', views.asset_create, name='asset_create'),
     path('assets/<int:pk>/edit/', views.asset_edit, name='asset_edit'),
+    path('assets/import/', views.asset_import, name='asset_import'),
     path('tenants/new/', views.tenant_create, name='tenant_create'),
     path('contracts/new/', views.contract_create, name='contract_create'),
     path('contracts/<int:pk>/cancel/', views.contract_cancel, name='contract_cancel'),

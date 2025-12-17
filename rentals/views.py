@@ -71,6 +71,66 @@ def asset_edit(request, pk):
         return redirect('rentals:asset_list')
     return render(request, 'rentals/asset_edit.html', {'asset': asset})
 
+def asset_import(request):
+    if request.method == 'POST' and request.FILES.get('excel_file'):
+        import pandas as pd
+        excel_file = request.FILES['excel_file']
+        try:
+            df = pd.read_excel(excel_file)
+            count = 0
+            for index, row in df.iterrows():
+                # Basic validation
+                name = row.get('Name')
+                if not name or pd.isna(name):
+                    continue
+
+                serial = row.get('Serial Number')
+                if pd.isna(serial):
+                    serial = None
+                
+                monthly_rate = row.get('Monthly Rate', 0)
+                if pd.isna(monthly_rate):
+                    monthly_rate = 0
+                
+                description = row.get('Description', '')
+                if pd.isna(description):
+                    description = ''
+                
+                status = row.get('Status', 'AVAILABLE').upper()
+                if status not in ['AVAILABLE', 'MAINTENANCE', 'RENTED']:
+                    status = 'AVAILABLE'
+
+                # Use update_or_create to avoid duplicates if serial is present
+                if serial:
+                    Asset.objects.update_or_create(
+                        serial_number=serial,
+                        defaults={
+                            'name': name,
+                            'monthly_rate': monthly_rate,
+                            'description': description,
+                            'status': status
+                        }
+                    )
+                    count += 1
+                else:
+                    # If no serial, just create (allow duplicates? probably yes if no identifier)
+                    Asset.objects.create(
+                        name=name,
+                        monthly_rate=monthly_rate,
+                        description=description,
+                        status=status,
+                        serial_number=None
+                    )
+                    count += 1
+            
+            messages.success(request, f'Successfully imported {count} assets.')
+            return redirect('rentals:asset_list')
+        except Exception as e:
+            messages.error(request, f'Error importing file: {e}')
+            return redirect('rentals:asset_import')
+            
+    return render(request, 'rentals/asset_import.html')
+
 def tenant_create(request):
     if request.method == 'POST':
         Tenant.objects.create(
