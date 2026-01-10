@@ -1,0 +1,116 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto">
+    <div class="bg-white shadow rounded-lg overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-200">
+            <h2 class="text-xl font-bold text-gray-900">New Repair Job (Receive Device)</h2>
+            <p class="mt-1 text-sm text-gray-500">Enter customer details and the first device to receive.</p>
+        </div>
+
+        <form method="post" class="p-6 space-y-8">
+            {% csrf_token %}
+
+            <!-- Customer Section -->
+            <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                <h3 class="text-lg font-medium text-gray-900 mb-4">Customer Information</h3>
+                <div class="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6">
+                    <div class="sm:col-span-3">
+                        <label for="{{ customer_form.name.id_for_label }}"
+                            class="block text-sm font-medium text-gray-700">Name</label>
+                        <div class="mt-1">
+                            {{ customer_form.name }}
+                        </div>
+                    </div>
+                    <div class="sm:col-span-3">
+                        <label for="{{ customer_form.contact_number.id_for_label }}"
+                            class="block text-sm font-medium text-gray-700">Contact Number</label>
+                        <div class="mt-1">
+                            {{ customer_form.contact_number }}
+                        </div>
+                    </div>
+                    <div class="sm:col-span-6">
+                        <label for="{{ customer_form.address.id_for_label }}"
+                            class="block text-sm font-medium text-gray-700">Address</label>
+                        <div class="mt-1">
+                            {{ customer_form.address }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Job Section -->
+            <div class="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                <h3 class="text-lg font-medium text-blue-900 mb-4">Job Details</h3>
+                <div class="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6">
+                    <div class="sm:col-span-3">
+                        <label for="{{ job_form.fix_id.id_for_label }}"
+                            class="block text-sm font-medium text-gray-700">Manual Fix ID (Optional)</label>
+                        <div class="mt-1">
+                            {{ job_form.fix_id }}
+                        </div>
+                        <p class="mt-1 text-xs text-gray-500">System will generate a Job Code (J...) automatically.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Device & Issue Section -->
+            <div class="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
+                <h3 class="text-lg font-medium text-yellow-900 mb-4">Device & Issue</h3>
+
+                <div class="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6 mb-6">
+                    <div class="sm:col-span-2">
+                        <label class="block text-sm font-medium text-gray-700">Device Type</label>
+                        <div class="mt-1">{{ device_form.device_type }}</div>
+                    </div>
+                    <div class="sm:col-span-2">
+                        <label class="block text-sm font-medium text-gray-700">Brand</label>
+                        <div class="mt-1">{{ device_form.brand }}</div>
+                    </div>
+                    <div class="sm:col-span-2">
+                        <label class="block text-sm font-medium text-gray-700">Model</label>
+                        <div class="mt-1">{{ device_form.model }}</div>
+                    </div>
+                    <div class="sm:col-span-3">
+                        <label class="block text-sm font-medium text-gray-700">Serial Number</label>
+                        <div class="mt-1">{{ device_form.serial_number }}</div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 gap-y-6 gap-x-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Issue Description</label>
+                        <div class="mt-1">{{ item_form.issue_description }}</div>
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">Initial Status</label>
+                            <div class="mt-1">{{ item_form.status }}</div>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">Estimated Price</label>
+                            <div class="mt-1">{{ item_form.price }}</div>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Assign Technician(s)</label>
+                        <div class="mt-1">{{ item_form.technicians }}</div>
+                        <p class="text-xs text-gray-500 mt-1">Hold Ctrl (Windows) to select multiple.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex justify-end pt-5">
+                <a href="{% url 'repairs:repair_list' %}"
+                    class="bg-white py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none mr-3">
+                    Cancel
+                </a>
+                <button type="submit"
+                    class="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                    Create Job
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

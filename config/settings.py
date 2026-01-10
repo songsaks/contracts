@@ -44,6 +44,8 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'django.contrib.humanize',
     'rentals',
+    'landing',
+    'repairs',
 ]
 
 MIDDLEWARE = [
@@ -128,5 +130,7 @@ STATIC_URL = 'static/'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-LOGIN_REDIRECT_URL = 'rentals:dashboard'
-LOGOUT_REDIRECT_URL = 'login'
+LOGIN_URL = '/accounts/login/'
+LOGIN_REDIRECT_URL = '/repairs/'
+LOGOUT_REDIRECT_URL = '/'
+

@@ -1,0 +1,27 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto space-y-6">
+    <div class="flex items-center justify-between">
+        <h1 class="text-2xl font-bold text-gray-900">Devices</h1>
+        <a href="{% url 'repairs:device_create' %}"
+            class="px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700">Add
+            Device</a>
+    </div>
+
+    <div class="bg-white shadow overflow-hidden sm:rounded-md">
+        <ul class="divide-y divide-gray-200">
+            {% for device in devices %}
+            <li class="px-4 py-4 sm:px-6">
+                <div class="flex items-center justify-between">
+                    <p class="text-sm font-medium text-indigo-600 truncate">{{ device.brand }} {{ device.model }}</p>
+                    <p class="text-sm text-gray-500">{{ device.serial_number }}</p>
+                </div>
+            </li>
+            {% empty %}
+            <li class="px-4 py-4 text-gray-500 text-center">No devices found.</li>
+            {% endfor %}
+        </ul>
+    </div>
+</div>
+{% endblock %}

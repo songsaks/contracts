@@ -2,10 +2,12 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.db import transaction
 from django.db.models import Sum, F
 from django.contrib import messages
+from django.contrib.auth.decorators import login_required
 from .models import Asset, Contract, Tenant
 from decimal import Decimal
 from datetime import datetime
 
+@login_required
 def dashboard(request):
     active_contracts = Contract.objects.filter(status='ACTIVE')
     tenants = Tenant.objects.all()
@@ -38,10 +40,12 @@ def dashboard(request):
         'selected_tenant': int(tenant_id) if tenant_id else None
     })
 
+@login_required
 def asset_list(request):
     assets = Asset.objects.all()
     return render(request, 'rentals/asset_list.html', {'assets': assets})
 
+@login_required
 def asset_create(request):
     if request.method == 'POST':
         name = request.POST.get('name')
@@ -53,6 +57,7 @@ def asset_create(request):
         return redirect('rentals:asset_list')
     return render(request, 'rentals/asset_form.html')
 
+@login_required
 def asset_edit(request, pk):
     asset = get_object_or_404(Asset, pk=pk)
     if request.method == 'POST':
@@ -71,6 +76,7 @@ def asset_edit(request, pk):
         return redirect('rentals:asset_list')
     return render(request, 'rentals/asset_edit.html', {'asset': asset})
 
+@login_required
 def asset_import(request):
     if request.method == 'POST' and request.FILES.get('excel_file'):
         import pandas as pd
@@ -131,6 +137,7 @@ def asset_import(request):
             
     return render(request, 'rentals/asset_import.html')
 
+@login_required
 def tenant_create(request):
     if request.method == 'POST':
         Tenant.objects.create(
@@ -145,6 +152,7 @@ def tenant_create(request):
         return redirect('rentals:contract_create')
     return render(request, 'rentals/tenant_form.html')
 
+@login_required
 def contract_create(request):
     if request.method == 'POST':
         tenant_id = request.POST.get('tenant')
@@ -213,6 +221,7 @@ def contract_create(request):
         'assets': available_assets
     })
 
+@login_required
 def contract_cancel(request, pk):
     contract = get_object_or_404(Contract, pk=pk)
     if contract.status == 'ACTIVE':
@@ -223,6 +232,7 @@ def contract_cancel(request, pk):
             messages.success(request, 'Contract cancelled.')
     return redirect('rentals:dashboard')
 
+@login_required
 def contract_complete(request, pk):
     contract = get_object_or_404(Contract, pk=pk)
     if contract.status == 'ACTIVE':
@@ -233,6 +243,7 @@ def contract_complete(request, pk):
             messages.success(request, 'Contract completed.')
     return redirect('rentals:dashboard')
 
+@login_required
 def contract_payment(request, pk):
     contract = get_object_or_404(Contract, pk=pk)
     if request.method == 'POST':
@@ -245,6 +256,7 @@ def contract_payment(request, pk):
         return redirect('rentals:dashboard')
     return render(request, 'rentals/contract_payment.html', {'contract': contract})
 
+@login_required
 def reports(request):
     # Base query for both
     base_query = Contract.objects.all().order_by('-created_at')

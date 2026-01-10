@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Portal - Select System</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#3b82f6',
+                        secondary: '#64748b',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+    </style>
+</head>
+
+<body class="bg-slate-50 text-slate-900 min-h-screen flex flex-col items-center justify-center">
+
+    <main class="w-full max-w-5xl px-4 sm:px-6 lg:px-8">
+        <div class="text-center mb-12">
+            <h1 class="text-4xl font-bold text-slate-900 tracking-tight sm:text-5xl">Welcome</h1>
+            <p class="mt-4 text-xl text-slate-500">Please select the system you want to access.</p>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+            <!-- Contracts System Card -->
+            <a href="/contracts/"
+                class="group relative bg-white rounded-2xl shadow-sm border border-slate-200 p-8 hover:shadow-xl hover:border-blue-300 transition-all duration-300 flex flex-col items-center text-center cursor-pointer transform hover:-translate-y-1">
+                <div
+                    class="h-20 w-20 bg-blue-50 rounded-2xl flex items-center justify-center mb-6 group-hover:bg-blue-100 transition-colors">
+                    <svg class="h-10 w-10 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                </div>
+                <h2 class="text-2xl font-bold text-slate-900 group-hover:text-blue-600 transition-colors">Contracts
+                    System</h2>
+                <p class="mt-2 text-slate-500">Manage rentals, contracts, and tenants.</p>
+                <div
+                    class="mt-6 text-blue-600 font-medium flex items-center opacity-0 group-hover:opacity-100 transition-opacity">
+                    Enter System
+                    <svg class="ml-2 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                    </svg>
+                </div>
+            </a>
+
+            <!-- Fix System Card -->
+            <a href="{% url 'repairs:repair_list' %}"
+                class="group relative bg-white rounded-2xl shadow-sm border border-slate-200 p-8 hover:shadow-xl hover:border-orange-300 transition-all duration-300 flex flex-col items-center text-center cursor-pointer transform hover:-translate-y-1">
+                <div
+                    class="h-20 w-20 bg-orange-50 rounded-2xl flex items-center justify-center mb-6 group-hover:bg-orange-100 transition-colors">
+                    <svg class="h-10 w-10 text-orange-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                </div>
+                <h2 class="text-2xl font-bold text-slate-900 group-hover:text-orange-600 transition-colors">Fix System
+                </h2>
+                <p class="mt-2 text-slate-500">Maintenance & Repair tracking.</p>
+                <div
+                    class="mt-6 text-orange-600 font-medium flex items-center opacity-0 group-hover:opacity-100 transition-opacity">
+                    Enter System
+                    <svg class="ml-2 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                    </svg>
+                </div>
+            </a>
+        </div>
+
+    </main>
+
+    <footer class="mt-auto py-6 text-center text-sm text-slate-400">
+        &copy; 2025 Rental Control System. All rights reserved.
+    </footer>
+</body>
+
+</html>

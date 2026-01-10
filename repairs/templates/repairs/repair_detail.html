@@ -1,0 +1,140 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto space-y-6">
+    <!-- Header -->
+    <div class="flex items-center justify-between">
+        <div>
+            <nav class="flex" aria-label="Breadcrumb">
+                <ol class="flex items-center space-x-2">
+                    <li><a href="{% url 'repairs:repair_list' %}" class="text-gray-500 hover:text-gray-700">Repairs</a>
+                    </li>
+                    <li><span class="text-gray-300">/</span></li>
+                    <li><span class="text-gray-900 font-medium">Job {{ job.job_code }}</span></li>
+                </ol>
+            </nav>
+            <h1 class="text-3xl font-bold text-gray-900 mt-2">Repair Job Detail</h1>
+            <p class="text-gray-500 text-sm">Created on {{ job.created_at|date:"F j, Y, g:i a" }}</p>
+        </div>
+        <div class="flex space-x-3">
+            <span
+                class="inline-flex items-center px-3 py-0.5 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
+                {{ job.items.count }} Device(s)
+            </span>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Main Content: Repair Items -->
+        <div class="lg:col-span-2 space-y-6">
+            {% for item in job.items.all %}
+            <div
+                class="bg-white shadow rounded-lg overflow-hidden border-l-4 {% if item.status == 'RECEIVED' %}border-red-500{% elif item.status == 'FIXING' %}border-orange-500{% elif item.status == 'WAITING' %}border-yellow-400{% elif item.status == 'FINISHED' %}border-green-500{% endif %}">
+                <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center bg-gray-50">
+                    <h3 class="text-lg font-medium text-gray-900">
+                        {{ item.device.brand }} {{ item.device.model }}
+                        <span class="ml-2 text-sm font-normal text-gray-500">({{ item.device.serial_number|default:"No Serial" }})</span>
+                    </h3>
+                    <span
+                        class="px-3 py-1 text-xs font-bold rounded-full {{ item.get_status_color }} uppercase tracking-wider">
+                        {{ item.get_status_display }}
+                    </span>
+                </div>
+                <div class="p-6">
+                    <div class="mb-4">
+                        <h4 class="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2">Issue Description
+                        </h4>
+                        <p class="text-gray-900 bg-gray-50 p-3 rounded-md border border-gray-200">{{ item.issue_description }}</p>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+                        <div>
+                            <h4 class="text-sm font-medium text-gray-500 uppercase tracking-wider">Technicians</h4>
+                            <div class="mt-1 flex flex-wrap gap-2">
+                                {% for tech in item.technicians.all %}
+                                <span
+                                    class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800">
+                                    {{ tech.name }}
+                                </span>
+                                {% empty %}
+                                <span class="text-gray-400 italic text-sm">Unassigned</span>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        <div>
+                            <h4 class="text-sm font-medium text-gray-500 uppercase tracking-wider">Price</h4>
+                            <p class="mt-1 text-lg font-semibold text-gray-900">${{ item.price }}</p>
+                        </div>
+                    </div>
+
+                    <!-- Update Status Form -->
+                    <div class="mt-6 pt-6 border-t border-gray-200">
+                        <h4 class="text-sm font-medium text-gray-900 mb-3">Update Status</h4>
+                        <form action="{% url 'repairs:repair_update_status' item.id %}" method="post"
+                            class="flex items-center space-x-3">
+                            {% csrf_token %}
+                            <select name="status"
+                                class="block w-full max-w-xs rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm">
+                                <option value="RECEIVED" {% if item.status == 'RECEIVED' %}selected{% endif %}>Received
+                                    (Red)</option>
+                                <option value="FIXING" {% if item.status == 'FIXING' %}selected{% endif %}>Fixing (Orange)
+                                </option>
+                                <option value="WAITING" {% if item.status == 'WAITING' %}selected{% endif %}>Waiting
+                                    (Yellow)</option>
+                                <option value="FINISHED" {% if item.status == 'FINISHED' %}selected{% endif %}>Finished
+                                    (Green)</option>
+                            </select>
+                            <button type="submit"
+                                class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                                Update
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <!-- Sidebar: Customer & Job Info -->
+        <div class="lg:col-span-1 space-y-6">
+            <div class="bg-white shadow rounded-lg p-6">
+                <h3 class="text-lg font-medium text-gray-900 mb-4 border-b pb-2">Customer Info</h3>
+                <dl class="space-y-4">
+                    <div>
+                        <dt class="text-sm font-medium text-gray-500">Name</dt>
+                        <dd class="mt-1 text-sm text-gray-900 font-semibold">{{ job.customer.name }}</dd>
+                    </div>
+                    <div>
+                        <dt class="text-sm font-medium text-gray-500">Customer Code</dt>
+                        <dd class="mt-1 text-sm font-mono text-gray-600 bg-gray-100 inline-block px-2 rounded">{{ job.customer.customer_code }}</dd>
+                    </div>
+                    <div>
+                        <dt class="text-sm font-medium text-gray-500">Contact</dt>
+                        <dd class="mt-1 text-sm text-gray-900">{{ job.customer.contact_number }}</dd>
+                    </div>
+                    <div>
+                        <dt class="text-sm font-medium text-gray-500">Address</dt>
+                        <dd class="mt-1 text-sm text-gray-900">{{ job.customer.address|default:"-" }}</dd>
+                    </div>
+                </dl>
+            </div>
+
+            <div class="bg-white shadow rounded-lg p-6">
+                <h3 class="text-lg font-medium text-gray-900 mb-4 border-b pb-2">Job Info</h3>
+                <dl class="space-y-4">
+                    <div>
+                        <dt class="text-sm font-medium text-gray-500">Job Code</dt>
+                        <dd class="mt-1 text-sm font-mono text-gray-600 bg-gray-100 inline-block px-2 rounded">{{ job.job_code }}</dd>
+                    </div>
+                    {% if job.fix_id %}
+                    <div>
+                        <dt class="text-sm font-medium text-gray-500">Manual Fix ID</dt>
+                        <dd class="mt-1 text-sm text-gray-900">{{ job.fix_id }}</dd>
+                    </div>
+                    {% endif %}
+                </dl>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
