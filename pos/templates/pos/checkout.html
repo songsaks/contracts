@@ -1,0 +1,180 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto px-4 py-8">
+    <div class="bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden">
+        <div class="p-6 border-b border-slate-200">
+            <h1 class="text-2xl font-bold text-slate-800">Checkout</h1>
+        </div>
+        
+        <div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-8">
+            <!-- Order Summary -->
+            <div>
+                <h2 class="text-lg font-semibold text-slate-700 mb-4">Order Summary</h2>
+                <div class="bg-slate-50 rounded-lg p-4 border border-slate-200">
+                    <ul class="space-y-3" id="orderItems">
+                        <!-- Items will be loaded from session via template or JS if passed -->
+                        {% for item in cart_items %}
+                        <li class="flex justify-between items-center text-sm">
+                            <div>
+                                <span class="font-medium text-slate-900">{{ item.name }}</span>
+                                <div class="text-slate-500">Qty: {{ item.quantity }}</div>
+                            </div>
+                            <div class="font-medium text-slate-900">&#3647;{{ item.subtotal|floatformat:2 }}</div>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    <div class="mt-4 pt-4 border-t border-slate-200 flex justify-between items-center">
+                        <span class="font-bold text-slate-700">Total</span>
+                        <span class="text-xl font-bold text-primary">&#3647;{{ total_amount|floatformat:2 }}</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Payment Form -->
+            <div>
+                <h2 class="text-lg font-semibold text-slate-700 mb-4">Payment Details</h2>
+                
+                <div class="mb-6">
+                    <label class="block text-sm font-medium text-slate-700 mb-2">Payment Method</label>
+                    <div class="grid grid-cols-2 gap-4">
+                        <button type="button" onclick="selectPaymentMethod('CASH')" id="btnCash" class="payment-method-btn active p-3 rounded-lg border-2 border-primary bg-blue-50 text-primary font-medium flex flex-col items-center w-full transition-all">
+                            <svg class="w-6 h-6 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
+                            Cash
+                        </button>
+                        <button type="button" onclick="selectPaymentMethod('TRANSFER')" id="btnTransfer" class="payment-method-btn p-3 rounded-lg border-2 border-slate-200 text-slate-500 font-medium flex flex-col items-center w-full transition-all">
+                            <svg class="w-6 h-6 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
+                            Transfer / QR
+                        </button>
+                    </div>
+                </div>
+
+                <div id="cashFields" class="mb-6 transition-opacity duration-200">
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Received Amount (&#3647;)</label>
+                        <input type="number" id="receivedAmount" class="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary text-right text-lg" placeholder="0.00" oninput="calculateChange()">
+                    </div>
+                    <div class="flex justify-between items-center text-lg">
+                        <span class="font-medium text-slate-700">Change:</span>
+                        <span class="font-bold text-green-600" id="changeAmount">&#3647;0.00</span>
+                    </div>
+                </div>
+
+                <div class="flex gap-4 mt-8">
+                    <a href="{% url 'pos:index' %}" class="flex-1 py-3 px-4 border border-slate-300 rounded-lg text-slate-700 font-medium hover:bg-slate-50 transition-colors text-center">Back</a>
+                    <button onclick="confirmPayment()" id="confirmBtn" class="flex-1 py-3 px-4 bg-primary text-white rounded-lg font-bold hover:bg-blue-600 transition-colors shadow-lg shadow-blue-500/30">Confirm Payment</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% csrf_token %}
+
+<script>
+    let currentPaymentMethod = 'CASH';
+    const totalAmount = {{ total_amount|default:0 }};
+    const cartItems = {{ cart_items_json|safe }};
+
+    function selectPaymentMethod(method) {
+        currentPaymentMethod = method;
+        const btnCash = document.getElementById('btnCash');
+        const btnTransfer = document.getElementById('btnTransfer');
+        const cashFields = document.getElementById('cashFields');
+
+        if (method === 'CASH') {
+            btnCash.classList.add('border-primary', 'bg-blue-50', 'text-primary');
+            btnCash.classList.remove('border-slate-200', 'text-slate-500');
+            
+            btnTransfer.classList.remove('border-primary', 'bg-blue-50', 'text-primary');
+            btnTransfer.classList.add('border-slate-200', 'text-slate-500');
+            
+            cashFields.style.opacity = '1';
+            cashFields.style.pointerEvents = 'auto';
+            
+            // Re-validate logic if necessary
+            calculateChange();
+        } else {
+            btnTransfer.classList.add('border-primary', 'bg-blue-50', 'text-primary');
+            btnTransfer.classList.remove('border-slate-200', 'text-slate-500');
+            
+            btnCash.classList.remove('border-primary', 'bg-blue-50', 'text-primary');
+            btnCash.classList.add('border-slate-200', 'text-slate-500');
+            
+            cashFields.style.opacity = '0.5';
+            cashFields.style.pointerEvents = 'none';
+        }
+    }
+
+    function calculateChange() {
+        if (currentPaymentMethod !== 'CASH') return;
+
+        const received = parseFloat(document.getElementById('receivedAmount').value) || 0;
+        const change = received - totalAmount;
+
+        const changeEl = document.getElementById('changeAmount');
+        const btn = document.getElementById('confirmBtn');
+        
+        if (change >= 0) {
+            changeEl.innerHTML = '&#3647;' + change.toFixed(2);
+            changeEl.classList.remove('text-red-500');
+            changeEl.classList.add('text-green-600');
+            btn.disabled = false;
+            btn.classList.remove('opacity-50', 'cursor-not-allowed');
+        } else {
+            changeEl.innerHTML = 'Insufficient';
+            changeEl.classList.add('text-red-500');
+            changeEl.classList.remove('text-green-600');
+            // Do not disable purely on input to allow "trying" and validation message on click? 
+            // Better to visually indicate it's not ready or just block at click time.
+        }
+    }
+
+    async function confirmPayment() {
+        const received = parseFloat(document.getElementById('receivedAmount').value) || 0;
+
+        if (currentPaymentMethod === 'CASH' && received < totalAmount) {
+            alert("Amount received is insufficient!");
+            return;
+        }
+
+        const btn = document.getElementById('confirmBtn');
+        const originalText = btn.textContent;
+        btn.disabled = true;
+        btn.textContent = 'Processing...';
+        
+        const payload = {
+            items: cartItems.map(item => ({ id: item.id, quantity: item.quantity })),
+            payment_method: currentPaymentMethod
+        };
+        
+        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+        
+        try {
+            const response = await fetch("{% url 'pos:process_order' %}", {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken
+                },
+                body: JSON.stringify(payload)
+            });
+            
+            const data = await response.json();
+            if (data.status === 'success') {
+                alert("Order Completed!");
+                window.location.href = "{% url 'pos:index' %}";
+            } else {
+                alert("Error: " + data.message);
+                btn.disabled = false;
+                btn.textContent = originalText;
+            }
+        } catch (e) {
+            console.error(e);
+            alert("Network Error");
+            btn.disabled = false;
+            btn.textContent = originalText;
+        }
+    }
+</script>
+{% endblock %}

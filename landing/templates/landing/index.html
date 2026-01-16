@@ -35,7 +35,7 @@
             <p class="mt-4 text-xl text-slate-500">Please select the system you want to access.</p>
         </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto">
             <!-- Contracts System Card -->
             <a href="/contracts/"
                 class="group relative bg-white rounded-2xl shadow-sm border border-slate-200 p-8 hover:shadow-xl hover:border-blue-300 transition-all duration-300 flex flex-col items-center text-center cursor-pointer transform hover:-translate-y-1">
@@ -76,6 +76,29 @@
                 <p class="mt-2 text-slate-500">Maintenance & Repair tracking.</p>
                 <div
                     class="mt-6 text-orange-600 font-medium flex items-center opacity-0 group-hover:opacity-100 transition-opacity">
+                    Enter System
+                    <svg class="ml-2 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                    </svg>
+                </div>
+            </a>
+
+            <!-- POS System Card -->
+            <a href="{% url 'pos:index' %}"
+                class="group relative bg-white rounded-2xl shadow-sm border border-slate-200 p-8 hover:shadow-xl hover:border-green-300 transition-all duration-300 flex flex-col items-center text-center cursor-pointer transform hover:-translate-y-1">
+                <div
+                    class="h-20 w-20 bg-green-50 rounded-2xl flex items-center justify-center mb-6 group-hover:bg-green-100 transition-colors">
+                    <svg class="h-10 w-10 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                    </svg>
+                </div>
+                <h2 class="text-2xl font-bold text-slate-900 group-hover:text-green-600 transition-colors">POS
+                    System</h2>
+                <p class="mt-2 text-slate-500">Point of Sales & Inventory.</p>
+                <div
+                    class="mt-6 text-green-600 font-medium flex items-center opacity-0 group-hover:opacity-100 transition-opacity">
                     Enter System
                     <svg class="ml-2 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
