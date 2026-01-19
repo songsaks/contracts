@@ -78,6 +78,7 @@ def api_process_order(request):
         data = json.loads(request.body)
         items = data.get('items', [])
         payment_method = data.get('payment_method', 'CASH')
+        discount = float(data.get('discount', 0))
         
         if not items:
             return JsonResponse({'status': 'error', 'message': 'No items in order'}, status=400)
@@ -85,7 +86,8 @@ def api_process_order(request):
         with transaction.atomic():
             order = Order.objects.create(
                 payment_method=payment_method,
-                status='COMPLETED'
+                status='COMPLETED',
+                discount_amount=discount
             )
             
             total = 0
@@ -115,7 +117,9 @@ def api_process_order(request):
                 
                 total += subtotal
             
-            order.total_amount = total
+            # Apply Discount to Total
+            final_total = max(0, float(total) - discount)
+            order.total_amount = final_total
             order.save()
             
         return JsonResponse({

@@ -37,9 +37,17 @@
 
         .product-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-            gap: 1.5rem;
-            padding: 1.5rem;
+            grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+            gap: 1rem;
+            padding: 1rem;
+        }
+
+        @media (min-width: 1024px) {
+            .product-grid {
+                grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+                gap: 1.5rem;
+                padding: 1.5rem;
+            }
         }
 
         /* Edit Mode Styles */
@@ -116,7 +124,7 @@
     </div>
 
     <!-- Main Layout -->
-    <div class="flex-1 overflow-hidden grid grid-cols-[1fr_390px]">
+    <div class="flex-1 overflow-hidden grid lg:grid-cols-[1fr_390px] grid-cols-1">
         
 
 
@@ -125,14 +133,14 @@
             <div class="flex-1 overflow-y-auto p-6" id="productsContainer">
                 <div class="product-grid">
                     {% for product in products %}
-                    <div class="product-card group relative bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden cursor-pointer hover:shadow-md transition-all active:scale-95 duration-100 select-none flex flex-col h-[260px]"
+                    <div class="product-card group relative bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden cursor-pointer hover:shadow-md transition-all active:scale-95 duration-100 select-none flex flex-col h-[220px] lg:h-[260px]"
                          data-id="{{ product.id }}"
                          data-category="{{ product.category.id|default:'none' }}"
                          data-name="{{ product.name|lower }}"
                          onclick="handleProductClick({{ product.id }})">
                         
                         <!-- Image -->
-                        <div class="h-40 bg-slate-100 w-full relative overflow-hidden">
+                        <div class="h-32 lg:h-40 bg-slate-100 w-full relative overflow-hidden">
                              {% if product.image %}
                             <img src="{{ product.image.url }}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
                              {% else %}
@@ -140,7 +148,7 @@
                              {% endif %}
                             
                             <!-- Price Tag -->
-                            <div class="absolute bottom-2 right-2 bg-white/90 backdrop-blur px-3 py-1 rounded-full font-bold text-slate-800 shadow-sm text-sm">
+                            <div class="absolute bottom-2 right-2 bg-white/90 backdrop-blur px-2.5 py-0.5 lg:px-3 lg:py-1 rounded-full font-bold text-slate-800 shadow-sm text-xs lg:text-sm">
                                 &#3647;{{ product.price|floatformat:0 }}
                             </div>
                         </div>
@@ -166,7 +174,12 @@
         </div>
 
         <!-- 3. Cart Section -->
-        <div class="bg-white border-l border-slate-200 flex flex-col h-full shadow-xl z-10">
+        <div class="bg-white border-l border-slate-200 flex flex-col h-full shadow-xl z-20 absolute inset-0 lg:static transition-transform transform translate-x-full lg:translate-x-0" id="mobileCartPanel">
+            <!-- Mobile Cart Header -->
+            <div class="p-4 bg-slate-800 text-white lg:hidden flex justify-between items-center">
+                 <h2 class="font-bold text-lg">My Cart</h2>
+                 <button onclick="toggleMobileCart()" class="p-2 bg-white/10 rounded-full hover:bg-white/20 transition">&times;</button>
+            </div>
             <div class="p-6 border-b border-slate-100 bg-white">
                 <h2 class="text-2xl font-bold text-slate-800">Current Order</h2>
                 <div class="text-sm text-slate-500 mt-1" id="orderDate">Today, ...</div>
@@ -198,6 +211,14 @@
             </div>
         </div>
     </div>
+
+    <!-- Mobile Cart Toggle Button -->
+    <button onclick="toggleMobileCart()" class="fixed bottom-6 right-6 lg:hidden z-30 bg-blue-600 text-white p-4 rounded-full shadow-lg shadow-blue-500/40 transform active:scale-95 transition-all flex items-center justify-center">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
+        </svg>
+        <span class="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold w-5 h-5 flex items-center justify-center rounded-full" id="mobileCartCount">0</span>
+    </button>
 
     <!-- Product Modal (Add/Edit) -->
     <div id="productModal" class="fixed inset-0 bg-black/60 hidden z-50 flex items-center justify-center backdrop-blur-sm">
@@ -259,7 +280,15 @@
         <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden transform transition-all scale-100">
             <div class="p-6 bg-slate-900 text-white text-center">
                 <h2 class="text-3xl font-bold" id="modalTotalAmount">&#3647;0.00</h2>
+                
+                <div class="flex items-center justify-center gap-2 mt-2">
+                    <span class="text-slate-400 text-sm">Discount</span>
+                    <input type="number" id="discountAmount" placeholder="0" class="w-16 bg-slate-800 text-white text-center rounded border border-slate-700 text-sm py-0.5 focus:border-blue-500 outline-none" oninput="calculateDiscount()">
+                </div>
+                
                 <p class="text-slate-400 text-sm mt-1">Total Payable</p>
+                <!-- Hidden Original Total for Calculation -->
+                <input type="hidden" id="originalTotalAmount"> 
             </div>
             
             <div class="p-6">
@@ -408,6 +437,11 @@
             document.body.classList.toggle('edit-mode', isEditMode);
             // Re-render handled by CSS mostly, but if logical changes needed...
         }
+        
+        function toggleMobileCart() {
+            const panel = document.getElementById('mobileCartPanel');
+            panel.classList.toggle('translate-x-full');
+        }
 
         // --- Product Management ---
 
@@ -520,6 +554,10 @@
             
             // Update Modal Total too
             document.getElementById('modalTotalAmount').innerHTML = '&#3647;' + total.toFixed(2);
+            
+            // Update Mobile Badge
+            const mobCount = document.getElementById('mobileCartCount');
+            if(mobCount) mobCount.innerText = count;
         }
 
         // --- Modals (Edit/Add) ---
@@ -581,8 +619,16 @@
         // --- Checkout & Payment ---
 
         function openCheckoutModal() {
+            // Get original total from Cart
+            const totalStr = document.getElementById('cartTotal').innerText.replace('฿', '');
+            document.getElementById('originalTotalAmount').value = totalStr;
+            document.getElementById('modalTotalAmount').innerText = '฿' + totalStr;
+            
+            // Reset fields
             document.getElementById('receivedAmount').value = '';
+            document.getElementById('discountAmount').value = '';
             document.getElementById('changeAmount').innerText = '฿0.00';
+            
             selectPayment('CASH');
             document.getElementById('checkoutModal').classList.remove('hidden');
         }
@@ -607,6 +653,15 @@
                 cashUI.style.display = 'none';
             }
         }
+        
+        function calculateDiscount() {
+            const originalTotal = parseFloat(document.getElementById('originalTotalAmount').value) || 0;
+            const discount = parseFloat(document.getElementById('discountAmount').value) || 0;
+            
+            const newTotal = Math.max(0, originalTotal - discount);
+            document.getElementById('modalTotalAmount').innerText = '฿' + newTotal.toFixed(2);
+            calculateChange();
+        }
 
         function calculateChange() {
             const received = parseFloat(document.getElementById('receivedAmount').value) || 0;
@@ -618,6 +673,7 @@
 
         async function processOrder() {
             const received = parseFloat(document.getElementById('receivedAmount').value) || 0;
+            const discount = parseFloat(document.getElementById('discountAmount').value) || 0;
             const totalStr = document.getElementById('modalTotalAmount').innerText.replace('฿', '');
             const total = parseFloat(totalStr);
             
