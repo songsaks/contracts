@@ -45,6 +45,16 @@
         /* Edit Mode Styles */
         body.edit-mode .edit-overlay { display: flex; }
         .edit-overlay { display: none; }
+        
+        /* Hide scrollbar for Chrome, Safari and Opera */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        /* Hide scrollbar for IE, Edge and Firefox */
+        .no-scrollbar {
+            -ms-overflow-style: none;  /* IE and Edge */
+            scrollbar-width: none;  /* Firefox */
+        }
     </style>
 </head>
 <body class="text-slate-800">
@@ -61,38 +71,54 @@
                 <span class="text-sm font-medium text-slate-600">Edit Mode</span>
                 <input type="checkbox" id="editModeToggle" class="w-4 h-4 accent-blue-500 rounded cursor-pointer" onchange="toggleEditMode(this)">
             </label>
+            <button onclick="openReportModal()" class="flex items-center gap-2 bg-blue-100 hover:bg-blue-200 text-blue-700 px-3 py-1.5 rounded-full transition font-bold text-sm">
+                <span>📊 Report</span>
+            </button>
             <a href="/" class="text-slate-500 hover:text-red-500 font-medium text-sm">Exit</a>
         </div>
     </div>
 
-    <!-- Main Layout -->
-    <div class="flex-1 overflow-hidden grid grid-cols-[240px_1fr_380px]">
-        
-        <!-- 1. Categories Sidebar -->
-        <div class="bg-white border-r border-slate-200 flex flex-col h-full overflow-hidden">
-            <div class="p-4 border-b border-slate-100">
-                <h3 class="font-bold text-slate-800 mb-2">Categories</h3>
-                <input type="text" id="searchInput" placeholder="Search..." class="w-full bg-slate-50 border-none rounded-lg p-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
-            </div>
-            
-            <div class="flex-1 overflow-y-auto p-2 space-y-1" id="categoryList">
-                <button onclick="filterCategory('all', this)" class="category-btn w-full text-left px-4 py-3 rounded-lg text-slate-600 hover:bg-blue-50 hover:text-blue-600 font-medium transition-colors active text-blue-600 bg-blue-50">
-                    All Products
-                </button>
-                {% for cat in categories %}
-                <button onclick="filterCategory('{{ cat.id }}', this)" class="category-btn w-full text-left px-4 py-3 rounded-lg text-slate-600 hover:bg-blue-50 hover:text-blue-600 font-medium transition-colors">
-                    {{ cat.name }}
-                </button>
-                {% endfor %}
-            </div>
-
-            <!-- Add Product Button (Visible in Edit Mode) -->
-            <div class="edit-overlay p-4 border-t border-slate-100 bg-slate-50">
-                <button onclick="openProductModal()" class="w-full py-3 bg-green-500 hover:bg-green-600 text-white rounded-lg font-bold shadow-lg shadow-green-200 transition">
-                    + New Product
-                </button>
-            </div>
+    <!-- Categories Top Bar -->
+    <div class="bg-white border-b border-slate-200 px-6 py-3 flex items-center gap-4 shrink-0 z-10 w-full">
+        <!-- Search -->
+        <div class="relative w-64 shrink-0">
+             <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+             </span>
+             <input type="text" id="searchInput" placeholder="Search..." class="w-full bg-slate-100 border-none rounded-full pl-9 pr-4 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
         </div>
+
+        <div class="h-6 w-px bg-slate-200 shrink-0"></div>
+
+        <!-- Categories List -->
+        <div class="flex-1 flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar" id="categoryList">
+            <button onclick="filterCategory('all', this)" class="category-btn shrink-0 px-4 py-2 rounded-full text-sm font-bold transition-all active bg-blue-600 text-white shadow-md shadow-blue-200">
+                All Products
+            </button>
+            {% for cat in categories %}
+            <button onclick="filterCategory('{{ cat.id }}', this)" class="category-btn shrink-0 px-4 py-2 rounded-full text-sm font-bold text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 transition-all">
+                {{ cat.name }}
+            </button>
+            {% endfor %}
+        </div>
+        
+        <!-- Add Product & Manage Category Buttons (Visible in Edit Mode) -->
+        <div class="edit-overlay shrink-0 gap-2">
+             <button onclick="openCategoryModal()" class="flex items-center gap-2 px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-full font-bold shadow-lg shadow-amber-200 transition text-sm">
+                <span>📂 Categories</span>
+            </button>
+             <button onclick="openProductModal()" class="flex items-center gap-2 px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-full font-bold shadow-lg shadow-green-200 transition text-sm">
+                <span>+ Product</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Main Layout -->
+    <div class="flex-1 overflow-hidden grid grid-cols-[1fr_390px]">
+        
+
 
         <!-- 2. Products Grid -->
         <div class="bg-blue-50/50 flex flex-col h-full overflow-hidden relative">
@@ -268,6 +294,77 @@
         </div>
     </div>
     
+    <!-- Sales Report Modal -->
+    <div id="reportModal" class="fixed inset-0 bg-black/60 hidden z-[70] flex items-center justify-center backdrop-blur-sm">
+        <div class="bg-slate-100 rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]">
+            <div class="p-6 border-b border-slate-200 flex flex-col gap-4 bg-white">
+                <div class="flex justify-between items-center">
+                    <h3 class="text-xl font-bold text-slate-800">Sales & Stock Report</h3>
+                    <button onclick="closeReportModal()" class="text-slate-400 hover:text-slate-600 text-2xl">&times;</button>
+                </div>
+                
+                <div class="flex items-end gap-2 text-sm">
+                    <div class="flex flex-col gap-1">
+                        <label class="font-bold text-slate-500 text-xs uppercase">Start Date</label>
+                        <input type="date" id="reportStartDate" class="p-2 border border-slate-200 rounded-lg outline-none focus:border-blue-500">
+                    </div>
+                    <div class="flex flex-col gap-1">
+                        <label class="font-bold text-slate-500 text-xs uppercase">End Date</label>
+                        <input type="date" id="reportEndDate" class="p-2 border border-slate-200 rounded-lg outline-none focus:border-blue-500">
+                    </div>
+                    <button onclick="loadReportData()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg transition shadow-md shadow-blue-200">
+                        Filter
+                    </button>
+                    <button onclick="setTodayDate()" class="px-3 py-2 text-slate-500 hover:bg-slate-200 rounded-lg transition font-medium">
+                        Today
+                    </button>
+                </div>
+                </div>
+                
+                <!-- Report Tabs -->
+                <div class="flex border-b border-slate-200 mt-2">
+                    <button onclick="viewReportTab('summary')" id="tab-summary" class="px-4 py-2 text-sm font-bold text-blue-600 border-b-2 border-blue-600 transition">Summary</button>
+                    <button onclick="viewReportTab('details')" id="tab-details" class="px-4 py-2 text-sm font-bold text-slate-500 hover:text-blue-600 transition">Product Details</button>
+                </div>
+            </div>
+            
+            <div class="p-6 overflow-y-auto" id="reportContent">
+                 <!-- Content loaded via JS -->
+                 <div class="flex justify-center py-10">
+                    <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                </div>
+            </div>
+            
+            <!-- Export Footer (only visible in details tab) -->
+            <div id="reportFooter" class="p-4 border-t border-slate-200 bg-white hidden justify-end">
+                <button onclick="exportReport()" class="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-bold rounded-lg shadow-lg shadow-green-200 transition">
+                    <span>📥 Export to CSV</span>
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Category Manager Modal -->
+    <div id="categoryModal" class="fixed inset-0 bg-black/60 hidden z-[80] flex items-center justify-center backdrop-blur-sm">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col max-h-[80vh]">
+            <div class="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+                <h3 class="text-xl font-bold text-slate-800">Manage Categories</h3>
+                <button onclick="closeCategoryModal()" class="text-slate-400 hover:text-slate-600 text-2xl">&times;</button>
+            </div>
+            
+            <div class="p-6 bg-slate-50 border-b border-slate-100">
+                <form onsubmit="handleCategoryCreate(event)" class="flex gap-2">
+                    <input type="text" name="name" placeholder="New Category Name" required class="flex-1 p-3 rounded-xl border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition">
+                    <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl font-bold transition shadow-lg shadow-blue-200">Add</button>
+                </form>
+            </div>
+            
+            <div class="flex-1 overflow-y-auto p-6 space-y-3" id="categoryListContainer">
+                <!-- Loaded via JS -->
+            </div>
+        </div>
+    </div>
+    
     <div id="toast" class="fixed bottom-10 left-1/2 -translate-x-1/2 bg-slate-800 text-white px-6 py-3 rounded-full shadow-2xl opacity-0 pointer-events-none transition-all duration-300 z-[100] transform translate-y-4">Message</div>
 
     {% csrf_token %}
@@ -292,6 +389,12 @@
         let currentCategory = 'all';
         let isEditMode = false;
         let selectedPayment = 'CASH';
+        
+        let allCategories = [
+            {% for cat in categories %}
+            { id: {{ cat.id }}, name: "{{ cat.name|escapejs }}" },
+            {% endfor %}
+        ];
 
         // --- Core Functions ---
 
@@ -313,11 +416,11 @@
             
             // UI Update
             document.querySelectorAll('.category-btn').forEach(b => {
-                b.classList.remove('bg-blue-50', 'text-blue-600', 'active');
-                b.classList.add('text-slate-600');
+                b.classList.remove('bg-blue-600', 'text-white', 'shadow-md', 'shadow-blue-200');
+                b.classList.add('bg-white', 'text-slate-600', 'border', 'border-slate-200');
             });
-            btn.classList.add('bg-blue-50', 'text-blue-600', 'active');
-            btn.classList.remove('text-slate-600');
+            btn.classList.remove('bg-white', 'text-slate-600', 'border', 'border-slate-200');
+            btn.classList.add('bg-blue-600', 'text-white', 'shadow-md', 'shadow-blue-200');
 
             applyFilter();
         }
@@ -549,6 +652,298 @@
                 console.error(err);
                 alert('Network Error');
             }
+        }
+
+
+
+        // --- Category Management ---
+
+        function openCategoryModal() {
+            renderCategoryManager();
+            document.getElementById('categoryModal').classList.remove('hidden');
+        }
+
+        function closeCategoryModal() {
+            document.getElementById('categoryModal').classList.add('hidden');
+        }
+
+        function renderCategoryManager() {
+            const container = document.getElementById('categoryListContainer');
+            container.innerHTML = allCategories.map(cat => `
+                <div class="flex items-center gap-2 bg-white p-3 rounded-xl border border-slate-100 shadow-sm group">
+                    <input type="text" value="${cat.name}" id="cat-input-${cat.id}" class="flex-1 bg-transparent border-none outline-none font-bold text-slate-700 focus:bg-slate-50 focus:px-2 rounded transition" onchange="updateCategory(${cat.id}, this.value)">
+                    <button onclick="deleteCategory(${cat.id})" class="text-slate-400 hover:text-red-500 p-2 rounded-lg hover:bg-red-50 transition opacity-0 group-hover:opacity-100">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                          <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" />
+                        </svg>
+                    </button>
+                </div>
+            `).join('');
+        }
+
+        async function handleCategoryCreate(e) {
+            e.preventDefault();
+            const form = e.target;
+            const formData = new FormData(form);
+            
+            try {
+                const res = await fetch('/pos/api/categories/create/', {
+                    method: 'POST',
+                    headers: { 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value },
+                    body: formData
+                });
+                const data = await res.json();
+                
+                if (data.status === 'success') {
+                    showToast("Category Added");
+                    form.reset();
+                    // Update local state and reload to sync everything simplistically
+                    setTimeout(() => window.location.reload(), 500); 
+                } else {
+                    alert('Error: ' + (data.message || 'Unknown error'));
+                }
+            } catch (err) {
+                console.error(err);
+                alert('Network Error');
+            }
+        }
+
+        async function updateCategory(id, newName) {
+            try {
+                const formData = new FormData();
+                formData.append('name', newName);
+                
+                const res = await fetch(`/pos/api/categories/${id}/update/`, {
+                    method: 'POST',
+                    headers: { 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value },
+                    body: formData
+                });
+                const data = await res.json();
+                
+                if (data.status === 'success') {
+                    showToast("Category Updated");
+                    setTimeout(() => window.location.reload(), 500);
+                } else {
+                    alert('Error updating category');
+                }
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        async function deleteCategory(id) {
+            if(!confirm('Delete this category? Products in this category may become uncategorized.')) return;
+            
+            try {
+                const res = await fetch(`/pos/api/categories/${id}/delete/`, {
+                    method: 'POST',
+                    headers: { 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value }
+                });
+                const data = await res.json();
+                
+                if (data.status === 'success') {
+                    showToast("Category Deleted");
+                    setTimeout(() => window.location.reload(), 500);
+                } else {
+                    alert('Error deleting category');
+                }
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        // --- Report Logic ---
+
+        let currentReportData = null;
+        let activeReportTab = 'summary';
+
+        function closeReportModal() {
+            document.getElementById('reportModal').classList.add('hidden');
+        }
+
+        async function openReportModal() {
+            document.getElementById('reportModal').classList.remove('hidden');
+            
+            // Set default date if empty
+            if(!document.getElementById('reportStartDate').value) {
+                setTodayDate(); 
+            } else {
+                loadReportData();
+            }
+        }
+        
+        function setTodayDate() {
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('reportStartDate').value = today;
+            document.getElementById('reportEndDate').value = today;
+            loadReportData();
+        }
+        
+        function viewReportTab(tab) {
+            activeReportTab = tab;
+            
+            // Update Tab UI
+            const summaryTab = document.getElementById('tab-summary');
+            const detailsTab = document.getElementById('tab-details');
+            const footer = document.getElementById('reportFooter');
+            
+            if(tab === 'summary') {
+                summaryTab.className = "px-4 py-2 text-sm font-bold text-blue-600 border-b-2 border-blue-600 transition";
+                detailsTab.className = "px-4 py-2 text-sm font-bold text-slate-500 hover:text-blue-600 transition";
+                footer.classList.remove('flex');
+                footer.classList.add('hidden');
+            } else {
+                detailsTab.className = "px-4 py-2 text-sm font-bold text-blue-600 border-b-2 border-blue-600 transition";
+                summaryTab.className = "px-4 py-2 text-sm font-bold text-slate-500 hover:text-blue-600 transition";
+                footer.classList.remove('hidden');
+                footer.classList.add('flex');
+            }
+            
+            renderReportContent();
+        }
+
+        async function loadReportData() {
+            const container = document.getElementById('reportContent');
+            const start = document.getElementById('reportStartDate').value;
+            const end = document.getElementById('reportEndDate').value;
+            
+            // Show loading state
+            container.innerHTML = '<div class="flex justify-center py-10"><div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div></div>';
+
+            try {
+                const res = await fetch(`/pos/api/report/?start_date=${start}&end_date=${end}`);
+                const json = await res.json();
+                
+                if (json.status === 'success') {
+                    currentReportData = json.data; // Store for tab switching
+                    renderReportContent();
+                }
+            } catch (err) {
+                console.error(err);
+                container.innerHTML = '<div class="text-red-500 text-center p-4">Failed to load report</div>';
+            }
+        }
+        
+        function renderReportContent() {
+             const container = document.getElementById('reportContent');
+             const data = currentReportData;
+             if(!data) return;
+
+             if (activeReportTab === 'summary') {
+                container.innerHTML = `
+                        <div class="grid grid-cols-2 gap-4 mb-6">
+                            <div class="bg-blue-50 p-4 rounded-xl border border-blue-100">
+                                <div class="text-sm text-blue-600 font-bold mb-1">Total Sales (${data.period.start} - ${data.period.end})</div>
+                                <div class="text-3xl font-bold text-blue-800">&#3647;${data.sales_amount.toFixed(2)}</div>
+                                <div class="flex gap-4 mt-2 text-sm">
+                                    <div class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-green-500"></span> Cash: &#3647;${data.cash_sales.toFixed(2)}</div>
+                                    <div class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-indigo-500"></span> QR: &#3647;${data.qr_sales.toFixed(2)}</div>
+                                </div>
+                            </div>
+                            <div class="bg-amber-50 p-4 rounded-xl border border-amber-100">
+                                <div class="text-sm text-amber-600 font-bold mb-1">Total Stock Value</div>
+                                <div class="text-3xl font-bold text-amber-800">&#3647;${data.stock_value.toFixed(2)}</div>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <!-- Low Stock -->
+                            <div>
+                                <h4 class="font-bold text-slate-800 mb-3 flex items-center gap-2">
+                                    <span class="bg-red-100 text-red-600 p-1 rounded">⚠️</span> Low Stock Items
+                                </h4>
+                                <div class="bg-white border border-slate-100 rounded-xl overflow-hidden">
+                                    ${data.low_stock.length > 0 ? `
+                                        <table class="w-full text-sm text-left">
+                                            <thead class="bg-slate-50 text-slate-500">
+                                                <tr>
+                                                    <th class="p-3">Product</th>
+                                                    <th class="p-3 text-right">Stock</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody class="divide-y divide-slate-100">
+                                                ${data.low_stock.map(p => `
+                                                    <tr>
+                                                        <td class="p-3 font-medium text-slate-700 flex items-center gap-2">
+                                                            ${p.image ? `<div class="w-6 h-6 rounded bg-slate-100 bg-cover bg-center" style="background-image:url('${p.image}')"></div>` : '<div class="w-6 h-6 bg-slate-200 rounded"></div>'}
+                                                            ${p.name}
+                                                        </td>
+                                                        <td class="p-3 text-right font-bold text-red-500">${p.stock}</td>
+                                                    </tr>
+                                                `).join('')}
+                                            </tbody>
+                                        </table>
+                                    ` : '<div class="p-4 text-center text-slate-400">All stock levels good</div>'}
+                                </div>
+                            </div>
+
+                            <!-- Recent Orders -->
+                            <div>
+                                <h4 class="font-bold text-slate-800 mb-3 flex items-center gap-2">
+                                    <span class="bg-purple-100 text-purple-600 p-1 rounded">🕒</span> Recent Orders
+                                </h4>
+                                <div class="bg-white border border-slate-100 rounded-xl overflow-hidden">
+                                   ${data.recent_orders.length > 0 ? `
+                                        <table class="w-full text-sm text-left">
+                                            <thead class="bg-slate-50 text-slate-500">
+                                                <tr>
+                                                    <th class="p-3">Time</th>
+                                                    <th class="p-3">Method</th>
+                                                    <th class="p-3 text-right">Amount</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody class="divide-y divide-slate-100">
+                                                ${data.recent_orders.map(o => `
+                                                    <tr>
+                                                        <td class="p-3 text-slate-500">${new Date(o.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</td>
+                                                        <td class="p-3 text-slate-700 font-medium">${o.payment_method}</td>
+                                                        <td class="p-3 text-right font-bold text-slate-800">&#3647;${o.total_amount.toFixed(2)}</td>
+                                                    </tr>
+                                                `).join('')}
+                                            </tbody>
+                                        </table>
+                                    ` : '<div class="p-4 text-center text-slate-400">No orders yet</div>'}
+                                </div>
+                            </div>
+                        </div>
+                `;
+             } else {
+                 // Details Tab
+                 container.innerHTML = `
+                    <div class="overflow-x-auto rounded-xl border border-slate-200 bg-slate-50 shadow-sm">
+                        <table class="w-full text-sm text-left">
+                            <thead class="bg-slate-100 text-slate-500 font-bold uppercase text-xs">
+                                <tr>
+                                    <th class="p-4">Product Name</th>
+                                    <th class="p-4">Category</th>
+                                    <th class="p-4 text-right">Price</th>
+                                    <th class="p-4 text-right">Sold (Qty)</th>
+                                    <th class="p-4 text-right">Revenue</th>
+                                    <th class="p-4 text-right">Remain Stock</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-200">
+                                ${data.product_performance.map(p => `
+                                    <tr>
+                                        <td class="p-4 font-bold text-slate-700 bg-slate-100">${p.name} <span class="block text-xs text-slate-400 font-normal">${p.code}</span></td>
+                                        <td class="p-4 text-slate-500">${p.category}</td>
+                                        <td class="p-4 text-right text-slate-600">&#3647;${p.price.toFixed(2)}</td>
+                                        <td class="p-4 text-right font-bold text-slate-700">${p.sold_qty}</td>
+                                        <td class="p-4 text-right font-bold text-slate-700">&#3647;${p.revenue.toFixed(2)}</td>
+                                        <td class="p-4 text-right font-bold ${p.stock < 10 ? 'text-red-500' : 'text-slate-600'}">${p.stock}</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                 `;
+             }
+        }
+        
+        function exportReport() {
+            const start = document.getElementById('reportStartDate').value;
+            const end = document.getElementById('reportEndDate').value;
+            window.location.href = `/pos/api/report/export/?start_date=${start}&end_date=${end}`;
         }
 
         // --- Utilities ---
