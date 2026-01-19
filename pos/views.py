@@ -2,6 +2,8 @@ from django.shortcuts import render, get_object_or_404
 from django.http import JsonResponse
 from django.views.decorators.http import require_POST
 from django.db import transaction
+from django.db.models import Sum, F
+from django.utils import timezone
 from django.views.decorators.csrf import ensure_csrf_cookie
 import json
 from .models import Product, Order, OrderItem, Category
@@ -123,3 +125,267 @@ def api_process_order(request):
         })
     except Exception as e:
         return JsonResponse({'status': 'error', 'message': str(e)}, status=400)
+
+@require_POST
+def api_category_create(request):
+    """JSON API to create a new category"""
+    try:
+        data = json.loads(request.body)
+        form = CategoryForm(data)
+        if form.is_valid():
+            category = form.save()
+            return JsonResponse({
+                'status': 'success',
+                'category': {
+                    'id': category.id,
+                    'name': category.name
+                }
+            })
+        return JsonResponse({'status': 'error', 'errors': form.errors}, status=400)
+    except json.JSONDecodeError:
+        return JsonResponse({'status': 'error', 'message': 'Invalid JSON'}, status=400)
+
+@require_POST
+def api_category_update(request, pk):
+    """JSON API to update an existing category"""
+    category = get_object_or_404(Category, pk=pk)
+    try:
+        data = json.loads(request.body)
+        form = CategoryForm(data, instance=category)
+        if form.is_valid():
+            category = form.save()
+            return JsonResponse({
+                'status': 'success',
+                'category': {
+                    'id': category.id,
+                    'name': category.name
+                }
+            })
+        return JsonResponse({'status': 'error', 'errors': form.errors}, status=400)
+    except json.JSONDecodeError:
+        return JsonResponse({'status': 'error', 'message': 'Invalid JSON'}, status=400)
+
+@require_POST
+def api_category_delete(request, pk):
+    """JSON API to delete a category"""
+    category = get_object_or_404(Category, pk=pk)
+    try:
+        category.delete()
+        return JsonResponse({'status': 'success', 'message': 'Category deleted successfully'})
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=400)
+
+@require_POST
+def api_category_create(request):
+    """JSON API to create a new category"""
+    name = request.POST.get('name')
+    if name:
+        category = Category.objects.create(name=name)
+        return JsonResponse({
+            'status': 'success',
+            'category': {'id': category.id, 'name': category.name}
+        })
+    return JsonResponse({'status': 'error', 'message': 'Name is required'}, status=400)
+
+@require_POST
+def api_category_update(request, pk):
+    """JSON API to update a category"""
+    category = get_object_or_404(Category, pk=pk)
+    name = request.POST.get('name')
+    if name:
+        category.name = name
+        category.save()
+        return JsonResponse({
+            'status': 'success',
+            'category': {'id': category.id, 'name': category.name}
+        })
+    return JsonResponse({'status': 'error', 'message': 'Name is required'}, status=400)
+
+@require_POST
+def api_category_delete(request, pk):
+    """JSON API to delete a category"""
+    category = get_object_or_404(Category, pk=pk)
+    category.delete()
+    return JsonResponse({'status': 'success'})
+
+def api_sales_report(request):
+    """JSON API to get sales report data"""
+    today = timezone.now().date()
+    
+    # Get date range from request (default to today)
+    start_date = request.GET.get('start_date')
+    end_date = request.GET.get('end_date')
+    
+    try:
+        if start_date:
+            start_date = timezone.datetime.strptime(start_date, '%Y-%m-%d').date()
+        else:
+            start_date = today
+            
+        if end_date:
+            end_date = timezone.datetime.strptime(end_date, '%Y-%m-%d').date()
+        else:
+            end_date = start_date
+    except ValueError:
+        # Fallback to today if parsing fails
+        start_date = today
+        end_date = today
+
+    # Filter completed orders within range
+    # created_at is DateTime, so we filter by date range
+    orders_qs = Order.objects.filter(
+        status='COMPLETED', 
+        created_at__date__gte=start_date,
+        created_at__date__lte=end_date
+    )
+    
+    total_sales = orders_qs.aggregate(sum=Sum('total_amount'))['sum'] or 0
+    
+    # Payment method breakdown
+    cash_sales = orders_qs.filter(payment_method='CASH').aggregate(sum=Sum('total_amount'))['sum'] or 0
+    qr_sales = orders_qs.filter(payment_method='QR').aggregate(sum=Sum('total_amount'))['sum'] or 0
+    
+    # Stock info (Always current)
+    stock_value = Product.objects.filter(is_active=True).aggregate(
+        val=Sum(F('price') * F('stock'))
+    )['val'] or 0
+    
+    # Low stock items (< 10)
+    low_stock_qs = Product.objects.filter(is_active=True, stock__lt=10)
+    low_stock = []
+    for p in low_stock_qs:
+        low_stock.append({
+            'name': p.name,
+            'stock': p.stock,
+            'image': p.image.url if p.image else None,
+            'price': float(p.price)
+        })
+    
+    # Recent orders (last 5 within filter)
+    recent_orders_qs = orders_qs.order_by('-created_at')[:20] # Show more orders if filtering
+    recent_orders = []
+    for o in recent_orders_qs:
+        recent_orders.append({
+            'id': o.id,
+            'total_amount': float(o.total_amount),
+            'payment_method': o.payment_method,
+            'created_at': o.created_at
+        })
+    
+    # Product Performance (Detailed)
+    # 1. Get all active products
+    all_products = Product.objects.filter(is_active=True).select_related('category')
+    
+    # 2. Aggregate sales for the period
+    sales_stats = OrderItem.objects.filter(
+        order__status='COMPLETED',
+        order__created_at__date__gte=start_date,
+        order__created_at__date__lte=end_date
+    ).values('product').annotate(
+        total_qty=Sum('quantity'),
+        total_revenue=Sum('subtotal')
+    )
+    
+    # 3. Map sales data
+    sales_map = {stat['product']: stat for stat in sales_stats}
+    
+    product_performance = []
+    for p in all_products:
+        stat = sales_map.get(p.id, {'total_qty': 0, 'total_revenue': 0})
+        product_performance.append({
+            'name': p.name,
+            'code': p.code or '-',
+            'category': p.category.name if p.category else 'Uncategorized',
+            'price': float(p.price),
+            'stock': p.stock,
+            'sold_qty': stat['total_qty'] or 0,
+            'revenue': float(stat['total_revenue'] or 0)
+        })
+        
+    return JsonResponse({
+        'status': 'success',
+        'data': {
+            'sales_amount': float(total_sales),
+            'cash_sales': float(cash_sales),
+            'qr_sales': float(qr_sales),
+            'stock_value': float(stock_value),
+            'low_stock': low_stock,
+            'recent_orders': recent_orders,
+            'product_performance': product_performance,
+            'period': {
+                'start': start_date,
+                'end': end_date
+            }
+        }
+    })
+
+def export_sales_csv(request):
+    """Export sales report to CSV"""
+    import csv
+    from django.http import HttpResponse
+
+    today = timezone.now().date()
+    start_date = request.GET.get('start_date')
+    end_date = request.GET.get('end_date')
+    
+    try:
+        if start_date:
+            start_date = timezone.datetime.strptime(start_date, '%Y-%m-%d').date()
+        else:
+            start_date = today
+        if end_date:
+            end_date = timezone.datetime.strptime(end_date, '%Y-%m-%d').date()
+        else:
+            end_date = start_date
+    except ValueError:
+        start_date = today
+        end_date = today
+
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = f'attachment; filename="sales_report_{start_date}_{end_date}.csv"'
+    
+    # BOM for Excel to open UTF-8 correctly
+    response.write(u'\ufeff'.encode('utf8'))
+    
+    writer = csv.writer(response)
+    writer.writerow(['Period', f'{start_date} to {end_date}'])
+    writer.writerow([])
+    
+    # Summary
+    orders_qs = Order.objects.filter(
+        status='COMPLETED', 
+        created_at__date__gte=start_date,
+        created_at__date__lte=end_date
+    )
+    total_sales = orders_qs.aggregate(sum=Sum('total_amount'))['sum'] or 0
+    writer.writerow(['Total Sales', total_sales])
+    writer.writerow([])
+
+    # Product Details
+    writer.writerow(['Product Name', 'Code', 'Category', 'Current Price', 'Current Stock', 'Sold Qty', 'Revenue'])
+    
+    sales_stats = OrderItem.objects.filter(
+        order__status='COMPLETED',
+        order__created_at__date__gte=start_date,
+        order__created_at__date__lte=end_date
+    ).values('product').annotate(
+        total_qty=Sum('quantity'),
+        total_revenue=Sum('subtotal')
+    )
+    sales_map = {stat['product']: stat for stat in sales_stats}
+    
+    products = Product.objects.filter(is_active=True).select_related('category').order_by('name')
+    
+    for p in products:
+        stat = sales_map.get(p.id, {'total_qty': 0, 'total_revenue': 0})
+        writer.writerow([
+            p.name,
+            p.code or '-',
+            p.category.name if p.category else 'Uncategorized',
+            p.price,
+            p.stock,
+            stat['total_qty'] or 0,
+            stat['total_revenue'] or 0
+        ])
+        
+    return response
