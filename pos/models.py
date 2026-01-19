@@ -39,6 +39,7 @@ class Order(models.Model):
     
     total_amount = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0.00'))
     tax_amount = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0.00'))
+    discount_amount = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0.00'))
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='PENDING')
     payment_method = models.CharField(max_length=50, default='CASH') # CASH, CARD, QR
     created_at = models.DateTimeField(auto_now_add=True)
