@@ -6,9 +6,11 @@ from django.db.models import Sum, F
 from django.utils import timezone
 from django.views.decorators.csrf import ensure_csrf_cookie
 import json
+from django.contrib.auth.decorators import login_required
 from .models import Product, Order, OrderItem, Category
-from .forms import ProductForm
+from .forms import ProductForm, CategoryForm
 
+@login_required
 @ensure_csrf_cookie
 def pos_view(request):
     """
@@ -20,11 +22,13 @@ def pos_view(request):
     context = {
         'products': products,
         'categories': categories,
+        'user': request.user,
     }
     return render(request, 'pos/index.html', context)
 
 # --- API Endpoints for SPA ---
 
+@login_required
 def api_product_list(request):
     """JSON API to get info for all products (refreshing data)"""
     products = Product.objects.filter(is_active=True).values(
@@ -32,6 +36,7 @@ def api_product_list(request):
     )
     return JsonResponse({'status': 'success', 'products': list(products)})
 
+@login_required
 @require_POST
 def api_product_create(request):
     """JSON API to create a new product"""
@@ -51,6 +56,7 @@ def api_product_create(request):
         })
     return JsonResponse({'status': 'error', 'errors': form.errors}, status=400)
 
+@login_required
 @require_POST
 def api_product_update(request, pk):
     """JSON API to update a product"""
@@ -71,6 +77,7 @@ def api_product_update(request, pk):
         })
     return JsonResponse({'status': 'error', 'errors': form.errors}, status=400)
 
+@login_required
 @require_POST
 def api_process_order(request):
     """JSON API to process the checkout"""
@@ -130,55 +137,9 @@ def api_process_order(request):
     except Exception as e:
         return JsonResponse({'status': 'error', 'message': str(e)}, status=400)
 
-@require_POST
-def api_category_create(request):
-    """JSON API to create a new category"""
-    try:
-        data = json.loads(request.body)
-        form = CategoryForm(data)
-        if form.is_valid():
-            category = form.save()
-            return JsonResponse({
-                'status': 'success',
-                'category': {
-                    'id': category.id,
-                    'name': category.name
-                }
-            })
-        return JsonResponse({'status': 'error', 'errors': form.errors}, status=400)
-    except json.JSONDecodeError:
-        return JsonResponse({'status': 'error', 'message': 'Invalid JSON'}, status=400)
+# --- Category Management ---
 
-@require_POST
-def api_category_update(request, pk):
-    """JSON API to update an existing category"""
-    category = get_object_or_404(Category, pk=pk)
-    try:
-        data = json.loads(request.body)
-        form = CategoryForm(data, instance=category)
-        if form.is_valid():
-            category = form.save()
-            return JsonResponse({
-                'status': 'success',
-                'category': {
-                    'id': category.id,
-                    'name': category.name
-                }
-            })
-        return JsonResponse({'status': 'error', 'errors': form.errors}, status=400)
-    except json.JSONDecodeError:
-        return JsonResponse({'status': 'error', 'message': 'Invalid JSON'}, status=400)
-
-@require_POST
-def api_category_delete(request, pk):
-    """JSON API to delete a category"""
-    category = get_object_or_404(Category, pk=pk)
-    try:
-        category.delete()
-        return JsonResponse({'status': 'success', 'message': 'Category deleted successfully'})
-    except Exception as e:
-        return JsonResponse({'status': 'error', 'message': str(e)}, status=400)
-
+@login_required
 @require_POST
 def api_category_create(request):
     """JSON API to create a new category"""
@@ -191,6 +152,7 @@ def api_category_create(request):
         })
     return JsonResponse({'status': 'error', 'message': 'Name is required'}, status=400)
 
+@login_required
 @require_POST
 def api_category_update(request, pk):
     """JSON API to update a category"""
@@ -205,6 +167,7 @@ def api_category_update(request, pk):
         })
     return JsonResponse({'status': 'error', 'message': 'Name is required'}, status=400)
 
+@login_required
 @require_POST
 def api_category_delete(request, pk):
     """JSON API to delete a category"""
@@ -212,6 +175,7 @@ def api_category_delete(request, pk):
     category.delete()
     return JsonResponse({'status': 'success'})
 
+@login_required
 def api_sales_report(request):
     """JSON API to get sales report data"""
     today = timezone.now().date()
@@ -323,6 +287,7 @@ def api_sales_report(request):
         }
     })
 
+@login_required
 def export_sales_csv(request):
     """Export sales report to CSV"""
     import csv
