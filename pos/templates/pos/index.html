@@ -749,7 +749,7 @@
                         'Content-Type': 'application/json',
                         'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value 
                     },
-                    body: JSON.stringify({ items, payment_method: selectedPayment })
+                    body: JSON.stringify({ items, payment_method: selectedPayment, discount: discount })
                 });
                 
                 const data = await res.json();
@@ -945,18 +945,35 @@
 
              if (activeReportTab === 'summary') {
                 container.innerHTML = `
-                        <div class="grid grid-cols-2 gap-4 mb-6">
+                        <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                            <!-- Net Sales -->
                             <div class="bg-blue-50 p-4 rounded-xl border border-blue-100">
-                                <div class="text-sm text-blue-600 font-bold mb-1">Total Sales (${data.period.start} - ${data.period.end})</div>
-                                <div class="text-3xl font-bold text-blue-800">&#3647;${data.sales_amount.toFixed(2)}</div>
-                                <div class="flex gap-4 mt-2 text-sm">
-                                    <div class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-green-500"></span> Cash: &#3647;${data.cash_sales.toFixed(2)}</div>
-                                    <div class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-indigo-500"></span> QR: &#3647;${data.qr_sales.toFixed(2)}</div>
+                                <div class="text-xs text-blue-600 font-bold mb-1 uppercase">Net Sales</div>
+                                <div class="text-2xl font-bold text-blue-800">&#3647;${data.sales_amount.toFixed(2)}</div>
+                                <div class="text-xs text-blue-400 mt-1">Total Revenue</div>
+                            </div>
+                            
+                            <!-- Discount -->
+                            <div class="bg-red-50 p-4 rounded-xl border border-red-100">
+                                <div class="text-xs text-red-600 font-bold mb-1 uppercase">Total Discount</div>
+                                <div class="text-2xl font-bold text-red-800">&#3647;${data.total_discount.toFixed(2)}</div>
+                                <div class="text-xs text-red-400 mt-1">Given to Customers</div>
+                            </div>
+
+                            <!-- Cash Sales -->
+                            <div class="bg-green-50 p-4 rounded-xl border border-green-100">
+                                <div class="text-xs text-green-600 font-bold mb-1 uppercase">Total Cash Get</div>
+                                <div class="text-2xl font-bold text-green-800">&#3647;${data.cash_sales.toFixed(2)}</div>
+                                <div class="text-xs text-green-500 mt-1 flex justify-between">
+                                    <span>QR: &#3647;${data.qr_sales.toFixed(2)}</span>
                                 </div>
                             </div>
+
+                            <!-- Stock Value -->
                             <div class="bg-amber-50 p-4 rounded-xl border border-amber-100">
-                                <div class="text-sm text-amber-600 font-bold mb-1">Total Stock Value</div>
-                                <div class="text-3xl font-bold text-amber-800">&#3647;${data.stock_value.toFixed(2)}</div>
+                                <div class="text-xs text-amber-600 font-bold mb-1 uppercase">Total Stock Value</div>
+                                <div class="text-2xl font-bold text-amber-800">&#3647;${data.stock_value.toFixed(2)}</div>
+                                <div class="text-xs text-amber-400 mt-1">Asset Value</div>
                             </div>
                         </div>
 

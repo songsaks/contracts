@@ -270,12 +270,16 @@ def api_sales_report(request):
             'revenue': float(stat['total_revenue'] or 0)
         })
         
+    # Discount
+    total_discount = orders_qs.aggregate(sum=Sum('discount_amount'))['sum'] or 0
+
     return JsonResponse({
         'status': 'success',
         'data': {
             'sales_amount': float(total_sales),
             'cash_sales': float(cash_sales),
             'qr_sales': float(qr_sales),
+            'total_discount': float(total_discount),
             'stock_value': float(stock_value),
             'low_stock': low_stock,
             'recent_orders': recent_orders,
@@ -327,7 +331,14 @@ def export_sales_csv(request):
         created_at__date__lte=end_date
     )
     total_sales = orders_qs.aggregate(sum=Sum('total_amount'))['sum'] or 0
+    total_discount = orders_qs.aggregate(sum=Sum('discount_amount'))['sum'] or 0
+    cash_sales = orders_qs.filter(payment_method='CASH').aggregate(sum=Sum('total_amount'))['sum'] or 0
+    qr_sales = orders_qs.filter(payment_method='QR').aggregate(sum=Sum('total_amount'))['sum'] or 0
+
     writer.writerow(['Total Sales', total_sales])
+    writer.writerow(['Total Discount', total_discount])
+    writer.writerow(['Total Cash Get', cash_sales])
+    writer.writerow(['QR Sales', qr_sales])
     writer.writerow([])
 
     # Product Details
