@@ -244,30 +244,45 @@ def api_sales_report(request):
     # 1. Get all active products
     all_products = Product.objects.filter(is_active=True).select_related('category')
     
-    # 2. Aggregate sales for the period
-    sales_stats = OrderItem.objects.filter(
-        order__status='COMPLETED',
-        order__created_at__date__gte=start_date,
-        order__created_at__date__lte=end_date
-    ).values('product').annotate(
-        total_qty=Sum('quantity'),
-        total_revenue=Sum('subtotal')
-    )
+    # 2. Calculate sales stats with prorated discount
+    # We iterate over orders to distribute discount
+    from collections import defaultdict
+    product_stats = defaultdict(lambda: {'qty': 0, 'subtotal': 0, 'discount': 0})
     
-    # 3. Map sales data
-    sales_map = {stat['product']: stat for stat in sales_stats}
+    orders = orders_qs.prefetch_related('items', 'items__product')
     
+    for order in orders:
+        items = order.items.all()
+        # Calculate order subtotal sum (pre-discount)
+        order_subtotal_sum = sum(item.subtotal for item in items)
+        
+        discount_ratio = 0
+        if order_subtotal_sum > 0:
+            discount_ratio = float(order.discount_amount) / float(order_subtotal_sum)
+            
+        for item in items:
+            item_discount = float(item.subtotal) * discount_ratio
+            product_stats[item.product_id]['qty'] += item.quantity
+            product_stats[item.product_id]['subtotal'] += float(item.subtotal)
+            product_stats[item.product_id]['discount'] += item_discount
+            
     product_performance = []
     for p in all_products:
-        stat = sales_map.get(p.id, {'total_qty': 0, 'total_revenue': 0})
+        stat = product_stats[p.id]
+        revenue = stat['subtotal']
+        discount = stat['discount']
+        net_sale = revenue - discount
+        
         product_performance.append({
             'name': p.name,
             'code': p.code or '-',
             'category': p.category.name if p.category else 'Uncategorized',
             'price': float(p.price),
             'stock': p.stock,
-            'sold_qty': stat['total_qty'] or 0,
-            'revenue': float(stat['total_revenue'] or 0)
+            'sold_qty': stat['qty'],
+            'gross_revenue': revenue,
+            'discount': discount,
+            'net_sale': net_sale
         })
         
     # Discount
@@ -342,30 +357,50 @@ def export_sales_csv(request):
     writer.writerow([])
 
     # Product Details
-    writer.writerow(['Product Name', 'Code', 'Category', 'Current Price', 'Current Stock', 'Sold Qty', 'Revenue'])
+    writer.writerow(['Product Name', 'Code', 'Category', 'Current Price', 'Current Stock', 'Sold Qty', 'Gross Revenue', 'Discount', 'Net Sale'])
     
-    sales_stats = OrderItem.objects.filter(
-        order__status='COMPLETED',
-        order__created_at__date__gte=start_date,
-        order__created_at__date__lte=end_date
-    ).values('product').annotate(
-        total_qty=Sum('quantity'),
-        total_revenue=Sum('subtotal')
-    )
-    sales_map = {stat['product']: stat for stat in sales_stats}
+    # Prorate discounts
+    from collections import defaultdict
+    product_stats = defaultdict(lambda: {'qty': 0, 'subtotal': 0, 'discount': 0})
     
+    all_orders = Order.objects.filter(
+        status='COMPLETED',
+        created_at__date__gte=start_date,
+        created_at__date__lte=end_date
+    ).prefetch_related('items') # Note: items__product prefetched implicitly or can be added if needed, but here we just need item data
+    
+    for order in all_orders:
+        items = order.items.all()
+        order_subtotal_sum = sum(item.subtotal for item in items)
+        
+        discount_ratio = 0
+        if order_subtotal_sum > 0:
+            discount_ratio = float(order.discount_amount) / float(order_subtotal_sum)
+            
+        for item in items:
+            item_discount = float(item.subtotal) * discount_ratio
+            product_stats[item.product_id]['qty'] += item.quantity
+            product_stats[item.product_id]['subtotal'] += float(item.subtotal)
+            product_stats[item.product_id]['discount'] += item_discount
+
     products = Product.objects.filter(is_active=True).select_related('category').order_by('name')
     
     for p in products:
-        stat = sales_map.get(p.id, {'total_qty': 0, 'total_revenue': 0})
+        stat = product_stats[p.id]
+        revenue = stat['subtotal']
+        discount = stat['discount']
+        net_sale = revenue - discount
+
         writer.writerow([
             p.name,
             p.code or '-',
             p.category.name if p.category else 'Uncategorized',
             p.price,
             p.stock,
-            stat['total_qty'] or 0,
-            stat['total_revenue'] or 0
+            stat['qty'],
+            f"{revenue:.2f}",
+            f"{discount:.2f}",
+            f"{net_sale:.2f}"
         ])
         
     return response

@@ -1048,8 +1048,10 @@
                                     <th class="p-4">Product Name</th>
                                     <th class="p-4">Category</th>
                                     <th class="p-4 text-right">Price</th>
-                                    <th class="p-4 text-right">Sold (Qty)</th>
-                                    <th class="p-4 text-right">Revenue</th>
+                                    <th class="p-4 text-right">Sold</th>
+                                    <th class="p-4 text-right text-slate-400">Gross</th>
+                                    <th class="p-4 text-right text-red-400">Disc.</th>
+                                    <th class="p-4 text-right text-blue-600">Net Sale</th>
                                     <th class="p-4 text-right">Remain Stock</th>
                                 </tr>
                             </thead>
@@ -1060,7 +1062,9 @@
                                         <td class="p-4 text-slate-500">${p.category}</td>
                                         <td class="p-4 text-right text-slate-600">&#3647;${p.price.toFixed(2)}</td>
                                         <td class="p-4 text-right font-bold text-slate-700">${p.sold_qty}</td>
-                                        <td class="p-4 text-right font-bold text-slate-700">&#3647;${p.revenue.toFixed(2)}</td>
+                                        <td class="p-4 text-right text-slate-400">&#3647;${p.gross_revenue.toFixed(2)}</td>
+                                        <td class="p-4 text-right text-red-400">&#3647;${p.discount.toFixed(2)}</td>
+                                        <td class="p-4 text-right font-bold text-blue-600">&#3647;${p.net_sale.toFixed(2)}</td>
                                         <td class="p-4 text-right font-bold ${p.stock < 10 ? 'text-red-500' : 'text-slate-600'}">${p.stock}</td>
                                     </tr>
                                 `).join('')}
