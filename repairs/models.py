@@ -37,9 +37,19 @@ class DeviceType(models.Model):
     class Meta:
         ordering = ['name']
 
+class Brand(models.Model):
+    name = models.CharField(max_length=100, unique=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return self.name
+
+    class Meta:
+        ordering = ['name']
+
 class Device(models.Model):
     customer = models.ForeignKey(Customer, on_delete=models.CASCADE, related_name='devices')
-    brand = models.CharField(max_length=100)
+    brand = models.ForeignKey(Brand, on_delete=models.PROTECT, related_name='devices')
     model = models.CharField(max_length=100)
     serial_number = models.CharField(max_length=100, blank=True)
     device_type = models.ForeignKey('DeviceType', on_delete=models.PROTECT, related_name='devices')
@@ -59,7 +69,7 @@ class RepairJob(models.Model):
     job_code = models.CharField(max_length=50, unique=True, editable=False)
     fix_id = models.CharField(max_length=50, blank=True, null=True, help_text="Manual Fix ID if needed") 
     customer = models.ForeignKey(Customer, on_delete=models.CASCADE, related_name='jobs')
-    created_at = models.DateTimeField(auto_now_add=True)
+    created_at = models.DateTimeField(default=timezone.now)
     updated_at = models.DateTimeField(auto_now=True)
 
     def save(self, *args, **kwargs):
@@ -78,6 +88,26 @@ class RepairJob(models.Model):
     def __str__(self):
         return self.job_code
 
+    def get_overall_status_bg_light(self):
+        # Determine overall status based on items
+        # Priority: FIXING > WAITING > RECEIVED > FINISHED (if all finished)
+        items = self.items.all()
+        if not items:
+            return 'bg-gray-100'
+        
+        statuses = [item.status for item in items]
+        
+        if 'FIXING' in statuses:
+            return 'bg-orange-50'
+        if 'WAITING' in statuses:
+            return 'bg-yellow-50'
+        
+        # If all are finished
+        if all(s == 'FINISHED' for s in statuses):
+             return 'bg-green-50'
+             
+        return 'bg-red-50'
+
 class RepairItem(models.Model):
     STATUS_CHOICES = [
         ('RECEIVED', 'Received'),
@@ -91,6 +121,7 @@ class RepairItem(models.Model):
     technicians = models.ManyToManyField(Technician, blank=True)
     issue_description = models.TextField()
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='RECEIVED')
+    status_note = models.TextField(blank=True, help_text="Reason for waiting or other status details")
     price = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
     
     created_at = models.DateTimeField(auto_now_add=True)
@@ -104,6 +135,15 @@ class RepairItem(models.Model):
             'FINISHED': 'bg-green-500 text-white',
         }
         return colors.get(self.status, 'bg-gray-500 text-white')
+
+    def get_status_bg_light(self):
+        colors = {
+            'RECEIVED': 'bg-red-50',
+            'FIXING': 'bg-orange-50',
+            'WAITING': 'bg-yellow-50',
+            'FINISHED': 'bg-green-50',
+        }
+        return colors.get(self.status, 'bg-gray-50')
 
     def __str__(self):
         return f"{self.device} - {self.get_status_display()}"

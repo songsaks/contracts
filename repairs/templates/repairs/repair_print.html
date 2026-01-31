@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Repair Job Report - {{ job.job_code }}</title>
+    <style>
+        body {
+            font-family: 'Courier New', Courier, monospace; /* Monospace is good for receipts/tech sheets */
+            padding: 20px;
+            max-width: 800px;
+            margin: 0 auto;
+            color: #333;
+        }
+        .header {
+            text-align: center;
+            border-bottom: 2px dashed #333;
+            padding-bottom: 20px;
+            margin-bottom: 20px;
+        }
+        .header h1 { margin: 0; font-size: 24px; }
+        .header p { margin: 5px 0; }
+        
+        .info-section {
+            margin-bottom: 20px;
+        }
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+        }
+        .label {
+            font-weight: bold;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            margin-bottom: 20px;
+        }
+        th, td {
+            border: 1px solid #333;
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background-color: #eee;
+        }
+        
+        .footer {
+            margin-top: 40px;
+            border-top: 2px dashed #333;
+            padding-top: 20px;
+            display: flex;
+            justify-content: space-between;
+        }
+        .signature-box {
+            text-align: center;
+            width: 40%;
+        }
+        .signature-line {
+            border-bottom: 1px solid #333;
+            margin-top: 40px;
+            margin-bottom: 10px;
+        }
+
+        @media print {
+            body { 
+                padding: 0; 
+                font-family: sans-serif; /* Cleaner for actual paper */
+            }
+            .no-print { display: none; }
+            button { display: none; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="no-print" style="margin-bottom: 20px; text-align: center;">
+        <button onclick="window.print()" style="padding: 10px 20px; font-size: 16px; cursor: pointer; background: #333; color: white; border: none; border-radius: 5px;">Print Report</button>
+        <button onclick="window.history.back()" style="padding: 10px 20px; font-size: 16px; cursor: pointer; background: #ccc; border: none; border-radius: 5px; margin-left: 10px;">Back</button>
+    </div>
+
+    <div class="header">
+        <h1>REPAIR SERVICE RECEIPT</h1>
+        <p>Repair Job #{{ job.job_code }}</p>
+        <p>Date: {{ job.created_at|date:"Y-m-d H:i" }}</p>
+    </div>
+
+    <div class="info-section">
+        <h3 style="border-bottom: 1px solid #ccc; padding-bottom: 5px;">Customer Information</h3>
+        <div class="info-row">
+            <span class="label">Name:</span>
+            <span>{{ job.customer.name }}</span>
+        </div>
+        <div class="info-row">
+            <span class="label">Code:</span>
+            <span>{{ job.customer.customer_code }}</span>
+        </div>
+        <div class="info-row">
+            <span class="label">Contact:</span>
+            <span>{{ job.customer.contact_number }}</span>
+        </div>
+    </div>
+
+    <div class="info-section">
+        <h3 style="border-bottom: 1px solid #ccc; padding-bottom: 5px;">Repair Details</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>Device</th>
+                    <th>Issue Description</th>
+                    <th>Estimated Cost</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in job.items.all %}
+                <tr>
+                    <td>
+                        <strong>{{ item.device.brand }} {{ item.device.model }}</strong><br>
+                        <small>SN: {{ item.device.serial_number }}</small>
+                    </td>
+                    <td>{{ item.issue_description|linebreaksbr }}</td>
+                    <td>&#3647;{{ item.price|default:"0.00" }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <div class="info-section">
+        <p><strong>Note:</strong> Please present this receipt when collecting your device.</p>
+    </div>
+
+    <div class="footer">
+        <div class="signature-box">
+            <div class="signature-line"></div>
+            <p>Customer Signature</p>
+        </div>
+        <div class="signature-box">
+            <div class="signature-line"></div>
+            <p>Staff Signature</p>
+        </div>
+    </div>
+
+    <script>
+        // Optional: Auto-print when opened
+        // window.onload = function() { window.print(); }
+    </script>
+</body>
+</html>

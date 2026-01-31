@@ -55,10 +55,7 @@
                             class="border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
                             ลูกค้า
                         </a>
-                        <a href="{% url 'repairs:device_list' %}"
-                            class="border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
-                            เครื่องซ่อม
-                        </a>
+
                         <a href="{% url 'repairs:technician_list' %}"
                             class="border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
                             พนักงานช่าง
@@ -66,6 +63,10 @@
                         <a href="{% url 'repairs:device_type_list' %}"
                             class="border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
                             ประเภทอุปกรณ์
+                        </a>
+                        <a href="{% url 'repairs:brand_list' %}"
+                            class="border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
+                            ยี่ห้อ
                         </a>
                         {% else %}
                         <!-- Rentals Menu (Existing) -->
@@ -153,6 +154,7 @@
             <p class="mt-1 text-center text-sm text-slate-400">&copy; 2025 RentalCtrl. All rights reserved.</p>
         </div>
     </footer>
+    {% block scripts %}{% endblock %}
 </body>
 
 </html>
