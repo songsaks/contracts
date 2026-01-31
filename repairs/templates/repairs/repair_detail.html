@@ -7,19 +7,25 @@
         <div>
             <nav class="flex" aria-label="Breadcrumb">
                 <ol class="flex items-center space-x-2">
-                    <li><a href="{% url 'repairs:repair_list' %}" class="text-gray-500 hover:text-gray-700">Repairs</a>
+                    <li><a href="{% url 'repairs:repair_list' %}" class="text-gray-500 hover:text-gray-700">รายการซ่อม</a>
                     </li>
                     <li><span class="text-gray-300">/</span></li>
                     <li><span class="text-gray-900 font-medium">Job {{ job.job_code }}</span></li>
                 </ol>
             </nav>
-            <h1 class="text-3xl font-bold text-gray-900 mt-2">Repair Job Detail</h1>
-            <p class="text-gray-500 text-sm">Created on {{ job.created_at|date:"F j, Y, g:i a" }}</p>
+            <h1 class="text-3xl font-bold text-gray-900 mt-2">รายละเอียดงานซ่อม</h1>
+            <p class="text-gray-500 text-sm">สร้างเมื่อ {{ job.created_at|date:"F j, Y, g:i a" }}</p>
         </div>
-        <div class="flex space-x-3">
+        <div class="flex space-x-3 items-center">
+            <a href="{% url 'repairs:repair_print' job.pk %}" target="_blank" class="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                <svg xmlns="http://www.w3.org/2000/svg" class="-ml-1 mr-2 h-5 w-5 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                </svg>
+                พิมพ์รายงาน
+            </a>
             <span
                 class="inline-flex items-center px-3 py-0.5 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
-                {{ job.items.count }} Device(s)
+                {{ job.items.count }} อุปกรณ์
             </span>
         </div>
     </div>
@@ -41,54 +47,39 @@
                     </span>
                 </div>
                 <div class="p-6">
+                    <!-- Status & Update Form (Consolidated) -->
+                    <div class="mb-6 pb-6 border-b border-gray-200">
+                        <div class="flex items-center justify-between mb-4">
+                            <h4 class="text-sm font-medium text-gray-500 uppercase tracking-wider">สถานะและการดำเนินการ</h4>
+                        </div>
+                        
+                        <form action="{% url 'repairs:repair_update_status' item.id %}" method="post" class="grid grid-cols-1 md:grid-cols-12 gap-4 items-end bg-gray-50 p-4 rounded-lg border border-gray-200">
+                            {% csrf_token %}
+                            <div class="md:col-span-4">
+                                <label class="block text-sm font-medium text-gray-700 mb-1">สถานะ</label>
+                                <select name="status" class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm">
+                                    <option value="RECEIVED" {% if item.status == 'RECEIVED' %}selected{% endif %}>Received (Red)</option>
+                                    <option value="FIXING" {% if item.status == 'FIXING' %}selected{% endif %}>Fixing (Orange)</option>
+                                    <option value="WAITING" {% if item.status == 'WAITING' %}selected{% endif %}>Waiting (Yellow)</option>
+                                    <option value="FINISHED" {% if item.status == 'FINISHED' %}selected{% endif %}>Finished (Green)</option>
+                                </select>
+                            </div>
+                            <div class="md:col-span-12 lg:col-span-8">
+                                <label class="block text-sm font-medium text-gray-700 mb-1">บันทึกสถานะ</label>
+                                <textarea name="status_note" rows="3" maxlength="500" placeholder="ระบุเหตุผล หรือ รายละเอียดสถานะ (สูงสุด 500 ตัวอักษร)" class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm">{{ item.status_note }}</textarea>
+                            </div>
+                            <div class="md:col-span-2">
+                                <button type="submit" class="w-full inline-flex justify-center items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 h-[38px]">
+                                    บันทึก
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+
                     <div class="mb-4">
-                        <h4 class="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2">Issue Description
+                        <h4 class="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2">อาการเสีย
                         </h4>
                         <p class="text-gray-900 bg-gray-50 p-3 rounded-md border border-gray-200">{{ item.issue_description }}</p>
-                    </div>
-
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
-                        <div>
-                            <h4 class="text-sm font-medium text-gray-500 uppercase tracking-wider">Technicians</h4>
-                            <div class="mt-1 flex flex-wrap gap-2">
-                                {% for tech in item.technicians.all %}
-                                <span
-                                    class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800">
-                                    {{ tech.name }}
-                                </span>
-                                {% empty %}
-                                <span class="text-gray-400 italic text-sm">Unassigned</span>
-                                {% endfor %}
-                            </div>
-                        </div>
-                        <div>
-                            <h4 class="text-sm font-medium text-gray-500 uppercase tracking-wider">Price</h4>
-                            <p class="mt-1 text-lg font-semibold text-gray-900">${{ item.price }}</p>
-                        </div>
-                    </div>
-
-                    <!-- Update Status Form -->
-                    <div class="mt-6 pt-6 border-t border-gray-200">
-                        <h4 class="text-sm font-medium text-gray-900 mb-3">Update Status</h4>
-                        <form action="{% url 'repairs:repair_update_status' item.id %}" method="post"
-                            class="flex items-center space-x-3">
-                            {% csrf_token %}
-                            <select name="status"
-                                class="block w-full max-w-xs rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm">
-                                <option value="RECEIVED" {% if item.status == 'RECEIVED' %}selected{% endif %}>Received
-                                    (Red)</option>
-                                <option value="FIXING" {% if item.status == 'FIXING' %}selected{% endif %}>Fixing (Orange)
-                                </option>
-                                <option value="WAITING" {% if item.status == 'WAITING' %}selected{% endif %}>Waiting
-                                    (Yellow)</option>
-                                <option value="FINISHED" {% if item.status == 'FINISHED' %}selected{% endif %}>Finished
-                                    (Green)</option>
-                            </select>
-                            <button type="submit"
-                                class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
-                                Update
-                            </button>
-                        </form>
                     </div>
                 </div>
             </div>
@@ -98,37 +89,37 @@
         <!-- Sidebar: Customer & Job Info -->
         <div class="lg:col-span-1 space-y-6">
             <div class="bg-white shadow rounded-lg p-6">
-                <h3 class="text-lg font-medium text-gray-900 mb-4 border-b pb-2">Customer Info</h3>
+                <h3 class="text-lg font-medium text-gray-900 mb-4 border-b pb-2">ข้อมูลลูกค้า</h3>
                 <dl class="space-y-4">
                     <div>
-                        <dt class="text-sm font-medium text-gray-500">Name</dt>
+                        <dt class="text-sm font-medium text-gray-500">ชื่อ</dt>
                         <dd class="mt-1 text-sm text-gray-900 font-semibold">{{ job.customer.name }}</dd>
                     </div>
                     <div>
-                        <dt class="text-sm font-medium text-gray-500">Customer Code</dt>
+                        <dt class="text-sm font-medium text-gray-500">รหัสลูกค้า</dt>
                         <dd class="mt-1 text-sm font-mono text-gray-600 bg-gray-100 inline-block px-2 rounded">{{ job.customer.customer_code }}</dd>
                     </div>
                     <div>
-                        <dt class="text-sm font-medium text-gray-500">Contact</dt>
+                        <dt class="text-sm font-medium text-gray-500">เบอร์โทรศัพท์</dt>
                         <dd class="mt-1 text-sm text-gray-900">{{ job.customer.contact_number }}</dd>
                     </div>
                     <div>
-                        <dt class="text-sm font-medium text-gray-500">Address</dt>
+                        <dt class="text-sm font-medium text-gray-500">ที่อยู่</dt>
                         <dd class="mt-1 text-sm text-gray-900">{{ job.customer.address|default:"-" }}</dd>
                     </div>
                 </dl>
             </div>
 
             <div class="bg-white shadow rounded-lg p-6">
-                <h3 class="text-lg font-medium text-gray-900 mb-4 border-b pb-2">Job Info</h3>
+                <h3 class="text-lg font-medium text-gray-900 mb-4 border-b pb-2">ข้อมูลงานซ่อม</h3>
                 <dl class="space-y-4">
                     <div>
-                        <dt class="text-sm font-medium text-gray-500">Job Code</dt>
+                        <dt class="text-sm font-medium text-gray-500">รหัสงาน</dt>
                         <dd class="mt-1 text-sm font-mono text-gray-600 bg-gray-100 inline-block px-2 rounded">{{ job.job_code }}</dd>
                     </div>
                     {% if job.fix_id %}
                     <div>
-                        <dt class="text-sm font-medium text-gray-500">Manual Fix ID</dt>
+                        <dt class="text-sm font-medium text-gray-500">รหัสซ่อมเอง</dt>
                         <dd class="mt-1 text-sm text-gray-900">{{ job.fix_id }}</dd>
                     </div>
                     {% endif %}

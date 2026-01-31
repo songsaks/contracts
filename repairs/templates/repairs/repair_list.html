@@ -2,70 +2,127 @@
 
 {% block content %}
 <div class="bg-white shadow rounded-lg p-6">
-    <div class="flex justify-between items-center mb-6">
-        <h2 class="text-2xl font-bold text-gray-900">Repair Jobs</h2>
-        <a href="{% url 'repairs:repair_create' %}"
-            class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded inline-flex items-center">
-            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"
-                xmlns="http://www.w3.org/2000/svg">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
-            </svg>
-            New Job
-        </a>
+    <div class="mb-6 space-y-4">
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <h2 class="text-2xl font-bold text-gray-900">รายการงานซ่อม</h2>
+            <a href="{% url 'repairs:repair_create' %}"
+                class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded inline-flex items-center whitespace-nowrap shadow-sm">
+                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                    xmlns="http://www.w3.org/2000/svg">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                </svg>
+                สร้างงานใหม่
+            </a>
+        </div>
+        
+        <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
+            <form method="get" class="flex flex-col md:flex-row gap-3 w-full">
+                <!-- Search -->
+                <div class="relative flex-1">
+                    <input type="text" name="q" value="{{ request.GET.q }}" placeholder="ค้นหา รหัส, ลูกค้า, อุปกรณ์..." class="w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 pl-10">
+                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                        </svg>
+                    </div>
+                </div>
+
+                <div class="flex gap-3">
+                    <!-- Status Filter -->
+                    <select name="status" onchange="this.form.submit()" class="border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm py-2 pl-3 pr-8">
+                        <option value="">ทุกสถานะ</option>
+                        <option value="RECEIVED" {% if request.GET.status == 'RECEIVED' %}selected{% endif %}>Received</option>
+                        <option value="FIXING" {% if request.GET.status == 'FIXING' %}selected{% endif %}>Fixing</option>
+                        <option value="WAITING" {% if request.GET.status == 'WAITING' %}selected{% endif %}>Waiting</option>
+                        <option value="FINISHED" {% if request.GET.status == 'FINISHED' %}selected{% endif %}>Finished</option>
+                    </select>
+
+                    <!-- Sort -->
+                    <select name="sort" onchange="this.form.submit()" class="border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm py-2 pl-3 pr-8">
+                        <option value="date_desc" {% if request.GET.sort == 'date_desc' %}selected{% endif %}>ล่าสุดก่อน</option>
+                        <option value="date_asc" {% if request.GET.sort == 'date_asc' %}selected{% endif %}>เก่าสุดก่อน</option>
+                        <option value="customer" {% if request.GET.sort == 'customer' %}selected{% endif %}>ชื่อลูกค้า</option>
+                    </select>
+                    
+                    <button type="submit" class="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 font-medium text-sm shadow-sm transition-colors">
+                        ค้นหา
+                    </button>
+                    
+                    {% if request.GET.q or request.GET.status %}
+                    <a href="{% url 'repairs:repair_list' %}" class="px-4 py-2 bg-white border border-gray-300 text-red-600 rounded-md hover:bg-red-50 font-medium text-sm shadow-sm transition-colors flex items-center">
+                        ล้างค่า
+                    </a>
+                    {% endif %}
+                </div>
+            </form>
+        </div>
     </div>
 
     <div class="overflow-x-auto">
         <table class="min-w-full divide-y divide-gray-200">
             <thead class="bg-gray-50">
                 <tr>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Job Code
-                    </th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer
-                    </th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Devices /
-                        Status</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions
-                    </th>
+                    <th class="px-6 py-3 text-left text-sm font-bold text-gray-900 uppercase tracking-wider">รหัสงาน</th>
+                    <th class="px-6 py-3 text-left text-sm font-bold text-gray-900 uppercase tracking-wider">ลูกค้า</th>
+                    <th class="px-6 py-3 text-left text-sm font-bold text-gray-900 uppercase tracking-wider">วันที่</th>
+                    <th class="px-6 py-3 text-left text-sm font-bold text-gray-900 uppercase tracking-wider">รายการ / สถานะ</th>
+                    <th class="px-6 py-3 text-left text-sm font-bold text-gray-900 uppercase tracking-wider">จัดการ</th>
                 </tr>
             </thead>
             <tbody class="bg-white divide-y divide-gray-200">
-                {% for job in jobs %}
-                <tr>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                        {{ job.job_code }}
-                        {% if job.fix_id %}
-                        <span class="block text-xs text-gray-500">{{ job.fix_id }}</span>
-                        {% endif %}
+                {% for item in items %}
+                <tr class="{{ item.get_status_bg_light }}">
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 relative">
+                        <div class="cursor-pointer hover:bg-opacity-75 inline-block relative px-3 py-1.5 rounded-md transition-colors {{ item.job.get_overall_status_bg_light }}"
+                             data-job-id="{{ item.job.pk }}"
+                             onmouseenter="showJobNotes(this)"
+                             onmouseleave="hideJobNotes(this)">
+                            {{ item.job.job_code }}
+                            {% if item.job.fix_id %}
+                            <span class="block text-xs text-gray-500">{{ item.job.fix_id }}</span>
+                            {% endif %}
+                            
+                            <!-- Job Notes Tooltip -->
+                            <div class="hidden absolute top-full left-0 mt-2 w-64 p-3 rounded-lg shadow-xl z-50 border border-transparent job-tooltip">
+                                <span class="tooltip-content text-xs text-gray-600 block">Loading...</span>
+                            </div>
+                        </div>
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        <div class="text-sm font-medium text-gray-900">{{ job.customer.name }}</div>
-                        <div class="text-sm text-gray-500">{{ job.customer.contact_number }}</div>
+                        <div class="text-sm font-medium text-gray-900">{{ item.job.customer.name }}</div>
+                        <div class="text-sm text-gray-500">{{ item.job.customer.contact_number }}</div>
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {{ job.created_at|date:"Y-m-d H:i" }}
+                        {{ item.job.created_at|date:"Y-m-d H:i" }}
                     </td>
                     <td class="px-6 py-4 text-sm text-gray-500">
-                        <div class="space-y-1">
-                            {% for item in job.items.all %}
+                        <div class="group relative"
+                                data-item-id="{{ item.id }}"
+                                data-status="{{ item.status }}"
+                                onmouseenter="showStatusNote(this)"
+                                onmouseleave="hideStatusNote(this)">
                             <div class="flex items-center justify-between">
-                                <span class="truncate max-w-[150px]"
-                                    title="{{ item.device.brand }} {{ item.device.model }}">{{ item.device.brand }} {{
-                                    item.device.model }}</span>
-                                <span
-                                    class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full {{ item.get_status_color }}">
-                                    {{ item.get_status_display }}
-                                </span>
+                                <span class="truncate max-w-[200px] font-medium text-gray-900"
+                                    title="{{ item.device.brand }} {{ item.device.model }}">{{ item.device.brand }} {{ item.device.model }}</span>
+                                <div class="relative inline-block ml-2">
+                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full {{ item.get_status_color }}">
+                                        {{ item.get_status_display }}
+                                    </span>
+                                    <!-- Tooltip Container -->
+                                    <div class="hidden absolute bottom-full right-0 mb-2 w-48 p-2 text-xs rounded shadow-lg z-50 status-tooltip transition-colors duration-200">
+                                        <span class="tooltip-content">Loading...</span>
+                                        <div class="absolute top-full right-4 -mt-1 border-4 border-transparent tooltip-arrow"></div>
+                                    </div>
+                                </div>
                             </div>
-                            <div class="text-xs text-gray-500 mt-1 truncate" title="{{ item.issue_description }}">
+                            <div class="text-xs text-gray-500 mt-1 truncate max-w-[250px]" title="{{ item.issue_description }}">
                                 {{ item.issue_description }}
                             </div>
-                            {% endfor %}
                         </div>
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                        <a href="{% url 'repairs:repair_detail' job.pk %}"
-                            class="text-blue-600 hover:text-blue-900">View</a>
+                        <a href="{% url 'repairs:repair_detail' item.job.pk %}"
+                            class="text-blue-600 hover:text-blue-900">จัดการ</a>
                     </td>
                 </tr>
                 {% empty %}
@@ -77,4 +134,120 @@
         </table>
     </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const noteCache = {};
+
+    const statusColors = {
+        'RECEIVED': { bg: 'bg-red-500', text: 'text-white', arrow: 'border-t-red-500' },
+        'FIXING': { bg: 'bg-orange-500', text: 'text-white', arrow: 'border-t-orange-500' },
+        'WAITING': { bg: 'bg-yellow-400', text: 'text-black', arrow: 'border-t-yellow-400' },
+        'FINISHED': { bg: 'bg-green-500', text: 'text-white', arrow: 'border-t-green-500' }
+    };
+
+    function showStatusNote(container) {
+        const tooltip = container.querySelector('.status-tooltip');
+        const contentSpan = tooltip.querySelector('.tooltip-content');
+        const arrow = tooltip.querySelector('.tooltip-arrow');
+        const status = container.getAttribute('data-status');
+        const itemId = container.getAttribute('data-item-id');
+        
+        // Apply colors
+        const colors = statusColors[status] || { bg: 'bg-gray-900', text: 'text-white', arrow: 'border-t-gray-900' };
+        
+        // Reset classes
+        tooltip.className = `absolute bottom-full right-0 mb-2 w-48 p-2 text-xs rounded shadow-lg z-50 status-tooltip transition-colors duration-200 ${colors.bg} ${colors.text}`;
+        arrow.className = `absolute top-full right-4 -mt-1 border-4 border-transparent tooltip-arrow ${colors.arrow}`;
+
+        tooltip.classList.remove('hidden');
+
+        if (noteCache[itemId]) {
+            contentSpan.textContent = noteCache[itemId];
+        } else {
+            contentSpan.textContent = 'Loading...';
+            // Use local variable itemId
+            fetch(`/repairs/item/${itemId}/note/`)
+                .then(response => response.json())
+                .then(data => {
+                    const note = data.note || '-';
+                    noteCache[itemId] = note;
+                    contentSpan.textContent = note;
+                })
+                .catch(err => {
+                    contentSpan.textContent = 'Error loading';
+                    console.error('Error fetching note:', err);
+                });
+        }
+    }
+
+    function hideStatusNote(container) {
+        const tooltip = container.querySelector('.status-tooltip');
+        tooltip.classList.add('hidden');
+    }
+
+    const jobNoteCache = {};
+
+    function showJobNotes(container) {
+        const tooltip = container.querySelector('.job-tooltip');
+        const contentSpan = tooltip.querySelector('.tooltip-content');
+        const jobId = container.getAttribute('data-job-id');
+        
+        tooltip.classList.remove('hidden');
+
+        if (jobNoteCache[jobId]) {
+            renderJobNotes(contentSpan, jobNoteCache[jobId]);
+        } else {
+            contentSpan.innerHTML = 'Loading...';
+            // Use local variable jobId
+            fetch(`/repairs/job/${jobId}/notes/`)
+                .then(response => response.json())
+                .then(data => {
+                    jobNoteCache[jobId] = data.items;
+                    renderJobNotes(contentSpan, data.items);
+                })
+                .catch(err => {
+                    contentSpan.textContent = 'Error loading';
+                    console.error('Error fetching job notes:', err);
+                });
+        }
+    }
+
+    function hideJobNotes(container) {
+        const tooltip = container.querySelector('.job-tooltip');
+        tooltip.classList.add('hidden');
+    }
+
+    function renderJobNotes(container, items) {
+        if (!items || items.length === 0) {
+            container.textContent = '-';
+            return;
+        }
+
+        // Determine dominant status (use the first item's status for simplicity, or prioritize 'active' statuses)
+        const primaryItem = items[0]; 
+        const status = primaryItem.status_code; 
+        const colors = statusColors[status] || { bg: 'bg-gray-900', text: 'text-white', arrow: 'border-t-gray-900' };
+
+        // Update Tooltip Container Style (Parent of contentSpan)
+        const tooltip = container.closest('.job-tooltip');
+        tooltip.className = `absolute top-full left-0 mt-2 w-64 p-3 rounded-lg shadow-xl z-50 border border-transparent job-tooltip ${colors.bg} ${colors.text}`;
+
+        const notesWithContent = items.filter(i => i.note && i.note.trim() !== '');
+
+        if (notesWithContent.length === 0) {
+             container.closest('.job-tooltip').classList.add('hidden'); // Hide if no notes? Or show 'No notes'
+             container.textContent = '-';
+             return;
+        }
+
+        let html = '';
+        notesWithContent.forEach((item, index) => {
+            if (index > 0) html += '<hr class="border-white/20 my-2">';
+            html += `<div class="text-xs">${item.note}</div>`;
+        });
+        container.innerHTML = html;
+    }
+</script>
 {% endblock %}

@@ -1,5 +1,5 @@
 from django import forms
-from .models import RepairJob, RepairItem, Customer, Device, Technician, DeviceType
+from .models import RepairJob, RepairItem, Customer, Device, Technician, DeviceType, Brand
 
 class CustomerForm(forms.ModelForm):
     class Meta:
@@ -16,7 +16,7 @@ class DeviceForm(forms.ModelForm):
         model = Device
         fields = ['brand', 'model', 'serial_number', 'device_type']
         widgets = {
-            'brand': forms.TextInput(attrs={'class': 'w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 px-3 py-2', 'placeholder': 'Brand'}),
+            'brand': forms.Select(attrs={'class': 'w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 px-3 py-2'}),
             'model': forms.TextInput(attrs={'class': 'w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 px-3 py-2', 'placeholder': 'Model'}),
             'serial_number': forms.TextInput(attrs={'class': 'w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 px-3 py-2', 'placeholder': 'Serial Number'}),
             'device_type': forms.Select(attrs={'class': 'w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 px-3 py-2'}),
@@ -25,21 +25,32 @@ class DeviceForm(forms.ModelForm):
 class RepairJobForm(forms.ModelForm):
     class Meta:
         model = RepairJob
-        fields = ['fix_id']
+        fields = ['fix_id', 'created_at']
         widgets = {
             'fix_id': forms.TextInput(attrs={'class': 'w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 px-3 py-2', 'placeholder': 'Manual Fix ID (Optional)'}),
+            'created_at': forms.DateTimeInput(attrs={'type': 'datetime-local', 'class': 'w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 px-3 py-2'}),
         }
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['created_at'].required = False
+        self.fields['created_at'].input_formats = ['%Y-%m-%dT%H:%M']
 
 class RepairItemForm(forms.ModelForm):
     class Meta:
         model = RepairItem
-        fields = ['issue_description', 'technicians', 'status', 'price']
+        fields = ['issue_description', 'technicians', 'status', 'status_note', 'price']
         widgets = {
-            'issue_description': forms.Textarea(attrs={'rows': 2, 'class': 'w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 px-3 py-2', 'placeholder': 'Describe the issue'}),
+            'issue_description': forms.Textarea(attrs={'rows': 2, 'class': 'w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 px-3 py-2', 'placeholder': 'ระบุอาการเสีย'}),
             'technicians': forms.SelectMultiple(attrs={'class': 'w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 px-3 py-2'}),
             'status': forms.Select(attrs={'class': 'w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 px-3 py-2'}),
+            'status_note': forms.TextInput(attrs={'class': 'w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 px-3 py-2', 'placeholder': 'บันทึกสถานะเพิ่มเติม (เช่น รออะไหล่)'}),
             'price': forms.NumberInput(attrs={'class': 'w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 px-3 py-2'}),
         }
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['technicians'].required = False
 
 class TechnicianForm(forms.ModelForm):
     class Meta:
@@ -57,5 +68,13 @@ class DeviceTypeForm(forms.ModelForm):
         widgets = {
             'name': forms.TextInput(attrs={'class': 'w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 px-3 py-2'}),
             'description': forms.Textarea(attrs={'rows': 2, 'class': 'w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 px-3 py-2'}),
+        }
+
+class BrandForm(forms.ModelForm):
+    class Meta:
+        model = Brand
+        fields = ['name']
+        widgets = {
+            'name': forms.TextInput(attrs={'class': 'w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 px-3 py-2'}),
         }
 
