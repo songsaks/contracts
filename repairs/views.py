@@ -136,7 +136,7 @@ def repair_update_status(request, item_id):
                 item.accessories = accessories
 
             item.save()
-    return redirect('repairs:repair_detail', pk=item.job.pk)
+    return redirect('repairs:repair_list')
 
 @login_required
 def get_repair_item_note(request, item_id):
