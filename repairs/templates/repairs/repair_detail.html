@@ -50,46 +50,46 @@
                     <!-- Status & Update Form (Consolidated) -->
                     <div class="mb-6 pb-6 border-b border-gray-200">
                         <div class="flex items-center justify-between mb-4">
-                            <h4 class="text-sm font-medium text-gray-500 uppercase tracking-wider">สถานะและการดำเนินการ</h4>
+                            <h4 class="text-sm font-medium text-gray-500 uppercase tracking-wider">รายละเอียดการซ่อมและสถานะ</h4>
                         </div>
                         
-                        <form action="{% url 'repairs:repair_update_status' item.id %}" method="post" class="grid grid-cols-1 md:grid-cols-12 gap-4 items-end bg-gray-50 p-4 rounded-lg border border-gray-200">
+                        <form action="{% url 'repairs:repair_update_status' item.id %}" method="post" class="bg-gray-50 p-4 rounded-lg border border-gray-200 space-y-4">
                             {% csrf_token %}
-                            <div class="md:col-span-4">
-                                <label class="block text-sm font-medium text-gray-700 mb-1">สถานะ</label>
-                                <select name="status" class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm">
-                                    <option value="RECEIVED" {% if item.status == 'RECEIVED' %}selected{% endif %}>Received (Red)</option>
-                                    <option value="FIXING" {% if item.status == 'FIXING' %}selected{% endif %}>Fixing (Orange)</option>
-                                    <option value="WAITING" {% if item.status == 'WAITING' %}selected{% endif %}>Waiting (Yellow)</option>
-                                    <option value="FINISHED" {% if item.status == 'FINISHED' %}selected{% endif %}>Finished (Green)</option>
-                                </select>
+                            
+                            <!-- Issue Description -->
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">อาการเสีย</label>
+                                <textarea name="issue_description" rows="2" class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm">{{ item.issue_description }}</textarea>
                             </div>
-                            <div class="md:col-span-12 lg:col-span-8">
-                                <label class="block text-sm font-medium text-gray-700 mb-1">บันทึกสถานะ</label>
-                                <textarea name="status_note" rows="3" maxlength="500" placeholder="ระบุเหตุผล หรือ รายละเอียดสถานะ (สูงสุด 500 ตัวอักษร)" class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm">{{ item.status_note }}</textarea>
+
+                            <!-- Accessories -->
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">อุปกรณ์ที่นำมาด้วย</label>
+                                <input type="text" name="accessories" value="{{ item.accessories|default:'' }}" class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm" placeholder="เช่น สายชาร์จ, กระเป๋า, เมาส์">
                             </div>
-                            <div class="md:col-span-2">
-                                <button type="submit" class="w-full inline-flex justify-center items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 h-[38px]">
-                                    บันทึก
+
+                            <div class="grid grid-cols-1 md:grid-cols-12 gap-4">
+                                <div class="md:col-span-4">
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">สถานะ</label>
+                                    <select name="status" class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm">
+                                        <option value="RECEIVED" {% if item.status == 'RECEIVED' %}selected{% endif %}>Received (Red)</option>
+                                        <option value="FIXING" {% if item.status == 'FIXING' %}selected{% endif %}>Fixing (Orange)</option>
+                                        <option value="WAITING" {% if item.status == 'WAITING' %}selected{% endif %}>Waiting (Yellow)</option>
+                                        <option value="FINISHED" {% if item.status == 'FINISHED' %}selected{% endif %}>Finished (Green)</option>
+                                    </select>
+                                </div>
+                                <div class="md:col-span-8">
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">บันทึกสถานะ</label>
+                                    <textarea name="status_note" rows="2" maxlength="500" placeholder="ระบุเหตุผล หรือ รายละเอียดสถานะ (สูงสุด 500 ตัวอักษร)" class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm">{{ item.status_note }}</textarea>
+                                </div>
+                            </div>
+
+                            <div class="flex justify-end">
+                                <button type="submit" class="inline-flex justify-center items-center px-6 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                                    บันทึกการเปลี่ยนแปลง
                                 </button>
                             </div>
                         </form>
-                    </div>
-
-                        <h4 class="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2">อาการเสีย
-                        </h4>
-                        <p class="text-gray-900 bg-gray-50 p-3 rounded-md border border-gray-200">{{ item.issue_description }}</p>
-                    </div>
-
-                    <div class="mb-4">
-                        <h4 class="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2">อุปกรณ์ที่นำมาด้วย</h4>
-                        <p class="text-gray-900 bg-gray-50 p-3 rounded-md border border-gray-200">
-                            {% if item.accessories %}
-                                {{ item.accessories }}
-                            {% else %}
-                                <span class="text-gray-400 italic font-normal">ไม่มีอุปกรณ์เพิ่มเติม</span>
-                            {% endif %}
-                        </p>
                     </div>
                 </div>
             </div>
