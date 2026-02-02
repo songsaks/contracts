@@ -39,9 +39,10 @@ class RepairJobForm(forms.ModelForm):
 class RepairItemForm(forms.ModelForm):
     class Meta:
         model = RepairItem
-        fields = ['issue_description', 'technicians', 'status', 'status_note', 'price']
+        fields = ['issue_description', 'accessories', 'technicians', 'status', 'status_note', 'price']
         widgets = {
             'issue_description': forms.Textarea(attrs={'rows': 2, 'class': 'w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 px-3 py-2', 'placeholder': 'ระบุอาการเสีย'}),
+            'accessories': forms.TextInput(attrs={'class': 'w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 px-3 py-2', 'placeholder': 'เช่น สายชาร์จ, กระเป๋า, เมาส์'}),
             'technicians': forms.SelectMultiple(attrs={'class': 'w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 px-3 py-2'}),
             'status': forms.Select(attrs={'class': 'w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 px-3 py-2'}),
             'status_note': forms.TextInput(attrs={'class': 'w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 px-3 py-2', 'placeholder': 'บันทึกสถานะเพิ่มเติม (เช่น รออะไหล่)'}),
