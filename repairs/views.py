@@ -125,6 +125,16 @@ def repair_update_status(request, item_id):
             item.status = new_status
             if note is not None:
                 item.status_note = note
+            
+            # Handle additional updates
+            issue_desc = request.POST.get('issue_description')
+            accessories = request.POST.get('accessories')
+            
+            if issue_desc:
+                item.issue_description = issue_desc
+            if accessories is not None: # Can be empty string
+                item.accessories = accessories
+
             item.save()
     return redirect('repairs:repair_detail', pk=item.job.pk)
 
