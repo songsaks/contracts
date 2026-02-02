@@ -83,35 +83,36 @@
     </div>
 
     <div class="header">
-        <h1>REPAIR SERVICE RECEIPT</h1>
-        <p>Repair Job #{{ job.job_code }}</p>
-        <p>Date: {{ job.created_at|date:"Y-m-d H:i" }}</p>
+        <h1>ใบรับงานซ่อม</h1>
+        <p>รหัสใบงาน #{{ job.job_code }}</p>
+        <p>วันที่: {{ job.created_at|date:"d/m/Y H:i" }}</p>
     </div>
 
     <div class="info-section">
-        <h3 style="border-bottom: 1px solid #ccc; padding-bottom: 5px;">Customer Information</h3>
+        <h3 style="border-bottom: 1px solid #ccc; padding-bottom: 5px;">ข้อมูลลูกค้า</h3>
         <div class="info-row">
-            <span class="label">Name:</span>
+            <span class="label">ชื่อ:</span>
             <span>{{ job.customer.name }}</span>
         </div>
         <div class="info-row">
-            <span class="label">Code:</span>
+            <span class="label">รหัสลูกค้า:</span>
             <span>{{ job.customer.customer_code }}</span>
         </div>
         <div class="info-row">
-            <span class="label">Contact:</span>
+            <span class="label">เบอร์โทร:</span>
             <span>{{ job.customer.contact_number }}</span>
         </div>
     </div>
 
     <div class="info-section">
-        <h3 style="border-bottom: 1px solid #ccc; padding-bottom: 5px;">Repair Details</h3>
+        <h3 style="border-bottom: 1px solid #ccc; padding-bottom: 5px;">รายละเอียดการซ่อม</h3>
         <table>
             <thead>
                 <tr>
-                    <th>Device</th>
-                    <th>Issue Description</th>
-                    <th>Estimated Cost</th>
+                    <th>อุปกรณ์</th>
+                    <th>อาการเสีย</th>
+                    <th>อุปกรณ์ที่นำมาด้วย</th>
+                    <th>ราคาประเมิน</th>
                 </tr>
             </thead>
             <tbody>
@@ -122,6 +123,7 @@
                         <small>SN: {{ item.device.serial_number }}</small>
                     </td>
                     <td>{{ item.issue_description|linebreaksbr }}</td>
+                    <td>{{ item.accessories|default:"-" }}</td>
                     <td>&#3647;{{ item.price|default:"0.00" }}</td>
                 </tr>
                 {% endfor %}
@@ -130,17 +132,17 @@
     </div>
 
     <div class="info-section">
-        <p><strong>Note:</strong> Please present this receipt when collecting your device.</p>
+        <p><strong>หมายเหตุ:</strong> โปรดนำใบรับงานซ่อมฉบับนี้มายื่นเพื่อรับสินค้าคืน</p>
     </div>
 
     <div class="footer">
         <div class="signature-box">
             <div class="signature-line"></div>
-            <p>Customer Signature</p>
+            <p>ลายเซ็นลูกค้า</p>
         </div>
         <div class="signature-box">
             <div class="signature-line"></div>
-            <p>Staff Signature</p>
+            <p>ลายเซ็นพนักงาน</p>
         </div>
     </div>
 
