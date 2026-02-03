@@ -1,0 +1,131 @@
+{% extends 'pms/base_pms.html' %}
+{% load humanize %}
+
+{% block content %}
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="mb-1">{{ project.name }}</h1>
+            <div class="text-muted">
+                <span class="badge bg-info text-dark me-2">{{ project.get_status_display }}</span>
+                ลูกค้า: <strong>{{ project.customer.name }}</strong>
+            </div>
+        </div>
+        <div>
+            <a href="{% url 'pms:project_quotation' project.pk %}" class="btn btn-outline-info me-2" target="_blank">
+                <i class="fas fa-print"></i> พิมพ์ใบเสนอราคา
+            </a>
+            <a href="{% url 'pms:project_update' project.pk %}" class="btn btn-outline-secondary me-2">แก้ไขโครงการ</a>
+            <a href="{% url 'pms:project_list' %}" class="btn btn-outline-dark">กลับหน้ารายการ</a>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Project Info -->
+        <div class="col-md-4 mb-4">
+            <div class="card shadow-sm mb-3">
+                <div class="card-header bg-light">
+                    <h5 class="card-title mb-0">รายละเอียดโครงการ</h5>
+                </div>
+                <div class="card-body">
+                    <p class="mb-1"><strong>รายละเอียด:</strong></p>
+                    <p class="text-muted small">{{ project.description|default:"-"|linebreaksbr }}</p>
+                    <hr>
+                    <p class="mb-1"><strong>วันเริ่มโครงการ:</strong> {{ project.start_date|date:"d M Y" }}</p>
+                    <p class="mb-1"><strong>กำหนดส่งมอบ:</strong> {{ project.deadline|date:"d M Y"|default:"-" }}</p>
+                </div>
+            </div>
+
+            <!-- Summary -->
+            <div class="card shadow-sm border-primary">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="card-title mb-0">สรุปการเงิน</h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-flex justify-content-between mb-2">
+                        <span>ต้นทุนรวม:</span>
+                        <span class="fw-bold text-danger">&#3647;{{ project.total_cost|floatformat:2|intcomma }}</span>
+                    </div>
+                    <div class="d-flex justify-content-between mb-2">
+                        <span>มูลค่ารวม:</span>
+                        <span class="fw-bold text-success">&#3647;{{ project.total_value|floatformat:2|intcomma }}</span>
+                    </div>
+                    <hr>
+                    <div class="d-flex justify-content-between">
+                        <span class="fw-bold">กำไร:</span>
+                        <span class="fw-bold text-primary">&#3647;{{ project.total_profit|floatformat:2|intcomma }}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Items -->
+        <div class="col-md-8">
+            <div class="card shadow-sm">
+                <div class="card-header bg-white d-flex justify-content-between align-items-center py-3">
+                    <h5 class="card-title mb-0">รายการสินค้า/บริการ</h5>
+                    <a href="{% url 'pms:item_add' project.pk %}" class="btn btn-sm btn-primary">
+                        <i class="fas fa-plus"></i> เพิ่มรายการ
+                    </a>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>รายการ</th>
+                                    <th class="text-center">ประเภท</th>
+                                    <th class="text-center">จำนวน</th>
+                                    <th class="text-end">ต้นทุน</th>
+                                    <th class="text-end">ราคาขาย</th>
+                                    <th class="text-end">รวม</th>
+                                    <th class="text-end">จัดการ</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in items %}
+                                <tr>
+                                    <td>
+                                        <div class="fw-bold">{{ item.name }}</div>
+                                        {% if item.supplier %}
+                                        <div class="small text-muted">ซัพพลายเออร์: {{ item.supplier.name }}</div>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-center">
+                                        {% if item.item_type == 'PRODUCT' %}
+                                        <span class="badge bg-secondary">สินค้า</span>
+                                        {% else %}
+                                        <span class="badge bg-info text-dark">บริการ</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-center">{{ item.quantity }}</td>
+                                    <td class="text-end text-muted">{{ item.unit_cost|floatformat:2|intcomma }}</td>
+                                    <td class="text-end">{{ item.unit_price|floatformat:2|intcomma }}</td>
+                                    <td class="text-end fw-bold">{{ item.total_price|floatformat:2|intcomma }}</td>
+                                    <td class="text-end">
+                                        <a href="{% url 'pms:item_delete' item.id %}" class="text-danger" onclick="return confirm('ยืนยันการลบรายการนี้?')">
+                                            <i class="fas fa-trash"></i>
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="7" class="text-center py-4 text-muted">ยังไม่มีรายการสินค้า/บริการ</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                            <tfoot class="table-light">
+                                <tr>
+                                    <td colspan="5" class="text-end fw-bold">ยอดรวมสุทธิ:</td>
+                                    <td class="text-end fw-bold text-success">&#3647;{{ project.total_value|floatformat:2|intcomma }}</td>
+                                    <td></td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

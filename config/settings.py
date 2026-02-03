@@ -47,6 +47,7 @@ INSTALLED_APPS = [
     'landing',
     'repairs',
     'pos',
+    'pms',
 ]
 
 MIDDLEWARE = [

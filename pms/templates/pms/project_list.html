@@ -1,0 +1,61 @@
+{% extends 'pms/base_pms.html' %}
+{% load humanize %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>โครงการทั้งหมด</h1>
+        <a href="{% url 'pms:project_create' %}" class="btn btn-primary">
+            <i class="fas fa-plus"></i> สร้างโครงการใหม่
+        </a>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>ชื่อโครงการ</th>
+                            <th>ลูกค้า</th>
+                            <th>สถานะ</th>
+                            <th>มูลค่าโครงการ</th>
+                            <th>วันที่สร้าง</th>
+                            <th>จัดการ</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for project in projects %}
+                        <tr>
+                            <td>
+                                <a href="{% url 'pms:project_detail' project.pk %}" class="text-decoration-none fw-bold">
+                                    {{ project.name }}
+                                </a>
+                                {% if project.deadline %}
+                                <div class="small text-muted">กำหนดส่ง: {{ project.deadline|date:"d M Y" }}</div>
+                                {% endif %}
+                            </td>
+                            <td>{{ project.customer.name }}</td>
+                            <td>
+                                <span class="badge bg-secondary">{{ project.get_status_display }}</span>
+                            </td>
+                            <td>&#3647;{{ project.total_value|floatformat:2|intcomma }}</td>
+                            <td>{{ project.created_at|date:"d M Y" }}</td>
+                            <td>
+                                <a href="{% url 'pms:project_detail' project.pk %}" class="btn btn-sm btn-outline-primary">ดูรายละเอียด</a>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="6" class="text-center py-4 text-muted">ไม่พบโครงการ เริ่มต้นสร้างโครงการใหม่ได้เลย!</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    </div>
+</div>
+{% endblock %}
