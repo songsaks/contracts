@@ -28,17 +28,17 @@ class TechnicianAdmin(admin.ModelAdmin):
 
 @admin.register(RepairJob)
 class RepairJobAdmin(admin.ModelAdmin):
-    list_display = ['job_code', 'customer', 'fix_id', 'created_at']
-    search_fields = ['job_code', 'fix_id', 'customer__name']
-    readonly_fields = ['job_code', 'created_at']
-    list_filter = ['created_at']
+    list_display = ['job_code', 'customer', 'fix_id', 'created_by', 'created_at']
+    search_fields = ['job_code', 'fix_id', 'customer__name', 'created_by__username']
+    readonly_fields = ['job_code', 'created_by', 'created_at']
+    list_filter = ['created_at', 'created_by']
     raw_id_fields = ['customer']
 
 @admin.register(RepairItem)
 class RepairItemAdmin(admin.ModelAdmin):
-    list_display = ['job', 'device', 'status', 'price', 'created_at']
-    search_fields = ['job__job_code', 'device__brand', 'device__model', 'issue_description']
-    list_filter = ['status', 'created_at']
+    list_display = ['job', 'device', 'status', 'price', 'created_by', 'created_at']
+    search_fields = ['job__job_code', 'device__brand', 'device__model', 'issue_description', 'created_by__username']
+    list_filter = ['status', 'created_at', 'created_by']
     raw_id_fields = ['job', 'device']
     filter_horizontal = ['technicians']
-    readonly_fields = ['created_at']
+    readonly_fields = ['created_by', 'created_at']

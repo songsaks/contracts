@@ -25,12 +25,20 @@
             margin-bottom: 20px;
         }
         .info-row {
-            display: flex;
-            justify-content: space-between;
+            position: relative;
             margin-bottom: 5px;
+            height: 24px; /* Ensure height for the absolute positioned label */
         }
         .label {
             font-weight: bold;
+            position: absolute;
+            left: 0;
+            top: 0;
+        }
+        .info-row span:last-child {
+            display: block;
+            width: 100%;
+            text-align: center;
         }
         
         table {
