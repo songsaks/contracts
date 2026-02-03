@@ -35,7 +35,7 @@
             <p class="mt-4 text-xl text-slate-500">Please select the system you want to access.</p>
         </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-7xl mx-auto">
             <!-- Contracts System Card -->
             <a href="/contracts/"
                 class="group relative bg-white rounded-2xl shadow-sm border border-slate-200 p-8 hover:shadow-xl hover:border-blue-300 transition-all duration-300 flex flex-col items-center text-center cursor-pointer transform hover:-translate-y-1">
@@ -99,6 +99,31 @@
                 <p class="mt-2 text-slate-500">Point of Sales & Inventory.</p>
                 <div
                     class="mt-6 text-green-600 font-medium flex items-center opacity-0 group-hover:opacity-100 transition-opacity">
+                    Enter System
+                    <svg class="ml-2 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                    </svg>
+                </div>
+            </a>
+
+            <!-- PMS System Card -->
+            <a href="{% url 'pms:project_list' %}"
+                class="group relative bg-white rounded-2xl shadow-sm border border-slate-200 p-8 hover:shadow-xl hover:border-cyan-300 transition-all duration-300 flex flex-col items-center text-center cursor-pointer transform hover:-translate-y-1">
+                <div
+                    class="h-20 w-20 bg-cyan-50 rounded-2xl flex items-center justify-center mb-6 group-hover:bg-cyan-100 transition-colors">
+                    <svg class="h-10 w-10 text-cyan-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+                    </svg>
+                </div>
+                <!-- PMS name in Thai as well/instead? Using English for main landing page consistency, maybe Thai subtitle? 
+                     User asked to 'Change all im PMS app to Thai', landing page is outside PMS but refers to it. 
+                     I'll stick to English for consistency with other cards on this page, or maybe "Project System (PMS)" -->
+                <h2 class="text-2xl font-bold text-slate-900 group-hover:text-cyan-600 transition-colors">Project System</h2>
+                <p class="mt-2 text-slate-500">Manage projects & services.</p>
+                <div
+                    class="mt-6 text-cyan-600 font-medium flex items-center opacity-0 group-hover:opacity-100 transition-opacity">
                     Enter System
                     <svg class="ml-2 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"

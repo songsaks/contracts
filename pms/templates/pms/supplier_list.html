@@ -1,0 +1,53 @@
+{% extends 'pms/base_pms.html' %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1>จัดการซัพพลายเออร์</h1>
+            <a href="{% url 'pms:supplier_create' %}" class="btn btn-primary">
+                <i class="fas fa-plus"></i> เพิ่มซัพพลายเออร์ใหม่
+            </a>
+        </div>
+
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th>ชื่อร้าน/บริษัท</th>
+                                <th>ผู้ติดต่อ</th>
+                                <th>เบอร์โทร</th>
+                                <th>อีเมล</th>
+                                <th>ที่อยู่</th>
+                                <th>จัดการ</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for supplier in suppliers %}
+                            <tr>
+                                <td class="fw-bold">{{ supplier.name }}</td>
+                                <td>{{ supplier.contact_name|default:"-" }}</td>
+                                <td>{{ supplier.phone|default:"-" }}</td>
+                                <td>{{ supplier.email|default:"-" }}</td>
+                                <td>{{ supplier.address|default:"-"|truncatechars:30 }}</td>
+                                <td>
+                                    <a href="{% url 'pms:supplier_update' supplier.pk %}" class="btn btn-sm btn-outline-secondary">
+                                        <i class="fas fa-edit"></i> แก้ไข
+                                    </a>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="6" class="text-center py-4 text-muted">ไม่พบข้อมูลซัพพลายเออร์</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
