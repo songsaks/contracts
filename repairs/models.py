@@ -1,5 +1,6 @@
 from django.db import models
 from django.utils import timezone
+from django.conf import settings
 import datetime
 
 class Customer(models.Model):
@@ -69,6 +70,7 @@ class RepairJob(models.Model):
     job_code = models.CharField(max_length=50, unique=True, editable=False)
     fix_id = models.CharField(max_length=50, blank=True, null=True, help_text="Manual Fix ID if needed") 
     customer = models.ForeignKey(Customer, on_delete=models.CASCADE, related_name='jobs')
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='created_repair_jobs')
     created_at = models.DateTimeField(default=timezone.now)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -124,6 +126,7 @@ class RepairItem(models.Model):
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='RECEIVED')
     status_note = models.TextField(blank=True, help_text="Reason for waiting or other status details")
     price = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='created_repair_items')
     
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

@@ -21,7 +21,8 @@ def repair_list(request):
             Q(device__model__icontains=q) |
             Q(device__serial_number__icontains=q) |
             Q(issue_description__icontains=q) |
-            Q(job__fix_id__icontains=q)
+            Q(job__fix_id__icontains=q) |
+            Q(created_by__username__icontains=q)
         ).distinct()
 
     # Filter by Status
@@ -76,12 +77,14 @@ def repair_create(request):
                 # Save Job linked to Customer
                 job = job_form.save(commit=False)
                 job.customer = customer
+                job.created_by = request.user
                 job.save()
                 
                 # Save Item linked to Job and Device
                 item = item_form.save(commit=False)
                 item.job = job
                 item.device = device
+                item.created_by = request.user
                 item.save()
                 item_form.save_m2m() # Save technicians
                 
