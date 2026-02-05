@@ -1,0 +1,177 @@
+{% extends 'pms/base_pms.html' %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card shadow-sm">
+            <div class="card-header bg-white py-3">
+                <h4 class="mb-0">{{ title }}</h4>
+            </div>
+            <div class="card-body">
+                <form method="post">
+                    {% csrf_token %}
+                    
+                    <div class="mb-3">
+                        <label for="{{ form.content.id_for_label }}" class="form-label">
+                            {{ form.content.label }}
+                        </label>
+                        <div class="input-group">
+                            {{ form.content }}
+                            <button type="button" class="btn btn-outline-secondary" id="btn-mic" title="กดเพื่อพูด">
+                                <i class="fas fa-microphone"></i>
+                            </button>
+                        </div>
+                        <div class="form-text text-muted" id="speech-status">กดปุ่มไมโครโฟนเพื่อเริ่มพูด (ใช้ Google Chrome)</div>
+                        {% if form.content.errors %}
+                        <div class="text-danger mt-1">
+                            {{ form.content.errors }}
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <div class="d-flex justify-content-end gap-2">
+                        <a href="{% url 'pms:requirement_list' %}" class="btn btn-light">ยกเลิก</a>
+                        <button type="submit" class="btn btn-primary">บันทึก</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const btnMic = document.getElementById('btn-mic');
+        const txtContent = document.getElementById('requirement-content');
+        const statusText = document.getElementById('speech-status');
+
+        // Check for Internet Connection (Required for Web Speech API)
+        if (!navigator.onLine) {
+            statusText.innerHTML = '<span class="text-danger"><i class="fas fa-wifi-slash"></i> ไม่ได้เชื่อมต่ออินเทอร์เน็ต (จำเป็นสำหรับการพิมพ์ด้วยเสียง)</span>';
+            btnMic.disabled = true;
+            return;
+        }
+
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+        if (SpeechRecognition) {
+            const recognition = new SpeechRecognition();
+            recognition.lang = 'th-TH';
+            recognition.continuous = true;
+            recognition.interimResults = true;
+
+            let isRecording = false;
+            let originalValue = "";
+
+            btnMic.addEventListener('click', function() {
+                if (isRecording) {
+                    recognition.stop();
+                } else {
+                    originalValue = txtContent.value;
+                    if (originalValue && !/\s$/.test(originalValue)) {
+                       originalValue += ' ';
+                    }
+                    try {
+                        recognition.start();
+                    } catch (e) {
+                        console.error('Error starting recognition:', e);
+                        statusText.innerText = "Error: " + e.message;
+                    }
+                }
+            });
+
+            // --- Status Events ---
+
+            recognition.onstart = function() {
+                isRecording = true;
+                btnMic.classList.remove('btn-outline-secondary');
+                btnMic.classList.add('btn-danger', 'pulse-animation');
+                btnMic.innerHTML = '<i class="fas fa-stop"></i>';
+                statusText.innerText = "กำลังเริ่มต้น... (ห้ามปิดไมค์)";
+                statusText.className = 'form-text text-primary fw-bold';
+            };
+
+            recognition.onaudiostart = function() {
+                // Fired when the user agent has started to capture audio.
+                statusText.innerText = "ตรวจพบสัญญาณเสียง... กำลังรับฟัง";
+            };
+            
+            recognition.onsoundstart = function() {
+                // Fired when any sound — recognizable speech or not — has been detected.
+                 console.log("Sound detected");
+            };
+
+            recognition.onend = function() {
+                isRecording = false;
+                btnMic.classList.remove('btn-danger', 'pulse-animation');
+                btnMic.classList.add('btn-outline-secondary');
+                btnMic.innerHTML = '<i class="fas fa-microphone"></i>';
+                statusText.innerText = "สิ้นสุดการรับฟัง (กดเพื่อพูดใหม่)";
+                statusText.className = 'form-text text-muted';
+            };
+
+            recognition.onnomatch = function(event) {
+                statusText.innerText = "ไม่สามารถจับใจความได้ กรุณาพูดใหม่";
+                statusText.className = 'form-text text-warning';
+            };
+
+            recognition.onerror = function(event) {
+                console.error("Speech Error:", event.error);
+                let msg = "Error: " + event.error;
+                
+                if (event.error === 'network') {
+                    msg = "ปัญหาการเชื่อมต่อเครือข่าย (ต้องใช้อินเทอร์เน็ต)";
+                } else if (event.error === 'not-allowed') {
+                    msg = "ถูกปฏิเสธการเข้าถึงไมโครโฟน";
+                } else if (event.error === 'no-speech') {
+                    msg = "ไม่ได้รับเสียงพูด (เงียบเกินไป)";
+                    // Don't stop merely for silence loop?
+                    // Actually usually good to let user restart manually.
+                }
+
+                statusText.innerText = msg;
+                statusText.className = 'form-text text-danger fw-bold';
+                
+                // Force stop UI state
+                if (isRecording) {
+                    isRecording = false;
+                    btnMic.classList.remove('btn-danger', 'pulse-animation');
+                    btnMic.classList.add('btn-outline-secondary');
+                    btnMic.innerHTML = '<i class="fas fa-microphone"></i>';
+                }
+            };
+
+            // --- Result Handling ---
+            
+            recognition.onresult = function(event) {
+                statusText.innerText = "กำลังแปลงเสียงเป็นข้อความ...";
+                
+                let combinedTranscript = '';
+                for (let i = 0; i < event.results.length; ++i) {
+                    combinedTranscript += event.results[i][0].transcript;
+                }
+
+                // Update UI immediately
+                txtContent.value = originalValue + combinedTranscript;
+                txtContent.scrollTop = txtContent.scrollHeight;
+            };
+            
+        } else {
+            btnMic.disabled = true;
+            statusText.innerText = "Browser ไม่รองรับ Web Speech API";
+            statusText.classList.add('text-danger');
+        }
+    });
+</script>
+
+<style>
+    @keyframes pulse {
+        0% { box-shadow: 0 0 0 0 rgba(220, 53, 69, 0.7); }
+        70% { box-shadow: 0 0 0 10px rgba(220, 53, 69, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(220, 53, 69, 0); }
+    }
+    .pulse-animation {
+        animation: pulse 1.5s infinite;
+    }
+</style>
+{% endblock %}

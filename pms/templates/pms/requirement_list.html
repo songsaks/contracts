@@ -1,0 +1,70 @@
+{% extends 'pms/base_pms.html' %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1>ความต้องการลูกค้า (Leads)</h1>
+            <a href="{% url 'pms:requirement_create' %}" class="btn btn-primary">
+                <i class="fas fa-microphone"></i> บันทึกความต้องการใหม่
+            </a>
+        </div>
+
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th style="width: 50%;">รายละเอียด</th>
+                                <th>วันที่บันทึก</th>
+                                <th>สถานะ</th>
+                                <th>จัดการ</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for req in requirements %}
+                            <tr>
+                                <td>{{ req.content|truncatechars:100 }}</td>
+                                <td>{{ req.created_at|date:"d M Y H:i" }}</td>
+                                <td>
+                                    {% if req.is_converted %}
+                                        <span class="badge bg-success">สร้างโครงการแล้ว</span>
+                                        {% if req.project %}
+                                            <a href="{% url 'pms:project_detail' req.project.pk %}" class="small ms-1 text-decoration-none">
+                                                <i class="fas fa-external-link-alt"></i> {{ req.project.name }}
+                                            </a>
+                                        {% endif %}
+                                    {% else %}
+                                        <span class="badge bg-warning text-dark">รอดำเนินการ</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div class="btn-group" role="group">
+                                        {% if not req.is_converted %}
+                                        <a href="{% url 'pms:create_project_from_requirement' req.pk %}" class="btn btn-sm btn-outline-primary" title="สร้างโครงการ">
+                                            <i class="fas fa-magic"></i>
+                                        </a>
+                                        {% endif %}
+                                        <a href="{% url 'pms:requirement_update' req.pk %}" class="btn btn-sm btn-outline-secondary" title="แก้ไข">
+                                            <i class="fas fa-edit"></i>
+                                        </a>
+                                        <a href="{% url 'pms:requirement_delete' req.pk %}" class="btn btn-sm btn-outline-danger" title="ลบ" onclick="return confirm('ยืนยันที่จะลบรายการนี้?');">
+                                            <i class="fas fa-trash"></i>
+                                        </a>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="4" class="text-center py-4 text-muted">ไม่พบข้อมูลความต้องการ</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

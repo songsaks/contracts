@@ -4,8 +4,8 @@ from django.contrib.auth.decorators import login_required
 from django.utils import timezone
 from django.db.models import Sum, Count, Q
 from decimal import Decimal
-from .models import Project, ProductItem, Customer, Supplier, ProjectOwner
-from .forms import ProjectForm, ProductItemForm, CustomerForm, SupplierForm, ProjectOwnerForm
+from .models import Project, ProductItem, Customer, Supplier, ProjectOwner, CustomerRequirement
+from .forms import ProjectForm, ProductItemForm, CustomerForm, SupplierForm, ProjectOwnerForm, CustomerRequirementForm
 
 @login_required
 def project_list(request):
@@ -290,3 +290,81 @@ def dashboard(request):
         'project_owners': ProjectOwner.objects.all(),
     }
     return render(request, 'pms/dashboard.html', context)
+
+# Customer Requirement Views
+@login_required
+def requirement_list(request):
+    requirements = CustomerRequirement.objects.all().order_by('-created_at')
+    return render(request, 'pms/requirement_list.html', {'requirements': requirements})
+
+@login_required
+def requirement_create(request):
+    if request.method == 'POST':
+        form = CustomerRequirementForm(request.POST)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'บันทึกความต้องการสำเร็จ')
+            return redirect('pms:requirement_list')
+    else:
+        form = CustomerRequirementForm()
+    return render(request, 'pms/requirement_form.html', {'form': form, 'title': 'บันทึกความต้องการเบื้องต้น'})
+
+@login_required
+def requirement_update(request, pk):
+    requirement = get_object_or_404(CustomerRequirement, pk=pk)
+    if request.method == 'POST':
+        form = CustomerRequirementForm(request.POST, instance=requirement)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'แก้ไขความต้องการสำเร็จ')
+            return redirect('pms:requirement_list')
+    else:
+        form = CustomerRequirementForm(instance=requirement)
+    return render(request, 'pms/requirement_form.html', {'form': form, 'title': 'แก้ไขความต้องการ'})
+
+@login_required
+def requirement_delete(request, pk):
+    requirement = get_object_or_404(CustomerRequirement, pk=pk)
+    requirement.delete()
+    messages.success(request, 'ลบรายการความต้องการสำเร็จ')
+    return redirect('pms:requirement_list')
+
+@login_required
+def create_project_from_requirement(request, pk):
+    requirement = get_object_or_404(CustomerRequirement, pk=pk)
+    if requirement.is_converted:
+        messages.warning(request, 'รายการนี้ถูกสร้างเป็นโครงการแล้ว')
+        if requirement.project:
+            return redirect('pms:project_detail', pk=requirement.project.pk)
+        return redirect('pms:requirement_list')
+
+    if request.method == 'POST':
+        form = ProjectForm(request.POST)
+        if form.is_valid():
+            project = form.save(commit=False)
+            # Append requirement content if description was modified, but usually user might just use it.
+            # Usually users edit description in the form.
+            # But we might want to ensure the requirement trails along if not passed in form?
+            # Actually if I default the form description to requirement content, the user can edit it.
+            # If they clear it, that's their choice.
+            project.save()
+            
+            # Link Requirement
+            requirement.is_converted = True
+            requirement.project = project
+            requirement.save()
+            
+            messages.success(request, 'สร้างโครงการจากความต้องการสำเร็จ')
+            return redirect('pms:project_detail', pk=project.pk)
+    else:
+        # Pre-fill description
+        initial_data = {
+            'description': requirement.content,
+            'name': f"โครงการใหม่ ({requirement.created_at.strftime('%d/%m/%Y')})",
+        }
+        form = ProjectForm(initial=initial_data)
+
+    return render(request, 'pms/project_form.html', {
+        'form': form, 
+        'title': 'สร้างโครงการจากความต้องการ',
+    })

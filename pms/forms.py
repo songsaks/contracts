@@ -1,5 +1,5 @@
 from django import forms
-from .models import Project, ProductItem, Customer, Supplier, ProjectOwner
+from .models import Project, ProductItem, Customer, Supplier, ProjectOwner, CustomerRequirement
 
 class CustomerForm(forms.ModelForm):
     class Meta:
@@ -68,4 +68,12 @@ class ProductItemForm(forms.ModelForm):
             'quantity': forms.NumberInput(attrs={'class': 'form-control'}),
             'unit_cost': forms.NumberInput(attrs={'class': 'form-control'}),
             'unit_price': forms.NumberInput(attrs={'class': 'form-control'}),
+        }
+
+class CustomerRequirementForm(forms.ModelForm):
+    class Meta:
+        model = CustomerRequirement
+        fields = ['content']
+        widgets = {
+            'content': forms.Textarea(attrs={'class': 'form-control', 'rows': 5, 'placeholder': 'พูดหรือพิมพ์รายละเอียดความต้องการ...', 'id': 'requirement-content'}),
         }
