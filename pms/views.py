@@ -10,18 +10,51 @@ from .forms import ProjectForm, ProductItemForm, CustomerForm, SupplierForm, Pro
 @login_required
 def project_list(request):
     projects = Project.objects.all().order_by('-created_at')
-    return render(request, 'pms/project_list.html', {'projects': projects})
+
+    # Filter
+    status_filter = request.GET.get('status')
+    if status_filter:
+        projects = projects.filter(status=status_filter)
+        
+    owner_filter = request.GET.get('owner')
+    if owner_filter:
+        projects = projects.filter(owner_id=owner_filter)
+
+    date_from = request.GET.get('date_from')
+    date_to = request.GET.get('date_to')
+    if date_from and date_to:
+        projects = projects.filter(created_at__date__range=[date_from, date_to])
+
+    context = {
+        'projects': projects,
+        'status_choices': Project.Status.choices,
+        'project_owners': ProjectOwner.objects.all(),
+    }
+    return render(request, 'pms/project_list.html', context)
 
 @login_required
 def project_detail(request, pk):
     project = get_object_or_404(Project, pk=pk)
     
-    # Handle Item Addition directly on detail page or via modal (simplified here as separate view usually, but let's see)
-    # Actually, let's keep it simple: display list + total value
-    
+    # Workflow steps (excluding CANCELLED for the happy path visualization)
+    workflow_steps = [
+        Project.Status.DRAFT,
+        Project.Status.SOURCING,
+        Project.Status.SUPPLIER_CHECK,
+        Project.Status.QUOTED,
+        Project.Status.CONTRACTED,
+        Project.Status.ORDERING,
+        Project.Status.RECEIVED_QC,
+        Project.Status.DELIVERY,
+        Project.Status.ACCEPTED,
+        Project.Status.BILLING,
+        Project.Status.CLOSED,
+    ]
+
     context = {
         'project': project,
         'items': project.items.all(),
+        'workflow_steps': workflow_steps,
         # total_value property is on the model
     }
     return render(request, 'pms/project_detail.html', context)

@@ -34,17 +34,17 @@ class ProjectOwner(models.Model):
 
 class Project(models.Model):
     class Status(models.TextChoices):
-        DRAFT = 'DRAFT', _('รวบรวมความต้องการ')
-        SOURCING = 'SOURCING', _('จัดหาของ')
-        SUPPLIER_CHECK = 'SUPPLIER_CHECK', _('เช็คราคาจากซัพพลายเออร์')
-        QUOTED = 'QUOTED', _('ออกใบเสนอราคา')
+        DRAFT = 'DRAFT', _('รวบรวม')
+        SOURCING = 'SOURCING', _('จัดหา')
+        SUPPLIER_CHECK = 'SUPPLIER_CHECK', _('เช็คราคา')
+        QUOTED = 'QUOTED', _('เสนอราคา')
         CONTRACTED = 'CONTRACTED', _('ทำสัญญา')
-        ORDERING = 'ORDERING', _('สั่งซื้อของ')
-        RECEIVED_QC = 'RECEIVED_QC', _('รับของ / ตรวจเช็ค')
-        DELIVERY = 'DELIVERY', _('ส่งมอบงาน')
-        ACCEPTED = 'ACCEPTED', _('ลูกค้าตรวจรับ')
-        BILLING = 'BILLING', _('วางบิล / เก็บเงิน')
-        CLOSED = 'CLOSED', _('ปิดโครงการ')
+        ORDERING = 'ORDERING', _('สั่งซื้อ')
+        RECEIVED_QC = 'RECEIVED_QC', _('รับของ/QC')
+        DELIVERY = 'DELIVERY', _('ส่งมอบ')
+        ACCEPTED = 'ACCEPTED', _('ตรวจรับ')
+        BILLING = 'BILLING', _('วางบิล')
+        CLOSED = 'CLOSED', _('ปิดจบ')
         CANCELLED = 'CANCELLED', _('ยกเลิก')
 
     name = models.CharField(max_length=255, verbose_name="ชื่อโครงการ")

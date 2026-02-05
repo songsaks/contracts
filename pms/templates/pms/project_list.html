@@ -11,6 +11,50 @@
         </a>
     </div>
 
+
+
+    <!-- Filters -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-light py-3">
+            <h5 class="card-title mb-0">ค้นหาและกรองข้อมูล</h5>
+        </div>
+        <div class="card-body">
+            <form method="get" class="row g-3 align-items-end">
+                <div class="col-md-2">
+                    <label class="form-label text-muted small">สถานะ</label>
+                    <select name="status" class="form-select">
+                        <option value="">ทั้งหมด</option>
+                        {% for code, label in status_choices %}
+                        <option value="{{ code }}" {% if request.GET.status == code %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label text-muted small">เจ้าของโครงการ</label>
+                    <select name="owner" class="form-select">
+                        <option value="">ทั้งหมด</option>
+                        {% for o in project_owners %}
+                        <option value="{{ o.id }}" {% if request.GET.owner == o.id|stringformat:"s" %}selected{% endif %}>{{ o.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label text-muted small">จากวันที่</label>
+                    <input type="date" name="date_from" class="form-control" value="{{ request.GET.date_from }}">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label text-muted small">ถึงวันที่</label>
+                    <input type="date" name="date_to" class="form-control" value="{{ request.GET.date_to }}">
+                </div>
+                <div class="col-md-3">
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-primary"><i class="fas fa-filter me-1"></i> กรองข้อมูล</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <div class="card shadow-sm">
         <div class="card-body">
             <div class="table-responsive">
