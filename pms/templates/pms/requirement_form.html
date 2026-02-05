@@ -68,14 +68,13 @@
         if (SpeechRecognition) {
             const recognition = new SpeechRecognition();
             recognition.lang = 'th-TH';
-            // We use continuous=true to prevent it from stopping on silence only, we control stop time manually
-            recognition.continuous = true; 
+            // Disable continuous mode to prevent mobile duplication bugs
+            // Users will speak one sentence/phrase, it will stop, then they can tap again.
+            recognition.continuous = false; 
             recognition.interimResults = true;
 
             let isRecording = false;
             let originalValue = "";
-            let timerInterval = null;
-            let timeLeft = 20;
 
             // Helper to toggle UI
             function setRecordingState(recording) {
@@ -83,31 +82,12 @@
                 if (recording) {
                     btnMic.classList.remove('btn-outline-primary');
                     btnMic.classList.add('btn-danger', 'pulse-animation');
-                    btnMic.innerHTML = '<span class="fw-bold" style="font-size: 1.5rem;">' + timeLeft + '</span>';
+                    btnMic.innerHTML = '<i class="fas fa-stop fa-2x"></i>';
                 } else {
                     btnMic.classList.remove('btn-danger', 'pulse-animation');
                     btnMic.classList.add('btn-outline-primary');
                     btnMic.innerHTML = '<i class="fas fa-microphone fa-2x"></i>';
-                    
-                    clearInterval(timerInterval);
-                    timerInterval = null;
                 }
-            }
-            
-            function startTimer() {
-                timeLeft = 20;
-                // Update immediately
-                btnMic.innerHTML = '<span class="fw-bold" style="font-size: 1.5rem;">' + timeLeft + '</span>';
-                
-                timerInterval = setInterval(function() {
-                    timeLeft--;
-                    if (timeLeft <= 0) {
-                        recognition.stop();
-                        // setRecordingState(false); // Called by onend
-                    } else {
-                        btnMic.innerHTML = '<span class="fw-bold" style="font-size: 1.5rem;">' + timeLeft + '</span>';
-                    }
-                }, 1000);
             }
 
             btnMic.addEventListener('click', function() {
@@ -130,20 +110,21 @@
             // --- Status Events ---
 
             recognition.onstart = function() {
-                startTimer();
                 setRecordingState(true);
                 statusText.innerText = "กำลังรับฟัง... (พูดได้เลย)";
                 statusText.className = 'text-primary fw-bold small';
             };
 
             recognition.onaudiostart = function() {
-                statusText.innerText = "กำลังรับฟัง...";
+                statusText.innerText = "ตรวจพบสัญญาณเสียง... กำลังรับฟัง";
             };
 
             recognition.onend = function() {
                 setRecordingState(false);
-                statusText.innerText = "แตะปุ่มเพื่อเริ่มใหม่";
+                statusText.innerText = "แตะปุ่มไมโครโฟนเพื่อเริ่มพูด";
                 statusText.className = 'text-muted small';
+                
+                // If we want to allow quick continuation, user just taps again.
             };
 
             recognition.onerror = function(event) {
@@ -155,17 +136,13 @@
                 } else if (event.error === 'not-allowed') {
                     msg = "ถูกปฏิเสธการเข้าถึงไมโครโฟน";
                 } else if (event.error === 'no-speech') {
-                    // Ignore no-speech error during the 20s window if possible? 
-                    // No, usually it aborts. We just let it abort.
-                    msg = "ไม่ได้รับเสียง";
+                    msg = "ไม่ได้รับเสียงพูด (ลองใหม่)";
                 }
 
                 statusText.innerText = msg;
                 statusText.className = 'text-danger fw-bold small';
                 
-                if (isRecording) {
-                    recognition.stop();
-                }
+                setRecordingState(false);
             };
 
             // --- Result Handling ---
@@ -173,30 +150,17 @@
             recognition.onresult = function(event) {
                 statusText.innerText = "กำลังแปลงข้อความ...";
                 
-                // Logic to handle continuous results without duplication
-                // We reconstruct the CURRENT SESSION transcript
-                let combinedTranscript = '';
-                for (let i = event.resultIndex; i < event.results.length; ++i) {
-                     if (event.results[i].isFinal) {
-                         // If final, append to original value permanently?
-                         // Actually, easiest way is to re-render the whole session.
-                         // But to avoid duplication, we rely on event.resultIndex behavior.
-                         // Actually, simple approach:
-                         // Just iterate all results in current event list?
-                         // No, event.results contains ALL results for this session.
-                     }
-                }
-                
-                // Simpler approach for 20s window:
-                // Just use the last one? No.
-                // Use standard full reconstruction.
-                
-                let sessionTranscript = '';
-                for (let i = 0; i < event.results.length; ++i) {
-                    sessionTranscript += event.results[i][0].transcript;
+                // With continuous=false, we usually get one result item
+                // Use the latest result to avoid any weird accumulation issues
+                let transcript = '';
+                if (event.results.length > 0) {
+                    // Get the last result index
+                    const len = event.results.length;
+                    const result = event.results[len - 1];
+                    transcript = result[0].transcript;
                 }
 
-                txtContent.value = originalValue + sessionTranscript;
+                txtContent.value = originalValue + transcript;
                 txtContent.scrollTop = txtContent.scrollHeight;
             };
             
