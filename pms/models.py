@@ -118,3 +118,16 @@ class ProductItem(models.Model):
     class Meta:
         verbose_name = "รายการสินค้า/บริการ"
         verbose_name_plural = "รายการสินค้า/บริการ"
+
+class CustomerRequirement(models.Model):
+    content = models.TextField(verbose_name="รายละเอียดความต้องการ (Voice/Text)")
+    created_at = models.DateTimeField(auto_now_add=True)
+    is_converted = models.BooleanField(default=False, verbose_name="สร้างเป็นโครงการแล้ว")
+    project = models.OneToOneField(Project, on_delete=models.SET_NULL, null=True, blank=True, related_name='requirement_source', verbose_name="โครงการที่สร้าง")
+
+    def __str__(self):
+        return f"ความต้องการเมื่อ {self.created_at.strftime('%d/%m/%Y %H:%M')}"
+
+    class Meta:
+        verbose_name = "ความต้องการลูกค้า (Lead)"
+        verbose_name_plural = "ความต้องการลูกค้า (Leads)"

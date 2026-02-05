@@ -27,4 +27,11 @@ urlpatterns = [
     path('owners/', views.project_owner_list, name='project_owner_list'),
     path('owners/create/', views.project_owner_create, name='project_owner_create'),
     path('owners/<int:pk>/edit/', views.project_owner_update, name='project_owner_update'),
+    
+    # Requirement / Leads
+    path('requirements/', views.requirement_list, name='requirement_list'),
+    path('requirements/create/', views.requirement_create, name='requirement_create'),
+    path('requirements/<int:pk>/edit/', views.requirement_update, name='requirement_update'),
+    path('requirements/<int:pk>/delete/', views.requirement_delete, name='requirement_delete'),
+    path('requirements/<int:pk>/create-project/', views.create_project_from_requirement, name='create_project_from_requirement'),
 ]
