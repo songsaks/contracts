@@ -25,9 +25,10 @@ SECRET_KEY = 'django-insecure-t$4@!6*b8w-imi#=d=b7fby==&+kb(daydvkn29t=1jcs4f*i)
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['72.62.72.22', 'www.9com.cloud']
+ALLOWED_HOSTS = ['72.62.72.22', 'app.9com.cloud', 'www.9com.cloud']
 
 CSRF_TRUSTED_ORIGINS = [
+    'https://app.9com.cloud',
     'http://localhost:8000',
     'http://127.0.0.1:8000',
 ]
