@@ -1,39 +1,51 @@
 {% extends 'pms/base_pms.html' %}
 
+
 {% block content %}
-<div class="row justify-content-center">
-    <div class="col-md-8">
-        <div class="card shadow-sm">
-            <div class="card-header bg-white py-3">
-                <h4 class="mb-0">{{ title }}</h4>
-            </div>
-            <div class="card-body">
-                <form method="post">
-                    {% csrf_token %}
+<div class="container-fluid px-0 px-md-3">
+    <div class="row justify-content-center">
+        <div class="col-md-8 col-lg-6">
+            <div class="card shadow-sm border-0 border-md-1">
+                <div class="card-body p-3 p-md-4">
+                    <h5 class="card-title mb-4 fw-bold">{{ title }}</h5>
                     
-                    <div class="mb-3">
-                        <label for="{{ form.content.id_for_label }}" class="form-label">
-                            {{ form.content.label }}
-                        </label>
-                        <div class="input-group">
+                    <form method="post">
+                        {% csrf_token %}
+                        
+                        <!-- Text Input Area -->
+                        <div class="mb-4">
+                            <!-- We use the form widget directly but ensure it has proper spacing -->
                             {{ form.content }}
-                            <button type="button" class="btn btn-outline-secondary" id="btn-mic" title="กดเพื่อพูด">
-                                <i class="fas fa-microphone"></i>
+                            {% if form.content.errors %}
+                            <div class="text-danger mt-1 small">
+                                {{ form.content.errors }}
+                            </div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Status Text -->
+                        <div class="text-center mb-3 text-truncate" style="min-height: 24px;">
+                            <span id="speech-status" class="text-muted small">แตะปุ่มไมโครโฟนเพื่อเริ่มพูด</span>
+                        </div>
+
+                        <!-- Large Mic Button -->
+                        <div class="d-flex justify-content-center mb-5">
+                            <button type="button" id="btn-mic" class="btn btn-outline-primary rounded-circle shadow-sm d-flex align-items-center justify-content-center" style="width: 80px; height: 80px; border-width: 2px;">
+                                <i class="fas fa-microphone fa-2x"></i>
                             </button>
                         </div>
-                        <div class="form-text text-muted" id="speech-status">กดปุ่มไมโครโฟนเพื่อเริ่มพูด (ใช้ Google Chrome)</div>
-                        {% if form.content.errors %}
-                        <div class="text-danger mt-1">
-                            {{ form.content.errors }}
-                        </div>
-                        {% endif %}
-                    </div>
 
-                    <div class="d-flex justify-content-end gap-2">
-                        <a href="{% url 'pms:requirement_list' %}" class="btn btn-light">ยกเลิก</a>
-                        <button type="submit" class="btn btn-primary">บันทึก</button>
-                    </div>
-                </form>
+                        <!-- Actions -->
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary btn-lg py-3 rounded-pill fw-bold shadow-sm">
+                                <i class="fas fa-save me-2"></i> บันทึกข้อมูล
+                            </button>
+                            <a href="{% url 'pms:requirement_list' %}" class="btn btn-light btn-lg rounded-pill text-muted">
+                                ยกเลิก
+                            </a>
+                        </div>
+                    </form>
+                </div>
             </div>
         </div>
     </div>
@@ -45,9 +57,9 @@
         const txtContent = document.getElementById('requirement-content');
         const statusText = document.getElementById('speech-status');
 
-        // Check for Internet Connection (Required for Web Speech API)
+        // Check for Internet Connection
         if (!navigator.onLine) {
-            statusText.innerHTML = '<span class="text-danger"><i class="fas fa-wifi-slash"></i> ไม่ได้เชื่อมต่ออินเทอร์เน็ต (จำเป็นสำหรับการพิมพ์ด้วยเสียง)</span>';
+            statusText.innerHTML = '<span class="text-danger"><i class="fas fa-wifi-slash"></i> ไม่ได้เชื่อมต่ออินเทอร์เน็ต</span>';
             btnMic.disabled = true;
             return;
         }
@@ -62,6 +74,20 @@
 
             let isRecording = false;
             let originalValue = "";
+
+            // Helper to toggle UI
+            function setRecordingState(recording) {
+                isRecording = recording;
+                if (recording) {
+                    btnMic.classList.remove('btn-outline-primary');
+                    btnMic.classList.add('btn-danger', 'pulse-animation');
+                    btnMic.innerHTML = '<i class="fas fa-stop fa-2x"></i>';
+                } else {
+                    btnMic.classList.remove('btn-danger', 'pulse-animation');
+                    btnMic.classList.add('btn-outline-primary');
+                    btnMic.innerHTML = '<i class="fas fa-microphone fa-2x"></i>';
+                }
+            }
 
             btnMic.addEventListener('click', function() {
                 if (isRecording) {
@@ -83,36 +109,19 @@
             // --- Status Events ---
 
             recognition.onstart = function() {
-                isRecording = true;
-                btnMic.classList.remove('btn-outline-secondary');
-                btnMic.classList.add('btn-danger', 'pulse-animation');
-                btnMic.innerHTML = '<i class="fas fa-stop"></i>';
-                statusText.innerText = "กำลังเริ่มต้น... (ห้ามปิดไมค์)";
-                statusText.className = 'form-text text-primary fw-bold';
+                setRecordingState(true);
+                statusText.innerText = "กำลังรับฟัง... (พูดได้เลย)";
+                statusText.className = 'text-primary fw-bold small';
             };
 
             recognition.onaudiostart = function() {
-                // Fired when the user agent has started to capture audio.
                 statusText.innerText = "ตรวจพบสัญญาณเสียง... กำลังรับฟัง";
-            };
-            
-            recognition.onsoundstart = function() {
-                // Fired when any sound — recognizable speech or not — has been detected.
-                 console.log("Sound detected");
             };
 
             recognition.onend = function() {
-                isRecording = false;
-                btnMic.classList.remove('btn-danger', 'pulse-animation');
-                btnMic.classList.add('btn-outline-secondary');
-                btnMic.innerHTML = '<i class="fas fa-microphone"></i>';
-                statusText.innerText = "สิ้นสุดการรับฟัง (กดเพื่อพูดใหม่)";
-                statusText.className = 'form-text text-muted';
-            };
-
-            recognition.onnomatch = function(event) {
-                statusText.innerText = "ไม่สามารถจับใจความได้ กรุณาพูดใหม่";
-                statusText.className = 'form-text text-warning';
+                setRecordingState(false);
+                statusText.innerText = "แตะปุ่มไมโครโฟนเพื่อเริ่มพูด";
+                statusText.className = 'text-muted small';
             };
 
             recognition.onerror = function(event) {
@@ -120,38 +129,31 @@
                 let msg = "Error: " + event.error;
                 
                 if (event.error === 'network') {
-                    msg = "ปัญหาการเชื่อมต่อเครือข่าย (ต้องใช้อินเทอร์เน็ต)";
+                    msg = "ปัญหาการเชื่อมต่อเครือข่าย";
                 } else if (event.error === 'not-allowed') {
                     msg = "ถูกปฏิเสธการเข้าถึงไมโครโฟน";
                 } else if (event.error === 'no-speech') {
-                    msg = "ไม่ได้รับเสียงพูด (เงียบเกินไป)";
-                    // Don't stop merely for silence loop?
-                    // Actually usually good to let user restart manually.
+                    msg = "ไม่ได้รับเสียงพูด (ลองใหม่)";
                 }
 
                 statusText.innerText = msg;
-                statusText.className = 'form-text text-danger fw-bold';
+                statusText.className = 'text-danger fw-bold small';
                 
-                // Force stop UI state
                 if (isRecording) {
-                    isRecording = false;
-                    btnMic.classList.remove('btn-danger', 'pulse-animation');
-                    btnMic.classList.add('btn-outline-secondary');
-                    btnMic.innerHTML = '<i class="fas fa-microphone"></i>';
+                    setRecordingState(false);
                 }
             };
 
             // --- Result Handling ---
             
             recognition.onresult = function(event) {
-                statusText.innerText = "กำลังแปลงเสียงเป็นข้อความ...";
+                statusText.innerText = "กำลังแปลงข้อความ...";
                 
                 let combinedTranscript = '';
                 for (let i = 0; i < event.results.length; ++i) {
                     combinedTranscript += event.results[i][0].transcript;
                 }
 
-                // Update UI immediately
                 txtContent.value = originalValue + combinedTranscript;
                 txtContent.scrollTop = txtContent.scrollHeight;
             };
@@ -159,7 +161,7 @@
         } else {
             btnMic.disabled = true;
             statusText.innerText = "Browser ไม่รองรับ Web Speech API";
-            statusText.classList.add('text-danger');
+            statusText.className = 'text-danger small';
         }
     });
 </script>
@@ -167,11 +169,23 @@
 <style>
     @keyframes pulse {
         0% { box-shadow: 0 0 0 0 rgba(220, 53, 69, 0.7); }
-        70% { box-shadow: 0 0 0 10px rgba(220, 53, 69, 0); }
+        70% { box-shadow: 0 0 0 15px rgba(220, 53, 69, 0); }
         100% { box-shadow: 0 0 0 0 rgba(220, 53, 69, 0); }
     }
     .pulse-animation {
         animation: pulse 1.5s infinite;
+    }
+    textarea#requirement-content {
+        font-size: 1.1rem;
+        border-radius: 12px;
+        padding: 1rem;
+        background-color: #f8f9fa;
+        border: 1px solid #e9ecef;
+    }
+    textarea#requirement-content:focus {
+        background-color: #fff;
+        box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.15);
+        border-color: #86b7fe;
     }
 </style>
 {% endblock %}
