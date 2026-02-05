@@ -56,6 +56,7 @@
         const txtContent = document.getElementById('requirement-content');
         const statusText = document.getElementById('speech-status');
 
+        // Check for Internet Connection
         if (!navigator.onLine) {
             statusText.innerHTML = '<span class="text-danger"><i class="fas fa-wifi-slash"></i> ไม่ได้เชื่อมต่ออินเทอร์เน็ต</span>';
             btnMic.disabled = true;
@@ -67,15 +68,17 @@
         if (SpeechRecognition) {
             const recognition = new SpeechRecognition();
             recognition.lang = 'th-TH';
-            recognition.continuous = true; 
+            // Disable continuous mode to prevent mobile duplication bugs
+            // Users will speak one sentence/phrase, it will stop, then they can tap again.
+            recognition.continuous = false; 
             recognition.interimResults = true;
 
-            let isListening = false; // Intended state
-            let baseContent = ""; // Content before current speech session
-            let finalTranscript = ""; // Finalized speech in this session
-            let restartTimer = null;
+            let isRecording = false;
+            let originalValue = "";
 
-            function updateUI(recording) {
+            // Helper to toggle UI
+            function setRecordingState(recording) {
+                isRecording = recording;
                 if (recording) {
                     btnMic.classList.remove('btn-outline-primary');
                     btnMic.classList.add('btn-danger', 'pulse-animation');
@@ -88,27 +91,18 @@
             }
 
             btnMic.addEventListener('click', function() {
-                if (isListening) {
-                    // User wants to STOP
-                    isListening = false;
+                if (isRecording) {
                     recognition.stop();
-                    // Clear restart timer if exists
-                    if (restartTimer) clearTimeout(restartTimer);
-                    statusText.innerText = "กำลังจบบันทึก...";
                 } else {
-                    // User wants to START
-                    isListening = true;
-                    // Capture current text to append to
-                    baseContent = txtContent.value;
-                    if (baseContent && !/\s$/.test(baseContent)) {
-                       baseContent += ' ';
+                    originalValue = txtContent.value;
+                    if (originalValue && !/\s$/.test(originalValue)) {
+                       originalValue += ' ';
                     }
-                    finalTranscript = ""; // Reset session text
-                    
                     try {
                         recognition.start();
                     } catch (e) {
-                        console.error("Start error:", e);
+                        console.error('Error starting recognition:', e);
+                        statusText.innerText = "Error: " + e.message;
                     }
                 }
             });
@@ -116,79 +110,57 @@
             // --- Status Events ---
 
             recognition.onstart = function() {
-                updateUI(true);
+                setRecordingState(true);
                 statusText.innerText = "กำลังรับฟัง... (พูดได้เลย)";
                 statusText.className = 'text-primary fw-bold small';
             };
 
+            recognition.onaudiostart = function() {
+                statusText.innerText = "ตรวจพบสัญญาณเสียง... กำลังรับฟัง";
+            };
+
             recognition.onend = function() {
-                updateUI(false);
-                if (isListening) {
-                    // Auto-restart if Intended State is Listening (Continuous Mode)
-                    // First, sync baseContent with what we have
-                    baseContent = txtContent.value;
-                    if (baseContent && !/\s$/.test(baseContent)) {
-                       baseContent += ' ';
-                    }
-                    finalTranscript = "";
-                    
-                    statusText.innerText = "กำลังเชื่อมต่อไมโครโฟนใหม่...";
-                    
-                    // Restart logic
-                    restartTimer = setTimeout(() => {
-                        try {
-                            if (isListening) recognition.start();
-                        } catch(e) { console.log("Restart ignore", e); }
-                    }, 300);
-                } else {
-                    statusText.innerText = "แตะปุ่มไมโครโฟนเพื่อเริ่มพูด";
-                    statusText.className = 'text-muted small';
-                }
+                setRecordingState(false);
+                statusText.innerText = "แตะปุ่มไมโครโฟนเพื่อเริ่มพูด";
+                statusText.className = 'text-muted small';
+                
+                // If we want to allow quick continuation, user just taps again.
             };
 
             recognition.onerror = function(event) {
                 console.error("Speech Error:", event.error);
                 let msg = "Error: " + event.error;
                 
-                if (event.error === 'no-speech') {
-                    // Ignore no-speech errors in continuous mode
-                    return; 
-                } 
-                if (event.error === 'not-allowed') {
+                if (event.error === 'network') {
+                    msg = "ปัญหาการเชื่อมต่อเครือข่าย";
+                } else if (event.error === 'not-allowed') {
                     msg = "ถูกปฏิเสธการเข้าถึงไมโครโฟน";
-                    isListening = false; // Fatal
-                } else if (event.error === 'network') {
-                    msg = "ปัญหาอินเทอร์เน็ต";
-                    isListening = false; // Fatal
+                } else if (event.error === 'no-speech') {
+                    msg = "ไม่ได้รับเสียงพูด (ลองใหม่)";
                 }
 
                 statusText.innerText = msg;
                 statusText.className = 'text-danger fw-bold small';
                 
-                if (!isListening) {
-                    updateUI(false);
-                }
+                setRecordingState(false);
             };
 
             // --- Result Handling ---
             
             recognition.onresult = function(event) {
-                // Clear status occasionally
-                statusText.innerText = "กำลังรับฟัง...";
-
-                let interimTranscript = '';
+                statusText.innerText = "กำลังแปลงข้อความ...";
                 
-                // Use resultIndex to only process new parts if possible
-                for (let i = event.resultIndex; i < event.results.length; ++i) {
-                    if (event.results[i].isFinal) {
-                        finalTranscript += event.results[i][0].transcript;
-                    } else {
-                        interimTranscript += event.results[i][0].transcript;
-                    }
+                // With continuous=false, we usually get one result item
+                // Use the latest result to avoid any weird accumulation issues
+                let transcript = '';
+                if (event.results.length > 0) {
+                    // Get the last result index
+                    const len = event.results.length;
+                    const result = event.results[len - 1];
+                    transcript = result[0].transcript;
                 }
 
-                // Render: Previous Existing Text + Finalized Session Text + Interim Text
-                txtContent.value = baseContent + finalTranscript + interimTranscript;
+                txtContent.value = originalValue + transcript;
                 txtContent.scrollTop = txtContent.scrollHeight;
             };
             
