@@ -23,6 +23,27 @@
         </div>
     </div>
 
+    <!-- Workflow Progress -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-body">
+            <h5 class="card-title mb-3">ขั้นตอนการดำเนินงาน</h5>
+            <div class="d-flex overflow-auto py-2 align-items-center">
+                {% for step in workflow_steps %}
+                    <div class="d-flex align-items-center flex-shrink-0">
+                        <div class="card p-2 text-center text-nowrap {% if step == project.status %}bg-primary text-white shadow fw-bold border-primary{% else %}bg-white text-muted border{% endif %}" style="min-width: 80px;">
+                            <div style="font-size: 0.85rem;">{{ step.label }}</div>
+                        </div>
+                        {% if not forloop.last %}
+                            <div class="mx-1 text-muted small">
+                                <i class="fas fa-chevron-right"></i>
+                            </div>
+                        {% endif %}
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
     <div class="row">
         <!-- Project Info -->
         <div class="col-md-4 mb-4">
