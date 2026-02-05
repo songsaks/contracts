@@ -5,7 +5,7 @@
         <div class="col-md-8">
             <div class="card shadow-sm">
                 <div class="card-header bg-light">
-                    <h4 class="mb-0">เพิ่มรายการใน {{ project.name }}</h4>
+                    <h4 class="mb-0">{{ title }}</h4>
                 </div>
                 <div class="card-body">
                     <form method="post">
@@ -59,7 +59,7 @@
 
                         <div class="d-flex justify-content-end gap-2 mt-3">
                             <a href="{% url 'pms:project_detail' project.pk %}" class="btn btn-secondary">ยกเลิก</a>
-                            <button type="submit" class="btn btn-primary">เพิ่มรายการ</button>
+                            <button type="submit" class="btn btn-primary">{% if form.instance.pk %}บันทึกการแก้ไข{% else %}เพิ่มรายการ{% endif %}</button>
                         </div>
                     </form>
                 </div>

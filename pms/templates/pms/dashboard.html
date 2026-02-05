@@ -69,7 +69,7 @@
     </div>
     <div class="card-body">
         <form method="get" class="row g-3 align-items-end mb-4">
-            <div class="col-md-3">
+            <div class="col-md-2">
                 <label class="form-label text-muted small">สถานะ</label>
                 <select name="status" class="form-select">
                     <option value="">ทั้งหมด</option>
@@ -79,10 +79,19 @@
                 </select>
             </div>
             <div class="col-md-3">
+                <label class="form-label text-muted small">เจ้าของโครงการ</label>
+                <select name="owner" class="form-select">
+                    <option value="">ทั้งหมด</option>
+                    {% for o in project_owners %}
+                    <option value="{{ o.id }}" {% if request.GET.owner == o.id|stringformat:"s" %}selected{% endif %}>{{ o.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
                 <label class="form-label text-muted small">จากวันที่</label>
                 <input type="date" name="date_from" class="form-control" value="{{ request.GET.date_from }}">
             </div>
-            <div class="col-md-3">
+            <div class="col-md-2">
                 <label class="form-label text-muted small">ถึงวันที่</label>
                 <input type="date" name="date_to" class="form-control" value="{{ request.GET.date_to }}">
             </div>
@@ -99,6 +108,7 @@
                     <tr>
                         <th>ชื่อโครงการ</th>
                         <th>ลูกค้า</th>
+                        <th>เจ้าของโครงการ</th>
                         <th>สถานะ</th>
                         <th>มูลค่า</th>
                         <th>วันที่เริ่ม</th>
@@ -114,8 +124,9 @@
                             </a>
                         </td>
                         <td>{{ project.customer.name }}</td>
+                        <td>{{ project.owner.name|default:"-" }}</td>
                         <td>
-                            <span class="badge bg-secondary">{{ project.get_status_display }}</span>
+                            <span class="badge bg-primary">{{ project.get_status_display }}</span>
                         </td>
                         <td>&#3647;{{ project.total_value|floatformat:2|intcomma }}</td>
                         <td>{{ project.start_date|date:"d/m/Y" }}</td>

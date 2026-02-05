@@ -1,5 +1,5 @@
 from django import forms
-from .models import Project, ProductItem, Customer, Supplier
+from .models import Project, ProductItem, Customer, Supplier, ProjectOwner
 
 class CustomerForm(forms.ModelForm):
     class Meta:
@@ -31,17 +31,29 @@ class SupplierForm(forms.ModelForm):
             'address': 'ที่อยู่',
         }
 
+class ProjectOwnerForm(forms.ModelForm):
+    class Meta:
+        model = ProjectOwner
+        fields = ['name', 'position', 'email', 'phone']
+        widgets = {
+            'name': forms.TextInput(attrs={'class': 'form-control'}),
+            'position': forms.TextInput(attrs={'class': 'form-control'}),
+            'email': forms.EmailInput(attrs={'class': 'form-control'}),
+            'phone': forms.TextInput(attrs={'class': 'form-control'}),
+        }
+
 class ProjectForm(forms.ModelForm):
     class Meta:
         model = Project
-        fields = ['name', 'customer', 'description', 'status', 'start_date', 'deadline']
+        fields = ['name', 'customer', 'owner', 'status', 'start_date', 'deadline', 'description']
         widgets = {
             'name': forms.TextInput(attrs={'class': 'form-control'}),
             'customer': forms.Select(attrs={'class': 'form-select'}),
-            'description': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
+            'owner': forms.Select(attrs={'class': 'form-select'}),
             'status': forms.Select(attrs={'class': 'form-select'}),
             'start_date': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
             'deadline': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
+            'description': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
         }
 
 class ProductItemForm(forms.ModelForm):
