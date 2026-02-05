@@ -1,15 +1,18 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib import messages
+from django.contrib.auth.decorators import login_required
 from django.utils import timezone
 from django.db.models import Sum, Count, Q
 from decimal import Decimal
-from .models import Project, ProductItem, Customer, Supplier
-from .forms import ProjectForm, ProductItemForm, CustomerForm, SupplierForm
+from .models import Project, ProductItem, Customer, Supplier, ProjectOwner
+from .forms import ProjectForm, ProductItemForm, CustomerForm, SupplierForm, ProjectOwnerForm
 
+@login_required
 def project_list(request):
     projects = Project.objects.all().order_by('-created_at')
     return render(request, 'pms/project_list.html', {'projects': projects})
 
+@login_required
 def project_detail(request, pk):
     project = get_object_or_404(Project, pk=pk)
     
@@ -23,6 +26,7 @@ def project_detail(request, pk):
     }
     return render(request, 'pms/project_detail.html', context)
 
+@login_required
 def project_create(request):
     if request.method == 'POST':
         form = ProjectForm(request.POST)
@@ -34,6 +38,7 @@ def project_create(request):
         form = ProjectForm()
     return render(request, 'pms/project_form.html', {'form': form, 'title': 'สร้างโครงการใหม่'})
 
+@login_required
 def project_update(request, pk):
     project = get_object_or_404(Project, pk=pk)
     if request.method == 'POST':
@@ -46,6 +51,7 @@ def project_update(request, pk):
         form = ProjectForm(instance=project)
     return render(request, 'pms/project_form.html', {'form': form, 'title': 'แก้ไขโครงการ'})
 
+@login_required
 def item_add(request, project_id):
     project = get_object_or_404(Project, pk=project_id)
     if request.method == 'POST':
@@ -58,8 +64,23 @@ def item_add(request, project_id):
             return redirect('pms:project_detail', pk=project.pk)
     else:
         form = ProductItemForm()
-    return render(request, 'pms/item_form.html', {'form': form, 'project': project})
+    return render(request, 'pms/item_form.html', {'form': form, 'project': project, 'title': f'เพิ่มรายการใน {project.name}'})
 
+@login_required
+def item_update(request, item_id):
+    item = get_object_or_404(ProductItem, pk=item_id)
+    project = item.project
+    if request.method == 'POST':
+        form = ProductItemForm(request.POST, instance=item)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'แก้ไขรายการสำเร็จ')
+            return redirect('pms:project_detail', pk=project.pk)
+    else:
+        form = ProductItemForm(instance=item)
+    return render(request, 'pms/item_form.html', {'form': form, 'project': project, 'title': f'แก้ไขรายการ {item.name}'})
+
+@login_required
 def item_delete(request, item_id):
     item = get_object_or_404(ProductItem, pk=item_id)
     project_pk = item.project.pk
@@ -68,10 +89,12 @@ def item_delete(request, item_id):
     return redirect('pms:project_detail', pk=project_pk)
 
 # Customer Views
+@login_required
 def customer_list(request):
     customers = Customer.objects.all().order_by('-created_at')
     return render(request, 'pms/customer_list.html', {'customers': customers})
 
+@login_required
 def customer_create(request):
     if request.method == 'POST':
         # Reuse ProjectForm style but for Customer?
@@ -90,6 +113,7 @@ def customer_create(request):
         form = CustomerForm()
     return render(request, 'pms/customer_form.html', {'form': form, 'title': 'เพิ่มลูกค้าใหม่'})
 
+@login_required
 def customer_update(request, pk):
     customer = get_object_or_404(Customer, pk=pk)
 
@@ -105,10 +129,12 @@ def customer_update(request, pk):
     return render(request, 'pms/customer_form.html', {'form': form, 'title': 'แก้ไขข้อมูลลูกค้า'})
 
 # Supplier Views
+@login_required
 def supplier_list(request):
     suppliers = Supplier.objects.all().order_by('-created_at')
     return render(request, 'pms/supplier_list.html', {'suppliers': suppliers})
 
+@login_required
 def supplier_create(request):
     if request.method == 'POST':
         form = SupplierForm(request.POST)
@@ -120,6 +146,7 @@ def supplier_create(request):
         form = SupplierForm()
     return render(request, 'pms/supplier_form.html', {'form': form, 'title': 'เพิ่มซัพพลายเออร์ใหม่'})
 
+@login_required
 def supplier_update(request, pk):
     supplier = get_object_or_404(Supplier, pk=pk)
     if request.method == 'POST':
@@ -132,7 +159,39 @@ def supplier_update(request, pk):
         form = SupplierForm(instance=supplier)
     return render(request, 'pms/supplier_form.html', {'form': form, 'title': 'แก้ไขข้อมูลซัพพลายเออร์'})
 
+# Project Owner Views
+@login_required
+def project_owner_list(request):
+    owners = ProjectOwner.objects.all().order_by('name')
+    return render(request, 'pms/project_owner_list.html', {'owners': owners})
+
+@login_required
+def project_owner_create(request):
+    if request.method == 'POST':
+        form = ProjectOwnerForm(request.POST)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'เพิ่มเจ้าของโครงการสำเร็จ')
+            return redirect('pms:project_owner_list')
+    else:
+        form = ProjectOwnerForm()
+    return render(request, 'pms/project_owner_form.html', {'form': form, 'title': 'เพิ่มเจ้าของโครงการ'})
+
+@login_required
+def project_owner_update(request, pk):
+    owner = get_object_or_404(ProjectOwner, pk=pk)
+    if request.method == 'POST':
+        form = ProjectOwnerForm(request.POST, instance=owner)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'อัปเดตข้อมูลเจ้าของโครงการสำเร็จ')
+            return redirect('pms:project_owner_list')
+    else:
+        form = ProjectOwnerForm(instance=owner)
+    return render(request, 'pms/project_owner_form.html', {'form': form, 'title': 'แก้ไขข้อมูลเจ้าของโครงการ'})
+
 # Report View
+@login_required
 def project_quotation(request, pk):
     project = get_object_or_404(Project, pk=pk)
     # Calculate totals
@@ -153,6 +212,7 @@ def project_quotation(request, pk):
     return render(request, 'pms/project_quotation.html', context)
 
 # Dashboard
+@login_required
 def dashboard(request):
     projects = Project.objects.all()
     
@@ -161,6 +221,10 @@ def dashboard(request):
     if status_filter:
         projects = projects.filter(status=status_filter)
         
+    owner_filter = request.GET.get('owner')
+    if owner_filter:
+        projects = projects.filter(owner_id=owner_filter)
+
     date_from = request.GET.get('date_from')
     date_to = request.GET.get('date_to')
     if date_from and date_to:
@@ -190,5 +254,6 @@ def dashboard(request):
         'completed_projects': completed_projects,
         'total_revenue': total_revenue,
         'status_choices': Project.Status.choices,
+        'project_owners': ProjectOwner.objects.all(),
     }
     return render(request, 'pms/dashboard.html', context)

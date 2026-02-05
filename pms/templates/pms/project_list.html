@@ -19,6 +19,7 @@
                         <tr>
                             <th>ชื่อโครงการ</th>
                             <th>ลูกค้า</th>
+                            <th>เจ้าของโครงการ</th>
                             <th>สถานะ</th>
                             <th>มูลค่าโครงการ</th>
                             <th>วันที่สร้าง</th>
@@ -37,8 +38,9 @@
                                 {% endif %}
                             </td>
                             <td>{{ project.customer.name }}</td>
+                            <td>{{ project.owner.name|default:"-" }}</td>
                             <td>
-                                <span class="badge bg-secondary">{{ project.get_status_display }}</span>
+                                <span class="badge bg-primary">{{ project.get_status_display }}</span>
                             </td>
                             <td>&#3647;{{ project.total_value|floatformat:2|intcomma }}</td>
                             <td>{{ project.created_at|date:"d M Y" }}</td>

@@ -19,7 +19,7 @@
         }
     </script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700&display=swap');
 
         body {
             font-family: 'Inter', sans-serif;
@@ -27,45 +27,46 @@
     </style>
 </head>
 
-<body class="bg-slate-50 text-slate-900 min-h-screen flex flex-col">
-    <nav class="bg-white border-b border-slate-200 shadow-sm sticky top-0 z-50">
+<body class="bg-slate-50 text-slate-900 min-h-screen flex flex-col {% if request.resolver_match.app_name == 'repairs' %}font-['Outfit']{% endif %}">
+    <nav class="{% if request.resolver_match.app_name == 'repairs' %}bg-gradient-to-r from-[#2c3e50] to-[#34495e] text-white shadow-md{% else %}bg-white border-b border-slate-200 shadow-sm{% endif %} sticky top-0 z-50">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex justify-between h-16">
                 <div class="flex">
                     <div class="flex-shrink-0 flex items-center">
-                        <a href="/repairs/" class="text-xl font-bold text-primary">ระบบงานซ่อม</a>
+                        <a href="/repairs/" class="text-xl font-bold {% if request.resolver_match.app_name == 'repairs' %}text-white{% else %}text-primary{% endif %}">ระบบงานซ่อม</a>
                     </div>
-                    <div class="hidden sm:ml-6 sm:flex sm:space-x-8">
+                    <div class="hidden sm:ml-6 sm:flex sm:space-x-8 items-center">
                         <a href="/"
-                            class="border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
+                            class="{% if request.resolver_match.app_name == 'repairs' %}text-white/80 hover:text-white hover:bg-white/10 rounded-md px-3 py-2 border-0{% else %}border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700 inline-flex items-center px-1 pt-1 border-b-2{% endif %} text-sm font-medium">
                             หน้าหลัก
                         </a>
 
                         {% if request.resolver_match.app_name == 'repairs' %}
                         <!-- Repairs Menu -->
+                        <!-- Repairs Menu -->
                         <a href="{% url 'repairs:repair_list' %}"
-                            class="border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
+                            class="text-white/80 hover:text-white hover:bg-white/10 rounded-md px-3 py-2 text-sm font-medium transition-colors">
                             รายการงานซ่อม
                         </a>
                         <a href="{% url 'repairs:repair_create' %}"
-                            class="border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
+                            class="text-white/80 hover:text-white hover:bg-white/10 rounded-md px-3 py-2 text-sm font-medium transition-colors">
                             สร้างงานซ่อม
                         </a>
                         <a href="{% url 'repairs:customer_list' %}"
-                            class="border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
+                            class="text-white/80 hover:text-white hover:bg-white/10 rounded-md px-3 py-2 text-sm font-medium transition-colors">
                             ลูกค้า
                         </a>
 
                         <a href="{% url 'repairs:technician_list' %}"
-                            class="border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
+                            class="text-white/80 hover:text-white hover:bg-white/10 rounded-md px-3 py-2 text-sm font-medium transition-colors">
                             พนักงานช่าง
                         </a>
                         <a href="{% url 'repairs:device_type_list' %}"
-                            class="border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
+                            class="text-white/80 hover:text-white hover:bg-white/10 rounded-md px-3 py-2 text-sm font-medium transition-colors">
                             ประเภทอุปกรณ์
                         </a>
                         <a href="{% url 'repairs:brand_list' %}"
-                            class="border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
+                            class="text-white/80 hover:text-white hover:bg-white/10 rounded-md px-3 py-2 text-sm font-medium transition-colors">
                             ยี่ห้อ
                         </a>
                         {% else %}
@@ -113,7 +114,7 @@
                 </div>
                 <div class="flex items-center space-x-4">
                     {% if user.is_authenticated %}
-                    <span class="text-sm text-slate-500 font-medium">ยินดีต้อนรับ, {{ user.username }}</span>
+                    <span class="text-sm font-medium {% if request.resolver_match.app_name == 'repairs' %}text-white/90{% else %}text-slate-500{% endif %}">ยินดีต้อนรับ, {{ user.username }}</span>
                     <form method="post" action="{% url 'logout' %}">
                         {% csrf_token %}
                         <button type="submit"

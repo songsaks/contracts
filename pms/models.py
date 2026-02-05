@@ -23,6 +23,15 @@ class Supplier(models.Model):
     def __str__(self):
         return self.name
 
+class ProjectOwner(models.Model):
+    name = models.CharField(max_length=255, verbose_name="ชื่อเจ้าของโครงการ")
+    email = models.EmailField(blank=True, verbose_name="อีเมล")
+    phone = models.CharField(max_length=50, blank=True, verbose_name="เบอร์โทรศัพท์")
+    position = models.CharField(max_length=255, blank=True, verbose_name="ตำแหน่ง")
+
+    def __str__(self):
+        return self.name
+
 class Project(models.Model):
     class Status(models.TextChoices):
         DRAFT = 'DRAFT', _('รวบรวมความต้องการ')
@@ -40,6 +49,7 @@ class Project(models.Model):
 
     name = models.CharField(max_length=255, verbose_name="ชื่อโครงการ")
     customer = models.ForeignKey(Customer, on_delete=models.CASCADE, related_name='projects', verbose_name="ลูกค้า")
+    owner = models.ForeignKey(ProjectOwner, on_delete=models.SET_NULL, null=True, blank=True, related_name='projects', verbose_name="เจ้าของโครงการ")
     description = models.TextField(blank=True, verbose_name="รายละเอียดเพิ่มเติม")
     status = models.CharField(
         max_length=20,
