@@ -42,9 +42,17 @@
                                 <td>
                                     <div class="btn-group" role="group">
                                         {% if not req.is_converted %}
-                                        <a href="{% url 'pms:create_project_from_requirement' req.pk %}" class="btn btn-sm btn-outline-primary" title="สร้างโครงการ">
-                                            <i class="fas fa-magic"></i>
-                                        </a>
+                                        <div class="d-flex gap-1">
+                                            <a href="{% url 'pms:create_project_from_requirement' req.pk %}?type=PROJECT" class="btn btn-sm btn-outline-primary" data-bs-toggle="tooltip" title="สร้างโครงการ">
+                                                <i class="fas fa-project-diagram"></i>
+                                            </a>
+                                            <a href="{% url 'pms:create_project_from_requirement' req.pk %}?type=SERVICE" class="btn btn-sm btn-outline-success" data-bs-toggle="tooltip" title="สร้างงานขาย">
+                                                <i class="fas fa-shopping-cart"></i>
+                                            </a>
+                                            <a href="{% url 'pms:create_project_from_requirement' req.pk %}?type=REPAIR" class="btn btn-sm btn-outline-warning text-dark" data-bs-toggle="tooltip" title="สร้างใบแจ้งซ่อม">
+                                                <i class="fas fa-tools"></i>
+                                            </a>
+                                        </div>
                                         {% endif %}
                                         <a href="{% url 'pms:requirement_update' req.pk %}" class="btn btn-sm btn-outline-secondary" title="แก้ไข">
                                             <i class="fas fa-edit"></i>

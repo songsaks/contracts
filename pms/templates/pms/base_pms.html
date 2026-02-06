@@ -115,28 +115,34 @@
                     </li>
                     <li class="nav-item">
                         <a class="nav-link {% if request.resolver_match.url_name == 'project_list' %}active{% endif %}" href="{% url 'pms:project_list' %}">
-                            <i class="fas fa-list me-1"></i> โครงการ
+                            <i class="fas fa-list me-1"></i> งานทั้งหมด
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link {% if 'requirement' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'pms:requirement_list' %}">
-                            <i class="fas fa-microphone-alt me-1"></i> ความต้องการ
+                        <a class="nav-link {% if request.resolver_match.url_name == 'requirement_list' %}active{% endif %}" href="{% url 'pms:requirement_list' %}">
+                            <i class="fas fa-microphone-alt me-1"></i> ความต้องการ (Leads)
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link {% if 'customer' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'pms:customer_list' %}">
-                            <i class="fas fa-users me-1"></i> ลูกค้า
+                        <a class="nav-link {% if request.resolver_match.url_name == 'dispatch' %}active{% endif %}" href="{% url 'pms:dispatch' %}">
+                            <i class="fas fa-random me-1"></i> จัดการงาน
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link {% if 'supplier' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'pms:supplier_list' %}">
-                            <i class="fas fa-truck me-1"></i> ซัพพลายเออร์
+                        <a class="nav-link {% if request.resolver_match.url_name == 'queue_management' %}active{% endif %}" href="{% url 'pms:queue_management' %}">
+                            <i class="fas fa-stream me-1"></i> คิวงาน
                         </a>
                     </li>
-                    <li class="nav-item">
-                        <a class="nav-link {% if 'project_owner' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'pms:project_owner_list' %}">
-                            <i class="fas fa-user-tie me-1"></i> เจ้าของโครงการ
+                    
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="pmsDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="fas fa-folder-open me-1"></i> ข้อมูลระบบ
                         </a>
+                        <ul class="dropdown-menu border-0 shadow-lg" aria-labelledby="pmsDropdown">
+                            <li><a class="dropdown-item" href="{% url 'pms:customer_list' %}"><i class="fas fa-users me-2 text-secondary"></i>ลูกค้า</a></li>
+                            <li><a class="dropdown-item" href="{% url 'pms:supplier_list' %}"><i class="fas fa-truck me-2 text-secondary"></i>ซัพพลายเออร์</a></li>
+                            <li><a class="dropdown-item" href="{% url 'pms:project_owner_list' %}"><i class="fas fa-user-tie me-2 text-secondary"></i>เจ้าของโครงการ</a></li>
+                        </ul>
                     </li>
                 </ul>
                 <ul class="navbar-nav ms-auto align-items-center">

@@ -1,0 +1,150 @@
+{% extends 'pms/base_pms.html' %}
+
+{% block title %}เลือกประเภทงาน | PMS{% endblock %}
+
+{% block extra_css %}
+<style>
+    .dispatch-container {
+        min-height: 70vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-direction: column;
+    }
+
+    .dispatch-card {
+        transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        cursor: pointer;
+        border: none;
+        background: transparent;
+    }
+    
+    .dispatch-card:hover {
+        transform: translateY(-10px);
+    }
+
+    .app-icon {
+        width: 120px;
+        height: 120px;
+        border-radius: 25px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 1.5rem;
+        box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+        transition: all 0.4s ease;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .app-icon i {
+        font-size: 3.5rem;
+        color: white;
+        z-index: 2;
+        text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    /* Project Icon Style */
+    .icon-project {
+        background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+    }
+    .dispatch-card:hover .icon-project {
+        box-shadow: 0 15px 35px rgba(0, 242, 254, 0.4);
+    }
+
+    /* Sales Icon Style */
+    .icon-sales {
+        background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+    }
+    .dispatch-card:hover .icon-sales {
+        box-shadow: 0 15px 35px rgba(56, 249, 215, 0.4);
+    }
+
+    /* Repair Icon Style */
+    .icon-repair {
+        background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+    }
+    .dispatch-card:hover .icon-repair {
+        box-shadow: 0 15px 35px rgba(254, 225, 64, 0.4);
+    }
+
+    .card-title {
+        font-weight: 600;
+        font-size: 1.25rem;
+        color: #4b5563;
+        margin-top: 0.5rem;
+        transition: color 0.3s;
+    }
+
+    .dispatch-card:hover .card-title {
+        color: #1f2937;
+        font-weight: 700;
+    }
+
+    .stretched-link::after {
+        position: absolute;
+        top: 0;
+        right: 0;
+        bottom: 0;
+        left: 0;
+        z-index: 1;
+        content: "";
+    }
+    
+    /* Subtle gloss effect on icons */
+    .app-icon::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: linear-gradient(to bottom right, rgba(255,255,255,0.4) 0%, rgba(255,255,255,0) 60%);
+        z-index: 1;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="dispatch-container">
+    <div class="text-center mb-5">
+        <h2 class="fw-bold mb-2" style="color: #2c3e50;">ยินดีต้อนรับ</h2>
+        <p class="text-muted">เลือกรายการที่ต้องการดำเนินการ (Select Action)</p>
+    </div>
+
+    <div class="row justify-content-center w-100 px-lg-5">
+        <!-- Project -->
+        <div class="col-6 col-md-4 col-lg-3 mb-4">
+            <div class="card h-100 text-center p-3 dispatch-card position-relative">
+                <div class="app-icon icon-project">
+                    <i class="fas fa-city"></i>
+                </div>
+                <h4 class="card-title">งานโครงการ</h4>
+                <a href="{% url 'pms:project_create' %}" class="stretched-link" title="สร้างโครงการใหม่"></a>
+            </div>
+        </div>
+
+        <!-- Sales Service -->
+        <div class="col-6 col-md-4 col-lg-3 mb-4">
+            <div class="card h-100 text-center p-3 dispatch-card position-relative">
+                <div class="app-icon icon-sales">
+                    <i class="fas fa-shopping-bag"></i>
+                </div>
+                <h4 class="card-title">งานขาย</h4>
+                <a href="{% url 'pms:service_create' %}" class="stretched-link" title="สร้างงานขาย"></a>
+            </div>
+        </div>
+
+        <!-- Repair -->
+        <div class="col-6 col-md-4 col-lg-3 mb-4">
+            <div class="card h-100 text-center p-3 dispatch-card position-relative">
+                <div class="app-icon icon-repair">
+                    <i class="fas fa-tools"></i>
+                </div>
+                <h4 class="card-title">แจ้งซ่อม (On-site)</h4>
+                <a href="{% url 'pms:repair_create' %}" class="stretched-link" title="สร้างใบแจ้งซ่อม"></a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
