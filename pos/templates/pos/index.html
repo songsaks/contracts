@@ -945,7 +945,7 @@
 
              if (activeReportTab === 'summary') {
                 container.innerHTML = `
-                        <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                        <div class="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
                             <!-- Net Sales -->
                             <div class="bg-blue-50 p-4 rounded-xl border border-blue-100">
                                 <div class="text-xs text-blue-600 font-bold mb-1 uppercase">Net Sales</div>
@@ -964,9 +964,14 @@
                             <div class="bg-green-50 p-4 rounded-xl border border-green-100">
                                 <div class="text-xs text-green-600 font-bold mb-1 uppercase">Total Cash Get</div>
                                 <div class="text-2xl font-bold text-green-800">&#3647;${data.cash_sales.toFixed(2)}</div>
-                                <div class="text-xs text-green-500 mt-1 flex justify-between">
-                                    <span>QR: &#3647;${data.qr_sales.toFixed(2)}</span>
-                                </div>
+                                <div class="text-xs text-green-500 mt-1">Cash Only</div>
+                            </div>
+
+                            <!-- Scan QR Sales -->
+                            <div class="bg-purple-50 p-4 rounded-xl border border-purple-100">
+                                <div class="text-xs text-purple-600 font-bold mb-1 uppercase">Scan QR Sales</div>
+                                <div class="text-2xl font-bold text-purple-800">&#3647;${data.qr_sales.toFixed(2)}</div>
+                                <div class="text-xs text-purple-400 mt-1">Digital Payments</div>
                             </div>
 
                             <!-- Stock Value -->
@@ -1027,7 +1032,7 @@
                                                 ${data.recent_orders.map(o => `
                                                     <tr>
                                                         <td class="p-3 text-slate-500">${new Date(o.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</td>
-                                                        <td class="p-3 text-slate-700 font-medium">${o.payment_method}</td>
+                                                        <td class="p-3 text-slate-700 font-medium">${o.payment_method === 'QR' ? 'Scan QR' : o.payment_method}</td>
                                                         <td class="p-3 text-right font-bold text-slate-800">&#3647;${o.total_amount.toFixed(2)}</td>
                                                     </tr>
                                                 `).join('')}

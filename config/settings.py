@@ -84,14 +84,39 @@ WSGI_APPLICATION = 'config.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'django.db.backends.sqlite3',
+#         'NAME': BASE_DIR / 'db.sqlite3',
+#     }
+# }
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'django.db.backends.postgresql',
+#         'NAME': 'contracts',
+#         'USER': 'postgres',
+#         'PASSWORD': 'M@tthew777',
+#         'HOST': 'localhost', # หรือ IP ของ Cloud SQL
+#         'PORT': '5432',
+#     }
+# }
+
+# settings.py
+import os
+from dotenv import load_dotenv
+
+load_dotenv() # โหลดค่าจากไฟล์ .env
+
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': os.getenv('DB_NAME', 'contracts'),
+        'USER': os.getenv('DB_USER', 'postgres'),
+        'PASSWORD': os.getenv('DB_PASSWORD', 'M@tthew777'),
+        'HOST': os.getenv('DB_HOST', 'localhost'),
+        'PORT': '5432',
     }
 }
-
-
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
 
