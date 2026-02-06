@@ -14,6 +14,12 @@ urlpatterns = [
     path('item/<int:item_id>/edit/', views.item_update, name='item_update'),
     path('item/<int:item_id>/delete/', views.item_delete, name='item_delete'),
     
+    # Service & Dispatch
+    path('dispatch/', views.dispatch, name='dispatch'),
+    path('service/create/', views.service_create, name='service_create'),
+    path('repair/create/', views.repair_create, name='repair_create'), # New Repair Job
+    path('queue/', views.queue_management, name='queue_management'),  
+
     # Customer URLs
     path('customers/', views.customer_list, name='customer_list'),
     path('customers/create/', views.customer_create, name='customer_create'),

@@ -1,5 +1,14 @@
 from django.contrib import admin
-from .models import Project, ProductItem, Customer, Supplier
+from .models import Project, ProductItem, Customer, Supplier, ProjectOwner, CustomerRequirement
+
+@admin.register(ProjectOwner)
+class ProjectOwnerAdmin(admin.ModelAdmin):
+    list_display = ('name', 'email', 'phone', 'position')
+
+@admin.register(CustomerRequirement)
+class CustomerRequirementAdmin(admin.ModelAdmin):
+    list_display = ('pk', 'created_at', 'is_converted')
+    list_filter = ('is_converted',)
 
 @admin.register(Customer)
 class CustomerAdmin(admin.ModelAdmin):

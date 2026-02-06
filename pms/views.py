@@ -5,7 +5,112 @@ from django.utils import timezone
 from django.db.models import Sum, Count, Q
 from decimal import Decimal
 from .models import Project, ProductItem, Customer, Supplier, ProjectOwner, CustomerRequirement
-from .forms import ProjectForm, ProductItemForm, CustomerForm, SupplierForm, ProjectOwnerForm, CustomerRequirementForm
+from .forms import ProjectForm, ProductItemForm, CustomerForm, SupplierForm, ProjectOwnerForm, CustomerRequirementForm, SalesServiceJobForm
+from repairs.models import RepairItem
+
+@login_required
+def dispatch(request):
+    return render(request, 'pms/dispatch.html')
+
+@login_required
+def service_create(request):
+    if request.method == 'POST':
+        form = SalesServiceJobForm(request.POST, job_type=Project.JobType.SERVICE)
+        if form.is_valid():
+            project = form.save(commit=False)
+            project.job_type = Project.JobType.SERVICE
+            project.save()
+            messages.success(request, 'สร้างงานบริการขายสำเร็จ')
+            return redirect('pms:project_detail', pk=project.pk)
+    else:
+        form = SalesServiceJobForm(initial={'status': Project.Status.SOURCING}, job_type=Project.JobType.SERVICE)
+    return render(request, 'pms/service_form.html', {'form': form, 'title': 'สร้างงานบริการขายใหม่', 'theme_color': 'success'})
+
+@login_required
+def repair_create(request):
+    if request.method == 'POST':
+        form = SalesServiceJobForm(request.POST, job_type=Project.JobType.REPAIR)
+        if form.is_valid():
+            project = form.save(commit=False)
+            project.job_type = Project.JobType.REPAIR
+            project.save()
+            messages.success(request, 'สร้างใบแจ้งซ่อมสำเร็จ')
+            return redirect('pms:project_detail', pk=project.pk)
+    else:
+        form = SalesServiceJobForm(initial={'status': Project.Status.SOURCING, 'name': 'แจ้งซ่อม - '}, job_type=Project.JobType.REPAIR)
+    return render(request, 'pms/service_form.html', {'form': form, 'title': 'สร้างใบแจ้งซ่อม (On-site Repair)', 'theme_color': 'warning'})
+
+# ... queue_management ...
+
+# ... project_list ...
+
+# ... project_detail ...
+
+# ... project_create ...
+
+@login_required
+def project_update(request, pk):
+    project = get_object_or_404(Project, pk=pk)
+    
+    # Determine Form Class, Title, and Theme based on Job Type
+    theme_color = 'primary'
+    form_kwargs = {'instance': project}
+
+    if project.job_type == Project.JobType.SERVICE:
+        FormClass = SalesServiceJobForm
+        template = 'pms/service_form.html'
+        title = 'แก้ไขงานขาย'
+        theme_color = 'success'
+        form_kwargs['job_type'] = Project.JobType.SERVICE
+    elif project.job_type == Project.JobType.REPAIR:
+        FormClass = SalesServiceJobForm
+        template = 'pms/service_form.html'
+        title = 'แก้ไขงานซ่อม'
+        theme_color = 'warning'
+        form_kwargs['job_type'] = Project.JobType.REPAIR
+    else:
+        FormClass = ProjectForm
+        template = 'pms/project_form.html'
+        title = 'แก้ไขโครงการ'
+
+    if request.method == 'POST':
+        form = FormClass(request.POST, **form_kwargs)
+        if form.is_valid():
+            form.save()
+            messages.success(request, f'อัปเดต{title.replace("แก้ไข", "")}สำเร็จ')
+            return redirect('pms:project_detail', pk=project.pk)
+    else:
+        form = FormClass(**form_kwargs)
+        
+    return render(request, template, {'form': form, 'title': title, 'theme_color': theme_color})
+
+@login_required
+def queue_management(request):
+    # Sales/Project Queue: Projects in DELIVERY status
+    delivery_queue = Project.objects.filter(
+        status=Project.Status.DELIVERY, 
+        job_type__in=[Project.JobType.PROJECT, Project.JobType.SERVICE]
+    ).order_by('deadline', 'created_at')
+    
+    # Repair Queue: Repair Jobs (Onsite) that are active
+    # Active statuses logic: Not Closed, Billing, Accepted, Cancelled
+    # Or maybe user wants specific "Queue" like waiting for technician?
+    # Let's show SOURCING (Diagnosing), ORDERING (Waiting Parts), DELIVERY (Fixing/Onsite)
+    repair_queue = Project.objects.filter(
+        job_type=Project.JobType.REPAIR,
+        status__in=[
+            Project.Status.SOURCING, 
+            Project.Status.QUOTED, 
+            Project.Status.ORDERING, 
+            Project.Status.RECEIVED_QC,
+            Project.Status.DELIVERY
+        ]
+    ).order_by('created_at')
+    
+    return render(request, 'pms/queue_dashboard.html', {
+        'delivery_queue': delivery_queue,
+        'repair_queue': repair_queue,
+    })
 
 @login_required
 def project_list(request):
@@ -15,6 +120,10 @@ def project_list(request):
     status_filter = request.GET.get('status')
     if status_filter:
         projects = projects.filter(status=status_filter)
+    
+    job_type_filter = request.GET.get('job_type')
+    if job_type_filter:
+        projects = projects.filter(job_type=job_type_filter)
         
     owner_filter = request.GET.get('owner')
     if owner_filter:
@@ -36,26 +145,77 @@ def project_list(request):
 def project_detail(request, pk):
     project = get_object_or_404(Project, pk=pk)
     
-    # Workflow steps (excluding CANCELLED for the happy path visualization)
-    workflow_steps = [
-        Project.Status.DRAFT,
-        Project.Status.SOURCING,
-        Project.Status.SUPPLIER_CHECK,
-        Project.Status.QUOTED,
-        Project.Status.CONTRACTED,
-        Project.Status.ORDERING,
-        Project.Status.RECEIVED_QC,
-        Project.Status.DELIVERY,
-        Project.Status.ACCEPTED,
-        Project.Status.BILLING,
-        Project.Status.CLOSED,
-    ]
+    # Theme Color
+    theme_color = 'primary'
+    if project.job_type == Project.JobType.SERVICE:
+        theme_color = 'success'
+    elif project.job_type == Project.JobType.REPAIR:
+        theme_color = 'warning'
+
+    # Workflow steps based on job type
+    raw_steps = []
+    
+    if project.job_type == Project.JobType.SERVICE:
+        # Sales Service Workflow (Simplified)
+        raw_steps = [
+            (Project.Status.SOURCING, 'จัดหา'),
+            (Project.Status.QUOTED, 'เสนอราคา'),
+            (Project.Status.ORDERING, 'สั่งซื้อ'),
+            (Project.Status.RECEIVED_QC, 'รับของ/QC'),
+            (Project.Status.DELIVERY, 'ส่งมอบ'),
+            (Project.Status.ACCEPTED, 'ตรวจรับ'),
+            (Project.Status.CLOSED, 'ปิดจบ'),
+        ]
+    elif project.job_type == Project.JobType.REPAIR:
+        # Repair Workflow (Custom Labels from User Request)
+        raw_steps = [
+            (Project.Status.SOURCING, 'รับแจ้งซ่อม'),
+            (Project.Status.ORDERING, 'จัดคิวซ่อม'),
+            (Project.Status.DELIVERY, 'ซ่อม'),
+            (Project.Status.ACCEPTED, 'รอ'),
+            (Project.Status.CLOSED, 'ปิดงานซ่อม'),
+        ]
+    else:
+        # Full Project Workflow (Default Labels)
+        raw_steps = [
+            (Project.Status.DRAFT, 'รวบรวม'),
+            (Project.Status.SOURCING, 'จัดหา'),
+            (Project.Status.SUPPLIER_CHECK, 'เช็คราคา'),
+            (Project.Status.QUOTED, 'เสนอราคา'),
+            (Project.Status.CONTRACTED, 'ทำสัญญา'),
+            (Project.Status.ORDERING, 'สั่งซื้อ'),
+            (Project.Status.RECEIVED_QC, 'รับของ/QC'),
+            (Project.Status.DELIVERY, 'ส่งมอบ'),
+            (Project.Status.ACCEPTED, 'ตรวจรับ'),
+            (Project.Status.BILLING, 'วางบิล'),
+            (Project.Status.CLOSED, 'ปิดจบ'),
+        ]
+
+    # Wrapper class to make template logic work: {% if step == project.status %} and {{ step.label }}
+    class StepWrapper:
+        def __init__(self, value, label):
+            self.value = value
+            self.label = label
+        def __eq__(self, other):
+            return str(self.value) == str(other)
+        def __str__(self):
+            return str(self.value)
+
+    workflow_steps = [StepWrapper(val, lbl) for val, lbl in raw_steps]
+
+    # Get current status label
+    current_status_label = project.get_status_display()
+    for step in workflow_steps:
+        if step == project.status:
+            current_status_label = step.label
+            break
 
     context = {
         'project': project,
         'items': project.items.all(),
         'workflow_steps': workflow_steps,
-        # total_value property is on the model
+        'theme_color': theme_color,
+        'current_status_label': current_status_label,
     }
     return render(request, 'pms/project_detail.html', context)
 
@@ -74,15 +234,38 @@ def project_create(request):
 @login_required
 def project_update(request, pk):
     project = get_object_or_404(Project, pk=pk)
+    
+    # Determine Form Class, Title, and Theme based on Job Type
+    theme_color = 'primary'
+    form_kwargs = {'instance': project}
+
+    if project.job_type == Project.JobType.SERVICE:
+        FormClass = SalesServiceJobForm
+        template = 'pms/service_form.html'
+        title = 'แก้ไขงานขาย'
+        theme_color = 'success'
+        form_kwargs['job_type'] = Project.JobType.SERVICE
+    elif project.job_type == Project.JobType.REPAIR:
+        FormClass = SalesServiceJobForm
+        template = 'pms/service_form.html'
+        title = 'แก้ไขงานซ่อม'
+        theme_color = 'warning'
+        form_kwargs['job_type'] = Project.JobType.REPAIR
+    else:
+        FormClass = ProjectForm
+        template = 'pms/project_form.html'
+        title = 'แก้ไขโครงการ'
+
     if request.method == 'POST':
-        form = ProjectForm(request.POST, instance=project)
+        form = FormClass(request.POST, **form_kwargs)
         if form.is_valid():
             form.save()
-            messages.success(request, 'อัปเดตโครงการสำเร็จ')
+            messages.success(request, f'อัปเดต{title.replace("แก้ไข", "")}สำเร็จ')
             return redirect('pms:project_detail', pk=project.pk)
     else:
-        form = ProjectForm(instance=project)
-    return render(request, 'pms/project_form.html', {'form': form, 'title': 'แก้ไขโครงการ'})
+        form = FormClass(**form_kwargs)
+        
+    return render(request, template, {'form': form, 'title': title, 'theme_color': theme_color})
 
 @login_required
 def item_add(request, project_id):
@@ -332,21 +515,31 @@ def requirement_delete(request, pk):
 @login_required
 def create_project_from_requirement(request, pk):
     requirement = get_object_or_404(CustomerRequirement, pk=pk)
+    
+    # Check query param for job type
+    job_type = request.GET.get('type', 'PROJECT') # Default to PROJECT if not specified
+    
     if requirement.is_converted:
-        messages.warning(request, 'รายการนี้ถูกสร้างเป็นโครงการแล้ว')
+        messages.warning(request, 'รายการนี้ถูกสร้างเป็นงานแล้ว')
         if requirement.project:
             return redirect('pms:project_detail', pk=requirement.project.pk)
         return redirect('pms:requirement_list')
 
     if request.method == 'POST':
-        form = ProjectForm(request.POST)
+        if job_type in ['SERVICE', 'REPAIR']:
+             form = SalesServiceJobForm(request.POST)
+        else:
+             form = ProjectForm(request.POST)
+
         if form.is_valid():
             project = form.save(commit=False)
-            # Append requirement content if description was modified, but usually user might just use it.
-            # Usually users edit description in the form.
-            # But we might want to ensure the requirement trails along if not passed in form?
-            # Actually if I default the form description to requirement content, the user can edit it.
-            # If they clear it, that's their choice.
+            if job_type == 'SERVICE':
+                project.job_type = Project.JobType.SERVICE
+            elif job_type == 'REPAIR':
+                project.job_type = Project.JobType.REPAIR
+            else:
+                project.job_type = Project.JobType.PROJECT
+            
             project.save()
             
             # Link Requirement
@@ -354,17 +547,40 @@ def create_project_from_requirement(request, pk):
             requirement.project = project
             requirement.save()
             
-            messages.success(request, 'สร้างโครงการจากความต้องการสำเร็จ')
+            job_label = 'โครงการ'
+            if job_type == 'SERVICE': job_label = 'งานบริการขาย'
+            elif job_type == 'REPAIR': job_label = 'ใบแจ้งซ่อม'
+
+            messages.success(request, f"สร้าง{job_label}จากความต้องการสำเร็จ")
             return redirect('pms:project_detail', pk=project.pk)
     else:
         # Pre-fill description
+        job_label = 'โครงการ'
+        status = Project.Status.DRAFT
+        
+        if job_type == 'SERVICE': 
+            job_label = 'งานขาย'
+            status = Project.Status.SOURCING
+        elif job_type == 'REPAIR':
+            job_label = 'แจ้งซ่อม'
+            status = Project.Status.SOURCING
+
         initial_data = {
             'description': requirement.content,
-            'name': f"โครงการใหม่ ({requirement.created_at.strftime('%d/%m/%Y')})",
+            'name': f"{job_label}ใหม่ ({requirement.created_at.strftime('%d/%m/%Y')})",
+            'status': status,
         }
-        form = ProjectForm(initial=initial_data)
+        
+        if job_type in ['SERVICE', 'REPAIR']:
+            form = SalesServiceJobForm(initial=initial_data)
+            template = 'pms/service_form.html'
+            title = f'สร้าง{job_label}จากความต้องการ'
+        else:
+            form = ProjectForm(initial=initial_data)
+            template = 'pms/project_form.html'
+            title = 'สร้างโครงการจากความต้องการ'
 
-    return render(request, 'pms/project_form.html', {
+    return render(request, template, {
         'form': form, 
-        'title': 'สร้างโครงการจากความต้องการ',
+        'title': title,
     })

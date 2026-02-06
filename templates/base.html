@@ -6,6 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Rental Control System</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script>
         tailwind.config = {
             theme: {
@@ -28,65 +29,72 @@
 </head>
 
 <body class="bg-slate-50 text-slate-900 min-h-screen flex flex-col {% if request.resolver_match.app_name == 'repairs' %}font-['Outfit']{% endif %}">
-    <nav class="{% if request.resolver_match.app_name == 'repairs' %}bg-gradient-to-r from-[#2c3e50] to-[#34495e] text-white shadow-md{% else %}bg-white border-b border-slate-200 shadow-sm{% endif %} sticky top-0 z-50">
+    <nav class="{% if request.resolver_match.app_name == 'repairs' %}bg-gradient-to-r from-[#2c3e50] to-[#34495e] text-white shadow-md{% else %}bg-gradient-to-r from-[#4e73df] to-[#224abe] text-white shadow-md{% endif %} sticky top-0 z-50">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex justify-between h-16">
                 <div class="flex">
                     <div class="flex-shrink-0 flex items-center">
-                        <a href="/repairs/" class="text-xl font-bold {% if request.resolver_match.app_name == 'repairs' %}text-white{% else %}text-primary{% endif %}">ระบบงานซ่อม</a>
+                        {% if request.resolver_match.app_name == 'repairs' %}
+                        <a href="{% url 'repairs:repair_list' %}" class="text-xl font-bold text-white">
+                            ระบบงานซ่อม
+                        </a>
+                        {% else %}
+                        <a href="{% url 'rentals:dashboard' %}" class="text-xl font-bold text-white">
+                            <i class="fas fa-file-contract me-2"></i>ระบบสัญญาเช่า
+                        </a>
+                        {% endif %}
                     </div>
-                    <div class="hidden sm:ml-6 sm:flex sm:space-x-8 items-center">
+                    <div class="hidden sm:ml-4 sm:flex sm:space-x-1 items-center">
                         <a href="/"
-                            class="{% if request.resolver_match.app_name == 'repairs' %}text-white/80 hover:text-white hover:bg-white/10 rounded-md px-3 py-2 border-0{% else %}border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700 inline-flex items-center px-1 pt-1 border-b-2{% endif %} text-sm font-medium">
-                            หน้าหลัก
+                            class="text-white/80 hover:text-white hover:bg-white/10 rounded-md px-2 py-2 text-sm font-medium transition-colors">
+                            <i class="fas fa-home me-1"></i> หน้าหลัก
                         </a>
 
                         {% if request.resolver_match.app_name == 'repairs' %}
                         <!-- Repairs Menu -->
-                        <!-- Repairs Menu -->
                         <a href="{% url 'repairs:repair_list' %}"
-                            class="text-white/80 hover:text-white hover:bg-white/10 rounded-md px-3 py-2 text-sm font-medium transition-colors">
-                            รายการงานซ่อม
+                            class="text-white/80 hover:text-white hover:bg-white/10 rounded-md px-2 py-2 text-sm font-medium transition-colors">
+                            รายการซ่อม
                         </a>
                         <a href="{% url 'repairs:repair_create' %}"
-                            class="text-white/80 hover:text-white hover:bg-white/10 rounded-md px-3 py-2 text-sm font-medium transition-colors">
-                            สร้างงานซ่อม
+                            class="text-white/80 hover:text-white hover:bg-white/10 rounded-md px-2 py-2 text-sm font-medium transition-colors">
+                            สร้างงาน
                         </a>
                         <a href="{% url 'repairs:customer_list' %}"
-                            class="text-white/80 hover:text-white hover:bg-white/10 rounded-md px-3 py-2 text-sm font-medium transition-colors">
+                            class="text-white/80 hover:text-white hover:bg-white/10 rounded-md px-2 py-2 text-sm font-medium transition-colors">
                             ลูกค้า
                         </a>
 
                         <a href="{% url 'repairs:technician_list' %}"
-                            class="text-white/80 hover:text-white hover:bg-white/10 rounded-md px-3 py-2 text-sm font-medium transition-colors">
-                            พนักงานช่าง
+                            class="text-white/80 hover:text-white hover:bg-white/10 rounded-md px-2 py-2 text-sm font-medium transition-colors">
+                            ช่าง
                         </a>
                         <a href="{% url 'repairs:device_type_list' %}"
-                            class="text-white/80 hover:text-white hover:bg-white/10 rounded-md px-3 py-2 text-sm font-medium transition-colors">
-                            ประเภทอุปกรณ์
+                            class="text-white/80 hover:text-white hover:bg-white/10 rounded-md px-2 py-2 text-sm font-medium transition-colors">
+                            อุปกรณ์
                         </a>
                         <a href="{% url 'repairs:brand_list' %}"
-                            class="text-white/80 hover:text-white hover:bg-white/10 rounded-md px-3 py-2 text-sm font-medium transition-colors">
+                            class="text-white/80 hover:text-white hover:bg-white/10 rounded-md px-2 py-2 text-sm font-medium transition-colors">
                             ยี่ห้อ
                         </a>
                         {% else %}
-                        <!-- Rentals Menu (Existing) -->
+                        <!-- Rentals Menu (Updated to PMS Style) -->
                         <a href="{% url 'rentals:dashboard' %}"
-                            class="border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
-                            แดชบอร์ด
+                            class="text-white/80 hover:text-white hover:bg-white/10 rounded-md px-2 py-2 text-sm font-medium transition-colors">
+                            <i class="fas fa-th-large me-1"></i> แดชบอร์ด
                         </a>
                         <a href="{% url 'rentals:asset_list' %}"
-                            class="border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
-                            ทรัพย์สิน
+                            class="text-white/80 hover:text-white hover:bg-white/10 rounded-md px-2 py-2 text-sm font-medium transition-colors">
+                            <i class="fas fa-box me-1"></i> ทรัพย์สิน
                         </a>
                         <a href="{% url 'rentals:contract_create' %}"
-                            class="border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
-                            สร้างสัญญาเช่า
+                            class="text-white/80 hover:text-white hover:bg-white/10 rounded-md px-2 py-2 text-sm font-medium transition-colors">
+                            <i class="fas fa-file-signature me-1"></i> สร้างสัญญา
                         </a>
                         <div class="relative group h-full flex items-center">
                             <button type="button"
-                                class="border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium h-full focus:outline-none">
-                                รายงาน
+                                class="text-white/80 hover:text-white hover:bg-white/10 rounded-md px-2 py-2 text-sm font-medium transition-colors focus:outline-none flex items-center">
+                                <i class="fas fa-chart-bar me-1"></i> รายงาน
                                 <svg class="ml-1 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                         d="M19 9l-7 7-7-7" />
@@ -100,21 +108,12 @@
                                 </a>
                             </div>
                         </div>
-                        <a href="{% url 'pos:index' %}"
-                            class="border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
-                            ขายหน้าร้าน (POS)
-                        </a>
-                        <!-- Switch to Repairs -->
-                        <a href="{% url 'repairs:repair_list' %}"
-                            class="border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
-                            (เข้าสู่ระบบซ่อม)
-                        </a>
                         {% endif %}
                     </div>
                 </div>
                 <div class="flex items-center space-x-4">
                     {% if user.is_authenticated %}
-                    <span class="text-sm font-medium {% if request.resolver_match.app_name == 'repairs' %}text-white/90{% else %}text-slate-500{% endif %}">ยินดีต้อนรับ, {{ user.username }}</span>
+                    <span class="text-sm font-medium text-white/90">ยินดีต้อนรับ, {{ user.username }}</span>
                     <form method="post" action="{% url 'logout' %}">
                         {% csrf_token %}
                         <button type="submit"

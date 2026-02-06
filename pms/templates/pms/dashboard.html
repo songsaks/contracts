@@ -110,8 +110,8 @@
                         <th>ลูกค้า</th>
                         <th>เจ้าของโครงการ</th>
                         <th>สถานะ</th>
-                        <th>มูลค่า</th>
-                        <th>วันที่เริ่ม</th>
+                        <th>มูลค่าโครงการ</th>
+                        <th>วันที่สร้าง</th>
                         <th>จัดการ</th>
                     </tr>
                 </thead>
@@ -119,19 +119,47 @@
                     {% for project in projects %}
                     <tr>
                         <td>
-                            <a href="{% url 'pms:project_detail' project.pk %}" class="fw-bold text-decoration-none">
-                                {{ project.name }}
-                            </a>
+                            <div class="d-flex align-items-center">
+                                {% if project.job_type == 'SERVICE' %}
+                                    <div class="rounded-circle bg-success bg-opacity-10 text-success p-2 me-2 mb-1" title="งานบริการขาย" style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;">
+                                        <i class="fas fa-shopping-cart"></i>
+                                    </div>
+                                {% elif project.job_type == 'REPAIR' %}
+                                    <div class="rounded-circle bg-warning bg-opacity-10 text-dark p-2 me-2 mb-1" title="งานแจ้งซ่อม" style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;">
+                                        <i class="fas fa-tools"></i>
+                                    </div>
+                                {% else %}
+                                    <div class="rounded-circle bg-primary bg-opacity-10 text-primary p-2 me-2 mb-1" title="งานโครงการ" style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;">
+                                        <i class="fas fa-project-diagram"></i>
+                                    </div>
+                                {% endif %}
+                                <div>
+                                    <a href="{% url 'pms:project_detail' project.pk %}" class="text-decoration-none fw-bold text-dark">
+                                        {{ project.name }}
+                                    </a>
+                                    {% if project.deadline %}
+                                    <div class="small text-muted">กำหนดส่ง: {{ project.deadline|date:"d M Y" }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
                         </td>
                         <td>{{ project.customer.name }}</td>
                         <td>{{ project.owner.name|default:"-" }}</td>
                         <td>
-                            <span class="badge bg-primary">{{ project.get_status_display }}</span>
+                            {% if project.job_type == 'SERVICE' %}
+                                <span class="badge bg-success">{{ project.get_job_status_display }}</span>
+                            {% elif project.job_type == 'REPAIR' %}
+                                <span class="badge bg-warning text-dark">{{ project.get_job_status_display }}</span>
+                            {% else %}
+                                <span class="badge bg-primary">{{ project.get_job_status_display }}</span>
+                            {% endif %}
                         </td>
                         <td>&#3647;{{ project.total_value|floatformat:2|intcomma }}</td>
-                        <td>{{ project.start_date|date:"d/m/Y" }}</td>
+                        <td>{{ project.created_at|date:"d M Y" }}</td>
                         <td>
-                            <a href="{% url 'pms:project_detail' project.pk %}" class="btn btn-sm btn-outline-primary">รายละเอียด</a>
+                            <a href="{% url 'pms:project_detail' project.pk %}" class="btn btn-sm btn-light text-primary shadow-sm border rounded-circle d-flex align-items-center justify-content-center" style="width: 32px; height: 32px;" title="ดูรายละเอียด">
+                                <i class="fas fa-eye"></i>
+                            </a>
                         </td>
                     </tr>
                     {% empty %}

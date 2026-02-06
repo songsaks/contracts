@@ -7,19 +7,33 @@
         <div>
             <h1 class="mb-1">
                 {{ project.name }} 
-                <span class="badge bg-primary align-middle fs-4 ms-2">{{ project.get_status_display }}</span>
+                <span class="badge bg-{{ theme_color|default:'primary' }} {% if theme_color == 'warning' %}text-dark{% endif %} align-middle fs-4 ms-2">{{ current_status_label }}</span>
+                <span class="badge bg-{{ theme_color|default:'secondary' }} bg-opacity-75 align-middle fs-6 ms-1">
+                    {% if project.job_type == 'SERVICE' %}
+                        <i class="fas fa-shopping-cart me-1"></i>
+                    {% elif project.job_type == 'REPAIR' %}
+                        <i class="fas fa-tools me-1"></i>
+                    {% else %}
+                        <i class="fas fa-project-diagram me-1"></i>
+                    {% endif %}
+                    {{ project.get_job_type_display }}
+                </span>
             </h1>
             <div class="text-muted fs-5">
                 ลูกค้า: <strong>{{ project.customer.name }}</strong> | 
                 เจ้าของโครงการ: <strong>{{ project.owner.name|default:"-" }}</strong>
             </div>
         </div>
-        <div>
-            <a href="{% url 'pms:project_quotation' project.pk %}" class="btn btn-outline-info me-2" target="_blank">
-                <i class="fas fa-print"></i> พิมพ์ใบเสนอราคา
+        <div class="d-flex align-items-center gap-2">
+            <a href="{% url 'pms:project_quotation' project.pk %}" class="btn btn-light text-dark shadow-sm border rounded-circle d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;" target="_blank" title="พิมพ์ใบเสนอราคา">
+                <i class="fas fa-print"></i>
             </a>
-            <a href="{% url 'pms:project_update' project.pk %}" class="btn btn-outline-secondary me-2">แก้ไขโครงการ</a>
-            <a href="{% url 'pms:project_list' %}" class="btn btn-outline-dark">กลับหน้ารายการ</a>
+            <a href="{% url 'pms:project_update' project.pk %}" class="btn btn-{{ theme_color|default:'primary' }} text-white shadow-sm rounded-circle d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;" title="แก้ไข">
+                <i class="fas fa-pen"></i>
+            </a>
+            <a href="{% url 'pms:project_list' %}" class="btn btn-light text-secondary shadow-sm border rounded-circle d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;" title="กลับหน้ารายการ">
+                <i class="fas fa-arrow-left"></i>
+            </a>
         </div>
     </div>
 
@@ -30,7 +44,7 @@
             <div class="d-flex overflow-auto py-2 align-items-center">
                 {% for step in workflow_steps %}
                     <div class="d-flex align-items-center flex-shrink-0">
-                        <div class="card p-2 text-center text-nowrap {% if step == project.status %}bg-primary text-white shadow fw-bold border-primary{% else %}bg-white text-muted border{% endif %}" style="min-width: 80px;">
+                        <div class="card p-2 text-center text-nowrap {% if step == project.status %}bg-{{ theme_color|default:'primary' }} {% if theme_color == 'warning' %}text-dark{% else %}text-white{% endif %} shadow fw-bold border-{{ theme_color|default:'primary' }}{% else %}bg-white text-muted border{% endif %}" style="min-width: 80px;">
                             <div style="font-size: 0.85rem;">{{ step.label }}</div>
                         </div>
                         {% if not forloop.last %}
@@ -61,8 +75,8 @@
             </div>
 
             <!-- Summary -->
-            <div class="card shadow-sm border-primary">
-                <div class="card-header bg-primary text-white">
+            <div class="card shadow-sm border-{{ theme_color|default:'primary' }}">
+                <div class="card-header bg-{{ theme_color|default:'primary' }} {% if theme_color == 'warning' %}text-dark{% else %}text-white{% endif %}">
                     <h5 class="card-title mb-0">สรุปการเงิน</h5>
                 </div>
                 <div class="card-body">
@@ -77,7 +91,7 @@
                     <hr>
                     <div class="d-flex justify-content-between">
                         <span class="fw-bold">กำไร:</span>
-                        <span class="fw-bold text-primary">&#3647;{{ project.total_profit|floatformat:2|intcomma }}</span>
+                        <span class="fw-bold text-{{ theme_color|default:'primary' }}">&#3647;{{ project.total_profit|floatformat:2|intcomma }}</span>
                     </div>
                 </div>
             </div>
@@ -88,8 +102,8 @@
             <div class="card shadow-sm">
                 <div class="card-header bg-white d-flex justify-content-between align-items-center py-3">
                     <h5 class="card-title mb-0">รายการสินค้า/บริการ</h5>
-                    <a href="{% url 'pms:item_add' project.pk %}" class="btn btn-sm btn-primary">
-                        <i class="fas fa-plus"></i> เพิ่มรายการ
+                    <a href="{% url 'pms:item_add' project.pk %}" class="btn btn-sm btn-{{ theme_color|default:'primary' }} shadow-sm rounded-circle d-flex align-items-center justify-content-center" style="width: 32px; height: 32px;" title="เพิ่มรายการ">
+                        <i class="fas fa-plus"></i>
                     </a>
                 </div>
                 <div class="card-body p-0">
