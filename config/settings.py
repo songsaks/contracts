@@ -25,11 +25,8 @@ SECRET_KEY = 'django-insecure-t$4@!6*b8w-imi#=d=b7fby==&+kb(daydvkn29t=1jcs4f*i)
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-<<<<<<< HEAD
 ALLOWED_HOSTS = ['72.62.72.22', 'app.9com.cloud', 'www.9com.cloud', 'localhost', '127.0.0.1']
-=======
-ALLOWED_HOSTS = ['72.62.72.22', 'app.9com.cloud', 'www.9com.cloud', '127.0.0.1', 'localhost']
->>>>>>> 846c0e1d2d9fb067ca8b7dc74c9f6ea1b7dde5ec
+
 
 CSRF_TRUSTED_ORIGINS = [
     'https://app.9com.cloud',
@@ -88,22 +85,12 @@ WSGI_APPLICATION = 'config.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
-# DATABASES = {
-#     'default': {
-#         'ENGINE': 'django.db.backends.sqlite3',
-#         'NAME': BASE_DIR / 'db.sqlite3',
-#     }
-# }
-# DATABASES = {
-#     'default': {
-#         'ENGINE': 'django.db.backends.postgresql',
-#         'NAME': 'contracts',
-#         'USER': 'postgres',
-#         'PASSWORD': 'M@tthew777',
-#         'HOST': 'localhost', # หรือ IP ของ Cloud SQL
-#         'PORT': '5432',
-#     }
-# }
+#DATABASES = {
+#    'default': {
+#        'ENGINE': 'django.db.backends.sqlite3',
+#        'NAME': BASE_DIR / 'db.sqlite3',
+#    }
+#}
 
 # settings.py
 import os
@@ -114,13 +101,14 @@ load_dotenv() # โหลดค่าจากไฟล์ .env
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': os.getenv('DB_NAME', 'contracts'),
-        'USER': os.getenv('DB_USER', 'postgres'),
-        'PASSWORD': os.getenv('DB_PASSWORD', 'M@tthew777'),
-        'HOST': os.getenv('DB_HOST', 'localhost'),
-        'PORT': '5432',
+        'NAME': os.getenv('DB_NAME'),
+        'USER': os.getenv('DB_USER'),
+        'PASSWORD': os.getenv('DB_PASSWORD'),
+        'HOST': os.getenv('DB_HOST'),
+        'PORT': os.getenv('DB_PORT'),
     }
 }
+
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
 
