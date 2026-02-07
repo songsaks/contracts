@@ -112,10 +112,11 @@ class RepairJob(models.Model):
 
 class RepairItem(models.Model):
     STATUS_CHOICES = [
-        ('RECEIVED', 'Received'),
-        ('FIXING', 'Fixing'),
-        ('WAITING', 'Waiting'),
-        ('FINISHED', 'Finished'),
+        ('RECEIVED', 'รับแจ้ง'),
+        ('FIXING', 'กำลังซ่อม'),
+        ('WAITING', 'รออะไหล่'),
+        ('FINISHED', 'ซ่อมเสร็จ'),
+        ('COMPLETED', 'ส่งคืนแล้ว'),
     ]
 
     job = models.ForeignKey(RepairJob, on_delete=models.CASCADE, related_name='items')

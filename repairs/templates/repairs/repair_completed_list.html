@@ -5,10 +5,12 @@
 <div class="row">
     <div class="col-12">
         <div class="d-flex justify-content-between align-items-center mb-4">
-            <h1 class="h3 mb-0 text-gray-800">รายการงานซ่อม</h1>
+            <h1 class="h3 mb-0 text-gray-800">รายการที่ส่งคืนแล้ว (Completed)</h1>
+            <div class="d-none"> <!-- Hide Create Button -->
             <a href="{% url 'repairs:repair_create' %}" class="btn btn-warning shadow-sm rounded-circle d-flex align-items-center justify-content-center text-white" style="width: 48px; height: 48px;" title="สร้างงานซ่อมใหม่" data-bs-toggle="tooltip">
                 <i class="fas fa-plus fa-lg"></i>
             </a>
+            </div>
         </div>
 
         <!-- Filters -->
@@ -16,24 +18,12 @@
             <div class="card-body bg-light rounded">
                 <form method="get" class="row g-3 align-items-end">
                     <!-- Search -->
-                    <div class="col-md-3">
+                    <div class="col-md-5">
                         <label class="form-label text-muted small">ค้นหา</label>
                         <div class="input-group">
                             <span class="input-group-text bg-white border-end-0"><i class="fas fa-search text-muted"></i></span>
                             <input type="text" name="q" value="{{ request.GET.q|default:'' }}" class="form-control border-start-0" placeholder="รหัส, ลูกค้า...">
                         </div>
-                    </div>
-
-                    <!-- Status Filter -->
-                    <div class="col-md-2">
-                        <label class="form-label text-muted small">สถานะ</label>
-                        <select name="status" class="form-select" onchange="this.form.submit()">
-                            <option value="">ทุกสถานะ</option>
-                            <option value="RECEIVED" {% if request.GET.status == 'RECEIVED' %}selected{% endif %}>Received</option>
-                            <option value="FIXING" {% if request.GET.status == 'FIXING' %}selected{% endif %}>Fixing</option>
-                            <option value="WAITING" {% if request.GET.status == 'WAITING' %}selected{% endif %}>Waiting</option>
-                            <option value="FINISHED" {% if request.GET.status == 'FINISHED' %}selected{% endif %}>Finished</option>
-                        </select>
                     </div>
 
                     <!-- Creator Filter -->
@@ -59,7 +49,7 @@
                     
                     <div class="col-md-2">
                         {% if request.GET.q or request.GET.status or request.GET.created_by %}
-                        <a href="{% url 'repairs:repair_list' %}" class="btn btn-outline-danger w-100">
+                        <a href="{% url 'repairs:repair_completed_list' %}" class="btn btn-outline-danger w-100">
                             <i class="fas fa-times me-1"></i> ล้างค่า
                         </a>
                         {% endif %}
@@ -85,7 +75,7 @@
                         </thead>
                         <tbody>
                             {% for item in items %}
-                            <tr style="{% if item.status == 'RECEIVED' %}background-color: #ffebe9;{% elif item.status == 'FIXING' %}background-color: #fff4e5;{% elif item.status == 'WAITING' %}background-color: #fff8c4;{% elif item.status == 'FINISHED' %}background-color: #e0f2f1;{% elif item.status == 'COMPLETED' %}background-color: #e9ecef;{% endif %}">
+                            <tr style="background-color: #e9ecef;">
                                 <td class="ps-4">
                                     <div class="fw-bold text-primary position-relative" 
                                          style="cursor: pointer;"
@@ -120,17 +110,7 @@
                                         <strong class="me-2 text-nowrap">{{ item.device.brand }} {{ item.device.model }}</strong>
                                         
                                         <!-- Status (Text Only) -->
-                                        {% if item.status == 'RECEIVED' %}
-                                            <span class="fw-bold text-danger me-2">รับแจ้ง</span>
-                                        {% elif item.status == 'FIXING' %}
-                                            <span class="fw-bold me-2" style="color: #fd7e14;">กำลังซ่อม</span>
-                                        {% elif item.status == 'WAITING' %}
-                                            <span class="fw-bold text-warning me-2">รออะไหล่</span>
-                                        {% elif item.status == 'FINISHED' %}
-                                            <span class="fw-bold text-success me-2">ซ่อมเสร็จ</span>
-                                        {% elif item.status == 'COMPLETED' %}
-                                            <span class="fw-bold text-secondary me-2">ส่งคืนแล้ว</span>
-                                        {% endif %}
+                                        <span class="fw-bold text-secondary me-2">Completed</span>
                                         
                                         <!-- Issue Description -->
                                         <span class="small text-muted text-truncate" style="max-width: 200px;" title="{{ item.issue_description }}">
