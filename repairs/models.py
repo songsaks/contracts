@@ -69,7 +69,7 @@ class Technician(models.Model):
 
 class RepairJob(models.Model):
     job_code = models.CharField(max_length=50, unique=True, editable=False)
-    tracking_id = models.UUIDField(default=uuid.uuid4, editable=False)
+    tracking_id = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
     fix_id = models.CharField(max_length=50, blank=True, null=True, help_text="Manual Fix ID if needed") 
     customer = models.ForeignKey(Customer, on_delete=models.CASCADE, related_name='jobs')
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='created_repair_jobs')
