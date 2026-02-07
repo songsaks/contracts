@@ -94,6 +94,7 @@
                             </div>
                             <div class="col-md-8">
                                 <label class="form-label small fw-bold text-muted">หมายเหตุสถานะ</label>
+                                <textarea name="status_note" rows="1" class="form-control" placeholder="ระบุเหตุผล หรือ รายละเอียดสถานะ">{{ item.status_note }}</textarea>
                             </div>
                             
                             <div class="col-12 final-cost-div {% if item.status != 'COMPLETED' %}d-none{% endif %}">
