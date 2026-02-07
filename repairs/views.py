@@ -441,9 +441,7 @@ def repair_tracking(request, tracking_id):
     job = get_object_or_404(RepairJob, tracking_id=tracking_id)
     return render(request, 'repairs/repair_tracking.html', {'job': job})
 
-def repair_tracking(request, tracking_id):
-    job = get_object_or_404(RepairJob, tracking_id=tracking_id)
-    return render(request, 'repairs/repair_tracking.html', {'job': job})
+
 
 def repair_status_search(request):
     if request.method == 'POST':
