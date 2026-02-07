@@ -527,19 +527,13 @@ def create_project_from_requirement(request, pk):
 
     if request.method == 'POST':
         if job_type in ['SERVICE', 'REPAIR']:
-             form = SalesServiceJobForm(request.POST)
+             form = SalesServiceJobForm(request.POST, job_type=job_type)
         else:
              form = ProjectForm(request.POST)
 
         if form.is_valid():
             project = form.save(commit=False)
-            if job_type == 'SERVICE':
-                project.job_type = Project.JobType.SERVICE
-            elif job_type == 'REPAIR':
-                project.job_type = Project.JobType.REPAIR
-            else:
-                project.job_type = Project.JobType.PROJECT
-            
+            project.job_type = job_type
             project.save()
             
             # Link Requirement
@@ -557,13 +551,16 @@ def create_project_from_requirement(request, pk):
         # Pre-fill description
         job_label = 'โครงการ'
         status = Project.Status.DRAFT
+        theme_color = 'primary'
         
         if job_type == 'SERVICE': 
             job_label = 'งานขาย'
             status = Project.Status.SOURCING
+            theme_color = 'success'
         elif job_type == 'REPAIR':
             job_label = 'แจ้งซ่อม'
             status = Project.Status.SOURCING
+            theme_color = 'warning'
 
         initial_data = {
             'description': requirement.content,
@@ -572,7 +569,7 @@ def create_project_from_requirement(request, pk):
         }
         
         if job_type in ['SERVICE', 'REPAIR']:
-            form = SalesServiceJobForm(initial=initial_data)
+            form = SalesServiceJobForm(initial=initial_data, job_type=job_type)
             template = 'pms/service_form.html'
             title = f'สร้าง{job_label}จากความต้องการ'
         else:
@@ -583,4 +580,5 @@ def create_project_from_requirement(request, pk):
     return render(request, template, {
         'form': form, 
         'title': title,
+        'theme_color': theme_color if 'theme_color' in locals() else 'primary',
     })
