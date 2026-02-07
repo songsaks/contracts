@@ -44,13 +44,15 @@
                 </div>
                 <div>
                     {% if item.status == 'RECEIVED' %}
-                        <span class="badge bg-secondary">RECEIVED</span>
+                        <span class="badge bg-danger">รับแจ้ง</span>
                     {% elif item.status == 'FIXING' %}
-                        <span class="badge bg-warning text-dark">FIXING</span>
+                        <span class="badge" style="background-color: #fd7e14;">กำลังซ่อม</span>
                     {% elif item.status == 'WAITING' %}
-                        <span class="badge bg-info text-dark">WAITING</span>
+                        <span class="badge bg-warning text-dark">รออะไหล่</span>
                     {% elif item.status == 'FINISHED' %}
-                        <span class="badge bg-success">FINISHED</span>
+                        <span class="badge bg-success">ซ่อมเสร็จ</span>
+                    {% elif item.status == 'COMPLETED' %}
+                        <span class="badge bg-secondary">ส่งคืนแล้ว</span>
                     {% endif %}
                 </div>
             </div>
@@ -75,10 +77,11 @@
                             <div class="col-md-4">
                                 <label class="form-label small fw-bold text-muted">สถานะ</label>
                                 <select name="status" class="form-select">
-                                    <option value="RECEIVED" {% if item.status == 'RECEIVED' %}selected{% endif %}>Received (รับเครื่อง)</option>
-                                    <option value="FIXING" {% if item.status == 'FIXING' %}selected{% endif %}>Fixing (กำลังซ่อม)</option>
-                                    <option value="WAITING" {% if item.status == 'WAITING' %}selected{% endif %}>Waiting (รออะไหล่)</option>
-                                    <option value="FINISHED" {% if item.status == 'FINISHED' %}selected{% endif %}>Finished (เสร็จสิ้น)</option>
+                                    <option value="RECEIVED" {% if item.status == 'RECEIVED' %}selected{% endif %}>รับแจ้ง</option>
+                                    <option value="FIXING" {% if item.status == 'FIXING' %}selected{% endif %}>กำลังซ่อม</option>
+                                    <option value="WAITING" {% if item.status == 'WAITING' %}selected{% endif %}>รออะไหล่</option>
+                                    <option value="FINISHED" {% if item.status == 'FINISHED' %}selected{% endif %}>ซ่อมเสร็จ</option>
+                                    <option value="COMPLETED" {% if item.status == 'COMPLETED' %}selected{% endif %}>ส่งคืนแล้ว</option>
                                 </select>
                             </div>
                             <div class="col-md-8">

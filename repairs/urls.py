@@ -5,6 +5,7 @@ app_name = 'repairs'
 
 urlpatterns = [
     path('', views.repair_list, name='repair_list'),
+    path('completed/', views.repair_completed_list, name='repair_completed_list'),
     path('create/', views.repair_create, name='repair_create'),
     path('job/<int:pk>/', views.repair_detail, name='repair_detail'),
     path('job/<int:pk>/print/', views.repair_print, name='repair_print'),

@@ -59,6 +59,11 @@ class RepairItemForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields['technicians'].required = False
+        
+        # If creating new repair job, restrict status to 'RECEIVED' only
+        if not self.instance.pk:
+            self.fields['status'].choices = [('RECEIVED', 'รับแจ้ง')]
+            self.fields['status'].initial = 'RECEIVED'
 
 class TechnicianForm(forms.ModelForm):
     class Meta:

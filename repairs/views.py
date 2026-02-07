@@ -10,7 +10,7 @@ from django.db.models import Q
 
 @login_required
 def repair_list(request):
-    items = RepairItem.objects.select_related('job', 'device', 'job__customer').all()
+    items = RepairItem.objects.select_related('job', 'device', 'job__customer').exclude(status='COMPLETED').all()
 
     # Search
     q = request.GET.get('q')
@@ -48,6 +48,42 @@ def repair_list(request):
     users = User.objects.all().order_by('username')
 
     return render(request, 'repairs/repair_list.html', {'items': items, 'jobs': None, 'users': users}) # Pass items, clear jobs for safety check
+
+@login_required
+def repair_completed_list(request):
+    items = RepairItem.objects.select_related('job', 'device', 'job__customer').filter(status='COMPLETED').all()
+
+    # Search (reuse same logic mostly)
+    q = request.GET.get('q')
+    if q:
+        items = items.filter(
+            Q(job__job_code__icontains=q) |
+            Q(job__customer__name__icontains=q) |
+            Q(device__model__icontains=q) |
+            Q(device__serial_number__icontains=q) |
+            Q(issue_description__icontains=q) |
+            Q(job__fix_id__icontains=q) |
+            Q(created_by__username__icontains=q)
+        ).distinct()
+
+    # Filter by Creator
+    created_by_id = request.GET.get('created_by')
+    if created_by_id:
+        items = items.filter(created_by__id=created_by_id)
+
+    # Sort
+    sort = request.GET.get('sort', 'date_desc')
+    if sort == 'date_desc':
+        items = items.order_by('-updated_at') # Use updated_at for completed likely better? Or stick to created_at
+    elif sort == 'date_asc':
+        items = items.order_by('created_at')
+    elif sort == 'customer':
+        items = items.order_by('job__customer__name')
+    
+    from django.contrib.auth.models import User
+    users = User.objects.all().order_by('username')
+
+    return render(request, 'repairs/repair_completed_list.html', {'items': items, 'users': users})
 
 @login_required
 def repair_create(request):

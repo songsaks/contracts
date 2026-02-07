@@ -129,6 +129,11 @@
                         </a>
                     </li>
                     <li class="nav-item">
+                        <a class="nav-link {% if request.resolver_match.url_name == 'repair_completed_list' %}active{% endif %}" href="{% url 'repairs:repair_completed_list' %}">
+                            <i class="fas fa-check-circle me-1"></i> ส่งคืนแล้ว
+                        </a>
+                    </li>
+                    <li class="nav-item">
                         <a class="nav-link {% if 'customer' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'repairs:customer_list' %}">
                             <i class="fas fa-users me-1"></i> ลูกค้า
                         </a>
