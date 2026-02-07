@@ -437,3 +437,40 @@ def repair_income_report(request):
         'end_date': end_date.strftime('%Y-%m-%d')
     })
 
+def repair_tracking(request, tracking_id):
+    job = get_object_or_404(RepairJob, tracking_id=tracking_id)
+    return render(request, 'repairs/repair_tracking.html', {'job': job})
+
+def repair_tracking(request, tracking_id):
+    job = get_object_or_404(RepairJob, tracking_id=tracking_id)
+    return render(request, 'repairs/repair_tracking.html', {'job': job})
+
+def repair_status_search(request):
+    if request.method == 'POST':
+        job_code = request.POST.get('job_code')
+        phone = request.POST.get('phone')
+        
+        if not job_code or not phone:
+             return render(request, 'repairs/repair_status_search.html', {'error': 'กรุณากรอกข้อมูลให้ครบถ้วน'})
+
+        job_code = job_code.strip()
+        phone = phone.strip()
+        
+        try:
+            job = RepairJob.objects.get(job_code__iexact=job_code)
+            # Check phone last 4 digits
+            cust_phone = job.customer.contact_number.replace('-', '').replace(' ', '')
+            
+            if cust_phone.endswith(phone):
+                if not job.tracking_id:
+                     import uuid
+                     job.tracking_id = uuid.uuid4()
+                     job.save()
+                
+                return redirect('repairs:repair_tracking', tracking_id=job.tracking_id)
+            else:
+                return render(request, 'repairs/repair_status_search.html', {'error': 'เบอร์โทรศัพท์ไม่ถูกต้อง (กรุณาระบุ 4 ตัวท้าย)'})
+        except RepairJob.DoesNotExist:
+            return render(request, 'repairs/repair_status_search.html', {'error': 'ไม่พบข้อมูลใบรับบริการนี้'})
+            
+    return render(request, 'repairs/repair_status_search.html')

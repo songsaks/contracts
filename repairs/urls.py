@@ -13,6 +13,8 @@ urlpatterns = [
     path('item/<int:item_id>/note/', views.get_repair_item_note, name='get_repair_item_note'),
     path('job/<int:job_id>/notes/', views.get_repair_job_notes, name='get_repair_job_notes'),
     path('reports/income/', views.repair_income_report, name='repair_income_report'),
+    path('track/<uuid:tracking_id>/', views.repair_tracking, name='repair_tracking'),
+    path('status/', views.repair_status_search, name='repair_status_search'),
     
     # Customer
     path('customers/', views.customer_list, name='customer_list'),
