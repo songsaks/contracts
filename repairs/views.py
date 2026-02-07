@@ -6,6 +6,11 @@ from django.contrib.auth.decorators import login_required
 from .models import RepairJob, RepairItem, Customer, Device, Technician, DeviceType, Brand
 from .forms import CustomerForm, DeviceForm, RepairJobForm, RepairItemForm, TechnicianForm, DeviceTypeForm, BrandForm
 
+from .forms import CustomerForm, DeviceForm, RepairJobForm, RepairItemForm, TechnicianForm, DeviceTypeForm, BrandForm
+import csv
+import datetime
+from django.http import HttpResponse
+
 from django.db.models import Q
 
 @login_required
@@ -176,8 +181,32 @@ def repair_update_status(request, item_id):
             if accessories is not None: # Can be empty string
                 item.accessories = accessories
 
+            # Handle Price and Final Cost
+            price = request.POST.get('price')
+            final_cost = request.POST.get('final_cost')
+            
+            if price:
+                try:
+                    item.price = float(price)
+                except ValueError:
+                    pass
+            
+            # Use 'final_cost' from POST. If empty string, set to None? Or 0?
+            # User said "Free of charge due to warranty" -> likely explicitly 0.
+            # If empty, maybe keep previous? Or set to None?
+            # Let's save it if present.
+            if final_cost is not None:
+                if final_cost.strip() == '':
+                     item.final_cost = None
+                else:
+                    try:
+                        item.final_cost = float(final_cost)
+                    except ValueError:
+                        pass
+
             item.save()
-    return redirect('repairs:repair_list')
+    # Redirect back to the same job detail page for better UX
+    return redirect('repairs:repair_detail', pk=item.job.pk)
 
 @login_required
 def get_repair_item_note(request, item_id):
@@ -357,8 +386,54 @@ def brand_delete(request, pk):
         try:
             brand.delete()
         except Exception:
-            # Handle potential protection error if brands are used
             pass
         return redirect('repairs:brand_list')
     return render(request, 'repairs/brand_confirm_delete.html', {'brand': brand})
+
+@login_required
+def repair_income_report(request):
+    today = datetime.date.today()
+    start_date_str = request.GET.get('start_date')
+    end_date_str = request.GET.get('end_date')
+
+    if start_date_str:
+        start_date = datetime.datetime.strptime(start_date_str, '%Y-%m-%d').date()
+    else:
+        start_date = today.replace(day=1) # First day of month
+
+    if end_date_str:
+         end_date = datetime.datetime.strptime(end_date_str, '%Y-%m-%d').date()
+    else:
+         end_date = today 
+
+    items = RepairItem.objects.filter(
+        updated_at__date__range=[start_date, end_date],
+        status='COMPLETED'
+    ).select_related('job', 'device', 'job__customer').order_by('-updated_at')
+    
+    total_income = sum(item.final_cost or 0 for item in items)
+    
+    if request.GET.get('export') == 'excel':
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = f'attachment; filename="income_report_{start_date}_{end_date}.csv"'
+        response.write(u'\ufeff'.encode('utf8')) # BOM
+        
+        writer = csv.writer(response)
+        writer.writerow(['วันที่', 'รหัสงาน', 'ลูกค้า', 'รายการ', 'ค่าใช้จ่ายจริง'])
+        for item in items:
+             writer.writerow([
+                 item.updated_at.strftime('%d/%m/%Y'),
+                 item.job.job_code,
+                 item.job.customer.name,
+                 f"{item.device.brand} {item.device.model} - {item.issue_description}",
+                 item.final_cost or 0
+             ])
+        return response
+
+    return render(request, 'repairs/reports/income_report.html', {
+        'items': items,
+        'total_income': total_income,
+        'start_date': start_date.strftime('%Y-%m-%d'),
+        'end_date': end_date.strftime('%Y-%m-%d')
+    })
 

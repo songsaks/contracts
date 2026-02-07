@@ -126,7 +126,8 @@ class RepairItem(models.Model):
     accessories = models.CharField(max_length=255, blank=True, verbose_name="อุปกรณ์ที่นำมาด้วย", help_text="เช่น สายชาร์จ, กระเป๋า, เมาส์")
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='RECEIVED')
     status_note = models.TextField(blank=True, help_text="Reason for waiting or other status details")
-    price = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    price = models.DecimalField(max_digits=10, decimal_places=2, default=0.00, verbose_name="ราคาประเมิน")
+    final_cost = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, verbose_name="ค่าใช้จ่ายจริง")
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='created_repair_items')
     
     created_at = models.DateTimeField(auto_now_add=True)
