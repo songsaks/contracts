@@ -1,143 +1,229 @@
-{% extends 'base.html' %}
+{% extends 'repairs/base_repairs.html' %}
 
 {% block content %}
-<div class="max-w-3xl mx-auto">
-    <div class="bg-white shadow rounded-lg overflow-hidden">
-        <div class="px-6 py-4 border-b border-gray-200">
-            <h2 class="text-xl font-bold text-gray-900">สร้างงานซ่อมใหม่ (รับเครื่อง)</h2>
-            <p class="mt-1 text-sm text-gray-500">กรอกข้อมูลลูกค้าและอุปกรณ์ที่รับเข้ามาซ่อม</p>
+<div class="row justify-content-center">
+    <div class="col-lg-10">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-primary text-white py-3">
+                <h5 class="mb-0 fw-bold">
+                    <i class="fas fa-plus-circle me-2"></i>สร้างงานซ่อมใหม่ (รับเครื่อง)
+                </h5>
+                <small class="text-white-50">กรอกข้อมูลลูกค้าและอุปกรณ์ที่รับเข้ามาซ่อม</small>
+            </div>
+            
+            <div class="card-body p-4">
+                <form method="post" novalidate>
+                    {% csrf_token %}
+
+                    <!-- Customer Section -->
+                    <h6 class="bg-body-secondary p-2 rounded fw-bold text-dark mb-4 border-start border-4 border-primary ps-3">
+                        <i class="fas fa-user me-2 text-primary"></i>ข้อมูลลูกค้า
+                    </h6>
+                    
+                    <!-- Customer Selector -->
+                    <div class="mb-3">
+                        <label class="form-label text-muted small">เลือกลูกค้าเก่า (Optional)</label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-light text-muted"><i class="fas fa-search"></i></span>
+                            <select class="form-select" id="customerSelect" onchange="selectCustomer(this)">
+                                <option value="">-- สร้างลูกค้าใหม่ (หรือพิมพ์ชื่อเอง) --</option>
+                                {% for customer in all_customers %}
+                                <option value="{{ customer.pk }}" 
+                                        data-name="{{ customer.name }}"
+                                        data-contact="{{ customer.contact_number|default:'' }}"
+                                        data-address="{{ customer.address|default:'' }}"
+                                        {% if selected_customer_id|stringformat:"s" == customer.pk|stringformat:"s" %}selected{% endif %}>
+                                    {{ customer.name }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                            <a href="{% url 'repairs:customer_create' %}" class="btn btn-outline-primary" target="_blank" title="เพิ่มลูกค้าใหม่ (หน้าต่างใหม่)">
+                                <i class="fas fa-plus"></i>
+                            </a>
+                        </div>
+                        <div class="form-text small"><i class="fas fa-keyboard me-1"></i>พิมพ์ตัวอักษรตัวแรกของชื่อ เพื่อค้นหารวดเร็ว</div>
+                        <input type="hidden" name="customer_id" id="customerId" value="{{ selected_customer_id }}">
+                    </div>
+
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-6">
+                            <div class="form-floating">
+                                {{ customer_form.name }}
+                                <label for="{{ customer_form.name.id_for_label }}">ชื่อลูกค้า / บริษัท</label>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-floating">
+                                {{ customer_form.contact_number }}
+                                <label for="{{ customer_form.contact_number.id_for_label }}">เบอร์โทรศัพท์</label>
+                            </div>
+                        </div>
+                        <div class="col-12">
+                            <div class="form-floating">
+                                {{ customer_form.address }}
+                                <label for="{{ customer_form.address.id_for_label }}">ที่อยู่</label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Job Info Section -->
+                    <h6 class="bg-body-secondary p-2 rounded fw-bold text-dark mb-4 border-start border-4 border-primary ps-3">
+                        <i class="fas fa-file-alt me-2 text-primary"></i>รายละเอียดงาน
+                    </h6>
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold small text-muted">รหัสงาน (Optional)</label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light text-muted"><i class="fas fa-barcode"></i></span>
+                                {{ job_form.fix_id }}
+                            </div>
+                            <div class="form-text small">ระบบจะสร้างรหัสอัตโนมัติ (J...) หากเว้นว่างไว้</div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold small text-muted">วันที่รับเครื่อง</label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light text-muted"><i class="fas fa-calendar-alt"></i></span>
+                                {{ job_form.created_at }}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Device & Issue Section -->
+                    <h6 class="bg-body-secondary p-2 rounded fw-bold text-dark mb-4 border-start border-4 border-primary ps-3">
+                        <i class="fas fa-laptop me-2 text-primary"></i>อุปกรณ์และอาการเสีย
+                    </h6>
+                    <div class="bg-light p-4 rounded-3 border">
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold small text-muted">ประเภทอุปกรณ์</label>
+                                <div class="input-group">
+                                    {{ device_form.device_type }}
+                                    <a href="{% url 'repairs:device_type_create' %}" target="_blank" class="btn btn-outline-secondary" title="เพิ่มประเภทใหม่"><i class="fas fa-plus"></i></a>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold small text-muted">ยี่ห้อ</label>
+                                <div class="input-group">
+                                    {{ device_form.brand }}
+                                    <a href="{% url 'repairs:brand_create' %}" target="_blank" class="btn btn-outline-secondary" title="เพิ่มยี่ห้อใหม่"><i class="fas fa-plus"></i></a>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-floating">
+                                    {{ device_form.model }}
+                                    <label for="{{ device_form.model.id_for_label }}">รุ่น (Model)</label>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-floating">
+                                    {{ device_form.serial_number }}
+                                    <label for="{{ device_form.serial_number.id_for_label }}">Serial Number</label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <div class="form-floating">
+                                {{ item_form.issue_description }}
+                                <label for="{{ item_form.issue_description.id_for_label }}">อาการเสีย</label>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <div class="form-floating">
+                                {{ item_form.accessories }}
+                                <label for="{{ item_form.accessories.id_for_label }}">อุปกรณ์ที่นำมาด้วย</label>
+                            </div>
+                        </div>
+
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                <div class="form-floating">
+                                    {{ item_form.status }}
+                                    <label for="{{ item_form.status.id_for_label }}">สถานะเริ่มต้น</label>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-floating">
+                                    {{ item_form.status_note }}
+                                    <label for="{{ item_form.status_note.id_for_label }}">หมายเหตุ</label>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-floating">
+                                    {{ item_form.price }}
+                                    <label for="{{ item_form.price.id_for_label }}">ราคาประเมิน (บาท)</label>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="mt-3">
+                             <label class="form-label fw-bold small text-muted">มอบหมายช่าง</label>
+                             {{ item_form.technicians }}
+                             <div class="form-text small"><i class="fas fa-info-circle"></i> กด Ctrl (หรือ Command บน Mac) ค้างไว้เพื่อเลือกช่างหลายคน</div>
+                        </div>
+                    </div>
+
+                    <div class="d-flex justify-content-end gap-2 pt-3 border-top">
+                        <a href="{% url 'repairs:repair_list' %}" class="btn btn-light text-secondary">
+                            <i class="fas fa-times me-1"></i> ยกเลิก
+                        </a>
+                        <button type="submit" class="btn btn-primary px-4 shadow-sm">
+                            <i class="fas fa-save me-1"></i> สร้างงานซ่อม
+                        </button>
+                    </div>
+                </form>
+            </div>
         </div>
-
-        <form method="post" class="p-6 space-y-8">
-            {% csrf_token %}
-
-            <!-- Customer Section -->
-            <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
-                <h3 class="text-lg font-medium text-gray-900 mb-4">ข้อมูลลูกค้า</h3>
-                <div class="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6">
-                    <div class="sm:col-span-3">
-                        <label for="{{ customer_form.name.id_for_label }}"
-                            class="block text-sm font-medium text-gray-700">ชื่อลูกค้า</label>
-                        <div class="mt-1">
-                            {{ customer_form.name }}
-                        </div>
-                    </div>
-                    <div class="sm:col-span-3">
-                        <label for="{{ customer_form.contact_number.id_for_label }}"
-                            class="block text-sm font-medium text-gray-700">เบอร์โทรศัพท์</label>
-                        <div class="mt-1">
-                            {{ customer_form.contact_number }}
-                        </div>
-                    </div>
-                    <div class="sm:col-span-6">
-                        <label for="{{ customer_form.address.id_for_label }}"
-                            class="block text-sm font-medium text-gray-700">ที่อยู่</label>
-                        <div class="mt-1">
-                            {{ customer_form.address }}
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Job Section -->
-            <div class="bg-blue-50 p-4 rounded-lg border border-blue-200">
-                <h3 class="text-lg font-medium text-blue-900 mb-4">รายละเอียดงาน</h3>
-                <div class="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6">
-                    <div class="sm:col-span-3">
-                        <label for="{{ job_form.fix_id.id_for_label }}"
-                            class="block text-sm font-medium text-gray-700">รหัสซ่อมเอง (ถ้ามี)</label>
-                        <div class="mt-1">
-                            {{ job_form.fix_id }}
-                        </div>
-                        <p class="mt-1 text-xs text-gray-500">ระบบจะสร้างรหัสงานซ่อม (J...) อัตโนมัติ</p>
-                    </div>
-                    <div class="sm:col-span-3">
-                        <label for="{{ job_form.created_at.id_for_label }}"
-                            class="block text-sm font-medium text-gray-700">วันที่รับเครื่อง</label>
-                        <div class="mt-1">
-                            {{ job_form.created_at }}
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Device & Issue Section -->
-            <div class="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
-                <h3 class="text-lg font-medium text-yellow-900 mb-4">อุปกรณ์และอาการเสีย</h3>
-
-                <div class="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6 mb-6">
-                    <div class="sm:col-span-2">
-                        <label class="block text-sm font-medium text-gray-700">
-                            ประเภทอุปกรณ์
-                            <a href="{% url 'repairs:device_type_create' %}" class="text-xs text-blue-600 hover:text-blue-800 ml-1" target="_blank">+ เพิ่ม</a>
-                        </label>
-                        <div class="mt-1">{{ device_form.device_type }}</div>
-                        {% if not device_form.device_type.field.queryset.exists %}
-                        <p class="mt-1 text-xs text-amber-600">⚠️ ไม่พบข้อมูล <a href="{% url 'repairs:device_type_create' %}" target="_blank" class="underline">สร้างใหม่</a></p>
-                        {% endif %}
-                    </div>
-                    <div class="sm:col-span-2">
-                        <label class="block text-sm font-medium text-gray-700">
-                            ยี่ห้อ
-                            <a href="{% url 'repairs:brand_create' %}" class="text-xs text-blue-600 hover:text-blue-800 ml-1" target="_blank">+ เพิ่ม</a>
-                        </label>
-                        <div class="mt-1">{{ device_form.brand }}</div>
-                        {% if not device_form.brand.field.queryset.exists %}
-                        <p class="mt-1 text-xs text-amber-600">⚠️ ไม่พบยี่ห้อ <a href="{% url 'repairs:brand_create' %}" target="_blank" class="underline">สร้างใหม่</a></p>
-                        {% endif %}
-                    </div>
-                    <div class="sm:col-span-2">
-                        <label class="block text-sm font-medium text-gray-700">รุ่น</label>
-                        <div class="mt-1">{{ device_form.model }}</div>
-                    </div>
-                    <div class="sm:col-span-3">
-                        <label class="block text-sm font-medium text-gray-700">หมายเลขเครื่อง</label>
-                        <div class="mt-1">{{ device_form.serial_number }}</div>
-                    </div>
-                </div>
-
-                <div class="grid grid-cols-1 gap-y-6 gap-x-4">
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700">อาการเสีย</label>
-                        <div class="mt-1">{{ item_form.issue_description }}</div>
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700">อุปกรณ์ที่นำมาด้วย</label>
-                        <div class="mt-1">{{ item_form.accessories }}</div>
-                    </div>
-                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700">สถานะเริ่มต้น</label>
-                            <div class="mt-1">{{ item_form.status }}</div>
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700">รายละเอียดสถานะ (เพิ่มเติม)</label>
-                            <div class="mt-1">{{ item_form.status_note }}</div>
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700">ราคาประเมิน</label>
-                            <div class="mt-1">{{ item_form.price }}</div>
-                        </div>
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700">มอบหมายช่าง</label>
-                        <div class="mt-1">{{ item_form.technicians }}</div>
-                        <p class="text-xs text-gray-500 mt-1">กด Ctrl (Windows) เพื่อเลือกหลายคน</p>
-                    </div>
-                </div>
-            </div>
-
-            <div class="flex justify-end pt-5">
-                <a href="{% url 'repairs:repair_list' %}"
-                    class="bg-white py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none mr-3">
-                    ยกเลิก
-                </a>
-                <button type="submit"
-                    class="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
-                    สร้างงานซ่อม
-                </button>
-            </div>
-        </form>
     </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function selectCustomer(select) {
+        var option = select.options[select.selectedIndex];
+        var id = option.value;
+
+        // Get elements
+        var nameInput = document.getElementById('id_customer-name');
+        var contactInput = document.getElementById('id_customer-contact_number');
+        var addressInput = document.getElementById('id_customer-address');
+        var hiddenId = document.getElementById('customerId');
+
+        if (id) {
+            // Existing Customer Selected
+            var name = option.getAttribute('data-name');
+            var contact = option.getAttribute('data-contact');
+            var address = option.getAttribute('data-address');
+
+            nameInput.value = name;
+            contactInput.value = contact;
+            addressInput.value = address;
+            hiddenId.value = id;
+            
+            // Visual feedback
+            nameInput.classList.add('is-valid');
+            contactInput.classList.add('is-valid');
+            
+            // Remove valid class after 2 seconds
+            setTimeout(() => {
+                nameInput.classList.remove('is-valid');
+                contactInput.classList.remove('is-valid');
+            }, 2000);
+
+        } else {
+            // New Customer Selected - Clear fields
+            nameInput.value = '';
+            contactInput.value = '';
+            addressInput.value = '';
+            hiddenId.value = '';
+            
+            nameInput.classList.remove('is-valid');
+            contactInput.classList.remove('is-valid');
+        }
+    }
+    
+    // Optional: Add interactivity to "New Device" buttons if needed, currently they are just visual
+</script>
 {% endblock %}

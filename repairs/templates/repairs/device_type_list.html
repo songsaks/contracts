@@ -1,0 +1,50 @@
+{% extends 'repairs/base_repairs.html' %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1 class="h3 mb-0 text-gray-800">ประเภทอุปกรณ์</h1>
+            <a href="{% url 'repairs:device_type_create' %}" class="btn btn-warning shadow-sm rounded-circle d-flex align-items-center justify-content-center text-white" style="width: 48px; height: 48px;" title="เพิ่มประเภทใหม่" data-bs-toggle="tooltip">
+                <i class="fas fa-plus fa-lg"></i>
+            </a>
+        </div>
+
+        <div class="card shadow-sm border-0">
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th class="ps-4">ชื่อประเภท</th>
+                                <th>รายละเอียด</th>
+                                <th class="text-end pe-4">จัดการ</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for dt in device_types %}
+                            <tr>
+                                <td class="ps-4 fw-bold">{{ dt.name }}</td>
+                                <td class="text-muted">{{ dt.description|default:"-" }}</td>
+                                <td class="text-end pe-4">
+                                     <a href="{% url 'repairs:device_type_update' dt.pk %}" class="btn btn-sm btn-light text-primary shadow-sm border rounded-circle d-flex align-items-center justify-content-center ms-auto" style="width: 32px; height: 32px;" title="แก้ไข" data-bs-toggle="tooltip">
+                                        <i class="fas fa-edit"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="3" class="text-center py-5 text-muted">
+                                    <i class="fas fa-laptop fa-3x mb-3 text-secondary opacity-25"></i>
+                                    <p>ไม่พบข้อมูลประเภทอุปกรณ์</p>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

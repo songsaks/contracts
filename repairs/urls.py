@@ -15,6 +15,8 @@ urlpatterns = [
     # Customer
     path('customers/', views.customer_list, name='customer_list'),
     path('customers/create/', views.customer_create, name='customer_create'),
+    path('customers/<int:pk>/update/', views.customer_update, name='customer_update'),
+    path('customers/<int:pk>/delete/', views.customer_delete, name='customer_delete'),
     
     # Device
     path('devices/', views.device_list, name='device_list'),
@@ -22,10 +24,14 @@ urlpatterns = [
     # Technician
     path('technicians/', views.technician_list, name='technician_list'),
     path('technicians/create/', views.technician_create, name='technician_create'),
+    path('technicians/<int:pk>/update/', views.technician_update, name='technician_update'),
+    path('technicians/<int:pk>/delete/', views.technician_delete, name='technician_delete'),
     
     # DeviceType
     path('device-types/', views.device_type_list, name='device_type_list'),
     path('device-types/create/', views.device_type_create, name='device_type_create'),
+    path('device-types/<int:pk>/update/', views.device_type_update, name='device_type_update'),
+    path('device-types/<int:pk>/delete/', views.device_type_delete, name='device_type_delete'),
     
     # Brands
     path('brands/', views.brand_list, name='brand_list'),

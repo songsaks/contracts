@@ -43,31 +43,23 @@ def repair_list(request):
 
 @login_required
 def repair_create(request):
-    customer_id = request.GET.get('customer_id')
-    prefilled_customer = None
-    if customer_id:
-        prefilled_customer = get_object_or_404(Customer, pk=customer_id)
+    # Determine customer instance if ID provided (GET or POST)
+    customer_id = request.POST.get('customer_id') or request.GET.get('customer_id')
+    customer_instance = None
+    if customer_id and customer_id.isdigit():
+        customer_instance = get_object_or_404(Customer, pk=customer_id)
 
     if request.method == 'POST':
-        if prefilled_customer:
-             # Skip customer form validation if existing customer
-             customer_form = None
-             customer = prefilled_customer
-        else:
-            customer_form = CustomerForm(request.POST, prefix='customer')
-
+        # Bind forms
+        customer_form = CustomerForm(request.POST, instance=customer_instance, prefix='customer')
         job_form = RepairJobForm(request.POST, prefix='job')
-        
-        # Simple implementation: 1 device per job creation for now, to keep it simple initially
-        # Enhancing to support at least one device in the main flow
         device_form = DeviceForm(request.POST, prefix='device')
         item_form = RepairItemForm(request.POST, prefix='item')
 
-        if (prefilled_customer or customer_form.is_valid()) and job_form.is_valid() and device_form.is_valid() and item_form.is_valid():
+        if customer_form.is_valid() and job_form.is_valid() and device_form.is_valid() and item_form.is_valid():
             with transaction.atomic():
-                # Save Customer if new
-                if not prefilled_customer:
-                    customer = customer_form.save()
+                # Save Customer (Update or Create)
+                customer = customer_form.save()
                 
                 # Save Device linked to Customer
                 device = device_form.save(commit=False)
@@ -91,25 +83,27 @@ def repair_create(request):
                 return redirect('repairs:repair_detail', pk=job.pk)
         else:
             print("DEBUG: Validation Failed")
-            if not prefilled_customer and customer_form: print(f"Customer Errors: {customer_form.errors}")
+            print(f"Customer Errors: {customer_form.errors}")
             print(f"Job Errors: {job_form.errors}")
             print(f"Device Errors: {device_form.errors}")
             print(f"Item Errors: {item_form.errors}")
     else:
-        if prefilled_customer:
-            customer_form = None
-        else:
-            customer_form = CustomerForm(prefix='customer')
+        # Initial forms
+        customer_form = CustomerForm(instance=customer_instance, prefix='customer')
         job_form = RepairJobForm(prefix='job')
         device_form = DeviceForm(prefix='device')
         item_form = RepairItemForm(prefix='item')
 
+    # Get all customers for dropdown
+    all_customers = Customer.objects.all().order_by('name')
+
     context = {
         'customer_form': customer_form,
-        'prefilled_customer': prefilled_customer,
         'job_form': job_form,
         'device_form': device_form,
         'item_form': item_form,
+        'all_customers': all_customers,
+        'selected_customer_id': customer_id if customer_instance else '',
     }
     return render(request, 'repairs/repair_form.html', context)
 
@@ -179,6 +173,26 @@ def customer_create(request):
     return render(request, 'repairs/customer_form.html', {'form': form})
 
 @login_required
+def customer_update(request, pk):
+    customer = get_object_or_404(Customer, pk=pk)
+    if request.method == 'POST':
+        form = CustomerForm(request.POST, instance=customer)
+        if form.is_valid():
+            form.save()
+            return redirect('repairs:customer_list')
+    else:
+        form = CustomerForm(instance=customer)
+    return render(request, 'repairs/customer_form.html', {'form': form})
+
+@login_required
+def customer_delete(request, pk):
+    customer = get_object_or_404(Customer, pk=pk)
+    if request.method == 'POST':
+        customer.delete()
+        return redirect('repairs:customer_list')
+    return render(request, 'repairs/formatted_confirm_delete.html', {'object': customer, 'type': 'Customer', 'cancel_url': 'repairs:customer_list'})
+
+@login_required
 def device_list(request):
     devices = Device.objects.all().order_by('-id')
     return render(request, 'repairs/device_list.html', {'devices': devices})
@@ -202,6 +216,26 @@ def technician_create(request):
     return render(request, 'repairs/technician_form.html', {'form': form})
 
 @login_required
+def technician_update(request, pk):
+    tech = get_object_or_404(Technician, pk=pk)
+    if request.method == 'POST':
+        form = TechnicianForm(request.POST, instance=tech)
+        if form.is_valid():
+            form.save()
+            return redirect('repairs:technician_list')
+    else:
+        form = TechnicianForm(instance=tech)
+    return render(request, 'repairs/technician_form.html', {'form': form})
+
+@login_required
+def technician_delete(request, pk):
+    tech = get_object_or_404(Technician, pk=pk)
+    if request.method == 'POST':
+        tech.delete()
+        return redirect('repairs:technician_list')
+    return render(request, 'repairs/formatted_confirm_delete.html', {'object': tech, 'type': 'Technician', 'cancel_url': 'repairs:technician_list'})
+
+@login_required
 def device_type_list(request):
     device_types = DeviceType.objects.all()
     return render(request, 'repairs/device_type_list.html', {'device_types': device_types})
@@ -216,6 +250,26 @@ def device_type_create(request):
     else:
         form = DeviceTypeForm()
     return render(request, 'repairs/device_type_form.html', {'form': form})
+
+@login_required
+def device_type_update(request, pk):
+    dt = get_object_or_404(DeviceType, pk=pk)
+    if request.method == 'POST':
+        form = DeviceTypeForm(request.POST, instance=dt)
+        if form.is_valid():
+            form.save()
+            return redirect('repairs:device_type_list')
+    else:
+        form = DeviceTypeForm(instance=dt)
+    return render(request, 'repairs/device_type_form.html', {'form': form})
+
+@login_required
+def device_type_delete(request, pk):
+    dt = get_object_or_404(DeviceType, pk=pk)
+    if request.method == 'POST':
+        dt.delete()
+        return redirect('repairs:device_type_list')
+    return render(request, 'repairs/formatted_confirm_delete.html', {'object': dt, 'type': 'Device Type', 'cancel_url': 'repairs:device_type_list'})
     
 @login_required
 def repair_print(request, pk):
