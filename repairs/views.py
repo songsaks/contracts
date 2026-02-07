@@ -205,8 +205,8 @@ def repair_update_status(request, item_id):
                         pass
 
             item.save()
-    # Redirect back to the same job detail page for better UX
-    return redirect('repairs:repair_detail', pk=item.job.pk)
+    # Redirect back to the repair list
+    return redirect('repairs:repair_list')
 
 @login_required
 def get_repair_item_note(request, item_id):
