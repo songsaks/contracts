@@ -16,23 +16,34 @@
             <div class="card-body bg-light rounded">
                 <form method="get" class="row g-3 align-items-end">
                     <!-- Search -->
-                    <div class="col-md-5">
+                    <div class="col-md-3">
                         <label class="form-label text-muted small">ค้นหา</label>
                         <div class="input-group">
                             <span class="input-group-text bg-white border-end-0"><i class="fas fa-search text-muted"></i></span>
-                            <input type="text" name="q" value="{{ request.GET.q }}" class="form-control border-start-0" placeholder="รหัส, ลูกค้า, อุปกรณ์...">
+                            <input type="text" name="q" value="{{ request.GET.q|default:'' }}" class="form-control border-start-0" placeholder="รหัส, ลูกค้า...">
                         </div>
                     </div>
 
                     <!-- Status Filter -->
-                    <div class="col-md-3">
+                    <div class="col-md-2">
                         <label class="form-label text-muted small">สถานะ</label>
                         <select name="status" class="form-select" onchange="this.form.submit()">
                             <option value="">ทุกสถานะ</option>
-                            <option value="RECEIVED" {% if request.GET.status == 'RECEIVED' %}selected{% endif %}>Received (รับเครื่อง)</option>
-                            <option value="FIXING" {% if request.GET.status == 'FIXING' %}selected{% endif %}>Fixing (กำลังซ่อม)</option>
-                            <option value="WAITING" {% if request.GET.status == 'WAITING' %}selected{% endif %}>Waiting (รออะไหล่/ลูกค้า)</option>
-                            <option value="FINISHED" {% if request.GET.status == 'FINISHED' %}selected{% endif %}>Finished (เสร็จสิ้น)</option>
+                            <option value="RECEIVED" {% if request.GET.status == 'RECEIVED' %}selected{% endif %}>Received</option>
+                            <option value="FIXING" {% if request.GET.status == 'FIXING' %}selected{% endif %}>Fixing</option>
+                            <option value="WAITING" {% if request.GET.status == 'WAITING' %}selected{% endif %}>Waiting</option>
+                            <option value="FINISHED" {% if request.GET.status == 'FINISHED' %}selected{% endif %}>Finished</option>
+                        </select>
+                    </div>
+
+                    <!-- Creator Filter -->
+                    <div class="col-md-3">
+                        <label class="form-label text-muted small">ผู้รับงาน</label>
+                        <select name="created_by" class="form-select" onchange="this.form.submit()">
+                            <option value="">ทุกคน</option>
+                            {% for u in users %}
+                            <option value="{{ u.id }}" {% if request.GET.created_by|add:"0" == u.id %}selected{% endif %}>{{ u.username }}</option>
+                            {% endfor %}
                         </select>
                     </div>
 
@@ -47,7 +58,7 @@
                     </div>
                     
                     <div class="col-md-2">
-                        {% if request.GET.q or request.GET.status %}
+                        {% if request.GET.q or request.GET.status or request.GET.created_by %}
                         <a href="{% url 'repairs:repair_list' %}" class="btn btn-outline-danger w-100">
                             <i class="fas fa-times me-1"></i> ล้างค่า
                         </a>
@@ -74,7 +85,7 @@
                         </thead>
                         <tbody>
                             {% for item in items %}
-                            <tr>
+                            <tr style="{% if item.status == 'RECEIVED' %}background-color: #f8f9fa;{% elif item.status == 'FIXING' %}background-color: #fff3cd;{% elif item.status == 'WAITING' %}background-color: #cff4fc;{% elif item.status == 'FINISHED' %}background-color: #d1e7dd;{% endif %}">
                                 <td class="ps-4">
                                     <div class="fw-bold text-primary position-relative" 
                                          style="cursor: pointer;"
@@ -99,28 +110,30 @@
                                 </td>
                                 <td>{{ item.job.created_at|date:"d M Y H:i" }}</td>
                                 <td>
-                                    <div class="position-relative"
+                                    <div class="d-flex align-items-center position-relative"
                                          data-item-id="{{ item.id }}"
                                          data-status="{{ item.status }}"
                                          onmouseenter="showStatusNote(this)"
                                          onmouseleave="hideStatusNote(this)">
                                         
-                                        <div class="d-flex align-items-center mb-1">
-                                            <strong class="me-2">{{ item.device.brand }} {{ item.device.model }}</strong>
-                                            
-                                            {% if item.status == 'RECEIVED' %}
-                                                <span class="badge bg-secondary">Received</span>
-                                            {% elif item.status == 'FIXING' %}
-                                                <span class="badge bg-warning text-dark">Fixing</span>
-                                            {% elif item.status == 'WAITING' %}
-                                                <span class="badge bg-info text-dark">Waiting</span>
-                                            {% elif item.status == 'FINISHED' %}
-                                                <span class="badge bg-success">Finished</span>
-                                            {% endif %}
-                                        </div>
-                                        <div class="small text-muted text-truncate" style="max-width: 250px;" title="{{ item.issue_description }}">
-                                            {{ item.issue_description }}
-                                        </div>
+                                        <!-- Device -->
+                                        <strong class="me-2 text-nowrap">{{ item.device.brand }} {{ item.device.model }}</strong>
+                                        
+                                        <!-- Status (Text Only) -->
+                                        {% if item.status == 'RECEIVED' %}
+                                            <span class="fw-bold text-secondary me-2">Received</span>
+                                        {% elif item.status == 'FIXING' %}
+                                            <span class="fw-bold text-warning me-2">Fixing</span>
+                                        {% elif item.status == 'WAITING' %}
+                                            <span class="fw-bold text-info me-2">Waiting</span>
+                                        {% elif item.status == 'FINISHED' %}
+                                            <span class="fw-bold text-success me-2">Finished</span>
+                                        {% endif %}
+                                        
+                                        <!-- Issue Description -->
+                                        <span class="small text-muted text-truncate" style="max-width: 200px;" title="{{ item.issue_description }}">
+                                            - {{ item.issue_description }}
+                                        </span>
 
                                         <!-- Status Note Tooltip -->
                                         <div class="status-tooltip position-absolute bg-dark text-white p-2 rounded shadow-lg d-none" 

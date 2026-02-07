@@ -30,6 +30,11 @@ def repair_list(request):
     if status:
         items = items.filter(status=status)
 
+    # Filter by Creator (Receiver)
+    created_by_id = request.GET.get('created_by')
+    if created_by_id:
+        items = items.filter(created_by__id=created_by_id)
+
     # Sort
     sort = request.GET.get('sort', 'date_desc')
     if sort == 'date_desc':
@@ -39,7 +44,10 @@ def repair_list(request):
     elif sort == 'customer':
         items = items.order_by('job__customer__name')
     
-    return render(request, 'repairs/repair_list.html', {'items': items, 'jobs': None}) # Pass items, clear jobs for safety check
+    from django.contrib.auth.models import User
+    users = User.objects.all().order_by('username')
+
+    return render(request, 'repairs/repair_list.html', {'items': items, 'jobs': None, 'users': users}) # Pass items, clear jobs for safety check
 
 @login_required
 def repair_create(request):
