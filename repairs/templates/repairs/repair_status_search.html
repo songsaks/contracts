@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ตรวจสอบสถานะงานซ่อม</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body {
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .search-card {
+            border: none;
+            border-radius: 15px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            overflow: hidden;
+            width: 100%;
+            max-width: 450px;
+        }
+        .search-header {
+            background: #0d6efd;
+            padding: 2rem;
+            text-align: center;
+            color: white;
+        }
+        .form-control:focus {
+            box-shadow: none;
+            border-color: #0d6efd;
+        }
+        .btn-check-status {
+            background: #0d6efd;
+            border: none;
+            padding: 12px;
+            font-weight: bold;
+            letter-spacing: 0.5px;
+            transition: all 0.3s;
+        }
+        .btn-check-status:hover {
+            background: #0b5ed7;
+            transform: translateY(-2px);
+        }
+    </style>
+</head>
+<body>
+
+<div class="container p-3">
+    <div class="card search-card mx-auto">
+        <div class="search-header">
+            <h1 class="h4 mb-2"><i class="fas fa-search me-2"></i>ตรวจสอบสถานะ</h1>
+            <p class="mb-0 opacity-75 small">กรอกข้อมูลเพื่อติดตามงานซ่อมของคุณ</p>
+        </div>
+        <div class="card-body p-4 bg-white">
+            {% if error %}
+            <div class="alert alert-danger text-center small mb-3">
+                <i class="fas fa-exclamation-circle me-1"></i> {{ error }}
+            </div>
+            {% endif %}
+
+            <form method="post">
+                {% csrf_token %}
+                <div class="mb-3">
+                    <label class="form-label small fw-bold text-muted">เลขที่ใบรับซ่อม (Job Code)</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-light border-end-0"><i class="fas fa-barcode text-muted"></i></span>
+                        <input type="text" name="job_code" class="form-control border-start-0 ps-0" placeholder="เช่น J20231010001" required>
+                    </div>
+                </div>
+                
+                <div class="mb-4">
+                    <label class="form-label small fw-bold text-muted">เบอร์โทรศัพท์ (4 ตัวท้าย)</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-light border-end-0"><i class="fas fa-phone text-muted"></i></span>
+                        <input type="text" name="phone" class="form-control border-start-0 ps-0" placeholder="เช่น 1234" maxlength="4" required>
+                    </div>
+                </div>
+
+                <div class="d-grid">
+                    <button type="submit" class="btn btn-primary btn-check-status rounded-pill shadow-sm">
+                        <i class="fas fa-search me-2"></i> ตรวจสอบสถานะ
+                    </button>
+                </div>
+            </form>
+            
+            <div class="text-center mt-4">
+                <a href="#" class="small text-muted text-decoration-none">
+                    <i class="fas fa-home me-1"></i> กลับหน้าหลัก
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+</body>
+</html>

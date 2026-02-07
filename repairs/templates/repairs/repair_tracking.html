@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ติดตามสถานะงานซ่อม - {{ job.job_code }}</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body {
+            background-color: #f8f9fa;
+        }
+        .tracking-card {
+            border: none;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        .tracking-header {
+            background: linear-gradient(135deg, #0d6efd, #0dcaf0);
+            color: white;
+            padding: 2rem;
+            text-align: center;
+        }
+        .status-timeline {
+            position: relative;
+            padding-left: 20px;
+        }
+        .status-item {
+            position: relative;
+            padding-bottom: 1.5rem;
+            border-left: 2px solid #e9ecef;
+            padding-left: 20px;
+        }
+        .status-item:last-child {
+            border-left: none;
+        }
+        .status-item::before {
+            content: '';
+            position: absolute;
+            left: -6px;
+            top: 0;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #fff;
+            border: 2px solid #6c757d;
+        }
+        .status-item.active::before {
+            background: #0d6efd;
+            border-color: #0d6efd;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8 col-lg-6">
+            <div class="card tracking-card mb-4">
+                <div class="tracking-header">
+                    <h1 class="h3 mb-2"><i class="fas fa-tools me-2"></i>สถานะงานซ่อม</h1>
+                    <p class="mb-0 opacity-75">รหัสงาน: <strong>{{ job.job_code }}</strong></p>
+                </div>
+                <div class="card-body p-4">
+                    <div class="d-flex justify-content-between mb-4 border-bottom pb-3">
+                        <span class="text-muted">ลูกค้า</span>
+                        <span class="fw-bold">{{ job.customer.name }}</span>
+                    </div>
+
+                    <h5 class="mb-3 text-primary"><i class="fas fa-list-ul me-2"></i>รายการซ่อม</h5>
+                    
+                    {% for item in job.items.all %}
+                    <div class="card mb-3 border-0 bg-light">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <h6 class="fw-bold mb-0 text-dark">{{ item.device.brand }} {{ item.device.model }}</h6>
+                                
+                                {% if item.status == 'RECEIVED' %}
+                                    <span class="badge bg-danger rounded-pill">รับแจ้ง</span>
+                                {% elif item.status == 'FIXING' %}
+                                    <span class="badge bg-warning text-dark rounded-pill">กำลังซ่อม</span>
+                                {% elif item.status == 'WAITING' %}
+                                    <span class="badge bg-info text-dark rounded-pill">รออะไหล่</span>
+                                {% elif item.status == 'FINISHED' %}
+                                    <span class="badge bg-success rounded-pill">ซ่อมเสร็จ</span>
+                                {% elif item.status == 'COMPLETED' %}
+                                    <span class="badge bg-secondary rounded-pill">ส่งคืนแล้ว</span>
+                                {% endif %}
+                            </div>
+                            
+                            <p class="small text-muted mb-1"><i class="fas fa-exclamation-circle me-1"></i>อาการ: {{ item.issue_description }}</p>
+                            
+                            {% if item.price > 0 %}
+                            <p class="small text-muted mb-1"><i class="fas fa-tag me-1"></i>ราคาประเมิน: {{ item.price }} บาท</p>
+                            {% endif %}
+
+                            {% if item.status_note %}
+                            <div class="alert alert-info py-2 px-3 mt-2 mb-0 small">
+                                <i class="fas fa-info-circle me-1"></i>ล่าสุด: {{ item.status_note }}
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+
+                    <div class="text-center mt-4">
+                        <p class="small text-muted">หากมีข้อสงสัย กรุณาติดต่อทางร้าน</p>
+                        <a href="tel:0812345678" class="btn btn-outline-primary btn-sm rounded-pill px-4">
+                            <i class="fas fa-phone me-1"></i> โทรติดต่อ
+                        </a>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="text-center text-muted small">
+                &copy; {% now "Y" %} Repair Tracking System
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
