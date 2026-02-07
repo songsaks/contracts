@@ -85,13 +85,13 @@
                                 </select>
                             </div>
                             <div class="col-md-8">
-                                <label class="form-label small fw-bold text-muted">บันทึกสถานะ</label>
-                                <div class="input-group">
-                                    <textarea name="status_note" rows="1" class="form-control" placeholder="ระบุเหตุผล หรือ รายละเอียดสถานะ">{{ item.status_note }}</textarea>
-                                    <button type="submit" class="btn btn-primary" title="บันทึก">
-                                        <i class="fas fa-save"></i>
-                                    </button>
-                                </div>
+                                <label class="form-label small fw-bold text-muted">หมายเหตุสถานะ</label>
+                                <textarea name="status_note" rows="1" class="form-control" placeholder="ระบุเหตุผล หรือ รายละเอียดสถานะ">{{ item.status_note }}</textarea>
+                            </div>
+                            <div class="col-12 mt-3">
+                                <button type="submit" class="btn btn-primary w-100 py-2 shadow fw-bold" style="letter-spacing: 0.5px;">
+                                    <i class="fas fa-save me-2"></i> บันทึกการเปลี่ยนแปลง
+                                </button>
                             </div>
                         </div>
                     </div>
