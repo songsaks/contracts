@@ -28,14 +28,47 @@
             <a href="{% url 'pms:project_quotation' project.pk %}" class="btn btn-light text-dark shadow-sm border rounded-circle d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;" target="_blank" title="พิมพ์ใบเสนอราคา">
                 <i class="fas fa-print"></i>
             </a>
+            {% if active_queue_item %}
+            <button class="btn btn-secondary shadow-sm rounded-circle d-flex align-items-center justify-content-center opacity-50" style="width: 40px; height: 40px;" disabled title="งานถูกล็อกเนื่องจากอยู่ในคิวบริการ">
+                <i class="fas fa-lock"></i>
+            </button>
+            {% elif project.status == 'CLOSED' %}
+            <button onclick="unlockClosedProject()" class="btn btn-dark shadow-sm rounded-circle d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;" title="ปลดล็อกงานที่ปิดจบ (ต้องใช้รหัส)">
+                <i class="fas fa-unlock"></i>
+            </button>
+            {% else %}
+
             <a href="{% url 'pms:project_update' project.pk %}" class="btn btn-{{ theme_color|default:'primary' }} text-white shadow-sm rounded-circle d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;" title="แก้ไข">
                 <i class="fas fa-pen"></i>
             </a>
+            {% endif %}
             <a href="{% url 'pms:project_list' %}" class="btn btn-light text-secondary shadow-sm border rounded-circle d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;" title="กลับหน้ารายการ">
                 <i class="fas fa-arrow-left"></i>
             </a>
         </div>
     </div>
+
+    {% if project.status == 'CLOSED' %}
+    <div class="alert alert-dark border-0 shadow-sm mb-4 d-flex align-items-center">
+        <i class="fas fa-check-double fs-4 me-3 text-success"></i>
+        <div>
+            <strong>งานนี้ปิดจบแล้ว:</strong> ข้อมูลถูกล็อกถาวรเพื่อความปลอดภัยทางบัญชีและประวัติงาน 
+            ไม่สามารถแก้ไขสถานะหรือรายละเอียดได้อีก
+        </div>
+    </div>
+    {% elif active_queue_item %}
+
+    <div class="alert alert-warning border-0 shadow-sm mb-4 d-flex align-items-center">
+        <i class="fas fa-info-circle fs-4 me-3"></i>
+        <div>
+            <strong>งานนี้ถูกล็อก:</strong> ขณะนี้งานอยู่ในการจัดการของ 
+            <a href="{% url 'pms:service_queue_dashboard' %}" class="alert-link">AI Service Queue</a> 
+            สถานะปัจจุบันคือ <strong>{{ active_queue_item.get_status_display }}</strong> 
+            ทำให้ไม่สามารถแก้ไขข้อมูลหรือเปลี่ยนสถานะโครงการได้จนกว่าจะดำเนินการในคิวเสร็จสิ้น
+        </div>
+    </div>
+    {% endif %}
+
 
     <!-- Workflow Progress -->
     <div class="card shadow-sm mb-4">
@@ -169,4 +202,15 @@
         </div>
     </div>
 </div>
+<script>
+function unlockClosedProject() {
+    const code = prompt("🔑 กรุณาใส่รหัสผ่านเพื่อปลดล็อกงานที่ปิดจบ:");
+    if (code === "9com") {
+        window.location.href = "{% url 'pms:project_update' project.pk %}?unlock=9com";
+    } else if (code !== null) {
+        alert("❌ รหัสไม่ถูกต้อง!");
+    }
+}
+</script>
 {% endblock %}
+

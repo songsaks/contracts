@@ -1,0 +1,69 @@
+{% extends 'pms/base_pms.html' %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8 col-lg-6">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white py-3">
+                <h5 class="mb-0 fw-bold"><i class="fas fa-users-cog me-2 text-primary"></i>{{ title }}</h5>
+            </div>
+            <div class="card-body p-4">
+                <form method="post">
+                    {% csrf_token %}
+
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">ชื่อทีม <span class="text-danger">*</span></label>
+                        <input type="text" name="name" required class="form-control"
+                            value="{{ team.name|default:'' }}" placeholder="เช่น ทีมซ่อม A, ทีมส่งของ">
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">ทักษะ/ความถนัด</label>
+                        <input type="text" name="skills" class="form-control"
+                            value="{{ team.skills|default:'' }}" placeholder="เช่น REPAIR,DELIVERY,INSTALLATION (คั่นด้วย ,)">
+                        <div class="form-text">ระบุประเภทงานที่ทีมนี้ถนัด: REPAIR, DELIVERY, INSTALLATION, OTHER</div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">จำนวนงานสูงสุด/วัน</label>
+                        <input type="number" name="max_tasks_per_day" class="form-control" min="1" max="20"
+                            value="{{ team.max_tasks_per_day|default:5 }}">
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">สมาชิกในทีม</label>
+                        <select name="members" multiple class="form-select" size="5">
+                            {% for user in users %}
+                            <option value="{{ user.id }}"
+                                {% if team and user in team.members.all %}selected{% endif %}>
+                                {{ user.get_full_name|default:user.username }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                        <div class="form-text">กด Ctrl+Click เพื่อเลือกหลายคน</div>
+                    </div>
+
+                    {% if team %}
+                    <div class="mb-3">
+                        <div class="form-check form-switch">
+                            <input type="checkbox" name="is_active" class="form-check-input" id="isActive"
+                                {% if team.is_active %}checked{% endif %}>
+                            <label class="form-check-label" for="isActive">ใช้งานอยู่ (Active)</label>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <div class="d-flex gap-2 pt-3 border-top">
+                        <button type="submit" class="btn btn-primary px-4">
+                            <i class="fas fa-save me-1"></i> บันทึก
+                        </button>
+                        <a href="{% url 'pms:team_list' %}" class="btn btn-outline-secondary">ยกเลิก</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

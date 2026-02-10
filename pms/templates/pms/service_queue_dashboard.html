@@ -1,0 +1,347 @@
+{% extends 'pms/base_pms.html' %}
+{% load humanize %}
+
+{% block title %}AI Service Queue{% endblock %}
+
+{% block content %}
+<style>
+    .queue-header {
+        background: linear-gradient(135deg, #4f46e5, #7c3aed);
+        border-radius: 16px;
+        padding: 24px 32px;
+        color: white;
+        margin-bottom: 24px;
+    }
+    .stat-card {
+        background: white; border-radius: 12px; padding: 20px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.06); border: 1px solid #e5e7eb;
+        transition: transform 0.2s; text-align: center;
+    }
+    .stat-card:hover { transform: translateY(-2px); }
+    .stat-number { font-size: 2rem; font-weight: 700; }
+    .section-header {
+        border-radius: 12px 12px 0 0; padding: 14px 20px;
+        font-weight: 600; display: flex; justify-content: space-between; align-items: center;
+    }
+    .badge-repair { background: #fff7ed; color: #c2410c; }
+    .badge-delivery { background: #f0fdf4; color: #15803d; }
+    .badge-install { background: #eff6ff; color: #1d4ed8; }
+    .badge-other { background: #f9fafb; color: #6b7280; }
+    .team-pill {
+        display: inline-flex; align-items: center; gap: 6px;
+        padding: 4px 12px; border-radius: 20px; font-size: 0.8rem;
+        background: #f1f5f9; border: 1px solid #e2e8f0;
+    }
+    .date-block { margin-bottom: 20px; }
+    .date-block-header {
+        background: linear-gradient(135deg, #059669, #10b981);
+        color: white; padding: 12px 20px; border-radius: 12px 12px 0 0;
+        font-weight: 600; display: flex; justify-content: space-between; align-items: center;
+    }
+    .date-block-today {
+        background: linear-gradient(135deg, #2563eb, #3b82f6);
+    }
+    .date-block-past {
+        background: linear-gradient(135deg, #dc2626, #ef4444);
+    }
+    .pending-row td { vertical-align: middle; }
+    .pulse-dot { animation: pulse 1.5s infinite; }
+    @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
+</style>
+
+<!-- Header -->
+<div class="queue-header">
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+        <div>
+            <h2 class="mb-1"><i class="fas fa-robot me-2"></i>AI Service Queue</h2>
+            <p class="mb-0 opacity-75"><i class="fas fa-calendar-day me-1"></i> {{ today|date:"l, d F Y" }}</p>
+        </div>
+        <div class="d-flex gap-2 flex-wrap text-end">
+            <a href="{% url 'pms:force_sync_queue' %}" class="btn btn-info text-white fw-bold px-3">
+                <i class="fas fa-sync-alt me-1 pulse-dot"></i> กวาดงานเข้าคิว
+            </a>
+            <form action="{% url 'pms:auto_schedule_tasks' %}" method="post" class="d-inline">
+                {% csrf_token %}
+                <button type="submit" onclick="return confirm('🤖 จัดคิวงานที่ใส่ทีม+วันที่แล้ว?')"
+                    class="btn btn-warning fw-semibold px-4">
+                    <i class="fas fa-magic me-1"></i> จัดคิวงาน+AI
+                </button>
+            </form>
+            <a href="{% url 'pms:team_list' %}" class="btn btn-outline-light px-3">
+                <i class="fas fa-users-cog me-1"></i> จัดการทีม
+            </a>
+
+            <a href="{% url 'pms:team_messages' %}" class="btn btn-outline-light px-3">
+                <i class="fas fa-envelope me-1"></i> ข้อความ
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- Stats -->
+<div class="row g-3 mb-4">
+    <div class="col-6 col-md-3">
+        <div class="stat-card">
+            <div class="stat-number text-warning">{{ pending_count }}</div>
+            <div class="text-muted small"><i class="fas fa-clock me-1"></i>รอจัดคิว</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="stat-card">
+            <div class="stat-number text-primary">{{ scheduled_count }}</div>
+            <div class="text-muted small"><i class="fas fa-calendar-check me-1"></i>จัดคิวแล้ว</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="stat-card">
+            <div class="stat-number text-danger">{{ incomplete_count }}</div>
+            <div class="text-muted small"><i class="fas fa-exclamation-circle me-1"></i>ยกยอด</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="stat-card">
+            <div class="stat-number text-success">{{ completed_count }}</div>
+            <div class="text-muted small"><i class="fas fa-check-circle me-1"></i>เสร็จแล้ว</div>
+        </div>
+    </div>
+</div>
+
+<!-- ============ BLOCK 1: Pending Tasks (รอจัดคิว) ============ -->
+<div class="card border-0 shadow-sm mb-4">
+    <div class="section-header text-white" style="background: linear-gradient(135deg, #f59e0b, #d97706);">
+        <span><i class="fas fa-inbox me-2"></i> งานรอจัดคิว</span>
+        <span class="badge bg-white text-warning">{{ pending_count }} งาน</span>
+    </div>
+
+    {% if pending_tasks %}
+    <div class="table-responsive">
+        <table class="table table-hover mb-0 align-middle">
+            <thead class="bg-light">
+                <tr class="small text-uppercase text-muted">
+                    <th class="px-3 py-2">งาน</th>
+                    <th class="px-3 py-2">ประเภท</th>
+                    <th class="px-3 py-2">ลูกค้า</th>
+                    <th class="px-3 py-2">กำหนดส่ง</th>
+                    <th class="px-3 py-2" style="min-width:160px;">ทีมงาน (AI แนะนำ)</th>
+                    <th class="px-3 py-2" style="min-width:150px;">วันที่ทำงาน</th>
+                    <th class="px-3 py-2">บันทึก</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for task in pending_tasks %}
+                <tr class="pending-row">
+                    <td class="px-3 py-3">
+                        <div class="fw-semibold">{{ task.title }}</div>
+                        {% if task.description %}<div class="small text-muted">{{ task.description|truncatechars:50 }}</div>{% endif %}
+                        {% if task.project %}
+                        <a href="{% url 'pms:project_detail' task.project.pk %}" class="badge bg-info text-decoration-none mt-1">
+                            <i class="fas fa-link me-1"></i>{{ task.project.name|truncatechars:25 }}
+                        </a>
+                        {% endif %}
+                    </td>
+                    <td class="px-3 py-3">
+                        {% if task.task_type == 'REPAIR' %}<span class="badge badge-repair"><i class="fas fa-wrench me-1"></i>ซ่อม</span>
+                        {% elif task.task_type == 'DELIVERY' %}<span class="badge badge-delivery"><i class="fas fa-truck me-1"></i>ส่งของ</span>
+                        {% elif task.task_type == 'INSTALLATION' %}<span class="badge badge-install"><i class="fas fa-tools me-1"></i>ติดตั้ง</span>
+                        {% else %}<span class="badge badge-other"><i class="fas fa-list me-1"></i>อื่นๆ</span>{% endif %}
+                    </td>
+                    <td class="px-3 py-3 small">
+                        {% if task.project %}{{ task.project.customer.name|truncatechars:20 }}{% else %}-{% endif %}
+                    </td>
+                    <td class="px-3 py-3">
+                        {% if task.deadline %}
+                        <span class="{% if task.is_overdue %}text-danger fw-bold{% endif %}">{{ task.deadline|date:"d/m/Y" }}</span>
+                        {% if task.is_overdue %}<div class="small text-danger">⚠️ เลยกำหนด!</div>{% endif %}
+                        {% else %}<span class="text-muted">-</span>{% endif %}
+                    </td>
+                    <td class="px-3 py-3">
+                        <form action="{% url 'pms:update_pending_task' task.id %}" method="post" class="d-flex flex-column gap-1">
+                            {% csrf_token %}
+                            <select name="team" class="form-select form-select-sm" onchange="this.form.submit()">
+                                <option value="">-- เลือกทีม --</option>
+                                {% for team in teams %}
+                                <option value="{{ team.id }}" {% if task.assigned_team_id == team.id %}selected{% endif %}>
+                                    {{ team.name }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                            {% if task.assigned_team %}
+                            <div class="small text-success"><i class="fas fa-robot me-1"></i>{{ task.ai_urgency_reason|truncatechars:30 }}</div>
+                            {% endif %}
+                    </td>
+                    <td class="px-3 py-3">
+                            <input type="date" name="scheduled_date" class="form-control form-control-sm"
+                                value="{{ task.scheduled_date|date:'Y-m-d' }}"
+                                onchange="this.form.submit()">
+                        </form>
+                    </td>
+                    <td class="px-3 py-3">
+                        {% if task.assigned_team and task.scheduled_date %}
+                        <span class="badge bg-success"><i class="fas fa-check me-1"></i>พร้อมจัดคิว</span>
+                        {% elif task.assigned_team or task.scheduled_date %}
+                        <span class="badge bg-secondary">ยังไม่ครบ</span>
+                        {% else %}
+                        <span class="badge bg-light text-muted">รอตั้งค่า</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <div class="card-footer bg-light text-muted small text-center py-2">
+        <i class="fas fa-info-circle me-1"></i> ใส่ <strong>ทีมงาน</strong> และ <strong>วันที่</strong> แล้วกด <strong>"จัดคิวงาน+AI"</strong> เพื่อจัดกลุ่ม
+    </div>
+    {% else %}
+    <div class="text-center py-5 text-muted">
+        <i class="fas fa-check-circle" style="font-size: 2.5rem;"></i>
+        <p class="mt-3 mb-0">ไม่มีงานรอจัดคิว 🎉</p>
+        <p class="small">เมื่อ Project/Repair เข้าสถานะ "จัดคิวซ่อม" หรือ "ส่งมอบ" จะปรากฏที่นี่อัตโนมัติ</p>
+    </div>
+    {% endif %}
+</div>
+
+<!-- ============ Incomplete (ยกยอด) ============ -->
+{% if incomplete_tasks %}
+<div class="card border-0 shadow-sm mb-4">
+    <div class="section-header text-white" style="background: linear-gradient(135deg, #dc2626, #ef4444);">
+        <span><i class="fas fa-exclamation-triangle me-2"></i> งานยกยอด (ไม่เสร็จ)</span>
+        <span class="badge bg-white text-danger">{{ incomplete_count }} งาน</span>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-hover mb-0 align-middle">
+            <thead class="bg-light">
+                <tr class="small text-uppercase text-muted">
+                    <th class="px-3 py-2">งาน</th>
+                    <th class="px-3 py-2">ประเภท</th>
+                    <th class="px-3 py-2">โน้ต</th>
+                    <th class="px-3 py-2" style="min-width:160px;">ทีมงาน</th>
+                    <th class="px-3 py-2" style="min-width:150px;">วันที่ใหม่</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for task in incomplete_tasks %}
+                <tr>
+                    <td class="px-3 py-3 fw-medium">{{ task.title }}</td>
+                    <td class="px-3 py-3 small">{{ task.get_task_type_display }}</td>
+                    <td class="px-3 py-3 small text-muted">{{ task.completion_note|truncatechars:40|default:"-" }}</td>
+                    <td class="px-3 py-3">
+                        <form action="{% url 'pms:update_pending_task' task.id %}" method="post" class="d-flex gap-1">
+                            {% csrf_token %}
+                            <select name="team" class="form-select form-select-sm" onchange="this.form.submit()">
+                                <option value="">-- ทีม --</option>
+                                {% for team in teams %}
+                                <option value="{{ team.id }}" {% if task.assigned_team_id == team.id %}selected{% endif %}>{{ team.name }}</option>
+                                {% endfor %}
+                            </select>
+                    </td>
+                    <td class="px-3 py-3">
+                            <input type="date" name="scheduled_date" class="form-control form-control-sm" onchange="this.form.submit()">
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+<!-- ============ BLOCK 2+: Scheduled Tasks (Grouped by Date) ============ -->
+{% if date_groups %}
+{% for date, tasks in date_groups.items %}
+<div class="date-block">
+    <div class="date-block-header {% if date == today %}date-block-today{% elif date < today %}date-block-past{% endif %}">
+        <span>
+            <i class="fas fa-calendar-alt me-2"></i>
+            {% if date == today %}📌 วันนี้ — {% endif %}
+            {{ date|date:"l, d F Y" }}
+        </span>
+        <span class="badge bg-white {% if date == today %}text-primary{% elif date < today %}text-danger{% else %}text-success{% endif %}">
+            {{ tasks|length }} งาน
+        </span>
+    </div>
+    <div class="card border-0 shadow-sm" style="border-radius: 0 0 12px 12px;">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0 align-middle">
+                <thead class="bg-light">
+                    <tr class="small text-uppercase text-muted">
+                        <th class="px-3 py-2" style="width:70px;">เวลา</th>
+                        <th class="px-3 py-2">งาน</th>
+                        <th class="px-3 py-2">ประเภท</th>
+                        <th class="px-3 py-2">ทีม</th>
+                        <th class="px-3 py-2">กำหนดส่ง</th>
+                        <th class="px-3 py-2" style="min-width:200px;">สถานะ</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for task in tasks %}
+                    <tr>
+                        <td class="px-3 py-3">
+                            {% if task.scheduled_time %}
+                            <span class="fw-bold font-monospace">{{ task.scheduled_time|time:"H:i" }}</span>
+                            {% else %}<span class="text-muted">-</span>{% endif %}
+                        </td>
+                        <td class="px-3 py-3">
+                            <div class="fw-semibold">{{ task.title }}</div>
+                            {% if task.project %}
+                            <a href="{% url 'pms:project_detail' task.project.pk %}" class="badge bg-info text-decoration-none small">
+                                {{ task.project.name|truncatechars:25 }}
+                            </a>
+                            {% endif %}
+                        </td>
+                        <td class="px-3 py-3">
+                            {% if task.task_type == 'REPAIR' %}<span class="badge badge-repair"><i class="fas fa-wrench me-1"></i>ซ่อม</span>
+                            {% elif task.task_type == 'DELIVERY' %}<span class="badge badge-delivery"><i class="fas fa-truck me-1"></i>ส่งของ</span>
+                            {% elif task.task_type == 'INSTALLATION' %}<span class="badge badge-install"><i class="fas fa-tools me-1"></i>ติดตั้ง</span>
+                            {% else %}<span class="badge badge-other"><i class="fas fa-list me-1"></i>อื่นๆ</span>{% endif %}
+                        </td>
+                        <td class="px-3 py-3">
+                            {% if task.assigned_team %}
+                            <div class="team-pill"><i class="fas fa-users text-muted small"></i> {{ task.assigned_team.name }}</div>
+                            {% else %}<span class="text-muted">-</span>{% endif %}
+                        </td>
+                        <td class="px-3 py-3">
+                            {% if task.deadline %}
+                            <span class="{% if task.is_overdue %}text-danger fw-bold{% endif %}">{{ task.deadline|date:"d/m/Y" }}</span>
+                            {% else %}-{% endif %}
+                        </td>
+                        <td class="px-3 py-3">
+                            <form action="{% url 'pms:update_task_status' task.id %}" method="post" class="d-flex gap-1">
+                                {% csrf_token %}
+                                <select name="status" onchange="this.form.submit()" class="form-select form-select-sm"
+                                    style="max-width:160px;
+                                    {% if task.status == 'COMPLETED' %}border-color:#22c55e;background:#f0fdf4;
+                                    {% elif task.status == 'IN_PROGRESS' %}border-color:#3b82f6;background:#eff6ff;
+                                    {% elif task.status == 'INCOMPLETE' %}border-color:#ef4444;background:#fef2f2;{% endif %}">
+                                    <option value="SCHEDULED" {% if task.status == 'SCHEDULED' %}selected{% endif %}>📋 รอทำ</option>
+                                    <option value="IN_PROGRESS" {% if task.status == 'IN_PROGRESS' %}selected{% endif %}>🔄 กำลังทำ</option>
+                                    <option value="COMPLETED" {% if task.status == 'COMPLETED' %}selected{% endif %}>✅ เสร็จ</option>
+                                    <option value="INCOMPLETE" {% if task.status == 'INCOMPLETE' %}selected{% endif %}>❌ ยกยอด</option>
+                                </select>
+                                <input type="text" name="note" placeholder="โน้ต" class="form-control form-control-sm" style="max-width:120px;">
+                            </form>
+                            {% if task.completion_note %}
+                            <div class="small text-muted mt-1">📝 {{ task.completion_note|truncatechars:40 }}</div>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endfor %}
+
+{% elif not pending_tasks %}
+<div class="card border-0 shadow-sm">
+    <div class="card-body text-center py-5 text-muted">
+        <i class="fas fa-clipboard-check" style="font-size: 3rem;"></i>
+        <p class="mt-3 fs-5">ยังไม่มีงานในคิว</p>
+        <p class="small">เมื่องานซ่อม/ขาย/โครงการ เปลี่ยนสถานะ จะปรากฏที่ Block ด้านบนอัตโนมัติ</p>
+    </div>
+</div>
+{% endif %}
+
+{% endblock %}

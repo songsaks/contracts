@@ -40,4 +40,21 @@ urlpatterns = [
     path('requirements/<int:pk>/edit/', views.requirement_update, name='requirement_update'),
     path('requirements/<int:pk>/delete/', views.requirement_delete, name='requirement_delete'),
     path('requirements/<int:pk>/create-project/', views.create_project_from_requirement, name='create_project_from_requirement'),
+
+    # AI Service Queue
+    path('queue/ai/', views.service_queue_dashboard, name='service_queue_dashboard'),
+    path('queue/ai/sync/', views.force_sync_queue, name='force_sync_queue'),
+    path('queue/ai/schedule/', views.auto_schedule_tasks, name='auto_schedule_tasks'),
+
+    path('queue/ai/<int:task_id>/update/', views.update_task_status, name='update_task_status'),
+    path('queue/ai/<int:task_id>/set/', views.update_pending_task, name='update_pending_task'),
+    path('queue/ai/messages/', views.team_messages, name='team_messages'),
+    path('queue/ai/messages/<int:team_id>/', views.team_messages, name='team_messages_by_team'),
+
+    # Team Management
+    path('teams/', views.team_list, name='team_list'),
+    path('teams/create/', views.team_create, name='team_create'),
+    path('teams/<int:pk>/edit/', views.team_update, name='team_update'),
+    path('teams/<int:pk>/delete/', views.team_delete, name='team_delete'),
 ]
+

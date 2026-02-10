@@ -107,36 +107,40 @@
                 <i class="fas fa-bars"></i>
             </button>
             <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav me-auto">
+                <ul class="navbar-nav me-auto" style="font-size: 0.88rem;">
                     <li class="nav-item">
-                        <a class="nav-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}" href="{% url 'pms:dashboard' %}">
-                            <i class="fas fa-th-large me-1"></i> ภาพรวม
+                        <a class="nav-link py-1 px-2 {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}" href="{% url 'pms:dashboard' %}">
+                            <i class="fas fa-th-large me-1"></i>ภาพรวม
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link {% if request.resolver_match.url_name == 'project_list' %}active{% endif %}" href="{% url 'pms:project_list' %}">
-                            <i class="fas fa-list me-1"></i> งานทั้งหมด
+                        <a class="nav-link py-1 px-2 {% if request.resolver_match.url_name == 'project_list' %}active{% endif %}" href="{% url 'pms:project_list' %}">
+                            <i class="fas fa-list me-1"></i>งาน
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link {% if request.resolver_match.url_name == 'requirement_list' %}active{% endif %}" href="{% url 'pms:requirement_list' %}">
-                            <i class="fas fa-microphone-alt me-1"></i> ความต้องการ (Leads)
+                        <a class="nav-link py-1 px-2 {% if request.resolver_match.url_name == 'requirement_list' %}active{% endif %}" href="{% url 'pms:requirement_list' %}">
+                            <i class="fas fa-microphone-alt me-1"></i>Leads
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link {% if request.resolver_match.url_name == 'dispatch' %}active{% endif %}" href="{% url 'pms:dispatch' %}">
-                            <i class="fas fa-random me-1"></i> จัดการงาน
+                        <a class="nav-link py-1 px-2 {% if request.resolver_match.url_name == 'dispatch' %}active{% endif %}" href="{% url 'pms:dispatch' %}">
+                            <i class="fas fa-random me-1"></i>Dispatch
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link {% if request.resolver_match.url_name == 'queue_management' %}active{% endif %}" href="{% url 'pms:queue_management' %}">
-                            <i class="fas fa-stream me-1"></i> คิวงาน
+                        <a class="nav-link py-1 px-2 {% if request.resolver_match.url_name == 'queue_management' %}active{% endif %}" href="{% url 'pms:queue_management' %}">
+                            <i class="fas fa-stream me-1"></i>คิวงาน
                         </a>
                     </li>
-                    
+                    <li class="nav-item">
+                        <a class="nav-link py-1 px-2 {% if request.resolver_match.url_name == 'service_queue_dashboard' or request.resolver_match.url_name == 'team_messages' or request.resolver_match.url_name == 'team_list' or request.resolver_match.url_name == 'team_create' or request.resolver_match.url_name == 'team_update' %}active{% endif %}" href="{% url 'pms:service_queue_dashboard' %}">
+                            <i class="fas fa-robot me-1"></i>AI Queue
+                        </a>
+                    </li>
                     <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle" href="#" id="pmsDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                            <i class="fas fa-folder-open me-1"></i> ข้อมูลระบบ
+                        <a class="nav-link dropdown-toggle py-1 px-2" href="#" id="pmsDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="fas fa-database me-1"></i>ข้อมูล
                         </a>
                         <ul class="dropdown-menu border-0 shadow-lg" aria-labelledby="pmsDropdown">
                             <li><a class="dropdown-item" href="{% url 'pms:customer_list' %}"><i class="fas fa-users me-2 text-secondary"></i>ลูกค้า</a></li>
