@@ -80,4 +80,24 @@
         </div>
     </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const statusSelect = document.querySelector('select[name="status"]');
+    const form = document.querySelector('form');
+    
+    if (statusSelect && form) {
+        form.addEventListener('submit', function(e) {
+            const selectedStatus = statusSelect.value;
+            if (selectedStatus === 'CLOSED') {
+                const confirmed = confirm('⚠️ คุณกำลังจะเปลี่ยนสถานะเป็น "ปิดจบ"\n\nเมื่อปิดงานแล้ว จะไม่สามารถแก้ไขข้อมูลสถานะกลับมาได้อีก\nคุณแน่ใจหรือไม่ที่จะดำเนินการต่อ?');
+                if (!confirmed) {
+                    e.preventDefault();
+                }
+            }
+        });
+    }
+});
+</script>
 {% endblock %}
+

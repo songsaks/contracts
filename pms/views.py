@@ -4,6 +4,7 @@ from django.contrib.auth.decorators import login_required
 from django.utils import timezone
 from django.db.models import Sum, Count, Q
 from decimal import Decimal
+import datetime
 from .models import Project, ProductItem, Customer, Supplier, ProjectOwner, CustomerRequirement
 from .forms import ProjectForm, ProductItemForm, CustomerForm, SupplierForm, ProjectOwnerForm, CustomerRequirementForm, SalesServiceJobForm
 from repairs.models import RepairItem
@@ -56,6 +57,21 @@ def project_update(request, pk):
     theme_color = 'primary'
     form_kwargs = {'instance': project}
 
+    # --- AI QUEUE LOCK LOGIC ---
+    # บล็อกการแก้ไขถ้างานอยู่ในคิว (PENDING, SCHEDULED, IN_PROGRESS)
+    active_queue_item = project.service_tasks.filter(
+        status__in=['PENDING', 'SCHEDULED', 'IN_PROGRESS']
+    ).first()
+
+    if active_queue_item:
+        messages.warning(
+            request, 
+            f'⚠️ ไม่สามารถแก้ไขงานนี้ได้เนื่องจากอยู่ในคิวบริการ ({active_queue_item.get_status_display()}) '
+            'กรุณาจัดการในหน้า AI Queue ให้เสร็จสิ้นหรือยกเลิกก่อน'
+        )
+        return redirect('pms:project_detail', pk=project.pk)
+    # ---------------------------
+
     if project.job_type == Project.JobType.SERVICE:
         FormClass = SalesServiceJobForm
         template = 'pms/service_form.html'
@@ -72,6 +88,7 @@ def project_update(request, pk):
         FormClass = ProjectForm
         template = 'pms/project_form.html'
         title = 'แก้ไขโครงการ'
+
 
     if request.method == 'POST':
         form = FormClass(request.POST, **form_kwargs)
@@ -185,7 +202,9 @@ def project_detail(request, pk):
             (Project.Status.CONTRACTED, 'ทำสัญญา'),
             (Project.Status.ORDERING, 'สั่งซื้อ'),
             (Project.Status.RECEIVED_QC, 'รับของ/QC'),
+            (Project.Status.INSTALLATION, 'ติดตั้ง'),
             (Project.Status.DELIVERY, 'ส่งมอบ'),
+
             (Project.Status.ACCEPTED, 'ตรวจรับ'),
             (Project.Status.BILLING, 'วางบิล'),
             (Project.Status.CLOSED, 'ปิดจบ'),
@@ -210,14 +229,21 @@ def project_detail(request, pk):
             current_status_label = step.label
             break
 
+    # --- AI QUEUE LOCK STATUS ---
+    active_queue_item = project.service_tasks.filter(
+        status__in=['PENDING', 'SCHEDULED', 'IN_PROGRESS']
+    ).first()
+
     context = {
         'project': project,
         'items': project.items.all(),
         'workflow_steps': workflow_steps,
         'theme_color': theme_color,
         'current_status_label': current_status_label,
+        'active_queue_item': active_queue_item,
     }
     return render(request, 'pms/project_detail.html', context)
+
 
 @login_required
 def project_create(request):
@@ -256,7 +282,17 @@ def project_update(request, pk):
         template = 'pms/project_form.html'
         title = 'แก้ไขโครงการ'
 
+    # --- CLOSED LOCK LOGIC ---
+    # อนุญาตให้เข้าถึงได้ถ้ามีรหัสปลดล็อก '9com' ผ่านทาง URL
+    unlock_code = request.GET.get('unlock')
+    if project.status == Project.Status.CLOSED and unlock_code != '9com':
+        messages.warning(request, f'⚠️ ไม่สามารถแก้ไขงานที่ "ปิดจบ" แล้วได้')
+        return redirect('pms:project_detail', pk=project.pk)
+    # -------------------------
+
+
     if request.method == 'POST':
+
         form = FormClass(request.POST, **form_kwargs)
         if form.is_valid():
             form.save()
@@ -582,3 +618,268 @@ def create_project_from_requirement(request, pk):
         'title': title,
         'theme_color': theme_color if 'theme_color' in locals() else 'primary',
     })
+
+
+# ===== AI Service Queue Views =====
+
+@login_required
+def service_queue_dashboard(request):
+    """
+    AI Queue Dashboard:
+    Block 1: Pending tasks (synced from Projects) — admin sets team + date
+    Block 2+: Scheduled tasks grouped by date
+    """
+    from .models import ServiceQueueItem, ServiceTeam, TeamMessage
+    from collections import OrderedDict
+
+    today = timezone.now().date()
+
+    # Sync new tasks from Projects
+    try:
+        from utils.ai_service_manager import sync_projects_to_queue
+        synced = sync_projects_to_queue()
+        if synced > 0:
+            messages.info(request, f"🔄 ดึงงานใหม่จากระบบ {synced} รายการ")
+    except Exception as e:
+        messages.warning(request, f"⚠️ ไม่สามารถดึงงานใหม่: {str(e)}")
+
+    # Block 1: Pending tasks (not yet scheduled)
+    pending_tasks = ServiceQueueItem.objects.filter(
+        status='PENDING'
+    ).select_related('assigned_team', 'project').order_by('deadline', 'created_at')
+
+    # Block 2+: Scheduled/In-progress tasks grouped by date
+    scheduled_tasks = ServiceQueueItem.objects.filter(
+        status__in=['SCHEDULED', 'IN_PROGRESS']
+    ).select_related('assigned_team', 'project').order_by('scheduled_date', 'scheduled_time')
+
+    # Group by date
+    date_groups = OrderedDict()
+    for task in scheduled_tasks:
+        d = task.scheduled_date or today
+        if d not in date_groups:
+            date_groups[d] = []
+        date_groups[d].append(task)
+
+    # Incomplete (carry-over)
+    incomplete_tasks = ServiceQueueItem.objects.filter(
+        status='INCOMPLETE'
+    ).select_related('assigned_team', 'project').order_by('created_at')
+
+    # Teams for dropdown
+    teams = ServiceTeam.objects.filter(is_active=True)
+
+    # Stats
+    completed_count = ServiceQueueItem.objects.filter(status='COMPLETED').count()
+
+    context = {
+        'pending_tasks': pending_tasks,
+        'date_groups': date_groups,
+        'incomplete_tasks': incomplete_tasks,
+        'teams': teams,
+        'today': today,
+        'pending_count': pending_tasks.count(),
+        'scheduled_count': scheduled_tasks.count(),
+        'incomplete_count': incomplete_tasks.count(),
+        'completed_count': completed_count,
+    }
+    return render(request, 'pms/service_queue_dashboard.html', context)
+
+
+@login_required
+def update_pending_task(request, task_id):
+    """Admin updates team and date for a pending task."""
+    from .models import ServiceQueueItem, ServiceTeam
+
+    task = get_object_or_404(ServiceQueueItem, pk=task_id)
+    if request.method == 'POST':
+        team_id = request.POST.get('team')
+        date_str = request.POST.get('scheduled_date')
+
+        if team_id:
+            try:
+                task.assigned_team = ServiceTeam.objects.get(pk=team_id)
+            except ServiceTeam.DoesNotExist:
+                pass
+
+        if date_str:
+            try:
+                task.scheduled_date = datetime.datetime.strptime(date_str, '%Y-%m-%d').date()
+            except ValueError:
+                pass
+
+        task.save()
+        messages.success(request, f"✅ อัปเดต: {task.title}")
+
+    return redirect('pms:service_queue_dashboard')
+
+
+@login_required
+def auto_schedule_tasks(request):
+    """AI schedule: move pending tasks (with date+team set) to SCHEDULED status."""
+    if request.method == 'POST':
+        try:
+            from utils.ai_service_manager import schedule_queue_items
+            count = schedule_queue_items()
+            if count > 0:
+                messages.success(request, f"🤖 AI จัดคิวเรียบร้อย: {count} งาน พร้อมส่งข้อความไปทีม")
+            else:
+                messages.warning(request, "⚠️ ไม่มีงานที่พร้อมจัดคิว (ต้องใส่ทีม + วันที่ก่อน)")
+        except Exception as e:
+            messages.error(request, f"❌ เกิดข้อผิดพลาด: {str(e)}")
+
+    return redirect('pms:service_queue_dashboard')
+
+
+@login_required
+def force_sync_queue(request):
+    """Manually trigger sync from Projects to Queue."""
+    try:
+        from utils.ai_service_manager import sync_projects_to_queue
+        count = sync_projects_to_queue()
+        messages.success(request, f"🔄 กวาดตรวจข้อมูลเสร็จสิ้น: พบงานใหม่ {count} รายการ")
+    except Exception as e:
+        messages.error(request, f"❌ เกิดข้อผิดพลาดในการกวาดข้อมูล: {str(e)}")
+    return redirect('pms:service_queue_dashboard')
+
+
+@login_required
+def update_task_status(request, task_id):
+    """Update task status and completion notes."""
+    from .models import ServiceQueueItem
+
+    task = get_object_or_404(ServiceQueueItem, pk=task_id)
+    if request.method == 'POST':
+        new_status = request.POST.get('status')
+        note = request.POST.get('note', '')
+
+        if new_status:
+            task.status = new_status
+            if new_status == 'COMPLETED':
+                task.completed_at = timezone.now()
+                # Move linked project to next status
+                if task.project:
+                    proj = task.project
+                    # Repair: จัดคิวซ่อม(ORDERING) -> ซ่อม(DELIVERY)
+                    if proj.status == 'ORDERING':
+                        proj.status = 'DELIVERY'
+                    # Project: ติดตั้ง(INSTALLATION) -> ส่งมอบ(DELIVERY)
+                    elif proj.status == 'INSTALLATION':
+                        proj.status = 'DELIVERY'
+                    # Sale/Project: ส่งมอบ(DELIVERY) -> ตรวจรับ(ACCEPTED)
+                    elif proj.status == 'DELIVERY':
+                        proj.status = 'ACCEPTED'
+                    proj.save()
+            elif new_status == 'INCOMPLETE':
+                task.scheduled_date = None
+                task.scheduled_time = None
+                task.assigned_team = None
+
+        if note:
+
+            timestamp = timezone.now().strftime('%d/%m %H:%M')
+            prev = task.completion_note
+            task.completion_note = f"{prev}\n[{timestamp}] {note}".strip()
+
+        task.save()
+        messages.success(request, f"✅ อัปเดต: {task.title} → {task.get_status_display()}")
+
+    return redirect('pms:service_queue_dashboard')
+
+
+@login_required
+def team_messages(request, team_id=None):
+    """View messages for a specific team or all teams."""
+    from .models import ServiceTeam, TeamMessage
+
+    teams = ServiceTeam.objects.filter(is_active=True)
+
+    if team_id:
+        team = get_object_or_404(ServiceTeam, pk=team_id)
+        team_msgs = TeamMessage.objects.filter(team=team).order_by('-created_at')[:20]
+        team_msgs.filter(is_read=False).update(is_read=True)
+    else:
+        team = None
+        team_msgs = TeamMessage.objects.all().order_by('-created_at')[:30]
+
+    return render(request, 'pms/team_messages.html', {
+        'teams': teams,
+        'selected_team': team,
+        'messages_list': team_msgs,
+    })
+
+
+# ===== Team Management Views =====
+
+@login_required
+def team_list(request):
+    """List all service teams."""
+    from .models import ServiceTeam
+    teams = ServiceTeam.objects.all().order_by('name')
+    return render(request, 'pms/team_list.html', {'teams': teams})
+
+
+@login_required
+def team_create(request):
+    """Create a new service team."""
+    from .models import ServiceTeam
+    from django.contrib.auth.models import User
+
+    if request.method == 'POST':
+        name = request.POST.get('name', '')
+        skills = request.POST.get('skills', '')
+        max_tasks = request.POST.get('max_tasks_per_day', 5)
+        member_ids = request.POST.getlist('members')
+
+        team = ServiceTeam.objects.create(
+            name=name,
+            skills=skills,
+            max_tasks_per_day=int(max_tasks),
+        )
+        if member_ids:
+            team.members.set(member_ids)
+        messages.success(request, f"✅ สร้างทีม '{name}' เรียบร้อย")
+        return redirect('pms:team_list')
+
+    users = User.objects.filter(is_active=True).order_by('username')
+    return render(request, 'pms/team_form.html', {'users': users, 'title': 'สร้างทีมบริการ'})
+
+
+@login_required
+def team_update(request, pk):
+    """Update a service team."""
+    from .models import ServiceTeam
+    from django.contrib.auth.models import User
+
+    team = get_object_or_404(ServiceTeam, pk=pk)
+
+    if request.method == 'POST':
+        team.name = request.POST.get('name', team.name)
+        team.skills = request.POST.get('skills', team.skills)
+        team.max_tasks_per_day = int(request.POST.get('max_tasks_per_day', team.max_tasks_per_day))
+        team.is_active = 'is_active' in request.POST
+        team.save()
+
+        member_ids = request.POST.getlist('members')
+        team.members.set(member_ids)
+
+        messages.success(request, f"✅ อัปเดตทีม '{team.name}' เรียบร้อย")
+        return redirect('pms:team_list')
+
+    users = User.objects.filter(is_active=True).order_by('username')
+    return render(request, 'pms/team_form.html', {'team': team, 'users': users, 'title': f'แก้ไขทีม: {team.name}'})
+
+
+@login_required
+def team_delete(request, pk):
+    """Delete a service team."""
+    from .models import ServiceTeam
+    team = get_object_or_404(ServiceTeam, pk=pk)
+    if request.method == 'POST':
+        name = team.name
+        team.delete()
+        messages.success(request, f"🗑️ ลบทีม '{name}' เรียบร้อย")
+        return redirect('pms:team_list')
+    return render(request, 'pms/team_confirm_delete.html', {'team': team})
+
+

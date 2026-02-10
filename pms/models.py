@@ -1,5 +1,6 @@
 from django.db import models
 from django.utils import timezone
+from django.conf import settings
 from decimal import Decimal
 
 class Customer(models.Model):
@@ -41,7 +42,9 @@ class Project(models.Model):
         CONTRACTED = 'CONTRACTED', 'ทำสัญญา'
         ORDERING = 'ORDERING', 'สั่งซื้อ'
         RECEIVED_QC = 'RECEIVED_QC', 'รับของ/QC'
+        INSTALLATION = 'INSTALLATION', 'ติดตั้ง'
         DELIVERY = 'DELIVERY', 'ส่งมอบ (รอคิว)'
+
         ACCEPTED = 'ACCEPTED', 'ตรวจรับ'
         BILLING = 'BILLING', 'วางบิล'
         CLOSED = 'CLOSED', 'ปิดจบ'
@@ -175,3 +178,131 @@ class CustomerRequirement(models.Model):
 
     def __str__(self):
         return f"Requirement {self.pk} - {self.created_at.strftime('%d/%m/%Y')}"
+
+
+# ===== AI Service Queue Models =====
+
+class ServiceTeam(models.Model):
+    name = models.CharField(max_length=100, verbose_name="ชื่อทีม")
+    members = models.ManyToManyField(
+        settings.AUTH_USER_MODEL, blank=True, related_name='service_teams',
+        verbose_name="สมาชิก"
+    )
+    skills = models.CharField(
+        max_length=255, blank=True,
+        help_text="e.g. REPAIR,INSTALLATION,DELIVERY",
+        verbose_name="ทักษะ"
+    )
+    max_tasks_per_day = models.PositiveIntegerField(default=5, verbose_name="งานสูงสุด/วัน")
+    is_active = models.BooleanField(default=True, verbose_name="เปิดใช้งาน")
+
+    class Meta:
+        verbose_name = "ทีมบริการ"
+        verbose_name_plural = "ทีมบริการ"
+
+    def __str__(self):
+        return self.name
+
+    def skill_list(self):
+        return [s.strip() for s in self.skills.split(',') if s.strip()]
+
+
+class ServiceQueueItem(models.Model):
+    class Priority(models.TextChoices):
+        CRITICAL = 'CRITICAL', 'เร่งด่วนที่สุด'
+        HIGH = 'HIGH', 'ด่วน'
+        NORMAL = 'NORMAL', 'ปกติ'
+        LOW = 'LOW', 'ไม่ด่วน'
+
+    class TaskType(models.TextChoices):
+        REPAIR = 'REPAIR', 'งานซ่อม'
+        INSTALLATION = 'INSTALLATION', 'งานติดตั้ง'
+        DELIVERY = 'DELIVERY', 'งานส่งของ'
+        OTHER = 'OTHER', 'อื่นๆ'
+
+    class Status(models.TextChoices):
+        PENDING = 'PENDING', 'รอจัดคิว'
+        SCHEDULED = 'SCHEDULED', 'จัดคิวแล้ว'
+        IN_PROGRESS = 'IN_PROGRESS', 'กำลังดำเนินการ'
+        COMPLETED = 'COMPLETED', 'เสร็จสิ้น'
+        INCOMPLETE = 'INCOMPLETE', 'ไม่เสร็จ (ยกยอด)'
+
+    title = models.CharField(max_length=255, verbose_name="หัวข้องาน")
+    description = models.TextField(blank=True, verbose_name="รายละเอียด")
+    task_type = models.CharField(max_length=20, choices=TaskType.choices, default=TaskType.OTHER, verbose_name="ประเภทงาน")
+    priority = models.CharField(max_length=20, choices=Priority.choices, default=Priority.NORMAL, verbose_name="ความเร่งด่วน")
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING, verbose_name="สถานะ")
+
+    # Links
+    project = models.ForeignKey('Project', on_delete=models.SET_NULL, null=True, blank=True, related_name='service_tasks', verbose_name="โครงการ")
+    repair_job = models.ForeignKey('repairs.RepairJob', on_delete=models.SET_NULL, null=True, blank=True, related_name='service_tasks', verbose_name="งานซ่อม")
+
+    # Schedule
+    assigned_team = models.ForeignKey(ServiceTeam, on_delete=models.SET_NULL, null=True, blank=True, related_name='tasks', verbose_name="ทีมรับผิดชอบ")
+    scheduled_date = models.DateField(null=True, blank=True, verbose_name="วันที่นัดหมาย")
+    scheduled_time = models.TimeField(null=True, blank=True, verbose_name="เวลานัดหมาย")
+    estimated_hours = models.DecimalField(max_digits=4, decimal_places=1, default=1.0, verbose_name="ชั่วโมงที่คาดว่าจะใช้")
+    deadline = models.DateField(null=True, blank=True, verbose_name="วันกำหนดส่ง")
+
+    # AI fields
+    ai_urgency_reason = models.TextField(blank=True, verbose_name="เหตุผลความเร่งด่วน (AI)")
+
+    # Completion
+    completion_note = models.TextField(blank=True, verbose_name="บันทึกผลงาน")
+    completed_at = models.DateTimeField(null=True, blank=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "คิวงานบริการ"
+        verbose_name_plural = "คิวงานบริการ"
+        ordering = ['priority', 'deadline', 'created_at']
+
+    def __str__(self):
+        return f"[{self.get_priority_display()}] {self.title}"
+
+    @property
+    def is_overdue(self):
+        if self.deadline and self.status not in ['COMPLETED']:
+            return self.deadline < timezone.now().date()
+        return False
+
+    @property
+    def days_until_deadline(self):
+        if self.deadline:
+            return (self.deadline - timezone.now().date()).days
+        return None
+
+
+class TeamMessage(models.Model):
+    team = models.ForeignKey(ServiceTeam, on_delete=models.CASCADE, related_name='messages', verbose_name="ทีม")
+    subject = models.CharField(max_length=255, verbose_name="หัวข้อ")
+    content = models.TextField(verbose_name="เนื้อหา")
+    related_tasks = models.ManyToManyField(ServiceQueueItem, blank=True, related_name='notifications', verbose_name="งานที่เกี่ยวข้อง")
+    is_read = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "ข้อความทีม"
+        verbose_name_plural = "ข้อความทีม"
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"[{self.team.name}] {self.subject}"
+
+
+# ===== Signals to automate Sync =====
+from django.db.models.signals import post_save
+from django.dispatch import receiver
+
+@receiver(post_save, sender=Project)
+def auto_sync_to_queue(sender, instance, **kwargs):
+    """Automatically run sync when a project is saved/updated."""
+    try:
+        from utils.ai_service_manager import sync_projects_to_queue
+        sync_projects_to_queue()
+    except Exception:
+        pass
+
+
