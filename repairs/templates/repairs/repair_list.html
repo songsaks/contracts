@@ -10,11 +10,42 @@
     .text-indigo {
         color: var(--primary-color) !important;
     }
+    /* Mobile-specific Card Layout */
+    @media (max-width: 767.98px) {
+        .job-table-container {
+            display: none;
+        }
+        .job-cards-container {
+            display: block;
+        }
+    }
+    @media (min-width: 768px) {
+        .job-table-container {
+            display: block;
+        }
+        .job-cards-container {
+            display: none;
+        }
+    }
+    .job-card {
+        border-radius: 12px;
+        margin-bottom: 12px;
+        padding: 16px;
+        border: 1px solid rgba(0,0,0,0.05);
+        position: relative;
+    }
+    .status-badge-pill {
+        padding: 4px 12px;
+        border-radius: 50px;
+        font-weight: 700;
+        font-size: 0.75rem;
+    }
 </style>
+
 <div class="row">
     <div class="col-12">
         <div class="d-flex justify-content-between align-items-center mb-4">
-            <h1 class="h3 mb-0 text-gray-800">รายการงานซ่อม</h1>
+            <h1 class="h3 mb-0 fw-bold">รายการงานซ่อม</h1>
             <a href="{% url 'repairs:repair_create' %}" class="btn btn-warning shadow-sm rounded-circle d-flex align-items-center justify-content-center text-white" style="width: 48px; height: 48px;" title="สร้างงานซ่อมใหม่" data-bs-toggle="tooltip">
                 <i class="fas fa-plus fa-lg"></i>
             </a>
@@ -22,21 +53,15 @@
 
         <!-- Filters -->
         <div class="card shadow-sm mb-4 border-0">
-            <div class="card-body bg-light rounded">
-                <form method="get" class="row g-3 align-items-end">
-                    <!-- Search -->
-                    <div class="col-md-3">
-                        <label class="form-label text-muted small">ค้นหา</label>
-                        <div class="input-group">
-                            <span class="input-group-text bg-white border-end-0"><i class="fas fa-search text-muted"></i></span>
-                            <input type="text" name="q" value="{{ request.GET.q|default:'' }}" class="form-control border-start-0" placeholder="รหัส, ลูกค้า...">
-                        </div>
+            <div class="card-body bg-white rounded">
+                <form method="get" class="row g-2 align-items-end">
+                    <div class="col-6 col-md-3">
+                        <label class="form-label text-muted small mb-1">ค้นหา</label>
+                        <input type="text" name="q" value="{{ request.GET.q|default:'' }}" class="form-control form-control-sm" placeholder="รหัส, ลูกค้า...">
                     </div>
-
-                    <!-- Status Filter -->
-                    <div class="col-md-2">
-                        <label class="form-label text-muted small">สถานะ</label>
-                        <select name="status" class="form-select" onchange="this.form.submit()">
+                    <div class="col-6 col-md-2">
+                        <label class="form-label text-muted small mb-1">สถานะ</label>
+                        <select name="status" class="form-select form-select-sm" onchange="this.form.submit()">
                             <option value="">ทุกสถานะ</option>
                             <option value="RECEIVED" {% if request.GET.status == 'RECEIVED' %}selected{% endif %}>Received</option>
                             <option value="FIXING" {% if request.GET.status == 'FIXING' %}selected{% endif %}>Fixing</option>
@@ -44,32 +69,27 @@
                             <option value="FINISHED" {% if request.GET.status == 'FINISHED' %}selected{% endif %}>Finished</option>
                         </select>
                     </div>
-
-                    <!-- Creator Filter -->
-                    <div class="col-md-3">
-                        <label class="form-label text-muted small">ผู้รับงาน</label>
-                        <select name="created_by" class="form-select" onchange="this.form.submit()">
+                    <div class="col-6 col-md-3">
+                        <label class="form-label text-muted small mb-1">ผู้รับงาน</label>
+                        <select name="created_by" class="form-select form-select-sm" onchange="this.form.submit()">
                             <option value="">ทุกคน</option>
                             {% for u in users %}
                             <option value="{{ u.id }}" {% if request.GET.created_by|add:"0" == u.id %}selected{% endif %}>{{ u.username }}</option>
                             {% endfor %}
                         </select>
                     </div>
-
-                    <!-- Sort -->
-                    <div class="col-md-2">
-                        <label class="form-label text-muted small">เรียงตาม</label>
-                        <select name="sort" class="form-select" onchange="this.form.submit()">
+                    <div class="col-6 col-md-2">
+                        <label class="form-label text-muted small mb-1">เรียงตาม</label>
+                        <select name="sort" class="form-select form-select-sm" onchange="this.form.submit()">
                             <option value="date_desc" {% if request.GET.sort == 'date_desc' %}selected{% endif %}>ล่าสุดก่อน</option>
                             <option value="date_asc" {% if request.GET.sort == 'date_asc' %}selected{% endif %}>เก่าสุดก่อน</option>
                             <option value="customer" {% if request.GET.sort == 'customer' %}selected{% endif %}>ชื่อลูกค้า</option>
                         </select>
                     </div>
-                    
-                    <div class="col-md-2">
+                    <div class="col-12 col-md-2">
                         {% if request.GET.q or request.GET.status or request.GET.created_by %}
-                        <a href="{% url 'repairs:repair_list' %}" class="btn btn-outline-danger w-100">
-                            <i class="fas fa-times me-1"></i> ล้างค่า
+                        <a href="{% url 'repairs:repair_list' %}" class="btn btn-sm btn-outline-danger w-100">
+                             ล้างค่า
                         </a>
                         {% endif %}
                     </div>
@@ -77,8 +97,8 @@
             </div>
         </div>
 
-        <!-- Job List -->
-        <div class="card shadow-sm border-0">
+        <!-- Desktop Table View -->
+        <div class="job-table-container card shadow-sm border-0">
             <div class="card-body p-0">
                 <div class="table-responsive">
                     <table class="table table-hover align-middle mb-0">
@@ -94,7 +114,7 @@
                         </thead>
                         <tbody>
                             {% for item in items %}
-                            <tr style="{% if item.status == 'RECEIVED' %}background-color: #ffebe9;{% elif item.status == 'FIXING' %}background-color: #fff4e5;{% elif item.status == 'WAITING' %}background-color: #fff8c4;{% elif item.status == 'FINISHED' %}background-color: #e0f2f1;{% elif item.status == 'COMPLETED' %}background-color: #e9ecef;{% endif %}">
+                            <tr style="{% if item.status == 'RECEIVED' %}background-color: #fff1f0;{% elif item.status == 'FIXING' %}background-color: #fff7ed;{% elif item.status == 'WAITING' %}background-color: #fefce8;{% elif item.status == 'FINISHED' %}background-color: #f0fdf4;{% elif item.status == 'COMPLETED' %}background-color: #f8fafc;{% endif %}">
                                 <td class="ps-4">
                                     <div class="fw-bold text-primary position-relative" 
                                          style="cursor: pointer;"
@@ -107,15 +127,12 @@
                                         {% if item.job.fix_id %}
                                         <div class="small text-muted">{{ item.job.fix_id }}</div>
                                         {% endif %}
-                                        
-                                         <!-- Job Notes Tooltip (Hidden by default) -->
-                                         <div class="job-tooltip position-absolute bg-dark text-white p-2 rounded shadow-lg d-none" 
+                                        <div class="job-tooltip position-absolute bg-dark text-white p-2 rounded shadow-lg d-none" 
                                               style="z-index: 1000; width: 250px; left: 0; top: 100%;">
                                              <small class="tooltip-content">Loading...</small>
                                          </div>
                                     </div>
                                 </td>
-
                                 <td>
                                     <div class="fw-bold">{{ item.job.customer.name }}</div>
                                     <div class="small text-muted">{{ item.job.customer.contact_number|default:"-" }}</div>
@@ -127,29 +144,21 @@
                                          data-status="{{ item.status }}"
                                          onmouseenter="showStatusNote(this)"
                                          onmouseleave="hideStatusNote(this)">
-                                        
-                                        <!-- Device -->
                                         <strong class="me-2 text-nowrap">{{ item.device.brand }} {{ item.device.model }}</strong>
-                                        
-                                        <!-- Status (Text Only) -->
                                         {% if item.status == 'RECEIVED' %}
-                                            <span class="fw-bold text-danger me-2">รับแจ้ง</span>
+                                            <span class="status-badge-pill bg-danger text-white">รับแจ้ง</span>
                                         {% elif item.status == 'FIXING' %}
-                                            <span class="fw-bold me-2" style="color: #fd7e14;">กำลังซ่อม</span>
+                                            <span class="status-badge-pill bg-warning text-dark">กำลังซ่อม</span>
                                         {% elif item.status == 'WAITING' %}
-                                            <span class="fw-bold text-warning me-2">รออะไหล่</span>
+                                            <span class="status-badge-pill bg-info text-white">รออะไหล่</span>
                                         {% elif item.status == 'FINISHED' %}
-                                            <span class="fw-bold text-success me-2">ซ่อมเสร็จ</span>
+                                            <span class="status-badge-pill bg-success text-white">ซ่อมเสร็จ</span>
                                         {% elif item.status == 'COMPLETED' %}
-                                            <span class="fw-bold text-secondary me-2">ส่งคืนแล้ว</span>
+                                            <span class="status-badge-pill bg-secondary text-white">ส่งคืนแล้ว</span>
                                         {% endif %}
-                                        
-                                        <!-- Issue Description -->
-                                        <span class="small text-muted text-truncate" style="max-width: 200px;" title="{{ item.issue_description }}">
+                                        <span class="small text-muted text-truncate ms-2" style="max-width: 150px;" title="{{ item.issue_description }}">
                                             - {{ item.issue_description }}
                                         </span>
-
-                                        <!-- Status Note Tooltip -->
                                         <div class="status-tooltip position-absolute bg-dark text-white p-2 rounded shadow-lg d-none" 
                                              style="z-index: 1000; width: 200px; left: 0; top: 100%;">
                                             <small class="tooltip-content">Loading...</small>
@@ -159,33 +168,71 @@
                                 <td>
                                     {% if item.created_by %}
                                         <div class="d-flex align-items-center">
-                                            <div class="bg-light text-secondary rounded-circle d-flex align-items-center justify-content-center me-2" style="width: 24px; height: 24px; font-size: 10px;">
+                                            <div class="bg-indigo text-white rounded-circle d-flex align-items-center justify-content-center me-2" style="width: 24px; height: 24px; font-size: 10px; background-color: var(--primary-color);">
                                                 {{ item.created_by.username.0|upper }}
                                             </div>
                                             <span class="small">{{ item.created_by.username }}</span>
                                         </div>
-                                    {% else %}
-                                        -
-                                    {% endif %}
+                                    {% else %}-{% endif %}
                                 </td>
                                 <td class="text-end pe-4">
-                                    <a href="{% url 'repairs:repair_detail' item.job.pk %}" class="btn btn-sm btn-light text-primary shadow-sm border rounded-circle d-flex align-items-center justify-content-center ms-auto" style="width: 32px; height: 32px;" title="รายละเอียด" data-bs-toggle="tooltip">
-                                        <i class="fas fa-eye"></i>
+                                    <a href="{% url 'repairs:repair_detail' item.job.pk %}" class="btn btn-sm btn-light text-primary shadow-sm border rounded-circle d-flex align-items-center justify-content-center ms-auto" style="width: 32px; height: 32px;">
+                                        <i class="fas fa-arrow-right"></i>
                                     </a>
                                 </td>
                             </tr>
                             {% empty %}
-                            <tr>
-                                <td colspan="6" class="text-center py-5 text-muted">
-                                    <i class="fas fa-tools fa-3x mb-3 text-secondary opacity-25"></i>
-                                    <p>ไม่พบรายการซ่อม</p>
-                                </td>
-                            </tr>
+                            <tr><td colspan="6" class="text-center py-5 text-muted">ไม่พบรายการซ่อม</td></tr>
                             {% endfor %}
                         </tbody>
                     </table>
                 </div>
             </div>
+        </div>
+
+        <!-- Mobile Layout (Cards) -->
+        <div class="job-cards-container">
+            {% for item in items %}
+            <div class="job-card shadow-sm" style="{% if item.status == 'RECEIVED' %}background-color: #fff1f0; border-left: 5px solid #ff4d4f;{% elif item.status == 'FIXING' %}background-color: #fff7ed; border-left: 5px solid #fa8c16;{% elif item.status == 'WAITING' %}background-color: #fefce8; border-left: 5px solid #fadb14;{% elif item.status == 'FINISHED' %}background-color: #f0fdf4; border-left: 5px solid #52c41a;{% elif item.status == 'COMPLETED' %}background-color: #f8fafc; border-left: 5px solid #8c8c8c;{% endif %}">
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                    <div>
+                        <a href="{% url 'repairs:repair_detail' item.job.pk %}" class="fw-bold fs-5 text-indigo text-decoration-none">
+                            {{ item.job.job_code }}
+                        </a>
+                        <div class="small text-muted">{{ item.job.created_at|date:"d M Y H:i" }}</div>
+                    </div>
+                    {% if item.status == 'RECEIVED' %}
+                        <span class="status-badge-pill bg-danger text-white">รับแจ้ง</span>
+                    {% elif item.status == 'FIXING' %}
+                        <span class="status-badge-pill bg-warning text-dark">กำลังซ่อม</span>
+                    {% elif item.status == 'WAITING' %}
+                        <span class="status-badge-pill bg-info text-white">รออะไหล่</span>
+                    {% elif item.status == 'FINISHED' %}
+                        <span class="status-badge-pill bg-success text-white">ซ่อมเสร็จ</span>
+                    {% elif item.status == 'COMPLETED' %}
+                        <span class="status-badge-pill bg-secondary text-white">ส่งคืนแล้ว</span>
+                    {% endif %}
+                </div>
+                <div class="mb-2">
+                    <div class="fw-bold text-dark">{{ item.job.customer.name }}</div>
+                    <div class="text-muted small"><i class="fas fa-phone-alt me-1"></i> {{ item.job.customer.contact_number|default:"-" }}</div>
+                </div>
+                <div class="p-2 rounded bg-white bg-opacity-50 border border-white mb-3">
+                    <div class="fw-bold text-indigo"><i class="fas fa-laptop me-1"></i> {{ item.device.brand }} {{ item.device.model }}</div>
+                    <div class="small text-muted text-truncate">{{ item.issue_description }}</div>
+                </div>
+                <div class="d-flex justify-content-between align-items-center">
+                    <div class="small text-muted">
+                        <i class="fas fa-user-edit me-1"></i> {{ item.created_by.username|default:"-" }}
+                    </div>
+                    <a href="{% url 'repairs:repair_detail' item.job.pk %}" class="btn btn-sm btn-primary px-3 rounded-pill shadow-sm">
+                        จัดการงาน <i class="fas fa-chevron-right ms-1"></i>
+                    </a>
+                </div>
+            </div>
+            {% empty %}
+            <div class="text-center py-5 text-muted card shadow-sm border-0">ไม่พบรายการซ่อม</div>
+            {% endfor %}
         </div>
     </div>
 </div>
@@ -193,18 +240,14 @@
 
 {% block scripts %}
 <script>
-    // Note Caching logic adapted for Bootstrap
     const noteCache = {};
     const jobNoteCache = {};
 
     function showStatusNote(container) {
         const tooltip = container.querySelector('.status-tooltip');
         const contentSpan = tooltip.querySelector('.tooltip-content');
-        const status = container.getAttribute('data-status');
         const itemId = container.getAttribute('data-item-id');
-        
         tooltip.classList.remove('d-none');
-
         if (noteCache[itemId]) {
             contentSpan.textContent = noteCache[itemId];
         } else {
@@ -212,66 +255,34 @@
             fetch(`/repairs/item/${itemId}/note/`)
                 .then(response => response.json())
                 .then(data => {
-                    const note = data.note || 'ไม่มีบันทึกเพิ่มเติม';
-                    noteCache[itemId] = note;
-                    contentSpan.textContent = note;
-                })
-                .catch(err => {
-                    contentSpan.textContent = 'Error loading';
-                    console.error('Error fetching note:', err);
+                    noteCache[itemId] = data.note || 'ไม่มีบันทึกเพิ่มเติม';
+                    contentSpan.textContent = noteCache[itemId];
                 });
         }
     }
-
-    function hideStatusNote(container) {
-        const tooltip = container.querySelector('.status-tooltip');
-        tooltip.classList.add('d-none');
-    }
-
+    function hideStatusNote(container) { container.querySelector('.status-tooltip').classList.add('d-none'); }
     function showJobNotes(container) {
         const tooltip = container.querySelector('.job-tooltip');
         const contentSpan = tooltip.querySelector('.tooltip-content');
         const jobId = container.getAttribute('data-job-id');
-        
         tooltip.classList.remove('d-none');
-
-        if (jobNoteCache[jobId]) {
-            renderJobNotes(contentSpan, jobNoteCache[jobId]);
-        } else {
+        if (jobNoteCache[jobId]) { renderJobNotes(contentSpan, jobNoteCache[jobId]); }
+        else {
             contentSpan.innerHTML = 'Loading...';
             fetch(`/repairs/job/${jobId}/notes/`)
                 .then(response => response.json())
                 .then(data => {
                     jobNoteCache[jobId] = data.items;
                     renderJobNotes(contentSpan, data.items);
-                })
-                .catch(err => {
-                    contentSpan.textContent = 'Error loading';
                 });
         }
     }
-
-    function hideJobNotes(container) {
-        const tooltip = container.querySelector('.job-tooltip');
-        tooltip.classList.add('d-none');
-    }
-
+    function hideJobNotes(container) { container.querySelector('.job-tooltip').classList.add('d-none'); }
     function renderJobNotes(container, items) {
-        if (!items || items.length === 0) {
-            container.textContent = 'ไม่มีบันทึก';
-            return;
-        }
-
+        if (!items || items.length === 0) { container.textContent = 'ไม่มีบันทึก'; return; }
         let html = '';
-        items.forEach((item, index) => {
-            if (item.note && item.note.trim() !== '') {
-                if (html !== '') html += '<hr class="my-1 border-light">';
-                html += `<div class="text-start">${item.note}</div>`;
-            }
-        });
-        
-        if (html === '') html = 'ไม่มีบันทึก';
-        container.innerHTML = html;
+        items.forEach(item => { if (item.note && item.note.trim() !== '') { if (html !== '') html += '<hr class="my-1 border-light">'; html += `<div class="text-start">${item.note}</div>`; } });
+        container.innerHTML = html || 'ไม่มีบันทึก';
     }
 </script>
 {% endblock %}
