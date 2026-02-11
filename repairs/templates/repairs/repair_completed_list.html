@@ -54,11 +54,11 @@
                 <form method="get" class="row g-2 align-items-end">
                     <div class="col-12 col-md-5">
                         <label class="form-label text-muted small mb-1">ค้นหา</label>
-                        <input type="text" name="q" value="{{ request.GET.q|default:'' }}" class="form-control form-control-sm" placeholder="รหัส, ลูกค้า...">
+                        <input type="text" name="q" value="{{ request.GET.q|default:'' }}" class="form-control" placeholder="รหัส, ลูกค้า...">
                     </div>
                     <div class="col-6 col-md-3">
                         <label class="form-label text-muted small mb-1">ผู้รับงาน</label>
-                        <select name="created_by" class="form-select form-select-sm select2" onchange="this.form.submit()">
+                        <select name="created_by" class="form-select select2" onchange="this.form.submit()">
                             <option value="">ทุกคน</option>
                             {% for u in users %}
                             <option value="{{ u.id }}" {% if request.GET.created_by|add:"0" == u.id %}selected{% endif %}>{{ u.username }}</option>
@@ -67,7 +67,7 @@
                     </div>
                     <div class="col-6 col-md-2">
                         <label class="form-label text-muted small mb-1">เรียงตาม</label>
-                        <select name="sort" class="form-select form-select-sm select2" onchange="this.form.submit()">
+                        <select name="sort" class="form-select select2" onchange="this.form.submit()">
                             <option value="date_desc" {% if request.GET.sort == 'date_desc' %}selected{% endif %}>ล่าสุดก่อน</option>
                             <option value="date_asc" {% if request.GET.sort == 'date_asc' %}selected{% endif %}>เก่าสุดก่อน</option>
                             <option value="customer" {% if request.GET.sort == 'customer' %}selected{% endif %}>ชื่อลูกค้า</option>
@@ -75,7 +75,7 @@
                     </div>
                     <div class="col-12 col-md-2">
                         {% if request.GET.q or request.GET.created_by %}
-                        <a href="{% url 'repairs:repair_completed_list' %}" class="btn btn-sm btn-outline-danger w-100">
+                        <a href="{% url 'repairs:repair_completed_list' %}" class="btn btn-outline-danger w-100">
                              ล้างค่า
                         </a>
                         {% endif %}
