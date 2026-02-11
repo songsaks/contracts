@@ -2,6 +2,15 @@
 {% load humanize %}
 
 {% block content %}
+<style>
+    .hover-underline:hover {
+        text-decoration: underline !important;
+        opacity: 0.8;
+    }
+    .text-indigo {
+        color: var(--primary-color) !important;
+    }
+</style>
 <div class="row">
     <div class="col-12">
         <div class="d-flex justify-content-between align-items-center mb-4">
@@ -92,18 +101,21 @@
                                          data-job-id="{{ item.job.pk }}"
                                          onmouseenter="showJobNotes(this)"
                                          onmouseleave="hideJobNotes(this)">
-                                        {{ item.job.job_code }}
+                                        <a href="{% url 'repairs:repair_detail' item.job.pk %}" class="text-decoration-none text-indigo hover-underline">
+                                            {{ item.job.job_code }}
+                                        </a>
                                         {% if item.job.fix_id %}
                                         <div class="small text-muted">{{ item.job.fix_id }}</div>
                                         {% endif %}
                                         
-                                        <!-- Job Notes Tooltip (Hidden by default) -->
-                                        <div class="job-tooltip position-absolute bg-dark text-white p-2 rounded shadow-lg d-none" 
-                                             style="z-index: 1000; width: 250px; left: 0; top: 100%;">
-                                            <small class="tooltip-content">Loading...</small>
-                                        </div>
+                                         <!-- Job Notes Tooltip (Hidden by default) -->
+                                         <div class="job-tooltip position-absolute bg-dark text-white p-2 rounded shadow-lg d-none" 
+                                              style="z-index: 1000; width: 250px; left: 0; top: 100%;">
+                                             <small class="tooltip-content">Loading...</small>
+                                         </div>
                                     </div>
                                 </td>
+
                                 <td>
                                     <div class="fw-bold">{{ item.job.customer.name }}</div>
                                     <div class="small text-muted">{{ item.job.customer.contact_number|default:"-" }}</div>
