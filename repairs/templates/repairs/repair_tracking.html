@@ -84,6 +84,10 @@
                                     <span class="badge bg-warning text-dark rounded-pill">กำลังซ่อม</span>
                                 {% elif item.status == 'WAITING' %}
                                     <span class="badge bg-info text-dark rounded-pill">รออะไหล่</span>
+                                {% elif item.status == 'OUTSOURCE' %}
+                                    <span class="badge rounded-pill text-white" style="background-color: #6f42c1;">ส่งซ่อมศูนย์</span>
+                                {% elif item.status == 'RECEIVED_FROM_VENDOR' %}
+                                    <span class="badge bg-info rounded-pill">รับจากศูนย์</span>
                                 {% elif item.status == 'FINISHED' %}
                                     <span class="badge bg-success rounded-pill">ซ่อมเสร็จ</span>
                                 {% elif item.status == 'COMPLETED' %}
