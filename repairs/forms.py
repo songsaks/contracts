@@ -1,5 +1,18 @@
 from django import forms
-from .models import RepairJob, RepairItem, Customer, Device, Technician, DeviceType, Brand
+from .models import RepairJob, RepairItem, Customer, Device, Technician, DeviceType, Brand, OutsourceLog
+
+class OutsourceLogForm(forms.ModelForm):
+    class Meta:
+        model = OutsourceLog
+        fields = ['vendor_name', 'tracking_no', 'sent_date', 'expected_return', 'cost', 'note']
+        widgets = {
+            'vendor_name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'เช่น ศูนย์ SONY, ร้านซ่อมหน้าปากซอย'}),
+            'tracking_no': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'เลขพัสดุ หรือ เลขที่บิล'}),
+            'sent_date': forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}),
+            'expected_return': forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}),
+            'cost': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': '0.00'}),
+            'note': forms.Textarea(attrs={'rows': 2, 'class': 'form-control', 'placeholder': 'รายละเอียดเพิ่มเติม'}),
+        }
 
 class CustomerForm(forms.ModelForm):
     class Meta:
