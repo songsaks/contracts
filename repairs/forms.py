@@ -16,10 +16,10 @@ class DeviceForm(forms.ModelForm):
         model = Device
         fields = ['brand', 'model', 'serial_number', 'device_type']
         widgets = {
-            'brand': forms.Select(attrs={'class': 'form-select'}),
+            'brand': forms.Select(attrs={'class': 'form-select select2'}),
             'model': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'รุ่น (Model)'}),
             'serial_number': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Serial Number'}),
-            'device_type': forms.Select(attrs={'class': 'form-select'}),
+            'device_type': forms.Select(attrs={'class': 'form-select select2'}),
         }
     
     def __init__(self, *args, **kwargs):
@@ -50,7 +50,7 @@ class RepairItemForm(forms.ModelForm):
         widgets = {
             'issue_description': forms.Textarea(attrs={'rows': 2, 'class': 'form-control', 'placeholder': 'ระบุอาการเสียที่ลูกค้าแจ้ง'}),
             'accessories': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'เช่น สายชาร์จ, กระเป๋า'}),
-            'technicians': forms.SelectMultiple(attrs={'class': 'form-select', 'size': '3'}),
+            'technicians': forms.SelectMultiple(attrs={'class': 'form-select select2', 'size': '3'}),
             'status': forms.Select(attrs={'class': 'form-select'}),
             'status_note': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'หมายเหตุสถานะ'}),
             'price': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': '0.00'}),
