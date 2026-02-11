@@ -1,10 +1,30 @@
 {% extends 'repairs/base_repairs.html' %}
+{% load humanize %}
 
 {% block content %}
+<style>
+    /* Mobile-specific Card Layout */
+    @media (max-width: 767.98px) {
+        .customer-table-container { display: none; }
+        .customer-cards-container { display: block; }
+    }
+    @media (min-width: 768px) {
+        .customer-table-container { display: block; }
+        .customer-cards-container { display: none; }
+    }
+    .customer-card {
+        border-radius: 12px;
+        margin-bottom: 12px;
+        padding: 16px;
+        border: 1px solid rgba(0,0,0,0.05);
+        background: white;
+    }
+</style>
+
 <div class="row">
     <div class="col-12">
         <div class="d-flex justify-content-between align-items-center mb-4">
-            <h1 class="h3 mb-0 text-gray-800">รายชื่อลูกค้า</h1>
+            <h1 class="h3 mb-0 fw-bold">รายชื่อลูกค้า</h1>
             <a href="{% url 'repairs:customer_create' %}" class="btn btn-warning shadow-sm rounded-circle d-flex align-items-center justify-content-center text-white" style="width: 48px; height: 48px;" title="เพิ่มลูกค้าใหม่" data-bs-toggle="tooltip">
                 <i class="fas fa-plus fa-lg"></i>
             </a>
@@ -12,24 +32,24 @@
 
         <!-- Filters -->
         <div class="card shadow-sm mb-4 border-0">
-            <div class="card-body bg-light rounded">
-                <form method="get" class="row g-3 align-items-end">
-                    <!-- Search -->
-                    <div class="col-md-5">
-                        <label class="form-label text-muted small">ค้นหา</label>
-                        <div class="input-group">
-                            <span class="input-group-text bg-white border-end-0"><i class="fas fa-search text-muted"></i></span>
-                            <input type="text" name="q" value="{{ request.GET.q }}" class="form-control border-start-0" placeholder="ชื่อ, เบอร์โทร...">
+            <div class="card-body bg-white rounded">
+                <form method="get" class="row g-2 align-items-end">
+                    <div class="col-12 col-md-10">
+                        <label class="form-label text-muted small mb-1">ค้นหา</label>
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text bg-light border-0"><i class="fas fa-search"></i></span>
+                            <input type="text" name="q" value="{{ request.GET.q|default:'' }}" class="form-control border-0 bg-light" placeholder="ชื่อลูกค้า หรือ เบอร์โทรศัพท์...">
                         </div>
                     </div>
-                     <div class="col-md-2">
-                         <button type="submit" class="btn btn-primary w-100">ค้นหา</button>
+                    <div class="col-12 col-md-2">
+                        <button type="submit" class="btn btn-sm btn-primary w-100">ค้นหา</button>
                     </div>
                 </form>
             </div>
         </div>
 
-        <div class="card shadow-sm border-0">
+        <!-- Desktop Table -->
+        <div class="customer-table-container card shadow-sm border-0">
             <div class="card-body p-0">
                 <div class="table-responsive">
                     <table class="table table-hover align-middle mb-0">
@@ -44,27 +64,46 @@
                         <tbody>
                             {% for customer in customers %}
                             <tr>
-                                <td class="ps-4 fw-bold">{{ customer.name }}</td>
+                                <td class="ps-4 fw-bold text-indigo">{{ customer.name }}</td>
                                 <td>{{ customer.contact_number|default:"-" }}</td>
-                                <td class="text-muted small">{{ customer.address|default:"-"|truncatechars:50 }}</td>
+                                <td class="text-muted small">{{ customer.address|default:"-"|truncatechars:100 }}</td>
                                 <td class="text-end pe-4">
-                                    <a href="{% url 'repairs:customer_update' customer.pk %}" class="btn btn-sm btn-light text-primary shadow-sm border rounded-circle d-flex align-items-center justify-content-center ms-auto" style="width: 32px; height: 32px;" title="แก้ไข" data-bs-toggle="tooltip">
+                                    <a href="{% url 'repairs:customer_update' customer.pk %}" class="btn btn-sm btn-light text-primary shadow-sm border rounded-circle d-flex align-items-center justify-content-center ms-auto" style="width: 32px; height: 32px;">
                                         <i class="fas fa-edit"></i>
                                     </a>
                                 </td>
                             </tr>
                             {% empty %}
-                            <tr>
-                                <td colspan="4" class="text-center py-5 text-muted">
-                                    <i class="fas fa-users fa-3x mb-3 text-secondary opacity-25"></i>
-                                    <p>ไม่พบข้อมูลลูกค้า</p>
-                                </td>
-                            </tr>
+                            <tr><td colspan="4" class="text-center py-5 text-muted">ไม่พบข้อมูลลูกค้า</td></tr>
                             {% endfor %}
                         </tbody>
                     </table>
                 </div>
             </div>
+        </div>
+
+        <!-- Mobile Cards -->
+        <div class="customer-cards-container">
+            {% for customer in customers %}
+            <div class="customer-card shadow-sm">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <div class="fw-bold fs-5 text-indigo">{{ customer.name }}</div>
+                    <a href="{% url 'repairs:customer_update' customer.pk %}" class="btn btn-sm btn-light rounded-circle shadow-sm">
+                        <i class="fas fa-edit text-primary"></i>
+                    </a>
+                </div>
+                <div class="mb-2">
+                    <div class="text-muted small"><i class="fas fa-phone-alt me-2"></i> {{ customer.contact_number|default:"-" }}</div>
+                </div>
+                {% if customer.address %}
+                <div class="p-2 border rounded bg-light small text-muted">
+                    <i class="fas fa-map-marker-alt me-2"></i> {{ customer.address }}
+                </div>
+                {% endif %}
+            </div>
+            {% empty %}
+            <div class="text-center py-5 text-muted card shadow-sm border-0">ไม่พบข้อมูลลูกค้า</div>
+            {% endfor %}
         </div>
     </div>
 </div>

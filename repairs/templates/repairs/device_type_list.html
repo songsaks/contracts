@@ -1,16 +1,35 @@
 {% extends 'repairs/base_repairs.html' %}
 
 {% block content %}
+<style>
+    @media (max-width: 767.98px) {
+        .dt-table-container { display: none; }
+        .dt-cards-container { display: block; }
+    }
+    @media (min-width: 768px) {
+        .dt-table-container { display: block; }
+        .dt-cards-container { display: none; }
+    }
+    .dt-card {
+        border-radius: 12px;
+        margin-bottom: 12px;
+        padding: 16px;
+        border: 1px solid rgba(0,0,0,0.05);
+        background: white;
+    }
+</style>
+
 <div class="row">
     <div class="col-12">
         <div class="d-flex justify-content-between align-items-center mb-4">
-            <h1 class="h3 mb-0 text-gray-800">ประเภทอุปกรณ์</h1>
+            <h1 class="h3 mb-0 fw-bold">ประเภทอุปกรณ์</h1>
             <a href="{% url 'repairs:device_type_create' %}" class="btn btn-warning shadow-sm rounded-circle d-flex align-items-center justify-content-center text-white" style="width: 48px; height: 48px;" title="เพิ่มประเภทใหม่" data-bs-toggle="tooltip">
                 <i class="fas fa-plus fa-lg"></i>
             </a>
         </div>
 
-        <div class="card shadow-sm border-0">
+        <!-- Desktop Table -->
+        <div class="dt-table-container card shadow-sm border-0">
             <div class="card-body p-0">
                 <div class="table-responsive">
                     <table class="table table-hover align-middle mb-0">
@@ -24,26 +43,40 @@
                         <tbody>
                             {% for dt in device_types %}
                             <tr>
-                                <td class="ps-4 fw-bold">{{ dt.name }}</td>
+                                <td class="ps-4 fw-bold text-indigo">{{ dt.name }}</td>
                                 <td class="text-muted">{{ dt.description|default:"-" }}</td>
                                 <td class="text-end pe-4">
-                                     <a href="{% url 'repairs:device_type_update' dt.pk %}" class="btn btn-sm btn-light text-primary shadow-sm border rounded-circle d-flex align-items-center justify-content-center ms-auto" style="width: 32px; height: 32px;" title="แก้ไข" data-bs-toggle="tooltip">
+                                     <a href="{% url 'repairs:device_type_update' dt.pk %}" class="btn btn-sm btn-light text-primary shadow-sm border rounded-circle d-flex align-items-center justify-content-center ms-auto" style="width: 32px; height: 32px;">
                                         <i class="fas fa-edit"></i>
                                     </a>
                                 </td>
                             </tr>
                             {% empty %}
-                            <tr>
-                                <td colspan="3" class="text-center py-5 text-muted">
-                                    <i class="fas fa-laptop fa-3x mb-3 text-secondary opacity-25"></i>
-                                    <p>ไม่พบข้อมูลประเภทอุปกรณ์</p>
-                                </td>
-                            </tr>
+                            <tr><td colspan="3" class="text-center py-5 text-muted">ไม่พบข้อมูลประเภทอุปกรณ์</td></tr>
                             {% endfor %}
                         </tbody>
                     </table>
                 </div>
             </div>
+        </div>
+
+        <!-- Mobile Cards -->
+        <div class="dt-cards-container">
+            {% for dt in device_types %}
+            <div class="dt-card shadow-sm">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <div class="fw-bold text-indigo fs-5"><i class="fas fa-laptop me-2"></i> {{ dt.name }}</div>
+                        <div class="small text-muted mt-1">{{ dt.description|default:"-" }}</div>
+                    </div>
+                    <a href="{% url 'repairs:device_type_update' dt.pk %}" class="btn btn-sm btn-light rounded-circle shadow-sm">
+                        <i class="fas fa-edit text-primary"></i>
+                    </a>
+                </div>
+            </div>
+            {% empty %}
+            <div class="text-center py-5 text-muted card shadow-sm border-0">ไม่พบข้อมูลประเภทอุปกรณ์</div>
+            {% endfor %}
         </div>
     </div>
 </div>

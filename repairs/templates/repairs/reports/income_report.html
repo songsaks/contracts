@@ -2,34 +2,57 @@
 {% load humanize %}
 
 {% block content %}
+<style>
+    /* Mobile-specific Card Layout */
+    @media (max-width: 767.98px) {
+        .report-table-container { display: none; }
+        .report-cards-container { display: block; }
+    }
+    @media (min-width: 768px) {
+        .report-table-container { display: block; }
+        .report-cards-container { display: none; }
+    }
+    .report-card {
+        border-radius: 12px;
+        margin-bottom: 12px;
+        padding: 16px;
+        border: 1px solid rgba(0,0,0,0.05);
+        background: white;
+    }
+    @media print {
+        .no-print { display: none !important; }
+        .card { box-shadow: none !important; border: 1px solid #eee !important; }
+    }
+</style>
+
 <div class="row">
     <div class="col-12">
-        <div class="d-flex justify-content-between align-items-center mb-4">
-            <h1 class="h3 mb-0 text-gray-800">รายงานรายรับจากงานซ่อม (Income Report)</h1>
-            <div class="d-flex gap-2">
-                <button onclick="window.print()" class="btn btn-light shadow-sm border">
+        <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 gap-3">
+            <h1 class="h3 mb-0 fw-bold">รายงานรายรับจากงานซ่อม</h1>
+            <div class="d-flex gap-2 no-print">
+                <button onclick="window.print()" class="btn btn-sm btn-light shadow-sm border">
                     <i class="fas fa-print me-2"></i> พิมพ์
                 </button>
-                <a href="?export=excel&start_date={{ start_date }}&end_date={{ end_date }}" class="btn btn-success shadow-sm">
-                    <i class="fas fa-file-excel me-2"></i> Export Excel
+                <a href="?export=excel&start_date={{ start_date }}&end_date={{ end_date }}" class="btn btn-sm btn-success shadow-sm">
+                    <i class="fas fa-file-excel me-2"></i> Export
                 </a>
             </div>
         </div>
 
         <!-- Filter -->
         <div class="card shadow-sm mb-4 border-0 no-print">
-            <div class="card-body bg-light rounded">
-                <form method="get" class="row g-3 align-items-end">
-                    <div class="col-md-4">
-                        <label class="form-label small fw-bold text-muted">ตั้งแต่วันที่</label>
-                        <input type="date" name="start_date" value="{{ start_date }}" class="form-control">
+            <div class="card-body bg-white rounded">
+                <form method="get" class="row g-2 align-items-end">
+                    <div class="col-6 col-md-5">
+                        <label class="form-label small fw-bold text-muted mb-1">ตั้งแต่วันที่</label>
+                        <input type="date" name="start_date" value="{{ start_date }}" class="form-control form-control-sm">
                     </div>
-                    <div class="col-md-4">
-                        <label class="form-label small fw-bold text-muted">ถึงวันที่</label>
-                        <input type="date" name="end_date" value="{{ end_date }}" class="form-control">
+                    <div class="col-6 col-md-5">
+                        <label class="form-label small fw-bold text-muted mb-1">ถึงวันที่</label>
+                        <input type="date" name="end_date" value="{{ end_date }}" class="form-control form-control-sm">
                     </div>
-                    <div class="col-md-2">
-                        <button type="submit" class="btn btn-primary w-100">
+                    <div class="col-12 col-md-2">
+                        <button type="submit" class="btn btn-sm btn-primary w-100">
                             <i class="fas fa-search me-1"></i> ค้นหา
                         </button>
                     </div>
@@ -37,67 +60,84 @@
             </div>
         </div>
 
-        <!-- Report Table -->
-        <div class="card shadow-sm border-0">
-            <div class="card-body">
+        <!-- Total Summary Card -->
+        <div class="card shadow-sm border-0 mb-4 bg-indigo text-white" style="background: linear-gradient(135deg, #4f46e5, #7c3aed);">
+            <div class="card-body text-center py-4">
+                <div class="small opacity-75 mb-1 text-uppercase fw-bold">รายรับรวมทั้งหมด</div>
+                <div class="display-5 fw-bold">{{ total_income|floatformat:2|intcomma }} บาท</div>
+                <div class="small opacity-75 mt-2">ประวัติช่วงวันที่ {{ start_date|date:"d M Y" }} ถึง {{ end_date|date:"d M Y" }}</div>
+            </div>
+        </div>
+
+        <!-- Desktop Table -->
+        <div class="report-table-container card shadow-sm border-0">
+            <div class="card-body p-0">
                 <div class="table-responsive">
-                    <table class="table table-bordered table-striped">
-                        <thead class="table-dark">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
                             <tr>
-                                <th>วันที่ส่งคืน</th>
+                                <th class="ps-4">วันที่ส่งคืน</th>
                                 <th>รหัสงาน</th>
                                 <th>ลูกค้า</th>
                                 <th>รายการซ่อม</th>
-                                <th class="text-center">ประเภท</th> <!-- Warranty or Paid -->
-                                <th class="text-end">ยอดเงิน (บาท)</th>
+                                <th class="text-center">ประเภท</th>
+                                <th class="text-end pe-4">ยอดเงิน (บาท)</th>
                             </tr>
                         </thead>
                         <tbody>
                             {% for item in items %}
                             <tr>
-                                <td>{{ item.updated_at|date:"d/m/Y H:i" }}</td>
-                                <td>{{ item.job.job_code }}</td>
+                                <td class="ps-4 small">{{ item.updated_at|date:"d/m/Y H:i" }}</td>
+                                <td class="fw-bold">{{ item.job.job_code }}</td>
                                 <td>{{ item.job.customer.name }}</td>
-                                <td>{{ item.device.brand }} {{ item.device.model }} - {{ item.issue_description|truncatechars:30 }}</td>
+                                <td>
+                                    <div class="fw-bold">{{ item.device.brand }} {{ item.device.model }}</div>
+                                    <div class="text-muted small text-truncate" style="max-width: 250px;">{{ item.issue_description }}</div>
+                                </td>
                                 <td class="text-center">
                                     {% if item.final_cost > 0 %}
-                                        <span class="badge bg-success">ชำระเงิน</span>
+                                        <span class="badge rounded-pill bg-success">ชำระเงิน</span>
                                     {% else %}
-                                        <span class="badge bg-secondary">ฟรี/ประกัน</span>
+                                        <span class="badge rounded-pill bg-secondary">ฟรี/ประกัน</span>
                                     {% endif %}
                                 </td>
-                                <td class="text-end">{{ item.final_cost|default_if_none:"0.00"|floatformat:2|intcomma }}</td>
+                                <td class="text-end pe-4 fw-bold">{{ item.final_cost|default_if_none:"0.00"|floatformat:2|intcomma }}</td>
                             </tr>
                             {% empty %}
-                            <tr>
-                                <td colspan="6" class="text-center py-4 text-muted">ไม่มีรายการรายรับในช่วงเวลานี้</td>
-                            </tr>
+                            <tr><td colspan="6" class="text-center py-5 text-muted">ไม่มีรายการรายรับในช่วงเวลานี้</td></tr>
                             {% endfor %}
                         </tbody>
-                        <tfoot class="table-light fw-bold">
-                            <tr>
-                                <td colspan="5" class="text-end">รวมรายรับทั้งหมด</td>
-                                <td class="text-end text-success fs-5">{{ total_income|floatformat:2|intcomma }}</td>
-                            </tr>
-                        </tfoot>
                     </table>
                 </div>
             </div>
         </div>
+
+        <!-- Mobile Cards -->
+        <div class="report-cards-container">
+            {% for item in items %}
+            <div class="report-card shadow-sm">
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                    <div class="fw-bold text-indigo">{{ item.job.job_code }}</div>
+                    <div class="small text-muted">{{ item.updated_at|date:"d/m/Y" }}</div>
+                </div>
+                <div class="mb-2 fw-bold">{{ item.job.customer.name }}</div>
+                <div class="p-2 border rounded bg-light mb-2">
+                    <div class="small fw-bold">{{ item.device.brand }} {{ item.device.model }}</div>
+                    <div class="small text-muted text-truncate">{{ item.issue_description }}</div>
+                </div>
+                <div class="d-flex justify-content-between align-items-center">
+                    {% if item.final_cost > 0 %}
+                        <span class="badge rounded-pill bg-success">ชำระเงิน</span>
+                    {% else %}
+                        <span class="badge rounded-pill bg-secondary">ฟรี/ประกัน</span>
+                    {% endif %}
+                    <div class="fw-bold fs-5 text-primary">{{ item.final_cost|default_if_none:"0.00"|floatformat:2|intcomma }} ฿</div>
+                </div>
+            </div>
+            {% empty %}
+            <div class="text-center py-5 text-muted card shadow-sm border-0">ไม่มีรายการรายรับในช่วงเวลานี้</div>
+            {% endfor %}
+        </div>
     </div>
 </div>
-{% endblock %}
-
-{% block extra_css %}
-<style>
-    @media print {
-        .no-print {
-            display: none !important;
-        }
-        .card {
-            box-shadow: none !important;
-            border: none !important;
-        }
-    }
-</style>
 {% endblock %}
