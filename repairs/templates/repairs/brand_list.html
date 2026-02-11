@@ -1,16 +1,37 @@
 {% extends 'repairs/base_repairs.html' %}
 
 {% block content %}
+<style>
+    @media (max-width: 767.98px) {
+        .brand-table-container { display: none; }
+        .brand-grid-container { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    }
+    @media (min-width: 768px) {
+        .brand-table-container { display: block; }
+        .brand-grid-container { display: none; }
+    }
+    .brand-card {
+        border-radius: 12px;
+        padding: 16px;
+        border: 1px solid rgba(0,0,0,0.05);
+        background: white;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+</style>
+
 <div class="row">
     <div class="col-12">
         <div class="d-flex justify-content-between align-items-center mb-4">
-            <h1 class="h3 mb-0 text-gray-800">ยี่ห้อสินค้า</h1>
+            <h1 class="h3 mb-0 fw-bold">ยี่ห้อสินค้า</h1>
             <a href="{% url 'repairs:brand_create' %}" class="btn btn-warning shadow-sm rounded-circle d-flex align-items-center justify-content-center text-white" style="width: 48px; height: 48px;" title="เพิ่มยี่ห้อใหม่" data-bs-toggle="tooltip">
                 <i class="fas fa-plus fa-lg"></i>
             </a>
         </div>
 
-        <div class="card shadow-sm border-0">
+        <!-- Desktop Table -->
+        <div class="brand-table-container card shadow-sm border-0">
             <div class="card-body p-0">
                 <div class="table-responsive">
                     <table class="table table-hover align-middle mb-0">
@@ -23,25 +44,34 @@
                         <tbody>
                             {% for brand in brands %}
                             <tr>
-                                <td class="ps-4 fw-bold">{{ brand.name }}</td>
+                                <td class="ps-4 fw-bold text-indigo">{{ brand.name }}</td>
                                 <td class="text-end pe-4">
-                                     <a href="{% url 'repairs:brand_update' brand.pk %}" class="btn btn-sm btn-light text-primary shadow-sm border rounded-circle d-flex align-items-center justify-content-center ms-auto" style="width: 32px; height: 32px;" title="แก้ไข" data-bs-toggle="tooltip">
+                                     <a href="{% url 'repairs:brand_update' brand.pk %}" class="btn btn-sm btn-light text-primary shadow-sm border rounded-circle d-flex align-items-center justify-content-center ms-auto" style="width: 32px; height: 32px;">
                                         <i class="fas fa-edit"></i>
                                     </a>
                                 </td>
                             </tr>
                             {% empty %}
-                            <tr>
-                                <td colspan="2" class="text-center py-5 text-muted">
-                                    <i class="fas fa-tags fa-3x mb-3 text-secondary opacity-25"></i>
-                                    <p>ไม่พบข้อมูลยี่ห้อ</p>
-                                </td>
-                            </tr>
+                            <tr><td colspan="2" class="text-center py-5 text-muted">ไม่พบข้อมูลยี่ห้อ</td></tr>
                             {% endfor %}
                         </tbody>
                     </table>
                 </div>
             </div>
+        </div>
+
+        <!-- Mobile Grid -->
+        <div class="brand-grid-container">
+            {% for brand in brands %}
+            <div class="brand-card shadow-sm">
+                <div class="fw-bold text-indigo">{{ brand.name }}</div>
+                <a href="{% url 'repairs:brand_update' brand.pk %}" class="btn btn-sm btn-light rounded-circle shadow-sm">
+                    <i class="fas fa-edit text-primary"></i>
+                </a>
+            </div>
+            {% empty %}
+            <div class="col-12 text-center py-5 text-muted card shadow-sm border-0">ไม่พบข้อมูลยี่ห้อ</div>
+            {% endfor %}
         </div>
     </div>
 </div>

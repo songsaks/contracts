@@ -1,16 +1,35 @@
 {% extends 'repairs/base_repairs.html' %}
 
 {% block content %}
-<div class="row section-technicians">
+<style>
+    @media (max-width: 767.98px) {
+        .tech-table-container { display: none; }
+        .tech-cards-container { display: block; }
+    }
+    @media (min-width: 768px) {
+        .tech-table-container { display: block; }
+        .tech-cards-container { display: none; }
+    }
+    .tech-card {
+        border-radius: 12px;
+        margin-bottom: 12px;
+        padding: 16px;
+        border: 1px solid rgba(0,0,0,0.05);
+        background: white;
+    }
+</style>
+
+<div class="row">
     <div class="col-12">
         <div class="d-flex justify-content-between align-items-center mb-4">
-            <h1 class="h3 mb-0 text-gray-800">รายชื่อช่างซ่อม</h1>
+            <h1 class="h3 mb-0 fw-bold">รายชื่อช่างซ่อม</h1>
             <a href="{% url 'repairs:technician_create' %}" class="btn btn-warning shadow-sm rounded-circle d-flex align-items-center justify-content-center text-white" style="width: 48px; height: 48px;" title="เพิ่มช่างใหม่" data-bs-toggle="tooltip">
                 <i class="fas fa-plus fa-lg"></i>
             </a>
         </div>
 
-        <div class="card shadow-sm border-0">
+        <!-- Desktop Table -->
+        <div class="tech-table-container card shadow-sm border-0">
             <div class="card-body p-0">
                 <div class="table-responsive">
                     <table class="table table-hover align-middle mb-0">
@@ -24,26 +43,52 @@
                         <tbody>
                             {% for tech in techs %}
                             <tr>
-                                <td class="ps-4 fw-bold">{{ tech.name }}</td>
+                                <td class="ps-4">
+                                     <div class="d-flex align-items-center">
+                                        <div class="bg-indigo text-white rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 38px; height: 38px; background-color: var(--primary-color);">
+                                            {{ tech.name.0|upper }}
+                                        </div>
+                                        <div class="fw-bold text-indigo">{{ tech.name }}</div>
+                                    </div>
+                                </td>
                                 <td class="text-muted">{{ tech.expertise|default:"-" }}</td>
                                 <td class="text-end pe-4">
-                                     <a href="{% url 'repairs:technician_update' tech.pk %}" class="btn btn-sm btn-light text-primary shadow-sm border rounded-circle d-flex align-items-center justify-content-center ms-auto" style="width: 32px; height: 32px;" title="แก้ไข" data-bs-toggle="tooltip">
+                                     <a href="{% url 'repairs:technician_update' tech.pk %}" class="btn btn-sm btn-light text-primary shadow-sm border rounded-circle d-flex align-items-center justify-content-center ms-auto" style="width: 32px; height: 32px;">
                                         <i class="fas fa-edit"></i>
                                     </a>
                                 </td>
                             </tr>
                             {% empty %}
-                            <tr>
-                                <td colspan="3" class="text-center py-5 text-muted">
-                                    <i class="fas fa-user-cog fa-3x mb-3 text-secondary opacity-25"></i>
-                                    <p>ไม่พบข้อมูลช่าง</p>
-                                </td>
-                            </tr>
+                            <tr><td colspan="3" class="text-center py-5 text-muted">ไม่พบข้อมูลช่าง</td></tr>
                             {% endfor %}
                         </tbody>
                     </table>
                 </div>
             </div>
+        </div>
+
+        <!-- Mobile Cards -->
+        <div class="tech-cards-container">
+            {% for tech in techs %}
+            <div class="tech-card shadow-sm">
+                <div class="d-flex align-items-center justify-content-between">
+                    <div class="d-flex align-items-center">
+                        <div class="bg-indigo text-white rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 45px; height: 45px; background-color: var(--primary-color);">
+                            {{ tech.name.0|upper }}
+                        </div>
+                        <div>
+                            <div class="fw-bold text-indigo fs-5">{{ tech.name }}</div>
+                            <div class="small text-muted">{{ tech.expertise|default:"-" }}</div>
+                        </div>
+                    </div>
+                    <a href="{% url 'repairs:technician_update' tech.pk %}" class="btn btn-sm btn-light rounded-circle shadow-sm">
+                        <i class="fas fa-edit text-primary"></i>
+                    </a>
+                </div>
+            </div>
+            {% empty %}
+            <div class="text-center py-5 text-muted card shadow-sm border-0">ไม่พบข้อมูลช่าง</div>
+            {% endfor %}
         </div>
     </div>
 </div>
