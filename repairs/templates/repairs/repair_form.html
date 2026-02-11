@@ -22,11 +22,10 @@
                     
                     <!-- Customer Selector -->
                     <div class="mb-3">
-                        <label class="form-label text-muted small">เลือกลูกค้าเก่า (Optional)</label>
+                        <label class="form-label text-muted small">ค้นหาหรือเลือกลูกค้าเดิม (ถ้ามี)</label>
                         <div class="input-group">
-                            <span class="input-group-text bg-light text-muted"><i class="fas fa-search"></i></span>
                             <select class="form-select select2" id="customerSelect" onchange="selectCustomer(this)">
-                                <option value="">-- สร้างลูกค้าใหม่ (หรือพิมพ์ชื่อเอง) --</option>
+                                <option value="">-- ค้นหาลูกค้า หรือ กด + เพื่อสร้างลูกค้าใหม่ --</option>
                                 {% for customer in all_customers %}
                                 <option value="{{ customer.pk }}" 
                                         data-name="{{ customer.name }}"
@@ -37,7 +36,7 @@
                                 </option>
                                 {% endfor %}
                             </select>
-                            <a href="{% url 'repairs:customer_create' %}" class="btn btn-outline-primary" target="_blank" title="เพิ่มลูกค้าใหม่ (หน้าต่างใหม่)">
+                            <a href="{% url 'repairs:customer_create' %}" class="btn btn-primary" target="_blank" title="ลงทะเบียนลูกค้าใหม่">
                                 <i class="fas fa-plus"></i>
                             </a>
                         </div>
