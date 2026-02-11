@@ -25,7 +25,7 @@
                         <label class="form-label text-muted small">เลือกลูกค้าเก่า (Optional)</label>
                         <div class="input-group">
                             <span class="input-group-text bg-light text-muted"><i class="fas fa-search"></i></span>
-                            <select class="form-select" id="customerSelect" onchange="selectCustomer(this)">
+                            <select class="form-select select2" id="customerSelect" onchange="selectCustomer(this)">
                                 <option value="">-- สร้างลูกค้าใหม่ (หรือพิมพ์ชื่อเอง) --</option>
                                 {% for customer in all_customers %}
                                 <option value="{{ customer.pk }}" 

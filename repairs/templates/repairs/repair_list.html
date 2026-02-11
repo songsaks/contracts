@@ -61,7 +61,7 @@
                     </div>
                     <div class="col-6 col-md-2">
                         <label class="form-label text-muted small mb-1">สถานะ</label>
-                        <select name="status" class="form-select form-select-sm" onchange="this.form.submit()">
+                        <select name="status" class="form-select form-select-sm select2" onchange="this.form.submit()">
                             <option value="">ทุกสถานะ</option>
                             <option value="RECEIVED" {% if request.GET.status == 'RECEIVED' %}selected{% endif %}>Received</option>
                             <option value="FIXING" {% if request.GET.status == 'FIXING' %}selected{% endif %}>Fixing</option>
@@ -71,7 +71,7 @@
                     </div>
                     <div class="col-6 col-md-3">
                         <label class="form-label text-muted small mb-1">ผู้รับงาน</label>
-                        <select name="created_by" class="form-select form-select-sm" onchange="this.form.submit()">
+                        <select name="created_by" class="form-select form-select-sm select2" onchange="this.form.submit()">
                             <option value="">ทุกคน</option>
                             {% for u in users %}
                             <option value="{{ u.id }}" {% if request.GET.created_by|add:"0" == u.id %}selected{% endif %}>{{ u.username }}</option>
@@ -80,7 +80,7 @@
                     </div>
                     <div class="col-6 col-md-2">
                         <label class="form-label text-muted small mb-1">เรียงตาม</label>
-                        <select name="sort" class="form-select form-select-sm" onchange="this.form.submit()">
+                        <select name="sort" class="form-select form-select-sm select2" onchange="this.form.submit()">
                             <option value="date_desc" {% if request.GET.sort == 'date_desc' %}selected{% endif %}>ล่าสุดก่อน</option>
                             <option value="date_asc" {% if request.GET.sort == 'date_asc' %}selected{% endif %}>เก่าสุดก่อน</option>
                             <option value="customer" {% if request.GET.sort == 'customer' %}selected{% endif %}>ชื่อลูกค้า</option>

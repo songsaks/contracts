@@ -84,7 +84,7 @@
                         <div class="row g-3">
                             <div class="col-md-4">
                                 <label class="form-label small fw-bold text-muted">สถานะ</label>
-                                <select name="status" class="form-select" onchange="toggleFinalCost(this)">
+                                <select name="status" class="form-select select2" onchange="toggleFinalCost(this)">
                                     <option value="RECEIVED" {% if item.status == 'RECEIVED' %}selected{% endif %}>รับแจ้ง</option>
                                     <option value="FIXING" {% if item.status == 'FIXING' %}selected{% endif %}>กำลังซ่อม</option>
                                     <option value="WAITING" {% if item.status == 'WAITING' %}selected{% endif %}>รออะไหล่</option>
