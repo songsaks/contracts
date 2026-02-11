@@ -114,7 +114,7 @@
                         </thead>
                         <tbody>
                             {% for item in items %}
-                            <tr style="{% if item.status == 'RECEIVED' %}background-color: #fff1f0;{% elif item.status == 'FIXING' %}background-color: #fff7ed;{% elif item.status == 'WAITING' %}background-color: #fefce8;{% elif item.status == 'FINISHED' %}background-color: #f0fdf4;{% elif item.status == 'COMPLETED' %}background-color: #f8fafc;{% endif %}">
+                            <tr style="{% if item.status == 'RECEIVED' %}background-color: #fff1f0;{% elif item.status == 'FIXING' %}background-color: #fff7ed;{% elif item.status == 'WAITING' %}background-color: #fefce8;{% elif item.status == 'OUTSOURCE' %}background-color: #f5f3ff;{% elif item.status == 'RECEIVED_FROM_VENDOR' %}background-color: #eff6ff;{% elif item.status == 'FINISHED' %}background-color: #f0fdf4;{% elif item.status == 'COMPLETED' %}background-color: #f8fafc;{% endif %}">
                                 <td class="ps-4">
                                     <div class="fw-bold text-primary position-relative" 
                                          style="cursor: pointer;"
@@ -151,6 +151,10 @@
                                             <span class="status-badge-pill bg-warning text-dark">กำลังซ่อม</span>
                                         {% elif item.status == 'WAITING' %}
                                             <span class="status-badge-pill bg-info text-white">รออะไหล่</span>
+                                        {% elif item.status == 'OUTSOURCE' %}
+                                            <span class="status-badge-pill text-white" style="background-color: #6f42c1;">ส่งซ่อมศูนย์</span>
+                                        {% elif item.status == 'RECEIVED_FROM_VENDOR' %}
+                                            <span class="status-badge-pill bg-info text-white">รับจากศูนย์</span>
                                         {% elif item.status == 'FINISHED' %}
                                             <span class="status-badge-pill bg-success text-white">ซ่อมเสร็จ</span>
                                         {% elif item.status == 'COMPLETED' %}
@@ -193,7 +197,7 @@
         <!-- Mobile Layout (Cards) -->
         <div class="job-cards-container">
             {% for item in items %}
-            <div class="job-card shadow-sm" style="{% if item.status == 'RECEIVED' %}background-color: #fff1f0; border-left: 5px solid #ff4d4f;{% elif item.status == 'FIXING' %}background-color: #fff7ed; border-left: 5px solid #fa8c16;{% elif item.status == 'WAITING' %}background-color: #fefce8; border-left: 5px solid #fadb14;{% elif item.status == 'FINISHED' %}background-color: #f0fdf4; border-left: 5px solid #52c41a;{% elif item.status == 'COMPLETED' %}background-color: #f8fafc; border-left: 5px solid #8c8c8c;{% endif %}">
+            <div class="job-card shadow-sm" style="{% if item.status == 'RECEIVED' %}background-color: #fff1f0; border-left: 5px solid #ff4d4f;{% elif item.status == 'FIXING' %}background-color: #fff7ed; border-left: 5px solid #fa8c16;{% elif item.status == 'WAITING' %}background-color: #fefce8; border-left: 5px solid #fadb14;{% elif item.status == 'OUTSOURCE' %}background-color: #f5f3ff; border-left: 5px solid #6f42c1;{% elif item.status == 'RECEIVED_FROM_VENDOR' %}background-color: #eff6ff; border-left: 5px solid #0ea5e9;{% elif item.status == 'FINISHED' %}background-color: #f0fdf4; border-left: 5px solid #52c41a;{% elif item.status == 'COMPLETED' %}background-color: #f8fafc; border-left: 5px solid #8c8c8c;{% endif %}">
                 <div class="d-flex justify-content-between align-items-start mb-2">
                     <div>
                         <a href="{% url 'repairs:repair_detail' item.job.pk %}" class="fw-bold fs-5 text-indigo text-decoration-none">
@@ -207,6 +211,10 @@
                         <span class="status-badge-pill bg-warning text-dark">กำลังซ่อม</span>
                     {% elif item.status == 'WAITING' %}
                         <span class="status-badge-pill bg-info text-white">รออะไหล่</span>
+                    {% elif item.status == 'OUTSOURCE' %}
+                        <span class="status-badge-pill text-white" style="background-color: #6f42c1;">ส่งซ่อมศูนย์</span>
+                    {% elif item.status == 'RECEIVED_FROM_VENDOR' %}
+                        <span class="status-badge-pill bg-info text-white">รับจากศูนย์</span>
                     {% elif item.status == 'FINISHED' %}
                         <span class="status-badge-pill bg-success text-white">ซ่อมเสร็จ</span>
                     {% elif item.status == 'COMPLETED' %}
