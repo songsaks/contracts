@@ -49,6 +49,10 @@
                         <span class="badge" style="background-color: #fd7e14;">กำลังซ่อม</span>
                     {% elif item.status == 'WAITING' %}
                         <span class="badge bg-warning text-dark">รออะไหล่</span>
+                    {% elif item.status == 'OUTSOURCE' %}
+                        <span class="badge bg-purple-500" style="background-color: #6f42c1;">ส่งซ่อมศูนย์/ภายนอก</span>
+                    {% elif item.status == 'RECEIVED_FROM_VENDOR' %}
+                        <span class="badge bg-info">รอตรวจรับกลับ</span>
                     {% elif item.status == 'FINISHED' %}
                         <span class="badge bg-success">ซ่อมเสร็จ</span>
                     {% elif item.status == 'COMPLETED' %}
@@ -57,6 +61,18 @@
                 </div>
             </div>
             <div class="card-body pt-0">
+                {% if item.status == 'OUTSOURCE' %}
+                <div class="alert alert-warning border-0 shadow-sm d-flex align-items-center mb-3">
+                    <i class="fas fa-lock me-3 fs-4"></i>
+                    <div>
+                        <strong>ล็อกข้อมูล:</strong> สินค้านี้กำลังส่งซ่อมภายนอก/ศูนย์ ไม่สามารถแก้ไขข้อมูลได้ชั่วคราว
+                        {% if item.outsource_details %}
+                        <div class="small mt-1">ส่งไปที่: {{ item.outsource_details.vendor_name }} ({{ item.outsource_details.sent_date }})</div>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endif %}
+
                 <form action="{% url 'repairs:repair_update_status' item.id %}" method="post">
                     {% csrf_token %}
                     
@@ -65,29 +81,31 @@
                         
                         <div class="mb-3">
                             <label class="form-label small fw-bold text-muted">อาการเสีย</label>
-                            <textarea name="issue_description" rows="2" class="form-control">{{ item.issue_description }}</textarea>
+                            <textarea name="issue_description" rows="2" class="form-control" {% if item.status == 'OUTSOURCE' %}readonly{% endif %}>{{ item.issue_description }}</textarea>
                         </div>
                         
                         <div class="mb-3">
                             <label class="form-label small fw-bold text-muted">อุปกรณ์ที่นำมาด้วย</label>
-                            <input type="text" name="accessories" value="{{ item.accessories|default:'' }}" class="form-control" placeholder="เช่น สายชาร์จ, กระเป๋า, เมาส์">
+                            <input type="text" name="accessories" value="{{ item.accessories|default:'' }}" class="form-control" placeholder="เช่น สายชาร์จ, กระเป๋า, เมาส์" {% if item.status == 'OUTSOURCE' %}readonly{% endif %}>
                         </div>
 
                         <div class="mb-3">
                             <label class="form-label small fw-bold text-muted">ราคาประเมิน</label>
                             <div class="input-group">
                                 <span class="input-group-text bg-white text-muted">฿</span>
-                                <input type="number" step="0.01" name="price" value="{{ item.price|stringformat:'.2f' }}" class="form-control" placeholder="0.00">
+                                <input type="number" step="0.01" name="price" value="{{ item.price|stringformat:'.2f' }}" class="form-control" placeholder="0.00" {% if item.status == 'OUTSOURCE' %}readonly{% endif %}>
                             </div>
                         </div>
 
                         <div class="row g-3">
                             <div class="col-md-4">
                                 <label class="form-label small fw-bold text-muted">สถานะ</label>
-                                <select name="status" class="form-select select2" onchange="toggleFinalCost(this)">
+                                <select name="status" class="form-select select2" onchange="toggleFinalCost(this)" {% if item.status == 'OUTSOURCE' %}disabled{% endif %}>
                                     <option value="RECEIVED" {% if item.status == 'RECEIVED' %}selected{% endif %}>รับแจ้ง</option>
                                     <option value="FIXING" {% if item.status == 'FIXING' %}selected{% endif %}>กำลังซ่อม</option>
                                     <option value="WAITING" {% if item.status == 'WAITING' %}selected{% endif %}>รออะไหล่</option>
+                                    <option value="OUTSOURCE" {% if item.status == 'OUTSOURCE' %}selected{% endif %}>ส่งซ่อมศูนย์/ภายนอก</option>
+                                    <option value="RECEIVED_FROM_VENDOR" {% if item.status == 'RECEIVED_FROM_VENDOR' %}selected{% endif %}>รอตรวจรับกลับ</option>
                                     <option value="FINISHED" {% if item.status == 'FINISHED' %}selected{% endif %}>ซ่อมเสร็จ</option>
                                     <option value="COMPLETED" {% if item.status == 'COMPLETED' %}selected{% endif %}>ส่งคืนแล้ว</option>
                                 </select>
@@ -107,9 +125,22 @@
                             </div>
                             
                             <div class="col-12 mt-3 mb-2">
-                                <button type="submit" class="btn btn-primary w-100 py-2 shadow fw-bold" style="letter-spacing: 0.5px;">
-                                    <i class="fas fa-save me-2"></i> บันทึกการเปลี่ยนแปลง
-                                </button>
+                                <div class="d-flex gap-2">
+                                    {% if item.status == 'OUTSOURCE' %}
+                                        <a href="{% url 'repairs:repair_outsource_receive' item.id %}" class="btn btn-success flex-grow-1 py-2 shadow fw-bold">
+                                            <i class="fas fa-file-import me-2"></i> บันทึกรับเครื่องกลับจากศูนย์
+                                        </a>
+                                    {% else %}
+                                        <button type="submit" class="btn btn-primary flex-grow-1 py-2 shadow fw-bold">
+                                            <i class="fas fa-save me-2"></i> บันทึกการเปลี่ยนแปลง
+                                        </button>
+                                        {% if item.status != 'COMPLETED' %}
+                                        <a href="{% url 'repairs:repair_outsource_assign' item.id %}" class="btn btn-outline-purple py-2 fw-bold" style="color: #6f42c1; border-color: #6f42c1;">
+                                            <i class="fas fa-external-link-alt me-2"></i> ส่งซ่อมศูนย์
+                                        </a>
+                                        {% endif %}
+                                    {% endif %}
+                                </div>
                             </div>
                         </div>
 
@@ -126,7 +157,7 @@
                                     <div class="flex-grow-1">
                                         <div class="d-flex justify-content-between align-items-center mb-1">
                                             <span class="small fw-bold text-dark">
-                                                {% if history.status == 'RECEIVED' %}รับแจ้ง{% elif history.status == 'FIXING' %}กำลังซ่อม{% elif history.status == 'WAITING' %}รออะไหล่{% elif history.status == 'FINISHED' %}ซ่อมเสร็จ{% elif history.status == 'COMPLETED' %}ส่งคืนแล้ว{% endif %}
+                                                {% if history.status == 'RECEIVED' %}รับแจ้ง{% elif history.status == 'FIXING' %}กำลังซ่อม{% elif history.status == 'WAITING' %}รออะไหล่{% elif history.status == 'OUTSOURCE' %}ส่งซ่อมศูนย์{% elif history.status == 'RECEIVED_FROM_VENDOR' %}รับจากศูนย์{% elif history.status == 'FINISHED' %}ซ่อมเสร็จ{% elif history.status == 'COMPLETED' %}ส่งคืนแล้ว{% endif %}
                                             </span>
                                             <span class="small text-muted">{{ history.changed_at|date:"d M H:i" }}</span>
                                         </div>

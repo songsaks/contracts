@@ -3,8 +3,8 @@ from django.http import JsonResponse
 from django.urls import reverse
 from django.db import transaction
 from django.contrib.auth.decorators import login_required
-from .models import RepairJob, RepairItem, Customer, Device, Technician, DeviceType, Brand, RepairStatusHistory
-from .forms import CustomerForm, DeviceForm, RepairJobForm, RepairItemForm, TechnicianForm, DeviceTypeForm, BrandForm
+from .models import RepairJob, RepairItem, Customer, Device, Technician, DeviceType, Brand, RepairStatusHistory, OutsourceLog
+from .forms import CustomerForm, DeviceForm, RepairJobForm, RepairItemForm, TechnicianForm, DeviceTypeForm, BrandForm, OutsourceLogForm
 
 from .forms import CustomerForm, DeviceForm, RepairJobForm, RepairItemForm, TechnicianForm, DeviceTypeForm, BrandForm
 import csv
@@ -242,6 +242,56 @@ def get_repair_job_notes(request, job_id):
             'status_code': item.status 
         })
     return JsonResponse({'items': data})
+
+@login_required
+def repair_outsource_assign(request, item_id):
+    item = get_object_or_404(RepairItem, pk=item_id)
+    if request.method == 'POST':
+        form = OutsourceLogForm(request.POST)
+        if form.is_valid():
+            with transaction.atomic():
+                outsource_log = form.save(commit=False)
+                outsource_log.repair_item = item
+                outsource_log.save()
+                
+                # Update status
+                item.status = 'OUTSOURCE'
+                item.status_note = f"ส่งซ่อมศูนย์/ภายนอก: {outsource_log.vendor_name}"
+                item.save()
+                
+                # Record History
+                RepairStatusHistory.objects.create(
+                    repair_item=item,
+                    status='OUTSOURCE',
+                    changed_by=request.user,
+                    note=f"ส่งซ่อมศูนย์: {outsource_log.vendor_name} (Tracking: {outsource_log.tracking_no})"
+                )
+            return redirect('repairs:repair_detail', pk=item.job.pk)
+    else:
+        form = OutsourceLogForm()
+    
+    return render(request, 'repairs/outsource_assign_form.html', {'form': form, 'item': item})
+
+@login_required
+def repair_outsource_receive(request, item_id):
+    item = get_object_or_404(RepairItem, pk=item_id)
+    if request.method == 'POST':
+        with transaction.atomic():
+            # Update status to RECEIVED_FROM_VENDOR
+            item.status = 'RECEIVED_FROM_VENDOR'
+            item.status_note = "ได้รับเครื่องกลับจากศูนย์/ภายนอกแล้ว รอตรวจรับ"
+            item.save()
+            
+            # Record History
+            RepairStatusHistory.objects.create(
+                repair_item=item,
+                status='RECEIVED_FROM_VENDOR',
+                changed_by=request.user,
+                note="ได้รับเครื่องกลับจากศูนย์แล้ว"
+            )
+        return redirect('repairs:repair_detail', pk=item.job.pk)
+    
+    return render(request, 'repairs/outsource_receive_confirm.html', {'item': item})
 
 # --- New Views ---
 

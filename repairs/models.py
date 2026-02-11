@@ -117,6 +117,8 @@ class RepairItem(models.Model):
         ('RECEIVED', 'รับแจ้ง'),
         ('FIXING', 'กำลังซ่อม'),
         ('WAITING', 'รออะไหล่'),
+        ('OUTSOURCE', 'ส่งซ่อมศูนย์/ภายนอก'),
+        ('RECEIVED_FROM_VENDOR', 'รอตรวจรับกลับ'),
         ('FINISHED', 'ซ่อมเสร็จ'),
         ('COMPLETED', 'ส่งคืนแล้ว'),
     ]
@@ -140,6 +142,8 @@ class RepairItem(models.Model):
             'RECEIVED': 'bg-red-500 text-white',
             'FIXING': 'bg-orange-500 text-white',
             'WAITING': 'bg-yellow-400 text-black',
+            'OUTSOURCE': 'bg-purple-500 text-white',
+            'RECEIVED_FROM_VENDOR': 'bg-blue-400 text-white',
             'FINISHED': 'bg-green-500 text-white',
         }
         return colors.get(self.status, 'bg-gray-500 text-white')
@@ -149,12 +153,47 @@ class RepairItem(models.Model):
             'RECEIVED': 'bg-red-50',
             'FIXING': 'bg-orange-50',
             'WAITING': 'bg-yellow-50',
+            'OUTSOURCE': 'bg-purple-50',
+            'RECEIVED_FROM_VENDOR': 'bg-blue-50',
             'FINISHED': 'bg-green-50',
         }
         return colors.get(self.status, 'bg-gray-50')
 
+    def clean(self):
+        from django.core.exceptions import ValidationError
+        if self.pk:
+            old_instance = RepairItem.objects.get(pk=self.pk)
+            # If currently OUTSOURCE, only allow status change to RECEIVED_FROM_VENDOR
+            if old_instance.status == 'OUTSOURCE':
+                if self.status != 'RECEIVED_FROM_VENDOR' and self.status != 'OUTSOURCE':
+                    raise ValidationError("สินค้าอยู่ในระหว่างส่งซ่อมภายนอก ไม่สามารถเปลี่ยนสถานะเป็นอย่างอื่นได้นอกจาก 'รอตรวจรับกลับ'")
+                
+                # Check for other field changes
+                if (old_instance.issue_description != self.issue_description or 
+                    old_instance.accessories != self.accessories or
+                    old_instance.device != self.device or 
+                    old_instance.price != self.price):
+                    raise ValidationError("ไม่สามารถแก้ไขรายละเอียดสินค้าได้ในระหว่างที่ส่งซ่อมภายนอก")
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
+
     def __str__(self):
         return f"{self.device} - {self.get_status_display()}"
+
+class OutsourceLog(models.Model):
+    repair_item = models.OneToOneField(RepairItem, on_delete=models.CASCADE, related_name='outsource_details')
+    vendor_name = models.CharField(max_length=255, verbose_name="ชื่อร้าน/ศูนย์ที่ส่งซ่อม")
+    tracking_no = models.CharField(max_length=100, blank=True, verbose_name="เลข Tracking/เลขรับงานศูนย์")
+    sent_date = models.DateField(default=timezone.now, verbose_name="วันที่ส่ง")
+    expected_return = models.DateField(null=True, blank=True, verbose_name="วันที่คาดว่าจะได้รับ")
+    cost = models.DecimalField(max_digits=10, decimal_places=2, default=0.00, verbose_name="ค่าซ่อมจากศูนย์")
+    note = models.TextField(blank=True, verbose_name="หมายเหตุ")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Outsource: {self.repair_item.job.job_code} to {self.vendor_name}"
 
 class RepairStatusHistory(models.Model):
     repair_item = models.ForeignKey(RepairItem, on_delete=models.CASCADE, related_name='status_history')

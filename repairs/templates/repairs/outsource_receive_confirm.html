@@ -1,0 +1,43 @@
+{% extends 'repairs/base_repairs.html' %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-5">
+        <div class="card shadow-sm border-0">
+            <div class="card-body p-5 text-center">
+                <div class="mb-4">
+                    <div class="bg-success text-white rounded-circle d-flex align-items-center justify-content-center mx-auto shadow-sm" style="width: 80px; height: 80px;">
+                        <i class="fas fa-file-import fa-2x"></i>
+                    </div>
+                </div>
+                
+                <h3 class="fw-bold mb-3">ยืนยันการรับเครื่องคืน?</h3>
+                <p class="text-muted mb-4">
+                    คุณกำลังจะบันทึกว่าได้รับเครื่อง <strong>{{ item.device.brand }} {{ item.device.model }}</strong> กลับมาจากการซ่อมภายนอกแล้ว
+                    <br>สถานะจะเปลี่ยนเป็น <strong>"รอตรวจรับกลับ"</strong> และคุณจะสามารถแก้ไขข้อมูลได้อีกครั้ง
+                </p>
+
+                {% if item.outsource_details %}
+                <div class="alert alert-light border mb-4 text-start">
+                    <div class="small fw-bold text-muted text-uppercase mb-2">ข้อมูลการส่งซ่อม</div>
+                    <div class="mb-1"><strong>ศูนย์:</strong> {{ item.outsource_details.vendor_name }}</div>
+                    <div><strong>เลข Tracking:</strong> {{ item.outsource_details.tracking_no|default:"-" }}</div>
+                </div>
+                {% endif %}
+
+                <form method="post">
+                    {% csrf_token %}
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-success py-3 fw-bold fs-5 shadow-sm">
+                            <i class="fas fa-check-circle me-2"></i> ยันยันการรับเข้า
+                        </button>
+                        <a href="{% url 'repairs:repair_detail' item.job.pk %}" class="btn btn-light py-2">
+                            ยกเลิก
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
