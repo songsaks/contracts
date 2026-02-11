@@ -88,7 +88,12 @@ def repair_completed_list(request):
     from django.contrib.auth.models import User
     users = User.objects.all().order_by('username')
 
-    return render(request, 'repairs/repair_completed_list.html', {'items': items, 'users': users})
+    from django.conf import settings
+    return render(request, 'repairs/repair_completed_list.html', {
+        'items': items, 
+        'users': users,
+        'delete_password': settings.DELETE_PASSWORD
+    })
 
 @login_required
 def repair_create(request):
@@ -508,6 +513,35 @@ def repair_tracking(request, tracking_id):
     return render(request, 'repairs/repair_tracking.html', {'job': job})
 
 
+
+@login_required
+def repair_item_delete(request, item_id):
+    item = get_object_or_404(RepairItem, pk=item_id)
+    
+    if request.method == 'POST':
+        password = request.POST.get('password')
+        from django.conf import settings
+        if password == settings.DELETE_PASSWORD:
+            if item.status == 'COMPLETED':
+                with transaction.atomic():
+                    # Check if this is the only item in the job
+                    job = item.job
+                    item.delete()
+                    
+                    # If no items left in job, might want to delete job too? 
+                    # For now just delete the item as requested.
+                    if not job.items.exists():
+                        job.delete()
+                
+                return redirect('repairs:repair_completed_list')
+            else:
+                # Optional: could add error message here
+                return redirect('repairs:repair_list')
+        else:
+            # Wrong password
+            return redirect('repairs:repair_completed_list')
+            
+    return redirect('repairs:repair_completed_list')
 
 def repair_status_search(request):
     if request.method == 'POST':

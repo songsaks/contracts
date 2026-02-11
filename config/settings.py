@@ -106,6 +106,8 @@ from dotenv import load_dotenv
 
 load_dotenv() # โหลดค่าจากไฟล์ .env
 
+DELETE_PASSWORD = os.getenv('DELETE_PASSWORD', '9com')
+
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
