@@ -155,3 +155,17 @@ class RepairItem(models.Model):
 
     def __str__(self):
         return f"{self.device} - {self.get_status_display()}"
+
+class RepairStatusHistory(models.Model):
+    repair_item = models.ForeignKey(RepairItem, on_delete=models.CASCADE, related_name='status_history')
+    status = models.CharField(max_length=20, choices=RepairItem.STATUS_CHOICES)
+    changed_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True)
+    changed_at = models.DateTimeField(auto_now_add=True)
+    note = models.TextField(blank=True)
+
+    def __str__(self):
+        return f"{self.repair_item.job.job_code} -> {self.status} at {self.changed_at}"
+
+    class Meta:
+        ordering = ['-changed_at']
+        verbose_name_plural = "Repair Status Histories"

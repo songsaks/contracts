@@ -3,7 +3,7 @@ from django.http import JsonResponse
 from django.urls import reverse
 from django.db import transaction
 from django.contrib.auth.decorators import login_required
-from .models import RepairJob, RepairItem, Customer, Device, Technician, DeviceType, Brand
+from .models import RepairJob, RepairItem, Customer, Device, Technician, DeviceType, Brand, RepairStatusHistory
 from .forms import CustomerForm, DeviceForm, RepairJobForm, RepairItemForm, TechnicianForm, DeviceTypeForm, BrandForm
 
 from .forms import CustomerForm, DeviceForm, RepairJobForm, RepairItemForm, TechnicianForm, DeviceTypeForm, BrandForm
@@ -129,6 +129,14 @@ def repair_create(request):
                 item.save()
                 item_form.save_m2m() # Save technicians
                 
+                # Record Initial Status History
+                RepairStatusHistory.objects.create(
+                    repair_item=item,
+                    status=item.status,
+                    changed_by=request.user,
+                    note="เริ่มต้นรับงาน"
+                )
+                
                 return redirect('repairs:repair_detail', pk=job.pk)
         else:
             print("DEBUG: Validation Failed")
@@ -205,6 +213,14 @@ def repair_update_status(request, item_id):
                         pass
 
             item.save()
+
+            # Record Status History
+            RepairStatusHistory.objects.create(
+                repair_item=item,
+                status=item.status,
+                changed_by=request.user,
+                note=item.status_note
+            )
     # Redirect back to the repair list
     return redirect('repairs:repair_list')
 
