@@ -4,13 +4,18 @@
 <div class="row">
     <div class="col-12">
         <div class="d-flex justify-content-between align-items-center mb-4">
-            <h1>ความต้องการลูกค้า (Leads)</h1>
-            <a href="{% url 'pms:requirement_create' %}" class="btn btn-primary">
-                <i class="fas fa-microphone"></i> บันทึกความต้องการใหม่
+            <h1 class="page-heading mb-0">
+                <i class="fas fa-microphone-alt me-2 text-primary" style="font-size: 0.85em;"></i>
+                ความต้องการลูกค้า <span class="d-none d-md-inline">(Leads)</span>
+            </h1>
+            <a href="{% url 'pms:requirement_create' %}" class="btn btn-primary d-none d-md-inline-flex align-items-center gap-2">
+                <i class="fas fa-microphone"></i>
+                <span>บันทึกใหม่</span>
             </a>
         </div>
 
-        <div class="card shadow-sm">
+        <!-- Desktop Table -->
+        <div class="card shadow-sm d-none d-md-block">
             <div class="card-body">
                 <div class="table-responsive">
                     <table class="table table-hover align-middle">
@@ -40,19 +45,17 @@
                                     {% endif %}
                                 </td>
                                 <td>
-                                    <div class="btn-group" role="group">
+                                    <div class="d-flex gap-1 flex-wrap">
                                         {% if not req.is_converted %}
-                                        <div class="d-flex gap-1">
-                                            <a href="{% url 'pms:create_project_from_requirement' req.pk %}?type=PROJECT" class="btn btn-sm btn-outline-primary" data-bs-toggle="tooltip" title="สร้างโครงการ">
-                                                <i class="fas fa-project-diagram"></i>
-                                            </a>
-                                            <a href="{% url 'pms:create_project_from_requirement' req.pk %}?type=SERVICE" class="btn btn-sm btn-outline-success" data-bs-toggle="tooltip" title="สร้างงานขาย">
-                                                <i class="fas fa-shopping-cart"></i>
-                                            </a>
-                                            <a href="{% url 'pms:create_project_from_requirement' req.pk %}?type=REPAIR" class="btn btn-sm btn-outline-warning text-dark" data-bs-toggle="tooltip" title="สร้างใบแจ้งซ่อม">
-                                                <i class="fas fa-tools"></i>
-                                            </a>
-                                        </div>
+                                        <a href="{% url 'pms:create_project_from_requirement' req.pk %}?type=PROJECT" class="btn btn-sm btn-outline-primary" data-bs-toggle="tooltip" title="สร้างโครงการ">
+                                            <i class="fas fa-project-diagram"></i>
+                                        </a>
+                                        <a href="{% url 'pms:create_project_from_requirement' req.pk %}?type=SERVICE" class="btn btn-sm btn-outline-success" data-bs-toggle="tooltip" title="สร้างงานขาย">
+                                            <i class="fas fa-shopping-cart"></i>
+                                        </a>
+                                        <a href="{% url 'pms:create_project_from_requirement' req.pk %}?type=REPAIR" class="btn btn-sm btn-outline-warning text-dark" data-bs-toggle="tooltip" title="สร้างใบแจ้งซ่อม">
+                                            <i class="fas fa-tools"></i>
+                                        </a>
                                         {% endif %}
                                         <a href="{% url 'pms:requirement_update' req.pk %}" class="btn btn-sm btn-outline-secondary" title="แก้ไข">
                                             <i class="fas fa-edit"></i>
@@ -73,6 +76,64 @@
                 </div>
             </div>
         </div>
+
+        <!-- Mobile Card List -->
+        <div class="d-md-none">
+            {% for req in requirements %}
+            <div class="card mb-2 shadow-sm" style="border-radius: var(--radius-md);">
+                <div class="card-body p-3">
+                    <div class="d-flex align-items-start gap-2 mb-2">
+                        <div class="rounded-circle bg-primary bg-opacity-10 text-primary flex-shrink-0 d-flex align-items-center justify-content-center" style="width: 36px; height: 36px;">
+                            <i class="fas fa-microphone-alt"></i>
+                        </div>
+                        <div class="flex-grow-1" style="min-width: 0;">
+                            <div class="text-dark" style="font-size: 0.85rem; line-height: 1.4;">{{ req.content|truncatechars:80 }}</div>
+                            <div class="d-flex align-items-center gap-2 mt-1">
+                                <span class="text-muted" style="font-size: 0.7rem;">{{ req.created_at|date:"d/m/y H:i" }}</span>
+                                {% if req.is_converted %}
+                                    <span class="badge bg-success" style="font-size: 0.6rem;">สร้างโครงการแล้ว</span>
+                                {% else %}
+                                    <span class="badge bg-warning text-dark" style="font-size: 0.6rem;">รอดำเนินการ</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="d-flex gap-1 justify-content-end border-top pt-2" style="margin-top: 0.25rem;">
+                        {% if not req.is_converted %}
+                        <a href="{% url 'pms:create_project_from_requirement' req.pk %}?type=PROJECT" class="btn btn-sm btn-outline-primary" style="font-size: 0.75rem; padding: 0.25rem 0.5rem;">
+                            <i class="fas fa-project-diagram"></i>
+                        </a>
+                        <a href="{% url 'pms:create_project_from_requirement' req.pk %}?type=SERVICE" class="btn btn-sm btn-outline-success" style="font-size: 0.75rem; padding: 0.25rem 0.5rem;">
+                            <i class="fas fa-shopping-cart"></i>
+                        </a>
+                        <a href="{% url 'pms:create_project_from_requirement' req.pk %}?type=REPAIR" class="btn btn-sm btn-outline-warning text-dark" style="font-size: 0.75rem; padding: 0.25rem 0.5rem;">
+                            <i class="fas fa-tools"></i>
+                        </a>
+                        {% endif %}
+                        <a href="{% url 'pms:requirement_update' req.pk %}" class="btn btn-sm btn-outline-secondary" style="font-size: 0.75rem; padding: 0.25rem 0.5rem;">
+                            <i class="fas fa-edit"></i>
+                        </a>
+                        <a href="{% url 'pms:requirement_delete' req.pk %}" class="btn btn-sm btn-outline-danger" style="font-size: 0.75rem; padding: 0.25rem 0.5rem;" onclick="return confirm('ยืนยันที่จะลบรายการนี้?');">
+                            <i class="fas fa-trash"></i>
+                        </a>
+                    </div>
+                </div>
+            </div>
+            {% empty %}
+            <div class="text-center py-5 text-muted">
+                <i class="fas fa-microphone-slash fa-3x mb-3 d-block opacity-30"></i>
+                <p class="mb-2">ไม่พบข้อมูลความต้องการ</p>
+                <a href="{% url 'pms:requirement_create' %}" class="btn btn-primary btn-sm">
+                    <i class="fas fa-microphone me-1"></i>บันทึกใหม่
+                </a>
+            </div>
+            {% endfor %}
+        </div>
+
+        <!-- Mobile FAB -->
+        <a href="{% url 'pms:requirement_create' %}" class="fab-add d-md-none" title="บันทึกใหม่">
+            <i class="fas fa-microphone"></i>
+        </a>
     </div>
 </div>
 {% endblock %}

@@ -1,91 +1,223 @@
 {% extends 'pms/base_pms.html' %}
 {% load humanize %}
 
+{% block extra_css %}
+<style>
+    .project-header {
+        margin-bottom: 1.5rem;
+    }
+
+    .project-title {
+        font-size: 1.5rem;
+        font-weight: 800;
+        letter-spacing: -0.5px;
+        line-height: 1.3;
+        margin-bottom: 0.5rem;
+    }
+
+    .project-meta {
+        font-size: 0.9rem;
+        color: var(--text-muted);
+    }
+
+    .workflow-steps {
+        display: flex;
+        overflow-x: auto;
+        padding: 0.5rem 0;
+        gap: 0.25rem;
+        align-items: center;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+    }
+
+    .workflow-steps::-webkit-scrollbar {
+        display: none;
+    }
+
+    .workflow-step {
+        flex-shrink: 0;
+        padding: 0.4rem 0.75rem;
+        border-radius: var(--radius-sm);
+        font-size: 0.78rem;
+        font-weight: 500;
+        text-align: center;
+        min-width: 70px;
+        border: 1px solid var(--border-color);
+        background: white;
+        color: var(--text-muted);
+        transition: all 0.3s;
+    }
+
+    .workflow-step.active {
+        font-weight: 700;
+        border-width: 2px;
+    }
+
+    .workflow-chevron {
+        flex-shrink: 0;
+        color: var(--text-muted);
+        font-size: 0.6rem;
+        opacity: 0.5;
+    }
+
+    .action-buttons {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        flex-shrink: 0;
+    }
+
+    /* Mobile item cards */
+    .item-card-mobile {
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-md);
+        padding: 0.875rem;
+        margin-bottom: 0.75rem;
+        background: white;
+    }
+
+    .item-card-mobile .item-name {
+        font-weight: 700;
+        font-size: 0.9rem;
+        margin-bottom: 0.25rem;
+    }
+
+    .item-card-mobile .item-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+        font-size: 0.8rem;
+        color: var(--text-muted);
+    }
+
+    .item-card-mobile .item-total {
+        font-weight: 700;
+        color: var(--text-color);
+        font-size: 0.95rem;
+    }
+
+    .item-card-mobile .item-actions {
+        display: flex;
+        gap: 0.75rem;
+        margin-top: 0.5rem;
+        padding-top: 0.5rem;
+        border-top: 1px solid var(--border-light);
+    }
+
+    /* Financial Summary on mobile */
+    @media (max-width: 767.98px) {
+        .project-title {
+            font-size: 1.2rem;
+        }
+
+        .project-meta {
+            font-size: 0.8rem;
+        }
+
+        .workflow-step {
+            min-width: 60px;
+            padding: 0.35rem 0.6rem;
+            font-size: 0.7rem;
+        }
+
+        .action-buttons .btn-action {
+            width: 34px;
+            height: 34px;
+        }
+
+        .col-md-4, .col-md-8 {
+            margin-bottom: 1rem;
+        }
+    }
+</style>
+{% endblock %}
+
 {% block content %}
     <!-- Header -->
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <div>
-            <h1 class="mb-1">
-                {{ project.name }} 
-                <span class="badge bg-{{ theme_color|default:'primary' }} {% if theme_color == 'warning' %}text-dark{% endif %} align-middle fs-4 ms-2">{{ current_status_label }}</span>
-                <span class="badge bg-{{ theme_color|default:'secondary' }} bg-opacity-75 align-middle fs-6 ms-1">
-                    {% if project.job_type == 'SERVICE' %}
-                        <i class="fas fa-shopping-cart me-1"></i>
-                    {% elif project.job_type == 'REPAIR' %}
-                        <i class="fas fa-tools me-1"></i>
-                    {% else %}
-                        <i class="fas fa-project-diagram me-1"></i>
-                    {% endif %}
-                    {{ project.get_job_type_display }}
-                </span>
-            </h1>
-            <div class="text-muted fs-5">
-                ลูกค้า: <strong>{{ project.customer.name }}</strong> | 
-                เจ้าของโครงการ: <strong>{{ project.owner.name|default:"-" }}</strong>
+    <div class="project-header">
+        <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
+            <div class="flex-grow-1" style="min-width: 0;">
+                <div class="project-title">
+                    {{ project.name }}
+                </div>
+                <div class="d-flex align-items-center gap-2 flex-wrap mb-2">
+                    <span class="badge bg-{{ theme_color|default:'primary' }} {% if theme_color == 'warning' %}text-dark{% endif %}">{{ current_status_label }}</span>
+                    <span class="badge bg-{{ theme_color|default:'secondary' }} bg-opacity-75">
+                        {% if project.job_type == 'SERVICE' %}
+                            <i class="fas fa-shopping-cart me-1"></i>
+                        {% elif project.job_type == 'REPAIR' %}
+                            <i class="fas fa-tools me-1"></i>
+                        {% else %}
+                            <i class="fas fa-project-diagram me-1"></i>
+                        {% endif %}
+                        {{ project.get_job_type_display }}
+                    </span>
+                </div>
+                <div class="project-meta">
+                    <span><i class="fas fa-user me-1"></i>{{ project.customer.name }}</span>
+                    <span class="d-none d-sm-inline mx-1">|</span>
+                    <br class="d-sm-none">
+                    <span><i class="fas fa-user-tie me-1"></i>{{ project.owner.name|default:"-" }}</span>
+                </div>
             </div>
-        </div>
-        <div class="d-flex align-items-center gap-2">
-            <a href="{% url 'pms:project_quotation' project.pk %}" class="btn btn-light text-dark shadow-sm border rounded-circle d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;" target="_blank" title="พิมพ์ใบเสนอราคา">
-                <i class="fas fa-print"></i>
-            </a>
-            {% if active_queue_item %}
-            <button class="btn btn-secondary shadow-sm rounded-circle d-flex align-items-center justify-content-center opacity-50" style="width: 40px; height: 40px;" disabled title="งานถูกล็อกเนื่องจากอยู่ในคิวบริการ">
-                <i class="fas fa-lock"></i>
-            </button>
-            {% elif project.status == 'CLOSED' %}
-            <button onclick="unlockClosedProject()" class="btn btn-dark shadow-sm rounded-circle d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;" title="ปลดล็อกงานที่ปิดจบ (ต้องใช้รหัส)">
-                <i class="fas fa-unlock"></i>
-            </button>
-            {% else %}
-
-            <a href="{% url 'pms:project_update' project.pk %}" class="btn btn-{{ theme_color|default:'primary' }} text-white shadow-sm rounded-circle d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;" title="แก้ไข">
-                <i class="fas fa-pen"></i>
-            </a>
-            {% endif %}
-            <a href="{% url 'pms:project_list' %}" class="btn btn-light text-secondary shadow-sm border rounded-circle d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;" title="กลับหน้ารายการ">
-                <i class="fas fa-arrow-left"></i>
-            </a>
+            <div class="action-buttons">
+                <a href="{% url 'pms:project_quotation' project.pk %}" class="btn-action" target="_blank" title="พิมพ์ใบเสนอราคา">
+                    <i class="fas fa-print text-muted"></i>
+                </a>
+                {% if active_queue_item %}
+                <button class="btn-action opacity-50" disabled title="ล็อกเนื่องจากอยู่ในคิว">
+                    <i class="fas fa-lock text-muted"></i>
+                </button>
+                {% elif project.status == 'CLOSED' %}
+                <button onclick="unlockClosedProject()" class="btn-action" style="background: #1f2937; border-color: #1f2937;" title="ปลดล็อก">
+                    <i class="fas fa-unlock text-white"></i>
+                </button>
+                {% else %}
+                <a href="{% url 'pms:project_update' project.pk %}" class="btn-action btn-action-primary" title="แก้ไข">
+                    <i class="fas fa-pen"></i>
+                </a>
+                {% endif %}
+                <a href="{% url 'pms:project_list' %}" class="btn-action" title="กลับหน้ารายการ">
+                    <i class="fas fa-arrow-left text-muted"></i>
+                </a>
+            </div>
         </div>
     </div>
 
     {% if project.status == 'CLOSED' %}
     <div class="alert alert-dark border-0 shadow-sm mb-4 d-flex align-items-center">
-        <i class="fas fa-check-double fs-4 me-3 text-success"></i>
-        <div>
-            <strong>งานนี้ปิดจบแล้ว:</strong> ข้อมูลถูกล็อกถาวรเพื่อความปลอดภัยทางบัญชีและประวัติงาน 
-            ไม่สามารถแก้ไขสถานะหรือรายละเอียดได้อีก
+        <i class="fas fa-check-double fs-5 me-3 text-success"></i>
+        <div style="font-size: 0.85rem;">
+            <strong>งานนี้ปิดจบแล้ว:</strong> ข้อมูลถูกล็อกถาวรเพื่อความปลอดภัย
         </div>
     </div>
     {% elif active_queue_item %}
-
     <div class="alert alert-warning border-0 shadow-sm mb-4 d-flex align-items-center">
-        <i class="fas fa-info-circle fs-4 me-3"></i>
-        <div>
-            <strong>งานนี้ถูกล็อก:</strong> ขณะนี้งานอยู่ในการจัดการของ 
+        <i class="fas fa-info-circle fs-5 me-3"></i>
+        <div style="font-size: 0.85rem;">
+            <strong>งานนี้ถูกล็อก:</strong> อยู่ในการจัดการของ 
             <a href="{% url 'pms:service_queue_dashboard' %}" class="alert-link">AI Service Queue</a> 
-            สถานะปัจจุบันคือ <strong>{{ active_queue_item.get_status_display }}</strong> 
-            ทำให้ไม่สามารถแก้ไขข้อมูลหรือเปลี่ยนสถานะโครงการได้จนกว่าจะดำเนินการในคิวเสร็จสิ้น
+            สถานะ: <strong>{{ active_queue_item.get_status_display }}</strong>
         </div>
     </div>
     {% endif %}
 
-
     <!-- Workflow Progress -->
     <div class="card shadow-sm mb-4">
-        <div class="card-body">
-            <h5 class="card-title mb-3">ขั้นตอนการดำเนินงาน</h5>
-            <div class="d-flex overflow-auto py-2 align-items-center">
+        <div class="card-body py-3">
+            <h6 class="card-title mb-2" style="font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted);">
+                <i class="fas fa-route me-1"></i>ขั้นตอนการดำเนินงาน
+            </h6>
+            <div class="workflow-steps">
                 {% for step in workflow_steps %}
-                    <div class="d-flex align-items-center flex-shrink-0">
-                        <div class="card p-2 text-center text-nowrap {% if step == project.status %}bg-{{ theme_color|default:'primary' }} {% if theme_color == 'warning' %}text-dark{% else %}text-white{% endif %} shadow fw-bold border-{{ theme_color|default:'primary' }}{% else %}bg-white text-muted border{% endif %}" style="min-width: 80px;">
-                            <div style="font-size: 0.85rem;">{{ step.label }}</div>
-                        </div>
-                        {% if not forloop.last %}
-                            <div class="mx-1 text-muted small">
-                                <i class="fas fa-chevron-right"></i>
-                            </div>
-                        {% endif %}
+                    <div class="workflow-step {% if step == project.status %}active bg-{{ theme_color|default:'primary' }} {% if theme_color == 'warning' %}text-dark border-warning{% else %}text-white border-{{ theme_color|default:'primary' }}{% endif %}{% endif %}">
+                        {{ step.label }}
                     </div>
+                    {% if not forloop.last %}
+                        <div class="workflow-chevron">
+                            <i class="fas fa-chevron-right"></i>
+                        </div>
+                    {% endif %}
                 {% endfor %}
             </div>
         </div>
@@ -93,26 +225,28 @@
 
     <div class="row">
         <!-- Project Info -->
-        <div class="col-md-4 mb-4">
+        <div class="col-md-4 mb-3 mb-md-0">
             <div class="card shadow-sm mb-3">
                 <div class="card-header bg-light">
-                    <h5 class="card-title mb-0">รายละเอียดโครงการ</h5>
+                    <h6 class="card-title mb-0"><i class="fas fa-info-circle me-2 text-muted"></i>รายละเอียดโครงการ</h6>
                 </div>
                 <div class="card-body">
-                    <p class="mb-1"><strong>รายละเอียด:</strong></p>
-                    <p class="text-muted small">{{ project.description|default:"-"|linebreaksbr }}</p>
+                    <p class="mb-1" style="font-size: 0.8rem; font-weight: 600;">รายละเอียด:</p>
+                    <p class="text-muted" style="font-size: 0.85rem;">{{ project.description|default:"-"|linebreaksbr }}</p>
                     <hr>
-                    <p class="mb-1"><strong>วันเริ่มโครงการ:</strong> {{ project.start_date|date:"d M Y" }}</p>
-                    <p class="mb-1"><strong>กำหนดส่งมอบ:</strong> {{ project.deadline|date:"d M Y"|default:"-" }}</p>
+                    <div style="font-size: 0.85rem;">
+                        <p class="mb-1"><i class="fas fa-calendar me-2 text-muted"></i><strong>เริ่ม:</strong> {{ project.start_date|date:"d M Y" }}</p>
+                        <p class="mb-0"><i class="fas fa-flag-checkered me-2 text-muted"></i><strong>ส่งมอบ:</strong> {{ project.deadline|date:"d M Y"|default:"-" }}</p>
+                    </div>
                 </div>
             </div>
 
             <!-- Summary -->
             <div class="card shadow-sm border-{{ theme_color|default:'primary' }}">
                 <div class="card-header bg-{{ theme_color|default:'primary' }} {% if theme_color == 'warning' %}text-dark{% else %}text-white{% endif %}">
-                    <h5 class="card-title mb-0">สรุปการเงิน</h5>
+                    <h6 class="card-title mb-0"><i class="fas fa-calculator me-2"></i>สรุปการเงิน</h6>
                 </div>
-                <div class="card-body">
+                <div class="card-body" style="font-size: 0.9rem;">
                     <div class="d-flex justify-content-between mb-2">
                         <span>ต้นทุนรวม:</span>
                         <span class="fw-bold text-danger">&#3647;{{ project.total_cost|floatformat:2|intcomma }}</span>
@@ -134,12 +268,14 @@
         <div class="col-md-8">
             <div class="card shadow-sm">
                 <div class="card-header bg-white d-flex justify-content-between align-items-center py-3">
-                    <h5 class="card-title mb-0">รายการสินค้า/บริการ</h5>
-                    <a href="{% url 'pms:item_add' project.pk %}" class="btn btn-sm btn-{{ theme_color|default:'primary' }} shadow-sm rounded-circle d-flex align-items-center justify-content-center" style="width: 32px; height: 32px;" title="เพิ่มรายการ">
-                        <i class="fas fa-plus"></i>
+                    <h6 class="card-title mb-0"><i class="fas fa-box me-2 text-muted"></i>รายการสินค้า/บริการ</h6>
+                    <a href="{% url 'pms:item_add' project.pk %}" class="btn btn-sm btn-{{ theme_color|default:'primary' }} shadow-sm" style="border-radius: 8px;" title="เพิ่มรายการ">
+                        <i class="fas fa-plus me-1"></i><span class="d-none d-sm-inline">เพิ่ม</span>
                     </a>
                 </div>
-                <div class="card-body p-0">
+
+                <!-- Desktop Table -->
+                <div class="card-body p-0 d-none d-md-block">
                     <div class="table-responsive">
                         <table class="table table-hover mb-0">
                             <thead class="table-light">
@@ -174,10 +310,10 @@
                                     <td class="text-end">{{ item.unit_price|floatformat:2|intcomma }}</td>
                                     <td class="text-end fw-bold">{{ item.total_price|floatformat:2|intcomma }}</td>
                                     <td class="text-end">
-                                        <a href="{% url 'pms:item_update' item.id %}" class="text-warning me-2">
+                                        <a href="{% url 'pms:item_update' item.id %}" class="text-warning me-2" title="แก้ไข">
                                             <i class="fas fa-edit"></i>
                                         </a>
-                                        <a href="{% url 'pms:item_delete' item.id %}" class="text-danger" onclick="return confirm('ยืนยันการลบรายการนี้?')">
+                                        <a href="{% url 'pms:item_delete' item.id %}" class="text-danger" onclick="return confirm('ยืนยันการลบรายการนี้?')" title="ลบ">
                                             <i class="fas fa-trash"></i>
                                         </a>
                                     </td>
@@ -198,6 +334,57 @@
                         </table>
                     </div>
                 </div>
+
+                <!-- Mobile Item Cards -->
+                <div class="card-body d-md-none">
+                    {% for item in items %}
+                    <div class="item-card-mobile">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <div>
+                                <div class="item-name">{{ item.name }}</div>
+                                {% if item.supplier %}
+                                <div style="font-size: 0.7rem; color: var(--text-muted);">{{ item.supplier.name }}</div>
+                                {% endif %}
+                            </div>
+                            {% if item.item_type == 'PRODUCT' %}
+                            <span class="badge bg-secondary" style="font-size: 0.65rem;">สินค้า</span>
+                            {% else %}
+                            <span class="badge bg-info text-dark" style="font-size: 0.65rem;">บริการ</span>
+                            {% endif %}
+                        </div>
+                        <div class="item-meta mb-2">
+                            <span>จำนวน: {{ item.quantity }}</span>
+                            <span>ต้นทุน: {{ item.unit_cost|floatformat:0|intcomma }}</span>
+                            <span>ขาย: {{ item.unit_price|floatformat:0|intcomma }}</span>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div class="item-total">&#3647;{{ item.total_price|floatformat:2|intcomma }}</div>
+                            <div class="item-actions" style="border: none; margin: 0; padding: 0;">
+                                <a href="{% url 'pms:item_update' item.id %}" class="text-warning" title="แก้ไข" style="font-size: 0.9rem;">
+                                    <i class="fas fa-edit"></i>
+                                </a>
+                                <a href="{% url 'pms:item_delete' item.id %}" class="text-danger" onclick="return confirm('ยืนยันการลบรายการนี้?')" title="ลบ" style="font-size: 0.9rem;">
+                                    <i class="fas fa-trash"></i>
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                    {% empty %}
+                    <div class="text-center py-4 text-muted">
+                        <i class="fas fa-box-open fa-2x mb-2 d-block opacity-30"></i>
+                        ยังไม่มีรายการสินค้า/บริการ
+                    </div>
+                    {% endfor %}
+
+                    {% if items %}
+                    <div class="card" style="background: var(--border-light); border: none; border-radius: var(--radius-sm);">
+                        <div class="card-body py-2 px-3 d-flex justify-content-between align-items-center">
+                            <span class="fw-bold" style="font-size: 0.85rem;">ยอดรวมสุทธิ</span>
+                            <span class="fw-bold text-success" style="font-size: 1rem;">&#3647;{{ project.total_value|floatformat:2|intcomma }}</span>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
             </div>
         </div>
     </div>
@@ -213,4 +400,3 @@ function unlockClosedProject() {
 }
 </script>
 {% endblock %}
-
