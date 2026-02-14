@@ -23,7 +23,7 @@
                     <h6 class="text-uppercase text-muted fw-bold mb-3 small">ข้อมูลทั่วไป</h6>
                     <div class="row g-3 mb-4">
                         <div class="col-12">
-                            <label class="form-label fw-bold">ชื่องานขาย/บริการ <span class="text-danger">*</span></label>
+                            <label class="form-label fw-bold">ชื่องาน <span class="text-danger">*</span></label>
                             {{ form.name }}
                             {% if form.name.errors %}
                                 <div class="text-danger small mt-1">{{ form.name.errors.0 }}</div>
@@ -42,8 +42,26 @@
                             {% endif %}
                         </div>
                         <div class="col-md-6">
+                            <label class="form-label fw-bold">เจ้าของโครงการ</label>
+                            <div class="input-group">
+                                {{ form.owner }}
+                                <a href="{% url 'pms:project_owner_create' %}?next={{ request.path }}" class="btn btn-outline-secondary" data-bs-toggle="tooltip" title="เพิ่มเจ้าของโครงการ">
+                                    <i class="fas fa-plus"></i>
+                                </a>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
                             <label class="form-label fw-bold">สถานะ</label>
                             {{ form.status }}
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">
+                                <i class="fas fa-coins me-1 text-warning"></i>มูลค่าโครงการ (บาท)
+                            </label>
+                            {{ form.project_value }}
+                            <div class="form-text small text-muted">
+                                <i class="fas fa-info-circle me-1"></i>ระบบจะสร้างรายการสินค้า/บริการอัตโนมัติจากมูลค่านี้
+                            </div>
                         </div>
                     </div>
 
@@ -96,4 +114,3 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 {% endblock %}
-

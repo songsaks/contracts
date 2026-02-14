@@ -101,6 +101,15 @@
                             <label class="form-label fw-bold">สถานะ</label>
                             {{ form.status }}
                         </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">
+                                <i class="fas fa-coins me-1 text-warning"></i>มูลค่าโครงการ (บาท)
+                            </label>
+                            {{ form.project_value }}
+                            <div class="form-text small text-muted">
+                                <i class="fas fa-info-circle me-1"></i>ระบบจะสร้างรายการสินค้า/บริการอัตโนมัติจากมูลค่านี้
+                            </div>
+                        </div>
                     </div>
 
                     <div class="form-section-title">ระยะเวลา</div>
