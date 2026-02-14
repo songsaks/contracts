@@ -1,4 +1,5 @@
 from django import forms
+from decimal import Decimal
 from .models import Project, ProductItem, Customer, Supplier, ProjectOwner, CustomerRequirement
 
 class CustomerForm(forms.ModelForm):
@@ -43,6 +44,12 @@ class ProjectOwnerForm(forms.ModelForm):
         }
 
 class ProjectForm(forms.ModelForm):
+    project_value = forms.DecimalField(
+        max_digits=12, decimal_places=2, required=False,
+        label='มูลค่าโครงการ (บาท)',
+        widget=forms.NumberInput(attrs={'class': 'form-control', 'placeholder': '0.00', 'step': '0.01'}),
+    )
+
     class Meta:
         model = Project
         fields = ['name', 'customer', 'owner', 'status', 'start_date', 'deadline', 'description']
@@ -57,12 +64,19 @@ class ProjectForm(forms.ModelForm):
         }
 
 class SalesServiceJobForm(forms.ModelForm):
+    project_value = forms.DecimalField(
+        max_digits=12, decimal_places=2, required=False,
+        label='มูลค่าโครงการ (บาท)',
+        widget=forms.NumberInput(attrs={'class': 'form-control', 'placeholder': '0.00', 'step': '0.01'}),
+    )
+
     class Meta:
         model = Project
-        fields = ['name', 'customer', 'status', 'start_date', 'deadline', 'description']
+        fields = ['name', 'customer', 'owner', 'status', 'start_date', 'deadline', 'description']
         widgets = {
             'name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'ชื่องานขาย/บริการ'}),
             'customer': forms.Select(attrs={'class': 'form-select'}),
+            'owner': forms.Select(attrs={'class': 'form-select'}),
             'status': forms.Select(attrs={'class': 'form-select'}),
             'start_date': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
             'deadline': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),

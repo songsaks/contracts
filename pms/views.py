@@ -9,6 +9,29 @@ from .models import Project, ProductItem, Customer, Supplier, ProjectOwner, Cust
 from .forms import ProjectForm, ProductItemForm, CustomerForm, SupplierForm, ProjectOwnerForm, CustomerRequirementForm, SalesServiceJobForm
 from repairs.models import RepairItem
 
+
+def _create_project_value_item(project, project_value):
+    """Auto-create a ProductItem from the project_value field.
+    The item name is derived from the project name (truncated to key text).
+    """
+    if not project_value or project_value <= 0:
+        return None
+    # Truncate project name to ~80 chars for item name
+    proj_name = project.name.strip()
+    if len(proj_name) > 80:
+        proj_name = proj_name[:77] + '...'
+    item_name = f"{proj_name}"
+    return ProductItem.objects.create(
+        project=project,
+        item_type=ProductItem.ItemType.SERVICE,
+        name=item_name,
+        description=f"มูลค่าโครงการ: {project.name}",
+        quantity=1,
+        unit_cost=Decimal('0'),
+        unit_price=project_value,
+    )
+
+
 @login_required
 def dispatch(request):
     return render(request, 'pms/dispatch.html')
@@ -21,11 +44,16 @@ def service_create(request):
             project = form.save(commit=False)
             project.job_type = Project.JobType.SERVICE
             project.save()
+            # Auto-create value item
+            pv = form.cleaned_data.get('project_value')
+            _create_project_value_item(project, pv)
             messages.success(request, 'สร้างงานบริการขายสำเร็จ')
             return redirect('pms:project_detail', pk=project.pk)
     else:
         form = SalesServiceJobForm(initial={'status': Project.Status.SOURCING}, job_type=Project.JobType.SERVICE)
-    return render(request, 'pms/service_form.html', {'form': form, 'title': 'สร้างงานบริการขายใหม่', 'theme_color': 'success'})
+    return render(request, 'pms/service_form.html', {
+        'form': form, 'title': 'สร้างงานบริการขายใหม่', 'theme_color': 'success',
+    })
 
 @login_required
 def repair_create(request):
@@ -35,11 +63,16 @@ def repair_create(request):
             project = form.save(commit=False)
             project.job_type = Project.JobType.REPAIR
             project.save()
+            # Auto-create value item
+            pv = form.cleaned_data.get('project_value')
+            _create_project_value_item(project, pv)
             messages.success(request, 'สร้างใบแจ้งซ่อมสำเร็จ')
             return redirect('pms:project_detail', pk=project.pk)
     else:
         form = SalesServiceJobForm(initial={'status': Project.Status.SOURCING, 'name': 'แจ้งซ่อม - '}, job_type=Project.JobType.REPAIR)
-    return render(request, 'pms/service_form.html', {'form': form, 'title': 'สร้างใบแจ้งซ่อม (On-site Repair)', 'theme_color': 'warning'})
+    return render(request, 'pms/service_form.html', {
+        'form': form, 'title': 'สร้างใบแจ้งซ่อม (On-site Repair)', 'theme_color': 'warning',
+    })
 
 # ... queue_management ...
 
@@ -251,6 +284,9 @@ def project_create(request):
         form = ProjectForm(request.POST)
         if form.is_valid():
             project = form.save()
+            # Auto-create value item
+            pv = form.cleaned_data.get('project_value')
+            _create_project_value_item(project, pv)
             messages.success(request, 'สร้างโครงการสำเร็จ')
             return redirect('pms:project_detail', pk=project.pk)
     else:
@@ -571,6 +607,9 @@ def create_project_from_requirement(request, pk):
             project = form.save(commit=False)
             project.job_type = job_type
             project.save()
+            # Auto-create value item
+            pv = form.cleaned_data.get('project_value')
+            _create_project_value_item(project, pv)
             
             # Link Requirement
             requirement.is_converted = True
