@@ -19,6 +19,80 @@
         border: 1px solid rgba(0,0,0,0.05);
         background: white;
     }
+    .user-summary-card {
+        border-radius: 12px;
+        padding: 16px;
+        background: white;
+        border: 1px solid rgba(0,0,0,0.06);
+        transition: all 0.2s;
+        cursor: pointer;
+        text-decoration: none;
+        color: inherit;
+    }
+    .user-summary-card:hover {
+        box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+        transform: translateY(-2px);
+        color: inherit;
+    }
+    .user-summary-card.active-filter {
+        border-color: #4f46e5;
+        background: linear-gradient(135deg, #eef2ff, #e0e7ff);
+        box-shadow: 0 2px 12px rgba(79, 70, 229, 0.15);
+    }
+    .user-avatar-sm {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        font-size: 0.75rem;
+        color: white;
+        flex-shrink: 0;
+    }
+    .user-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 2px 8px;
+        border-radius: 12px;
+        font-size: 0.7rem;
+        font-weight: 600;
+        background: #eef2ff;
+        color: #4f46e5;
+    }
+    /* Chart toggle */
+    .chart-toggle-btn {
+        font-size: 0.78rem;
+        padding: 4px 14px;
+        border-radius: 20px;
+        border: 1px solid #e2e8f0;
+        background: white;
+        color: #64748b;
+        cursor: pointer;
+        transition: all 0.2s;
+        font-weight: 500;
+    }
+    .chart-toggle-btn.active {
+        background: linear-gradient(135deg, #4f46e5, #6366f1);
+        color: white;
+        border-color: #4f46e5;
+        box-shadow: 0 2px 8px rgba(79,70,229,0.2);
+    }
+    .chart-toggle-btn:hover:not(.active) {
+        border-color: #4f46e5;
+        color: #4f46e5;
+    }
+    .chart-wrapper {
+        position: relative;
+        height: 280px;
+    }
+    @media (max-width: 767.98px) {
+        .chart-wrapper {
+            height: 200px;
+        }
+    }
     @media print {
         .no-print { display: none !important; }
         .card { box-shadow: none !important; border: 1px solid #eee !important; }
@@ -28,12 +102,15 @@
 <div class="row">
     <div class="col-12">
         <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 gap-3">
-            <h1 class="h3 mb-0 fw-bold">รายงานรายรับจากงานซ่อม</h1>
+            <div>
+                <h1 class="h3 mb-1 fw-bold">รายงานรายรับจากงานซ่อม</h1>
+                <p class="text-muted small mb-0">ดูรายรับแยกตามผู้ดำเนินงาน และช่วงเวลา</p>
+            </div>
             <div class="d-flex gap-2 no-print">
                 <button onclick="window.print()" class="btn btn-sm btn-light shadow-sm border">
                     <i class="fas fa-print me-2"></i> พิมพ์
                 </button>
-                <a href="?export=excel&start_date={{ start_date }}&end_date={{ end_date }}" class="btn btn-sm btn-success shadow-sm">
+                <a href="?export=excel&start_date={{ start_date }}&end_date={{ end_date }}{% if filter_user_id %}&user={{ filter_user_id }}{% endif %}" class="btn btn-sm btn-success shadow-sm">
                     <i class="fas fa-file-excel me-2"></i> Export
                 </a>
             </div>
@@ -43,15 +120,28 @@
         <div class="card shadow-sm mb-4 border-0 no-print">
             <div class="card-body bg-white rounded">
                 <form method="get" class="row g-2 align-items-end">
-                    <div class="col-6 col-md-5">
+                    <div class="col-6 col-md-3">
                         <label class="form-label small fw-bold text-muted mb-1">ตั้งแต่วันที่</label>
                         <input type="date" name="start_date" value="{{ start_date }}" class="form-control form-control-sm">
                     </div>
-                    <div class="col-6 col-md-5">
+                    <div class="col-6 col-md-3">
                         <label class="form-label small fw-bold text-muted mb-1">ถึงวันที่</label>
                         <input type="date" name="end_date" value="{{ end_date }}" class="form-control form-control-sm">
                     </div>
-                    <div class="col-12 col-md-2">
+                    <div class="col-8 col-md-4">
+                        <label class="form-label small fw-bold text-muted mb-1">
+                            <i class="fas fa-user me-1"></i>ผู้ดำเนินงาน
+                        </label>
+                        <select name="user" class="form-select form-select-sm">
+                            <option value="">— ทุกคน —</option>
+                            {% for u in users %}
+                            <option value="{{ u.id }}" {% if filter_user_id == u.id|stringformat:"d" %}selected{% endif %}>
+                                {{ u.username }}{% if u.first_name %} ({{ u.first_name }}){% endif %}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-4 col-md-2">
                         <button type="submit" class="btn btn-sm btn-primary w-100">
                             <i class="fas fa-search me-1"></i> ค้นหา
                         </button>
@@ -63,11 +153,84 @@
         <!-- Total Summary Card -->
         <div class="card shadow-sm border-0 mb-4 bg-indigo text-white" style="background: linear-gradient(135deg, #4f46e5, #7c3aed);">
             <div class="card-body text-center py-4">
-                <div class="small opacity-75 mb-1 text-uppercase fw-bold">รายรับรวมทั้งหมด</div>
+                <div class="small opacity-75 mb-1 text-uppercase fw-bold">
+                    รายรับรวมทั้งหมด
+                    {% if filter_user_id %}
+                        {% for u in users %}{% if u.id|stringformat:"d" == filter_user_id %} — {{ u.username }}{% endif %}{% endfor %}
+                    {% endif %}
+                </div>
                 <div class="display-5 fw-bold">{{ total_income|floatformat:2|intcomma }} บาท</div>
-                <div class="small opacity-75 mt-2">ประวัติช่วงวันที่ {{ start_date|date:"d M Y" }} ถึง {{ end_date|date:"d M Y" }}</div>
+                <div class="d-flex justify-content-center gap-3 mt-2">
+                    <div class="small opacity-75">
+                        <i class="fas fa-calendar me-1"></i>{{ start_date }} — {{ end_date }}
+                    </div>
+                    <div class="small opacity-75">
+                        <i class="fas fa-receipt me-1"></i>{{ total_count }} รายการ
+                    </div>
+                </div>
             </div>
         </div>
+
+        <!-- Daily Income Chart -->
+        <div class="card shadow-sm border-0 mb-4">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h6 class="fw-bold mb-0">
+                        <i class="fas fa-chart-bar me-2 text-primary"></i>กราฟรายรับ
+                    </h6>
+                    <div class="d-flex gap-1">
+                        <button class="chart-toggle-btn active" data-chart="bar" onclick="switchChart('bar')">
+                            <i class="fas fa-chart-bar me-1"></i>แท่ง
+                        </button>
+                        <button class="chart-toggle-btn" data-chart="line" onclick="switchChart('line')">
+                            <i class="fas fa-chart-line me-1"></i>เส้น
+                        </button>
+                    </div>
+                </div>
+                <div class="chart-wrapper">
+                    <canvas id="incomeChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Per-User Income Summary -->
+        {% if user_income_list|length > 1 or not filter_user_id %}
+        <div class="mb-4 no-print">
+            <h6 class="fw-bold mb-3">
+                <i class="fas fa-users me-2 text-primary"></i>สรุปรายรับแยกตามผู้ดำเนินงาน
+            </h6>
+            <div class="row g-2 g-md-3">
+                {% for ui in user_income_list %}
+                <div class="col-6 col-md-4 col-lg-3">
+                    <a href="?start_date={{ start_date }}&end_date={{ end_date }}&user={{ ui.user_id }}" 
+                       class="user-summary-card d-block shadow-sm {% if filter_user_id == ui.user_id|stringformat:'d' %}active-filter{% endif %}">
+                        <div class="d-flex align-items-center gap-2 mb-2">
+                            <div class="user-avatar-sm" style="background: linear-gradient(135deg, 
+                                {% cycle '#4f46e5' '#7c3aed' '#0891b2' '#059669' '#d97706' '#dc2626' as bg_colors %}
+                                , {% cycle '#6366f1' '#8b5cf6' '#06b6d4' '#10b981' '#f59e0b' '#ef4444' %});">
+                                {{ ui.username|make_list|first|upper }}
+                            </div>
+                            <div class="fw-bold" style="font-size: 0.85rem;">{{ ui.username }}</div>
+                        </div>
+                        <div class="fw-bold text-primary" style="font-size: 1.1rem;">
+                            {{ ui.total|floatformat:2|intcomma }} ฿
+                        </div>
+                        <div class="text-muted" style="font-size: 0.7rem;">
+                            {{ ui.count }} รายการ
+                        </div>
+                    </a>
+                </div>
+                {% endfor %}
+            </div>
+            {% if filter_user_id %}
+            <div class="mt-2">
+                <a href="?start_date={{ start_date }}&end_date={{ end_date }}" class="btn btn-sm btn-outline-secondary">
+                    <i class="fas fa-times me-1"></i>ล้างตัวกรองผู้ใช้
+                </a>
+            </div>
+            {% endif %}
+        </div>
+        {% endif %}
 
         <!-- Desktop Table -->
         <div class="report-table-container card shadow-sm border-0">
@@ -80,6 +243,7 @@
                                 <th>รหัสงาน</th>
                                 <th>ลูกค้า</th>
                                 <th>รายการซ่อม</th>
+                                <th class="text-center">ผู้ดำเนินงาน</th>
                                 <th class="text-center">ประเภท</th>
                                 <th class="text-end pe-4">ยอดเงิน (บาท)</th>
                             </tr>
@@ -95,6 +259,21 @@
                                     <div class="text-muted small text-truncate" style="max-width: 250px;">{{ item.issue_description }}</div>
                                 </td>
                                 <td class="text-center">
+                                    {% if item.completed_by_user %}
+                                    <span class="user-badge">
+                                        <i class="fas fa-user-check"></i>
+                                        {{ item.completed_by_user.username }}
+                                    </span>
+                                    {% elif item.created_by %}
+                                    <span class="user-badge" style="background: #f0fdf4; color: #16a34a;">
+                                        <i class="fas fa-user"></i>
+                                        {{ item.created_by.username }}
+                                    </span>
+                                    {% else %}
+                                    <span class="text-muted small">-</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-center">
                                     {% if item.final_cost > 0 %}
                                         <span class="badge rounded-pill bg-success">ชำระเงิน</span>
                                     {% else %}
@@ -104,7 +283,7 @@
                                 <td class="text-end pe-4 fw-bold">{{ item.final_cost|default_if_none:"0.00"|floatformat:2|intcomma }}</td>
                             </tr>
                             {% empty %}
-                            <tr><td colspan="6" class="text-center py-5 text-muted">ไม่มีรายการรายรับในช่วงเวลานี้</td></tr>
+                            <tr><td colspan="7" class="text-center py-5 text-muted">ไม่มีรายการรายรับในช่วงเวลานี้</td></tr>
                             {% endfor %}
                         </tbody>
                     </table>
@@ -125,14 +304,27 @@
                     <div class="small fw-bold">{{ item.device.brand }} {{ item.device.model }}</div>
                     <div class="small text-muted text-truncate">{{ item.issue_description }}</div>
                 </div>
-                <div class="d-flex justify-content-between align-items-center">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    {% if item.completed_by_user %}
+                    <span class="user-badge">
+                        <i class="fas fa-user-check"></i>
+                        {{ item.completed_by_user.username }}
+                    </span>
+                    {% elif item.created_by %}
+                    <span class="user-badge" style="background: #f0fdf4; color: #16a34a;">
+                        <i class="fas fa-user"></i>
+                        {{ item.created_by.username }}
+                    </span>
+                    {% else %}
+                    <span class="text-muted small">ไม่ระบุ</span>
+                    {% endif %}
                     {% if item.final_cost > 0 %}
                         <span class="badge rounded-pill bg-success">ชำระเงิน</span>
                     {% else %}
                         <span class="badge rounded-pill bg-secondary">ฟรี/ประกัน</span>
                     {% endif %}
-                    <div class="fw-bold fs-5 text-primary">{{ item.final_cost|default_if_none:"0.00"|floatformat:2|intcomma }} ฿</div>
                 </div>
+                <div class="text-end fw-bold fs-5 text-primary">{{ item.final_cost|default_if_none:"0.00"|floatformat:2|intcomma }} ฿</div>
             </div>
             {% empty %}
             <div class="text-center py-5 text-muted card shadow-sm border-0">ไม่มีรายการรายรับในช่วงเวลานี้</div>
@@ -140,4 +332,124 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+(function() {
+    const chartData = {{ daily_income_json|safe }};
+    const ctx = document.getElementById('incomeChart').getContext('2d');
+    
+    // Gradient fill
+    const gradient = ctx.createLinearGradient(0, 0, 0, 280);
+    gradient.addColorStop(0, 'rgba(79, 70, 229, 0.3)');
+    gradient.addColorStop(1, 'rgba(79, 70, 229, 0.02)');
+
+    let currentChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: chartData.labels,
+            datasets: [{
+                label: 'รายรับ (บาท)',
+                data: chartData.incomes,
+                backgroundColor: 'rgba(79, 70, 229, 0.7)',
+                borderColor: '#4f46e5',
+                borderWidth: 2,
+                borderRadius: 6,
+                borderSkipped: false,
+                hoverBackgroundColor: '#4f46e5',
+                // Line chart props (applied when switched)
+                fill: true,
+                tension: 0.35,
+                pointBackgroundColor: '#4f46e5',
+                pointBorderColor: '#fff',
+                pointBorderWidth: 2,
+                pointRadius: 4,
+                pointHoverRadius: 7,
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+                intersect: false,
+                mode: 'index'
+            },
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    backgroundColor: 'rgba(15, 23, 42, 0.9)',
+                    titleFont: { family: 'Outfit', size: 13, weight: '600' },
+                    bodyFont: { family: 'Outfit', size: 12 },
+                    padding: 12,
+                    cornerRadius: 10,
+                    displayColors: false,
+                    callbacks: {
+                        title: function(items) {
+                            return '📅 ' + items[0].label;
+                        },
+                        label: function(item) {
+                            const income = item.raw.toLocaleString('th-TH', {minimumFractionDigits: 2});
+                            const count = chartData.counts[item.dataIndex];
+                            return `💰 ${income} บาท  •  ${count} รายการ`;
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    grid: { display: false },
+                    ticks: {
+                        font: { family: 'Outfit', size: 11 },
+                        color: '#94a3b8',
+                        maxRotation: 45,
+                        autoSkip: true,
+                        maxTicksLimit: 15,
+                    },
+                    border: { display: false }
+                },
+                y: {
+                    beginAtZero: true,
+                    grid: {
+                        color: 'rgba(0, 0, 0, 0.04)',
+                        drawBorder: false,
+                    },
+                    ticks: {
+                        font: { family: 'Outfit', size: 11 },
+                        color: '#94a3b8',
+                        callback: function(v) {
+                            if (v >= 1000) return (v/1000).toFixed(0) + 'K';
+                            return v;
+                        }
+                    },
+                    border: { display: false }
+                }
+            }
+        }
+    });
+
+    // Switch chart type
+    window.switchChart = function(type) {
+        // Update active button
+        document.querySelectorAll('.chart-toggle-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.chart === type);
+        });
+
+        // Update chart
+        currentChart.config.type = type;
+        
+        if (type === 'line') {
+            currentChart.data.datasets[0].backgroundColor = gradient;
+            currentChart.data.datasets[0].borderWidth = 3;
+        } else {
+            currentChart.data.datasets[0].backgroundColor = 'rgba(79, 70, 229, 0.7)';
+            currentChart.data.datasets[0].borderWidth = 2;
+        }
+        
+        currentChart.update();
+    };
+})();
+</script>
 {% endblock %}

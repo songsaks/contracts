@@ -1,6 +1,89 @@
 {% extends 'repairs/base_repairs.html' %}
 
 {% block content %}
+<style>
+    /* Validation styles */
+    .field-error .form-control,
+    .field-error .form-select {
+        border-color: #ef4444 !important;
+        box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.12) !important;
+        animation: shake 0.4s ease;
+    }
+    .field-error .form-floating > label {
+        color: #ef4444 !important;
+    }
+    .field-error-msg {
+        color: #ef4444;
+        font-size: 0.72rem;
+        font-weight: 600;
+        margin-top: 4px;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+    }
+    .field-error-msg i {
+        font-size: 0.65rem;
+    }
+    @keyframes shake {
+        0%, 100% { transform: translateX(0); }
+        20% { transform: translateX(-4px); }
+        40% { transform: translateX(4px); }
+        60% { transform: translateX(-3px); }
+        80% { transform: translateX(2px); }
+    }
+    .field-valid .form-control,
+    .field-valid .form-select {
+        border-color: #22c55e !important;
+    }
+    /* Validation toast */
+    .validation-toast {
+        position: fixed;
+        top: 80px;
+        right: 20px;
+        z-index: 9999;
+        max-width: 400px;
+        width: calc(100vw - 40px);
+        border-radius: 14px;
+        box-shadow: 0 12px 40px rgba(239, 68, 68, 0.2);
+        animation: slideInRight 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+        overflow: hidden;
+    }
+    @keyframes slideInRight {
+        from { transform: translateX(100%); opacity: 0; }
+        to { transform: translateX(0); opacity: 1; }
+    }
+    .validation-toast-hide {
+        animation: slideOutRight 0.3s ease forwards;
+    }
+    @keyframes slideOutRight {
+        to { transform: translateX(120%); opacity: 0; }
+    }
+    /* Required field indicator */
+    .required-dot {
+        display: inline-block;
+        width: 6px;
+        height: 6px;
+        background: #ef4444;
+        border-radius: 50%;
+        margin-left: 4px;
+        vertical-align: middle;
+    }
+    .section-error-banner {
+        background: linear-gradient(135deg, #fef2f2, #fee2e2);
+        border: 1px solid #fecaca;
+        border-radius: 10px;
+        padding: 10px 14px;
+        margin-bottom: 12px;
+        display: none;
+    }
+    .section-error-banner.show {
+        display: flex;
+        align-items: start;
+        gap: 8px;
+        animation: shake 0.4s ease;
+    }
+</style>
+
 <div class="row justify-content-center">
     <div class="col-lg-10">
         <div class="card border-0 shadow-sm">
@@ -8,17 +91,59 @@
                 <h5 class="mb-0 fw-bold">
                     <i class="fas fa-plus-circle me-2"></i>สร้างงานซ่อมใหม่ (รับเครื่อง)
                 </h5>
-                <small class="text-white-50">กรอกข้อมูลลูกค้าและอุปกรณ์ที่รับเข้ามาซ่อม</small>
+                <small class="text-white-50">กรอกข้อมูลลูกค้าและอุปกรณ์ที่รับเข้ามาซ่อม — ช่องที่มี <span class="required-dot" style="background:white;"></span> จำเป็นต้องกรอก</small>
             </div>
             
             <div class="card-body p-4">
-                <form method="post" novalidate>
+
+                <!-- Server-side Validation Errors (shown after POST if form is invalid) -->
+                {% if customer_form.errors or device_form.errors or item_form.errors or job_form.errors %}
+                <div class="alert alert-danger border-0 shadow-sm d-flex align-items-start gap-3" role="alert" id="serverErrors">
+                    <div class="flex-shrink-0">
+                        <div class="bg-danger bg-opacity-10 rounded-circle d-flex align-items-center justify-content-center" style="width:40px;height:40px;">
+                            <i class="fas fa-exclamation-triangle text-danger"></i>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="fw-bold mb-1">กรุณาตรวจสอบข้อมูล</div>
+                        <ul class="mb-0 ps-3 small">
+                            {% for field, errors in customer_form.errors.items %}
+                                {% for error in errors %}
+                                <li><strong>ลูกค้า — {{ customer_form.fields|yesno:"" }}{{ field }}:</strong> {{ error }}</li>
+                                {% endfor %}
+                            {% endfor %}
+                            {% for field, errors in device_form.errors.items %}
+                                {% for error in errors %}
+                                <li><strong>อุปกรณ์ — {{ field }}:</strong> {{ error }}</li>
+                                {% endfor %}
+                            {% endfor %}
+                            {% for field, errors in item_form.errors.items %}
+                                {% for error in errors %}
+                                <li><strong>รายละเอียด — {{ field }}:</strong> {{ error }}</li>
+                                {% endfor %}
+                            {% endfor %}
+                            {% for field, errors in job_form.errors.items %}
+                                {% for error in errors %}
+                                <li><strong>งาน — {{ field }}:</strong> {{ error }}</li>
+                                {% endfor %}
+                            {% endfor %}
+                        </ul>
+                    </div>
+                </div>
+                {% endif %}
+
+                <form method="post" novalidate id="repairForm">
                     {% csrf_token %}
 
-                    <!-- Customer Section -->
-                    <h6 class="bg-body-secondary p-2 rounded fw-bold text-dark mb-4 border-start border-4 border-primary ps-3">
+                    <!-- ===== Customer Section ===== -->
+                    <h6 class="bg-body-secondary p-2 rounded fw-bold text-dark mb-3 border-start border-4 border-primary ps-3">
                         <i class="fas fa-user me-2 text-primary"></i>ข้อมูลลูกค้า
                     </h6>
+
+                    <div class="section-error-banner" id="customerSectionError">
+                        <i class="fas fa-exclamation-circle text-danger mt-1"></i>
+                        <div class="small text-danger fw-bold" id="customerSectionErrorText"></div>
+                    </div>
                     
                     <!-- Customer Selector -->
                     <div class="mb-3">
@@ -46,27 +171,33 @@
 
                     <div class="row g-3 mb-4">
                         <div class="col-md-6">
-                            <div class="form-floating">
+                            <div class="form-floating" id="wrap-customer-name" data-required="true" data-label="ชื่อลูกค้า">
                                 {{ customer_form.name }}
-                                <label for="{{ customer_form.name.id_for_label }}">ชื่อลูกค้า / บริษัท</label>
+                                <label for="{{ customer_form.name.id_for_label }}">ชื่อลูกค้า / บริษัท <span class="required-dot"></span></label>
                             </div>
+                            {% if customer_form.name.errors %}
+                            <div class="field-error-msg"><i class="fas fa-exclamation-circle"></i> {{ customer_form.name.errors.0 }}</div>
+                            {% endif %}
                         </div>
                         <div class="col-md-6">
-                            <div class="form-floating">
+                            <div class="form-floating" id="wrap-customer-contact" data-required="true" data-label="เบอร์โทรศัพท์">
                                 {{ customer_form.contact_number }}
-                                <label for="{{ customer_form.contact_number.id_for_label }}">เบอร์โทรศัพท์</label>
+                                <label for="{{ customer_form.contact_number.id_for_label }}">เบอร์โทรศัพท์ <span class="required-dot"></span></label>
                             </div>
+                            {% if customer_form.contact_number.errors %}
+                            <div class="field-error-msg"><i class="fas fa-exclamation-circle"></i> {{ customer_form.contact_number.errors.0 }}</div>
+                            {% endif %}
                         </div>
                         <div class="col-12">
-                            <div class="form-floating">
+                            <div class="form-floating" id="wrap-customer-address">
                                 {{ customer_form.address }}
                                 <label for="{{ customer_form.address.id_for_label }}">ที่อยู่</label>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Job Info Section -->
-                    <h6 class="bg-body-secondary p-2 rounded fw-bold text-dark mb-4 border-start border-4 border-primary ps-3">
+                    <!-- ===== Job Info Section ===== -->
+                    <h6 class="bg-body-secondary p-2 rounded fw-bold text-dark mb-3 border-start border-4 border-primary ps-3">
                         <i class="fas fa-file-alt me-2 text-primary"></i>รายละเอียดงาน
                     </h6>
                     <div class="row g-3 mb-4">
@@ -87,34 +218,40 @@
                         </div>
                     </div>
 
-                    <!-- Device & Issue Section -->
-                    <h6 class="bg-body-secondary p-2 rounded fw-bold text-dark mb-4 border-start border-4 border-primary ps-3">
+                    <!-- ===== Device & Issue Section ===== -->
+                    <h6 class="bg-body-secondary p-2 rounded fw-bold text-dark mb-3 border-start border-4 border-primary ps-3">
                         <i class="fas fa-laptop me-2 text-primary"></i>อุปกรณ์และอาการเสีย
                     </h6>
+
+                    <div class="section-error-banner" id="deviceSectionError">
+                        <i class="fas fa-exclamation-circle text-danger mt-1"></i>
+                        <div class="small text-danger fw-bold" id="deviceSectionErrorText"></div>
+                    </div>
+
                     <div class="bg-light p-4 rounded-3 border">
                         <div class="row g-3 mb-3">
                             <div class="col-md-6">
                                 <label class="form-label fw-bold small text-muted">ประเภทอุปกรณ์</label>
-                                <div class="input-group">
+                                <div class="input-group" id="wrap-device-type">
                                     {{ device_form.device_type }}
                                     <a href="{% url 'repairs:device_type_create' %}" target="_blank" class="btn btn-outline-secondary" title="เพิ่มประเภทใหม่"><i class="fas fa-plus"></i></a>
                                 </div>
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label fw-bold small text-muted">ยี่ห้อ</label>
-                                <div class="input-group">
+                                <div class="input-group" id="wrap-device-brand">
                                     {{ device_form.brand }}
                                     <a href="{% url 'repairs:brand_create' %}" target="_blank" class="btn btn-outline-secondary" title="เพิ่มยี่ห้อใหม่"><i class="fas fa-plus"></i></a>
                                 </div>
                             </div>
                             <div class="col-md-6">
-                                <div class="form-floating">
+                                <div class="form-floating" id="wrap-device-model">
                                     {{ device_form.model }}
                                     <label for="{{ device_form.model.id_for_label }}">รุ่น (Model)</label>
                                 </div>
                             </div>
                             <div class="col-md-6">
-                                <div class="form-floating">
+                                <div class="form-floating" id="wrap-device-serial">
                                     {{ device_form.serial_number }}
                                     <label for="{{ device_form.serial_number.id_for_label }}">Serial Number</label>
                                 </div>
@@ -122,10 +259,13 @@
                         </div>
 
                         <div class="mb-3">
-                            <div class="form-floating">
+                            <div class="form-floating" id="wrap-issue" data-required="true" data-label="อาการเสีย">
                                 {{ item_form.issue_description }}
-                                <label for="{{ item_form.issue_description.id_for_label }}">อาการเสีย</label>
+                                <label for="{{ item_form.issue_description.id_for_label }}">อาการเสีย <span class="required-dot"></span></label>
                             </div>
+                            {% if item_form.issue_description.errors %}
+                            <div class="field-error-msg"><i class="fas fa-exclamation-circle"></i> {{ item_form.issue_description.errors.0 }}</div>
+                            {% endif %}
                         </div>
                         
                         <div class="mb-3">
@@ -167,7 +307,7 @@
                         <a href="{% url 'repairs:repair_list' %}" class="btn btn-light text-secondary">
                             <i class="fas fa-times me-1"></i> ยกเลิก
                         </a>
-                        <button type="submit" class="btn btn-primary px-4 shadow-sm">
+                        <button type="submit" class="btn btn-primary px-4 shadow-sm" id="submitBtn">
                             <i class="fas fa-save me-1"></i> สร้างงานซ่อม
                         </button>
                     </div>
@@ -176,22 +316,26 @@
         </div>
     </div>
 </div>
+
+<!-- Validation Toast Container -->
+<div id="validationToast" class="validation-toast" style="display:none;"></div>
 {% endblock %}
 
 {% block scripts %}
 <script>
+    // ===================================
+    // Customer Selector
+    // ===================================
     function selectCustomer(select) {
         var option = select.options[select.selectedIndex];
         var id = option.value;
 
-        // Get elements
         var nameInput = document.getElementById('id_customer-name');
         var contactInput = document.getElementById('id_customer-contact_number');
         var addressInput = document.getElementById('id_customer-address');
         var hiddenId = document.getElementById('customerId');
 
         if (id) {
-            // Existing Customer Selected
             var name = option.getAttribute('data-name');
             var contact = option.getAttribute('data-contact');
             var address = option.getAttribute('data-address');
@@ -201,28 +345,217 @@
             addressInput.value = address;
             hiddenId.value = id;
             
-            // Visual feedback
-            nameInput.classList.add('is-valid');
-            contactInput.classList.add('is-valid');
-            
-            // Remove valid class after 2 seconds
-            setTimeout(() => {
-                nameInput.classList.remove('is-valid');
-                contactInput.classList.remove('is-valid');
-            }, 2000);
-
+            // Clear errors and show valid
+            clearFieldError('wrap-customer-name');
+            clearFieldError('wrap-customer-contact');
+            markFieldValid('wrap-customer-name');
+            markFieldValid('wrap-customer-contact');
         } else {
-            // New Customer Selected - Clear fields
             nameInput.value = '';
             contactInput.value = '';
             addressInput.value = '';
             hiddenId.value = '';
-            
-            nameInput.classList.remove('is-valid');
-            contactInput.classList.remove('is-valid');
         }
     }
-    
-    // Optional: Add interactivity to "New Device" buttons if needed, currently they are just visual
+
+    // ===================================
+    // Validation System
+    // ===================================
+    const REQUIRED_FIELDS = [
+        {
+            wrapperId: 'wrap-customer-name',
+            inputId: 'id_customer-name',
+            label: 'ชื่อลูกค้า',
+            section: 'customer'
+        },
+        {
+            wrapperId: 'wrap-customer-contact',
+            inputId: 'id_customer-contact_number',
+            label: 'เบอร์โทรศัพท์',
+            section: 'customer'
+        },
+        {
+            wrapperId: 'wrap-issue',
+            inputId: 'id_item-issue_description',
+            label: 'อาการเสีย',
+            section: 'device'
+        }
+    ];
+
+    function clearFieldError(wrapperId) {
+        const wrapper = document.getElementById(wrapperId);
+        if (!wrapper) return;
+        wrapper.classList.remove('field-error', 'field-valid');
+        const existingMsg = wrapper.parentElement.querySelector('.field-error-msg-js');
+        if (existingMsg) existingMsg.remove();
+    }
+
+    function markFieldError(wrapperId, message) {
+        const wrapper = document.getElementById(wrapperId);
+        if (!wrapper) return;
+        wrapper.classList.add('field-error');
+        wrapper.classList.remove('field-valid');
+        
+        // Add error message below the field
+        const existingMsg = wrapper.parentElement.querySelector('.field-error-msg-js');
+        if (existingMsg) existingMsg.remove();
+        
+        const msg = document.createElement('div');
+        msg.className = 'field-error-msg field-error-msg-js';
+        msg.innerHTML = `<i class="fas fa-exclamation-circle"></i> ${message}`;
+        wrapper.parentElement.appendChild(msg);
+    }
+
+    function markFieldValid(wrapperId) {
+        const wrapper = document.getElementById(wrapperId);
+        if (!wrapper) return;
+        wrapper.classList.remove('field-error');
+        wrapper.classList.add('field-valid');
+        const existingMsg = wrapper.parentElement.querySelector('.field-error-msg-js');
+        if (existingMsg) existingMsg.remove();
+        
+        // Remove valid indicator after 2s
+        setTimeout(() => wrapper.classList.remove('field-valid'), 2000);
+    }
+
+    function showValidationToast(errors) {
+        const toast = document.getElementById('validationToast');
+        let listHtml = errors.map(e => 
+            `<li class="mb-1">
+                <span class="fw-bold">${e.label}</span>
+                <span class="opacity-75">— ${e.message}</span>
+             </li>`
+        ).join('');
+
+        toast.innerHTML = `
+            <div style="background: linear-gradient(135deg, #dc2626, #ef4444); padding: 14px 18px; color: white;">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <div class="fw-bold d-flex align-items-center gap-2">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        กรุณาตรวจสอบข้อมูล (${errors.length} ช่อง)
+                    </div>
+                    <button onclick="hideValidationToast()" class="btn btn-sm btn-link text-white p-0 ms-3" style="font-size: 1.1rem;">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            </div>
+            <div style="background: white; padding: 14px 18px; border-bottom-left-radius: 14px; border-bottom-right-radius: 14px;">
+                <ul class="mb-0 ps-3 small text-dark">${listHtml}</ul>
+            </div>
+        `;
+        
+        toast.style.display = 'block';
+        toast.classList.remove('validation-toast-hide');
+
+        // Auto-hide after 8 seconds
+        clearTimeout(window._toastTimeout);
+        window._toastTimeout = setTimeout(hideValidationToast, 8000);
+    }
+
+    function hideValidationToast() {
+        const toast = document.getElementById('validationToast');
+        toast.classList.add('validation-toast-hide');
+        setTimeout(() => { toast.style.display = 'none'; }, 300);
+    }
+
+    // Validate on submit
+    document.getElementById('repairForm').addEventListener('submit', function(e) {
+        let errors = [];
+        let sectionErrors = { customer: [], device: [] };
+
+        // Clear all previous errors
+        REQUIRED_FIELDS.forEach(f => clearFieldError(f.wrapperId));
+        document.getElementById('customerSectionError').classList.remove('show');
+        document.getElementById('deviceSectionError').classList.remove('show');
+
+        // Check each required field
+        REQUIRED_FIELDS.forEach(field => {
+            const input = document.getElementById(field.inputId);
+            if (!input) return;
+            
+            const value = input.value.trim();
+            if (!value) {
+                const msg = `กรุณากรอก${field.label}`;
+                markFieldError(field.wrapperId, msg);
+                errors.push({ label: field.label, message: msg });
+                sectionErrors[field.section].push(field.label);
+            }
+        });
+
+        if (errors.length > 0) {
+            e.preventDefault();
+
+            // Show section banners
+            if (sectionErrors.customer.length > 0) {
+                const banner = document.getElementById('customerSectionError');
+                document.getElementById('customerSectionErrorText').textContent = 
+                    `กรุณากรอก: ${sectionErrors.customer.join(', ')}`;
+                banner.classList.add('show');
+            }
+            if (sectionErrors.device.length > 0) {
+                const banner = document.getElementById('deviceSectionError');
+                document.getElementById('deviceSectionErrorText').textContent = 
+                    `กรุณากรอก: ${sectionErrors.device.join(', ')}`;
+                banner.classList.add('show');
+            }
+
+            // Show toast
+            showValidationToast(errors);
+
+            // Scroll to first error
+            const firstError = document.querySelector('.field-error');
+            if (firstError) {
+                firstError.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+
+            // Shake the submit button
+            const btn = document.getElementById('submitBtn');
+            btn.classList.add('animate__animated', 'animate__headShake');
+            setTimeout(() => btn.classList.remove('animate__animated', 'animate__headShake'), 600);
+
+            return false;
+        }
+    });
+
+    // Real-time validation: clear error when user types
+    REQUIRED_FIELDS.forEach(field => {
+        const input = document.getElementById(field.inputId);
+        if (!input) return;
+        
+        input.addEventListener('input', function() {
+            if (this.value.trim()) {
+                clearFieldError(field.wrapperId);
+                markFieldValid(field.wrapperId);
+            }
+        });
+
+        // Also clear on blur if filled
+        input.addEventListener('blur', function() {
+            if (this.value.trim()) {
+                clearFieldError(field.wrapperId);
+            }
+        });
+    });
+
+    // If server returned errors, highlight the fields
+    {% if customer_form.errors or device_form.errors or item_form.errors %}
+    document.addEventListener('DOMContentLoaded', function() {
+        {% if customer_form.name.errors %}
+        markFieldError('wrap-customer-name', '{{ customer_form.name.errors.0|escapejs }}');
+        {% endif %}
+        {% if customer_form.contact_number.errors %}
+        markFieldError('wrap-customer-contact', '{{ customer_form.contact_number.errors.0|escapejs }}');
+        {% endif %}
+        {% if item_form.issue_description.errors %}
+        markFieldError('wrap-issue', '{{ item_form.issue_description.errors.0|escapejs }}');
+        {% endif %}
+        
+        // Scroll to server error alert
+        const serverErrors = document.getElementById('serverErrors');
+        if (serverErrors) {
+            serverErrors.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+    });
+    {% endif %}
 </script>
 {% endblock %}

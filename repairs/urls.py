@@ -19,6 +19,10 @@ urlpatterns = [
     path('track/<uuid:tracking_id>/', views.repair_tracking, name='repair_tracking'),
     path('status/', views.repair_status_search, name='repair_status_search'),
     
+    # Notification API
+    path('api/notifications/', views.repair_notifications_api, name='repair_notifications_api'),
+    path('api/notifications/mark-seen/', views.repair_notifications_mark_seen, name='repair_notifications_mark_seen'),
+    
     # Customer
     path('customers/', views.customer_list, name='customer_list'),
     path('customers/create/', views.customer_create, name='customer_create'),

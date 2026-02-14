@@ -196,6 +196,99 @@
             margin-bottom: 0.5rem;
             color: #4b5563;
         }
+
+        /* ========================================
+           NOTIFICATION BELL
+           ======================================== */
+        .notif-bell {
+            position: relative;
+            color: rgba(255,255,255,0.85);
+            font-size: 1.1rem;
+            padding: 0.4rem 0.6rem !important;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .notif-bell:hover {
+            color: white;
+        }
+        .notif-badge {
+            position: absolute;
+            top: 2px;
+            right: 0px;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #ef4444;
+            color: white;
+            font-size: 0.6rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 2px solid #4f46e5;
+            animation: notifPulse 2s infinite;
+        }
+        @keyframes notifPulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.15); }
+        }
+        .notif-dropdown {
+            width: 360px;
+            max-height: 480px;
+            overflow-y: auto;
+            padding: 0;
+            border-radius: 16px;
+            box-shadow: 0 12px 48px rgba(0,0,0,0.15);
+        }
+        @media (max-width: 480px) {
+            .notif-dropdown {
+                width: calc(100vw - 24px);
+                right: -60px !important;
+            }
+        }
+        .notif-header {
+            position: sticky;
+            top: 0;
+            background: white;
+            padding: 14px 16px;
+            border-bottom: 1px solid #f3f4f6;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 1;
+        }
+        .notif-item {
+            padding: 10px 16px;
+            border-bottom: 1px solid #f9fafb;
+            transition: background 0.15s;
+            display: block;
+            text-decoration: none;
+            color: inherit;
+        }
+        .notif-item:hover {
+            background: #f8fafc;
+            color: inherit;
+        }
+        .notif-empty {
+            padding: 32px 16px;
+            text-align: center;
+            color: #9ca3af;
+        }
+        .notif-section-title {
+            padding: 8px 16px 4px;
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            font-weight: 700;
+            color: #9ca3af;
+            background: #f9fafb;
+        }
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            display: inline-block;
+        }
     </style>
 
     {% block extra_css %}{% endblock %}
@@ -250,7 +343,33 @@
                     </li>
                 </ul>
                 <ul class="navbar-nav ms-auto align-items-center">
-                    <li class="nav-item me-3">
+                    <!-- Notification Bell -->
+                    {% if user.is_authenticated %}
+                    <li class="nav-item dropdown me-1">
+                        <a class="nav-link notif-bell" href="#" id="notifBell" role="button" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
+                            <i class="fas fa-bell"></i>
+                            <span class="notif-badge" id="notifCount" style="display:none;">0</span>
+                        </a>
+                        <div class="dropdown-menu dropdown-menu-end notif-dropdown" aria-labelledby="notifBell" id="notifPanel">
+                            <div class="notif-header">
+                                <span class="fw-bold" style="font-size: 0.9rem;">
+                                    <i class="fas fa-bell me-1 text-primary"></i> การแจ้งเตือน
+                                </span>
+                                <button class="btn btn-sm btn-link text-muted p-0" id="markAllSeen" style="font-size: 0.75rem;">
+                                    อ่านทั้งหมด
+                                </button>
+                            </div>
+                            <div id="notifContent">
+                                <div class="notif-empty">
+                                    <i class="fas fa-bell-slash fa-2x mb-2 d-block opacity-25"></i>
+                                    <div>ไม่มีการแจ้งเตือนใหม่</div>
+                                </div>
+                            </div>
+                        </div>
+                    </li>
+                    {% endif %}
+
+                    <li class="nav-item me-2">
                          <a href="/" class="nav-link text-white-50" style="font-size: 0.9rem;">
                             <i class="fas fa-home me-1"></i> หน้าหลัก
                         </a>
@@ -323,7 +442,127 @@
                 width: '100%'
             });
         });
+
+        // ========================================
+        // NOTIFICATION SYSTEM
+        // ========================================
+        {% if user.is_authenticated %}
+        (function() {
+            const notifBadge = document.getElementById('notifCount');
+            const notifContent = document.getElementById('notifContent');
+            const markAllBtn = document.getElementById('markAllSeen');
+            const csrfToken = '{{ csrf_token }}';
+
+            function getStatusColor(code) {
+                const colors = {
+                    'FIXING': '#f97316',
+                    'WAITING': '#eab308',
+                    'OUTSOURCE': '#8b5cf6',
+                    'RECEIVED_FROM_VENDOR': '#3b82f6',
+                    'FINISHED': '#22c55e',
+                    'COMPLETED': '#10b981',
+                };
+                return colors[code] || '#6b7280';
+            }
+
+            function fetchNotifications() {
+                fetch('{% url "repairs:repair_notifications_api" %}')
+                    .then(r => r.json())
+                    .then(data => {
+                        // Update badge
+                        if (data.total_count > 0) {
+                            notifBadge.textContent = data.total_count > 99 ? '99+' : data.total_count;
+                            notifBadge.style.display = 'flex';
+                        } else {
+                            notifBadge.style.display = 'none';
+                        }
+
+                        // Build notification list
+                        let html = '';
+
+                        if (data.new_items.length > 0) {
+                            html += '<div class="notif-section-title"><i class="fas fa-plus-circle me-1"></i>งานซ่อมใหม่</div>';
+                            data.new_items.forEach(item => {
+                                html += `
+                                    <a href="/repairs/job/${item.job_pk}/" class="notif-item">
+                                        <div class="d-flex gap-2 align-items-start">
+                                            <div class="rounded-circle bg-primary bg-opacity-10 text-primary d-flex align-items-center justify-content-center flex-shrink-0" style="width:32px;height:32px;">
+                                                <i class="fas fa-wrench" style="font-size:0.7rem;"></i>
+                                            </div>
+                                            <div style="min-width:0;">
+                                                <div class="fw-bold" style="font-size:0.8rem;">${item.job_code} — ${item.customer}</div>
+                                                <div class="text-muted text-truncate" style="font-size:0.72rem;">${item.device} • ${item.issue}</div>
+                                                <div class="text-muted" style="font-size:0.65rem;">
+                                                    <i class="fas fa-user me-1"></i>${item.created_by} • ${item.created_date} ${item.created_at}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </a>`;
+                            });
+                        }
+
+                        if (data.status_changes.length > 0) {
+                            html += '<div class="notif-section-title"><i class="fas fa-exchange-alt me-1"></i>การเปลี่ยนสถานะ</div>';
+                            data.status_changes.forEach(item => {
+                                const color = getStatusColor(item.status_code);
+                                html += `
+                                    <a href="/repairs/job/${item.job_pk}/" class="notif-item">
+                                        <div class="d-flex gap-2 align-items-start">
+                                            <div class="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0" style="width:32px;height:32px;background:${color}15;">
+                                                <span class="status-dot" style="background:${color};"></span>
+                                            </div>
+                                            <div style="min-width:0;">
+                                                <div class="fw-bold" style="font-size:0.8rem;">${item.job_code} → ${item.status}</div>
+                                                <div class="text-muted" style="font-size:0.72rem;">${item.device}</div>
+                                                <div class="text-muted" style="font-size:0.65rem;">
+                                                    <i class="fas fa-user me-1"></i>${item.changed_by} • ${item.changed_at}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </a>`;
+                            });
+                        }
+
+                        if (!html) {
+                            html = `<div class="notif-empty">
+                                <i class="fas fa-bell-slash fa-2x mb-2 d-block opacity-25"></i>
+                                <div>ไม่มีการแจ้งเตือนใหม่</div>
+                            </div>`;
+                        }
+
+                        notifContent.innerHTML = html;
+                    })
+                    .catch(err => console.warn('Notification fetch error:', err));
+            }
+
+            // Mark all as seen
+            markAllBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                fetch('{% url "repairs:repair_notifications_mark_seen" %}', {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': csrfToken,
+                        'Content-Type': 'application/json'
+                    }
+                }).then(() => {
+                    notifBadge.style.display = 'none';
+                    notifContent.innerHTML = `<div class="notif-empty">
+                        <i class="fas fa-check-circle fa-2x mb-2 d-block text-success opacity-50"></i>
+                        <div>อ่านทั้งหมดแล้ว</div>
+                    </div>`;
+                });
+            });
+
+            // Initial fetch
+            fetchNotifications();
+
+            // Poll every 30 seconds
+            setInterval(fetchNotifications, 30000);
+        })();
+        {% endif %}
     </script>
     {% block scripts %}{% endblock %}
 </body>
 </html>
+
