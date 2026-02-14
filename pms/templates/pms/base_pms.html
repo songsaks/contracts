@@ -1,116 +1,646 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="th">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}Project Management System{% endblock %}</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
+    <title>{% block title %}ระบบบริหารโครงการ — 9Com{% endblock %}</title>
+    <meta name="description" content="9Com Project Management System — ระบบบริหารโครงการครบวงจร">
     <!-- Bootstrap 5 CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <!-- FontAwesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- Google Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     
     <style>
         :root {
             --primary-color: #4f46e5;
+            --primary-light: #6366f1;
+            --primary-dark: #4338ca;
             --secondary-color: #7c3aed;
             --accent-color: #6366f1;
             --text-color: #1f2937;
-            --bg-light: #f9fafb;
-            --navbar-height: 56px;
+            --text-muted: #6b7280;
+            --bg-light: #f8fafc;
+            --bg-white: #ffffff;
+            --border-color: #e5e7eb;
+            --border-light: #f3f4f6;
+            --navbar-height: 60px;
+            --shadow-sm: 0 1px 3px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.06);
+            --shadow-md: 0 4px 16px rgba(0,0,0,0.06);
+            --shadow-lg: 0 10px 40px rgba(0,0,0,0.08);
+            --radius-sm: 8px;
+            --radius-md: 12px;
+            --radius-lg: 16px;
+            --radius-xl: 20px;
         }
         
+        * {
+            -webkit-tap-highlight-color: transparent;
+        }
+
         body {
-            font-family: 'Outfit', sans-serif;
+            font-family: 'Noto Sans Thai', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
             background-color: var(--bg-light);
             color: var(--text-color);
             min-height: 100vh;
             display: flex;
             flex-direction: column;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
         }
 
+        /* ========================================
+           NAVBAR — Premium Design
+           ======================================== */
         .navbar-custom {
-            background: linear-gradient(135deg, #4f46e5, #7c3aed);
-            box-shadow: 0 4px 12px rgba(79, 70, 229, 0.15);
-            padding: 0.5rem 0;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            background: linear-gradient(135deg, #4f46e5 0%, #6d28d9 50%, #7c3aed 100%);
+            box-shadow: 0 4px 20px rgba(79, 70, 229, 0.2);
+            padding: 0;
+            border: none;
+            z-index: 1030;
+        }
+
+        .navbar-custom .container {
+            padding-top: 0.5rem;
+            padding-bottom: 0.5rem;
         }
 
         .navbar-custom .navbar-brand {
             color: white;
             font-weight: 700;
-            font-size: 1.3rem;
-            letter-spacing: -0.5px;
+            font-size: 1.15rem;
+            letter-spacing: -0.3px;
+            padding: 0.25rem 0;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: opacity 0.2s;
         }
 
+        .navbar-custom .navbar-brand:hover {
+            opacity: 0.9;
+        }
+
+        .navbar-custom .navbar-brand i {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        /* Nav links */
         .navbar-custom .nav-link {
-            color: rgba(255, 255, 255, 0.85);
+            color: rgba(255, 255, 255, 0.8);
             font-weight: 500;
-            padding: 0.4rem 0.8rem !important;
-            transition: all 0.2s ease;
-            border-radius: 8px;
-            margin: 0 2px;
+            font-size: 0.85rem;
+            padding: 0.45rem 0.75rem !important;
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+            border-radius: var(--radius-sm);
+            margin: 0 1px;
+            white-space: nowrap;
         }
 
-        .navbar-custom .nav-link:hover,
-        .navbar-custom .nav-link.active {
+        .navbar-custom .nav-link:hover {
             color: white;
             background-color: rgba(255, 255, 255, 0.15);
-            transform: translateY(-1px);
         }
 
-        .main-content {
-            flex: 1;
-            padding: 2rem 0;
-        }
-
-        .card {
-            border: 1px solid rgba(0,0,0,0.05);
-            border-radius: 16px;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
-            transition: all 0.3s ease;
-        }
-        .card:hover {
-            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.06);
-        }
-
-        .btn-primary {
-            background: linear-gradient(135deg, #4f46e5, #6366f1);
-            border: none;
-            border-radius: 10px;
-            padding: 0.6rem 1.4rem;
+        .navbar-custom .nav-link.active {
+            color: white;
+            background-color: rgba(255, 255, 255, 0.2);
             font-weight: 600;
-            box-shadow: 0 4px 10px rgba(79, 70, 229, 0.2);
-            transition: all 0.3s ease;
         }
 
-        .btn-primary:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 15px rgba(79, 70, 229, 0.3);
-            background: linear-gradient(135deg, #4338ca, #4f46e5);
+        .navbar-custom .nav-link i {
+            width: 16px;
+            text-align: center;
         }
 
+        /* Navbar toggler */
+        .navbar-custom .navbar-toggler {
+            border: none;
+            padding: 0.5rem;
+            color: white;
+            font-size: 1.25rem;
+            border-radius: var(--radius-sm);
+            transition: background 0.2s;
+        }
+
+        .navbar-custom .navbar-toggler:hover,
+        .navbar-custom .navbar-toggler:focus {
+            background-color: rgba(255, 255, 255, 0.15);
+            box-shadow: none;
+        }
+
+        /* User avatar */
+        .user-avatar {
+            width: 30px;
+            height: 30px;
+            background: rgba(255, 255, 255, 0.25);
+            border: 2px solid rgba(255, 255, 255, 0.4);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 0.75rem;
+            color: white;
+        }
+
+        /* Dropdown */
         .dropdown-menu {
-            border-radius: 12px;
-            padding: 8px;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
-            border: 1px solid rgba(0,0,0,0.05);
+            border-radius: var(--radius-md);
+            padding: 6px;
+            box-shadow: var(--shadow-lg);
+            border: 1px solid var(--border-color);
+            margin-top: 8px !important;
         }
+
         .dropdown-item {
-            border-radius: 8px;
-            padding: 8px 16px;
+            border-radius: var(--radius-sm);
+            padding: 8px 14px;
+            font-size: 0.875rem;
             transition: all 0.2s;
         }
+
         .dropdown-item:hover {
-            background-color: #f3f4f6;
+            background-color: var(--border-light);
             color: var(--primary-color);
         }
 
+        /* ========================================
+           MAIN CONTENT
+           ======================================== */
+        .main-content {
+            flex: 1;
+            padding: 1.75rem 0;
+        }
+
+        /* ========================================
+           CARDS — Enhanced
+           ======================================== */
+        .card {
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-sm);
+            transition: box-shadow 0.3s ease, transform 0.3s ease;
+            overflow: hidden;
+        }
+
+        .card:hover {
+            box-shadow: var(--shadow-md);
+        }
+
+        .card-header {
+            border-bottom: 1px solid var(--border-color);
+            padding: 0.875rem 1.25rem;
+        }
+
+        .card-body {
+            padding: 1.25rem;
+        }
+
+        .card-title {
+            font-weight: 700;
+            letter-spacing: -0.3px;
+        }
+
+        /* ========================================
+           BUTTONS — Refined
+           ======================================== */
+        .btn-primary {
+            background: linear-gradient(135deg, #4f46e5, #6366f1);
+            border: none;
+            border-radius: var(--radius-sm);
+            padding: 0.55rem 1.25rem;
+            font-weight: 600;
+            font-size: 0.875rem;
+            box-shadow: 0 2px 8px rgba(79, 70, 229, 0.2);
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
+            background: linear-gradient(135deg, #4338ca, #4f46e5);
+        }
+
+        .btn-primary:active {
+            transform: translateY(0);
+        }
+
+        /* Action buttons */
+        .btn-action {
+            width: 38px;
+            height: 38px;
+            border-radius: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0;
+            border: 1px solid var(--border-color);
+            background: white;
+            color: var(--text-muted);
+            transition: all 0.25s;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .btn-action:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-md);
+        }
+
+        .btn-action.btn-action-primary {
+            background: linear-gradient(135deg, #4f46e5, #6366f1);
+            border: none;
+            color: white;
+        }
+
+        /* ========================================
+           TABLES — Responsive
+           ======================================== */
+        .table {
+            font-size: 0.875rem;
+        }
+
+        .table th {
+            font-weight: 600;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            color: var(--text-muted);
+            border-bottom-width: 1px;
+        }
+
+        .table td {
+            vertical-align: middle;
+            padding: 0.75rem;
+        }
+
+        /* ========================================
+           BADGES — Modern
+           ======================================== */
+        .badge {
+            font-weight: 600;
+            font-size: 0.7rem;
+            padding: 0.35em 0.65em;
+            border-radius: 6px;
+            letter-spacing: 0.02em;
+        }
+
+        /* ========================================
+           FORM CONTROLS
+           ======================================== */
+        .form-control, .form-select {
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--border-color);
+            font-size: 0.875rem;
+            padding: 0.5rem 0.75rem;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+
+        .form-control:focus, .form-select:focus {
+            border-color: var(--primary-light);
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12);
+        }
+
+        .form-label {
+            font-weight: 500;
+            font-size: 0.8rem;
+            margin-bottom: 0.35rem;
+        }
+
+        /* ========================================
+           ALERTS
+           ======================================== */
+        .alert {
+            border-radius: var(--radius-md);
+            font-size: 0.875rem;
+        }
+
+        /* ========================================
+           PAGE HEADINGS
+           ======================================== */
+        .page-heading {
+            font-size: 1.5rem;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+            color: var(--text-color);
+        }
+
+        /* ========================================
+           FOOTER
+           ======================================== */
         footer {
             background-color: transparent;
-            padding: 2rem 0;
+            padding: 1.5rem 0;
             margin-top: auto;
+        }
+
+        footer .text-muted {
+            font-size: 0.75rem;
+        }
+
+        /* ========================================
+           MOBILE BOTTOM NAV (≤768px)
+           ======================================== */
+        .mobile-bottom-nav {
+            display: none;
+        }
+
+        /* ========================================
+           RESPONSIVE — Tablet (≤992px)
+           ======================================== */
+        @media (max-width: 991.98px) {
+            .navbar-custom .navbar-collapse {
+                background: rgba(0, 0, 0, 0.15);
+                border-radius: var(--radius-md);
+                padding: 0.75rem;
+                margin-top: 0.5rem;
+                backdrop-filter: blur(10px);
+                -webkit-backdrop-filter: blur(10px);
+            }
+
+            .navbar-custom .nav-link {
+                padding: 0.6rem 0.875rem !important;
+                font-size: 0.9rem;
+                border-radius: var(--radius-sm);
+            }
+
+            .navbar-custom .nav-link:hover,
+            .navbar-custom .nav-link.active {
+                background-color: rgba(255, 255, 255, 0.12);
+            }
+
+            .main-content {
+                padding: 1.25rem 0;
+            }
+
+            .page-heading {
+                font-size: 1.35rem;
+            }
+        }
+
+        /* ========================================
+           RESPONSIVE — Mobile (≤768px)
+           ======================================== */
+        @media (max-width: 767.98px) {
+            .navbar-custom .container {
+                padding-top: 0.4rem;
+                padding-bottom: 0.4rem;
+            }
+
+            .navbar-custom .navbar-brand {
+                font-size: 1rem;
+            }
+
+            .main-content {
+                padding: 1rem 0;
+                padding-bottom: calc(1rem + 70px); /* Space for bottom nav */
+            }
+
+            .main-content .container {
+                padding-left: 0.75rem;
+                padding-right: 0.75rem;
+            }
+
+            .card {
+                border-radius: var(--radius-md);
+            }
+
+            .card-header {
+                padding: 0.75rem 1rem;
+            }
+
+            .card-body {
+                padding: 1rem;
+            }
+
+            .page-heading {
+                font-size: 1.2rem;
+            }
+
+            /* Mobile cards for tables */
+            .table-mobile-cards thead {
+                display: none;
+            }
+
+            .table-mobile-cards tbody tr {
+                display: block;
+                background: white;
+                border: 1px solid var(--border-color);
+                border-radius: var(--radius-md);
+                margin-bottom: 0.75rem;
+                padding: 1rem;
+                box-shadow: var(--shadow-sm);
+            }
+
+            .table-mobile-cards tbody td {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                padding: 0.35rem 0;
+                border: none;
+                font-size: 0.85rem;
+            }
+
+            .table-mobile-cards tbody td::before {
+                content: attr(data-label);
+                font-weight: 600;
+                color: var(--text-muted);
+                font-size: 0.75rem;
+                text-transform: uppercase;
+                letter-spacing: 0.03em;
+                margin-right: 1rem;
+                flex-shrink: 0;
+            }
+
+            .table-mobile-cards tbody td:first-child {
+                padding-bottom: 0.5rem;
+                margin-bottom: 0.35rem;
+                border-bottom: 1px solid var(--border-light);
+            }
+
+            .table-mobile-cards tfoot {
+                display: block;
+            }
+
+            .table-mobile-cards tfoot tr {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                padding: 0.75rem 1rem;
+                background: var(--border-light);
+                border-radius: var(--radius-md);
+            }
+
+            .table-mobile-cards tfoot td {
+                border: none;
+                padding: 0;
+            }
+
+            /* Filter card on mobile */
+            .filter-card .row {
+                gap: 0;
+            }
+
+            .filter-card .col-md-2,
+            .filter-card .col-md-3 {
+                margin-bottom: 0.5rem;
+            }
+
+            /* Stat cards on mobile */
+            .stat-card .display-6 {
+                font-size: 1.75rem;
+            }
+
+            /* Mobile Bottom Navigation */
+            .mobile-bottom-nav {
+                display: flex;
+                position: fixed;
+                bottom: 0;
+                left: 0;
+                right: 0;
+                background: white;
+                border-top: 1px solid var(--border-color);
+                box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.06);
+                z-index: 1040;
+                padding: 0.25rem 0;
+                padding-bottom: calc(0.25rem + env(safe-area-inset-bottom, 0px));
+                justify-content: space-around;
+                align-items: center;
+            }
+
+            .mobile-bottom-nav a {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                text-decoration: none;
+                color: var(--text-muted);
+                font-size: 0.65rem;
+                font-weight: 500;
+                padding: 0.4rem 0.5rem;
+                border-radius: var(--radius-sm);
+                transition: all 0.2s;
+                min-width: 52px;
+                gap: 2px;
+            }
+
+            .mobile-bottom-nav a i {
+                font-size: 1.15rem;
+                margin-bottom: 1px;
+            }
+
+            .mobile-bottom-nav a.active {
+                color: var(--primary-color);
+                font-weight: 600;
+            }
+
+            .mobile-bottom-nav a:active {
+                background: rgba(79, 70, 229, 0.06);
+                transform: scale(0.95);
+            }
+
+            /* Hide desktop nav items on mobile - show only essential */
+            .desktop-only-nav {
+                display: none !important;
+            }
+
+            footer {
+                display: none;
+            }
+
+            /* Floating add button */
+            .fab-add {
+                position: fixed;
+                bottom: calc(75px + env(safe-area-inset-bottom, 0px));
+                right: 1rem;
+                width: 52px;
+                height: 52px;
+                border-radius: 50%;
+                background: linear-gradient(135deg, #4f46e5, #7c3aed);
+                color: white;
+                border: none;
+                box-shadow: 0 4px 20px rgba(79, 70, 229, 0.35);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 1.25rem;
+                z-index: 1035;
+                transition: all 0.3s;
+                text-decoration: none;
+            }
+
+            .fab-add:hover, .fab-add:active {
+                background: linear-gradient(135deg, #4338ca, #6d28d9);
+                transform: scale(1.05);
+                color: white;
+            }
+
+            /* Button responsive */
+            .btn {
+                font-size: 0.8rem;
+            }
+        }
+
+        /* ========================================
+           RESPONSIVE — Small Mobile (≤480px)
+           ======================================== */
+        @media (max-width: 480px) {
+            .main-content .container {
+                padding-left: 0.5rem;
+                padding-right: 0.5rem;
+            }
+
+            .page-heading {
+                font-size: 1.1rem;
+            }
+
+            .card-body {
+                padding: 0.875rem;
+            }
+
+            .stat-card .display-6 {
+                font-size: 1.5rem;
+            }
+
+            .stat-card .card-title {
+                font-size: 0.7rem;
+            }
+
+            .mobile-bottom-nav a {
+                font-size: 0.6rem;
+                min-width: 44px;
+                padding: 0.35rem 0.25rem;
+            }
+        }
+
+        /* ========================================
+           ACCESSIBILITY
+           ======================================== */
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation-duration: 0.01ms !important;
+                transition-duration: 0.01ms !important;
+            }
+        }
+
+        /* Touch device improvements */
+        @media (hover: none) {
+            .card:hover {
+                box-shadow: var(--shadow-sm);
+                transform: none;
+            }
+
+            .btn:hover {
+                transform: none;
+            }
+
+            .btn:active {
+                transform: scale(0.97);
+            }
         }
     </style>
 
@@ -122,45 +652,46 @@
     <nav class="navbar navbar-expand-lg navbar-custom sticky-top">
         <div class="container">
             <a class="navbar-brand" href="{% url 'pms:project_list' %}">
-                <i class="fas fa-project-diagram me-2"></i>ระบบบริหารโครงการ
+                <i class="fas fa-project-diagram"></i>
+                <span>ระบบบริหารโครงการ</span>
             </a>
-            <button class="navbar-toggler border-0 text-white" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
                 <i class="fas fa-bars"></i>
             </button>
             <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav me-auto" style="font-size: 0.88rem;">
+                <ul class="navbar-nav me-auto" style="font-size: 0.85rem;">
                     <li class="nav-item">
-                        <a class="nav-link py-1 px-2 {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}" href="{% url 'pms:dashboard' %}">
+                        <a class="nav-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}" href="{% url 'pms:dashboard' %}">
                             <i class="fas fa-th-large me-1"></i>ภาพรวม
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link py-1 px-2 {% if request.resolver_match.url_name == 'project_list' %}active{% endif %}" href="{% url 'pms:project_list' %}">
+                        <a class="nav-link {% if request.resolver_match.url_name == 'project_list' %}active{% endif %}" href="{% url 'pms:project_list' %}">
                             <i class="fas fa-list me-1"></i>งาน
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link py-1 px-2 {% if request.resolver_match.url_name == 'requirement_list' %}active{% endif %}" href="{% url 'pms:requirement_list' %}">
+                        <a class="nav-link {% if request.resolver_match.url_name == 'requirement_list' %}active{% endif %}" href="{% url 'pms:requirement_list' %}">
                             <i class="fas fa-microphone-alt me-1"></i>Leads
                         </a>
                     </li>
-                    <li class="nav-item">
-                        <a class="nav-link py-1 px-2 {% if request.resolver_match.url_name == 'dispatch' %}active{% endif %}" href="{% url 'pms:dispatch' %}">
+                    <li class="nav-item desktop-only-nav">
+                        <a class="nav-link {% if request.resolver_match.url_name == 'dispatch' %}active{% endif %}" href="{% url 'pms:dispatch' %}">
                             <i class="fas fa-random me-1"></i>Dispatch
                         </a>
                     </li>
-                    <li class="nav-item">
-                        <a class="nav-link py-1 px-2 {% if request.resolver_match.url_name == 'queue_management' %}active{% endif %}" href="{% url 'pms:queue_management' %}">
+                    <li class="nav-item desktop-only-nav">
+                        <a class="nav-link {% if request.resolver_match.url_name == 'queue_management' %}active{% endif %}" href="{% url 'pms:queue_management' %}">
                             <i class="fas fa-stream me-1"></i>คิวงาน
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link py-1 px-2 {% if request.resolver_match.url_name == 'service_queue_dashboard' or request.resolver_match.url_name == 'team_messages' or request.resolver_match.url_name == 'team_list' or request.resolver_match.url_name == 'team_create' or request.resolver_match.url_name == 'team_update' %}active{% endif %}" href="{% url 'pms:service_queue_dashboard' %}">
+                        <a class="nav-link {% if request.resolver_match.url_name == 'service_queue_dashboard' or request.resolver_match.url_name == 'team_messages' or request.resolver_match.url_name == 'team_list' or request.resolver_match.url_name == 'team_create' or request.resolver_match.url_name == 'team_update' %}active{% endif %}" href="{% url 'pms:service_queue_dashboard' %}">
                             <i class="fas fa-robot me-1"></i>AI Queue
                         </a>
                     </li>
                     <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle py-1 px-2" href="#" id="pmsDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                        <a class="nav-link dropdown-toggle" href="#" id="pmsDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                             <i class="fas fa-database me-1"></i>ข้อมูล
                         </a>
                         <ul class="dropdown-menu border-0 shadow-lg" aria-labelledby="pmsDropdown">
@@ -171,25 +702,25 @@
                     </li>
                 </ul>
                 <ul class="navbar-nav ms-auto align-items-center">
-                    <li class="nav-item me-3">
-                         <a href="/" class="nav-link text-white-50" style="font-size: 0.9rem;">
-                            <i class="fas fa-home me-1"></i> หน้าหลัก
+                    <li class="nav-item me-2">
+                         <a href="/" class="nav-link text-white-50" style="font-size: 0.85rem;">
+                            <i class="fas fa-home me-1"></i><span class="d-none d-lg-inline">หน้าหลัก</span>
                         </a>
                     </li>
                     {% if user.is_authenticated %}
                     <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle d-flex align-items-center" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                            <div class="bg-white text-primary rounded-circle d-flex align-items-center justify-content-center me-2" style="width: 32px; height: 32px; font-weight: bold;">
+                        <a class="nav-link dropdown-toggle d-flex align-items-center gap-2" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <div class="user-avatar">
                                 {{ user.username.0|upper }}
                             </div>
-                            {{ user.username }}
+                            <span class="d-none d-md-inline">{{ user.username }}</span>
                         </a>
-                        <ul class="dropdown-menu dropdown-menu-end border-0 shadow-lg" aria-labelledby="navbarDropdown">
+                        <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="navbarDropdown">
                             <li>
                                 <form method="post" action="{% url 'logout' %}">
                                     {% csrf_token %}
                                     <button type="submit" class="dropdown-item text-danger">
-                                        <i class="fas fa-sign-out-alt me-2"></i> ออกจากระบบ
+                                        <i class="fas fa-sign-out-alt me-2"></i>ออกจากระบบ
                                     </button>
                                 </form>
                             </li>
@@ -221,12 +752,36 @@
         </div>
     </div>
 
-    <!-- Footer -->
+    <!-- Footer (Desktop) -->
     <footer>
         <div class="container text-center text-muted small">
-            &copy; {% now "Y" %} Project Management System. All rights reserved.
+            &copy; {% now "Y" %} <a href="https://9com.cloud" class="text-decoration-none text-muted fw-semibold">9Com</a> — ระบบบริหารโครงการ
         </div>
     </footer>
+
+    <!-- Mobile Bottom Navigation -->
+    <nav class="mobile-bottom-nav" id="mobileBottomNav">
+        <a href="{% url 'pms:dashboard' %}" class="{% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
+            <i class="fas fa-th-large"></i>
+            <span>ภาพรวม</span>
+        </a>
+        <a href="{% url 'pms:project_list' %}" class="{% if request.resolver_match.url_name == 'project_list' %}active{% endif %}">
+            <i class="fas fa-list"></i>
+            <span>งาน</span>
+        </a>
+        <a href="{% url 'pms:dispatch' %}" class="{% if request.resolver_match.url_name == 'dispatch' %}active{% endif %}">
+            <i class="fas fa-plus-circle"></i>
+            <span>สร้างงาน</span>
+        </a>
+        <a href="{% url 'pms:queue_management' %}" class="{% if request.resolver_match.url_name == 'queue_management' %}active{% endif %}">
+            <i class="fas fa-stream"></i>
+            <span>คิวงาน</span>
+        </a>
+        <a href="/" class="">
+            <i class="fas fa-home"></i>
+            <span>หน้าหลัก</span>
+        </a>
+    </nav>
 
     <!-- Bootstrap 5 JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
@@ -236,6 +791,16 @@
         var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
             return new bootstrap.Tooltip(tooltipTriggerEl)
         })
+
+        // Auto-close mobile navbar on link click
+        document.querySelectorAll('#navbarNav .nav-link:not(.dropdown-toggle)').forEach(function(link) {
+            link.addEventListener('click', function() {
+                var collapse = document.getElementById('navbarNav');
+                if (collapse.classList.contains('show')) {
+                    new bootstrap.Collapse(collapse).hide();
+                }
+            });
+        });
     </script>
     {% block scripts %}{% endblock %}
 </body>
