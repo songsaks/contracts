@@ -1,17 +1,18 @@
 from django.shortcuts import render, redirect, get_object_or_404
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
 from django.urls import reverse
 from django.db import transaction
 from django.contrib.auth.decorators import login_required
 from .models import RepairJob, RepairItem, Customer, Device, Technician, DeviceType, Brand, RepairStatusHistory, OutsourceLog
 from .forms import CustomerForm, DeviceForm, RepairJobForm, RepairItemForm, TechnicianForm, DeviceTypeForm, BrandForm, OutsourceLogForm
 
-from .forms import CustomerForm, DeviceForm, RepairJobForm, RepairItemForm, TechnicianForm, DeviceTypeForm, BrandForm
 import csv
 import datetime
-from django.http import HttpResponse
-
-from django.db.models import Q
+import json
+from collections import defaultdict
+from decimal import Decimal
+from django.db.models import Q, Sum, Count
+from django.utils import timezone
 
 @login_required
 def repair_list(request):
@@ -463,6 +464,9 @@ def brand_delete(request, pk):
 
 @login_required
 def repair_income_report(request):
+    from django.contrib.auth.models import User
+    from django.db.models import Sum, Count, Prefetch
+
     today = datetime.date.today()
     start_date_str = request.GET.get('start_date')
     end_date_str = request.GET.get('end_date')
@@ -480,9 +484,61 @@ def repair_income_report(request):
     items = RepairItem.objects.filter(
         updated_at__date__range=[start_date, end_date],
         status='COMPLETED'
-    ).select_related('job', 'device', 'job__customer').order_by('-updated_at')
+    ).select_related(
+        'job', 'device', 'device__brand', 'job__customer', 'created_by'
+    ).prefetch_related(
+        Prefetch(
+            'status_history',
+            queryset=RepairStatusHistory.objects.filter(
+                status='COMPLETED'
+            ).select_related('changed_by').order_by('-changed_at'),
+            to_attr='completed_history'
+        )
+    ).order_by('-updated_at')
+
+    # Filter by user (created_by)
+    filter_user_id = request.GET.get('user')
+    if filter_user_id:
+        items = items.filter(
+            Q(created_by__id=filter_user_id) |
+            Q(status_history__status='COMPLETED', status_history__changed_by__id=filter_user_id)
+        ).distinct()
+
+    # Build items list with completed_by info
+    items_list = list(items)
+    for item in items_list:
+        # Find the user who marked it COMPLETED
+        if hasattr(item, 'completed_history') and item.completed_history:
+            item.completed_by_user = item.completed_history[0].changed_by
+        else:
+            item.completed_by_user = item.created_by
+
+    total_income = sum(item.final_cost or 0 for item in items_list)
+    total_count = len(items_list)
+
+    # Per-user income summary
+    user_income = {}
+    for item in items_list:
+        user = item.completed_by_user or item.created_by
+        username = user.username if user else 'ไม่ระบุ'
+        user_id = user.id if user else 0
+        if user_id not in user_income:
+            user_income[user_id] = {
+                'username': username,
+                'user_id': user_id,
+                'total': 0,
+                'count': 0,
+            }
+        user_income[user_id]['total'] += (item.final_cost or 0)
+        user_income[user_id]['count'] += 1
     
-    total_income = sum(item.final_cost or 0 for item in items)
+    user_income_list = sorted(user_income.values(), key=lambda x: x['total'], reverse=True)
+
+    # Get all users that have repair data for the dropdown
+    users = User.objects.filter(
+        Q(created_repair_items__status='COMPLETED') |
+        Q(repairstatushistory__status='COMPLETED')
+    ).distinct().order_by('username')
     
     if request.GET.get('export') == 'excel':
         response = HttpResponse(content_type='text/csv')
@@ -490,23 +546,60 @@ def repair_income_report(request):
         response.write(u'\ufeff'.encode('utf8')) # BOM
         
         writer = csv.writer(response)
-        writer.writerow(['วันที่', 'รหัสงาน', 'ลูกค้า', 'รายการ', 'ค่าใช้จ่ายจริง'])
-        for item in items:
+        writer.writerow(['วันที่', 'รหัสงาน', 'ลูกค้า', 'รายการ', 'ผู้รับงาน', 'ผู้ส่งคืน', 'ค่าใช้จ่ายจริง'])
+        for item in items_list:
+             completed_by = item.completed_by_user.username if item.completed_by_user else '-'
+             created_by = item.created_by.username if item.created_by else '-'
              writer.writerow([
                  item.updated_at.strftime('%d/%m/%Y'),
                  item.job.job_code,
                  item.job.customer.name,
                  f"{item.device.brand} {item.device.model} - {item.issue_description}",
+                 created_by,
+                 completed_by,
                  item.final_cost or 0
              ])
         return response
 
     return render(request, 'repairs/reports/income_report.html', {
-        'items': items,
+        'items': items_list,
         'total_income': total_income,
+        'total_count': total_count,
         'start_date': start_date.strftime('%Y-%m-%d'),
-        'end_date': end_date.strftime('%Y-%m-%d')
+        'end_date': end_date.strftime('%Y-%m-%d'),
+        'users': users,
+        'filter_user_id': filter_user_id,
+        'user_income_list': user_income_list,
+        'daily_income_json': _build_daily_income_json(items_list, start_date, end_date),
     })
+
+
+def _build_daily_income_json(items_list, start_date, end_date):
+    """Build JSON data for daily income chart."""
+    daily = defaultdict(lambda: {'income': Decimal('0'), 'count': 0})
+    for item in items_list:
+        day_key = item.updated_at.strftime('%Y-%m-%d')
+        daily[day_key]['income'] += (item.final_cost or Decimal('0'))
+        daily[day_key]['count'] += 1
+
+    # Fill in all days in the range
+    labels = []
+    incomes = []
+    counts = []
+    current = start_date
+    while current <= end_date:
+        key = current.strftime('%Y-%m-%d')
+        label = current.strftime('%d/%m')
+        labels.append(label)
+        incomes.append(float(daily[key]['income']))
+        counts.append(daily[key]['count'])
+        current += datetime.timedelta(days=1)
+
+    return json.dumps({
+        'labels': labels,
+        'incomes': incomes,
+        'counts': counts,
+    }, ensure_ascii=False)
 
 def repair_tracking(request, tracking_id):
     job = get_object_or_404(RepairJob, tracking_id=tracking_id)
@@ -572,3 +665,81 @@ def repair_status_search(request):
             return render(request, 'repairs/repair_status_search.html', {'error': 'ไม่พบข้อมูลใบรับบริการนี้'})
             
     return render(request, 'repairs/repair_status_search.html')
+
+
+# --- Notification API ---
+
+@login_required
+def repair_notifications_api(request):
+    """AJAX endpoint: return recent new repair items for notification bell."""
+    # Get last seen timestamp from session
+    last_seen_str = request.session.get('notif_last_seen')
+    if last_seen_str:
+        try:
+            last_seen = datetime.datetime.fromisoformat(last_seen_str)
+        except (ValueError, TypeError):
+            last_seen = timezone.now() - datetime.timedelta(hours=24)
+    else:
+        last_seen = timezone.now() - datetime.timedelta(hours=24)
+
+    # Get new items since last seen
+    new_items = RepairItem.objects.filter(
+        created_at__gt=last_seen
+    ).select_related(
+        'job', 'device', 'device__brand', 'job__customer', 'created_by'
+    ).order_by('-created_at')[:20]
+
+    # Build response
+    notifications = []
+    for item in new_items:
+        notifications.append({
+            'id': item.id,
+            'job_code': item.job.job_code,
+            'job_pk': item.job.pk,
+            'customer': item.job.customer.name,
+            'device': f"{item.device.brand} {item.device.model}",
+            'issue': item.issue_description[:60],
+            'created_by': item.created_by.username if item.created_by else '-',
+            'created_at': item.created_at.strftime('%H:%M'),
+            'created_date': item.created_at.strftime('%d/%m/%Y'),
+        })
+
+    # Also count status changes (items that changed status recently)
+    status_changes = RepairStatusHistory.objects.filter(
+        changed_at__gt=last_seen
+    ).exclude(
+        status='RECEIVED'  # skip initial status
+    ).select_related(
+        'repair_item', 'repair_item__job', 'repair_item__device',
+        'repair_item__device__brand', 'changed_by'
+    ).order_by('-changed_at')[:10]
+
+    status_notifs = []
+    for sh in status_changes:
+        status_notifs.append({
+            'id': sh.id,
+            'job_code': sh.repair_item.job.job_code,
+            'job_pk': sh.repair_item.job.pk,
+            'device': f"{sh.repair_item.device.brand} {sh.repair_item.device.model}",
+            'status': sh.get_status_display(),
+            'status_code': sh.status,
+            'changed_by': sh.changed_by.username if sh.changed_by else '-',
+            'changed_at': sh.changed_at.strftime('%H:%M'),
+        })
+
+    return JsonResponse({
+        'new_count': len(notifications),
+        'status_count': len(status_notifs),
+        'total_count': len(notifications) + len(status_notifs),
+        'new_items': notifications,
+        'status_changes': status_notifs,
+    })
+
+
+@login_required
+def repair_notifications_mark_seen(request):
+    """AJAX POST: mark all notifications as seen."""
+    if request.method == 'POST':
+        request.session['notif_last_seen'] = timezone.now().isoformat()
+        return JsonResponse({'ok': True})
+    return JsonResponse({'error': 'POST required'}, status=405)
