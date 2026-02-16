@@ -1,0 +1,10 @@
+<svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Rounded Square Background -->
+  <rect width="64" height="64" rx="16" fill="#1E293B"/>
+  
+  <!-- Stylized Number 9 / C -->
+  <path d="M32 16C23.1634 16 16 23.1634 16 32V34C16 42.8366 23.1634 50 32 50H36C40.4183 50 44 46.4183 44 42V32C44 23.1634 36.8366 16 28 16H32ZM32 24H34C38.4183 24 42 27.5817 42 32V38H32V24ZM24 32C24 27.5817 27.5817 24 32 24H24V32ZM42 42C42 45.3137 39.3137 48 36 48H32C27.5817 48 24 44.4183 24 40V38H42V42Z" fill="#10B981"/>
+  
+  <!-- Professional Accent -->
+  <rect x="44" y="16" width="4" height="12" rx="2" fill="#4F46E5"/>
+</svg>

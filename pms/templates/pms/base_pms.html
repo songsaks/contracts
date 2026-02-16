@@ -1,8 +1,10 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="th">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
+    <link rel="icon" type="image/svg+xml" href="{% static 'favicon.svg' %}">
     <title>{% block title %}ระบบบริหารโครงการ — 9Com{% endblock %}</title>
     <meta name="description" content="9Com Project Management System — ระบบบริหารโครงการครบวงจร">
     <!-- Bootstrap 5 CSS -->
@@ -213,6 +215,17 @@
             font-weight: 700;
             color: white;
         }
+
+        .lead-badge-pulse {
+            animation: lead-pulse 2s infinite;
+            box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
+        }
+
+        @keyframes lead-pulse {
+            0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+            70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(239, 68, 68, 0); }
+            100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+        }
     </style>
 
     {% block extra_css %}{% endblock %}
@@ -242,8 +255,14 @@
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link {% if request.resolver_match.url_name == 'requirement_list' %}active{% endif %}" href="{% url 'pms:requirement_list' %}">
-                            <i class="fas fa-microphone-alt me-1"></i>Leads
+                        <a class="nav-link {% if request.resolver_match.url_name == 'requirement_list' %}active{% endif %} d-flex align-items-center gap-1" href="{% url 'pms:requirement_list' %}">
+                            <i class="fas fa-microphone-alt me-1"></i>
+                            <span>Leads</span>
+                            {% if unconverted_leads_count > 0 %}
+                            <span class="badge rounded-pill bg-danger lead-badge-pulse" style="font-size: 0.65rem; padding: 0.25em 0.6em;">
+                                {{ unconverted_leads_count }}
+                            </span>
+                            {% endif %}
                         </a>
                     </li>
                     <li class="nav-item desktop-only-nav">
