@@ -513,24 +513,72 @@ def dashboard(request):
 
     # 1. Get Filter Params
     now = timezone.now()
+    mode = request.GET.get('mode', 'monthly') # daily, monthly, yearly
+    
     month_param = request.GET.get('month')
     year_param = request.GET.get('year')
+    date_param = request.GET.get('date')
     
-    if month_param and month_param.isdigit():
-        month_filter = int(month_param)
-    else:
-        month_filter = now.month
-        
-    if year_param and year_param.isdigit():
-        year_filter = int(year_param)
-    else:
-        year_filter = now.year
-
-    # Use date range for more reliable filtering across DBs
+    # Parse params with defaults
+    month_filter = int(month_param) if month_param and month_param.isdigit() else now.month
+    year_filter = int(year_param) if year_param and year_param.isdigit() else now.year
+    
+    date_obj = now.date()
+    if date_param:
+        try:
+            date_obj = datetime.strptime(date_param, '%Y-%m-%d').date()
+        except ValueError:
+            pass
+            
     import calendar
-    _, last_day = calendar.monthrange(year_filter, month_filter)
-    start_of_period = timezone.make_aware(datetime(year_filter, month_filter, 1))
-    end_of_period = timezone.make_aware(datetime(year_filter, month_filter, last_day, 23, 59, 59))
+    
+    # Determine Period Range
+    # Determine Period Range
+    if mode == 'daily':
+        # Custom Date Range
+        start_date_param = request.GET.get('start_date')
+        end_date_param = request.GET.get('end_date')
+        
+        if start_date_param and end_date_param:
+            try:
+                s_date = datetime.strptime(start_date_param, '%Y-%m-%d').date()
+                e_date = datetime.strptime(end_date_param, '%Y-%m-%d').date()
+                # Ensure start <= end
+                if s_date > e_date:
+                    s_date, e_date = e_date, s_date
+                
+                start_of_period = timezone.make_aware(datetime.combine(s_date, datetime.min.time()))
+                end_of_period = timezone.make_aware(datetime.combine(e_date, datetime.max.time()))
+                year_filter = s_date.year # Base year for chart context
+                
+                # Context helpers
+                date_filter_start = s_date
+                date_filter_end = e_date
+            except ValueError:
+                # Fallback to single date if parse fails
+                start_of_period = timezone.make_aware(datetime.combine(date_obj, datetime.min.time()))
+                end_of_period = timezone.make_aware(datetime.combine(date_obj, datetime.max.time()))
+                year_filter = date_obj.year
+                date_filter_start = date_obj
+                date_filter_end = date_obj
+        else:
+            # Single Date (Fallback to 'date' param or today)
+            start_of_period = timezone.make_aware(datetime.combine(date_obj, datetime.min.time()))
+            end_of_period = timezone.make_aware(datetime.combine(date_obj, datetime.max.time()))
+            year_filter = date_obj.year
+            date_filter_start = date_obj
+            date_filter_end = date_obj
+        
+    elif mode == 'yearly':
+        # Yearly: Jan 1 to Dec 31 of selected year
+        start_of_period = timezone.make_aware(datetime(year_filter, 1, 1))
+        end_of_period = timezone.make_aware(datetime(year_filter, 12, 31, 23, 59, 59))
+        
+    else: # monthly (default)
+        # Monthly: 1st to Last day of selected month
+        _, last_day = calendar.monthrange(year_filter, month_filter)
+        start_of_period = timezone.make_aware(datetime(year_filter, month_filter, 1))
+        end_of_period = timezone.make_aware(datetime(year_filter, month_filter, last_day, 23, 59, 59))
 
     # Base Filter for current selected month
     projects_in_period = Project.objects.filter(created_at__range=[start_of_period, end_of_period])
@@ -688,6 +736,11 @@ def dashboard(request):
     year_choices = range(now.year - 2, now.year + 2)
 
     context = {
+        'mode': mode,
+        'date_filter': date_obj.strftime('%Y-%m-%d'), 
+        'date_start': date_filter_start.strftime('%Y-%m-%d') if 'date_filter_start' in locals() else date_obj.strftime('%Y-%m-%d'),
+        'date_end': date_filter_end.strftime('%Y-%m-%d') if 'date_filter_end' in locals() else date_obj.strftime('%Y-%m-%d'),
+        
         'total_projects': total_projects,
         'active_projects': active_projects,
         'total_revenue': total_revenue,
