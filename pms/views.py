@@ -1167,6 +1167,30 @@ def requirement_file_delete(request, file_id):
         return redirect('pms:requirement_update', pk=req_pk)
     return redirect('pms:requirement_list')
 
+
+@login_required
+def project_delete(request, pk):
+    """Delete a project if it's CLOSED and password is correct."""
+    from django.conf import settings
+    project = get_object_or_404(Project, pk=pk)
+    
+    if request.method == 'POST':
+        password = request.POST.get('password')
+        if password == settings.DELETE_PASSWORD:
+            if project.status == Project.Status.CLOSED:
+                name = project.name
+                project.delete()
+                messages.success(request, f"🗑️ ลบโครงการ '{name}' เรียบร้อย")
+                return redirect('pms:project_list')
+            else:
+                messages.error(request, "ไม่สามารถลบโครงการที่ยังไม่ปิดงานได้")
+                return redirect('pms:project_detail', pk=pk)
+        else:
+            messages.error(request, "รหัสผ่านไม่ถูกต้อง")
+            return redirect('pms:project_detail', pk=pk)
+    
+    return redirect('pms:project_detail', pk=pk)
+
 @login_required
 def ai_dashboard_analysis(request):
     from .ai_utils import get_gemini_analysis

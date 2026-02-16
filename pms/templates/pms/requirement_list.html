@@ -108,26 +108,55 @@
                         </div>
                     </div>
                     
-                    <div class="d-flex align-items-center justify-content-between border-top pt-3">
-                        <div>
-                            {% if req.is_converted %}
-                                <span class="badge bg-success bg-opacity-10 text-success border-0" style="padding: 0.5rem 0.75rem;">สร้างโครงการแล้ว</span>
-                            {% else %}
-                                <span class="badge bg-warning bg-opacity-10 text-warning border-0" style="padding: 0.5rem 0.75rem;">รอรวบรวม</span>
-                            {% endif %}
+                    <div class="border-top pt-3">
+                        <div class="d-flex align-items-center justify-content-between {% if not req.is_converted %}mb-3{% endif %}">
+                            <div class="d-flex flex-column">
+                                {% if req.is_converted %}
+                                    <span class="badge bg-success bg-opacity-10 text-success border-0 rounded-pill px-3 py-2 mb-1" style="width: fit-content;">
+                                        <i class="fas fa-check-circle me-1"></i>สรุปงานแล้ว
+                                    </span>
+                                    {% if req.project %}
+                                        <a href="{% url 'pms:project_detail' req.project.pk %}" class="small text-decoration-none fw-bold text-pms-project" style="font-size: 0.8rem;">
+                                            <i class="fas fa-external-link-alt me-1"></i>{{ req.project.name|truncatechars:20 }}
+                                        </a>
+                                    {% endif %}
+                                {% else %}
+                                    <span class="badge bg-warning bg-opacity-10 text-warning border-0 rounded-pill px-3 py-2">
+                                        <i class="fas fa-clock me-1"></i>รอดำเนินการ
+                                    </span>
+                                {% endif %}
+                            </div>
+                            <div class="d-flex gap-2">
+                                <a href="{% url 'pms:requirement_update' req.pk %}" class="btn btn-light btn-sm rounded-circle border shadow-sm" style="width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;" title="แก้ไข">
+                                    <i class="fas fa-edit text-primary"></i>
+                                </a>
+                                <a href="{% url 'pms:requirement_delete' req.pk %}" class="btn btn-light btn-sm rounded-circle border shadow-sm" onclick="return confirm('ยืนยันที่จะลบรายการนี้?');" style="width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;" title="ลบ">
+                                    <i class="fas fa-trash text-danger"></i>
+                                </a>
+                            </div>
                         </div>
-                        <div class="d-flex gap-2">
-                            {% if not req.is_converted %}
-                            <a href="{% url 'pms:requirement_update' req.pk %}" class="btn btn-light btn-sm rounded-circle" style="width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;">
-                                <i class="fas fa-edit text-muted"></i>
-                            </a>
-                            <a href="{% url 'pms:create_project_from_requirement' req.pk %}?type=PROJECT" class="btn btn-primary btn-sm rounded-pill px-3">
-                                แปลงเป็นงาน
-                            </a>
-                            {% else %}
-                            <a href="{% url 'pms:requirement_update' req.pk %}" class="btn btn-light btn-sm rounded-pill px-3">ดูรายละเอียด</a>
-                            {% endif %}
+                        
+                        {% if not req.is_converted %}
+                        <div class="d-grid gap-2 mt-2">
+                            <div class="row g-2">
+                                <div class="col-4">
+                                    <a href="{% url 'pms:create_project_from_requirement' req.pk %}?type=PROJECT" class="btn btn-outline-primary btn-sm w-100 rounded-pill py-2" style="font-size: 0.75rem;">
+                                        <i class="fas fa-project-diagram d-block mb-1"></i>โครงการ
+                                    </a>
+                                </div>
+                                <div class="col-4">
+                                    <a href="{% url 'pms:create_project_from_requirement' req.pk %}?type=SERVICE" class="btn btn-outline-success btn-sm w-100 rounded-pill py-2" style="font-size: 0.75rem;">
+                                        <i class="fas fa-shopping-cart d-block mb-1"></i>งานขาย
+                                    </a>
+                                </div>
+                                <div class="col-4">
+                                    <a href="{% url 'pms:create_project_from_requirement' req.pk %}?type=REPAIR" class="btn btn-outline-warning btn-sm w-100 rounded-pill py-2 text-dark" style="font-size: 0.75rem;">
+                                        <i class="fas fa-tools d-block mb-1"></i>งานซ่อม
+                                    </a>
+                                </div>
+                            </div>
                         </div>
+                        {% endif %}
                     </div>
                 </div>
             </div>

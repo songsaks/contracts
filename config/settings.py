@@ -74,6 +74,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'pms.context_processors.pms_context',
             ],
         },
     },
@@ -172,4 +173,5 @@ LOGIN_REDIRECT_URL = '/repairs/'
 LOGOUT_REDIRECT_URL = '/'
 
 GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
+DELETE_PASSWORD = os.getenv('DELETE_PASSWORD', '9com')
 

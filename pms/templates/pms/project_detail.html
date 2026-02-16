@@ -172,6 +172,13 @@
                 <button onclick="unlockClosedProject()" class="btn-action" style="background: #1f2937; border-color: #1f2937;" title="ปลดล็อก">
                     <i class="fas fa-unlock text-white"></i>
                 </button>
+                <button onclick="deleteClosedProject()" class="btn-action" style="background: #ef4444; border-color: #ef4444;" title="ลบงานที่ปิดจบแล้ว">
+                    <i class="fas fa-trash text-white"></i>
+                </button>
+                <form id="deleteProjectForm" method="post" action="{% url 'pms:project_delete' project.pk %}" style="display:none;">
+                    {% csrf_token %}
+                    <input type="hidden" name="password" id="deletePasswordInput">
+                </form>
                 {% else %}
                 <a href="{% url 'pms:project_update' project.pk %}" class="btn-action btn-action-primary" title="แก้ไข">
                     <i class="fas fa-pen"></i>
@@ -464,6 +471,18 @@ function unlockClosedProject() {
         window.location.href = "{% url 'pms:project_update' project.pk %}?unlock=9com";
     } else if (code !== null) {
         alert("❌ รหัสไม่ถูกต้อง!");
+    }
+}
+
+function deleteClosedProject() {
+    const code = prompt("🗑️ ยืนยันการลบโครงการ? กรุณาใส่รหัสผ่านเพื่อดำเนินการ:");
+    if (code !== null) {
+        if (code.trim() === "") {
+             alert("❌ กรุณาใส่รหัสผ่าน");
+             return;
+        }
+        document.getElementById('deletePasswordInput').value = code;
+        document.getElementById('deleteProjectForm').submit();
     }
 }
 
