@@ -1328,9 +1328,20 @@ def request_update(request, pk):
 @login_required
 def request_delete(request, pk):
     req = get_object_or_404(CustomerRequest, pk=pk)
+    
     if request.method == 'POST':
+        # Check if status allows deletion
+        if req.status not in [CustomerRequest.Status.COMPLETED, CustomerRequest.Status.CANCELLED]:
+            messages.error(request, 'สามารถลบได้เฉพาะคำขอที่เสร็จสิ้นหรือยกเลิกแล้วเท่านั้น')
+            return redirect('pms:request_detail', pk=pk)
+
+        # Delete all attached files physically first
+        for pf in req.files.all():
+            pf.file.delete(save=False) # Delete physical file
+            pf.delete() # Delete record
+
         req.delete()
-        messages.success(request, 'ลบคำขอเรียบร้อย')
+        messages.success(request, 'ลบคำขอและไฟล์แนบออกจากระบบเรียบร้อย')
         return redirect('pms:request_list')
     return redirect('pms:request_detail', pk=pk)
 
