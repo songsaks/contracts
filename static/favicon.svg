@@ -1,10 +1,29 @@
-<svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <!-- Rounded Square Background -->
-  <rect width="64" height="64" rx="16" fill="#1E293B"/>
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bgGradient" x1="0" y1="0" x2="512" y2="512" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#1e293b" />
+      <stop offset="100%" stop-color="#0f172a" />
+    </linearGradient>
+    <linearGradient id="numberGradient" x1="128" y1="128" x2="384" y2="384" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#34d399" />
+      <stop offset="100%" stop-color="#10b981" />
+    </linearGradient>
+    <filter id="shadow" x="-50%" y="-50%" width="200%" height="200%">
+      <feDropShadow dx="0" dy="8" stdDeviation="8" flood-opacity="0.3" />
+    </filter>
+  </defs>
   
-  <!-- Stylized Number 9 / C -->
-  <path d="M32 16C23.1634 16 16 23.1634 16 32V34C16 42.8366 23.1634 50 32 50H36C40.4183 50 44 46.4183 44 42V32C44 23.1634 36.8366 16 28 16H32ZM32 24H34C38.4183 24 42 27.5817 42 32V38H32V24ZM24 32C24 27.5817 27.5817 24 32 24H24V32ZM42 42C42 45.3137 39.3137 48 36 48H32C27.5817 48 24 44.4183 24 40V38H42V42Z" fill="#10B981"/>
+  <!-- Background -->
+  <rect width="512" height="512" rx="128" fill="url(#bgGradient)" />
   
-  <!-- Professional Accent -->
-  <rect x="44" y="16" width="4" height="12" rx="2" fill="#4F46E5"/>
+  <!-- Number 9 / Abstract Mark -->
+  <g filter="url(#shadow)">
+    <!-- Main Loop -->
+    <circle cx="256" cy="200" r="100" stroke="url(#numberGradient)" stroke-width="80" fill="none" />
+    <!-- Vertical Stem -->
+    <path d="M356 200V340C356 395 311 440 256 440" stroke="url(#numberGradient)" stroke-width="80" stroke-linecap="round" fill="none" />
+  </g>
+  
+  <!-- Accent Dot (AI/System Node) -->
+  <circle cx="390" cy="120" r="24" fill="#6366f1" />
 </svg>
