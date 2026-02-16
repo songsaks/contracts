@@ -505,89 +505,140 @@ def project_quotation(request, pk):
 @login_required
 def dashboard(request):
     from django.db import models
-    from django.db.models import Sum, Count, F
+    from django.db.models import Sum, Count, F, Q, Case, When, Value
     from django.db.models.functions import TruncMonth
     import json
     from datetime import datetime, timedelta
+    from django.utils import timezone
+
+    # 1. Get Filter Params
+    now = timezone.now()
+    month_param = request.GET.get('month')
+    year_param = request.GET.get('year')
     
-    # 1. Top Level Metrics (Global)
-    all_projects = Project.objects.all()
-    total_projects = all_projects.count()
-    active_projects = all_projects.exclude(status__in=[Project.Status.CLOSED, Project.Status.CANCELLED]).count()
+    if month_param and month_param.isdigit():
+        month_filter = int(month_param)
+    else:
+        month_filter = now.month
+        
+    if year_param and year_param.isdigit():
+        year_filter = int(year_param)
+    else:
+        year_filter = now.year
+
+    # Use date range for more reliable filtering across DBs
+    import calendar
+    _, last_day = calendar.monthrange(year_filter, month_filter)
+    start_of_period = timezone.make_aware(datetime(year_filter, month_filter, 1))
+    end_of_period = timezone.make_aware(datetime(year_filter, month_filter, last_day, 23, 59, 59))
+
+    # Base Filter for current selected month
+    projects_in_period = Project.objects.filter(created_at__range=[start_of_period, end_of_period])
     
-    total_revenue = all_projects.aggregate(total=Sum(F('items__quantity') * F('items__unit_price')))['total'] or 0
+    total_projects = projects_in_period.count()
+    active_projects = projects_in_period.exclude(status__in=[Project.Status.CLOSED, Project.Status.CANCELLED]).count()
     
-    # 2. Sales by Month (Last 12 Months)
-    twelve_months_ago = timezone.now() - timedelta(days=365)
-    monthly_sales = Project.objects.filter(created_at__gte=twelve_months_ago)\
+    total_revenue = projects_in_period.aggregate(
+        total=Sum(F('items__quantity') * F('items__unit_price'))
+    )['total'] or 0
+    
+    # 2. Sales by Month (Full Year: Jan to Dec of selected year)
+    start_of_year = timezone.make_aware(datetime(year_filter, 1, 1))
+    end_of_year = timezone.make_aware(datetime(year_filter, 12, 31, 23, 59, 59))
+    
+    monthly_sales_qs = Project.objects.filter(created_at__range=[start_of_year, end_of_year])\
         .annotate(month=TruncMonth('created_at'))\
         .values('month', 'job_type')\
         .annotate(revenue=Sum(F('items__quantity') * F('items__unit_price')))\
         .order_by('month')
 
-    # Prepare data for Line Chart
-    months_labels = []
-    project_series = []
-    service_series = []
-    repair_series = []
+    # Prepare data for Line Chart (Full 12 Months)
+    months_labels = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.']
+    project_series = [0] * 12
+    service_series = [0] * 12
+    repair_series = [0] * 12
     
-    # helper for grouping
-    month_data = {} # { '2023-01': {'PROJECT': 0, 'SERVICE': 0, 'REPAIR': 0} }
-    
-    for entry in monthly_sales:
-        m_str = entry['month'].strftime('%b %Y')
-        if m_str not in month_data:
-            month_data[m_str] = {'PROJECT': 0, 'SERVICE': 0, 'REPAIR': 0}
-        month_data[m_str][entry['job_type']] = float(entry['revenue'] or 0)
+    for entry in monthly_sales_qs:
+        m_index = entry['month'].month - 1 # 0 to 11
+        jt = entry['job_type']
+        rev = float(entry['revenue'] or 0)
+        
+        if jt == 'PROJECT':
+            project_series[m_index] += rev
+        elif jt == 'SERVICE':
+            service_series[m_index] += rev
+        elif jt == 'REPAIR':
+            repair_series[m_index] += rev
 
-    months_labels = list(month_data.keys())
-    for m in months_labels:
-        project_series.append(month_data[m]['PROJECT'])
-        service_series.append(month_data[m]['SERVICE'])
-        repair_series.append(month_data[m]['REPAIR'])
-
-    # 3. Sales by Person (Project Owner)
+    # 3. Sales by Person (Project Owner) - Filtered by period
     sales_by_owner = ProjectOwner.objects.annotate(
-        total_sales=Sum(F('projects__items__quantity') * F('projects__items__unit_price')),
-        job_count=Count('projects')
+        total_sales=Sum(
+            Case(
+                When(projects__created_at__range=[start_of_period, end_of_period], 
+                     then=F('projects__items__quantity') * F('projects__items__unit_price')),
+                default=0,
+                output_field=models.DecimalField()
+            )
+        ),
+        job_count=Count(
+            Case(
+                When(projects__created_at__range=[start_of_period, end_of_period], then=1),
+                default=None
+            )
+        )
     ).order_by('-total_sales')
 
     owner_names = [o.name for o in sales_by_owner if o.total_sales]
     owner_sales = [float(o.total_sales or 0) for o in sales_by_owner if o.total_sales]
 
-    # 4. Job Type Distribution (Pie Chart)
-    type_dist = Project.objects.values('job_type').annotate(
-        count=Count('id'),
+    # 4. Job Type Distribution (Pie Chart) - Filtered by period
+    type_map = {
+        'PROJECT': {'label': 'โครงการ', 'value': 0},
+        'SERVICE': {'label': 'งานบริการขาย', 'value': 0},
+        'REPAIR': {'label': 'งานแจ้งซ่อม', 'value': 0},
+    }
+    
+    type_dist_qs = projects_in_period.values('job_type').annotate(
         value=Sum(F('items__quantity') * F('items__unit_price'))
     )
     
-    type_labels = []
-    type_values = []
-    for d in type_dist:
-        label = dict(Project.JobType.choices).get(d['job_type'], d['job_type'])
-        type_labels.append(label)
-        type_values.append(float(d['value'] or 0))
+    for d in type_dist_qs:
+        jt = d['job_type']
+        if jt in type_map:
+            type_map[jt]['value'] = float(d['value'] or 0)
 
-    # 5. Top Customers (Stacked Bar: Active vs Closed)
-    from django.db.models import Case, When, Value
+    type_labels = [type_map['PROJECT']['label'], type_map['SERVICE']['label'], type_map['REPAIR']['label']]
+    type_values = [type_map['PROJECT']['value'], type_map['SERVICE']['value'], type_map['REPAIR']['value']]
+
+    # 5. Top Customers (Stacked Bar: Active vs Closed) - Filtered by period
     top_customers = Customer.objects.annotate(
         closed_revenue=Sum(
             Case(
-                When(projects__status=Project.Status.CLOSED, then=F('projects__items__quantity') * F('projects__items__unit_price')),
+                When(projects__status=Project.Status.CLOSED, 
+                     projects__created_at__range=[start_of_period, end_of_period],
+                     then=F('projects__items__quantity') * F('projects__items__unit_price')),
                 default=Value(0),
                 output_field=models.DecimalField()
             )
         ),
         active_revenue=Sum(
             Case(
-                When(~models.Q(projects__status__in=[Project.Status.CLOSED, Project.Status.CANCELLED]), 
+                When(~models.Q(projects__status__in=[Project.Status.CLOSED, Project.Status.CANCELLED]),
+                     projects__created_at__range=[start_of_period, end_of_period],
                      then=F('projects__items__quantity') * F('projects__items__unit_price')),
                 default=Value(0),
                 output_field=models.DecimalField()
             )
         ),
-        total_revenue=Sum(F('projects__items__quantity') * F('projects__items__unit_price'))
-    ).filter(total_revenue__gt=0).order_by('-total_revenue')[:10]
+        total_revenue_period=Sum(
+            Case(
+                When(projects__created_at__range=[start_of_period, end_of_period],
+                     then=F('projects__items__quantity') * F('projects__items__unit_price')),
+                default=0,
+                output_field=models.DecimalField()
+            )
+        )
+    ).filter(total_revenue_period__gt=0).order_by('-total_revenue_period')[:10]
 
     customer_labels = [c.name for c in top_customers]
     customer_active_sales = [float(c.active_revenue or 0) for c in top_customers]
@@ -601,10 +652,22 @@ def dashboard(request):
         else:
             owner.performance_pct = 0
 
+    # Choices for filter
+    month_choices = [
+        (1, 'มกราคม'), (2, 'กุมภาพันธ์'), (3, 'มีนาคม'), (4, 'เมษายน'),
+        (5, 'พฤษภาคม'), (6, 'มิถุนายน'), (7, 'กรกฎาคม'), (8, 'สิงหาคม'),
+        (9, 'กันยายน'), (10, 'ตุลาคม'), (11, 'พฤศจิกายน'), (12, 'ธันวาคม')
+    ]
+    year_choices = range(now.year - 2, now.year + 2)
+
     context = {
         'total_projects': total_projects,
         'active_projects': active_projects,
         'total_revenue': total_revenue,
+        'month_filter': month_filter,
+        'year_filter': year_filter,
+        'month_choices': month_choices,
+        'year_choices': year_choices,
         
         # Chart Data
         'chart_months': json.dumps(months_labels),

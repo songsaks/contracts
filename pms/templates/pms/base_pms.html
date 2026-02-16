@@ -140,6 +140,19 @@
             filter: brightness(1.1);
         }
 
+        /* Job Type Colors */
+        .bg-pms-project { background-color: #4f46e5 !important; color: white !important; }
+        .bg-pms-service { background-color: #10b981 !important; color: white !important; }
+        .bg-pms-repair { background-color: #f59e0b !important; color: white !important; }
+        
+        .text-pms-project { color: #4f46e5 !important; }
+        .text-pms-service { color: #10b981 !important; }
+        .text-pms-repair { color: #f59e0b !important; }
+
+        .bg-opacity-pms-project { background-color: rgba(79, 70, 229, 0.1) !important; }
+        .bg-opacity-pms-service { background-color: rgba(16, 185, 129, 0.1) !important; }
+        .bg-opacity-pms-repair { background-color: rgba(245, 158, 11, 0.1) !important; }
+
         /* Responsive refinements */
         @media (max-width: 767.98px) {
             .navbar-custom .navbar-brand span {
@@ -155,68 +168,50 @@
                 border-radius: var(--radius-md);
             }
 
-
-
             .fab-add {
                 width: 56px;
                 height: 56px;
-                bottom: 80px;
+                position: fixed;
+                bottom: 30px;
                 right: 1.25rem;
+                background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+                color: white;
+                border-radius: 50%;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 1.5rem;
+                box-shadow: 0 10px 25px rgba(79, 70, 229, 0.4);
+                z-index: 1000;
+                text-decoration: none;
+                transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            }
+
+            .fab-add:active {
+                transform: scale(0.9);
             }
         }
 
-        /* ========================================
-           RESPONSIVE — Small Mobile (≤480px)
-           ======================================== */
         @media (max-width: 480px) {
-            .main-content .container {
-                padding-left: 0.5rem;
-                padding-right: 0.5rem;
-            }
-
             .page-heading {
                 font-size: 1.1rem;
             }
-
             .card-body {
                 padding: 0.875rem;
             }
-
-            .stat-card .display-6 {
-                font-size: 1.5rem;
-            }
-
-            .stat-card .card-title {
-                font-size: 0.7rem;
-            }
-
-
         }
 
-        /* ========================================
-           ACCESSIBILITY
-           ======================================== */
-        @media (prefers-reduced-motion: reduce) {
-            *, *::before, *::after {
-                animation-duration: 0.01ms !important;
-                transition-duration: 0.01ms !important;
-            }
-        }
-
-        /* Touch device improvements */
-        @media (hover: none) {
-            .card:hover {
-                box-shadow: var(--shadow-sm);
-                transform: none;
-            }
-
-            .btn:hover {
-                transform: none;
-            }
-
-            .btn:active {
-                transform: scale(0.97);
-            }
+        .user-avatar {
+            width: 32px;
+            height: 32px;
+            background: rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            color: white;
         }
     </style>
 
