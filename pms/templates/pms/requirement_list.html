@@ -1,185 +1,235 @@
 {% extends 'pms/base_pms.html' %}
+{% load humanize %}
 
 {% block content %}
-<div class="row">
-    <div class="col-12">
-        <div class="d-flex justify-content-between align-items-center mb-4">
-            <h1 class="page-heading mb-0">
-                <i class="fas fa-microphone-alt me-2 text-primary" style="font-size: 0.85em;"></i>
-                ความต้องการลูกค้า <span class="d-none d-md-inline">(Leads)</span>
-            </h1>
-            <a href="{% url 'pms:requirement_create' %}" class="btn btn-primary d-none d-md-inline-flex align-items-center gap-2">
-                <i class="fas fa-microphone"></i>
-                <span>บันทึกใหม่</span>
-            </a>
+<div class="container-fluid px-0 px-md-3">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4 px-3 px-md-0">
+        <div>
+            <h4 class="fw-bold text-dark mb-1">
+                <i class="fas fa-microphone-alt me-2 text-primary"></i>Leads (ความต้องการ)
+            </h4>
+            <p class="text-muted small mb-0">บันทึกและจัดการความต้องการเบื้องต้นจากลูกค้า</p>
         </div>
-
-        <!-- Desktop Table -->
-        <div class="card shadow-sm d-none d-md-block">
-            <div class="card-body">
-                <div class="table-responsive">
-                    <table class="table table-hover align-middle">
-                        <thead class="table-light">
-                            <tr>
-                                <th style="width: 50%;">รายละเอียด</th>
-                                <th>วันที่บันทึก</th>
-                                <th>สถานะ</th>
-                                <th>จัดการ</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for req in requirements %}
-                            <tr>
-                                <td>
-                                    {{ req.content|truncatechars:100 }}
-                                    {% if req.files.count > 0 %}
-                                    <span class="badge bg-light text-muted ms-1" title="ไฟล์แนบ {{ req.files.count }} รายการ">
-                                        <i class="fas fa-paperclip me-1"></i>{{ req.files.count }}
-                                    </span>
-                                    {% endif %}
-                                </td>
-                                <td>{{ req.created_at|date:"d M Y H:i" }}</td>
-                                <td>
-                                    {% if req.is_converted %}
-                                        <span class="badge bg-success">สร้างโครงการแล้ว</span>
-                                        {% if req.project %}
-                                            <a href="{% url 'pms:project_detail' req.project.pk %}" class="small ms-1 text-decoration-none">
-                                                <i class="fas fa-external-link-alt"></i> {{ req.project.name }}
-                                            </a>
-                                        {% endif %}
-                                    {% else %}
-                                        <span class="badge bg-warning text-dark">รอดำเนินการ</span>
-                                    {% endif %}
-                                </td>
-                                <td>
-                                    <div class="d-flex gap-1 flex-wrap">
-                                        {% if not req.is_converted %}
-                                        <a href="{% url 'pms:create_project_from_requirement' req.pk %}?type=PROJECT" class="btn btn-sm btn-outline-primary" data-bs-toggle="tooltip" title="สร้างโครงการ">
-                                            <i class="fas fa-project-diagram"></i>
-                                        </a>
-                                        <a href="{% url 'pms:create_project_from_requirement' req.pk %}?type=SERVICE" class="btn btn-sm btn-outline-success" data-bs-toggle="tooltip" title="สร้างงานขาย">
-                                            <i class="fas fa-shopping-cart"></i>
-                                        </a>
-                                        <a href="{% url 'pms:create_project_from_requirement' req.pk %}?type=REPAIR" class="btn btn-sm btn-outline-warning text-dark" data-bs-toggle="tooltip" title="สร้างใบแจ้งซ่อม">
-                                            <i class="fas fa-tools"></i>
-                                        </a>
-                                        <a href="{% url 'pms:create_project_from_requirement' req.pk %}?type=REQUEST" class="btn btn-sm btn-warning text-dark" data-bs-toggle="tooltip" title="สร้างคำขอ (Request)">
-                                            <i class="fas fa-inbox"></i>
-                                        </a>
-                                        {% endif %}
-                                        <a href="{% url 'pms:requirement_update' req.pk %}" class="btn btn-sm btn-outline-secondary" title="แก้ไข">
-                                            <i class="fas fa-edit"></i>
-                                        </a>
-                                        <a href="{% url 'pms:requirement_delete' req.pk %}" class="btn btn-sm btn-outline-danger" title="ลบ" onclick="return confirm('ยืนยันที่จะลบรายการนี้?');">
-                                            <i class="fas fa-trash"></i>
-                                        </a>
-                                    </div>
-                                </td>
-                            </tr>
-                            {% empty %}
-                            <tr>
-                                <td colspan="4" class="text-center py-4 text-muted">ไม่พบข้อมูลความต้องการ</td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-
-        <!-- Mobile Card List -->
-        <div class="d-md-none">
-            {% for req in requirements %}
-            <div class="card mb-3 border-0 shadow-sm" style="border-radius: 20px; background: white;">
-                <div class="card-body p-3">
-                    <div class="d-flex align-items-start gap-3 mb-3">
-                        <div class="rounded-circle bg-primary bg-opacity-10 text-primary flex-shrink-0 d-flex align-items-center justify-content-center" style="width: 44px; height: 44px; font-size: 1.2rem;">
-                            <i class="fas fa-microphone-lines"></i>
-                        </div>
-                        <div class="flex-grow-1" style="min-width: 0;">
-                            <div class="text-dark fw-bold mb-1" style="font-size: 0.95rem; line-height: 1.4;">{{ req.content|truncatechars:85 }}</div>
-                            <div class="d-flex align-items-center gap-2">
-                                <span class="text-muted" style="font-size: 0.75rem;">
-                                    <i class="far fa-calendar-alt me-1"></i>{{ req.created_at|date:"d/m/y H:i" }}
-                                </span>
-                                {% if req.files.count > 0 %}
-                                <span class="badge bg-light text-muted" style="font-size: 0.7rem;">
-                                    <i class="fas fa-paperclip me-1"></i>{{ req.files.count }}
-                                </span>
-                                {% endif %}
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="border-top pt-3">
-                        <div class="d-flex align-items-center justify-content-between {% if not req.is_converted %}mb-3{% endif %}">
-                            <div class="d-flex flex-column">
-                                {% if req.is_converted %}
-                                    <span class="badge bg-success bg-opacity-10 text-success border-0 rounded-pill px-3 py-2 mb-1" style="width: fit-content;">
-                                        <i class="fas fa-check-circle me-1"></i>สรุปงานแล้ว
-                                    </span>
-                                    {% if req.project %}
-                                        <a href="{% url 'pms:project_detail' req.project.pk %}" class="small text-decoration-none fw-bold text-pms-project" style="font-size: 0.8rem;">
-                                            <i class="fas fa-external-link-alt me-1"></i>{{ req.project.name|truncatechars:20 }}
-                                        </a>
-                                    {% endif %}
-                                {% else %}
-                                    <span class="badge bg-warning bg-opacity-10 text-warning border-0 rounded-pill px-3 py-2">
-                                        <i class="fas fa-clock me-1"></i>รอดำเนินการ
-                                    </span>
-                                {% endif %}
-                            </div>
-                            <div class="d-flex gap-2">
-                                <a href="{% url 'pms:requirement_update' req.pk %}" class="btn btn-light btn-sm rounded-circle border shadow-sm" style="width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;" title="แก้ไข">
-                                    <i class="fas fa-edit text-primary"></i>
-                                </a>
-                                <a href="{% url 'pms:requirement_delete' req.pk %}" class="btn btn-light btn-sm rounded-circle border shadow-sm" onclick="return confirm('ยืนยันที่จะลบรายการนี้?');" style="width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;" title="ลบ">
-                                    <i class="fas fa-trash text-danger"></i>
-                                </a>
-                            </div>
-                        </div>
-                        
-                        {% if not req.is_converted %}
-                        <div class="d-grid gap-2 mt-2">
-                            <div class="row g-2">
-                                <div class="col-4">
-                                    <a href="{% url 'pms:create_project_from_requirement' req.pk %}?type=PROJECT" class="btn btn-outline-primary btn-sm w-100 rounded-pill py-2" style="font-size: 0.75rem;">
-                                        <i class="fas fa-project-diagram d-block mb-1"></i>โครงการ
-                                    </a>
-                                </div>
-                                <div class="col-4">
-                                    <a href="{% url 'pms:create_project_from_requirement' req.pk %}?type=SERVICE" class="btn btn-outline-success btn-sm w-100 rounded-pill py-2" style="font-size: 0.75rem;">
-                                        <i class="fas fa-shopping-cart d-block mb-1"></i>งานขาย
-                                    </a>
-                                </div>
-                                <div class="col-4">
-                                    <a href="{% url 'pms:create_project_from_requirement' req.pk %}?type=REPAIR" class="btn btn-outline-warning btn-sm w-100 rounded-pill py-2 text-dark" style="font-size: 0.75rem;">
-                                        <i class="fas fa-tools d-block mb-1"></i>งานซ่อม
-                                    </a>
-                                </div>
-                                <div class="col-4">
-                                    <a href="{% url 'pms:create_project_from_requirement' req.pk %}?type=REQUEST" class="btn btn-warning btn-sm w-100 rounded-pill py-2 text-dark" style="font-size: 0.75rem;">
-                                        <i class="fas fa-inbox d-block mb-1"></i>คำขอ
-                                    </a>
-                                </div>
-                            </div>
-                        </div>
-                        {% endif %}
-                    </div>
-                </div>
-            </div>
-            {% empty %}
-            <div class="text-center py-5 text-muted">
-                <i class="fas fa-microphone-slash fa-3x mb-3 d-block opacity-20"></i>
-                <p>ไม่มีรายการความต้องการใหม่</p>
-            </div>
-            {% endfor %}
-        </div>
-
-        <!-- Mobile FAB -->
-        <a href="{% url 'pms:requirement_create' %}" class="fab-add d-md-none" title="บันทึกใหม่">
-            <i class="fas fa-plus"></i>
+        <a href="{% url 'pms:requirement_create' %}" class="btn btn-primary rounded-pill shadow-sm d-none d-md-inline-flex align-items-center px-4">
+            <i class="fas fa-plus me-2"></i>บันทึกใหม่
         </a>
     </div>
+
+    <!-- Desktop Table -->
+    <div class="card shadow-sm border-0 d-none d-md-block rounded-3 overflow-hidden">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="bg-light">
+                        <tr>
+                            <th class="ps-4 py-3 text-muted fw-bold small text-uppercase">รายละเอียด</th>
+                            <th class="text-muted fw-bold small text-uppercase">วันที่บันทึก</th>
+                            <th class="text-muted fw-bold small text-uppercase">สถานะ</th>
+                            <th class="text-end pe-4 text-muted fw-bold small text-uppercase">จัดการ</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for req in requirements %}
+                        <tr class="{% if req.is_converted %}bg-light bg-opacity-25{% endif %}">
+                            <td class="ps-4 py-3" style="max-width: 400px;">
+                                <div class="fw-medium text-dark text-break">{{ req.content|truncatechars:120 }}</div>
+                                {% if req.files.count > 0 %}
+                                <div class="mt-1">
+                                    <span class="badge bg-light text-secondary border fw-normal">
+                                        <i class="fas fa-paperclip me-1"></i>{{ req.files.count }} ไฟล์
+                                    </span>
+                                </div>
+                                {% endif %}
+                            </td>
+                            <td class="text-secondary small">
+                                <div class="fw-bold">{{ req.created_at|date:"d M Y" }}</div>
+                                <div class="text-muted">{{ req.created_at|date:"H:i" }}</div>
+                            </td>
+                            <td>
+                                {% if req.is_converted %}
+                                    <span class="badge bg-success bg-opacity-10 text-success border border-success rounded-pill px-3 py-2">
+                                        <i class="fas fa-check-circle me-1"></i>ดำเนินการแล้ว
+                                    </span>
+                                    {% if req.project %}
+                                        <div class="mt-1">
+                                            <a href="{% url 'pms:project_detail' req.project.pk %}" class="small text-decoration-none fw-bold text-primary">
+                                                <i class="fas fa-link me-1"></i>{{ req.project.job_type_display }}
+                                            </a>
+                                        </div>
+                                    {% endif %}
+                                {% else %}
+                                    <span class="badge bg-warning bg-opacity-10 text-warning border border-warning rounded-pill px-3 py-2">
+                                        <i class="far fa-clock me-1"></i>รอดำเนินการ
+                                    </span>
+                                {% endif %}
+                            </td>
+                            <td class="text-end pe-4">
+                                <div class="d-flex justify-content-end gap-2">
+                                    {% if not req.is_converted %}
+                                    <div class="dropdown">
+                                        <button class="btn btn-sm btn-primary rounded-pill dropdown-toggle shadow-sm" type="button" data-bs-toggle="dropdown">
+                                            <i class="fas fa-magic me-1"></i>สร้างงาน
+                                        </button>
+                                        <ul class="dropdown-menu dropdown-menu-end shadow border-0 p-2 rounded-3">
+                                            <li><h6 class="dropdown-header small text-uppercase fw-bold">เลือกประเภทงาน</h6></li>
+                                            <li>
+                                                <a class="dropdown-item rounded-2 py-2 mb-1 d-flex align-items-center" href="{% url 'pms:create_project_from_requirement' req.pk %}?type=PROJECT">
+                                                    <span class="icon-square bg-primary text-white me-2 rounded-2"><i class="fas fa-project-diagram fa-xs"></i></span>
+                                                    <span>โครงการ</span>
+                                                </a>
+                                            </li>
+                                            <li>
+                                                <a class="dropdown-item rounded-2 py-2 mb-1 d-flex align-items-center" href="{% url 'pms:create_project_from_requirement' req.pk %}?type=SERVICE">
+                                                    <span class="icon-square bg-success text-white me-2 rounded-2"><i class="fas fa-shopping-cart fa-xs"></i></span>
+                                                    <span>งานขาย</span>
+                                                </a>
+                                            </li>
+                                            <li>
+                                                <a class="dropdown-item rounded-2 py-2 mb-1 d-flex align-items-center" href="{% url 'pms:create_project_from_requirement' req.pk %}?type=REPAIR">
+                                                    <span class="icon-square text-white me-2 rounded-2" style="background-color: #fd7e14;"><i class="fas fa-tools fa-xs"></i></span>
+                                                    <span>งานซ่อม</span>
+                                                </a>
+                                            </li>
+                                            <li><hr class="dropdown-divider"></li>
+                                            <li>
+                                                <a class="dropdown-item rounded-2 py-2 d-flex align-items-center" href="{% url 'pms:create_project_from_requirement' req.pk %}?type=REQUEST">
+                                                    <span class="icon-square bg-warning text-dark me-2 rounded-2"><i class="fas fa-inbox fa-xs"></i></span>
+                                                    <span>คำขอทั่วไป</span>
+                                                </a>
+                                            </li>
+                                        </ul>
+                                    </div>
+                                    {% endif %}
+                                    <a href="{% url 'pms:requirement_update' req.pk %}" class="btn btn-sm btn-outline-secondary rounded-circle shadow-sm" style="width: 32px; height: 32px; display: inline-flex; align-items: center; justify-content: center;" title="แก้ไข">
+                                        <i class="fas fa-pen fa-xs"></i>
+                                    </a>
+                                    <a href="{% url 'pms:requirement_delete' req.pk %}" class="btn btn-sm btn-outline-danger rounded-circle shadow-sm" style="width: 32px; height: 32px; display: inline-flex; align-items: center; justify-content: center;" title="ลบ" onclick="return confirm('ยืนยันที่จะลบรายการนี้?');">
+                                        <i class="fas fa-trash fa-xs"></i>
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="4" class="text-center py-5">
+                                <img src="https://cdn-icons-png.flaticon.com/512/7486/7486744.png" width="64" class="opacity-25 mb-3" alt="Empty">
+                                <p class="text-muted">ไม่พบรายการความต้องการ</p>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mobile Card View -->
+    <div class="d-md-none pb-5">
+        {% for req in requirements %}
+        <div class="card mb-3 border-0 shadow-sm rounded-4 overflow-hidden position-relative">
+            <!-- Status Stripe -->
+            <div class="position-absolute start-0 top-0 bottom-0" 
+                 style="width: 6px; background: {% if req.is_converted %}#10b981{% else %}#f59e0b{% endif %};">
+            </div>
+            
+            <div class="card-body p-3 ps-4">
+                <!-- Header: Date & Status -->
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                    <div class="text-muted small">
+                        <i class="far fa-clock me-1"></i>{{ req.created_at|date:"d M H:i" }}
+                    </div>
+                    {% if req.is_converted %}
+                        <span class="badge bg-success bg-opacity-10 text-success rounded-pill border border-success fw-normal" style="font-size: 0.7rem;">
+                            <i class="fas fa-check me-1"></i>เสร็จสิ้น
+                        </span>
+                    {% else %}
+                        <span class="badge bg-warning bg-opacity-10 text-warning rounded-pill border border-warning fw-normal" style="font-size: 0.7rem;">
+                            ใหม่
+                        </span>
+                    {% endif %}
+                </div>
+
+                <!-- Content -->
+                <h6 class="text-dark fw-bold mb-2 text-break" style="line-height: 1.5;">{{ req.content|truncatechars:100 }}</h6>
+                
+                {% if req.files.count > 0 %}
+                <div class="mb-3">
+                    <span class="badge bg-light text-secondary border fw-normal rounded-pill">
+                        <i class="fas fa-paperclip me-1"></i>{{ req.files.count }} ไฟล์
+                    </span>
+                </div>
+                {% endif %}
+
+                <!-- Actions -->
+                <div class="mt-3 pt-3 border-top border-light dashed">
+                    {% if not req.is_converted %}
+                    <p class="small text-muted mb-2 fw-bold text-uppercase" style="font-size: 0.7rem;">สร้างงานต่อ:</p>
+                    <div class="row g-2 mb-3">
+                        <div class="col-6">
+                            <a href="{% url 'pms:create_project_from_requirement' req.pk %}?type=PROJECT" class="btn btn-outline-primary btn-sm w-100 rounded-3 py-2 text-start d-flex align-items-center shadow-sm">
+                                <div class="rounded-circle bg-primary text-white d-flex align-items-center justify-content-center me-2" style="width: 24px; height: 24px;"><i class="fas fa-project-diagram fa-xs"></i></div>
+                                <span class="small fw-bold">โครงการ</span>
+                            </a>
+                        </div>
+                        <div class="col-6">
+                            <a href="{% url 'pms:create_project_from_requirement' req.pk %}?type=SERVICE" class="btn btn-outline-success btn-sm w-100 rounded-3 py-2 text-start d-flex align-items-center shadow-sm">
+                                <div class="rounded-circle bg-success text-white d-flex align-items-center justify-content-center me-2" style="width: 24px; height: 24px;"><i class="fas fa-shopping-cart fa-xs"></i></div>
+                                <span class="small fw-bold">งานขาย</span>
+                            </a>
+                        </div>
+                        <div class="col-6">
+                            <a href="{% url 'pms:create_project_from_requirement' req.pk %}?type=REPAIR" class="btn btn-sm w-100 rounded-3 py-2 text-start d-flex align-items-center shadow-sm" style="color: #fd7e14; border: 1px solid #fd7e14;">
+                                <div class="rounded-circle text-white d-flex align-items-center justify-content-center me-2" style="width: 24px; height: 24px; background-color: #fd7e14;"><i class="fas fa-tools fa-xs"></i></div>
+                                <span class="small fw-bold text-dark">งานซ่อม</span>
+                            </a>
+                        </div>
+                        <div class="col-6">
+                            <a href="{% url 'pms:create_project_from_requirement' req.pk %}?type=REQUEST" class="btn btn-warning btn-sm w-100 rounded-3 py-2 text-start d-flex align-items-center shadow-sm text-dark">
+                                <div class="rounded-circle bg-white text-warning d-flex align-items-center justify-content-center me-2" style="width: 24px; height: 24px;"><i class="fas fa-inbox fa-xs"></i></div>
+                                <span class="small fw-bold text-dark">คำขอ</span>
+                            </a>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <div class="d-flex justify-content-end gap-2">
+                        <a href="{% url 'pms:requirement_update' req.pk %}" class="btn btn-light btn-sm rounded-pill px-3 shadow-sm border">
+                            <i class="fas fa-pen text-primary me-1"></i>แก้ไข
+                        </a>
+                        <a href="{% url 'pms:requirement_delete' req.pk %}" class="btn btn-light btn-sm rounded-pill px-3 shadow-sm border text-danger" onclick="return confirm('ยืนยันที่จะลบรายการนี้?');">
+                            <i class="fas fa-trash me-1"></i>ลบ
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="text-center py-5">
+            <div class="bg-white rounded-circle shadow-sm mx-auto mb-3 d-flex align-items-center justify-content-center" style="width: 80px; height: 80px;">
+                <i class="fas fa-microphone-slash fa-2x text-muted opacity-50"></i>
+            </div>
+            <p class="text-muted small">ยังไม่มีรายการที่บันทึกไว้</p>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Mobile FAB -->
+    <a href="{% url 'pms:requirement_create' %}" class="fab-add d-md-none shadow-lg">
+        <i class="fas fa-plus"></i>
+    </a>
 </div>
+
+<style>
+    .icon-square {
+        width: 32px;
+        height: 32px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .dashed {
+        border-style: dashed !important;
+    }
+</style>
 {% endblock %}
