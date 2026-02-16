@@ -70,13 +70,38 @@
 {% block content %}
 <div class="row g-4 mb-4">
     <!-- Page Header -->
-    <div class="col-12 d-flex justify-content-between align-items-center">
-        <h1 class="page-heading mb-0">
-            <i class="fas fa-chart-pie me-2 text-primary" style="font-size: 0.85em;"></i>
-            Business Dashboard
-        </h1>
-        <div class="stat-badge">
-            <i class="far fa-calendar-alt me-1"></i>อัปเดตล่าสุด: {% now "d M H:i" %}
+    <div class="col-12">
+        <div class="card analytics-card shadow-sm p-4">
+            <div class="row align-items-center g-3">
+                <div class="col-md-6 text-center text-md-start">
+                    <h1 class="page-heading mb-0">
+                        <i class="fas fa-chart-pie me-2 text-primary" style="font-size: 0.85em;"></i>
+                        Business Dashboard
+                    </h1>
+                    <p class="text-muted small mb-0 mt-2">วิเคราะห์ข้อมูลสรุปผลการดำเนินงานรายเดือน</p>
+                </div>
+                <div class="col-md-6">
+                    <form method="get" class="d-flex flex-wrap justify-content-md-end gap-2 align-items-center">
+                        <div class="flex-grow-1 flex-md-grow-0" style="min-width: 140px;">
+                            <select name="month" class="form-select form-select-sm border-0 bg-light rounded-pill px-3 py-2">
+                                {% for val, label in month_choices %}
+                                <option value="{{ val }}" {% if month_filter == val %}selected{% endif %}>{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="flex-grow-1 flex-md-grow-0" style="min-width: 100px;">
+                            <select name="year" class="form-select form-select-sm border-0 bg-light rounded-pill px-3 py-2">
+                                {% for y in year_choices %}
+                                <option value="{{ y }}" {% if year_filter == y %}selected{% endif %}>{{ y }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <button type="submit" class="btn btn-primary btn-sm rounded-pill px-4 py-2">
+                            <i class="fas fa-filter small me-1"></i> กรอง
+                        </button>
+                    </form>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -197,9 +222,9 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
     document.addEventListener('DOMContentLoaded', function() {
-        const primaryColor = '#4f46e5';
-        const successColor = '#10b981';
-        const infoColor = '#0ea5e9';
+        const pmsBlue = '#4f46e5';
+        const pmsGreen = '#10b981';
+        const pmsOrange = '#f59e0b';
         const secondaryColor = '#8b5cf6';
         
         // 1. Monthly Trends Chart
@@ -212,19 +237,19 @@
                     {
                         label: 'โครงการ',
                         data: {{ chart_project_series|safe }},
-                        backgroundColor: primaryColor,
+                        backgroundColor: pmsBlue,
                         borderRadius: 6,
                     },
                     {
                         label: 'งานขาย',
                         data: {{ chart_service_series|safe }},
-                        backgroundColor: successColor,
+                        backgroundColor: pmsGreen,
                         borderRadius: 6,
                     },
                     {
                         label: 'งานซ่อม',
                         data: {{ chart_repair_series|safe }},
-                        backgroundColor: infoColor,
+                        backgroundColor: pmsOrange,
                         borderRadius: 6,
                     }
                 ]
@@ -256,7 +281,7 @@
                 labels: {{ chart_type_labels|safe }},
                 datasets: [{
                     data: {{ chart_type_values|safe }},
-                    backgroundColor: [primaryColor, successColor, infoColor, secondaryColor],
+                    backgroundColor: [pmsBlue, pmsGreen, pmsOrange],
                     borderWidth: 0,
                     hoverOffset: 15
                 }]
@@ -280,7 +305,7 @@
                 datasets: [{
                     label: 'ยอดขายรายบุคคล',
                     data: {{ chart_owner_sales|safe }},
-                    backgroundColor: primaryColor,
+                    backgroundColor: pmsBlue,
                     borderRadius: 8,
                 }]
             },
@@ -308,13 +333,13 @@
                     {
                         label: 'ปิดงานแล้ว',
                         data: {{ chart_customer_closed|safe }},
-                        backgroundColor: successColor, // Green for completed
+                        backgroundColor: pmsGreen, // Green for completed
                         borderRadius: 6,
                     },
                     {
                         label: 'อยู่ระหว่างดำเนินการ',
                         data: {{ chart_customer_active|safe }},
-                        backgroundColor: primaryColor, // Blue for active
+                        backgroundColor: pmsBlue, // Blue for active
                         borderRadius: 6,
                     }
                 ]
