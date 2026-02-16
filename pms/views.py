@@ -504,47 +504,125 @@ def project_quotation(request, pk):
 # Dashboard
 @login_required
 def dashboard(request):
-    projects = Project.objects.all()
+    from django.db import models
+    from django.db.models import Sum, Count, F
+    from django.db.models.functions import TruncMonth
+    import json
+    from datetime import datetime, timedelta
     
-    # Filter
-    status_filter = request.GET.get('status')
-    if status_filter:
-        projects = projects.filter(status=status_filter)
-        
-    owner_filter = request.GET.get('owner')
-    if owner_filter:
-        projects = projects.filter(owner_id=owner_filter)
-
-    date_from = request.GET.get('date_from')
-    date_to = request.GET.get('date_to')
-    if date_from and date_to:
-        projects = projects.filter(created_at__date__range=[date_from, date_to])
-        
-    # Stats (calculate from FILTERED projects or ALL projects? Usually dashboard stats show global state unless filtered. 
-    # But user said "dashboard... filter to display". I will calculate stats based on ALL projects for top cards, 
-    # and show filtered table below. Or filter everything? Let's filter everything for powerful analysis.)
-    
-    # Actually, usually Top Cards are "All Time" or "Current State", and table is filtered.
-    # Let's do: Top Cards = All Time (Active, Completed, Total Value). 
-    # Table = Filterable.
-    
+    # 1. Top Level Metrics (Global)
     all_projects = Project.objects.all()
     total_projects = all_projects.count()
     active_projects = all_projects.exclude(status__in=[Project.Status.CLOSED, Project.Status.CANCELLED]).count()
-    completed_projects = all_projects.filter(status=Project.Status.CLOSED).count()
     
-    total_revenue = 0
-    for p in all_projects:
-        total_revenue += p.total_value
+    total_revenue = all_projects.aggregate(total=Sum(F('items__quantity') * F('items__unit_price')))['total'] or 0
+    
+    # 2. Sales by Month (Last 12 Months)
+    twelve_months_ago = timezone.now() - timedelta(days=365)
+    monthly_sales = Project.objects.filter(created_at__gte=twelve_months_ago)\
+        .annotate(month=TruncMonth('created_at'))\
+        .values('month', 'job_type')\
+        .annotate(revenue=Sum(F('items__quantity') * F('items__unit_price')))\
+        .order_by('month')
+
+    # Prepare data for Line Chart
+    months_labels = []
+    project_series = []
+    service_series = []
+    repair_series = []
+    
+    # helper for grouping
+    month_data = {} # { '2023-01': {'PROJECT': 0, 'SERVICE': 0, 'REPAIR': 0} }
+    
+    for entry in monthly_sales:
+        m_str = entry['month'].strftime('%b %Y')
+        if m_str not in month_data:
+            month_data[m_str] = {'PROJECT': 0, 'SERVICE': 0, 'REPAIR': 0}
+        month_data[m_str][entry['job_type']] = float(entry['revenue'] or 0)
+
+    months_labels = list(month_data.keys())
+    for m in months_labels:
+        project_series.append(month_data[m]['PROJECT'])
+        service_series.append(month_data[m]['SERVICE'])
+        repair_series.append(month_data[m]['REPAIR'])
+
+    # 3. Sales by Person (Project Owner)
+    sales_by_owner = ProjectOwner.objects.annotate(
+        total_sales=Sum(F('projects__items__quantity') * F('projects__items__unit_price')),
+        job_count=Count('projects')
+    ).order_by('-total_sales')
+
+    owner_names = [o.name for o in sales_by_owner if o.total_sales]
+    owner_sales = [float(o.total_sales or 0) for o in sales_by_owner if o.total_sales]
+
+    # 4. Job Type Distribution (Pie Chart)
+    type_dist = Project.objects.values('job_type').annotate(
+        count=Count('id'),
+        value=Sum(F('items__quantity') * F('items__unit_price'))
+    )
+    
+    type_labels = []
+    type_values = []
+    for d in type_dist:
+        label = dict(Project.JobType.choices).get(d['job_type'], d['job_type'])
+        type_labels.append(label)
+        type_values.append(float(d['value'] or 0))
+
+    # 5. Top Customers (Stacked Bar: Active vs Closed)
+    from django.db.models import Case, When, Value
+    top_customers = Customer.objects.annotate(
+        closed_revenue=Sum(
+            Case(
+                When(projects__status=Project.Status.CLOSED, then=F('projects__items__quantity') * F('projects__items__unit_price')),
+                default=Value(0),
+                output_field=models.DecimalField()
+            )
+        ),
+        active_revenue=Sum(
+            Case(
+                When(~models.Q(projects__status__in=[Project.Status.CLOSED, Project.Status.CANCELLED]), 
+                     then=F('projects__items__quantity') * F('projects__items__unit_price')),
+                default=Value(0),
+                output_field=models.DecimalField()
+            )
+        ),
+        total_revenue=Sum(F('projects__items__quantity') * F('projects__items__unit_price'))
+    ).filter(total_revenue__gt=0).order_by('-total_revenue')[:10]
+
+    customer_labels = [c.name for c in top_customers]
+    customer_active_sales = [float(c.active_revenue or 0) for c in top_customers]
+    customer_closed_sales = [float(c.closed_revenue or 0) for c in top_customers]
+
+    # Calculate percentages for progress bars
+    max_sales = max(owner_sales) if owner_sales else 0
+    for owner in sales_by_owner:
+        if max_sales > 0:
+            owner.performance_pct = (float(owner.total_sales or 0) / max_sales) * 100
+        else:
+            owner.performance_pct = 0
 
     context = {
-        'projects': projects.order_by('-created_at'),
         'total_projects': total_projects,
         'active_projects': active_projects,
-        'completed_projects': completed_projects,
         'total_revenue': total_revenue,
-        'status_choices': Project.Status.choices,
-        'project_owners': ProjectOwner.objects.all(),
+        
+        # Chart Data
+        'chart_months': json.dumps(months_labels),
+        'chart_project_series': json.dumps(project_series),
+        'chart_service_series': json.dumps(service_series),
+        'chart_repair_series': json.dumps(repair_series),
+        
+        'chart_owners': json.dumps(owner_names),
+        'chart_owner_sales': json.dumps(owner_sales),
+        
+        'chart_type_labels': json.dumps(type_labels),
+        'chart_type_values': json.dumps(type_values),
+        
+        'chart_customers': json.dumps(customer_labels),
+        'chart_customer_active': json.dumps(customer_active_sales),
+        'chart_customer_closed': json.dumps(customer_closed_sales),
+        
+        'sales_by_owner': sales_by_owner,
     }
     return render(request, 'pms/dashboard.html', context)
 
