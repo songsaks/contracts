@@ -548,7 +548,7 @@ def dashboard(request):
     
     monthly_sales_qs = Project.objects.filter(created_at__range=[start_of_year, end_of_year])\
         .annotate(month=TruncMonth('created_at'))\
-        .values('month', 'job_type')\
+        .values('month', 'job_type', 'owner__name')\
         .annotate(revenue=Sum(F('items__quantity') * F('items__unit_price')))\
         .order_by('month')
 
@@ -558,17 +558,44 @@ def dashboard(request):
     service_series = [0] * 12
     repair_series = [0] * 12
     
+    # 2.1 Sales Trends by Owner
+    owner_trends = {} # { 'Owner Name': [0]*12 }
+    
     for entry in monthly_sales_qs:
-        m_index = entry['month'].month - 1 # 0 to 11
+        m_index = entry['month'].month - 1
         jt = entry['job_type']
+        owner_name = entry['owner__name'] or 'ไม่ระบุ'
         rev = float(entry['revenue'] or 0)
         
+        # Trend by Type
         if jt == 'PROJECT':
             project_series[m_index] += rev
         elif jt == 'SERVICE':
             service_series[m_index] += rev
         elif jt == 'REPAIR':
             repair_series[m_index] += rev
+            
+        # Trend by Owner
+        if owner_name not in owner_trends:
+            owner_trends[owner_name] = [0] * 12
+        owner_trends[owner_name][m_index] += rev
+
+    # Convert owner trends to Chart.js dataset format
+    owner_trend_datasets = []
+    # Use a set of colors for owners
+    colors = ['#4f46e5', '#10b981', '#f59e0b', '#7c3aed', '#ec4899', '#06b6d4', '#8b5cf6', '#f97316']
+    for i, (name, data) in enumerate(owner_trends.items()):
+        if sum(data) > 0: # Only include owners with sales
+            owner_trend_datasets.append({
+                'label': name,
+                'data': data,
+                'borderColor': colors[i % len(colors)],
+                'backgroundColor': colors[i % len(colors)],
+                'tension': 0.4,
+                'fill': False,
+                'pointRadius': 4,
+                'borderWidth': 3
+            })
 
     # 3. Sales by Person (Project Owner) - Filtered by period
     sales_by_owner = ProjectOwner.objects.annotate(
@@ -674,6 +701,7 @@ def dashboard(request):
         'chart_project_series': json.dumps(project_series),
         'chart_service_series': json.dumps(service_series),
         'chart_repair_series': json.dumps(repair_series),
+        'chart_owner_trends': json.dumps(owner_trend_datasets),
         
         'chart_owners': json.dumps(owner_names),
         'chart_owner_sales': json.dumps(owner_sales),
