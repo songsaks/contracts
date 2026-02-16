@@ -61,5 +61,8 @@ urlpatterns = [
     path('<int:pk>/upload-files/', views.project_file_upload, name='project_file_upload'),
     path('file/<int:file_id>/delete/', views.project_file_delete, name='project_file_delete'),
     path('requirements/file/<int:file_id>/delete/', views.requirement_file_delete, name='requirement_file_delete'),
+    
+    # AI Analysis
+    path('dashboard/ai-analysis/', views.ai_dashboard_analysis, name='ai_dashboard_analysis'),
 ]
 
