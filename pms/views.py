@@ -6,8 +6,8 @@ from django.db.models import Sum, Count, Q
 from django.http import FileResponse
 from decimal import Decimal
 import datetime
-from .models import Project, ProductItem, Customer, Supplier, ProjectOwner, CustomerRequirement, ProjectFile
-from .forms import ProjectForm, ProductItemForm, CustomerForm, SupplierForm, ProjectOwnerForm, CustomerRequirementForm, SalesServiceJobForm
+from .models import Project, ProductItem, Customer, Supplier, ProjectOwner, CustomerRequirement, ProjectFile, CustomerRequest
+from .forms import ProjectForm, ProductItemForm, CustomerForm, SupplierForm, ProjectOwnerForm, CustomerRequirementForm, SalesServiceJobForm, CustomerRequestForm
 from repairs.models import RepairItem
 
 
@@ -786,6 +786,63 @@ def create_project_from_requirement(request, pk):
     # Check query param for job type
     job_type = request.GET.get('type', 'PROJECT') # Default to PROJECT if not specified
     
+    # Special handling for REQUEST type (CustomerRequest)
+    if job_type == 'REQUEST':
+        if requirement.is_converted:
+            # Maybe it was already converted to something else? 
+            # Or previously converted to request? 
+            # For now, let's treat it similarly: if converted, redirect.
+            # But the 'project' field on requirement is a OneToOne to Project.
+            # We don't have a direct link in requirement model to CustomerRequest yet (unless we added one).
+            # The user didn't ask to link them strictly in DB, but logically convert it.
+            # Let's perform conversion and mark is_converted = True.
+            pass
+
+        if request.method == 'POST':
+            form = CustomerRequestForm(request.POST)
+            if form.is_valid():
+                req_obj = form.save(commit=False)
+                # If we want to link requirement to this request, we might need a field.
+                # Since we don't have one in CustomerRequirement model pointing to CustomerRequest,
+                # we just mark requirement as converted.
+                # However, files need to be moved.
+                req_obj.save()
+
+                # Mark requirement as converted
+                # Note: requirement.project will be null, but is_converted=True acts as flag.
+                requirement.is_converted = True
+                requirement.save()
+                
+                # Transfer files: update related_name / foreign key
+                # ProjectFile has 'customer_request' field now.
+                files = requirement.files.all()
+                for f in files:
+                    f.customer_request = req_obj
+                    f.save()
+
+                messages.success(request, "สร้างคำขอจากความต้องการสำเร็จ")
+                return redirect('pms:request_detail', pk=req_obj.pk)
+        else:
+            initial_data = {
+                'description': requirement.content,
+                'title': f"คำขอจาก Leads ({requirement.created_at.strftime('%d/%m/%Y')})",
+                'status': 'RECEIVED',
+            }
+            # Try to pre-fill owner
+            try:
+                owner = ProjectOwner.objects.filter(email=request.user.email).first()
+                if owner:
+                    initial_data['owner'] = owner
+            except:
+                pass
+            form = CustomerRequestForm(initial=initial_data)
+            
+        return render(request, 'pms/request_form.html', {
+            'form': form, 
+            'title': 'สร้างคำขอจากความต้องการ',
+        })
+
+
     if requirement.is_converted:
         messages.warning(request, 'รายการนี้ถูกสร้างเป็นงานแล้ว')
         if requirement.project:
@@ -1190,6 +1247,120 @@ def project_delete(request, pk):
             return redirect('pms:project_detail', pk=pk)
     
     return redirect('pms:project_detail', pk=pk)
+
+# ===== Customer Request Views =====
+
+@login_required
+def request_list(request):
+    """List all customer requests."""
+    requests = CustomerRequest.objects.all()
+    
+    # Filter by status
+    status = request.GET.get('status')
+    if status:
+        requests = requests.filter(status=status)
+        
+    return render(request, 'pms/request_list.html', {
+        'requests': requests,
+        'status_choices': CustomerRequest.Status.choices
+    })
+
+@login_required
+def request_create(request):
+    if request.method == 'POST':
+        form = CustomerRequestForm(request.POST)
+        if form.is_valid():
+            req = form.save()
+            messages.success(request, 'สร้างคำขอใหม่เรียบร้อย')
+            return redirect('pms:request_detail', pk=req.pk)
+    else:
+        form = CustomerRequestForm()
+        # Pre-select customer if provided in GET
+        cust_id = request.GET.get('customer')
+        if cust_id:
+            form.initial['customer'] = cust_id
+            
+        # Try to pre-fill owner
+        try:
+            owner = ProjectOwner.objects.filter(email=request.user.email).first()
+            if owner:
+                form.initial['owner'] = owner
+        except:
+            pass
+            
+            
+    return render(request, 'pms/request_form.html', {'form': form, 'title': 'สร้างคำขอใหม่'})
+
+@login_required
+def request_detail(request, pk):
+    req = get_object_or_404(CustomerRequest, pk=pk)
+    files = req.files.all()
+    
+    if request.method == 'POST':
+        # Quick status update from detail view
+        new_status = request.POST.get('status')
+        if new_status:
+            req.status = new_status
+            req.save()
+            messages.success(request, f'อัปเดตสถานะเป็น {req.get_status_display()} แล้ว')
+            return redirect('pms:request_detail', pk=pk)
+            
+    return render(request, 'pms/request_detail.html', {
+        'req': req,
+        'files': files,
+        'status_choices': CustomerRequest.Status.choices
+    })
+
+@login_required
+def request_update(request, pk):
+    req = get_object_or_404(CustomerRequest, pk=pk)
+    if request.method == 'POST':
+        form = CustomerRequestForm(request.POST, instance=req)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'บันทึกการแก้ไขเรียบร้อย')
+            return redirect('pms:request_detail', pk=pk)
+    else:
+        form = CustomerRequestForm(instance=req)
+        
+    return render(request, 'pms/request_form.html', {'form': form, 'title': 'แก้ไขคำขอ'})
+
+@login_required
+def request_delete(request, pk):
+    req = get_object_or_404(CustomerRequest, pk=pk)
+    if request.method == 'POST':
+        req.delete()
+        messages.success(request, 'ลบคำขอเรียบร้อย')
+        return redirect('pms:request_list')
+    return redirect('pms:request_detail', pk=pk)
+
+@login_required
+def request_file_upload(request, pk):
+    req = get_object_or_404(CustomerRequest, pk=pk)
+    if request.method == 'POST':
+        files = request.FILES.getlist('files')
+        for f in files:
+            ProjectFile.objects.create(
+                customer_request=req,
+                file=f,
+                original_name=f.name
+            )
+        messages.success(request, f'อัปโหลด {len(files)} ไฟล์เรียบร้อย')
+    return redirect('pms:request_detail', pk=pk)
+
+@login_required
+def request_file_delete(request, file_id):
+    pf = get_object_or_404(ProjectFile, pk=file_id)
+    req_pk = pf.customer_request.pk if pf.customer_request else None
+    
+    # Security check: ensure it's a request file
+    if not req_pk:
+        return redirect('pms:dashboard')
+        
+    pf.file.delete(save=False)
+    pf.delete()
+    messages.success(request, 'ลบไฟล์สำเร็จ')
+    return redirect('pms:request_detail', pk=req_pk)
 
 @login_required
 def ai_dashboard_analysis(request):

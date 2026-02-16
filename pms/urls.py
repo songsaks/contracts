@@ -63,6 +63,15 @@ urlpatterns = [
     path('file/<int:file_id>/delete/', views.project_file_delete, name='project_file_delete'),
     path('requirements/file/<int:file_id>/delete/', views.requirement_file_delete, name='requirement_file_delete'),
     
+    # Customer Requests
+    path('requests/', views.request_list, name='request_list'),
+    path('requests/create/', views.request_create, name='request_create'),
+    path('requests/<int:pk>/', views.request_detail, name='request_detail'),
+    path('requests/<int:pk>/edit/', views.request_update, name='request_update'),
+    path('requests/<int:pk>/delete/', views.request_delete, name='request_delete'),
+    path('requests/<int:pk>/upload/', views.request_file_upload, name='request_file_upload'),
+    path('requests/file/<int:file_id>/delete/', views.request_file_delete, name='request_file_delete'),
+
     # AI Analysis
     path('dashboard/ai-analysis/', views.ai_dashboard_analysis, name='ai_dashboard_analysis'),
 ]

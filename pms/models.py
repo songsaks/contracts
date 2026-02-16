@@ -180,12 +180,44 @@ class CustomerRequirement(models.Model):
         return f"Requirement {self.pk} - {self.created_at.strftime('%d/%m/%Y')}"
 
 
+class CustomerRequest(models.Model):
+    class Status(models.TextChoices):
+        RECEIVED = 'RECEIVED', 'รับคำขอ'
+        PROCESSING = 'PROCESSING', 'กำลังดำเนินการ'
+        SENT = 'SENT', 'ส่งคำขอ/ตอบกลับ'
+        COMPLETED = 'COMPLETED', 'เสร็จสิ้น'
+        CANCELLED = 'CANCELLED', 'ยกเลิก'
+
+    owner = models.ForeignKey('ProjectOwner', on_delete=models.SET_NULL, null=True, blank=True, related_name='requests', verbose_name="ผู้รับผิดชอบ")
+    customer = models.ForeignKey(Customer, on_delete=models.CASCADE, related_name='requests', verbose_name="ลูกค้า")
+    title = models.CharField(max_length=255, verbose_name="หัวข้อคำขอ")
+    description = models.TextField(blank=True, verbose_name="รายละเอียด")
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.RECEIVED,
+        verbose_name="สถานะ"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "คำขอ (Request)"
+        verbose_name_plural = "คำขอ (Requests)"
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.title} - {self.customer.name}"
+
+
 def project_file_upload_path(instance, filename):
-    """Upload files to pms/files/<project_id or req_id>/filename"""
+    """Upload files to pms/files/<project_id or req_id or cust_req_id>/filename"""
     if instance.project:
         return f'pms/files/project_{instance.project.pk}/{filename}'
     elif instance.requirement:
         return f'pms/files/requirement_{instance.requirement.pk}/{filename}'
+    elif instance.customer_request:
+        return f'pms/files/request_{instance.customer_request.pk}/{filename}'
     return f'pms/files/misc/{filename}'
 
 
@@ -197,6 +229,10 @@ class ProjectFile(models.Model):
     requirement = models.ForeignKey(
         CustomerRequirement, on_delete=models.CASCADE, null=True, blank=True,
         related_name='files', verbose_name="ความต้องการ"
+    )
+    customer_request = models.ForeignKey(
+        CustomerRequest, on_delete=models.CASCADE, null=True, blank=True,
+        related_name='files', verbose_name="คำขอ"
     )
     file = models.FileField(upload_to=project_file_upload_path, verbose_name="ไฟล์")
     original_name = models.CharField(max_length=255, verbose_name="ชื่อไฟล์เดิม")
