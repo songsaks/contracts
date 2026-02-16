@@ -164,25 +164,85 @@
                     <p class="text-muted small mb-0 mt-2">วิเคราะห์ข้อมูลสรุปผลการดำเนินงานรายเดือน</p>
                 </div>
                 <div class="col-md-6">
-                    <form method="get" class="d-flex flex-wrap justify-content-md-end gap-2 align-items-center">
-                        <div class="flex-grow-1 flex-md-grow-0" style="min-width: 140px;">
-                            <select name="month" class="form-select form-select-sm border-0 bg-light rounded-pill px-3 py-2">
+                    <form method="get" class="d-flex flex-wrap justify-content-md-end gap-2 align-items-center" id="filterForm">
+                        <!-- Mode Selector -->
+                        <div class="btn-group btn-group-sm rounded-pill shadow-sm bg-light p-1" role="group">
+                            <input type="radio" class="btn-check" name="mode" id="modeDaily" value="daily" {% if mode == 'daily' %}checked{% endif %} onchange="toggleInputs()">
+                            <label class="btn btn-sm rounded-pill px-3 {% if mode == 'daily' %}btn-white shadow-sm fw-bold{% else %}text-muted{% endif %}" for="modeDaily" id="labelDaily">รายวัน</label>
+                            
+                            <input type="radio" class="btn-check" name="mode" id="modeMonthly" value="monthly" {% if mode == 'monthly' or not mode %}checked{% endif %} onchange="toggleInputs()">
+                            <label class="btn btn-sm rounded-pill px-3 {% if mode == 'monthly' or not mode %}btn-white shadow-sm fw-bold{% else %}text-muted{% endif %}" for="modeMonthly" id="labelMonthly">รายเดือน</label>
+                            
+                            <input type="radio" class="btn-check" name="mode" id="modeYearly" value="yearly" {% if mode == 'yearly' %}checked{% endif %} onchange="toggleInputs()">
+                            <label class="btn btn-sm rounded-pill px-3 {% if mode == 'yearly' %}btn-white shadow-sm fw-bold{% else %}text-muted{% endif %}" for="modeYearly" id="labelYearly">รายปี</label>
+                        </div>
+
+                        <!-- Daily Input (Range) -->
+                        <div class="filter-input-group d-flex align-items-center gap-2 {% if mode != 'daily' %}d-none{% endif %}" id="groupDaily">
+                            <input type="date" name="start_date" class="form-control form-control-sm border-0 bg-light rounded-pill px-3" value="{{ date_start|default:date_filter }}" title="เริ่มวันที่">
+                            <span class="text-muted small">ถึง</span>
+                            <input type="date" name="end_date" class="form-control form-control-sm border-0 bg-light rounded-pill px-3" value="{{ date_end|default:date_filter }}" title="ถึงวันที่">
+                        </div>
+
+                        <!-- Month/Year Inputs -->
+                        <div class="filter-input-group d-flex gap-2 {% if mode == 'daily' %}d-none{% endif %}" id="groupMonthYear">
+                            <select name="month" class="form-select form-select-sm border-0 bg-light rounded-pill px-3 {% if mode == 'yearly' %}d-none{% endif %}" style="min-width: 120px;" id="monthInput">
                                 {% for val, label in month_choices %}
                                 <option value="{{ val }}" {% if month_filter == val %}selected{% endif %}>{{ label }}</option>
                                 {% endfor %}
                             </select>
-                        </div>
-                        <div class="flex-grow-1 flex-md-grow-0" style="min-width: 100px;">
-                            <select name="year" class="form-select form-select-sm border-0 bg-light rounded-pill px-3 py-2">
+                            <select name="year" class="form-select form-select-sm border-0 bg-light rounded-pill px-3" style="min-width: 90px;">
                                 {% for y in year_choices %}
                                 <option value="{{ y }}" {% if year_filter == y %}selected{% endif %}>{{ y }}</option>
                                 {% endfor %}
                             </select>
                         </div>
-                        <button type="submit" class="btn btn-primary btn-sm rounded-pill px-4 py-2">
-                            <i class="fas fa-filter small me-1"></i> กรอง
+
+                        <button type="submit" class="btn btn-primary btn-sm rounded-circle shadow-sm" style="width: 32px; height: 32px;">
+                            <i class="fas fa-search"></i>
                         </button>
                     </form>
+
+                    <script>
+                    function toggleInputs() {
+                        const mode = document.querySelector('input[name="mode"]:checked').value;
+                        const groupDaily = document.getElementById('groupDaily');
+                        const groupMonthYear = document.getElementById('groupMonthYear');
+                        const monthInput = document.getElementById('monthInput');
+                        
+                        // Update Labels
+                        document.querySelectorAll('.btn-group label').forEach(lbl => {
+                            lbl.classList.remove('btn-white', 'shadow-sm', 'fw-bold');
+                            lbl.classList.add('text-muted');
+                        });
+                        const activeId = 'label' + mode.charAt(0).toUpperCase() + mode.slice(1);
+                        const activeLabel = document.getElementById(activeId);
+                        if(activeLabel) {
+                            activeLabel.classList.remove('text-muted');
+                            activeLabel.classList.add('btn-white', 'shadow-sm', 'fw-bold');
+                        }
+
+                        if (mode === 'daily') {
+                            groupDaily.classList.remove('d-none');
+                            groupMonthYear.classList.add('d-none');
+                        } else {
+                            groupDaily.classList.add('d-none');
+                            groupMonthYear.classList.remove('d-none');
+                            
+                            if (mode === 'yearly') {
+                                monthInput.classList.add('d-none');
+                            } else {
+                                monthInput.classList.remove('d-none');
+                            }
+                        }
+                    }
+                    </script>
+                    <style>
+                        .btn-white {
+                            background-color: white;
+                            color: var(--bs-primary);
+                        }
+                    </style>
                 </div>
             </div>
         </div>
