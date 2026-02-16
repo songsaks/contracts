@@ -180,6 +180,60 @@ class CustomerRequirement(models.Model):
         return f"Requirement {self.pk} - {self.created_at.strftime('%d/%m/%Y')}"
 
 
+def project_file_upload_path(instance, filename):
+    """Upload files to pms/files/<project_id or req_id>/filename"""
+    if instance.project:
+        return f'pms/files/project_{instance.project.pk}/{filename}'
+    elif instance.requirement:
+        return f'pms/files/requirement_{instance.requirement.pk}/{filename}'
+    return f'pms/files/misc/{filename}'
+
+
+class ProjectFile(models.Model):
+    project = models.ForeignKey(
+        Project, on_delete=models.CASCADE, null=True, blank=True,
+        related_name='files', verbose_name="โครงการ"
+    )
+    requirement = models.ForeignKey(
+        CustomerRequirement, on_delete=models.CASCADE, null=True, blank=True,
+        related_name='files', verbose_name="ความต้องการ"
+    )
+    file = models.FileField(upload_to=project_file_upload_path, verbose_name="ไฟล์")
+    original_name = models.CharField(max_length=255, verbose_name="ชื่อไฟล์เดิม")
+    description = models.CharField(max_length=255, blank=True, verbose_name="คำอธิบาย")
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "ไฟล์แนบ"
+        verbose_name_plural = "ไฟล์แนบ"
+        ordering = ['-uploaded_at']
+
+    def __str__(self):
+        return self.original_name
+
+    @property
+    def is_image(self):
+        ext = self.original_name.lower().rsplit('.', 1)[-1] if '.' in self.original_name else ''
+        return ext in ('jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'heic', 'heif')
+
+    @property
+    def file_extension(self):
+        return self.original_name.lower().rsplit('.', 1)[-1] if '.' in self.original_name else ''
+
+    @property
+    def file_size_display(self):
+        try:
+            size = self.file.size
+            if size < 1024:
+                return f"{size} B"
+            elif size < 1024 * 1024:
+                return f"{size / 1024:.1f} KB"
+            else:
+                return f"{size / (1024 * 1024):.1f} MB"
+        except Exception:
+            return "-"
+
+
 # ===== AI Service Queue Models =====
 
 class ServiceTeam(models.Model):

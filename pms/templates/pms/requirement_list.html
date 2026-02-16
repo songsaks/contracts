@@ -30,7 +30,14 @@
                         <tbody>
                             {% for req in requirements %}
                             <tr>
-                                <td>{{ req.content|truncatechars:100 }}</td>
+                                <td>
+                                    {{ req.content|truncatechars:100 }}
+                                    {% if req.files.count > 0 %}
+                                    <span class="badge bg-light text-muted ms-1" title="ไฟล์แนบ {{ req.files.count }} รายการ">
+                                        <i class="fas fa-paperclip me-1"></i>{{ req.files.count }}
+                                    </span>
+                                    {% endif %}
+                                </td>
                                 <td>{{ req.created_at|date:"d M Y H:i" }}</td>
                                 <td>
                                     {% if req.is_converted %}

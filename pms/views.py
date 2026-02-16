@@ -3,9 +3,10 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.utils import timezone
 from django.db.models import Sum, Count, Q
+from django.http import FileResponse
 from decimal import Decimal
 import datetime
-from .models import Project, ProductItem, Customer, Supplier, ProjectOwner, CustomerRequirement
+from .models import Project, ProductItem, Customer, Supplier, ProjectOwner, CustomerRequirement, ProjectFile
 from .forms import ProjectForm, ProductItemForm, CustomerForm, SupplierForm, ProjectOwnerForm, CustomerRequirementForm, SalesServiceJobForm
 from repairs.models import RepairItem
 
@@ -270,6 +271,7 @@ def project_detail(request, pk):
     context = {
         'project': project,
         'items': project.items.all(),
+        'project_files': project.files.all(),
         'workflow_steps': workflow_steps,
         'theme_color': theme_color,
         'current_status_label': current_status_label,
@@ -557,8 +559,20 @@ def requirement_create(request):
     if request.method == 'POST':
         form = CustomerRequirementForm(request.POST)
         if form.is_valid():
-            form.save()
-            messages.success(request, 'บันทึกความต้องการสำเร็จ')
+            requirement = form.save()
+            # Handle file uploads
+            files = request.FILES.getlist('attachments')
+            for f in files:
+                ProjectFile.objects.create(
+                    requirement=requirement,
+                    file=f,
+                    original_name=f.name,
+                )
+            file_count = len(files)
+            msg = 'บันทึกความต้องการสำเร็จ'
+            if file_count > 0:
+                msg += f' (แนบไฟล์ {file_count} รายการ)'
+            messages.success(request, msg)
             return redirect('pms:requirement_list')
     else:
         form = CustomerRequirementForm()
@@ -571,11 +585,23 @@ def requirement_update(request, pk):
         form = CustomerRequirementForm(request.POST, instance=requirement)
         if form.is_valid():
             form.save()
+            # Handle file uploads
+            files = request.FILES.getlist('attachments')
+            for f in files:
+                ProjectFile.objects.create(
+                    requirement=requirement,
+                    file=f,
+                    original_name=f.name,
+                )
             messages.success(request, 'แก้ไขความต้องการสำเร็จ')
             return redirect('pms:requirement_list')
     else:
         form = CustomerRequirementForm(instance=requirement)
-    return render(request, 'pms/requirement_form.html', {'form': form, 'title': 'แก้ไขความต้องการ'})
+    existing_files = requirement.files.all()
+    return render(request, 'pms/requirement_form.html', {
+        'form': form, 'title': 'แก้ไขความต้องการ',
+        'requirement': requirement, 'existing_files': existing_files,
+    })
 
 @login_required
 def requirement_delete(request, pk):
@@ -615,6 +641,9 @@ def create_project_from_requirement(request, pk):
             requirement.is_converted = True
             requirement.project = project
             requirement.save()
+
+            # Transfer files from requirement to project
+            requirement.files.update(project=project)
             
             job_label = 'โครงการ'
             if job_type == 'SERVICE': job_label = 'งานบริการขาย'
@@ -922,3 +951,49 @@ def team_delete(request, pk):
     return render(request, 'pms/team_confirm_delete.html', {'team': team})
 
 
+# ===== File Management Views =====
+
+@login_required
+def project_file_upload(request, pk):
+    """Upload files to a project."""
+    project = get_object_or_404(Project, pk=pk)
+    if request.method == 'POST':
+        files = request.FILES.getlist('files')
+        for f in files:
+            ProjectFile.objects.create(
+                project=project,
+                file=f,
+                original_name=f.name,
+            )
+        if files:
+            messages.success(request, f'อัปโหลดไฟล์ {len(files)} รายการสำเร็จ')
+    return redirect('pms:project_detail', pk=pk)
+
+
+@login_required
+def project_file_delete(request, file_id):
+    """Delete a file from project or requirement."""
+    pf = get_object_or_404(ProjectFile, pk=file_id)
+    project_pk = pf.project.pk if pf.project else None
+    req_pk = pf.requirement.pk if pf.requirement else None
+    pf.file.delete(save=False)  # Delete the actual file
+    pf.delete()
+    messages.success(request, 'ลบไฟล์สำเร็จ')
+    if project_pk:
+        return redirect('pms:project_detail', pk=project_pk)
+    elif req_pk:
+        return redirect('pms:requirement_update', pk=req_pk)
+    return redirect('pms:requirement_list')
+
+
+@login_required
+def requirement_file_delete(request, file_id):
+    """Delete a file from requirement (used in requirement form)."""
+    pf = get_object_or_404(ProjectFile, pk=file_id)
+    req_pk = pf.requirement.pk if pf.requirement else None
+    pf.file.delete(save=False)
+    pf.delete()
+    messages.success(request, 'ลบไฟล์สำเร็จ')
+    if req_pk:
+        return redirect('pms:requirement_update', pk=req_pk)
+    return redirect('pms:requirement_list')

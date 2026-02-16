@@ -56,5 +56,10 @@ urlpatterns = [
     path('teams/create/', views.team_create, name='team_create'),
     path('teams/<int:pk>/edit/', views.team_update, name='team_update'),
     path('teams/<int:pk>/delete/', views.team_delete, name='team_delete'),
+
+    # File Management
+    path('<int:pk>/upload-files/', views.project_file_upload, name='project_file_upload'),
+    path('file/<int:file_id>/delete/', views.project_file_delete, name='project_file_delete'),
+    path('requirements/file/<int:file_id>/delete/', views.requirement_file_delete, name='requirement_file_delete'),
 ]
 
