@@ -133,3 +133,18 @@ class CustomerRequirementForm(forms.ModelForm):
         widgets = {
             'content': forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': 'พูดหรือพิมพ์รายละเอียดความต้องการ...', 'id': 'requirement-content'}),
         }
+
+
+from .models import CustomerRequest
+
+class CustomerRequestForm(forms.ModelForm):
+    class Meta:
+        model = CustomerRequest
+        fields = ['owner', 'customer', 'title', 'description', 'status']
+        widgets = {
+            'owner': forms.Select(attrs={'class': 'form-select'}),
+            'customer': forms.Select(attrs={'class': 'form-select'}),
+            'title': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'เรื่อง...'}),
+            'description': forms.Textarea(attrs={'class': 'form-control', 'rows': 4, 'placeholder': 'รายละเอียดคำขอ...'}),
+            'status': forms.Select(attrs={'class': 'form-select'}),
+        }
