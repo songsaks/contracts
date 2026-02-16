@@ -131,5 +131,5 @@ class CustomerRequirementForm(forms.ModelForm):
         model = CustomerRequirement
         fields = ['content']
         widgets = {
-            'content': forms.Textarea(attrs={'class': 'form-control', 'rows': 5, 'placeholder': 'พูดหรือพิมพ์รายละเอียดความต้องการ...', 'id': 'requirement-content'}),
+            'content': forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': 'พูดหรือพิมพ์รายละเอียดความต้องการ...', 'id': 'requirement-content'}),
         }
