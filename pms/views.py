@@ -604,7 +604,7 @@ def dashboard(request):
                 When(projects__created_at__range=[start_of_period, end_of_period], 
                      then=F('projects__items__quantity') * F('projects__items__unit_price')),
                 default=0,
-                output_field=models.DecimalField()
+                output_field=models.DecimalField(max_digits=15, decimal_places=2)
             )
         ),
         job_count=Count(
@@ -645,7 +645,7 @@ def dashboard(request):
                      projects__created_at__range=[start_of_period, end_of_period],
                      then=F('projects__items__quantity') * F('projects__items__unit_price')),
                 default=Value(0),
-                output_field=models.DecimalField()
+                output_field=models.DecimalField(max_digits=15, decimal_places=2)
             )
         ),
         active_revenue=Sum(
@@ -654,7 +654,7 @@ def dashboard(request):
                      projects__created_at__range=[start_of_period, end_of_period],
                      then=F('projects__items__quantity') * F('projects__items__unit_price')),
                 default=Value(0),
-                output_field=models.DecimalField()
+                output_field=models.DecimalField(max_digits=15, decimal_places=2)
             )
         ),
         total_revenue_period=Sum(
@@ -662,7 +662,7 @@ def dashboard(request):
                 When(projects__created_at__range=[start_of_period, end_of_period],
                      then=F('projects__items__quantity') * F('projects__items__unit_price')),
                 default=0,
-                output_field=models.DecimalField()
+                output_field=models.DecimalField(max_digits=15, decimal_places=2)
             )
         )
     ).filter(total_revenue_period__gt=0).order_by('-total_revenue_period')[:10]
@@ -1166,3 +1166,66 @@ def requirement_file_delete(request, file_id):
     if req_pk:
         return redirect('pms:requirement_update', pk=req_pk)
     return redirect('pms:requirement_list')
+
+@login_required
+def ai_dashboard_analysis(request):
+    from .ai_utils import get_gemini_analysis
+    from django.http import JsonResponse
+    from django.conf import settings
+    from django.db.models import Sum, Count, F, Q, Case, When, Value, DecimalField
+    from django.utils import timezone
+    from datetime import datetime
+    import calendar
+
+    # 1. Get current month/year from request (same as dashboard)
+    now = timezone.now()
+    month_param = request.GET.get('month')
+    year_param = request.GET.get('year')
+    
+    month_filter = int(month_param) if month_param and month_param.isdigit() else now.month
+    year_filter = int(year_param) if year_param and year_param.isdigit() else now.year
+
+    # 2. Gather data for AI
+    _, last_day = calendar.monthrange(year_filter, month_filter)
+    start_of_period = timezone.make_aware(datetime(year_filter, month_filter, 1))
+    end_of_period = timezone.make_aware(datetime(year_filter, month_filter, last_day, 23, 59, 59))
+
+    projects_in_period = Project.objects.filter(created_at__range=[start_of_period, end_of_period])
+    total_revenue = projects_in_period.aggregate(total=Sum(F('items__quantity') * F('items__unit_price')))['total'] or 0
+    total_count = projects_in_period.count()
+    
+    # Sales by Type
+    type_stats = projects_in_period.values('job_type').annotate(revenue=Sum(F('items__quantity') * F('items__unit_price')))
+    type_summary = ", ".join([f"{t['job_type']}: ฿{t['revenue'] or 0:,.2f}" for t in type_stats])
+
+    # Sales by Owner
+    owner_stats = ProjectOwner.objects.annotate(
+        total_sales=Sum(Case(When(projects__created_at__range=[start_of_period, end_of_period], then=F('projects__items__quantity') * F('projects__items__unit_price')), default=0, output_field=DecimalField(max_digits=15, decimal_places=2)))
+    ).filter(total_sales__gt=0).order_by('-total_sales')
+    owner_summary = ", ".join([f"{o.name}: ฿{o.total_sales:,.2f}" for o in owner_stats])
+
+    data_summary = f"""
+    - ช่วงเวลา: {calendar.month_name[month_filter]} {year_filter}
+    - ยอดขายรวม: ฿{total_revenue:,.2f}
+    - จำนวนงานทั้งหมด: {total_count} งาน
+    - สรุปแยกตามประเภทงาน: {type_summary}
+    - สรุปยอดขายตามพนักงาน: {owner_summary}
+    """
+
+    try:
+        analysis_result = get_gemini_analysis(data_summary)
+        
+        return JsonResponse({
+            'status': 'success',
+            'analysis': analysis_result,
+            'debug_info': {
+                'month': month_filter,
+                'year': year_filter,
+                'has_key': bool(getattr(settings, 'GEMINI_API_KEY', None))
+            }
+        })
+    except Exception as e:
+        return JsonResponse({
+            'status': 'error',
+            'message': str(e)
+        }, status=500)

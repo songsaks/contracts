@@ -64,6 +64,89 @@
             height: 250px;
         }
     }
+
+    /* AI Analysis Premium Styles */
+    .ai-card {
+        border-radius: 30px;
+        background: linear-gradient(145deg, #ffffff, #f1f5f9);
+        border: 1px solid rgba(79, 70, 229, 0.1);
+        box-shadow: 0 20px 40px rgba(0,0,0,0.05);
+        overflow: hidden;
+        position: relative;
+    }
+
+    .ai-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        right: 0;
+        width: 300px;
+        height: 300px;
+        background: radial-gradient(circle, rgba(79, 70, 229, 0.05) 0%, transparent 70%);
+        z-index: 0;
+    }
+
+    .ai-badge {
+        background: linear-gradient(90deg, #4f46e5, #7c3aed);
+        color: white;
+        padding: 6px 16px;
+        border-radius: 50px;
+        font-weight: 700;
+        letter-spacing: 0.5px;
+        box-shadow: 0 4px 12px rgba(79, 70, 229, 0.2);
+    }
+
+    #aiContent {
+        background: rgba(255, 255, 255, 0.7);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.5);
+        color: #1e293b;
+        border-radius: 20px;
+    }
+
+    #aiContent h1, #aiContent h2, #aiContent h3 {
+        color: #4f46e5;
+        font-weight: 800;
+        margin-top: 1.5rem;
+    }
+
+    #aiContent ul {
+        padding-left: 1.2rem;
+    }
+
+    #aiContent li {
+        margin-bottom: 0.5rem;
+    }
+
+    .robot-icon {
+        animation: pulse 2s infinite ease-in-out;
+    }
+
+    @keyframes pulse {
+        0% { transform: scale(1); opacity: 1; }
+        50% { transform: scale(1.1); opacity: 0.8; }
+        100% { transform: scale(1); opacity: 1; }
+    }
+
+    .btn-ai-analyze {
+        background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+        border: none;
+        transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+
+    .btn-ai-analyze:hover {
+        transform: translateY(-5px) scale(1.02);
+        box-shadow: 0 15px 30px rgba(79, 70, 229, 0.3);
+        background: linear-gradient(135deg, #4338ca 0%, #6d28d9 100%);
+    }
+
+    .ai-loading-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        min-height: 200px;
+    }
 </style>
 {% endblock %}
 
@@ -104,6 +187,7 @@
             </div>
         </div>
     </div>
+
 
     <!-- Row 1: Summary Stats -->
     <div class="col-md-4">
@@ -196,7 +280,10 @@
     <!-- Row 4: Rankings List -->
     <div class="col-12">
         <div class="card analytics-card shadow-sm p-4">
-            <h5 class="fw-800 mb-4"><i class="fas fa-medal me-2 text-warning"></i>อันดับผลงานดีเลิศ ประจำปี {{ year_filter }}</h5>
+            <div class="d-flex align-items-center justify-content-between mb-4">
+                <h5 class="fw-800 mb-0"><i class="fas fa-medal me-2 text-warning"></i>อันดับผลงานดีเลิศ ประจำปี {{ year_filter }}</h5>
+                <span class="badge bg-light text-dark rounded-pill px-3">Top Performers</span>
+            </div>
             <div class="row g-3">
                 {% for owner in sales_by_owner %}
                 {% if owner.total_sales %}
@@ -210,17 +297,68 @@
                                 <span class="fw-bold">{{ owner.name }}</span>
                                 <span class="fw-800 text-primary">฿{{ owner.total_sales|floatformat:0|intcomma }}</span>
                             </div>
-                            <div class="progress">
-                                 <div class="progress-bar bg-primary" style="width: {{ owner.performance_pct }}%"></div>
+                            <div class="progress" style="height: 6px;">
+                                 <div class="progress-bar bg-primary rounded-pill" style="width: {{ owner.performance_pct }}%"></div>
                             </div>
-                            <div class="small text-muted mt-1">{{ owner.job_count }} โครงการ</div>
+                            <div class="d-flex justify-content-between mt-1">
+                                <span class="small text-muted">{{ owner.job_count }} โครงการ</span>
+                                <span class="small fw-bold text-primary">{{ owner.performance_pct|floatformat:1 }}%</span>
+                            </div>
                         </div>
                     </div>
                 </div>
                 {% endif %}
                 {% empty %}
-                <div class="col-12 text-center text-muted py-5">ยังไม่มีข้อมูลยอดขาย</div>
+                <div class="col-12 text-center text-muted py-5">
+                    <i class="fas fa-folder-open fa-3x mb-3 opacity-25"></i>
+                    <p>ยังไม่มีข้อมูลยอดขายในระบบ</p>
+                </div>
                 {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- AI Analysis Section (Moved to Bottom) -->
+    <div class="col-12 mt-5">
+        <div class="card ai-card">
+            <div class="card-body p-4 p-md-5 position-relative" style="z-index: 1;">
+                <div class="d-flex flex-column flex-md-row align-items-center justify-content-between gap-4">
+                    <div class="text-center text-md-start">
+                        <div class="d-inline-flex align-items-center gap-2 ai-badge small mb-3">
+                            <i class="fas fa-robot robot-icon"></i>
+                            <span>AI BUSINESS INSIGHTS</span>
+                        </div>
+                        <h2 class="fw-900 text-dark mb-2" style="letter-spacing: -0.5px;">บทวิเคราะห์ธุรกิจอัจฉริยะ</h2>
+                        <p class="text-secondary fs-5 mb-0 opacity-75">รับคำแนะนำเชิงกลยุทธ์และการสรุปผลภาพรวมด้วยขุมพลัง Gemini AI</p>
+                    </div>
+                    <button id="btnAiAnalyze" class="btn btn-ai-analyze btn-lg text-white rounded-pill px-5 py-3 d-flex align-items-center gap-3 shadow-lg">
+                        <i class="fas fa-wand-magic-sparkles"></i>
+                        <span class="fw-bold">ประมวลผลการวิเคราะห์</span>
+                    </button>
+                </div>
+
+                <!-- AI Response Container -->
+                <div id="aiResponseArea" class="mt-5 d-none">
+                    <div class="d-flex align-items-center gap-3 mb-4">
+                        <div class="h-px bg-primary bg-opacity-25 flex-grow-1"></div>
+                        <span class="small fw-bold text-primary text-uppercase ls-2">Analysis Result</span>
+                        <div class="h-px bg-primary bg-opacity-25 flex-grow-1"></div>
+                    </div>
+                    
+                    <div id="aiLoading" class="ai-loading-container d-none">
+                        <div class="spinner-grow text-primary mb-3" role="status" style="width: 3rem; height: 3rem;"></div>
+                        <div class="fw-bold text-primary h5">กำลังวิเคราะห์ข้อมูลเชิงลึก...</div>
+                        <p class="text-muted small">ระบบกำลังใช้ AI ประมวลผลข้อมูลยอดขายและแนวโน้มธุรกิจของคุณ</p>
+                    </div>
+
+                    <div id="aiContent" class="markdown-body p-4 p-md-5 shadow-inner" style="font-size: 1.1rem; line-height: 2;">
+                        <!-- AI Analysis will be injected here -->
+                    </div>
+
+                    <div class="text-center mt-4 opacity-50 small">
+                        <i class="fas fa-info-circle me-1"></i> ผลลัพธ์นี้ถูกสร้างขึ้นโดย AI โปรดใช้ดุลยพินิจในการประกอบการตัดสินใจ
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -412,6 +550,59 @@
                 }
             }
         });
+    });
+</script>
+
+<!-- Add Marked.js for Markdown rendering -->
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script>
+    document.getElementById('btnAiAnalyze').addEventListener('click', function() {
+        const btn = this;
+        const responseArea = document.getElementById('aiResponseArea');
+        const loading = document.getElementById('aiLoading');
+        const content = document.getElementById('aiContent');
+        
+        // UI State
+        responseArea.classList.remove('d-none');
+        loading.classList.remove('d-none');
+        content.classList.add('d-none');
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-grow spinner-grow-sm me-2"></span> กำลังประมวลผล...';
+
+        // Smooth scroll to loading area
+        responseArea.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+        // Prepare context params (month/year from current filter)
+        const urlParams = new URLSearchParams(window.location.search);
+        const month = urlParams.get('month') || '';
+        const year = urlParams.get('year') || '';
+
+        fetch(`{% url 'pms:ai_dashboard_analysis' %}?month=${month}&year=${year}`)
+            .then(response => response.json())
+            .then(data => {
+                loading.classList.add('d-none');
+                content.classList.remove('d-none');
+                
+                if (data.status === 'success') {
+                    content.innerHTML = marked.parse(data.analysis);
+                    // Scroll to top of content
+                    setTimeout(() => {
+                        content.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }, 100);
+                } else {
+                    content.innerHTML = '<div class="alert alert-danger shadow-sm border-0 rounded-4 p-4"><i class="fas fa-exclamation-triangle me-2"></i> เกิดข้อผิดพลาดในการเรียกใช้ AI กรุณาลองใหม่ภายหลัง</div>';
+                }
+            })
+            .catch(error => {
+                console.error('AI Error:', error);
+                loading.classList.add('d-none');
+                content.classList.remove('d-none');
+                content.innerHTML = '<div class="alert alert-danger shadow-sm border-0 rounded-4 p-4"><i class="fas fa-wifi-slash me-2"></i> ไม่สามารถเชื่อมต่อกับ AI ได้</div>';
+            })
+            .finally(() => {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-wand-magic-sparkles"></i> ประมวลผลอีกครั้ง';
+            });
     });
 </script>
 {% endblock %}
