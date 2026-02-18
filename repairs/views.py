@@ -37,9 +37,20 @@ def repair_list(request):
         items = items.filter(status=status)
 
     # Filter by Creator (Receiver)
-    created_by_id = request.GET.get('created_by')
-    if created_by_id:
-        items = items.filter(created_by__id=created_by_id)
+    created_by_param = request.GET.get('created_by')
+    selected_created_by = None
+    
+    if created_by_param is None:
+        # Default: Show only logged-in user's jobs
+        selected_created_by = request.user.id
+        items = items.filter(created_by__id=selected_created_by)
+    elif created_by_param != "":
+        # Specific user selected
+        selected_created_by = created_by_param
+        items = items.filter(created_by__id=selected_created_by)
+    else:
+        # "Everyone" selected (created_by="")
+        selected_created_by = ""
 
     # Sort
     sort = request.GET.get('sort', 'date_desc')
@@ -53,7 +64,7 @@ def repair_list(request):
     from django.contrib.auth.models import User
     users = User.objects.all().order_by('username')
 
-    return render(request, 'repairs/repair_list.html', {'items': items, 'jobs': None, 'users': users}) # Pass items, clear jobs for safety check
+    return render(request, 'repairs/repair_list.html', {'items': items, 'jobs': None, 'users': users, 'selected_created_by': selected_created_by}) # Pass items, clear jobs for safety check
 
 @login_required
 def repair_completed_list(request):

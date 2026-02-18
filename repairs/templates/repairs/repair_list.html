@@ -93,7 +93,7 @@
                         <select name="created_by" class="form-select select2" onchange="this.form.submit()">
                             <option value="">ทุกคน</option>
                             {% for u in users %}
-                            <option value="{{ u.id }}" {% if request.GET.created_by|add:"0" == u.id %}selected{% endif %}>{{ u.username }}</option>
+                            <option value="{{ u.id }}" {% if selected_created_by|add:"0" == u.id %}selected{% endif %}>{{ u.username }}</option>
                             {% endfor %}
                         </select>
                     </div>
