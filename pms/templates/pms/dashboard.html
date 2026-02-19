@@ -702,7 +702,7 @@
         // 3. Sales By Owner Chart
         const ctxOwners = document.getElementById('ownerSalesChart').getContext('2d');
         new Chart(ctxOwners, {
-            type: 'horizontalBar', // Note: in Chart.js 3+ this is handled by indexAxis: 'y'
+            type: 'bar', // Changed from 'horizontalBar' (Chart.js 2.x) to 'bar' with indexAxis:'y' (Chart.js 3+)
             data: {
                 labels: {{ chart_owners|safe }},
                 datasets: [{
