@@ -609,6 +609,75 @@ def dashboard(request):
     # 2.1 Sales Trends by Owner
     owner_trends = {} # { 'Owner Name': [0]*12 }
     
+    # 2.2 Completion Analysis (Total vs Closed)
+    completion_closed_series = [0] * 12
+    completion_total_series = [0] * 12
+    
+    # 2.3 Value Analysis (Money: Total vs Closed) [NEW]
+    completion_closed_value = [0] * 12
+    completion_total_value = [0] * 12
+
+    # Query for Project counts & VALUE
+    monthly_counts_qs = Project.objects.filter(created_at__range=[start_of_year, end_of_year])\
+        .annotate(month=TruncMonth('created_at'))\
+        .values('month')\
+        .annotate(
+            total=Count('id'),
+            total_rev=Sum(F('items__quantity') * F('items__unit_price')),
+            closed=Count(Case(When(status=Project.Status.CLOSED, then=1))),
+            closed_rev=Sum(
+                Case(
+                    When(status=Project.Status.CLOSED, then=F('items__quantity') * F('items__unit_price')),
+                    default=0,
+                    output_field=models.DecimalField(max_digits=15, decimal_places=2)
+                )
+            )
+        )\
+        .order_by('month')
+        
+    for entry in monthly_counts_qs:
+        m_index = entry['month'].month - 1
+        completion_total_series[m_index] += entry['total']
+        completion_closed_series[m_index] += entry['closed']
+        
+        # Add Value
+        completion_total_value[m_index] += float(entry['total_rev'] or 0)
+        completion_closed_value[m_index] += float(entry['closed_rev'] or 0)
+
+    # Query for RepairItem counts (Repairs App) & VALUE
+    from repairs.models import RepairItem
+    monthly_repair_counts = RepairItem.objects.filter(created_at__range=[start_of_year, end_of_year])\
+        .annotate(month=TruncMonth('created_at'))\
+        .values('month')\
+        .annotate(
+            total=Count('id'),
+            total_rev=Sum('final_cost'), # Use final_cost for repairs
+            closed=Count(Case(When(status__in=['FINISHED', 'COMPLETED'], then=1))),
+            closed_rev=Sum(
+                Case(
+                    When(status__in=['FINISHED', 'COMPLETED'], then='final_cost'),
+                    default=0,
+                    output_field=models.DecimalField(max_digits=15, decimal_places=2)
+                )
+            )
+        )\
+        .order_by('month')
+
+    for entry in monthly_repair_counts:
+        m_index = entry['month'].month - 1
+        completion_total_series[m_index] += entry['total']
+        completion_closed_series[m_index] += entry['closed']
+        
+        # Add Value (Repairs)
+        # Note: repairs use 'final_cost' field for price charged to customer (as per context if logic matches)
+        # Or using 'price' (estimated) if final_cost is null?
+        # Let's fallback to 'price' if final_cost is 0 or null for Total, 
+        # but for Closed usually final_cost is set.
+        # For simplicity in this logic from aggregated query, we take what we summed.
+        # If final_cost is null, Sum returns None -> 0.
+        completion_total_value[m_index] += float(entry['total_rev'] or 0)
+        completion_closed_value[m_index] += float(entry['closed_rev'] or 0)
+
     for entry in monthly_sales_qs:
         m_index = entry['month'].month - 1
         jt = entry['job_type']
@@ -645,28 +714,28 @@ def dashboard(request):
                 'borderWidth': 3
             })
 
-    # 3. Sales by Person (Project Owner) - Filtered by period
+    # 3. Sales by Person (Project Owner) - Yearly
     sales_by_owner = ProjectOwner.objects.annotate(
         total_sales=Sum(
             Case(
-                When(projects__created_at__range=[start_of_period, end_of_period], 
+                When(projects__created_at__range=[start_of_year, end_of_year], 
                      then=F('projects__items__quantity') * F('projects__items__unit_price')),
                 default=0,
                 output_field=models.DecimalField(max_digits=15, decimal_places=2)
             )
         ),
         job_count=Count(
-            Case(
-                When(projects__created_at__range=[start_of_period, end_of_period], then=1),
-                default=None
-            )
+            'projects',
+            filter=Q(projects__created_at__range=[start_of_year, end_of_year]),
+            distinct=True
         )
     ).order_by('-total_sales')
 
-    owner_names = [o.name for o in sales_by_owner if o.total_sales]
-    owner_sales = [float(o.total_sales or 0) for o in sales_by_owner if o.total_sales]
+    owner_names = [o.name for o in sales_by_owner if o.total_sales and o.total_sales > 0]
+    owner_sales = [float(o.total_sales or 0) for o in sales_by_owner if o.total_sales and o.total_sales > 0]
 
-    # 4. Job Type Distribution (Pie Chart) - Filtered by period
+    # 4. Job Type Distribution (Pie Chart) - Filtered by period (Keep current period/mode for specific insights)
+    # Actually, Pie chart usually reflects the current view. Let's keep it as 'projects_in_period' (Monthly/Daily as selected)
     type_map = {
         'PROJECT': {'label': 'โครงการ', 'value': 0},
         'SERVICE': {'label': 'งานบริการขาย', 'value': 0},
@@ -685,12 +754,12 @@ def dashboard(request):
     type_labels = [type_map['PROJECT']['label'], type_map['SERVICE']['label'], type_map['REPAIR']['label']]
     type_values = [type_map['PROJECT']['value'], type_map['SERVICE']['value'], type_map['REPAIR']['value']]
 
-    # 5. Top Customers (Stacked Bar: Active vs Closed) - Filtered by period
+    # 5. Top Customers (Stacked Bar: Active vs Closed) - Filtered by YEAR (to match Ranking/Trend context)
     top_customers = Customer.objects.annotate(
         closed_revenue=Sum(
             Case(
                 When(projects__status=Project.Status.CLOSED, 
-                     projects__created_at__range=[start_of_period, end_of_period],
+                     projects__created_at__range=[start_of_year, end_of_year],
                      then=F('projects__items__quantity') * F('projects__items__unit_price')),
                 default=Value(0),
                 output_field=models.DecimalField(max_digits=15, decimal_places=2)
@@ -699,7 +768,7 @@ def dashboard(request):
         active_revenue=Sum(
             Case(
                 When(~models.Q(projects__status__in=[Project.Status.CLOSED, Project.Status.CANCELLED]),
-                     projects__created_at__range=[start_of_period, end_of_period],
+                     projects__created_at__range=[start_of_year, end_of_year],
                      then=F('projects__items__quantity') * F('projects__items__unit_price')),
                 default=Value(0),
                 output_field=models.DecimalField(max_digits=15, decimal_places=2)
@@ -707,7 +776,7 @@ def dashboard(request):
         ),
         total_revenue_period=Sum(
             Case(
-                When(projects__created_at__range=[start_of_period, end_of_period],
+                When(projects__created_at__range=[start_of_year, end_of_year],
                      then=F('projects__items__quantity') * F('projects__items__unit_price')),
                 default=0,
                 output_field=models.DecimalField(max_digits=15, decimal_places=2)
@@ -755,6 +824,10 @@ def dashboard(request):
         'chart_service_series': json.dumps(service_series),
         'chart_repair_series': json.dumps(repair_series),
         'chart_owner_trends': json.dumps(owner_trend_datasets),
+        'chart_completion_total': json.dumps(completion_total_series),
+        'chart_completion_closed': json.dumps(completion_closed_series),
+        'chart_completion_total_value': json.dumps(completion_total_value),
+        'chart_completion_closed_value': json.dumps(completion_closed_value),
         
         'chart_owners': json.dumps(owner_names),
         'chart_owner_sales': json.dumps(owner_sales),

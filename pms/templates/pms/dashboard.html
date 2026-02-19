@@ -290,6 +290,25 @@
         </div>
     </div>
 
+    <!-- Row 1.5: Completion Analysis (Quantity & Value) -->
+    <div class="col-lg-6">
+        <div class="card analytics-card shadow-sm p-4 h-100">
+            <h5 class="fw-800 mb-4"><i class="fas fa-check-circle me-2 text-success"></i>เปรียบเทียบจำนวนงาน (Total vs Closed)</h5>
+            <div class="chart-container" style="height: 350px;">
+                <canvas id="completionChart"></canvas>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-6">
+        <div class="card analytics-card shadow-sm p-4 h-100">
+            <h5 class="fw-800 mb-4"><i class="fas fa-coins me-2 text-warning"></i>เปรียบเทียบมูลค่างาน (Total Value vs Closed)</h5>
+            <div class="chart-container" style="height: 350px;">
+                <canvas id="completionValueChart"></canvas>
+            </div>
+        </div>
+    </div>
+
     <!-- Row 2: Monthly Trends -->
     <div class="col-lg-6">
         <div class="card analytics-card shadow-sm p-4 h-100">
@@ -468,6 +487,144 @@
                     y: { 
                         beginAtZero: true,
                         ticks: { callback: value => '฿' + (value/1000).toFixed(0) + 'k' }
+                    }
+                }
+            }
+        });
+
+        // Completion Analysis Chart (Total vs Closed)
+        const ctxCompletion = document.getElementById('completionChart').getContext('2d');
+        new Chart(ctxCompletion, {
+            type: 'bar',
+            data: {
+                labels: {{ chart_months|safe }},
+                datasets: [
+                    {
+                        label: 'งานรับเข้าทั้งหมด (Total)',
+                        data: {{ chart_completion_total|safe }},
+                        backgroundColor: '#94a3b8', // Slate-400
+                        borderRadius: 4,
+                        barPercentage: 0.6,
+                        categoryPercentage: 0.8
+                    },
+                    {
+                        label: 'งานปิดจบแล้ว (Closed)',
+                        data: {{ chart_completion_closed|safe }},
+                        backgroundColor: '#10b981', // Emerald-500
+                        borderRadius: 4,
+                        barPercentage: 0.6,
+                        categoryPercentage: 0.8
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: {
+                    mode: 'index',
+                    intersect: false,
+                },
+                plugins: {
+                    legend: { 
+                        position: 'top', 
+                        align: 'end',
+                        labels: { usePointStyle: true, font: { weight: 'bold' } } 
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                        titleColor: '#1e293b',
+                        bodyColor: '#475569',
+                        borderColor: '#e2e8f0',
+                        borderWidth: 1,
+                        padding: 10,
+                        callbacks: {
+                            label: function(context) {
+                                let label = context.dataset.label || '';
+                                if (label) label += ': ';
+                                label += context.raw + ' งาน';
+                                return label;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: { 
+                        grid: { display: false }
+                    },
+                    y: { 
+                        beginAtZero: true,
+                        grid: { borderDash: [4, 4], color: '#f1f5f9' },
+                        ticks: { stepSize: 1 }
+                    }
+                }
+            }
+        });
+
+        // Completion Value Analysis Chart (Total Value vs Closed Value)
+        const ctxCompletionValue = document.getElementById('completionValueChart').getContext('2d');
+        new Chart(ctxCompletionValue, {
+            type: 'bar',
+            data: {
+                labels: {{ chart_months|safe }},
+                datasets: [
+                    {
+                        label: 'มูลค่างานรับเข้า (Total)',
+                        data: {{ chart_completion_total_value|safe }},
+                        backgroundColor: '#a5b4fc', // Indigo-300
+                        borderRadius: 4,
+                        barPercentage: 0.6,
+                        categoryPercentage: 0.8
+                    },
+                    {
+                        label: 'มูลค่างานปิดจบ (Closed)',
+                        data: {{ chart_completion_closed_value|safe }},
+                        backgroundColor: '#f59e0b', // Amber-500
+                        borderRadius: 4,
+                        barPercentage: 0.6,
+                        categoryPercentage: 0.8
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: {
+                    mode: 'index',
+                    intersect: false,
+                },
+                plugins: {
+                    legend: { 
+                        position: 'top', 
+                        align: 'end',
+                        labels: { usePointStyle: true, font: { weight: 'bold' } } 
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                        titleColor: '#1e293b',
+                        bodyColor: '#475569',
+                        borderColor: '#e2e8f0',
+                        borderWidth: 1,
+                        padding: 10,
+                        callbacks: {
+                            label: function(context) {
+                                let label = context.dataset.label || '';
+                                if (label) label += ': ';
+                                label += '฿' + context.parsed.y.toLocaleString();
+                                return label;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: { 
+                        grid: { display: false }
+                    },
+                    y: { 
+                        beginAtZero: true,
+                        grid: { borderDash: [4, 4], color: '#f1f5f9' },
+                        ticks: { 
+                             callback: value => '฿' + (value/1000).toFixed(0) + 'k'
+                        }
                     }
                 }
             }
