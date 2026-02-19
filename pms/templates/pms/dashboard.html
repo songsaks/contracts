@@ -338,19 +338,10 @@
         </div>
     </div>
 
-    <div class="col-lg-4">
-        <div class="card analytics-card shadow-sm p-4 h-100">
-            <h5 class="fw-800 mb-4"><i class="fas fa-user-friends me-2 text-primary"></i>ยอดขายรวมรายบุคคล</h5>
-            <div class="chart-container" style="height: 250px;">
-                <canvas id="ownerSalesChart"></canvas>
-            </div>
-        </div>
-    </div>
-
-    <div class="col-lg-4">
+    <div class="col-lg-8">
         <div class="card analytics-card shadow-sm p-4 h-100">
             <h5 class="fw-800 mb-4"><i class="fas fa-trophy me-2 text-primary"></i>10 อันดับลูกค้า</h5>
-            <div class="chart-container" style="height: 250px;">
+            <div class="chart-container" style="height: 300px;">
                 <canvas id="customerSalesChart"></canvas>
             </div>
         </div>
@@ -699,34 +690,7 @@
             }
         });
 
-        // 3. Sales By Owner Chart
-        const ctxOwners = document.getElementById('ownerSalesChart').getContext('2d');
-        new Chart(ctxOwners, {
-            type: 'bar', // Changed from 'horizontalBar' (Chart.js 2.x) to 'bar' with indexAxis:'y' (Chart.js 3+)
-            data: {
-                labels: {{ chart_owners|safe }},
-                datasets: [{
-                    label: 'ยอดขายรายบุคคล',
-                    data: {{ chart_owner_sales|safe }},
-                    backgroundColor: pmsBlue,
-                    borderRadius: 8,
-                }]
-            },
-            options: {
-                indexAxis: 'y',
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: { legend: { display: false } },
-                scales: {
-                    x: { 
-                        beginAtZero: true,
-                        ticks: { callback: value => '฿' + (value/1000).toFixed(0) + 'k' }
-                    },
-                    y: { grid: { display: false } }
-                }
-            }
-        });
-        // 4. Top Customers Chart (Stacked)
+        // 4. Top Customers Chart
         const ctxCustomers = document.getElementById('customerSalesChart').getContext('2d');
         new Chart(ctxCustomers, {
             type: 'bar',
