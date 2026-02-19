@@ -580,16 +580,23 @@ def dashboard(request):
         start_of_period = timezone.make_aware(datetime(year_filter, month_filter, 1))
         end_of_period = timezone.make_aware(datetime(year_filter, month_filter, last_day, 23, 59, 59))
 
-    # Base Filter for current selected month
     projects_in_period = Project.objects.filter(created_at__range=[start_of_period, end_of_period])
+
+    # Summary Cards: MUST match the "Project List" page (PMS Projects Only) per user Step 225.
+    # "Accumulated Work IS the work that is on the All Work List page"
+    # So we EXCLUDE the 'repairs' app content from these top-level summary numbers.
     
     total_projects = projects_in_period.count()
     active_projects = projects_in_period.exclude(status__in=[Project.Status.CLOSED, Project.Status.CANCELLED]).count()
-    
     total_revenue = projects_in_period.aggregate(
         total=Sum(F('items__quantity') * F('items__unit_price'))
     )['total'] or 0
-    
+
+    # NOTE: Repairs App integration (RepairItem) is NOT included in these summary cards 
+    # to prevent mismatch with the Project List page (count 10 vs 15).
+    # It IS, however, included in "Top Customers" and "Revenue Trends" if requested?
+    # User instruction in Step 225 implies consistency with List Page is key for "Accumulated Work".
+
     # 2. Sales by Month (Full Year: Jan to Dec of selected year)
     start_of_year = timezone.make_aware(datetime(year_filter, 1, 1))
     end_of_year = timezone.make_aware(datetime(year_filter, 12, 31, 23, 59, 59))
@@ -618,7 +625,7 @@ def dashboard(request):
     completion_total_value = [0] * 12
 
     # Query for Project counts & VALUE
-    monthly_counts_qs = Project.objects.filter(created_at__range=[start_of_year, end_of_year])\
+    monthly_project_counts = Project.objects.filter(created_at__range=[start_of_year, end_of_year])\
         .annotate(month=TruncMonth('created_at'))\
         .values('month')\
         .annotate(
@@ -634,8 +641,9 @@ def dashboard(request):
             )
         )\
         .order_by('month')
-        
-    for entry in monthly_counts_qs:
+
+    # Loop for PROJECTS: Add to Counts AND Value
+    for entry in monthly_project_counts:
         m_index = entry['month'].month - 1
         completion_total_series[m_index] += entry['total']
         completion_closed_series[m_index] += entry['closed']
@@ -651,11 +659,11 @@ def dashboard(request):
         .values('month')\
         .annotate(
             total=Count('id'),
-            total_rev=Sum('final_cost'), # Use final_cost for repairs
+            total_rev=Sum('price'), # Use 'price' (Estimated/Project Value)
             closed=Count(Case(When(status__in=['FINISHED', 'COMPLETED'], then=1))),
             closed_rev=Sum(
                 Case(
-                    When(status__in=['FINISHED', 'COMPLETED'], then='final_cost'),
+                    When(status__in=['FINISHED', 'COMPLETED'], then='price'), # Use 'price' instead of final_cost
                     default=0,
                     output_field=models.DecimalField(max_digits=15, decimal_places=2)
                 )
@@ -663,18 +671,13 @@ def dashboard(request):
         )\
         .order_by('month')
 
+    # Loop for REPAIRS: Add to VALUE ONLY (Exclude from Counts per user request)
     for entry in monthly_repair_counts:
         m_index = entry['month'].month - 1
-        completion_total_series[m_index] += entry['total']
-        completion_closed_series[m_index] += entry['closed']
+        # completion_total_series[m_index] += entry['total']  <-- Excluded
+        # completion_closed_series[m_index] += entry['closed'] <-- Excluded
         
         # Add Value (Repairs)
-        # Note: repairs use 'final_cost' field for price charged to customer (as per context if logic matches)
-        # Or using 'price' (estimated) if final_cost is null?
-        # Let's fallback to 'price' if final_cost is 0 or null for Total, 
-        # but for Closed usually final_cost is set.
-        # For simplicity in this logic from aggregated query, we take what we summed.
-        # If final_cost is null, Sum returns None -> 0.
         completion_total_value[m_index] += float(entry['total_rev'] or 0)
         completion_closed_value[m_index] += float(entry['closed_rev'] or 0)
 
@@ -754,39 +757,29 @@ def dashboard(request):
     type_labels = [type_map['PROJECT']['label'], type_map['SERVICE']['label'], type_map['REPAIR']['label']]
     type_values = [type_map['PROJECT']['value'], type_map['SERVICE']['value'], type_map['REPAIR']['value']]
 
-    # 5. Top Customers (Stacked Bar: Active vs Closed) - Filtered by YEAR (to match Ranking/Trend context)
+    # 5. Top 10 Customers - From "All Projects List" (PMS Only) with status CLOSED
+    # User: "10 อันดับลูกค้า คือ รายชื่อลูกค้าในรายการงานทั้งหมด ที่มีสถานะปิดจบ หรือปิดงานซ่อม ในช่วงเวลานั้นๆ"
+    # Note: "ปิดงานซ่อม" = PMS Project with job_type=REPAIR and status=CLOSED (same CLOSED status)
+    # So we only query PMS Customer model, filtering by status=CLOSED within the selected period.
+    
     top_customers = Customer.objects.annotate(
         closed_revenue=Sum(
             Case(
-                When(projects__status=Project.Status.CLOSED, 
-                     projects__created_at__range=[start_of_year, end_of_year],
+                When(projects__status=Project.Status.CLOSED,
+                     projects__created_at__range=[start_of_period, end_of_period],
                      then=F('projects__items__quantity') * F('projects__items__unit_price')),
                 default=Value(0),
-                output_field=models.DecimalField(max_digits=15, decimal_places=2)
-            )
-        ),
-        active_revenue=Sum(
-            Case(
-                When(~models.Q(projects__status__in=[Project.Status.CLOSED, Project.Status.CANCELLED]),
-                     projects__created_at__range=[start_of_year, end_of_year],
-                     then=F('projects__items__quantity') * F('projects__items__unit_price')),
-                default=Value(0),
-                output_field=models.DecimalField(max_digits=15, decimal_places=2)
-            )
-        ),
-        total_revenue_period=Sum(
-            Case(
-                When(projects__created_at__range=[start_of_year, end_of_year],
-                     then=F('projects__items__quantity') * F('projects__items__unit_price')),
-                default=0,
                 output_field=models.DecimalField(max_digits=15, decimal_places=2)
             )
         )
-    ).filter(total_revenue_period__gt=0).order_by('-total_revenue_period')[:10]
+    ).filter(closed_revenue__gt=0).order_by('-closed_revenue')[:10]
 
     customer_labels = [c.name for c in top_customers]
-    customer_active_sales = [float(c.active_revenue or 0) for c in top_customers]
     customer_closed_sales = [float(c.closed_revenue or 0) for c in top_customers]
+    customer_active_sales = [0] * len(top_customers)  # Only showing closed revenue per user request
+    
+    # For compatibility with template which expects active vs closed
+    # We will just show Closed bar (Green) and 0 for Active.
 
     # Calculate percentages for progress bars
     max_sales = max(owner_sales) if owner_sales else 0
