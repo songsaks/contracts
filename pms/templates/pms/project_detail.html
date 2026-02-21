@@ -168,11 +168,11 @@
                 <button class="btn-action opacity-50" disabled title="ล็อกเนื่องจากอยู่ในคิว">
                     <i class="fas fa-lock text-muted"></i>
                 </button>
-                {% elif project.status == 'CLOSED' %}
+                {% elif project.status == 'CLOSED' or project.status == 'CANCELLED' %}
                 <button onclick="unlockClosedProject()" class="btn-action" style="background: #1f2937; border-color: #1f2937;" title="ปลดล็อก">
                     <i class="fas fa-unlock text-white"></i>
                 </button>
-                <button onclick="deleteClosedProject()" class="btn-action" style="background: #ef4444; border-color: #ef4444;" title="ลบงานที่ปิดจบแล้ว">
+                <button onclick="deleteClosedProject()" class="btn-action" style="background: #ef4444; border-color: #ef4444;" title="ลบงาน">
                     <i class="fas fa-trash text-white"></i>
                 </button>
                 <form id="deleteProjectForm" method="post" action="{% url 'pms:project_delete' project.pk %}" style="display:none;">
@@ -192,10 +192,17 @@
     </div>
 
     {% if project.status == 'CLOSED' %}
-    <div class="alert alert-dark border-0 shadow-sm mb-4 d-flex align-items-center">
-        <i class="fas fa-check-double fs-5 me-3 text-success"></i>
+    <div class="alert alert-success border-0 shadow-sm mb-4 d-flex align-items-center">
+        <i class="fas fa-check-double fs-5 me-3"></i>
         <div style="font-size: 0.85rem;">
-            <strong>งานนี้ปิดจบแล้ว:</strong> ข้อมูลถูกล็อกถาวรเพื่อความปลอดภัย
+            <strong>งานนี้ปิดจบแล้ว:</strong> ข้อมูลถูกล็อกถาวรเพื่อความปลอดภัย (ต้องใช้รหัสเพื่อแก้ไข)
+        </div>
+    </div>
+    {% elif project.status == 'CANCELLED' %}
+    <div class="alert alert-secondary border-0 shadow-sm mb-4 d-flex align-items-center text-dark">
+        <i class="fas fa-ban fs-5 me-3 text-danger"></i>
+        <div style="font-size: 0.85rem;">
+            <strong>งานนี้ยกเลิกแล้ว:</strong> ข้อมูลถูกล็อกถาวร (ต้องใช้รหัสเพื่อแก้ไข)
         </div>
     </div>
     {% elif active_queue_item %}
@@ -466,7 +473,7 @@
 </div>
 <script>
 function unlockClosedProject() {
-    const code = prompt("🔑 กรุณาใส่รหัสผ่านเพื่อปลดล็อกงานที่ปิดจบ:");
+    const code = prompt("🔑 กรุณาใส่รหัสผ่านเพื่อปลดล็อก:");
     if (code === "9com") {
         window.location.href = "{% url 'pms:project_update' project.pk %}?unlock=9com";
     } else if (code !== null) {

@@ -6,6 +6,7 @@ app_name = 'pms'
 urlpatterns = [
     path('', views.dashboard, name='dashboard'), # Changed index to dashboard
     path('projects/', views.project_list, name='project_list'),
+    path('history/', views.history_list, name='history_list'),
     path('create/', views.project_create, name='project_create'),
     path('<int:pk>/', views.project_detail, name='project_detail'),
     path('<int:pk>/edit/', views.project_update, name='project_update'),
