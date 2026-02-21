@@ -1,5 +1,9 @@
 from django.contrib import admin
-from .models import Project, ProductItem, Customer, Supplier, ProjectOwner, CustomerRequirement, ServiceTeam, ServiceQueueItem, TeamMessage
+from .models import Project, ProductItem, Customer, Supplier, ProjectOwner, CustomerRequirement, ServiceTeam, ServiceQueueItem, TeamMessage, SLAPlan
+
+@admin.register(SLAPlan)
+class SLAPlanAdmin(admin.ModelAdmin):
+    list_display = ('name', 'response_time_hours', 'resolution_time_hours', 'is_active')
 
 @admin.register(ProjectOwner)
 class ProjectOwnerAdmin(admin.ModelAdmin):
@@ -12,7 +16,8 @@ class CustomerRequirementAdmin(admin.ModelAdmin):
 
 @admin.register(Customer)
 class CustomerAdmin(admin.ModelAdmin):
-    list_display = ('name', 'email', 'phone')
+    list_display = ('name', 'email', 'phone', 'sla_plan')
+    list_filter = ('sla_plan',)
 
 @admin.register(Supplier)
 class SupplierAdmin(admin.ModelAdmin):

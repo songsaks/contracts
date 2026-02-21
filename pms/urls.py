@@ -13,6 +13,7 @@ urlpatterns = [
     path('<int:pk>/cancel/', views.project_cancel, name='project_cancel'),
     path('<int:pk>/delete/', views.project_delete, name='project_delete'),
     path('<int:pk>/quotation/', views.project_quotation, name='project_quotation'),
+    path('<int:pk>/respond/', views.mark_as_responded, name='mark_as_responded'),
     path('<int:project_id>/add-item/', views.item_add, name='item_add'),
     path('item/<int:item_id>/edit/', views.item_update, name='item_update'),
     path('item/<int:item_id>/delete/', views.item_delete, name='item_delete'),
@@ -21,12 +22,17 @@ urlpatterns = [
     path('dispatch/', views.dispatch, name='dispatch'),
     path('service/create/', views.service_create, name='service_create'),
     path('repair/create/', views.repair_create, name='repair_create'), # New Repair Job
-    path('queue/', views.queue_management, name='queue_management'),  
+    path('tracking/', views.sla_tracking_dashboard, name='tracking'),  
 
     # Customer URLs
     path('customers/', views.customer_list, name='customer_list'),
     path('customers/create/', views.customer_create, name='customer_create'),
     path('customers/<int:pk>/edit/', views.customer_update, name='customer_update'),
+
+    # SLA Plan URLs
+    path('sla-plans/', views.sla_plan_list, name='sla_plan_list'),
+    path('sla-plans/create/', views.sla_plan_create, name='sla_plan_create'),
+    path('sla-plans/<int:pk>/edit/', views.sla_plan_update, name='sla_plan_update'),
 
     # Supplier URLs
     path('suppliers/', views.supplier_list, name='supplier_list'),
