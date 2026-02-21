@@ -75,6 +75,7 @@ class Project(models.Model):
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    closed_at = models.DateTimeField(null=True, blank=True, verbose_name="วันที่ปิดจบงาน")
 
     class Meta:
         verbose_name = "โครงการ"
@@ -82,6 +83,13 @@ class Project(models.Model):
 
     def __str__(self):
         return self.name
+
+    def save(self, *args, **kwargs):
+        if self.status == self.Status.CLOSED and not self.closed_at:
+            self.closed_at = timezone.now()
+        elif self.status != self.Status.CLOSED:
+            self.closed_at = None
+        super().save(*args, **kwargs)
 
     @property
     def total_value(self):
