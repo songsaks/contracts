@@ -2,10 +2,14 @@ from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.utils import timezone
-from django.db.models import Sum, Count, Q
+from django.db.models import Sum, Count, Q, F, Case, When, Value, DecimalField
+from django.db.models.functions import TruncMonth
 from django.http import FileResponse
 from decimal import Decimal
 import datetime
+from datetime import datetime, date, time
+import calendar
+import json
 from .models import Project, ProductItem, Customer, Supplier, ProjectOwner, CustomerRequirement, ProjectFile, CustomerRequest
 from .forms import ProjectForm, ProductItemForm, CustomerForm, SupplierForm, ProjectOwnerForm, CustomerRequirementForm, SalesServiceJobForm, CustomerRequestForm
 from repairs.models import RepairItem
@@ -735,7 +739,7 @@ def dashboard(request):
                 When(projects__created_at__range=[start_of_year, end_of_year], 
                      then=F('projects__items__quantity') * F('projects__items__unit_price')),
                 default=0,
-                output_field=models.DecimalField(max_digits=15, decimal_places=2)
+                output_field=DecimalField(max_digits=15, decimal_places=2)
             )
         ),
         job_count=Count(
@@ -780,7 +784,7 @@ def dashboard(request):
                      projects__closed_at__range=[start_of_period, end_of_period],
                      then=F('projects__items__quantity') * F('projects__items__unit_price')),
                 default=Value(0),
-                output_field=models.DecimalField(max_digits=15, decimal_places=2)
+                output_field=DecimalField(max_digits=15, decimal_places=2)
             )
         )
     ).filter(closed_revenue__gt=0).order_by('-closed_revenue')[:10]
