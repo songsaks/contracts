@@ -183,6 +183,11 @@
                 <a href="{% url 'pms:project_update' project.pk %}" class="btn-action btn-action-primary" title="แก้ไข">
                     <i class="fas fa-pen"></i>
                 </a>
+                <button onclick="confirmCancelProject()" class="btn-action" 
+                        style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); border: none; padding: 0 15px; width: auto; color: white;" 
+                        title="ยกเลิกโครงการ">
+                    <i class="fas fa-ban me-1"></i> <span style="font-size: 0.8rem; font-weight: 600;">ยกเลิกงาน</span>
+                </button>
                 {% endif %}
                 <a href="{% url 'pms:project_list' %}" class="btn-action" title="กลับหน้ารายการ">
                     <i class="fas fa-arrow-left text-muted"></i>
@@ -478,6 +483,12 @@ function unlockClosedProject() {
         window.location.href = "{% url 'pms:project_update' project.pk %}?unlock=9com";
     } else if (code !== null) {
         alert("❌ รหัสไม่ถูกต้อง!");
+    }
+}
+
+function confirmCancelProject() {
+    if (confirm("🚫 คุณแน่ใจหรือไม่ที่จะ 'ยกเลิก' โครงการนี้?\n\nเมื่อยกเลิกแล้ว ข้อมูลจะถูกล็อกและไม่สามารถแก้ไขได้ (ยกเว้นติดต่อ Admin)")) {
+        window.location.href = "{% url 'pms:project_cancel' project.pk %}";
     }
 }
 
