@@ -3,11 +3,56 @@ from django.utils import timezone
 from django.conf import settings
 from decimal import Decimal
 
+class SLAPlan(models.Model):
+    name = models.CharField(max_length=100, verbose_name="ชื่อแพ็กเกจ SLA")
+    response_time_hours = models.PositiveIntegerField(default=4, verbose_name="เวลาตอบกลับ (ชม.)")
+    resolution_time_hours = models.PositiveIntegerField(default=24, verbose_name="เวลาแก้ไข (ชม.)")
+    is_active = models.BooleanField(default=True)
+    description = models.TextField(blank=True, verbose_name="รายละเอียดเงื่อนไข")
+
+    class Meta:
+        verbose_name = "แผน SLA"
+        verbose_name_plural = "แผน SLA"
+
+    def __str__(self):
+        return f"{self.name} (Res: {self.response_time_hours}h / Fix: {self.resolution_time_hours}h)"
+
 class Customer(models.Model):
     name = models.CharField(max_length=255)
     email = models.EmailField(blank=True)
     phone = models.CharField(max_length=50, blank=True)
-    address = models.TextField(blank=True)
+    address = models.TextField(blank=True, verbose_name="ที่อยู่")
+    
+    # CRM & Financial Fields (Optional)
+    tax_id = models.CharField(max_length=20, blank=True, verbose_name="เลขประจำตัวผู้เสียภาษี")
+    branch = models.CharField(max_length=100, blank=True, verbose_name="สาขา", help_text="เช่น สำนักงานใหญ่, สาขา 001")
+    
+    industry = models.CharField(max_length=100, blank=True, verbose_name="ประเภทธุรกิจ", help_text="เช่น โรงแรม, โรงงาน, หน่วยงานรัฐ")
+    segment = models.CharField(max_length=50, blank=True, verbose_name="กลุ่มลูกค้า", choices=[
+        ('PROSPECT', 'ลูกค้ามุ่งหวัง'),
+        ('REGULAR', 'ลูกค้าประจำ'),
+        ('VIP', 'ลูกค้า VIP'),
+        ('GOVERNMENT', 'หน่วยงานรัฐ'),
+        ('ENTERPRISE', 'องค์กรขนาดใหญ่'),
+    ])
+    
+    source = models.CharField(max_length=100, blank=True, verbose_name="ช่องทางที่รู้จักเรา", help_text="เช่น Facebook, Website, คนแนะนำ")
+    
+    # Communication & Location
+    line_id = models.CharField(max_length=100, blank=True, verbose_name="Line ID")
+    facebook = models.CharField(max_length=255, blank=True, verbose_name="Facebook Page/Profile")
+    map_url = models.URLField(blank=True, verbose_name="ลิงก์ Google Maps", help_text="เพื่อความสะดวกในการเดินทาง")
+    
+    notes = models.TextField(blank=True, verbose_name="หมายเหตุพิเศษ/นิสัยลูกค้า", help_text="เช่น เงื่อนไขการเข้าพื้นที่ หรือพฤติกรรมการซื้อ")
+
+    sla_plan = models.ForeignKey(
+        SLAPlan, 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True, 
+        related_name='customers',
+        verbose_name="ระดับการให้บริการ (SLA)"
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
@@ -77,6 +122,11 @@ class Project(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     closed_at = models.DateTimeField(null=True, blank=True, verbose_name="วันที่ปิดจบงาน")
 
+    # SLA Tracking (Starts from project creation)
+    sla_response_deadline = models.DateTimeField(null=True, blank=True, verbose_name="เส้นตายการตอบกลับ")
+    sla_resolution_deadline = models.DateTimeField(null=True, blank=True, verbose_name="เส้นตายการแก้ไข")
+    responded_at = models.DateTimeField(null=True, blank=True, verbose_name="เวลาที่ตอบกลับจริง")
+
     class Meta:
         verbose_name = "โครงการ"
         verbose_name_plural = "โครงการ"
@@ -85,6 +135,13 @@ class Project(models.Model):
         return self.name
 
     def save(self, *args, **kwargs):
+        # 1. Initialize SLA Deadlines if missing and customer has a plan
+        if self.customer.sla_plan and not self.sla_response_deadline:
+            now = timezone.now()
+            self.sla_response_deadline = now + timezone.timedelta(hours=self.customer.sla_plan.response_time_hours)
+            self.sla_resolution_deadline = now + timezone.timedelta(hours=self.customer.sla_plan.resolution_time_hours)
+
+        # 2. Handle Closing
         if self.status in [self.Status.CLOSED, self.Status.CANCELLED] and not self.closed_at:
             self.closed_at = timezone.now()
         elif self.status not in [self.Status.CLOSED, self.Status.CANCELLED]:
@@ -359,6 +416,15 @@ class ServiceQueueItem(models.Model):
 
     def __str__(self):
         return f"[{self.get_priority_display()}] {self.title}"
+
+    def save(self, *args, **kwargs):
+        # 1. Handle Completion
+        if self.status == self.Status.COMPLETED and not self.completed_at:
+            self.completed_at = timezone.now()
+        elif self.status != self.Status.COMPLETED:
+            self.completed_at = None
+
+        super().save(*args, **kwargs)
 
     @property
     def is_overdue(self):

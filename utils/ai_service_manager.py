@@ -89,34 +89,35 @@ def sync_projects_to_queue():
     from pms.models import Project, ServiceQueueItem, ServiceTeam
     from django.db.models import Q
 
-    # 1. Cleanup: Delete queue items that shouldn't be here
-    # - Orphaned items
-    # - Items where project status changed away from trigger statuses (and not finished in queue)
-    trigger_q = (
-        Q(project__status='INSTALLATION') |
-        Q(project__job_type='REPAIR', project__status='ORDERING') |
-        Q(project__job_type='SERVICE', project__status='DELIVERY')
-    )
+    # 1. Cleanup: We no longer delete items blindly. 
+    # Items stay in queue as history. We only care if an ACTIVE item exists.
     
-    ServiceQueueItem.objects.filter(
-        ~trigger_q | Q(project__isnull=True)
-    ).exclude(
-        status__in=['COMPLETED']
-    ).delete()
-
-    # 2. Sync new items
+    # 2. Sync new items based on TRIGGER STATUSES
     teams = list(ServiceTeam.objects.filter(is_active=True))
     count = 0
 
-    ready_projects = Project.objects.filter(
+    # ONLY trigger tasks for these specific statuses
+    # This creates the "Lock" mechanism when the project hits these points.
+    trigger_q = (
         Q(status='INSTALLATION') |
         Q(job_type='REPAIR', status='ORDERING') |
         Q(job_type='SERVICE', status='DELIVERY')
-    ).exclude(
-        service_tasks__status__in=['PENDING', 'SCHEDULED', 'IN_PROGRESS', 'COMPLETED']
     )
 
+    ready_projects = Project.objects.filter(trigger_q)
+
     for proj in ready_projects:
+        # Loop Check: Look for an ACTIVE task (not completed/incomplete) for this specific status.
+        # This allows re-triggering if the project is moved back to this status after a previous task was completed.
+        active_task = ServiceQueueItem.objects.filter(
+            project=proj,
+            status__in=['PENDING', 'SCHEDULED', 'IN_PROGRESS']
+        ).first()
+
+        if active_task:
+            continue # Already locked/tracking this stage
+
+        # Determine Task Type & Label
         if proj.status == 'INSTALLATION':
             task_type, label = 'INSTALLATION', 'ติดตั้ง'
         elif proj.job_type == 'REPAIR':

@@ -2,89 +2,190 @@
 
 {% block title %}{{ title }} | PMS{% endblock %}
 
+{% block extra_css %}
+<style>
+    .form-card {
+        border: none;
+        border-radius: var(--radius-xl);
+        box-shadow: var(--shadow-lg);
+        overflow: hidden;
+    }
+
+    .form-card .card-header {
+        background: {% if theme_color == 'warning' %}linear-gradient(135deg, #f59e0b, #d97706){% else %}linear-gradient(135deg, #10b981, #059669){% endif %};
+        color: white;
+        padding: 1.5rem;
+    }
+
+    .letter-spacing-1 {
+        letter-spacing: 0.05em;
+    }
+
+    .transition-all {
+        transition: all 0.2s ease-in-out;
+    }
+    
+    .btn-warning {
+        background-color: #f59e0b;
+        border-color: #f59e0b;
+        color: white;
+    }
+    .btn-warning:hover {
+        background-color: #d97706;
+        border-color: #d97706;
+        color: white;
+    }
+
+    @media (max-width: 767.98px) {
+        .form-card .card-body {
+            padding: 1.5rem;
+        }
+
+        .form-actions {
+            flex-direction: column-reverse;
+        }
+
+        .form-actions .btn {
+            width: 100%;
+        }
+    }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="row justify-content-center">
-    <div class="col-md-8">
-        <div class="card border-0 shadow-sm">
-            <div class="card-header bg-{{ theme_color|default:'success' }} text-white py-3">
-                <h5 class="mb-0 fw-bold">
-                    {% if theme_color == 'warning' %}
-                        <i class="fas fa-tools me-2"></i>
-                    {% else %}
-                        <i class="fas fa-shopping-cart me-2"></i>
-                    {% endif %}
-                    {{ title }}
-                </h5>
+    <div class="col-md-9 col-lg-7">
+        <div class="card form-card">
+            <div class="card-header border-0">
+                <div class="d-flex align-items-center">
+                    <span class="bg-white bg-opacity-20 p-3 rounded-circle me-3 d-flex align-items-center justify-content-center" style="width: 50px; height: 50px;">
+                        {% if theme_color == 'warning' %}
+                            <i class="fas fa-tools fa-lg"></i>
+                        {% else %}
+                            <i class="fas fa-shopping-cart fa-lg"></i>
+                        {% endif %}
+                    </span>
+                    <div>
+                        <h5 class="mb-0 fw-800">{{ title }}</h5>
+                        <p class="mb-0 small opacity-75">
+                            {% if theme_color == 'warning' %}
+                                บันทึกข้อมูลการแจ้งซ่อมและกำหนดการเข้าบริการ
+                            {% else %}
+                                สร้างรายการงานขายและบริการสำหรับลูกค้า
+                            {% endif %}
+                        </p>
+                    </div>
+                </div>
             </div>
-            <div class="card-body p-4">
+            <div class="card-body p-4 p-md-5">
                 <form method="post" novalidate>
                     {% csrf_token %}
                     
-                    <h6 class="text-uppercase text-muted fw-bold mb-3 small">ข้อมูลทั่วไป</h6>
-                    <div class="row g-3 mb-4">
-                        <div class="col-12">
-                            <label class="form-label fw-bold">ชื่องาน <span class="text-danger">*</span></label>
-                            {{ form.name }}
-                            {% if form.name.errors %}
-                                <div class="text-danger small mt-1">{{ form.name.errors.0 }}</div>
-                            {% endif %}
+                    <!-- Section 1: Main Info -->
+                    <div class="mb-5 pb-2">
+                        <div class="d-flex align-items-center mb-4 pb-2 border-bottom border-light">
+                            <span class="bg-{{ theme_color|default:'success' }} bg-opacity-10 text-{{ theme_color|default:'success' }} p-2 rounded-circle me-3 d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
+                                <i class="fas fa-tag"></i>
+                            </span>
+                            <h6 class="mb-0 fw-bold text-dark">บันทึกข้อมูลหลัก</h6>
                         </div>
-                        <div class="col-md-6">
-                            <label class="form-label fw-bold">ลูกค้า <span class="text-danger">*</span></label>
-                            <div class="input-group">
-                                {{ form.customer }}
-                                <a href="{% url 'pms:customer_create' %}?next={{ request.path }}" class="btn btn-outline-secondary" type="button" data-bs-toggle="tooltip" title="เพิ่มลูกค้าใหม่">
-                                    <i class="fas fa-plus"></i>
-                                </a>
+                        
+                        <div class="row g-4">
+                            <div class="col-12">
+                                <label class="form-label fw-bold small text-muted text-uppercase letter-spacing-1">ชื่องาน / รายการ <span class="text-danger">*</span></label>
+                                {{ form.name }}
+                                {% if form.name.errors %}
+                                    <div class="text-danger small mt-1"><i class="fas fa-exclamation-circle me-1"></i>{{ form.name.errors.0 }}</div>
+                                {% endif %}
                             </div>
-                            {% if form.customer.errors %}
-                                <div class="text-danger small mt-1">{{ form.customer.errors.0 }}</div>
-                            {% endif %}
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label fw-bold">เจ้าของโครงการ</label>
-                            <div class="input-group">
-                                {{ form.owner }}
-                                <a href="{% url 'pms:project_owner_create' %}?next={{ request.path }}" class="btn btn-outline-secondary" data-bs-toggle="tooltip" title="เพิ่มเจ้าของโครงการ">
-                                    <i class="fas fa-plus"></i>
-                                </a>
+                            
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold small text-muted text-uppercase letter-spacing-1">ลูกค้า <span class="text-danger">*</span></label>
+                                <div class="input-group">
+                                    <span class="input-group-text bg-light border-end-0"><i class="fas fa-user text-muted"></i></span>
+                                    {{ form.customer }}
+                                    <a href="{% url 'pms:customer_create' %}?next={{ request.path }}" class="btn btn-outline-{{ theme_color|default:'success' }} border-start-0" data-bs-toggle="tooltip" title="เพิ่มลูกค้าใหม่">
+                                        <i class="fas fa-plus"></i>
+                                    </a>
+                                </div>
+                                {% if form.customer.errors %}
+                                    <div class="text-danger small mt-1"><i class="fas fa-exclamation-circle me-1"></i>{{ form.customer.errors.0 }}</div>
+                                {% endif %}
                             </div>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label fw-bold">สถานะ</label>
-                            {{ form.status }}
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label fw-bold">
-                                <i class="fas fa-coins me-1 text-warning"></i>มูลค่าโครงการ (บาท)
-                            </label>
-                            {{ form.project_value }}
-                            <div class="form-text small text-muted">
-                                <i class="fas fa-info-circle me-1"></i>ระบบจะสร้างรายการสินค้า/บริการอัตโนมัติจากมูลค่านี้
+
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold small text-muted text-uppercase letter-spacing-1">ผู้รับผิดชอบ</label>
+                                <div class="input-group">
+                                    <span class="input-group-text bg-light border-end-0"><i class="fas fa-user-tie text-muted"></i></span>
+                                    {{ form.owner }}
+                                    <a href="{% url 'pms:project_owner_create' %}?next={{ request.path }}" class="btn btn-outline-secondary border-start-0" data-bs-toggle="tooltip" title="เพิ่มเจ้าของโครงการ">
+                                        <i class="fas fa-plus"></i>
+                                    </a>
+                                </div>
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold small text-muted text-uppercase letter-spacing-1">สถานะปัจจุบัน</label>
+                                <div class="input-group">
+                                    <span class="input-group-text bg-light border-end-0"><i class="fas fa-stream text-muted"></i></span>
+                                    {{ form.status }}
+                                </div>
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold small text-muted text-uppercase letter-spacing-1">มูลค่าเบื้องต้น (บาท)</label>
+                                <div class="input-group">
+                                    <span class="input-group-text bg-light border-end-0 text-success fw-bold">฿</span>
+                                    {{ form.project_value }}
+                                </div>
+                                <div class="form-text small text-muted mt-2">
+                                    <i class="fas fa-info-circle me-1"></i>สร้างรายการอัตโนมัติจากข้อมูลนี้
+                                </div>
                             </div>
                         </div>
                     </div>
 
-                    <h6 class="text-uppercase text-muted fw-bold mb-3 small">ระยะเวลา</h6>
-                    <div class="row g-3 mb-4">
-                        <div class="col-md-6">
-                            <label class="form-label">วันที่เริ่ม</label>
-                            {{ form.start_date }}
+                    <!-- Section 2: Timing -->
+                    <div class="mb-5 pb-2">
+                        <div class="d-flex align-items-center mb-4 pb-2 border-bottom border-light">
+                            <span class="bg-primary bg-opacity-10 text-primary p-2 rounded-circle me-3 d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
+                                <i class="fas fa-clock"></i>
+                            </span>
+                            <h6 class="mb-0 fw-bold text-dark">กำหนดการ</h6>
                         </div>
-                        <div class="col-md-6">
-                            <label class="form-label">กำหนดส่งมอบ</label>
-                            {{ form.deadline }}
+                        
+                        <div class="row g-4">
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold small text-muted text-uppercase letter-spacing-1">วันที่เริ่มงาน</label>
+                                <div class="input-group">
+                                    <span class="input-group-text bg-light border-end-0"><i class="far fa-calendar-alt text-muted"></i></span>
+                                    {{ form.start_date }}
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold small text-muted text-uppercase letter-spacing-1">กำหนดแล้วเสร็จ</label>
+                                <div class="input-group">
+                                    <span class="input-group-text bg-light border-end-0"><i class="fas fa-calendar-check text-muted"></i></span>
+                                    {{ form.deadline }}
+                                </div>
+                            </div>
                         </div>
                     </div>
 
-                    <h6 class="text-uppercase text-muted fw-bold mb-3 small">รายละเอียดเพิ่มเติม</h6>
-                    <div class="mb-4">
+                    <!-- Section 3: Details -->
+                    <div class="mb-5">
+                        <div class="d-flex align-items-center mb-4 pb-2 border-bottom border-light">
+                            <span class="bg-secondary bg-opacity-10 text-secondary p-2 rounded-circle me-3 d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
+                                <i class="fas fa-pen-nib"></i>
+                            </span>
+                            <h6 class="mb-0 fw-bold text-dark">รายละเอียดเพิ่มเติม / อาการเสีย</h6>
+                        </div>
                         {{ form.description }}
                     </div>
 
-                    <div class="d-flex justify-content-end gap-2">
-                        <a href="{% url 'pms:dispatch' %}" class="btn btn-light border">ยกเลิก</a>
-                        <button type="submit" class="btn btn-{{ theme_color|default:'success' }} px-4" id="submit-btn">
+                    <div class="d-flex justify-content-end gap-3 pt-4 border-top form-actions">
+                        <a href="{% url 'pms:dispatch' %}" class="btn btn-light px-4 border text-secondary transition-all">ยกเลิก</a>
+                        <button type="submit" class="btn btn-{{ theme_color|default:'success' }} px-5 shadow-sm fw-bold transition-all" id="submit-btn">
                             <i class="fas fa-save me-2"></i>บันทึกข้อมูล
                         </button>
                     </div>

@@ -55,84 +55,133 @@
 
 {% block content %}
 <div class="row justify-content-center">
-    <div class="col-md-8 col-lg-7">
-        <div class="card form-card">
-            <div class="card-header">
-                <h5 class="mb-0">
-                    <i class="fas fa-project-diagram me-2"></i>
-                    {{ title }}
-                </h5>
+    <div class="col-md-9 col-lg-7">
+        <div class="card form-card border-0 shadow-lg">
+            <div class="card-header border-0 py-3">
+                <div class="d-flex align-items-center">
+                    <span class="bg-white bg-opacity-20 p-2 rounded-3 me-3">
+                        <i class="fas fa-project-diagram"></i>
+                    </span>
+                    <div>
+                        <h5 class="mb-0 fw-800">{{ title }}</h5>
+                        <p class="mb-0 small opacity-75">กรุณาระบุข้อมูลโครงการให้ครบถ้วนเพื่อประสิทธิภาพในการบริหารจัดการ</p>
+                    </div>
+                </div>
             </div>
-            <div class="card-body p-3 p-md-4">
+            <div class="card-body p-4 p-md-5">
                 <form method="post" novalidate>
                     {% csrf_token %}
                     
-                    <div class="form-section-title">ข้อมูลทั่วไป</div>
-                    <div class="row g-3 mb-4">
-                        <div class="col-12">
-                            <label class="form-label fw-bold">ชื่อโครงการ <span class="text-danger">*</span></label>
-                            {{ form.name }}
-                            {% if form.name.errors %}
-                                <div class="text-danger small mt-1">{{ form.name.errors.0 }}</div>
-                            {% endif %}
+                    <!-- Section 1: General Information -->
+                    <div class="mb-4 pb-2">
+                        <div class="d-flex align-items-center mb-4 pb-2 border-bottom border-light">
+                            <span class="bg-primary bg-opacity-10 text-primary p-2 rounded-circle me-3 d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
+                                <i class="fas fa-info-circle"></i>
+                            </span>
+                            <h6 class="mb-0 fw-bold text-dark">ข้อมูลทั่วไป</h6>
                         </div>
-                        <div class="col-md-6">
-                            <label class="form-label fw-bold">ลูกค้า <span class="text-danger">*</span></label>
-                            <div class="input-group">
-                                {{ form.customer }}
-                                <a href="{% url 'pms:customer_create' %}?next={{ request.path }}" class="btn btn-outline-secondary" data-bs-toggle="tooltip" title="เพิ่มลูกค้าใหม่">
-                                    <i class="fas fa-plus"></i>
-                                </a>
+                        
+                        <div class="row g-4">
+                            <div class="col-12">
+                                <label class="form-label fw-bold small text-muted text-uppercase letter-spacing-1">ชื่อโครงการ <span class="text-danger">*</span></label>
+                                {{ form.name }}
+                                {% if form.name.errors %}
+                                    <div class="text-danger small mt-1 animate__animated animate__headShake"><i class="fas fa-exclamation-circle me-1"></i>{{ form.name.errors.0 }}</div>
+                                {% endif %}
                             </div>
-                            {% if form.customer.errors %}
-                                <div class="text-danger small mt-1">{{ form.customer.errors.0 }}</div>
-                            {% endif %}
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label fw-bold">เจ้าของโครงการ</label>
-                            <div class="input-group">
-                                {{ form.owner }}
-                                <a href="{% url 'pms:project_owner_create' %}?next={{ request.path }}" class="btn btn-outline-secondary" data-bs-toggle="tooltip" title="เพิ่มเจ้าของโครงการ">
-                                    <i class="fas fa-plus"></i>
-                                </a>
+                            
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold small text-muted text-uppercase letter-spacing-1">ลูกค้า <span class="text-danger">*</span></label>
+                                <div class="input-group">
+                                    <span class="input-group-text bg-light border-end-0"><i class="fas fa-user text-muted"></i></span>
+                                    {{ form.customer }}
+                                    <a href="{% url 'pms:customer_create' %}?next={{ request.path }}" class="btn btn-outline-primary border-start-0" data-bs-toggle="tooltip" title="เพิ่มลูกค้าใหม่">
+                                        <i class="fas fa-plus"></i>
+                                    </a>
+                                </div>
+                                {% if form.customer.errors %}
+                                    <div class="text-danger small mt-1 animate__animated animate__headShake"><i class="fas fa-exclamation-circle me-1"></i>{{ form.customer.errors.0 }}</div>
+                                {% endif %}
                             </div>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label fw-bold">สถานะ</label>
-                            {{ form.status }}
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label fw-bold">
-                                <i class="fas fa-coins me-1 text-warning"></i>มูลค่าโครงการ (บาท)
-                            </label>
-                            {{ form.project_value }}
-                            <div class="form-text small text-muted">
-                                <i class="fas fa-info-circle me-1"></i>ระบบจะสร้างรายการสินค้า/บริการอัตโนมัติจากมูลค่านี้
+
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold small text-muted text-uppercase letter-spacing-1">เจ้าของโครงการ</label>
+                                <div class="input-group">
+                                    <span class="input-group-text bg-light border-end-0"><i class="fas fa-user-tie text-muted"></i></span>
+                                    {{ form.owner }}
+                                    <a href="{% url 'pms:project_owner_create' %}?next={{ request.path }}" class="btn btn-outline-secondary border-start-0" data-bs-toggle="tooltip" title="เพิ่มผู้จัดการโครงการ">
+                                        <i class="fas fa-plus"></i>
+                                    </a>
+                                </div>
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold small text-muted text-uppercase letter-spacing-1">สถานะโครงการ</label>
+                                <div class="input-group">
+                                    <span class="input-group-text bg-light border-end-0"><i class="fas fa-tasks text-muted"></i></span>
+                                    {{ form.status }}
+                                </div>
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold small text-muted text-uppercase letter-spacing-1">
+                                    มูลค่าโครงการ (บาท)
+                                </label>
+                                <div class="input-group">
+                                    <span class="input-group-text bg-light border-end-0 text-success fw-bold">฿</span>
+                                    {{ form.project_value }}
+                                </div>
+                                <div class="form-text small text-muted mt-2">
+                                    <i class="fas fa-magic me-1 text-primary"></i>ระบบจะสร้างรายการสินค้า/บริการอัตโนมัติ
+                                </div>
                             </div>
                         </div>
                     </div>
 
-                    <div class="form-section-title">ระยะเวลา</div>
-                    <div class="row g-3 mb-4">
-                        <div class="col-6">
-                            <label class="form-label">วันที่เริ่ม</label>
-                            {{ form.start_date }}
+                    <!-- Section 2: Timeline -->
+                    <div class="mb-4 pb-2">
+                        <div class="d-flex align-items-center mb-4 pb-2 border-bottom border-light">
+                            <span class="bg-warning bg-opacity-10 text-warning p-2 rounded-circle me-3 d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
+                                <i class="fas fa-calendar-alt"></i>
+                            </span>
+                            <h6 class="mb-0 fw-bold text-dark">ระยะเวลาและกำหนดการ</h6>
                         </div>
-                        <div class="col-6">
-                            <label class="form-label">กำหนดส่งมอบ</label>
-                            {{ form.deadline }}
+                        
+                        <div class="row g-4">
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold small text-muted text-uppercase letter-spacing-1">วันที่เริ่มโครงการ</label>
+                                <div class="input-group">
+                                    <span class="input-group-text bg-light border-end-0"><i class="far fa-play-circle text-muted"></i></span>
+                                    {{ form.start_date }}
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold small text-muted text-uppercase letter-spacing-1">กำหนดส่งมอบงาน</label>
+                                <div class="input-group">
+                                    <span class="input-group-text bg-light border-end-0"><i class="fas fa-flag-checkered text-muted"></i></span>
+                                    {{ form.deadline }}
+                                </div>
+                            </div>
                         </div>
                     </div>
 
-                    <div class="form-section-title">รายละเอียดเพิ่มเติม</div>
-                    <div class="mb-4">
+                    <!-- Section 3: Notes -->
+                    <div class="mb-5">
+                        <div class="d-flex align-items-center mb-4 pb-2 border-bottom border-light">
+                            <span class="bg-success bg-opacity-10 text-success p-2 rounded-circle me-3 d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
+                                <i class="fas fa-align-left"></i>
+                            </span>
+                            <h6 class="mb-0 fw-bold text-dark">รายละเอียดเพิ่มเติม</h6>
+                        </div>
                         {{ form.description }}
                     </div>
 
-                    <div class="d-flex justify-content-end gap-2 pt-3 border-top form-actions">
-                        <a href="{% url 'pms:project_list' %}" class="btn btn-light text-secondary">ยกเลิก</a>
-                        <button type="submit" class="btn btn-primary px-4">
-                            <i class="fas fa-save me-1"></i> บันทึกข้อมูล
+                    <div class="d-flex justify-content-end gap-3 pt-4 border-top form-actions">
+                        <a href="{% url 'pms:project_list' %}" class="btn btn-light px-4 py-2 border text-secondary fw-600 transition-all">
+                            ยกเลิก
+                        </a>
+                        <button type="submit" class="btn btn-primary px-5 py-2 shadow-sm fw-700 transition-all">
+                            <i class="fas fa-save me-2"></i>บันทึกข้อมูลโครงการ
                         </button>
                     </div>
                 </form>

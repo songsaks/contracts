@@ -1,16 +1,49 @@
 from django import forms
 from decimal import Decimal
-from .models import Project, ProductItem, Customer, Supplier, ProjectOwner, CustomerRequirement
+from .models import Project, ProductItem, Customer, Supplier, ProjectOwner, CustomerRequirement, SLAPlan
 
 class CustomerForm(forms.ModelForm):
     class Meta:
         model = Customer
-        fields = ['name', 'phone', 'email', 'address']
+        fields = [
+            'name', 'phone', 'email', 'address', 'sla_plan',
+            'tax_id', 'branch', 'segment', 'industry', 'source',
+            'line_id', 'facebook', 'map_url', 'notes'
+        ]
         widgets = {
-            'name': forms.TextInput(attrs={'class': 'form-control'}),
-            'phone': forms.TextInput(attrs={'class': 'form-control'}),
-            'email': forms.EmailInput(attrs={'class': 'form-control'}),
-            'address': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
+            'name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'ชื่อบริษัท/องค์กร หรือ ชื่อลูกค้า'}),
+            'phone': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '081-xxx-xxxx'}),
+            'email': forms.EmailInput(attrs={'class': 'form-control', 'placeholder': 'example@mail.com'}),
+            'address': forms.Textarea(attrs={'class': 'form-control', 'rows': 2}),
+            'sla_plan': forms.Select(attrs={'class': 'form-select'}),
+            'tax_id': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'เลข 13 หลัก'}),
+            'branch': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'เช่น สำนักงานใหญ่'}),
+            'segment': forms.Select(attrs={'class': 'form-select'}),
+            'industry': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'เช่น การเกษตร, ไอที'}),
+            'source': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'เช่น แนะนำต่อ, Google'}),
+            'line_id': forms.TextInput(attrs={'class': 'form-control'}),
+            'facebook': forms.TextInput(attrs={'class': 'form-control'}),
+            'map_url': forms.URLInput(attrs={'class': 'form-control', 'placeholder': 'https://goo.gl/maps/...'}),
+            'notes': forms.Textarea(attrs={'class': 'form-control', 'rows': 2}),
+        }
+        labels = {
+            'name': 'ชื่อลูกค้า/องค์กร',
+            'sla_plan': 'ระดับการให้บริการ (SLA)',
+            'phone': 'เบอร์โทรศัพท์',
+            'email': 'อีเมล',
+            'address': 'ที่อยู่',
+        }
+
+class SLAPlanForm(forms.ModelForm):
+    class Meta:
+        model = SLAPlan
+        fields = ['name', 'response_time_hours', 'resolution_time_hours', 'is_active', 'description']
+        widgets = {
+            'name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'เช่น Gold, Silver, Bronze'}),
+            'response_time_hours': forms.NumberInput(attrs={'class': 'form-control', 'min': 1}),
+            'resolution_time_hours': forms.NumberInput(attrs={'class': 'form-control', 'min': 1}),
+            'is_active': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'description': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
         }
 
 class SupplierForm(forms.ModelForm):

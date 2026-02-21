@@ -257,7 +257,7 @@
                 <i class="fas fa-bars"></i>
             </button>
             <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav me-auto flex-nowrap overflow-auto hide-scrollbar" style="font-size: 0.8rem; white-space: nowrap;">
+                <ul class="navbar-nav me-auto" style="font-size: 0.8rem;">
                     <li class="nav-item">
                         <a class="nav-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}" href="{% url 'pms:dashboard' %}" title="ภาพรวม">
                             <i class="fas fa-th-large"></i> <span class="d-none d-xxl-inline">ภาพรวม</span>
@@ -301,8 +301,8 @@
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link {% if request.resolver_match.url_name == 'queue_management' %}active{% endif %}" href="{% url 'pms:queue_management' %}" title="คิวงาน">
-                            <i class="fas fa-stream"></i> <span class="d-none d-xxl-inline">คิวงาน</span>
+                        <a class="nav-link {% if request.resolver_match.url_name == 'tracking' %}active{% endif %}" href="{% url 'pms:tracking' %}" title="SLA Monitoring">
+                            <i class="fas fa-satellite-dish"></i> <span class="d-none d-xxl-inline">SLA</span>
                         </a>
                     </li>
                     <li class="nav-item">
@@ -316,6 +316,7 @@
                         </a>
                         <ul class="dropdown-menu border-0 shadow-lg" aria-labelledby="pmsDropdown">
                             <li><a class="dropdown-item" href="{% url 'pms:customer_list' %}"><i class="fas fa-users me-2 text-secondary"></i>ลูกค้า</a></li>
+                            <li><a class="dropdown-item" href="{% url 'pms:sla_plan_list' %}"><i class="fas fa-file-contract me-2 text-secondary"></i>แผน SLA</a></li>
                             <li><a class="dropdown-item" href="{% url 'pms:supplier_list' %}"><i class="fas fa-truck me-2 text-secondary"></i>ซัพพลายเออร์</a></li>
                             <li><a class="dropdown-item" href="{% url 'pms:project_owner_list' %}"><i class="fas fa-user-tie me-2 text-secondary"></i>เจ้าของโครงการ</a></li>
                         </ul>

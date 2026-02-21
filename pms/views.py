@@ -6,12 +6,11 @@ from django.db.models import Sum, Count, Q, F, Case, When, Value, DecimalField
 from django.db.models.functions import TruncMonth
 from django.http import FileResponse
 from decimal import Decimal
-import datetime
 from datetime import datetime, date, time
 import calendar
 import json
-from .models import Project, ProductItem, Customer, Supplier, ProjectOwner, CustomerRequirement, ProjectFile, CustomerRequest
-from .forms import ProjectForm, ProductItemForm, CustomerForm, SupplierForm, ProjectOwnerForm, CustomerRequirementForm, SalesServiceJobForm, CustomerRequestForm
+from .models import Project, ProductItem, Customer, Supplier, ProjectOwner, CustomerRequirement, ProjectFile, CustomerRequest, ServiceQueueItem, SLAPlan
+from .forms import ProjectForm, ProductItemForm, CustomerForm, SupplierForm, ProjectOwnerForm, CustomerRequirementForm, SalesServiceJobForm, CustomerRequestForm, SLAPlanForm
 from repairs.models import RepairItem
 
 
@@ -87,84 +86,30 @@ def repair_create(request):
 
 # ... project_create ...
 
-@login_required
-def project_update(request, pk):
-    project = get_object_or_404(Project, pk=pk)
-    
-    # Determine Form Class, Title, and Theme based on Job Type
-    theme_color = 'primary'
-    form_kwargs = {'instance': project}
 
-    # --- AI QUEUE LOCK LOGIC ---
-    # บล็อกการแก้ไขถ้างานอยู่ในคิว (PENDING, SCHEDULED, IN_PROGRESS)
-    active_queue_item = project.service_tasks.filter(
-        status__in=['PENDING', 'SCHEDULED', 'IN_PROGRESS']
-    ).first()
-
-    if active_queue_item:
-        messages.warning(
-            request, 
-            f'⚠️ ไม่สามารถแก้ไขงานนี้ได้เนื่องจากอยู่ในคิวบริการ ({active_queue_item.get_status_display()}) '
-            'กรุณาจัดการในหน้า AI Queue ให้เสร็จสิ้นหรือยกเลิกก่อน'
-        )
-        return redirect('pms:project_detail', pk=project.pk)
-    # ---------------------------
-
-    if project.job_type == Project.JobType.SERVICE:
-        FormClass = SalesServiceJobForm
-        template = 'pms/service_form.html'
-        title = 'แก้ไขงานขาย'
-        theme_color = 'success'
-        form_kwargs['job_type'] = Project.JobType.SERVICE
-    elif project.job_type == Project.JobType.REPAIR:
-        FormClass = SalesServiceJobForm
-        template = 'pms/service_form.html'
-        title = 'แก้ไขงานซ่อม'
-        theme_color = 'warning'
-        form_kwargs['job_type'] = Project.JobType.REPAIR
-    else:
-        FormClass = ProjectForm
-        template = 'pms/project_form.html'
-        title = 'แก้ไขโครงการ'
-
-
-    if request.method == 'POST':
-        form = FormClass(request.POST, **form_kwargs)
-        if form.is_valid():
-            form.save()
-            messages.success(request, f'อัปเดต{title.replace("แก้ไข", "")}สำเร็จ')
-            return redirect('pms:project_detail', pk=project.pk)
-    else:
-        form = FormClass(**form_kwargs)
-        
-    return render(request, template, {'form': form, 'title': title, 'theme_color': theme_color})
 
 @login_required
-def queue_management(request):
-    # Sales/Project Queue: Projects in DELIVERY status
-    delivery_queue = Project.objects.filter(
-        status=Project.Status.DELIVERY, 
-        job_type__in=[Project.JobType.PROJECT, Project.JobType.SERVICE]
-    ).order_by('deadline', 'created_at')
+def sla_tracking_dashboard(request):
+    """
+    Tracking & SLA Monitoring Dashboard
+    """
+    from pms.models import Project as ProjectModel
     
-    # Repair Queue: Repair Jobs (Onsite) that are active
-    # Active statuses logic: Not Closed, Billing, Accepted, Cancelled
-    # Or maybe user wants specific "Queue" like waiting for technician?
-    # Let's show SOURCING (Diagnosing), ORDERING (Waiting Parts), DELIVERY (Fixing/Onsite)
-    repair_queue = Project.objects.filter(
-        job_type=Project.JobType.REPAIR,
-        status__in=[
-            Project.Status.SOURCING, 
-            Project.Status.QUOTED, 
-            Project.Status.ORDERING, 
-            Project.Status.RECEIVED_QC,
-            Project.Status.DELIVERY
-        ]
-    ).order_by('created_at')
+    # SLA Alerts
+    sla_response_alerts = ProjectModel.objects.filter(
+        customer__sla_plan__isnull=False,
+        responded_at__isnull=True
+    ).select_related('customer').order_by('sla_response_deadline')[:10]
+
+    sla_resolution_alerts = ProjectModel.objects.filter(
+        customer__sla_plan__isnull=False
+    ).exclude(
+        status__in=['CLOSED', 'CANCELLED']
+    ).select_related('customer').order_by('sla_resolution_deadline')[:10]
     
-    return render(request, 'pms/queue_dashboard.html', {
-        'delivery_queue': delivery_queue,
-        'repair_queue': repair_queue,
+    return render(request, 'pms/tracking_dashboard.html', {
+        'sla_response_alerts': sla_response_alerts,
+        'sla_resolution_alerts': sla_resolution_alerts,
     })
 
 def _check_project_lock(project, request):
@@ -364,11 +309,25 @@ def project_update(request, pk):
         template = 'pms/project_form.html'
         title = 'แก้ไขโครงการ'
 
-    # --- CLOSED/CANCELLED LOCK LOGIC ---
+    # --- LOCK LOGIC ---
+    # 1. Closed/Cancelled Lock
     if _check_project_lock(project, request):
         messages.warning(request, f'⚠️ ไม่สามารถแก้ไขงานที่ "{project.get_job_status_display()}" แล้วได้ (ต้องมีรหัสปลดล็อก)')
         return redirect('pms:project_detail', pk=project.pk)
-    # -------------------------
+
+    # 2. AI Queue Lock
+    active_queue_item = project.service_tasks.filter(
+        status__in=['PENDING', 'SCHEDULED', 'IN_PROGRESS']
+    ).first()
+
+    if active_queue_item:
+        messages.warning(
+            request, 
+            f'⚠️ ไม่สามารถแก้ไขงานนี้ได้เนื่องจากอยู่ในคิวบริการ ({active_queue_item.get_status_display()}) '
+            'กรุณาจัดการในหน้า AI Queue ให้เสร็จสิ้นหรือยกเลิกก่อน'
+        )
+        return redirect('pms:project_detail', pk=project.pk)
+    # ------------------
 
 
     if request.method == 'POST':
@@ -428,32 +387,24 @@ def item_delete(request, item_id):
 # Customer Views
 @login_required
 def customer_list(request):
-    customers = Customer.objects.all().order_by('-created_at')
+    customers = Customer.objects.all().select_related('sla_plan').order_by('name')
     return render(request, 'pms/customer_list.html', {'customers': customers})
 
 @login_required
 def customer_create(request):
     if request.method == 'POST':
-        # Reuse ProjectForm style but for Customer?
-        # We need a CustomerForm. Let's create one inline in forms.py later or just use modelform_factory if lazy, 
-        # but user likely wants a proper form. I'll need to define it in forms.py.
-        # Check forms.py first. It does not have CustomerForm.
-        # I will assume I will add CustomerForm in step 2.
-
         form = CustomerForm(request.POST)
         if form.is_valid():
             form.save()
-            messages.success(request, 'เพิ่มลูกค้าสำเร็จ')
+            messages.success(request, 'เพิ่มข้อมูลลูกค้าสำเร็จ')
             return redirect('pms:customer_list')
     else:
-
         form = CustomerForm()
     return render(request, 'pms/customer_form.html', {'form': form, 'title': 'เพิ่มลูกค้าใหม่'})
 
 @login_required
 def customer_update(request, pk):
     customer = get_object_or_404(Customer, pk=pk)
-
     if request.method == 'POST':
         form = CustomerForm(request.POST, instance=customer)
         if form.is_valid():
@@ -462,8 +413,38 @@ def customer_update(request, pk):
             return redirect('pms:customer_list')
     else:
         form = CustomerForm(instance=customer)
+    return render(request, 'pms/customer_form.html', {'form': form, 'title': f'แก้ไขข้อมูล: {customer.name}'})
 
-    return render(request, 'pms/customer_form.html', {'form': form, 'title': 'แก้ไขข้อมูลลูกค้า'})
+# SLA Plan Views
+@login_required
+def sla_plan_list(request):
+    plans = SLAPlan.objects.all().order_by('name')
+    return render(request, 'pms/sla_plan_list.html', {'plans': plans})
+
+@login_required
+def sla_plan_create(request):
+    if request.method == 'POST':
+        form = SLAPlanForm(request.POST)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'สร้างแผน SLA สำเร็จ')
+            return redirect('pms:sla_plan_list')
+    else:
+        form = SLAPlanForm()
+    return render(request, 'pms/sla_plan_form.html', {'form': form, 'title': 'สร้างแผน SLA ใหม่'})
+
+@login_required
+def sla_plan_update(request, pk):
+    plan = get_object_or_404(SLAPlan, pk=pk)
+    if request.method == 'POST':
+        form = SLAPlanForm(request.POST, instance=plan)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'อัปเดตแผน SLA สำเร็จ')
+            return redirect('pms:sla_plan_list')
+    else:
+        form = SLAPlanForm(instance=plan)
+    return render(request, 'pms/sla_plan_form.html', {'form': form, 'title': f'แก้ไขแผน SLA: {plan.name}'})
 
 # Supplier Views
 @login_required
@@ -868,6 +849,7 @@ def dashboard(request):
     ]
     year_choices = range(now.year - 2, now.year + 2)
 
+
     context = {
         'mode': mode,
         'date_filter': date_obj.strftime('%Y-%m-%d'), 
@@ -1191,7 +1173,7 @@ def update_pending_task(request, task_id):
 
         if date_str:
             try:
-                task.scheduled_date = datetime.datetime.strptime(date_str, '%Y-%m-%d').date()
+                task.scheduled_date = datetime.strptime(date_str, '%Y-%m-%d').date()
             except ValueError:
                 pass
 
@@ -1242,20 +1224,34 @@ def update_task_status(request, task_id):
 
         if new_status:
             task.status = new_status
+            
+            # Record response time on project when task starts
+            if new_status == 'IN_PROGRESS' and task.project and not task.project.responded_at:
+                task.project.responded_at = timezone.now()
+                task.project.save()
+
             if new_status == 'COMPLETED':
                 task.completed_at = timezone.now()
                 # Move linked project to next status
                 if task.project:
                     proj = task.project
-                    # Repair: จัดคิวซ่อม(ORDERING) -> ซ่อม(DELIVERY)
-                    if proj.status == 'ORDERING':
-                        proj.status = 'DELIVERY'
-                    # Project: ติดตั้ง(INSTALLATION) -> ส่งมอบ(DELIVERY)
+                    # Automatic status transition based on completion of AI queue task
+                    if proj.status == 'DRAFT':
+                        proj.status = 'SOURCING'
+                    elif proj.status == 'SOURCING':
+                        proj.status = 'QUOTED'
+                    elif proj.status == 'ORDERING':
+                        # For Repairs: ORDERING(จัดคิวซ่อม) -> DELIVERY(ซ่อม)
+                        # For Service/Project: ORDERING(สั่งซื้อ) -> RECEIVED_QC(รับของ)
+                        if proj.job_type == 'REPAIR':
+                            proj.status = 'DELIVERY'
+                        else:
+                            proj.status = 'RECEIVED_QC'
                     elif proj.status == 'INSTALLATION':
                         proj.status = 'DELIVERY'
-                    # Sale/Project: ส่งมอบ(DELIVERY) -> ตรวจรับ(ACCEPTED)
                     elif proj.status == 'DELIVERY':
                         proj.status = 'ACCEPTED'
+                        
                     proj.save()
             elif new_status == 'INCOMPLETE':
                 task.scheduled_date = None
@@ -1658,3 +1654,13 @@ def ai_dashboard_analysis(request):
             'status': 'error',
             'message': str(e)
         }, status=500)
+
+@login_required
+def mark_as_responded(request, pk):
+    """Manually mark project as responded for SLA."""
+    project = get_object_or_404(Project, pk=pk)
+    if not project.responded_at:
+        project.responded_at = timezone.now()
+        project.save()
+        messages.success(request, f"✅ บันทึกเวลาตอบกลับสำหรับ {project.name} เรียบร้อย")
+    return redirect('pms:project_detail', pk=pk)
