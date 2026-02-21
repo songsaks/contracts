@@ -63,6 +63,12 @@ class ProjectForm(forms.ModelForm):
             'description': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
         }
 
+    def __init__(self, *args, **kwargs):
+        super(ProjectForm, self).__init__(*args, **kwargs)
+        # Exclude CANCELLED from choices
+        choices = [c for c in Project.Status.choices if c[0] != Project.Status.CANCELLED]
+        self.fields['status'].choices = choices
+
 class SalesServiceJobForm(forms.ModelForm):
     project_value = forms.DecimalField(
         max_digits=12, decimal_places=2, required=False,
