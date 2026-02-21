@@ -582,20 +582,34 @@ def dashboard(request):
 
     projects_in_period = Project.objects.filter(created_at__range=[start_of_period, end_of_period])
 
-    # Summary Cards: MUST match the "Project List" page (PMS Projects Only) per user Step 225.
-    # "Accumulated Work IS the work that is on the All Work List page"
-    # So we EXCLUDE the 'repairs' app content from these top-level summary numbers.
-    
+    # Summary Cards
     total_projects = projects_in_period.count()
     active_projects = projects_in_period.exclude(status__in=[Project.Status.CLOSED, Project.Status.CANCELLED]).count()
-    total_revenue = projects_in_period.aggregate(
+    
+    # ยอดรวมของงาน (Total Job Value) - based on creation date
+    total_job_value = projects_in_period.aggregate(
         total=Sum(F('items__quantity') * F('items__unit_price'))
     )['total'] or 0
-
-    # NOTE: Repairs App integration (RepairItem) is NOT included in these summary cards 
-    # to prevent mismatch with the Project List page (count 10 vs 15).
-    # It IS, however, included in "Top Customers" and "Revenue Trends" if requested?
-    # User instruction in Step 225 implies consistency with List Page is key for "Accumulated Work".
+    
+    # ยอดขาย (Actual Sales) - based on closed date
+    # 1. Projects closed in period
+    closed_projects_value = Project.objects.filter(
+        status=Project.Status.CLOSED,
+        closed_at__range=[start_of_period, end_of_period]
+    ).aggregate(
+        total=Sum(F('items__quantity') * F('items__unit_price'))
+    )['total'] or 0
+    
+    # 2. RepairItems closed in period (Repairs App)
+    from repairs.models import RepairItem
+    closed_repairs_value = RepairItem.objects.filter(
+        status__in=['FINISHED', 'COMPLETED'],
+        closed_at__range=[start_of_period, end_of_period]
+    ).aggregate(
+        total=Sum('price')
+    )['total'] or 0
+    
+    actual_sales = closed_projects_value + closed_repairs_value
 
     # 2. Sales by Month (Full Year: Jan to Dec of selected year)
     start_of_year = timezone.make_aware(datetime(year_filter, 1, 1))
@@ -616,70 +630,67 @@ def dashboard(request):
     # 2.1 Sales Trends by Owner
     owner_trends = {} # { 'Owner Name': [0]*12 }
     
-    # 2.2 Completion Analysis (Total vs Closed)
+    # --- 2.2 Completion and Value Analysis ---
     completion_closed_series = [0] * 12
     completion_total_series = [0] * 12
-    
-    # 2.3 Value Analysis (Money: Total vs Closed) [NEW]
     completion_closed_value = [0] * 12
     completion_total_value = [0] * 12
 
-    # Query for Project counts & VALUE
-    monthly_project_counts = Project.objects.filter(created_at__range=[start_of_year, end_of_year])\
+    # Query for 'TOTAL' (Created): PMS Projects
+    total_projects_qs = Project.objects.filter(created_at__range=[start_of_year, end_of_year])\
         .annotate(month=TruncMonth('created_at'))\
         .values('month')\
         .annotate(
-            total=Count('id'),
-            total_rev=Sum(F('items__quantity') * F('items__unit_price')),
-            closed=Count(Case(When(status=Project.Status.CLOSED, then=1))),
-            closed_rev=Sum(
-                Case(
-                    When(status=Project.Status.CLOSED, then=F('items__quantity') * F('items__unit_price')),
-                    default=0,
-                    output_field=models.DecimalField(max_digits=15, decimal_places=2)
-                )
-            )
-        )\
-        .order_by('month')
-
-    # Loop for PROJECTS: Add to Counts AND Value
-    for entry in monthly_project_counts:
+            count=Count('id'),
+            value=Sum(F('items__quantity') * F('items__unit_price'))
+        )
+    for entry in total_projects_qs:
         m_index = entry['month'].month - 1
-        completion_total_series[m_index] += entry['total']
-        completion_closed_series[m_index] += entry['closed']
-        
-        # Add Value
-        completion_total_value[m_index] += float(entry['total_rev'] or 0)
-        completion_closed_value[m_index] += float(entry['closed_rev'] or 0)
+        completion_total_series[m_index] += entry['count']
+        completion_total_value[m_index] += float(entry['value'] or 0)
 
-    # Query for RepairItem counts (Repairs App) & VALUE
+    # Query for 'TOTAL' (Created): Repairs App
     from repairs.models import RepairItem
-    monthly_repair_counts = RepairItem.objects.filter(created_at__range=[start_of_year, end_of_year])\
+    total_repairs_qs = RepairItem.objects.filter(created_at__range=[start_of_year, end_of_year])\
         .annotate(month=TruncMonth('created_at'))\
         .values('month')\
         .annotate(
-            total=Count('id'),
-            total_rev=Sum('price'), # Use 'price' (Estimated/Project Value)
-            closed=Count(Case(When(status__in=['FINISHED', 'COMPLETED'], then=1))),
-            closed_rev=Sum(
-                Case(
-                    When(status__in=['FINISHED', 'COMPLETED'], then='price'), # Use 'price' instead of final_cost
-                    default=0,
-                    output_field=models.DecimalField(max_digits=15, decimal_places=2)
-                )
-            )
-        )\
-        .order_by('month')
-
-    # Loop for REPAIRS: Add to VALUE ONLY (Exclude from Counts per user request)
-    for entry in monthly_repair_counts:
+            count=Count('id'),
+            value=Sum('price')
+        )
+    for entry in total_repairs_qs:
         m_index = entry['month'].month - 1
-        # completion_total_series[m_index] += entry['total']  <-- Excluded
-        # completion_closed_series[m_index] += entry['closed'] <-- Excluded
-        
-        # Add Value (Repairs)
-        completion_total_value[m_index] += float(entry['total_rev'] or 0)
-        completion_closed_value[m_index] += float(entry['closed_rev'] or 0)
+        # count is excluded from charts per previous setup, but value is included
+        completion_total_value[m_index] += float(entry['value'] or 0)
+
+    # Query for 'CLOSED' (Finished): PMS Projects (Using closed_at)
+    closed_projects_qs = Project.objects.filter(
+        status=Project.Status.CLOSED,
+        closed_at__range=[start_of_year, end_of_year]
+    ).annotate(month=TruncMonth('closed_at'))\
+     .values('month')\
+     .annotate(
+         count=Count('id'),
+         value=Sum(F('items__quantity') * F('items__unit_price'))
+     )
+    for entry in closed_projects_qs:
+        m_index = entry['month'].month - 1
+        completion_closed_series[m_index] += entry['count']
+        completion_closed_value[m_index] += float(entry['value'] or 0)
+
+    # Query for 'CLOSED' (Finished): Repairs App (Using closed_at)
+    closed_repairs_qs = RepairItem.objects.filter(
+        status__in=['FINISHED', 'COMPLETED'],
+        closed_at__range=[start_of_year, end_of_year]
+    ).annotate(month=TruncMonth('closed_at'))\
+     .values('month')\
+     .annotate(
+         count=Count('id'),
+         value=Sum('price')
+     )
+    for entry in closed_repairs_qs:
+        m_index = entry['month'].month - 1
+        completion_closed_value[m_index] += float(entry['value'] or 0)
 
     for entry in monthly_sales_qs:
         m_index = entry['month'].month - 1
@@ -766,7 +777,7 @@ def dashboard(request):
         closed_revenue=Sum(
             Case(
                 When(projects__status=Project.Status.CLOSED,
-                     projects__created_at__range=[start_of_period, end_of_period],
+                     projects__closed_at__range=[start_of_period, end_of_period],
                      then=F('projects__items__quantity') * F('projects__items__unit_price')),
                 default=Value(0),
                 output_field=models.DecimalField(max_digits=15, decimal_places=2)
@@ -805,7 +816,8 @@ def dashboard(request):
         
         'total_projects': total_projects,
         'active_projects': active_projects,
-        'total_revenue': total_revenue,
+        'total_job_value': total_job_value,
+        'actual_sales': actual_sales,
         'month_filter': month_filter,
         'year_filter': year_filter,
         'month_choices': month_choices,
@@ -1529,9 +1541,16 @@ def ai_dashboard_analysis(request):
     ).filter(total_sales__gt=0).order_by('-total_sales')
     owner_summary = ", ".join([f"{o.name}: ฿{o.total_sales:,.2f}" for o in owner_stats])
 
+    # Calculate actual sales (closed jobs) for AI context
+    closed_projects_value = Project.objects.filter(status=Project.Status.CLOSED, closed_at__range=[start_of_period, end_of_period]).aggregate(total=Sum(F('items__quantity') * F('items__unit_price')))['total'] or 0
+    from repairs.models import RepairItem
+    closed_repairs_value = RepairItem.objects.filter(status__in=['FINISHED', 'COMPLETED'], closed_at__range=[start_of_period, end_of_period]).aggregate(total=Sum('price'))['total'] or 0
+    actual_sales = closed_projects_value + closed_repairs_value
+
     data_summary = f"""
     - ช่วงเวลา: {calendar.month_name[month_filter]} {year_filter}
-    - ยอดขายรวม: ฿{total_revenue:,.2f}
+    - ยอดรวมของงาน (สะสมในช่วงนี้): ฿{total_revenue:,.2f}
+    - ยอดขายที่ปิดจบจริง (Actual Sales): ฿{actual_sales:,.2f}
     - จำนวนงานทั้งหมด: {total_count} งาน
     - สรุปแยกตามประเภทงาน: {type_summary}
     - สรุปยอดขายตามพนักงาน: {owner_summary}

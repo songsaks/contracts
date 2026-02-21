@@ -136,7 +136,8 @@ class RepairItem(models.Model):
     
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-
+    closed_at = models.DateTimeField(null=True, blank=True, verbose_name="วันที่ซ่อมเสร็จ/คืนเครื่อง")
+    
     def get_status_color(self):
         colors = {
             'RECEIVED': 'bg-red-500 text-white',
@@ -177,6 +178,10 @@ class RepairItem(models.Model):
 
     def save(self, *args, **kwargs):
         self.full_clean()
+        if self.status in ['FINISHED', 'COMPLETED'] and not self.closed_at:
+            self.closed_at = timezone.now()
+        elif self.status not in ['FINISHED', 'COMPLETED']:
+            self.closed_at = None
         super().save(*args, **kwargs)
 
     def __str__(self):
