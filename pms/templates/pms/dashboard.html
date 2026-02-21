@@ -251,81 +251,81 @@
 
     <!-- Row 1: Summary Stats - 3 Rows of 2 Columns -->
     <div class="col-md-6 mb-4">
-        <div class="card analytics-card shadow-sm h-100 p-4" style="border-left: 6px solid #10b981; border-radius: 18px;">
+        <div class="card analytics-card shadow-sm h-100 p-4" style="border-left: 6px solid #10b981; border-radius: 18px; background: #fff;">
             <div class="d-flex align-items-center gap-4">
                 <div class="bg-success bg-opacity-10 text-success p-4 rounded-4">
                     <i class="fas fa-hand-holding-usd fa-3x"></i>
                 </div>
                 <div>
-                    <div class="text-muted mb-1" style="font-size: 0.85rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;">ยอดขายที่ปิดจบ</div>
-                    <div class="fw-900 mb-0 text-dark" style="font-size: 2.2rem; letter-spacing: -1px;">฿{{ actual_sales|floatformat:0|intcomma }}</div>
+                    <div class="text-dark mb-1" style="font-size: 1rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em;">ยอดขายที่ปิดจบ</div>
+                    <div class="fw-900 mb-0" style="font-size: 2.8rem; letter-spacing: -1.5px; color: #10b981; line-height: 1.1;">฿{{ actual_sales|floatformat:0|intcomma }}</div>
                 </div>
             </div>
         </div>
     </div>
     <div class="col-md-6 mb-4">
-        <div class="card analytics-card shadow-sm h-100 p-4" style="border-left: 6px solid #4f46e5; border-radius: 18px;">
+        <div class="card analytics-card shadow-sm h-100 p-4" style="border-left: 6px solid #4f46e5; border-radius: 18px; background: #fff;">
             <div class="d-flex align-items-center gap-4">
                 <div class="bg-primary bg-opacity-10 text-primary p-4 rounded-4">
                     <i class="fas fa-coins fa-3x"></i>
                 </div>
                 <div>
-                    <div class="text-muted mb-1" style="font-size: 0.85rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;">ยอดขายรวม</div>
-                    <div class="fw-900 mb-0 text-dark" style="font-size: 2.2rem; letter-spacing: -1px;">฿{{ total_job_value|floatformat:0|intcomma }}</div>
+                    <div class="text-dark mb-1" style="font-size: 1rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em;">ยอดรวมงานทั้งหมด</div>
+                    <div class="fw-900 mb-0" style="font-size: 2.8rem; letter-spacing: -1.5px; color: #4f46e5; line-height: 1.1;">฿{{ total_job_value|floatformat:0|intcomma }}</div>
                 </div>
             </div>
         </div>
     </div>
     
     <div class="col-md-6 mb-4">
-        <div class="card analytics-card shadow-sm h-100 p-4" style="border-left: 6px solid #ef4444; border-radius: 18px;">
+        <div class="card analytics-card shadow-sm h-100 p-4" style="border-left: 6px solid #ef4444; border-radius: 18px; background: #fff;">
             <div class="d-flex align-items-center gap-4">
                 <div class="bg-danger bg-opacity-10 text-danger p-4 rounded-4">
                     <i class="fas fa-ban fa-3x"></i>
                 </div>
                 <div>
-                    <div class="text-muted mb-1" style="font-size: 0.85rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;">งานที่ยกเลิก</div>
-                    <div class="fw-900 mb-0 text-dark" style="font-size: 2.2rem; letter-spacing: -1px;">{{ cancelled_count }} <span class="text-muted" style="font-size: 1.25rem;">งาน</span></div>
+                    <div class="text-dark mb-1" style="font-size: 1rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em;">งานที่ยกเลิก</div>
+                    <div class="fw-900 mb-0" style="font-size: 2.8rem; letter-spacing: -1.5px; color: #ef4444; line-height: 1.1;">{{ cancelled_count }} <span style="font-size: 1.5rem; color: #6b7280; font-weight: 600;">งาน</span></div>
                 </div>
             </div>
         </div>
     </div>
     <div class="col-md-6 mb-4">
-        <div class="card analytics-card shadow-sm h-100 p-4" style="border-left: 6px solid #6b7280; border-radius: 18px;">
+        <div class="card analytics-card shadow-sm h-100 p-4" style="border-left: 6px solid #6b7280; border-radius: 18px; background: #fff;">
             <div class="d-flex align-items-center gap-4">
                 <div class="bg-secondary bg-opacity-10 text-secondary p-4 rounded-4">
                     <i class="fas fa-file-invoice-dollar fa-3x"></i>
                 </div>
                 <div>
-                    <div class="text-muted mb-1" style="font-size: 0.85rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;">มูลค่างานที่ยกเลิก</div>
-                    <div class="fw-900 mb-0 text-dark" style="font-size: 2.2rem; letter-spacing: -1px;">฿{{ cancelled_value|floatformat:0|intcomma }}</div>
+                    <div class="text-dark mb-1" style="font-size: 1rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em;">มูลค่างานที่ยกเลิก</div>
+                    <div class="fw-900 mb-0" style="font-size: 2.8rem; letter-spacing: -1.5px; color: #374151; line-height: 1.1;">฿{{ cancelled_value|floatformat:0|intcomma }}</div>
                 </div>
             </div>
         </div>
     </div>
 
     <div class="col-md-6 mb-4">
-        <div class="card analytics-card shadow-sm h-100 p-4" style="border-left: 6px solid #f59e0b; border-radius: 18px;">
+        <div class="card analytics-card shadow-sm h-100 p-4" style="border-left: 6px solid #f59e0b; border-radius: 18px; background: #fff;">
             <div class="d-flex align-items-center gap-4">
                 <div class="bg-warning bg-opacity-10 text-warning p-4 rounded-4">
                     <i class="fas fa-tools fa-3x"></i>
                 </div>
                 <div>
-                    <div class="text-muted mb-1" style="font-size: 0.85rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;">งานที่กำลังดำเนินการ</div>
-                    <div class="fw-900 mb-0 text-dark" style="font-size: 2.2rem; letter-spacing: -1px;">{{ active_projects }} <span class="text-muted" style="font-size: 1.25rem;">งาน</span></div>
+                    <div class="text-dark mb-1" style="font-size: 1rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em;">งานที่กำลังดำเนินการ</div>
+                    <div class="fw-900 mb-0" style="font-size: 2.8rem; letter-spacing: -1.5px; color: #d97706; line-height: 1.1;">{{ active_projects }} <span style="font-size: 1.5rem; color: #6b7280; font-weight: 600;">งาน</span></div>
                 </div>
             </div>
         </div>
     </div>
     <div class="col-md-6 mb-4">
-        <div class="card analytics-card shadow-sm h-100 p-4" style="border-left: 6px solid #06b6d4; border-radius: 18px;">
+        <div class="card analytics-card shadow-sm h-100 p-4" style="border-left: 6px solid #06b6d4; border-radius: 18px; background: #fff;">
             <div class="d-flex align-items-center gap-4">
                 <div class="bg-info bg-opacity-10 text-info p-4 rounded-4">
                     <i class="fas fa-layer-group fa-3x"></i>
                 </div>
                 <div>
-                    <div class="text-muted mb-1" style="font-size: 0.85rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;">รวมงานสะสม</div>
-                    <div class="fw-900 mb-0 text-dark" style="font-size: 2.2rem; letter-spacing: -1px;">{{ total_projects }} <span class="text-muted" style="font-size: 1.25rem;">งาน</span></div>
+                    <div class="text-dark mb-1" style="font-size: 1rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em;">รวมงานสะสม</div>
+                    <div class="fw-900 mb-0" style="font-size: 2.8rem; letter-spacing: -1.5px; color: #0891b2; line-height: 1.1;">{{ total_projects }} <span style="font-size: 1.5rem; color: #6b7280; font-weight: 600;">งาน</span></div>
                 </div>
             </div>
         </div>
