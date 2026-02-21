@@ -167,9 +167,21 @@ def queue_management(request):
         'repair_queue': repair_queue,
     })
 
+def _check_project_lock(project, request):
+    """Helper to check if project is CLOSED or CANCELLED and requires unlock code."""
+    if project.status in [Project.Status.CLOSED, Project.Status.CANCELLED]:
+        from django.conf import settings
+        unlock_code = request.GET.get('unlock') or request.POST.get('unlock')
+        if unlock_code != settings.DELETE_PASSWORD:
+            return True
+    return False
+
 @login_required
 def project_list(request):
-    projects = Project.objects.all().order_by('-created_at')
+    # Default: Show active projects (Exclude CLOSED and CANCELLED)
+    projects = Project.objects.exclude(
+        status__in=[Project.Status.CLOSED, Project.Status.CANCELLED]
+    ).order_by('-created_at')
 
     # Filter
     status_filter = request.GET.get('status')
@@ -193,8 +205,36 @@ def project_list(request):
         'projects': projects,
         'status_choices': Project.Status.choices,
         'project_owners': ProjectOwner.objects.all(),
+        'title': 'รายการงานที่กำลังดำเนินการ'
     }
     return render(request, 'pms/project_list.html', context)
+
+@login_required
+def history_list(request):
+    """View to show Closed and Cancelled jobs, latest first."""
+    projects = Project.objects.filter(
+        status__in=[Project.Status.CLOSED, Project.Status.CANCELLED]
+    ).order_by('-closed_at')
+    
+    search_q = request.GET.get('q')
+    if search_q:
+        projects = projects.filter(
+            Q(name__icontains=search_q) |
+            Q(customer__name__icontains=search_q) |
+            Q(owner__name__icontains=search_q)
+        )
+        
+    jt_filter = request.GET.get('job_type')
+    if jt_filter:
+        projects = projects.filter(job_type=jt_filter)
+
+    context = {
+        'projects': projects,
+        'title': 'ประวัติงานทั้งหมด (ปิดงาน/ยกเลิก)',
+        'job_types': Project.JobType.choices,
+        'search_q': search_q,
+    }
+    return render(request, 'pms/history_list.html', context)
 
 @login_required
 def project_detail(request, pk):
@@ -324,11 +364,9 @@ def project_update(request, pk):
         template = 'pms/project_form.html'
         title = 'แก้ไขโครงการ'
 
-    # --- CLOSED LOCK LOGIC ---
-    # อนุญาตให้เข้าถึงได้ถ้ามีรหัสปลดล็อก '9com' ผ่านทาง URL
-    unlock_code = request.GET.get('unlock')
-    if project.status == Project.Status.CLOSED and unlock_code != '9com':
-        messages.warning(request, f'⚠️ ไม่สามารถแก้ไขงานที่ "ปิดจบ" แล้วได้')
+    # --- CLOSED/CANCELLED LOCK LOGIC ---
+    if _check_project_lock(project, request):
+        messages.warning(request, f'⚠️ ไม่สามารถแก้ไขงานที่ "{project.get_job_status_display()}" แล้วได้ (ต้องมีรหัสปลดล็อก)')
         return redirect('pms:project_detail', pk=project.pk)
     # -------------------------
 
@@ -348,6 +386,9 @@ def project_update(request, pk):
 @login_required
 def item_add(request, project_id):
     project = get_object_or_404(Project, pk=project_id)
+    if _check_project_lock(project, request):
+        messages.error(request, 'ไม่สามารถเพิ่มรายการในงานที่ปิดจบหรือยกเลิกแล้วได้')
+        return redirect('pms:project_detail', pk=project.pk)
     if request.method == 'POST':
         form = ProductItemForm(request.POST)
         if form.is_valid():
@@ -356,7 +397,6 @@ def item_add(request, project_id):
             item.save()
             messages.success(request, 'เพิ่มรายการสำเร็จ')
             return redirect('pms:project_detail', pk=project.pk)
-    else:
         form = ProductItemForm()
     return render(request, 'pms/item_form.html', {'form': form, 'project': project, 'title': f'เพิ่มรายการใน {project.name}'})
 
@@ -364,6 +404,9 @@ def item_add(request, project_id):
 def item_update(request, item_id):
     item = get_object_or_404(ProductItem, pk=item_id)
     project = item.project
+    if _check_project_lock(project, request):
+        messages.error(request, 'ไม่สามารถแก้ไขรายการในงานที่ปิดจบหรือยกเลิกแล้วได้')
+        return redirect('pms:project_detail', pk=project.pk)
     if request.method == 'POST':
         form = ProductItemForm(request.POST, instance=item)
         if form.is_valid():
@@ -615,6 +658,19 @@ def dashboard(request):
     
     actual_sales = closed_projects_value + closed_repairs_value
 
+    # 3. Cancelled Jobs in period
+    cancelled_count = Project.objects.filter(
+        status=Project.Status.CANCELLED,
+        closed_at__range=[start_of_period, end_of_period]
+    ).count()
+    
+    cancelled_value = Project.objects.filter(
+        status=Project.Status.CANCELLED,
+        closed_at__range=[start_of_period, end_of_period]
+    ).aggregate(
+        total=Sum(F('items__quantity') * F('items__unit_price'))
+    )['total'] or 0
+
     # 2. Sales by Month (Full Year: Jan to Dec of selected year)
     start_of_year = timezone.make_aware(datetime(year_filter, 1, 1))
     end_of_year = timezone.make_aware(datetime(year_filter, 12, 31, 23, 59, 59))
@@ -822,6 +878,8 @@ def dashboard(request):
         'active_projects': active_projects,
         'total_job_value': total_job_value,
         'actual_sales': actual_sales,
+        'cancelled_count': cancelled_count,
+        'cancelled_value': cancelled_value,
         'month_filter': month_filter,
         'year_filter': year_filter,
         'month_choices': month_choices,
@@ -1551,10 +1609,16 @@ def ai_dashboard_analysis(request):
     closed_repairs_value = RepairItem.objects.filter(status__in=['FINISHED', 'COMPLETED'], closed_at__range=[start_of_period, end_of_period]).aggregate(total=Sum('price'))['total'] or 0
     actual_sales = closed_projects_value + closed_repairs_value
 
+    # Cancelled Stats for AI
+    cancelled_projects = Project.objects.filter(status=Project.Status.CANCELLED, closed_at__range=[start_of_period, end_of_period])
+    cancelled_count = cancelled_projects.count()
+    cancelled_value = cancelled_projects.aggregate(total=Sum(F('items__quantity') * F('items__unit_price')))['total'] or 0
+
     data_summary = f"""
     - ช่วงเวลา: {calendar.month_name[month_filter]} {year_filter}
-    - ยอดรวมของงาน (สะสมในช่วงนี้): ฿{total_revenue:,.2f}
+    - ยอดรวมของงาน (รับเข้าในช่วงนี้): ฿{total_revenue:,.2f}
     - ยอดขายที่ปิดจบจริง (Actual Sales): ฿{actual_sales:,.2f}
+    - งานที่ยกเลิก: {cancelled_count} รายการ (มูลค่า ฿{cancelled_value:,.2f})
     - จำนวนงานทั้งหมด: {total_count} งาน
     - สรุปแยกตามประเภทงาน: {type_summary}
     - สรุปยอดขายตามพนักงาน: {owner_summary}

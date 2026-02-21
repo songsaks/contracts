@@ -85,9 +85,9 @@ class Project(models.Model):
         return self.name
 
     def save(self, *args, **kwargs):
-        if self.status == self.Status.CLOSED and not self.closed_at:
+        if self.status in [self.Status.CLOSED, self.Status.CANCELLED] and not self.closed_at:
             self.closed_at = timezone.now()
-        elif self.status != self.Status.CLOSED:
+        elif self.status not in [self.Status.CLOSED, self.Status.CANCELLED]:
             self.closed_at = None
         super().save(*args, **kwargs)
 

@@ -121,6 +121,7 @@ class RepairItem(models.Model):
         ('RECEIVED_FROM_VENDOR', 'รอตรวจรับกลับ'),
         ('FINISHED', 'ซ่อมเสร็จ'),
         ('COMPLETED', 'ส่งคืนแล้ว'),
+        ('CANCELLED', 'ยกเลิก'),
     ]
 
     job = models.ForeignKey(RepairJob, on_delete=models.CASCADE, related_name='items')
@@ -146,6 +147,7 @@ class RepairItem(models.Model):
             'OUTSOURCE': 'bg-purple-500 text-white',
             'RECEIVED_FROM_VENDOR': 'bg-blue-400 text-white',
             'FINISHED': 'bg-green-500 text-white',
+            'CANCELLED': 'bg-gray-500 text-white',
         }
         return colors.get(self.status, 'bg-gray-500 text-white')
 
@@ -157,6 +159,7 @@ class RepairItem(models.Model):
             'OUTSOURCE': 'bg-purple-50',
             'RECEIVED_FROM_VENDOR': 'bg-blue-50',
             'FINISHED': 'bg-green-50',
+            'CANCELLED': 'bg-gray-50',
         }
         return colors.get(self.status, 'bg-gray-50')
 
@@ -178,9 +181,9 @@ class RepairItem(models.Model):
 
     def save(self, *args, **kwargs):
         self.full_clean()
-        if self.status in ['FINISHED', 'COMPLETED'] and not self.closed_at:
+        if self.status in ['FINISHED', 'COMPLETED', 'CANCELLED'] and not self.closed_at:
             self.closed_at = timezone.now()
-        elif self.status not in ['FINISHED', 'COMPLETED']:
+        elif self.status not in ['FINISHED', 'COMPLETED', 'CANCELLED']:
             self.closed_at = None
         super().save(*args, **kwargs)
 
