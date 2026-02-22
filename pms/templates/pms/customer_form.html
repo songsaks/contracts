@@ -47,8 +47,27 @@
                 </h5>
             </div>
             <div class="card-body p-4">
-                <form method="post">
+                <form method="post" novalidate>
                     {% csrf_token %}
+
+                    {% if form.errors %}
+                    <div class="alert alert-danger border-0 shadow-sm mb-4">
+                        <div class="d-flex align-items-center">
+                            <i class="fas fa-exclamation-circle me-2 text-danger"></i>
+                            <h6 class="mb-0 fw-bold text-danger">กรุณาตรวจสอบข้อมูลอีกครั้ง</h6>
+                        </div>
+                        <ul class="mb-0 mt-2 small text-danger">
+                            {% for field in form %}
+                                {% for error in field.errors %}
+                                    <li class="fw-500">{{ field.label }}: {{ error }}</li>
+                                {% endfor %}
+                            {% endfor %}
+                            {% for error in form.non_field_errors %}
+                                <li class="fw-500">{{ error }}</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                    {% endif %}
                     
                     <!-- Section 1: ข้อมูลหลัก -->
                     <div class="mb-4">
@@ -62,10 +81,16 @@
                             <div class="col-12">
                                 <label class="form-label fw-bold small text-muted">{{ form.name.label }}</label>
                                 {{ form.name }}
+                                {% if form.name.errors %}
+                                    <div class="text-danger small mt-1">{% for error in form.name.errors %}{{ error }}{% endfor %}</div>
+                                {% endif %}
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label fw-bold small text-muted">{{ form.phone.label }}</label>
                                 {{ form.phone }}
+                                {% if form.phone.errors %}
+                                    <div class="text-danger small mt-1">{% for error in form.phone.errors %}{{ error }}{% endfor %}</div>
+                                {% endif %}
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label fw-bold small text-muted">{{ form.email.label }}</label>
@@ -124,7 +149,7 @@
                             <span class="bg-info bg-opacity-10 text-info p-2 rounded-3 me-2">
                                 <i class="fas fa-map-marker-alt"></i>
                             </span>
-                            <h6 class="mb-0 fw-bold">ช่องทางติดต่อ & พิกัด</h6>
+                            <h6 class="mb-0 fw-bold">ช่องทางติดต่อ & พิกัด (ไม่บังคับ)</h6>
                         </div>
                         <div class="row g-3">
                             <div class="col-md-6">

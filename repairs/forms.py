@@ -24,6 +24,27 @@ class CustomerForm(forms.ModelForm):
             'address': forms.Textarea(attrs={'rows': 3, 'class': 'form-control', 'placeholder': 'ที่อยู่ (ถ้ามี)'}),
         }
 
+    def clean_name(self):
+        name = self.cleaned_data.get('name')
+        if not name:
+            return name
+
+        # 1. Check in Repairs (this app)
+        repair_exists = Customer.objects.filter(name__iexact=name)
+        if self.instance.pk:
+            repair_exists = repair_exists.exclude(pk=self.instance.pk)
+        
+        if repair_exists.exists():
+            raise forms.ValidationError(f"⚠️ มีลูกค้าชื่อ '{name}' อยู่แล้วในระบบแจ้งซ่อม กรุณาตรวจสอบ")
+
+        # 2. Check in PMS app
+        from pms.models import Customer as PMSCustomer
+        pms_exists = PMSCustomer.objects.filter(name__iexact=name).exists()
+        if pms_exists:
+            raise forms.ValidationError(f"⚠️ มีลูกค้าชื่อ '{name}' อยู่ในระบบ PMS แล้ว กรุณาใช้ชื่อที่ต่างกันหรือตรวจสอบข้อมูล")
+
+        return name
+
 class DeviceForm(forms.ModelForm):
     class Meta:
         model = Device

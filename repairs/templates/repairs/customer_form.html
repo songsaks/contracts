@@ -15,6 +15,27 @@
                 <form method="post" novalidate>
                     {% csrf_token %}
 
+                    {% if form.errors %}
+                    <div class="alert alert-danger border-0 shadow-sm mb-4 d-flex align-items-start gap-3">
+                        <div class="bg-danger bg-opacity-10 rounded-circle d-flex align-items-center justify-content-center flex-shrink-0" style="width:36px;height:36px;">
+                            <i class="fas fa-exclamation-triangle text-danger"></i>
+                        </div>
+                        <div>
+                            <div class="fw-bold text-danger mb-1">กรุณาตรวจสอบข้อมูลอีกครั้ง</div>
+                            <ul class="mb-0 ps-3 small text-danger">
+                                {% for field in form %}
+                                    {% for error in field.errors %}
+                                        <li>{{ field.label }}: {{ error }}</li>
+                                    {% endfor %}
+                                {% endfor %}
+                                {% for error in form.non_field_errors %}
+                                    <li>{{ error }}</li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                    </div>
+                    {% endif %}
+
                     <!-- Customer Section -->
                     <h6 class="bg-body-secondary p-2 rounded fw-bold text-dark mb-4 border-start border-4 border-primary ps-3">
                         <i class="fas fa-user me-2 text-primary"></i>ข้อมูลลูกค้า
@@ -25,12 +46,22 @@
                                 {{ form.name }}
                                 <label for="{{ form.name.id_for_label }}">ชื่อลูกค้า / บริษัท</label>
                             </div>
+                            {% if form.name.errors %}
+                                <div class="text-danger small mt-1 ms-1">
+                                    <i class="fas fa-exclamation-circle me-1"></i>{% for error in form.name.errors %}{{ error }}{% endfor %}
+                                </div>
+                            {% endif %}
                         </div>
                         <div class="col-12">
                             <div class="form-floating">
                                 {{ form.contact_number }}
                                 <label for="{{ form.contact_number.id_for_label }}">เบอร์โทรศัพท์</label>
                             </div>
+                            {% if form.contact_number.errors %}
+                                <div class="text-danger small mt-1 ms-1">
+                                    <i class="fas fa-exclamation-circle me-1"></i>{% for error in form.contact_number.errors %}{{ error }}{% endfor %}
+                                </div>
+                            {% endif %}
                         </div>
                         <div class="col-12">
                             <div class="form-floating">
