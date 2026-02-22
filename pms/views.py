@@ -415,6 +415,35 @@ def customer_update(request, pk):
         form = CustomerForm(instance=customer)
     return render(request, 'pms/customer_form.html', {'form': form, 'title': f'แก้ไขข้อมูล: {customer.name}'})
 
+@login_required
+def customer_delete(request, pk):
+    customer = get_object_or_404(Customer, pk=pk)
+    
+    # Check if customer has any related data
+    has_projects = customer.projects.exists()
+    has_requests = customer.requests.exists()
+    
+    if has_projects or has_requests:
+        problems = []
+        if has_projects: problems.append(f"โครงการ ({customer.projects.count()} รายการ)")
+        if has_requests: problems.append(f"คำขอ/Request ({customer.requests.count()} รายการ)")
+        
+        related_str = " และ ".join(problems)
+        messages.error(request, f"❌ ไม่สามารถลบลูกค้า '{customer.name}' ได้ เนื่องจากมีการใช้งานอยู่ในข้อมูล: {related_str}")
+        return redirect('pms:customer_list')
+
+    if request.method == 'POST':
+        customer_name = customer.name
+        customer.delete()
+        messages.success(request, f"ลบข้อมูลลูกค้า '{customer_name}' สำเร็จ")
+        return redirect('pms:customer_list')
+    
+    return render(request, 'pms/formatted_confirm_delete.html', {
+        'object': customer, 
+        'type': 'Customer', 
+        'cancel_url': 'pms:customer_list'
+    })
+
 # SLA Plan Views
 @login_required
 def sla_plan_list(request):

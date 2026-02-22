@@ -343,10 +343,33 @@ def customer_update(request, pk):
 @login_required
 def customer_delete(request, pk):
     customer = get_object_or_404(Customer, pk=pk)
-    if request.method == 'POST':
-        customer.delete()
+    
+    # Check if customer has any related data
+    has_jobs = customer.jobs.exists()
+    has_devices = customer.devices.exists()
+    
+    if has_jobs or has_devices:
+        problems = []
+        if has_jobs: problems.append(f"งานซ่อม ({customer.jobs.count()} รายการ)")
+        if has_devices: problems.append(f"อุปกรณ์ ({customer.devices.count()} รายการ)")
+        
+        related_str = " และ ".join(problems)
+        from django.contrib import messages
+        messages.error(request, f"❌ ไม่สามารถลบลูกค้า '{customer.name}' ได้ เนื่องจากมีการใช้งานอยู่ในข้อมูล: {related_str}")
         return redirect('repairs:customer_list')
-    return render(request, 'repairs/formatted_confirm_delete.html', {'object': customer, 'type': 'Customer', 'cancel_url': 'repairs:customer_list'})
+
+    if request.method == 'POST':
+        customer_name = customer.name
+        customer.delete()
+        from django.contrib import messages
+        messages.success(request, f"ลบข้อมูลลูกค้า '{customer_name}' สำเร็จ")
+        return redirect('repairs:customer_list')
+    
+    return render(request, 'repairs/formatted_confirm_delete.html', {
+        'object': customer, 
+        'type': 'Customer', 
+        'cancel_url': 'repairs:customer_list'
+    })
 
 @login_required
 def device_list(request):
