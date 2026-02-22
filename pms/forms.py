@@ -34,6 +34,27 @@ class CustomerForm(forms.ModelForm):
             'address': 'ที่อยู่',
         }
 
+    def clean_name(self):
+        name = self.cleaned_data.get('name')
+        if not name:
+            return name
+
+        # 1. Check in PMS (this app)
+        pms_exists = Customer.objects.filter(name__iexact=name)
+        if self.instance.pk:
+            pms_exists = pms_exists.exclude(pk=self.instance.pk)
+        
+        if pms_exists.exists():
+            raise forms.ValidationError(f"⚠️ มีลูกค้าชื่อ '{name}' อยู่แล้วในระบบ PMS กรุณาตรวจสอบ")
+
+        # 2. Check in Repairs app
+        from repairs.models import Customer as RepairCustomer
+        repair_exists = RepairCustomer.objects.filter(name__iexact=name).exists()
+        if repair_exists:
+            raise forms.ValidationError(f"⚠️ มีลูกค้าชื่อ '{name}' อยู่ในระบบแจ้งซ่อม (Repairs) แล้ว กรุณาใช้ชื่อที่ต่างกันหรือตรวจสอบข้อมูล")
+
+        return name
+
 class SLAPlanForm(forms.ModelForm):
     class Meta:
         model = SLAPlan
