@@ -48,8 +48,11 @@
                                 </td>
                                 <td>{{ customer.created_at|date:"d M Y" }}</td>
                                 <td>
-                                    <a href="{% url 'pms:customer_update' customer.pk %}" class="btn-action" title="แก้ไข">
+                                    <a href="{% url 'pms:customer_update' customer.pk %}" class="btn-action me-2" title="แก้ไข">
                                         <i class="fas fa-edit text-muted"></i>
+                                    </a>
+                                    <a href="{% url 'pms:customer_delete' customer.pk %}" class="btn-action" title="ลบ">
+                                        <i class="fas fa-trash text-danger"></i>
                                     </a>
                                 </td>
                             </tr>
@@ -80,9 +83,14 @@
                                 {% if customer.email %}<span class="ms-2"><i class="fas fa-envelope me-1"></i>{{ customer.email }}</span>{% endif %}
                             </div>
                         </div>
-                        <a href="{% url 'pms:customer_update' customer.pk %}" class="btn-action" style="width: 32px; height: 32px;">
-                            <i class="fas fa-edit text-muted" style="font-size: 0.8rem;"></i>
-                        </a>
+                        <div class="d-flex flex-column gap-2">
+                            <a href="{% url 'pms:customer_update' customer.pk %}" class="btn-action" style="width: 32px; height: 32px;">
+                                <i class="fas fa-edit text-muted" style="font-size: 0.8rem;"></i>
+                            </a>
+                            <a href="{% url 'pms:customer_delete' customer.pk %}" class="btn-action" style="width: 32px; height: 32px;">
+                                <i class="fas fa-trash text-danger" style="font-size: 0.8rem;"></i>
+                            </a>
+                        </div>
                     </div>
                 </div>
             </div>
