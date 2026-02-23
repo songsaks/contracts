@@ -1,0 +1,121 @@
+{% extends 'stocks/base_stocks.html' %}
+
+{% block content %}
+<div class="row g-4">
+    <!-- Watchlist Header -->
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <div>
+                <h3 class="fw-bold mb-1">Market Watchlist</h3>
+                <p class="text-muted small mb-0">ติดตามสภาวะตลาดและ momentum ของสินทรัพย์ที่น่าสนใจ</p>
+            </div>
+            <button class="btn btn-premium btn-sm rounded-pill px-4" data-bs-toggle="modal" data-bs-target="#addSymbolModal">
+                <i class="fas fa-plus me-1"></i> Add Symbol
+            </button>
+        </div>
+        <hr class="opacity-10 mb-4">
+    </div>
+
+    <!-- Responsive Grid: 5 columns on large screens -->
+    <div class="col-12">
+        <div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-lg-4 row-cols-xl-5 g-3">
+            {% for item in items %}
+            <div class="col">
+                <div class="card-premium p-3 h-100 border-light border-opacity-50 hover-up">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <div>
+                            <span class="badge bg-primary bg-opacity-10 text-primary mb-1" style="font-size: 0.65rem;">{{ item.obj.get_category_display }}</span>
+                            <h4 class="fw-bold mb-0 text-dark">{{ item.obj.symbol }}</h4>
+                            <div class="text-muted-light truncate-text" style="font-size: 0.7rem; max-width: 120px;">{{ item.obj.name|default:"Market Asset" }}</div>
+                        </div>
+                        <div class="text-end">
+                            <div class="fw-bold mb-0 {% if item.change > 0 %}stock-positive{% elif item.change < 0 %}stock-negative{% endif %}" style="font-size: 1.1rem;">
+                                {{ item.price|default:"N/A" }}
+                            </div>
+                            <small class="{% if item.change > 0 %}stock-positive{% elif item.change < 0 %}stock-negative{% endif %}" style="font-size: 0.75rem;">
+                                {{ item.change|floatformat:2 }}%
+                            </small>
+                        </div>
+                    </div>
+                    
+                    {% if item.rsi %}
+                    <div class="mb-3">
+                        <span class="badge {% if item.rsi_status == 'Oversold' %}bg-danger{% elif item.rsi_status == 'Overbought' %}bg-warning{% else %}bg-secondary{% endif %} bg-opacity-10 {% if item.rsi_status == 'Oversold' %}text-danger{% elif item.rsi_status == 'Overbought' %}text-warning text-dark{% else %}text-secondary{% endif %} rounded-pill w-100 text-center" style="font-size: 0.65rem; padding: 4px;">
+                            RSI: {{ item.rsi|floatformat:1 }} ({{ item.rsi_status }})
+                        </span>
+                    </div>
+                    {% else %}
+                    <div class="mb-3" style="height: 22px;"></div>
+                    {% endif %}
+                    
+                    <div class="d-flex gap-2 align-items-center mt-auto">
+                        <a href="{% url 'stocks:analyze' item.obj.symbol %}" class="btn btn-xs btn-outline-primary flex-grow-1 rounded-pill fw-600 py-1" style="font-size: 0.7rem;">
+                            <i class="fas fa-robot me-1"></i> AI Analyze
+                        </a>
+                        <form action="{% url 'stocks:delete_from_watchlist' item.obj.pk %}" method="POST" class="d-inline" onsubmit="return confirm('ลบรายการนี้ใช่หรือไม่?')">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-link text-muted p-0 hover-danger" style="font-size: 0.8rem;">
+                                <i class="fas fa-trash-alt"></i>
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            {% empty %}
+            <div class="col-12 text-center py-5">
+                <div class="card-premium p-5 border-0 bg-light bg-opacity-50">
+                    <i class="fas fa-search fa-3x text-muted mb-3 opacity-25"></i>
+                    <h5 class="text-muted">ยังไม่มีรายการใน Watchlist</h5>
+                    <p class="small text-muted mb-4">เพิ่มชื่อหุ้นที่คุณต้องการเฝ้าติดตามเพื่อใช้ AI วิเคราะห์</p>
+                    <button class="btn btn-primary rounded-pill px-4" data-bs-toggle="modal" data-bs-target="#addSymbolModal">เริ่มเพิ่มหุ้นตัวแรก</button>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<!-- Modal -->
+<div class="modal fade" id="addSymbolModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content card-premium border-0">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title fw-bold text-primary">Add New Symbol</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form action="{% url 'stocks:add_to_watchlist' %}" method="POST">
+                {% csrf_token %}
+                <div class="modal-body pt-3">
+                    <div class="mb-3">
+                        <label class="form-label small text-muted">Symbol (Ticker)</label>
+                        <input type="text" name="symbol" class="form-control rounded-3" style="background:#f8fafc;" placeholder="e.g. AAPL, PTT.BK, BTC-USD" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small text-muted">Asset Name (Optional)</label>
+                        <input type="text" name="name" class="form-control rounded-3" style="background:#f8fafc;">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small text-muted">Category</label>
+                        <select name="category" class="form-select rounded-3" style="background:#f8fafc;">
+                            {% for code, label in categories %}
+                            <option value="{{ code }}">{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer border-0">
+                    <button type="button" class="btn btn-link text-muted" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-premium px-4">Add to Watchlist</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<style>
+    .btn-xs { padding: 0.25rem 0.5rem; font-size: 0.75rem; }
+    .truncate-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .hover-up:hover { transform: translateY(-3px); transition: all 0.2s ease; border-color: var(--bs-primary) !important; }
+    .hover-danger:hover { color: #ef4444 !important; }
+</style>
+{% endblock %}

@@ -1,0 +1,168 @@
+{% extends 'stocks/base_stocks.html' %}
+
+{% block title %}{{ title }} — AI Stock Analyst{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12 text-center">
+        <h2 class="fw-bold mb-3"><i class="fas fa-globe-asia text-success me-2"></i>ข้อมูลเศรษฐกิจและสินค้าโภคภัณฑ์</h2>
+        <p class="text-muted">ตรวจสอบตัวเลขภาพรวมเศรษฐกิจที่สำคัญ ราคาทองคำ น้ำมัน และอัตราแลกเปลี่ยน พร้อมแนวโน้มย้อนหลัง 3 เดือน</p>
+    </div>
+</div>
+
+<div class="row g-4 mb-5">
+    {% for item in data %}
+    <div class="col-12 col-lg-6">
+        <div class="card-premium p-4 h-100">
+            <div class="d-flex justify-content-between align-items-start mb-3">
+                <div>
+                    <h5 class="fw-bold text-dark mb-1">
+                        {{ item.name }}
+                        <i class="fas fa-info-circle text-muted ms-1" style="font-size: 0.8rem; cursor: pointer;" data-bs-toggle="tooltip" data-bs-placement="top" title="{{ item.desc }}"></i>
+                    </h5>
+                    <div class="text-muted small">Unit: {{ item.unit }}</div>
+                </div>
+                <div class="text-end">
+                    <h3 class="fw-bold mb-0 {% if item.is_up %}text-success{% else %}text-danger{% endif %}">
+                        {{ item.price|floatformat:2 }}
+                    </h3>
+                    <div class="fw-bold {% if item.is_up %}text-success{% else %}text-danger{% endif %}">
+                        {% if item.is_up %}<i class="fas fa-arrow-up"></i>{% else %}<i class="fas fa-arrow-down"></i>{% endif %}
+                        {{ item.change|floatformat:2 }}%
+                    </div>
+                </div>
+            </div>
+            
+            <p class="small text-secondary mb-3">{{ item.desc }}</p>
+
+            <!-- Chart -->
+            <div style="height: 200px; width: 100%;">
+                <canvas id="chart-{{ item.id }}"></canvas>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<div class="row mb-5">
+    <div class="col-12">
+        <div class="card-premium p-0 border-0 overflow-hidden mb-5">
+            <div class="p-4 border-bottom bg-white d-flex justify-content-between align-items-center">
+                <h4 class="fw-bold mb-0 text-success"><i class="fas fa-brain me-2"></i> บทวิเคราะห์มุมมองเศรษฐกิจภาพรวมระดับโลก</h4>
+                <div class="d-flex align-items-center gap-2 d-print-none">
+                    <button class="btn btn-outline-success btn-sm rounded-pill" onclick="exportHTMLToExcel('macro-analysis-report', 'Macro_Economy_Analysis')">
+                        <i class="fas fa-file-excel me-1"></i> Download Excel
+                    </button>
+                    <button class="btn btn-outline-secondary btn-sm rounded-pill" onclick="window.print()">
+                        <i class="fas fa-print me-1"></i> Print
+                    </button>
+                    <span class="badge bg-light text-muted fw-normal">Powered by Gemini AI</span>
+                </div>
+            </div>
+            <div class="p-4 p-md-5 bg-white">
+                <textarea id="raw-markdown" style="display: none;">{{ analysis }}</textarea>
+                <div id="macro-analysis-report" class="analysis-content">
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    // Initialize Tooltips
+    const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]');
+    const tooltipList = [...tooltipTriggerList].map(tooltipTriggerEl => new bootstrap.Tooltip(tooltipTriggerEl));
+
+    // Load Dashboard Charts Data
+    const chartsData = {{ charts_json|safe }};
+
+    Object.keys(chartsData).forEach(id => {
+        const canvas = document.getElementById('chart-' + id);
+        if (canvas) {
+            const ctx = canvas.getContext('2d');
+            const cData = chartsData[id];
+
+            // Calculate if overall trend is up or down
+            const first = cData.values[0];
+            const last = cData.values[cData.values.length - 1];
+            const isUp = last >= first;
+            
+            const color = isUp ? '#10b981' : '#ef4444';
+            const bgColor = isUp ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)';
+
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: cData.labels,
+                    datasets: [{
+                        label: 'Price',
+                        data: cData.values,
+                        borderColor: color,
+                        backgroundColor: bgColor,
+                        borderWidth: 2,
+                        pointRadius: 0,
+                        pointHoverRadius: 4,
+                        fill: true,
+                        tension: 0.2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        x: {
+                            display: false // Hide X axis labels for cleaner look
+                        },
+                        y: {
+                            position: 'right',
+                            grid: { color: 'rgba(0,0,0,0.03)' },
+                            ticks: { color: '#94a3b8', font: { size: 10 } }
+                        }
+                    },
+                    interaction: {
+                        intersect: false,
+                        mode: 'index',
+                    }
+                }
+            });
+        }
+    });
+
+    // Markdown Parser
+    const reportText = document.getElementById('raw-markdown').value;
+    document.getElementById('macro-analysis-report').innerHTML = marked.parse(reportText);
+
+    // Export Function
+    function exportHTMLToExcel(elementId, filename = '') {
+        var preHtml = "<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:x='urn:schemas-microsoft-com:office:excel' xmlns='http://www.w3.org/TR/REC-html40'><head><meta charset='utf-8'><title>Export HTML To Excel</title></head><body>";
+        var postHtml = "</body></html>";
+        var html = preHtml + document.getElementById(elementId).innerHTML + postHtml;
+
+        var blob = new Blob(['\ufeff', html], {
+            type: 'application/vnd.ms-excel'
+        });
+        
+        var url = 'data:application/vnd.ms-excel;charset=utf-8,' + encodeURIComponent(html);
+        filename = filename ? filename + '.xls' : 'document.xls';
+        var downloadLink = document.createElement("a");
+        document.body.appendChild(downloadLink);
+        
+        if(navigator.msSaveOrOpenBlob ){
+            navigator.msSaveOrOpenBlob(blob, filename);
+        } else {
+            downloadLink.href = url;
+            downloadLink.download = filename;
+            downloadLink.click();
+        }
+        document.body.removeChild(downloadLink);
+    }
+</script>
+{% endblock %}
