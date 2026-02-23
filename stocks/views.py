@@ -297,57 +297,59 @@ def recommendations(request):
             continue
 
     # Generate the recommendation report using Gemini
-    genai.configure(api_key=settings.GEMINI_API_KEY)
-    
-    # Dynamic Model Selection (Based on available models in the environment)
-    model_names = [
-        'gemini-2.0-flash', 
-        'gemini-flash-latest', 
-        'gemini-pro-latest', 
-        'gemini-1.5-flash', 
-        'gemini-pro'
-    ]
-    model = None
-    for m_name in model_names:
-        try:
-            temp_model = genai.GenerativeModel(m_name)
-            temp_model.generate_content("ping", generation_config={"max_output_tokens": 1})
-            model = temp_model
-            break
-        except Exception:
-            continue
-    
-    if not model:
-        try:
-            model = genai.GenerativeModel('gemini-1.5-flash')
-        except:
-            model = genai.GenerativeModel('gemini-pro')
-    
-    data_str = "\n".join([str(s) for s in stock_previews])
-    
-    prompt = f"""
-    You are a professional Thai Stock Analyst. Based on the following data of Thai stocks (Large Cap and Mid Cap):
-    {data_str}
-    
-    Please provide TWO separate rankings in your report (in Thai language):
+    report_text = None
+    if request.GET.get('analyze') == 'true' and stock_previews:
+        genai.configure(api_key=settings.GEMINI_API_KEY)
+        
+        # Dynamic Model Selection (Based on available models in the environment)
+        model_names = [
+            'gemini-2.0-flash', 
+            'gemini-flash-latest', 
+            'gemini-pro-latest', 
+            'gemini-1.5-flash', 
+            'gemini-pro'
+        ]
+        model = None
+        for m_name in model_names:
+            try:
+                temp_model = genai.GenerativeModel(m_name)
+                temp_model.generate_content("ping", generation_config={"max_output_tokens": 1})
+                model = temp_model
+                break
+            except Exception:
+                continue
+        
+        if not model:
+            try:
+                model = genai.GenerativeModel('gemini-1.5-flash')
+            except:
+                model = genai.GenerativeModel('gemini-pro')
+        
+        data_str = "\n".join([str(s) for s in stock_previews])
+        
+        prompt = f"""
+        You are a professional Thai Stock Analyst. Based on the following data of Thai stocks (Large Cap and Mid Cap):
+        {data_str}
+        
+        Please provide TWO separate rankings in your report (in Thai language):
 
-    Part 1: 10 อันดับหุ้นไทยขนาดใหญ่แนะนำ (Top 10 Large Cap Thai Stock Recommendations)
-    Part 2: 10 อันดับหุ้นไทยขนาดกลางแนะนำ (Top 10 Mid Cap Thai Stock Recommendations)
+        Part 1: 10 อันดับหุ้นไทยขนาดใหญ่แนะนำ (Top 10 Large Cap Thai Stock Recommendations)
+        Part 2: 10 อันดับหุ้นไทยขนาดกลางแนะนำ (Top 10 Mid Cap Thai Stock Recommendations)
 
-    For BOTH lists:
-    1. Select the top 10 stocks based on Fundamental Strength (ROE, NPM) and Valuation (PE, PBV, Dividend).
-    2. Specifically mention which ones have potential for 'Economic Profits' (High ROE vs typical cost of capital).
-    3. **CRITICAL**: Include a deep 'Volume Analysis' for each selected stock (compare its 'volume' to 'avg_volume', interpreting buying/selling pressure or momentum).
-    4. Provide a brief 'Why this stock?' reason, highlighting its cap size context and its current Volume trend.
-    
-    Format in beautiful Markdown for a professional web report. Use Sarabun style tone. Add an introductory section explaining the methodology.
-    """
-    
-    try:
-        response = model.generate_content(prompt)
-        report_text = response.text
-    except Exception as e:
-        report_text = f"ไม่สามารถสร้างรายงานได้ในขณะนี้: {str(e)}"
+        For BOTH lists:
+        1. Select the top 10 stocks based on Fundamental Strength (ROE, NPM) and Valuation (PE, PBV, Dividend).
+        2. Specifically mention which ones have potential for 'Economic Profits' (High ROE vs typical cost of capital).
+        3. **CRITICAL**: Include a deep 'Volume Analysis' for each selected stock (compare its 'volume' to 'avg_volume', interpreting buying/selling pressure or momentum).
+        4. Provide a brief 'Why this stock?' reason, highlighting its cap size context and its current Volume trend.
+        
+        Format in beautiful Markdown for a professional web report. Use Sarabun style tone. Add an introductory section explaining the methodology.
+        """
+        
+        try:
+            response = model.generate_content(prompt)
+            report_text = response.text
+        except Exception as e:
+            report_text = f"ไม่สามารถสร้างรายงานได้ในขณะนี้: {str(e)}"
 
     context = {
         'title': 'AI Stock Recommendations',
@@ -402,51 +404,53 @@ def macro_economy(request):
             continue
             
     # AI Analysis for Macro Economy
-    genai.configure(api_key=settings.GEMINI_API_KEY)
-    
-    # Dynamic Model Selection
-    model_names = [
-        'gemini-2.0-flash', 
-        'gemini-flash-latest', 
-        'gemini-pro-latest', 
-        'gemini-1.5-flash', 
-        'gemini-pro'
-    ]
-    model = None
-    for m_name in model_names:
-        try:
-            temp_model = genai.GenerativeModel(m_name)
-            temp_model.generate_content("ping", generation_config={"max_output_tokens": 1})
-            model = temp_model
-            break
-        except Exception:
-            continue
-    
-    if not model:
-        try:
-            model = genai.GenerativeModel('gemini-1.5-flash')
-        except:
-            model = genai.GenerativeModel('gemini-pro')
+    analysis_text = None
+    if request.GET.get('analyze') == 'true' and data:
+        genai.configure(api_key=settings.GEMINI_API_KEY)
+        
+        # Dynamic Model Selection
+        model_names = [
+            'gemini-2.0-flash', 
+            'gemini-flash-latest', 
+            'gemini-pro-latest', 
+            'gemini-1.5-flash', 
+            'gemini-pro'
+        ]
+        model = None
+        for m_name in model_names:
+            try:
+                temp_model = genai.GenerativeModel(m_name)
+                temp_model.generate_content("ping", generation_config={"max_output_tokens": 1})
+                model = temp_model
+                break
+            except Exception:
+                continue
+        
+        if not model:
+            try:
+                model = genai.GenerativeModel('gemini-1.5-flash')
+            except:
+                model = genai.GenerativeModel('gemini-pro')
 
-    data_str = "\n".join([f"{d['name']}: {d['price']:.2f} ({d['change']:+.2f}%)" for d in data])
-    prompt = f"""
-    You are an expert Thai Macroeconomist. Based on the following current market data (which includes SET Index, USD/THB, Gold, and Crude Oil):
-    {data_str}
-    
-    Please provide an 'Economic Overview & Strategy Analysis' report in Thai.
-    1. Summarize the current situation based on these specific numbers (e.g. is the Baht strong/weak? is Oil trending up?).
-    2. Analyze the impact of these figures on the Thai Economy and Thai Stock Market (SET Index).
-    3. What sectors (e.g., Energy, Export, Tourism, Banking) will benefit or be negatively impacted by this current trend?
-    4. Provide a brief actionable investment strategy for Thai investors based on this macroeconomic snapshot.
-    
-    Format in beautiful Markdown for a professional web report. Use Sarabun style tone.
-    """
-    
-    try:
-        response = model.generate_content(prompt)
-        analysis_text = response.text
-    except Exception as e:
-        analysis_text = f"ไม่สามารถสร้างบทวิเคราะห์ได้ในขณะนี้: {str(e)}"
+        data_str = "\n".join([f"{d['name']}: {d['price']:.2f} ({d['change']:+.2f}%)" for d in data])
+        prompt = f"""
+        You are an expert Thai Macroeconomist. Based on the following current market data (which includes SET Index, USD/THB, Gold, and Crude Oil):
+        {data_str}
+        
+        Please provide an 'Economic Overview & Strategy Analysis' report in Thai.
+        1. Summarize the current situation based on these specific numbers (e.g. is the Baht strong/weak? is Oil trending up?).
+        2. Analyze the impact of these figures on the Thai Economy and Thai Stock Market (SET Index).
+        3. What sectors (e.g., Energy, Export, Tourism, Banking) will benefit or be negatively impacted by this current trend?
+        4. Provide a brief actionable investment strategy for Thai investors based on this macroeconomic snapshot.
+        
+        Format in beautiful Markdown for a professional web report. Use Sarabun style tone.
+        """
+        
+        try:
+            response = model.generate_content(prompt)
+            analysis_text = response.text
+        except Exception as e:
+            analysis_text = f"ไม่สามารถสร้างบทวิเคราะห์ได้ในขณะนี้: {str(e)}"
 
     context = {
         'title': 'Macro Economy & Commodities',
