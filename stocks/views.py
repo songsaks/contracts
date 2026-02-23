@@ -170,12 +170,51 @@ def portfolio_list(request):
         except:
             items.append({'obj': item, 'current_price': 'Error', 'market_value': 0, 'gain_loss': 0, 'gain_loss_pct': 0, 'rsi': None})
 
+    ai_analysis = None
+    if request.GET.get('analyze') == 'true' and items:
+        genai.configure(api_key=settings.GEMINI_API_KEY)
+        model_names = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-pro']
+        model = None
+        for m in model_names:
+            try:
+                temp_model = genai.GenerativeModel(m)
+                temp_model.generate_content("ping", generation_config={"max_output_tokens": 1})
+                model = temp_model
+                break
+            except Exception:
+                continue
+        if not model:
+            model = genai.GenerativeModel('gemini-1.5-flash')
+
+        port_data = []
+        for it in items:
+            port_data.append(f"{it['obj'].symbol}: {it['obj'].quantity} units @ {it['obj'].entry_price} (Current: {it['current_price']}, P/L: {it['gain_loss_pct']:.2f}%, RSI: {it['rsi']})")
+        port_str = "\n".join(port_data)
+        
+        prompt = f"""
+        You are an expert Stock Portfolio Analyst. The user has the following assets in their portfolio (with Entry Price, Current Price, and Profit/Loss):
+        {port_str}
+
+        Please analyze this portfolio and provide:
+        1. An overall assessment of the portfolio's health, performance, and diversification.
+        2. A brief analysis and clear recommendation for EACH individual asset (e.g., Hold, Buy More, Take Profit, Cut Loss) based on its current P/L, RSI, and market context.
+        3. Actionable strategic advice on what sectors or types of assets to consider adding next to balance the portfolio.
+
+        Format your response beautifully in Markdown using Thai Language (Sarabun professional tone).
+        """
+        try:
+            response = model.generate_content(prompt)
+            ai_analysis = response.text
+        except Exception as e:
+            ai_analysis = f"ไม่สามารถวิเคราะห์พอร์ตได้ในขณะนี้: {str(e)}"
+
     context = {
         'items': items,
         'total_market_value': total_market_value,
         'total_gain_loss': total_gain_loss,
         'categories': AssetCategory.choices,
-        'title': 'My Portfolio'
+        'title': 'My Portfolio',
+        'ai_analysis': ai_analysis
     }
     return render(request, 'stocks/portfolio.html', context)
 
