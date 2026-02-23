@@ -1,4 +1,5 @@
 {% extends 'stocks/base_stocks.html' %}
+{% load humanize %}
 
 {% block content %}
 <div class="row g-4">
@@ -14,12 +15,12 @@
                     <div class="d-flex justify-content-md-end gap-4">
                         <div>
                             <div class="small text-muted uppercase fw-600" style="letter-spacing: 0.5px;">TOTAL VALUE</div>
-                            <div class="h4 fw-bold mb-0 text-dark">{{ total_market_value|floatformat:2 }}</div>
+                            <div class="h4 fw-bold mb-0 text-dark">฿{{ total_market_value|floatformat:2|intcomma }}</div>
                         </div>
                         <div>
                             <div class="small text-muted uppercase fw-600" style="letter-spacing: 0.5px;">TOTAL P/L</div>
                             <div class="h4 fw-bold mb-0 {% if total_gain_loss > 0 %}stock-positive{% elif total_gain_loss < 0 %}stock-negative{% endif %}">
-                                {{ total_gain_loss|floatformat:2 }}
+                                {% if total_gain_loss > 0 %}+{% endif %}฿{{ total_gain_loss|floatformat:2|intcomma }}
                             </div>
                         </div>
                     </div>
@@ -58,7 +59,7 @@
                             </div>
                         </div>
                         <div class="text-end">
-                            <div class="h6 fw-bold mb-0">{{ item.current_price|floatformat:2 }}</div>
+                            <div class="h6 fw-bold mb-0">฿{{ item.current_price|floatformat:2|intcomma }}</div>
                             {% if item.rsi %}
                             <span class="badge {% if item.rsi < 30 %}bg-danger{% elif item.rsi > 70 %}bg-warning{% else %}bg-secondary{% endif %} bg-opacity-10 {% if item.rsi < 30 %}text-danger{% elif item.rsi > 70 %}text-warning text-dark{% else %}text-secondary{% endif %} rounded-pill" style="font-size: 0.65rem;">
                                 RSI: {{ item.rsi|floatformat:1 }}
@@ -71,11 +72,11 @@
                         <div class="row g-2 text-center">
                             <div class="col-4 border-end border-light">
                                 <div class="text-muted small" style="font-size: 0.65rem;">QUANTITY</div>
-                                <div class="fw-600 small">{{ item.obj.quantity|floatformat:2 }}</div>
+                                <div class="fw-600 small">{{ item.obj.quantity|floatformat:2|intcomma }}</div>
                             </div>
                             <div class="col-4 border-end border-light">
                                 <div class="text-muted small" style="font-size: 0.65rem;">AVG COST</div>
-                                <div class="fw-600 small">{{ item.obj.entry_price|floatformat:2 }}</div>
+                                <div class="fw-600 small">฿{{ item.obj.entry_price|floatformat:2|intcomma }}</div>
                             </div>
                             <div class="col-4">
                                 <div class="text-muted small" style="font-size: 0.65rem;">P/L</div>
@@ -87,13 +88,20 @@
                     </div>
                     
                     <div class="d-flex justify-content-between align-items-center">
-                        <div class="text-muted small">Value: <span class="fw-bold text-dark">{{ item.market_value|floatformat:2 }}</span></div>
-                        <form action="{% url 'stocks:delete_from_portfolio' item.obj.pk %}" method="POST" onsubmit="return confirm('ลบจากพอร์ตใช่หรือไม่?')">
-                            {% csrf_token %}
-                            <button type="submit" class="btn btn-link text-muted p-0" style="font-size: 0.8rem;">
-                                <i class="fas fa-trash-alt"></i>
+                        <div class="text-muted small">Value: <span class="fw-bold text-dark">฿{{ item.market_value|floatformat:2|intcomma }}</span></div>
+                        <div class="d-flex gap-3 align-items-center">
+                            <button type="button" class="btn btn-link text-primary p-0" style="font-size: 1rem;" 
+                                onclick="editPortfolio('{{ item.obj.symbol }}', '{{ item.obj.name|default:""|escapejs }}', '{{ item.obj.quantity }}', '{{ item.obj.entry_price }}', '{{ item.obj.category }}')" 
+                                data-bs-toggle="modal" data-bs-target="#addPortfolioModal">
+                                <i class="fas fa-edit"></i>
                             </button>
-                        </form>
+                            <form action="{% url 'stocks:delete_from_portfolio' item.obj.pk %}" method="POST" onsubmit="return confirm('ลบจากพอร์ตใช่หรือไม่?')">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-link text-danger p-0" style="font-size: 1rem;">
+                                    <i class="fas fa-trash-alt"></i>
+                                </button>
+                            </form>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -109,12 +117,12 @@
 </div>
 
 <!-- Modal -->
-<div class="modal fade" id="addPortfolioModal" tabindex="-1" aria-hidden="true">
+<div class="modal fade" id="addPortfolioModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content card-premium border-0">
             <div class="modal-header border-0 pb-0">
-                <h5 class="modal-title fw-bold text-primary">Add Position to Portfolio</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                <h5 class="modal-title fw-bold text-primary" id="port-modal-title">Add Position to Portfolio</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" onclick="resetPortfolioModal()"></button>
             </div>
             <form action="{% url 'stocks:add_to_portfolio' %}" method="POST">
                 {% csrf_token %}
@@ -122,11 +130,11 @@
                     <div class="row g-3">
                         <div class="col-md-6">
                             <label class="form-label small text-muted">Symbol (e.g. PTT.BK)</label>
-                            <input type="text" name="symbol" class="form-control rounded-3" style="background:#f8fafc;" required>
+                            <input type="text" id="port-symbol" name="symbol" class="form-control rounded-3" style="background:#f8fafc;" required>
                         </div>
                         <div class="col-md-6">
                             <label class="form-label small text-muted">Category</label>
-                            <select name="category" class="form-select rounded-3" style="background:#f8fafc;">
+                            <select id="port-category" name="category" class="form-select rounded-3" style="background:#f8fafc;">
                                 {% for code, label in categories %}
                                 <option value="{{ code }}">{{ label }}</option>
                                 {% endfor %}
@@ -134,24 +142,48 @@
                         </div>
                         <div class="col-12">
                             <label class="form-label small text-muted">Asset Name (Optional)</label>
-                            <input type="text" name="name" class="form-control rounded-3" style="background:#f8fafc;">
+                            <input type="text" id="port-name" name="name" class="form-control rounded-3" style="background:#f8fafc;">
                         </div>
                         <div class="col-md-6">
                             <label class="form-label small text-muted">Quantity (จำนวนหุ้น)</label>
-                            <input type="number" step="0.0001" name="quantity" class="form-control rounded-3" value="0" style="background:#f8fafc;">
+                            <input type="number" id="port-quantity" step="0.0001" name="quantity" class="form-control rounded-3" value="0" style="background:#f8fafc;">
                         </div>
                         <div class="col-md-6">
                             <label class="form-label small text-muted">Entry Price (ราคาทุน)</label>
-                            <input type="number" step="0.0001" name="entry_price" class="form-control rounded-3" value="0" style="background:#f8fafc;">
+                            <input type="number" id="port-price" step="0.0001" name="entry_price" class="form-control rounded-3" value="0" style="background:#f8fafc;">
                         </div>
                     </div>
                 </div>
                 <div class="modal-footer border-0">
-                    <button type="button" class="btn btn-link text-muted" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-premium px-4">Update Portfolio</button>
+                    <button type="button" class="btn btn-link text-muted" data-bs-dismiss="modal" onclick="resetPortfolioModal()">Cancel</button>
+                    <button type="submit" class="btn btn-premium px-4">Save</button>
                 </div>
             </form>
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function resetPortfolioModal() {
+        document.getElementById('port-symbol').value = '';
+        document.getElementById('port-symbol').readOnly = false;
+        document.getElementById('port-name').value = '';
+        document.getElementById('port-quantity').value = '0';
+        document.getElementById('port-price').value = '0';
+        document.getElementById('port-category').value = 'STOCK';
+        document.getElementById('port-modal-title').innerText = 'Add Position to Portfolio';
+    }
+
+    function editPortfolio(symbol, name, qty, price, category) {
+        document.getElementById('port-symbol').value = symbol;
+        document.getElementById('port-symbol').readOnly = true;
+        document.getElementById('port-name').value = name;
+        document.getElementById('port-quantity').value = qty;
+        document.getElementById('port-price').value = price;
+        document.getElementById('port-category').value = category;
+        document.getElementById('port-modal-title').innerText = 'Edit Position';
+    }
+</script>
 {% endblock %}
