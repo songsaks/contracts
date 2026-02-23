@@ -31,11 +31,18 @@
 
     <!-- Portfolio Grid -->
     <div class="col-lg-12">
-        <div class="d-flex justify-content-between align-items-center mb-4">
+        <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-3">
             <h5 class="fw-bold mb-0">Assets ({{ items|length }})</h5>
-            <button class="btn btn-premium btn-sm rounded-pill px-4" data-bs-toggle="modal" data-bs-target="#addPortfolioModal">
-                <i class="fas fa-plus me-1"></i> Add to Port
-            </button>
+            <div class="d-flex flex-wrap gap-2">
+                {% if items|length > 0 %}
+                <a href="?analyze=true" class="btn btn-outline-success btn-sm rounded-pill px-3 px-md-4">
+                    <i class="fas fa-brain"></i> <span class="d-none d-sm-inline ms-1">Analyze</span>
+                </a>
+                {% endif %}
+                <button class="btn btn-premium btn-sm rounded-pill px-3 px-md-4" data-bs-toggle="modal" data-bs-target="#addPortfolioModal">
+                    <i class="fas fa-plus"></i> <span class="d-none d-sm-inline ms-1">Add</span>
+                </button>
+            </div>
         </div>
 
         <div class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-3">
@@ -114,6 +121,30 @@
             {% endfor %}
         </div>
     </div>
+
+    {% if ai_analysis %}
+    <div class="col-12 mt-4" id="ai-analysis-section">
+        <div class="card-premium p-0 border-0 overflow-hidden mb-5">
+            <div class="p-4 border-bottom bg-white d-flex flex-wrap justify-content-between align-items-center gap-3">
+                <h4 class="fw-bold mb-0 text-success"><i class="fas fa-magic me-2 text-success"></i> บทวิเคราะห์พอร์ตการลงทุนด้วย AI</h4>
+                <div class="d-flex flex-wrap align-items-center gap-2 d-print-none">
+                    <button class="btn btn-outline-success btn-sm rounded-pill" onclick="exportHTMLToExcel('port-analysis-content', 'Portfolio_Analysis_Report')">
+                        <i class="fas fa-file-excel"></i> <span class="d-none d-sm-inline ms-1">Excel</span>
+                    </button>
+                    <button class="btn btn-outline-secondary btn-sm rounded-pill" onclick="window.print()">
+                        <i class="fas fa-print"></i> <span class="d-none d-sm-inline ms-1">Print</span>
+                    </button>
+                    <span class="badge bg-light text-muted fw-normal">Powered by Gemini AI</span>
+                </div>
+            </div>
+            <div class="p-4 p-md-5 bg-white">
+                <textarea id="ai-raw-markdown" style="display: none;">{{ ai_analysis }}</textarea>
+                <div id="port-analysis-content" class="analysis-content">
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
 </div>
 
 <!-- Modal -->
@@ -165,6 +196,7 @@
 {% endblock %}
 
 {% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <script>
     function resetPortfolioModal() {
         document.getElementById('port-symbol').value = '';
@@ -184,6 +216,41 @@
         document.getElementById('port-price').value = price;
         document.getElementById('port-category').value = category;
         document.getElementById('port-modal-title').innerText = 'Edit Position';
+    }
+
+    // Markdown Parser
+    document.addEventListener("DOMContentLoaded", function() {
+        const reportTextEl = document.getElementById('ai-raw-markdown');
+        if (reportTextEl) {
+            document.getElementById('port-analysis-content').innerHTML = marked.parse(reportTextEl.value);
+            // Scroll to the analysis if it exists
+            document.getElementById('ai-analysis-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+    });
+
+    // Export HTML to Excel
+    function exportHTMLToExcel(elementId, filename = '') {
+        var preHtml = "<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:x='urn:schemas-microsoft-com:office:excel' xmlns='http://www.w3.org/TR/REC-html40'><head><meta charset='utf-8'><title>Export HTML To Excel</title></head><body>";
+        var postHtml = "</body></html>";
+        var html = preHtml + document.getElementById(elementId).innerHTML + postHtml;
+
+        var blob = new Blob(['\ufeff', html], {
+            type: 'application/vnd.ms-excel'
+        });
+        
+        var url = 'data:application/vnd.ms-excel;charset=utf-8,' + encodeURIComponent(html);
+        filename = filename ? filename + '.xls' : 'document.xls';
+        var downloadLink = document.createElement("a");
+        document.body.appendChild(downloadLink);
+        
+        if(navigator.msSaveOrOpenBlob ){
+            navigator.msSaveOrOpenBlob(blob, filename);
+        } else {
+            downloadLink.href = url;
+            downloadLink.download = filename;
+            downloadLink.click();
+        }
+        document.body.removeChild(downloadLink);
     }
 </script>
 {% endblock %}

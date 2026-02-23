@@ -139,19 +139,19 @@
                 <i class="fas fa-chart-line text-info"></i>
                 <span style="letter-spacing: -0.5px;">AI STOCK ANALYST</span>
             </a>
-            <div class="ms-auto d-flex align-items-center gap-3">
+            <div class="ms-auto d-flex flex-wrap justify-content-end align-items-center gap-2 gap-md-3 mt-2 mt-lg-0">
                 <span class="text-muted small d-none d-md-inline">สำหรับ Admin เท่านั้น</span>
-                <a href="{% url 'stocks:macro' %}" class="btn btn-outline-success btn-sm rounded-pill px-3" style="font-size: 0.75rem;">
-                   <i class="fas fa-globe me-1"></i> Macro Economy
+                <a href="{% url 'stocks:macro' %}" class="btn btn-outline-success btn-sm rounded-pill px-2 px-md-3" style="font-size: 0.75rem;">
+                   <i class="fas fa-globe"></i><span class="d-none d-sm-inline ms-1">Macro</span>
                 </a>
-                <a href="{% url 'stocks:recommendations' %}" class="btn btn-outline-warning btn-sm rounded-pill px-3" style="font-size: 0.75rem;">
-                   <i class="fas fa-magic me-1"></i> Recommendations
+                <a href="{% url 'stocks:recommendations' %}" class="btn btn-outline-warning btn-sm rounded-pill px-2 px-md-3" style="font-size: 0.75rem;">
+                   <i class="fas fa-magic"></i><span class="d-none d-sm-inline ms-1">Recommendations</span>
                 </a>
-                <a href="{% url 'stocks:portfolio_list' %}" class="btn btn-outline-info btn-sm rounded-pill px-3" style="font-size: 0.75rem;">
-                   <i class="fas fa-wallet me-1"></i> My Portfolio
+                <a href="{% url 'stocks:portfolio_list' %}" class="btn btn-outline-info btn-sm rounded-pill px-2 px-md-3" style="font-size: 0.75rem;">
+                   <i class="fas fa-wallet"></i><span class="d-none d-sm-inline ms-1">Portfolio</span>
                 </a>
-                <a href="/" class="btn btn-outline-light btn-sm rounded-pill px-3" style="font-size: 0.75rem;">
-                   <i class="fas fa-home me-1"></i> กลับหน้าหลัก
+                <a href="/" class="btn btn-outline-light btn-sm rounded-pill px-2 px-md-3" style="font-size: 0.75rem;">
+                   <i class="fas fa-home"></i><span class="d-none d-sm-inline ms-1">กลับหน้าหลัก</span>
                 </a>
             </div>
         </div>
