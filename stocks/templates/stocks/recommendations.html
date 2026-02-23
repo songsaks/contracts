@@ -1,0 +1,135 @@
+{% extends 'stocks/base_stocks.html' %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12 mb-4">
+        <div class="card-premium p-4 border-0 bg-warning bg-opacity-10">
+            <div class="d-flex align-items-center gap-3">
+                <div class="bg-warning p-3 rounded-4 shadow-sm">
+                    <i class="fas fa-magic text-white fa-2x"></i>
+                </div>
+                <div>
+                    <h2 class="fw-bold mb-0">AI Stock Recommendations</h2>
+                    <p class="text-muted mb-0">ระบบวิเคราะห์และคัดเลือก 10 หุ้นดาวเด่นด้วย AI ตามปัจจัยพื้นฐานและเทคนิค</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-12">
+        <div class="card-premium p-0 border-0 overflow-hidden mb-5">
+            <div class="p-4 border-bottom bg-white d-flex justify-content-between align-items-center">
+                <h4 class="fw-bold mb-0"><i class="fas fa-file-alt me-2 text-warning"></i> บทวิเคราะห์กลยุทธ์การลงทุน</h4>
+                <div class="d-flex align-items-center gap-2 d-print-none">
+                    <button class="btn btn-outline-success btn-sm rounded-pill" onclick="exportHTMLToExcel('recommendation-report', 'Investment_Strategy_Report')">
+                        <i class="fas fa-file-excel me-1"></i> Download Excel
+                    </button>
+                    <button class="btn btn-outline-secondary btn-sm rounded-pill" onclick="window.print()">
+                        <i class="fas fa-print me-1"></i> Print
+                    </button>
+                    <span class="badge bg-light text-muted fw-normal">Powered by Gemini 1.5 Flash</span>
+                </div>
+            </div>
+            <div class="p-4 p-md-5 bg-white">
+                <textarea id="raw-markdown" style="display: none;">{{ report }}</textarea>
+                <div id="recommendation-report" class="analysis-content">
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mb-5">
+    <div class="col-12">
+        <h4 class="fw-bold mb-4">Raw Metrics Scanned</h4>
+        <div class="table-responsive card-premium p-0 border-0">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="bg-light">
+                    <tr>
+                        <th class="ps-4">Symbol</th>
+                        <th>P/E</th>
+                        <th>P/BV</th>
+                        <th>ROE (%)</th>
+                        <th>Yield (%)</th>
+                        <th>NPM (%)</th>
+                        <th>D/E</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for s in stocks %}
+                    <tr>
+                        <td class="ps-4 fw-bold">
+                            <a href="{% url 'stocks:analyze' s.symbol %}" class="text-primary text-decoration-none">
+                                {{ s.symbol }}
+                            </a>
+                        </td>
+                        <td>{{ s.pe|floatformat:2|default:"N/A" }}</td>
+                        <td>{{ s.pb|floatformat:2|default:"N/A" }}</td>
+                        <td>{{ s.roe|floatformat:4|default:"N/A" }}</td>
+                        <td>{{ s.dy|floatformat:4|default:"N/A" }}</td>
+                        <td>{{ s.npm|floatformat:4|default:"N/A" }}</td>
+                        <td>{{ s.de|floatformat:2|default:"N/A" }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4 mb-5 text-center">
+    <div class="col-md-4">
+        <div class="card-premium p-4">
+            <div class="h1 text-warning mb-2"><i class="fas fa-chart-line"></i></div>
+            <h5 class="fw-bold">Value Investing</h5>
+            <p class="small text-muted mb-0">เน้นหุ้นที่มี P/E และ P/BV ต่ำ แต่มีพื้นฐานแกร่ง</p>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card-premium p-4">
+            <div class="h1 text-success mb-2"><i class="fas fa-hand-holding-usd"></i></div>
+            <h5 class="fw-bold">Dividend Growth</h5>
+            <p class="small text-muted mb-0">เน้นหุ้นปันผลสูงสม่ำเสมอและมีกระแสเงินสดดี</p>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card-premium p-4">
+            <div class="h1 text-primary mb-2"><i class="fas fa-brain"></i></div>
+            <h5 class="fw-bold">Economic Profits</h5>
+            <p class="small text-muted mb-0">เน้นหุ้นที่มี ROE สูงกว่าต้นทุนเงินทุนอย่างมีนัยสำคัญ</p>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script>
+    const reportText = document.getElementById('raw-markdown').value;
+    document.getElementById('recommendation-report').innerHTML = marked.parse(reportText);
+
+    function exportHTMLToExcel(elementId, filename = '') {
+        var preHtml = "<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:x='urn:schemas-microsoft-com:office:excel' xmlns='http://www.w3.org/TR/REC-html40'><head><meta charset='utf-8'><title>Export HTML To Excel</title></head><body>";
+        var postHtml = "</body></html>";
+        var html = preHtml + document.getElementById(elementId).innerHTML + postHtml;
+
+        var blob = new Blob(['\ufeff', html], {
+            type: 'application/vnd.ms-excel'
+        });
+        
+        var url = 'data:application/vnd.ms-excel;charset=utf-8,' + encodeURIComponent(html);
+        filename = filename?filename+'.xls':'document.xls';
+        var downloadLink = document.createElement("a");
+        document.body.appendChild(downloadLink);
+        
+        if(navigator.msSaveOrOpenBlob ){
+            navigator.msSaveOrOpenBlob(blob, filename);
+        } else {
+            downloadLink.href = url;
+            downloadLink.download = filename;
+            downloadLink.click();
+        }
+        document.body.removeChild(downloadLink);
+    }
+</script>
+{% endblock %}

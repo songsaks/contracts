@@ -802,15 +802,21 @@ def dashboard(request):
     sales_by_owner = ProjectOwner.objects.annotate(
         total_sales=Sum(
             Case(
-                When(projects__created_at__range=[start_of_year, end_of_year], 
-                     then=F('projects__items__quantity') * F('projects__items__unit_price')),
+                When(
+                    projects__status=Project.Status.CLOSED,
+                    projects__closed_at__range=[start_of_year, end_of_year], 
+                    then=F('projects__items__quantity') * F('projects__items__unit_price')
+                ),
                 default=0,
                 output_field=DecimalField(max_digits=15, decimal_places=2)
             )
         ),
         job_count=Count(
             'projects',
-            filter=Q(projects__created_at__range=[start_of_year, end_of_year]),
+            filter=Q(
+                projects__status=Project.Status.CLOSED,
+                projects__closed_at__range=[start_of_year, end_of_year]
+            ),
             distinct=True
         )
     ).order_by('-total_sales')

@@ -1,0 +1,259 @@
+{% extends 'stocks/base_stocks.html' %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <nav aria-label="breadcrumb" class="mb-4">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{% url 'stocks:dashboard' %}" class="text-primary text-decoration-none fw-600">Dashboard</a></li>
+                <li class="breadcrumb-item active text-muted" aria-current="page">{{ symbol }} Analysis</li>
+            </ol>
+        </nav>
+    </div>
+
+    <!-- Symbol Header -->
+    <div class="col-12 mb-4">
+        <div class="card-premium p-4 border-0 mb-3">
+            <div class="row align-items-center">
+                <div class="col-md-8">
+                    <div class="d-flex align-items-center gap-3 mb-2">
+                        <h1 class="fw-bold mb-0 text-dark">{{ symbol }}</h1>
+                        <span class="badge bg-primary bg-opacity-10 text-primary px-3 rounded-pill">{{ info.industry|default:"Asset" }}</span>
+                        {% if current_rsi %}
+                        <span class="badge {% if rsi_status == 'Oversold' %}bg-danger{% elif rsi_status == 'Overbought' %}bg-warning{% else %}bg-secondary{% endif %} bg-opacity-10 {% if rsi_status == 'Oversold' %}text-danger{% elif rsi_status == 'Overbought' %}text-warning text-dark{% else %}text-secondary{% endif %} px-3 rounded-pill">
+                            RSI: {{ current_rsi|stringformat:".2f" }} ({{ rsi_status }})
+                        </span>
+                        {% endif %}
+                    </div>
+                    <h5 class="text-muted mb-0">{{ info.longName|default:symbol }}</h5>
+                </div>
+                <div class="col-md-4 text-md-end mt-3 mt-md-0">
+                    <div class="h2 fw-bold mb-0">{{ info.currentPrice|default:info.regularMarketPrice }} <small class="h6 text-muted">{{ info.currency }}</small></div>
+                    <small class="text-muted">Market Cap: {{ info.marketCap|default:"N/A" }}</small>
+                </div>
+            </div>
+        </div>
+
+        <!-- Metric Grid -->
+        <div class="row g-2">
+            <div class="col-6 col-md-3 col-lg-2">
+                <div class="card-premium p-2 text-center" style="background:rgba(255,255,255,0.5);" data-bs-toggle="tooltip" data-bs-placement="top" title="Price-to-Earnings: ใช้เปรียบเทียบราคาหุ้นกับกำไรต่อหุ้น หากหุ้นมี PE ต่ำแปลว่าราคาถูกเมื่อเทียบกับกำไร">
+                    <div class="small text-muted fw-600">P/E <i class="fas fa-info-circle ms-1" style="font-size: 0.7rem;"></i></div>
+                    <div class="fw-bold">{{ info.trailingPE|floatformat:2|default:"N/A" }}</div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3 col-lg-2">
+                <div class="card-premium p-2 text-center" style="background:rgba(255,255,255,0.5);" data-bs-toggle="tooltip" data-bs-placement="top" title="Price-to-Book Value: อัตราส่วนราคาหุ้นต่อมูลค่าทางบัญชี หากต่ำกว่า 1 แปลว่าราคาหุ้นซื้อขายต่ำกว่ามูลค่าจริงของบริษัท">
+                    <div class="small text-muted fw-600">P/BV <i class="fas fa-info-circle ms-1" style="font-size: 0.7rem;"></i></div>
+                    <div class="fw-bold">{{ info.priceToBook|floatformat:2|default:"N/A" }}</div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3 col-lg-2">
+                <div class="card-premium p-2 text-center" style="background:rgba(255,255,255,0.5);" data-bs-toggle="tooltip" data-bs-placement="top" title="Dividend Yield: อัตราผลตอบแทนจากเงินปันผล ยิ่งสูงยิ่งจ่ายปันผลเยอะเมื่อเทียบกับราคาหุ้นปัจจุบัน">
+                    <div class="small text-muted fw-600">Yield (%) <i class="fas fa-info-circle ms-1" style="font-size: 0.7rem;"></i></div>
+                    <div class="fw-bold">{{ info.dividendYield|stringformat:".2f"|default:"N/A" }}</div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3 col-lg-2">
+                <div class="card-premium p-2 text-center" style="background:rgba(255,255,255,0.5);" data-bs-toggle="tooltip" data-bs-placement="top" title="Return on Equity: อัตราผลตอบแทนผู้ถือหุ้น บ่งบอกถึงความสามารถของบริษัทในการทำกำไรจากเงินทุน ยิ่งสูงยิ่งดี">
+                    <div class="small text-muted fw-600">ROE (%) <i class="fas fa-info-circle ms-1" style="font-size: 0.7rem;"></i></div>
+                    <div class="fw-bold">{{ info.returnOnEquity|stringformat:".2f"|default:"N/A" }}</div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3 col-lg-2">
+                <div class="card-premium p-2 text-center" style="background:rgba(255,255,255,0.5);" data-bs-toggle="tooltip" data-bs-placement="top" title="Net Profit Margin: อัตรากำไรสุทธิ แสดงผลกำไรหลังจากหักค่าใช้จ่ายทั้งหมด ยิ่งมากบ่งบอกถึงประสิทธิภาพในการควบคุมต้นทุน">
+                    <div class="small text-muted fw-600">NPM (%) <i class="fas fa-info-circle ms-1" style="font-size: 0.7rem;"></i></div>
+                    <div class="fw-bold">{{ info.profitMargins|stringformat:".2f"|default:"N/A" }}</div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3 col-lg-2">
+                <div class="card-premium p-2 text-center" style="background:rgba(255,255,255,0.5);" data-bs-toggle="tooltip" data-bs-placement="top" title="Debt-to-Equity: อัตราส่วนหนี้สินต่อทุน บ่งบอกถึงภาระหนี้ของบริษัท ยิ่งต่ำแสดงว่ามีความมั่นคงทางการเงินสูง">
+                    <div class="small text-muted fw-600">D/E <i class="fas fa-info-circle ms-1" style="font-size: 0.7rem;"></i></div>
+                    <div class="fw-bold">{{ info.debtToEquity|floatformat:2|default:"N/A" }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Price Chart -->
+    <div class="col-12 mb-4">
+        <div class="card-premium p-4">
+            <h5 class="fw-bold mb-3"><i class="fas fa-chart-area me-2 text-info"></i> Historical Price (90 Days)</h5>
+            <div style="height: 350px; width: 100%;">
+                <canvas id="priceChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- AI Analysis Content -->
+    <div class="col-lg-8">
+        <div class="card-premium p-0 overflow-hidden border-0 mb-4">
+            <div class="p-4 border-bottom border-light bg-primary bg-opacity-10 d-flex justify-content-between align-items-center">
+                <h4 class="fw-bold mb-0 text-primary">
+                    <i class="fas fa-brain me-2"></i> AI Intelligence Analysis
+                </h4>
+                <div class="d-flex align-items-center gap-2 d-print-none">
+                    <button class="btn btn-outline-success btn-sm rounded-pill" onclick="exportHTMLToExcel('markdown-content', '{{ symbol }}_Analysis_Report')">
+                        <i class="fas fa-file-excel me-1"></i> Download Excel
+                    </button>
+                    <button class="btn btn-outline-secondary btn-sm rounded-pill" onclick="window.print()">
+                        <i class="fas fa-print me-1"></i> Print
+                    </button>
+                    <div class="text-muted small fw-500">Generated by Gemini AI</div>
+                </div>
+            </div>
+            
+            <div class="p-4 p-md-5 bg-white">
+                <textarea id="raw-markdown" style="display: none;">{{ analysis }}</textarea>
+                <div id="markdown-content" class="analysis-content">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- News Side Column -->
+    <div class="col-lg-4">
+        <div class="card-premium p-4 border-0 h-100">
+            <h4 class="fw-bold mb-4 text-dark">
+                <i class="far fa-newspaper me-2 text-primary"></i> Latest News
+            </h4>
+            <div class="news-list" style="max-height: 800px; overflow-y: auto;">
+                {% for item in news %}
+                <div class="news-item mb-4 pb-3 border-bottom border-light">
+                    <h6 class="fw-600 mb-1">
+                        <a href="{{ item.link }}" target="_blank" class="text-dark text-decoration-none hover-primary">
+                            {{ item.title }}
+                        </a>
+                    </h6>
+                    <div class="d-flex justify-content-between align-items-center mt-2">
+                        <small class="text-muted">{{ item.publisher }}</small>
+                        <small class="text-muted-light" style="font-size: 0.75rem;">
+                            {{ item.display_time|date:"d M Y H:i" }}
+                        </small>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="text-center py-4 text-muted">
+                    <i class="fas fa-rss mb-2 d-block opacity-25"></i>
+                    ไม่มีข่าวสารล่าสุดในขณะนี้
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="mt-5 text-center mb-5">
+    <a href="{% url 'stocks:dashboard' %}" class="btn btn-outline-secondary rounded-pill px-5 fw-600">
+        <i class="fas fa-arrow-left me-2"></i> Back to Dashboard
+    </a>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    // Initialize Tooltips
+    const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]');
+    const tooltipList = [...tooltipTriggerList].map(tooltipTriggerEl => new bootstrap.Tooltip(tooltipTriggerEl));
+
+    // 1. Markdown Rendering
+    const content = document.getElementById('raw-markdown').value;
+    document.getElementById('markdown-content').innerHTML = marked.parse(content);
+
+    function exportHTMLToExcel(elementId, filename = '') {
+        var preHtml = "<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:x='urn:schemas-microsoft-com:office:excel' xmlns='http://www.w3.org/TR/REC-html40'><head><meta charset='utf-8'><title>Export HTML To Excel</title></head><body>";
+        var postHtml = "</body></html>";
+        var html = preHtml + document.getElementById(elementId).innerHTML + postHtml;
+
+        var blob = new Blob(['\ufeff', html], {
+            type: 'application/vnd.ms-excel'
+        });
+        
+        var url = 'data:application/vnd.ms-excel;charset=utf-8,' + encodeURIComponent(html);
+        filename = filename?filename+'.xls':'document.xls';
+        var downloadLink = document.createElement("a");
+        document.body.appendChild(downloadLink);
+        
+        if(navigator.msSaveOrOpenBlob ){
+            navigator.msSaveOrOpenBlob(blob, filename);
+        } else {
+            downloadLink.href = url;
+            downloadLink.download = filename;
+            downloadLink.click();
+        }
+        document.body.removeChild(downloadLink);
+    }
+
+    // 2. Price Chart Rendering
+    const ctx = document.getElementById('priceChart').getContext('2d');
+    
+    // Create Indigo Gradient
+    const gradient = ctx.createLinearGradient(0, 0, 0, 400);
+    gradient.addColorStop(0, 'rgba(67, 56, 202, 0.2)');
+    gradient.addColorStop(1, 'rgba(67, 56, 202, 0)');
+
+    new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: {{ chart_labels|safe }},
+            datasets: [
+                {
+                    label: 'Price',
+                    data: {{ chart_values|safe }},
+                    borderColor: '#4338ca',
+                    borderWidth: 3,
+                    backgroundColor: gradient,
+                    fill: true,
+                    tension: 0.4,
+                    pointRadius: 0,
+                    pointHoverRadius: 6,
+                    pointHoverBackgroundColor: '#4338ca',
+                    pointHoverBorderColor: '#fff',
+                    pointHoverBorderWidth: 2,
+                    yAxisID: 'y'
+                },
+                {
+                    label: 'Volume',
+                    type: 'bar',
+                    data: {{ chart_volumes|safe }},
+                    backgroundColor: 'rgba(99, 102, 241, 0.15)',
+                    yAxisID: 'y1',
+                    barPercentage: 1.0,
+                    categoryPercentage: 1.0
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false }
+            },
+            scales: {
+                x: {
+                    grid: { display: false },
+                    ticks: { color: '#94a3b8', maxRotation: 0, autoSkip: true, maxTicksLimit: 10 }
+                },
+                y: {
+                    position: 'left',
+                    grid: { color: 'rgba(0, 0, 0, 0.03)' },
+                    ticks: { color: '#64748b' }
+                },
+                y1: {
+                    position: 'right',
+                    grid: { display: false },
+                    ticks: { display: false },
+                    suggestedMax: Math.max(...{{ chart_volumes|safe|default:"[0]" }}) * 4 // Keep volume bars low
+                }
+            },
+            interaction: {
+                intersect: false,
+                mode: 'index',
+            }
+        }
+    });
+</script>
+{% endblock %}
