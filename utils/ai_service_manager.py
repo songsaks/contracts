@@ -107,11 +107,11 @@ def sync_projects_to_queue():
     ready_projects = Project.objects.filter(trigger_q)
 
     for proj in ready_projects:
-        # Loop Check: Look for an ACTIVE task (not completed/incomplete) for this specific status.
+        # Loop Check: Look for an ACTIVE task (not completed) for this specific status.
         # This allows re-triggering if the project is moved back to this status after a previous task was completed.
         active_task = ServiceQueueItem.objects.filter(
             project=proj,
-            status__in=['PENDING', 'SCHEDULED', 'IN_PROGRESS']
+            status__in=['PENDING', 'SCHEDULED', 'IN_PROGRESS', 'INCOMPLETE']
         ).first()
 
         if active_task:
@@ -156,7 +156,7 @@ def schedule_queue_items():
 
     # Get pending items that admin has set a date for
     items = ServiceQueueItem.objects.filter(
-        status='PENDING',
+        status__in=['PENDING', 'INCOMPLETE'],
         scheduled_date__isnull=False,
         assigned_team__isnull=False,
     )
