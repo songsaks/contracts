@@ -356,6 +356,7 @@ def item_add(request, project_id):
             item.save()
             messages.success(request, 'เพิ่มรายการสำเร็จ')
             return redirect('pms:project_detail', pk=project.pk)
+    else:
         form = ProductItemForm()
     return render(request, 'pms/item_form.html', {'form': form, 'project': project, 'title': f'เพิ่มรายการใน {project.name}'})
 
