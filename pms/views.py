@@ -1248,7 +1248,7 @@ def service_queue_dashboard(request):
 
     # Block 1: Pending tasks (not yet scheduled)
     pending_tasks = ServiceQueueItem.objects.filter(
-        status='PENDING'
+        status__in=['PENDING', 'INCOMPLETE']
     ).select_related('assigned_team', 'project').order_by('deadline', 'created_at')
 
     # Block 2+: Scheduled/In-progress tasks grouped by date
@@ -1265,9 +1265,7 @@ def service_queue_dashboard(request):
         date_groups[d].append(task)
 
     # Incomplete (carry-over)
-    incomplete_tasks = ServiceQueueItem.objects.filter(
-        status='INCOMPLETE'
-    ).select_related('assigned_team', 'project').order_by('created_at')
+    incomplete_tasks = ServiceQueueItem.objects.none()
 
     # Teams for dropdown
     teams = ServiceTeam.objects.filter(is_active=True)
