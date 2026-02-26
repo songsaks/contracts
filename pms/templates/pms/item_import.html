@@ -1,0 +1,43 @@
+{% extends 'pms/base_pms.html' %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8 col-lg-6">
+        <div class="card shadow-sm border-0 mt-3">
+            <div class="card-header bg-success text-white py-3">
+                <h5 class="card-title mb-0"><i class="fas fa-file-excel me-2"></i>{{ title }}</h5>
+            </div>
+            <div class="card-body p-4">
+                <div class="alert alert-info border-0 shadow-sm" role="alert">
+                    <h6 class="alert-heading fw-bold mb-3"><i class="fas fa-info-circle me-2"></i>คำแนะนำการนำเข้าไฟล์ Excel</h6>
+                    <p class="mb-2" style="font-size: 0.9rem;"><i class="fas fa-check-circle text-success me-2"></i>รองรับไฟล์ <strong>.xlsx</strong> และ <strong>.csv</strong></p>
+                    <p class="mb-2" style="font-size: 0.9rem;">
+                        <i class="fas fa-file-download text-primary me-2"></i> 
+                        <a href="{% url 'pms:download_item_template' %}" class="alert-link text-decoration-underline fw-bold">ดาวน์โหลดไฟล์ Template ต้นแบบ</a>
+                    </p>
+                    <p class="mb-0" style="font-size: 0.9rem;"><i class="fas fa-table text-secondary me-2"></i>หัวคอลัมน์ที่บังคับใช้: <strong>ชื่อรายการ, ประเภท</strong></p>
+                </div>
+
+                <form method="post" enctype="multipart/form-data" class="mt-4">
+                    {% csrf_token %}
+                    
+                    <div class="mb-4 p-4 border border-2 border-dashed rounded text-center" style="background-color: #f8fafc; border-color: #cbd5e1 !important;">
+                        <i class="fas fa-cloud-upload-alt fa-3x text-success mb-3 opacity-75"></i>
+                        <label for="excel_file" class="form-label fw-bold d-block mb-2">เลือกไฟล์ Excel ที่ต้องการนำเข้า</label>
+                        <input class="form-control form-control-lg mx-auto" type="file" id="excel_file" name="excel_file" accept=".xlsx, .xls, .csv" required style="max-width: 400px;">
+                    </div>
+
+                    <div class="d-flex justify-content-between align-items-center">
+                        <a href="{% url 'pms:project_detail' project.pk %}" class="btn btn-light border shadow-sm px-4">
+                            <i class="fas fa-arrow-left me-1"></i> กลับ
+                        </a>
+                        <button type="submit" class="btn btn-success shadow-sm px-4 fw-bold">
+                            <i class="fas fa-file-import me-1"></i> เริ่มนำเข้าข้อมูล
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

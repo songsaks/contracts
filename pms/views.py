@@ -12,6 +12,8 @@ import json
 from .models import Project, ProductItem, Customer, Supplier, ProjectOwner, CustomerRequirement, ProjectFile, CustomerRequest, ServiceQueueItem, SLAPlan
 from .forms import ProjectForm, ProductItemForm, CustomerForm, SupplierForm, ProjectOwnerForm, CustomerRequirementForm, SalesServiceJobForm, CustomerRequestForm, SLAPlanForm
 from repairs.models import RepairItem
+import io
+import pandas as pd
 
 
 def _create_project_value_item(project, project_value):
@@ -384,6 +386,102 @@ def item_delete(request, item_id):
     item.delete()
     messages.success(request, 'ลบรายการสำเร็จ')
     return redirect('pms:project_detail', pk=project_pk)
+
+@login_required
+def item_import_excel(request, project_id):
+    project = get_object_or_404(Project, pk=project_id)
+    if _check_project_lock(project, request):
+        messages.error(request, 'ไม่สามารถแก้ไขรายการในงานที่ปิดจบหรือยกเลิกแล้วได้')
+        return redirect('pms:project_detail', pk=project.pk)
+        
+    if request.method == 'POST':
+        excel_file = request.FILES.get('excel_file')
+        if not excel_file:
+            messages.error(request, 'กรุณาอัปโหลดไฟล์ Excel')
+            return redirect('pms:item_import_excel', project_id=project.pk)
+            
+        try:
+            import pandas as pd
+            if excel_file.name.endswith('.csv'):
+                df = pd.read_csv(excel_file)
+            else:
+                df = pd.read_excel(excel_file)
+                
+            # Expected columns: ชื่อรายการ, ประเภท (optional)
+            df.columns = df.columns.astype(str).str.strip()
+            
+            success_count = 0
+            for index, row in df.iterrows():
+                name = str(row.get('ชื่อรายการ', '')).strip()
+                if not name or name.lower() == 'nan':
+                    continue
+                    
+                # Default values
+                item_type = ProductItem.ItemType.PRODUCT
+                type_val = str(row.get('ประเภท', '')).strip()
+                if type_val and 'บริการ' in type_val:
+                    item_type = ProductItem.ItemType.SERVICE
+                
+                try:
+                    qty = int(row.get('จำนวน', 1) or 1)
+                except:
+                    qty = 1
+                    
+                try:
+                    cost = Decimal(str(row.get('ต้นทุน', 0) or 0))
+                except:
+                    cost = Decimal('0')
+                    
+                try:
+                    price = Decimal(str(row.get('ราคาขาย', 0) or 0))
+                except:
+                    price = Decimal('0')
+                
+                ProductItem.objects.create(
+                    project=project,
+                    item_type=item_type,
+                    name=name[:255],
+                    description=str(row.get('รายละเอียด', '')).strip() if 'รายละเอียด' in df.columns else '',
+                    quantity=qty,
+                    unit_cost=cost,
+                    unit_price=price
+                )
+                success_count += 1
+                
+            messages.success(request, f'นำเข้าข้อมูลสินค้า/บริการสำเร็จ {success_count} รายการ')
+            return redirect('pms:project_detail', pk=project.pk)
+            
+        except Exception as e:
+            messages.error(request, f'เกิดข้อผิดพลาดในการอ่านไฟล์: อาจไม่ใช่รูปแบบที่ถูกต้อง ({str(e)})')
+            return redirect('pms:item_import_excel', project_id=project.pk)
+            
+    return render(request, 'pms/item_import.html', {
+        'project': project,
+        'title': f'นำเข้าข้อมูลจาก Excel'
+    })
+
+@login_required
+def download_item_template(request):
+    import pandas as pd
+    import io
+    from django.http import HttpResponse
+    
+    df = pd.DataFrame({
+        'ชื่อรายการ': ['กล้องวงจรปิด', 'ค่าแรงติดตั้ง', 'สาย LAN CAT6', 'บริการเซ็ตระบบเครือข่าย'],
+        'ประเภท': ['สินค้า', 'บริการ', 'สินค้า', 'บริการ'],
+    })
+    
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        df.to_excel(writer, index=False, sheet_name='Template')
+        
+    output.seek(0)
+    response = HttpResponse(
+        output.read(),
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    response['Content-Disposition'] = 'attachment; filename="import_items_template.xlsx"'
+    return response
 
 # Customer Views
 @login_required

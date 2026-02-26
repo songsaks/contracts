@@ -422,9 +422,14 @@
             <div class="card shadow-sm">
                 <div class="card-header bg-white d-flex justify-content-between align-items-center py-3">
                     <h6 class="card-title mb-0"><i class="fas fa-box me-2 text-muted"></i>รายการสินค้า/บริการ</h6>
-                    <a href="{% url 'pms:item_add' project.pk %}" class="btn btn-sm btn-{{ theme_color|default:'primary' }} shadow-sm" style="border-radius: 8px;" title="เพิ่มรายการ">
-                        <i class="fas fa-plus me-1"></i><span class="d-none d-sm-inline">เพิ่ม</span>
-                    </a>
+                    <div>
+                        <a href="{% url 'pms:item_import_excel' project.pk %}" class="btn btn-sm btn-outline-success shadow-sm me-1" style="border-radius: 8px;" title="นำเข้าข้อมูลจาก Excel">
+                            <i class="fas fa-file-excel me-1"></i><span class="d-none d-sm-inline">นำเข้า</span>
+                        </a>
+                        <a href="{% url 'pms:item_add' project.pk %}" class="btn btn-sm btn-{{ theme_color|default:'primary' }} shadow-sm" style="border-radius: 8px;" title="เพิ่มรายการ">
+                            <i class="fas fa-plus me-1"></i><span class="d-none d-sm-inline">เพิ่ม</span>
+                        </a>
+                    </div>
                 </div>
 
                 <!-- Desktop Table -->
