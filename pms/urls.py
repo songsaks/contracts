@@ -15,6 +15,8 @@ urlpatterns = [
     path('<int:pk>/quotation/', views.project_quotation, name='project_quotation'),
     path('<int:pk>/respond/', views.mark_as_responded, name='mark_as_responded'),
     path('<int:project_id>/add-item/', views.item_add, name='item_add'),
+    path('<int:project_id>/import-items/', views.item_import_excel, name='item_import_excel'),
+    path('import-items/template/', views.download_item_template, name='download_item_template'),
     path('item/<int:item_id>/edit/', views.item_update, name='item_update'),
     path('item/<int:item_id>/delete/', views.item_delete, name='item_delete'),
     
