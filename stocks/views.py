@@ -87,6 +87,22 @@ def analyze(request, symbol):
         for key in ['returnOnEquity', 'dividendYield', 'profitMargins']:
             if isinstance(info.get(key), (int, float)):
                 info[key] = info[key] * 100
+        
+        bs = data.get('balance_sheet')
+        de_calculated = None
+        if bs is not None and not bs.empty:
+            try:
+                col = bs.columns[0]
+                tot_liab = bs.loc['Total Liabilities Net Minority Interest', col] if 'Total Liabilities Net Minority Interest' in bs.index else bs.loc['Total Liabilities', col]
+                tot_eq = bs.loc['Stockholders Equity', col] if 'Stockholders Equity' in bs.index else bs.loc['Total Equity Gross Minority Interest', col]
+                de_calculated = tot_liab / tot_eq
+            except Exception:
+                pass
+                
+        if de_calculated is not None:
+            info['debtToEquity'] = de_calculated
+        elif isinstance(info.get('debtToEquity'), (int, float)):
+            info['debtToEquity'] = info['debtToEquity'] / 100
 
         context = {
             'symbol': symbol,
@@ -156,6 +172,26 @@ def portfolio_list(request):
             gain_loss = market_value - cost_basis
             gain_loss_pct = (gain_loss / cost_basis * 100) if cost_basis > 0 else 0
             
+            # DCA Planner Logic (if loss is > 20%)
+            dca_target_cost = None
+            dca_qty = None
+            dca_amount = None
+            if gain_loss_pct <= -20:
+                # Target adjusting average cost to just 10% loss
+                target_cost = float(current_price) / 0.90
+                entry_p = float(item.entry_price)
+                if float(current_price) < target_cost < entry_p:
+                    if (target_cost - float(current_price)) > 0:
+                        dca_qty = float(item.quantity) * (entry_p - target_cost) / (target_cost - float(current_price))
+                        dca_amount = dca_qty * float(current_price)
+                        dca_target_cost = target_cost
+
+            # Trailing Stop Logic (if gain > 10%)
+            trailing_stop_price = None
+            if gain_loss_pct >= 10:
+                # Lock in profit by setting trailing stop 5% below current price
+                trailing_stop_price = float(current_price) * 0.95
+
             total_market_value += market_value
             total_gain_loss += gain_loss
 
@@ -166,9 +202,17 @@ def portfolio_list(request):
                 'gain_loss': gain_loss,
                 'gain_loss_pct': gain_loss_pct,
                 'rsi': rsi_val,
+                'dca_target_cost': dca_target_cost,
+                'dca_qty': dca_qty,
+                'dca_amount': dca_amount,
+                'trailing_stop_price': trailing_stop_price
             })
         except:
-            items.append({'obj': item, 'current_price': 'Error', 'market_value': 0, 'gain_loss': 0, 'gain_loss_pct': 0, 'rsi': None})
+            items.append({
+                'obj': item, 'current_price': 'Error', 'market_value': 0, 
+                'gain_loss': 0, 'gain_loss_pct': 0, 'rsi': None,
+                'dca_target_cost': None, 'dca_qty': None, 'dca_amount': None, 'trailing_stop_price': None
+            })
 
     ai_analysis = None
     if request.GET.get('analyze') == 'true' and items:
@@ -249,18 +293,31 @@ def delete_from_portfolio(request, pk):
     return redirect('stocks:portfolio_list')
 @user_passes_test(admin_only)
 def recommendations(request):
-    # List of high-quality Thai stocks to analyze for recommendations
-    # Focusing on SET50/Dividend leaders for accuracy
-    candidate_symbols = [
-        # Large Caps (15)
-        'PTT.BK', 'AOT.BK', 'CPALL.BK', 'ADVANC.BK', 'KBANK.BK', 
-        'SCB.BK', 'SCC.BK', 'BDMS.BK', 'GULF.BK', 'INTUCH.BK',
-        'CPN.BK', 'PTTEP.BK', 'TRUE.BK', 'HMPRO.BK', 'MINT.BK',
-        # Mid Caps (15)
-        'TISCO.BK', 'AP.BK', 'SIRI.BK', 'WHA.BK', 'AMATA.BK',
-        'TASCO.BK', 'COM7.BK', 'MEGA.BK', 'TU.BK', 'CBG.BK',
-        'OSP.BK', 'BCH.BK', 'JMT.BK', 'KCE.BK', 'HANA.BK'
+    import random
+    from datetime import date
+
+    # Pool of 100 high-quality Thai stocks (SET100 focus)
+    full_pool = [
+        'ADVANC.BK', 'AOT.BK', 'AWC.BK', 'BBL.BK', 'BDMS.BK', 'BEM.BK', 'BGRIM.BK', 'BH.BK', 'BJC.BK', 'BLA.BK', 
+        'BPP.BK', 'BTS.BK', 'CBG.BK', 'CENTEL.BK', 'CHG.BK', 'CK.BK', 'CKP.BK', 'COM7.BK', 'CPALL.BK', 'CPAXT.BK', 
+        'CPF.BK', 'CPN.BK', 'CRC.BK', 'DELTA.BK', 'EA.BK', 'EGCO.BK', 'EPG.BK', 'ERW.BK', 'FORTH.BK', 'GLOBAL.BK', 
+        'GPSC.BK', 'GULF.BK', 'HMPRO.BK', 'ICHI.BK', 'INTUCH.BK', 'IRPC.BK', 'ITC.BK', 'IVL.BK', 'JMART.BK', 'JMT.BK', 
+        'KBANK.BK', 'KCE.BK', 'KEX.BK', 'KKP.BK', 'KTB.BK', 'KTC.BK', 'LH.BK', 'MBK.BK', 'MEGA.BK', 'MINT.BK', 
+        'MTC.BK', 'NEX.BK', 'OR.BK', 'ORI.BK', 'OSP.BK', 'PLANB.BK', 'PRM.BK', 'PSL.BK', 'PTG.BK', 'PTT.BK', 
+        'PTTEP.BK', 'PTTGC.BK', 'QH.BK', 'RATCH.BK', 'RCL.BK', 'ROJNA.BK', 'RS.BK', 'SABINA.BK', 'SAWAD.BK', 'SCB.BK', 
+        'SCC.BK', 'SCGP.BK', 'SINGER.BK', 'SIRI.BK', 'SPALI.BK', 'SPRC.BK', 'STA.BK', 'STEC.BK', 'STGT.BK', 'SUPER.BK', 
+        'TASCO.BK', 'TCAP.BK', 'THANI.BK', 'THCOM.BK', 'THG.BK', 'TISCO.BK', 'TKN.BK', 'TLI.BK', 'TOA.BK', 'TOP.BK', 
+        'TPIPL.BK', 'TPIPP.BK', 'TQM.BK', 'TRUE.BK', 'TTA.BK', 'TTB.BK', 'TU.BK', 'VGI.BK', 'WHA.BK', 'WHAUP.BK'
     ]
+    
+    # Use current date as a seed so the selection changes daily
+    # but remains stable within the same day for consistent analysis.
+    today_str = date.today().strftime("%Y%m%d")
+    random.seed(today_str)
+    candidate_symbols = random.sample(full_pool, min(20, len(full_pool)))
+    
+    # Reset random seed so it doesn't affect other parts of the app
+    random.seed()
     
     # We will pick a handful to show detailed metrics for the AI to pick from
     stock_previews = []
@@ -271,6 +328,24 @@ def recommendations(request):
         try:
             t = yf.Ticker(sym)
             inf = t.info
+            
+            de = 'N/A'
+            try:
+                bs = t.quarterly_balance_sheet if not t.quarterly_balance_sheet.empty else t.balance_sheet
+                if not bs.empty:
+                    col = bs.columns[0]
+                    tot_liab = bs.loc['Total Liabilities Net Minority Interest', col] if 'Total Liabilities Net Minority Interest' in bs.index else bs.loc['Total Liabilities', col]
+                    tot_eq = bs.loc['Stockholders Equity', col] if 'Stockholders Equity' in bs.index else bs.loc['Total Equity Gross Minority Interest', col]
+                    de = tot_liab / tot_eq
+            except Exception:
+                pass
+            
+            if de == 'N/A':
+                de = inf.get('debtToEquity', 'N/A')
+                if isinstance(de, (int, float)): de = de / 100
+            elif isinstance(de, (int, float)):
+                de = round(de, 2)
+            
             roe = inf.get('returnOnEquity', 'N/A')
             dy = inf.get('dividendYield', 'N/A')
             npm = inf.get('profitMargins', 'N/A')
@@ -280,7 +355,7 @@ def recommendations(request):
             if isinstance(roe, (int, float)): roe = roe * 100
             if isinstance(dy, (int, float)): dy = dy * 100
             if isinstance(npm, (int, float)): npm = npm * 100
-
+            
             stock_previews.append({
                 'symbol': sym,
                 'name': inf.get('longName', sym),
@@ -289,7 +364,7 @@ def recommendations(request):
                 'roe': roe,
                 'dy': dy,
                 'npm': npm,
-                'de': inf.get('debtToEquity', 'N/A'),
+                'de': de,
                 'volume': vol,
                 'avg_volume': avg_vol
             })

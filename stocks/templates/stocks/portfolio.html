@@ -94,6 +94,37 @@
                         </div>
                     </div>
                     
+                    <!-- AI Smart Alerts -->
+                    {% if item.dca_qty %}
+                    <div class="alert alert-danger p-2 mb-3 rounded-3" style="font-size: 0.8rem; background: rgba(239, 68, 68, 0.05); border: 1px solid rgba(239, 68, 68, 0.2);">
+                        <div class="d-flex align-items-start gap-2">
+                            <i class="fas fa-exclamation-triangle mt-1 text-danger"></i>
+                            <div>
+                                <strong class="text-danger">DCA Planner:</strong>
+                                <span class="text-muted d-block mt-1">
+                                    ซื้อเพิ่ม <b>{{ item.dca_qty|floatformat:0|intcomma }}</b> หุ้น (ใช้เงิน ฿{{ item.dca_amount|floatformat:0|intcomma }}) ที่ราคาปัจจุบัน
+                                    จะช่วยลดต้นทุนเฉลี่ยมาที่ <b>฿{{ item.dca_target_cost|floatformat:2|intcomma }}</b> (พอร์ตติดลบเพียง -10%)
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    {% if item.trailing_stop_price %}
+                    <div class="alert alert-success p-2 mb-3 rounded-3" style="font-size: 0.8rem; background: rgba(16, 185, 129, 0.05); border: 1px solid rgba(16, 185, 129, 0.2);">
+                        <div class="d-flex align-items-start gap-2">
+                            <i class="fas fa-shield-alt mt-1 text-success"></i>
+                            <div>
+                                <strong class="text-success">Trailing Stop:</strong>
+                                <span class="text-muted d-block mt-1">
+                                    ล็อคกำไรที่ระดับ <b>฿{{ item.trailing_stop_price|floatformat:2|intcomma }}</b>
+                                    หากราคาร่วงลงมาต่ำกว่าจุดนี้ให้พิจารณาขายเพื่อลดความเสี่ยง
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                    
                     <div class="d-flex justify-content-between align-items-center">
                         <div class="text-muted small">Value: <span class="fw-bold text-dark">฿{{ item.market_value|floatformat:2|intcomma }}</span></div>
                         <div class="d-flex gap-3 align-items-center">

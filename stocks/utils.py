@@ -14,8 +14,12 @@ def get_stock_data(symbol):
     
     # yfinance data
     info = ticker.info
-    history = ticker.history(period="6mo")
+    history = ticker.history(period="1y")
     financials = ticker.financials
+    try:
+        balance_sheet = ticker.quarterly_balance_sheet if not ticker.quarterly_balance_sheet.empty else ticker.balance_sheet
+    except Exception:
+        balance_sheet = None
     
     # Calculate Technical Indicators (RSI, MACD, etc.) using pandas_ta
     if not history.empty:
@@ -34,6 +38,7 @@ def get_stock_data(symbol):
         'info': info,
         'history': history,
         'financials': financials,
+        'balance_sheet': balance_sheet,
         'news': ticker.news,
         'yq_data': {
             'summary': yq_summary,
@@ -105,7 +110,24 @@ def analyze_with_ai(symbol, data):
     pb_ratio = info.get('priceToBook', 'N/A')
     roe = info.get('returnOnEquity', 'N/A')
     npm = info.get('profitMargins', 'N/A')
-    de_ratio = info.get('debtToEquity', 'N/A')
+    
+    bs = data.get('balance_sheet')
+    de_ratio = 'N/A'
+    if bs is not None and not bs.empty:
+        try:
+            col = bs.columns[0]
+            tot_liab = bs.loc['Total Liabilities Net Minority Interest', col] if 'Total Liabilities Net Minority Interest' in bs.index else bs.loc['Total Liabilities', col]
+            tot_eq = bs.loc['Stockholders Equity', col] if 'Stockholders Equity' in bs.index else bs.loc['Total Equity Gross Minority Interest', col]
+            de_ratio = tot_liab / tot_eq
+        except Exception:
+            pass
+            
+    if de_ratio == 'N/A':
+        de_ratio = info.get('debtToEquity', 'N/A')
+        if isinstance(de_ratio, (int, float)): de_ratio = de_ratio / 100
+    elif isinstance(de_ratio, (int, float)):
+        de_ratio = round(de_ratio, 2)
+        
     free_float = info.get('floatShares', 'N/A')
     div_yield = yq.get('summary', {}).get('dividendYield', info.get('dividendYield', 'N/A'))
     
