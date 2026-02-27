@@ -161,14 +161,17 @@
                 </div>
             </div>
             <div class="action-buttons">
+                {% if active_queue_item %}
                 <a href="{% url 'pms:project_quotation' project.pk %}" class="btn-action" target="_blank" title="พิมพ์ใบเสนอราคา">
                     <i class="fas fa-print text-muted"></i>
                 </a>
-                {% if active_queue_item %}
                 <button class="btn-action opacity-50" disabled title="ล็อกเนื่องจากอยู่ในคิว">
                     <i class="fas fa-lock text-muted"></i>
                 </button>
                 {% elif project.status == 'CLOSED' or project.status == 'CANCELLED' %}
+                <a href="{% url 'pms:project_quotation' project.pk %}" class="btn-action" target="_blank" title="พิมพ์ใบเสนอราคา">
+                    <i class="fas fa-print text-muted"></i>
+                </a>
                 <button onclick="unlockClosedProject()" class="btn-action" style="background: #1f2937; border-color: #1f2937;" title="ปลดล็อก">
                     <i class="fas fa-unlock text-white"></i>
                 </button>
@@ -183,10 +186,13 @@
                 <a href="{% url 'pms:project_update' project.pk %}" class="btn-action btn-action-primary" title="แก้ไข">
                     <i class="fas fa-pen"></i>
                 </a>
+                <a href="{% url 'pms:project_quotation' project.pk %}" class="btn-action" target="_blank" title="พิมพ์ใบเสนอราคา">
+                    <i class="fas fa-print text-muted"></i>
+                </a>
                 <button onclick="confirmCancelProject()" class="btn-action" 
-                        style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); border: none; padding: 0 15px; width: auto; color: white;" 
+                        style="background: #fee2e2; border-color: #fca5a5; color: #ef4444;" 
                         title="ยกเลิกโครงการ">
-                    <i class="fas fa-ban me-1"></i> <span style="font-size: 0.8rem; font-weight: 600;">ยกเลิกงาน</span>
+                    <i class="fas fa-ban"></i>
                 </button>
                 {% endif %}
                 <a href="{% url 'pms:project_list' %}" class="btn-action" title="กลับหน้ารายการ">
