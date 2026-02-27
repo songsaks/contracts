@@ -110,15 +110,21 @@
                     </div>
                     {% endif %}
 
-                    {% if item.trailing_stop_price %}
-                    <div class="alert alert-success p-2 mb-3 rounded-3" style="font-size: 0.8rem; background: rgba(16, 185, 129, 0.05); border: 1px solid rgba(16, 185, 129, 0.2);">
+                    {% if item.trailing_stop_data %}
+                    <div class="alert alert-{{ item.trailing_stop_data.color }} p-2 mb-3 rounded-3 border-0 shadow-sm" style="font-size: 0.8rem;">
                         <div class="d-flex align-items-start gap-2">
-                            <i class="fas fa-shield-alt mt-1 text-success"></i>
+                            {% if item.trailing_stop_data.color == 'success' %}
+                                <i class="fas fa-shield-alt mt-1 text-success"></i>
+                            {% elif item.trailing_stop_data.color == 'warning' %}
+                                <i class="fas fa-exclamation-circle mt-1 text-warning"></i>
+                            {% else %}
+                                <i class="fas fa-times-circle mt-1 text-danger"></i>
+                            {% endif %}
                             <div>
-                                <strong class="text-success">Trailing Stop:</strong>
-                                <span class="text-muted d-block mt-1">
-                                    ล็อคกำไรที่ระดับ <b>฿{{ item.trailing_stop_price|floatformat:2|intcomma }}</b>
-                                    หากราคาร่วงลงมาต่ำกว่าจุดนี้ให้พิจารณาขายเพื่อลดความเสี่ยง
+                                <strong class="text-{{ item.trailing_stop_data.color }}">Trailing Stop: {{ item.trailing_stop_data.status }}</strong>
+                                <span class="text-dark d-block mt-1">
+                                    จุดตัด (Stop Loss): <b>฿{{ item.trailing_stop_data.stop_loss_price|floatformat:2|intcomma }}</b><br>
+                                    <small class="text-muted">(คำนวณจากยอดไฮ ฿{{ item.trailing_stop_data.highest_price_since_buy|floatformat:2|intcomma }})</small>
                                 </span>
                             </div>
                         </div>

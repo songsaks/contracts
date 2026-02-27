@@ -4,7 +4,7 @@ from django.contrib import messages
 from django.conf import settings
 from google import genai
 from .models import Watchlist, AnalysisCache, AssetCategory, Portfolio
-from .utils import get_stock_data, analyze_with_ai
+from .utils import get_stock_data, analyze_with_ai, calculate_trailing_stop
 import yfinance as yf
 import pandas as pd
 
@@ -202,11 +202,15 @@ def portfolio_list(request):
                         dca_amount = dca_qty * float(current_price)
                         dca_target_cost = target_cost
 
-            # Trailing Stop Logic (if gain > 10%)
-            trailing_stop_price = None
-            if gain_loss_pct >= 10:
-                # Lock in profit by setting trailing stop 5% below current price
-                trailing_stop_price = float(current_price) * 0.95
+            # Trailing Stop Logic using calculate_trailing_stop
+            recent_high = hist['High'].max() if not hist.empty and 'High' in hist.columns else None
+            ts_data = calculate_trailing_stop(
+                symbol=item.symbol, 
+                current_price=float(current_price), 
+                entry_price=float(item.entry_price),
+                highest_price_since_buy=recent_high,
+                percent_trail=3.0
+            )
 
             total_market_value += market_value
             total_gain_loss += gain_loss
@@ -221,13 +225,13 @@ def portfolio_list(request):
                 'dca_target_cost': dca_target_cost,
                 'dca_qty': dca_qty,
                 'dca_amount': dca_amount,
-                'trailing_stop_price': trailing_stop_price
+                'trailing_stop_data': ts_data
             })
         except:
             items.append({
                 'obj': item, 'current_price': 'Error', 'market_value': 0, 
                 'gain_loss': 0, 'gain_loss_pct': 0, 'rsi': None,
-                'dca_target_cost': None, 'dca_qty': None, 'dca_amount': None, 'trailing_stop_price': None
+                'dca_target_cost': None, 'dca_qty': None, 'dca_amount': None, 'trailing_stop_data': None
             })
 
     ai_analysis = None
@@ -578,19 +582,19 @@ def macro_economy(request):
     # AI Analysis for Macro Economy
     analysis_text = None
     if request.GET.get('analyze') == 'true' and data:
-        genai.configure(api_key=settings.GEMINI_API_KEY)
+        client = genai.Client(api_key=settings.GEMINI_API_KEY)
         model_names = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-pro']
-        model = None
+        model_name_to_use = 'gemini-pro'
         for m in model_names:
             try:
-                temp_model = genai.GenerativeModel(m)
-                temp_model.generate_content("ping")
-                model = temp_model
+                client.models.generate_content(
+                    model=m,
+                    contents='ping'
+                )
+                model_name_to_use = m
                 break
             except Exception:
                 continue
-        if not model:
-            model = genai.GenerativeModel('gemini-pro')
 
         data_str = "\n".join([f"{d['name']}: {d['price']:.2f} ({d['change']:+.2f}%)" for d in data])
         prompt = f"""
@@ -611,7 +615,10 @@ def macro_economy(request):
         """
         
         try:
-            response = model.generate_content(prompt)
+            response = client.models.generate_content(
+                model=model_name_to_use,
+                contents=prompt
+            )
             analysis_text = response.text
 
             # Strip any residual markdown blocks if AI disobeys
@@ -629,3 +636,187 @@ def macro_economy(request):
         'charts_json': json.dumps(charts)
     }
     return render(request, 'stocks/macro.html', context)
+
+@user_passes_test(admin_only)
+def momentum_scanner(request):
+    """
+    Globally scans SET100 roughly matching Mark Minervini Trend Template.
+    Requires significant processing time, might be better offloaded in prod,
+    but done synchronously here for demonstration.
+    """
+    # SET100 + MAI 30 candidates
+    scan_symbols = [
+        # SET100 (Approximate current representation)
+        "ADVANC", "AOT", "AWC", "BBL", "BDMS", "BEM", "BGRIM", "BH", "BJC", "BTS",
+        "CBG", "CENTEL", "CHG", "CK", "CKP", "COM7", "CPALL", "CPF", "CPN", "CRC",
+        "DELTA", "EA", "EGCO", "GLOBAL", "GPSC", "GULF", "HMPRO", "INTUCH", "IRPC", "IVL",
+        "JMART", "JMT", "KBANK", "KCE", "KTB", "KTC", "LH", "MINT", "MTC", "OR",
+        "OSP", "PTT", "PTTEP", "PTTGC", "RATCH", "SAWAD", "SCB", "SCC", "SCGP", "SPALI",
+        "STA", "STARK", "STGT", "TCAP", "TISCO", "TOP", "TRUE", "TTB", "TU", "WHA",
+        "AMATA", "BAM", "BANPU", "BAY", "BCH", "BLA", "BPP", "DOHOME", "FORTH", "GUNKUL",
+        "ICHI", "KEX", "KKP", "MEGA", "ONEE", "PLANB", "PSL", "PTG", "QH", "RBF",
+        "RS", "SABINA", "SINGER", "SIRI", "SPRC", "STEC", "SYNEX", "THANI", "TIDLOR", "TIPH",
+        "TKN", "TLI", "TQM", "TSTH", "TTW", "VGI", "BCP", "NYT",
+
+        # MAI (30 popular representation)
+        "AU", "SPA", "DITTO", "BE8", "BBIK", "IIG", "SABUY", "SECURE", "JDF", "PROEN",
+        "ZIGA", "XPG", "SMD", "TACC", "TMC", "TPCH", "TACC", "FPI", "FSMART", "NDR",
+        "NETBAY", "BIZ", "BROOK", "COLOR", "CHO", "D", "KUN", "MVP", "SE", "UKEM"
+    ]
+    
+    candidates = []
+    
+    # We only scan if requested to avoid huge load on every page visit
+    if request.method == "POST" or request.GET.get('scan') == 'true':
+        import pandas_ta as ta
+        for symbol in scan_symbols:
+            try:
+                df = yf.download(f"{symbol}.BK", period="1y", interval="1d", progress=False)
+                
+                if df.empty:
+                    continue
+                    
+                if isinstance(df.columns, pd.MultiIndex):
+                    # Flatten the columns by dropping the ticker level
+                    df.columns = df.columns.droplevel(1)
+                
+                df = df.dropna(subset=['Close', 'High'])
+                if len(df) < 150:
+                    continue
+                    
+                df['EMA50'] = ta.ema(df['Close'], length=50)
+                df['EMA150'] = ta.ema(df['Close'], length=150)
+                df['EMA200'] = ta.ema(df['Close'], length=200)
+                df['RSI'] = ta.rsi(df['Close'], length=14)
+                
+                # ADX Calculation
+                adx_df = ta.adx(df['High'], df['Low'], df['Close'], length=14)
+                if adx_df is not None:
+                    df = pd.concat([df, adx_df], axis=1)
+                
+                # Money Flow Index (MFI)
+                mfi = ta.mfi(df['High'], df['Low'], df['Close'], df['Volume'], length=14)
+                df['MFI'] = mfi
+                
+                # Relative Volume (RVOL) - Current Volume vs 20-day Average
+                avg_vol_20 = df['Volume'].rolling(window=20).mean()
+                df['RVOL'] = df['Volume'] / avg_vol_20
+                
+                # Extract last values
+                last_row = df.iloc[-1]
+                
+                current_price = float(last_row['Close'].iloc[0]) if isinstance(df['Close'], pd.DataFrame) else float(last_row['Close'])
+                year_high = float(df['High'].max().iloc[0]) if isinstance(df['High'], pd.DataFrame) else float(df['High'].max())
+                
+                ema50 = float(last_row['EMA50']) if pd.notna(last_row['EMA50']) else 0
+                ema150 = float(last_row['EMA150']) if pd.notna(last_row['EMA150']) else 0
+                ema200 = float(last_row['EMA200']) if pd.notna(last_row['EMA200']) else 0
+                rsi = float(last_row['RSI']) if pd.notna(last_row['RSI']) else 0
+                adx = float(last_row['ADX_14']) if 'ADX_14' in last_row and pd.notna(last_row['ADX_14']) else 0
+                mfi_val = float(last_row['MFI']) if pd.notna(last_row['MFI']) else 0
+                rvol = float(last_row['RVOL']) if pd.notna(last_row['RVOL']) else 1.0
+                
+                # --- INTEGRATED SCORING LOGIC (0-100) ---
+                integrated_score = 0
+                
+                # 1. Trend Quality (30%) - EMA Alignment & Price above EMA200
+                trend_points = 0
+                if current_price > ema200: trend_points += 15
+                if ema50 > ema150 > ema200: trend_points += 15
+                integrated_score += trend_points
+                
+                # 2. Price Momentum (20%) - RSI 60-75 & distance from high
+                mom_points = 0
+                if 60 <= rsi <= 75: mom_points += 10
+                gap_to_high = ((year_high - current_price) / current_price) * 100
+                if gap_to_high <= 15: mom_points += 10
+                integrated_score += mom_points
+                
+                # 3. Relative Volume (RVOL) (30%) - "Large Hands" Action
+                # If RVOL > 1.5 (Volume is 150% of avg), high points
+                if rvol >= 2.0: integrated_score += 30
+                elif rvol >= 1.5: integrated_score += 20
+                elif rvol >= 1.0: integrated_score += 10
+                
+                # 4. Money Flow Index (MFI) (20%) - Positive Net Flow
+                # MFI > 50 means energy is positive
+                if mfi_val >= 60: integrated_score += 20
+                elif mfi_val >= 50: integrated_score += 10
+
+                # Base filter (Trend Template)
+                is_uptrend = (current_price > ema150) and (ema150 > ema200)
+                near_high = (current_price >= year_high * 0.70) # Relaxed slightly for better list
+                
+                if is_uptrend and near_high:
+                    # Fetching sector only for candidates
+                    sector = "Unknown"
+                    try:
+                        ticker = yf.Ticker(f"{symbol}.BK")
+                        sector = ticker.info.get('sector', 'Other')
+                    except:
+                        pass
+                        
+                    candidates.append({
+                        'symbol': symbol,
+                        'symbol_bk': f"{symbol}.BK",
+                        'sector': sector,
+                        'price': round(current_price, 2),
+                        'rsi': round(rsi, 2),
+                        'adx': round(adx, 2),
+                        'mfi': round(mfi_val, 2),
+                        'rvol': round(rvol, 2),
+                        'technical_score': int(integrated_score),
+                        'year_high': round(year_high, 2),
+                        'upside_to_high': round(gap_to_high, 2)
+                    })
+            except Exception as e:
+                print(f"Error scanning {symbol}: {e}")
+                continue
+                
+        # Sort candidates by "technical score" descending (highest score first)
+        candidates.sort(key=lambda x: x['technical_score'], reverse=True)
+                
+    ai_analysis = None
+    if candidates and request.GET.get('analyze') == 'true':
+        symbols_list = [c['symbol'] for c in candidates]
+        try:
+            client = genai.Client(api_key=settings.GEMINI_API_KEY)
+            model_names = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-pro']
+            model_name_to_use = 'gemini-pro'
+            for m in model_names:
+                try:
+                    client.models.generate_content(model=m, contents='ping')
+                    model_name_to_use = m
+                    break
+                except Exception:
+                    continue
+
+            prompt = f"""จากรายชื่อหุ้นใน SET ที่ผ่านเกณฑ์ Momentum ขาขึ้น (Trend Template) ณ ขณะนี้ ได้แก่:
+{', '.join(symbols_list)}
+
+ช่วยวิเคราะห์ข่าวล่าสุด แนวโน้มอุตสาหกรรม และ Sentiment ของตลาดไทยในสัปดาห์นี้
+เพื่อคัดกรองว่าตัวไหนในกลุ่มนี้มีโอกาสเป็น 'Superperformance Stocks' (สไตล์ Mark Minervini) มากที่สุด
+พร้อมอธิบายเหตุผลประกอบสั้นๆ และเน้นย้ำเรื่องจุดเสี่ยงที่ต้องระวัง
+
+เขียนเป็นภาษาไทย รูปแบบ Markdown ที่เป็นทางการและสวยงาม สไตล์นักวิเคราะห์หุ้น المحترف
+ไม่ต้องเกริ่นนำ ไม่ต้องลงท้าย
+"""
+            response = client.models.generate_content(
+                model=model_name_to_use,
+                contents=prompt
+            )
+            ai_analysis = response.text
+            if ai_analysis.startswith("```markdown"):
+                ai_analysis = ai_analysis[11:].strip()
+            if ai_analysis.endswith("```"):
+                ai_analysis = ai_analysis[:-3].strip()
+        except Exception as e:
+            ai_analysis = f"AI Error: {str(e)}"
+
+    context = {
+        'title': 'Global Momentum Scanner (CAN SLIM)',
+        'candidates': candidates,
+        'ai_analysis': ai_analysis,
+        'has_scanned': request.method == "POST" or request.GET.get('scan') == 'true'
+    }
+    return render(request, 'stocks/momentum.html', context)

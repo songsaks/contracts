@@ -5,6 +5,42 @@ from yahooquery import Ticker as YQTicker
 import pandas_ta as ta
 import pandas as pd
 
+def calculate_trailing_stop(symbol, current_price, entry_price, highest_price_since_buy=None, percent_trail=3.0):
+    """
+    คำนวณจุด Trailing Stop
+    :param current_price: ราคาปัจจุบันของหุ้น
+    :param entry_price: ราคาต้นทุน
+    :param highest_price_since_buy: ราคาสูงสุดตั้งแต่ซื้อ (ถ้าไม่มีให้ใช้ราคาสูงสุดระหว่างต้นทุนกับราคาปัจจุบัน)
+    :param percent_trail: เปอร์เซ็นต์ที่จะให้ราคาลากตาม (เช่น 3% หรือ 5%)
+    :return: dict ของสถานะและจุด Stop Loss
+    """
+    if highest_price_since_buy is None:
+        highest_price_since_buy = max(current_price, entry_price) 
+    else:
+        highest_price_since_buy = max(current_price, entry_price, highest_price_since_buy)
+        
+    # คำนวณจุด Stop Loss
+    stop_loss_price = highest_price_since_buy * (1 - (percent_trail / 100))
+    
+    # 3-level status: Hold, Warning, Sell
+    status_code = "HOLD"
+    color_code = "success" # Green
+    
+    if current_price <= stop_loss_price:
+        status_code = "SELL (STOP LOSS)"
+        color_code = "danger" # Red
+    elif current_price <= stop_loss_price * 1.01: # Within 1% of stop loss
+        status_code = "WARNING (NEAR STOP LOSS)"
+        color_code = "warning" # Yellow
+        
+    return {
+        'symbol': symbol,
+        'current_price': current_price,
+        'stop_loss_price': round(stop_loss_price, 2),
+        'highest_price_since_buy': highest_price_since_buy,
+        'status': status_code,
+        'color': color_code
+    }
 def get_stock_data(symbol):
     """
     Fetch comprehensive data for a symbol using yfinance and yahooquery.
