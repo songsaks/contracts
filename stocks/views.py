@@ -2,7 +2,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import user_passes_test, login_required
 from django.contrib import messages
 from django.conf import settings
-from google import genai
+import google.generativeai as genai
 from .models import Watchlist, AnalysisCache, AssetCategory, Portfolio
 from .utils import get_stock_data, analyze_with_ai
 import yfinance as yf
@@ -226,7 +226,19 @@ def portfolio_list(request):
 
     ai_analysis = None
     if request.GET.get('analyze') == 'true' and items:
-        client = genai.Client(api_key=settings.GEMINI_API_KEY)
+        genai.configure(api_key=settings.GEMINI_API_KEY)
+        model_names = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-pro']
+        model = None
+        for m in model_names:
+            try:
+                temp_model = genai.GenerativeModel(m)
+                temp_model.generate_content("ping")
+                model = temp_model
+                break
+            except Exception:
+                continue
+        if not model:
+            model = genai.GenerativeModel('gemini-pro')
 
         port_data = []
         for it in items:
@@ -319,10 +331,7 @@ def portfolio_list(request):
         3. DO NOT wrap the output in ```markdown code blocks. Start immediately with the analysis headings.
         """
         try:
-            response = client.models.generate_content(
-                model='gemini-2.0-flash',
-                contents=prompt
-            )
+            response = model.generate_content(prompt)
             ai_analysis = response.text
             
             # Strip any residual markdown blocks if AI disobeys
@@ -455,7 +464,19 @@ def recommendations(request):
     # Generate the recommendation report using Gemini
     report_text = None
     if request.GET.get('analyze') == 'true' and stock_previews:
-        client = genai.Client(api_key=settings.GEMINI_API_KEY)
+        genai.configure(api_key=settings.GEMINI_API_KEY)
+        model_names = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-pro']
+        model = None
+        for m in model_names:
+            try:
+                temp_model = genai.GenerativeModel(m)
+                temp_model.generate_content("ping")
+                model = temp_model
+                break
+            except Exception:
+                continue
+        if not model:
+            model = genai.GenerativeModel('gemini-pro')
         
         data_str = "\n".join([str(s) for s in stock_previews])
         
@@ -482,10 +503,7 @@ def recommendations(request):
         """
         
         try:
-            response = client.models.generate_content(
-                model='gemini-2.0-flash',
-                contents=prompt
-            )
+            response = model.generate_content(prompt)
             report_text = response.text
             
             # Strip any residual markdown blocks if AI disobeys
@@ -551,7 +569,19 @@ def macro_economy(request):
     # AI Analysis for Macro Economy
     analysis_text = None
     if request.GET.get('analyze') == 'true' and data:
-        client = genai.Client(api_key=settings.GEMINI_API_KEY)
+        genai.configure(api_key=settings.GEMINI_API_KEY)
+        model_names = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-pro']
+        model = None
+        for m in model_names:
+            try:
+                temp_model = genai.GenerativeModel(m)
+                temp_model.generate_content("ping")
+                model = temp_model
+                break
+            except Exception:
+                continue
+        if not model:
+            model = genai.GenerativeModel('gemini-pro')
 
         data_str = "\n".join([f"{d['name']}: {d['price']:.2f} ({d['change']:+.2f}%)" for d in data])
         prompt = f"""
@@ -572,10 +602,7 @@ def macro_economy(request):
         """
         
         try:
-            response = client.models.generate_content(
-                model='gemini-2.0-flash',
-                contents=prompt
-            )
+            response = model.generate_content(prompt)
             analysis_text = response.text
 
             # Strip any residual markdown blocks if AI disobeys
