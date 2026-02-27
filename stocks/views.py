@@ -68,7 +68,13 @@ def analyze(request, symbol):
         news_list = data.get('news', [])
         for n in news_list:
             if 'providerPublishTime' in n:
-                n['display_time'] = datetime.fromtimestamp(n['providerPublishTime'])
+                try:
+                    if isinstance(n['providerPublishTime'], str):
+                        n['display_time'] = datetime.fromisoformat(n['providerPublishTime'].replace('Z', '+00:00'))
+                    else:
+                        n['display_time'] = datetime.fromtimestamp(n['providerPublishTime'])
+                except Exception:
+                    n['display_time'] = n['providerPublishTime']
 
         # Cache it? 
         AnalysisCache.objects.update_or_create(

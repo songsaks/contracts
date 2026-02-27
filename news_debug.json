@@ -1,0 +1,63 @@
+[
+  {
+    "id": "3180e441-7eb8-36b2-9d1c-196e3384f5e1",
+    "content": {
+      "id": "3180e441-7eb8-36b2-9d1c-196e3384f5e1",
+      "contentType": "VIDEO",
+      "title": "Nvidia earnings, Apple CEO teases product launches: Tech Support",
+      "description": "<p>Yahoo Finance Tech Editor <a data-i13n=\"cpos:1;pos:1\" href=\"https://www.yahoo.com/author/daniel-howley/\">Dan Howley</a> comes on Market Domination to break down the day\u2019s leading and trending tech stories, including Nvidia (<a data-i13n=\"cpos:2;pos:1\" href=\"https://finance.yahoo.com/quote/NVDA\">NVDA</a>) shares dropping in Thursday's session following the AI chipmaker's fourth quarter earnings results, and Apple (<a data-i13n=\"cpos:3;pos:1\" href=\"https://finance.yahoo.com/quote/AAPL\">AAPL</a>) CEO Tim Cook teasing multiple product launches coming next week.</p>\n<p>To watch more expert insights and analysis on the latest market action, check out more\u00a0<a data-i13n=\"cpos:4;pos:1\" href=\"https://finance.yahoo.com/videos/series/market-domination/\">Market Domination</a>.</p>",
+      "summary": "Yahoo Finance Tech Editor Dan Howley comes on Market Domination to break down the day\u2019s leading and trending tech stories, including Nvidia (NVDA) shares dropping in Thursday's session following the AI chipmaker's fourth quarter earnings results, and Apple (AAPL) CEO Tim Cook teasing multiple product launches coming next week. To watch more expert insights and analysis on the latest market action, check out more&nbsp;Market Domination.",
+      "pubDate": "2026-02-26T20:33:52Z",
+      "displayTime": "",
+      "isHosted": true,
+      "bypassModal": false,
+      "previewUrl": null,
+      "thumbnail": {
+        "originalUrl": "https://s.yimg.com/os/creatr-uploaded-images/2026-02/06b669e0-1352-11f1-8ebf-f038cfa7722e",
+        "originalWidth": 8256,
+        "originalHeight": 4648,
+        "caption": "",
+        "resolutions": [
+          {
+            "url": "https://s.yimg.com/uu/api/res/1.2/4ayn9ZihS00z5Lo_6h8tow--~B/aD00NjQ4O3c9ODI1NjthcHBpZD15dGFjaHlvbg--/https://s.yimg.com/os/creatr-uploaded-images/2026-02/06b669e0-1352-11f1-8ebf-f038cfa7722e",
+            "width": 8256,
+            "height": 4648,
+            "tag": "original"
+          },
+          {
+            "url": "https://s.yimg.com/uu/api/res/1.2/sKKbD6.FZ51ylVFzDSbU2A--~B/Zmk9c3RyaW07aD0xMjg7dz0xNzA7YXBwaWQ9eXRhY2h5b24-/https://s.yimg.com/os/creatr-uploaded-images/2026-02/06b669e0-1352-11f1-8ebf-f038cfa7722e",
+            "width": 170,
+            "height": 128,
+            "tag": "170x128"
+          }
+        ]
+      },
+      "provider": {
+        "displayName": "Yahoo Finance Video",
+        "url": "https://finance.yahoo.com/"
+      },
+      "canonicalUrl": {
+        "url": "https://finance.yahoo.com/video/nvidia-earnings-apple-ceo-teases-203352481.html",
+        "site": "finance",
+        "region": "US",
+        "lang": "en-US"
+      },
+      "clickThroughUrl": {
+        "url": "https://finance.yahoo.com/video/nvidia-earnings-apple-ceo-teases-203352481.html",
+        "site": "finance",
+        "region": "US",
+        "lang": "en-US"
+      },
+      "metadata": {
+        "editorsPick": true
+      },
+      "finance": {
+        "premiumFinance": {
+          "isPremiumNews": false,
+          "isPremiumFreeNews": false
+        }
+      },
+      "storyline": null
+    }
+  }
+]
