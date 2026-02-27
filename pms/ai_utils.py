@@ -1,5 +1,5 @@
 import os
-import google.generativeai as genai
+from google import genai
 from django.conf import settings
 
 def get_gemini_analysis(data_summary):
@@ -7,10 +7,7 @@ def get_gemini_analysis(data_summary):
     if not api_key:
         return "ไม่พบคีย์ Gemini API ในระบบ (GEMINI_API_KEY is missing in settings)"
 
-    genai.configure(api_key=api_key, transport='rest')
-    # Use 'gemini-2.0-flash' which is verified to work in this environment
-    model = genai.GenerativeModel('gemini-2.0-flash')
-    
+    client = genai.Client(api_key=api_key)
     prompt = f"""
     คุณคือผู้เชี่ยวชาญด้านการวิเคราะห์ข้อมูลธุรกิจ (Business Analyst) 
     นี่คือข้อมูลสรุปจากระบบบริหารโครงการ (Project Management System) ประจำเดือน/ปีที่เลือก:
@@ -27,7 +24,10 @@ def get_gemini_analysis(data_summary):
     """
     
     try:
-        response = model.generate_content(prompt)
+        response = client.models.generate_content(
+            model='gemini-2.0-flash',
+            contents=prompt
+        )
         if not response.text:
             return "AI ไม่ได้ตอบกลับข้อมูลใดๆ (Empty response from AI)"
         return response.text
