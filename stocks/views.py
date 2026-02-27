@@ -232,19 +232,19 @@ def portfolio_list(request):
 
     ai_analysis = None
     if request.GET.get('analyze') == 'true' and items:
-        genai.configure(api_key=settings.GEMINI_API_KEY)
+        client = genai.Client(api_key=settings.GEMINI_API_KEY)
         model_names = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-pro']
-        model = None
+        model_name_to_use = 'gemini-pro'
         for m in model_names:
             try:
-                temp_model = genai.GenerativeModel(m)
-                temp_model.generate_content("ping")
-                model = temp_model
+                client.models.generate_content(
+                    model=m,
+                    contents='ping'
+                )
+                model_name_to_use = m
                 break
             except Exception:
                 continue
-        if not model:
-            model = genai.GenerativeModel('gemini-pro')
 
         port_data = []
         for it in items:
@@ -337,7 +337,10 @@ def portfolio_list(request):
         3. DO NOT wrap the output in ```markdown code blocks. Start immediately with the analysis headings.
         """
         try:
-            response = model.generate_content(prompt)
+            response = client.models.generate_content(
+                model=model_name_to_use,
+                contents=prompt
+            )
             ai_analysis = response.text
             
             # Strip any residual markdown blocks if AI disobeys
