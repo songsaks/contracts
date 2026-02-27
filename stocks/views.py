@@ -2,7 +2,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import user_passes_test, login_required
 from django.contrib import messages
 from django.conf import settings
-import google.generativeai as genai
+from google import genai
 from .models import Watchlist, AnalysisCache, AssetCategory, Portfolio
 from .utils import get_stock_data, analyze_with_ai
 import yfinance as yf

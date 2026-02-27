@@ -32,9 +32,9 @@ def get_ai_team_suggestion(task_type, teams):
 def _ai_suggest_team(task_type, teams):
     """Use Gemini to pick the best team."""
     try:
-        import google.generativeai as genai
+        from google import genai
         api_key = settings.GEMINI_API_KEY
-        genai.configure(api_key=api_key, transport='rest')
+        client = genai.Client(api_key=api_key)
 
         team_info = "\n".join([
             f"- Team '{t.name}': skills={t.skills}, current load={t.tasks.filter(status__in=['SCHEDULED','IN_PROGRESS']).count()}/{t.max_tasks_per_day}"
@@ -48,8 +48,10 @@ Available teams:
 
 Pick the best team name. Reply with ONLY the team name, nothing else."""
 
-        model = genai.GenerativeModel('gemini-2.0-flash')
-        response = model.generate_content(prompt)
+        response = client.models.generate_content(
+            model='gemini-2.0-flash',
+            contents=prompt
+        )
         suggested_name = response.text.strip()
 
         for t in teams:
