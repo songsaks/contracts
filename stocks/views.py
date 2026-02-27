@@ -475,6 +475,10 @@ def recommendations(request):
         4. Provide a brief 'Why this stock?' reason, highlighting its cap size context and its current Volume trend.
         
         Format in beautiful Markdown for a professional web report. Use Sarabun style tone. Add an introductory section explaining the methodology.
+        IMPORTANT RULES:
+        1. DO NOT include any conversational preamble or outro (e.g. "Okay, here's a professional Thai stock...", "Explanation of Choices:"). 
+        2. Output ONLY the raw markdown text.
+        3. DO NOT wrap the output in ```markdown code blocks. Start immediately with the analysis headings.
         """
         
         try:
@@ -483,6 +487,12 @@ def recommendations(request):
                 contents=prompt
             )
             report_text = response.text
+            
+            # Strip any residual markdown blocks if AI disobeys
+            if report_text.startswith("```markdown"):
+                report_text = report_text[len("```markdown"):].strip()
+            if report_text.endswith("```"):
+                report_text = report_text[:-3].strip()
         except Exception as e:
             report_text = f"ไม่สามารถสร้างรายงานได้ในขณะนี้: {str(e)}"
 
@@ -555,6 +565,10 @@ def macro_economy(request):
         4. Provide a brief actionable investment strategy for Thai investors based on this macroeconomic snapshot.
         
         Format in beautiful Markdown for a professional web report. Use Sarabun style tone.
+        IMPORTANT RULES:
+        1. DO NOT include any conversational preamble or outro (e.g. "Okay, here's an analysis...", "Explanation of Choices:"). 
+        2. Output ONLY the raw markdown text.
+        3. DO NOT wrap the output in ```markdown code blocks. Start immediately with the analysis headings.
         """
         
         try:
@@ -563,6 +577,12 @@ def macro_economy(request):
                 contents=prompt
             )
             analysis_text = response.text
+
+            # Strip any residual markdown blocks if AI disobeys
+            if analysis_text.startswith("```markdown"):
+                analysis_text = analysis_text[len("```markdown"):].strip()
+            if analysis_text.endswith("```"):
+                analysis_text = analysis_text[:-3].strip()
         except Exception as e:
             analysis_text = f"ไม่สามารถสร้างบทวิเคราะห์ได้ในขณะนี้: {str(e)}"
 
