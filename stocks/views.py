@@ -104,6 +104,12 @@ def analyze(request, symbol):
         elif isinstance(info.get('debtToEquity'), (int, float)):
             info['debtToEquity'] = info['debtToEquity'] / 100
 
+        fifty_two_week_high = history['High'].max() if not history.empty and 'High' in history.columns else None
+        recent_resistance = history['High'].tail(20).max() if not history.empty and 'High' in history.columns else None
+        recent_support = history['Low'].tail(20).min() if not history.empty and 'Low' in history.columns else None
+        curr_price = history['Close'].iloc[-1] if not history.empty and 'Close' in history.columns else info.get('currentPrice', 0)
+        is_breakout = (curr_price >= fifty_two_week_high) if (fifty_two_week_high and curr_price) else False
+
         context = {
             'symbol': symbol,
             'info': info,
@@ -111,6 +117,10 @@ def analyze(request, symbol):
             'chart_labels': chart_labels,
             'chart_values': chart_values,
             'chart_volumes': chart_volumes,
+            'fifty_two_week_high': fifty_two_week_high,
+            'recent_resistance': recent_resistance,
+            'recent_support': recent_support,
+            'is_breakout': is_breakout,
             'current_rsi': current_rsi,
             'rsi_status': rsi_status,
             'news': news_list,

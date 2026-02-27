@@ -74,6 +74,29 @@
             </div>
         </div>
     </div>
+    
+    <!-- Breakout & Resistance Alerts -->
+    {% if fifty_two_week_high or recent_resistance %}
+    <div class="col-12 mb-4">
+        <div class="card-premium p-3 border-0 bg-white alert alert-{% if is_breakout %}success{% else %}info{% endif %} d-flex align-items-center mb-0">
+            <i class="fas fa-bullseye fa-2x me-3 {% if is_breakout %}text-success{% else %}text-info{% endif %} opacity-75"></i>
+            <div>
+                <h5 class="fw-bold mb-1 {% if is_breakout %}text-success{% else %}text-info-dark{% endif %}">
+                    {% if is_breakout %}
+                        🔥 Breakout Alert! ราคาเริ่มทะลุแนวต้านสำคัญ
+                    {% else %}
+                        🎯 Resistance Analysis (การวิเคราะห์แนวต้าน)
+                    {% endif %}
+                </h5>
+                <span class="text-muted d-block" style="font-size: 0.95rem;">
+                    แนวต้านสำคัญ 1 ปี (52-Week High): <b class="text-dark">฿{{ fifty_two_week_high|floatformat:2|default:"N/A" }}</b> | 
+                    แนวต้านย่อย (20 วัน): <b class="text-dark">฿{{ recent_resistance|floatformat:2|default:"N/A" }}</b> |
+                    แนวรับ/จุดตัดขาดทุน (20-Day Low): <b class="text-danger">฿{{ recent_support|floatformat:2|default:"N/A" }}</b>
+                </span>
+            </div>
+        </div>
+    </div>
+    {% endif %}
 
     <!-- Price Chart -->
     <div class="col-12 mb-4">
@@ -195,10 +218,15 @@
     gradient.addColorStop(0, 'rgba(67, 56, 202, 0.2)');
     gradient.addColorStop(1, 'rgba(67, 56, 202, 0)');
 
+    const labelsArray = {{ chart_labels|safe }};
+    const high52wData = labelsArray.map(() => {{ fifty_two_week_high|default:"null" }});
+    const res20dData = labelsArray.map(() => {{ recent_resistance|default:"null" }});
+    const sup20dData = labelsArray.map(() => {{ recent_support|default:"null" }});
+
     new Chart(ctx, {
         type: 'line',
         data: {
-            labels: {{ chart_labels|safe }},
+            labels: labelsArray,
             datasets: [
                 {
                     label: 'Price',
@@ -216,6 +244,39 @@
                     yAxisID: 'y'
                 },
                 {
+                    label: '52-Week High',
+                    data: high52wData,
+                    borderColor: 'rgba(239, 68, 68, 0.6)',
+                    borderWidth: 2,
+                    borderDash: [5, 5],
+                    fill: false,
+                    pointRadius: 0,
+                    pointHoverRadius: 0,
+                    yAxisID: 'y'
+                },
+                {
+                    label: 'Recent Resistance',
+                    data: res20dData,
+                    borderColor: 'rgba(245, 158, 11, 0.6)',
+                    borderWidth: 2,
+                    borderDash: [5, 5],
+                    fill: false,
+                    pointRadius: 0,
+                    pointHoverRadius: 0,
+                    yAxisID: 'y'
+                },
+                {
+                    label: 'Support / Stop Loss',
+                    data: sup20dData,
+                    borderColor: 'rgba(34, 197, 94, 0.6)',
+                    borderWidth: 2,
+                    borderDash: [5, 5],
+                    fill: false,
+                    pointRadius: 0,
+                    pointHoverRadius: 0,
+                    yAxisID: 'y'
+                },
+                {
                     label: 'Volume',
                     type: 'bar',
                     data: {{ chart_volumes|safe }},
@@ -230,7 +291,17 @@
             responsive: true,
             maintainAspectRatio: false,
             plugins: {
-                legend: { display: false }
+                legend: { 
+                    display: true,
+                    position: 'top',
+                    labels: {
+                        usePointStyle: true,
+                        boxWidth: 8,
+                        padding: 20,
+                        color: '#64748b',
+                        font: { family: 'Outfit', size: 12 }
+                    }
+                }
             },
             scales: {
                 x: {

@@ -276,7 +276,9 @@ def project_create(request):
     if request.method == 'POST':
         form = ProjectForm(request.POST)
         if form.is_valid():
-            project = form.save()
+            project = form.save(commit=False)
+            project._changed_by_user = request.user
+            project.save()
             # Auto-create value item
             pv = form.cleaned_data.get('project_value')
             _create_project_value_item(project, pv)
@@ -336,7 +338,10 @@ def project_update(request, pk):
 
         form = FormClass(request.POST, **form_kwargs)
         if form.is_valid():
-            form.save()
+            project = form.save(commit=False)
+            project._changed_by_user = request.user
+            project.save()
+            form.save_m2m()
             messages.success(request, f'อัปเดต{title.replace("แก้ไข", "")}สำเร็จ')
             return redirect('pms:project_detail', pk=project.pk)
     else:
@@ -1167,6 +1172,7 @@ def create_project_from_requirement(request, pk):
         if form.is_valid():
             project = form.save(commit=False)
             project.job_type = job_type
+            project._changed_by_user = request.user
             project.save()
             # Auto-create value item
             pv = form.cleaned_data.get('project_value')
@@ -1384,6 +1390,7 @@ def update_task_status(request, task_id):
                     elif proj.status == 'DELIVERY':
                         proj.status = 'ACCEPTED'
                         
+                    proj._changed_by_user = request.user
                     proj.save()
             elif new_status == 'INCOMPLETE':
                 task.scheduled_date = None
@@ -1558,6 +1565,7 @@ def project_cancel(request, pk):
         return redirect('pms:project_detail', pk=pk)
 
     project.status = Project.Status.CANCELLED
+    project._changed_by_user = request.user
     project.save()
     
     messages.warning(request, f"🚫 ยกเลิกโครงการ '{project.name}' เรียบร้อยแล้ว (สถานะถูกล็อก)")
