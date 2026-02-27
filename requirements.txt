@@ -4,5 +4,8 @@ pillow==12.1.0
 psycopg2-binary==2.9.11
 sqlparse==0.5.5
 tzdata==2025.3
-google-generativeai
+google-genai
 python-dotenv
+pandas
+numpy==2.2.6
+pandas-ta

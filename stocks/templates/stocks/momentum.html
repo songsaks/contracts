@@ -1,0 +1,211 @@
+{% extends 'stocks/base_stocks.html' %}
+{% load humanize %}
+
+{% block title %}Momentum Scanner — 9Com{% endblock %}
+
+{% block content %}
+<div class="row align-items-end mb-4">
+    <div class="col-md-8">
+        <h1 class="fw-bold mb-1 text-danger"><i class="fas fa-rocket me-2"></i> Momentum Scanner</h1>
+        <p class="text-muted mb-0">สแกนหาหุ้นที่กำลังเป็นขาขึ้น (Uptrend) ตามหลักการลงทุนแนวหน้าอย่าง Mark Minervini (CAN SLIM)<br>
+        กรองโดยเส้น EMA 150/200 ตัดระดับราคาสูงสุดรอบ 52 สัปดาห์</p>
+    </div>
+    <div class="col-md-4 text-md-end mt-3 mt-md-0">
+        <a href="?scan=true" class="btn btn-premium d-inline-flex align-items-center gap-2" style="background: linear-gradient(135deg, #ef4444, #f97316);">
+            <i class="fas fa-search-dollar"></i> สแกนหุ้น SET100 + MAI (Top 30) ตอนนี้เลย
+        </a>
+    </div>
+</div>
+
+{% if not has_scanned %}
+<div class="card card-premium border-0 text-center py-5">
+    <div class="card-body">
+        <div class="display-3 text-muted mb-3 opacity-25">
+            <i class="fas fa-satellite-dish"></i>
+        </div>
+        <h3 class="text-dark">Ready to Scan</h3>
+        <p class="text-muted mx-auto" style="max-width: 600px;">
+            คลิกปุ่มสแกนด้านบน ระบบจะดึงข้อมูล Historical Date 1 ปีของหุ้นชั้นนำในตลาด แล้วคำนวณเส้น Moving Average เพื่อหาสัญญาณ Uptrend ทันที (อาจใช้เวลาประมวลผลสักครู่)
+        </p>
+    </div>
+</div>
+{% else %}
+
+<div class="row g-4">
+    <!-- SCAN RESULT TABLE -->
+    <div class="col-xl-9">
+        <div class="card card-premium border-0 mb-4 h-100">
+            <div class="card-header bg-white border-bottom p-4">
+                <h5 class="fw-bold mb-0 text-dark d-flex align-items-center gap-2">
+                    <i class="fas fa-list text-danger"></i> รายชื่อหุ้นที่มี Momentum แข็งแกร่ง
+                </h5>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="bg-light text-muted small" style="font-size: 0.85rem;">
+                            <tr>
+                                <th class="ps-4" title="ชื่อย่อประจำหุ้นแต่ละบริษัท">SYMBOL</th>
+                                <th title="กลุ่มอุตสาหกรรม">SECTOR</th>
+                                <th title="Super Score (0-100): คะแนนรวมเทคนิคและปริมาณซื้อขาย (Trend + Momentum + Volume + Money Flow)">SUPER SCORE</th>
+                                <th title="ราคาปัจจุบันบนกระดาน">PRICE</th>
+                                <th title="Relative Strength Index (14): วัดความแข็งแกร่งของราคา">RSI</th>
+                                <th title="Relative Volume: ปริมาณซื้อขายวันนี้เทียบกับค่าเฉลี่ย 20 วัน (> 1.5 คือมีวอลลุ่มเข้าผิดปกติ)">RVOL</th>
+                                <th title="Money Flow Index: วัดการไหลเข้าออกของเงิน (> 50 คือเงินไหลเข้าสุทธิ)">MFI</th>
+                                <th title="ส่วนต่างจาก High 1 ปี">GAP</th>
+                                <th class="text-end pe-4">ACTION</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in candidates %}
+                            <tr>
+                                <td class="ps-4">
+                                    <div class="d-flex align-items-center gap-3">
+                                        <div class="rounded-circle d-flex align-items-center justify-content-center fw-bold" 
+                                             style="width: 40px; height: 40px; background: rgba(239, 68, 68, 0.1); color: #ef4444; font-size: 0.8rem;">
+                                            {{ item.symbol|slice:":3" }}
+                                        </div>
+                                        <h6 class="mb-0 fw-bold">{{ item.symbol }}</h6>
+                                    </div>
+                                </td>
+                                <td>
+                                    <span class="badge bg-light text-dark fw-normal border">{{ item.sector }}</span>
+                                </td>
+                                <td>
+                                    <div class="d-flex align-items-center gap-2">
+                                        <div class="progress flex-grow-1" style="height: 6px; min-width: 60px;">
+                                            <div class="progress-bar {% if item.technical_score >= 80 %}bg-success{% elif item.technical_score >= 50 %}bg-primary{% else %}bg-warning{% endif %}" 
+                                                 role="progressbar" style="width: {{ item.technical_score }}%"></div>
+                                        </div>
+                                        <span class="fw-bold {% if item.technical_score >= 80 %}text-success{% elif item.technical_score >= 50 %}text-primary{% else %}text-warning{% endif %}">
+                                            {{ item.technical_score }}
+                                        </span>
+                                    </div>
+                                </td>
+                                <td>
+                                    <span class="fs-6 fw-bold text-dark">฿{{ item.price|floatformat:2|intcomma }}</span>
+                                </td>
+                                <td>
+                                    <span class="badge {% if item.rsi > 70 %}bg-danger{% elif item.rsi > 60 %}bg-success{% else %}bg-secondary{% endif %} bg-opacity-10 
+                                                 {% if item.rsi > 70 %}text-danger{% elif item.rsi > 60 %}text-success{% else %}text-secondary{% endif %} px-2 py-1">
+                                        {{ item.rsi|floatformat:1 }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <span class="fw-bold {% if item.rvol >= 1.5 %}text-danger{% elif item.rvol >= 1.0 %}text-primary{% else %}text-muted{% endif %}">
+                                        {{ item.rvol|floatformat:1 }}x
+                                    </span>
+                                </td>
+                                <td>
+                                    <span class="badge {% if item.mfi >= 60 %}bg-success{% else %}bg-light text-dark border{% endif %} px-2 py-1">
+                                        {{ item.mfi|floatformat:1 }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <span class="text-danger fw-bold fs-xs"><i class="fas fa-arrow-up me-1"></i>{{ item.upside_to_high|floatformat:1 }}%</span>
+                                </td>
+                                <td class="text-end pe-4">
+                                    <a href="{% url 'stocks:analyze' item.symbol_bk %}" class="btn btn-outline-primary btn-sm rounded-pill px-3" target="_blank">
+                                        เจาะลึก
+                                    </a>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="6" class="text-center py-5 text-muted">
+                                    <i class="fas fa-search fa-2x mb-3 opacity-25 d-block"></i>
+                                    ไม่พบหุ้นที่เข้าเกณฑ์ในช่วงเวลานี้ (สภาวะตลาดอาจไม่เป็นใจ)
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- EXPLANATION SIDEBAR -->
+    <div class="col-xl-3">
+        <div class="card card-premium border-0 h-100">
+            <div class="card-header bg-white border-bottom p-4">
+                <h6 class="fw-bold mb-0 text-dark">
+                    <i class="fas fa-microchip text-primary me-2"></i> Integrated Super Score
+                </h6>
+            </div>
+            <div class="card-body p-4" style="font-size: 0.9rem;">
+                <div class="mb-4">
+                    <h6 class="fw-bold text-dark mb-2"><i class="fas fa-chart-line text-success me-2"></i> 1. Trend Quality (30%)</h6>
+                    <p class="text-muted small mb-0">วัดความเป็นขาขึ้น: ราคาต้องอยู่เหนือ EMA 200 และมีการเรียงตัวของ EMA 50 > 150 > 200</p>
+                </div>
+
+                <div class="mb-4">
+                    <h6 class="fw-bold text-dark mb-2"><i class="fas fa-bolt text-warning me-2"></i> 2. Price Momentum (20%)</h6>
+                    <p class="text-muted small mb-0">ความแรงของราคา: วัดจาก RSI ที่อยู่ในโซน Bullish (60-75) และระยะห่างจาก High เดิมย้อนหลัง 1 ปี</p>
+                </div>
+
+                <div class="mb-4">
+                    <h6 class="fw-bold text-dark mb-2"><i class="fas fa-users text-danger me-2"></i> 3. Relative Volume (30%)</h6>
+                    <p class="text-muted small mb-0">วอลลุ่มผิดปกติ: เทียบปริมาณการซื้อขายวันนี้กับค่าเฉลี่ย 20 วัน ถ้า > 1.5x แปลว่า "มือใหญ่" เริ่มขยับ</p>
+                </div>
+
+                <div class="mb-0">
+                    <h6 class="fw-bold text-dark mb-2"><i class="fas fa-money-bill-wave text-primary me-2"></i> 4. Money Flow (20%)</h6>
+                    <p class="text-muted small mb-0">กระแสเงินไหลเข้า: ใช้ค่า MFI (14) ยืนยันว่าการขึ้นของราคามีเงินสนับสนุนจริง (MFI > 50-60)</p>
+                </div>
+            </div>
+            
+            <div class="card-footer bg-light border-0 p-4 rounded-bottom-4">
+                <span class="d-block text-muted small lh-lg">
+                    <i class="fas fa-shield-alt text-success me-1"></i> <b>Integrated System:</b> ระบบจะคำนวณคะแนนรวม 0-100 เพื่อหาหุ้นที่ "ทิศทางสวย" พร้อมกับ "เงินเข้าจริง" มาให้บนสุดครับ
+                </span>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if candidates and not ai_analysis %}
+<div class="text-center mt-4 mb-5">
+    <a href="?scan=true&analyze=true" class="btn btn-success btn-lg rounded-pill px-5 d-inline-flex align-items-center gap-2 shadow-sm" style="transition: all 0.3s; background: linear-gradient(135deg, #10b981, #059669); border: none;">
+        <i class="fas fa-brain"></i> ให้ AI คัด Superperformance Stock จากรายชื่อนี้
+    </a>
+</div>
+{% endif %}
+
+{% if ai_analysis %}
+<div class="col-12 mt-4" id="ai-analysis-section">
+    <div class="card-premium p-0 border-0 overflow-hidden mb-5">
+        <div class="p-4 border-bottom bg-white d-flex flex-wrap justify-content-between align-items-center gap-3">
+            <h4 class="fw-bold mb-0" style="color: #059669;"><i class="fas fa-magic me-2"></i> AI Insight: Superperformance Selection</h4>
+            <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 px-3 py-2 rounded-pill">
+                <i class="fas fa-robot me-1"></i> วิเคราะห์โดย Gemini
+            </span>
+        </div>
+        
+        <div class="p-4 p-md-5 bg-white analysis-content" id="markdown-content">
+            <!-- Will be rendered by marked.js -->
+        </div>
+        
+        <!-- Hidden input to hold raw markdown from server -->
+        <input type="hidden" id="raw-markdown" value="{{ ai_analysis|escape }}">
+    </div>
+</div>
+{% endif %}
+
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+{% if ai_analysis %}
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        const rawContent = document.getElementById('raw-markdown').value;
+        const targetDiv = document.getElementById('markdown-content');
+        if(rawContent && targetDiv) {
+            targetDiv.innerHTML = marked.parse(rawContent);
+        }
+    });
+</script>
+{% endif %}
+{% endblock %}

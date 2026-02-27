@@ -13,4 +13,5 @@ urlpatterns = [
     path('portfolio/<int:pk>/delete/', views.delete_from_portfolio, name='delete_from_portfolio'),
     path('recommendations/', views.recommendations, name='recommendations'),
     path('macro/', views.macro_economy, name='macro'),
+    path('momentum/', views.momentum_scanner, name='momentum_scanner'),
 ]
