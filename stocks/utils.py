@@ -105,6 +105,12 @@ def analyze_with_ai(symbol, data):
     if current_rsi < 30: rsi_status = "Oversold (RSI < 30)"
     elif current_rsi > 70: rsi_status = "Overbought (RSI > 70)"
 
+    # Resistance & Breakout Analysis
+    fifty_two_week_high = history['High'].max() if not history.empty and 'High' in history.columns else "N/A"
+    recent_resistance = history['High'].tail(20).max() if not history.empty and 'High' in history.columns else "N/A"
+    recent_support = history['Low'].tail(20).min() if not history.empty and 'Low' in history.columns else "N/A"
+    is_breakout = (last_close >= fifty_two_week_high) if isinstance(fifty_two_week_high, (int, float)) else False
+
     # Fundamental Metrics Extraction
     pe_ratio = info.get('trailingPE', 'N/A')
     pb_ratio = info.get('priceToBook', 'N/A')
@@ -163,6 +169,7 @@ def analyze_with_ai(symbol, data):
     - Current Price: {current_price} {info.get('currency', 'USD')}
     - PEG Ratio: {peg_ratio}
     - Analyst Trends: {rec_summary}
+    - Support & Resistance: 52W High={fifty_two_week_high}, 20D Resistance={recent_resistance}, 20D Support (Stop Loss)={recent_support}, Breakout={is_breakout}
     - SMA Trends: Last Close={last_close}, 50 SMA={sma_50}, 200 SMA={sma_200}
     - Momentum: RSI (14)={current_rsi:.2f} ({rsi_status})
     - Volume: Current={last_volume}, 20-Day Avg={avg_volume:.0f} (Ratio: {vol_ratio:.2f}x)
@@ -173,7 +180,7 @@ def analyze_with_ai(symbol, data):
     Please provide a professional analysis in Thai language:
     1. Business Quality Review: วิเคราะห์ความแข็งแกร่งของธุรกิจและ Free Float
     2. Deep Fundamental & Valuation: วิเคราะห์ความคุ้มค่าโดยละเอียด (PE, PBV, ROE, NPM, DE) และประเมิน Economic Profits
-    3. Technical & Momentum: วิเคราะห์แนวโน้มราคา แรงซื้อขาย (Volume) และจุดกลับตัวจาก RSI
+    3. Technical & Momentum: วิเคราะห์แนวโน้มราคา แนวต้าน (Resistance) แนวรับ/จุดตัดขาดทุน (Support/Stop Loss) สัญญาณ Breakout แรงซื้อขาย และ RSI
     4. Strategic Action Plan: คำแนะนำ Buy/Hold/Sell พร้อมเป้าหมายกำไรและจุดตัดขาดทุน
     
     Format in Markdown using 'Sarabun' style tone, professional and concise.

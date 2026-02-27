@@ -544,6 +544,59 @@
                     {% endif %}
                 </div>
             </div>
+            
+            <!-- Status Logs -->
+            <div class="card shadow-sm mt-3">
+                <div class="card-header bg-white d-flex justify-content-between align-items-center py-3">
+                    <h6 class="card-title mb-0"><i class="fas fa-history me-2 text-muted"></i>ประวัติการเปลี่ยนสถานะ</h6>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0" style="font-size: 0.85rem;">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>เวลา</th>
+                                    <th>สถานะเดิม</th>
+                                    <th><i class="fas fa-arrow-right text-muted"></i></th>
+                                    <th>สถานะใหม่</th>
+                                    <th>ผู้ทำรายการ</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for log in project.status_logs.all %}
+                                <tr>
+                                    <td class="text-muted">{{ log.changed_at|date:"d M Y, H:i" }}</td>
+                                    <td>
+                                        {% if log.old_status == 'NEW' %}
+                                            <span class="badge bg-secondary">สร้างใหม่</span>
+                                        {% else %}
+                                            <span class="badge border text-dark">{{ log.get_old_status_display }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td><i class="fas fa-arrow-right text-muted"></i></td>
+                                    <td>
+                                        <span class="badge bg-{{ theme_color|default:'primary' }} {% if theme_color == 'warning' %}text-dark{% endif %}">
+                                            {{ log.get_new_status_display }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        {% if log.changed_by %}
+                                            <i class="fas fa-user-circle me-1 text-muted"></i>{{ log.changed_by.get_full_name|default:log.changed_by.username }}
+                                        {% else %}
+                                            <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="5" class="text-center py-3 text-muted">ยังไม่มีประวัติการเปลี่ยนสถานะ</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 </div>

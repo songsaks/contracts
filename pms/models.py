@@ -131,6 +131,10 @@ class Project(models.Model):
         verbose_name = "โครงการ"
         verbose_name_plural = "โครงการ"
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.__old_status = self.status
+
     def __str__(self):
         return self.name
 
@@ -146,7 +150,36 @@ class Project(models.Model):
             self.closed_at = timezone.now()
         elif self.status not in [self.Status.CLOSED, self.Status.CANCELLED]:
             self.closed_at = None
+            
+        is_new = self.pk is None
+        old_status = getattr(self, '__old_status', self.status)
         super().save(*args, **kwargs)
+        
+        # Log status change
+        try:
+            if getattr(self, '_changed_by_user', None):
+                user = self._changed_by_user
+            else:
+                user = None
+                
+            if not is_new and self.status != old_status:
+                ProjectStatusLog.objects.create(
+                    project=self,
+                    old_status=old_status,
+                    new_status=self.status,
+                    changed_by=user
+                )
+            elif is_new:
+                ProjectStatusLog.objects.create(
+                    project=self,
+                    old_status='NEW',
+                    new_status=self.status,
+                    changed_by=user
+                )
+        except Exception:
+            pass
+            
+        self.__old_status = self.status
 
     @property
     def total_value(self):
@@ -333,6 +366,33 @@ class ProjectFile(models.Model):
                 return f"{size / (1024 * 1024):.1f} MB"
         except Exception:
             return "-"
+
+
+# ===== Project Status Log =====
+class ProjectStatusLog(models.Model):
+    project = models.ForeignKey('Project', on_delete=models.CASCADE, related_name='status_logs', verbose_name="โครงการ")
+    old_status = models.CharField(max_length=20, verbose_name="สถานะเดิม")
+    new_status = models.CharField(max_length=20, verbose_name="สถานะใหม่")
+    changed_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="ผู้ทำการเปลี่ยน")
+    changed_at = models.DateTimeField(auto_now_add=True, verbose_name="เวลาที่เปลี่ยน")
+
+    class Meta:
+        verbose_name = "ประวัติการเปลี่ยนสถานะโครงการ"
+        verbose_name_plural = "ประวัติการเปลี่ยนสถานะโครงการ"
+        ordering = ['-changed_at']
+
+    def __str__(self):
+        return f"{self.project.name}: {self.old_status} -> {self.new_status}"
+        
+    @property
+    def get_old_status_display(self):
+        from .models import Project
+        return dict(Project.Status.choices).get(self.old_status, self.old_status)
+        
+    @property
+    def get_new_status_display(self):
+        from .models import Project
+        return dict(Project.Status.choices).get(self.new_status, self.new_status)
 
 
 # ===== AI Service Queue Models =====
