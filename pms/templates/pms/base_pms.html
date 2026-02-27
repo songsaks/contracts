@@ -260,23 +260,23 @@
                 <ul class="navbar-nav me-auto" style="font-size: 0.8rem;">
                     <li class="nav-item">
                         <a class="nav-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}" href="{% url 'pms:dashboard' %}" title="ภาพรวม">
-                            <i class="fas fa-th-large"></i> <span class="d-none d-xxl-inline">ภาพรวม</span>
+                            <i class="fas fa-th-large"></i> <span class="ms-1">ภาพรวม</span>
                         </a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link {% if request.resolver_match.url_name == 'project_list' %}active{% endif %}" href="{% url 'pms:project_list' %}" title="งาน">
-                            <i class="fas fa-list"></i> <span class="d-none d-xxl-inline">งาน</span>
+                            <i class="fas fa-list"></i> <span class="ms-1">งาน</span>
                         </a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link {% if request.resolver_match.url_name == 'history_list' %}active{% endif %}" href="{% url 'pms:history_list' %}" title="ประวัติ">
-                            <i class="fas fa-history"></i> <span class="d-none d-xxl-inline">ประวัติ</span>
+                            <i class="fas fa-history"></i> <span class="ms-1">ประวัติ</span>
                         </a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link {% if request.resolver_match.url_name == 'requirement_list' %}active{% endif %} d-flex align-items-center gap-1" href="{% url 'pms:requirement_list' %}" title="Leads">
                             <i class="fas fa-microphone-alt"></i>
-                            <span class="d-none d-xxl-inline">Leads</span>
+                            <span class="ms-1">Leads</span>
                             {% if unconverted_leads_count > 0 %}
                             <span class="badge rounded-pill bg-danger lead-badge-pulse" style="font-size: 0.6rem; padding: 0.2em 0.5em;">
                                 {{ unconverted_leads_count }}
@@ -287,7 +287,7 @@
                     <li class="nav-item">
                         <a class="nav-link {% if request.resolver_match.url_name == 'request_list' %}active{% endif %} d-flex align-items-center gap-1" href="{% url 'pms:request_list' %}" title="คำขอ">
                             <i class="fas fa-inbox"></i>
-                            <span class="d-none d-xxl-inline">คำขอ</span>
+                            <span class="ms-1">คำขอ</span>
                             {% if new_requests_count > 0 %}
                             <span class="badge rounded-pill bg-warning text-dark lead-badge-pulse-warning" style="font-size: 0.6rem; padding: 0.2em 0.5em;">
                                 {{ new_requests_count }}
@@ -297,22 +297,22 @@
                     </li>
                     <li class="nav-item">
                         <a class="nav-link {% if request.resolver_match.url_name == 'dispatch' %}active{% endif %}" href="{% url 'pms:dispatch' %}" title="สร้างงานใหม่">
-                            <i class="fas fa-hammer"></i> <span class="d-none d-xxl-inline">สร้างงาน</span>
+                            <i class="fas fa-hammer"></i> <span class="ms-1">สร้างงาน</span>
                         </a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link {% if request.resolver_match.url_name == 'tracking' %}active{% endif %}" href="{% url 'pms:tracking' %}" title="SLA Monitoring">
-                            <i class="fas fa-satellite-dish"></i> <span class="d-none d-xxl-inline">SLA</span>
+                            <i class="fas fa-satellite-dish"></i> <span class="ms-1">SLA</span>
                         </a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link {% if request.resolver_match.url_name == 'service_queue_dashboard' or request.resolver_match.url_name == 'team_messages' or request.resolver_match.url_name == 'team_list' or request.resolver_match.url_name == 'team_create' or request.resolver_match.url_name == 'team_update' %}active{% endif %}" href="{% url 'pms:service_queue_dashboard' %}" title="AI Queue">
-                            <i class="fas fa-robot"></i> <span class="d-none d-xxl-inline">AI Queue</span>
+                            <i class="fas fa-robot"></i> <span class="ms-1">AI Queue</span>
                         </a>
                     </li>
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle" href="#" id="pmsDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false" title="ข้อมูล">
-                            <i class="fas fa-database"></i> <span class="d-none d-xxl-inline">ข้อมูล</span>
+                            <i class="fas fa-database"></i> <span class="ms-1">ข้อมูล</span>
                         </a>
                         <ul class="dropdown-menu border-0 shadow-lg" aria-labelledby="pmsDropdown">
                             <li><a class="dropdown-item" href="{% url 'pms:customer_list' %}"><i class="fas fa-users me-2 text-secondary"></i>ลูกค้า</a></li>
@@ -327,7 +327,7 @@
                 <ul class="navbar-nav ms-auto align-items-center">
                     <li class="nav-item me-2">
                          <a href="/" class="nav-link text-white-50" style="font-size: 0.85rem;">
-                            <i class="fas fa-home me-1"></i><span class="d-none d-lg-inline">หน้าหลัก</span>
+                            <i class="fas fa-home me-1"></i><span class="ms-1">หน้าหลัก</span>
                         </a>
                     </li>
                     {% if user.is_authenticated %}
