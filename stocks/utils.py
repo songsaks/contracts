@@ -34,12 +34,27 @@ def get_stock_data(symbol):
     yq_stats = yq_ticker.key_stats.get(symbol, {})
     yq_recommendations = yq_ticker.recommendation_trend.get(symbol, pd.DataFrame())
     
+    raw_news = ticker.news
+    normalized_news = []
+    if raw_news:
+        for n in raw_news:
+            if 'content' in n:
+                c = n['content']
+                normalized_news.append({
+                    'title': c.get('title', ''),
+                    'link': c.get('clickThroughUrl', {}).get('url', ''),
+                    'publisher': c.get('provider', {}).get('displayName', ''),
+                    'providerPublishTime': c.get('pubDate', ''),
+                })
+            else:
+                normalized_news.append(n)
+                
     return {
         'info': info,
         'history': history,
         'financials': financials,
         'balance_sheet': balance_sheet,
-        'news': ticker.news,
+        'news': normalized_news,
         'yq_data': {
             'summary': yq_summary,
             'profile': yq_profile,
