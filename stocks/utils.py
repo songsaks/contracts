@@ -1,5 +1,5 @@
 import yfinance as yf
-import google.generativeai as genai
+from google import genai
 from django.conf import settings
 from yahooquery import Ticker as YQTicker
 import pandas_ta as ta
@@ -52,35 +52,7 @@ def analyze_with_ai(symbol, data):
     """
     Use Gemini to analyze the collected data.
     """
-    genai.configure(api_key=settings.GEMINI_API_KEY)
-    
-    # Model Selection Logic (Based on available models in the environment)
-    model_names = [
-        'gemini-2.0-flash', 
-        'gemini-flash-latest', 
-        'gemini-pro-latest', 
-        'gemini-1.5-flash', 
-        'gemini-pro'
-    ]
-    model = None
-    last_err = ""
-    for m_name in model_names:
-        try:
-            temp_model = genai.GenerativeModel(m_name)
-            # Try a very simple call to verify availability
-            temp_model.generate_content("ping", generation_config={"max_output_tokens": 1})
-            model = temp_model
-            break
-        except Exception as e:
-            last_err = str(e)
-            continue
-    
-    if not model:
-        # Final fallback
-        try:
-            model = genai.GenerativeModel('gemini-1.5-flash')
-        except:
-            model = genai.GenerativeModel('gemini-pro')
+    client = genai.Client(api_key=settings.GEMINI_API_KEY)
     
     # Prepare data summary
     info = data['info']
@@ -304,7 +276,10 @@ def analyze_with_ai(symbol, data):
     3. DO NOT wrap the output in ```markdown code blocks. Start immediately with the analysis headings.
     """
     
-    response = model.generate_content(prompt)
+    response = client.models.generate_content(
+        model='gemini-2.0-flash',
+        contents=prompt
+    )
     
     # Strip any residual markdown blocks if AI disobeys
     clean_text = response.text
