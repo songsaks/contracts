@@ -137,6 +137,25 @@ def analyze_with_ai(symbol, data):
     free_float = info.get('floatShares', 'N/A')
     div_yield = yq.get('summary', {}).get('dividendYield', info.get('dividendYield', 'N/A'))
     
+    # Optional: thaifin integration for Thai Stocks
+    thaifin_data = ""
+    if symbol.endswith('.BK'):
+        clean_symbol = symbol.replace('.BK', '')
+        try:
+            from thaifin import Stock
+            tf_stock = Stock(clean_symbol)
+            tf_info = tf_stock.info if hasattr(tf_stock, 'info') else {}
+            tf_pe = tf_info.get('pe', 'N/A')
+            tf_pbv = tf_info.get('pbv', 'N/A')
+            tf_div = tf_info.get('dividend_yield', 'N/A')
+            tf_ind_pe = tf_info.get('industry_pe', 'N/A') # Just as an example assumption of their API
+            
+            thaifin_data = f"\n    [Thaifin Local Data] PE: {tf_pe}, PBV: {tf_pbv}, DivYield: {tf_div}, Industry PE: {tf_ind_pe} (Use this for precise Thai market comparison if available)"
+        except ImportError:
+            thaifin_data = "\n    [Thaifin Notice] To get more accurate local Thai data like Industry PE, please install 'thaifin' library."
+        except Exception:
+            pass
+
     # YahooQuery Stats for PEG
     yq_stats = yq.get('stats', {})
     peg_ratio = yq_stats.get('pegRatio', 'N/A')
@@ -156,8 +175,29 @@ def analyze_with_ai(symbol, data):
     - Net Profit Margin: {npm}
     - D/E Ratio: {de_ratio}
     - Free Float: {free_float}
-    - Dividend Yield: {div_yield}
+    - Dividend Yield: {div_yield}{thaifin_data}
     """
+
+    # --- ADVANCED TECHNICALS (Replacing TA-Lib with pandas_ta) ---
+    macd_info = "N/A"
+    bb_info = "N/A"
+    if not history.empty and len(history) >= 26:
+        import pandas_ta as ta
+        # MACD
+        macd = history.ta.macd(fast=12, slow=26, signal=9)
+        if macd is not None and not macd.empty:
+            m_line = macd.iloc[-1, 0]
+            m_hist = macd.iloc[-1, 1]
+            m_sig = macd.iloc[-1, 2]
+            macd_info = f"MACD={m_line:.2f}, Signal={m_sig:.2f}, Hist={m_hist:.2f} ({'Bullish' if m_hist > 0 else 'Bearish'})"
+        
+        # Bollinger Bands
+        bbands = history.ta.bbands(length=20, std=2)
+        if bbands is not None and not bbands.empty:
+            lower = bbands.iloc[-1, 0]
+            mid = bbands.iloc[-1, 1]
+            upper = bbands.iloc[-1, 2]
+            bb_info = f"Lower={lower:.2f}, Mid={mid:.2f}, Upper={upper:.2f} (Price vs Upper/Lower reflects overbought/oversold)"
 
     prompt = f"""
     Analyze the following asset for Trend and Actionable advice: {symbol} ({info.get('longName', 'N/A')})
@@ -172,19 +212,33 @@ def analyze_with_ai(symbol, data):
     - Support & Resistance: 52W High={fifty_two_week_high}, 20D Resistance={recent_resistance}, 20D Support (Stop Loss)={recent_support}, Breakout={is_breakout}
     - SMA Trends: Last Close={last_close}, 50 SMA={sma_50}, 200 SMA={sma_200}
     - Momentum: RSI (14)={current_rsi:.2f} ({rsi_status})
+    - Trend (MACD): {macd_info}
+    - Volatility (Bollinger Bands): {bb_info}
     - Volume: Current={last_volume}, 20-Day Avg={avg_volume:.0f} (Ratio: {vol_ratio:.2f}x)
     
     Business Profile:
     {yq.get('profile', {}).get('longBusinessSummary', 'N/A')[:500]}...
     
     Please provide a professional analysis in Thai language:
-    1. Business Quality Review: วิเคราะห์ความแข็งแกร่งของธุรกิจและ Free Float
-    2. Deep Fundamental & Valuation: วิเคราะห์ความคุ้มค่าโดยละเอียด (PE, PBV, ROE, NPM, DE) และประเมิน Economic Profits
-    3. Technical & Momentum: วิเคราะห์แนวโน้มราคา แนวต้าน (Resistance) แนวรับ/จุดตัดขาดทุน (Support/Stop Loss) สัญญาณ Breakout แรงซื้อขาย และ RSI
+    1. Business Quality Review: วิเคราะห์ธุรกิจ โครงสร้างผู้ถือหุ้น (Free Float) และเทียบความถูก-แพงจากข้อมูล (Industry PE ถ้ามี)
+    2. Deep Fundamental & Valuation: วิเคราะห์ความคุ้มค่า (PE, PBV, ROE, NPM, DE) และกำไรส่วนเกิน
+    3. Advanced Technicals: วิเคราะห์แนวโน้มราคาด้วย MACD, Bollinger Bands, สัญญาณ Breakout, แนวรับ-แนวต้าน และจุดกลับตัว
     4. Strategic Action Plan: คำแนะนำ Buy/Hold/Sell พร้อมเป้าหมายกำไรและจุดตัดขาดทุน
     
     Format in Markdown using 'Sarabun' style tone, professional and concise.
+    IMPORTANT RULES:
+    1. DO NOT include any conversational preamble or outro (e.g. "Here is the analysis...", "Explanation of Choices:"). 
+    2. Output ONLY the raw markdown text.
+    3. DO NOT wrap the output in ```markdown code blocks. Start immediately with the analysis headings.
     """
     
     response = model.generate_content(prompt)
-    return response.text
+    
+    # Strip any residual markdown blocks if AI disobeys
+    clean_text = response.text
+    if clean_text.startswith("```markdown"):
+        clean_text = clean_text[len("```markdown"):].strip()
+    if clean_text.endswith("```"):
+        clean_text = clean_text[:-3].strip()
+        
+    return clean_text
