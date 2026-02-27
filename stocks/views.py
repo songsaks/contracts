@@ -2,7 +2,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import user_passes_test, login_required
 from django.contrib import messages
 from django.conf import settings
-import google.generativeai as genai
+from google import genai
 from .models import Watchlist, AnalysisCache, AssetCategory, Portfolio
 from .utils import get_stock_data, analyze_with_ai
 import yfinance as yf
@@ -226,19 +226,7 @@ def portfolio_list(request):
 
     ai_analysis = None
     if request.GET.get('analyze') == 'true' and items:
-        genai.configure(api_key=settings.GEMINI_API_KEY)
-        model_names = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-pro']
-        model = None
-        for m in model_names:
-            try:
-                temp_model = genai.GenerativeModel(m)
-                temp_model.generate_content("ping", generation_config={"max_output_tokens": 1})
-                model = temp_model
-                break
-            except Exception:
-                continue
-        if not model:
-            model = genai.GenerativeModel('gemini-1.5-flash')
+        client = genai.Client(api_key=settings.GEMINI_API_KEY)
 
         port_data = []
         for it in items:
@@ -331,7 +319,10 @@ def portfolio_list(request):
         3. DO NOT wrap the output in ```markdown code blocks. Start immediately with the analysis headings.
         """
         try:
-            response = model.generate_content(prompt)
+            response = client.models.generate_content(
+                model='gemini-2.0-flash',
+                contents=prompt
+            )
             ai_analysis = response.text
             
             # Strip any residual markdown blocks if AI disobeys
@@ -464,31 +455,7 @@ def recommendations(request):
     # Generate the recommendation report using Gemini
     report_text = None
     if request.GET.get('analyze') == 'true' and stock_previews:
-        genai.configure(api_key=settings.GEMINI_API_KEY)
-        
-        # Dynamic Model Selection (Based on available models in the environment)
-        model_names = [
-            'gemini-2.0-flash', 
-            'gemini-flash-latest', 
-            'gemini-pro-latest', 
-            'gemini-1.5-flash', 
-            'gemini-pro'
-        ]
-        model = None
-        for m_name in model_names:
-            try:
-                temp_model = genai.GenerativeModel(m_name)
-                temp_model.generate_content("ping", generation_config={"max_output_tokens": 1})
-                model = temp_model
-                break
-            except Exception:
-                continue
-        
-        if not model:
-            try:
-                model = genai.GenerativeModel('gemini-1.5-flash')
-            except:
-                model = genai.GenerativeModel('gemini-pro')
+        client = genai.Client(api_key=settings.GEMINI_API_KEY)
         
         data_str = "\n".join([str(s) for s in stock_previews])
         
@@ -511,7 +478,10 @@ def recommendations(request):
         """
         
         try:
-            response = model.generate_content(prompt)
+            response = client.models.generate_content(
+                model='gemini-2.0-flash',
+                contents=prompt
+            )
             report_text = response.text
         except Exception as e:
             report_text = f"ไม่สามารถสร้างรายงานได้ในขณะนี้: {str(e)}"
@@ -571,31 +541,7 @@ def macro_economy(request):
     # AI Analysis for Macro Economy
     analysis_text = None
     if request.GET.get('analyze') == 'true' and data:
-        genai.configure(api_key=settings.GEMINI_API_KEY)
-        
-        # Dynamic Model Selection
-        model_names = [
-            'gemini-2.0-flash', 
-            'gemini-flash-latest', 
-            'gemini-pro-latest', 
-            'gemini-1.5-flash', 
-            'gemini-pro'
-        ]
-        model = None
-        for m_name in model_names:
-            try:
-                temp_model = genai.GenerativeModel(m_name)
-                temp_model.generate_content("ping", generation_config={"max_output_tokens": 1})
-                model = temp_model
-                break
-            except Exception:
-                continue
-        
-        if not model:
-            try:
-                model = genai.GenerativeModel('gemini-1.5-flash')
-            except:
-                model = genai.GenerativeModel('gemini-pro')
+        client = genai.Client(api_key=settings.GEMINI_API_KEY)
 
         data_str = "\n".join([f"{d['name']}: {d['price']:.2f} ({d['change']:+.2f}%)" for d in data])
         prompt = f"""
@@ -612,7 +558,10 @@ def macro_economy(request):
         """
         
         try:
-            response = model.generate_content(prompt)
+            response = client.models.generate_content(
+                model='gemini-2.0-flash',
+                contents=prompt
+            )
             analysis_text = response.text
         except Exception as e:
             analysis_text = f"ไม่สามารถสร้างบทวิเคราะห์ได้ในขณะนี้: {str(e)}"
