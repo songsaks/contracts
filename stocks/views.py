@@ -245,20 +245,100 @@ def portfolio_list(request):
             port_data.append(f"{it['obj'].symbol}: {it['obj'].quantity} units @ {it['obj'].entry_price} (Current: {it['current_price']}, P/L: {it['gain_loss_pct']:.2f}%, RSI: {it['rsi']})")
         port_str = "\n".join(port_data)
         
+        # --- PyPortfolioOpt Integration ---
+        # Get historical data for all symbols to calculate correlation & efficient frontier
+        symbols = [it['obj'].symbol for it in items if it['obj'].quantity > 0]
+        ppo_advice = ""
+        if len(symbols) > 1:
+            try:
+                import pandas as pd
+                from pypfopt import expected_returns, risk_models
+                from pypfopt.efficient_frontier import EfficientFrontier
+
+                # Fetch 1 yr of closing prices for correlation
+                data = yf.download(symbols, period="1y")
+                
+                if isinstance(data.columns, pd.MultiIndex):
+                    data = data['Close']
+                elif 'Close' in data:
+                    data = data[['Close']]
+                else:
+                    data = pd.DataFrame() # Fallback
+
+                # Deal with missing values
+                data = data.dropna(how="all")
+                data = data.ffill().bfill()
+                
+                # Make sure data is not flat (in case of single symbol fallback bug, though handled by len(symbols) > 1)
+                if data.empty or len(data.columns) < 2:
+                    raise ValueError("Not enough overlapping price data to calculate correlation.")
+
+                mu = expected_returns.mean_historical_return(data)
+                S = risk_models.sample_cov(data)
+                
+                ef = EfficientFrontier(mu, S)
+                
+                # Optimise for maximal Sharpe ratio
+                try:
+                    raw_weights = ef.max_sharpe()
+                except Exception as ef_e:
+                    # Fallback to equal weighting if max_sharpe fails (e.g. non-convex/all negative returns)
+                    raw_weights = {sym: 1.0/len(symbols) for sym in symbols}
+                    
+                cleaned_weights = ef.clean_weights()
+                
+                # Compare current weights to optimal weights
+                portfolio_total = sum(it['market_value'] for it in items)
+                current_weights = {it['obj'].symbol: (it['market_value'] / portfolio_total if portfolio_total > 0 else 0) for it in items}
+                
+                ppo_advice += "\n[PyPortfolioOpt Portfolio Optimization (Max Sharpe)]\n"
+                for sym in symbols:
+                    c_weight = current_weights.get(sym, 0) * 100
+                    o_weight = cleaned_weights.get(sym, 0) * 100
+                    action = "Hold"
+                    if o_weight > c_weight + 5: action = "Buy/Increase Weight"
+                    elif o_weight < c_weight - 5: action = "Sell/Reduce Weight"
+                    ppo_advice += f"- {sym}: Current Weight = {c_weight:.1f}%, Optimal Weight = {o_weight:.1f}% -> Model says: {action}\n"
+                
+                try:
+                    perf = ef.portfolio_performance(verbose=False)
+                    ppo_advice += f"\nOptimal Expected Annual Return: {perf[0]*100:.2f}%\n"
+                    ppo_advice += f"Optimal Annual Volatility: {perf[1]*100:.2f}%\n"
+                    ppo_advice += f"Optimal Sharpe Ratio: {perf[2]:.2f}\n"
+                except:
+                    pass
+
+            except ImportError:
+                ppo_advice = f"\n[PyPortfolioOpt] Unable to optimize portfolio: PyPortfolioOpt is not installed.\n"
+            except Exception as e:
+                ppo_advice = f"\n[PyPortfolioOpt] Unable to optimize portfolio due to an error: {str(e)}\n"
+
         prompt = f"""
         You are an expert Stock Portfolio Analyst. The user has the following assets in their portfolio (with Entry Price, Current Price, and Profit/Loss):
         {port_str}
+        
+        {ppo_advice}
 
         Please analyze this portfolio and provide:
-        1. An overall assessment of the portfolio's health, performance, and diversification.
-        2. A brief analysis and clear recommendation for EACH individual asset (e.g., Hold, Buy More, Take Profit, Cut Loss) based on its current P/L, RSI, and market context.
+        1. An overall assessment of the portfolio's health, performance, and diversification based on the Efficient Frontier data provided.
+        2. A brief analysis and clear recommendation for EACH individual asset (e.g., Hold, Buy More, Take Profit, Cut Loss) based on its current P/L, RSI, and Optimal Weights.
         3. Actionable strategic advice on what sectors or types of assets to consider adding next to balance the portfolio.
 
         Format your response beautifully in Markdown using Thai Language (Sarabun professional tone).
+        IMPORTANT RULES:
+        1. DO NOT include any conversational preamble or outro (e.g. "Here is the analysis...", "Explanation of Choices:"). 
+        2. Output ONLY the raw markdown text.
+        3. DO NOT wrap the output in ```markdown code blocks. Start immediately with the analysis headings.
         """
         try:
             response = model.generate_content(prompt)
             ai_analysis = response.text
+            
+            # Strip any residual markdown blocks if AI disobeys
+            if ai_analysis.startswith("```markdown"):
+                ai_analysis = ai_analysis[len("```markdown"):].strip()
+            if ai_analysis.endswith("```"):
+                ai_analysis = ai_analysis[:-3].strip()
         except Exception as e:
             ai_analysis = f"ไม่สามารถวิเคราะห์พอร์ตได้ในขณะนี้: {str(e)}"
 

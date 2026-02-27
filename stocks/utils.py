@@ -178,9 +178,43 @@ def analyze_with_ai(symbol, data):
     - Dividend Yield: {div_yield}{thaifin_data}
     """
 
-    # --- ADVANCED TECHNICALS (Replacing TA-Lib with pandas_ta) ---
+    # --- NEWS SCRAPING FOR SENTIMENT (BeautifulSoup4) ---
+    news_items = data.get('news', [])
+    news_content = ""
+    if news_items:
+        try:
+            import requests
+            from bs4 import BeautifulSoup
+            
+            scraped_texts = []
+            for n in news_items[:3]: # Limit to top 3 news
+                link = n.get('link')
+                title = n.get('title', '')
+                try:
+                    if link:
+                        req = requests.get(link, timeout=3, headers={'User-Agent': 'Mozilla/5.0'})
+                        if req.status_code == 200:
+                            soup = BeautifulSoup(req.text, 'html.parser')
+                            # Try to get paragraphs
+                            ps = soup.find_all('p')
+                            text = ' '.join([p.get_text() for p in ps if len(p.get_text()) > 20])
+                            snippet = text[:600] + '...' if len(text) > 600 else text
+                            if snippet:
+                                scraped_texts.append(f"• Title: {title}\n  Content Snippet: {snippet}")
+                            else:
+                                scraped_texts.append(f"• Title: {title}")
+                except:
+                    scraped_texts.append(f"• Title: {title}")
+            
+            if scraped_texts:
+                news_content = "\nNews & Sentiments:\n" + "\n".join(scraped_texts)
+        except Exception:
+            pass
+
+    # --- ADVANCED TECHNICALS (Replacing TA-Lib with pandas_ta & Custom Patterns) ---
     macd_info = "N/A"
     bb_info = "N/A"
+    pattern_info = "None detected recently"
     if not history.empty and len(history) >= 26:
         import pandas_ta as ta
         # MACD
@@ -199,6 +233,41 @@ def analyze_with_ai(symbol, data):
             upper = bbands.iloc[-1, 2]
             bb_info = f"Lower={lower:.2f}, Mid={mid:.2f}, Upper={upper:.2f} (Price vs Upper/Lower reflects overbought/oversold)"
 
+        # Candlestick Patterns (TA-Lib Alternative)
+        last_3 = history.tail(3)
+        patterns_found = []
+        if len(last_3) == 3:
+            # Current Day
+            o_c, c_c, h_c, l_c = last_3['Open'].iloc[-1], last_3['Close'].iloc[-1], last_3['High'].iloc[-1], last_3['Low'].iloc[-1]
+            # Previous Day
+            o_p, c_p, h_p, l_p = last_3['Open'].iloc[-2], last_3['Close'].iloc[-2], last_3['High'].iloc[-2], last_3['Low'].iloc[-2]
+            
+            body_c = abs(c_c - o_c)
+            range_c = h_c - l_c
+            
+            # 1. Doji
+            if range_c > 0 and (body_c / range_c) < 0.1:
+                patterns_found.append("Doji (Indecision/Reversal)")
+                
+            # 2. Engulfing
+            is_bull_engulf = (c_p < o_p) and (c_c > o_c) and (c_c >= o_p) and (o_c <= c_p)
+            is_bear_engulf = (c_p > o_p) and (c_c < o_c) and (c_c <= o_p) and (o_c >= c_p)
+            if is_bull_engulf: patterns_found.append("Bullish Engulfing (Strong Reversal Up)")
+            if is_bear_engulf: patterns_found.append("Bearish Engulfing (Strong Reversal Down)")
+                
+            # 3. Hammer / Shooting Star
+            if range_c > 0:
+                lower_wick = min(o_c, c_c) - l_c
+                upper_wick = h_c - max(o_c, c_c)
+                if body_c > 0:
+                    if lower_wick / body_c > 2 and upper_wick / body_c < 0.5:
+                        patterns_found.append("Hammer (Potential Bullish Reversal)")
+                    elif upper_wick / body_c > 2 and lower_wick / body_c < 0.5:
+                        patterns_found.append("Shooting Star (Potential Bearish Reversal)")
+                        
+        if patterns_found:
+            pattern_info = ", ".join(patterns_found)
+
     prompt = f"""
     Analyze the following asset for Trend and Actionable advice: {symbol} ({info.get('longName', 'N/A')})
     
@@ -214,16 +283,19 @@ def analyze_with_ai(symbol, data):
     - Momentum: RSI (14)={current_rsi:.2f} ({rsi_status})
     - Trend (MACD): {macd_info}
     - Volatility (Bollinger Bands): {bb_info}
+    - Candlestick Patterns: {pattern_info}
     - Volume: Current={last_volume}, 20-Day Avg={avg_volume:.0f} (Ratio: {vol_ratio:.2f}x)
     
     Business Profile:
     {yq.get('profile', {}).get('longBusinessSummary', 'N/A')[:500]}...
+    {news_content}
     
     Please provide a professional analysis in Thai language:
     1. Business Quality Review: วิเคราะห์ธุรกิจ โครงสร้างผู้ถือหุ้น (Free Float) และเทียบความถูก-แพงจากข้อมูล (Industry PE ถ้ามี)
     2. Deep Fundamental & Valuation: วิเคราะห์ความคุ้มค่า (PE, PBV, ROE, NPM, DE) และกำไรส่วนเกิน
-    3. Advanced Technicals: วิเคราะห์แนวโน้มราคาด้วย MACD, Bollinger Bands, สัญญาณ Breakout, แนวรับ-แนวต้าน และจุดกลับตัว
-    4. Strategic Action Plan: คำแนะนำ Buy/Hold/Sell พร้อมเป้าหมายกำไรและจุดตัดขาดทุน
+    3. Advanced Technicals: วิเคราะห์แนวโน้มราคาด้วย MACD, Bollinger Bands, Price Patterns (Candlesticks), สัญญาณ Breakout, แนวรับ-แนวต้าน
+    4. Sentiment Analysis: วิเคราะห์ทิศทางข่าวสารว่าส่งผลบวกหรือลบต่อราคาหุ้นในระยะสั้น
+    5. Strategic Action Plan: คำแนะนำ Buy/Hold/Sell พร้อมเป้าหมายกำไรและจุดตัดขาดทุน
     
     Format in Markdown using 'Sarabun' style tone, professional and concise.
     IMPORTANT RULES:
