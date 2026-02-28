@@ -135,29 +135,80 @@
 </head>
 <body>
 
-    <nav class="navbar navbar-expand-lg navbar-dark navbar-stocks sticky-top">
+    <nav class="navbar navbar-expand-lg navbar-dark navbar-stocks sticky-top shadow-sm">
         <div class="container">
             <a class="navbar-brand fw-bold d-flex align-items-center gap-2" href="{% url 'stocks:dashboard' %}">
-                <i class="fas fa-chart-line text-info"></i>
-                <span style="letter-spacing: -0.5px;">AI STOCK ANALYST</span>
+                <i class="fas fa-chart-line text-info fs-3"></i>
+                <div class="d-flex flex-column">
+                    <span style="letter-spacing: -0.5px; line-height: 1;">STOCK ANALYST</span>
+                    <span class="text-info small fw-normal" style="font-size: 0.65rem;">POWERED BY AI</span>
+                </div>
             </a>
-            <div class="ms-auto d-flex flex-wrap justify-content-end align-items-center gap-2 gap-md-3 mt-2 mt-lg-0">
-                <span class="text-muted small d-none d-md-inline">สำหรับ Admin เท่านั้น</span>
-                <a href="{% url 'stocks:macro' %}" class="btn btn-outline-success btn-sm rounded-pill px-2 px-md-3" style="font-size: 0.75rem;">
-                   <i class="fas fa-globe"></i><span class="d-none d-sm-inline ms-1">Macro</span>
-                </a>
-                <a href="{% url 'stocks:recommendations' %}" class="btn btn-outline-warning btn-sm rounded-pill px-2 px-md-3" style="font-size: 0.75rem;">
-                   <i class="fas fa-magic"></i><span class="d-none d-sm-inline ms-1">Recommendations</span>
-                </a>
-                <a href="{% url 'stocks:momentum_scanner' %}" class="btn btn-outline-danger btn-sm rounded-pill px-2 px-md-3" style="font-size: 0.75rem;">
-                   <i class="fas fa-rocket"></i><span class="d-none d-sm-inline ms-1">Momentum Scan</span>
-                </a>
-                <a href="{% url 'stocks:portfolio_list' %}" class="btn btn-outline-info btn-sm rounded-pill px-2 px-md-3" style="font-size: 0.75rem;">
-                   <i class="fas fa-wallet"></i><span class="d-none d-sm-inline ms-1">Portfolio</span>
-                </a>
-                <a href="/" class="btn btn-outline-light btn-sm rounded-pill px-2 px-md-3" style="font-size: 0.75rem;">
-                   <i class="fas fa-home"></i><span class="d-none d-sm-inline ms-1">กลับหน้าหลัก</span>
-                </a>
+
+            <button class="navbar-toggler border-0 shadow-none" type="button" data-bs-toggle="collapse" data-bs-target="#stocksNavbar">
+                <i class="fas fa-bars text-white"></i>
+            </button>
+
+            <div class="collapse navbar-collapse" id="stocksNavbar">
+                <ul class="navbar-nav me-auto mb-2 mb-lg-0 ms-lg-4 gap-2">
+                    <li class="nav-item">
+                        <a class="nav-link px-3 py-2 rounded-pill {% if request.resolver_match.url_name == 'dashboard' %}active bg-white bg-opacity-10 text-white{% else %}text-white-50{% endif %}" href="{% url 'stocks:dashboard' %}">
+                            <i class="fas fa-th-large me-1"></i> Dashboard
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link px-3 py-2 rounded-pill {% if request.resolver_match.url_name == 'portfolio_list' %}active bg-white bg-opacity-10 text-white{% else %}text-white-50{% endif %}" href="{% url 'stocks:portfolio_list' %}">
+                            <i class="fas fa-wallet me-1"></i> Portfolio
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link px-3 py-2 rounded-pill {% if request.resolver_match.url_name == 'momentum_scanner' %}active bg-white bg-opacity-10 text-white{% else %}text-white-50{% endif %}" href="{% url 'stocks:momentum_scanner' %}">
+                            <i class="fas fa-rocket me-1"></i> Scanner
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link px-3 py-2 rounded-pill {% if request.resolver_match.url_name == 'recommendations' %}active bg-white bg-opacity-10 text-white{% else %}text-white-50{% endif %}" href="{% url 'stocks:recommendations' %}">
+                            <i class="fas fa-magic me-1"></i> Recommendations
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link px-3 py-2 rounded-pill {% if request.resolver_match.url_name == 'macro' %}active bg-white bg-opacity-10 text-white{% else %}text-white-50{% endif %}" href="{% url 'stocks:macro' %}">
+                            <i class="fas fa-globe me-1"></i> Macro
+                        </a>
+                    </li>
+                </ul>
+
+                <div class="d-flex align-items-center gap-3">
+                    {% if user.is_authenticated %}
+                    <div class="dropdown">
+                        <button class="btn btn-dark border-secondary rounded-pill px-3 py-1 d-flex align-items-center gap-2 dropdown-toggle shadow-sm" type="button" data-bs-toggle="dropdown">
+                            <div class="rounded-circle bg-info d-flex align-items-center justify-content-center" style="width: 24px; height: 24px;">
+                                <i class="fas fa-user text-dark" style="font-size: 0.75rem;"></i>
+                            </div>
+                            <span class="small fw-semibold">{{ user.username }}</span>
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end border-0 shadow-lg p-2 rounded-4 mt-2">
+                            <li class="px-3 py-2 text-muted small fw-bold text-uppercase italic">User Settings</li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li>
+                                <form action="{% url 'logout' %}" method="post" class="px-2">
+                                    {% csrf_token %}
+                                    <button type="submit" class="dropdown-item rounded-3 py-2 text-danger d-flex align-items-center gap-2">
+                                        <i class="fas fa-sign-out-alt"></i> Logout
+                                    </button>
+                                </form>
+                            </li>
+                        </ul>
+                    </div>
+                    {% else %}
+                        <a href="{% url 'login' %}" class="btn btn-outline-info btn-sm rounded-pill px-3">Login</a>
+                        <a href="{% url 'stocks:signup' %}" class="btn btn-info btn-sm rounded-pill px-3 text-dark fw-bold">Sign Up</a>
+                    {% endif %}
+                    
+                    <a href="/" class="btn btn-outline-light btn-sm rounded-circle d-flex align-items-center justify-content-center" style="width: 32px; height: 32px;" title="กลับหน้าหลัก">
+                        <i class="fas fa-home" style="font-size: 0.75rem;"></i>
+                    </a>
+                </div>
             </div>
         </div>
     </nav>

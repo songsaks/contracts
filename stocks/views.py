@@ -1,5 +1,7 @@
 from django.shortcuts import render, redirect, get_object_or_404
-from django.contrib.auth.decorators import user_passes_test, login_required
+from django.contrib.auth.decorators import login_required
+from django.contrib.auth.forms import UserCreationForm
+from django.contrib.auth import login
 from django.contrib import messages
 from django.conf import settings
 from google import genai
@@ -14,11 +16,11 @@ import json
 # Removed custom session for yfinance to let it handle curl_cffi internally
 
 def admin_only(user):
-    return user.is_authenticated and user.is_staff
+    return user.is_authenticated # Changed to allow any user to see their own data
 
-@user_passes_test(admin_only)
+@login_required
 def dashboard(request):
-    watchlist = Watchlist.objects.all()
+    watchlist = Watchlist.objects.filter(user=request.user)
     # Briefly get current price for each
     items = []
     import pandas_ta as ta
@@ -51,7 +53,7 @@ def dashboard(request):
             
     return render(request, 'stocks/dashboard.html', {'items': items, 'categories': AssetCategory.choices})
 
-@user_passes_test(admin_only)
+@login_required
 def analyze(request, symbol):
     try:
         # Stop passing custom session, let yfinance handle its internal logic
@@ -83,8 +85,9 @@ def analyze(request, symbol):
                 except Exception:
                     n['display_time'] = n['providerPublishTime']
 
-        # Cache it? 
+        # Cache it per user
         AnalysisCache.objects.update_or_create(
+            user=request.user,
             symbol=symbol,
             defaults={'analysis_data': analysis_text}
         )
@@ -148,7 +151,7 @@ def analyze(request, symbol):
         messages.error(request, f"Error analyzing {symbol}: {str(e)}")
         return redirect('stocks:dashboard')
 
-@user_passes_test(admin_only)
+@login_required
 def add_to_watchlist(request):
     if request.method == 'POST':
         symbol = request.POST.get('symbol').upper()
@@ -157,6 +160,7 @@ def add_to_watchlist(request):
         
         if symbol:
             Watchlist.objects.get_or_create(
+                user=request.user,
                 symbol=symbol,
                 defaults={'name': name, 'category': category}
             )
@@ -164,17 +168,17 @@ def add_to_watchlist(request):
             
     return redirect('stocks:dashboard')
 
-@user_passes_test(admin_only)
+@login_required
 def delete_from_watchlist(request, pk):
-    item = get_object_or_404(Watchlist, pk=pk)
+    item = get_object_or_404(Watchlist, pk=pk, user=request.user)
     symbol = item.symbol
     item.delete()
     messages.success(request, f"ลบ {symbol} ออกจาก Watchlist แล้ว")
     return redirect('stocks:dashboard')
 
-@user_passes_test(admin_only)
+@login_required
 def portfolio_list(request):
-    portfolio_items = Portfolio.objects.all()
+    portfolio_items = Portfolio.objects.filter(user=request.user)
     items = []
     import pandas_ta as ta
     
@@ -377,7 +381,7 @@ def portfolio_list(request):
     return render(request, 'stocks/portfolio.html', context)
 
 
-@user_passes_test(admin_only)
+@login_required
 def add_to_portfolio(request):
     if request.method == 'POST':
         symbol = request.POST.get('symbol').upper()
@@ -388,6 +392,7 @@ def add_to_portfolio(request):
         
         if symbol:
             Portfolio.objects.update_or_create(
+                user=request.user,
                 symbol=symbol,
                 defaults={
                     'name': name,
@@ -399,14 +404,14 @@ def add_to_portfolio(request):
             messages.success(request, f"เพิ่ม {symbol} เข้าพอร์ตเรียบร้อยแล้ว")
     return redirect('stocks:portfolio_list')
 
-@user_passes_test(admin_only)
+@login_required
 def delete_from_portfolio(request, pk):
-    item = get_object_or_404(Portfolio, pk=pk)
+    item = get_object_or_404(Portfolio, pk=pk, user=request.user)
     symbol = item.symbol
     item.delete()
     messages.success(request, f"ลบ {symbol} ออกจากพอร์ตแล้ว")
     return redirect('stocks:portfolio_list')
-@user_passes_test(admin_only)
+@login_required
 def recommendations(request):
     import random
     from datetime import date
@@ -647,7 +652,7 @@ def macro_economy(request):
     }
     return render(request, 'stocks/macro.html', context)
 
-@user_passes_test(admin_only)
+@login_required
 def momentum_scanner(request):
     """
     Globally scans SET100 roughly matching Mark Minervini Trend Template.
@@ -666,8 +671,8 @@ def momentum_scanner(request):
     
     # We only scan if requested to avoid huge load on every page visit
     if request.method == "POST" or request.GET.get('scan') == 'true':
-        # Clear previous results to start fresh
-        MomentumCandidate.objects.all().delete()
+        # Clear previous results for this user ONLY
+        MomentumCandidate.objects.filter(user=request.user).delete()
         
         import pandas_ta as ta
         for symbol in scan_symbols:
@@ -799,6 +804,7 @@ def momentum_scanner(request):
                         pass
                         
                     obj = MomentumCandidate.objects.create(
+                        user=request.user,
                         symbol=symbol,
                         symbol_bk=f"{symbol}.BK",
                         sector=sector,
@@ -834,15 +840,15 @@ def momentum_scanner(request):
     }
     order_field = valid_sorts.get(sort_by, '-technical_score')
     
-    candidates = MomentumCandidate.objects.all().order_by(order_field)
+    candidates = MomentumCandidate.objects.filter(user=request.user).order_by(order_field)
     
     # Get last scan time from the first candidate if available
-    last_scan = MomentumCandidate.objects.order_by('-scanned_at').first()
+    last_scan = MomentumCandidate.objects.filter(user=request.user).order_by('-scanned_at').first()
     scanned_at = last_scan.scanned_at if last_scan else None
         
     ai_analysis = None
     if candidates and request.GET.get('analyze') == 'true':
-        symbols_list = [c['symbol'] for c in candidates]
+        symbols_list = [c.symbol for c in candidates]
         try:
             client = genai.Client(api_key=settings.GEMINI_API_KEY)
             model_names = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-pro']
@@ -886,3 +892,15 @@ def momentum_scanner(request):
         'has_scanned': request.method == "POST" or request.GET.get('scan') == 'true' or candidates.exists()
     }
     return render(request, 'stocks/momentum.html', context)
+
+def signup(request):
+    if request.method == 'POST':
+        form = UserCreationForm(request.POST)
+        if form.is_valid():
+            user = form.save()
+            login(request, user)
+            messages.success(request, f"ยินดีต้อนรับคุณ {user.username}! ระบบของคุณพร้อมใช้งานแล้ว")
+            return redirect('stocks:dashboard')
+    else:
+        form = UserCreationForm()
+    return render(request, 'registration/signup.html', {'form': form})

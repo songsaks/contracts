@@ -10,7 +10,8 @@ class AssetCategory(models.TextChoices):
     FOREX = 'FOREX', 'Forex'
 
 class Watchlist(models.Model):
-    symbol = models.CharField(max_length=20, unique=True, help_text="e.g. AAPL, BTC-USD, PTT.BK, GC=F")
+    user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
+    symbol = models.CharField(max_length=20, help_text="e.g. AAPL, BTC-USD, PTT.BK, GC=F")
     name = models.CharField(max_length=100, blank=True)
     category = models.CharField(max_length=20, choices=AssetCategory.choices, default=AssetCategory.STOCK)
     is_active = models.BooleanField(default=True)
@@ -20,11 +21,13 @@ class Watchlist(models.Model):
         verbose_name = "Watchlist"
         verbose_name_plural = "Watchlists"
         ordering = ['symbol']
+        unique_together = ('user', 'symbol')
 
     def __str__(self):
         return f"{self.symbol} - {self.name or 'N/A'}"
 
 class AnalysisCache(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
     symbol = models.CharField(max_length=20)
     analysis_data = models.TextField(help_text="JSON or Markdown from AI")
     last_updated = models.DateTimeField(auto_now=True)
@@ -36,7 +39,8 @@ class AnalysisCache(models.Model):
         return f"Analysis: {self.symbol} at {self.last_updated}"
 
 class Portfolio(models.Model):
-    symbol = models.CharField(max_length=20, unique=True)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
+    symbol = models.CharField(max_length=20)
     name = models.CharField(max_length=100, blank=True)
     quantity = models.DecimalField(max_digits=12, decimal_places=4, default=0)
     entry_price = models.DecimalField(max_digits=12, decimal_places=4, default=0)
@@ -47,11 +51,13 @@ class Portfolio(models.Model):
         verbose_name = "Portfolio"
         verbose_name_plural = "Portfolios"
         ordering = ['symbol']
+        unique_together = ('user', 'symbol')
 
     def __str__(self):
         return f"Port: {self.symbol} ({self.quantity})"
 
 class MomentumCandidate(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
     symbol = models.CharField(max_length=20)
     symbol_bk = models.CharField(max_length=30, blank=True)
     sector = models.CharField(max_length=100, default="Unknown")

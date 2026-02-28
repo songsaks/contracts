@@ -14,4 +14,5 @@ urlpatterns = [
     path('recommendations/', views.recommendations, name='recommendations'),
     path('macro/', views.macro_economy, name='macro'),
     path('momentum/', views.momentum_scanner, name='momentum_scanner'),
+    path('signup/', views.signup, name='signup'),
 ]
