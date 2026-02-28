@@ -3,10 +3,15 @@ from django.contrib.auth.decorators import user_passes_test, login_required
 from django.contrib import messages
 from django.conf import settings
 from google import genai
-from .models import Watchlist, AnalysisCache, AssetCategory, Portfolio
+from .models import Watchlist, AnalysisCache, AssetCategory, Portfolio, MomentumCandidate, ScannableSymbol
 from .utils import get_stock_data, analyze_with_ai, calculate_trailing_stop
+from yahooquery import Ticker as YQTicker
+import requests
 import yfinance as yf
 import pandas as pd
+import json
+
+# Removed custom session for yfinance to let it handle curl_cffi internally
 
 def admin_only(user):
     return user.is_authenticated and user.is_staff
@@ -49,6 +54,8 @@ def dashboard(request):
 @user_passes_test(admin_only)
 def analyze(request, symbol):
     try:
+        # Stop passing custom session, let yfinance handle its internal logic
+        ticker = yf.Ticker(symbol)
         data = get_stock_data(symbol)
         analysis_text = analyze_with_ai(symbol, data)
         
@@ -89,7 +96,11 @@ def analyze(request, symbol):
             if current_rsi < 30: rsi_status = "Oversold"
             elif current_rsi > 70: rsi_status = "Overbought"
 
-        info = data['info'].copy()
+        info = data.get('info') or {}
+        if not isinstance(info, dict):
+            info = {}
+            
+        info = info.copy() # Safe copy
         for key in ['returnOnEquity', 'dividendYield', 'profitMargins']:
             if isinstance(info.get(key), (int, float)):
                 info[key] = info[key] * 100
@@ -107,7 +118,7 @@ def analyze(request, symbol):
                 
         if de_calculated is not None:
             info['debtToEquity'] = de_calculated
-        elif isinstance(info.get('debtToEquity'), (int, float)):
+        elif isinstance(info.get('debtToEquity'), (int, float)) if isinstance(info, dict) else False:
             info['debtToEquity'] = info['debtToEquity'] / 100
 
         fifty_two_week_high = history['High'].max() if not history.empty and 'High' in history.columns else None
@@ -365,6 +376,7 @@ def portfolio_list(request):
     }
     return render(request, 'stocks/portfolio.html', context)
 
+
 @user_passes_test(admin_only)
 def add_to_portfolio(request):
     if request.method == 'POST':
@@ -536,8 +548,6 @@ def recommendations(request):
 
 @login_required
 def macro_economy(request):
-    import json
-    
     macro_items = [
         {'id': 'set', 'name': 'SET Index (ดัชนีหุ้นไทย)', 'symbol': '^SET', 'unit': 'Points', 'desc': 'ดัชนีตลาดหลักทรัพย์แห่งประเทศไทย บ่งบอกสภาวะตลาดโดยรวม ถ้าเพิ่มขึ้นแปลว่าเศรษฐกิจ/ตลาดหุ้นไทยดีขึ้น'},
         {'id': 'usdthb', 'name': 'USD/THB (อัตราแลกเปลี่ยนดอลลาร์/บาท)', 'symbol': 'USDTHB=X', 'unit': 'THB', 'desc': 'บาทอ่อนชงดีต่อภาคส่งออกและการท่องเที่ยว แต่อาจทำให้เงินทุนต่างชาติไหลออก'},
@@ -644,36 +654,46 @@ def momentum_scanner(request):
     Requires significant processing time, might be better offloaded in prod,
     but done synchronously here for demonstration.
     """
-    # SET100 + MAI 30 candidates
-    scan_symbols = [
-        # SET100 (Approximate current representation)
-        "ADVANC", "AOT", "AWC", "BBL", "BDMS", "BEM", "BGRIM", "BH", "BJC", "BTS",
-        "CBG", "CENTEL", "CHG", "CK", "CKP", "COM7", "CPALL", "CPF", "CPN", "CRC",
-        "DELTA", "EA", "EGCO", "GLOBAL", "GPSC", "GULF", "HMPRO", "INTUCH", "IRPC", "IVL",
-        "JMART", "JMT", "KBANK", "KCE", "KTB", "KTC", "LH", "MINT", "MTC", "OR",
-        "OSP", "PTT", "PTTEP", "PTTGC", "RATCH", "SAWAD", "SCB", "SCC", "SCGP", "SPALI",
-        "STA", "STARK", "STGT", "TCAP", "TISCO", "TOP", "TRUE", "TTB", "TU", "WHA",
-        "AMATA", "BAM", "BANPU", "BAY", "BCH", "BLA", "BPP", "DOHOME", "FORTH", "GUNKUL",
-        "ICHI", "KEX", "KKP", "MEGA", "ONEE", "PLANB", "PSL", "PTG", "QH", "RBF",
-        "RS", "SABINA", "SINGER", "SIRI", "SPRC", "STEC", "SYNEX", "THANI", "TIDLOR", "TIPH",
-        "TKN", "TLI", "TQM", "TSTH", "TTW", "VGI", "BCP", "NYT",
-
-        # MAI (30 popular representation)
-        "AU", "SPA", "DITTO", "BE8", "BBIK", "IIG", "SABUY", "SECURE", "JDF", "PROEN",
-        "ZIGA", "XPG", "SMD", "TACC", "TMC", "TPCH", "TACC", "FPI", "FSMART", "NDR",
-        "NETBAY", "BIZ", "BROOK", "COLOR", "CHO", "D", "KUN", "MVP", "SE", "UKEM"
-    ]
+    # Load symbols from database
+    scan_symbols = ScannableSymbol.objects.filter(is_active=True).values_list('symbol', flat=True)
     
+    # If DB is empty, use seed list as momentary fallback
+    if not scan_symbols:
+        scan_symbols = ["ADVANC", "AOT", "BBL", "CPALL", "PTT"] # Basic seed
+
     candidates = []
     
     # We only scan if requested to avoid huge load on every page visit
     if request.method == "POST" or request.GET.get('scan') == 'true':
+        # Clear previous results to start fresh
+        MomentumCandidate.objects.all().delete()
+        
         import pandas_ta as ta
         for symbol in scan_symbols:
             try:
+                # Let yfinance handle internal auth
+                print(f"Scanning {symbol}...")
                 df = yf.download(f"{symbol}.BK", period="1y", interval="1d", progress=False)
                 
-                if df.empty:
+                if df is None or df.empty:
+                    print(f"yfinance failed for {symbol}, trying yahooquery...")
+                    try:
+                        yq = YQTicker(f"{symbol}.BK")
+                        df = yq.history(period="1y", interval="1d")
+                        if isinstance(df, pd.DataFrame) and not df.empty:
+                            # yahooquery returns a dataframe with [symbol, date] index. 
+                            df = df.reset_index()
+                            if 'date' in df.columns:
+                                df.set_index('date', inplace=True)
+                            if 'symbol' in df.columns:
+                                df.drop(columns=['symbol'], inplace=True)
+                            # Map columns to match yfinance (Capitalized)
+                            df.rename(columns={'open': 'Open', 'high': 'High', 'low': 'Low', 'close': 'Close', 'volume': 'Volume'}, inplace=True)
+                            print(f"Successfully recovered {symbol} via yahooquery")
+                    except Exception as yqe:
+                        print(f"yahooquery also failed for {symbol}: {yqe}")
+                
+                if df is None or df.empty:
                     continue
                     
                 if isinstance(df.columns, pd.MultiIndex):
@@ -691,7 +711,7 @@ def momentum_scanner(request):
                 
                 # ADX Calculation
                 adx_df = ta.adx(df['High'], df['Low'], df['Close'], length=14)
-                if adx_df is not None:
+                if adx_df is not None and not adx_df.empty:
                     df = pd.concat([df, adx_df], axis=1)
                 
                 # Money Flow Index (MFI)
@@ -743,39 +763,82 @@ def momentum_scanner(request):
                 if mfi_val >= 60: integrated_score += 20
                 elif mfi_val >= 50: integrated_score += 10
 
-                # Base filter (Trend Template)
-                is_uptrend = (current_price > ema150) and (ema150 > ema200)
-                near_high = (current_price >= year_high * 0.70) # Relaxed slightly for better list
+                # Base filter (Relaxed Trend Template)
+                # 1. Price above EMA200 (Essential for long term uptrend)
+                # 2. Within 40% of 52-week high
+                is_uptrend = (current_price > ema200)
+                near_high = (current_price >= year_high * 0.60) 
                 
                 if is_uptrend and near_high:
-                    # Fetching sector only for candidates
+                    print(f"MATCH FOUND: {symbol} (Score: {integrated_score})")
+                    # Fetching sector & fundamentals only for candidates to save time
                     sector = "Unknown"
+                    eps_growth = 0.0
+                    rev_growth = 0.0
+                    fund_bonus = 0
+                    
                     try:
                         ticker = yf.Ticker(f"{symbol}.BK")
-                        sector = ticker.info.get('sector', 'Other')
-                    except:
+                        info = ticker.info
+                        if isinstance(info, dict):
+                            sector = info.get('sector', 'Other')
+                            
+                            eps_growth = float(info.get('earningsQuarterlyGrowth', 0) or 0) * 100
+                            rev_growth = float(info.get('revenueGrowth', 0) or 0) * 100
+                        else:
+                            sector = "N/A"
+                            eps_growth = 0
+                            rev_growth = 0
+                        
+                        # Fundamental Bonus (CAN SLIM Criteria)
+                        if eps_growth >= 20: fund_bonus += 10
+                        if rev_growth >= 10: fund_bonus += 10
+                    except Exception as e:
+                        print(f"Fundamental fetch error for {symbol}: {e}")
                         pass
                         
-                    candidates.append({
-                        'symbol': symbol,
-                        'symbol_bk': f"{symbol}.BK",
-                        'sector': sector,
-                        'price': round(current_price, 2),
-                        'rsi': round(rsi, 2),
-                        'adx': round(adx, 2),
-                        'mfi': round(mfi_val, 2),
-                        'rvol': round(rvol, 2),
-                        'technical_score': int(integrated_score),
-                        'year_high': round(year_high, 2),
-                        'upside_to_high': round(gap_to_high, 2)
-                    })
+                    obj = MomentumCandidate.objects.create(
+                        symbol=symbol,
+                        symbol_bk=f"{symbol}.BK",
+                        sector=sector,
+                        price=round(current_price, 2),
+                        rsi=round(rsi, 2),
+                        adx=round(adx, 2),
+                        mfi=round(mfi_val, 2),
+                        rvol=round(rvol, 2),
+                        eps_growth=round(eps_growth, 2),
+                        rev_growth=round(rev_growth, 2),
+                        technical_score=int(integrated_score + fund_bonus),
+                        year_high=round(year_high, 2),
+                        upside_to_high=round(gap_to_high, 2)
+                    )
+                    candidates.append(obj)
             except Exception as e:
-                print(f"Error scanning {symbol}: {e}")
+                import traceback
+                print(f"!!! Error scanning {symbol}: {str(e)}")
+                # traceback.print_exc()
                 continue
                 
-        # Sort candidates by "technical score" descending (highest score first)
-        candidates.sort(key=lambda x: x['technical_score'], reverse=True)
-                
+    # Define Sorting Logic
+    sort_by = request.GET.get('sort', 'score')
+    valid_sorts = {
+        'symbol': 'symbol',
+        'score': '-technical_score',
+        'price': '-price',
+        'rsi': '-rsi',
+        'rvol': '-rvol',
+        'eps': '-eps_growth',
+        'rev': '-rev_growth',
+        'gap': 'upside_to_high'  # Lower gap is better/tighter
+    }
+    order_field = valid_sorts.get(sort_by, '-technical_score')
+    
+    candidates = MomentumCandidate.objects.all().order_by(order_field)
+    
+    # Get last scan time from the first candidate if available
+    last_scan = MomentumCandidate.objects.order_by('-scanned_at').first()
+    scanned_at = last_scan.scanned_at if last_scan else None
+        
     ai_analysis = None
     if candidates and request.GET.get('analyze') == 'true':
         symbols_list = [c['symbol'] for c in candidates]
@@ -817,6 +880,8 @@ def momentum_scanner(request):
         'title': 'Global Momentum Scanner (CAN SLIM)',
         'candidates': candidates,
         'ai_analysis': ai_analysis,
-        'has_scanned': request.method == "POST" or request.GET.get('scan') == 'true'
+        'scanned_at': scanned_at,
+        'current_sort': sort_by,
+        'has_scanned': request.method == "POST" or request.GET.get('scan') == 'true' or candidates.exists()
     }
     return render(request, 'stocks/momentum.html', context)

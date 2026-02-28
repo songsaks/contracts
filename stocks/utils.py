@@ -1,37 +1,30 @@
+import pandas as pd
+import requests
 import yfinance as yf
 from google import genai
 from django.conf import settings
 from yahooquery import Ticker as YQTicker
 import pandas_ta as ta
-import pandas as pd
+
+# Removed custom session for yfinance to let it handle curl_cffi internally
 
 def calculate_trailing_stop(symbol, current_price, entry_price, highest_price_since_buy=None, percent_trail=3.0):
-    """
-    คำนวณจุด Trailing Stop
-    :param current_price: ราคาปัจจุบันของหุ้น
-    :param entry_price: ราคาต้นทุน
-    :param highest_price_since_buy: ราคาสูงสุดตั้งแต่ซื้อ (ถ้าไม่มีให้ใช้ราคาสูงสุดระหว่างต้นทุนกับราคาปัจจุบัน)
-    :param percent_trail: เปอร์เซ็นต์ที่จะให้ราคาลากตาม (เช่น 3% หรือ 5%)
-    :return: dict ของสถานะและจุด Stop Loss
-    """
     if highest_price_since_buy is None:
         highest_price_since_buy = max(current_price, entry_price) 
     else:
         highest_price_since_buy = max(current_price, entry_price, highest_price_since_buy)
         
-    # คำนวณจุด Stop Loss
     stop_loss_price = highest_price_since_buy * (1 - (percent_trail / 100))
     
-    # 3-level status: Hold, Warning, Sell
     status_code = "HOLD"
-    color_code = "success" # Green
+    color_code = "success" 
     
     if current_price <= stop_loss_price:
         status_code = "SELL (STOP LOSS)"
-        color_code = "danger" # Red
-    elif current_price <= stop_loss_price * 1.01: # Within 1% of stop loss
+        color_code = "danger"
+    elif current_price <= stop_loss_price * 1.01:
         status_code = "WARNING (NEAR STOP LOSS)"
-        color_code = "warning" # Yellow
+        color_code = "warning"
         
     return {
         'symbol': symbol,
@@ -41,14 +34,11 @@ def calculate_trailing_stop(symbol, current_price, entry_price, highest_price_si
         'status': status_code,
         'color': color_code
     }
+
 def get_stock_data(symbol):
-    """
-    Fetch comprehensive data for a symbol using yfinance and yahooquery.
-    """
     ticker = yf.Ticker(symbol)
     yq_ticker = YQTicker(symbol)
     
-    # yfinance data
     info = ticker.info
     history = ticker.history(period="1y")
     financials = ticker.financials
@@ -57,18 +47,18 @@ def get_stock_data(symbol):
     except Exception:
         balance_sheet = None
     
-    # Calculate Technical Indicators (RSI, MACD, etc.) using pandas_ta
     if not history.empty:
         history['RSI'] = ta.rsi(history['Close'], length=14)
         macd = ta.macd(history['Close'])
-        if macd is not None:
+        if macd is not None and not macd.empty:
             history = pd.concat([history, macd], axis=1)
     
-    # yahooquery data (for deeper fundamentals)
-    yq_summary = yq_ticker.summary_detail.get(symbol, {})
-    yq_profile = yq_ticker.asset_profile.get(symbol, {})
-    yq_stats = yq_ticker.key_stats.get(symbol, {})
-    yq_recommendations = yq_ticker.recommendation_trend.get(symbol, pd.DataFrame())
+    yq_summary = yq_ticker.summary_detail.get(symbol, {}) if (yq_ticker.summary_detail and isinstance(yq_ticker.summary_detail, dict) and yq_ticker.summary_detail.get(symbol)) else {}
+    yq_profile = yq_ticker.asset_profile.get(symbol, {}) if (yq_ticker.asset_profile and isinstance(yq_ticker.asset_profile, dict) and yq_ticker.asset_profile.get(symbol)) else {}
+    yq_stats = yq_ticker.key_stats.get(symbol, {}) if (yq_ticker.key_stats and isinstance(yq_ticker.key_stats, dict) and yq_ticker.key_stats.get(symbol)) else {}
+    yq_recommendations = yq_ticker.recommendation_trend.get(symbol, pd.DataFrame()) if (yq_ticker.recommendation_trend is not None and not isinstance(yq_ticker.recommendation_trend, dict)) else pd.DataFrame()
+    if isinstance(yq_ticker.recommendation_trend, dict):
+        yq_recommendations = yq_ticker.recommendation_trend.get(symbol, pd.DataFrame())
     
     raw_news = ticker.news
     normalized_news = []
@@ -100,86 +90,35 @@ def get_stock_data(symbol):
     }
 
 def analyze_with_ai(symbol, data):
-    """
-    Use Gemini to analyze the collected data.
-    """
-    client = genai.Client(api_key=settings.GEMINI_API_KEY)
-    
-    # Model Selection Logic (Fallback chain)
-    model_names = [
-        'gemini-2.0-flash', 
-        'gemini-1.5-flash', 
-        'gemini-1.5-pro',
-        'gemini-pro'
-    ]
-    model_name_to_use = 'gemini-pro'
-    for m_name in model_names:
-        try:
-            client.models.generate_content(
-                model=m_name,
-                contents='ping'
-            )
-            model_name_to_use = m_name
-            break
-        except Exception:
-            continue
-    
-    # Prepare data summary
-    info = data['info']
-    history = data['history']
+    info = data.get('info', {})
     yq = data.get('yq_data', {})
+    history = data.get('history', pd.DataFrame())
+    news = data.get('news', [])
     
-    current_price = info.get('currentPrice') or info.get('regularMarketPrice')
-    
-    # Technical Summary
-    last_close = history['Close'].iloc[-1] if not history.empty else 0
-    sma_50 = history['Close'].rolling(window=50).mean().iloc[-1] if len(history) >= 50 else 0
-    sma_200 = history['Close'].rolling(window=200).mean().iloc[-1] if len(history) >= 200 else 0
-    
-    # Volume Analysis
-    avg_volume = history['Volume'].tail(20).mean() if len(history) >= 20 else 0
-    last_volume = history['Volume'].iloc[-1] if not history.empty else 0
-    vol_ratio = last_volume / avg_volume if avg_volume > 0 else 1
-    
-    # RSI Analysis
-    current_rsi = history['RSI'].iloc[-1] if 'RSI' in history.columns and len(history) > 0 else 0
-    rsi_status = "Neutral"
-    if current_rsi < 30: rsi_status = "Oversold (RSI < 30)"
-    elif current_rsi > 70: rsi_status = "Overbought (RSI > 70)"
-
-    # Resistance & Breakout Analysis
-    fifty_two_week_high = history['High'].max() if not history.empty and 'High' in history.columns else "N/A"
-    recent_resistance = history['High'].tail(20).max() if not history.empty and 'High' in history.columns else "N/A"
-    recent_support = history['Low'].tail(20).min() if not history.empty and 'Low' in history.columns else "N/A"
-    is_breakout = (last_close >= fifty_two_week_high) if isinstance(fifty_two_week_high, (int, float)) else False
-
-    # Fundamental Metrics Extraction
     pe_ratio = info.get('trailingPE', 'N/A')
     pb_ratio = info.get('priceToBook', 'N/A')
-    roe = info.get('returnOnEquity', 'N/A')
-    npm = info.get('profitMargins', 'N/A')
+    roe = f"{(info.get('returnOnEquity', 0) or 0) * 100:.2f}%" if info.get('returnOnEquity') else 'N/A'
+    npm = f"{(info.get('profitMargins', 0) or 0) * 100:.2f}%" if info.get('profitMargins') else 'N/A'
     
-    bs = data.get('balance_sheet')
     de_ratio = 'N/A'
-    if bs is not None and not bs.empty:
-        try:
-            col = bs.columns[0]
-            tot_liab = bs.loc['Total Liabilities Net Minority Interest', col] if 'Total Liabilities Net Minority Interest' in bs.index else bs.loc['Total Liabilities', col]
-            tot_eq = bs.loc['Stockholders Equity', col] if 'Stockholders Equity' in bs.index else bs.loc['Total Equity Gross Minority Interest', col]
-            de_ratio = tot_liab / tot_eq
-        except Exception:
-            pass
-            
-    if de_ratio == 'N/A':
-        de_ratio = info.get('debtToEquity', 'N/A')
-        if isinstance(de_ratio, (int, float)): de_ratio = de_ratio / 100
-    elif isinstance(de_ratio, (int, float)):
-        de_ratio = round(de_ratio, 2)
-        
-    free_float = info.get('floatShares', 'N/A')
-    div_yield = yq.get('summary', {}).get('dividendYield', info.get('dividendYield', 'N/A'))
+    try:
+        bs = data.get('balance_sheet')
+        if bs is not None and not bs.empty:
+            if isinstance(bs.columns, pd.MultiIndex):
+                bs.columns = bs.columns.droplevel(1)
+            latest_bs = bs.iloc[:, 0]
+            total_debt = latest_bs.get('Total Debt', latest_bs.get('Long Term Debt', 0))
+            equity = latest_bs.get('Total Stockholder Equity', latest_bs.get('Common Stock Equity', 0))
+            if equity and equity != 0:
+                de_ratio = round(total_debt / equity, 2)
+    except: pass
     
-    # Optional: thaifin integration for Thai Stocks
+    free_float = info.get('floatShares', 'N/A')
+    
+    yq_summary_dict = yq.get('summary', {}) if isinstance(yq, dict) else {}
+    if not isinstance(yq_summary_dict, dict): yq_summary_dict = {}
+    div_yield = yq_summary_dict.get('dividendYield', info.get('dividendYield', 'N/A'))
+    
     thaifin_data = ""
     if symbol.endswith('.BK'):
         clean_symbol = symbol.replace('.BK', '')
@@ -187,29 +126,37 @@ def analyze_with_ai(symbol, data):
             from thaifin import Stock
             tf_stock = Stock(clean_symbol)
             tf_info = tf_stock.info if hasattr(tf_stock, 'info') else {}
-            tf_pe = tf_info.get('pe', 'N/A')
-            tf_pbv = tf_info.get('pbv', 'N/A')
-            tf_div = tf_info.get('dividend_yield', 'N/A')
-            tf_ind_pe = tf_info.get('industry_pe', 'N/A') # Just as an example assumption of their API
-            
-            thaifin_data = f"\n    [Thaifin Local Data] PE: {tf_pe}, PBV: {tf_pbv}, DivYield: {tf_div}, Industry PE: {tf_ind_pe} (Use this for precise Thai market comparison if available)"
-        except ImportError:
-            thaifin_data = "\n    [Thaifin Notice] To get more accurate local Thai data like Industry PE, please install 'thaifin' library."
-        except Exception:
-            pass
+            if isinstance(tf_info, dict):
+                thaifin_data = f"\n    [Thaifin Local Data] PE: {tf_info.get('pe', 'N/A')}, PBV: {tf_info.get('pbv', 'N/A')}, DivYield: {tf_info.get('dividend_yield', 'N/A')}, Industry PE: {tf_info.get('industry_pe', 'N/A')}"
+        except: pass
 
-    # YahooQuery Stats for PEG
-    yq_stats = yq.get('stats', {})
-    peg_ratio = yq_stats.get('pegRatio', 'N/A')
+    yq_stats_dict = yq.get('stats', {}) if isinstance(yq, dict) else {}
+    if not isinstance(yq_stats_dict, dict): yq_stats_dict = {}
+    peg_ratio = yq_stats_dict.get('pegRatio', 'N/A')
     
-    # Analyst Trends
-    yq_recommendations = yq.get('recommendations', pd.DataFrame())
     rec_summary = "N/A"
-    if isinstance(yq_recommendations, pd.DataFrame) and not yq_recommendations.empty and 'strongBuy' in yq_recommendations.columns:
-        latest_rec = yq_recommendations.iloc[-1]
-        rec_summary = f"Strong Buy: {latest_rec.get('strongBuy', 0)}, Buy: {latest_rec.get('buy', 0)}, Hold: {latest_rec.get('hold', 0)}, Sell: {latest_rec.get('sell', 0)}"
+    try:
+        yq_recommendations = yq.get('recommendations', pd.DataFrame())
+        if isinstance(yq_recommendations, pd.DataFrame) and not yq_recommendations.empty:
+            latest_rec = yq_recommendations.iloc[-1]
+            rec_summary = f"Strong Buy: {latest_rec.get('strongBuy', 0)}, Buy: {latest_rec.get('buy', 0)}, Hold: {latest_rec.get('hold', 0)}, Sell: {latest_rec.get('sell', 0)}"
+    except: pass
 
-    # Financial context formatting
+    management_context = ""
+    try:
+        officers = info.get('companyOfficers', []) if isinstance(info, dict) else []
+        if officers and isinstance(officers, list):
+            management_context = "\nKey Executive Officers:\n"
+            for off in officers[:5]:
+                if isinstance(off, dict):
+                    management_context += f"- {off.get('name')} ({off.get('title')})\n"
+        
+        audit_risk = info.get('auditRisk', 'N/A') if isinstance(info, dict) else 'N/A'
+        board_risk = info.get('boardRisk', 'N/A') if isinstance(info, dict) else 'N/A'
+        if audit_risk != 'N/A':
+            management_context += f"\nRisk Scores (Governance): Audit Risk={audit_risk}, Board Risk={board_risk} (Scale 1-10)\n"
+    except: pass
+
     fin_context = f"""
     - P/E Ratio: {pe_ratio}
     - P/BV Ratio: {pb_ratio}
@@ -219,143 +166,89 @@ def analyze_with_ai(symbol, data):
     - Free Float: {free_float}
     - Dividend Yield: {div_yield}{thaifin_data}
     """
-
-    # --- NEWS SCRAPING FOR SENTIMENT (BeautifulSoup4) ---
-    news_items = data.get('news', [])
-    news_content = ""
-    if news_items:
-        try:
-            import requests
-            from bs4 import BeautifulSoup
-            
-            scraped_texts = []
-            for n in news_items[:3]: # Limit to top 3 news
-                link = n.get('link')
-                title = n.get('title', '')
-                try:
-                    if link:
-                        req = requests.get(link, timeout=3, headers={'User-Agent': 'Mozilla/5.0'})
-                        if req.status_code == 200:
-                            soup = BeautifulSoup(req.text, 'html.parser')
-                            # Try to get paragraphs
-                            ps = soup.find_all('p')
-                            text = ' '.join([p.get_text() for p in ps if len(p.get_text()) > 20])
-                            snippet = text[:600] + '...' if len(text) > 600 else text
-                            if snippet:
-                                scraped_texts.append(f"• Title: {title}\n  Content Snippet: {snippet}")
-                            else:
-                                scraped_texts.append(f"• Title: {title}")
-                except:
-                    scraped_texts.append(f"• Title: {title}")
-            
-            if scraped_texts:
-                news_content = "\nNews & Sentiments:\n" + "\n".join(scraped_texts)
-        except Exception:
-            pass
-
-    # --- ADVANCED TECHNICALS (Replacing TA-Lib with pandas_ta & Custom Patterns) ---
-    macd_info = "N/A"
-    bb_info = "N/A"
-    pattern_info = "None detected recently"
-    if not history.empty and len(history) >= 26:
-        import pandas_ta as ta
-        # MACD
-        macd = history.ta.macd(fast=12, slow=26, signal=9)
-        if macd is not None and not macd.empty:
-            m_line = macd.iloc[-1, 0]
-            m_hist = macd.iloc[-1, 1]
-            m_sig = macd.iloc[-1, 2]
-            macd_info = f"MACD={m_line:.2f}, Signal={m_sig:.2f}, Hist={m_hist:.2f} ({'Bullish' if m_hist > 0 else 'Bearish'})"
-        
-        # Bollinger Bands
-        bbands = history.ta.bbands(length=20, std=2)
-        if bbands is not None and not bbands.empty:
-            lower = bbands.iloc[-1, 0]
-            mid = bbands.iloc[-1, 1]
-            upper = bbands.iloc[-1, 2]
-            bb_info = f"Lower={lower:.2f}, Mid={mid:.2f}, Upper={upper:.2f} (Price vs Upper/Lower reflects overbought/oversold)"
-
-        # Candlestick Patterns (TA-Lib Alternative)
-        last_3 = history.tail(3)
-        patterns_found = []
-        if len(last_3) == 3:
-            # Current Day
-            o_c, c_c, h_c, l_c = last_3['Open'].iloc[-1], last_3['Close'].iloc[-1], last_3['High'].iloc[-1], last_3['Low'].iloc[-1]
-            # Previous Day
-            o_p, c_p, h_p, l_p = last_3['Open'].iloc[-2], last_3['Close'].iloc[-2], last_3['High'].iloc[-2], last_3['Low'].iloc[-2]
-            
-            body_c = abs(c_c - o_c)
-            range_c = h_c - l_c
-            
-            # 1. Doji
-            if range_c > 0 and (body_c / range_c) < 0.1:
-                patterns_found.append("Doji (Indecision/Reversal)")
-                
-            # 2. Engulfing
-            is_bull_engulf = (c_p < o_p) and (c_c > o_c) and (c_c >= o_p) and (o_c <= c_p)
-            is_bear_engulf = (c_p > o_p) and (c_c < o_c) and (c_c <= o_p) and (o_c >= c_p)
-            if is_bull_engulf: patterns_found.append("Bullish Engulfing (Strong Reversal Up)")
-            if is_bear_engulf: patterns_found.append("Bearish Engulfing (Strong Reversal Down)")
-                
-            # 3. Hammer / Shooting Star
-            if range_c > 0:
-                lower_wick = min(o_c, c_c) - l_c
-                upper_wick = h_c - max(o_c, c_c)
-                if body_c > 0:
-                    if lower_wick / body_c > 2 and upper_wick / body_c < 0.5:
-                        patterns_found.append("Hammer (Potential Bullish Reversal)")
-                    elif upper_wick / body_c > 2 and lower_wick / body_c < 0.5:
-                        patterns_found.append("Shooting Star (Potential Bearish Reversal)")
-                        
-        if patterns_found:
-            pattern_info = ", ".join(patterns_found)
-
-    prompt = f"""
-    Analyze the following asset for Trend and Actionable advice: {symbol} ({info.get('longName', 'N/A')})
     
-    Financial Metrics (Fundamental):
-    {fin_context}
-
-    Market Data Context & Technicals:
-    - Current Price: {current_price} {info.get('currency', 'USD')}
-    - PEG Ratio: {peg_ratio}
-    - Analyst Trends: {rec_summary}
-    - Support & Resistance: 52W High={fifty_two_week_high}, 20D Resistance={recent_resistance}, 20D Support (Stop Loss)={recent_support}, Breakout={is_breakout}
-    - SMA Trends: Last Close={last_close}, 50 SMA={sma_50}, 200 SMA={sma_200}
-    - Momentum: RSI (14)={current_rsi:.2f} ({rsi_status})
-    - Trend (MACD): {macd_info}
-    - Volatility (Bollinger Bands): {bb_info}
-    - Candlestick Patterns: {pattern_info}
+    last_price = history['Close'].iloc[-1] if not history.empty else 0
+    price_change = ((last_price - history['Close'].iloc[-2]) / history['Close'].iloc[-2] * 100) if not history.empty and len(history) > 1 else 0
+    last_volume = history['Volume'].iloc[-1] if not history.empty else 0
+    avg_volume = history['Volume'].mean() if not history.empty else 1
+    vol_ratio = last_volume / avg_volume
+    
+    rsi = history['RSI'].iloc[-1] if 'RSI' in history.columns else 'N/A'
+    macd_val = history['MACD_12_26_9'].iloc[-1] if 'MACD_12_26_9' in history.columns else 'N/A'
+    macd_sig = history['MACDs_12_26_9'].iloc[-1] if 'MACDs_12_26_9' in history.columns else 'N/A'
+    
+    news_content = "\nRecent Headlines:\n"
+    for n in news[:5]:
+        news_content += f"- {n.get('title')} ({n.get('publisher')})\n"
+    
+    prompt = f"""
+    Analyze the stock {symbol} for an investor using the following data:
+    
+    Financial Metrics:{fin_context}
+    Analyst View: {rec_summary}
+    PEG Ratio: {peg_ratio}
+    
+    Technical Snapshot:
+    - Current Price: {last_price:.2f} ({price_change:+.2f}%)
+    - RSI(14): {rsi}
+    - MACD: {macd_val} (Signal: {macd_sig})
     - Volume: Current={last_volume}, 20-Day Avg={avg_volume:.0f} (Ratio: {vol_ratio:.2f}x)
     
-    Business Profile:
-    {yq.get('profile', {}).get('longBusinessSummary', 'N/A')[:500]}...
+    Business Profile & Management:
+    {yq.get('profile', {}).get('longBusinessSummary', 'N/A')[:500] if (isinstance(yq, dict) and isinstance(yq.get('profile'), dict)) else 'N/A'}...
+    {management_context}
+    
     {news_content}
     
     Please provide a professional analysis in Thai language:
-    1. Business Quality Review: วิเคราะห์ธุรกิจ โครงสร้างผู้ถือหุ้น (Free Float) และเทียบความถูก-แพงจากข้อมูล (Industry PE ถ้ามี)
-    2. Deep Fundamental & Valuation: วิเคราะห์ความคุ้มค่า (PE, PBV, ROE, NPM, DE) และกำไรส่วนเกิน
-    3. Advanced Technicals: วิเคราะห์แนวโน้มราคาด้วย MACD, Bollinger Bands, Price Patterns (Candlesticks), สัญญาณ Breakout, แนวรับ-แนวต้าน
-    4. Sentiment Analysis: วิเคราะห์ทิศทางข่าวสารว่าส่งผลบวกหรือลบต่อราคาหุ้นในระยะสั้น
-    5. Strategic Action Plan: คำแนะนำ Buy/Hold/Sell พร้อมเป้าหมายกำไรและจุดตัดขาดทุน
+    1. Business Quality & Management Review: วิเคราะห์ธุรกิจ และคุณภาพผู้บริหาร
+    2. Deep Fundamental & Valuation: วิเคราะห์ความคุ้มค่า
+    3. Advanced Technicals: วิเคราะห์แนวโน้มราคา
+    4. Sentiment Analysis: วิเคราะห์ทิศทางข่าวสาร
+    5. Strategic Action Plan: คำแนะนำ Buy/Hold/Sell
     
-    Format in Markdown using 'Sarabun' style tone, professional and concise.
-    IMPORTANT RULES:
-    1. DO NOT include any conversational preamble or outro (e.g. "Here is the analysis...", "Explanation of Choices:"). 
-    2. Output ONLY the raw markdown text.
-    3. DO NOT wrap the output in ```markdown code blocks. Start immediately with the analysis headings.
+    Format in Markdown for professional web report. Output ONLY raw markdown.
     """
     
-    response = client.models.generate_content(
-        model=model_name_to_use,
-        contents=prompt
-    )
+    try:
+        client = genai.Client(api_key=settings.GEMINI_API_KEY)
+        response = client.models.generate_content(model='gemini-2.0-flash', contents=prompt)
+        clean_text = response.text
+        if clean_text.startswith("```markdown"): clean_text = clean_text[len("```markdown"):].strip()
+        if clean_text.endswith("```"): clean_text = clean_text[:-3].strip()
+        return clean_text
+    except Exception as e:
+        return f"Error analyzing data with AI: {str(e)}"
+
+def refresh_set100_symbols():
+    """
+    Refreshes the ScannableSymbol database with current SET100 and MAI stocks.
+    """
+    from .models import ScannableSymbol
     
-    # Strip any residual markdown blocks if AI disobeys
-    clean_text = response.text
-    if clean_text.startswith("```markdown"):
-        clean_text = clean_text[len("```markdown"):].strip()
-    if clean_text.endswith("```"):
-        clean_text = clean_text[:-3].strip()
-        
-    return clean_text
+    # Seed/Fallback list (Current SET100 + popular MAI)
+    default_symbols = [
+        "ADVANC", "AOT", "AWC", "BBL", "BDMS", "BEM", "BGRIM", "BH", "BJC", "BTS",
+        "CBG", "CENTEL", "CHG", "CK", "CKP", "COM7", "CPALL", "CPF", "CPN", "CRC",
+        "DELTA", "EA", "EGCO", "GLOBAL", "GPSC", "GULF", "HMPRO", "IRPC", "IVL",
+        "JMART", "JMT", "KBANK", "KCE", "KTB", "KTC", "LH", "MINT", "MTC", "OR",
+        "OSP", "PTT", "PTTEP", "PTTGC", "RATCH", "SAWAD", "SCB", "SCC", "SCGP", "SPALI",
+        "STA", "STGT", "TCAP", "TISCO", "TOP", "TRUE", "TTB", "TU", "WHA",
+        "AMATA", "BAM", "BANPU", "BAY", "BCH", "BLA", "BPP", "DOHOME", "FORTH", "GUNKUL",
+        "ICHI", "KEX", "KKP", "MEGA", "ONEE", "PLANB", "PSL", "PTG", "QH", "RBF",
+        "RS", "SABINA", "SINGER", "SIRI", "SPRC", "SYNEX", "THANI", "TIDLOR", "TIPH",
+        "TKN", "TLI", "TQM", "TSTH", "TTW", "VGI", "BCP", "NYT",
+
+        "AU", "SPA", "DITTO", "BE8", "BBIK", "IIG", "SABUY", "SECURE", "JDF", "PROEN",
+        "ZIGA", "XPG", "SMD", "TACC", "TMC", "TPCH", "FPI", "FSMART", "NDR",
+        "NETBAY", "BIZ", "BROOK", "COLOR", "CHO", "D", "KUN", "MVP", "SE", "UKEM"
+    ]
+    
+    # Update Database: ensures these exist in the database for the scanner to pull from
+    for sym in default_symbols:
+        ScannableSymbol.objects.update_or_create(
+            symbol=sym,
+            defaults={'index_name': 'SET100+MAI', 'is_active': True}
+        )
+    
+    print(f"Refreshed {len(default_symbols)} scannable symbols in database.")

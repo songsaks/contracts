@@ -36,23 +36,31 @@
     <div class="col-xl-9">
         <div class="card card-premium border-0 mb-4 h-100">
             <div class="card-header bg-white border-bottom p-4">
-                <h5 class="fw-bold mb-0 text-dark d-flex align-items-center gap-2">
-                    <i class="fas fa-list text-danger"></i> รายชื่อหุ้นที่มี Momentum แข็งแกร่ง
-                </h5>
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0 fw-bold d-flex align-items-center gap-2">
+                        <i class="fas fa-list text-danger"></i> รายชื่อหุ้นที่มี Momentum แข็งแกร่ง
+                    </h5>
+                    {% if scanned_at %}
+                    <span class="badge bg-light text-muted border fw-normal">
+                        <i class="fas fa-clock me-1"></i> ข้อมูลล่าสุดเมื่อ: {{ scanned_at|date:"d/m/Y H:i" }}
+                    </span>
+                    {% endif %}
+                </div>
             </div>
             <div class="card-body p-0">
                 <div class="table-responsive">
                     <table class="table table-hover align-middle mb-0">
                         <thead class="bg-light text-muted small" style="font-size: 0.85rem;">
                             <tr>
-                                <th class="ps-4" title="ชื่อย่อประจำหุ้นแต่ละบริษัท">SYMBOL</th>
-                                <th title="กลุ่มอุตสาหกรรม">SECTOR</th>
-                                <th title="Super Score (0-100): คะแนนรวมเทคนิคและปริมาณซื้อขาย (Trend + Momentum + Volume + Money Flow)">SUPER SCORE</th>
-                                <th title="ราคาปัจจุบันบนกระดาน">PRICE</th>
-                                <th title="Relative Strength Index (14): วัดความแข็งแกร่งของราคา">RSI</th>
-                                <th title="Relative Volume: ปริมาณซื้อขายวันนี้เทียบกับค่าเฉลี่ย 20 วัน (> 1.5 คือมีวอลลุ่มเข้าผิดปกติ)">RVOL</th>
-                                <th title="Money Flow Index: วัดการไหลเข้าออกของเงิน (> 50 คือเงินไหลเข้าสุทธิ)">MFI</th>
-                                <th title="ส่วนต่างจาก High 1 ปี">GAP</th>
+                                <th class="ps-4"><a href="?sort=symbol" class="text-decoration-none text-muted">SYMBOL {% if current_sort == 'symbol' %}<i class="fas fa-sort-alpha-down text-primary"></i>{% endif %}</a></th>
+                                <th><a href="?sort=sector" class="text-decoration-none text-muted">SECTOR</a></th>
+                                <th><a href="?sort=score" class="text-decoration-none text-muted">SUPER SCORE {% if current_sort == 'score' or not current_sort %}<i class="fas fa-arrow-down text-danger"></i>{% endif %}</a></th>
+                                <th><a href="?sort=price" class="text-decoration-none text-muted">PRICE</a></th>
+                                <th><a href="?sort=rsi" class="text-decoration-none text-muted">RSI</a></th>
+                                <th><a href="?sort=rvol" class="text-decoration-none text-muted">RVOL</a></th>
+                                <th><a href="?sort=eps" class="text-decoration-none text-muted">EPS Q</a></th>
+                                <th><a href="?sort=rev" class="text-decoration-none text-muted">REV %</a></th>
+                                <th><a href="?sort=gap" class="text-decoration-none text-muted">GAP</a></th>
                                 <th class="text-end pe-4">ACTION</th>
                             </tr>
                         </thead>
@@ -97,8 +105,13 @@
                                     </span>
                                 </td>
                                 <td>
-                                    <span class="badge {% if item.mfi >= 60 %}bg-success{% else %}bg-light text-dark border{% endif %} px-2 py-1">
-                                        {{ item.mfi|floatformat:1 }}
+                                    <span class="{% if item.eps_growth >= 20 %}text-success fw-bold{% else %}text-muted{% endif %}">
+                                        {{ item.eps_growth|floatformat:1 }}%
+                                    </span>
+                                </td>
+                                <td>
+                                    <span class="{% if item.rev_growth >= 10 %}text-primary fw-bold{% else %}text-muted{% endif %}">
+                                        {{ item.rev_growth|floatformat:1 }}%
                                     </span>
                                 </td>
                                 <td>
@@ -112,7 +125,7 @@
                             </tr>
                             {% empty %}
                             <tr>
-                                <td colspan="6" class="text-center py-5 text-muted">
+                                <td colspan="10" class="text-center py-5 text-muted">
                                     <i class="fas fa-search fa-2x mb-3 opacity-25 d-block"></i>
                                     ไม่พบหุ้นที่เข้าเกณฑ์ในช่วงเวลานี้ (สภาวะตลาดอาจไม่เป็นใจ)
                                 </td>
@@ -127,41 +140,80 @@
 
     <!-- EXPLANATION SIDEBAR -->
     <div class="col-xl-3">
-        <div class="card card-premium border-0 h-100">
+        <!-- Part 1: Methodology -->
+        <div class="card card-premium border-0 mb-4 shadow-sm" style="border-radius: 1.25rem;">
             <div class="card-header bg-white border-bottom p-4">
-                <h6 class="fw-bold mb-0 text-dark">
-                    <i class="fas fa-microchip text-primary me-2"></i> Integrated Super Score
+                <h6 class="fw-bold mb-0 text-dark d-flex align-items-center">
+                    <div class="bg-primary bg-opacity-10 p-2 rounded-3 me-3">
+                        <i class="fas fa-calculator text-primary"></i>
+                    </div>
+                    Integrated Super Score
                 </h6>
             </div>
-            <div class="card-body p-4" style="font-size: 0.9rem;">
-                <div class="mb-4">
-                    <h6 class="fw-bold text-dark mb-2"><i class="fas fa-chart-line text-success me-2"></i> 1. Trend Quality (30%)</h6>
-                    <p class="text-muted small mb-0">วัดความเป็นขาขึ้น: ราคาต้องอยู่เหนือ EMA 200 และมีการเรียงตัวของ EMA 50 > 150 > 200</p>
+            <div class="card-body p-4" style="font-size: 0.85rem;">
+                <div class="mb-3">
+                    <h6 class="fw-bold text-dark mb-1 small"><i class="fas fa-chart-line text-success me-2"></i> 1. Trend Quality (30%)</h6>
+                    <p class="text-muted mb-0 ps-4 extra-small">ราคาต้องเหนียวเหนือ EMA 200 และมีการเรียงตัว EMA 50 > 150 > 200</p>
                 </div>
-
-                <div class="mb-4">
-                    <h6 class="fw-bold text-dark mb-2"><i class="fas fa-bolt text-warning me-2"></i> 2. Price Momentum (20%)</h6>
-                    <p class="text-muted small mb-0">ความแรงของราคา: วัดจาก RSI ที่อยู่ในโซน Bullish (60-75) และระยะห่างจาก High เดิมย้อนหลัง 1 ปี</p>
+                <div class="mb-3">
+                    <h6 class="fw-bold text-dark mb-1 small"><i class="fas fa-bolt text-warning me-2"></i> 2. Price Momentum (20%)</h6>
+                    <p class="text-muted mb-0 ps-4 extra-small">วัดจาก RSI Bullish Zone และระยะห่างจาก High เดิม 1 ปี</p>
                 </div>
-
-                <div class="mb-4">
-                    <h6 class="fw-bold text-dark mb-2"><i class="fas fa-users text-danger me-2"></i> 3. Relative Volume (30%)</h6>
-                    <p class="text-muted small mb-0">วอลลุ่มผิดปกติ: เทียบปริมาณการซื้อขายวันนี้กับค่าเฉลี่ย 20 วัน ถ้า > 1.5x แปลว่า "มือใหญ่" เริ่มขยับ</p>
+                <div class="mb-3">
+                    <h6 class="fw-bold text-dark mb-1 small"><i class="fas fa-users text-danger me-2"></i> 3. Relative Volume (30%)</h6>
+                    <p class="text-muted mb-0 ps-4 extra-small">วอลลุ่มวันนี้เทียบค่าเฉลี่ย 20 วัน (Smart Money Flow)</p>
                 </div>
-
-                <div class="mb-0">
-                    <h6 class="fw-bold text-dark mb-2"><i class="fas fa-money-bill-wave text-primary me-2"></i> 4. Money Flow (20%)</h6>
-                    <p class="text-muted small mb-0">กระแสเงินไหลเข้า: ใช้ค่า MFI (14) ยืนยันว่าการขึ้นของราคามีเงินสนับสนุนจริง (MFI > 50-60)</p>
+                <div class="mb-3">
+                    <h6 class="fw-bold text-dark mb-1 small"><i class="fas fa-filter text-primary me-2"></i> 4. Scoring Weight (Max 120)</h6>
+                    <ul class="text-muted ps-4 mb-0 extra-small list-unstyled">
+                        <li>• Technical Score: 100 pts</li>
+                        <li>• EPS Growth > 20%: +10 pts</li>
+                        <li>• Revenue Growth > 10%: +10 pts</li>
+                    </ul>
                 </div>
             </div>
-            
-            <div class="card-footer bg-light border-0 p-4 rounded-bottom-4">
-                <span class="d-block text-muted small lh-lg">
-                    <i class="fas fa-shield-alt text-success me-1"></i> <b>Integrated System:</b> ระบบจะคำนวณคะแนนรวม 0-100 เพื่อหาหุ้นที่ "ทิศทางสวย" พร้อมกับ "เงินเข้าจริง" มาให้บนสุดครับ
-                </span>
+        </div>
+
+        <!-- Part 2: Column Explanation -->
+        <div class="card card-premium border-0 shadow-sm overflow-hidden" style="border-radius: 1.25rem;">
+            <div class="card-header bg-white border-bottom p-4">
+                <h6 class="fw-bold mb-0 text-dark d-flex align-items-center">
+                    <div class="bg-success bg-opacity-10 p-2 rounded-3 me-3">
+                        <i class="fas fa-info-circle text-success"></i>
+                    </div>
+                    Column Explanation
+                </h6>
+            </div>
+            <div class="card-body p-4" style="font-size: 0.85rem;">
+                <div class="mb-3">
+                    <h6 class="fw-bold text-dark mb-1 small">RSI (Relative Strength Index)</h6>
+                    <p class="text-muted mb-0 extra-small">วัดพลังการแกว่งตัว ช่วง 60-75 คือหุ้นมีกำลัง (Bullish)</p>
+                </div>
+                <div class="mb-3">
+                    <h6 class="fw-bold text-dark mb-1 small">RVOL (Relative Volume)</h6>
+                    <p class="text-muted mb-0 extra-small">ถ้า > 1.5x หมายถึงหุ้นมีวอลลุ่มเข้าผิดปกติแบบเด่นชัด</p>
+                </div>
+                <div class="mb-3">
+                    <h6 class="fw-bold text-dark mb-1 small">EPS Q / REV % (Fundamental)</h6>
+                    <p class="text-muted mb-0 extra-small">การเติบโตของกำไรและรายได้ไตรมาสล่าสุด (YoY)</p>
+                </div>
+                <div class="mb-0">
+                    <h6 class="fw-bold text-dark mb-1 small">GAP (Distance to High)</h6>
+                    <p class="text-muted mb-0 extra-small">ระยะชิดขอบ High เดิม ยิ่งน้อยยิ่งพร้อมทะยาน New High</p>
+                </div>
+            </div>
+            <div class="card-footer bg-light border-0 p-3 text-center">
+                <p class="text-muted mb-0 extra-small" style="font-size: 0.7rem;">
+                    <i class="fas fa-shield-alt text-success me-1"></i> Data-Driven Strategy for Investors
+                </p>
             </div>
         </div>
     </div>
+</div>
+
+<style>
+    .extra-small { font-size: 0.78rem; line-height: 1.4; }
+</style>
 </div>
 
 {% if candidates and not ai_analysis %}

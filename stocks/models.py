@@ -50,3 +50,37 @@ class Portfolio(models.Model):
 
     def __str__(self):
         return f"Port: {self.symbol} ({self.quantity})"
+
+class MomentumCandidate(models.Model):
+    symbol = models.CharField(max_length=20)
+    symbol_bk = models.CharField(max_length=30, blank=True)
+    sector = models.CharField(max_length=100, default="Unknown")
+    price = models.FloatField(default=0.0)
+    rsi = models.FloatField(default=0.0)
+    adx = models.FloatField(default=0.0)
+    mfi = models.FloatField(default=0.0)
+    rvol = models.FloatField(default=1.0)
+    eps_growth = models.FloatField(default=0.0)
+    rev_growth = models.FloatField(default=0.0)
+    technical_score = models.IntegerField(default=0)
+    year_high = models.FloatField(default=0.0)
+    upside_to_high = models.FloatField(default=0.0)
+    scanned_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-technical_score']
+
+    def __str__(self):
+        return f"{self.symbol} - Score: {self.technical_score}"
+
+class ScannableSymbol(models.Model):
+    symbol = models.CharField(max_length=20, unique=True)
+    index_name = models.CharField(max_length=50, default="SET100")
+    is_active = models.BooleanField(default=True)
+    last_updated = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['symbol']
+
+    def __str__(self):
+        return f"{self.symbol} ({self.index_name})"

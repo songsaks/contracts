@@ -29,7 +29,19 @@
                 </div>
                 <div class="col-md-4 text-md-end mt-3 mt-md-0">
                     <div class="h2 fw-bold mb-0">{{ info.currentPrice|default:info.regularMarketPrice }} <small class="h6 text-muted">{{ info.currency }}</small></div>
-                    <small class="text-muted">Market Cap: {{ info.marketCap|default:"N/A" }}</small>
+                    <div class="d-flex justify-content-md-end gap-2 mt-2">
+                        {% if info.auditRisk %}
+                        <span class="badge bg-dark bg-opacity-10 text-dark border border-dark border-opacity-25 px-2 py-1" style="font-size: 0.7rem;" title="Audit Risk (1-10, lower is better)">
+                            Audit Risk: {{ info.auditRisk }}
+                        </span>
+                        {% endif %}
+                        {% if info.boardRisk %}
+                        <span class="badge bg-dark bg-opacity-10 text-dark border border-dark border-opacity-25 px-2 py-1" style="font-size: 0.7rem;" title="Board Risk (1-10, lower is better)">
+                            Board Risk: {{ info.boardRisk }}
+                        </span>
+                        {% endif %}
+                    </div>
+                    <small class="text-muted d-block mt-1">Market Cap: {{ info.marketCap|default:"N/A" }}</small>
                 </div>
             </div>
         </div>
