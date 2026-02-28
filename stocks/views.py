@@ -4,7 +4,7 @@ from django.contrib import messages
 from django.conf import settings
 from google import genai
 from .models import Watchlist, AnalysisCache, AssetCategory, Portfolio, MomentumCandidate, ScannableSymbol
-from .utils import get_stock_data, analyze_with_ai, calculate_trailing_stop
+from .utils import get_stock_data, analyze_with_ai, calculate_trailing_stop, refresh_set100_symbols
 from yahooquery import Ticker as YQTicker
 import requests
 import yfinance as yf
@@ -657,9 +657,10 @@ def momentum_scanner(request):
     # Load symbols from database
     scan_symbols = ScannableSymbol.objects.filter(is_active=True).values_list('symbol', flat=True)
     
-    # If DB is empty, use seed list as momentary fallback
+    # If DB is empty, trigger a refresh immediately (Self-healing)
     if not scan_symbols:
-        scan_symbols = ["ADVANC", "AOT", "BBL", "CPALL", "PTT"] # Basic seed
+        refresh_set100_symbols()
+        scan_symbols = ScannableSymbol.objects.filter(is_active=True).values_list('symbol', flat=True)
 
     candidates = []
     
