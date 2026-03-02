@@ -99,6 +99,9 @@
     <a href="{% url 'payroll:salary_config_list' %}" class="nav-item {% if 'salary_config' in request.resolver_match.url_name %}active{% endif %}">
       <span class="icon"><i class="fas fa-coins"></i></span> ฐานเงินเดือน
     </a>
+    <a href="{% url 'payroll:sso_bracket_config' %}" class="nav-item {% if request.resolver_match.url_name == 'sso_bracket_config' %}active{% endif %}">
+      <span class="icon"><i class="fas fa-shield-halved"></i></span> ประกันสังคม (ขั้นบันได)
+    </a>
     <a href="{% url 'payroll:user_management' %}" class="nav-item {% if 'user_management' in request.resolver_match.url_name %}active{% endif %}">
       <span class="icon"><i class="fas fa-users-cog"></i></span> จัดการสิทธิ์
     </a>
@@ -117,6 +120,9 @@
     <p class="nav-section">การจัดการ</p>
     <a href="{% url 'payroll:employee_list' %}" class="nav-item {% if 'employee' in request.resolver_match.url_name %}active{% endif %}">
       <span class="icon"><i class="fas fa-users"></i></span> รายชื่อพนักงาน
+    </a>
+    <a href="{% url 'payroll:sso_bracket_config' %}" class="nav-item {% if request.resolver_match.url_name == 'sso_bracket_config' %}active{% endif %}">
+      <span class="icon"><i class="fas fa-shield-halved"></i></span> ประกันสังคม
     </a>
   </nav>
 
@@ -183,8 +189,78 @@
 </div>
 
 <script>
-  // Auto-dismiss toasts
-  setTimeout(() => document.querySelectorAll('.toast').forEach(t => t.style.opacity = '0'), 4000);
+// ─── Global Numeric Input UX ──────────────────────────────
+(function () {
+  function getRaw(inp) {
+    return parseFloat(String(inp.value).replace(/,/g, '')) || 0;
+  }
+  function fmtMoney(val, dp) {
+    return val.toLocaleString('en-US', { minimumFractionDigits: dp, maximumFractionDigits: dp });
+  }
+  function formatInp(inp) {
+    const dp = parseInt(inp.dataset.decimals ?? '2');
+    inp.value = fmtMoney(getRaw(inp), dp);
+  }
+  function initInput(inp) {
+    const isMoney   = inp.classList.contains('money-input');
+    const isPercent = inp.classList.contains('percent-input');
+    // Format on page load
+    if (isMoney || isPercent) formatInp(inp);
+
+    inp.addEventListener('focus', function () {
+      const raw = getRaw(this);
+      if (raw === 0) {
+        this.value = '';
+      } else {
+        this.value = String(raw); // strip commas for editing
+        this.select();
+      }
+    });
+    inp.addEventListener('blur', function () {
+      if (this.value.trim() === '') this.value = '0';
+      if (isMoney || isPercent) formatInp(this);
+    });
+    // Allow only digits and a single decimal point
+    inp.addEventListener('keypress', function (e) {
+      const c = e.key;
+      if (c === 'Enter') return; // allow form submit
+      if (!/[\d.]/.test(c)) { e.preventDefault(); return; }
+      if (c === '.' && this.value.includes('.')) e.preventDefault();
+    });
+    // On paste: strip any non-numeric chars
+    inp.addEventListener('paste', function (e) {
+      const txt = (e.clipboardData || window.clipboardData).getData('text').replace(/[^\d.]/g, '');
+      e.preventDefault();
+      const dp  = parseInt(this.dataset.decimals ?? '2');
+      this.value = parseFloat(txt || '0').toFixed(dp);
+      if (isMoney || isPercent) formatInp(this);
+    });
+  }
+
+  function initAll() {
+    document.querySelectorAll('.money-input, .percent-input, .num-input').forEach(initInput);
+  }
+
+  // Strip commas before any form submit
+  function hookForms() {
+    document.querySelectorAll('form').forEach(form => {
+      if (form.dataset.numHooked) return;
+      form.dataset.numHooked = '1';
+      form.addEventListener('submit', function () {
+        this.querySelectorAll('.money-input, .percent-input').forEach(inp => {
+          inp.value = String(getRaw(inp));
+        });
+      });
+    });
+  }
+
+  document.addEventListener('DOMContentLoaded', () => { initAll(); hookForms(); });
+  // Re-init when modals open (for dynamically shown forms)
+  document.addEventListener('click', () => { setTimeout(() => { initAll(); hookForms(); }, 50); });
+})();
+
+// Auto-dismiss toasts
+setTimeout(() => document.querySelectorAll('.toast').forEach(t => t.style.opacity = '0'), 4000);
 </script>
 {% block scripts %}{% endblock %}
 {% block extra_scripts %}{% endblock %}

@@ -41,6 +41,21 @@
 
   <form method="post">
     {% csrf_token %}
+    <!-- Identity Section -->
+    <div class="bg-white rounded-2xl shadow border border-slate-100 overflow-hidden mb-5">
+      <div class="bg-indigo-700 px-6 py-3 text-white text-xs font-black uppercase tracking-widest">ข้อมูลพนักงาน</div>
+      <table class="w-full"><tbody class="divide-y divide-slate-50">
+        <tr class="cfg-row">
+          <td class="cfg-label">รหัสพนักงาน (7 หลัก)<p class="cfg-sub">Employee Code</p></td>
+          <td class="cfg-input">{{ form.employee_code }}</td>
+        </tr>
+        <tr class="cfg-row">
+          <td class="cfg-label">เลขบัตรประชาชน<p class="cfg-sub">National ID (13 หลัก)</p></td>
+          <td class="cfg-input">{{ form.national_id }}</td>
+        </tr>
+      </tbody></table>
+    </div>
+
     <div class="bg-white rounded-2xl shadow border border-slate-100 overflow-hidden mb-5">
       <div class="bg-slate-700 px-6 py-3 text-white text-xs font-black uppercase tracking-widest">โครงสร้างเงินเดือน</div>
       <table class="w-full"><tbody class="divide-y divide-slate-50">
@@ -53,16 +68,30 @@
           <td class="cfg-input">{{ form.ot_rate_per_hour }}</td>
         </tr>
         <tr class="cfg-row">
-          <td class="cfg-label">อัตราประกันสังคม (%)<p class="cfg-sub">Social Security Rate</p></td>
-          <td class="cfg-input">{{ form.social_security_rate }}</td>
-        </tr>
-        <tr class="cfg-row">
-          <td class="cfg-label">เพดานประกันสังคม (บาท/เดือน)<p class="cfg-sub">Social Security Cap</p></td>
-          <td class="cfg-input">{{ form.social_security_cap }}</td>
-        </tr>
-        <tr class="cfg-row">
           <td class="cfg-label">หักภาษี ณ ที่จ่าย (บาท)<p class="cfg-sub">Tax Withholding</p></td>
           <td class="cfg-input">{{ form.tax_withholding }}</td>
+        </tr>
+      </tbody></table>
+    </div>
+
+    <!-- SSO Section -->
+    <div class="bg-white rounded-2xl shadow border border-purple-100 overflow-hidden mb-5">
+      <div class="bg-purple-700 px-6 py-3 text-white text-xs font-black uppercase tracking-widest flex items-center justify-between">
+        <span>ประกันสังคม</span>
+        <a href="{% url 'payroll:sso_bracket_config' %}" class="text-purple-200 hover:text-white font-bold text-xs">⚙️ จัดการขั้นบันได →</a>
+      </div>
+      <table class="w-full"><tbody class="divide-y divide-slate-50">
+        <tr class="cfg-row">
+          <td class="cfg-label">ใช้อัตราขั้นบันได<p class="cfg-sub">Use SSO Bracket</p></td>
+          <td class="cfg-input">{{ form.use_sso_bracket }}</td>
+        </tr>
+        <tr class="cfg-row" id="ssoManualRows">
+          <td class="cfg-label">อัตราเฉพาะคน (%)<p class="cfg-sub">Per-Employee Rate</p></td>
+          <td class="cfg-input">{{ form.social_security_rate }}</td>
+        </tr>
+        <tr class="cfg-row" id="ssoCapRow">
+          <td class="cfg-label">เพดานเฉพาะคน (บาท)<p class="cfg-sub">Per-Employee Cap</p></td>
+          <td class="cfg-input">{{ form.social_security_cap }}</td>
         </tr>
       </tbody></table>
     </div>
@@ -86,4 +115,23 @@
     </button>
   </form>
 </div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+// Show/hide manual SSO rows based on use_sso_bracket checkbox
+const bracketCheck = document.querySelector('[name=use_sso_bracket]');
+function updateSSORateVisibility() {
+  const manual = document.getElementById('ssoManualRows');
+  const cap    = document.getElementById('ssoCapRow');
+  if (!manual || !cap) return;
+  const hide   = bracketCheck && bracketCheck.checked;
+  manual.style.opacity = hide ? '0.35' : '1';
+  cap.style.opacity    = hide ? '0.35' : '1';
+}
+if (bracketCheck) {
+  bracketCheck.addEventListener('change', updateSSORateVisibility);
+  updateSSORateVisibility();
+}
+</script>
 {% endblock %}

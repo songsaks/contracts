@@ -1,4 +1,5 @@
 from django.shortcuts import render, redirect, get_object_or_404
+from django.urls import reverse
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib import messages
 from django.http import HttpResponse, JsonResponse
@@ -9,7 +10,7 @@ import openpyxl
 from io import BytesIO
 
 from django.contrib.auth import get_user_model
-from .models import WorkReport, EmployeeSalaryConfig, PayrollRecord, PayrollStatus
+from .models import WorkReport, EmployeeSalaryConfig, PayrollRecord, PayrollStatus, SSOBracket
 from .forms import WorkReportForm, AdminWorkReportForm, EmployeeSalaryConfigForm
 
 User = get_user_model()
@@ -43,7 +44,8 @@ def payroll_members():
 
 def _safe_dec(value, default='0'):
     try:
-        return Decimal(str(value or default))
+        clean = str(value or default).replace(',', '').strip()
+        return Decimal(clean or default)
     except (InvalidOperation, TypeError):
         return Decimal(default)
 
@@ -242,7 +244,7 @@ def _calculate_and_save_payroll(report, config, processed_by):
     total_income = (base + ot_pay + report.team_mgmt_fee + report.professional_fee
                     + report.commissions + report.incentives)
 
-    ss_amt = min(base * config.social_security_rate / 100, config.social_security_cap).quantize(Decimal('0.01'))
+    ss_amt = config.get_sso_amount()
     total_deductions = (ss_amt + config.tax_withholding + report.absent_deduction_amount
                         + report.advance_pay + report.savings + report.lost_equipment_fee
                         + report.other_deductions)
@@ -268,8 +270,7 @@ def _preview_payroll(report, config):
     ot_pay       = report.ot_hours * config.ot_rate_per_hour
     total_income = (base + ot_pay + report.team_mgmt_fee + report.professional_fee
                     + report.commissions + report.incentives)
-    ss_amt       = min(base * config.social_security_rate / 100,
-                       config.social_security_cap).quantize(Decimal('0.01'))
+    ss_amt       = config.get_sso_amount()
     total_ded    = (ss_amt + config.tax_withholding + report.absent_deduction_amount
                     + report.advance_pay + report.savings
                     + report.lost_equipment_fee + report.other_deductions)
@@ -529,19 +530,75 @@ def batch_approve(request):
         except PayrollRecord.DoesNotExist:
             pass
 
+    # Missing rows: payroll members who have NO report for this month (exec can create for them)
+    reports_this_month_user_ids = set(
+        WorkReport.objects.filter(month=month, year=year).values_list('user_id', flat=True)
+    )
+    missing_users = payroll_members().filter(is_active=True).exclude(id__in=reports_this_month_user_ids)
+    missing_rows = []
+    for u in missing_users:
+        cfg, _ = EmployeeSalaryConfig.objects.get_or_create(user=u)
+        missing_rows.append({'user': u, 'cfg': cfg})
+
     context = {
         'month': month, 'year': year,
         'month_name': _month_name(month),
         'months': range(1, 13), 'years': range(2024, 2032),
         'pending_rows': pending_rows,
         'approved_rows': approved_rows,
+        'missing_rows': missing_rows,
         'pending_count': len(pending_rows),
         'approved_count': len(approved_rows),
+        'missing_count': len(missing_rows),
         'total_net': total_net,
         'grand_total_income': sum(r['record'].total_income for r in approved_rows),
         'grand_total_ded': sum(r['record'].total_deductions for r in approved_rows),
     }
     return render(request, 'payroll/batch_approve.html', context)
+
+
+# ── Exec: Create Report for a missing employee inline ─────
+@user_passes_test(is_executive, login_url=PAYROLL_LOGIN_URL)
+def exec_create_report(request):
+    """Executive creates/updates a WorkReport for any employee on the batch_approve page."""
+    if request.method != 'POST':
+        return redirect('payroll:batch_approve')
+    month   = int(request.POST.get('month', timezone.now().month))
+    year    = int(request.POST.get('year',  timezone.now().year))
+    user_id = request.POST.get('user_id')
+    user    = get_object_or_404(User, id=user_id)
+
+    def dec(k): return _safe_dec(request.POST.get(k, '0'))
+
+    report, _ = WorkReport.objects.get_or_create(
+        user=user, month=month, year=year,
+        defaults={'status': PayrollStatus.SUBMITTED}
+    )
+    report.working_days            = dec('working_days')
+    report.ot_hours                = dec('ot_hours')
+    report.commissions             = dec('commissions')
+    report.incentives              = dec('incentives')
+    report.pb_liva_score           = dec('pb_liva_score')
+    report.team_mgmt_fee           = dec('team_mgmt_fee')
+    report.professional_fee        = dec('professional_fee')
+    report.absent_days             = dec('absent_days')
+    report.absent_deduction_amount = dec('absent_deduction')
+    report.advance_pay             = dec('advance_pay')
+    report.savings                 = dec('savings')
+    report.status = PayrollStatus.SUBMITTED
+    report.save()
+
+    # If exec chose to approve immediately
+    if request.POST.get('and_approve') == '1':
+        cfg, _ = EmployeeSalaryConfig.objects.get_or_create(user=user)
+        report.status = PayrollStatus.APPROVED
+        report.save()
+        _calculate_and_save_payroll(report, cfg, request.user)
+        messages.success(request, f"✅ บันทึกและอนุมัติ {user.get_full_name() or user.username} แล้ว")
+    else:
+        messages.success(request, f"✅ บันทึกข้อมูล {user.get_full_name() or user.username} เรียบร้อยแล้ว")
+    return redirect(f"{reverse('payroll:batch_approve')}?month={month}&year={year}")
+
 
 # ── Salary Config (Executive Only) ────────────────────────
 @user_passes_test(is_executive, login_url=PAYROLL_LOGIN_URL)
@@ -568,6 +625,62 @@ def salary_config_edit(request, user_id):
     else:
         form = EmployeeSalaryConfigForm(instance=config)
     return render(request, 'payroll/salary_config_form.html', {'form': form, 'user_obj': user_obj})
+
+
+# ── SSO Bracket Management (HR + Exec) ────────────────────
+@user_passes_test(is_hr_or_exec, login_url=PAYROLL_LOGIN_URL)
+def sso_bracket_config(request):
+    """HR/Admin and Exec can manage progressive SSO rate brackets."""
+    if request.method == 'POST':
+        action = request.POST.get('action', '')
+        if action == 'add':
+            try:
+                SSOBracket.objects.create(
+                    min_salary  = Decimal(request.POST.get('min_salary', '0') or '0'),
+                    max_salary  = Decimal(request.POST.get('max_salary')) if request.POST.get('max_salary') else None,
+                    rate_percent = Decimal(request.POST.get('rate_percent', '5')),
+                    salary_cap  = Decimal(request.POST.get('salary_cap', '0') or '0'),
+                    description = request.POST.get('description', '').strip(),
+                )
+                messages.success(request, "✅ เพิ่มขั้นบันไดประกันสังคมเรียบร้อยแล้ว")
+            except Exception as e:
+                messages.error(request, f"เกิดข้อผิดพลาด: {e}")
+        elif action == 'toggle':
+            bracket = get_object_or_404(SSOBracket, pk=request.POST.get('bracket_id'))
+            bracket.is_active = not bracket.is_active
+            bracket.save()
+            messages.success(request, f"{'เปิด' if bracket.is_active else 'ปิด'}ใช้งาน bracket เรียบร้อย")
+        elif action == 'delete':
+            SSOBracket.objects.filter(pk=request.POST.get('bracket_id')).delete()
+            messages.success(request, "ลบ bracket เรียบร้อยแล้ว")
+        return redirect('payroll:sso_bracket_config')
+
+    brackets = SSOBracket.objects.all()
+    # Preview SSO for each payroll member using current brackets
+    previews = []
+    for cfg in EmployeeSalaryConfig.objects.filter(is_payroll_member=True).select_related('user'):
+        previews.append({
+            'name': cfg.user.get_full_name() or cfg.user.username,
+            'code': cfg.employee_code or '—',
+            'base': cfg.base_salary,
+            'sso_amt': cfg.get_sso_amount(),
+        })
+    # Also include superusers
+    from django.db.models import Q as _Q
+    for cfg in EmployeeSalaryConfig.objects.filter(user__is_superuser=True).select_related('user'):
+        if not any(p['name'] == (cfg.user.get_full_name() or cfg.user.username) for p in previews):
+            previews.append({
+                'name': cfg.user.get_full_name() or cfg.user.username,
+                'code': cfg.employee_code or '—',
+                'base': cfg.base_salary,
+                'sso_amt': cfg.get_sso_amount(),
+            })
+    previews.sort(key=lambda x: x['name'])
+    return render(request, 'payroll/sso_bracket_config.html', {
+        'brackets': brackets,
+        'previews': previews,
+        'is_exec': request.user.is_superuser,
+    })
 
 # ── User Management (Executive Only) ──────────────────────
 @user_passes_test(is_executive, login_url=PAYROLL_LOGIN_URL)
@@ -628,8 +741,12 @@ def bulk_management(request):
     month = int(request.GET.get('month', timezone.now().month))
     year  = int(request.GET.get('year',  timezone.now().year))
 
-    # Only payroll members
-    users = payroll_members().filter(is_active=True)
+    # Exec sees everyone; HR sees only non-executive employees
+    if request.user.is_superuser:
+        users = payroll_members().filter(is_active=True)
+    else:
+        # HR/Admin cannot see executives in the data entry grid
+        users = payroll_members().filter(is_active=True, is_superuser=False)
     reports_map = {r.user_id: r for r in WorkReport.objects.filter(month=month, year=year)}
 
     if request.method == 'POST':
@@ -779,6 +896,8 @@ def employee_list(request):
         qs = qs.filter(
             Q(username__icontains=q) | Q(first_name__icontains=q) | Q(last_name__icontains=q)
         )
+    # Prefetch salary config (for bank info)
+    qs = qs.prefetch_related('salary_config')
     return render(request, 'payroll/employee_list.html', {
         'employees': qs,
         'q': q,
@@ -812,6 +931,11 @@ def create_payroll_employee(request):
             )
         cfg, _ = EmployeeSalaryConfig.objects.get_or_create(user=u)
         cfg.is_payroll_member = True
+        cfg.bank_name           = request.POST.get('bank_name', '').strip()
+        cfg.bank_account_number = request.POST.get('bank_account_number', '').strip()
+        # Auto-generate employee_code if not set
+        if not cfg.employee_code:
+            cfg.employee_code = EmployeeSalaryConfig.generate_employee_code()
         cfg.save()
         if make_hr and request.user.is_superuser:
             u.is_staff = True
@@ -835,6 +959,11 @@ def edit_payroll_employee(request, user_id):
         active_val = request.POST.get('is_active', '1')
         target.is_active = active_val == '1'
         target.save()
+        # Update bank info in salary config
+        cfg, _ = EmployeeSalaryConfig.objects.get_or_create(user=target)
+        cfg.bank_name           = request.POST.get('bank_name', '').strip()
+        cfg.bank_account_number = request.POST.get('bank_account_number', '').strip()
+        cfg.save()
         messages.success(request,
             f"✅ เปลี่ยนข้อมูล {target.get_full_name() or target.username} เรียบร้อยแล้ว")
     return redirect('payroll:employee_list')
@@ -863,14 +992,14 @@ def download_employee_template(request):
 
     # Header row styling
     headers = [
-        ("username*", "ชื่อผู้ใช้ (ห้ามซ้ำ, ไม่มีช่องว่าง)"),
-        ("first_name*", "ชื่อจริง (ภาษาไทย/อังกฤษ)"),
-        ("last_name*", "นามสกุล"),
-        ("email", "อีเมล (ไม่บังคับ)"),
-        ("password", "รหัสผ่านเริ่มต้น (เว้นว่าง = '12345678')"),
-        ("department", "แผนก / ตำแหน่ง (ใส่ใน first_name ได้)"),
-        ("is_active", "ใช้งาน? (TRUE/FALSE)"),
-        ("note", "หมายเหตุ"),
+        ("username*",             "ชื่อผู้ใช้ (ห้ามซ้ำ, ไม่มีช่องว่าง)"),  # A
+        ("first_name*",           "ชื่อจริง"),                               # B
+        ("last_name*",            "นามสกุล"),                                # C
+        ("email",                 "อีเมล (ไม่บังคับ)"),                      # D
+        ("password",              "รหัสผ่านเริ่มต้น (เว้นว่าง = '12345678')"), # E
+        ("bank_name",             "ธนาคาร เช่น KBank / กสิกร"),             # F
+        ("bank_account_number",   "เลขบัญชี เช่น 012-3-45678-9"),           # G
+        ("is_active",             "ใช้งาน? (TRUE/FALSE)"),                   # H
     ]
 
     # Style header
@@ -905,13 +1034,16 @@ def download_employee_template(request):
 
     # Pre-fill existing employees
     existing_fill = PatternFill(start_color="ECFDF5", end_color="ECFDF5", fill_type="solid")
-    for r_idx, user in enumerate(User.objects.all().order_by('last_name', 'first_name'), len(examples) + 3):
-        ws.cell(row=r_idx, column=1, value=user.username)
-        ws.cell(row=r_idx, column=2, value=user.first_name)
-        ws.cell(row=r_idx, column=3, value=user.last_name)
-        ws.cell(row=r_idx, column=4, value=user.email)
-        ws.cell(row=r_idx, column=7, value="TRUE" if user.is_active else "FALSE")
-        for c in range(1, 9):
+    for r_idx, u in enumerate(payroll_members().order_by('last_name', 'first_name'), len(examples) + 3):
+        cfg = getattr(u, 'salary_config', None)
+        ws.cell(row=r_idx, column=1, value=u.username)
+        ws.cell(row=r_idx, column=2, value=u.first_name)
+        ws.cell(row=r_idx, column=3, value=u.last_name)
+        ws.cell(row=r_idx, column=4, value=u.email)
+        ws.cell(row=r_idx, column=6, value=cfg.bank_name if cfg else '')
+        ws.cell(row=r_idx, column=7, value=cfg.bank_account_number if cfg else '')
+        ws.cell(row=r_idx, column=8, value="TRUE" if u.is_active else "FALSE")
+        for c in range(1, 10):
             ws.cell(row=r_idx, column=c).fill = existing_fill
 
     response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
@@ -938,11 +1070,13 @@ def import_employees(request):
             if not username:
                 continue
 
-            first_name = str(row[1] or '').strip()
-            last_name  = str(row[2] or '').strip()
-            email      = str(row[3] or '').strip()
-            password   = str(row[4] or '').strip() or '12345678'
-            is_active_raw = str(row[6] or 'TRUE').strip().upper()
+            first_name    = str(row[1] or '').strip()
+            last_name     = str(row[2] or '').strip()
+            email         = str(row[3] or '').strip()
+            password      = str(row[4] or '').strip() or '12345678'
+            bank_name     = str(row[5] or '').strip()   # col F
+            bank_acc_no   = str(row[6] or '').strip()   # col G
+            is_active_raw = str(row[7] or 'TRUE').strip().upper()
             is_active  = is_active_raw in ('TRUE', '1', 'YES', 'Y', 'จริง', 'ใช้งาน')
 
             # Validate username
@@ -973,13 +1107,17 @@ def import_employees(request):
                 )
                 # Auto-create salary config and mark as payroll member
                 cfg, _ = EmployeeSalaryConfig.objects.get_or_create(user=user)
-                cfg.is_payroll_member = True
+                cfg.is_payroll_member   = True
+                cfg.bank_name           = bank_name
+                cfg.bank_account_number = bank_acc_no
                 cfg.save()
                 created_count += 1
             else:
-                # Existing user: also ensure they're marked as payroll member
+                # Existing user: also ensure they're marked as payroll member + update bank
                 cfg, _ = EmployeeSalaryConfig.objects.get_or_create(user=user)
                 cfg.is_payroll_member = True
+                if bank_name:   cfg.bank_name           = bank_name
+                if bank_acc_no: cfg.bank_account_number = bank_acc_no
                 cfg.save()
 
         msg = f"✅ สร้างใหม่ {created_count} คน, อัปเดต {updated_count} คน"

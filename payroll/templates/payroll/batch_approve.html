@@ -77,10 +77,10 @@ th { white-space: nowrap; }
       <p class="text-2xl font-black text-emerald-700">{{ total_net|floatformat:0 }}</p>
       <p class="text-xs text-slate-400 font-bold">บาท</p>
     </div>
-    <div class="bg-white rounded-2xl p-5 shadow border border-slate-100">
-      <p class="text-[9px] font-black text-slate-400 uppercase tracking-wider mb-1">ยอดหักรวม</p>
-      <p class="text-2xl font-black text-rose-600">{{ grand_total_ded|floatformat:0 }}</p>
-      <p class="text-xs text-slate-400 font-bold">บาท</p>
+    <div class="bg-white rounded-2xl p-5 shadow border {% if missing_count %}border-rose-200{% else %}border-slate-100{% endif %}">
+      <p class="text-[9px] font-black {% if missing_count %}text-rose-500{% else %}text-slate-400{% endif %} uppercase tracking-wider mb-1">ยังไม่มีรายการ</p>
+      <p class="text-3xl font-black {% if missing_count %}text-rose-600{% else %}text-slate-300{% endif %}">{{ missing_count }}</p>
+      <p class="text-xs {% if missing_count %}text-rose-400{% else %}text-slate-400{% endif %} font-bold">พนักงาน</p>
     </div>
   </div>
 
@@ -197,6 +197,103 @@ th { white-space: nowrap; }
     <i class="fas fa-check-circle text-3xl text-emerald-300 mb-2"></i>
     <p class="font-black">ไม่มีรายงานที่รอการอนุมัติ</p>
     <p class="text-sm mt-1">สำหรับ {{ month_name }} {{ year }}</p>
+  </div>
+  {% endif %}
+
+  <!-- ─── SECTION: พนักงานที่ยังไม่มีรายการเดือนนี้ ───── -->
+  {% if missing_rows %}
+  <div class="bg-white rounded-2xl shadow border border-rose-100 overflow-hidden">
+    <div class="bg-rose-50 border-b border-rose-100 px-6 py-4 flex items-center justify-between">
+      <div>
+        <p class="font-black text-rose-700 text-sm flex items-center gap-2">
+          <i class="fas fa-user-clock text-rose-400"></i>
+          ยังไม่มีรายการ — {{ missing_count }} คน
+        </p>
+        <p class="text-rose-400 text-xs font-bold mt-0.5">ผู้บริหารสามารถเพิ่มข้อมูลและอนุมัติได้โดยตรง</p>
+      </div>
+      <button onclick="document.getElementById('missingSection').classList.toggle('hidden')"
+              class="px-4 py-2 rounded-xl bg-rose-100 text-rose-700 text-xs font-black hover:bg-rose-200 no-print">
+        แสดง/ซ่อน
+      </button>
+    </div>
+    <div id="missingSection" class="divide-y divide-slate-50">
+      {% for row in missing_rows %}
+      <div class="p-4">
+        <div class="flex items-center justify-between mb-2">
+          <div class="flex items-center gap-3">
+            <div class="w-9 h-9 rounded-xl {% if row.user.is_superuser %}bg-purple-100 text-purple-700{% else %}bg-blue-100 text-blue-700{% endif %} flex items-center justify-center font-black text-sm">
+              {{ row.user.first_name|slice:":1"|default:row.user.username|slice:":1"|upper }}
+            </div>
+            <div>
+              <p class="font-black text-slate-800 text-sm">{{ row.user.get_full_name|default:row.user.username }}</p>
+              <p class="text-xs text-slate-400">@{{ row.user.username }}{% if row.user.is_superuser %} · 👑 ผู้บริหาร{% endif %}</p>
+            </div>
+          </div>
+          <button type="button" onclick="toggleMissing('missing_{{ row.user.id }}')"
+                  class="px-3 py-1.5 rounded-lg bg-rose-100 text-rose-700 text-xs font-black hover:bg-rose-200 no-print flex items-center gap-1">
+            <i class="fas fa-plus text-xs"></i> เพิ่มรายการ
+          </button>
+        </div>
+        <form id="missing_{{ row.user.id }}" method="post"
+              action="{% url 'payroll:exec_create_report' %}"
+              class="hidden bg-slate-50 rounded-xl p-4 border border-slate-200 mt-3">
+          {% csrf_token %}
+          <input type="hidden" name="month"   value="{{ month }}">
+          <input type="hidden" name="year"    value="{{ year }}">
+          <input type="hidden" name="user_id" value="{{ row.user.id }}">
+          <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3 mb-4">
+            {% for label, fname in "วันทำงาน,working_days|OT (ชม.),ot_hours|Commission,commissions|Incentive,incentives|ขาด (วัน),absent_days|หัก (บาท),absent_deduction"|split:"|" %}{% endfor %}
+            <div>
+              <label class="block text-[10px] font-black text-slate-400 uppercase mb-1">วันทำงาน</label>
+              <input name="working_days" type="number" step="0.5" value="0" min="0"
+                     class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm font-bold text-right bg-white outline-none focus:ring-2 focus:ring-rose-300">
+            </div>
+            <div>
+              <label class="block text-[10px] font-black text-slate-400 uppercase mb-1">OT (ชม.)</label>
+              <input name="ot_hours" type="number" step="0.5" value="0" min="0"
+                     class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm font-bold text-right bg-white outline-none focus:ring-2 focus:ring-rose-300">
+            </div>
+            <div>
+              <label class="block text-[10px] font-black text-slate-400 uppercase mb-1">Commission</label>
+              <input name="commissions" type="number" step="0.01" value="0" min="0"
+                     class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm font-bold text-right bg-white outline-none focus:ring-2 focus:ring-rose-300">
+            </div>
+            <div>
+              <label class="block text-[10px] font-black text-slate-400 uppercase mb-1">Incentive</label>
+              <input name="incentives" type="number" step="0.01" value="0" min="0"
+                     class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm font-bold text-right bg-white outline-none focus:ring-2 focus:ring-rose-300">
+            </div>
+            <div>
+              <label class="block text-[10px] font-black text-slate-400 uppercase mb-1">ขาด (วัน)</label>
+              <input name="absent_days" type="number" step="0.5" value="0" min="0"
+                     class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm font-bold text-right bg-white outline-none focus:ring-2 focus:ring-rose-300">
+            </div>
+            <div>
+              <label class="block text-[10px] font-black text-slate-400 uppercase mb-1">หัก (บาท)</label>
+              <input name="absent_deduction" type="number" step="0.01" value="0" min="0"
+                     class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm font-bold text-right bg-white outline-none focus:ring-2 focus:ring-rose-300">
+            </div>
+          </div>
+          <div class="flex items-center justify-between flex-wrap gap-3">
+            <label class="flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" name="and_approve" value="1" class="w-4 h-4 accent-rose-600">
+              <span class="text-sm font-black text-rose-700">อนุมัติทันที (บันทึก + อนุมัติพร้อมกัน)</span>
+            </label>
+            <div class="flex gap-2">
+              <button type="submit"
+                      class="px-5 py-2 rounded-xl bg-rose-600 text-white text-sm font-black hover:bg-rose-700 transition-all">
+                💾 บันทึก
+              </button>
+              <button type="button" onclick="toggleMissing('missing_{{ row.user.id }}')"
+                      class="px-4 py-2 rounded-xl bg-slate-200 text-slate-600 text-sm font-black hover:bg-slate-300">
+                ยกเลิก
+              </button>
+            </div>
+          </div>
+        </form>
+      </div>
+      {% endfor %}
+    </div>
   </div>
   {% endif %}
 
@@ -332,5 +429,11 @@ document.querySelectorAll('form[method=post]').forEach(form => {
     }
   });
 });
+
+// Toggle missing row form
+function toggleMissing(id) {
+  const el = document.getElementById(id);
+  if (el) el.classList.toggle('hidden');
+}
 </script>
 {% endblock %}

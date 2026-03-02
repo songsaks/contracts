@@ -45,15 +45,32 @@ class AdminWorkReportForm(forms.ModelForm):
         }
 
 class EmployeeSalaryConfigForm(forms.ModelForm):
+    # Money fields that may have commas from JS formatting
+    MONEY_FIELDS  = ['base_salary', 'ot_rate_per_hour', 'social_security_cap', 'tax_withholding']
+    PERCENT_FIELDS = ['social_security_rate']
+
     class Meta:
         model = EmployeeSalaryConfig
-        exclude = ['user']
+        exclude = ['user', 'is_payroll_member']
         widgets = {
-            'base_salary': forms.NumberInput(attrs={'class': 'form-control'}),
-            'ot_rate_per_hour': forms.NumberInput(attrs={'class': 'form-control'}),
-            'social_security_rate': forms.NumberInput(attrs={'class': 'form-control'}),
-            'social_security_cap': forms.NumberInput(attrs={'class': 'form-control'}),
-            'tax_withholding': forms.NumberInput(attrs={'class': 'form-control'}),
-            'bank_account_number': forms.TextInput(attrs={'class': 'form-control'}),
-            'bank_name': forms.TextInput(attrs={'class': 'form-control'}),
+            'employee_code':        forms.TextInput(attrs={'class': 'form-control num-input', 'maxlength': 7, 'placeholder': 'เช่น 0000001'}),
+            'national_id':          forms.TextInput(attrs={'class': 'form-control', 'maxlength': 13, 'placeholder': 'x-xxxx-xxxxx-xx-x'}),
+            'base_salary':          forms.TextInput(attrs={'class': 'form-control money-input', 'data-decimals': '2'}),
+            'ot_rate_per_hour':     forms.TextInput(attrs={'class': 'form-control money-input', 'data-decimals': '2'}),
+            'use_sso_bracket':      forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'social_security_rate': forms.TextInput(attrs={'class': 'form-control percent-input', 'data-decimals': '2'}),
+            'social_security_cap':  forms.TextInput(attrs={'class': 'form-control money-input', 'data-decimals': '2'}),
+            'tax_withholding':      forms.TextInput(attrs={'class': 'form-control money-input', 'data-decimals': '2'}),
+            'bank_account_number':  forms.TextInput(attrs={'class': 'form-control'}),
+            'bank_name':            forms.TextInput(attrs={'class': 'form-control'}),
         }
+
+    def clean(self):
+        cleaned = super().clean()
+        # Strip commas from money/percent fields that JS may have formatted
+        for field in self.MONEY_FIELDS + self.PERCENT_FIELDS:
+            val = self.data.get(field, '')
+            if val:
+                self.data = self.data.copy()
+                self.data[field] = val.replace(',', '').strip()
+        return cleaned
