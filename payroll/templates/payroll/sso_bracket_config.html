@@ -43,8 +43,8 @@
 .inp:focus { border-color:#8b5cf6; box-shadow:0 0 0 3px rgba(139,92,246,.15); background:#fff; }
 .inp.left { text-align:left; }
 
-/* Preview table */
-.prev-row { display:grid; grid-template-columns:80px 1fr 1fr 1fr; gap:1rem;
+/* Preview table - 4 cols if exec, 3 if admin */
+.prev-row { display:grid; grid-template-columns:80px 1fr {% if request.user.is_superuser %}1.2fr{% endif %} 1fr; gap:1rem;
             padding:.75rem 1.5rem; border-bottom:1px solid #f1f5f9; align-items:center; }
 .prev-row:last-child { border-bottom:none; }
 .prev-row:hover { background:#f0fdf4; }
@@ -188,14 +188,18 @@
     <div class="prev-row" style="background:#fafafa;border-bottom:1px solid #e2e8f0">
       <span style="font-size:9px;font-weight:800;text-transform:uppercase;color:#94a3b8">รหัส</span>
       <span style="font-size:9px;font-weight:800;text-transform:uppercase;color:#94a3b8">ชื่อ-สกุล</span>
+      {% if request.user.is_superuser %}
       <span style="font-size:9px;font-weight:800;text-transform:uppercase;color:#94a3b8;text-align:right">ฐานเงินเดือน</span>
+      {% endif %}
       <span style="font-size:9px;font-weight:800;text-transform:uppercase;color:#94a3b8;text-align:right">ประกันสังคม 🛡️</span>
     </div>
     {% for p in previews %}
     <div class="prev-row">
       <span style="font-family:'Courier New',monospace;font-size:.75rem;color:#94a3b8;font-weight:700">{{ p.code }}</span>
       <span style="font-weight:700;color:#1e293b;font-size:.875rem">{{ p.name }}</span>
-      <span style="text-align:right;font-weight:700;color:#64748b;font-size:.875rem">{{ p.base|floatformat:0 }} ฿</span>
+      {% if request.user.is_superuser %}
+      <span style="text-align:right;font-weight:700;color:#64748b;font-size:.875rem">{{ p.base|floatformat:"2,g" }} ฿</span>
+      {% endif %}
       <span style="text-align:right;font-weight:900;color:#7c3aed;font-size:1rem">{{ p.sso_amt|floatformat:2 }} ฿</span>
     </div>
     {% endfor %}
