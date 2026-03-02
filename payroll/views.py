@@ -9,12 +9,17 @@ from decimal import Decimal, InvalidOperation
 import openpyxl
 from io import BytesIO
 
-from django.contrib.auth import get_user_model
+from django.contrib.auth import get_user_model, logout
 from .models import WorkReport, EmployeeSalaryConfig, PayrollRecord, PayrollStatus, SSOBracket
 from .forms import WorkReportForm, AdminWorkReportForm, EmployeeSalaryConfigForm
 
 User = get_user_model()
 PAYROLL_LOGIN_URL = '/payroll/login/'
+
+def payroll_logout(request):
+    """Custom logout that allows GET requests (fixes Django 5.0+ 405 error)."""
+    logout(request)
+    return redirect('payroll:login')
 
 # ─────────────────────────────────────────────────────────────
 #  Permission Helpers — 3-Tier Role System

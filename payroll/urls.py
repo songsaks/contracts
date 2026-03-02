@@ -11,7 +11,7 @@ urlpatterns = [
         redirect_authenticated_user=True,
         next_page='payroll:admin_dashboard',
     ), name='login'),
-    path('logout/', auth_views.LogoutView.as_view(next_page='payroll:login'), name='logout'),
+    path('logout/', views.payroll_logout, name='logout'),
 
     # ── Employee ────────────────────────────────────────────────────
     path('', views.report_list, name='report_list'),
