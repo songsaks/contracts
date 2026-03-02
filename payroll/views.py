@@ -544,10 +544,13 @@ def batch_approve(request):
 # ── Salary Config (Executive Only) ────────────────────────
 @user_passes_test(is_executive, login_url=PAYROLL_LOGIN_URL)
 def salary_config_list(request):
-    users = User.objects.all().order_by('last_name', 'first_name', 'username')
-    for u in users:
+    # Only payroll members
+    members = payroll_members()
+    for u in members:
         EmployeeSalaryConfig.objects.get_or_create(user=u)
-    configs = EmployeeSalaryConfig.objects.select_related('user').order_by('user__last_name')
+    configs = EmployeeSalaryConfig.objects.filter(
+        is_payroll_member=True
+    ).select_related('user').order_by('user__last_name', 'user__first_name')
     return render(request, 'payroll/salary_config_list.html', {'configs': configs})
 
 @user_passes_test(is_executive, login_url=PAYROLL_LOGIN_URL)
@@ -568,10 +571,11 @@ def salary_config_edit(request, user_id):
 @user_passes_test(is_executive, login_url=PAYROLL_LOGIN_URL)
 def user_management(request):
     q = request.GET.get('q', '')
-    users = User.objects.filter(
-        Q(username__icontains=q) | Q(first_name__icontains=q) | Q(last_name__icontains=q)
-    ) if q else User.objects.all()
-    users = users.order_by('last_name', 'first_name')
+    users = payroll_members()
+    if q:
+        users = users.filter(
+            Q(username__icontains=q) | Q(first_name__icontains=q) | Q(last_name__icontains=q)
+        )
     return render(request, 'payroll/user_management.html', {'users': users, 'q': q})
 
 @user_passes_test(is_executive, login_url=PAYROLL_LOGIN_URL)
@@ -789,7 +793,7 @@ def create_payroll_employee(request):
         last_name  = request.POST.get('last_name', '').strip()
         email      = request.POST.get('email', '').strip()
         password   = request.POST.get('password', '').strip() or '12345678'
-        make_hr    = request.POST.get('make_hr') == '1'        # HR only (exec can set)
+        make_hr    = request.POST.get('make_hr') == '1'
 
         if not username:
             messages.error(request, "กรุณาใส่ Username")
@@ -798,23 +802,39 @@ def create_payroll_employee(request):
             messages.error(request, "Username ต้องไม่มีช่องว่าง")
             return redirect('payroll:employee_list')
         if User.objects.filter(username=username).exists():
-            # User exists → just add to payroll
             u = User.objects.get(username=username)
         else:
             u = User.objects.create_user(
                 username=username, password=password,
                 first_name=first_name, last_name=last_name, email=email,
             )
-        # Mark as payroll member
         cfg, _ = EmployeeSalaryConfig.objects.get_or_create(user=u)
         cfg.is_payroll_member = True
         cfg.save()
-        # Optionally promote to HR (exec only)
         if make_hr and request.user.is_superuser:
             u.is_staff = True
             u.save()
         messages.success(request,
             f"✅ เพิ่ม {u.get_full_name() or u.username} เข้าระบบ Payroll เรียบร้อยแล้ว")
+    return redirect('payroll:employee_list')
+
+@user_passes_test(is_hr_or_exec, login_url=PAYROLL_LOGIN_URL)
+def edit_payroll_employee(request, user_id):
+    """HR or Exec: edit basic info of a payroll member."""
+    target = get_object_or_404(
+        User, id=user_id, salary_config__is_payroll_member=True
+    )
+    if request.method == 'POST':
+        target.first_name = request.POST.get('first_name', '').strip()
+        target.last_name  = request.POST.get('last_name', '').strip()
+        email = request.POST.get('email', '').strip()
+        if email:
+            target.email = email
+        active_val = request.POST.get('is_active', '1')
+        target.is_active = active_val == '1'
+        target.save()
+        messages.success(request,
+            f"✅ เปลี่ยนข้อมูล {target.get_full_name() or target.username} เรียบร้อยแล้ว")
     return redirect('payroll:employee_list')
 
 @user_passes_test(is_executive, login_url=PAYROLL_LOGIN_URL)
