@@ -34,10 +34,12 @@ is_hr = is_hr_or_exec
 
 def payroll_members():
     """Return QS of Users who are active payroll members.
-    Executives (superusers) are always included even without a config."""
+    Superusers (Executives) are ALWAYS included — no need to flag them.
+    Other users must have salary_config.is_payroll_member=True."""
+    from django.db.models import Q
     return User.objects.filter(
-        salary_config__is_payroll_member=True
-    ).order_by('last_name', 'first_name', 'username')
+        Q(is_superuser=True) | Q(salary_config__is_payroll_member=True)
+    ).distinct().filter(is_active=True).order_by('last_name', 'first_name', 'username')
 
 def _safe_dec(value, default='0'):
     try:
@@ -166,7 +168,7 @@ def admin_dashboard(request):
     all_reports = WorkReport.objects.filter(month=month, year=year).select_related('user', 'payroll_record')
     pending     = all_reports.filter(status=PayrollStatus.SUBMITTED)
     approved    = all_reports.filter(status=PayrollStatus.APPROVED)
-    total_users = User.objects.count()
+    total_users = payroll_members().count()  # Only payroll members, not all Django users
 
     context = {
         'month': month, 'year': year,

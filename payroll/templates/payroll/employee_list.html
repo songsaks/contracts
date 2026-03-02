@@ -1,128 +1,187 @@
 {% extends 'payroll/base_payroll.html' %}
 {% load payroll_extras %}
-{% block title %}จัดการพนักงาน · Payroll{% endblock %}
+{% block title %}รายชื่อพนักงาน · Payroll{% endblock %}
 {% block page_title %}รายชื่อพนักงาน{% endblock %}
-{% block page_subtitle %}Payroll Member Management · {{ total }} คน{% endblock %}
+{% block page_subtitle %}Payroll Member Management{% endblock %}
+
+{% block extra_head %}
+<style>
+/* ─── Responsive Table: on small screens, hide some columns ─── */
+@media (max-width: 640px) {
+  .col-role, .col-status { display: none; }
+  .action-btn span { display: none; }
+  .action-btn i { margin: 0; }
+}
+/* ─── Card list on very small screens ─── */
+@media (max-width: 480px) {
+  .desktop-table  { display: none; }
+  .mobile-cards   { display: block !important; }
+}
+.mobile-cards { display: none; }
+
+/* ─── Font fixes ─── */
+body, td, th, input, button, select, label {
+  font-family: 'Sarabun', 'Noto Sans Thai', 'Inter', sans-serif !important;
+}
+.emp-name { font-size: 15px; font-weight: 700; color: #1e293b; line-height: 1.3; }
+.emp-sub  { font-size: 12px; color: #94a3b8; font-weight: 500; margin-top: 1px; }
+.badge    { display: inline-flex; align-items: center; gap: 4px;
+            padding: 3px 10px; border-radius: 999px;
+            font-size: 12px; font-weight: 700; white-space: nowrap; }
+.th-cell  { font-size: 11px; font-weight: 800; letter-spacing: .05em;
+            text-transform: uppercase; color: #64748b; }
+</style>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;700;800&display=swap" rel="stylesheet">
+{% endblock %}
 
 {% block content %}
-<div class="space-y-6">
+<div class="space-y-5">
 
-  <!-- ── Toolbar ─────────────────────────────────────── -->
-  <div class="flex items-center gap-3 flex-wrap">
-    <!-- Search -->
-    <form method="get" class="relative flex-1 max-w-xs">
-      <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
-      <input name="q" value="{{ q }}" placeholder="ค้นหาชื่อ / username..."
-             class="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl text-sm font-bold
-                    bg-white outline-none focus:ring-2 focus:ring-emerald-400">
-    </form>
-    <span class="text-sm text-slate-400 font-bold">{{ total }} คน</span>
-
-    <div class="flex items-center gap-2 ml-auto">
-      <!-- Add single -->
-      <button onclick="document.getElementById('addModal').classList.remove('hidden')"
-              class="px-4 py-2.5 bg-emerald-700 text-white rounded-xl text-sm font-black
-                     hover:bg-emerald-800 transition-all flex items-center gap-2">
-        <i class="fas fa-user-plus"></i> เพิ่มพนักงาน
-      </button>
-      <!-- Import Excel -->
-      <button onclick="document.getElementById('importModal').classList.remove('hidden')"
-              class="px-4 py-2 bg-slate-100 text-slate-700 rounded-xl text-sm font-black
-                     hover:bg-slate-200 transition-all flex items-center gap-2">
-        <i class="fas fa-file-excel"></i> Import Excel
-      </button>
-      <!-- Download Template -->
-      <a href="{% url 'payroll:download_employee_template' %}"
-         class="px-4 py-2 bg-slate-100 text-slate-700 rounded-xl text-sm font-black
-                hover:bg-slate-200 transition-all flex items-center gap-2">
-        <i class="fas fa-download"></i> Template
-      </a>
+  <!-- ── KPI strip ───────────────────────────────────── -->
+  <div class="grid grid-cols-2 sm:grid-cols-2 gap-3">
+    <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-100 flex items-center gap-4">
+      <div class="w-11 h-11 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center text-xl shrink-0">
+        <i class="fas fa-users"></i>
+      </div>
+      <div>
+        <p class="text-2xl font-black text-slate-800">{{ total }}</p>
+        <p class="text-xs font-bold text-slate-400">พนักงานทั้งหมด</p>
+      </div>
+    </div>
+    <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-100 flex items-center gap-4">
+      <div class="w-11 h-11 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center text-xl shrink-0">
+        <i class="fas fa-crown"></i>
+      </div>
+      <div>
+        <p class="text-2xl font-black text-slate-800">
+          {% with exec_count=employees|length %}{{ total }}{% endwith %}
+        </p>
+        <p class="text-xs font-bold text-slate-400">ในระบบ Payroll</p>
+      </div>
     </div>
   </div>
 
-  <!-- ── Employee Table ──────────────────────────────── -->
-  <div class="bg-white rounded-2xl shadow-xl border border-slate-100 overflow-hidden">
+  <!-- ── Toolbar ─────────────────────────────────────── -->
+  <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-4">
+    <div class="flex flex-wrap items-center gap-3">
+      <!-- Search -->
+      <form method="get" class="relative flex-1 min-w-[200px]">
+        <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 text-sm"></i>
+        <input name="q" value="{{ q }}" placeholder="ค้นหาชื่อหรือ username..."
+               class="w-full pl-10 pr-4 py-3 border border-slate-200 rounded-xl text-sm font-bold
+                      bg-slate-50 outline-none focus:ring-2 focus:ring-emerald-400 focus:bg-white transition-all">
+      </form>
+
+      <!-- Action Buttons -->
+      <div class="flex items-center gap-2 flex-wrap">
+        <button onclick="document.getElementById('addModal').classList.remove('hidden')"
+                class="action-btn px-4 py-3 bg-emerald-700 text-white rounded-xl text-sm font-black
+                       hover:bg-emerald-800 transition-all flex items-center gap-2 shadow-sm">
+          <i class="fas fa-user-plus"></i>
+          <span>เพิ่มพนักงาน</span>
+        </button>
+        <button onclick="document.getElementById('importModal').classList.remove('hidden')"
+                class="action-btn px-4 py-3 bg-white border border-slate-200 text-slate-700 rounded-xl
+                       text-sm font-black hover:bg-slate-50 transition-all flex items-center gap-2">
+          <i class="fas fa-file-excel text-emerald-500"></i>
+          <span>Import Excel</span>
+        </button>
+        <a href="{% url 'payroll:download_employee_template' %}"
+           class="action-btn px-4 py-3 bg-white border border-slate-200 text-slate-700 rounded-xl
+                  text-sm font-black hover:bg-slate-50 transition-all flex items-center gap-2">
+          <i class="fas fa-download text-blue-400"></i>
+          <span>Template</span>
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Desktop Table ─────────────────────────────── -->
+  <div class="desktop-table bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
     <div class="overflow-x-auto">
-      <table class="w-full text-sm">
-        <thead class="bg-slate-50 text-[10px] font-black text-slate-500 uppercase tracking-widest border-b border-slate-100">
+      <table class="w-full">
+        <thead class="bg-slate-50 border-b border-slate-100">
           <tr>
-            <th class="py-3 px-5 text-left">#</th>
-            <th class="py-3 px-4 text-left">พนักงาน</th>
-            <th class="py-3 px-4 text-center">บทบาท</th>
-            <th class="py-3 px-4 text-center">สถานะ</th>
-            <th class="py-3 px-4 text-right">การดำเนินการ</th>
+            <th class="th-cell py-3 px-5 text-left">#</th>
+            <th class="th-cell py-3 px-4 text-left">พนักงาน</th>
+            <th class="th-cell py-3 px-4 text-center col-role">บทบาท</th>
+            <th class="th-cell py-3 px-4 text-center col-status">สถานะ</th>
+            <th class="th-cell py-3 px-4 text-right">การดำเนินการ</th>
           </tr>
         </thead>
         <tbody class="divide-y divide-slate-50">
           {% for emp in employees %}
-          <tr class="hover:bg-slate-50/50 transition-colors">
-            <td class="py-4 px-5 text-slate-400 font-bold text-xs">{{ forloop.counter }}</td>
+          <tr class="hover:bg-slate-50 transition-colors">
 
-            <!-- Avatar + Name -->
+            <td class="py-4 px-5 text-slate-400 font-bold text-sm">{{ forloop.counter }}</td>
+
+            <!-- Name -->
             <td class="py-4 px-4">
               <div class="flex items-center gap-3">
-                <div class="w-9 h-9 rounded-xl flex items-center justify-center font-black text-sm shrink-0
+                <div class="w-10 h-10 rounded-xl shrink-0 flex items-center justify-center font-black text-base
                             {% if emp.is_superuser %}bg-purple-100 text-purple-700
                             {% elif emp.is_staff %}bg-emerald-100 text-emerald-700
                             {% else %}bg-blue-100 text-blue-700{% endif %}">
                   {{ emp.first_name|slice:":1"|default:emp.username|slice:":1"|upper }}
                 </div>
                 <div>
-                  <p class="font-bold text-slate-800">{{ emp.get_full_name|default:emp.username }}</p>
-                  <p class="text-xs text-slate-400">{{ emp.username }} · {{ emp.email|default:"—" }}</p>
+                  <p class="emp-name">{{ emp.get_full_name|default:emp.username }}</p>
+                  <p class="emp-sub">@{{ emp.username }}{% if emp.email %} · {{ emp.email }}{% endif %}</p>
                 </div>
               </div>
             </td>
 
             <!-- Role -->
-            <td class="py-4 px-4 text-center">
+            <td class="py-4 px-4 text-center col-role">
               {% if emp.is_superuser %}
-              <span class="px-3 py-1 rounded-full text-[10px] font-black bg-purple-100 text-purple-700">👑 ผู้บริหาร</span>
+              <span class="badge bg-purple-100 text-purple-700">👑 ผู้บริหาร</span>
               {% elif emp.is_staff %}
-              <span class="px-3 py-1 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-700">🧑‍💼 HR/Admin</span>
+              <span class="badge bg-emerald-100 text-emerald-700">🧑‍💼 HR/Admin</span>
               {% else %}
-              <span class="px-3 py-1 rounded-full text-[10px] font-black bg-blue-100 text-blue-700">👤 พนักงาน</span>
+              <span class="badge bg-blue-100 text-blue-700">👤 พนักงาน</span>
               {% endif %}
             </td>
 
             <!-- Active -->
-            <td class="py-4 px-4 text-center">
-              <span class="px-3 py-1 rounded-full text-[10px] font-black
-                {% if emp.is_active %}bg-green-100 text-green-700{% else %}bg-rose-100 text-rose-600{% endif %}">
-                {% if emp.is_active %}✅ ใช้งาน{% else %}⛔ ระงับ{% endif %}
-              </span>
+            <td class="py-4 px-4 text-center col-status">
+              {% if emp.is_active %}
+              <span class="badge bg-green-100 text-green-700">✓ ใช้งาน</span>
+              {% else %}
+              <span class="badge bg-rose-100 text-rose-600">✗ ระงับ</span>
+              {% endif %}
             </td>
 
             <!-- Actions -->
-            <td class="py-4 px-4 text-right">
-              <div class="flex items-center justify-end gap-2">
-                <!-- Edit -->
-                <button onclick="openEditModal('{{ emp.id }}','{{ emp.first_name }}','{{ emp.last_name }}','{{ emp.email }}','{{ emp.is_active|yesno:'1,0' }}')"
-                        class="px-3 py-1.5 rounded-lg bg-blue-50 text-blue-700 text-xs font-black hover:bg-blue-100 transition-all">
-                  ✏️ แก้ไข
+            <td class="py-4 px-4">
+              <div class="flex items-center justify-end gap-2 flex-wrap">
+                <button onclick="openEditModal('{{ emp.id }}','{{ emp.first_name|escapejs }}','{{ emp.last_name|escapejs }}','{{ emp.email|escapejs }}','{{ emp.is_active|yesno:\"1,0\" }}')"
+                        class="action-btn px-3 py-2 rounded-lg bg-blue-50 text-blue-700 text-xs font-black
+                               hover:bg-blue-100 transition-all flex items-center gap-1.5">
+                  <i class="fas fa-pen-to-square"></i>
+                  <span>แก้ไข</span>
                 </button>
-                <!-- Remove from Payroll (Exec only) -->
-                {% if is_exec %}
-                {% if not emp.is_superuser %}
+                {% if is_exec and not emp.is_superuser %}
                 <form method="post" action="{% url 'payroll:remove_payroll_member' emp.id %}"
-                      onsubmit="return confirm('นำ {{ emp.get_full_name|default:emp.username }} ออกจากระบบ Payroll?\n(user ยังมีอยู่ใน Django แต่จะไม่ปรากฏในระบบนี้)')">
+                      onsubmit="return confirm('นำ {{ emp.get_full_name|default:emp.username|escapejs }} ออกจากระบบ Payroll?\n(ข้อมูล Django user ยังคงอยู่)')">
                   {% csrf_token %}
                   <button type="submit"
-                          class="px-3 py-1.5 rounded-lg bg-rose-50 text-rose-600 text-xs font-black hover:bg-rose-100 transition-all">
-                    🗑️ นำออก
+                          class="action-btn px-3 py-2 rounded-lg bg-rose-50 text-rose-600 text-xs font-black
+                                 hover:bg-rose-100 transition-all flex items-center gap-1.5">
+                    <i class="fas fa-user-minus"></i>
+                    <span>นำออก</span>
                   </button>
                 </form>
-                {% endif %}
                 {% endif %}
               </div>
             </td>
           </tr>
           {% empty %}
           <tr>
-            <td colspan="5" class="py-16 text-center">
-              <div class="text-slate-300 text-5xl mb-4"><i class="fas fa-users"></i></div>
-              <p class="font-black text-slate-500 text-lg">ยังไม่มีพนักงานในระบบ Payroll</p>
-              <p class="text-slate-400 text-sm mt-1">กด "+ เพิ่มพนักงาน" เพื่อเริ่มต้น</p>
+            <td colspan="5" class="py-20 text-center">
+              <i class="fas fa-user-plus text-5xl text-slate-200 mb-4 block"></i>
+              <p class="font-black text-slate-500 text-lg mb-1">ยังไม่มีพนักงานในระบบ</p>
+              <p class="text-slate-400 text-sm">กด "+ เพิ่มพนักงาน" หรือ Import Excel เพื่อเริ่มต้น</p>
             </td>
           </tr>
           {% endfor %}
@@ -131,217 +190,287 @@
     </div>
   </div>
 
+  <!-- ── Mobile Cards ──────────────────────────────── -->
+  <div class="mobile-cards space-y-3">
+    {% for emp in employees %}
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-4">
+      <div class="flex items-start justify-between gap-3">
+        <div class="flex items-center gap-3">
+          <div class="w-12 h-12 rounded-xl shrink-0 flex items-center justify-center font-black text-lg
+                      {% if emp.is_superuser %}bg-purple-100 text-purple-700
+                      {% elif emp.is_staff %}bg-emerald-100 text-emerald-700
+                      {% else %}bg-blue-100 text-blue-700{% endif %}">
+            {{ emp.first_name|slice:":1"|default:emp.username|slice:":1"|upper }}
+          </div>
+          <div>
+            <p class="emp-name">{{ emp.get_full_name|default:emp.username }}</p>
+            <p class="emp-sub">@{{ emp.username }}</p>
+            <div class="flex items-center gap-2 mt-1.5 flex-wrap">
+              {% if emp.is_superuser %}
+              <span class="badge bg-purple-100 text-purple-700" style="font-size:11px">👑 ผู้บริหาร</span>
+              {% elif emp.is_staff %}
+              <span class="badge bg-emerald-100 text-emerald-700" style="font-size:11px">🧑‍💼 HR/Admin</span>
+              {% else %}
+              <span class="badge bg-blue-100 text-blue-700" style="font-size:11px">👤 พนักงาน</span>
+              {% endif %}
+              {% if emp.is_active %}
+              <span class="badge bg-green-100 text-green-700" style="font-size:11px">✓ ใช้งาน</span>
+              {% else %}
+              <span class="badge bg-rose-100 text-rose-600" style="font-size:11px">✗ ระงับ</span>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+        <div class="flex flex-col gap-2 shrink-0">
+          <button onclick="openEditModal('{{ emp.id }}','{{ emp.first_name|escapejs }}','{{ emp.last_name|escapejs }}','{{ emp.email|escapejs }}','{{ emp.is_active|yesno:\"1,0\" }}')"
+                  class="px-3 py-2 rounded-lg bg-blue-50 text-blue-700 text-xs font-black hover:bg-blue-100">
+            ✏️ แก้ไข
+          </button>
+          {% if is_exec and not emp.is_superuser %}
+          <form method="post" action="{% url 'payroll:remove_payroll_member' emp.id %}"
+                onsubmit="return confirm('นำออกจากระบบ Payroll?')">
+            {% csrf_token %}
+            <button type="submit"
+                    class="w-full px-3 py-2 rounded-lg bg-rose-50 text-rose-600 text-xs font-black hover:bg-rose-100">
+              🗑️ นำออก
+            </button>
+          </form>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    {% empty %}
+    <div class="bg-white rounded-2xl p-8 text-center shadow-sm border border-slate-100">
+      <p class="font-black text-slate-500">ยังไม่มีพนักงาน</p>
+    </div>
+    {% endfor %}
+  </div>
+
 </div>
 
-<!-- ═══════════════════════════════════════════════════
-     MODAL: เพิ่มพนักงานใหม่
-     ═══════════════════════════════════════════════════ -->
-<div id="addModal" class="fixed inset-0 z-50 flex items-center justify-center hidden">
-  <div class="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onclick="this.parentElement.classList.add('hidden')"></div>
-  <div class="relative bg-white rounded-3xl shadow-2xl w-full max-w-md mx-4 p-8 z-10 max-h-screen overflow-y-auto">
-    <div class="flex items-start justify-between mb-6">
-      <div>
-        <p class="font-black text-slate-800 text-xl">➕ เพิ่มพนักงานใหม่</p>
-        <p class="text-slate-400 text-xs font-bold mt-0.5">เพิ่มเข้าระบบ Payroll เท่านั้น ไม่กระทบ Django</p>
-      </div>
-      <button onclick="document.getElementById('addModal').classList.add('hidden')"
-              class="w-8 h-8 rounded-xl bg-slate-100 text-slate-500 hover:bg-slate-200 flex items-center justify-center">
-        <i class="fas fa-xmark"></i>
-      </button>
-    </div>
-    <form method="post" action="{% url 'payroll:create_payroll_employee' %}">
-      {% csrf_token %}
-      <div class="space-y-4">
-        <div class="grid grid-cols-2 gap-3">
-          <div>
-            <label class="block text-[10px] font-black text-slate-400 uppercase tracking-wider mb-1">Username *</label>
-            <input name="username" required placeholder="emp001"
-                   class="w-full px-3 py-2.5 border-2 border-slate-200 rounded-xl text-sm font-bold
-                          outline-none focus:border-emerald-500">
-          </div>
-          <div>
-            <label class="block text-[10px] font-black text-slate-400 uppercase tracking-wider mb-1">Password</label>
-            <input name="password" type="password" placeholder="ว่าง = 12345678"
-                   class="w-full px-3 py-2.5 border-2 border-slate-200 rounded-xl text-sm font-bold
-                          outline-none focus:border-emerald-500">
-          </div>
-        </div>
-        <div class="grid grid-cols-2 gap-3">
-          <div>
-            <label class="block text-[10px] font-black text-slate-400 uppercase tracking-wider mb-1">ชื่อจริง</label>
-            <input name="first_name" placeholder="สมชาย"
-                   class="w-full px-3 py-2.5 border-2 border-slate-200 rounded-xl text-sm font-bold
-                          outline-none focus:border-emerald-500">
-          </div>
-          <div>
-            <label class="block text-[10px] font-black text-slate-400 uppercase tracking-wider mb-1">นามสกุล</label>
-            <input name="last_name" placeholder="ใจดี"
-                   class="w-full px-3 py-2.5 border-2 border-slate-200 rounded-xl text-sm font-bold
-                          outline-none focus:border-emerald-500">
-          </div>
-        </div>
+<!-- ═══ MODAL: เพิ่มพนักงาน ════════════════════════════════ -->
+<div id="addModal" class="fixed inset-0 z-50 flex items-center justify-center hidden p-4">
+  <div class="absolute inset-0 bg-black/50 backdrop-blur-sm"
+       onclick="document.getElementById('addModal').classList.add('hidden')"></div>
+  <div class="relative bg-white rounded-3xl shadow-2xl w-full max-w-md z-10
+              max-h-[90vh] overflow-y-auto">
+    <div class="p-6 sm:p-8">
+      <div class="flex items-center justify-between mb-6">
         <div>
-          <label class="block text-[10px] font-black text-slate-400 uppercase tracking-wider mb-1">อีเมล</label>
-          <input name="email" type="email" placeholder="email@company.com"
-                 class="w-full px-3 py-2.5 border-2 border-slate-200 rounded-xl text-sm font-bold
-                        outline-none focus:border-emerald-500">
+          <h2 class="text-xl font-black text-slate-800">เพิ่มพนักงานใหม่</h2>
+          <p class="text-xs text-slate-400 font-semibold mt-1">เข้าระบบ Payroll เท่านั้น ไม่กระทบระบบอื่น</p>
         </div>
-        {% if is_exec %}
-        <div class="bg-purple-50 rounded-xl p-3 border border-purple-100">
-          <label class="flex items-center gap-3 cursor-pointer">
-            <input type="checkbox" name="make_hr" value="1" class="rounded w-4 h-4 accent-purple-600">
+        <button onclick="document.getElementById('addModal').classList.add('hidden')"
+                class="w-9 h-9 rounded-xl bg-slate-100 text-slate-500 hover:bg-slate-200 flex items-center justify-center text-lg">
+          ×
+        </button>
+      </div>
+      <form method="post" action="{% url 'payroll:create_payroll_employee' %}">
+        {% csrf_token %}
+        <div class="space-y-4">
+          <div class="grid grid-cols-2 gap-3">
             <div>
-              <p class="font-black text-purple-700 text-sm">เพิ่มเป็น HR/Admin</p>
-              <p class="text-purple-400 text-xs font-semibold">สามารถบันทึกข้อมูลเงินเดือนได้</p>
+              <label class="block text-xs font-black text-slate-500 mb-1.5">Username *</label>
+              <input name="username" required placeholder="emp001"
+                     class="w-full px-4 py-3 border-2 border-slate-200 rounded-xl text-sm font-bold
+                            outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100">
+            </div>
+            <div>
+              <label class="block text-xs font-black text-slate-500 mb-1.5">รหัสผ่าน</label>
+              <input name="password" type="text" placeholder="ว่าง = 12345678"
+                     class="w-full px-4 py-3 border-2 border-slate-200 rounded-xl text-sm font-bold
+                            outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100">
+            </div>
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-black text-slate-500 mb-1.5">ชื่อ</label>
+              <input name="first_name" placeholder="สมชาย"
+                     class="w-full px-4 py-3 border-2 border-slate-200 rounded-xl text-sm font-bold
+                            outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100">
+            </div>
+            <div>
+              <label class="block text-xs font-black text-slate-500 mb-1.5">นามสกุล</label>
+              <input name="last_name" placeholder="ใจดี"
+                     class="w-full px-4 py-3 border-2 border-slate-200 rounded-xl text-sm font-bold
+                            outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100">
+            </div>
+          </div>
+          <div>
+            <label class="block text-xs font-black text-slate-500 mb-1.5">อีเมล (ถ้ามี)</label>
+            <input name="email" type="email" placeholder="email@company.com"
+                   class="w-full px-4 py-3 border-2 border-slate-200 rounded-xl text-sm font-bold
+                          outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100">
+          </div>
+          {% if is_exec %}
+          <label class="flex items-center gap-3 bg-purple-50 p-3 rounded-xl border border-purple-100 cursor-pointer">
+            <input type="checkbox" name="make_hr" value="1"
+                   class="w-4 h-4 rounded accent-purple-600">
+            <div>
+              <p class="text-sm font-black text-purple-700">กำหนดเป็น HR/Admin</p>
+              <p class="text-xs text-purple-400 font-semibold">สามารถบันทึกข้อมูลเงินเดือนได้</p>
             </div>
           </label>
-        </div>
-        {% endif %}
-        <div class="flex gap-3 pt-2">
-          <button type="submit"
-                  class="flex-1 py-3 rounded-2xl bg-emerald-700 text-white font-black hover:bg-emerald-800 transition-all">
-            <i class="fas fa-plus mr-2"></i> เพิ่มพนักงาน
-          </button>
-          <button type="button" onclick="document.getElementById('addModal').classList.add('hidden')"
-                  class="px-6 py-3 rounded-2xl bg-slate-100 text-slate-600 font-black hover:bg-slate-200 transition-all">
-            ยกเลิก
-          </button>
-        </div>
-      </div>
-    </form>
-  </div>
-</div>
-
-<!-- ═══════════════════════════════════════════════════
-     MODAL: แก้ไขข้อมูลพนักงาน
-     ═══════════════════════════════════════════════════ -->
-<div id="editModal" class="fixed inset-0 z-50 flex items-center justify-center hidden">
-  <div class="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onclick="this.parentElement.classList.add('hidden')"></div>
-  <div class="relative bg-white rounded-3xl shadow-2xl w-full max-w-md mx-4 p-8 z-10">
-    <div class="flex items-start justify-between mb-6">
-      <div>
-        <p class="font-black text-slate-800 text-xl">✏️ แก้ไขข้อมูลพนักงาน</p>
-        <p id="editModalName" class="text-slate-400 text-xs font-bold mt-0.5"></p>
-      </div>
-      <button onclick="document.getElementById('editModal').classList.add('hidden')"
-              class="w-8 h-8 rounded-xl bg-slate-100 text-slate-500 hover:bg-slate-200 flex items-center justify-center">
-        <i class="fas fa-xmark"></i>
-      </button>
-    </div>
-    <form id="editForm" method="post" action="">
-      {% csrf_token %}
-      <div class="space-y-4">
-        <div class="grid grid-cols-2 gap-3">
-          <div>
-            <label class="block text-[10px] font-black text-slate-400 uppercase tracking-wider mb-1">ชื่อจริง</label>
-            <input id="editFirstName" name="first_name"
-                   class="w-full px-3 py-2.5 border-2 border-slate-200 rounded-xl text-sm font-bold
-                          outline-none focus:border-blue-500">
-          </div>
-          <div>
-            <label class="block text-[10px] font-black text-slate-400 uppercase tracking-wider mb-1">นามสกุล</label>
-            <input id="editLastName" name="last_name"
-                   class="w-full px-3 py-2.5 border-2 border-slate-200 rounded-xl text-sm font-bold
-                          outline-none focus:border-blue-500">
+          {% endif %}
+          <div class="flex gap-3 pt-1">
+            <button type="submit"
+                    class="flex-1 py-3 rounded-2xl bg-emerald-700 text-white font-black
+                           hover:bg-emerald-800 transition-all text-sm">
+              ✅ เพิ่มพนักงาน
+            </button>
+            <button type="button" onclick="document.getElementById('addModal').classList.add('hidden')"
+                    class="px-5 py-3 rounded-2xl bg-slate-100 text-slate-600 font-black hover:bg-slate-200 text-sm">
+              ยกเลิก
+            </button>
           </div>
         </div>
-        <div>
-          <label class="block text-[10px] font-black text-slate-400 uppercase tracking-wider mb-1">อีเมล</label>
-          <input id="editEmail" name="email" type="email"
-                 class="w-full px-3 py-2.5 border-2 border-slate-200 rounded-xl text-sm font-bold
-                        outline-none focus:border-blue-500">
-        </div>
-        <div>
-          <label class="block text-[10px] font-black text-slate-400 uppercase tracking-wider mb-1">สถานะ</label>
-          <select id="editActive" name="is_active"
-                  class="w-full px-3 py-2.5 border-2 border-slate-200 rounded-xl text-sm font-bold
-                         outline-none focus:border-blue-500 bg-white">
-            <option value="1">✅ ใช้งาน (Active)</option>
-            <option value="0">⛔ ระงับ (Inactive)</option>
-          </select>
-        </div>
-        <div class="flex gap-3 pt-2">
-          <button type="submit"
-                  class="flex-1 py-3 rounded-2xl bg-blue-600 text-white font-black hover:bg-blue-700 transition-all">
-            <i class="fas fa-check mr-2"></i> บันทึกการเปลี่ยนแปลง
-          </button>
-          <button type="button" onclick="document.getElementById('editModal').classList.add('hidden')"
-                  class="px-6 py-3 rounded-2xl bg-slate-100 text-slate-600 font-black hover:bg-slate-200 transition-all">
-            ยกเลิก
-          </button>
-        </div>
-      </div>
-    </form>
-  </div>
-</div>
-
-<!-- ═══════════════════════════════════════════════════
-     MODAL: Import Excel
-     ═══════════════════════════════════════════════════ -->
-<div id="importModal" class="fixed inset-0 z-50 flex items-center justify-center hidden">
-  <div class="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onclick="this.parentElement.classList.add('hidden')"></div>
-  <div class="relative bg-white rounded-3xl shadow-2xl w-full max-w-md mx-4 p-8 z-10">
-    <div class="flex items-start justify-between mb-6">
-      <div>
-        <p class="font-black text-slate-800 text-xl">📥 Import พนักงานจาก Excel</p>
-        <p class="text-slate-400 text-xs font-bold mt-0.5">พนักงานทั้งหมดที่ import จะเข้าสู่ระบบ Payroll</p>
-      </div>
-      <button onclick="document.getElementById('importModal').classList.add('hidden')"
-              class="w-8 h-8 rounded-xl bg-slate-100 text-slate-500 hover:bg-slate-200 flex items-center justify-center">
-        <i class="fas fa-xmark"></i>
-      </button>
+      </form>
     </div>
-    <form method="post" action="{% url 'payroll:import_employees' %}" enctype="multipart/form-data">
-      {% csrf_token %}
-      <div class="space-y-4">
-        <div class="border-2 border-dashed border-slate-200 rounded-2xl p-6 text-center">
-          <i class="fas fa-file-excel text-3xl text-emerald-400 mb-2"></i>
-          <p class="font-bold text-slate-600 text-sm mb-3">เลือกไฟล์ Excel</p>
-          <input type="file" name="excel_file" accept=".xlsx,.xls" required
-                 class="text-sm font-bold text-slate-600">
-        </div>
-        <div class="bg-blue-50 rounded-xl p-3 text-xs text-blue-700 font-semibold border border-blue-100">
-          <p class="font-black mb-1">📋 รูปแบบไฟล์ที่รองรับ:</p>
-          <ul class="space-y-0.5 ml-2">
-            <li>• username, first_name, last_name, email, password, is_active</li>
-            <li>• Password ว่าง = 12345678 (default)</li>
-          </ul>
-          <a href="{% url 'payroll:download_employee_template' %}"
-             class="inline-flex items-center gap-1 mt-2 text-blue-600 font-black hover:underline">
-            <i class="fas fa-download text-xs"></i> ดาวน์โหลด Template
-          </a>
-        </div>
-        <div class="flex gap-3">
-          <button type="submit"
-                  class="flex-1 py-3 rounded-2xl bg-emerald-700 text-white font-black hover:bg-emerald-800 transition-all">
-            <i class="fas fa-upload mr-2"></i> Import
-          </button>
-          <button type="button" onclick="document.getElementById('importModal').classList.add('hidden')"
-                  class="px-6 py-3 rounded-2xl bg-slate-100 text-slate-600 font-black hover:bg-slate-200">
-            ยกเลิก
-          </button>
-        </div>
-      </div>
-    </form>
   </div>
 </div>
 
+<!-- ═══ MODAL: แก้ไขพนักงาน ════════════════════════════════ -->
+<div id="editModal" class="fixed inset-0 z-50 flex items-center justify-center hidden p-4">
+  <div class="absolute inset-0 bg-black/50 backdrop-blur-sm"
+       onclick="document.getElementById('editModal').classList.add('hidden')"></div>
+  <div class="relative bg-white rounded-3xl shadow-2xl w-full max-w-md z-10">
+    <div class="p-6 sm:p-8">
+      <div class="flex items-center justify-between mb-6">
+        <div>
+          <h2 class="text-xl font-black text-slate-800">แก้ไขข้อมูล</h2>
+          <p id="editModalSub" class="text-xs text-slate-400 font-semibold mt-1"></p>
+        </div>
+        <button onclick="document.getElementById('editModal').classList.add('hidden')"
+                class="w-9 h-9 rounded-xl bg-slate-100 text-slate-500 hover:bg-slate-200 flex items-center justify-center text-lg">
+          ×
+        </button>
+      </div>
+      <form id="editForm" method="post" action="">
+        {% csrf_token %}
+        <div class="space-y-4">
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-black text-slate-500 mb-1.5">ชื่อ</label>
+              <input id="editFirstName" name="first_name"
+                     class="w-full px-4 py-3 border-2 border-slate-200 rounded-xl text-sm font-bold
+                            outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100">
+            </div>
+            <div>
+              <label class="block text-xs font-black text-slate-500 mb-1.5">นามสกุล</label>
+              <input id="editLastName" name="last_name"
+                     class="w-full px-4 py-3 border-2 border-slate-200 rounded-xl text-sm font-bold
+                            outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100">
+            </div>
+          </div>
+          <div>
+            <label class="block text-xs font-black text-slate-500 mb-1.5">อีเมล</label>
+            <input id="editEmail" name="email" type="email"
+                   class="w-full px-4 py-3 border-2 border-slate-200 rounded-xl text-sm font-bold
+                          outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100">
+          </div>
+          <div>
+            <label class="block text-xs font-black text-slate-500 mb-1.5">สถานะ</label>
+            <select id="editActive" name="is_active"
+                    class="w-full px-4 py-3 border-2 border-slate-200 rounded-xl text-sm font-bold
+                           outline-none focus:border-blue-500 bg-white">
+              <option value="1">✅ ใช้งานปกติ (Active)</option>
+              <option value="0">⛔ ระงับการใช้งาน (Inactive)</option>
+            </select>
+          </div>
+          <div class="flex gap-3 pt-1">
+            <button type="submit"
+                    class="flex-1 py-3 rounded-2xl bg-blue-600 text-white font-black
+                           hover:bg-blue-700 transition-all text-sm">
+              💾 บันทึก
+            </button>
+            <button type="button" onclick="document.getElementById('editModal').classList.add('hidden')"
+                    class="px-5 py-3 rounded-2xl bg-slate-100 text-slate-600 font-black hover:bg-slate-200 text-sm">
+              ยกเลิก
+            </button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ MODAL: Import Excel ════════════════════════════════ -->
+<div id="importModal" class="fixed inset-0 z-50 flex items-center justify-center hidden p-4">
+  <div class="absolute inset-0 bg-black/50 backdrop-blur-sm"
+       onclick="document.getElementById('importModal').classList.add('hidden')"></div>
+  <div class="relative bg-white rounded-3xl shadow-2xl w-full max-w-md z-10">
+    <div class="p-6 sm:p-8">
+      <div class="flex items-center justify-between mb-6">
+        <div>
+          <h2 class="text-xl font-black text-slate-800">📥 Import จาก Excel</h2>
+          <p class="text-xs text-slate-400 font-semibold mt-1">ทุกคนใน Excel จะเข้าระบบ Payroll</p>
+        </div>
+        <button onclick="document.getElementById('importModal').classList.add('hidden')"
+                class="w-9 h-9 rounded-xl bg-slate-100 text-slate-500 hover:bg-slate-200 flex items-center justify-center text-lg">
+          ×
+        </button>
+      </div>
+      <form method="post" action="{% url 'payroll:import_employees' %}" enctype="multipart/form-data">
+        {% csrf_token %}
+        <div class="space-y-4">
+          <label class="block border-2 border-dashed border-slate-200 rounded-2xl p-6 text-center cursor-pointer hover:border-emerald-400 hover:bg-emerald-50 transition-all">
+            <i class="fas fa-file-excel text-3xl text-emerald-400 block mb-2"></i>
+            <p class="font-black text-slate-600 text-sm mb-1">คลิกเพื่อเลือกไฟล์</p>
+            <p class="text-xs text-slate-400">.xlsx หรือ .xls</p>
+            <input type="file" name="excel_file" accept=".xlsx,.xls" required class="hidden">
+          </label>
+          <div class="bg-amber-50 rounded-xl p-3 border border-amber-100 text-xs text-amber-700 font-semibold">
+            <p class="font-black mb-1">📋 Column ที่ต้องมี:</p>
+            <p>username, first_name, last_name, email, password, is_active</p>
+            <a href="{% url 'payroll:download_employee_template' %}"
+               class="inline-flex items-center gap-1 mt-2 text-emerald-600 font-black hover:underline">
+              <i class="fas fa-download text-xs"></i> ดาวน์โหลด Template
+            </a>
+          </div>
+          <div class="flex gap-3">
+            <button type="submit"
+                    class="flex-1 py-3 rounded-2xl bg-emerald-700 text-white font-black hover:bg-emerald-800 text-sm">
+              📤 Import
+            </button>
+            <button type="button" onclick="document.getElementById('importModal').classList.add('hidden')"
+                    class="px-5 py-3 rounded-2xl bg-slate-100 text-slate-600 font-black hover:bg-slate-200 text-sm">
+              ยกเลิก
+            </button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
 {% endblock %}
 
 {% block extra_scripts %}
 <script>
 function openEditModal(userId, firstName, lastName, email, isActive) {
-  document.getElementById('editModal').classList.remove('hidden');
-  document.getElementById('editModalName').textContent = '👤 ' + (firstName + ' ' + lastName).trim() || 'ID:' + userId;
+  const modal = document.getElementById('editModal');
+  modal.classList.remove('hidden');
+  const name = (firstName + ' ' + lastName).trim() || '@' + userId;
+  document.getElementById('editModalSub').textContent = '👤 ' + name;
   document.getElementById('editForm').action = `/payroll/admin/employees/${userId}/edit/`;
   document.getElementById('editFirstName').value = firstName;
-  document.getElementById('editLastName').value = lastName;
-  document.getElementById('editEmail').value = email;
-  document.getElementById('editActive').value = isActive;
+  document.getElementById('editLastName').value  = lastName;
+  document.getElementById('editEmail').value     = email;
+  document.getElementById('editActive').value    = isActive;
+  setTimeout(() => document.getElementById('editFirstName').focus(), 100);
 }
+
+// Esc to close any modal
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') {
     document.querySelectorAll('.fixed').forEach(m => m.classList.add('hidden'));
+  }
+});
+
+// Show filename when file selected
+document.querySelector('input[type=file]')?.addEventListener('change', function() {
+  const label = this.previousElementSibling;
+  if (label && this.files[0]) {
+    label.textContent = '📄 ' + this.files[0].name;
   }
 });
 </script>
