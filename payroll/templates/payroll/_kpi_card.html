@@ -1,3 +1,4 @@
+{% load humanize %}
 <div class="bg-white rounded-2xl p-6 shadow-lg border border-slate-100 flex items-center gap-5">
   <div class="w-12 h-12 rounded-xl flex items-center justify-center text-xl
     {% if color == 'emerald' %}bg-emerald-100 text-emerald-600
@@ -9,6 +10,13 @@
   </div>
   <div>
     <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">{{ label }}</p>
-    <p class="text-3xl font-black text-slate-800">{{ value }} <span class="text-sm font-bold text-slate-400">{{ unit }}</span></p>
+    <p class="text-3xl font-black text-slate-800">
+      {% if unit == '฿' or unit == 'บาท' %}
+        {{ value|floatformat:2|intcomma }}
+      {% else %}
+        {{ value|intcomma }}
+      {% endif %}
+      <span class="text-sm font-bold text-slate-400">{{ unit }}</span>
+    </p>
   </div>
 </div>

@@ -9,19 +9,28 @@
 body, td, th, input, button, select, label, p, span {
   font-family: 'Sarabun', 'Noto Sans Thai', 'Inter', sans-serif !important;
 }
-.emp-name { font-size: 14px; font-weight: 700; color: #1e293b; }
-.emp-sub  { font-size: 11px; color: #94a3b8; font-weight: 500; }
-.badge    { display: inline-flex; align-items: center; padding: 3px 10px;
-            border-radius: 999px; font-size: 11px; font-weight: 700; white-space: nowrap; }
-.th-cell  { font-size: 10px; font-weight: 800; letter-spacing: .05em;
-            text-transform: uppercase; color: #64748b; }
-.bank-no  { font-family: 'Courier New', monospace; font-size: 12px; font-weight: 700;
-            color: #334155; letter-spacing: 0.03em; }
-/* Responsive: hide bank column on small screens */
-@media (max-width: 768px) { .col-bank { display: none; } }
-@media (max-width: 640px) { .col-role, .col-status { display: none; } }
-@media (max-width: 480px) { .desktop-table { display: none; } .mobile-cards { display: block !important; } }
-.mobile-cards { display: none; }
+  .tbl th {
+    padding: 8px 12px !important;
+    font-size: 10px !important;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-weight: 800;
+  }
+  .tbl td {
+    padding: 6px 12px !important;
+    vertical-align: middle;
+  }
+  .emp-name { font-size: 13px; font-weight: 700; color: #1e293b; line-height: 1.2; }
+  .emp-sub  { font-size: 10px; color: #94a3b8; font-weight: 500; font-family: 'Inter', sans-serif; }
+  .badge    { display: inline-flex; align-items: center; padding: 2px 8px;
+              border-radius: 999px; font-size: 10px; font-weight: 800; white-space: nowrap; }
+  .bank-no  { font-family: 'Courier New', monospace; font-size: 11px; font-weight: 700;
+              color: #334155; }
+  /* Responsive: hide bank column on small screens */
+  @media (max-width: 768px) { .col-bank { display: none; } }
+  @media (max-width: 640px) { .col-role, .col-status { display: none; } }
+  @media (max-width: 480px) { .desktop-table { display: none; } .mobile-cards { display: block !important; } }
+  .mobile-cards { display: none; }
 </style>
 <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;700;800&display=swap" rel="stylesheet">
 {% endblock %}
@@ -62,28 +71,27 @@ body, td, th, input, button, select, label, p, span {
   <!-- ── Desktop Table ─────────────────────────────── -->
   <div class="desktop-table bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
     <div class="overflow-x-auto">
-      <table class="w-full">
-        <thead class="bg-slate-50 border-b border-slate-100">
+      <table class="w-full tbl">
+        <thead class="bg-slate-50 border-b border-slate-200">
           <tr>
-            <th class="th-cell py-3 px-4 text-left">#</th>
-            <th class="th-cell py-3 px-4 text-left">พนักงาน</th>
-            <th class="th-cell py-3 px-4 text-left col-bank">บัญชีธนาคาร</th>
-            <th class="th-cell py-3 px-4 text-center col-role">บทบาท</th>
-            <th class="th-cell py-3 px-4 text-center col-status">สถานะ</th>
-            <th class="th-cell py-3 px-4 text-right">การดำเนินการ</th>
+            <th class="text-left w-12">#</th>
+            <th class="text-left">พนักงาน</th>
+            <th class="text-left col-bank">บัญชีธนาคาร</th>
+            <th class="text-center col-role">บทบาท</th>
+            <th class="text-center col-status">สถานะ</th>
+            <th class="text-right">จัดการ</th>
           </tr>
         </thead>
         <tbody class="divide-y divide-slate-50">
           {% for emp in employees %}
           {% with cfg=emp.salary_config %}
-          <tr class="hover:bg-slate-50 transition-colors">
-
-            <td class="py-4 px-4 text-slate-400 font-bold text-sm">{{ forloop.counter }}</td>
+          <tr class="hover:bg-slate-50/80 transition-colors">
+            <td class="text-slate-400 font-bold text-xs">{{ forloop.counter }}</td>
 
             <!-- Name -->
-            <td class="py-4 px-4">
+            <td>
               <div class="flex items-center gap-3">
-                <div class="w-10 h-10 rounded-xl shrink-0 flex items-center justify-center font-black text-base
+                <div class="w-8 h-8 rounded-lg shrink-0 flex items-center justify-center font-black text-xs
                             {% if emp.is_superuser %}bg-purple-100 text-purple-700
                             {% elif emp.is_staff %}bg-emerald-100 text-emerald-700
                             {% else %}bg-blue-100 text-blue-700{% endif %}">
@@ -91,45 +99,32 @@ body, td, th, input, button, select, label, p, span {
                 </div>
                 <div>
                   <p class="emp-name">{{ emp.get_full_name|default:emp.username }}</p>
-                  <p class="emp-sub">@{{ emp.username }}{% if emp.email %} · {{ emp.email }}{% endif %}</p>
+                  <p class="emp-sub">@{{ emp.username }}</p>
                 </div>
               </div>
             </td>
 
             <!-- Bank Account -->
-            <td class="py-4 px-4 col-bank">
+            <td class="col-bank">
               {% if cfg.bank_account_number %}
               <div>
-                <p class="bank-no">{{ cfg.bank_account_number }}</p>
+                <p class="bank-no text-[11px]">{{ cfg.bank_account_number }}</p>
                 <p class="emp-sub">{{ cfg.bank_name|default:"—" }}</p>
               </div>
-              {% else %}
-              <span class="text-slate-300 text-sm">—</span>
-              {% endif %}
+              {% else %}<span class="text-slate-300 text-xs">—</span>{% endif %}
             </td>
 
             <!-- Role -->
-            <td class="py-4 px-4 text-center col-role">
-              {% if emp.is_superuser %}
-              <span class="badge bg-purple-100 text-purple-700">👑 ผู้บริหาร</span>
-              {% elif emp.is_staff %}
-              <span class="badge bg-emerald-100 text-emerald-700">🧑‍💼 HR/Admin</span>
-              {% else %}
-              <span class="badge bg-blue-100 text-blue-700">👤 พนักงาน</span>
-              {% endif %}
+            <td class="text-center col-role">
+              {% if emp.is_superuser %}<span class="badge bg-purple-100 text-purple-700">👑 Exec</span>
+              {% elif emp.is_staff %}<span class="badge bg-emerald-100 text-emerald-700">🧑‍💼 Admin</span>
+              {% else %}<span class="badge bg-slate-100 text-slate-500">👤 พนักงาน</span>{% endif %}
             </td>
-
-            <!-- Active -->
-            <td class="py-4 px-4 text-center col-status">
-              {% if emp.is_active %}
-              <span class="badge bg-green-100 text-green-700">✓ ใช้งาน</span>
-              {% else %}
-              <span class="badge bg-rose-100 text-rose-600">✗ ระงับ</span>
-              {% endif %}
+            <td class="text-center col-status">
+              {% if emp.is_active %}<span class="badge bg-green-100 text-green-700">Active</span>
+              {% else %}<span class="badge bg-rose-100 text-rose-600">Inactive</span>{% endif %}
             </td>
-
-            <!-- Actions -->
-            <td class="py-4 px-4">
+            <td>
               <div class="flex items-center justify-end gap-2">
                 <button onclick="openEditModal(
                           '{{ emp.id }}',

@@ -1,5 +1,5 @@
 {% extends 'payroll/base_payroll.html' %}
-{% load payroll_extras %}
+{% load payroll_extras humanize %}
 {% block title %}Export โอนเงินเดือน {{ month_name }} {{ year }} · Payroll{% endblock %}
 {% block page_title %}Export โอนเงินเดือน{% endblock %}
 {% block page_subtitle %}Bank Transfer Export · {{ month_name }} {{ year }}{% endblock %}
@@ -80,7 +80,7 @@
     </div>
     <div class="bg-white rounded-2xl p-5 shadow border border-slate-100">
       <p class="text-[9px] font-black text-slate-400 uppercase tracking-wider mb-1">ยอดโอนรวมสุทธิ</p>
-      <p class="text-2xl font-black text-emerald-700">{{ total_net|floatformat:2 }}</p>
+      <p class="text-2xl font-black text-emerald-700">{{ total_net|floatformat:2|intcomma }}</p>
       <p class="text-xs text-slate-400 font-bold">บาท</p>
     </div>
     <div class="bg-white rounded-2xl p-5 shadow border border-slate-100">
@@ -109,7 +109,7 @@
             <i class="fas fa-building-columns text-emerald-400"></i>
             รายการโอนเงินเดือน — {{ month_name }} {{ year }}
           </p>
-          <p class="text-slate-400 text-xs font-bold mt-0.5">{{ count }} รายการ · ยอดรวม {{ total_net|floatformat:2 }} ฿</p>
+          <p class="text-slate-400 text-xs font-bold mt-0.5">{{ count }} รายการ · ยอดรวม {{ total_net|floatformat:2|intcomma }} ฿</p>
         </div>
         <div class="flex items-center gap-3">
           <div class="flex items-center gap-2">
@@ -130,7 +130,7 @@
       <!-- Print Header -->
       <div class="print-only px-8 pt-6 pb-3 border-b border-slate-200">
         <p class="page-title-print">ใบรายการโอนเงินเดือน · {{ month_name }} {{ year }}</p>
-        <p style="font-size:11px; color:#64748b">จำนวน {{ count }} คน · ยอดรวม {{ total_net|floatformat:2 }} บาท</p>
+        <p style="font-size:11px; color:#64748b">จำนวน {{ count }} คน · ยอดรวม {{ total_net|floatformat:2|intcomma }} บาท</p>
       </div>
 
       <!-- Table -->
@@ -195,7 +195,7 @@
               <!-- Net Pay -->
               <td class="num text-base font-black
                          {% if row.is_paid %}text-emerald-600{% else %}text-slate-800{% endif %}">
-                {{ row.net_pay|floatformat:2 }}
+                {{ row.net_pay|floatformat:2|intcomma }}
               </td>
 
               <!-- Status -->
@@ -224,7 +224,7 @@
             <tr>
               <td class="no-print"></td>
               <td colspan="4" class="px-4 py-3 font-black">รวมทั้งหมด {{ count }} คน</td>
-              <td class="num px-4 py-3 font-black text-emerald-200 text-lg">{{ total_net|floatformat:2 }}</td>
+              <td class="num px-4 py-3 font-black text-emerald-200 text-lg">{{ total_net|floatformat:2|intcomma }}</td>
               <td colspan="2"></td>
             </tr>
           </tfoot>

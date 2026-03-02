@@ -1,48 +1,79 @@
 {% extends 'payroll/base_payroll.html' %}
+{% load payroll_extras %}
 {% block title %}ตั้งค่าเงินเดือน · Payroll{% endblock %}
 {% block page_title %}ตั้งค่าโครงสร้างเงินเดือน{% endblock %}
 {% block page_subtitle %}Employee Salary Configuration{% endblock %}
 
+{% block extra_head %}
+<style>
+  .tbl th {
+    padding: 8px 12px !important;
+    font-size: 10px !important;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-weight: 800;
+  }
+  .tbl td {
+    padding: 6px 12px !important;
+    vertical-align: middle;
+  }
+  .num-col {
+    font-family: 'Inter', 'Sarabun', sans-serif;
+    font-weight: 700;
+    text-align: right;
+  }
+</style>
+{% endblock %}
+
 {% block content %}
-<div class="space-y-6">
-  <div class="bg-white rounded-2xl shadow-xl border border-slate-100 overflow-hidden">
-    <div class="flex items-center justify-between px-8 py-5 border-b border-slate-100">
-      <h3 class="font-black text-slate-800">รายชื่อพนักงานทั้งหมด ({{ configs.count }} คน)</h3>
+<div class="space-y-4">
+  <div class="bg-white rounded-[1.5rem] shadow-xl border border-slate-100 overflow-hidden">
+    <div class="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/50">
+      <h3 class="font-black text-slate-800 flex items-center gap-2 text-sm">
+        <i class="fas fa-users text-emerald-500"></i>
+        รายชื่อพนักงานทั้งหมด ({{ configs.count }} คน)
+      </h3>
     </div>
     <div class="overflow-x-auto">
-      <table class="w-full text-sm">
-        <thead class="bg-slate-50 text-[10px] font-black text-slate-500 uppercase tracking-widest border-b border-slate-100">
+      <table class="w-full text-sm tbl">
+        <thead class="bg-slate-50 text-slate-500 border-b border-slate-200">
           <tr>
-            <th class="py-3 px-6 text-left">พนักงาน</th>
-            <th class="py-3 px-4 text-right">ฐานเงินเดือน</th>
-            <th class="py-3 px-4 text-right">อัตรา OT/ชม.</th>
-            <th class="py-3 px-4 text-center">ประกันสังคม</th>
-            <th class="py-3 px-4 text-center">ธนาคาร</th>
-            <th class="py-3 px-6 text-right">จัดการ</th>
+            <th class="text-left">พนักงาน</th>
+            <th class="text-right">ฐานเงินเดือน</th>
+            <th class="text-right">อัตรา OT/ชม.</th>
+            <th class="text-center">ประกันสังคม</th>
+            <th class="text-center">ธนาคาร</th>
+            <th class="text-right">จัดการ</th>
           </tr>
         </thead>
-        <tbody class="divide-y divide-slate-50">
+        <tbody class="divide-y divide-slate-100">
           {% for cfg in configs %}
-          <tr class="hover:bg-slate-50/50 transition-colors">
-            <td class="py-4 px-6">
+          <tr class="hover:bg-slate-50/80 transition-colors">
+            <td>
               <div class="flex items-center gap-3">
-                <div class="w-9 h-9 rounded-xl bg-emerald-100 flex items-center justify-center text-emerald-700 font-black text-sm">
+                <div class="w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center text-emerald-700 font-black text-[10px] shrink-0">
                   {{ cfg.user.first_name|slice:":1"|default:cfg.user.username|slice:":1"|upper }}
                 </div>
                 <div>
-                  <p class="font-bold text-slate-800">{{ cfg.user.get_full_name|default:cfg.user.username }}</p>
-                  <p class="text-xs text-slate-400">{{ cfg.user.username }}</p>
+                  <p class="font-bold text-slate-800 text-[13px] leading-tight">{{ cfg.user.get_full_name|default:cfg.user.username }}</p>
+                  <p class="text-[10px] text-slate-400 font-mono">@{{ cfg.user.username }}</p>
                 </div>
               </div>
             </td>
-            <td class="py-4 px-4 text-right font-black text-slate-800">{{ cfg.base_salary|floatformat:"2,g" }} ฿</td>
-            <td class="py-4 px-4 text-right text-slate-600">{{ cfg.ot_rate_per_hour|floatformat:"2,g" }} ฿</td>
-            <td class="py-4 px-4 text-center text-slate-600 text-xs">{{ cfg.social_security_rate|floatformat:"2,g" }}% (สูงสุด {{ cfg.social_security_cap|floatformat:"2,g" }}฿)</td>
-            <td class="py-4 px-4 text-center text-xs text-slate-500">{{ cfg.bank_name|default:"—" }}</td>
-            <td class="py-4 px-6 text-right">
+            <td class="num-col text-slate-900">{{ cfg.base_salary|floatformat:"2,g" }}</td>
+            <td class="num-col text-slate-600">{{ cfg.ot_rate_per_hour|floatformat:"2,g" }}</td>
+            <td class="text-center">
+              <span class="text-xs font-bold text-slate-600">{{ cfg.social_security_rate|floatformat:"1,g" }}%</span>
+              <p class="text-[9px] text-slate-400 font-bold">(MAX {{ cfg.social_security_cap|floatformat:"0,g" }})</p>
+            </td>
+            <td class="text-center">
+              <p class="text-[11px] font-bold text-slate-700">{{ cfg.bank_name|default:"—" }}</p>
+              <p class="text-[10px] font-mono text-slate-400">{{ cfg.bank_account_number|default:"" }}</p>
+            </td>
+            <td class="text-right">
               <a href="{% url 'payroll:salary_config_edit' cfg.user.id %}"
-                 class="px-4 py-2 rounded-xl bg-emerald-600 text-white text-xs font-black hover:bg-emerald-700 transition-all">
-                <i class="fas fa-pen mr-1"></i>แก้ไข
+                 class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-900 text-white text-[10px] font-black hover:bg-emerald-600 hover:scale-105 transition-all">
+                <i class="fas fa-pen-nib"></i> แก้ไข
               </a>
             </td>
           </tr>

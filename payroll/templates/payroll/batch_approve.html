@@ -1,5 +1,5 @@
 {% extends 'payroll/base_payroll.html' %}
-{% load payroll_extras %}
+{% load payroll_extras humanize %}
 {% block title %}อนุมัติเงินเดือน {{ month_name }} {{ year }}{% endblock %}
 {% block page_title %}Batch Approval{% endblock %}
 {% block page_subtitle %}อนุมัติเงินเดือนรายเดือน · {{ month_name }} {{ year }}{% endblock %}
@@ -84,7 +84,7 @@
   </div>
   <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
     <p class="text-[10px] font-black text-slate-400 uppercase tracking-wider mb-1">สุทธิรวม</p>
-    <p class="text-xl font-bold text-slate-900">{{ total_net|floatformat:2 }} <span class="text-xs text-slate-400">฿</span></p>
+    <p class="text-xl font-bold text-slate-900">{{ total_net|floatformat:2|intcomma }} <span class="text-xs text-slate-400">฿</span></p>
   </div>
   <div class="bg-white p-4 rounded-xl shadow-sm border {% if missing_count %}border-rose-100 bg-rose-50/50{% else %}border-slate-200{% endif %}">
     <p class="text-[10px] font-black {% if missing_count %}text-rose-500{% else %}text-slate-400{% endif %} uppercase tracking-wider mb-1">ยังไม่มีข้อมูล</p>
@@ -126,10 +126,10 @@
             <p class="font-bold text-slate-800 text-xs truncate">{{ row.report.user.get_full_name|default:row.report.user.username }}</p>
             <p class="text-[9px] text-slate-400 font-mono">@{{ row.report.user.username }}</p>
           </td>
-          <td class="num">{{ row.cfg.base_salary|floatformat:"2,g" }}</td>
-          <td class="num text-blue-600">+{{ row.preview.total_income|subtract:row.cfg.base_salary|floatformat:"2,g" }}</td>
-          <td class="num text-rose-600">-{{ row.preview.total_ded|floatformat:"2,g" }}</td>
-          <td class="num net-col">{{ row.preview.net_pay|floatformat:"2,g" }}</td>
+          <td class="num">{{ row.cfg.base_salary|floatformat:2|intcomma }}</td>
+          <td class="num text-blue-600">+{{ row.preview.total_income|subtract:row.cfg.base_salary|floatformat:2|intcomma }}</td>
+          <td class="num text-rose-600">-{{ row.preview.total_ded|floatformat:2|intcomma }}</td>
+          <td class="num net-col">{{ row.preview.net_pay|floatformat:2|intcomma }}</td>
         </tr>
         {% endfor %}
       </tbody>
@@ -174,18 +174,18 @@
           </td>
           <td class="hide-mobile text-slate-500 text-xs">{{ row.report.user.salary_config.bank_name|default:"—" }}</td>
           <td class="font-mono text-xs font-bold">{{ row.report.user.salary_config.bank_account_number|default:"—" }}</td>
-          <td class="num text-xs">{{ row.record.total_income|floatformat:"2,g" }}</td>
-          <td class="num text-xs text-rose-500">-{{ row.record.total_deductions|floatformat:"2,g" }}</td>
-          <td class="num font-bold text-emerald-800">{{ row.record.net_pay|floatformat:"2,g" }}</td>
+          <td class="num text-xs">{{ row.record.total_income|floatformat:2|intcomma }}</td>
+          <td class="num text-xs text-rose-500">-{{ row.record.total_deductions|floatformat:2|intcomma }}</td>
+          <td class="num font-bold text-emerald-800">{{ row.record.net_pay|floatformat:2|intcomma }}</td>
         </tr>
         {% endfor %}
       </tbody>
       <tfoot class="bg-emerald-50 text-emerald-900 border-t-2 border-emerald-200">
         <tr>
           <td colspan="4" class="px-5 py-3 font-bold text-xs">ยอดรวม (Grand Total)</td>
-          <td class="num font-bold text-xs">{{ grand_total_income|floatformat:"2,g" }}</td>
-          <td class="num font-bold text-xs text-rose-700">-{{ grand_total_ded|floatformat:"2,g" }}</td>
-          <td class="num font-black text-emerald-900">{{ total_net|floatformat:"2,g" }}</td>
+          <td class="num font-bold text-xs">{{ grand_total_income|floatformat:2|intcomma }}</td>
+          <td class="num font-bold text-xs text-rose-700">-{{ grand_total_ded|floatformat:2|intcomma }}</td>
+          <td class="num font-black text-emerald-900">{{ total_net|floatformat:2|intcomma }}</td>
         </tr>
       </tfoot>
     </table>
