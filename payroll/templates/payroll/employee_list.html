@@ -155,7 +155,7 @@ body, td, th, input, button, select, label {
             <!-- Actions -->
             <td class="py-4 px-4">
               <div class="flex items-center justify-end gap-2 flex-wrap">
-                <button onclick="openEditModal('{{ emp.id }}','{{ emp.first_name|escapejs }}','{{ emp.last_name|escapejs }}','{{ emp.email|escapejs }}','{{ emp.is_active|yesno:\"1,0\" }}')"
+                <button onclick="openEditModal('{{ emp.id }}','{{ emp.first_name|escapejs }}','{{ emp.last_name|escapejs }}','{{ emp.email|escapejs }}','{% if emp.is_active %}1{% else %}0{% endif %}')"
                         class="action-btn px-3 py-2 rounded-lg bg-blue-50 text-blue-700 text-xs font-black
                                hover:bg-blue-100 transition-all flex items-center gap-1.5">
                   <i class="fas fa-pen-to-square"></i>
@@ -222,7 +222,7 @@ body, td, th, input, button, select, label {
           </div>
         </div>
         <div class="flex flex-col gap-2 shrink-0">
-          <button onclick="openEditModal('{{ emp.id }}','{{ emp.first_name|escapejs }}','{{ emp.last_name|escapejs }}','{{ emp.email|escapejs }}','{{ emp.is_active|yesno:\"1,0\" }}')"
+          <button onclick="openEditModal('{{ emp.id }}','{{ emp.first_name|escapejs }}','{{ emp.last_name|escapejs }}','{{ emp.email|escapejs }}','{% if emp.is_active %}1{% else %}0{% endif %}')"
                   class="px-3 py-2 rounded-lg bg-blue-50 text-blue-700 text-xs font-black hover:bg-blue-100">
             ✏️ แก้ไข
           </button>
