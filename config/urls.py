@@ -34,8 +34,12 @@ from django.conf.urls.static import static
 from django.views.generic.base import RedirectView
 
 if settings.DEBUG:
-    urlpatterns += static(settings.STATIC_URL, document_root=settings.STATICFILES_DIRS[0])
-    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+    if settings.STATIC_URL:
+        # Use first entry of STATICFILES_DIRS if available, else fallback to something safe
+        root = settings.STATICFILES_DIRS[0] if settings.STATICFILES_DIRS else settings.STATIC_ROOT
+        urlpatterns += static(settings.STATIC_URL, document_root=root)
+    if settings.MEDIA_URL:
+        urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
     
 # Add favicon.ico redirect for better browser compatibility
 urlpatterns += [

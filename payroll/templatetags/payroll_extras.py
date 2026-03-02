@@ -20,3 +20,16 @@ def month_name(value):
         return _MONTH_NAMES.get(int(value), str(value))
     except (TypeError, ValueError):
         return value
+
+@register.filter
+def subtract(value, arg):
+    """Subtract the arg from the value."""
+    try:
+        return value - arg
+    except (TypeError, ValueError):
+        return value
+
+@register.filter
+def split(value, arg):
+    """Split the string by arg."""
+    return value.split(arg)

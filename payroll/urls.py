@@ -37,6 +37,8 @@ urlpatterns = [
     path('admin/users/<int:user_id>/set-password/', views.set_user_password, name='set_user_password'),
     path('admin/bulk/', views.bulk_management, name='bulk_management'),
     path('admin/bulk/save-row/', views.bulk_save_row, name='bulk_save_row'),
+    path('admin/bulk/submit/', views.bulk_submit, name='bulk_submit'),
+    path('admin/bulk/clear/', views.bulk_clear, name='bulk_clear'),
     path('admin/import-excel/', views.import_excel, name='import_excel'),
     path('admin/download-template/', views.download_template, name='download_template'),
 

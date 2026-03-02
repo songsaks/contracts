@@ -254,11 +254,12 @@ def _calculate_and_save_payroll(report, config, processed_by):
     base    = config.base_salary
     ot_pay  = report.ot_hours * config.ot_rate_per_hour
     total_income = (base + ot_pay + report.team_mgmt_fee + report.professional_fee
-                    + report.commissions + report.incentives)
+                    + report.commissions + report.incentives + report.customer_evaluation)
 
     ss_amt = config.get_sso_amount()
-    total_deductions = (ss_amt + config.tax_withholding + report.absent_deduction_amount
-                        + report.advance_pay + report.savings + report.lost_equipment_fee
+    total_deductions = (ss_amt + config.tax_withholding + report.monthly_tax_withholding
+                        + report.absent_deduction_amount + report.advance_pay
+                        + report.savings + report.lost_equipment_fee
                         + report.other_deductions)
 
     PayrollRecord.objects.update_or_create(
@@ -267,7 +268,7 @@ def _calculate_and_save_payroll(report, config, processed_by):
             'base_salary_snapshot': base,
             'ot_amount': ot_pay,
             'social_security_amount': ss_amt,
-            'tax_amount': config.tax_withholding,
+            'tax_amount': config.tax_withholding + report.monthly_tax_withholding,
             'total_income': total_income,
             'total_deductions': total_deductions,
             'net_pay': total_income - total_deductions,
@@ -281,14 +282,15 @@ def _preview_payroll(report, config):
     base         = config.base_salary
     ot_pay       = report.ot_hours * config.ot_rate_per_hour
     total_income = (base + ot_pay + report.team_mgmt_fee + report.professional_fee
-                    + report.commissions + report.incentives)
+                    + report.commissions + report.incentives + report.customer_evaluation)
     ss_amt       = config.get_sso_amount()
-    total_ded    = (ss_amt + config.tax_withholding + report.absent_deduction_amount
-                    + report.advance_pay + report.savings
-                    + report.lost_equipment_fee + report.other_deductions)
+    total_ded    = (ss_amt + config.tax_withholding + report.monthly_tax_withholding
+                    + report.absent_deduction_amount + report.advance_pay
+                    + report.savings + report.lost_equipment_fee
+                    + report.other_deductions)
     return {
         'base': base, 'ot_pay': ot_pay, 'total_income': total_income,
-        'ss': ss_amt, 'tax': config.tax_withholding,
+        'ss': ss_amt, 'tax': config.tax_withholding + report.monthly_tax_withholding,
         'total_ded': total_ded, 'net_pay': total_income - total_ded,
         'bank_account': config.bank_account_number,
         'bank_name': config.bank_name,
@@ -768,19 +770,27 @@ def bulk_management(request):
             def pv(key): return request.POST.get(f"{p}{key}", "0")
             report, _ = WorkReport.objects.get_or_create(
                 user=user, month=month, year=year,
-                defaults={'status': PayrollStatus.SUBMITTED}
+                defaults={'status': PayrollStatus.DRAFT}
             )
+            # Only allow edit if DRAFT or REJECTED
+            if report.status not in [PayrollStatus.DRAFT, PayrollStatus.REJECTED]:
+                continue
+
             report.working_days            = _safe_dec(pv('working_days'))
             report.ot_hours                = _safe_dec(pv('ot_hours'))
             report.commissions             = _safe_dec(pv('commissions'))
             report.incentives              = _safe_dec(pv('incentives'))
             report.pb_liva_score           = _safe_dec(pv('pb_liva_score'))
+            report.customer_evaluation      = _safe_dec(pv('customer_evaluation'))
             report.team_mgmt_fee           = _safe_dec(pv('team_mgmt_fee'))
             report.professional_fee        = _safe_dec(pv('professional_fee'))
             report.absent_days             = _safe_dec(pv('absent_days'))
             report.absent_deduction_amount = _safe_dec(pv('absent_deduction'))
             report.advance_pay             = _safe_dec(pv('advance_pay'))
             report.savings                 = _safe_dec(pv('savings'))
+            report.lost_equipment_fee      = _safe_dec(pv('lost_equipment_fee'))
+            report.monthly_tax_withholding  = _safe_dec(pv('monthly_tax_withholding'))
+            report.other_deductions        = _safe_dec(pv('other_deductions'))
             report.save()
             saved += 1
         messages.success(request, f"บันทึกข้อมูลพนักงาน {saved} คน สำหรับเดือน {_month_name(month)} {year} เรียบร้อยแล้ว")
@@ -808,8 +818,15 @@ def bulk_save_row(request):
     user = get_object_or_404(User, id=user_id)
     report, _ = WorkReport.objects.get_or_create(
         user=user, month=month, year=year,
-        defaults={'status': PayrollStatus.SUBMITTED}
+        defaults={'status': PayrollStatus.DRAFT}
     )
+
+    # State guard
+    if report.status not in [PayrollStatus.DRAFT, PayrollStatus.REJECTED]:
+        return JsonResponse({
+            'status': 'error', 
+            'message': 'Cannot edit record in current status: ' + report.get_status_display()
+        }, status=403)
 
     def dec(k): return _safe_dec(request.POST.get(k))
 
@@ -818,12 +835,16 @@ def bulk_save_row(request):
     report.commissions             = dec('commissions')
     report.incentives              = dec('incentives')
     report.pb_liva_score           = dec('pb_liva_score')
+    report.customer_evaluation      = dec('customer_evaluation')
     report.team_mgmt_fee           = dec('team_mgmt_fee')
     report.professional_fee        = dec('professional_fee')
     report.absent_days             = dec('absent_days')
     report.absent_deduction_amount = dec('absent_deduction')
     report.advance_pay             = dec('advance_pay')
     report.savings                 = dec('savings')
+    report.lost_equipment_fee      = dec('lost_equipment_fee')
+    report.monthly_tax_withholding  = dec('monthly_tax_withholding')
+    report.other_deductions        = dec('other_deductions')
     report.save()
 
     return JsonResponse({
@@ -831,6 +852,66 @@ def bulk_save_row(request):
         'updated_at': report.updated_at.strftime("%H:%M"),
         'report_status': report.get_status_display(),
     })
+
+@user_passes_test(is_hr_or_exec, login_url=PAYROLL_LOGIN_URL)
+def bulk_submit(request):
+    """Bulks change DRAFT/REJECTED reports to SUBMITTED for a month/year."""
+    if request.method != 'POST':
+        return redirect('payroll:bulk_management')
+    
+    month = int(request.POST.get('month', 1))
+    year  = int(request.POST.get('year', 2024))
+    
+    # Target reports that are editable
+    qs = WorkReport.objects.filter(
+        month=month, year=year, 
+        status__in=[PayrollStatus.DRAFT, PayrollStatus.REJECTED]
+    )
+    count = qs.count()
+    qs.update(status=PayrollStatus.SUBMITTED)
+    
+    messages.success(request, f"ส่งข้อมูลไปยังผู้บริหารแล้ว {count} รายการ")
+    return redirect(f"{reverse('payroll:bulk_management')}?month={month}&year={year}")
+
+@user_passes_test(is_hr_or_exec, login_url=PAYROLL_LOGIN_URL)
+def bulk_clear(request):
+    """Clears (Resets) all editable reports for a chosen month."""
+    if request.method != 'POST':
+        return redirect('payroll:bulk_management')
+        
+    month = int(request.POST.get('month', 1))
+    year  = int(request.POST.get('year', 2024))
+    
+    # We only clear reports that are still in DRAFT or REJECTED
+    qs = WorkReport.objects.filter(
+        month=month, year=year,
+        status__in=[PayrollStatus.DRAFT, PayrollStatus.REJECTED]
+    )
+    count = qs.count()
+    
+    # Option A: Delete them. Option B: Reset fields to 0. 
+    # Usually safer to just reset values to 0 if 'is_staff' wants a clean slate.
+    for r in qs:
+        r.working_days = 0
+        r.ot_hours = 0
+        r.commissions = 0
+        r.incentives = 0
+        r.customer_evaluation = 0
+        r.pb_liva_score = 0
+        r.team_mgmt_fee = 0
+        r.professional_fee = 0
+        r.absent_days = 0
+        r.absent_deduction_amount = 0
+        r.advance_pay = 0
+        r.savings = 0
+        r.lost_equipment_fee = 0
+        r.monthly_tax_withholding = 0
+        r.other_deductions = 0
+        # keep it as DRAFT
+        r.save()
+
+    messages.warning(request, f"ล้างข้อมูล (Reset) เรียบร้อยแล้ว {count} รายการ")
+    return redirect(f"{reverse('payroll:bulk_management')}?month={month}&year={year}")
 
 # ── Excel Template Download (HR & Exec) ───────────────────
 @user_passes_test(is_hr_or_exec, login_url=PAYROLL_LOGIN_URL)
@@ -844,14 +925,16 @@ def download_template(request):
 
     headers = [
         "Username","ชื่อ","นามสกุล","Month","Year",
-        "WorkingDays","OT_Hours","Commissions","Incentives","PBLivaScore",
-        "TeamMgmtFee","ProfessionalFee",
-        "AbsentDays","AbsentDeduction","AdvancePay","Savings"
+        "WorkingDays","OT_Hours",
+        "Commissions","Incentives","CustEval_Income",
+        "PBLivaScore","TeamMgmtFee","ProfessionalFee",
+        "AbsentDays","AbsentDeduction","AdvancePay","Savings",
+        "ItemsLost_Deduct","TaxWithhold_Monthly","OtherDeductions"
     ]
     ws.append(headers)
     for user in User.objects.filter(is_active=True).order_by('last_name','first_name'):
         ws.append([user.username, user.first_name, user.last_name, month, year,
-                   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
+                   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
 
     response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
     response['Content-Disposition'] = f'attachment; filename=payroll_{month}_{year}.xlsx'
@@ -875,19 +958,28 @@ def import_excel(request):
                     year   = int(row[4] or timezone.now().year)
                     r, _   = WorkReport.objects.get_or_create(
                         user=user, month=month, year=year,
-                        defaults={'status': PayrollStatus.SUBMITTED}
+                        defaults={'status': PayrollStatus.DRAFT}
                     )
+                    # skip if already submitted/approved
+                    if r.status not in [PayrollStatus.DRAFT, PayrollStatus.REJECTED]:
+                        skip += 1
+                        continue
+
                     r.working_days            = _safe_dec(row[5])
                     r.ot_hours                = _safe_dec(row[6])
                     r.commissions             = _safe_dec(row[7])
                     r.incentives              = _safe_dec(row[8])
-                    r.pb_liva_score           = _safe_dec(row[9])
-                    r.team_mgmt_fee           = _safe_dec(row[10])
-                    r.professional_fee        = _safe_dec(row[11])
-                    r.absent_days             = _safe_dec(row[12])
-                    r.absent_deduction_amount = _safe_dec(row[13])
-                    r.advance_pay             = _safe_dec(row[14])
-                    r.savings                 = _safe_dec(row[15])
+                    r.customer_evaluation      = _safe_dec(row[9])
+                    r.pb_liva_score           = _safe_dec(row[10])
+                    r.team_mgmt_fee           = _safe_dec(row[11])
+                    r.professional_fee        = _safe_dec(row[12])
+                    r.absent_days             = _safe_dec(row[13])
+                    r.absent_deduction_amount = _safe_dec(row[14])
+                    r.advance_pay             = _safe_dec(row[15])
+                    r.savings                 = _safe_dec(row[16])
+                    r.lost_equipment_fee      = _safe_dec(row[17])
+                    r.monthly_tax_withholding  = _safe_dec(row[18])
+                    r.other_deductions        = _safe_dec(row[19])
                     r.status = PayrollStatus.SUBMITTED
                     r.save()
                     ok += 1

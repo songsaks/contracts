@@ -86,10 +86,14 @@
 
   <!-- ── Approved table ──────────────────────────────── -->
   {% if approved %}
+  <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+    <p class="text-[10px] font-black text-slate-400 uppercase tracking-wider mb-1">สุทธิรวม</p>
+    <p class="text-xl font-bold text-slate-900">{{ total_net|floatformat:"2,g" }} <span class="text-xs text-slate-400">฿</span></p>
+  </div>
   <div class="bg-white rounded-[2rem] shadow-xl border border-slate-100 overflow-hidden">
     <div class="px-8 py-5 border-b border-slate-100">
       <h3 class="font-black text-slate-800 flex items-center gap-2">
-        <i class="fas fa-circle-check text-emerald-500"></i> อนุมัติแล้ว ({{ approved.count }} รายการ)
+        <i class="fas fa-circle-check text-emerald-500"></i> อนุมัติแล้ว ({{ approved.count|floatformat:"0,g" }} รายการ)
       </h3>
     </div>
     <div class="overflow-x-auto">
@@ -110,13 +114,13 @@
               <p class="font-bold text-slate-800">{{ r.user.get_full_name|default:r.user.username }}</p>
             </td>
             <td class="py-4 px-4 text-center text-blue-700 font-bold">
-              {% if r.payroll_record %}{{ r.payroll_record.total_income|floatformat:0 }}{% else %}—{% endif %} ฿
+              {% if r.payroll_record %}{{ r.payroll_record.total_income|floatformat:"2,g" }}{% else %}—{% endif %} ฿
             </td>
             <td class="py-4 px-4 text-center text-rose-600 font-bold">
-              {% if r.payroll_record %}{{ r.payroll_record.total_deductions|floatformat:0 }}{% else %}—{% endif %} ฿
+              {% if r.payroll_record %}{{ r.payroll_record.total_deductions|floatformat:"2,g" }}{% else %}—{% endif %} ฿
             </td>
             <td class="py-4 px-4 text-center text-emerald-700 font-black text-base">
-              {% if r.payroll_record %}{{ r.payroll_record.net_pay|floatformat:0 }}{% else %}—{% endif %} ฿
+              {% if r.payroll_record %}{{ r.payroll_record.net_pay|floatformat:"2,g" }}{% else %}—{% endif %} ฿
             </td>
             <td class="py-4 px-6 text-right">
               <a href="{% url 'payroll:payslip' r.pk %}"

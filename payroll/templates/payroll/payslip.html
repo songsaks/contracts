@@ -92,43 +92,43 @@
         <tbody class="divide-y divide-slate-50">
           <tr>
             <td class="py-2.5 text-slate-600 font-semibold">ฐานเงินเดือน (Base Salary)</td>
-            <td class="py-2.5 text-right font-bold text-slate-800">{{ record.base_salary_snapshot|floatformat:2 }} ฿</td>
+            <td class="py-2.5 text-right font-bold text-slate-800">{{ record.base_salary_snapshot|floatformat:"2,g" }} ฿</td>
           </tr>
           {% if report.ot_hours > 0 %}
           <tr>
             <td class="py-2.5 text-slate-600 font-semibold">OT {{ report.ot_hours }} ชม. × อัตรา OT</td>
-            <td class="py-2.5 text-right font-bold text-slate-800">{{ record.ot_amount|floatformat:2 }} ฿</td>
+            <td class="py-2.5 text-right font-bold text-slate-800">{{ record.ot_amount|floatformat:"2,g" }} ฿</td>
           </tr>
           {% endif %}
           {% if report.commissions > 0 %}
           <tr>
             <td class="py-2.5 text-slate-600 font-semibold">ค่าคอมมิชชัน (Commission)</td>
-            <td class="py-2.5 text-right font-bold text-slate-800">{{ report.commissions|floatformat:2 }} ฿</td>
+            <td class="py-2.5 text-right font-bold text-slate-800">{{ report.commissions|floatformat:"2,g" }} ฿</td>
           </tr>
           {% endif %}
           {% if report.incentives > 0 %}
           <tr>
             <td class="py-2.5 text-slate-600 font-semibold">เงินรางวัลพิเศษ (Incentives)</td>
-            <td class="py-2.5 text-right font-bold text-slate-800">{{ report.incentives|floatformat:2 }} ฿</td>
+            <td class="py-2.5 text-right font-bold text-slate-800">{{ report.incentives|floatformat:"2,g" }} ฿</td>
           </tr>
           {% endif %}
           {% if report.team_mgmt_fee > 0 %}
           <tr>
             <td class="py-2.5 text-slate-600 font-semibold">ค่าบริหารทีม (Team Mgmt Fee)</td>
-            <td class="py-2.5 text-right font-bold text-slate-800">{{ report.team_mgmt_fee|floatformat:2 }} ฿</td>
+            <td class="py-2.5 text-right font-bold text-slate-800">{{ report.team_mgmt_fee|floatformat:"2,g" }} ฿</td>
           </tr>
           {% endif %}
           {% if report.professional_fee > 0 %}
           <tr>
             <td class="py-2.5 text-slate-600 font-semibold">ค่าวิชาชีพ (Professional Fee)</td>
-            <td class="py-2.5 text-right font-bold text-slate-800">{{ report.professional_fee|floatformat:2 }} ฿</td>
+            <td class="py-2.5 text-right font-bold text-slate-800">{{ report.professional_fee|floatformat:"2,g" }} ฿</td>
           </tr>
           {% endif %}
         </tbody>
         <tfoot>
           <tr class="border-t-2 border-emerald-200 bg-emerald-50">
             <td class="py-3 px-2 font-black text-emerald-800 rounded-l-xl">รวมรายได้ทั้งหมด</td>
-            <td class="py-3 text-right font-black text-emerald-800 text-base rounded-r-xl">{{ record.total_income|floatformat:2 }} ฿</td>
+            <td class="py-3 text-right font-black text-emerald-800 text-base rounded-r-xl">{{ record.total_income|floatformat:"2,g" }} ฿</td>
           </tr>
         </tfoot>
       </table>
@@ -146,49 +146,49 @@
         <tbody class="divide-y divide-slate-50">
           <tr>
             <td class="py-2.5 text-slate-600 font-semibold">ประกันสังคม (Social Security)</td>
-            <td class="py-2.5 text-right font-bold text-rose-600">-{{ record.social_security_amount|floatformat:2 }} ฿</td>
+            <td class="py-2.5 text-right font-bold text-rose-600">-{{ record.social_security_amount|floatformat:"2,g" }} ฿</td>
           </tr>
           {% if record.tax_amount > 0 %}
           <tr>
             <td class="py-2.5 text-slate-600 font-semibold">ภาษีหัก ณ ที่จ่าย (WHT)</td>
-            <td class="py-2.5 text-right font-bold text-rose-600">-{{ record.tax_amount|floatformat:2 }} ฿</td>
+            <td class="py-2.5 text-right font-bold text-rose-600">-{{ record.tax_amount|floatformat:"2,g" }} ฿</td>
           </tr>
           {% endif %}
           {% if report.absent_deduction_amount > 0 %}
           <tr>
             <td class="py-2.5 text-slate-600 font-semibold">หักขาดงาน {{ report.absent_days }} วัน</td>
-            <td class="py-2.5 text-right font-bold text-rose-600">-{{ report.absent_deduction_amount|floatformat:2 }} ฿</td>
+            <td class="py-2.5 text-right font-bold text-rose-600">-{{ report.absent_deduction_amount|floatformat:"2,g" }} ฿</td>
           </tr>
           {% endif %}
           {% if report.advance_pay > 0 %}
           <tr>
             <td class="py-2.5 text-slate-600 font-semibold">เงินเบิกล่วงหน้า (Advance)</td>
-            <td class="py-2.5 text-right font-bold text-rose-600">-{{ report.advance_pay|floatformat:2 }} ฿</td>
+            <td class="py-2.5 text-right font-bold text-rose-600">-{{ report.advance_pay|floatformat:"2,g" }} ฿</td>
           </tr>
           {% endif %}
           {% if report.savings > 0 %}
           <tr>
             <td class="py-2.5 text-slate-600 font-semibold">เงินออมทรัพย์ (Savings)</td>
-            <td class="py-2.5 text-right font-bold text-rose-600">-{{ report.savings|floatformat:2 }} ฿</td>
+            <td class="py-2.5 text-right font-bold text-rose-600">-{{ report.savings|floatformat:"2,g" }} ฿</td>
           </tr>
           {% endif %}
           {% if report.lost_equipment_fee > 0 %}
           <tr>
             <td class="py-2.5 text-slate-600 font-semibold">ค่าของหาย (Lost Equipment)</td>
-            <td class="py-2.5 text-right font-bold text-rose-600">-{{ report.lost_equipment_fee|floatformat:2 }} ฿</td>
+            <td class="py-2.5 text-right font-bold text-rose-600">-{{ report.lost_equipment_fee|floatformat:"2,g" }} ฿</td>
           </tr>
           {% endif %}
           {% if report.other_deductions > 0 %}
           <tr>
             <td class="py-2.5 text-slate-600 font-semibold">รายการหักอื่นๆ</td>
-            <td class="py-2.5 text-right font-bold text-rose-600">-{{ report.other_deductions|floatformat:2 }} ฿</td>
+            <td class="py-2.5 text-right font-bold text-rose-600">-{{ report.other_deductions|floatformat:"2,g" }} ฿</td>
           </tr>
           {% endif %}
         </tbody>
         <tfoot>
           <tr class="border-t-2 border-rose-200 bg-rose-50">
             <td class="py-3 px-2 font-black text-rose-700 rounded-l-xl">รวมรายการหักทั้งหมด</td>
-            <td class="py-3 text-right font-black text-rose-700 rounded-r-xl">-{{ record.total_deductions|floatformat:2 }} ฿</td>
+            <td class="py-3 text-right font-black text-rose-700 rounded-r-xl">-{{ record.total_deductions|floatformat:"2,g" }} ฿</td>
           </tr>
         </tfoot>
       </table>
@@ -202,7 +202,7 @@
         <p class="text-emerald-300 text-xs font-bold">NET PAY · {{ report.month|month_name }} {{ report.year }}</p>
       </div>
       <p class="text-4xl font-black">
-        {{ record.net_pay|floatformat:2 }}
+        {{ record.net_pay|floatformat:"2,g" }}
         <span class="text-xl text-emerald-200 font-bold"> ฿</span>
       </p>
     </div>

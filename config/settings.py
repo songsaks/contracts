@@ -33,6 +33,8 @@ ALLOWED_HOSTS = ['72.62.72.22', 'app.9com.cloud', 'www.9com.cloud', 'localhost',
 
 CSRF_TRUSTED_ORIGINS = [
     'https://app.9com.cloud',
+    'https://www.9com.cloud',
+    'https://72.62.72.22',
     'http://localhost:8000',
     'http://127.0.0.1:8000',
 ]
@@ -159,10 +161,15 @@ STATIC_ROOT = BASE_DIR / 'static_root'   # collectstatic output
 
 STATICFILES_DIRS = []
 # Add extra static dirs only if they exist (avoids errors on fresh server)
-_extra = BASE_DIR / 'static' / 'images'
+_extra = BASE_DIR / 'static'
 if _extra.exists():
     STATICFILES_DIRS.append(_extra)
+else:
+    # Fallback for local dev if 'static' dir doesn't exist yet
+    STATICFILES_DIRS = [BASE_DIR]
 
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field

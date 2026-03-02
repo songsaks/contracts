@@ -57,6 +57,7 @@ class WorkReport(models.Model):
     commissions = models.DecimalField(max_digits=12, decimal_places=2, default=0, verbose_name="ค่าคอมมิชชัน (บาท)")
     incentives = models.DecimalField(max_digits=12, decimal_places=2, default=0, verbose_name="Incentives (บาท)")
     pb_liva_score = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name="PB&Livascore")
+    customer_evaluation = models.DecimalField(max_digits=12, decimal_places=2, default=0, verbose_name="ค่าประเมินจากลูกค้า (บาท)")
     
     # รายจ่ายและรายการหัก (พนักงานกรอกแผนผังเบื้องต้น)
     absent_days = models.DecimalField(max_digits=5, decimal_places=1, default=0, verbose_name="จำนวนวันที่ขาดงาน (วัน)")
@@ -64,6 +65,7 @@ class WorkReport(models.Model):
     advance_pay = models.DecimalField(max_digits=12, decimal_places=2, default=0, verbose_name="เงินเบิกล่วงหน้า (บาท)")
     savings = models.DecimalField(max_digits=12, decimal_places=2, default=0, verbose_name="เงินออมสะสม (บาท)")
     lost_equipment_fee = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name="ค่าของหาย (บาท)")
+    monthly_tax_withholding = models.DecimalField(max_digits=12, decimal_places=2, default=0, verbose_name="ภาษีหัก ณ ที่จ่าย (บาท)")
     other_deductions = models.DecimalField(max_digits=12, decimal_places=2, default=0, verbose_name="รายการหักอื่นๆ (บาท)")
     
     status = models.CharField(max_length=20, choices=PayrollStatus.choices, default=PayrollStatus.DRAFT)

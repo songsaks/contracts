@@ -35,9 +35,9 @@
                 </div>
               </div>
             </td>
-            <td class="py-4 px-4 text-right font-black text-slate-800">{{ cfg.base_salary|floatformat:0 }} ฿</td>
-            <td class="py-4 px-4 text-right text-slate-600">{{ cfg.ot_rate_per_hour|floatformat:0 }} ฿</td>
-            <td class="py-4 px-4 text-center text-slate-600 text-xs">{{ cfg.social_security_rate }}% (สูงสุด {{ cfg.social_security_cap|floatformat:0 }}฿)</td>
+            <td class="py-4 px-4 text-right font-black text-slate-800">{{ cfg.base_salary|floatformat:"2,g" }} ฿</td>
+            <td class="py-4 px-4 text-right text-slate-600">{{ cfg.ot_rate_per_hour|floatformat:"2,g" }} ฿</td>
+            <td class="py-4 px-4 text-center text-slate-600 text-xs">{{ cfg.social_security_rate|floatformat:"2,g" }}% (สูงสุด {{ cfg.social_security_cap|floatformat:"2,g" }}฿)</td>
             <td class="py-4 px-4 text-center text-xs text-slate-500">{{ cfg.bank_name|default:"—" }}</td>
             <td class="py-4 px-6 text-right">
               <a href="{% url 'payroll:salary_config_edit' cfg.user.id %}"
