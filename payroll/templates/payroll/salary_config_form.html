@@ -1,0 +1,89 @@
+{% extends 'payroll/base_payroll.html' %}
+{% block title %}ตั้งค่าเงินเดือน {{ user_obj.username }}{% endblock %}
+{% block page_title %}ตั้งค่าเงินเดือน{% endblock %}
+{% block page_subtitle %}{{ user_obj.get_full_name|default:user_obj.username }}{% endblock %}
+
+{% block extra_head %}
+<style>
+.cfg-row td { padding: 0.85rem 1.5rem; }
+.cfg-row:hover td { background:#f0fdf4; }
+.cfg-label { font-weight:800; color:#1e293b; }
+.cfg-sub   { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.1em; color:#94a3b8; }
+.cfg-input input, .cfg-input select {
+  width:100%; max-width:260px; background:#f8fafc; border:1.5px solid #e2e8f0;
+  border-radius:.75rem; padding:.6rem 1rem; font-weight:700; font-size:.875rem;
+  color:#1e293b; outline:none; display:block; margin:0 auto; text-align:center;
+  transition:border-color .2s, box-shadow .2s;
+}
+.cfg-input input:focus, .cfg-input select:focus {
+  border-color:#10b981; box-shadow:0 0 0 3px rgba(16,185,129,.15); background:#fff;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl space-y-6">
+  <a href="{% url 'payroll:salary_config_list' %}" class="inline-flex items-center gap-2 text-slate-400 hover:text-emerald-600 font-bold text-sm transition-colors">
+    <i class="fas fa-arrow-left"></i> กลับรายการ
+  </a>
+
+  <!-- Employee card -->
+  <div class="bg-gradient-to-br from-slate-700 to-slate-900 rounded-2xl p-6 text-white flex items-center gap-5">
+    <div class="w-14 h-14 rounded-2xl bg-emerald-500 flex items-center justify-center font-black text-xl shadow-lg">
+      {{ user_obj.first_name|slice:":1"|default:user_obj.username|slice:":1"|upper }}
+    </div>
+    <div>
+      <p class="text-slate-400 text-xs font-bold uppercase tracking-widest mb-1">Salary Configuration</p>
+      <p class="font-black text-xl">{{ user_obj.get_full_name|default:user_obj.username }}</p>
+      <p class="text-slate-400 text-xs font-bold">{{ user_obj.username }} · {% if user_obj.is_staff %}HR/Admin{% else %}พนักงาน{% endif %}</p>
+    </div>
+  </div>
+
+  <form method="post">
+    {% csrf_token %}
+    <div class="bg-white rounded-2xl shadow border border-slate-100 overflow-hidden mb-5">
+      <div class="bg-slate-700 px-6 py-3 text-white text-xs font-black uppercase tracking-widest">โครงสร้างเงินเดือน</div>
+      <table class="w-full"><tbody class="divide-y divide-slate-50">
+        <tr class="cfg-row">
+          <td class="cfg-label">ฐานเงินเดือน (บาท)<p class="cfg-sub">Base Salary</p></td>
+          <td class="cfg-input">{{ form.base_salary }}</td>
+        </tr>
+        <tr class="cfg-row">
+          <td class="cfg-label">อัตรา OT (บาท/ชั่วโมง)<p class="cfg-sub">OT Rate per Hour</p></td>
+          <td class="cfg-input">{{ form.ot_rate_per_hour }}</td>
+        </tr>
+        <tr class="cfg-row">
+          <td class="cfg-label">อัตราประกันสังคม (%)<p class="cfg-sub">Social Security Rate</p></td>
+          <td class="cfg-input">{{ form.social_security_rate }}</td>
+        </tr>
+        <tr class="cfg-row">
+          <td class="cfg-label">เพดานประกันสังคม (บาท/เดือน)<p class="cfg-sub">Social Security Cap</p></td>
+          <td class="cfg-input">{{ form.social_security_cap }}</td>
+        </tr>
+        <tr class="cfg-row">
+          <td class="cfg-label">หักภาษี ณ ที่จ่าย (บาท)<p class="cfg-sub">Tax Withholding</p></td>
+          <td class="cfg-input">{{ form.tax_withholding }}</td>
+        </tr>
+      </tbody></table>
+    </div>
+
+    <div class="bg-white rounded-2xl shadow border border-slate-100 overflow-hidden mb-6">
+      <div class="bg-slate-700 px-6 py-3 text-white text-xs font-black uppercase tracking-widest">ข้อมูลธนาคาร</div>
+      <table class="w-full"><tbody class="divide-y divide-slate-50">
+        <tr class="cfg-row">
+          <td class="cfg-label">ชื่อธนาคาร<p class="cfg-sub">Bank Name</p></td>
+          <td class="cfg-input">{{ form.bank_name }}</td>
+        </tr>
+        <tr class="cfg-row">
+          <td class="cfg-label">เลขบัญชีธนาคาร<p class="cfg-sub">Account Number</p></td>
+          <td class="cfg-input">{{ form.bank_account_number }}</td>
+        </tr>
+      </tbody></table>
+    </div>
+
+    <button type="submit" class="w-full py-4 rounded-2xl bg-emerald-700 text-white font-black text-base hover:bg-emerald-800 transition-all shadow-lg active:scale-95">
+      <i class="fas fa-floppy-disk mr-2 text-emerald-300"></i>บันทึกการตั้งค่า
+    </button>
+  </form>
+</div>
+{% endblock %}

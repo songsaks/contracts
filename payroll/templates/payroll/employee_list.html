@@ -1,0 +1,297 @@
+{% extends 'payroll/base_payroll.html' %}
+{% load payroll_extras %}
+{% block title %}รายชื่อพนักงาน · Payroll{% endblock %}
+{% block page_title %}จัดการรายชื่อพนักงาน{% endblock %}
+{% block page_subtitle %}Employee Roster · {{ total }} คน{% endblock %}
+
+{% block extra_head %}
+<style>
+  .emp-row { transition: background .15s; }
+  .emp-row:hover { background: #f0fdf4; }
+  .status-active   { background:#dcfce7; color:#166534; }
+  .status-inactive { background:#fee2e2; color:#991b1b; }
+  .status-hr       { background:#dbeafe; color:#1d4ed8; }
+  .drop-zone {
+    border: 2.5px dashed #6ee7b7;
+    background: #f0fdf4;
+    border-radius: 1.5rem;
+    padding: 2.5rem;
+    text-align: center;
+    cursor: pointer;
+    transition: all .2s;
+  }
+  .drop-zone.drag-over, .drop-zone:hover { background:#dcfce7; border-color:#10b981; }
+  .drop-zone input[type=file] { display:none; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+
+  <!-- ── Action Bar ─────────────────────────────────────── -->
+  <div class="flex flex-wrap items-center justify-between gap-4">
+    <form method="get" class="flex items-center gap-2">
+      <div class="relative">
+        <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+        <input name="q" value="{{ q }}" placeholder="ค้นหาพนักงาน..."
+               class="pl-9 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-emerald-400 w-64">
+      </div>
+      <button class="px-4 py-2.5 bg-slate-100 text-slate-600 rounded-xl text-sm font-black hover:bg-slate-200 transition-all">ค้นหา</button>
+      {% if q %}<a href="{% url 'payroll:employee_list' %}" class="px-4 py-2.5 text-slate-400 rounded-xl text-sm font-bold hover:text-slate-600">ล้าง</a>{% endif %}
+    </form>
+
+    <div class="flex items-center gap-3">
+      <a href="{% url 'payroll:download_employee_template' %}"
+         class="px-5 py-2.5 rounded-xl bg-white border-2 border-emerald-200 text-emerald-700 text-sm font-black
+                hover:bg-emerald-50 transition-all flex items-center gap-2 shadow-sm">
+        <i class="fas fa-file-excel text-emerald-600"></i> ดาวน์โหลด Template
+      </a>
+      <button onclick="document.getElementById('importModal').classList.remove('hidden')"
+              class="px-5 py-2.5 rounded-xl bg-emerald-700 text-white text-sm font-black
+                     hover:bg-emerald-800 transition-all shadow-md flex items-center gap-2">
+        <i class="fas fa-upload"></i> Import พนักงาน
+      </button>
+    </div>
+  </div>
+
+  <!-- ── Stats bar ──────────────────────────────────────── -->
+  <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+    {% with active_count=employees|length %}
+    <div class="bg-white rounded-2xl p-4 shadow border border-slate-100 flex items-center gap-3">
+      <div class="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center text-emerald-700">
+        <i class="fas fa-users text-lg"></i>
+      </div>
+      <div>
+        <p class="text-[10px] font-black text-slate-400 uppercase tracking-wider">พนักงานทั้งหมด</p>
+        <p class="text-2xl font-black text-slate-800">{{ total }}</p>
+      </div>
+    </div>
+    <div class="bg-white rounded-2xl p-4 shadow border border-slate-100 flex items-center gap-3">
+      <div class="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center text-blue-700">
+        <i class="fas fa-user-shield text-lg"></i>
+      </div>
+      <div>
+        <p class="text-[10px] font-black text-slate-400 uppercase tracking-wider">HR / Admin</p>
+        <p class="text-2xl font-black text-slate-800">{{ employees|length }}</p>
+      </div>
+    </div>
+    <div class="bg-white rounded-2xl p-4 shadow border border-slate-100 flex items-center gap-3">
+      <div class="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center text-emerald-700">
+        <i class="fas fa-user-check text-lg"></i>
+      </div>
+      <div>
+        <p class="text-[10px] font-black text-slate-400 uppercase tracking-wider">ใช้งานอยู่</p>
+        <p class="text-2xl font-black text-emerald-700">–</p>
+      </div>
+    </div>
+    <div class="bg-white rounded-2xl p-4 shadow border border-slate-100 flex items-center gap-3">
+      <div class="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center text-amber-700">
+        <i class="fas fa-user-slash text-lg"></i>
+      </div>
+      <div>
+        <p class="text-[10px] font-black text-slate-400 uppercase tracking-wider">ปิดใช้งาน</p>
+        <p class="text-2xl font-black text-amber-600">–</p>
+      </div>
+    </div>
+    {% endwith %}
+  </div>
+
+  <!-- ── How-to box ─────────────────────────────────────── -->
+  <div class="bg-amber-50 border border-amber-200 rounded-2xl px-6 py-4 flex items-start gap-4">
+    <i class="fas fa-circle-info text-amber-500 text-xl mt-0.5"></i>
+    <div>
+      <p class="font-black text-amber-800 text-sm mb-1">วิธีเพิ่มรายชื่อพนักงาน</p>
+      <ol class="text-amber-700 text-sm space-y-1 list-decimal list-inside font-semibold">
+        <li>คลิก <strong>"ดาวน์โหลด Template"</strong> เพื่อรับไฟล์ Excel แบบฟอร์ม</li>
+        <li>กรอกชื่อ-นามสกุล, username, และรหัสผ่านเริ่มต้นของพนักงานแต่ละคน</li>
+        <li>คลิก <strong>"Import พนักงาน"</strong> แล้วอัปโหลดไฟล์ที่กรอกแล้ว</li>
+        <li>พนักงานที่ import จะปรากฏใน Grid Entry ทันที</li>
+      </ol>
+    </div>
+  </div>
+
+  <!-- ── Employee Table ─────────────────────────────────── -->
+  <div class="bg-white rounded-2xl shadow-xl border border-slate-100 overflow-hidden">
+    <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+      <h3 class="font-black text-slate-700">รายชื่อพนักงานทั้งหมด</h3>
+      <span class="text-xs text-slate-400 font-bold">แสดง {{ employees|length }} รายการ</span>
+    </div>
+
+    {% if employees %}
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead class="bg-slate-50 border-b border-slate-100 text-[10px] font-black text-slate-500 uppercase tracking-widest">
+          <tr>
+            <th class="py-3 px-4 text-left">#</th>
+            <th class="py-3 px-4 text-left">ชื่อ-นามสกุล</th>
+            <th class="py-3 px-4 text-left">Username</th>
+            <th class="py-3 px-4 text-left">อีเมล</th>
+            <th class="py-3 px-4 text-center">สถานะ</th>
+            <th class="py-3 px-4 text-center">สิทธิ์</th>
+            <th class="py-3 px-4 text-center">เงินเดือนตั้งต้น</th>
+            <th class="py-3 px-4 text-right">การดำเนินการ</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-50">
+          {% for emp in employees %}
+          <tr class="emp-row">
+            <td class="py-3.5 px-4 text-slate-400 font-bold text-xs">{{ forloop.counter }}</td>
+            <td class="py-3.5 px-4">
+              <div class="flex items-center gap-3">
+                <div class="w-9 h-9 rounded-xl font-black text-sm flex items-center justify-center
+                            {% if emp.is_staff %}bg-blue-100 text-blue-700{% else %}bg-emerald-100 text-emerald-700{% endif %}">
+                  {{ emp.first_name|slice:":1"|default:emp.username|slice:":1"|upper }}
+                </div>
+                <div>
+                  <p class="font-black text-slate-800">
+                    {{ emp.get_full_name|default:"—" }}
+                  </p>
+                  <p class="text-[10px] text-slate-400 font-bold">{{ emp.date_joined|date:"d M Y" }}</p>
+                </div>
+              </div>
+            </td>
+            <td class="py-3.5 px-4">
+              <code class="bg-slate-100 text-slate-600 px-2 py-0.5 rounded-lg text-xs font-black">{{ emp.username }}</code>
+            </td>
+            <td class="py-3.5 px-4 text-slate-500 font-semibold text-xs">{{ emp.email|default:"—" }}</td>
+            <td class="py-3.5 px-4 text-center">
+              {% if emp.is_active %}
+              <span class="px-2.5 py-1 rounded-full text-[10px] font-black status-active">ใช้งาน</span>
+              {% else %}
+              <span class="px-2.5 py-1 rounded-full text-[10px] font-black status-inactive">ปิดใช้งาน</span>
+              {% endif %}
+            </td>
+            <td class="py-3.5 px-4 text-center">
+              {% if emp.is_superuser %}
+              <span class="px-2.5 py-1 rounded-full text-[10px] font-black bg-purple-100 text-purple-700">Superuser</span>
+              {% elif emp.is_staff %}
+              <span class="px-2.5 py-1 rounded-full text-[10px] font-black status-hr">HR/Admin</span>
+              {% else %}
+              <span class="px-2.5 py-1 rounded-full text-[10px] font-black bg-slate-100 text-slate-600">พนักงาน</span>
+              {% endif %}
+            </td>
+            <td class="py-3.5 px-4 text-center">
+              {% if emp.salary_config.base_salary %}
+              <span class="font-black text-emerald-700">{{ emp.salary_config.base_salary|floatformat:0 }} ฿</span>
+              {% else %}
+              <a href="{% url 'payroll:salary_config_edit' emp.id %}"
+                 class="text-amber-500 hover:text-amber-700 text-xs font-black transition-colors">
+                <i class="fas fa-exclamation-triangle"></i> ยังไม่ได้ตั้ง
+              </a>
+              {% endif %}
+            </td>
+            <td class="py-3.5 px-4 text-right">
+              <div class="flex items-center justify-end gap-2">
+                <a href="{% url 'payroll:salary_config_edit' emp.id %}"
+                   class="px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 text-xs font-black hover:bg-emerald-100 transition-all"
+                   title="ตั้งค่าเงินเดือน">
+                  <i class="fas fa-coins"></i>
+                </a>
+                <form method="post" action="{% url 'payroll:toggle_staff' emp.id %}" class="inline">
+                  {% csrf_token %}
+                  <button type="submit"
+                          class="px-3 py-1.5 rounded-lg text-xs font-black transition-all
+                                 {% if emp.is_staff %}bg-blue-50 text-blue-700 hover:bg-blue-100{% else %}bg-slate-50 text-slate-500 hover:bg-slate-100{% endif %}"
+                          title="{% if emp.is_staff %}ลดเป็นพนักงาน{% else %}เลื่อนเป็น HR{% endif %}">
+                    <i class="fas {% if emp.is_staff %}fa-user-minus{% else %}fa-user-shield{% endif %}"></i>
+                  </button>
+                </form>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="text-center py-20 text-slate-400">
+      <i class="fas fa-users text-5xl mb-4 text-slate-200"></i>
+      <p class="font-black text-lg text-slate-300">ยังไม่มีรายชื่อพนักงาน</p>
+      <p class="text-sm mt-1">กด "Import พนักงาน" เพื่อเพิ่มรายชื่อ</p>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- ── Import Modal ───────────────────────────────────── -->
+<div id="importModal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+  <div class="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden">
+    <!-- Modal Header -->
+    <div class="bg-emerald-800 text-white px-7 py-5 flex items-center justify-between">
+      <div>
+        <h2 class="font-black text-lg"><i class="fas fa-upload mr-2 text-emerald-300"></i>Import รายชื่อพนักงาน</h2>
+        <p class="text-emerald-300 text-xs font-bold mt-0.5">รองรับไฟล์ .xlsx เท่านั้น</p>
+      </div>
+      <button onclick="document.getElementById('importModal').classList.add('hidden')"
+              class="text-emerald-300 hover:text-white text-xl transition-colors">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+
+    <!-- Modal Body -->
+    <form method="post" action="{% url 'payroll:import_employees' %}" enctype="multipart/form-data" class="p-7 space-y-5">
+      {% csrf_token %}
+
+      <div class="drop-zone" id="dropZone" onclick="document.getElementById('empFile').click()">
+        <input type="file" name="excel_file" id="empFile" accept=".xlsx" required onchange="showFileName(this)">
+        <i class="fas fa-cloud-upload-alt text-4xl text-emerald-400 mb-3"></i>
+        <p class="font-black text-slate-700" id="fileLabel">คลิกหรือลากไฟล์ Excel มาวางที่นี่</p>
+        <p class="text-slate-400 text-xs mt-1">รองรับเฉพาะ .xlsx / ขนาดสูงสุด 5 MB</p>
+      </div>
+
+      <!-- Rules -->
+      <div class="bg-slate-50 rounded-2xl p-4 text-xs space-y-1.5 text-slate-600 font-semibold">
+        <p class="font-black text-slate-700 text-sm mb-2"><i class="fas fa-info-circle text-emerald-600 mr-1.5"></i>กฎการ Import</p>
+        <p>✅ <strong>Username ซ้ำ</strong> = อัปเดตชื่อและสถานะ (ไม่เปลี่ยนรหัสผ่าน)</p>
+        <p>✅ <strong>Username ใหม่</strong> = สร้าง account ใหม่</p>
+        <p>✅ รหัสผ่านเริ่มต้น = <code class="bg-white px-1.5 rounded border">12345678</code> (ถ้าเว้นว่าง)</p>
+        <p>❌ Username <strong>ห้ามมี space</strong> — แถวนั้นจะถูกข้าม</p>
+        <p>⚠️ ข้อมูลจะเริ่มที่แถว 3 (แถว 1-2 คือหัวตาราง)</p>
+      </div>
+
+      <div class="flex gap-3">
+        <button type="submit"
+                class="flex-1 py-3.5 rounded-2xl bg-emerald-700 text-white font-black text-base
+                       hover:bg-emerald-800 transition-all shadow-lg active:scale-95 flex items-center justify-center gap-2">
+          <i class="fas fa-upload text-emerald-300"></i> เริ่ม Import
+        </button>
+        <button type="button" onclick="document.getElementById('importModal').classList.add('hidden')"
+                class="px-6 rounded-2xl bg-slate-100 text-slate-600 font-black hover:bg-slate-200 transition-all">
+          ยกเลิก
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+function showFileName(input) {
+  const label = document.getElementById('fileLabel');
+  if (input.files && input.files[0]) {
+    label.textContent = '📄 ' + input.files[0].name;
+    label.classList.add('text-emerald-700');
+  }
+}
+
+// Drag-and-drop
+const zone = document.getElementById('dropZone');
+zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('drag-over'); });
+zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
+zone.addEventListener('drop', e => {
+  e.preventDefault();
+  zone.classList.remove('drag-over');
+  const file = e.dataTransfer.files[0];
+  if (file && file.name.endsWith('.xlsx')) {
+    document.getElementById('empFile').files = e.dataTransfer.files;
+    showFileName(document.getElementById('empFile'));
+  }
+});
+
+// Close modal on backdrop click
+document.getElementById('importModal').addEventListener('click', function(e) {
+  if (e.target === this) this.classList.add('hidden');
+});
+</script>
+{% endblock %}

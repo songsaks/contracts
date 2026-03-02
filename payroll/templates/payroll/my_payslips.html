@@ -1,0 +1,115 @@
+{% extends 'payroll/base_payroll.html' %}
+{% load payroll_extras %}
+{% block title %}สลิปเงินเดือนของฉัน · Payroll{% endblock %}
+{% block page_title %}สลิปเงินเดือนของฉัน{% endblock %}
+{% block page_subtitle %}My Payslips · {{ request.user.get_full_name|default:request.user.username }}{% endblock %}
+
+{% block extra_head %}
+<style>
+.slip-card { transition: all .2s; }
+.slip-card:hover { transform: translateY(-2px); box-shadow: 0 12px 40px rgba(0,0,0,0.1); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl space-y-6">
+
+  <!-- Header info -->
+  <div class="bg-emerald-50 border border-emerald-200 rounded-2xl px-5 py-4 flex items-start gap-4">
+    <i class="fas fa-file-invoice-dollar text-emerald-600 text-xl mt-0.5"></i>
+    <div>
+      <p class="font-black text-emerald-800">สลิปเงินเดือนอิเล็กทรอนิกส์</p>
+      <p class="text-emerald-600 text-sm font-semibold">
+        สามารถดูและพิมพ์สลิปเงินเดือนได้ทุกเดือนที่ HR อนุมัติแล้ว ข้อมูลจัดเก็บถาวร
+      </p>
+    </div>
+  </div>
+
+  {% if reports %}
+  <div class="grid gap-4">
+    {% for r in reports %}
+    {% with rec=r.payroll_record %}
+    <div class="slip-card bg-white rounded-2xl shadow border border-slate-100 overflow-hidden">
+      <div class="flex items-stretch">
+
+        <!-- Month sidebar -->
+        <div class="w-28 bg-gradient-to-b from-emerald-700 to-emerald-900 flex flex-col items-center justify-center text-white shrink-0 py-6">
+          <span class="text-3xl font-black leading-none">{{ r.month }}</span>
+          <span class="text-emerald-300 text-[9px] font-black uppercase tracking-wider mt-1">{{ r.year }}</span>
+          <span class="text-emerald-200 text-[9px] font-bold mt-2">{{ r.month|month_name|slice:":3" }}</span>
+        </div>
+
+        <!-- Content -->
+        <div class="flex-1 p-5">
+          <div class="flex items-start justify-between">
+            <div>
+              <p class="font-black text-slate-800 text-base">{{ r.month|month_name }} {{ r.year }}</p>
+              <p class="text-slate-400 text-xs font-bold mt-0.5">
+                อนุมัติโดย: {{ rec.processed_by.get_full_name|default:rec.processed_by.username }}
+                · {{ rec.processed_at|date:"d M Y" }}
+              </p>
+            </div>
+            <span class="px-3 py-1 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-700 shrink-0">
+              ✅ อนุมัติแล้ว
+            </span>
+          </div>
+
+          <!-- Key figures -->
+          <div class="mt-4 grid grid-cols-3 gap-3">
+            <div class="bg-slate-50 rounded-xl p-3 text-center">
+              <p class="text-[9px] text-slate-400 font-black uppercase tracking-wider">รายรับรวม</p>
+              <p class="font-black text-emerald-700 text-sm mt-0.5">{{ rec.total_income|floatformat:0 }} ฿</p>
+            </div>
+            <div class="bg-slate-50 rounded-xl p-3 text-center">
+              <p class="text-[9px] text-slate-400 font-black uppercase tracking-wider">รายการหัก</p>
+              <p class="font-black text-rose-600 text-sm mt-0.5">-{{ rec.total_deductions|floatformat:0 }} ฿</p>
+            </div>
+            <div class="bg-emerald-50 rounded-xl p-3 text-center border border-emerald-100">
+              <p class="text-[9px] text-emerald-600 font-black uppercase tracking-wider">สุทธิ</p>
+              <p class="font-black text-emerald-700 text-base mt-0.5">{{ rec.net_pay|floatformat:0 }} ฿</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Action -->
+        <div class="flex flex-col items-center justify-center gap-3 px-5 border-l border-slate-100 shrink-0">
+          <a href="{% url 'payroll:payslip' r.pk %}"
+             class="w-12 h-12 rounded-2xl bg-emerald-700 text-white flex items-center justify-center
+                    hover:bg-emerald-800 transition-all shadow-md active:scale-95"
+             title="ดูสลิป">
+            <i class="fas fa-eye"></i>
+          </a>
+          <a href="{% url 'payroll:payslip' r.pk %}?print=1"
+             onclick="window.open(this.href); return false;"
+             class="w-12 h-12 rounded-2xl bg-slate-100 text-slate-600 flex items-center justify-center
+                    hover:bg-slate-200 transition-all active:scale-95"
+             title="พิมพ์สลิป">
+            <i class="fas fa-print"></i>
+          </a>
+        </div>
+      </div>
+    </div>
+    {% endwith %}
+    {% endfor %}
+  </div>
+
+  {% else %}
+  <!-- Empty state -->
+  <div class="bg-white rounded-3xl shadow border border-slate-100 text-center py-20 px-8">
+    <div class="w-20 h-20 rounded-3xl bg-slate-50 flex items-center justify-center mx-auto mb-5 text-4xl text-slate-200">
+      <i class="fas fa-file-invoice-dollar"></i>
+    </div>
+    <h3 class="font-black text-slate-600 text-lg mb-2">ยังไม่มีสลิปเงินเดือน</h3>
+    <p class="text-slate-400 text-sm font-semibold mb-6">
+      สลิปจะปรากฏที่นี่หลังจาก HR อนุมัติรายงานผลงานของคุณแล้ว
+    </p>
+    <a href="{% url 'payroll:report_list' %}"
+       class="inline-flex items-center gap-2 px-6 py-3 bg-emerald-700 text-white rounded-2xl font-black
+              hover:bg-emerald-800 transition-all">
+      <i class="fas fa-file-lines"></i> ดูรายงานผลงาน
+    </a>
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}

@@ -1,0 +1,134 @@
+{% extends 'payroll/base_payroll.html' %}
+{% load payroll_extras %}
+{% block title %}ตรวจสอบ/อนุมัติ · {{ report.user.get_full_name|default:report.user.username }}{% endblock %}
+{% block page_title %}ตรวจสอบและอนุมัติรายงาน{% endblock %}
+{% block page_subtitle %}{{ report.user.get_full_name|default:report.user.username }} · {{ report.month|month_name }} {{ report.year }}{% endblock %}
+
+{% block extra_head %}
+<style>
+.data-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
+.action-btn { transition: all .2s; }
+.action-btn:active { transform: scale(0.96); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl space-y-6">
+
+  <a href="{% url 'payroll:admin_dashboard' %}"
+     class="inline-flex items-center gap-2 text-slate-400 hover:text-emerald-600 font-bold text-sm transition-colors">
+    <i class="fas fa-arrow-left"></i> กลับ Dashboard
+  </a>
+
+  <!-- ── Employee Header ─────────────────────────────────── -->
+  <div class="bg-white rounded-2xl shadow border border-slate-100 overflow-hidden">
+    <div class="bg-slate-800 px-6 py-5 text-white flex items-center gap-4">
+      <div class="w-12 h-12 rounded-2xl bg-emerald-500 flex items-center justify-center font-black text-xl shrink-0">
+        {{ report.user.first_name|slice:":1"|default:report.user.username|slice:":1"|upper }}
+      </div>
+      <div class="flex-1">
+        <p class="font-black text-lg">{{ report.user.get_full_name|default:report.user.username }}</p>
+        <p class="text-slate-400 text-xs font-bold">รายงานประจำเดือน {{ report.month|month_name }} {{ report.year }}</p>
+      </div>
+      <span class="px-3 py-1.5 rounded-full text-xs font-black
+                   {% if report.status == 'APPROVED' %}bg-emerald-400/20 text-emerald-300
+                   {% elif report.status == 'REJECTED' %}bg-rose-400/20 text-rose-300
+                   {% else %}bg-amber-400/20 text-amber-300{% endif %}">
+        {{ report.get_status_display }}
+      </span>
+    </div>
+
+    <!-- Work data read-only grid -->
+    <div class="data-grid gap-px bg-slate-100">
+      {% for label, val in review_data %}
+      <div class="bg-white px-5 py-4">
+        <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">{{ label }}</p>
+        <p class="font-black text-slate-800">{{ val }}</p>
+      </div>
+      {% endfor %}
+    </div>
+
+    <!-- Salary config reference bar -->
+    <div class="px-6 py-4 bg-emerald-50 border-t border-emerald-100 flex flex-wrap gap-6 text-sm">
+      <div><p class="text-[9px] font-black text-emerald-600 uppercase tracking-widest">ฐานเงินเดือน</p>
+           <p class="font-black text-emerald-900">{{ config.base_salary|floatformat:0 }} ฿</p></div>
+      <div><p class="text-[9px] font-black text-emerald-600 uppercase tracking-widest">OT Rate</p>
+           <p class="font-black text-emerald-900">{{ config.ot_rate_per_hour|floatformat:0 }} ฿/ชม.</p></div>
+      <div><p class="text-[9px] font-black text-emerald-600 uppercase tracking-widest">ประกันสังคม</p>
+           <p class="font-black text-emerald-900">{{ config.social_security_rate }}%</p></div>
+      <div><p class="text-[9px] font-black text-emerald-600 uppercase tracking-widest">ภาษีหัก</p>
+           <p class="font-black text-emerald-900">{{ config.tax_withholding|floatformat:0 }} ฿</p></div>
+      <div class="ml-auto">
+        <a href="{% url 'payroll:salary_config_edit' report.user.id %}"
+           class="text-emerald-700 text-xs font-black hover:underline">
+          <i class="fas fa-sliders mr-1"></i> แก้ไขเงินเดือน
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Form Errors (debug) ────────────────────────────── -->
+  {% if form.errors %}
+  <div class="bg-rose-50 border border-rose-200 rounded-2xl px-5 py-4 text-sm text-rose-700 font-semibold">
+    <p class="font-black mb-2"><i class="fas fa-triangle-exclamation mr-1"></i>ข้อผิดพลาดในฟอร์ม:</p>
+    {% for field, errors in form.errors.items %}
+    <p>{{ field }}: {{ errors }}</p>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <!-- ── HR Decision Form ───────────────────────────────── -->
+  <form method="post" class="bg-white rounded-2xl shadow border border-slate-100 overflow-hidden">
+    {% csrf_token %}
+
+    <div class="bg-emerald-700 px-6 py-4 text-white text-xs font-black uppercase tracking-widest flex items-center gap-2">
+      <i class="fas fa-user-check text-emerald-300"></i> การตัดสินใจของ HR
+    </div>
+
+    <div class="p-6 space-y-5">
+
+      <!-- หมายเหตุ -->
+      <div>
+        <label for="id_admin_remarks"
+               class="block text-xs font-black text-slate-500 uppercase tracking-widest mb-2">
+          หมายเหตุ / เหตุผล (ถ้ามี)
+        </label>
+        {{ form.admin_remarks }}
+        {% if form.admin_remarks.errors %}
+        <p class="text-rose-600 text-xs mt-1">{{ form.admin_remarks.errors }}</p>
+        {% endif %}
+      </div>
+
+      <!-- Two clear action buttons instead of a dropdown -->
+      <div class="grid grid-cols-2 gap-4">
+
+        <!-- APPROVE -->
+        <button type="submit" name="status" value="APPROVED"
+                class="action-btn py-4 rounded-2xl bg-emerald-600 text-white font-black text-base
+                       hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-100
+                       flex flex-col items-center justify-center gap-1.5">
+          <i class="fas fa-check-circle text-2xl text-emerald-300"></i>
+          <span>อนุมัติ</span>
+          <span class="text-emerald-300 text-[10px] font-bold">APPROVE</span>
+        </button>
+
+        <!-- REJECT -->
+        <button type="submit" name="status" value="REJECTED"
+                class="action-btn py-4 rounded-2xl bg-rose-600 text-white font-black text-base
+                       hover:bg-rose-700 transition-all shadow-lg shadow-rose-100
+                       flex flex-col items-center justify-center gap-1.5">
+          <i class="fas fa-circle-xmark text-2xl text-rose-300"></i>
+          <span>ส่งกลับแก้ไข</span>
+          <span class="text-rose-300 text-[10px] font-bold">REJECT</span>
+        </button>
+      </div>
+
+      <a href="{% url 'payroll:admin_dashboard' %}"
+         class="block text-center text-sm text-slate-400 hover:text-slate-600 font-bold transition-colors">
+        ← ยกเลิก กลับ Dashboard
+      </a>
+    </div>
+  </form>
+
+</div>
+{% endblock %}

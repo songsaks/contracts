@@ -1,0 +1,226 @@
+{% extends 'payroll/base_payroll.html' %}
+{% load payroll_extras %}
+{% block title %}รายละเอียดรายงาน {{ report.month }}/{{ report.year }} · Payroll{% endblock %}
+{% block page_title %}รายละเอียดรายงานผลงาน{% endblock %}
+{% block page_subtitle %}{{ report.month|month_name }} {{ report.year }} · {{ report.user.get_full_name|default:report.user.username }}{% endblock %}
+
+{% block extra_head %}
+<style>
+.data-row { border-bottom: 1px solid #f1f5f9; }
+.data-row:last-child { border-bottom: none; }
+.data-row td { padding: .9rem 1.5rem; }
+.data-label { color: #64748b; font-weight: 700; font-size: .85rem; }
+.data-value { font-weight: 800; color: #1e293b; font-size: .9rem; text-align: right; }
+.status-draft     { background:#fef3c7; color:#92400e; }
+.status-submitted { background:#dbeafe; color:#1e40af; }
+.status-approved  { background:#d1fae5; color:#065f46; }
+.status-rejected  { background:#ffe4e6; color:#9f1239; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl space-y-6">
+
+  <a href="{% url 'payroll:report_list' %}"
+     class="inline-flex items-center gap-2 text-slate-400 hover:text-emerald-600 font-bold text-sm transition-colors">
+    <i class="fas fa-arrow-left"></i> ย้อนกลับ
+  </a>
+
+  <!-- Status Banner -->
+  {% with s=report.status %}
+  {% if s == 'APPROVED' %}
+  <div class="bg-emerald-50 border border-emerald-200 rounded-2xl px-5 py-4 flex items-center gap-4">
+    <div class="w-10 h-10 rounded-xl bg-emerald-500 flex items-center justify-center text-white text-lg shrink-0">
+      <i class="fas fa-check-circle"></i>
+    </div>
+    <div>
+      <p class="font-black text-emerald-800">รายงานได้รับการอนุมัติแล้ว ✅</p>
+      <p class="text-emerald-600 text-sm font-semibold">ข้อมูลของคุณถูกบันทึกและนำไปคำนวณเงินเดือนเรียบร้อยแล้ว</p>
+    </div>
+  </div>
+  {% elif s == 'REJECTED' %}
+  <div class="bg-rose-50 border border-rose-200 rounded-2xl px-5 py-4 flex items-start gap-4">
+    <div class="w-10 h-10 rounded-xl bg-rose-500 flex items-center justify-center text-white text-lg shrink-0">
+      <i class="fas fa-circle-xmark"></i>
+    </div>
+    <div>
+      <p class="font-black text-rose-800">รายงานถูกส่งกลับเพื่อแก้ไข</p>
+      {% if report.admin_remarks %}
+      <p class="text-rose-600 text-sm font-semibold mt-1">
+        <strong>หมายเหตุ HR:</strong> {{ report.admin_remarks }}
+      </p>
+      {% endif %}
+      <a href="{% url 'payroll:report_edit' report.pk %}"
+         class="inline-flex items-center gap-1.5 mt-2 px-4 py-2 bg-rose-600 text-white text-xs font-black rounded-xl hover:bg-rose-700 transition-all">
+        <i class="fas fa-pen"></i> แก้ไขและส่งใหม่
+      </a>
+    </div>
+  </div>
+  {% elif s == 'SUBMITTED' %}
+  <div class="bg-blue-50 border border-blue-200 rounded-2xl px-5 py-4 flex items-center gap-4">
+    <div class="w-10 h-10 rounded-xl bg-blue-500 flex items-center justify-center text-white text-lg shrink-0 animate-pulse">
+      <i class="fas fa-hourglass-half"></i>
+    </div>
+    <div>
+      <p class="font-black text-blue-800">รอ HR ตรวจสอบและอนุมัติ</p>
+      <p class="text-blue-600 text-sm font-semibold">HR กำลังดำเนินการ กรุณารอ</p>
+    </div>
+  </div>
+  {% else %}
+  <div class="bg-amber-50 border border-amber-200 rounded-2xl px-5 py-4 flex items-center gap-4">
+    <div class="w-10 h-10 rounded-xl bg-amber-400 flex items-center justify-center text-white text-lg shrink-0">
+      <i class="fas fa-file-pen"></i>
+    </div>
+    <div>
+      <p class="font-black text-amber-800">แบบร่าง — ยังไม่ได้ส่ง</p>
+      <p class="text-amber-600 text-sm font-semibold">กดส่งให้ HR เพื่อดำเนินการต่อ</p>
+    </div>
+    <div class="ml-auto flex gap-2">
+      <a href="{% url 'payroll:report_edit' report.pk %}"
+         class="px-4 py-2 bg-amber-500 text-white text-xs font-black rounded-xl hover:bg-amber-600 transition-all">
+        <i class="fas fa-pen"></i> แก้ไข
+      </a>
+      <form method="post" action="{% url 'payroll:report_submit' report.pk %}">
+        {% csrf_token %}
+        <button type="submit"
+                class="px-4 py-2 bg-blue-600 text-white text-xs font-black rounded-xl hover:bg-blue-700 transition-all">
+          <i class="fas fa-paper-plane"></i> ส่ง HR
+        </button>
+      </form>
+    </div>
+  </div>
+  {% endif %}
+  {% endwith %}
+
+  <!-- Work Data Card (employees see this) -->
+  <div class="bg-white rounded-2xl shadow border border-slate-100 overflow-hidden">
+    <div class="bg-slate-800 px-6 py-4 text-white flex items-center justify-between">
+      <div>
+        <p class="font-black">ข้อมูลผลงานประจำเดือน</p>
+        <p class="text-slate-400 text-xs font-bold">{{ report.month|month_name }} {{ report.year }}</p>
+      </div>
+      <span class="px-3 py-1 rounded-full text-[10px] font-black
+                   {% if report.status == 'APPROVED' %}status-approved
+                   {% elif report.status == 'REJECTED' %}status-rejected
+                   {% elif report.status == 'SUBMITTED' %}status-submitted
+                   {% else %}status-draft{% endif %}">
+        {{ report.get_status_display }}
+      </span>
+    </div>
+
+    <!-- Section: Time -->
+    <div class="px-6 pt-4 pb-1">
+      <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">⏱ เวลาทำงาน</p>
+    </div>
+    <table class="w-full">
+      <tbody>
+        <tr class="data-row">
+          <td class="data-label">วันทำงานจริง</td>
+          <td class="data-value">{{ report.working_days }} วัน</td>
+        </tr>
+        <tr class="data-row">
+          <td class="data-label">ชั่วโมง OT</td>
+          <td class="data-value">{{ report.ot_hours }} ชม.</td>
+        </tr>
+        <tr class="data-row">
+          <td class="data-label">วันขาดงาน</td>
+          <td class="data-value {% if report.absent_days > 0 %}text-rose-600{% endif %}">{{ report.absent_days }} วัน</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- Section: Performance -->
+    <div class="px-6 pt-4 pb-1">
+      <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">🏆 ผลงาน</p>
+    </div>
+    <table class="w-full">
+      <tbody>
+        <tr class="data-row">
+          <td class="data-label">ค่าคอมมิชชัน</td>
+          <td class="data-value text-emerald-700">{{ report.commissions|floatformat:2 }} ฿</td>
+        </tr>
+        <tr class="data-row">
+          <td class="data-label">Incentives / Bonus</td>
+          <td class="data-value text-emerald-700">{{ report.incentives|floatformat:2 }} ฿</td>
+        </tr>
+        <tr class="data-row">
+          <td class="data-label">ค่าบริหารทีม</td>
+          <td class="data-value text-emerald-700">{{ report.team_mgmt_fee|floatformat:2 }} ฿</td>
+        </tr>
+        <tr class="data-row">
+          <td class="data-label">ค่าวิชาชีพ</td>
+          <td class="data-value text-emerald-700">{{ report.professional_fee|floatformat:2 }} ฿</td>
+        </tr>
+        <tr class="data-row">
+          <td class="data-label">PB Liva Score</td>
+          <td class="data-value">{{ report.pb_liva_score }}</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- Section: Deductions employee submitted -->
+    <div class="px-6 pt-4 pb-1">
+      <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">📋 รายการที่กรอก</p>
+    </div>
+    <table class="w-full">
+      <tbody>
+        <tr class="data-row">
+          <td class="data-label">เงินเบิกล่วงหน้า</td>
+          <td class="data-value text-rose-600">{{ report.advance_pay|floatformat:2 }} ฿</td>
+        </tr>
+        <tr class="data-row">
+          <td class="data-label">เงินออมทรัพย์</td>
+          <td class="data-value text-rose-600">{{ report.savings|floatformat:2 }} ฿</td>
+        </tr>
+        {% if report.remarks %}
+        <tr class="data-row">
+          <td class="data-label">หมายเหตุของฉัน</td>
+          <td class="data-value text-slate-600 text-right text-sm">{{ report.remarks }}</td>
+        </tr>
+        {% endif %}
+      </tbody>
+    </table>
+
+    <!-- Timestamps -->
+    <div class="px-6 py-4 bg-slate-50 border-t border-slate-100 grid grid-cols-2 gap-4 text-xs text-slate-400 font-bold">
+      <div><i class="fas fa-clock mr-1"></i>สร้างเมื่อ: {{ report.created_at|date:"d M Y H:i" }}</div>
+      <div class="text-right"><i class="fas fa-rotate mr-1"></i>อัปเดต: {{ report.updated_at|date:"d M Y H:i" }}</div>
+    </div>
+  </div>
+
+  <!-- SALARY HIDDEN NOTICE (for employees) -->
+  {% if not request.user.is_staff %}
+  <div class="bg-slate-800 rounded-2xl px-6 py-5 text-center">
+    <i class="fas fa-lock text-slate-500 text-2xl mb-2"></i>
+    <p class="font-black text-white text-sm">ข้อมูลเงินเดือนและการคำนวณ</p>
+    <p class="text-slate-400 text-xs font-semibold mt-1">HR จะดำเนินการหลังจากอนุมัติรายงาน ผลการคำนวณจะแจ้งผ่านช่องทางที่บริษัทกำหนด</p>
+  </div>
+  {% endif %}
+
+  <!-- HR ONLY: show full payroll record if approved -->
+  {% if request.user.is_staff and report.status == 'APPROVED' %}
+  {% with rec=report.payroll_record %}
+  {% if rec %}
+  <div class="bg-white rounded-2xl shadow border border-emerald-100 overflow-hidden">
+    <div class="bg-emerald-700 px-6 py-3 text-white text-xs font-black uppercase tracking-widest flex items-center gap-2">
+      <i class="fas fa-coins text-emerald-300"></i> ผลการคำนวณเงินเดือน (HR เท่านั้น)
+    </div>
+    <div class="grid grid-cols-2 md:grid-cols-3 gap-px bg-slate-100">
+      <div class="bg-white p-4"><p class="text-[9px] text-slate-400 font-black uppercase tracking-wider">ฐานเงินเดือน</p><p class="font-black text-slate-800">{{ rec.base_salary_snapshot|floatformat:0 }} ฿</p></div>
+      <div class="bg-white p-4"><p class="text-[9px] text-slate-400 font-black uppercase tracking-wider">OT (฿)</p><p class="font-black text-emerald-700">{{ rec.ot_amount|floatformat:0 }} ฿</p></div>
+      <div class="bg-white p-4"><p class="text-[9px] text-slate-400 font-black uppercase tracking-wider">รวมรายรับ</p><p class="font-black text-emerald-700">{{ rec.total_income|floatformat:0 }} ฿</p></div>
+      <div class="bg-white p-4"><p class="text-[9px] text-slate-400 font-black uppercase tracking-wider">ประกันสังคม</p><p class="font-black text-rose-600">-{{ rec.social_security_amount|floatformat:0 }} ฿</p></div>
+      <div class="bg-white p-4"><p class="text-[9px] text-slate-400 font-black uppercase tracking-wider">ภาษีหัก</p><p class="font-black text-rose-600">-{{ rec.tax_amount|floatformat:0 }} ฿</p></div>
+      <div class="bg-white p-4"><p class="text-[9px] text-slate-400 font-black uppercase tracking-wider">รวมหัก</p><p class="font-black text-rose-600">-{{ rec.total_deductions|floatformat:0 }} ฿</p></div>
+    </div>
+    <div class="bg-emerald-700 px-6 py-4 flex items-center justify-between text-white">
+      <p class="font-black text-sm">เงินเดือนสุทธิ (NET PAY)</p>
+      <p class="font-black text-2xl">{{ rec.net_pay|floatformat:2 }} ฿</p>
+    </div>
+  </div>
+  {% endif %}
+  {% endwith %}
+  {% endif %}
+
+</div>
+{% endblock %}

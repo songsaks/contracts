@@ -1,0 +1,240 @@
+{% extends 'payroll/base_payroll.html' %}
+{% load payroll_extras %}
+{% block title %}สลิปเงินเดือน {{ report.month|month_name }} {{ report.year }} · {{ report.user.get_full_name|default:report.user.username }}{% endblock %}
+{% block page_title %}สลิปเงินเดือน{% endblock %}
+{% block page_subtitle %}{{ report.month|month_name }} {{ report.year }} · {{ report.user.get_full_name|default:report.user.username }}{% endblock %}
+
+{% block extra_head %}
+<style>
+/* ── Screen ─────────────────────────────────────────────── */
+.slip-wrap { max-width: 680px; margin: 0 auto; }
+
+/* ── Print ──────────────────────────────────────────────── */
+@media print {
+  #sidebar, #topbar, .no-print { display: none !important; }
+  #main { margin-left: 0 !important; }
+  #content { padding: 0 !important; }
+  body { background: #fff !important; }
+  .slip-card { box-shadow: none !important; border: 1px solid #e2e8f0 !important; }
+  .print-break { page-break-inside: avoid; }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="slip-wrap space-y-5">
+
+  <!-- Top Actions (hidden on print) -->
+  <div class="flex items-center justify-between no-print">
+    {% if request.user.is_staff %}
+    <a href="{% url 'payroll:admin_dashboard' %}"
+       class="text-slate-400 hover:text-emerald-600 font-bold text-sm flex items-center gap-2 transition-colors">
+      <i class="fas fa-arrow-left"></i> กลับ Dashboard
+    </a>
+    {% else %}
+    <a href="{% url 'payroll:my_payslips' %}"
+       class="text-slate-400 hover:text-emerald-600 font-bold text-sm flex items-center gap-2 transition-colors">
+      <i class="fas fa-arrow-left"></i> สลิปทั้งหมด
+    </a>
+    {% endif %}
+    <div class="flex items-center gap-2">
+      <button onclick="window.print()"
+              class="px-5 py-2.5 rounded-xl bg-slate-800 text-white text-sm font-black
+                     hover:bg-emerald-700 transition-all flex items-center gap-2">
+        <i class="fas fa-print"></i> พิมพ์ / บันทึก PDF
+      </button>
+    </div>
+  </div>
+
+  <!-- ── Payslip Card ───────────────────────────────────── -->
+  <div class="slip-card bg-white rounded-3xl shadow-2xl border border-slate-100 overflow-hidden print-break">
+
+    <!-- Header strip -->
+    <div class="bg-gradient-to-r from-emerald-800 to-emerald-600 px-8 py-7 text-white">
+      <div class="flex items-start justify-between">
+        <div>
+          <p class="text-emerald-300 text-[10px] font-black uppercase tracking-[0.2em] mb-1">PAYROLL SYSTEM</p>
+          <h1 class="text-2xl font-black leading-tight">สลิปเงินเดือน</h1>
+          <p class="text-emerald-200 font-bold text-sm mt-1">
+            <i class="fas fa-calendar-alt mr-1"></i>
+            {{ report.month|month_name }} {{ report.year }}
+          </p>
+        </div>
+        <div class="text-right">
+          <p class="text-emerald-300 text-[10px] font-black uppercase tracking-wider">อนุมัติโดย</p>
+          <p class="font-black mt-0.5">{{ record.processed_by.get_full_name|default:record.processed_by.username|default:"—" }}</p>
+          <p class="text-emerald-300 text-xs font-bold">{{ record.processed_at|date:"d M Y, H:i" }}</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Employee Info -->
+    <div class="px-8 py-5 bg-slate-50 border-b border-slate-100 flex items-center gap-5">
+      <div class="w-14 h-14 rounded-2xl bg-emerald-100 flex items-center justify-center text-emerald-700 font-black text-2xl shrink-0">
+        {{ report.user.first_name|slice:":1"|default:report.user.username|slice:":1"|upper }}
+      </div>
+      <div class="flex-1">
+        <p class="font-black text-slate-800 text-lg">{{ report.user.get_full_name|default:report.user.username }}</p>
+        <p class="text-slate-400 text-sm font-bold">{{ report.user.username }}</p>
+      </div>
+      <div class="text-right">
+        <p class="text-[9px] text-slate-400 font-black uppercase tracking-wider">รอบเงินเดือน</p>
+        <p class="font-black text-slate-700">{{ report.month|month_name }} {{ report.year }}</p>
+      </div>
+    </div>
+
+    <!-- ── Income Section ──────────────────────────────── -->
+    <div class="px-8 pt-6 pb-2">
+      <p class="text-[9px] font-black text-emerald-700 uppercase tracking-[0.18em] mb-3 flex items-center gap-2">
+        <span class="w-4 h-0.5 bg-emerald-400 inline-block"></span> รายการรายได้ INCOME
+      </p>
+      <table class="w-full text-sm">
+        <tbody class="divide-y divide-slate-50">
+          <tr>
+            <td class="py-2.5 text-slate-600 font-semibold">ฐานเงินเดือน (Base Salary)</td>
+            <td class="py-2.5 text-right font-bold text-slate-800">{{ record.base_salary_snapshot|floatformat:2 }} ฿</td>
+          </tr>
+          {% if report.ot_hours > 0 %}
+          <tr>
+            <td class="py-2.5 text-slate-600 font-semibold">OT {{ report.ot_hours }} ชม. × อัตรา OT</td>
+            <td class="py-2.5 text-right font-bold text-slate-800">{{ record.ot_amount|floatformat:2 }} ฿</td>
+          </tr>
+          {% endif %}
+          {% if report.commissions > 0 %}
+          <tr>
+            <td class="py-2.5 text-slate-600 font-semibold">ค่าคอมมิชชัน (Commission)</td>
+            <td class="py-2.5 text-right font-bold text-slate-800">{{ report.commissions|floatformat:2 }} ฿</td>
+          </tr>
+          {% endif %}
+          {% if report.incentives > 0 %}
+          <tr>
+            <td class="py-2.5 text-slate-600 font-semibold">เงินรางวัลพิเศษ (Incentives)</td>
+            <td class="py-2.5 text-right font-bold text-slate-800">{{ report.incentives|floatformat:2 }} ฿</td>
+          </tr>
+          {% endif %}
+          {% if report.team_mgmt_fee > 0 %}
+          <tr>
+            <td class="py-2.5 text-slate-600 font-semibold">ค่าบริหารทีม (Team Mgmt Fee)</td>
+            <td class="py-2.5 text-right font-bold text-slate-800">{{ report.team_mgmt_fee|floatformat:2 }} ฿</td>
+          </tr>
+          {% endif %}
+          {% if report.professional_fee > 0 %}
+          <tr>
+            <td class="py-2.5 text-slate-600 font-semibold">ค่าวิชาชีพ (Professional Fee)</td>
+            <td class="py-2.5 text-right font-bold text-slate-800">{{ report.professional_fee|floatformat:2 }} ฿</td>
+          </tr>
+          {% endif %}
+        </tbody>
+        <tfoot>
+          <tr class="border-t-2 border-emerald-200 bg-emerald-50">
+            <td class="py-3 px-2 font-black text-emerald-800 rounded-l-xl">รวมรายได้ทั้งหมด</td>
+            <td class="py-3 text-right font-black text-emerald-800 text-base rounded-r-xl">{{ record.total_income|floatformat:2 }} ฿</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+
+    <!-- Divider -->
+    <div class="mx-8 my-3 border-t border-dashed border-slate-200"></div>
+
+    <!-- ── Deductions Section ───────────────────────────── -->
+    <div class="px-8 pt-2 pb-6">
+      <p class="text-[9px] font-black text-rose-600 uppercase tracking-[0.18em] mb-3 flex items-center gap-2">
+        <span class="w-4 h-0.5 bg-rose-400 inline-block"></span> รายการหัก DEDUCTIONS
+      </p>
+      <table class="w-full text-sm">
+        <tbody class="divide-y divide-slate-50">
+          <tr>
+            <td class="py-2.5 text-slate-600 font-semibold">ประกันสังคม (Social Security)</td>
+            <td class="py-2.5 text-right font-bold text-rose-600">-{{ record.social_security_amount|floatformat:2 }} ฿</td>
+          </tr>
+          {% if record.tax_amount > 0 %}
+          <tr>
+            <td class="py-2.5 text-slate-600 font-semibold">ภาษีหัก ณ ที่จ่าย (WHT)</td>
+            <td class="py-2.5 text-right font-bold text-rose-600">-{{ record.tax_amount|floatformat:2 }} ฿</td>
+          </tr>
+          {% endif %}
+          {% if report.absent_deduction_amount > 0 %}
+          <tr>
+            <td class="py-2.5 text-slate-600 font-semibold">หักขาดงาน {{ report.absent_days }} วัน</td>
+            <td class="py-2.5 text-right font-bold text-rose-600">-{{ report.absent_deduction_amount|floatformat:2 }} ฿</td>
+          </tr>
+          {% endif %}
+          {% if report.advance_pay > 0 %}
+          <tr>
+            <td class="py-2.5 text-slate-600 font-semibold">เงินเบิกล่วงหน้า (Advance)</td>
+            <td class="py-2.5 text-right font-bold text-rose-600">-{{ report.advance_pay|floatformat:2 }} ฿</td>
+          </tr>
+          {% endif %}
+          {% if report.savings > 0 %}
+          <tr>
+            <td class="py-2.5 text-slate-600 font-semibold">เงินออมทรัพย์ (Savings)</td>
+            <td class="py-2.5 text-right font-bold text-rose-600">-{{ report.savings|floatformat:2 }} ฿</td>
+          </tr>
+          {% endif %}
+          {% if report.lost_equipment_fee > 0 %}
+          <tr>
+            <td class="py-2.5 text-slate-600 font-semibold">ค่าของหาย (Lost Equipment)</td>
+            <td class="py-2.5 text-right font-bold text-rose-600">-{{ report.lost_equipment_fee|floatformat:2 }} ฿</td>
+          </tr>
+          {% endif %}
+          {% if report.other_deductions > 0 %}
+          <tr>
+            <td class="py-2.5 text-slate-600 font-semibold">รายการหักอื่นๆ</td>
+            <td class="py-2.5 text-right font-bold text-rose-600">-{{ report.other_deductions|floatformat:2 }} ฿</td>
+          </tr>
+          {% endif %}
+        </tbody>
+        <tfoot>
+          <tr class="border-t-2 border-rose-200 bg-rose-50">
+            <td class="py-3 px-2 font-black text-rose-700 rounded-l-xl">รวมรายการหักทั้งหมด</td>
+            <td class="py-3 text-right font-black text-rose-700 rounded-r-xl">-{{ record.total_deductions|floatformat:2 }} ฿</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+
+    <!-- ── Net Pay Banner ──────────────────────────────── -->
+    <div class="mx-6 mb-6 bg-gradient-to-r from-emerald-800 to-emerald-600 rounded-2xl p-6 text-white
+                flex items-center justify-between shadow-lg shadow-emerald-200">
+      <div>
+        <p class="text-emerald-200 text-[10px] font-black uppercase tracking-[0.2em]">เงินเดือนสุทธิ</p>
+        <p class="text-emerald-300 text-xs font-bold">NET PAY · {{ report.month|month_name }} {{ report.year }}</p>
+      </div>
+      <p class="text-4xl font-black">
+        {{ record.net_pay|floatformat:2 }}
+        <span class="text-xl text-emerald-200 font-bold"> ฿</span>
+      </p>
+    </div>
+
+    <!-- Footer -->
+    <div class="px-8 py-4 bg-slate-50 border-t border-slate-100 flex items-center justify-between text-xs text-slate-400 font-bold">
+      <span><i class="fas fa-shield-halved text-emerald-400 mr-1"></i>เอกสารลับ — สำหรับพนักงานเท่านั้น</span>
+      <span>{{ record.processed_at|date:"d/m/Y H:i" }}</span>
+    </div>
+  </div>
+
+  <!-- Work attendance summary (non-financial info) -->
+  <div class="bg-white rounded-2xl shadow border border-slate-100 p-5 no-print">
+    <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">สรุปข้อมูลผลงาน</p>
+    <div class="grid grid-cols-3 gap-3 text-center">
+      <div class="bg-slate-50 rounded-xl p-3">
+        <p class="text-[9px] text-slate-400 font-black uppercase tracking-wider">วันทำงาน</p>
+        <p class="font-black text-slate-800 text-lg">{{ report.working_days }}</p>
+        <p class="text-[9px] text-slate-400">วัน</p>
+      </div>
+      <div class="bg-slate-50 rounded-xl p-3">
+        <p class="text-[9px] text-slate-400 font-black uppercase tracking-wider">OT</p>
+        <p class="font-black text-emerald-700 text-lg">{{ report.ot_hours }}</p>
+        <p class="text-[9px] text-slate-400">ชั่วโมง</p>
+      </div>
+      <div class="bg-slate-50 rounded-xl p-3">
+        <p class="text-[9px] text-slate-400 font-black uppercase tracking-wider">ขาดงาน</p>
+        <p class="font-black {% if report.absent_days > 0 %}text-rose-600{% else %}text-slate-800{% endif %} text-lg">{{ report.absent_days }}</p>
+        <p class="text-[9px] text-slate-400">วัน</p>
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

@@ -1,0 +1,202 @@
+{% extends 'payroll/base_payroll.html' %}
+{% load payroll_extras %}
+{% block title %}{{ title }} · Payroll{% endblock %}
+{% block page_title %}{{ title }}{% endblock %}
+{% block page_subtitle %}Monthly Performance Report · {{ report.month|month_name }} {{ report.year }}{% endblock %}
+
+{% block extra_head %}
+<style>
+.field-row { border-bottom: 1px solid #f1f5f9; }
+.field-row:last-child { border-bottom: none; }
+.field-row td { padding: 0.85rem 1.5rem; }
+.field-row:hover td { background: #f8fafc; }
+.field-label { font-weight: 800; color: #1e293b; font-size:.9rem; }
+.field-sub   { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .1em; color: #94a3b8; }
+.field-input input, .field-input select, .field-input textarea {
+  width: 100%; max-width: 220px; background: #f8fafc;
+  border: 1.5px solid #e2e8f0; border-radius: .75rem;
+  padding: .6rem 1rem; font-weight: 700; font-size: .875rem;
+  color: #1e293b; outline: none; display: block; margin: 0 auto; text-align: center;
+  transition: border-color .2s, box-shadow .2s;
+}
+.field-input textarea { max-width: 100%; text-align: left; min-height: 80px; }
+.field-input input:focus, .field-input select:focus, .field-input textarea:focus {
+  border-color: #10b981; box-shadow: 0 0 0 3px rgba(16,185,129,.15); background: #fff;
+}
+.field-input input[readonly], .field-input input[disabled] {
+  background: #f1f5f9; color: #94a3b8; cursor: not-allowed;
+}
+.section-header { padding: .75rem 1.5rem; font-size: .7rem; font-weight: 900;
+                  text-transform: uppercase; letter-spacing: .15em; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl space-y-6 pb-10">
+  <a href="{% url 'payroll:report_list' %}"
+     class="inline-flex items-center gap-2 text-slate-400 hover:text-emerald-600 font-bold text-sm transition-colors">
+    <i class="fas fa-arrow-left"></i> ย้อนกลับ
+  </a>
+
+  <!-- Employee badge -->
+  <div class="bg-gradient-to-br from-emerald-700 to-emerald-900 rounded-2xl p-5 text-white flex items-center gap-5 shadow-xl">
+    <div class="w-14 h-14 rounded-2xl bg-white/20 flex items-center justify-center font-black text-2xl shrink-0">
+      {{ request.user.first_name|slice:":1"|default:request.user.username|slice:":1"|upper }}
+    </div>
+    <div>
+      <p class="text-emerald-200 text-[10px] font-black uppercase tracking-widest mb-1">{{ title }}</p>
+      <p class="font-black text-xl leading-tight">{{ request.user.get_full_name|default:request.user.username }}</p>
+      <p class="text-emerald-300 text-xs font-bold">{{ request.user.username }}</p>
+    </div>
+  </div>
+
+  {% if report and report.status == 'SUBMITTED' %}
+  <!-- Lock notice when submitted -->
+  <div class="bg-blue-50 border border-blue-200 rounded-2xl px-5 py-4 flex items-center gap-4">
+    <i class="fas fa-lock text-blue-500 text-xl"></i>
+    <div>
+      <p class="font-black text-blue-800">รายงานนี้ถูกส่งให้ HR แล้ว</p>
+      <p class="text-blue-600 text-sm font-semibold">ไม่สามารถแก้ไขได้ขณะรอการอนุมัติ กรุณารอ HR ตรวจสอบ</p>
+    </div>
+    <a href="{% url 'payroll:report_detail' report.pk %}" class="ml-auto px-4 py-2 bg-blue-600 text-white text-xs font-black rounded-xl">
+      ดูรายละเอียด
+    </a>
+  </div>
+  {% elif report and report.status == 'APPROVED' %}
+  <div class="bg-emerald-50 border border-emerald-200 rounded-2xl px-5 py-4 flex items-center gap-4">
+    <i class="fas fa-check-circle text-emerald-500 text-xl"></i>
+    <div>
+      <p class="font-black text-emerald-800">รายงานนี้ได้รับการอนุมัติแล้ว ✅</p>
+      <p class="text-emerald-600 text-sm font-semibold">ข้อมูลถูกนำไปคำนวณเงินเดือนเรียบร้อยแล้ว</p>
+    </div>
+  </div>
+  {% elif report and report.status == 'REJECTED' %}
+  <div class="bg-amber-50 border border-amber-200 rounded-2xl px-5 py-4">
+    <p class="font-black text-amber-800 flex items-center gap-2 mb-1">
+      <i class="fas fa-triangle-exclamation text-amber-500"></i> HR ส่งรายงานกลับให้แก้ไข
+    </p>
+    {% if report.admin_remarks %}
+    <p class="text-amber-700 text-sm font-semibold">เหตุผล: {{ report.admin_remarks }}</p>
+    {% endif %}
+    <p class="text-amber-600 text-xs font-bold mt-2">กรุณาแก้ไขข้อมูลด้านล่างและส่งใหม่</p>
+  </div>
+  {% endif %}
+
+  <form method="post">
+    {% csrf_token %}
+
+    <!-- Period (new: auto month/year) -->
+    <div class="bg-white rounded-2xl shadow border border-slate-100 overflow-hidden mb-4">
+      <div class="section-header bg-slate-700 text-white">📅 รอบการรายงาน</div>
+      <table class="w-full"><tbody>
+        <tr class="field-row">
+          <td class="field-label">เดือน<p class="field-sub">Month</p></td>
+          <td class="field-input">{{ form.month }}</td>
+        </tr>
+        <tr class="field-row">
+          <td class="field-label">ปี<p class="field-sub">Year</p></td>
+          <td class="field-input">{{ form.year }}</td>
+        </tr>
+      </tbody></table>
+    </div>
+
+    <!-- Time & Attendance -->
+    <div class="bg-white rounded-2xl shadow border border-slate-100 overflow-hidden mb-4">
+      <div class="section-header bg-slate-600 text-white">⏱ เวลาทำงาน</div>
+      <table class="w-full"><tbody class="divide-y divide-slate-50">
+        <tr class="field-row">
+          <td class="field-label">วันทำงานจริง<p class="field-sub">Working Days</p></td>
+          <td class="field-input">{{ form.working_days }}</td>
+        </tr>
+        <tr class="field-row">
+          <td class="field-label">ชั่วโมง OT<p class="field-sub">Overtime Hours</p></td>
+          <td class="field-input">{{ form.ot_hours }}</td>
+        </tr>
+        <tr class="field-row">
+          <td class="field-label">วันขาดงาน<p class="field-sub">Absent Days</p></td>
+          <td class="field-input">{{ form.absent_days }}</td>
+        </tr>
+      </tbody></table>
+    </div>
+
+    <!-- Performance -->
+    <div class="bg-white rounded-2xl shadow border border-slate-100 overflow-hidden mb-4">
+      <div class="section-header bg-emerald-700 text-white">🏆 ผลงาน / Performance</div>
+      <table class="w-full"><tbody class="divide-y divide-slate-50">
+        <tr class="field-row">
+          <td class="field-label">ค่าคอมมิชชัน<p class="field-sub">Commissions (฿)</p></td>
+          <td class="field-input">{{ form.commissions }}</td>
+        </tr>
+        <tr class="field-row">
+          <td class="field-label">เงินรางวัลพิเศษ<p class="field-sub">Incentives / Bonus (฿)</p></td>
+          <td class="field-input">{{ form.incentives }}</td>
+        </tr>
+        <tr class="field-row">
+          <td class="field-label">ค่าบริหารทีม<p class="field-sub">Team Management Fee (฿)</p></td>
+          <td class="field-input">{{ form.team_mgmt_fee }}</td>
+        </tr>
+        <tr class="field-row">
+          <td class="field-label">ค่าวิชาชีพ<p class="field-sub">Professional Fee (฿)</p></td>
+          <td class="field-input">{{ form.professional_fee }}</td>
+        </tr>
+        <tr class="field-row">
+          <td class="field-label">PB Liva Score<p class="field-sub">Target Achievement</p></td>
+          <td class="field-input">{{ form.pb_liva_score }}</td>
+        </tr>
+      </tbody></table>
+    </div>
+
+    <!-- Self-reported deductions -->
+    <div class="bg-white rounded-2xl shadow border border-slate-100 overflow-hidden mb-6">
+      <div class="section-header bg-slate-500 text-white">📋 รายการอื่นๆ</div>
+      <table class="w-full"><tbody class="divide-y divide-slate-50">
+        <tr class="field-row">
+          <td class="field-label">เงินเบิกล่วงหน้า<p class="field-sub">Advance Pay (฿)</p></td>
+          <td class="field-input">{{ form.advance_pay }}</td>
+        </tr>
+        <tr class="field-row">
+          <td class="field-label">เงินออมทรัพย์<p class="field-sub">Savings (฿)</p></td>
+          <td class="field-input">{{ form.savings }}</td>
+        </tr>
+        <tr class="field-row">
+          <td class="field-label">หมายเหตุ<p class="field-sub">Remarks</p></td>
+          <td class="field-input">{{ form.remarks }}</td>
+        </tr>
+      </tbody></table>
+    </div>
+
+    <!-- Notice: salary is hidden -->
+    <div class="bg-slate-100 rounded-2xl px-5 py-4 mb-5 flex items-start gap-3">
+      <i class="fas fa-lock text-slate-400 mt-0.5"></i>
+      <p class="text-slate-500 text-sm font-semibold">
+        <strong class="text-slate-600">หมายเหตุ:</strong> ข้อมูลเงินเดือน, OT (คำนวณแล้ว), และรายการหักอื่นๆ
+        จะถูกคำนวณและจัดการโดย HR หลังจากอนุมัติรายงานนี้แล้ว
+      </p>
+    </div>
+
+    {% if not report or report.status in 'DRAFT,REJECTED' %}
+    <div class="flex gap-3">
+      <button type="submit" name="action" value="save"
+              class="flex-1 py-4 rounded-2xl bg-emerald-700 text-white font-black text-base
+                     hover:bg-emerald-800 transition-all shadow-lg active:scale-95 flex items-center justify-center gap-3">
+        <i class="fas fa-floppy-disk text-emerald-300"></i> บันทึกรายงาน
+      </button>
+      {% if report %}
+      <button type="submit" name="action" value="submit"
+              class="flex-1 py-4 rounded-2xl bg-blue-600 text-white font-black text-base
+                     hover:bg-blue-700 transition-all shadow-lg active:scale-95 flex items-center justify-center gap-3">
+        <i class="fas fa-paper-plane text-blue-200"></i> บันทึก & ส่ง HR
+      </button>
+      {% endif %}
+    </div>
+    {% else %}
+    <div class="text-center py-4">
+      <a href="{% url 'payroll:report_detail' report.pk %}"
+         class="inline-flex items-center gap-2 px-8 py-3.5 bg-slate-200 text-slate-600 rounded-2xl font-black hover:bg-slate-300 transition-all">
+        <i class="fas fa-eye"></i> ดูรายละเอียด
+      </a>
+    </div>
+    {% endif %}
+  </form>
+</div>
+{% endblock %}

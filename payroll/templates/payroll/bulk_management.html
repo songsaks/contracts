@@ -1,0 +1,286 @@
+{% extends 'payroll/base_payroll.html' %}
+{% load payroll_extras %}
+{% block title %}Grid Entry · {{ month_name }} {{ year }}{% endblock %}
+{% block page_title %}Excel Grid Entry{% endblock %}
+{% block page_subtitle %}บันทึกข้อมูลรายเดือน · {{ month_name }} {{ year }}{% endblock %}
+
+{% block extra_head %}
+<style>
+.xc { /* excel cell input */
+  background:#fff; border:1.5px solid #e2e8f0; border-radius:0.5rem;
+  padding:0.35rem 0.4rem; font-size:0.8rem; font-weight:700; text-align:center;
+  outline:none; width:100%; transition:border-color .15s, box-shadow .15s;
+}
+.xc:focus { border-color:#10b981; box-shadow:0 0 0 3px rgba(16,185,129,.15); background:#f0fdf4; }
+.xc.err   { border-color:#f43f5e; background:#fff1f2; }
+.col-em { background:#f0fdf4; }
+.col-bl { background:#eff6ff; }
+.col-rs { background:#fff1f2; }
+thead th { white-space:nowrap; }
+tbody tr:hover td { background:unset; }
+tbody tr:hover .sticky-col { background:#f0fdf4 !important; }
+tbody tr:hover .col-em { background:#dcfce7; }
+tbody tr:hover .col-bl { background:#dbeafe; }
+tbody tr:hover .col-rs { background:#ffe4e6; }
+.sticky-col { position:sticky; left:0; z-index:10; background:#fff; border-right:2px solid #e2e8f0; }
+.row-flash  { animation: flashRow .7s ease; }
+@keyframes flashRow { 0%,100%{background:transparent} 50%{background:#d1fae5} }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="space-y-5 pb-28">
+
+  <!-- ── Control Bar ────────────────────────────────────── -->
+  <div class="flex flex-wrap items-center gap-3 bg-white p-4 rounded-2xl shadow border border-slate-100">
+    <form method="get" class="flex flex-wrap items-center gap-2">
+      <select name="month" class="border border-slate-200 rounded-xl px-4 py-2 text-sm font-bold outline-none focus:ring-2 focus:ring-emerald-400 bg-slate-50">
+        {% for m in months %}<option value="{{ m }}" {% if m == month %}selected{% endif %}>{{ m|month_name }}</option>{% endfor %}
+      </select>
+      <select name="year" class="border border-slate-200 rounded-xl px-4 py-2 text-sm font-bold outline-none focus:ring-2 focus:ring-emerald-400 bg-slate-50">
+        {% for y in years %}<option value="{{ y }}" {% if y == year %}selected{% endif %}>{{ y }}</option>{% endfor %}
+      </select>
+      <button class="bg-emerald-600 text-white px-5 py-2 rounded-xl text-sm font-black hover:bg-emerald-700 transition-all">เปิดรอบ</button>
+    </form>
+
+    <div class="flex items-center gap-2 ml-auto">
+      <!-- Save counter badge -->
+      <div class="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-black">
+        <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+        Auto-save: <span id="savedCount">0</span>
+      </div>
+      <!-- Excel import -->
+      <form action="{% url 'payroll:import_excel' %}" method="post" enctype="multipart/form-data" class="flex items-center gap-2">
+        {% csrf_token %}
+        <label class="flex items-center gap-1.5 cursor-pointer border border-emerald-200 bg-emerald-50 text-emerald-700 px-4 py-2 rounded-xl text-xs font-black hover:bg-emerald-100 transition-all">
+          <i class="fas fa-file-excel"></i>
+          <input type="file" name="excel_file" class="hidden" onchange="this.closest('form').querySelector('#xlsName').textContent=this.files[0].name">
+          <span id="xlsName">Import Excel</span>
+        </label>
+        <button type="submit" class="bg-emerald-700 text-white px-4 py-2 rounded-xl text-xs font-black hover:bg-emerald-800 transition-all"><i class="fas fa-upload"></i></button>
+      </form>
+      <!-- Download template -->
+      <a href="{% url 'payroll:download_template' %}?month={{ month }}&year={{ year }}"
+         class="border border-slate-200 bg-white text-slate-600 px-4 py-2 rounded-xl text-xs font-black hover:bg-slate-50 transition-all flex items-center gap-1.5">
+        <i class="fas fa-cloud-arrow-down"></i> Template
+      </a>
+    </div>
+  </div>
+
+  <!-- ── The GRID ───────────────────────────────────────── -->
+  <form method="post" id="payrollForm">
+    {% csrf_token %}
+    <div class="bg-white rounded-2xl shadow-2xl shadow-slate-200 border border-slate-100 overflow-hidden">
+      <div class="overflow-x-auto">
+        <table style="min-width:1500px; width:100%; border-collapse:collapse;">
+          <thead>
+            <!-- Group row -->
+            <tr class="bg-slate-800 text-white text-[9px] font-black uppercase tracking-wider">
+              <th rowspan="2" class="sticky left-0 z-30 bg-slate-800 px-5 py-4 text-left border-r border-slate-700 w-64">
+                <div class="flex items-center gap-2">
+                  <i class="fas fa-user text-emerald-400"></i>
+                  <div><div class="text-xs">ชื่อ - นามสกุล</div><div class="font-normal text-slate-400 normal-case text-[8px]">Employee Name</div></div>
+                </div>
+              </th>
+              <th colspan="2" class="px-3 py-3 text-center border-r border-slate-700 bg-emerald-900">
+                <i class="fas fa-clock mr-1 text-emerald-300"></i>เวลาทำงาน
+              </th>
+              <th colspan="5" class="px-3 py-3 text-center border-r border-slate-700 bg-blue-900">
+                <i class="fas fa-circle-plus mr-1 text-blue-300"></i>รายได้รายบุคคล (Income Items)
+              </th>
+              <th colspan="4" class="px-3 py-3 text-center border-r border-slate-700 bg-rose-900">
+                <i class="fas fa-circle-minus mr-1 text-rose-300"></i>รายการหัก (Deductions)
+              </th>
+              <th rowspan="2" class="px-4 py-3 text-center bg-slate-800 w-20">สถานะ</th>
+            </tr>
+            <!-- Field label row -->
+            <tr class="text-[9px] font-black uppercase tracking-widest border-b-2 border-slate-700">
+              <th class="px-2 py-3 text-center col-em text-emerald-700 border-x border-slate-200 min-w-[80px]">วันทำงาน<br><span class="font-normal normal-case text-[7px]">Working Days</span></th>
+              <th class="px-2 py-3 text-center col-em text-emerald-700 border-r border-slate-200 min-w-[80px]">OT ชม.<br><span class="font-normal normal-case text-[7px]">Overtime Hrs</span></th>
+              <th class="px-2 py-3 text-center col-bl text-blue-700 border-r border-slate-200 min-w-[110px]">คอมมิชชัน<br><span class="font-normal normal-case text-[7px]">Commissions</span></th>
+              <th class="px-2 py-3 text-center col-bl text-blue-700 border-r border-slate-200 min-w-[110px]">รางวัลพิเศษ<br><span class="font-normal normal-case text-[7px]">Incentives</span></th>
+              <th class="px-2 py-3 text-center col-bl text-blue-700 border-r border-slate-200 min-w-[90px]">PB Score<br><span class="font-normal normal-case text-[7px]">Achievement</span></th>
+              <th class="px-2 py-3 text-center col-bl text-blue-700 border-r border-slate-200 min-w-[100px]">ค่าบริหารทีม<br><span class="font-normal normal-case text-[7px]">Team Mgmt</span></th>
+              <th class="px-2 py-3 text-center col-bl text-blue-700 border-r border-slate-200 min-w-[100px]">ค่าวิชาชีพ<br><span class="font-normal normal-case text-[7px]">Professional</span></th>
+              <th class="px-2 py-3 text-center col-rs text-rose-700 border-r border-slate-200 min-w-[80px]">วันขาด<br><span class="font-normal normal-case text-[7px]">Absent Days</span></th>
+              <th class="px-2 py-3 text-center col-rs text-rose-700 border-r border-slate-200 min-w-[100px]">หักขาดงาน<br><span class="font-normal normal-case text-[7px]">Absent Deduct</span></th>
+              <th class="px-2 py-3 text-center col-rs text-rose-700 border-r border-slate-200 min-w-[100px]">เบิกล่วงหน้า<br><span class="font-normal normal-case text-[7px]">Advance Pay</span></th>
+              <th class="px-2 py-3 text-center col-rs text-rose-700 border-r border-slate-200 min-w-[90px]">ออมทรัพย์<br><span class="font-normal normal-case text-[7px]">Savings</span></th>
+            </tr>
+          </thead>
+          <tbody id="gridBody">
+            {% for u in users %}
+            {% with rpt=reports_map|dict_get:u.id %}
+            <tr id="row-{{ u.id }}" data-uid="{{ u.id }}" class="border-b border-slate-100 group">
+              <!-- Frozen name cell -->
+              <td class="sticky-col px-5 py-3">
+                <div class="flex items-center gap-3">
+                  <span class="text-[9px] text-slate-300 font-bold w-4 shrink-0">{{ forloop.counter }}</span>
+                  <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-emerald-700
+                               flex items-center justify-center text-white font-black text-xs shadow shrink-0">
+                    {{ u.first_name|slice:":1"|default:u.username|slice:":1"|upper }}
+                  </div>
+                  <div class="min-w-0">
+                    <p class="font-black text-slate-800 text-sm truncate leading-tight">{{ u.get_full_name|default:u.username }}</p>
+                    <p class="text-[9px] text-slate-400 truncate">{{ u.username }}</p>
+                  </div>
+                </div>
+              </td>
+              <!-- ── Time columns ── -->
+              <td class="px-1.5 py-3 col-em"><input type="number" step="0.5" min="0" max="31" class="xc" name="u{{ u.id }}_working_days" data-uid="{{ u.id }}" data-f="working_days" value="{{ rpt.working_days|default:0 }}"></td>
+              <td class="px-1.5 py-3 col-em"><input type="number" step="0.5" min="0" class="xc" name="u{{ u.id }}_ot_hours" data-uid="{{ u.id }}" data-f="ot_hours" value="{{ rpt.ot_hours|default:0 }}"></td>
+              <!-- ── Income columns ── -->
+              <td class="px-1.5 py-3 col-bl"><input type="number" step="0.01" min="0" class="xc" name="u{{ u.id }}_commissions" data-uid="{{ u.id }}" data-f="commissions" value="{{ rpt.commissions|default:0 }}"></td>
+              <td class="px-1.5 py-3 col-bl"><input type="number" step="0.01" min="0" class="xc" name="u{{ u.id }}_incentives" data-uid="{{ u.id }}" data-f="incentives" value="{{ rpt.incentives|default:0 }}"></td>
+              <td class="px-1.5 py-3 col-bl"><input type="number" step="0.01" min="0" class="xc" name="u{{ u.id }}_pb_liva_score" data-uid="{{ u.id }}" data-f="pb_liva_score" value="{{ rpt.pb_liva_score|default:0 }}"></td>
+              <td class="px-1.5 py-3 col-bl"><input type="number" step="0.01" min="0" class="xc" name="u{{ u.id }}_team_mgmt_fee" data-uid="{{ u.id }}" data-f="team_mgmt_fee" value="{{ rpt.team_mgmt_fee|default:0 }}"></td>
+              <td class="px-1.5 py-3 col-bl"><input type="number" step="0.01" min="0" class="xc" name="u{{ u.id }}_professional_fee" data-uid="{{ u.id }}" data-f="professional_fee" value="{{ rpt.professional_fee|default:0 }}"></td>
+              <!-- ── Deduction columns ── -->
+              <td class="px-1.5 py-3 col-rs"><input type="number" step="0.5" min="0" class="xc" name="u{{ u.id }}_absent_days" data-uid="{{ u.id }}" data-f="absent_days" value="{{ rpt.absent_days|default:0 }}"></td>
+              <td class="px-1.5 py-3 col-rs"><input type="number" step="0.01" min="0" class="xc" name="u{{ u.id }}_absent_deduction" data-uid="{{ u.id }}" data-f="absent_deduction" value="{{ rpt.absent_deduction_amount|default:0 }}"></td>
+              <td class="px-1.5 py-3 col-rs"><input type="number" step="0.01" min="0" class="xc" name="u{{ u.id }}_advance_pay" data-uid="{{ u.id }}" data-f="advance_pay" value="{{ rpt.advance_pay|default:0 }}"></td>
+              <td class="px-1.5 py-3 col-rs"><input type="number" step="0.01" min="0" class="xc" name="u{{ u.id }}_savings" data-uid="{{ u.id }}" data-f="savings" value="{{ rpt.savings|default:0 }}"></td>
+              <!-- Status -->
+              <td class="px-3 py-3 text-center border-l border-slate-100">
+                <div class="flex flex-col items-center gap-1">
+                  <span class="status-badge px-2 py-0.5 rounded-full text-[8px] font-black uppercase
+                    {% if rpt.status == 'APPROVED' %}bg-emerald-100 text-emerald-700
+                    {% elif rpt.status == 'SUBMITTED' %}bg-blue-100 text-blue-700
+                    {% elif rpt.status == 'REJECTED' %}bg-rose-100 text-rose-700
+                    {% elif rpt %}bg-amber-100 text-amber-700
+                    {% else %}bg-slate-100 text-slate-400{% endif %}">
+                    {% if rpt %}{{ rpt.get_status_display|truncatechars:6 }}{% else %}—{% endif %}
+                  </span>
+                  <span class="save-ts text-[8px] text-slate-300 font-mono">{% if rpt %}{{ rpt.updated_at|date:"H:i" }}{% endif %}</span>
+                </div>
+              </td>
+            </tr>
+            {% endwith %}
+            {% endfor %}
+          </tbody>
+          <!-- Totals footer -->
+          <tfoot>
+            <tr class="bg-slate-800 text-white text-xs font-black">
+              <td class="sticky left-0 bg-slate-800 px-5 py-3 border-r border-slate-700">
+                <i class="fas fa-sigma text-emerald-400 mr-2"></i>รวมทั้งหมด
+              </td>
+              <td id="t_working_days"  class="px-2 py-3 text-center text-emerald-300">—</td>
+              <td id="t_ot_hours"      class="px-2 py-3 text-center text-emerald-300">—</td>
+              <td id="t_commissions"   class="px-2 py-3 text-center text-blue-300">—</td>
+              <td id="t_incentives"    class="px-2 py-3 text-center text-blue-300">—</td>
+              <td id="t_pb"            class="px-2 py-3 text-center text-blue-300">—</td>
+              <td id="t_team"          class="px-2 py-3 text-center text-blue-300">—</td>
+              <td id="t_prof"          class="px-2 py-3 text-center text-blue-300">—</td>
+              <td id="t_absent_days"   class="px-2 py-3 text-center text-rose-300">—</td>
+              <td id="t_absent_deduct" class="px-2 py-3 text-center text-rose-300">—</td>
+              <td id="t_advance"       class="px-2 py-3 text-center text-rose-300">—</td>
+              <td id="t_savings"       class="px-2 py-3 text-center text-rose-300">—</td>
+              <td></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+
+    <!-- Floating Save All -->
+    <div class="fixed bottom-6 left-1/2 -translate-x-1/2 z-50">
+      <button type="submit" class="px-14 py-4 rounded-[2rem] font-black text-base text-white
+              bg-slate-900 hover:bg-emerald-600 transition-all
+              shadow-[0_20px_50px_-10px_rgba(0,0,0,0.4)] active:scale-95 flex items-center gap-3">
+        <i class="fas fa-floppy-disk text-lg text-emerald-400"></i>
+        บันทึกทั้งหมด (Save All)
+      </button>
+    </div>
+  </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const SAVE_URL = '{% url "payroll:bulk_save_row" %}';
+const CSRF     = '{{ csrf_token }}';
+const MONTH    = '{{ month }}';
+const YEAR     = '{{ year }}';
+let savedCount = 0;
+
+/* ── Column → footer cell mapping ── */
+const TOTALS = {
+  working_days:    't_working_days',
+  ot_hours:        't_ot_hours',
+  commissions:     't_commissions',
+  incentives:      't_incentives',
+  pb_liva_score:   't_pb',
+  team_mgmt_fee:   't_team',
+  professional_fee:'t_prof',
+  absent_days:     't_absent_days',
+  absent_deduction:'t_absent_deduct',
+  advance_pay:     't_advance',
+  savings:         't_savings',
+};
+
+function fmt(n) {
+  return n.toLocaleString('th-TH', {minimumFractionDigits:1, maximumFractionDigits:2});
+}
+
+function recalcTotals() {
+  Object.entries(TOTALS).forEach(([field, cellId]) => {
+    const sum = [...document.querySelectorAll(`input[data-f="${field}"]`)]
+      .reduce((a, i) => a + (parseFloat(i.value) || 0), 0);
+    const el = document.getElementById(cellId);
+    if (el) el.textContent = fmt(sum);
+  });
+}
+
+function saveRow(uid) {
+  const row  = document.getElementById(`row-${uid}`);
+  if (!row) return;
+  const fd = new FormData();
+  fd.append('csrfmiddlewaretoken', CSRF);
+  fd.append('user_id', uid);
+  fd.append('month', MONTH);
+  fd.append('year',  YEAR);
+  row.querySelectorAll('input[data-f]').forEach(i => fd.append(i.dataset.f, i.value || '0'));
+
+  const badge = row.querySelector('.status-badge');
+  const ts    = row.querySelector('.save-ts');
+  if (badge) { badge.textContent = '…'; badge.className = 'status-badge px-2 py-0.5 rounded-full text-[8px] font-black uppercase bg-amber-100 text-amber-700'; }
+
+  fetch(SAVE_URL, { method:'POST', body:fd })
+    .then(r => r.json())
+    .then(d => {
+      if (d.status === 'success') {
+        if (badge) { badge.textContent = 'SAVED'; badge.className = 'status-badge px-2 py-0.5 rounded-full text-[8px] font-black uppercase bg-emerald-100 text-emerald-700'; }
+        if (ts) ts.textContent = d.updated_at;
+        savedCount++;
+        document.getElementById('savedCount').textContent = savedCount;
+        row.classList.add('row-flash');
+        setTimeout(() => row.classList.remove('row-flash'), 700);
+      }
+    })
+    .catch(() => {
+      if (badge) { badge.textContent = 'ERR'; badge.className = 'status-badge px-2 py-0.5 rounded-full text-[8px] font-black uppercase bg-rose-100 text-rose-700'; }
+    });
+}
+
+document.querySelectorAll('input[data-f]').forEach(inp => {
+  /* Blur → save row + recalc */
+  inp.addEventListener('blur', function() {
+    recalcTotals();
+    saveRow(this.dataset.uid);
+  });
+  /* Enter → move to same field next row */
+  inp.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const col  = [...document.querySelectorAll(`input[data-f="${this.dataset.f}"]`)];
+      const idx  = col.indexOf(this);
+      const next = col[idx + 1];
+      if (next) next.focus();
+      else saveRow(this.dataset.uid);
+    }
+  });
+});
+
+recalcTotals();
+</script>
+{% endblock %}

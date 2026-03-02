@@ -1,0 +1,336 @@
+{% extends 'payroll/base_payroll.html' %}
+{% load payroll_extras %}
+{% block title %}อนุมัติเงินเดือน {{ month_name }} {{ year }} · Payroll{% endblock %}
+{% block page_title %}อนุมัติเงินเดือนรายเดือน{% endblock %}
+{% block page_subtitle %}Batch Payroll Approval · {{ month_name }} {{ year }}{% endblock %}
+
+{% block extra_head %}
+<style>
+/* Screen styles */
+th { white-space: nowrap; }
+.tbl td, .tbl th { padding: .6rem .9rem; }
+.emp-row { transition: background .15s; }
+.emp-row:hover { background: #f0fdf4; }
+.num { text-align: right; font-variant-numeric: tabular-nums; font-weight: 700; }
+.net-col { color: #065f46; font-weight: 900; }
+
+/* ── PRINT STYLES ─────────────────────────────────── */
+@media print {
+  #sidebar, #topbar, .no-print, .toast-wrap { display: none !important; }
+  #main { margin-left: 0 !important; }
+  #content { padding: 0.5rem !important; }
+  body { background: #fff !important; font-size: 11px !important; }
+  .print-only  { display: block !important; }
+  .screen-only { display: none !important; }
+  .slip-card   { box-shadow: none !important; border: 1px solid #ccc !important; }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { border: 1px solid #ddd; padding: 4px 8px; font-size: 11px; }
+  thead { background: #065f46 !important; color: #fff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .page-break  { page-break-before: always; }
+}
+.print-only { display: none; }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- ══ SCREEN HEADER ════════════════════════════════════ -->
+<div class="screen-only space-y-6">
+
+  <!-- Period Selector -->
+  <form method="get" class="flex items-center gap-3 flex-wrap no-print">
+    <select name="month" class="px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-emerald-400">
+      {% for m in months %}
+      <option value="{{ m }}" {% if m == month %}selected{% endif %}>{{ m|month_name }}</option>
+      {% endfor %}
+    </select>
+    <select name="year" class="px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-emerald-400">
+      {% for y in years %}
+      <option value="{{ y }}" {% if y == year %}selected{% endif %}>{{ y }}</option>
+      {% endfor %}
+    </select>
+    <button class="px-5 py-2.5 bg-emerald-700 text-white rounded-xl text-sm font-black hover:bg-emerald-800 transition-all">
+      <i class="fas fa-search mr-1"></i> ดูข้อมูล
+    </button>
+    {% if approved_rows %}
+    <button type="button" onclick="window.print()"
+            class="ml-auto px-5 py-2.5 bg-slate-800 text-white rounded-xl text-sm font-black hover:bg-slate-700 transition-all flex items-center gap-2">
+      <i class="fas fa-print text-slate-300"></i> พิมพ์ / PDF
+    </button>
+    {% endif %}
+  </form>
+
+  <!-- Summary KPI -->
+  <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+    <div class="bg-white rounded-2xl p-5 shadow border border-slate-100">
+      <p class="text-[9px] font-black text-slate-400 uppercase tracking-wider mb-1">รอตรวจสอบ</p>
+      <p class="text-3xl font-black text-amber-600">{{ pending_count }}</p>
+      <p class="text-xs text-slate-400 font-bold">รายงาน</p>
+    </div>
+    <div class="bg-white rounded-2xl p-5 shadow border border-slate-100">
+      <p class="text-[9px] font-black text-slate-400 uppercase tracking-wider mb-1">อนุมัติแล้ว</p>
+      <p class="text-3xl font-black text-emerald-700">{{ approved_count }}</p>
+      <p class="text-xs text-slate-400 font-bold">คน</p>
+    </div>
+    <div class="bg-white rounded-2xl p-5 shadow border border-slate-100">
+      <p class="text-[9px] font-black text-slate-400 uppercase tracking-wider mb-1">ยอดรวมสุทธิ</p>
+      <p class="text-2xl font-black text-emerald-700">{{ total_net|floatformat:0 }}</p>
+      <p class="text-xs text-slate-400 font-bold">บาท</p>
+    </div>
+    <div class="bg-white rounded-2xl p-5 shadow border border-slate-100">
+      <p class="text-[9px] font-black text-slate-400 uppercase tracking-wider mb-1">ยอดหักรวม</p>
+      <p class="text-2xl font-black text-rose-600">{{ grand_total_ded|floatformat:0 }}</p>
+      <p class="text-xs text-slate-400 font-bold">บาท</p>
+    </div>
+  </div>
+
+  <!-- ─── SECTION 1: Pending Approval ─────────────────── -->
+  {% if pending_rows %}
+  <form method="post">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="approve_all">
+    {% for row in pending_rows %}
+    <input type="hidden" name="report_ids" value="{{ row.report.pk }}">
+    {% endfor %}
+
+    <div class="bg-white rounded-2xl shadow border border-amber-100 overflow-hidden">
+      <div class="bg-amber-500 px-6 py-4 text-white flex items-center justify-between">
+        <div>
+          <p class="font-black text-base flex items-center gap-2">
+            <i class="fas fa-hourglass-half text-amber-200"></i>
+            รอการตรวจสอบ — {{ pending_count }} คน
+          </p>
+          <p class="text-amber-200 text-xs font-bold mt-0.5">ตรวจสอบข้อมูลด้านล่าง แล้วกด "อนุมัติทั้งหมด"</p>
+        </div>
+        <button type="submit"
+                class="px-6 py-2.5 bg-white text-amber-700 rounded-xl text-sm font-black
+                       hover:bg-amber-50 transition-all shadow-md flex items-center gap-2 no-print">
+          <i class="fas fa-check-double"></i> อนุมัติทั้งหมด ({{ pending_count }} คน)
+        </button>
+      </div>
+
+      <div class="overflow-x-auto">
+        <table class="tbl w-full text-sm">
+          <thead class="bg-slate-50 border-b border-slate-100 text-[9px] font-black text-slate-500 uppercase tracking-widest">
+            <tr>
+              <th class="text-left">ชื่อพนักงาน</th>
+              <th class="num">วันทำงาน</th>
+              <th class="num">OT (ชม.)</th>
+              <th class="num">รายรับรวม</th>
+              <th class="num">รายการหัก</th>
+              <th class="num text-emerald-700">สุทธิ (คาดการณ์)</th>
+              <th class="text-center no-print">การดำเนินการ</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-50">
+            {% for row in pending_rows %}
+            <tr class="emp-row">
+              <td>
+                <div class="flex items-center gap-2">
+                  <div class="w-8 h-8 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center font-black text-xs shrink-0">
+                    {{ row.report.user.first_name|slice:":1"|default:row.report.user.username|slice:":1"|upper }}
+                  </div>
+                  <div>
+                    <p class="font-black text-slate-800 text-xs">{{ row.report.user.get_full_name|default:row.report.user.username }}</p>
+                    <p class="text-[9px] text-slate-400 font-bold">{{ row.report.user.username }}</p>
+                  </div>
+                </div>
+              </td>
+              <td class="num text-slate-600">{{ row.report.working_days }}</td>
+              <td class="num text-slate-600">{{ row.report.ot_hours }}</td>
+              <td class="num text-slate-700">{{ row.preview.total_income|floatformat:0 }}</td>
+              <td class="num text-rose-600">-{{ row.preview.total_ded|floatformat:0 }}</td>
+              <td class="num net-col text-base">{{ row.preview.net_pay|floatformat:0 }}</td>
+              <td class="text-center no-print">
+                <div class="flex items-center justify-center gap-2">
+                  <!-- approve single -->
+                  <form method="post" class="inline">
+                    {% csrf_token %}
+                    <input type="hidden" name="action"    value="approve_one">
+                    <input type="hidden" name="report_id" value="{{ row.report.pk }}">
+                    <button type="submit"
+                            class="px-3 py-1.5 rounded-lg bg-emerald-100 text-emerald-700 text-[10px] font-black
+                                   hover:bg-emerald-200 transition-all">✅ อนุมัติ</button>
+                  </form>
+                  <!-- reject single -->
+                  <form method="post" class="inline">
+                    {% csrf_token %}
+                    <input type="hidden" name="action"       value="reject_one">
+                    <input type="hidden" name="report_id"    value="{{ row.report.pk }}">
+                    <input type="hidden" name="admin_remarks" value="ส่งกลับให้แก้ไขข้อมูล">
+                    <button type="submit"
+                            class="px-3 py-1.5 rounded-lg bg-rose-100 text-rose-700 text-[10px] font-black
+                                   hover:bg-rose-200 transition-all">↩️ ส่งกลับ</button>
+                  </form>
+                  <a href="{% url 'payroll:admin_approve' row.report.pk %}"
+                     class="px-3 py-1.5 rounded-lg bg-slate-100 text-slate-600 text-[10px] font-black
+                            hover:bg-slate-200 transition-all">🔍 ดูรายละเอียด</a>
+                </div>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+          <tfoot class="bg-amber-50 border-t-2 border-amber-200">
+            <tr>
+              <td colspan="3" class="tbl font-black text-amber-800 text-xs uppercase tracking-wider">รวมทั้งหมด</td>
+              <td class="num font-black text-slate-700">
+                {{ pending_rows|length }} คน
+              </td>
+              <td class="num font-black text-rose-700">
+                –
+              </td>
+              <td class="num font-black text-emerald-700 text-base">
+                {% with total=0 %}
+                {% for row in pending_rows %}{% endfor %}
+                ~{{ grand_total_ded|floatformat:0 }}+ ฿
+                {% endwith %}
+              </td>
+              <td class="no-print"></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+  </form>
+  {% else %}
+  <div class="bg-white rounded-2xl shadow border border-slate-100 px-6 py-8 text-center text-slate-400">
+    <i class="fas fa-check-circle text-3xl text-emerald-300 mb-2"></i>
+    <p class="font-black">ไม่มีรายงานที่รอการอนุมัติ</p>
+    <p class="text-sm mt-1">สำหรับ {{ month_name }} {{ year }}</p>
+  </div>
+  {% endif %}
+
+</div><!-- end screen-only -->
+
+<!-- ─── SECTION 2: Approved — Bank Transfer Sheet ──────── -->
+{% if approved_rows %}
+
+<!-- SCREEN version header -->
+<div class="screen-only mt-6">
+  <div class="bg-white rounded-2xl shadow border border-emerald-100 overflow-hidden">
+    <div class="bg-emerald-700 px-6 py-4 text-white flex items-center justify-between">
+      <div>
+        <p class="font-black text-base flex items-center gap-2">
+          <i class="fas fa-money-bill-transfer text-emerald-300"></i>
+          รายการโอนเงินเดือน — {{ approved_count }} คน อนุมัติแล้ว
+        </p>
+        <p class="text-emerald-300 text-xs font-bold mt-0.5">{{ month_name }} {{ year }}</p>
+      </div>
+      <button onclick="window.print()"
+              class="px-5 py-2.5 bg-white text-emerald-700 rounded-xl text-sm font-black
+                     hover:bg-emerald-50 transition-all shadow no-print flex items-center gap-2">
+        <i class="fas fa-print"></i> พิมพ์ใบโอนธนาคาร
+      </button>
+    </div>
+
+    <div class="overflow-x-auto">
+</div><!-- close screen-only header -->
+
+<!-- ═══════════════════════════════════════════════════════
+     BANK TRANSFER TABLE — visible both on screen and print
+     ══════════════════════════════════════════════════════ -->
+<div class="bg-white {% if approved_rows %}screen-only{% endif %}">
+  <!-- Print header (only visible when printing) -->
+  <div class="print-only px-8 pt-6 pb-4 border-b border-slate-200">
+    <div class="flex items-start justify-between">
+      <div>
+        <p class="text-xl font-black text-slate-900">ใบรายการโอนเงินเดือน</p>
+        <p class="font-bold text-slate-600">Payroll Transfer List · {{ month_name }} {{ year }}</p>
+      </div>
+      <div class="text-right text-sm text-slate-500">
+        <p>พิมพ์เมื่อ: {% now "d/m/Y H:i" %}</p>
+        <p>จำนวนพนักงาน: {{ approved_count }} คน</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="{% if not approved_rows %}hidden{% endif %}">
+    <table class="tbl w-full text-sm">
+      <thead class="bg-emerald-700 text-white text-[9px] font-black uppercase tracking-widest">
+        <tr>
+          <th class="text-left py-3 px-4">#</th>
+          <th class="text-left">ชื่อ-นามสกุล</th>
+          <th class="text-left">ธนาคาร</th>
+          <th class="text-left">เลขที่บัญชี</th>
+          <th class="num">รายรับรวม (฿)</th>
+          <th class="num">รายการหัก (฿)</th>
+          <th class="num" style="color:#a7f3d0">ยอดโอน NET (฿)</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-50">
+        {% for row in approved_rows %}
+        <tr class="emp-row">
+          <td class="text-slate-400 font-bold text-xs">{{ forloop.counter }}</td>
+          <td>
+            <p class="font-black text-slate-800 text-xs">{{ row.report.user.get_full_name|default:row.report.user.username }}</p>
+            <p class="text-[9px] text-slate-400">{{ row.report.user.username }}</p>
+          </td>
+          <td class="text-slate-600 font-bold text-xs">{{ row.record.report.user.salary_config.bank_name|default:"—" }}</td>
+          <td>
+            <code class="text-sm font-black text-slate-700">
+              {{ row.record.report.user.salary_config.bank_account_number|default:"—" }}
+            </code>
+          </td>
+          <td class="num text-slate-600 text-xs">{{ row.record.total_income|floatformat:2 }}</td>
+          <td class="num text-rose-600 text-xs">{{ row.record.total_deductions|floatformat:2 }}</td>
+          <td class="num net-col text-base">{{ row.record.net_pay|floatformat:2 }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+      <tfoot>
+        <tr style="background:#f0fdf4; border-top: 2px solid #10b981;">
+          <td colspan="4" class="py-3 px-4 font-black text-emerald-800 text-sm">
+            รวมทั้งหมด — {{ approved_count }} พนักงาน
+          </td>
+          <td class="num font-black text-slate-700">{{ grand_total_income|floatformat:2 }}</td>
+          <td class="num font-black text-rose-700">{{ grand_total_ded|floatformat:2 }}</td>
+          <td class="num font-black text-emerald-800 text-lg">{{ total_net|floatformat:2 }}</td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+
+  <!-- Print footer -->
+  <div class="print-only px-8 py-4 border-t border-slate-200 mt-4">
+    <div class="grid grid-cols-3 gap-8 text-sm">
+      <div class="border-t border-slate-300 pt-6 text-center text-slate-500">
+        <p>ผู้จัดทำ / Prepared by</p>
+      </div>
+      <div class="border-t border-slate-300 pt-6 text-center text-slate-500">
+        <p>ผู้ตรวจสอบ / Reviewed by</p>
+      </div>
+      <div class="border-t border-slate-300 pt-6 text-center text-slate-500">
+        <p>ผู้อนุมัติ / Approved by</p>
+      </div>
+    </div>
+    <p class="text-center text-[10px] text-slate-400 mt-6">
+      เอกสารนี้จัดทำโดยระบบ Payroll Management System · {{ month_name }} {{ year }}
+    </p>
+  </div>
+</div>
+
+<!-- Close screen-only table wrapper -->
+<div class="screen-only">
+    </div>{# closes overflow-x-auto #}
+  </div>{# closes rounded card #}
+</div>
+
+{% endif %}{# end if approved_rows #}
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+// Confirm before approve-all
+document.querySelectorAll('form[method=post]').forEach(form => {
+  const action = form.querySelector('[name=action]');
+  if (!action || action.value !== 'approve_all') return;
+  form.addEventListener('submit', e => {
+    const count = form.querySelectorAll('[name=report_ids]').length;
+    if (!confirm(`ยืนยันการอนุมัติเงินเดือน ${count} คน?\n\nการดำเนินการนี้จะคำนวณและบันทึกเงินเดือนทันที`)) {
+      e.preventDefault();
+    }
+  });
+});
+</script>
+{% endblock %}

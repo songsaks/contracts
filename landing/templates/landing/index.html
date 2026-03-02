@@ -287,6 +287,14 @@
             box-shadow: 0 20px 50px -12px rgba(139, 92, 246, 0.18), 0 8px 20px -4px rgba(0, 0, 0, 0.06);
         }
 
+        .card--emerald::before {
+            background: linear-gradient(90deg, #10b981, #34d399);
+        }
+        .card--emerald:hover {
+            border-color: rgba(16, 185, 129, 0.35);
+            box-shadow: 0 20px 50px -12px rgba(16, 185, 129, 0.18), 0 8px 20px -4px rgba(0, 0, 0, 0.06);
+        }
+
         /* Icon container */
         .card__icon {
             position: relative;
@@ -361,6 +369,16 @@
             box-shadow: 0 8px 24px -4px rgba(139, 92, 246, 0.25);
         }
 
+        .card--emerald .card__icon {
+            background: linear-gradient(135deg, #ecfdf5, #d1fae5);
+            border: 1px solid #a7f3d0;
+        }
+        .card--emerald .card__icon svg { color: #059669; }
+        .card--emerald:hover .card__icon {
+            background: linear-gradient(135deg, #d1fae5, #a7f3d0);
+            box-shadow: 0 8px 24px -4px rgba(16, 185, 129, 0.25);
+        }
+
         /* Card content */
         .card__title-th {
             position: relative;
@@ -377,6 +395,7 @@
         .card--green:hover .card__title-th { color: #16a34a; }
         .card--cyan:hover .card__title-th { color: #0891b2; }
         .card--purple:hover .card__title-th { color: #8b5cf6; }
+        .card--emerald:hover .card__title-th { color: #059669; }
 
         .card__title-en {
             position: relative;
@@ -422,6 +441,7 @@
         .card--green .card__action { color: #16a34a; }
         .card--cyan .card__action { color: #0891b2; }
         .card--purple .card__action { color: #8b5cf6; }
+        .card--emerald .card__action { color: #059669; }
 
         .card__action svg {
             width: 16px;
@@ -676,6 +696,7 @@
             .card--green:active .card__action svg { color: #16a34a; }
             .card--cyan:active .card__action svg { color: #0891b2; }
             .card--purple:active .card__action svg { color: #8b5cf6; }
+            .card--emerald:active .card__action svg { color: #059669; }
 
             /* Accent line on left side for mobile */
             .card::before {
@@ -843,6 +864,27 @@
                     <div class="card__title-th">ระบบจัดการโครงการ</div>
                     <div class="card__title-en">Project System</div>
                     <p class="card__desc">จัดการโครงการ และบริการ</p>
+                </div>
+                <div class="card__action">
+                    เข้าสู่ระบบ
+                    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                    </svg>
+                </div>
+            </a>
+
+            <!-- ระบบเงินเดือน -->
+            <a href="{% url 'payroll:report_list' %}" class="card card--emerald" id="card-payroll">
+                <div class="card__icon">
+                    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                        <path stroke-linecap="round" stroke-linejoin="round"
+                            d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+                    </svg>
+                </div>
+                <div class="card__content">
+                    <div class="card__title-th">ระบบเงินเดือน</div>
+                    <div class="card__title-en">Payroll System</div>
+                    <p class="card__desc">จัดการเงินเดือน และรายงานผลงาน</p>
                 </div>
                 <div class="card__action">
                     เข้าสู่ระบบ

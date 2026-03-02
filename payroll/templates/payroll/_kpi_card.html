@@ -1,0 +1,14 @@
+<div class="bg-white rounded-2xl p-6 shadow-lg border border-slate-100 flex items-center gap-5">
+  <div class="w-12 h-12 rounded-xl flex items-center justify-center text-xl
+    {% if color == 'emerald' %}bg-emerald-100 text-emerald-600
+    {% elif color == 'amber' %}bg-amber-100 text-amber-600
+    {% elif color == 'blue' %}bg-blue-100 text-blue-600
+    {% elif color == 'purple' %}bg-purple-100 text-purple-600
+    {% else %}bg-slate-100 text-slate-600{% endif %}">
+    <i class="fas {{ icon }}"></i>
+  </div>
+  <div>
+    <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">{{ label }}</p>
+    <p class="text-3xl font-black text-slate-800">{{ value }} <span class="text-sm font-bold text-slate-400">{{ unit }}</span></p>
+  </div>
+</div>

@@ -11,6 +11,9 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
 from pathlib import Path
+import os
+from dotenv import load_dotenv
+load_dotenv()
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -23,7 +26,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-t$4@!6*b8w-imi#=d=b7fby==&+kb(daydvkn29t=1jcs4f*i)'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True 
+DEBUG = os.getenv('DJANGO_DEBUG', 'True') == 'True'
 
 ALLOWED_HOSTS = ['72.62.72.22', 'app.9com.cloud', 'www.9com.cloud', 'localhost', '127.0.0.1']
 
@@ -51,6 +54,7 @@ INSTALLED_APPS = [
     'pos',
     'pms',
     'stocks',
+    'payroll',
 ]
 
 MIDDLEWARE = [
@@ -102,11 +106,6 @@ WSGI_APPLICATION = 'config.wsgi.application'
 #     }
 #} 
 
-# settings.py
-import os
-from dotenv import load_dotenv
-
-load_dotenv() # โหลดค่าจากไฟล์ .env
 
 DELETE_PASSWORD = os.getenv('DELETE_PASSWORD', '9com')
 
@@ -156,17 +155,13 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
 STATIC_URL = '/static/'
-STATIC_ROOT = BASE_DIR / 'static_root'
+STATIC_ROOT = BASE_DIR / 'static_root'   # collectstatic output
 
-STATICFILES_DIRS = [
-    BASE_DIR / 'static' / 'images',
-]
-
-MEDIA_URL = '/media/'
-MEDIA_ROOT = BASE_DIR / 'media'
-
-import os
-STATIC_ROOT = os.path.join(BASE_DIR, 'static')
+STATICFILES_DIRS = []
+# Add extra static dirs only if they exist (avoids errors on fresh server)
+_extra = BASE_DIR / 'static' / 'images'
+if _extra.exists():
+    STATICFILES_DIRS.append(_extra)
 
 
 # Default primary key field type

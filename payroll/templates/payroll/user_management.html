@@ -1,0 +1,269 @@
+{% extends 'payroll/base_payroll.html' %}
+{% block title %}จัดการสิทธิ์ผู้ใช้ · Payroll{% endblock %}
+{% block page_title %}จัดการสิทธิ์ผู้ใช้{% endblock %}
+{% block page_subtitle %}User &amp; Permission Management · 3-Tier Role System{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+
+  <!-- Search + legend -->
+  <div class="flex items-center gap-4 flex-wrap">
+    <form method="get" class="flex-1 max-w-xs relative">
+      <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
+      <input type="text" name="q" value="{{ q }}" placeholder="ค้นหาชื่อ / username..."
+             class="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl text-sm font-bold bg-white outline-none focus:ring-2 focus:ring-emerald-400">
+    </form>
+    <span class="text-sm text-slate-400 font-bold">{{ users.count }} คน</span>
+    <!-- Role legend -->
+    <div class="flex items-center gap-3 ml-auto flex-wrap">
+      <span class="px-3 py-1 rounded-full text-[10px] font-black bg-purple-100 text-purple-700">👑 ผู้บริหาร</span>
+      <span class="px-3 py-1 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-700">🧑‍💼 HR/Admin</span>
+      <span class="px-3 py-1 rounded-full text-[10px] font-black bg-slate-100 text-slate-500">👤 พนักงาน</span>
+    </div>
+  </div>
+
+  <!-- Role cycle guide -->
+  <div class="bg-blue-50 border border-blue-100 rounded-2xl px-5 py-3 flex items-start gap-3 text-sm">
+    <i class="fas fa-circle-info text-blue-400 mt-0.5"></i>
+    <div>
+      <p class="font-black text-blue-700">การเปลี่ยนสิทธิ์ (วนเวียน)</p>
+      <p class="text-blue-600 font-semibold">
+        <span class="font-black">พนักงาน</span> → กด "เลื่อน" → <span class="font-black">HR/Admin</span>
+        → กด "เลื่อน" → <span class="font-black">ผู้บริหาร</span>
+        → กด "ลด" → <span class="font-black">พนักงาน</span>
+      </p>
+    </div>
+  </div>
+
+  <div class="bg-white rounded-2xl shadow-xl border border-slate-100 overflow-hidden">
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead class="bg-slate-50 text-[10px] font-black text-slate-500 uppercase tracking-widest border-b border-slate-100">
+          <tr>
+            <th class="py-3 px-6 text-left">พนักงาน</th>
+            <th class="py-3 px-4 text-center">บทบาท</th>
+            <th class="py-3 px-4 text-center">สถานะบัญชี</th>
+            <th class="py-3 px-6 text-right">เปลี่ยนสิทธิ์ (Cycle)</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-50">
+          {% for u in users %}
+          <tr class="hover:bg-slate-50/50 transition-colors">
+
+            <!-- Avatar + Name -->
+            <td class="py-4 px-6">
+              <div class="flex items-center gap-3">
+                <div class="w-9 h-9 rounded-xl flex items-center justify-center font-black text-sm
+                            {% if u.is_superuser %}bg-purple-100 text-purple-700
+                            {% elif u.is_staff %}bg-emerald-100 text-emerald-700
+                            {% else %}bg-slate-100 text-slate-600{% endif %}">
+                  {{ u.first_name|slice:":1"|default:u.username|slice:":1"|upper }}
+                </div>
+                <div>
+                  <p class="font-bold text-slate-800">{{ u.get_full_name|default:u.username }}</p>
+                  <p class="text-xs text-slate-400">{{ u.username }} · {{ u.email|default:"—" }}</p>
+                </div>
+              </div>
+            </td>
+
+            <!-- Role Badge -->
+            <td class="py-4 px-4 text-center">
+              {% if u.is_superuser %}
+              <span class="px-3 py-1 rounded-full text-[10px] font-black bg-purple-100 text-purple-700">
+                👑 ผู้บริหาร
+              </span>
+              {% elif u.is_staff %}
+              <span class="px-3 py-1 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-700">
+                🧑‍💼 HR/Admin
+              </span>
+              {% else %}
+              <span class="px-3 py-1 rounded-full text-[10px] font-black bg-slate-100 text-slate-500">
+                👤 พนักงาน
+              </span>
+              {% endif %}
+            </td>
+
+            <!-- Active Status -->
+            <td class="py-4 px-4 text-center">
+              <span class="px-3 py-1 rounded-full text-[10px] font-black
+                {% if u.is_active %}bg-blue-100 text-blue-700{% else %}bg-rose-100 text-rose-600{% endif %}">
+                {% if u.is_active %}Active{% else %}Inactive{% endif %}
+              </span>
+            </td>
+
+            <!-- Toggle Button — shows NEXT role in cycle -->
+            <td class="py-4 px-4 text-right">
+              <div class="flex items-center justify-end gap-2">
+
+                {% if u != request.user %}
+                <!-- Role cycle button -->
+                <form action="{% url 'payroll:toggle_staff' u.id %}" method="post" class="inline">
+                  {% csrf_token %}
+                  {% if u.is_superuser %}
+                  <button type="submit"
+                          class="px-3 py-1.5 rounded-lg text-xs font-black transition-all bg-rose-50 text-rose-600 hover:bg-rose-100">
+                    <i class="fas fa-arrow-down mr-1"></i> ลด
+                  </button>
+                  {% elif u.is_staff %}
+                  <button type="submit"
+                          class="px-3 py-1.5 rounded-lg text-xs font-black transition-all bg-purple-50 text-purple-700 hover:bg-purple-100">
+                    <i class="fas fa-arrow-up mr-1"></i> → Exec
+                  </button>
+                  {% else %}
+                  <button type="submit"
+                          class="px-3 py-1.5 rounded-lg text-xs font-black transition-all bg-emerald-50 text-emerald-700 hover:bg-emerald-100">
+                    <i class="fas fa-arrow-up mr-1"></i> → HR
+                  </button>
+                  {% endif %}
+                </form>
+
+                <!-- Set Password button -->
+                <button onclick="openPwModal('{{ u.id }}','{{ u.get_full_name|default:u.username }}')"
+                        class="px-3 py-1.5 rounded-lg text-xs font-black transition-all bg-slate-100 text-slate-600 hover:bg-slate-200">
+                  <i class="fas fa-key"></i> Password
+                </button>
+                {% else %}
+                <span class="text-slate-300 text-xs">(ตัวเอง)</span>
+                {% endif %}
+
+              </div>
+            </td>
+
+          </tr>
+          {% empty %}
+          <tr><td colspan="4" class="py-12 text-center text-slate-400 font-bold">ไม่พบผู้ใช้งาน</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ── Login Info Banner ──────────────────────────────────── -->
+<div class="mt-6 bg-slate-800 rounded-2xl p-5 text-white">
+  <p class="font-black text-sm flex items-center gap-2 mb-2">
+    <i class="fas fa-door-open text-emerald-400"></i> วิธี Login เข้าระบบ Payroll
+  </p>
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+    <div class="bg-slate-700 rounded-xl p-4">
+      <p class="font-black text-emerald-400 mb-1">🔗 URL สำหรับ Login</p>
+      <code class="text-white font-bold text-sm">http://127.0.0.1:8090/payroll/login/</code>
+      <p class="text-slate-400 mt-2">ใช้ได้เฉพาะระบบ Payroll ไม่เกี่ยวกับระบบอื่น</p>
+    </div>
+    <div class="bg-slate-700 rounded-xl p-4">
+      <p class="font-black text-emerald-400 mb-1">🔑 Password เริ่มต้น</p>
+      <p class="text-white font-bold">หากสร้างจาก Import Excel → <code class="bg-slate-600 px-2 py-0.5 rounded font-mono">12345678</code></p>
+      <p class="text-slate-400 mt-1">กด <strong class="text-white">🔑 Password</strong> ด้านขวาเพื่อตั้งรหัสใหม่</p>
+    </div>
+  </div>
+</div>
+
+<!-- ── Password Modal ─────────────────────────────────────── -->
+<div id="pwModal" class="fixed inset-0 z-50 flex items-center justify-center hidden">
+  <!-- Backdrop -->
+  <div class="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onclick="closePwModal()"></div>
+
+  <div class="relative bg-white rounded-3xl shadow-2xl w-full max-w-md mx-4 p-8 z-10">
+    <div class="flex items-start justify-between mb-6">
+      <div>
+        <p class="font-black text-slate-800 text-xl">ตั้งรหัสผ่านใหม่</p>
+        <p id="pwModalName" class="text-slate-400 text-sm font-bold mt-0.5"></p>
+      </div>
+      <button onclick="closePwModal()"
+              class="w-8 h-8 rounded-xl bg-slate-100 text-slate-500 hover:bg-slate-200 flex items-center justify-center transition-all">
+        <i class="fas fa-xmark"></i>
+      </button>
+    </div>
+
+    <form id="pwForm" method="post" action="">
+      {% csrf_token %}
+      <div class="space-y-4">
+        <div>
+          <label class="block text-xs font-black text-slate-500 uppercase tracking-widest mb-2">
+            รหัสผ่านใหม่ (อย่างน้อย 6 ตัวอักษร)
+          </label>
+          <div class="relative">
+            <input type="password" id="newPwInput" name="new_password" required minlength="6"
+                   placeholder="ใส่รหัสผ่านใหม่..."
+                   class="w-full px-4 py-3 border-2 border-slate-200 rounded-xl font-bold
+                          outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 pr-12">
+            <button type="button" onclick="togglePw()"
+                    class="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+              <i id="pwEyeIcon" class="fas fa-eye"></i>
+            </button>
+          </div>
+        </div>
+        <div>
+          <label class="block text-xs font-black text-slate-500 uppercase tracking-widest mb-2">
+            ยืนยันรหัสผ่าน
+          </label>
+          <input type="password" id="confirmPwInput" required minlength="6"
+                 placeholder="ใส่รหัสผ่านอีกครั้ง..."
+                 class="w-full px-4 py-3 border-2 border-slate-200 rounded-xl font-bold
+                        outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100">
+          <p id="pwMismatch" class="text-rose-500 text-xs font-bold mt-1 hidden">⚠️ รหัสผ่านไม่ตรงกัน</p>
+        </div>
+
+        <div class="flex gap-3 pt-2">
+          <button type="submit" id="pwSubmitBtn"
+                  class="flex-1 py-3 rounded-2xl bg-emerald-700 text-white font-black hover:bg-emerald-800 transition-all">
+            <i class="fas fa-check mr-2"></i> บันทึกรหัสผ่าน
+          </button>
+          <button type="button" onclick="closePwModal()"
+                  class="px-6 py-3 rounded-2xl bg-slate-100 text-slate-600 font-black hover:bg-slate-200 transition-all">
+            ยกเลิก
+          </button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+function openPwModal(userId, userName) {
+  document.getElementById('pwModal').classList.remove('hidden');
+  document.getElementById('pwModalName').textContent = '👤 ' + userName;
+  document.getElementById('pwForm').action = `/payroll/admin/users/${userId}/set-password/`;
+  document.getElementById('newPwInput').value = '';
+  document.getElementById('confirmPwInput').value = '';
+  document.getElementById('pwMismatch').classList.add('hidden');
+  setTimeout(() => document.getElementById('newPwInput').focus(), 100);
+}
+
+function closePwModal() {
+  document.getElementById('pwModal').classList.add('hidden');
+}
+
+function togglePw() {
+  const inp = document.getElementById('newPwInput');
+  const icon = document.getElementById('pwEyeIcon');
+  if (inp.type === 'password') {
+    inp.type = 'text';
+    icon.className = 'fas fa-eye-slash';
+  } else {
+    inp.type = 'password';
+    icon.className = 'fas fa-eye';
+  }
+}
+
+// Validate password match before submit
+document.getElementById('pwForm').addEventListener('submit', function(e) {
+  const pw  = document.getElementById('newPwInput').value;
+  const cpw = document.getElementById('confirmPwInput').value;
+  if (pw !== cpw) {
+    e.preventDefault();
+    document.getElementById('pwMismatch').classList.remove('hidden');
+  }
+});
+document.getElementById('confirmPwInput').addEventListener('input', function() {
+  const match = this.value === document.getElementById('newPwInput').value;
+  document.getElementById('pwMismatch').classList.toggle('hidden', match || this.value === '');
+});
+
+// Close modal on Escape key
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closePwModal(); });
+</script>
+{% endblock %}
