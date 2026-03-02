@@ -32,6 +32,13 @@ def is_hr_or_exec(user):
 # Keep old name as alias so any existing references still work
 is_hr = is_hr_or_exec
 
+def payroll_members():
+    """Return QS of Users who are active payroll members.
+    Executives (superusers) are always included even without a config."""
+    return User.objects.filter(
+        salary_config__is_payroll_member=True
+    ).order_by('last_name', 'first_name', 'username')
+
 def _safe_dec(value, default='0'):
     try:
         return Decimal(str(value or default))
@@ -615,8 +622,8 @@ def bulk_management(request):
     month = int(request.GET.get('month', timezone.now().month))
     year  = int(request.GET.get('year',  timezone.now().year))
 
-    # Only active (is_active=True) employees as rows
-    users = User.objects.filter(is_active=True).order_by('last_name', 'first_name', 'username')
+    # Only payroll members
+    users = payroll_members().filter(is_active=True)
     reports_map = {r.user_id: r for r in WorkReport.objects.filter(month=month, year=year)}
 
     if request.method == 'POST':
@@ -756,20 +763,71 @@ def import_excel(request):
             messages.error(request, f"เกิดข้อผิดพลาด: {e}")
     return redirect('payroll:bulk_management')
 
-# ── Employee (User) Import (HR & Exec) ────────────────────
+# ── Employee List & Add Single Employee (HR & Exec) ───────
 @user_passes_test(is_hr_or_exec, login_url=PAYROLL_LOGIN_URL)
 def employee_list(request):
-    """Show all employees and provide import/export tools."""
+    """Show payroll members only, with add-single and import tools."""
     q = request.GET.get('q', '')
-    employees = User.objects.filter(
-        Q(username__icontains=q) | Q(first_name__icontains=q) | Q(last_name__icontains=q)
-    ) if q else User.objects.all()
-    employees = employees.order_by('last_name', 'first_name', 'username')
+    qs = payroll_members()
+    if q:
+        qs = qs.filter(
+            Q(username__icontains=q) | Q(first_name__icontains=q) | Q(last_name__icontains=q)
+        )
     return render(request, 'payroll/employee_list.html', {
-        'employees': employees,
+        'employees': qs,
         'q': q,
-        'total': employees.count(),
+        'total': qs.count(),
+        'is_exec': request.user.is_superuser,
     })
+
+@user_passes_test(is_hr_or_exec, login_url=PAYROLL_LOGIN_URL)
+def create_payroll_employee(request):
+    """HR or Exec: add a single new employee to the payroll system."""
+    if request.method == 'POST':
+        username   = request.POST.get('username', '').strip()
+        first_name = request.POST.get('first_name', '').strip()
+        last_name  = request.POST.get('last_name', '').strip()
+        email      = request.POST.get('email', '').strip()
+        password   = request.POST.get('password', '').strip() or '12345678'
+        make_hr    = request.POST.get('make_hr') == '1'        # HR only (exec can set)
+
+        if not username:
+            messages.error(request, "กรุณาใส่ Username")
+            return redirect('payroll:employee_list')
+        if ' ' in username:
+            messages.error(request, "Username ต้องไม่มีช่องว่าง")
+            return redirect('payroll:employee_list')
+        if User.objects.filter(username=username).exists():
+            # User exists → just add to payroll
+            u = User.objects.get(username=username)
+        else:
+            u = User.objects.create_user(
+                username=username, password=password,
+                first_name=first_name, last_name=last_name, email=email,
+            )
+        # Mark as payroll member
+        cfg, _ = EmployeeSalaryConfig.objects.get_or_create(user=u)
+        cfg.is_payroll_member = True
+        cfg.save()
+        # Optionally promote to HR (exec only)
+        if make_hr and request.user.is_superuser:
+            u.is_staff = True
+            u.save()
+        messages.success(request,
+            f"✅ เพิ่ม {u.get_full_name() or u.username} เข้าระบบ Payroll เรียบร้อยแล้ว")
+    return redirect('payroll:employee_list')
+
+@user_passes_test(is_executive, login_url=PAYROLL_LOGIN_URL)
+def remove_payroll_member(request, user_id):
+    """Exec only: remove a user from payroll (does not delete the Django user)."""
+    if request.method == 'POST':
+        target = get_object_or_404(User, id=user_id)
+        cfg, _ = EmployeeSalaryConfig.objects.get_or_create(user=target)
+        cfg.is_payroll_member = False
+        cfg.save()
+        messages.warning(request,
+            f"⚠️ นำ {target.get_full_name() or target.username} ออกจากระบบ Payroll แล้ว")
+    return redirect('payroll:employee_list')
 
 @user_passes_test(is_hr_or_exec, login_url=PAYROLL_LOGIN_URL)
 def download_employee_template(request):
@@ -891,9 +949,16 @@ def import_employees(request):
                     email=email,
                     is_active=is_active,
                 )
-                # Auto-create salary config
-                EmployeeSalaryConfig.objects.get_or_create(user=user)
+                # Auto-create salary config and mark as payroll member
+                cfg, _ = EmployeeSalaryConfig.objects.get_or_create(user=user)
+                cfg.is_payroll_member = True
+                cfg.save()
                 created_count += 1
+            else:
+                # Existing user: also ensure they're marked as payroll member
+                cfg, _ = EmployeeSalaryConfig.objects.get_or_create(user=user)
+                cfg.is_payroll_member = True
+                cfg.save()
 
         msg = f"✅ สร้างใหม่ {created_count} คน, อัปเดต {updated_count} คน"
         if skipped_count:

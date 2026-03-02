@@ -39,8 +39,10 @@ urlpatterns = [
 
     # ── Employee Roster Management ──────────────────────────────────
     path('admin/employees/', views.employee_list, name='employee_list'),
+    path('admin/employees/add/', views.create_payroll_employee, name='create_payroll_employee'),
     path('admin/employees/import/', views.import_employees, name='import_employees'),
     path('admin/employees/download-template/', views.download_employee_template, name='download_employee_template'),
+    path('admin/employees/<int:user_id>/remove/', views.remove_payroll_member, name='remove_payroll_member'),
 
     # Payslip
     path('payslip/<int:pk>/', views.payslip_view, name='payslip'),

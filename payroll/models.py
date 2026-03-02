@@ -55,12 +55,19 @@ class WorkReport(models.Model):
 
 class EmployeeSalaryConfig(models.Model):
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='salary_config')
+    # ── Payroll membership ──────────────────────────────────
+    is_payroll_member = models.BooleanField(
+        default=False,
+        verbose_name="เป็นพนักงานในระบบ Payroll",
+        help_text="ถ้า False = user นี้ไม่ปรากฏในระบบ Payroll"
+    )
+    # ── Salary & rates ──────────────────────────────────────
     base_salary = models.DecimalField(max_digits=12, decimal_places=2, default=0, verbose_name="ฐานเงินเดือน")
     ot_rate_per_hour = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name="อัตรา OT (บาท/ชั่วโมง)")
     social_security_rate = models.DecimalField(max_digits=5, decimal_places=2, default=5, verbose_name="อัตราประกันสังคม (%)")
     social_security_cap = models.DecimalField(max_digits=10, decimal_places=2, default=750, verbose_name="เพดานประกันสังคม (บาท)")
     tax_withholding = models.DecimalField(max_digits=12, decimal_places=2, default=0, verbose_name="หักภาษี ณ ที่จ่าย (บาท)")
-    
+    # ── Bank account ─────────────────────────────────────────
     bank_account_number = models.CharField(max_length=50, blank=True, verbose_name="เลขบัญชีธนาคาร")
     bank_name = models.CharField(max_length=100, blank=True, verbose_name="ชื่อธนาคาร")
 
