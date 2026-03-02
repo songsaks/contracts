@@ -21,6 +21,13 @@ def payroll_logout(request):
     logout(request)
     return redirect('payroll:login')
 
+@login_required(login_url=PAYROLL_LOGIN_URL)
+def login_success(request):
+    """Dispatcher: redirects user to the correct dashboard based on role."""
+    if request.user.is_staff:
+        return redirect('payroll:admin_dashboard')
+    return redirect('payroll:report_list')
+
 # ─────────────────────────────────────────────────────────────
 #  Permission Helpers — 3-Tier Role System
 #  Level 1 Executive  : is_superuser

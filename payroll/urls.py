@@ -9,8 +9,9 @@ urlpatterns = [
     path('login/', auth_views.LoginView.as_view(
         template_name='payroll/login.html',
         redirect_authenticated_user=True,
-        next_page='payroll:admin_dashboard',
+        next_page='payroll:login_success',
     ), name='login'),
+    path('login-success/', views.login_success, name='login_success'),
     path('logout/', views.payroll_logout, name='logout'),
 
     # ── Employee ────────────────────────────────────────────────────
