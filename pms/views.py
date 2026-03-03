@@ -808,28 +808,27 @@ def dashboard(request):
     # As requested: "งานที่กำลังดำเนินการ คือ งานที่อยู่ในหน้า รายการงานทั้งหมด และ ที่อยู่ใน AI Queue 
     # แต่ไม่รวมถึงงานที่มีสถานะ: จัดหาในงานขายและเช่า, รับแจ้งซ่อมในงานซ่อม, รวบรวมในงานโครงการ"
     from django.db.models import Q
-    from .models import ServiceQueueItem
+    from repairs.models import RepairJob
     
-    # Exclusion for Projects (PMS)
+    # Exclusion for PMS Projects
     p_exclude = Q(status__in=[Project.Status.CLOSED, Project.Status.CANCELLED])
     p_exclude |= Q(job_type=Project.JobType.PROJECT, status=Project.Status.DRAFT)      # รวบรวมในงานโครงการ
     p_exclude |= Q(job_type=Project.JobType.SERVICE, status=Project.Status.SOURCING)   # จัดหาในงานขาย
     p_exclude |= Q(job_type=Project.JobType.RENTAL, status=Project.Status.SOURCING)    # จัดหาในงานเช่า
-    p_exclude |= Q(job_type=Project.JobType.REPAIR, status=Project.Status.SOURCING)    # รับแจ้งซ่อมในงานซ่อม
+    p_exclude |= Q(job_type=Project.JobType.REPAIR, status=Project.Status.SOURCING)    # รับแจ้งซ่อมในงานซ่อม (Mapped Status)
     
     p_active_count = all_projects.exclude(p_exclude).count()
     
-    # Exclusion for Repair App (If any)
-    # The user specifically mentioned "รับแจ้งซ่อมในงานซ่อม" which we handle in Project type REPAIR
-    # but for the repairs app RepairItem:
-    r_exclude = ['FINISHED', 'COMPLETED', 'CANCELLED', 'RECEIVED']
-    r_active_count = all_repair_items.exclude(status__in=r_exclude).count()
+    # Exclusion for Repairs App Jobs
+    # We count RepairJob instead of RepairItem to avoid overcounting (one job can have multiple items)
+    # A job is active if it has at least one item NOT in [FINISHED, COMPLETED, CANCELLED, RECEIVED]
+    r_active_count = RepairJob.objects.filter(
+        items__status__in=['FIXING', 'WAITING', 'OUTSOURCE', 'RECEIVED_FROM_VENDOR']
+    ).distinct().count()
     
-    # AI Queue active items
-    q_active_count = ServiceQueueItem.objects.exclude(status='COMPLETED').count()
-    
-    # Active Projects = Sum of active items in management and execution
-    active_projects = p_active_count + r_active_count + q_active_count
+    # Note: ServiceQueueItem (AI Queue) items are already linked to either a Project or a RepairJob.
+    # Summing them separately would cause double-counting because a project in the queue is already in the project list.
+    active_projects = p_active_count + r_active_count
     
     # ยอดรวมของงาน (Total Job Value) - Periodic: New business in period (Project + Repair)
     total_project_value_in_period = projects_in_period.aggregate(
