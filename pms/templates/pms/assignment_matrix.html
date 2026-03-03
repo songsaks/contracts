@@ -1,0 +1,195 @@
+{% extends 'pms/base_pms.html' %}
+{% load static %}
+
+{% block title %}ผู้รับผิดชอบตามประเภทงาน — 9Com{% endblock %}
+
+{% block extra_css %}
+<style>
+    .matrix-table {
+        border-collapse: separate;
+        border-spacing: 0;
+    }
+    .matrix-table thead th {
+        background-color: var(--bg-light);
+        border-bottom: 2px solid var(--border-color);
+        padding: 1rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        font-size: 0.75rem;
+        letter-spacing: 0.05em;
+        position: sticky;
+        top: 0;
+        z-index: 10;
+    }
+    .group-row-header {
+        background-color: #f8fafc;
+        border-bottom: 1px solid var(--border-color);
+    }
+    .group-name {
+        font-weight: 800;
+        color: var(--primary-color);
+        font-size: 1.1rem;
+        padding: 1.25rem 1rem !important;
+    }
+    .status-cell {
+        padding: 0.75rem 1rem 0.75rem 2.5rem !important;
+        vertical-align: middle;
+        border-bottom: 1px solid var(--border-light);
+        width: 50%;
+    }
+    .user-cell {
+        padding: 0.5rem 1rem !important;
+        vertical-align: middle;
+        border-bottom: 1px solid var(--border-light);
+    }
+    .status-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        display: inline-block;
+        margin-right: 8px;
+        background-color: var(--primary-color);
+        opacity: 0.4;
+    }
+    .assignment-select {
+        border-radius: 10px;
+        border: 1px solid var(--border-color);
+        font-size: 0.85rem;
+        padding: 0.4rem 0.75rem;
+        transition: all 0.2s;
+        min-width: 250px;
+    }
+    .assignment-select:focus {
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+    }
+    .save-indicator {
+        font-size: 0.75rem;
+        display: none;
+        margin-left: 10px;
+    }
+    .save-success {
+        color: #10b981;
+    }
+    .save-loading {
+        color: var(--primary-color);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <h3 class="fw-bold mb-1">จัดการผู้รับผิดชอบงาน (ตั้งค่าเริ่มต้น)</h3>
+                <p class="text-muted small mb-0">กำหนดผู้รับผิดชอบหลักในแต่ละขั้นตอน แยกตามประเภทของงาน</p>
+            </div>
+            <a href="{% url 'pms:project_list' %}" class="btn btn-outline-secondary btn-sm">
+                <i class="fas fa-arrow-left me-1"></i> กลับหน้ารายการ
+            </a>
+        </div>
+    </div>
+</div>
+
+<div class="card shadow-sm border-0 overflow-hidden">
+    <div class="card-body p-0">
+        <div class="table-responsive" style="max-height: 80vh;">
+            <table class="table mb-0 matrix-table">
+                <thead>
+                    <tr>
+                        <th class="status-cell">ประเภทงาน / ขั้นตอน</th>
+                        <th class="user-cell">ผู้รับผิดชอบหลัก</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for group in matrix_data %}
+                    <tr class="group-row-header">
+                        <td colspan="2" class="group-name">
+                            <div class="d-flex align-items-center gap-2">
+                                {{ group.type_label }}
+                            </div>
+                        </td>
+                    </tr>
+                    {% for status in group.statuses %}
+                    <tr>
+                        <td class="status-cell">
+                            <span class="status-dot"></span>
+                            <span class="fw-semibold">{{ status.label }}</span>
+                            <small class="text-muted ms-1">({{ status.key }})</small>
+                        </td>
+                        <td class="user-cell">
+                            <div class="d-flex align-items-center">
+                                <select class="form-select assignment-select" 
+                                        data-status-id="{{ status.id }}" 
+                                        onchange="updateAssignment(this)">
+                                    <option value="">-- ไม่ระบุ --</option>
+                                    {% for user in users %}
+                                    <option value="{{ user.id }}" {% if status.user_id == user.id %}selected{% endif %}>
+                                        {{ user.get_full_name|default:user.username }}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                                
+                                <span class="save-indicator" id="saved-{{ status.id }}">
+                                    <i class="fas fa-check-circle save-success"></i> บันทึกแล้ว
+                                </span>
+                                <span class="save-indicator" id="loading-{{ status.id }}">
+                                    <i class="fas fa-spinner fa-spin save-loading"></i>
+                                </span>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="2" class="text-center py-4 text-muted small">
+                            ยังไม่มีการกำหนดขั้นตอนงานสำหรับงานประเภทนี้ในระบบฐานข้อมูล (Admin)
+                        </td>
+                    </tr>
+                    {% endfor %}
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function updateAssignment(select) {
+    const statusId = select.dataset.statusId;
+    const userId = select.value;
+    
+    const loadingId = `loading-${statusId}`;
+    const savedId = `saved-${statusId}`;
+    
+    document.getElementById(loadingId).style.display = 'inline-block';
+    document.getElementById(savedId).style.display = 'none';
+
+    fetch("{% url 'pms:set_project_assignment' %}", {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'X-CSRFToken': '{{ csrf_token }}'
+        },
+        body: `status_id=${statusId}&user_id=${userId}`
+    })
+    .then(response => response.json())
+    .then(data => {
+        document.getElementById(loadingId).style.display = 'none';
+        if (data.status === 'success' || data.status === 'deleted') {
+            document.getElementById(savedId).style.display = 'inline-block';
+            setTimeout(() => {
+                document.getElementById(savedId).style.display = 'none';
+            }, 2000);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        document.getElementById(loadingId).style.display = 'none';
+        alert('เกิดข้อผิดพลาดในการบันทึกข้อมูล');
+    });
+}
+</script>
+{% endblock %}

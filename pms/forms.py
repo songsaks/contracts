@@ -119,9 +119,25 @@ class ProjectForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super(ProjectForm, self).__init__(*args, **kwargs)
-        # Exclude CANCELLED from choices
-        choices = [c for c in Project.Status.choices if c[0] != Project.Status.CANCELLED]
-        self.fields['status'].choices = choices
+        from .models import JobStatus
+        choices = JobStatus.get_choices(Project.JobType.PROJECT)
+        if choices:
+            self.fields['status'].choices = choices
+        else:
+            # Fallback
+            self.fields['status'].choices = [
+                (Project.Status.DRAFT, 'รวบรวม'),
+                (Project.Status.SOURCING, 'จัดหา'),
+                (Project.Status.QUOTED, 'เสนอราคา'),
+                (Project.Status.CONTRACTED, 'ทำสัญญา'),
+                (Project.Status.ORDERING, 'สั่งซื้อ'),
+                (Project.Status.RECEIVED_QC, 'รับของ/QC'),
+                (Project.Status.INSTALLATION, 'ติดตั้ง'),
+                (Project.Status.ACCEPTED, 'ตรวจรับ'),
+                (Project.Status.BILLING, 'วางบิล'),
+                (Project.Status.WAITING_FOR_SALE_KEY, 'รอคีย์ขาย'),
+                (Project.Status.CLOSED, 'ปิดจบ'),
+            ]
 
 class SalesServiceJobForm(forms.ModelForm):
     project_value = forms.DecimalField(
@@ -147,30 +163,42 @@ class SalesServiceJobForm(forms.ModelForm):
         job_type = kwargs.pop('job_type', None)
         super(SalesServiceJobForm, self).__init__(*args, **kwargs)
         
-        # If job_type not passed, try to get from instance
         if not job_type and self.instance and self.instance.pk:
             job_type = self.instance.job_type
 
-        if job_type == Project.JobType.REPAIR:
-            REPAIR_CHOICES = [
-                (Project.Status.SOURCING, 'รับแจ้งซ่อม'),
-                (Project.Status.ORDERING, 'จัดคิวซ่อม'),
-                (Project.Status.DELIVERY, 'ซ่อม'),
-                (Project.Status.ACCEPTED, 'รอ'),
-                (Project.Status.CLOSED, 'ปิดงานซ่อม'),
-            ]
-            self.fields['status'].choices = REPAIR_CHOICES
-        elif job_type == Project.JobType.SERVICE:
-             SERVICE_CHOICES = [
-                (Project.Status.SOURCING, 'จัดหา'),
-                (Project.Status.QUOTED, 'เสนอราคา'),
-                (Project.Status.ORDERING, 'สั่งซื้อ'),
-                (Project.Status.RECEIVED_QC, 'รับของ/QC'),
-                (Project.Status.DELIVERY, 'ส่งมอบ'),
-                (Project.Status.ACCEPTED, 'ตรวจรับ'),
-                (Project.Status.CLOSED, 'ปิดจบ'),
-            ]
-             self.fields['status'].choices = SERVICE_CHOICES
+        from .models import JobStatus
+        dynamic_choices = JobStatus.get_choices(job_type)
+        if dynamic_choices:
+            self.fields['status'].choices = dynamic_choices
+        else:
+            # Fallback
+            if job_type == Project.JobType.REPAIR:
+                self.fields['status'].choices = [
+                    (Project.Status.SOURCING, 'รับแจ้งซ่อม'),
+                    (Project.Status.SUPPLIER_CHECK, 'เช็คราคา'),
+                    (Project.Status.ORDERING, 'จัดคิวซ่อม'),
+                    (Project.Status.DELIVERY, 'ซ่อม'),
+                    (Project.Status.CLOSED, 'ปิดงานซ่อม'),
+                ]
+            elif job_type == Project.JobType.SERVICE:
+                self.fields['status'].choices = [
+                    (Project.Status.SOURCING, 'จัดหา'),
+                    (Project.Status.QUOTED, 'เสนอราคา'),
+                    (Project.Status.ORDERING, 'สั่งซื้อ'),
+                    (Project.Status.RECEIVED_QC, 'รับของ/QC'),
+                    (Project.Status.DELIVERY, 'ส่งมอบ'),
+                    (Project.Status.ACCEPTED, 'ตรวจรับ'),
+                    (Project.Status.CLOSED, 'ปิดจบ'),
+                ]
+            elif job_type == Project.JobType.RENTAL:
+                self.fields['status'].choices = [
+                    (Project.Status.SOURCING, 'จัดหา'),
+                    (Project.Status.CONTRACTED, 'ทำสัญญา'),
+                    (Project.Status.RENTING, 'เช่า'),
+                    (Project.Status.CLOSED, 'ปิดจบ'),
+                ]
+            else:
+                self.fields['status'].choices = [(c[0], c[1]) for c in Project.Status.choices if c[0] != Project.Status.CANCELLED]
 
 class ProductItemForm(forms.ModelForm):
     class Meta:

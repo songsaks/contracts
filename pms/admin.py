@@ -1,5 +1,16 @@
 from django.contrib import admin
-from .models import Project, ProductItem, Customer, Supplier, ProjectOwner, CustomerRequirement, ServiceTeam, ServiceQueueItem, TeamMessage, SLAPlan
+from .models import (
+    Project, ProductItem, Customer, Supplier, ProjectOwner, 
+    CustomerRequirement, ServiceTeam, ServiceQueueItem, TeamMessage, 
+    SLAPlan, JobStatus, JobStatusAssignment, UserNotification
+)
+
+@admin.register(JobStatus)
+class JobStatusAdmin(admin.ModelAdmin):
+    list_display = ('job_type', 'status_key', 'label', 'sort_order', 'is_active')
+    list_filter = ('job_type', 'is_active')
+    list_editable = ('sort_order', 'label', 'is_active')
+    search_fields = ('status_key', 'label')
 
 @admin.register(SLAPlan)
 class SLAPlanAdmin(admin.ModelAdmin):
@@ -54,4 +65,14 @@ class ServiceQueueItemAdmin(admin.ModelAdmin):
 class TeamMessageAdmin(admin.ModelAdmin):
     list_display = ('subject', 'team', 'is_read', 'created_at')
     list_filter = ('team', 'is_read')
+
+@admin.register(JobStatusAssignment)
+class JobStatusAssignmentAdmin(admin.ModelAdmin):
+    list_display = ('job_status', 'responsible_user')
+    list_filter = ('responsible_user',)
+
+@admin.register(UserNotification)
+class UserNotificationAdmin(admin.ModelAdmin):
+    list_display = ('user', 'project', 'subject', 'is_read', 'created_at')
+    list_filter = ('user', 'is_read')
 

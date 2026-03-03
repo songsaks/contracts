@@ -24,6 +24,7 @@ urlpatterns = [
     path('dispatch/', views.dispatch, name='dispatch'),
     path('service/create/', views.service_create, name='service_create'),
     path('repair/create/', views.repair_create, name='repair_create'), # New Repair Job
+    path('rental/create/', views.rental_create, name='rental_create'),
     path('tracking/', views.sla_tracking_dashboard, name='tracking'),  
 
     # Customer URLs
@@ -85,5 +86,12 @@ urlpatterns = [
 
     # AI Analysis
     path('dashboard/ai-analysis/', views.ai_dashboard_analysis, name='ai_dashboard_analysis'),
+    # Notifications
+    path('notifications/', views.notification_list, name='notification_list'),
+    path('notifications/<int:pk>/read/', views.notification_read, name='notification_read'),
+    
+    # Assignments
+    path('assignments/', views.project_assignment_matrix, name='project_assignment_matrix'),
+    path('assignments/set/', views.set_project_assignment, name='set_project_assignment'),
 ]
 

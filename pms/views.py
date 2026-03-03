@@ -1,16 +1,26 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.contrib.auth import get_user_model
 from django.utils import timezone
 from django.db.models import Sum, Count, Q, F, Case, When, Value, DecimalField
 from django.db.models.functions import TruncMonth
-from django.http import FileResponse
+from django.http import FileResponse, JsonResponse
 from decimal import Decimal
 from datetime import datetime, date, time
 import calendar
 import json
-from .models import Project, ProductItem, Customer, Supplier, ProjectOwner, CustomerRequirement, ProjectFile, CustomerRequest, ServiceQueueItem, SLAPlan
-from .forms import ProjectForm, ProductItemForm, CustomerForm, SupplierForm, ProjectOwnerForm, CustomerRequirementForm, SalesServiceJobForm, CustomerRequestForm, SLAPlanForm
+from .models import (
+    Project, ProductItem, Customer, Supplier, ProjectOwner, 
+    CustomerRequirement, ProjectFile, CustomerRequest, 
+    ServiceQueueItem, SLAPlan, JobStatus, ProjectStatusAssignment,
+    UserNotification
+)
+from .forms import (
+    ProjectForm, ProductItemForm, CustomerForm, SupplierForm, 
+    ProjectOwnerForm, CustomerRequirementForm, SalesServiceJobForm, 
+    CustomerRequestForm, SLAPlanForm
+)
 from repairs.models import RepairItem
 import io
 import pandas as pd
@@ -80,6 +90,25 @@ def repair_create(request):
         'form': form, 'title': 'สร้างใบแจ้งซ่อม (On-site Repair)', 'theme_color': 'warning',
     })
 
+@login_required
+def rental_create(request):
+    if request.method == 'POST':
+        form = SalesServiceJobForm(request.POST, job_type=Project.JobType.RENTAL)
+        if form.is_valid():
+            project = form.save(commit=False)
+            project.job_type = Project.JobType.RENTAL
+            project.save()
+            # Auto-create value item
+            pv = form.cleaned_data.get('project_value')
+            _create_project_value_item(project, pv)
+            messages.success(request, 'สร้างงานเช่าสำเร็จ')
+            return redirect('pms:project_detail', pk=project.pk)
+    else:
+        form = SalesServiceJobForm(initial={'status': Project.Status.SOURCING}, job_type=Project.JobType.RENTAL)
+    return render(request, 'pms/service_form.html', {
+        'form': form, 'title': 'สร้างงานเช่าใหม่', 'theme_color': 'pms-rental',
+    })
+
 # ... queue_management ...
 
 # ... project_list ...
@@ -143,6 +172,10 @@ def project_list(request):
     if owner_filter:
         projects = projects.filter(owner_id=owner_filter)
 
+    customer_filter = request.GET.get('customer')
+    if customer_filter:
+        projects = projects.filter(customer_id=customer_filter)
+
     date_from = request.GET.get('date_from')
     date_to = request.GET.get('date_to')
     if date_from and date_to:
@@ -152,6 +185,7 @@ def project_list(request):
         'projects': projects,
         'status_choices': Project.Status.choices,
         'project_owners': ProjectOwner.objects.all(),
+        'customers': Customer.objects.all().only('id', 'name'),
         'title': 'รายการงานที่กำลังดำเนินการ'
     }
     return render(request, 'pms/project_list.html', context)
@@ -188,52 +222,61 @@ def project_detail(request, pk):
     project = get_object_or_404(Project, pk=pk)
     
     # Theme Color
-    theme_color = 'primary'
     if project.job_type == Project.JobType.SERVICE:
         theme_color = 'success'
     elif project.job_type == Project.JobType.REPAIR:
         theme_color = 'warning'
+    elif project.job_type == Project.JobType.RENTAL:
+        theme_color = 'pms-rental'
 
-    # Workflow steps based on job type
-    raw_steps = []
-    
-    if project.job_type == Project.JobType.SERVICE:
-        # Sales Service Workflow (Simplified)
-        raw_steps = [
-            (Project.Status.SOURCING, 'จัดหา'),
-            (Project.Status.QUOTED, 'เสนอราคา'),
-            (Project.Status.ORDERING, 'สั่งซื้อ'),
-            (Project.Status.RECEIVED_QC, 'รับของ/QC'),
-            (Project.Status.DELIVERY, 'ส่งมอบ'),
-            (Project.Status.ACCEPTED, 'ตรวจรับ'),
-            (Project.Status.CLOSED, 'ปิดจบ'),
-        ]
-    elif project.job_type == Project.JobType.REPAIR:
-        # Repair Workflow (Custom Labels from User Request)
-        raw_steps = [
-            (Project.Status.SOURCING, 'รับแจ้งซ่อม'),
-            (Project.Status.ORDERING, 'จัดคิวซ่อม'),
-            (Project.Status.DELIVERY, 'ซ่อม'),
-            (Project.Status.ACCEPTED, 'รอ'),
-            (Project.Status.CLOSED, 'ปิดงานซ่อม'),
-        ]
+    # Workflow steps based on job type (Dynamic from JobStatus)
+    from .models import JobStatus
+    db_choices = JobStatus.get_choices(project.job_type)
+    if db_choices:
+        raw_steps = db_choices
     else:
-        # Full Project Workflow (Default Labels)
-        raw_steps = [
-            (Project.Status.DRAFT, 'รวบรวม'),
-            (Project.Status.SOURCING, 'จัดหา'),
-            (Project.Status.SUPPLIER_CHECK, 'เช็คราคา'),
-            (Project.Status.QUOTED, 'เสนอราคา'),
-            (Project.Status.CONTRACTED, 'ทำสัญญา'),
-            (Project.Status.ORDERING, 'สั่งซื้อ'),
-            (Project.Status.RECEIVED_QC, 'รับของ/QC'),
-            (Project.Status.INSTALLATION, 'ติดตั้ง'),
-            (Project.Status.DELIVERY, 'ส่งมอบ'),
-
-            (Project.Status.ACCEPTED, 'ตรวจรับ'),
-            (Project.Status.BILLING, 'วางบิล'),
-            (Project.Status.CLOSED, 'ปิดจบ'),
-        ]
+        # Fallback Hardcoded Workflow (Synced with User Request March 3rd)
+        if project.job_type == Project.JobType.SERVICE:
+            raw_steps = [
+                (Project.Status.SOURCING, 'จัดหา'),
+                (Project.Status.QUOTED, 'เสนอราคา'),
+                (Project.Status.ORDERING, 'สั่งซื้อ'),
+                (Project.Status.RECEIVED_QC, 'รับของ/QC'),
+                (Project.Status.DELIVERY, 'ส่งมอบ'),
+                (Project.Status.ACCEPTED, 'ตรวจรับ'),
+                (Project.Status.CLOSED, 'ปิดจบ'),
+            ]
+        elif project.job_type == Project.JobType.REPAIR:
+            raw_steps = [
+                (Project.Status.SOURCING, 'รับแจ้งซ่อม'),
+                (Project.Status.SUPPLIER_CHECK, 'เช็คราคา'), # Added after request
+                (Project.Status.ORDERING, 'จัดคิวซ่อม'),
+                (Project.Status.DELIVERY, 'ซ่อม'),
+                (Project.Status.CLOSED, 'ปิดงานซ่อม'), # 'รอ' (Wait) is removed
+            ]
+        elif project.job_type == Project.JobType.RENTAL:
+            raw_steps = [
+                (Project.Status.SOURCING, 'จัดหา'),
+                (Project.Status.CONTRACTED, 'ทำสัญญา'),
+                (Project.Status.RENTING, 'เช่า'),
+                (Project.Status.CLOSED, 'ปิดจบ'),
+            ]
+        else: # PROJECT
+            raw_steps = [
+                (Project.Status.DRAFT, 'รวบรวม'),
+                (Project.Status.SOURCING, 'จัดหา'),
+                # 'เช็คราคา' is removed here
+                (Project.Status.QUOTED, 'เสนอราคา'),
+                (Project.Status.CONTRACTED, 'ทำสัญญา'),
+                (Project.Status.ORDERING, 'สั่งซื้อ'),
+                (Project.Status.RECEIVED_QC, 'รับของ/QC'),
+                (Project.Status.INSTALLATION, 'ติดตั้ง'),
+                # 'ส่งมอบ' is removed here
+                (Project.Status.ACCEPTED, 'ตรวจรับ'),
+                (Project.Status.BILLING, 'วางบิล'),
+                (Project.Status.WAITING_FOR_SALE_KEY, 'รอคีย์ขาย'), # Added
+                (Project.Status.CLOSED, 'ปิดจบ'),
+            ]
 
     # Wrapper class to make template logic work: {% if step == project.status %} and {{ step.label }}
     class StepWrapper:
@@ -308,6 +351,12 @@ def project_update(request, pk):
         title = 'แก้ไขงานซ่อม'
         theme_color = 'warning'
         form_kwargs['job_type'] = Project.JobType.REPAIR
+    elif project.job_type == Project.JobType.RENTAL:
+        FormClass = SalesServiceJobForm
+        template = 'pms/service_form.html'
+        title = 'แก้ไขงานเช่า'
+        theme_color = 'pms-rental'
+        form_kwargs['job_type'] = Project.JobType.RENTAL
     else:
         FormClass = ProjectForm
         template = 'pms/project_form.html'
@@ -743,14 +792,41 @@ def dashboard(request):
 
     projects_in_period = Project.objects.filter(created_at__range=[start_of_period, end_of_period])
 
-    # Summary Cards
-    total_projects = projects_in_period.count()
-    active_projects = projects_in_period.exclude(status__in=[Project.Status.CLOSED, Project.Status.CANCELLED]).count()
+    # 1. Total Accumulated Backlog (All Time Active)
+    # As requested: "งานสะสม คืองานที่มีสถานะทุกสถานะ ยกเว้น สถานะปิจ และยกเลิก"
+    all_projects = Project.objects.all()
+    from repairs.models import RepairItem
+    all_repair_items = RepairItem.objects.all()
     
-    # ยอดรวมของงาน (Total Job Value) - based on creation date
-    total_job_value = projects_in_period.aggregate(
+    backlog_projects_count = all_projects.exclude(status__in=[Project.Status.CLOSED, Project.Status.CANCELLED]).count()
+    backlog_repairs_count = all_repair_items.exclude(status__in=['FINISHED', 'COMPLETED', 'CANCELLED']).count()
+    total_projects = backlog_projects_count + backlog_repairs_count
+    
+    # 2. Active Projects (Ongoing)
+    # As requested: "งานที่ดำเนินการนั้น คืองานที่มีสถานะทุกสถานะ ยกเว้น สถานะแรกของแต่ละงาน และ สถานะปิดจบ รวมทั้งสถานะ ยกเลิก"
+    # First Statuses: SERVICE/REPAIR/RENTAL: SOURCING(จัดหา), PROJECT: DRAFT(รวบรวม)
+    # Exclude: DRAFT, SOURCING, CLOSED, CANCELLED
+    first_statuses = [Project.Status.DRAFT, Project.Status.SOURCING]
+    active_projects_count = all_projects.exclude(
+        status__in=first_statuses + [Project.Status.CLOSED, Project.Status.CANCELLED]
+    ).count()
+    
+    # Repairs App Statuses: Usually 'PENDING' is first
+    active_repairs_count = all_repair_items.exclude(
+        status__in=['PENDING', 'FINISHED', 'COMPLETED', 'CANCELLED']
+    ).count()
+    active_projects = active_projects_count + active_repairs_count
+    
+    # ยอดรวมของงาน (Total Job Value) - Periodic: New business in period (Project + Repair)
+    total_project_value_in_period = projects_in_period.aggregate(
         total=Sum(F('items__quantity') * F('items__unit_price'))
     )['total'] or 0
+    
+    total_repair_value_in_period = all_repair_items.filter(
+        created_at__range=[start_of_period, end_of_period]
+    ).aggregate(total=Sum('price'))['total'] or 0
+    
+    total_job_value = total_project_value_in_period + total_repair_value_in_period
     
     # ยอดขาย (Actual Sales) - based on closed date
     # 1. Projects closed in period
@@ -762,8 +838,7 @@ def dashboard(request):
     )['total'] or 0
     
     # 2. RepairItems closed in period (Repairs App)
-    from repairs.models import RepairItem
-    closed_repairs_value = RepairItem.objects.filter(
+    closed_repairs_value = all_repair_items.filter(
         status__in=['FINISHED', 'COMPLETED'],
         closed_at__range=[start_of_period, end_of_period]
     ).aggregate(
@@ -771,19 +846,27 @@ def dashboard(request):
     )['total'] or 0
     
     actual_sales = closed_projects_value + closed_repairs_value
-
+ 
     # 3. Cancelled Jobs in period
-    cancelled_count = Project.objects.filter(
+    cancelled_count = all_projects.filter(
         status=Project.Status.CANCELLED,
+        closed_at__range=[start_of_period, end_of_period]
+    ).count() + all_repair_items.filter(
+        status='CANCELLED',
         closed_at__range=[start_of_period, end_of_period]
     ).count()
     
-    cancelled_value = Project.objects.filter(
+    p_cancelled_val = all_projects.filter(
         status=Project.Status.CANCELLED,
         closed_at__range=[start_of_period, end_of_period]
-    ).aggregate(
-        total=Sum(F('items__quantity') * F('items__unit_price'))
-    )['total'] or 0
+    ).aggregate(total=Sum(F('items__quantity') * F('items__unit_price')))['total'] or 0
+    
+    r_cancelled_val = all_repair_items.filter(
+        status='CANCELLED',
+        closed_at__range=[start_of_period, end_of_period]
+    ).aggregate(total=Sum('price'))['total'] or 0
+    
+    cancelled_value = p_cancelled_val + r_cancelled_val
 
     # 2. Sales by Month (Full Year: Jan to Dec of selected year)
     start_of_year = timezone.make_aware(datetime(year_filter, 1, 1))
@@ -1804,3 +1887,87 @@ def mark_as_responded(request, pk):
         project.save()
         messages.success(request, f"✅ บันทึกเวลาตอบกลับสำหรับ {project.name} เรียบร้อย")
     return redirect('pms:project_detail', pk=pk)
+
+@login_required
+def notification_list(request):
+    notifications = request.user.pms_notifications.all()
+    return render(request, 'pms/notification_list.html', {
+        'notifications': notifications
+    })
+
+@login_required
+def notification_read(request, pk):
+    from .models import UserNotification
+    notif = get_object_or_404(UserNotification, pk=pk, user=request.user)
+    notif.is_read = True
+    notif.save()
+    return redirect('pms:project_detail', pk=notif.project.pk)
+@login_required
+def project_assignment_matrix(request):
+    User = get_user_model()
+    users = User.objects.filter(is_active=True).order_by('username')
+    
+    # Define the 4 main Job Types
+    job_types = [
+        (Project.JobType.PROJECT, '📂 งานโครงการ (Project)'),
+        (Project.JobType.SERVICE, '🛠️ งานบริการ/งานขาย (Service)'),
+        (Project.JobType.REPAIR, '🔧 งานซ่อม (Repair)'),
+        (Project.JobType.RENTAL, '🏢 งานเช่า (Rental)'),
+    ]
+    
+    matrix_data = []
+    
+    for jt_code, jt_label in job_types:
+        # Get JobStatus for this type
+        statuses = JobStatus.objects.filter(job_type=jt_code, is_active=True).order_by('sort_order')
+        
+        status_list = []
+        for js in statuses:
+            from .models import JobStatusAssignment
+            try:
+                assignment = js.assignment
+                user_id = assignment.responsible_user_id
+            except JobStatusAssignment.DoesNotExist:
+                user_id = None
+                
+            status_list.append({
+                'id': js.id,
+                'key': js.status_key,
+                'label': js.label,
+                'user_id': user_id
+            })
+            
+        matrix_data.append({
+            'type_code': jt_code,
+            'type_label': jt_label,
+            'statuses': status_list
+        })
+        
+    return render(request, 'pms/assignment_matrix.html', {
+        'matrix_data': matrix_data,
+        'users': users,
+    })
+
+@login_required
+def set_project_assignment(request):
+    if request.method == 'POST':
+        status_id = request.POST.get('status_id') # Use status_id for global JobStatus
+        user_id = request.POST.get('user_id')
+        
+        from .models import JobStatus, JobStatusAssignment
+        job_status = get_object_or_404(JobStatus, pk=status_id)
+        
+        if not user_id:
+            JobStatusAssignment.objects.filter(job_status=job_status).delete()
+            res = {'status': 'deleted'}
+        else:
+            User = get_user_model()
+            user = get_object_or_404(User, pk=user_id)
+            JobStatusAssignment.objects.update_or_create(
+                job_status=job_status,
+                defaults={'responsible_user': user}
+            )
+            res = {'status': 'success', 'user': user.username}
+            
+        return JsonResponse(res)
+    return JsonResponse({'status': 'error'}, status=400)

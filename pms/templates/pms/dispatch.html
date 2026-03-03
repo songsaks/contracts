@@ -105,6 +105,15 @@
         transform: scale(1.05);
     }
 
+    /* Rental */
+    .icon-rental {
+        background: linear-gradient(135deg, #a18cd1 0%, #fbc2eb 100%);
+    }
+    .dispatch-card:hover .icon-rental {
+        box-shadow: 0 12px 30px rgba(161, 140, 209, 0.35);
+        transform: scale(1.05);
+    }
+
     .dispatch-label {
         font-weight: 700;
         font-size: 1.1rem;
@@ -215,7 +224,7 @@
 
     <div class="row justify-content-center w-100 g-3 g-md-4 px-2 px-lg-5">
         <!-- Project -->
-        <div class="col-4 col-md-4 col-lg-3">
+        <div class="col-6 col-md-3">
             <div class="card h-100 text-center p-3 p-md-4 dispatch-card position-relative">
                 <div class="app-icon icon-project">
                     <i class="fas fa-city"></i>
@@ -227,7 +236,7 @@
         </div>
 
         <!-- Sales Service -->
-        <div class="col-4 col-md-4 col-lg-3">
+        <div class="col-6 col-md-3">
             <div class="card h-100 text-center p-3 p-md-4 dispatch-card position-relative">
                 <div class="app-icon icon-sales">
                     <i class="fas fa-shopping-bag"></i>
@@ -239,14 +248,26 @@
         </div>
 
         <!-- Repair -->
-        <div class="col-4 col-md-4 col-lg-3">
+        <div class="col-6 col-md-3">
             <div class="card h-100 text-center p-3 p-md-4 dispatch-card position-relative">
                 <div class="app-icon icon-repair">
                     <i class="fas fa-tools"></i>
                 </div>
                 <div class="dispatch-label">แจ้งซ่อม</div>
-                <div class="dispatch-sublabel">On-site Repair</div>
+                <div class="dispatch-sublabel">Repair</div>
                 <a href="{% url 'pms:repair_create' %}" class="stretched-link" title="สร้างใบแจ้งซ่อม"></a>
+            </div>
+        </div>
+
+        <!-- Rental -->
+        <div class="col-6 col-md-3">
+            <div class="card h-100 text-center p-3 p-md-4 dispatch-card position-relative">
+                <div class="app-icon icon-rental">
+                    <i class="fas fa-key"></i>
+                </div>
+                <div class="dispatch-label">งานเช่า</div>
+                <div class="dispatch-sublabel">Rental</div>
+                <a href="{% url 'pms:rental_create' %}" class="stretched-link" title="สร้างงานเช่า"></a>
             </div>
         </div>
     </div>

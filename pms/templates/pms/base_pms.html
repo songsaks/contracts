@@ -17,6 +17,9 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     
+    <!-- Tom Select -->
+    <link href="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/css/tom-select.bootstrap5.min.css" rel="stylesheet">
+    
     <style>
         :root {
             --primary-color: #4f46e5;
@@ -45,6 +48,25 @@
             box-sizing: border-box;
         }
 
+        /* Remove overflow constraints from navbar to fix dropdowns */
+        .navbar-custom .collapse { overflow: visible !important; }
+        .navbar-custom .navbar-collapse { overflow: visible !important; }
+        
+        /* Tom Select Z-Index Fix */
+        .ts-wrapper.form-control-sm .ts-control {
+            min-height: 31px;
+            padding: 0.25rem 0.5rem;
+        }
+        .ts-dropdown {
+            z-index: 2000 !important;
+        }
+        
+        .filter-card {
+            overflow: visible !important;
+            position: relative;
+            z-index: 102;
+        }
+        
         body {
             font-family: 'Inter', 'Noto Sans Thai', -apple-system, sans-serif;
             background: radial-gradient(circle at top right, #f8fafc, #f1f5f9);
@@ -81,10 +103,13 @@
         .navbar-custom .nav-link {
             color: rgba(255, 255, 255, 0.85);
             font-weight: 600;
-            font-size: 0.85rem;
-            padding: 0.5rem 1rem !important;
-            border-radius: 12px;
-            transition: all 0.3s ease;
+            font-size: 0.8rem;
+            padding: 0.4rem 0.5rem !important;
+            border-radius: 10px;
+            transition: all 0.2s ease;
+            white-space: nowrap;
+            display: flex;
+            align-items: center;
         }
 
         .navbar-custom .nav-link:hover {
@@ -147,14 +172,39 @@
         .bg-pms-project { background-color: #4f46e5 !important; color: white !important; }
         .bg-pms-service { background-color: #10b981 !important; color: white !important; }
         .bg-pms-repair { background-color: #f59e0b !important; color: white !important; }
+        .bg-pms-rental { background-color: #7c3aed !important; color: white !important; }
         
         .text-pms-project { color: #4f46e5 !important; }
         .text-pms-service { color: #10b981 !important; }
         .text-pms-repair { color: #f59e0b !important; }
+        .text-pms-rental { color: #7c3aed !important; }
 
         .bg-opacity-pms-project { background-color: rgba(79, 70, 229, 0.1) !important; }
         .bg-opacity-pms-service { background-color: rgba(16, 185, 129, 0.1) !important; }
         .bg-opacity-pms-repair { background-color: rgba(245, 158, 11, 0.1) !important; }
+        .bg-opacity-pms-rental { background-color: rgba(124, 58, 237, 0.1) !important; }
+
+        .border-pms-rental { border-color: #7c3aed !important; }
+
+        /* Button overrides for pms-rental */
+        .btn-pms-rental {
+            background-color: #7c3aed !important;
+            border-color: #7c3aed !important;
+            color: white !important;
+        }
+        .btn-pms-rental:hover {
+            background-color: #6d28d9 !important;
+            border-color: #6d28d9 !important;
+            color: white !important;
+        }
+        .btn-outline-pms-rental {
+            color: #7c3aed !important;
+            border-color: #7c3aed !important;
+        }
+        .btn-outline-pms-rental:hover {
+            background-color: #7c3aed !important;
+            color: white !important;
+        }
 
         /* Responsive refinements */
         @media (max-width: 767.98px) {
@@ -257,7 +307,7 @@
                 <i class="fas fa-bars"></i>
             </button>
             <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav me-auto" style="font-size: 0.8rem;">
+                <ul class="navbar-nav me-auto flex-nowrap">
                     <li class="nav-item">
                         <a class="nav-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}" href="{% url 'pms:dashboard' %}" title="ภาพรวม">
                             <i class="fas fa-th-large"></i> <span class="ms-1">ภาพรวม</span>
@@ -271,6 +321,16 @@
                     <li class="nav-item">
                         <a class="nav-link {% if request.resolver_match.url_name == 'history_list' %}active{% endif %}" href="{% url 'pms:history_list' %}" title="ประวัติ">
                             <i class="fas fa-history"></i> <span class="ms-1">ประวัติ</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.resolver_match.url_name == 'notification_list' %}active{% endif %} position-relative ms-1 px-2" href="{% url 'pms:notification_list' %}" title="การแจ้งเตือน">
+                            <i class="fas fa-bell"></i>
+                            {% if unread_notifications_count > 0 %}
+                            <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" style="font-size: 0.55rem; padding: 0.25em 0.4em; margin-top: 8px;">
+                                {{ unread_notifications_count }}
+                            </span>
+                            {% endif %}
                         </a>
                     </li>
                     <li class="nav-item">
@@ -319,7 +379,9 @@
                             <li><a class="dropdown-item" href="{% url 'pms:sla_plan_list' %}"><i class="fas fa-file-contract me-2 text-secondary"></i>แผน SLA</a></li>
                             <li><a class="dropdown-item" href="{% url 'pms:supplier_list' %}"><i class="fas fa-truck me-2 text-secondary"></i>ซัพพลายเออร์</a></li>
                             <li><a class="dropdown-item" href="{% url 'pms:project_owner_list' %}"><i class="fas fa-user-tie me-2 text-secondary"></i>เจ้าของโครงการ</a></li>
+                            <li><a class="dropdown-item" href="{% url 'pms:project_assignment_matrix' %}"><i class="fas fa-user-check me-2 text-primary"></i>ผู้รับผิดชอบงาน (Matrix)</a></li>
                             <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item text-danger" href="/admin/" target="_blank"><i class="fas fa-shield-alt me-2"></i>ระบบหลังบ้าน (Admin)</a></li>
                             <li><a class="dropdown-item text-primary" href="{% url 'stocks:dashboard' %}"><i class="fas fa-chart-line me-2"></i>Stock AI (Admin)</a></li>
                         </ul>
                     </li>
@@ -386,6 +448,8 @@
 
     <!-- Bootstrap 5 JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Tom Select JS -->
+    <script src="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/js/tom-select.complete.min.js"></script>
     <script>
         // Initialize tooltips
         var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))

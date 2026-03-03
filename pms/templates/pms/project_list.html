@@ -16,23 +16,25 @@
         </div>
 
     <!-- Filters -->
-    <div class="card shadow-sm mb-4">
+    <div class="card shadow-sm mb-4" style="z-index: 101;">
         <div class="card-header bg-light py-3">
             <h5 class="card-title mb-0"><i class="fas fa-filter me-2 text-muted"></i>ค้นหาและกรองข้อมูล</h5>
         </div>
         <div class="card-body filter-card">
             <form method="get" class="row g-2 g-md-3 align-items-end">
                 <div class="col-6 col-md-2">
-                    <label class="form-label text-muted">ประเภทงาน</label>
-                    <select name="job_type" class="form-select">
+                    <label class="form-label text-muted small fw-bold">ประเภทงาน</label>
+                    <select name="job_type" class="form-select form-select-sm">
                         <option value="">ทั้งหมด</option>
                         <option value="PROJECT" {% if request.GET.job_type == 'PROJECT' %}selected{% endif %}>โครงการ</option>
                         <option value="SERVICE" {% if request.GET.job_type == 'SERVICE' %}selected{% endif %}>บริการ</option>
+                        <option value="REPAIR" {% if request.GET.job_type == 'REPAIR' %}selected{% endif %}>งานซ่อม</option>
+                        <option value="RENTAL" {% if request.GET.job_type == 'RENTAL' %}selected{% endif %}>งานเช่า</option>
                     </select>
                 </div>
                 <div class="col-6 col-md-2">
-                    <label class="form-label text-muted">สถานะ</label>
-                    <select name="status" class="form-select">
+                    <label class="form-label text-muted small fw-bold">สถานะ</label>
+                    <select name="status" class="form-select form-select-sm">
                         <option value="">ทั้งหมด</option>
                         {% for code, label in status_choices %}
                         <option value="{{ code }}" {% if request.GET.status == code %}selected{% endif %}>{{ label }}</option>
@@ -40,25 +42,38 @@
                     </select>
                 </div>
                 <div class="col-12 col-md-3">
-                    <label class="form-label text-muted">เจ้าของโครงการ</label>
-                    <select name="owner" class="form-select">
+                    <label class="form-label text-muted small fw-bold">ลูกค้า (ค้นหาอัตโนมัติ)</label>
+                    <select name="customer" id="customerSelect" class="form-select form-select-sm">
+                        <option value="">เลือกลูกค้าทั้งหมด</option>
+                        {% for c in customers %}
+                        <option value="{{ c.id }}" {% if request.GET.customer == c.id|stringformat:"s" %}selected{% endif %}>{{ c.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-12 col-md-2">
+                    <label class="form-label text-muted small fw-bold">เจ้าของโครงการ</label>
+                    <select name="owner" class="form-select form-select-sm">
                         <option value="">ทั้งหมด</option>
                         {% for o in project_owners %}
                         <option value="{{ o.id }}" {% if request.GET.owner == o.id|stringformat:"s" %}selected{% endif %}>{{ o.name }}</option>
                         {% endfor %}
                     </select>
                 </div>
-                <div class="col-6 col-md-2">
-                    <label class="form-label text-muted">จากวันที่</label>
-                    <input type="date" name="date_from" class="form-control" value="{{ request.GET.date_from }}">
-                </div>
-                <div class="col-6 col-md-2">
-                    <label class="form-label text-muted">ถึงวันที่</label>
-                    <input type="date" name="date_to" class="form-control" value="{{ request.GET.date_to }}">
+                <div class="col-12 col-md-2">
+                   <div class="row g-1">
+                       <div class="col-6">
+                           <label class="form-label text-muted small fw-bold">จาก</label>
+                           <input type="date" name="date_from" class="form-control form-control-sm" value="{{ request.GET.date_from }}">
+                       </div>
+                       <div class="col-6">
+                           <label class="form-label text-muted small fw-bold">ถึง</label>
+                           <input type="date" name="date_to" class="form-control form-control-sm" value="{{ request.GET.date_to }}">
+                       </div>
+                   </div>
                 </div>
                 <div class="col-12 col-md-1">
                     <div class="d-grid">
-                        <button type="submit" class="btn btn-primary"><i class="fas fa-filter"></i><span class="d-md-none ms-2">กรอง</span></button>
+                        <button type="submit" class="btn btn-primary btn-sm py-2"><i class="fas fa-search"></i></button>
                     </div>
                 </div>
             </form>
@@ -94,6 +109,10 @@
                                         <div class="rounded-circle bg-opacity-pms-repair text-pms-repair me-2 d-flex align-items-center justify-content-center" style="width: 32px; height: 32px;">
                                             <i class="fas fa-tools"></i>
                                         </div>
+                                    {% elif project.job_type == 'RENTAL' %}
+                                        <div class="rounded-circle bg-opacity-pms-rental text-pms-rental me-2 d-flex align-items-center justify-content-center" style="width: 32px; height: 32px;">
+                                            <i class="fas fa-key"></i>
+                                        </div>
                                     {% else %}
                                         <div class="rounded-circle bg-opacity-pms-project text-pms-project me-2 d-flex align-items-center justify-content-center" style="width: 32px; height: 32px;">
                                             <i class="fas fa-project-diagram"></i>
@@ -116,6 +135,8 @@
                                     <span class="badge bg-pms-service">{{ project.get_job_status_display }}</span>
                                 {% elif project.job_type == 'REPAIR' %}
                                     <span class="badge bg-pms-repair">{{ project.get_job_status_display }}</span>
+                                {% elif project.job_type == 'RENTAL' %}
+                                    <span class="badge bg-pms-rental">{{ project.get_job_status_display }}</span>
                                 {% else %}
                                     <span class="badge bg-pms-project">{{ project.get_job_status_display }}</span>
                                 {% endif %}
@@ -154,6 +175,10 @@
                             <div class="rounded-circle bg-opacity-pms-repair text-pms-repair flex-shrink-0 d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
                                 <i class="fas fa-tools"></i>
                             </div>
+                        {% elif project.job_type == 'RENTAL' %}
+                            <div class="rounded-circle bg-opacity-pms-rental text-pms-rental flex-shrink-0 d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
+                                <i class="fas fa-key"></i>
+                            </div>
                         {% else %}
                             <div class="rounded-circle bg-opacity-pms-project text-pms-project flex-shrink-0 d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
                                 <i class="fas fa-project-diagram"></i>
@@ -170,6 +195,8 @@
                                     <span class="badge bg-pms-service" style="font-size: 0.65rem;">{{ project.get_job_status_display }}</span>
                                 {% elif project.job_type == 'REPAIR' %}
                                     <span class="badge bg-pms-repair" style="font-size: 0.65rem;">{{ project.get_job_status_display }}</span>
+                                {% elif project.job_type == 'RENTAL' %}
+                                    <span class="badge bg-pms-rental" style="font-size: 0.65rem;">{{ project.get_job_status_display }}</span>
                                 {% else %}
                                     <span class="badge bg-pms-project" style="font-size: 0.65rem;">{{ project.get_job_status_display }}</span>
                                 {% endif %}
@@ -202,4 +229,19 @@
 
     </div>
 </div>
+{% endblock %}
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        new TomSelect("#customerSelect", {
+            create: false,
+            sortField: {
+                field: "text",
+                direction: "asc"
+            },
+            placeholder: "พิมพ์ชื่อลูกค้าเพื่อค้นหา...",
+            allowEmptyOption: true,
+        });
+    });
+</script>
 {% endblock %}

@@ -92,6 +92,8 @@ class Project(models.Model):
 
         ACCEPTED = 'ACCEPTED', 'ตรวจรับ'
         BILLING = 'BILLING', 'วางบิล'
+        WAITING_FOR_SALE_KEY = 'WAITING_FOR_SALE_KEY', 'รอคีย์ขาย'
+        RENTING = 'RENTING', 'เช่า'
         CLOSED = 'CLOSED', 'ปิดจบ'
         CANCELLED = 'CANCELLED', 'ยกเลิก'
 
@@ -99,6 +101,7 @@ class Project(models.Model):
         PROJECT = 'PROJECT', 'โครงการ (Project)'
         SERVICE = 'SERVICE', 'งานบริการขาย (Sales Service)'
         REPAIR = 'REPAIR', 'งานแจ้งซ่อม (Repair Service)'
+        RENTAL = 'RENTAL', 'งานเช่า (Rental Service)'
 
     customer = models.ForeignKey(Customer, on_delete=models.CASCADE, related_name='projects', verbose_name="ลูกค้า")
     owner = models.ForeignKey(ProjectOwner, on_delete=models.SET_NULL, null=True, blank=True, related_name='projects', verbose_name="เจ้าของโครงการ")
@@ -176,6 +179,35 @@ class Project(models.Model):
                     new_status=self.status,
                     changed_by=user
                 )
+
+            # 3. Notification Logic
+            if is_new or self.status != old_status:
+                try:
+                    target_user = None
+                    status_label = self.status
+                    
+                    # 1. Try project-specific assignment (Priority)
+                    ps_assignment = ProjectStatusAssignment.objects.filter(project=self, status_key=self.status).first()
+                    if ps_assignment and ps_assignment.responsible_user:
+                        target_user = ps_assignment.responsible_user
+                    
+                    # 2. Try global assignment (JobStatus)
+                    js = JobStatus.objects.filter(job_type=self.job_type, status_key=self.status).first()
+                    if not target_user and js and hasattr(js, 'assignment') and js.assignment.responsible_user:
+                        target_user = js.assignment.responsible_user
+                        
+                    if js:
+                        status_label = js.label
+                    
+                    if target_user:
+                        UserNotification.objects.create(
+                            user=target_user,
+                            project=self,
+                            subject=f"🔔 ความคืบหน้าโครงการ: {self.name}",
+                            content=f"งาน '{self.name}' ({self.get_job_type_display}) เปลี่ยนสถานะเป็น '{status_label}' ซึ่งคุณเป็นผู้รับผิดชอบ"
+                        )
+                except Exception as e:
+                    print(f"Notification Error: {e}")
         except Exception:
             pass
             
@@ -187,12 +219,25 @@ class Project(models.Model):
 
     @property
     def get_job_status_display(self):
+        # Prefer dynamic JobStatus table if populated
+        try:
+            dynamic_status = JobStatus.objects.filter(
+                job_type=self.job_type, 
+                status_key=self.status,
+                is_active=True
+            ).first()
+            if dynamic_status:
+                return dynamic_status.label
+        except Exception:
+            pass
+
+        # Fallback to hardcoded mapping
         if self.job_type == self.JobType.REPAIR:
             mapping = {
                 self.Status.SOURCING: 'รับแจ้งซ่อม',
+                self.Status.SUPPLIER_CHECK: 'เช็คราคา',
                 self.Status.ORDERING: 'จัดคิวซ่อม',
                 self.Status.DELIVERY: 'ซ่อม',
-                self.Status.ACCEPTED: 'รอ',
                 self.Status.CLOSED: 'ปิดงานซ่อม',
             }
             return mapping.get(self.status, self.get_status_display())
@@ -208,8 +253,76 @@ class Project(models.Model):
                 self.Status.CLOSED: 'ปิดจบ',
             }
             return mapping.get(self.status, self.get_status_display())
+        
+        elif self.job_type == self.JobType.PROJECT:
+             mapping = {
+                self.Status.BILLING: 'วางบิล',
+                self.Status.WAITING_FOR_SALE_KEY: 'รอคีย์ขาย',
+                self.Status.CLOSED: 'ปิดจบ',
+            }
+             return mapping.get(self.status, self.get_status_display())
+
+        elif self.job_type == self.JobType.RENTAL:
+            mapping = {
+                self.Status.SOURCING: 'จัดหา',
+                self.Status.CONTRACTED: 'ทำสัญญา',
+                self.Status.RENTING: 'เช่า',
+                self.Status.CLOSED: 'ปิดจบ',
+            }
+            return mapping.get(self.status, self.get_status_display())
             
         return self.get_status_display()
+
+class JobStatus(models.Model):
+    job_type = models.CharField(max_length=20, choices=Project.JobType.choices)
+    status_key = models.CharField(max_length=50) # DRAFT, SOURCING, etc.
+    label = models.CharField(max_length=100)
+    sort_order = models.PositiveIntegerField(default=0)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ['job_type', 'sort_order']
+        verbose_name = "สถานะงาน (Dynamic)"
+        verbose_name_plural = "สถานะงาน (Dynamic)"
+        unique_together = ['job_type', 'status_key']
+
+    @staticmethod
+    def get_choices(job_type):
+        try:
+            qs = JobStatus.objects.filter(job_type=job_type, is_active=True).order_by('sort_order')
+            if qs.exists():
+                return [(s.status_key, s.label) for s in qs]
+        except Exception:
+            pass
+        return None
+
+    def __str__(self):
+        jt_display = dict(Project.JobType.choices).get(self.job_type, self.job_type)
+        return f"[{jt_display}] {self.status_key} -> {self.label}"
+
+class JobStatusAssignment(models.Model):
+    job_status = models.OneToOneField(JobStatus, on_delete=models.CASCADE, related_name='assignment', verbose_name="สถานะงาน")
+    responsible_user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="ผู้รับผิดชอบ (ดึงจากระบบ)")
+    
+    class Meta:
+        verbose_name = "ผู้รับผิดชอบตามสถานะ"
+        verbose_name_plural = "ผู้รับผิดชอบตามสถานะ"
+
+    def __str__(self):
+        return f"{self.job_status} -> {self.responsible_user.username if self.responsible_user else 'None'}"
+
+class ProjectStatusAssignment(models.Model):
+    project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name='status_assignments', verbose_name="โครงการ")
+    status_key = models.CharField(max_length=50, verbose_name="รหัสสถานะ")
+    responsible_user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="ผู้รับผิดชอบ")
+    
+    class Meta:
+        verbose_name = "ผู้รับผิดชอบงานตามโครงการ"
+        verbose_name_plural = "ผู้รับผิดชอบงานตามโครงการ"
+        unique_together = ['project', 'status_key']
+
+    def __str__(self):
+        return f"{self.project.name} [{self.status_key}] -> {self.responsible_user}"
 
 class ProductItem(models.Model):
     class ItemType(models.TextChoices):
@@ -386,12 +499,32 @@ class ProjectStatusLog(models.Model):
         
     @property
     def get_old_status_display(self):
-        from .models import Project
+        try:
+            from .models import JobStatus
+            dynamic_status = JobStatus.objects.filter(
+                job_type=self.project.job_type, 
+                status_key=self.old_status,
+                is_active=True
+            ).first()
+            if dynamic_status:
+                return dynamic_status.label
+        except Exception:
+            pass
         return dict(Project.Status.choices).get(self.old_status, self.old_status)
         
     @property
     def get_new_status_display(self):
-        from .models import Project
+        try:
+            from .models import JobStatus
+            dynamic_status = JobStatus.objects.filter(
+                job_type=self.project.job_type, 
+                status_key=self.new_status,
+                is_active=True
+            ).first()
+            if dynamic_status:
+                return dynamic_status.label
+        except Exception:
+            pass
         return dict(Project.Status.choices).get(self.new_status, self.new_status)
 
 
@@ -514,6 +647,22 @@ class TeamMessage(models.Model):
 
     def __str__(self):
         return f"[{self.team.name}] {self.subject}"
+
+class UserNotification(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='pms_notifications', verbose_name="ผู้รับ")
+    project = models.ForeignKey('Project', on_delete=models.CASCADE, related_name='notifications', verbose_name="งานที่เกี่ยวข้อง")
+    subject = models.CharField(max_length=255, verbose_name="หัวข้อ")
+    content = models.TextField(verbose_name="เนื้อหา")
+    is_read = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "แจ้งเตือนรายบุคคล"
+        verbose_name_plural = "แจ้งเตือนรายบุคคล"
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"[{self.user.username}] {self.subject}"
 
 
 # ===== Signals to automate Sync =====
