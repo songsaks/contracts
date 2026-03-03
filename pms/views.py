@@ -805,27 +805,31 @@ def dashboard(request):
     total_projects = backlog_projects_count + backlog_repairs_count
     
     # 2. Active Projects (งานที่ดำเนินการ)
-    # As requested: "งานที่ดำเนินการนั้นก็คือ งานทุกงาน ที่ไม่อยู่ ใน สถานะ ปิดจบ ปิดงานซ่อม จัดหาในงานขาย รับแจ้งซ่อมในงานซ่อม และรวบรวมในงานโครงการ"
+    # As requested: "งานที่กำลังดำเนินการ คือ งานที่อยู่ในหน้า รายการงานทั้งหมด และ ที่อยู่ใน AI Queue 
+    # แต่ไม่รวมถึงงานที่มีสถานะ: จัดหาในงานขายและเช่า, รับแจ้งซ่อมในงานซ่อม, รวบรวมในงานโครงการ"
     from django.db.models import Q
+    from .models import ServiceQueueItem
     
-    # Projects exclusion:
-    # - CLOSED/CANCELLED
-    # - DRAFT in PROJECT (รวบรวม)
-    # - SOURCING in SERVICE (จัดหาในงานขาย)
+    # Exclusion for Projects (PMS)
     p_exclude = Q(status__in=[Project.Status.CLOSED, Project.Status.CANCELLED])
-    p_exclude |= Q(job_type=Project.JobType.PROJECT, status=Project.Status.DRAFT)
-    p_exclude |= Q(job_type=Project.JobType.SERVICE, status=Project.Status.SOURCING)
+    p_exclude |= Q(job_type=Project.JobType.PROJECT, status=Project.Status.DRAFT)      # รวบรวมในงานโครงการ
+    p_exclude |= Q(job_type=Project.JobType.SERVICE, status=Project.Status.SOURCING)   # จัดหาในงานขาย
+    p_exclude |= Q(job_type=Project.JobType.RENTAL, status=Project.Status.SOURCING)    # จัดหาในงานเช่า
+    p_exclude |= Q(job_type=Project.JobType.REPAIR, status=Project.Status.SOURCING)    # รับแจ้งซ่อมในงานซ่อม
     
-    active_projects_count = all_projects.exclude(p_exclude).count()
+    p_active_count = all_projects.exclude(p_exclude).count()
     
-    # RepairItems exclusion:
-    # - FINISHED/COMPLETED (ปิดงานซ่อม)
-    # - CANCELLED (ยกเลิก)
-    # - RECEIVED (รับแจ้งซ่อม)
+    # Exclusion for Repair App (If any)
+    # The user specifically mentioned "รับแจ้งซ่อมในงานซ่อม" which we handle in Project type REPAIR
+    # but for the repairs app RepairItem:
     r_exclude = ['FINISHED', 'COMPLETED', 'CANCELLED', 'RECEIVED']
-    active_repairs_count = all_repair_items.exclude(status__in=r_exclude).count()
+    r_active_count = all_repair_items.exclude(status__in=r_exclude).count()
     
-    active_projects = active_projects_count + active_repairs_count
+    # AI Queue active items
+    q_active_count = ServiceQueueItem.objects.exclude(status='COMPLETED').count()
+    
+    # Active Projects = Sum of active items in management and execution
+    active_projects = p_active_count + r_active_count + q_active_count
     
     # ยอดรวมของงาน (Total Job Value) - Periodic: New business in period (Project + Repair)
     total_project_value_in_period = projects_in_period.aggregate(
