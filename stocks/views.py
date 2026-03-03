@@ -613,20 +613,22 @@ def macro_economy(request):
 
         data_str = "\n".join([f"{d['name']}: {d['price']:.2f} ({d['change']:+.2f}%)" for d in data])
         prompt = f"""
-        You are an expert Thai Macroeconomist. Based on the following current market data (which includes SET Index, USD/THB, Gold, and Crude Oil):
+        You are an expert Thai Macroeconomist and Investment Strategist. Based on the following current market data:
         {data_str}
         
-        Please provide an 'Economic Overview & Strategy Analysis' report in Thai.
-        1. Summarize the current situation based on these specific numbers (e.g. is the Baht strong/weak? is Oil trending up?).
-        2. Analyze the impact of these figures on the Thai Economy and Thai Stock Market (SET Index).
-        3. What sectors (e.g., Energy, Export, Tourism, Banking) will benefit or be negatively impacted by this current trend?
-        4. Provide a brief actionable investment strategy for Thai investors based on this macroeconomic snapshot.
+        Please provide a comprehensive 'Macroeconomic & Sector Strategy' report in Thai.
+        1. **Market Overview**: Summarize the current situation (Baht strength, Oil price trend, etc.).
+        2. **Economic Impact**: Analyze how these numbers affect the overall Thai economy and SET Index.
+        3. **Sectoral Analysis & Target Stocks**: Identify industries (e.g. Energy, Banking, Export, Tourism, Transport) that are impacted.
+           - สำหรับแต่ละกลุ่มอุตสาหกรรม ให้ระบุรายชื่อหุ้นไทยอย่างน้อย 5 หุ้นที่ได้รับผลกระทบ (ทั้งบวกหรือลบ) 
+           - พร้อมอธิบายสั้นๆ ว่าปัจจัยเศรษฐกิจชุดนี้ส่งผลต่อหุ้นกลุ่มนั้นอย่างไร
+        4. **Actionable Investment Strategy**: A clear strategy for the current market conditions.
         
         Format in beautiful Markdown for a professional web report. Use Sarabun style tone.
         IMPORTANT RULES:
-        1. DO NOT include any conversational preamble or outro (e.g. "Okay, here's an analysis...", "Explanation of Choices:"). 
+        1. DO NOT include any conversational preamble or outro. 
         2. Output ONLY the raw markdown text.
-        3. DO NOT wrap the output in ```markdown code blocks. Start immediately with the analysis headings.
+        3. DO NOT wrap the output in ```markdown code blocks. 
         """
         
         try:
