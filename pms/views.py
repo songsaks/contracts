@@ -228,6 +228,8 @@ def project_detail(request, pk):
         theme_color = 'warning'
     elif project.job_type == Project.JobType.RENTAL:
         theme_color = 'pms-rental'
+    else:  # PROJECT
+        theme_color = 'primary'
 
     # Workflow steps based on job type (Dynamic from JobStatus)
     from .models import JobStatus
@@ -792,8 +794,8 @@ def dashboard(request):
 
     projects_in_period = Project.objects.filter(created_at__range=[start_of_period, end_of_period])
 
-    # 1. Total Accumulated Backlog (All Time Active)
-    # As requested: "งานสะสม คืองานที่มีสถานะทุกสถานะ ยกเว้น สถานะปิจ และยกเลิก"
+    # 1. Total Accumulated Backlog (งานสะสม)
+    # As requested: "งานสะสม คืองานที่มีสถานะทุกสถานะ ยกเว้น สถานะปิดจบ และยกเลิก"
     all_projects = Project.objects.all()
     from repairs.models import RepairItem
     all_repair_items = RepairItem.objects.all()
@@ -802,19 +804,27 @@ def dashboard(request):
     backlog_repairs_count = all_repair_items.exclude(status__in=['FINISHED', 'COMPLETED', 'CANCELLED']).count()
     total_projects = backlog_projects_count + backlog_repairs_count
     
-    # 2. Active Projects (Ongoing)
-    # As requested: "งานที่ดำเนินการนั้น คืองานที่มีสถานะทุกสถานะ ยกเว้น สถานะแรกของแต่ละงาน และ สถานะปิดจบ รวมทั้งสถานะ ยกเลิก"
-    # First Statuses: SERVICE/REPAIR/RENTAL: SOURCING(จัดหา), PROJECT: DRAFT(รวบรวม)
-    # Exclude: DRAFT, SOURCING, CLOSED, CANCELLED
-    first_statuses = [Project.Status.DRAFT, Project.Status.SOURCING]
-    active_projects_count = all_projects.exclude(
-        status__in=first_statuses + [Project.Status.CLOSED, Project.Status.CANCELLED]
-    ).count()
+    # 2. Active Projects (งานที่ดำเนินการ)
+    # As requested: "งานที่ดำเนินการนั้นก็คือ งานทุกงาน ที่ไม่อยู่ ใน สถานะ ปิดจบ ปิดงานซ่อม จัดหาในงานขาย รับแจ้งซ่อมในงานซ่อม และรวบรวมในงานโครงการ"
+    from django.db.models import Q
     
-    # Repairs App Statuses: Usually 'PENDING' is first
-    active_repairs_count = all_repair_items.exclude(
-        status__in=['PENDING', 'FINISHED', 'COMPLETED', 'CANCELLED']
-    ).count()
+    # Projects exclusion:
+    # - CLOSED/CANCELLED
+    # - DRAFT in PROJECT (รวบรวม)
+    # - SOURCING in SERVICE (จัดหาในงานขาย)
+    p_exclude = Q(status__in=[Project.Status.CLOSED, Project.Status.CANCELLED])
+    p_exclude |= Q(job_type=Project.JobType.PROJECT, status=Project.Status.DRAFT)
+    p_exclude |= Q(job_type=Project.JobType.SERVICE, status=Project.Status.SOURCING)
+    
+    active_projects_count = all_projects.exclude(p_exclude).count()
+    
+    # RepairItems exclusion:
+    # - FINISHED/COMPLETED (ปิดงานซ่อม)
+    # - CANCELLED (ยกเลิก)
+    # - RECEIVED (รับแจ้งซ่อม)
+    r_exclude = ['FINISHED', 'COMPLETED', 'CANCELLED', 'RECEIVED']
+    active_repairs_count = all_repair_items.exclude(status__in=r_exclude).count()
+    
     active_projects = active_projects_count + active_repairs_count
     
     # ยอดรวมของงาน (Total Job Value) - Periodic: New business in period (Project + Repair)
