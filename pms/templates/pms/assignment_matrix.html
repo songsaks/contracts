@@ -121,8 +121,7 @@
                         <td class="user-cell">
                             <div class="d-flex align-items-center">
                                 <select class="form-select assignment-select" 
-                                        data-status-id="{{ status.id }}" 
-                                        onchange="updateAssignment(this)">
+                                        data-status-id="{{ status.id }}">
                                     <option value="">-- ไม่ระบุ --</option>
                                     {% for user in users %}
                                     <option value="{{ user.id }}" {% if status.user_id == user.id %}selected{% endif %}>
@@ -157,15 +156,31 @@
 
 {% block scripts %}
 <script>
-function updateAssignment(select) {
-    const statusId = select.dataset.statusId;
-    const userId = select.value;
+document.addEventListener('DOMContentLoaded', function() {
+    const selects = document.querySelectorAll('.assignment-select');
+    selects.forEach(select => {
+        new TomSelect(select, {
+            create: false,
+            placeholder: "-- ไม่ระบุ --",
+            allowEmptyOption: true,
+            onChange: function(value) {
+                updateAssignment(select, value);
+            }
+        });
+    });
+});
+
+function updateAssignment(selectElement, userId) {
+    const statusId = selectElement.dataset.statusId;
     
     const loadingId = `loading-${statusId}`;
     const savedId = `saved-${statusId}`;
     
-    document.getElementById(loadingId).style.display = 'inline-block';
-    document.getElementById(savedId).style.display = 'none';
+    const loadingEl = document.getElementById(loadingId);
+    const savedEl = document.getElementById(savedId);
+    
+    if (loadingEl) loadingEl.style.display = 'inline-block';
+    if (savedEl) savedEl.style.display = 'none';
 
     fetch("{% url 'pms:set_project_assignment' %}", {
         method: 'POST',
@@ -173,21 +188,23 @@ function updateAssignment(select) {
             'Content-Type': 'application/x-www-form-urlencoded',
             'X-CSRFToken': '{{ csrf_token }}'
         },
-        body: `status_id=${statusId}&user_id=${userId}`
+        body: `status_id=${statusId}&user_id=${userId || ''}`
     })
     .then(response => response.json())
     .then(data => {
-        document.getElementById(loadingId).style.display = 'none';
+        if (loadingEl) loadingEl.style.display = 'none';
         if (data.status === 'success' || data.status === 'deleted') {
-            document.getElementById(savedId).style.display = 'inline-block';
-            setTimeout(() => {
-                document.getElementById(savedId).style.display = 'none';
-            }, 2000);
+            if (savedEl) {
+                savedEl.style.display = 'inline-block';
+                setTimeout(() => {
+                    savedEl.style.display = 'none';
+                }, 2000);
+            }
         }
     })
     .catch(error => {
         console.error('Error:', error);
-        document.getElementById(loadingId).style.display = 'none';
+        if (loadingEl) loadingEl.style.display = 'none';
         alert('เกิดข้อผิดพลาดในการบันทึกข้อมูล');
     });
 }
