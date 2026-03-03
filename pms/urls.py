@@ -93,5 +93,6 @@ urlpatterns = [
     # Assignments
     path('assignments/', views.project_assignment_matrix, name='project_assignment_matrix'),
     path('assignments/set/', views.set_project_assignment, name='set_project_assignment'),
+    path('assignments/seed/', views.seed_pms_statuses, name='seed_pms_statuses'),
 ]
 

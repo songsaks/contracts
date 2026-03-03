@@ -1984,3 +1984,66 @@ def set_project_assignment(request):
             
         return JsonResponse(res)
     return JsonResponse({'status': 'error'}, status=400)
+
+@login_required
+def seed_pms_statuses(request):
+    """Seed default JobStatus if missing."""
+    from .models import JobStatus, Project
+    
+    # Check if we already have some
+    if JobStatus.objects.exists() and not request.GET.get('force'):
+        messages.info(request, "ข้อมูลขั้นตอนงานมีอยู่แล้วในระบบ")
+        return redirect('pms:project_assignment_matrix')
+
+    # Status configurations
+    defaults = {
+        Project.JobType.SERVICE: [
+            (Project.Status.SOURCING, 'จัดหา', 10),
+            (Project.Status.QUOTED, 'เสนอราคา', 20),
+            (Project.Status.ORDERING, 'สั่งซื้อ', 30),
+            (Project.Status.RECEIVED_QC, 'รับของ/QC', 40),
+            (Project.Status.DELIVERY, 'ส่งมอบ', 50),
+            (Project.Status.ACCEPTED, 'ตรวจรับ', 60),
+            (Project.Status.CLOSED, 'ปิดจบ', 70),
+        ],
+        Project.JobType.REPAIR: [
+            (Project.Status.SOURCING, 'รับแจ้งซ่อม', 10),
+            (Project.Status.SUPPLIER_CHECK, 'เช็คราคา', 20),
+            (Project.Status.ORDERING, 'จัดคิวซ่อม', 30),
+            (Project.Status.DELIVERY, 'ซ่อม', 40),
+            (Project.Status.CLOSED, 'ปิดงานซ่อม', 50),
+        ],
+        Project.JobType.RENTAL: [
+            (Project.Status.SOURCING, 'จัดหา', 10),
+            (Project.Status.CONTRACTED, 'ทำสัญญา', 20),
+            (Project.Status.RENTING, 'เช่า', 30),
+            (Project.Status.CLOSED, 'ปิดจบ', 40),
+        ],
+        Project.JobType.PROJECT: [
+            (Project.Status.DRAFT, 'รวบรวม', 10),
+            (Project.Status.SOURCING, 'จัดหา', 20),
+            (Project.Status.QUOTED, 'เสนอราคา', 30),
+            (Project.Status.CONTRACTED, 'ทำสัญญา', 40),
+            (Project.Status.ORDERING, 'สั่งซื้อ', 50),
+            (Project.Status.RECEIVED_QC, 'รับของ/QC', 60),
+            (Project.Status.INSTALLATION, 'ติดตั้ง', 70),
+            (Project.Status.ACCEPTED, 'ตรวจรับ', 80),
+            (Project.Status.BILLING, 'วางบิล', 90),
+            (Project.Status.WAITING_FOR_SALE_KEY, 'รอคีย์ขาย', 100),
+            (Project.Status.CLOSED, 'ปิดจบ', 110),
+        ]
+    }
+
+    count = 0
+    for jt, steps in defaults.items():
+        for key, label, sort in steps:
+            obj, created = JobStatus.objects.get_or_create(
+                job_type=jt,
+                status_key=key,
+                defaults={'label': label, 'sort_order': sort}
+            )
+            if created:
+                count += 1
+    
+    messages.success(request, f"สร้างขั้นตอนงานมาตรฐาน {count} รายการเรียบร้อยแล้ว")
+    return redirect('pms:project_assignment_matrix')
