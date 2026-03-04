@@ -111,7 +111,7 @@ class ProjectForm(forms.ModelForm):
             'name': forms.TextInput(attrs={'class': 'form-control'}),
             'customer': forms.Select(attrs={'class': 'form-select'}),
             'owner': forms.Select(attrs={'class': 'form-select'}),
-            'status': forms.Select(attrs={'class': 'form-select'}),
+            'status': forms.Select(attrs={'class': 'form-select no-tom-select'}),
             'start_date': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
             'deadline': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
             'description': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
@@ -137,6 +137,7 @@ class ProjectForm(forms.ModelForm):
                 (Project.Status.BILLING, 'วางบิล'),
                 (Project.Status.WAITING_FOR_SALE_KEY, 'รอคีย์ขาย'),
                 (Project.Status.CLOSED, 'ปิดจบ'),
+                (Project.Status.CANCELLED, 'ยกเลิก'),
             ]
 
 class SalesServiceJobForm(forms.ModelForm):
@@ -153,7 +154,7 @@ class SalesServiceJobForm(forms.ModelForm):
             'name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'ชื่องานขาย/บริการ'}),
             'customer': forms.Select(attrs={'class': 'form-select'}),
             'owner': forms.Select(attrs={'class': 'form-select'}),
-            'status': forms.Select(attrs={'class': 'form-select'}),
+            'status': forms.Select(attrs={'class': 'form-select no-tom-select'}),
             'start_date': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
             'deadline': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
             'description': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
@@ -178,7 +179,9 @@ class SalesServiceJobForm(forms.ModelForm):
                     (Project.Status.SUPPLIER_CHECK, 'เช็คราคา'),
                     (Project.Status.ORDERING, 'จัดคิวซ่อม'),
                     (Project.Status.DELIVERY, 'ซ่อม'),
+                    (Project.Status.WAITING_FOR_SALE_KEY, 'รอคีย์ขาย'),
                     (Project.Status.CLOSED, 'ปิดงานซ่อม'),
+                    (Project.Status.CANCELLED, 'ยกเลิก'),
                 ]
             elif job_type == Project.JobType.SERVICE:
                 self.fields['status'].choices = [
@@ -188,17 +191,21 @@ class SalesServiceJobForm(forms.ModelForm):
                     (Project.Status.RECEIVED_QC, 'รับของ/QC'),
                     (Project.Status.DELIVERY, 'ส่งมอบ'),
                     (Project.Status.ACCEPTED, 'ตรวจรับ'),
+                    (Project.Status.WAITING_FOR_SALE_KEY, 'รอคีย์ขาย'),
                     (Project.Status.CLOSED, 'ปิดจบ'),
+                    (Project.Status.CANCELLED, 'ยกเลิก'),
                 ]
             elif job_type == Project.JobType.RENTAL:
                 self.fields['status'].choices = [
                     (Project.Status.SOURCING, 'จัดหา'),
                     (Project.Status.CONTRACTED, 'ทำสัญญา'),
                     (Project.Status.RENTING, 'เช่า'),
+                    (Project.Status.WAITING_FOR_SALE_KEY, 'รอคีย์ขาย'),
                     (Project.Status.CLOSED, 'ปิดจบ'),
+                    (Project.Status.CANCELLED, 'ยกเลิก'),
                 ]
             else:
-                self.fields['status'].choices = [(c[0], c[1]) for c in Project.Status.choices if c[0] != Project.Status.CANCELLED]
+                self.fields['status'].choices = [(c[0], c[1]) for c in Project.Status.choices]
 
 class ProductItemForm(forms.ModelForm):
     class Meta:

@@ -52,15 +52,113 @@
         .navbar-custom .collapse { overflow: visible !important; }
         .navbar-custom .navbar-collapse { overflow: visible !important; }
         
-        /* Tom Select Z-Index Fix */
-        .ts-wrapper.form-control-sm .ts-control {
-            min-height: 31px;
-            padding: 0.25rem 0.5rem;
+        /* ── Tom Select – Premium Autocomplete ────────────────── */
+        .ts-wrapper {
+            flex: 1;
+        }
+        .ts-wrapper.form-select {
+            padding: 0;
+            border: none;
+        }
+        .ts-control {
+            border: 1.5px solid #e2e8f0 !important;
+            border-radius: 10px !important;
+            background: #fff !important;
+            box-shadow: 0 1px 3px rgba(79,70,229,.06) !important;
+            padding: 0.45rem 0.9rem !important;
+            font-size: 0.92rem;
+            font-family: 'Inter','Noto Sans Thai',sans-serif;
+            transition: border-color .18s, box-shadow .18s;
+            min-height: 42px;
+        }
+        .ts-control:focus-within,
+        .ts-wrapper.focus .ts-control {
+            border-color: #4f46e5 !important;
+            box-shadow: 0 0 0 3px rgba(79,70,229,.13) !important;
+            outline: none !important;
+        }
+        /* inside input-group: remove double border */
+        .input-group .ts-wrapper:not(:last-child) .ts-control {
+            border-top-right-radius: 0 !important;
+            border-bottom-right-radius: 0 !important;
+            border-right: none !important;
+        }
+        .input-group .ts-wrapper:last-child .ts-control {
+            border-top-left-radius: 0 !important;
+            border-bottom-left-radius: 0 !important;
         }
         .ts-dropdown {
-            z-index: 2000 !important;
+            z-index: 9999 !important;
+            border: 1.5px solid #e2e8f0;
+            border-radius: 14px !important;
+            box-shadow: 0 16px 40px rgba(15,23,42,.13), 0 4px 8px rgba(79,70,229,.08);
+            overflow: hidden;
+            margin-top: 4px;
+            animation: tsDropIn .15s cubic-bezier(.22,.68,0,1.2);
         }
-        
+        @keyframes tsDropIn {
+            from { opacity:0; transform: translateY(-6px) scale(.98); }
+            to   { opacity:1; transform: translateY(0)  scale(1); }
+        }
+        .ts-dropdown .ts-dropdown-content {
+            max-height: 260px;
+            overflow-y: auto;
+            padding: 6px;
+        }
+        .ts-dropdown .option {
+            border-radius: 8px;
+            padding: 8px 12px;
+            font-size: 0.88rem;
+            color: #334155;
+            transition: background .1s, color .1s;
+        }
+        .ts-dropdown .option:hover,
+        .ts-dropdown .option.active {
+            background: linear-gradient(90deg,#ede9ff,#eef2ff) !important;
+            color: #4f46e5 !important;
+        }
+        .ts-dropdown .option.selected {
+            background: #ede9ff;
+            color: #4f46e5;
+            font-weight: 600;
+        }
+        /* Search input inside dropdown */
+        .ts-wrapper .ts-control input {
+            font-family: 'Inter','Noto Sans Thai',sans-serif;
+            font-size: 0.88rem;
+            color: #0f172a;
+        }
+        .ts-wrapper .ts-control input::placeholder {
+            color: #94a3b8;
+        }
+        /* Opened caret */
+        .ts-wrapper.single .ts-control::after {
+            border-color: #94a3b8 transparent transparent;
+        }
+        .ts-wrapper.single.focus .ts-control::after {
+            border-color: #4f46e5 transparent transparent;
+        }
+        /* Option highlight match */
+        .ts-dropdown .highlight {
+            background: transparent;
+            color: #4f46e5;
+            font-weight: 700;
+        }
+        /* No results */
+        .ts-dropdown .no-results {
+            padding: 12px;
+            color: #94a3b8;
+            font-size: 0.82rem;
+            text-align: center;
+        }
+        /* "Create" option */
+        .ts-dropdown .create {
+            border-radius: 8px;
+            padding: 8px 12px;
+            font-size: 0.82rem;
+            color: #4f46e5;
+            font-weight: 600;
+        }
         .filter-card {
             overflow: visible !important;
             position: relative;
@@ -450,6 +548,41 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <!-- Tom Select JS -->
     <script src="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/js/tom-select.complete.min.js"></script>
+    <script>
+    // ── Global Tom Select Auto-Init ──────────────────────────────
+    // Converts every <select class="form-select"> in a <form> to a
+    // searchable, premium autocomplete dropdown automatically.
+    document.addEventListener('DOMContentLoaded', function () {
+        document.querySelectorAll('form select.form-select:not(.no-tom-select)').forEach(function (el) {
+            // Skip if already initialised
+            if (el.tomselect) return;
+
+            var isRequired = el.required || el.closest('[required]');
+            var placeholder = el.dataset.placeholder ||
+                              el.querySelector('option[value=""]')?.textContent.trim() ||
+                              'ค้นหา...';
+
+            new TomSelect(el, {
+                placeholder: placeholder,
+                allowEmptyOption: true,
+                sortField: { field: 'text', direction: 'asc' },
+                plugins: ['dropdown_input'],
+                maxOptions: 200,
+                render: {
+                    option: function (data, escape) {
+                        return '<div class="option">' + escape(data.text) + '</div>';
+                    },
+                    item: function (data, escape) {
+                        return '<div>' + escape(data.text) + '</div>';
+                    },
+                    no_results: function () {
+                        return '<div class="no-results">ไม่พบรายการ</div>';
+                    }
+                }
+            });
+        });
+    });
+    </script>
     <script>
         // Initialize tooltips
         var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))

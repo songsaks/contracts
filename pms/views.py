@@ -1929,20 +1929,26 @@ def seed_pms_statuses(request):
             (Project.Status.RECEIVED_QC, 'รับของ/QC', 40),
             (Project.Status.DELIVERY, 'ส่งมอบ', 50),
             (Project.Status.ACCEPTED, 'ตรวจรับ', 60),
+            (Project.Status.WAITING_FOR_SALE_KEY, 'รอคีย์ขาย', 65),
             (Project.Status.CLOSED, 'ปิดจบ', 70),
+            (Project.Status.CANCELLED, 'ยกเลิก', 80),
         ],
         Project.JobType.REPAIR: [
             (Project.Status.SOURCING, 'รับแจ้งซ่อม', 10),
             (Project.Status.SUPPLIER_CHECK, 'เช็คราคา', 20),
             (Project.Status.ORDERING, 'จัดคิวซ่อม', 30),
             (Project.Status.DELIVERY, 'ซ่อม', 40),
+            (Project.Status.WAITING_FOR_SALE_KEY, 'รอคีย์ขาย', 45),
             (Project.Status.CLOSED, 'ปิดงานซ่อม', 50),
+            (Project.Status.CANCELLED, 'ยกเลิก', 60),
         ],
         Project.JobType.RENTAL: [
             (Project.Status.SOURCING, 'จัดหา', 10),
             (Project.Status.CONTRACTED, 'ทำสัญญา', 20),
             (Project.Status.RENTING, 'เช่า', 30),
+            (Project.Status.WAITING_FOR_SALE_KEY, 'รอคีย์ขาย', 35),
             (Project.Status.CLOSED, 'ปิดจบ', 40),
+            (Project.Status.CANCELLED, 'ยกเลิก', 50),
         ],
         Project.JobType.PROJECT: [
             (Project.Status.DRAFT, 'รวบรวม', 10),
@@ -1956,13 +1962,14 @@ def seed_pms_statuses(request):
             (Project.Status.BILLING, 'วางบิล', 90),
             (Project.Status.WAITING_FOR_SALE_KEY, 'รอคีย์ขาย', 100),
             (Project.Status.CLOSED, 'ปิดจบ', 110),
+            (Project.Status.CANCELLED, 'ยกเลิก', 120),
         ]
     }
 
     count = 0
     for jt, steps in defaults.items():
         for key, label, sort in steps:
-            obj, created = JobStatus.objects.get_or_create(
+            obj, created = JobStatus.objects.update_or_create(
                 job_type=jt,
                 status_key=key,
                 defaults={'label': label, 'sort_order': sort}

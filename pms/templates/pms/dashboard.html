@@ -389,43 +389,67 @@
     </div>
 
 
-    <!-- Row 4: Rankings List -->
-    <div class="col-12">
-        <div class="card analytics-card shadow-sm p-4">
-            <div class="d-flex align-items-center justify-content-between mb-4">
-                <h5 class="fw-800 mb-0"><i class="fas fa-medal me-2 text-warning"></i>อันดับผลงานดีเลิศ ประจำปี {{ year_filter }}</h5>
-                <span class="badge bg-light text-dark rounded-pill px-3">Top Performers</span>
-            </div>
-            <div class="row g-3">
-                {% for owner in sales_by_owner %}
-                {% if owner.total_sales %}
-                <div class="col-md-6 col-lg-4">
-                    <div class="rank-item d-flex align-items-center gap-3 h-100">
-                        <div class="owner-avatar">
-                            {{ owner.name|slice:":1" }}
-                        </div>
-                        <div class="flex-grow-1">
-                            <div class="d-flex justify-content-between mb-1">
-                                <span class="fw-bold">{{ owner.name }}</span>
-                                <span class="fw-800 text-primary">฿{{ owner.total_sales|floatformat:0|intcomma }}</span>
-                            </div>
-                            <div class="progress" style="height: 6px;">
-                                 <div class="progress-bar bg-primary rounded-pill" style="width: {{ owner.performance_pct }}%"></div>
-                            </div>
-                            <div class="d-flex justify-content-between mt-1">
-                                <span class="small text-muted">{{ owner.job_count }} โครงการ</span>
-                                <span class="small fw-bold text-primary">{{ owner.performance_pct|floatformat:1 }}%</span>
-                            </div>
-                        </div>
+    <!-- Row 4: Individual Sales Summary Table -->
+    <div class="col-12 mt-4">
+        <div class="card analytics-card shadow-sm border-0">
+            <div class="card-header bg-white py-4 px-4 border-0">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="bg-primary bg-opacity-10 p-2 rounded-3">
+                        <i class="fas fa-users text-primary"></i>
                     </div>
+                    <h5 class="fw-800 mb-0">สรุปยอดขายพนักงานรายบุคคล {{ year_filter }}</h5>
                 </div>
-                {% endif %}
-                {% empty %}
-                <div class="col-12 text-center text-muted py-5">
-                    <i class="fas fa-folder-open fa-3x mb-3 opacity-25"></i>
-                    <p>ยังไม่มีข้อมูลยอดขายในระบบ</p>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="bg-light text-muted small text-uppercase">
+                            <tr>
+                                <th class="ps-4 py-3">พนักงาน</th>
+                                <th class="text-center py-3">จำนวนงานที่สำเร็จ</th>
+                                <th class="text-end py-3">ยอดขายสะสม (ปิดงาน)</th>
+                                <th class="pe-4 py-3" style="width: 25%;">ผลงานเฉลี่ย</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for owner in sales_by_owner %}
+                            {% if owner.total_sales > 0 %}
+                            <tr>
+                                <td class="ps-4">
+                                    <div class="d-flex align-items-center gap-3">
+                                        <div class="owner-avatar" style="width: 35px; height: 35px; font-size: 0.9rem;">
+                                            {{ owner.name|slice:":1" }}
+                                        </div>
+                                        <span class="fw-bold">{{ owner.name }}</span>
+                                    </div>
+                                </td>
+                                <td class="text-center fw-semibold text-secondary">
+                                    {{ owner.job_count }} งาน
+                                </td>
+                                <td class="text-end fw-bold text-primary">
+                                    ฿{{ owner.total_sales|floatformat:0|intcomma }}
+                                </td>
+                                <td class="pe-4">
+                                    <div class="d-flex align-items-center gap-3">
+                                        <div class="progress flex-grow-1" style="height: 6px;">
+                                            <div class="progress-bar bg-primary rounded-pill" style="width: {{ owner.performance_pct }}%"></div>
+                                        </div>
+                                        <span class="small fw-800 text-primary">{{ owner.performance_pct|floatformat:1 }}%</span>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endif %}
+                            {% empty %}
+                            <tr>
+                                <td colspan="4" class="text-center py-5 text-muted">
+                                    <i class="fas fa-folder-open fa-3x mb-3 opacity-25"></i>
+                                    <p class="mb-0">ยังไม่มีข้อมูลยอดขายในระบบ</p>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
                 </div>
-                {% endfor %}
             </div>
         </div>
     </div>
