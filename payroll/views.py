@@ -47,12 +47,11 @@ is_hr = is_hr_or_exec
 
 def payroll_members():
     """Return QS of Users who are active payroll members.
-    Superusers (Executives) are ALWAYS included — no need to flag them.
-    Other users must have salary_config.is_payroll_member=True."""
-    from django.db.models import Q
+    We rely on salary_config.is_payroll_member=True to identify real employees."""
     return User.objects.filter(
-        Q(is_superuser=True) | Q(salary_config__is_payroll_member=True)
-    ).distinct().filter(is_active=True).order_by('last_name', 'first_name', 'username')
+        salary_config__is_payroll_member=True,
+        is_active=True
+    ).distinct().order_by('last_name', 'first_name', 'username')
 
 def _safe_dec(value, default='0'):
     try:
@@ -755,13 +754,14 @@ def bulk_management(request):
     month = int(request.GET.get('month', timezone.now().month))
     year  = int(request.GET.get('year',  timezone.now().year))
 
-    # Exec sees everyone; HR sees only non-executive employees
-    if request.user.is_superuser:
-        users = payroll_members().filter(is_active=True)
-    else:
-        # HR/Admin cannot see executives in the data entry grid
-        users = payroll_members().filter(is_active=True, is_superuser=False)
-    reports_map = {r.user_id: r for r in WorkReport.objects.filter(month=month, year=year)}
+    # Always show all payroll members. 
+    # When CLEAR is clicked, it deletes WorkReports, but the employee list remains visible.
+    users = payroll_members()
+    if not request.user.is_superuser:
+        users = users.filter(is_superuser=False)
+
+    reports_qs = WorkReport.objects.filter(month=month, year=year)
+    reports_map = {r.user_id: r for r in reports_qs}
 
     if request.method == 'POST':
         saved = 0
@@ -803,6 +803,7 @@ def bulk_management(request):
         'month_name': _month_name(month),
         'months': range(1, 13),
         'years': range(2024, 2032),
+        'has_any_reports': reports_qs.exists(),
     })
 
 @user_passes_test(is_hr_or_exec, login_url=PAYROLL_LOGIN_URL)
@@ -882,35 +883,12 @@ def bulk_clear(request):
     month = int(request.POST.get('month', 1))
     year  = int(request.POST.get('year', 2024))
     
-    # We only clear reports that are still in DRAFT or REJECTED
-    qs = WorkReport.objects.filter(
-        month=month, year=year,
-        status__in=[PayrollStatus.DRAFT, PayrollStatus.REJECTED]
-    )
+    # Delete ALL reports for this month (regardless of status)
+    qs = WorkReport.objects.filter(month=month, year=year)
     count = qs.count()
+    qs.delete()  # PayrollRecord will be cascade-deleted too
     
-    # Option A: Delete them. Option B: Reset fields to 0. 
-    # Usually safer to just reset values to 0 if 'is_staff' wants a clean slate.
-    for r in qs:
-        r.working_days = 0
-        r.ot_hours = 0
-        r.commissions = 0
-        r.incentives = 0
-        r.customer_evaluation = 0
-        r.pb_liva_score = 0
-        r.team_mgmt_fee = 0
-        r.professional_fee = 0
-        r.absent_days = 0
-        r.absent_deduction_amount = 0
-        r.advance_pay = 0
-        r.savings = 0
-        r.lost_equipment_fee = 0
-        r.monthly_tax_withholding = 0
-        r.other_deductions = 0
-        # keep it as DRAFT
-        r.save()
-
-    messages.warning(request, f"ล้างข้อมูล (Reset) เรียบร้อยแล้ว {count} รายการ")
+    messages.warning(request, f"ล้างข้อมูล ({count} รายการ) เรียบร้อยแล้ว สามารถนำเข้าข้อมูลด้วย Excel ใหม่ได้")
     return redirect(f"{reverse('payroll:bulk_management')}?month={month}&year={year}")
 
 # ── Excel Template Download (HR & Exec) ───────────────────
@@ -924,17 +902,41 @@ def download_template(request):
     ws.title = f"Payroll_{month}_{year}"
 
     headers = [
-        "Username","ชื่อ","นามสกุล","Month","Year",
-        "WorkingDays","OT_Hours",
-        "Commissions","Incentives","CustEval_Income",
-        "PBLivaScore","TeamMgmtFee","ProfessionalFee",
-        "AbsentDays","AbsentDeduction","AdvancePay","Savings",
-        "ItemsLost_Deduct","TaxWithhold_Monthly","OtherDeductions"
+        "Username (ห้ามแก้)", "ชื่อ", "นามสกุล", "เดือน (1-12)", "ปี (ค.ศ.)",
+        "วันทำงาน", "ชม_OT",
+        "ค่าคอมมิชชัน", "โบนัส_รางวัล", "ประเมินลูกค้า",
+        "PB_Score", "ค่าบริหารทีม", "ค่าวิชาชีพ",
+        "ขาดงาน_วัน", "หักขาดงาน", "เบิกล่วงหน้า_เบิกก่อน", "เงินออม",
+        "ของหาย_อุปกรณ์เสียหาย", "หักภาษี_รายเดือน", "หักอื่นๆ"
     ]
     ws.append(headers)
-    for user in User.objects.filter(is_active=True).order_by('last_name','first_name'):
-        ws.append([user.username, user.first_name, user.last_name, month, year,
-                   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
+    
+    # Get existing reports for this month
+    reports_map = {r.user_id: r for r in WorkReport.objects.filter(month=month, year=year)}
+    
+    # Get payroll members list (same as Grid)
+    users = payroll_members().filter(is_active=True)
+    
+    for u in users:
+        r = reports_map.get(u.id)
+        ws.append([
+            u.username, u.first_name, u.last_name, month, year,
+            r.working_days if r else 0,
+            r.ot_hours if r else 0,
+            r.commissions if r else 0,
+            r.incentives if r else 0,
+            r.customer_evaluation if r else 0,
+            r.pb_liva_score if r else 0,
+            r.team_mgmt_fee if r else 0,
+            r.professional_fee if r else 0,
+            r.absent_days if r else 0,
+            r.absent_deduction_amount if r else 0,
+            r.advance_pay if r else 0,
+            r.savings if r else 0,
+            r.lost_equipment_fee if r else 0,
+            r.monthly_tax_withholding if r else 0,
+            r.other_deductions if r else 0
+        ])
 
     response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
     response['Content-Disposition'] = f'attachment; filename=payroll_{month}_{year}.xlsx'
@@ -960,7 +962,9 @@ def import_excel(request):
                         user=user, month=month, year=year,
                         defaults={'status': PayrollStatus.DRAFT}
                     )
-                    # skip if already submitted/approved
+
+                    # Respect workflow: can only overwrite DRAFT or REJECTED
+                    # SUBMITTED/APPROVED must go through reject→edit→resubmit cycle
                     if r.status not in [PayrollStatus.DRAFT, PayrollStatus.REJECTED]:
                         skip += 1
                         continue
@@ -980,12 +984,12 @@ def import_excel(request):
                     r.lost_equipment_fee      = _safe_dec(row[17])
                     r.monthly_tax_withholding  = _safe_dec(row[18])
                     r.other_deductions        = _safe_dec(row[19])
-                    r.status = PayrollStatus.SUBMITTED
+                    r.status = PayrollStatus.DRAFT
                     r.save()
                     ok += 1
                 except User.DoesNotExist:
                     skip += 1
-            messages.success(request, f"นำเข้าสำเร็จ {ok} รายการ (ข้าม {skip} รายการที่หา user ไม่เจอ)")
+            messages.success(request, f"นำเข้าสำเร็จ {ok} รายการ (ข้าม {skip} รายการ)")
         except Exception as e:
             messages.error(request, f"เกิดข้อผิดพลาด: {e}")
     return redirect('payroll:bulk_management')

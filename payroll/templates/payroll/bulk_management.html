@@ -56,19 +56,23 @@ tbody tr:hover .sticky-col { background:#f8fafc !important; }
     </form>
 
     <div class="flex items-center gap-2 ml-auto">
-       <form action="{% url 'payroll:bulk_clear' %}" method="post" onsubmit="return confirm('ล้างข้อมูลเป็น 0 ทั้งหมด?')">
+       <form id="clearForm" action="{% url 'payroll:bulk_clear' %}" method="post">
          {% csrf_token %}
          <input type="hidden" name="month" value="{{ month }}">
          <input type="hidden" name="year" value="{{ year }}">
-         <button type="submit" class="text-rose-600 px-3 py-1.5 text-xs font-bold hover:bg-rose-50 rounded border border-rose-100">Clear</button>
+         <button type="submit" id="btnClear" class="text-rose-600 px-3 py-1.5 text-xs font-bold hover:bg-rose-50 rounded border border-rose-100">Clear</button>
        </form>
-       <form action="{% url 'payroll:bulk_submit' %}" method="post">
+       <form id="submitForm" action="{% url 'payroll:bulk_submit' %}" method="post">
          {% csrf_token %}
          <input type="hidden" name="month" value="{{ month }}">
          <input type="hidden" name="year" value="{{ year }}">
-         <button type="submit" class="bg-blue-600 text-white px-4 py-1.5 rounded text-xs font-bold hover:bg-blue-700">ส่งตรวจ</button>
+         <button type="submit" id="btnSubmit" class="bg-blue-600 text-white px-4 py-1.5 rounded text-xs font-bold hover:bg-blue-700">ส่งตรวจ</button>
        </form>
        <div class="h-6 w-px bg-slate-200 mx-1"></div>
+       <button onclick="document.getElementById('importModal').classList.remove('hidden')"
+               class="text-emerald-700 px-3 py-1.5 text-xs font-black hover:bg-emerald-50 rounded border border-emerald-100 flex items-center gap-1.5">
+         <i class="fas fa-file-excel"></i> Import File
+       </button>
        <a href="{% url 'payroll:download_template' %}?month={{ month }}&year={{ year }}" class="text-slate-500 px-2 py-1 text-xs font-bold hover:underline">Template</a>
     </div>
   </div>
@@ -108,7 +112,19 @@ tbody tr:hover .sticky-col { background:#f8fafc !important; }
                   <span class="text-[10px] text-slate-400 w-4">{{ forloop.counter }}</span>
                   <div class="min-w-0">
                     <p class="font-bold text-slate-800 text-xs truncate leading-none">{{ u.get_full_name|default:u.username }}</p>
-                    <p class="text-[9px] text-slate-400 font-mono">{{ u.salary_config.employee_code|default:u.username }}</p>
+                    <div class="flex items-center gap-1 mt-0.5">
+                      <p class="text-[9px] text-slate-400 font-mono">{{ u.salary_config.employee_code|default:u.username }}</p>
+                      {% if rpt.status == 'SUBMITTED' %}
+                        <span class="text-[8px] bg-amber-100 text-amber-700 px-1 rounded font-bold">รอ</span>
+                      {% elif rpt.status == 'APPROVED' %}
+                        <span class="text-[8px] bg-green-100 text-green-700 px-1 rounded font-bold">อนุมัติ</span>
+                      {% elif rpt.status == 'REJECTED' %}
+                        <span class="text-[8px] bg-rose-100 text-rose-700 px-1 rounded font-bold" title="{{ rpt.admin_remarks }}">ส่งกลับ</span>
+                      {% endif %}
+                    </div>
+                    {% if rpt.status == 'REJECTED' and rpt.admin_remarks %}
+                      <p class="text-[9px] text-rose-500 truncate max-w-[140px]" title="{{ rpt.admin_remarks }}">💬 {{ rpt.admin_remarks }}</p>
+                    {% endif %}
                   </div>
                 </div>
               </td>
@@ -157,11 +173,60 @@ tbody tr:hover .sticky-col { background:#f8fafc !important; }
     </div>
 
     <div class="fixed bottom-6 right-6">
-      <button type="submit" class="bg-slate-900 text-white px-8 py-3 rounded-full font-bold shadow-2xl hover:scale-105 active:scale-95 transition-all flex items-center gap-2">
+      <button type="submit" id="btnSaveAll" class="bg-slate-900 text-white px-8 py-3 rounded-full font-bold shadow-2xl hover:scale-105 active:scale-95 transition-all flex items-center gap-2">
         <i class="fas fa-save text-emerald-400"></i> บันทึกทั้งหมด
       </button>
     </div>
   </form>
+</div>
+</div>
+
+<!-- ═══ MODAL: Import Excel ════════════════════════════════ -->
+<div id="importModal" class="fixed inset-0 z-50 flex items-center justify-center hidden p-4">
+  <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" onclick="this.parentElement.classList.add('hidden')"></div>
+  <div class="relative bg-white rounded-3xl shadow-2xl w-full max-w-md z-10">
+    <div class="p-6 sm:p-8">
+      <div class="flex items-center justify-between mb-6">
+        <div>
+          <h2 class="text-xl font-black text-slate-800">📥 Import ข้อมูลรายเดือน</h2>
+          <p class="text-xs text-slate-400 font-semibold mt-1">อัปโหลดไฟล์ Excel เพื่อบันทึกข้อมูลแบบกลุ่ม</p>
+        </div>
+        <button onclick="document.getElementById('importModal').classList.add('hidden')"
+                class="w-9 h-9 rounded-xl bg-slate-100 text-slate-500 hover:bg-slate-200 flex items-center justify-center text-lg font-black">×</button>
+      </div>
+      <form method="post" action="{% url 'payroll:import_excel' %}" enctype="multipart/form-data">
+        {% csrf_token %}
+        <div class="space-y-4">
+          <label class="block border-2 border-dashed border-slate-200 rounded-2xl p-6 text-center cursor-pointer hover:border-emerald-400 hover:bg-emerald-50 transition-all">
+            <i class="fas fa-file-excel text-3xl text-emerald-400 block mb-2"></i>
+            <p id="importFileName" class="font-black text-slate-600 text-sm mb-1">คลิกเพื่อเลือกไฟล์ (Excel)</p>
+            <p class="text-xs text-slate-400">.xlsx หรือ .xls</p>
+            <input id="importFileInput" type="file" name="excel_file" accept=".xlsx,.xls" required class="hidden">
+          </label>
+          <div class="bg-amber-50 rounded-xl p-3 border border-amber-100 text-xs text-amber-700 font-semibold">
+            <p class="font-black mb-1">📋 คำแนะนำ:</p>
+            <p>1. แนะนำให้ดาวน์โหลด Template มาใช้ก่อน</p>
+            <p>2. Column แรกต้องเป็น 'Username' ของพนักงาน</p>
+            <p>3. ข้อมูลที่นำเข้าจะถูกจัดเป็น 'ฉบับร่าง' (Draft)</p>
+            <a href="{% url 'payroll:download_template' %}?month={{ month }}&year={{ year }}"
+               class="inline-flex items-center gap-1 mt-2 text-emerald-600 font-black hover:underline">
+              <i class="fas fa-download text-xs"></i> ดาวน์โหลด Template
+            </a>
+          </div>
+          <div class="flex gap-3">
+            <button type="submit"
+                    class="flex-1 py-3 rounded-2xl bg-emerald-700 text-white font-black hover:bg-emerald-800 text-sm">
+              📤 นำเข้าข้อมูล
+            </button>
+            <button type="button" onclick="document.getElementById('importModal').classList.add('hidden')"
+                    class="px-5 py-3 rounded-2xl bg-slate-100 text-slate-600 font-black hover:bg-slate-200 text-sm">
+              ยกเลิก
+            </button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
 </div>
 {% endblock %}
 
@@ -190,26 +255,33 @@ function recalcTotals() {
   });
 }
 
+var isSubmitting = false;
+
 function saveRow(uid) {
-  const row = document.getElementById(`row-${uid}`);
-  const inp = row.querySelector('input');
-  if (inp.disabled) return;
+  setTimeout(() => {
+    if (isSubmitting) return;
+    
+    const row = document.getElementById(`row-${uid}`);
+    if (!row) return;
+    const inp = row.querySelector('input');
+    if (inp && inp.disabled) return;
 
-  const fd = new FormData();
-  fd.append('csrfmiddlewaretoken', CSRF);
-  fd.append('user_id', uid);
-  fd.append('month', MONTH);
-  fd.append('year',  YEAR);
-  row.querySelectorAll('input[data-f]').forEach(i => fd.append(i.dataset.f, String(getRawNum(i.value))));
+    const fd = new FormData();
+    fd.append('csrfmiddlewaretoken', CSRF);
+    fd.append('user_id', uid);
+    fd.append('month', MONTH);
+    fd.append('year',  YEAR);
+    row.querySelectorAll('input[data-f]').forEach(i => fd.append(i.dataset.f, String(getRawNum(i.value))));
 
-  fetch(SAVE_URL, { method:'POST', body:fd })
-    .then(r => r.json())
-    .then(d => {
-      if (d.status === 'success') {
-        row.classList.add('row-flash');
-        setTimeout(() => row.classList.remove('row-flash'), 500);
-      } else { alert(d.message); location.reload(); }
-    });
+    fetch(SAVE_URL, { method:'POST', body:fd })
+      .then(r => r.json())
+      .then(d => {
+        if (d.status === 'success') {
+          row.classList.add('row-flash');
+          setTimeout(() => row.classList.remove('row-flash'), 500);
+        } else { alert(d.message); location.reload(); }
+      });
+  }, 150);
 }
 
 document.querySelectorAll('.money-input').forEach(inp => {
@@ -224,5 +296,26 @@ document.querySelectorAll('.money-input').forEach(inp => {
   });
 });
 recalcTotals();
+
+// Prevent auto-save from racing with form submissions
+['btnClear','btnSubmit','btnSaveAll'].forEach(id => {
+  const el = document.getElementById(id);
+  if (el) el.addEventListener('mousedown', () => { isSubmitting = true; });
+});
+
+// Clear button confirm dialog
+document.getElementById('clearForm')?.addEventListener('submit', function(e) {
+  if (!confirm('ล้างข้อมูลทั้งหมด? (ข้อมูลจะถูกลบ สามารถ Import ใหม่ได้)')) {
+    isSubmitting = false;
+    e.preventDefault();
+  }
+});
+
+document.getElementById('importFileInput')?.addEventListener('change', function() {
+  const label = document.getElementById('importFileName');
+  if (label && this.files[0]) {
+    label.textContent = '📄 ' + this.files[0].name;
+  }
+});
 </script>
 {% endblock %}
