@@ -21,7 +21,6 @@ from .forms import (
     ProjectOwnerForm, CustomerRequirementForm, SalesServiceJobForm, 
     CustomerRequestForm, SLAPlanForm
 )
-from repairs.models import RepairItem
 import io
 import pandas as pd
 
@@ -797,89 +796,46 @@ def dashboard(request):
     # 1. Total Accumulated Backlog (งานสะสม)
     # As requested: "งานสะสม คืองานที่มีสถานะทุกสถานะ ยกเว้น สถานะปิดจบ และยกเลิก"
     all_projects = Project.objects.all()
-    from repairs.models import RepairItem
-    all_repair_items = RepairItem.objects.all()
     
-    backlog_projects_count = all_projects.exclude(status__in=[Project.Status.CLOSED, Project.Status.CANCELLED]).count()
-    backlog_repairs_count = all_repair_items.exclude(status__in=['FINISHED', 'COMPLETED', 'CANCELLED']).count()
-    total_projects = backlog_projects_count + backlog_repairs_count
+    total_projects = all_projects.exclude(status__in=[Project.Status.CLOSED, Project.Status.CANCELLED]).count()
     
     # 2. Active Projects (งานที่ดำเนินการ)
     # As requested: "งานที่กำลังดำเนินการ คือ งานที่อยู่ในหน้า รายการงานทั้งหมด และ ที่อยู่ใน AI Queue 
     # แต่ไม่รวมถึงงานที่มีสถานะ: จัดหาในงานขายและเช่า, รับแจ้งซ่อมในงานซ่อม, รวบรวมในงานโครงการ"
     from django.db.models import Q
-    from repairs.models import RepairJob
     
-    # Exclusion for PMS Projects
+    # Exclusion for PMS Projects only
     p_exclude = Q(status__in=[Project.Status.CLOSED, Project.Status.CANCELLED])
     p_exclude |= Q(job_type=Project.JobType.PROJECT, status=Project.Status.DRAFT)      # รวบรวมในงานโครงการ
     p_exclude |= Q(job_type=Project.JobType.SERVICE, status=Project.Status.SOURCING)   # จัดหาในงานขาย
     p_exclude |= Q(job_type=Project.JobType.RENTAL, status=Project.Status.SOURCING)    # จัดหาในงานเช่า
     p_exclude |= Q(job_type=Project.JobType.REPAIR, status=Project.Status.SOURCING)    # รับแจ้งซ่อมในงานซ่อม (Mapped Status)
     
-    p_active_count = all_projects.exclude(p_exclude).count()
+    active_projects = all_projects.exclude(p_exclude).count()
     
-    # Exclusion for Repairs App Jobs
-    # We count RepairJob instead of RepairItem to avoid overcounting (one job can have multiple items)
-    # A job is active if it has at least one item NOT in [FINISHED, COMPLETED, CANCELLED, RECEIVED]
-    r_active_count = RepairJob.objects.filter(
-        items__status__in=['FIXING', 'WAITING', 'OUTSOURCE', 'RECEIVED_FROM_VENDOR']
-    ).distinct().count()
-    
-    # Note: ServiceQueueItem (AI Queue) items are already linked to either a Project or a RepairJob.
-    # Summing them separately would cause double-counting because a project in the queue is already in the project list.
-    active_projects = p_active_count + r_active_count
-    
-    # ยอดรวมของงาน (Total Job Value) - Periodic: New business in period (Project + Repair)
-    total_project_value_in_period = projects_in_period.aggregate(
+    # ยอดรวมของงาน (Total Job Value) - PMS Projects only in period
+    total_job_value = projects_in_period.aggregate(
         total=Sum(F('items__quantity') * F('items__unit_price'))
     )['total'] or 0
     
-    total_repair_value_in_period = all_repair_items.filter(
-        created_at__range=[start_of_period, end_of_period]
-    ).aggregate(total=Sum('price'))['total'] or 0
-    
-    total_job_value = total_project_value_in_period + total_repair_value_in_period
-    
-    # ยอดขาย (Actual Sales) - based on closed date
-    # 1. Projects closed in period
-    closed_projects_value = Project.objects.filter(
+    # ยอดขาย (Actual Sales) - PMS Projects closed in period only
+    actual_sales = Project.objects.filter(
         status=Project.Status.CLOSED,
         closed_at__range=[start_of_period, end_of_period]
     ).aggregate(
         total=Sum(F('items__quantity') * F('items__unit_price'))
     )['total'] or 0
-    
-    # 2. RepairItems closed in period (Repairs App)
-    closed_repairs_value = all_repair_items.filter(
-        status__in=['FINISHED', 'COMPLETED'],
-        closed_at__range=[start_of_period, end_of_period]
-    ).aggregate(
-        total=Sum('price')
-    )['total'] or 0
-    
-    actual_sales = closed_projects_value + closed_repairs_value
  
-    # 3. Cancelled Jobs in period
+    # Cancelled PMS Projects in period
     cancelled_count = all_projects.filter(
         status=Project.Status.CANCELLED,
         closed_at__range=[start_of_period, end_of_period]
-    ).count() + all_repair_items.filter(
-        status='CANCELLED',
-        closed_at__range=[start_of_period, end_of_period]
     ).count()
     
-    p_cancelled_val = all_projects.filter(
+    cancelled_value = all_projects.filter(
         status=Project.Status.CANCELLED,
         closed_at__range=[start_of_period, end_of_period]
     ).aggregate(total=Sum(F('items__quantity') * F('items__unit_price')))['total'] or 0
-    
-    r_cancelled_val = all_repair_items.filter(
-        status='CANCELLED',
-        closed_at__range=[start_of_period, end_of_period]
-    ).aggregate(total=Sum('price'))['total'] or 0
-    
-    cancelled_value = p_cancelled_val + r_cancelled_val
 
     # 2. Sales by Month (Full Year: Jan to Dec of selected year)
     start_of_year = timezone.make_aware(datetime(year_filter, 1, 1))
@@ -919,21 +875,7 @@ def dashboard(request):
         completion_total_series[m_index] += entry['count']
         completion_total_value[m_index] += float(entry['value'] or 0)
 
-    # Query for 'TOTAL' (Created): Repairs App
-    from repairs.models import RepairItem
-    total_repairs_qs = RepairItem.objects.filter(created_at__range=[start_of_year, end_of_year])\
-        .annotate(month=TruncMonth('created_at'))\
-        .values('month')\
-        .annotate(
-            count=Count('id'),
-            value=Sum('price')
-        )
-    for entry in total_repairs_qs:
-        m_index = entry['month'].month - 1
-        # count is excluded from charts per previous setup, but value is included
-        completion_total_value[m_index] += float(entry['value'] or 0)
-
-    # Query for 'CLOSED' (Finished): PMS Projects (Using closed_at)
+    # Query for 'CLOSED' (Finished): PMS Projects only (Using closed_at)
     closed_projects_qs = Project.objects.filter(
         status=Project.Status.CLOSED,
         closed_at__range=[start_of_year, end_of_year]
@@ -946,20 +888,6 @@ def dashboard(request):
     for entry in closed_projects_qs:
         m_index = entry['month'].month - 1
         completion_closed_series[m_index] += entry['count']
-        completion_closed_value[m_index] += float(entry['value'] or 0)
-
-    # Query for 'CLOSED' (Finished): Repairs App (Using closed_at)
-    closed_repairs_qs = RepairItem.objects.filter(
-        status__in=['FINISHED', 'COMPLETED'],
-        closed_at__range=[start_of_year, end_of_year]
-    ).annotate(month=TruncMonth('closed_at'))\
-     .values('month')\
-     .annotate(
-         count=Count('id'),
-         value=Sum('price')
-     )
-    for entry in closed_repairs_qs:
-        m_index = entry['month'].month - 1
         completion_closed_value[m_index] += float(entry['value'] or 0)
 
     for entry in monthly_sales_qs:
@@ -1852,11 +1780,8 @@ def ai_dashboard_analysis(request):
     ).filter(total_sales__gt=0).order_by('-total_sales')
     owner_summary = ", ".join([f"{o.name}: ฿{o.total_sales:,.2f}" for o in owner_stats])
 
-    # Calculate actual sales (closed jobs) for AI context
-    closed_projects_value = Project.objects.filter(status=Project.Status.CLOSED, closed_at__range=[start_of_period, end_of_period]).aggregate(total=Sum(F('items__quantity') * F('items__unit_price')))['total'] or 0
-    from repairs.models import RepairItem
-    closed_repairs_value = RepairItem.objects.filter(status__in=['FINISHED', 'COMPLETED'], closed_at__range=[start_of_period, end_of_period]).aggregate(total=Sum('price'))['total'] or 0
-    actual_sales = closed_projects_value + closed_repairs_value
+    # Calculate actual sales (closed jobs) for AI context - PMS Projects only
+    actual_sales = Project.objects.filter(status=Project.Status.CLOSED, closed_at__range=[start_of_period, end_of_period]).aggregate(total=Sum(F('items__quantity') * F('items__unit_price')))['total'] or 0
 
     # Cancelled Stats for AI
     cancelled_projects = Project.objects.filter(status=Project.Status.CANCELLED, closed_at__range=[start_of_period, end_of_period])
