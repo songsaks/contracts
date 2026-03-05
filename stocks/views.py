@@ -867,7 +867,8 @@ def momentum_scanner(request):
         'rvol': '-rvol',
         'eps': '-eps_growth',
         'rev': '-rev_growth',
-        'gap': 'upside_to_high'  # Lower gap is better/tighter
+        'gap': 'upside_to_high',
+        'round_rr': '-risk_reward_ratio'
     }
     order_field = valid_sorts.get(sort_by, '-technical_score')
     
