@@ -184,18 +184,14 @@ def repair_list(request):
 
     # Filter by Creator (Receiver)
     created_by_param = request.GET.get('created_by')
-    selected_created_by = None
+    selected_created_by = ""
     
-    if created_by_param is None:
-        # Default: Show only logged-in user's jobs
-        selected_created_by = request.user.id
-        items = items.filter(created_by__id=selected_created_by)
-    elif created_by_param != "":
+    if created_by_param:
         # Specific user selected
         selected_created_by = created_by_param
         items = items.filter(created_by__id=selected_created_by)
     else:
-        # "Everyone" selected (created_by="")
+        # Default or "Everyone" selected (created_by="" or None)
         selected_created_by = ""
 
     # Sort
