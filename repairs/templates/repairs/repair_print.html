@@ -4,291 +4,346 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ใบรับงานซ่อม - {{ job.job_code }}</title>
-    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
-            --primary-color: #000;
-            --text-color: #333;
-            --border-color: #000;
+            --primary-color: #1e293b;
+            --secondary-color: #64748b;
+            --border-color: #cbd5e1;
+            --bg-light: #f8fafc;
         }
 
         @page {
-            size: A5 landscape; /* Can be changed to portrait if desired */
-            margin: 10mm;
+            size: A4 portrait;
+            margin: 15mm;
         }
 
         body {
             font-family: 'Sarabun', sans-serif;
             margin: 0;
             padding: 0;
-            color: var(--text-color);
-            line-height: 1.4;
-            font-size: 13px;
+            color: var(--primary-color);
+            line-height: 1.6;
+            font-size: 14px;
+            background-color: #fff;
         }
 
         .receipt-container {
-            max-width: 900px;
+            max-width: 800px;
             margin: 0 auto;
-            padding: 10px;
+            padding: 20px;
         }
 
-        .header {
+        /* Print Controls */
+        .no-print {
+            padding: 20px;
             text-align: center;
-            margin-bottom: 20px;
-            padding-bottom: 10px;
-            border-bottom: 2px solid var(--border-color);
-        }
-
-        .header h1 {
-            margin: 0;
-            font-size: 22px;
-            font-weight: 700;
-            letter-spacing: 2px;
-        }
-
-        .job-meta {
-            margin-top: 5px;
-            font-size: 14px;
-        }
-
-        .branches {
+            background: #f1f5f9;
+            border-bottom: 1px solid var(--border-color);
             display: flex;
             justify-content: center;
-            flex-wrap: wrap;
             gap: 15px;
-            margin-top: 10px;
-            font-size: 11px;
-            font-weight: bold;
         }
 
-        .main-info {
+        .btn {
+            padding: 10px 24px;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            border: none;
+            transition: all 0.2s;
+            font-family: 'Sarabun', sans-serif;
+        }
+
+        .btn-print { background: #0f172a; color: white; }
+        .btn-back { background: #e2e8f0; color: #475569; }
+
+        /* Header Layout */
+        .header {
             display: flex;
-            margin-bottom: 20px;
-            gap: 20px;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 3px solid #000;
         }
 
-        .customer-info {
+        .company-info {
             flex: 1;
         }
 
-        .qr-section {
-            width: 120px;
+        .company-name {
+            font-size: 28px;
+            font-weight: 700;
+            margin: 0;
+            color: #000;
+            letter-spacing: -0.5px;
+        }
+
+        .document-title {
+            font-size: 22px;
+            font-weight: 600;
+            color: var(--secondary-color);
+            margin: 5px 0 10px 0;
+        }
+
+        .branches {
+            font-size: 12px;
+            color: var(--secondary-color);
+            margin-top: 10px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 5px;
+        }
+
+        .job-id-header {
+            text-align: right;
+        }
+
+        .job-code {
+            font-size: 24px;
+            font-weight: 700;
+            color: #d946ef; /* Magenta for contrast */
+            margin-bottom: 5px;
+        }
+
+        /* Information Grid */
+        .info-section {
+            display: grid;
+            grid-template-columns: 1fr 140px;
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+
+        .sub-section-title {
+            font-size: 14px;
+            font-weight: 700;
+            color: #fff;
+            background: #000;
+            padding: 4px 12px;
+            display: inline-block;
+            margin-bottom: 12px;
+        }
+
+        .customer-card {
+            border: 1px solid var(--border-color);
+            padding: 15px;
+            border-radius: 4px;
+        }
+
+        .info-row {
+            display: grid;
+            grid-template-columns: 100px 1fr;
+            margin-bottom: 6px;
+        }
+
+        .label {
+            font-weight: 600;
+            color: var(--secondary-color);
+        }
+
+        .qr-box {
             text-align: center;
+            border: 1px solid var(--border-color);
+            padding: 10px;
+            border-radius: 4px;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
         }
 
-        .qr-section img {
-            width: 90px;
-            height: 90px;
-            border: 1px solid #eee;
+        .qr-box img {
+            width: 100px;
+            height: 100px;
+            margin-bottom: 5px;
         }
 
-        .qr-label {
-            font-size: 10px;
-            margin-top: 4px;
-            font-weight: bold;
-        }
-
-        .info-grid {
-            display: grid;
-            grid-template-columns: 100px 1fr;
-            gap: 4px;
-        }
-
-        .info-label {
-            font-weight: bold;
-        }
-
-        section-title {
-            display: block;
-            font-weight: bold;
-            border-bottom: 1px solid #ccc;
-            margin-bottom: 10px;
-            padding-bottom: 3px;
-            text-transform: uppercase;
-            font-size: 14px;
+        /* Table Design */
+        .items-block {
+            margin-bottom: 30px;
         }
 
         table {
             width: 100%;
             border-collapse: collapse;
-            margin: 10px 0;
-        }
-
-        th, td {
-            border: 1px solid var(--border-color);
-            padding: 8px;
-            text-align: left;
-            font-size: 12px;
+            border: 1px solid #000;
         }
 
         th {
-            background-color: #f5f5f5;
+            background-color: #f1f5f9;
+            color: #000;
+            font-weight: 700;
+            padding: 12px;
+            border: 1px solid #000;
+            text-align: left;
         }
 
-        .terms {
-            font-size: 11px;
-            margin-top: 15px;
+        td {
+            padding: 12px;
+            border: 1px solid #000;
+            vertical-align: top;
         }
 
-        .terms-item {
-            margin-bottom: 4px;
-            display: flex;
-            gap: 10px;
+        /* Terms and Signature */
+        .terms-box {
+            background-color: var(--bg-light);
+            padding: 15px;
+            border-radius: 4px;
+            font-size: 12px;
+            border-left: 4px solid var(--secondary-color);
         }
 
-        .footer {
-            margin-top: 30px;
-            display: flex;
-            justify-content: space-around;
+        .terms-title { font-weight: 700; margin-bottom: 10px; text-decoration: underline; }
+        
+        .footer-sig {
+            margin-top: 50px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 100px;
         }
 
-        .sig-box {
+        .signature {
             text-align: center;
-            width: 200px;
         }
 
         .sig-line {
-            border-bottom: 1px solid var(--border-color);
-            margin-bottom: 5px;
+            border-bottom: 1.5px solid #000;
+            margin-bottom: 10px;
             height: 40px;
         }
 
         @media print {
             .no-print { display: none !important; }
-            body { padding: 0; }
-            .receipt-container { margin: 0; padding: 0; width: 100%; }
-        }
-
-        .btn-print {
-            background: #000;
-            color: #fff;
-            border: none;
-            padding: 8px 16px;
-            border-radius: 4px;
-            cursor: pointer;
-            font-weight: bold;
-            margin-right: 10px;
-        }
-
-        .btn-back {
-            background: #666;
-            color: #fff;
-            border: none;
-            padding: 8px 16px;
-            border-radius: 4px;
-            cursor: pointer;
+            body { background: white; }
+            .receipt-container { width: 100%; max-width: none; padding: 0; margin: 0; }
         }
     </style>
 </head>
 <body>
 
-    <div class="no-print" style="padding: 20px; text-align: center; background: #f8f9fa; border-bottom: 1px solid #ddd;">
-        <button class="btn-print" onclick="window.print()">พิมพ์ใบงาน (Print)</button>
-        <button class="btn-back" onclick="window.history.back()">กลับ (Back)</button>
+    <div class="no-print">
+        <button class="btn btn-print" onclick="window.print()">
+            <i class="fas fa-print"></i> พิมพ์ใบงานซ่อม
+        </button>
+        <button class="btn btn-back" onclick="window.history.back()">กลับ</button>
     </div>
 
     <div class="receipt-container">
+        <!-- Header -->
         <div class="header">
-            <div style="font-size: 24px; font-weight: bold; margin-bottom: 5px;">บริษัท นายน์คอม จำกัด</div>
-            <h1>ใบรับงานซ่อม</h1>
-            <div class="job-meta">
-                รหัสใบงาน: <strong>#{{ job.job_code }}</strong> &nbsp;|&nbsp; 
-                วันที่: <strong>{{ job.created_at|date:"d/m/Y H:i" }}</strong>
-            </div>
-            <div class="branches">
-                <span>📍 สำนักงานใหญ่: 074-750888 ต่อ 11</span>
-                <span>📍 โลตัสสตูล: 074-751100</span>
-                <span>📍 เมืองสตูล: 074-741959</span>
-                <span>📍 มะนัง: 074-752889</span>
-            </div>
-        </div>
-
-        <div class="main-info">
-            <div class="customer-info">
-                <span class="section-title">ข้อมูลลูกค้า (Customer Information)</span>
-                <div class="info-grid">
-                    <div class="info-label">ชื่อลูกค้า:</div>
-                    <div>{{ job.customer.name }}</div>
-                    
-                    <div class="info-label">รหัสลูกค้า:</div>
-                    <div>{{ job.customer.customer_code }}</div>
-                    
-                    <div class="info-label">เบอร์โทรศัพท์:</div>
-                    <div>{{ job.customer.contact_number }}</div>
-
-                    <div class="info-label">พนักงานผู้รับงาน:</div>
-                    <div>{{ job.created_by.get_full_name|default:job.created_by.username }}</div>
+            <div class="company-info">
+                <h1 class="company-name">บริษัท นายน์คอม จำกัด</h1>
+                <div class="document-title">ใบรับงานซ่อม (JOB IN)</div>
+                <div class="branches">
+                    <span>📍 สำนักงานใหญ่: 074-750888</span>
+                    <span>📍 โลตัสสตูล: 074-751100</span>
+                    <span>📍 เมืองสตูล: 074-741959</span>
+                    <span>📍 มะนัง: 074-752889</span>
                 </div>
             </div>
-            <div class="qr-section">
-                <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data={{ request.scheme }}://{{ request.get_host }}{% url 'repairs:repair_tracking' job.tracking_id %}" alt="QR Tracking">
-                <div class="qr-label">สแกนติดตามสถานะ</div>
+            <div class="job-id-header">
+                <div class="job-code">#{{ job.job_code }}</div>
+                <div style="font-size: 14px;">วันที่: {{ job.created_at|date:"d/m/Y H:i" }}</div>
+                {% if job.repair_type %}
+                <div style="font-weight: bold; margin-top: 5px;">ประเภท: {{ job.repair_type.name }}</div>
+                {% endif %}
             </div>
         </div>
 
-        <div class="repair-details">
-            <span class="section-title">รายละเอียดการซ่อม (Repair Details)</span>
+        <!-- Info Grid -->
+        <div class="info-section">
+            <div>
+                <div class="sub-section-title">ข้อมูลลูกค้า / Customer Info</div>
+                <div class="customer-card">
+                    <div class="info-row">
+                        <span class="label">ชื่อลูกค้า:</span>
+                        <span class="value" style="font-size: 16px; font-weight: bold;">{{ job.customer.name }}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="label">รหัสลูกค้า:</span>
+                        <span class="value">{{ job.customer.customer_code }}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="label">เบอร์โทรศัพท์:</span>
+                        <span class="value">{{ job.customer.contact_number }}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="label">พนักงานผู้รับ:</span>
+                        <span class="value">{{ job.created_by.get_full_name|default:job.created_by.username }}</span>
+                    </div>
+                </div>
+            </div>
+            <div class="qr-box">
+                <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data={{ request.scheme }}://{{ request.get_host }}{% url 'repairs:repair_tracking' job.tracking_id %}" alt="QR Tracking">
+                <div style="font-size: 10px; font-weight: bold;">สแกนเช็คสถานะงานซ่อม</div>
+            </div>
+        </div>
+
+        <!-- Items Table -->
+        <div class="items-block">
+            <div class="sub-section-title">รายละเอียดงานซ่อม / Repair Items</div>
             <table>
                 <thead>
                     <tr>
-                        <th style="width: 30%;">อุปกรณ์</th>
-                        <th style="width: 35%;">อาการเสีย / งานที่ต้องการ</th>
-                        <th style="width: 20%;">อุปกรณ์ที่นำมาด้วย</th>
-                        <th style="width: 15%; text-align: right;">ราคาประเมิน</th>
+                        <th style="width: 35%;">อุปกรณ์ (Brand/Model/Serial)</th>
+                        <th style="width: 40%;">อาการเสียที่แจ้ง / ปัญหาที่พบ</th>
+                        <th style="width: 25%; text-align: right;">ราคาประเมิน</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for item in job.items.all %}
                     <tr>
                         <td>
-                            <strong>{{ item.device.brand }} {{ item.device.model }}</strong><br>
-                            <small>S/N: {{ item.device.serial_number|default:"-" }}</small>
+                            <div style="font-weight: bold; font-size: 15px;">{{ item.device.brand }} {{ item.device.model }}</div>
+                            <div style="font-size: 12px; color: var(--secondary-color);">S/N: {{ item.device.serial_number|default:"-" }}</div>
+                            <div style="margin-top: 5px; font-size: 12px;">
+                                <strong>อุปกรณ์ที่มาด้วย:</strong> {{ item.accessories|default:"ไม่มี" }}
+                            </div>
                         </td>
-                        <td>{{ item.issue_description|linebreaksbr }}</td>
-                        <td>{{ item.accessories|default:"-" }}</td>
-                        <td style="text-align: right;">฿{{ item.price|default:"0.00" }}</td>
+                        <td>
+                            <div style="white-space: pre-line;">{{ item.issue_description }}</div>
+                        </td>
+                        <td style="text-align: right; font-weight: bold; font-size: 16px;">
+                            ฿{{ item.price|default:"0.00" }}
+                        </td>
                     </tr>
                     {% endfor %}
                 </tbody>
             </table>
         </div>
 
-        <div class="terms">
-            <span class="section-title" style="font-size: 12px;">คำแนะนำและเงื่อนไข (Terms & Conditions)</span>
-            <div class="terms-item">
-                <span>1.</span>
-                <span>ตรวจเช็ครายละเอียดตัวสินค้าและอุปกรณ์ทุกชิ้นที่ติดมารับเครื่องก่อนส่งและรับสินค้าคืน</span>
+        <!-- Terms -->
+        <div class="terms-box">
+            <div class="terms-title">เงื่อนไขและการรับประกัน (Terms & Conditions)</div>
+            <div style="display: grid; grid-template-columns: auto 1fr; gap: 8px;">
+                <span>1.</span><span>ตรวจเช็ครายละเอียดตัวสินค้าและอุปกรณ์ทุกชิ้นที่ติดมารับเครื่องก่อนส่งและรับสินค้าคืน</span>
+                <span>2.</span><span>กรณีมารับเครื่อง โทรเช็คกับพนักงานอีกครั้งก่อนมารับสินค้า เพื่อความสะดวกรวดเร็ว</span>
+                <span>3.</span><span><b>นำใบรับงานซ่อมมาแสดงในวันที่รับสินค้าทุกครั้ง</b> กรณีเอกสารหายให้นำบัตรประชาชนมาแสดง</span>
+                <span>4.</span><span>รับประกันอาการเดิม 1 เดือน หากไม่มารับคืนภายใน 30 วัน บริษัทฯ ไม่รับผิดชอบต่อความสูญหาย</span>
             </div>
-            <div class="terms-item">
-                <span>2.</span>
-                <span>กรณีมารับเครื่อง โทรเช็คกับพนักงานอีกครั้งก่อนมารับสินค้า เพื่อความสะดวกรวดเร็ว</span>
-            </div>
-            <div class="terms-item">
-                <span>3.</span>
-                <span>นำใบรับงานซ่อมมาแสดงในวันที่รับสินค้าทุกครั้ง กรณีเอกสารหายให้นำบัตรประชาชนมาแสดง มิฉะนั้นบริษัทฯ ขอสงวนสิทธิ์ในการจ่ายสินค้าคืน</span>
-            </div>
-            <div class="terms-item">
-                <span>4.</span>
-                <span>รับประกันอาการเดิม 1 เดือน (ไม่รวมซอฟต์แวร์และไวรัส) หากไม่มารับคืนภายใน 7 วันหลังแจ้งซ่อมเสร็จ บริษัทฯ ไม่รับผิดชอบต่อความเสียหายหรือสูญหาย</span>
-            </div>
-            <div style="text-align: center; margin-top: 15px; font-weight: bold;">
-                " ข้าพเจ้ารับทราบเงื่อนไขนี้และยินยอมตามเงื่อนไขดังกล่าวทุกประการ "
+            <div style="text-align: center; margin-top: 15px; font-weight: bold; border-top: 1px dashed var(--border-color); padding-top: 10px;">
+                " ข้าพเจ้ารับทราบและยินยอมตามเงื่อนไขดังกล่าวทุกประการ "
             </div>
         </div>
 
-        <div class="footer">
-            <div class="sig-box">
+        <!-- Footer Signature -->
+        <div class="footer-sig">
+            <div class="signature">
                 <div class="sig-line"></div>
-                <div>ลายเซ็นลูกค้า</div>
+                <div style="font-weight: bold;">( ............................................................ )</div>
+                <div style="margin-top: 5px;">ลายเซ็นลูกค้า</div>
             </div>
-            <div class="sig-box">
+            <div class="signature">
                 <div class="sig-line"></div>
-                <div>ลายเซ็นพนักงานผู้รับงาน</div>
+                <div style="font-weight: bold;">( ............................................................ )</div>
+                <div style="margin-top: 5px;">พนักงานผู้รับงานซ่อม</div>
             </div>
+        </div>
+
+        <!-- Bottom Note -->
+        <div style="margin-top: 40px; text-align: center; border-top: 1px solid var(--border-color); padding-top: 10px; font-size: 10px; color: var(--secondary-color);">
+            เอกสารฉบับนี้พิมพ์จากระบบจัดการงานซ่อม บริษัท นายน์คอม จำกัด เมื่อวันที่ {{ now|date:"d/m/Y H:i" }}
         </div>
     </div>
 

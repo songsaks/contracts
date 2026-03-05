@@ -762,7 +762,10 @@ def repair_type_delete(request, pk):
 @login_required
 def repair_print(request, pk):
     job = get_object_or_404(RepairJob, pk=pk)
-    return render(request, 'repairs/repair_print.html', {'job': job})
+    return render(request, 'repairs/repair_print.html', {
+        'job': job,
+        'now': timezone.now()
+    })
 
 # --- Brand Views ---
 
