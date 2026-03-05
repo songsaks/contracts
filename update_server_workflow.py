@@ -4,7 +4,7 @@ import sys
 
 # Setup Django environment
 sys.path.append(os.getcwd())
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'contracts.settings') # ปรับตามชื่อโปรเจคจริงถ้าไม่ใช่ contracts
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings')
 django.setup()
 
 from pms.models import JobStatus, Project
