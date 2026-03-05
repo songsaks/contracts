@@ -59,7 +59,7 @@ def dashboard(request):
     status_summary = period_items.values('status').annotate(count=Count('id'))
     ordered_statuses = [
         ('RECEIVED', '#ef4444'),
-        ('FIXING', '#f97316'),
+        ('FIXING', '#ff9100'),
         ('WAITING_APPROVAL', '#a855f7'),
         ('WAITING', '#eab308'),
         ('OUTSOURCE', '#6366f1'),

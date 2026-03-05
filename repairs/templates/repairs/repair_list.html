@@ -161,7 +161,7 @@
                                         {% if item.status == 'RECEIVED' %}
                                             <span class="status-badge-pill bg-danger text-white">รับแจ้ง</span>
                                         {% elif item.status == 'FIXING' %}
-                                            <span class="status-badge-pill bg-orange-500 text-white">กำลังซ่อม/ตรวจเช็ค</span>
+                                            <span class="status-badge-pill text-white" style="background-color: #ff9100;">กำลังซ่อม/ตรวจเช็ค</span>
                                         {% elif item.status == 'WAITING_APPROVAL' %}
                                             <span class="status-badge-pill bg-purple-500 text-white">รออนุมัติ</span>
                                         {% elif item.status == 'WAITING' %}
