@@ -49,4 +49,9 @@ urlpatterns = [
     path('brands/create/', views.brand_create, name='brand_create'),
     path('brands/<int:pk>/update/', views.brand_update, name='brand_update'),
     path('brands/<int:pk>/delete/', views.brand_delete, name='brand_delete'),
+
+    # Technician Quick Update (Session Based)
+    path('tech/login/', views.technician_status_login, name='tech_login'),
+    path('tech/logout/', views.technician_status_logout, name='tech_logout'),
+    path('api/tech/update-status/', views.technician_update_status_api, name='tech_update_status_api'),
 ]

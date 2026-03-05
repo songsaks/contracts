@@ -637,7 +637,13 @@ def _build_daily_income_json(items_list, start_date, end_date):
 
 def repair_tracking(request, tracking_id):
     job = get_object_or_404(RepairJob, tracking_id=tracking_id)
-    return render(request, 'repairs/repair_tracking.html', {'job': job})
+    tech_session = request.session.get('tech_auth')
+    status_choices = RepairItem.STATUS_CHOICES
+    return render(request, 'repairs/repair_tracking.html', {
+        'job': job, 
+        'tech_session': tech_session,
+        'status_choices': status_choices
+    })
 
 
 
@@ -777,3 +783,68 @@ def repair_notifications_mark_seen(request):
         request.session['notif_last_seen'] = timezone.now().isoformat()
         return JsonResponse({'ok': True})
     return JsonResponse({'error': 'POST required'}, status=405)
+# --- Technician Quick Status Update (Via QR Code Tracking Page) ---
+
+def technician_status_login(request):
+    """View to 'log in' a technician for quick status updates via session."""
+    if request.method == 'POST':
+        username = request.POST.get('username', '').strip()
+        password = request.POST.get('password', '').strip()
+        
+        from django.contrib.auth import authenticate, login
+        
+        user = authenticate(request, username=username, password=password)
+        
+        if user is not None:
+            if user.is_active:
+                login(request, user) # Standard Django Login
+                # We can also set a specific session flag if we want to know they logged in via track page
+                request.session['tech_quick_auth'] = True
+                return JsonResponse({'status': 'success', 'name': user.get_full_name() or user.username})
+            else:
+                return JsonResponse({'status': 'error', 'message': 'Account is disabled'}, status=401)
+        else:
+            return JsonResponse({'status': 'error', 'message': 'Username หรือ Password ไม่ถูกต้อง'}, status=401)
+            
+    return JsonResponse({'status': 'error', 'message': 'POST required'}, status=400)
+
+def technician_status_logout(request):
+    """Clear the technician session."""
+    from django.contrib.auth import logout
+    logout(request)
+    
+    # Redirect back to where they were if tracking ID is present
+    tracking_id = request.GET.get('tracking_id')
+    if tracking_id:
+        return redirect('repairs:repair_tracking', tracking_id=tracking_id)
+    return redirect('repairs:repair_status_search')
+
+def technician_update_status_api(request):
+    """AJAX endpoint for technicians to update status from tracking page."""
+    if request.method != 'POST':
+        return JsonResponse({'status': 'error', 'message': 'POST required'}, status=400)
+    
+    # Standard Django user authentication check
+    if not request.user.is_authenticated:
+        return JsonResponse({'status': 'error', 'message': 'Session expired. Please login again.'}, status=401)
+    
+    item_id = request.POST.get('item_id')
+    new_status = request.POST.get('status')
+    note = request.POST.get('note', '')
+    
+    item = get_object_or_404(RepairItem, pk=item_id)
+    
+    with transaction.atomic():
+        item.status = new_status
+        item.status_note = note
+        item.save()
+        
+        # Record history - NOW correctly links to request.user
+        RepairStatusHistory.objects.create(
+            repair_item=item,
+            status=new_status,
+            changed_by=request.user,
+            note=f"[Quick Update] {note}"
+        )
+        
+    return JsonResponse({'status': 'success', 'new_status_display': item.get_status_display()})
