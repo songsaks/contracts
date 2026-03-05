@@ -1,0 +1,89 @@
+{% extends 'pms/base_pms.html' %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1 class="page-heading mb-0">
+                <i class="fas fa-route me-2 text-primary" style="font-size: 0.85em;"></i>
+                ลำดับขั้นตอนงาน (Dynamic Workflow)
+            </h1>
+            <div class="d-flex gap-2">
+                <a href="{% url 'pms:seed_pms_statuses' %}" class="btn btn-outline-secondary d-md-inline-flex align-items-center gap-2" onclick="return confirm('ยืนยันสร้างขั้นตอนมาตรฐาน (เฉพาะที่หายไป)?')">
+                    <i class="fas fa-magic"></i>
+                    <span>ใช้ค่ามาตรฐาน</span>
+                </a>
+                <a href="{% url 'pms:job_status_create' %}" class="btn btn-primary d-md-inline-flex align-items-center gap-2">
+                    <i class="fas fa-plus"></i>
+                    <span>เพิ่มขั้นตอน</span>
+                </a>
+            </div>
+        </div>
+
+        <div class="alert alert-info border-0 shadow-sm mb-4">
+            <i class="fas fa-info-circle me-2"></i>
+            <strong>คำแนะนำ:</strong> ขั้นตอนงาน (Status) จะถูกนำไปใช้ในหน้าสรุปความคืบหน้า (Stepper) ตาม <strong>ประเภทงาน</strong> และเรียงลำดับตาม <strong>Sort Order</strong>
+        </div>
+
+        {% regroup statuses by get_job_type_display as job_type_list %}
+
+        {% for jt in job_type_list %}
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                <h5 class="mb-0 fw-bold"><i class="fas fa-briefcase me-2 text-muted"></i>{{ jt.grouper }}</h5>
+                <span class="badge bg-secondary">{{ jt.list|length }} ขั้นตอน</span>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="bg-light">
+                            <tr>
+                                <th style="width: 80px;" class="text-center">ลำดับ</th>
+                                <th>รหัส (Key)</th>
+                                <th>ชื่อสถานะ (Label)</th>
+                                <th class="text-center">สถานะใช้งาน</th>
+                                <th class="text-end" style="width: 120px;">จัดการ</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for status in jt.list %}
+                            <tr>
+                                <td class="text-center fw-bold">{{ status.sort_order }}</td>
+                                <td><code>{{ status.status_key }}</code></td>
+                                <td class="fw-bold">{{ status.label }}</td>
+                                <td class="text-center">
+                                    {% if status.is_active %}
+                                    <span class="badge bg-success rounded-pill">Active</span>
+                                    {% else %}
+                                    <span class="badge bg-secondary rounded-pill">Inactive</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-end">
+                                    <a href="{% url 'pms:job_status_update' status.pk %}" class="btn btn-sm btn-outline-warning border-0" title="แก้ไข">
+                                        <i class="fas fa-edit"></i>
+                                    </a>
+                                    <a href="{% url 'pms:job_status_delete' status.pk %}" class="btn btn-sm btn-outline-danger border-0" title="ลบ">
+                                        <i class="fas fa-trash"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="card shadow-sm">
+            <div class="card-body text-center py-5">
+                <i class="fas fa-route fa-3x text-muted mb-3 opacity-25"></i>
+                <p class="text-muted">ยังไม่มีข้อมูลขั้นตอนงานในระบบ คุณสามารถกดปุ่ม "ใช้ค่ามาตรฐาน" เพื่อเริ่มใช้งาน</p>
+                <a href="{% url 'pms:seed_pms_statuses' %}" class="btn btn-primary mt-2">
+                    <i class="fas fa-magic me-2"></i>สร้างขั้นตอนเริ่มต้น
+                </a>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

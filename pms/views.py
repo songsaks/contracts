@@ -19,7 +19,7 @@ from .models import (
 from .forms import (
     ProjectForm, ProductItemForm, CustomerForm, SupplierForm, 
     ProjectOwnerForm, CustomerRequirementForm, SalesServiceJobForm, 
-    CustomerRequestForm, SLAPlanForm
+    CustomerRequestForm, SLAPlanForm, JobStatusForm
 )
 import io
 import pandas as pd
@@ -1918,7 +1918,7 @@ def seed_pms_statuses(request):
     # Check if we already have some
     if JobStatus.objects.exists() and not request.GET.get('force'):
         messages.info(request, "ข้อมูลขั้นตอนงานมีอยู่แล้วในระบบ")
-        return redirect('pms:project_assignment_matrix')
+        return redirect('pms:job_status_list')
 
     # Status configurations
     defaults = {
@@ -1978,4 +1978,51 @@ def seed_pms_statuses(request):
                 count += 1
     
     messages.success(request, f"สร้างขั้นตอนงานมาตรฐาน {count} รายการเรียบร้อยแล้ว")
-    return redirect('pms:project_assignment_matrix')
+    return redirect('pms:job_status_list')
+@login_required
+def job_status_list(request):
+    """List and manage dynamic statuses."""
+    statuses = JobStatus.objects.all().order_by('job_type', 'sort_order')
+    return render(request, 'pms/job_status_list.html', {
+        'statuses': statuses,
+        'job_types': Project.JobType.choices,
+        'title': 'จัดการขั้นตอนงาน (Workflow)'
+    })
+
+@login_required
+def job_status_create(request):
+    if request.method == 'POST':
+        form = JobStatusForm(request.POST)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'เพิ่มขั้นตอนงานสำเร็จ')
+            return redirect('pms:job_status_list')
+    else:
+        form = JobStatusForm()
+    return render(request, 'pms/job_status_form.html', {'form': form, 'title': 'เพิ่มขั้นตอนงานใหม่'})
+
+@login_required
+def job_status_update(request, pk):
+    status = get_object_or_404(JobStatus, pk=pk)
+    if request.method == 'POST':
+        form = JobStatusForm(request.POST, instance=status)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'แก้ไขขั้นตอนงานสำเร็จ')
+            return redirect('pms:job_status_list')
+    else:
+        form = JobStatusForm(instance=status)
+    return render(request, 'pms/job_status_form.html', {'form': form, 'title': 'แก้ไขขั้นตอนงาน'})
+
+@login_required
+def job_status_delete(request, pk):
+    status = get_object_or_404(JobStatus, pk=pk)
+    if request.method == 'POST':
+        status.delete()
+        messages.success(request, 'ลบขั้นตอนงานสำเร็จ')
+        return redirect('pms:job_status_list')
+    return render(request, 'pms/formatted_confirm_delete.html', {
+        'object': status,
+        'type': 'JobStatus',
+        'cancel_url': 'pms:job_status_list'
+    })

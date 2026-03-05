@@ -1,6 +1,9 @@
 from django import forms
 from decimal import Decimal
-from .models import Project, ProductItem, Customer, Supplier, ProjectOwner, CustomerRequirement, SLAPlan
+from .models import (
+    Project, ProductItem, Customer, Supplier, ProjectOwner, 
+    CustomerRequirement, SLAPlan, JobStatus, JobStatusAssignment
+)
 
 class CustomerForm(forms.ModelForm):
     class Meta:
@@ -242,4 +245,26 @@ class CustomerRequestForm(forms.ModelForm):
             'title': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'เรื่อง...'}),
             'description': forms.Textarea(attrs={'class': 'form-control', 'rows': 4, 'placeholder': 'รายละเอียดคำขอ...'}),
             'status': forms.Select(attrs={'class': 'form-select'}),
+        }
+class JobStatusForm(forms.ModelForm):
+    class Meta:
+        model = JobStatus
+        fields = ['job_type', 'status_key', 'label', 'sort_order', 'is_active']
+        widgets = {
+            'job_type': forms.Select(attrs={'class': 'form-select'}),
+            'status_key': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'เช่น SOURCING, CLOSED'}),
+            'label': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'ชื่อที่แสดงในงาน'}),
+            'sort_order': forms.NumberInput(attrs={'class': 'form-control'}),
+            'is_active': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+        }
+    
+    def clean_status_key(self):
+        return self.cleaned_data.get('status_key').upper()
+
+class JobStatusAssignmentForm(forms.ModelForm):
+    class Meta:
+        model = JobStatusAssignment
+        fields = ['responsible_user']
+        widgets = {
+            'responsible_user': forms.Select(attrs={'class': 'form-select'}),
         }

@@ -94,5 +94,11 @@ urlpatterns = [
     path('assignments/', views.project_assignment_matrix, name='project_assignment_matrix'),
     path('assignments/set/', views.set_project_assignment, name='set_project_assignment'),
     path('assignments/seed/', views.seed_pms_statuses, name='seed_pms_statuses'),
+
+    # Job Status Management (Dynamic Workflow)
+    path('job-statuses/', views.job_status_list, name='job_status_list'),
+    path('job-statuses/create/', views.job_status_create, name='job_status_create'),
+    path('job-statuses/<int:pk>/edit/', views.job_status_update, name='job_status_update'),
+    path('job-statuses/<int:pk>/delete/', views.job_status_delete, name='job_status_delete'),
 ]
 

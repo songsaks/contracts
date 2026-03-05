@@ -1,0 +1,85 @@
+{% extends 'pms/base_pms.html' %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="d-flex align-items-center gap-3 mb-4">
+            <a href="{% url 'pms:job_status_list' %}" class="btn btn-outline-secondary btn-sm rounded-circle" style="width: 32px; height: 32px; padding: 0; display: flex; align-items: center; justify-content: center;">
+                <i class="fas fa-arrow-left"></i>
+            </a>
+            <h1 class="page-heading mb-0">{{ title }}</h1>
+        </div>
+
+        <div class="card shadow-md border-0 overflow-hidden">
+            <div class="card-header bg-primary text-white py-3">
+                <h6 class="mb-0"><i class="fas fa-edit me-2"></i>รายละเอียดข้อมูลสถานะงาน</h6>
+            </div>
+            <div class="card-body p-4">
+                <form method="post" class="needs-validation">
+                    {% csrf_token %}
+                    
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label for="{{ form.job_type.id_for_label }}" class="form-label fw-bold">ประเภทงาน</label>
+                            {{ form.job_type }}
+                            {% if form.job_type.errors %}
+                                <div class="text-danger small">{{ form.job_type.errors }}</div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <label for="{{ form.sort_order.id_for_label }}" class="form-label fw-bold">ลำดับ (Sort Order)</label>
+                            {{ form.sort_order }}
+                            <div class="form-text">ตัวเลขน้อยจะแสดงก่อน เช่น 10, 20, 30</div>
+                            {% if form.sort_order.errors %}
+                                <div class="text-danger small">{{ form.sort_order.errors }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="col-md-6">
+                            <label for="{{ form.status_key.id_for_label }}" class="form-label fw-bold">รหัสสถานะ (Key)</label>
+                            {{ form.status_key }}
+                            <div class="form-text">รหัสภาษาอังกฤษสำหรับเช็คในโค้ด (เช่น SOURCING)</div>
+                            {% if form.status_key.errors %}
+                                <div class="text-danger small">{{ form.status_key.errors }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="col-md-6">
+                            <label for="{{ form.label.id_for_label }}" class="form-label fw-bold">ชื่อที่แสดง (Label)</label>
+                            {{ form.label }}
+                            <div class="form-text">ข้อความที่จะแสดงให้ User เห็น (เช่น กำลังจัดหา)</div>
+                            {% if form.label.errors %}
+                                <div class="text-danger small">{{ form.label.errors }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="col-12 mt-4">
+                            <div class="form-check form-switch p-3 border rounded bg-light">
+                                {{ form.is_active }}
+                                <label class="form-check-label ms-2 fw-bold" for="{{ form.is_active.id_for_label }}">เปิดใช้งานสถานะนี้</label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="d-flex justify-content-end gap-2 mt-4 pt-3 border-top">
+                        <a href="{% url 'pms:job_status_list' %}" class="btn btn-light px-4">ยกเลิก</a>
+                        <button type="submit" class="btn btn-primary px-5">
+                            <i class="fas fa-save me-2"></i>บันทึกข้อมูล
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        <div class="mt-4 p-3 bg-opacity-pms-project rounded-3 border-pms-project border-start border-4">
+            <h6 class="fw-bold"><i class="fas fa-lightbulb text-warning me-2"></i>เกร็ดความรู้</h6>
+            <ul class="small text-muted mb-0 ps-3">
+                <li>การเปลี่ยน <strong>ชื่อสถานะ (Label)</strong> จะมีผลทันทีใน Stepper ของงานประเภทนั้นๆ</li>
+                <li>ไม่ควรเปลี่ยน <strong>รหัสสถานะ (Key)</strong> หากมีข้อมูลเดิมอยู่ในระบบแล้ว เพราะอาจทำให้การดึงชื่อมาแสดงผิดพลาด</li>
+                <li>สถานะ <strong>CLOSED</strong> และ <strong>CANCELLED</strong> มักจะอยู่ที่ลำดับสุดท้ายสมอ</li>
+            </ul>
+        </div>
+    </div>
+</div>
+{% endblock %}
