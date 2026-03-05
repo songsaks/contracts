@@ -220,6 +220,119 @@ def analyze_with_ai(symbol, data):
     except Exception as e:
         return f"Error analyzing data with AI: {str(e)}"
 
+def find_supply_demand_zones(df):
+    """
+    Identifies Demand & Supply zones based on ERC (Extended Range Candles) 
+    and Base Consolidation.
+    """
+    if df is None or len(df) < 50:
+        return None
+
+    # Step 1: Detect strong bullish moves (ERC)
+    # Average range of last 20 candles
+    df = df.copy()
+    df['Body'] = (df['Close'] - df['Open']).abs()
+    df['Height'] = df['High'] - df['Low']
+    df['Avg_Body'] = df['Body'].rolling(window=20).mean()
+    
+    # Identify ERC-Bull (Long body, closing near high)
+    # Usually body > 1.5x average body
+    df['is_erc_bull'] = (df['Close'] > df['Open']) & (df['Body'] > df['Avg_Body'] * 1.5)
+    
+    # Find the most recent ERC Bull
+    erc_bulls = df[df['is_erc_bull']]
+    if erc_bulls.empty:
+        return None
+        
+    last_erc_idx = erc_bulls.index[-1]
+    last_erc_pos = df.index.get_loc(last_erc_idx)
+    
+    if last_erc_pos < 5:
+        return None
+        
+    # Step 2: Look for 'Base' (3-5 candles before the breakout)
+    base_window = df.iloc[last_erc_pos-5:last_erc_pos]
+    
+    # Demand Zone is often the low-to-body/high of the base
+    # For simplicity: Top = max(Close/Open) of base, Bottom = min(Low) of base
+    zone_upper = base_window[['Open', 'Close']].max().max()
+    zone_lower = base_window['Low'].min()
+    
+    # Refined Zone: The last bearish candle before the move
+    last_bear = base_window[base_window['Close'] < base_window['Open']]
+    if not last_bear.empty:
+        refined_upper = last_bear['High'].iloc[-1]
+        refined_lower = last_bear['Low'].iloc[-1]
+        # Ensure it's within logical bounds
+        if refined_lower < zone_lower: refined_lower = zone_lower
+    else:
+        refined_upper = zone_upper
+        refined_lower = zone_lower
+
+    # Step 3: Target (Supply Zone) - Enhanced Logic
+    # First, look for recent 60-day high
+    target_price = df['High'].tail(60).max()
+    
+    # Risk/Reward Calculation
+    entry_price = refined_upper # Entry at top of zone
+    stop_loss = refined_lower * 0.99 # SL just below zone
+    risk = entry_price - stop_loss
+    reward = target_price - entry_price
+    
+    # If RR is poor (< 1.5) and current price is near target, look further back (120 days)
+    # This identifies "Major Supply" instead of just "Minor Resistance"
+    if (reward / risk if risk > 0 else 0) < 1.5:
+        extended_target = df['High'].tail(120).max()
+        if extended_target > target_price:
+            target_price = extended_target
+            reward = target_price - entry_price
+
+    rr_ratio = reward / risk if risk > 0 else 0
+    
+    # Step 4: Confidence Score Calculation (0-100)
+    score = 40 # Base score for finding a zone
+    
+    # Calculate indicators if missing for calculation
+    import pandas_ta as ta
+    if 'EMA200' not in df.columns: df['EMA200'] = ta.ema(df['Close'], length=200)
+    if 'EMA50' not in df.columns: df['EMA50'] = ta.ema(df['Close'], length=50)
+    if 'RSI' not in df.columns: df['RSI'] = ta.rsi(df['Close'], length=14)
+    
+    # Trend Bonus
+    last_close = df['Close'].iloc[-1]
+    last_ema200 = df['EMA200'].iloc[-1] if not df['EMA200'].empty else last_close
+    last_ema50 = df['EMA50'].iloc[-1] if not df['EMA50'].empty else last_close
+    
+    if last_close > last_ema200: score += 15
+    if last_ema50 > last_ema200: score += 10
+    
+    # Volume Bonus (on the ERC candle)
+    erc_vol = df.loc[last_erc_idx, 'Volume']
+    avg_vol = df['Volume'].tail(20).mean()
+    if erc_vol > avg_vol * 2.0: score += 15
+    elif erc_vol > avg_vol * 1.5: score += 10
+    
+    # RR Bonus
+    if rr_ratio >= 3: score += 15
+    elif rr_ratio >= 2: score += 10
+    
+    # RSI Condition (overbought is risky)
+    rsi_now = df['RSI'].iloc[-1] if not df['RSI'].empty and pd.notna(df['RSI'].iloc[-1]) else 50
+    if 40 <= rsi_now <= 70: score += 5
+    
+    final_score = min(score, 100)
+
+    return {
+        'type': 'Sniper (DZ)',
+        'start': float(round(refined_upper, 2)),
+        'end': float(round(refined_lower, 2)),
+        'stop_loss': float(round(stop_loss, 2)),
+        'target': float(round(target_price, 2)),
+        'rr_ratio': float(round(rr_ratio, 2)),
+        'confidence_score': int(final_score),
+        'is_retesting': bool(df['Close'].iloc[-1] <= refined_upper * 1.05 and df['Close'].iloc[-1] >= refined_lower * 0.95)
+    }
+
 def refresh_set100_symbols():
     """
     Refreshes the ScannableSymbol database with current SET100 and MAI stocks.

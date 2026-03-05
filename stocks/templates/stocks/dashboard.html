@@ -39,13 +39,24 @@
                     </div>
                     
                     {% if item.rsi %}
-                    <div class="mb-3">
-                        <span class="badge {% if item.rsi_status == 'Oversold' %}bg-danger{% elif item.rsi_status == 'Overbought' %}bg-warning{% else %}bg-secondary{% endif %} bg-opacity-10 {% if item.rsi_status == 'Oversold' %}text-danger{% elif item.rsi_status == 'Overbought' %}text-warning text-dark{% else %}text-secondary{% endif %} rounded-pill w-100 text-center" style="font-size: 0.65rem; padding: 4px;">
+                    <div class="mb-2">
+                        <span class="badge {% if item.rsi_status == 'Oversold' %}bg-danger{% elif item.rsi_status == 'Overbought' %}bg-warning{% else %}bg-secondary{% endif %} bg-opacity-10 {% if item.rsi_status == 'Oversold' %}text-danger{% elif item.rsi_status == 'Overbought' %}text-warning{% else %}text-secondary{% endif %} rounded-pill w-100 text-center" style="font-size: 0.65rem; padding: 4px;">
                             RSI: {{ item.rsi|floatformat:1 }} ({{ item.rsi_status }})
                         </span>
                     </div>
+                    {% endif %}
+
+                    {% if item.mom_data and item.mom_data.demand_zone_start %}
+                    <div class="mb-3">
+                        <a href="{% url 'stocks:entry_finder' item.obj.symbol %}" class="text-decoration-none">
+                            <div class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-10 rounded-3 w-100 p-2 d-flex justify-content-between align-items-center" style="font-size: 0.65rem;">
+                                <span><i class="fas fa-crosshairs me-1"></i> Sniper Zone</span>
+                                <span class="fw-bold">1:{{ item.mom_data.risk_reward_ratio|floatformat:1 }}</span>
+                            </div>
+                        </a>
+                    </div>
                     {% else %}
-                    <div class="mb-3" style="height: 22px;"></div>
+                    <div class="mb-3" style="{% if not item.rsi %}height: 60px;{% else %}height: 38px;{% endif %}"></div>
                     {% endif %}
                     
                     <div class="d-flex gap-2 align-items-center mt-auto">

@@ -1,0 +1,313 @@
+{% extends 'stocks/base_stocks.html' %}
+{% load humanize %}
+
+{% block title %}Sniper Entry Finder: {{ symbol }} — 9Com{% endblock %}
+
+{% block content %}
+<div class="row mb-4 animate__animated animate__fadeIn">
+    <div class="col-md-8">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb mb-2">
+                <li class="breadcrumb-item"><a href="{% url 'stocks:momentum_scanner' %}" class="text-decoration-none">Momentum Scanner</a></li>
+                <li class="breadcrumb-item active">{{ symbol }}</li>
+            </ol>
+        </nav>
+        <h1 class="fw-bold mb-1 text-primary">
+            <i class="fas fa-crosshairs me-2"></i> Sniper Entry Finder: {{ symbol }}
+        </h1>
+        <p class="text-muted">กลยุทธ์การหาจุดเข้าซื้อที่คุ้มค่า (High Reward, Low Risk) โดยใช้หลักการ Demand Zone</p>
+    </div>
+    <div class="col-md-4 text-md-end d-flex align-items-center justify-content-md-end gap-2">
+        <a href="{% url 'stocks:momentum_scanner' %}" class="btn btn-outline-secondary rounded-pill px-3 me-2">
+            <i class="fas fa-arrow-left me-1"></i> กลับไป Momentum
+        </a>
+        <div class="bg-white p-3 rounded-4 shadow-sm border text-end">
+            <div class="small text-muted mb-0">ราคาปัจจุบัน</div>
+            <div class="h3 fw-bold mb-0 text-dark">฿{{ curr_price|floatformat:2 }}</div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4">
+    <!-- ZONE DETAILS -->
+    <div class="col-lg-4 animate__animated animate__fadeInLeft">
+        <div class="card card-premium mb-4 border-0 shadow-sm overflow-hidden" style="border-radius: 1.5rem;">
+            <div class="card-header bg-dark text-white p-4">
+                <h5 class="mb-0 fw-bold"><i class="fas fa-shield-alt me-2 text-warning"></i> แผนการเทรด (Trading Plan)</h5>
+            </div>
+            <div class="card-body p-4">
+                {% if sd_zone %}
+                <div class="row g-2 mb-4">
+                    <div class="col-6">
+                        <div class="text-center p-3 bg-success bg-opacity-10 rounded-4 border border-success border-opacity-10 h-100">
+                            <h2 class="fw-bold text-success mb-1">1:{{ sd_zone.rr_ratio }}</h2>
+                            <div class="text-muted extra-small">RR Ratio</div>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="text-center p-3 bg-primary bg-opacity-10 rounded-4 border border-primary border-opacity-10 h-100">
+                            <h2 class="fw-bold text-primary mb-1">{{ sd_zone.confidence_score }}%</h2>
+                            <div class="text-muted extra-small">Confidence</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mb-4">
+                    <div class="progress" style="height: 8px; border-radius: 4px; background-color: #f1f5f9;">
+                        <div class="progress-bar progress-bar-striped progress-bar-animated 
+                            {% if sd_zone.confidence_score >= 80 %}bg-success{% elif sd_zone.confidence_score >= 60 %}bg-primary{% else %}bg-warning{% endif %}" 
+                            role="progressbar" style="width: {{ sd_zone.confidence_score }}%"></div>
+                    </div>
+                    <div class="d-flex justify-content-between mt-1 extra-extra-small text-muted fw-bold">
+                        <span>LOW CONFIDENCE</span>
+                        <span>HIGH CONFIDENCE</span>
+                    </div>
+                </div>
+
+                <div class="list-group list-group-flush">
+                    <div class="list-group-item px-0 py-3 bg-transparent d-flex justify-content-between align-items-center">
+                        <div>
+                            <div class="fw-bold text-dark">Sniper Entry Zone</div>
+                            <div class="text-muted extra-small">ซื้อที่แนวขอบบนของโซนดีมานด์</div>
+                        </div>
+                        <div class="text-end">
+                            <div class="h5 fw-bold text-primary mb-0">฿{{ sd_zone.start|floatformat:2 }}</div>
+                            <div class="text-muted small">ถึง ฿{{ sd_zone.end|floatformat:2 }}</div>
+                        </div>
+                    </div>
+                    
+                    <div class="list-group-item px-0 py-3 bg-transparent d-flex justify-content-between align-items-center">
+                        <div>
+                            <div class="fw-bold text-dark">Stop Loss (SL)</div>
+                            <div class="text-muted extra-small">จุดตัดขาดทุนใต้ฐานโซนเล็กน้อย</div>
+                        </div>
+                        <div class="h5 fw-bold text-danger mb-0">฿{{ sd_zone.stop_loss|floatformat:2 }}</div>
+                    </div>
+                    
+                    <div class="list-group-item px-0 py-3 bg-transparent d-flex justify-content-between align-items-center">
+                        <div>
+                            <div class="fw-bold text-dark">Target Price (Supply)</div>
+                            <div class="text-muted extra-small">เป้าหมายกำไรที่แนวต้านล่าสุด</div>
+                        </div>
+                        <div class="h5 fw-bold text-success mb-0">฿{{ sd_zone.target|floatformat:2 }}</div>
+                    </div>
+                </div>
+
+                <div class="mt-4">
+                    {% if sd_zone.is_retesting %}
+                    <div class="alert alert-success border-0 rounded-4 d-flex align-items-center gap-3 p-3">
+                        <i class="fas fa-check-circle fa-2x"></i>
+                        <div>
+                            <div class="fw-bold">Retesting Zone!</div>
+                            <div class="small">ราคาลงมาทดสอบโซนแล้ว เป็นโอกาสดีในการเฝ้าระวัง</div>
+                        </div>
+                    </div>
+                    {% else %}
+                    <div class="alert alert-primary border-0 rounded-4 d-flex align-items-center gap-3 p-3">
+                        <i class="fas fa-info-circle fa-2x"></i>
+                        <div>
+                            <div class="fw-bold">Wait for Pullback</div>
+                            <div class="small">ราคายังอยู่ห่างจากโซน ให้รอการย่อตัวเพื่อความได้เปรียบ</div>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+                {% else %}
+                <div class="text-center py-5">
+                    <i class="fas fa-ghost fa-3x text-muted mb-3 opacity-25"></i>
+                    <p class="text-muted">ไม่พบ Demand Zone ชัดเจนในรอบ 120 วันล่าสุด</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="card card-premium border-0 shadow-sm" style="border-radius: 1.5rem; background: linear-gradient(135deg, #1e293b, #0f172a); color: white;">
+            <div class="card-body p-4">
+                <h6 class="fw-bold mb-3"><i class="fas fa-lightbulb text-warning me-2"></i> Sniper Principle</h6>
+                <ul class="ps-3 mb-0 small text-white-50">
+                    <li class="mb-2"><strong>Demand Zone:</strong> คือโซนที่แรงซื้อชนะแรงขายอย่างเบ็ดเสร็จ</li>
+                    <li class="mb-2"><strong>Base:</strong> คือช่วงที่ราคาพักตัวเลือกทางก่อนจะพุ่งแรง</li>
+                    <li class="mb-2"><strong>ERC:</strong> (Extended Range Candle) แท่งรูปร่างยาวที่มีเนื้อเยอะ บ่งบอกถึงรายใหญ่เข้าเก็บ</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- CHART -->
+    <div class="col-lg-8 animate__animated animate__fadeInRight">
+        <div class="card card-premium border-0 shadow-sm mb-4" style="border-radius: 1.5rem;">
+            <div class="card-header bg-white border-bottom p-4">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0 fw-bold d-flex align-items-center gap-2">
+                        <i class="fas fa-chart-area text-primary"></i> กราฟราคาและการวิเคราะห์โซน
+                    </h5>
+                    <div class="btn-group btn-group-sm">
+                        <button class="btn btn-outline-secondary">120 Days</button>
+                    </div>
+                </div>
+            </div>
+            <div class="card-body p-4">
+                <div style="height: 400px;">
+                    <canvas id="sniperChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <div class="row g-3">
+            <div class="col-md-6">
+                <div class="card border-0 shadow-sm p-4 h-100" style="border-radius: 1.25rem;">
+                    <h6 class="fw-bold mb-2">Refinement Check (Day)</h6>
+                    <p class="text-muted small mb-0">ระบบใช้ข้อมูลย้อนหลัง 1 ปี ร่วมกับค่าเฉลี่ย Body แท่งเทียนเพื่อกรองเอาเฉพาะโซนที่มีนัยสำคัญระดับสถาบันเข้าซื้อ</p>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card border-0 shadow-sm p-4 h-100" style="border-radius: 1.25rem;">
+                    <h6 class="fw-bold mb-2">Momentum Support</h6>
+                    <p class="text-muted small mb-0">โซนนี้จะแม่นยำที่สุดหากราคาประคองตัวอยู่เหนือเส้น EMA 200 (Long Term Trend) เพื่อลดความเสี่ยงของการสวนเทรนด์</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .extra-small { font-size: 0.72rem; }
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation"></script>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        const ctx = document.getElementById('sniperChart').getContext('2d');
+        
+        const labels = {{ chart_labels|safe }};
+        const prices = {{ chart_values|safe }};
+        const ema50 = {{ ema50_vals|safe }};
+        const ema200 = {{ ema200_vals|safe }};
+        
+        const sdZone = {{ sd_zone_json|safe }};
+        
+        let annotations = {};
+        if (sdZone) {
+            annotations = {
+                demandZone: {
+                    type: 'box',
+                    yMin: sdZone.end,
+                    yMax: sdZone.start,
+                    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+                    borderWidth: 0,
+                    label: {
+                        content: 'DEMAND ZONE',
+                        enabled: true,
+                        position: 'start',
+                        color: '#059669',
+                        font: { size: 10, weight: 'bold' }
+                    }
+                },
+                stopLoss: {
+                    type: 'line',
+                    yMin: sdZone.stop_loss,
+                    yMax: sdZone.stop_loss,
+                    borderColor: 'rgba(239, 68, 68, 0.8)',
+                    borderWidth: 2,
+                    borderDash: [5, 5],
+                    label: {
+                        content: 'SL: ' + sdZone.stop_loss,
+                        enabled: true,
+                        position: 'end',
+                        backgroundColor: '#ef4444',
+                        color: 'white',
+                        font: { size: 10 }
+                    }
+                },
+                targetPrice: {
+                    type: 'line',
+                    yMin: sdZone.target,
+                    yMax: sdZone.target,
+                    borderColor: 'rgba(34, 197, 94, 0.8)',
+                    borderWidth: 2,
+                    borderDash: [2, 2],
+                    label: {
+                        content: 'TARGET: ' + sdZone.target,
+                        enabled: true,
+                        position: 'end',
+                        backgroundColor: '#22c55e',
+                        color: 'white',
+                        font: { size: 10 }
+                    }
+                }
+            };
+        }
+
+        const chart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        label: 'Price',
+                        data: prices,
+                        borderColor: '#0f172a',
+                        borderWidth: 2,
+                        pointRadius: 0,
+                        fill: false,
+                        tension: 0.1
+                    },
+                    {
+                        label: 'EMA 50',
+                        data: ema50,
+                        borderColor: 'rgba(249, 115, 22, 0.5)',
+                        borderWidth: 1,
+                        pointRadius: 0,
+                        fill: false
+                    },
+                    {
+                        label: 'EMA 200',
+                        data: ema200,
+                        borderColor: 'rgba(59, 130, 246, 0.5)',
+                        borderWidth: 1,
+                        pointRadius: 0,
+                        fill: false
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: {
+                    mode: 'index',
+                    intersect: false,
+                },
+                plugins: {
+                    legend: {
+                        display: true,
+                        position: 'top',
+                        labels: { boxWidth: 10, font: { size: 11 } }
+                    },
+                    annotation: {
+                        annotations: annotations
+                    }
+                },
+                scales: {
+                    x: {
+                        ticks: {
+                            maxRotation: 0,
+                            autoSkip: true,
+                            maxTicksLimit: 8,
+                            font: { size: 10 }
+                        },
+                        grid: { display: false }
+                    },
+                    y: {
+                        position: 'right',
+                        ticks: { font: { size: 10 } }
+                    }
+                }
+            }
+        });
+    });
+</script>
+{% endblock %}

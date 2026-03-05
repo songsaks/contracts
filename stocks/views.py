@@ -6,7 +6,10 @@ from django.contrib import messages
 from django.conf import settings
 from google import genai
 from .models import Watchlist, AnalysisCache, AssetCategory, Portfolio, MomentumCandidate, ScannableSymbol
-from .utils import get_stock_data, analyze_with_ai, calculate_trailing_stop, refresh_set100_symbols
+from .utils import (
+    get_stock_data, analyze_with_ai, calculate_trailing_stop, 
+    refresh_set100_symbols, find_supply_demand_zones
+)
 from yahooquery import Ticker as YQTicker
 import requests
 import yfinance as yf
@@ -41,12 +44,16 @@ def dashboard(request):
                     if rsi_val < 30: rsi_status = "Oversold"
                     elif rsi_val > 70: rsi_status = "Overbought"
 
+            # Check if this has momentum scan data
+            mom_data = MomentumCandidate.objects.filter(user=request.user, symbol=item.symbol).first()
+            
             items.append({
                 'obj': item,
                 'price': current,
                 'change': change,
                 'rsi': rsi_val,
-                'rsi_status': rsi_status
+                'rsi_status': rsi_status,
+                'mom_data': mom_data
             })
         except:
             items.append({'obj': item, 'price': 'Error', 'change': 0, 'rsi': None, 'rsi_status': 'Error'})
@@ -805,6 +812,21 @@ def momentum_scanner(request):
                         print(f"Fundamental fetch error for {symbol}: {e}")
                         pass
                         
+                    # Supply & Demand Analysis (Sniper Entry)
+                    sd_zone = find_supply_demand_zones(df)
+                    entry_strat = ""
+                    dz_start = None
+                    dz_end = None
+                    sl_price = None
+                    rr_val = None
+                    
+                    if sd_zone:
+                        entry_strat = sd_zone['type']
+                        dz_start = sd_zone['start']
+                        dz_end = sd_zone['end']
+                        sl_price = sd_zone['stop_loss']
+                        rr_val = sd_zone['rr_ratio']
+
                     obj = MomentumCandidate.objects.create(
                         user=request.user,
                         symbol=symbol,
@@ -818,6 +840,13 @@ def momentum_scanner(request):
                         eps_growth=round(eps_growth, 2),
                         rev_growth=round(rev_growth, 2),
                         technical_score=int(integrated_score + fund_bonus),
+                        
+                        entry_strategy=entry_strat,
+                        demand_zone_start=dz_start,
+                        demand_zone_end=dz_end,
+                        stop_loss=sl_price,
+                        risk_reward_ratio=rr_val,
+                        
                         year_high=round(year_high, 2),
                         upside_to_high=round(gap_to_high, 2)
                     )
@@ -894,6 +923,62 @@ def momentum_scanner(request):
         'has_scanned': request.method == "POST" or request.GET.get('scan') == 'true' or candidates.exists()
     }
     return render(request, 'stocks/momentum.html', context)
+
+@login_required
+def entry_finder(request, symbol):
+    """
+    Detailed view for Supply & Demand / Sniper Entry zone for a specific symbol.
+    """
+    # Force .BK suffix for Thai symbols if not present
+    full_symbol = f"{symbol}.BK" if not symbol.endswith(".BK") else symbol
+    
+    try:
+        df = yf.download(full_symbol, period="1y", interval="1d", progress=False)
+        if df.empty:
+            messages.error(request, f"ไม่พบข้อมูลสำหรับ {symbol}")
+            return redirect('stocks:momentum_scanner')
+
+        if isinstance(df.columns, pd.MultiIndex):
+            df.columns = df.columns.droplevel(1)
+
+        sd_zone = find_supply_demand_zones(df)
+        
+        # Chart Data
+        history_subset = df.tail(120)
+        chart_labels = [d.strftime('%Y-%m-%d') for d in history_subset.index]
+        chart_values = [round(float(v), 2) for v in history_subset['Close'].values]
+        
+        # Technical Indicators for context
+        import pandas_ta as ta
+        history_subset['EMA50'] = ta.ema(history_subset['Close'], length=50)
+        history_subset['EMA200'] = ta.ema(history_subset['Close'], length=200)
+        ema50_vals = [round(float(v), 2) if pd.notna(v) else None for v in history_subset['EMA50'].values]
+        ema200_vals = [round(float(v), 2) if pd.notna(v) else None for v in history_subset['EMA200'].values]
+
+        chart_labels_json = json.dumps(chart_labels)
+        chart_values_json = json.dumps(chart_values)
+        ema50_vals_json = json.dumps(ema50_vals)
+        ema200_vals_json = json.dumps(ema200_vals)
+        sd_zone_json = json.dumps(sd_zone)
+
+        curr_price = df['Close'].iloc[-1]
+        
+        context = {
+            'symbol': symbol,
+            'full_symbol': full_symbol,
+            'sd_zone': sd_zone,  # For template logic
+            'sd_zone_json': sd_zone_json,  # For JS
+            'curr_price': round(curr_price, 2),
+            'chart_labels': chart_labels_json,
+            'chart_values': chart_values_json,
+            'ema50_vals': ema50_vals_json,
+            'ema200_vals': ema200_vals_json,
+            'title': f"Sniper Entry: {symbol}"
+        }
+        return render(request, 'stocks/entry_finder.html', context)
+    except Exception as e:
+        messages.error(request, f"Error finding zones for {symbol}: {str(e)}")
+        return redirect('stocks:momentum_scanner')
 
 def signup(request):
     if request.method == 'POST':

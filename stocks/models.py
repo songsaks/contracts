@@ -69,6 +69,14 @@ class MomentumCandidate(models.Model):
     eps_growth = models.FloatField(default=0.0)
     rev_growth = models.FloatField(default=0.0)
     technical_score = models.IntegerField(default=0)
+    
+    # Supply & Demand / Entry Strategy fields
+    entry_strategy = models.CharField(max_length=100, blank=True, verbose_name="กลยุทธ์การเข้าซื้อ")
+    demand_zone_start = models.FloatField(null=True, blank=True, verbose_name="โซนเข้าซื้อ (บน)")
+    demand_zone_end = models.FloatField(null=True, blank=True, verbose_name="โซนเข้าซื้อ (ล่าง)")
+    stop_loss = models.FloatField(null=True, blank=True, verbose_name="จุดตัดขาดทุน")
+    risk_reward_ratio = models.FloatField(null=True, blank=True, verbose_name="RR Ratio")
+    
     year_high = models.FloatField(default=0.0)
     upside_to_high = models.FloatField(default=0.0)
     scanned_at = models.DateTimeField(auto_now=True)
