@@ -107,7 +107,8 @@ def dashboard(request):
     
     # 4. Top Customers (within period)
     top_customers = Customer.objects.annotate(
-        total_spent_period=Sum('jobs__items__final_cost', filter=Q(jobs__items__status='COMPLETED', jobs__items__updated_at__range=range_filter))
+        total_spent_period=Sum('jobs__items__final_cost', filter=Q(jobs__items__status='COMPLETED', jobs__items__updated_at__range=range_filter)),
+        job_count_period=Count('jobs__items', filter=Q(jobs__items__status='COMPLETED', jobs__items__updated_at__range=range_filter), distinct=True)
     ).filter(total_spent_period__gt=0).order_by('-total_spent_period')[:5]
 
     # 5. Trend Graph (Last 30 days or based on range)

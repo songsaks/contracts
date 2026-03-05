@@ -240,8 +240,8 @@
                                 {% for customer in top_customers %}
                                 <tr>
                                     <td class="fw-bold text-dark">{{ customer.name }}</td>
-                                    <td>{{ customer.jobs.count }} <span class="text-muted small">รายการ</span></td>
-                                    <td class="text-end fw-bold text-primary">฿{{ customer.total_spent|floatformat:0|intcomma }}</td>
+                                    <td>{{ customer.job_count_period }} <span class="text-muted small">รายการ</span></td>
+                                    <td class="text-end fw-bold text-primary">฿{{ customer.total_spent_period|floatformat:0|intcomma }}</td>
                                 </tr>
                                 {% empty %}
                                 <tr><td colspan="3" class="text-center py-4 text-muted small">ยังไม่มีข้อมูลยอดรับเงิน</td></tr>
