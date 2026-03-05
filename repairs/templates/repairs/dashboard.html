@@ -174,8 +174,37 @@
             </div>
         </div>
 
-        <!-- Tech Workload -->
+        <!-- Workload Stats (Type & Tech) -->
         <div class="col-12 col-lg-4">
+            <!-- Summary by Job Type -->
+            <div class="card border-0 shadow-sm rounded-4 mb-4">
+                <div class="card-header bg-white border-0 pt-4 px-4 pb-0">
+                    <h5 class="card-title-custom"><i class="fas fa-briefcase text-indigo"></i> สรุปตามประเภทงาน</h5>
+                </div>
+                <div class="card-body p-4">
+                    {% for tstat in type_stats %}
+                    <div class="mb-4">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <span class="fw-bold fs-6" style="color: {{ tstat.type.color }};"><i class="{{ tstat.type.icon }} me-1"></i> {{ tstat.type.name }}</span>
+                            <span class="badge rounded-pill px-2" style="background-color: {{ tstat.type.color }};">ค้าง: {{ tstat.active }}</span>
+                        </div>
+                        <div class="d-flex justify-content-between x-small text-muted mb-1">
+                            <span>รายได้: <strong>฿{{ tstat.income|floatformat:0|intcomma }}</strong></span>
+                            <span>สำเร็จ: {{ tstat.completed }}</span>
+                        </div>
+                        <div class="progress" style="height: 6px; background-color: rgba(0,0,0,0.05);">
+                            <div class="progress-bar" role="progressbar" 
+                                 style="width: {% if tstat.active|add:tstat.completed > 0 %}{% widthratio tstat.active tstat.active|add:tstat.completed 100 %}{% else %}0{% endif %}%; background-color: {{ tstat.type.color }};" 
+                                 aria-valuenow="{{ tstat.active }}" aria-valuemin="0" aria-valuemax="100"></div>
+                        </div>
+                    </div>
+                    {% empty %}
+                    <div class="text-center py-4 text-muted small">ยังไม่มีข้อมูลตามประเภทงาน</div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Tech Workload (Moved inside same column) -->
             <div class="card border-0 shadow-sm rounded-4 h-100">
                 <div class="card-header bg-white border-0 pt-4 px-4 pb-0">
                     <h5 class="card-title-custom"><i class="fas fa-user-gear text-primary"></i> ภาระงานรายช่าง</h5>
@@ -194,6 +223,19 @@
                             <span>สะสมทั้งหมด: <strong>฿{{ tech.lifetime_income|floatformat:0|intcomma }}</strong></span>
                             <span>สำเร็จ: {{ tech.completed }}</span>
                         </div>
+                        
+                        {% if tech.type_incomes %}
+                        <div class="mb-2">
+                            {% for ti in tech.type_incomes %}
+                            <div class="d-flex justify-content-between x-small align-items-center mb-1 py-1 px-2 rounded-1" style="background-color: {{ ti.color }}15; border-left: 3px solid {{ ti.color }};">
+                                <span style="color: {{ ti.color }}; font-weight: 600;">
+                                    <i class="{{ ti.icon }} x-small me-1"></i>{{ ti.name }}
+                                </span>
+                                <span class="fw-bold text-dark">฿{{ ti.amount|floatformat:0|intcomma }}</span>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
                         <div class="progress">
                             {% with active=tech.active total=tech.total %}
                             <div class="progress-bar bg-primary" role="progressbar" 

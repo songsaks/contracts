@@ -201,15 +201,22 @@
                         <i class="fas fa-file-alt me-2 text-primary"></i>รายละเอียดงาน
                     </h6>
                     <div class="row g-3 mb-4">
-                        <div class="col-md-6">
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold small text-muted">ประเภทงาน</label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light text-muted"><i class="fas fa-briefcase"></i></span>
+                                {{ job_form.repair_type }}
+                                <a href="{% url 'repairs:repair_type_create' %}" target="_blank" class="btn btn-outline-secondary" title="เพิ่มประเภทงานซ่อม"><i class="fas fa-plus"></i></a>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
                             <label class="form-label fw-bold small text-muted">รหัสงาน (Optional)</label>
                             <div class="input-group">
                                 <span class="input-group-text bg-light text-muted"><i class="fas fa-barcode"></i></span>
                                 {{ job_form.fix_id }}
                             </div>
-                            <div class="form-text small">ระบบจะสร้างรหัสอัตโนมัติ (J...) หากเว้นว่างไว้</div>
                         </div>
-                        <div class="col-md-6">
+                        <div class="col-md-4">
                             <label class="form-label fw-bold small text-muted">วันที่รับเครื่อง</label>
                             <div class="input-group">
                                 <span class="input-group-text bg-light text-muted"><i class="fas fa-calendar-alt"></i></span>

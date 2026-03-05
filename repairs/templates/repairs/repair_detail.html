@@ -14,7 +14,14 @@
                     </ol>
                 </nav>
                 <h2 class="h3 fw-bold mb-0">รายละเอียดงานซ่อม</h2>
-                <div class="text-muted small">สร้างเมื่อ {{ job.created_at|date:"d M Y, H:i" }}</div>
+                <div class="d-flex align-items-center gap-3">
+                    <div class="text-muted small">สร้างเมื่อ {{ job.created_at|date:"d M Y, H:i" }}</div>
+                    {% if job.repair_type %}
+                    <div class="badge px-3 py-2 rounded-pill shadow-sm" style="background-color: {{ job.repair_type.color }};">
+                        <i class="{{ job.repair_type.icon }} me-1"></i>ประเภท: {{ job.repair_type.name }}
+                    </div>
+                    {% endif %}
+                </div>
             </div>
             <div class="d-flex gap-2">
                 <a href="{% url 'repairs:repair_print' job.pk %}" target="_blank" class="btn btn-light text-secondary shadow-sm border rounded-circle d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;" title="พิมพ์รายงาน" data-bs-toggle="tooltip">

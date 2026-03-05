@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Customer, Device, Technician, RepairJob, RepairItem, DeviceType, Brand, OutsourceLog, RepairStatusHistory
+from .models import Customer, Device, Technician, RepairJob, RepairItem, DeviceType, Brand, OutsourceLog, RepairStatusHistory, RepairType
 from django.contrib import messages
 
 @admin.register(Customer)
@@ -32,12 +32,18 @@ class TechnicianAdmin(admin.ModelAdmin):
     list_display = ['name', 'expertise']
     search_fields = ['name', 'expertise']
 
+@admin.register(RepairType)
+class RepairTypeAdmin(admin.ModelAdmin):
+    list_display = ['name', 'description', 'created_at']
+    search_fields = ['name', 'description']
+    readonly_fields = ['created_at']
+
 @admin.register(RepairJob)
 class RepairJobAdmin(admin.ModelAdmin):
-    list_display = ['job_code', 'customer', 'fix_id', 'created_by', 'created_at']
+    list_display = ['job_code', 'repair_type', 'customer', 'fix_id', 'created_by', 'created_at']
     search_fields = ['job_code', 'fix_id', 'customer__name', 'created_by__username']
     readonly_fields = ['job_code', 'created_by', 'created_at']
-    list_filter = ['created_at', 'created_by']
+    list_filter = ['repair_type', 'created_at', 'created_by']
     raw_id_fields = ['customer']
 
 @admin.register(OutsourceLog)

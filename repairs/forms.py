@@ -1,5 +1,5 @@
 from django import forms
-from .models import RepairJob, RepairItem, Customer, Device, Technician, DeviceType, Brand, OutsourceLog
+from .models import RepairJob, RepairItem, Customer, Device, Technician, DeviceType, Brand, OutsourceLog, RepairType
 
 class OutsourceLogForm(forms.ModelForm):
     class Meta:
@@ -66,9 +66,10 @@ class DeviceForm(forms.ModelForm):
 class RepairJobForm(forms.ModelForm):
     class Meta:
         model = RepairJob
-        fields = ['fix_id', 'created_at']
+        fields = ['fix_id', 'repair_type', 'created_at']
         widgets = {
             'fix_id': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'J...'}),
+            'repair_type': forms.Select(attrs={'class': 'form-select select2'}),
             'created_at': forms.DateTimeInput(attrs={'type': 'datetime-local', 'class': 'form-control'}),
         }
     
@@ -133,3 +134,13 @@ class BrandForm(forms.ModelForm):
             'name': forms.TextInput(attrs={'class': 'form-control'}),
         }
 
+class RepairTypeForm(forms.ModelForm):
+    class Meta:
+        model = RepairType
+        fields = ['name', 'description', 'color', 'icon']
+        widgets = {
+            'name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'เช่น Outsourcing'}),
+            'description': forms.Textarea(attrs={'rows': 2, 'class': 'form-control'}),
+            'color': forms.TextInput(attrs={'type': 'color', 'class': 'form-control form-control-color', 'style': 'width: 100%; height: 45px;'}),
+            'icon': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'เช่น fas fa-tools'}),
+        }

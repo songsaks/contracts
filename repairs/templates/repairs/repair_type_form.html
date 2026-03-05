@@ -1,0 +1,65 @@
+{% extends 'repairs/base_repairs.html' %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6 col-lg-5">
+        <div class="card shadow border-0 rounded-4">
+            <div class="card-header bg-gradient-primary text-white p-4 text-center rounded-top-4">
+                <h4 class="mb-0 fw-bold">{{ title|default:"จัดการประเภทงานซ่อม" }}</h4>
+            </div>
+            <div class="card-body p-4">
+                <form method="post" class="needs-validation">
+                    {% csrf_token %}
+                    
+                    <div class="mb-4">
+                        <label class="form-label fw-bold text-muted">ชื่อประเภทงานซ่อม</label>
+                        {{ form.name }}
+                        {% if form.name.errors %}
+                        <div class="text-danger small mt-1">{{ form.name.errors }}</div>
+                        {% endif %}
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="form-label fw-bold text-muted">รายละเอียด (ถ้ามี)</label>
+                        {{ form.description }}
+                    </div>
+
+                    <div class="mb-4">
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                <label class="form-label fw-bold text-muted">สี</label>
+                                {{ form.color }}
+                            </div>
+                            <div class="col-md-8">
+                                <label class="form-label fw-bold text-muted">ไอคอน (FontAwesome)</label>
+                                {{ form.icon }}
+                                <div class="x-small text-muted mt-1">เช่น fas fa-briefcase</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="d-grid gap-3">
+                        <button type="submit" class="btn btn-primary py-3 rounded-pill shadow-sm">
+                             <i class="fas fa-save me-2"></i>บันทึกข้อมูล
+                        </button>
+                        <a href="{% url 'repairs:repair_type_list' %}" class="btn btn-light py-3 rounded-pill">
+                            ยกเลิก
+                        </a>
+                    </div>
+                </form>
+
+                {% if form.instance.pk %}
+                <div class="text-center mt-3">
+                    <form action="{% url 'repairs:repair_type_delete' form.instance.pk %}" method="post" id="deleteForm" class="d-inline">
+                        {% csrf_token %}
+                        <button type="button" class="btn btn-link text-danger text-decoration-none" onclick="if(confirm('ยืนยันลบข้อมูลประเภทงานซ่อมนี้?')) document.getElementById('deleteForm').submit();">
+                            <i class="fas fa-trash-alt me-1"></i>ลบข้อมูลนี้
+                        </button>
+                    </form>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

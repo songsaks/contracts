@@ -354,7 +354,8 @@
                         </a>
                         <ul class="dropdown-menu border-0 shadow-lg" aria-labelledby="repairDropdown">
                             <li><a class="dropdown-item {% if 'technician' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'repairs:technician_list' %}"><i class="fas fa-user-cog me-2"></i>ช่าง</a></li>
-                            <li><a class="dropdown-item {% if 'device_type' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'repairs:device_type_list' %}"><i class="fas fa-laptop me-2"></i>ประเภท</a></li>
+                            <li><a class="dropdown-item {% if 'repair_type' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'repairs:repair_type_list' %}"><i class="fas fa-briefcase me-2"></i>ประเภทงาน</a></li>
+                            <li><a class="dropdown-item {% if 'device_type' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'repairs:device_type_list' %}"><i class="fas fa-laptop me-2"></i>ประเภทสินค้า</a></li>
                             <li><a class="dropdown-item {% if 'brand' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'repairs:brand_list' %}"><i class="fas fa-tags me-2"></i>ยี่ห้อ</a></li>
                         </ul>
                     </li>

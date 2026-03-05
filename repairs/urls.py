@@ -52,6 +52,12 @@ urlpatterns = [
     path('brands/<int:pk>/update/', views.brand_update, name='brand_update'),
     path('brands/<int:pk>/delete/', views.brand_delete, name='brand_delete'),
 
+    # RepairType
+    path('repair-types/', views.repair_type_list, name='repair_type_list'),
+    path('repair-types/create/', views.repair_type_create, name='repair_type_create'),
+    path('repair-types/<int:pk>/update/', views.repair_type_update, name='repair_type_update'),
+    path('repair-types/<int:pk>/delete/', views.repair_type_delete, name='repair_type_delete'),
+
     # Technician Quick Update (Session Based)
     path('tech/login/', views.technician_status_login, name='tech_login'),
     path('tech/logout/', views.technician_status_logout, name='tech_logout'),

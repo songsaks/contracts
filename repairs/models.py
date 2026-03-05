@@ -67,8 +67,22 @@ class Technician(models.Model):
     def __str__(self):
         return self.name
 
+class RepairType(models.Model):
+    name = models.CharField(max_length=100, unique=True)
+    description = models.TextField(blank=True)
+    color = models.CharField(max_length=20, default='#6366f1', help_text="Hex color code (e.g. #6366f1)")
+    icon = models.CharField(max_length=50, default='fas fa-briefcase', help_text="FontAwesome icon class")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return self.name
+
+    class Meta:
+        ordering = ['name']
+
 class RepairJob(models.Model):
     job_code = models.CharField(max_length=50, unique=True, editable=False)
+    repair_type = models.ForeignKey(RepairType, on_delete=models.SET_NULL, null=True, blank=True, related_name='jobs', verbose_name="ประเภทงานซ่อม")
     tracking_id = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
     fix_id = models.CharField(max_length=50, blank=True, null=True, help_text="Manual Fix ID if needed") 
     customer = models.ForeignKey(Customer, on_delete=models.CASCADE, related_name='jobs')

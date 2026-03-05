@@ -140,6 +140,11 @@
                                         <a href="{% url 'repairs:repair_detail' item.job.pk %}" class="text-decoration-none text-indigo hover-underline">
                                             {{ item.job.job_code }}
                                         </a>
+                                        {% if item.job.repair_type %}
+                                        <div class="small fw-600" style="color: {{ item.job.repair_type.color }};">
+                                            <i class="{{ item.job.repair_type.icon }} x-small me-1"></i>{{ item.job.repair_type.name }}
+                                        </div>
+                                        {% endif %}
                                         {% if item.job.fix_id %}
                                         <div class="small text-muted">{{ item.job.fix_id }}</div>
                                         {% endif %}

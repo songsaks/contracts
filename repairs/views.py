@@ -3,8 +3,8 @@ from django.http import JsonResponse, HttpResponse
 from django.urls import reverse
 from django.db import transaction
 from django.contrib.auth.decorators import login_required
-from .models import RepairJob, RepairItem, Customer, Device, Technician, DeviceType, Brand, RepairStatusHistory, OutsourceLog
-from .forms import CustomerForm, DeviceForm, RepairJobForm, RepairItemForm, TechnicianForm, DeviceTypeForm, BrandForm, OutsourceLogForm
+from .models import RepairJob, RepairItem, Customer, Device, Technician, DeviceType, Brand, RepairStatusHistory, OutsourceLog, RepairType
+from .forms import CustomerForm, DeviceForm, RepairJobForm, RepairItemForm, TechnicianForm, DeviceTypeForm, BrandForm, OutsourceLogForm, RepairTypeForm
 
 import csv
 import datetime
@@ -14,7 +14,6 @@ from decimal import Decimal
 from django.db.models import Q, Sum, Count
 from django.utils import timezone
 
-@login_required
 @login_required
 def dashboard(request):
     # --- Date Filter Logic ---
@@ -97,12 +96,26 @@ def dashboard(request):
         # Calculate lifetime income for this technician
         tech_income_lifetime = tech.repairitem_set.filter(status='COMPLETED').aggregate(total=Sum('final_cost'))['total'] or 0
         
+        # Income breakdown by type
+        type_incomes = []
+        for rt in RepairType.objects.all():
+            val = completed_period_items.filter(status='COMPLETED', job__repair_type=rt).aggregate(total=Sum('final_cost'))['total'] or 0
+            if val > 0:
+                type_incomes.append({
+                    'name': rt.name, 
+                    'amount': val, 
+                    'color': rt.color,
+                    'icon': rt.icon
+                })
+        type_incomes.sort(key=lambda x: x['amount'], reverse=True)
+
         tech_stats.append({
             'name': tech.name,
             'active': active_count,
             'completed': completed_period_count,
             'income': tech_income_period,
             'lifetime_income': tech_income_lifetime,
+            'type_incomes': type_incomes,
             'total': active_count + completed_period_count
         })
     # Sort by income in period primarily, then active jobs
@@ -150,11 +163,37 @@ def dashboard(request):
             daily_values.append(count)
             current += datetime.timedelta(days=step)
 
+    # 6. Repair Type Stats (within period)
+    repair_types = RepairType.objects.all()
+    type_stats = []
+    for rt in repair_types:
+        active = RepairItem.objects.filter(
+            job__repair_type=rt
+        ).exclude(status__in=['FINISHED', 'CANCELLED', 'COMPLETED']).count()
+        
+        completed_period = RepairItem.objects.filter(
+            job__repair_type=rt,
+            status__in=['FINISHED', 'COMPLETED'],
+            updated_at__range=range_filter
+        )
+        
+        income = completed_period.filter(status='COMPLETED').aggregate(total=Sum('final_cost'))['total'] or 0
+        
+        if active > 0 or completed_period.count() > 0:
+            type_stats.append({
+                'type': rt,
+                'active': active,
+                'completed': completed_period.count(),
+                'income': income,
+            })
+    type_stats.sort(key=lambda x: x['income'], reverse=True)
+
     context = {
         'status_labels': json.dumps(status_labels),
         'status_values': json.dumps(status_values),
         'status_colors': json.dumps(status_colors),
         'tech_stats': tech_stats,
+        'type_stats': type_stats,
         'period_income': period_income,
         'total_income': total_lifetime_income,
         'top_customers': top_customers,
@@ -663,6 +702,44 @@ def device_type_delete(request, pk):
         dt.delete()
         return redirect('repairs:device_type_list')
     return render(request, 'repairs/formatted_confirm_delete.html', {'object': dt, 'type': 'Device Type', 'cancel_url': 'repairs:device_type_list'})
+
+# --- RepairType Views ---
+
+@login_required
+def repair_type_list(request):
+    repair_types = RepairType.objects.all()
+    return render(request, 'repairs/repair_type_list.html', {'repair_types': repair_types})
+
+@login_required
+def repair_type_create(request):
+    if request.method == 'POST':
+        form = RepairTypeForm(request.POST)
+        if form.is_valid():
+            form.save()
+            return redirect('repairs:repair_type_list')
+    else:
+        form = RepairTypeForm()
+    return render(request, 'repairs/repair_type_form.html', {'form': form, 'title': 'เพิ่มประเภทงานซ่อม'})
+
+@login_required
+def repair_type_update(request, pk):
+    rt = get_object_or_404(RepairType, pk=pk)
+    if request.method == 'POST':
+        form = RepairTypeForm(request.POST, instance=rt)
+        if form.is_valid():
+            form.save()
+            return redirect('repairs:repair_type_list')
+    else:
+        form = RepairTypeForm(instance=rt)
+    return render(request, 'repairs/repair_type_form.html', {'form': form, 'title': 'แก้ไขประเภทงานซ่อม'})
+
+@login_required
+def repair_type_delete(request, pk):
+    rt = get_object_or_404(RepairType, pk=pk)
+    if request.method == 'POST':
+        rt.delete()
+        return redirect('repairs:repair_type_list')
+    return render(request, 'repairs/repair_type_confirm_delete.html', {'object': rt})
     
 @login_required
 def repair_print(request, pk):
