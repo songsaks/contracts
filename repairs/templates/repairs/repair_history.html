@@ -62,10 +62,10 @@
 <div class="row">
     <div class="col-12">
         <div class="d-flex justify-content-between align-items-center mb-4">
-            <h1 class="h3 mb-0 fw-bold">รายการงานซ่อม</h1>
-            <a href="{% url 'repairs:repair_create' %}" class="btn btn-warning shadow-sm rounded-circle d-flex align-items-center justify-content-center text-white" style="width: 48px; height: 48px;" title="สร้างงานซ่อมใหม่" data-bs-toggle="tooltip">
-                <i class="fas fa-plus fa-lg"></i>
-            </a>
+            <div>
+                <h1 class="h3 mb-0 fw-bold">{{ page_title|default:"ประวัติการซ่อม" }}</h1>
+                <div class="text-muted small">{{ page_subtitle|default:"แสดงรายการที่ดำเนินการเสร็จสิ้นแล้ว" }}</div>
+            </div>
         </div>
 
         <!-- Filters -->
@@ -76,24 +76,24 @@
                         <label class="form-label text-muted small mb-1">ค้นหา</label>
                         <input type="text" name="q" value="{{ request.GET.q|default:'' }}" class="form-control" placeholder="รหัส, ลูกค้า...">
                     </div>
+                    
+                    {% if list_type == 'finished' %}
                     <div class="col-6 col-md-2">
                         <label class="form-label text-muted small mb-1">สถานะ</label>
                         <select name="status" class="form-select select2" onchange="this.form.submit()">
-                            <option value="">ทุกสถานะ (งานค้าง)</option>
-                            <option value="RECEIVED" {% if request.GET.status == 'RECEIVED' %}selected{% endif %}>รับแจ้ง</option>
-                            <option value="FIXING" {% if request.GET.status == 'FIXING' %}selected{% endif %}>กำลังซ่อม/ตรวจเช็ค</option>
-                            <option value="WAITING_APPROVAL" {% if request.GET.status == 'WAITING_APPROVAL' %}selected{% endif %}>รออนุมัติงานซ่อม</option>
-                            <option value="WAITING" {% if request.GET.status == 'WAITING' %}selected{% endif %}>รออะไหล่</option>
-                            <option value="OUTSOURCE" {% if request.GET.status == 'OUTSOURCE' %}selected{% endif %}>ส่งซ่อมศูนย์</option>
-                            <option value="RECEIVED_FROM_VENDOR" {% if request.GET.status == 'RECEIVED_FROM_VENDOR' %}selected{% endif %}>รับกลับจากศูนย์</option>
+                            <option value="">ทุกรายการ</option>
+                            <option value="FINISHED" {% if request.GET.status == 'FINISHED' %}selected{% endif %}>ซ่อมเสร็จ (รอคืน)</option>
+                            <option value="CANCELLED" {% if request.GET.status == 'CANCELLED' %}selected{% endif %}>ยกเลิกการซ่อม</option>
                         </select>
                     </div>
+                    {% endif %}
+
                     <div class="col-6 col-md-3">
                         <label class="form-label text-muted small mb-1">ผู้รับงาน</label>
                         <select name="created_by" class="form-select select2" onchange="this.form.submit()">
                             <option value="">ทุกคน</option>
                             {% for u in users %}
-                            <option value="{{ u.id }}" {% if selected_created_by|add:"0" == u.id %}selected{% endif %}>{{ u.username }}</option>
+                            <option value="{{ u.id }}" {% if request.GET.created_by|add:"0" == u.id %}selected{% endif %}>{{ u.username }}</option>
                             {% endfor %}
                         </select>
                     </div>
@@ -107,7 +107,7 @@
                     </div>
                     <div class="col-12 col-md-2">
                         {% if request.GET.q or request.GET.status or request.GET.created_by %}
-                        <a href="{% url 'repairs:repair_list' %}" class="btn btn-outline-danger w-100">
+                        <a href="{{ request.path }}" class="btn btn-outline-danger w-100">
                              ล้างค่า
                         </a>
                         {% endif %}
@@ -125,10 +125,9 @@
                             <tr>
                                 <th class="ps-4">รหัสงาน</th>
                                 <th>ลูกค้า</th>
-                                <th>วันที่รับ</th>
+                                <th>วันที่ปิดงาน</th>
                                 <th>รายการ / สถานะ</th>
-                                <th>ช่างซ่อม</th>
-                                <th>ผู้รับงาน</th>
+                                <th>ช่างที่ดูแล</th>
                                 <th class="text-end pe-4">จัดการ</th>
                             </tr>
                         </thead>
@@ -136,7 +135,7 @@
                             {% for item in items %}
                             <tr style="{{ item.get_status_bg_light }}">
                                 <td class="ps-4">
-                                    <div class="fw-bold text-primary" style="cursor: pointer;">
+                                    <div class="fw-bold text-primary">
                                         <a href="{% url 'repairs:repair_detail' item.job.pk %}" class="text-decoration-none text-indigo hover-underline">
                                             {{ item.job.job_code }}
                                         </a>
@@ -149,32 +148,20 @@
                                     <div class="fw-bold">{{ item.job.customer.name }}</div>
                                     <div class="small text-muted">{{ item.job.customer.contact_number|default:"-" }}</div>
                                 </td>
-                                <td>{{ item.job.created_at|date:"d M Y H:i" }}</td>
+                                <td>{{ item.closed_at|date:"d M Y"|default:item.updated_at|date:"d M Y" }}</td>
                                 <td>
                                     <div class="d-flex align-items-center">
                                         <strong class="me-2 text-nowrap">{{ item.device.brand }} {{ item.device.model }}</strong>
-                                        {% if item.status == 'RECEIVED' %}
-                                            <span class="status-badge-pill bg-danger text-white">รับแจ้ง</span>
-                                        {% elif item.status == 'FIXING' %}
-                                            <span class="status-badge-pill bg-orange-500 text-white">กำลังซ่อม/ตรวจเช็ค</span>
-                                        {% elif item.status == 'WAITING_APPROVAL' %}
-                                            <span class="status-badge-pill bg-purple-500 text-white">รออนุมัติ</span>
-                                        {% elif item.status == 'WAITING' %}
-                                            <span class="status-badge-pill bg-warning text-dark">รออะไหล่</span>
-                                        {% elif item.status == 'OUTSOURCE' %}
-                                            <span class="status-badge-pill text-white" style="background-color: #6366f1;">ส่งซ่อมศูนย์</span>
-                                        {% elif item.status == 'RECEIVED_FROM_VENDOR' %}
-                                            <span class="status-badge-pill bg-info text-white">รับจากศูนย์</span>
-                                        {% elif item.status == 'FINISHED' %}
+                                        {% if item.status == 'FINISHED' %}
                                             <span class="status-badge-pill bg-success text-white">ซ่อมเสร็จ</span>
                                         {% elif item.status == 'CANCELLED' %}
                                             <span class="status-badge-pill bg-secondary text-white">ยกเลิก</span>
                                         {% elif item.status == 'COMPLETED' %}
-                                            <span class="status-badge-pill bg-secondary text-white">ส่งคืนแล้ว</span>
+                                            <span class="status-badge-pill bg-dark text-white">คืนเครื่องแล้ว</span>
                                         {% endif %}
-                                        <span class="small text-muted text-truncate ms-2" style="max-width: 150px;" title="{{ item.issue_description }}">
-                                            - {{ item.issue_description }}
-                                        </span>
+                                    </div>
+                                    <div class="small text-muted text-truncate mt-1" style="max-width: 250px;">
+                                        {{ item.issue_description }}
                                     </div>
                                 </td>
                                 <td>
@@ -186,21 +173,14 @@
                                         {% endfor %}
                                     </div>
                                 </td>
-                                <td>
-                                    {% if item.created_by %}
-                                        <div class="d-flex align-items-center">
-                                            <span class="small">{{ item.created_by.username }}</span>
-                                        </div>
-                                    {% else %}-{% endif %}
-                                </td>
                                 <td class="text-end pe-4">
                                     <a href="{% url 'repairs:repair_detail' item.job.pk %}" class="btn btn-sm btn-light text-primary shadow-sm border rounded-circle d-flex align-items-center justify-content-center ms-auto" style="width: 32px; height: 32px;">
-                                        <i class="fas fa-arrow-right"></i>
+                                        <i class="fas fa-eye"></i>
                                     </a>
                                 </td>
                             </tr>
                             {% empty %}
-                            <tr><td colspan="7" class="text-center py-5 text-muted">ไม่พบรายการซ่อม (ที่ยังไม่เสร็จ)</td></tr>
+                            <tr><td colspan="6" class="text-center py-5 text-muted">ไม่พบรายการ</td></tr>
                             {% endfor %}
                         </tbody>
                     </table>
@@ -211,32 +191,20 @@
         <!-- Mobile Layout (Cards) -->
         <div class="job-cards-container">
             {% for item in items %}
-            <div class="job-card shadow-sm mb-3" style="border-left: 5px solid {% if item.status == 'RECEIVED' %}#ff4d4f{% elif item.status == 'FIXING' %}#f97316{% elif item.status == 'WAITING_APPROVAL' %}#a855f7{% elif item.status == 'WAITING' %}#eab308{% elif item.status == 'OUTSOURCE' %}#6366f1{% elif item.status == 'RECEIVED_FROM_VENDOR' %}#38bdf8{% else %}#10b981{% endif %}; background: white;">
+            <div class="job-card shadow-sm mb-3" style="border-left: 5px solid {% if item.status == 'FINISHED' %}#10b981{% elif item.status == 'CANCELLED' %}#6b7280{% else %}#1f2937{% endif %}; background: white;">
                 <div class="d-flex justify-content-between align-items-start mb-2">
                     <div>
                         <a href="{% url 'repairs:repair_detail' item.job.pk %}" class="fw-bold fs-6 text-indigo text-decoration-none">
                             {{ item.job.job_code }}
                         </a>
-                        <div class="x-small text-muted">{{ item.job.created_at|date:"d M H:i" }}</div>
+                        <div class="x-small text-muted">ปิดงาน: {{ item.closed_at|date:"d M Y"|default:item.updated_at|date:"d M Y" }}</div>
                     </div>
-                    {% if item.status == 'RECEIVED' %}
-                        <span class="status-badge-pill bg-danger text-white">รับแจ้ง</span>
-                    {% elif item.status == 'FIXING' %}
-                        <span class="status-badge-pill bg-orange-500 text-white">ซ่อม/เช็ค</span>
-                    {% elif item.status == 'WAITING_APPROVAL' %}
-                        <span class="status-badge-pill bg-purple-500 text-white">รออนุมัติ</span>
-                    {% elif item.status == 'WAITING' %}
-                        <span class="status-badge-pill bg-warning text-dark">รออะไหล่</span>
-                    {% elif item.status == 'OUTSOURCE' %}
-                        <span class="status-badge-pill text-white" style="background-color: #6366f1;">ส่งซ่อมศูนย์</span>
-                    {% elif item.status == 'RECEIVED_FROM_VENDOR' %}
-                        <span class="status-badge-pill bg-info text-white">รับจากศูนย์</span>
-                    {% elif item.status == 'FINISHED' %}
+                    {% if item.status == 'FINISHED' %}
                         <span class="status-badge-pill bg-success text-white">ซ่อมเสร็จ</span>
                     {% elif item.status == 'CANCELLED' %}
                         <span class="status-badge-pill bg-secondary text-white">ยกเลิก</span>
                     {% elif item.status == 'COMPLETED' %}
-                        <span class="status-badge-pill bg-secondary text-white">ส่งคืนแล้ว</span>
+                        <span class="status-badge-pill bg-dark text-white">คืนเครื่อง</span>
                     {% endif %}
                 </div>
                 <div class="mb-2">
@@ -249,66 +217,17 @@
                 <div class="d-flex justify-content-between align-items-center x-small">
                     <div class="text-primary fw-bold">
                         <i class="fas fa-tools me-1"></i>
-                        {% for tech in item.technicians.all %}{{ tech.name }}{% if not forloop.last %}, {% endif %}{% empty %}ยังไม่ระบุ{% endfor %}
+                        {% for tech in item.technicians.all %}{{ tech.name }}{% if not forloop.last %}, {% endif %}{% empty %}ไม่ระบุ{% endfor %}
                     </div>
-                    <a href="{% url 'repairs:repair_detail' item.job.pk %}" class="btn btn-sm btn-primary py-1 px-3 rounded-pill">
-                        ดูรายละเอียด
+                    <a href="{% url 'repairs:repair_detail' item.job.pk %}" class="btn btn-sm btn-outline-primary py-1 px-3 rounded-pill">
+                        ดูข้อมูล
                     </a>
                 </div>
             </div>
             {% empty %}
-            <div class="text-center py-5 text-muted card shadow-sm border-0">ไม่พบรายการซ่อม</div>
+            <div class="text-center py-5 text-muted card shadow-sm border-0">ไม่พบรายการ</div>
             {% endfor %}
         </div>
     </div>
 </div>
-{% endblock %}
-
-{% block scripts %}
-<script>
-    const noteCache = {};
-    const jobNoteCache = {};
-
-    function showStatusNote(container) {
-        const tooltip = container.querySelector('.status-tooltip');
-        const contentSpan = tooltip.querySelector('.tooltip-content');
-        const itemId = container.getAttribute('data-item-id');
-        tooltip.classList.remove('d-none');
-        if (noteCache[itemId]) {
-            contentSpan.textContent = noteCache[itemId];
-        } else {
-            contentSpan.textContent = 'Loading...';
-            fetch(`/repairs/item/${itemId}/note/`)
-                .then(response => response.json())
-                .then(data => {
-                    noteCache[itemId] = data.note || 'ไม่มีบันทึกเพิ่มเติม';
-                    contentSpan.textContent = noteCache[itemId];
-                });
-        }
-    }
-    function hideStatusNote(container) { container.querySelector('.status-tooltip').classList.add('d-none'); }
-    function showJobNotes(container) {
-        const tooltip = container.querySelector('.job-tooltip');
-        const contentSpan = tooltip.querySelector('.tooltip-content');
-        const jobId = container.getAttribute('data-job-id');
-        tooltip.classList.remove('d-none');
-        if (jobNoteCache[jobId]) { renderJobNotes(contentSpan, jobNoteCache[jobId]); }
-        else {
-            contentSpan.innerHTML = 'Loading...';
-            fetch(`/repairs/job/${jobId}/notes/`)
-                .then(response => response.json())
-                .then(data => {
-                    jobNoteCache[jobId] = data.items;
-                    renderJobNotes(contentSpan, data.items);
-                });
-        }
-    }
-    function hideJobNotes(container) { container.querySelector('.job-tooltip').classList.add('d-none'); }
-    function renderJobNotes(container, items) {
-        if (!items || items.length === 0) { container.textContent = 'ไม่มีบันทึก'; return; }
-        let html = '';
-        items.forEach(item => { if (item.note && item.note.trim() !== '') { if (html !== '') html += '<hr class="my-1 border-light">'; html += `<div class="text-start">${item.note}</div>`; } });
-        container.innerHTML = html || 'ไม่มีบันทึก';
-    }
-</script>
 {% endblock %}

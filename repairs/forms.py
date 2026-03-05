@@ -80,11 +80,10 @@ class RepairJobForm(forms.ModelForm):
 class RepairItemForm(forms.ModelForm):
     class Meta:
         model = RepairItem
-        fields = ['issue_description', 'accessories', 'technicians', 'status', 'status_note', 'price']
+        fields = ['issue_description', 'accessories', 'status', 'status_note', 'price']
         widgets = {
             'issue_description': forms.Textarea(attrs={'rows': 2, 'class': 'form-control', 'placeholder': 'ระบุอาการเสียที่ลูกค้าแจ้ง'}),
             'accessories': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'เช่น สายชาร์จ, กระเป๋า'}),
-            'technicians': forms.SelectMultiple(attrs={'class': 'form-select select2', 'size': '3'}),
             'status': forms.Select(attrs={'class': 'form-select'}),
             'status_note': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'หมายเหตุสถานะ'}),
             'price': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': '0.00'}),
@@ -92,12 +91,21 @@ class RepairItemForm(forms.ModelForm):
     
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields['technicians'].required = False
-        
         # If creating new repair job, restrict status to 'RECEIVED' only
         if not self.instance.pk:
             self.fields['status'].choices = [('RECEIVED', 'รับแจ้ง')]
             self.fields['status'].initial = 'RECEIVED'
+
+class StatusUpdateForm(forms.ModelForm):
+    class Meta:
+        model = RepairItem
+        fields = ['status', 'status_note', 'technicians', 'final_cost']
+        widgets = {
+            'status': forms.Select(attrs={'class': 'form-select'}),
+            'status_note': forms.Textarea(attrs={'rows': 2, 'class': 'form-control'}),
+            'technicians': forms.SelectMultiple(attrs={'class': 'form-select select2'}),
+            'final_cost': forms.NumberInput(attrs={'class': 'form-control'}),
+        }
 
 class TechnicianForm(forms.ModelForm):
     class Meta:

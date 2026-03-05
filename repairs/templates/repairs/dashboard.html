@@ -1,0 +1,361 @@
+{% extends 'repairs/base_repairs.html' %}
+{% load humanize %}
+
+{% block content %}
+<style>
+    .stat-card {
+        border: none;
+        border-radius: 16px;
+        transition: all 0.3s ease;
+        overflow: hidden;
+    }
+    .stat-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 20px rgba(0,0,0,0.05) !important;
+    }
+    .stat-icon {
+        width: 48px;
+        height: 48px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.5rem;
+        margin-bottom: 1rem;
+    }
+    .chart-container {
+        position: relative;
+        height: 300px;
+        width: 100%;
+    }
+    .tech-item {
+        padding: 12px;
+        border-radius: 12px;
+        background: #f8fafc;
+        margin-bottom: 10px;
+        border: 1px solid #f1f5f9;
+        transition: background 0.2s;
+    }
+    .tech-item:hover {
+        background: #f1f5f9;
+    }
+    .progress {
+        height: 8px;
+        border-radius: 4px;
+        background: #e2e8f0;
+    }
+    .table-custom th {
+        font-weight: 600;
+        text-transform: uppercase;
+        font-size: 0.75rem;
+        letter-spacing: 0.025em;
+        color: #64748b;
+        background: #f8fafc;
+        border-top: none;
+    }
+    .card-title-custom {
+        font-weight: 700;
+        color: #1e293b;
+        font-size: 1.1rem;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .bg-soft-primary { background-color: #e0e7ff; color: #4338ca; }
+    .bg-soft-success { background-color: #dcfce7; color: #15803d; }
+    .bg-soft-warning { background-color: #fef9c3; color: #a16207; }
+    .bg-soft-info { background-color: #e0f2fe; color: #0369a1; }
+    .bg-soft-danger { background-color: #fee2e2; color: #b91c1c; }
+</style>
+
+<div class="container-fluid pb-5">
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 gap-3">
+        <div>
+            <h1 class="h3 mb-1 fw-bold">สรุปภาพรวมระบบ</h1>
+            <p class="text-muted small mb-0">เรียกดูข้อมูลตั้งแต่วันที่ {{ start_date|date:"d/m/Y" }} ถึง {{ end_date|date:"d/m/Y" }}</p>
+        </div>
+        
+        <!-- Filter Form -->
+        <div class="bg-white p-2 rounded-4 shadow-sm border">
+            <form method="get" class="row gx-2 gy-2 align-items-center">
+                <div class="col-auto">
+                    <select name="period" id="periodSelect" class="form-select form-select-sm border-0 bg-light fw-bold pe-4 ps-3" style="min-width: 130px;" onchange="toggleCustomDates(this.value); if(this.value!='custom') this.form.submit();">
+                        <option value="this_month" {% if period == 'this_month' %}selected{% endif %}>เดือนนี้</option>
+                        <option value="this_year" {% if period == 'this_year' %}selected{% endif %}>ปีนี้</option>
+                        <option value="all" {% if period == 'all' %}selected{% endif %}>ทั้งหมด</option>
+                        <option value="custom" {% if period == 'custom' %}selected{% endif %}>กำหนดเอง</option>
+                    </select>
+                </div>
+                <div class="col-auto custom-date-group" style="{% if period != 'custom' %}display:none;{% endif %}">
+                    <div class="d-flex align-items-center gap-1">
+                        <input type="date" name="start_date" value="{{ start_date|date:'Y-m-d' }}" class="form-control form-control-sm border-0 bg-light">
+                        <span class="text-muted small">ถึง</span>
+                        <input type="date" name="end_date" value="{{ end_date|date:'Y-m-d' }}" class="form-control form-control-sm border-0 bg-light">
+                        <button type="submit" class="btn btn-sm btn-primary px-3 rounded-pill">ตกลง</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Stats Row -->
+    <div class="row g-4 mb-4">
+        <div class="col-12 col-sm-6 col-lg-3">
+            <div class="card stat-card shadow-sm">
+                <div class="card-body">
+                    <div class="stat-icon bg-soft-primary">
+                        <i class="fas fa-tools"></i>
+                    </div>
+                    <h6 class="text-muted mb-1">งานรับเข้า (ช่วงที่เลือก)</h6>
+                    <h2 class="fw-bold mb-0">{{ total_jobs_in_period }} <span class="fs-6 fw-normal text-muted">รายการ</span></h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-sm-6 col-lg-3">
+            <div class="card stat-card shadow-sm">
+                <div class="card-body">
+                    <div class="stat-icon bg-soft-warning">
+                        <i class="fas fa-user-clock"></i>
+                    </div>
+                    <h6 class="text-muted mb-1">รออนุมัติ (ช่วงที่เลือก)</h6>
+                    <h2 class="fw-bold mb-0">{{ awaiting_approval }} <span class="fs-6 fw-normal text-muted">รายการ</span></h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-sm-6 col-lg-3">
+            <div class="card stat-card shadow-sm">
+                <div class="card-body">
+                    <div class="stat-icon bg-soft-success">
+                        <i class="fas fa-wrench"></i>
+                    </div>
+                    <h6 class="text-muted mb-1">งานค้างซ่อม (ปัจจุบัน)</h6>
+                    <h2 class="fw-bold mb-0">{{ active_repairs }} <span class="fs-6 fw-normal text-muted">รายการ</span></h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-sm-6 col-lg-3">
+            <div class="card stat-card shadow-sm">
+                <div class="card-body">
+                    <div class="stat-icon bg-soft-info">
+                        <i class="fas fa-coins"></i>
+                    </div>
+                    <h6 class="text-muted mb-1">รายได้ (ช่วงที่เลือก)</h6>
+                    <h2 class="fw-bold mb-0">฿{{ period_income|floatformat:0|intcomma }}</h2>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <!-- Status Chart -->
+        <div class="col-12 col-lg-8">
+            <div class="card border-0 shadow-sm rounded-4 h-100">
+                <div class="card-header bg-white border-0 pt-4 px-4 pb-0">
+                    <h5 class="card-title-custom"><i class="fas fa-chart-pie text-primary"></i> สัดส่วนสถานะงานซ่อม</h5>
+                </div>
+                <div class="card-body p-4">
+                    <div class="row align-items-center">
+                        <div class="col-md-7">
+                            <div class="chart-container">
+                                <canvas id="statusChart"></canvas>
+                            </div>
+                        </div>
+                        <div class="col-md-5">
+                            <div id="chartLegend" class="mt-3 mt-md-0">
+                                <!-- Legend items will be injected by JS or could be static -->
+                                <div class="small">
+                                    <h6 class="fw-bold mb-3">สรุปจำนวนงาน</h6>
+                                    <div id="custom-legend-list"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tech Workload -->
+        <div class="col-12 col-lg-4">
+            <div class="card border-0 shadow-sm rounded-4 h-100">
+                <div class="card-header bg-white border-0 pt-4 px-4 pb-0">
+                    <h5 class="card-title-custom"><i class="fas fa-user-gear text-primary"></i> ภาระงานรายช่าง</h5>
+                </div>
+                <div class="card-body p-4">
+                    {% for tech in tech_stats %}
+                    <div class="tech-item">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <span class="fw-bold text-dark">{{ tech.name }}</span>
+                            <span class="badge rounded-pill bg-primary px-2 font-monospace">{{ tech.active }}</span>
+                        </div>
+                        <div class="d-flex justify-content-between x-small text-muted mb-1">
+                            <span>งานที่ถืออยู่</span>
+                            <span>ซ่อมเสร็จแล้ว: {{ tech.completed }}</span>
+                        </div>
+                        <div class="progress">
+                            {% with active=tech.active total=tech.total %}
+                            <div class="progress-bar bg-primary" role="progressbar" 
+                                 style="width: {% if total > 0 %}{% widthratio active total 100 %}{% else %}0{% endif %}%" 
+                                 aria-valuenow="{{ active }}" aria-valuemin="0" aria-valuemax="{{ total }}"></div>
+                            {% endwith %}
+                        </div>
+                    </div>
+                    {% empty %}
+                    <div class="text-center py-5 text-muted small">ยังไม่มีข้อมูลช่างซ่อม</div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Weekly Trend -->
+        <div class="col-12 col-lg-6">
+            <div class="card border-0 shadow-sm rounded-4">
+                <div class="card-header bg-white border-0 pt-4 px-4 pb-0">
+                    <h5 class="card-title-custom"><i class="fas fa-chart-line text-primary"></i> ปริมาณงานรายวัน (7 วันล่าสุด)</h5>
+                </div>
+                <div class="card-body p-4">
+                    <div class="chart-container" style="height: 250px;">
+                        <canvas id="trendChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Top Customers -->
+        <div class="col-12 col-lg-6">
+            <div class="card border-0 shadow-sm rounded-4 h-100">
+                <div class="card-header bg-white border-0 pt-4 px-4 pb-0">
+                    <h5 class="card-title-custom"><i class="fas fa-star text-warning"></i> ยอดใช้บริการสูงสุด (Top 5)</h5>
+                </div>
+                <div class="card-body p-4">
+                    <div class="table-responsive">
+                        <table class="table table-hover table-custom">
+                            <thead>
+                                <tr>
+                                    <th>ชื่อลูกค้า</th>
+                                    <th>จำนวนงาน</th>
+                                    <th class="text-end">ยอดรวม</th>
+                                </tr>
+                            </thead>
+                            <tbody class="border-0">
+                                {% for customer in top_customers %}
+                                <tr>
+                                    <td class="fw-bold text-dark">{{ customer.name }}</td>
+                                    <td>{{ customer.jobs.count }} <span class="text-muted small">รายการ</span></td>
+                                    <td class="text-end fw-bold text-primary">฿{{ customer.total_spent|floatformat:0|intcomma }}</td>
+                                </tr>
+                                {% empty %}
+                                <tr><td colspan="3" class="text-center py-4 text-muted small">ยังไม่มีข้อมูลยอดรับเงิน</td></tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="mt-3 p-3 bg-light rounded-3 d-flex justify-content-between align-items-center">
+                        <span class="fw-bold text-muted small">ยอดรวมรายได้ทั้งหมด:</span>
+                        <h4 class="mb-0 fw-bold text-dark">฿{{ total_income|floatformat:0|intcomma }}</h4>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Scripts -->
+{% block scripts %}
+<script>
+    function toggleCustomDates(val) {
+        const group = document.querySelector('.custom-date-group');
+        if (val === 'custom') {
+            group.style.display = 'block';
+        } else {
+            group.style.display = 'none';
+        }
+    }
+
+    (function() {
+        // Status Chart
+        const statusCtx = document.getElementById('statusChart').getContext('2d');
+        const labels = {{ status_labels|safe }};
+        const values = {{ status_values|safe }};
+        const colors = {{ status_colors|safe }};
+
+        new Chart(statusCtx, {
+            type: 'doughnut',
+            data: {
+                labels: labels,
+                datasets: [{
+                    data: values,
+                    backgroundColor: colors,
+                    hoverOffset: 12,
+                    borderWidth: 0,
+                    borderRadius: 4
+                }]
+            },
+            options: {
+                cutout: '65%',
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        padding: 12,
+                        cornerRadius: 8,
+                        boxPadding: 6
+                    }
+                },
+                maintainAspectRatio: false
+            }
+        });
+
+        // Inject custom legend
+        const legendContainer = document.getElementById('custom-legend-list');
+        labels.forEach((label, i) => {
+            if (values[i] > 0) {
+                const item = document.createElement('div');
+                item.className = 'd-flex justify-content-between align-items-center mb-2';
+                item.innerHTML = `
+                    <div class="d-flex align-items-center gap-2">
+                        <div style="width:10px; height:10px; background:${colors[i]}; border-radius:3px;"></div>
+                        <span class="text-muted x-small">${label}</span>
+                    </div>
+                    <span class="fw-bold small">${values[i]}</span>
+                `;
+                legendContainer.appendChild(item);
+            }
+        });
+
+        // Trend Chart
+        const trendCtx = document.getElementById('trendChart').getContext('2d');
+        new Chart(trendCtx, {
+            type: 'line',
+            data: {
+                labels: {{ daily_labels|safe }},
+                datasets: [{
+                    label: 'งานใหม่',
+                    data: {{ daily_values|safe }},
+                    borderColor: '#4f46e5',
+                    backgroundColor: 'rgba(79, 70, 229, 0.1)',
+                    fill: true,
+                    tension: 0.4,
+                    pointRadius: 4,
+                    pointBackgroundColor: '#4f46e5',
+                    borderWidth: 3
+                }]
+            },
+            options: {
+                plugins: {
+                    legend: { display: false }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: { stepSize: 1, precision: 0 }
+                    },
+                    x: {
+                        grid: { display: false }
+                    }
+                },
+                maintainAspectRatio: false
+            }
+        });
+    })();
+</script>
+{% endblock %}
+{% endblock %}

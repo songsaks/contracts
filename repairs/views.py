@@ -15,8 +15,153 @@ from django.db.models import Q, Sum, Count
 from django.utils import timezone
 
 @login_required
+@login_required
+def dashboard(request):
+    # --- Date Filter Logic ---
+    today = timezone.now().date()
+    period = request.GET.get('period', 'this_month')
+    start_date_str = request.GET.get('start_date')
+    end_date_str = request.GET.get('end_date')
+
+    if period == 'this_month':
+        start_date = today.replace(day=1)
+        end_date = today
+    elif period == 'this_year':
+        start_date = today.replace(month=1, day=1)
+        end_date = today
+    elif period == 'custom' and start_date_str and end_date_str:
+        try:
+            start_date = datetime.datetime.strptime(start_date_str, '%Y-%m-%d').date()
+            end_date = datetime.datetime.strptime(end_date_str, '%Y-%m-%d').date()
+        except ValueError:
+            start_date = today.replace(day=1)
+            end_date = today
+    elif period == 'all':
+        start_date = datetime.date(2020, 1, 1) # Fallback start
+        end_date = today
+    else:
+        # Default to this month
+        start_date = today.replace(day=1)
+        end_date = today
+        period = 'this_month'
+
+    # Ensure range for queries
+    range_filter = [
+        timezone.make_aware(datetime.datetime.combine(start_date, datetime.time.min)),
+        timezone.make_aware(datetime.datetime.combine(end_date, datetime.time.max))
+    ]
+
+    # --- Data Queries ---
+    
+    # Base filter for items created/received in period
+    period_items = RepairItem.objects.filter(created_at__range=range_filter)
+
+    # 1. Overall Status Statistics (of items created in period)
+    status_summary = period_items.values('status').annotate(count=Count('id'))
+    ordered_statuses = [
+        ('RECEIVED', '#ef4444'),
+        ('FIXING', '#f97316'),
+        ('WAITING_APPROVAL', '#a855f7'),
+        ('WAITING', '#eab308'),
+        ('OUTSOURCE', '#6366f1'),
+        ('RECEIVED_FROM_VENDOR', '#38bdf8'),
+        ('FINISHED', '#10b981'),
+        ('CANCELLED', '#6b7280'),
+        ('COMPLETED', '#1f2937'),
+    ]
+    
+    counts_map = {item['status']: item['count'] for item in status_summary}
+    status_labels = []
+    status_values = []
+    status_colors = []
+    status_display_map = dict(RepairItem.STATUS_CHOICES)
+    for code, color in ordered_statuses:
+        status_labels.append(status_display_map.get(code, code))
+        status_values.append(counts_map.get(code, 0))
+        status_colors.append(color)
+
+    # 2. Technician Performance (Active is current, Completed is within period)
+    tech_stats = []
+    technicians = Technician.objects.all()
+    for tech in technicians:
+        active_count = tech.repairitem_set.exclude(status__in=['FINISHED', 'CANCELLED', 'COMPLETED']).count()
+        completed_period_count = tech.repairitem_set.filter(
+            status__in=['FINISHED', 'COMPLETED'],
+            updated_at__range=range_filter
+        ).count()
+        tech_stats.append({
+            'name': tech.name,
+            'active': active_count,
+            'completed': completed_period_count,
+            'total': active_count + completed_period_count
+        })
+    tech_stats.sort(key=lambda x: x['active'], reverse=True)
+
+    # 3. Income Summary (within period)
+    income_items = RepairItem.objects.filter(
+        status='COMPLETED', 
+        updated_at__range=range_filter
+    )
+    period_income = income_items.aggregate(total=Sum('final_cost'))['total'] or 0
+    total_lifetime_income = RepairItem.objects.filter(status='COMPLETED').aggregate(total=Sum('final_cost'))['total'] or 0
+    
+    # 4. Top Customers (within period)
+    top_customers = Customer.objects.annotate(
+        total_spent_period=Sum('jobs__items__final_cost', filter=Q(jobs__items__status='COMPLETED', jobs__items__updated_at__range=range_filter))
+    ).filter(total_spent_period__gt=0).order_by('-total_spent_period')[:5]
+
+    # 5. Trend Graph (Last 30 days or based on range)
+    # If range is small (<= 31 days), show daily. If larger, maybe monthly?
+    days_diff = (end_date - start_date).days
+    daily_labels = []
+    daily_values = []
+    
+    if days_diff <= 31:
+        # Show daily for the range
+        current = start_date
+        while current <= end_date:
+            count = RepairItem.objects.filter(created_at__date=current).count()
+            daily_labels.append(current.strftime('%d/%m'))
+            daily_values.append(count)
+            current += datetime.timedelta(days=1)
+    else:
+        # Show monthly summary if range is large
+        # For simplicity, if > 31 days, just show last 7 days trend or some fixed sample
+        # Let's just do last 10 points or something.
+        # Better: just stick to daily for the selected range if it's reasonable.
+        # Let's limit to 30 points.
+        step = max(1, days_diff // 15)
+        current = start_date
+        while current <= end_date:
+            count = RepairItem.objects.filter(created_at__date=current).count()
+            daily_labels.append(current.strftime('%d/%m'))
+            daily_values.append(count)
+            current += datetime.timedelta(days=step)
+
+    context = {
+        'status_labels': json.dumps(status_labels),
+        'status_values': json.dumps(status_values),
+        'status_colors': json.dumps(status_colors),
+        'tech_stats': tech_stats,
+        'period_income': period_income,
+        'total_income': total_lifetime_income,
+        'top_customers': top_customers,
+        'daily_labels': json.dumps(daily_labels),
+        'daily_values': json.dumps(daily_values),
+        'active_repairs': RepairItem.objects.exclude(status__in=['FINISHED', 'CANCELLED', 'COMPLETED']).count(),
+        'awaiting_approval': RepairItem.objects.filter(status='WAITING_APPROVAL', created_at__range=range_filter).count(),
+        'total_jobs_in_period': period_items.count(),
+        # For Form persistence
+        'start_date': start_date,
+        'end_date': end_date,
+        'period': period,
+    }
+    return render(request, 'repairs/dashboard.html', context)
+
+@login_required
 def repair_list(request):
-    items = RepairItem.objects.select_related('job', 'device', 'job__customer').exclude(status='COMPLETED').all()
+    # Exclude finished/cancelled items from main list
+    items = RepairItem.objects.select_related('job', 'device', 'job__customer').prefetch_related('technicians').exclude(status__in=['FINISHED', 'COMPLETED', 'CANCELLED']).all()
 
     # Search
     q = request.GET.get('q')
@@ -64,13 +209,64 @@ def repair_list(request):
     from django.contrib.auth.models import User
     users = User.objects.all().order_by('username')
 
-    return render(request, 'repairs/repair_list.html', {'items': items, 'jobs': None, 'users': users, 'selected_created_by': selected_created_by}) # Pass items, clear jobs for safety check
+    return render(request, 'repairs/repair_list.html', {'items': items, 'users': users, 'selected_created_by': selected_created_by})
 
 @login_required
 def repair_completed_list(request):
-    items = RepairItem.objects.select_related('job', 'device', 'job__customer').filter(status='COMPLETED').all()
+    # Show items that are finished or cancelled (but not returned yet)
+    items = RepairItem.objects.select_related('job', 'device', 'job__customer').prefetch_related('technicians').filter(status__in=['FINISHED', 'CANCELLED']).all()
 
     # Search (reuse same logic mostly)
+    q = request.GET.get('q')
+    if q:
+        items = items.filter(
+            Q(job__job_code__icontains=q) |
+            Q(job__customer__name__icontains=q) |
+            Q(device__model__icontains=q) |
+            Q(device__serial_number__icontains=q) |
+            Q(issue_description__icontains=q) |
+            Q(job__fix_id__icontains=q) |
+            Q(created_by__username__icontains=q)
+        ).distinct()
+
+    # Filter by Creator
+    created_by_id = request.GET.get('created_by')
+    if created_by_id:
+        items = items.filter(created_by__id=created_by_id)
+
+    # Filter by Status (specific within finished/cancelled)
+    status_filter = request.GET.get('status')
+    if status_filter:
+        items = items.filter(status=status_filter)
+
+    # Sort
+    sort = request.GET.get('sort', 'date_desc')
+    if sort == 'date_desc':
+        items = items.order_by('-updated_at')
+    elif sort == 'date_asc':
+        items = items.order_by('created_at')
+    elif sort == 'customer':
+        items = items.order_by('job__customer__name')
+    
+    from django.contrib.auth.models import User
+    users = User.objects.all().order_by('username')
+    
+    from django.conf import settings
+    return render(request, 'repairs/repair_history.html', {
+        'items': items, 
+        'users': users,
+        'delete_password': settings.DELETE_PASSWORD,
+        'list_type': 'finished',
+        'page_title': 'เสร็จแล้ว/ยกเลิก',
+        'page_subtitle': 'งานที่ซ่อมเสร็จหรือยกเลิกแล้ว แต่ยังไม่ได้ส่งคืน'
+    })
+
+@login_required
+def repair_returned_list(request):
+    # Show items that are completed (returned)
+    items = RepairItem.objects.select_related('job', 'device', 'job__customer').prefetch_related('technicians').filter(status='COMPLETED').all()
+
+    # Search
     q = request.GET.get('q')
     if q:
         items = items.filter(
@@ -91,7 +287,7 @@ def repair_completed_list(request):
     # Sort
     sort = request.GET.get('sort', 'date_desc')
     if sort == 'date_desc':
-        items = items.order_by('-updated_at') # Use updated_at for completed likely better? Or stick to created_at
+        items = items.order_by('-updated_at')
     elif sort == 'date_asc':
         items = items.order_by('created_at')
     elif sort == 'customer':
@@ -99,12 +295,15 @@ def repair_completed_list(request):
     
     from django.contrib.auth.models import User
     users = User.objects.all().order_by('username')
-
+    
     from django.conf import settings
-    return render(request, 'repairs/repair_completed_list.html', {
+    return render(request, 'repairs/repair_history.html', {
         'items': items, 
         'users': users,
-        'delete_password': settings.DELETE_PASSWORD
+        'delete_password': settings.DELETE_PASSWORD,
+        'list_type': 'returned',
+        'page_title': 'ส่งคืนแล้ว',
+        'page_subtitle': 'รายการที่ส่งคืนเครื่องให้ลูกค้าเรียบร้อยแล้ว'
     })
 
 @login_required
@@ -184,7 +383,8 @@ def repair_create(request):
 @login_required
 def repair_detail(request, pk):
     job = get_object_or_404(RepairJob, pk=pk)
-    return render(request, 'repairs/repair_detail.html', {'job': job})
+    all_technicians = Technician.objects.all().order_by('name')
+    return render(request, 'repairs/repair_detail.html', {'job': job, 'all_technicians': all_technicians})
 
 @login_required
 def repair_update_status(request, item_id):
@@ -228,6 +428,12 @@ def repair_update_status(request, item_id):
                         item.final_cost = float(final_cost)
                     except ValueError:
                         pass
+            
+            # Handle Technicians - ONLY if new status is FIXING
+            if new_status == 'FIXING':
+                tech_ids = request.POST.getlist('technicians')
+                if tech_ids:
+                    item.technicians.set(tech_ids)
 
             item.save()
 
@@ -637,12 +843,12 @@ def _build_daily_income_json(items_list, start_date, end_date):
 
 def repair_tracking(request, tracking_id):
     job = get_object_or_404(RepairJob, tracking_id=tracking_id)
-    tech_session = request.session.get('tech_auth')
     status_choices = RepairItem.STATUS_CHOICES
+    all_technicians = Technician.objects.all().order_by('name')
     return render(request, 'repairs/repair_tracking.html', {
         'job': job, 
-        'tech_session': tech_session,
-        'status_choices': status_choices
+        'status_choices': status_choices,
+        'all_technicians': all_technicians
     })
 
 
@@ -657,24 +863,18 @@ def repair_item_delete(request, item_id):
         if password == settings.DELETE_PASSWORD:
             if item.status == 'COMPLETED':
                 with transaction.atomic():
-                    # Check if this is the only item in the job
                     job = item.job
                     item.delete()
-                    
-                    # If no items left in job, might want to delete job too? 
-                    # For now just delete the item as requested.
                     if not job.items.exists():
                         job.delete()
                 
-                return redirect('repairs:repair_completed_list')
+                return redirect('repairs:repair_returned_list')
             else:
-                # Optional: could add error message here
                 return redirect('repairs:repair_list')
         else:
-            # Wrong password
-            return redirect('repairs:repair_completed_list')
+            return redirect('repairs:repair_returned_list')
             
-    return redirect('repairs:repair_completed_list')
+    return redirect('repairs:repair_returned_list')
 
 def repair_status_search(request):
     if request.method == 'POST':
@@ -837,6 +1037,13 @@ def technician_update_status_api(request):
     with transaction.atomic():
         item.status = new_status
         item.status_note = note
+        
+        # Handle Technicians - ONLY if new status is FIXING
+        if new_status == 'FIXING':
+            tech_ids = request.POST.getlist('technicians')
+            if tech_ids:
+                item.technicians.set(tech_ids)
+                
         item.save()
         
         # Record history - NOW correctly links to request.user

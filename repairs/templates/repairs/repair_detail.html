@@ -46,7 +46,9 @@
                     {% if item.status == 'RECEIVED' %}
                         <span class="badge bg-danger">รับแจ้ง</span>
                     {% elif item.status == 'FIXING' %}
-                        <span class="badge" style="background-color: #fd7e14;">กำลังซ่อม</span>
+                        <span class="badge" style="background-color: #fd7e14;">กำลังซ่อม/ตรวจเช็ค</span>
+                    {% elif item.status == 'WAITING_APPROVAL' %}
+                        <span class="badge" style="background-color: #a855f7;">รออนุมัติงานซ่อม</span>
                     {% elif item.status == 'WAITING' %}
                         <span class="badge bg-warning text-dark">รออะไหล่</span>
                     {% elif item.status == 'OUTSOURCE' %}
@@ -55,6 +57,8 @@
                         <span class="badge bg-info">รอตรวจรับกลับ</span>
                     {% elif item.status == 'FINISHED' %}
                         <span class="badge bg-success">ซ่อมเสร็จ</span>
+                    {% elif item.status == 'CANCELLED' %}
+                        <span class="badge bg-secondary">ยกเลิก</span>
                     {% elif item.status == 'COMPLETED' %}
                         <span class="badge bg-secondary">ส่งคืนแล้ว</span>
                     {% endif %}
@@ -100,16 +104,36 @@
                         <div class="row g-3">
                             <div class="col-md-4">
                                 <label class="form-label small fw-bold text-muted">สถานะ</label>
-                                <select name="status" class="form-select select2" onchange="toggleFinalCost(this)" {% if item.status == 'OUTSOURCE' %}disabled{% endif %}>
+                                <select name="status" class="form-select select2" onchange="toggleFixingFields(this)" {% if item.status == 'OUTSOURCE' %}disabled{% endif %}>
                                     <option value="RECEIVED" {% if item.status == 'RECEIVED' %}selected{% endif %}>รับแจ้ง</option>
-                                    <option value="FIXING" {% if item.status == 'FIXING' %}selected{% endif %}>กำลังซ่อม</option>
+                                    <option value="FIXING" {% if item.status == 'FIXING' %}selected{% endif %}>กำลังซ่อม/ตรวจเช็ค</option>
+                                    <option value="WAITING_APPROVAL" {% if item.status == 'WAITING_APPROVAL' %}selected{% endif %}>รออนุมัติงานซ่อม</option>
                                     <option value="WAITING" {% if item.status == 'WAITING' %}selected{% endif %}>รออะไหล่</option>
                                     <option value="OUTSOURCE" {% if item.status == 'OUTSOURCE' %}selected{% endif %}>ส่งซ่อมศูนย์/ภายนอก</option>
                                     <option value="RECEIVED_FROM_VENDOR" {% if item.status == 'RECEIVED_FROM_VENDOR' %}selected{% endif %}>รอตรวจรับกลับ</option>
+                                    <option value="CANCELLED" {% if item.status == 'CANCELLED' %}selected{% endif %}>ยกเลิกการซ่อม</option>
                                     <option value="FINISHED" {% if item.status == 'FINISHED' %}selected{% endif %}>ซ่อมเสร็จ</option>
-                                    <option value="COMPLETED" {% if item.status == 'COMPLETED' %}selected{% endif %}>ส่งคืนแล้ว</option>
+                                    <option value="COMPLETED" {% if item.status == 'COMPLETED' %}selected{% endif %}>ส่งคืนให้ลูกค้าแล้ว</option>
                                 </select>
                             </div>
+                            
+                            <div class="col-12 tech-assign-div {% if item.status != 'FIXING' %}d-none{% endif %}">
+                                <label class="form-label small fw-bold text-primary">มอบหมายช่าง (บังคับในขั้นตอนนี้)</label>
+                                <select name="technicians" class="form-select select2" multiple>
+                                    {% for tech in all_technicians %}
+                                    <option value="{{ tech.id }}" {% if tech in item.technicians.all %}selected{% endif %}>{{ tech.name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+
+                            {% if item.status != 'FIXING' and item.technicians.exists %}
+                            <div class="col-12 mt-1">
+                                <div class="small text-muted"><i class="fas fa-tools me-1"></i>ช่างผู้รับผิดชอบ: 
+                                    <strong>{% for t in item.technicians.all %}{{ t.name }}{% if not forloop.last %}, {% endif %}{% endfor %}</strong>
+                                    <span class="ms-2">(แก้ไขชื่อช่างได้เฉพาะที่สถานะ "กำลังซ่อม")</span>
+                                </div>
+                            </div>
+                            {% endif %}
                             <div class="col-md-8">
                                 <label class="form-label small fw-bold text-muted">หมายเหตุสถานะ</label>
                                 <textarea name="status_note" rows="1" class="form-control" placeholder="ระบุเหตุผล หรือ รายละเอียดสถานะ">{{ item.status_note }}</textarea>
@@ -157,7 +181,7 @@
                                     <div class="flex-grow-1">
                                         <div class="d-flex justify-content-between align-items-center mb-1">
                                             <span class="small fw-bold text-dark">
-                                                {% if history.status == 'RECEIVED' %}รับแจ้ง{% elif history.status == 'FIXING' %}กำลังซ่อม{% elif history.status == 'WAITING' %}รออะไหล่{% elif history.status == 'OUTSOURCE' %}ส่งซ่อมศูนย์{% elif history.status == 'RECEIVED_FROM_VENDOR' %}รับจากศูนย์{% elif history.status == 'FINISHED' %}ซ่อมเสร็จ{% elif history.status == 'COMPLETED' %}ส่งคืนแล้ว{% endif %}
+                                                {% if history.status == 'RECEIVED' %}รับแจ้ง{% elif history.status == 'FIXING' %}กำลังซ่อม/ตรวจเช็ค{% elif history.status == 'WAITING_APPROVAL' %}รออนุมัติงานซ่อม{% elif history.status == 'WAITING' %}รออะไหล่{% elif history.status == 'OUTSOURCE' %}ส่งซ่อมศูนย์{% elif history.status == 'RECEIVED_FROM_VENDOR' %}รับจากศูนย์{% elif history.status == 'CANCELLED' %}ยกเลิก{% elif history.status == 'FINISHED' %}ซ่อมเสร็จ{% elif history.status == 'COMPLETED' %}ส่งคืนแล้ว{% endif %}
                                             </span>
                                             <span class="small text-muted">{{ history.changed_at|date:"d M H:i" }}</span>
                                         </div>
@@ -233,20 +257,23 @@
 
 {% block scripts %}
 <script>
-    function toggleFinalCost(select) {
-        // Find the closest card or form container
+    function toggleFixingFields(select) {
         const form = select.closest('form');
+        const techDiv = form.querySelector('.tech-assign-div');
         const costDiv = form.querySelector('.final-cost-div');
-        const costInput = costDiv.querySelector('input');
         
+        // Toggle Technician Section
+        if (select.value === 'FIXING') {
+            techDiv.classList.remove('d-none');
+        } else {
+            techDiv.classList.add('d-none');
+        }
+
+        // Toggle Final Cost Section
         if (select.value === 'COMPLETED') {
             costDiv.classList.remove('d-none');
-            // Slight delay to allow transition if needed
-            setTimeout(() => {
-                if(costInput && !costInput.value) {
-                     costInput.focus();
-                }
-            }, 100);
+            const costInput = costDiv.querySelector('input');
+            setTimeout(() => { if(costInput && !costInput.value) costInput.focus(); }, 100);
         } else {
             costDiv.classList.add('d-none');
         }

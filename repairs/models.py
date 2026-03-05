@@ -103,11 +103,13 @@ class RepairJob(models.Model):
         
         if 'FIXING' in statuses:
             return 'bg-orange-50'
+        if 'WAITING_APPROVAL' in statuses:
+            return 'bg-purple-50'
         if 'WAITING' in statuses:
             return 'bg-yellow-50'
         
-        # If all are finished
-        if all(s == 'FINISHED' for s in statuses):
+        # If all are finished or cancelled
+        if all(s in ['FINISHED', 'COMPLETED', 'CANCELLED'] for s in statuses):
              return 'bg-green-50'
              
         return 'bg-red-50'
@@ -115,13 +117,14 @@ class RepairJob(models.Model):
 class RepairItem(models.Model):
     STATUS_CHOICES = [
         ('RECEIVED', 'รับแจ้ง'),
-        ('FIXING', 'กำลังซ่อม'),
+        ('FIXING', 'กำลังซ่อม/ตรวจเช็ค'),
+        ('WAITING_APPROVAL', 'รออนุมัติงานซ่อม'),
         ('WAITING', 'รออะไหล่'),
         ('OUTSOURCE', 'ส่งซ่อมศูนย์/ภายนอก'),
         ('RECEIVED_FROM_VENDOR', 'รอตรวจรับกลับ'),
+        ('CANCELLED', 'ยกเลิก'),
         ('FINISHED', 'ซ่อมเสร็จ'),
         ('COMPLETED', 'ส่งคืนแล้ว'),
-        ('CANCELLED', 'ยกเลิก'),
     ]
 
     job = models.ForeignKey(RepairJob, on_delete=models.CASCADE, related_name='items')
@@ -129,7 +132,7 @@ class RepairItem(models.Model):
     technicians = models.ManyToManyField(Technician, blank=True)
     issue_description = models.TextField()
     accessories = models.CharField(max_length=255, blank=True, verbose_name="อุปกรณ์ที่นำมาด้วย", help_text="เช่น สายชาร์จ, กระเป๋า, เมาส์")
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='RECEIVED')
+    status = models.CharField(max_length=50, choices=STATUS_CHOICES, default='RECEIVED')
     status_note = models.TextField(blank=True, help_text="Reason for waiting or other status details")
     price = models.DecimalField(max_digits=10, decimal_places=2, default=0.00, verbose_name="ราคาประเมิน")
     final_cost = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, verbose_name="ค่าใช้จ่ายจริง")
@@ -143,11 +146,13 @@ class RepairItem(models.Model):
         colors = {
             'RECEIVED': 'bg-red-500 text-white',
             'FIXING': 'bg-orange-500 text-white',
+            'WAITING_APPROVAL': 'bg-purple-500 text-white',
             'WAITING': 'bg-yellow-400 text-black',
-            'OUTSOURCE': 'bg-purple-500 text-white',
+            'OUTSOURCE': 'bg-indigo-500 text-white',
             'RECEIVED_FROM_VENDOR': 'bg-blue-400 text-white',
             'FINISHED': 'bg-green-500 text-white',
             'CANCELLED': 'bg-gray-500 text-white',
+            'COMPLETED': 'bg-secondary text-white',
         }
         return colors.get(self.status, 'bg-gray-500 text-white')
 
@@ -155,11 +160,13 @@ class RepairItem(models.Model):
         colors = {
             'RECEIVED': 'bg-red-50',
             'FIXING': 'bg-orange-50',
+            'WAITING_APPROVAL': 'bg-purple-50',
             'WAITING': 'bg-yellow-50',
-            'OUTSOURCE': 'bg-purple-50',
+            'OUTSOURCE': 'bg-indigo-50',
             'RECEIVED_FROM_VENDOR': 'bg-blue-50',
             'FINISHED': 'bg-green-50',
             'CANCELLED': 'bg-gray-50',
+            'COMPLETED': 'bg-secondary-subtle',
         }
         return colors.get(self.status, 'bg-gray-50')
 
@@ -205,7 +212,7 @@ class OutsourceLog(models.Model):
 
 class RepairStatusHistory(models.Model):
     repair_item = models.ForeignKey(RepairItem, on_delete=models.CASCADE, related_name='status_history')
-    status = models.CharField(max_length=20, choices=RepairItem.STATUS_CHOICES)
+    status = models.CharField(max_length=50, choices=RepairItem.STATUS_CHOICES)
     changed_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True)
     changed_at = models.DateTimeField(auto_now_add=True)
     note = models.TextField(blank=True)
