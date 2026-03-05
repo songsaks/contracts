@@ -59,10 +59,11 @@
         .navbar-custom .nav-link {
             color: rgba(255, 255, 255, 0.85);
             font-weight: 500;
-            padding: 0.4rem 0.8rem !important;
+            padding: 0.4rem 0.6rem !important;
             transition: all 0.2s ease;
             border-radius: 8px;
-            margin: 0 2px;
+            margin: 0 1px;
+            font-size: 0.92rem;
         }
 
         .navbar-custom .nav-link:hover,
@@ -303,9 +304,9 @@
 
     <!-- Navbar -->
     <nav class="navbar navbar-expand-lg navbar-custom sticky-top">
-        <div class="container">
+        <div class="container-fluid px-lg-4">
             <a class="navbar-brand" href="{% url 'repairs:repair_list' %}">
-                <i class="fas fa-tools me-2"></i>ระบบงานซ่อม
+                <i class="fas fa-tools me-1"></i>ระบบงานซ่อม
             </a>
             <button class="navbar-toggler border-0 text-white" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
                 <i class="fas fa-bars"></i>
@@ -319,7 +320,7 @@
                     </li>
                     <li class="nav-item">
                         <a class="nav-link {% if request.resolver_match.url_name == 'repair_list' %}active{% endif %}" href="{% url 'repairs:repair_list' %}">
-                            <i class="fas fa-list me-1"></i>ค้างซ่อม
+                            <i class="fas fa-list me-1"></i>กำลังซ่อม
                         </a>
                     </li>
                     <li class="nav-item">

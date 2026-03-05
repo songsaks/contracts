@@ -85,17 +85,28 @@ def dashboard(request):
     technicians = Technician.objects.all()
     for tech in technicians:
         active_count = tech.repairitem_set.exclude(status__in=['FINISHED', 'CANCELLED', 'COMPLETED']).count()
-        completed_period_count = tech.repairitem_set.filter(
+        completed_period_items = tech.repairitem_set.filter(
             status__in=['FINISHED', 'COMPLETED'],
             updated_at__range=range_filter
-        ).count()
+        )
+        completed_period_count = completed_period_items.count()
+        
+        # Calculate income for items this technician was part of (within period)
+        tech_income_period = completed_period_items.filter(status='COMPLETED').aggregate(total=Sum('final_cost'))['total'] or 0
+        
+        # Calculate lifetime income for this technician
+        tech_income_lifetime = tech.repairitem_set.filter(status='COMPLETED').aggregate(total=Sum('final_cost'))['total'] or 0
+        
         tech_stats.append({
             'name': tech.name,
             'active': active_count,
             'completed': completed_period_count,
+            'income': tech_income_period,
+            'lifetime_income': tech_income_lifetime,
             'total': active_count + completed_period_count
         })
-    tech_stats.sort(key=lambda x: x['active'], reverse=True)
+    # Sort by income in period primarily, then active jobs
+    tech_stats.sort(key=lambda x: (x['income'], x['active']), reverse=True)
 
     # 3. Income Summary (within period)
     income_items = RepairItem.objects.filter(

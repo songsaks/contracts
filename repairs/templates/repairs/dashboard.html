@@ -184,12 +184,15 @@
                     {% for tech in tech_stats %}
                     <div class="tech-item">
                         <div class="d-flex justify-content-between align-items-center mb-1">
-                            <span class="fw-bold text-dark">{{ tech.name }}</span>
-                            <span class="badge rounded-pill bg-primary px-2 font-monospace">{{ tech.active }}</span>
+                            <span class="fw-bold text-dark fs-6">{{ tech.name }}</span>
+                            <span class="badge rounded-pill bg-primary px-2" title="งานค้างอยู่">{{ tech.active }}</span>
                         </div>
-                        <div class="d-flex justify-content-between x-small text-muted mb-1">
-                            <span>งานที่ถืออยู่</span>
-                            <span>ซ่อมเสร็จแล้ว: {{ tech.completed }}</span>
+                        <div class="d-flex justify-content-between small text-muted mb-1">
+                            <span>รายได้ (ช่วงที่เลือก): <strong class="text-primary">฿{{ tech.income|floatformat:0|intcomma }}</strong></span>
+                        </div>
+                        <div class="d-flex justify-content-between x-small text-muted mb-2">
+                            <span>สะสมทั้งหมด: <strong>฿{{ tech.lifetime_income|floatformat:0|intcomma }}</strong></span>
+                            <span>สำเร็จ: {{ tech.completed }}</span>
                         </div>
                         <div class="progress">
                             {% with active=tech.active total=tech.total %}
