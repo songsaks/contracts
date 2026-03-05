@@ -431,7 +431,12 @@ def repair_create(request):
 def repair_detail(request, pk):
     job = get_object_or_404(RepairJob, pk=pk)
     all_technicians = Technician.objects.all().order_by('name')
-    return render(request, 'repairs/repair_detail.html', {'job': job, 'all_technicians': all_technicians})
+    all_repair_types = RepairType.objects.all().order_by('name')
+    return render(request, 'repairs/repair_detail.html', {
+        'job': job, 
+        'all_technicians': all_technicians,
+        'all_repair_types': all_repair_types
+    })
 
 @login_required
 def repair_update_status(request, item_id):
@@ -439,6 +444,19 @@ def repair_update_status(request, item_id):
     if request.method == 'POST':
         new_status = request.POST.get('status')
         note = request.POST.get('status_note')
+        
+        # Allow updating repair type for the entire job
+        repair_type_id = request.POST.get('repair_type')
+        if repair_type_id:
+            try:
+                item.job.repair_type_id = int(repair_type_id)
+                item.job.save()
+            except (ValueError, RepairType.DoesNotExist):
+                pass
+        elif 'repair_type' in request.POST: # If field exists but empty, set to None
+            item.job.repair_type = None
+            item.job.save()
+
         if new_status:
             item.status = new_status
             if note is not None:

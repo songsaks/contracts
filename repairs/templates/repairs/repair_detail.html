@@ -123,6 +123,16 @@
                                     <option value="COMPLETED" {% if item.status == 'COMPLETED' %}selected{% endif %}>ส่งคืนให้ลูกค้าแล้ว</option>
                                 </select>
                             </div>
+
+                            <div class="col-md-4">
+                                <label class="form-label small fw-bold text-muted">ประเภทงาน</label>
+                                <select name="repair_type" class="form-select select2" {% if item.status == 'OUTSOURCE' %}disabled{% endif %}>
+                                    <option value="">-- งานซ่อมช่างปกติ --</option>
+                                    {% for rt in all_repair_types %}
+                                    <option value="{{ rt.id }}" {% if job.repair_type_id == rt.id %}selected{% endif %}>{{ rt.name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
                             
                             <div class="col-12 tech-assign-div {% if item.status != 'FIXING' %}d-none{% endif %}">
                                 <label class="form-label small fw-bold text-primary">มอบหมายช่าง (บังคับในขั้นตอนนี้)</label>
