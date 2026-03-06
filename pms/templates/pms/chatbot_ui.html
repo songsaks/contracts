@@ -18,7 +18,10 @@
             </div>
             <div>
                 <div class="fw-bold text-white small">9Com AI Assistant</div>
-                <div class="extra-small text-white-50"><i class="fas fa-circle text-success me-1"></i> Online</div>
+                <div class="extra-small text-white-50">
+                    <i id="chatbot-online-dot" class="fas fa-circle text-success me-1"></i> 
+                    <span id="chatbot-status-text">Online</span>
+                </div>
             </div>
         </div>
         <button class="btn btn-link text-white p-0 border-0" onclick="toggleChatbot()">
@@ -34,13 +37,13 @@
     </div>
     <div class="chatbot-input-area p-3 border-top bg-white">
         <div class="input-group">
-            <input type="text" id="chatbot-input" class="form-control border-0 bg-light rounded-pill px-3" placeholder="พิมพ์ข้อความที่นี่..." onkeypress="handleChatEnter(event)">
-            <button class="btn btn-primary rounded-circle ms-2 d-flex align-items-center justify-content-center btn-send" onclick="sendChatMessage()">
+            <input type="text" id="chatbot-input" class="form-control border-0 bg-light rounded-pill px-3" placeholder="พิมพ์ข้อความที่นี่..." onkeydown="handleChatEnter(event)">
+            <button class="btn btn-primary rounded-circle ms-2 d-flex align-items-center justify-content-center btn-send" id="chatbot-send-btn" onclick="sendChatMessage()">
                 <i class="fas fa-paper-plane"></i>
             </button>
         </div>
         <div class="text-center mt-2">
-            <span class="text-muted extra-extra-small">Powered by Gemini 2.0 Flash (Native Django)</span>
+            <span class="text-muted extra-extra-small" style="font-size: 0.6rem; opacity: 0.7;">Powered by Gemini 2.0 Flash (Native Django)</span>
         </div>
     </div>
 </div>
@@ -247,6 +250,14 @@
             right: 20px;
         }
     }
+
+    .scale-in {
+        animation: scaleIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+    @keyframes scaleIn {
+        from { transform: scale(0.8); opacity: 0; }
+        to { transform: scale(1); opacity: 1; }
+    }
 </style>
 
 <script>
@@ -263,14 +274,31 @@
         }
     }
 
+    function setChatStatus(text, colorClass) {
+        const statusEl = document.getElementById('chatbot-status-text');
+        const dotEl = document.getElementById('chatbot-online-dot');
+        if (statusEl) statusEl.innerText = text;
+        if (dotEl) {
+            dotEl.className = `fas fa-circle ${colorClass} me-1`;
+        }
+    }
+
     function initChatWebSocket() {
         if (socket && socket.readyState <= 1) return;
+        
+        setChatStatus('Connecting...', 'text-warning');
         
         const wsScheme = window.location.protocol === "https:" ? "wss" : "ws";
         const wsUrl = `${wsScheme}://${window.location.host}/ws/pms/chat/`;
         
+        console.log("Connecting to WebSocket:", wsUrl);
         socket = new WebSocket(wsUrl);
         
+        socket.onopen = function() {
+            setChatStatus('Online', 'text-success');
+            console.log("Chat socket connected.");
+        };
+
         socket.onmessage = function(e) {
             const data = JSON.parse(e.data);
             
@@ -279,17 +307,23 @@
             } else if (data.type === 'ai_reply_done') {
                 finalizeStreamingMessage();
             } else if (data.type === 'error') {
-                appendMessage('ai', '❌ Error: ' + data.message);
+                appendMessage('ai', '🚫 Error: ' + data.message);
                 finalizeStreamingMessage();
             }
         };
 
         socket.onclose = function(e) {
-            console.warn('Chat socket closed');
+            console.warn('Chat socket closed', e.code, e.reason);
+            setChatStatus('Offline (Disconnected)', 'text-danger');
             // Try to reconnect if window is still open
             if (!document.getElementById('chatbot-window').classList.contains('d-none')) {
                 setTimeout(initChatWebSocket, 3000);
             }
+        };
+
+        socket.onerror = function(err) {
+            console.error("Socket error", err);
+            setChatStatus('Connection Error', 'text-danger');
         };
     }
 
@@ -329,6 +363,7 @@
 
     function handleChatEnter(e) {
         if (e.key === 'Enter') {
+            e.preventDefault();
             sendChatMessage();
         }
     }
@@ -336,7 +371,18 @@
     function sendChatMessage() {
         const input = document.getElementById('chatbot-input');
         const message = input.value.trim();
-        if (!message || !socket || socket.readyState !== 1) return;
+        
+        if (!message) return;
+        
+        if (!socket || socket.readyState !== 1) {
+            console.error("Socket not open. readyState:", socket ? socket.readyState : 'null');
+            // Show a visual warning
+            const messagesBody = document.getElementById('chatbot-messages');
+            messagesBody.insertAdjacentHTML('beforeend', `<div class="text-center my-2 text-danger small">ยังไม่ได้เชื่อมต่อระบบแชท กรุณารอสักครู่...</div>`);
+            messagesBody.scrollTop = messagesBody.scrollHeight;
+            initChatWebSocket(); // Attempt to reconnect
+            return;
+        }
 
         appendMessage('user', message);
         input.value = '';
@@ -356,26 +402,6 @@
         socket.send(JSON.stringify({ 'message': message }));
     }
 
-    function appendChatReply(role, text) {
-        const messagesBody = document.getElementById('chatbot-messages');
-        const msgDiv = document.createElement('div');
-        msgDiv.className = role === 'user' ? 'user-msg' : 'ai-msg';
-        
-        // Simple markdown to HTML conversion
-        let formattedText = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-        formattedText = formattedText.replace(/\n\n/g, '<p class="mb-2"></p>');
-        formattedText = formattedText.replace(/\n/g, '<br>');
-        
-        msgDiv.innerHTML = `
-            <div class="${role === 'user' ? 'user-msg-content' : 'ai-msg-content shadow-sm scale-in'}">
-                ${formattedText}
-            </div>
-        `;
-        messagesBody.appendChild(msgDiv);
-        messagesBody.scrollTop = messagesBody.scrollHeight;
-    }
-
-    // Helper to add plain message
     function appendMessage(role, text) {
         const messagesBody = document.getElementById('chatbot-messages');
         const msgDiv = document.createElement('div');
@@ -388,29 +414,4 @@
         messagesBody.appendChild(msgDiv);
         messagesBody.scrollTop = messagesBody.scrollHeight;
     }
-
-    function getCookie(name) {
-        let cookieValue = null;
-        if (document.cookie && document.cookie !== '') {
-            const cookies = document.cookie.split(';');
-            for (let i = 0; i < cookies.length; i++) {
-                const cookie = cookies[i].trim();
-                if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                    break;
-                }
-            }
-        }
-        return cookieValue;
-    }
 </script>
-
-<style>
-    .scale-in {
-        animation: scaleIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-    }
-    @keyframes scaleIn {
-        from { transform: scale(0.8); opacity: 0; }
-        to { transform: scale(1); opacity: 1; }
-    }
-</style>
