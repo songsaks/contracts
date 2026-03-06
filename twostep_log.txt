@@ -1,0 +1,3 @@
+INFO:TestTwoStep:Connected. Sending Step 1: Connect
+INFO:TestTwoStep:RECEIVED: {"type":"event","event":"connect.challenge","payload":{"nonce":"44b3451c-6a85-4af0-b841-f6ea2c101441","ts":1772792633248}}
+INFO:TestTwoStep:Got challenge: 44b3451c-6a85-4af0-b841-f6ea2c101441. Sending Step 2: Response

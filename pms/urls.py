@@ -100,5 +100,8 @@ urlpatterns = [
     path('job-statuses/create/', views.job_status_create, name='job_status_create'),
     path('job-statuses/<int:pk>/edit/', views.job_status_update, name='job_status_update'),
     path('job-statuses/<int:pk>/delete/', views.job_status_delete, name='job_status_delete'),
+    
+    # Chatbot Proxy
+    path('api/chatbot/', views.openclaw_chatbot, name='api_chatbot'),
 ]
 

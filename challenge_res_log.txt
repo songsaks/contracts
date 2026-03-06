@@ -1,0 +1,3 @@
+INFO:TestChallenge:Connected.
+INFO:TestChallenge:RECEIVED: {"type":"event","event":"connect.challenge","payload":{"nonce":"e1992b70-1269-450c-b4f7-7e144a789def","ts":1772791924361}}
+INFO:TestChallenge:Sending connect: {'type': 'connect', 'params': {'auth': {'token': '1d399e69d1c6e697a53a16a37820bcf73a46ae9de244c7d5'}, 'device': {'id': 'pms-server-id', 'signature': '1d399e69d1c6e697a53a16a37820bcf73a46ae9de244c7d5', 'nonce': 'e1992b70-1269-450c-b4f7-7e144a789def'}}}

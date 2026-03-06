@@ -1,0 +1,9 @@
+INFO:TestRPC:--- Testing ws://72.60.197.71:18789/ ---
+INFO:TestRPC:Connected.
+INFO:TestRPC:RECEIVED: {"type":"event","event":"connect.challenge","payload":{"nonce":"51fb3f07-df6e-4d93-87ad-89007dce727a","ts":1772791533743}}
+INFO:TestRPC:--- Testing ws://72.60.197.71:18789/ws ---
+INFO:TestRPC:Connected.
+INFO:TestRPC:RECEIVED: {"type":"event","event":"connect.challenge","payload":{"nonce":"e28769fb-890a-4254-9b06-7b1372da323f","ts":1772791533903}}
+INFO:TestRPC:--- Testing ws://72.60.197.71:18789/rpc ---
+INFO:TestRPC:Connected.
+INFO:TestRPC:RECEIVED: {"type":"event","event":"connect.challenge","payload":{"nonce":"9cbe4418-d5a6-4b05-ad83-5613cd5efd1a","ts":1772791534065}}

@@ -1,0 +1,4 @@
+Testing query param: ws://72.60.197.71:18789/?token=1d399e69d1c6e697a53a16a37820bcf73a46ae9de244c7d5
+Connected.
+MSG: {"type":"event","event":"connect.challenge","payload":{"nonce":"2314d89f-0311-4d72-b3f2-5e8a5c149ae5","ts":1772791769027}}
+Query param failed: received 1008 (policy violation) invalid request frame; then sent 1008 (policy violation) invalid request frame

@@ -1,0 +1,3 @@
+INFO:TestImmediateAuth:Connected. Sending initial connect...
+INFO:TestImmediateAuth:RECEIVED: {"type":"event","event":"connect.challenge","payload":{"nonce":"cf2e58c6-a210-465e-95f2-aef9d046ab10","ts":1772793032339}}
+INFO:TestImmediateAuth:Sending Gateway Auth: {'type': 'gateway:auth', 'params': {'token': '1d399e69d1c6e697a53a16a37820bcf73a46ae9de244c7d5', 'nonce': 'cf2e58c6-a210-465e-95f2-aef9d046ab10'}}

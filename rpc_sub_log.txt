@@ -1,0 +1,5 @@
+Testing subprotocol 'rpc'...
+Connected. Sub: rpc
+MSG: {"type":"event","event":"connect.challenge","payload":{"nonce":"b772bdf0-0f91-4ac7-88cc-1e67f7968222","ts":1772792070587}}
+Sending: {'type': 'gateway:auth', 'params': {'token': '1d399e69d1c6e697a53a16a37820bcf73a46ae9de244c7d5'}}
+RPC Sub failed: received 1008 (policy violation) invalid request frame; then sent 1008 (policy violation) invalid request frame

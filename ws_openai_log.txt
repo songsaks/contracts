@@ -1,0 +1,4 @@
+Testing WS on OpenAI path: ws://72.60.197.71:18789/v1/chat/completions
+Connected.
+MSG: {"type":"event","event":"connect.challenge","payload":{"nonce":"7b31a561-ee26-41c5-8bc0-3915834f7037","ts":1772792515973}}
+WS OpenAI failed: received 1008 (policy violation) invalid request frame; then sent 1008 (policy violation) invalid request frame

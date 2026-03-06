@@ -1,0 +1,3 @@
+INFO:TestFinalImproved:Connected. Waiting for challenge...
+INFO:TestFinalImproved:RECEIVED: {"type":"event","event":"connect.challenge","payload":{"nonce":"364a2064-a7ff-4367-beb7-362b9aecc385","ts":1772793011306}}
+INFO:TestFinalImproved:Sending Gateway Auth: {'type': 'gateway:auth', 'params': {'token': '1d399e69d1c6e697a53a16a37820bcf73a46ae9de244c7d5', 'nonce': '364a2064-a7ff-4367-beb7-362b9aecc385'}}

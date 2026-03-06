@@ -1,0 +1,3 @@
+INFO:TestHMAC:Connected.
+INFO:TestHMAC:RECEIVED: {"type":"event","event":"connect.challenge","payload":{"nonce":"5838f0f4-43e0-4792-83b5-9903355c15ae","ts":1772792162925}}
+INFO:TestHMAC:Sending HMAC connect: {'type': 'connect', 'params': {'auth': {'token': '1d399e69d1c6e697a53a16a37820bcf73a46ae9de244c7d5'}, 'device': {'id': 'pms-server', 'signature': '44ada2ab83a67abd78b176a65baca265c888ebaf250d6448b83331f862c614d4', 'nonce': '5838f0f4-43e0-4792-83b5-9903355c15ae'}}}

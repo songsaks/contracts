@@ -1,0 +1,3 @@
+INFO:TestImmediateAuth:Connected. Sending initial connect...
+INFO:TestImmediateAuth:RECEIVED: {"type":"event","event":"connect.challenge","payload":{"nonce":"cbc5bd7f-969e-4cf6-b189-6896888a2900","ts":1772793247935}}
+INFO:TestImmediateAuth:Sending Connect with root nonce: {'type': 'connect', 'nonce': 'cbc5bd7f-969e-4cf6-b189-6896888a2900', 'params': {'auth': {'token': '1d399e69d1c6e697a53a16a37820bcf73a46ae9de244c7d5'}}}

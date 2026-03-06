@@ -1,0 +1,11 @@
+Testing flat token...
+Connected.
+Sending: {'type': 'connect', 'params': {'token': '1d399e69d1c6e697a53a16a37820bcf73a46ae9de244c7d5'}}
+MSG: {"type":"event","event":"connect.challenge","payload":{"nonce":"7d99db8c-d360-4d40-8c04-d7a8ccea0672","ts":1772791866376}}
+Flat token failed: received 1008 (policy violation) invalid request frame; then sent 1008 (policy violation) invalid request frame
+
+Testing root token...
+Connected.
+Sending: {'type': 'connect', 'token': '1d399e69d1c6e697a53a16a37820bcf73a46ae9de244c7d5'}
+MSG: {"type":"event","event":"connect.challenge","payload":{"nonce":"16952e44-5782-490e-bc1b-a2b4da6f347b","ts":1772791866595}}
+Root token failed: received 1008 (policy violation) invalid request frame; then sent 1008 (policy violation) invalid request frame

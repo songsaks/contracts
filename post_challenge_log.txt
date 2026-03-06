@@ -1,0 +1,3 @@
+INFO:TestImmediateAuth:Connected. Waiting...
+INFO:TestImmediateAuth:RECEIVED: {"type":"event","event":"connect.challenge","payload":{"nonce":"a4150357-e928-485e-a0e1-79d119310954","ts":1772793301893}}
+INFO:TestImmediateAuth:Sending Connect: {'type': 'connect', 'params': {'auth': {'token': '1d399e69d1c6e697a53a16a37820bcf73a46ae9de244c7d5'}, 'nonce': 'a4150357-e928-485e-a0e1-79d119310954'}}

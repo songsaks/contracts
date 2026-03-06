@@ -1,0 +1,4 @@
+Testing subprotocol 'auth-<token>'...
+Connected. Sub: auth-1d399e69d1c6e697a53a16a37820bcf73a46ae9de244c7d5
+MSG: {"type":"event","event":"connect.challenge","payload":{"nonce":"dfbe8804-7791-4df5-9bea-c91084d21917","ts":1772792296086}}
+Auth Sub failed: received 1008 (policy violation) invalid request frame; then sent 1008 (policy violation) invalid request frame

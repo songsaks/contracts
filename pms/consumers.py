@@ -1,0 +1,48 @@
+import json
+import logging
+import asyncio
+from channels.generic.websocket import AsyncWebsocketConsumer
+from django.conf import settings
+from chatbot.services.gemini import gemini_chat_sync
+from asgiref.sync import sync_to_async
+
+logger = logging.getLogger(__name__)
+
+class PmsChatConsumer(AsyncWebsocketConsumer):
+    async def connect(self):
+        # 1. Accept client connection from PMS UI
+        await self.accept()
+        user = self.scope.get('user', 'Anonymous')
+        logger.info(f"Client connected to PMS Chat: {user}")
+
+    async def disconnect(self, close_code):
+        logger.info(f"Chat socket disconnected: {close_code}")
+        pass
+
+    async def receive(self, text_data):
+        # 3. Receive message from User (Frontend)
+        try:
+            data = json.loads(text_data)
+            message = data.get('message', '').strip()
+            if not message: return
+
+            user_obj = self.scope.get("user") if self.scope.get("user") and self.scope["user"].is_authenticated else None
+            
+            # Since Gemini with tools needs a sync context for Django models,
+            # we run it in a thread using sync_to_async.
+            # Non-streaming for reliability with tool calls.
+            
+            answer = await sync_to_async(gemini_chat_sync)(message, user=user_obj)
+            
+            if answer:
+                await self.send(json.dumps({
+                    'type': 'ai_reply_chunk',
+                    'text': answer
+                }))
+            
+            # Send done signal
+            await self.send(json.dumps({'type': 'ai_reply_done'}))
+            
+        except Exception as e:
+            logger.error(f"Error in Gemini Chat receive: {str(e)}")
+            await self.send(json.dumps({'type': 'error', 'message': str(e)}))

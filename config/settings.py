@@ -43,6 +43,8 @@ CSRF_TRUSTED_ORIGINS = [
 # Application definition
 
 INSTALLED_APPS = [
+    'daphne', # Must be before django.contrib.staticfiles
+    'channels',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -56,6 +58,7 @@ INSTALLED_APPS = [
     'pos',
     'pms',
     'stocks',
+    'chatbot',
     'payroll',
 ]
 
@@ -88,6 +91,7 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'config.wsgi.application'
+ASGI_APPLICATION = 'config.asgi.application'
 
 
 # Database
@@ -182,6 +186,16 @@ LOGOUT_REDIRECT_URL = '/'
 
 GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
 DELETE_PASSWORD = os.getenv('DELETE_PASSWORD', '9com')
+
+# OpenClaw Chatbot Settings
+OPENCLAW_GATEWAY_URL = os.getenv('OPENCLAW_GATEWAY_URL', 'http://72.60.197.71:18789/v1/chat/completions')
+OPENCLAW_GATEWAY_TOKEN = os.getenv('OPENCLAW_GATEWAY_TOKEN')
+
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels.layers.InMemoryChannelLayer",
+    },
+}
 
 # Max Upload Size 30MB
 DATA_UPLOAD_MAX_MEMORY_SIZE = 31457280

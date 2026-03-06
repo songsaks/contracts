@@ -1,4 +1,5 @@
 from django.shortcuts import render, get_object_or_404, redirect
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth import get_user_model
@@ -9,7 +10,9 @@ from django.http import FileResponse, JsonResponse
 from decimal import Decimal
 from datetime import datetime, date, time
 import calendar
+import requests
 import json
+from django.views.decorators.csrf import csrf_exempt
 from .models import (
     Project, ProductItem, Customer, Supplier, ProjectOwner, 
     CustomerRequirement, ProjectFile, CustomerRequest, 
@@ -2026,3 +2029,70 @@ def job_status_delete(request, pk):
         'type': 'JobStatus',
         'cancel_url': 'pms:job_status_list'
     })
+
+
+@csrf_exempt
+@login_required
+def openclaw_chatbot(request):
+    """
+    Proxy view for OpenClaw (Hostinger) chatbot service.
+    Using Gemini 2.0 Flash via OpenAI-compatible endpoint.
+    """
+    if request.method == 'POST':
+        try:
+            # 1. รับข้อความจากหน้าเว็บ PMS
+            data = json.loads(request.body)
+            user_message = data.get('message', '')
+
+            # 2. ปลายทาง OpenClaw (ดึงจาก settings.py / .env)
+            openclaw_url = getattr(settings, 'OPENCLAW_GATEWAY_URL', 'http://72.60.197.71:18789/v1/chat/completions')
+            token = getattr(settings, 'OPENCLAW_GATEWAY_TOKEN', None)
+            
+            if not token:
+                return JsonResponse({'status': 'error', 'message': 'ไม่พบ OPENCLAW_GATEWAY_TOKEN ในการตั้งค่า (.env)'}, status=500)
+            
+            headers = {
+                'Authorization': f'Bearer {token}',
+                'Content-Type': 'application/json',
+            }
+            
+            # 4. รูปแบบ Payload ตามมาตรฐาน OpenAI
+            payload = {
+                "model": "google/gemini-2.0-flash",
+                "messages": [{"role": "user", "content": user_message}],
+                "temperature": 0.7
+            }
+
+            # 5. ยิงคำถามไปหาเซิร์ฟเวอร์ AI
+            response = requests.post(openclaw_url, headers=headers, json=payload, timeout=90)
+            
+            # 6. ประมวลผลคำตอบ
+            if response.status_code == 200:
+                try:
+                    ai_data = response.json()
+                    ai_reply = ai_data['choices'][0]['message']['content']
+                    return JsonResponse({'status': 'success', 'reply': ai_reply})
+                except (json.JSONDecodeError, KeyError, IndexError) as e:
+                    return JsonResponse({
+                        'status': 'error', 
+                        'message': f'Invalid JSON format: {str(e)}',
+                        'debug': response.text[:500]
+                    }, status=500)
+            elif response.status_code == 404:
+                return JsonResponse({
+                    'status': 'error', 
+                    'message': 'AI Gateway Endpoint ไม่ถูกเปิดใช้งาน (404 Not Found)',
+                    'suggestion': 'รบกวนคุณ Song เข้าไปที่ VPS แล้วรันคำสั่ง "openclaw gateway config set openai.enabled true" และรีสตาร์ทครับ',
+                    'debug': response.text[:200]
+                }, status=500)
+            else:
+                return JsonResponse({
+                    'status': 'error', 
+                    'message': f'AI Server Error ({response.status_code})',
+                    'debug': response.text[:200]
+                }, status=500)
+
+        except Exception as e:
+            return JsonResponse({'status': 'error', 'message': f'Exception: {str(e)}'}, status=500)
+
+    return JsonResponse({'status': 'error', 'message': 'Invalid request method'}, status=400)
