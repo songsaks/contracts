@@ -10,6 +10,11 @@ logger = logging.getLogger(__name__)
 
 class PmsChatConsumer(AsyncWebsocketConsumer):
     async def connect(self):
+        # Check if chatbot is globally disabled
+        if not getattr(settings, 'CHATBOT_ENABLED', True):
+            await self.close()
+            return
+
         # 1. Accept client connection from PMS UI
         print(f"DEBUG: WebSocket connection attempt from {self.scope.get('user')}")
         await self.accept()

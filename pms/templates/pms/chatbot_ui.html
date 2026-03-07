@@ -1,5 +1,6 @@
 {% load static %}
 
+{% if CHATBOT_ENABLED %}
 <!-- Chatbot Floating Button -->
 <div id="chatbot-button" class="chatbot-button-container">
     <button class="chatbot-toggle-btn shadow-lg" onclick="toggleChatbot()">
@@ -415,3 +416,4 @@
         messagesBody.scrollTop = messagesBody.scrollHeight;
     }
 </script>
+{% endif %}

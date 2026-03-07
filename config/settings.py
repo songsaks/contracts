@@ -187,9 +187,7 @@ LOGOUT_REDIRECT_URL = '/'
 GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
 DELETE_PASSWORD = os.getenv('DELETE_PASSWORD', '9com')
 
-# OpenClaw Chatbot Settings
-OPENCLAW_GATEWAY_URL = os.getenv('OPENCLAW_GATEWAY_URL', 'http://72.60.197.71:18789/v1/chat/completions')
-OPENCLAW_GATEWAY_TOKEN = os.getenv('OPENCLAW_GATEWAY_TOKEN')
+# OpenClaw Chatbot Settings - REMOVED (Not in use)
 
 CHANNEL_LAYERS = {
     "default": {
@@ -200,4 +198,7 @@ CHANNEL_LAYERS = {
 # Max Upload Size 30MB
 DATA_UPLOAD_MAX_MEMORY_SIZE = 31457280
 FILE_UPLOAD_MAX_MEMORY_SIZE = 31457280
+
+# Toggle Chatbot (Set to True to enable)
+CHATBOT_ENABLED = False
 
