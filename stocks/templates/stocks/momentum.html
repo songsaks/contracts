@@ -32,10 +32,9 @@
 </div>
 {% else %}
 
-<div class="row g-3">
     <!-- SCAN RESULT TABLE -->
-    <div class="col-xl-9 col-xxl-10">
-        <div class="card card-premium border-0 mb-4 h-100 shadow-sm" style="border-radius: 1rem;">
+    <div class="col-12">
+        <div class="card card-premium border-0 mb-4 shadow-sm" style="border-radius: 1rem;">
             <div class="card-header bg-white border-bottom p-4">
                 <div class="d-flex justify-content-between align-items-center">
                     <h5 class="mb-0 fw-bold d-flex align-items-center gap-2">
@@ -51,9 +50,9 @@
             <div class="card-body p-0">
                 <div class="table-responsive">
                     <table class="table table-hover align-middle mb-0">
-                        <thead class="bg-light text-muted small" style="font-size: 0.85rem;">
+                        <thead class="bg-light text-muted small" style="font-size: 0.82rem;">
                             <tr>
-                                <th><a href="?sort=symbol" class="text-decoration-none text-muted">SYMBOL</a></th>
+                                <th class="ps-4"><a href="?sort=symbol" class="text-decoration-none text-muted">SYMBOL</a></th>
                                 <th style="width: 60px;">SEC</th>
                                 <th><a href="?sort=score" class="text-decoration-none text-muted">SUPER SCORE</a></th>
                                 <th><a href="?sort=price" class="text-decoration-none text-muted">PRICE</a></th>
@@ -64,7 +63,7 @@
                                 <th><a href="?sort=gap" class="text-decoration-none text-muted">GAP (%)</a></th>
                                 <th>STRATEGY</th>
                                 <th>ENTRY ZONE</th>
-                                <th><a href="?sort=round_rr" class="text-decoration-none text-muted">RR {% if current_sort == 'round_rr' %}<i class="fas fa-arrow-down text-danger"></i>{% endif %}</a></th>
+                                <th><a href="?sort=round_rr" class="text-decoration-none text-muted">RR</a></th>
                                 <th class="text-end pe-4">ACTION</th>
                             </tr>
                         </thead>
@@ -74,22 +73,20 @@
                                 <td class="ps-4">
                                     <div class="d-flex align-items-center gap-3">
                                         <div class="rounded-circle d-flex align-items-center justify-content-center fw-bold" 
-                                             style="width: 40px; height: 40px; background: rgba(239, 68, 68, 0.1); color: #ef4444; font-size: 0.8rem;">
+                                             style="width: 36px; height: 36px; background: rgba(239, 68, 68, 0.1); color: #ef4444; font-size: 0.75rem;">
                                             {{ item.symbol|slice:":3" }}
                                         </div>
                                         <h6 class="mb-0 fw-bold">{{ item.symbol }}</h6>
                                     </div>
                                 </td>
-                                <td style="width: 60px;">
-                                    <span class="badge bg-light text-muted fw-normal border extra-extra-small" title="{{ item.sector }}">
+                                <td>
+                                    <span class="badge bg-light text-muted fw-normal border extra-extra-small">
                                         {% if 'Financial' in item.sector %}FIN
                                         {% elif 'Industrial' in item.sector %}IND
-                                        {% elif 'Consumer Dis' in item.sector %}CDIS
-                                        {% elif 'Consumer Sta' in item.sector %}CSTA
+                                        {% elif 'Consumer' in item.sector %}CONS
                                         {% elif 'Healthcare' in item.sector %}HEA
                                         {% elif 'Technology' in item.sector %}TECH
                                         {% elif 'Energy' in item.sector %}ENR
-                                        {% elif 'Utilities' in item.sector %}UTL
                                         {% elif 'Real Estate' in item.sector %}PROP
                                         {% elif 'Materials' in item.sector %}MAT
                                         {% else %}{{ item.sector|slice:":3"|upper }}{% endif %}
@@ -97,21 +94,19 @@
                                 </td>
                                 <td>
                                     <div class="d-flex align-items-center gap-2">
-                                        <div class="progress flex-grow-1" style="height: 6px; min-width: 60px;">
+                                        <div class="progress flex-grow-1" style="height: 5px; min-width: 50px;">
                                             <div class="progress-bar {% if item.technical_score >= 80 %}bg-success{% elif item.technical_score >= 50 %}bg-primary{% else %}bg-warning{% endif %}" 
                                                  role="progressbar" style="width: {{ item.technical_score }}%"></div>
                                         </div>
-                                        <span class="fw-bold {% if item.technical_score >= 80 %}text-success{% elif item.technical_score >= 50 %}text-primary{% else %}text-warning{% endif %}">
+                                        <span class="fw-bold small {% if item.technical_score >= 80 %}text-success{% elif item.technical_score >= 50 %}text-primary{% else %}text-warning{% endif %}">
                                             {{ item.technical_score }}
                                         </span>
                                     </div>
                                 </td>
-                                <td>
-                                    <span class="fs-6 fw-bold text-dark">฿{{ item.price|floatformat:2|intcomma }}</span>
-                                </td>
+                                <td><span class="fw-bold">฿{{ item.price|floatformat:2 }}</span></td>
                                 <td>
                                     <span class="badge {% if item.rsi > 70 %}bg-danger{% elif item.rsi > 60 %}bg-success{% else %}bg-secondary{% endif %} bg-opacity-10 
-                                                 {% if item.rsi > 70 %}text-danger{% elif item.rsi > 60 %}text-success{% else %}text-secondary{% endif %} px-2 py-1">
+                                                 {% if item.rsi > 70 %}text-danger{% elif item.rsi > 60 %}text-success{% else %}text-secondary{% endif %} px-2">
                                         {{ item.rsi|floatformat:1 }}
                                     </span>
                                 </td>
@@ -120,62 +115,40 @@
                                         {{ item.rvol|floatformat:1 }}x
                                     </span>
                                 </td>
-                                <td>
-                                    <span class="{% if item.eps_growth >= 20 %}text-success fw-bold{% else %}text-muted{% endif %}">
-                                        {{ item.eps_growth|floatformat:1 }}%
-                                    </span>
-                                </td>
-                                <td>
-                                    <span class="{% if item.rev_growth >= 10 %}text-primary fw-bold{% else %}text-muted{% endif %}">
-                                        {{ item.rev_growth|floatformat:1 }}%
-                                    </span>
-                                </td>
+                                <td><span class="small {% if item.eps_growth >= 20 %}text-success fw-bold{% endif %}">{{ item.eps_growth|floatformat:0 }}%</span></td>
+                                <td><span class="small {% if item.rev_growth >= 10 %}text-primary fw-bold{% endif %}">{{ item.rev_growth|floatformat:0 }}%</span></td>
+                                <td><span class="text-muted small">{{ item.upside_to_high|floatformat:1 }}%</span></td>
                                 <td>
                                     {% if item.entry_strategy %}
-                                    <span class="badge bg-warning bg-opacity-10 text-warning border border-warning border-opacity-25 px-2 py-1 small">
-                                        <i class="fas fa-bullseye me-1"></i>{{ item.entry_strategy }}
+                                    <span class="badge bg-warning bg-opacity-10 text-dark border border-warning border-opacity-25 px-2 py-1" style="font-size: 0.7rem;">
+                                        {{ item.entry_strategy }}
                                     </span>
-                                    {% else %}
-                                    <span class="text-muted small">-</span>
-                                    {% endif %}
+                                    {% else %}-{% endif %}
                                 </td>
                                 <td>
                                     {% if item.demand_zone_start %}
-                                    <div class="d-flex flex-column" style="font-size: 0.75rem;">
+                                    <div class="d-flex flex-column" style="font-size: 0.72rem;">
                                         <span class="fw-bold text-success">{{ item.demand_zone_start|floatformat:2 }}</span>
                                         <span class="text-muted">{{ item.demand_zone_end|floatformat:2 }}</span>
                                     </div>
-                                    {% else %}
-                                    <span class="text-muted small">-</span>
-                                    {% endif %}
+                                    {% else %}-{% endif %}
                                 </td>
                                 <td>
                                     {% if item.risk_reward_ratio %}
                                     <span class="fw-bold {% if item.risk_reward_ratio >= 3 %}text-success{% elif item.risk_reward_ratio >= 2 %}text-primary{% else %}text-muted{% endif %}">
                                         1:{{ item.risk_reward_ratio|floatformat:1 }}
                                     </span>
-                                    {% else %}
-                                    <span class="text-muted small">-</span>
-                                    {% endif %}
+                                    {% else %}-{% endif %}
                                 </td>
                                 <td class="text-end pe-4">
                                     <div class="d-flex justify-content-end gap-1">
-                                        <a href="{% url 'stocks:analyze' item.symbol_bk %}" class="btn btn-outline-primary btn-sm rounded-pill px-2" target="_blank" title="Analyze">
-                                            <i class="fas fa-microscope"></i>
-                                        </a>
-                                        <a href="{% url 'stocks:entry_finder' item.symbol %}" class="btn btn-danger btn-sm rounded-pill px-2" target="_blank" title="Sniper Entry">
-                                            <i class="fas fa-crosshairs"></i>
-                                        </a>
+                                        <a href="{% url 'stocks:analyze' item.symbol_bk %}" class="btn btn-outline-primary btn-sm rounded-pill" target="_blank"><i class="fas fa-microscope"></i></a>
+                                        <a href="{% url 'stocks:entry_finder' item.symbol %}" class="btn btn-danger btn-sm rounded-pill" target="_blank"><i class="fas fa-crosshairs"></i></a>
                                     </div>
                                 </td>
                             </tr>
                             {% empty %}
-                            <tr>
-                                <td colspan="10" class="text-center py-5 text-muted">
-                                    <i class="fas fa-search fa-2x mb-3 opacity-25 d-block"></i>
-                                    ไม่พบหุ้นที่เข้าเกณฑ์ในช่วงเวลานี้ (สภาวะตลาดอาจไม่เป็นใจ)
-                                </td>
-                            </tr>
+                            <tr><td colspan="13" class="text-center py-5 text-muted">ไม่พบหุ้นที่เข้าเกณฑ์</td></tr>
                             {% endfor %}
                         </tbody>
                     </table>
@@ -183,96 +156,50 @@
             </div>
         </div>
     </div>
+</div>
 
-    <!-- EXPLANATION SIDEBAR -->
-    <div class="col-xl-3 col-xxl-2">
-        <!-- Part 1: Methodology -->
-        <div class="card card-premium border-0 mb-4 shadow-sm" style="border-radius: 1.25rem;">
-            <div class="card-header bg-white border-bottom p-4">
-                <h6 class="fw-bold mb-0 text-dark d-flex align-items-center">
-                    <div class="bg-primary bg-opacity-10 p-2 rounded-3 me-3">
-                        <i class="fas fa-calculator text-primary"></i>
-                    </div>
-                    Integrated Super Score
+<!-- INFO SECTION AT BOTTOM -->
+<div class="row g-3 mt-2">
+    <div class="col-md-4">
+        <div class="card card-premium border-0 shadow-sm h-100" style="border-radius: 1rem;">
+            <div class="card-body p-4">
+                <h6 class="fw-bold mb-3 d-flex align-items-center">
+                    <i class="fas fa-calculator text-primary me-2"></i> Integrated Super Score
                 </h6>
-            </div>
-            <div class="card-body p-4" style="font-size: 0.85rem;">
-                <div class="mb-3">
-                    <h6 class="fw-bold text-dark mb-1 small"><i class="fas fa-chart-line text-success me-2"></i> 1. Trend Quality (30%)</h6>
-                    <p class="text-muted mb-0 ps-4 extra-small">ราคาต้องเหนียวเหนือ EMA 200 และมีการเรียงตัว EMA 50 > 150 > 200</p>
-                </div>
-                <div class="mb-3">
-                    <h6 class="fw-bold text-dark mb-1 small"><i class="fas fa-bolt text-warning me-2"></i> 2. Price Momentum (20%)</h6>
-                    <p class="text-muted mb-0 ps-4 extra-small">วัดจาก RSI Bullish Zone และระยะห่างจาก High เดิม 1 ปี</p>
-                </div>
-                <div class="mb-3">
-                    <h6 class="fw-bold text-dark mb-1 small"><i class="fas fa-users text-danger me-2"></i> 3. Relative Volume (30%)</h6>
-                    <p class="text-muted mb-0 ps-4 extra-small">วอลลุ่มวันนี้เทียบค่าเฉลี่ย 20 วัน (Smart Money Flow)</p>
-                </div>
-                <div class="mb-3">
-                    <h6 class="fw-bold text-dark mb-1 small"><i class="fas fa-filter text-primary me-2"></i> 4. Scoring Weight (Max 120)</h6>
-                    <ul class="text-muted ps-4 mb-0 extra-small list-unstyled">
-                        <li>• Technical Score: 100 pts</li>
-                        <li>• EPS Growth > 20%: +10 pts</li>
-                        <li>• Revenue Growth > 10%: +10 pts</li>
-                    </ul>
+                <div class="small text-muted">
+                    <div class="mb-2"><strong>1. Trend (30%):</strong> ราคาต้องยืนเหนือ EMA 200 และ EMA 50 > 150 > 200</div>
+                    <div class="mb-2"><strong>2. Momentum (20%):</strong> วัดจาก RSI Bullish Zone และระยะจาก High 1 ปี</div>
+                    <div class="mb-2"><strong>3. Smart Money (30%):</strong> วัดจาก Relative Volume (RVOL > 1.5x)</div>
+                    <div><strong>4. Bonus (20%):</strong> คะแนนพิเศษจาก EPS Growth และ Revenue Growth</div>
                 </div>
             </div>
         </div>
-
-        <!-- Part 2: Column Explanation -->
-        <div class="card card-premium border-0 shadow-sm overflow-hidden mb-4" style="border-radius: 1.25rem;">
-            <div class="card-header bg-white border-bottom p-3">
-                <h6 class="fw-bold mb-0 text-dark d-flex align-items-center">
-                    <div class="bg-success bg-opacity-10 p-2 rounded-3 me-2">
-                        <i class="fas fa-info-circle text-success small"></i>
-                    </div>
-                    Column Explanation
+    </div>
+    <div class="col-md-4">
+        <div class="card card-premium border-0 shadow-sm h-100" style="border-radius: 1rem;">
+            <div class="card-body p-4">
+                <h6 class="fw-bold mb-3 d-flex align-items-center">
+                    <i class="fas fa-info-circle text-success me-2"></i> Column Key
                 </h6>
-            </div>
-            <div class="card-body p-3" style="font-size: 0.8rem;">
-                <div class="mb-2">
-                    <h6 class="fw-bold text-dark mb-1 extra-extra-small">RSI (Relative Strength Index)</h6>
-                    <p class="text-muted mb-0 extra-extra-small">ถ้า 60-75 คือหุ้นมีกำลังพุ่ง (Bullish)</p>
-                </div>
-                <div class="mb-2">
-                    <h6 class="fw-bold text-dark mb-1 extra-extra-small">RVOL (Relative Vol)</h6>
-                    <p class="text-muted mb-0 extra-extra-small">ถ้า > 1.5x หมายถึงวอลลุ่มเข้าผิดปกติ</p>
-                </div>
-                <div class="mb-0">
-                    <h6 class="fw-bold text-dark mb-1 extra-extra-small">EPS Q / REV %</h6>
-                    <p class="text-muted mb-0 extra-extra-small">กำไรและรายได้ไตรมาสล่าสุด (YoY)</p>
+                <div class="small text-muted">
+                    <div class="mb-2"><strong>RSI:</strong> 60-70 คือ Bullish, > 70 คือเริ่ม Overbought</div>
+                    <div class="mb-2"><strong>RVOL:</strong> อัตราส่วนวอลลุ่มปัจจุบันเทียบค่าเฉลี่ย 20 วัน</div>
+                    <div class="mb-2"><strong>GAP (%):</strong> ระยะห่างจากจุดสูงสุดในรอบ 1 ปี</div>
+                    <div><strong>RR Ratio:</strong> ความคุ้มค่าของกำไรคาดหวังเทียบกับจุดตัดขาดทุน</div>
                 </div>
             </div>
         </div>
-
-        <!-- Part 3: Sniper Strategy Meaning (New) -->
-        <div class="card card-premium border-0 shadow-sm overflow-hidden border-start border-4 border-warning" style="border-radius: 1rem;">
-            <div class="card-header bg-white border-bottom p-3">
-                <h6 class="fw-bold mb-0 text-dark d-flex align-items-center">
-                    <div class="bg-warning bg-opacity-10 p-2 rounded-3 me-2">
-                        <i class="fas fa-crosshairs text-warning small"></i>
-                    </div>
-                    Sniper (S&D) Logic
+    </div>
+    <div class="col-md-4">
+        <div class="card card-premium border-0 shadow-sm h-100" style="border-radius: 1rem; border-left: 4px solid #ffc107 !important;">
+            <div class="card-body p-4">
+                <h6 class="fw-bold mb-3 d-flex align-items-center">
+                    <i class="fas fa-crosshairs text-warning me-2"></i> Sniper (S&D) Logic
                 </h6>
-            </div>
-            <div class="card-body p-3" style="font-size: 0.8rem;">
-                <div class="mb-2">
-                    <h6 class="fw-bold text-primary mb-1 extra-extra-small">Demand Zone</h6>
-                    <p class="text-muted mb-0 extra-extra-small">โซนที่ "รายใหญ่" เริ่มตั้งรับซื้อของ</p>
-                </div>
-                <div class="mb-2">
-                    <h6 class="fw-bold text-danger mb-1 extra-extra-small">ERC Candle</h6>
-                    <p class="text-muted mb-0 extra-extra-small">แท่งเทียนเนื้อเยอะพุ่งแรง (แรงซื้อจริง)</p>
-                </div>
-                <div class="mb-2">
-                    <h6 class="fw-bold text-success mb-1 extra-extra-small">RR Ratio</h6>
-                    <p class="text-muted mb-0 extra-extra-small">ความคุ้มค่า (กำไรเทียบกับความเสี่ยง)</p>
-                </div>
-                <div class="mb-0">
-                    <div class="badge bg-danger bg-opacity-10 text-danger p-2 rounded-3 w-100 extra-extra-small">
-                        <i class="fas fa-shield-alt me-1"></i> เน้นปลอดภัย คุ้มค่า ไม่ไล่ราคา
-                    </div>
+                <div class="small text-muted">
+                    <div class="mb-2"><strong>Demand Zone:</strong> จุดที่สถาบันตั้งรับซื้อของ เน้นเข้าที่ขอบบน</div>
+                    <div class="mb-2"><strong>ERC (Extended Range):</strong> แท่งเทียนพุ่งแรงที่มีเนื้อเยอะ</div>
+                    <div class="mb-0"><strong>Strategy:</strong> เน้นซื้อที่จุดย่อตัว (Pullback) เพื่อความเสี่ยงต่ำที่สุด</div>
                 </div>
             </div>
         </div>

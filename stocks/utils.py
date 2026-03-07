@@ -330,7 +330,11 @@ def find_supply_demand_zones(df):
         'target': float(round(target_price, 2)),
         'rr_ratio': float(round(rr_ratio, 2)),
         'confidence_score': int(final_score),
-        'is_retesting': bool(df['Close'].iloc[-1] <= refined_upper * 1.05 and df['Close'].iloc[-1] >= refined_lower * 0.95)
+        'is_retesting': bool(df['Close'].iloc[-1] <= refined_upper * 1.05 and df['Close'].iloc[-1] >= refined_lower * 0.95),
+        # Visualization Data
+        'erc_date': last_erc_idx.strftime('%Y-%m-%d') if hasattr(last_erc_idx, 'strftime') else str(last_erc_idx),
+        'base_start': base_window.index[0].strftime('%Y-%m-%d') if hasattr(base_window.index[0], 'strftime') else str(base_window.index[0]),
+        'base_end': base_window.index[-1].strftime('%Y-%m-%d') if hasattr(base_window.index[-1], 'strftime') else str(base_window.index[-1]),
     }
 
 def refresh_set100_symbols():

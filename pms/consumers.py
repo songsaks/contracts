@@ -11,16 +11,20 @@ logger = logging.getLogger(__name__)
 class PmsChatConsumer(AsyncWebsocketConsumer):
     async def connect(self):
         # 1. Accept client connection from PMS UI
+        print(f"DEBUG: WebSocket connection attempt from {self.scope.get('user')}")
         await self.accept()
         user = self.scope.get('user', 'Anonymous')
+        print(f"DEBUG: WebSocket accepted for {user}")
         logger.info(f"Client connected to PMS Chat: {user}")
 
     async def disconnect(self, close_code):
+        print(f"DEBUG: WebSocket disconnected. Close code: {close_code}")
         logger.info(f"Chat socket disconnected: {close_code}")
         pass
 
     async def receive(self, text_data):
         # 3. Receive message from User (Frontend)
+        print(f"DEBUG: Message received: {text_data}")
         try:
             data = json.loads(text_data)
             message = data.get('message', '').strip()
