@@ -76,9 +76,12 @@ class MomentumCandidate(models.Model):
     demand_zone_end = models.FloatField(null=True, blank=True, verbose_name="โซนเข้าซื้อ (ล่าง)")
     stop_loss = models.FloatField(null=True, blank=True, verbose_name="จุดตัดขาดทุน")
     risk_reward_ratio = models.FloatField(null=True, blank=True, verbose_name="RR Ratio")
+    supply_zone_start = models.FloatField(null=True, blank=True, verbose_name="โซนขาย (ล่าง)")
+    supply_zone_end = models.FloatField(null=True, blank=True, verbose_name="โซนขาย (บน)")
     
     year_high = models.FloatField(default=0.0)
     upside_to_high = models.FloatField(default=0.0)
+    zone_proximity = models.FloatField(default=999.0, help_text="Percentage distance to Demand Zone Start")
     scanned_at = models.DateTimeField(auto_now=True)
 
     class Meta:

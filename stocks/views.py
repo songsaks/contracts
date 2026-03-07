@@ -817,6 +817,8 @@ def momentum_scanner(request):
                     entry_strat = ""
                     dz_start = None
                     dz_end = None
+                    sz_start = None
+                    sz_end = None
                     sl_price = None
                     rr_val = None
                     
@@ -824,8 +826,18 @@ def momentum_scanner(request):
                         entry_strat = sd_zone['type']
                         dz_start = sd_zone['start']
                         dz_end = sd_zone['end']
+                        sz_start = sd_zone['target']
+                        sz_end = sd_zone['target'] * 1.02 # Visual buffer
                         sl_price = sd_zone['stop_loss']
                         rr_val = sd_zone['rr_ratio']
+                    
+                    # Calculate Proximity to Zone
+                    prox_val = 999.0
+                    if dz_start:
+                        if current_price <= dz_start:
+                            prox_val = 0.0
+                        else:
+                            prox_val = ((current_price - dz_start) / dz_start) * 100
 
                     obj = MomentumCandidate.objects.create(
                         user=request.user,
@@ -844,11 +856,14 @@ def momentum_scanner(request):
                         entry_strategy=entry_strat,
                         demand_zone_start=dz_start,
                         demand_zone_end=dz_end,
+                        supply_zone_start=sz_start,
+                        supply_zone_end=sz_end,
                         stop_loss=sl_price,
                         risk_reward_ratio=rr_val,
                         
                         year_high=round(year_high, 2),
-                        upside_to_high=round(gap_to_high, 2)
+                        upside_to_high=round(gap_to_high, 2),
+                        zone_proximity=round(prox_val, 2)
                     )
                     candidates.append(obj)
             except Exception as e:
@@ -868,6 +883,7 @@ def momentum_scanner(request):
         'eps': '-eps_growth',
         'rev': '-rev_growth',
         'gap': 'upside_to_high',
+        'prox': 'zone_proximity',
         'round_rr': '-risk_reward_ratio'
     }
     order_field = valid_sorts.get(sort_by, '-technical_score')
