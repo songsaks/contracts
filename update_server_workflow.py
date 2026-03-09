@@ -2,8 +2,12 @@ import os
 import sys
 import django
 
-# Setup Django Environment
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'contracts.settings')
+# Setup Django Environment — module name must match manage.py
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings')
+
+# Add project root to sys.path so Django can find config.settings
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
 django.setup()
 
 from django.core.management import call_command
@@ -12,11 +16,10 @@ def update_workflow():
     print("🚀 Starting Server Workflow Update...")
     
     try:
-        # 1. Run Migrations (for new Status choices if we were using a list, 
-        # but here we use strings so it's mostly database seeding)
+        # 1. Run Migrations
         print("📦 Running migrations...")
-        call_command('makemigrations', 'pms')
-        call_command('migrate')
+        call_command('makemigrations', 'pms', '--no-input')
+        call_command('migrate', '--no-input')
         
         # 2. Seed Statuses
         print("🌱 Seeding Dynamic Workflows...")
@@ -26,6 +29,8 @@ def update_workflow():
         
     except Exception as e:
         print(f"❌ Error during update: {e}")
+        import traceback
+        traceback.print_exc()
         sys.exit(1)
 
 if __name__ == "__main__":
