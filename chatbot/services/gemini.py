@@ -1,14 +1,14 @@
 import os
-import google.generativeai as genai
+from google import genai
+from google.genai import types
 from django.conf import settings
 from django.utils import timezone
 from datetime import timedelta
 from django.db.models import Q, Count
 import json
 
-# Configure Gemini
+# Configure Gemini API Key
 api_key = getattr(settings, 'GEMINI_API_KEY', os.environ.get('GEMINI_API_KEY'))
-genai.configure(api_key=api_key)
 
 # --- ADVANCED STATS TOOLS ---
 
@@ -62,7 +62,7 @@ def get_detailed_system_stats():
 
 # --- EXISTING TOOLS ---
 
-def search_pms_projects(query=None, customer_name=None):
+def search_pms_projects(query: str = None, customer_name: str = None):
     """ค้นหาโครงการ, งานบริการ, งานเช่า ในระบบ PMS"""
     from pms.models import Project
 
@@ -72,11 +72,11 @@ def search_pms_projects(query=None, customer_name=None):
     results = []
     for p in qs[:5]:
         results.append({
-            'name': p.name, 'customer': p.customer.name, 'type': p.get_job_type_display(), 'status': p.get_job_status_display
+            'name': p.name, 'customer': p.customer.name, 'type': p.get_job_type_display(), 'status': str(p.get_job_status_display())
         })
     return results
 
-def search_repair_jobs(query=None, customer_name=None):
+def search_repair_jobs(query: str = None, customer_name: str = None):
     """ค้นหางานแจ้งซ่อม (Repair Jobs)"""
     from repairs.models import RepairJob
 
@@ -104,13 +104,9 @@ all_tools = [
 ]
 
 def gemini_chat_sync(user_text, user=None):
-    """9Com Intelligence Logic with Stale Job Detection"""
-    model = genai.GenerativeModel(
-        model_name='gemini-2.0-flash',
-        tools=all_tools
-    )
-    chat = model.start_chat(history=[], enable_automatic_function_calling=True)
-
+    """9Com Intelligence Logic using google-genai SDK"""
+    client = genai.Client(api_key=api_key)
+    
     system_instruction = (
         "คุณคือ '9Com Intelligence' ผู้ช่วย AI อัจฉริยะ. "
         "คุณมีความสามารถในการวิเคราะห์ประเภทงานและ 'ความเร็วในการตอบสนอง' (Response Time) ของทีมงาน.\n\n"
@@ -132,10 +128,16 @@ def gemini_chat_sync(user_text, user=None):
     if user:
         system_instruction += f"\nผู้ใช้: {user.username}"
 
-    full_prompt = f"{system_instruction}\n\nคำถาม: {user_text}"
-
     try:
-        response = chat.send_message(full_prompt)
+        response = client.models.generate_content(
+            model='gemini-2.0-flash',
+            contents=user_text,
+            config=types.GenerateContentConfig(
+                system_instruction=system_instruction,
+                tools=all_tools,
+                automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=False)
+            )
+        )
         return response.text
     except Exception as e:
         return f"ขออภัยครับ เกิดข้อผิดพลาด: {str(e)}"

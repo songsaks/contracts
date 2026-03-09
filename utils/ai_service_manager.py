@@ -98,34 +98,34 @@ def sync_projects_to_queue():
     teams = list(ServiceTeam.objects.filter(is_active=True))
     count = 0
 
-    # ONLY trigger tasks for these specific statuses
-    # This creates the "Lock" mechanism when the project hits these points.
+    # ONLY trigger tasks for these specific statuses (The "Queue" stage)
     trigger_q = (
-        Q(status='INSTALLATION') |
-        Q(job_type='REPAIR', status='ORDERING') |
-        Q(job_type='SERVICE', status='DELIVERY')
+        Q(job_type='PROJECT', status='INSTALLATION') |
+        Q(job_type='SERVICE', status='DELIVERY') |
+        Q(job_type='REPAIR', status='DELIVERY')
     )
 
     ready_projects = Project.objects.filter(trigger_q)
 
     for proj in ready_projects:
-        # Loop Check: Look for an ACTIVE task (not completed) for this specific status.
-        # This allows re-triggering if the project is moved back to this status after a previous task was completed.
+        # Loop Check: Look for an ACTIVE task (not completed/incomplete)
         active_task = ServiceQueueItem.objects.filter(
             project=proj,
-            status__in=['PENDING', 'SCHEDULED', 'IN_PROGRESS', 'INCOMPLETE']
+            status__in=['PENDING', 'SCHEDULED', 'IN_PROGRESS']
         ).first()
 
         if active_task:
             continue # Already locked/tracking this stage
 
-        # Determine Task Type & Label
-        if proj.status == 'INSTALLATION':
-            task_type, label = 'INSTALLATION', 'ติดตั้ง'
+        # Determine Task Type & Label based on Job Type
+        if proj.job_type == 'PROJECT':
+            task_type, label = 'INSTALLATION', 'คิว (ติดตั้ง)'
         elif proj.job_type == 'REPAIR':
-            task_type, label = 'REPAIR', 'ซ่อม'
+            task_type, label = 'REPAIR', 'คิว (ซ่อม)'
+        elif proj.job_type == 'SERVICE':
+            task_type, label = 'DELIVERY', 'คิว (ส่งของ)'
         else:
-            task_type, label = 'DELIVERY', 'ส่งของ (งานขาย)'
+            task_type, label = 'OTHER', 'คิว'
 
         suggested_team = get_ai_team_suggestion(task_type, teams) if teams else None
 

@@ -242,44 +242,47 @@ def project_detail(request, pk):
         # Fallback Hardcoded Workflow (Synced with User Request March 3rd)
         if project.job_type == Project.JobType.SERVICE:
             raw_steps = [
-                (Project.Status.SOURCING, 'จัดหา'),
+                (Project.Status.DRAFT, 'รวบรวม'),
                 (Project.Status.QUOTED, 'เสนอราคา'),
                 (Project.Status.ORDERING, 'สั่งซื้อ'),
                 (Project.Status.RECEIVED_QC, 'รับของ/QC'),
-                (Project.Status.DELIVERY, 'ส่งมอบ'),
-                (Project.Status.ACCEPTED, 'ตรวจรับ'),
+                (Project.Status.DELIVERY, 'คิว'),
+                (Project.Status.WAITING_FOR_SALE_KEY, 'รอคีย์ขาย'),
                 (Project.Status.CLOSED, 'ปิดจบ'),
+                (Project.Status.CANCELLED, 'ยกเลิก'),
             ]
         elif project.job_type == Project.JobType.REPAIR:
             raw_steps = [
-                (Project.Status.SOURCING, 'รับแจ้งซ่อม'),
-                (Project.Status.SUPPLIER_CHECK, 'เช็คราคา'), # Added after request
-                (Project.Status.ORDERING, 'จัดคิวซ่อม'),
-                (Project.Status.DELIVERY, 'ซ่อม'),
-                (Project.Status.CLOSED, 'ปิดงานซ่อม'), # 'รอ' (Wait) is removed
+                (Project.Status.DRAFT, 'รวบรวม'),
+                (Project.Status.QUOTED, 'เสนอราคา'),
+                (Project.Status.ORDERING, 'สั่งซื้อ'),
+                (Project.Status.RECEIVED_QC, 'รับของ/QC'),
+                (Project.Status.REPAIRING, 'ซ่อม'),
+                (Project.Status.DELIVERY, 'คิว'),
+                (Project.Status.WAITING_FOR_SALE_KEY, 'รอคีย์ขาย'),
+                (Project.Status.CLOSED, 'ปิดจบ'),
+                (Project.Status.CANCELLED, 'ยกเลิก'),
             ]
         elif project.job_type == Project.JobType.RENTAL:
             raw_steps = [
-                (Project.Status.SOURCING, 'จัดหา'),
+                (Project.Status.DRAFT, 'รวบรวม'),
                 (Project.Status.CONTRACTED, 'ทำสัญญา'),
                 (Project.Status.RENTING, 'เช่า'),
                 (Project.Status.CLOSED, 'ปิดจบ'),
+                (Project.Status.CANCELLED, 'ยกเลิก'),
             ]
         else: # PROJECT
             raw_steps = [
                 (Project.Status.DRAFT, 'รวบรวม'),
-                (Project.Status.SOURCING, 'จัดหา'),
-                # 'เช็คราคา' is removed here
                 (Project.Status.QUOTED, 'เสนอราคา'),
                 (Project.Status.CONTRACTED, 'ทำสัญญา'),
                 (Project.Status.ORDERING, 'สั่งซื้อ'),
                 (Project.Status.RECEIVED_QC, 'รับของ/QC'),
-                (Project.Status.INSTALLATION, 'ติดตั้ง'),
-                # 'ส่งมอบ' is removed here
-                (Project.Status.ACCEPTED, 'ตรวจรับ'),
-                (Project.Status.BILLING, 'วางบิล'),
-                (Project.Status.WAITING_FOR_SALE_KEY, 'รอคีย์ขาย'), # Added
+                (Project.Status.REQUESTING, 'ขอดำเนินการ'),
+                (Project.Status.INSTALLATION, 'คิว'),
+                (Project.Status.WAITING_FOR_SALE_KEY, 'รอคีย์ขาย'),
                 (Project.Status.CLOSED, 'ปิดจบ'),
+                (Project.Status.CANCELLED, 'ยกเลิก'),
             ]
 
     # Wrapper class to make template logic work: {% if step == project.status %} and {{ step.label }}
@@ -1397,28 +1400,12 @@ def update_task_status(request, task_id):
 
             if new_status == 'COMPLETED':
                 task.completed_at = timezone.now()
-                # Move linked project to next status
                 if task.project:
-                    proj = task.project
-                    # Automatic status transition based on completion of AI queue task
-                    if proj.status == 'DRAFT':
-                        proj.status = 'SOURCING'
-                    elif proj.status == 'SOURCING':
-                        proj.status = 'QUOTED'
-                    elif proj.status == 'ORDERING':
-                        # For Repairs: ORDERING(จัดคิวซ่อม) -> DELIVERY(ซ่อม)
-                        # For Service/Project: ORDERING(สั่งซื้อ) -> RECEIVED_QC(รับของ)
-                        if proj.job_type == 'REPAIR':
-                            proj.status = 'DELIVERY'
-                        else:
-                            proj.status = 'RECEIVED_QC'
-                    elif proj.status == 'INSTALLATION':
-                        proj.status = 'DELIVERY'
-                    elif proj.status == 'DELIVERY':
-                        proj.status = 'ACCEPTED'
-                        
-                    proj._changed_by_user = request.user
-                    proj.save()
+                    # Logic is now in ServiceQueueItem.save()
+                    task.project._changed_by_user = request.user
+                    # Still need to call save to trigger potential status change? 
+                    # Actually, task.save() above already handled it. 
+                    pass
             elif new_status == 'INCOMPLETE':
                 task.scheduled_date = None
                 task.scheduled_time = None

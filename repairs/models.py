@@ -131,7 +131,7 @@ class RepairJob(models.Model):
 class RepairItem(models.Model):
     STATUS_CHOICES = [
         ('RECEIVED', 'รับแจ้ง'),
-        ('FIXING', 'กำลังซ่อม/ตรวจเช็ค'),
+        ('FIXING', 'คิว'),
         ('WAITING_APPROVAL', 'รออนุมัติงานซ่อม'),
         ('WAITING', 'รออะไหล่'),
         ('OUTSOURCE', 'ส่งซ่อมศูนย์/ภายนอก'),

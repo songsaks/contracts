@@ -1,4 +1,5 @@
 from django.db import models
+from django.core.exceptions import ValidationError
 from django.utils import timezone
 from django.conf import settings
 from decimal import Decimal
@@ -87,8 +88,10 @@ class Project(models.Model):
         CONTRACTED = 'CONTRACTED', 'ทำสัญญา'
         ORDERING = 'ORDERING', 'สั่งซื้อ'
         RECEIVED_QC = 'RECEIVED_QC', 'รับของ/QC'
-        INSTALLATION = 'INSTALLATION', 'ติดตั้ง'
-        DELIVERY = 'DELIVERY', 'ส่งมอบ (รอคิว)'
+        REPAIRING = 'REPAIRING', 'ซ่อม'
+        REQUESTING = 'REQUESTING', 'ขอดำเนินการ'
+        INSTALLATION = 'INSTALLATION', 'คิว'
+        DELIVERY = 'DELIVERY', 'คิว'
 
         ACCEPTED = 'ACCEPTED', 'ตรวจรับ'
         BILLING = 'BILLING', 'วางบิล'
@@ -156,6 +159,23 @@ class Project(models.Model):
             
         is_new = self.pk is None
         old_status = getattr(self, '__old_status', self.status)
+
+        # 3. AI Queue Lock Mechanism
+        if not is_new and old_status != self.status:
+            # Check if we are moving AWAY from a Queue status while a task is active
+            is_queue_status = False
+            if self.job_type == self.JobType.PROJECT and old_status == self.Status.INSTALLATION:
+                is_queue_status = True
+            elif self.job_type in [self.JobType.SERVICE, self.JobType.REPAIR] and old_status == self.Status.DELIVERY:
+                is_queue_status = True
+
+            if is_queue_status and not getattr(self, '_changed_by_ai', False):
+                active_task = self.service_tasks.filter(
+                    status__in=['PENDING', 'SCHEDULED', 'IN_PROGRESS', 'INCOMPLETE']
+                ).exists()
+                if active_task:
+                    raise ValidationError(f"สถานะ '{self.get_status_display()}' ถูกล็อกจนกว่างานใน AI Queue จะเสร็จสิ้นหรือยกเลิก")
+
         super().save(*args, **kwargs)
         
         # Log status change
@@ -237,7 +257,7 @@ class Project(models.Model):
                 self.Status.SOURCING: 'รับแจ้งซ่อม',
                 self.Status.SUPPLIER_CHECK: 'เช็คราคา',
                 self.Status.ORDERING: 'จัดคิวซ่อม',
-                self.Status.DELIVERY: 'ซ่อม',
+                self.Status.DELIVERY: 'คิว',
                 self.Status.CLOSED: 'ปิดงานซ่อม',
             }
             return mapping.get(self.status, self.get_status_display())
@@ -248,7 +268,7 @@ class Project(models.Model):
                 self.Status.QUOTED: 'เสนอราคา',
                 self.Status.ORDERING: 'สั่งซื้อ',
                 self.Status.RECEIVED_QC: 'รับของ/QC',
-                self.Status.DELIVERY: 'ส่งมอบ',
+                self.Status.DELIVERY: 'คิว',
                 self.Status.ACCEPTED: 'ตรวจรับ',
                 self.Status.CLOSED: 'ปิดจบ',
             }
@@ -574,6 +594,7 @@ class ServiceQueueItem(models.Model):
         IN_PROGRESS = 'IN_PROGRESS', 'กำลังดำเนินการ'
         COMPLETED = 'COMPLETED', 'เสร็จสิ้น'
         INCOMPLETE = 'INCOMPLETE', 'ไม่เสร็จ (ยกยอด)'
+        CANCELLED = 'CANCELLED', 'ยกเลิก'
 
     title = models.CharField(max_length=255, verbose_name="หัวข้องาน")
     description = models.TextField(blank=True, verbose_name="รายละเอียด")
@@ -612,12 +633,40 @@ class ServiceQueueItem(models.Model):
 
     def save(self, *args, **kwargs):
         # 1. Handle Completion
+        old_status = None
+        if self.pk:
+            try:
+                old_status = ServiceQueueItem.objects.get(pk=self.pk).status
+            except ServiceQueueItem.DoesNotExist:
+                pass
+
         if self.status == self.Status.COMPLETED and not self.completed_at:
             self.completed_at = timezone.now()
         elif self.status != self.Status.COMPLETED:
             self.completed_at = None
 
         super().save(*args, **kwargs)
+
+        if self.project and self.status in [self.Status.COMPLETED, self.Status.CANCELLED] and old_status != self.status:
+            proj = self.project
+            # Only advance if we are currently in the Queue status
+            can_advance = False
+            next_status = None
+
+            if proj.job_type == Project.JobType.PROJECT and proj.status == Project.Status.INSTALLATION:
+                can_advance = True
+                next_status = Project.Status.WAITING_FOR_SALE_KEY
+            elif proj.job_type == Project.JobType.SERVICE and proj.status == Project.Status.DELIVERY:
+                can_advance = True
+                next_status = Project.Status.WAITING_FOR_SALE_KEY
+            elif proj.job_type == Project.JobType.REPAIR and proj.status == Project.Status.DELIVERY:
+                can_advance = True
+                next_status = Project.Status.WAITING_FOR_SALE_KEY
+
+            if can_advance and next_status:
+                proj.status = next_status
+                proj._changed_by_ai = True # Mark to bypass lock if needed
+                proj.save()
 
     @property
     def is_overdue(self):
