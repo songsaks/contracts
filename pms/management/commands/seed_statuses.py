@@ -5,23 +5,7 @@ class Command(BaseCommand):
     help = 'Seed default JobStatus for the PMS app'
 
     def handle(self, *args, **options):
-        # 1. Project Workflow
-        # รวบรวม->เสนอราคา->ทำสัญญา->สั่งซื้อ->รับของ/QC->ขอดำเนิการ->คิว->รอคีย์ขาย->ปิดจบ->ยกเลิก
-        project_statuses = [
-            (Project.Status.DRAFT, 'รวบรวม', 10),
-            (Project.Status.QUOTED, 'เสนอราคา', 20),
-            (Project.Status.CONTRACTED, 'ทำสัญญา', 30),
-            (Project.Status.ORDERING, 'สั่งซื้อ', 40),
-            (Project.Status.RECEIVED_QC, 'รับของ/QC', 50),
-            (Project.Status.REQUESTING, 'ขอดำเนินการ', 60),
-            (Project.Status.INSTALLATION, 'คิว', 70),
-            (Project.Status.WAITING_FOR_SALE_KEY, 'รอคีย์ขาย', 80),
-            (Project.Status.CLOSED, 'ปิดจบ', 90),
-            (Project.Status.CANCELLED, 'ยกเลิก', 100),
-        ]
-
-        # 2. Service/Sale Workflow
-        # รวบรวม->เสนอราคา->สั่งซื้อ->รับของ/QC->คิว->รอคีย์ขาย->ปิดจบ->ยกเลิก
+        # Service Workflow (งานขาย)
         service_statuses = [
             (Project.Status.DRAFT, 'รวบรวม', 10),
             (Project.Status.QUOTED, 'เสนอราคา', 20),
@@ -33,8 +17,7 @@ class Command(BaseCommand):
             (Project.Status.CANCELLED, 'ยกเลิก', 80),
         ]
         
-        # 3. Repair Workflow
-        # รวบรวม->เสนอราคา->สั่งซื้อ->รับของ/QC->ซ่อม->คิว->รอคีย์ขาย->ปิดจบ->ยกเลิก
+        # Repair Workflow (งานซ่อม)
         repair_statuses = [
             (Project.Status.DRAFT, 'รวบรวม', 10),
             (Project.Status.QUOTED, 'เสนอราคา', 20),
@@ -47,34 +30,45 @@ class Command(BaseCommand):
             (Project.Status.CANCELLED, 'ยกเลิก', 90),
         ]
 
-        # 4. Rental Workflow (Keep as is or similar)
-        rental_statuses = [
+        # Project Workflow (งานโครงการ)
+        project_statuses = [
             (Project.Status.DRAFT, 'รวบรวม', 10),
-            (Project.Status.CONTRACTED, 'ทำสัญญา', 20),
-            (Project.Status.RENTING, 'เช่า', 30),
-            (Project.Status.CLOSED, 'ปิดจบ', 40),
-            (Project.Status.CANCELLED, 'ยกเลิก', 50),
+            (Project.Status.QUOTED, 'เสนอราคา', 20),
+            (Project.Status.CONTRACTED, 'ทำสัญญา', 30),
+            (Project.Status.ORDERING, 'สั่งซื้อ', 40),
+            (Project.Status.RECEIVED_QC, 'รับของ/QC', 50),
+            (Project.Status.REQUESTING_ACTION, 'ขอดำเนินการ', 60),
+            (Project.Status.INSTALLATION, 'คิว', 70),
+            (Project.Status.WAITING_FOR_SALE_KEY, 'รอคีย์ขาย', 80),
+            (Project.Status.CLOSED, 'ปิดจบ', 90),
+            (Project.Status.CANCELLED, 'ยกเลิก', 100),
         ]
 
         all_types = [
             (Project.JobType.PROJECT, project_statuses),
             (Project.JobType.SERVICE, service_statuses),
             (Project.JobType.REPAIR, repair_statuses),
-            (Project.JobType.RENTAL, rental_statuses),
         ]
-
-        # Clear existing to ensure clean sort order and steps
-        JobStatus.objects.all().delete()
 
         count = 0
         for jt, statuses in all_types:
+            # Keep track of active keys to disable others
+            active_keys = [s[0] for s in statuses]
+            
+            # Deactivate statuses not in the list for this type
+            JobStatus.objects.filter(job_type=jt).exclude(status_key__in=active_keys).delete()
+
             for key, label, sort in statuses:
-                JobStatus.objects.create(
+                obj, created = JobStatus.objects.update_or_create(
                     job_type=jt,
                     status_key=key,
-                    label=label,
-                    sort_order=sort
+                    defaults={'label': label, 'sort_order': sort, 'is_active': True}
                 )
                 count += 1
         
-        self.stdout.write(self.style.SUCCESS(f'Successfully re-seeded {count} job statuses!'))
+        self.stdout.write(self.style.SUCCESS(f'Successfully seeded {count} job statuses!'))
+
+        # Ensure JobStatusAssignment exists for each
+        from pms.models import JobStatusAssignment
+        for js in JobStatus.objects.all():
+            JobStatusAssignment.objects.get_or_create(job_status=js)

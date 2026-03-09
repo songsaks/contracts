@@ -239,49 +239,46 @@ def project_detail(request, pk):
     if db_choices:
         raw_steps = db_choices
     else:
-        # Fallback Hardcoded Workflow (Synced with Standard Mar 9, 2026)
+        # Fallback Hardcoded Workflow (Synced with User Request March 3rd)
         if project.job_type == Project.JobType.SERVICE:
             raw_steps = [
-                (Project.Status.SOURCING, 'จัดหา'),
+                (Project.Status.DRAFT, 'รวบรวม'),
                 (Project.Status.QUOTED, 'เสนอราคา'),
                 (Project.Status.ORDERING, 'สั่งซื้อ'),
                 (Project.Status.RECEIVED_QC, 'รับของ/QC'),
-                (Project.Status.DELIVERY, 'ส่งมอบ'),
-                (Project.Status.ACCEPTED, 'ตรวจรับ'),
+                (Project.Status.DELIVERY, 'คิว'),
                 (Project.Status.WAITING_FOR_SALE_KEY, 'รอคีย์ขาย'),
                 (Project.Status.CLOSED, 'ปิดจบ'),
                 (Project.Status.CANCELLED, 'ยกเลิก'),
             ]
         elif project.job_type == Project.JobType.REPAIR:
             raw_steps = [
-                (Project.Status.SOURCING, 'รับแจ้งซ่อม'),
-                (Project.Status.SUPPLIER_CHECK, 'เช็คราคา'),
-                (Project.Status.ORDERING, 'จัดคิวซ่อม'),
-                (Project.Status.DELIVERY, 'ซ่อม'),
-                (Project.Status.WAITING_FOR_SALE_KEY, 'รอคีย์ขาย'),
-                (Project.Status.CLOSED, 'ปิดแจ้งซ่อม'),
-                (Project.Status.CANCELLED, 'ยกเลิก'),
-            ]
-        elif project.job_type == Project.JobType.RENTAL:
-            raw_steps = [
-                (Project.Status.SOURCING, 'จัดหา'),
-                (Project.Status.CONTRACTED, 'ทำสัญญา'),
-                (Project.Status.RENTING, 'เช่า'),
+                (Project.Status.DRAFT, 'รวบรวม'),
+                (Project.Status.QUOTED, 'เสนอราคา'),
+                (Project.Status.ORDERING, 'สั่งซื้อ'),
+                (Project.Status.RECEIVED_QC, 'รับของ/QC'),
+                (Project.Status.REPAIRING, 'ซ่อม'),
+                (Project.Status.DELIVERY, 'คิว'),
                 (Project.Status.WAITING_FOR_SALE_KEY, 'รอคีย์ขาย'),
                 (Project.Status.CLOSED, 'ปิดจบ'),
                 (Project.Status.CANCELLED, 'ยกเลิก'),
             ]
+        elif project.job_type == Project.JobType.RENTAL:
+            raw_steps = [
+                (Project.Status.DRAFT, 'รวบรวม'),
+                (Project.Status.CONTRACTED, 'ทำสัญญา'),
+                (Project.Status.RENTING, 'เช่า'),
+                (Project.Status.CLOSED, 'ปิดจบ'),
+            ]
         else: # PROJECT
             raw_steps = [
                 (Project.Status.DRAFT, 'รวบรวม'),
-                (Project.Status.SOURCING, 'จัดหา'),
                 (Project.Status.QUOTED, 'เสนอราคา'),
                 (Project.Status.CONTRACTED, 'ทำสัญญา'),
                 (Project.Status.ORDERING, 'สั่งซื้อ'),
                 (Project.Status.RECEIVED_QC, 'รับของ/QC'),
-                (Project.Status.INSTALLATION, 'ติดตั้ง'),
-                (Project.Status.ACCEPTED, 'ตรวจรับ'),
-                (Project.Status.BILLING, 'วางบิล'),
+                (Project.Status.REQUESTING_ACTION, 'ขอดำเนินการ'),
+                (Project.Status.INSTALLATION, 'คิว'),
                 (Project.Status.WAITING_FOR_SALE_KEY, 'รอคีย์ขาย'),
                 (Project.Status.CLOSED, 'ปิดจบ'),
                 (Project.Status.CANCELLED, 'ยกเลิก'),

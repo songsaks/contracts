@@ -89,7 +89,7 @@ class Project(models.Model):
         ORDERING = 'ORDERING', 'สั่งซื้อ'
         RECEIVED_QC = 'RECEIVED_QC', 'รับของ/QC'
         REPAIRING = 'REPAIRING', 'ซ่อม'
-        REQUESTING = 'REQUESTING', 'ขอดำเนินการ'
+        REQUESTING_ACTION = 'REQUESTING_ACTION', 'ขอดำเนินการ'
         INSTALLATION = 'INSTALLATION', 'คิว'
         DELIVERY = 'DELIVERY', 'คิว'
 
@@ -254,31 +254,43 @@ class Project(models.Model):
         # Fallback to hardcoded mapping
         if self.job_type == self.JobType.REPAIR:
             mapping = {
-                self.Status.SOURCING: 'รับแจ้งซ่อม',
-                self.Status.SUPPLIER_CHECK: 'เช็คราคา',
-                self.Status.ORDERING: 'จัดคิวซ่อม',
+                self.Status.DRAFT: 'รวบรวม',
+                self.Status.QUOTED: 'เสนอราคา',
+                self.Status.ORDERING: 'สั่งซื้อ',
+                self.Status.RECEIVED_QC: 'รับของ/QC',
+                self.Status.REPAIRING: 'ซ่อม',
                 self.Status.DELIVERY: 'คิว',
-                self.Status.CLOSED: 'ปิดงานซ่อม',
+                self.Status.WAITING_FOR_SALE_KEY: 'รอคีย์ขาย',
+                self.Status.CLOSED: 'ปิดจบ',
+                self.Status.CANCELLED: 'ยกเลิก',
             }
             return mapping.get(self.status, self.get_status_display())
         
         elif self.job_type == self.JobType.SERVICE:
             mapping = {
-                self.Status.SOURCING: 'จัดหา',
+                self.Status.DRAFT: 'รวบรวม',
                 self.Status.QUOTED: 'เสนอราคา',
                 self.Status.ORDERING: 'สั่งซื้อ',
                 self.Status.RECEIVED_QC: 'รับของ/QC',
                 self.Status.DELIVERY: 'คิว',
-                self.Status.ACCEPTED: 'ตรวจรับ',
+                self.Status.WAITING_FOR_SALE_KEY: 'รอคีย์ขาย',
                 self.Status.CLOSED: 'ปิดจบ',
+                self.Status.CANCELLED: 'ยกเลิก',
             }
             return mapping.get(self.status, self.get_status_display())
         
         elif self.job_type == self.JobType.PROJECT:
              mapping = {
-                self.Status.BILLING: 'วางบิล',
+                self.Status.DRAFT: 'รวบรวม',
+                self.Status.QUOTED: 'เสนอราคา',
+                self.Status.CONTRACTED: 'ทำสัญญา',
+                self.Status.ORDERING: 'สั่งซื้อ',
+                self.Status.RECEIVED_QC: 'รับของ/QC',
+                self.Status.REQUESTING_ACTION: 'ขอดำเนินการ',
+                self.Status.INSTALLATION: 'คิว',
                 self.Status.WAITING_FOR_SALE_KEY: 'รอคีย์ขาย',
                 self.Status.CLOSED: 'ปิดจบ',
+                self.Status.CANCELLED: 'ยกเลิก',
             }
              return mapping.get(self.status, self.get_status_display())
 
