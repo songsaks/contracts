@@ -317,6 +317,25 @@ def project_detail(request, pk):
         'current_status_label': current_status_label,
         'active_queue_item': active_queue_item,
     }
+
+    if request.method == 'POST':
+        # Quick Update Logic
+        new_status = request.POST.get('status')
+        new_description = request.POST.get('description')
+        new_remarks = request.POST.get('remarks')
+
+        if new_status:
+            project.status = new_status
+        if new_description is not None:
+            project.description = new_description
+        if new_remarks is not None:
+            project.remarks = new_remarks
+        
+        project._changed_by_user = request.user
+        project.save()
+        messages.success(request, 'บันทึกการแก้ไขเรียบร้อยแล้ว')
+        return redirect('pms:project_detail', pk=pk)
+
     return render(request, 'pms/project_detail.html', context)
 
 
@@ -1344,6 +1363,7 @@ def update_pending_task(request, task_id):
             except ValueError:
                 pass
 
+        task.remarks = request.POST.get('remarks', task.remarks)
         task.save()
         messages.success(request, f"✅ อัปเดต: {task.title}")
 
@@ -1410,6 +1430,8 @@ def update_task_status(request, task_id):
                 task.scheduled_time = None
                 task.assigned_team = None
 
+        task.remarks = request.POST.get('remarks', task.remarks)
+        
         if note:
 
             timestamp = timezone.now().strftime('%d/%m %H:%M')
@@ -1418,6 +1440,38 @@ def update_task_status(request, task_id):
 
         task.save()
         messages.success(request, f"✅ อัปเดต: {task.title} → {task.get_status_display()}")
+
+    return redirect('pms:service_queue_dashboard')
+
+
+@login_required
+def send_queue_notifications(request):
+    """Manually send notifications to teams for a specific date."""
+    if request.method == 'POST':
+        date_str = request.POST.get('date')
+        if not date_str:
+            messages.error(request, "❌ ไม่ระบุวันที่")
+            return redirect('pms:service_queue_dashboard')
+
+        try:
+            from datetime import datetime
+            target_date = datetime.strptime(date_str, '%Y-%m-%d').date()
+            from .models import ServiceQueueItem
+            from utils.ai_service_manager import _send_schedule_messages
+
+            # Get scheduled items for this date
+            items = ServiceQueueItem.objects.filter(
+                scheduled_date=target_date,
+                status__in=['SCHEDULED', 'IN_PROGRESS']
+            )
+
+            if items.exists():
+                _send_schedule_messages(items)
+                messages.success(request, f"🚀 ส่งข้อความแจ้งเตือน {target_date.strftime('%d/%m/%Y')} เรียบร้อย")
+            else:
+                messages.warning(request, "⚠️ ไม่มีงานที่จัดคิวในวันนี้")
+        except Exception as e:
+            messages.error(request, f"❌ เกิดข้อผิดพลาด: {str(e)}")
 
     return redirect('pms:service_queue_dashboard')
 
@@ -1470,6 +1524,8 @@ def team_create(request):
             name=name,
             skills=skills,
             max_tasks_per_day=int(max_tasks),
+            google_chat_webhook=request.POST.get('google_chat_webhook', ''),
+            line_token=request.POST.get('line_token', ''),
         )
         if member_ids:
             team.members.set(member_ids)
@@ -1493,6 +1549,8 @@ def team_update(request, pk):
         team.skills = request.POST.get('skills', team.skills)
         team.max_tasks_per_day = int(request.POST.get('max_tasks_per_day', team.max_tasks_per_day))
         team.is_active = 'is_active' in request.POST
+        team.google_chat_webhook = request.POST.get('google_chat_webhook', '')
+        team.line_token = request.POST.get('line_token', '')
         team.save()
 
         member_ids = request.POST.getlist('members')
@@ -1656,13 +1714,22 @@ def request_detail(request, pk):
     files = req.files.all()
     
     if request.method == 'POST':
-        # Quick status update from detail view
+        # Quick Update Logic
         new_status = request.POST.get('status')
+        new_description = request.POST.get('description')
+        new_remarks = request.POST.get('remarks')
+
         if new_status:
             req.status = new_status
-            req.save()
-            messages.success(request, f'อัปเดตสถานะเป็น {req.get_status_display()} แล้ว')
-            return redirect('pms:request_detail', pk=pk)
+        if new_description is not None:
+            req.description = new_description
+        if new_remarks is not None:
+            req.remarks = new_remarks
+            
+        req._changed_by_user = request.user
+        req.save()
+        messages.success(request, 'บันทึกการแก้ไขคำขอเรียบร้อยแล้ว')
+        return redirect('pms:request_detail', pk=pk)
             
     return render(request, 'pms/request_detail.html', {
         'req': req,

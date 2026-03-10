@@ -109,7 +109,7 @@ class ProjectForm(forms.ModelForm):
 
     class Meta:
         model = Project
-        fields = ['name', 'customer', 'owner', 'status', 'start_date', 'deadline', 'description']
+        fields = ['name', 'customer', 'owner', 'status', 'start_date', 'deadline', 'description', 'remarks']
         widgets = {
             'name': forms.TextInput(attrs={'class': 'form-control'}),
             'customer': forms.Select(attrs={'class': 'form-select'}),
@@ -118,6 +118,7 @@ class ProjectForm(forms.ModelForm):
             'start_date': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
             'deadline': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
             'description': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
+            'remarks': forms.Textarea(attrs={'class': 'form-control', 'rows': 2, 'placeholder': 'หมายเหตุภายใน...'}),
         }
 
     def __init__(self, *args, **kwargs):
@@ -152,7 +153,7 @@ class SalesServiceJobForm(forms.ModelForm):
 
     class Meta:
         model = Project
-        fields = ['name', 'customer', 'owner', 'status', 'start_date', 'deadline', 'description']
+        fields = ['name', 'customer', 'owner', 'status', 'start_date', 'deadline', 'description', 'remarks']
         widgets = {
             'name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'ชื่องานขาย/บริการ'}),
             'customer': forms.Select(attrs={'class': 'form-select'}),
@@ -161,6 +162,7 @@ class SalesServiceJobForm(forms.ModelForm):
             'start_date': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
             'deadline': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
             'description': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
+            'remarks': forms.Textarea(attrs={'class': 'form-control', 'rows': 2, 'placeholder': 'หมายเหตุภายใน...'}),
         }
 
     def __init__(self, *args, **kwargs):
@@ -238,12 +240,13 @@ from .models import CustomerRequest
 class CustomerRequestForm(forms.ModelForm):
     class Meta:
         model = CustomerRequest
-        fields = ['owner', 'customer', 'title', 'description', 'status']
+        fields = ['owner', 'customer', 'title', 'description', 'status', 'remarks']
         widgets = {
             'owner': forms.Select(attrs={'class': 'form-select'}),
             'customer': forms.Select(attrs={'class': 'form-select'}),
             'title': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'เรื่อง...'}),
             'description': forms.Textarea(attrs={'class': 'form-control', 'rows': 4, 'placeholder': 'รายละเอียดคำขอ...'}),
+            'remarks': forms.Textarea(attrs={'class': 'form-control', 'rows': 2, 'placeholder': 'หมายเหตุภายใน...'}),
             'status': forms.Select(attrs={'class': 'form-select'}),
         }
 class JobStatusForm(forms.ModelForm):

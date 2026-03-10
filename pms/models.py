@@ -116,6 +116,7 @@ class Project(models.Model):
         verbose_name="ประเภทงาน"
     )
     description = models.TextField(blank=True, verbose_name="รายละเอียดเพิ่มเติม")
+    remarks = models.TextField(blank=True, verbose_name="หมายเหตุ")
     start_date = models.DateField(default=timezone.now, verbose_name="วันเริ่มโครงการ")
     deadline = models.DateField(null=True, blank=True, verbose_name="กำหนดส่งมอบ")
     status = models.CharField(
@@ -139,7 +140,7 @@ class Project(models.Model):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.__old_status = self.status
+        self._old_status = self.status
 
     def __str__(self):
         return self.name
@@ -158,7 +159,7 @@ class Project(models.Model):
             self.closed_at = None
             
         is_new = self.pk is None
-        old_status = getattr(self, '__old_status', self.status)
+        old_status = getattr(self, '_old_status', self.status)
 
         # 3. AI Queue Lock Mechanism
         if not is_new and old_status != self.status:
@@ -177,6 +178,7 @@ class Project(models.Model):
                     raise ValidationError(f"สถานะ '{self.get_status_display()}' ถูกล็อกจนกว่างานใน AI Queue จะเสร็จสิ้นหรือยกเลิก")
 
         super().save(*args, **kwargs)
+        self._old_status = self.status
         
         # Log status change
         try:
@@ -435,6 +437,7 @@ class CustomerRequest(models.Model):
     customer = models.ForeignKey(Customer, on_delete=models.CASCADE, related_name='requests', verbose_name="ลูกค้า")
     title = models.CharField(max_length=255, verbose_name="หัวข้อคำขอ")
     description = models.TextField(blank=True, verbose_name="รายละเอียด")
+    remarks = models.TextField(blank=True, verbose_name="หมายเหตุ")
     status = models.CharField(
         max_length=20,
         choices=Status.choices,
@@ -451,6 +454,27 @@ class CustomerRequest(models.Model):
 
     def __str__(self):
         return f"{self.title} - {self.customer.name}"
+
+    def save(self, *args, **kwargs):
+        is_new = self.pk is None
+        old_status = None
+        if not is_new:
+            try:
+                old_status = CustomerRequest.objects.get(pk=self.pk).status
+            except:
+                pass
+        
+        super().save(*args, **kwargs)
+        
+        # Log status change
+        if is_new or (old_status != self.status):
+            user = getattr(self, '_changed_by_user', None)
+            RequestStatusLog.objects.create(
+                request=self,
+                old_status=old_status or 'NEW',
+                new_status=self.status,
+                changed_by=user
+            )
 
 
 def project_file_upload_path(instance, filename):
@@ -560,6 +584,32 @@ class ProjectStatusLog(models.Model):
         return dict(Project.Status.choices).get(self.new_status, self.new_status)
 
 
+# ===== Request Status Log =====
+class RequestStatusLog(models.Model):
+    request = models.ForeignKey('CustomerRequest', on_delete=models.CASCADE, related_name='status_logs', verbose_name="คำขอ")
+    old_status = models.CharField(max_length=20, verbose_name="สถานะเดิม")
+    new_status = models.CharField(max_length=20, verbose_name="สถานะใหม่")
+    changed_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="ผู้ทำการเปลี่ยน")
+    changed_at = models.DateTimeField(auto_now_add=True, verbose_name="เวลาที่เปลี่ยน")
+
+    class Meta:
+        verbose_name = "ประวัติคำขอ"
+        verbose_name_plural = "ประวัติคำขอ"
+        ordering = ['-changed_at']
+
+    def __str__(self):
+        return f"Req {self.request.id}: {self.old_status} -> {self.new_status}"
+    
+    @property
+    def get_old_status_display(self):
+        if self.old_status == 'NEW': return 'สร้างใหม่'
+        return dict(CustomerRequest.Status.choices).get(self.old_status, self.old_status)
+
+    @property
+    def get_new_status_display(self):
+        return dict(CustomerRequest.Status.choices).get(self.new_status, self.new_status)
+
+
 # ===== AI Service Queue Models =====
 
 class ServiceTeam(models.Model):
@@ -575,6 +625,9 @@ class ServiceTeam(models.Model):
     )
     max_tasks_per_day = models.PositiveIntegerField(default=5, verbose_name="งานสูงสุด/วัน")
     is_active = models.BooleanField(default=True, verbose_name="เปิดใช้งาน")
+
+    google_chat_webhook = models.URLField(blank=True, verbose_name="Google Chat Webhook", help_text="URL สำหรับส่งแจ้งเตือนเข้าช่อง Google Chat")
+    line_token = models.CharField(max_length=255, blank=True, verbose_name="LINE Token", help_text="LINE Notify Token สำหรับส่งแจ้งเตือน")
 
     class Meta:
         verbose_name = "ทีมบริการ"
@@ -610,6 +663,7 @@ class ServiceQueueItem(models.Model):
 
     title = models.CharField(max_length=255, verbose_name="หัวข้องาน")
     description = models.TextField(blank=True, verbose_name="รายละเอียด")
+    remarks = models.TextField(blank=True, verbose_name="หมายเหตุ")
     task_type = models.CharField(max_length=20, choices=TaskType.choices, default=TaskType.OTHER, verbose_name="ประเภทงาน")
     priority = models.CharField(max_length=20, choices=Priority.choices, default=Priority.NORMAL, verbose_name="ความเร่งด่วน")
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING, verbose_name="สถานะ")

@@ -165,15 +165,26 @@
                         </div>
                     </div>
 
-                    <!-- Section 3: Notes -->
-                    <div class="mb-5">
-                        <div class="d-flex align-items-center mb-4 pb-2 border-bottom border-light">
-                            <span class="bg-success bg-opacity-10 text-success p-2 rounded-circle me-3 d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
-                                <i class="fas fa-align-left"></i>
-                            </span>
-                            <h6 class="mb-0 fw-bold text-dark">รายละเอียดเพิ่มเติม</h6>
+                    <!-- Section 3: Details -->
+                    <div class="row g-4 mb-5">
+                        <div class="col-md-6">
+                            <div class="d-flex align-items-center mb-4 pb-2 border-bottom border-light">
+                                <span class="bg-secondary bg-opacity-10 text-secondary p-2 rounded-circle me-3 d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
+                                    <i class="fas fa-pen-nib"></i>
+                                </span>
+                                <h6 class="mb-0 fw-bold text-dark">รายละเอียดเพิ่มเติม / อาการเสีย</h6>
+                            </div>
+                            {{ form.description }}
                         </div>
-                        {{ form.description }}
+                        <div class="col-md-6">
+                            <div class="d-flex align-items-center mb-4 pb-2 border-bottom border-light">
+                                <span class="bg-info bg-opacity-10 text-info p-2 rounded-circle me-3 d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
+                                    <i class="fas fa-comment-alt"></i>
+                                </span>
+                                <h6 class="mb-0 fw-bold text-dark">หมายเหตุ</h6>
+                            </div>
+                            {{ form.remarks }}
+                        </div>
                     </div>
 
                     <div class="d-flex justify-content-end gap-3 pt-4 border-top form-actions">

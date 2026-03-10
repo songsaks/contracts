@@ -9,6 +9,8 @@ import datetime
 from django.utils import timezone
 from django.db import models
 from django.conf import settings
+import requests
+import json
 
 logger = logging.getLogger(__name__)
 
@@ -231,3 +233,40 @@ def _send_schedule_messages(items):
             content="\n".join(lines),
         )
         msg.related_tasks.set(tasks)
+
+        # External Notifications (Google Chat / LINE)
+        try:
+            _post_external_notifications(team, msg.subject, msg.content)
+        except Exception as e:
+            logger.error(f"Failed to post external notifications: {e}")
+
+
+def _post_external_notifications(team, subject, content):
+    """Notify Google Chat and LINE if configured."""
+    
+    # Send to Google Chat
+    if team.google_chat_webhook:
+        try:
+            # Google Chat Card format is a bit complex, but simple text works too
+            payload = {
+                "text": f"*{subject}*\n{content}"
+            }
+            requests.post(
+                team.google_chat_webhook, 
+                data=json.dumps(payload),
+                headers={"Content-Type": "application/json"}
+            )
+            logger.info(f"Notification sent to Google Chat for team {team.name}")
+        except Exception as e:
+            logger.warning(f"Google Chat notify failed: {e}")
+
+    # Send to LINE Notify
+    if team.line_token:
+        try:
+            line_url = "https://notify-api.line.me/api/notify"
+            headers = {"Authorization": f"Bearer {team.line_token}"}
+            data = {"message": f"\n{subject}\n{content}"}
+            requests.post(line_url, headers=headers, data=data)
+            logger.info(f"Notification sent to LINE for team {team.name}")
+        except Exception as e:
+            logger.warning(f"LINE notify failed: {e}")

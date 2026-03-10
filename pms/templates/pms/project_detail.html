@@ -133,6 +133,25 @@
 {% endblock %}
 
 {% block content %}
+<style>
+    /* Fix Tom Select Workflow Dropdown visibility & Clipping */
+    .ts-dropdown.pms-status-dropdown {
+        z-index: 10000 !important; /* Ensure it stays above everything */
+        width: 320px !important;
+        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1) !important;
+        border: 1px solid #e2e8f0 !important;
+        border-radius: 12px !important;
+    }
+    .ts-wrapper.select2-status .ts-control {
+        min-width: 280px !important;
+        font-weight: 700 !important;
+        border-radius: 8px !important;
+    }
+    .card-body {
+        overflow: visible !important; /* Safety first */
+    }
+</style>
+<div class="container-fluid px-0 px-md-3">
     <!-- Header -->
     <div class="project-header">
         <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
@@ -295,13 +314,36 @@
     </div>
     {% endif %}
 
-    <!-- Workflow Progress -->
-    <div class="card shadow-sm mb-4">
+    {% if project.status != 'CLOSED' and project.status != 'CANCELLED' %}
+    <form method="post">
+        {% csrf_token %}
+    {% endif %}
+
+    <!-- Workflow Progress & Quick Status Change -->
+    <div class="card shadow-sm mb-4 border-0">
         <div class="card-body py-3">
-            <h6 class="card-title mb-2" style="font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted);">
-                <i class="fas fa-route me-1"></i>ขั้นตอนการดำเนินงาน
-            </h6>
-            <div class="workflow-steps">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h6 class="card-title mb-0" style="font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted);">
+                    <i class="fas fa-route me-1"></i>ขั้นตอนการดำเนินงานปัจจุบัน
+                </h6>
+                {% if project.status != 'CLOSED' and project.status != 'CANCELLED' %}
+                <div class="d-flex align-items-center gap-2 flex-wrap" style="position: relative; z-index: 1000;">
+                    <span class="small fw-bold text-muted d-none d-sm-inline">เปลี่ยนสถานะ:</span>
+                    <select name="status" id="id_workflow_status" class="form-select form-select-sm select2-status no-tom-select" 
+                            style="width: 280px !important;"
+                            {% if active_queue_item %}disabled{% endif %}>
+                        {% for step in workflow_steps %}
+                        <option value="{{ step.value }}" {% if step == project.status %}selected{% endif %}>{{ step.label }}</option>
+                        {% endfor %}
+                    </select>
+                    <button type="submit" class="btn btn-{{ theme_color|default:'primary' }} px-4 shadow shadow-sm fw-bold" style="border-radius: 8px;">
+                        <i class="fas fa-save me-1"></i>บันทึกการแก้ไขทั้งหมด
+                    </button>
+                </div>
+                {% endif %}
+            </div>
+            
+            <div class="workflow-steps mb-2">
                 {% for step in workflow_steps %}
                     <div class="workflow-step {% if step == project.status %}active bg-{{ theme_color|default:'primary' }} {% if theme_color == 'warning' %}text-dark border-warning{% else %}text-white border-{{ theme_color|default:'primary' }}{% endif %}{% endif %}">
                         {{ step.label }}
@@ -313,26 +355,52 @@
                     {% endif %}
                 {% endfor %}
             </div>
+            {% if active_queue_item %}
+            <div class="text-danger small mt-2">
+                <i class="fas fa-lock me-1"></i> ระบบจัดคิว (AI Queue) กำลังทำงาน: สถานะถูกล็อกจนกว่างานจะจบ
+            </div>
+            {% endif %}
         </div>
     </div>
 
     <div class="row">
-        <!-- Project Info -->
         <div class="col-md-4 mb-3 mb-md-0">
             <div class="card shadow-sm mb-3">
                 <div class="card-header bg-light">
-                    <h6 class="card-title mb-0"><i class="fas fa-info-circle me-2 text-muted"></i>รายละเอียดโครงการ</h6>
+                    <h6 class="card-title mb-0"><i class="fas fa-info-circle me-2 text-muted"></i>รายละเอียดและการบันทึกเสริม</h6>
                 </div>
                 <div class="card-body">
-                    <p class="mb-1" style="font-size: 0.8rem; font-weight: 600;">รายละเอียด:</p>
-                    <p class="text-muted" style="font-size: 0.85rem;">{{ project.description|default:"-"|linebreaksbr }}</p>
-                    <hr>
-                    <div style="font-size: 0.85rem;">
-                        <p class="mb-1"><i class="fas fa-calendar me-2 text-muted"></i><strong>เริ่ม:</strong> {{ project.start_date|date:"d M Y" }}</p>
-                        <p class="mb-0"><i class="fas fa-flag-checkered me-2 text-muted"></i><strong>ส่งมอบ:</strong> {{ project.deadline|date:"d M Y"|default:"-" }}</p>
+                    <!-- Description Edit -->
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold text-muted mb-1">รายละเอียดโครงการ/งาน:</label>
+                        <textarea name="description" class="form-control form-control-sm bg-light border-0" rows="4" 
+                                  placeholder="ระบุรายละเอียดเพิ่มเติม..." 
+                                  {% if project.status == 'CLOSED' or project.status == 'CANCELLED' %}readonly{% endif %}>{{ project.description|default:"" }}</textarea>
+                    </div>
+
+                    <!-- Remarks Edit -->
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold text-info"><i class="fas fa-comment-alt me-1"></i>หมายเหตุภายใน:</label>
+                        <textarea name="remarks" class="form-control form-control-sm bg-info bg-opacity-10 border-info border-opacity-25 text-info" rows="3" 
+                                  style="color: #0e7490 !important;" 
+                                  placeholder="บันทึกหมายเหตุภายใน (ฝ่ายบริหาร)..."
+                                  {% if project.status == 'CLOSED' or project.status == 'CANCELLED' %}readonly{% endif %}>{{ project.remarks|default:"" }}</textarea>
+                    </div>
+
+                        <hr class="my-3">
+                        <div style="font-size: 0.85rem;">
+                            <p class="mb-1 d-flex justify-content-between">
+                                <span><i class="fas fa-calendar me-2 text-muted"></i><strong>เริ่ม:</strong></span>
+                                <span>{{ project.start_date|date:"d M Y" }}</span>
+                            </p>
+                            <p class="mb-0 d-flex justify-content-between">
+                                <span><i class="fas fa-flag-checkered me-2 text-muted"></i><strong>ส่งมอบ:</strong></span>
+                                <span>{{ project.deadline|date:"d M Y"|default:"-" }}</span>
+                            </p>
+                        </div>
                     </div>
                 </div>
-            </div>
+            </form>
 
             <!-- Summary -->
             <div class="card shadow-sm border-{{ theme_color|default:'primary' }}">
@@ -607,6 +675,9 @@
             </div>
         </div>
     </div>
+    {% if project.status != 'CLOSED' and project.status != 'CANCELLED' %}
+    </form>
+    {% endif %}
 </div>
 <script>
 function unlockClosedProject() {
@@ -661,6 +732,20 @@ updateSlaCountdowns();
 
 // Auto-submit file upload
 document.addEventListener('DOMContentLoaded', function() {
+    // Initialize Status Dropdown with Tom Select manually to fix clipping
+    const statusSelect = document.getElementById('id_workflow_status');
+    if (statusSelect && typeof TomSelect !== 'undefined') {
+        new TomSelect(statusSelect, {
+            dropdownParent: 'body',
+            controlInput: '<input>',
+            render: {
+                dropdown: function() {
+                    return '<div class="ts-dropdown pms-status-dropdown"></div>';
+                }
+            }
+        });
+    }
+
     const fileInput = document.getElementById('projectFileInput');
     if (fileInput) {
         fileInput.addEventListener('change', function() {

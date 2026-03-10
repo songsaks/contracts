@@ -55,6 +55,24 @@
                     </div>
                     {% endif %}
 
+                    <div class="row pt-2 border-top mt-1 mb-3">
+                        <div class="col-12 mt-2">
+                            <h6 class="fw-bold mb-3"><i class="fas fa-bell me-2 text-warning"></i>การแจ้งเตือน (Notifications)</h6>
+                        </div>
+                        <div class="col-12 mb-3">
+                            <label class="form-label small fw-semibold">Google Chat Webhook</label>
+                            <input type="url" name="google_chat_webhook" class="form-control form-control-sm"
+                                value="{{ team.google_chat_webhook|default:'' }}" placeholder="https://chat.googleapis.com/v1/spaces/...">
+                            <div class="form-text small">URL สำหรับระบุให้ส่งแจ้งเตือนเข้าช่อง Google Chat ของทีม</div>
+                        </div>
+                        <div class="col-12 mb-3">
+                            <label class="form-label small fw-semibold">LINE Notify Token</label>
+                            <input type="text" name="line_token" class="form-control form-control-sm"
+                                value="{{ team.line_token|default:'' }}" placeholder="ใส่ Token จาก line-notify-bot">
+                            <div class="form-text small">ใส่ Token จาก LINE Notify เพื่อส่งแจ้งเตือนเข้ากลุ่ม LINE</div>
+                        </div>
+                    </div>
+
                     <div class="d-flex gap-2 pt-3 border-top">
                         <button type="submit" class="btn btn-primary px-4">
                             <i class="fas fa-save me-1"></i> บันทึก

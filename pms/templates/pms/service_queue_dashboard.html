@@ -213,6 +213,7 @@
                     <th class="px-3 py-2">กำหนดส่ง</th>
                     <th class="px-3 py-2" style="min-width:160px;">ทีมงาน (AI แนะนำ)</th>
                     <th class="px-3 py-2" style="min-width:150px;">วันที่ทำงาน</th>
+                    <th class="px-3 py-2">หมายเหตุ</th>
                     <th class="px-3 py-2">บันทึก</th>
                 </tr>
             </thead>
@@ -263,6 +264,11 @@
                             <input type="date" name="scheduled_date" class="form-control form-control-sm"
                                 value="{{ task.scheduled_date|date:'Y-m-d' }}"
                                 onchange="this.form.submit()">
+                        </td>
+                        <td class="px-3 py-3">
+                            <input type="text" name="remarks" class="form-control form-control-sm" 
+                                value="{{ task.remarks|default:'' }}" placeholder="หมายเหตุ..."
+                                onchange="this.form.submit()">
                         </form>
                     </td>
                     <td class="px-3 py-3">
@@ -306,16 +312,20 @@
                 {% if task.deadline %} • ส่ง {{ task.deadline|date:"d/m" }}{% endif %}
                 {% if task.is_overdue %}<span class="text-danger fw-bold"> ⚠️</span>{% endif %}
             </div>
-            <form action="{% url 'pms:update_pending_task' task.id %}" method="post" class="d-flex gap-2">
+            <form action="{% url 'pms:update_pending_task' task.id %}" method="post" class="d-flex flex-column gap-2">
                 {% csrf_token %}
-                <select name="team" class="form-select form-select-sm" onchange="this.form.submit()" style="font-size: 0.8rem;">
-                    <option value="">-- ทีม --</option>
-                    {% for team in teams %}
-                    <option value="{{ team.id }}" {% if task.assigned_team_id == team.id %}selected{% endif %}>{{ team.name }}</option>
-                    {% endfor %}
-                </select>
-                <input type="date" name="scheduled_date" class="form-control form-control-sm" style="font-size: 0.8rem;"
-                    value="{{ task.scheduled_date|date:'Y-m-d' }}" onchange="this.form.submit()">
+                <div class="d-flex gap-2">
+                    <select name="team" class="form-select form-select-sm" onchange="this.form.submit()" style="font-size: 0.8rem;">
+                        <option value="">-- ทีม --</option>
+                        {% for team in teams %}
+                        <option value="{{ team.id }}" {% if task.assigned_team_id == team.id %}selected{% endif %}>{{ team.name }}</option>
+                        {% endfor %}
+                    </select>
+                    <input type="date" name="scheduled_date" class="form-control form-control-sm" style="font-size: 0.8rem;"
+                        value="{{ task.scheduled_date|date:'Y-m-d' }}" onchange="this.form.submit()">
+                </div>
+                <input type="text" name="remarks" class="form-control form-control-sm" style="font-size: 0.8rem;"
+                    value="{{ task.remarks|default:'' }}" placeholder="หมายเหตุ..." onchange="this.form.submit()">
             </form>
             {% if task.assigned_team and task.scheduled_date %}
             <div class="mt-2"><span class="badge bg-success" style="font-size: 0.65rem;"><i class="fas fa-check me-1"></i>พร้อมจัดคิว</span></div>
@@ -346,9 +356,20 @@
             {% if date == today %}📌 วันนี้ — {% endif %}
             {{ date|date:"l, d F Y" }}
         </span>
-        <span class="badge bg-white {% if date == today %}text-primary{% elif date < today %}text-danger{% else %}text-success{% endif %}">
-            {{ tasks|length }} งาน
-        </span>
+        <div class="d-flex align-items-center gap-2">
+            <form action="{% url 'pms:send_queue_notifications' %}" method="post" class="d-inline">
+                {% csrf_token %}
+                <input type="hidden" name="date" value="{{ date|date:'Y-m-d' }}">
+                <button type="submit" class="btn btn-sm btn-light text-primary fw-bold rounded-pill px-3 shadow-sm border-0"
+                    onclick="return confirm('🚀 ส่งข้อความแจ้งเตือนทีมงานสำหรับคิวงานวันนี้?')">
+                    <i class="fab fa-line me-1" style="color: #06C755;"></i>
+                    <i class="fas fa-paper-plane me-1"></i> ส่งข้อความ (GChat/Line)
+                </button>
+            </form>
+            <span class="badge bg-white {% if date == today %}text-primary{% elif date < today %}text-danger{% else %}text-success{% endif %}">
+                {{ tasks|length }} งาน
+            </span>
+        </div>
     </div>
     <div class="card border-0 shadow-sm" style="border-radius: 0 0 var(--radius-md) var(--radius-md);">
         <!-- Desktop -->
@@ -410,7 +431,8 @@
                                     <option value="INCOMPLETE" {% if task.status == 'INCOMPLETE' %}selected{% endif %}>❌ ยกยอด</option>
                                     <option value="CANCELLED" {% if task.status == 'CANCELLED' %}selected{% endif %}>🚫 ยกเลิก</option>
                                 </select>
-                                <input type="text" name="note" placeholder="โน้ต" class="form-control form-control-sm" style="max-width:120px;">
+                                <input type="text" name="note" placeholder="โน้ต (ผล)" class="form-control form-control-sm" style="max-width:110px;">
+                                <input type="text" name="remarks" value="{{ task.remarks|default:'' }}" placeholder="หมายเหตุ" class="form-control form-control-sm" style="max-width:110px;" onchange="this.form.submit()">
                             </form>
                             {% if task.completion_note %}
                             <div class="small text-muted mt-1">📝 {{ task.completion_note|truncatechars:40 }}</div>
@@ -446,19 +468,22 @@
                     {% if task.task_type == 'REPAIR' %}คิว{% elif task.task_type == 'DELIVERY' %}คิว{% elif task.task_type == 'INSTALLATION' %}คิว{% else %}อื่นๆ{% endif %}
                     {% if task.deadline %} • ส่ง {{ task.deadline|date:"d/m" }}{% endif %}
                 </div>
-                <form action="{% url 'pms:update_task_status' task.id %}" method="post" class="d-flex gap-2">
+                <form action="{% url 'pms:update_task_status' task.id %}" method="post" class="d-flex flex-column gap-2">
                     {% csrf_token %}
-                    <select name="status" onchange="this.form.submit()" class="form-select form-select-sm" style="font-size: 0.8rem;
-                        {% if task.status == 'COMPLETED' %}border-color:#22c55e;background:#f0fdf4;
-                        {% elif task.status == 'IN_PROGRESS' %}border-color:#3b82f6;background:#eff6ff;
-                        {% elif task.status == 'INCOMPLETE' %}border-color:#ef4444;background:#fef2f2;{% endif %}">
-                        <option value="SCHEDULED" {% if task.status == 'SCHEDULED' %}selected{% endif %}>📋 รอ</option>
-                        <option value="IN_PROGRESS" {% if task.status == 'IN_PROGRESS' %}selected{% endif %}>🔄 ทำ</option>
-                        <option value="COMPLETED" {% if task.status == 'COMPLETED' %}selected{% endif %}>✅ เสร็จ</option>
-                        <option value="INCOMPLETE" {% if task.status == 'INCOMPLETE' %}selected{% endif %}>❌ ยกยอด</option>
-                        <option value="CANCELLED" {% if task.status == 'CANCELLED' %}selected{% endif %}>🚫 ยกเลิก</option>
-                    </select>
-                    <input type="text" name="note" placeholder="โน้ต..." class="form-control form-control-sm" style="font-size: 0.8rem;">
+                    <div class="d-flex gap-2">
+                        <select name="status" onchange="this.form.submit()" class="form-select form-select-sm" style="font-size: 0.8rem;
+                            {% if task.status == 'COMPLETED' %}border-color:#22c55e;background:#f0fdf4;
+                            {% elif task.status == 'IN_PROGRESS' %}border-color:#3b82f6;background:#eff6ff;
+                            {% elif task.status == 'INCOMPLETE' %}border-color:#ef4444;background:#fef2f2;{% endif %}">
+                            <option value="SCHEDULED" {% if task.status == 'SCHEDULED' %}selected{% endif %}>📋 รอ</option>
+                            <option value="IN_PROGRESS" {% if task.status == 'IN_PROGRESS' %}selected{% endif %}>🔄 ทำ</option>
+                            <option value="COMPLETED" {% if task.status == 'COMPLETED' %}selected{% endif %}>✅ เสร็จ</option>
+                            <option value="INCOMPLETE" {% if task.status == 'INCOMPLETE' %}selected{% endif %}>❌ ยกยอด</option>
+                            <option value="CANCELLED" {% if task.status == 'CANCELLED' %}selected{% endif %}>🚫 ยกเลิก</option>
+                        </select>
+                        <input type="text" name="note" placeholder="โน้ต (ผล)..." class="form-control form-control-sm" style="font-size: 0.8rem;">
+                    </div>
+                    <input type="text" name="remarks" value="{{ task.remarks|default:'' }}" placeholder="หมายเหตุ..." class="form-control form-control-sm" style="font-size: 0.8rem;" onchange="this.form.submit()">
                 </form>
                 {% if task.completion_note %}
                 <div class="small text-muted mt-1">📝 {{ task.completion_note|truncatechars:35 }}</div>

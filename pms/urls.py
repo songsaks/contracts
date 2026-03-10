@@ -58,6 +58,7 @@ urlpatterns = [
     path('queue/ai/', views.service_queue_dashboard, name='service_queue_dashboard'),
     path('queue/ai/sync/', views.force_sync_queue, name='force_sync_queue'),
     path('queue/ai/schedule/', views.auto_schedule_tasks, name='auto_schedule_tasks'),
+    path('queue/ai/notify/', views.send_queue_notifications, name='send_queue_notifications'),
 
     path('queue/ai/<int:task_id>/update/', views.update_task_status, name='update_task_status'),
     path('queue/ai/<int:task_id>/set/', views.update_pending_task, name='update_pending_task'),
