@@ -10,17 +10,20 @@
         @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700&display=swap');
         
         :root {
-            --pms-navy: #1e293b;
-            --pms-blue: #2563eb;
-            --pms-slate: #64748b;
-            --pms-light: #f8fafc;
+            --pms-primary: #0ea5e9;
+            --pms-dark: #0369a1;
+            --pms-accent: #38bdf8;
+            --pms-light: #f0f9ff;
+            --pms-border: #bae6fd;
+            --pms-text: #0c4a6e;
+            --pms-muted: #64748b;
         }
 
         body {
             font-family: 'Sarabun', sans-serif;
-            background: #f1f5f9;
+            background: #e0f2fe;
             padding: 30px 10px;
-            color: #334155;
+            color: var(--pms-text);
             -webkit-print-color-adjust: exact;
         }
 
@@ -31,10 +34,10 @@
             margin: 0 auto;
             padding: 15mm 15mm;
             position: relative;
-            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-            color: #1e293b;
+            box-shadow: 0 10px 25px -5px rgba(2, 132, 199, 0.1), 0 8px 10px -6px rgba(2, 132, 199, 0.1);
+            color: var(--pms-text);
             line-height: 1.4;
-            font-size: 13px; /* Smaller font size as requested */
+            font-size: 13px;
         }
 
         @media print {
@@ -47,39 +50,40 @@
             display: flex;
             justify-content: space-between;
             align-items: flex-start;
-            border-bottom: 2px solid var(--pms-navy);
+            border-bottom: 3px solid var(--pms-primary);
             padding-bottom: 15px;
             margin-bottom: 25px;
         }
 
         .company-name {
-            font-size: 20px;
+            font-size: 22px;
             font-weight: 700;
-            color: var(--pms-navy);
+            color: var(--pms-dark);
             margin-bottom: 5px;
         }
 
         .quotation-label {
-            font-size: 24px;
+            font-size: 28px;
             font-weight: 700;
-            color: var(--pms-blue);
+            color: var(--pms-primary);
             text-align: right;
             margin-bottom: 10px;
+            letter-spacing: 1px;
         }
 
         .doc-meta {
             font-size: 12px;
             background: var(--pms-light);
             padding: 10px 15px;
-            border-radius: 6px;
-            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            border: 1px solid var(--pms-border);
         }
 
         .section-title {
             font-size: 14px;
-            font-weight: 600;
-            color: var(--pms-navy);
-            border-left: 4px solid var(--pms-blue);
+            font-weight: 700;
+            color: var(--pms-dark);
+            border-left: 5px solid var(--pms-primary);
             padding-left: 10px;
             margin-bottom: 12px;
             text-transform: uppercase;
@@ -91,11 +95,11 @@
         }
 
         .table-custom thead th {
-            background: var(--pms-navy) !important;
+            background: var(--pms-dark) !important;
             color: white !important;
-            font-weight: 500;
+            font-weight: 600;
             text-transform: uppercase;
-            padding: 10px;
+            padding: 12px 10px;
             border: none;
         }
 
@@ -121,13 +125,13 @@
         .grand-total-label {
             font-size: 16px;
             font-weight: 700;
-            color: var(--pms-navy);
+            color: var(--pms-dark);
         }
 
         .grand-total-amount {
-            font-size: 18px;
-            font-weight: 700;
-            color: var(--pms-blue);
+            font-size: 20px;
+            font-weight: 800;
+            color: var(--pms-primary);
         }
 
         .signature-area {
@@ -160,7 +164,7 @@
 
     <!-- Print Control -->
     <div class="container mb-4 no-print text-center">
-        <button onclick="window.print()" class="btn btn-primary px-4 shadow-sm border-0" style="background: var(--pms-blue); border-radius: 8px;">
+        <button onclick="window.print()" class="btn btn-primary px-4 shadow-sm border-0" style="background: var(--pms-primary); border-radius: 8px;">
             <i class="fas fa-print me-2"></i> พิมพ์ใบเสนอราคา (Print)
         </button>
         <button onclick="window.history.back()" class="btn btn-outline-secondary px-4 ms-2" style="border-radius: 8px;">
@@ -173,10 +177,10 @@
         <!-- Header Section -->
         <div class="header-section">
             <div>
-                <div class="company-name">9Com (9com.cloud)</div>
+                <div class="company-name">บริษัท นายน์คอม จำกัด</div>
                 <div style="font-size: 12px; color: var(--pms-slate);">
-                    123 ถนนตัวอย่าง แขวงสามวาตะวันตก เขตคลองสามวา กรุงเทพฯ 10510<br>
-                    Tel: 02-123-4567 | Email: contact@9com.cloud | Tax ID: 0123456789012
+                    เลขที่ 1237 หมู่ที่ 3 ต.กำแพง อ.ละงู จ.สตูล 9111<br>
+                    เบอร์โทร 074750888 email: 9computer@gmail.com | TAXID: 0915549000034
                 </div>
             </div>
             <div>
