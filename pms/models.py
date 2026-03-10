@@ -233,7 +233,7 @@ class Project(models.Model):
         except Exception:
             pass
             
-        self.__old_status = self.status
+        self._old_status = self.status
 
     @property
     def total_value(self):
@@ -306,6 +306,30 @@ class Project(models.Model):
             return mapping.get(self.status, self.get_status_display())
             
         return self.get_status_display()
+
+    def get_next_status(self):
+        """
+        Find the next status in the sequence for this project's job type.
+        """
+        try:
+            current_job_status = JobStatus.objects.filter(
+                job_type=self.job_type, 
+                status_key=self.status,
+                is_active=True
+            ).first()
+            
+            if not current_job_status:
+                return None
+                
+            next_job_status = JobStatus.objects.filter(
+                job_type=self.job_type,
+                is_active=True,
+                sort_order__gt=current_job_status.sort_order
+            ).order_by('sort_order').first()
+            
+            return next_job_status
+        except Exception:
+            return None
 
 class JobStatus(models.Model):
     job_type = models.CharField(max_length=20, choices=Project.JobType.choices)

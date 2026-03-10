@@ -110,11 +110,12 @@ def sync_projects_to_queue():
     ready_projects = Project.objects.filter(trigger_q)
 
     for proj in ready_projects:
-        # Loop Check: Look for an ACTIVE task (not completed/incomplete)
+        # Loop Check: Look for an ACTIVE task (not completed/cancelled)
+        # We include INCOMPLETE because it's still alive in the queue for re-scheduling.
         active_task = ServiceQueueItem.objects.filter(
             project=proj,
-            status__in=['PENDING', 'SCHEDULED', 'IN_PROGRESS']
-        ).first()
+            status__in=['PENDING', 'SCHEDULED', 'IN_PROGRESS', 'INCOMPLETE']
+        ).exists()
 
         if active_task:
             continue # Already locked/tracking this stage

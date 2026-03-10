@@ -328,17 +328,29 @@
                 </h6>
                 {% if project.status != 'CLOSED' and project.status != 'CANCELLED' %}
                 <div class="d-flex align-items-center gap-2 flex-wrap" style="position: relative; z-index: 1000;">
-                    <span class="small fw-bold text-muted d-none d-sm-inline">เปลี่ยนสถานะ:</span>
-                    <select name="status" id="id_workflow_status" class="form-select form-select-sm select2-status no-tom-select" 
-                            style="width: 280px !important;"
-                            {% if active_queue_item %}disabled{% endif %}>
-                        {% for step in workflow_steps %}
-                        <option value="{{ step.value }}" {% if step == project.status %}selected{% endif %}>{{ step.label }}</option>
-                        {% endfor %}
-                    </select>
-                    <button type="submit" class="btn btn-{{ theme_color|default:'primary' }} px-4 shadow shadow-sm fw-bold" style="border-radius: 8px;">
-                        <i class="fas fa-save me-1"></i>บันทึกการแก้ไขทั้งหมด
-                    </button>
+                    {% if active_queue_item %}
+                        <div class="badge bg-warning text-dark px-3 py-2 fw-bold shadow-sm" style="font-size: 0.85rem; border: 1px solid #facc15;">
+                            <i class="fas fa-lock me-1"></i> ระบบล็อก: รองานในคิวค้าง (สถานะ: {{ active_queue_item.get_status_display }})
+                        </div>
+                    {% else %}
+                        {% with next_status=project.get_next_status %}
+                            <button type="submit" class="btn btn-outline-secondary btn-sm px-3 fw-bold shadow-sm" style="border-radius: 8px;">
+                                <i class="fas fa-save me-1"></i> บันทึกโน้ต/แก้ไขทั่วไป
+                            </button>
+                            {% if next_status %}
+                                <button type="submit" formaction="{% url 'pms:project_advance' project.pk %}" 
+                                        class="btn btn-success px-4 shadow-sm fw-bold border-0" 
+                                        style="border-radius: 8px; background: linear-gradient(135deg, #10b981, #059669);"
+                                        onclick="return confirm('✅ ยืนยันเสร็จสิ้นขั้นตอนปัจจุบัน ({{ project.get_job_status_display }}) และส่งโครงการต่อไปยังขั้นตอน [{{ next_status.label }}] ?')">
+                                    <i class="fas fa-paper-plane me-1"></i> เสร็จงาน: ส่งต่อไปที่ {{ next_status.label }}
+                                </button>
+                            {% else %}
+                                <div class="badge bg-info text-dark px-3 py-2 fw-bold shadow-sm" style="font-size: 0.85rem;">
+                                    <i class="fas fa-flag-checkered me-1"></i> อยู่ในขั้นตอนสุดท้ายสำหรับประเภทงานนี้
+                                </div>
+                            {% endif %}
+                        {% endwith %}
+                    {% endif %}
                 </div>
                 {% endif %}
             </div>
@@ -732,20 +744,6 @@ updateSlaCountdowns();
 
 // Auto-submit file upload
 document.addEventListener('DOMContentLoaded', function() {
-    // Initialize Status Dropdown with Tom Select manually to fix clipping
-    const statusSelect = document.getElementById('id_workflow_status');
-    if (statusSelect && typeof TomSelect !== 'undefined') {
-        new TomSelect(statusSelect, {
-            dropdownParent: 'body',
-            controlInput: '<input>',
-            render: {
-                dropdown: function() {
-                    return '<div class="ts-dropdown pms-status-dropdown"></div>';
-                }
-            }
-        });
-    }
-
     const fileInput = document.getElementById('projectFileInput');
     if (fileInput) {
         fileInput.addEventListener('change', function() {

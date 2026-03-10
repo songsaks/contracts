@@ -11,6 +11,7 @@ urlpatterns = [
     path('<int:pk>/', views.project_detail, name='project_detail'),
     path('<int:pk>/edit/', views.project_update, name='project_update'),
     path('<int:pk>/cancel/', views.project_cancel, name='project_cancel'),
+    path('<int:pk>/advance/', views.project_advance, name='project_advance'),
     path('<int:pk>/delete/', views.project_delete, name='project_delete'),
     path('<int:pk>/quotation/', views.project_quotation, name='project_quotation'),
     path('<int:pk>/respond/', views.mark_as_responded, name='mark_as_responded'),

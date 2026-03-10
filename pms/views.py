@@ -305,7 +305,7 @@ def project_detail(request, pk):
 
     # --- AI QUEUE LOCK STATUS ---
     active_queue_item = project.service_tasks.filter(
-        status__in=['PENDING', 'SCHEDULED', 'IN_PROGRESS']
+        status__in=['PENDING', 'SCHEDULED', 'IN_PROGRESS', 'INCOMPLETE']
     ).first()
 
     context = {
@@ -548,6 +548,9 @@ def download_item_template(request):
     df = pd.DataFrame({
         'ชื่อรายการ': ['กล้องวงจรปิด', 'ค่าแรงติดตั้ง', 'สาย LAN CAT6', 'บริการเซ็ตระบบเครือข่าย'],
         'ประเภท': ['สินค้า', 'บริการ', 'สินค้า', 'บริการ'],
+        'จำนวน': [5, 1, 100, 1],
+        'ราคาขาย': [2500, 5000, 15, 2000],
+        'รายละเอียด': ['2MP Full Color', 'หน้างานลูกค้า', ' เมตร', 'Setup Router'],
     })
     
     output = io.BytesIO()
@@ -1640,6 +1643,46 @@ def project_cancel(request, pk):
     project.save()
     
     messages.warning(request, f"🚫 ยกเลิกโครงการ '{project.name}' เรียบร้อยแล้ว (สถานะถูกล็อก)")
+    return redirect('pms:project_detail', pk=pk)
+
+@login_required
+def project_advance(request, pk):
+    """
+    Advance project toward completion in the workflow.
+    Also saves Description and Remarks.
+    """
+    project = get_object_or_404(Project, pk=pk)
+    
+    if request.method == 'POST':
+        # 1. Save mid-workflow notes
+        project.description = request.POST.get('description', project.description)
+        project.remarks = request.POST.get('remarks', project.remarks)
+        
+        # 2. Try to advance status
+        next_js = project.get_next_status()
+        if next_js:
+            old_label = project.get_job_status_display
+            project.status = next_js.status_key
+            project._changed_by_user = request.user
+            
+            from django.core.exceptions import ValidationError
+            try:
+                project.save()
+                messages.success(request, f"🚀 เสร็จสิ้นขั้นตอน '{old_label}' และส่งต่อไปยัง '{next_js.label}' เรียบร้อยแล้ว")
+            except ValidationError as e:
+                # Get the error message from ValidationError
+                msg = str(e)
+                if hasattr(e, 'message_dict'):
+                    msg = "; ".join([f"{k}: {', '.join(v)}" for k, v in e.message_dict.items()])
+                elif hasattr(e, 'messages'):
+                    msg = "; ".join(e.messages)
+                messages.error(request, msg)
+        else:
+            # Just save if no next status
+            project._changed_by_user = request.user
+            project.save()
+            messages.success(request, 'บันทึกข้อมูลเรียบร้อยแล้ว')
+            
     return redirect('pms:project_detail', pk=pk)
 
 @login_required
