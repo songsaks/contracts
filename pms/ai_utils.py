@@ -2,6 +2,7 @@ import os
 from google import genai
 from django.conf import settings
 
+# ฟังก์ชันส่งข้อมูลสรุปไปให้ Gemini AI เพื่อทำการวิเคราะห์เชิงกลยุทธ์และให้คำแนะนำทางธุรกิจ
 def get_gemini_analysis(data_summary):
     api_key = getattr(settings, "GEMINI_API_KEY", None)
     if not api_key:

@@ -37,12 +37,13 @@ class CustomerForm(forms.ModelForm):
             'address': 'ที่อยู่',
         }
 
+    # ตรวจสอบความซ้ำซ้อนของชื่อลูกค้าทั้งในระบบ PMS และระบบ Repairs
     def clean_name(self):
         name = self.cleaned_data.get('name')
         if not name:
             return name
 
-        # 1. Check in PMS (this app)
+        # 1. ตรวจสอบในระบบ PMS
         pms_exists = Customer.objects.filter(name__iexact=name)
         if self.instance.pk:
             pms_exists = pms_exists.exclude(pk=self.instance.pk)
@@ -50,7 +51,7 @@ class CustomerForm(forms.ModelForm):
         if pms_exists.exists():
             raise forms.ValidationError(f"⚠️ มีลูกค้าชื่อ '{name}' อยู่แล้วในระบบ PMS กรุณาตรวจสอบ")
 
-        # 2. Check in Repairs app
+        # 2. ตรวจสอบในระบบแจ้งซ่อม (Repairs)
         from repairs.models import Customer as RepairCustomer
         repair_exists = RepairCustomer.objects.filter(name__iexact=name).exists()
         if repair_exists:
@@ -121,6 +122,7 @@ class ProjectForm(forms.ModelForm):
             'remarks': forms.Textarea(attrs={'class': 'form-control', 'rows': 2, 'placeholder': 'หมายเหตุภายใน...'}),
         }
 
+    # กำหนดตัวเลือกสถานะงานแบบ Dynamic ตามประเภทงาน 'PROJECT'
     def __init__(self, *args, **kwargs):
         super(ProjectForm, self).__init__(*args, **kwargs)
         from .models import JobStatus
@@ -128,7 +130,7 @@ class ProjectForm(forms.ModelForm):
         if choices:
             self.fields['status'].choices = choices
         else:
-            # Fallback
+            # ค่าเริ่มต้นกรณีไม่มีข้อมูลในฐานข้อมูล
             self.fields['status'].choices = [
                 (Project.Status.DRAFT, 'รวบรวม'),
                 (Project.Status.SOURCING, 'จัดหา'),
@@ -165,6 +167,7 @@ class SalesServiceJobForm(forms.ModelForm):
             'remarks': forms.Textarea(attrs={'class': 'form-control', 'rows': 2, 'placeholder': 'หมายเหตุภายใน...'}),
         }
 
+    # กำหนดตัวเลือกสถานะงานแบบ Dynamic ตามประเภทงานที่ระบุ (Service, Repair, Rental)
     def __init__(self, *args, **kwargs):
         job_type = kwargs.pop('job_type', None)
         super(SalesServiceJobForm, self).__init__(*args, **kwargs)
@@ -177,7 +180,7 @@ class SalesServiceJobForm(forms.ModelForm):
         if dynamic_choices:
             self.fields['status'].choices = dynamic_choices
         else:
-            # Fallback
+            # ค่าเริ่มต้นแบบแยกประเภทงาน กรณีไม่มีข้อมูลในฐานข้อมูล
             if job_type == Project.JobType.REPAIR:
                 self.fields['status'].choices = [
                     (Project.Status.SOURCING, 'รับแจ้งซ่อม'),
@@ -261,6 +264,7 @@ class JobStatusForm(forms.ModelForm):
             'is_active': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
         }
     
+    # เปลี่ยนตัวพิมพ์เล็กให้เป็นตัวพิมพ์ใหญ่สำหรับ Status Key (เช่น sourcing -> SOURCING)
     def clean_status_key(self):
         return self.cleaned_data.get('status_key').upper()
 

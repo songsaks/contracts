@@ -50,10 +50,12 @@ def _create_project_value_item(project, project_value):
     )
 
 
+# หน้าจอ Dispatch สำหรับเลือกสร้างงานประเภทต่างๆ (Service, Repair, Rental)
 @login_required
 def dispatch(request):
     return render(request, 'pms/dispatch.html')
 
+# สร้างใบงานบริการ/งานขาย (Sales Service)
 @login_required
 def service_create(request):
     if request.method == 'POST':
@@ -73,6 +75,7 @@ def service_create(request):
         'form': form, 'title': 'สร้างงานบริการขายใหม่', 'theme_color': 'success',
     })
 
+# สร้างใบงานแจ้งซ่อม (Repair Service)
 @login_required
 def repair_create(request):
     if request.method == 'POST':
@@ -92,6 +95,7 @@ def repair_create(request):
         'form': form, 'title': 'สร้างใบแจ้งซ่อม (On-site Repair)', 'theme_color': 'warning',
     })
 
+# สร้างใบงานเช่า (Rental Service)
 @login_required
 def rental_create(request):
     if request.method == 'POST':
@@ -154,6 +158,7 @@ def _check_project_lock(project, request):
             return True
     return False
 
+# รายการโครงการทั้งหมดที่ยังไม่ปิดงาน (Active Projects)
 @login_required
 def project_list(request):
     # Default: Show active projects (Exclude CLOSED and CANCELLED)
@@ -219,6 +224,7 @@ def history_list(request):
     }
     return render(request, 'pms/history_list.html', context)
 
+# แสดงรายละเอียดเชิงลึกของโครงการ รายการสินค้า ประวัติ และการจัดการสถานะ
 @login_required
 def project_detail(request, pk):
     project = get_object_or_404(Project, pk=pk)
@@ -339,6 +345,7 @@ def project_detail(request, pk):
     return render(request, 'pms/project_detail.html', context)
 
 
+# สร้างโครงการใหม่ (Project Type)
 @login_required
 def project_create(request):
     if request.method == 'POST':
@@ -356,6 +363,7 @@ def project_create(request):
         form = ProjectForm()
     return render(request, 'pms/project_form.html', {'form': form, 'title': 'สร้างโครงการใหม่'})
 
+# แก้ไขข้อมูลโครงการและจัดการผลุกมูลค่าโครงการ (Project Update)
 @login_required
 def project_update(request, pk):
     project = get_object_or_404(Project, pk=pk)
@@ -458,6 +466,7 @@ def item_update(request, item_id):
         form = ProductItemForm(instance=item)
     return render(request, 'pms/item_form.html', {'form': form, 'project': project, 'title': f'แก้ไขรายการ {item.name}'})
 
+# ลบรายการสินค้าออกจากโครงการ
 @login_required
 def item_delete(request, item_id):
     item = get_object_or_404(ProductItem, pk=item_id)
@@ -466,6 +475,7 @@ def item_delete(request, item_id):
     messages.success(request, 'ลบรายการสำเร็จ')
     return redirect('pms:project_detail', pk=project_pk)
 
+# นำเข้ารายการสินค้าจากไฟล์ Excel พร้อมประมวลผลยอดรวมอัตโนมัติ
 @login_required
 def item_import_excel(request, project_id):
     project = get_object_or_404(Project, pk=project_id)
@@ -539,6 +549,7 @@ def item_import_excel(request, project_id):
         'title': f'นำเข้าข้อมูลจาก Excel'
     })
 
+# ดาวน์โหลดไฟล์เทมเพลต Excel สำหรับใช้ในการนำเข้าข้อมูลรายการสินค้า
 @login_required
 def download_item_template(request):
     import pandas as pd
@@ -566,11 +577,13 @@ def download_item_template(request):
     return response
 
 # Customer Views
+# รายการลูกค้าทั้งหมดในระบบ (Customer List)
 @login_required
 def customer_list(request):
     customers = Customer.objects.all().select_related('sla_plan').order_by('name')
     return render(request, 'pms/customer_list.html', {'customers': customers})
 
+# เพิ่มข้อมูลลูกค้าใหม่ (Create Customer)
 @login_required
 def customer_create(request):
     if request.method == 'POST':
@@ -583,6 +596,7 @@ def customer_create(request):
         form = CustomerForm()
     return render(request, 'pms/customer_form.html', {'form': form, 'title': 'เพิ่มลูกค้าใหม่'})
 
+# แก้ไขข้อมูลลูกค้า (Update Customer)
 @login_required
 def customer_update(request, pk):
     customer = get_object_or_404(Customer, pk=pk)
@@ -596,6 +610,7 @@ def customer_update(request, pk):
         form = CustomerForm(instance=customer)
     return render(request, 'pms/customer_form.html', {'form': form, 'title': f'แก้ไขข้อมูล: {customer.name}'})
 
+# ลบข้อมูลลูกค้าออกจากระบบ (Delete Customer)
 @login_required
 def customer_delete(request, pk):
     customer = get_object_or_404(Customer, pk=pk)
@@ -626,11 +641,13 @@ def customer_delete(request, pk):
     })
 
 # SLA Plan Views
+# รายการแผนบริการ SLA ทั้งหมด (SLA Plan List)
 @login_required
 def sla_plan_list(request):
     plans = SLAPlan.objects.all().order_by('name')
     return render(request, 'pms/sla_plan_list.html', {'plans': plans})
 
+# สร้างแผนบริการ SLA ใหม่ (Create SLA Plan)
 @login_required
 def sla_plan_create(request):
     if request.method == 'POST':
@@ -643,6 +660,7 @@ def sla_plan_create(request):
         form = SLAPlanForm()
     return render(request, 'pms/sla_plan_form.html', {'form': form, 'title': 'สร้างแผน SLA ใหม่'})
 
+# แก้ไขข้อมูลแผนบริการ SLA (Update SLA Plan)
 @login_required
 def sla_plan_update(request, pk):
     plan = get_object_or_404(SLAPlan, pk=pk)
@@ -657,11 +675,13 @@ def sla_plan_update(request, pk):
     return render(request, 'pms/sla_plan_form.html', {'form': form, 'title': f'แก้ไขแผน SLA: {plan.name}'})
 
 # Supplier Views
+# รายการซัพพลายเออร์ทั้งหมด (Supplier List)
 @login_required
 def supplier_list(request):
     suppliers = Supplier.objects.all().order_by('-created_at')
     return render(request, 'pms/supplier_list.html', {'suppliers': suppliers})
 
+# เพิ่มข้อมูลซัพพลายเออร์ใหม่ (Create Supplier)
 @login_required
 def supplier_create(request):
     if request.method == 'POST':
@@ -674,6 +694,7 @@ def supplier_create(request):
         form = SupplierForm()
     return render(request, 'pms/supplier_form.html', {'form': form, 'title': 'เพิ่มซัพพลายเออร์ใหม่'})
 
+# แก้ไขข้อมูลซัพพลายเออร์ (Update Supplier)
 @login_required
 def supplier_update(request, pk):
     supplier = get_object_or_404(Supplier, pk=pk)
@@ -688,11 +709,13 @@ def supplier_update(request, pk):
     return render(request, 'pms/supplier_form.html', {'form': form, 'title': 'แก้ไขข้อมูลซัพพลายเออร์'})
 
 # Project Owner Views
+# รายการเจ้าของโครงการ/ผู้ติดต่อหลัก (Project Owner List)
 @login_required
 def project_owner_list(request):
     owners = ProjectOwner.objects.all().order_by('name')
     return render(request, 'pms/project_owner_list.html', {'owners': owners})
 
+# เพิ่มผู้ติดต่อหลัก/เจ้าของโครงการใหม่ (Create Project Owner)
 @login_required
 def project_owner_create(request):
     if request.method == 'POST':
@@ -705,6 +728,7 @@ def project_owner_create(request):
         form = ProjectOwnerForm()
     return render(request, 'pms/project_owner_form.html', {'form': form, 'title': 'เพิ่มเจ้าของโครงการ'})
 
+# แก้ไขข้อมูลผู้ติดต่อหลัก/เจ้าของโครงการ (Update Project Owner)
 @login_required
 def project_owner_update(request, pk):
     owner = get_object_or_404(ProjectOwner, pk=pk)
@@ -719,6 +743,7 @@ def project_owner_update(request, pk):
     return render(request, 'pms/project_owner_form.html', {'form': form, 'title': 'แก้ไขข้อมูลเจ้าของโครงการ'})
 
 # Report View
+# แสดงหน้าใบเสนอราคา (Quotation View) สำหรับพิมพ์หรือแสดงให้ลูกค้า
 @login_required
 def project_quotation(request, pk):
     project = get_object_or_404(Project, pk=pk)
@@ -740,6 +765,7 @@ def project_quotation(request, pk):
     return render(request, 'pms/project_quotation.html', context)
 
 # Dashboard
+# หน้าแดชบอร์ดหลักของระบบ PMS แสดงสรุปสถิติ มูลค่าโครงการ และงานที่เกินกำหนด (SLA Alerts)
 @login_required
 def dashboard(request):
     from django.db import models
@@ -1083,11 +1109,13 @@ def dashboard(request):
     return render(request, 'pms/dashboard.html', context)
 
 # Customer Requirement Views
+# รายการความต้องการของลูกค้า (Customer Requirements/Leads)
 @login_required
 def requirement_list(request):
     requirements = CustomerRequirement.objects.all().order_by('-created_at')
     return render(request, 'pms/requirement_list.html', {'requirements': requirements})
 
+# บันทึกความต้องการใหม่ของลูกค้า (Create Lead)
 @login_required
 def requirement_create(request):
     if request.method == 'POST':
@@ -1144,6 +1172,7 @@ def requirement_delete(request, pk):
     messages.success(request, 'ลบรายการความต้องการสำเร็จ')
     return redirect('pms:requirement_list')
 
+# แปลงความต้องการลูกค้า (Lead) ให้กลายเป็นโครงการจริง (Convert to Project)
 @login_required
 def create_project_from_requirement(request, pk):
     requirement = get_object_or_404(CustomerRequirement, pk=pk)
@@ -1282,6 +1311,7 @@ def create_project_from_requirement(request, pk):
 
 # ===== AI Service Queue Views =====
 
+# หน้าจอจัดการคิวงานบริการอัตโนมัติ (AI Service Queue Dashboard)
 @login_required
 def service_queue_dashboard(request):
     """
@@ -1373,6 +1403,7 @@ def update_pending_task(request, task_id):
     return redirect('pms:service_queue_dashboard')
 
 
+# ระบบมอบหมายงานแบบอัตโนมัติ (AI Auto-Scheduling)
 @login_required
 def auto_schedule_tasks(request):
     """AI schedule: move pending tasks (with date+team set) to SCHEDULED status."""
@@ -1390,6 +1421,7 @@ def auto_schedule_tasks(request):
     return redirect('pms:service_queue_dashboard')
 
 
+# ซิงค์ข้อมูลงานในมือถือ/หน้างาน เข้าสู่ระบบคิว AI
 @login_required
 def force_sync_queue(request):
     """Manually trigger sync from Projects to Queue."""
@@ -1479,6 +1511,7 @@ def send_queue_notifications(request):
     return redirect('pms:service_queue_dashboard')
 
 
+# หน้าจอแชทสื่อสารภายในทีม (Team Messaging)
 @login_required
 def team_messages(request, team_id=None):
     """View messages for a specific team or all teams."""
@@ -1645,6 +1678,7 @@ def project_cancel(request, pk):
     messages.warning(request, f"🚫 ยกเลิกโครงการ '{project.name}' เรียบร้อยแล้ว (สถานะถูกล็อก)")
     return redirect('pms:project_detail', pk=pk)
 
+# การเปลี่ยนสถานะโครงการเป็นขั้นตอนถัดไปแบบอัตโนมัติ (One-Click Advance)
 @login_required
 def project_advance(request, pk):
     """
@@ -1710,6 +1744,7 @@ def project_delete(request, pk):
 
 # ===== Customer Request Views =====
 
+# รายการคำขอทั่วไปจากลูกค้า (Customer Requests)
 @login_required
 def request_list(request):
     """List all customer requests."""
@@ -1842,6 +1877,7 @@ def request_file_delete(request, file_id):
     messages.success(request, 'ลบไฟล์สำเร็จ')
     return redirect('pms:request_detail', pk=req_pk)
 
+# วิเคราะห์ข้อมูลแดชบอร์ดด้วย AI (AI Insight Analysis)
 @login_required
 def ai_dashboard_analysis(request):
     from .ai_utils import get_gemini_analysis
@@ -1925,6 +1961,7 @@ def mark_as_responded(request, pk):
         messages.success(request, f"✅ บันทึกเวลาตอบกลับสำหรับ {project.name} เรียบร้อย")
     return redirect('pms:project_detail', pk=pk)
 
+# รายการแจ้งเตือนของผู้ใช้ (User Notifications)
 @login_required
 def notification_list(request):
     notifications = request.user.pms_notifications.all()
@@ -1939,6 +1976,7 @@ def notification_read(request, pk):
     notif.is_read = True
     notif.save()
     return redirect('pms:project_detail', pk=notif.project.pk)
+# หน้าจอจัดการตารางผู้รับผิดชอบงานตามประเภทและขั้นตอน (Assignment Matrix)
 @login_required
 def project_assignment_matrix(request):
     User = get_user_model()
@@ -1985,6 +2023,7 @@ def project_assignment_matrix(request):
         'users': users,
     })
 
+# บันทึกการมอบหมายผู้รับผิดชอบงาน (ร่วม) ผ่าน AJAX
 @login_required
 def set_project_assignment(request):
     if request.method == 'POST':
@@ -2077,6 +2116,7 @@ def seed_pms_statuses(request):
     
     messages.success(request, f"สร้างขั้นตอนงานมาตรฐาน {count} รายการเรียบร้อยแล้ว")
     return redirect('pms:job_status_list')
+# รายการสถานะงานแบบ Dynamic (Job Status Management)
 @login_required
 def job_status_list(request):
     """List and manage dynamic statuses."""
@@ -2127,6 +2167,7 @@ def job_status_delete(request, pk):
 
 
 @csrf_exempt
+# ระบบ Chatbot Proxy สำหรับสื่อสารกับ OpenClaw AI
 @login_required
 def openclaw_chatbot(request):
     """
@@ -2191,3 +2232,13 @@ def openclaw_chatbot(request):
             return JsonResponse({'status': 'error', 'message': f'Exception: {str(e)}'}, status=500)
 
     return JsonResponse({'status': 'error', 'message': 'Invalid request method'}, status=400)
+
+# คืนค่าจำนวนการแจ้งเตือนต่างๆ ในรูปแบบ JSON สำหรับการทำ Polling
+@login_required
+def get_notification_counts(request):
+    from .models import CustomerRequirement, CustomerRequest, UserNotification
+    return JsonResponse({
+        'unread_notifications_count': UserNotification.objects.filter(user=request.user, is_read=False).count(),
+        'unconverted_leads_count': CustomerRequirement.objects.filter(is_converted=False).count(),
+        'new_requests_count': CustomerRequest.objects.filter(status=CustomerRequest.Status.RECEIVED).count(),
+    })

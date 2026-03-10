@@ -9,24 +9,27 @@ from asgiref.sync import sync_to_async
 logger = logging.getLogger(__name__)
 
 class PmsChatConsumer(AsyncWebsocketConsumer):
+    # จัดการการเชื่อมต่อ WebSocket จากผู้ใช้งาน (Frontend)
     async def connect(self):
-        # Check if chatbot is globally disabled
+        # ตรวจสอบว่าระบบ Chatbot ถูกปิดใช้งานทั่วโลกหรือไม่
         if not getattr(settings, 'CHATBOT_ENABLED', True):
             await self.close()
             return
 
-        # 1. Accept client connection from PMS UI
+        # รับการเชื่อมต่อจากหน้าจอ PMS UI
         print(f"DEBUG: WebSocket connection attempt from {self.scope.get('user')}")
         await self.accept()
         user = self.scope.get('user', 'Anonymous')
         print(f"DEBUG: WebSocket accepted for {user}")
         logger.info(f"Client connected to PMS Chat: {user}")
 
+    # จัดการเมื่อมีการปิดการเชื่อมต่อ WebSocket
     async def disconnect(self, close_code):
         print(f"DEBUG: WebSocket disconnected. Close code: {close_code}")
         logger.info(f"Chat socket disconnected: {close_code}")
         pass
 
+    # รับข้อความจากผู้ใช้งาน และส่งไปประมวลผลผ่านระบบ Gemini AI แบบ Synchronous
     async def receive(self, text_data):
         # 3. Receive message from User (Frontend)
         print(f"DEBUG: Message received: {text_data}")

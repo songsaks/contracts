@@ -105,5 +105,6 @@ urlpatterns = [
     
     # Chatbot Proxy
     path('api/chatbot/', views.openclaw_chatbot, name='api_chatbot'),
+    path('api/notifications/counts/', views.get_notification_counts, name='get_notification_counts'),
 ]
 

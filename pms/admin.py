@@ -5,6 +5,7 @@ from .models import (
     SLAPlan, JobStatus, JobStatusAssignment, ProjectStatusAssignment, UserNotification
 )
 
+# จัดการตารางสถานะงานแบบ Dynamic (สำหรับเลือกใช้ตาม Job Type)
 @admin.register(JobStatus)
 class JobStatusAdmin(admin.ModelAdmin):
     list_display = ('job_type', 'status_key', 'label', 'sort_order', 'is_active')
@@ -38,6 +39,7 @@ class ProductItemInline(admin.TabularInline):
     model = ProductItem
     extra = 0
 
+# จัดการข้อมูลโครงการหลัก พร้อมแสดงรายการสินค้าในรูปแบบ Inline
 @admin.register(Project)
 class ProjectAdmin(admin.ModelAdmin):
     list_display = ('name', 'customer', 'status', 'start_date', 'deadline', 'total_value')
@@ -55,6 +57,7 @@ class ServiceTeamAdmin(admin.ModelAdmin):
     list_display = ('name', 'skills', 'max_tasks_per_day', 'is_active')
     filter_horizontal = ('members',)
 
+# จัดการคิวงานบริการ (AI Service Queue) สำหรับแสดงผลและมอบหมายทีมงาน
 @admin.register(ServiceQueueItem)
 class ServiceQueueItemAdmin(admin.ModelAdmin):
     list_display = ('title', 'task_type', 'priority', 'status', 'assigned_team', 'deadline', 'scheduled_date', 'scheduled_time')
@@ -78,6 +81,7 @@ class ProjectStatusAssignmentAdmin(admin.ModelAdmin):
     list_filter = ('project',)
     filter_horizontal = ('responsible_users',)
 
+# ประวัติการแจ้งเตือนผู้รับผิดชอบโครงการ
 @admin.register(UserNotification)
 class UserNotificationAdmin(admin.ModelAdmin):
     list_display = ('user', 'project', 'subject', 'is_read', 'created_at')

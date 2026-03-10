@@ -1,8 +1,8 @@
 from .models import CustomerRequirement, CustomerRequest, UserNotification
 from django.conf import settings
 
+# เพิ่มตัวแปรส่วนกลางสำหรับใช้ใน Template ของ PMS (เช่น จำนวนการแจ้งเตือน, จำนวน Lead ใหม่)
 def pms_context(request):
-    """Add PMS related global context variables."""
     context = {
         'CHATBOT_ENABLED': getattr(settings, 'CHATBOT_ENABLED', True)
     }

@@ -7,7 +7,7 @@ AI Service Queue Manager
 import logging
 import datetime
 from django.utils import timezone
-from django.db import models
+from django.db import models, transaction
 from django.conf import settings
 import requests
 import json
@@ -83,18 +83,20 @@ def _fallback_suggest_team(task_type, teams):
     return best
 
 
+@transaction.atomic
 def sync_projects_to_queue():
     """
     Pull Projects into ServiceQueueItem with robust rules:
     1. DELETE items that are orphaned (no project) or projects moved out of trigger statuses
        Unless they are ALREADY COMPLETED or CANCELLED.
-    2. Ensure only ONE active queue item per project.
+    2. Ensure only ONE active queue item per project using locking to prevent race conditions.
     """
     from pms.models import Project, ServiceQueueItem, ServiceTeam
     from django.db.models import Q
 
-    # 1. Cleanup: We no longer delete items blindly. 
-    # Items stay in queue as history. We only care if an ACTIVE item exists.
+    # 1. Cleanup duplicates that might have slipped through (just in case)
+    # We keep the one that is most advanced or most recently updated.
+    active_statuses = ['PENDING', 'SCHEDULED', 'IN_PROGRESS', 'INCOMPLETE']
     
     # 2. Sync new items based on TRIGGER STATUSES
     teams = list(ServiceTeam.objects.filter(is_active=True))
@@ -107,17 +109,22 @@ def sync_projects_to_queue():
         Q(job_type='REPAIR', status='DELIVERY')
     )
 
-    ready_projects = Project.objects.filter(trigger_q)
+    # Use select_for_update to lock these projects during sync to prevent race conditions
+    ready_projects = Project.objects.select_for_update().filter(trigger_q)
 
     for proj in ready_projects:
         # Loop Check: Look for an ACTIVE task (not completed/cancelled)
         # We include INCOMPLETE because it's still alive in the queue for re-scheduling.
-        active_task = ServiceQueueItem.objects.filter(
+        active_tasks = ServiceQueueItem.objects.filter(
             project=proj,
-            status__in=['PENDING', 'SCHEDULED', 'IN_PROGRESS', 'INCOMPLETE']
-        ).exists()
+            status__in=active_statuses
+        ).order_by('-updated_at')
 
-        if active_task:
+        if active_tasks.exists():
+            # If accidentally duplicated, cleanup here
+            if active_tasks.count() > 1:
+                for t_del in active_tasks[1:]:
+                    t_del.delete()
             continue # Already locked/tracking this stage
 
         # Determine Task Type & Label based on Job Type

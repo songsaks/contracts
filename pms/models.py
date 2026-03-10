@@ -15,6 +15,7 @@ class SLAPlan(models.Model):
         verbose_name = "แผน SLA"
         verbose_name_plural = "แผน SLA"
 
+    # แสดงชื่อแผน SLA พร้อมรายละเอียดเวลาการทำงาน
     def __str__(self):
         return f"{self.name} (Res: {self.response_time_hours}h / Fix: {self.resolution_time_hours}h)"
 
@@ -138,6 +139,7 @@ class Project(models.Model):
         verbose_name = "โครงการ"
         verbose_name_plural = "โครงการ"
 
+    # เก็บค่าสถานะเดิมไว้ตรวจสอบการเปลี่ยนแปลง
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._old_status = self.status
@@ -145,14 +147,15 @@ class Project(models.Model):
     def __str__(self):
         return self.name
 
+    # จัดการตรรกะการบันทึกข้อมูลโครงการ รวมถึง SLA, การปิดงาน, การล็อกสถานะ AI Queue และการแจ้งเตือน
     def save(self, *args, **kwargs):
-        # 1. Initialize SLA Deadlines if missing and customer has a plan
+        # 1. กำหนดเส้นตาย SLA หากลูกค้ามีแผน SLA และยังไม่มีข้อมูล
         if self.customer.sla_plan and not self.sla_response_deadline:
             now = timezone.now()
             self.sla_response_deadline = now + timezone.timedelta(hours=self.customer.sla_plan.response_time_hours)
             self.sla_resolution_deadline = now + timezone.timedelta(hours=self.customer.sla_plan.resolution_time_hours)
 
-        # 2. Handle Closing
+        # 2. จัดการข้อมูลสถานะการปิดงาน
         if self.status in [self.Status.CLOSED, self.Status.CANCELLED] and not self.closed_at:
             self.closed_at = timezone.now()
         elif self.status not in [self.Status.CLOSED, self.Status.CANCELLED]:
@@ -161,9 +164,8 @@ class Project(models.Model):
         is_new = self.pk is None
         old_status = getattr(self, '_old_status', self.status)
 
-        # 3. AI Queue Lock Mechanism
+        # 3. กลไกการล็อกสถานะสำหรับ AI Queue (ป้องกันการเปลี่ยนสถานะหากงานในคิวยังไม่เสร็จ)
         if not is_new and old_status != self.status:
-            # Check if we are moving AWAY from a Queue status while a task is active
             is_queue_status = False
             if self.job_type == self.JobType.PROJECT and old_status == self.Status.INSTALLATION:
                 is_queue_status = True
@@ -180,12 +182,9 @@ class Project(models.Model):
         super().save(*args, **kwargs)
         self._old_status = self.status
         
-        # Log status change
+        # บันทึกประวัติการเปลี่ยนสถานะ (Status Log)
         try:
-            if getattr(self, '_changed_by_user', None):
-                user = self._changed_by_user
-            else:
-                user = None
+            user = getattr(self, '_changed_by_user', None)
                 
             if not is_new and self.status != old_status:
                 ProjectStatusLog.objects.create(
@@ -202,7 +201,7 @@ class Project(models.Model):
                     changed_by=user
                 )
 
-            # 3. Notification Logic
+            # ตรรกะการส่งการแจ้งเตือนไปยังผู้รับผิดชอบเมื่อมีการเปลี่ยนสถานะ
             if is_new or self.status != old_status:
                 try:
                     status_label = self.status
@@ -210,15 +209,15 @@ class Project(models.Model):
                     if js:
                         status_label = js.label
 
-                    # Collect all target users
+                    # รวบรวมรายชื่อผู้รับผิดชอบ (เป้าหมาย)
                     target_users = []
                     
-                    # 1. Try project-specific assignment (Priority)
+                    # 1. ค้นหาผู้รับผิดชอบเฉพาะโครงการ (ลำดับแรก)
                     ps_assignment = ProjectStatusAssignment.objects.filter(project=self, status_key=self.status).first()
                     if ps_assignment and ps_assignment.responsible_users.exists():
                         target_users = list(ps_assignment.responsible_users.all())
                     
-                    # 2. Try global assignment (JobStatus)
+                    # 2. ค้นหาผู้รับผิดชอบตามประเภทงานเริ่มต้น (ลำดับที่สอง)
                     elif js and hasattr(js, 'assignment') and js.assignment.responsible_users.exists():
                         target_users = list(js.assignment.responsible_users.all())
 
@@ -227,7 +226,7 @@ class Project(models.Model):
                             user=target_user,
                             project=self,
                             subject=f"🔔 ความคืบหน้าโครงการ: {self.name}",
-                            content=f"งาน '{self.name}' ({self.get_job_type_display}) เปลี่ยนสถานะเป็น '{status_label}' ซึ่งคุณเป็นผู้รับผิดชอบ"
+                            content=f"งาน '{self.name}' ({self.get_job_type_display()}) เปลี่ยนสถานะเป็น '{status_label}' ซึ่งคุณเป็นผู้รับผิดชอบ"
                         )
                 except Exception as e:
                     print(f"Notification Error: {e}")
@@ -236,13 +235,15 @@ class Project(models.Model):
             
         self._old_status = self.status
 
+    # คืนค่ามูลค่ารวมของโครงการ (ผลรวมของยอดขายแต่ละรายการ)
     @property
     def total_value(self):
         return sum(item.total_price for item in self.items.all())
 
+    # คืนค่าชื่อสถานะที่แสดงผล โดยดึงจากฐานข้อมูล (dynamic) หรือค่าทางเลือกที่กำหนดไว้
     @property
     def get_job_status_display(self):
-        # Prefer dynamic JobStatus table if populated
+        # ค้นหาจากตาราง JobStatus ที่ตั้งค่าไว้
         try:
             dynamic_status = JobStatus.objects.filter(
                 job_type=self.job_type, 
@@ -254,7 +255,7 @@ class Project(models.Model):
         except Exception:
             pass
 
-        # Fallback to hardcoded mapping
+        # หากไม่มีในฐานข้อมูล ให้ใช้ค่า Mapping เริ่มต้นของแต่ละประเภทงาน
         if self.job_type == self.JobType.REPAIR:
             mapping = {
                 self.Status.DRAFT: 'รวบรวม',
@@ -308,9 +309,10 @@ class Project(models.Model):
             
         return self.get_status_display()
 
+    # ค้นหาสถานะถัดไปของโครงการตามลำดับ (sort_order) ที่ตั้งไว้ใน JobStatus
     def get_next_status(self):
         """
-        Find the next status in the sequence for this project's job type.
+        ค้นหาสถานะลำดับถัดไปสำหรับประเภทงานนี้
         """
         try:
             current_job_status = JobStatus.objects.filter(
@@ -331,6 +333,7 @@ class Project(models.Model):
             return next_job_status
         except Exception:
             return None
+...
 
 class JobStatus(models.Model):
     job_type = models.CharField(max_length=20, choices=Project.JobType.choices)
@@ -345,6 +348,7 @@ class JobStatus(models.Model):
         verbose_name_plural = "สถานะงาน (Dynamic)"
         unique_together = ['job_type', 'status_key']
 
+    # คืนค่าตัวเลือกสถานะงานสำหรับ Job Type ที่ระบุ โดยดึงจากฐานข้อมูล
     @staticmethod
     def get_choices(job_type):
         try:
@@ -355,6 +359,7 @@ class JobStatus(models.Model):
             pass
         return None
 
+    # แสดงชื่อประเภทงานและชื่อสถานะ
     def __str__(self):
         jt_display = dict(Project.JobType.choices).get(self.job_type, self.job_type)
         return f"[{jt_display}] {self.status_key} -> {self.label}"
@@ -367,6 +372,7 @@ class JobStatusAssignment(models.Model):
         verbose_name = "ผู้รับผิดชอบตามสถานะ"
         verbose_name_plural = "ผู้รับผิดชอบตามสถานะ"
 
+    # แสดงชื่อสถานะโครงการและจำนวนผู้รับผิดชอบ
     def __str__(self):
         users_count = self.responsible_users.count()
         return f"{self.job_status} -> {users_count} Users"
@@ -381,6 +387,7 @@ class ProjectStatusAssignment(models.Model):
         verbose_name_plural = "ผู้รับผิดชอบงานตามโครงการ"
         unique_together = ['project', 'status_key']
 
+    # แสดงชื่อโครงการและจำนวนผู้รับผิดชอบในแต่ละสถานะ
     def __str__(self):
         users_count = self.responsible_users.count()
         return f"{self.project.name} [{self.status_key}] -> {users_count} Users"
@@ -416,17 +423,21 @@ class ProductItem(models.Model):
         verbose_name = "รายการสินค้า/บริการ"
         verbose_name_plural = "รายการสินค้า/บริการ"
 
+    # แสดงชื่อรายการสินค้า
     def __str__(self):
         return self.name
 
+    # คำนวณราคารวม (จำนวน x ราคาขายตัวหน่วย)
     @property
     def total_price(self):
         return self.quantity * self.unit_price
 
+    # คำนวณต้นทุนรวม (จำนวน x ต้นทุนต่อหน่วย)
     @property
     def total_cost(self):
         return self.quantity * self.unit_cost
         
+    # คำนวณกำไรเบื้องต้น
     @property
     def margin(self):
         return self.total_price - self.total_cost
@@ -448,6 +459,7 @@ class CustomerRequirement(models.Model):
         verbose_name = "ความต้องการลูกค้า (Lead)"
         verbose_name_plural = "ความต้องการลูกค้า (Leads)"
 
+    # แสดงรหัสความต้องการและวันที่สร้าง
     def __str__(self):
         return f"Requirement {self.pk} - {self.created_at.strftime('%d/%m/%Y')}"
 
@@ -479,9 +491,11 @@ class CustomerRequest(models.Model):
         verbose_name_plural = "คำขอ (Requests)"
         ordering = ['-created_at']
 
+    # แสดงหัวข้อคำขอและชื่อลูกค้า
     def __str__(self):
         return f"{self.title} - {self.customer.name}"
 
+    # บันทึกข้อมูลคำขอ พร้อมเก็บประวัติการเปลี่ยนสถานะ
     def save(self, *args, **kwargs):
         is_new = self.pk is None
         old_status = None
@@ -493,7 +507,7 @@ class CustomerRequest(models.Model):
         
         super().save(*args, **kwargs)
         
-        # Log status change
+        # บันทึก log เมื่อมีการเปลี่ยนสถานะ
         if is_new or (old_status != self.status):
             user = getattr(self, '_changed_by_user', None)
             RequestStatusLog.objects.create(
@@ -504,8 +518,9 @@ class CustomerRequest(models.Model):
             )
 
 
+# กำหนดเส้นทางการเก็บไฟล์แนบแยกตามประเภท (Project, Requirement, Request)
 def project_file_upload_path(instance, filename):
-    """Upload files to pms/files/<project_id or req_id or cust_req_id>/filename"""
+    """ที่เก็บไฟล์: pms/files/<project_id หรือ req_id หรือ cust_req_id>/filename"""
     if instance.project:
         return f'pms/files/project_{instance.project.pk}/{filename}'
     elif instance.requirement:
@@ -538,18 +553,22 @@ class ProjectFile(models.Model):
         verbose_name_plural = "ไฟล์แนบ"
         ordering = ['-uploaded_at']
 
+    # แสดงชื่อไฟล์เดิม
     def __str__(self):
         return self.original_name
 
+    # ตรวจสอบว่าเป็นไฟล์รูปภาพหรือไม่
     @property
     def is_image(self):
         ext = self.original_name.lower().rsplit('.', 1)[-1] if '.' in self.original_name else ''
         return ext in ('jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'heic', 'heif')
 
+    # คืนค่าส่วนขยายของไฟล์ (Extension)
     @property
     def file_extension(self):
         return self.original_name.lower().rsplit('.', 1)[-1] if '.' in self.original_name else ''
 
+    # คำนวณและแสดงขนาดไฟล์ในรูปแบบที่อ่านง่าย (B, KB, MB)
     @property
     def file_size_display(self):
         try:
@@ -577,6 +596,7 @@ class ProjectStatusLog(models.Model):
         verbose_name_plural = "ประวัติการเปลี่ยนสถานะโครงการ"
         ordering = ['-changed_at']
 
+    # แสดงประวัติการเปลี่ยนสถานะ
     def __str__(self):
         return f"{self.project.name}: {self.old_status} -> {self.new_status}"
         
