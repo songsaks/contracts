@@ -12,6 +12,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Noto+Sans+Thai:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         *,
         *::before,
@@ -768,6 +769,47 @@
                 display: none;
             }
         }
+
+        /* User Profile Badge */
+        .user-header-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 0.5rem 0.5rem 0.5rem 1.25rem;
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(0, 0, 0, 0.05);
+            border-radius: 9999px;
+            margin-bottom: 2rem;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
+            animation: fadeInUp 0.8s ease-out;
+        }
+
+        .user-header-badge .username {
+            font-weight: 700;
+            font-size: 0.9rem;
+            color: var(--text-primary);
+        }
+
+        .logout-btn {
+            background: #fff1f2;
+            color: #e11d48;
+            border: none;
+            padding: 0.5rem 1.25rem;
+            border-radius: 9999px;
+            font-size: 0.85rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .logout-btn:hover {
+            background: #ffe4e6;
+            transform: scale(1.02);
+        }
     </style>
 </head>
 
@@ -780,6 +822,18 @@
 
     <main>
         <div class="header">
+            {% if user.is_authenticated %}
+            <div class="user-header-badge">
+                <span class="username"><i class="fas fa-user-circle me-1 text-primary"></i> สวัสดี, {{ user.username }}</span>
+                <form method="post" action="{% url 'logout' %}" style="display: inline;">
+                    {% csrf_token %}
+                    <button type="submit" class="logout-btn">
+                        ออกจากระบบ <i class="fas fa-sign-out-alt"></i>
+                    </button>
+                </form>
+            </div>
+            {% endif %}
+
             <div class="brand-badge">
                 <img src="{% static 'images/favicon.svg' %}" alt="9Com Logo" style="width: 20px; height: 20px;">
                 9Com Cloud
