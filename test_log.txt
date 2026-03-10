@@ -1,4 +1,0 @@
-2026-03-06 16:59:53,330 - TestOpenClaw - INFO - Connecting to ws://72.60.197.71:18789/ using aiohttp...
-2026-03-06 16:59:53,430 - TestOpenClaw - INFO - Successfully connected!
-2026-03-06 16:59:53,431 - TestOpenClaw - INFO - Sending 'connect' frame: {'type': 'connect', 'params': {'auth': {'token': '1d399e69d1c6e697a53a16a37820bcf73a46ae9de244c7d5'}}}
-2026-03-06 16:59:53,431 - TestOpenClaw - INFO - RECEIVED RAW: {"type":"event","event":"connect.challenge","payload":{"nonce":"30a72460-f6e3-4d94-aea3-0d0791fa74bf","ts":1772791192671}}

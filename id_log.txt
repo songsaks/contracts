@@ -1,2 +1,0 @@
-Sending connect with id: {'type': 'connect', 'id': '1', 'params': {'auth': {'token': '1d399e69d1c6e697a53a16a37820bcf73a46ae9de244c7d5'}, 'nonce': '1223f5c8-0850-4cf2-aaba-df2f9223b74f'}}
-ID failed: received 1008 (policy violation) invalid request frame; then sent 1008 (policy violation) invalid request frame

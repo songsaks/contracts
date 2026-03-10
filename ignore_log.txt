@@ -1,5 +1,0 @@
-Connecting...
-Connected. Ignoring challenge if any.
-Sending run command immediately: {'type': 'agent:run', 'params': {'agentId': 'main', 'input': 'hi', 'stream': True, 'sessionId': 'test-session'}}
-MSG: {"type":"event","event":"connect.challenge","payload":{"nonce":"4a1f16a4-f5ec-4eb3-8a22-c767883c1470","ts":1772791953031}}
-Ignore failed: received 1008 (policy violation) invalid request frame; then sent 1008 (policy violation) invalid request frame

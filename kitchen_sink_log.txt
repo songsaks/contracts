@@ -1,3 +1,0 @@
-INFO:TestImmediateAuth:Connected. Sending initial connect...
-INFO:TestImmediateAuth:RECEIVED: {"type":"event","event":"connect.challenge","payload":{"nonce":"d286ec15-b371-4a85-8eed-9599c4f3730d","ts":1772793270612}}
-INFO:TestImmediateAuth:Sending Connect Kitchen Sink: {'type': 'connect', 'nonce': 'd286ec15-b371-4a85-8eed-9599c4f3730d', 'params': {'token': '1d399e69d1c6e697a53a16a37820bcf73a46ae9de244c7d5', 'auth': {'token': '1d399e69d1c6e697a53a16a37820bcf73a46ae9de244c7d5'}}}

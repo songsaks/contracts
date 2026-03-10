@@ -1,2 +1,0 @@
-Sending operator connect: {'type': 'connect', 'params': {'auth': {'token': '1d399e69d1c6e697a53a16a37820bcf73a46ae9de244c7d5'}, 'deviceId': 'operator', 'nonce': 'e2b0699f-99d0-4e1b-a864-721c2b21d7be'}}
-Operator failed: received 1008 (policy violation) invalid request frame; then sent 1008 (policy violation) invalid request frame

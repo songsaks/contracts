@@ -1,3 +1,0 @@
-Connecting to http://72.60.197.71:18789/v1/chat/completions...
-Status: 404
-Not Found

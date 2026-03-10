@@ -1,3 +1,0 @@
-INFO:TestFinal:Connected. Waiting for challenge...
-INFO:TestFinal:RECEIVED: {"type":"event","event":"connect.challenge","payload":{"nonce":"71f646d3-c2f7-455f-978d-67899a5447f3","ts":1772792968575}}
-INFO:TestFinal:Sent Connect and Gateway:Auth

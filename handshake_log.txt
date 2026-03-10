@@ -1,4 +1,0 @@
-INFO:TestOpenClaw:Connected.
-INFO:TestOpenClaw:RECEIVED: {"type":"event","event":"connect.challenge","payload":{"nonce":"a7fc686e-7b24-4e6a-9093-b41cb2f33c55","ts":1772791312211}}
-INFO:TestOpenClaw:Got challenge nonce: a7fc686e-7b24-4e6a-9093-b41cb2f33c55
-INFO:TestOpenClaw:Responding with: {'type': 'connect', 'params': {'auth': {'token': '1d399e69d1c6e697a53a16a37820bcf73a46ae9de244c7d5'}, 'nonce': 'a7fc686e-7b24-4e6a-9093-b41cb2f33c55', 'device': {'id': 'pms-server-node', 'name': 'PMS Django Server'}}}

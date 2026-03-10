@@ -1,4 +1,0 @@
-Testing ?auth=: ws://72.60.197.71:18789/?auth=1d399e69d1c6e697a53a16a37820bcf73a46ae9de244c7d5
-Connected.
-MSG: {"type":"event","event":"connect.challenge","payload":{"nonce":"f1c0356a-76d9-4684-9910-23f5d0771b4f","ts":1772791824753}}
-Auth query failed: received 1008 (policy violation) invalid request frame; then sent 1008 (policy violation) invalid request frame
