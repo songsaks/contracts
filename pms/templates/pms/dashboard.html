@@ -140,12 +140,49 @@
         background: linear-gradient(135deg, #4338ca 0%, #6d28d9 100%);
     }
 
-    .ai-loading-container {
+    /* Dropdown & Tom Select Overlap Fixes */
+    .filter-card-container {
+        overflow: visible !important;
+        position: relative;
+        z-index: 1050; /* Higher than other cards */
+    }
+
+    #filterForm .ts-wrapper {
+        min-width: 140px;
+        margin-bottom: 0;
+    }
+
+    #filterForm .ts-control {
+        padding-right: 42px !important; /* Extra room for the arrow */
+        background-color: #f8fafc !important;
+        border-radius: 50rem !important;
+        border: 1.5px solid transparent !important;
+        transition: all 0.2s ease;
+        line-height: normal;
         display: flex;
-        flex-direction: column;
         align-items: center;
-        justify-content: center;
-        min-height: 200px;
+    }
+
+    #filterForm .ts-wrapper.focus .ts-control {
+        border-color: var(--primary-color) !important;
+        background-color: white !important;
+        box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.1) !important;
+    }
+
+    #filterForm .ts-wrapper.single .ts-control::after {
+        right: 18px !important;
+        top: 50% !important;
+        margin-top: -3px !important;
+        border-width: 5px 5px 0 5px;
+        border-color: #64748b transparent transparent !important;
+    }
+
+    #filterForm .ts-dropdown {
+        z-index: 9999 !important;
+        border-radius: 15px !important;
+        border: 1px solid #e2e8f0 !important;
+        box-shadow: 0 10px 25px rgba(0,0,0,0.1) !important;
+        margin-top: 5px !important;
     }
 </style>
 {% endblock %}
@@ -154,7 +191,7 @@
 <div class="row g-4 mb-4">
     <!-- Page Header -->
     <div class="col-12">
-        <div class="card analytics-card shadow-sm p-4">
+        <div class="card analytics-card shadow-sm p-4 filter-card-container">
             <div class="row align-items-center g-3">
                 <div class="col-md-6 text-center text-md-start">
                     <h1 class="page-heading mb-0">
@@ -186,20 +223,20 @@
 
                         <!-- Month/Year Inputs -->
                         <div class="filter-input-group d-flex gap-2 {% if mode == 'daily' %}d-none{% endif %}" id="groupMonthYear">
-                            <select name="month" class="form-select form-select-sm border-0 bg-light rounded-pill px-3 {% if mode == 'yearly' %}d-none{% endif %}" style="min-width: 120px;" id="monthInput">
+                            <select name="month" class="form-select form-select-sm border-0 bg-light rounded-pill no-tom-select {% if mode == 'yearly' %}d-none{% endif %}" id="monthInput">
                                 {% for val, label in month_choices %}
                                 <option value="{{ val }}" {% if month_filter == val %}selected{% endif %}>{{ label }}</option>
                                 {% endfor %}
                             </select>
-                            <select name="year" class="form-select form-select-sm border-0 bg-light rounded-pill px-3" style="min-width: 90px;">
+                            <select name="year" class="form-select form-select-sm border-0 bg-light rounded-pill no-tom-select" id="yearInput">
                                 {% for y in year_choices %}
                                 <option value="{{ y }}" {% if year_filter == y %}selected{% endif %}>{{ y }}</option>
                                 {% endfor %}
                             </select>
                         </div>
 
-                        <button type="submit" class="btn btn-primary btn-sm rounded-circle shadow-sm" style="width: 32px; height: 32px;">
-                            <i class="fas fa-search"></i>
+                        <button type="submit" class="btn btn-primary btn-sm rounded-circle shadow-sm d-flex align-items-center justify-content-center" style="width: 36px; height: 36px; padding: 0;">
+                            <i class="fas fa-search" style="font-size: 0.85rem;"></i>
                         </button>
                     </form>
 
@@ -795,6 +832,22 @@
                         ticks: { callback: value => '฿' + (value/1000).toFixed(0) + 'k' }
                     }
                 }
+            }
+        });
+
+        // Manual init for Month/Year to preserve chronological order (disable alphabetical auto-sort)
+        ['#monthInput', '#yearInput'].forEach(selector => {
+            const el = document.querySelector(selector);
+            if (el && !el.tomselect) {
+                new TomSelect(el, {
+                    allowEmptyOption: true,
+                    sortField: null, // Keep original HTML order (JAN to DEC)
+                    plugins: ['dropdown_input'],
+                    render: {
+                        option: (data, escape) => `<div class="option">${escape(data.text)}</div>`,
+                        item: (data, escape) => `<div>${escape(data.text)}</div>`
+                    }
+                });
             }
         });
     });

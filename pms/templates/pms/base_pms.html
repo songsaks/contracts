@@ -491,8 +491,12 @@
                             <li><a class="dropdown-item" href="{% url 'pms:project_assignment_matrix' %}"><i class="fas fa-user-check me-2 text-primary"></i>ผู้รับผิดชอบงาน (Matrix)</a></li>
                             <li><a class="dropdown-item" href="{% url 'pms:job_status_list' %}"><i class="fas fa-route me-2 text-info"></i>ขั้นตอนงาน (Workflow)</a></li>
                             <li><hr class="dropdown-divider"></li>
+                            {% if user.is_superuser %}
                             <li><a class="dropdown-item text-danger" href="/admin/" target="_blank"><i class="fas fa-shield-alt me-2"></i>ระบบหลังบ้าน (Admin)</a></li>
+                            {% endif %}
+                            {% if perms.stocks %}
                             <li><a class="dropdown-item text-primary" href="{% url 'stocks:dashboard' %}"><i class="fas fa-chart-line me-2"></i>Stock AI (Admin)</a></li>
+                            {% endif %}
                         </ul>
                     </li>
                 </ul>

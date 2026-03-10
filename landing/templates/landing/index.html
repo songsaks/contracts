@@ -788,132 +788,185 @@
             <p>กรุณาเลือกระบบที่ต้องการใช้งาน</p>
         </div>
 
+        {% if messages %}
+        <div style="max-width: 600px; margin: 0 auto 2rem;">
+            {% for message in messages %}
+            <div style="padding: 1rem 1.5rem; border-radius: 1rem; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.75rem; 
+                {% if message.tags == 'error' or message.tags == 'danger' or message.tags == 'warning' %}
+                    background: #fff1f2; border: 1px solid #fecdd3; color: #9f1239;
+                {% else %}
+                    background: #f0fdf4; border: 1px solid #bbf7d0; color: #166534;
+                {% endif %}
+                box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); animation: fadeInUp 0.5s ease-out;">
+                <svg style="width: 20px; height: 20px;" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <div style="font-weight: 500;">{{ message }}</div>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
         <div class="cards-grid">
-            <!-- ระบบสัญญาเช่า -->
-            <a href="/contracts/" class="card card--blue" id="card-contracts">
-                <div class="card__icon">
-                    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-                        <path stroke-linecap="round" stroke-linejoin="round"
-                            d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
-                </div>
-                <div class="card__content">
-                    <div class="card__title-th">ระบบสัญญาเช่า</div>
-                    <div class="card__title-en">Contracts System</div>
-                    <p class="card__desc">จัดการสัญญาเช่า ผู้เช่า และห้องเช่า</p>
-                </div>
-                <div class="card__action">
-                    เข้าสู่ระบบ
-                    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" />
-                    </svg>
-                </div>
-            </a>
+            {% if user.is_authenticated %}
+                <!-- ระบบสัญญาเช่า -->
+                {% if perms.rentals %}
+                <a href="/contracts/" class="card card--blue" id="card-contracts">
+                    <div class="card__icon">
+                        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                            <path stroke-linecap="round" stroke-linejoin="round"
+                                d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                    </div>
+                    <div class="card__content">
+                        <div class="card__title-th">ระบบสัญญาเช่า</div>
+                        <div class="card__title-en">Contracts System</div>
+                        <p class="card__desc">จัดการสัญญาเช่า ผู้เช่า และห้องเช่า</p>
+                    </div>
+                    <div class="card__action">
+                        เข้าสู่ระบบ
+                        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                        </svg>
+                    </div>
+                </a>
+                {% endif %}
 
-            <!-- ระบบซ่อมบำรุง -->
-            <a href="{% url 'repairs:repair_list' %}" class="card card--orange" id="card-repairs">
-                <div class="card__icon">
-                    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-                        <path stroke-linecap="round" stroke-linejoin="round"
-                            d="M11.42 15.17l-5.59-5.59a2 2 0 010-2.83l.83-.83a2 2 0 012.83 0l5.59 5.59m-6.66 6.66l6.66-6.66m4.24 4.24l-4.24-4.24m4.24 4.24a2 2 0 010-2.83l-1.41-1.41a2 2 0 00-2.83 0" />
-                    </svg>
-                </div>
-                <div class="card__content">
-                    <div class="card__title-th">ระบบซ่อมบำรุง</div>
-                    <div class="card__title-en">Repair System</div>
-                    <p class="card__desc">ติดตามงานซ่อม และบำรุงรักษา</p>
-                </div>
-                <div class="card__action">
-                    เข้าสู่ระบบ
-                    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" />
-                    </svg>
-                </div>
-            </a>
+                <!-- ระบบซ่อมบำรุง -->
+                {% if perms.repairs %}
+                <a href="{% url 'repairs:repair_list' %}" class="card card--orange" id="card-repairs">
+                    <div class="card__icon">
+                        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                            <path stroke-linecap="round" stroke-linejoin="round"
+                                d="M11.42 15.17l-5.59-5.59a2 2 0 010-2.83l.83-.83a2 2 0 012.83 0l5.59 5.59m-6.66 6.66l6.66-6.66m4.24 4.24l-4.24-4.24m4.24 4.24a2 2 0 010-2.83l-1.41-1.41a2 2 0 00-2.83 0" />
+                        </svg>
+                    </div>
+                    <div class="card__content">
+                        <div class="card__title-th">ระบบซ่อมบำรุง</div>
+                        <div class="card__title-en">Repair System</div>
+                        <p class="card__desc">ติดตามงานซ่อม และบำรุงรักษา</p>
+                    </div>
+                    <div class="card__action">
+                        เข้าสู่ระบบ
+                        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                        </svg>
+                    </div>
+                </a>
+                {% endif %}
 
-            <!-- ระบบขายสินค้า -->
-            <a href="{% url 'pos:index' %}" class="card card--green" id="card-pos">
-                <div class="card__icon">
-                    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-                        <path stroke-linecap="round" stroke-linejoin="round"
-                            d="M2.25 3h1.386c.51 0 .955.343 1.087.835l.383 1.437M7.5 14.25a3 3 0 00-3 3h15.75m-12.75-3h11.218c1.121-2.3 2.1-4.684 2.924-7.138a60.114 60.114 0 00-16.536-1.84M7.5 14.25L5.106 5.272M6 20.25a.75.75 0 11-1.5 0 .75.75 0 011.5 0zm12.75 0a.75.75 0 11-1.5 0 .75.75 0 011.5 0z" />
-                    </svg>
-                </div>
-                <div class="card__content">
-                    <div class="card__title-th">ระบบขายสินค้า</div>
-                    <div class="card__title-en">POS System</div>
-                    <p class="card__desc">จุดขายสินค้า และจัดการสต๊อก</p>
-                </div>
-                <div class="card__action">
-                    เข้าสู่ระบบ
-                    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" />
-                    </svg>
-                </div>
-            </a>
+                <!-- ระบบขายสินค้า -->
+                {% if perms.pos %}
+                <a href="{% url 'pos:index' %}" class="card card--green" id="card-pos">
+                    <div class="card__icon">
+                        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                            <path stroke-linecap="round" stroke-linejoin="round"
+                                d="M2.25 3h1.386c.51 0 .955.343 1.087.835l.383 1.437M7.5 14.25a3 3 0 00-3 3h15.75m-12.75-3h11.218c1.121-2.3 2.1-4.684 2.924-7.138a60.114 60.114 0 00-16.536-1.84M7.5 14.25L5.106 5.272M6 20.25a.75.75 0 11-1.5 0 .75.75 0 011.5 0zm12.75 0a.75.75 0 11-1.5 0 .75.75 0 011.5 0z" />
+                        </svg>
+                    </div>
+                    <div class="card__content">
+                        <div class="card__title-th">ระบบขายสินค้า</div>
+                        <div class="card__title-en">POS System</div>
+                        <p class="card__desc">จุดขายสินค้า และจัดการสต๊อก</p>
+                    </div>
+                    <div class="card__action">
+                        เข้าสู่ระบบ
+                        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                        </svg>
+                    </div>
+                </a>
+                {% endif %}
 
-            <!-- ระบบจัดการโครงการ -->
-            <a href="{% url 'pms:project_list' %}" class="card card--cyan" id="card-pms">
-                <div class="card__icon">
-                    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-                        <path stroke-linecap="round" stroke-linejoin="round"
-                            d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
-                    </svg>
-                </div>
-                <div class="card__content">
-                    <div class="card__title-th">ระบบจัดการโครงการ</div>
-                    <div class="card__title-en">Project System</div>
-                    <p class="card__desc">จัดการโครงการ และบริการ</p>
-                </div>
-                <div class="card__action">
-                    เข้าสู่ระบบ
-                    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" />
-                    </svg>
-                </div>
-            </a>
+                <!-- ระบบจัดการโครงการ -->
+                {% if perms.pms %}
+                <a href="{% url 'pms:project_list' %}" class="card card--cyan" id="card-pms">
+                    <div class="card__icon">
+                        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                            <path stroke-linecap="round" stroke-linejoin="round"
+                                d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+                        </svg>
+                    </div>
+                    <div class="card__content">
+                        <div class="card__title-th">ระบบจัดการโครงการ</div>
+                        <div class="card__title-en">Project System</div>
+                        <p class="card__desc">จัดการโครงการ และบริการ</p>
+                    </div>
+                    <div class="card__action">
+                        เข้าสู่ระบบ
+                        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                        </svg>
+                    </div>
+                </a>
+                {% endif %}
 
-            <!-- ระบบเงินเดือน -->
-            <a href="{% url 'payroll:report_list' %}" class="card card--emerald" id="card-payroll">
-                <div class="card__icon">
-                    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-                        <path stroke-linecap="round" stroke-linejoin="round"
-                            d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
-                    </svg>
+                <!-- ระบบเงินเดือน -->
+                {% if perms.payroll %}
+                <a href="{% url 'payroll:report_list' %}" class="card card--emerald" id="card-payroll">
+                    <div class="card__icon">
+                        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                            <path stroke-linecap="round" stroke-linejoin="round"
+                                d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+                        </svg>
+                    </div>
+                    <div class="card__content">
+                        <div class="card__title-th">ระบบเงินเดือน</div>
+                        <div class="card__title-en">Payroll System</div>
+                        <p class="card__desc">จัดการเงินเดือน และรายงานผลงาน</p>
+                    </div>
+                    <div class="card__action">
+                        เข้าสู่ระบบ
+                        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                        </svg>
+                    </div>
+                </a>
+                {% endif %}
+
+                {% if user.is_staff and perms.stocks %}
+                <!-- ระบบวิเคราะห์หุ้น AI (Admin Only) -->
+                <a href="{% url 'stocks:dashboard' %}" class="card card--purple" id="card-stocks">
+                    <div class="card__icon">
+                        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                            <path stroke-linecap="round" stroke-linejoin="round"
+                                d="M2.25 18L9 11.25l4.5 4.5L21.75 7.5M21.75 7.5V12m0-4.5H17.25" />
+                        </svg>
+                    </div>
+                    <div class="card__content">
+                        <div class="card__title-th">วิเคราะห์หุ้น AI</div>
+                        <div class="card__title-en">Stock Analyst AI</div>
+                        <p class="card__desc">วิเคราะห์สินทรัพย์ด้วยพลัง AI</p>
+                    </div>
+                    <div class="card__action">
+                        เข้าสู่ระบบ
+                        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                        </svg>
+                    </div>
+                </a>
+                {% endif %}
+
+                {% if not perms.rentals and not perms.repairs and not perms.pos and not perms.pms and not perms.payroll and not user.is_superuser %}
+                <div class="col-12 text-center py-5">
+                    <div class="alert alert-warning d-inline-block px-5 rounded-pill shadow-sm border-0">
+                        <i class="fas fa-exclamation-circle me-2"></i> คุณยังไม่ได้รับสิทธิ์เข้าใช้งานระบบใดๆ กรุณาติดต่อผู้ดูแลระบบ
+                    </div>
                 </div>
-                <div class="card__content">
-                    <div class="card__title-th">ระบบเงินเดือน</div>
-                    <div class="card__title-en">Payroll System</div>
-                    <p class="card__desc">จัดการเงินเดือน และรายงานผลงาน</p>
+                {% endif %}
+
+            {% else %}
+                <div class="col-12 text-center py-5" style="grid-column: 1 / -1;">
+                    <a href="{% url 'login' %}" class="card card--blue d-inline-flex px-5 py-4" style="max-width: 400px; margin: 0 auto;">
+                        <div class="card__icon">
+                            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
+                            </svg>
+                        </div>
+                        <div class="card__title-th">กรุณาเข้าสู่ระบบ</div>
+                        <div class="card__desc">เพื่อตรวจสอบสิทธิ์การเข้าใช้งานระบบ</div>
+                    </a>
                 </div>
-                <div class="card__action">
-                    เข้าสู่ระบบ
-                    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" />
-                    </svg>
-                </div>
-            </a>
-            {% if user.is_authenticated and user.is_staff %}
-            <!-- ระบบวิเคราะห์หุ้น AI (Admin Only) -->
-            <a href="{% url 'stocks:dashboard' %}" class="card card--purple" id="card-stocks">
-                <div class="card__icon">
-                    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-                        <path stroke-linecap="round" stroke-linejoin="round"
-                            d="M2.25 18L9 11.25l4.5 4.5L21.75 7.5M21.75 7.5V12m0-4.5H17.25" />
-                    </svg>
-                </div>
-                <div class="card__content">
-                    <div class="card__title-th">วิเคราะห์หุ้น AI</div>
-                    <div class="card__title-en">Stock Analyst AI</div>
-                    <p class="card__desc">วิเคราะห์สินทรัพย์ด้วยพลัง AI</p>
-                </div>
-                <div class="card__action">
-                    เข้าสู่ระบบ
-                    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" />
-                    </svg>
-                </div>
-            </a>
             {% endif %}
         </div>
     </main>
