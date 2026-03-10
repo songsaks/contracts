@@ -121,10 +121,10 @@
                         <td class="user-cell">
                             <div class="d-flex align-items-center">
                                 <select class="form-select assignment-select" 
-                                        data-status-id="{{ status.id }}">
-                                    <option value="">-- ไม่ระบุ --</option>
+                                        data-status-id="{{ status.id }}"
+                                        multiple>
                                     {% for user in users %}
-                                    <option value="{{ user.id }}" {% if status.user_id == user.id %}selected{% endif %}>
+                                    <option value="{{ user.id }}" {% if user.id in status.user_ids %}selected{% endif %}>
                                         {{ user.get_full_name|default:user.username }}
                                     </option>
                                     {% endfor %}
@@ -164,17 +164,18 @@ document.addEventListener('DOMContentLoaded', function() {
     const selects = document.querySelectorAll('.assignment-select');
     selects.forEach(select => {
         new TomSelect(select, {
+            plugins: ['remove_button'],
             create: false,
-            placeholder: "-- ไม่ระบุ --",
+            placeholder: "-- เลือกทีมงาน (หลายคนได้) --",
             allowEmptyOption: true,
-            onChange: function(value) {
-                updateAssignment(select, value);
+            onChange: function(values) {
+                updateAssignment(select, values);
             }
         });
     });
 });
 
-function updateAssignment(selectElement, userId) {
+function updateAssignment(selectElement, userIds) {
     const statusId = selectElement.dataset.statusId;
     
     const loadingId = `loading-${statusId}`;
@@ -186,18 +187,30 @@ function updateAssignment(selectElement, userId) {
     if (loadingEl) loadingEl.style.display = 'inline-block';
     if (savedEl) savedEl.style.display = 'none';
 
+    // Prepare body with multiple user_ids
+    const params = new URLSearchParams();
+    params.append('status_id', statusId);
+    
+    if (Array.isArray(userIds)) {
+        userIds.forEach(id => {
+            if (id) params.append('user_ids', id);
+        });
+    } else if (userIds) {
+        params.append('user_ids', userIds);
+    }
+
     fetch("{% url 'pms:set_project_assignment' %}", {
         method: 'POST',
         headers: {
             'Content-Type': 'application/x-www-form-urlencoded',
             'X-CSRFToken': '{{ csrf_token }}'
         },
-        body: `status_id=${statusId}&user_id=${userId || ''}`
+        body: params.toString()
     })
     .then(response => response.json())
     .then(data => {
         if (loadingEl) loadingEl.style.display = 'none';
-        if (data.status === 'success' || data.status === 'deleted') {
+        if (data.status === 'success') {
             if (savedEl) {
                 savedEl.style.display = 'inline-block';
                 setTimeout(() => {

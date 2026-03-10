@@ -205,23 +205,24 @@ class Project(models.Model):
             # 3. Notification Logic
             if is_new or self.status != old_status:
                 try:
-                    target_user = None
                     status_label = self.status
+                    js = JobStatus.objects.filter(job_type=self.job_type, status_key=self.status, is_active=True).first()
+                    if js:
+                        status_label = js.label
+
+                    # Collect all target users
+                    target_users = []
                     
                     # 1. Try project-specific assignment (Priority)
                     ps_assignment = ProjectStatusAssignment.objects.filter(project=self, status_key=self.status).first()
-                    if ps_assignment and ps_assignment.responsible_user:
-                        target_user = ps_assignment.responsible_user
+                    if ps_assignment and ps_assignment.responsible_users.exists():
+                        target_users = list(ps_assignment.responsible_users.all())
                     
                     # 2. Try global assignment (JobStatus)
-                    js = JobStatus.objects.filter(job_type=self.job_type, status_key=self.status).first()
-                    if not target_user and js and hasattr(js, 'assignment') and js.assignment.responsible_user:
-                        target_user = js.assignment.responsible_user
-                        
-                    if js:
-                        status_label = js.label
-                    
-                    if target_user:
+                    elif js and hasattr(js, 'assignment') and js.assignment.responsible_users.exists():
+                        target_users = list(js.assignment.responsible_users.all())
+
+                    for target_user in target_users:
                         UserNotification.objects.create(
                             user=target_user,
                             project=self,
@@ -360,19 +361,20 @@ class JobStatus(models.Model):
 
 class JobStatusAssignment(models.Model):
     job_status = models.OneToOneField(JobStatus, on_delete=models.CASCADE, related_name='assignment', verbose_name="สถานะงาน")
-    responsible_user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="ผู้รับผิดชอบ (ดึงจากระบบ)")
+    responsible_users = models.ManyToManyField(settings.AUTH_USER_MODEL, blank=True, verbose_name="ผู้รับผิดชอบ (ดึงจากระบบ)")
     
     class Meta:
         verbose_name = "ผู้รับผิดชอบตามสถานะ"
         verbose_name_plural = "ผู้รับผิดชอบตามสถานะ"
 
     def __str__(self):
-        return f"{self.job_status} -> {self.responsible_user.username if self.responsible_user else 'None'}"
+        users_count = self.responsible_users.count()
+        return f"{self.job_status} -> {users_count} Users"
 
 class ProjectStatusAssignment(models.Model):
     project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name='status_assignments', verbose_name="โครงการ")
     status_key = models.CharField(max_length=50, verbose_name="รหัสสถานะ")
-    responsible_user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="ผู้รับผิดชอบ")
+    responsible_users = models.ManyToManyField(settings.AUTH_USER_MODEL, blank=True, verbose_name="ผู้รับผิดชอบ")
     
     class Meta:
         verbose_name = "ผู้รับผิดชอบงานตามโครงการ"
@@ -380,7 +382,8 @@ class ProjectStatusAssignment(models.Model):
         unique_together = ['project', 'status_key']
 
     def __str__(self):
-        return f"{self.project.name} [{self.status_key}] -> {self.responsible_user}"
+        users_count = self.responsible_users.count()
+        return f"{self.project.name} [{self.status_key}] -> {users_count} Users"
 
 class ProductItem(models.Model):
     class ItemType(models.TextChoices):

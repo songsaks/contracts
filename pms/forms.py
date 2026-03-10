@@ -267,7 +267,7 @@ class JobStatusForm(forms.ModelForm):
 class JobStatusAssignmentForm(forms.ModelForm):
     class Meta:
         model = JobStatusAssignment
-        fields = ['responsible_user']
+        fields = ['responsible_users']
         widgets = {
-            'responsible_user': forms.Select(attrs={'class': 'form-select'}),
+            'responsible_users': forms.SelectMultiple(attrs={'class': 'form-select', 'size': '5'}),
         }

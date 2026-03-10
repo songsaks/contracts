@@ -2,7 +2,7 @@ from django.contrib import admin
 from .models import (
     Project, ProductItem, Customer, Supplier, ProjectOwner,
     CustomerRequirement, ServiceTeam, ServiceQueueItem, TeamMessage, 
-    SLAPlan, JobStatus, UserNotification
+    SLAPlan, JobStatus, JobStatusAssignment, ProjectStatusAssignment, UserNotification
 )
 
 @admin.register(JobStatus)
@@ -66,6 +66,17 @@ class TeamMessageAdmin(admin.ModelAdmin):
     list_display = ('subject', 'team', 'is_read', 'created_at')
     list_filter = ('team', 'is_read')
 
+
+@admin.register(JobStatusAssignment)
+class JobStatusAssignmentAdmin(admin.ModelAdmin):
+    list_display = ('job_status',)
+    filter_horizontal = ('responsible_users',)
+
+@admin.register(ProjectStatusAssignment)
+class ProjectStatusAssignmentAdmin(admin.ModelAdmin):
+    list_display = ('project', 'status_key')
+    list_filter = ('project',)
+    filter_horizontal = ('responsible_users',)
 
 @admin.register(UserNotification)
 class UserNotificationAdmin(admin.ModelAdmin):

@@ -1963,15 +1963,15 @@ def project_assignment_matrix(request):
             from .models import JobStatusAssignment
             try:
                 assignment = js.assignment
-                user_id = assignment.responsible_user_id
+                user_ids = list(assignment.responsible_users.values_list('id', flat=True))
             except JobStatusAssignment.DoesNotExist:
-                user_id = None
+                user_ids = []
                 
             status_list.append({
                 'id': js.id,
                 'key': js.status_key,
                 'label': js.label,
-                'user_id': user_id
+                'user_ids': user_ids
             })
             
         matrix_data.append({
@@ -1988,23 +1988,22 @@ def project_assignment_matrix(request):
 @login_required
 def set_project_assignment(request):
     if request.method == 'POST':
-        status_id = request.POST.get('status_id') # Use status_id for global JobStatus
-        user_id = request.POST.get('user_id')
+        status_id = request.POST.get('status_id')
+        user_ids = request.POST.getlist('user_ids[]') or request.POST.getlist('user_ids')
         
         from .models import JobStatus, JobStatusAssignment
         job_status = get_object_or_404(JobStatus, pk=status_id)
         
-        if not user_id:
-            JobStatusAssignment.objects.filter(job_status=job_status).delete()
-            res = {'status': 'deleted'}
+        assignment, created = JobStatusAssignment.objects.get_or_create(job_status=job_status)
+        
+        if not user_ids or (len(user_ids) == 1 and not user_ids[0]):
+            assignment.responsible_users.clear()
+            res = {'status': 'success', 'msg': 'Cleared'}
         else:
             User = get_user_model()
-            user = get_object_or_404(User, pk=user_id)
-            JobStatusAssignment.objects.update_or_create(
-                job_status=job_status,
-                defaults={'responsible_user': user}
-            )
-            res = {'status': 'success', 'user': user.username}
+            users = User.objects.filter(id__in=user_ids)
+            assignment.responsible_users.set(users)
+            res = {'status': 'success', 'users': [u.username for u in users]}
             
         return JsonResponse(res)
     return JsonResponse({'status': 'error'}, status=400)
