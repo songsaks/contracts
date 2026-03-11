@@ -39,11 +39,11 @@ def chat_room(request, room_id):
             return redirect('chat:index')
             
     # ดึงข้อความย้อนหลังล่าสุด 50 ข้อความ และเรียงตามเวลา
-    messages_query = room.messages.all().order_by('timestamp')[:50]
+    chat_messages = room.messages.all().order_by('timestamp')[:50]
     
     return render(request, 'chat/room.html', {
         'room': room,
-        'messages': messages_query
+        'chat_messages': chat_messages
     })
 
 # หน้าแชทเฉพาะโครงการ (PMS Project Chat)

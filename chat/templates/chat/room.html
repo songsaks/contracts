@@ -211,7 +211,7 @@
 
         <!-- รายการข้อความในห้องนี้ -->
         <div id="chat-messages" class="chat-messages">
-            {% for msg in messages %}
+            {% for msg in chat_messages %}
             <div class="message-bubble {% if msg.user == request.user %}message-self{% else %}message-other{% endif %}">
                 {% if msg.user != request.user %}
                 <div class="message-info">{{ msg.user.username }}</div>
