@@ -37,11 +37,13 @@
 
     <link rel="manifest" href="/static/manifest.json">
 
+    {% block extra_css %}{% endblock %}
+
 </head>
 
 <body class="bg-slate-50 text-slate-900 min-h-screen flex flex-col {% if request.resolver_match.app_name == 'repairs' %}font-['Outfit']{% endif %}">
     {% if request.path != '/' and request.resolver_match.url_name != 'login' %}
-    <nav class="{% if request.resolver_match.app_name == 'repairs' %}bg-gradient-to-r from-[#2c3e50] to-[#34495e] text-white shadow-md{% else %}bg-gradient-to-r from-[#4e73df] to-[#224abe] text-white shadow-md{% endif %} sticky top-0 z-50">
+    <nav class="{% if request.resolver_match.app_name == 'repairs' %}bg-gradient-to-r from-[#2c3e50] to-[#34495e] text-white shadow-md{% elif request.resolver_match.app_name == 'chat' %}bg-gradient-to-r from-indigo-700 to-[#1e1b4b] text-white shadow-md{% else %}bg-gradient-to-r from-[#4e73df] to-[#224abe] text-white shadow-md{% endif %} sticky top-0 z-50">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex justify-between h-16">
                 <div class="flex">
@@ -49,6 +51,10 @@
                         {% if request.resolver_match.app_name == 'repairs' %}
                         <a href="{% url 'repairs:repair_list' %}" class="text-xl font-bold text-white">
                             ระบบงานซ่อม
+                        </a>
+                        {% elif request.resolver_match.app_name == 'chat' %}
+                        <a href="{% url 'chat:index' %}" class="text-xl font-bold text-white flex items-center gap-2">
+                            <i class="fas fa-comments"></i>9Com Central Chat
                         </a>
                         {% else %}
                         <a href="{% url 'rentals:dashboard' %}" class="text-xl font-bold text-white">
@@ -88,6 +94,12 @@
                         <a href="{% url 'repairs:brand_list' %}"
                             class="text-white/80 hover:text-white hover:bg-white/10 rounded-md px-2 py-2 text-sm font-medium transition-colors">
                             ยี่ห้อ
+                        </a>
+                        {% elif request.resolver_match.app_name == 'chat' %}
+                        <!-- Chat Menu (Beautiful & Distraction Free) -->
+                        <a href="{% url 'chat:index' %}"
+                            class="text-white/80 hover:text-white hover:bg-white/10 rounded-md px-3 py-2 text-sm font-medium transition-colors flex items-center gap-1">
+                            <i class="fas fa-list"></i> เลือกห้องแชท
                         </a>
                         {% else %}
                         <!-- Rentals Menu (Updated to PMS Style) -->
@@ -176,6 +188,7 @@
     </footer>
     {% include "pms/chatbot_ui.html" %}
     {% block scripts %}{% endblock %}
+    {% block extra_js %}{% endblock %}
 </body>
 
 </html>

@@ -216,6 +216,12 @@
                     <i class="fas fa-ban"></i>
                 </button>
                 {% endif %}
+
+                <!-- ปุ่มแชทเฉพาะโครงการ -->
+                <a href="{% url 'chat:project_chat' project.pk %}" class="btn-action shadow-sm" style="background: #06b6d4; border-color: #06b6d4; color: white;" title="แชทคุยงานในโปรเจกต์นี้">
+                    <i class="fas fa-comments"></i>
+                </a>
+
                 <a href="{% url 'pms:project_list' %}" class="btn-action" title="กลับหน้ารายการ">
                     <i class="fas fa-arrow-left text-muted"></i>
                 </a>

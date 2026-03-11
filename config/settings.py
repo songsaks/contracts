@@ -60,6 +60,7 @@ INSTALLED_APPS = [
     'stocks',
     'chatbot',
     'payroll',
+    'chat',
 ]
 
 MIDDLEWARE = [
@@ -192,7 +193,11 @@ DELETE_PASSWORD = os.getenv('DELETE_PASSWORD', '9com')
 
 CHANNEL_LAYERS = {
     "default": {
+        # สำหรับพัฒนาบน Local 💻: ใช้ระบบหน่วยความจำภายในเครื่อง
         "BACKEND": "channels.layers.InMemoryChannelLayer",
+        # สำหรับใช้งานจริงบน VPS 🐧 (Ubuntu): ให้เปลี่ยนไปใช้ Redis เพื่อรองรับผู้ใช้งานจำนวนมาก
+        # "BACKEND": "channels_redis.core.RedisChannelLayer",
+        # "CONFIG": { "hosts": [("127.0.0.1", 6373)], },
     },
 }
 

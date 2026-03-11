@@ -1,0 +1,132 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}ศูนย์แชท 9Com Portal{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* ปรับแต่งหน้าเลือกห้องแชทให้ดูพรีเมียม */
+    .chat-portal-header {
+        background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
+        border-radius: 1.5rem;
+        padding: 2.5rem;
+        color: white;
+        margin-bottom: 2rem;
+        box-shadow: 0 10px 25px -5px rgba(59, 130, 246, 0.3);
+    }
+
+    .room-card {
+        background: white;
+        border-radius: 1.25rem;
+        border: 1px solid #e2e8f0;
+        padding: 1.5rem;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        text-decoration: none;
+        color: inherit;
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .room-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 15px 30px -10px rgba(0, 0, 0, 0.1);
+        border-color: #3b82f6;
+    }
+
+    .room-card::before {
+        content: '';
+        position: absolute;
+        top: 0; left: 0; width: 4px; height: 100%;
+        background: var(--room-color, #3b82f6);
+    }
+
+    .room-icon-circle {
+        width: 50px; height: 50px;
+        border-radius: 1rem;
+        display: flex; align-items: center; justify-content: center;
+        background: rgba(59, 130, 246, 0.1);
+        color: var(--room-color, #3b82f6);
+        font-size: 1.5rem;
+        margin-bottom: 1.25rem;
+    }
+
+    .room-title {
+        font-size: 1.2rem;
+        font-weight: 700;
+        color: #1e293b;
+        margin-bottom: 0.5rem;
+    }
+
+    .room-desc {
+        font-size: 0.875rem;
+        color: #64748b;
+        line-height: 1.5;
+        flex-grow: 1;
+    }
+
+    .btn-join {
+        margin-top: 1.25rem;
+        padding: 0.625rem;
+        border-radius: 0.75rem;
+        background: #f8fafc;
+        color: #1e293b;
+        font-weight: 600;
+        text-align: center;
+        transition: all 0.2s;
+        border: 1px solid #e2e8f0;
+    }
+
+    .room-card:hover .btn-join {
+        background: var(--room-color, #3b82f6);
+        color: white;
+        border-color: transparent;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto px-4">
+    <!-- ส่วนหัวของหน้า Portal -->
+    <div class="chat-portal-header">
+        <div class="flex items-center gap-4 mb-4">
+            <div class="p-3 bg-white/20 rounded-2xl backdrop-blur-md">
+                <i class="fas fa-comments text-3xl"></i>
+            </div>
+            <div>
+                <h1 class="text-3xl font-extrabold">ศูนย์แชทกลาง 9Com Cloud</h1>
+                <p class="text-white/80">สื่อสารแบบทันทีกับเพื่อนร่วมทีมในทุกระบบที่คุณดูแล</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- รายการห้องแชทที่มีให้เลือก -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {% for room in rooms %}
+        <a href="{% url 'chat:room' room.id %}" class="room-card" style="--room-color: {{ room.color_hex }};">
+            <div class="flex justify-between items-start">
+                <div class="room-icon-circle">
+                    <i class="fas fa-hashtag"></i>
+                </div>
+                <span class="px-3 py-1 text-xs font-semibold bg-slate-100 text-slate-600 rounded-full border border-slate-200 whitespace-nowrap">
+                    {{ room.get_app_category_display }}
+                </span>
+            </div>
+            <div class="room-title">{{ room.name }}</div>
+            <div class="room-desc">{{ room.description|default:"ไม่มีคำอธิบายเพิ่มเติม" }}</div>
+            <div class="btn-join">เข้าห้องแชท <i class="fas fa-arrow-right ml-1"></i></div>
+        </a>
+        {% empty %}
+        <div class="col-span-full py-20 text-center">
+            <div class="text-slate-400 mb-4">
+                <i class="fas fa-ghost text-5xl"></i>
+            </div>
+            <h3 class="text-xl font-bold text-slate-700">ไม่พบห้องแชทที่เปิดให้บริการ</h3>
+            <p class="text-slate-500">กรุณาติดต่อผู้ดูแลระบบเพื่อสร้างห้องแชทใหม่</p>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

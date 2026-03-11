@@ -955,6 +955,29 @@
                 </a>
                 {% endif %}
 
+                <!-- ศูนย์แชทกลาง -->
+                {% if perms.chat %}
+                <a href="{% url 'chat:index' %}" class="card card--blue" id="card-chat">
+                    <div class="card__icon" style="background: linear-gradient(135deg, #e0e7ff, #c7d2fe); border: 1px solid #a5b4fc;">
+                        <svg fill="none" viewBox="0 0 24 24" stroke="#4338ca" stroke-width="1.5" style="width:32px; height:32px;">
+                            <path stroke-linecap="round" stroke-linejoin="round"
+                                d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                        </svg>
+                    </div>
+                    <div class="card__content">
+                        <div class="card__title-th">ศูนย์แชทกลาง</div>
+                        <div class="card__title-en">Communication Hub</div>
+                        <p class="card__desc">แชทติดต่อสื่อสารระหว่างทีมงานแบบ Real-time</p>
+                    </div>
+                    <div class="card__action" style="color: #4338ca; opacity:1; transform:translateY(0);">
+                        เข้าสู่ระบบ
+                        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                        </svg>
+                    </div>
+                </a>
+                {% endif %}
+
                 <!-- ระบบเงินเดือน -->
                 {% if perms.payroll %}
                 <a href="{% url 'payroll:report_list' %}" class="card card--emerald" id="card-payroll">

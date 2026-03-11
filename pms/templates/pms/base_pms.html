@@ -500,6 +500,13 @@
                         </ul>
                     </li>
                 </ul>
+                <ul class="navbar-nav mx-2">
+                    <li class="nav-item">
+                        <a href="{% url 'chat:index' %}" class="nav-link px-3 rounded-3 {% if request.resolver_match.app_name == 'chat' %}active bg-white bg-opacity-10{% endif %}">
+                            <i class="fas fa-comments me-1"></i>แชทกลาง
+                        </a>
+                    </li>
+                </ul>
                 <ul class="navbar-nav ms-auto align-items-center">
                     <li class="nav-item me-2">
                          <a href="/" class="nav-link text-white-50" style="font-size: 0.85rem;">
