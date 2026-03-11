@@ -84,7 +84,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
                     'latitude': latitude,
                     'longitude': longitude,
                     'location_name': location_name,
-                    'timestamp': timezone.now().strftime('%H:%M')
+                    'timestamp': timezone.localtime(timezone.now()).strftime('%H:%M')
                 }
             )
 

@@ -217,8 +217,23 @@
                 <div class="message-info">{{ msg.user.username }}</div>
                 {% endif %}
                 <div class="message-text">
-                    {{ msg.content }}
-                    {% if msg.is_speech_to_text %} <i class="fas fa-microphone text-[10px] ml-1 opacity-60"></i> {% endif %}
+                    {% if msg.image %}
+                    <a href="{{ msg.image.url }}" target="_blank" class="block mb-2">
+                        <img src="{{ msg.image.url }}" class="max-w-[200px] md:max-w-[250px] rounded-lg shadow-sm" alt="รูปภาพแนบ">
+                    </a>
+                    {% endif %}
+                    {% if msg.file %}
+                    <a href="{{ msg.file.url }}" target="_blank" class="flex items-center gap-2 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-700 text-sm hover:bg-slate-100 transition shadow-sm mb-2 w-[220px]">
+                        <div class="p-2 bg-blue-100/50 text-blue-600 rounded-md">
+                            <i class="fas fa-download text-lg"></i>
+                        </div>
+                        <span class="truncate font-medium flex-1 text-left" title="{{ msg.file.name }}">{{ msg.file.name|slice:"11:" }}</span>
+                    </a>
+                    {% endif %}
+                    <span class="block">
+                        {{ msg.content }}
+                        {% if msg.is_speech_to_text %} <i class="fas fa-microphone text-[10px] ml-1 opacity-60"></i> {% endif %}
+                    </span>
                 </div>
                 <div class="message-meta">{{ msg.timestamp|date:"H:i" }}</div>
             </div>
@@ -335,11 +350,34 @@
             }
         }
 
+        let mediaHtml = '';
+        if (data.image_url) {
+            mediaHtml += `
+                <a href="${data.image_url}" target="_blank" class="block mb-2">
+                    <img src="${data.image_url}" class="max-w-[200px] md:max-w-[250px] rounded-lg shadow-sm" alt="รูปภาพแนบ">
+                </a>
+            `;
+        }
+        if (data.file_url) {
+            const fileName = data.file_url.substring(data.file_url.lastIndexOf('/') + 1);
+            mediaHtml += `
+                <a href="${data.file_url}" target="_blank" class="flex items-center gap-2 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-700 text-sm hover:bg-slate-100 transition shadow-sm mb-2 w-[220px]">
+                    <div class="p-2 bg-blue-100/50 text-blue-600 rounded-md">
+                        <i class="fas fa-download text-lg"></i>
+                    </div>
+                    <span class="truncate font-medium flex-1 text-left" title="${fileName}">${fileName}</span>
+                </a>
+            `;
+        }
+
         const html = `
             <div class="message-bubble ${bubbleClass}">
                 ${!isSelf ? `<div class="message-info">${data.username}</div>` : ''}
                 <div class="message-text">
-                    ${data.message} ${sttIcon}
+                    ${mediaHtml}
+                    <span class="block">
+                        ${data.message} ${sttIcon}
+                    </span>
                     ${locationHtml}
                 </div>
                 <div class="message-meta">${data.timestamp}</div>
@@ -450,12 +488,31 @@
     fileInput.onchange = (e) => {
         const file = e.target.files[0];
         if (file) {
-            document.getElementById('file-preview-area').classList.remove('hidden');
-            document.getElementById('file-name').textContent = file.name;
-            // หมายเหตุ: ในระบบจริงจะมีการอัปโหลดไฟล์ผ่าน API ก่อน แล้วส่ง URL ผ่าน WebSocket
-            // ในเวอร์ชันนี้เราจำลองการส่งชื่อไฟล์ไปก่อน
-            sendMessage(`📎 แนบไฟล์: ${file.name}`);
-            clearFile();
+            // อัปโหลดไฟล์ด้วย AJAX ทันที
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+            
+            document.getElementById('chat-message-input').placeholder = "กำลังอัปโหลดไฟล์...";
+            
+            fetch("{% url 'chat:upload_file' room.id %}", {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => {
+                if (!response.ok) throw new Error("Upload failed");
+                return response.json();
+            })
+            .then(data => {
+                document.getElementById('chat-message-input').placeholder = "พิมพ์ข้อความที่นี่...";
+                clearFile();
+            })
+            .catch(error => {
+                console.error("Error uploading file:", error);
+                alert("เกิดข้อผิดพลาดในการอัปโหลดไฟล์ ลองอีกครั้งครับ");
+                document.getElementById('chat-message-input').placeholder = "พิมพ์ข้อความที่นี่...";
+                clearFile();
+            });
         }
     };
 
