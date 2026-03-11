@@ -1493,16 +1493,69 @@ def send_queue_notifications(request):
             target_date = datetime.strptime(date_str, '%Y-%m-%d').date()
             from .models import ServiceQueueItem
             from utils.ai_service_manager import _send_schedule_messages
+            from chat.models import ChatRoom, ChatMessage
+            from channels.layers import get_channel_layer
+            from asgiref.sync import async_to_sync
+            from django.utils import timezone
 
             # Get scheduled items for this date
             items = ServiceQueueItem.objects.filter(
                 scheduled_date=target_date,
                 status__in=['SCHEDULED', 'IN_PROGRESS']
-            )
+            ).order_by('assigned_team__name', 'scheduled_time')
 
             if items.exists():
                 _send_schedule_messages(items)
-                messages.success(request, f"🚀 ส่งข้อความแจ้งเตือน {target_date.strftime('%d/%m/%Y')} เรียบร้อย")
+                
+                # ส่งแจ้งเตือนคิวงานรวมเข้าสู่ "ศูนย์แชทกลาง (Chat Room)" ห้อง PMS โดยตรง
+                pms_room = ChatRoom.objects.filter(app_category='pms', project__isnull=True, is_active=True).first()
+                if pms_room:
+                    content_lines = [f"📢 **ประกาศคิวงานประจำวัน: {target_date.strftime('%d/%m/%Y')}**"]
+                    
+                    team_tasks = {}
+                    for item in items:
+                        t_name = item.assigned_team.name if item.assigned_team else "ยังไม่ระบุทีม"
+                        if t_name not in team_tasks:
+                            team_tasks[t_name] = []
+                        team_tasks[t_name].append(item)
+                        
+                    for t_name, tasks in team_tasks.items():
+                        content_lines.append(f"\n🚀 **ทีม: {t_name}** ({len(tasks)} งาน)")
+                        for idx, task in enumerate(tasks, 1):
+                            time_str = task.scheduled_time.strftime('%H:%M') if task.scheduled_time else '-'
+                            cust_name = task.project.customer.name if task.project else 'ไม่มีข้อมูลลูกค้า'
+                            content_lines.append(f"  {idx}. [{time_str}] {task.title} - {cust_name}")
+                            if task.description:
+                                content_lines.append(f"      📝 {task.description[:60]}")
+
+                    full_content = "\n".join(content_lines)
+                    
+                    chat_msg = ChatMessage.objects.create(
+                        room=pms_room,
+                        user=request.user,
+                        content=full_content
+                    )
+                    
+                    # เปล่งสัญญาณออกไปยังระบบ WebSocket ของแชทให้ข้อความเด้งขึ้นมาแบบ Real-time
+                    channel_layer = get_channel_layer()
+                    async_to_sync(channel_layer.group_send)(
+                        f'chat_{pms_room.id}',
+                        {
+                            'type': 'chat_message',
+                            'message': chat_msg.content,
+                            'username': request.user.username,
+                            'user_id': request.user.id,
+                            'is_stt': False,
+                            'image_url': None,
+                            'file_url': None,
+                            'latitude': None,
+                            'longitude': None,
+                            'location_name': '',
+                            'timestamp': timezone.localtime(chat_msg.timestamp).strftime('%H:%M')
+                        }
+                    )
+
+                messages.success(request, f"🚀 ส่งข้อความแจ้งเตือน และแบนเนอร์คิวงาน {target_date.strftime('%d/%m/%Y')} เข้าแชทเรียบร้อย")
             else:
                 messages.warning(request, "⚠️ ไม่มีงานที่จัดคิวในวันนี้")
         except Exception as e:
