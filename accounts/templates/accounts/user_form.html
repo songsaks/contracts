@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 mt-10">
+    <div class="mb-6 flex items-center justify-between">
+        <div>
+            <h1 class="text-3xl font-bold text-slate-900 flex items-center gap-3">
+                <i class="fas fa-user-edit text-blue-600"></i>
+                {{ title }}
+            </h1>
+            <p class="text-slate-500 mt-2">โปรดกรอกรายละเอียดข้อมูลพนักงานให้ครบถ้วนเพื่อประสิทธิภาพในการทำงาน</p>
+        </div>
+        <a href="{% url 'accounts:user_list' %}" class="px-4 py-2 border border-slate-300 rounded-lg text-slate-600 hover:bg-slate-50 transition drop-shadow-sm flex items-center gap-2 text-sm bg-white">
+            <i class="fas fa-arrow-left"></i> กลับไปหน้ารายชื่อ
+        </a>
+    </div>
+
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+        <form method="POST" enctype="multipart/form-data" class="p-6 sm:p-10" id="userForm">
+            {% csrf_token %}
+            
+            {% if form.non_field_errors %}
+            <div class="bg-red-50 text-red-600 p-4 rounded-lg border border-red-200 mb-6 flex gap-3 items-start">
+                <i class="fas fa-exclamation-triangle mt-1"></i>
+                <div>{{ form.non_field_errors }}</div>
+            </div>
+            {% endif %}
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
+                <!-- ข้อมูลพื้นฐาน -->
+                <div class="col-span-1 md:col-span-2">
+                    <h3 class="text-sm font-bold text-slate-400 uppercase tracking-wider mb-2 border-b pb-2">ข้อมูลส่วนตัวและบัญชี</h3>
+                </div>
+                
+                {% for field in form %}
+                    {% if not field.name|slice:":7" == "access_" and not field.name == "is_active" %}
+                    <div class="{% if field.name == 'avatar' %}col-span-1 md:col-span-2{% endif %}">
+                        <label for="{{ field.id_for_label }}" class="block text-sm font-medium text-slate-700 mb-2">{{ field.label }} {% if field.field.required %}<span class="text-red-500">*</span>{% endif %}</label>
+                        <div class="relative">
+                            {{ field }}
+                        </div>
+                        {% if field.help_text %}
+                            <p class="mt-1.5 text-xs text-slate-400"><i class="fas fa-info-circle mr-1"></i>{{ field.help_text|safe }}</p>
+                        {% endif %}
+                        {% if field.errors %}
+                            <p class="mt-1.5 text-sm text-red-500"><i class="fas fa-exclamation-circle mr-1"></i>{{ field.errors.0 }}</p>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                {% endfor %}
+
+                <!-- ส่วนกำหนดสิทธิ์เข้าใช้ระบบ -->
+                <div class="col-span-1 md:col-span-2 mt-4">
+                    <h3 class="text-sm font-bold text-blue-500 uppercase tracking-wider mb-4 border-b border-blue-100 pb-2 flex items-center gap-2">
+                        <i class="fas fa-shield-alt"></i> การกำหนดสิทธิ์เข้าใช้ระบบ (Application Authorization)
+                    </h3>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-blue-50/30 p-6 rounded-2xl border border-blue-50 shadow-inner">
+                        {% for field in form %}
+                            {% if field.name|slice:":7" == "access_" %}
+                            <label class="flex items-center gap-3 p-3 bg-white rounded-xl border border-slate-200 hover:border-blue-400 cursor-pointer transition-all shadow-sm group">
+                                <div class="relative inline-flex items-center cursor-pointer">
+                                    {{ field }}
+                                </div>
+                                <div class="flex flex-col">
+                                    <span class="text-sm font-bold text-slate-700 group-hover:text-blue-600 transition-colors">{{ field.label }}</span>
+                                    <span class="text-[10px] text-slate-400 uppercase tracking-tight">Authorize Access</span>
+                                </div>
+                            </label>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <!-- สถานะบัญชี -->
+                <div class="col-span-1 md:col-span-2 mt-4">
+                    <h3 class="text-sm font-bold text-slate-400 uppercase tracking-wider mb-2 border-b pb-2">สถานะการใช้งาน</h3>
+                    <div class="flex items-center gap-3 mt-1 p-4 bg-slate-50 rounded-xl border border-slate-200 shadow-sm w-full">
+                        {{ form.is_active }}
+                        <div>
+                            <span class="block text-sm font-bold {% if form.is_active.value %}text-green-600{% else %}text-red-600{% endif %}">
+                                {% if form.is_active.value %}บัญชีเปิดใช้งานปกติ (Active){% else %}ระงับการใช้งานชั่วคราว (Inactive){% endif %}
+                            </span>
+                            <span class="text-xs text-slate-500">พนักงานจะสามารถล็อกอินเข้าสู่ระบบได้หากสถานะเป็น Active เท่านั้น</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-10 pt-6 border-t border-slate-200 flex flex-col sm:flex-row justify-end gap-3">
+                <a href="{% url 'accounts:user_list' %}" class="px-6 py-2.5 border border-slate-300 text-slate-600 font-medium rounded-lg hover:bg-slate-50 transition text-center order-2 sm:order-1">
+                    ยกเลิกแคป
+                </a>
+                <button type="submit" class="px-8 py-2.5 bg-blue-600 text-white font-bold rounded-lg shadow-lg shadow-blue-200 hover:bg-blue-700 transition flex items-center justify-center gap-2 order-1 sm:order-2">
+                    <i class="fas fa-save"></i> บันทึกสิทธิ์และข้อมูล
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<style>
+    /* Styling for ModelForm Inputs */
+    form input[type="text"],
+    form input[type="email"],
+    form select {
+        width: 100%;
+        padding: 0.625rem 0.875rem;
+        background-color: #f8fafc;
+        border: 1px solid #cbd5e1;
+        border-radius: 0.5rem;
+        color: #334155;
+        font-size: 0.95rem;
+        transition: all 0.2s;
+        box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+    }
+    form input[type="text"]:focus,
+    form input[type="email"]:focus,
+    form select:focus {
+        outline: none;
+        border-color: #3b82f6;
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        background-color: #ffffff;
+    }
+    form input[type="checkbox"] {
+        width: 1.25rem;
+        height: 1.25rem;
+        border-radius: 0.25rem;
+        border-color: #cbd5e1;
+        color: #3b82f6;
+    }
+</style>
+{% endblock %}

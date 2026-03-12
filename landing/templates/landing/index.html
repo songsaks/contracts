@@ -864,7 +864,7 @@
         <div class="cards-grid">
             {% if user.is_authenticated %}
                 <!-- ระบบสัญญาเช่า -->
-                {% if perms.rentals %}
+                {% if perms.rentals or user.profile.access_rentals or user.is_superuser %}
                 <a href="/contracts/" class="card card--blue" id="card-contracts">
                     <div class="card__icon">
                         <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
@@ -887,7 +887,7 @@
                 {% endif %}
 
                 <!-- ระบบซ่อมบำรุง -->
-                {% if perms.repairs %}
+                {% if perms.repairs or user.profile.access_repairs or user.is_superuser %}
                 <a href="{% url 'repairs:repair_list' %}" class="card card--orange" id="card-repairs">
                     <div class="card__icon">
                         <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
@@ -910,7 +910,7 @@
                 {% endif %}
 
                 <!-- ระบบขายสินค้า -->
-                {% if perms.pos %}
+                {% if perms.pos or user.profile.access_pos or user.is_superuser %}
                 <a href="{% url 'pos:index' %}" class="card card--green" id="card-pos">
                     <div class="card__icon">
                         <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
@@ -933,7 +933,7 @@
                 {% endif %}
 
                 <!-- ระบบจัดการโครงการ -->
-                {% if perms.pms %}
+                {% if perms.pms or user.profile.access_pms or user.is_superuser %}
                 <a href="{% url 'pms:project_list' %}" class="card card--cyan" id="card-pms">
                     <div class="card__icon">
                         <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
@@ -956,7 +956,7 @@
                 {% endif %}
 
                 <!-- ศูนย์แชทกลาง -->
-                {% if perms.chat %}
+                {% if perms.chat or user.profile.access_chat or user.is_superuser %}
                 <a href="{% url 'chat:index' %}" class="card card--blue" id="card-chat">
                     <div class="card__icon" style="background: linear-gradient(135deg, #e0e7ff, #c7d2fe); border: 1px solid #a5b4fc;">
                         <svg fill="none" viewBox="0 0 24 24" stroke="#4338ca" stroke-width="1.5" style="width:32px; height:32px;">
@@ -979,7 +979,7 @@
                 {% endif %}
 
                 <!-- ระบบเงินเดือน -->
-                {% if perms.payroll %}
+                {% if perms.payroll or user.profile.access_payroll or user.is_superuser %}
                 <a href="{% url 'payroll:report_list' %}" class="card card--emerald" id="card-payroll">
                     <div class="card__icon">
                         <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
@@ -1001,7 +1001,29 @@
                 </a>
                 {% endif %}
 
-                {% if user.is_staff and perms.stocks %}
+                <!-- ระบบจัดการพนักงาน (Accounts) -->
+                {% if user.is_superuser or user.profile.access_accounts %}
+                <a href="{% url 'accounts:user_list' %}" class="card card--blue" id="card-accounts">
+                    <div class="card__icon">
+                        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                        </svg>
+                    </div>
+                    <div class="card__content">
+                        <div class="card__title-th">จัดการพนักงาน</div>
+                        <div class="card__title-en">User Management</div>
+                        <p class="card__desc">จัดการสิทธิ์ บทบาท และทีมงาน</p>
+                    </div>
+                    <div class="card__action">
+                        เข้าสู่ระบบ
+                        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                        </svg>
+                    </div>
+                </a>
+                {% endif %}
+
+                {% if user.is_superuser and user.is_staff and perms.stocks or user.profile.access_stocks %}
                 <!-- ระบบวิเคราะห์หุ้น AI (Admin Only) -->
                 <a href="{% url 'stocks:dashboard' %}" class="card card--purple" id="card-stocks">
                     <div class="card__icon">
@@ -1024,7 +1046,7 @@
                 </a>
                 {% endif %}
 
-                {% if not perms.rentals and not perms.repairs and not perms.pos and not perms.pms and not perms.payroll and not user.is_superuser %}
+                {% if not perms.rentals and not user.profile.access_rentals and not perms.repairs and not user.profile.access_repairs and not perms.pos and not user.profile.access_pos and not perms.pms and not user.profile.access_pms and not perms.payroll and not user.profile.access_payroll and not user.is_superuser %}
                 <div class="col-12 text-center py-5">
                     <div class="alert alert-warning d-inline-block px-5 rounded-pill shadow-sm border-0">
                         <i class="fas fa-exclamation-circle me-2"></i> คุณยังไม่ได้รับสิทธิ์เข้าใช้งานระบบใดๆ กรุณาติดต่อผู้ดูแลระบบ
