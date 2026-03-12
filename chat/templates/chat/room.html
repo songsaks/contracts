@@ -201,9 +201,16 @@
     }
 
     @media (max-width: 640px) {
+        /* ซ่อน Navbar, Footer และช่องว่างภายนอกแชททั้งหมดบนมือถือ (แก้ปัญหาปุ่ม Send หายและจอขยับ) */
+        nav, footer { display: none !important; }
+        main { padding-top: 0 !important; padding-bottom: 0 !important; }
+        body { overflow: hidden; margin: 0; padding: 0; }
+        
         .layout-wrapper {
-            /* ปรับความสูงให้พอดีกับหน้าจอมือถือ (เผื่อพื้นที่ Navbar ด้านบน) */
-            height: calc(100dvh - 60px);
+            /* ปรับความสูงให้เต็มหน้าจอมือถือ (100dvh ไม่มี Navbar แล้ว) */
+            height: 100dvh;
+            margin: 0;
+            padding: 0;
         }
         
         .chat-header {
