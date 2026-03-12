@@ -313,6 +313,16 @@
                         {{ msg.content|linebreaksbr }}
                         {% if msg.is_speech_to_text %} <i class="fas fa-microphone text-[10px] ml-1 opacity-60"></i> {% endif %}
                     </span>
+                    
+                    {% if msg.latitude and msg.longitude %}
+                    <div class="mt-2 p-2 rounded-lg border backdrop-blur-sm {% if msg.user == request.user %}bg-white/20 border-white/30 text-white{% else %}bg-blue-50/80 border-blue-200 text-blue-800{% endif %}">
+                        <div class="text-[10px] uppercase font-bold opacity-80 mb-1">📍 เช็คอินสถานที่</div>
+                        <a href="https://www.google.com/maps?q={{ msg.latitude }},{{ msg.longitude }}" target="_blank" 
+                           class="text-xs font-bold underline flex items-center gap-1 {% if msg.user == request.user %}text-white hover:text-blue-100{% else %}text-blue-600 hover:text-blue-800{% endif %}">
+                           <i class="fas fa-map-marker-alt"></i> ดูแผนที่ Google Maps
+                        </a>
+                    </div>
+                    {% endif %}
                 </div>
                 <div class="message-meta">{{ msg.timestamp|date:"H:i" }}</div>
             </div>
@@ -541,8 +551,21 @@
     // --- ระบบยืนยันตัวตนก่อนส่งตำแหน่ง (Security Check) ---
     const locBtn = document.getElementById('location-btn');
     locBtn.onclick = function() {
+        if (!window.isSecureContext && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
+            alert("🔒 ฟังก์ชันสถานที่ (GPS) ต้องใช้งานผ่าน HTTPS เท่านั้น (ความปลอดภัยของมือถือ)\nกรุณาสร้าง SSL Certificate ให้ Server ก่อนครับ!");
+            return;
+        }
+
         if (navigator.geolocation) {
             locBtn.classList.add('active');
+            
+            // ตั้งค่าเพื่อดึง GPS ให้แม่นยำสูง
+            const geoOptions = {
+                enableHighAccuracy: true,
+                timeout: 10000,
+                maximumAge: 0
+            };
+
             navigator.geolocation.getCurrentPosition(
                 (position) => {
                     const lat = position.coords.latitude;
@@ -551,12 +574,18 @@
                     locBtn.classList.remove('active');
                 },
                 (error) => {
-                    alert("ไม่สามารถเข้าถึงตำแหน่งได้: " + error.message);
+                    let errMsg = error.message;
+                    if (error.code === 1) errMsg = "คุณไม่อนุญาตให้เข้าถึง GPS (Please allow location permission)";
+                    else if (error.code === 2) errMsg = "ไม่พบสัญญาณ GPS";
+                    else if (error.code === 3) errMsg = "หมดเวลาการค้นหาพิกัด (Timeout)";
+                    
+                    alert("❌ ไม่สามารถดึงพิกัดได้: " + errMsg);
                     locBtn.classList.remove('active');
-                }
+                },
+                geoOptions
             );
         } else {
-            alert("เบราว์เซอร์ของคุณไม่รองรับการระบุตำแหน่ง");
+            alert("เบราว์เซอร์ของคุณไม่รองรับการระบุตำแหน่ง หรือถูกบล็อกโดยระบบรักษาความปลอดภัย (ต้องใช้ HTTPS)");
         }
     };
 
