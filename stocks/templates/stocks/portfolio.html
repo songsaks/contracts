@@ -135,13 +135,16 @@
                                 </div>
                                 <div class="col-4">
                                     <div class="text-muted small mb-1" style="font-size: 0.7rem; letter-spacing: 0.5px;">P/L</div>
-                                    <div class="fw-bold fs-6 {% if item.gain_loss > 0 %}stock-positive{% elif item.gain_loss < 0 %}stock-negative{% endif %}">
-                                        {% if item.obj.entry_price > 0 %}
-                                            {{ item.gain_loss_pct|floatformat:1 }}%
-                                        {% else %}
-                                            -
-                                        {% endif %}
+                                    {% if item.obj.entry_price > 0 %}
+                                    <div class="fw-bold fs-6 {% if item.gain_loss > 0 %}text-success{% elif item.gain_loss < 0 %}text-danger{% endif %}">
+                                        {% if item.gain_loss > 0 %}+{% endif %}{{ item.gain_loss_pct|floatformat:1 }}%
                                     </div>
+                                    <div class="{% if item.gain_loss > 0 %}text-success{% elif item.gain_loss < 0 %}text-danger{% else %}text-muted{% endif %}" style="font-size: 0.72rem; font-weight: 600;">
+                                        {% if item.gain_loss > 0 %}+{% endif %}฿{{ item.gain_loss|floatformat:0|intcomma }}
+                                    </div>
+                                    {% else %}
+                                    <div class="fw-bold fs-6 text-muted">-</div>
+                                    {% endif %}
                                 </div>
                             </div>
                             
@@ -150,12 +153,12 @@
                                 <div class="col-4 border-end border-light">
                                     <div class="text-muted small mb-1" style="font-size: 0.7rem; letter-spacing: 0.5px;">ZONE STATUS</div>
                                     <div class="fw-bold" style="font-size: 0.8rem;">
-                                        {% if item.trailing_stop_data and item.trailing_stop_data.color == 'danger' %}
-                                            <span class="text-secondary opacity-75"><i class="fas fa-times-circle me-1"></i>SL HIT</span>
-                                        {% elif item.mom_data.zone_proximity == 0 %}
+                                        {% if item.mom_data.zone_proximity == 0 %}
                                             <span class="text-success blink-soft"><i class="fas fa-bullseye me-1"></i>IN ZONE</span>
                                         {% elif item.mom_data.zone_proximity <= 15 %}
-                                            <span class="text-warning">NEAR ZONE</span>
+                                            <span class="text-warning"><i class="fas fa-circle me-1" style="font-size:0.5rem;"></i>NEAR ZONE</span>
+                                        {% elif item.mom_data.zone_proximity >= 999 %}
+                                            <span class="text-muted small fw-normal">-</span>
                                         {% else %}
                                             <span class="text-muted">{{ item.mom_data.zone_proximity|floatformat:0 }}% dist</span>
                                         {% endif %}
@@ -173,47 +176,56 @@
                             {% endif %}
                         </div>
                         
-                        <!-- AI Smart Alerts -->
-                        <div class="d-flex flex-column gap-3 mb-4">
-                            {% if item.dca_qty %}
-                            <div class="alert alert-danger p-3 m-0 rounded-4 border-0 shadow-sm" style="background: rgba(239, 68, 68, 0.08);">
-                                <div class="d-flex align-items-center gap-3">
-                                    <div class="bg-danger text-white rounded-circle d-flex align-items-center justify-content-center shadow-sm" style="width: 36px; height: 36px; flex-shrink: 0;">
-                                        <i class="fas fa-layer-group fa-sm"></i>
-                                    </div>
-                                    <div>
-                                        <strong class="text-danger d-block mb-1" style="font-size: 0.9rem;">DCA Opportunity (BUY MORE)</strong>
-                                        <div class="text-muted" style="font-size: 0.75rem; line-height: 1.4;">
-                                            Add <b>{{ item.dca_qty|floatformat:0|intcomma }}</b> shares to reduce cost to <b>฿{{ item.dca_target_cost|floatformat:2 }}</b>
-                                        </div>
-                                    </div>
+                        <!-- Stop Loss / Take Profit Row -->
+                        {% if item.trailing_stop_data %}
+                        <div class="d-flex gap-2 mb-4">
+                            <!-- Stop Loss Box -->
+                            <div class="flex-fill p-3 rounded-4 text-center border
+                                {% if item.trailing_stop_data.color == 'danger' %}border-danger{% elif item.trailing_stop_data.color == 'warning' %}border-warning{% else %}border-success border-opacity-50{% endif %}"
+                                style="
+                                {% if item.trailing_stop_data.color == 'danger' %}background: rgba(239,68,68,0.10);
+                                {% elif item.trailing_stop_data.color == 'warning' %}background: rgba(255,193,7,0.12);
+                                {% else %}background: rgba(34,197,94,0.07);{% endif %}">
+                                <div class="text-muted mb-1" style="font-size: 0.62rem; font-weight: 700; letter-spacing: 0.8px; text-transform: uppercase;">
+                                    <i class="fas fa-shield-alt me-1"></i>Stop Loss
                                 </div>
-                            </div>
-                            {% endif %}
-
-                            {% if item.trailing_stop_data %}
-                            <div class="alert p-3 m-0 rounded-4 border-0 shadow-sm {% if item.trailing_stop_data.color == 'danger' %}bg-danger text-white alert-critical{% else %}bg-{{ item.trailing_stop_data.color }} bg-opacity-10 text-{{ item.trailing_stop_data.color }}{% endif %}">
-                                <div class="d-flex align-items-center gap-3">
-                                    <div class="{% if item.trailing_stop_data.color == 'danger' %}bg-white text-danger{% else %}bg-{{ item.trailing_stop_data.color }} text-white{% endif %} rounded-circle d-flex align-items-center justify-content-center shadow-sm" style="width: 36px; height: 36px; flex-shrink: 0;">
-                                        <i class="fas {% if item.trailing_stop_data.color == 'success' %}fa-shield-alt{% elif item.trailing_stop_data.color == 'warning' %}fa-exclamation-triangle{% else %}fa-hand-holding-usd{% endif %} fa-sm"></i>
-                                    </div>
-                                    <div>
-                                        <strong class="d-block {% if item.trailing_stop_data.color == 'danger' %}text-white fw-900{% endif %}" style="font-size: 0.9rem;">
-                                            TRAILING STOP: {{ item.trailing_stop_data.status }}
-                                        </strong>
-                                        <div class="{% if item.trailing_stop_data.color == 'danger' %}text-white opacity-90{% else %}text-muted{% endif %}" style="font-size: 0.75rem; line-height: 1.4;">
-                                            Exit Point: <b class="{% if item.trailing_stop_data.color == 'danger' %}text-warning{% endif %}">฿{{ item.trailing_stop_data.stop_loss_price|floatformat:2|intcomma }}</b>
-                                        </div>
-                                    </div>
+                                <div class="fw-bold
+                                    {% if item.trailing_stop_data.color == 'danger' %}text-danger
+                                    {% elif item.trailing_stop_data.color == 'warning' %}text-warning
+                                    {% else %}text-success{% endif %}" style="font-size: 1rem;">
+                                    ฿{{ item.trailing_stop_data.stop_loss_price|floatformat:2 }}
+                                </div>
+                                <div class="mt-1" style="font-size: 0.62rem; font-weight: 600;">
                                     {% if item.trailing_stop_data.color == 'danger' %}
-                                    <div class="ms-auto flex-shrink-0">
-                                        <div class="badge bg-white text-danger px-3 py-2 rounded-pill fw-bold border-0" style="font-size: 0.7rem; animation: pulse-white 1s infinite;">DECIDE NOW</div>
-                                    </div>
+                                        <span class="text-danger"><i class="fas fa-times-circle me-1"></i>SL HIT</span>
+                                    {% elif item.trailing_stop_data.color == 'warning' %}
+                                        <span class="text-warning"><i class="fas fa-exclamation-triangle me-1"></i>NEAR SL</span>
+                                    {% else %}
+                                        <span class="text-success"><i class="fas fa-check-circle me-1"></i>HOLDING</span>
                                     {% endif %}
                                 </div>
                             </div>
-                            {% endif %}
+
+                            <!-- Take Profit Box -->
+                            <div class="flex-fill p-3 rounded-4 text-center border border-primary border-opacity-25"
+                                style="background: rgba(13,110,253,0.07);">
+                                <div class="text-muted mb-1" style="font-size: 0.62rem; font-weight: 700; letter-spacing: 0.8px; text-transform: uppercase;">
+                                    <i class="fas fa-bullseye me-1"></i>Take Profit
+                                </div>
+                                {% if item.mom_data and item.mom_data.supply_zone_start %}
+                                <div class="fw-bold text-primary" style="font-size: 1rem;">
+                                    ฿{{ item.mom_data.supply_zone_start|floatformat:2 }}
+                                </div>
+                                <div class="mt-1 text-primary" style="font-size: 0.62rem; font-weight: 600; opacity: 0.75;">
+                                    <i class="fas fa-arrow-up me-1"></i>TARGET
+                                </div>
+                                {% else %}
+                                <div class="fw-bold text-muted" style="font-size: 1rem;">-</div>
+                                <div class="mt-1 text-muted" style="font-size: 0.62rem;">ยังไม่มีข้อมูล</div>
+                                {% endif %}
+                            </div>
                         </div>
+                        {% endif %}
                     </div>
                     
                     <!-- Footer Info -->
