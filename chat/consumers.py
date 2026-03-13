@@ -104,12 +104,17 @@ class ChatConsumer(AsyncWebsocketConsumer):
         latitude = data.get('latitude', None)
         longitude = data.get('longitude', None)
         location_name = data.get('location_name', '')
+        gps_check_type = data.get('gps_check_type', None)
+        gps_notes = data.get('gps_notes', '')
 
         # ประมวลผลเฉพาะเมื่อมีเนื้อหาที่ส่งได้ (ข้อความ, ไฟล์, หรือพิกัด)
         if message_text or image_url or file_url or (latitude and longitude):
             user = self.scope["user"]
             # บันทึกข้อความลง Database (ใช้ database_sync_to_async เพราะ ORM เป็น sync)
             await self.save_message(user, self.room_id, message_text, is_stt, latitude, longitude, location_name)
+            # บันทึก GPS log สำหรับรายงานช่างภาคสนาม
+            if latitude and longitude and gps_check_type:
+                await self.save_gps_log(user, latitude, longitude, location_name, gps_check_type, gps_notes)
 
             # Broadcast ข้อความไปยังทุกคนใน Channel Group ของห้องนี้
             await self.channel_layer.group_send(
@@ -207,3 +212,19 @@ class ChatConsumer(AsyncWebsocketConsumer):
             longitude=lon,
             location_name=loc_name
         )
+
+    @database_sync_to_async
+    def save_gps_log(self, user, lat, lon, loc_name, check_type, notes=''):
+        """บันทึก GPS log สำหรับรายงานช่างภาคสนาม"""
+        try:
+            from pms.models import TechnicianGPSLog
+            TechnicianGPSLog.objects.create(
+                user=user,
+                latitude=lat,
+                longitude=lon,
+                location_name=loc_name or '',
+                check_type=check_type,
+                notes=notes or '',
+            )
+        except Exception:
+            pass  # ไม่หยุดการทำงานแชทถ้า GPS log บันทึกไม่ได้

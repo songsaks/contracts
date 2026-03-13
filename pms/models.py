@@ -888,6 +888,40 @@ class UserNotification(models.Model):
         return f"[{self.user.username}] {self.subject}"
 
 
+# ====== GPS Tracking สำหรับช่างภาคสนาม (Technician GPS Log) ======
+class TechnicianGPSLog(models.Model):
+    """
+    บันทึกพิกัด GPS ของช่างเทคนิคที่ออกปฏิบัติงานนอกสถานที่
+    ข้อมูลนี้ใช้สร้างรายงานเส้นทางการทำงานประจำวัน
+    """
+    class CheckType(models.TextChoices):
+        CHECK_IN    = 'CHECK_IN',    'เริ่มงาน (Check-in)'
+        ON_SITE     = 'ON_SITE',     'ถึงที่หน้างาน (On-site)'
+        TRAVEL      = 'TRAVEL',      'กำลังเดินทาง (Travel)'
+        CHECK_OUT   = 'CHECK_OUT',   'เสร็จงาน (Check-out)'
+
+    user        = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
+                                    related_name='gps_logs', verbose_name="ช่าง")
+    queue_item  = models.ForeignKey('ServiceQueueItem', on_delete=models.SET_NULL,
+                                    null=True, blank=True, related_name='gps_logs',
+                                    verbose_name="งานที่เกี่ยวข้อง")
+    check_type  = models.CharField(max_length=20, choices=CheckType.choices,
+                                   default=CheckType.ON_SITE, verbose_name="ประเภทการเช็คอิน")
+    latitude    = models.DecimalField(max_digits=12, decimal_places=9, verbose_name="ละติจูด")
+    longitude   = models.DecimalField(max_digits=12, decimal_places=9, verbose_name="ลองจิจูด")
+    location_name = models.CharField(max_length=255, blank=True, verbose_name="ชื่อสถานที่")
+    notes       = models.TextField(blank=True, verbose_name="หมายเหตุ")
+    timestamp   = models.DateTimeField(auto_now_add=True, verbose_name="เวลาเช็คอิน")
+
+    class Meta:
+        verbose_name = "GPS Log ช่าง"
+        verbose_name_plural = "GPS Logs ช่าง"
+        ordering = ['timestamp']
+
+    def __str__(self):
+        return f"{self.user.username} | {self.get_check_type_display()} | {self.timestamp.strftime('%d/%m/%Y %H:%M')}"
+
+
 # ===== Signals to automate Sync =====
 from django.db.models.signals import post_save
 from django.dispatch import receiver

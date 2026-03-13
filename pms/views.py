@@ -2295,3 +2295,92 @@ def get_notification_counts(request):
         'unconverted_leads_count': CustomerRequirement.objects.filter(is_converted=False).count(),
         'new_requests_count': CustomerRequest.objects.filter(status=CustomerRequest.Status.RECEIVED).count(),
     })
+
+
+# ====== GPS Tracking Report — รายงานเส้นทางช่างประจำวัน ======
+
+@login_required
+def gps_tracking_report(request):
+    """
+    แสดงรายงาน GPS ของช่างเทคนิคประจำวัน
+    - Admin/Superuser เห็นข้อมูลของทุกคน (สามารถกรองตาม user ได้)
+    - User ทั่วไปเห็นเฉพาะข้อมูลของตัวเอง
+    แสดงผลบนแผนที่ Leaflet พร้อมเส้นทาง (Polyline)
+    """
+    from .models import TechnicianGPSLog, ServiceQueueItem
+    from django.contrib.auth import get_user_model
+    from django.utils import timezone
+    import json as json_lib
+
+    User = get_user_model()
+    today = timezone.localdate()
+
+    # รับค่าวันที่จาก query param (default = วันนี้)
+    date_str = request.GET.get('date', today.isoformat())
+    try:
+        from datetime import date
+        report_date = date.fromisoformat(date_str)
+    except ValueError:
+        report_date = today
+
+    # รับค่า user filter (admin เท่านั้น)
+    selected_user_id = request.GET.get('user_id')
+    technicians = User.objects.filter(is_active=True).order_by('username')
+
+    # กรองข้อมูล GPS ตามวันที่
+    qs = TechnicianGPSLog.objects.filter(
+        timestamp__date=report_date
+    ).select_related('user', 'queue_item', 'queue_item__project')
+
+    if request.user.is_superuser or request.user.is_staff:
+        if selected_user_id:
+            qs = qs.filter(user_id=selected_user_id)
+    else:
+        qs = qs.filter(user=request.user)
+        selected_user_id = str(request.user.id)
+
+    logs = list(qs.order_by('user__username', 'timestamp'))
+
+    # จัดกลุ่มตาม user สำหรับแสดง timeline
+    from collections import defaultdict
+    grouped = defaultdict(list)
+    for log in logs:
+        grouped[log.user.username].append(log)
+
+    # สร้าง JSON สำหรับ Leaflet map
+    map_data = {}
+    for username, user_logs in grouped.items():
+        map_data[username] = [
+            {
+                'lat': float(log.latitude),
+                'lng': float(log.longitude),
+                'check_type': log.get_check_type_display(),
+                'check_type_key': log.check_type,
+                'location_name': log.location_name or 'ไม่ระบุชื่อ',
+                'notes': log.notes,
+                'time': timezone.localtime(log.timestamp).strftime('%H:%M'),
+                'job': log.queue_item.project.name if log.queue_item and log.queue_item.project else '-',
+            }
+            for log in user_logs
+        ]
+
+    return render(request, 'pms/gps_tracking_report.html', {
+        'logs': logs,
+        'grouped': dict(grouped),
+        'map_data_json': json_lib.dumps(map_data, ensure_ascii=False),
+        'report_date': report_date,
+        'today': today,
+        'technicians': technicians,
+        'selected_user_id': selected_user_id,
+    })
+
+
+@login_required
+def gps_log_delete(request, pk):
+    """ลบ GPS log entry (เฉพาะ owner หรือ admin)"""
+    from .models import TechnicianGPSLog
+    log = get_object_or_404(TechnicianGPSLog, pk=pk)
+    if request.user == log.user or request.user.is_staff:
+        log.delete()
+        messages.success(request, "ลบ GPS log แล้ว")
+    return redirect(request.META.get('HTTP_REFERER', 'pms:gps_tracking_report'))

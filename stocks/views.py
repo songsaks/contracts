@@ -430,8 +430,9 @@ def portfolio_list(request):
     if request.GET.get('analyze') == 'true' and items:
         # เลือก Gemini model ที่ดีที่สุดที่ตอบสนองได้
         client = genai.Client(api_key=settings.GEMINI_API_KEY)
-        model_names = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-pro']
-        model_name_to_use = 'gemini-pro'
+        # ใช้ 1.5-flash เป็นหลักเพราะเร็วและฟรี (ในขีดจำกัด)
+        model_names = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro']
+        model_name_to_use = 'gemini-1.5-flash'
         for m in model_names:
             try:
                 client.models.generate_content(
@@ -711,8 +712,8 @@ def recommendations(request):
     report_text = None
     if request.GET.get('analyze') == 'true' and stock_previews:
         client = genai.Client(api_key=settings.GEMINI_API_KEY)
-        model_names = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-pro']
-        model_name_to_use = 'gemini-pro'
+        model_names = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro']
+        model_name_to_use = 'gemini-1.5-flash'
         for m in model_names:
             try:
                 client.models.generate_content(model=m, contents="ping")
@@ -826,8 +827,8 @@ def macro_economy(request):
     analysis_text = None
     if request.GET.get('analyze') == 'true' and data:
         client = genai.Client(api_key=settings.GEMINI_API_KEY)
-        model_names = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-pro']
-        model_name_to_use = 'gemini-pro'
+        model_names = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro']
+        model_name_to_use = 'gemini-1.5-flash'
         for m in model_names:
             try:
                 client.models.generate_content(
@@ -1138,8 +1139,8 @@ def momentum_scanner(request):
         symbols_list = [c.symbol for c in candidates]
         try:
             client = genai.Client(api_key=settings.GEMINI_API_KEY)
-            model_names = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-pro']
-            model_name_to_use = 'gemini-pro'
+            model_names = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro']
+            model_name_to_use = 'gemini-1.5-flash'
             for m in model_names:
                 try:
                     client.models.generate_content(model=m, contents='ping')

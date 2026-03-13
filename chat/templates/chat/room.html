@@ -9,7 +9,7 @@
     .layout-wrapper {
         display: flex;
         gap: 1.5rem;
-        height: calc(100vh - 130px);
+        height: calc(100dvh - 130px);
         margin-top: 1rem;
         margin-bottom: 1rem;
     }
@@ -183,89 +183,126 @@
     .chat-messages::-webkit-scrollbar { width: 6px; }
     .chat-messages::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
 
+    /* GPS Check-in card สำหรับข้อความตัวเอง (พื้นขาวโปร่งใส บน gradient น้ำเงิน) */
+    .gps-card-self {
+        margin-top: 0.5rem;
+        padding: 0.5rem 0.75rem;
+        border-radius: 0.75rem;
+        background: rgba(255,255,255,0.18);
+        border: 1px solid rgba(255,255,255,0.35);
+        color: white;
+    }
+    .gps-card-self a { color: #bfdbfe; text-decoration: underline; }
+    .gps-card-self a:hover { color: white; }
+
+    /* GPS Check-in card สำหรับข้อความคนอื่น (พื้นฟ้าอ่อน) */
+    .gps-card-other {
+        margin-top: 0.5rem;
+        padding: 0.5rem 0.75rem;
+        border-radius: 0.75rem;
+        background: rgba(219,234,254,0.8);
+        border: 1px solid #bfdbfe;
+        color: #1e40af;
+    }
+    .gps-card-other a { color: #2563eb; text-decoration: underline; }
+    .gps-card-other a:hover { color: #1e40af; }
+
+    .gps-card-label { font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; opacity: 0.75; margin-bottom: 0.2rem; }
+    .gps-card-link { font-size: 0.75rem; font-weight: 600; display: flex; align-items: center; gap: 0.3rem; }
+
     /* --- การปรับแต่งความสวยงามสำหรับหน้าจอมือถือและแท็บเล็ต (Responsive) --- */
     @media (max-width: 1024px) {
         .mobile-p-0 { padding-left: 0 !important; padding-right: 0 !important; }
         .layout-wrapper {
             margin-top: 0;
             margin-bottom: 0;
-            height: calc(100dvh - 80px); /* 100dvh รองรับ Mobile Browser ป้องกันแถบ Address Bar บัง */
+            height: calc(100dvh - 80px);
             border-radius: 0;
         }
         .chat-container {
             border-radius: 0;
-            border-left: none; /* เอาขอบซ้ายขวาออกให้เต็มจอ */
+            border-left: none;
             border-right: none;
             box-shadow: none;
         }
     }
 
     @media (max-width: 640px) {
-        /* ซ่อน Navbar, Footer และช่องว่างภายนอกแชททั้งหมดบนมือถือ (แก้ปัญหาปุ่ม Send หายและจอขยับ) */
         nav, footer { display: none !important; }
         main { padding-top: 0 !important; padding-bottom: 0 !important; }
         body { overflow: hidden; margin: 0; padding: 0; }
-        
+
+        /* ใช้ 100dvh — Dynamic Viewport Height ปรับตามแป้นพิมพ์อัตโนมัติ */
         .layout-wrapper {
-            /* ปรับความสูงให้เต็มหน้าจอมือถือ (100dvh ไม่มี Navbar แล้ว) */
             height: 100dvh;
+            height: -webkit-fill-available; /* iOS Safari fallback */
             margin: 0;
             padding: 0;
+            gap: 0;
         }
-        
+
+        /* wrapper ด้านนอกต้องเต็มจอ */
+        .chat-wrapper-outer {
+            padding: 0 !important;
+            margin: 0 !important;
+            max-width: 100% !important;
+        }
+
         .chat-header {
             padding: 0.5rem 0.75rem;
+            flex-shrink: 0;
         }
-        .chat-header h2 { font-size: 0.95rem; }
-        .chat-header .w-10 { width: 30px !important; height: 30px !important; font-size: 0.75rem; }
-        
+        .chat-header h2 { font-size: 0.9rem; }
+        .chat-header .w-10 { width: 28px !important; height: 28px !important; font-size: 0.7rem; }
+
         .chat-messages {
-            padding: 0.75rem 0.5rem;
-            gap: 0.65rem;
+            padding: 0.6rem 0.5rem;
+            gap: 0.5rem;
+            /* ให้ scroll ได้ และดัน input ไว้ด้านล่าง */
+            flex: 1;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
         }
-        
+
         .message-bubble {
-            max-width: 90%;
-            padding: 0.6rem 0.85rem;
-            font-size: 0.85rem; /* ลดขนาดตัวอักษรลง */
+            max-width: 88%;
+            padding: 0.55rem 0.8rem;
+            font-size: 0.85rem;
             line-height: 1.35;
             border-radius: 1rem;
         }
-        
+
         .chat-input-area {
-            padding: 0.5rem;
-            border-top: 1px solid rgba(226, 232, 240, 1);
+            padding: 0.5rem 0.5rem;
+            padding-bottom: max(0.5rem, env(safe-area-inset-bottom)); /* iOS notch */
+            border-top: 1px solid #e2e8f0;
+            flex-shrink: 0; /* ไม่ให้ถูกบีบ */
         }
-        
-        .chat-input-area > .flex.gap-2 {
-            gap: 0.35rem;
-        }
-        
-        .stt-btn {
-            width: 36px; height: 36px; font-size: 0.9rem;
-        }
-        
+
+        .chat-input-area .flex { gap: 0.3rem; }
+
+        .stt-btn { width: 34px; height: 34px; font-size: 0.85rem; flex-shrink: 0; }
+
         #chat-message-input {
-            padding: 0.6rem 0.85rem;
-            font-size: 0.85rem; /* ลดขนาดตัวอักษรลง */
+            padding: 0.55rem 0.75rem;
+            font-size: 0.875rem;
+            min-width: 0; /* allow shrink */
         }
-        
+
         #chat-message-submit {
-            padding: 0.5rem 1rem;
+            padding: 0.5rem 0.9rem;
             border-radius: 1rem;
+            flex-shrink: 0;
         }
-        
-        /* ขยายขนาดรูปในมือถือให้เต็มกรอบ เพื่อดูง่ายขึ้น */
-        .message-text img { max-width: 100% !important; margin-top: 0.2rem; border-radius: 0.5rem; }
-        
-        /* กล่องแสดงไฟล์ก่อนอัปโหลด */
-        #file-preview-area { padding-left: 0.5rem; padding-right: 0.5rem; margin-bottom: 0.5rem; }
+
+        .message-text img { max-width: 100% !important; border-radius: 0.5rem; }
+        #file-preview-area { padding: 0 0.5rem; margin-bottom: 0.4rem; }
     }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="max-w-7xl mx-auto px-4 mobile-p-0">
+<div class="max-w-7xl mx-auto px-4 mobile-p-0 chat-wrapper-outer">
     <div class="layout-wrapper">
         <!-- กล่องแชทหลัก (ด้านซ้าย) -->
         <div class="chat-container">
@@ -315,11 +352,10 @@
                     </span>
                     
                     {% if msg.latitude and msg.longitude %}
-                    <div class="mt-2 p-2 rounded-lg border backdrop-blur-sm {% if msg.user == request.user %}bg-white/20 border-white/30 text-white{% else %}bg-blue-50/80 border-blue-200 text-blue-800{% endif %}">
-                        <div class="text-[10px] uppercase font-bold opacity-80 mb-1">📍 เช็คอินสถานที่</div>
-                        <a href="https://www.google.com/maps?q={{ msg.latitude }},{{ msg.longitude }}" target="_blank" 
-                           class="text-xs font-bold underline flex items-center gap-1 {% if msg.user == request.user %}text-white hover:text-blue-100{% else %}text-blue-600 hover:text-blue-800{% endif %}">
-                           <i class="fas fa-map-marker-alt"></i> ดูแผนที่ Google Maps
+                    <div class="{% if msg.user == request.user %}gps-card-self{% else %}gps-card-other{% endif %}">
+                        <div class="gps-card-label">📍 GPS Check-in{% if msg.location_name %} — {{ msg.location_name }}{% endif %}</div>
+                        <a href="https://www.google.com/maps?q={{ msg.latitude }},{{ msg.longitude }}" target="_blank" class="gps-card-link">
+                            <i class="fas fa-map-marker-alt"></i> ดูแผนที่ Google Maps
                         </a>
                     </div>
                     {% endif %}
@@ -331,7 +367,7 @@
 
         <!-- พื้นที่พิมพ์ข้อความและปุ่มเสียง -->
         <div class="chat-input-area">
-            <div id="file-preview-area" class="px-12 mb-3 hidden">
+            <div id="file-preview-area" class="px-12 mb-3" style="display:none;">
                 <div class="inline-flex items-center gap-2 bg-slate-100 p-2 rounded-xl border border-slate-200">
                     <i class="fas fa-file text-blue-500"></i>
                     <span id="file-name" class="text-xs font-medium text-slate-600 truncate max-w-[150px]"></span>
@@ -346,8 +382,8 @@
                 </button>
                 <input type="file" id="file-input" class="hidden" accept="image/*,application/pdf,.doc,.docx">
 
-                <!-- ปุ่มส่งพิกัด (Check-in) -->
-                <button id="location-btn" class="stt-btn inactive" title="ส่งพิกัดตำแหน่ง (Check-in)">
+                <!-- ปุ่มส่งพิกัด GPS (Check-in) -->
+                <button id="location-btn" class="stt-btn inactive" title="GPS Check-in" onclick="openGpsModal()">
                     <i class="fas fa-location-dot"></i>
                 </button>
 
@@ -367,7 +403,7 @@
                     <i class="fas fa-paper-plane px-1"></i>
                 </button>
             </div>
-            <div id="stt-status" class="text-[10px] text-slate-400 mt-2 px-12 hidden">กำลังฟังสัญญาณเสียง...</div>
+            <div id="stt-status" style="display:none; font-size:0.7rem; color:#94a3b8; margin-top:0.4rem; padding-left:3rem;">กำลังฟังสัญญาณเสียง...</div>
         </div>
     </div>
 
@@ -386,6 +422,51 @@
 
 {{ room.id|json_script:"room-id" }}
 {{ request.user.id|json_script:"user-id" }}
+
+<!-- GPS Check-in Modal (pure CSS/JS — no Bootstrap JS required) -->
+<div id="gpsModalOverlay" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:9999; align-items:center; justify-content:center; padding:1rem;">
+    <div style="background:white; border-radius:1.25rem; width:100%; max-width:420px; box-shadow:0 20px 60px rgba(0,0,0,0.25); overflow:hidden;">
+        <!-- Header -->
+        <div style="padding:1.25rem 1.5rem 0.75rem; border-bottom:1px solid #f1f5f9; display:flex; align-items:center; justify-content:space-between;">
+            <div style="font-weight:700; font-size:1rem; color:#1e293b;">
+                <i class="fas fa-map-marker-alt" style="color:#3b82f6; margin-right:0.5rem;"></i>GPS Check-in
+            </div>
+            <button onclick="closeGpsModal()" style="background:none; border:none; cursor:pointer; padding:0.25rem; color:#94a3b8; font-size:1.1rem; line-height:1;">&#x2715;</button>
+        </div>
+        <!-- Body -->
+        <div style="padding:1.25rem 1.5rem;">
+            <div style="margin-bottom:1rem;">
+                <label style="font-size:0.78rem; color:#64748b; font-weight:600; display:block; margin-bottom:0.35rem;">ประเภทการเช็คอิน</label>
+                <select id="gps-check-type" style="width:100%; padding:0.6rem 0.75rem; border:1px solid #e2e8f0; border-radius:0.75rem; font-size:0.9rem; background:#f8fafc; color:#1e293b; outline:none;">
+                    <option value="CHECK_IN">✅ เริ่มงาน (Check-in)</option>
+                    <option value="ON_SITE" selected>📍 ถึงที่หน้างาน (On-site)</option>
+                    <option value="TRAVEL">🚗 กำลังเดินทาง (Travel)</option>
+                    <option value="CHECK_OUT">🏁 เสร็จงาน (Check-out)</option>
+                </select>
+            </div>
+            <div style="margin-bottom:1rem;">
+                <label style="font-size:0.78rem; color:#64748b; font-weight:600; display:block; margin-bottom:0.35rem;">ชื่อสถานที่ / บริษัทลูกค้า <span style="font-weight:400;">(ไม่บังคับ)</span></label>
+                <input type="text" id="gps-location-name" placeholder="เช่น บ.ABC จำกัด, ซอยลาดพร้าว 71"
+                    style="width:100%; padding:0.6rem 0.75rem; border:1px solid #e2e8f0; border-radius:0.75rem; font-size:0.9rem; background:#f8fafc; color:#1e293b; outline:none; box-sizing:border-box;">
+            </div>
+            <div style="margin-bottom:0.5rem;">
+                <label style="font-size:0.78rem; color:#64748b; font-weight:600; display:block; margin-bottom:0.35rem;">หมายเหตุ <span style="font-weight:400;">(ไม่บังคับ)</span></label>
+                <input type="text" id="gps-notes" placeholder="เช่น ติดตั้งเสร็จ, รอช่างฝ่าย A"
+                    style="width:100%; padding:0.6rem 0.75rem; border:1px solid #e2e8f0; border-radius:0.75rem; font-size:0.9rem; background:#f8fafc; color:#1e293b; outline:none; box-sizing:border-box;">
+            </div>
+            <div id="gps-status" style="display:none; text-align:center; padding:0.75rem 0; font-size:0.8rem; color:#64748b;">
+                <i class="fas fa-spinner fa-spin" style="margin-right:0.3rem;"></i> กำลังดึงพิกัด GPS...
+            </div>
+        </div>
+        <!-- Footer -->
+        <div style="padding:0.75rem 1.5rem 1.25rem; display:flex; justify-content:flex-end; gap:0.75rem;">
+            <button onclick="closeGpsModal()" style="background:none; border:none; cursor:pointer; color:#94a3b8; font-size:0.9rem; padding:0.5rem 1rem; border-radius:2rem;">ยกเลิก</button>
+            <button id="gps-confirm-btn" style="background:linear-gradient(135deg,#3b82f6,#2563eb); color:white; border:none; border-radius:2rem; padding:0.6rem 1.5rem; font-size:0.9rem; font-weight:600; cursor:pointer; display:flex; align-items:center; gap:0.4rem;">
+                <i class="fas fa-map-pin"></i> ส่งพิกัด
+            </button>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block extra_js %}
@@ -424,19 +505,16 @@
         // จัดการแสดงผลพิกัดตำแหน่ง
         let locationHtml = '';
         if (data.latitude && data.longitude) {
+            const cardClass = isSelf ? 'gps-card-self' : 'gps-card-other';
+            const locLabel  = data.location_name ? ` — ${data.location_name}` : '';
             locationHtml = `
-                <div class="mt-2 p-2 bg-white/20 rounded-lg border border-white/30 backdrop-blur-sm">
-                    <div class="text-[10px] uppercase font-bold opacity-80 mb-1">📍 เช็คอินสถานที่</div>
-                    <a href="https://www.google.com/maps?q=${data.latitude},${data.longitude}" target="_blank" 
-                       class="text-xs font-bold underline hover:text-white flex items-center gap-1 text-white">
-                       <i class="fas fa-map-marker-alt"></i> ดูแผนที่ Google Maps
+                <div class="${cardClass}">
+                    <div class="gps-card-label">📍 GPS Check-in${locLabel}</div>
+                    <a href="https://www.google.com/maps?q=${data.latitude},${data.longitude}" target="_blank" class="gps-card-link">
+                        <i class="fas fa-map-marker-alt"></i> ดูแผนที่ Google Maps
                     </a>
                 </div>
             `;
-            // ถ้าเป็นข้อความของคนอื่น ให้เปลี่ยนสีลิงก์
-            if (!isSelf) {
-                locationHtml = locationHtml.replace(/text-white/g, 'text-blue-600');
-            }
         }
 
         let mediaHtml = '';
@@ -548,46 +626,70 @@
         }
     }
 
-    // --- ระบบยืนยันตัวตนก่อนส่งตำแหน่ง (Security Check) ---
-    const locBtn = document.getElementById('location-btn');
-    locBtn.onclick = function() {
+    // --- GPS Check-in Modal (pure JS) ---
+    const gpsOverlay    = document.getElementById('gpsModalOverlay');
+    const gpsConfirmBtn = document.getElementById('gps-confirm-btn');
+    const gpsStatus     = document.getElementById('gps-status');
+
+    function openGpsModal() {
+        gpsOverlay.style.display = 'flex';
+    }
+    function closeGpsModal() {
+        gpsOverlay.style.display = 'none';
+        gpsStatus.style.display  = 'none';
+        gpsConfirmBtn.disabled   = false;
+    }
+    // ปิดเมื่อคลิก overlay พื้นหลัง
+    gpsOverlay.addEventListener('click', function(e) {
+        if (e.target === gpsOverlay) closeGpsModal();
+    });
+
+    gpsConfirmBtn.addEventListener('click', function() {
         if (!window.isSecureContext && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
-            alert("🔒 ฟังก์ชันสถานที่ (GPS) ต้องใช้งานผ่าน HTTPS เท่านั้น (ความปลอดภัยของมือถือ)\nกรุณาสร้าง SSL Certificate ให้ Server ก่อนครับ!");
+            alert("🔒 GPS ต้องใช้ผ่าน HTTPS เท่านั้น กรุณาติดตั้ง SSL Certificate ก่อนครับ");
+            return;
+        }
+        if (!navigator.geolocation) {
+            alert("เบราว์เซอร์ไม่รองรับ GPS หรือถูกบล็อก");
             return;
         }
 
-        if (navigator.geolocation) {
-            locBtn.classList.add('active');
-            
-            // ตั้งค่าเพื่อดึง GPS ให้แม่นยำสูง
-            const geoOptions = {
-                enableHighAccuracy: true,
-                timeout: 10000,
-                maximumAge: 0
-            };
+        gpsStatus.style.display = 'block';
+        gpsConfirmBtn.disabled  = true;
 
-            navigator.geolocation.getCurrentPosition(
-                (position) => {
-                    const lat = position.coords.latitude;
-                    const lon = position.coords.longitude;
-                    sendMessage("📍 ฉันอยู่ที่นี่ (Location Check-in)", false, lat, lon, "พิกัดปัจจุบัน");
-                    locBtn.classList.remove('active');
-                },
-                (error) => {
-                    let errMsg = error.message;
-                    if (error.code === 1) errMsg = "คุณไม่อนุญาตให้เข้าถึง GPS (Please allow location permission)";
-                    else if (error.code === 2) errMsg = "ไม่พบสัญญาณ GPS";
-                    else if (error.code === 3) errMsg = "หมดเวลาการค้นหาพิกัด (Timeout)";
-                    
-                    alert("❌ ไม่สามารถดึงพิกัดได้: " + errMsg);
-                    locBtn.classList.remove('active');
-                },
-                geoOptions
-            );
-        } else {
-            alert("เบราว์เซอร์ของคุณไม่รองรับการระบุตำแหน่ง หรือถูกบล็อกโดยระบบรักษาความปลอดภัย (ต้องใช้ HTTPS)");
-        }
-    };
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                const lat       = position.coords.latitude;
+                const lon       = position.coords.longitude;
+                const checkType = document.getElementById('gps-check-type').value;
+                const locName   = document.getElementById('gps-location-name').value.trim() || 'พิกัดปัจจุบัน';
+                const notes     = document.getElementById('gps-notes').value.trim();
+                const typeLabels = { 'CHECK_IN':'✅ เริ่มงาน', 'ON_SITE':'📍 ถึงที่หน้างาน', 'TRAVEL':'🚗 กำลังเดินทาง', 'CHECK_OUT':'🏁 เสร็จงาน' };
+                const msgText   = `${typeLabels[checkType] || '📍 Check-in'} — ${locName}${notes ? '\nหมายเหตุ: ' + notes : ''}`;
+
+                chatSocket.send(JSON.stringify({
+                    'message': msgText,
+                    'is_stt': false,
+                    'latitude': lat,
+                    'longitude': lon,
+                    'location_name': locName,
+                    'gps_check_type': checkType,
+                    'gps_notes': notes,
+                }));
+
+                document.getElementById('gps-location-name').value = '';
+                document.getElementById('gps-notes').value = '';
+                closeGpsModal();
+            },
+            (error) => {
+                const errMsg = error.code === 1 ? 'ไม่อนุญาต GPS' : error.code === 2 ? 'ไม่พบสัญญาณ GPS' : 'หมดเวลา';
+                alert('❌ ดึงพิกัดไม่ได้: ' + errMsg);
+                gpsStatus.style.display = 'none';
+                gpsConfirmBtn.disabled  = false;
+            },
+            { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 }
+        );
+    });
 
     // --- ระบบจัดการไฟล์ (File Attach) ---
     const fileTrigger = document.getElementById('file-trigger');
@@ -627,7 +729,7 @@
 
     function clearFile() {
         fileInput.value = '';
-        document.getElementById('file-preview-area').classList.add('hidden');
+        document.getElementById('file-preview-area').style.display = 'none';
     }
 
     document.getElementById('chat-message-submit').onclick = function() {
@@ -666,14 +768,14 @@
             isRecording = true;
             sttBtn.classList.remove('inactive');
             sttBtn.classList.add('active');
-            sttStatus.classList.remove('hidden');
+            sttStatus.style.display = 'block';
         };
 
         recognition.onend = function() {
             isRecording = false;
             sttBtn.classList.remove('active');
             sttBtn.classList.add('inactive');
-            sttStatus.classList.add('hidden');
+            sttStatus.style.display = 'none';
         };
 
         recognition.onresult = function(event) {
