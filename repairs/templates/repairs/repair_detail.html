@@ -50,25 +50,9 @@
                     {% endif %}
                 </div>
                 <div>
-                    {% if item.status == 'RECEIVED' %}
-                        <span class="badge bg-danger">รับแจ้ง</span>
-                    {% elif item.status == 'FIXING' %}
-                        <span class="badge" style="background-color: #ff9100;">กำลังซ่อม/ตรวจเช็ค</span>
-                    {% elif item.status == 'WAITING_APPROVAL' %}
-                        <span class="badge" style="background-color: #a855f7;">รออนุมัติงานซ่อม</span>
-                    {% elif item.status == 'WAITING' %}
-                        <span class="badge bg-warning text-dark">รออะไหล่</span>
-                    {% elif item.status == 'OUTSOURCE' %}
-                        <span class="badge bg-purple-500" style="background-color: #6f42c1;">ส่งซ่อมศูนย์/ภายนอก</span>
-                    {% elif item.status == 'RECEIVED_FROM_VENDOR' %}
-                        <span class="badge bg-info">รอตรวจรับกลับ</span>
-                    {% elif item.status == 'FINISHED' %}
-                        <span class="badge bg-success">ซ่อมเสร็จ</span>
-                    {% elif item.status == 'CANCELLED' %}
-                        <span class="badge bg-secondary">ยกเลิก</span>
-                    {% elif item.status == 'COMPLETED' %}
-                        <span class="badge bg-secondary">ส่งคืนแล้ว</span>
-                    {% endif %}
+                    <span class="badge text-white" style="background-color: {{ item.get_status_color }};">
+                        {{ item.get_status_name }}
+                    </span>
                 </div>
             </div>
             <div class="card-body pt-0">
@@ -110,18 +94,10 @@
 
                         <div class="row g-3">
                             <div class="col-md-4">
-                                <label class="form-label small fw-bold text-muted">สถานะ</label>
-                                <select name="status" class="form-select select2" onchange="toggleFixingFields(this)" {% if item.status == 'OUTSOURCE' %}disabled{% endif %}>
-                                    <option value="RECEIVED" {% if item.status == 'RECEIVED' %}selected{% endif %}>รับแจ้ง</option>
-                                    <option value="FIXING" {% if item.status == 'FIXING' %}selected{% endif %}>กำลังซ่อม/ตรวจเช็ค</option>
-                                    <option value="WAITING_APPROVAL" {% if item.status == 'WAITING_APPROVAL' %}selected{% endif %}>รออนุมัติงานซ่อม</option>
-                                    <option value="WAITING" {% if item.status == 'WAITING' %}selected{% endif %}>รออะไหล่</option>
-                                    <option value="OUTSOURCE" {% if item.status == 'OUTSOURCE' %}selected{% endif %}>ส่งซ่อมศูนย์/ภายนอก</option>
-                                    <option value="RECEIVED_FROM_VENDOR" {% if item.status == 'RECEIVED_FROM_VENDOR' %}selected{% endif %}>รอตรวจรับกลับ</option>
-                                    <option value="CANCELLED" {% if item.status == 'CANCELLED' %}selected{% endif %}>ยกเลิกการซ่อม</option>
-                                    <option value="FINISHED" {% if item.status == 'FINISHED' %}selected{% endif %}>ซ่อมเสร็จ</option>
-                                    <option value="COMPLETED" {% if item.status == 'COMPLETED' %}selected{% endif %}>ส่งคืนให้ลูกค้าแล้ว</option>
-                                </select>
+                                <label class="form-label small fw-bold text-muted">สถานะปัจจุบัน</label>
+                                <div class="p-2 rounded-3 border text-center fw-bold" id="status-display-{{ item.id }}" style="background-color: {{ item.current_status.color|default:'#f3f4f6' }}; color: white; min-height: 44px; display: flex; align-items: center; justify-content: center;">
+                                    {{ item.get_status_display }}
+                                </div>
                             </div>
 
                             <div class="col-md-4">
@@ -166,22 +142,27 @@
                             </div>
                             
                             <div class="col-12 mt-3 mb-2">
-                                <div class="d-flex gap-2">
-                                    {% if item.status == 'OUTSOURCE' %}
+                                {% if item.status == 'OUTSOURCE' %}
+                                    <div class="d-flex gap-2">
                                         <a href="{% url 'repairs:repair_outsource_receive' item.id %}" class="btn btn-success flex-grow-1 py-2 shadow fw-bold">
                                             <i class="fas fa-file-import me-2"></i> บันทึกรับเครื่องกลับจากศูนย์
                                         </a>
-                                    {% else %}
-                                        <button type="submit" class="btn btn-primary flex-grow-1 py-2 shadow fw-bold">
-                                            <i class="fas fa-save me-2"></i> บันทึกการเปลี่ยนแปลง
+                                    </div>
+                                {% else %}
+                                    <div class="d-flex gap-2">
+                                        <button type="button" class="btn btn-warning flex-grow-1 py-2 fw-bold next-step-btn" data-item-id="{{ item.id }}">
+                                            <i class="fas fa-chevron-right me-2"></i>เลื่อนไปยังขั้นตอนถัดไป
+                                        </button>
+                                        <button type="submit" class="btn btn-primary px-4 py-2">
+                                            <i class="fas fa-save me-2"></i>บันทึกข้อมูลอื่น
                                         </button>
                                         {% if item.status != 'COMPLETED' %}
                                         <a href="{% url 'repairs:repair_outsource_assign' item.id %}" class="btn btn-outline-purple py-2 fw-bold" style="color: #6f42c1; border-color: #6f42c1;">
                                             <i class="fas fa-external-link-alt me-2"></i> ส่งซ่อมศูนย์
                                         </a>
                                         {% endif %}
-                                    {% endif %}
-                                </div>
+                                    </div>
+                                {% endif %}
                             </div>
                         </div>
 
@@ -198,7 +179,7 @@
                                     <div class="flex-grow-1">
                                         <div class="d-flex justify-content-between align-items-center mb-1">
                                             <span class="small fw-bold text-dark">
-                                                {% if history.status == 'RECEIVED' %}รับแจ้ง{% elif history.status == 'FIXING' %}กำลังซ่อม/ตรวจเช็ค{% elif history.status == 'WAITING_APPROVAL' %}รออนุมัติงานซ่อม{% elif history.status == 'WAITING' %}รออะไหล่{% elif history.status == 'OUTSOURCE' %}ส่งซ่อมศูนย์{% elif history.status == 'RECEIVED_FROM_VENDOR' %}รับจากศูนย์{% elif history.status == 'CANCELLED' %}ยกเลิก{% elif history.status == 'FINISHED' %}ซ่อมเสร็จ{% elif history.status == 'COMPLETED' %}ส่งคืนแล้ว{% endif %}
+                                                {{ history.get_status_display }}
                                             </span>
                                             <span class="small text-muted">{{ history.changed_at|date:"d M H:i" }}</span>
                                         </div>
@@ -274,26 +255,43 @@
 
 {% block scripts %}
 <script>
-    function toggleFixingFields(select) {
-        const form = select.closest('form');
-        const techDiv = form.querySelector('.tech-assign-div');
-        const costDiv = form.querySelector('.final-cost-div');
-        
-        // Toggle Technician Section
-        if (select.value === 'FIXING') {
-            techDiv.classList.remove('d-none');
-        } else {
-            techDiv.classList.add('d-none');
-        }
+    $(document).ready(function() {
+        $('.next-step-btn').on('click', function() {
+            const btn = $(this);
+            const itemId = btn.data('item-id');
+            
+            if (!confirm('คุณต้องการเลื่อนงานซ่อมนี้ไปยังขั้นตอนถัดไปใช่หรือไม่?')) return;
+            
+            btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-2"></i>กำลังเลื่อน...');
+            
+            $.ajax({
+                url: `/repairs/item/${itemId}/next-step/`,
+                method: 'POST',
+                headers: { 'X-CSRFToken': '{{ csrf_token }}' },
+                success: function(res) {
+                    if (res.status === 'success') {
+                        // Update UI
+                        const display = $(`#status-display-${itemId}`);
+                        display.text(res.new_status_name).css('background-color', res.new_status_color);
+                        
+                        // Show Success Notification
+                        alert('เลื่อนสถานะเรียบร้อยแล้ว');
+                        window.location.reload(); // Reload to refresh timeline and role fields
+                    } else {
+                        alert('ผิดพลาด: ' + res.message);
+                        btn.prop('disabled', false).html('<i class="fas fa-chevron-right me-2"></i>เลื่อนไปยังขั้นตอนถัดไป');
+                    }
+                },
+                error: function() {
+                    alert('เกิดข้อผิดพลาดในการเชื่อมต่อ');
+                    btn.prop('disabled', false).html('<i class="fas fa-chevron-right me-2"></i>เลื่อนไปยังขั้นตอนถัดไป');
+                }
+            });
+        });
+    });
 
-        // Toggle Final Cost Section
-        if (select.value === 'COMPLETED') {
-            costDiv.classList.remove('d-none');
-            const costInput = costDiv.querySelector('input');
-            setTimeout(() => { if(costInput && !costInput.value) costInput.focus(); }, 100);
-        } else {
-            costDiv.classList.add('d-none');
-        }
+    function toggleFixingFields(select) {
+        // Obsolete but kept if still referenced elsewhere
     }
 </script>
 {% endblock %}

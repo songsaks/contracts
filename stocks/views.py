@@ -1132,6 +1132,173 @@ def momentum_scanner(request):
     }
     return render(request, 'stocks/momentum.html', context)
 
+
+# ====== Portfolio Momentum Scan — สแกนเฉพาะหุ้นใน Portfolio ======
+
+@login_required
+def portfolio_scan(request):
+    """
+    สแกน Momentum เฉพาะหุ้นที่อยู่ใน Portfolio ของผู้ใช้
+    ใช้ Logic เดียวกันกับ momentum_scanner() แต่เปลี่ยน Input จาก SET100+MAI เป็นหุ้นใน Portfolio
+    """
+    from .utils import analyze_momentum_technical, find_supply_demand_zones
+    from types import SimpleNamespace
+
+    portfolio_items = Portfolio.objects.filter(user=request.user, category='STOCK')
+
+    candidates = []
+    scanned_at = None
+
+    if request.method == "POST" or request.GET.get('scan') == 'true':
+        import pandas_ta as ta
+        import datetime
+
+        for item in portfolio_items:
+            symbol = item.symbol.upper().replace('.BK', '')
+            try:
+                print(f"[PortfolioScan] Scanning {symbol}...")
+                df = yf.download(f"{symbol}.BK", period="1y", interval="1d", progress=False)
+
+                if df is None or df.empty:
+                    try:
+                        yq = YQTicker(f"{symbol}.BK")
+                        df = yq.history(period="1y", interval="1d")
+                        if isinstance(df, pd.DataFrame) and not df.empty:
+                            df = df.reset_index()
+                            if 'date' in df.columns:
+                                df.set_index('date', inplace=True)
+                            if 'symbol' in df.columns:
+                                df.drop(columns=['symbol'], inplace=True)
+                            df.rename(columns={'open': 'Open', 'high': 'High', 'low': 'Low',
+                                               'close': 'Close', 'volume': 'Volume'}, inplace=True)
+                    except Exception:
+                        pass
+
+                if df is None or df.empty:
+                    continue
+
+                if isinstance(df.columns, pd.MultiIndex):
+                    df.columns = df.columns.droplevel(1)
+
+                df = df.dropna(subset=['Close', 'High'])
+                if len(df) < 150:
+                    continue
+
+                # ====== คำนวณ Technical Indicators (เหมือน momentum_scanner) ======
+                df['EMA50'] = ta.ema(df['Close'], length=50)
+                df['EMA150'] = ta.ema(df['Close'], length=150)
+                df['EMA200'] = ta.ema(df['Close'], length=200)
+
+                adx_df = ta.adx(df['High'], df['Low'], df['Close'], length=14)
+                if adx_df is not None and not adx_df.empty:
+                    df = pd.concat([df, adx_df], axis=1)
+
+                mfi = ta.mfi(df['High'], df['Low'], df['Close'], df['Volume'], length=14)
+                df['MFI'] = mfi
+
+                avg_vol_20 = df['Volume'].rolling(window=20).mean()
+                df['RVOL'] = df['Volume'] / avg_vol_20
+
+                tech = analyze_momentum_technical(df)
+
+                current_price = float(df['Close'].iloc[-1])
+                year_high = float(df['High'].tail(252).max())
+
+                integrated_score = tech['score']
+                rvol = tech['rvol']
+                rsi = tech['rsi']
+                ema200 = tech['ema200']
+
+                mfi_val = float(df['MFI'].iloc[-1]) if 'MFI' in df.columns and pd.notna(df['MFI'].iloc[-1]) else 0
+                adx = float(df['ADX_14'].iloc[-1]) if 'ADX_14' in df.columns and pd.notna(df['ADX_14'].iloc[-1]) else 0
+                gap_to_high = ((year_high - current_price) / current_price) * 100
+
+                # ====== เกณฑ์กรอง Trend Template (เหมือน momentum_scanner) ======
+                is_uptrend = (current_price > ema200)
+                near_high = (current_price >= year_high * 0.60)
+
+                if is_uptrend and near_high:
+                    sector = "Unknown"
+                    eps_growth = 0.0
+                    rev_growth = 0.0
+                    fund_bonus = 0
+
+                    try:
+                        ticker_yf = yf.Ticker(f"{symbol}.BK")
+                        info = ticker_yf.info
+                        if isinstance(info, dict):
+                            sector = info.get('sector', 'Other')
+                            eps_growth = float(info.get('earningsQuarterlyGrowth', 0) or 0) * 100
+                            rev_growth = float(info.get('revenueGrowth', 0) or 0) * 100
+                        else:
+                            sector = "N/A"
+                    except Exception:
+                        pass
+
+                    if eps_growth >= 20:
+                        fund_bonus += 10
+                    if rev_growth >= 10:
+                        fund_bonus += 10
+
+                    sd_zone = find_supply_demand_zones(df)
+                    dz_start = dz_end = sz_start = sz_end = sl_price = rr_val = None
+                    entry_strat = ""
+                    prox_val = 999.0
+
+                    if sd_zone:
+                        entry_strat = sd_zone['type']
+                        dz_start = sd_zone['start']
+                        dz_end = sd_zone['end']
+                        sz_start = sd_zone['target']
+                        sz_end = sd_zone['target'] * 1.02
+                        sl_price = sd_zone['stop_loss']
+                        rr_val = sd_zone['rr_ratio']
+
+                    if dz_start:
+                        prox_val = 0.0 if current_price <= dz_start else ((current_price - dz_start) / dz_start) * 100
+
+                    candidates.append(SimpleNamespace(
+                        symbol=symbol,
+                        symbol_bk=f"{symbol}.BK",
+                        sector=sector,
+                        price=round(current_price, 2),
+                        rsi=round(rsi, 2),
+                        adx=round(adx, 2),
+                        mfi=round(mfi_val, 2),
+                        rvol=round(rvol, 2),
+                        eps_growth=round(eps_growth, 2),
+                        rev_growth=round(rev_growth, 2),
+                        technical_score=int(integrated_score + fund_bonus),
+                        entry_strategy=entry_strat,
+                        demand_zone_start=dz_start,
+                        demand_zone_end=dz_end,
+                        supply_zone_start=sz_start,
+                        supply_zone_end=sz_end,
+                        stop_loss=sl_price,
+                        risk_reward_ratio=rr_val,
+                        year_high=round(year_high, 2),
+                        upside_to_high=round(gap_to_high, 2),
+                        zone_proximity=round(prox_val, 2),
+                        portfolio_name=item.name,
+                    ))
+
+            except Exception as e:
+                print(f"!!! [PortfolioScan] Error scanning {symbol}: {str(e)}")
+                continue
+
+        candidates.sort(key=lambda x: x.technical_score, reverse=True)
+        scanned_at = datetime.datetime.now()
+
+    context = {
+        'title': 'Portfolio Momentum Scan',
+        'candidates': candidates,
+        'portfolio_count': portfolio_items.count(),
+        'scanned_at': scanned_at,
+        'has_scanned': request.method == "POST" or request.GET.get('scan') == 'true',
+    }
+    return render(request, 'stocks/portfolio_scan.html', context)
+
+
 # ====== Entry Finder — กราฟ Sniper Entry พร้อม Supply & Demand Zone ======
 
 @login_required

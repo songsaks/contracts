@@ -83,25 +83,10 @@
                             <div class="d-flex justify-content-between align-items-start mb-2">
                                 <h6 class="fw-bold mb-0 text-dark">{{ item.device.brand }} {{ item.device.model }}</h6>
                                 
-                                {% if item.status == 'RECEIVED' %}
-                                    <span class="badge bg-danger rounded-pill">รับแจ้ง</span>
-                                {% elif item.status == 'FIXING' %}
-                                    <span class="badge rounded-pill text-white" style="background-color: #ff9100;">กำลังซ่อม/ตรวจเช็ค</span>
-                                {% elif item.status == 'WAITING_APPROVAL' %}
-                                    <span class="badge rounded-pill" style="background-color: #a855f7;">รออนุมัติงานซ่อม</span>
-                                {% elif item.status == 'WAITING' %}
-                                    <span class="badge bg-warning text-dark rounded-pill">รออะไหล่</span>
-                                {% elif item.status == 'OUTSOURCE' %}
-                                    <span class="badge rounded-pill text-white" style="background-color: #6f42c1;">ส่งซ่อมศูนย์/ภายนอก</span>
-                                {% elif item.status == 'RECEIVED_FROM_VENDOR' %}
-                                    <span class="badge bg-info rounded-pill">รอตรวจรับกลับ</span>
-                                {% elif item.status == 'FINISHED' %}
-                                    <span class="badge bg-success rounded-pill">ซ่อมเสร็จ</span>
-                                {% elif item.status == 'CANCELLED' %}
-                                    <span class="badge bg-secondary rounded-pill">ยกเลิก</span>
-                                {% elif item.status == 'COMPLETED' %}
-                                    <span class="badge bg-secondary rounded-pill">ส่งคืนแล้ว</span>
-                                {% endif %}
+                                <span class="badge rounded-pill {% if item.status == 'RECEIVED' %}bg-danger{% elif item.status == 'FIXING' %}text-white{% elif item.status == 'WAITING' %}bg-warning text-dark{% elif item.status == 'FINISHED' %}bg-success{% elif item.status in 'CANCELLED,COMPLETED' %}bg-secondary{% elif item.status == 'RECEIVED_FROM_VENDOR' %}bg-info{% else %}bg-primary{% endif %}" 
+                                      {% if item.status == 'FIXING' %}style="background-color: #ff9100;"{% elif item.status == 'WAITING_APPROVAL' %}style="background-color: #a855f7;"{% elif item.status == 'OUTSOURCE' %}style="background-color: #6f42c1;"{% endif %}>
+                                    {{ item.get_status_display }}
+                                </span>
                             </div>
                             
                             <p class="small text-muted mb-1"><i class="fas fa-exclamation-circle me-1"></i>อาการ: {{ item.issue_description }}</p>

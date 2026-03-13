@@ -80,12 +80,9 @@
                         <label class="form-label text-muted small mb-1">สถานะ</label>
                         <select name="status" class="form-select select2" onchange="this.form.submit()">
                             <option value="">ทุกสถานะ (งานค้าง)</option>
-                            <option value="RECEIVED" {% if request.GET.status == 'RECEIVED' %}selected{% endif %}>รับแจ้ง</option>
-                            <option value="FIXING" {% if request.GET.status == 'FIXING' %}selected{% endif %}>กำลังซ่อม/ตรวจเช็ค</option>
-                            <option value="WAITING_APPROVAL" {% if request.GET.status == 'WAITING_APPROVAL' %}selected{% endif %}>รออนุมัติงานซ่อม</option>
-                            <option value="WAITING" {% if request.GET.status == 'WAITING' %}selected{% endif %}>รออะไหล่</option>
-                            <option value="OUTSOURCE" {% if request.GET.status == 'OUTSOURCE' %}selected{% endif %}>ส่งซ่อมศูนย์</option>
-                            <option value="RECEIVED_FROM_VENDOR" {% if request.GET.status == 'RECEIVED_FROM_VENDOR' %}selected{% endif %}>รับกลับจากศูนย์</option>
+                            {% for status_code, status_label in status_choices %}
+                            <option value="{{ status_code }}" {% if request.GET.status == status_code %}selected{% endif %}>{{ status_label }}</option>
+                            {% endfor %}
                         </select>
                     </div>
                     <div class="col-6 col-md-3">
@@ -158,25 +155,9 @@
                                 <td>
                                     <div class="d-flex align-items-center">
                                         <strong class="me-2 text-nowrap">{{ item.device.brand }} {{ item.device.model }}</strong>
-                                        {% if item.status == 'RECEIVED' %}
-                                            <span class="status-badge-pill bg-danger text-white">รับแจ้ง</span>
-                                        {% elif item.status == 'FIXING' %}
-                                            <span class="status-badge-pill text-white" style="background-color: #ff9100;">กำลังซ่อม/ตรวจเช็ค</span>
-                                        {% elif item.status == 'WAITING_APPROVAL' %}
-                                            <span class="status-badge-pill bg-secondary text-white">รออนุมัติ</span>
-                                        {% elif item.status == 'WAITING' %}
-                                            <span class="status-badge-pill bg-warning text-dark">รออะไหล่</span>
-                                        {% elif item.status == 'OUTSOURCE' %}
-                                            <span class="status-badge-pill text-white" style="background-color: #6366f1;">ส่งซ่อมศูนย์</span>
-                                        {% elif item.status == 'RECEIVED_FROM_VENDOR' %}
-                                            <span class="status-badge-pill bg-info text-white">รับจากศูนย์</span>
-                                        {% elif item.status == 'FINISHED' %}
-                                            <span class="status-badge-pill bg-success text-white">ซ่อมเสร็จ</span>
-                                        {% elif item.status == 'CANCELLED' %}
-                                            <span class="status-badge-pill bg-secondary text-white">ยกเลิก</span>
-                                        {% elif item.status == 'COMPLETED' %}
-                                            <span class="status-badge-pill bg-secondary text-white">ส่งคืนแล้ว</span>
-                                        {% endif %}
+                                        <span class="status-badge-pill text-white" style="background-color: {{ item.get_status_color }};">
+                                            {{ item.get_status_name }}
+                                        </span>
                                         <span class="small text-muted text-truncate ms-2" style="max-width: 150px;" title="{{ item.issue_description }}">
                                             - {{ item.issue_description }}
                                         </span>
@@ -224,25 +205,9 @@
                         </a>
                         <div class="x-small text-muted">{{ item.job.created_at|date:"d M H:i" }}</div>
                     </div>
-                    {% if item.status == 'RECEIVED' %}
-                        <span class="status-badge-pill bg-danger text-white">รับแจ้ง</span>
-                    {% elif item.status == 'FIXING' %}
-                        <span class="status-badge-pill bg-orange-500 text-white">ซ่อม/เช็ค</span>
-                    {% elif item.status == 'WAITING_APPROVAL' %}
-                        <span class="status-badge-pill bg-secondary text-white">รออนุมัติ</span>
-                    {% elif item.status == 'WAITING' %}
-                        <span class="status-badge-pill bg-warning text-dark">รออะไหล่</span>
-                    {% elif item.status == 'OUTSOURCE' %}
-                        <span class="status-badge-pill text-white" style="background-color: #6366f1;">ส่งซ่อมศูนย์</span>
-                    {% elif item.status == 'RECEIVED_FROM_VENDOR' %}
-                        <span class="status-badge-pill bg-info text-white">รับจากศูนย์</span>
-                    {% elif item.status == 'FINISHED' %}
-                        <span class="status-badge-pill bg-success text-white">ซ่อมเสร็จ</span>
-                    {% elif item.status == 'CANCELLED' %}
-                        <span class="status-badge-pill bg-secondary text-white">ยกเลิก</span>
-                    {% elif item.status == 'COMPLETED' %}
-                        <span class="status-badge-pill bg-secondary text-white">ส่งคืนแล้ว</span>
-                    {% endif %}
+                    <span class="status-badge-pill text-white" style="background-color: {{ item.get_status_color }};">
+                        {{ item.get_status_name }}
+                    </span>
                 </div>
                 <div class="mb-2">
                     <div class="fw-bold text-dark small">{{ item.job.customer.name }}</div>

@@ -359,6 +359,7 @@
                         </a>
                         <ul class="dropdown-menu border-0 shadow-lg" aria-labelledby="repairDropdown">
                             <li><a class="dropdown-item {% if 'technician' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'repairs:technician_list' %}"><i class="fas fa-user-cog me-2"></i>ช่าง</a></li>
+                            <li><a class="dropdown-item {% if 'repair_status' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'repairs:repair_status_settings' %}"><i class="fas fa-tasks me-2"></i>ลำดับสถานะ</a></li>
                             <li><a class="dropdown-item {% if 'repair_type' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'repairs:repair_type_list' %}"><i class="fas fa-briefcase me-2"></i>ประเภทงาน</a></li>
                             <li><a class="dropdown-item {% if 'device_type' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'repairs:device_type_list' %}"><i class="fas fa-laptop me-2"></i>ประเภทสินค้า</a></li>
                             <li><a class="dropdown-item {% if 'brand' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'repairs:brand_list' %}"><i class="fas fa-tags me-2"></i>ยี่ห้อ</a></li>
@@ -490,6 +491,10 @@
                 return colors[code] || '#6b7280';
             }
 
+            // Sound Alert for Responsibles
+            const notifSound = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
+            let lastResponsibleId = localStorage.getItem('last_responsible_notif_id');
+
             function fetchNotifications() {
                 fetch('{% url "repairs:repair_notifications_api" %}')
                     .then(r => r.json())
@@ -500,6 +505,16 @@
                             notifBadge.style.display = 'flex';
                         } else {
                             notifBadge.style.display = 'none';
+                        }
+
+                        // Check for sound alert (if new responsible status change)
+                        if (data.status_changes && data.status_changes.length > 0) {
+                            const latestResp = data.status_changes.find(sh => sh.is_responsible);
+                            if (latestResp && latestResp.id != lastResponsibleId) {
+                                notifSound.play().catch(e => console.log('Sound blocked by browser'));
+                                lastResponsibleId = latestResp.id;
+                                localStorage.setItem('last_responsible_notif_id', lastResponsibleId);
+                            }
                         }
 
                         // Build notification list
@@ -529,15 +544,18 @@
                         if (data.status_changes.length > 0) {
                             html += '<div class="notif-section-title"><i class="fas fa-exchange-alt me-1"></i>การเปลี่ยนสถานะ</div>';
                             data.status_changes.forEach(item => {
-                                const color = getStatusColor(item.status_code);
+                                const color = item.status_color || getStatusColor(item.status_code);
                                 html += `
-                                    <a href="/repairs/job/${item.job_pk}/" class="notif-item">
+                                    <a href="/repairs/job/${item.job_pk}/" class="notif-item ${item.is_responsible ? 'bg-primary bg-opacity-10 border-start border-primary border-4' : ''}">
                                         <div class="d-flex gap-2 align-items-start">
                                             <div class="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0" style="width:32px;height:32px;background:${color}15;">
                                                 <span class="status-dot" style="background:${color};"></span>
                                             </div>
                                             <div style="min-width:0;">
-                                                <div class="fw-bold" style="font-size:0.8rem;">${item.job_code} → ${item.status}</div>
+                                                <div class="fw-bold" style="font-size:0.8rem;">
+                                                    ${item.job_code} → ${item.status}
+                                                    ${item.is_responsible ? '<span class="badge bg-primary ms-1" style="font-size:0.6rem;">หน้าที่คุณ</span>' : ''}
+                                                </div>
                                                 <div class="text-muted" style="font-size:0.72rem;">${item.device}</div>
                                                 <div class="text-muted" style="font-size:0.65rem;">
                                                     <i class="fas fa-user me-1"></i>${item.changed_by} • ${item.changed_at}
@@ -581,6 +599,13 @@
 
             // Initial fetch
             fetchNotifications();
+
+            // Mark as seen when opening dropdown
+            notifBell.addEventListener('show.bs.dropdown', function() {
+                if (notifBadge.style.display !== 'none') {
+                    markAllBtn.click();
+                }
+            });
 
             // Poll every 30 seconds
             setInterval(fetchNotifications, 30000);

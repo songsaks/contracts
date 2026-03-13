@@ -3,7 +3,8 @@ from django.http import JsonResponse, HttpResponse
 from django.urls import reverse
 from django.db import transaction
 from django.contrib.auth.decorators import login_required
-from .models import RepairJob, RepairItem, Customer, Device, Technician, DeviceType, Brand, RepairStatusHistory, OutsourceLog, RepairType
+from .models import RepairJob, RepairItem, Customer, Device, Technician, DeviceType, Brand, RepairStatusHistory, OutsourceLog, RepairType, RepairStatus
+from django.contrib.auth.models import User
 from .forms import CustomerForm, DeviceForm, RepairJobForm, RepairItemForm, TechnicianForm, DeviceTypeForm, BrandForm, OutsourceLogForm, RepairTypeForm
 
 import csv
@@ -256,7 +257,12 @@ def repair_list(request):
     from django.contrib.auth.models import User
     users = User.objects.all().order_by('username')
 
-    return render(request, 'repairs/repair_list.html', {'items': items, 'users': users, 'selected_created_by': selected_created_by})
+    return render(request, 'repairs/repair_list.html', {
+        'items': items, 
+        'users': users, 
+        'selected_created_by': selected_created_by,
+        'status_choices': RepairItem.STATUS_CHOICES
+    })
 
 @login_required
 def repair_completed_list(request):
@@ -305,7 +311,8 @@ def repair_completed_list(request):
         'delete_password': settings.DELETE_PASSWORD,
         'list_type': 'finished',
         'page_title': 'เสร็จแล้ว/ยกเลิก',
-        'page_subtitle': 'งานที่ซ่อมเสร็จหรือยกเลิกแล้ว แต่ยังไม่ได้ส่งคืน'
+        'page_subtitle': 'งานที่ซ่อมเสร็จหรือยกเลิกแล้ว แต่ยังไม่ได้ส่งคืน',
+        'status_choices': RepairItem.STATUS_CHOICES
     })
 
 @login_required
@@ -350,7 +357,8 @@ def repair_returned_list(request):
         'delete_password': settings.DELETE_PASSWORD,
         'list_type': 'returned',
         'page_title': 'ส่งคืนแล้ว',
-        'page_subtitle': 'รายการที่ส่งคืนเครื่องให้ลูกค้าเรียบร้อยแล้ว'
+        'page_subtitle': 'รายการที่ส่งคืนเครื่องให้ลูกค้าเรียบร้อยแล้ว',
+        'status_choices': RepairItem.STATUS_CHOICES
     })
 
 @login_required
@@ -1026,12 +1034,17 @@ def repair_notifications_api(request):
         except (ValueError, TypeError):
             last_seen = timezone.now() - datetime.timedelta(hours=24)
     else:
-        last_seen = timezone.now() - datetime.timedelta(hours=24)
+        # Default to 8 hours instead of 24 for cleaner first-look
+        last_seen = timezone.now() - datetime.timedelta(hours=8)
 
-    # Get new items since last seen
-    new_items = RepairItem.objects.filter(
+    # 1. Get new items since last seen
+    # Exclude items created by current user
+    new_items_query = RepairItem.objects.filter(
         created_at__gt=last_seen
-    ).select_related(
+    ).exclude(created_by=request.user)
+    
+    # If not superuser, maybe only show what they might care about (optional, keeping broad for now)
+    new_items = new_items_query.select_related(
         'job', 'device', 'device__brand', 'job__customer', 'created_by'
     ).order_by('-created_at')[:20]
 
@@ -1050,15 +1063,25 @@ def repair_notifications_api(request):
             'created_date': item.created_at.strftime('%d/%m/%Y'),
         })
 
-    # Also count status changes (items that changed status recently)
-    status_changes = RepairStatusHistory.objects.filter(
+    # 2. Get status changes
+    # Exclude changes made by current user
+    status_changes_query = RepairStatusHistory.objects.filter(
         changed_at__gt=last_seen
     ).exclude(
-        status='RECEIVED'  # skip initial status
-    ).select_related(
+        Q(status='RECEIVED') | Q(changed_by=request.user)
+    )
+
+    # Filter: Normal users only see what they are responsible for
+    # Superusers see everything
+    if not request.user.is_superuser:
+        status_changes_query = status_changes_query.filter(
+            status_obj__responsibles=request.user
+        )
+
+    status_changes = status_changes_query.select_related(
         'repair_item', 'repair_item__job', 'repair_item__device',
-        'repair_item__device__brand', 'changed_by'
-    ).order_by('-changed_at')[:10]
+        'repair_item__device__brand', 'changed_by', 'status_obj'
+    ).order_by('-changed_at')[:15]
 
     status_notifs = []
     for sh in status_changes:
@@ -1069,6 +1092,8 @@ def repair_notifications_api(request):
             'device': f"{sh.repair_item.device.brand} {sh.repair_item.device.model}",
             'status': sh.get_status_display(),
             'status_code': sh.status,
+            'status_color': sh.status_obj.color if sh.status_obj else None,
+            'is_responsible': sh.status_obj.responsibles.filter(id=request.user.id).exists() if sh.status_obj else False,
             'changed_by': sh.changed_by.username if sh.changed_by else '-',
             'changed_at': sh.changed_at.strftime('%H:%M'),
         })
@@ -1161,3 +1186,115 @@ def technician_update_status_api(request):
         )
         
     return JsonResponse({'status': 'success', 'new_status_display': item.get_status_display()})
+
+@login_required
+def repair_status_list(request):
+    """จัดการรายการสถานะงานซ่อม และลำดับขั้นตอน"""
+    if not request.user.is_superuser:
+        return redirect('repairs:dashboard')
+        
+    statuses = RepairStatus.objects.all().prefetch_related('responsibles')
+    
+    # Initialize if empty
+    if not statuses.exists():
+        defaults = [
+            ('RECEIVED', 'รับแจ้ง', 10, '#ef4444'),
+            ('FIXING', 'กำลังซ่อม/ตรวจเช็ค', 20, '#f97316'),
+            ('WAITING_APPROVAL', 'รออนุมัติงานซ่อม', 30, '#a855f7'),
+            ('WAITING', 'รออะไหล่', 40, '#eab308'),
+            ('OUTSOURCE', 'ส่งซ่อมศูนย์/ภายนอก', 50, '#6366f1'),
+            ('RECEIVED_FROM_VENDOR', 'รอตรวจรับกลับ', 60, '#3b82f6'),
+            ('FINISHED', 'ซ่อมเสร็จ', 70, '#22c55e'),
+            ('CANCELLED', 'ยกเลิกการซ่อม', 80, '#6b7280'),
+            ('COMPLETED', 'ส่งคืนให้ลูกค้าแล้ว', 90, '#1f2937'),
+        ]
+        for code, name, seq, color in defaults:
+            RepairStatus.objects.get_or_create(code=code, defaults={'name': name, 'sequence': seq, 'color': color})
+        statuses = RepairStatus.objects.all().prefetch_related('responsibles')
+
+    users = User.objects.all().order_by('username')
+    
+    if request.method == 'POST':
+        action = request.POST.get('action')
+        if action == 'update_responsible':
+            status_id = request.POST.get('status_id')
+            user_ids = request.POST.getlist('responsibles')
+            status = get_object_or_404(RepairStatus, id=status_id)
+            status.responsibles.set(user_ids)
+            return JsonResponse({'status': 'success'})
+        elif action == 'update_basic':
+            status_id = request.POST.get('status_id')
+            status = get_object_or_404(RepairStatus, id=status_id)
+            status.name = request.POST.get('name')
+            status.sequence = request.POST.get('sequence')
+            status.color = request.POST.get('color')
+            status.save()
+            return JsonResponse({'status': 'success'})
+        elif action == 'create':
+            name = request.POST.get('name')
+            code = request.POST.get('code', name.upper().replace(' ', '_')) # Default code from name
+            sequence = request.POST.get('sequence', 0)
+            color = request.POST.get('color', '#6b7280')
+            
+            if RepairStatus.objects.filter(code=code).exists():
+                return JsonResponse({'status': 'error', 'message': f'รหัสสถานะ {code} มีอยู่ในระบบแล้ว'}, status=400)
+                
+            RepairStatus.objects.create(name=name, code=code, sequence=sequence, color=color)
+            return JsonResponse({'status': 'success'})
+        elif action == 'delete':
+            status_id = request.POST.get('status_id')
+            status = get_object_or_404(RepairStatus, id=status_id)
+            if status.items.exists():
+                return JsonResponse({'status': 'error', 'message': 'ไม่สามารถลบได้เนื่องจากมีงานซ่อมใช้งานสถานะนี้อยู่'}, status=400)
+            status.delete()
+            return JsonResponse({'status': 'success'})
+
+    return render(request, 'repairs/repair_status_list.html', {
+        'statuses': statuses,
+        'users': users
+    })
+
+@login_required
+def repair_next_step(request, item_id):
+    """เลื่อนสถานะงานซ่อมไปยังขั้นตอนถัดไปอัตโนมัติ"""
+    item = get_object_or_404(RepairItem, pk=item_id)
+    
+    # ดึงสถานะปัจจุบัน
+    current = item.current_status
+    if not current:
+        # ถ้ายังไม่มีสถานะผูกกับโมเดลใหม่ ให้ลองหาจาก code เดิม
+        current = RepairStatus.objects.filter(code=item.status).first()
+    
+    if not current:
+        # ถ้าหาไม่ได้เลย ให้เริ่มที่ตัวแรก
+        next_status = RepairStatus.objects.first()
+    else:
+        # หาตัวที่มี sequence มากกว่าตัวปัจจุบัน
+        next_status = RepairStatus.objects.filter(sequence__gt=current.sequence).first()
+    
+    if next_status:
+        with transaction.atomic():
+            item.current_status = next_status
+            item.status = next_status.code #Sync with old field for compatibility
+            
+            # Additional logic for COMPLETED
+            if next_status.code == 'COMPLETED':
+                item.closed_at = timezone.now()
+            
+            item.save()
+            
+            RepairStatusHistory.objects.create(
+                repair_item=item,
+                status=next_status.code,
+                status_obj=next_status,
+                changed_by=request.user,
+                note=f"เลื่อนสถานะเป็น {next_status.name} (อัตโนมัติ)"
+            )
+            
+        return JsonResponse({
+            'status': 'success', 
+            'new_status_name': next_status.name,
+            'new_status_color': next_status.color
+        })
+    
+    return JsonResponse({'status': 'error', 'message': 'ไม่มีขั้นตอนถัดไปแล้ว'})

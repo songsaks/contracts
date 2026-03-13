@@ -82,8 +82,9 @@
                         <label class="form-label text-muted small mb-1">สถานะ</label>
                         <select name="status" class="form-select select2" onchange="this.form.submit()">
                             <option value="">ทุกรายการ</option>
-                            <option value="FINISHED" {% if request.GET.status == 'FINISHED' %}selected{% endif %}>ซ่อมเสร็จ (รอคืน)</option>
-                            <option value="CANCELLED" {% if request.GET.status == 'CANCELLED' %}selected{% endif %}>ยกเลิกการซ่อม</option>
+                            {% for status_code, status_label in status_choices %}
+                            <option value="{{ status_code }}" {% if request.GET.status == status_code %}selected{% endif %}>{{ status_label }}</option>
+                            {% endfor %}
                         </select>
                     </div>
                     {% endif %}
@@ -152,13 +153,9 @@
                                 <td>
                                     <div class="d-flex align-items-center">
                                         <strong class="me-2 text-nowrap">{{ item.device.brand }} {{ item.device.model }}</strong>
-                                        {% if item.status == 'FINISHED' %}
-                                            <span class="status-badge-pill bg-success text-white">ซ่อมเสร็จ</span>
-                                        {% elif item.status == 'CANCELLED' %}
-                                            <span class="status-badge-pill bg-secondary text-white">ยกเลิก</span>
-                                        {% elif item.status == 'COMPLETED' %}
-                                            <span class="status-badge-pill bg-dark text-white">คืนเครื่องแล้ว</span>
-                                        {% endif %}
+                                        <span class="status-badge-pill text-white" style="background-color: {{ item.get_status_color }};">
+                                            {{ item.get_status_name }}
+                                        </span>
                                     </div>
                                     <div class="small text-muted text-truncate mt-1" style="max-width: 250px;">
                                         {{ item.issue_description }}
@@ -199,13 +196,9 @@
                         </a>
                         <div class="x-small text-muted">ปิดงาน: {{ item.closed_at|date:"d M Y"|default:item.updated_at|date:"d M Y" }}</div>
                     </div>
-                    {% if item.status == 'FINISHED' %}
-                        <span class="status-badge-pill bg-success text-white">ซ่อมเสร็จ</span>
-                    {% elif item.status == 'CANCELLED' %}
-                        <span class="status-badge-pill bg-secondary text-white">ยกเลิก</span>
-                    {% elif item.status == 'COMPLETED' %}
-                        <span class="status-badge-pill bg-dark text-white">คืนเครื่อง</span>
-                    {% endif %}
+                    <span class="status-badge-pill {% if item.status == 'FINISHED' %}bg-success{% elif item.status == 'CANCELLED' %}bg-secondary{% elif item.status == 'COMPLETED' %}bg-dark{% else %}bg-primary{% endif %} text-white">
+                        {{ item.get_status_display }}
+                    </span>
                 </div>
                 <div class="mb-2">
                     <div class="fw-bold text-dark small">{{ item.job.customer.name }}</div>

@@ -62,4 +62,8 @@ urlpatterns = [
     path('tech/login/', views.technician_status_login, name='tech_login'),
     path('tech/logout/', views.technician_status_logout, name='tech_logout'),
     path('api/tech/update-status/', views.technician_update_status_api, name='tech_update_status_api'),
+    
+    # Custom Status Workflow
+    path('status-settings/', views.repair_status_list, name='repair_status_settings'),
+    path('item/<int:item_id>/next-step/', views.repair_next_step, name='repair_next_step'),
 ]

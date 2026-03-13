@@ -189,6 +189,30 @@ class RepairJob(models.Model):
         return 'bg-red-50'
 
 
+# ====== RepairStatus — สถานะงานซ่อมแบบกำหนดเอง ======
+
+class RepairStatus(models.Model):
+    """โมเดลกำหนดสถานะงานซ่อม (Workflow) จากฐานข้อมูล
+    
+    ช่วยให้ผู้ใช้สามารถกำหนดลำดับขั้นตอนและผู้รับผิดชอบในแต่ละสถานะได้เอง
+    """
+    name = models.CharField(max_length=100)                     # ชื่อสถานะ (แสดงผล)
+    code = models.CharField(max_length=50, unique=True)          # รหัสสถานะ (เช่น RECEIVED, FIXING)
+    sequence = models.IntegerField(default=0, help_text="ลำดับขั้นตอน (1, 2, 3...)")
+    color = models.CharField(max_length=30, default="#6b7280", help_text="CSS Color code (e.g. #ff0000)")
+    responsibles = models.ManyToManyField(settings.AUTH_USER_MODEL, blank=True, related_name='responsible_repair_statuses')
+    description = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.sequence}. {self.name}"
+
+    class Meta:
+        ordering = ['sequence']
+        verbose_name = "สถานะงานซ่อม"
+        verbose_name_plural = "สถานะงานซ่อม"
+
+
 # ====== RepairItem — รายการซ่อมแต่ละชิ้น ======
 
 class RepairItem(models.Model):
@@ -206,14 +230,14 @@ class RepairItem(models.Model):
     """
     STATUS_CHOICES = [
         ('RECEIVED', 'รับแจ้ง'),                              # รับเครื่องเข้าซ่อมแล้ว รอตรวจสอบ
-        ('FIXING', 'คิว'),                                     # อยู่ระหว่างซ่อม/ตรวจเช็ค
+        ('FIXING', 'กำลังซ่อม/ตรวจเช็ค'),                      # อยู่ระหว่างซ่อม/ตรวจเช็ค
         ('WAITING_APPROVAL', 'รออนุมัติงานซ่อม'),             # รอลูกค้าอนุมัติราคาหรืองาน
         ('WAITING', 'รออะไหล่'),                               # รอชิ้นส่วนอะไหล่
         ('OUTSOURCE', 'ส่งซ่อมศูนย์/ภายนอก'),                  # ส่งซ่อมที่ศูนย์บริการหรือภายนอก
         ('RECEIVED_FROM_VENDOR', 'รอตรวจรับกลับ'),            # ได้รับเครื่องคืนจากศูนย์ รอตรวจสอบ
-        ('CANCELLED', 'ยกเลิก'),                               # ยกเลิกการซ่อม
+        ('CANCELLED', 'ยกเลิกการซ่อม'),                        # ยกเลิกการซ่อม
         ('FINISHED', 'ซ่อมเสร็จ'),                             # ซ่อมเสร็จแล้ว รอส่งคืนลูกค้า
-        ('COMPLETED', 'ส่งคืนแล้ว'),                           # ส่งคืนเครื่องให้ลูกค้าเรียบร้อย
+        ('COMPLETED', 'ส่งคืนให้ลูกค้าแล้ว'),                  # ส่งคืนเครื่องให้ลูกค้าเรียบร้อย
     ]
 
     job = models.ForeignKey(RepairJob, on_delete=models.CASCADE, related_name='items')            # ใบงานที่สังกัด
@@ -221,7 +245,8 @@ class RepairItem(models.Model):
     technicians = models.ManyToManyField(Technician, blank=True)                                  # ช่างผู้รับผิดชอบ (หลายคนได้)
     issue_description = models.TextField()                                                        # อาการเสียที่ลูกค้าแจ้ง
     accessories = models.CharField(max_length=255, blank=True, verbose_name="อุปกรณ์ที่นำมาด้วย", help_text="เช่น สายชาร์จ, กระเป๋า, เมาส์")  # อุปกรณ์เสริมที่นำมาด้วย
-    status = models.CharField(max_length=50, choices=STATUS_CHOICES, default='RECEIVED')          # สถานะปัจจุบัน
+    status = models.CharField(max_length=50, choices=STATUS_CHOICES, default='RECEIVED')          # สถานะเดิม (เพื่อความปลอดภัยในช่วงแรก)
+    current_status = models.ForeignKey(RepairStatus, on_delete=models.SET_NULL, null=True, blank=True, related_name='items') # สถานะใหม่จาก DB
     status_note = models.TextField(blank=True, help_text="Reason for waiting or other status details")  # หมายเหตุสถานะ
     price = models.DecimalField(max_digits=10, decimal_places=2, default=0.00, verbose_name="ราคาประเมิน")  # ราคาประเมิน
     final_cost = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, verbose_name="ค่าใช้จ่ายจริง")  # ค่าใช้จ่ายจริงที่เรียกเก็บ
@@ -232,19 +257,28 @@ class RepairItem(models.Model):
     closed_at = models.DateTimeField(null=True, blank=True, verbose_name="วันที่ซ่อมเสร็จ/คืนเครื่อง")  # วันที่ปิดงาน
 
     def get_status_color(self):
-        """คืนค่า CSS class (Tailwind) สำหรับสีแบดจ์ของสถานะปัจจุบัน"""
+        """คืนค่า HEX Color จากสถานะใหม่ใน DB หรือ fallback เป็นค่าเดิม"""
+        if self.current_status:
+            return self.current_status.color
+        
         colors = {
-            'RECEIVED': 'bg-red-500 text-white',
-            'FIXING': 'bg-orange-500 text-white',
-            'WAITING_APPROVAL': 'bg-secondary text-white',
-            'WAITING': 'bg-yellow-400 text-black',
-            'OUTSOURCE': 'bg-indigo-500 text-white',
-            'RECEIVED_FROM_VENDOR': 'bg-blue-400 text-white',
-            'FINISHED': 'bg-green-500 text-white',
-            'CANCELLED': 'bg-gray-500 text-white',
-            'COMPLETED': 'bg-secondary text-white',
+            'RECEIVED': '#ef4444',
+            'FIXING': '#f97316',
+            'WAITING_APPROVAL': '#a855f7',
+            'WAITING': '#eab308',
+            'OUTSOURCE': '#6366f1',
+            'RECEIVED_FROM_VENDOR': '#3b82f6',
+            'FINISHED': '#22c55e',
+            'CANCELLED': '#6b7280',
+            'COMPLETED': '#1f2937',
         }
-        return colors.get(self.status, 'bg-gray-500 text-white')
+        return colors.get(self.status, '#6b7280')
+
+    def get_status_name(self):
+        """คืนค่าชื่อสถานะจาก DB หรือ fallback เป็นค่าเดิม"""
+        if self.current_status:
+            return self.current_status.name
+        return self.get_status_display()
 
     def get_status_bg_light(self):
         """คืนค่า CSS class (Tailwind) สำหรับสีพื้นหลังอ่อนของแถวตามสถานะ"""
@@ -326,14 +360,24 @@ class RepairStatusHistory(models.Model):
 
     ใช้แสดง timeline ในหน้ารายละเอียดงานซ่อม และหน้า tracking ของลูกค้า
     """
-    repair_item = models.ForeignKey(RepairItem, on_delete=models.CASCADE, related_name='status_history')  # รายการซ่อมที่เกี่ยวข้อง
-    status = models.CharField(max_length=50, choices=RepairItem.STATUS_CHOICES)                           # สถานะที่เปลี่ยนไป
+    repair_item = models.ForeignKey(RepairItem, on_delete=models.CASCADE, related_name='history')  # รายการซ่อมที่เกี่ยวข้อง
+    status = models.CharField(max_length=50) # เก็บเป็น code เดิม
+    status_obj = models.ForeignKey(RepairStatus, on_delete=models.SET_NULL, null=True, blank=True) # เชื่อมกับโมเดลใหม่
     changed_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True)  # ผู้เปลี่ยนสถานะ
     changed_at = models.DateTimeField(auto_now_add=True)                                                  # เวลาที่เปลี่ยน
     note = models.TextField(blank=True)                                                                   # หมายเหตุประกอบ
 
+    def get_status_display(self):
+        """คืนค่าชื่อสถานะจาก DB (โมเดลใหม่) หรือ fallback เป็นชื่อเดิม"""
+        if self.status_obj:
+            return self.status_obj.name
+        
+        # fallback to basic labels (mapping code to name) using RepairItem defined above
+        labels = dict(RepairItem.STATUS_CHOICES)
+        return labels.get(self.status, self.status)
+
     def __str__(self):
-        return f"{self.repair_item.job.job_code} -> {self.status} at {self.changed_at}"
+        return f"{self.repair_item.job.job_code} -> {self.get_status_display()} at {self.changed_at}"
 
     class Meta:
         ordering = ['-changed_at']          # เรียงจากใหม่ไปเก่า
