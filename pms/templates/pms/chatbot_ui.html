@@ -240,15 +240,29 @@
     
     @media (max-width: 576px) {
         .chatbot-window-container {
-            width: calc(100% - 30px);
-            right: 15px;
-            bottom: 90px;
-            height: 75vh;
-            border-radius: 20px;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            width: 100%;
+            height: 100%;
+            height: 100dvh;
+            border-radius: 0;
         }
         .chatbot-button-container {
             bottom: 20px;
             right: 20px;
+        }
+        .chatbot-messages-body {
+            min-height: 0;
+        }
+        .chatbot-input-area {
+            flex-shrink: 0;
+            padding-bottom: max(12px, env(safe-area-inset-bottom)) !important;
+        }
+        #chatbot-input {
+            font-size: 16px; /* prevents iOS auto-zoom */
         }
     }
 
