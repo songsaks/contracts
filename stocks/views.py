@@ -40,31 +40,73 @@ def dashboard(request):
     และค่า RSI 14 วัน คำนวณแบบ Real-time ผ่าน yfinance
     """
     watchlist = Watchlist.objects.filter(user=request.user)
-    # วนดึงข้อมูลราคาและ RSI ของแต่ละสินทรัพย์ใน Watchlist
     items = []
     import pandas_ta as ta
+    from .utils import analyze_momentum_technical
     for item in watchlist:
         try:
             t = yf.Ticker(item.symbol)
-            # ดึงข้อมูลย้อนหลัง 1 เดือนเพื่อคำนวณ RSI 14 วัน
-            hist = t.history(period="1mo")
-            current = t.info.get('currentPrice') or t.info.get('regularMarketPrice') or t.info.get('previousClose')
-            change = t.info.get('regularMarketChangePercent', 0)
+            hist = t.history(period="1y")
+
+            # Fallback: try alternate symbol if empty
+            if hist.empty:
+                alt_sym = f"{item.symbol}.BK" if ".BK" not in item.symbol else item.symbol.replace(".BK", "")
+                hist = yf.Ticker(alt_sym).history(period="1y")
+
+            current = None
+            change = 0
+            if not hist.empty:
+                if isinstance(hist.columns, pd.MultiIndex):
+                    hist.columns = [col[0] for col in hist.columns]
+                hist = hist.loc[:, ~hist.columns.duplicated()]
+                current = float(hist['Close'].iloc[-1])
+                if len(hist) >= 2:
+                    prev = float(hist['Close'].iloc[-2])
+                    change = ((current - prev) / prev * 100) if prev else 0
+            if not current:
+                info = t.info
+                current = info.get('currentPrice') or info.get('regularMarketPrice') or info.get('previousClose')
+                change = info.get('regularMarketChangePercent', 0)
 
             rsi_val = None
             rsi_status = "Neutral"
             if not hist.empty and len(hist) >= 14:
-                # คำนวณ RSI 14 วัน ด้วย pandas_ta
                 rsi_series = ta.rsi(hist['Close'], length=14)
                 if not rsi_series.empty:
                     rsi_val = rsi_series.iloc[-1]
-                    # จำแนกสถานะ RSI ว่า Oversold/Overbought
                     if rsi_val < 30: rsi_status = "Oversold"
                     elif rsi_val > 70: rsi_status = "Overbought"
 
             # ดึงข้อมูล Momentum Scan ที่เก็บไว้ (ถ้ามี)
-            # Check if this has momentum scan data
-            mom_data = MomentumCandidate.objects.filter(user=request.user, symbol=item.symbol).first()
+            clean_symbol = item.symbol.split('.')[0].upper()
+            mom_data = MomentumCandidate.objects.filter(user=request.user, symbol=clean_symbol).first()
+            if not mom_data:
+                mom_data = MomentumCandidate.objects.filter(user=request.user, symbol=item.symbol).first()
+
+            # QuickMom fallback — คำนวณ on-the-fly ถ้าไม่มีข้อมูลสแกน
+            if not mom_data and not hist.empty:
+                tech_analysis = analyze_momentum_technical(hist)
+                if tech_analysis and tech_analysis.get('score', 0) > 0:
+                    class QuickMom: pass
+                    q_mom = QuickMom()
+                    q_mom.technical_score = tech_analysis['score']
+                    q_mom.rvol = tech_analysis.get('rvol', 1.0)
+                    sd = tech_analysis.get('sd_zone')
+                    if sd and sd.get('start') and sd['start'] > 0:
+                        q_mom.risk_reward_ratio = sd.get('rr_ratio', 0)
+                        q_mom.demand_zone_start = sd['start']
+                        q_mom.demand_zone_end = sd.get('end', 0)
+                        q_mom.supply_zone_start = sd.get('target', 0)
+                        q_mom.stop_loss = sd.get('stop_loss', None)
+                        q_mom.zone_proximity = 0 if (current and current <= sd['start']) else ((float(current or 0) - sd['start']) / sd['start']) * 100
+                    else:
+                        q_mom.risk_reward_ratio = 0
+                        q_mom.demand_zone_start = 0
+                        q_mom.demand_zone_end = 0
+                        q_mom.supply_zone_start = 0
+                        q_mom.stop_loss = None
+                        q_mom.zone_proximity = 999
+                    mom_data = q_mom
 
             items.append({
                 'obj': item,
@@ -75,7 +117,7 @@ def dashboard(request):
                 'mom_data': mom_data
             })
         except:
-            items.append({'obj': item, 'price': 'Error', 'change': 0, 'rsi': None, 'rsi_status': 'Error'})
+            items.append({'obj': item, 'price': 'Error', 'change': 0, 'rsi': None, 'rsi_status': 'Error', 'mom_data': None})
 
     return render(request, 'stocks/dashboard.html', {'items': items, 'categories': AssetCategory.choices})
 
@@ -298,6 +340,12 @@ def portfolio_list(request):
             else:
                 print(f"DEBUG: {symbol} FAILED - No data")
 
+            # คำนวณ % เปลี่ยนแปลงวันนี้ vs เมื่อวาน
+            day_change = 0
+            if not hist.empty and len(hist) >= 2:
+                prev_close = float(hist['Close'].iloc[-2])
+                day_change = ((current_price - prev_close) / prev_close * 100) if prev_close else 0
+
             # ====== คำนวณ P/L และ Market Value ======
             # Calculations
             market_value = float(item.quantity) * float(current_price)
@@ -359,6 +407,7 @@ def portfolio_list(request):
             items.append({
                 'obj': item,
                 'current_price': current_price,
+                'day_change': day_change,
                 'market_value': market_value,
                 'gain_loss': gain_loss,
                 'gain_loss_pct': gain_loss_pct,
@@ -371,7 +420,7 @@ def portfolio_list(request):
             traceback.print_exc()
             # ถ้า error ใส่ข้อมูลเปล่าเพื่อแสดง error state ใน template
             items.append({
-                'obj': item, 'current_price': 0, 'market_value': 0,
+                'obj': item, 'current_price': 0, 'day_change': 0, 'market_value': 0,
                 'gain_loss': 0, 'gain_loss_pct': 0, 'rsi': None,
                 'trailing_stop_data': None, 'mom_data': None
             })

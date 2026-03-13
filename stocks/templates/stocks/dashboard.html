@@ -16,59 +16,169 @@
         <hr class="opacity-10 mb-4">
     </div>
 
-    <!-- Responsive Grid: 5 columns on large screens -->
+    <!-- Responsive Grid: 3 columns -->
     <div class="col-12">
-        <div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-lg-4 row-cols-xl-5 g-3">
+        <div class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-3">
             {% for item in items %}
             <div class="col">
-                <div class="card-premium p-3 h-100 border-light border-opacity-50 hover-up">
-                    <div class="d-flex justify-content-between align-items-start mb-2">
-                        <div>
-                            <span class="badge bg-primary bg-opacity-10 text-primary mb-1" style="font-size: 0.65rem;">{{ item.obj.get_category_display }}</span>
-                            <h4 class="fw-bold mb-0 text-dark">{{ item.obj.symbol }}</h4>
-                            <div class="text-muted-light truncate-text" style="font-size: 0.7rem; max-width: 120px;">{{ item.obj.name|default:"Market Asset" }}</div>
-                        </div>
-                        <div class="text-end">
-                            <div class="fw-bold mb-0 {% if item.change > 0 %}stock-positive{% elif item.change < 0 %}stock-negative{% endif %}" style="font-size: 1.1rem;">
-                                {{ item.price|default:"N/A" }}
-                            </div>
-                            <small class="{% if item.change > 0 %}stock-positive{% elif item.change < 0 %}stock-negative{% endif %}" style="font-size: 0.75rem;">
-                                {{ item.change|floatformat:2 }}%
-                            </small>
-                        </div>
-                    </div>
-                    
-                    {% if item.rsi %}
-                    <div class="mb-2">
-                        <span class="badge {% if item.rsi_status == 'Oversold' %}bg-danger{% elif item.rsi_status == 'Overbought' %}bg-warning{% else %}bg-secondary{% endif %} bg-opacity-10 {% if item.rsi_status == 'Oversold' %}text-danger{% elif item.rsi_status == 'Overbought' %}text-warning{% else %}text-secondary{% endif %} rounded-pill w-100 text-center" style="font-size: 0.65rem; padding: 4px;">
-                            RSI: {{ item.rsi|floatformat:1 }} ({{ item.rsi_status }})
-                        </span>
+                <div class="card-premium h-100 border-light border-opacity-50 position-relative overflow-hidden shadow-sm d-flex flex-column">
+                    <!-- Background Score Watermark -->
+                    {% if item.mom_data %}
+                    <div class="position-absolute" style="top: -10px; right: -10px; opacity: 0.08; line-height: 0.8; transform: rotate(10deg); pointer-events: none; z-index: 0;">
+                        <div class="fw-bold text-uppercase text-end" style="font-size: 0.6rem; letter-spacing: 1px; margin-right: 20px; margin-top: 20px;">SUPER SCORE</div>
+                        <div style="font-size: 7rem; font-weight: 900;">{{ item.mom_data.technical_score }}</div>
                     </div>
                     {% endif %}
 
-                    {% if item.mom_data and item.mom_data.demand_zone_start %}
-                    <div class="mb-3">
-                        <a href="{% url 'stocks:entry_finder' item.obj.symbol %}" class="text-decoration-none">
-                            <div class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-10 rounded-3 w-100 p-2 d-flex justify-content-between align-items-center" style="font-size: 0.65rem;">
-                                <span><i class="fas fa-crosshairs me-1"></i> Sniper Zone</span>
-                                <span class="fw-bold">1:{{ item.mom_data.risk_reward_ratio|floatformat:1 }}</span>
+                    <div class="p-4 flex-grow-1 position-relative" style="z-index: 1;">
+                        <!-- Header -->
+                        <div class="d-flex justify-content-between align-items-start mb-4">
+                            <div class="d-flex align-items-center gap-3">
+                                <div class="position-relative">
+                                    <div class="bg-primary bg-opacity-10 p-3 rounded-4 text-primary shadow-sm" style="width: 56px; height: 56px; display: flex; align-items: center; justify-content: center;">
+                                        {% if item.obj.category == 'STOCK' %}<i class="fas fa-building fa-lg"></i>
+                                        {% elif item.obj.category == 'CRYPTO' %}<i class="fab fa-bitcoin fa-lg"></i>
+                                        {% else %}<i class="fas fa-coins fa-lg"></i>{% endif %}
+                                    </div>
+                                    {% if item.mom_data %}
+                                        {% if item.mom_data.demand_zone_start and item.price <= item.mom_data.demand_zone_start and item.price >= item.mom_data.demand_zone_end %}
+                                        <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-success border border-white"
+                                              style="padding: 0.5em !important; animation: pulse-green 1.5s infinite;" title="BUY ZONE"></span>
+                                        {% elif item.mom_data.supply_zone_start and item.price >= item.mom_data.supply_zone_start %}
+                                        <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger border border-white"
+                                              style="padding: 0.5em !important; animation: pulse-red 1.5s infinite;" title="TAKE PROFIT"></span>
+                                        {% endif %}
+                                    {% endif %}
+                                </div>
+                                <div>
+                                    <h4 class="fw-bold mb-0 text-dark">
+                                        <a href="{% url 'stocks:analyze' item.obj.symbol %}" class="text-dark text-decoration-none">{{ item.obj.symbol }}</a>
+                                    </h4>
+                                    <div class="text-muted d-flex align-items-center gap-2 mt-1" style="font-size: 0.85rem;">
+                                        {{ item.obj.name|default:item.obj.symbol }}
+                                        {% if item.mom_data %}
+                                        <span class="badge bg-dark rounded-pill px-2" style="font-size: 0.7rem;">Score: {{ item.mom_data.technical_score }}</span>
+                                        {% endif %}
+                                    </div>
+                                </div>
                             </div>
-                        </a>
+                            <!-- Price + badges -->
+                            <div class="text-end position-relative" style="z-index: 2;">
+                                <div class="h4 fw-bold mb-1 {% if item.change > 0 %}text-success{% elif item.change < 0 %}text-danger{% else %}text-dark{% endif %}">
+                                    ฿{{ item.price|floatformat:2|default:"N/A" }}
+                                </div>
+                                <div class="d-flex flex-column align-items-end gap-1">
+                                    <span class="badge {% if item.change > 0 %}bg-success{% elif item.change < 0 %}bg-danger{% else %}bg-secondary{% endif %} bg-opacity-10 {% if item.change > 0 %}text-success{% elif item.change < 0 %}text-danger{% else %}text-secondary{% endif %} rounded-pill" style="font-size: 0.7rem; font-weight: 700;">
+                                        {% if item.change > 0 %}+{% endif %}{{ item.change|floatformat:2 }}%
+                                    </span>
+                                    {% if item.rsi %}
+                                    <span class="badge {% if item.rsi < 30 %}bg-danger{% elif item.rsi > 70 %}bg-warning{% else %}bg-secondary{% endif %} bg-opacity-10 {% if item.rsi < 30 %}text-danger{% elif item.rsi > 70 %}text-warning text-dark{% else %}text-secondary{% endif %} rounded-pill" style="font-size: 0.7rem; font-weight: 700;">
+                                        RSI: {{ item.rsi|floatformat:1 }}
+                                    </span>
+                                    {% endif %}
+                                    {% if item.mom_data %}
+                                    <span class="badge bg-white text-dark border border-light shadow-sm rounded-pill" style="font-size: 0.7rem; font-weight: 600;">
+                                        RVOL: {{ item.mom_data.rvol|floatformat:1 }}x
+                                    </span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Metrics Grid -->
+                        <div class="bg-light bg-opacity-40 p-4 rounded-4 mb-4 border border-light shadow-none">
+                            <div class="row g-2 text-center mb-3">
+                                <div class="col-4 border-end border-light">
+                                    <div class="text-muted small mb-1" style="font-size: 0.7rem; letter-spacing: 0.5px;">CATEGORY</div>
+                                    <div class="fw-bold fs-6" style="font-size: 0.8rem !important;">{{ item.obj.get_category_display }}</div>
+                                </div>
+                                <div class="col-4 border-end border-light">
+                                    <div class="text-muted small mb-1" style="font-size: 0.7rem; letter-spacing: 0.5px;">CHANGE</div>
+                                    <div class="fw-bold fs-6 {% if item.change > 0 %}text-success{% elif item.change < 0 %}text-danger{% endif %}">
+                                        {% if item.change > 0 %}+{% endif %}{{ item.change|floatformat:2 }}%
+                                    </div>
+                                </div>
+                                <div class="col-4">
+                                    <div class="text-muted small mb-1" style="font-size: 0.7rem; letter-spacing: 0.5px;">RSI</div>
+                                    <div class="fw-bold fs-6 {% if item.rsi < 30 %}text-danger{% elif item.rsi > 70 %}text-warning{% else %}text-muted{% endif %}">
+                                        {{ item.rsi|floatformat:1|default:"-" }}
+                                    </div>
+                                </div>
+                            </div>
+
+                            {% if item.mom_data %}
+                            <div class="row g-2 text-center pt-3 border-top border-white">
+                                <div class="col-4 border-end border-light">
+                                    <div class="text-muted small mb-1" style="font-size: 0.7rem; letter-spacing: 0.5px;">ZONE STATUS</div>
+                                    <div class="fw-bold" style="font-size: 0.8rem;">
+                                        {% if item.mom_data.zone_proximity == 0 %}
+                                            <span class="text-success blink-soft"><i class="fas fa-bullseye me-1"></i>IN ZONE</span>
+                                        {% elif item.mom_data.zone_proximity <= 15 %}
+                                            <span class="text-warning"><i class="fas fa-circle me-1" style="font-size:0.5rem;"></i>NEAR ZONE</span>
+                                        {% elif item.mom_data.zone_proximity >= 999 %}
+                                            <span class="text-muted small fw-normal">-</span>
+                                        {% else %}
+                                            <span class="text-muted">{{ item.mom_data.zone_proximity|floatformat:0 }}% dist</span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                <div class="col-4 border-end border-light">
+                                    <div class="text-muted small mb-1" style="font-size: 0.7rem; letter-spacing: 0.5px;">RR RATIO</div>
+                                    <div class="fw-bold" style="font-size: 0.8rem;">1:{{ item.mom_data.risk_reward_ratio|floatformat:1|default:"-" }}</div>
+                                </div>
+                                <div class="col-4">
+                                    <div class="text-muted small mb-1" style="font-size: 0.7rem; letter-spacing: 0.5px;">ENTRY ZONE</div>
+                                    <div class="fw-bold text-success" style="font-size: 0.8rem;">฿{{ item.mom_data.demand_zone_start|floatformat:2|default:"-" }}</div>
+                                </div>
+                            </div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Stop Loss / Take Profit -->
+                        {% if item.mom_data %}
+                        <div class="d-flex gap-2 mb-4">
+                            <div class="flex-fill p-3 rounded-4 text-center border border-danger border-opacity-25" style="background: rgba(239,68,68,0.06);">
+                                <div class="text-muted mb-1" style="font-size: 0.62rem; font-weight: 700; letter-spacing: 0.8px; text-transform: uppercase;">
+                                    <i class="fas fa-shield-alt me-1"></i>Stop Loss
+                                </div>
+                                {% if item.mom_data.stop_loss %}
+                                <div class="fw-bold text-danger" style="font-size: 1rem;">฿{{ item.mom_data.stop_loss|floatformat:2 }}</div>
+                                {% else %}
+                                <div class="fw-bold text-muted" style="font-size: 1rem;">-</div>
+                                {% endif %}
+                            </div>
+                            <div class="flex-fill p-3 rounded-4 text-center border border-primary border-opacity-25" style="background: rgba(13,110,253,0.07);">
+                                <div class="text-muted mb-1" style="font-size: 0.62rem; font-weight: 700; letter-spacing: 0.8px; text-transform: uppercase;">
+                                    <i class="fas fa-bullseye me-1"></i>Take Profit
+                                </div>
+                                {% if item.mom_data.supply_zone_start %}
+                                <div class="fw-bold text-primary" style="font-size: 1rem;">฿{{ item.mom_data.supply_zone_start|floatformat:2 }}</div>
+                                {% else %}
+                                <div class="fw-bold text-muted" style="font-size: 1rem;">-</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endif %}
                     </div>
-                    {% else %}
-                    <div class="mb-3" style="{% if not item.rsi %}height: 60px;{% else %}height: 38px;{% endif %}"></div>
-                    {% endif %}
-                    
-                    <div class="d-flex gap-2 align-items-center mt-auto">
-                        <a href="{% url 'stocks:analyze' item.obj.symbol %}" class="btn btn-xs btn-outline-primary flex-grow-1 rounded-pill fw-600 py-1" style="font-size: 0.7rem;">
-                            <i class="fas fa-robot me-1"></i> AI Analyze
-                        </a>
-                        <form action="{% url 'stocks:delete_from_watchlist' item.obj.pk %}" method="POST" class="d-inline" onsubmit="return confirm('ลบรายการนี้ใช่หรือไม่?')">
-                            {% csrf_token %}
-                            <button type="submit" class="btn btn-link text-muted p-0 hover-danger" style="font-size: 0.8rem;">
-                                <i class="fas fa-trash-alt"></i>
-                            </button>
-                        </form>
+
+                    <!-- Footer -->
+                    <div class="p-4 mt-auto border-top border-light bg-light bg-opacity-10 position-relative" style="z-index: 2;">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div class="d-flex align-items-center gap-2">
+                                <a href="{% url 'stocks:entry_finder' item.obj.symbol %}" class="btn btn-premium-danger btn-sm rounded-pill px-3 fw-bold" style="font-size: 0.8rem;">
+                                    <i class="fas fa-crosshairs me-1"></i> Sniper Chart
+                                </a>
+                                <a href="{% url 'stocks:analyze' item.obj.symbol %}" class="btn btn-outline-primary btn-sm rounded-pill px-3" style="font-size: 0.8rem;">
+                                    <i class="fas fa-robot me-1"></i> AI
+                                </a>
+                            </div>
+                            <form action="{% url 'stocks:delete_from_watchlist' item.obj.pk %}" method="POST" class="d-inline" onsubmit="return confirm('ลบรายการนี้ใช่หรือไม่?')">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-light btn-sm rounded-circle shadow-sm border text-danger" style="width: 36px; height: 36px;">
+                                    <i class="fas fa-trash-alt fa-xs"></i>
+                                </button>
+                            </form>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -126,7 +236,25 @@
 <style>
     .btn-xs { padding: 0.25rem 0.5rem; font-size: 0.75rem; }
     .truncate-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .hover-up:hover { transform: translateY(-3px); transition: all 0.2s ease; border-color: var(--bs-primary) !important; }
-    .hover-danger:hover { color: #ef4444 !important; }
+    .btn-premium-danger {
+        background: linear-gradient(135deg, #ff4d4d 0%, #cc0000 100%);
+        color: white; border: none;
+        box-shadow: 0 4px 15px rgba(204,0,0,0.2); transition: all 0.3s ease;
+    }
+    .btn-premium-danger:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(204,0,0,0.3); color: white; }
+    .blink-soft { animation: pulse-white 2s infinite; }
+    @keyframes pulse-green {
+        0% { transform: scale(0.9) translate(-50%,-50%); box-shadow: 0 0 0 0 rgba(34,197,94,0.7); }
+        70% { transform: scale(1.1) translate(-50%,-50%); box-shadow: 0 0 0 10px rgba(34,197,94,0); }
+        100% { transform: scale(0.9) translate(-50%,-50%); box-shadow: 0 0 0 0 rgba(34,197,94,0); }
+    }
+    @keyframes pulse-red {
+        0% { transform: scale(0.9) translate(-50%,-50%); box-shadow: 0 0 0 0 rgba(239,68,68,0.8); }
+        70% { transform: scale(1.1) translate(-50%,-50%); box-shadow: 0 0 0 10px rgba(239,68,68,0); }
+        100% { transform: scale(0.9) translate(-50%,-50%); box-shadow: 0 0 0 0 rgba(239,68,68,0); }
+    }
+    @keyframes pulse-white {
+        0% { opacity: 1; } 50% { opacity: 0.6; } 100% { opacity: 1; }
+    }
 </style>
 {% endblock %}
