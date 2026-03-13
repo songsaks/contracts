@@ -237,6 +237,9 @@
 
     @media (max-width: 640px) {
         nav, footer { display: none !important; }
+        /* ซ่อน chatbot button/window ในหน้านี้เพื่อไม่ให้บัง */
+        .chatbot-button-container, .chatbot-window-container { display: none !important; }
+        
         main { padding-top: 0 !important; padding-bottom: 0 !important; }
         body { overflow: hidden; margin: 0; padding: 0; }
 
@@ -247,6 +250,8 @@
             margin: 0;
             padding: 0;
             gap: 0;
+            display: flex;
+            flex-direction: column;
         }
 
         /* wrapper ด้านนอกต้องเต็มจอ */
@@ -254,58 +259,68 @@
             padding: 0 !important;
             margin: 0 !important;
             max-width: 100% !important;
+            height: 100%;
         }
 
         .chat-header {
-            padding: 0.5rem 0.75rem;
+            padding: 0.6rem 0.75rem;
             flex-shrink: 0;
+            background: #fff;
+            border-bottom: 1px solid #e2e8f0;
         }
-        .chat-header h2 { font-size: 0.9rem; }
-        .chat-header .w-10 { width: 28px !important; height: 28px !important; font-size: 0.7rem; }
+        .chat-header h2 { font-size: 1rem; }
+        .chat-header .w-10 { width: 32px !important; height: 32px !important; font-size: 0.8rem; }
 
         .chat-messages {
-            padding: 0.6rem 0.5rem;
-            gap: 0.5rem;
-            /* ให้ scroll ได้ และดัน input ไว้ด้านล่าง */
+            padding: 0.75rem 0.5rem;
+            gap: 0.75rem;
             flex: 1;
             overflow-y: auto;
             -webkit-overflow-scrolling: touch;
         }
 
         .message-bubble {
-            max-width: 88%;
-            padding: 0.55rem 0.8rem;
-            font-size: 0.85rem;
-            line-height: 1.35;
-            border-radius: 1rem;
+            max-width: 85%;
+            padding: 0.65rem 0.9rem;
+            font-size: 0.95rem;
+            line-height: 1.4;
+            border-radius: 1.1rem;
         }
 
         .chat-input-area {
-            padding: 0.5rem 0.5rem;
-            padding-bottom: max(0.5rem, env(safe-area-inset-bottom)); /* iOS notch */
+            padding: 0.5rem;
+            padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
+            background: white;
             border-top: 1px solid #e2e8f0;
-            flex-shrink: 0; /* ไม่ให้ถูกบีบ */
-        }
-
-        .chat-input-area .flex { gap: 0.3rem; }
-
-        .stt-btn { width: 34px; height: 34px; font-size: 0.85rem; flex-shrink: 0; }
-
-        #chat-message-input {
-            padding: 0.55rem 0.75rem;
-            font-size: 0.875rem;
-            min-width: 0; /* allow shrink */
-        }
-
-        #chat-message-submit {
-            padding: 0.5rem 0.9rem;
-            border-radius: 1rem;
             flex-shrink: 0;
         }
 
-        .message-text img { max-width: 100% !important; border-radius: 0.5rem; }
-        #file-preview-area { padding: 0 0.5rem; margin-bottom: 0.4rem; }
+        .chat-input-area .flex { gap: 0.25rem; }
+
+        .stt-btn { width: 36px; height: 36px; font-size: 0.85rem; flex-shrink: 0; border-radius: 10px; }
+
+        #chat-message-input {
+            padding: 0.6rem 1rem;
+            font-size: 16px !important; /* ป้องกัน iOS Auto-Zoom */
+            border-radius: 1.25rem;
+            background: #f1f5f9;
+        }
+
+        #chat-message-submit {
+            width: 42px;
+            height: 42px;
+            padding: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 1.1rem;
+            flex-shrink: 0;
+        }
+
+        .message-text img { max-width: 100% !important; border-radius: 0.50rem; }
+        #file-preview-area { padding: 0 0.25rem; margin-bottom: 0.4rem; }
     }
+
 </style>
 {% endblock %}
 
@@ -499,9 +514,50 @@
     const roomId = JSON.parse(document.getElementById('room-id').textContent);
     const userId = JSON.parse(document.getElementById('user-id').textContent);
     const messagesContainer = document.getElementById('chat-messages');
+    const layoutWrapper = document.querySelector('.layout-wrapper');
+
+    // ฟังก์ชันปรับความสูงหน้าจอให้พอดีกับ Keyboard บนมือถือ (VisualViewport API)
+    function adjustViewport() {
+        const width = window.innerWidth;
+        if (width > 640) {
+            layoutWrapper.style.height = '';
+            return;
+        }
+        requestAnimationFrame(function() {
+            const vv = window.visualViewport;
+            if (vv) {
+                // ยก bottom ขึ้นเท่ากับความสูง keyboard เพื่อให้ input ยังมองเห็น
+                const keyboardH = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+                layoutWrapper.style.height = vv.height + 'px';
+                layoutWrapper.style.marginBottom = keyboardH ? '0' : '';
+            } else {
+                layoutWrapper.style.height = window.innerHeight + 'px';
+            }
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        });
+    }
+
+    if (window.visualViewport) {
+        window.visualViewport.addEventListener('resize', adjustViewport);
+        window.visualViewport.addEventListener('scroll', adjustViewport);
+    }
+    // Fallback for Samsung Internet and other Android browsers
+    window.addEventListener('resize', adjustViewport);
+    window.addEventListener('load', adjustViewport);
+
+    // Trigger adjustment when keyboard opens/closes on any Android brand
+    const chatInput = document.getElementById('chat-message-input');
+    chatInput.addEventListener('focus', function() {
+        setTimeout(adjustViewport, 300);
+        setTimeout(adjustViewport, 600);
+    });
+    chatInput.addEventListener('blur', function() {
+        setTimeout(adjustViewport, 300);
+    });
 
     // เลื่อนลงล่างสุดเมื่อเปิดหน้า
     messagesContainer.scrollTop = messagesContainer.scrollHeight;
+
 
     // เชื่อมต่อ WebSocket (อัตโนมัติทั้ง HTTP และ HTTPS)
     const wsScheme = window.location.protocol === "https:" ? "wss" : "ws";
