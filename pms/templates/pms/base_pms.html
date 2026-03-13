@@ -51,6 +51,7 @@
         /* Remove overflow constraints from navbar to fix dropdowns */
         .navbar-custom .collapse { overflow: visible !important; }
         .navbar-custom .navbar-collapse { overflow: visible !important; }
+        .navbar-custom .dropdown-menu { z-index: 2000 !important; }
         
         /* ── Tom Select – Premium Autocomplete ────────────────── */
         .ts-wrapper {
@@ -185,7 +186,7 @@
             box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
             border-bottom: 1px solid rgba(255, 255, 255, 0.1);
             padding: 0.25rem 0;
-            z-index: 1030;
+            z-index: 2000;
         }
 
         .navbar-custom .navbar-brand {
@@ -490,6 +491,7 @@
                             <li><a class="dropdown-item" href="{% url 'pms:project_owner_list' %}"><i class="fas fa-user-tie me-2 text-secondary"></i>เจ้าของโครงการ</a></li>
                             <li><a class="dropdown-item" href="{% url 'pms:project_assignment_matrix' %}"><i class="fas fa-user-check me-2 text-primary"></i>ผู้รับผิดชอบงาน (Matrix)</a></li>
                             <li><a class="dropdown-item" href="{% url 'pms:job_status_list' %}"><i class="fas fa-route me-2 text-info"></i>ขั้นตอนงาน (Workflow)</a></li>
+                            <li><a class="dropdown-item {% if request.resolver_match.url_name == 'gps_tracking_report' %}active{% endif %}" href="{% url 'pms:gps_tracking_report' %}"><i class="fas fa-map-marked-alt me-2 text-success"></i>GPS Tracking</a></li>
                             <li><hr class="dropdown-divider"></li>
                             {% if user.is_superuser %}
                             <li><a class="dropdown-item text-danger" href="/admin/" target="_blank"><i class="fas fa-shield-alt me-2"></i>ระบบหลังบ้าน (Admin)</a></li>

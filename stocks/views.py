@@ -430,7 +430,6 @@ def portfolio_list(request):
     if request.GET.get('analyze') == 'true' and items:
         # เลือก Gemini model ที่ดีที่สุดที่ตอบสนองได้
         client = genai.Client(api_key=settings.GEMINI_API_KEY)
-        # ใช้ 1.5-flash เป็นหลักเพราะเร็วและฟรี (ในขีดจำกัด)
         model_names = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro']
         model_name_to_use = 'gemini-1.5-flash'
         for m in model_names:

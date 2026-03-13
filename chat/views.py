@@ -55,9 +55,16 @@ def chat_room(request, room_id):
     # ดึงข้อความย้อนหลังล่าสุด 50 ข้อความ เรียงตามเวลาจากเก่าไปใหม่
     chat_messages = room.messages.all().order_by('timestamp')[:50]
 
+    try:
+        user_role = request.user.profile.role
+    except Exception:
+        user_role = ''
+    is_technician = user_role in ('technician', 'technician_lead') or request.user.is_staff or request.user.is_superuser
+
     return render(request, 'chat/room.html', {
         'room': room,
-        'chat_messages': chat_messages
+        'chat_messages': chat_messages,
+        'is_technician': is_technician,
     })
 
 

@@ -2376,6 +2376,53 @@ def gps_tracking_report(request):
 
 
 @login_required
+def gps_live_data(request):
+    """
+    JSON API สำหรับ AJAX polling — คืนค่า GPS log ของวันนี้ในรูปแบบ JSON
+    ใช้กับปุ่ม Live บนหน้า GPS Tracking Report
+    """
+    from .models import TechnicianGPSLog
+    from django.utils import timezone
+    from collections import defaultdict
+
+    today = timezone.localdate()
+    selected_user_id = request.GET.get('user_id')
+
+    qs = TechnicianGPSLog.objects.filter(
+        timestamp__date=today
+    ).select_related('user', 'queue_item', 'queue_item__project')
+
+    if request.user.is_superuser or request.user.is_staff:
+        if selected_user_id:
+            qs = qs.filter(user_id=selected_user_id)
+    else:
+        qs = qs.filter(user=request.user)
+
+    logs = list(qs.order_by('user__username', 'timestamp'))
+    grouped = defaultdict(list)
+    for log in logs:
+        grouped[log.user.username].append(log)
+
+    map_data = {}
+    for username, user_logs in grouped.items():
+        map_data[username] = [
+            {
+                'lat': float(log.latitude),
+                'lng': float(log.longitude),
+                'check_type': log.get_check_type_display(),
+                'check_type_key': log.check_type,
+                'location_name': log.location_name or 'ไม่ระบุชื่อ',
+                'notes': log.notes,
+                'time': timezone.localtime(log.timestamp).strftime('%H:%M'),
+                'job': log.queue_item.project.name if log.queue_item and log.queue_item.project else '-',
+            }
+            for log in user_logs
+        ]
+
+    return JsonResponse({'map_data': map_data, 'total': len(logs)})
+
+
+@login_required
 def gps_log_delete(request, pk):
     """ลบ GPS log entry (เฉพาะ owner หรือ admin)"""
     from .models import TechnicianGPSLog

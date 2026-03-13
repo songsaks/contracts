@@ -109,6 +109,7 @@ urlpatterns = [
 
     # GPS Tracking
     path('gps-tracking/', views.gps_tracking_report, name='gps_tracking_report'),
+    path('gps-tracking/live/', views.gps_live_data, name='gps_live_data'),
     path('gps-tracking/<int:pk>/delete/', views.gps_log_delete, name='gps_log_delete'),
 ]
 

@@ -210,6 +210,14 @@
     .gps-card-label { font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; opacity: 0.75; margin-bottom: 0.2rem; }
     .gps-card-link { font-size: 0.75rem; font-weight: 600; display: flex; align-items: center; gap: 0.3rem; }
 
+    /* Auto-Track button states */
+    .stt-btn.tracking { background: #22c55e; color: white; animation: pulse-green 1.5s infinite; }
+    @keyframes pulse-green {
+        0%   { transform: scale(1);   box-shadow: 0 0 0 0   rgba(34,197,94,0.4); }
+        70%  { transform: scale(1.1); box-shadow: 0 0 0 10px rgba(34,197,94,0);   }
+        100% { transform: scale(1);   box-shadow: 0 0 0 0   rgba(34,197,94,0);   }
+    }
+
     /* --- การปรับแต่งความสวยงามสำหรับหน้าจอมือถือและแท็บเล็ต (Responsive) --- */
     @media (max-width: 1024px) {
         .mobile-p-0 { padding-left: 0 !important; padding-right: 0 !important; }
@@ -383,9 +391,16 @@
                 <input type="file" id="file-input" class="hidden" accept="image/*,application/pdf,.doc,.docx">
 
                 <!-- ปุ่มส่งพิกัด GPS (Check-in) -->
-                <button id="location-btn" class="stt-btn inactive" title="GPS Check-in" onclick="openGpsModal()">
+                <button id="location-btn" class="stt-btn inactive" title="GPS Check-in (ครั้งเดียว)" onclick="openGpsModal()">
                     <i class="fas fa-location-dot"></i>
                 </button>
+
+                {% if is_technician %}
+                <!-- ปุ่ม Auto-Track (เฉพาะ Technician) -->
+                <button id="auto-track-btn" class="stt-btn inactive" title="Auto-Track GPS (ติดตามอัตโนมัติ)" onclick="toggleAutoTrack()">
+                    <i class="fas fa-satellite-dish"></i>
+                </button>
+                {% endif %}
 
                 <!-- ปุ่มพูด (Speech-to-Text) -->
                 <button id="stt-start" class="stt-btn inactive" title="พูดเพื่อพิมพ์ (Speak to Text)">
@@ -812,5 +827,76 @@
     function json_parse_safe(str) {
         try { return JSON.parse(str); } catch (e) { return null; }
     }
+
+    // --- Auto-Track GPS (watchPosition) — เฉพาะ Technician ---
+    {% if is_technician %}
+    let watchId = null;
+    let lastSentTime = 0;
+    const TRACK_INTERVAL_MS = 5 * 60 * 1000; // ส่งทุก 5 นาที (throttle)
+    const TRACK_MIN_DISTANCE_M = 50;          // หรือถ้าขยับ >= 50 เมตร
+    let lastLat = null, lastLon = null;
+
+    function calcDistance(lat1, lon1, lat2, lon2) {
+        const R = 6371000; // เมตร
+        const dLat = (lat2 - lat1) * Math.PI / 180;
+        const dLon = (lon2 - lon1) * Math.PI / 180;
+        const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180) * Math.cos(lat2*Math.PI/180) * Math.sin(dLon/2)**2;
+        return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    }
+
+    function toggleAutoTrack() {
+        const btn = document.getElementById('auto-track-btn');
+        if (watchId !== null) {
+            // หยุด tracking
+            navigator.geolocation.clearWatch(watchId);
+            watchId = null;
+            lastLat = null; lastLon = null;
+            btn.classList.remove('tracking');
+            btn.classList.add('inactive');
+            btn.title = 'Auto-Track GPS (ติดตามอัตโนมัติ)';
+            localStorage.setItem('autoTrack_room_{{ room.id }}', 'off');
+        } else {
+            // เริ่ม tracking
+            if (!navigator.geolocation) { alert('เบราว์เซอร์ไม่รองรับ GPS'); return; }
+            watchId = navigator.geolocation.watchPosition(
+                (pos) => {
+                    const lat = pos.coords.latitude;
+                    const lon = pos.coords.longitude;
+                    const now = Date.now();
+                    const dist = (lastLat !== null) ? calcDistance(lastLat, lastLon, lat, lon) : Infinity;
+
+                    // ส่งเมื่อเคลื่อนที่ >= 50m หรือผ่านไป 5 นาที
+                    if (dist >= TRACK_MIN_DISTANCE_M || (now - lastSentTime) >= TRACK_INTERVAL_MS) {
+                        chatSocket.send(JSON.stringify({
+                            'message': '🛰️ Auto-Track — กำลังเดินทาง',
+                            'is_stt': false,
+                            'latitude': lat,
+                            'longitude': lon,
+                            'location_name': 'Auto-Track',
+                            'gps_check_type': 'TRAVEL',
+                            'gps_notes': `ความแม่นยำ: ${Math.round(pos.coords.accuracy)}m`,
+                        }));
+                        lastLat = lat; lastLon = lon;
+                        lastSentTime = now;
+                    }
+                },
+                (err) => {
+                    alert('❌ Auto-Track หยุดทำงาน: ' + (err.code === 1 ? 'ไม่อนุญาต GPS' : 'ไม่พบสัญญาณ'));
+                    toggleAutoTrack(); // reset button
+                },
+                { enableHighAccuracy: true, maximumAge: 15000, timeout: 20000 }
+            );
+            btn.classList.remove('inactive');
+            btn.classList.add('tracking');
+            btn.title = '🟢 Auto-Track กำลังทำงาน (คลิกเพื่อหยุด)';
+            localStorage.setItem('autoTrack_room_{{ room.id }}', 'on');
+        }
+    }
+
+    // Resume auto-track ถ้าเคยเปิดไว้ก่อน reload
+    if (localStorage.getItem('autoTrack_room_{{ room.id }}') === 'on') {
+        setTimeout(() => toggleAutoTrack(), 1500); // รอ WebSocket เปิดก่อน
+    }
+    {% endif %}
 </script>
 {% endblock %}
