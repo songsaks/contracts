@@ -457,6 +457,16 @@
             <div id="gps-status" style="display:none; text-align:center; padding:0.75rem 0; font-size:0.8rem; color:#64748b;">
                 <i class="fas fa-spinner fa-spin" style="margin-right:0.3rem;"></i> กำลังดึงพิกัด GPS...
             </div>
+            <!-- Permission denied error -->
+            <div id="gps-permission-error" style="display:none; background:#fef2f2; border:1px solid #fca5a5; border-radius:0.75rem; padding:0.85rem 1rem; font-size:0.82rem; color:#991b1b; margin-top:0.5rem;">
+                <div style="font-weight:700; margin-bottom:0.4rem;">🔒 Browser บล็อก GPS ไว้</div>
+                <div style="margin-bottom:0.6rem; line-height:1.5;">กรุณาอนุญาต Location ในเบราว์เซอร์ก่อน:</div>
+                <div style="background:white; border-radius:0.5rem; padding:0.5rem 0.75rem; line-height:1.8; font-size:0.78rem;">
+                    <b>Chrome/Edge:</b> คลิกไอคอน 🔒 หน้า URL → Location → Allow<br>
+                    <b>Safari (iOS):</b> Settings → Safari → Location → Allow
+                </div>
+                <div style="margin-top:0.6rem; color:#64748b; font-size:0.75rem;">หลังจาก Allow แล้ว reload หน้านี้ แล้วลองใหม่อีกครั้ง</div>
+            </div>
         </div>
         <!-- Footer -->
         <div style="padding:0.75rem 1.5rem 1.25rem; display:flex; justify-content:flex-end; gap:0.75rem;">
@@ -633,6 +643,8 @@
 
     function openGpsModal() {
         gpsOverlay.style.display = 'flex';
+        document.getElementById('gps-permission-error').style.display = 'none';
+        gpsStatus.style.display = 'none';
     }
     function closeGpsModal() {
         gpsOverlay.style.display = 'none';
@@ -682,10 +694,14 @@
                 closeGpsModal();
             },
             (error) => {
-                const errMsg = error.code === 1 ? 'ไม่อนุญาต GPS' : error.code === 2 ? 'ไม่พบสัญญาณ GPS' : 'หมดเวลา';
-                alert('❌ ดึงพิกัดไม่ได้: ' + errMsg);
                 gpsStatus.style.display = 'none';
                 gpsConfirmBtn.disabled  = false;
+                if (error.code === 1) {
+                    // Permission denied — แสดง instruction ในกล่อง modal แทน alert
+                    document.getElementById('gps-permission-error').style.display = 'block';
+                } else {
+                    alert('❌ ดึงพิกัดไม่ได้: ' + (error.code === 2 ? 'ไม่พบสัญญาณ GPS' : 'หมดเวลา กรุณาลองใหม่'));
+                }
             },
             { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 }
         );
