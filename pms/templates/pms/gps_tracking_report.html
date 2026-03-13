@@ -15,6 +15,10 @@
     .timeline-item.on-site    { border-color: #3b82f6; }  .timeline-item.on-site::before    { background: #3b82f6; box-shadow: 0 0 0 2px #3b82f6; }
     .tech-tab { cursor: pointer; transition: all 0.2s; }
     .tech-tab.active { background: #3b82f6 !important; color: white !important; border-color: #3b82f6 !important; }
+
+    /* Fix: select dropdown อยู่หน้า panel */
+    .card { overflow: visible !important; }
+    select.form-select { position: relative; z-index: 10; }
 </style>
 {% endblock %}
 

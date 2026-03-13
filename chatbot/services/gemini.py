@@ -218,7 +218,7 @@ def gemini_chat_sync(user_text, user=None):
         # - tools: รายการ function ที่ AI เรียกใช้ได้
         # - automatic_function_calling: เปิดให้ AI เรียก function อัตโนมัติโดยไม่ต้องรอ
         response = client.models.generate_content(
-            model='gemini-2.0-flash',
+            model='gemini-2.5-flash',
             contents=user_text,
             config=types.GenerateContentConfig(
                 system_instruction=system_instruction,

@@ -52,7 +52,10 @@
         .navbar-custom .collapse { overflow: visible !important; }
         .navbar-custom .navbar-collapse { overflow: visible !important; }
         .navbar-custom .dropdown-menu { z-index: 2000 !important; }
-        
+
+        /* Global Tom Select dropdown z-index fix — ให้อยู่หน้า card ทุกหน้า */
+        .ts-dropdown { z-index: 9999 !important; }
+
         /* ── Tom Select – Premium Autocomplete ────────────────── */
         .ts-wrapper {
             flex: 1;
@@ -593,6 +596,7 @@
                 sortField: { field: 'text', direction: 'asc' },
                 plugins: ['dropdown_input'],
                 maxOptions: 200,
+                dropdownParent: 'body',
                 render: {
                     option: function (data, escape) {
                         return '<div class="option">' + escape(data.text) + '</div>';

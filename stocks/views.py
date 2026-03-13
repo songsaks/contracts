@@ -430,18 +430,7 @@ def portfolio_list(request):
     if request.GET.get('analyze') == 'true' and items:
         # เลือก Gemini model ที่ดีที่สุดที่ตอบสนองได้
         client = genai.Client(api_key=settings.GEMINI_API_KEY)
-        model_names = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro']
-        model_name_to_use = 'gemini-1.5-flash'
-        for m in model_names:
-            try:
-                client.models.generate_content(
-                    model=m,
-                    contents='ping'
-                )
-                model_name_to_use = m
-                break
-            except Exception:
-                continue
+        model_name_to_use = 'gemini-2.5-flash'
 
         # สร้าง string สรุปพอร์ตสำหรับส่งให้ AI
         port_data = []
@@ -711,15 +700,7 @@ def recommendations(request):
     report_text = None
     if request.GET.get('analyze') == 'true' and stock_previews:
         client = genai.Client(api_key=settings.GEMINI_API_KEY)
-        model_names = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro']
-        model_name_to_use = 'gemini-1.5-flash'
-        for m in model_names:
-            try:
-                client.models.generate_content(model=m, contents="ping")
-                model_name_to_use = m
-                break
-            except Exception:
-                continue
+        model_name_to_use = 'gemini-2.5-flash'
 
         data_str = "\n".join([str(s) for s in stock_previews])
 
@@ -826,18 +807,7 @@ def macro_economy(request):
     analysis_text = None
     if request.GET.get('analyze') == 'true' and data:
         client = genai.Client(api_key=settings.GEMINI_API_KEY)
-        model_names = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro']
-        model_name_to_use = 'gemini-1.5-flash'
-        for m in model_names:
-            try:
-                client.models.generate_content(
-                    model=m,
-                    contents='ping'
-                )
-                model_name_to_use = m
-                break
-            except Exception:
-                continue
+        model_name_to_use = 'gemini-2.5-flash'
 
         # สร้าง string สรุปข้อมูลมหภาคเพื่อส่งให้ AI
         data_str = "\n".join([f"{d['name']}: {d['price']:.2f} ({d['change']:+.2f}%)" for d in data])
@@ -1138,15 +1108,7 @@ def momentum_scanner(request):
         symbols_list = [c.symbol for c in candidates]
         try:
             client = genai.Client(api_key=settings.GEMINI_API_KEY)
-            model_names = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro']
-            model_name_to_use = 'gemini-1.5-flash'
-            for m in model_names:
-                try:
-                    client.models.generate_content(model=m, contents='ping')
-                    model_name_to_use = m
-                    break
-                except Exception:
-                    continue
+            model_name_to_use = 'gemini-2.5-flash'
 
             # Prompt ให้ AI วิเคราะห์ข่าวและ Sentiment แล้วคัดหุ้น Superperformance
             prompt = f"""จากรายชื่อหุ้นใน SET ที่ผ่านเกณฑ์ Momentum ขาขึ้น (Trend Template) ณ ขณะนี้ ได้แก่:
