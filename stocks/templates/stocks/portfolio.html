@@ -177,23 +177,18 @@
                         </div>
                         
                         <!-- Stop Loss / Take Profit Row -->
-                        {% if item.trailing_stop_data %}
+                        {% if item.mom_data %}
                         <div class="d-flex gap-2 mb-4">
-                            <!-- Stop Loss Box -->
+                            <!-- Stop Loss Box (S&D zone-based — same as Sniper Chart) -->
                             <div class="flex-fill p-3 rounded-4 text-center border
                                 {% if item.trailing_stop_data.color == 'danger' %}border-danger{% elif item.trailing_stop_data.color == 'warning' %}border-warning{% else %}border-success border-opacity-50{% endif %}"
-                                style="
-                                {% if item.trailing_stop_data.color == 'danger' %}background: rgba(239,68,68,0.10);
-                                {% elif item.trailing_stop_data.color == 'warning' %}background: rgba(255,193,7,0.12);
-                                {% else %}background: rgba(34,197,94,0.07);{% endif %}">
+                                style="{% if item.trailing_stop_data.color == 'danger' %}background: rgba(239,68,68,0.10);{% elif item.trailing_stop_data.color == 'warning' %}background: rgba(255,193,7,0.12);{% else %}background: rgba(34,197,94,0.07);{% endif %}">
                                 <div class="text-muted mb-1" style="font-size: 0.62rem; font-weight: 700; letter-spacing: 0.8px; text-transform: uppercase;">
                                     <i class="fas fa-shield-alt me-1"></i>Stop Loss
                                 </div>
-                                <div class="fw-bold
-                                    {% if item.trailing_stop_data.color == 'danger' %}text-danger
-                                    {% elif item.trailing_stop_data.color == 'warning' %}text-warning
-                                    {% else %}text-success{% endif %}" style="font-size: 1rem;">
-                                    ฿{{ item.trailing_stop_data.stop_loss_price|floatformat:2 }}
+                                {% if item.mom_data.stop_loss %}
+                                <div class="fw-bold {% if item.trailing_stop_data.color == 'danger' %}text-danger{% elif item.trailing_stop_data.color == 'warning' %}text-warning{% else %}text-success{% endif %}" style="font-size: 1rem;">
+                                    ฿{{ item.mom_data.stop_loss|floatformat:2 }}
                                 </div>
                                 <div class="mt-1" style="font-size: 0.62rem; font-weight: 600;">
                                     {% if item.trailing_stop_data.color == 'danger' %}
@@ -204,6 +199,10 @@
                                         <span class="text-success"><i class="fas fa-check-circle me-1"></i>HOLDING</span>
                                     {% endif %}
                                 </div>
+                                {% else %}
+                                <div class="fw-bold text-muted" style="font-size: 1rem;">-</div>
+                                <div class="mt-1 text-muted" style="font-size: 0.62rem;">ไม่มีข้อมูล</div>
+                                {% endif %}
                             </div>
 
                             <!-- Take Profit Box -->
@@ -212,7 +211,7 @@
                                 <div class="text-muted mb-1" style="font-size: 0.62rem; font-weight: 700; letter-spacing: 0.8px; text-transform: uppercase;">
                                     <i class="fas fa-bullseye me-1"></i>Take Profit
                                 </div>
-                                {% if item.mom_data and item.mom_data.supply_zone_start %}
+                                {% if item.mom_data.supply_zone_start %}
                                 <div class="fw-bold text-primary" style="font-size: 1rem;">
                                     ฿{{ item.mom_data.supply_zone_start|floatformat:2 }}
                                 </div>

@@ -343,11 +343,13 @@ def portfolio_list(request):
                     q_mom.demand_zone_start = sd['start']
                     q_mom.demand_zone_end = sd.get('end', 0)
                     q_mom.supply_zone_start = sd.get('target', 0)
+                    q_mom.stop_loss = sd.get('stop_loss', None)
                     # คำนวณ % ห่างจากราคาปัจจุบันถึง zone
                     q_mom.zone_proximity = 0 if current_price <= sd['start'] else ((float(current_price) - sd['start']) / sd['start']) * 100
                 else:
                     q_mom.risk_reward_ratio = 0
                     q_mom.demand_zone_start = 0
+                    q_mom.stop_loss = None
                     q_mom.zone_proximity = 999  # ไม่พบโซน
                 mom_data = q_mom
 
