@@ -86,21 +86,21 @@
                                 {% if item.status == 'RECEIVED' %}
                                     <span class="badge bg-danger rounded-pill">รับแจ้ง</span>
                                 {% elif item.status == 'FIXING' %}
-                                    <span class="badge bg-warning text-dark rounded-pill">กำลังซ่อม/ตรวจเช็ค</span>
+                                    <span class="badge rounded-pill text-white" style="background-color: #ff9100;">กำลังซ่อม/ตรวจเช็ค</span>
                                 {% elif item.status == 'WAITING_APPROVAL' %}
-                                    <span class="badge bg-purple rounded-pill" style="background-color: #a855f7;">รออนุมัติงานซ่อม</span>
+                                    <span class="badge rounded-pill" style="background-color: #a855f7;">รออนุมัติงานซ่อม</span>
                                 {% elif item.status == 'WAITING' %}
-                                    <span class="badge bg-info text-dark rounded-pill">รออะไหล่</span>
+                                    <span class="badge bg-warning text-dark rounded-pill">รออะไหล่</span>
                                 {% elif item.status == 'OUTSOURCE' %}
-                                    <span class="badge rounded-pill text-white" style="background-color: #6366f1;">ส่งซ่อมศูนย์</span>
+                                    <span class="badge rounded-pill text-white" style="background-color: #6f42c1;">ส่งซ่อมศูนย์/ภายนอก</span>
                                 {% elif item.status == 'RECEIVED_FROM_VENDOR' %}
-                                    <span class="badge bg-info rounded-pill">รับจากศูนย์</span>
+                                    <span class="badge bg-info rounded-pill">รอตรวจรับกลับ</span>
                                 {% elif item.status == 'FINISHED' %}
                                     <span class="badge bg-success rounded-pill">ซ่อมเสร็จ</span>
                                 {% elif item.status == 'CANCELLED' %}
                                     <span class="badge bg-secondary rounded-pill">ยกเลิก</span>
                                 {% elif item.status == 'COMPLETED' %}
-                                    <span class="badge bg-dark rounded-pill">ส่งคืนแล้ว</span>
+                                    <span class="badge bg-secondary rounded-pill">ส่งคืนแล้ว</span>
                                 {% endif %}
                             </div>
                             
