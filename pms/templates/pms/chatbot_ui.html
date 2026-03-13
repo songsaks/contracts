@@ -238,16 +238,15 @@
         font-weight: 700;
     }
     
-    @media (max-width: 576px) {
+    @media (max-width: 768px) {
         .chatbot-window-container {
             position: fixed;
             top: 0;
             left: 0;
             right: 0;
-            bottom: 0;
+            bottom: 0;       /* JS will raise this when keyboard opens */
             width: 100%;
-            height: 100%;
-            height: 100dvh;
+            height: auto;    /* controlled by top+bottom, not height */
             border-radius: 0;
         }
         .chatbot-button-container {
@@ -256,13 +255,13 @@
         }
         .chatbot-messages-body {
             min-height: 0;
+            -webkit-overflow-scrolling: touch;
         }
         .chatbot-input-area {
             flex-shrink: 0;
-            padding-bottom: max(12px, env(safe-area-inset-bottom)) !important;
         }
         #chatbot-input {
-            font-size: 16px; /* prevents iOS auto-zoom */
+            font-size: 16px !important;
         }
     }
 
@@ -278,16 +277,64 @@
 <script>
     let socket = null;
 
+    function isMobile() {
+        return window.innerWidth <= 768;
+    }
+
+    function adjustChatWindowForMobile() {
+        if (!isMobile()) return;
+        const win = document.getElementById('chatbot-window');
+        if (!win || win.classList.contains('d-none')) return;
+        requestAnimationFrame(function() {
+            const vv = window.visualViewport;
+            if (vv) {
+                // Raise bottom by the keyboard height so the input stays visible
+                const keyboardH = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+                win.style.bottom = keyboardH + 'px';
+                win.style.top = vv.offsetTop + 'px';
+            }
+            const mb = document.getElementById('chatbot-messages');
+            if (mb) mb.scrollTop = mb.scrollHeight;
+        });
+    }
+
+    function resetChatWindowMobile() {
+        const win = document.getElementById('chatbot-window');
+        if (win) { win.style.bottom = ''; win.style.top = ''; }
+    }
+
+    if (window.visualViewport) {
+        window.visualViewport.addEventListener('resize', adjustChatWindowForMobile);
+        window.visualViewport.addEventListener('scroll', adjustChatWindowForMobile);
+    }
+    window.addEventListener('resize', adjustChatWindowForMobile);
+
     function toggleChatbot() {
         const win = document.getElementById('chatbot-window');
         if (win.classList.contains('d-none')) {
             win.classList.remove('d-none');
+            adjustChatWindowForMobile();
             initChatWebSocket();
-            document.getElementById('chatbot-input').focus();
+            if (!isMobile()) {
+                document.getElementById('chatbot-input').focus();
+            }
         } else {
             win.classList.add('d-none');
+            resetChatWindowMobile();
         }
     }
+
+    document.getElementById('chatbot-input').addEventListener('focus', function() {
+        if (!isMobile()) return;
+        setTimeout(adjustChatWindowForMobile, 300);
+        setTimeout(adjustChatWindowForMobile, 600);
+    });
+
+    document.getElementById('chatbot-input').addEventListener('blur', function() {
+        if (!isMobile()) return;
+        // Keyboard closed — restore full screen
+        setTimeout(adjustChatWindowForMobile, 300);
+    });
 
     function setChatStatus(text, colorClass) {
         const statusEl = document.getElementById('chatbot-status-text');
