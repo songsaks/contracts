@@ -1,3 +1,12 @@
+# ====== views.py — Logic การแสดงผลและประมวลผลทั้งหมดของระบบ Payroll ======
+# แบ่งออกเป็นส่วนหลัก:
+#   1. Auth & Helpers — Login/Logout และ utility functions
+#   2. Employee Views — พนักงานกรอกรายงาน ดูสลิป
+#   3. HR/Admin Views — Dashboard ตรวจสอบ อนุมัติ
+#   4. Executive Views — อนุมัติ, Batch Approve, Export, Config
+#   5. Employee Management — เพิ่ม/แก้ไข/Import พนักงาน
+#   6. Bulk Entry — กรอกข้อมูลรายเดือนแบบ Excel Grid
+
 from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse
 from django.contrib.auth.decorators import login_required, user_passes_test
@@ -14,32 +23,45 @@ from .models import WorkReport, EmployeeSalaryConfig, PayrollRecord, PayrollStat
 from .forms import WorkReportForm, AdminWorkReportForm, EmployeeSalaryConfigForm
 
 User = get_user_model()
+# URL สำหรับ redirect เมื่อยังไม่ได้ login ในระบบ payroll
 PAYROLL_LOGIN_URL = '/payroll/login/'
 
 def payroll_logout(request):
-    """Custom logout that allows GET requests (fixes Django 5.0+ 405 error)."""
+    """Custom logout that allows GET requests (fixes Django 5.0+ 405 error).
+
+    Django 5.0+ บังคับให้ logout ผ่าน POST เท่านั้น
+    View นี้รองรับทั้ง GET และ POST เพื่อความสะดวก
+    """
     logout(request)
     return redirect('payroll:login')
 
 @login_required(login_url=PAYROLL_LOGIN_URL)
 def login_success(request):
-    """Dispatcher: redirects user to the correct dashboard based on role."""
+    """Dispatcher: redirects user to the correct dashboard based on role.
+
+    หลังจาก Login สำเร็จ ระบบจะ redirect ตามสิทธิ์:
+    - is_staff (HR/Admin หรือผู้บริหาร) → admin_dashboard
+    - พนักงานทั่วไป → report_list (รายงานผลงานของตัวเอง)
+    """
     if request.user.is_staff:
         return redirect('payroll:admin_dashboard')
     return redirect('payroll:report_list')
 
 # ─────────────────────────────────────────────────────────────
-#  Permission Helpers — 3-Tier Role System
-#  Level 1 Executive  : is_superuser
-#  Level 2 HR/Admin   : is_staff (not superuser)
-#  Level 3 Employee   : regular user
+#  Permission Helpers — 3-Tier Role System (ระบบ 3 ระดับสิทธิ์)
+#  Level 1 Executive  : is_superuser  (ผู้บริหาร — อนุมัติ, config, export)
+#  Level 2 HR/Admin   : is_staff (not superuser) (HR — กรอกข้อมูล, bulk entry)
+#  Level 3 Employee   : regular user  (พนักงานทั่วไป — กรอกรายงานของตัวเอง)
 # ─────────────────────────────────────────────────────────────
 def is_executive(user):
     """Level 1: ผู้บริหาร — superuser only."""
     return user.is_authenticated and user.is_superuser
 
 def is_hr_or_exec(user):
-    """Level 1 + 2: any staff (HR/Admin or Executive)."""
+    """Level 1 + 2: any staff (HR/Admin or Executive).
+
+    ใช้กับ view ที่ HR และผู้บริหารเข้าถึงได้ เช่น Bulk Entry, Employee List
+    """
     return user.is_authenticated and user.is_staff
 
 # Keep old name as alias so any existing references still work
@@ -47,13 +69,18 @@ is_hr = is_hr_or_exec
 
 def payroll_members():
     """Return QS of Users who are active payroll members.
-    We rely on salary_config.is_payroll_member=True to identify real employees."""
+    We rely on salary_config.is_payroll_member=True to identify real employees.
+
+    ใช้ทั่วทั้ง views เพื่อดึงเฉพาะพนักงานที่อยู่ในระบบ Payroll (ไม่ใช่ทุก Django user)
+    เรียงตาม last_name, first_name, username
+    """
     return User.objects.filter(
         salary_config__is_payroll_member=True,
         is_active=True
     ).distinct().order_by('last_name', 'first_name', 'username')
 
 def _safe_dec(value, default='0'):
+    # แปลง string/int/float เป็น Decimal อย่างปลอดภัย รองรับค่าที่มี comma (เช่น "1,500.00")
     try:
         clean = str(value or default).replace(',', '').strip()
         return Decimal(clean or default)
@@ -61,20 +88,25 @@ def _safe_dec(value, default='0'):
         return Decimal(default)
 
 def _month_name(m):
+    # แปลงเลขเดือน (1-12) เป็นชื่อเดือนภาษาไทย
     names = {1:'มกราคม',2:'กุมภาพันธ์',3:'มีนาคม',4:'เมษายน',5:'พฤษภาคม',6:'มิถุนายน',
              7:'กรกฎาคม',8:'สิงหาคม',9:'กันยายน',10:'ตุลาคม',11:'พฤศจิกายน',12:'ธันวาคม'}
     return names.get(m, str(m))
 
 # ─────────────────────────────────────────────────────────────
-#  Employee Views
+#  Employee Views — พนักงานดูและกรอกรายงานของตัวเอง
 # ─────────────────────────────────────────────────────────────
 @login_required(login_url=PAYROLL_LOGIN_URL)
 def report_list(request):
+    # แสดงรายการรายงานผลงานทั้งหมดของพนักงานที่ login อยู่
     reports = WorkReport.objects.filter(user=request.user).order_by('-year', '-month')
     return render(request, 'payroll/report_list.html', {'reports': reports})
 
 @login_required(login_url=PAYROLL_LOGIN_URL)
 def report_create(request):
+    # สร้างรายงานผลงานใหม่สำหรับพนักงาน
+    # action='save' → บันทึกเป็น DRAFT
+    # action='submit' → บันทึกและส่ง HR ทันที (SUBMITTED)
     if request.method == 'POST':
         form = WorkReportForm(request.POST)
         if form.is_valid():
@@ -94,6 +126,7 @@ def report_create(request):
 
 @login_required(login_url=PAYROLL_LOGIN_URL)
 def report_edit(request, pk):
+    # แก้ไขรายงานที่มีอยู่ — อนุญาตเฉพาะสถานะ DRAFT หรือ REJECTED เท่านั้น
     report = get_object_or_404(WorkReport, pk=pk, user=request.user)
     if report.status not in [PayrollStatus.DRAFT, PayrollStatus.REJECTED]:
         messages.error(request, "ไม่สามารถแก้ไขรายงานที่ถูกส่งหรืออนุมัติแล้วได้")
@@ -118,6 +151,7 @@ def report_edit(request, pk):
 
 @login_required(login_url=PAYROLL_LOGIN_URL)
 def report_detail(request, pk):
+    # ดูรายละเอียดรายงาน — พนักงานดูได้เฉพาะของตัวเอง HR ดูได้ทุกคน
     report = get_object_or_404(WorkReport, pk=pk)
     if report.user != request.user and not request.user.is_staff:
         messages.error(request, "ไม่มีสิทธิ์เข้าถึงข้อมูลนี้")
@@ -126,6 +160,7 @@ def report_detail(request, pk):
 
 @login_required(login_url=PAYROLL_LOGIN_URL)
 def report_submit(request, pk):
+    # เปลี่ยนสถานะรายงานจาก DRAFT หรือ REJECTED → SUBMITTED (ส่งให้ HR ตรวจสอบ)
     report = get_object_or_404(WorkReport, pk=pk, user=request.user)
     if report.status in [PayrollStatus.DRAFT, PayrollStatus.REJECTED]:
         report.status = PayrollStatus.SUBMITTED
@@ -137,6 +172,7 @@ def report_submit(request, pk):
 
 @login_required(login_url=PAYROLL_LOGIN_URL)
 def payslip_view(request, pk):
+    # แสดงสลิปเงินเดือน — เข้าถึงได้เฉพาะหลังจาก HR อนุมัติและมี PayrollRecord แล้ว
     report = get_object_or_404(WorkReport, pk=pk)
     # Employees can only see their own payslip; HR can see anyone's
     if report.user != request.user and not request.user.is_staff:
@@ -155,7 +191,11 @@ def payslip_view(request, pk):
 
 @login_required(login_url=PAYROLL_LOGIN_URL)
 def my_payslips(request):
-    """Employee: list all their approved payslip months."""
+    """Employee: list all their approved payslip months.
+
+    แสดงรายการสลิปเงินเดือนที่ผ่านการอนุมัติแล้วทั้งหมดของพนักงาน
+    เรียงจากเดือนล่าสุดก่อน
+    """
     approved_reports = WorkReport.objects.filter(
         user=request.user,
         status=PayrollStatus.APPROVED,
@@ -164,6 +204,7 @@ def my_payslips(request):
 
 @login_required(login_url=PAYROLL_LOGIN_URL)
 def record_detail(request, pk):
+    # เข้าถึง PayrollRecord โดยตรงผ่าน pk — ใช้แสดงสลิปอีกช่องทาง
     record = get_object_or_404(PayrollRecord, pk=pk)
     if record.report.user != request.user and not request.user.is_staff:
         messages.error(request, "ไม่มีสิทธิ์")
@@ -171,10 +212,11 @@ def record_detail(request, pk):
     return render(request, 'payroll/payslip.html', {'report': record.report, 'record': record})
 
 # ─────────────────────────────────────────────────────────────
-#  HR / Admin Views
+#  HR / Admin Views — HR ดู Dashboard และตรวจสอบรายงาน
 # ─────────────────────────────────────────────────────────────
 @user_passes_test(is_hr_or_exec, login_url=PAYROLL_LOGIN_URL)
 def admin_dashboard(request):
+    # Dashboard ภาพรวมรายเดือน: สถิติ KPI, รายการรอตรวจสอบ, รายการที่อนุมัติแล้ว
     month = int(request.GET.get('month', timezone.now().month))
     year  = int(request.GET.get('year',  timezone.now().year))
 
@@ -199,6 +241,9 @@ def admin_dashboard(request):
 
 @user_passes_test(is_executive, login_url=PAYROLL_LOGIN_URL)
 def admin_approve(request, pk):
+    # ผู้บริหารตรวจสอบและอนุมัติ/ส่งกลับ WorkReport รายบุคคล
+    # POST: new_status = APPROVED → คำนวณ payroll ทันที
+    #       new_status = REJECTED → บันทึก admin_remarks และส่งกลับพนักงาน
     report = get_object_or_404(WorkReport, pk=pk)
     config, _ = EmployeeSalaryConfig.objects.get_or_create(user=report.user)
 
@@ -213,12 +258,14 @@ def admin_approve(request, pk):
             report.save()
 
             if new_status == PayrollStatus.APPROVED:
+                # อนุมัติ → คำนวณเงินเดือนและบันทึก PayrollRecord
                 _calculate_and_save_payroll(report, config, request.user)
                 messages.success(
                     request,
                     f"✅ อนุมัติและคำนวณเงินเดือน {report.user.get_full_name() or report.user.username} เรียบร้อยแล้ว"
                 )
             else:
+                # ส่งกลับ → พนักงานจะได้รับแจ้งผ่าน admin_remarks
                 messages.warning(
                     request,
                     f"↩️ ส่งกลับรายงานของ {report.user.get_full_name() or report.user.username} ให้แก้ไข"
@@ -229,6 +276,7 @@ def admin_approve(request, pk):
 
     form = AdminWorkReportForm(instance=report)
 
+    # สรุปข้อมูลรายงานเพื่อแสดงใน template ตรวจสอบ
     review_data = [
         ("วันทำงาน", f"{report.working_days} วัน"),
         ("OT", f"{report.ot_hours} ชม."),
@@ -248,8 +296,19 @@ def admin_approve(request, pk):
         'review_data': review_data,
     })
 
+# ====== Core Payroll Calculation Functions ======
+
 def _calculate_and_save_payroll(report, config, processed_by):
-    """Central payroll calculation logic."""
+    """Central payroll calculation logic — คำนวณเงินเดือนและบันทึก PayrollRecord
+
+    สูตรคำนวณ:
+    - total_income = base + OT + team_mgmt_fee + professional_fee + commissions + incentives + customer_evaluation
+    - SSO = คำนวณจาก config.get_sso_amount() (ขั้นบันได หรือ per-employee)
+    - total_deductions = SSO + tax (config+report) + absent + advance + savings + lost_equip + other
+    - net_pay = total_income - total_deductions
+
+    ใช้ update_or_create เพื่อรองรับการคำนวณซ้ำ (re-approve หลัง reject)
+    """
     base    = config.base_salary
     ot_pay  = report.ot_hours * config.ot_rate_per_hour
     total_income = (base + ot_pay + report.team_mgmt_fee + report.professional_fee
@@ -277,7 +336,12 @@ def _calculate_and_save_payroll(report, config, processed_by):
 
 def _preview_payroll(report, config):
 
-    """Calculate payroll figures WITHOUT saving — used for batch preview."""
+    """Calculate payroll figures WITHOUT saving — used for batch preview.
+
+    เหมือน _calculate_and_save_payroll แต่ไม่บันทึกลงฐานข้อมูล
+    ใช้สำหรับ Batch Approve เพื่อแสดง preview ก่อนอนุมัติจริง
+    คืนค่าเป็น dict สำหรับแสดงใน template
+    """
     base         = config.base_salary
     ot_pay       = report.ot_hours * config.ot_rate_per_hour
     total_income = (base + ot_pay + report.team_mgmt_fee + report.professional_fee
@@ -298,7 +362,11 @@ def _preview_payroll(report, config):
 # ── Bank Transfer Export (Executive Only) ─────────────────
 @user_passes_test(is_executive, login_url=PAYROLL_LOGIN_URL)
 def bank_export(request):
-    """Screen: review approved payroll for a month, mark paid, download bank file."""
+    """Screen: review approved payroll for a month, mark paid, download bank file.
+
+    แสดงรายการเงินเดือนที่อนุมัติแล้วในเดือนที่เลือก
+    ผู้บริหารสามารถ mark_paid และดาวน์โหลดไฟล์สำหรับโอนเงินผ่านธนาคาร
+    """
     from datetime import date as date_cls
     month = int(request.GET.get('month', timezone.now().month))
     year  = int(request.GET.get('year',  timezone.now().year))
@@ -309,6 +377,7 @@ def bank_export(request):
         record_ids = request.POST.getlist('record_ids')
 
         if action == 'mark_paid' and record_ids:
+            # อัปเดต PayrollRecord ที่เลือกให้เป็น is_paid=True พร้อมวันที่จ่าย
             PayrollRecord.objects.filter(pk__in=record_ids).update(
                 is_paid=True,
                 payment_date=pay_date,
@@ -350,7 +419,13 @@ def bank_export(request):
 
 @user_passes_test(is_executive, login_url=PAYROLL_LOGIN_URL)
 def bank_export_excel(request):
-    """Download approved payroll as Excel for bank upload (KBank / generic)."""
+    """Download approved payroll as Excel for bank upload (KBank / generic).
+
+    รองรับ 2 format:
+    - 'generic': ตาราง payroll ทั่วไป มีคอลัมน์ชื่อ ธนาคาร บัญชี ยอดสุทธิ
+    - 'kbank': KBank Business Online format (SEQ, DEBIT_REF, CREDIT_ACC, ...)
+    ใช้ openpyxl สร้างไฟล์ Excel พร้อม styling สีเขียว
+    """
     from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
     from openpyxl.utils import get_column_letter
     import datetime
@@ -367,6 +442,7 @@ def bank_export_excel(request):
     wb = openpyxl.Workbook()
     ws = wb.active
 
+    # Style: header สีเขียวเข้ม ตัวอักษรขาว
     green = PatternFill("solid", fgColor="064E3B")
     white_bold = Font(bold=True, color="FFFFFF", size=10)
     header_align = Alignment(horizontal="center", vertical="center", wrap_text=True)
@@ -391,7 +467,7 @@ def bank_export_excel(request):
         ]
         col_widths = [8, 30, 20, 20, 18, 25, 12]
 
-    # Write header
+    # Write header — เขียนแถวหัวตาราง
     for ci, (h, w) in enumerate(zip(headers, col_widths), 1):
         cell = ws.cell(row=1, column=ci, value=h)
         cell.font = white_bold
@@ -439,13 +515,13 @@ def bank_export_excel(request):
             cell.alignment = Alignment(vertical="center")
             if fill:
                 cell.fill = fill
-            # Format amount column
+            # Format amount column — จัดรูปแบบคอลัมน์ตัวเลขเงิน
             if fmt == 'kbank' and ci == 6:
                 cell.number_format = '#,##0.00'
             elif fmt == 'generic' and ci == 5:
                 cell.number_format = '#,##0.00'
 
-    # Total row
+    # Total row — แถวสรุปยอดรวม
     total_row = len(list(records)) + 2
     ws.cell(row=total_row, column=1 if fmt == 'kbank' else 1, value="รวม").font = Font(bold=True, color="FFFFFF")
 
@@ -471,6 +547,18 @@ def bank_export_excel(request):
 # ── Batch Approve (all employees at once) ──────────────────
 @user_passes_test(is_executive, login_url=PAYROLL_LOGIN_URL)
 def batch_approve(request):
+    """อนุมัติ/ส่งกลับรายงานหลายคนพร้อมกัน (Batch Operations)
+
+    action:
+    - 'approve_all': อนุมัติทุก report ที่ถูกเลือก (report_ids[])
+    - 'approve_one': อนุมัติรายการเดียว (single_id)
+    - 'reject_one':  ส่งกลับรายการเดียว (single_id)
+
+    GET: แสดง 3 ส่วน:
+    - pending_rows:  รายการรอตรวจสอบ (SUBMITTED) พร้อม preview เงินเดือน
+    - approved_rows: รายการที่อนุมัติแล้ว พร้อมยอดสุทธิ
+    - missing_rows:  พนักงานที่ยังไม่มีรายงานเดือนนี้ (ผู้บริหารสร้างแทนได้)
+    """
     month = int(request.GET.get('month', timezone.now().month))
     year  = int(request.GET.get('year',  timezone.now().year))
 
@@ -482,6 +570,7 @@ def batch_approve(request):
         approved = rejected = 0
 
         if action == 'approve_all':
+            # อนุมัติพร้อมกันทุกรายการที่ส่งมา
             for rid in report_ids:
                 try:
                     r = WorkReport.objects.get(pk=rid, status=PayrollStatus.SUBMITTED)
@@ -495,6 +584,7 @@ def batch_approve(request):
             messages.success(request, f"✅ อนุมัติพนักงาน {approved} คน คำนวณเงินเดือนเรียบร้อยแล้ว")
 
         elif action == 'approve_one' and single_id:
+            # อนุมัติรายบุคคล พร้อมบันทึก admin_remarks
             try:
                 r = WorkReport.objects.get(pk=single_id)
                 cfg, _ = EmployeeSalaryConfig.objects.get_or_create(user=r.user)
@@ -507,6 +597,7 @@ def batch_approve(request):
                 messages.error(request, "ไม่พบรายงาน")
 
         elif action == 'reject_one' and single_id:
+            # ส่งกลับรายบุคคล
             try:
                 r = WorkReport.objects.get(pk=single_id)
                 r.status = PayrollStatus.REJECTED
@@ -518,7 +609,7 @@ def batch_approve(request):
 
         return redirect(f"{request.path}?month={month}&year={year}")
 
-    # GET: build preview rows
+    # GET: build preview rows — เตรียมข้อมูลสำหรับแสดง
     submitted = (WorkReport.objects
                  .filter(month=month, year=year, status=PayrollStatus.SUBMITTED)
                  .select_related('user')
@@ -528,6 +619,7 @@ def batch_approve(request):
                  .select_related('user', 'payroll_record')
                  .order_by('user__last_name', 'user__first_name'))
 
+    # สร้าง preview เงินเดือนสำหรับแต่ละรายการที่รอตรวจสอบ
     pending_rows = []
     for r in submitted:
         cfg, _ = EmployeeSalaryConfig.objects.get_or_create(user=r.user)
@@ -573,7 +665,11 @@ def batch_approve(request):
 # ── Exec: Create Report for a missing employee inline ─────
 @user_passes_test(is_executive, login_url=PAYROLL_LOGIN_URL)
 def exec_create_report(request):
-    """Executive creates/updates a WorkReport for any employee on the batch_approve page."""
+    """Executive creates/updates a WorkReport for any employee on the batch_approve page.
+
+    ผู้บริหารสร้างรายงานแทนพนักงานที่ยังไม่ได้กรอก (missing_rows)
+    ถ้า and_approve=1 จะอนุมัติและคำนวณเงินเดือนทันทีหลังบันทึก
+    """
     if request.method != 'POST':
         return redirect('payroll:batch_approve')
     month   = int(request.POST.get('month', timezone.now().month))
@@ -583,6 +679,7 @@ def exec_create_report(request):
 
     def dec(k): return _safe_dec(request.POST.get(k, '0'))
 
+    # get_or_create WorkReport สำหรับพนักงานคนนี้ในเดือนนี้
     report, _ = WorkReport.objects.get_or_create(
         user=user, month=month, year=year,
         defaults={'status': PayrollStatus.SUBMITTED}
@@ -601,7 +698,7 @@ def exec_create_report(request):
     report.status = PayrollStatus.SUBMITTED
     report.save()
 
-    # If exec chose to approve immediately
+    # If exec chose to approve immediately — อนุมัติทันทีหากติ๊ก checkbox
     if request.POST.get('and_approve') == '1':
         cfg, _ = EmployeeSalaryConfig.objects.get_or_create(user=user)
         report.status = PayrollStatus.APPROVED
@@ -616,6 +713,7 @@ def exec_create_report(request):
 # ── Salary Config (Executive Only) ────────────────────────
 @user_passes_test(is_executive, login_url=PAYROLL_LOGIN_URL)
 def salary_config_list(request):
+    # แสดงรายการ EmployeeSalaryConfig ของพนักงานทุกคนในระบบ Payroll
     # Only payroll members
     members = payroll_members()
     for u in members:
@@ -627,6 +725,7 @@ def salary_config_list(request):
 
 @user_passes_test(is_executive, login_url=PAYROLL_LOGIN_URL)
 def salary_config_edit(request, user_id):
+    # แก้ไข EmployeeSalaryConfig ของพนักงาน — ฐานเงินเดือน, OT rate, SSO, ธนาคาร
     user_obj = get_object_or_404(User, id=user_id)
     config, _ = EmployeeSalaryConfig.objects.get_or_create(user=user_obj)
     if request.method == 'POST':
@@ -643,7 +742,15 @@ def salary_config_edit(request, user_id):
 # ── SSO Bracket Management (HR + Exec) ────────────────────
 @user_passes_test(is_hr_or_exec, login_url=PAYROLL_LOGIN_URL)
 def sso_bracket_config(request):
-    """HR/Admin and Exec can manage progressive SSO rate brackets."""
+    """HR/Admin and Exec can manage progressive SSO rate brackets.
+
+    จัดการตารางอัตราประกันสังคมแบบขั้นบันได:
+    - action='add':    เพิ่ม bracket ใหม่
+    - action='toggle': เปิด/ปิดการใช้งาน bracket
+    - action='delete': ลบ bracket
+
+    GET: แสดง brackets ทั้งหมด พร้อม preview SSO สำหรับพนักงานแต่ละคน
+    """
     if request.method == 'POST':
         action = request.POST.get('action', '')
         if action == 'add':
@@ -678,7 +785,7 @@ def sso_bracket_config(request):
             'base': cfg.base_salary,
             'sso_amt': cfg.get_sso_amount(),
         })
-    # Also include superusers
+    # Also include superusers — รวม superuser เข้า preview ด้วย
     from django.db.models import Q as _Q
     for cfg in EmployeeSalaryConfig.objects.filter(user__is_superuser=True).select_related('user'):
         if not any(p['name'] == (cfg.user.get_full_name() or cfg.user.username) for p in previews):
@@ -698,6 +805,7 @@ def sso_bracket_config(request):
 # ── User Management (Executive Only) ──────────────────────
 @user_passes_test(is_executive, login_url=PAYROLL_LOGIN_URL)
 def user_management(request):
+    # แสดงรายชื่อพนักงานในระบบ Payroll พร้อม search และเปลี่ยนสิทธิ์
     q = request.GET.get('q', '')
     users = payroll_members()
     if q:
@@ -708,6 +816,7 @@ def user_management(request):
 
 @user_passes_test(is_executive, login_url=PAYROLL_LOGIN_URL)
 def toggle_staff(request, user_id):
+    # วนเวียนสิทธิ์: พนักงาน → HR/Admin → ผู้บริหาร → พนักงาน
     if request.method == 'POST':
         target = get_object_or_404(User, id=user_id)
         if target == request.user:
@@ -731,7 +840,11 @@ def toggle_staff(request, user_id):
 
 @user_passes_test(is_executive, login_url=PAYROLL_LOGIN_URL)
 def set_user_password(request, user_id):
-    """Executive: reset/set password for any user directly from User Management."""
+    """Executive: reset/set password for any user directly from User Management.
+
+    ผู้บริหารรีเซ็ต password ของพนักงานได้โดยตรง
+    password ต้องมีอย่างน้อย 6 ตัวอักษร และไม่สามารถเปลี่ยน password ของตัวเองได้
+    """
     if request.method != 'POST':
         return redirect('payroll:user_management')
     target = get_object_or_404(User, id=user_id)
@@ -751,16 +864,24 @@ def set_user_password(request, user_id):
 # ── Excel-Grid Bulk Entry (HR & Exec) ─────────────────────
 @user_passes_test(is_hr_or_exec, login_url=PAYROLL_LOGIN_URL)
 def bulk_management(request):
+    """แสดงและบันทึกข้อมูลรายเดือนแบบ Excel Grid สำหรับพนักงานทุกคนพร้อมกัน
+
+    HR กรอกข้อมูลทุกคนในตารางเดียวคล้าย Excel
+    POST: บันทึกทุกแถวที่ยังเป็น DRAFT หรือ REJECTED
+    GET: แสดงตาราง พร้อมข้อมูลที่มีอยู่แล้ว (ถ้ามี)
+    """
     month = int(request.GET.get('month', timezone.now().month))
     year  = int(request.GET.get('year',  timezone.now().year))
 
-    # Always show all payroll members. 
+    # Always show all payroll members.
     # When CLEAR is clicked, it deletes WorkReports, but the employee list remains visible.
     users = payroll_members()
     if not request.user.is_superuser:
+        # HR ไม่เห็น superuser ในตาราง (ผู้บริหารจัดการตัวเองผ่าน batch_approve)
         users = users.filter(is_superuser=False)
 
     reports_qs = WorkReport.objects.filter(month=month, year=year)
+    # สร้าง dict {user_id: report} เพื่อ lookup ใน template ได้เร็ว
     reports_map = {r.user_id: r for r in reports_qs}
 
     if request.method == 'POST':
@@ -772,7 +893,7 @@ def bulk_management(request):
                 user=user, month=month, year=year,
                 defaults={'status': PayrollStatus.DRAFT}
             )
-            # Only allow edit if DRAFT or REJECTED
+            # Only allow edit if DRAFT or REJECTED — ห้ามแก้ไขที่ส่งแล้วหรืออนุมัติแล้ว
             if report.status not in [PayrollStatus.DRAFT, PayrollStatus.REJECTED]:
                 continue
 
@@ -808,7 +929,12 @@ def bulk_management(request):
 
 @user_passes_test(is_hr_or_exec, login_url=PAYROLL_LOGIN_URL)
 def bulk_save_row(request):
-    """AJAX: save a single employee row without page reload."""
+    """AJAX: save a single employee row without page reload.
+
+    เรียกผ่าน fetch() ใน JavaScript ของ bulk_management.html
+    บันทึกแถวของพนักงาน 1 คน เมื่อ blur (ออกจาก input) หรือ Enter
+    คืน JSON: {'status': 'success', 'updated_at': '...', 'report_status': '...'}
+    """
     if request.method != 'POST':
         return JsonResponse({'status': 'error'}, status=405)
 
@@ -822,10 +948,10 @@ def bulk_save_row(request):
         defaults={'status': PayrollStatus.DRAFT}
     )
 
-    # State guard
+    # State guard — ป้องกันการแก้ไขรายการที่ส่งแล้ว
     if report.status not in [PayrollStatus.DRAFT, PayrollStatus.REJECTED]:
         return JsonResponse({
-            'status': 'error', 
+            'status': 'error',
             'message': 'Cannot edit record in current status: ' + report.get_status_display()
         }, status=403)
 
@@ -856,44 +982,55 @@ def bulk_save_row(request):
 
 @user_passes_test(is_hr_or_exec, login_url=PAYROLL_LOGIN_URL)
 def bulk_submit(request):
-    """Bulks change DRAFT/REJECTED reports to SUBMITTED for a month/year."""
+    """Bulks change DRAFT/REJECTED reports to SUBMITTED for a month/year.
+
+    เปลี่ยนสถานะ DRAFT/REJECTED ทั้งหมดในเดือนนั้น → SUBMITTED
+    เพื่อส่งให้ผู้บริหารตรวจสอบพร้อมกัน
+    """
     if request.method != 'POST':
         return redirect('payroll:bulk_management')
-    
+
     month = int(request.POST.get('month', 1))
     year  = int(request.POST.get('year', 2024))
-    
-    # Target reports that are editable
+
+    # Target reports that are editable — เฉพาะที่ยังแก้ไขได้
     qs = WorkReport.objects.filter(
-        month=month, year=year, 
+        month=month, year=year,
         status__in=[PayrollStatus.DRAFT, PayrollStatus.REJECTED]
     )
     count = qs.count()
     qs.update(status=PayrollStatus.SUBMITTED)
-    
+
     messages.success(request, f"ส่งข้อมูลไปยังผู้บริหารแล้ว {count} รายการ")
     return redirect(f"{reverse('payroll:bulk_management')}?month={month}&year={year}")
 
 @user_passes_test(is_hr_or_exec, login_url=PAYROLL_LOGIN_URL)
 def bulk_clear(request):
-    """Clears (Resets) all editable reports for a chosen month."""
+    """Clears (Resets) all editable reports for a chosen month.
+
+    ลบ WorkReport ทั้งหมดในเดือนนั้น (ไม่ว่าสถานะอะไร)
+    PayrollRecord จะถูกลบตาม cascade อัตโนมัติ
+    ใช้เมื่อต้องการ Import ข้อมูลใหม่ทั้งหมด
+    """
     if request.method != 'POST':
         return redirect('payroll:bulk_management')
-        
+
     month = int(request.POST.get('month', 1))
     year  = int(request.POST.get('year', 2024))
-    
+
     # Delete ALL reports for this month (regardless of status)
     qs = WorkReport.objects.filter(month=month, year=year)
     count = qs.count()
     qs.delete()  # PayrollRecord will be cascade-deleted too
-    
+
     messages.warning(request, f"ล้างข้อมูล ({count} รายการ) เรียบร้อยแล้ว สามารถนำเข้าข้อมูลด้วย Excel ใหม่ได้")
     return redirect(f"{reverse('payroll:bulk_management')}?month={month}&year={year}")
 
 # ── Excel Template Download (HR & Exec) ───────────────────
 @user_passes_test(is_hr_or_exec, login_url=PAYROLL_LOGIN_URL)
 def download_template(request):
+    # สร้างและดาวน์โหลด Excel Template สำหรับกรอกข้อมูลเงินเดือนรายเดือน
+    # pre-fill ข้อมูลที่มีอยู่แล้วในเดือนนั้นลงในไฟล์ด้วย
     month = int(request.GET.get('month', timezone.now().month))
     year  = int(request.GET.get('year',  timezone.now().year))
 
@@ -910,13 +1047,13 @@ def download_template(request):
         "ของหาย_อุปกรณ์เสียหาย", "หักภาษี_รายเดือน", "หักอื่นๆ"
     ]
     ws.append(headers)
-    
-    # Get existing reports for this month
+
+    # Get existing reports for this month — ดึงข้อมูลที่มีอยู่แล้ว
     reports_map = {r.user_id: r for r in WorkReport.objects.filter(month=month, year=year)}
-    
+
     # Get payroll members list (same as Grid)
     users = payroll_members().filter(is_active=True)
-    
+
     for u in users:
         r = reports_map.get(u.id)
         ws.append([
@@ -946,6 +1083,17 @@ def download_template(request):
 # ── Excel Import (HR & Exec) ──────────────────────────────
 @user_passes_test(is_hr_or_exec, login_url=PAYROLL_LOGIN_URL)
 def import_excel(request):
+    """นำเข้าข้อมูลรายเดือนจาก Excel file
+
+    อ่านไฟล์ Excel ที่ upload มา แต่ละแถว = พนักงาน 1 คน
+    - row[0] = username (ต้องมีอยู่ในระบบแล้ว)
+    - row[3] = month, row[4] = year
+    - row[5..19] = ข้อมูลตัวเลขต่างๆ
+
+    ข้ามรายการที่:
+    - ไม่พบ username ในระบบ
+    - report นั้นอยู่ในสถานะ SUBMITTED หรือ APPROVED (ป้องกัน overwrite)
+    """
     if request.method == 'POST' and request.FILES.get('excel_file'):
         try:
             wb = openpyxl.load_workbook(request.FILES['excel_file'])
@@ -997,14 +1145,21 @@ def import_excel(request):
 # ── Employee List & Add Single Employee (HR & Exec) ───────
 @user_passes_test(is_hr_or_exec, login_url=PAYROLL_LOGIN_URL)
 def employee_list(request):
-    """Show payroll members only, with add-single and import tools."""
+    """Show payroll members only, with add-single and import tools.
+
+    แสดงรายชื่อพนักงานในระบบ Payroll พร้อม:
+    - ค้นหาตามชื่อหรือ username
+    - ปุ่มเพิ่มพนักงานรายบุคคล (modal)
+    - ปุ่ม Import จาก Excel
+    - ปุ่มดาวน์โหลด Template
+    """
     q = request.GET.get('q', '')
     qs = payroll_members()
     if q:
         qs = qs.filter(
             Q(username__icontains=q) | Q(first_name__icontains=q) | Q(last_name__icontains=q)
         )
-    # Prefetch salary config (for bank info)
+    # Prefetch salary config (for bank info) — ดึง salary_config มาด้วยเพื่อแสดงบัญชีธนาคาร
     qs = qs.prefetch_related('salary_config')
     return render(request, 'payroll/employee_list.html', {
         'employees': qs,
@@ -1015,7 +1170,12 @@ def employee_list(request):
 
 @user_passes_test(is_hr_or_exec, login_url=PAYROLL_LOGIN_URL)
 def create_payroll_employee(request):
-    """HR or Exec: add a single new employee to the payroll system."""
+    """HR or Exec: add a single new employee to the payroll system.
+
+    สร้าง Django User ใหม่ (ถ้าไม่มี) และ EmployeeSalaryConfig
+    ตั้งค่า is_payroll_member=True และ generate employee_code อัตโนมัติ
+    ถ้า username ซ้ำ จะ update config แทนแทนการสร้างใหม่
+    """
     if request.method == 'POST':
         username   = request.POST.get('username', '').strip()
         first_name = request.POST.get('first_name', '').strip()
@@ -1041,7 +1201,7 @@ def create_payroll_employee(request):
         cfg.is_payroll_member = True
         cfg.bank_name           = request.POST.get('bank_name', '').strip()
         cfg.bank_account_number = request.POST.get('bank_account_number', '').strip()
-        # Auto-generate employee_code if not set
+        # Auto-generate employee_code if not set — สร้างรหัสพนักงานอัตโนมัติ
         if not cfg.employee_code:
             cfg.employee_code = EmployeeSalaryConfig.generate_employee_code()
         cfg.save()
@@ -1054,7 +1214,11 @@ def create_payroll_employee(request):
 
 @user_passes_test(is_hr_or_exec, login_url=PAYROLL_LOGIN_URL)
 def edit_payroll_employee(request, user_id):
-    """HR or Exec: edit basic info of a payroll member."""
+    """HR or Exec: edit basic info of a payroll member.
+
+    แก้ไขข้อมูลพื้นฐาน: ชื่อ, นามสกุล, อีเมล, สถานะ active
+    และอัปเดต bank info ใน EmployeeSalaryConfig
+    """
     target = get_object_or_404(
         User, id=user_id, salary_config__is_payroll_member=True
     )
@@ -1067,7 +1231,7 @@ def edit_payroll_employee(request, user_id):
         active_val = request.POST.get('is_active', '1')
         target.is_active = active_val == '1'
         target.save()
-        # Update bank info in salary config
+        # Update bank info in salary config — อัปเดตบัญชีธนาคาร
         cfg, _ = EmployeeSalaryConfig.objects.get_or_create(user=target)
         cfg.bank_name           = request.POST.get('bank_name', '').strip()
         cfg.bank_account_number = request.POST.get('bank_account_number', '').strip()
@@ -1078,7 +1242,11 @@ def edit_payroll_employee(request, user_id):
 
 @user_passes_test(is_executive, login_url=PAYROLL_LOGIN_URL)
 def remove_payroll_member(request, user_id):
-    """Exec only: remove a user from payroll (does not delete the Django user)."""
+    """Exec only: remove a user from payroll (does not delete the Django user).
+
+    ตั้งค่า is_payroll_member=False เท่านั้น
+    Django User ยังคงอยู่ในระบบ สามารถเพิ่มกลับได้ภายหลัง
+    """
     if request.method == 'POST':
         target = get_object_or_404(User, id=user_id)
         cfg, _ = EmployeeSalaryConfig.objects.get_or_create(user=target)
@@ -1090,7 +1258,11 @@ def remove_payroll_member(request, user_id):
 
 @user_passes_test(is_hr_or_exec, login_url=PAYROLL_LOGIN_URL)
 def download_employee_template(request):
-    """Generate an Excel template for importing employee roster."""
+    """Generate an Excel template for importing employee roster.
+
+    สร้าง Excel Template 2 แถว header + ตัวอย่าง + รายชื่อพนักงานปัจจุบัน
+    ใช้สำหรับ import_employees() ในครั้งถัดไป
+    """
     from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
     from openpyxl.utils import get_column_letter
 
@@ -1098,7 +1270,7 @@ def download_employee_template(request):
     ws = wb.active
     ws.title = "รายชื่อพนักงาน"
 
-    # Header row styling
+    # Header row styling — 2 แถวหัว: บรรทัดแรก = field name, บรรทัดสอง = คำอธิบาย
     headers = [
         ("username*",             "ชื่อผู้ใช้ (ห้ามซ้ำ, ไม่มีช่องว่าง)"),  # A
         ("first_name*",           "ชื่อจริง"),                               # B
@@ -1110,7 +1282,7 @@ def download_employee_template(request):
         ("is_active",             "ใช้งาน? (TRUE/FALSE)"),                   # H
     ]
 
-    # Style header
+    # Style header — ตกแต่ง header สีเขียว
     header_fill = PatternFill(start_color="064E3B", end_color="064E3B", fill_type="solid")
     header_font = Font(color="FFFFFF", bold=True, size=11)
     center     = Alignment(horizontal="center", vertical="center", wrap_text=True)
@@ -1129,7 +1301,7 @@ def download_employee_template(request):
     ws.row_dimensions[2].height = 36
     ws.freeze_panes = "A3"
 
-    # Example rows
+    # Example rows — ตัวอย่างข้อมูล 2 แถว
     examples = [
         ("emp001", "สมชาย", "ใจดี", "somchai@company.com", "", "", "TRUE", "ตัวอย่าง"),
         ("emp002", "สมหญิง", "รักดี", "", "mypass123", "", "TRUE", ""),
@@ -1140,7 +1312,7 @@ def download_employee_template(request):
             cell = ws.cell(row=r_idx, column=c_idx, value=val)
             cell.fill = example_fill
 
-    # Pre-fill existing employees
+    # Pre-fill existing employees — ใส่ข้อมูลพนักงานปัจจุบันล่วงหน้า
     existing_fill = PatternFill(start_color="ECFDF5", end_color="ECFDF5", fill_type="solid")
     for r_idx, u in enumerate(payroll_members().order_by('last_name', 'first_name'), len(examples) + 3):
         cfg = getattr(u, 'salary_config', None)
@@ -1161,7 +1333,14 @@ def download_employee_template(request):
 
 @user_passes_test(is_hr_or_exec, login_url=PAYROLL_LOGIN_URL)
 def import_employees(request):
-    """Import /update employee (User) records from an uploaded Excel file."""
+    """Import /update employee (User) records from an uploaded Excel file.
+
+    อ่านไฟล์ Excel ที่ upload มา (format ตาม download_employee_template)
+    - แถวเริ่มที่ 3 (แถว 1-2 เป็น header)
+    - ถ้า username มีอยู่แล้ว → update ข้อมูล
+    - ถ้าไม่มี → create user ใหม่และ mark เป็น payroll member
+    - ข้าม username ที่มีช่องว่าง (invalid)
+    """
     if request.method != 'POST' or not request.FILES.get('excel_file'):
         return redirect('payroll:employee_list')
 
@@ -1185,9 +1364,10 @@ def import_employees(request):
             bank_name     = str(row[5] or '').strip()   # col F
             bank_acc_no   = str(row[6] or '').strip()   # col G
             is_active_raw = str(row[7] or 'TRUE').strip().upper()
+            # รองรับหลายรูปแบบ: TRUE, 1, YES, Y, จริง, ใช้งาน
             is_active  = is_active_raw in ('TRUE', '1', 'YES', 'Y', 'จริง', 'ใช้งาน')
 
-            # Validate username
+            # Validate username — ตรวจสอบ username ไม่มีช่องว่าง
             if ' ' in username:
                 errors.append(f"แถว {row_num}: username '{username}' มีช่องว่าง — ข้ามแถวนี้")
                 skipped_count += 1
@@ -1195,7 +1375,7 @@ def import_employees(request):
 
             try:
                 user = User.objects.get(username=username)
-                # Update existing
+                # Update existing — อัปเดต user ที่มีอยู่แล้ว
                 user.first_name = first_name
                 user.last_name  = last_name
                 if email:
@@ -1204,7 +1384,7 @@ def import_employees(request):
                 user.save()
                 updated_count += 1
             except User.DoesNotExist:
-                # Create new user
+                # Create new user — สร้าง user ใหม่
                 user = User.objects.create_user(
                     username=username,
                     password=password,
@@ -1234,7 +1414,7 @@ def import_employees(request):
         messages.success(request, msg)
 
         if errors:
-            for err in errors[:5]:  # show max 5 errors
+            for err in errors[:5]:  # show max 5 errors — แสดงสูงสุด 5 error
                 messages.warning(request, err)
 
     except Exception as e:

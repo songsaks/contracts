@@ -1,19 +1,25 @@
 <!DOCTYPE html>
+<!-- หน้าหลัก (Landing Page) ของ 9Com Portal — ใช้สำหรับเลือกระบบต่าง ๆ -->
 <html lang="th">
 
 <head>
+    <!-- ====== ส่วนหัวของเอกสาร (Document Head) ====== -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>9Com Portal — เลือกระบบ</title>
     <meta name="description" content="9Com Cloud Portal - ระบบบริหารจัดการครบวงจร">
     {% load static %}
+    <!-- ไอคอนของเว็บไซต์ (Favicon) -->
     <link rel="icon" type="image/svg+xml" href="{% static 'images/favicon.svg' %}?v=2">
     <link rel="shortcut icon" type="image/svg+xml" href="{% static 'images/favicon.svg' %}?v=2">
+    <!-- โหลดฟอนต์จาก Google Fonts: Inter (ภาษาอังกฤษ) + Noto Sans Thai (ภาษาไทย) -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Noto+Sans+Thai:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <!-- ไลบรารีไอคอน Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
+        /* ====== รีเซ็ต CSS พื้นฐาน (CSS Reset) ====== */
         *,
         *::before,
         *::after {
@@ -22,24 +28,26 @@
             box-sizing: border-box;
         }
 
+        /* ====== ตัวแปร CSS สำหรับสีและค่าต่าง ๆ (CSS Variables) ====== */
         :root {
-            --primary-blue: #3b82f6;
-            --deep-blue: #1e40af;
-            --orange: #f97316;
-            --deep-orange: #ea580c;
-            --green: #22c55e;
-            --deep-green: #16a34a;
-            --cyan: #06b6d4;
-            --deep-cyan: #0891b2;
-            --bg-base: #f8fafc;
-            --card-bg: #ffffff;
-            --card-border: #e2e8f0;
-            --card-hover-border: #cbd5e1;
-            --text-primary: #0f172a;
-            --text-secondary: #475569;
-            --text-muted: #94a3b8;
+            --primary-blue: #3b82f6;    /* สีน้ำเงินหลัก */
+            --deep-blue: #1e40af;       /* สีน้ำเงินเข้ม */
+            --orange: #f97316;          /* สีส้ม */
+            --deep-orange: #ea580c;     /* สีส้มเข้ม */
+            --green: #22c55e;           /* สีเขียว */
+            --deep-green: #16a34a;      /* สีเขียวเข้ม */
+            --cyan: #06b6d4;            /* สีฟ้าเขียว */
+            --deep-cyan: #0891b2;       /* สีฟ้าเขียวเข้ม */
+            --bg-base: #f8fafc;         /* สีพื้นหลังหน้าเว็บ */
+            --card-bg: #ffffff;         /* สีพื้นหลังการ์ด */
+            --card-border: #e2e8f0;     /* สีขอบการ์ดปกติ */
+            --card-hover-border: #cbd5e1; /* สีขอบการ์ดตอน hover */
+            --text-primary: #0f172a;    /* สีข้อความหลัก */
+            --text-secondary: #475569;  /* สีข้อความรอง */
+            --text-muted: #94a3b8;      /* สีข้อความจางๆ */
         }
 
+        /* ====== สไตล์ body หลัก ====== */
         body {
             font-family: 'Noto Sans Thai', 'Inter', sans-serif;
             min-height: 100vh;
@@ -53,7 +61,7 @@
             position: relative;
         }
 
-        /* Soft gradient mesh background */
+        /* ====== พื้นหลัง Gradient แบบ Mesh (ใช้ pseudo-element ::before) ====== */
         body::before {
             content: '';
             position: fixed;
@@ -70,7 +78,7 @@
             pointer-events: none;
         }
 
-        /* Subtle animated floating circles */
+        /* ====== วงกลมลอยเคลื่อนไหวในพื้นหลัง (Animated Background Orbs) ====== */
         .bg-orb {
             position: fixed;
             border-radius: 50%;
@@ -81,6 +89,7 @@
             animation: orb-float 25s ease-in-out infinite;
         }
 
+        /* วงสีน้ำเงิน — มุมบนขวา */
         .bg-orb--1 {
             width: 500px;
             height: 500px;
@@ -90,6 +99,7 @@
             animation-delay: 0s;
         }
 
+        /* วงสีส้ม — มุมล่างซ้าย */
         .bg-orb--2 {
             width: 400px;
             height: 400px;
@@ -99,6 +109,7 @@
             animation-delay: -8s;
         }
 
+        /* วงสีฟ้าเขียว — กลางหน้าจอ */
         .bg-orb--3 {
             width: 300px;
             height: 300px;
@@ -108,6 +119,8 @@
             animation-delay: -16s;
         }
 
+        /* ====== Keyframe Animations ====== */
+        /* orb-float: ทำให้วงกลมลอยขึ้นลงอย่างช้า ๆ */
         @keyframes orb-float {
             0%, 100% { transform: translate(0, 0) scale(1); }
             25% { transform: translate(20px, -25px) scale(1.05); }
@@ -115,6 +128,7 @@
             75% { transform: translate(15px, 10px) scale(1.02); }
         }
 
+        /* fadeInUp: ทำให้ element ค่อย ๆ โผล่ขึ้นมาจากด้านล่าง */
         @keyframes fadeInUp {
             from {
                 opacity: 0;
@@ -126,11 +140,13 @@
             }
         }
 
+        /* shimmer: เลื่อน gradient ทำให้ข้อความดูเหมือนระยิบระยับ */
         @keyframes shimmer {
             0% { background-position: -200% center; }
             100% { background-position: 200% center; }
         }
 
+        /* ====== Container หลักของเนื้อหา ====== */
         main {
             position: relative;
             z-index: 1;
@@ -139,7 +155,7 @@
             padding: 2rem 1.5rem;
         }
 
-        /* Header section */
+        /* ====== ส่วนหัวของหน้า (Header Section) ====== */
         .header {
             text-align: center;
             margin-bottom: 4rem;
@@ -192,7 +208,7 @@
             margin: 0 auto;
         }
 
-        /* Cards grid */
+        /* ====== กริดสำหรับแสดงการ์ดระบบต่าง ๆ ====== */
         .cards-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
@@ -201,7 +217,7 @@
             margin: 0 auto;
         }
 
-        /* Card styles */
+        /* ====== สไตล์การ์ดแต่ละใบ ====== */
         .card {
             position: relative;
             display: flex;
@@ -221,12 +237,13 @@
             animation: fadeInUp 0.8s ease-out backwards;
         }
 
+        /* หน่วงเวลา animation ของแต่ละการ์ดให้โผล่ทีละใบ */
         .card:nth-child(1) { animation-delay: 0.1s; }
         .card:nth-child(2) { animation-delay: 0.2s; }
         .card:nth-child(3) { animation-delay: 0.3s; }
         .card:nth-child(4) { animation-delay: 0.4s; }
 
-        /* Card top accent line */
+        /* เส้นสีที่ขอบบนของการ์ด — แสดงเมื่อ hover */
         .card::before {
             content: '';
             position: absolute;
@@ -247,7 +264,7 @@
             opacity: 1;
         }
 
-        /* Individual card accent colors */
+        /* ====== สีเฉพาะของการ์ดแต่ละประเภท (accent color per card theme) ====== */
         .card--blue::before {
             background: linear-gradient(90deg, #3b82f6, #60a5fa);
         }
@@ -296,7 +313,7 @@
             box-shadow: 0 20px 50px -12px rgba(16, 185, 129, 0.18), 0 8px 20px -4px rgba(0, 0, 0, 0.06);
         }
 
-        /* Icon container */
+        /* ====== กล่องไอคอนของการ์ด ====== */
         .card__icon {
             position: relative;
             z-index: 1;
@@ -380,7 +397,8 @@
             box-shadow: 0 8px 24px -4px rgba(16, 185, 129, 0.25);
         }
 
-        /* Card content */
+        /* ====== เนื้อหาภายในการ์ด ====== */
+        /* ชื่อระบบภาษาไทย */
         .card__title-th {
             position: relative;
             z-index: 1;
@@ -398,6 +416,7 @@
         .card--purple:hover .card__title-th { color: #8b5cf6; }
         .card--emerald:hover .card__title-th { color: #059669; }
 
+        /* ชื่อระบบภาษาอังกฤษ (แสดงเล็ก ๆ ใต้ชื่อไทย) */
         .card__title-en {
             position: relative;
             z-index: 1;
@@ -409,6 +428,7 @@
             margin-bottom: 0.75rem;
         }
 
+        /* คำอธิบายสั้น ๆ ของระบบ */
         .card__desc {
             position: relative;
             z-index: 1;
@@ -419,6 +439,7 @@
             flex-grow: 1;
         }
 
+        /* ปุ่ม/ข้อความ "เข้าสู่ระบบ" — ซ่อนอยู่ จะโผล่เมื่อ hover */
         .card__action {
             position: relative;
             z-index: 1;
@@ -454,7 +475,7 @@
             transform: translateX(4px);
         }
 
-        /* Footer */
+        /* ====== ส่วนท้ายของหน้า (Footer) ====== */
         footer {
             position: relative;
             z-index: 1;
@@ -477,10 +498,10 @@
         }
 
         /* ========================================
-           RESPONSIVE DESIGN
+           การออกแบบ Responsive (ปรับตามขนาดหน้าจอ)
            ======================================== */
 
-        /* --- Touch-friendly active states (all touch devices) --- */
+        /* --- สำหรับอุปกรณ์ touch (ไม่มี hover) --- */
         @media (hover: none) {
             .card__action {
                 opacity: 1;
@@ -497,7 +518,7 @@
             }
         }
 
-        /* --- Large Desktop (1280px+) --- */
+        /* --- หน้าจอขนาดใหญ่มาก (1280px ขึ้นไป) --- */
         @media (min-width: 1280px) {
             .cards-grid {
                 gap: 2rem;
@@ -529,7 +550,7 @@
             }
         }
 
-        /* --- Tablet Portrait (641px – 768px) --- */
+        /* --- Tablet Portrait (641px – 768px): ลดขนาดตัวอักษรและ padding ลงเล็กน้อย --- */
         @media (max-width: 768px) {
             main {
                 padding: 1.5rem 1.25rem;
@@ -592,7 +613,7 @@
             }
         }
 
-        /* --- Mobile (≤640px) — Horizontal card layout --- */
+        /* --- Mobile (≤640px): เปลี่ยนการ์ดเป็นแนวนอน (Horizontal Layout) เพื่อประหยัดพื้นที่ --- */
         @media (max-width: 640px) {
             body {
                 justify-content: flex-start;
@@ -629,7 +650,7 @@
                 max-width: 100%;
             }
 
-            /* Horizontal card layout for mobile */
+            /* การ์ดแนวนอนสำหรับมือถือ: ไอคอนอยู่ซ้าย เนื้อหาอยู่ขวา */
             .card {
                 flex-direction: row;
                 align-items: center;
@@ -653,7 +674,7 @@
                 height: 24px;
             }
 
-            /* Content wrapper for horizontal layout */
+            /* กล่องเนื้อหาข้อความในการ์ดแนวนอน — ขยายเต็มพื้นที่ที่เหลือ */
             .card__content {
                 flex: 1;
                 min-width: 0;
@@ -677,7 +698,7 @@
                 display: none; /* Hide description on mobile for cleaner look */
             }
 
-            /* Always show action arrow on mobile */
+            /* แสดงลูกศรกระทำตลอดเวลาบนมือถือ (ไม่ต้อง hover) — ซ่อนข้อความ แสดงแค่ไอคอน */
             .card__action {
                 opacity: 1;
                 transform: none;
@@ -699,7 +720,7 @@
             .card--purple:active .card__action svg { color: #8b5cf6; }
             .card--emerald:active .card__action svg { color: #059669; }
 
-            /* Accent line on left side for mobile */
+            /* เส้นสีแนวตั้งที่ขอบซ้ายของการ์ด (แทนเส้นบนบนหน้าจอใหญ่) */
             .card::before {
                 top: 0;
                 left: 0;
@@ -721,7 +742,7 @@
             }
         }
 
-        /* --- Small Mobile (≤380px) --- */
+        /* --- Small Mobile (≤380px): ปรับขนาดเพิ่มเติมสำหรับหน้าจอเล็กมาก เช่น iPhone SE --- */
         @media (max-width: 380px) {
             main {
                 padding: 1rem 0.75rem;
@@ -757,7 +778,8 @@
             }
         }
 
-        /* --- Accessibility: Reduced Motion --- */
+        /* --- Accessibility: ลด Animation สำหรับผู้ใช้ที่ตั้งค่า "prefers-reduced-motion" ไว้ ---
+           ปิด animation ทั้งหมดและซ่อน bg-orb เพื่อลดการเคลื่อนไหวที่อาจรบกวนผู้ใช้บางกลุ่ม */
         @media (prefers-reduced-motion: reduce) {
             *, *::before, *::after {
                 animation-duration: 0.01ms !important;
@@ -770,7 +792,7 @@
             }
         }
 
-        /* User Profile Badge */
+        /* ====== User Profile Badge: แสดงชื่อผู้ใช้และปุ่มออกจากระบบที่หัวหน้า ====== */
         .user-header-badge {
             display: inline-flex;
             align-items: center;
@@ -785,12 +807,14 @@
             animation: fadeInUp 0.8s ease-out;
         }
 
+        /* ชื่อผู้ใช้งานใน badge */
         .user-header-badge .username {
             font-weight: 700;
             font-size: 0.9rem;
             color: var(--text-primary);
         }
 
+        /* ปุ่มออกจากระบบ — แสดงสีแดงอ่อน เมื่อ hover จะเข้มขึ้นเล็กน้อย */
         .logout-btn {
             background: #fff1f2;
             color: #e11d48;
@@ -815,16 +839,25 @@
 
 <body>
 
-    <!-- Soft animated background orbs -->
+    <!-- ====== วงกลมพื้นหลังเคลื่อนไหว (Animated Background Orbs) ====== -->
+    <!-- วงที่ 1: สีน้ำเงิน มุมบนขวา -->
     <div class="bg-orb bg-orb--1"></div>
+    <!-- วงที่ 2: สีส้ม มุมล่างซ้าย -->
     <div class="bg-orb bg-orb--2"></div>
+    <!-- วงที่ 3: สีฟ้าเขียว กลางหน้าจอ -->
     <div class="bg-orb bg-orb--3"></div>
 
+    <!-- ====== เนื้อหาหลักของหน้า ====== -->
     <main>
+        <!-- ====== ส่วนหัวของหน้า (Header Section) ====== -->
         <div class="header">
+            <!-- แสดง User Badge เฉพาะเมื่อผู้ใช้ล็อกอินแล้ว -->
             {% if user.is_authenticated %}
+            <!-- Badge แสดงชื่อผู้ใช้และฟอร์มออกจากระบบ -->
             <div class="user-header-badge">
+                <!-- แสดงชื่อ username ที่ล็อกอินอยู่ -->
                 <span class="username"><i class="fas fa-user-circle me-1 text-primary"></i> สวัสดี, {{ user.username }}</span>
+                <!-- ฟอร์ม POST สำหรับ logout — ต้องใส่ {% csrf_token %} เสมอ -->
                 <form method="post" action="{% url 'logout' %}" style="display: inline;">
                     {% csrf_token %}
                     <button type="submit" class="logout-btn">
@@ -834,36 +867,47 @@
             </div>
             {% endif %}
 
+            <!-- แบดจ์โลโก้แบรนด์ 9Com Cloud -->
             <div class="brand-badge">
                 <img src="{% static 'images/favicon.svg' %}" alt="9Com Logo" style="width: 20px; height: 20px;">
                 9Com Cloud
             </div>
+            <!-- ชื่อหน้าหลัก — คำว่า "9Com" จะมี animation shimmer สีน้ำเงิน-ส้ม -->
             <h1>ยินดีต้อนรับสู่ <span>9Com</span></h1>
             <p>กรุณาเลือกระบบที่ต้องการใช้งาน</p>
         </div>
 
+        <!-- ====== ส่วนแสดงข้อความแจ้งเตือน (Django Messages Framework) ====== -->
+        <!-- แสดงเฉพาะเมื่อมี message จาก Django (เช่น login สำเร็จ หรือ error) -->
         {% if messages %}
         <div style="max-width: 600px; margin: 0 auto 2rem;">
+            <!-- วนลูปแสดงทุก message ที่ถูก queue ไว้ -->
             {% for message in messages %}
-            <div style="padding: 1rem 1.5rem; border-radius: 1rem; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.75rem; 
+            <!-- กำหนดสีพื้นหลัง: แดงสำหรับ error/warning, เขียวสำหรับ success/info -->
+            <div style="padding: 1rem 1.5rem; border-radius: 1rem; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.75rem;
                 {% if message.tags == 'error' or message.tags == 'danger' or message.tags == 'warning' %}
                     background: #fff1f2; border: 1px solid #fecdd3; color: #9f1239;
                 {% else %}
                     background: #f0fdf4; border: 1px solid #bbf7d0; color: #166534;
                 {% endif %}
                 box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); animation: fadeInUp 0.5s ease-out;">
+                <!-- ไอคอนข้อมูล (info icon) -->
                 <svg style="width: 20px; height: 20px;" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
+                <!-- ข้อความแจ้งเตือน -->
                 <div style="font-weight: 500;">{{ message }}</div>
             </div>
             {% endfor %}
         </div>
         {% endif %}
 
+        <!-- ====== กริดการ์ดระบบต่างๆ (Cards Grid) ====== -->
         <div class="cards-grid">
+            <!-- แสดงการ์ดระบบเฉพาะเมื่อผู้ใช้ล็อกอินแล้ว -->
             {% if user.is_authenticated %}
-                <!-- ระบบสัญญาเช่า -->
+                <!-- ====== การ์ด: ระบบสัญญาเช่า ====== -->
+                <!-- แสดงเมื่อผู้ใช้มีสิทธิ์ rentals หรือ profile.access_rentals หรือเป็น superuser -->
                 {% if perms.rentals or user.profile.access_rentals or user.is_superuser %}
                 <a href="/contracts/" class="card card--blue" id="card-contracts">
                     <div class="card__icon">
@@ -886,7 +930,8 @@
                 </a>
                 {% endif %}
 
-                <!-- ระบบซ่อมบำรุง -->
+                <!-- ====== การ์ด: ระบบซ่อมบำรุง ====== -->
+                <!-- แสดงเมื่อผู้ใช้มีสิทธิ์ repairs หรือ profile.access_repairs หรือเป็น superuser -->
                 {% if perms.repairs or user.profile.access_repairs or user.is_superuser %}
                 <a href="{% url 'repairs:repair_list' %}" class="card card--orange" id="card-repairs">
                     <div class="card__icon">
@@ -909,7 +954,8 @@
                 </a>
                 {% endif %}
 
-                <!-- ระบบขายสินค้า -->
+                <!-- ====== การ์ด: ระบบขายสินค้า (POS) ====== -->
+                <!-- แสดงเมื่อผู้ใช้มีสิทธิ์ pos หรือ profile.access_pos หรือเป็น superuser -->
                 {% if perms.pos or user.profile.access_pos or user.is_superuser %}
                 <a href="{% url 'pos:index' %}" class="card card--green" id="card-pos">
                     <div class="card__icon">
@@ -932,7 +978,8 @@
                 </a>
                 {% endif %}
 
-                <!-- ระบบจัดการโครงการ -->
+                <!-- ====== การ์ด: ระบบจัดการโครงการ (PMS) ====== -->
+                <!-- แสดงเมื่อผู้ใช้มีสิทธิ์ pms หรือ profile.access_pms หรือเป็น superuser -->
                 {% if perms.pms or user.profile.access_pms or user.is_superuser %}
                 <a href="{% url 'pms:project_list' %}" class="card card--cyan" id="card-pms">
                     <div class="card__icon">
@@ -955,7 +1002,8 @@
                 </a>
                 {% endif %}
 
-                <!-- ศูนย์แชทกลาง -->
+                <!-- ====== การ์ด: ศูนย์แชทกลาง (Communication Hub) ====== -->
+                <!-- แสดงเมื่อผู้ใช้มีสิทธิ์ chat หรือ profile.access_chat หรือเป็น superuser -->
                 {% if perms.chat or user.profile.access_chat or user.is_superuser %}
                 <a href="{% url 'chat:index' %}" class="card card--blue" id="card-chat">
                     <div class="card__icon" style="background: linear-gradient(135deg, #e0e7ff, #c7d2fe); border: 1px solid #a5b4fc;">
@@ -978,7 +1026,8 @@
                 </a>
                 {% endif %}
 
-                <!-- ระบบเงินเดือน -->
+                <!-- ====== การ์ด: ระบบเงินเดือน (Payroll) ====== -->
+                <!-- แสดงเมื่อผู้ใช้มีสิทธิ์ payroll หรือ profile.access_payroll หรือเป็น superuser -->
                 {% if perms.payroll or user.profile.access_payroll or user.is_superuser %}
                 <a href="{% url 'payroll:report_list' %}" class="card card--emerald" id="card-payroll">
                     <div class="card__icon">
@@ -1001,7 +1050,8 @@
                 </a>
                 {% endif %}
 
-                <!-- ระบบจัดการพนักงาน (Accounts) -->
+                <!-- ====== การ์ด: ระบบจัดการพนักงาน (User Management) ====== -->
+                <!-- แสดงเฉพาะ superuser หรือผู้ที่มี profile.access_accounts เท่านั้น -->
                 {% if user.is_superuser or user.profile.access_accounts %}
                 <a href="{% url 'accounts:user_list' %}" class="card card--blue" id="card-accounts">
                     <div class="card__icon">

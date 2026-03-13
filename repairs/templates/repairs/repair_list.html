@@ -163,7 +163,7 @@
                                         {% elif item.status == 'FIXING' %}
                                             <span class="status-badge-pill text-white" style="background-color: #ff9100;">กำลังซ่อม/ตรวจเช็ค</span>
                                         {% elif item.status == 'WAITING_APPROVAL' %}
-                                            <span class="status-badge-pill bg-purple-500 text-white">รออนุมัติ</span>
+                                            <span class="status-badge-pill bg-secondary text-white">รออนุมัติ</span>
                                         {% elif item.status == 'WAITING' %}
                                             <span class="status-badge-pill bg-warning text-dark">รออะไหล่</span>
                                         {% elif item.status == 'OUTSOURCE' %}
@@ -229,7 +229,7 @@
                     {% elif item.status == 'FIXING' %}
                         <span class="status-badge-pill bg-orange-500 text-white">ซ่อม/เช็ค</span>
                     {% elif item.status == 'WAITING_APPROVAL' %}
-                        <span class="status-badge-pill bg-purple-500 text-white">รออนุมัติ</span>
+                        <span class="status-badge-pill bg-secondary text-white">รออนุมัติ</span>
                     {% elif item.status == 'WAITING' %}
                         <span class="status-badge-pill bg-warning text-dark">รออะไหล่</span>
                     {% elif item.status == 'OUTSOURCE' %}

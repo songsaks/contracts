@@ -337,6 +337,62 @@ def find_supply_demand_zones(df):
         'base_end': base_window.index[-1].strftime('%Y-%m-%d') if hasattr(base_window.index[-1], 'strftime') else str(base_window.index[-1]),
     }
 
+def analyze_momentum_technical(df):
+    """
+    Centralized technical analysis for both scanner and portfolio.
+    Returns technical score and key indicators.
+    """
+    if df is None or len(df) < 50:
+        return {'score': 0, 'rvol': 0, 'rsi': 0, 'ema200': 0, 'ema50': 0}
+
+    import pandas_ta as ta
+    df = df.copy()
+    
+    # Pre-calculate Indicators
+    df['EMA200'] = ta.ema(df['Close'], length=200)
+    df['EMA50'] = ta.ema(df['Close'], length=50)
+    df['EMA20'] = ta.ema(df['Close'], length=20)
+    df['RSI'] = ta.rsi(df['Close'], length=14)
+    
+    current_price = df['Close'].iloc[-1]
+    rsi = df['RSI'].iloc[-1] if not df['RSI'].empty else 50
+    ema200 = df['EMA200'].iloc[-1] if not df['EMA200'].empty else current_price
+    ema50 = df['EMA50'].iloc[-1] if not df['EMA50'].empty else current_price
+    ema20 = df['EMA20'].iloc[-1] if not df['EMA20'].empty else current_price
+    
+    # 1. Trend Points (Max 40)
+    score = 0
+    if current_price > ema200: score += 15
+    if current_price > ema50: score += 15
+    if ema50 > ema200: score += 10
+    
+    # 2. Momentum Points (Max 20)
+    year_high = df['High'].tail(252).max()
+    if 55 <= rsi <= 75: score += 10
+    if current_price >= year_high * 0.85: score += 10
+    
+    # 3. RVOL Points (Max 30)
+    avg_vol = df['Volume'].tail(20).mean()
+    last_vol = df['Volume'].iloc[-1]
+    rvol = last_vol / avg_vol if avg_vol > 0 else 1.0
+    
+    if rvol >= 2.0: score += 30
+    elif rvol >= 1.5: score += 20
+    elif rvol >= 1.0: score += 10
+    
+    # 4. Supply/Demand Alignment (Max 10)
+    sd = find_supply_demand_zones(df)
+    if sd and sd['is_retesting']: score += 10
+    
+    return {
+        'score': min(score, 100),
+        'rvol': round(rvol, 2),
+        'rsi': round(rsi, 2),
+        'ema200': ema200,
+        'ema50': ema50,
+        'sd_zone': sd
+    }
+
 def refresh_set100_symbols():
     """
     Refreshes the ScannableSymbol database with current SET100 and MAI stocks.

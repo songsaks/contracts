@@ -8,50 +8,72 @@ from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
 from .models import ChatRoom, ChatMessage
 
-# เมื่อเข้าหน้าแชทหลัก: ดึงรายการห้องแชททั้งหมดที่เปิดใช้งาน
+# ====== Views หลักของระบบแชท (Chat Views) ======
+
+
 @login_required
 def chat_index(request):
+    """
+    หน้าแรกของระบบแชท: แสดงรายการห้องแชททั้งหมดที่ผู้ใช้มีสิทธิ์เข้าถึง
+    - Superuser: เห็นทุกห้องที่ is_active=True
+    - User ทั่วไป: เห็นเฉพาะห้องสาธารณะ หรือห้องส่วนตัวที่ตนเองได้รับอนุญาต
+    - กรองเฉพาะห้องแชทกลาง (ไม่รวมห้องที่ผูกกับโครงการ PMS)
+    """
     # ค้นหาห้องที่เป็น is_active และไม่ใช่ห้องโครงการ
     # และ (เป็นห้องสาธารณะ หรือ ผู้ใช้มีสิทธิ์เข้าถึงห้องส่วนตัว)
     if request.user.is_superuser:
+        # Superuser เห็นทุกห้องที่เปิดใช้งาน
         rooms = ChatRoom.objects.filter(is_active=True, project__isnull=True).order_by('created_at')
     else:
+        # ผู้ใช้ทั่วไป: ดึงเฉพาะห้องที่ตนเองมีสิทธิ์ (Q object ใช้ OR condition)
         rooms = ChatRoom.objects.filter(
             Q(is_private=False) | Q(allowed_users=request.user),
-            is_active=True, 
+            is_active=True,
             project__isnull=True
         ).distinct().order_by('created_at')
-    
+
     return render(request, 'chat/index.html', {
         'rooms': rooms
     })
 
-# เมื่อเข้าแชทในแต่ละห้อง: ค้นหาข้อความเดิม (History) มาแสดงก่อน
+
 @login_required
 def chat_room(request, room_id):
+    """
+    หน้าห้องแชท: แสดงกล่องข้อความและโหลดประวัติข้อความย้อนหลัง
+    ตรวจสอบสิทธิ์ก่อนอนุญาตให้เข้าห้องส่วนตัว
+    """
     # ค้นหาห้องตามไอดี ถ้าไม่พบจะคืนค่า 404
     room = get_object_or_404(ChatRoom, pk=room_id)
-    
-    # ตรวจสอบสิทธิ์การเข้าถึงห้องส่วนตัว
+
+    # ตรวจสอบสิทธิ์การเข้าถึงห้องส่วนตัว (Private Room Access Check)
     if room.is_private and not request.user.is_superuser:
         if not room.allowed_users.filter(id=request.user.id).exists():
             messages.error(request, f"คุณไม่มีสิทธิ์เข้าถึงห้องแชท '{room.name}' (Private Room)")
             return redirect('chat:index')
-            
-    # ดึงข้อความย้อนหลังล่าสุด 50 ข้อความ และเรียงตามเวลา
+
+    # ดึงข้อความย้อนหลังล่าสุด 50 ข้อความ เรียงตามเวลาจากเก่าไปใหม่
     chat_messages = room.messages.all().order_by('timestamp')[:50]
-    
+
     return render(request, 'chat/room.html', {
         'room': room,
         'chat_messages': chat_messages
     })
 
-# หน้าแชทเฉพาะโครงการ (PMS Project Chat)
+
+# ====== View สำหรับห้องแชทโครงการ PMS ======
+
 @login_required
 def project_chat(request, project_id):
+    """
+    ทางลัดเพื่อเข้าห้องแชทที่ผูกกับโครงการ PMS
+    ถ้าห้องแชทยังไม่มี จะสร้างใหม่อัตโนมัติ (get_or_create)
+    แล้ว redirect ไปหน้าห้องแชทนั้นทันที
+    """
     from pms.models import Project
     project = get_object_or_404(Project, pk=project_id)
-    
+
+    # ดึงหรือสร้างห้องแชทที่เชื่อมกับโครงการนี้
     room, created = ChatRoom.objects.get_or_create(
         project=project,
         defaults={
@@ -62,34 +84,45 @@ def project_chat(request, project_id):
     )
     return redirect('chat:room', room_id=room.id)
 
+
+# ====== View สำหรับการอัปโหลดไฟล์ผ่าน AJAX ======
+
 @login_required
 def upload_file(request, room_id):
-    """ รับไฟล์อัปโหลดจาก User ผ่าน AJAX แล้วบันทึกลง Database + ส่งเข้า WebSocket ทันที """
+    """
+    รับไฟล์อัปโหลดจาก User ผ่าน AJAX แล้วบันทึกลง Database
+    จากนั้น Broadcast ข้อมูลเข้า Channel Layer เพื่อแจ้งทุกคนในห้องทันที
+    รองรับทั้งไฟล์รูปภาพ (image/*) และไฟล์เอกสาร (PDF, Word ฯลฯ)
+    """
     if request.method == 'POST' and request.FILES.get('file'):
         room = get_object_or_404(ChatRoom, pk=room_id)
-        
-        # ตรวจสอบสิทธิ์ห้องส่วนตัว
+
+        # ตรวจสอบสิทธิ์ห้องส่วนตัวก่อนอนุญาตให้อัปโหลด
         if room.is_private and not request.user.is_superuser:
             if not room.allowed_users.filter(id=request.user.id).exists():
                 return JsonResponse({'error': 'Permission denied'}, status=403)
-                
+
         uploaded_file = request.FILES['file']
+        # ตรวจสอบประเภทไฟล์: รูปภาพหรือไฟล์เอกสาร
         is_image = uploaded_file.content_type.startswith('image/')
-        
+
+        # สร้าง ChatMessage record ก่อน (content ว่าง เพราะส่งเป็นไฟล์อย่างเดียว)
         message = ChatMessage.objects.create(
             room=room,
             user=request.user,
             content="",
         )
-        
+
+        # บันทึกไฟล์ลงฟิลด์ที่ถูกต้องตามประเภท
         if is_image:
             message.image = uploaded_file
         else:
             message.file = uploaded_file
-            
+
         message.save()
-        
+
         # ส่งข้อความไปเตือนผู้ใช้ทุกคนที่อยู่ในห้อง (Broadcast ผ่าน Channel Layer)
+        # ใช้ async_to_sync เพราะ view นี้เป็น synchronous แต่ channel_layer เป็น async
         channel_layer = get_channel_layer()
         async_to_sync(channel_layer.group_send)(
             f'chat_{room_id}',
@@ -109,4 +142,3 @@ def upload_file(request, room_id):
         )
         return JsonResponse({'status': 'ok'})
     return JsonResponse({'error': 'Invalid request'}, status=400)
-

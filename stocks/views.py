@@ -1,3 +1,7 @@
+# ====== views.py — View หลักของระบบวิเคราะห์หุ้น AI ======
+# ทุก view ต้องผ่านการ login (@login_required)
+# ใช้ yfinance, yahooquery ดึงข้อมูลตลาด และ Gemini AI วิเคราะห์
+
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.forms import UserCreationForm
@@ -7,7 +11,7 @@ from django.conf import settings
 from google import genai
 from .models import Watchlist, AnalysisCache, AssetCategory, Portfolio, MomentumCandidate, ScannableSymbol
 from .utils import (
-    get_stock_data, analyze_with_ai, calculate_trailing_stop, 
+    get_stock_data, analyze_with_ai, calculate_trailing_stop,
     refresh_set100_symbols, find_supply_demand_zones
 )
 from yahooquery import Ticker as YQTicker
@@ -15,38 +19,53 @@ import requests
 import yfinance as yf
 import pandas as pd
 import json
+import os
+import traceback
+import pandas_ta as ta
 
 # Removed custom session for yfinance to let it handle curl_cffi internally
 
+# ====== ฟังก์ชันตรวจสอบสิทธิ์ผู้ใช้ ======
+
 def admin_only(user):
+    # อนุญาตให้ผู้ใช้ทุกคนที่ login แล้วเข้าถึงข้อมูลของตัวเองได้
     return user.is_authenticated # Changed to allow any user to see their own data
+
+# ====== Dashboard — หน้าแสดง Watchlist พร้อมราคาและ RSI แบบ Real-time ======
 
 @login_required
 def dashboard(request):
+    """
+    แสดงรายการ Watchlist ของผู้ใช้พร้อมราคาปัจจุบัน, % เปลี่ยนแปลง
+    และค่า RSI 14 วัน คำนวณแบบ Real-time ผ่าน yfinance
+    """
     watchlist = Watchlist.objects.filter(user=request.user)
-    # Briefly get current price for each
+    # วนดึงข้อมูลราคาและ RSI ของแต่ละสินทรัพย์ใน Watchlist
     items = []
     import pandas_ta as ta
     for item in watchlist:
         try:
             t = yf.Ticker(item.symbol)
-            # Fetch at least 30 days to calculate 14-day RSI
+            # ดึงข้อมูลย้อนหลัง 1 เดือนเพื่อคำนวณ RSI 14 วัน
             hist = t.history(period="1mo")
             current = t.info.get('currentPrice') or t.info.get('regularMarketPrice') or t.info.get('previousClose')
             change = t.info.get('regularMarketChangePercent', 0)
-            
+
             rsi_val = None
             rsi_status = "Neutral"
             if not hist.empty and len(hist) >= 14:
+                # คำนวณ RSI 14 วัน ด้วย pandas_ta
                 rsi_series = ta.rsi(hist['Close'], length=14)
                 if not rsi_series.empty:
                     rsi_val = rsi_series.iloc[-1]
+                    # จำแนกสถานะ RSI ว่า Oversold/Overbought
                     if rsi_val < 30: rsi_status = "Oversold"
                     elif rsi_val > 70: rsi_status = "Overbought"
 
+            # ดึงข้อมูล Momentum Scan ที่เก็บไว้ (ถ้ามี)
             # Check if this has momentum scan data
             mom_data = MomentumCandidate.objects.filter(user=request.user, symbol=item.symbol).first()
-            
+
             items.append({
                 'obj': item,
                 'price': current,
@@ -57,34 +76,47 @@ def dashboard(request):
             })
         except:
             items.append({'obj': item, 'price': 'Error', 'change': 0, 'rsi': None, 'rsi_status': 'Error'})
-            
+
     return render(request, 'stocks/dashboard.html', {'items': items, 'categories': AssetCategory.choices})
+
+# ====== Analyze — วิเคราะห์หุ้นรายตัวด้วย AI (Gemini) ======
 
 @login_required
 def analyze(request, symbol):
+    """
+    ดึงข้อมูลหุ้นจาก yfinance + yahooquery และส่งให้ Gemini AI วิเคราะห์
+    ผลการวิเคราะห์จะถูกแคชไว้ใน AnalysisCache เพื่อใช้ซ้ำได้
+    แสดงกราฟราคา 90 วัน, ข่าวล่าสุด, และข้อมูลพื้นฐาน
+    """
     try:
         # Stop passing custom session, let yfinance handle its internal logic
         ticker = yf.Ticker(symbol)
+        # ดึงข้อมูลหุ้นทั้งหมดผ่าน utility function
         data = get_stock_data(symbol)
+        # ส่งข้อมูลให้ AI วิเคราะห์และรับผลเป็น Markdown
         analysis_text = analyze_with_ai(symbol, data)
-        
+
+        # ====== เตรียมข้อมูลกราฟราคาและวอลลุ่ม ======
         # Prepare Chart Data (Price & Volume)
         history = data.get('history', pd.DataFrame())
         chart_labels = []
         chart_values = []
         chart_volumes = []
         if not history.empty:
+            # แสดงเฉพาะ 90 วันล่าสุด
             history_subset = history.tail(90)
             chart_labels = [d.strftime('%Y-%m-%d') for d in history_subset.index]
             chart_values = [round(float(v), 2) for v in history_subset['Close'].values]
             chart_volumes = [int(v) for v in history_subset['Volume'].values]
 
+        # ====== เตรียมข้อมูลข่าว — แปลง timestamp ให้อ่านได้ ======
         # Prepare News Data (Convert timestamp to readable)
         from datetime import datetime
         news_list = data.get('news', [])
         for n in news_list:
             if 'providerPublishTime' in n:
                 try:
+                    # รองรับทั้ง string (ISO format) และ int (Unix timestamp)
                     if isinstance(n['providerPublishTime'], str):
                         n['display_time'] = datetime.fromisoformat(n['providerPublishTime'].replace('Z', '+00:00'))
                     else:
@@ -92,13 +124,15 @@ def analyze(request, symbol):
                 except Exception:
                     n['display_time'] = n['providerPublishTime']
 
+        # ====== บันทึกผลวิเคราะห์ลงใน cache ของแต่ละ user ======
         # Cache it per user
         AnalysisCache.objects.update_or_create(
             user=request.user,
             symbol=symbol,
             defaults={'analysis_data': analysis_text}
         )
-        
+
+        # ====== คำนวณค่า RSI ล่าสุดเพื่อแสดงใน header ======
         # Prepare RSI
         current_rsi = history['RSI'].iloc[-1] if 'RSI' in history.columns and not history.empty else None
         rsi_status = "Neutral"
@@ -106,35 +140,46 @@ def analyze(request, symbol):
             if current_rsi < 30: rsi_status = "Oversold"
             elif current_rsi > 70: rsi_status = "Overbought"
 
+        # ====== เตรียมข้อมูลพื้นฐานการเงิน ======
         info = data.get('info') or {}
         if not isinstance(info, dict):
             info = {}
-            
+
+        # ทำ copy เพื่อไม่แก้ไข dict ต้นฉบับ
         info = info.copy() # Safe copy
+        # แปลงค่าสัดส่วนพื้นฐาน (ROE, Dividend Yield, NPM) จากทศนิยมเป็นเปอร์เซ็นต์
         for key in ['returnOnEquity', 'dividendYield', 'profitMargins']:
             if isinstance(info.get(key), (int, float)):
                 info[key] = info[key] * 100
-        
+
+        # ====== คำนวณ D/E Ratio จาก Balance Sheet ======
         bs = data.get('balance_sheet')
         de_calculated = None
         if bs is not None and not bs.empty:
             try:
                 col = bs.columns[0]
+                # พยายามดึง Total Liabilities จากหลายชื่อ field ที่ yfinance อาจใช้
                 tot_liab = bs.loc['Total Liabilities Net Minority Interest', col] if 'Total Liabilities Net Minority Interest' in bs.index else bs.loc['Total Liabilities', col]
                 tot_eq = bs.loc['Stockholders Equity', col] if 'Stockholders Equity' in bs.index else bs.loc['Total Equity Gross Minority Interest', col]
                 de_calculated = tot_liab / tot_eq
             except Exception:
                 pass
-                
+
+        # อัปเดต D/E ใน info dict (ใช้ค่าจาก balance sheet ถ้ามี หรือ fallback เป็นค่าจาก yfinance)
         if de_calculated is not None:
             info['debtToEquity'] = de_calculated
         elif isinstance(info.get('debtToEquity'), (int, float)) if isinstance(info, dict) else False:
+            # yfinance ส่งค่า D/E เป็น % (คูณ 100 มาแล้ว) ต้องหาร 100 กลับ
             info['debtToEquity'] = info['debtToEquity'] / 100
 
+        # ====== คำนวณ Breakout / Resistance Levels ======
         fifty_two_week_high = history['High'].max() if not history.empty and 'High' in history.columns else None
+        # แนวต้านย่อยในช่วง 20 วันล่าสุด
         recent_resistance = history['High'].tail(20).max() if not history.empty and 'High' in history.columns else None
+        # แนวรับ/จุดตัดขาดทุนในช่วง 20 วันล่าสุด
         recent_support = history['Low'].tail(20).min() if not history.empty and 'Low' in history.columns else None
         curr_price = history['Close'].iloc[-1] if not history.empty and 'Close' in history.columns else info.get('currentPrice', 0)
+        # ตรวจสอบว่าราคาปัจจุบันทะลุ 52-Week High หรือไม่ (Breakout Signal)
         is_breakout = (curr_price >= fifty_two_week_high) if (fifty_two_week_high and curr_price) else False
 
         context = {
@@ -158,81 +203,153 @@ def analyze(request, symbol):
         messages.error(request, f"Error analyzing {symbol}: {str(e)}")
         return redirect('stocks:dashboard')
 
+# ====== Watchlist Management — เพิ่ม/ลบ รายการ Watchlist ======
+
 @login_required
 def add_to_watchlist(request):
+    """รับ POST form เพิ่ม symbol เข้า Watchlist ของ user ปัจจุบัน"""
     if request.method == 'POST':
         symbol = request.POST.get('symbol').upper()
         category = request.POST.get('category', AssetCategory.STOCK)
         name = request.POST.get('name', '')
-        
+
         if symbol:
+            # get_or_create ป้องกันการเพิ่ม symbol ซ้ำ
             Watchlist.objects.get_or_create(
                 user=request.user,
                 symbol=symbol,
                 defaults={'name': name, 'category': category}
             )
             messages.success(request, f"เพิ่ม {symbol} เข้าใน Watchlist แล้ว")
-            
+
     return redirect('stocks:dashboard')
 
 @login_required
 def delete_from_watchlist(request, pk):
+    """ลบรายการ Watchlist ตาม pk (เฉพาะของ user ปัจจุบันเท่านั้น)"""
     item = get_object_or_404(Watchlist, pk=pk, user=request.user)
     symbol = item.symbol
     item.delete()
     messages.success(request, f"ลบ {symbol} ออกจาก Watchlist แล้ว")
     return redirect('stocks:dashboard')
 
+# ====== Portfolio — แสดงพอร์ตการลงทุนพร้อมวิเคราะห์ AI ======
+
 @login_required
 def portfolio_list(request):
+    """
+    แสดงรายการสินทรัพย์ในพอร์ต พร้อม:
+    - ราคาปัจจุบัน, P/L, Market Value
+    - RSI 14 วัน
+    - Trailing Stop (3% จาก High)
+    - Supply & Demand Zone
+    - AI Portfolio Analysis (PyPortfolioOpt + Gemini)
+      เมื่อผู้ใช้กดปุ่ม Analyze (?analyze=true)
+    """
     portfolio_items = Portfolio.objects.filter(user=request.user)
     items = []
-    import pandas_ta as ta
-    
     total_market_value = 0
     total_gain_loss = 0
-    
+    print(f"DEBUG: Portfolio Scan Started for {getattr(request.user, 'username', 'Anonymous')}")
+
     for item in portfolio_items:
         try:
-            t = yf.Ticker(item.symbol)
-            hist = t.history(period="1mo")
-            current_price = t.info.get('currentPrice') or t.info.get('regularMarketPrice') or t.info.get('previousClose')
-            
-            # RSI Calculation
-            rsi_val = None
-            if not hist.empty and len(hist) >= 14:
-                rsi_series = ta.rsi(hist['Close'], length=14)
-                if not rsi_series.empty:
-                    rsi_val = rsi_series.iloc[-1]
+            symbol = item.symbol
+            print(f"DEBUG: Processing {symbol}")
 
+            # ====== ดึงข้อมูลราคาจาก yfinance ======
+            # Data fetch
+            t = yf.Ticker(symbol)
+            hist = t.history(period="1y")
+
+            # ถ้าไม่มีข้อมูล ลองเพิ่ม/ลบ .BK suffix (รองรับหุ้นไทย)
+            if hist.empty:
+                alt_sym = f"{symbol}.BK" if ".BK" not in symbol else symbol.replace(".BK", "")
+                print(f"DEBUG: {symbol} empty, trying {alt_sym}")
+                t = yf.Ticker(alt_sym)
+                hist = t.history(period="1y")
+
+            current_price = 0
+            rsi_val = None
+
+            if not hist.empty:
+                # จัดการ MultiIndex columns ที่อาจเกิดขึ้นเมื่อ yfinance ส่งข้อมูลหลาย ticker
+                if isinstance(hist.columns, pd.MultiIndex):
+                    hist.columns = [col[0] for col in hist.columns]
+                hist = hist.loc[:, ~hist.columns.duplicated()]
+
+                current_price = float(hist['Close'].iloc[-1])
+
+                # ตรวจสอบซ้ำอีกรอบเพื่อกรณีที่ Close เป็น NaN
+                # Double check price
+                if not current_price or pd.isna(current_price):
+                    try:
+                        info = t.info
+                        current_price = info.get('currentPrice') or info.get('regularMarketPrice') or 0
+                    except: pass
+
+                current_price = float(current_price or 0)
+
+                # คำนวณ RSI 14 วัน จากข้อมูลราคาปิด
+                # RSI
+                rsi_series = ta.rsi(hist['Close'], length=14)
+                rsi_val = rsi_series.iloc[-1] if (rsi_series is not None and not rsi_series.empty) else None
+                print(f"DEBUG: {symbol} Success Price={current_price}")
+            else:
+                print(f"DEBUG: {symbol} FAILED - No data")
+
+            # ====== คำนวณ P/L และ Market Value ======
+            # Calculations
             market_value = float(item.quantity) * float(current_price)
-            cost_basis = float(item.quantity) * float(item.entry_price)
+            cost_basis = float(item.quantity) * float(item.entry_price or 0)
             gain_loss = market_value - cost_basis
             gain_loss_pct = (gain_loss / cost_basis * 100) if cost_basis > 0 else 0
-            
-            # DCA Planner Logic (if loss is > 20%)
-            dca_target_cost = None
-            dca_qty = None
-            dca_amount = None
-            if gain_loss_pct <= -20:
-                # Target adjusting average cost to just 10% loss
-                target_cost = float(current_price) / 0.90
-                entry_p = float(item.entry_price)
-                if float(current_price) < target_cost < entry_p:
-                    if (target_cost - float(current_price)) > 0:
-                        dca_qty = float(item.quantity) * (entry_p - target_cost) / (target_cost - float(current_price))
-                        dca_amount = dca_qty * float(current_price)
-                        dca_target_cost = target_cost
 
-            # Trailing Stop Logic using calculate_trailing_stop
-            recent_high = hist['High'].max() if not hist.empty and 'High' in hist.columns else None
+            # ====== คำนวณ Trailing Stop ======
+            # ใช้ราคาสูงสุดใน 1 ปีเป็น highest_price_since_buy
+            # Trailing Stop
+            recent_high = hist['High'].max() if not hist.empty else None
             ts_data = calculate_trailing_stop(
-                symbol=item.symbol, 
-                current_price=float(current_price), 
-                entry_price=float(item.entry_price),
+                symbol=item.symbol,
+                current_price=float(current_price),
+                entry_price=float(item.entry_price or 0),
                 highest_price_since_buy=recent_high,
-                percent_trail=3.0
-            )
+                percent_trail=3.0  # Trailing 3% จาก High
+            ) if current_price > 0 else None
+
+            # ====== ดึง/คำนวณ Momentum Zone Data ======
+            # ตัด .BK suffix เพื่อให้ตรงกับ symbol ที่บันทึกจากการสแกน
+            # Momentum / Zone Data
+            clean_symbol = item.symbol.split('.')[0].upper()
+            from .utils import analyze_momentum_technical
+
+            # ค้นหาข้อมูล momentum ที่เคยสแกนไว้ (clean symbol ก่อน ถ้าไม่เจอลอง full symbol)
+            mom_data = MomentumCandidate.objects.filter(user=request.user, symbol=clean_symbol).first()
+            if not mom_data:
+                mom_data = MomentumCandidate.objects.filter(user=request.user, symbol=item.symbol).first()
+
+            # ถ้าไม่มีข้อมูลสแกน หรือผู้ใช้กด refresh — คำนวณ on-the-fly
+            # Calculate on-the-fly if needed
+            tech_analysis = analyze_momentum_technical(hist) if not hist.empty else None
+            if (not mom_data or request.GET.get('refresh') == 'true') and tech_analysis:
+                # สร้าง object ชั่วคราวเพื่อเก็บข้อมูลโดยไม่บันทึกลง DB
+                class QuickMom: pass
+                q_mom = QuickMom()
+                q_mom.technical_score = tech_analysis['score']
+                q_mom.rvol = tech_analysis['rvol']
+                sd = tech_analysis.get('sd_zone')
+                if sd and sd.get('start') and sd['start'] > 0:
+                    q_mom.risk_reward_ratio = sd.get('rr_ratio', 0)
+                    q_mom.demand_zone_start = sd['start']
+                    q_mom.demand_zone_end = sd.get('end', 0)
+                    q_mom.supply_zone_start = sd.get('target', 0)
+                    # คำนวณ % ห่างจากราคาปัจจุบันถึง zone
+                    q_mom.zone_proximity = 0 if current_price <= sd['start'] else ((float(current_price) - sd['start']) / sd['start']) * 100
+                else:
+                    q_mom.risk_reward_ratio = 0
+                    q_mom.demand_zone_start = 0
+                    q_mom.zone_proximity = 999  # ไม่พบโซน
+                mom_data = q_mom
 
             total_market_value += market_value
             total_gain_loss += gain_loss
@@ -244,20 +361,23 @@ def portfolio_list(request):
                 'gain_loss': gain_loss,
                 'gain_loss_pct': gain_loss_pct,
                 'rsi': rsi_val,
-                'dca_target_cost': dca_target_cost,
-                'dca_qty': dca_qty,
-                'dca_amount': dca_amount,
-                'trailing_stop_data': ts_data
+                'trailing_stop_data': ts_data,
+                'mom_data': mom_data
             })
-        except:
+        except Exception as e:
+            print(f"DEBUG: ERROR for {item.symbol}: {e}")
+            traceback.print_exc()
+            # ถ้า error ใส่ข้อมูลเปล่าเพื่อแสดง error state ใน template
             items.append({
-                'obj': item, 'current_price': 'Error', 'market_value': 0, 
+                'obj': item, 'current_price': 0, 'market_value': 0,
                 'gain_loss': 0, 'gain_loss_pct': 0, 'rsi': None,
-                'dca_target_cost': None, 'dca_qty': None, 'dca_amount': None, 'trailing_stop_data': None
+                'trailing_stop_data': None, 'mom_data': None
             })
 
+    # ====== AI Portfolio Analysis ด้วย Gemini + PyPortfolioOpt ======
     ai_analysis = None
     if request.GET.get('analyze') == 'true' and items:
+        # เลือก Gemini model ที่ดีที่สุดที่ตอบสนองได้
         client = genai.Client(api_key=settings.GEMINI_API_KEY)
         model_names = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-pro']
         model_name_to_use = 'gemini-pro'
@@ -272,24 +392,27 @@ def portfolio_list(request):
             except Exception:
                 continue
 
+        # สร้าง string สรุปพอร์ตสำหรับส่งให้ AI
         port_data = []
         for it in items:
             port_data.append(f"{it['obj'].symbol}: {it['obj'].quantity} units @ {it['obj'].entry_price} (Current: {it['current_price']}, P/L: {it['gain_loss_pct']:.2f}%, RSI: {it['rsi']})")
         port_str = "\n".join(port_data)
-        
+
+        # ====== PyPortfolioOpt — คำนวณ Efficient Frontier / Max Sharpe ======
         # --- PyPortfolioOpt Integration ---
         # Get historical data for all symbols to calculate correlation & efficient frontier
         symbols = [it['obj'].symbol for it in items if it['obj'].quantity > 0]
         ppo_advice = ""
         if len(symbols) > 1:
             try:
-                import pandas as pd
                 from pypfopt import expected_returns, risk_models
                 from pypfopt.efficient_frontier import EfficientFrontier
 
+                # ดึงราคาปิดย้อนหลัง 1 ปีสำหรับทุก symbol พร้อมกัน
                 # Fetch 1 yr of closing prices for correlation
                 data = yf.download(symbols, period="1y")
-                
+
+                # แปลง MultiIndex columns ให้เหลือแค่ 'Close' level
                 if isinstance(data.columns, pd.MultiIndex):
                     data = data['Close']
                 elif 'Close' in data:
@@ -297,41 +420,49 @@ def portfolio_list(request):
                 else:
                     data = pd.DataFrame() # Fallback
 
+                # จัดการ missing values ด้วย forward-fill และ backward-fill
                 # Deal with missing values
                 data = data.dropna(how="all")
                 data = data.ffill().bfill()
-                
+
+                # ตรวจสอบว่ามีข้อมูลเพียงพอสำหรับการคำนวณ
                 # Make sure data is not flat (in case of single symbol fallback bug, though handled by len(symbols) > 1)
                 if data.empty or len(data.columns) < 2:
                     raise ValueError("Not enough overlapping price data to calculate correlation.")
 
+                # คำนวณ Expected Return และ Covariance Matrix
                 mu = expected_returns.mean_historical_return(data)
                 S = risk_models.sample_cov(data)
-                
+
                 ef = EfficientFrontier(mu, S)
-                
+
+                # หา Portfolio ที่ Max Sharpe Ratio (ผลตอบแทนดีที่สุดเมื่อเทียบกับความเสี่ยง)
                 # Optimise for maximal Sharpe ratio
                 try:
                     raw_weights = ef.max_sharpe()
                 except Exception as ef_e:
+                    # Fallback: กรณีที่ max_sharpe ไม่ converge ใช้ equal weight แทน
                     # Fallback to equal weighting if max_sharpe fails (e.g. non-convex/all negative returns)
                     raw_weights = {sym: 1.0/len(symbols) for sym in symbols}
-                    
+
                 cleaned_weights = ef.clean_weights()
-                
+
+                # เปรียบเทียบน้ำหนักปัจจุบันกับน้ำหนักที่เหมาะสม
                 # Compare current weights to optimal weights
                 portfolio_total = sum(it['market_value'] for it in items)
                 current_weights = {it['obj'].symbol: (it['market_value'] / portfolio_total if portfolio_total > 0 else 0) for it in items}
-                
+
                 ppo_advice += "\n[PyPortfolioOpt Portfolio Optimization (Max Sharpe)]\n"
                 for sym in symbols:
                     c_weight = current_weights.get(sym, 0) * 100
                     o_weight = cleaned_weights.get(sym, 0) * 100
                     action = "Hold"
+                    # คำแนะนำ: Buy เมื่อน้ำหนักปัจจุบันต่ำกว่า optimal > 5%
                     if o_weight > c_weight + 5: action = "Buy/Increase Weight"
                     elif o_weight < c_weight - 5: action = "Sell/Reduce Weight"
                     ppo_advice += f"- {sym}: Current Weight = {c_weight:.1f}%, Optimal Weight = {o_weight:.1f}% -> Model says: {action}\n"
-                
+
+                # แสดงผลการวิเคราะห์ประสิทธิภาพของ Portfolio ที่เหมาะสม
                 try:
                     perf = ef.portfolio_performance(verbose=False)
                     ppo_advice += f"\nOptimal Expected Annual Return: {perf[0]*100:.2f}%\n"
@@ -345,10 +476,11 @@ def portfolio_list(request):
             except Exception as e:
                 ppo_advice = f"\n[PyPortfolioOpt] Unable to optimize portfolio due to an error: {str(e)}\n"
 
+        # ====== สร้าง Prompt สำหรับ AI วิเคราะห์พอร์ต ======
         prompt = f"""
         You are an expert Stock Portfolio Analyst. The user has the following assets in their portfolio (with Entry Price, Current Price, and Profit/Loss):
         {port_str}
-        
+
         {ppo_advice}
 
         Please analyze this portfolio and provide:
@@ -358,7 +490,7 @@ def portfolio_list(request):
 
         Format your response beautifully in Markdown using Thai Language (Sarabun professional tone).
         IMPORTANT RULES:
-        1. DO NOT include any conversational preamble or outro (e.g. "Here is the analysis...", "Explanation of Choices:"). 
+        1. DO NOT include any conversational preamble or outro (e.g. "Here is the analysis...", "Explanation of Choices:").
         2. Output ONLY the raw markdown text.
         3. DO NOT wrap the output in ```markdown code blocks. Start immediately with the analysis headings.
         """
@@ -368,7 +500,8 @@ def portfolio_list(request):
                 contents=prompt
             )
             ai_analysis = response.text
-            
+
+            # ลบ markdown code block wrapper ถ้า AI ไม่ปฏิบัติตาม prompt
             # Strip any residual markdown blocks if AI disobeys
             if ai_analysis.startswith("```markdown"):
                 ai_analysis = ai_analysis[len("```markdown"):].strip()
@@ -388,16 +521,23 @@ def portfolio_list(request):
     return render(request, 'stocks/portfolio.html', context)
 
 
+# ====== Portfolio Management — เพิ่ม/ลบ รายการพอร์ต ======
+
 @login_required
 def add_to_portfolio(request):
+    """
+    รับ POST form เพิ่มหรืออัปเดต position ในพอร์ต
+    ใช้ update_or_create เพื่อรองรับการแก้ไขข้อมูล (เช่น เพิ่ม quantity)
+    """
     if request.method == 'POST':
         symbol = request.POST.get('symbol').upper()
         name = request.POST.get('name', '')
         quantity = request.POST.get('quantity', 0)
         entry_price = request.POST.get('entry_price', 0)
         category = request.POST.get('category', AssetCategory.STOCK)
-        
+
         if symbol:
+            # update_or_create: สร้างใหม่ หรืออัปเดตถ้ามี symbol นั้นอยู่แล้ว
             Portfolio.objects.update_or_create(
                 user=request.user,
                 symbol=symbol,
@@ -413,49 +553,64 @@ def add_to_portfolio(request):
 
 @login_required
 def delete_from_portfolio(request, pk):
+    """ลบรายการจากพอร์ต (เฉพาะ object ของ user ปัจจุบันเท่านั้น)"""
     item = get_object_or_404(Portfolio, pk=pk, user=request.user)
     symbol = item.symbol
     item.delete()
     messages.success(request, f"ลบ {symbol} ออกจากพอร์ตแล้ว")
     return redirect('stocks:portfolio_list')
+
+# ====== Recommendations — คำแนะนำหุ้นรายวันจาก AI ======
+
 @login_required
 def recommendations(request):
+    """
+    สุ่มเลือก 20 หุ้น SET100 ต่อวัน (seed = วันที่ปัจจุบัน)
+    ดึงข้อมูลพื้นฐาน แล้วให้ Gemini AI คัดเลือกหุ้นแนะนำ
+    แบ่งเป็น Large Cap และ Mid Cap พร้อม Volume Analysis
+    """
     import random
     from datetime import date
 
+    # ====== รายชื่อ Pool หุ้น SET100 ทั้งหมด 100 ตัว ======
     # Pool of 100 high-quality Thai stocks (SET100 focus)
     full_pool = [
-        'ADVANC.BK', 'AOT.BK', 'AWC.BK', 'BBL.BK', 'BDMS.BK', 'BEM.BK', 'BGRIM.BK', 'BH.BK', 'BJC.BK', 'BLA.BK', 
-        'BPP.BK', 'BTS.BK', 'CBG.BK', 'CENTEL.BK', 'CHG.BK', 'CK.BK', 'CKP.BK', 'COM7.BK', 'CPALL.BK', 'CPAXT.BK', 
-        'CPF.BK', 'CPN.BK', 'CRC.BK', 'DELTA.BK', 'EA.BK', 'EGCO.BK', 'EPG.BK', 'ERW.BK', 'FORTH.BK', 'GLOBAL.BK', 
-        'GPSC.BK', 'GULF.BK', 'HMPRO.BK', 'ICHI.BK', 'INTUCH.BK', 'IRPC.BK', 'ITC.BK', 'IVL.BK', 'JMART.BK', 'JMT.BK', 
-        'KBANK.BK', 'KCE.BK', 'KEX.BK', 'KKP.BK', 'KTB.BK', 'KTC.BK', 'LH.BK', 'MBK.BK', 'MEGA.BK', 'MINT.BK', 
-        'MTC.BK', 'NEX.BK', 'OR.BK', 'ORI.BK', 'OSP.BK', 'PLANB.BK', 'PRM.BK', 'PSL.BK', 'PTG.BK', 'PTT.BK', 
-        'PTTEP.BK', 'PTTGC.BK', 'QH.BK', 'RATCH.BK', 'RCL.BK', 'ROJNA.BK', 'RS.BK', 'SABINA.BK', 'SAWAD.BK', 'SCB.BK', 
-        'SCC.BK', 'SCGP.BK', 'SINGER.BK', 'SIRI.BK', 'SPALI.BK', 'SPRC.BK', 'STA.BK', 'STEC.BK', 'STGT.BK', 'SUPER.BK', 
-        'TASCO.BK', 'TCAP.BK', 'THANI.BK', 'THCOM.BK', 'THG.BK', 'TISCO.BK', 'TKN.BK', 'TLI.BK', 'TOA.BK', 'TOP.BK', 
+        'ADVANC.BK', 'AOT.BK', 'AWC.BK', 'BBL.BK', 'BDMS.BK', 'BEM.BK', 'BGRIM.BK', 'BH.BK', 'BJC.BK', 'BLA.BK',
+        'BPP.BK', 'BTS.BK', 'CBG.BK', 'CENTEL.BK', 'CHG.BK', 'CK.BK', 'CKP.BK', 'COM7.BK', 'CPALL.BK', 'CPAXT.BK',
+        'CPF.BK', 'CPN.BK', 'CRC.BK', 'DELTA.BK', 'EA.BK', 'EGCO.BK', 'EPG.BK', 'ERW.BK', 'FORTH.BK', 'GLOBAL.BK',
+        'GPSC.BK', 'GULF.BK', 'HMPRO.BK', 'ICHI.BK', 'INTUCH.BK', 'IRPC.BK', 'ITC.BK', 'IVL.BK', 'JMART.BK', 'JMT.BK',
+        'KBANK.BK', 'KCE.BK', 'KEX.BK', 'KKP.BK', 'KTB.BK', 'KTC.BK', 'LH.BK', 'MBK.BK', 'MEGA.BK', 'MINT.BK',
+        'MTC.BK', 'NEX.BK', 'OR.BK', 'ORI.BK', 'OSP.BK', 'PLANB.BK', 'PRM.BK', 'PSL.BK', 'PTG.BK', 'PTT.BK',
+        'PTTEP.BK', 'PTTGC.BK', 'QH.BK', 'RATCH.BK', 'RCL.BK', 'ROJNA.BK', 'RS.BK', 'SABINA.BK', 'SAWAD.BK', 'SCB.BK',
+        'SCC.BK', 'SCGP.BK', 'SINGER.BK', 'SIRI.BK', 'SPALI.BK', 'SPRC.BK', 'STA.BK', 'STEC.BK', 'STGT.BK', 'SUPER.BK',
+        'TASCO.BK', 'TCAP.BK', 'THANI.BK', 'THCOM.BK', 'THG.BK', 'TISCO.BK', 'TKN.BK', 'TLI.BK', 'TOA.BK', 'TOP.BK',
         'TPIPL.BK', 'TPIPP.BK', 'TQM.BK', 'TRUE.BK', 'TTA.BK', 'TTB.BK', 'TU.BK', 'VGI.BK', 'WHA.BK', 'WHAUP.BK'
     ]
-    
+
+    # ใช้วันที่ปัจจุบันเป็น seed เพื่อให้รายชื่อเปลี่ยนทุกวัน แต่คงที่ตลอดวัน
     # Use current date as a seed so the selection changes daily
     # but remains stable within the same day for consistent analysis.
     today_str = date.today().strftime("%Y%m%d")
     random.seed(today_str)
     candidate_symbols = random.sample(full_pool, min(20, len(full_pool)))
-    
+
+    # Reset random seed เพื่อไม่ให้กระทบกับ random call อื่นในระบบ
     # Reset random seed so it doesn't affect other parts of the app
     random.seed()
-    
+
+    # ====== ดึงข้อมูลพื้นฐานเบื้องต้นสำหรับหุ้นแต่ละตัว ======
     # We will pick a handful to show detailed metrics for the AI to pick from
     stock_previews = []
-    
+
+    # ดึงข้อมูลเฉพาะ fundamental ที่สำคัญ เพื่อความเร็ว
     # Selection logic: We'll fetch basic data for these and let AI decide the top 10
     # To keep it fast, we'll only fetch the most critical ones
     for sym in candidate_symbols[:30]:
         try:
             t = yf.Ticker(sym)
             inf = t.info
-            
+
+            # คำนวณ D/E Ratio จาก balance sheet (quarterly หรือ annual)
             de = 'N/A'
             try:
                 bs = t.quarterly_balance_sheet if not t.quarterly_balance_sheet.empty else t.balance_sheet
@@ -466,23 +621,25 @@ def recommendations(request):
                     de = tot_liab / tot_eq
             except Exception:
                 pass
-            
+
+            # Fallback: ใช้ค่า debtToEquity จาก yfinance info (หาร 100 เพราะ yfinance คูณ 100 มาแล้ว)
             if de == 'N/A':
                 de = inf.get('debtToEquity', 'N/A')
                 if isinstance(de, (int, float)): de = de / 100
             elif isinstance(de, (int, float)):
                 de = round(de, 2)
-            
+
+            # ดึงค่า fundamental metrics และแปลงเป็น % สำหรับ ROE, Div Yield, NPM
             roe = inf.get('returnOnEquity', 'N/A')
             dy = inf.get('dividendYield', 'N/A')
             npm = inf.get('profitMargins', 'N/A')
             vol = inf.get('volume', 'N/A')
             avg_vol = inf.get('averageVolume', 'N/A')
-            
+
             if isinstance(roe, (int, float)): roe = roe * 100
             if isinstance(dy, (int, float)): dy = dy * 100
             if isinstance(npm, (int, float)): npm = npm * 100
-            
+
             stock_previews.append({
                 'symbol': sym,
                 'name': inf.get('longName', sym),
@@ -498,6 +655,7 @@ def recommendations(request):
         except:
             continue
 
+    # ====== เรียก Gemini AI สร้างรายงานแนะนำหุ้น ======
     # Generate the recommendation report using Gemini
     report_text = None
     if request.GET.get('analyze') == 'true' and stock_previews:
@@ -511,13 +669,14 @@ def recommendations(request):
                 break
             except Exception:
                 continue
-        
+
         data_str = "\n".join([str(s) for s in stock_previews])
-        
+
+        # Prompt ขอให้ AI วิเคราะห์และแนะนำหุ้น แบ่ง Large Cap / Mid Cap
         prompt = f"""
         You are a professional Thai Stock Analyst. Based on the following data of Thai stocks (Large Cap and Mid Cap):
         {data_str}
-        
+
         Please provide TWO separate rankings in your report (in Thai language):
 
         Part 1: 10 อันดับหุ้นไทยขนาดใหญ่แนะนำ (Top 10 Large Cap Thai Stock Recommendations)
@@ -528,21 +687,22 @@ def recommendations(request):
         2. Specifically mention which ones have potential for 'Economic Profits' (High ROE vs typical cost of capital).
         3. **CRITICAL**: Include a deep 'Volume Analysis' for each selected stock (compare its 'volume' to 'avg_volume', interpreting buying/selling pressure or momentum).
         4. Provide a brief 'Why this stock?' reason, highlighting its cap size context and its current Volume trend.
-        
+
         Format in beautiful Markdown for a professional web report. Use Sarabun style tone. Add an introductory section explaining the methodology.
         IMPORTANT RULES:
-        1. DO NOT include any conversational preamble or outro (e.g. "Okay, here's a professional Thai stock...", "Explanation of Choices:"). 
+        1. DO NOT include any conversational preamble or outro (e.g. "Okay, here's a professional Thai stock...", "Explanation of Choices:").
         2. Output ONLY the raw markdown text.
         3. DO NOT wrap the output in ```markdown code blocks. Start immediately with the analysis headings.
         """
-        
+
         try:
             response = client.models.generate_content(
                 model=model_name_to_use,
                 contents=prompt
             )
             report_text = response.text
-            
+
+            # ลบ markdown block wrapper ถ้า AI ไม่ปฏิบัติตาม prompt
             # Strip any residual markdown blocks if AI disobeys
             if report_text.startswith("```markdown"):
                 report_text = report_text[len("```markdown"):].strip()
@@ -558,8 +718,15 @@ def recommendations(request):
     }
     return render(request, 'stocks/recommendations.html', context)
 
+# ====== Macro Economy — ภาพรวมเศรษฐกิจมหภาคและสินค้าโภคภัณฑ์ ======
+
 @login_required
 def macro_economy(request):
+    """
+    ดึงข้อมูล SET Index, USD/THB, ทองคำ, น้ำมัน WTI/Brent
+    แสดงกราฟย้อนหลัง 3 เดือน และวิเคราะห์ด้วย AI ตามคำขอ
+    """
+    # รายการข้อมูลมหภาคที่ต้องดึงพร้อม symbol Yahoo Finance
     macro_items = [
         {'id': 'set', 'name': 'SET Index (ดัชนีหุ้นไทย)', 'symbol': '^SET', 'unit': 'Points', 'desc': 'ดัชนีตลาดหลักทรัพย์แห่งประเทศไทย บ่งบอกสภาวะตลาดโดยรวม ถ้าเพิ่มขึ้นแปลว่าเศรษฐกิจ/ตลาดหุ้นไทยดีขึ้น'},
         {'id': 'usdthb', 'name': 'USD/THB (อัตราแลกเปลี่ยนดอลลาร์/บาท)', 'symbol': 'USDTHB=X', 'unit': 'THB', 'desc': 'บาทอ่อนชงดีต่อภาคส่งออกและการท่องเที่ยว แต่อาจทำให้เงินทุนต่างชาติไหลออก'},
@@ -567,10 +734,11 @@ def macro_economy(request):
         {'id': 'wti', 'name': 'WTI Crude Oil (น้ำมันดิบ WTI)', 'symbol': 'CL=F', 'unit': 'USD/bbl', 'desc': 'ราคาน้ำมันจะกระทบโดยตรงต่อต้นทุนพลังงาน ค่าขนส่ง และอัตราเงินเฟ้อ'},
         {'id': 'brent', 'name': 'Brent Crude Oil (น้ำมันดิบเบรนท์)', 'symbol': 'BZ=F', 'unit': 'USD/bbl', 'desc': 'เป็นมาตรฐานราคาของฝั่งยุโรปและเอเชีย ซึ่งไทยมักมีต้นทุนแปรผันตามราคานี้'}
     ]
-    
+
     data = []
     charts = {}
-    
+
+    # วนดึงข้อมูลราคาปัจจุบันและ % เปลี่ยนแปลงของแต่ละตัวชี้วัด
     for item in macro_items:
         try:
             t = yf.Ticker(item['symbol'])
@@ -579,16 +747,17 @@ def macro_economy(request):
                 current_price = hist['Close'].iloc[-1]
                 prev_price = hist['Close'].iloc[-2]
                 pct_change = ((current_price - prev_price) / prev_price) * 100
-                
+
+                # เตรียมข้อมูล labels และ values สำหรับกราฟ Chart.js
                 # Chart data
                 dates = [d.strftime('%Y-%m-%d') for d in hist.index]
                 prices = [float(p) for p in hist['Close'].tolist()]
-                
+
                 charts[item['id']] = {
                     'labels': dates,
                     'values': prices
                 }
-                
+
                 data.append({
                     'id': item['id'],
                     'name': item['name'],
@@ -600,7 +769,8 @@ def macro_economy(request):
                 })
         except Exception:
             continue
-            
+
+    # ====== AI Macro Analysis — วิเคราะห์ภาพรวมเศรษฐกิจด้วย Gemini ======
     # AI Analysis for Macro Economy
     analysis_text = None
     if request.GET.get('analyze') == 'true' and data:
@@ -618,26 +788,27 @@ def macro_economy(request):
             except Exception:
                 continue
 
+        # สร้าง string สรุปข้อมูลมหภาคเพื่อส่งให้ AI
         data_str = "\n".join([f"{d['name']}: {d['price']:.2f} ({d['change']:+.2f}%)" for d in data])
         prompt = f"""
         You are an expert Thai Macroeconomist and Investment Strategist. Based on the following current market data:
         {data_str}
-        
+
         Please provide a comprehensive 'Macroeconomic & Sector Strategy' report in Thai.
         1. **Market Overview**: Summarize the current situation (Baht strength, Oil price trend, etc.).
         2. **Economic Impact**: Analyze how these numbers affect the overall Thai economy and SET Index.
         3. **Sectoral Analysis & Target Stocks**: Identify industries (e.g. Energy, Banking, Export, Tourism, Transport) that are impacted.
-           - สำหรับแต่ละกลุ่มอุตสาหกรรม ให้ระบุรายชื่อหุ้นไทยอย่างน้อย 5 หุ้นที่ได้รับผลกระทบ (ทั้งบวกหรือลบ) 
+           - สำหรับแต่ละกลุ่มอุตสาหกรรม ให้ระบุรายชื่อหุ้นไทยอย่างน้อย 5 หุ้นที่ได้รับผลกระทบ (ทั้งบวกหรือลบ)
            - พร้อมอธิบายสั้นๆ ว่าปัจจัยเศรษฐกิจชุดนี้ส่งผลต่อหุ้นกลุ่มนั้นอย่างไร
         4. **Actionable Investment Strategy**: A clear strategy for the current market conditions.
-        
+
         Format in beautiful Markdown for a professional web report. Use Sarabun style tone.
         IMPORTANT RULES:
-        1. DO NOT include any conversational preamble or outro. 
+        1. DO NOT include any conversational preamble or outro.
         2. Output ONLY the raw markdown text.
-        3. DO NOT wrap the output in ```markdown code blocks. 
+        3. DO NOT wrap the output in ```markdown code blocks.
         """
-        
+
         try:
             response = client.models.generate_content(
                 model=model_name_to_use,
@@ -645,6 +816,7 @@ def macro_economy(request):
             )
             analysis_text = response.text
 
+            # ลบ markdown block wrapper ถ้า AI ไม่ปฏิบัติตาม prompt
             # Strip any residual markdown blocks if AI disobeys
             if analysis_text.startswith("```markdown"):
                 analysis_text = analysis_text[len("```markdown"):].strip()
@@ -657,9 +829,12 @@ def macro_economy(request):
         'title': 'Macro Economy & Commodities',
         'data': data,
         'analysis': analysis_text,
+        # ส่ง charts data เป็น JSON string สำหรับ JavaScript
         'charts_json': json.dumps(charts)
     }
     return render(request, 'stocks/macro.html', context)
+
+# ====== Momentum Scanner — สแกนหาหุ้น SET100+MAI ตามเกณฑ์ Trend Template ======
 
 @login_required
 def momentum_scanner(request):
@@ -667,152 +842,159 @@ def momentum_scanner(request):
     Globally scans SET100 roughly matching Mark Minervini Trend Template.
     Requires significant processing time, might be better offloaded in prod,
     but done synchronously here for demonstration.
+
+    เกณฑ์การคัดกรอง:
+    1. ราคาต้องยืนเหนือ EMA200 (Long Term Uptrend)
+    2. ราคาต้องอยู่ภายใน 40% ของ 52-Week High (Near High Filter)
+    3. คำนวณ Technical Score รวม RSI, RVOL, EMA alignment
+    4. หา Supply & Demand Zone สำหรับ Sniper Entry
     """
+    # โหลดรายชื่อหุ้นที่จะสแกนจาก database
     # Load symbols from database
     scan_symbols = ScannableSymbol.objects.filter(is_active=True).values_list('symbol', flat=True)
-    
+
+    # ถ้า DB ว่างเปล่า ให้ refresh รายชื่อหุ้นอัตโนมัติ (Self-healing)
     # If DB is empty, trigger a refresh immediately (Self-healing)
     if not scan_symbols:
         refresh_set100_symbols()
         scan_symbols = ScannableSymbol.objects.filter(is_active=True).values_list('symbol', flat=True)
 
     candidates = []
-    
+
+    # สแกนเฉพาะเมื่อผู้ใช้กด POST หรือส่ง ?scan=true เพื่อลด load server
     # We only scan if requested to avoid huge load on every page visit
     if request.method == "POST" or request.GET.get('scan') == 'true':
+        # ลบผลสแกนเก่าของ user นี้ก่อนเริ่มสแกนใหม่
         # Clear previous results for this user ONLY
         MomentumCandidate.objects.filter(user=request.user).delete()
-        
+
         import pandas_ta as ta
         for symbol in scan_symbols:
             try:
                 # Let yfinance handle internal auth
                 print(f"Scanning {symbol}...")
+                # ดึงข้อมูลราคา 1 ปีจาก yfinance (ต้องการอย่างน้อย 200 วัน สำหรับ EMA200)
                 df = yf.download(f"{symbol}.BK", period="1y", interval="1d", progress=False)
-                
+
+                # ถ้า yfinance ล้มเหลว ลองใช้ yahooquery เป็น fallback
                 if df is None or df.empty:
                     print(f"yfinance failed for {symbol}, trying yahooquery...")
                     try:
                         yq = YQTicker(f"{symbol}.BK")
                         df = yq.history(period="1y", interval="1d")
                         if isinstance(df, pd.DataFrame) and not df.empty:
-                            # yahooquery returns a dataframe with [symbol, date] index. 
+                            # yahooquery returns a dataframe with [symbol, date] index.
                             df = df.reset_index()
                             if 'date' in df.columns:
                                 df.set_index('date', inplace=True)
                             if 'symbol' in df.columns:
                                 df.drop(columns=['symbol'], inplace=True)
+                            # แปลงชื่อ columns ให้ตรงกับ yfinance (ตัวพิมพ์ใหญ่)
                             # Map columns to match yfinance (Capitalized)
                             df.rename(columns={'open': 'Open', 'high': 'High', 'low': 'Low', 'close': 'Close', 'volume': 'Volume'}, inplace=True)
                             print(f"Successfully recovered {symbol} via yahooquery")
                     except Exception as yqe:
                         print(f"yahooquery also failed for {symbol}: {yqe}")
-                
+
                 if df is None or df.empty:
                     continue
-                    
+
+                # จัดการ MultiIndex columns (เกิดขึ้นเมื่อ yfinance download หลาย ticker)
                 if isinstance(df.columns, pd.MultiIndex):
                     # Flatten the columns by dropping the ticker level
                     df.columns = df.columns.droplevel(1)
-                
+
+                # กรองแถวที่ขาด Close หรือ High
                 df = df.dropna(subset=['Close', 'High'])
+                # ต้องการข้อมูลอย่างน้อย 150 วันสำหรับ EMA150
                 if len(df) < 150:
                     continue
-                    
+
+                # ====== คำนวณ Technical Indicators ======
                 df['EMA50'] = ta.ema(df['Close'], length=50)
                 df['EMA150'] = ta.ema(df['Close'], length=150)
                 df['EMA200'] = ta.ema(df['Close'], length=200)
                 df['RSI'] = ta.rsi(df['Close'], length=14)
-                
+
+                # คำนวณ ADX (Average Directional Index) — วัดความแรงของเทรนด์
                 # ADX Calculation
                 adx_df = ta.adx(df['High'], df['Low'], df['Close'], length=14)
                 if adx_df is not None and not adx_df.empty:
                     df = pd.concat([df, adx_df], axis=1)
-                
+
+                # คำนวณ MFI (Money Flow Index) — วัดแรงซื้อ/ขายตามวอลลุ่ม
                 # Money Flow Index (MFI)
                 mfi = ta.mfi(df['High'], df['Low'], df['Close'], df['Volume'], length=14)
                 df['MFI'] = mfi
-                
+
+                # คำนวณ Relative Volume (RVOL) — วอลลุ่มปัจจุบันเทียบค่าเฉลี่ย 20 วัน
                 # Relative Volume (RVOL) - Current Volume vs 20-day Average
                 avg_vol_20 = df['Volume'].rolling(window=20).mean()
                 df['RVOL'] = df['Volume'] / avg_vol_20
-                
+
+                # ดึงค่าล่าสุดของทุก indicator
                 # Extract last values
                 last_row = df.iloc[-1]
-                
-                current_price = float(last_row['Close'].iloc[0]) if isinstance(df['Close'], pd.DataFrame) else float(last_row['Close'])
-                year_high = float(df['High'].max().iloc[0]) if isinstance(df['High'], pd.DataFrame) else float(df['High'].max())
-                
-                ema50 = float(last_row['EMA50']) if pd.notna(last_row['EMA50']) else 0
-                ema150 = float(last_row['EMA150']) if pd.notna(last_row['EMA150']) else 0
-                ema200 = float(last_row['EMA200']) if pd.notna(last_row['EMA200']) else 0
-                rsi = float(last_row['RSI']) if pd.notna(last_row['RSI']) else 0
-                adx = float(last_row['ADX_14']) if 'ADX_14' in last_row and pd.notna(last_row['ADX_14']) else 0
-                mfi_val = float(last_row['MFI']) if pd.notna(last_row['MFI']) else 0
-                rvol = float(last_row['RVOL']) if pd.notna(last_row['RVOL']) else 1.0
-                
-                # --- INTEGRATED SCORING LOGIC (0-100) ---
-                integrated_score = 0
-                
-                # 1. Trend Quality (30%) - EMA Alignment & Price above EMA200
-                trend_points = 0
-                if current_price > ema200: trend_points += 15
-                if ema50 > ema150 > ema200: trend_points += 15
-                integrated_score += trend_points
-                
-                # 2. Price Momentum (20%) - RSI 60-75 & distance from high
-                mom_points = 0
-                if 60 <= rsi <= 75: mom_points += 10
-                gap_to_high = ((year_high - current_price) / current_price) * 100
-                if gap_to_high <= 15: mom_points += 10
-                integrated_score += mom_points
-                
-                # 3. Relative Volume (RVOL) (30%) - "Large Hands" Action
-                # If RVOL > 1.5 (Volume is 150% of avg), high points
-                if rvol >= 2.0: integrated_score += 30
-                elif rvol >= 1.5: integrated_score += 20
-                elif rvol >= 1.0: integrated_score += 10
-                
-                # 4. Money Flow Index (MFI) (20%) - Positive Net Flow
-                # MFI > 50 means energy is positive
-                if mfi_val >= 60: integrated_score += 20
-                elif mfi_val >= 50: integrated_score += 10
 
+                # ใช้ centralized utility function เพื่อความสม่ำเสมอระหว่าง scanner และ portfolio
+                # Use centralized utility for consistent results across all pages
+                from .utils import analyze_momentum_technical
+                tech = analyze_momentum_technical(df)
+
+                current_price = float(df['Close'].iloc[-1])
+                # ราคาสูงสุดใน 252 วัน (ประมาณ 1 ปีทำการ)
+                year_high = float(df['High'].tail(252).max())
+
+                integrated_score = tech['score']
+                rvol = tech['rvol']
+                rsi = tech['rsi']
+                ema200 = tech['ema200']
+
+                # ดึงค่า MFI และ ADX จาก DataFrame โดยตรง (scanner-specific)
+                # Scanner-specific indicators
+                mfi_val = float(df['MFI'].iloc[-1]) if 'MFI' in df.columns and pd.notna(df['MFI'].iloc[-1]) else 0
+                adx = float(df['ADX_14'].iloc[-1]) if 'ADX_14' in df.columns and pd.notna(df['ADX_14'].iloc[-1]) else 0
+                gap_to_high = ((year_high - current_price) / current_price) * 100
+
+                # ====== เกณฑ์กรองหุ้น (Relaxed Trend Template) ======
                 # Base filter (Relaxed Trend Template)
                 # 1. Price above EMA200 (Essential for long term uptrend)
                 # 2. Within 40% of 52-week high
                 is_uptrend = (current_price > ema200)
-                near_high = (current_price >= year_high * 0.60) 
-                
+                near_high = (current_price >= year_high * 0.60)
+
                 if is_uptrend and near_high:
                     print(f"MATCH FOUND: {symbol} (Score: {integrated_score})")
+                    # ดึง sector และ fundamental เฉพาะหุ้นที่ผ่านเกณฑ์เพื่อประหยัดเวลา
                     # Fetching sector & fundamentals only for candidates to save time
                     sector = "Unknown"
                     eps_growth = 0.0
                     rev_growth = 0.0
                     fund_bonus = 0
-                    
+
                     try:
                         ticker = yf.Ticker(f"{symbol}.BK")
                         info = ticker.info
                         if isinstance(info, dict):
                             sector = info.get('sector', 'Other')
-                            
+
+                            # ดึงการเติบโตของ EPS และรายได้ (แปลงเป็น %)
                             eps_growth = float(info.get('earningsQuarterlyGrowth', 0) or 0) * 100
                             rev_growth = float(info.get('revenueGrowth', 0) or 0) * 100
                         else:
                             sector = "N/A"
                             eps_growth = 0
                             rev_growth = 0
-                        
+
+                        # บวกคะแนน bonus ตามเกณฑ์ CAN SLIM
                         # Fundamental Bonus (CAN SLIM Criteria)
-                        if eps_growth >= 20: fund_bonus += 10
-                        if rev_growth >= 10: fund_bonus += 10
+                        if eps_growth >= 20: fund_bonus += 10  # EPS Growth > 20%
+                        if rev_growth >= 10: fund_bonus += 10  # Revenue Growth > 10%
                     except Exception as e:
                         print(f"Fundamental fetch error for {symbol}: {e}")
                         pass
-                        
-                    # Supply & Demand Analysis (Sniper Entry)
+
+                    # ====== Supply & Demand Analysis (Sniper Entry) ======
                     sd_zone = find_supply_demand_zones(df)
                     entry_strat = ""
                     dz_start = None
@@ -821,24 +1003,26 @@ def momentum_scanner(request):
                     sz_end = None
                     sl_price = None
                     rr_val = None
-                    
+
                     if sd_zone:
                         entry_strat = sd_zone['type']
                         dz_start = sd_zone['start']
                         dz_end = sd_zone['end']
                         sz_start = sd_zone['target']
-                        sz_end = sd_zone['target'] * 1.02 # Visual buffer
+                        sz_end = sd_zone['target'] * 1.02 # เพิ่ม 2% สำหรับ visual buffer
                         sl_price = sd_zone['stop_loss']
                         rr_val = sd_zone['rr_ratio']
-                    
+
+                    # คำนวณ % ห่างจากราคาปัจจุบันถึงขอบบน Demand Zone
                     # Calculate Proximity to Zone
                     prox_val = 999.0
                     if dz_start:
                         if current_price <= dz_start:
-                            prox_val = 0.0
+                            prox_val = 0.0  # ราคาอยู่ใน Zone แล้ว
                         else:
                             prox_val = ((current_price - dz_start) / dz_start) * 100
 
+                    # บันทึกผลการสแกนลง database
                     obj = MomentumCandidate.objects.create(
                         user=request.user,
                         symbol=symbol,
@@ -852,7 +1036,7 @@ def momentum_scanner(request):
                         eps_growth=round(eps_growth, 2),
                         rev_growth=round(rev_growth, 2),
                         technical_score=int(integrated_score + fund_bonus),
-                        
+
                         entry_strategy=entry_strat,
                         demand_zone_start=dz_start,
                         demand_zone_end=dz_end,
@@ -860,7 +1044,7 @@ def momentum_scanner(request):
                         supply_zone_end=sz_end,
                         stop_loss=sl_price,
                         risk_reward_ratio=rr_val,
-                        
+
                         year_high=round(year_high, 2),
                         upside_to_high=round(gap_to_high, 2),
                         zone_proximity=round(prox_val, 2)
@@ -871,7 +1055,8 @@ def momentum_scanner(request):
                 print(f"!!! Error scanning {symbol}: {str(e)}")
                 # traceback.print_exc()
                 continue
-                
+
+    # ====== จัดเรียงผลการสแกนตาม parameter ที่ผู้ใช้เลือก ======
     # Define Sorting Logic
     sort_by = request.GET.get('sort', 'score')
     valid_sorts = {
@@ -883,17 +1068,20 @@ def momentum_scanner(request):
         'eps': '-eps_growth',
         'rev': '-rev_growth',
         'gap': 'upside_to_high',
-        'prox': 'zone_proximity',
-        'round_rr': '-risk_reward_ratio'
+        'prox': 'zone_proximity',       # เรียงตามระยะห่างจาก Zone (น้อยสุดก่อน = ใกล้โซนสุด)
+        'round_rr': '-risk_reward_ratio' # เรียงตาม RR Ratio (มากสุดก่อน)
     }
     order_field = valid_sorts.get(sort_by, '-technical_score')
-    
+
+    # ดึงผลสแกนล่าสุดของ user นี้จาก database
     candidates = MomentumCandidate.objects.filter(user=request.user).order_by(order_field)
-    
+
+    # หาเวลาสแกนล่าสุด
     # Get last scan time from the first candidate if available
     last_scan = MomentumCandidate.objects.filter(user=request.user).order_by('-scanned_at').first()
     scanned_at = last_scan.scanned_at if last_scan else None
-        
+
+    # ====== AI Insight — คัด Superperformance Stocks จากรายชื่อที่ผ่านเกณฑ์ ======
     ai_analysis = None
     if candidates and request.GET.get('analyze') == 'true':
         symbols_list = [c.symbol for c in candidates]
@@ -909,6 +1097,7 @@ def momentum_scanner(request):
                 except Exception:
                     continue
 
+            # Prompt ให้ AI วิเคราะห์ข่าวและ Sentiment แล้วคัดหุ้น Superperformance
             prompt = f"""จากรายชื่อหุ้นใน SET ที่ผ่านเกณฑ์ Momentum ขาขึ้น (Trend Template) ณ ขณะนี้ ได้แก่:
 {', '.join(symbols_list)}
 
@@ -924,6 +1113,7 @@ def momentum_scanner(request):
                 contents=prompt
             )
             ai_analysis = response.text
+            # ลบ markdown block wrapper ถ้า AI ไม่ปฏิบัติตาม prompt
             if ai_analysis.startswith("```markdown"):
                 ai_analysis = ai_analysis[11:].strip()
             if ai_analysis.endswith("```"):
@@ -937,34 +1127,47 @@ def momentum_scanner(request):
         'ai_analysis': ai_analysis,
         'scanned_at': scanned_at,
         'current_sort': sort_by,
+        # has_scanned: แสดงตารางผลเมื่อมีการสแกน หรือมีข้อมูลเก่าอยู่แล้ว
         'has_scanned': request.method == "POST" or request.GET.get('scan') == 'true' or candidates.exists()
     }
     return render(request, 'stocks/momentum.html', context)
+
+# ====== Entry Finder — กราฟ Sniper Entry พร้อม Supply & Demand Zone ======
 
 @login_required
 def entry_finder(request, symbol):
     """
     Detailed view for Supply & Demand / Sniper Entry zone for a specific symbol.
+    แสดงกราฟ 120 วันพร้อม:
+    - Demand Zone (โซนเข้าซื้อ)
+    - Supply Zone / Target (โซนขาย)
+    - Stop Loss Line
+    - EMA50 และ EMA200
     """
+    # เติม .BK suffix สำหรับหุ้นไทยที่ยังไม่มี
     # Force .BK suffix for Thai symbols if not present
     full_symbol = f"{symbol}.BK" if not symbol.endswith(".BK") else symbol
-    
+
     try:
         df = yf.download(full_symbol, period="1y", interval="1d", progress=False)
         if df.empty:
             messages.error(request, f"ไม่พบข้อมูลสำหรับ {symbol}")
             return redirect('stocks:momentum_scanner')
 
+        # แก้ไข MultiIndex columns
         if isinstance(df.columns, pd.MultiIndex):
             df.columns = df.columns.droplevel(1)
 
+        # คำนวณ Supply & Demand Zone จาก utility function
         sd_zone = find_supply_demand_zones(df)
-        
+
+        # เตรียมข้อมูลกราฟ 120 วันล่าสุด
         # Chart Data
         history_subset = df.tail(120)
         chart_labels = [d.strftime('%Y-%m-%d') for d in history_subset.index]
         chart_values = [round(float(v), 2) for v in history_subset['Close'].values]
-        
+
+        # คำนวณ EMA50 และ EMA200 สำหรับแสดงในกราฟ
         # Technical Indicators for context
         import pandas_ta as ta
         history_subset['EMA50'] = ta.ema(history_subset['Close'], length=50)
@@ -972,14 +1175,15 @@ def entry_finder(request, symbol):
         ema50_vals = [round(float(v), 2) if pd.notna(v) else None for v in history_subset['EMA50'].values]
         ema200_vals = [round(float(v), 2) if pd.notna(v) else None for v in history_subset['EMA200'].values]
 
+        # แปลงข้อมูล chart เป็น JSON สำหรับ JavaScript
         chart_labels_json = json.dumps(chart_labels)
         chart_values_json = json.dumps(chart_values)
         ema50_vals_json = json.dumps(ema50_vals)
         ema200_vals_json = json.dumps(ema200_vals)
-        sd_zone_json = json.dumps(sd_zone)
+        sd_zone_json = json.dumps(sd_zone)  # ส่ง zone data ให้ chartjs-plugin-annotation
 
         curr_price = df['Close'].iloc[-1]
-        
+
         context = {
             'symbol': symbol,
             'full_symbol': full_symbol,
@@ -997,11 +1201,18 @@ def entry_finder(request, symbol):
         messages.error(request, f"Error finding zones for {symbol}: {str(e)}")
         return redirect('stocks:momentum_scanner')
 
+# ====== Signup — สมัครสมาชิกใหม่ ======
+
 def signup(request):
+    """
+    หน้าสมัครสมาชิก ใช้ Django built-in UserCreationForm
+    เมื่อสมัครสำเร็จจะ login อัตโนมัติและ redirect ไปหน้า dashboard
+    """
     if request.method == 'POST':
         form = UserCreationForm(request.POST)
         if form.is_valid():
             user = form.save()
+            # Login อัตโนมัติหลังจากสมัครสำเร็จ
             login(request, user)
             messages.success(request, f"ยินดีต้อนรับคุณ {user.username}! ระบบของคุณพร้อมใช้งานแล้ว")
             return redirect('stocks:dashboard')

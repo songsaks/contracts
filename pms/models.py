@@ -4,7 +4,23 @@ from django.utils import timezone
 from django.conf import settings
 from decimal import Decimal
 
+# ====== โมเดลหลักของระบบบริหารโครงการ (Project Management System) ======
+# ไฟล์นี้ประกอบด้วยโมเดลทั้งหมดสำหรับจัดการ:
+#   - ลูกค้า (Customer) และแผน SLA
+#   - ซัพพลายเออร์ (Supplier) และเจ้าของโครงการ (ProjectOwner)
+#   - โครงการ (Project) พร้อมระบบสถานะแบบ Dynamic (JobStatus)
+#   - รายการสินค้า/บริการ (ProductItem)
+#   - คิวงานบริการ (ServiceQueueItem) สำหรับ AI Queue
+#   - การแจ้งเตือนผู้รับผิดชอบ (UserNotification)
+#   - ประวัติการเปลี่ยนสถานะ (ProjectStatusLog, RequestStatusLog)
+
+# ====== SLA (Service Level Agreement) ======
 class SLAPlan(models.Model):
+    """
+    แผนระดับการให้บริการ (Service Level Agreement)
+    กำหนดเวลาตอบกลับ (Response Time) และเวลาแก้ไขปัญหา (Resolution Time)
+    ที่ลูกค้าแต่ละรายได้รับตามข้อตกลง
+    """
     name = models.CharField(max_length=100, verbose_name="ชื่อแพ็กเกจ SLA")
     response_time_hours = models.PositiveIntegerField(default=4, verbose_name="เวลาตอบกลับ (ชม.)")
     resolution_time_hours = models.PositiveIntegerField(default=24, verbose_name="เวลาแก้ไข (ชม.)")
@@ -19,12 +35,18 @@ class SLAPlan(models.Model):
     def __str__(self):
         return f"{self.name} (Res: {self.response_time_hours}h / Fix: {self.resolution_time_hours}h)"
 
+# ====== ลูกค้า (Customer) ======
 class Customer(models.Model):
+    """
+    ข้อมูลลูกค้าของบริษัท รองรับทั้งบุคคลทั่วไปและองค์กร
+    มีข้อมูล CRM เพิ่มเติม เช่น กลุ่มลูกค้า (Segment), ช่องทางที่รู้จัก (Source)
+    และเชื่อมต่อกับแผน SLA เพื่อกำหนดระดับการให้บริการ
+    """
     name = models.CharField(max_length=255)
     email = models.EmailField(blank=True)
     phone = models.CharField(max_length=50, blank=True)
     address = models.TextField(blank=True, verbose_name="ที่อยู่")
-    
+
     # CRM & Financial Fields (Optional)
     tax_id = models.CharField(max_length=20, blank=True, verbose_name="เลขประจำตัวผู้เสียภาษี")
     branch = models.CharField(max_length=100, blank=True, verbose_name="สาขา", help_text="เช่น สำนักงานใหญ่, สาขา 001")
@@ -60,7 +82,12 @@ class Customer(models.Model):
     def __str__(self):
         return self.name
 
+# ====== ซัพพลายเออร์ (Supplier) ======
 class Supplier(models.Model):
+    """
+    ข้อมูลซัพพลายเออร์ / ร้านค้าที่ใช้จัดซื้อสินค้าสำหรับโครงการ
+    เชื่อมโยงกับ ProductItem เพื่อระบุแหล่งที่มาของสินค้า
+    """
     name = models.CharField(max_length=255)
     contact_name = models.CharField(max_length=255, blank=True)
     email = models.EmailField(blank=True)
@@ -71,7 +98,12 @@ class Supplier(models.Model):
     def __str__(self):
         return self.name
 
+# ====== เจ้าของโครงการ (ProjectOwner) ======
 class ProjectOwner(models.Model):
+    """
+    พนักงานหรือตัวแทนขายที่รับผิดชอบโครงการ
+    ใช้สำหรับติดตามยอดขายและประเมินผลงานรายบุคคล
+    """
     name = models.CharField(max_length=255, verbose_name="ชื่อเจ้าของโครงการ")
     email = models.EmailField(blank=True, verbose_name="อีเมล")
     phone = models.CharField(max_length=50, blank=True, verbose_name="เบอร์โทรศัพท์")
@@ -80,7 +112,19 @@ class ProjectOwner(models.Model):
     def __str__(self):
         return self.name
 
+# ====== โครงการ (Project) — โมเดลหลักของระบบ ======
 class Project(models.Model):
+    """
+    โมเดลหลักของระบบ PMS แทนงานทุกประเภท ได้แก่:
+      - PROJECT: โครงการติดตั้งขนาดใหญ่
+      - SERVICE: งานบริการขาย
+      - REPAIR:  งานแจ้งซ่อม On-site
+      - RENTAL:  งานเช่าอุปกรณ์
+
+    มีระบบสถานะแบบ Dynamic (JobStatus) ที่ผู้ดูแลระบบสามารถปรับแต่งได้
+    รองรับการล็อกสถานะ (Queue Lock) เมื่อมีงานใน AI Service Queue อยู่
+    และบันทึกประวัติการเปลี่ยนสถานะ (ProjectStatusLog) ทุกครั้ง
+    """
     class Status(models.TextChoices):
         DRAFT = 'DRAFT', 'รวบรวม'
         SOURCING = 'SOURCING', 'จัดหา'
@@ -392,7 +436,13 @@ class ProjectStatusAssignment(models.Model):
         users_count = self.responsible_users.count()
         return f"{self.project.name} [{self.status_key}] -> {users_count} Users"
 
+# ====== รายการสินค้า/บริการในโครงการ (ProductItem) ======
 class ProductItem(models.Model):
+    """
+    รายการสินค้าหรือบริการที่อยู่ภายใต้โครงการ
+    ใช้คำนวณยอดขาย ต้นทุน และกำไรเบื้องต้น (Margin)
+    ประเภท PRODUCT = สินค้าจริง, SERVICE = ค่าแรง/บริการ
+    """
     class ItemType(models.TextChoices):
         PRODUCT = 'PRODUCT', 'สินค้า (Physical Goods)'
         SERVICE = 'SERVICE', 'บริการ / ค่าแรง (Service)'
@@ -442,7 +492,13 @@ class ProductItem(models.Model):
     def margin(self):
         return self.total_price - self.total_cost
 
+# ====== ความต้องการลูกค้า / Lead ======
 class CustomerRequirement(models.Model):
+    """
+    บันทึกความต้องการเบื้องต้นของลูกค้า (Lead) ที่ยังไม่ได้สร้างเป็นโครงการ
+    รองรับการบันทึกจากเสียง (Voice) หรือข้อความ (Text)
+    เมื่อ is_converted=True หมายความว่าถูกแปลงเป็นโครงการแล้ว
+    """
     content = models.TextField(verbose_name="รายละเอียดความต้องการ (Voice/Text)")
     project = models.OneToOneField(
         Project, 
@@ -464,7 +520,12 @@ class CustomerRequirement(models.Model):
         return f"Requirement {self.pk} - {self.created_at.strftime('%d/%m/%Y')}"
 
 
+# ====== คำขอจากลูกค้า (CustomerRequest) ======
 class CustomerRequest(models.Model):
+    """
+    คำขอพิเศษจากลูกค้าที่ไม่ได้เป็นโครงการใหม่ เช่น ขอเอกสาร ขอข้อมูลเพิ่มเติม
+    มีระบบสถานะตั้งแต่ RECEIVED จนถึง COMPLETED และบันทึกประวัติสถานะ
+    """
     class Status(models.TextChoices):
         RECEIVED = 'RECEIVED', 'รับคำขอ'
         PROCESSING = 'PROCESSING', 'กำลังดำเนินการ'

@@ -1,0 +1,16 @@
+
+==================================================
+ICHI.BK: cannot access local variable 'pd' where it is not associated with a value
+Traceback (most recent call last):
+  File "D:\DjangoProjects\contracts\stocks\views.py", line 212, in portfolio_list
+    if isinstance(hist.columns, pd.MultiIndex):
+                                ^^
+UnboundLocalError: cannot access local variable 'pd' where it is not associated with a value
+
+==================================================
+PTT.BK: cannot access local variable 'pd' where it is not associated with a value
+Traceback (most recent call last):
+  File "D:\DjangoProjects\contracts\stocks\views.py", line 212, in portfolio_list
+    if isinstance(hist.columns, pd.MultiIndex):
+                                ^^
+UnboundLocalError: cannot access local variable 'pd' where it is not associated with a value

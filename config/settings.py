@@ -10,27 +10,42 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
+# ====== การนำเข้า Library ======
+# Path ใช้สำหรับจัดการ path ของไฟล์และโฟลเดอร์แบบ cross-platform
+# os ใช้อ่านตัวแปรแวดล้อม (environment variables)
+# dotenv ใช้โหลดค่าจากไฟล์ .env เข้ามาเป็น environment variables
 from pathlib import Path
 import os
 from dotenv import load_dotenv
-load_dotenv()
+load_dotenv()  # โหลดค่าจากไฟล์ .env (เช่น DB password, API key) เข้าสู่ระบบ
 
+# ====== Base Directory ======
+# กำหนด path หลักของโปรเจกต์ (โฟลเดอร์ที่อยู่เหนือ config/ ขึ้นไป 1 ระดับ)
+# ใช้เป็น base สำหรับ path อื่น ๆ ในโปรเจกต์
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 
+# ====== Security Settings ======
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
+# คีย์ลับสำหรับเข้ารหัส session, CSRF token และข้อมูลสำคัญอื่น ๆ
+# ในระบบ production ควรเก็บใน .env และไม่ควร hardcode ในไฟล์นี้
 SECRET_KEY = 'django-insecure-t$4@!6*b8w-imi#=d=b7fby==&+kb(daydvkn29t=1jcs4f*i)'
 
 # SECURITY WARNING: don't run with debug turned on in production!
+# เปิด/ปิด Debug Mode โดยอ่านค่าจาก environment variable DJANGO_DEBUG
+# หากเป็น True จะแสดง error traceback ละเอียด (ใช้ได้เฉพาะ development เท่านั้น)
 DEBUG = os.getenv('DJANGO_DEBUG', 'True') == 'True'
 
+# รายชื่อ host/domain ที่อนุญาตให้เข้าถึงแอปนี้ได้
 ALLOWED_HOSTS = ['72.62.72.22', 'app.9com.cloud', 'www.9com.cloud', 'localhost', '127.0.0.1']
 
 
+# รายชื่อ origin ที่เชื่อถือได้สำหรับ CSRF protection
+# ป้องกันการโจมตีแบบ Cross-Site Request Forgery จาก origin ที่ไม่รู้จัก
 CSRF_TRUSTED_ORIGINS = [
     'https://app.9com.cloud',
     'https://www.9com.cloud',
@@ -40,134 +55,151 @@ CSRF_TRUSTED_ORIGINS = [
 ]
 
 
-# Application definition
-
+# ====== Installed Applications ======
+# รายชื่อแอปทั้งหมดที่ติดตั้งในโปรเจกต์นี้
+# ลำดับสำคัญ: daphne ต้องอยู่ก่อน django.contrib.staticfiles เพื่อให้ทำงานได้ถูกต้อง
 INSTALLED_APPS = [
     'daphne', # Must be before django.contrib.staticfiles
-    'channels',
-    'django.contrib.admin',
-    'django.contrib.auth',
-    'django.contrib.contenttypes',
-    'django.contrib.sessions',
-    'django.contrib.messages',
-    'django.contrib.staticfiles',
-    'django.contrib.humanize',
-    'rentals',
-    'landing',
-    'repairs',
-    'pos',
-    'pms',
-    'stocks',
-    'chatbot',
-    'payroll',
-    'accounts',
-    'chat',
+    'channels',              # Django Channels สำหรับ WebSocket และ async support
+    'django.contrib.admin',  # หน้า Admin ของ Django
+    'django.contrib.auth',   # ระบบ authentication (login/logout/permission)
+    'django.contrib.contenttypes',  # ระบบ content type framework
+    'django.contrib.sessions',      # ระบบจัดการ session ผู้ใช้
+    'django.contrib.messages',      # ระบบแจ้งเตือน flash message
+    'django.contrib.staticfiles',   # จัดการไฟล์ static (CSS, JS, รูปภาพ)
+    'django.contrib.humanize',      # template filter สำหรับแสดงตัวเลข/วันที่แบบ human-friendly
+    # ====== แอปของโปรเจกต์ ======
+    'rentals',   # ระบบจัดการสัญญาเช่า
+    'landing',   # หน้าแรก (Landing page)
+    'repairs',   # ระบบแจ้งซ่อม
+    'pos',       # ระบบขายหน้าร้าน (Point of Sale)
+    'pms',       # ระบบจัดการทรัพย์สิน (Property Management System)
+    'stocks',    # ระบบจัดการสต็อกสินค้า
+    'chatbot',   # ระบบ Chatbot AI
+    'payroll',   # ระบบเงินเดือน
+    'accounts',  # ระบบบัญชีผู้ใช้งาน (User accounts)
+    'chat',      # ระบบแชทแบบ Real-time
 ]
 
+# ====== Middleware ======
+# ชั้นกลางที่คอย process request/response ก่อนถึง view และก่อนส่งกลับ client
+# ลำดับของ middleware มีความสำคัญ - ทำงานจากบนลงล่าง (request) และล่างขึ้นบน (response)
 MIDDLEWARE = [
-    'django.middleware.security.SecurityMiddleware',
-    'django.contrib.sessions.middleware.SessionMiddleware',
-    'django.middleware.common.CommonMiddleware',
-    'django.middleware.csrf.CsrfViewMiddleware',
-    'django.contrib.auth.middleware.AuthenticationMiddleware',
-    'django.contrib.messages.middleware.MessageMiddleware',
-    'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'utils.middleware.AppPermissionMiddleware',
+    'django.middleware.security.SecurityMiddleware',                    # ความปลอดภัยพื้นฐาน (HTTPS redirect, HSTS)
+    'django.contrib.sessions.middleware.SessionMiddleware',             # จัดการ session ผู้ใช้
+    'django.middleware.common.CommonMiddleware',                        # redirect URL ที่ไม่มี trailing slash
+    'django.middleware.csrf.CsrfViewMiddleware',                       # ป้องกัน CSRF attack
+    'django.contrib.auth.middleware.AuthenticationMiddleware',         # ผูก user object เข้ากับ request
+    'django.contrib.messages.middleware.MessageMiddleware',            # จัดการ flash messages
+    'django.middleware.clickjacking.XFrameOptionsMiddleware',          # ป้องกัน Clickjacking attack
+    'utils.middleware.AppPermissionMiddleware',                        # ตรวจสอบสิทธิ์การเข้าถึงแต่ละแอป (custom)
 ]
 
+# ชี้ไปยังไฟล์ URL configuration หลักของโปรเจกต์
 ROOT_URLCONF = 'config.urls'
 
+# ====== Templates ======
+# การตั้งค่า template engine สำหรับ render HTML
 TEMPLATES = [
     {
-        'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [BASE_DIR / 'templates'],
-        'APP_DIRS': True,
+        'BACKEND': 'django.template.backends.django.DjangoTemplates',  # ใช้ Django template engine
+        'DIRS': [BASE_DIR / 'templates'],  # โฟลเดอร์ templates ระดับโปรเจกต์ (shared templates)
+        'APP_DIRS': True,  # ให้ Django หา templates ในโฟลเดอร์ templates/ ของแต่ละแอปด้วย
         'OPTIONS': {
             'context_processors': [
-                'django.template.context_processors.request',
-                'django.contrib.auth.context_processors.auth',
-                'django.contrib.messages.context_processors.messages',
-                'pms.context_processors.pms_context',
+                'django.template.context_processors.request',           # ส่ง request object เข้า template
+                'django.contrib.auth.context_processors.auth',          # ส่งข้อมูล user เข้า template
+                'django.contrib.messages.context_processors.messages',  # ส่ง flash messages เข้า template
+                'pms.context_processors.pms_context',                   # ส่งข้อมูล PMS เข้าทุก template (custom)
             ],
         },
     },
 ]
 
+# กำหนด application สำหรับ WSGI (sync) และ ASGI (async/WebSocket)
 WSGI_APPLICATION = 'config.wsgi.application'
 ASGI_APPLICATION = 'config.asgi.application'
 
 
-# Database
+# ====== Database ======
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
-
+# ตัวอย่างการตั้งค่า SQLite (ใช้สำหรับพัฒนาเบื้องต้น) - ปิดใช้งานแล้ว
 #DATABASES = {
 #    'default': {
 #        'ENGINE': 'django.db.backends.sqlite3',
 #        'NAME': BASE_DIR / 'db.sqlite3',
 #	}
 #}
-   
+
 # DATABASES = {
 #     'default': {
 #         'ENGINE': 'django.db.backends.sqlite3',
 #         'NAME': BASE_DIR / 'db.sqlite3',
 #     }
-#} 
+#}
 
-
+# รหัสผ่านสำหรับการลบข้อมูล (อ่านจาก .env เพื่อความปลอดภัย)
 DELETE_PASSWORD = os.getenv('DELETE_PASSWORD', '9com')
 
+# การตั้งค่าฐานข้อมูล PostgreSQL (ใช้งานจริง)
+# ค่าทั้งหมดอ่านมาจาก environment variables ใน .env เพื่อความปลอดภัย
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': os.getenv('DB_NAME'),
-        'USER': os.getenv('DB_USER'),
-        'PASSWORD': os.getenv('DB_PASSWORD'),
-        'HOST': os.getenv('DB_HOST'),
-        'PORT': os.getenv('DB_PORT'),
+        'ENGINE': 'django.db.backends.postgresql',  # ใช้ PostgreSQL
+        'NAME': os.getenv('DB_NAME'),               # ชื่อ database
+        'USER': os.getenv('DB_USER'),               # username ของ database
+        'PASSWORD': os.getenv('DB_PASSWORD'),       # password ของ database
+        'HOST': os.getenv('DB_HOST'),               # host ของ database server
+        'PORT': os.getenv('DB_PORT'),               # port ของ database (ปกติ 5432)
     }
 }
 
-# Password validation
+# ====== Password Validation ======
+# กฎสำหรับตรวจสอบความแข็งแกร่งของรหัสผ่านผู้ใช้
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
-
 AUTH_PASSWORD_VALIDATORS = [
     {
+        # ห้ามตั้งรหัสผ่านที่คล้ายกับข้อมูลส่วนตัว (ชื่อ, email)
         'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
     },
     {
+        # รหัสผ่านต้องมีความยาวขั้นต่ำ (default 8 ตัวอักษร)
         'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
     },
     {
+        # ห้ามใช้รหัสผ่านที่พบบ่อย (เช่น "password", "123456")
         'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
     },
     {
+        # ห้ามใช้รหัสผ่านที่เป็นตัวเลขล้วน
         'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
     },
 ]
 
 
-# Internationalization
+# ====== Internationalization ======
+# การตั้งค่าภาษาและเวลา
 # https://docs.djangoproject.com/en/5.2/topics/i18n/
 
-LANGUAGE_CODE = 'en-us'
+LANGUAGE_CODE = 'en-us'  # ภาษาหลักของระบบ
 
-TIME_ZONE = 'Asia/Bangkok'  
+TIME_ZONE = 'Asia/Bangkok'  # เขตเวลาของระบบ (UTC+7 สำหรับประเทศไทย)
 
-USE_I18N = True
+USE_I18N = True  # เปิดใช้งาน Internationalization (การแปลภาษา)
 
-USE_TZ = True
+USE_TZ = True    # ใช้ timezone-aware datetime objects (แนะนำให้เปิดเสมอ)
 
 
-# Static files (CSS, JavaScript, Images)
+# ====== Static Files ======
+# การตั้งค่าไฟล์ static (CSS, JavaScript, รูปภาพ)
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
-STATIC_URL = '/static/'
-STATIC_ROOT = BASE_DIR / 'static_root'   # collectstatic output
+STATIC_URL = '/static/'                       # URL prefix สำหรับเข้าถึงไฟล์ static
+STATIC_ROOT = BASE_DIR / 'static_root'        # โฟลเดอร์ปลายทางเมื่อรัน collectstatic output
 
 STATICFILES_DIRS = []
-# Add extra static dirs only if they exist (avoids errors on fresh server)
+# เพิ่ม static dir เสริม เฉพาะเมื่อโฟลเดอร์มีอยู่จริง (ป้องกัน error บน server ใหม่)
 _extra = BASE_DIR / 'static'
 if _extra.exists():
     STATICFILES_DIRS.append(_extra)
@@ -175,23 +207,31 @@ else:
     # Fallback for local dev if 'static' dir doesn't exist yet
     STATICFILES_DIRS = [BASE_DIR]
 
-MEDIA_URL = '/media/'
-MEDIA_ROOT = BASE_DIR / 'media'
+# ====== Media Files ======
+# การตั้งค่าสำหรับไฟล์ที่ผู้ใช้อัปโหลด (รูปภาพ, เอกสาร)
+MEDIA_URL = '/media/'               # URL prefix สำหรับเข้าถึงไฟล์ media
+MEDIA_ROOT = BASE_DIR / 'media'     # โฟลเดอร์จัดเก็บไฟล์ media บน server
 
-# Default primary key field type
+# ====== Default Primary Key ======
+# กำหนด type ของ Primary Key default สำหรับ model ทั้งหมดที่ไม่ได้ระบุเอง
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
+DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'  # ใช้ BigAutoField (64-bit integer)
 
-DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+# ====== Authentication URLs ======
+# กำหนด URL ที่ใช้ในระบบ login/logout/redirect
+LOGIN_URL = '/accounts/login/'       # URL หน้า login (redirect มาเมื่อยังไม่ได้ login)
+LOGIN_REDIRECT_URL = '/'             # URL ที่ redirect ไปหลัง login สำเร็จ
+LOGOUT_REDIRECT_URL = '/'            # URL ที่ redirect ไปหลัง logout
 
-LOGIN_URL = '/accounts/login/'
-LOGIN_REDIRECT_URL = '/'
-LOGOUT_REDIRECT_URL = '/'
-
-GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
-DELETE_PASSWORD = os.getenv('DELETE_PASSWORD', '9com')
+# ====== API Keys ======
+# คีย์สำหรับเรียกใช้ API ภายนอก (อ่านจาก .env เพื่อความปลอดภัย)
+GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')           # API key สำหรับ Google Gemini AI
+DELETE_PASSWORD = os.getenv('DELETE_PASSWORD', '9com') # รหัสผ่านยืนยันการลบข้อมูล
 
 # OpenClaw Chatbot Settings - REMOVED (Not in use)
 
+# ====== Django Channels / WebSocket ======
+# การตั้งค่า Channel Layer สำหรับการสื่อสารแบบ Real-time (WebSocket)
 CHANNEL_LAYERS = {
     "default": {
         # สำหรับพัฒนาบน Local 💻: ใช้ระบบหน่วยความจำภายในเครื่อง
@@ -202,10 +242,13 @@ CHANNEL_LAYERS = {
     },
 }
 
+# ====== Upload Size Limits ======
+# กำหนดขนาดสูงสุดของไฟล์ที่อัปโหลดได้ (หน่วย: bytes)
 # Max Upload Size 30MB
-DATA_UPLOAD_MAX_MEMORY_SIZE = 31457280
-FILE_UPLOAD_MAX_MEMORY_SIZE = 31457280
+DATA_UPLOAD_MAX_MEMORY_SIZE = 31457280   # ขนาดสูงสุดของ form data (30 MB)
+FILE_UPLOAD_MAX_MEMORY_SIZE = 31457280   # ขนาดสูงสุดของไฟล์ที่เก็บใน memory (30 MB)
 
+# ====== Feature Flags ======
 # Toggle Chatbot (Set to True to enable)
+# ปิด/เปิดฟีเจอร์ Chatbot (False = ปิดใช้งาน)
 CHATBOT_ENABLED = False
-
