@@ -1084,7 +1084,7 @@
     {% if is_technician %}
     let watchId = null;
     let lastSentTime = 0;
-    const TRACK_INTERVAL_MS = 5 * 60 * 1000; // ส่งทุก 5 นาที (throttle)
+    const TRACK_INTERVAL_MS = 25 * 60 * 1000; // ส่งทุก 25 นาที (throttle)
     const TRACK_MIN_DISTANCE_M = 50;          // หรือถ้าขยับ >= 50 เมตร
     let lastLat = null, lastLon = null;
 

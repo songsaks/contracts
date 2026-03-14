@@ -199,6 +199,9 @@
 <!-- Leaflet JS -->
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
+// ออกทันทีถ้าไม่มี #map (ไม่มีข้อมูล GPS)
+if (!document.getElementById('map')) { throw new Error('no-map'); }
+
 const mapData = JSON.parse(document.getElementById('map-data').textContent);
 
 // สีประจำช่างแต่ละคน
@@ -214,7 +217,7 @@ const typeColors = {
 };
 
 // สร้างแผนที่
-const map = L.map('map').setView([13.7563, 100.5018], 10); // Default: Bangkok
+const map = L.map('map').setView([7.5664, 100.0674], 10); // Default: สตูล
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '© OpenStreetMap contributors',
     maxZoom: 19

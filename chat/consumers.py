@@ -144,6 +144,28 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 }
             )
 
+            # ส่ง notification ไปยังผู้ใช้ที่ถูก @mention
+            if mentions:
+                room_name = await self.get_room_name(self.room_id)
+                preview = (message_text[:70] + '…') if len(message_text) > 70 else message_text
+                notif = {
+                    'type': 'send_notification',
+                    'room_id': self.room_id,
+                    'room_name': room_name,
+                    'sender': user.username,
+                    'preview': preview,
+                }
+                if 'all' in mentions:
+                    # Broadcast ไปทุกคนในห้องผ่าน room_notif group
+                    await self.channel_layer.group_send(f'room_notif_{self.room_id}', notif)
+                # ส่งตรงไปยัง user ที่ถูก mention เฉพาะ
+                specific = [m for m in mentions if m != 'all']
+                if specific:
+                    uid_list = await self.get_user_ids_by_usernames(specific)
+                    for uid in uid_list:
+                        if uid != user.id:
+                            await self.channel_layer.group_send(f'user_notif_{uid}', notif)
+
     # ====== Channel Group Event Handlers ======
 
     async def chat_message(self, event):
@@ -246,3 +268,69 @@ class ChatConsumer(AsyncWebsocketConsumer):
             )
         except Exception as e:
             logger.error("save_gps_log failed for user %s: %s", user, e)
+
+    @database_sync_to_async
+    def get_room_name(self, room_id):
+        return ChatRoom.objects.get(id=room_id).name
+
+    @database_sync_to_async
+    def get_user_ids_by_usernames(self, usernames):
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+        return list(User.objects.filter(username__in=usernames, is_active=True).values_list('id', flat=True))
+
+
+# ====== Notification Consumer — รับแจ้งเตือน @mention แบบ Real-time ======
+
+class NotificationConsumer(AsyncWebsocketConsumer):
+    """
+    WebSocket Consumer สำหรับรับแจ้งเตือน @mention ของผู้ใช้แต่ละคน
+    ใช้บนหน้า Chat Index เพื่อแสดงกระดิ่งแจ้งเตือนโดยไม่ต้องเปิดห้องแชท
+    """
+
+    async def connect(self):
+        if self.scope["user"].is_anonymous:
+            await self.close()
+            return
+        user = self.scope["user"]
+        self.user_notif_group = f'user_notif_{user.id}'
+        self.room_notif_groups = []
+
+        # Subscribe ช่อง personal notification ของ user นี้
+        await self.channel_layer.group_add(self.user_notif_group, self.channel_name)
+        await self.accept()
+
+        # Subscribe ช่อง @all ของทุกห้องที่ user มีสิทธิ์เข้าถึง
+        room_ids = await self.get_accessible_room_ids(user)
+        for room_id in room_ids:
+            group = f'room_notif_{room_id}'
+            await self.channel_layer.group_add(group, self.channel_name)
+            self.room_notif_groups.append(group)
+
+    async def disconnect(self, close_code):
+        await self.channel_layer.group_discard(self.user_notif_group, self.channel_name)
+        for group in self.room_notif_groups:
+            await self.channel_layer.group_discard(group, self.channel_name)
+
+    async def receive(self, text_data):
+        pass  # Client ไม่ส่งข้อมูลมา
+
+    async def send_notification(self, event):
+        """ส่ง notification event ไปยัง WebSocket ของ Client"""
+        await self.send(text_data=json.dumps({
+            'type': 'notification',
+            'room_id': event['room_id'],
+            'room_name': event['room_name'],
+            'sender': event['sender'],
+            'preview': event['preview'],
+        }))
+
+    @database_sync_to_async
+    def get_accessible_room_ids(self, user):
+        from django.db.models import Q
+        if user.is_superuser:
+            return list(ChatRoom.objects.filter(is_active=True).values_list('id', flat=True))
+        return list(ChatRoom.objects.filter(
+            Q(is_private=False) | Q(allowed_users=user),
+            is_active=True
+        ).distinct().values_list('id', flat=True))
