@@ -1,6 +1,9 @@
 import json
 import re
+import logging
 from channels.generic.websocket import AsyncWebsocketConsumer
+
+logger = logging.getLogger(__name__)
 from channels.db import database_sync_to_async
 from django.utils import timezone
 from .models import ChatRoom, ChatMessage
@@ -209,14 +212,18 @@ class ChatConsumer(AsyncWebsocketConsumer):
         ใช้ decorator @database_sync_to_async เพื่อให้เรียกจาก async context ได้
         โดยที่ Django ORM จะทำงานใน Thread Pool แยกต่างหาก ไม่บล็อก Event Loop
         """
+        from decimal import Decimal, ROUND_HALF_UP
         room = ChatRoom.objects.get(id=room_id)
+        def to_dec(v):
+            if v is None: return None
+            return Decimal(str(v)).quantize(Decimal('0.000000001'), rounding=ROUND_HALF_UP)
         ChatMessage.objects.create(
             room=room,
             user=user,
             content=content,
             is_speech_to_text=is_stt,
-            latitude=lat,
-            longitude=lon,
+            latitude=to_dec(lat),
+            longitude=to_dec(lon),
             location_name=loc_name
         )
 
@@ -225,13 +232,17 @@ class ChatConsumer(AsyncWebsocketConsumer):
         """บันทึก GPS log สำหรับรายงานช่างภาคสนาม"""
         try:
             from pms.models import TechnicianGPSLog
+            from decimal import Decimal, ROUND_HALF_UP
+            # Truncate to 9 decimal places to satisfy DecimalField(max_digits=12, decimal_places=9)
+            lat_d = Decimal(str(lat)).quantize(Decimal('0.000000001'), rounding=ROUND_HALF_UP)
+            lon_d = Decimal(str(lon)).quantize(Decimal('0.000000001'), rounding=ROUND_HALF_UP)
             TechnicianGPSLog.objects.create(
                 user=user,
-                latitude=lat,
-                longitude=lon,
+                latitude=lat_d,
+                longitude=lon_d,
                 location_name=loc_name or '',
                 check_type=check_type,
                 notes=notes or '',
             )
-        except Exception:
-            pass  # ไม่หยุดการทำงานแชทถ้า GPS log บันทึกไม่ได้
+        except Exception as e:
+            logger.error("save_gps_log failed for user %s: %s", user, e)

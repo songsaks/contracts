@@ -386,5 +386,12 @@ function toggleLive() {
         liveTimer = setInterval(fetchLiveData, LIVE_INTERVAL);
     }
 }
+
+// Auto-start Live mode when viewing today's page
+{% if report_date == today %}
+document.addEventListener('DOMContentLoaded', () => {
+    setTimeout(() => toggleLive(), 500);
+});
+{% endif %}
 </script>
 {% endblock %}

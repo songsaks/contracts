@@ -361,9 +361,8 @@
                 {% csrf_token %}
                 <input type="hidden" name="date" value="{{ date|date:'Y-m-d' }}">
                 <button type="submit" class="btn btn-sm btn-light text-primary fw-bold rounded-pill px-3 shadow-sm border-0"
-                    onclick="return confirm('🚀 ส่งข้อความแจ้งเตือนทีมงานสำหรับคิวงานวันนี้?')">
-                    <i class="fab fa-line me-1" style="color: #06C755;"></i>
-                    <i class="fas fa-paper-plane me-1"></i> ส่งข้อความ (GChat/Line)
+                    onclick="return onSendQueueClick(this)">
+                    <i class="fas fa-paper-plane me-1"></i> ส่งข้อความ
                 </button>
             </form>
             <span class="badge bg-white {% if date == today %}text-primary{% elif date < today %}text-danger{% else %}text-success{% endif %}">
@@ -379,6 +378,7 @@
                     <tr class="small text-uppercase text-muted">
                         <th class="px-3 py-2" style="width:70px;">เวลา</th>
                         <th class="px-3 py-2">งาน</th>
+                        <th class="px-3 py-2">ลูกค้า</th>
                         <th class="px-3 py-2">ประเภท</th>
                         <th class="px-3 py-2">ทีม</th>
                         <th class="px-3 py-2">กำหนดส่ง</th>
@@ -400,6 +400,9 @@
                                 {{ task.project.name|truncatechars:25 }}
                             </a>
                             {% endif %}
+                        </td>
+                        <td class="px-3 py-3 small">
+                            {% if task.project %}{{ task.project.customer.name|truncatechars:20 }}{% else %}-{% endif %}
                         </td>
                         <td class="px-3 py-3">
                             {% if task.task_type == 'REPAIR' %}<span class="badge badge-repair"><i class="fas fa-wrench me-1"></i>คิว</span>
@@ -465,6 +468,7 @@
                     {% endif %}
                 </div>
                 <div class="task-meta mb-2">
+                    {% if task.project %}<span class="fw-semibold text-dark">{{ task.project.customer.name|truncatechars:20 }}</span> • {% endif %}
                     {% if task.task_type == 'REPAIR' %}คิว{% elif task.task_type == 'DELIVERY' %}คิว{% elif task.task_type == 'INSTALLATION' %}คิว{% else %}อื่นๆ{% endif %}
                     {% if task.deadline %} • ส่ง {{ task.deadline|date:"d/m" }}{% endif %}
                 </div>
@@ -504,5 +508,73 @@
     </div>
 </div>
 {% endif %}
+
+<!-- Send Notification Toast -->
+<div id="send-notify-toast" style="
+    display: none; position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
+    background: linear-gradient(135deg, #059669, #10b981); color: white;
+    padding: 14px 24px; border-radius: 50px; font-weight: 700; font-size: 1rem;
+    box-shadow: 0 8px 30px rgba(5,150,105,0.4); z-index: 9999;
+    align-items: center; gap: 10px; white-space: nowrap;
+    animation: slideDownFade 0.35s ease;
+">
+    <span style="font-size: 1.4rem;">🔔</span>
+    <span>ส่งข้อความแจ้งทีมงานแล้ว!</span>
+    <span class="pulse-dot" style="width:10px;height:10px;background:#fff;border-radius:50%;display:inline-block;"></span>
+</div>
+
+<style>
+@keyframes slideDownFade {
+    from { opacity: 0; transform: translateX(-50%) translateY(-20px); }
+    to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+</style>
+
+<script>
+function onSendQueueClick(btn) {
+    if (!confirm('🚀 ส่งข้อความแจ้งเตือนทีมงานสำหรับคิวงานวันนี้?')) return false;
+    playQueueSound();
+    showQueueToast();
+    return true;
+}
+
+let _queueAudioCtx = null;
+function getQueueAudioCtx() {
+    if (!_queueAudioCtx) {
+        _queueAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    if (_queueAudioCtx.state === 'suspended') {
+        _queueAudioCtx.resume();
+    }
+    return _queueAudioCtx;
+}
+
+function playQueueSound() {
+    try {
+        const ctx = getQueueAudioCtx();
+        function beep(freq, start, dur) {
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.connect(gain); gain.connect(ctx.destination);
+            osc.type = 'sine';
+            osc.frequency.value = freq;
+            gain.gain.setValueAtTime(0.0001, ctx.currentTime + start);
+            gain.gain.exponentialRampToValueAtTime(0.3, ctx.currentTime + start + 0.02);
+            gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + start + dur);
+            osc.start(ctx.currentTime + start);
+            osc.stop(ctx.currentTime + start + dur + 0.05);
+        }
+        beep(880,  0,    0.15);
+        beep(1100, 0.18, 0.15);
+        beep(1320, 0.36, 0.25);
+    } catch(e) {}
+}
+
+function showQueueToast() {
+    const toast = document.getElementById('send-notify-toast');
+    toast.style.display = 'flex';
+    setTimeout(() => { toast.style.display = 'none'; }, 3000);
+}
+</script>
 
 {% endblock %}
