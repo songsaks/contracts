@@ -178,11 +178,6 @@
                                         <button type="submit" class="btn btn-primary px-4 py-2 fw-bold">
                                             <i class="fas fa-save me-2"></i>บันทึกการเปลี่ยนแปลง
                                         </button>
-                                        {% if item.status != 'COMPLETED' %}
-                                        <a href="{% url 'repairs:repair_outsource_assign' item.id %}" class="btn btn-outline-purple py-2 fw-bold" style="color: #6f42c1; border-color: #6f42c1;">
-                                            <i class="fas fa-external-link-alt me-2"></i> ส่งซ่อมศูนย์
-                                        </a>
-                                        {% endif %}
                                     </div>
                                 {% endif %}
                             </div>

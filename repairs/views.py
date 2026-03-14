@@ -1254,7 +1254,13 @@ def repair_status_list(request):
             if RepairStatus.objects.filter(code=code).exists():
                 return JsonResponse({'status': 'error', 'message': f'รหัสสถานะ {code} มีอยู่ในระบบแล้ว'}, status=400)
                 
-            RepairStatus.objects.create(name=name, code=code, sequence=sequence, color=color)
+            new_status = RepairStatus.objects.create(name=name, code=code, sequence=sequence, color=color)
+            
+            # Add responsibles if provided
+            user_ids = request.POST.getlist('responsibles')
+            if user_ids:
+                new_status.responsibles.set(user_ids)
+                
             return JsonResponse({'status': 'success'})
         elif action == 'delete':
             status_id = request.POST.get('status_id')

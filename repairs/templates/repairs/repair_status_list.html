@@ -127,6 +127,15 @@
                             <input type="color" name="color" class="form-control form-control-color w-100" value="#6b7280">
                         </div>
                     </div>
+                    <div class="mt-3">
+                        <label class="form-label small fw-bold text-muted">ผู้รับผิดชอบ (เริ่มต้น)</label>
+                        <select name="responsibles" class="form-select select2-modal" multiple style="width: 100%;">
+                            {% for user in users %}
+                            <option value="{{ user.id }}">{{ user.get_full_name|default:user.username }}</option>
+                            {% endfor %}
+                        </select>
+                        <div class="x-small text-muted mt-1">ผู้ที่จะได้รับการแจ้งเตือนเมื่อระบบเข้าสู่สถานะนี้</div>
+                    </div>
                 </div>
                 <div class="modal-footer border-top-0 pb-4 px-4">
                     <button type="button" class="btn btn-light rounded-pill px-4" data-bs-dismiss="modal">ยกเลิก</button>
@@ -151,6 +160,13 @@
             }).select2({
                 theme: 'bootstrap-5',
                 placeholder: 'เลือกผู้รับผิดชอบ...',
+                closeOnSelect: false
+            });
+
+            $('.select2-modal').select2({
+                theme: 'bootstrap-5',
+                placeholder: 'เลือกผู้รับผิดชอบ...',
+                dropdownParent: $('#createStatusModal'),
                 closeOnSelect: false
             });
         }
@@ -212,10 +228,11 @@
                     $.ajax({
                         url: '{% url "repairs:repair_status_settings" %}',
                         method: 'POST',
+                        traditional: true, // Crucial for Django to get multiple values
                         data: {
                             action: 'update_responsible',
                             status_id: statusId,
-                            responsibles: users,
+                            responsibles: users || [],
                             csrfmiddlewaretoken: '{{ csrf_token }}'
                         },
                         success: function() {
