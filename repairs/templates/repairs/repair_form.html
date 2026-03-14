@@ -283,22 +283,28 @@
                         </div>
 
                         <div class="row g-3">
-                            <div class="col-md-4">
+                            <div class="col-md-3">
                                 <div class="form-floating">
                                     {{ item_form.status }}
                                     <label for="{{ item_form.status.id_for_label }}">สถานะเริ่มต้น</label>
                                 </div>
                             </div>
-                            <div class="col-md-4">
+                            <div class="col-md-3">
                                 <div class="form-floating">
                                     {{ item_form.status_note }}
                                     <label for="{{ item_form.status_note.id_for_label }}">หมายเหตุ</label>
                                 </div>
                             </div>
-                            <div class="col-md-4">
+                            <div class="col-md-3">
                                 <div class="form-floating">
                                     {{ item_form.price }}
                                     <label for="{{ item_form.price.id_for_label }}">ราคาประเมิน (บาท)</label>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="form-group">
+                                    <label class="small fw-bold text-muted mb-1">มอบหมายช่าง</label>
+                                    {{ item_form.technicians }}
                                 </div>
                             </div>
                         </div>

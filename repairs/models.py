@@ -280,6 +280,15 @@ class RepairItem(models.Model):
             return self.current_status.name
         return self.get_status_display()
 
+    def get_next_status(self):
+        """คืนค่า RepairStatus ถัดไปใน sequence หรือ None ถ้าถึงขั้นตอนสุดท้ายแล้ว"""
+        current = self.current_status
+        if not current:
+            current = RepairStatus.objects.filter(code=self.status).first()
+        if not current:
+            return RepairStatus.objects.order_by('sequence').first()
+        return RepairStatus.objects.filter(sequence__gt=current.sequence).order_by('sequence').first()
+
     def get_status_bg_light(self):
         """คืนค่า CSS class (Tailwind) สำหรับสีพื้นหลังอ่อนของแถวตามสถานะ"""
         colors = {

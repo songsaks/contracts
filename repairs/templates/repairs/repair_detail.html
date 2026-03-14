@@ -95,7 +95,10 @@
                         <div class="row g-3">
                             <div class="col-md-4">
                                 <label class="form-label small fw-bold text-muted">สถานะปัจจุบัน</label>
-                                <div class="p-2 rounded-3 border text-center fw-bold" id="status-display-{{ item.id }}" style="background-color: {{ item.current_status.color|default:'#f3f4f6' }}; color: white; min-height: 44px; display: flex; align-items: center; justify-content: center;">
+                                <div class="p-2 rounded-3 border text-center fw-bold" id="status-display-{{ item.id }}" 
+                                     style="background-color: {% if item.status == 'RECEIVED' or item.current_status.sequence == 1 %}#ef4444{% else %}{{ item.current_status.color|default:'#f3f4f6' }}{% endif %}; 
+                                            color: white; 
+                                            min-height: 44px; display: flex; align-items: center; justify-content: center;">
                                     {{ item.get_status_display }}
                                 </div>
                             </div>
@@ -110,7 +113,7 @@
                                 </select>
                             </div>
                             
-                            <div class="col-12 tech-assign-div {% if item.status != 'FIXING' %}d-none{% endif %}">
+                            <div class="col-12 tech-assign-div {% if item.status != 'RECEIVED' %}d-none{% endif %}">
                                 <label class="form-label small fw-bold text-primary">มอบหมายช่าง (บังคับในขั้นตอนนี้)</label>
                                 <select name="technicians" class="form-select select2" multiple>
                                     {% for tech in all_technicians %}
@@ -119,11 +122,11 @@
                                 </select>
                             </div>
 
-                            {% if item.status != 'FIXING' and item.technicians.exists %}
+                            {% if item.status != 'RECEIVED' and item.technicians.exists %}
                             <div class="col-12 mt-1">
                                 <div class="small text-muted"><i class="fas fa-tools me-1"></i>ช่างผู้รับผิดชอบ: 
                                     <strong>{% for t in item.technicians.all %}{{ t.name }}{% if not forloop.last %}, {% endif %}{% endfor %}</strong>
-                                    <span class="ms-2">(แก้ไขชื่อช่างได้เฉพาะที่สถานะ "กำลังซ่อม")</span>
+                                    <span class="ms-2">(แก้ไขชื่อช่างได้เฉพาะที่สถานะ "รับแจ้ง")</span>
                                 </div>
                             </div>
                             {% endif %}
@@ -150,8 +153,12 @@
                                     </div>
                                 {% else %}
                                     <div class="d-flex gap-2">
-                                        <button type="button" class="btn btn-warning flex-grow-1 py-2 fw-bold next-step-btn" data-item-id="{{ item.id }}">
+                                        <button type="button" class="btn btn-warning flex-grow-1 py-2 fw-bold next-step-btn"
+                                                data-item-id="{{ item.id }}"
+                                                data-next-status-name="{{ item.get_next_status.name|default:'ขั้นตอนถัดไป' }}"
+                                                data-next-status-color="{{ item.get_next_status.color|default:'' }}">
                                             <i class="fas fa-chevron-right me-2"></i>เลื่อนไปยังขั้นตอนถัดไป
+                                            {% with ns=item.get_next_status %}{% if ns %}<span class="ms-1 opacity-75" style="font-size:0.82rem;">(→ {{ ns.name }})</span>{% endif %}{% endwith %}
                                         </button>
                                         <button type="submit" class="btn btn-primary px-4 py-2">
                                             <i class="fas fa-save me-2"></i>บันทึกข้อมูลอื่น
@@ -260,7 +267,12 @@
             const btn = $(this);
             const itemId = btn.data('item-id');
             
-            if (!confirm('คุณต้องการเลื่อนงานซ่อมนี้ไปยังขั้นตอนถัดไปใช่หรือไม่?')) return;
+            const form = btn.closest('form');
+            const technicians = form.find('select[name="technicians"]').val();
+            const statusNote = form.find('textarea[name="status_note"]').val();
+            
+            const nextStatusName = btn.data('next-status-name') || 'ขั้นตอนถัดไป';
+            if (!confirm('จะเปลี่ยนสถานะเป็น "' + nextStatusName + '" ใช่ไหม?')) return;
             
             btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-2"></i>กำลังเลื่อน...');
             
@@ -268,6 +280,10 @@
                 url: `/repairs/item/${itemId}/next-step/`,
                 method: 'POST',
                 headers: { 'X-CSRFToken': '{{ csrf_token }}' },
+                data: {
+                    'technicians': technicians,
+                    'status_note': statusNote
+                },
                 success: function(res) {
                     if (res.status === 'success') {
                         // Update UI

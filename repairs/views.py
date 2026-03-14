@@ -502,8 +502,9 @@ def repair_update_status(request, item_id):
                     except ValueError:
                         pass
             
-            # Handle Technicians - ONLY if new status is FIXING
-            if new_status == 'FIXING':
+            # Handle Technicians - Allow editing only at RECEIVED or when moving to FIXING
+            # However, the user specifically asked for 'RECEIVED' status assignment.
+            if item.status == 'RECEIVED' or new_status == 'FIXING':
                 tech_ids = request.POST.getlist('technicians')
                 if tech_ids:
                     item.technicians.set(tech_ids)
@@ -1281,14 +1282,27 @@ def repair_next_step(request, item_id):
             if next_status.code == 'COMPLETED':
                 item.closed_at = timezone.now()
             
+            # Save technicians and status note if provided
+            tech_ids = request.POST.getlist('technicians[]') or request.POST.getlist('technicians')
+            if tech_ids:
+                item.technicians.set(tech_ids)
+            
+            status_note = request.POST.get('status_note')
+            if status_note:
+                item.status_note = status_note
+            
             item.save()
             
+            note_text = f"เลื่อนสถานะเป็น {next_status.name} (อัตโนมัติ)"
+            if status_note:
+                note_text += f" - {status_note}"
+
             RepairStatusHistory.objects.create(
                 repair_item=item,
                 status=next_status.code,
                 status_obj=next_status,
                 changed_by=request.user,
-                note=f"เลื่อนสถานะเป็น {next_status.name} (อัตโนมัติ)"
+                note=note_text
             )
             
         return JsonResponse({
