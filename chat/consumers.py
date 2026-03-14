@@ -255,6 +255,18 @@ class ChatConsumer(AsyncWebsocketConsumer):
         try:
             from pms.models import TechnicianGPSLog
             from decimal import Decimal, ROUND_HALF_UP
+
+            # ตรวจสอบพิกัดอยู่ในประเทศไทย (bounding box กว้างๆ รวม EEZ)
+            # ไทย: lat 5.5–20.5, lon 97.5–105.7
+            lat_f = float(lat)
+            lon_f = float(lon)
+            if not (5.0 <= lat_f <= 21.0 and 97.0 <= lon_f <= 106.0):
+                logger.warning(
+                    "save_gps_log blocked: coords outside Thailand (%.6f, %.6f) user=%s",
+                    lat_f, lon_f, user
+                )
+                return
+
             # Truncate to 9 decimal places to satisfy DecimalField(max_digits=12, decimal_places=9)
             lat_d = Decimal(str(lat)).quantize(Decimal('0.000000001'), rounding=ROUND_HALF_UP)
             lon_d = Decimal(str(lon)).quantize(Decimal('0.000000001'), rounding=ROUND_HALF_UP)
