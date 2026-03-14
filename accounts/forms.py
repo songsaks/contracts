@@ -5,6 +5,7 @@
 from django import forms
 from django.contrib.auth.models import User
 from .models import UserProfile, ROLE_CHOICES
+from chat.models import ChatRoom
 
 
 # ====== Form: UserCreateForm — ฟอร์มสร้างพนักงานใหม่ ======
@@ -33,6 +34,14 @@ class UserCreateForm(forms.ModelForm):
     access_payroll = forms.BooleanField(label="เข้าใช้ระบบเงินเดือน", required=False)
     access_stocks = forms.BooleanField(label="เข้าใช้ระบบวิเคราะห์หุ้น AI", required=False)
     access_accounts = forms.BooleanField(label="เข้าใช้ระบบจัดการพนักงาน (User Management)", required=False)
+
+    # ====== สิทธิ์เข้าห้องแชทส่วนตัว ======
+    chat_rooms = forms.ModelMultipleChoiceField(
+        queryset=ChatRoom.objects.filter(is_active=True, is_private=True),
+        widget=forms.CheckboxSelectMultiple,
+        required=False,
+        label="อนุญาตให้เข้าห้องแชท (Private Rooms)"
+    )
 
     class Meta:
         model = User
@@ -69,8 +78,13 @@ class UserCreateForm(forms.ModelForm):
             profile.access_payroll = self.cleaned_data.get('access_payroll', False)
             profile.access_stocks = self.cleaned_data.get('access_stocks', False)
             profile.access_accounts = self.cleaned_data.get('access_accounts', False)
-
             profile.save()
+
+            # บันทึกห้องแชทที่ได้รับอนุญาต
+            if 'chat_rooms' in self.cleaned_data:
+                selected_rooms = self.cleaned_data['chat_rooms']
+                for room in selected_rooms:
+                    room.allowed_users.add(user)
         return user
 
 
@@ -96,6 +110,14 @@ class UserUpdateForm(forms.ModelForm):
     access_payroll = forms.BooleanField(label="เข้าใช้ระบบเงินเดือน", required=False)
     access_stocks = forms.BooleanField(label="เข้าใช้ระบบวิเคราะห์หุ้น AI", required=False)
     access_accounts = forms.BooleanField(label="เข้าใช้ระบบจัดการพนักงาน (User Management)", required=False)
+
+    # ====== สิทธิ์เข้าห้องแชทส่วนตัว ======
+    chat_rooms = forms.ModelMultipleChoiceField(
+        queryset=ChatRoom.objects.filter(is_active=True, is_private=True),
+        widget=forms.CheckboxSelectMultiple,
+        required=False,
+        label="อนุญาตให้เข้าห้องแชท (Private Rooms)"
+    )
 
     class Meta:
         model = User
@@ -132,6 +154,10 @@ class UserUpdateForm(forms.ModelForm):
             self.fields['access_stocks'].initial = self.instance.profile.access_stocks
             self.fields['access_accounts'].initial = self.instance.profile.access_accounts
 
+            # โหลดห้องแชทที่ User นี้มีสิทธิ์เข้าถึงอยู่แล้ว
+            if hasattr(self.instance, 'allowed_chat_rooms'):
+                self.fields['chat_rooms'].initial = self.instance.allowed_chat_rooms.all()
+
     def save(self, commit=True):
         """
         Override save() เพื่ออัปเดตทั้ง User และ UserProfile
@@ -160,6 +186,13 @@ class UserUpdateForm(forms.ModelForm):
             profile.access_payroll = self.cleaned_data.get('access_payroll', False)
             profile.access_stocks = self.cleaned_data.get('access_stocks', False)
             profile.access_accounts = self.cleaned_data.get('access_accounts', False)
-
             profile.save()
+
+            # อัปเดตห้องแชทที่ได้รับอนุญาต (Clear ของเดิมแล้วใส่ใหม่)
+            if 'chat_rooms' in self.cleaned_data:
+                # เข้าถึง M2M ผ่าน user (related_name='allowed_chat_rooms')
+                user.allowed_chat_rooms.clear()
+                selected_rooms = self.cleaned_data['chat_rooms']
+                for room in selected_rooms:
+                    room.allowed_users.add(user)
         return user
