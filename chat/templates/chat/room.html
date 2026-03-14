@@ -261,6 +261,18 @@
     }
     .mention-avatar.all-avatar { background: #6366f1; font-size: 0.85rem; }
 
+    /* Online/Offline section labels */
+    .user-section-label {
+        font-size: 0.65rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: #94a3b8;
+        padding: 0.5rem 0.75rem 0.25rem;
+    }
+    .online-user-item.offline { opacity: 0.55; }
+    .dot-offline { background: #cbd5e1 !important; }
+
     /* Mention notification toast */
     #mention-toast {
         position: fixed;
@@ -526,6 +538,7 @@
 
 {{ room.id|json_script:"room-id" }}
 {{ request.user.id|json_script:"user-id" }}
+{{ room_members|json_script:"room-members" }}
 
 <!-- Mention notification toast -->
 <div id="mention-toast" onclick="this.classList.remove('show')">
@@ -596,6 +609,7 @@
     const currentUsername = "{{ request.user.username }}";
     const messagesContainer = document.getElementById('chat-messages');
     const layoutWrapper = document.querySelector('.layout-wrapper');
+    const roomMembers = JSON.parse(document.getElementById('room-members').textContent);
     let onlineUsernames = [];   // maintained by updateOnlineUsers()
 
     // ฟังก์ชันปรับความสูงหน้าจอให้พอดีกับ Keyboard บนมือถือ (VisualViewport API)
@@ -807,39 +821,47 @@
         messagesContainer.scrollTop = messagesContainer.scrollHeight;
     };
 
-    // อัปเดต UI รายชื่อผู้ใช้ออนไลน์
+    // อัปเดต UI รายชื่อผู้ใช้ (online + offline)
     function updateOnlineUsers(users) {
         const listDiv = document.getElementById('online-users-list');
         const countSpan = document.getElementById('online-count');
 
         // keep online usernames for @mention autocomplete
         onlineUsernames = users.map(u => u.username);
-
         countSpan.textContent = users.length;
-        listDiv.innerHTML = '';
-        
-        if (users.length === 0) {
-            listDiv.innerHTML = '<div class="text-center text-slate-400 text-sm py-4">ไม่มีผู้ใช้อื่นออนไลน์</div>';
-            return;
-        }
 
-        users.forEach(user => {
+        const onlineIds = new Set(users.map(u => u.id));
+        const offlineMembers = roomMembers.filter(m => !onlineIds.has(m.id));
+
+        function renderItem(user, isOnline) {
             const initial = user.username ? user.username.charAt(0).toUpperCase() : '?';
             const isMe = user.id === userId;
             const meBadge = isMe ? '<span class="text-[10px] bg-slate-200 text-slate-600 px-1.5 py-0.5 rounded-md ml-auto">ฉัน</span>' : '';
-            
-            const itemHtml = `
-                <div class="online-user-item">
+            const dotClass = isOnline ? 'bg-green-500' : 'dot-offline';
+            return `
+                <div class="online-user-item ${isOnline ? '' : 'offline'}">
                     <div class="user-avatar relative ring-2 ring-white">
                         ${initial}
-                        <div class="absolute bottom-0 right-[-2px] w-3 h-3 bg-green-500 border-2 border-white rounded-full"></div>
+                        <div class="absolute bottom-0 right-[-2px] w-3 h-3 ${dotClass} border-2 border-white rounded-full"></div>
                     </div>
                     <div class="text-sm font-medium text-slate-700 truncate w-32" title="${user.username}">${user.username}</div>
                     ${meBadge}
-                </div>
-            `;
-            listDiv.innerHTML += itemHtml;
-        });
+                </div>`;
+        }
+
+        let html = '';
+        if (users.length > 0) {
+            html += `<div class="user-section-label">Online — ${users.length}</div>`;
+            users.forEach(u => { html += renderItem(u, true); });
+        }
+        if (offlineMembers.length > 0) {
+            html += `<div class="user-section-label" style="margin-top:0.5rem;">Offline — ${offlineMembers.length}</div>`;
+            offlineMembers.forEach(u => { html += renderItem(u, false); });
+        }
+        if (!html) {
+            html = '<div class="text-center text-slate-400 text-sm py-4">ยังไม่มีสมาชิกในห้องนี้</div>';
+        }
+        listDiv.innerHTML = html;
     }
 
     chatSocket.onopen = function(e) {

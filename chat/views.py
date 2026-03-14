@@ -1,4 +1,5 @@
 from django.shortcuts import render, get_object_or_404, redirect
+from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.db.models import Q
@@ -7,6 +8,8 @@ from django.utils import timezone
 from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
 from .models import ChatRoom, ChatMessage
+
+User = get_user_model()
 
 # ====== Views หลักของระบบแชท (Chat Views) ======
 
@@ -61,10 +64,26 @@ def chat_room(request, room_id):
         user_role = ''
     is_technician = user_role in ('technician', 'technician_lead') or request.user.is_staff or request.user.is_superuser
 
+    # รายชื่อสมาชิกทั้งหมดในห้อง:
+    # ห้องส่วนตัว → ใช้ allowed_users + ตัวเอง
+    # ห้องสาธารณะ → ผู้ใช้ทุกคนที่เคยส่งข้อความในห้องนี้
+    if room.is_private:
+        member_qs = User.objects.filter(
+            Q(allowed_chat_rooms=room) | Q(id=request.user.id),
+            is_active=True
+        ).distinct()
+    else:
+        member_qs = User.objects.filter(
+            chatmessage__room=room, is_active=True
+        ).distinct()
+
+    room_members = list(member_qs.values('id', 'username'))
+
     return render(request, 'chat/room.html', {
         'room': room,
         'chat_messages': chat_messages,
         'is_technician': is_technician,
+        'room_members': room_members,
     })
 
 
