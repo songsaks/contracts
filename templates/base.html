@@ -208,6 +208,91 @@
     {% include "pms/chatbot_ui.html" %}
     {% block scripts %}{% endblock %}
     {% block extra_js %}{% endblock %}
+
+    {% if user.is_authenticated %}
+    <!-- ====== Global Chat Notification System ====== -->
+    <style>
+    @keyframes g-bell-shake {
+        0%   { transform: rotate(-18deg) scale(1.2); }
+        100% { transform: rotate(18deg)  scale(1.2); }
+    }
+    @keyframes g-toast-slide {
+        from { opacity:0; transform:translateX(-50%) translateY(-18px); }
+        to   { opacity:1; transform:translateX(-50%) translateY(0); }
+    }
+    #g-notif-toast { animation: g-toast-slide 0.3s ease; }
+    </style>
+
+    <div id="g-notif-toast" style="
+        display:none; position:fixed; top:24px; left:50%; transform:translateX(-50%);
+        background:#1e293b; color:white; border-radius:16px;
+        padding:14px 20px; max-width:380px; width:90%;
+        box-shadow:0 20px 40px rgba(0,0,0,0.35); z-index:99999;
+        align-items:center; gap:14px; border-left:6px solid #ef4444;
+    ">
+        <div style="font-size:1.8rem;flex-shrink:0;animation:g-bell-shake 0.4s ease infinite alternate;">🔔</div>
+        <div style="flex:1;min-width:0;">
+            <div id="g-notif-title" style="font-weight:700;font-size:0.95rem;color:#fca5a5;margin-bottom:3px;"></div>
+            <div id="g-notif-body"  style="font-size:0.82rem;color:#cbd5e1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"></div>
+        </div>
+        <button onclick="document.getElementById('g-notif-toast').style.display='none'"
+            style="background:none;border:none;color:#94a3b8;font-size:1.1rem;cursor:pointer;flex-shrink:0;">✕</button>
+    </div>
+
+    <script>
+    (function () {
+        if (!window.WebSocket) return;
+        const ws = new WebSocket(
+            (location.protocol === 'https:' ? 'wss://' : 'ws://') +
+            location.host + '/ws/chat/notify/'
+        );
+        window._globalNotifWs = ws;
+
+        let _toastTimer = null;
+        let _audioCtx = null;
+
+        ws.onmessage = function (e) {
+            const data = JSON.parse(e.data);
+            if (data.type !== 'notification') return;
+            _playBell();
+            _showToast(data.room_name, data.sender, data.preview);
+            if (typeof window.showRoomBell === 'function') {
+                window.showRoomBell(data.room_id);
+            }
+        };
+
+        function _showToast(roomName, sender, preview) {
+            const toast = document.getElementById('g-notif-toast');
+            document.getElementById('g-notif-title').textContent = `💬 ${sender} พูดถึงคุณใน "${roomName}"`;
+            document.getElementById('g-notif-body').textContent = preview;
+            toast.style.display = 'flex';
+            toast.style.animation = 'none'; toast.offsetHeight;
+            toast.style.animation = 'g-toast-slide 0.3s ease';
+            if (_toastTimer) clearTimeout(_toastTimer);
+            _toastTimer = setTimeout(() => { toast.style.display = 'none'; }, 7000);
+        }
+
+        function _playBell() {
+            try {
+                if (!_audioCtx) _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                if (_audioCtx.state === 'suspended') _audioCtx.resume();
+                const ctx = _audioCtx;
+                [[880, 0], [880, 0.25]].forEach(([freq, t]) => {
+                    const osc = ctx.createOscillator();
+                    const gain = ctx.createGain();
+                    osc.connect(gain); gain.connect(ctx.destination);
+                    osc.type = 'sine'; osc.frequency.value = freq;
+                    gain.gain.setValueAtTime(0.0001, ctx.currentTime + t);
+                    gain.gain.exponentialRampToValueAtTime(0.5,    ctx.currentTime + t + 0.01);
+                    gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + t + 0.5);
+                    osc.start(ctx.currentTime + t);
+                    osc.stop(ctx.currentTime + t + 0.55);
+                });
+            } catch (e) {}
+        }
+    })();
+    </script>
+    {% endif %}
 </body>
 
 </html>

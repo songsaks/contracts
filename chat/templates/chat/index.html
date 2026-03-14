@@ -111,10 +111,6 @@
         0%   { transform: rotate(-18deg) scale(1.2); }
         100% { transform: rotate(18deg)  scale(1.2); }
     }
-    @keyframes toast-slide {
-        from { opacity:0; transform:translateX(-50%) translateY(-18px); }
-        to   { opacity:1; transform:translateX(-50%) translateY(0); }
-    }
 </style>
 {% endblock %}
 
@@ -171,89 +167,23 @@
     </div>
 </div>
 
-<!-- ====== Notification Bell System ====== -->
-
-<!-- Toast แจ้งเตือนกลางหน้าจอ -->
-<div id="notif-toast" style="
-    display:none; position:fixed; top:24px; left:50%; transform:translateX(-50%);
-    background:#1e293b; color:white; border-radius:16px;
-    padding:14px 20px; max-width:380px; width:90%;
-    box-shadow:0 20px 40px rgba(0,0,0,0.35); z-index:99999;
-    align-items:center; gap:14px;
-    border-left:6px solid #ef4444;
-    animation: toast-slide 0.3s ease;
-">
-    <div style="font-size:1.8rem; flex-shrink:0; animation:bell-shake 0.4s ease infinite alternate;">🔔</div>
-    <div style="flex:1; min-width:0;">
-        <div id="notif-toast-title" style="font-weight:700; font-size:0.95rem; color:#fca5a5; margin-bottom:3px;"></div>
-        <div id="notif-toast-body"  style="font-size:0.82rem; color:#cbd5e1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;"></div>
-    </div>
-    <button onclick="document.getElementById('notif-toast').style.display='none'" style="
-        background:none; border:none; color:#94a3b8; font-size:1.1rem; cursor:pointer; flex-shrink:0;">✕</button>
-</div>
-
 {% endblock content %}
 
 {% block extra_js %}
 <script>
-const notifWs = new WebSocket(
-    (window.location.protocol === 'https:' ? 'wss://' : 'ws://') +
-    window.location.host + '/ws/chat/notify/'
-);
-
-let notifToastTimer = null;
-const bellTimers = {};
-
-notifWs.onmessage = function(e) {
-    const data = JSON.parse(e.data);
-    if (data.type !== 'notification') return;
-    playBellSound();
-    showNotifToast(data.room_name, data.sender, data.preview);
-    showRoomBell(data.room_id);
-};
-
-function showNotifToast(roomName, sender, preview) {
-    const toast = document.getElementById('notif-toast');
-    document.getElementById('notif-toast-title').textContent = `💬 ${sender} พูดถึงคุณใน "${roomName}"`;
-    document.getElementById('notif-toast-body').textContent = preview;
-    toast.style.display = 'flex';
-    toast.style.animation = 'none'; toast.offsetHeight;
-    toast.style.animation = 'toast-slide 0.3s ease';
-    if (notifToastTimer) clearTimeout(notifToastTimer);
-    notifToastTimer = setTimeout(() => { toast.style.display = 'none'; }, 7000);
-}
-
-function showRoomBell(roomId) {
+// Room-bell badges — called by the global notifier in base.html
+const _bellTimers = {};
+window.showRoomBell = function(roomId) {
     const bell = document.getElementById('bell-' + roomId);
     const card = document.getElementById('room-card-' + roomId);
     if (!bell) return;
     bell.style.display = 'flex';
     if (card) { card.style.borderColor = '#ef4444'; card.style.boxShadow = '0 0 0 4px rgba(239,68,68,0.25)'; }
-    if (bellTimers[roomId]) clearTimeout(bellTimers[roomId]);
-    bellTimers[roomId] = setTimeout(() => {
+    if (_bellTimers[roomId]) clearTimeout(_bellTimers[roomId]);
+    _bellTimers[roomId] = setTimeout(() => {
         bell.style.display = 'none';
         if (card) { card.style.borderColor = ''; card.style.boxShadow = ''; }
     }, 60000);
-}
-
-let _notifAudioCtx = null;
-function playBellSound() {
-    try {
-        if (!_notifAudioCtx) _notifAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        if (_notifAudioCtx.state === 'suspended') _notifAudioCtx.resume();
-        const ctx = _notifAudioCtx;
-        [[880, 0], [880, 0.25]].forEach(([freq, t]) => {
-            const osc = ctx.createOscillator();
-            const gain = ctx.createGain();
-            osc.connect(gain); gain.connect(ctx.destination);
-            osc.type = 'sine'; osc.frequency.value = freq;
-            gain.gain.setValueAtTime(0.0001, ctx.currentTime + t);
-            gain.gain.exponentialRampToValueAtTime(0.5,    ctx.currentTime + t + 0.01);
-            gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + t + 0.5);
-            osc.start(ctx.currentTime + t);
-            osc.stop(ctx.currentTime + t + 0.55);
-        });
-    } catch(e) {}
-}
+};
 </script>
 {% endblock %}
