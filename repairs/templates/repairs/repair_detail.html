@@ -142,7 +142,7 @@
                                 <label class="form-label small fw-bold text-success">ค่าใช้จ่ายจริง / ยอดชำระ (บาท)</label>
                                 <div class="input-group">
                                     <span class="input-group-text bg-success text-white">฿</span>
-                                    <input type="number" step="0.01" name="final_cost" value="{{ item.final_cost|default_if_none:''|stringformat:'.2f' }}" class="form-control border-success" placeholder="ระบุยอดเงินที่ได้รับ หรือ 0.00 หากฟรี" style="font-weight: bold;">
+                                    <input type="number" step="0.01" name="final_cost" value="{{ item.final_cost|default_if_none:''|stringformat:'.2f' }}" class="form-control border-success" placeholder="ระบุยอดเงินที่ได้รับ หรือ 0.00 หากฟรี" style="font-weight: bold;" {% if item.status == 'COMPLETED' %}readonly{% endif %}>
                                 </div>
                                 <div class="form-text small text-muted"><i class="fas fa-info-circle me-1"></i> ระบุ "0" หากไม่มีค่าใช้จ่าย (อยู่ในประกัน)</div>
                             </div>
@@ -156,15 +156,27 @@
                                     </div>
                                 {% else %}
                                     <div class="d-flex gap-2">
-                                        <button type="button" class="btn btn-warning flex-grow-1 py-2 fw-bold next-step-btn"
-                                                data-item-id="{{ item.id }}"
-                                                data-next-status-name="{{ item.get_next_status.name|default:'ขั้นตอนถัดไป' }}"
-                                                data-next-status-color="{{ item.get_next_status.color|default:'' }}">
-                                            <i class="fas fa-chevron-right me-2"></i>เลื่อนไปยังขั้นตอนถัดไป
-                                            {% with ns=item.get_next_status %}{% if ns %}<span class="ms-1 opacity-75" style="font-size:0.82rem;">(→ {{ ns.name }})</span>{% endif %}{% endwith %}
-                                        </button>
-                                        <button type="submit" class="btn btn-primary px-4 py-2">
-                                            <i class="fas fa-save me-2"></i>บันทึกข้อมูลอื่น
+                                        {% if item.status == 'RECEIVED' %}
+                                            <button type="button" class="btn btn-warning flex-grow-1 py-2 fw-bold next-step-btn"
+                                                    data-item-id="{{ item.id }}"
+                                                    data-next-status-name="{{ item.get_next_status.name|default:'ขั้นตอนถัดไป' }}"
+                                                    data-next-status-color="{{ item.get_next_status.color|default:'' }}">
+                                                <i class="fas fa-chevron-right me-2"></i>เลื่อนไปยังขั้นตอนถัดไป
+                                                {% with ns=item.get_next_status %}{% if ns %}<span class="ms-1 opacity-75" style="font-size:0.82rem;">(→ {{ ns.name }})</span>{% endif %}{% endwith %}
+                                            </button>
+                                        {% else %}
+                                            <div class="input-group flex-grow-1">
+                                                <span class="input-group-text bg-light text-primary fw-bold" style="font-size: 0.85rem;">เปลี่ยนสถานะเป็น:</span>
+                                                <select name="status" class="form-select fw-bold py-2 border-primary">
+                                                    {% for s in all_statuses %}
+                                                        <option value="{{ s.code }}" {% if item.status == s.code %}selected{% endif %}>{{ s.name }}</option>
+                                                    {% endfor %}
+                                                </select>
+                                            </div>
+                                        {% endif %}
+                                        
+                                        <button type="submit" class="btn btn-primary px-4 py-2 fw-bold">
+                                            <i class="fas fa-save me-2"></i>บันทึกการเปลี่ยนแปลง
                                         </button>
                                         {% if item.status != 'COMPLETED' %}
                                         <a href="{% url 'repairs:repair_outsource_assign' item.id %}" class="btn btn-outline-purple py-2 fw-bold" style="color: #6f42c1; border-color: #6f42c1;">
@@ -337,6 +349,21 @@
                             alert('ผิดพลาด: ' + res.message);
                         }
                     }
+                });
+            }
+        });
+
+        // Toggle final cost field based on status dropdown
+        $(document).on('change', 'select[name="status"]', function() {
+            const status = $(this).val();
+            const form = $(this).closest('form');
+            const costDiv = form.find('.final-cost-div');
+            
+            if (status === 'COMPLETED') {
+                costDiv.removeClass('d-none').hide().fadeIn();
+            } else {
+                costDiv.fadeOut(function() {
+                    $(this).addClass('d-none');
                 });
             }
         });

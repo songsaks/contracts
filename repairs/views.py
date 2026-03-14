@@ -440,10 +440,13 @@ def repair_detail(request, pk):
     job = get_object_or_404(RepairJob, pk=pk)
     all_technicians = Technician.objects.all().order_by('name')
     all_repair_types = RepairType.objects.all().order_by('name')
+    from .models import RepairStatus
+    all_statuses = RepairStatus.objects.all().order_by('sequence')
     return render(request, 'repairs/repair_detail.html', {
         'job': job, 
         'all_technicians': all_technicians,
-        'all_repair_types': all_repair_types
+        'all_repair_types': all_repair_types,
+        'all_statuses': all_statuses
     })
 
 @login_required
@@ -466,18 +469,26 @@ def repair_update_status(request, item_id):
             item.job.save()
 
         if new_status:
-            item.status = new_status
-            if note is not None:
-                item.status_note = note
+            old_status = item.status
+            status_changed = (new_status != old_status)
             
-            # Handle additional updates
+            if status_changed:
+                item.status = new_status
+                from .models import RepairStatus
+                st_obj = RepairStatus.objects.filter(code=new_status).first()
+                if st_obj: item.current_status = st_obj
+                
+                if new_status in ['COMPLETED', 'CANCELLED', 'FINISHED']:
+                    from django.utils import timezone
+                    if not item.closed_at: item.closed_at = timezone.now()
+            
+            if note is not None: item.status_note = note
+            
+            # Additional updates
             issue_desc = request.POST.get('issue_description')
             accessories = request.POST.get('accessories')
-            
-            if issue_desc:
-                item.issue_description = issue_desc
-            if accessories is not None: # Can be empty string
-                item.accessories = accessories
+            if issue_desc: item.issue_description = issue_desc
+            if accessories is not None: item.accessories = accessories
 
             # Handle Price and Final Cost
             price = request.POST.get('price')
@@ -515,8 +526,9 @@ def repair_update_status(request, item_id):
             RepairStatusHistory.objects.create(
                 repair_item=item,
                 status=item.status,
+                status_obj=item.current_status,
                 changed_by=request.user,
-                note=item.status_note
+                note=item.status_note or f"อัปเดตสถานะเป็น {item.get_status_display()}"
             )
     # Redirect back to the repair list
     return redirect('repairs:repair_list')
@@ -843,7 +855,7 @@ def repair_income_report(request):
         'job', 'device', 'device__brand', 'job__customer', 'created_by'
     ).prefetch_related(
         Prefetch(
-            'status_history',
+            'history',
             queryset=RepairStatusHistory.objects.filter(
                 status='COMPLETED'
             ).select_related('changed_by').order_by('-changed_at'),
@@ -856,7 +868,7 @@ def repair_income_report(request):
     if filter_user_id:
         items = items.filter(
             Q(created_by__id=filter_user_id) |
-            Q(status_history__status='COMPLETED', status_history__changed_by__id=filter_user_id)
+            Q(history__status='COMPLETED', history__changed_by__id=filter_user_id)
         ).distinct()
 
     # Build items list with completed_by info
