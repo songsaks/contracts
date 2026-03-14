@@ -1270,8 +1270,8 @@ def repair_next_step(request, item_id):
         # ถ้าหาไม่ได้เลย ให้เริ่มที่ตัวแรก
         next_status = RepairStatus.objects.first()
     else:
-        # หาตัวที่มี sequence มากกว่าตัวปัจจุบัน
-        next_status = RepairStatus.objects.filter(sequence__gt=current.sequence).first()
+        # หาตัวที่มี sequence มากกว่าตัวปัจจุบัน (ยกเว้น CANCELLED)
+        next_status = RepairStatus.objects.filter(sequence__gt=current.sequence).exclude(code='CANCELLED').first()
     
     if next_status:
         with transaction.atomic():
@@ -1284,6 +1284,15 @@ def repair_next_step(request, item_id):
             
             # Save technicians and status note if provided
             tech_ids = request.POST.getlist('technicians[]') or request.POST.getlist('technicians')
+            
+            # Validation: If moving from RECEIVED (or sequence 1), MUST have technicians
+            is_received = (item.status == 'RECEIVED' or (current and current.sequence == 1))
+            if is_received and not tech_ids and not item.technicians.exists():
+                return JsonResponse({
+                    'status': 'error', 
+                    'message': 'กรุณามอบหมายช่างก่อนเปลี่ยนสถานะ'
+                })
+
             if tech_ids:
                 item.technicians.set(tech_ids)
             
@@ -1312,3 +1321,70 @@ def repair_next_step(request, item_id):
         })
     
     return JsonResponse({'status': 'error', 'message': 'ไม่มีขั้นตอนถัดไปแล้ว'})
+
+@login_required
+def repair_cancel(request, item_id):
+    """ยกเลิกงานซ่อม (Explicit action)"""
+    item = get_object_or_404(RepairItem, pk=item_id)
+    
+    if request.method == 'POST':
+        cancel_status = RepairStatus.objects.filter(code='CANCELLED').first()
+        
+        with transaction.atomic():
+            if cancel_status:
+                item.current_status = cancel_status
+                item.status = cancel_status.code
+            else:
+                item.status = 'CANCELLED'
+            
+            item.closed_at = timezone.now()
+            
+            # บันทึกหมายเหตุถ้ามี
+            reason = request.POST.get('reason', 'ยกเลิกงานซ่อมตามความต้องการ')
+            item.status_note = reason
+            item.save()
+            
+            RepairStatusHistory.objects.create(
+                repair_item=item,
+                status='CANCELLED',
+                status_obj=cancel_status,
+                changed_by=request.user,
+                note=f"ยกเลิกงานซ่อม: {reason}"
+            )
+            
+        return JsonResponse({'status': 'success'})
+    
+    return JsonResponse({'status': 'error', 'message': 'Invalid request'})
+
+@login_required
+def repair_job_cancel(request, pk):
+    """ยกเลิกใบงานซ่อมทั้งใบ (ทุกรายการ)"""
+    job = get_object_or_404(RepairJob, pk=pk)
+    
+    if request.method == 'POST':
+        cancel_status = RepairStatus.objects.filter(code='CANCELLED').first()
+        reason = request.POST.get('reason', 'ยกเลิกงานซ่อมตามความต้องการ')
+        
+        with transaction.atomic():
+            for item in job.items.all():
+                if cancel_status:
+                    item.current_status = cancel_status
+                    item.status = cancel_status.code
+                else:
+                    item.status = 'CANCELLED'
+                
+                item.closed_at = timezone.now()
+                item.status_note = reason
+                item.save()
+                
+                RepairStatusHistory.objects.create(
+                    repair_item=item,
+                    status='CANCELLED',
+                    status_obj=cancel_status,
+                    changed_by=request.user,
+                    note=f"ยกเลิกงานซ่อมทั้งใบ: {reason}"
+                )
+        
+        return JsonResponse({'status': 'success'})
+    
+    return JsonResponse({'status': 'error', 'message': 'Invalid request'})

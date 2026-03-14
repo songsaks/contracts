@@ -24,6 +24,9 @@
                 </div>
             </div>
             <div class="d-flex gap-2">
+                <button type="button" class="btn btn-light text-danger shadow-sm border rounded-circle d-flex align-items-center justify-content-center cancel-job-btn" style="width: 40px; height: 40px;" title="ยกเลิกงานซ่อม" data-bs-toggle="tooltip" data-job-id="{{ job.pk }}">
+                    <i class="fas fa-ban"></i>
+                </button>
                 <a href="{% url 'repairs:repair_print' job.pk %}" target="_blank" class="btn btn-light text-secondary shadow-sm border rounded-circle d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;" title="พิมพ์รายงาน" data-bs-toggle="tooltip">
                     <i class="fas fa-print"></i>
                 </a>
@@ -272,6 +275,14 @@
             const statusNote = form.find('textarea[name="status_note"]').val();
             
             const nextStatusName = btn.data('next-status-name') || 'ขั้นตอนถัดไป';
+            
+            // Validation: Check if technicians assigned when status is RECEIVED
+            const isReceived = form.find('.tech-assign-div').not('.d-none').length > 0;
+            if (isReceived && (!technicians || technicians.length === 0)) {
+                alert('กรุณามอบหมายช่างก่อนเลื่อนไปยังขั้นตอนถัดไป');
+                return;
+            }
+
             if (!confirm('จะเปลี่ยนสถานะเป็น "' + nextStatusName + '" ใช่ไหม?')) return;
             
             btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-2"></i>กำลังเลื่อน...');
@@ -303,6 +314,31 @@
                     btn.prop('disabled', false).html('<i class="fas fa-chevron-right me-2"></i>เลื่อนไปยังขั้นตอนถัดไป');
                 }
             });
+        });
+
+        $('.cancel-job-btn').on('click', function() {
+            const jobId = $(this).data('job-id');
+            const warning = "⚠️ คำเตือน! คุณกำลังจะยกเลิกงานซ่อมนี้\n\nการยกเลิกจะทำให้รายการซ่อมถูกระงับ และไม่สามารถดำเนินการต่อในขั้นตอนปกติได้\n\nคุณยืนยันที่จะยกเลิกใช่ไหม?";
+            
+            if (confirm(warning)) {
+                const reason = prompt("กรุณาระบุเหตุผลในการยกเลิก (ถ้ามี):", "ลูกค้ายกเลิก/ซ่อมไม่คุ้ม");
+                if (reason === null) return; // User cancelled prompt
+                
+                $.ajax({
+                    url: `/repairs/job/${jobId}/cancel/`,
+                    method: 'POST',
+                    headers: { 'X-CSRFToken': '{{ csrf_token }}' },
+                    data: { 'reason': reason },
+                    success: function(res) {
+                        if (res.status === 'success') {
+                            alert('ยกเลิกงานซ่อมเรียบร้อยแล้ว');
+                            window.location.reload();
+                        } else {
+                            alert('ผิดพลาด: ' + res.message);
+                        }
+                    }
+                });
+            }
         });
     });
 

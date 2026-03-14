@@ -66,4 +66,6 @@ urlpatterns = [
     # Custom Status Workflow
     path('status-settings/', views.repair_status_list, name='repair_status_settings'),
     path('item/<int:item_id>/next-step/', views.repair_next_step, name='repair_next_step'),
+    path('item/<int:item_id>/cancel/', views.repair_cancel, name='repair_cancel'),
+    path('job/<int:pk>/cancel/', views.repair_job_cancel, name='repair_job_cancel'),
 ]
