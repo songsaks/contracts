@@ -411,7 +411,7 @@
 
     <!-- Navbar -->
     <nav class="navbar navbar-expand-lg navbar-custom sticky-top">
-        <div class="container">
+        <div class="container-fluid px-lg-4">
             <a class="navbar-brand" href="{% url 'pms:project_list' %}">
                 <i class="fas fa-project-diagram"></i>
                 <span>ระบบบริหารโครงการ</span>
@@ -434,16 +434,6 @@
                     <li class="nav-item">
                         <a class="nav-link {% if request.resolver_match.url_name == 'history_list' %}active{% endif %}" href="{% url 'pms:history_list' %}" title="ประวัติ">
                             <i class="fas fa-history"></i> <span class="ms-1">ประวัติ</span>
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link {% if request.resolver_match.url_name == 'notification_list' %}active{% endif %} position-relative ms-1 px-2" href="{% url 'pms:notification_list' %}" id="nav-notification-bell" title="การแจ้งเตือน">
-                            <i class="fas fa-bell {% if unread_notifications_count > 0 %}notification-pulse text-warning{% endif %}"></i>
-                            {% if unread_notifications_count > 0 %}
-                            <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger shadow-sm" id="nav-notification-count" style="font-size: 0.55rem; padding: 0.25em 0.4em; margin-top: 8px;">
-                                {{ unread_notifications_count }}
-                            </span>
-                            {% endif %}
                         </a>
                     </li>
                     <li class="nav-item">
@@ -505,14 +495,22 @@
                         </ul>
                     </li>
                 </ul>
-                <ul class="navbar-nav mx-2">
+                <ul class="navbar-nav ms-auto align-items-center">
                     <li class="nav-item">
-                        <a href="{% url 'chat:index' %}" class="nav-link px-3 rounded-3 {% if request.resolver_match.app_name == 'chat' %}active bg-white bg-opacity-10{% endif %}">
+                        <a href="{% url 'chat:index' %}" class="nav-link {% if request.resolver_match.app_name == 'chat' %}active{% endif %}">
                             <i class="fas fa-comments me-1"></i>แชทกลาง
                         </a>
                     </li>
-                </ul>
-                <ul class="navbar-nav ms-auto align-items-center">
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.resolver_match.url_name == 'notification_list' %}active{% endif %} position-relative px-2" href="{% url 'pms:notification_list' %}" id="nav-notification-bell" title="การแจ้งเตือน">
+                            <i class="fas fa-bell {% if unread_notifications_count > 0 %}notification-pulse text-warning{% endif %}"></i>
+                            {% if unread_notifications_count > 0 %}
+                            <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger shadow-sm" id="nav-notification-count" style="font-size: 0.55rem; padding: 0.25em 0.4em; margin-top: 8px;">
+                                {{ unread_notifications_count }}
+                            </span>
+                            {% endif %}
+                        </a>
+                    </li>
                     <li class="nav-item me-2">
                          <a href="/" class="nav-link text-white-50" style="font-size: 0.85rem;">
                             <i class="fas fa-home me-1"></i><span class="ms-1">หน้าหลัก</span>
