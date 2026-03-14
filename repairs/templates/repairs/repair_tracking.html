@@ -89,21 +89,26 @@
                                 </span>
                             </div>
                             
-                            <p class="small text-muted mb-1"><i class="fas fa-exclamation-circle me-1"></i>อาการ: {{ item.issue_description }}</p>
+                            <div class="row mb-2">
+                                <div class="col-6">
+                                    <p class="small text-muted mb-0"><i class="fas fa-exclamation-circle me-1"></i>อาการ:</p>
+                                    <p class="small fw-bold">{{ item.issue_description }}</p>
+                                </div>
+                                <div class="col-6 text-end">
+                                    <p class="small text-muted mb-0"><i class="fas fa-tag me-1"></i>ราคาประเมิน:</p>
+                                    <p class="small fw-bold text-success">{% if item.price %}{{ item.price }} บาท{% else %}-{% endif %}</p>
+                                </div>
+                            </div>
                             
-                            {% if item.price > 0 %}
-                            <p class="small text-muted mb-1"><i class="fas fa-tag me-1"></i>ราคาประเมิน: {{ item.price }} บาท</p>
-                            {% endif %}
-
                             {% if item.status_note %}
                             <div class="alert alert-info py-2 px-3 mt-2 mb-2 small">
-                                <i class="fas fa-info-circle me-1"></i>ล่าสุด: {{ item.status_note }}
+                                <i class="fas fa-info-circle me-1"></i>ความคืบหน้า: {{ item.status_note }}
                             </div>
                             {% endif %}
 
                             {% if user.is_authenticated %}
                             <div class="mt-2 text-end">
-                                <button type="button" class="btn btn-primary btn-sm rounded-pill px-3" onclick="openStatusUpdate('{{ item.id }}', '{{ item.status }}', '{{ item.status_note|escapejs }}')">
+                                <button type="button" class="btn btn-primary btn-sm rounded-pill px-3" onclick="openStatusUpdate('{{ item.id }}', '{{ item.status }}', '{{ item.status_note|escapejs }}', '{{ item.price|default:0 }}')">
                                     <i class="fas fa-sync-alt me-1"></i> อัปเดตสถานะ
                                 </button>
                             </div>
@@ -190,14 +195,12 @@
                             {% endfor %}
                         </select>
                     </div>
-                    <div id="tech_field_div" class="mb-3 d-none">
-                        <label class="form-label small fw-bold text-primary">มอบหมายช่างซ่อม</label>
-                        <select name="technicians" id="update_technicians" class="form-select select2" multiple style="width: 100%;">
-                            {% for tech in all_technicians %}
-                            <option value="{{ tech.id }}">{{ tech.name }}</option>
-                            {% endfor %}
-                        </select>
-                        <div class="form-text x-small">กรุณาระบุช่างผู้รับผิดชอบงานนี้</div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold text-success">ราคาประเมิน (บาท)</label>
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text bg-success text-white">฿</span>
+                            <input type="number" step="0.01" name="price" id="update_price" class="form-control border-success" placeholder="0.00">
+                        </div>
                     </div>
                     <div class="mb-3">
                         <label class="form-label small fw-bold">หมายเหตุ / ความคืบหน้า</label>
@@ -254,23 +257,13 @@
             });
         });
 
-        window.toggleTrackingTech = function(select) {
-            const techDiv = document.getElementById('tech_field_div');
-            if (select.value === 'FIXING') {
-                techDiv.classList.remove('d-none');
-            } else {
-                techDiv.classList.add('d-none');
-            }
-        };
 
         // Status Update Trigger
-        window.openStatusUpdate = function(itemId, currentStatus, currentNote) {
+        window.openStatusUpdate = function(itemId, currentStatus, currentNote, currentPrice) {
             document.getElementById('update_item_id').value = itemId;
             document.getElementById('update_status').value = currentStatus;
             document.getElementById('update_note').value = currentNote || '';
-            
-            // Re-check visibility
-            window.toggleTrackingTech(document.getElementById('update_status'));
+            document.getElementById('update_price').value = currentPrice || 0;
             
             const modal = new bootstrap.Modal(document.getElementById('statusUpdateModal'));
             modal.show();

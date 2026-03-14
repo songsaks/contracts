@@ -1175,6 +1175,7 @@ def technician_update_status_api(request):
     item_id = request.POST.get('item_id')
     new_status = request.POST.get('status')
     note = request.POST.get('note', '')
+    price = request.POST.get('price')
     
     item = get_object_or_404(RepairItem, pk=item_id)
     
@@ -1182,20 +1183,21 @@ def technician_update_status_api(request):
         item.status = new_status
         item.status_note = note
         
-        # Handle Technicians - ONLY if new status is FIXING
-        if new_status == 'FIXING':
-            tech_ids = request.POST.getlist('technicians')
-            if tech_ids:
-                item.technicians.set(tech_ids)
+        # Update price if provided
+        if price:
+            try:
+                item.price = float(price)
+            except ValueError:
+                pass
                 
         item.save()
         
-        # Record history - NOW correctly links to request.user
+        # Record history
         RepairStatusHistory.objects.create(
             repair_item=item,
             status=new_status,
             changed_by=request.user,
-            note=f"[Quick Update] {note}"
+            note=f"[Quick Update] {note}" + (f" (ราคาประเมินใหม่: {item.price})" if price else "")
         )
         
     return JsonResponse({'status': 'success', 'new_status_display': item.get_status_display()})
