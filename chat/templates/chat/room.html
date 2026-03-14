@@ -210,6 +210,79 @@
     .gps-card-label { font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; opacity: 0.75; margin-bottom: 0.2rem; }
     .gps-card-link { font-size: 0.75rem; font-weight: 600; display: flex; align-items: center; gap: 0.3rem; }
 
+    /* ====== @Mention Styles ====== */
+    .mention-tag {
+        display: inline-block;
+        font-weight: 700;
+        border-radius: 4px;
+        padding: 0 3px;
+        font-size: 0.9em;
+    }
+    .mention-all  { background: #dbeafe; color: #1d4ed8; }
+    .mention-me   { background: #fef9c3; color: #92400e; }
+    .mention-other{ color: #2563eb; }
+
+    /* Mention autocomplete dropdown */
+    #mention-dropdown {
+        display: none;
+        position: absolute;
+        bottom: calc(100% + 6px);
+        left: 0;
+        right: 0;
+        background: white;
+        border: 1px solid #e2e8f0;
+        border-radius: 0.75rem;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+        z-index: 200;
+        overflow: hidden;
+        max-height: 200px;
+        overflow-y: auto;
+    }
+    .mention-item {
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+        padding: 0.55rem 0.85rem;
+        cursor: pointer;
+        font-size: 0.9rem;
+        color: #1e293b;
+        transition: background 0.15s;
+    }
+    .mention-item:hover { background: #f1f5f9; }
+    .mention-avatar {
+        width: 28px; height: 28px;
+        border-radius: 50%;
+        background: #3b82f6;
+        color: white;
+        font-size: 0.75rem;
+        font-weight: 700;
+        display: flex; align-items: center; justify-content: center;
+        flex-shrink: 0;
+    }
+    .mention-avatar.all-avatar { background: #6366f1; font-size: 0.85rem; }
+
+    /* Mention notification toast */
+    #mention-toast {
+        position: fixed;
+        top: 1rem;
+        left: 50%;
+        transform: translateX(-50%) translateY(-120px);
+        background: white;
+        border: 1px solid #e2e8f0;
+        border-left: 4px solid #f59e0b;
+        border-radius: 0.75rem;
+        padding: 0.75rem 1rem;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+        z-index: 9999;
+        min-width: 260px;
+        max-width: 340px;
+        transition: transform 0.35s cubic-bezier(0.34,1.56,0.64,1);
+        cursor: pointer;
+    }
+    #mention-toast.show { transform: translateX(-50%) translateY(0); }
+    .toast-title { font-weight: 700; font-size: 0.82rem; color: #b45309; margin-bottom: 0.2rem; }
+    .toast-body  { font-size: 0.82rem; color: #334155; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
     /* Auto-Track button states */
     .stt-btn.tracking { background: #22c55e; color: white; animation: pulse-green 1.5s infinite; }
     @keyframes pulse-green {
@@ -423,7 +496,8 @@
                 </button>
                 
                 <div class="flex-1 relative">
-                    <input type="text" id="chat-message-input" 
+                    <div id="mention-dropdown"></div>
+                    <input type="text" id="chat-message-input"
                         class="w-full pl-4 pr-12 py-3 rounded-2xl bg-slate-100 border-none focus:ring-2 focus:ring-blue-500 text-slate-700"
                         placeholder="พิมพ์ข้อความที่นี่..." autocomplete="off">
                 </div>
@@ -452,6 +526,12 @@
 
 {{ room.id|json_script:"room-id" }}
 {{ request.user.id|json_script:"user-id" }}
+
+<!-- Mention notification toast -->
+<div id="mention-toast" onclick="this.classList.remove('show')">
+    <div class="toast-title">🔔 มีข้อความถึงคุณ!</div>
+    <div class="toast-body" id="mention-toast-body"></div>
+</div>
 
 <!-- GPS Check-in Modal (pure CSS/JS — no Bootstrap JS required) -->
 <div id="gpsModalOverlay" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:9999; align-items:center; justify-content:center; padding:1rem;">
@@ -513,8 +593,10 @@
 <script>
     const roomId = JSON.parse(document.getElementById('room-id').textContent);
     const userId = JSON.parse(document.getElementById('user-id').textContent);
+    const currentUsername = "{{ request.user.username }}";
     const messagesContainer = document.getElementById('chat-messages');
     const layoutWrapper = document.querySelector('.layout-wrapper');
+    let onlineUsernames = [];   // maintained by updateOnlineUsers()
 
     // ฟังก์ชันปรับความสูงหน้าจอให้พอดีกับ Keyboard บนมือถือ (VisualViewport API)
     function adjustViewport() {
@@ -564,6 +646,84 @@
     const chatSocket = new WebSocket(
         `${wsScheme}://${window.location.host}/ws/chat/${roomId}/`
     );
+
+    // ====== @Mention helpers ======
+
+    function highlightMentions(text) {
+        return text.replace(/@(\w+)/g, function(match, name) {
+            const low = name.toLowerCase();
+            if (low === 'all')
+                return `<span class="mention-tag mention-all">@all</span>`;
+            if (low === currentUsername.toLowerCase())
+                return `<span class="mention-tag mention-me">@${name}</span>`;
+            return `<span class="mention-tag mention-other">@${name}</span>`;
+        });
+    }
+
+    function showMentionToast(senderName, messageText) {
+        const toast = document.getElementById('mention-toast');
+        document.getElementById('mention-toast-body').textContent =
+            `${senderName}: ${messageText.substring(0, 60)}${messageText.length > 60 ? '…' : ''}`;
+        toast.classList.add('show');
+        // flash title
+        const origTitle = document.title;
+        let n = 0;
+        const iv = setInterval(() => {
+            document.title = n++ % 2 === 0 ? '🔔 มีข้อความถึงคุณ!' : origTitle;
+            if (n >= 8) { clearInterval(iv); document.title = origTitle; }
+        }, 700);
+        setTimeout(() => toast.classList.remove('show'), 5000);
+    }
+
+    // Highlight @mentions in messages loaded from Django template on page load
+    document.querySelectorAll('.message-text .block').forEach(el => {
+        el.innerHTML = highlightMentions(el.innerHTML);
+    });
+
+    // ====== @Mention autocomplete ======
+    const mentionDropdown = document.getElementById('mention-dropdown');
+    let mentionStartIdx = -1;
+
+    chatInput.addEventListener('input', function() {
+        const val = this.value;
+        const pos = this.selectionStart;
+        const before = val.substring(0, pos);
+        const atMatch = before.match(/@(\w*)$/);
+        if (atMatch) {
+            mentionStartIdx = before.lastIndexOf('@');
+            const query = atMatch[1].toLowerCase();
+            const candidates = ['all', ...onlineUsernames.filter(u => u.toLowerCase() !== currentUsername.toLowerCase())];
+            const filtered = candidates.filter(u => u.toLowerCase().startsWith(query));
+            if (filtered.length === 0) { mentionDropdown.style.display = 'none'; return; }
+            mentionDropdown.innerHTML = filtered.map(u => {
+                const isAll = u === 'all';
+                const label = isAll ? '👥' : u.charAt(0).toUpperCase();
+                const avatarClass = isAll ? 'all-avatar' : '';
+                return `<div class="mention-item" onmousedown="insertMention('${u}')">
+                    <div class="mention-avatar ${avatarClass}">${label}</div>
+                    <span>@${u}${isAll ? ' <span style="font-size:0.75rem;color:#64748b;">— แจ้งทุกคน</span>' : ''}</span>
+                </div>`;
+            }).join('');
+            mentionDropdown.style.display = 'block';
+        } else {
+            mentionDropdown.style.display = 'none';
+            mentionStartIdx = -1;
+        }
+    });
+
+    chatInput.addEventListener('blur', () => {
+        setTimeout(() => { mentionDropdown.style.display = 'none'; mentionStartIdx = -1; }, 200);
+    });
+
+    function insertMention(username) {
+        const val = chatInput.value;
+        const pos = chatInput.selectionStart;
+        const after = val.substring(pos);
+        chatInput.value = val.substring(0, mentionStartIdx) + '@' + username + ' ' + after;
+        chatInput.focus();
+        mentionDropdown.style.display = 'none';
+        mentionStartIdx = -1;
+    }
 
     // เมื่อรับข้อความจาก WebSocket
     chatSocket.onmessage = function(e) {
@@ -618,7 +778,18 @@
             `;
         }
 
-        let formattedMessage = data.message ? data.message.replace(/\n/g, '<br>') : '';
+        let formattedMessage = data.message
+            ? highlightMentions(data.message.replace(/\n/g, '<br>'))
+            : '';
+
+        // Show notification if current user is mentioned
+        if (!isSelf && data.mentions && data.mentions.length > 0) {
+            const mentions = data.mentions;
+            if (mentions.includes('all') || mentions.includes(currentUsername.toLowerCase())) {
+                showMentionToast(data.username, data.message || '(ไฟล์/รูปภาพ)');
+            }
+        }
+
         const html = `
             <div class="message-bubble ${bubbleClass}">
                 ${!isSelf ? `<div class="message-info">${data.username}</div>` : ''}
@@ -640,7 +811,10 @@
     function updateOnlineUsers(users) {
         const listDiv = document.getElementById('online-users-list');
         const countSpan = document.getElementById('online-count');
-        
+
+        // keep online usernames for @mention autocomplete
+        onlineUsernames = users.map(u => u.username);
+
         countSpan.textContent = users.length;
         listDiv.innerHTML = '';
         

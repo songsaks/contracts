@@ -1,4 +1,5 @@
 import json
+import re
 from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.db import database_sync_to_async
 from django.utils import timezone
@@ -116,6 +117,10 @@ class ChatConsumer(AsyncWebsocketConsumer):
             if latitude and longitude and gps_check_type:
                 await self.save_gps_log(user, latitude, longitude, location_name, gps_check_type, gps_notes)
 
+            # แยก @mention จากข้อความ (lowercase) เช่น ['all', 'somchai']
+            raw_mentions = re.findall(r'@(\w+)', message_text, re.IGNORECASE)
+            mentions = list({m.lower() for m in raw_mentions})
+
             # Broadcast ข้อความไปยังทุกคนใน Channel Group ของห้องนี้
             await self.channel_layer.group_send(
                 self.room_group_name,
@@ -130,6 +135,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
                     'latitude': latitude,
                     'longitude': longitude,
                     'location_name': location_name,
+                    'mentions': mentions,
                     # แปลงเวลาเป็น Local Timezone ก่อนส่ง
                     'timestamp': timezone.localtime(timezone.now()).strftime('%H:%M')
                 }
@@ -155,6 +161,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             'latitude': event.get('latitude'),
             'longitude': event.get('longitude'),
             'location_name': event.get('location_name'),
+            'mentions': event.get('mentions', []),
             'timestamp': event['timestamp']
         }))
 
