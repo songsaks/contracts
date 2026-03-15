@@ -725,54 +725,78 @@ def recommendations(request):
 
             ev_spread = (roe - 10.0) if isinstance(roe, (int, float)) else None
             
-            # ====== ENHANCED TRIPLE-METHOD VALUATION (3 Gold Standards) ======
-            v_graham = None; v_lynch = None; v_dcf = None
-            fair_value = None; upside = None
-            
-            eps = inf.get('trailingEps') or (price / pe if pe and pe > 0 and price else 0)
+            # ====== ENHANCED VALUATION FRAMEWORK (Thai Market) ======
+            # วิธีที่ใช้: 3 วิธีผสมกันแบบ Weighted Average
+            #   1. Graham Number       — พื้นฐานราคาตามทรัพย์สิน
+            #   2. Graham Revised      — คำนึงถึง Growth + Bond Yield (สูตรทองของ Graham)
+            #   3. DCF (FCF-based)     — มูลค่าจากกระแสเงินสดอิสระ (multiplier ปรับตาม Growth)
+            v_graham = None; v_graham_rev = None; v_dcf = None
+            fair_value = None; upside = None; mos_price = None
+
+            # ใช้ Forward EPS ก่อน (มองไปข้างหน้า) ถ้าไม่มีให้ใช้ Trailing EPS
+            eps = inf.get('forwardEps') or inf.get('trailingEps') or (price / pe if pe and pe > 0 and price else 0)
             bv = inf.get('bookValue') or 0
-            growth = inf.get('earningsGrowth') or 0.10 # Default 10%
+            # เฉลี่ย Earnings Growth + Revenue Growth เพื่อลด noise
+            eg = inf.get('earningsGrowth') or 0
+            rg = inf.get('revenueGrowth') or 0
+            raw_growth = ((eg + rg) / 2) if eg and rg else (eg or rg or 0.10)
             fcf = inf.get('freeCashflow')
             shares = inf.get('sharesOutstanding')
 
+            # Bond Yield ของไทย (ใช้ค่าประมาณ Thai 10-yr Govt Bond)
+            THAI_BOND_YIELD = 3.0
+
             import math
             try:
-                # 1. Graham Number (Defensive/Asset Floor)
+                # 1. Graham Number: √(22.5 × EPS × Book Value)
+                #    เหมาะกับหุ้นที่มีทรัพย์สินมาก (Banks, Property, Industrial)
                 if isinstance(eps, (int, float)) and eps > 0 and isinstance(bv, (int, float)) and bv > 0:
                     v_graham = math.sqrt(22.5 * eps * bv)
-                
-                # 2. Peter Lynch / PEG Method (Growth Focus)
-                # Lynch: PE = GrowthRate, Fair Price = GrowthRate * EPS
-                g_rate = min(25, max(5, growth * 100 if growth < 1 else growth)) # Cap 5% - 25%
+
+                # 2. Graham Revised: EPS × (8.5 + 2g) × (4.4 / bond_yield)
+                #    สูตรดั้งเดิมของ Graham ที่ปรับด้วย Bond Yield เพื่อสะท้อนสภาพดอกเบี้ย
+                g_rate = min(25, max(3, raw_growth * 100 if raw_growth < 1 else raw_growth))
+                bond_adj = 4.4 / THAI_BOND_YIELD  # ปรับตามดอกเบี้ย (สูงกว่า 1.0 เมื่อ yield ต่ำ)
                 if isinstance(eps, (int, float)) and eps > 0:
-                    v_lynch = eps * g_rate
-                
-                # 3. Simplified DCF (Cash Flow Focus)
-                # Valuation = (FCF / Shares) * 15 (Standard multiplier for stable cash generators)
+                    v_graham_rev = eps * (8.5 + 2 * g_rate) * bond_adj
+
+                # 3. FCF-based DCF: (FCF/Share) × Multiplier
+                #    Multiplier ปรับตาม Growth Rate (growth สูง = มูลค่าในอนาคตสูงกว่า)
                 if fcf and shares and shares > 0:
                     fcf_per_share = fcf / shares
                     if fcf_per_share > 0:
-                        v_dcf = fcf_per_share * 15 # Conservative 15x FCF multiplier
+                        fcf_multiple = 20 if g_rate > 15 else (15 if g_rate >= 7 else 12)
+                        v_dcf = fcf_per_share * fcf_multiple
 
-                # --- Combine / Blend into a Fair Value Zone ---
-                valid_vals = [v for v in [v_graham, v_lynch, v_dcf] if v and v > 0]
-                if valid_vals:
-                    fair_value = sum(valid_vals) / len(valid_vals) # Simple average of available methods
+                # รวม 3 วิธีด้วย Weighted Average (Graham Rev มีน้ำหนักมากสุด)
+                weighted_sum = 0.0; total_weight = 0.0
+                if v_graham and v_graham > 0:
+                    weighted_sum += v_graham * 1.0; total_weight += 1.0
+                if v_graham_rev and v_graham_rev > 0:
+                    weighted_sum += v_graham_rev * 2.0; total_weight += 2.0
+                if v_dcf and v_dcf > 0:
+                    weighted_sum += v_dcf * 1.5; total_weight += 1.5
+
+                if total_weight > 0:
+                    fair_value = weighted_sum / total_weight
                 elif bv > 0:
-                    fair_value = bv * 0.9 # Fallback to 90% of Book Value if others fail
+                    fair_value = bv * 0.9  # Fallback: 90% ของ Book Value
 
-                # Sanity Caps
                 if fair_value and price and price > 0:
-                    fair_value = min(fair_value, price * 2.5) # Don't predict >150% upside
+                    fair_value = min(fair_value, price * 3.0)  # Cap ที่ 200% upside
                     upside = ((fair_value / price) - 1) * 100
+                    mos_price = fair_value * 0.75  # ราคาที่ควรซื้อ = Fair Value - 25% Margin of Safety
             except: pass
 
             return {
                 'symbol': sym, 'name': inf.get('longName', sym),
                 'pe': pe, 'pb': pb, 'roe': roe, 'dy': dy, 'npm': npm, 'de': de,
                 'rsi': rsi_val, 'peg': peg, 'price': price, 'rvol': round(rvol, 2),
-                'ev_spread': ev_spread, 'fair_value': round(fair_value, 2) if fair_value else None,
-                'upside': round(upside, 1) if upside else None, 'value_score': round(final_score, 1),
+                'ev_spread': ev_spread,
+                'fair_value': round(fair_value, 2) if fair_value else None,
+                'mos_price': round(mos_price, 2) if mos_price else None,
+                'upside': round(upside, 1) if upside else None,
+                'value_score': round(final_score, 1),
                 'legendary': {'graham': p_graham, 'buffett': p_buffett, 'lynch': p_lynch, 'greenblatt': p_greenblatt, 'templeton': p_templeton}
             }
         except: return None
@@ -941,22 +965,58 @@ def us_recommendations(request):
                 if isinstance(roe, (int, float)):
                     ev_spread = roe - 10.0
 
-                # Fair Value Analysis (US Framework)
-                fair_value = None; upside = None
-                eps = inf.get('trailingEps') or (price / pe if pe and pe > 0 and price else 0)
+                # ====== ENHANCED VALUATION FRAMEWORK (US Market) ======
+                # ใช้ 3 วิธีเหมือน Thai Framework แต่ Bond Yield อิง US 10-yr Treasury
+                fair_value = None; upside = None; mos_price = None
+                v_graham = None; v_graham_rev = None; v_dcf = None
+
+                eps = inf.get('forwardEps') or inf.get('trailingEps') or (price / pe if pe and pe > 0 and price else 0)
                 bv = inf.get('bookValue') or 0
-                growth = inf.get('earningsGrowth') or 0.10
-                
+                eg = inf.get('earningsGrowth') or 0
+                rg = inf.get('revenueGrowth') or 0
+                raw_growth = ((eg + rg) / 2) if eg and rg else (eg or rg or 0.10)
+                fcf_us = inf.get('freeCashflow')
+                shares_us = inf.get('sharesOutstanding')
+
+                # Bond Yield ของสหรัฐฯ (US 10-yr Treasury — ประมาณ 4.4%)
+                US_BOND_YIELD = 4.4
+
                 if isinstance(eps, (int, float)):
                     import math
                     try:
-                        # Standard Lynch / Graham growth model for US
-                        g_rate = min(20, growth * 100 if growth < 1 else growth)
-                        calculated_val = max(0, eps) * (8.5 + 2 * g_rate)
-                        fair_value = max(calculated_val, bv * 0.7)
-                        if price and price > 0:
-                            fair_value = min(fair_value, price * 2.5) # Cap upside at 150%
+                        g_rate = min(25, max(3, raw_growth * 100 if raw_growth < 1 else raw_growth))
+                        bond_adj = 4.4 / US_BOND_YIELD  # ≈ 1.0 เมื่อ yield ปกติ
+
+                        # 1. Graham Number
+                        if eps > 0 and isinstance(bv, (int, float)) and bv > 0:
+                            v_graham = math.sqrt(22.5 * eps * bv)
+
+                        # 2. Graham Revised + Bond Yield adjustment
+                        if eps > 0:
+                            v_graham_rev = eps * (8.5 + 2 * g_rate) * bond_adj
+
+                        # 3. DCF (FCF-based, dynamic multiplier)
+                        if fcf_us and shares_us and shares_us > 0:
+                            fcf_ps = fcf_us / shares_us
+                            if fcf_ps > 0:
+                                fcf_multiple = 20 if g_rate > 15 else (15 if g_rate >= 7 else 12)
+                                v_dcf = fcf_ps * fcf_multiple
+
+                        # Weighted Average (Graham Rev: น้ำหนัก 2, DCF: 1.5, Graham No.: 1)
+                        ws = 0.0; tw = 0.0
+                        if v_graham and v_graham > 0: ws += v_graham * 1.0; tw += 1.0
+                        if v_graham_rev and v_graham_rev > 0: ws += v_graham_rev * 2.0; tw += 2.0
+                        if v_dcf and v_dcf > 0: ws += v_dcf * 1.5; tw += 1.5
+
+                        if tw > 0:
+                            fair_value = ws / tw
+                        elif bv > 0:
+                            fair_value = bv * 0.7  # Fallback: 70% ของ Book Value
+
+                        if fair_value and price and price > 0:
+                            fair_value = min(fair_value, price * 3.0)  # Cap ที่ 200% upside
                             upside = ((fair_value / price) - 1) * 100
+                            mos_price = fair_value * 0.75  # ราคาที่ควรซื้อ (25% Margin of Safety)
                     except: pass
 
                 scanned_list.append({
@@ -965,6 +1025,7 @@ def us_recommendations(request):
                     'rsi': rsi_val, 'peg': peg, 'price': price, 'rvol': round(rvol, 2),
                     'ev_spread': ev_spread,
                     'fair_value': round(fair_value, 2) if fair_value else None,
+                    'mos_price': round(mos_price, 2) if mos_price else None,
                     'upside': round(upside, 1) if upside else None,
                     'value_score': round(final_score, 1),
                     'legendary': {'graham': p_graham, 'buffett': p_buffett, 'lynch': p_lynch, 'greenblatt': p_greenblatt, 'templeton': p_templeton}

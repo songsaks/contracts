@@ -153,6 +153,7 @@
                         <th>P/BV</th>
                         <th>Economic Profit <a href="javascript:void(0)" class="text-muted ms-1" data-bs-toggle="modal" data-bs-target="#economicProfitModal"><i class="fas fa-info-circle"></i></a></th>
                         <th>Fair Value</th>
+                        <th title="ราคาที่ควรซื้อ = Fair Value × 75% (Margin of Safety 25%)">Buy Below</th>
                         <th>Upside (%)</th>
                         <th>RSI (14)</th>
                         <th>D/E</th>
@@ -209,6 +210,14 @@
                             <span class="text-primary fw-bold">
                                 {{ s.fair_value|floatformat:2|default:"N/A" }}
                             </span>
+                        </td>
+                        <td data-order="{{ s.mos_price|default_if_none:0 }}">
+                            {% if s.mos_price %}
+                                <span class="{% if s.price and s.price <= s.mos_price %}text-success fw-bold{% else %}text-secondary{% endif %}">
+                                    {{ s.mos_price|floatformat:2 }}
+                                    {% if s.price and s.price <= s.mos_price %}<i class="fas fa-circle ms-1" style="font-size:0.5rem;color:#16a34a;" title="ราคาปัจจุบันต่ำกว่า Buy Below!"></i>{% endif %}
+                                </span>
+                            {% else %}<span class="text-muted">N/A</span>{% endif %}
                         </td>
                         <td data-order="{{ s.upside|default_if_none:-999 }}">
                             <span class="{% if s.upside and s.upside > 0 %}text-success{% else %}text-danger{% endif %} fw-bold">
