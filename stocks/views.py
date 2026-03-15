@@ -135,8 +135,43 @@ def analyze(request, symbol):
         ticker = yf.Ticker(symbol)
         # ดึงข้อมูลหุ้นทั้งหมดผ่าน utility function
         data = get_stock_data(symbol)
+        # ====== Fetch Extra Context from Cache (Value Stock data) ======
+        extra_ctx = ""
+        cached_lists = ['THAI_REC_ALL', 'US_REC_ALL']
+        for list_sym in cached_lists:
+            c = AnalysisCache.objects.filter(user=request.user, symbol=list_sym).first()
+            if c:
+                try:
+                    s_list = json.loads(c.analysis_data)
+                    match = next((s for s in s_list if s['symbol'] == symbol), None)
+                    if match:
+                        extra_ctx = f"Legendary Score: {match.get('value_score')}\n"
+                        extra_ctx += f"Pillars: {match.get('legendary')}\n"
+                        extra_ctx += f"Fair Value (Estimated): {match.get('fair_value')}\n"
+                        extra_ctx += f"Upside (%): {match.get('upside')}\n"
+                        break
+                except: pass
+
+        # ====== Fetch Extra Context from Momentum Scanner (Technical data) ======
+        mom = MomentumCandidate.objects.filter(user=request.user, symbol_bk=symbol).first()
+        if not mom:
+            # ลองค้นหาด้วย symbol แบบไม่มี .BK
+            clean_sym = symbol.replace('.BK', '')
+            mom = MomentumCandidate.objects.filter(user=request.user, symbol=clean_sym).first()
+        
+        if mom:
+            extra_ctx += f"\n[Technical Momentum Analysis]:\n"
+            extra_ctx += f"Momentum Score: {mom.technical_score}/100\n"
+            extra_ctx += f"RVOL: {mom.rvol}x, ADX: {mom.adx}, MFI: {mom.mfi}\n"
+            if mom.entry_strategy:
+                extra_ctx += f"Entry Strategy: {mom.entry_strategy}\n"
+                extra_ctx += f"Demand Zone: {mom.demand_zone_start} - {mom.demand_zone_end}\n"
+                extra_ctx += f"Target (Supply): {mom.supply_zone_start}\n"
+                extra_ctx += f"Stop Loss: {mom.stop_loss}\n"
+                extra_ctx += f"RR Ratio: {mom.risk_reward_ratio}\n"
+
         # ส่งข้อมูลให้ AI วิเคราะห์และรับผลเป็น Markdown
-        analysis_text = analyze_with_ai(symbol, data)
+        analysis_text = analyze_with_ai(symbol, data, extra_context=extra_ctx)
 
         # ====== เตรียมข้อมูลกราฟราคาและวอลลุ่ม ======
         # Prepare Chart Data (Price & Volume)
@@ -189,10 +224,14 @@ def analyze(request, symbol):
 
         # ทำ copy เพื่อไม่แก้ไข dict ต้นฉบับ
         info = info.copy() # Safe copy
-        # แปลงค่าสัดส่วนพื้นฐาน (ROE, Dividend Yield, NPM) จากทศนิยมเป็นเปอร์เซ็นต์
+        # แปลงค่าสัดส่วนพื้นฐาน (ROE, Dividend Yield, NPM) จากทศนิยมเป็นเปอร์เซ็นต์ (เฉพาะถ้าเป็นทศนิยม < 1)
         for key in ['returnOnEquity', 'dividendYield', 'profitMargins']:
-            if isinstance(info.get(key), (int, float)):
-                info[key] = info[key] * 100
+            val = info.get(key)
+            if isinstance(val, (int, float)):
+                if abs(val) < 1.0:
+                    info[key] = val * 100
+                else:
+                    info[key] = val
 
         # ====== คำนวณ D/E Ratio จาก Balance Sheet ======
         bs = data.get('balance_sheet')
@@ -605,52 +644,32 @@ def delete_from_portfolio(request, pk):
 @login_required
 def recommendations(request):
     """
-    สุ่มเลือก 20 หุ้น SET100 ต่อวัน (seed = วันที่ปัจจุบัน)
-    ดึงข้อมูลพื้นฐาน แล้วให้ Gemini AI คัดเลือกหุ้นแนะนำ
-    แบ่งเป็น Large Cap และ Mid Cap พร้อม Volume Analysis
+    Thai Stock Recommendations with Legendary 5-Pillar Scoring.
+    Implements Manual Scan and Persistence (AnalysisCache).
     """
     import random
-    from datetime import date
+    import json
+    from datetime import datetime
+    import pandas as pd
+    import pandas_ta as ta
+    import yfinance as yf
+    from concurrent.futures import ThreadPoolExecutor
 
-    # ====== รายชื่อ Pool หุ้น SET100 ทั้งหมด 100 ตัว ======
-    # Pool of 100 high-quality Thai stocks (SET100 focus)
-    full_pool = [
-        'ADVANC.BK', 'AOT.BK', 'AWC.BK', 'BBL.BK', 'BDMS.BK', 'BEM.BK', 'BGRIM.BK', 'BH.BK', 'BJC.BK', 'BLA.BK',
-        'BPP.BK', 'BTS.BK', 'CBG.BK', 'CENTEL.BK', 'CHG.BK', 'CK.BK', 'CKP.BK', 'COM7.BK', 'CPALL.BK', 'CPAXT.BK',
-        'CPF.BK', 'CPN.BK', 'CRC.BK', 'DELTA.BK', 'EA.BK', 'EGCO.BK', 'EPG.BK', 'ERW.BK', 'FORTH.BK', 'GLOBAL.BK',
-        'GPSC.BK', 'GULF.BK', 'HMPRO.BK', 'ICHI.BK', 'INTUCH.BK', 'IRPC.BK', 'ITC.BK', 'IVL.BK', 'JMART.BK', 'JMT.BK',
-        'KBANK.BK', 'KCE.BK', 'KEX.BK', 'KKP.BK', 'KTB.BK', 'KTC.BK', 'LH.BK', 'MBK.BK', 'MEGA.BK', 'MINT.BK',
-        'MTC.BK', 'NEX.BK', 'OR.BK', 'ORI.BK', 'OSP.BK', 'PLANB.BK', 'PRM.BK', 'PSL.BK', 'PTG.BK', 'PTT.BK',
-        'PTTEP.BK', 'PTTGC.BK', 'QH.BK', 'RATCH.BK', 'RCL.BK', 'ROJNA.BK', 'RS.BK', 'SABINA.BK', 'SAWAD.BK', 'SCB.BK',
-        'SCC.BK', 'SCGP.BK', 'SINGER.BK', 'SIRI.BK', 'SPALI.BK', 'SPRC.BK', 'STA.BK', 'STEC.BK', 'STGT.BK', 'SUPER.BK',
-        'TASCO.BK', 'TCAP.BK', 'THANI.BK', 'THCOM.BK', 'THG.BK', 'TISCO.BK', 'TKN.BK', 'TLI.BK', 'TOA.BK', 'TOP.BK',
-        'TPIPL.BK', 'TPIPP.BK', 'TQM.BK', 'TRUE.BK', 'TTA.BK', 'TTB.BK', 'TU.BK', 'VGI.BK', 'WHA.BK', 'WHAUP.BK'
-    ]
-
-    # ใช้วันที่ปัจจุบันเป็น seed เพื่อให้รายชื่อเปลี่ยนทุกวัน แต่คงที่ตลอดวัน
-    # Use current date as a seed so the selection changes daily
-    # but remains stable within the same day for consistent analysis.
-    today_str = date.today().strftime("%Y%m%d")
-    random.seed(today_str)
-    candidate_symbols = random.sample(full_pool, min(20, len(full_pool)))
-
-    # Reset random seed เพื่อไม่ให้กระทบกับ random call อื่นในระบบ
-    # Reset random seed so it doesn't affect other parts of the app
-    random.seed()
-
-    # ====== ดึงข้อมูลพื้นฐานเบื้องต้นสำหรับหุ้นแต่ละตัว ======
-    # We will pick a handful to show detailed metrics for the AI to pick from
-    stock_previews = []
-
-    # ดึงข้อมูลเฉพาะ fundamental ที่สำคัญ เพื่อความเร็ว
-    # Selection logic: We'll fetch basic data for these and let AI decide the top 10
-    # To keep it fast, we'll only fetch the most critical ones
-    for sym in candidate_symbols[:30]:
+    def process_single_stock(sym):
         try:
             t = yf.Ticker(sym)
             inf = t.info
+            hist_short = t.history(period="6mo")
+            rsi_val = 'N/A'
+            rvol = 1.0
+            if not hist_short.empty:
+                rsi_series = ta.rsi(hist_short['Close'], length=14)
+                if rsi_series is not None and not rsi_series.empty:
+                    rsi_val = float(rsi_series.iloc[-1])
+                current_vol = float(hist_short['Volume'].iloc[-1])
+                avg_vol_20 = float(hist_short['Volume'].tail(20).mean())
+                rvol = current_vol / avg_vol_20 if avg_vol_20 > 0 else 1.0
 
-            # คำนวณ D/E Ratio จาก balance sheet (quarterly หรือ annual)
             de = 'N/A'
             try:
                 bs = t.quarterly_balance_sheet if not t.quarterly_balance_sheet.empty else t.balance_sheet
@@ -659,96 +678,327 @@ def recommendations(request):
                     tot_liab = bs.loc['Total Liabilities Net Minority Interest', col] if 'Total Liabilities Net Minority Interest' in bs.index else bs.loc['Total Liabilities', col]
                     tot_eq = bs.loc['Stockholders Equity', col] if 'Stockholders Equity' in bs.index else bs.loc['Total Equity Gross Minority Interest', col]
                     de = tot_liab / tot_eq
-            except Exception:
-                pass
+            except: pass
 
-            # Fallback: ใช้ค่า debtToEquity จาก yfinance info (หาร 100 เพราะ yfinance คูณ 100 มาแล้ว)
-            if de == 'N/A':
+            if de == 'N/A' or pd.isna(de):
                 de = inf.get('debtToEquity', 'N/A')
                 if isinstance(de, (int, float)): de = de / 100
-            elif isinstance(de, (int, float)):
-                de = round(de, 2)
 
-            # ดึงค่า fundamental metrics และแปลงเป็น % สำหรับ ROE, Div Yield, NPM
-            roe = inf.get('returnOnEquity', 'N/A')
-            dy = inf.get('dividendYield', 'N/A')
-            npm = inf.get('profitMargins', 'N/A')
-            vol = inf.get('volume', 'N/A')
-            avg_vol = inf.get('averageVolume', 'N/A')
+            def scale_to_percent(val):
+                if not isinstance(val, (int, float)): return val
+                if abs(val) < 1.0: return val * 100
+                return val
 
-            if isinstance(roe, (int, float)): roe = roe * 100
-            if isinstance(dy, (int, float)): dy = dy * 100
-            if isinstance(npm, (int, float)): npm = npm * 100
+            pe = inf.get('trailingPE')
+            pb = inf.get('priceToBook')
+            peg = inf.get('pegRatio')
+            roe = scale_to_percent(inf.get('returnOnEquity'))
+            dy = scale_to_percent(inf.get('dividendYield'))
+            npm = scale_to_percent(inf.get('profitMargins'))
+            bv = inf.get('bookValue')
+            price = inf.get('currentPrice') or inf.get('regularMarketPrice')
 
-            stock_previews.append({
-                'symbol': sym,
-                'name': inf.get('longName', sym),
-                'pe': inf.get('trailingPE', 'N/A'),
-                'pb': inf.get('priceToBook', 'N/A'),
-                'roe': roe,
-                'dy': dy,
-                'npm': npm,
-                'de': de,
-                'volume': vol,
-                'avg_volume': avg_vol
-            })
-        except:
-            continue
+            p_graham = 0; p_buffett = 0; p_lynch = 0; p_greenblatt = 0; p_templeton = 0
+            if isinstance(pe, (int, float)) and pe < 15: p_graham += 7
+            if isinstance(pb, (int, float)) and pb < 1.2: p_graham += 7
+            if isinstance(de, (int, float)) and de < 1.0: p_graham += 6
+            fcf = inf.get('freeCashflow')
+            if isinstance(roe, (int, float)) and roe > 18: p_buffett += 8
+            if isinstance(fcf, (int, float)) and fcf > 0: p_buffett += 7
+            if isinstance(npm, (int, float)) and npm > 10: p_buffett += 5
+            eg = inf.get('earningsGrowth')
+            if isinstance(peg, (int, float)) and 0 < peg < 1.0: p_lynch += 12
+            elif isinstance(peg, (int, float)) and 0 < peg < 1.5: p_lynch += 8
+            if isinstance(eg, (int, float)) and eg > 0.20: p_lynch += 8
+            ev = inf.get('enterpriseValue'); ebitda = inf.get('ebitda')
+            if ev and ebitda:
+                ey = ebitda / ev
+                if ey > 0.12: p_greenblatt += 10
+            if isinstance(roe, (int, float)) and roe > 15: p_greenblatt += 10
+            if isinstance(pe, (int, float)) and pe < 10: p_templeton += 10
 
-    # ====== เรียก Gemini AI สร้างรายงานแนะนำหุ้น ======
-    # Generate the recommendation report using Gemini
+            final_score = (p_graham * 0.75) + (p_buffett * 0.75) + (p_lynch * 2.0) + (p_greenblatt * 1.0) + (p_templeton * 0.5)
+            momentum_bonus = 0
+            if isinstance(rsi_val, (int, float)) and 30 <= rsi_val <= 50: momentum_bonus += 5
+            if rvol > 1.2: momentum_bonus += 5
+            final_score = min(100, final_score + momentum_bonus)
+
+            ev_spread = (roe - 10.0) if isinstance(roe, (int, float)) else None
+            
+            # ====== ENHANCED TRIPLE-METHOD VALUATION (3 Gold Standards) ======
+            v_graham = None; v_lynch = None; v_dcf = None
+            fair_value = None; upside = None
+            
+            eps = inf.get('trailingEps') or (price / pe if pe and pe > 0 and price else 0)
+            bv = inf.get('bookValue') or 0
+            growth = inf.get('earningsGrowth') or 0.10 # Default 10%
+            fcf = inf.get('freeCashflow')
+            shares = inf.get('sharesOutstanding')
+
+            import math
+            try:
+                # 1. Graham Number (Defensive/Asset Floor)
+                if isinstance(eps, (int, float)) and eps > 0 and isinstance(bv, (int, float)) and bv > 0:
+                    v_graham = math.sqrt(22.5 * eps * bv)
+                
+                # 2. Peter Lynch / PEG Method (Growth Focus)
+                # Lynch: PE = GrowthRate, Fair Price = GrowthRate * EPS
+                g_rate = min(25, max(5, growth * 100 if growth < 1 else growth)) # Cap 5% - 25%
+                if isinstance(eps, (int, float)) and eps > 0:
+                    v_lynch = eps * g_rate
+                
+                # 3. Simplified DCF (Cash Flow Focus)
+                # Valuation = (FCF / Shares) * 15 (Standard multiplier for stable cash generators)
+                if fcf and shares and shares > 0:
+                    fcf_per_share = fcf / shares
+                    if fcf_per_share > 0:
+                        v_dcf = fcf_per_share * 15 # Conservative 15x FCF multiplier
+
+                # --- Combine / Blend into a Fair Value Zone ---
+                valid_vals = [v for v in [v_graham, v_lynch, v_dcf] if v and v > 0]
+                if valid_vals:
+                    fair_value = sum(valid_vals) / len(valid_vals) # Simple average of available methods
+                elif bv > 0:
+                    fair_value = bv * 0.9 # Fallback to 90% of Book Value if others fail
+
+                # Sanity Caps
+                if fair_value and price and price > 0:
+                    fair_value = min(fair_value, price * 2.5) # Don't predict >150% upside
+                    upside = ((fair_value / price) - 1) * 100
+            except: pass
+
+            return {
+                'symbol': sym, 'name': inf.get('longName', sym),
+                'pe': pe, 'pb': pb, 'roe': roe, 'dy': dy, 'npm': npm, 'de': de,
+                'rsi': rsi_val, 'peg': peg, 'price': price, 'rvol': round(rvol, 2),
+                'ev_spread': ev_spread, 'fair_value': round(fair_value, 2) if fair_value else None,
+                'upside': round(upside, 1) if upside else None, 'value_score': round(final_score, 1),
+                'legendary': {'graham': p_graham, 'buffett': p_buffett, 'lynch': p_lynch, 'greenblatt': p_greenblatt, 'templeton': p_templeton}
+            }
+        except: return None
+
+    cache_symbol = 'THAI_REC_ALL'
+    cached_data = AnalysisCache.objects.filter(user=request.user, symbol=cache_symbol).first()
+    
+    stock_previews = []
+    last_scanned = None
+    if cached_data:
+        try:
+            stock_previews = json.loads(cached_data.analysis_data)
+            last_scanned = cached_data.last_updated
+        except: pass
+
+    # If manual scan is requested
+    if request.GET.get('scan') == 'true':
+        set100_pool = [
+            'ADVANC.BK', 'AOT.BK', 'AWC.BK', 'BANPU.BK', 'BBL.BK', 'BDMS.BK', 'BEM.BK', 'BGRIM.BK', 'BH.BK', 'BJC.BK',
+            'BTS.BK', 'CBG.BK', 'CENTEL.BK', 'COM7.BK', 'CPALL.BK', 'CPAXT.BK', 'CPF.BK', 'CPN.BK', 'CRC.BK', 'DELTA.BK',
+            'EA.BK', 'EGCO.BK', 'GLOBAL.BK', 'GPSC.BK', 'GULF.BK', 'HMPRO.BK', 'INTUCH.BK', 'IRPC.BK', 'IVL.BK', 'JMART.BK',
+            'JMT.BK', 'KBANK.BK', 'KCE.BK', 'KKP.BK', 'KTB.BK', 'KTC.BK', 'LH.BK', 'MINT.BK', 'MTC.BK', 'OR.BK',
+            'OSP.BK', 'PTT.BK', 'PTTEP.BK', 'PTTGC.BK', 'RATCH.BK', 'SCB.BK', 'SCC.BK', 'SCGP.BK', 'TISCO.BK', 'TOP.BK',
+            'TRUE.BK', 'TTB.BK', 'TU.BK', 'WHA.BK', 'AMATA.BK', 'AP.BK', 'BAM.BK', 'BCH.BK', 'BCP.BK', 'BCPG.BK',
+            'BLA.BK', 'BPP.BK', 'CHG.BK', 'CK.BK', 'CKP.BK', 'DOHOME.BK', 'ERW.BK', 'FORTH.BK', 'GUNKUL.BK', 'HANA.BK',
+            'ICHI.BK', 'ITC.BK', 'M.BK', 'MBK.BK', 'MEGA.BK', 'ORI.BK', 'PLANB.BK', 'PRM.BK', 'PSL.BK', 'PTG.BK',
+            'QH.BK', 'RCL.BK', 'ROJNA.BK', 'RS.BK', 'SABINA.BK', 'SAWAD.BK', 'SINGER.BK', 'SIRI.BK', 'SPALI.BK', 'SPRC.BK',
+            'STA.BK', 'STEC.BK', 'STGT.BK', 'SUPER.BK', 'TASCO.BK', 'TCAP.BK', 'THANI.BK', 'THCOM.BK', 'THG.BK', 'TIDLOR.BK',
+            'TKN.BK', 'TLI.BK', 'TOA.BK', 'TPIPL.BK', 'TPIPP.BK', 'TQM.BK', 'TTA.BK', 'VGI.BK', 'WHAUP.BK'
+        ]
+        mai_pool = [
+            'SPA.BK', 'AU.BK', 'D.BK', 'CHAYO.BK', 'YGG.BK', 'BE8.BK', 'BBIK.BK', 'SNNP.BK', 'TNP.BK', 'TACC.BK',
+            'SICT.BK', 'ADD.BK', 'ABM.BK', 'CHO.BK', 'PSTC.BK', 'TVDH.BK', 'NDR.BK', 'BOL.BK', 'IP.BK', 'PLANET.BK'
+        ]
+        full_pool = set100_pool + mai_pool
+        candidate_symbols = random.sample(full_pool, min(100, len(full_pool))) # Limit to 100 for speed
+        
+        with ThreadPoolExecutor(max_workers=10) as executor:
+            scanned_list = list(filter(None, executor.map(process_single_stock, candidate_symbols)))
+        
+        # Save to Cache
+        scanned_list = sorted(scanned_list, key=lambda x: x['value_score'], reverse=True)
+        AnalysisCache.objects.update_or_create(
+            user=request.user, symbol=cache_symbol,
+            defaults={'analysis_data': json.dumps(scanned_list)}
+        )
+        stock_previews = scanned_list
+        last_scanned = datetime.now()
+
+
+    # Generate Report
     report_text = None
     if request.GET.get('analyze') == 'true' and stock_previews:
         client = genai.Client(api_key=settings.GEMINI_API_KEY)
-        model_name_to_use = 'gemini-2.5-flash'
-
-        data_str = "\n".join([str(s) for s in stock_previews])
-
-        # Prompt ขอให้ AI วิเคราะห์และแนะนำหุ้น แบ่ง Large Cap / Mid Cap
-        prompt = f"""
-        You are a professional Thai Stock Analyst. Based on the following data of Thai stocks (Large Cap and Mid Cap):
+        data_str = "\n".join([f"{s['symbol']} Price:{s['price']} Score:{s['value_score']} PEG:{s['peg']}" for s in stock_previews[:30]])
+        prompt = f"""คุณคือนักวิเคราะห์หุ้นที่เน้น Maximum Returns ในปี 2026 โดยใช้สไตล์ Peter Lynch (GARP) และ Greenblatt (Magic Formula) เป็นหลัก
+        นี่คือข้อมูลหุ้น 30 อันดับแรก:
         {data_str}
-
-        Please provide TWO separate rankings in your report (in Thai language):
-
-        Part 1: 10 อันดับหุ้นไทยขนาดใหญ่แนะนำ (Top 10 Large Cap Thai Stock Recommendations)
-        Part 2: 10 อันดับหุ้นไทยขนาดกลางแนะนำ (Top 10 Mid Cap Thai Stock Recommendations)
-
-        For BOTH lists:
-        1. Select the top 10 stocks based on Fundamental Strength (ROE, NPM) and Valuation (PE, PBV, Dividend).
-        2. Specifically mention which ones have potential for 'Economic Profits' (High ROE vs typical cost of capital).
-        3. **CRITICAL**: Include a deep 'Volume Analysis' for each selected stock (compare its 'volume' to 'avg_volume', interpreting buying/selling pressure or momentum).
-        4. Provide a brief 'Why this stock?' reason, highlighting its cap size context and its current Volume trend.
-
-        Format in beautiful Markdown for a professional web report. Use Sarabun style tone. Add an introductory section explaining the methodology.
-        IMPORTANT RULES:
-        1. DO NOT include any conversational preamble or outro (e.g. "Okay, here's a professional Thai stock...", "Explanation of Choices:").
-        2. Output ONLY the raw markdown text.
-        3. DO NOT wrap the output in ```markdown code blocks. Start immediately with the analysis headings.
-        """
-
+        โปรดวิเคราะห์หุ้นที่น่าเข้าซื้อที่สุดสำหรับปี 2026 ภายใต้ธีม AI และ พลังงานสะอาด เขียนรายงานภาษาไทยแบบมืออาชีพ เจาะลึกรายตัวท็อป 10"""
         try:
-            response = client.models.generate_content(
-                model=model_name_to_use,
-                contents=prompt
-            )
+            response = client.models.generate_content(model='gemini-3-flash-preview', contents=prompt)
             report_text = response.text
-
-            # ลบ markdown block wrapper ถ้า AI ไม่ปฏิบัติตาม prompt
-            # Strip any residual markdown blocks if AI disobeys
-            if report_text.startswith("```markdown"):
-                report_text = report_text[len("```markdown"):].strip()
-            if report_text.endswith("```"):
-                report_text = report_text[:-3].strip()
-        except Exception as e:
-            report_text = f"ไม่สามารถสร้างรายงานได้ในขณะนี้: {str(e)}"
+            if report_text.startswith("```markdown"): report_text = report_text[11:].strip()
+            if report_text.endswith("```"): report_text = report_text[:-3].strip()
+        except Exception as e: report_text = f"Error: {e}"
 
     context = {
-        'title': 'AI Stock Recommendations',
+        'title': 'AI Thai Stock Recommendations',
         'report': report_text,
-        'stocks': stock_previews
+        'stocks': stock_previews,
+        'market': 'thai',
+        'last_scanned': last_scanned
     }
     return render(request, 'stocks/recommendations.html', context)
+
+
+@login_required
+def us_recommendations(request):
+    """
+    US Stock Recommendations with Manual Scan and Persistence.
+    """
+    import random
+    import json
+    from datetime import datetime
+    import pandas as pd
+    import pandas_ta as ta
+
+    cache_symbol = 'US_REC_ALL'
+    cached_data = AnalysisCache.objects.filter(user=request.user, symbol=cache_symbol).first()
+    
+    stock_previews = []
+    last_scanned = None
+    if cached_data:
+        try:
+            stock_previews = json.loads(cached_data.analysis_data)
+            last_scanned = cached_data.last_updated
+        except: pass
+
+    if request.GET.get('scan') == 'true':
+        full_pool = [
+            'AAPL', 'MSFT', 'GOOGL', 'AMZN', 'NVDA', 'META', 'TSLA', 'BRK-B', 'UNH', 'JNJ',
+            'XOM', 'JPM', 'V', 'PG', 'MA', 'CVX', 'HD', 'PFE', 'ABBV', 'KO',
+            'PEP', 'COST', 'MCD', 'WMT', 'DIS', 'ADBE', 'CRM', 'NFLX', 'AMD', 'INTC',
+            'QCOM', 'TXN', 'AMAT', 'MU', 'LRCX', 'AVGO', 'NKE', 'TMUS', 'SBUX', 'LOW',
+            'UPS', 'CAT', 'GE', 'HON', 'DE', 'MMM', 'LMT', 'BA', 'RTX', 'T'
+        ]
+        candidate_symbols = random.sample(full_pool, min(50, len(full_pool)))
+        
+        scanned_list = []
+        for sym in candidate_symbols:
+            try:
+                t = yf.Ticker(sym)
+                inf = t.info
+                hist = t.history(period="6mo")
+                if hist.empty: continue
+                
+                rsi_series = ta.rsi(hist['Close'], length=14)
+                rsi_val = float(rsi_series.iloc[-1]) if rsi_series is not None and not rsi_series.empty else None
+                current_vol = float(hist['Volume'].iloc[-1])
+                avg_vol_20 = float(hist['Volume'].tail(20).mean())
+                rvol = current_vol / avg_vol_20 if avg_vol_20 > 0 else 1.0
+
+                def scale_to_percent(val):
+                    if not isinstance(val, (int, float)): return val
+                    if abs(val) < 1.0: return val * 100
+                    return val
+
+                pe = inf.get('trailingPE')
+                pb = inf.get('priceToBook')
+                peg = inf.get('pegRatio')
+                roe = scale_to_percent(inf.get('returnOnEquity'))
+                dy = scale_to_percent(inf.get('dividendYield'))
+                npm = scale_to_percent(inf.get('profitMargins'))
+                price = inf.get('currentPrice') or inf.get('regularMarketPrice')
+                de = inf.get('debtToEquity')
+                if isinstance(de, (int, float)) and de > 5: de = de / 100
+
+                # 5 PILLARS v2 (US Focus)
+                p_graham = 0; p_buffett = 0; p_lynch = 0; p_greenblatt = 0; p_templeton = 0
+                
+                if isinstance(pe, (int, float)) and pe < 18: p_graham += 7
+                if isinstance(de, (int, float)) and de < 1.0: p_graham += 6
+                
+                fcf = inf.get('freeCashflow')
+                if isinstance(roe, (int, float)) and roe > 20: p_buffett += 8
+                if isinstance(fcf, (int, float)) and fcf > 0: p_buffett += 7
+                
+                eg = inf.get('earningsGrowth')
+                if isinstance(peg, (int, float)) and 0 < peg < 1.0: p_lynch += 12
+                if isinstance(eg, (int, float)) and eg > 0.15: p_lynch += 8
+                
+                ev = inf.get('enterpriseValue'); ebitda = inf.get('ebitda')
+                if ev and ebitda:
+                    ey = ebitda / ev
+                    if ey > 0.10: p_greenblatt += 10
+                if isinstance(roe, (int, float)) and roe > 15: p_greenblatt += 10
+                
+                if isinstance(pe, (int, float)) and pe < 12: p_templeton += 10
+                if isinstance(pb, (int, float)) and pb < 1.2: p_templeton += 10
+
+                final_score = (p_graham * 0.75) + (p_buffett * 0.75) + (p_lynch * 2.0) + (p_greenblatt * 1.0) + (p_templeton * 0.5)
+                final_score = min(100, final_score + 5 if rvol > 1.2 else final_score)
+
+                # Economic Profit (ROE - CoE 10%)
+                ev_spread = None
+                if isinstance(roe, (int, float)):
+                    ev_spread = roe - 10.0
+
+                # Fair Value Analysis (US Framework)
+                fair_value = None; upside = None
+                eps = inf.get('trailingEps') or (price / pe if pe and pe > 0 and price else 0)
+                bv = inf.get('bookValue') or 0
+                growth = inf.get('earningsGrowth') or 0.10
+                
+                if isinstance(eps, (int, float)):
+                    import math
+                    try:
+                        # Standard Lynch / Graham growth model for US
+                        g_rate = min(20, growth * 100 if growth < 1 else growth)
+                        calculated_val = max(0, eps) * (8.5 + 2 * g_rate)
+                        fair_value = max(calculated_val, bv * 0.7)
+                        if price and price > 0:
+                            fair_value = min(fair_value, price * 2.5) # Cap upside at 150%
+                            upside = ((fair_value / price) - 1) * 100
+                    except: pass
+
+                scanned_list.append({
+                    'symbol': sym, 'name': inf.get('shortName', sym),
+                    'pe': pe, 'pb': pb, 'roe': roe, 'dy': dy, 'npm': npm, 'de': de,
+                    'rsi': rsi_val, 'peg': peg, 'price': price, 'rvol': round(rvol, 2),
+                    'ev_spread': ev_spread,
+                    'fair_value': round(fair_value, 2) if fair_value else None,
+                    'upside': round(upside, 1) if upside else None,
+                    'value_score': round(final_score, 1),
+                    'legendary': {'graham': p_graham, 'buffett': p_buffett, 'lynch': p_lynch, 'greenblatt': p_greenblatt, 'templeton': p_templeton}
+                })
+            except: continue
+            
+        scanned_list = sorted(scanned_list, key=lambda x: x['value_score'], reverse=True)
+        AnalysisCache.objects.update_or_create(
+            user=request.user, symbol=cache_symbol,
+            defaults={'analysis_data': json.dumps(scanned_list)}
+        )
+        stock_previews = scanned_list
+        last_scanned = datetime.now()
+
+    report_text = None
+    if request.GET.get('analyze') == 'true' and stock_previews:
+        client = genai.Client(api_key=settings.GEMINI_API_KEY)
+        data_str = "\n".join([f"{s['symbol']} Price:{s['price']} Score:{s['value_score']} PEG:{s['peg']}" for s in stock_previews[:20]])
+        prompt = f"คุณคือนักวิเคราะห์หุ้นอเมริกัน เน้น Maximum Returns ปี 2026 โดยใช้ Lynch และ Greenblatt สแกนหุ้น {data_str} โปรดสรุปตัวท็อปในธีม AI/Semiconductor/Energy ภาษาไทย"
+        try:
+            response = client.models.generate_content(model='gemini-3-flash-preview', contents=prompt)
+            report_text = response.text
+        except: report_text = "Analysis service unavailable."
+
+    context = {
+        'title': 'AI US Stock Recommendations',
+        'report': report_text,
+        'stocks': stock_previews,
+        'market': 'us',
+        'last_scanned': last_scanned
+    }
+    return render(request, 'stocks/recommendations.html', context)
+
+
 
 # ====== Macro Economy — ภาพรวมเศรษฐกิจมหภาคและสินค้าโภคภัณฑ์ ======
 

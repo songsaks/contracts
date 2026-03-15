@@ -85,9 +85,8 @@ Available teams:
 
 Pick the best team name. Reply with ONLY the team name, nothing else."""
 
-        # เรียก Gemini API เพื่อสร้างคำแนะนำ
         response = client.models.generate_content(
-            model='gemini-2.0-flash',
+            model='gemini-3-flash-preview',
             contents=prompt
         )
         # ดึงชื่อทีมจาก response และตัดช่องว่างออก

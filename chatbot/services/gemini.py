@@ -212,13 +212,13 @@ def gemini_chat_sync(user_text, user=None):
 
     try:
         # ส่งข้อความไปยัง Gemini API พร้อม:
-        # - model: ใช้ gemini-2.0-flash ซึ่งรวดเร็วและประหยัด
+        # - model: ใช้ gemini-3.0-flash (Preview) ซึ่งรวดเร็วและประหยัดที่สุดตัวล่าสุด
         # - contents: ข้อความจากผู้ใช้
         # - system_instruction: คำสั่งบทบาทของ AI
         # - tools: รายการ function ที่ AI เรียกใช้ได้
         # - automatic_function_calling: เปิดให้ AI เรียก function อัตโนมัติโดยไม่ต้องรอ
         response = client.models.generate_content(
-            model='gemini-2.5-flash',
+            model='gemini-3-flash-preview',
             contents=user_text,
             config=types.GenerateContentConfig(
                 system_instruction=system_instruction,

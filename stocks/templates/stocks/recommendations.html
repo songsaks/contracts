@@ -1,4 +1,66 @@
 {% extends 'stocks/base_stocks.html' %}
+{% block extra_css %}
+<!-- DataTables CSS for Premium Table Experience -->
+<link rel="stylesheet" href="https://cdn.datatables.net/1.13.4/css/dataTables.bootstrap5.min.css">
+<style>
+    .dataTables_wrapper .dataTables_paginate .paginate_button {
+        padding: 0;
+        margin-left: 5px;
+    }
+    .table thead th {
+        border-top: none;
+        background: #f8fafc;
+        color: #475569;
+        font-weight: 700;
+        text-transform: uppercase;
+        font-size: 0.75rem;
+        letter-spacing: 0.05em;
+        padding: 1rem;
+    }
+    .score-badge {
+        width: 45px;
+        height: 45px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 12px;
+        font-weight: 700;
+        font-size: 1rem;
+    }
+    .score-high { background: rgba(16, 185, 129, 0.1); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.2); }
+    .score-med { background: rgba(245, 158, 11, 0.1); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.2); }
+    .score-low { background: rgba(239, 68, 68, 0.1); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.2); }
+
+    /* Signal Badges */
+    .signal-badge {
+        font-size: 0.65rem;
+        padding: 2px 8px;
+        border-radius: 4px;
+        font-weight: 800;
+        text-transform: uppercase;
+        display: inline-block;
+        margin-left: 5px;
+    }
+    .signal-buy {
+        background: #10b981;
+        color: white;
+        box-shadow: 0 0 10px rgba(16, 185, 129, 0.5);
+    }
+    .signal-tp {
+        background: #ef4444;
+        color: white;
+    }
+
+    @keyframes pulse-green {
+        0% { transform: scale(1); opacity: 1; }
+        50% { transform: scale(1.1); opacity: 0.7; }
+        100% { transform: scale(1); opacity: 1; }
+    }
+    .blink-green {
+        animation: pulse-green 1.5s infinite ease-in-out;
+    }
+</style>
+{% endblock %}
 
 {% block content %}
 <div class="row">
@@ -10,23 +72,33 @@
                         <i class="fas fa-magic text-white fa-2x"></i>
                     </div>
                     <div>
-                        <h2 class="fw-bold mb-0">AI Stock Recommendations</h2>
-                        <p class="text-muted mb-0">ระบบวิเคราะห์และคัดเลือก 10 หุ้นดาวเด่นด้วย AI ตามปัจจัยพื้นฐานและเทคนิค</p>
+                        <h2 class="fw-bold mb-0">{% if market == 'us' %}US{% else %}Thai{% endif %} Stock Recommendations</h2>
+                        <p class="text-muted mb-0">ระบบวิเคราะห์และคัดเลือกหุ้นดาวเด่นในตลาด {% if market == 'us' %}สหรัฐฯ{% else %}ไทย{% endif %} ด้วย AI</p>
                     </div>
                 </div>
-                {% if not report %}
-                <div>
-                    <a href="?analyze=true" class="btn btn-premium rounded-pill px-4">
+                
+                <div class="d-flex align-items-center gap-3">
+                    <!-- Market Switcher -->
+                    <div class="btn-group rounded-pill overflow-hidden border bg-white p-1">
+                        <a href="{% url 'stocks:recommendations' %}" class="btn btn-sm rounded-pill px-4 {% if market == 'thai' %}btn-primary{% else %}btn-light border-0{% endif %}">
+                            <i class="fas fa-flag me-1"></i> Thai
+                        </a>
+                        <a href="{% url 'stocks:us_recommendations' %}" class="btn btn-sm rounded-pill px-4 {% if market == 'us' %}btn-primary{% else %}btn-light border-0{% endif %}">
+                            <i class="fas fa-globe-americas me-1"></i> US
+                        </a>
+                    </div>
+
+                    {% if not report %}
+                    <a href="?analyze=true" class="btn btn-premium rounded-pill px-4 py-2" onclick="showLoading()">
                         <i class="fas fa-brain me-1"></i> Analyze with AI
                     </a>
+                    {% endif %}
                 </div>
-                {% endif %}
             </div>
         </div>
     </div>
 
     {% if report %}
-
     <div class="col-lg-12">
         <div class="card-premium p-0 border-0 overflow-hidden mb-5">
             <div class="p-4 border-bottom bg-white d-flex flex-wrap justify-content-between align-items-center gap-3">
@@ -38,7 +110,7 @@
                     <button class="btn btn-outline-secondary btn-sm rounded-pill" onclick="window.print()">
                         <i class="fas fa-print"></i> <span class="d-none d-sm-inline ms-1">Print</span>
                     </button>
-                    <span class="badge bg-light text-muted fw-normal">Powered by Gemini 1.5 Flash</span>
+                    <div class="text-muted small fw-500">Powered by Gemini 3.0 Flash (Preview)</div>
                 </div>
             </div>
             <div class="p-4 p-md-5 bg-white">
@@ -48,40 +120,107 @@
             </div>
         </div>
     </div>
-    </div>
     {% endif %}
 </div>
 
 <div class="row mb-5">
     <div class="col-12">
-        <h4 class="fw-bold mb-4">Raw Metrics Scanned</h4>
-        <div class="table-responsive card-premium p-0 border-0">
-            <table class="table table-hover align-middle mb-0">
-                <thead class="bg-light">
+        <div class="d-flex align-items-center justify-content-between mb-4">
+            <div class="d-flex align-items-center gap-3 flex-wrap">
+                <h4 class="fw-bold mb-0">Value Scanning Metrics</h4>
+                <a href="?scan=true" class="btn btn-success btn-sm rounded-pill px-4 shadow-sm" id="scanBtn">
+                    <i class="fas fa-search me-1"></i> แสกนหุ้นใหม่ (Scan)
+                </a>
+                <button class="btn btn-outline-primary btn-sm rounded-pill px-3" data-bs-toggle="modal" data-bs-target="#strategyModal">
+                    <i class="fas fa-crown me-1"></i> 5 Legendary Pillars
+                </button>
+                {% if last_scanned %}
+                <span class="text-muted small"><i class="fas fa-history me-1"></i> ล่าสุด: {{ last_scanned|date:"d/m/Y H:i" }}</span>
+                {% endif %}
+            </div>
+            <span class="badge bg-primary rounded-pill px-3">Legendary Five Algorithm</span>
+        </div>
+        <div class="table-responsive card-premium p-4 border-0">
+            <table id="valuationTable" class="table table-hover align-middle mb-0">
+                <thead>
                     <tr>
-                        <th class="ps-4">Symbol</th>
+                        <th class="ps-3">Symbol</th>
+                        <th>Price</th>
+                        <th>Score</th>
                         <th>P/E</th>
-                        <th>P/BV</th>
+                        <th>Div Yield (%)</th>
                         <th>ROE (%)</th>
-                        <th>Yield (%)</th>
-                        <th>NPM (%)</th>
+                        <th>P/BV</th>
+                        <th>Economic Profit <a href="javascript:void(0)" class="text-muted ms-1" data-bs-toggle="modal" data-bs-target="#economicProfitModal"><i class="fas fa-info-circle"></i></a></th>
+                        <th>Fair Value</th>
+                        <th>Upside (%)</th>
+                        <th>RSI (14)</th>
                         <th>D/E</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for s in stocks %}
                     <tr>
-                        <td class="ps-4 fw-bold">
-                            <a href="{% url 'stocks:analyze' s.symbol %}" class="text-primary text-decoration-none">
-                                {{ s.symbol }}
+                        <td class="ps-3 fw-bold">
+                            <a href="{% url 'stocks:analyze' s.symbol %}" class="text-primary text-decoration-none d-flex flex-column">
+                                <div class="d-flex align-items-center">
+                                    <span class="fs-6">{{ s.symbol }}</span>
+                                    {% if s.peg and s.peg > 0 and s.peg < 1.0 %}
+                                        <span class="signal-badge signal-buy blink-green">BUY</span>
+                                    {% elif s.peg and s.peg > 2.0 or s.rsi and s.rsi > 70 %}
+                                        <span class="signal-badge signal-tp">SELL / TP</span>
+                                    {% endif %}
+                                </div>
+                                <span class="text-muted small fw-normal">{{ s.name|truncatechars:15 }}</span>
                             </a>
                         </td>
-                        <td>{{ s.pe|floatformat:2|default:"N/A" }}</td>
-                        <td>{{ s.pb|floatformat:2|default:"N/A" }}</td>
-                        <td>{{ s.roe|floatformat:4|default:"N/A" }}</td>
-                        <td>{{ s.dy|floatformat:4|default:"N/A" }}</td>
-                        <td>{{ s.npm|floatformat:4|default:"N/A" }}</td>
-                        <td>{{ s.de|floatformat:2|default:"N/A" }}</td>
+                        <td data-order="{{ s.price|default_if_none:0 }}">
+                            <span class="fw-bold text-dark">
+                                {{ s.price|floatformat:2|default:"N/A" }}
+                            </span>
+                        </td>
+                        <td data-order="{{ s.value_score|default:0 }}">
+                            <div class="score-badge {% if s.value_score >= 75 %}score-high{% elif s.value_score >= 50 %}score-med{% else %}score-low{% endif %}">
+                                {{ s.value_score|floatformat:0 }}
+                            </div>
+                        </td>
+                        <td data-order="{{ s.pe|default_if_none:999999 }}"><span class="fw-semibold">{{ s.pe|floatformat:2|default:"N/A" }}</span></td>
+                        <td data-order="{{ s.dy|default_if_none:-999999 }}">
+                            <span class="{% if s.dy and s.dy >= 3.0 %}text-success{% endif %} fw-semibold">
+                                {{ s.dy|floatformat:2|default:"N/A" }}%
+                            </span>
+                        </td>
+                        <td data-order="{{ s.roe|default_if_none:-999999 }}">
+                            <span class="{% if s.roe and s.roe >= 15 %}text-success{% elif s.roe and s.roe < 0 %}text-danger{% endif %} fw-semibold">
+                                {{ s.roe|floatformat:2|default:"N/A" }}%
+                            </span>
+                        </td>
+                        <td data-order="{{ s.pb|default_if_none:999999 }}">
+                            <span class="{% if s.pb and s.pb < 1.0 %}text-success{% endif %} fw-semibold">
+                                {{ s.pb|floatformat:2|default:"N/A" }}
+                            </span>
+                        </td>
+                        <td data-order="{{ s.ev_spread|default_if_none:-999999 }}">
+                            <span class="{% if s.ev_spread and s.ev_spread > 0 %}text-success{% else %}text-danger{% endif %} fw-semibold">
+                                {{ s.ev_spread|floatformat:2|default:"N/A" }}%
+                            </span>
+                        </td>
+                        <td data-order="{{ s.fair_value|default_if_none:0 }}">
+                            <span class="text-primary fw-bold">
+                                {{ s.fair_value|floatformat:2|default:"N/A" }}
+                            </span>
+                        </td>
+                        <td data-order="{{ s.upside|default_if_none:-999 }}">
+                            <span class="{% if s.upside and s.upside > 0 %}text-success{% else %}text-danger{% endif %} fw-bold">
+                                {{ s.upside|floatformat:1|default:"N/A" }}%
+                            </span>
+                        </td>
+                        <td data-order="{{ s.rsi|default_if_none:50 }}">
+                            <span class="badge {% if s.rsi and s.rsi <= 40 %}bg-success{% elif s.rsi and s.rsi >= 70 %}bg-danger{% else %}bg-secondary{% endif %} bg-opacity-10 {% if s.rsi and s.rsi <= 40 %}text-success{% elif s.rsi and s.rsi >= 70 %}text-danger{% else %}text-secondary{% endif %} border-0 border-opacity-25">
+                                {{ s.rsi|floatformat:1|default:"N/A" }}
+                            </span>
+                        </td>
+                        <td data-order="{{ s.de|default_if_none:999999 }}"><span class="badge {% if s.de and s.de <= 1.0 %}bg-success{% else %}bg-warning text-dark{% endif %} bg-opacity-10 text-success border border-success border-opacity-25">{{ s.de|floatformat:2|default:"N/A" }}</span></td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -90,36 +229,278 @@
     </div>
 </div>
 
+    </div>
+</div>
+
+</div>
+
+<!-- Legendary Strategy Modal -->
+<div class="modal fade" id="strategyModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header bg-dark text-white p-4">
+                <h5 class="modal-title fw-bold"><i class="fas fa-crown me-2 text-warning"></i> 5 Legendary Pillars Algorithm v2.0</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4 p-md-5">
+                <p class="lead text-muted mb-4">ระบบคำนวณคะแนน (Score 0-100) โดยอ้างอิงจากหลักการคัดเลือกหุ้นของ 5 ตำนานนักลงทุนระดับโลก:</p>
+                
+                <div class="row g-4">
+                    <!-- Graham -->
+                    <div class="col-md-6">
+                        <div class="d-flex gap-3">
+                            <div class="text-primary fs-3"><i class="fas fa-balance-scale"></i></div>
+                            <div>
+                                <h6 class="fw-bold mb-1">Benjamin Graham (Deep Value)</h6>
+                                <p class="small text-muted">เน้นความปลอดภัยของเงินต้น ใช้เกณฑ์ P/E < 15, P/BV < 1.2 และหนี้สิน (D/E) < 1.0</p>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Buffett -->
+                    <div class="col-md-6">
+                        <div class="d-flex gap-3">
+                            <div class="text-success fs-3"><i class="fas fa-fort-awesome"></i></div>
+                            <div>
+                                <h6 class="fw-bold mb-1">Warren Buffett (Quality Moat)</h6>
+                                <p class="small text-muted">เลือกบริษัทที่มีคูเมืองแกร่ง โดยดูจาก ROE > 15% และต้องมีกระแสเงินสดอิสระ (FCF) เป็นบวก</p>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Lynch -->
+                    <div class="col-md-6">
+                        <div class="d-flex gap-3">
+                            <div class="text-warning fs-3"><i class="fas fa-chart-line"></i></div>
+                            <div>
+                                <h6 class="fw-bold mb-1">Peter Lynch (Fast Growers)</h6>
+                                <p class="small text-muted">ใช้เกณฑ์ PEG < 1.0 และอัตราการเติบโตของกำไร (Earnings Growth) ที่รวดเร็วในราคาที่เหมาะสม</p>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Greenblatt -->
+                    <div class="col-md-6">
+                        <div class="d-flex gap-3">
+                            <div class="text-info fs-3"><i class="fas fa-hat-wizard"></i></div>
+                            <div>
+                                <h6 class="fw-bold mb-1">Joel Greenblatt (Magic Formula)</h6>
+                                <p class="small text-muted">คัดหุ้น "ดีและถูก" ด้วย Earnings Yield (EBIT/EV) สูง และความสามารถในการทำกำไร (ROE) สูง</p>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Templeton -->
+                    <div class="col-md-6">
+                        <div class="d-flex gap-3">
+                            <div class="text-danger fs-3"><i class="fas fa-globe"></i></div>
+                            <div>
+                                <h6 class="fw-bold mb-1">John Templeton (Contrarian)</h6>
+                                <p class="small text-muted">มองหาโอกาสในหุ้นที่ P/E ต่ำกว่าราคาตลาดแบบสุดขั้ว หรือหุ้นที่คนส่วนใหญ่มองข้าม</p>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Bonus -->
+                    <div class="col-md-6">
+                        <div class="bg-light p-3 rounded-3 border-start border-4 border-warning h-100">
+                            <h6 class="fw-bold mb-1"><i class="fas fa-stopwatch me-1"></i> Bonus: Momentum Timing</h6>
+                            <p class="small text-muted mb-0">บวกคะแนนพิเศษ 10% สำหรับสัญญาณ RSI Oversold และ Volume เริ่มไหลเข้าผิดปกติ</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer bg-light border-0">
+                <button type="button" class="btn btn-secondary rounded-pill px-4" data-bs-dismiss="modal">เข้าใจแล้ว</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Economic Profit Explanation Modal -->
+<div class="modal fade" id="economicProfitModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content border-0 rounded-4 overflow-hidden shadow-lg">
+            <div class="modal-header bg-primary text-white border-0 py-3">
+                <h5 class="modal-title fw-bold"><i class="fas fa-brain me-2"></i> Economic Profit คืออะไร?</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-0">
+                <!-- Tab Navigation -->
+                <ul class="nav nav-pills nav-justified bg-light p-2 mb-0 rounded-0" id="profitTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active fw-bold py-3" id="general-tab" data-bs-toggle="tab" data-bs-target="#general" type="button" role="tab">1. Economic Profit (ทั่วไป)</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link fw-bold py-3" id="eva-tab" data-bs-toggle="tab" data-bs-target="#eva" type="button" role="tab">2. EVA (สำหรับวิเคราะห์หุ้น)</button>
+                    </li>
+                </ul>
+
+                <div class="tab-content" id="profitTabsContent">
+                    <!-- Tab 1: General Economic Profit -->
+                    <div class="tab-pane fade show active p-4 p-md-5" id="general" role="tabpanel">
+                        <p class="lead fw-bold text-primary mb-4">กำไรที่แท้จริงหลังจากหัก "ค่าเสียโอกาส" ออกไปแล้ว</p>
+                        
+                        <p><strong>Economic Profit</strong> คือกำไรที่หักทั้งต้นทุนที่จ่ายจริงและต้นทุนแฝงออกไปแล้ว ซึ่งใช้ตัดสินใจว่าเราเอาเงินไปทำอย่างอื่นจะคุ้มกว่าหรือไม่</p>
+                        
+                        <div class="bg-light p-4 rounded-4 my-4 border-start border-primary border-4">
+                            <h6 class="fw-bold mb-3 text-primary"><i class="fas fa-calculator me-2"></i> สูตรคำนวณพื้นฐาน</h6>
+                            <p class="h5 fw-bold mb-0">Economic Profit = รายได้รวม - (ต้นทุนจ่ายจริง + ค่าเสียโอกาส)</p>
+                        </div>
+
+                        <div class="row g-4 mb-4">
+                            <div class="col-md-6">
+                                <div class="card h-100 border-0 bg-success bg-opacity-10 p-3 rounded-4">
+                                    <h6 class="fw-bold text-success mb-2">Explicit Costs (จ่ายจริง)</h6>
+                                    <ul class="small mb-0 text-muted">
+                                        <li>ค่าจ้างพนักงาน, ค่าเช่าที่</li>
+                                        <li>ค่า Server, ค่า Software</li>
+                                    </ul>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="card h-100 border-0 bg-warning bg-opacity-10 p-3 rounded-4">
+                                    <h6 class="fw-bold text-warning mb-2">Implicit Costs (ต้นทุนแฝง)</h6>
+                                    <ul class="small mb-0 text-muted">
+                                        <li><strong>ดอกเบี้ย:</strong> ผลตอบแทนถ้าฝากธนาคาร</li>
+                                        <li><strong>เวลา:</strong> รายได้ถ้าไปทำงานที่อื่น</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+
+                        <table class="table table-bordered rounded-3 overflow-hidden mb-0">
+                            <thead class="bg-light">
+                                <tr class="small text-uppercase">
+                                    <th>หัวข้อเทียบ</th>
+                                    <th>Accounting Profit</th>
+                                    <th>Economic Profit</th>
+                                </tr>
+                            </thead>
+                            <tbody class="small">
+                                <tr>
+                                    <td class="fw-bold">วัตถุประสงค์</td>
+                                    <td>ใช้ยื่นภาษี, รายงานบัญชี</td>
+                                    <td>ใช้ตัดสินใจความคุ้มค่า "ที่สุด"</td>
+                                </tr>
+                                <tr>
+                                    <td class="fw-bold">ผลลัพธ์</td>
+                                    <td class="text-success">มักเป็นบวกเสมอ</td>
+                                    <td class="text-primary">อาจเป็น 0 หรือติดลบได้</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Tab 2: EVA (Economic Value Added) -->
+                    <div class="tab-pane fade p-4 p-md-5" id="eva" role="tabpanel">
+                        <div class="d-flex align-items-center gap-3 mb-4">
+                            <div class="bg-primary bg-opacity-10 p-3 rounded-4 text-primary h3 mb-0">
+                                <i class="fas fa-gem"></i>
+                            </div>
+                            <div>
+                                <h4 class="fw-bold mb-0">EVA: Economic Value Added</h4>
+                                <p class="text-muted small mb-0">"บริษัทนี้บริหารเงินเก่งจริงไหม?"</p>
+                            </div>
+                        </div>
+
+                        <p>นักลงทุนแนวพื้นฐานจะใช้ค่า EVA เพื่อดูว่าบริษัท (เช่น <strong>GULF</strong> หรือ <strong>ADVANC</strong>) สร้างผลตอบแทนได้สูงกว่าต้นทุนของเงินทุนที่ใส่เข้าไปจริงหรือไม่</p>
+
+                        <div class="bg-dark text-white p-4 rounded-4 my-4 shadow-sm border-start border-warning border-4">
+                            <h6 class="fw-bold mb-3 text-warning"><i class="fas fa-flask me-2"></i> สูตร EVA (แบบย่อ)</h6>
+                            <p class="h4 fw-bold mb-2">EVA = NOPAT - (Capital × WACC)</p>
+                            <hr class="opacity-25 my-3">
+                            <div class="row small g-3">
+                                <div class="col-sm-6">
+                                    <strong class="text-warning">NOPAT:</strong> กำไรจากการดำเนินงานหลังหักภาษี
+                                </div>
+                                <div class="col-sm-6">
+                                    <strong class="text-warning">Capital:</strong> เงินลงทุนทั้งหมด (หนี้ + ส่วนถือหุ้น)
+                                </div>
+                                <div class="col-sm-12">
+                                    <strong class="text-warning">WACC:</strong> ต้นทุนทางการเงินเฉลี่ย (ดอกเบี้ยกู้ + ผลตอบแทนที่ผู้หุ้นหวัง)
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row g-4">
+                            <div class="col-md-6">
+                                <div class="card-premium h-100 p-4 border-success border-opacity-25 bg-success bg-opacity-10">
+                                    <div class="text-success h2 mb-2"><i class="fas fa-arrow-up"></i></div>
+                                    <h6 class="fw-bold text-success">EVA เป็น บวก (+)</h6>
+                                    <p class="small mb-0 text-muted">บริษัทสร้างความมั่งคั่งให้นักลงทุนจริง บริหารเงินเก่งกว่าค่าเฉลี่ยตลาด</p>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="card-premium h-100 p-4 border-danger border-opacity-25 bg-danger bg-opacity-10">
+                                    <div class="text-danger h2 mb-2"><i class="fas fa-skull-crossbones"></i></div>
+                                    <h6 class="fw-bold text-danger">EVA เป็น ลบ (-)</h6>
+                                    <p class="small mb-0 text-muted"><strong>"ทำลายมูลค่า"</strong> แม้จะมีกำไรในทางบัญชี แต่หาเงินได้น้อยกว่าต้นทุนที่ใช้ไป</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <p class="mt-4 small text-muted italic">ในตาราง Valuation ของเราด้านหลัง เราใช้ <strong>ROE - CoE (10%)</strong> เป็นตัวชี้วัดเบื้องต้นที่ใกล้เคียงกับแนวคิด EVA ครับ</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+        </div>
+    </div>
+</div>
+
 <div class="row g-4 mb-5 text-center">
     <div class="col-md-4">
-        <div class="card-premium p-4">
+        <div class="card-premium p-4 h-100">
             <div class="h1 text-warning mb-2"><i class="fas fa-chart-line"></i></div>
             <h5 class="fw-bold">Value Investing</h5>
-            <p class="small text-muted mb-0">เน้นหุ้นที่มี P/E และ P/BV ต่ำ แต่มีพื้นฐานแกร่ง</p>
+            <p class="small text-muted mb-0">เน้นหุ้นที่มี P/E และ P/BV ต่ำ แต่มีพื้นฐานแกร่ง ตามเกณฑ์ Benjamin Graham</p>
         </div>
     </div>
     <div class="col-md-4">
-        <div class="card-premium p-4">
+        <div class="card-premium p-4 h-100">
             <div class="h1 text-success mb-2"><i class="fas fa-hand-holding-usd"></i></div>
-            <h5 class="fw-bold">Dividend Growth</h5>
-            <p class="small text-muted mb-0">เน้นหุ้นปันผลสูงสม่ำเสมอและมีกระแสเงินสดดี</p>
+            <h5 class="fw-bold">Quality & Safety</h5>
+            <p class="small text-muted mb-0">เน้นหุ้นที่มี ROI สูงและ D/E ต่ำ (Safety Margin) ตามเกณฑ์ Warren Buffett</p>
         </div>
     </div>
     <div class="col-md-4">
-        <div class="card-premium p-4">
+        <div class="card-premium p-4 h-100 cursor-pointer" data-bs-toggle="modal" data-bs-target="#economicProfitModal">
             <div class="h1 text-primary mb-2"><i class="fas fa-brain"></i></div>
             <h5 class="fw-bold">Economic Profits</h5>
-            <p class="small text-muted mb-0">เน้นหุ้นที่มี ROE สูงกว่าต้นทุนเงินทุนอย่างมีนัยสำคัญ</p>
+            <p class="small text-muted mb-0">เน้นกำไรแท้จริงหลังจากหักต้นทุนแฝง <span class="text-primary d-block fw-bold mt-1">คลิกอ่านรายละเอียด <i class="fas fa-arrow-right small"></i></span></p>
         </div>
     </div>
 </div>
 {% endblock %}
 
 {% block scripts %}
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.4/js/dataTables.bootstrap5.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <script>
-    const reportText = document.getElementById('raw-markdown').value;
-    document.getElementById('recommendation-report').innerHTML = marked.parse(reportText);
+    $(document).ready(function() {
+        // Initialize DataTable for Premium Sorting/Searching
+        $('#valuationTable').DataTable({
+            "order": [[ 3, "desc" ]], // Sort by Score (index 3) by default
+            "pageLength": 50,
+            "language": {
+                "search": "ค้นหาหุ้น:",
+                "lengthMenu": "แสดง _MENU_ รายการ",
+                "info": "แสดง _START_ ถึง _END_ จากทั้งหมด _TOTAL_ รายการ",
+                "paginate": {
+                    "next": "<i class='fas fa-chevron-right'></i>",
+                    "previous": "<i class='fas fa-chevron-left'></i>"
+                }
+            },
+            "dom": '<"d-flex justify-content-between align-items-center mb-3"fl>rt<"d-flex justify-content-between align-items-center mt-3"ip>'
+        });
+
+        // Parse Al Analysis Markdown
+        const rawMarkdownElem = document.getElementById('raw-markdown');
+        if (rawMarkdownElem) {
+            const reportText = rawMarkdownElem.value;
+            document.getElementById('recommendation-report').innerHTML = marked.parse(reportText);
+        }
+    });
 
     function exportHTMLToExcel(elementId, filename = '') {
         var preHtml = "<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:x='urn:schemas-microsoft-com:office:excel' xmlns='http://www.w3.org/TR/REC-html40'><head><meta charset='utf-8'><title>Export HTML To Excel</title></head><body>";
@@ -144,5 +525,9 @@
         }
         document.body.removeChild(downloadLink);
     }
+    document.getElementById('scanBtn')?.addEventListener('click', function(e) {
+        this.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> แสกนหุ้น... (60s-90s)';
+        this.classList.add('disabled');
+    });
 </script>
 {% endblock %}

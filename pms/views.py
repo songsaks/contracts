@@ -28,10 +28,10 @@ import io
 import pandas as pd
 
 
+# สร้างรายการสินค้าอัตโนมัติจากมูลค่าโครงการที่กรอกในฟอร์ม
+# ใช้เมื่อผู้ใช้ระบุ "มูลค่าโครงการ" แทนการเพิ่มรายการสินค้าทีละชิ้น
 def _create_project_value_item(project, project_value):
-    """Auto-create a ProductItem from the project_value field.
-    The item name is derived from the project name (truncated to key text).
-    """
+    """สร้าง ProductItem อัตโนมัติจากฟิลด์ project_value ในฟอร์ม"""
     if not project_value or project_value <= 0:
         return None
     # Truncate project name to ~80 chars for item name
@@ -125,11 +125,11 @@ def rental_create(request):
 
 
 
+# แดชบอร์ด SLA Tracking — แสดงงานที่ใกล้เกิน/เกินกำหนดตามข้อตกลง SLA
+# แบ่งเป็น 2 ส่วน: เส้นตายการตอบกลับ (Response) และเส้นตายการแก้ไข (Resolution)
 @login_required
 def sla_tracking_dashboard(request):
-    """
-    Tracking & SLA Monitoring Dashboard
-    """
+    """แดชบอร์ดตรวจสอบ SLA — แสดง alert สำหรับงานที่ยังไม่ตอบกลับหรือยังไม่แก้ไข"""
     from pms.models import Project as ProjectModel
     
     # SLA Alerts
@@ -149,8 +149,10 @@ def sla_tracking_dashboard(request):
         'sla_resolution_alerts': sla_resolution_alerts,
     })
 
+# ตรวจสอบว่าโครงการถูกล็อก (ปิดจบ/ยกเลิก) และต้องใช้รหัสปลดล็อกหรือไม่
+# คืนค่า True = ล็อกอยู่ (ห้ามแก้ไข), False = ยังแก้ไขได้
 def _check_project_lock(project, request):
-    """Helper to check if project is CLOSED or CANCELLED and requires unlock code."""
+    """ตรวจสอบสถานะล็อก: ถ้าปิดจบ/ยกเลิกและไม่มีรหัส DELETE_PASSWORD คืนค่า True"""
     if project.status in [Project.Status.CLOSED, Project.Status.CANCELLED]:
         from django.conf import settings
         unlock_code = request.GET.get('unlock') or request.POST.get('unlock')
@@ -197,9 +199,10 @@ def project_list(request):
     }
     return render(request, 'pms/project_list.html', context)
 
+# ประวัติงานที่ปิดจบหรือยกเลิกแล้ว — เรียงจากล่าสุดขึ้นก่อน รองรับค้นหาและกรองประเภทงาน
 @login_required
 def history_list(request):
-    """View to show Closed and Cancelled jobs, latest first."""
+    """แสดงงานที่มีสถานะ CLOSED/CANCELLED เรียงตาม closed_at ล่าสุด"""
     projects = Project.objects.filter(
         status__in=[Project.Status.CLOSED, Project.Status.CANCELLED]
     ).order_by('-closed_at')
@@ -431,6 +434,7 @@ def project_update(request, pk):
         
     return render(request, template, {'form': form, 'title': title, 'theme_color': theme_color})
 
+# เพิ่มรายการสินค้า/บริการเข้าโครงการ — ป้องกันการเพิ่มเมื่อโครงการถูกล็อก
 @login_required
 def item_add(request, project_id):
     project = get_object_or_404(Project, pk=project_id)
@@ -449,6 +453,7 @@ def item_add(request, project_id):
         form = ProductItemForm()
     return render(request, 'pms/item_form.html', {'form': form, 'project': project, 'title': f'เพิ่มรายการใน {project.name}'})
 
+# แก้ไขรายการสินค้า/บริการที่อยู่ในโครงการ — ป้องกันการแก้ไขเมื่อโครงการถูกล็อก
 @login_required
 def item_update(request, item_id):
     item = get_object_or_404(ProductItem, pk=item_id)
@@ -1374,9 +1379,10 @@ def service_queue_dashboard(request):
     return render(request, 'pms/service_queue_dashboard.html', context)
 
 
+# ตั้งค่าทีมและวันที่สำหรับงานที่ยังรอจัดคิว (PENDING → เตรียม SCHEDULED)
 @login_required
 def update_pending_task(request, task_id):
-    """Admin updates team and date for a pending task."""
+    """Admin กำหนด assigned_team และ scheduled_date ให้งานก่อนจัดคิวอัตโนมัติ"""
     from .models import ServiceQueueItem, ServiceTeam
 
     task = get_object_or_404(ServiceQueueItem, pk=task_id)
@@ -1434,9 +1440,11 @@ def force_sync_queue(request):
     return redirect('pms:service_queue_dashboard')
 
 
+# อัปเดตสถานะงานในคิว + บันทึกโน้ตผลงาน — ใช้จากปุ่มในหน้า AI Queue Dashboard
+# ถ้า IN_PROGRESS: บันทึก responded_at บน Project, ถ้า INCOMPLETE: reset วันที่/ทีม
 @login_required
 def update_task_status(request, task_id):
-    """Update task status and completion notes."""
+    """อัปเดตสถานะ ServiceQueueItem พร้อม timestamp บันทึกโน้ตสะสม"""
     from .models import ServiceQueueItem
 
     task = get_object_or_404(ServiceQueueItem, pk=task_id)
@@ -1587,19 +1595,21 @@ def team_messages(request, team_id=None):
     })
 
 
-# ===== Team Management Views =====
+# ===== Team Management Views — จัดการทีมบริการ =====
 
+# รายการทีมบริการทั้งหมดในระบบ (Service Team List)
 @login_required
 def team_list(request):
-    """List all service teams."""
+    """แสดงรายการทีมบริการทุกทีมเรียงตามชื่อ"""
     from .models import ServiceTeam
     teams = ServiceTeam.objects.all().order_by('name')
     return render(request, 'pms/team_list.html', {'teams': teams})
 
 
+# สร้างทีมบริการใหม่ พร้อมตั้งค่าสมาชิก, ทักษะ, งานสูงสุด/วัน และ webhook แจ้งเตือน
 @login_required
 def team_create(request):
-    """Create a new service team."""
+    """สร้างทีมบริการใหม่ — รับค่า name, skills, members, webhook จากฟอร์ม"""
     from .models import ServiceTeam
     from django.contrib.auth.models import User
 
@@ -1625,9 +1635,10 @@ def team_create(request):
     return render(request, 'pms/team_form.html', {'users': users, 'title': 'สร้างทีมบริการ'})
 
 
+# แก้ไขข้อมูลทีมบริการ — อัปเดตชื่อ, สมาชิก, ทักษะ และ webhook
 @login_required
 def team_update(request, pk):
-    """Update a service team."""
+    """แก้ไขข้อมูลทีมบริการที่มีอยู่"""
     from .models import ServiceTeam
     from django.contrib.auth.models import User
 
@@ -1652,9 +1663,10 @@ def team_update(request, pk):
     return render(request, 'pms/team_form.html', {'team': team, 'users': users, 'title': f'แก้ไขทีม: {team.name}'})
 
 
+# ลบทีมบริการออกจากระบบ — ต้องผ่านหน้า confirm ก่อนลบจริง
 @login_required
 def team_delete(request, pk):
-    """Delete a service team."""
+    """ลบทีมบริการ — ต้องยืนยันด้วยการ POST"""
     from .models import ServiceTeam
     team = get_object_or_404(ServiceTeam, pk=pk)
     if request.method == 'POST':
@@ -1665,11 +1677,12 @@ def team_delete(request, pk):
     return render(request, 'pms/team_confirm_delete.html', {'team': team})
 
 
-# ===== File Management Views =====
+# ===== File Management Views — จัดการไฟล์แนบโครงการ =====
 
+# อัปโหลดไฟล์แนบเข้าโครงการ (รองรับหลายไฟล์พร้อมกัน)
 @login_required
 def project_file_upload(request, pk):
-    """Upload files to a project."""
+    """อัปโหลดไฟล์แนบเข้าโครงการ — บันทึกไฟล์จริงและ ProjectFile record"""
     project = get_object_or_404(Project, pk=pk)
     if request.method == 'POST':
         files = request.FILES.getlist('files')
@@ -1684,9 +1697,10 @@ def project_file_upload(request, pk):
     return redirect('pms:project_detail', pk=pk)
 
 
+# ลบไฟล์แนบจากโครงการหรือ Requirement — ลบไฟล์จริงบน disk และ record ในฐานข้อมูล
 @login_required
 def project_file_delete(request, file_id):
-    """Delete a file from project or requirement."""
+    """ลบ ProjectFile — ลบไฟล์จริงด้วย .file.delete() และลบ record"""
     pf = get_object_or_404(ProjectFile, pk=file_id)
     project_pk = pf.project.pk if pf.project else None
     req_pk = pf.requirement.pk if pf.requirement else None
@@ -1700,9 +1714,10 @@ def project_file_delete(request, file_id):
     return redirect('pms:requirement_list')
 
 
+# ลบไฟล์แนบจาก Requirement — แยกออกจาก project_file_delete เพื่อ redirect กลับหน้า requirement
 @login_required
 def requirement_file_delete(request, file_id):
-    """Delete a file from requirement (used in requirement form)."""
+    """ลบไฟล์แนบของ Requirement — redirect กลับหน้าแก้ไข requirement"""
     pf = get_object_or_404(ProjectFile, pk=file_id)
     req_pk = pf.requirement.pk if pf.requirement else None
     pf.file.delete(save=False)
@@ -1713,9 +1728,10 @@ def requirement_file_delete(request, file_id):
     return redirect('pms:requirement_list')
 
 
+# ยกเลิกโครงการ — เปลี่ยนสถานะเป็น CANCELLED และล็อกการแก้ไข
 @login_required
 def project_cancel(request, pk):
-    """Update project status to CANCELLED."""
+    """ยกเลิกโครงการ: ตั้งสถานะเป็น CANCELLED, บันทึก user ที่ทำการ, redirect กลับ detail"""
     project = get_object_or_404(Project, pk=pk)
     
     # Security: If already CLOSED or CANCELLED, it's already locked.
@@ -1732,12 +1748,11 @@ def project_cancel(request, pk):
     return redirect('pms:project_detail', pk=pk)
 
 # การเปลี่ยนสถานะโครงการเป็นขั้นตอนถัดไปแบบอัตโนมัติ (One-Click Advance)
+# เลื่อนสถานะโครงการไปขั้นตอนถัดไปในระบบ Workflow แบบ One-Click
+# บันทึก description และ remarks ก่อน แล้วเปลี่ยนสถานะอัตโนมัติ
 @login_required
 def project_advance(request, pk):
-    """
-    Advance project toward completion in the workflow.
-    Also saves Description and Remarks.
-    """
+    """เลื่อนสถานะ (Advance): หาขั้นถัดไปจาก get_next_status() แล้วบันทึก"""
     project = get_object_or_404(Project, pk=pk)
     
     if request.method == 'POST':
@@ -1772,9 +1787,10 @@ def project_advance(request, pk):
             
     return redirect('pms:project_detail', pk=pk)
 
+# ลบโครงการออกจากระบบ — ต้องปิดจบ/ยกเลิกแล้ว และต้องใส่รหัส DELETE_PASSWORD
 @login_required
 def project_delete(request, pk):
-    """Delete a project if it's CLOSED/CANCELLED and password is correct."""
+    """ลบโครงการถาวร — ใช้ได้เฉพาะ CLOSED/CANCELLED และต้องใส่รหัสปลดล็อกถูกต้อง"""
     from django.conf import settings
     project = get_object_or_404(Project, pk=pk)
     
@@ -1813,6 +1829,7 @@ def request_list(request):
         'status_choices': CustomerRequest.Status.choices
     })
 
+# สร้างคำขอใหม่ (Customer Request) — รองรับการ pre-fill ลูกค้าและ owner จาก GET params
 @login_required
 def request_create(request):
     if request.method == 'POST':
@@ -1839,6 +1856,7 @@ def request_create(request):
             
     return render(request, 'pms/request_form.html', {'form': form, 'title': 'สร้างคำขอใหม่'})
 
+# แสดงรายละเอียดคำขอ พร้อมรองรับ Quick Update สถานะ/คำอธิบาย/หมายเหตุผ่าน POST
 @login_required
 def request_detail(request, pk):
     req = get_object_or_404(CustomerRequest, pk=pk)
@@ -1868,6 +1886,7 @@ def request_detail(request, pk):
         'status_choices': CustomerRequest.Status.choices
     })
 
+# แก้ไขข้อมูลคำขอผ่านฟอร์มเต็ม (ต่างจาก Quick Update ใน request_detail)
 @login_required
 def request_update(request, pk):
     req = get_object_or_404(CustomerRequest, pk=pk)
@@ -1882,12 +1901,13 @@ def request_update(request, pk):
         
     return render(request, 'pms/request_form.html', {'form': form, 'title': 'แก้ไขคำขอ'})
 
+# ลบคำขอและไฟล์แนบทั้งหมด — อนุญาตเฉพาะ COMPLETED/CANCELLED เท่านั้น
 @login_required
 def request_delete(request, pk):
     req = get_object_or_404(CustomerRequest, pk=pk)
-    
+
     if request.method == 'POST':
-        # Check if status allows deletion
+        # ตรวจสอบสถานะ: ลบได้เฉพาะที่เสร็จสิ้นหรือยกเลิกแล้ว
         if req.status not in [CustomerRequest.Status.COMPLETED, CustomerRequest.Status.CANCELLED]:
             messages.error(request, 'สามารถลบได้เฉพาะคำขอที่เสร็จสิ้นหรือยกเลิกแล้วเท่านั้น')
             return redirect('pms:request_detail', pk=pk)
@@ -1902,6 +1922,7 @@ def request_delete(request, pk):
         return redirect('pms:request_list')
     return redirect('pms:request_detail', pk=pk)
 
+# อัปโหลดไฟล์แนบเข้าคำขอ (Customer Request)
 @login_required
 def request_file_upload(request, pk):
     req = get_object_or_404(CustomerRequest, pk=pk)
@@ -1916,12 +1937,13 @@ def request_file_upload(request, pk):
         messages.success(request, f'อัปโหลด {len(files)} ไฟล์เรียบร้อย')
     return redirect('pms:request_detail', pk=pk)
 
+# ลบไฟล์แนบของคำขอ — ตรวจสอบความเป็นเจ้าของก่อนลบ
 @login_required
 def request_file_delete(request, file_id):
     pf = get_object_or_404(ProjectFile, pk=file_id)
     req_pk = pf.customer_request.pk if pf.customer_request else None
-    
-    # Security check: ensure it's a request file
+
+    # ตรวจสอบความปลอดภัย: ต้องเป็นไฟล์ที่ผูกกับ CustomerRequest เท่านั้น
     if not req_pk:
         return redirect('pms:dashboard')
         
@@ -2004,9 +2026,10 @@ def ai_dashboard_analysis(request):
             'message': str(e)
         }, status=500)
 
+# บันทึกเวลาตอบกลับ SLA ด้วยตนเอง — ใช้เมื่อมีการตอบกลับนอกระบบ เช่น โทรออก
 @login_required
 def mark_as_responded(request, pk):
-    """Manually mark project as responded for SLA."""
+    """ตั้งค่า responded_at เป็นเวลาปัจจุบัน สำหรับติดตาม SLA Response Time"""
     project = get_object_or_404(Project, pk=pk)
     if not project.responded_at:
         project.responded_at = timezone.now()
@@ -2022,6 +2045,7 @@ def notification_list(request):
         'notifications': notifications
     })
 
+# ทำเครื่องหมายการแจ้งเตือนว่าอ่านแล้ว และ redirect ไปยังหน้าโครงการที่เกี่ยวข้อง
 @login_required
 def notification_read(request, pk):
     from .models import UserNotification
@@ -2100,9 +2124,11 @@ def set_project_assignment(request):
         return JsonResponse(res)
     return JsonResponse({'status': 'error'}, status=400)
 
+# ปั๊ม (Seed) ขั้นตอนงานมาตรฐานเข้าฐานข้อมูล — ใช้รันครั้งแรกหรือเมื่อ reset ระบบ
+# รองรับ query param ?force=1 เพื่อบังคับรันซ้ำแม้ข้อมูลมีอยู่แล้ว
 @login_required
 def seed_pms_statuses(request):
-    """Seed default JobStatus if missing."""
+    """Seed JobStatus มาตรฐานทั้ง 4 ประเภทงาน (PROJECT/SERVICE/REPAIR/RENTAL)"""
     from .models import JobStatus, Project
     
     # Check if we already have some
@@ -2180,6 +2206,7 @@ def job_status_list(request):
         'title': 'จัดการขั้นตอนงาน (Workflow)'
     })
 
+# เพิ่มขั้นตอนงานใหม่ (Dynamic Status) ด้วยการกรอกฟอร์ม
 @login_required
 def job_status_create(request):
     if request.method == 'POST':
@@ -2192,6 +2219,7 @@ def job_status_create(request):
         form = JobStatusForm()
     return render(request, 'pms/job_status_form.html', {'form': form, 'title': 'เพิ่มขั้นตอนงานใหม่'})
 
+# แก้ไขขั้นตอนงาน Dynamic (เช่น เปลี่ยนชื่อ, ลำดับ, สถานะ active)
 @login_required
 def job_status_update(request, pk):
     status = get_object_or_404(JobStatus, pk=pk)
@@ -2205,6 +2233,7 @@ def job_status_update(request, pk):
         form = JobStatusForm(instance=status)
     return render(request, 'pms/job_status_form.html', {'form': form, 'title': 'แก้ไขขั้นตอนงาน'})
 
+# ลบขั้นตอนงาน Dynamic — แสดงหน้า confirm ก่อนลบจริง
 @login_required
 def job_status_delete(request, pk):
     status = get_object_or_404(JobStatus, pk=pk)
@@ -2247,7 +2276,7 @@ def openclaw_chatbot(request):
             
             # 4. รูปแบบ Payload ตามมาตรฐาน OpenAI
             payload = {
-                "model": "google/gemini-2.0-flash",
+                "model": "google/gemini-3-flash-preview",
                 "messages": [{"role": "user", "content": user_message}],
                 "temperature": 0.7
             }
