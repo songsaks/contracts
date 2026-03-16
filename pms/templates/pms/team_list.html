@@ -1,97 +1,243 @@
 {% extends 'pms/base_pms.html' %}
 
-{% block title %}จัดการทีมบริการ{% endblock %}
+{% block title %}การจัดการทีม{% endblock %}
+
+{% block extra_css %}
+<style>
+    .skill-tag {
+        display: inline-block; padding: 2px 9px; border-radius: 20px;
+        font-size: 0.72rem; font-weight: 600; margin: 1px;
+    }
+    .skill-REPAIR        { background: #fef3c7; color: #92400e; border: 1px solid #fde68a; }
+    .skill-INSTALLATION  { background: #dbeafe; color: #1e40af; border: 1px solid #bfdbfe; }
+    .skill-DELIVERY      { background: #d1fae5; color: #065f46; border: 1px solid #a7f3d0; }
+    .skill-OTHER         { background: #f3f4f6; color: #374151; border: 1px solid #d1d5db; }
+
+    .member-chip {
+        display: inline-flex; align-items: center; gap: 5px;
+        background: #f1f5f9; border-radius: 20px;
+        padding: 2px 10px 2px 5px;
+        font-size: 0.75rem; color: #334155; margin: 1px;
+    }
+    .member-avatar {
+        width: 20px; height: 20px; border-radius: 50%;
+        background: linear-gradient(135deg,#3b82f6,#2563eb);
+        color: white; font-size: 0.6rem; font-weight: 700;
+        display: inline-flex; align-items: center; justify-content: center;
+        flex-shrink: 0;
+    }
+
+    .notif-icon { font-size: 1rem; }
+    .stat-card  { border-radius: 1rem; border: 1px solid #e2e8f0; background: white; }
+
+    .table > :not(caption) > * > * { padding: 0.85rem 1rem; vertical-align: middle; }
+    thead th { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em;
+               color: #64748b; font-weight: 600; background: #f8fafc; border-bottom: 2px solid #e2e8f0; }
+    tbody tr { transition: background 0.1s; }
+    tbody tr:hover { background: #f8fafc; }
+
+    .team-name { font-weight: 700; font-size: 0.95rem; color: #1e293b; }
+    .team-id   { font-size: 0.7rem; color: #94a3b8; }
+</style>
+{% endblock %}
 
 {% block content %}
-<style>
-    .team-card {
-        background: white; border-radius: 12px;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.06); border: 1px solid #e5e7eb;
-        padding: 20px; transition: transform 0.2s;
-    }
-    .team-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
-    .skill-tag {
-        display: inline-block; padding: 2px 10px; border-radius: 12px;
-        font-size: 0.75rem; font-weight: 500; margin: 2px;
-        background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe;
-    }
-</style>
+<div class="container-fluid px-4 py-4">
 
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <div>
-        <h3 class="mb-1"><i class="fas fa-users-cog text-primary me-2"></i>จัดการทีมบริการ</h3>
-        <p class="text-muted mb-0">เพิ่ม แก้ไข หรือลบทีมงานสำหรับ AI Queue</p>
+    <!-- Header -->
+    <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-3">
+        <div>
+            <h3 class="fw-bold mb-1">
+                <i class="fas fa-users-cog me-2 text-warning"></i>การจัดการทีม
+            </h3>
+            <p class="text-muted small mb-0">จัดการทีมบริการ สมาชิก ทักษะ และการแจ้งเตือน — ซิงก์กับ Django Admin โดยอัตโนมัติ</p>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="{% url 'pms:team_create' %}" class="btn btn-primary rounded-pill px-4">
+                <i class="fas fa-plus me-1"></i> เพิ่มทีมใหม่
+            </a>
+            {% if user.is_superuser %}
+            <a href="/admin/pms/serviceteam/" target="_blank" class="btn btn-outline-secondary rounded-pill px-3"
+               title="เปิดหน้า Admin">
+                <i class="fas fa-external-link-alt me-1"></i> Admin
+            </a>
+            {% endif %}
+        </div>
     </div>
-    <div class="d-flex gap-2">
-        <a href="{% url 'pms:team_create' %}" class="btn btn-primary">
-            <i class="fas fa-plus me-1"></i> เพิ่มทีมใหม่
-        </a>
-        <a href="{% url 'pms:service_queue_dashboard' %}" class="btn btn-outline-secondary">
-            <i class="fas fa-arrow-left me-1"></i> กลับ AI Queue
-        </a>
-    </div>
-</div>
 
-{% if teams %}
-<div class="row g-3">
-    {% for team in teams %}
-    <div class="col-md-6 col-lg-4">
-        <div class="team-card">
-            <div class="d-flex justify-content-between align-items-start mb-3">
+    <!-- Summary Cards -->
+    <div class="row g-3 mb-4">
+        <div class="col-auto">
+            <div class="stat-card px-4 py-3 d-flex align-items-center gap-3 shadow-sm">
+                <div class="bg-primary bg-opacity-10 rounded-3 p-2">
+                    <i class="fas fa-layer-group text-primary fa-lg"></i>
+                </div>
                 <div>
-                    <h5 class="fw-bold mb-1">
-                        <i class="fas fa-users me-1 text-primary"></i> {{ team.name }}
-                    </h5>
-                    {% if team.is_active %}
-                    <span class="badge bg-success">Active</span>
-                    {% else %}
-                    <span class="badge bg-secondary">Inactive</span>
-                    {% endif %}
-                </div>
-                <div class="dropdown">
-                    <button class="btn btn-sm btn-light" data-bs-toggle="dropdown">
-                        <i class="fas fa-ellipsis-v"></i>
-                    </button>
-                    <ul class="dropdown-menu dropdown-menu-end shadow border-0">
-                        <li><a class="dropdown-item" href="{% url 'pms:team_update' team.pk %}"><i class="fas fa-edit me-2"></i>แก้ไข</a></li>
-                        <li><hr class="dropdown-divider"></li>
-                        <li><a class="dropdown-item text-danger" href="{% url 'pms:team_delete' team.pk %}"><i class="fas fa-trash me-2"></i>ลบ</a></li>
-                    </ul>
-                </div>
-            </div>
-
-            <div class="mb-2">
-                <small class="text-muted fw-semibold">ทักษะ:</small>
-                <div class="mt-1">
-                    {% for skill in team.skill_list %}
-                    <span class="skill-tag">{{ skill }}</span>
-                    {% empty %}
-                    <span class="text-muted small">ไม่ระบุ</span>
-                    {% endfor %}
-                </div>
-            </div>
-
-            <div class="d-flex justify-content-between align-items-center mt-3 pt-3 border-top">
-                <div class="small text-muted">
-                    <i class="fas fa-tasks me-1"></i> งานสูงสุด/วัน: <span class="fw-bold">{{ team.max_tasks_per_day }}</span>
-                </div>
-                <div class="small text-muted">
-                    <i class="fas fa-user me-1"></i> {{ team.members.count }} สมาชิก
+                    <div class="fw-bold" style="font-size:1.6rem; line-height:1;">{{ teams|length }}</div>
+                    <div class="text-muted small">ทีมทั้งหมด</div>
                 </div>
             </div>
         </div>
+        <div class="col-auto">
+            <div class="stat-card px-4 py-3 d-flex align-items-center gap-3 shadow-sm">
+                <div class="bg-success bg-opacity-10 rounded-3 p-2">
+                    <i class="fas fa-check-circle text-success fa-lg"></i>
+                </div>
+                <div>
+                    <div class="fw-bold" style="font-size:1.6rem; line-height:1;">{{ active_count }}</div>
+                    <div class="text-muted small">ทีมที่ใช้งาน</div>
+                </div>
+            </div>
+        </div>
+        {% if inactive_count %}
+        <div class="col-auto">
+            <div class="stat-card px-4 py-3 d-flex align-items-center gap-3 shadow-sm">
+                <div class="bg-secondary bg-opacity-10 rounded-3 p-2">
+                    <i class="fas fa-pause-circle text-secondary fa-lg"></i>
+                </div>
+                <div>
+                    <div class="fw-bold" style="font-size:1.6rem; line-height:1;">{{ inactive_count }}</div>
+                    <div class="text-muted small">ปิดใช้งาน</div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
     </div>
-    {% endfor %}
-</div>
-{% else %}
-<div class="card border-0 shadow-sm">
-    <div class="card-body text-center py-5 text-muted">
-        <i class="fas fa-users" style="font-size: 3rem;"></i>
-        <p class="mt-3 fs-5">ยังไม่มีทีมบริการ</p>
-        <a href="{% url 'pms:team_create' %}" class="btn btn-primary mt-2">
+
+    {% if teams %}
+
+    <!-- Table -->
+    <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
+        <div class="table-responsive">
+            <table class="table mb-0">
+                <thead>
+                    <tr>
+                        <th style="width:22%;">ทีม</th>
+                        <th>สมาชิก</th>
+                        <th style="width:18%;">ทักษะ</th>
+                        <th class="text-center" style="width:90px;">งาน/วัน</th>
+                        <th class="text-center" style="width:110px;">แจ้งเตือน</th>
+                        <th class="text-center" style="width:90px;">สถานะ</th>
+                        <th class="text-center" style="width:110px;">จัดการ</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for team in teams %}
+                    <tr>
+                        <!-- ชื่อทีม -->
+                        <td>
+                            <div class="team-name">
+                                <i class="fas fa-users me-1 text-primary" style="font-size:0.8rem;"></i>
+                                {{ team.name }}
+                            </div>
+                            <div class="team-id">ID #{{ team.pk }}</div>
+                        </td>
+
+                        <!-- สมาชิก -->
+                        <td>
+                            {% for member in team.members.all %}
+                            <span class="member-chip">
+                                <span class="member-avatar">{{ member.username|first|upper }}</span>
+                                {{ member.get_full_name|default:member.username }}
+                            </span>
+                            {% empty %}
+                            <span class="text-muted small fst-italic">ยังไม่มีสมาชิก</span>
+                            {% endfor %}
+                        </td>
+
+                        <!-- ทักษะ -->
+                        <td>
+                            {% for skill in team.skill_list %}
+                            <span class="skill-tag skill-{{ skill }}">{{ skill }}</span>
+                            {% empty %}
+                            <span class="text-muted small">—</span>
+                            {% endfor %}
+                        </td>
+
+                        <!-- งาน/วัน -->
+                        <td class="text-center">
+                            <span class="badge bg-light text-dark border fw-bold" style="font-size:0.85rem; padding:4px 10px;">
+                                {{ team.max_tasks_per_day }}
+                            </span>
+                        </td>
+
+                        <!-- การแจ้งเตือน -->
+                        <td class="text-center">
+                            <div class="d-flex justify-content-center gap-2">
+                                {% if team.google_chat_webhook %}
+                                <span title="Google Chat ✓" style="color:#0f9d58; font-size:1.1rem;">
+                                    <i class="fab fa-google"></i>
+                                </span>
+                                {% else %}
+                                <span title="ไม่มี Google Chat" style="color:#e2e8f0; font-size:1.1rem;">
+                                    <i class="fab fa-google"></i>
+                                </span>
+                                {% endif %}
+
+                                {% if team.line_token %}
+                                <span title="LINE Notify ✓" style="color:#06c755; font-size:1.1rem;">
+                                    <i class="fab fa-line"></i>
+                                </span>
+                                {% else %}
+                                <span title="ไม่มี LINE Token" style="color:#e2e8f0; font-size:1.1rem;">
+                                    <i class="fab fa-line"></i>
+                                </span>
+                                {% endif %}
+                            </div>
+                        </td>
+
+                        <!-- สถานะ -->
+                        <td class="text-center">
+                            {% if team.is_active %}
+                            <span class="badge rounded-pill" style="background:#dcfce7; color:#15803d; font-size:0.78rem; padding:4px 12px;">
+                                <i class="fas fa-circle" style="font-size:0.5rem; vertical-align:middle;"></i> Active
+                            </span>
+                            {% else %}
+                            <span class="badge rounded-pill" style="background:#f1f5f9; color:#64748b; font-size:0.78rem; padding:4px 12px;">
+                                <i class="fas fa-circle" style="font-size:0.5rem; vertical-align:middle;"></i> Inactive
+                            </span>
+                            {% endif %}
+                        </td>
+
+                        <!-- จัดการ -->
+                        <td class="text-center">
+                            <div class="d-flex justify-content-center gap-1">
+                                <a href="{% url 'pms:team_update' team.pk %}"
+                                   class="btn btn-sm btn-outline-primary rounded-pill px-3"
+                                   title="แก้ไข">
+                                    <i class="fas fa-edit"></i>
+                                </a>
+                                <a href="{% url 'pms:team_delete' team.pk %}"
+                                   class="btn btn-sm btn-outline-danger rounded-pill px-3"
+                                   title="ลบ">
+                                    <i class="fas fa-trash"></i>
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <!-- Footer count -->
+        <div class="px-4 py-2 border-top" style="background:#f8fafc; font-size:0.78rem; color:#64748b;">
+            รวม {{ teams|length }} ทีม
+            {% if inactive_count %} · {{ inactive_count }} ทีมปิดใช้งาน{% endif %}
+        </div>
+    </div>
+
+    {% else %}
+
+    <div class="card border-0 shadow-sm rounded-4 p-5 text-center">
+        <i class="fas fa-users-cog fa-3x text-muted mb-3 opacity-25"></i>
+        <h5 class="text-muted">ยังไม่มีทีมบริการ</h5>
+        <p class="small text-muted">สร้างทีมเพื่อใช้กับระบบ AI Queue และการแจ้งเตือน</p>
+        <a href="{% url 'pms:team_create' %}" class="btn btn-primary rounded-pill px-4 mt-2">
             <i class="fas fa-plus me-1"></i> สร้างทีมแรก
         </a>
     </div>
+
+    {% endif %}
+
 </div>
-{% endif %}
 {% endblock %}

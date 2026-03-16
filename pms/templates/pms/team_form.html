@@ -2,86 +2,357 @@
 
 {% block title %}{{ title }}{% endblock %}
 
+{% block extra_css %}
+<style>
+    /* ─── Section card ─────────────────────────────────── */
+    .form-section {
+        background: white; border: 1px solid #e2e8f0;
+        border-radius: 1rem; padding: 1.5rem;
+        margin-bottom: 1.25rem;
+    }
+    .section-title {
+        font-weight: 700; font-size: 0.85rem;
+        text-transform: uppercase; letter-spacing: 0.06em;
+        color: #64748b; margin-bottom: 1rem;
+        display: flex; align-items: center; gap: 0.5rem;
+    }
+
+    /* ─── Skill checkboxes ──────────────────────────────── */
+    .skill-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 0.6rem; }
+    .skill-option { display: none; }
+    .skill-label {
+        display: flex; align-items: center; gap: 0.55rem;
+        border: 2px solid #e2e8f0; border-radius: 0.75rem;
+        padding: 0.6rem 0.85rem; cursor: pointer;
+        font-size: 0.85rem; font-weight: 500;
+        transition: all 0.15s; user-select: none;
+        background: white; color: #475569;
+    }
+    .skill-label:hover { border-color: #93c5fd; background: #f0f9ff; }
+    .skill-option:checked + .skill-label {
+        border-color: #3b82f6; background: #eff6ff; color: #1d4ed8; font-weight: 700;
+    }
+    .skill-icon { font-size: 1.15rem; }
+
+    /* ─── Member picker ─────────────────────────────────── */
+    .member-list {
+        max-height: 300px; overflow-y: auto;
+        border: 1.5px solid #e2e8f0; border-radius: 0.75rem;
+        background: #fafafa;
+    }
+    .member-item {
+        display: flex; align-items: center; gap: 0.6rem;
+        padding: 0.55rem 0.85rem; cursor: pointer;
+        transition: background 0.1s; border-bottom: 1px solid #f1f5f9;
+    }
+    .member-item:last-child { border-bottom: none; }
+    .member-item:hover { background: #f0f9ff; }
+    .member-item input[type=checkbox] { display: none; }
+    .member-check {
+        width: 18px; height: 18px; border-radius: 4px;
+        border: 2px solid #cbd5e1; background: white;
+        display: inline-flex; align-items: center; justify-content: center;
+        flex-shrink: 0; transition: all 0.15s; color: white; font-size: 0.65rem;
+    }
+    .member-item input:checked ~ .member-check {
+        background: #3b82f6; border-color: #3b82f6;
+    }
+    .member-avatar {
+        width: 28px; height: 28px; border-radius: 50%; flex-shrink: 0;
+        background: linear-gradient(135deg,#3b82f6,#2563eb);
+        color: white; font-size: 0.72rem; font-weight: 700;
+        display: flex; align-items: center; justify-content: center;
+    }
+    .member-name  { font-weight: 600; font-size: 0.85rem; color: #1e293b; }
+    .member-uname { font-size: 0.7rem; color: #94a3b8; }
+
+    #memberSearch:focus { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,0.1); }
+
+    /* ─── Notification section ──────────────────────────── */
+    .notif-field { background: #f8fafc; border-radius: 0.75rem; padding: 1rem; margin-bottom: 0.75rem; }
+    .notif-field .form-control { background: white; }
+</style>
+{% endblock %}
+
 {% block content %}
-<div class="row justify-content-center">
-    <div class="col-md-8 col-lg-6">
-        <div class="card border-0 shadow-sm">
-            <div class="card-header bg-white py-3">
-                <h5 class="mb-0 fw-bold"><i class="fas fa-users-cog me-2 text-primary"></i>{{ title }}</h5>
-            </div>
-            <div class="card-body p-4">
-                <form method="post">
-                    {% csrf_token %}
+<div class="container-fluid px-4 py-4">
+
+    <!-- Header -->
+    <div class="d-flex align-items-center gap-3 mb-4">
+        <a href="{% url 'pms:team_list' %}" class="btn btn-outline-secondary btn-sm rounded-pill px-3">
+            <i class="fas fa-arrow-left me-1"></i> กลับ
+        </a>
+        <div>
+            <h3 class="fw-bold mb-0"><i class="fas fa-users-cog me-2 text-warning"></i>{{ title }}</h3>
+        </div>
+    </div>
+
+    <form method="post" id="teamForm">
+        {% csrf_token %}
+        <div class="row g-4">
+
+            <!-- LEFT column: Main info + Skills + Members -->
+            <div class="col-lg-7">
+
+                <!-- ─── ข้อมูลทั่วไป ─────────────────────────────── -->
+                <div class="form-section shadow-sm">
+                    <div class="section-title">
+                        <i class="fas fa-info-circle text-primary"></i> ข้อมูลทั่วไป
+                    </div>
 
                     <div class="mb-3">
                         <label class="form-label fw-semibold">ชื่อทีม <span class="text-danger">*</span></label>
                         <input type="text" name="name" required class="form-control"
-                            value="{{ team.name|default:'' }}" placeholder="เช่น ทีมซ่อม A, ทีมส่งของ">
+                            value="{{ team.name|default:'' }}"
+                            placeholder="เช่น ทีมซ่อม A, ทีมติดตั้ง">
                     </div>
 
-                    <div class="mb-3">
-                        <label class="form-label fw-semibold">ทักษะ/ความถนัด</label>
-                        <input type="text" name="skills" class="form-control"
-                            value="{{ team.skills|default:'' }}" placeholder="เช่น REPAIR,DELIVERY,INSTALLATION (คั่นด้วย ,)">
-                        <div class="form-text">ระบุประเภทงานที่ทีมนี้ถนัด: REPAIR, DELIVERY, INSTALLATION, OTHER</div>
+                    <div class="row g-3">
+                        <div class="col-sm-6">
+                            <label class="form-label fw-semibold">งานสูงสุด/วัน</label>
+                            <div class="input-group">
+                                <input type="number" name="max_tasks_per_day" class="form-control"
+                                    min="1" max="50"
+                                    value="{{ team.max_tasks_per_day|default:5 }}">
+                                <span class="input-group-text text-muted small">งาน</span>
+                            </div>
+                        </div>
+                        <div class="col-sm-6 d-flex align-items-end pb-1">
+                            <div class="form-check form-switch">
+                                <input type="checkbox" name="is_active" class="form-check-input"
+                                    id="isActive" role="switch"
+                                    {% if team.is_active or not team %}checked{% endif %}>
+                                <label class="form-check-label fw-semibold" for="isActive">
+                                    เปิดใช้งาน (Active)
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ─── ทักษะ ──────────────────────────────────────── -->
+                <div class="form-section shadow-sm">
+                    <div class="section-title">
+                        <i class="fas fa-star text-warning"></i> ทักษะ / ประเภทงานที่ถนัด
+                    </div>
+                    <div class="skill-grid">
+                        {% with current=current_skills|default:'' %}
+
+                        <div>
+                            <input type="checkbox" name="skills" value="REPAIR"
+                                id="skill_REPAIR" class="skill-option"
+                                {% if 'REPAIR' in current %}checked{% endif %}>
+                            <label for="skill_REPAIR" class="skill-label">
+                                <span class="skill-icon">🔧</span> ซ่อมแซม
+                            </label>
+                        </div>
+
+                        <div>
+                            <input type="checkbox" name="skills" value="INSTALLATION"
+                                id="skill_INST" class="skill-option"
+                                {% if 'INSTALLATION' in current %}checked{% endif %}>
+                            <label for="skill_INST" class="skill-label">
+                                <span class="skill-icon">🔌</span> ติดตั้ง
+                            </label>
+                        </div>
+
+                        <div>
+                            <input type="checkbox" name="skills" value="DELIVERY"
+                                id="skill_DEL" class="skill-option"
+                                {% if 'DELIVERY' in current %}checked{% endif %}>
+                            <label for="skill_DEL" class="skill-label">
+                                <span class="skill-icon">🚚</span> จัดส่ง
+                            </label>
+                        </div>
+
+                        <div>
+                            <input type="checkbox" name="skills" value="OTHER"
+                                id="skill_OTH" class="skill-option"
+                                {% if 'OTHER' in current %}checked{% endif %}>
+                            <label for="skill_OTH" class="skill-label">
+                                <span class="skill-icon">📋</span> อื่นๆ
+                            </label>
+                        </div>
+
+                        {% endwith %}
+                    </div>
+                    <div class="form-text mt-2">
+                        <i class="fas fa-info-circle me-1"></i>
+                        ระบบ AI Queue จะใช้ทักษะนี้จับคู่กับประเภทงาน
+                    </div>
+                </div>
+
+                <!-- ─── สมาชิก ──────────────────────────────────────── -->
+                <div class="form-section shadow-sm">
+                    <div class="section-title d-flex justify-content-between align-items-center w-100">
+                        <span><i class="fas fa-users text-success"></i> สมาชิกในทีม</span>
+                        <span id="selectedCount" class="badge bg-primary rounded-pill" style="font-size:0.72rem;">0 คน</span>
                     </div>
 
-                    <div class="mb-3">
-                        <label class="form-label fw-semibold">จำนวนงานสูงสุด/วัน</label>
-                        <input type="number" name="max_tasks_per_day" class="form-control" min="1" max="20"
-                            value="{{ team.max_tasks_per_day|default:5 }}">
+                    <!-- Search box -->
+                    <div class="mb-2">
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text bg-white"><i class="fas fa-search text-muted"></i></span>
+                            <input type="text" id="memberSearch" class="form-control border-start-0"
+                                placeholder="ค้นหาชื่อหรือ username...">
+                        </div>
                     </div>
 
-                    <div class="mb-3">
-                        <label class="form-label fw-semibold">สมาชิกในทีม</label>
-                        <select name="members" multiple class="form-select" size="5">
-                            {% for user in users %}
-                            <option value="{{ user.id }}"
-                                {% if team and user in team.members.all %}selected{% endif %}>
-                                {{ user.get_full_name|default:user.username }}
-                            </option>
-                            {% endfor %}
-                        </select>
-                        <div class="form-text">กด Ctrl+Click เพื่อเลือกหลายคน</div>
+                    <!-- Member list with checkboxes -->
+                    <div class="member-list" id="memberList">
+                        {% for u in users %}
+                        <label class="member-item" data-name="{{ u.get_full_name|lower }} {{ u.username|lower }}">
+                            <input type="checkbox" name="members" value="{{ u.id }}"
+                                class="member-checkbox"
+                                {% if team and u in team.members.all %}checked{% endif %}>
+                            <span class="member-check"><i class="fas fa-check" style="font-size:0.65rem;"></i></span>
+                            <span class="member-avatar">{{ u.username|first|upper }}</span>
+                            <div>
+                                <div class="member-name">{{ u.get_full_name|default:u.username }}</div>
+                                <div class="member-uname">@{{ u.username }}</div>
+                            </div>
+                        </label>
+                        {% empty %}
+                        <div class="text-center text-muted py-4 small">ไม่มีผู้ใช้ในระบบ</div>
+                        {% endfor %}
                     </div>
+
+                    <div class="form-text mt-2">
+                        <i class="fas fa-info-circle me-1"></i>
+                        คลิกชื่อเพื่อเลือก/ยกเลิก — เลือกได้หลายคน
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- RIGHT column: Notifications + Submit -->
+            <div class="col-lg-5">
+
+                <!-- ─── การแจ้งเตือน ──────────────────────────────── -->
+                <div class="form-section shadow-sm">
+                    <div class="section-title">
+                        <i class="fas fa-bell text-warning"></i> การแจ้งเตือน
+                    </div>
+
+                    <!-- Google Chat -->
+                    <div class="notif-field">
+                        <label class="form-label fw-semibold small mb-1">
+                            <i class="fab fa-google me-1" style="color:#0f9d58;"></i>
+                            Google Chat Webhook
+                        </label>
+                        <input type="url" name="google_chat_webhook" class="form-control form-control-sm"
+                            value="{{ team.google_chat_webhook|default:'' }}"
+                            placeholder="https://chat.googleapis.com/v1/spaces/...">
+                        <div class="form-text mt-1">URL Webhook ของช่อง Google Chat ที่ต้องการรับแจ้งเตือน</div>
+                        {% if team.google_chat_webhook %}
+                        <span class="badge mt-1" style="background:#d1fae5; color:#065f46;">
+                            <i class="fas fa-check-circle me-1"></i> ตั้งค่าแล้ว
+                        </span>
+                        {% endif %}
+                    </div>
+
+                    <!-- LINE Notify -->
+                    <div class="notif-field mb-0">
+                        <label class="form-label fw-semibold small mb-1">
+                            <i class="fab fa-line me-1" style="color:#06c755;"></i>
+                            LINE Notify Token
+                        </label>
+                        <input type="text" name="line_token" class="form-control form-control-sm"
+                            value="{{ team.line_token|default:'' }}"
+                            placeholder="Token จาก LINE Notify">
+                        <div class="form-text mt-1">
+                            รับ token จาก
+                            <a href="https://notify-bot.line.me/th/" target="_blank" class="text-decoration-none">
+                                notify-bot.line.me <i class="fas fa-external-link-alt" style="font-size:0.65rem;"></i>
+                            </a>
+                        </div>
+                        {% if team.line_token %}
+                        <span class="badge mt-1" style="background:#d1fae5; color:#065f46;">
+                            <i class="fas fa-check-circle me-1"></i> ตั้งค่าแล้ว
+                        </span>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- ─── ปุ่มบันทึก ──────────────────────────────────── -->
+                <div class="form-section shadow-sm">
+                    <button type="submit" class="btn btn-primary w-100 rounded-pill py-2 fw-bold">
+                        <i class="fas fa-save me-2"></i>
+                        {% if team %}บันทึกการเปลี่ยนแปลง{% else %}สร้างทีมใหม่{% endif %}
+                    </button>
+                    <a href="{% url 'pms:team_list' %}" class="btn btn-outline-secondary w-100 rounded-pill py-2 mt-2">
+                        ยกเลิก
+                    </a>
 
                     {% if team %}
-                    <div class="mb-3">
-                        <div class="form-check form-switch">
-                            <input type="checkbox" name="is_active" class="form-check-input" id="isActive"
-                                {% if team.is_active %}checked{% endif %}>
-                            <label class="form-check-label" for="isActive">ใช้งานอยู่ (Active)</label>
-                        </div>
-                    </div>
+                    <hr class="my-3">
+                    <a href="{% url 'pms:team_delete' team.pk %}"
+                       class="btn btn-outline-danger w-100 rounded-pill py-2 btn-sm">
+                        <i class="fas fa-trash me-1"></i> ลบทีมนี้
+                    </a>
                     {% endif %}
+                </div>
 
-                    <div class="row pt-2 border-top mt-1 mb-3">
-                        <div class="col-12 mt-2">
-                            <h6 class="fw-bold mb-3"><i class="fas fa-bell me-2 text-warning"></i>การแจ้งเตือน (Notifications)</h6>
-                        </div>
-                        <div class="col-12 mb-3">
-                            <label class="form-label small fw-semibold">Google Chat Webhook</label>
-                            <input type="url" name="google_chat_webhook" class="form-control form-control-sm"
-                                value="{{ team.google_chat_webhook|default:'' }}" placeholder="https://chat.googleapis.com/v1/spaces/...">
-                            <div class="form-text small">URL สำหรับระบุให้ส่งแจ้งเตือนเข้าช่อง Google Chat ของทีม</div>
-                        </div>
-                        <div class="col-12 mb-3">
-                            <label class="form-label small fw-semibold">LINE Notify Token</label>
-                            <input type="text" name="line_token" class="form-control form-control-sm"
-                                value="{{ team.line_token|default:'' }}" placeholder="ใส่ Token จาก line-notify-bot">
-                            <div class="form-text small">ใส่ Token จาก LINE Notify เพื่อส่งแจ้งเตือนเข้ากลุ่ม LINE</div>
-                        </div>
-                    </div>
+                <!-- Admin sync note -->
+                <div class="text-center" style="font-size:0.72rem; color:#94a3b8; margin-top:-0.5rem;">
+                    <i class="fas fa-sync-alt me-1"></i>
+                    ข้อมูลซิงก์กับ Django Admin โดยอัตโนมัติ
+                    {% if user.is_superuser %}·
+                    <a href="/admin/pms/serviceteam/{% if team %}{{ team.pk }}/change/{% endif %}"
+                       target="_blank" class="text-muted">เปิดใน Admin</a>
+                    {% endif %}
+                </div>
 
-                    <div class="d-flex gap-2 pt-3 border-top">
-                        <button type="submit" class="btn btn-primary px-4">
-                            <i class="fas fa-save me-1"></i> บันทึก
-                        </button>
-                        <a href="{% url 'pms:team_list' %}" class="btn btn-outline-secondary">ยกเลิก</a>
-                    </div>
-                </form>
             </div>
         </div>
-    </div>
+    </form>
+
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// ─── Member search filter ────────────────────────────────────
+const memberSearch = document.getElementById('memberSearch');
+memberSearch.addEventListener('input', function() {
+    const q = this.value.toLowerCase();
+    document.querySelectorAll('#memberList .member-item').forEach(item => {
+        item.style.display = item.dataset.name.includes(q) ? '' : 'none';
+    });
+});
+
+// ─── Member checkbox visual + count update ───────────────────
+function updateCount() {
+    const n = document.querySelectorAll('.member-checkbox:checked').length;
+    document.getElementById('selectedCount').textContent = n + ' คน';
+}
+
+document.querySelectorAll('.member-item').forEach(label => {
+    label.addEventListener('click', function(e) {
+        // Allow native checkbox state to toggle
+        const cb = this.querySelector('.member-checkbox');
+        if (e.target !== cb) cb.checked = !cb.checked;
+        // Update check indicator
+        const check = this.querySelector('.member-check');
+        if (cb.checked) {
+            check.style.background = '#3b82f6';
+            check.style.borderColor = '#3b82f6';
+        } else {
+            check.style.background = 'white';
+            check.style.borderColor = '#cbd5e1';
+        }
+        updateCount();
+    });
+});
+
+// Init count and check indicators on load
+document.querySelectorAll('.member-checkbox').forEach(cb => {
+    const check = cb.parentElement.querySelector('.member-check');
+    if (cb.checked) {
+        check.style.background = '#3b82f6';
+        check.style.borderColor = '#3b82f6';
+    }
+});
+updateCount();
+</script>
 {% endblock %}

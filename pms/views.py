@@ -1627,11 +1627,18 @@ def team_messages(request, team_id=None):
 
 # รายการทีมบริการทั้งหมดในระบบ (Service Team List)
 @login_required
+@login_required
 def team_list(request):
     """แสดงรายการทีมบริการทุกทีมเรียงตามชื่อ"""
     from .models import ServiceTeam
-    teams = ServiceTeam.objects.all().order_by('name')
-    return render(request, 'pms/team_list.html', {'teams': teams})
+    teams = ServiceTeam.objects.prefetch_related('members').order_by('name')
+    active_count   = teams.filter(is_active=True).count()
+    inactive_count = teams.filter(is_active=False).count()
+    return render(request, 'pms/team_list.html', {
+        'teams':          teams,
+        'active_count':   active_count,
+        'inactive_count': inactive_count,
+    })
 
 
 # สร้างทีมบริการใหม่ พร้อมตั้งค่าสมาชิก, ทักษะ, งานสูงสุด/วัน และ webhook แจ้งเตือน
@@ -1642,25 +1649,24 @@ def team_create(request):
     from django.contrib.auth.models import User
 
     if request.method == 'POST':
-        name = request.POST.get('name', '')
-        skills = request.POST.get('skills', '')
-        max_tasks = request.POST.get('max_tasks_per_day', 5)
+        name       = request.POST.get('name', '').strip()
+        skills     = ','.join(filter(None, request.POST.getlist('skills')))
+        max_tasks  = int(request.POST.get('max_tasks_per_day', 5) or 5)
+        is_active  = 'is_active' in request.POST
         member_ids = request.POST.getlist('members')
 
         team = ServiceTeam.objects.create(
-            name=name,
-            skills=skills,
-            max_tasks_per_day=int(max_tasks),
-            google_chat_webhook=request.POST.get('google_chat_webhook', ''),
-            line_token=request.POST.get('line_token', ''),
+            name=name, skills=skills,
+            max_tasks_per_day=max_tasks, is_active=is_active,
+            google_chat_webhook=request.POST.get('google_chat_webhook', '').strip(),
+            line_token=request.POST.get('line_token', '').strip(),
         )
-        if member_ids:
-            team.members.set(member_ids)
+        team.members.set(member_ids)
         messages.success(request, f"✅ สร้างทีม '{name}' เรียบร้อย")
         return redirect('pms:team_list')
 
-    users = User.objects.filter(is_active=True).order_by('username')
-    return render(request, 'pms/team_form.html', {'users': users, 'title': 'สร้างทีมบริการ'})
+    users = User.objects.filter(is_active=True).order_by('first_name', 'username')
+    return render(request, 'pms/team_form.html', {'users': users, 'title': 'สร้างทีมใหม่'})
 
 
 # แก้ไขข้อมูลทีมบริการ — อัปเดตชื่อ, สมาชิก, ทักษะ และ webhook
@@ -1673,36 +1679,45 @@ def team_update(request, pk):
     team = get_object_or_404(ServiceTeam, pk=pk)
 
     if request.method == 'POST':
-        team.name = request.POST.get('name', team.name)
-        team.skills = request.POST.get('skills', team.skills)
-        team.max_tasks_per_day = int(request.POST.get('max_tasks_per_day', team.max_tasks_per_day))
-        team.is_active = 'is_active' in request.POST
-        team.google_chat_webhook = request.POST.get('google_chat_webhook', '')
-        team.line_token = request.POST.get('line_token', '')
+        team.name              = request.POST.get('name', team.name).strip()
+        team.skills            = ','.join(filter(None, request.POST.getlist('skills')))
+        team.max_tasks_per_day = int(request.POST.get('max_tasks_per_day', team.max_tasks_per_day) or 5)
+        team.is_active         = 'is_active' in request.POST
+        team.google_chat_webhook = request.POST.get('google_chat_webhook', '').strip()
+        team.line_token          = request.POST.get('line_token', '').strip()
         team.save()
-
-        member_ids = request.POST.getlist('members')
-        team.members.set(member_ids)
-
+        team.members.set(request.POST.getlist('members'))
         messages.success(request, f"✅ อัปเดตทีม '{team.name}' เรียบร้อย")
         return redirect('pms:team_list')
 
-    users = User.objects.filter(is_active=True).order_by('username')
-    return render(request, 'pms/team_form.html', {'team': team, 'users': users, 'title': f'แก้ไขทีม: {team.name}'})
+    users = User.objects.filter(is_active=True).order_by('first_name', 'username')
+    return render(request, 'pms/team_form.html', {
+        'team': team, 'users': users,
+        'title': f'แก้ไขทีม — {team.name}',
+        'current_skills': team.skill_list(),
+    })
 
 
 # ลบทีมบริการออกจากระบบ — ต้องผ่านหน้า confirm ก่อนลบจริง
 @login_required
 def team_delete(request, pk):
     """ลบทีมบริการ — ต้องยืนยันด้วยการ POST"""
-    from .models import ServiceTeam
+    from .models import ServiceTeam, ServiceQueueItem
     team = get_object_or_404(ServiceTeam, pk=pk)
     if request.method == 'POST':
         name = team.name
         team.delete()
         messages.success(request, f"🗑️ ลบทีม '{name}' เรียบร้อย")
         return redirect('pms:team_list')
-    return render(request, 'pms/team_confirm_delete.html', {'team': team})
+    active_tasks = ServiceQueueItem.objects.filter(
+        assigned_teams=team,
+        status__in=['PENDING', 'SCHEDULED', 'IN_PROGRESS'],
+    ).count()
+    return render(request, 'pms/team_confirm_delete.html', {
+        'team': team,
+        'active_tasks': active_tasks,
+        'member_count': team.members.count(),
+    })
 
 
 # ===== File Management Views — จัดการไฟล์แนบโครงการ =====

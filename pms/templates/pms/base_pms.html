@@ -485,6 +485,7 @@
                             <li><a class="dropdown-item" href="{% url 'pms:project_assignment_matrix' %}"><i class="fas fa-user-check me-2 text-primary"></i>ผู้รับผิดชอบงาน (Matrix)</a></li>
                             <li><a class="dropdown-item" href="{% url 'pms:job_status_list' %}"><i class="fas fa-route me-2 text-info"></i>ขั้นตอนงาน (Workflow)</a></li>
                             <li><a class="dropdown-item {% if request.resolver_match.url_name == 'gps_tracking_report' %}active{% endif %}" href="{% url 'pms:gps_tracking_report' %}"><i class="fas fa-map-marked-alt me-2 text-success"></i>GPS Tracking</a></li>
+                            <li><a class="dropdown-item {% if request.resolver_match.url_name in 'team_list,team_create,team_update,team_delete' %}active{% endif %}" href="{% url 'pms:team_list' %}"><i class="fas fa-users-cog me-2 text-warning"></i>การจัดการทีม</a></li>
                             <li><hr class="dropdown-divider"></li>
                             {% if user.is_superuser %}
                             <li><a class="dropdown-item text-danger" href="/admin/" target="_blank"><i class="fas fa-shield-alt me-2"></i>ระบบหลังบ้าน (Admin)</a></li>
