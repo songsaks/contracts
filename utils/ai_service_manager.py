@@ -218,18 +218,18 @@ def sync_projects_to_queue():
         suggested_team = get_ai_team_suggestion(task_type, teams) if teams else None
 
         # สร้าง ServiceQueueItem ใหม่พร้อมข้อมูลครบถ้วน
-        ServiceQueueItem.objects.create(
+        item = ServiceQueueItem.objects.create(
             title=f"{label}: {proj.name}",
             description=f"ลูกค้า: {proj.customer.name}\n{proj.description or ''}".strip(),
             project=proj,
             task_type=task_type,
             priority='NORMAL',
-            assigned_team=suggested_team,
             deadline=proj.deadline,
             status='PENDING',
-            # บันทึกเหตุผลของ AI หรือข้อความแจ้งเตือนเมื่อไม่มีทีม
-            ai_urgency_reason=f"AI แนะนำทีม: {suggested_team.name}" if suggested_team else "ไม่มีทีมในระบบ",
         )
+        # assigned_teams เป็น M2M — ต้อง set หลัง create()
+        if suggested_team:
+            item.assigned_teams.set([suggested_team])
         count += 1
 
     return count
