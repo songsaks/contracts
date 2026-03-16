@@ -655,11 +655,42 @@
     messagesContainer.scrollTop = messagesContainer.scrollHeight;
 
 
-    // เชื่อมต่อ WebSocket (อัตโนมัติทั้ง HTTP และ HTTPS)
-    const wsScheme = window.location.protocol === "https:" ? "wss" : "ws";
-    const chatSocket = new WebSocket(
-        `${wsScheme}://${window.location.host}/ws/chat/${roomId}/`
-    );
+    // ====== WebSocket Auto-Reconnect Manager ======
+    // แก้ปัญหาการหลุดการเชื่อมต่อ: reconnect อัตโนมัติ, heartbeat, visibilitychange
+    let chatSocket = null;
+    let wsReconnectDelay = 1500;   // delay เริ่มต้น 1.5 วินาที (เพิ่มเป็น 2 เท่าทุกครั้ง, สูงสุด 30s)
+    let wsReconnectTimer = null;
+    let wsHeartbeatTimer = null;
+
+    // ส่ง ping ทุก 25 วินาทีเพื่อไม่ให้ connection หมดอายุ (timeout ส่วนใหญ่อยู่ที่ 60s)
+    function startWsHeartbeat() {
+        stopWsHeartbeat();
+        wsHeartbeatTimer = setInterval(function() {
+            if (chatSocket && chatSocket.readyState === WebSocket.OPEN) {
+                chatSocket.send(JSON.stringify({ type: 'ping' }));
+            }
+        }, 25000);
+    }
+    function stopWsHeartbeat() {
+        if (wsHeartbeatTimer) { clearInterval(wsHeartbeatTimer); wsHeartbeatTimer = null; }
+    }
+
+    // แสดง/ซ่อน banner แจ้งสถานะการเชื่อมต่อที่ด้านบนสุดของหน้าจอ
+    function showWsBanner(msg) {
+        let b = document.getElementById('ws-status-banner');
+        if (!b) {
+            b = document.createElement('div');
+            b.id = 'ws-status-banner';
+            b.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:9999;padding:7px 14px;text-align:center;font-size:13px;font-weight:600;';
+            document.body.prepend(b);
+        }
+        b.style.background = '#ef4444'; b.style.color = '#fff'; b.style.display = 'block';
+        b.textContent = msg;
+    }
+    function hideWsBanner() {
+        const b = document.getElementById('ws-status-banner');
+        if (b) b.style.display = 'none';
+    }
 
     // ====== @Mention helpers ======
 
@@ -679,7 +710,7 @@
         document.getElementById('mention-toast-body').textContent =
             `${senderName}: ${messageText.substring(0, 60)}${messageText.length > 60 ? '…' : ''}`;
         toast.classList.add('show');
-        // flash title
+        // flash title บน browser tab
         const origTitle = document.title;
         let n = 0;
         const iv = setInterval(() => {
@@ -687,6 +718,29 @@
             if (n >= 8) { clearInterval(iv); document.title = origTitle; }
         }, 700);
         setTimeout(() => toast.classList.remove('show'), 5000);
+
+        // OS-level Notification — แสดงแม้ว่าจะสลับ Tab หรือ App อื่นอยู่
+        // ใช้งานได้บน Android Chrome, Desktop Chrome/Firefox/Edge
+        if ('Notification' in window && Notification.permission === 'granted') {
+            try {
+                new Notification(`💬 ${senderName} mention คุณ`, {
+                    body: messageText.substring(0, 120),
+                    icon: '/static/img/logo.png',
+                    tag: 'chat-mention-' + Date.now(),  // ป้องกันการซ้อนทับ
+                    renotify: true,
+                });
+            } catch(err) { /* Safari อาจไม่รองรับ options บางตัว */ }
+        }
+    }
+
+    // ขออนุญาต Browser Notification เมื่อโหลดหน้า (เพื่อรับแจ้งเตือนเมื่อไม่ได้ดู Tab นี้)
+    if ('Notification' in window && Notification.permission === 'default') {
+        // delay 3 วินาทีก่อนขอ เพื่อไม่ให้ popup ขึ้นทันทีที่โหลดหน้า
+        setTimeout(function() {
+            Notification.requestPermission().then(function(perm) {
+                console.log('[Notif] Permission:', perm);
+            });
+        }, 3000);
     }
 
     // Highlight @mentions in messages loaded from Django template on page load
@@ -739,10 +793,18 @@
         mentionStartIdx = -1;
     }
 
+    function connectWebSocket() {
+        if (wsReconnectTimer) { clearTimeout(wsReconnectTimer); wsReconnectTimer = null; }
+        const wsScheme = window.location.protocol === "https:" ? "wss" : "ws";
+        chatSocket = new WebSocket(`${wsScheme}://${window.location.host}/ws/chat/${roomId}/`);
+
     // เมื่อรับข้อความจาก WebSocket
     chatSocket.onmessage = function(e) {
         const data = JSON.parse(e.data);
         if (!data) return;
+
+        // ตอบ heartbeat — ไม่ต้องแสดงผลอะไร
+        if (data.type === 'pong' || data.type === 'ping') return;
 
         // ถ้ารับข้อมูลรายชื่อคนออนไลน์
         if (data.type === 'online_users') {
@@ -864,19 +926,43 @@
         listDiv.innerHTML = html;
     }
 
-    chatSocket.onopen = function(e) {
-        console.log("WebSocket connection established.");
-        document.getElementById('chat-message-input').placeholder = "พิมพ์ข้อความที่นี่...";
-    };
+        chatSocket.onopen = function(e) {
+            console.log('[WS] Connected.');
+            wsReconnectDelay = 1500;  // reset backoff เมื่อเชื่อมต่อสำเร็จ
+            document.getElementById('chat-message-input').placeholder = "พิมพ์ข้อความที่นี่...";
+            hideWsBanner();
+            startWsHeartbeat();
+        };
 
-    chatSocket.onclose = function(e) {
-        console.error("WebSocket connection closed unexpectedly.");
-        document.getElementById('chat-message-input').placeholder = "ขาดการเชื่อมต่อกับเซิร์ฟเวอร์...";
-    };
+        chatSocket.onclose = function(e) {
+            stopWsHeartbeat();
+            // e.wasClean = true หมายถึงปิดปกติ (logout, navigate away) — ไม่ต้อง reconnect
+            if (e.wasClean) return;
+            console.warn('[WS] Closed unexpectedly. Reconnecting in', wsReconnectDelay, 'ms...');
+            document.getElementById('chat-message-input').placeholder = "กำลังเชื่อมต่อใหม่...";
+            showWsBanner('🔴 ขาดการเชื่อมต่อ — กำลังเชื่อมต่อใหม่อัตโนมัติ...');
+            wsReconnectTimer = setTimeout(connectWebSocket, wsReconnectDelay);
+            wsReconnectDelay = Math.min(wsReconnectDelay * 2, 30000);  // Exponential backoff สูงสุด 30s
+        };
 
-    chatSocket.onerror = function(err) {
-        console.error("WebSocket encountered error: ", err, "Closing socket");
-    };
+        chatSocket.onerror = function(err) {
+            console.error('[WS] Error:', err);
+            // onclose จะถูกเรียกต่อเนื่องหลัง onerror โดยอัตโนมัติ
+        };
+    } // end connectWebSocket()
+
+    // ===== เริ่มการเชื่อมต่อครั้งแรก =====
+    connectWebSocket();
+
+    // เชื่อมต่อใหม่ทันทีเมื่อกลับมาที่ Tab/App
+    // สำคัญมากสำหรับมือถือ: Android/iOS จะ suspend background processes
+    // เมื่อเปิด App อื่น WebSocket จะหลุด → reconnect เมื่อกลับมา
+    document.addEventListener('visibilitychange', function() {
+        if (!document.hidden && chatSocket && chatSocket.readyState !== WebSocket.OPEN) {
+            console.log('[WS] Tab/App กลับมาอยู่ foreground — reconnecting...');
+            connectWebSocket();
+        }
+    });
 
     // ส่งข้อความ
     function sendMessage(text, isSTT = false, lat = null, lon = null, locName = '') {

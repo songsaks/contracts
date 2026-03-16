@@ -97,6 +97,12 @@ class ChatConsumer(AsyncWebsocketConsumer):
         """
         # แปลงข้อมูล JSON ที่รับเข้ามาจาก WebSocket
         data = json.loads(text_data)
+
+        # Heartbeat ping/pong — ตอบกลับทันทีเพื่อยืนยันว่า connection ยังมีชีวิตอยู่
+        if data.get('type') == 'ping':
+            await self.send(text_data=json.dumps({'type': 'pong'}))
+            return
+
         message_text = data.get('message', '').strip()
         # is_stt: True = ข้อความนี้มาจากระบบ Speech-to-Text
         is_stt = data.get('is_stt', False)
