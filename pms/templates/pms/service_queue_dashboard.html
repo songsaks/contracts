@@ -211,7 +211,7 @@
                     <th class="px-3 py-2">ประเภท</th>
                     <th class="px-3 py-2">ลูกค้า</th>
                     <th class="px-3 py-2">กำหนดส่ง</th>
-                    <th class="px-3 py-2" style="min-width:160px;">ทีมงาน (AI แนะนำ)</th>
+                    <th class="px-3 py-2" style="min-width:160px;">ทีมงาน</th>
                     <th class="px-3 py-2" style="min-width:150px;">วันที่ทำงาน</th>
                     <th class="px-3 py-2">หมายเหตุ</th>
                     <th class="px-3 py-2">บันทึก</th>
@@ -246,19 +246,44 @@
                         {% else %}<span class="text-muted">-</span>{% endif %}
                     </td>
                     <td class="px-3 py-3">
-                        <form action="{% url 'pms:update_pending_task' task.id %}" method="post" class="d-flex flex-column gap-1">
+                        <form action="{% url 'pms:update_pending_task' task.id %}" method="post" class="d-flex flex-column gap-1" id="form-pending-{{ task.id }}">
                             {% csrf_token %}
-                            <select name="team" class="form-select form-select-sm" onchange="this.form.submit()">
-                                <option value="">-- เลือกทีม --</option>
-                                {% for team in teams %}
-                                <option value="{{ team.id }}" {% if task.assigned_team_id == team.id %}selected{% endif %}>
-                                    {{ team.name }}
-                                </option>
-                                {% endfor %}
-                            </select>
-                            {% if task.assigned_team %}
-                            <div class="small text-success"><i class="fas fa-robot me-1"></i>{{ task.ai_urgency_reason|truncatechars:30 }}</div>
+                            {% with task.assigned_teams.all as sel_teams %}
+                            <!-- Multi-team dropdown with checkboxes -->
+                            <div class="dropdown">
+                                <button type="button" class="btn btn-sm btn-outline-secondary dropdown-toggle w-100 text-start"
+                                    data-bs-toggle="dropdown" data-bs-auto-close="outside" style="font-size:0.8rem;">
+                                    {% if sel_teams %}
+                                        <i class="fas fa-users me-1 text-success"></i>{{ sel_teams|length }} ทีม
+                                    {% else %}-- เลือกทีม --{% endif %}
+                                </button>
+                                <ul class="dropdown-menu p-2" style="min-width:210px;max-height:220px;overflow-y:auto;">
+                                    {% for team in teams %}
+                                    <li>
+                                        <div class="form-check mb-1">
+                                            <input class="form-check-input" type="checkbox" name="team"
+                                                value="{{ team.id }}" id="chk_{{ task.id }}_{{ team.id }}"
+                                                {% if team in sel_teams %}checked{% endif %}>
+                                            <label class="form-check-label small" for="chk_{{ task.id }}_{{ team.id }}">
+                                                {{ team.name }}
+                                            </label>
+                                        </div>
+                                    </li>
+                                    {% endfor %}
+                                    <li><hr class="dropdown-divider my-1"></li>
+                                    <li>
+                                        <button type="submit" class="btn btn-sm btn-success w-100" style="font-size:0.75rem;">
+                                            <i class="fas fa-save me-1"></i>บันทึกทีม
+                                        </button>
+                                    </li>
+                                </ul>
+                            </div>
+                            {% if sel_teams %}
+                            <div class="d-flex flex-wrap gap-1 mt-1">
+                                {% for t in sel_teams %}<span class="badge bg-success" style="font-size:0.65rem;">{{ t.name }}</span>{% endfor %}
+                            </div>
                             {% endif %}
+                            {% endwith %}
                     </td>
                     <td class="px-3 py-3">
                             <input type="date" name="scheduled_date" class="form-control form-control-sm"
@@ -266,19 +291,21 @@
                                 onchange="this.form.submit()">
                         </td>
                         <td class="px-3 py-3">
-                            <input type="text" name="remarks" class="form-control form-control-sm" 
+                            <input type="text" name="remarks" class="form-control form-control-sm"
                                 value="{{ task.remarks|default:'' }}" placeholder="หมายเหตุ..."
                                 onchange="this.form.submit()">
                         </form>
                     </td>
                     <td class="px-3 py-3">
-                        {% if task.assigned_team and task.scheduled_date %}
+                        {% with task.assigned_teams.all as at %}
+                        {% if at and task.scheduled_date %}
                         <span class="badge bg-success"><i class="fas fa-check me-1"></i>พร้อม</span>
-                        {% elif task.assigned_team or task.scheduled_date %}
+                        {% elif at or task.scheduled_date %}
                         <span class="badge bg-secondary">ยังไม่ครบ</span>
                         {% else %}
                         <span class="badge bg-light text-muted">รอ</span>
                         {% endif %}
+                        {% endwith %}
                     </td>
                 </tr>
                 {% endfor %}
@@ -314,22 +341,45 @@
             </div>
             <form action="{% url 'pms:update_pending_task' task.id %}" method="post" class="d-flex flex-column gap-2">
                 {% csrf_token %}
-                <div class="d-flex gap-2">
-                    <select name="team" class="form-select form-select-sm" onchange="this.form.submit()" style="font-size: 0.8rem;">
-                        <option value="">-- ทีม --</option>
+                {% with task.assigned_teams.all as sel_teams %}
+                <!-- Mobile: multi-team checkboxes -->
+                <div class="dropdown">
+                    <button type="button" class="btn btn-sm btn-outline-secondary dropdown-toggle w-100 text-start"
+                        data-bs-toggle="dropdown" data-bs-auto-close="outside" style="font-size:0.75rem;">
+                        {% if sel_teams %}<i class="fas fa-users me-1 text-success"></i>{{ sel_teams|length }} ทีม
+                        {% else %}-- เลือกทีม --{% endif %}
+                    </button>
+                    <ul class="dropdown-menu p-2" style="min-width:200px;max-height:200px;overflow-y:auto;">
                         {% for team in teams %}
-                        <option value="{{ team.id }}" {% if task.assigned_team_id == team.id %}selected{% endif %}>{{ team.name }}</option>
+                        <li>
+                            <div class="form-check mb-1">
+                                <input class="form-check-input" type="checkbox" name="team"
+                                    value="{{ team.id }}" id="mchk_{{ task.id }}_{{ team.id }}"
+                                    {% if team in sel_teams %}checked{% endif %}>
+                                <label class="form-check-label small" for="mchk_{{ task.id }}_{{ team.id }}">{{ team.name }}</label>
+                            </div>
+                        </li>
                         {% endfor %}
-                    </select>
-                    <input type="date" name="scheduled_date" class="form-control form-control-sm" style="font-size: 0.8rem;"
-                        value="{{ task.scheduled_date|date:'Y-m-d' }}" onchange="this.form.submit()">
+                        <li><hr class="dropdown-divider my-1"></li>
+                        <li><button type="submit" class="btn btn-sm btn-success w-100" style="font-size:0.75rem;"><i class="fas fa-save me-1"></i>บันทึกทีม</button></li>
+                    </ul>
                 </div>
+                {% if sel_teams %}
+                <div class="d-flex flex-wrap gap-1">
+                    {% for t in sel_teams %}<span class="badge bg-success" style="font-size:0.65rem;">{{ t.name }}</span>{% endfor %}
+                </div>
+                {% endif %}
+                {% endwith %}
+                <input type="date" name="scheduled_date" class="form-control form-control-sm" style="font-size: 0.8rem;"
+                    value="{{ task.scheduled_date|date:'Y-m-d' }}" onchange="this.form.submit()">
                 <input type="text" name="remarks" class="form-control form-control-sm" style="font-size: 0.8rem;"
                     value="{{ task.remarks|default:'' }}" placeholder="หมายเหตุ..." onchange="this.form.submit()">
             </form>
-            {% if task.assigned_team and task.scheduled_date %}
+            {% with task.assigned_teams.all as at %}
+            {% if at and task.scheduled_date %}
             <div class="mt-2"><span class="badge bg-success" style="font-size: 0.65rem;"><i class="fas fa-check me-1"></i>พร้อมจัดคิว</span></div>
             {% endif %}
+            {% endwith %}
         </div>
         {% endfor %}
     </div>
@@ -411,9 +461,11 @@
                             {% else %}<span class="badge badge-other"><i class="fas fa-list me-1"></i>อื่นๆ</span>{% endif %}
                         </td>
                         <td class="px-3 py-3">
-                            {% if task.assigned_team %}
-                            <div class="team-pill"><i class="fas fa-users text-muted small"></i> {{ task.assigned_team.name }}</div>
+                            {% with task.assigned_teams.all as at %}
+                            {% if at %}
+                                {% for t in at %}<div class="team-pill"><i class="fas fa-users text-muted small"></i> {{ t.name }}</div>{% endfor %}
                             {% else %}<span class="text-muted">-</span>{% endif %}
+                            {% endwith %}
                         </td>
                         <td class="px-3 py-3">
                             {% if task.deadline %}
@@ -463,9 +515,13 @@
                         </a>
                         {% endif %}
                     </div>
-                    {% if task.assigned_team %}
-                    <div class="team-pill" style="font-size: 0.65rem;">{{ task.assigned_team.name }}</div>
+                    {% with task.assigned_teams.all as at %}
+                    {% if at %}
+                    <div class="d-flex flex-wrap gap-1">
+                        {% for t in at %}<div class="team-pill" style="font-size: 0.65rem;">{{ t.name }}</div>{% endfor %}
+                    </div>
                     {% endif %}
+                    {% endwith %}
                 </div>
                 <div class="task-meta mb-2">
                     {% if task.project %}<span class="fw-semibold text-dark">{{ task.project.customer.name|truncatechars:20 }}</span> • {% endif %}

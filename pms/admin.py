@@ -60,8 +60,12 @@ class ServiceTeamAdmin(admin.ModelAdmin):
 # จัดการคิวงานบริการ (AI Service Queue) สำหรับแสดงผลและมอบหมายทีมงาน
 @admin.register(ServiceQueueItem)
 class ServiceQueueItemAdmin(admin.ModelAdmin):
-    list_display = ('title', 'task_type', 'priority', 'status', 'assigned_team', 'deadline', 'scheduled_date', 'scheduled_time')
-    list_filter = ('status', 'priority', 'task_type', 'assigned_team')
+    list_display = ('title', 'task_type', 'priority', 'status', 'get_teams', 'deadline', 'scheduled_date', 'scheduled_time')
+    list_filter = ('status', 'priority', 'task_type', 'assigned_teams')
+
+    def get_teams(self, obj):
+        return ", ".join(t.name for t in obj.assigned_teams.all())
+    get_teams.short_description = "ทีม"
     search_fields = ('title', 'description')
 
 @admin.register(TeamMessage)

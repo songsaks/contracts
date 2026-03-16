@@ -255,12 +255,12 @@ def schedule_queue_items():
     from pms.models import ServiceQueueItem, TeamMessage
 
     # Get pending items that admin has set a date for
-    # ดึงงานที่รอการ schedule: ต้องมี scheduled_date และ assigned_team ครบ
+    # ดึงงานที่รอการ schedule: ต้องมี scheduled_date และมีทีมอย่างน้อย 1 ทีม
     items = ServiceQueueItem.objects.filter(
         status__in=['PENDING', 'INCOMPLETE'],
         scheduled_date__isnull=False,
-        assigned_team__isnull=False,
-    )
+        assigned_teams__isnull=False,
+    ).prefetch_related('assigned_teams').distinct()
 
     if not items.exists():
         return 0
@@ -276,27 +276,33 @@ def schedule_queue_items():
 
     # เรียงลำดับงานตามวันที่ > deadline > วันที่สร้าง เพื่อจัดลำดับความสำคัญ
     for item in items.order_by('scheduled_date', 'deadline', 'created_at'):
-        # key สำหรับ lookup time slot ของทีมนี้ในวันนี้
-        key = (item.assigned_team_id, item.scheduled_date)
-        slot = team_date_slots[key]
+        teams = list(item.assigned_teams.all())
+        if not teams:
+            continue
 
         # ประมาณการชั่วโมงทำงานตามประเภทงาน (ชั่วโมง)
         # REPAIR=2h, INSTALLATION=3h, DELIVERY=1.5h, OTHER=1h
         est_hours = {'REPAIR': 2.0, 'INSTALLATION': 3.0, 'DELIVERY': 1.5, 'OTHER': 1.0}.get(item.task_type, 1.0)
 
+        # คำนวณ time slot สำหรับทุกทีม — ใช้เวลาเร็วที่สุด (ทีมแรก) เป็น scheduled_time ของงาน
+        first_slot_time = None
+        for team in teams:
+            key = (team.id, item.scheduled_date)
+            slot = team_date_slots[key]
+            if first_slot_time is None:
+                first_slot_time = datetime.time(slot['hour'], slot['min'])
+            # เลื่อน time slot ของทีมนี้ไปข้างหน้า
+            total_mins = int(est_hours * 60)
+            slot['min'] += total_mins
+            while slot['min'] >= 60:
+                slot['min'] -= 60
+                slot['hour'] += 1
+
         # กำหนดเวลาเริ่มงานและประมาณการชั่วโมง แล้วบันทึก
-        item.scheduled_time = datetime.time(slot['hour'], slot['min'])
+        item.scheduled_time = first_slot_time
         item.estimated_hours = est_hours
         item.status = 'SCHEDULED'
         item.save()
-
-        # Advance time: คำนวณ time slot ถัดไปโดยบวกเวลาที่ใช้ทำงาน
-        total_mins = int(est_hours * 60)
-        slot['min'] += total_mins
-        # แปลงนาทีที่เกิน 60 ให้เป็นชั่วโมง (carry-over)
-        while slot['min'] >= 60:
-            slot['min'] -= 60
-            slot['hour'] += 1
 
     # ส่งข้อความแจ้งเตือนไปยังทีมทั้งหมดที่ได้รับมอบหมายงาน
     # Send team messages grouped by date
@@ -318,12 +324,12 @@ def _send_schedule_messages(items):
     from pms.models import ServiceTeam, TeamMessage
     from collections import defaultdict
 
-    # Group by team + date
-    # จัดกลุ่มงานตาม (team_id, scheduled_date) เพื่อส่ง message รวม
+    # Group by team + date (งาน 1 ชิ้นอาจมีหลายทีม → ปรากฏในหลายกลุ่ม)
+    # จัดกลุ่มงานตาม (team_id, scheduled_date) เพื่อส่ง message รวมต่อทีม
     groups = defaultdict(list)
     for item in items:
-        if item.assigned_team:
-            groups[(item.assigned_team_id, item.scheduled_date)].append(item)
+        for team in item.assigned_teams.all():
+            groups[(team.id, item.scheduled_date)].append(item)
 
     # สร้าง message สำหรับแต่ละกลุ่ม (ทีม + วัน)
     for (team_id, date), tasks in groups.items():

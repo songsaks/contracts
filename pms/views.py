@@ -1341,12 +1341,12 @@ def service_queue_dashboard(request):
     # Block 1: Pending tasks (not yet scheduled)
     pending_tasks = ServiceQueueItem.objects.filter(
         status__in=['PENDING', 'INCOMPLETE']
-    ).select_related('assigned_team', 'project').order_by('deadline', 'created_at')
+    ).select_related('project').prefetch_related('assigned_teams').order_by('deadline', 'created_at')
 
     # Block 2+: Scheduled/In-progress tasks grouped by date
     scheduled_tasks = ServiceQueueItem.objects.filter(
         status__in=['SCHEDULED', 'IN_PROGRESS']
-    ).select_related('assigned_team', 'project').order_by('scheduled_date', 'scheduled_time')
+    ).select_related('project').prefetch_related('assigned_teams').order_by('scheduled_date', 'scheduled_time')
 
     # Group by date
     date_groups = OrderedDict()
@@ -1382,25 +1382,25 @@ def service_queue_dashboard(request):
 # ตั้งค่าทีมและวันที่สำหรับงานที่ยังรอจัดคิว (PENDING → เตรียม SCHEDULED)
 @login_required
 def update_pending_task(request, task_id):
-    """Admin กำหนด assigned_team และ scheduled_date ให้งานก่อนจัดคิวอัตโนมัติ"""
+    """Admin กำหนด assigned_teams (หลายทีม) และ scheduled_date ให้งานก่อนจัดคิวอัตโนมัติ"""
     from .models import ServiceQueueItem, ServiceTeam
 
     task = get_object_or_404(ServiceQueueItem, pk=task_id)
     if request.method == 'POST':
-        team_id = request.POST.get('team')
+        team_ids = request.POST.getlist('team')
         date_str = request.POST.get('scheduled_date')
 
-        if team_id:
-            try:
-                task.assigned_team = ServiceTeam.objects.get(pk=team_id)
-            except ServiceTeam.DoesNotExist:
-                pass
+        # อัปเดต M2M teams (set() จะลบทีมเดิมและใส่ทีมใหม่ทั้งหมด)
+        teams = ServiceTeam.objects.filter(pk__in=team_ids) if team_ids else ServiceTeam.objects.none()
+        task.assigned_teams.set(teams)
 
         if date_str:
             try:
                 task.scheduled_date = datetime.strptime(date_str, '%Y-%m-%d').date()
             except ValueError:
                 pass
+        elif not date_str and 'scheduled_date' in request.POST:
+            task.scheduled_date = None
 
         task.remarks = request.POST.get('remarks', task.remarks)
         task.save()
@@ -1471,7 +1471,7 @@ def update_task_status(request, task_id):
             elif new_status == 'INCOMPLETE':
                 task.scheduled_date = None
                 task.scheduled_time = None
-                task.assigned_team = None
+                task.assigned_teams.clear()
 
         task.remarks = request.POST.get('remarks', task.remarks)
         
@@ -1510,29 +1510,35 @@ def send_queue_notifications(request):
             items = ServiceQueueItem.objects.filter(
                 scheduled_date=target_date,
                 status__in=['SCHEDULED', 'IN_PROGRESS']
-            ).order_by('assigned_team__name', 'scheduled_time')
+            ).prefetch_related('assigned_teams').order_by('scheduled_time')
 
             if items.exists():
                 _send_schedule_messages(items)
-                
+
                 # ส่งแจ้งเตือนคิวงานรวมเข้าสู่ "ศูนย์แชทกลาง (Chat Room)" ห้อง PMS โดยตรง
                 pms_room = ChatRoom.objects.filter(app_category='pms', project__isnull=True, is_active=True).first()
                 if pms_room:
                     content_lines = [f"📢 **ประกาศคิวงานประจำวัน: {target_date.strftime('%d/%m/%Y')}**"]
-                    
+
+                    # จัดกลุ่มงานตามทีม (งาน 1 ชิ้นอาจมีหลายทีม → ปรากฏในหลายกลุ่ม)
                     team_tasks = {}
                     for item in items:
-                        t_name = item.assigned_team.name if item.assigned_team else "ยังไม่ระบุทีม"
-                        if t_name not in team_tasks:
-                            team_tasks[t_name] = []
-                        team_tasks[t_name].append(item)
-                        
+                        teams = list(item.assigned_teams.all())
+                        if teams:
+                            for team in teams:
+                                team_tasks.setdefault(team.name, []).append(item)
+                        else:
+                            team_tasks.setdefault("ยังไม่ระบุทีม", []).append(item)
+
                     for t_name, tasks in team_tasks.items():
                         content_lines.append(f"\n🚀 **ทีม: {t_name}** ({len(tasks)} งาน)")
                         for idx, task in enumerate(tasks, 1):
                             time_str = task.scheduled_time.strftime('%H:%M') if task.scheduled_time else '-'
                             cust_name = task.project.customer.name if task.project else 'ไม่มีข้อมูลลูกค้า'
+                            all_teams = ", ".join(t.name for t in task.assigned_teams.all())
                             content_lines.append(f"  {idx}. [{time_str}] {task.title} - {cust_name}")
+                            if all_teams:
+                                content_lines.append(f"      👥 {all_teams}")
                             if task.description:
                                 content_lines.append(f"      📝 {task.description[:60]}")
 

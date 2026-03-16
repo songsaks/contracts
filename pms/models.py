@@ -781,7 +781,7 @@ class ServiceQueueItem(models.Model):
     repair_job = models.ForeignKey('repairs.RepairJob', on_delete=models.SET_NULL, null=True, blank=True, related_name='service_tasks', verbose_name="งานซ่อม")
 
     # Schedule
-    assigned_team = models.ForeignKey(ServiceTeam, on_delete=models.SET_NULL, null=True, blank=True, related_name='tasks', verbose_name="ทีมรับผิดชอบ")
+    assigned_teams = models.ManyToManyField(ServiceTeam, blank=True, related_name='tasks', verbose_name="ทีมรับผิดชอบ")
     scheduled_date = models.DateField(null=True, blank=True, verbose_name="วันที่นัดหมาย")
     scheduled_time = models.TimeField(null=True, blank=True, verbose_name="เวลานัดหมาย")
     estimated_hours = models.DecimalField(max_digits=4, decimal_places=1, default=1.0, verbose_name="ชั่วโมงที่คาดว่าจะใช้")
