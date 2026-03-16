@@ -13,4 +13,6 @@ urlpatterns = [
     path('<int:room_id>/upload/', views.upload_file, name='upload_file'),
     # ทางลัด: เข้าห้องแชทจาก PMS (Project ID)
     path('project/<int:project_id>/', views.project_chat, name='project_chat'),
+    # ดึงข้อความใหม่ที่พลาดไป (Mobile reconnect / Manual refresh)
+    path('<int:room_id>/messages/', views.fetch_new_messages, name='fetch_new_messages'),
 ]

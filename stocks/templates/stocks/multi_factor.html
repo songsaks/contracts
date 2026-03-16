@@ -1,0 +1,383 @@
+{% extends 'stocks/base_stocks.html' %}
+{% load humanize %}
+
+{% block title %}Multi-Factor Scoring — 9Com{% endblock %}
+
+{% block content %}
+<style>
+.factor-bar { height: 6px; border-radius: 3px; background: #e2e8f0; overflow: hidden; }
+.factor-fill { height: 100%; border-radius: 3px; transition: width .5s; }
+.super-ring {
+    width: 52px; height: 52px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 800; font-size: 1rem;
+}
+.score-s  { background: #dcfce7; color: #15803d; }
+.score-a  { background: #dbeafe; color: #1d4ed8; }
+.score-b  { background: #fef9c3; color: #854d0e; }
+.score-c  { background: #fee2e2; color: #b91c1c; }
+.sent-pos { color: #16a34a; }
+.sent-neu { color: #64748b; }
+.sent-neg { color: #dc2626; }
+.factor-chip { font-size: 0.65rem; padding: 1px 6px; border-radius: 99px; font-weight: 600; }
+.loading-overlay {
+    position: fixed; inset: 0; background: rgba(15,23,42,.6);
+    backdrop-filter: blur(4px); z-index: 9999;
+    display: none; flex-direction: column;
+    align-items: center; justify-content: center; gap: 1rem;
+}
+.spin-ring {
+    width: 64px; height: 64px; border-radius: 50%;
+    border: 6px solid rgba(255,255,255,.2);
+    border-top-color: #6366f1;
+    animation: spin 1s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.weight-card {
+    border-radius: 1rem; padding: 1rem 1.25rem;
+    border-left: 4px solid var(--c);
+    background: white;
+}
+th.sortable { cursor: pointer; user-select: none; white-space: nowrap; }
+th.sortable:hover { background: #f1f5f9; }
+.rvol-badge { display:inline-block; padding:1px 7px; border-radius:99px; font-size:.7rem; font-weight:700; }
+</style>
+
+<!-- Loading Overlay -->
+<div class="loading-overlay" id="loadingOverlay">
+    <div class="spin-ring"></div>
+    <div class="text-white fw-semibold fs-5">กำลังสแกนหุ้นทั้งหมด…</div>
+    <div class="text-white-50 small">ดึงข้อมูล 1 ปี + คำนวณ 4 ปัจจัย กรุณารอสักครู่</div>
+</div>
+
+<!-- Header -->
+<div class="row align-items-end mb-4">
+    <div class="col-md-7">
+        <h1 class="fw-bold mb-1" style="color:#4f46e5;">
+            <i class="fas fa-layer-group me-2"></i> Multi-Factor Super Score
+        </h1>
+        <p class="text-muted mb-0">คัดกรองหุ้นด้วย 4 ปัจจัยรวม — Momentum · Volume/Flow · Sentiment · Fundamental<br>
+        ยิ่ง Super Score สูง ยิ่งมีโอกาสชนะ (Probability) สูง</p>
+        {% if scanned_at %}
+        <div class="mt-2">
+            <span class="badge bg-light text-secondary border" style="font-size:.75rem;">
+                <i class="fas fa-clock me-1"></i> สแกนล่าสุด: {{ scanned_at|date:"d/m/Y H:i" }}
+            </span>
+            <span class="badge bg-light text-secondary border ms-1" style="font-size:.75rem;">
+                <i class="fas fa-database me-1"></i> {{ candidates|length }} หุ้น (บันทึกไว้แล้ว)
+            </span>
+        </div>
+        {% endif %}
+    </div>
+    <div class="col-md-5 text-md-end mt-3 mt-md-0 d-flex flex-wrap justify-content-md-end gap-2">
+        {% if has_scanned %}
+        <a href="?sentiment=true" class="btn btn-outline-success d-inline-flex align-items-center gap-2"
+            onclick="showLoading('sentimentLoading')">
+            <i class="fas fa-brain"></i> วิเคราะห์ AI Sentiment
+        </a>
+        {% endif %}
+        <!-- POST form — กัน accidental rescan และ browser prefetch -->
+        <form method="post" id="scanForm" onsubmit="showLoading('scanLoading')">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="scan">
+            {% if has_scanned %}
+            <button type="button" class="btn btn-premium d-inline-flex align-items-center gap-2"
+                style="background:linear-gradient(135deg,#4f46e5,#7c3aed);"
+                onclick="confirmRescan()">
+                <i class="fas fa-sync-alt"></i> สแกนใหม่
+            </button>
+            {% else %}
+            <button type="submit" class="btn btn-premium d-inline-flex align-items-center gap-2"
+                style="background:linear-gradient(135deg,#4f46e5,#7c3aed);">
+                <i class="fas fa-search-dollar"></i> สแกนหุ้น (SET100+MAI)
+            </button>
+            {% endif %}
+        </form>
+    </div>
+</div>
+
+<!-- Weight Cards -->
+<div class="row g-3 mb-4">
+    <div class="col-6 col-md-3">
+        <div class="weight-card shadow-sm" style="--c:#ef4444;">
+            <div class="d-flex justify-content-between align-items-center mb-1">
+                <span class="fw-bold text-danger small"><i class="fas fa-rocket me-1"></i>Momentum</span>
+                <span class="badge bg-danger">40%</span>
+            </div>
+            <div class="extra-small text-muted">RSI 55-72 + ราคาเหนือ EMA200 + ADX</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="weight-card shadow-sm" style="--c:#0ea5e9;">
+            <div class="d-flex justify-content-between align-items-center mb-1">
+                <span class="fw-bold text-info small"><i class="fas fa-water me-1"></i>Volume/Flow</span>
+                <span class="badge bg-info">30%</span>
+            </div>
+            <div class="extra-small text-muted">RVOL > 1.5 + MFI > 60</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="weight-card shadow-sm" style="--c:#8b5cf6;">
+            <div class="d-flex justify-content-between align-items-center mb-1">
+                <span class="fw-bold small" style="color:#7c3aed;"><i class="fas fa-brain me-1"></i>Sentiment AI</span>
+                <span class="badge" style="background:#7c3aed;">20%</span>
+            </div>
+            <div class="extra-small text-muted">วิเคราะห์ข่าวล่าสุดจาก Gemini</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="weight-card shadow-sm" style="--c:#22c55e;">
+            <div class="d-flex justify-content-between align-items-center mb-1">
+                <span class="fw-bold text-success small"><i class="fas fa-chart-bar me-1"></i>Fundamental</span>
+                <span class="badge bg-success">10%</span>
+            </div>
+            <div class="extra-small text-muted">EPS Growth + Revenue + P/E</div>
+        </div>
+    </div>
+</div>
+
+{% if not has_scanned %}
+<!-- Empty State -->
+<div class="card border-0 text-center py-5 shadow-sm" style="border-radius:1.5rem;">
+    <div class="card-body py-5">
+        <div class="display-3 opacity-10 mb-3" style="color:#4f46e5;"><i class="fas fa-layer-group"></i></div>
+        <h3 class="fw-bold">พร้อมสแกน</h3>
+        <p class="text-muted mx-auto" style="max-width:550px;">
+            กดปุ่ม <strong>สแกนหุ้น</strong> ระบบจะคำนวณ 4 ปัจจัยสำหรับหุ้นทุกตัวใน SET100+MAI<br>
+            จากนั้นกด <strong>วิเคราะห์ AI Sentiment</strong> เพื่อให้ Gemini ให้คะแนนข่าวล่าสุด
+        </p>
+        <button type="submit" form="scanForm" class="btn btn-lg mt-2"
+            style="background:linear-gradient(135deg,#4f46e5,#7c3aed);color:white;border-radius:.75rem;"
+            onclick="showLoading('scanLoading')">
+            <i class="fas fa-search-dollar me-2"></i> เริ่มสแกน
+        </button>
+    </div>
+</div>
+
+{% else %}
+<!-- Result Table -->
+<div class="card border-0 shadow-sm mb-4" style="border-radius:1.25rem;overflow:hidden;">
+    <div class="card-header bg-white border-bottom p-3 p-md-4">
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+            <div>
+                <h5 class="mb-0 fw-bold"><i class="fas fa-trophy text-warning me-2"></i>
+                    ผลการสแกน — {{ candidates|length }} หุ้น
+                </h5>
+                {% if scanned_at %}
+                <small class="text-muted">อัปเดตล่าสุด: {{ scanned_at|date:"d/m/Y H:i" }}</small>
+                {% endif %}
+            </div>
+            {% if not has_sentiment %}
+            <div class="alert alert-warning py-1 px-3 mb-0 small rounded-pill">
+                <i class="fas fa-info-circle me-1"></i> Sentiment = 0 — กด "วิเคราะห์ AI Sentiment" เพื่อเพิ่มคะแนน
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0" style="font-size:.82rem;">
+            <thead class="table-light">
+                <tr>
+                    <th class="px-3 py-3 sortable" onclick="sortTable('symbol')">SYMBOL</th>
+                    <th class="px-3 py-3 text-center sortable" onclick="sortTable('super')">
+                        SUPER SCORE <i class="fas fa-sort text-muted ms-1" style="font-size:.7rem;"></i>
+                    </th>
+                    <th class="px-3 py-3 text-center sortable" onclick="sortTable('momentum')">
+                        <span class="text-danger">MOM</span><br><span class="text-muted fw-normal" style="font-size:.65rem;">/40</span>
+                    </th>
+                    <th class="px-3 py-3 text-center sortable" onclick="sortTable('volume')">
+                        <span class="text-info">VOL</span><br><span class="text-muted fw-normal" style="font-size:.65rem;">/30</span>
+                    </th>
+                    <th class="px-3 py-3 text-center sortable" onclick="sortTable('sentiment')">
+                        <span style="color:#7c3aed;">SENT</span><br><span class="text-muted fw-normal" style="font-size:.65rem;">/20</span>
+                    </th>
+                    <th class="px-3 py-3 text-center sortable" onclick="sortTable('fundamental')">
+                        <span class="text-success">FUND</span><br><span class="text-muted fw-normal" style="font-size:.65rem;">/10</span>
+                    </th>
+                    <th class="px-3 py-3 text-center sortable" onclick="sortTable('rvol')">RVOL</th>
+                    <th class="px-3 py-3 text-center sortable" onclick="sortTable('rsi')">RSI</th>
+                    <th class="px-3 py-3 text-center">MFI</th>
+                    <th class="px-3 py-3 text-center">EPS%</th>
+                    <th class="px-3 py-3 text-center">REV%</th>
+                    <th class="px-3 py-3">SECTOR</th>
+                    <th class="px-3 py-3">SENTIMENT</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for c in candidates %}
+                {% with score=c.super_score %}
+                <tr class="{% if score >= 70 %}table-success bg-opacity-25{% elif score >= 50 %}table-warning bg-opacity-10{% endif %}">
+                    <!-- Symbol -->
+                    <td class="px-3 py-2 fw-bold">
+                        <a href="{% url 'stocks:analyze' c.symbol %}" class="text-decoration-none text-dark">
+                            {{ c.symbol }}
+                        </a>
+                        <div class="text-muted" style="font-size:.65rem;">฿{{ c.price|floatformat:2 }}</div>
+                        <div class="mt-1 d-flex gap-1 flex-wrap">
+                            {% if c.above_ema200 %}<span class="factor-chip bg-success text-white">EMA200✓</span>{% endif %}
+                            {% if c.above_ema50 %}<span class="factor-chip bg-primary text-white">EMA50✓</span>{% endif %}
+                        </div>
+                    </td>
+
+                    <!-- Super Score Ring -->
+                    <td class="px-3 py-2 text-center">
+                        <div class="d-flex flex-column align-items-center gap-1">
+                            <div class="super-ring {% if score >= 70 %}score-s{% elif score >= 50 %}score-a{% elif score >= 30 %}score-b{% else %}score-c{% endif %}">
+                                {{ score }}
+                            </div>
+                            <!-- mini score bar -->
+                            <div class="factor-bar w-100" style="width:60px!important;">
+                                <div class="factor-fill" style="width:{{ score }}%;background:{% if score >= 70 %}#22c55e{% elif score >= 50 %}#3b82f6{% elif score >= 30 %}#f59e0b{% else %}#ef4444{% endif %};"></div>
+                            </div>
+                        </div>
+                    </td>
+
+                    <!-- Momentum /40 -->
+                    <td class="px-3 py-2 text-center">
+                        <div class="fw-bold text-danger">{{ c.momentum_score }}</div>
+                        <div class="factor-bar mt-1"><div class="factor-fill bg-danger" style="width:{% widthratio c.momentum_score 40 100 %}%;"></div></div>
+                    </td>
+
+                    <!-- Volume /30 -->
+                    <td class="px-3 py-2 text-center">
+                        <div class="fw-bold text-info">{{ c.volume_score }}</div>
+                        <div class="factor-bar mt-1"><div class="factor-fill bg-info" style="width:{% widthratio c.volume_score 30 100 %}%;"></div></div>
+                    </td>
+
+                    <!-- Sentiment /20 -->
+                    <td class="px-3 py-2 text-center">
+                        <div class="fw-bold" style="color:#7c3aed;">{{ c.sentiment_score }}</div>
+                        <div class="factor-bar mt-1"><div class="factor-fill" style="width:{% widthratio c.sentiment_score 20 100 %}%;background:#7c3aed;"></div></div>
+                    </td>
+
+                    <!-- Fundamental /10 -->
+                    <td class="px-3 py-2 text-center">
+                        <div class="fw-bold text-success">{{ c.fundamental_score }}</div>
+                        <div class="factor-bar mt-1"><div class="factor-fill bg-success" style="width:{% widthratio c.fundamental_score 10 100 %}%;"></div></div>
+                    </td>
+
+                    <!-- RVOL -->
+                    <td class="px-3 py-2 text-center">
+                        {% if c.rvol >= 2.0 %}
+                        <span class="rvol-badge bg-danger text-white">{{ c.rvol|floatformat:1 }}x</span>
+                        {% elif c.rvol >= 1.5 %}
+                        <span class="rvol-badge bg-warning text-dark">{{ c.rvol|floatformat:1 }}x</span>
+                        {% else %}
+                        <span class="rvol-badge bg-light text-muted">{{ c.rvol|floatformat:1 }}x</span>
+                        {% endif %}
+                    </td>
+
+                    <!-- RSI -->
+                    <td class="px-3 py-2 text-center">
+                        <span class="fw-semibold {% if 55 <= c.rsi <= 72 %}text-success{% elif c.rsi > 72 %}text-danger{% else %}text-muted{% endif %}">
+                            {{ c.rsi|floatformat:0 }}
+                        </span>
+                    </td>
+
+                    <!-- MFI -->
+                    <td class="px-3 py-2 text-center">
+                        <span class="{% if c.mfi >= 60 %}text-success fw-semibold{% else %}text-muted{% endif %}">
+                            {{ c.mfi|floatformat:0 }}
+                        </span>
+                    </td>
+
+                    <!-- EPS% -->
+                    <td class="px-3 py-2 text-center">
+                        <span class="{% if c.eps_growth >= 20 %}text-success fw-bold{% elif c.eps_growth >= 10 %}text-success{% elif c.eps_growth < 0 %}text-danger{% else %}text-muted{% endif %}">
+                            {{ c.eps_growth|floatformat:0 }}%
+                        </span>
+                    </td>
+
+                    <!-- REV% -->
+                    <td class="px-3 py-2 text-center">
+                        <span class="{% if c.rev_growth >= 10 %}text-success fw-bold{% elif c.rev_growth < 0 %}text-danger{% else %}text-muted{% endif %}">
+                            {{ c.rev_growth|floatformat:0 }}%
+                        </span>
+                    </td>
+
+                    <!-- Sector -->
+                    <td class="px-3 py-2 text-muted small">{{ c.sector|truncatechars:18 }}</td>
+
+                    <!-- Sentiment Label -->
+                    <td class="px-3 py-2">
+                        {% if c.sentiment_label %}
+                        <div class="fw-bold {% if c.sentiment_label == 'บวก' %}sent-pos{% elif c.sentiment_label == 'ลบ' %}sent-neg{% else %}sent-neu{% endif %}">
+                            {% if c.sentiment_label == 'บวก' %}<i class="fas fa-arrow-up me-1"></i>{% elif c.sentiment_label == 'ลบ' %}<i class="fas fa-arrow-down me-1"></i>{% else %}<i class="fas fa-minus me-1"></i>{% endif %}
+                            {{ c.sentiment_label }}
+                        </div>
+                        {% if c.sentiment_reason %}
+                        <div class="text-muted" style="font-size:.65rem;max-width:140px;">{{ c.sentiment_reason|truncatechars:60 }}</div>
+                        {% endif %}
+                        {% else %}
+                        <span class="text-muted small">—</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endwith %}
+                {% empty %}
+                <tr><td colspan="13" class="text-center py-5 text-muted">ไม่พบหุ้นที่ผ่านเกณฑ์</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Legend -->
+<div class="row g-3 mb-4">
+    <div class="col-md-6">
+        <div class="card border-0 shadow-sm p-3" style="border-radius:1rem;">
+            <h6 class="fw-bold mb-3"><i class="fas fa-info-circle text-primary me-2"></i>Super Score ระดับ</h6>
+            <div class="d-flex flex-wrap gap-2">
+                <span class="super-ring score-s" style="width:42px;height:42px;font-size:.8rem;">S</span> <span class="align-self-center small">≥ 70 — แนวโน้มดีมาก</span>
+            </div>
+            <div class="d-flex flex-wrap gap-2 mt-2">
+                <span class="super-ring score-a" style="width:42px;height:42px;font-size:.8rem;">A</span> <span class="align-self-center small">50-69 — น่าสนใจ</span>
+            </div>
+            <div class="d-flex flex-wrap gap-2 mt-2">
+                <span class="super-ring score-b" style="width:42px;height:42px;font-size:.8rem;">B</span> <span class="align-self-center small">30-49 — ระวัง</span>
+            </div>
+            <div class="d-flex flex-wrap gap-2 mt-2">
+                <span class="super-ring score-c" style="width:42px;height:42px;font-size:.8rem;">C</span> <span class="align-self-center small">< 30 — ไม่แนะนำ</span>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card border-0 shadow-sm p-3" style="border-radius:1rem;">
+            <h6 class="fw-bold mb-3"><i class="fas fa-calculator text-success me-2"></i>วิธีคำนวณคะแนน</h6>
+            <table class="table table-sm table-borderless mb-0 small">
+                <tr><td><strong class="text-danger">Momentum (40)</strong></td><td class="text-muted">EMA200(15) + EMA50(5) + RSI(15) + ADX(5)</td></tr>
+                <tr><td><strong class="text-info">Volume (30)</strong></td><td class="text-muted">RVOL(15) + MFI(15)</td></tr>
+                <tr><td><strong style="color:#7c3aed;">Sentiment (20)</strong></td><td class="text-muted">Gemini วิเคราะห์ข่าว 0-20</td></tr>
+                <tr><td><strong class="text-success">Fundamental (10)</strong></td><td class="text-muted">EPS(4) + Revenue(3) + P/E(3)</td></tr>
+            </table>
+        </div>
+    </div>
+</div>
+{% endif %}
+</div>
+
+<script>
+function showLoading(type) {
+    const overlay = document.getElementById('loadingOverlay');
+    overlay.style.display = 'flex';
+    if (type === 'sentimentLoading') {
+        overlay.querySelector('div:nth-child(2)').textContent = 'กำลังวิเคราะห์ Sentiment ด้วย Gemini…';
+        overlay.querySelector('div:nth-child(3)').textContent = 'ส่งรายชื่อหุ้น 30 ตัวไปให้ AI ประเมินข่าวล่าสุด';
+    }
+}
+
+function confirmRescan() {
+    if (confirm('⚠️ สแกนใหม่จะลบผลเก่าทั้งหมด\nต้องการดำเนินการต่อหรือไม่?')) {
+        showLoading('scanLoading');
+        document.getElementById('scanForm').submit();
+    }
+}
+
+function sortTable(key) {
+    const url = new URL(window.location.href);
+    url.searchParams.set('sort', key);
+    window.location.href = url.toString();
+}
+</script>
+{% endblock %}

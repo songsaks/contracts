@@ -120,8 +120,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
         # ประมวลผลเฉพาะเมื่อมีเนื้อหาที่ส่งได้ (ข้อความ, ไฟล์, หรือพิกัด)
         if message_text or image_url or file_url or (latitude and longitude):
             user = self.scope["user"]
-            # บันทึกข้อความลง Database (ใช้ database_sync_to_async เพราะ ORM เป็น sync)
-            await self.save_message(user, self.room_id, message_text, is_stt, latitude, longitude, location_name)
+            # บันทึกข้อความลง Database และรับ ID กลับมาเพื่อใช้ deduplication
+            msg_id = await self.save_message(user, self.room_id, message_text, is_stt, latitude, longitude, location_name)
             # บันทึก GPS log สำหรับรายงานช่างภาคสนาม
             if latitude and longitude and gps_check_type:
                 await self.save_gps_log(user, latitude, longitude, location_name, gps_check_type, gps_notes)
@@ -135,6 +135,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 self.room_group_name,
                 {
                     'type': 'chat_message',   # ชี้ไปที่ method chat_message() ด้านล่าง
+                    'id': msg_id,             # ใช้ deduplication ฝั่ง JS เมื่อ fetch ซ้อนทับ WS
                     'message': message_text,
                     'username': user.username,
                     'user_id': user.id,
@@ -183,6 +184,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
         # ส่งข้อมูลทั้งหมดกลับไปยัง WebSocket ของ Client ที่ subscribe อยู่
         await self.send(text_data=json.dumps({
             'type': 'chat_message',
+            'id': event.get('id'),        # message ID สำหรับ deduplication ฝั่ง JS
             'message': event['message'],
             'username': event['username'],
             'user_id': event['user_id'],
@@ -236,16 +238,16 @@ class ChatConsumer(AsyncWebsocketConsumer):
     @database_sync_to_async
     def save_message(self, user, room_id, content, is_stt, lat=None, lon=None, loc_name=''):
         """
-        บันทึกข้อความลงฐานข้อมูลแบบ Synchronous
+        บันทึกข้อความลงฐานข้อมูลแบบ Synchronous และคืน ID ของข้อความที่บันทึก
         ใช้ decorator @database_sync_to_async เพื่อให้เรียกจาก async context ได้
-        โดยที่ Django ORM จะทำงานใน Thread Pool แยกต่างหาก ไม่บล็อก Event Loop
+        ID ที่ได้จะถูกส่งไปยัง client ผ่าน WebSocket เพื่อใช้ deduplication กับ fetch
         """
         from decimal import Decimal, ROUND_HALF_UP
         room = ChatRoom.objects.get(id=room_id)
         def to_dec(v):
             if v is None: return None
             return Decimal(str(v)).quantize(Decimal('0.000000001'), rounding=ROUND_HALF_UP)
-        ChatMessage.objects.create(
+        msg = ChatMessage.objects.create(
             room=room,
             user=user,
             content=content,
@@ -254,6 +256,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             longitude=to_dec(lon),
             location_name=loc_name
         )
+        return msg.id
 
     @database_sync_to_async
     def save_gps_log(self, user, lat, lon, loc_name, check_type, notes=''):

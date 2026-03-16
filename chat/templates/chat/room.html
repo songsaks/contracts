@@ -416,21 +416,28 @@
         <div class="chat-container">
         <!-- ส่วนหัวห้องแชท -->
         <div class="chat-header">
-            <a href="{% url 'chat:index' %}" class="p-2 hover:bg-slate-100 rounded-full">
+            <a href="{% url 'chat:index' %}" class="p-2 hover:bg-slate-100 rounded-full" onclick="wsUserLeft=true; stopWsHeartbeat();">
                 <i class="fas fa-chevron-left text-slate-500"></i>
             </a>
             <div class="w-10 h-10 rounded-xl flex items-center justify-center text-white" style="background: {{ room.color_hex }};">
                 <i class="fas fa-hashtag"></i>
             </div>
-            <div>
+            <div class="flex-1 min-w-0">
                 <div class="flex items-center gap-2">
-                    <h2 class="font-bold text-slate-800">{{ room.name }}</h2>
-                    <span class="px-2 py-0.5 text-[10px] font-semibold bg-slate-100 text-slate-600 rounded border border-slate-200">
+                    <h2 class="font-bold text-slate-800 truncate">{{ room.name }}</h2>
+                    <span class="px-2 py-0.5 text-[10px] font-semibold bg-slate-100 text-slate-600 rounded border border-slate-200 shrink-0">
                         {{ room.get_app_category_display }}
                     </span>
                 </div>
                 <span class="text-xs text-slate-500">{{ room.description|default:"ช่องทางสื่อสารสำหรับทีม 9Com" }}</span>
             </div>
+            <!-- ปุ่ม Refresh: ดึงข้อความที่พลาดไป (สำคัญสำหรับมือถือที่หลุดการเชื่อมต่อ) -->
+            <button id="refresh-btn" onclick="fetchNewMessages(true)"
+                title="ดึงข้อความที่พลาดไป"
+                class="ml-auto p-2 rounded-full text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition flex-shrink-0"
+                style="font-size:1rem;">
+                <i id="refresh-icon" class="fas fa-rotate-right"></i>
+            </button>
         </div>
 
         <!-- รายการข้อความในห้องนี้ -->
@@ -607,10 +614,114 @@
     const roomId = JSON.parse(document.getElementById('room-id').textContent);
     const userId = JSON.parse(document.getElementById('user-id').textContent);
     const currentUsername = "{{ request.user.username }}";
+    const fetchMsgsUrl = "{% url 'chat:fetch_new_messages' room.id %}";
     const messagesContainer = document.getElementById('chat-messages');
     const layoutWrapper = document.querySelector('.layout-wrapper');
     const roomMembers = JSON.parse(document.getElementById('room-members').textContent);
     let onlineUsernames = [];   // maintained by updateOnlineUsers()
+
+    // ====== ติดตาม timestamp ของข้อความล่าสุด ======
+    // ใช้สำหรับ fetch missed messages เมื่อ reconnect หรือกดปุ่ม refresh
+    let lastMsgTs = "{{ last_msg_ts }}";
+    let isFetchingMsgs = false;
+
+    // ====== ดึงข้อความที่พลาดไประหว่างหลุดการเชื่อมต่อ ======
+    function fetchNewMessages(isManual = false) {
+        if (isFetchingMsgs) return;
+        isFetchingMsgs = true;
+
+        const icon = document.getElementById('refresh-icon');
+        if (icon) icon.classList.add('fa-spin');
+
+        const url = lastMsgTs ? `${fetchMsgsUrl}?since=${encodeURIComponent(lastMsgTs)}` : fetchMsgsUrl;
+
+        fetch(url, { credentials: 'same-origin' })
+            .then(r => r.json())
+            .then(data => {
+                const msgs = data.messages || [];
+                // กรองข้อความที่แสดงแล้วออก (ป้องกัน duplicate)
+                const shownIds = new Set(
+                    [...messagesContainer.querySelectorAll('[data-msg-id]')].map(el => el.dataset.msgId)
+                );
+                let newCount = 0;
+                msgs.forEach(msg => {
+                    if (shownIds.has(String(msg.id))) return;
+                    appendMessage(msg);
+                    newCount++;
+                    // อัปเดต lastMsgTs ถ้า timestamp ใหม่กว่า
+                    if (!lastMsgTs || msg.timestamp_iso > lastMsgTs) {
+                        lastMsgTs = msg.timestamp_iso;
+                    }
+                });
+                if (isManual && newCount === 0) {
+                    // แจ้ง user ว่าไม่มีข้อความใหม่
+                    const btn = document.getElementById('refresh-btn');
+                    if (btn) {
+                        btn.style.color = '#22c55e';
+                        setTimeout(() => { btn.style.color = ''; }, 1500);
+                    }
+                }
+                if (newCount > 0) {
+                    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                }
+            })
+            .catch(err => console.error('[Refresh] Failed:', err))
+            .finally(() => {
+                isFetchingMsgs = false;
+                if (icon) icon.classList.remove('fa-spin');
+            });
+    }
+
+    // ====== ฟังก์ชัน append ข้อความ (ใช้ร่วมกันระหว่าง WS และ fetch) ======
+    function appendMessage(data) {
+        const isSelf = data.user_id === userId;
+        const bubbleClass = isSelf ? 'message-self' : 'message-other';
+        const sttIcon = data.is_stt ? '<i class="fas fa-microphone text-[10px] ml-1 opacity-60"></i>' : '';
+
+        let locationHtml = '';
+        if (data.latitude && data.longitude) {
+            const cardClass = isSelf ? 'gps-card-self' : 'gps-card-other';
+            const locLabel  = data.location_name ? ` — ${data.location_name}` : '';
+            locationHtml = `
+                <div class="${cardClass}">
+                    <div class="gps-card-label">📍 GPS Check-in${locLabel}</div>
+                    <a href="https://www.google.com/maps?q=${data.latitude},${data.longitude}" target="_blank" class="gps-card-link">
+                        <i class="fas fa-map-marker-alt"></i> ดูแผนที่ Google Maps
+                    </a>
+                </div>`;
+        }
+
+        let mediaHtml = '';
+        if (data.image_url) {
+            mediaHtml += `<a href="${data.image_url}" target="_blank" class="block mb-2">
+                <img src="${data.image_url}" class="max-w-[200px] md:max-w-[250px] rounded-lg shadow-sm" alt="รูปภาพแนบ">
+            </a>`;
+        }
+        if (data.file_url) {
+            const fileName = data.file_url.substring(data.file_url.lastIndexOf('/') + 1);
+            mediaHtml += `<a href="${data.file_url}" target="_blank" class="flex items-center gap-2 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-700 text-sm hover:bg-slate-100 transition shadow-sm mb-2 w-[220px]">
+                <div class="p-2 bg-blue-100/50 text-blue-600 rounded-md"><i class="fas fa-download text-lg"></i></div>
+                <span class="truncate font-medium flex-1 text-left" title="${fileName}">${fileName}</span>
+            </a>`;
+        }
+
+        const formattedMessage = data.message
+            ? highlightMentions(data.message.replace(/\n/g, '<br>'))
+            : '';
+
+        const msgEl = document.createElement('div');
+        msgEl.className = `message-bubble ${bubbleClass}`;
+        msgEl.dataset.msgId = data.id;
+        msgEl.innerHTML = `
+            ${!isSelf ? `<div class="message-info">${data.username}</div>` : ''}
+            <div class="message-text">
+                ${mediaHtml}
+                <span class="block">${formattedMessage} ${sttIcon}</span>
+                ${locationHtml}
+            </div>
+            <div class="message-meta">${data.timestamp}</div>`;
+        messagesContainer.appendChild(msgEl);
+    }
 
     // ฟังก์ชันปรับความสูงหน้าจอให้พอดีกับ Keyboard บนมือถือ (VisualViewport API)
     function adjustViewport() {
@@ -661,15 +772,22 @@
     let wsReconnectDelay = 1500;   // delay เริ่มต้น 1.5 วินาที (เพิ่มเป็น 2 เท่าทุกครั้ง, สูงสุด 30s)
     let wsReconnectTimer = null;
     let wsHeartbeatTimer = null;
+    let wsUserLeft = false;        // flag: user กด back/ออกจากหน้าจริงๆ → ไม่ reconnect
 
-    // ส่ง ping ทุก 25 วินาทีเพื่อไม่ให้ connection หมดอายุ (timeout ส่วนใหญ่อยู่ที่ 60s)
+    // ส่ง ping ทุก 15 วินาทีเพื่อตรวจจับ connection ที่ตายแล้วได้เร็วขึ้น
+    // (สำคัญสำหรับมือถือที่มี idle timeout สั้น)
     function startWsHeartbeat() {
         stopWsHeartbeat();
         wsHeartbeatTimer = setInterval(function() {
             if (chatSocket && chatSocket.readyState === WebSocket.OPEN) {
                 chatSocket.send(JSON.stringify({ type: 'ping' }));
+            } else if (chatSocket && chatSocket.readyState !== WebSocket.CONNECTING) {
+                // socket ตายแล้วแต่ onclose ไม่ถูกเรียก (พบบน iOS Safari)
+                console.warn('[WS] Heartbeat: socket dead, forcing reconnect...');
+                stopWsHeartbeat();
+                if (!wsUserLeft) connectWebSocket();
             }
-        }, 25000);
+        }, 15000);
     }
     function stopWsHeartbeat() {
         if (wsHeartbeatTimer) { clearInterval(wsHeartbeatTimer); wsHeartbeatTimer = null; }
@@ -815,71 +933,17 @@
         // เฉพาะข้อมูลข้อความแชทปกติ
         if (data.type !== 'chat_message' && data.message === undefined) return;
 
-        const isSelf = data.user_id === userId;
-        const bubbleClass = isSelf ? 'message-self' : 'message-other';
-        const sttIcon = data.is_stt ? '<i class="fas fa-microphone text-[10px] ml-1 opacity-60"></i>' : '';
-        
-        // จัดการแสดงผลพิกัดตำแหน่ง
-        let locationHtml = '';
-        if (data.latitude && data.longitude) {
-            const cardClass = isSelf ? 'gps-card-self' : 'gps-card-other';
-            const locLabel  = data.location_name ? ` — ${data.location_name}` : '';
-            locationHtml = `
-                <div class="${cardClass}">
-                    <div class="gps-card-label">📍 GPS Check-in${locLabel}</div>
-                    <a href="https://www.google.com/maps?q=${data.latitude},${data.longitude}" target="_blank" class="gps-card-link">
-                        <i class="fas fa-map-marker-alt"></i> ดูแผนที่ Google Maps
-                    </a>
-                </div>
-            `;
-        }
-
-        let mediaHtml = '';
-        if (data.image_url) {
-            mediaHtml += `
-                <a href="${data.image_url}" target="_blank" class="block mb-2">
-                    <img src="${data.image_url}" class="max-w-[200px] md:max-w-[250px] rounded-lg shadow-sm" alt="รูปภาพแนบ">
-                </a>
-            `;
-        }
-        if (data.file_url) {
-            const fileName = data.file_url.substring(data.file_url.lastIndexOf('/') + 1);
-            mediaHtml += `
-                <a href="${data.file_url}" target="_blank" class="flex items-center gap-2 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-700 text-sm hover:bg-slate-100 transition shadow-sm mb-2 w-[220px]">
-                    <div class="p-2 bg-blue-100/50 text-blue-600 rounded-md">
-                        <i class="fas fa-download text-lg"></i>
-                    </div>
-                    <span class="truncate font-medium flex-1 text-left" title="${fileName}">${fileName}</span>
-                </a>
-            `;
-        }
-
-        let formattedMessage = data.message
-            ? highlightMentions(data.message.replace(/\n/g, '<br>'))
-            : '';
-
         // Show notification if current user is mentioned
-        if (!isSelf && data.mentions && data.mentions.length > 0) {
-            const mentions = data.mentions;
-            if (mentions.includes('all') || mentions.includes(currentUsername.toLowerCase())) {
+        if (data.user_id !== userId && data.mentions && data.mentions.length > 0) {
+            if (data.mentions.includes('all') || data.mentions.includes(currentUsername.toLowerCase())) {
                 showMentionToast(data.username, data.message || '(ไฟล์/รูปภาพ)');
             }
         }
 
-        const html = `
-            <div class="message-bubble ${bubbleClass}">
-                ${!isSelf ? `<div class="message-info">${data.username}</div>` : ''}
-                <div class="message-text">
-                    ${mediaHtml}
-                    <span class="block">
-                        ${formattedMessage} ${sttIcon}
-                    </span>
-                    ${locationHtml}
-                </div>
-                <div class="message-meta">${data.timestamp}</div>
-            </div>
-        `;
-        messagesContainer.innerHTML += html;
+        // ใช้ appendMessage() ร่วมกับ fetch (ข้อความ WS ไม่มี id → ใส่ timestamp แทน เพื่อกัน duplicate)
+        appendMessage(data);
+        // อัปเดต lastMsgTs ด้วย timestamp ปัจจุบัน (ISO)
+        lastMsgTs = new Date().toISOString();
         messagesContainer.scrollTop = messagesContainer.scrollHeight;
     };
 
@@ -932,13 +996,17 @@
             document.getElementById('chat-message-input').placeholder = "พิมพ์ข้อความที่นี่...";
             hideWsBanner();
             startWsHeartbeat();
+            // ดึงข้อความที่พลาดระหว่างการหลุดการเชื่อมต่อ (สำคัญสำหรับมือถือ)
+            if (lastMsgTs) fetchNewMessages(false);
         };
 
         chatSocket.onclose = function(e) {
             stopWsHeartbeat();
-            // e.wasClean = true หมายถึงปิดปกติ (logout, navigate away) — ไม่ต้อง reconnect
-            if (e.wasClean) return;
-            console.warn('[WS] Closed unexpectedly. Reconnecting in', wsReconnectDelay, 'ms...');
+            // หมายเหตุ: บนมือถือ iOS/Android browser อาจส่ง wasClean=true ตอน suspend
+            // จึงไม่ใช้ wasClean เป็นเงื่อนไข reconnect อีกต่อไป
+            // แทนที่ด้วย flag wsUserLeft ที่ตั้งค่าตอน user กด back จริงๆ
+            if (wsUserLeft) return;
+            console.warn('[WS] Closed. Reconnecting in', wsReconnectDelay, 'ms... (wasClean:', e.wasClean, ')');
             document.getElementById('chat-message-input').placeholder = "กำลังเชื่อมต่อใหม่...";
             showWsBanner('🔴 ขาดการเชื่อมต่อ — กำลังเชื่อมต่อใหม่อัตโนมัติ...');
             wsReconnectTimer = setTimeout(connectWebSocket, wsReconnectDelay);
@@ -958,10 +1026,32 @@
     // สำคัญมากสำหรับมือถือ: Android/iOS จะ suspend background processes
     // เมื่อเปิด App อื่น WebSocket จะหลุด → reconnect เมื่อกลับมา
     document.addEventListener('visibilitychange', function() {
-        if (!document.hidden && chatSocket && chatSocket.readyState !== WebSocket.OPEN) {
-            console.log('[WS] Tab/App กลับมาอยู่ foreground — reconnecting...');
-            connectWebSocket();
+        if (!document.hidden && !wsUserLeft) {
+            const state = chatSocket ? chatSocket.readyState : WebSocket.CLOSED;
+            // reconnect ถ้า CLOSED หรือ CLOSING (ไม่ใช่แค่ !== OPEN เพราะ CONNECTING ไม่ต้อง reconnect)
+            if (state === WebSocket.CLOSED || state === WebSocket.CLOSING) {
+                console.log('[WS] Tab/App กลับมาอยู่ foreground — reconnecting...');
+                wsReconnectDelay = 1500;  // reset backoff เมื่อ user กลับมาเอง
+                connectWebSocket();
+            }
         }
+    });
+
+    // reconnect เมื่อ network กลับมา (สลับ WiFi↔4G บนมือถือ)
+    window.addEventListener('online', function() {
+        if (!wsUserLeft) {
+            console.log('[WS] Network online — reconnecting...');
+            wsReconnectDelay = 1500;
+            if (!chatSocket || chatSocket.readyState !== WebSocket.OPEN) {
+                connectWebSocket();
+            }
+        }
+    });
+
+    // ตั้ง flag ก่อน user ออกจากหน้า เพื่อไม่ให้ reconnect ไม่จำเป็น
+    window.addEventListener('beforeunload', function() {
+        wsUserLeft = true;
+        stopWsHeartbeat();
     });
 
     // ส่งข้อความ

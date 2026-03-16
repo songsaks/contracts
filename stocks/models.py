@@ -168,6 +168,50 @@ class MomentumCandidate(models.Model):
     def __str__(self):
         return f"{self.symbol} - Score: {self.technical_score}"
 
+# ====== MultiFactorCandidate — ผลลัพธ์ Multi-Factor Scoring ======
+
+class MultiFactorCandidate(models.Model):
+    """
+    เก็บผลการสแกนหุ้นด้วย Multi-Factor Super Score
+    ประกอบด้วย 4 ปัจจัย: Momentum, Volume/Flow, Sentiment, Fundamental
+    """
+    user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
+    symbol = models.CharField(max_length=20)
+    sector = models.CharField(max_length=100, default="Unknown")
+    price = models.FloatField(default=0.0)
+
+    # ====== Factor Scores ======
+    momentum_score = models.IntegerField(default=0)   # max 40
+    volume_score = models.IntegerField(default=0)     # max 30
+    sentiment_score = models.IntegerField(default=0)  # max 20 (filled by AI)
+    fundamental_score = models.IntegerField(default=0)  # max 10
+    super_score = models.IntegerField(default=0)      # sum of all (max 100)
+
+    # ====== Indicators ======
+    rsi = models.FloatField(default=0.0)
+    adx = models.FloatField(default=0.0)
+    mfi = models.FloatField(default=0.0)
+    rvol = models.FloatField(default=1.0)
+    eps_growth = models.FloatField(default=0.0)
+    rev_growth = models.FloatField(default=0.0)
+
+    # ====== Sentiment (AI) ======
+    sentiment_label = models.CharField(max_length=20, blank=True)   # บวก/กลาง/ลบ
+    sentiment_reason = models.TextField(blank=True)
+
+    # ====== EMA ======
+    above_ema200 = models.BooleanField(default=False)
+    above_ema50 = models.BooleanField(default=False)
+
+    scanned_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-super_score']
+
+    def __str__(self):
+        return f"{self.symbol} - SuperScore: {self.super_score}"
+
+
 # ====== ScannableSymbol — รายชื่อหุ้นที่ระบบสแกนได้ ======
 
 class ScannableSymbol(models.Model):

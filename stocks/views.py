@@ -9,7 +9,7 @@ from django.contrib.auth import login
 from django.contrib import messages
 from django.conf import settings
 from google import genai
-from .models import Watchlist, AnalysisCache, AssetCategory, Portfolio, MomentumCandidate, ScannableSymbol
+from .models import Watchlist, AnalysisCache, AssetCategory, Portfolio, MomentumCandidate, ScannableSymbol, MultiFactorCandidate
 from .utils import (
     get_stock_data, analyze_with_ai, calculate_trailing_stop,
     refresh_set100_symbols, find_supply_demand_zones
@@ -1307,7 +1307,7 @@ def momentum_scanner(request):
                     try:
                         ticker = yf.Ticker(f"{symbol}.BK")
                         info = ticker.info
-                        if isinstance(info, dict):
+                        if isinstance(info, dict) and len(info) >= 5:
                             sector = info.get('sector', 'Other')
 
                             # ดึงการเติบโตของ EPS และรายได้ (แปลงเป็น %)
@@ -1550,7 +1550,7 @@ def portfolio_scan(request):
                     try:
                         ticker_yf = yf.Ticker(f"{symbol}.BK")
                         info = ticker_yf.info
-                        if isinstance(info, dict):
+                        if isinstance(info, dict) and len(info) >= 5:
                             sector = info.get('sector', 'Other')
                             eps_growth = float(info.get('earningsQuarterlyGrowth', 0) or 0) * 100
                             rev_growth = float(info.get('revenueGrowth', 0) or 0) * 100
@@ -1710,3 +1710,238 @@ def signup(request):
     else:
         form = UserCreationForm()
     return render(request, 'registration/signup.html', {'form': form})
+
+
+# ====== Multi-Factor Scoring Scanner ======
+
+@login_required
+def multi_factor_scanner(request):
+    """
+    สแกนหุ้นด้วยระบบ Multi-Factor Super Score
+    รวม 4 ปัจจัย: Momentum(40) + Volume/Flow(30) + Sentiment AI(20) + Fundamental(10)
+    """
+    # ====== SCAN (POST only — PRG pattern) ======
+    if request.method == "POST" and request.POST.get('action') == 'scan':
+        # import หนักเฉพาะตอนสแกนจริง ไม่ใช่ทุก request
+        import pandas_ta as ta
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+
+        scan_symbols = ScannableSymbol.objects.filter(is_active=True).values_list('symbol', flat=True)
+        if not scan_symbols:
+            refresh_set100_symbols()
+            scan_symbols = ScannableSymbol.objects.filter(is_active=True).values_list('symbol', flat=True)
+
+        MultiFactorCandidate.objects.filter(user=request.user).delete()
+        sym_list = list(scan_symbols)
+
+        # ──────────────────────────────────────────────────────────────
+        # Phase 1: Batch download ราคาทุก symbol ในคำสั่งเดียว
+        # yfinance ใช้ threading ภายใน → เร็วกว่าดาวน์โหลดแยกมาก
+        # ──────────────────────────────────────────────────────────────
+        tickers_str = " ".join(f"{s}.BK" for s in sym_list)
+        try:
+            batch_df = yf.download(
+                tickers_str,
+                period="1y", interval="1d",
+                group_by='ticker',
+                progress=False, threads=True,
+            )
+        except Exception as e:
+            print(f"[MultiFactorScan] Batch download failed: {e}")
+            batch_df = None
+
+        # ──────────────────────────────────────────────────────────────
+        # Phase 2: ฟังก์ชันประมวลผลต่อหุ้น (รันใน thread)
+        # ──────────────────────────────────────────────────────────────
+        def _get_df(symbol):
+            """ดึง DataFrame ราคาจาก batch หรือ fallback โหลดแยก"""
+            sym_bk = f"{symbol}.BK"
+            df = None
+            if batch_df is not None and not batch_df.empty:
+                try:
+                    df = batch_df[sym_bk].copy() if len(sym_list) > 1 else batch_df.copy()
+                except Exception:
+                    df = None
+            if df is None or (hasattr(df, 'empty') and df.empty):
+                try:
+                    df = yf.download(sym_bk, period="1y", interval="1d", progress=False)
+                except Exception:
+                    return None
+            return df
+
+        def process_one(symbol):
+            try:
+                df = _get_df(symbol)
+                if df is None or df.empty:
+                    return None
+                if isinstance(df.columns, pd.MultiIndex):
+                    df.columns = df.columns.droplevel(1)
+                df = df.dropna(subset=['Close', 'High'])
+                if len(df) < 60:
+                    return None
+                df = df.copy()
+
+                # คำนวณ indicators
+                df['EMA50']  = ta.ema(df['Close'], length=50)
+                df['EMA200'] = ta.ema(df['Close'], length=200)
+                df['RSI']    = ta.rsi(df['Close'], length=14)
+                adx_df = ta.adx(df['High'], df['Low'], df['Close'], length=14)
+                if adx_df is not None and not adx_df.empty:
+                    df = pd.concat([df, adx_df], axis=1)
+                df['MFI']  = ta.mfi(df['High'], df['Low'], df['Close'], df['Volume'], length=14)
+                df['RVOL'] = df['Volume'] / df['Volume'].rolling(20).mean()
+
+                last    = df.iloc[-1]
+                price   = float(df['Close'].iloc[-1])
+                rsi     = float(last.get('RSI')    or 0) if pd.notna(last.get('RSI'))    else 0
+                adx_val = float(last.get('ADX_14') or 0) if 'ADX_14' in df.columns and pd.notna(last.get('ADX_14')) else 0
+                mfi_val = float(last.get('MFI')    or 0) if pd.notna(last.get('MFI'))    else 0
+                rvol    = float(last.get('RVOL')   or 1) if pd.notna(last.get('RVOL'))   else 1.0
+                ema50   = float(last.get('EMA50')  or 0) if pd.notna(last.get('EMA50'))  else 0
+                ema200  = float(last.get('EMA200') or 0) if pd.notna(last.get('EMA200')) else 0
+
+                above_ema200 = bool(price > ema200) if ema200 else False
+                above_ema50  = bool(price > ema50)  if ema50  else False
+
+                # Momentum Score (max 40)
+                mom = 0
+                if above_ema200:                   mom += 15
+                if above_ema50:                    mom += 5
+                if 55 <= rsi <= 72:                mom += 15
+                elif 45 <= rsi < 55 or 72 < rsi <= 80: mom += 7
+                if adx_val >= 30:                  mom += 5
+
+                # Volume/Flow Score (max 30)
+                vol = 0
+                if rvol >= 3.0:   vol += 15
+                elif rvol >= 2.0: vol += 12
+                elif rvol >= 1.5: vol += 8
+                elif rvol >= 1.0: vol += 4
+                if mfi_val >= 70:   vol += 15
+                elif mfi_val >= 60: vol += 10
+                elif mfi_val >= 50: vol += 5
+
+                # Fundamental Score (max 10)  — fetch .info ใน thread เดิมเลย
+                sector = "Unknown"; eps_g = 0.0; rev_g = 0.0; fund = 0
+                try:
+                    info = yf.Ticker(f"{symbol}.BK").info or {}
+                    # yfinance บางตัวส่ง sparse dict มา (เช่น {'trailingPegRatio': None})
+                    # ตรวจว่ามีข้อมูลพอ ก่อนนำไปใช้
+                    if isinstance(info, dict) and len(info) >= 5:
+                        sector = info.get('sector', 'Other') or 'Other'
+                        eps_g  = float(info.get('earningsQuarterlyGrowth') or 0) * 100
+                        rev_g  = float(info.get('revenueGrowth') or 0) * 100
+                        pe     = float(info.get('trailingPE') or 0)
+                        if eps_g >= 20:   fund += 4
+                        elif eps_g >= 10: fund += 2
+                        if rev_g >= 10:   fund += 3
+                        elif rev_g >= 5:  fund += 1
+                        if 5 <= pe <= 30: fund += 3
+                except Exception:
+                    pass
+
+                vol_score = min(vol, 30)
+                return dict(
+                    symbol=symbol, sector=sector, price=round(price, 2),
+                    momentum_score=mom, volume_score=vol_score,
+                    sentiment_score=0, fundamental_score=fund,
+                    super_score=mom + vol_score + fund,
+                    rsi=round(rsi, 2), adx=round(adx_val, 2),
+                    mfi=round(mfi_val, 2), rvol=round(rvol, 2),
+                    eps_growth=round(eps_g, 2), rev_growth=round(rev_g, 2),
+                    above_ema200=above_ema200, above_ema50=above_ema50,
+                )
+            except Exception as e:
+                print(f"[MultiFactorScan] {symbol}: {e}")
+                return None
+
+        # ──────────────────────────────────────────────────────────────
+        # Phase 3: รันขนาน 12 threads — fundamentals เป็น I/O bound
+        # ──────────────────────────────────────────────────────────────
+        raw_results = []
+        with ThreadPoolExecutor(max_workers=12) as executor:
+            futures = {executor.submit(process_one, s): s for s in sym_list}
+            for future in as_completed(futures):
+                r = future.result()
+                if r:
+                    raw_results.append(r)
+
+        # ──────────────────────────────────────────────────────────────
+        # Phase 4: Bulk create — 1 SQL INSERT แทน 100+
+        # ──────────────────────────────────────────────────────────────
+        MultiFactorCandidate.objects.bulk_create([
+            MultiFactorCandidate(user=request.user, **r) for r in raw_results
+        ])
+
+        messages.success(request, f"✅ สแกนเสร็จสิ้น — พบ {len(raw_results)} หุ้น")
+        return redirect('stocks:multi_factor_scanner')
+
+    # ====== AI SENTIMENT (batch) ======
+    if request.GET.get('sentiment') == 'true':
+        candidates_qs = MultiFactorCandidate.objects.filter(user=request.user).order_by('-super_score')[:30]
+        symbols_list  = [c.symbol for c in candidates_qs]
+        if symbols_list:
+            try:
+                client     = genai.Client(api_key=settings.GEMINI_API_KEY)
+                prompt = f"""วิเคราะห์ข่าวและ Sentiment ล่าสุดสำหรับหุ้นไทยเหล่านี้ในตลาด SET:
+{', '.join(symbols_list)}
+
+ตอบเป็น JSON array เท่านั้น ไม่มีข้อความอื่นนอก array:
+[{{"symbol":"PTT","score":15,"label":"บวก","reason":"สรุปเหตุผล 1 ประโยค"}}]
+
+score: 0-20 (20=บวกมาก, 10=กลาง, 0=ลบมาก)
+label: "บวก" หรือ "กลาง" หรือ "ลบ"
+reason: ภาษาไทย ไม่เกิน 60 ตัวอักษร"""
+                resp = client.models.generate_content(
+                    model='gemini-2.5-flash',
+                    contents=prompt
+                )
+                import json, re
+                raw = resp.text.strip()
+                raw = re.sub(r'^```(?:json)?\s*', '', raw)
+                raw = re.sub(r'\s*```$', '', raw)
+                data = json.loads(raw)
+                for item in data:
+                    sym   = item.get('symbol','').upper()
+                    score = int(item.get('score', 0))
+                    label = item.get('label', '')
+                    reason= item.get('reason', '')
+                    MultiFactorCandidate.objects.filter(
+                        user=request.user, symbol=sym
+                    ).update(
+                        sentiment_score=score,
+                        sentiment_label=label,
+                        sentiment_reason=reason,
+                    )
+                # recalculate super_score for updated records
+                for c in MultiFactorCandidate.objects.filter(user=request.user):
+                    c.super_score = c.momentum_score + c.volume_score + c.sentiment_score + c.fundamental_score
+                    c.save(update_fields=['super_score'])
+            except Exception as e:
+                messages.warning(request, f"AI Sentiment Error: {e}")
+        return redirect('stocks:multi_factor_scanner')
+
+    # ====== Sort & Render ======
+    sort_by = request.GET.get('sort', 'super')
+    valid_sorts = {
+        'super': '-super_score',
+        'momentum': '-momentum_score',
+        'volume': '-volume_score',
+        'sentiment': '-sentiment_score',
+        'fundamental': '-fundamental_score',
+        'rsi': '-rsi',
+        'rvol': '-rvol',
+        'symbol': 'symbol',
+    }
+    order_field = valid_sorts.get(sort_by, '-super_score')
+    candidates  = MultiFactorCandidate.objects.filter(user=request.user).order_by(order_field)
+    last_scan   = candidates.first()
+
+    context = {
+        'candidates':    candidates,
+        'current_sort':  sort_by,
+        'has_scanned':   candidates.exists(),
+        'scanned_at':    last_scan.scanned_at if last_scan else None,
+        'has_sentiment': candidates.filter(sentiment_score__gt=0).exists(),
+    }
+    return render(request, 'stocks/multi_factor.html', context)

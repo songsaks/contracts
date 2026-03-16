@@ -56,7 +56,8 @@ def chat_room(request, room_id):
             return redirect('chat:index')
 
     # ดึงข้อความย้อนหลังล่าสุด 50 ข้อความ เรียงตามเวลาจากเก่าไปใหม่
-    chat_messages = room.messages.all().order_by('timestamp')[:50]
+    chat_messages = list(room.messages.all().order_by('timestamp')[:50])
+    last_msg_ts = chat_messages[-1].timestamp.isoformat() if chat_messages else ''
 
     try:
         user_role = request.user.profile.role
@@ -82,6 +83,7 @@ def chat_room(request, room_id):
     return render(request, 'chat/room.html', {
         'room': room,
         'chat_messages': chat_messages,
+        'last_msg_ts': last_msg_ts,
         'is_technician': is_technician,
         'room_members': room_members,
     })
@@ -168,3 +170,54 @@ def upload_file(request, room_id):
         )
         return JsonResponse({'status': 'ok'})
     return JsonResponse({'error': 'Invalid request'}, status=400)
+
+
+# ====== View ดึงข้อความใหม่ที่พลาดไป (สำหรับ mobile reconnect / manual refresh) ======
+
+@login_required
+def fetch_new_messages(request, room_id):
+    """
+    คืนข้อความที่เกิดขึ้นหลังจาก timestamp ที่ระบุใน ?since=<ISO>
+    ใช้สำหรับ:
+      1. Auto-fetch เมื่อ WebSocket reconnect (ดึงข้อความที่พลาดระหว่างหลุดการเชื่อมต่อ)
+      2. ปุ่ม Refresh ที่ user กดเอง
+    """
+    room = get_object_or_404(ChatRoom, pk=room_id)
+
+    # ตรวจสอบสิทธิ์ห้องส่วนตัว
+    if room.is_private and not request.user.is_superuser:
+        if not room.allowed_users.filter(id=request.user.id).exists():
+            return JsonResponse({'error': 'forbidden'}, status=403)
+
+    since_iso = request.GET.get('since', '')
+    since_dt = None
+    if since_iso:
+        from django.utils.dateparse import parse_datetime
+        try:
+            since_dt = parse_datetime(since_iso)
+        except Exception:
+            pass
+
+    if since_dt:
+        msgs = room.messages.filter(timestamp__gt=since_dt).order_by('timestamp').select_related('user')[:100]
+    else:
+        msgs = room.messages.order_by('timestamp').select_related('user')[:50]
+
+    data = []
+    for msg in msgs:
+        data.append({
+            'id': msg.id,
+            'user_id': msg.user_id,
+            'username': msg.user.username,
+            'message': msg.content,
+            'timestamp': timezone.localtime(msg.timestamp).strftime('%H:%M'),
+            'timestamp_iso': msg.timestamp.isoformat(),
+            'image_url': msg.image.url if msg.image else None,
+            'file_url': msg.file.url if msg.file else None,
+            'latitude': float(msg.latitude) if msg.latitude else None,
+            'longitude': float(msg.longitude) if msg.longitude else None,
+            'location_name': msg.location_name or '',
+            'is_stt': msg.is_speech_to_text,
+        })
+
+    return JsonResponse({'messages': data})
