@@ -313,56 +313,122 @@ def schedule_queue_items():
 
 # ====== ส่วนส่งข้อความแจ้งเตือน ======
 
+def _clean_description(title: str, description: str, max_len: int = 70) -> str:
+    """
+    ทำความสะอาด description โดย:
+    - ตัดประโยคซ้ำซ้อน (ทั้ง exact-duplicate และ near-duplicate)
+    - ลบประโยคที่ซ้ำกับ title
+    - ตัดคำ (word boundary) พร้อม '…' อย่างสวยงาม
+    """
+    import re
+    if not description:
+        return ''
+
+    # Normalize whitespace
+    text = re.sub(r'[ \t]+', ' ', description.strip())
+
+    # ตรวจ pattern ซ้ำง่ายๆ: "X X" หรือ "X X X" → ลดเหลือ "X"
+    half = len(text) // 2
+    if half > 15 and text[:half].strip() == text[half:].strip():
+        text = text[:half].strip()
+
+    # Sentence-level dedup
+    raw_sentences = re.split(r'[.!?\n]+', text)
+    seen: set = set()
+    unique: list = []
+    title_lower = title.lower()
+    for s in raw_sentences:
+        s = s.strip()
+        if not s:
+            continue
+        s_norm = re.sub(r'\s+', ' ', s.lower()).strip(' .!?')
+        if s_norm in seen:
+            continue
+        seen.add(s_norm)
+        # ข้ามประโยคที่เป็น substring ของ title (ซ้ำกับหัวข้อ)
+        if s_norm and s_norm in title_lower:
+            continue
+        unique.append(s)
+
+    text = '  ·  '.join(unique) if unique else text
+
+    # Smart truncation at word boundary
+    if len(text) > max_len:
+        cut = text[:max_len]
+        for sep in (' ', '·', ',', ')', ']'):
+            pos = cut.rfind(sep)
+            if pos > int(max_len * 0.55):
+                text = cut[:pos].rstrip(' ·,') + '…'
+                break
+        else:
+            text = cut.rstrip() + '…'
+
+    return text
+
+
+def _get_customer_name(task) -> str:
+    """ดึงชื่อลูกค้าจาก task อย่างปลอดภัย"""
+    try:
+        if task.project and task.project.customer:
+            return task.project.customer.name
+    except Exception:
+        pass
+    return '—'
+
+
 def _send_schedule_messages(items):
     """
     สร้างและส่ง TeamMessage เพื่อแจ้งรายการงานประจำวันให้แต่ละทีม
     จัดกลุ่มงานตาม (team, date) เพื่อส่งข้อความรวมครั้งเดียวต่อทีมต่อวัน
-
-    Args:
-        items (QuerySet): ServiceQueueItem ที่เพิ่งถูก schedule
     """
     from pms.models import ServiceTeam, TeamMessage
     from collections import defaultdict
 
-    # Group by team + date (งาน 1 ชิ้นอาจมีหลายทีม → ปรากฏในหลายกลุ่ม)
-    # จัดกลุ่มงานตาม (team_id, scheduled_date) เพื่อส่ง message รวมต่อทีม
-    groups = defaultdict(list)
+    _PRIORITY = {'CRITICAL': ' 🚨', 'HIGH': ' ⚡', 'NORMAL': '', 'LOW': ''}
+
+    # Group by (team_id, scheduled_date)
+    groups: dict = defaultdict(list)
     for item in items:
         for team in item.assigned_teams.all():
             groups[(team.id, item.scheduled_date)].append(item)
 
-    # สร้าง message สำหรับแต่ละกลุ่ม (ทีม + วัน)
     for (team_id, date), tasks in groups.items():
         team = ServiceTeam.objects.get(id=team_id)
 
-        # สร้างเนื้อหา message แบบ text ที่มีรายละเอียดงานแต่ละชิ้น
-        lines = [f"📋 คิวงานวันที่ {date.strftime('%d/%m/%Y')}"]
-        lines.append(f"ทีม: {team.name} | จำนวน: {len(tasks)} งาน")
-        lines.append("=" * 40)
+        SEP = '─' * 32
+        lines = [
+            f"📋 คิวงานทีม {team.name}",
+            f"📅 {date.strftime('%d/%m/%Y')}  ·  {len(tasks)} งาน",
+            SEP,
+        ]
 
         for i, task in enumerate(tasks, 1):
-            time_str = task.scheduled_time.strftime('%H:%M') if task.scheduled_time else '-'
-            lines.append(f"\n{i}. [{time_str}] {task.title}")
-            lines.append(f"   ประเภท: {task.get_task_type_display()}")
+            time_str  = task.scheduled_time.strftime('%H:%M') if task.scheduled_time else '—:——'
+            priority  = _PRIORITY.get(getattr(task, 'priority', 'NORMAL'), '')
+            cust_name = _get_customer_name(task)
+
+            # Type + optional deadline on one line
+            meta = task.get_task_type_display()
             if task.deadline:
-                lines.append(f"   กำหนดส่ง: {task.deadline.strftime('%d/%m/%Y')}")
-            if task.description:
-                # ตัดคำอธิบายให้ไม่เกิน 80 ตัวอักษรเพื่อไม่ให้ message ยาวเกินไป
-                lines.append(f"   {task.description[:80]}")
+                meta += f"  ·  กำหนดส่ง {task.deadline.strftime('%d/%m')}"
 
-        lines.append("\n" + "=" * 40)
+            desc = _clean_description(task.title, task.description)
 
-        # บันทึก TeamMessage ในฐานข้อมูลและเชื่อมโยงกับงานที่เกี่ยวข้อง
+            lines.append(f"\n{i}.  {time_str}  {task.title}{priority}")
+            lines.append(f"     👤 {cust_name}")
+            lines.append(f"     🏷 {meta}")
+            if desc:
+                lines.append(f"     💬 {desc}")
+
+        lines += [f"\n{SEP}", f"ทีม {team.name}  ·  รวม {len(tasks)} งาน"]
+
         msg = TeamMessage.objects.create(
             team=team,
-            subject=f"📋 คิวงาน {date.strftime('%d/%m/%Y')} ({len(tasks)} งาน)",
+            subject=f"📋 คิวงาน {date.strftime('%d/%m/%Y')} · ทีม {team.name} ({len(tasks)} งาน)",
             content="\n".join(lines),
         )
-        # เชื่อมโยง message กับ task ทั้งหมดในกลุ่มนี้ (many-to-many)
         msg.related_tasks.set(tasks)
 
-        # External Notifications (Google Chat / LINE)
-        # ส่งการแจ้งเตือนภายนอก (ถ้าล้มเหลวไม่ให้หยุดการทำงาน)
         try:
             _post_external_notifications(team, msg.subject, msg.content)
         except Exception as e:
@@ -371,45 +437,34 @@ def _send_schedule_messages(items):
 
 def _post_external_notifications(team, subject, content):
     """
-    ส่งการแจ้งเตือนไปยัง platform ภายนอกที่ทีมกำหนดไว้
-    รองรับ 2 platform:
-    - Google Chat: ใช้ Webhook URL ของทีม
-    - LINE Notify: ใช้ LINE Token ของทีม
-    ถ้าทีมไม่ได้กำหนด webhook/token ไว้ จะข้ามการส่งไป
-
-    Args:
-        team (ServiceTeam): ทีมที่ต้องการส่งการแจ้งเตือน
-        subject (str): หัวข้อ message
-        content (str): เนื้อหา message
+    ส่งการแจ้งเตือนไปยัง Google Chat และ LINE Notify
     """
-
-    # Send to Google Chat
-    # ส่งไปยัง Google Chat ถ้าทีมมี webhook URL กำหนดไว้
+    # ── Google Chat ──────────────────────────────────────────────────────────
     if team.google_chat_webhook:
         try:
-            # Google Chat Card format is a bit complex, but simple text works too
-            # ใช้รูปแบบ simple text message (ไม่ใช้ Card format เพื่อความเรียบง่าย)
-            payload = {
-                "text": f"*{subject}*\n{content}"
-            }
+            # Google Chat รองรับ *bold* และ _italic_
+            gc_text = f"*{subject}*\n\n{content}"
             requests.post(
                 team.google_chat_webhook,
-                data=json.dumps(payload),
-                headers={"Content-Type": "application/json"}
+                data=json.dumps({"text": gc_text}),
+                headers={"Content-Type": "application/json"},
+                timeout=10,
             )
-            logger.info(f"Notification sent to Google Chat for team {team.name}")
+            logger.info(f"Google Chat notification sent: team={team.name}")
         except Exception as e:
             logger.warning(f"Google Chat notify failed: {e}")
 
-    # Send to LINE Notify
-    # ส่งไปยัง LINE Notify ถ้าทีมมี LINE Token กำหนดไว้
+    # ── LINE Notify ───────────────────────────────────────────────────────────
     if team.line_token:
         try:
-            line_url = "https://notify-api.line.me/api/notify"
-            # ใส่ Bearer token ใน Authorization header ตาม LINE Notify API spec
-            headers = {"Authorization": f"Bearer {team.line_token}"}
-            data = {"message": f"\n{subject}\n{content}"}
-            requests.post(line_url, headers=headers, data=data)
-            logger.info(f"Notification sent to LINE for team {team.name}")
+            # LINE ไม่รองรับ markdown — ส่ง plain text
+            line_msg = f"\n{subject}\n\n{content}"
+            requests.post(
+                "https://notify-api.line.me/api/notify",
+                headers={"Authorization": f"Bearer {team.line_token}"},
+                data={"message": line_msg},
+                timeout=10,
+            )
+            logger.info(f"LINE notification sent: team={team.name}")
         except Exception as e:
             logger.warning(f"LINE notify failed: {e}")

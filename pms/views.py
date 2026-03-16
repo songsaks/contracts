@@ -1518,29 +1518,51 @@ def send_queue_notifications(request):
                 # ส่งแจ้งเตือนคิวงานรวมเข้าสู่ "ศูนย์แชทกลาง (Chat Room)" ห้อง PMS โดยตรง
                 pms_room = ChatRoom.objects.filter(app_category='pms', project__isnull=True, is_active=True).first()
                 if pms_room:
-                    content_lines = [f"📢 **ประกาศคิวงานประจำวัน: {target_date.strftime('%d/%m/%Y')}**"]
+                    from utils.ai_service_manager import _clean_description, _get_customer_name
+                    _PRIORITY = {'CRITICAL': ' 🚨', 'HIGH': ' ⚡', 'NORMAL': '', 'LOW': ''}
+                    SEP = '━' * 28
 
-                    # จัดกลุ่มงานตามทีม (งาน 1 ชิ้นอาจมีหลายทีม → ปรากฏในหลายกลุ่ม)
-                    team_tasks = {}
-                    for item in items:
-                        teams = list(item.assigned_teams.all())
-                        if teams:
-                            for team in teams:
-                                team_tasks.setdefault(team.name, []).append(item)
+                    total_tasks = items.count()
+                    content_lines = [
+                        f"📋 คิวงาน {target_date.strftime('%d/%m/%Y')}  ·  รวม {total_tasks} งาน",
+                        SEP,
+                    ]
+
+                    # จัดกลุ่มงานตามทีม — เก็บ (task, all_teams) เพื่อแสดง cross-team
+                    team_buckets: dict = {}
+                    for item in items.prefetch_related('assigned_teams', 'project__customer'):
+                        all_teams = list(item.assigned_teams.all())
+                        if all_teams:
+                            for t in all_teams:
+                                team_buckets.setdefault(t.name, []).append((item, all_teams))
                         else:
-                            team_tasks.setdefault("ยังไม่ระบุทีม", []).append(item)
+                            team_buckets.setdefault('ยังไม่ระบุทีม', []).append((item, []))
 
-                    for t_name, tasks in team_tasks.items():
-                        content_lines.append(f"\n🚀 **ทีม: {t_name}** ({len(tasks)} งาน)")
-                        for idx, task in enumerate(tasks, 1):
-                            time_str = task.scheduled_time.strftime('%H:%M') if task.scheduled_time else '-'
-                            cust_name = task.project.customer.name if task.project else 'ไม่มีข้อมูลลูกค้า'
-                            all_teams = ", ".join(t.name for t in task.assigned_teams.all())
-                            content_lines.append(f"  {idx}. [{time_str}] {task.title} - {cust_name}")
-                            if all_teams:
-                                content_lines.append(f"      👥 {all_teams}")
-                            if task.description:
-                                content_lines.append(f"      📝 {task.description[:60]}")
+                    for t_name, task_pairs in team_buckets.items():
+                        content_lines.append(f"\n🔷 {t_name}  ·  {len(task_pairs)} งาน")
+                        for idx, (task, all_teams) in enumerate(task_pairs, 1):
+                            time_str  = task.scheduled_time.strftime('%H:%M') if task.scheduled_time else '—:——'
+                            priority  = _PRIORITY.get(getattr(task, 'priority', 'NORMAL'), '')
+                            cust_name = _get_customer_name(task)
+
+                            # แสดง cross-team เฉพาะเมื่องานนี้มีทีมอื่นร่วมด้วย
+                            other = [t.name for t in all_teams if t.name != t_name]
+                            cross = f"  (ร่วมกับ {', '.join(other)})" if other else ''
+
+                            meta_parts = [task.get_task_type_display()]
+                            if task.deadline:
+                                meta_parts.append(f"กำหนด {task.deadline.strftime('%d/%m')}")
+
+                            desc = _clean_description(task.title, task.description, max_len=55)
+
+                            content_lines.append(f"  {idx}. {time_str}  {task.title}{priority}{cross}")
+                            content_lines.append(f"       👤 {cust_name}")
+                            content_lines.append(f"       🏷 {'  ·  '.join(meta_parts)}")
+                            if desc:
+                                content_lines.append(f"       💬 {desc}")
+
+                    now_str = timezone.localtime(timezone.now()).strftime('%H:%M')
+                    content_lines += [f"\n{SEP}", f"🤖 ส่งอัตโนมัติ {now_str}"]
 
                     full_content = "\n".join(content_lines)
                     
