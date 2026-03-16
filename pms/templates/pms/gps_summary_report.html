@@ -304,6 +304,129 @@
         </div>
     </div>
 
+    <!-- ===== Customer Satisfaction Section ===== -->
+    {% if sat_total.total > 0 %}
+    <div class="card border-0 shadow-sm rounded-4 mb-4">
+        <div class="card-header bg-white border-0 pt-3 pb-2 px-4 d-flex align-items-center justify-content-between flex-wrap gap-2">
+            <h6 class="fw-bold mb-0">
+                <i class="fas fa-star me-2 text-warning"></i>ผลการประเมินความพึงพอใจลูกค้า — {{ month_name }} {{ year }}
+            </h6>
+            <span class="badge rounded-pill bg-warning bg-opacity-10 text-warning-emphasis border border-warning border-opacity-25" style="font-size:0.75rem;">
+                {{ sat_total.total }} แบบประเมิน
+            </span>
+        </div>
+        <div class="card-body p-4">
+
+            <!-- Summary stat cards -->
+            <div class="row g-3 mb-4">
+                <div class="col-6 col-md-3">
+                    <div class="stat-card text-center">
+                        <div class="fw-bold text-dark" style="font-size:2.2rem; line-height:1.1;">{{ sat_total.total }}</div>
+                        <div class="text-muted small mt-1">ทั้งหมด</div>
+                    </div>
+                </div>
+                <div class="col-6 col-md-3">
+                    <div class="stat-card text-center" style="border-color:#a7f3d0; background:#f0fdf4;">
+                        <div class="fw-bold text-success" style="font-size:2.2rem; line-height:1.1;">{{ sat_total.VERY_SATISFIED }}</div>
+                        <div class="text-muted small mt-1">😊 พอใจมาก</div>
+                        {% if sat_total.total > 0 %}
+                        <div style="font-size:0.72rem; color:#16a34a; font-weight:600; margin-top:2px;">
+                            {% widthratio sat_total.VERY_SATISFIED sat_total.total 100 %}%
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="col-6 col-md-3">
+                    <div class="stat-card text-center" style="border-color:#bfdbfe; background:#eff6ff;">
+                        <div class="fw-bold text-primary" style="font-size:2.2rem; line-height:1.1;">{{ sat_total.SATISFIED }}</div>
+                        <div class="text-muted small mt-1">🙂 พอใจ</div>
+                        {% if sat_total.total > 0 %}
+                        <div style="font-size:0.72rem; color:#1d4ed8; font-weight:600; margin-top:2px;">
+                            {% widthratio sat_total.SATISFIED sat_total.total 100 %}%
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="col-6 col-md-3">
+                    <div class="stat-card text-center" style="border-color:#fca5a5; background:#fef2f2;">
+                        <div class="fw-bold text-danger" style="font-size:2.2rem; line-height:1.1;">{{ sat_total.NOT_SATISFIED }}</div>
+                        <div class="text-muted small mt-1">😞 ไม่พอใจ</div>
+                        {% if sat_total.total > 0 %}
+                        <div style="font-size:0.72rem; color:#dc2626; font-weight:600; margin-top:2px;">
+                            {% widthratio sat_total.NOT_SATISFIED sat_total.total 100 %}%
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Charts row -->
+            <div class="row g-4 mb-4">
+                <!-- Doughnut chart: overall -->
+                <div class="col-md-5">
+                    <div class="rounded-3 border p-3" style="height:280px; display:flex; flex-direction:column; align-items:center;">
+                        <div class="fw-semibold text-secondary mb-2" style="font-size:0.8rem; text-transform:uppercase; letter-spacing:.04em;">
+                            สัดส่วนโดยรวม
+                        </div>
+                        <canvas id="satDoughnutChart" style="max-height:230px;"></canvas>
+                    </div>
+                </div>
+                <!-- Stacked bar chart: per technician -->
+                <div class="col-md-7">
+                    <div class="rounded-3 border p-3" style="height:280px;">
+                        <div class="fw-semibold text-secondary mb-2" style="font-size:0.8rem; text-transform:uppercase; letter-spacing:.04em;">
+                            แยกตามช่างเทคนิค
+                        </div>
+                        <canvas id="satBarChart" style="max-height:240px;"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Detail table -->
+            {% if sat_records %}
+            <div class="fw-semibold text-secondary mb-2" style="font-size:0.82rem;">
+                <i class="fas fa-list me-1"></i>รายการประเมินทั้งหมด
+            </div>
+            <div style="max-height:340px; overflow-y:auto; border-radius:0.75rem; border:1.5px solid #e2e8f0;">
+                <table class="table table-sm mb-0" style="font-size:0.82rem;">
+                    <thead style="position:sticky; top:0; z-index:2; background:#f8fafc;">
+                        <tr>
+                            <th style="font-size:0.72rem; text-transform:uppercase; letter-spacing:.04em; color:#64748b; border-bottom:2px solid #e2e8f0; white-space:nowrap; padding:0.55rem 0.75rem;">วันที่</th>
+                            <th style="font-size:0.72rem; text-transform:uppercase; letter-spacing:.04em; color:#64748b; border-bottom:2px solid #e2e8f0; padding:0.55rem 0.75rem;">ช่างเทคนิค</th>
+                            <th style="font-size:0.72rem; text-transform:uppercase; letter-spacing:.04em; color:#64748b; border-bottom:2px solid #e2e8f0; padding:0.55rem 0.75rem;">ชื่อลูกค้า</th>
+                            <th style="font-size:0.72rem; text-transform:uppercase; letter-spacing:.04em; color:#64748b; border-bottom:2px solid #e2e8f0; padding:0.55rem 0.75rem; white-space:nowrap;">เบอร์โทร</th>
+                            <th style="font-size:0.72rem; text-transform:uppercase; letter-spacing:.04em; color:#64748b; border-bottom:2px solid #e2e8f0; padding:0.55rem 0.75rem;">ระดับความพึงพอใจ</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for rec in sat_records %}
+                        <tr style="border-bottom:1px solid #f1f5f9; transition:background .1s;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background=''">
+                            <td class="text-muted" style="white-space:nowrap; padding:0.5rem 0.75rem;">{{ rec.date }}</td>
+                            <td style="padding:0.5rem 0.75rem;">
+                                <i class="fas fa-user-circle me-1 text-primary" style="font-size:0.75rem;"></i>{{ rec.username }}
+                            </td>
+                            <td style="padding:0.5rem 0.75rem;">{{ rec.customer_name }}</td>
+                            <td style="padding:0.5rem 0.75rem;">{{ rec.customer_phone }}</td>
+                            <td style="padding:0.5rem 0.75rem;">
+                                {% if rec.rating == 'VERY_SATISFIED' %}
+                                <span class="badge rounded-pill" style="background:#dcfce7; color:#15803d; font-size:0.78rem; padding:3px 10px;">😊 {{ rec.rating_display }}</span>
+                                {% elif rec.rating == 'SATISFIED' %}
+                                <span class="badge rounded-pill" style="background:#dbeafe; color:#1d4ed8; font-size:0.78rem; padding:3px 10px;">🙂 {{ rec.rating_display }}</span>
+                                {% else %}
+                                <span class="badge rounded-pill" style="background:#fee2e2; color:#dc2626; font-size:0.78rem; padding:3px 10px;">😞 {{ rec.rating_display }}</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% endif %}
+
+        </div>
+    </div>
+    {% endif %}
+
     {% else %}
     <div class="card border-0 shadow-sm rounded-4 p-5 text-center">
         <i class="fas fa-calendar-times fa-3x text-muted mb-3 opacity-25"></i>
@@ -319,12 +442,12 @@
 {% endblock %}
 
 {% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script>
-// user_id_map: {username: user_id} — ส่งมาจาก view
+// ─── GPS table cell click ─────────────────────────────────────
 const userIdMap = JSON.parse('{{ user_id_map_json|escapejs }}');
 const dailyReportBase = "{% url 'pms:gps_tracking_report' %}";
 
-// ผูก click event กับ data-cell ที่มีข้อมูล
 document.querySelectorAll('.data-cell.clickable[data-date][data-uidx]').forEach(function(cell) {
     const dateStr = cell.getAttribute('data-date');
     const uidx    = parseInt(cell.getAttribute('data-uidx'));
@@ -336,5 +459,111 @@ document.querySelectorAll('.data-cell.clickable[data-date][data-uidx]').forEach(
         window.location = `${dailyReportBase}?date=${dateStr}&user_id=${userId}`;
     };
 });
+
+// ─── Customer Satisfaction Charts ────────────────────────────
+{% if sat_total.total > 0 %}
+const satData = JSON.parse('{{ sat_chart_json|escapejs }}');
+const COLORS = {
+    very: { bg: 'rgba(22,163,74,0.8)',  border: '#16a34a' },
+    ok:   { bg: 'rgba(37,99,235,0.8)',  border: '#2563eb' },
+    bad:  { bg: 'rgba(220,38,38,0.8)',  border: '#dc2626' },
+};
+
+// Doughnut: overall distribution
+const totalVS = {{ sat_total.VERY_SATISFIED }};
+const totalS  = {{ sat_total.SATISFIED }};
+const totalNS = {{ sat_total.NOT_SATISFIED }};
+
+new Chart(document.getElementById('satDoughnutChart'), {
+    type: 'doughnut',
+    data: {
+        labels: ['😊 พอใจมาก', '🙂 พอใจ', '😞 ไม่พอใจ'],
+        datasets: [{
+            data: [totalVS, totalS, totalNS],
+            backgroundColor: [COLORS.very.bg, COLORS.ok.bg, COLORS.bad.bg],
+            borderColor: [COLORS.very.border, COLORS.ok.border, COLORS.bad.border],
+            borderWidth: 2,
+            hoverOffset: 8,
+        }],
+    },
+    options: {
+        cutout: '60%',
+        plugins: {
+            legend: {
+                position: 'bottom',
+                labels: { font: { size: 11 }, padding: 12, boxWidth: 14 },
+            },
+            tooltip: {
+                callbacks: {
+                    label: ctx => {
+                        const val = ctx.parsed;
+                        const total = ctx.dataset.data.reduce((a, b) => a + b, 0);
+                        const pct = total ? Math.round(val / total * 100) : 0;
+                        return ` ${val} ครั้ง (${pct}%)`;
+                    }
+                }
+            }
+        },
+    },
+});
+
+// Stacked bar chart: per technician
+new Chart(document.getElementById('satBarChart'), {
+    type: 'bar',
+    data: {
+        labels: satData.labels,
+        datasets: [
+            {
+                label: '😊 พอใจมาก',
+                data: satData.very_satisfied,
+                backgroundColor: COLORS.very.bg,
+                borderColor: COLORS.very.border,
+                borderWidth: 1,
+                borderRadius: 4,
+            },
+            {
+                label: '🙂 พอใจ',
+                data: satData.satisfied,
+                backgroundColor: COLORS.ok.bg,
+                borderColor: COLORS.ok.border,
+                borderWidth: 1,
+                borderRadius: 4,
+            },
+            {
+                label: '😞 ไม่พอใจ',
+                data: satData.not_satisfied,
+                backgroundColor: COLORS.bad.bg,
+                borderColor: COLORS.bad.border,
+                borderWidth: 1,
+                borderRadius: 4,
+            },
+        ],
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: {
+                position: 'top',
+                labels: { font: { size: 11 }, padding: 10, boxWidth: 14 },
+            },
+            tooltip: { mode: 'index', intersect: false },
+        },
+        scales: {
+            x: {
+                stacked: true,
+                grid: { display: false },
+                ticks: { font: { size: 11 } },
+            },
+            y: {
+                stacked: true,
+                beginAtZero: true,
+                ticks: { stepSize: 1, font: { size: 11 } },
+                grid: { color: 'rgba(0,0,0,0.05)' },
+            },
+        },
+    },
+});
+{% endif %}
 </script>
 {% endblock %}

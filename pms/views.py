@@ -2612,6 +2612,47 @@ def gps_summary_report(request):
     next_month = (month % 12) + 1
     next_year  = year + (1 if month == 12 else 0)
 
+    # ─── Customer Satisfaction data ────────────────────────────────────
+    from .models import CustomerSatisfaction
+    sat_qs = CustomerSatisfaction.objects.filter(
+        gps_log__timestamp__date__gte=start_date,
+        gps_log__timestamp__date__lte=end_date,
+    ).select_related('gps_log__user').order_by('-created_at')
+
+    if not (request.user.is_superuser or request.user.is_staff):
+        sat_qs = sat_qs.filter(gps_log__user=request.user)
+
+    sat_by_user = defaultdict(lambda: {'VERY_SATISFIED': 0, 'SATISFIED': 0, 'NOT_SATISFIED': 0, 'total': 0})
+    sat_records = []
+    for s in sat_qs:
+        uname = s.gps_log.user.username
+        sat_by_user[uname][s.rating] += 1
+        sat_by_user[uname]['total'] += 1
+        sat_records.append({
+            'date': timezone.localtime(s.gps_log.timestamp).strftime('%d/%m/%Y %H:%M'),
+            'username': uname,
+            'customer_name': s.customer_name or '-',
+            'customer_phone': s.customer_phone or '-',
+            'rating': s.rating,
+            'rating_display': s.get_rating_display(),
+        })
+
+    sat_total = {'VERY_SATISFIED': 0, 'SATISFIED': 0, 'NOT_SATISFIED': 0, 'total': 0}
+    for v in sat_by_user.values():
+        for k in ('VERY_SATISFIED', 'SATISFIED', 'NOT_SATISFIED'):
+            sat_total[k] += v[k]
+    sat_total['total'] = sat_total['VERY_SATISFIED'] + sat_total['SATISFIED'] + sat_total['NOT_SATISFIED']
+
+    sat_chart_labels = sorted(sat_by_user.keys())
+    sat_chart_json = {}
+    if sat_chart_labels:
+        sat_chart_json = {
+            'labels': sat_chart_labels,
+            'very_satisfied': [sat_by_user[u]['VERY_SATISFIED'] for u in sat_chart_labels],
+            'satisfied': [sat_by_user[u]['SATISFIED'] for u in sat_chart_labels],
+            'not_satisfied': [sat_by_user[u]['NOT_SATISFIED'] for u in sat_chart_labels],
+        }
+
     import json as json_lib
     return render(request, 'pms/gps_summary_report.html', {
         'year':          year,
@@ -2627,6 +2668,9 @@ def gps_summary_report(request):
         'next_month':    next_month,
         'today':         today,
         'total_logs':    sum(user_totals.values()),
+        'sat_records':   sat_records,
+        'sat_total':     sat_total,
+        'sat_chart_json': json_lib.dumps(sat_chart_json),
     })
 
 
