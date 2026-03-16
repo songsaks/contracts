@@ -1,8 +1,9 @@
 from django.contrib import admin
 from .models import (
     Project, ProductItem, Customer, Supplier, ProjectOwner,
-    CustomerRequirement, ServiceTeam, ServiceQueueItem, TeamMessage, 
-    SLAPlan, JobStatus, JobStatusAssignment, ProjectStatusAssignment, UserNotification
+    CustomerRequirement, ServiceTeam, ServiceQueueItem, TeamMessage,
+    SLAPlan, JobStatus, JobStatusAssignment, ProjectStatusAssignment, UserNotification,
+    TechnicianGPSLog, CustomerSatisfaction,
 )
 
 # จัดการตารางสถานะงานแบบ Dynamic (สำหรับเลือกใช้ตาม Job Type)
@@ -91,3 +92,28 @@ class UserNotificationAdmin(admin.ModelAdmin):
     list_display = ('user', 'project', 'subject', 'is_read', 'created_at')
     list_filter = ('user', 'is_read')
 
+
+
+@admin.register(TechnicianGPSLog)
+class TechnicianGPSLogAdmin(admin.ModelAdmin):
+    list_display  = ('user', 'check_type', 'location_name', 'timestamp')
+    list_filter   = ('check_type', 'user')
+    search_fields = ('user__username', 'location_name')
+    date_hierarchy = 'timestamp'
+
+
+@admin.register(CustomerSatisfaction)
+class CustomerSatisfactionAdmin(admin.ModelAdmin):
+    list_display  = ('get_technician', 'rating', 'customer_name', 'customer_phone', 'get_location', 'created_at')
+    list_filter   = ('rating', 'gps_log__user')
+    search_fields = ('customer_name', 'customer_phone', 'gps_log__user__username')
+    date_hierarchy = 'created_at'
+    readonly_fields = ('gps_log', 'created_at')
+
+    @admin.display(description='ช่าง')
+    def get_technician(self, obj):
+        return obj.gps_log.user.username
+
+    @admin.display(description='สถานที่')
+    def get_location(self, obj):
+        return obj.gps_log.location_name or '—'

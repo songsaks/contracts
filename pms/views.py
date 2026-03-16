@@ -2466,3 +2466,340 @@ def gps_log_delete(request, pk):
         log.delete()
         messages.success(request, "ลบ GPS log แล้ว")
     return redirect(request.META.get('HTTP_REFERER', 'pms:gps_tracking_report'))
+
+
+@login_required
+def gps_summary_report(request):
+    """
+    รายงานสรุป GPS รายเดือน แสดงเป็นตาราง (แถว = วัน, คอลัมน์ = ช่าง)
+    - Admin/Staff เห็นข้อมูลทุกคน
+    - User ทั่วไปเห็นเฉพาะข้อมูลตัวเอง
+    - คลิกที่ช่องใดช่องหนึ่งเพื่อไปยังรายงานรายวันของวันและคนนั้น
+    """
+    from .models import TechnicianGPSLog
+    from django.contrib.auth import get_user_model
+    from django.utils import timezone
+    from collections import defaultdict
+    import calendar
+    from datetime import date
+
+    User = get_user_model()
+    today = timezone.localdate()
+
+    THAI_MONTHS = ['', 'มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน',
+                   'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม']
+    DAY_SHORT = ['จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส', 'อา']
+
+    # รับ month/year จาก query param
+    try:
+        year = int(request.GET.get('year', today.year))
+        month = int(request.GET.get('month', today.month))
+        if not (1 <= month <= 12):
+            raise ValueError
+    except (ValueError, TypeError):
+        year, month = today.year, today.month
+
+    _, last_day = calendar.monthrange(year, month)
+    start_date = date(year, month, 1)
+    end_date   = date(year, month, last_day)
+
+    # Query GPS logs ในเดือนนั้น
+    qs = TechnicianGPSLog.objects.filter(
+        timestamp__date__gte=start_date,
+        timestamp__date__lte=end_date,
+    ).select_related('user').order_by('timestamp')
+
+    if not (request.user.is_superuser or request.user.is_staff):
+        qs = qs.filter(user=request.user)
+
+    # จัดกลุ่ม: raw_data[date_obj][username] = {count, first_ts, last_ts, types}
+    raw_data = defaultdict(lambda: defaultdict(lambda: {
+        'count': 0, 'first': None, 'last': None, 'types': set()
+    }))
+    users_ordered = {}  # ใช้ dict เพื่อรักษาลำดับ insertion (Python 3.7+)
+
+    user_id_map = {}  # {username: user_id}
+    for log in qs:
+        d = timezone.localtime(log.timestamp).date()
+        uname = log.user.username
+        users_ordered[uname] = True
+        user_id_map[uname] = log.user_id
+        cell = raw_data[d][uname]
+        cell['count'] += 1
+        local_ts = timezone.localtime(log.timestamp)
+        if cell['first'] is None or local_ts < cell['first']:
+            cell['first'] = local_ts
+        if cell['last'] is None or local_ts > cell['last']:
+            cell['last'] = local_ts
+        cell['types'].add(log.check_type)
+
+    all_users = sorted(users_ordered.keys())
+
+    # สรุปรายช่าง (คอลัมน์) และรายวัน (แถว)
+    user_totals = defaultdict(int)   # {username: total_checkins}
+    date_totals = defaultdict(int)   # {date_obj: total_checkins}
+    for d, users_data in raw_data.items():
+        for u, cell in users_data.items():
+            user_totals[u] += cell['count']
+            date_totals[d] += cell['count']
+
+    # สร้าง table_rows: list ที่ template วน {% for row in table_rows %}
+    table_rows = []
+    for d in [date(year, month, day) for day in range(1, last_day + 1)]:
+        cells = []
+        for u in all_users:
+            cell = raw_data[d].get(u)
+            if cell:
+                cells.append({
+                    'count':      cell['count'],
+                    'first':      cell['first'].strftime('%H:%M') if cell['first'] else '',
+                    'last':       cell['last'].strftime('%H:%M') if cell['last'] else '',
+                    'has_ci':     'CHECK_IN' in cell['types'],
+                    'has_co':     'CHECK_OUT' in cell['types'],
+                    'has_travel': 'TRAVEL' in cell['types'],
+                })
+            else:
+                cells.append(None)
+        table_rows.append({
+            'date':       d,
+            'day_short':  DAY_SHORT[d.weekday()],
+            'cells':      cells,
+            'total':      date_totals.get(d, 0),
+            'is_weekend': d.weekday() >= 5,
+            'is_today':   d == today,
+        })
+
+    # เดือนก่อน / เดือนหน้า สำหรับปุ่มนำทาง
+    prev_month = month - 1 or 12
+    prev_year  = year - (1 if month == 1 else 0)
+    next_month = (month % 12) + 1
+    next_year  = year + (1 if month == 12 else 0)
+
+    import json as json_lib
+    return render(request, 'pms/gps_summary_report.html', {
+        'year':          year,
+        'month':         month,
+        'month_name':    THAI_MONTHS[month],
+        'all_users':     all_users,
+        'user_id_map_json': json_lib.dumps(user_id_map),
+        'user_totals':   dict(user_totals),
+        'table_rows':    table_rows,
+        'prev_year':     prev_year,
+        'prev_month':    prev_month,
+        'next_year':     next_year,
+        'next_month':    next_month,
+        'today':         today,
+        'total_logs':    sum(user_totals.values()),
+    })
+
+
+@login_required
+def gps_summary_export(request):
+    """
+    Export รายงานสรุป GPS รายเดือน เป็น CSV
+    """
+    import csv
+    from .models import TechnicianGPSLog
+    from django.utils import timezone
+    from collections import defaultdict
+    import calendar
+    from datetime import date
+    from django.http import HttpResponse
+
+    User = get_user_model()
+    today = timezone.localdate()
+
+    THAI_MONTHS = ['', 'มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน',
+                   'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม']
+
+    try:
+        year  = int(request.GET.get('year',  today.year))
+        month = int(request.GET.get('month', today.month))
+        if not (1 <= month <= 12):
+            raise ValueError
+    except (ValueError, TypeError):
+        year, month = today.year, today.month
+
+    _, last_day = calendar.monthrange(year, month)
+    start_date  = date(year, month, 1)
+    end_date    = date(year, month, last_day)
+
+    qs = TechnicianGPSLog.objects.filter(
+        timestamp__date__gte=start_date,
+        timestamp__date__lte=end_date,
+    ).select_related('user').order_by('timestamp')
+
+    if not (request.user.is_superuser or request.user.is_staff):
+        qs = qs.filter(user=request.user)
+
+    raw_data = defaultdict(lambda: defaultdict(lambda: {
+        'count': 0, 'first': None, 'last': None, 'types': set()
+    }))
+    users_ordered = {}
+    for log in qs:
+        d     = timezone.localtime(log.timestamp).date()
+        uname = log.user.username
+        users_ordered[uname] = True
+        cell  = raw_data[d][uname]
+        cell['count'] += 1
+        local_ts = timezone.localtime(log.timestamp)
+        if cell['first'] is None or local_ts < cell['first']:
+            cell['first'] = local_ts
+        if cell['last'] is None or local_ts > cell['last']:
+            cell['last'] = local_ts
+        cell['types'].add(log.check_type)
+
+    all_users   = sorted(users_ordered.keys())
+    user_totals = defaultdict(int)
+    date_totals = defaultdict(int)
+    for d, users_data in raw_data.items():
+        for u, cell in users_data.items():
+            user_totals[u] += cell['count']
+            date_totals[d] += cell['count']
+
+    response = HttpResponse(content_type='text/csv; charset=utf-8-sig')
+    filename = f"gps_summary_{year}_{month:02d}.csv"
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+
+    writer = csv.writer(response)
+
+    # Header row: วัน, user1, user2, ..., รวม/วัน
+    header = ['วัน', 'วันที่'] + all_users + ['รวม/วัน']
+    writer.writerow(header)
+
+    DAY_TH = ['จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส', 'อา']
+    for d in [date(year, month, day) for day in range(1, last_day + 1)]:
+        row = [DAY_TH[d.weekday()], d.strftime('%d/%m/%Y')]
+        for u in all_users:
+            cell = raw_data[d].get(u)
+            if cell:
+                val = str(cell['count'])
+                if cell['first']:
+                    val += f" ({cell['first'].strftime('%H:%M')}"
+                    if cell['last'] and cell['last'] != cell['first']:
+                        val += f"-{cell['last'].strftime('%H:%M')}"
+                    val += ')'
+                row.append(val)
+            else:
+                row.append('')
+        row.append(date_totals.get(d, 0))
+        writer.writerow(row)
+
+    # Footer: รวม/คน
+    footer = ['รวม/คน', ''] + [user_totals.get(u, 0) for u in all_users] + [sum(user_totals.values())]
+    writer.writerow(footer)
+
+    return response
+
+
+@login_required
+def gps_technician_stats(request):
+    """
+    กราฟสถิติช่างเทคนิครายบุคคล — งานที่ได้รับมอบหมาย + GPS check-in/out ย้อนหลัง 12 เดือน
+    """
+    from .models import TechnicianGPSLog, ServiceQueueItem
+    from django.utils import timezone
+    from django.db.models import Count
+    from django.db.models.functions import ExtractYear, ExtractMonth
+    from collections import defaultdict
+    from datetime import date
+    import json as json_lib
+
+    User = get_user_model()
+    today = timezone.localdate()
+
+    THAI_MONTHS_SHORT = ['', 'ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.',
+                         'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.']
+
+    # 12 เดือนย้อนหลัง (รวมเดือนปัจจุบัน)
+    months = []
+    for i in range(11, -1, -1):
+        m = today.month - i
+        y = today.year
+        if m <= 0:
+            m += 12
+            y -= 1
+        months.append(date(y, m, 1))
+
+    start_date  = months[0]
+    month_keys  = [(d.year, d.month) for d in months]
+    month_labels = [f"{THAI_MONTHS_SHORT[d.month]} {d.year}" for d in months]
+
+    # หา users ที่มี GPS log หรือ job ในช่วง 12 เดือน
+    gps_user_ids = set(
+        TechnicianGPSLog.objects.filter(timestamp__date__gte=start_date)
+        .values_list('user_id', flat=True).distinct()
+    )
+    job_user_ids = set(filter(None, (
+        ServiceQueueItem.objects.filter(
+            scheduled_date__gte=start_date,
+            scheduled_date__isnull=False,
+        ).values_list('assigned_teams__members', flat=True).distinct()
+    )))
+    all_user_ids = gps_user_ids | job_user_ids
+
+    if not (request.user.is_superuser or request.user.is_staff):
+        all_user_ids = {request.user.pk}
+
+    users = User.objects.filter(pk__in=all_user_ids).order_by('username')
+
+    # GPS logs — grouping ด้วย Python เพื่อรองรับ timezone ที่ถูกต้อง
+    gps_logs = TechnicianGPSLog.objects.filter(
+        timestamp__date__gte=start_date,
+        user__in=users,
+    ).only('user_id', 'check_type', 'timestamp')
+
+    # gps_data[user_id][(year, month)][check_type] = count
+    gps_data = defaultdict(lambda: defaultdict(lambda: defaultdict(int)))
+    for log in gps_logs:
+        local_ts = timezone.localtime(log.timestamp)
+        key = (local_ts.year, local_ts.month)
+        gps_data[log.user_id][key][log.check_type] += 1
+
+    # Jobs per user per month ผ่าน assigned_teams → members
+    job_rows = (
+        ServiceQueueItem.objects
+        .filter(
+            scheduled_date__gte=start_date,
+            scheduled_date__isnull=False,
+            assigned_teams__members__in=users,
+        )
+        .annotate(yr=ExtractYear('scheduled_date'), mn=ExtractMonth('scheduled_date'))
+        .values('assigned_teams__members', 'yr', 'mn')
+        .annotate(count=Count('id', distinct=True))
+    )
+    # job_data[user_id][(year, month)] = count
+    job_data = defaultdict(lambda: defaultdict(int))
+    for row in job_rows:
+        uid = row['assigned_teams__members']
+        job_data[uid][(row['yr'], row['mn'])] = row['count']
+
+    COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444',
+              '#8b5cf6', '#06b6d4', '#f97316', '#ec4899']
+
+    chart_users = []
+    for idx, user in enumerate(users):
+        uid   = user.pk
+        color = COLORS[idx % len(COLORS)]
+        jobs_list = [job_data[uid].get(k, 0) for k in month_keys]
+        ci_list   = [gps_data[uid].get(k, {}).get('CHECK_IN', 0) for k in month_keys]
+        co_list   = [gps_data[uid].get(k, {}).get('CHECK_OUT', 0) for k in month_keys]
+        chart_users.append({
+            'name':       user.username,
+            'display':    user.get_full_name() or user.username,
+            'color':      color,
+            'jobs':       jobs_list,
+            'check_in':   ci_list,
+            'check_out':  co_list,
+            'total_jobs': sum(jobs_list),
+            'total_ci':   sum(ci_list),
+            'total_co':   sum(co_list),
+        })
+
+    return render(request, 'pms/technician_stats.html', {
+        'month_labels':      json_lib.dumps(month_labels),
+        'chart_users_json':  json_lib.dumps(chart_users),
+        'chart_users':       chart_users,
+        'months':            months,
+        'today':             today,
+    })

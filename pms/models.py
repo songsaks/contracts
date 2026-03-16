@@ -922,6 +922,36 @@ class TechnicianGPSLog(models.Model):
         return f"{self.user.username} | {self.get_check_type_display()} | {self.timestamp.strftime('%d/%m/%Y %H:%M')}"
 
 
+class CustomerSatisfaction(models.Model):
+    """
+    ผลประเมินความพอใจของลูกค้าหลังช่างเช็คเอาท์ (Check-out)
+    บันทึกผ่านหน้าจอที่แสดงให้ลูกค้ากดประเมินก่อนช่างออกจากไซต์
+    """
+    class Rating(models.TextChoices):
+        VERY_SATISFIED = 'VERY_SATISFIED', 'พอใจมาก'
+        SATISFIED      = 'SATISFIED',      'พอใจ'
+        NOT_SATISFIED  = 'NOT_SATISFIED',  'ไม่พอใจ'
+
+    gps_log        = models.OneToOneField(
+        TechnicianGPSLog, on_delete=models.CASCADE,
+        related_name='satisfaction', verbose_name="GPS Log (Check-out)"
+    )
+    rating         = models.CharField(
+        max_length=20, choices=Rating.choices, verbose_name="ความพอใจ"
+    )
+    customer_name  = models.CharField(max_length=100, blank=True, verbose_name="ชื่อลูกค้า")
+    customer_phone = models.CharField(max_length=20,  blank=True, verbose_name="เบอร์โทร")
+    created_at     = models.DateTimeField(auto_now_add=True, verbose_name="เวลาประเมิน")
+
+    class Meta:
+        verbose_name = "ประเมินความพอใจลูกค้า"
+        verbose_name_plural = "ประเมินความพอใจลูกค้า"
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.gps_log.user.username} | {self.get_rating_display()} | {self.created_at.strftime('%d/%m/%Y %H:%M')}"
+
+
 # ===== Signals to automate Sync =====
 from django.db.models.signals import post_save
 from django.dispatch import receiver

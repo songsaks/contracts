@@ -51,7 +51,8 @@ def dashboard(request):
             # Fallback: try alternate symbol if empty
             if hist.empty:
                 alt_sym = f"{item.symbol}.BK" if ".BK" not in item.symbol else item.symbol.replace(".BK", "")
-                hist = yf.Ticker(alt_sym).history(period="1y")
+                t = yf.Ticker(alt_sym)
+                hist = t.history(period="1y")
 
             current = None
             change = 0
@@ -64,9 +65,13 @@ def dashboard(request):
                     prev = float(hist['Close'].iloc[-2])
                     change = ((current - prev) / prev * 100) if prev else 0
             if not current:
-                info = t.info
-                current = info.get('currentPrice') or info.get('regularMarketPrice') or info.get('previousClose')
-                change = info.get('regularMarketChangePercent', 0)
+                try:
+                    info = t.info
+                    if isinstance(info, dict):
+                        current = info.get('currentPrice') or info.get('regularMarketPrice') or info.get('previousClose')
+                        change = info.get('regularMarketChangePercent', 0)
+                except:
+                    pass
 
             rsi_val = None
             rsi_status = "Neutral"
@@ -366,7 +371,8 @@ def portfolio_list(request):
                 if not current_price or pd.isna(current_price):
                     try:
                         info = t.info
-                        current_price = info.get('currentPrice') or info.get('regularMarketPrice') or 0
+                        if isinstance(info, dict):
+                            current_price = info.get('currentPrice') or info.get('regularMarketPrice') or 0
                     except: pass
 
                 current_price = float(current_price or 0)
@@ -658,8 +664,26 @@ def recommendations(request):
     def process_single_stock(sym):
         try:
             t = yf.Ticker(sym)
-            inf = t.info
+            try:
+                inf = t.info
+                if not isinstance(inf, dict): inf = {}
+            except:
+                inf = {}
+            
             hist_short = t.history(period="6mo")
+            
+            # If sym without .BK fails, try with .BK
+            if (not inf or hist_short.empty) and ".BK" not in sym:
+                try:
+                    alt_t = yf.Ticker(f"{sym}.BK")
+                    alt_inf = alt_t.info
+                    alt_hist = alt_t.history(period="6mo")
+                    if isinstance(alt_inf, dict) and alt_inf:
+                        t = alt_t
+                        inf = alt_inf
+                        hist_short = alt_hist
+                except: pass
+
             rsi_val = 'N/A'
             rvol = 1.0
             if not hist_short.empty:

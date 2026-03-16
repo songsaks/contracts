@@ -607,6 +607,80 @@
         </div>
     </div>
 </div>
+
+<!-- ===== Customer Satisfaction Modal — แสดงหลัง CHECK_OUT ===== -->
+<div id="satisfactionOverlay" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.75); z-index:10000; align-items:center; justify-content:center; padding:1rem;">
+    <div style="background:white; border-radius:1.5rem; width:100%; max-width:440px; overflow:hidden; box-shadow:0 24px 64px rgba(0,0,0,0.35);">
+
+        <!-- Header gradient -->
+        <div style="background:linear-gradient(135deg,#0ea5e9,#3b82f6); padding:1.75rem 1.5rem 1.5rem; text-align:center;">
+            <div style="font-size:2.8rem; line-height:1; margin-bottom:0.6rem;">⭐</div>
+            <div style="color:white; font-weight:800; font-size:1.15rem; letter-spacing:0.01em;">ประเมินความพอใจในการบริการ</div>
+            <div style="color:rgba(255,255,255,0.8); font-size:0.8rem; margin-top:0.3rem;">กรุณาเลือกระดับความพอใจของท่าน</div>
+        </div>
+
+        <!-- Rating buttons -->
+        <div style="padding:1.5rem 1.5rem 0.5rem;">
+            <div style="display:flex; gap:0.75rem; justify-content:center; margin-bottom:1.25rem;">
+
+                <!-- พอใจมาก -->
+                <button class="sat-btn" data-value="VERY_SATISFIED"
+                    style="flex:1; border:2.5px solid #e2e8f0; border-radius:1.1rem; padding:1.1rem 0.4rem 0.85rem; cursor:pointer; background:white; transition:all 0.18s; text-align:center; outline:none;">
+                    <div style="font-size:2.6rem; line-height:1;">😊</div>
+                    <div style="font-size:0.78rem; font-weight:700; color:#15803d; margin-top:0.45rem; white-space:nowrap;">พอใจมาก</div>
+                </button>
+
+                <!-- พอใจ -->
+                <button class="sat-btn" data-value="SATISFIED"
+                    style="flex:1; border:2.5px solid #e2e8f0; border-radius:1.1rem; padding:1.1rem 0.4rem 0.85rem; cursor:pointer; background:white; transition:all 0.18s; text-align:center; outline:none;">
+                    <div style="font-size:2.6rem; line-height:1;">🙂</div>
+                    <div style="font-size:0.78rem; font-weight:700; color:#1d4ed8; margin-top:0.45rem; white-space:nowrap;">พอใจ</div>
+                </button>
+
+                <!-- ไม่พอใจ -->
+                <button class="sat-btn" data-value="NOT_SATISFIED"
+                    style="flex:1; border:2.5px solid #e2e8f0; border-radius:1.1rem; padding:1.1rem 0.4rem 0.85rem; cursor:pointer; background:white; transition:all 0.18s; text-align:center; outline:none;">
+                    <div style="font-size:2.6rem; line-height:1;">😞</div>
+                    <div style="font-size:0.78rem; font-weight:700; color:#dc2626; margin-top:0.45rem; white-space:nowrap;">ไม่พอใจ</div>
+                </button>
+
+            </div>
+
+            <!-- ฟิลด์เสริม (แสดงหลังเลือก rating) -->
+            <div id="sat-extra-fields" style="display:none;">
+                <div style="margin-bottom:0.75rem;">
+                    <label style="font-size:0.78rem; color:#64748b; font-weight:600; display:block; margin-bottom:0.35rem;">
+                        ชื่อลูกค้า <span style="font-weight:400; color:#94a3b8;">(ไม่บังคับ)</span>
+                    </label>
+                    <input type="text" id="sat-customer-name" placeholder="กรุณาระบุชื่อของท่าน"
+                        style="width:100%; padding:0.65rem 0.8rem; border:1.5px solid #e2e8f0; border-radius:0.75rem; font-size:0.9rem; background:#f8fafc; outline:none; box-sizing:border-box; transition:border 0.15s;"
+                        onfocus="this.style.borderColor='#3b82f6'" onblur="this.style.borderColor='#e2e8f0'">
+                </div>
+                <div style="margin-bottom:1.1rem;">
+                    <label style="font-size:0.78rem; color:#64748b; font-weight:600; display:block; margin-bottom:0.35rem;">
+                        เบอร์โทรศัพท์ <span style="font-weight:400; color:#94a3b8;">(ไม่บังคับ)</span>
+                    </label>
+                    <input type="tel" id="sat-customer-phone" placeholder="เช่น 081-234-5678"
+                        style="width:100%; padding:0.65rem 0.8rem; border:1.5px solid #e2e8f0; border-radius:0.75rem; font-size:0.9rem; background:#f8fafc; outline:none; box-sizing:border-box; transition:border 0.15s;"
+                        onfocus="this.style.borderColor='#3b82f6'" onblur="this.style.borderColor='#e2e8f0'">
+                </div>
+                <button id="sat-submit-btn" onclick="submitSatisfaction()"
+                    style="width:100%; background:linear-gradient(135deg,#10b981,#059669); color:white; border:none; border-radius:2rem; padding:0.8rem; font-size:1rem; font-weight:700; cursor:pointer; letter-spacing:0.02em;">
+                    ✅ ยืนยันการประเมิน
+                </button>
+            </div>
+
+            <!-- ปุ่มข้าม -->
+            <div style="text-align:center; padding:0.6rem 0 1rem;">
+                <button onclick="skipSatisfaction()"
+                    style="background:none; border:none; color:#94a3b8; font-size:0.82rem; cursor:pointer; padding:0.35rem 1rem; text-decoration:underline; text-decoration-color:transparent;"
+                    onmouseover="this.style.color='#64748b'" onmouseout="this.style.color='#94a3b8'">
+                    ข้ามขั้นตอนนี้
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block extra_js %}
@@ -1122,19 +1196,29 @@
                 const typeLabels = { 'CHECK_IN':'✅ เริ่มงาน', 'ON_SITE':'📍 ถึงที่หน้างาน', 'TRAVEL':'🚗 กำลังเดินทาง', 'CHECK_OUT':'🏁 เสร็จงาน' };
                 const msgText   = `${typeLabels[checkType] || '📍 Check-in'} — ${locName}${notes ? '\nหมายเหตุ: ' + notes : ''}`;
 
-                chatSocket.send(JSON.stringify({
-                    'message': msgText,
-                    'is_stt': false,
-                    'latitude': lat,
-                    'longitude': lon,
-                    'location_name': locName,
-                    'gps_check_type': checkType,
-                    'gps_notes': notes,
-                }));
-
                 document.getElementById('gps-location-name').value = '';
                 document.getElementById('gps-notes').value = '';
                 closeGpsModal();
+
+                if (checkType === 'CHECK_OUT') {
+                    // เก็บ payload ไว้ก่อน แล้วให้ลูกค้าประเมินก่อนส่ง
+                    pendingGpsPayload = {
+                        message: msgText, is_stt: false,
+                        latitude: lat, longitude: lon,
+                        location_name: locName,
+                        gps_check_type: checkType,
+                        gps_notes: notes,
+                    };
+                    openSatisfactionModal();
+                } else {
+                    chatSocket.send(JSON.stringify({
+                        message: msgText, is_stt: false,
+                        latitude: lat, longitude: lon,
+                        location_name: locName,
+                        gps_check_type: checkType,
+                        gps_notes: notes,
+                    }));
+                }
             },
             (error) => {
                 gpsStatus.style.display = 'none';
@@ -1149,6 +1233,64 @@
             { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 }
         );
     });
+
+    // ===== Customer Satisfaction Modal =====
+    let pendingGpsPayload = null;
+    let selectedRating    = null;
+
+    function openSatisfactionModal() {
+        selectedRating = null;
+        document.querySelectorAll('.sat-btn').forEach(b => {
+            b.style.border    = '2.5px solid #e2e8f0';
+            b.style.background = 'white';
+            b.style.transform  = 'scale(1)';
+        });
+        document.getElementById('sat-extra-fields').style.display = 'none';
+        document.getElementById('sat-customer-name').value  = '';
+        document.getElementById('sat-customer-phone').value = '';
+        document.getElementById('satisfactionOverlay').style.display = 'flex';
+    }
+
+    // Rating button click
+    document.querySelectorAll('.sat-btn').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            document.querySelectorAll('.sat-btn').forEach(b => {
+                b.style.border     = '2.5px solid #e2e8f0';
+                b.style.background = 'white';
+                b.style.transform  = 'scale(1)';
+            });
+            const val = this.getAttribute('data-value');
+            const colorMap = { VERY_SATISFIED:'#16a34a', SATISFIED:'#2563eb', NOT_SATISFIED:'#dc2626' };
+            const bgMap    = { VERY_SATISFIED:'#f0fdf4', SATISFIED:'#eff6ff', NOT_SATISFIED:'#fef2f2' };
+            this.style.border     = `2.5px solid ${colorMap[val]}`;
+            this.style.background = bgMap[val];
+            this.style.transform  = 'scale(1.06)';
+            selectedRating = val;
+            document.getElementById('sat-extra-fields').style.display = 'block';
+        });
+    });
+
+    function submitSatisfaction() {
+        if (!pendingGpsPayload || !selectedRating) return;
+        chatSocket.send(JSON.stringify({
+            ...pendingGpsPayload,
+            customer_rating: selectedRating,
+            customer_name:   document.getElementById('sat-customer-name').value.trim(),
+            customer_phone:  document.getElementById('sat-customer-phone').value.trim(),
+        }));
+        document.getElementById('satisfactionOverlay').style.display = 'none';
+        pendingGpsPayload = null;
+    }
+
+    function skipSatisfaction() {
+        if (!pendingGpsPayload) return;
+        chatSocket.send(JSON.stringify({
+            ...pendingGpsPayload,
+            customer_rating: '', customer_name: '', customer_phone: '',
+        }));
+        document.getElementById('satisfactionOverlay').style.display = 'none';
+        pendingGpsPayload = null;
+    }
 
     // --- ระบบจัดการไฟล์ (File Attach) ---
     const fileTrigger = document.getElementById('file-trigger');

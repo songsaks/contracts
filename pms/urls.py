@@ -128,6 +128,9 @@ urlpatterns = [
     # ===== GPS Tracking — ติดตามพิกัดช่าง =====
     path('gps-tracking/', views.gps_tracking_report, name='gps_tracking_report'),             # รายงานเส้นทางประจำวัน
     path('gps-tracking/live/', views.gps_live_data, name='gps_live_data'),                    # JSON API สำหรับ Live mode
+    path('gps-tracking/summary/', views.gps_summary_report, name='gps_summary_report'),       # รายงานสรุปรายเดือน
+    path('gps-tracking/summary/export/', views.gps_summary_export, name='gps_summary_export'),  # Export CSV
+    path('gps-tracking/stats/', views.gps_technician_stats, name='gps_technician_stats'),        # กราฟสถิติรายบุคคล
     path('gps-tracking/<int:pk>/delete/', views.gps_log_delete, name='gps_log_delete'),       # ลบ GPS log entry
 ]
 

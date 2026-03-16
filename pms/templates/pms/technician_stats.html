@@ -1,0 +1,311 @@
+{% extends 'pms/base_pms.html' %}
+
+{% block title %}สถิติช่างเทคนิค — 12 เดือนล่าสุด{% endblock %}
+
+{% block extra_css %}
+<style>
+    .user-stat-card {
+        border-radius: 1rem;
+        padding: 1rem 1.2rem;
+        background: white;
+        border: 1px solid #e2e8f0;
+        box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+        height: 100%;
+    }
+    .color-bar {
+        width: 4px;
+        border-radius: 4px;
+        flex-shrink: 0;
+        align-self: stretch;
+        min-height: 20px;
+    }
+    .chart-wrap    { position: relative; height: 240px; }
+    .chart-wrap-lg { position: relative; height: 300px; }
+
+    .stat-num {
+        font-size: 1.5rem;
+        font-weight: 700;
+        line-height: 1;
+    }
+    .stat-lbl {
+        font-size: 0.62rem;
+        color: #94a3b8;
+        margin-top: 2px;
+    }
+    .divider-v {
+        width: 1px;
+        background: #e2e8f0;
+        align-self: stretch;
+        margin: 0 8px;
+    }
+
+    @media print {
+        .no-print { display: none !important; }
+        body { font-size: 10px; }
+        .chart-wrap    { height: 160px; }
+        .chart-wrap-lg { height: 200px; }
+        @page { size: landscape; margin: 10mm; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-4">
+
+    <!-- Header -->
+    <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-3">
+        <div>
+            <h3 class="fw-bold mb-1">
+                <i class="fas fa-chart-bar me-2 text-primary"></i>สถิติช่างเทคนิค
+            </h3>
+            <p class="text-muted mb-0 small">
+                งานที่ได้รับมอบหมาย &amp; GPS Check-in/Check-out ย้อนหลัง 12 เดือน
+            </p>
+        </div>
+        <div class="d-flex gap-2 flex-wrap no-print">
+            <button onclick="window.print()" class="btn btn-outline-dark btn-sm rounded-pill px-3">
+                <i class="fas fa-print me-1"></i> พิมพ์
+            </button>
+            <a href="{% url 'pms:gps_summary_report' %}" class="btn btn-outline-primary btn-sm rounded-pill px-3">
+                <i class="fas fa-calendar-alt me-1"></i> สรุปรายเดือน
+            </a>
+            <a href="{% url 'pms:gps_tracking_report' %}" class="btn btn-outline-secondary btn-sm rounded-pill px-3">
+                <i class="fas fa-map-marked-alt me-1"></i> รายวัน
+            </a>
+        </div>
+    </div>
+
+    {% if chart_users %}
+
+    <!-- Summary Cards -->
+    <div class="row g-3 mb-4">
+        {% for u in chart_users %}
+        <div class="col-xl-2 col-lg-3 col-md-4 col-sm-6 col-6">
+            <div class="user-stat-card">
+                <div class="d-flex align-items-center gap-2 mb-3">
+                    <div class="color-bar" style="background: {{ u.color }};"></div>
+                    <div class="fw-bold text-truncate" style="font-size:0.85rem;" title="{{ u.display }}">
+                        {{ u.display }}
+                    </div>
+                </div>
+                <div class="d-flex align-items-center justify-content-around">
+                    <div class="text-center">
+                        <div class="stat-num text-primary">{{ u.total_jobs }}</div>
+                        <div class="stat-lbl">งาน</div>
+                    </div>
+                    <div class="divider-v"></div>
+                    <div class="text-center">
+                        <div class="stat-num text-success">{{ u.total_ci }}</div>
+                        <div class="stat-lbl">Check-in</div>
+                    </div>
+                    <div class="divider-v"></div>
+                    <div class="text-center">
+                        <div class="stat-num text-warning">{{ u.total_co }}</div>
+                        <div class="stat-lbl">Check-out</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Overview Line Chart: Jobs per user per month -->
+    <div class="card border-0 shadow-sm rounded-4 mb-4">
+        <div class="card-header bg-white border-0 pt-3 pb-2 px-4">
+            <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+                <h6 class="fw-bold mb-0">
+                    <i class="fas fa-chart-line me-2 text-primary"></i>
+                    ภาพรวม — งานที่ได้รับมอบหมายทุกคน (12 เดือน)
+                </h6>
+                <div style="font-size:0.7rem; color:#64748b;">
+                    <span class="me-3"><i class="fas fa-info-circle me-1"></i>จำนวนงาน (Service Queue) ที่ได้รับมอบหมาย</span>
+                </div>
+            </div>
+        </div>
+        <div class="card-body p-3 pb-4">
+            <div class="chart-wrap-lg">
+                <canvas id="overviewChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Overview Bar: Check-in per user per month -->
+    <div class="card border-0 shadow-sm rounded-4 mb-4">
+        <div class="card-header bg-white border-0 pt-3 pb-2 px-4">
+            <h6 class="fw-bold mb-0">
+                <i class="fas fa-map-marker-alt me-2 text-success"></i>
+                ภาพรวม — GPS Check-in ทุกคน (12 เดือน)
+            </h6>
+        </div>
+        <div class="card-body p-3 pb-4">
+            <div class="chart-wrap-lg">
+                <canvas id="overviewCiChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Per-person Charts -->
+    <h6 class="fw-bold text-secondary mb-3 mt-2">
+        <i class="fas fa-user-hard-hat me-2"></i>รายละเอียดรายบุคคล
+    </h6>
+    <div class="row g-4">
+        {% for u in chart_users %}
+        <div class="col-xl-6 col-12">
+            <div class="card border-0 shadow-sm rounded-4 h-100">
+                <div class="card-header bg-white border-0 pt-3 pb-2 px-4">
+                    <div class="d-flex align-items-center gap-2">
+                        <div class="color-bar" style="background:{{ u.color }};"></div>
+                        <h6 class="fw-bold mb-0">{{ u.display }}</h6>
+                        <span class="ms-auto" style="font-size:0.7rem; color:#64748b;">
+                            รวม {{ u.total_jobs }} งาน · CI {{ u.total_ci }} · CO {{ u.total_co }}
+                        </span>
+                    </div>
+                </div>
+                <div class="card-body p-3">
+                    <div class="chart-wrap">
+                        <canvas id="userChart_{{ forloop.counter0 }}"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    {% else %}
+
+    <div class="card border-0 shadow-sm rounded-4 p-5 text-center">
+        <i class="fas fa-chart-bar fa-3x text-muted mb-3 opacity-25"></i>
+        <h5 class="text-muted">ไม่มีข้อมูลสถิติ</h5>
+        <p class="small text-muted">ยังไม่มีข้อมูล GPS หรืองานใน 12 เดือนที่ผ่านมา</p>
+        <a href="{% url 'pms:gps_tracking_report' %}" class="btn btn-outline-primary btn-sm rounded-pill px-4 mt-2">
+            <i class="fas fa-map-marked-alt me-1"></i> ดูรายงานรายวัน
+        </a>
+    </div>
+
+    {% endif %}
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+const monthLabels = {{ month_labels|safe }};
+const chartUsers  = {{ chart_users_json|safe }};
+
+Chart.defaults.font.family = "'Sarabun', 'Segoe UI', sans-serif";
+Chart.defaults.font.size   = 11;
+
+// ===== Overview: งานรายคน (Line Chart) =====
+(function() {
+    const ctx = document.getElementById('overviewChart');
+    if (!ctx || !chartUsers.length) return;
+    new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: monthLabels,
+            datasets: chartUsers.map(u => ({
+                label:           u.display,
+                data:            u.jobs,
+                borderColor:     u.color,
+                backgroundColor: u.color + '25',
+                tension:         0.35,
+                fill:            false,
+                pointRadius:     4,
+                pointHoverRadius: 6,
+                borderWidth:     2,
+            }))
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'bottom', labels: { boxWidth: 12, padding: 14 } },
+                tooltip: { mode: 'index', intersect: false }
+            },
+            scales: {
+                y: { beginAtZero: true, ticks: { precision: 0 }, grid: { color: '#f1f5f9' } },
+                x: { grid: { display: false } }
+            }
+        }
+    });
+})();
+
+// ===== Overview: Check-in รายคน (Grouped Bar) =====
+(function() {
+    const ctx = document.getElementById('overviewCiChart');
+    if (!ctx || !chartUsers.length) return;
+    new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: monthLabels,
+            datasets: chartUsers.map(u => ({
+                label:           u.display,
+                data:            u.check_in,
+                backgroundColor: u.color + 'bb',
+                borderRadius:    3,
+            }))
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'bottom', labels: { boxWidth: 12, padding: 14 } },
+                tooltip: { mode: 'index', intersect: false }
+            },
+            scales: {
+                y: { beginAtZero: true, ticks: { precision: 0 }, grid: { color: '#f1f5f9' } },
+                x: { grid: { display: false } }
+            }
+        }
+    });
+})();
+
+// ===== Per-user Charts (Grouped Bar: งาน + CI + CO) =====
+chartUsers.forEach(function(u, idx) {
+    const ctx = document.getElementById('userChart_' + idx);
+    if (!ctx) return;
+    new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: monthLabels,
+            datasets: [
+                {
+                    label:           'งานที่ได้รับ',
+                    data:            u.jobs,
+                    backgroundColor: 'rgba(59,130,246,0.75)',
+                    borderRadius:    3,
+                    order:           1,
+                },
+                {
+                    label:           'Check-in',
+                    data:            u.check_in,
+                    backgroundColor: 'rgba(16,185,129,0.75)',
+                    borderRadius:    3,
+                    order:           2,
+                },
+                {
+                    label:           'Check-out',
+                    data:            u.check_out,
+                    backgroundColor: 'rgba(249,115,22,0.75)',
+                    borderRadius:    3,
+                    order:           3,
+                },
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'bottom', labels: { boxWidth: 12, padding: 10 } },
+                tooltip: { mode: 'index', intersect: false }
+            },
+            scales: {
+                y: { beginAtZero: true, ticks: { precision: 0 }, grid: { color: '#f1f5f9' } },
+                x: { grid: { display: false } }
+            }
+        }
+    });
+});
+</script>
+{% endblock %}

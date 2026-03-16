@@ -43,11 +43,21 @@ class Command(BaseCommand):
         for item in items:
             try:
                 t = yf.Ticker(item.symbol)
-                info = t.info
+                try:
+                    info = t.info
+                    if not isinstance(info, dict): info = {}
+                except:
+                    info = {}
+                
                 current_price = info.get('currentPrice') or info.get('regularMarketPrice') or info.get('previousClose')
                 
                 if current_price is None:
-                    continue
+                    # Try history if info failed
+                    hist_last = t.history(period="1d")
+                    if not hist_last.empty:
+                        current_price = hist_last['Close'].iloc[-1]
+                    else:
+                        continue
 
                 curr_p = float(current_price)
                 entry_p = float(item.entry_price)

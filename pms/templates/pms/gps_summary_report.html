@@ -1,0 +1,340 @@
+{% extends 'pms/base_pms.html' %}
+
+{% block title %}GPS Summary Report — {{ month_name }} {{ year }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* ตารางสรุป */
+    .summary-table { border-collapse: separate; border-spacing: 0; width: 100%; }
+
+    /* Sticky คอลัมน์แรก */
+    .col-date {
+        position: sticky; left: 0; z-index: 2; background: white;
+        min-width: 64px; width: 64px;
+        border-right: 2px solid #e2e8f0;
+    }
+    thead .col-date { z-index: 3; background: #f8fafc; }
+
+    /* Header ช่าง */
+    .col-user {
+        min-width: 120px; text-align: center;
+        background: #f8fafc; font-size: 0.78rem; font-weight: 700; color: #334155;
+        border-bottom: 2px solid #e2e8f0; padding: 0.5rem 0.4rem;
+    }
+
+    /* เซลล์วัน */
+    .date-cell { padding: 0.3rem 0.5rem; font-size: 0.78rem; line-height: 1.2; white-space: nowrap; }
+    .date-num  { font-weight: 700; font-size: 0.88rem; color: #1e293b; }
+    .date-day  { font-size: 0.6rem; color: #94a3b8; }
+
+    /* เซลล์ข้อมูล */
+    .data-cell {
+        text-align: center; vertical-align: middle;
+        padding: 0.2rem 0.25rem;
+        border: 1px solid #f1f5f9;
+        transition: background 0.12s;
+    }
+    .data-cell.clickable { cursor: pointer; }
+    .data-cell.clickable:hover { background: rgba(59,130,246,0.08) !important; }
+    .data-cell.empty { background: #fafafa; }
+
+    .cell-full    { background: #f0fdf4; }
+    .cell-partial { background: #eff6ff; }
+
+    .ci-badge {
+        display: inline-flex; align-items: center; justify-content: center;
+        width: 24px; height: 24px; border-radius: 50%;
+        font-weight: 700; font-size: 0.78rem; margin: 0 auto 1px;
+    }
+    .ci-badge.full    { background: #dcfce7; color: #15803d; }
+    .ci-badge.partial { background: #dbeafe; color: #1d4ed8; }
+
+    .time-range { font-size: 0.6rem; color: #64748b; line-height: 1.1; }
+
+    /* Weekend / Today */
+    .row-weekend .col-date { background: #fffbeb; }
+    .row-weekend .date-num { color: #92400e; }
+    .row-weekend .date-day { color: #d97706; }
+    .row-weekend .data-cell.empty { background: #fffbeb; }
+    .row-today .col-date { background: #eff6ff; border-right-color: #3b82f6; }
+    .row-today .date-num { color: #1d4ed8; }
+
+    /* Footer รวม */
+    tfoot td { background: #f8fafc !important; font-weight: 700; border-top: 2px solid #cbd5e1; }
+
+    .total-badge {
+        display: inline-block; border-radius: 999px;
+        padding: 1px 9px; font-size: 0.75rem; font-weight: 700;
+        background: #e0e7ff; color: #3730a3;
+    }
+    .total-badge.user { background: #dbeafe; color: #1d4ed8; }
+
+    /* Summary card */
+    .stat-card {
+        border-radius: 1rem; padding: 0.85rem 1.1rem;
+        background: white; border: 1px solid #e2e8f0;
+        box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+        height: 100%;
+    }
+    .stat-icon {
+        width: 38px; height: 38px; border-radius: 0.6rem;
+        display: flex; align-items: center; justify-content: center;
+        flex-shrink: 0; font-size: 1rem;
+    }
+
+    /* Table scroll */
+    .table-scroll { overflow-x: auto; border-radius: 0.75rem; border: 1px solid #e2e8f0; }
+
+    .legend-dot { width: 11px; height: 11px; border-radius: 50%; display: inline-block; }
+
+    /* ===== Print styles ===== */
+    @media print {
+        .no-print, nav, .navbar, .sidebar, footer { display: none !important; }
+        body { font-size: 11px; }
+        .container-fluid { padding: 0 !important; }
+        .card { border: 1px solid #ccc !important; box-shadow: none !important; }
+        .card-header { background: #f0f0f0 !important; }
+        .table-scroll { overflow-x: visible; border: none; }
+        .summary-table { width: 100%; font-size: 10px; }
+        .col-date { position: static; }
+        .col-user { font-size: 9px; }
+        .data-cell { padding: 2px; }
+        .ci-badge { width: 18px; height: 18px; font-size: 9px; }
+        .stat-card { break-inside: avoid; }
+        h3 { font-size: 14px; }
+        @page { size: landscape; margin: 10mm; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-4">
+
+    <!-- Header -->
+    <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-3">
+        <div>
+            <h3 class="fw-bold mb-1">
+                <i class="fas fa-calendar-alt me-2 text-primary"></i>GPS Summary Report
+            </h3>
+            <p class="text-muted mb-0 small">สรุปการเช็คอิน GPS รายเดือน แยกตามวันและช่างเทคนิค</p>
+        </div>
+        <div class="d-flex gap-2 flex-wrap no-print">
+            <a href="{% url 'pms:gps_summary_export' %}?year={{ year }}&month={{ month }}"
+               class="btn btn-success btn-sm rounded-pill px-3">
+                <i class="fas fa-file-csv me-1"></i> Export CSV
+            </a>
+            <button onclick="window.print()" class="btn btn-outline-dark btn-sm rounded-pill px-3">
+                <i class="fas fa-print me-1"></i> พิมพ์
+            </button>
+            <a href="{% url 'pms:gps_technician_stats' %}" class="btn btn-outline-info btn-sm rounded-pill px-3">
+                <i class="fas fa-chart-bar me-1"></i> กราฟสถิติ
+            </a>
+            <a href="{% url 'pms:gps_tracking_report' %}" class="btn btn-outline-primary btn-sm rounded-pill px-3">
+                <i class="fas fa-map-marked-alt me-1"></i> รายวัน (แผนที่)
+            </a>
+            <a href="{% url 'pms:dashboard' %}" class="btn btn-outline-secondary btn-sm rounded-pill px-3">
+                <i class="fas fa-arrow-left me-1"></i> กลับ Dashboard
+            </a>
+        </div>
+    </div>
+
+    <!-- Month Navigator -->
+    <div class="card border-0 shadow-sm rounded-4 mb-4 no-print">
+        <div class="card-body p-3">
+            <div class="d-flex align-items-center justify-content-between gap-3 flex-wrap">
+                <a href="?year={{ prev_year }}&month={{ prev_month }}"
+                   class="btn btn-outline-secondary btn-sm rounded-pill px-3">
+                    <i class="fas fa-chevron-left me-1"></i>
+                    {% if prev_month == 1 %}ม.ค.{% elif prev_month == 2 %}ก.พ.{% elif prev_month == 3 %}มี.ค.{% elif prev_month == 4 %}เม.ย.{% elif prev_month == 5 %}พ.ค.{% elif prev_month == 6 %}มิ.ย.{% elif prev_month == 7 %}ก.ค.{% elif prev_month == 8 %}ส.ค.{% elif prev_month == 9 %}ก.ย.{% elif prev_month == 10 %}ต.ค.{% elif prev_month == 11 %}พ.ย.{% else %}ธ.ค.{% endif %}
+                    {{ prev_year }}
+                </a>
+
+                <div class="text-center">
+                    <div class="fw-bold fs-5 text-primary">{{ month_name }} {{ year }}</div>
+                    <div class="small text-muted">
+                        {% if total_logs > 0 %}
+                        {{ total_logs }} check-in · {{ all_users|length }} คน
+                        {% else %}
+                        ยังไม่มีข้อมูลเดือนนี้
+                        {% endif %}
+                    </div>
+                </div>
+
+                <a href="?year={{ next_year }}&month={{ next_month }}"
+                   class="btn btn-outline-secondary btn-sm rounded-pill px-3">
+                    {% if next_month == 1 %}ม.ค.{% elif next_month == 2 %}ก.พ.{% elif next_month == 3 %}มี.ค.{% elif next_month == 4 %}เม.ย.{% elif next_month == 5 %}พ.ค.{% elif next_month == 6 %}มิ.ย.{% elif next_month == 7 %}ก.ค.{% elif next_month == 8 %}ส.ค.{% elif next_month == 9 %}ก.ย.{% elif next_month == 10 %}ต.ค.{% elif next_month == 11 %}พ.ย.{% else %}ธ.ค.{% endif %}
+                    {{ next_year }} <i class="fas fa-chevron-right ms-1"></i>
+                </a>
+            </div>
+        </div>
+    </div>
+
+    {% if all_users %}
+
+    <!-- Summary Cards รายช่าง -->
+    <div class="row g-3 mb-4">
+        {% for user in all_users %}
+        <div class="col-xl-2 col-md-3 col-sm-4 col-6">
+            <div class="stat-card">
+                <div class="d-flex align-items-center gap-2 mb-2">
+                    <div class="stat-icon bg-primary bg-opacity-10 text-primary">
+                        <i class="fas fa-user-hard-hat"></i>
+                    </div>
+                    <div class="fw-bold text-truncate" style="font-size:0.85rem;" title="{{ user }}">{{ user }}</div>
+                </div>
+                <div class="d-flex align-items-baseline gap-1">
+                    <span class="fw-bold text-primary" style="font-size:1.6rem; line-height:1;">
+                        {% for k, v in user_totals.items %}{% if k == user %}{{ v }}{% endif %}{% endfor %}
+                    </span>
+                    <span class="text-muted" style="font-size:0.72rem;">check-in/เดือน</span>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- ตารางสรุปรายวัน × รายช่าง -->
+    <div class="card border-0 shadow-sm rounded-4 mb-4">
+        <div class="card-header bg-white border-0 pt-3 pb-2 px-4">
+            <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+                <h6 class="fw-bold mb-0">
+                    <i class="fas fa-table me-2 text-primary"></i>ตารางสรุปรายวัน — {{ month_name }} {{ year }}
+                </h6>
+                <div class="d-flex align-items-center gap-3" style="font-size:0.7rem; color:#64748b;">
+                    <span><span class="legend-dot" style="background:#dcfce7; border:1.5px solid #16a34a;"></span> ครบ (เริ่ม+เสร็จ)</span>
+                    <span><span class="legend-dot" style="background:#dbeafe; border:1.5px solid #2563eb;"></span> มีกิจกรรม</span>
+                    <span><span class="legend-dot" style="background:#fafafa; border:1.5px solid #e2e8f0;"></span> ไม่มีข้อมูล</span>
+                    <span style="color:#b45309;">ส/อา</span> = วันหยุด
+                </div>
+            </div>
+        </div>
+        <div class="card-body p-3">
+            <div class="table-scroll">
+                <table class="summary-table">
+                    <thead>
+                        <tr>
+                            <th class="col-date col-user" style="text-align:left; padding:0.5rem 0.6rem; font-size:0.78rem;">
+                                วัน / ช่าง
+                            </th>
+                            {% for user in all_users %}
+                            <th class="col-user">
+                                <i class="fas fa-user-circle me-1" style="color:#93c5fd;"></i>{{ user }}
+                            </th>
+                            {% endfor %}
+                            <th class="col-user" style="background:#f1f5f9; color:#475569; min-width:70px;">
+                                รวม/วัน
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in table_rows %}
+                        <tr class="{% if row.is_weekend %}row-weekend{% endif %}{% if row.is_today %} row-today{% endif %}">
+
+                            <!-- วัน (sticky) -->
+                            <td class="col-date">
+                                <div class="date-cell">
+                                    <span class="date-num">{{ row.date|date:"d" }}</span>
+                                    <span class="date-day ms-1">{{ row.day_short }}</span>
+                                    {% if row.is_today %}
+                                    <span class="badge bg-primary text-white ms-1" style="font-size:0.5rem; padding:1px 4px; border-radius:4px;">วันนี้</span>
+                                    {% endif %}
+                                </div>
+                            </td>
+
+                            <!-- เซลล์แต่ละช่าง -->
+                            {% for cell in row.cells %}
+                            {% if cell %}
+                            <td class="data-cell clickable {% if cell.has_ci and cell.has_co %}cell-full{% else %}cell-partial{% endif %}"
+                                data-date="{{ row.date|date:'Y-m-d' }}"
+                                data-uidx="{{ forloop.counter0 }}"
+                                title="คลิกดูรายละเอียด {{ row.date|date:'d/m/Y' }} ({{ cell.count }} check-ins)">
+                                <div class="ci-badge {% if cell.has_ci and cell.has_co %}full{% else %}partial{% endif %}">
+                                    {{ cell.count }}
+                                </div>
+                                {% if cell.first %}
+                                <div class="time-range">
+                                    {{ cell.first }}
+                                    {% if cell.last and cell.last != cell.first %}<br>{{ cell.last }}{% endif %}
+                                </div>
+                                {% endif %}
+                            </td>
+                            {% else %}
+                            <td class="data-cell empty">
+                                <span style="color:#e2e8f0; font-size:0.65rem;">—</span>
+                            </td>
+                            {% endif %}
+                            {% endfor %}
+
+                            <!-- รวมรายวัน -->
+                            <td class="data-cell" style="background:#f8fafc; cursor:default;">
+                                {% if row.total > 0 %}
+                                <span class="total-badge">{{ row.total }}</span>
+                                {% else %}
+                                <span style="color:#e2e8f0; font-size:0.65rem;">—</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+
+                    <!-- แถวรวมทั้งเดือน -->
+                    <tfoot>
+                        <tr>
+                            <td class="col-date">
+                                <div class="date-cell" style="color:#475569; font-weight:700;">รวม/คน</div>
+                            </td>
+                            {% for user in all_users %}
+                            <td class="data-cell" style="padding: 0.4rem 0.3rem;">
+                                <span class="total-badge user">
+                                    {% for k, v in user_totals.items %}{% if k == user %}{{ v }}{% endif %}{% endfor %}
+                                </span>
+                            </td>
+                            {% endfor %}
+                            <td class="data-cell" style="background:#f1f5f9; padding: 0.4rem 0.3rem;">
+                                <span class="total-badge">{{ total_logs }}</span>
+                            </td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+            <p class="text-muted mt-2 mb-0 no-print" style="font-size:0.72rem;">
+                <i class="fas fa-hand-pointer me-1"></i>
+                คลิกที่ช่องใดช่องหนึ่งเพื่อดูรายงานแผนที่รายวันของวันและช่างคนนั้น
+            </p>
+        </div>
+    </div>
+
+    {% else %}
+    <div class="card border-0 shadow-sm rounded-4 p-5 text-center">
+        <i class="fas fa-calendar-times fa-3x text-muted mb-3 opacity-25"></i>
+        <h5 class="text-muted">ไม่มีข้อมูล GPS สำหรับเดือน {{ month_name }} {{ year }}</h5>
+        <p class="small text-muted">ช่างเทคนิคต้องกดเช็คอิน GPS ในห้องแชทเพื่อให้ข้อมูลปรากฏที่นี่</p>
+        <a href="{% url 'pms:gps_tracking_report' %}" class="btn btn-outline-primary btn-sm rounded-pill px-4 mt-2">
+            <i class="fas fa-map-marked-alt me-1"></i> ดูรายงานรายวัน
+        </a>
+    </div>
+    {% endif %}
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// user_id_map: {username: user_id} — ส่งมาจาก view
+const userIdMap = JSON.parse('{{ user_id_map_json|escapejs }}');
+const dailyReportBase = "{% url 'pms:gps_tracking_report' %}";
+
+// ผูก click event กับ data-cell ที่มีข้อมูล
+document.querySelectorAll('.data-cell.clickable[data-date][data-uidx]').forEach(function(cell) {
+    const dateStr = cell.getAttribute('data-date');
+    const uidx    = parseInt(cell.getAttribute('data-uidx'));
+    const allUsers = {{ all_users|safe }};
+    const username = allUsers[uidx];
+    const userId   = userIdMap[username];
+    if (!dateStr || !userId) return;
+    cell.onclick = function() {
+        window.location = `${dailyReportBase}?date=${dateStr}&user_id=${userId}`;
+    };
+});
+</script>
+{% endblock %}

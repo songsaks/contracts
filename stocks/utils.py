@@ -59,7 +59,32 @@ def get_stock_data(symbol):
     yq_ticker = YQTicker(symbol)
 
     # ดึงข้อมูลพื้นฐาน, ราคาย้อนหลัง 1 ปี, งบการเงิน, และงบดุล
-    info = ticker.info
+    try:
+        info = ticker.info
+        if not info or not isinstance(info, dict) or len(info) < 5:
+            # Try .BK suffix for potential Thai stocks
+            if ".BK" not in symbol:
+                alt_t = yf.Ticker(f"{symbol}.BK")
+                alt_info = alt_t.info
+                if alt_info and isinstance(alt_info, dict) and len(alt_info) > 5:
+                    ticker = alt_t
+                    info = alt_info
+            if not info or not isinstance(info, dict):
+                info = {}
+    except Exception as e:
+        print(f"DEBUG: yfinance info fetch failed for {symbol}: {e}")
+        # Fallback to fast_info for basic price data if info fails
+        try:
+            fast = ticker.fast_info
+            info = {
+                'currentPrice': fast.get('last_price'),
+                'currency': fast.get('currency'),
+                'exchange': fast.get('exchange'),
+                'quoteType': fast.get('quote_type')
+            }
+        except:
+            info = {}
+
     history = ticker.history(period="1y")
     financials = ticker.financials
     try:
@@ -76,12 +101,28 @@ def get_stock_data(symbol):
             history = pd.concat([history, macd], axis=1)
 
     # ดึงข้อมูลเพิ่มเติมจาก yahooquery: สรุปข้อมูล, โปรไฟล์, สถิติ, คำแนะนำนักวิเคราะห์
-    yq_summary = yq_ticker.summary_detail.get(symbol, {}) if (yq_ticker.summary_detail and isinstance(yq_ticker.summary_detail, dict) and yq_ticker.summary_detail.get(symbol)) else {}
-    yq_profile = yq_ticker.asset_profile.get(symbol, {}) if (yq_ticker.asset_profile and isinstance(yq_ticker.asset_profile, dict) and yq_ticker.asset_profile.get(symbol)) else {}
-    yq_stats = yq_ticker.key_stats.get(symbol, {}) if (yq_ticker.key_stats and isinstance(yq_ticker.key_stats, dict) and yq_ticker.key_stats.get(symbol)) else {}
-    yq_recommendations = yq_ticker.recommendation_trend.get(symbol, pd.DataFrame()) if (yq_ticker.recommendation_trend is not None and not isinstance(yq_ticker.recommendation_trend, dict)) else pd.DataFrame()
-    if isinstance(yq_ticker.recommendation_trend, dict):
-        yq_recommendations = yq_ticker.recommendation_trend.get(symbol, pd.DataFrame())
+    def get_yq_item(prop, sym):
+        try:
+            val = getattr(yq_ticker, prop)
+            if isinstance(val, dict) and sym in val:
+                return val[sym]
+            return {}
+        except:
+            return {}
+
+    yq_summary = get_yq_item('summary_detail', symbol)
+    yq_profile = get_yq_item('asset_profile', symbol)
+    yq_stats = get_yq_item('key_stats', symbol)
+    
+    # Handle recommendations which might be a DataFrame or Dict
+    try:
+        yq_recommendations = yq_ticker.recommendation_trend
+        if isinstance(yq_recommendations, dict) and symbol in yq_recommendations:
+            yq_recommendations = yq_recommendations[symbol]
+        elif not isinstance(yq_recommendations, pd.DataFrame):
+            yq_recommendations = pd.DataFrame()
+    except:
+        yq_recommendations = pd.DataFrame()
 
     # แปลงโครงสร้างข่าวล่าสุดให้เป็นรูปแบบมาตรฐาน
     raw_news = ticker.news

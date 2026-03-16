@@ -116,6 +116,10 @@ class ChatConsumer(AsyncWebsocketConsumer):
         location_name = data.get('location_name', '')
         gps_check_type = data.get('gps_check_type', None)
         gps_notes = data.get('gps_notes', '')
+        # ข้อมูลประเมินความพอใจลูกค้า (เฉพาะ CHECK_OUT)
+        customer_rating = data.get('customer_rating', '')
+        customer_name   = data.get('customer_name', '')
+        customer_phone  = data.get('customer_phone', '')
 
         # ประมวลผลเฉพาะเมื่อมีเนื้อหาที่ส่งได้ (ข้อความ, ไฟล์, หรือพิกัด)
         if message_text or image_url or file_url or (latitude and longitude):
@@ -124,7 +128,10 @@ class ChatConsumer(AsyncWebsocketConsumer):
             msg_id = await self.save_message(user, self.room_id, message_text, is_stt, latitude, longitude, location_name)
             # บันทึก GPS log สำหรับรายงานช่างภาคสนาม
             if latitude and longitude and gps_check_type:
-                await self.save_gps_log(user, latitude, longitude, location_name, gps_check_type, gps_notes)
+                gps_log_id = await self.save_gps_log(user, latitude, longitude, location_name, gps_check_type, gps_notes)
+                # บันทึกประเมินความพอใจลูกค้าเมื่อ CHECK_OUT
+                if gps_check_type == 'CHECK_OUT' and customer_rating and gps_log_id:
+                    await self.save_satisfaction(gps_log_id, customer_rating, customer_name, customer_phone)
 
             # แยก @mention จากข้อความ (lowercase) เช่น ['all', 'somchai']
             raw_mentions = re.findall(r'@(\w+)', message_text, re.IGNORECASE)
@@ -279,7 +286,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             # Truncate to 9 decimal places to satisfy DecimalField(max_digits=12, decimal_places=9)
             lat_d = Decimal(str(lat)).quantize(Decimal('0.000000001'), rounding=ROUND_HALF_UP)
             lon_d = Decimal(str(lon)).quantize(Decimal('0.000000001'), rounding=ROUND_HALF_UP)
-            TechnicianGPSLog.objects.create(
+            log = TechnicianGPSLog.objects.create(
                 user=user,
                 latitude=lat_d,
                 longitude=lon_d,
@@ -287,8 +294,23 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 check_type=check_type,
                 notes=notes or '',
             )
+            return log.id
         except Exception as e:
             logger.error("save_gps_log failed for user %s: %s", user, e)
+
+    @database_sync_to_async
+    def save_satisfaction(self, gps_log_id, rating, customer_name='', customer_phone=''):
+        """บันทึกผลประเมินความพอใจลูกค้าหลัง Check-out"""
+        try:
+            from pms.models import CustomerSatisfaction
+            CustomerSatisfaction.objects.create(
+                gps_log_id=gps_log_id,
+                rating=rating,
+                customer_name=customer_name or '',
+                customer_phone=customer_phone or '',
+            )
+        except Exception as e:
+            logger.error("save_satisfaction failed for gps_log %s: %s", gps_log_id, e)
 
     @database_sync_to_async
     def get_room_name(self, room_id):
