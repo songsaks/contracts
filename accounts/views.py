@@ -6,9 +6,24 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.auth.models import User
 from django.contrib import messages
-from .models import UserProfile
+from .models import UserProfile, Role
 from .forms import UserCreateForm, UserUpdateForm
 from django.db.models import Q
+import json
+
+
+def _role_map_json():
+    """คืน JSON string ของ {code: {is_staff, can_view_all, is_tech}} สำหรับ JS"""
+    data = {
+        r.code: {
+            'is_staff': r.is_staff_role,
+            'view_all': r.can_view_all_reports,
+            'is_tech':  r.is_technician_role,
+            'name':     r.name,
+        }
+        for r in Role.objects.all()
+    }
+    return json.dumps(data)
 
 
 # ====== ฟังก์ชันตรวจสิทธิ์ (Permission Check) ======
@@ -57,14 +72,13 @@ def user_list(request):
     elif status_filter == 'inactive':
         users = users.filter(is_active=False)
 
-    from .models import ROLE_CHOICES
-
     context = {
-        'users': users,
+        'users': users.select_related('profile'),
         'search_query': search_query,
         'role_filter': role_filter,
         'status_filter': status_filter,
-        'roles': ROLE_CHOICES,
+        'roles': Role.objects.order_by('order', 'name').values_list('code', 'name'),
+        'role_map_json': _role_map_json(),
     }
     return render(request, 'accounts/user_list.html', context)
 
@@ -85,7 +99,10 @@ def user_create(request):
         # แสดงฟอร์มเปล่าสำหรับสร้างพนักงานใหม่
         form = UserCreateForm()
 
-    return render(request, 'accounts/user_form.html', {'form': form, 'title': 'เพิ่มพนักงานใหม่'})
+    return render(request, 'accounts/user_form.html', {
+        'form': form, 'title': 'เพิ่มพนักงานใหม่',
+        'role_map_json': _role_map_json(),
+    })
 
 
 # ====== View: user_update — แก้ไขข้อมูลพนักงาน ======
@@ -107,7 +124,11 @@ def user_update(request, user_id):
         # โหลดฟอร์มพร้อมข้อมูลปัจจุบันของพนักงาน
         form = UserUpdateForm(instance=target_user)
 
-    return render(request, 'accounts/user_form.html', {'form': form, 'title': f'แก้ไขข้อมูลพนักงาน: {target_user.get_full_name() or target_user.username}'})
+    return render(request, 'accounts/user_form.html', {
+        'form': form,
+        'title': f'แก้ไขข้อมูลพนักงาน: {target_user.get_full_name() or target_user.username}',
+        'role_map_json': _role_map_json(),
+    })
 
 
 # ====== View: user_toggle_status — เปิด/ปิดใช้งานบัญชีพนักงาน ======
@@ -217,3 +238,127 @@ def user_import_excel(request):
 
     # --- GET ปกติ: แสดงหน้าอัปโหลด ---
     return render(request, 'accounts/user_import.html', {'title': 'อิมพอร์ตพนักงานด้วย Excel'})
+
+
+# ──────────────────────────────────────────────────────────────────
+# Role Management — จัดการตำแหน่ง/บทบาท (เพิ่ม ลบ แก้ไข)
+# ──────────────────────────────────────────────────────────────────
+
+def _sync_users_for_role(role):
+    """Re-sync is_staff สำหรับ user ทุกคนที่ใช้ role นี้
+       เรียกหลัง role.save() เพื่อให้สิทธิ์อัปเดตทันที"""
+    for profile in UserProfile.objects.filter(role=role.code).select_related('user'):
+        profile.sync_groups()
+
+@login_required
+@user_passes_test(is_admin_or_manager, login_url='/')
+def role_list(request):
+    roles = Role.objects.order_by('order', 'name')
+    role_user_counts = {
+        r.code: UserProfile.objects.filter(role=r.code).count()
+        for r in roles
+    }
+    return render(request, 'accounts/role_list.html', {
+        'roles': roles,
+        'role_user_counts': role_user_counts,
+    })
+
+
+@login_required
+@user_passes_test(is_admin_or_manager, login_url='/')
+def role_create(request):
+    if request.method == 'POST':
+        code             = request.POST.get('code', '').strip().lower().replace(' ', '_')
+        name             = request.POST.get('name', '').strip()
+        is_staff         = request.POST.get('is_staff_role') == 'on'
+        is_tech          = request.POST.get('is_technician_role') == 'on'
+        can_view_all     = request.POST.get('can_view_all_reports') == 'on'
+        badge_color      = request.POST.get('badge_color', 'bg-slate-100 text-slate-800 border-slate-200').strip()
+        order            = int(request.POST.get('order', 0) or 0)
+
+        if not code or not name:
+            messages.error(request, "กรุณากรอกรหัสตำแหน่งและชื่อตำแหน่ง")
+        elif Role.objects.filter(code=code).exists():
+            messages.error(request, f"รหัสตำแหน่ง '{code}' มีอยู่แล้ว")
+        else:
+            Role.objects.create(
+                code=code, name=name,
+                is_staff_role=is_staff, is_technician_role=is_tech,
+                can_view_all_reports=can_view_all,
+                badge_color=badge_color, order=order,
+            )
+            messages.success(request, f"เพิ่มตำแหน่ง '{name}' เรียบร้อยแล้ว")
+            return redirect('accounts:role_list')
+
+    return render(request, 'accounts/role_form.html', {
+        'title': 'เพิ่มตำแหน่งใหม่',
+        'role': None,
+        'badge_presets': _badge_presets(),
+    })
+
+
+@login_required
+@user_passes_test(is_admin_or_manager, login_url='/')
+def role_update(request, role_id):
+    role = get_object_or_404(Role, id=role_id)
+    if request.method == 'POST':
+        name             = request.POST.get('name', '').strip()
+        is_staff         = request.POST.get('is_staff_role') == 'on'
+        is_tech          = request.POST.get('is_technician_role') == 'on'
+        can_view_all     = request.POST.get('can_view_all_reports') == 'on'
+        badge_color      = request.POST.get('badge_color', role.badge_color).strip()
+        order            = int(request.POST.get('order', role.order) or 0)
+
+        if not name:
+            messages.error(request, "กรุณากรอกชื่อตำแหน่ง")
+        else:
+            role.name                 = name
+            role.is_staff_role        = is_staff
+            role.is_technician_role   = is_tech
+            role.can_view_all_reports = can_view_all
+            role.badge_color          = badge_color
+            role.order                = order
+            role.save()
+            # sync users ที่ใช้ role นี้ (เผื่อ can_view_all เปลี่ยน)
+            _sync_users_for_role(role)
+            messages.success(request, f"แก้ไขตำแหน่ง '{name}' เรียบร้อยแล้ว")
+            return redirect('accounts:role_list')
+
+    return render(request, 'accounts/role_form.html', {
+        'title': f'แก้ไขตำแหน่ง — {role.name}',
+        'role': role,
+        'badge_presets': _badge_presets(),
+    })
+
+
+@login_required
+@user_passes_test(is_admin_or_manager, login_url='/')
+def role_delete(request, role_id):
+    role = get_object_or_404(Role, id=role_id)
+    user_count = UserProfile.objects.filter(role=role.code).count()
+    if request.method == 'POST':
+        if user_count > 0:
+            messages.error(request, f"ไม่สามารถลบได้ — มีพนักงาน {user_count} คนใช้ตำแหน่งนี้อยู่")
+        else:
+            role.delete()
+            messages.success(request, f"ลบตำแหน่ง '{role.name}' เรียบร้อยแล้ว")
+            return redirect('accounts:role_list')
+    return render(request, 'accounts/role_confirm_delete.html', {
+        'role': role,
+        'user_count': user_count,
+    })
+
+
+def _badge_presets():
+    return [
+        ('bg-red-100 text-red-800 border-red-200',       'แดง'),
+        ('bg-orange-100 text-orange-800 border-orange-200', 'ส้ม'),
+        ('bg-yellow-100 text-yellow-800 border-yellow-200', 'เหลือง'),
+        ('bg-green-100 text-green-800 border-green-200', 'เขียว'),
+        ('bg-cyan-100 text-cyan-800 border-cyan-200',    'ฟ้าอ่อน'),
+        ('bg-blue-100 text-blue-800 border-blue-200',    'น้ำเงิน'),
+        ('bg-indigo-100 text-indigo-800 border-indigo-200', 'คราม'),
+        ('bg-purple-100 text-purple-800 border-purple-200', 'ม่วง'),
+        ('bg-pink-100 text-pink-800 border-pink-200',    'ชมพู'),
+        ('bg-slate-100 text-slate-800 border-slate-200', 'เทา'),
+    ]

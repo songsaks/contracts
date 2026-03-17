@@ -1,0 +1,193 @@
+{% extends "base.html" %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto px-4 sm:px-6 py-8 mt-10">
+
+    <!-- Header -->
+    <div class="mb-6 flex items-center justify-between">
+        <div>
+            <h1 class="text-2xl font-bold text-slate-900 flex items-center gap-3">
+                <i class="fas fa-id-badge text-indigo-600"></i>
+                {{ title }}
+            </h1>
+            <p class="text-slate-500 mt-1 text-sm">กำหนดชื่อ สิทธิ์ และสีแบดจ์สำหรับตำแหน่งนี้</p>
+        </div>
+        <a href="{% url 'accounts:role_list' %}"
+           class="px-4 py-2 border border-slate-300 rounded-lg text-slate-600 hover:bg-slate-50 transition text-sm flex items-center gap-2">
+            <i class="fas fa-arrow-left"></i> กลับ
+        </a>
+    </div>
+
+    <!-- Messages -->
+    {% for msg in messages %}
+    <div class="mb-4 px-4 py-3 rounded-xl text-sm font-medium
+        {% if msg.tags == 'success' %}bg-green-50 text-green-800 border border-green-200
+        {% else %}bg-red-50 text-red-800 border border-red-200{% endif %}">
+        {{ msg }}
+    </div>
+    {% endfor %}
+
+    <form method="POST" class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 sm:p-8 space-y-6">
+        {% csrf_token %}
+
+        <!-- รหัสตำแหน่ง (create only) -->
+        <div>
+            <label class="block text-sm font-semibold text-slate-700 mb-1.5">
+                รหัสตำแหน่ง <span class="text-red-500">*</span>
+                <span class="text-xs font-normal text-slate-400">(ตัวพิมพ์เล็ก ไม่มีช่องว่าง)</span>
+            </label>
+            {% if role %}
+            <div class="flex items-center gap-2">
+                <code class="px-3 py-2 bg-slate-100 text-slate-700 rounded-lg text-sm border border-slate-200 flex-1">{{ role.code }}</code>
+                <span class="text-xs text-slate-400">ไม่สามารถเปลี่ยนรหัสได้หลังสร้าง</span>
+                <input type="hidden" name="code" value="{{ role.code }}">
+            </div>
+            {% else %}
+            <input type="text" name="code" placeholder="เช่น: technician, sale_manager"
+                   class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-400 focus:outline-none font-mono"
+                   pattern="[a-z0-9_]+" title="ใช้ a-z, 0-9, underscore เท่านั้น" required>
+            {% endif %}
+        </div>
+
+        <!-- ชื่อตำแหน่ง -->
+        <div>
+            <label class="block text-sm font-semibold text-slate-700 mb-1.5">
+                ชื่อตำแหน่ง (แสดงในระบบ) <span class="text-red-500">*</span>
+            </label>
+            <input type="text" name="name" value="{% if role %}{{ role.name }}{% endif %}"
+                   placeholder="เช่น: ช่างเทคนิค (Technician)"
+                   class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-400 focus:outline-none" required>
+        </div>
+
+        <!-- สิทธิ์พิเศษ -->
+        <div>
+            <label class="block text-sm font-semibold text-slate-700 mb-3">สิทธิ์พิเศษ</label>
+            <div class="space-y-3">
+                <label class="flex items-start gap-3 p-3 rounded-xl border border-slate-200 hover:border-indigo-300 hover:bg-indigo-50 transition cursor-pointer">
+                    <input type="checkbox" name="is_staff_role" id="is_staff_role"
+                           class="mt-0.5 h-4 w-4 text-indigo-600 rounded"
+                           {% if role and role.is_staff_role %}checked{% endif %}>
+                    <div>
+                        <div class="text-sm font-medium text-slate-800">
+                            <i class="fas fa-shield-alt me-1 text-indigo-500"></i>
+                            สิทธิ์ดูแลระบบ (Staff)
+                        </div>
+                        <div class="text-xs text-slate-500 mt-0.5">
+                            เข้าถึง /admin ได้ + เห็นรายงานของพนักงานทุกคนในระบบ
+                        </div>
+                    </div>
+                </label>
+                <label class="flex items-start gap-3 p-3 rounded-xl border border-slate-200 hover:border-cyan-300 hover:bg-cyan-50 transition cursor-pointer">
+                    <input type="checkbox" name="is_technician_role" id="is_technician_role"
+                           class="mt-0.5 h-4 w-4 text-cyan-600 rounded"
+                           {% if role and role.is_technician_role %}checked{% endif %}>
+                    <div>
+                        <div class="text-sm font-medium text-slate-800">
+                            <i class="fas fa-map-marker-alt me-1 text-cyan-500"></i>
+                            เป็นตำแหน่งช่าง (GPS)
+                        </div>
+                        <div class="text-xs text-slate-500 mt-0.5">
+                            แสดงปุ่ม Check-in/Check-out GPS ในห้องแชท
+                        </div>
+                    </div>
+                </label>
+                <label class="flex items-start gap-3 p-3 rounded-xl border border-slate-200 hover:border-emerald-300 hover:bg-emerald-50 transition cursor-pointer">
+                    <input type="checkbox" name="can_view_all_reports" id="can_view_all_reports"
+                           class="mt-0.5 h-4 w-4 text-emerald-600 rounded"
+                           {% if role and role.can_view_all_reports %}checked{% endif %}>
+                    <div>
+                        <div class="text-sm font-medium text-slate-800">
+                            <i class="fas fa-eye me-1 text-emerald-500"></i>
+                            ดูรายงานของทุกคนได้
+                        </div>
+                        <div class="text-xs text-slate-500 mt-0.5">
+                            เห็นข้อมูล/รายงาน GPS, เงินเดือน, งานซ่อม ของพนักงานทุกคน
+                            (ไม่จำเป็นต้องมีสิทธิ์ Staff หรือเข้า /admin)
+                        </div>
+                    </div>
+                </label>
+            </div>
+        </div>
+
+        <!-- สีแบดจ์ -->
+        <div>
+            <label class="block text-sm font-semibold text-slate-700 mb-2">สีแบดจ์</label>
+            <div class="grid grid-cols-5 gap-2 mb-3" id="badgePresets">
+                {% for classes, label in badge_presets %}
+                <button type="button"
+                        class="preset-btn px-2 py-1.5 rounded-lg text-xs font-semibold border {{ classes }} hover:opacity-80 transition text-center"
+                        data-classes="{{ classes }}"
+                        onclick="selectBadge('{{ classes }}', this)">
+                    {{ label }}
+                </button>
+                {% endfor %}
+            </div>
+            <div class="flex items-center gap-3">
+                <input type="text" name="badge_color" id="badge_color_input"
+                       value="{% if role %}{{ role.badge_color }}{% else %}bg-slate-100 text-slate-800 border-slate-200{% endif %}"
+                       class="flex-1 px-3 py-2 border border-slate-300 rounded-lg text-xs font-mono focus:ring-2 focus:ring-indigo-400 focus:outline-none"
+                       placeholder="Tailwind classes เช่น bg-blue-100 text-blue-800 border-blue-200">
+                <span id="badge_preview"
+                      class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold border {% if role %}{{ role.badge_color }}{% else %}bg-slate-100 text-slate-800 border-slate-200{% endif %}">
+                    ตัวอย่าง
+                </span>
+            </div>
+        </div>
+
+        <!-- ลำดับ -->
+        <div>
+            <label class="block text-sm font-semibold text-slate-700 mb-1.5">
+                ลำดับการแสดง
+                <span class="text-xs font-normal text-slate-400">(น้อย = แสดงก่อน)</span>
+            </label>
+            <input type="number" name="order" min="0" max="999"
+                   value="{% if role %}{{ role.order }}{% else %}0{% endif %}"
+                   class="w-28 px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-400 focus:outline-none">
+        </div>
+
+        <!-- Actions -->
+        <div class="flex gap-3 pt-2 border-t border-slate-100">
+            <button type="submit"
+                    class="px-6 py-2.5 bg-gradient-to-r from-indigo-600 to-blue-600 text-white rounded-xl font-medium shadow-md hover:shadow-lg transition text-sm">
+                <i class="fas fa-save me-1"></i>
+                {% if role %}บันทึกการเปลี่ยนแปลง{% else %}สร้างตำแหน่ง{% endif %}
+            </button>
+            <a href="{% url 'accounts:role_list' %}"
+               class="px-5 py-2.5 border border-slate-300 text-slate-600 rounded-xl text-sm hover:bg-slate-50 transition">
+                ยกเลิก
+            </a>
+        </div>
+    </form>
+</div>
+
+<script>
+function selectBadge(classes, btn) {
+    document.getElementById('badge_color_input').value = classes;
+    updatePreview(classes);
+    document.querySelectorAll('.preset-btn').forEach(b => b.style.outline = '');
+    btn.style.outline = '2px solid #6366f1';
+    btn.style.outlineOffset = '2px';
+}
+
+function updatePreview(classes) {
+    const prev = document.getElementById('badge_preview');
+    // strip old tailwind classes and apply new
+    prev.className = 'inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold border ' + classes;
+}
+
+document.getElementById('badge_color_input').addEventListener('input', function() {
+    updatePreview(this.value);
+});
+
+// highlight current selection on load
+const currentClasses = document.getElementById('badge_color_input').value.trim();
+document.querySelectorAll('.preset-btn').forEach(btn => {
+    if (btn.dataset.classes === currentClasses) {
+        btn.style.outline = '2px solid #6366f1';
+        btn.style.outlineOffset = '2px';
+    }
+});
+</script>
+{% endblock %}

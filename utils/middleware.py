@@ -1,44 +1,66 @@
 from django.shortcuts import redirect
 from django.contrib import messages
 
+
+# URL prefix → ชื่อ field ใน UserProfile
+_APP_ACCESS_MAP = {
+    '/contracts/': 'access_rentals',
+    '/repairs/':   'access_repairs',
+    '/pos/':       'access_pos',
+    '/pms/':       'access_pms',
+    '/payroll/':   'access_payroll',
+    '/stocks/':    'access_stocks',
+    '/chat/':      'access_chat',
+    '/accounts/':  'access_accounts',
+}
+
+# ชื่อแสดงผลสำหรับแต่ละ app
+_APP_NAMES = {
+    'access_rentals':  'ระบบสัญญาเช่า',
+    'access_repairs':  'ระบบซ่อมบำรุง',
+    'access_pos':      'ระบบขายสินค้า (POS)',
+    'access_pms':      'ระบบจัดการโครงการ (PMS)',
+    'access_payroll':  'ระบบเงินเดือน',
+    'access_stocks':   'ระบบวิเคราะห์หุ้น AI',
+    'access_chat':     'ศูนย์แชทกลาง',
+    'access_accounts': 'ระบบจัดการพนักงาน',
+}
+
+
 class AppPermissionMiddleware:
     """
-    Middleware to restrict access to entire apps based on user permissions.
-    If a user doesn't have any permission in an app, they are redirected to the landing page.
+    ตรวจสิทธิ์การเข้าถึงแต่ละ app โดยตรงจาก UserProfile.access_* flag
+    - superuser / is_staff → ผ่านทั้งหมด (admin/manager เข้าได้ทุก app)
+    - user อื่น → ต้องมี access_<app>=True ใน profile
     """
+
     def __init__(self, get_response):
         self.get_response = get_response
 
     def __call__(self, request):
-        # Exclude anonymous users, superusers, and staff (optionally)
-        if not request.user.is_authenticated or request.user.is_superuser:
+        user = request.user
+
+        # anonymous, superuser, staff → ไม่ต้องตรวจ
+        if not user.is_authenticated or user.is_superuser or user.is_staff:
             return self.get_response(request)
 
         path = request.path
-        
-        # Mapping of URL prefixes to Django app labels
-        # Note: rentals app is served under /contracts/
-        app_mapping = {
-            '/contracts/': 'rentals',
-            '/repairs/': 'repairs',
-            '/pos/': 'pos',
-            '/pms/': 'pms',
-            '/payroll/': 'payroll',
-            '/stocks/': 'stocks',
-            '/chatbot/': 'chatbot',
-        }
 
-        # Check if current path belongs to a restricted app
-        for prefix, app_label in app_mapping.items():
+        for prefix, access_field in _APP_ACCESS_MAP.items():
             if path.startswith(prefix):
-                # has_module_perms returns True if the user has ANY permission in the given app
-                if not request.user.has_module_perms(app_label):
-                    # For Stock AI, it's a special case also checking is_staff
-                    if app_label == 'stocks' and not request.user.is_staff:
-                        messages.warning(request, "ระบบวิเคราะห์หุ้น AI จำกัดสิทธิ์เฉพาะผู้ดูเละระบบ (Staff) เท่านั้น")
-                    else:
-                        messages.warning(request, f"คุณไม่มีสิทธิ์เข้าใช้งานระบบกลุ่ม {app_label.upper()} กรุณาติดต่อผู้ดูแลระบบเพื่อขอสิทธิ์")
-                    
-                    return redirect('/') # Redirect to landing page
-        
+                try:
+                    has_access = getattr(user.profile, access_field, False)
+                except Exception:
+                    has_access = False
+
+                if not has_access:
+                    app_name = _APP_NAMES.get(access_field, access_field)
+                    messages.warning(
+                        request,
+                        f"คุณไม่มีสิทธิ์เข้าใช้งาน{app_name} "
+                        f"กรุณาติดต่อผู้ดูแลระบบเพื่อขอสิทธิ์"
+                    )
+                    return redirect('/')
+                break  # พบ prefix แล้ว หยุดวน
+
         return self.get_response(request)

@@ -26,6 +26,7 @@ from .forms import (
 )
 import io
 import pandas as pd
+from accounts.models import user_can_view_all
 
 
 # สร้างรายการสินค้าอัตโนมัติจากมูลค่าโครงการที่กรอกในฟอร์ม
@@ -2404,7 +2405,7 @@ def gps_tracking_report(request):
         timestamp__date=report_date
     ).select_related('user', 'queue_item', 'queue_item__project')
 
-    if request.user.is_superuser or request.user.is_staff:
+    if user_can_view_all(request.user):
         if selected_user_id:
             qs = qs.filter(user_id=selected_user_id)
     else:
@@ -2464,7 +2465,7 @@ def gps_live_data(request):
         timestamp__date=today
     ).select_related('user', 'queue_item', 'queue_item__project')
 
-    if request.user.is_superuser or request.user.is_staff:
+    if user_can_view_all(request.user):
         if selected_user_id:
             qs = qs.filter(user_id=selected_user_id)
     else:
@@ -2499,7 +2500,7 @@ def gps_log_delete(request, pk):
     """ลบ GPS log entry (เฉพาะ owner หรือ admin)"""
     from .models import TechnicianGPSLog
     log = get_object_or_404(TechnicianGPSLog, pk=pk)
-    if request.user == log.user or request.user.is_staff:
+    if request.user == log.user or user_can_view_all(request.user):
         log.delete()
         messages.success(request, "ลบ GPS log แล้ว")
     return redirect(request.META.get('HTTP_REFERER', 'pms:gps_tracking_report'))
@@ -2546,7 +2547,7 @@ def gps_summary_report(request):
         timestamp__date__lte=end_date,
     ).select_related('user').order_by('timestamp')
 
-    if not (request.user.is_superuser or request.user.is_staff):
+    if not (user_can_view_all(request.user)):
         qs = qs.filter(user=request.user)
 
     # จัดกลุ่ม: raw_data[date_obj][username] = {count, first_ts, last_ts, types}
@@ -2619,7 +2620,7 @@ def gps_summary_report(request):
         gps_log__timestamp__date__lte=end_date,
     ).select_related('gps_log__user').order_by('-created_at')
 
-    if not (request.user.is_superuser or request.user.is_staff):
+    if not (user_can_view_all(request.user)):
         sat_qs = sat_qs.filter(gps_log__user=request.user)
 
     sat_by_user = defaultdict(lambda: {'VERY_SATISFIED': 0, 'SATISFIED': 0, 'NOT_SATISFIED': 0, 'total': 0})
@@ -2710,7 +2711,7 @@ def gps_summary_export(request):
         timestamp__date__lte=end_date,
     ).select_related('user').order_by('timestamp')
 
-    if not (request.user.is_superuser or request.user.is_staff):
+    if not (user_can_view_all(request.user)):
         qs = qs.filter(user=request.user)
 
     raw_data = defaultdict(lambda: defaultdict(lambda: {
@@ -2819,7 +2820,7 @@ def gps_technician_stats(request):
     )))
     all_user_ids = gps_user_ids | job_user_ids
 
-    if not (request.user.is_superuser or request.user.is_staff):
+    if not (user_can_view_all(request.user)):
         all_user_ids = {request.user.pk}
 
     users = User.objects.filter(pk__in=all_user_ids).order_by('username')

@@ -5,8 +5,7 @@
 from django.db import models
 from django.conf import settings
 
-# ====== ตัวเลือกตำแหน่งงาน (Role) ======
-# กำหนดบทบาทที่พนักงานแต่ละคนสามารถมีได้ในระบบ
+# ====== ตัวเลือกตำแหน่งงาน (Role) — fallback เมื่อ DB ยังไม่มีข้อมูล ======
 ROLE_CHOICES = (
     ('admin', 'ผู้ดูแลระบบ (Admin)'),
     ('manager', 'ผู้บริหาร (Manager)'),
@@ -16,6 +15,52 @@ ROLE_CHOICES = (
     ('sale', 'พนักงานขาย (Sale)'),
     ('hr_payroll', 'ฝ่ายบุคคล/เงินเดือน (HR/Payroll)'),
 )
+
+
+def get_role_choices():
+    """โหลด Role choices จาก DB (ใช้ใน forms) — fallback เป็น ROLE_CHOICES"""
+    try:
+        return [(r.code, r.name) for r in Role.objects.order_by('order', 'name')]
+    except Exception:
+        return list(ROLE_CHOICES)
+
+
+def user_can_view_all(user):
+    """ตรวจสอบว่า user มีสิทธิ์ดูรายงาน/ข้อมูลของพนักงานทุกคน
+    → True ถ้า: superuser, is_staff, is_staff_role หรือ can_view_all_reports บน Role
+    ใช้แทน `user.is_staff` ในทุก view รายงาน
+    """
+    if user.is_superuser or user.is_staff:
+        return True
+    try:
+        return user.profile.can_view_all()
+    except Exception:
+        return False
+
+
+# ====== Model: Role — ตำแหน่ง/บทบาท จัดการได้จากหน้า UI ======
+class Role(models.Model):
+    code = models.CharField(max_length=30, unique=True, verbose_name="รหัสตำแหน่ง",
+                            help_text="ตัวพิมพ์เล็ก ไม่มีช่องว่าง เช่น technician, manager")
+    name = models.CharField(max_length=100, verbose_name="ชื่อตำแหน่ง")
+    is_staff_role = models.BooleanField(default=False, verbose_name="สิทธิ์ดูแลระบบ (Staff)",
+                                        help_text="เปิดใช้: เห็นข้อมูลทุกคนในรายงาน + เข้า /admin ได้")
+    is_technician_role = models.BooleanField(default=False, verbose_name="เป็นตำแหน่งช่าง (GPS)",
+                                             help_text="เปิดใช้: แสดงปุ่ม GPS ในห้องแชท")
+    can_view_all_reports = models.BooleanField(default=False, verbose_name="ดูรายงานของทุกคนได้",
+                                               help_text="เปิดใช้: ดูข้อมูล/รายงานของพนักงานทุกคนได้ (ไม่จำเป็นต้องเข้า /admin)")
+    badge_color = models.CharField(max_length=200,
+                                   default='bg-slate-100 text-slate-800 border-slate-200',
+                                   verbose_name="CSS Badge (Tailwind classes)")
+    order = models.IntegerField(default=0, verbose_name="ลำดับการแสดง")
+
+    class Meta:
+        ordering = ['order', 'name']
+        verbose_name = "ตำแหน่ง/บทบาท"
+        verbose_name_plural = "ตำแหน่ง/บทบาท"
+
+    def __str__(self):
+        return self.name
 
 # ====== Model: UserProfile ======
 class UserProfile(models.Model):
@@ -49,22 +94,49 @@ class UserProfile(models.Model):
     def __str__(self):
         return f"{self.user.username} - {self.get_role_display()}"
 
+    def get_role_obj(self):
+        """ดึง Role object จาก DB ตาม role code ปัจจุบัน"""
+        try:
+            return Role.objects.get(code=self.role)
+        except Role.DoesNotExist:
+            return None
+
+    def get_role_display(self):
+        """แสดงชื่อตำแหน่งจาก Role model (override Django default)"""
+        role_obj = self.get_role_obj()
+        if role_obj:
+            return role_obj.name
+        # fallback จาก ROLE_CHOICES
+        return dict(ROLE_CHOICES).get(self.role, self.role)
+
     def get_role_badge_color(self):
-        """คืนค่า CSS class สำหรับแสดงสีของ Badge ตาม Role ของพนักงาน"""
-        colors = {
-            'admin': 'bg-red-100 text-red-800 border-red-200',
-            'manager': 'bg-purple-100 text-purple-800 border-purple-200',
-            'reception': 'bg-pink-100 text-pink-800 border-pink-200',
-            'technician_lead': 'bg-blue-100 text-blue-800 border-blue-200',
-            'technician': 'bg-cyan-100 text-cyan-800 border-cyan-200',
-            'sale': 'bg-green-100 text-green-800 border-green-200',
-            'hr_payroll': 'bg-orange-100 text-orange-800 border-orange-200',
-        }
-        # ถ้าไม่มี Role ที่ตรงกัน ใช้สีเทาเป็น Default
-        return colors.get(self.role, 'bg-slate-100 text-slate-800 border-slate-200')
+        """คืนค่า CSS class สำหรับแสดงสีของ Badge ตาม Role"""
+        role_obj = self.get_role_obj()
+        if role_obj:
+            return role_obj.badge_color
+        return 'bg-slate-100 text-slate-800 border-slate-200'
+
+    def is_admin_role(self):
+        """คืนค่า True ถ้า role มี is_staff_role=True (เข้า /admin ได้)"""
+        role_obj = self.get_role_obj()
+        if role_obj:
+            return role_obj.is_staff_role
+        return self.role in ('admin', 'manager')  # fallback
+
+    def can_view_all(self):
+        """คืนค่า True ถ้า role มี is_staff_role หรือ can_view_all_reports=True
+           → ดูรายงาน/ข้อมูลของพนักงานทุกคนได้"""
+        if self.user.is_superuser or self.user.is_staff:
+            return True
+        role_obj = self.get_role_obj()
+        if role_obj:
+            return role_obj.is_staff_role or role_obj.can_view_all_reports
+        return self.role in ('admin', 'manager')  # fallback
 
     def sync_groups(self):
-        """ซิงค์สิทธิ์จาก Checkbox ไปยัง Django Groups อัตโนมัติ"""
+        """ซิงค์สิทธิ์จาก Checkbox ไปยัง Django Groups อัตโนมัติ
+           และ sync is_staff จาก role (admin/manager → is_staff=True)
+        """
         from django.contrib.auth.models import Group
 
         # Mapping ระหว่าง Field ในโปรไฟล์ กับ ชื่อกลุ่มในระบบ
@@ -89,6 +161,13 @@ class UserProfile(models.Model):
                 self.user.groups.add(group)
             else:
                 self.user.groups.remove(group)
+
+        # ─── Sync is_staff จาก Role model ──────────────────────────
+        if not self.user.is_superuser:
+            should_be_staff = self.is_admin_role()
+            if self.user.is_staff != should_be_staff:
+                self.user.is_staff = should_be_staff
+                self.user.save(update_fields=['is_staff'])
 
     def save(self, *args, **kwargs):
         # บันทึกข้อมูลโปรไฟล์ก่อน

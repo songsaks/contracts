@@ -4,7 +4,7 @@
 
 from django import forms
 from django.contrib.auth.models import User
-from .models import UserProfile, ROLE_CHOICES
+from .models import UserProfile, ROLE_CHOICES, get_role_choices
 from chat.models import ChatRoom
 
 
@@ -18,8 +18,12 @@ class UserCreateForm(forms.ModelForm):
     first_name = forms.CharField(label="ชื่อจริง", max_length=150, required=True)
     last_name = forms.CharField(label="นามสกุล", max_length=150, required=True)
     email = forms.EmailField(label="อีเมล", required=False)
-    # ตำแหน่งงาน เลือกจาก ROLE_CHOICES ที่กำหนดใน models.py
+    # ตำแหน่งงาน โหลดจาก Role model ใน DB
     role = forms.ChoiceField(label="ตำแหน่ง/บทบาท", choices=ROLE_CHOICES, required=True)
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['role'].choices = get_role_choices()
     phone_number = forms.CharField(label="เบอร์โทรศัพท์", max_length=20, required=False)
     # รหัสผ่านใช้ PasswordInput เพื่อซ่อนตัวอักษรขณะพิมพ์
     password = forms.CharField(label="รหัสผ่านเข้าสู่ระบบ", widget=forms.PasswordInput, required=True, help_text="ตั้งรหัสผ่านให้พนักงาน (อย่างน้อย 6 ตัวอักษร)")
@@ -98,6 +102,7 @@ class UserUpdateForm(forms.ModelForm):
     role = forms.ChoiceField(label="ตำแหน่ง/บทบาท", choices=ROLE_CHOICES, required=True)
     phone_number = forms.CharField(label="เบอร์โทรศัพท์", max_length=20, required=False)
     avatar = forms.ImageField(label="รูปโปรไฟล์", required=False)
+    # (choices will be overridden in __init__ below)
     # new_password เป็น optional — ถ้าเว้นว่างไว้จะไม่เปลี่ยนรหัสผ่าน
     new_password = forms.CharField(label="ตั้งรหัสผ่านใหม่ (ทิ้งว่างไว้ถ้าไม่ต้องการเปลี่ยน)", widget=forms.PasswordInput, required=False, help_text="กรอกเพื่อล้างรหัสผ่านเดิมเป็นรหัสผ่านใหม่นี้")
 
@@ -139,6 +144,8 @@ class UserUpdateForm(forms.ModelForm):
         เพื่อให้ฟอร์มแสดงข้อมูลปัจจุบันอยู่แล้วเมื่อเปิดหน้า Edit
         """
         super().__init__(*args, **kwargs)
+        # โหลด role choices จาก DB
+        self.fields['role'].choices = get_role_choices()
         if self.instance and hasattr(self.instance, 'profile'):
             self.fields['role'].initial = self.instance.profile.role
             self.fields['phone_number'].initial = self.instance.profile.phone_number

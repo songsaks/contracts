@@ -21,6 +21,7 @@ from io import BytesIO
 from django.contrib.auth import get_user_model, logout
 from .models import WorkReport, EmployeeSalaryConfig, PayrollRecord, PayrollStatus, SSOBracket
 from .forms import WorkReportForm, AdminWorkReportForm, EmployeeSalaryConfigForm
+from accounts.models import user_can_view_all
 
 User = get_user_model()
 # URL สำหรับ redirect เมื่อยังไม่ได้ login ในระบบ payroll
@@ -43,7 +44,7 @@ def login_success(request):
     - is_staff (HR/Admin หรือผู้บริหาร) → admin_dashboard
     - พนักงานทั่วไป → report_list (รายงานผลงานของตัวเอง)
     """
-    if request.user.is_staff:
+    if is_hr_or_exec(request.user):
         return redirect('payroll:admin_dashboard')
     return redirect('payroll:report_list')
 
@@ -58,11 +59,21 @@ def is_executive(user):
     return user.is_authenticated and user.is_superuser
 
 def is_hr_or_exec(user):
-    """Level 1 + 2: any staff (HR/Admin or Executive).
+    """Level 1 + 2: HR/Payroll หรือผู้บริหาร — เข้า payroll admin ได้
 
-    ใช้กับ view ที่ HR และผู้บริหารเข้าถึงได้ เช่น Bulk Entry, Employee List
+    เงื่อนไข: is_staff (admin/manager role) หรือมีสิทธิ์ access_payroll + can_view_all
+    → ป้องกันไม่ให้ role ที่มีแค่ can_view_all_reports (เช่น manager GPS) เข้า payroll admin
     """
-    return user.is_authenticated and user.is_staff
+    if not user.is_authenticated:
+        return False
+    if user.is_superuser or user.is_staff:
+        return True
+    # HR/Payroll: ต้องมีทั้ง access_payroll และ can_view_all_reports บน Role
+    try:
+        profile = user.profile
+        return profile.access_payroll and profile.can_view_all()
+    except Exception:
+        return False
 
 # Keep old name as alias so any existing references still work
 is_hr = is_hr_or_exec
@@ -153,7 +164,7 @@ def report_edit(request, pk):
 def report_detail(request, pk):
     # ดูรายละเอียดรายงาน — พนักงานดูได้เฉพาะของตัวเอง HR ดูได้ทุกคน
     report = get_object_or_404(WorkReport, pk=pk)
-    if report.user != request.user and not request.user.is_staff:
+    if report.user != request.user and not is_hr_or_exec(request.user):
         messages.error(request, "ไม่มีสิทธิ์เข้าถึงข้อมูลนี้")
         return redirect('payroll:report_list')
     return render(request, 'payroll/report_detail.html', {'report': report})
@@ -175,7 +186,7 @@ def payslip_view(request, pk):
     # แสดงสลิปเงินเดือน — เข้าถึงได้เฉพาะหลังจาก HR อนุมัติและมี PayrollRecord แล้ว
     report = get_object_or_404(WorkReport, pk=pk)
     # Employees can only see their own payslip; HR can see anyone's
-    if report.user != request.user and not request.user.is_staff:
+    if report.user != request.user and not is_hr_or_exec(request.user):
         messages.error(request, "ไม่มีสิทธิ์ดูสลิปของผู้อื่น")
         return redirect('payroll:report_list')
     # Payslip is only available after HR approves
@@ -206,7 +217,7 @@ def my_payslips(request):
 def record_detail(request, pk):
     # เข้าถึง PayrollRecord โดยตรงผ่าน pk — ใช้แสดงสลิปอีกช่องทาง
     record = get_object_or_404(PayrollRecord, pk=pk)
-    if record.report.user != request.user and not request.user.is_staff:
+    if record.report.user != request.user and not is_hr_or_exec(request.user):
         messages.error(request, "ไม่มีสิทธิ์")
         return redirect('payroll:report_list')
     return render(request, 'payroll/payslip.html', {'report': record.report, 'record': record})

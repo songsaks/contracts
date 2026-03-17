@@ -3,6 +3,7 @@ from django.http import JsonResponse, HttpResponse
 from django.urls import reverse
 from django.db import transaction
 from django.contrib.auth.decorators import login_required
+from accounts.models import user_can_view_all
 from .models import RepairJob, RepairItem, Customer, Device, Technician, DeviceType, Brand, RepairStatusHistory, OutsourceLog, RepairType, RepairStatus
 from django.contrib.auth.models import User
 from .forms import CustomerForm, DeviceForm, RepairJobForm, RepairItemForm, TechnicianForm, DeviceTypeForm, BrandForm, OutsourceLogForm, RepairTypeForm
@@ -1085,8 +1086,8 @@ def repair_notifications_api(request):
     )
 
     # Filter: Normal users only see what they are responsible for
-    # Superusers see everything
-    if not request.user.is_superuser:
+    # admin/manager/can_view_all → see everything
+    if not user_can_view_all(request.user):
         status_changes_query = status_changes_query.filter(
             status_obj__responsibles=request.user
         )
@@ -1205,9 +1206,9 @@ def technician_update_status_api(request):
 @login_required
 def repair_status_list(request):
     """จัดการรายการสถานะงานซ่อม และลำดับขั้นตอน"""
-    if not request.user.is_superuser:
+    if not user_can_view_all(request.user):
         return redirect('repairs:dashboard')
-        
+
     statuses = RepairStatus.objects.all().prefetch_related('responsibles')
     
     # Initialize if empty
