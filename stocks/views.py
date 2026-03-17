@@ -609,6 +609,29 @@ def portfolio_list(request):
         chart_labels.append(s.sold_at.strftime('%Y-%m-%d %H:%M'))
         chart_data.append(running_pl)
 
+    # ====== เตรียมข้อมูลตารางสรุปรายเดือน (Monthly Summary) ======
+    from collections import defaultdict
+    monthly_summary_dict = defaultdict(lambda: {'items': [], 'total_pl': 0})
+    for s in sold_stocks:
+        month_key = s.sold_at.strftime('%B %Y') # e.g. March 2024
+        monthly_summary_dict[month_key]['items'].append(s)
+        monthly_summary_dict[month_key]['total_pl'] += float(s.profit_loss)
+    
+    # แปลงเป็น list และเรียงลำดับเดือน (ล่าสุดขึ้นก่อน)
+    # หมายเหตุ: การเรียงลำดับตามชื่อเดือนอาจจะเพี้ยน ต้องใช้ key ที่เป็นตัวเลข หรือเรียงจาก sold_at แทน
+    # ดังนั้นจะดึงเดือนล่าสุดจาก sold_stocks ที่เรียงมาแล้ว
+    monthly_summary = []
+    unique_months = []
+    for s in sold_stocks[::-1]: # วนย้อนกลับจากล่าสุด
+        m_key = s.sold_at.strftime('%B %Y')
+        if m_key not in unique_months:
+            unique_months.append(m_key)
+            monthly_summary.append({
+                'month_name': m_key,
+                'items': monthly_summary_dict[m_key]['items'],
+                'total_pl': monthly_summary_dict[m_key]['total_pl']
+            })
+
     context = {
         'items': items,
         'total_market_value': total_market_value,
@@ -617,6 +640,7 @@ def portfolio_list(request):
         'title': 'My Portfolio',
         'ai_analysis': ai_analysis,
         'sold_stocks': sold_stocks,
+        'monthly_summary': monthly_summary,
         'chart_labels': json.dumps(chart_labels),
         'chart_data': json.dumps(chart_data),
     }
@@ -2036,3 +2060,69 @@ reason: ภาษาไทย ไม่เกิน 60 ตัวอักษร"
         'has_sentiment': candidates.filter(sentiment_score__gt=0).exists(),
     }
     return render(request, 'stocks/multi_factor.html', context)
+
+@login_required
+def realized_pl_report(request):
+    """
+    รายงานกำไรขาดทุนสะสมที่เกิดขึ้นจริง (Realized P/L)
+    พร้อมตัวกรอง รายวัน รายเดือน รายปี และช่วงเวลา
+    """
+    import json
+    from collections import defaultdict
+    
+    start_date = request.GET.get('start_date')
+    end_date = request.GET.get('end_date')
+    group_by = request.GET.get('group_by', 'month') # day, month, year
+
+    sold_stocks = SoldStock.objects.filter(user=request.user).order_by('sold_at')
+
+    if start_date:
+        sold_stocks = sold_stocks.filter(sold_at__date__gte=start_date)
+    if end_date:
+        sold_stocks = sold_stocks.filter(sold_at__date__lte=end_date)
+
+    # Grouping logic
+    summary_dict = defaultdict(lambda: {'items': [], 'total_pl': 0})
+    
+    chart_labels = []
+    chart_data = []
+    running_pl = 0
+    
+    for s in sold_stocks:
+        if group_by == 'day':
+            key = s.sold_at.strftime('%Y-%m-%d')
+        elif group_by == 'year':
+            key = s.sold_at.strftime('%Y')
+        else: # month
+            key = s.sold_at.strftime('%Y-%m')
+            
+        summary_dict[key]['items'].append(s)
+        summary_dict[key]['total_pl'] += float(s.profit_loss)
+        
+        # สำหรับกราฟเส้น (Performance)
+        running_pl += float(s.profit_loss)
+        chart_labels.append(s.sold_at.strftime('%Y-%m-%d %H:%M'))
+        chart_data.append(running_pl)
+
+    # เตรียมข้อมูลสรุปสำหรับตาราง (Sorted รายการล่าสุดขึ้นก่อน)
+    summary_list = []
+    sorted_keys = sorted(summary_dict.keys(), reverse=True)
+    for k in sorted_keys:
+        summary_list.append({
+            'period': k,
+            'items': summary_dict[k]['items'],
+            'total_pl': summary_dict[k]['total_pl'],
+            'count': len(summary_dict[k]['items'])
+        })
+
+    context = {
+        'summary_list': summary_list,
+        'sold_stocks': sold_stocks,
+        'chart_labels': json.dumps(chart_labels),
+        'chart_data': json.dumps(chart_data),
+        'start_date': start_date,
+        'end_date': end_date,
+        'group_by': group_by,
+        'title': 'Realized P/L Report',
+    }
+    return render(request, 'stocks/realized_pl_report.html', context)

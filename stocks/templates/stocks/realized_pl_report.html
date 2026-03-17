@@ -1,0 +1,199 @@
+{% extends 'stocks/base_stocks.html' %}
+{% load humanize %}
+
+{% block content %}
+<div class="row g-4">
+    <!-- Header & Filters -->
+    <div class="col-12">
+        <div class="card-premium p-4 border-0 mb-4 bg-white shadow-sm">
+            <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+                <div>
+                    <h3 class="fw-bold mb-1 text-primary"><i class="fas fa-file-invoice-dollar me-2"></i> Realized P/L Report</h3>
+                    <p class="text-muted mb-0">รายงานกำไร/ขาดทุนจากการขายหุ้นที่เกิดขึ้นจริง</p>
+                </div>
+                <a href="{% url 'stocks:portfolio_list' %}" class="btn btn-light btn-sm rounded-pill px-3">
+                    <i class="fas fa-arrow-left me-1"></i> กลับไปหน้าพอร์ต
+                </a>
+            </div>
+
+            <form method="GET" class="row g-3 align-items-end">
+                <div class="col-md-3">
+                    <label class="form-label small text-muted">เริ่มวันที่</label>
+                    <input type="date" name="start_date" class="form-control rounded-3" value="{{ start_date }}">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label small text-muted">ถึงวันที่</label>
+                    <input type="date" name="end_date" class="form-control rounded-3" value="{{ end_date }}">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label small text-muted">รูปแบบกลุ่ม (Group by)</label>
+                    <select name="group_by" class="form-select rounded-3">
+                        <option value="day" {% if group_by == 'day' %}selected{% endif %}>รายวัน (Daily)</option>
+                        <option value="month" {% if group_by == 'month' %}selected{% endif %}>รายเดือน (Monthly)</option>
+                        <option value="year" {% if group_by == 'year' %}selected{% endif %}>รายปี (Yearly)</option>
+                    </select>
+                </div>
+                <div class="col-md-3 d-grid">
+                    <button type="submit" class="btn btn-premium px-4">
+                        <i class="fas fa-filter me-1"></i> กรองข้อมูล
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Chart -->
+    <div class="col-12">
+        <div class="card-premium p-4 border-0 mb-4 bg-white shadow-sm">
+            <h5 class="fw-bold mb-4 text-dark"><i class="fas fa-chart-line me-2 text-primary"></i> Cumulative Performance</h5>
+            <div style="height: 350px;">
+                <canvas id="reportChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Summary Table -->
+    <div class="col-lg-5">
+        <div class="card-premium p-4 border-0 mb-4 bg-white shadow-sm h-100">
+            <h5 class="fw-bold mb-4 text-dark"><i class="fas fa-table me-2 text-primary"></i> สรุปผลตามช่วงเวลา ({{ group_by|capfirst }})</h5>
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead class="bg-light bg-opacity-50">
+                        <tr class="small text-muted text-uppercase">
+                            <th>ช่วงเวลา</th>
+                            <th class="text-center">จำนวนขาย</th>
+                            <th class="text-end">กำไร/ขาดทุน</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for entry in summary_list %}
+                        <tr>
+                            <td class="fw-bold">{{ entry.period }}</td>
+                            <td class="text-center">{{ entry.count }}</td>
+                            <td class="text-end fw-bold {% if entry.total_pl > 0 %}text-success{% elif entry.total_pl < 0 %}text-danger{% endif %} text-nowrap">
+                                {% if entry.total_pl > 0 %}+{% endif %}฿{{ entry.total_pl|floatformat:2|intcomma }}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="3" class="text-center py-4 text-muted">ไม่พบข้อมูล</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Detailed List -->
+    <div class="col-lg-7">
+        <div class="card-premium p-4 border-0 mb-4 bg-white shadow-sm h-100">
+            <h5 class="fw-bold mb-4 text-dark"><i class="fas fa-list me-2 text-primary"></i> รายการขายทั้งหมด (Transactions)</h5>
+            <div class="table-responsive">
+                <table class="table table-sm table-hover align-middle">
+                    <thead class="bg-light bg-opacity-50">
+                        <tr class="extra-small text-muted text-uppercase">
+                            <th>วันที่</th>
+                            <th>หุ้น</th>
+                            <th class="text-end">ร.ทุน</th>
+                            <th class="text-end">ร.ขาย</th>
+                            <th class="text-end">กำไร/ขาดทุน</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for s in sold_stocks %}
+                        <tr style="font-size: 0.9rem;">
+                            <td class="text-nowrap">{{ s.sold_at|date:"d M Y" }}</td>
+                            <td><span class="badge bg-primary bg-opacity-10 text-primary">{{ s.symbol }}</span></td>
+                            <td class="text-end text-muted">฿{{ s.buy_price|floatformat:2|intcomma }}</td>
+                            <td class="text-end fw-bold">฿{{ s.sell_price|floatformat:2|intcomma }}</td>
+                            <td class="text-end fw-bold {% if s.profit_loss > 0 %}text-success{% elif s.profit_loss < 0 %}text-danger{% endif %} text-nowrap">
+                                {% if s.profit_loss > 0 %}+{% endif %}฿{{ s.profit_loss|floatformat:2|intcomma }}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="5" class="text-center py-4 text-muted">ไม่พบประวัติการขายในช่วงนี้</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const ctx = document.getElementById('reportChart').getContext('2d');
+        const chartLabels = {{ chart_labels|safe }};
+        const chartData = {{ chart_data|safe }};
+        
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: chartLabels,
+                datasets: [{
+                    label: 'Realized Cumulative P/L (฿)',
+                    data: chartData,
+                    borderColor: '#4338ca',
+                    backgroundColor: 'rgba(67, 56, 202, 0.05)',
+                    borderWidth: 3,
+                    pointRadius: 4,
+                    pointBackgroundColor: '#fff',
+                    pointBorderColor: '#4338ca',
+                    tension: 0.3,
+                    fill: true
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: {
+                    intersect: false,
+                    mode: 'index',
+                },
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                        titleColor: '#1e293b',
+                        bodyColor: '#1e293b',
+                        borderColor: '#e2e8f0',
+                        borderWidth: 1,
+                        padding: 12,
+                        displayColors: false,
+                        callbacks: {
+                            label: function(context) {
+                                let label = context.dataset.label || '';
+                                if (label) label += ': ';
+                                if (context.parsed.y !== null) {
+                                    label += '฿' + new Intl.NumberFormat().format(context.parsed.y.toFixed(2));
+                                }
+                                return label;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        grid: { borderDash: [5, 5], color: '#e2e8f0' },
+                        ticks: {
+                            callback: function(value) {
+                                return '฿' + new Intl.NumberFormat().format(value);
+                            }
+                        }
+                    },
+                    x: {
+                        grid: { display: false },
+                        ticks: { maxRotation: 45, minRotation: 45 }
+                    }
+                }
+            }
+        });
+    });
+</script>
+{% endblock %}

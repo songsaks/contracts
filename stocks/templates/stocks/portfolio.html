@@ -11,7 +11,10 @@
                     <h3 class="fw-bold mb-1 text-primary"><i class="fas fa-wallet me-2"></i> My Portfolio</h3>
                     <p class="text-muted mb-0">ติดตามสินทรัพย์ที่คุณครอบครอง (Owned Assets)</p>
                 </div>
-                <div class="col-md-6 text-md-end mt-3 mt-md-0">
+                <div class="col-md-6 text-md-end mt-3 mt-md-0 d-flex flex-column align-items-md-end gap-2">
+                    <a href="{% url 'stocks:realized_pl_report' %}" class="btn btn-outline-primary btn-sm rounded-pill px-3">
+                        <i class="fas fa-file-invoice-dollar me-1"></i> ดูรายงานการขายหุ้น
+                    </a>
                     <div class="d-flex justify-content-md-end gap-4">
                         <div>
                             <div class="small text-muted uppercase fw-600" style="letter-spacing: 0.5px;">TOTAL VALUE</div>
@@ -29,15 +32,6 @@
         </div>
     </div>
 
-    <!-- Performance Chart Section -->
-    <div class="col-12 mt-2">
-        <div class="card-premium p-4 border-0 mb-4 bg-white shadow-sm">
-            <h5 class="fw-bold mb-4 text-dark"><i class="fas fa-chart-line me-2 text-primary"></i> Realized Profit/Loss Performance</h5>
-            <div style="height: 300px;">
-                <canvas id="performanceChart"></canvas>
-            </div>
-        </div>
-    </div>
 
     <!-- Portfolio Grid -->
     <div class="col-lg-12">
@@ -305,6 +299,94 @@
         </div>
     </div>
     {% endif %}
+
+    <hr class="my-5 opacity-0">
+
+    <!-- Performance Chart & Monthly Summary Grid -->
+    <div class="col-lg-8">
+        <div class="card-premium p-4 border-0 mb-4 bg-white shadow-sm h-100">
+            <h5 class="fw-bold mb-4 text-dark"><i class="fas fa-chart-line me-2 text-primary"></i> Realized Profit/Loss Performance</h5>
+            <div style="height: 300px;">
+                <canvas id="performanceChart"></canvas>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-4">
+        <div class="card-premium p-4 border-0 mb-4 bg-white shadow-sm h-100">
+            <h5 class="fw-bold mb-4 text-dark"><i class="fas fa-calendar-alt me-2 text-primary"></i> Monthly Summary</h5>
+            <div class="table-responsive" style="max-height: 300px; overflow-y: auto;">
+                <table class="table table-sm table-borderless align-middle mb-0">
+                    <thead class="text-muted small uppercase">
+                        <tr>
+                            <th>เดือน</th>
+                            <th class="text-end">กำไร/ขาดทุน</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for month in monthly_summary %}
+                        <tr class="border-bottom border-light">
+                            <td class="py-3">
+                                <div class="fw-bold">{{ month.month_name }}</div>
+                                <div class="text-muted extra-extra-small">{{ month.items|length }} รายการขาย</div>
+                            </td>
+                            <td class="text-end py-3 fw-bold {% if month.total_pl > 0 %}text-success{% elif month.total_pl < 0 %}text-danger{% endif %}">
+                                {% if month.total_pl > 0 %}+{% endif %}฿{{ month.total_pl|floatformat:2|intcomma }}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="2" class="text-center py-4 text-muted">ยังไม่พบประวัติการขาย</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Detailed Transactions Table -->
+    <div class="col-12 mt-2">
+        <div class="card-premium p-4 border-0 mb-4 bg-white shadow-sm">
+            <h5 class="fw-bold mb-4 text-dark"><i class="fas fa-history me-2 text-primary"></i> ประวัติการซื้อขาย (Transaction History)</h5>
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead class="bg-light bg-opacity-50">
+                        <tr class="small text-muted text-uppercase">
+                            <th>วันที่ขาย</th>
+                            <th>สัญลักษณ์</th>
+                            <th class="text-center">จำนวน</th>
+                            <th class="text-end">ราคาทุน</th>
+                            <th class="text-end">ราคาขาย</th>
+                            <th class="text-end">กำไร/ขาดทุน</th>
+                            <th class="text-end">% P/L</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for s in sold_stocks %}
+                        <tr>
+                            <td>{{ s.sold_at|date:"d/m/Y H:i" }}</td>
+                            <td><span class="badge bg-primary bg-opacity-10 text-primary fw-bold">{{ s.symbol }}</span></td>
+                            <td class="text-center">{{ s.quantity|floatformat:2|intcomma }}</td>
+                            <td class="text-end text-muted">฿{{ s.buy_price|floatformat:2|intcomma }}</td>
+                            <td class="text-end fw-bold">฿{{ s.sell_price|floatformat:2|intcomma }}</td>
+                            <td class="text-end fw-bold {% if s.profit_loss > 0 %}text-success{% elif s.profit_loss < 0 %}text-danger{% endif %}">
+                                {% if s.profit_loss > 0 %}+{% endif %}฿{{ s.profit_loss|floatformat:2|intcomma }}
+                            </td>
+                            <td class="text-end fw-bold {% if s.profit_loss_pct > 0 %}text-success{% elif s.profit_loss_pct < 0 %}text-danger{% endif %}">
+                                {% if s.profit_loss_pct > 0 %}+{% endif %}{{ s.profit_loss_pct }}%
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="7" class="text-center py-5 text-muted">ไม่พบข้อมูลการขาย</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
 </div>
 
 <!-- Stylings for professional alerts and shining effect -->
