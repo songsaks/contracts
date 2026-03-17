@@ -7,7 +7,6 @@
     /* ตารางสรุป */
     .summary-table { border-collapse: separate; border-spacing: 0; width: 100%; }
 
-    /* Sticky คอลัมน์แรก */
     .col-date {
         position: sticky; left: 0; z-index: 2; background: white;
         min-width: 64px; width: 64px;
@@ -15,22 +14,19 @@
     }
     thead .col-date { z-index: 3; background: #f8fafc; }
 
-    /* Header ช่าง */
     .col-user {
-        min-width: 120px; text-align: center;
+        min-width: 130px; text-align: center;
         background: #f8fafc; font-size: 0.78rem; font-weight: 700; color: #334155;
         border-bottom: 2px solid #e2e8f0; padding: 0.5rem 0.4rem;
     }
 
-    /* เซลล์วัน */
     .date-cell { padding: 0.3rem 0.5rem; font-size: 0.78rem; line-height: 1.2; white-space: nowrap; }
     .date-num  { font-weight: 700; font-size: 0.88rem; color: #1e293b; }
     .date-day  { font-size: 0.6rem; color: #94a3b8; }
 
-    /* เซลล์ข้อมูล */
     .data-cell {
         text-align: center; vertical-align: middle;
-        padding: 0.2rem 0.25rem;
+        padding: 0.25rem 0.3rem;
         border: 1px solid #f1f5f9;
         transition: background 0.12s;
     }
@@ -38,20 +34,31 @@
     .data-cell.clickable:hover { background: rgba(59,130,246,0.08) !important; }
     .data-cell.empty { background: #fafafa; }
 
-    .cell-full    { background: #f0fdf4; }
-    .cell-partial { background: #eff6ff; }
+    /* สีเซลล์ตาม CI/CO status */
+    .cell-full      { background: #f0fdf4; }   /* CI = CO */
+    .cell-partial   { background: #eff6ff; }   /* มีกิจกรรม แต่ยังไม่สมบูรณ์ */
+    .cell-imbalance { background: #fff7ed; }   /* CI ≠ CO */
 
     .ci-badge {
         display: inline-flex; align-items: center; justify-content: center;
         width: 24px; height: 24px; border-radius: 50%;
-        font-weight: 700; font-size: 0.78rem; margin: 0 auto 1px;
+        font-weight: 700; font-size: 0.78rem; margin: 0 auto 2px;
     }
-    .ci-badge.full    { background: #dcfce7; color: #15803d; }
-    .ci-badge.partial { background: #dbeafe; color: #1d4ed8; }
+    .ci-badge.full      { background: #dcfce7; color: #15803d; }
+    .ci-badge.partial   { background: #dbeafe; color: #1d4ed8; }
+    .ci-badge.imbalance { background: #fed7aa; color: #c2410c; }
 
-    .time-range { font-size: 0.6rem; color: #64748b; line-height: 1.1; }
+    /* CI / CO mini row */
+    .cico-row {
+        display: flex; justify-content: center; gap: 4px;
+        font-size: 0.6rem; color: #64748b; line-height: 1.1;
+    }
+    .cico-in  { color: #15803d; font-weight: 600; }
+    .cico-out { color: #1d4ed8; font-weight: 600; }
+    .cico-warn { color: #c2410c; font-weight: 700; }
 
-    /* Weekend / Today */
+    .time-range { font-size: 0.58rem; color: #94a3b8; line-height: 1.1; margin-top: 1px; }
+
     .row-weekend .col-date { background: #fffbeb; }
     .row-weekend .date-num { color: #92400e; }
     .row-weekend .date-day { color: #d97706; }
@@ -59,7 +66,6 @@
     .row-today .col-date { background: #eff6ff; border-right-color: #3b82f6; }
     .row-today .date-num { color: #1d4ed8; }
 
-    /* Footer รวม */
     tfoot td { background: #f8fafc !important; font-weight: 700; border-top: 2px solid #cbd5e1; }
 
     .total-badge {
@@ -69,7 +75,6 @@
     }
     .total-badge.user { background: #dbeafe; color: #1d4ed8; }
 
-    /* Summary card */
     .stat-card {
         border-radius: 1rem; padding: 0.85rem 1.1rem;
         background: white; border: 1px solid #e2e8f0;
@@ -81,27 +86,35 @@
         display: flex; align-items: center; justify-content: center;
         flex-shrink: 0; font-size: 1rem;
     }
-
-    /* Table scroll */
     .table-scroll { overflow-x: auto; border-radius: 0.75rem; border: 1px solid #e2e8f0; }
-
     .legend-dot { width: 11px; height: 11px; border-radius: 50%; display: inline-block; }
 
-    /* ===== Print styles ===== */
+    /* Imbalance alert */
+    .imbalance-row {
+        display: flex; flex-wrap: wrap; align-items: center; gap: 6px;
+        padding: 5px 12px; border-bottom: 1px solid #fed7aa;
+        font-size: 0.8rem;
+    }
+    .imbalance-row:last-child { border-bottom: none; }
+    .imbalance-date { font-weight: 700; color: #92400e; min-width: 56px; }
+    .imbalance-chip {
+        background: #fff7ed; border: 1px solid #fed7aa; border-radius: 6px;
+        padding: 2px 8px; font-size: 0.75rem; color: #c2410c;
+    }
+    .imbalance-chip.over  { background: #fef3c7; color: #92400e; border-color: #fcd34d; }
+    .imbalance-chip.under { background: #fee2e2; color: #991b1b; border-color: #fca5a5; }
+
     @media print {
         .no-print, nav, .navbar, .sidebar, footer { display: none !important; }
         body { font-size: 11px; }
         .container-fluid { padding: 0 !important; }
         .card { border: 1px solid #ccc !important; box-shadow: none !important; }
-        .card-header { background: #f0f0f0 !important; }
         .table-scroll { overflow-x: visible; border: none; }
         .summary-table { width: 100%; font-size: 10px; }
         .col-date { position: static; }
         .col-user { font-size: 9px; }
         .data-cell { padding: 2px; }
         .ci-badge { width: 18px; height: 18px; font-size: 9px; }
-        .stat-card { break-inside: avoid; }
-        h3 { font-size: 14px; }
         @page { size: landscape; margin: 10mm; }
     }
 </style>
@@ -148,18 +161,19 @@
                     {% if prev_month == 1 %}ม.ค.{% elif prev_month == 2 %}ก.พ.{% elif prev_month == 3 %}มี.ค.{% elif prev_month == 4 %}เม.ย.{% elif prev_month == 5 %}พ.ค.{% elif prev_month == 6 %}มิ.ย.{% elif prev_month == 7 %}ก.ค.{% elif prev_month == 8 %}ส.ค.{% elif prev_month == 9 %}ก.ย.{% elif prev_month == 10 %}ต.ค.{% elif prev_month == 11 %}พ.ย.{% else %}ธ.ค.{% endif %}
                     {{ prev_year }}
                 </a>
-
                 <div class="text-center">
                     <div class="fw-bold fs-5 text-primary">{{ month_name }} {{ year }}</div>
                     <div class="small text-muted">
                         {% if total_logs > 0 %}
-                        {{ total_logs }} check-in · {{ all_users|length }} คน
+                        {{ total_logs }} รายการ · {{ all_users|length }} คน
+                        {% if imbalance_days %}
+                        · <span class="text-warning fw-semibold">⚠ {{ imbalance_days|length }} วันที่ CI ≠ CO</span>
+                        {% endif %}
                         {% else %}
                         ยังไม่มีข้อมูลเดือนนี้
                         {% endif %}
                     </div>
                 </div>
-
                 <a href="?year={{ next_year }}&month={{ next_month }}"
                    class="btn btn-outline-secondary btn-sm rounded-pill px-3">
                     {% if next_month == 1 %}ม.ค.{% elif next_month == 2 %}ก.พ.{% elif next_month == 3 %}มี.ค.{% elif next_month == 4 %}เม.ย.{% elif next_month == 5 %}พ.ค.{% elif next_month == 6 %}มิ.ย.{% elif next_month == 7 %}ก.ค.{% elif next_month == 8 %}ส.ค.{% elif next_month == 9 %}ก.ย.{% elif next_month == 10 %}ต.ค.{% elif next_month == 11 %}พ.ย.{% else %}ธ.ค.{% endif %}
@@ -182,12 +196,32 @@
                     </div>
                     <div class="fw-bold text-truncate" style="font-size:0.85rem;" title="{{ user }}">{{ user }}</div>
                 </div>
-                <div class="d-flex align-items-baseline gap-1">
-                    <span class="fw-bold text-primary" style="font-size:1.6rem; line-height:1;">
-                        {% for k, v in user_totals.items %}{% if k == user %}{{ v }}{% endif %}{% endfor %}
+                {% with ci=user_ci_totals|default_if_none:0 co=user_co_totals|default_if_none:0 %}
+                <div class="d-flex gap-2 align-items-center flex-wrap" style="font-size:0.78rem;">
+                    <span style="color:#15803d; font-weight:700;">
+                        ↑ {% for k,v in user_ci_totals.items %}{% if k == user %}{{ v }}{% endif %}{% endfor %}
+                        <span style="color:#94a3b8; font-weight:400;">CI</span>
                     </span>
-                    <span class="text-muted" style="font-size:0.72rem;">check-in/เดือน</span>
+                    <span style="color:#1d4ed8; font-weight:700;">
+                        ↓ {% for k,v in user_co_totals.items %}{% if k == user %}{{ v }}{% endif %}{% endfor %}
+                        <span style="color:#94a3b8; font-weight:400;">CO</span>
+                    </span>
                 </div>
+                {% endwith %}
+                <!-- badge เตือนถ้า CI ≠ CO -->
+                {% with ci_val=0 co_val=0 %}
+                {% for k,v in user_ci_totals.items %}{% if k == user %}
+                    {% for k2,v2 in user_co_totals.items %}{% if k2 == user %}
+                        {% if v != v2 %}
+                        <div class="mt-1" style="font-size:0.7rem;">
+                            <span class="badge rounded-pill" style="background:#fff7ed; color:#c2410c; border:1px solid #fed7aa;">
+                                ⚠ CI-CO = {{ v|add:"-0" }}
+                            </span>
+                        </div>
+                        {% endif %}
+                    {% endif %}{% endfor %}
+                {% endif %}{% endfor %}
+                {% endwith %}
             </div>
         </div>
         {% endfor %}
@@ -200,10 +234,10 @@
                 <h6 class="fw-bold mb-0">
                     <i class="fas fa-table me-2 text-primary"></i>ตารางสรุปรายวัน — {{ month_name }} {{ year }}
                 </h6>
-                <div class="d-flex align-items-center gap-3" style="font-size:0.7rem; color:#64748b;">
-                    <span><span class="legend-dot" style="background:#dcfce7; border:1.5px solid #16a34a;"></span> ครบ (เริ่ม+เสร็จ)</span>
+                <div class="d-flex align-items-center gap-3 flex-wrap" style="font-size:0.7rem; color:#64748b;">
+                    <span><span class="legend-dot" style="background:#dcfce7; border:1.5px solid #16a34a;"></span> CI = CO (สมบูรณ์)</span>
+                    <span><span class="legend-dot" style="background:#fed7aa; border:1.5px solid #f97316;"></span> CI ≠ CO (ไม่ตรง)</span>
                     <span><span class="legend-dot" style="background:#dbeafe; border:1.5px solid #2563eb;"></span> มีกิจกรรม</span>
-                    <span><span class="legend-dot" style="background:#fafafa; border:1.5px solid #e2e8f0;"></span> ไม่มีข้อมูล</span>
                     <span style="color:#b45309;">ส/อา</span> = วันหยุด
                 </div>
             </div>
@@ -219,6 +253,9 @@
                             {% for user in all_users %}
                             <th class="col-user">
                                 <i class="fas fa-user-circle me-1" style="color:#93c5fd;"></i>{{ user }}
+                                <div style="font-size:0.62rem; color:#94a3b8; font-weight:400; margin-top:1px;">
+                                    ↑CI &nbsp; ↓CO
+                                </div>
                             </th>
                             {% endfor %}
                             <th class="col-user" style="background:#f1f5f9; color:#475569; min-width:70px;">
@@ -230,7 +267,6 @@
                         {% for row in table_rows %}
                         <tr class="{% if row.is_weekend %}row-weekend{% endif %}{% if row.is_today %} row-today{% endif %}">
 
-                            <!-- วัน (sticky) -->
                             <td class="col-date">
                                 <div class="date-cell">
                                     <span class="date-num">{{ row.date|date:"d" }}</span>
@@ -241,20 +277,23 @@
                                 </div>
                             </td>
 
-                            <!-- เซลล์แต่ละช่าง -->
                             {% for cell in row.cells %}
                             {% if cell %}
-                            <td class="data-cell clickable {% if cell.has_ci and cell.has_co %}cell-full{% else %}cell-partial{% endif %}"
+                            <td class="data-cell clickable {% if cell.imbalanced %}cell-imbalance{% elif cell.has_ci and cell.has_co %}cell-full{% else %}cell-partial{% endif %}"
                                 data-date="{{ row.date|date:'Y-m-d' }}"
                                 data-uidx="{{ forloop.counter0 }}"
-                                title="คลิกดูรายละเอียด {{ row.date|date:'d/m/Y' }} ({{ cell.count }} check-ins)">
-                                <div class="ci-badge {% if cell.has_ci and cell.has_co %}full{% else %}partial{% endif %}">
+                                title="{{ row.date|date:'d/m/Y' }} — CI:{{ cell.ci_count }} CO:{{ cell.co_count }} ({{ cell.count }} รายการ)">
+                                <div class="ci-badge {% if cell.imbalanced %}imbalance{% elif cell.has_ci and cell.has_co %}full{% else %}partial{% endif %}">
                                     {{ cell.count }}
+                                </div>
+                                <div class="cico-row">
+                                    <span class="cico-in">↑{{ cell.ci_count }}</span>
+                                    <span class="cico-out">↓{{ cell.co_count }}</span>
+                                    {% if cell.imbalanced %}<span class="cico-warn">!</span>{% endif %}
                                 </div>
                                 {% if cell.first %}
                                 <div class="time-range">
-                                    {{ cell.first }}
-                                    {% if cell.last and cell.last != cell.first %}<br>{{ cell.last }}{% endif %}
+                                    {{ cell.first }}{% if cell.last and cell.last != cell.first %} – {{ cell.last }}{% endif %}
                                 </div>
                                 {% endif %}
                             </td>
@@ -265,7 +304,6 @@
                             {% endif %}
                             {% endfor %}
 
-                            <!-- รวมรายวัน -->
                             <td class="data-cell" style="background:#f8fafc; cursor:default;">
                                 {% if row.total > 0 %}
                                 <span class="total-badge">{{ row.total }}</span>
@@ -277,7 +315,6 @@
                         {% endfor %}
                     </tbody>
 
-                    <!-- แถวรวมทั้งเดือน -->
                     <tfoot>
                         <tr>
                             <td class="col-date">
@@ -286,8 +323,12 @@
                             {% for user in all_users %}
                             <td class="data-cell" style="padding: 0.4rem 0.3rem;">
                                 <span class="total-badge user">
-                                    {% for k, v in user_totals.items %}{% if k == user %}{{ v }}{% endif %}{% endfor %}
+                                    {% for k,v in user_totals.items %}{% if k == user %}{{ v }}{% endif %}{% endfor %}
                                 </span>
+                                <div class="cico-row mt-1">
+                                    <span class="cico-in">↑{% for k,v in user_ci_totals.items %}{% if k == user %}{{ v }}{% endif %}{% endfor %}</span>
+                                    <span class="cico-out">↓{% for k,v in user_co_totals.items %}{% if k == user %}{{ v }}{% endif %}{% endfor %}</span>
+                                </div>
                             </td>
                             {% endfor %}
                             <td class="data-cell" style="background:#f1f5f9; padding: 0.4rem 0.3rem;">
@@ -299,113 +340,157 @@
             </div>
             <p class="text-muted mt-2 mb-0 no-print" style="font-size:0.72rem;">
                 <i class="fas fa-hand-pointer me-1"></i>
-                คลิกที่ช่องใดช่องหนึ่งเพื่อดูรายงานแผนที่รายวันของวันและช่างคนนั้น
+                คลิกที่ช่องใดช่องหนึ่งเพื่อดูรายงานแผนที่รายวันของวันและช่างคนนั้น &nbsp;|&nbsp;
+                <span style="color:#f97316;">⚠ เซลล์สีส้ม</span> = จำนวน Check-in ไม่เท่ากับ Check-out ในวันนั้น
             </p>
         </div>
     </div>
 
-    <!-- ===== Customer Satisfaction Section ===== -->
-    {% if sat_total.total > 0 %}
-    <div class="card border-0 shadow-sm rounded-4 mb-4">
+    <!-- ===== Imbalance Alert Section ===== -->
+    {% if imbalance_days %}
+    <div class="card border-0 shadow-sm rounded-4 mb-4" style="border-left: 4px solid #f97316 !important;">
         <div class="card-header bg-white border-0 pt-3 pb-2 px-4 d-flex align-items-center justify-content-between flex-wrap gap-2">
-            <h6 class="fw-bold mb-0">
-                <i class="fas fa-star me-2 text-warning"></i>ผลการประเมินความพึงพอใจลูกค้า — {{ month_name }} {{ year }}
+            <h6 class="fw-bold mb-0" style="color:#c2410c;">
+                <i class="fas fa-exclamation-triangle me-2"></i>รายงาน Check-in / Check-out ไม่สมดุล — {{ imbalance_days|length }} วัน
             </h6>
-            <span class="badge rounded-pill bg-warning bg-opacity-10 text-warning-emphasis border border-warning border-opacity-25" style="font-size:0.75rem;">
-                {{ sat_total.total }} แบบประเมิน
+            <span class="badge rounded-pill" style="background:#fff7ed; color:#c2410c; border:1px solid #fed7aa; font-size:0.75rem;">
+                ช่างลืม Check-out หรือ Check-in ซ้ำ
             </span>
+        </div>
+        <div class="card-body p-0">
+            {% for day in imbalance_days %}
+            <div class="imbalance-row">
+                <span class="imbalance-date">{{ day.date|date:"d/m" }} {{ day.day_short }}</span>
+                {% for item in day.items %}
+                <span class="imbalance-chip {% if item.diff > 0 %}over{% else %}under{% endif %}">
+                    {{ item.username }}
+                    &nbsp; ↑{{ item.ci }} ↓{{ item.co }}
+                    &nbsp; {% if item.diff > 0 %}+{{ item.diff }} CI เกิน{% else %}{{ item.diff }} CO เกิน{% endif %}
+                </span>
+                {% endfor %}
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- ===== Customer Satisfaction Section ===== -->
+    {% if sat_grand_total > 0 %}
+
+    <!-- แถบสรุปยอดประเมินทั้งหมด -->
+    <div class="d-flex align-items-center gap-3 mb-3 flex-wrap">
+        <h5 class="fw-bold mb-0">
+            <i class="fas fa-star me-2 text-warning"></i>ผลการประเมินความพึงพอใจลูกค้า — {{ month_name }} {{ year }}
+        </h5>
+        <span class="badge rounded-pill bg-secondary bg-opacity-10 text-secondary border" style="font-size:0.78rem;">
+            ทั้งหมด {{ sat_grand_total }} แบบประเมิน
+        </span>
+        <span class="badge rounded-pill" style="background:#dcfce7; color:#15803d; border:1px solid #86efac; font-size:0.78rem;">
+            สมบูรณ์ {{ sat_complete_total.total }}
+        </span>
+        <span class="badge rounded-pill" style="background:#ffedd5; color:#c2410c; border:1px solid #fdba74; font-size:0.78rem;">
+            ไม่สมบูรณ์ {{ sat_incomplete_total }}
+        </span>
+    </div>
+
+    <!-- ─── ส่วน 1: ประเมินสมบูรณ์ (มีชื่อ + เบอร์โทร) ─── -->
+    {% if sat_complete_total.total > 0 %}
+    <div class="card border-0 shadow-sm rounded-4 mb-4" style="border-top: 3px solid #22c55e !important;">
+        <div class="card-header bg-white border-0 pt-3 pb-2 px-4 d-flex align-items-center justify-content-between flex-wrap gap-2">
+            <h6 class="fw-bold mb-0" style="color:#15803d;">
+                <i class="fas fa-check-circle me-2"></i>ประเมินสมบูรณ์ — มีชื่อและเบอร์โทรลูกค้า
+            </h6>
+            <div class="d-flex align-items-center gap-2 flex-wrap">
+                <span class="badge rounded-pill" style="background:#dcfce7; color:#15803d; border:1px solid #86efac; font-size:0.75rem;">
+                    {{ sat_complete_total.total }} แบบประเมิน
+                </span>
+                <span class="badge rounded-pill" style="background:#f0fdf4; color:#166534; font-size:0.72rem;">
+                    ใช้พิจารณารางวัลพนักงาน
+                </span>
+            </div>
         </div>
         <div class="card-body p-4">
 
-            <!-- Summary stat cards -->
+            <!-- Stat cards -->
             <div class="row g-3 mb-4">
-                <div class="col-6 col-md-3">
-                    <div class="stat-card text-center">
-                        <div class="fw-bold text-dark" style="font-size:2.2rem; line-height:1.1;">{{ sat_total.total }}</div>
-                        <div class="text-muted small mt-1">ทั้งหมด</div>
-                    </div>
-                </div>
-                <div class="col-6 col-md-3">
+                <div class="col-6 col-md-4">
                     <div class="stat-card text-center" style="border-color:#a7f3d0; background:#f0fdf4;">
-                        <div class="fw-bold text-success" style="font-size:2.2rem; line-height:1.1;">{{ sat_total.VERY_SATISFIED }}</div>
+                        <div class="fw-bold text-success" style="font-size:2.2rem; line-height:1.1;">{{ sat_complete_total.VERY_SATISFIED }}</div>
                         <div class="text-muted small mt-1">😊 พอใจมาก</div>
-                        {% if sat_total.total > 0 %}
+                        {% if sat_complete_total.total > 0 %}
                         <div style="font-size:0.72rem; color:#16a34a; font-weight:600; margin-top:2px;">
-                            {% widthratio sat_total.VERY_SATISFIED sat_total.total 100 %}%
+                            {% widthratio sat_complete_total.VERY_SATISFIED sat_complete_total.total 100 %}%
                         </div>
                         {% endif %}
                     </div>
                 </div>
-                <div class="col-6 col-md-3">
+                <div class="col-6 col-md-4">
                     <div class="stat-card text-center" style="border-color:#bfdbfe; background:#eff6ff;">
-                        <div class="fw-bold text-primary" style="font-size:2.2rem; line-height:1.1;">{{ sat_total.SATISFIED }}</div>
+                        <div class="fw-bold text-primary" style="font-size:2.2rem; line-height:1.1;">{{ sat_complete_total.SATISFIED }}</div>
                         <div class="text-muted small mt-1">🙂 พอใจ</div>
-                        {% if sat_total.total > 0 %}
+                        {% if sat_complete_total.total > 0 %}
                         <div style="font-size:0.72rem; color:#1d4ed8; font-weight:600; margin-top:2px;">
-                            {% widthratio sat_total.SATISFIED sat_total.total 100 %}%
+                            {% widthratio sat_complete_total.SATISFIED sat_complete_total.total 100 %}%
                         </div>
                         {% endif %}
                     </div>
                 </div>
-                <div class="col-6 col-md-3">
+                <div class="col-6 col-md-4">
                     <div class="stat-card text-center" style="border-color:#fca5a5; background:#fef2f2;">
-                        <div class="fw-bold text-danger" style="font-size:2.2rem; line-height:1.1;">{{ sat_total.NOT_SATISFIED }}</div>
+                        <div class="fw-bold text-danger" style="font-size:2.2rem; line-height:1.1;">{{ sat_complete_total.NOT_SATISFIED }}</div>
                         <div class="text-muted small mt-1">😞 ไม่พอใจ</div>
-                        {% if sat_total.total > 0 %}
+                        {% if sat_complete_total.total > 0 %}
                         <div style="font-size:0.72rem; color:#dc2626; font-weight:600; margin-top:2px;">
-                            {% widthratio sat_total.NOT_SATISFIED sat_total.total 100 %}%
+                            {% widthratio sat_complete_total.NOT_SATISFIED sat_complete_total.total 100 %}%
                         </div>
                         {% endif %}
                     </div>
                 </div>
             </div>
 
-            <!-- Charts row -->
+            <!-- Charts -->
             <div class="row g-4 mb-4">
-                <!-- Doughnut chart: overall -->
                 <div class="col-md-5">
                     <div class="rounded-3 border p-3" style="height:280px; display:flex; flex-direction:column; align-items:center;">
                         <div class="fw-semibold text-secondary mb-2" style="font-size:0.8rem; text-transform:uppercase; letter-spacing:.04em;">
-                            สัดส่วนโดยรวม
+                            สัดส่วนโดยรวม (สมบูรณ์)
                         </div>
-                        <canvas id="satDoughnutChart" style="max-height:230px;"></canvas>
+                        <canvas id="satCompleteDoughnut" style="max-height:230px;"></canvas>
                     </div>
                 </div>
-                <!-- Stacked bar chart: per technician -->
                 <div class="col-md-7">
                     <div class="rounded-3 border p-3" style="height:280px;">
                         <div class="fw-semibold text-secondary mb-2" style="font-size:0.8rem; text-transform:uppercase; letter-spacing:.04em;">
-                            แยกตามช่างเทคนิค
+                            แยกตามช่างเทคนิค (สมบูรณ์)
                         </div>
-                        <canvas id="satBarChart" style="max-height:240px;"></canvas>
+                        <canvas id="satCompleteBar" style="max-height:240px;"></canvas>
                     </div>
                 </div>
             </div>
 
-            <!-- Detail table -->
-            {% if sat_records %}
+            <!-- Detail table: complete -->
             <div class="fw-semibold text-secondary mb-2" style="font-size:0.82rem;">
-                <i class="fas fa-list me-1"></i>รายการประเมินทั้งหมด
+                <i class="fas fa-list me-1"></i>รายการประเมินสมบูรณ์ทั้งหมด
             </div>
             <div style="max-height:340px; overflow-y:auto; border-radius:0.75rem; border:1.5px solid #e2e8f0;">
                 <table class="table table-sm mb-0" style="font-size:0.82rem;">
                     <thead style="position:sticky; top:0; z-index:2; background:#f8fafc;">
                         <tr>
-                            <th style="font-size:0.72rem; text-transform:uppercase; letter-spacing:.04em; color:#64748b; border-bottom:2px solid #e2e8f0; white-space:nowrap; padding:0.55rem 0.75rem;">วันที่</th>
-                            <th style="font-size:0.72rem; text-transform:uppercase; letter-spacing:.04em; color:#64748b; border-bottom:2px solid #e2e8f0; padding:0.55rem 0.75rem;">ช่างเทคนิค</th>
-                            <th style="font-size:0.72rem; text-transform:uppercase; letter-spacing:.04em; color:#64748b; border-bottom:2px solid #e2e8f0; padding:0.55rem 0.75rem;">ชื่อลูกค้า</th>
-                            <th style="font-size:0.72rem; text-transform:uppercase; letter-spacing:.04em; color:#64748b; border-bottom:2px solid #e2e8f0; padding:0.55rem 0.75rem; white-space:nowrap;">เบอร์โทร</th>
-                            <th style="font-size:0.72rem; text-transform:uppercase; letter-spacing:.04em; color:#64748b; border-bottom:2px solid #e2e8f0; padding:0.55rem 0.75rem;">ระดับความพึงพอใจ</th>
+                            <th style="font-size:0.72rem; text-transform:uppercase; color:#64748b; border-bottom:2px solid #e2e8f0; white-space:nowrap; padding:0.55rem 0.75rem;">วันที่</th>
+                            <th style="font-size:0.72rem; text-transform:uppercase; color:#64748b; border-bottom:2px solid #e2e8f0; padding:0.55rem 0.75rem;">ช่างเทคนิค</th>
+                            <th style="font-size:0.72rem; text-transform:uppercase; color:#64748b; border-bottom:2px solid #e2e8f0; padding:0.55rem 0.75rem;">ชื่อลูกค้า</th>
+                            <th style="font-size:0.72rem; text-transform:uppercase; color:#64748b; border-bottom:2px solid #e2e8f0; padding:0.55rem 0.75rem; white-space:nowrap;">เบอร์โทร</th>
+                            <th style="font-size:0.72rem; text-transform:uppercase; color:#64748b; border-bottom:2px solid #e2e8f0; padding:0.55rem 0.75rem;">ระดับ</th>
                         </tr>
                     </thead>
                     <tbody>
-                        {% for rec in sat_records %}
-                        <tr style="border-bottom:1px solid #f1f5f9; transition:background .1s;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background=''">
+                        {% for rec in sat_complete_records %}
+                        <tr style="border-bottom:1px solid #f1f5f9;">
                             <td class="text-muted" style="white-space:nowrap; padding:0.5rem 0.75rem;">{{ rec.date }}</td>
                             <td style="padding:0.5rem 0.75rem;">
                                 <i class="fas fa-user-circle me-1 text-primary" style="font-size:0.75rem;"></i>{{ rec.username }}
                             </td>
-                            <td style="padding:0.5rem 0.75rem;">{{ rec.customer_name }}</td>
+                            <td style="padding:0.5rem 0.75rem; font-weight:600;">{{ rec.customer_name }}</td>
                             <td style="padding:0.5rem 0.75rem;">{{ rec.customer_phone }}</td>
                             <td style="padding:0.5rem 0.75rem;">
                                 {% if rec.rating == 'VERY_SATISFIED' %}
@@ -417,15 +502,105 @@
                                 {% endif %}
                             </td>
                         </tr>
+                        {% empty %}
+                        <tr><td colspan="5" class="text-center text-muted py-3 small">ไม่มีข้อมูล</td></tr>
                         {% endfor %}
                     </tbody>
                 </table>
             </div>
-            {% endif %}
 
         </div>
     </div>
     {% endif %}
+
+    <!-- ─── ส่วน 2: ประเมินไม่สมบูรณ์ (ขาดชื่อ หรือ เบอร์โทร) ─── -->
+    {% if sat_incomplete_total > 0 %}
+    <div class="card border-0 shadow-sm rounded-4 mb-4" style="border-top: 3px solid #f97316 !important;">
+        <div class="card-header bg-white border-0 pt-3 pb-2 px-4 d-flex align-items-center justify-content-between flex-wrap gap-2">
+            <h6 class="fw-bold mb-0" style="color:#c2410c;">
+                <i class="fas fa-exclamation-circle me-2"></i>ประเมินไม่สมบูรณ์ — ขาดชื่อ หรือ เบอร์โทรลูกค้า
+            </h6>
+            <div class="d-flex align-items-center gap-2">
+                <span class="badge rounded-pill" style="background:#ffedd5; color:#c2410c; border:1px solid #fdba74; font-size:0.75rem;">
+                    {{ sat_incomplete_total }} แบบประเมิน
+                </span>
+                <span class="text-muted" style="font-size:0.72rem;">ไม่นับรวมในรางวัลพนักงาน</span>
+            </div>
+        </div>
+        <div class="card-body p-4">
+
+            <!-- Bar chart: incomplete per technician -->
+            {% if sat_incomplete_chart_json %}
+            <div class="row g-4 mb-4">
+                <div class="col-md-8 col-lg-6">
+                    <div class="rounded-3 border p-3" style="height:220px;">
+                        <div class="fw-semibold text-secondary mb-2" style="font-size:0.8rem; text-transform:uppercase; letter-spacing:.04em;">
+                            จำนวนประเมินไม่สมบูรณ์ แยกตามช่าง
+                        </div>
+                        <canvas id="satIncompleteBar" style="max-height:175px;"></canvas>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Detail table: incomplete -->
+            <div class="fw-semibold text-secondary mb-2" style="font-size:0.82rem;">
+                <i class="fas fa-list me-1"></i>รายการที่ต้องแก้ไข
+            </div>
+            <div style="max-height:300px; overflow-y:auto; border-radius:0.75rem; border:1.5px solid #fed7aa;">
+                <table class="table table-sm mb-0" style="font-size:0.82rem;">
+                    <thead style="position:sticky; top:0; z-index:2; background:#fff7ed;">
+                        <tr>
+                            <th style="font-size:0.72rem; text-transform:uppercase; color:#92400e; border-bottom:2px solid #fed7aa; white-space:nowrap; padding:0.55rem 0.75rem;">วันที่</th>
+                            <th style="font-size:0.72rem; text-transform:uppercase; color:#92400e; border-bottom:2px solid #fed7aa; padding:0.55rem 0.75rem;">ช่างเทคนิค</th>
+                            <th style="font-size:0.72rem; text-transform:uppercase; color:#92400e; border-bottom:2px solid #fed7aa; padding:0.55rem 0.75rem;">ชื่อลูกค้า</th>
+                            <th style="font-size:0.72rem; text-transform:uppercase; color:#92400e; border-bottom:2px solid #fed7aa; padding:0.55rem 0.75rem; white-space:nowrap;">เบอร์โทร</th>
+                            <th style="font-size:0.72rem; text-transform:uppercase; color:#92400e; border-bottom:2px solid #fed7aa; padding:0.55rem 0.75rem;">ระดับ</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for rec in sat_incomplete_records %}
+                        <tr style="border-bottom:1px solid #fef3c7;">
+                            <td class="text-muted" style="white-space:nowrap; padding:0.5rem 0.75rem;">{{ rec.date }}</td>
+                            <td style="padding:0.5rem 0.75rem;">
+                                <i class="fas fa-user-circle me-1 text-warning" style="font-size:0.75rem;"></i>{{ rec.username }}
+                            </td>
+                            <td style="padding:0.5rem 0.75rem;">
+                                {% if rec.customer_name == '—' %}
+                                <span style="color:#f97316; font-size:0.75rem;">⚠ ไม่ระบุ</span>
+                                {% else %}
+                                {{ rec.customer_name }}
+                                {% endif %}
+                            </td>
+                            <td style="padding:0.5rem 0.75rem;">
+                                {% if rec.customer_phone == '—' %}
+                                <span style="color:#f97316; font-size:0.75rem;">⚠ ไม่ระบุ</span>
+                                {% else %}
+                                {{ rec.customer_phone }}
+                                {% endif %}
+                            </td>
+                            <td style="padding:0.5rem 0.75rem;">
+                                {% if rec.rating == 'VERY_SATISFIED' %}
+                                <span class="badge rounded-pill" style="background:#dcfce7; color:#15803d; font-size:0.78rem; padding:3px 10px;">😊 {{ rec.rating_display }}</span>
+                                {% elif rec.rating == 'SATISFIED' %}
+                                <span class="badge rounded-pill" style="background:#dbeafe; color:#1d4ed8; font-size:0.78rem; padding:3px 10px;">🙂 {{ rec.rating_display }}</span>
+                                {% else %}
+                                <span class="badge rounded-pill" style="background:#fee2e2; color:#dc2626; font-size:0.78rem; padding:3px 10px;">😞 {{ rec.rating_display }}</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="5" class="text-center text-muted py-3 small">ไม่มีข้อมูล</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+        </div>
+    </div>
+    {% endif %}
+
+    {% endif %}{# /sat_grand_total #}
 
     {% else %}
     <div class="card border-0 shadow-sm rounded-4 p-5 text-center">
@@ -444,14 +619,14 @@
 {% block extra_js %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script>
-// ─── GPS table cell click ─────────────────────────────────────
-const userIdMap = JSON.parse('{{ user_id_map_json|escapejs }}');
+// ─── GPS table cell click ───────────────────────────────────────────
+const userIdMap     = JSON.parse('{{ user_id_map_json|escapejs }}');
 const dailyReportBase = "{% url 'pms:gps_tracking_report' %}";
+const allUsers      = {{ all_users|safe }};
 
 document.querySelectorAll('.data-cell.clickable[data-date][data-uidx]').forEach(function(cell) {
     const dateStr = cell.getAttribute('data-date');
     const uidx    = parseInt(cell.getAttribute('data-uidx'));
-    const allUsers = {{ all_users|safe }};
     const username = allUsers[uidx];
     const userId   = userIdMap[username];
     if (!dateStr || !userId) return;
@@ -460,46 +635,37 @@ document.querySelectorAll('.data-cell.clickable[data-date][data-uidx]').forEach(
     };
 });
 
-// ─── Customer Satisfaction Charts ────────────────────────────
-{% if sat_total.total > 0 %}
-const satData = JSON.parse('{{ sat_chart_json|escapejs }}');
+// ─── Satisfaction Charts ────────────────────────────────────────────
+{% if sat_complete_total.total > 0 %}
+const completeData = JSON.parse('{{ sat_complete_chart_json|escapejs }}');
 const COLORS = {
     very: { bg: 'rgba(22,163,74,0.8)',  border: '#16a34a' },
     ok:   { bg: 'rgba(37,99,235,0.8)',  border: '#2563eb' },
     bad:  { bg: 'rgba(220,38,38,0.8)',  border: '#dc2626' },
 };
 
-// Doughnut: overall distribution
-const totalVS = {{ sat_total.VERY_SATISFIED }};
-const totalS  = {{ sat_total.SATISFIED }};
-const totalNS = {{ sat_total.NOT_SATISFIED }};
-
-new Chart(document.getElementById('satDoughnutChart'), {
+// Doughnut: สัดส่วนรวมของสมบูรณ์
+new Chart(document.getElementById('satCompleteDoughnut'), {
     type: 'doughnut',
     data: {
         labels: ['😊 พอใจมาก', '🙂 พอใจ', '😞 ไม่พอใจ'],
         datasets: [{
-            data: [totalVS, totalS, totalNS],
+            data: [{{ sat_complete_total.VERY_SATISFIED }}, {{ sat_complete_total.SATISFIED }}, {{ sat_complete_total.NOT_SATISFIED }}],
             backgroundColor: [COLORS.very.bg, COLORS.ok.bg, COLORS.bad.bg],
-            borderColor: [COLORS.very.border, COLORS.ok.border, COLORS.bad.border],
-            borderWidth: 2,
-            hoverOffset: 8,
+            borderColor:     [COLORS.very.border, COLORS.ok.border, COLORS.bad.border],
+            borderWidth: 2, hoverOffset: 8,
         }],
     },
     options: {
         cutout: '60%',
         plugins: {
-            legend: {
-                position: 'bottom',
-                labels: { font: { size: 11 }, padding: 12, boxWidth: 14 },
-            },
+            legend: { position: 'bottom', labels: { font: { size: 11 }, padding: 12, boxWidth: 14 } },
             tooltip: {
                 callbacks: {
                     label: ctx => {
                         const val = ctx.parsed;
                         const total = ctx.dataset.data.reduce((a, b) => a + b, 0);
-                        const pct = total ? Math.round(val / total * 100) : 0;
-                        return ` ${val} ครั้ง (${pct}%)`;
+                        return ` ${val} ครั้ง (${total ? Math.round(val/total*100) : 0}%)`;
                     }
                 }
             }
@@ -507,60 +673,57 @@ new Chart(document.getElementById('satDoughnutChart'), {
     },
 });
 
-// Stacked bar chart: per technician
-new Chart(document.getElementById('satBarChart'), {
+// Stacked bar: สมบูรณ์ แยกตามช่าง
+new Chart(document.getElementById('satCompleteBar'), {
     type: 'bar',
     data: {
-        labels: satData.labels,
+        labels: completeData.labels,
         datasets: [
-            {
-                label: '😊 พอใจมาก',
-                data: satData.very_satisfied,
-                backgroundColor: COLORS.very.bg,
-                borderColor: COLORS.very.border,
-                borderWidth: 1,
-                borderRadius: 4,
-            },
-            {
-                label: '🙂 พอใจ',
-                data: satData.satisfied,
-                backgroundColor: COLORS.ok.bg,
-                borderColor: COLORS.ok.border,
-                borderWidth: 1,
-                borderRadius: 4,
-            },
-            {
-                label: '😞 ไม่พอใจ',
-                data: satData.not_satisfied,
-                backgroundColor: COLORS.bad.bg,
-                borderColor: COLORS.bad.border,
-                borderWidth: 1,
-                borderRadius: 4,
-            },
+            { label: '😊 พอใจมาก', data: completeData.very_satisfied, backgroundColor: COLORS.very.bg, borderColor: COLORS.very.border, borderWidth: 1, borderRadius: 4 },
+            { label: '🙂 พอใจ',    data: completeData.satisfied,      backgroundColor: COLORS.ok.bg,   borderColor: COLORS.ok.border,   borderWidth: 1, borderRadius: 4 },
+            { label: '😞 ไม่พอใจ', data: completeData.not_satisfied,  backgroundColor: COLORS.bad.bg,  borderColor: COLORS.bad.border,  borderWidth: 1, borderRadius: 4 },
         ],
     },
     options: {
-        responsive: true,
-        maintainAspectRatio: false,
+        responsive: true, maintainAspectRatio: false,
         plugins: {
-            legend: {
-                position: 'top',
-                labels: { font: { size: 11 }, padding: 10, boxWidth: 14 },
-            },
+            legend: { position: 'top', labels: { font: { size: 11 }, padding: 10, boxWidth: 14 } },
             tooltip: { mode: 'index', intersect: false },
         },
         scales: {
-            x: {
-                stacked: true,
-                grid: { display: false },
-                ticks: { font: { size: 11 } },
-            },
-            y: {
-                stacked: true,
-                beginAtZero: true,
-                ticks: { stepSize: 1, font: { size: 11 } },
-                grid: { color: 'rgba(0,0,0,0.05)' },
-            },
+            x: { stacked: true, grid: { display: false }, ticks: { font: { size: 11 } } },
+            y: { stacked: true, beginAtZero: true, ticks: { stepSize: 1, font: { size: 11 } }, grid: { color: 'rgba(0,0,0,0.05)' } },
+        },
+    },
+});
+{% endif %}
+
+{% if sat_incomplete_total > 0 %}
+const incompleteData = JSON.parse('{{ sat_incomplete_chart_json|escapejs }}');
+
+// Bar: ไม่สมบูรณ์ แยกตามช่าง
+new Chart(document.getElementById('satIncompleteBar'), {
+    type: 'bar',
+    data: {
+        labels: incompleteData.labels,
+        datasets: [{
+            label: 'ประเมินไม่สมบูรณ์',
+            data: incompleteData.counts,
+            backgroundColor: 'rgba(249,115,22,0.7)',
+            borderColor: '#f97316',
+            borderWidth: 1,
+            borderRadius: 4,
+        }],
+    },
+    options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+            legend: { display: false },
+            tooltip: { callbacks: { label: ctx => ` ${ctx.parsed.y} ครั้ง` } },
+        },
+        scales: {
+            x: { grid: { display: false }, ticks: { font: { size: 11 } } },
+            y: { beginAtZero: true, ticks: { stepSize: 1, font: { size: 11 } }, grid: { color: 'rgba(0,0,0,0.05)' } },
         },
     },
 });

@@ -665,48 +665,50 @@ def delete_from_portfolio(request, pk):
 @login_required
 def sell_stock(request, pk):
     """
-    จัดการการขายหุ้น:
-    1. รับจำนวนหุ้นและราคาขายจาก Modal
-    2. คำนวณกำไร/ขาดทุน
-    3. บันทึกลงใน SoldStock
-    4. หักลบจำนวนหุ้นใน Portfolio (หรือลบออกถ้าขายหมด)
+    จัดการการขายหุ้นพร้อมคำนวณกำไร/ขาดทุน
     """
     portfolio_item = get_object_or_404(Portfolio, pk=pk, user=request.user)
     
     if request.method == 'POST':
-        sell_quantity = Decimal(request.POST.get('quantity', 0))
-        sell_price = Decimal(request.POST.get('sell_price', 0))
-        
-        if sell_quantity <= 0 or sell_quantity > portfolio_item.quantity:
-            messages.error(request, "จำนวนหุ้นไม่ถูกต้อง")
-            return redirect('stocks:portfolio_list')
-        
-        # คำนวณกำไร/ขาดทุน
-        # ต้นทุน = จำนวนที่ขาย * ราคาทุนเฉลี่ย
-        cost_of_sold_shares = sell_quantity * portfolio_item.entry_price
-        sell_revenue = sell_quantity * sell_price
-        profit_loss = sell_revenue - cost_of_sold_shares
-        profit_loss_pct = (profit_loss / cost_of_sold_shares * 100) if cost_of_sold_shares > 0 else 0
-        
-        # บันทึกประวัติการขาย
-        SoldStock.objects.create(
-            user=request.user,
-            symbol=portfolio_item.symbol,
-            quantity=sell_quantity,
-            buy_price=portfolio_item.entry_price,
-            sell_price=sell_price,
-            profit_loss=profit_loss,
-            profit_loss_pct=profit_loss_pct
-        )
-        
-        # อัปเดตพอร์ต
-        portfolio_item.quantity -= sell_quantity
-        if portfolio_item.quantity <= 0:
-            portfolio_item.delete()
-            messages.success(request, f"ขาย {portfolio_item.symbol} เรียบร้อยแล้ว (ปิดสถานะ)")
-        else:
-            portfolio_item.save()
-            messages.success(request, f"ขาย {portfolio_item.symbol} จำนวน {sell_quantity} หุ้น เรียบร้อยแล้ว")
+        try:
+            qty_str = request.POST.get('quantity', '0')
+            price_str = request.POST.get('sell_price', '0')
+            
+            sell_quantity = Decimal(qty_str)
+            sell_price = Decimal(price_str)
+            
+            if sell_quantity <= 0 or sell_quantity > portfolio_item.quantity:
+                messages.error(request, f"จำนวนหุ้นไม่ถูกต้อง (มีอยู่ {portfolio_item.quantity} หุ้น)")
+                return redirect('stocks:portfolio_list')
+            
+            # คำนวณกำไร/ขาดทุน
+            cost_of_sold_shares = sell_quantity * portfolio_item.entry_price
+            sell_revenue = sell_quantity * sell_price
+            profit_loss = sell_revenue - cost_of_sold_shares
+            profit_loss_pct = (profit_loss / cost_of_sold_shares * 100) if cost_of_sold_shares > 0 else 0
+            
+            # บันทึกประวัติการขาย
+            SoldStock.objects.create(
+                user=request.user,
+                symbol=portfolio_item.symbol,
+                quantity=sell_quantity,
+                buy_price=portfolio_item.entry_price,
+                sell_price=sell_price,
+                profit_loss=profit_loss,
+                profit_loss_pct=profit_loss_pct
+            )
+            
+            # อัปเดตพอร์ต
+            portfolio_item.quantity -= sell_quantity
+            if portfolio_item.quantity <= 0:
+                portfolio_item.delete()
+                messages.success(request, f"ขาย {portfolio_item.symbol} เรียบร้อยแล้ว (ปิดสถานะ)")
+            else:
+                portfolio_item.save()
+                messages.success(request, f"ขาย {portfolio_item.symbol} จำนวน {sell_quantity} หุ้น เรียบร้อยแล้ว")
+                
+        except (ValueError, Exception) as e:
+            messages.error(request, f"เกิดข้อผิดพลาด: {str(e)}")
             
     return redirect('stocks:portfolio_list')
 

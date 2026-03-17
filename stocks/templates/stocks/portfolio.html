@@ -252,7 +252,7 @@
                             <div class="d-flex gap-2">
                                 <button type="button" class="btn btn-light btn-sm rounded-circle shadow-sm border text-success" style="width: 36px; height: 36px;"
                                     title="ขายหุ้น"
-                                    onclick="openSellModal('{{ item.obj.pk }}', '{{ item.obj.symbol }}', '{{ item.obj.quantity }}', '{{ item.current_price }}')"
+                                    onclick="openSellModal('{% url 'stocks:sell_stock' item.obj.pk %}', '{{ item.obj.symbol }}', '{{ item.obj.quantity }}', '{{ item.current_price }}', '{{ item.obj.entry_price }}')"
                                     data-bs-toggle="modal" data-bs-target="#sellStockModal">
                                     <i class="fas fa-hand-holding-usd fa-xs"></i>
                                 </button>
@@ -471,26 +471,24 @@
     }
 
     let currentEntryPrice = 0;
-    function openSellModal(pk, symbol, qty, currentPrice) {
-        document.getElementById('sell-symbol-text').innerText = symbol;
-        document.getElementById('owned-qty-text').innerText = qty;
-        document.getElementById('sell-quantity').value = qty;
-        document.getElementById('sell-quantity').max = qty;
-        document.getElementById('sell-price').value = currentPrice;
-        
-        // Find entry price for this symbol to show estimated profit
-        // In a real app we might pass this via data-attribute
-        const cards = document.querySelectorAll('.card-premium');
-        cards.forEach(card => {
-            if (card.innerHTML.includes(symbol)) {
-                const priceText = card.querySelector('.col-4:nth-child(2) .fw-bold').innerText;
-                currentEntryPrice = parseFloat(priceText.replace('฿', '').replace(',', '')) || 0;
-            }
-        });
+    function openSellModal(sellUrl, symbol, qty, currentPrice, entryPrice) {
+        try {
+            document.getElementById('sell-symbol-text').innerText = symbol;
+            document.getElementById('owned-qty-text').innerText = qty;
+            document.getElementById('sell-quantity').value = qty;
+            document.getElementById('sell-quantity').max = qty;
+            document.getElementById('sell-price').value = currentPrice;
+            
+            // ใช้ค่า entry price ที่ส่งมาจาก django โดยตรง
+            currentEntryPrice = parseFloat(entryPrice) || 0;
 
-        const form = document.getElementById('sell-stock-form');
-        form.action = `/stocks/portfolio/${pk}/sell/`;
-        calculateProfit();
+            const form = document.getElementById('sell-stock-form');
+            form.action = sellUrl;
+            
+            calculateProfit();
+        } catch (err) {
+            console.error("Error opening sell modal:", err);
+        }
     }
 
     function calculateProfit() {

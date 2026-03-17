@@ -2593,9 +2593,10 @@ def gps_summary_report(request):
     if not (user_can_view_all(request.user)):
         qs = qs.filter(user=request.user)
 
-    # จัดกลุ่ม: raw_data[date_obj][username] = {count, first_ts, last_ts, types}
+    # จัดกลุ่ม: raw_data[date_obj][username] = {count, first_ts, last_ts, types, ci_count, co_count}
     raw_data = defaultdict(lambda: defaultdict(lambda: {
-        'count': 0, 'first': None, 'last': None, 'types': set()
+        'count': 0, 'first': None, 'last': None, 'types': set(),
+        'ci_count': 0, 'co_count': 0,
     }))
     users_ordered = {}  # ใช้ dict เพื่อรักษาลำดับ insertion (Python 3.7+)
 
@@ -2613,24 +2614,34 @@ def gps_summary_report(request):
         if cell['last'] is None or local_ts > cell['last']:
             cell['last'] = local_ts
         cell['types'].add(log.check_type)
+        if log.check_type == 'CHECK_IN':
+            cell['ci_count'] += 1
+        elif log.check_type == 'CHECK_OUT':
+            cell['co_count'] += 1
 
     all_users = sorted(users_ordered.keys())
 
     # สรุปรายช่าง (คอลัมน์) และรายวัน (แถว)
-    user_totals = defaultdict(int)   # {username: total_checkins}
-    date_totals = defaultdict(int)   # {date_obj: total_checkins}
+    user_totals    = defaultdict(int)
+    user_ci_totals = defaultdict(int)   # {username: total CHECK_IN}
+    user_co_totals = defaultdict(int)   # {username: total CHECK_OUT}
+    date_totals    = defaultdict(int)
     for d, users_data in raw_data.items():
         for u, cell in users_data.items():
-            user_totals[u] += cell['count']
-            date_totals[d] += cell['count']
+            user_totals[u]    += cell['count']
+            user_ci_totals[u] += cell['ci_count']
+            user_co_totals[u] += cell['co_count']
+            date_totals[d]    += cell['count']
 
-    # สร้าง table_rows: list ที่ template วน {% for row in table_rows %}
+    # สร้าง table_rows
     table_rows = []
     for d in [date(year, month, day) for day in range(1, last_day + 1)]:
         cells = []
         for u in all_users:
             cell = raw_data[d].get(u)
             if cell:
+                ci_c = cell['ci_count']
+                co_c = cell['co_count']
                 cells.append({
                     'count':      cell['count'],
                     'first':      cell['first'].strftime('%H:%M') if cell['first'] else '',
@@ -2638,6 +2649,9 @@ def gps_summary_report(request):
                     'has_ci':     'CHECK_IN' in cell['types'],
                     'has_co':     'CHECK_OUT' in cell['types'],
                     'has_travel': 'TRAVEL' in cell['types'],
+                    'ci_count':   ci_c,
+                    'co_count':   co_c,
+                    'imbalanced': ci_c != co_c,
                 })
             else:
                 cells.append(None)
@@ -2649,6 +2663,25 @@ def gps_summary_report(request):
             'is_weekend': d.weekday() >= 5,
             'is_today':   d == today,
         })
+
+    # วันที่มี CI ≠ CO (ต้องสร้างหลัง table_rows)
+    imbalance_days = []
+    for row in table_rows:
+        day_issues = []
+        for u, cell_data in zip(all_users, row['cells']):
+            if cell_data and cell_data['imbalanced']:
+                day_issues.append({
+                    'username': u,
+                    'ci': cell_data['ci_count'],
+                    'co': cell_data['co_count'],
+                    'diff': cell_data['ci_count'] - cell_data['co_count'],
+                })
+        if day_issues:
+            imbalance_days.append({
+                'date':      row['date'],
+                'day_short': row['day_short'],
+                'items':     day_issues,
+            })
 
     # เดือนก่อน / เดือนหน้า สำหรับปุ่มนำทาง
     prev_month = month - 1 or 12
@@ -2666,55 +2699,93 @@ def gps_summary_report(request):
     if not (user_can_view_all(request.user)):
         sat_qs = sat_qs.filter(gps_log__user=request.user)
 
-    sat_by_user = defaultdict(lambda: {'VERY_SATISFIED': 0, 'SATISFIED': 0, 'NOT_SATISFIED': 0, 'total': 0})
-    sat_records = []
+    # แยก "สมบูรณ์" (มีชื่อ + เบอร์โทร) vs "ไม่สมบูรณ์"
+    _empty_sat = lambda: {'VERY_SATISFIED': 0, 'SATISFIED': 0, 'NOT_SATISFIED': 0, 'total': 0}
+    sat_complete_by_user   = defaultdict(_empty_sat)
+    sat_incomplete_by_user = defaultdict(int)
+
+    sat_complete_records   = []
+    sat_incomplete_records = []
+
     for s in sat_qs:
         uname = s.gps_log.user.username
-        sat_by_user[uname][s.rating] += 1
-        sat_by_user[uname]['total'] += 1
-        sat_records.append({
-            'date': timezone.localtime(s.gps_log.timestamp).strftime('%d/%m/%Y %H:%M'),
-            'username': uname,
-            'customer_name': s.customer_name or '-',
-            'customer_phone': s.customer_phone or '-',
-            'rating': s.rating,
+        is_complete = bool(
+            s.customer_name  and s.customer_name.strip() and
+            s.customer_phone and s.customer_phone.strip()
+        )
+        rec = {
+            'date':           timezone.localtime(s.gps_log.timestamp).strftime('%d/%m/%Y %H:%M'),
+            'username':       uname,
+            'customer_name':  s.customer_name  or '—',
+            'customer_phone': s.customer_phone or '—',
+            'rating':         s.rating,
             'rating_display': s.get_rating_display(),
-        })
+        }
+        if is_complete:
+            sat_complete_records.append(rec)
+            sat_complete_by_user[uname][s.rating] += 1
+            sat_complete_by_user[uname]['total']   += 1
+        else:
+            sat_incomplete_records.append(rec)
+            sat_incomplete_by_user[uname] += 1
 
-    sat_total = {'VERY_SATISFIED': 0, 'SATISFIED': 0, 'NOT_SATISFIED': 0, 'total': 0}
-    for v in sat_by_user.values():
+    # รวมทั้งหมด (ใช้แสดงยอดรวม)
+    sat_complete_total = {'VERY_SATISFIED': 0, 'SATISFIED': 0, 'NOT_SATISFIED': 0, 'total': 0}
+    for v in sat_complete_by_user.values():
         for k in ('VERY_SATISFIED', 'SATISFIED', 'NOT_SATISFIED'):
-            sat_total[k] += v[k]
-    sat_total['total'] = sat_total['VERY_SATISFIED'] + sat_total['SATISFIED'] + sat_total['NOT_SATISFIED']
+            sat_complete_total[k] += v[k]
+    sat_complete_total['total'] = sum(
+        sat_complete_total[k] for k in ('VERY_SATISFIED', 'SATISFIED', 'NOT_SATISFIED')
+    )
+    sat_incomplete_total = sum(sat_incomplete_by_user.values())
+    sat_grand_total      = sat_complete_total['total'] + sat_incomplete_total
 
-    sat_chart_labels = sorted(sat_by_user.keys())
-    sat_chart_json = {}
-    if sat_chart_labels:
-        sat_chart_json = {
-            'labels': sat_chart_labels,
-            'very_satisfied': [sat_by_user[u]['VERY_SATISFIED'] for u in sat_chart_labels],
-            'satisfied': [sat_by_user[u]['SATISFIED'] for u in sat_chart_labels],
-            'not_satisfied': [sat_by_user[u]['NOT_SATISFIED'] for u in sat_chart_labels],
+    # Chart JSON — สมบูรณ์ (stacked bar per technician)
+    complete_labels = sorted(sat_complete_by_user.keys())
+    sat_complete_chart_json = {}
+    if complete_labels:
+        sat_complete_chart_json = {
+            'labels':        complete_labels,
+            'very_satisfied': [sat_complete_by_user[u]['VERY_SATISFIED'] for u in complete_labels],
+            'satisfied':      [sat_complete_by_user[u]['SATISFIED']      for u in complete_labels],
+            'not_satisfied':  [sat_complete_by_user[u]['NOT_SATISFIED']  for u in complete_labels],
+        }
+
+    # Chart JSON — ไม่สมบูรณ์ (bar per technician, count only)
+    incomplete_labels = sorted(sat_incomplete_by_user.keys())
+    sat_incomplete_chart_json = {}
+    if incomplete_labels:
+        sat_incomplete_chart_json = {
+            'labels': incomplete_labels,
+            'counts': [sat_incomplete_by_user[u] for u in incomplete_labels],
         }
 
     import json as json_lib
     return render(request, 'pms/gps_summary_report.html', {
-        'year':          year,
-        'month':         month,
-        'month_name':    THAI_MONTHS[month],
-        'all_users':     all_users,
+        'year':           year,
+        'month':          month,
+        'month_name':     THAI_MONTHS[month],
+        'all_users':      all_users,
         'user_id_map_json': json_lib.dumps(user_id_map),
-        'user_totals':   dict(user_totals),
-        'table_rows':    table_rows,
-        'prev_year':     prev_year,
-        'prev_month':    prev_month,
-        'next_year':     next_year,
-        'next_month':    next_month,
-        'today':         today,
-        'total_logs':    sum(user_totals.values()),
-        'sat_records':   sat_records,
-        'sat_total':     sat_total,
-        'sat_chart_json': json_lib.dumps(sat_chart_json),
+        'user_totals':    dict(user_totals),
+        'user_ci_totals': dict(user_ci_totals),
+        'user_co_totals': dict(user_co_totals),
+        'table_rows':     table_rows,
+        'imbalance_days': imbalance_days,
+        'prev_year':      prev_year,
+        'prev_month':     prev_month,
+        'next_year':      next_year,
+        'next_month':     next_month,
+        'today':          today,
+        'total_logs':     sum(user_totals.values()),
+        # Satisfaction
+        'sat_grand_total':          sat_grand_total,
+        'sat_complete_records':     sat_complete_records,
+        'sat_incomplete_records':   sat_incomplete_records,
+        'sat_complete_total':       sat_complete_total,
+        'sat_incomplete_total':     sat_incomplete_total,
+        'sat_complete_chart_json':  json_lib.dumps(sat_complete_chart_json),
+        'sat_incomplete_chart_json': json_lib.dumps(sat_incomplete_chart_json),
     })
 
 
