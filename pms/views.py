@@ -2562,15 +2562,151 @@ def gps_summary_report(request):
     from django.utils import timezone
     from collections import defaultdict
     import calendar
-    from datetime import date
+    from datetime import date, timedelta
 
     User = get_user_model()
     today = timezone.localdate()
+    mode = request.GET.get('mode', 'monthly')   # 'monthly' | 'daily'
 
     THAI_MONTHS = ['', 'มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน',
                    'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม']
     DAY_SHORT = ['จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส', 'อา']
 
+    # ── DAILY MODE ─────────────────────────────────────────────────────
+    if mode == 'daily':
+        import json as json_lib
+        from .models import CustomerSatisfaction as _CS
+
+        try:
+            report_date = date.fromisoformat(request.GET.get('date', today.isoformat()))
+        except (ValueError, TypeError):
+            report_date = today
+
+        prev_date = report_date - timedelta(days=1)
+        next_date = report_date + timedelta(days=1)
+        day_short = DAY_SHORT[report_date.weekday()]
+
+        qs_day = TechnicianGPSLog.objects.filter(
+            timestamp__date=report_date
+        ).select_related('user').order_by('timestamp')
+        if not user_can_view_all(request.user):
+            qs_day = qs_day.filter(user=request.user)
+
+        # Build per-technician data
+        daily_tech_raw = {}
+        user_id_map_day = {}
+        for log in qs_day:
+            uname = log.user.username
+            user_id_map_day[uname] = log.user_id
+            if uname not in daily_tech_raw:
+                daily_tech_raw[uname] = {
+                    'logs': [], 'ci_count': 0, 'co_count': 0,
+                    'first': None, 'last': None,
+                }
+            cell = daily_tech_raw[uname]
+            lt = timezone.localtime(log.timestamp)
+            t_str = lt.strftime('%H:%M')
+            cell['logs'].append({
+                'time':         t_str,
+                'type':         log.check_type,
+                'type_display': log.get_check_type_display(),
+                'location':     log.location_name or '',
+                'notes':        log.notes or '',
+            })
+            if log.check_type == 'CHECK_IN':
+                cell['ci_count'] += 1
+            elif log.check_type == 'CHECK_OUT':
+                cell['co_count'] += 1
+            if cell['first'] is None:
+                cell['first'] = t_str
+            cell['last'] = t_str
+
+        daily_tech_list = []
+        for uname in sorted(daily_tech_raw.keys()):
+            cell = daily_tech_raw[uname]
+            daily_tech_list.append({
+                'username':   uname,
+                'user_id':    user_id_map_day[uname],
+                'logs':       cell['logs'],
+                'ci_count':   cell['ci_count'],
+                'co_count':   cell['co_count'],
+                'first':      cell['first'] or '',
+                'last':       cell['last'] or '',
+                'total':      len(cell['logs']),
+                'imbalanced': cell['ci_count'] != cell['co_count'],
+            })
+        imbalanced_daily_techs = [t for t in daily_tech_list if t['imbalanced']]
+
+        # Satisfaction for the day
+        sat_qs_day = _CS.objects.filter(
+            gps_log__timestamp__date=report_date
+        ).select_related('gps_log__user').order_by('created_at')
+        if not user_can_view_all(request.user):
+            sat_qs_day = sat_qs_day.filter(gps_log__user=request.user)
+
+        _empty_sat = lambda: {'VERY_SATISFIED': 0, 'SATISFIED': 0, 'NOT_SATISFIED': 0, 'total': 0}
+        sat_complete_by_user_d   = defaultdict(_empty_sat)
+        sat_incomplete_by_user_d = defaultdict(int)
+        sat_complete_records_d   = []
+        sat_incomplete_records_d = []
+
+        for s in sat_qs_day:
+            uname = s.gps_log.user.username
+            is_complete = bool(
+                s.customer_name  and s.customer_name.strip() and
+                s.customer_phone and s.customer_phone.strip()
+            )
+            rec = {
+                'date':           timezone.localtime(s.gps_log.timestamp).strftime('%d/%m/%Y %H:%M'),
+                'username':       uname,
+                'customer_name':  s.customer_name  or '—',
+                'customer_phone': s.customer_phone or '—',
+                'rating':         s.rating,
+                'rating_display': s.get_rating_display(),
+            }
+            if is_complete:
+                sat_complete_records_d.append(rec)
+                sat_complete_by_user_d[uname][s.rating] += 1
+                sat_complete_by_user_d[uname]['total']   += 1
+            else:
+                sat_incomplete_records_d.append(rec)
+                sat_incomplete_by_user_d[uname] += 1
+
+        sat_complete_total_d = {'VERY_SATISFIED': 0, 'SATISFIED': 0, 'NOT_SATISFIED': 0, 'total': 0}
+        for v in sat_complete_by_user_d.values():
+            for k in ('VERY_SATISFIED', 'SATISFIED', 'NOT_SATISFIED'):
+                sat_complete_total_d[k] += v[k]
+        sat_complete_total_d['total'] = sum(
+            sat_complete_total_d[k] for k in ('VERY_SATISFIED', 'SATISFIED', 'NOT_SATISFIED')
+        )
+        sat_incomplete_total_d = sum(sat_incomplete_by_user_d.values())
+
+        return render(request, 'pms/gps_summary_report.html', {
+            'mode':           'daily',
+            'report_date':    report_date,
+            'day_short':      day_short,
+            'prev_date':      prev_date,
+            'next_date':      next_date,
+            'today':          today,
+            'daily_tech_list':        daily_tech_list,
+            'imbalanced_daily_techs': imbalanced_daily_techs,
+            'user_id_map_json': json_lib.dumps(user_id_map_day),
+            'total_logs':     sum(t['total'] for t in daily_tech_list),
+            'month_name':     THAI_MONTHS[report_date.month],
+            'year':           report_date.year,
+            'month':          report_date.month,
+            # Satisfaction (same var names as monthly)
+            'sat_grand_total':           sat_complete_total_d['total'] + sat_incomplete_total_d,
+            'sat_complete_records':      sat_complete_records_d,
+            'sat_incomplete_records':    sat_incomplete_records_d,
+            'sat_complete_total':        sat_complete_total_d,
+            'sat_incomplete_total':      sat_incomplete_total_d,
+            'sat_complete_by_user':      dict(sat_complete_by_user_d),
+            'sat_complete_chart_json':   json_lib.dumps({}),
+            'sat_incomplete_chart_json': json_lib.dumps({}),
+        })
+
+    # ── MONTHLY MODE (continues below) ─────────────────────────────────
     # รับ month/year จาก query param
     try:
         year = int(request.GET.get('year', today.year))
@@ -2762,9 +2898,11 @@ def gps_summary_report(request):
 
     import json as json_lib
     return render(request, 'pms/gps_summary_report.html', {
+        'mode':           'monthly',
         'year':           year,
         'month':          month,
         'month_name':     THAI_MONTHS[month],
+        'report_date':    today,
         'all_users':      all_users,
         'user_id_map_json': json_lib.dumps(user_id_map),
         'user_totals':    dict(user_totals),
@@ -2779,12 +2917,13 @@ def gps_summary_report(request):
         'today':          today,
         'total_logs':     sum(user_totals.values()),
         # Satisfaction
-        'sat_grand_total':          sat_grand_total,
-        'sat_complete_records':     sat_complete_records,
-        'sat_incomplete_records':   sat_incomplete_records,
-        'sat_complete_total':       sat_complete_total,
-        'sat_incomplete_total':     sat_incomplete_total,
-        'sat_complete_chart_json':  json_lib.dumps(sat_complete_chart_json),
+        'sat_grand_total':           sat_grand_total,
+        'sat_complete_records':      sat_complete_records,
+        'sat_incomplete_records':    sat_incomplete_records,
+        'sat_complete_total':        sat_complete_total,
+        'sat_incomplete_total':      sat_incomplete_total,
+        'sat_complete_by_user':      dict(sat_complete_by_user),
+        'sat_complete_chart_json':   json_lib.dumps(sat_complete_chart_json),
         'sat_incomplete_chart_json': json_lib.dumps(sat_incomplete_chart_json),
     })
 

@@ -249,12 +249,24 @@
             GPS Summary Report
         </div>
         <div style="font-size:9.5pt; color:#475569; margin-top:2pt; font-weight:600;">
-            {{ month_name }} {{ year }}
+            {% if mode == 'daily' %}{{ report_date|date:"d/m/Y" }} (วัน{{ day_short }}){% else %}{{ month_name }} {{ year }}{% endif %}
         </div>
         <div style="font-size:7pt; color:#94a3b8; margin-top:2pt;">
             {% if total_logs > 0 %}{{ total_logs }} รายการ · {{ all_users|length }} คน{% endif %}
             &nbsp;&nbsp;&nbsp; พิมพ์เมื่อ {% now "d/m/Y H:i" %} น.
         </div>
+    </div>
+
+    <!-- Mode Toggle -->
+    <div class="no-print d-flex align-items-center gap-2 mb-3">
+        <a href="?mode=monthly&year={{ year }}&month={{ month }}"
+           class="btn btn-sm rounded-pill px-3 {% if mode == 'monthly' %}btn-primary{% else %}btn-outline-secondary{% endif %}">
+            <i class="fas fa-calendar-alt me-1"></i> รายเดือน
+        </a>
+        <a href="?mode=daily&date={{ report_date|date:'Y-m-d' }}"
+           class="btn btn-sm rounded-pill px-3 {% if mode == 'daily' %}btn-primary{% else %}btn-outline-secondary{% endif %}">
+            <i class="fas fa-calendar-day me-1"></i> รายวัน
+        </a>
     </div>
 
     <!-- Header (screen only) -->
@@ -263,7 +275,7 @@
             <h3 class="fw-bold mb-1">
                 <i class="fas fa-calendar-alt me-2 text-primary"></i>GPS Summary Report
             </h3>
-            <p class="text-muted mb-0 small">สรุปการเช็คอิน GPS รายเดือน แยกตามวันและช่างเทคนิค</p>
+            <p class="text-muted mb-0 small">{% if mode == 'daily' %}บันทึก GPS รายวัน{% else %}สรุปการเช็คอิน GPS รายเดือน แยกตามวันและช่างเทคนิค{% endif %}</p>
         </div>
         <div class="d-flex gap-2 flex-wrap no-print">
             <a href="{% url 'pms:gps_summary_export' %}?year={{ year }}&month={{ month }}"
@@ -284,6 +296,180 @@
             </a>
         </div>
     </div>
+
+    {% if mode == 'daily' %}
+
+    <!-- ════ DAILY VIEW ════════════════════════════════════════════════ -->
+
+    <!-- Daily Date Navigator -->
+    <div class="card border-0 shadow-sm rounded-4 mb-4 no-print">
+        <div class="card-body p-3">
+            <div class="d-flex align-items-center justify-content-between gap-3 flex-wrap">
+                <a href="?mode=daily&date={{ prev_date|date:'Y-m-d' }}"
+                   class="btn btn-outline-secondary btn-sm rounded-pill px-3">
+                    <i class="fas fa-chevron-left me-1"></i>{{ prev_date|date:"d/m/Y" }}
+                </a>
+                <div class="text-center">
+                    <div class="fw-bold fs-5 text-primary">
+                        {{ report_date|date:"d" }} {{ month_name }} {{ year }}
+                        {% if report_date == today %}
+                        <span class="ms-1 badge bg-primary text-white" style="font-size:0.65rem; vertical-align:middle;">วันนี้</span>
+                        {% endif %}
+                    </div>
+                    <div class="small text-muted">
+                        วัน{{ day_short }}
+                        {% if daily_tech_list %}
+                        · {{ total_logs }} รายการ · {{ daily_tech_list|length }} คน
+                        {% else %}
+                        · ยังไม่มีข้อมูล
+                        {% endif %}
+                    </div>
+                </div>
+                <a href="?mode=daily&date={{ next_date|date:'Y-m-d' }}"
+                   class="btn btn-outline-secondary btn-sm rounded-pill px-3">
+                    {{ next_date|date:"d/m/Y" }}<i class="fas fa-chevron-right ms-1"></i>
+                </a>
+            </div>
+            <!-- Quick date picker -->
+            <div class="mt-2 text-center">
+                <form method="get" class="d-inline-flex align-items-center gap-2">
+                    <input type="hidden" name="mode" value="daily">
+                    <input type="date" name="date" value="{{ report_date|date:'Y-m-d' }}"
+                           class="form-control form-control-sm rounded-pill" style="max-width:160px;"
+                           onchange="this.form.submit()">
+                </form>
+            </div>
+        </div>
+    </div>
+
+    {% if daily_tech_list %}
+
+    <!-- Daily Summary Cards -->
+    <div class="row g-3 mb-4">
+        {% for tech in daily_tech_list %}
+        <div class="col-xl-2 col-md-3 col-sm-4 col-6">
+            <div class="stat-card {% if tech.imbalanced %}border-warning{% elif tech.ci_count and tech.co_count %}border-success border-opacity-25{% endif %}">
+                <div class="d-flex align-items-center gap-2 mb-2">
+                    <div class="stat-icon bg-primary bg-opacity-10 text-primary">
+                        <i class="fas fa-user-hard-hat"></i>
+                    </div>
+                    <div class="fw-bold text-truncate" style="font-size:0.85rem;" title="{{ tech.username }}">{{ tech.username }}</div>
+                </div>
+                <div class="d-flex gap-2 align-items-center flex-wrap" style="font-size:0.78rem;">
+                    <span style="color:#15803d; font-weight:700;">
+                        ↑ {{ tech.ci_count }} <span style="color:#94a3b8; font-weight:400;">CI</span>
+                    </span>
+                    <span style="color:#1d4ed8; font-weight:700;">
+                        ↓ {{ tech.co_count }} <span style="color:#94a3b8; font-weight:400;">CO</span>
+                    </span>
+                </div>
+                {% if tech.first %}
+                <div style="font-size:0.7rem; color:#94a3b8; margin-top:3px;">
+                    {{ tech.first }}{% if tech.last and tech.last != tech.first %} – {{ tech.last }}{% endif %}
+                </div>
+                {% endif %}
+                {% if tech.imbalanced %}
+                <div class="mt-1" style="font-size:0.7rem;">
+                    <span class="badge rounded-pill" style="background:#fff7ed; color:#c2410c; border:1px solid #fed7aa;">⚠ CI ≠ CO</span>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Daily GPS Log Table -->
+    <div class="card border-0 shadow-sm rounded-4 mb-4">
+        <div class="card-header bg-white border-0 pt-3 pb-2 px-4 d-flex align-items-center justify-content-between flex-wrap gap-2">
+            <h6 class="fw-bold mb-0">
+                <i class="fas fa-list-alt me-2 text-primary"></i>บันทึก GPS — {{ report_date|date:"d/m/Y" }} (วัน{{ day_short }})
+            </h6>
+            <span class="text-muted no-print" style="font-size:0.72rem;">
+                <i class="fas fa-map-marked-alt me-1"></i>
+                <a href="{% url 'pms:gps_tracking_report' %}?date={{ report_date|date:'Y-m-d' }}" class="text-primary">ดูแผนที่</a>
+            </span>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-sm mb-0" style="font-size:0.85rem;">
+                    <thead style="background:#f8fafc;">
+                        <tr>
+                            <th style="padding:0.55rem 0.75rem; color:#64748b; font-size:0.72rem; text-transform:uppercase; border-bottom:2px solid #e2e8f0;">ช่างเทคนิค</th>
+                            <th style="padding:0.55rem 0.75rem; color:#64748b; font-size:0.72rem; text-transform:uppercase; border-bottom:2px solid #e2e8f0; white-space:nowrap;">เวลา</th>
+                            <th style="padding:0.55rem 0.75rem; color:#64748b; font-size:0.72rem; text-transform:uppercase; border-bottom:2px solid #e2e8f0;">ประเภท</th>
+                            <th style="padding:0.55rem 0.75rem; color:#64748b; font-size:0.72rem; text-transform:uppercase; border-bottom:2px solid #e2e8f0;">สถานที่</th>
+                            <th style="padding:0.55rem 0.75rem; color:#64748b; font-size:0.72rem; text-transform:uppercase; border-bottom:2px solid #e2e8f0;">หมายเหตุ</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for tech in daily_tech_list %}
+                            {% for log in tech.logs %}
+                            <tr style="border-bottom:1px solid #f1f5f9;">
+                                {% if forloop.first %}
+                                <td rowspan="{{ tech.logs|length }}" style="padding:0.5rem 0.75rem; vertical-align:middle; font-weight:600; border-right:2px solid #e2e8f0; white-space:nowrap;">
+                                    <i class="fas fa-user-circle me-1 text-primary" style="font-size:0.75rem;"></i>{{ tech.username }}
+                                    {% if tech.imbalanced %}<span class="ms-1" style="color:#f97316; font-size:0.7rem;">⚠</span>{% endif %}
+                                </td>
+                                {% endif %}
+                                <td style="padding:0.5rem 0.75rem; white-space:nowrap; font-family:monospace; font-weight:600; color:#1e293b;">{{ log.time }}</td>
+                                <td style="padding:0.5rem 0.75rem; white-space:nowrap;">
+                                    {% if log.type == 'CHECK_IN' %}
+                                    <span class="badge rounded-pill" style="background:#dcfce7; color:#15803d;">↑ {{ log.type_display }}</span>
+                                    {% elif log.type == 'CHECK_OUT' %}
+                                    <span class="badge rounded-pill" style="background:#dbeafe; color:#1d4ed8;">↓ {{ log.type_display }}</span>
+                                    {% elif log.type == 'TRAVEL' %}
+                                    <span class="badge rounded-pill" style="background:#ede9fe; color:#5b21b6;">⇒ {{ log.type_display }}</span>
+                                    {% else %}
+                                    <span class="badge rounded-pill" style="background:#f1f5f9; color:#475569;">{{ log.type_display }}</span>
+                                    {% endif %}
+                                </td>
+                                <td style="padding:0.5rem 0.75rem; color:#475569;">{{ log.location }}</td>
+                                <td style="padding:0.5rem 0.75rem; color:#94a3b8; font-size:0.8rem;">{{ log.notes }}</td>
+                            </tr>
+                            {% endfor %}
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Daily Imbalance Alert -->
+    {% if imbalanced_daily_techs %}
+    <div class="card border-0 shadow-sm rounded-4 mb-4" style="border-left: 4px solid #f97316 !important;">
+        <div class="card-header bg-white border-0 pt-3 pb-2 px-4 d-flex align-items-center justify-content-between flex-wrap gap-2">
+            <h6 class="fw-bold mb-0" style="color:#c2410c;">
+                <i class="fas fa-exclamation-triangle me-2"></i>Check-in / Check-out ไม่สมดุล — {{ report_date|date:"d/m/Y" }}
+            </h6>
+            <span class="badge rounded-pill" style="background:#fff7ed; color:#c2410c; border:1px solid #fed7aa; font-size:0.75rem;">
+                {{ imbalanced_daily_techs|length }} คน
+            </span>
+        </div>
+        <div class="card-body p-0">
+            {% for tech in imbalanced_daily_techs %}
+            <div class="imbalance-row">
+                <span class="imbalance-date">{{ tech.username }}</span>
+                <span class="imbalance-chip {% if tech.ci_count > tech.co_count %}over{% else %}under{% endif %}">
+                    ↑{{ tech.ci_count }} CI &nbsp; ↓{{ tech.co_count }} CO
+                    &nbsp; {% if tech.ci_count > tech.co_count %}CI เกิน{% else %}CO เกิน{% endif %}
+                </span>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    {% else %}
+    <!-- Daily Empty State -->
+    <div class="card border-0 shadow-sm rounded-4 p-5 text-center">
+        <i class="fas fa-calendar-times fa-3x text-muted mb-3 opacity-25"></i>
+        <h5 class="text-muted">ไม่มีข้อมูล GPS สำหรับวันที่ {{ report_date|date:"d/m/Y" }}</h5>
+        <p class="small text-muted">ช่างเทคนิคต้องกดเช็คอิน GPS ในห้องแชทเพื่อให้ข้อมูลปรากฏที่นี่</p>
+    </div>
+    {% endif %}{# /daily_tech_list #}
+
+    {% else %}
+    <!-- ════ MONTHLY VIEW ═══════════════════════════════════════════════ -->
 
     <!-- Month Navigator -->
     <div class="card border-0 shadow-sm rounded-4 mb-4 no-print">
@@ -506,15 +692,30 @@
             {% endfor %}
         </div>
     </div>
-    {% endif %}
+    {% endif %}{# /imbalance_days #}
 
-    <!-- ===== Customer Satisfaction Section ===== -->
+    {% else %}
+    <!-- Monthly Empty State -->
+    <div class="card border-0 shadow-sm rounded-4 p-5 text-center">
+        <i class="fas fa-calendar-times fa-3x text-muted mb-3 opacity-25"></i>
+        <h5 class="text-muted">ไม่มีข้อมูล GPS สำหรับเดือน {{ month_name }} {{ year }}</h5>
+        <p class="small text-muted">ช่างเทคนิคต้องกดเช็คอิน GPS ในห้องแชทเพื่อให้ข้อมูลปรากฏที่นี่</p>
+        <a href="{% url 'pms:gps_tracking_report' %}" class="btn btn-outline-primary btn-sm rounded-pill px-4 mt-2">
+            <i class="fas fa-map-marked-alt me-1"></i> ดูรายงานรายวัน
+        </a>
+    </div>
+    {% endif %}{# /all_users #}
+
+    {% endif %}{# /mode == monthly #}
+
+    <!-- ===== Customer Satisfaction Section (shared: daily + monthly) ===== -->
     {% if sat_grand_total > 0 %}
 
     <!-- แถบสรุปยอดประเมินทั้งหมด -->
     <div class="d-flex align-items-center gap-3 mb-3 flex-wrap">
         <h5 class="fw-bold mb-0">
-            <i class="fas fa-star me-2 text-warning"></i>ผลการประเมินความพึงพอใจลูกค้า — {{ month_name }} {{ year }}
+            <i class="fas fa-star me-2 text-warning"></i>ผลการประเมินความพึงพอใจลูกค้า —
+            {% if mode == 'daily' %}{{ report_date|date:"d/m/Y" }}{% else %}{{ month_name }} {{ year }}{% endif %}
         </h5>
         <span class="badge rounded-pill bg-secondary bg-opacity-10 text-secondary border" style="font-size:0.78rem;">
             ทั้งหมด {{ sat_grand_total }} แบบประเมิน
@@ -771,17 +972,6 @@
     {% endif %}
 
     {% endif %}{# /sat_grand_total #}
-
-    {% else %}
-    <div class="card border-0 shadow-sm rounded-4 p-5 text-center">
-        <i class="fas fa-calendar-times fa-3x text-muted mb-3 opacity-25"></i>
-        <h5 class="text-muted">ไม่มีข้อมูล GPS สำหรับเดือน {{ month_name }} {{ year }}</h5>
-        <p class="small text-muted">ช่างเทคนิคต้องกดเช็คอิน GPS ในห้องแชทเพื่อให้ข้อมูลปรากฏที่นี่</p>
-        <a href="{% url 'pms:gps_tracking_report' %}" class="btn btn-outline-primary btn-sm rounded-pill px-4 mt-2">
-            <i class="fas fa-map-marked-alt me-1"></i> ดูรายงานรายวัน
-        </a>
-    </div>
-    {% endif %}
 
     <!-- Print-only footer -->
     <div class="print-only" style="display:none; margin-top:10pt; padding-top:5pt; border-top:1pt solid #cbd5e1; font-size:6.5pt; color:#94a3b8;">
