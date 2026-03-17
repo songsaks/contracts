@@ -27,17 +27,9 @@ def _role_map_json():
 
 
 # ====== ฟังก์ชันตรวจสิทธิ์ (Permission Check) ======
-# ตรวจว่าผู้ใช้มีสิทธิ์เข้าหน้า User Management หรือไม่
+# User Management — เฉพาะ Superuser เท่านั้น
 def is_admin_or_manager(user):
-    if not user.is_authenticated:
-        return False
-    if user.is_superuser:
-        return True
-    try:
-        # สิทธิ์เข้าถึงหน้าจัดการพนักงาน: ต้องเป็น Superuser หรือมีติ๊กถูก access_accounts ใน Profile
-        return user.profile.access_accounts
-    except Exception:
-        return False
+    return user.is_authenticated and user.is_superuser
 
 
 # ====== View: user_list — แสดงรายชื่อพนักงานทั้งหมด ======

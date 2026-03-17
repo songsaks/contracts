@@ -1051,8 +1051,8 @@
                 {% endif %}
 
                 <!-- ====== การ์ด: ระบบจัดการพนักงาน (User Management) ====== -->
-                <!-- แสดงเฉพาะ superuser หรือผู้ที่มี profile.access_accounts เท่านั้น -->
-                {% if user.is_superuser or user.profile.access_accounts %}
+                <!-- แสดงเฉพาะ superuser เท่านั้น -->
+                {% if user.is_superuser %}
                 <a href="{% url 'accounts:user_list' %}" class="card card--blue" id="card-accounts">
                     <div class="card__icon">
                         <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
