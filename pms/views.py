@@ -1520,16 +1520,27 @@ def send_queue_notifications(request):
                 pms_room = ChatRoom.objects.filter(app_category='pms', project__isnull=True, is_active=True).first()
                 if pms_room:
                     from utils.ai_service_manager import _clean_description, _get_customer_name
-                    _PRIORITY = {'CRITICAL': ' 🚨', 'HIGH': ' ⚡', 'NORMAL': '', 'LOW': ''}
-                    SEP = '━' * 28
+                    import html as _html
+
+                    # สีประจำทีม — วนซ้ำถ้ามีมากกว่า 6 ทีม
+                    _TEAM_COLORS = [
+                        {'bg': '#dbeafe', 'text': '#1e40af', 'border': '#93c5fd'},  # blue
+                        {'bg': '#dcfce7', 'text': '#166534', 'border': '#86efac'},  # green
+                        {'bg': '#ede9fe', 'text': '#5b21b6', 'border': '#c4b5fd'},  # purple
+                        {'bg': '#ffedd5', 'text': '#9a3412', 'border': '#fdba74'},  # orange
+                        {'bg': '#fce7f3', 'text': '#9d174d', 'border': '#f9a8d4'},  # pink
+                        {'bg': '#ccfbf1', 'text': '#115e59', 'border': '#5eead4'},  # teal
+                    ]
+                    _PRIO_BADGE = {
+                        'CRITICAL': '<span style="background:#fee2e2;color:#b91c1c;padding:1px 6px;border-radius:4px;font-size:0.72rem;font-weight:700;margin-left:6px;">เร่งด่วนมาก</span>',
+                        'HIGH':     '<span style="background:#ffedd5;color:#c2410c;padding:1px 6px;border-radius:4px;font-size:0.72rem;font-weight:700;margin-left:6px;">เร่งด่วน</span>',
+                        'NORMAL': '', 'LOW': '',
+                    }
 
                     total_tasks = items.count()
-                    content_lines = [
-                        f"📋 คิวงาน {target_date.strftime('%d/%m/%Y')}  ·  รวม {total_tasks} งาน",
-                        SEP,
-                    ]
+                    thai_date   = target_date.strftime('%d/%m/') + str(target_date.year + 543)
 
-                    # จัดกลุ่มงานตามทีม — เก็บ (task, all_teams) เพื่อแสดง cross-team
+                    # จัดกลุ่มงานตามทีม
                     team_buckets: dict = {}
                     for item in items.prefetch_related('assigned_teams', 'project__customer'):
                         all_teams = list(item.assigned_teams.all())
@@ -1539,50 +1550,82 @@ def send_queue_notifications(request):
                         else:
                             team_buckets.setdefault('ยังไม่ระบุทีม', []).append((item, []))
 
-                    for t_name, task_pairs in team_buckets.items():
-                        content_lines.append(f"\n🔷 {t_name}  ·  {len(task_pairs)} งาน")
+                    # ── สร้าง HTML table ──────────────────────────────────
+                    parts = [
+                        '<div style="font-family:inherit;font-size:0.83rem;min-width:300px;max-width:460px;border-radius:10px;overflow:hidden;border:1px solid #e2e8f0;box-shadow:0 2px 8px rgba(0,0,0,0.08);">',
+                        '<div style="background:#1e293b;color:#f8fafc;padding:9px 14px;display:flex;justify-content:space-between;align-items:center;">',
+                        f'<span style="font-weight:700;font-size:0.88rem;">คิวงานประจำวัน {thai_date}</span>',
+                        f'<span style="background:#334155;padding:2px 10px;border-radius:20px;font-size:0.75rem;">{total_tasks} งาน</span>',
+                        '</div>',
+                    ]
+
+                    for t_idx, (t_name, task_pairs) in enumerate(team_buckets.items()):
+                        clr = _TEAM_COLORS[t_idx % len(_TEAM_COLORS)]
+                        parts += [
+                            f'<div style="background:{clr["bg"]};color:{clr["text"]};padding:6px 14px;font-weight:700;font-size:0.8rem;border-top:2px solid {clr["border"]};display:flex;justify-content:space-between;">',
+                            f'<span>{_html.escape(t_name)}</span>',
+                            f'<span style="font-weight:400;opacity:0.75;">{len(task_pairs)} งาน</span>',
+                            '</div>',
+                            '<table style="width:100%;border-collapse:collapse;background:#ffffff;">',
+                            '<tr style="background:#f8fafc;font-size:0.75rem;color:#94a3b8;font-weight:600;">',
+                            '<td style="padding:4px 8px 4px 14px;width:28px;">#</td>',
+                            '<td style="padding:4px 8px;width:50px;">เวลา</td>',
+                            '<td style="padding:4px 14px 4px 8px;">งาน / ลูกค้า</td>',
+                            '</tr>',
+                        ]
+
                         for idx, (task, all_teams) in enumerate(task_pairs, 1):
-                            time_str  = task.scheduled_time.strftime('%H:%M') if task.scheduled_time else '—:——'
-                            priority  = _PRIORITY.get(getattr(task, 'priority', 'NORMAL'), '')
+                            time_str  = task.scheduled_time.strftime('%H:%M') if task.scheduled_time else '—:—'
+                            prio_html = _PRIO_BADGE.get(getattr(task, 'priority', 'NORMAL'), '')
                             cust_name = _get_customer_name(task)
-
-                            # แสดง cross-team เฉพาะเมื่องานนี้มีทีมอื่นร่วมด้วย
-                            other = [t.name for t in all_teams if t.name != t_name]
-                            cross = f"  (ร่วมกับ {', '.join(other)})" if other else ''
-
-                            meta_parts = [task.get_task_type_display()]
+                            other     = [t.name for t in all_teams if t.name != t_name]
+                            cross_str = f'  —  ร่วมกับ {", ".join(other)}' if other else ''
+                            type_str  = task.get_task_type_display()
                             if task.deadline:
-                                meta_parts.append(f"กำหนด {task.deadline.strftime('%d/%m')}")
+                                type_str += f'  ·  ครบ {task.deadline.strftime("%d/%m")}'
+                            desc = _clean_description(task.title, task.description, max_len=70)
 
-                            desc = _clean_description(task.title, task.description, max_len=55)
-
-                            content_lines.append(f"  {idx}. {time_str}  {task.title}{priority}{cross}")
-                            content_lines.append(f"       👤 {cust_name}")
-                            content_lines.append(f"       🏷 {'  ·  '.join(meta_parts)}")
+                            row_bg = '#ffffff' if idx % 2 == 1 else '#f8fafc'
+                            border = 'border-top:1px solid #e2e8f0;' if idx > 1 else ''
+                            parts += [
+                                f'<tr style="background:{row_bg};{border}vertical-align:top;">',
+                                f'<td style="padding:7px 8px 7px 14px;color:{clr["text"]};font-weight:700;">{idx}</td>',
+                                f'<td style="padding:7px 8px;font-weight:700;color:#374151;white-space:nowrap;">{_html.escape(time_str)}</td>',
+                                '<td style="padding:7px 14px 7px 8px;">',
+                                f'<div style="font-weight:700;color:#111827;">{_html.escape(task.title)}{prio_html}</div>',
+                                f'<div style="color:#6b7280;font-size:0.78rem;margin-top:2px;">{_html.escape(cust_name)}  ·  {_html.escape(type_str)}{_html.escape(cross_str)}</div>',
+                            ]
                             if desc:
-                                content_lines.append(f"       💬 {desc}")
+                                parts.append(f'<div style="color:#94a3b8;font-size:0.75rem;margin-top:2px;font-style:italic;">{_html.escape(desc)}</div>')
+                            parts += ['</td>', '</tr>']
+
+                        parts.append('</table>')
 
                     now_str = timezone.localtime(timezone.now()).strftime('%H:%M')
-                    content_lines += [f"\n{SEP}", f"🤖 ส่งอัตโนมัติ {now_str}"]
+                    parts += [
+                        f'<div style="background:#f8fafc;color:#94a3b8;padding:5px 14px;font-size:0.72rem;text-align:right;border-top:1px solid #e2e8f0;">ส่งอัตโนมัติ  {now_str}</div>',
+                        '</div>',
+                    ]
+                    full_content = ''.join(parts)
 
-                    full_content = "\n".join(content_lines)
-                    
                     chat_msg = ChatMessage.objects.create(
                         room=pms_room,
                         user=request.user,
-                        content=full_content
+                        content=full_content,
+                        is_html=True,
                     )
-                    
+
                     # เปล่งสัญญาณออกไปยังระบบ WebSocket ของแชทให้ข้อความเด้งขึ้นมาแบบ Real-time
                     channel_layer = get_channel_layer()
                     async_to_sync(channel_layer.group_send)(
                         f'chat_{pms_room.id}',
                         {
                             'type': 'chat_message',
-                            'message': chat_msg.content,
+                            'message': full_content,
                             'username': request.user.username,
                             'user_id': request.user.id,
                             'is_stt': False,
+                            'is_html': True,
                             'image_url': None,
                             'file_url': None,
                             'latitude': None,

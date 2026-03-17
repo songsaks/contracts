@@ -83,7 +83,7 @@ class UserProfile(models.Model):
     access_pos = models.BooleanField(default=False, verbose_name="เข้าใช้ระบบขายสินค้า (POS)")
     access_pms = models.BooleanField(default=False, verbose_name="เข้าใช้ระบบจัดการโครงการ (PMS)")
     access_chat = models.BooleanField(default=True, verbose_name="เข้าใช้ศูนย์แชทกลาง")
-    access_payroll = models.BooleanField(default=False, verbose_name="เข้าใช้ระบบเงินเดือน")
+    access_payroll = models.BooleanField(default=True, verbose_name="เข้าใช้ระบบเงินเดือน")
     access_stocks = models.BooleanField(default=False, verbose_name="เข้าใช้ระบบวิเคราะห์หุ้น AI")
     access_accounts = models.BooleanField(default=False, verbose_name="เข้าใช้ระบบจัดการพนักงาน (User Management)")
 

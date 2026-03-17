@@ -90,6 +90,8 @@ class ChatMessage(models.Model):
     timestamp = models.DateTimeField(auto_now_add=True, verbose_name="เวลาส่ง")
     # ระบุว่าข้อความนี้มาจาก Speech-to-Text หรือไม่ (แสดงไอคอนไมโครโฟนใน UI)
     is_speech_to_text = models.BooleanField(default=False, verbose_name="ส่งด้วยเสียง")
+    # ระบุว่า content เป็น HTML (render ด้วย |safe) — ใช้สำหรับข้อความ system เช่น คิวงาน PMS
+    is_html = models.BooleanField(default=False, verbose_name="เนื้อหาเป็น HTML")
 
     class Meta:
         verbose_name = "ข้อความแชท"

@@ -234,3 +234,28 @@ class ScannableSymbol(models.Model):
 
     def __str__(self):
         return f"{self.symbol} ({self.index_name})"
+
+
+# ====== SoldStock — บันทึกประวัติการขายหุ้นและผลกำไรขาดทุน ======
+
+class SoldStock(models.Model):
+    """
+    บันทึกรายการหุ้นที่ขายไปแล้ว เพื่อเก็บประวัติและคำนวณกำไร/ขาดทุน
+    ใช้สำหรับแสดงกราฟ Performance ประวัติการเทรด
+    """
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    symbol = models.CharField(max_length=20)
+    quantity = models.DecimalField(max_digits=12, decimal_places=4)
+    buy_price = models.DecimalField(max_digits=12, decimal_places=4, help_text="ราคาทุนเฉลี่ยขณะที่ซื้อ")
+    sell_price = models.DecimalField(max_digits=12, decimal_places=4, help_text="ราคาที่ขายออกไป")
+    profit_loss = models.DecimalField(max_digits=12, decimal_places=4, help_text="กำไร/ขาดทุนสุทธิ (เป็นจำนวนเงิน)")
+    profit_loss_pct = models.DecimalField(max_digits=8, decimal_places=2, help_text="กำไร/ขาดทุน (%)")
+    sold_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Sold Stock"
+        verbose_name_plural = "Sold Stocks"
+        ordering = ['-sold_at']
+
+    def __str__(self):
+        return f"Sold: {self.symbol} (P/L: {self.profit_loss})"

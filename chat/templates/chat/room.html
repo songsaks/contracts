@@ -462,7 +462,7 @@
                     </a>
                     {% endif %}
                     <span class="block">
-                        {{ msg.content|linebreaksbr }}
+                        {% if msg.is_html %}{{ msg.content|safe }}{% else %}{{ msg.content|linebreaksbr }}{% endif %}
                         {% if msg.is_speech_to_text %} <i class="fas fa-microphone text-[10px] ml-1 opacity-60"></i> {% endif %}
                     </span>
                     
@@ -780,7 +780,7 @@
         }
 
         const formattedMessage = data.message
-            ? highlightMentions(data.message.replace(/\n/g, '<br>'))
+            ? (data.is_html ? data.message : highlightMentions(data.message.replace(/\n/g, '<br>')))
             : '';
 
         const msgEl = document.createElement('div');

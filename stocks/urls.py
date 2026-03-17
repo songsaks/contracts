@@ -12,6 +12,7 @@ urlpatterns = [
     path('portfolio/scan/', views.portfolio_scan, name='portfolio_scan'),
     path('portfolio/add/', views.add_to_portfolio, name='add_to_portfolio'),
     path('portfolio/<int:pk>/delete/', views.delete_from_portfolio, name='delete_from_portfolio'),
+    path('portfolio/<int:pk>/sell/', views.sell_stock, name='sell_stock'),
     path('recommendations/', views.recommendations, name='recommendations'),
     path('us-recommendations/', views.us_recommendations, name='us_recommendations'),
     path('macro/', views.macro_economy, name='macro'),

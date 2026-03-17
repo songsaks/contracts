@@ -9,11 +9,15 @@ from django.contrib.auth import login
 from django.contrib import messages
 from django.conf import settings
 from google import genai
-from .models import Watchlist, AnalysisCache, AssetCategory, Portfolio, MomentumCandidate, ScannableSymbol, MultiFactorCandidate
+from .models import (
+    Watchlist, AnalysisCache, AssetCategory, Portfolio, 
+    MomentumCandidate, ScannableSymbol, MultiFactorCandidate, SoldStock
+)
 from .utils import (
     get_stock_data, analyze_with_ai, calculate_trailing_stop,
     refresh_set100_symbols, find_supply_demand_zones
 )
+from decimal import Decimal
 from yahooquery import Ticker as YQTicker
 import requests
 import yfinance as yf
@@ -595,13 +599,26 @@ def portfolio_list(request):
         except Exception as e:
             ai_analysis = f"ไม่สามารถวิเคราะห์พอร์ตได้ในขณะนี้: {str(e)}"
 
+    # ====== เตรียมข้อมูลสำหรับกราฟประวัติกำไร/ขาดทุน (Realized P/L) ======
+    sold_stocks = SoldStock.objects.filter(user=request.user).order_by('sold_at')
+    chart_labels = []
+    chart_data = []
+    running_pl = 0
+    for s in sold_stocks:
+        running_pl += float(s.profit_loss)
+        chart_labels.append(s.sold_at.strftime('%Y-%m-%d %H:%M'))
+        chart_data.append(running_pl)
+
     context = {
         'items': items,
         'total_market_value': total_market_value,
         'total_gain_loss': total_gain_loss,
         'categories': AssetCategory.choices,
         'title': 'My Portfolio',
-        'ai_analysis': ai_analysis
+        'ai_analysis': ai_analysis,
+        'sold_stocks': sold_stocks,
+        'chart_labels': json.dumps(chart_labels),
+        'chart_data': json.dumps(chart_data),
     }
     return render(request, 'stocks/portfolio.html', context)
 
@@ -643,6 +660,54 @@ def delete_from_portfolio(request, pk):
     symbol = item.symbol
     item.delete()
     messages.success(request, f"ลบ {symbol} ออกจากพอร์ตแล้ว")
+    return redirect('stocks:portfolio_list')
+
+@login_required
+def sell_stock(request, pk):
+    """
+    จัดการการขายหุ้น:
+    1. รับจำนวนหุ้นและราคาขายจาก Modal
+    2. คำนวณกำไร/ขาดทุน
+    3. บันทึกลงใน SoldStock
+    4. หักลบจำนวนหุ้นใน Portfolio (หรือลบออกถ้าขายหมด)
+    """
+    portfolio_item = get_object_or_404(Portfolio, pk=pk, user=request.user)
+    
+    if request.method == 'POST':
+        sell_quantity = Decimal(request.POST.get('quantity', 0))
+        sell_price = Decimal(request.POST.get('sell_price', 0))
+        
+        if sell_quantity <= 0 or sell_quantity > portfolio_item.quantity:
+            messages.error(request, "จำนวนหุ้นไม่ถูกต้อง")
+            return redirect('stocks:portfolio_list')
+        
+        # คำนวณกำไร/ขาดทุน
+        # ต้นทุน = จำนวนที่ขาย * ราคาทุนเฉลี่ย
+        cost_of_sold_shares = sell_quantity * portfolio_item.entry_price
+        sell_revenue = sell_quantity * sell_price
+        profit_loss = sell_revenue - cost_of_sold_shares
+        profit_loss_pct = (profit_loss / cost_of_sold_shares * 100) if cost_of_sold_shares > 0 else 0
+        
+        # บันทึกประวัติการขาย
+        SoldStock.objects.create(
+            user=request.user,
+            symbol=portfolio_item.symbol,
+            quantity=sell_quantity,
+            buy_price=portfolio_item.entry_price,
+            sell_price=sell_price,
+            profit_loss=profit_loss,
+            profit_loss_pct=profit_loss_pct
+        )
+        
+        # อัปเดตพอร์ต
+        portfolio_item.quantity -= sell_quantity
+        if portfolio_item.quantity <= 0:
+            portfolio_item.delete()
+            messages.success(request, f"ขาย {portfolio_item.symbol} เรียบร้อยแล้ว (ปิดสถานะ)")
+        else:
+            portfolio_item.save()
+            messages.success(request, f"ขาย {portfolio_item.symbol} จำนวน {sell_quantity} หุ้น เรียบร้อยแล้ว")
+            
     return redirect('stocks:portfolio_list')
 
 # ====== Recommendations — คำแนะนำหุ้นรายวันจาก AI ======

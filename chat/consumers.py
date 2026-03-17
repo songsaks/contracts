@@ -153,6 +153,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
                     'longitude': longitude,
                     'location_name': location_name,
                     'mentions': mentions,
+                    'is_html': False,
                     # แปลงเวลาเป็น Local Timezone ก่อนส่ง
                     'timestamp': timezone.localtime(timezone.now()).strftime('%H:%M')
                 }
@@ -202,6 +203,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             'longitude': event.get('longitude'),
             'location_name': event.get('location_name'),
             'mentions': event.get('mentions', []),
+            'is_html': event.get('is_html', False),
             'timestamp': event['timestamp']
         }))
 
