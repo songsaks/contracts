@@ -1808,25 +1808,7 @@ def precision_momentum_scanner(request):
     }
     order_field = valid_sorts.get(sort_by, '-technical_score')
 
-    # ดึงเฉพาะรอบสแกนล่าสุด
-    latest_run = (
-        PrecisionScanCandidate.objects
-        .filter(user=request.user)
-        .values_list('scan_run', flat=True)
-        .order_by('-scan_run')
-        .first()
-    )
-    candidates = PrecisionScanCandidate.objects.none()
-    scanned_at = None
-    if latest_run:
-        candidates = (
-            PrecisionScanCandidate.objects
-            .filter(user=request.user, scan_run=latest_run)
-            .order_by(order_field)
-        )
-        scanned_at = latest_run
-
-    # รายชื่อ scan runs ทั้งหมด (สำหรับแสดงประวัติ)
+    # รายชื่อ scan runs ทั้งหมด (index 0 = ล่าสุด)
     all_runs = list(
         PrecisionScanCandidate.objects
         .filter(user=request.user)
@@ -1835,13 +1817,32 @@ def precision_momentum_scanner(request):
         .distinct()
     )
 
+    # เลือกรอบสแกนตาม ?run_idx= (0 = ล่าสุด, 1 = ก่อนหน้า, ...)
+    try:
+        run_idx = int(request.GET.get('run_idx', 0))
+    except (ValueError, TypeError):
+        run_idx = 0
+    run_idx = max(0, min(run_idx, len(all_runs) - 1)) if all_runs else 0
+
+    candidates = PrecisionScanCandidate.objects.none()
+    scanned_at = None
+    if all_runs:
+        selected_run = all_runs[run_idx]
+        candidates = (
+            PrecisionScanCandidate.objects
+            .filter(user=request.user, scan_run=selected_run)
+            .order_by(order_field)
+        )
+        scanned_at = selected_run
+
     context = {
         'title': 'Precision Momentum Scanner — กรองคุณภาพ',
         'candidates': candidates,
         'scanned_at': scanned_at,
         'current_sort': sort_by,
         'all_runs': all_runs,
-        'has_scanned': request.method == "POST" or request.GET.get('scan') == 'true' or bool(latest_run),
+        'selected_run_idx': run_idx,
+        'has_scanned': request.method == "POST" or request.GET.get('scan') == 'true' or bool(all_runs),
     }
     return render(request, 'stocks/precision_scan.html', context)
 

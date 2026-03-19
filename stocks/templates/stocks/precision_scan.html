@@ -81,9 +81,9 @@
 <div class="mb-3 d-flex align-items-center gap-2 flex-wrap">
     <span class="small text-muted fw-semibold me-1"><i class="fas fa-history me-1"></i> ประวัติ Scan:</span>
     {% for run in all_runs %}
-    <a href="?run={{ run|date:'c' }}&sort={{ current_sort }}"
-       class="badge rounded-pill text-decoration-none px-3 py-2 {% if forloop.first %}text-white{% else %}bg-light border text-muted{% endif %}"
-       style="{% if forloop.first %}background: #7c3aed;{% endif %} font-size: 0.78rem;">
+    <a href="?run_idx={{ forloop.counter0 }}&sort={{ current_sort }}"
+       class="badge rounded-pill text-decoration-none px-3 py-2 {% if forloop.counter0 == selected_run_idx %}text-white{% else %}bg-light border text-muted{% endif %}"
+       style="{% if forloop.counter0 == selected_run_idx %}background: #7c3aed;{% endif %} font-size: 0.78rem;">
         {% if forloop.first %}<i class="fas fa-star me-1"></i>{% endif %}
         {{ run|date:"d/m H:i" }}
         {% if forloop.first %}(ล่าสุด){% endif %}
@@ -116,16 +116,16 @@
                 <table class="table table-hover align-middle mb-0">
                     <thead class="bg-light text-muted small" style="font-size: 0.8rem;">
                         <tr>
-                            <th class="ps-4"><a href="?sort=symbol&{% if scanned_at %}run={{ scanned_at|date:'c' }}&{% endif %}sort=symbol" class="text-decoration-none text-muted">SYMBOL</a></th>
-                            <th><a href="?sort=prox{% if scanned_at %}&run={{ scanned_at|date:'c' }}{% endif %}" class="text-decoration-none text-muted">ZONE STATUS</a></th>
-                            <th><a href="?sort=score{% if scanned_at %}&run={{ scanned_at|date:'c' }}{% endif %}" class="text-decoration-none text-muted">PRECISION SCORE</a></th>
-                            <th><a href="?sort=round_rr{% if scanned_at %}&run={{ scanned_at|date:'c' }}{% endif %}" class="text-decoration-none text-muted">RR</a></th>
-                            <th><a href="?sort=rvol{% if scanned_at %}&run={{ scanned_at|date:'c' }}{% endif %}" class="text-decoration-none text-muted">RVOL</a></th>
-                            <th><a href="?sort=adx{% if scanned_at %}&run={{ scanned_at|date:'c' }}{% endif %}" class="text-decoration-none text-muted">ADX</a></th>
+                            <th class="ps-4"><a href="?sort=symbol&run_idx={{ selected_run_idx }}" class="text-decoration-none text-muted">SYMBOL</a></th>
+                            <th><a href="?sort=prox&run_idx={{ selected_run_idx }}" class="text-decoration-none text-muted">ZONE STATUS</a></th>
+                            <th><a href="?sort=score&run_idx={{ selected_run_idx }}" class="text-decoration-none text-muted">PRECISION SCORE</a></th>
+                            <th><a href="?sort=round_rr&run_idx={{ selected_run_idx }}" class="text-decoration-none text-muted">RR</a></th>
+                            <th><a href="?sort=rvol&run_idx={{ selected_run_idx }}" class="text-decoration-none text-muted">RVOL</a></th>
+                            <th><a href="?sort=adx&run_idx={{ selected_run_idx }}" class="text-decoration-none text-muted">ADX</a></th>
                             <th>AVG VOL 20d</th>
-                            <th><a href="?sort=price{% if scanned_at %}&run={{ scanned_at|date:'c' }}{% endif %}" class="text-decoration-none text-muted">PRICE</a></th>
+                            <th><a href="?sort=price&run_idx={{ selected_run_idx }}" class="text-decoration-none text-muted">PRICE</a></th>
                             <th>ENTRY ZONE</th>
-                            <th><a href="?sort=rsi{% if scanned_at %}&run={{ scanned_at|date:'c' }}{% endif %}" class="text-decoration-none text-muted">RSI</a></th>
+                            <th><a href="?sort=rsi&run_idx={{ selected_run_idx }}" class="text-decoration-none text-muted">RSI</a></th>
                             <th>ERC</th>
                             <th style="width: 55px;">SEC</th>
                             <th class="text-end pe-4">ACTION</th>
