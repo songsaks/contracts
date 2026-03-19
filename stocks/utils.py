@@ -515,6 +515,218 @@ def analyze_momentum_technical(df):
 
 
 # ----------------------------------------------------------------------
+# find_supply_demand_zones_v2 — เวอร์ชันปรับปรุง
+# ความแตกต่างจาก v1:
+#   - ERC ต้องการ Body > 1.5x avg_body AND Volume > 1.5x avg_vol (ทั้งสองเงื่อนไข)
+#   - Supply target = 52-week high เสมอ (ไม่ fallback 60/120d)
+#   - Stop loss คำนวณจาก ATR: refined_lower - (ATR * 0.5)
+#   - คืนค่า erc_volume_confirmed และ zone_target_source
+# ----------------------------------------------------------------------
+def find_supply_demand_zones_v2(df):
+    if df is None or len(df) < 50:
+        return None
+
+    import pandas_ta as ta
+    df = df.copy()
+
+    # คำนวณขนาด Body และค่าเฉลี่ย Body/Volume
+    df['Body'] = (df['Close'] - df['Open']).abs()
+    df['Avg_Body'] = df['Body'].rolling(window=20).mean()
+    df['Avg_Vol'] = df['Volume'].rolling(window=20).mean()
+
+    # ATR สำหรับคำนวณ Stop Loss
+    atr_series = ta.atr(df['High'], df['Low'], df['Close'], length=14)
+    atr = float(atr_series.iloc[-1]) if atr_series is not None and not atr_series.empty else 0
+
+    # ERC Bull: แท่งขาขึ้น + Body > 1.5x avg_body + Volume > 1.5x avg_vol (ต้องครบทั้งสอง)
+    df['is_erc_bull'] = (
+        (df['Close'] > df['Open']) &
+        (df['Body'] > df['Avg_Body'] * 1.5) &
+        (df['Volume'] > df['Avg_Vol'] * 1.5)
+    )
+
+    erc_bulls = df[df['is_erc_bull']]
+    if erc_bulls.empty:
+        return None
+
+    last_erc_idx = erc_bulls.index[-1]
+    last_erc_pos = df.index.get_loc(last_erc_idx)
+
+    if last_erc_pos < 5:
+        return None
+
+    # หา Base: 5 แท่งก่อน ERC
+    base_window = df.iloc[last_erc_pos - 5:last_erc_pos]
+    zone_upper = base_window[['Open', 'Close']].max().max()
+    zone_lower = base_window['Low'].min()
+
+    last_bear = base_window[base_window['Close'] < base_window['Open']]
+    if not last_bear.empty:
+        refined_upper = last_bear['High'].iloc[-1]
+        refined_lower = last_bear['Low'].iloc[-1]
+        if refined_lower < zone_lower:
+            refined_lower = zone_lower
+    else:
+        refined_upper = zone_upper
+        refined_lower = zone_lower
+
+    # Supply Target = 52-week high เสมอ
+    target_price = df['High'].tail(252).max()
+    zone_target_source = '52w'
+
+    # ATR-based stop loss
+    stop_loss = refined_lower - (atr * 0.5) if atr > 0 else refined_lower * 0.99
+
+    entry_price = refined_upper
+    risk = entry_price - stop_loss
+    reward = target_price - entry_price
+    rr_ratio = reward / risk if risk > 0 else 0
+
+    # Confidence Score
+    score = 40
+    if 'EMA200' not in df.columns:
+        df['EMA200'] = ta.ema(df['Close'], length=200)
+    if 'EMA50' not in df.columns:
+        df['EMA50'] = ta.ema(df['Close'], length=50)
+    if 'RSI' not in df.columns:
+        df['RSI'] = ta.rsi(df['Close'], length=14)
+
+    last_close = df['Close'].iloc[-1]
+    last_ema200 = df['EMA200'].iloc[-1] if 'EMA200' in df.columns else last_close
+    last_ema50 = df['EMA50'].iloc[-1] if 'EMA50' in df.columns else last_close
+
+    if last_close > last_ema200:
+        score += 15
+    if last_ema50 > last_ema200:
+        score += 10
+
+    erc_vol = df.loc[last_erc_idx, 'Volume']
+    avg_vol = df['Volume'].tail(20).mean()
+    if erc_vol > avg_vol * 2.0:
+        score += 15
+    elif erc_vol > avg_vol * 1.5:
+        score += 10  # ERC volume confirmed เสมอ เพราะผ่าน filter แล้ว
+
+    if rr_ratio >= 3:
+        score += 15
+    elif rr_ratio >= 2:
+        score += 10
+
+    rsi_now = df['RSI'].iloc[-1] if 'RSI' in df.columns and pd.notna(df['RSI'].iloc[-1]) else 50
+    if 40 <= rsi_now <= 70:
+        score += 5
+
+    final_score = min(score, 100)
+
+    return {
+        'type': 'Sniper (DZ)',
+        'start': float(round(refined_upper, 2)),
+        'end': float(round(refined_lower, 2)),
+        'stop_loss': float(round(stop_loss, 2)),
+        'target': float(round(target_price, 2)),
+        'rr_ratio': float(round(rr_ratio, 2)),
+        'confidence_score': int(final_score),
+        'erc_volume_confirmed': True,   # ผ่าน filter volume แล้วเสมอ
+        'zone_target_source': zone_target_source,
+        'is_retesting': bool(
+            df['Close'].iloc[-1] <= refined_upper * 1.05 and
+            df['Close'].iloc[-1] >= refined_lower * 0.95
+        ),
+        'erc_date': last_erc_idx.strftime('%Y-%m-%d') if hasattr(last_erc_idx, 'strftime') else str(last_erc_idx),
+        'base_start': base_window.index[0].strftime('%Y-%m-%d') if hasattr(base_window.index[0], 'strftime') else str(base_window.index[0]),
+        'base_end': base_window.index[-1].strftime('%Y-%m-%d') if hasattr(base_window.index[-1], 'strftime') else str(base_window.index[-1]),
+    }
+
+
+# ----------------------------------------------------------------------
+# analyze_momentum_technical_v2 — เวอร์ชันปรับปรุง
+# ความแตกต่างจาก v1:
+#   - Direction-aware RVOL: วันขาขึ้น → เต็ม pts, วันขาลง → ครึ่ง pts
+#   - RVOL max 25 pts (ลดจาก 30)
+#   - RSI max 25 pts (เพิ่มจาก 20)
+#   - Trend score ยังคงเดิม 40 pts
+#   - S/D Zone: 10 pts
+#   - ใช้ find_supply_demand_zones_v2 ภายใน
+# ----------------------------------------------------------------------
+def analyze_momentum_technical_v2(df):
+    if df is None or len(df) < 50:
+        return {'score': 0, 'rvol': 0, 'rsi': 0, 'ema200': 0, 'ema50': 0,
+                'rvol_bullish': True, 'avg_volume_20d': 0, 'sd_zone': None}
+
+    import pandas_ta as ta
+    df = df.copy()
+
+    df['EMA200'] = ta.ema(df['Close'], length=200)
+    df['EMA50'] = ta.ema(df['Close'], length=50)
+    df['EMA20'] = ta.ema(df['Close'], length=20)
+    df['RSI'] = ta.rsi(df['Close'], length=14)
+
+    current_price = df['Close'].iloc[-1]
+    last_open = df['Open'].iloc[-1]
+    rsi = float(df['RSI'].iloc[-1]) if pd.notna(df['RSI'].iloc[-1]) else 50.0
+    ema200 = float(df['EMA200'].iloc[-1]) if pd.notna(df['EMA200'].iloc[-1]) else current_price
+    ema50 = float(df['EMA50'].iloc[-1]) if pd.notna(df['EMA50'].iloc[-1]) else current_price
+
+    score = 0
+
+    # 1. Trend Score (สูงสุด 40 คะแนน)
+    if current_price > ema200:
+        score += 15
+    if current_price > ema50:
+        score += 15
+    if ema50 > ema200:
+        score += 10
+
+    # 2. RSI Score (สูงสุด 25 คะแนน — เพิ่มจาก 20)
+    year_high = df['High'].tail(252).max()
+    if 55 <= rsi <= 75:
+        score += 15   # RSI อยู่ใน momentum zone
+    elif 45 <= rsi < 55:
+        score += 7    # RSI อยู่ในโซนกลาง
+    if current_price >= year_high * 0.85:
+        score += 10   # ราคาใกล้ 52-week high
+
+    # 3. Direction-aware RVOL Score (สูงสุด 25 คะแนน — ลดจาก 30)
+    avg_vol = df['Volume'].tail(20).mean()
+    last_vol = df['Volume'].iloc[-1]
+    rvol = last_vol / avg_vol if avg_vol > 0 else 1.0
+    rvol_bullish = current_price >= last_open  # True = วันขาขึ้น
+
+    if rvol_bullish:
+        # วันขาขึ้น: ให้คะแนนเต็ม
+        if rvol >= 2.0:
+            score += 25
+        elif rvol >= 1.5:
+            score += 18
+        elif rvol >= 1.0:
+            score += 10
+    else:
+        # วันขาลง: ให้ครึ่งคะแนน (volume ที่เพิ่มขึ้นในวันลงเป็นสัญญาณแรงขาย)
+        if rvol >= 2.0:
+            score += 12
+        elif rvol >= 1.5:
+            score += 9
+        elif rvol >= 1.0:
+            score += 5
+
+    # 4. Supply/Demand Zone (สูงสุด 10 คะแนน)
+    sd = find_supply_demand_zones_v2(df)
+    if sd and sd['is_retesting']:
+        score += 10
+
+    return {
+        'score': min(score, 100),
+        'rvol': round(rvol, 2),
+        'rsi': round(rsi, 2),
+        'ema200': ema200,
+        'ema50': ema50,
+        'rvol_bullish': rvol_bullish,
+        'avg_volume_20d': round(avg_vol, 0),
+        'sd_zone': sd,
+    }
+
+
+# ----------------------------------------------------------------------
 # refresh_set100_symbols — อัปเดตรายชื่อหุ้น SET100 + MAI ในฐานข้อมูล
 # ใช้รันครั้งแรกหรือเมื่อต้องการ refresh รายชื่อหุ้นที่ Scanner ใช้
 # ----------------------------------------------------------------------

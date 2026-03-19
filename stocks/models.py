@@ -212,6 +212,66 @@ class MultiFactorCandidate(models.Model):
         return f"{self.symbol} - SuperScore: {self.super_score}"
 
 
+# ====== PrecisionScanCandidate — ผลลัพธ์ Precision Momentum Scanner ======
+
+class PrecisionScanCandidate(models.Model):
+    """
+    เก็บผลการสแกนหุ้นด้วย Precision Momentum Scanner (เวอร์ชันปรับปรุง)
+    ปรับปรุงจาก MomentumCandidate:
+    - ERC ต้องการ Volume ยืนยัน (body AND volume > 1.5x avg)
+    - ADX filter >= 20 (กรองเฉพาะหุ้นที่มี trend แข็งแกร่ง)
+    - Liquidity filter: avg 20d volume >= 500,000
+    - Supply target = 52-week high เสมอ
+    - ATR-based stop loss
+    - Direction-aware RVOL scoring
+    - เก็บประวัติ scan (3 runs ล่าสุด) + is_new_entry flag
+    """
+    user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
+    # เวลาที่รัน scan (ใช้ group scan runs ร่วมกัน)
+    scan_run = models.DateTimeField(db_index=True)
+    symbol = models.CharField(max_length=20)
+    symbol_bk = models.CharField(max_length=30, blank=True)
+    sector = models.CharField(max_length=100, default="Unknown")
+    price = models.FloatField(default=0.0)
+    rsi = models.FloatField(default=0.0)
+    adx = models.FloatField(default=0.0)
+    mfi = models.FloatField(default=0.0)
+    rvol = models.FloatField(default=1.0)
+    eps_growth = models.FloatField(default=0.0)
+    rev_growth = models.FloatField(default=0.0)
+    technical_score = models.IntegerField(default=0)
+
+    # ====== Precision-specific fields ======
+    # ปริมาณซื้อขายเฉลี่ย 20 วัน (สำหรับแสดงผล Liquidity)
+    avg_volume_20d = models.FloatField(default=0.0)
+    # RVOL เกิดในวันขาขึ้น (True) หรือขาลง (False)
+    rvol_bullish = models.BooleanField(default=True)
+    # ERC มี Volume ยืนยันหรือไม่ (body + volume > 1.5x)
+    erc_volume_confirmed = models.BooleanField(default=False)
+    # แหล่งที่มาของ supply zone target ('52w' หรือ '120d')
+    zone_target_source = models.CharField(max_length=10, default='52w')
+    # หุ้นใหม่ในรอบสแกนนี้ (ไม่มีในรอบก่อน)
+    is_new_entry = models.BooleanField(default=True)
+
+    # ====== Supply & Demand Zone fields ======
+    entry_strategy = models.CharField(max_length=100, blank=True)
+    demand_zone_start = models.FloatField(null=True, blank=True)
+    demand_zone_end = models.FloatField(null=True, blank=True)
+    stop_loss = models.FloatField(null=True, blank=True)
+    risk_reward_ratio = models.FloatField(null=True, blank=True)
+    supply_zone_start = models.FloatField(null=True, blank=True)
+    supply_zone_end = models.FloatField(null=True, blank=True)
+    year_high = models.FloatField(default=0.0)
+    upside_to_high = models.FloatField(default=0.0)
+    zone_proximity = models.FloatField(default=999.0)
+
+    class Meta:
+        ordering = ['-scan_run', '-technical_score']
+
+    def __str__(self):
+        return f"{self.symbol} - Score: {self.technical_score} (run: {self.scan_run})"
+
+
 # ====== ScannableSymbol — รายชื่อหุ้นที่ระบบสแกนได้ ======
 
 class ScannableSymbol(models.Model):

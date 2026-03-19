@@ -1572,6 +1572,280 @@ def momentum_scanner(request):
     return render(request, 'stocks/momentum.html', context)
 
 
+# ====== Precision Momentum Scanner — เวอร์ชันกรองคุณภาพสูง ======
+
+@login_required
+def precision_momentum_scanner(request):
+    """
+    Precision Momentum Scanner — กรองคุณภาพสูงกว่า momentum_scanner
+    ปรับปรุงจาก momentum_scanner:
+    1. ERC ต้องมี Body + Volume > 1.5x avg (ทั้งสองเงื่อนไข)
+    2. ADX >= 20 (กรองเทรนด์แข็งแกร่งเท่านั้น)
+    3. Liquidity filter: avg 20d volume >= 500,000 หุ้น
+    4. Supply target = 52-week high เสมอ
+    5. ATR-based stop loss
+    6. Direction-aware RVOL scoring
+    7. เก็บประวัติ scan 3 รอบล่าสุด
+    8. is_new_entry flag (หุ้นใหม่ vs ยังอยู่จากรอบก่อน)
+    """
+    from .models import PrecisionScanCandidate
+    from .utils import analyze_momentum_technical_v2
+    from django.utils import timezone as tz
+
+    scan_symbols = ScannableSymbol.objects.filter(is_active=True).values_list('symbol', flat=True)
+    if not scan_symbols:
+        refresh_set100_symbols()
+        scan_symbols = ScannableSymbol.objects.filter(is_active=True).values_list('symbol', flat=True)
+
+    if request.method == "POST" or request.GET.get('scan') == 'true':
+        import pandas_ta as ta
+
+        scan_run_time = tz.now()
+
+        # ดึง symbols ของรอบสแกนก่อนหน้า (เพื่อ is_new_entry)
+        prev_run = (
+            PrecisionScanCandidate.objects
+            .filter(user=request.user)
+            .values_list('scan_run', flat=True)
+            .order_by('-scan_run')
+            .distinct()
+            .first()
+        )
+        prev_symbols = set()
+        if prev_run:
+            prev_symbols = set(
+                PrecisionScanCandidate.objects
+                .filter(user=request.user, scan_run=prev_run)
+                .values_list('symbol', flat=True)
+            )
+
+        for symbol in scan_symbols:
+            try:
+                print(f"[Precision] Scanning {symbol}...")
+                df = yf.download(f"{symbol}.BK", period="1y", interval="1d", progress=False)
+
+                if df is None or df.empty:
+                    try:
+                        yq = YQTicker(f"{symbol}.BK")
+                        df = yq.history(period="1y", interval="1d")
+                        if isinstance(df, pd.DataFrame) and not df.empty:
+                            df = df.reset_index()
+                            if 'date' in df.columns:
+                                df.set_index('date', inplace=True)
+                            if 'symbol' in df.columns:
+                                df.drop(columns=['symbol'], inplace=True)
+                            df.rename(columns={'open': 'Open', 'high': 'High', 'low': 'Low',
+                                               'close': 'Close', 'volume': 'Volume'}, inplace=True)
+                    except Exception:
+                        pass
+
+                if df is None or df.empty:
+                    continue
+
+                if isinstance(df.columns, pd.MultiIndex):
+                    df.columns = df.columns.droplevel(1)
+
+                df = df.dropna(subset=['Close', 'High'])
+                if len(df) < 200:
+                    continue
+
+                # ====== Liquidity Filter: avg 20d volume >= 500,000 ======
+                avg_vol_20 = float(df['Volume'].tail(20).mean())
+                if avg_vol_20 < 500_000:
+                    print(f"[Precision] {symbol} skipped: low liquidity ({avg_vol_20:.0f})")
+                    continue
+
+                # ====== คำนวณ Indicators ======
+                df['EMA200'] = ta.ema(df['Close'], length=200)
+                df['EMA50'] = ta.ema(df['Close'], length=50)
+                df['RSI'] = ta.rsi(df['Close'], length=14)
+                adx_df = ta.adx(df['High'], df['Low'], df['Close'], length=14)
+                if adx_df is not None and not adx_df.empty:
+                    df = pd.concat([df, adx_df], axis=1)
+                mfi_series = ta.mfi(df['High'], df['Low'], df['Close'], df['Volume'], length=14)
+                df['MFI'] = mfi_series
+
+                last_row = df.iloc[-1]
+                current_price = float(last_row['Close'])
+                ema200 = float(df['EMA200'].iloc[-1]) if pd.notna(df['EMA200'].iloc[-1]) else current_price
+                year_high = float(df['High'].tail(252).max())
+
+                # ====== ADX Filter >= 20 ======
+                adx_val = float(df['ADX_14'].iloc[-1]) if 'ADX_14' in df.columns and pd.notna(df['ADX_14'].iloc[-1]) else 0
+                if adx_val < 20:
+                    print(f"[Precision] {symbol} skipped: ADX {adx_val:.1f} < 20")
+                    continue
+
+                # ====== Trend Template Filter ======
+                is_uptrend = current_price > ema200
+                near_high = current_price >= year_high * 0.60
+                if not (is_uptrend and near_high):
+                    continue
+
+                print(f"[Precision] MATCH: {symbol} (ADX:{adx_val:.1f})")
+
+                # ====== Precision Technical Analysis ======
+                tech = analyze_momentum_technical_v2(df)
+                integrated_score = tech['score']
+                rvol = tech['rvol']
+                rsi = tech['rsi']
+                rvol_bullish = tech['rvol_bullish']
+                sd_zone = tech['sd_zone']
+
+                mfi_val = float(df['MFI'].iloc[-1]) if 'MFI' in df.columns and pd.notna(df['MFI'].iloc[-1]) else 0
+
+                # ====== Fundamental Data ======
+                sector = "Unknown"
+                eps_growth = 0.0
+                rev_growth = 0.0
+                fund_bonus = 0
+                try:
+                    ticker = yf.Ticker(f"{symbol}.BK")
+                    info = ticker.info
+                    if isinstance(info, dict) and len(info) >= 5:
+                        sector = info.get('sector', 'Other')
+                        eps_growth = float(info.get('earningsQuarterlyGrowth', 0) or 0) * 100
+                        rev_growth = float(info.get('revenueGrowth', 0) or 0) * 100
+                    else:
+                        sector = "N/A"
+                    if eps_growth >= 20:
+                        fund_bonus += 10
+                    if rev_growth >= 10:
+                        fund_bonus += 10
+                except Exception:
+                    pass
+
+                # ====== Supply & Demand Zone ======
+                entry_strat = ""
+                dz_start = None
+                dz_end = None
+                sz_start = None
+                sz_end = None
+                sl_price = None
+                rr_val = None
+                erc_vol_confirmed = False
+                zone_target_src = '52w'
+
+                if sd_zone:
+                    entry_strat = sd_zone['type']
+                    dz_start = sd_zone['start']
+                    dz_end = sd_zone['end']
+                    sz_start = sd_zone['target']
+                    sz_end = sd_zone['target'] * 1.02
+                    sl_price = sd_zone['stop_loss']
+                    rr_val = sd_zone['rr_ratio']
+                    erc_vol_confirmed = sd_zone.get('erc_volume_confirmed', False)
+                    zone_target_src = sd_zone.get('zone_target_source', '52w')
+
+                prox_val = 999.0
+                if dz_start:
+                    if current_price <= dz_start:
+                        prox_val = 0.0
+                    else:
+                        prox_val = ((current_price - dz_start) / dz_start) * 100
+
+                gap_to_high = ((year_high - current_price) / current_price) * 100
+
+                PrecisionScanCandidate.objects.create(
+                    user=request.user,
+                    scan_run=scan_run_time,
+                    symbol=symbol,
+                    symbol_bk=f"{symbol}.BK",
+                    sector=sector,
+                    price=round(current_price, 2),
+                    rsi=round(rsi, 2),
+                    adx=round(adx_val, 2),
+                    mfi=round(mfi_val, 2),
+                    rvol=round(rvol, 2),
+                    eps_growth=round(eps_growth, 2),
+                    rev_growth=round(rev_growth, 2),
+                    technical_score=int(integrated_score + fund_bonus),
+                    avg_volume_20d=round(avg_vol_20, 0),
+                    rvol_bullish=rvol_bullish,
+                    erc_volume_confirmed=erc_vol_confirmed,
+                    zone_target_source=zone_target_src,
+                    is_new_entry=(symbol not in prev_symbols),
+                    entry_strategy=entry_strat,
+                    demand_zone_start=dz_start,
+                    demand_zone_end=dz_end,
+                    supply_zone_start=sz_start,
+                    supply_zone_end=sz_end,
+                    stop_loss=sl_price,
+                    risk_reward_ratio=rr_val,
+                    year_high=round(year_high, 2),
+                    upside_to_high=round(gap_to_high, 2),
+                    zone_proximity=round(prox_val, 2),
+                )
+
+            except Exception as e:
+                print(f"[Precision] !!! Error scanning {symbol}: {str(e)}")
+                continue
+
+        # เก็บไว้เพียง 3 รอบสแกนล่าสุด — ลบรอบเก่าออก
+        distinct_runs = (
+            PrecisionScanCandidate.objects
+            .filter(user=request.user)
+            .values_list('scan_run', flat=True)
+            .order_by('-scan_run')
+            .distinct()
+        )
+        runs_list = list(distinct_runs)
+        if len(runs_list) > 3:
+            old_runs = runs_list[3:]
+            PrecisionScanCandidate.objects.filter(user=request.user, scan_run__in=old_runs).delete()
+
+    # ====== จัดเรียงผลลัพธ์ ======
+    sort_by = request.GET.get('sort', 'score')
+    valid_sorts = {
+        'symbol': 'symbol',
+        'score': '-technical_score',
+        'price': '-price',
+        'rsi': '-rsi',
+        'rvol': '-rvol',
+        'adx': '-adx',
+        'prox': 'zone_proximity',
+        'round_rr': '-risk_reward_ratio',
+    }
+    order_field = valid_sorts.get(sort_by, '-technical_score')
+
+    # ดึงเฉพาะรอบสแกนล่าสุด
+    latest_run = (
+        PrecisionScanCandidate.objects
+        .filter(user=request.user)
+        .values_list('scan_run', flat=True)
+        .order_by('-scan_run')
+        .first()
+    )
+    candidates = PrecisionScanCandidate.objects.none()
+    scanned_at = None
+    if latest_run:
+        candidates = (
+            PrecisionScanCandidate.objects
+            .filter(user=request.user, scan_run=latest_run)
+            .order_by(order_field)
+        )
+        scanned_at = latest_run
+
+    # รายชื่อ scan runs ทั้งหมด (สำหรับแสดงประวัติ)
+    all_runs = list(
+        PrecisionScanCandidate.objects
+        .filter(user=request.user)
+        .values_list('scan_run', flat=True)
+        .order_by('-scan_run')
+        .distinct()
+    )
+
+    context = {
+        'title': 'Precision Momentum Scanner — กรองคุณภาพ',
+        'candidates': candidates,
+        'scanned_at': scanned_at,
+        'current_sort': sort_by,
+        'all_runs': all_runs,
+        'has_scanned': request.method == "POST" or request.GET.get('scan') == 'true' or bool(latest_run),
+    }
+    return render(request, 'stocks/precision_scan.html', context)
+
+
 # ====== Portfolio Momentum Scan — สแกนเฉพาะหุ้นใน Portfolio ======
 
 @login_required

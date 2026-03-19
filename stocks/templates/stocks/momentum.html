@@ -12,6 +12,10 @@
         กรองโดย EMA 150/200 และระบุโซนราคาที่รายใหญ่เข้าเก็บ (Demand Zone)</p>
     </div>
     <div class="col-md-5 text-md-end mt-3 mt-md-0 d-flex flex-wrap justify-content-md-end gap-2">
+        <a href="{% url 'stocks:precision_momentum_scanner' %}" class="btn d-inline-flex align-items-center gap-2"
+           style="background: linear-gradient(135deg, #7c3aed, #4f46e5); color: white;">
+            <i class="fas fa-crosshairs"></i> Precision Scan — กรองคุณภาพ
+        </a>
         <a href="?scan=true" onclick="showLoading()" class="btn btn-premium d-inline-flex align-items-center gap-2" style="background: linear-gradient(135deg, #ef4444, #f97316);">
             <i class="fas fa-search-dollar"></i> สแกนหุ้น (SET100+MAI)
         </a>
