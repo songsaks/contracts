@@ -152,6 +152,35 @@
     .type-travel { background: #ede9fe; color: #5b21b6; }
     .type-other  { background: #f1f5f9; color: #475569; }
 
+    /* Work sessions panel */
+    .session-row {
+        padding: 0.5rem 0;
+        border-bottom: 1px solid #f1f5f9;
+    }
+    .session-row:last-child { border-bottom: none; }
+    .session-times {
+        display: flex; align-items: center; gap: 0.35rem; flex-wrap: wrap; margin-bottom: 0.25rem;
+    }
+    .session-badge {
+        padding: 0.15rem 0.5rem; border-radius: 0.4rem;
+        font-size: 0.72rem; font-weight: 700; font-family: monospace;
+    }
+    .session-meta {
+        display: flex; flex-wrap: wrap; gap: 0.3rem; align-items: center;
+    }
+    .dur-pill {
+        display: inline-flex; align-items: center; gap: 0.2rem;
+        padding: 0.15rem 0.55rem; border-radius: 2rem;
+        background: #eff6ff; color: #1d4ed8;
+        font-size: 0.72rem; font-weight: 700; border: 1px solid #bfdbfe;
+    }
+    .session-total-row {
+        margin-top: 0.6rem; padding-top: 0.5rem;
+        border-top: 2px dashed #e2e8f0;
+        display: flex; align-items: center; gap: 0.5rem;
+        font-size: 0.78rem; font-weight: 700; color: #1d4ed8;
+    }
+
     @media (max-width: 640px) {
         .page-header { padding: 1rem 1.25rem; }
         .stat-value { font-size: 1.25rem; }
@@ -235,6 +264,17 @@
                 </div>
             </div>
         </div>
+        {% if total_onsite_duration_all %}
+        <div class="col-12 col-md-6">
+            <div class="stat-card">
+                <div class="stat-icon" style="background:#eff6ff;">⏱️</div>
+                <div>
+                    <div class="stat-value" style="color:#1d4ed8; font-size:1.25rem;">{{ total_onsite_duration_all }}</div>
+                    <div class="stat-label">รวมเวลาทำงานหน้างานทุกคน (เริ่มงาน→เสร็จงาน)</div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
     </div>
 
     {% if tech_list %}
@@ -313,6 +353,48 @@
                 </span>
             </div>
         </div>
+
+        <!-- Work Sessions (ON_SITE → CHECK_OUT pairs) -->
+        {% if tech.work_sessions %}
+        <div class="panel-section">
+            <div class="panel-label d-flex align-items-center justify-content-between flex-wrap gap-1">
+                <span>⏱ เวลาทำงานแต่ละงาน ({{ tech.work_sessions|length }} งาน)</span>
+                {% if tech.total_onsite_duration %}
+                <span class="dur-pill"><i class="fas fa-sigma me-1"></i>รวม {{ tech.total_onsite_duration }}</span>
+                {% endif %}
+            </div>
+            {% for s in tech.work_sessions %}
+            <div class="session-row">
+                <div class="session-times">
+                    <span class="session-badge type-onsite">↑ {{ s.on_site_time }}</span>
+                    <span style="color:#94a3b8; font-size:0.75rem;">→</span>
+                    <span class="session-badge type-co">↓ {{ s.check_out_time }}</span>
+                    <span class="dur-pill">{{ s.duration_str }}</span>
+                </div>
+                <div class="session-meta">
+                    {% if s.location %}
+                    <span class="loc-chip"><i class="fas fa-map-pin" style="font-size:0.6rem;"></i> {{ s.location }}</span>
+                    {% endif %}
+                    {% if s.customer_name %}
+                    <span class="sat-chip {% if s.rating == 'VERY_SATISFIED' %}sat-vs{% elif s.rating == 'SATISFIED' %}sat-s{% elif s.rating == 'NOT_SATISFIED' %}sat-ns{% else %}sat-inc{% endif %}">
+                        {% if s.rating == 'VERY_SATISFIED' %}😊
+                        {% elif s.rating == 'SATISFIED' %}🙂
+                        {% elif s.rating == 'NOT_SATISFIED' %}😞
+                        {% endif %}
+                        {{ s.customer_name }}{% if s.customer_phone %} · {{ s.customer_phone }}{% endif %}
+                    </span>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+            {% if tech.work_sessions|length > 1 %}
+            <div class="session-total-row">
+                <i class="fas fa-clock"></i>
+                รวมเวลาหน้างานทั้งหมด: {{ tech.total_onsite_duration }}
+            </div>
+            {% endif %}
+        </div>
+        {% endif %}
 
         <!-- Locations visited -->
         {% if tech.locations %}

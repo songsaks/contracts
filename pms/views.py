@@ -3045,6 +3045,9 @@ def gps_daily_summary(request):
                 'check_out_count': 0,
                 'locations': [],       # unique location names
                 'satisfaction': [],
+                'sat_by_log': {},      # gps_log_id → satisfaction info
+                'pending_checkins': [],  # unpaired ON_SITE logs (for pairing)
+                'work_sessions': [],   # paired ON_SITE→CHECK_OUT sessions
             }
         c = tech_raw[uname]
         lt = timezone.localtime(log.timestamp)
@@ -3069,8 +3072,28 @@ def gps_daily_summary(request):
             c['on_site_count'] += 1
             if log.location_name and log.location_name not in c['locations']:
                 c['locations'].append(log.location_name)
+            c['pending_checkins'].append({
+                'time': t_str, 'dt': lt,
+                'location': log.location_name or '',
+            })
         elif ct == 'CHECK_OUT':
             c['check_out_count'] += 1
+            if c['pending_checkins']:
+                ci = c['pending_checkins'].pop(0)
+                delta_min = max(0, int((lt - ci['dt']).total_seconds() / 60))
+                c['work_sessions'].append({
+                    'on_site_time':     ci['time'],
+                    'check_out_time':   t_str,
+                    'duration_min':     delta_min,
+                    'duration_str':     (f"{delta_min // 60}ชม. {delta_min % 60}น."
+                                         if delta_min >= 60 else f"{delta_min}น."),
+                    'location':         ci['location'],
+                    'check_out_log_id': log.id,
+                    'customer_name':    '',
+                    'customer_phone':   '',
+                    'rating':           '',
+                    'rating_display':   '',
+                })
 
     # ── Fetch satisfaction linked to today's CHECK_OUT logs ────────────
     sat_qs = CustomerSatisfaction.objects.filter(
@@ -3081,13 +3104,25 @@ def gps_daily_summary(request):
     for s in sat_qs:
         uname = s.gps_log.user.username
         if uname in tech_raw:
-            tech_raw[uname]['satisfaction'].append({
-                'rating': s.rating,
+            sat_info = {
+                'rating':         s.rating,
                 'rating_display': s.get_rating_display(),
-                'customer_name': s.customer_name or '',
+                'customer_name':  s.customer_name or '',
                 'customer_phone': s.customer_phone or '',
-                'complete': bool(s.customer_name and s.customer_phone),
-            })
+                'complete':       bool(s.customer_name and s.customer_phone),
+            }
+            tech_raw[uname]['satisfaction'].append(sat_info)
+            tech_raw[uname]['sat_by_log'][s.gps_log_id] = sat_info
+
+    # ── Link satisfaction info into work sessions ───────────────────────
+    for c in tech_raw.values():
+        for session in c['work_sessions']:
+            sat = c['sat_by_log'].get(session['check_out_log_id'])
+            if sat:
+                session['customer_name']  = sat['customer_name']
+                session['customer_phone'] = sat['customer_phone']
+                session['rating']         = sat['rating']
+                session['rating_display'] = sat['rating_display']
 
     # ── Fetch ServiceQueueItems scheduled or completed today ───────────
     queue_qs = ServiceQueueItem.objects.filter(
@@ -3145,58 +3180,76 @@ def gps_daily_summary(request):
         queue_items = queue_by_user.get(uname, [])
         jobs_done = sum(1 for q in queue_items if q['completed'])
 
+        # total on-site working time (sum of all paired sessions)
+        total_onsite_min = sum(s['duration_min'] for s in c['work_sessions'])
+        if total_onsite_min > 0:
+            total_onsite_duration = (f"{total_onsite_min // 60}ชม. {total_onsite_min % 60}น."
+                                     if total_onsite_min >= 60 else f"{total_onsite_min}น.")
+        else:
+            total_onsite_duration = ''
+
         tech_list.append({
-            'username':          uname,
-            'user_id':           c['user_id'],
-            'logs':              c['logs'],
-            'go_work_time':      c['go_work'] or '',
-            'back_office_time':  c['back_office'] or '',
-            'go_work_count':     c['go_work_count'],
-            'back_office_count': c['back_office_count'],
-            'on_site_count':     c['on_site_count'],
-            'check_out_count':   c['check_out_count'],
-            'locations':         c['locations'],
-            'work_duration':     work_duration,
-            'consistent':        consistent,
-            'go_work_ok':        go_ok,
-            'back_office_ok':    back_ok,
-            'onsite_balanced':   bal_ok,
-            'satisfaction':      sat_list,
-            'sat_counts':        sat_counts,
-            'sat_complete':      sat_complete,
-            'sat_incomplete':    sat_incomplete,
-            'queue_items':       queue_items,
-            'jobs_done':         jobs_done,
-            'total_jobs':        len(queue_items),
-            'total_logs':        len(c['logs']),
+            'username':               uname,
+            'user_id':                c['user_id'],
+            'logs':                   c['logs'],
+            'go_work_time':           c['go_work'] or '',
+            'back_office_time':       c['back_office'] or '',
+            'go_work_count':          c['go_work_count'],
+            'back_office_count':      c['back_office_count'],
+            'on_site_count':          c['on_site_count'],
+            'check_out_count':        c['check_out_count'],
+            'locations':              c['locations'],
+            'work_duration':          work_duration,
+            'consistent':             consistent,
+            'go_work_ok':             go_ok,
+            'back_office_ok':         back_ok,
+            'onsite_balanced':        bal_ok,
+            'satisfaction':           sat_list,
+            'sat_counts':             sat_counts,
+            'sat_complete':           sat_complete,
+            'sat_incomplete':         sat_incomplete,
+            'queue_items':            queue_items,
+            'jobs_done':              jobs_done,
+            'total_jobs':             len(queue_items),
+            'total_logs':             len(c['logs']),
+            'work_sessions':          c['work_sessions'],
+            'total_onsite_duration':  total_onsite_duration,
+            'total_onsite_min':       total_onsite_min,
         })
 
     # ── Summary stats ──────────────────────────────────────────────────
-    total_techs        = len(tech_list)
-    consistent_techs   = sum(1 for t in tech_list if t['consistent'])
-    total_locations    = sum(t['on_site_count'] for t in tech_list)
-    total_sat          = sum(len(t['satisfaction']) for t in tech_list)
-    total_sat_vs       = sum(t['sat_counts']['VERY_SATISFIED'] for t in tech_list)
-    total_sat_s        = sum(t['sat_counts']['SATISFIED'] for t in tech_list)
-    total_sat_ns       = sum(t['sat_counts']['NOT_SATISFIED'] for t in tech_list)
-    total_jobs_done    = sum(t['jobs_done'] for t in tech_list)
+    total_techs           = len(tech_list)
+    consistent_techs      = sum(1 for t in tech_list if t['consistent'])
+    total_locations       = sum(t['on_site_count'] for t in tech_list)
+    total_sat             = sum(len(t['satisfaction']) for t in tech_list)
+    total_sat_vs          = sum(t['sat_counts']['VERY_SATISFIED'] for t in tech_list)
+    total_sat_s           = sum(t['sat_counts']['SATISFIED'] for t in tech_list)
+    total_sat_ns          = sum(t['sat_counts']['NOT_SATISFIED'] for t in tech_list)
+    total_jobs_done       = sum(t['jobs_done'] for t in tech_list)
+    total_onsite_min_all  = sum(t['total_onsite_min'] for t in tech_list)
+    if total_onsite_min_all > 0:
+        total_onsite_duration_all = (f"{total_onsite_min_all // 60}ชม. {total_onsite_min_all % 60}น."
+                                     if total_onsite_min_all >= 60 else f"{total_onsite_min_all}น.")
+    else:
+        total_onsite_duration_all = ''
 
     return render(request, 'pms/gps_daily_summary.html', {
-        'report_date':      report_date,
-        'prev_date':        prev_date,
-        'next_date':        next_date,
-        'today':            today,
-        'day_name':         day_name,
-        'month_short':      month_short,
-        'tech_list':        tech_list,
-        'total_techs':      total_techs,
-        'consistent_techs': consistent_techs,
-        'total_locations':  total_locations,
-        'total_sat':        total_sat,
-        'total_sat_vs':     total_sat_vs,
-        'total_sat_s':      total_sat_s,
-        'total_sat_ns':     total_sat_ns,
-        'total_jobs_done':  total_jobs_done,
+        'report_date':              report_date,
+        'prev_date':                prev_date,
+        'next_date':                next_date,
+        'today':                    today,
+        'day_name':                 day_name,
+        'month_short':              month_short,
+        'tech_list':                tech_list,
+        'total_techs':              total_techs,
+        'consistent_techs':         consistent_techs,
+        'total_locations':          total_locations,
+        'total_sat':                total_sat,
+        'total_sat_vs':             total_sat_vs,
+        'total_sat_s':              total_sat_s,
+        'total_sat_ns':             total_sat_ns,
+        'total_jobs_done':          total_jobs_done,
+        'total_onsite_duration_all': total_onsite_duration_all,
     })
 
 
