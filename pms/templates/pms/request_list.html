@@ -3,9 +3,10 @@
 
 {% block content %}
 <div class="row mb-4 align-items-center">
+    <!-- ส่วนหัวหน้าจอรายการคำขอ (Page Header) -->
     <div class="col-8">
         <h2 class="h4 mb-0 text-gray-800"><i class="fas fa-inbox me-2 text-primary"></i>รายการคำขอ</h2>
-        <p class="text-muted small mb-0">จัดการคำขอและเอกสารจากลูกค้า</p>
+        <p class="text-muted small mb-0">จัดการคำขอและเอกสารจากลูกค้า เพื่อติดตามความคืบหน้าและการตอบกลับ</p>
     </div>
     <div class="col-4 text-end">
         <a href="{% url 'pms:request_create' %}" class="btn btn-warning btn-sm rounded-pill shadow-sm text-dark">
@@ -14,7 +15,7 @@
     </div>
 </div>
 
-<!-- Filter Tabs -->
+<!-- ส่วนตัวกรองสถานะ (Filter Tabs Section) -->
 <div class="d-flex overflow-auto pb-2 mb-3 gap-2" style="scrollbar-width: none;">
     <a href="{% url 'pms:request_list' %}" class="btn btn-sm {% if not request.GET.status %}btn-dark{% else %}btn-outline-secondary{% endif %} rounded-pill px-3 flex-shrink-0">
         ทั้งหมด
@@ -26,7 +27,7 @@
     {% endfor %}
 </div>
 
-<!-- Desktop Table -->
+<!-- ตารางรายการคำขอสำหรับหน้าจอคอมพิวเตอร์ (Desktop Request Table) -->
 <div class="card shadow-sm border-0 d-none d-md-block">
     <div class="card-body p-0">
         <div class="table-responsive">
@@ -121,7 +122,7 @@
     </div>
 </div>
 
-<!-- Mobile Cards -->
+<!-- รายการคำขอในรูปแบบการ์ดสำหรับมือถือ (Mobile Request Card List) -->
 <div class="d-md-none">
     {% for req in requests %}
     <div class="card shadow-sm border-0 mb-3 rounded-3" onclick="window.location='{% url 'pms:request_detail' req.pk %}'" style="cursor: pointer;">

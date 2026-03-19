@@ -15,10 +15,10 @@
             </a>
         </div>
 
-    <!-- Filters -->
+    <!-- ส่วนตัวกรองข้อมูล (Search & Filters Section) -->
     <div class="card shadow-sm mb-4" style="z-index: 101;">
         <div class="card-header bg-light py-3">
-            <h5 class="card-title mb-0"><i class="fas fa-filter me-2 text-muted"></i>ค้นหาและกรองข้อมูล</h5>
+            <h5 class="card-title mb-0"><i class="fas fa-filter me-2 text-muted"></i>ค้นหาและตัวกรองข้อมูลที่สำคัญ</h5>
         </div>
         <div class="card-body filter-card">
             <form method="get" class="row g-2 g-md-3 align-items-end">
@@ -80,7 +80,7 @@
         </div>
     </div>
 
-    <!-- Desktop Table -->
+    <!-- ตารางแสดงรายการโครงการสำหรับหน้าจอคอมพิวเตอร์ (Desktop Table View) -->
     <div class="card shadow-sm d-none d-md-block">
         <div class="card-body">
             <div class="table-responsive">
@@ -160,7 +160,7 @@
         </div>
     </div>
 
-    <!-- Mobile Card List -->
+    <!-- รายการโครงการสำหรับหน้าจอมือถือ (Mobile Card List View) -->
     <div class="d-md-none">
         {% for project in projects %}
         <a href="{% url 'pms:project_detail' project.pk %}" class="text-decoration-none d-block mb-2">
@@ -222,7 +222,7 @@
         {% endfor %}
     </div>
 
-    <!-- Mobile FAB -->
+    <!-- ปุ่มสร้างงานด่วนสำหรับมือถือ (Mobile Floating Action Button) -->
     <a href="{% url 'pms:dispatch' %}" class="fab-add d-md-none" title="สร้างงานใหม่">
         <i class="fas fa-plus"></i>
     </a>

@@ -28,7 +28,7 @@
 {% block content %}
 <div class="container-fluid px-4 py-4">
 
-    <!-- Header -->
+    <!-- ส่วนหัวหน้าจอรายงาน GPS (GPS Report Header) -->
     <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-3">
         <div>
             <h3 class="fw-bold mb-1"><i class="fas fa-map-marked-alt me-2 text-primary"></i>GPS Tracking Report</h3>
@@ -52,7 +52,7 @@
         </div>
     </div>
 
-    <!-- Filter Bar -->
+    <!-- ส่วนตัวกรองข้อมูล (Filter Bar Section) -->
     <div class="card border-0 shadow-sm rounded-4 mb-4">
         <div class="card-body p-3">
             <form method="get" class="d-flex flex-wrap gap-3 align-items-end">
@@ -99,7 +99,7 @@
     {% endif %}
 
     <div class="row g-4">
-        <!-- Map -->
+        <!-- ส่วนแผนที่ (Map Visualization Section) -->
         <div class="col-lg-9">
             <div class="card border-0 shadow-sm rounded-4 h-100">
                 <div class="card-header bg-white border-0 pt-3 pb-0 px-4">
@@ -117,7 +117,7 @@
             </div>
         </div>
 
-        <!-- Timeline Panel -->
+        <!-- ส่วนไทม์ไลน์เหตุการณ์ (Timeline Panel Section) -->
         <div class="col-lg-3">
             <div class="card border-0 shadow-sm rounded-4 h-100">
                 <div class="card-header bg-white border-0 pt-3 pb-0 px-4">
@@ -170,7 +170,7 @@
         </div>
     </div>
 
-    <!-- Summary Stats -->
+    <!-- ส่วนสรุปสถิติรายบุคคล (Individual Summary Stats Section) -->
     <div class="row g-3 mt-2">
         {% for username, user_logs in grouped.items %}
         <div class="col-md-4 col-sm-6 tech-section" data-tech="{{ username }}">

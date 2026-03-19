@@ -1,0 +1,418 @@
+{% extends 'pms/base_pms.html' %}
+{% block title %}สรุปการทำงานประจำวัน — {{ report_date|date:"d" }} {{ month_short }} {{ report_date|date:"Y" }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .page-header {
+        background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 100%);
+        color: white;
+        border-radius: 1.25rem;
+        padding: 1.5rem 2rem;
+        margin-bottom: 1.5rem;
+    }
+    .stat-card {
+        background: white;
+        border-radius: 1rem;
+        padding: 1.1rem 1.25rem;
+        border: 1px solid #e2e8f0;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+    .stat-icon {
+        width: 44px; height: 44px;
+        border-radius: 0.75rem;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 1.25rem; flex-shrink: 0;
+    }
+    .stat-value { font-size: 1.5rem; font-weight: 800; line-height: 1; }
+    .stat-label { font-size: 0.72rem; color: #64748b; margin-top: 0.2rem; }
+
+    /* Technician Card */
+    .tech-card {
+        background: white;
+        border-radius: 1.25rem;
+        border: 1px solid #e2e8f0;
+        box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+        overflow: hidden;
+        margin-bottom: 1.25rem;
+    }
+    .tech-card-header {
+        padding: 1rem 1.25rem;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        border-bottom: 1px solid #f1f5f9;
+    }
+    .tech-avatar {
+        width: 42px; height: 42px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #3b82f6, #2563eb);
+        color: white;
+        font-size: 1.1rem;
+        font-weight: 700;
+        display: flex; align-items: center; justify-content: center;
+        flex-shrink: 0;
+    }
+    .tech-card.consistent  { border-left: 4px solid #22c55e; }
+    .tech-card.inconsistent{ border-left: 4px solid #f97316; }
+    .tech-card.no-gps      { border-left: 4px solid #e2e8f0; }
+
+    .status-pill {
+        display: inline-flex; align-items: center; gap: 0.3rem;
+        padding: 0.2rem 0.65rem;
+        border-radius: 2rem;
+        font-size: 0.7rem; font-weight: 700;
+    }
+    .pill-ok     { background: #dcfce7; color: #15803d; }
+    .pill-warn   { background: #fff7ed; color: #c2410c; border: 1px solid #fed7aa; }
+    .pill-info   { background: #dbeafe; color: #1d4ed8; }
+    .pill-gray   { background: #f1f5f9; color: #64748b; }
+
+    /* Timeline */
+    .timeline {
+        display: flex;
+        align-items: center;
+        gap: 0;
+        padding: 0.75rem 1.25rem;
+        overflow-x: auto;
+        border-bottom: 1px solid #f1f5f9;
+        background: #fafafa;
+    }
+    .tl-item {
+        display: flex; flex-direction: column; align-items: center;
+        flex-shrink: 0; min-width: 60px;
+    }
+    .tl-dot {
+        width: 32px; height: 32px;
+        border-radius: 50%;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 0.85rem;
+        position: relative; z-index: 1;
+    }
+    .tl-line {
+        flex: 1; height: 2px; background: #e2e8f0; min-width: 20px;
+    }
+    .tl-time  { font-size: 0.65rem; color: #94a3b8; margin-top: 0.2rem; font-family: monospace; }
+    .tl-label { font-size: 0.6rem; color: #64748b; text-align: center; max-width: 56px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+    /* Section panels */
+    .panel-section { padding: 0.9rem 1.25rem; border-bottom: 1px solid #f1f5f9; }
+    .panel-section:last-child { border-bottom: none; }
+    .panel-label { font-size: 0.7rem; font-weight: 700; text-transform: uppercase;
+                   letter-spacing: 0.05em; color: #94a3b8; margin-bottom: 0.5rem; }
+
+    /* Consistency check row */
+    .check-row { display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; }
+
+    /* Location chips */
+    .loc-chip {
+        display: inline-flex; align-items: center; gap: 0.25rem;
+        padding: 0.2rem 0.55rem; border-radius: 1rem;
+        background: #eff6ff; color: #1d4ed8;
+        font-size: 0.72rem; border: 1px solid #bfdbfe;
+    }
+
+    /* Satisfaction mini-bar */
+    .sat-row { display: flex; gap: 0.4rem; align-items: center; flex-wrap: wrap; }
+    .sat-chip {
+        display: inline-flex; align-items: center; gap: 0.25rem;
+        padding: 0.18rem 0.5rem; border-radius: 1rem; font-size: 0.7rem; font-weight: 600;
+    }
+    .sat-vs  { background: #dcfce7; color: #15803d; }
+    .sat-s   { background: #dbeafe; color: #1d4ed8; }
+    .sat-ns  { background: #fee2e2; color: #991b1b; }
+    .sat-inc { background: #fff7ed; color: #c2410c; border: 1px solid #fed7aa; }
+
+    /* Queue items */
+    .job-row {
+        display: flex; align-items: center; gap: 0.5rem;
+        padding: 0.35rem 0; border-bottom: 1px solid #f8fafc;
+        font-size: 0.8rem;
+    }
+    .job-row:last-child { border-bottom: none; }
+    .job-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
+    /* Date nav */
+    .date-nav-btn {
+        padding: 0.5rem 1rem; border-radius: 0.75rem;
+        border: 1px solid rgba(255,255,255,0.2);
+        background: rgba(255,255,255,0.1);
+        color: white; font-size: 0.85rem; cursor: pointer;
+        transition: background 0.15s;
+        text-decoration: none;
+    }
+    .date-nav-btn:hover { background: rgba(255,255,255,0.2); color: white; }
+
+    .type-go     { background: #ecfdf5; color: #065f46; }
+    .type-onsite { background: #dcfce7; color: #15803d; }
+    .type-co     { background: #dbeafe; color: #1d4ed8; }
+    .type-back   { background: #e0f2fe; color: #0369a1; }
+    .type-travel { background: #ede9fe; color: #5b21b6; }
+    .type-other  { background: #f1f5f9; color: #475569; }
+
+    @media (max-width: 640px) {
+        .page-header { padding: 1rem 1.25rem; }
+        .stat-value { font-size: 1.25rem; }
+        .tech-card-header { flex-wrap: wrap; }
+        .timeline { padding: 0.6rem 0.75rem; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-3 px-md-4 py-3">
+
+    <!-- Page Header -->
+    <div class="page-header">
+        <div class="d-flex align-items-center justify-content-between flex-wrap gap-3">
+            <div>
+                <div class="d-flex align-items-center gap-2 mb-1">
+                    <i class="fas fa-clipboard-list" style="font-size:1.4rem; opacity:0.85;"></i>
+                    <h4 class="mb-0 fw-bold">สรุปการทำงานประจำวัน</h4>
+                </div>
+                <div style="font-size:1.1rem; opacity:0.85;">
+                    {{ day_name }} ที่ {{ report_date|date:"d" }} {{ month_short }} {{ report_date|date:"Y" }}
+                    {% if report_date == today %}
+                    <span class="badge ms-2" style="background:rgba(255,255,255,0.2); font-size:0.72rem;">วันนี้</span>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="d-flex align-items-center gap-2">
+                <a href="?date={{ prev_date|date:'Y-m-d' }}" class="date-nav-btn">
+                    <i class="fas fa-chevron-left me-1"></i>ก่อนหน้า
+                </a>
+                <input type="date" id="date-picker" value="{{ report_date|date:'Y-m-d' }}"
+                    onchange="location.href='?date='+this.value"
+                    style="padding:0.45rem 0.75rem; border-radius:0.75rem; border:1px solid rgba(255,255,255,0.3);
+                           background:rgba(255,255,255,0.15); color:white; cursor:pointer; font-size:0.85rem;">
+                {% if report_date != today %}
+                <a href="?date={{ today|date:'Y-m-d' }}" class="date-nav-btn">วันนี้</a>
+                {% endif %}
+                <a href="?date={{ next_date|date:'Y-m-d' }}" class="date-nav-btn">
+                    ถัดไป<i class="fas fa-chevron-right ms-1"></i>
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Summary Stats -->
+    <div class="row g-3 mb-4">
+        <div class="col-6 col-md-3">
+            <div class="stat-card">
+                <div class="stat-icon" style="background:#dbeafe;">👷</div>
+                <div>
+                    <div class="stat-value" style="color:#1d4ed8;">{{ total_techs }}</div>
+                    <div class="stat-label">ช่างออกงาน</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="stat-card">
+                <div class="stat-icon" style="background:#dcfce7;">✅</div>
+                <div>
+                    <div class="stat-value" style="color:#15803d;">{{ consistent_techs }}/{{ total_techs }}</div>
+                    <div class="stat-label">GPS สอดคล้อง</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="stat-card">
+                <div class="stat-icon" style="background:#ede9fe;">📍</div>
+                <div>
+                    <div class="stat-value" style="color:#5b21b6;">{{ total_locations }}</div>
+                    <div class="stat-label">จุดหน้างาน</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="stat-card">
+                <div class="stat-icon" style="background:#fef9c3;">⭐</div>
+                <div>
+                    <div class="stat-value" style="color:#854d0e;">{{ total_sat_vs }}<span style="font-size:0.9rem;color:#64748b;">/{{ total_sat }}</span></div>
+                    <div class="stat-label">พอใจมาก / ประเมินทั้งหมด</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% if tech_list %}
+
+    <!-- Technician Cards -->
+    {% for tech in tech_list %}
+    <div class="tech-card {% if tech.consistent %}consistent{% elif tech.total_logs > 0 %}inconsistent{% else %}no-gps{% endif %}">
+
+        <!-- Card Header -->
+        <div class="tech-card-header">
+            <div class="tech-avatar">{{ tech.username|slice:":1"|upper }}</div>
+            <div class="flex-1 min-w-0">
+                <div class="fw-bold" style="font-size:0.95rem; color:#1e293b;">{{ tech.username }}</div>
+                <div class="d-flex align-items-center gap-1 flex-wrap mt-1">
+                    {% if tech.consistent %}
+                    <span class="status-pill pill-ok"><i class="fas fa-check-circle"></i> GPS สอดคล้อง</span>
+                    {% else %}
+                    <span class="status-pill pill-warn"><i class="fas fa-exclamation-triangle"></i> GPS ไม่ครบ</span>
+                    {% endif %}
+                    {% if tech.work_duration %}
+                    <span class="status-pill pill-info"><i class="fas fa-clock me-1"></i>{{ tech.work_duration }}</span>
+                    {% endif %}
+                    {% if tech.go_work_time %}
+                    <span class="status-pill pill-gray">🚀 {{ tech.go_work_time }}{% if tech.back_office_time %} → 🏢 {{ tech.back_office_time }}{% endif %}</span>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="ms-auto d-flex gap-2 align-items-center">
+                <a href="{% url 'pms:gps_tracking_report' %}?date={{ report_date|date:'Y-m-d' }}&user_id={{ tech.user_id }}"
+                   class="btn btn-sm btn-outline-primary rounded-pill px-3" style="font-size:0.75rem;">
+                    <i class="fas fa-map-marked-alt me-1"></i>แผนที่
+                </a>
+            </div>
+        </div>
+
+        <!-- Timeline -->
+        {% if tech.logs %}
+        <div class="timeline">
+            {% for log in tech.logs %}
+            <div class="tl-item">
+                <div class="tl-dot
+                    {% if log.type == 'GO_WORK' %}type-go
+                    {% elif log.type == 'ON_SITE' or log.type == 'CHECK_IN' %}type-onsite
+                    {% elif log.type == 'CHECK_OUT' %}type-co
+                    {% elif log.type == 'BACK_OFFICE' %}type-back
+                    {% elif log.type == 'TRAVEL' %}type-travel
+                    {% else %}type-other{% endif %}">
+                    {% if log.type == 'GO_WORK' %}🚀
+                    {% elif log.type == 'ON_SITE' or log.type == 'CHECK_IN' %}↑
+                    {% elif log.type == 'CHECK_OUT' %}↓
+                    {% elif log.type == 'BACK_OFFICE' %}🏢
+                    {% elif log.type == 'TRAVEL' %}🛰️
+                    {% else %}•{% endif %}
+                </div>
+                <div class="tl-time">{{ log.time }}</div>
+                <div class="tl-label" title="{{ log.location }}">{{ log.location|truncatechars:10|default:"—" }}</div>
+            </div>
+            {% if not forloop.last %}<div class="tl-line"></div>{% endif %}
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <!-- Consistency + Stats -->
+        <div class="panel-section">
+            <div class="panel-label">ความสอดคล้อง GPS</div>
+            <div class="check-row">
+                <span class="status-pill {% if tech.go_work_ok %}pill-ok{% else %}pill-warn{% endif %}">
+                    🚀 ออกงาน={{ tech.go_work_count }}{% if not tech.go_work_ok %} (ควร 1){% endif %}
+                </span>
+                <span class="status-pill {% if tech.onsite_balanced %}pill-ok{% else %}pill-warn{% endif %}">
+                    ↑เริ่ม={{ tech.on_site_count }} / ↓เสร็จ={{ tech.check_out_count }}
+                    {% if tech.onsite_balanced %}✓{% else %}⚠{% endif %}
+                </span>
+                <span class="status-pill {% if tech.back_office_ok %}pill-ok{% else %}pill-warn{% endif %}">
+                    🏢 กลับ={{ tech.back_office_count }}{% if not tech.back_office_ok %} (ควร 1){% endif %}
+                </span>
+            </div>
+        </div>
+
+        <!-- Locations visited -->
+        {% if tech.locations %}
+        <div class="panel-section">
+            <div class="panel-label">สถานที่ปฏิบัติงาน ({{ tech.locations|length }} จุด)</div>
+            <div class="d-flex flex-wrap gap-2">
+                {% for loc in tech.locations %}
+                <span class="loc-chip"><i class="fas fa-map-pin" style="font-size:0.6rem;"></i> {{ loc }}</span>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Customer Satisfaction -->
+        {% if tech.satisfaction %}
+        <div class="panel-section">
+            <div class="panel-label">ผลประเมินลูกค้า ({{ tech.satisfaction|length }} รายการ)</div>
+            <div class="sat-row">
+                {% if tech.sat_counts.VERY_SATISFIED > 0 %}
+                <span class="sat-chip sat-vs">😊 พอใจมาก × {{ tech.sat_counts.VERY_SATISFIED }}</span>
+                {% endif %}
+                {% if tech.sat_counts.SATISFIED > 0 %}
+                <span class="sat-chip sat-s">🙂 พอใจ × {{ tech.sat_counts.SATISFIED }}</span>
+                {% endif %}
+                {% if tech.sat_counts.NOT_SATISFIED > 0 %}
+                <span class="sat-chip sat-ns">😞 ไม่พอใจ × {{ tech.sat_counts.NOT_SATISFIED }}</span>
+                {% endif %}
+                {% if tech.sat_incomplete > 0 %}
+                <span class="sat-chip sat-inc">⚠️ ข้อมูลไม่ครบ × {{ tech.sat_incomplete }}</span>
+                {% endif %}
+            </div>
+            <!-- Satisfaction detail -->
+            {% for s in tech.satisfaction %}
+            {% if s.complete %}
+            <div class="d-flex align-items-center gap-2 mt-2" style="font-size:0.78rem; color:#475569;">
+                <span class="sat-chip {% if s.rating == 'VERY_SATISFIED' %}sat-vs{% elif s.rating == 'SATISFIED' %}sat-s{% else %}sat-ns{% endif %}" style="font-size:0.68rem;">{{ s.rating_display }}</span>
+                <span>{{ s.customer_name }}</span>
+                {% if s.customer_phone %}<span style="color:#94a3b8;">{{ s.customer_phone }}</span>{% endif %}
+            </div>
+            {% endif %}
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <!-- Queue Items -->
+        {% if tech.queue_items %}
+        <div class="panel-section">
+            <div class="panel-label d-flex align-items-center gap-2">
+                งานในคิววันนี้
+                <span class="status-pill pill-ok ms-1">เสร็จ {{ tech.jobs_done }}/{{ tech.total_jobs }}</span>
+            </div>
+            {% for job in tech.queue_items %}
+            <div class="job-row">
+                <div class="job-dot" style="background:{% if job.completed %}#22c55e{% elif job.status == 'IN_PROGRESS' %}#f59e0b{% elif job.status == 'CANCELLED' %}#94a3b8{% else %}#3b82f6{% endif %};"></div>
+                <span style="flex:1; font-weight:{% if job.completed %}600{% else %}400{% endif %}; color:{% if job.completed %}#15803d{% else %}#334155{% endif %};">
+                    {{ job.title|truncatechars:45 }}
+                </span>
+                <span style="font-size:0.68rem; color:#64748b;">{{ job.task_type_display }}</span>
+                <span class="status-pill {% if job.completed %}pill-ok{% elif job.status == 'IN_PROGRESS' %}pill-info{% else %}pill-gray{% endif %}" style="font-size:0.65rem;">
+                    {{ job.status_display }}
+                </span>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <!-- No activity -->
+        {% if not tech.logs and not tech.queue_items %}
+        <div class="panel-section text-center py-3" style="color:#94a3b8; font-size:0.82rem;">
+            <i class="fas fa-satellite-dish me-1"></i> ไม่มีข้อมูล GPS สำหรับวันนี้
+        </div>
+        {% endif %}
+
+    </div>
+    {% endfor %}
+
+    {% else %}
+    <!-- Empty State -->
+    <div class="card border-0 shadow-sm rounded-4 p-5 text-center">
+        <i class="fas fa-user-slash fa-3x text-muted mb-3 opacity-25"></i>
+        <h5 class="text-muted">ไม่มีข้อมูลการทำงานสำหรับวันที่ {{ report_date|date:"d" }} {{ month_short }} {{ report_date|date:"Y" }}</h5>
+        <p class="small text-muted">ช่างเทคนิคต้องกด GPS Check-in ในห้องแชทก่อนครับ</p>
+    </div>
+    {% endif %}
+
+    <!-- Navigation links -->
+    <div class="d-flex gap-2 justify-content-center flex-wrap mt-2 mb-4">
+        <a href="{% url 'pms:gps_tracking_report' %}?date={{ report_date|date:'Y-m-d' }}"
+           class="btn btn-sm btn-outline-secondary rounded-pill px-3">
+            <i class="fas fa-map-marked-alt me-1"></i>ดูแผนที่รายวัน
+        </a>
+        <a href="{% url 'pms:gps_summary_report' %}?mode=daily&date={{ report_date|date:'Y-m-d' }}"
+           class="btn btn-sm btn-outline-secondary rounded-pill px-3">
+            <i class="fas fa-table me-1"></i>ดูตารางสรุป
+        </a>
+        <a href="{% url 'pms:gps_summary_report' %}"
+           class="btn btn-sm btn-outline-secondary rounded-pill px-3">
+            <i class="fas fa-calendar-alt me-1"></i>สรุปรายเดือน
+        </a>
+    </div>
+
+</div>
+{% endblock %}

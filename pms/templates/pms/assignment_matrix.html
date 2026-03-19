@@ -79,11 +79,12 @@
 
 {% block content %}
 <div class="row mb-4">
+    <!-- ส่วนหัวหน้าจอจัดการผู้รับผิดชอบ (Page Header) -->
     <div class="col-12">
         <div class="d-flex justify-content-between align-items-center">
             <div>
                 <h3 class="fw-bold mb-1">จัดการผู้รับผิดชอบงาน (ตั้งค่าเริ่มต้น)</h3>
-                <p class="text-muted small mb-0">กำหนดผู้รับผิดชอบหลักในแต่ละขั้นตอน แยกตามประเภทของงาน</p>
+                <p class="text-muted small mb-0">กำหนดผู้รับผิดชอบหลักในแต่ละขั้นตอน แยกตามประเภทของงาน เพื่อใช้เป็นค่าเริ่มต้นเมื่อเริ่มโปรเจกต์ใหม่</p>
             </div>
             <a href="{% url 'pms:project_list' %}" class="btn btn-outline-secondary btn-sm">
                 <i class="fas fa-arrow-left me-1"></i> กลับหน้ารายการ
@@ -94,6 +95,7 @@
 
 <div class="card shadow-sm border-0 overflow-hidden">
     <div class="card-body p-0">
+        <!-- ตารางตารางแมทริกซ์การมอบหมายงาน (Assignment Matrix Table) -->
         <div class="table-responsive" style="max-height: 80vh;">
             <table class="table mb-0 matrix-table">
                 <thead>

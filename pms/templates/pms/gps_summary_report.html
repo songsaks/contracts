@@ -413,12 +413,16 @@
                                 {% endif %}
                                 <td style="padding:0.5rem 0.75rem; white-space:nowrap; font-family:monospace; font-weight:600; color:#1e293b;">{{ log.time }}</td>
                                 <td style="padding:0.5rem 0.75rem; white-space:nowrap;">
-                                    {% if log.type == 'CHECK_IN' %}
+                                    {% if log.type == 'GO_WORK' %}
+                                    <span class="badge rounded-pill" style="background:#ecfdf5; color:#065f46; border:1px solid #a7f3d0;">🚀 {{ log.type_display }}</span>
+                                    {% elif log.type == 'ON_SITE' or log.type == 'CHECK_IN' %}
                                     <span class="badge rounded-pill" style="background:#dcfce7; color:#15803d;">↑ {{ log.type_display }}</span>
                                     {% elif log.type == 'CHECK_OUT' %}
                                     <span class="badge rounded-pill" style="background:#dbeafe; color:#1d4ed8;">↓ {{ log.type_display }}</span>
+                                    {% elif log.type == 'BACK_OFFICE' %}
+                                    <span class="badge rounded-pill" style="background:#e0f2fe; color:#0369a1; border:1px solid #7dd3fc;">🏢 {{ log.type_display }}</span>
                                     {% elif log.type == 'TRAVEL' %}
-                                    <span class="badge rounded-pill" style="background:#ede9fe; color:#5b21b6;">⇒ {{ log.type_display }}</span>
+                                    <span class="badge rounded-pill" style="background:#ede9fe; color:#5b21b6;">🛰️ {{ log.type_display }}</span>
                                     {% else %}
                                     <span class="badge rounded-pill" style="background:#f1f5f9; color:#475569;">{{ log.type_display }}</span>
                                     {% endif %}
@@ -439,7 +443,7 @@
     <div class="card border-0 shadow-sm rounded-4 mb-4" style="border-left: 4px solid #f97316 !important;">
         <div class="card-header bg-white border-0 pt-3 pb-2 px-4 d-flex align-items-center justify-content-between flex-wrap gap-2">
             <h6 class="fw-bold mb-0" style="color:#c2410c;">
-                <i class="fas fa-exclamation-triangle me-2"></i>Check-in / Check-out ไม่สมดุล — {{ report_date|date:"d/m/Y" }}
+                <i class="fas fa-exclamation-triangle me-2"></i>GPS ไม่สอดคล้อง — {{ report_date|date:"d/m/Y" }}
             </h6>
             <span class="badge rounded-pill" style="background:#fff7ed; color:#c2410c; border:1px solid #fed7aa; font-size:0.75rem;">
                 {{ imbalanced_daily_techs|length }} คน
@@ -449,10 +453,22 @@
             {% for tech in imbalanced_daily_techs %}
             <div class="imbalance-row">
                 <span class="imbalance-date">{{ tech.username }}</span>
-                <span class="imbalance-chip {% if tech.ci_count > tech.co_count %}over{% else %}under{% endif %}">
-                    ↑{{ tech.ci_count }} CI &nbsp; ↓{{ tech.co_count }} CO
-                    &nbsp; {% if tech.ci_count > tech.co_count %}CI เกิน{% else %}CO เกิน{% endif %}
+                {% if not tech.go_work_ok %}
+                <span class="imbalance-chip" style="background:#fef3c7; color:#92400e; border:1px solid #fcd34d;">
+                    🚀 ออกงาน={{ tech.go_work_count }} {% if tech.go_work_count == 0 %}(ไม่มี){% else %}(เกิน){% endif %}
                 </span>
+                {% endif %}
+                {% if not tech.back_office_ok %}
+                <span class="imbalance-chip" style="background:#e0f2fe; color:#0369a1; border:1px solid #7dd3fc;">
+                    🏢 กลับ={{ tech.back_office_count }} {% if tech.back_office_count == 0 %}(ไม่มี){% else %}(เกิน){% endif %}
+                </span>
+                {% endif %}
+                {% if not tech.onsite_balanced %}
+                <span class="imbalance-chip {% if tech.ci_count > tech.co_count %}over{% else %}under{% endif %}">
+                    ↑เริ่ม={{ tech.ci_count }} ↓เสร็จ={{ tech.co_count }}
+                    {% if tech.ci_count > tech.co_count %}(ยังไม่เสร็จ {{ tech.ci_count|add:"-" }}{{ tech.co_count }}){% else %}(เสร็จเกิน){% endif %}
+                </span>
+                {% endif %}
             </div>
             {% endfor %}
         </div>
@@ -599,17 +615,21 @@
 
                             {% for cell in row.cells %}
                             {% if cell %}
-                            <td class="data-cell clickable {% if cell.imbalanced %}cell-imbalance{% elif cell.has_ci and cell.has_co %}cell-full{% else %}cell-partial{% endif %}"
+                            <td class="data-cell clickable {% if cell.consistent %}cell-full{% elif cell.imbalanced %}cell-imbalance{% else %}cell-partial{% endif %}"
                                 data-date="{{ row.date|date:'Y-m-d' }}"
                                 data-uidx="{{ forloop.counter0 }}"
-                                title="{{ row.date|date:'d/m/Y' }} — CI:{{ cell.ci_count }} CO:{{ cell.co_count }} ({{ cell.count }} รายการ)">
-                                <div class="ci-badge {% if cell.imbalanced %}imbalance{% elif cell.has_ci and cell.has_co %}full{% else %}partial{% endif %}">
+                                title="{{ row.date|date:'d/m/Y' }} — ออกงาน:{{ cell.go_work_count }} กลับ:{{ cell.back_office_count }} เริ่ม:{{ cell.ci_count }} เสร็จ:{{ cell.co_count }}">
+                                <div class="ci-badge {% if cell.consistent %}full{% elif cell.imbalanced %}imbalance{% else %}partial{% endif %}">
                                     {{ cell.count }}
+                                </div>
+                                <div class="cico-row">
+                                    <span title="ออกงาน" style="font-size:0.6rem; {% if cell.go_work_ok %}color:#15803d;{% else %}color:#dc2626;{% endif %}">🚀{{ cell.go_work_count }}</span>
+                                    <span title="กลับ office" style="font-size:0.6rem; {% if cell.back_office_ok %}color:#15803d;{% else %}color:#dc2626;{% endif %}">🏢{{ cell.back_office_count }}</span>
                                 </div>
                                 <div class="cico-row">
                                     <span class="cico-in">↑{{ cell.ci_count }}</span>
                                     <span class="cico-out">↓{{ cell.co_count }}</span>
-                                    {% if cell.imbalanced %}<span class="cico-warn">!</span>{% endif %}
+                                    {% if not cell.onsite_balanced %}<span class="cico-warn">!</span>{% endif %}
                                 </div>
                                 {% if cell.first %}
                                 <div class="time-range">
@@ -661,7 +681,8 @@
             <p class="text-muted mt-2 mb-0 no-print" style="font-size:0.72rem;">
                 <i class="fas fa-hand-pointer me-1"></i>
                 คลิกที่ช่องใดช่องหนึ่งเพื่อดูรายงานแผนที่รายวันของวันและช่างคนนั้น &nbsp;|&nbsp;
-                <span style="color:#f97316;">⚠ เซลล์สีส้ม</span> = จำนวน Check-in ไม่เท่ากับ Check-out ในวันนั้น
+                <span style="color:#16a34a;">✅ เซลล์สีเขียว</span> = สอดคล้องครบ (ออกงาน1 กลับ1 เริ่ม=เสร็จ) &nbsp;|&nbsp;
+                <span style="color:#f97316;">⚠ เซลล์สีส้ม</span> = ไม่สอดคล้อง &nbsp;|&nbsp; 🚀=ออกงาน 🏢=กลับ ↑=เริ่มงาน ↓=เสร็จงาน
             </p>
         </div>
     </div>
@@ -671,10 +692,10 @@
     <div class="card border-0 shadow-sm rounded-4 mb-4" style="border-left: 4px solid #f97316 !important;">
         <div class="card-header bg-white border-0 pt-3 pb-2 px-4 d-flex align-items-center justify-content-between flex-wrap gap-2">
             <h6 class="fw-bold mb-0" style="color:#c2410c;">
-                <i class="fas fa-exclamation-triangle me-2"></i>รายงาน Check-in / Check-out ไม่สมดุล — {{ imbalance_days|length }} วัน
+                <i class="fas fa-exclamation-triangle me-2"></i>รายงานความไม่สอดคล้อง GPS — {{ imbalance_days|length }} วัน
             </h6>
             <span class="badge rounded-pill" style="background:#fff7ed; color:#c2410c; border:1px solid #fed7aa; font-size:0.75rem;">
-                ช่างลืม Check-out หรือ Check-in ซ้ำ
+                ออกงาน/กลับ ≠ 1 ครั้ง หรือ เริ่มงาน ≠ เสร็จงาน
             </span>
         </div>
         <div class="card-body p-0">
@@ -682,10 +703,11 @@
             <div class="imbalance-row">
                 <span class="imbalance-date">{{ day.date|date:"d/m" }} {{ day.day_short }}</span>
                 {% for item in day.items %}
-                <span class="imbalance-chip {% if item.diff > 0 %}over{% else %}under{% endif %}">
-                    {{ item.username }}
-                    &nbsp; ↑{{ item.ci }} ↓{{ item.co }}
-                    &nbsp; {% if item.diff > 0 %}+{{ item.diff }} CI เกิน{% else %}{{ item.diff }} CO เกิน{% endif %}
+                <span class="imbalance-chip" style="background:#fff7ed; color:#c2410c; border:1px solid #fed7aa;">
+                    {{ item.username }} &nbsp;
+                    {% if not item.go_work == 1 %}<span title="ออกงาน">🚀{{ item.go_work }}</span>{% endif %}
+                    {% if not item.back_office == 1 %}<span title="กลับ office">🏢{{ item.back_office }}</span>{% endif %}
+                    {% if item.ci != item.co %}<span title="เริ่มงาน≠เสร็จงาน">↑{{ item.ci }}≠↓{{ item.co }}</span>{% endif %}
                 </span>
                 {% endfor %}
             </div>

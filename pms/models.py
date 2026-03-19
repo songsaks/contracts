@@ -895,10 +895,12 @@ class TechnicianGPSLog(models.Model):
     ข้อมูลนี้ใช้สร้างรายงานเส้นทางการทำงานประจำวัน
     """
     class CheckType(models.TextChoices):
-        CHECK_IN    = 'CHECK_IN',    'เริ่มงาน (Check-in)'
-        ON_SITE     = 'ON_SITE',     'ถึงที่หน้างาน (On-site)'
-        TRAVEL      = 'TRAVEL',      'กำลังเดินทาง (Travel)'
+        GO_WORK     = 'GO_WORK',     'ออกทำงาน (Go Work)'
+        ON_SITE     = 'ON_SITE',     'เริ่มงาน (On-site)'
         CHECK_OUT   = 'CHECK_OUT',   'เสร็จงาน (Check-out)'
+        BACK_OFFICE = 'BACK_OFFICE', 'กลับที่ทำงาน (Back to Office)'
+        TRAVEL      = 'TRAVEL',      'กำลังเดินทาง (Auto-Track)'
+        CHECK_IN    = 'CHECK_IN',    'เริ่มงาน (Check-in)'  # legacy
 
     user        = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
                                     related_name='gps_logs', verbose_name="ช่าง")

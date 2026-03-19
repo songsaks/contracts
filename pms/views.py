@@ -2618,6 +2618,7 @@ def gps_summary_report(request):
             if uname not in daily_tech_raw:
                 daily_tech_raw[uname] = {
                     'logs': [], 'ci_count': 0, 'co_count': 0,
+                    'go_work_count': 0, 'back_office_count': 0,
                     'first': None, 'last': None,
                 }
             cell = daily_tech_raw[uname]
@@ -2630,10 +2631,14 @@ def gps_summary_report(request):
                 'location':     log.location_name or '',
                 'notes':        log.notes or '',
             })
-            if log.check_type == 'CHECK_IN':
+            if log.check_type in ('ON_SITE', 'CHECK_IN'):
                 cell['ci_count'] += 1
             elif log.check_type == 'CHECK_OUT':
                 cell['co_count'] += 1
+            elif log.check_type == 'GO_WORK':
+                cell['go_work_count'] += 1
+            elif log.check_type == 'BACK_OFFICE':
+                cell['back_office_count'] += 1
             if cell['first'] is None:
                 cell['first'] = t_str
             cell['last'] = t_str
@@ -2641,16 +2646,26 @@ def gps_summary_report(request):
         daily_tech_list = []
         for uname in sorted(daily_tech_raw.keys()):
             cell = daily_tech_raw[uname]
+            go_ok   = cell['go_work_count'] == 1
+            back_ok = cell['back_office_count'] == 1
+            bal_ok  = cell['ci_count'] == cell['co_count']
+            consistent = go_ok and back_ok and bal_ok
             daily_tech_list.append({
-                'username':   uname,
-                'user_id':    user_id_map_day[uname],
-                'logs':       cell['logs'],
-                'ci_count':   cell['ci_count'],
-                'co_count':   cell['co_count'],
-                'first':      cell['first'] or '',
-                'last':       cell['last'] or '',
-                'total':      len(cell['logs']),
-                'imbalanced': cell['ci_count'] != cell['co_count'],
+                'username':          uname,
+                'user_id':           user_id_map_day[uname],
+                'logs':              cell['logs'],
+                'ci_count':          cell['ci_count'],
+                'co_count':          cell['co_count'],
+                'go_work_count':     cell['go_work_count'],
+                'back_office_count': cell['back_office_count'],
+                'go_work_ok':        go_ok,
+                'back_office_ok':    back_ok,
+                'onsite_balanced':   bal_ok,
+                'consistent':        consistent,
+                'first':             cell['first'] or '',
+                'last':              cell['last'] or '',
+                'total':             len(cell['logs']),
+                'imbalanced':        not consistent,
             })
         imbalanced_daily_techs = [t for t in daily_tech_list if t['imbalanced']]
 
@@ -2746,10 +2761,11 @@ def gps_summary_report(request):
     if not (user_can_view_all(request.user)):
         qs = qs.filter(user=request.user)
 
-    # จัดกลุ่ม: raw_data[date_obj][username] = {count, first_ts, last_ts, types, ci_count, co_count}
+    # จัดกลุ่ม: raw_data[date_obj][username] = {count, first_ts, last_ts, types, ci_count, co_count, go_work_count, back_office_count}
     raw_data = defaultdict(lambda: defaultdict(lambda: {
         'count': 0, 'first': None, 'last': None, 'types': set(),
         'ci_count': 0, 'co_count': 0,
+        'go_work_count': 0, 'back_office_count': 0,
     }))
     users_ordered = {}  # ใช้ dict เพื่อรักษาลำดับ insertion (Python 3.7+)
 
@@ -2767,16 +2783,20 @@ def gps_summary_report(request):
         if cell['last'] is None or local_ts > cell['last']:
             cell['last'] = local_ts
         cell['types'].add(log.check_type)
-        if log.check_type == 'CHECK_IN':
+        if log.check_type in ('ON_SITE', 'CHECK_IN'):
             cell['ci_count'] += 1
         elif log.check_type == 'CHECK_OUT':
             cell['co_count'] += 1
+        elif log.check_type == 'GO_WORK':
+            cell['go_work_count'] += 1
+        elif log.check_type == 'BACK_OFFICE':
+            cell['back_office_count'] += 1
 
     all_users = sorted(users_ordered.keys())
 
     # สรุปรายช่าง (คอลัมน์) และรายวัน (แถว)
     user_totals    = defaultdict(int)
-    user_ci_totals = defaultdict(int)   # {username: total CHECK_IN}
+    user_ci_totals = defaultdict(int)   # {username: total ON_SITE}
     user_co_totals = defaultdict(int)   # {username: total CHECK_OUT}
     date_totals    = defaultdict(int)
     for d, users_data in raw_data.items():
@@ -2793,18 +2813,30 @@ def gps_summary_report(request):
         for u in all_users:
             cell = raw_data[d].get(u)
             if cell:
-                ci_c = cell['ci_count']
-                co_c = cell['co_count']
+                ci_c  = cell['ci_count']
+                co_c  = cell['co_count']
+                gw_c  = cell['go_work_count']
+                bo_c  = cell['back_office_count']
+                go_ok   = gw_c == 1
+                back_ok = bo_c == 1
+                bal_ok  = ci_c == co_c
+                consistent = go_ok and back_ok and bal_ok
                 cells.append({
-                    'count':      cell['count'],
-                    'first':      cell['first'].strftime('%H:%M') if cell['first'] else '',
-                    'last':       cell['last'].strftime('%H:%M') if cell['last'] else '',
-                    'has_ci':     'CHECK_IN' in cell['types'],
-                    'has_co':     'CHECK_OUT' in cell['types'],
-                    'has_travel': 'TRAVEL' in cell['types'],
-                    'ci_count':   ci_c,
-                    'co_count':   co_c,
-                    'imbalanced': ci_c != co_c,
+                    'count':             cell['count'],
+                    'first':             cell['first'].strftime('%H:%M') if cell['first'] else '',
+                    'last':              cell['last'].strftime('%H:%M') if cell['last'] else '',
+                    'has_ci':            'ON_SITE' in cell['types'] or 'CHECK_IN' in cell['types'],
+                    'has_co':            'CHECK_OUT' in cell['types'],
+                    'has_travel':        'TRAVEL' in cell['types'],
+                    'ci_count':          ci_c,
+                    'co_count':          co_c,
+                    'go_work_count':     gw_c,
+                    'back_office_count': bo_c,
+                    'go_work_ok':        go_ok,
+                    'back_office_ok':    back_ok,
+                    'onsite_balanced':   bal_ok,
+                    'consistent':        consistent,
+                    'imbalanced':        not consistent,
                 })
             else:
                 cells.append(None)
@@ -2817,17 +2849,27 @@ def gps_summary_report(request):
             'is_today':   d == today,
         })
 
-    # วันที่มี CI ≠ CO (ต้องสร้างหลัง table_rows)
+    # วันที่ไม่สอดคล้อง (ต้องสร้างหลัง table_rows)
     imbalance_days = []
     for row in table_rows:
         day_issues = []
         for u, cell_data in zip(all_users, row['cells']):
             if cell_data and cell_data['imbalanced']:
+                issues = []
+                if not cell_data['go_work_ok']:
+                    issues.append(f"ออกงาน={cell_data['go_work_count']}")
+                if not cell_data['back_office_ok']:
+                    issues.append(f"กลับ={cell_data['back_office_count']}")
+                if not cell_data['onsite_balanced']:
+                    issues.append(f"เริ่ม{cell_data['ci_count']}≠เสร็จ{cell_data['co_count']}")
                 day_issues.append({
-                    'username': u,
-                    'ci': cell_data['ci_count'],
-                    'co': cell_data['co_count'],
-                    'diff': cell_data['ci_count'] - cell_data['co_count'],
+                    'username':    u,
+                    'ci':          cell_data['ci_count'],
+                    'co':          cell_data['co_count'],
+                    'go_work':     cell_data['go_work_count'],
+                    'back_office': cell_data['back_office_count'],
+                    'issues':      issues,
+                    'diff':        cell_data['ci_count'] - cell_data['co_count'],
                 })
         if day_issues:
             imbalance_days.append({
@@ -2942,6 +2984,219 @@ def gps_summary_report(request):
         'sat_complete_by_user':      dict(sat_complete_by_user),
         'sat_complete_chart_json':   json_lib.dumps(sat_complete_chart_json),
         'sat_incomplete_chart_json': json_lib.dumps(sat_incomplete_chart_json),
+    })
+
+
+@login_required
+def gps_daily_summary(request):
+    """
+    รายงานสรุปการทำงานรายวัน — แสดงผลต่อวันต่อช่าง
+    • ตรวจสอบความสอดคล้อง GPS (ออกงาน/กลับ/เริ่ม=เสร็จ)
+    • เวลาทำงาน (GO_WORK → BACK_OFFICE)
+    • สถานที่ที่ไปและจำนวนงาน
+    • ผลประเมินความพอใจลูกค้า
+    • งานในคิวที่เสร็จ/อยู่ระหว่างดำเนินการในวันนั้น
+    """
+    from .models import TechnicianGPSLog, CustomerSatisfaction, ServiceQueueItem
+    from django.contrib.auth import get_user_model
+    from django.utils import timezone
+    from datetime import date, timedelta
+    from collections import defaultdict
+    import json as json_lib
+
+    User = get_user_model()
+    today = timezone.localdate()
+    THAI_DAYS = ['จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์', 'เสาร์', 'อาทิตย์']
+    THAI_MONTHS_SHORT = ['', 'ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.',
+                         'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.']
+
+    date_str = request.GET.get('date', today.isoformat())
+    try:
+        report_date = date.fromisoformat(date_str)
+    except (ValueError, TypeError):
+        report_date = today
+
+    prev_date = report_date - timedelta(days=1)
+    next_date = report_date + timedelta(days=1)
+    day_name  = THAI_DAYS[report_date.weekday()]
+    month_short = THAI_MONTHS_SHORT[report_date.month]
+
+    # ── Query GPS logs ──────────────────────────────────────────────────
+    gps_qs = TechnicianGPSLog.objects.filter(
+        timestamp__date=report_date
+    ).select_related('user').order_by('timestamp')
+    if not user_can_view_all(request.user):
+        gps_qs = gps_qs.filter(user=request.user)
+
+    # ── Build per-technician GPS summary ───────────────────────────────
+    tech_raw = {}
+    for log in gps_qs:
+        uname = log.user.username
+        uid   = log.user_id
+        if uname not in tech_raw:
+            tech_raw[uname] = {
+                'user_id': uid,
+                'logs': [],
+                'go_work': None,       # first GO_WORK time
+                'back_office': None,   # last BACK_OFFICE time
+                'go_work_count': 0,
+                'back_office_count': 0,
+                'on_site_count': 0,
+                'check_out_count': 0,
+                'locations': [],       # unique location names
+                'satisfaction': [],
+            }
+        c = tech_raw[uname]
+        lt = timezone.localtime(log.timestamp)
+        t_str = lt.strftime('%H:%M')
+        c['logs'].append({
+            'time': t_str,
+            'type': log.check_type,
+            'type_display': log.get_check_type_display(),
+            'location': log.location_name or '',
+            'notes': log.notes or '',
+            'log_id': log.id,
+        })
+        ct = log.check_type
+        if ct == 'GO_WORK':
+            c['go_work_count'] += 1
+            if c['go_work'] is None:
+                c['go_work'] = t_str
+        elif ct == 'BACK_OFFICE':
+            c['back_office_count'] += 1
+            c['back_office'] = t_str      # keep last one
+        elif ct in ('ON_SITE', 'CHECK_IN'):
+            c['on_site_count'] += 1
+            if log.location_name and log.location_name not in c['locations']:
+                c['locations'].append(log.location_name)
+        elif ct == 'CHECK_OUT':
+            c['check_out_count'] += 1
+
+    # ── Fetch satisfaction linked to today's CHECK_OUT logs ────────────
+    sat_qs = CustomerSatisfaction.objects.filter(
+        gps_log__timestamp__date=report_date
+    ).select_related('gps_log__user')
+    if not user_can_view_all(request.user):
+        sat_qs = sat_qs.filter(gps_log__user=request.user)
+    for s in sat_qs:
+        uname = s.gps_log.user.username
+        if uname in tech_raw:
+            tech_raw[uname]['satisfaction'].append({
+                'rating': s.rating,
+                'rating_display': s.get_rating_display(),
+                'customer_name': s.customer_name or '',
+                'customer_phone': s.customer_phone or '',
+                'complete': bool(s.customer_name and s.customer_phone),
+            })
+
+    # ── Fetch ServiceQueueItems scheduled or completed today ───────────
+    queue_qs = ServiceQueueItem.objects.filter(
+        scheduled_date=report_date
+    ).select_related('project').prefetch_related('assigned_teams__members')
+    if not user_can_view_all(request.user):
+        queue_qs = queue_qs.filter(assigned_teams__members=request.user)
+    queue_by_user = defaultdict(list)
+    for qi in queue_qs.distinct():
+        for team in qi.assigned_teams.all():
+            for member in team.members.all():
+                queue_by_user[member.username].append({
+                    'id': qi.id,
+                    'title': qi.title,
+                    'status': qi.status,
+                    'status_display': qi.get_status_display(),
+                    'priority': qi.priority,
+                    'task_type_display': qi.get_task_type_display(),
+                    'project_name': qi.project.name if qi.project else '',
+                    'completed': qi.status == 'COMPLETED',
+                })
+
+    # ── Build final technician list ────────────────────────────────────
+    RATING_ORDER = {'VERY_SATISFIED': 0, 'SATISFIED': 1, 'NOT_SATISFIED': 2}
+    tech_list = []
+    for uname in sorted(tech_raw.keys()):
+        c = tech_raw[uname]
+        go_ok   = c['go_work_count'] == 1
+        back_ok = c['back_office_count'] == 1
+        bal_ok  = c['on_site_count'] == c['check_out_count']
+        consistent = go_ok and back_ok and bal_ok
+
+        # work duration
+        work_duration = None
+        if c['go_work'] and c['back_office']:
+            try:
+                from datetime import datetime
+                fmt = '%H:%M'
+                t1 = datetime.strptime(c['go_work'], fmt)
+                t2 = datetime.strptime(c['back_office'], fmt)
+                delta_min = int((t2 - t1).total_seconds() / 60)
+                if delta_min > 0:
+                    work_duration = f"{delta_min // 60}ชม. {delta_min % 60}น."
+            except Exception:
+                pass
+
+        sat_list = c['satisfaction']
+        sat_counts = {'VERY_SATISFIED': 0, 'SATISFIED': 0, 'NOT_SATISFIED': 0}
+        sat_complete = sum(1 for s in sat_list if s['complete'])
+        sat_incomplete = len(sat_list) - sat_complete
+        for s in sat_list:
+            if s['rating'] in sat_counts:
+                sat_counts[s['rating']] += 1
+
+        queue_items = queue_by_user.get(uname, [])
+        jobs_done = sum(1 for q in queue_items if q['completed'])
+
+        tech_list.append({
+            'username':          uname,
+            'user_id':           c['user_id'],
+            'logs':              c['logs'],
+            'go_work_time':      c['go_work'] or '',
+            'back_office_time':  c['back_office'] or '',
+            'go_work_count':     c['go_work_count'],
+            'back_office_count': c['back_office_count'],
+            'on_site_count':     c['on_site_count'],
+            'check_out_count':   c['check_out_count'],
+            'locations':         c['locations'],
+            'work_duration':     work_duration,
+            'consistent':        consistent,
+            'go_work_ok':        go_ok,
+            'back_office_ok':    back_ok,
+            'onsite_balanced':   bal_ok,
+            'satisfaction':      sat_list,
+            'sat_counts':        sat_counts,
+            'sat_complete':      sat_complete,
+            'sat_incomplete':    sat_incomplete,
+            'queue_items':       queue_items,
+            'jobs_done':         jobs_done,
+            'total_jobs':        len(queue_items),
+            'total_logs':        len(c['logs']),
+        })
+
+    # ── Summary stats ──────────────────────────────────────────────────
+    total_techs        = len(tech_list)
+    consistent_techs   = sum(1 for t in tech_list if t['consistent'])
+    total_locations    = sum(t['on_site_count'] for t in tech_list)
+    total_sat          = sum(len(t['satisfaction']) for t in tech_list)
+    total_sat_vs       = sum(t['sat_counts']['VERY_SATISFIED'] for t in tech_list)
+    total_sat_s        = sum(t['sat_counts']['SATISFIED'] for t in tech_list)
+    total_sat_ns       = sum(t['sat_counts']['NOT_SATISFIED'] for t in tech_list)
+    total_jobs_done    = sum(t['jobs_done'] for t in tech_list)
+
+    return render(request, 'pms/gps_daily_summary.html', {
+        'report_date':      report_date,
+        'prev_date':        prev_date,
+        'next_date':        next_date,
+        'today':            today,
+        'day_name':         day_name,
+        'month_short':      month_short,
+        'tech_list':        tech_list,
+        'total_techs':      total_techs,
+        'consistent_techs': consistent_techs,
+        'total_locations':  total_locations,
+        'total_sat':        total_sat,
+        'total_sat_vs':     total_sat_vs,
+        'total_sat_s':      total_sat_s,
+        'total_sat_ns':     total_sat_ns,
+        'total_jobs_done':  total_jobs_done,
     })
 
 

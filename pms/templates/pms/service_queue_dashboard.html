@@ -128,7 +128,7 @@
 {% endblock %}
 
 {% block content %}
-<!-- Header -->
+<!-- ส่วนหัวหน้าจอ (Header Section) -->
 <div class="queue-header">
     <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
         <div>
@@ -172,7 +172,7 @@
     </div>
 </div>
 
-<!-- Stats -->
+<!-- ส่วนสรุปสถิติ (Summary Statistics) -->
 <div class="row g-2 g-md-3 mb-4">
     <div class="col-4">
         <div class="queue-stat-card">
@@ -194,7 +194,7 @@
     </div>
 </div>
 
-<!-- ============ BLOCK 1: Pending Tasks ============ -->
+<!-- ส่วนที่ 1: รายการงานที่รอจัดคิว (Pending Tasks Block) -->
 <div class="card border-0 shadow-sm mb-4">
     <div class="section-header text-white" style="background: linear-gradient(135deg, #f59e0b, #d97706);">
         <span><i class="fas fa-inbox me-2"></i>งานรอจัดคิว</span>
@@ -396,7 +396,7 @@
     {% endif %}
 </div>
 
-<!-- ============ BLOCK 2+: Scheduled Tasks (Grouped by Date) ============ -->
+<!-- ส่วนที่ 2: รายการงานที่จัดคิวแล้ว (แบ่งตามวันที่) (Scheduled Tasks Block - Grouped by Date) -->
 {% if date_groups %}
 {% for date, tasks in date_groups.items %}
 <div class="date-block">

@@ -1,7 +1,7 @@
 {% load static %}
 
 {% if CHATBOT_ENABLED %}
-<!-- Chatbot Floating Button -->
+<!-- ปุ่มลอยสำหรับเปิด/ปิดแชทบอท (Chatbot Floating Button) -->
 <div id="chatbot-button" class="chatbot-button-container">
     <button class="chatbot-toggle-btn shadow-lg" onclick="toggleChatbot()">
         <span class="pulse-ring"></span>
@@ -10,7 +10,7 @@
     </button>
 </div>
 
-<!-- Chatbot Window -->
+<!-- หน้าต่างแชทบอท (Chatbot Window Container) -->
 <div id="chatbot-window" class="chatbot-window-container d-none">
     <div class="chatbot-header d-flex justify-content-between align-items-center">
         <div class="d-flex align-items-center gap-2">
@@ -345,6 +345,10 @@
         }
     }
 
+    /**
+     * เริ่มการเชื่อมต่อ WebSocket สำหรับการแชท (AI Interface)
+     * ใช้สำหรับการรับ-ส่งข้อความแบบ Real-time กับเซิร์ฟเวอร์
+     */
     function initChatWebSocket() {
         if (socket && socket.readyState <= 1) return;
         
@@ -430,6 +434,9 @@
         }
     }
 
+    /**
+     * ฟังก์ชันส่งข้อความแชทไปยังเซิร์ฟเวอร์
+     */
     function sendChatMessage() {
         const input = document.getElementById('chatbot-input');
         const message = input.value.trim();
