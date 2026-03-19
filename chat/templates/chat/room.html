@@ -833,10 +833,10 @@
             <div style="margin-bottom:1rem;">
                 <label style="font-size:0.78rem; color:#64748b; font-weight:600; display:block; margin-bottom:0.35rem;">ประเภทการเช็คอิน</label>
                 <select id="gps-check-type" style="width:100%; padding:0.6rem 0.75rem; border:1px solid #e2e8f0; border-radius:0.75rem; font-size:0.9rem; background:#f8fafc; color:#1e293b; outline:none;">
-                    <option value="CHECK_IN">✅ เริ่มงาน (Check-in)</option>
-                    <option value="ON_SITE" selected>📍 ถึงที่หน้างาน (On-site)</option>
-                    <option value="TRAVEL">🚗 กำลังเดินทาง (Travel)</option>
+                    <option value="GO_WORK" selected>🚀 ออกทำงาน (Go Work)</option>
+                    <option value="ON_SITE">📍 เริ่มงาน (On-site)</option>
                     <option value="CHECK_OUT">🏁 เสร็จงาน (Check-out)</option>
+                    <option value="BACK_OFFICE">🏢 กลับที่ทำงาน (Back to Office)</option>
                 </select>
             </div>
             <div style="margin-bottom:1rem;">
@@ -1590,7 +1590,7 @@
                 const checkType = document.getElementById('gps-check-type').value;
                 const locName   = document.getElementById('gps-location-name').value.trim() || 'พิกัดปัจจุบัน';
                 const notes     = document.getElementById('gps-notes').value.trim();
-                const typeLabels = { 'CHECK_IN':'✅ เริ่มงาน', 'ON_SITE':'📍 ถึงที่หน้างาน', 'TRAVEL':'🚗 กำลังเดินทาง', 'CHECK_OUT':'🏁 เสร็จงาน' };
+                const typeLabels = { 'GO_WORK':'🚀 ออกทำงาน', 'ON_SITE':'📍 เริ่มงาน', 'CHECK_OUT':'🏁 เสร็จงาน', 'BACK_OFFICE':'🏢 กลับที่ทำงาน', 'TRAVEL':'🛰️ Auto-Track' };
                 const msgText   = `${typeLabels[checkType] || '📍 Check-in'} — ${locName}${notes ? '\nหมายเหตุ: ' + notes : ''}`;
 
                 document.getElementById('gps-location-name').value = '';

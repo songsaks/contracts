@@ -51,12 +51,15 @@ def _create_project_value_item(project, project_value):
     )
 
 
-# หน้าจอ Dispatch สำหรับเลือกสร้างงานประเภทต่างๆ (Service, Repair, Rental)
+# หน้าจอเลือกเมนูหลัก (Dispatch) สำหรับเลือกสร้างงานประเภทใหม่ๆ
+# เช่น การสร้างงานบริการขาย การแจ้งซ่อมระบบ หรือการทำสัญญาเช่าอุปกรณ์
 @login_required
 def dispatch(request):
+    """ทำหน้าที่เป็นจุดเริ่มต้นสำหรับการสร้างงานใหม่ที่แยกตามประเภท"""
     return render(request, 'pms/dispatch.html')
 
-# สร้างใบงานบริการ/งานขาย (Sales Service)
+# ฟังก์ชันสำหรับสร้างใบงานบริการ/งานขาย (Sales Service)
+# ระบบจะระบุประเภทงานเป็น 'SERVICE' อัตโนมัติ และสร้างรายการสินค้าเริ่มต้นจากมูลค่าโครงการที่ระบุ
 @login_required
 def service_create(request):
     if request.method == 'POST':
@@ -76,7 +79,8 @@ def service_create(request):
         'form': form, 'title': 'สร้างงานบริการขายใหม่', 'theme_color': 'success',
     })
 
-# สร้างใบงานแจ้งซ่อม (Repair Service)
+# ฟังก์ชันสำหรับสร้างใบแจ้งซ่อมระบบ (On-site Repair)
+# ใช้สำหรับการบันทึกงานซ่อมถึงสถานที่ลูกค้า โดยระบบจะระบุประเภทงานเป็น 'REPAIR'
 @login_required
 def repair_create(request):
     if request.method == 'POST':
@@ -96,7 +100,8 @@ def repair_create(request):
         'form': form, 'title': 'สร้างใบแจ้งซ่อม (On-site Repair)', 'theme_color': 'warning',
     })
 
-# สร้างใบงานเช่า (Rental Service)
+# ฟังก์ชันสำหรับสร้างใบงานเช่าอุปกรณ์ (Rental Service)
+# ใช้สำหรับการทำเรื่องเช่าสินค้า โดยระบบจะระบุประเภทงานเป็น 'RENTAL' ให้ทันที
 @login_required
 def rental_create(request):
     if request.method == 'POST':
@@ -161,7 +166,8 @@ def _check_project_lock(project, request):
             return True
     return False
 
-# รายการโครงการทั้งหมดที่ยังไม่ปิดงาน (Active Projects)
+# รายการงานทั้งหมดที่ยังอยู่ในสถานะที่เจ้าหน้าที่ต้องดำเนินการ (Active)
+# โดยระบบจะกรองเฉพาะงานที่ยังไม่ถูก 'ปิดจบ' หรือ 'ยกเลิก' ออกมาแสดงผล
 @login_required
 def project_list(request):
     # Default: Show active projects (Exclude CLOSED and CANCELLED)
@@ -228,7 +234,8 @@ def history_list(request):
     }
     return render(request, 'pms/history_list.html', context)
 
-# แสดงรายละเอียดเชิงลึกของโครงการ รายการสินค้า ประวัติ และการจัดการสถานะ
+# แสดงรายละเอียดทั้งหมดของโครงการ รายการค่าใช้จ่าย ประวัติการทำงาน และไฟล์แนบ
+# รวมถึงหน้าจอสำหรับอัปเดตสถานะโครงการในรูปแบบขั้นตอนแบบ Step-by-Step
 @login_required
 def project_detail(request, pk):
     project = get_object_or_404(Project, pk=pk)
@@ -1317,7 +1324,11 @@ def create_project_from_requirement(request, pk):
 
 # ===== AI Service Queue Views =====
 
-# หน้าจอจัดการคิวงานบริการอัตโนมัติ (AI Service Queue Dashboard)
+# หน้าจอแดชบอร์ดสำหรับบริหารจัดการคิวงานบริการแบบอัจฉริยะ (AI Service Queue Dashboard)
+# ระบบจะแบ่งงานออกเป็น 3 ส่วนหลัก: 
+#   1. งานที่รอจัดคิว (Pending) สำหรับ Admin ระบุทีมและวันที่
+#   2. งานที่จัดคิวแล้ว (Scheduled) โดยแสดงแยกตามวันที่
+#   3. สรุปผลงานที่เสร็จสิ้น (Completed)
 @login_required
 def service_queue_dashboard(request):
     """
@@ -1410,7 +1421,9 @@ def update_pending_task(request, task_id):
     return redirect('pms:service_queue_dashboard')
 
 
-# ระบบมอบหมายงานแบบอัตโนมัติ (AI Auto-Scheduling)
+# ระบบการวางแผนจัดคิวงานแบบอัตโนมัติ (AI Auto-Scheduling)
+# เมื่อเรียกใช้ระบบจะทำการย้ายงานที่มีการระบุทีมและวันที่แล้วจาก 'Pending' ไปเป็น 'Scheduled'
+# พร้อมทั้งส่งข้อความแจ้งเตือนอัตโนมัติไปยังกลุ่มแชทของทีมงานที่เกี่ยวข้อง
 @login_required
 def auto_schedule_tasks(request):
     """AI schedule: move pending tasks (with date+team set) to SCHEDULED status."""
@@ -2039,7 +2052,8 @@ def request_file_delete(request, file_id):
     messages.success(request, 'ลบไฟล์สำเร็จ')
     return redirect('pms:request_detail', pk=req_pk)
 
-# วิเคราะห์ข้อมูลแดชบอร์ดด้วย AI (AI Insight Analysis)
+# ฟังก์ชันเชื่อมต่อกับ AI (Gemini) เพื่อวิเคราะห์สรุปผลข้อมูลในแดชบอร์ดออกมาเป็นมุมมองเชิงกลยุทธ์
+# ระบบจะรวบรวมยอดรวม มูลค่าโครงการ และสถิติงานที่ปิดจบ/ยกเลิก มาสรุปเป็นบทวิเคราะห์ภาษาไทย
 @login_required
 def ai_dashboard_analysis(request):
     from .ai_utils import get_gemini_analysis
@@ -2140,9 +2154,11 @@ def notification_read(request, pk):
     notif.is_read = True
     notif.save()
     return redirect('pms:project_detail', pk=notif.project.pk)
-# หน้าจอจัดการตารางผู้รับผิดชอบงานตามประเภทและขั้นตอน (Assignment Matrix)
+# หน้าจอแสดงตารางบริหารจัดการผู้รับผิดชอบงานร่วมกัน (Mutual Responsibility Matrix)
+# ช่วยให้เจ้าหน้าที่หลายคนสามารถดูแลโครงการเดียวกันได้ในขั้นตอนต่างๆ ของ Workflow
 @login_required
 def project_assignment_matrix(request):
+    """ตารางแมตทริกซ์ที่แสดงขั้นตอนงาน (Row) แยกตามประเภทงานหลัก 4 ประเภท"""
     User = get_user_model()
     users = User.objects.filter(is_active=True).order_by('username')
     
@@ -2413,8 +2429,9 @@ def get_notification_counts(request):
     })
 
 
-# ====== GPS Tracking Report — รายงานเส้นทางช่างประจำวัน ======
-
+# รายงานติดตามพิกัดการทำงานของช่างเทคนิคภาคสนาม (Field Technician GPS Tracking)
+# แสดงภาพรวมเส้นทางการทำงานจริงบนแผนที่ Leaflet ในแต่ละช่วงเวลา (Check-in/Out)
+# เพื่อการตรวจสอบความโปร่งใสและประสิทธิภาพในการออกปฏิบัติงานนอกสถานที่
 @login_required
 def gps_tracking_report(request):
     """
