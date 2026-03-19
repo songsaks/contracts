@@ -55,8 +55,9 @@ def chat_room(request, room_id):
             messages.error(request, f"คุณไม่มีสิทธิ์เข้าถึงห้องแชท '{room.name}' (Private Room)")
             return redirect('chat:index')
 
-    # ดึงข้อความย้อนหลังล่าสุด 50 ข้อความ เรียงตามเวลาจากเก่าไปใหม่
-    chat_messages = list(room.messages.all().order_by('timestamp')[:50])
+    # ดึงข้อความล่าสุด 50 ข้อความ เรียงจากใหม่ไปเก่าก่อน แล้วกลับลำดับเพื่อแสดงในหน้า
+    chat_messages = list(room.messages.all().order_by('-timestamp')[:50])
+    chat_messages.reverse()
     last_msg_ts = chat_messages[-1].timestamp.isoformat() if chat_messages else ''
 
     try:
