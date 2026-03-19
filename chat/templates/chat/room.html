@@ -959,6 +959,18 @@
     const roomMembers = JSON.parse(document.getElementById('room-members').textContent);
     let onlineUsernames = [];   // maintained by updateOnlineUsers()
 
+    // Sticker maps — defined at outer scope so page-load renderer can use them too
+    const stickerMap = {
+        wave: '👋', pray: '🙏', thumbup: '👍', heart: '❤️',
+        laugh: '😂', sad: '😢', wow: '😲', fire: '🔥',
+        clap: '👏', bye: '🫡', sleep: '😴', strong: '💪'
+    };
+    const stickerLabels = {
+        wave: 'สวัสดี', pray: 'ขอบคุณ', thumbup: 'โอเค', heart: 'รักเลย',
+        laugh: 'ฮ่าๆ', sad: 'เสียใจ', wow: 'ว้าว', fire: 'เยี่ยม',
+        clap: 'ปรบมือ', bye: 'ลาก่อน', sleep: 'หลับละ', strong: 'สู้ๆ'
+    };
+
     // ====== ติดตาม timestamp ของข้อความล่าสุด ======
     // ใช้สำหรับ fetch missed messages เมื่อ reconnect หรือกดปุ่ม refresh
     let lastMsgTs = "{{ last_msg_ts }}";
@@ -1045,16 +1057,6 @@
         }
 
         // ตรวจว่าเป็น sticker หรือไม่
-        const stickerMap = {
-            wave: '👋', pray: '🙏', thumbup: '👍', heart: '❤️',
-            laugh: '😂', sad: '😢', wow: '😲', fire: '🔥',
-            clap: '👏', bye: '🫡', sleep: '😴', strong: '💪'
-        };
-        const stickerLabels = {
-            wave: 'สวัสดี', pray: 'ขอบคุณ', thumbup: 'โอเค', heart: 'รักเลย',
-            laugh: 'ฮ่าๆ', sad: 'เสียใจ', wow: 'ว้าว', fire: 'เยี่ยม',
-            clap: 'ปรบมือ', bye: 'ลาก่อน', sleep: 'หลับละ', strong: 'สู้ๆ'
-        };
         const stickerMatch = data.message && data.message.match(/^\[sticker:(\w+)\]$/);
 
         let formattedMessage = '';
@@ -1258,9 +1260,17 @@
         }, 3000);
     }
 
-    // Highlight @mentions in messages loaded from Django template on page load
+    // Highlight @mentions + render stickers in server-side messages on page load
     document.querySelectorAll('.message-text .block').forEach(el => {
-        el.innerHTML = highlightMentions(el.innerHTML);
+        const sm = el.textContent.trim().match(/^\[sticker:(\w+)\]$/);
+        if (sm) {
+            const code = sm[1];
+            el.innerHTML = `<span class="sticker-big">${stickerMap[code] || '😊'}</span><span class="sticker-name">${stickerLabels[code] || code}</span>`;
+            const bubble = el.closest('.message-bubble');
+            if (bubble) bubble.classList.add('sticker-bubble');
+        } else {
+            el.innerHTML = highlightMentions(el.innerHTML);
+        }
     });
 
     // ====== @Mention autocomplete ======
