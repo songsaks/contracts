@@ -445,15 +445,14 @@
     .reply-preview-name { font-weight: 700; color: #1d4ed8; margin-right: 0.2rem; }
     .reply-preview-text { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #64748b; font-size: 0.75rem; }
 
-    /* Reply button — shown on hover */
+    /* Reply button — always visible */
     .reply-btn {
         background: none; border: none; cursor: pointer;
-        opacity: 0; font-size: 0.75rem; padding: 0 0.2rem;
-        color: inherit; transition: opacity 0.2s; line-height: 1;
+        opacity: 0.45; font-size: 0.8rem; padding: 0 0.3rem;
+        color: inherit; transition: opacity 0.2s, transform 0.15s; line-height: 1;
         vertical-align: middle;
     }
-    .message-bubble:hover .reply-btn { opacity: 0.6; }
-    .reply-btn:hover { opacity: 1 !important; }
+    .reply-btn:hover { opacity: 1; transform: scale(1.2); }
 
     /* Satisfaction badges for CHECK_OUT */
     .sat-complete-badge {
