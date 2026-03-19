@@ -1107,6 +1107,9 @@
                 console.log('[WS] Tab/App กลับมาอยู่ foreground — reconnecting...');
                 wsReconnectDelay = 1500;  // reset backoff เมื่อ user กลับมาเอง
                 connectWebSocket();
+            } else if (state === WebSocket.OPEN) {
+                // WS ยังต่ออยู่ แต่อาจมีข้อความใหม่ระหว่างที่ tab ถูกซ่อน/สลับ app
+                fetchNewMessages(false);
             }
         }
     });
