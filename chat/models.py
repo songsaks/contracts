@@ -93,6 +93,19 @@ class ChatMessage(models.Model):
     # ระบุว่า content เป็น HTML (render ด้วย |safe) — ใช้สำหรับข้อความ system เช่น คิวงาน PMS
     is_html = models.BooleanField(default=False, verbose_name="เนื้อหาเป็น HTML")
 
+    # ====== Reply Feature ======
+    reply_to = models.ForeignKey(
+        'self', null=True, blank=True, on_delete=models.SET_NULL,
+        related_name='replies', verbose_name="ข้อความที่ตอบกลับ"
+    )
+    reply_preview = models.CharField(max_length=150, blank=True, verbose_name="ตัวอย่างข้อความที่ตอบกลับ")
+
+    # ====== GPS Checkout Satisfaction ======
+    gps_check_type = models.CharField(max_length=20, blank=True, verbose_name="ประเภท GPS Check")
+    customer_rating = models.CharField(max_length=20, blank=True, verbose_name="ผลประเมินลูกค้า")
+    customer_name = models.CharField(max_length=100, blank=True, verbose_name="ชื่อลูกค้า")
+    customer_phone = models.CharField(max_length=20, blank=True, verbose_name="เบอร์โทรลูกค้า")
+
     class Meta:
         verbose_name = "ข้อความแชท"
         verbose_name_plural = "ข้อความแชท"

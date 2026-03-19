@@ -120,12 +120,25 @@ class ChatConsumer(AsyncWebsocketConsumer):
         customer_rating = data.get('customer_rating', '')
         customer_name   = data.get('customer_name', '')
         customer_phone  = data.get('customer_phone', '')
+        # ข้อมูล Reply (ตอบกลับข้อความ)
+        reply_to_id      = data.get('reply_to_id', None)
+        reply_preview    = data.get('reply_preview', '')
+        reply_username   = data.get('reply_username', '')
 
         # ประมวลผลเฉพาะเมื่อมีเนื้อหาที่ส่งได้ (ข้อความ, ไฟล์, หรือพิกัด)
         if message_text or image_url or file_url or (latitude and longitude):
             user = self.scope["user"]
             # บันทึกข้อความลง Database และรับ ID กลับมาเพื่อใช้ deduplication
-            msg_id = await self.save_message(user, self.room_id, message_text, is_stt, latitude, longitude, location_name)
+            msg_id = await self.save_message(
+                user, self.room_id, message_text, is_stt,
+                latitude, longitude, location_name,
+                gps_check_type=gps_check_type or '',
+                customer_rating=customer_rating,
+                customer_name=customer_name,
+                customer_phone=customer_phone,
+                reply_to_id=reply_to_id,
+                reply_preview=reply_preview,
+            )
             # บันทึก GPS log สำหรับรายงานช่างภาคสนาม
             if latitude and longitude and gps_check_type:
                 gps_log_id = await self.save_gps_log(user, latitude, longitude, location_name, gps_check_type, gps_notes)
@@ -154,6 +167,13 @@ class ChatConsumer(AsyncWebsocketConsumer):
                     'location_name': location_name,
                     'mentions': mentions,
                     'is_html': False,
+                    'gps_check_type': gps_check_type or '',
+                    'customer_rating': customer_rating,
+                    'customer_name': customer_name,
+                    'customer_phone': customer_phone,
+                    'reply_to_id': reply_to_id,
+                    'reply_preview': reply_preview,
+                    'reply_username': reply_username,
                     # แปลงเวลาเป็น Local Timezone ก่อนส่ง
                     'timestamp': timezone.localtime(timezone.now()).strftime('%H:%M')
                 }
@@ -192,7 +212,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
         # ส่งข้อมูลทั้งหมดกลับไปยัง WebSocket ของ Client ที่ subscribe อยู่
         await self.send(text_data=json.dumps({
             'type': 'chat_message',
-            'id': event.get('id'),        # message ID สำหรับ deduplication ฝั่ง JS
+            'id': event.get('id'),
             'message': event['message'],
             'username': event['username'],
             'user_id': event['user_id'],
@@ -204,6 +224,13 @@ class ChatConsumer(AsyncWebsocketConsumer):
             'location_name': event.get('location_name'),
             'mentions': event.get('mentions', []),
             'is_html': event.get('is_html', False),
+            'gps_check_type': event.get('gps_check_type', ''),
+            'customer_rating': event.get('customer_rating', ''),
+            'customer_name': event.get('customer_name', ''),
+            'customer_phone': event.get('customer_phone', ''),
+            'reply_to_id': event.get('reply_to_id'),
+            'reply_preview': event.get('reply_preview', ''),
+            'reply_username': event.get('reply_username', ''),
             'timestamp': event['timestamp']
         }))
 
@@ -245,10 +272,11 @@ class ChatConsumer(AsyncWebsocketConsumer):
     # ====== ฟังก์ชันช่วยสำหรับฐานข้อมูล (Database Helper) ======
 
     @database_sync_to_async
-    def save_message(self, user, room_id, content, is_stt, lat=None, lon=None, loc_name=''):
+    def save_message(self, user, room_id, content, is_stt, lat=None, lon=None, loc_name='',
+                     gps_check_type='', customer_rating='', customer_name='', customer_phone='',
+                     reply_to_id=None, reply_preview=''):
         """
         บันทึกข้อความลงฐานข้อมูลแบบ Synchronous และคืน ID ของข้อความที่บันทึก
-        ใช้ decorator @database_sync_to_async เพื่อให้เรียกจาก async context ได้
         ID ที่ได้จะถูกส่งไปยัง client ผ่าน WebSocket เพื่อใช้ deduplication กับ fetch
         """
         from decimal import Decimal, ROUND_HALF_UP
@@ -263,7 +291,13 @@ class ChatConsumer(AsyncWebsocketConsumer):
             is_speech_to_text=is_stt,
             latitude=to_dec(lat),
             longitude=to_dec(lon),
-            location_name=loc_name
+            location_name=loc_name,
+            gps_check_type=gps_check_type or '',
+            customer_rating=customer_rating or '',
+            customer_name=customer_name or '',
+            customer_phone=customer_phone or '',
+            reply_to_id=reply_to_id if reply_to_id else None,
+            reply_preview=reply_preview or '',
         )
         return msg.id
 

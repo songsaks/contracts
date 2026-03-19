@@ -295,6 +295,114 @@
     .toast-title { font-weight: 700; font-size: 0.82rem; color: #b45309; margin-bottom: 0.2rem; }
     .toast-body  { font-size: 0.82rem; color: #334155; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
+    /* GPS Group Popup */
+    .gps-group-popup {
+        position: absolute;
+        bottom: calc(100% + 8px);
+        left: 0;
+        background: white;
+        border-radius: 0.75rem;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+        border: 1px solid #e2e8f0;
+        padding: 0.4rem;
+        display: none;
+        flex-direction: column;
+        gap: 0.15rem;
+        min-width: 170px;
+        z-index: 200;
+    }
+    .gps-group-popup.show { display: flex; }
+    .gps-group-item {
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+        padding: 0.5rem 0.75rem;
+        border-radius: 0.5rem;
+        border: none;
+        background: transparent;
+        cursor: pointer;
+        font-size: 0.82rem;
+        color: #475569;
+        text-align: left;
+        width: 100%;
+        transition: background 0.15s;
+    }
+    .gps-group-item:hover { background: #f8fafc; }
+    .gps-group-item.tracking-active { color: #16a34a; font-weight: 600; }
+
+    /* ปุ่ม Mic และ Sticker ที่อยู่ในกล่อง input */
+    .input-inner-btn {
+        position: absolute;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        border: none;
+        background: transparent;
+        color: #94a3b8;
+        cursor: pointer;
+        font-size: 0.88rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: color 0.2s, background 0.2s;
+        z-index: 5;
+    }
+    .input-inner-btn:hover { color: #475569; background: rgba(0,0,0,0.06); }
+    .input-inner-btn.active { color: #ef4444; animation: pulse-icon 1.5s infinite; }
+    @keyframes pulse-icon {
+        0%,100% { transform: translateY(-50%) scale(1); }
+        50%      { transform: translateY(-50%) scale(1.2); }
+    }
+
+    /* Sticker Picker — เปิดจากขวา */
+    .sticker-picker {
+        position: absolute;
+        bottom: calc(100% + 8px);
+        right: 0;
+        left: auto;
+        background: white;
+        border-radius: 1rem;
+        box-shadow: 0 8px 30px rgba(0,0,0,0.15);
+        border: 1px solid #e2e8f0;
+        padding: 0.75rem;
+        display: none;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        width: 260px;
+        z-index: 200;
+    }
+    .sticker-picker.show { display: flex; }
+    .sticker-item {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 2px;
+        padding: 0.4rem 0.5rem;
+        border-radius: 0.6rem;
+        cursor: pointer;
+        transition: background 0.15s;
+        flex: 0 0 calc(25% - 0.4rem);
+    }
+    .sticker-item:hover { background: #f1f5f9; }
+    .sticker-item .sticker-emoji { font-size: 2rem; line-height: 1; }
+    .sticker-item .sticker-label { font-size: 0.58rem; color: #64748b; white-space: nowrap; }
+
+    /* Sticker message bubble */
+    .sticker-bubble {
+        display: inline-flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 2px;
+        background: transparent !important;
+        box-shadow: none !important;
+        border: none !important;
+        padding: 4px 8px !important;
+    }
+    .sticker-bubble .sticker-big { font-size: 3.5rem; line-height: 1; }
+    .sticker-bubble .sticker-name { font-size: 0.65rem; color: #94a3b8; }
+
     /* Auto-Track button states */
     .stt-btn.tracking { background: #22c55e; color: white; animation: pulse-green 1.5s infinite; }
     @keyframes pulse-green {
@@ -302,6 +410,74 @@
         70%  { transform: scale(1.1); box-shadow: 0 0 0 10px rgba(34,197,94,0);   }
         100% { transform: scale(1);   box-shadow: 0 0 0 0   rgba(34,197,94,0);   }
     }
+
+    /* Reply quote inside bubble */
+    .reply-quote {
+        border-left: 3px solid rgba(255,255,255,0.45);
+        padding: 0.3rem 0.6rem;
+        margin-bottom: 0.4rem;
+        border-radius: 0.4rem;
+        font-size: 0.75rem;
+        background: rgba(0,0,0,0.07);
+        cursor: pointer;
+    }
+    .message-other .reply-quote {
+        border-left-color: #3b82f6;
+        background: rgba(59,130,246,0.09);
+        color: #334155;
+    }
+    .reply-quote-name { font-weight: 700; font-size: 0.7rem; margin-bottom: 0.1rem; }
+    .reply-quote-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 220px; display: block; }
+
+    /* Reply preview bar above input */
+    .reply-preview-bar {
+        display: none;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.4rem 0.75rem;
+        margin-bottom: 0.5rem;
+        background: #eff6ff;
+        border-left: 3px solid #3b82f6;
+        border-radius: 0.5rem;
+        font-size: 0.78rem;
+    }
+    .reply-preview-bar.show { display: flex; }
+    .reply-preview-name { font-weight: 700; color: #1d4ed8; margin-right: 0.2rem; }
+    .reply-preview-text { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #64748b; font-size: 0.75rem; }
+
+    /* Reply button — shown on hover */
+    .reply-btn {
+        background: none; border: none; cursor: pointer;
+        opacity: 0; font-size: 0.75rem; padding: 0 0.2rem;
+        color: inherit; transition: opacity 0.2s; line-height: 1;
+        vertical-align: middle;
+    }
+    .message-bubble:hover .reply-btn { opacity: 0.6; }
+    .reply-btn:hover { opacity: 1 !important; }
+
+    /* Satisfaction badges for CHECK_OUT */
+    .sat-complete-badge {
+        display: inline-flex; align-items: center; gap: 0.3rem;
+        background: rgba(34,197,94,0.12); color: #15803d;
+        border: 1px solid rgba(34,197,94,0.3);
+        padding: 0.2rem 0.5rem; border-radius: 2rem;
+        font-size: 0.68rem; font-weight: 700; margin-top: 0.3rem;
+    }
+    .sat-incomplete-badge {
+        display: inline-flex; align-items: center; gap: 0.3rem;
+        background: rgba(148,163,184,0.12); color: #64748b;
+        border: 1px solid rgba(148,163,184,0.3);
+        padding: 0.2rem 0.5rem; border-radius: 2rem;
+        font-size: 0.68rem; font-weight: 700; margin-top: 0.3rem;
+    }
+    .rating-badge {
+        display: inline-flex; align-items: center; gap: 0.25rem;
+        padding: 0.2rem 0.5rem; border-radius: 1rem;
+        font-size: 0.68rem; font-weight: 700; margin-top: 0.2rem;
+    }
+    .rating-very-satisfied { background: #f0fdf4; color: #15803d; border: 1px solid #86efac; }
+    .rating-satisfied       { background: #eff6ff; color: #1d4ed8; border: 1px solid #93c5fd; }
+    .rating-not-satisfied   { background: #fef2f2; color: #dc2626; border: 1px solid #fca5a5; }
 
     /* --- การปรับแต่งความสวยงามสำหรับหน้าจอมือถือและแท็บเล็ต (Responsive) --- */
     @media (max-width: 1024px) {
@@ -443,11 +619,17 @@
         <!-- รายการข้อความในห้องนี้ -->
         <div id="chat-messages" class="chat-messages">
             {% for msg in chat_messages %}
-            <div class="message-bubble {% if msg.user == request.user %}message-self{% else %}message-other{% endif %}">
+            <div class="message-bubble {% if msg.user == request.user %}message-self{% else %}message-other{% endif %}" data-msg-id="{{ msg.id }}">
                 {% if msg.user != request.user %}
                 <div class="message-info">{{ msg.user.username }}</div>
                 {% endif %}
                 <div class="message-text">
+                    {% if msg.reply_to %}
+                    <div class="reply-quote" data-scroll-to="{{ msg.reply_to.id }}">
+                        <div class="reply-quote-name">{{ msg.reply_to.user.username }}</div>
+                        <span class="reply-quote-text">{% if msg.reply_preview %}{{ msg.reply_preview }}{% else %}{{ msg.reply_to.content|truncatechars:80 }}{% endif %}</span>
+                    </div>
+                    {% endif %}
                     {% if msg.image %}
                     <a href="{{ msg.image.url }}" target="_blank" class="block mb-2">
                         <img src="{{ msg.image.url }}" class="max-w-[200px] md:max-w-[250px] rounded-lg shadow-sm" alt="รูปภาพแนบ">
@@ -465,7 +647,7 @@
                         {% if msg.is_html %}{{ msg.content|safe }}{% else %}{{ msg.content|linebreaksbr }}{% endif %}
                         {% if msg.is_speech_to_text %} <i class="fas fa-microphone text-[10px] ml-1 opacity-60"></i> {% endif %}
                     </span>
-                    
+
                     {% if msg.latitude and msg.longitude %}
                     <div class="{% if msg.user == request.user %}gps-card-self{% else %}gps-card-other{% endif %}">
                         <div class="gps-card-label">📍 GPS Check-in{% if msg.location_name %} — {{ msg.location_name }}{% endif %}</div>
@@ -474,8 +656,27 @@
                         </a>
                     </div>
                     {% endif %}
+                    {% if msg.gps_check_type == 'CHECK_OUT' %}
+                    <div style="margin-top:0.3rem; display:flex; flex-wrap:wrap; gap:0.25rem; align-items:center;">
+                        {% if msg.customer_name and msg.customer_phone %}
+                        <span class="sat-complete-badge">✅ ครบถ้วน — {{ msg.customer_name }}</span>
+                        {% else %}
+                        <span class="sat-incomplete-badge">⚠️ ข้อมูลไม่ครบ</span>
+                        {% endif %}
+                        {% if msg.customer_rating == 'VERY_SATISFIED' %}
+                        <span class="rating-badge rating-very-satisfied">😊 พอใจมาก</span>
+                        {% elif msg.customer_rating == 'SATISFIED' %}
+                        <span class="rating-badge rating-satisfied">🙂 พอใจ</span>
+                        {% elif msg.customer_rating == 'NOT_SATISFIED' %}
+                        <span class="rating-badge rating-not-satisfied">😞 ไม่พอใจ</span>
+                        {% endif %}
+                    </div>
+                    {% endif %}
                 </div>
-                <div class="message-meta">{{ msg.timestamp|date:"H:i" }}</div>
+                <div class="message-meta">
+                    <button class="reply-btn" data-reply-msgid="{{ msg.id }}" data-reply-user="{{ msg.user.username|escapejs }}" data-reply-text="{% if msg.reply_preview %}{{ msg.reply_preview|truncatechars:60|escapejs }}{% else %}{{ msg.content|truncatechars:60|escapejs }}{% endif %}" title="ตอบกลับ">↩</button>
+                    {{ msg.timestamp|date:"H:i" }}
+                </div>
             </div>
             {% endfor %}
         </div>
@@ -490,6 +691,18 @@
                 </div>
             </div>
 
+            <!-- Reply preview bar -->
+            <div id="reply-preview-bar" class="reply-preview-bar">
+                <i class="fas fa-reply" style="color:#3b82f6; flex-shrink:0;"></i>
+                <div style="flex:1; min-width:0;">
+                    <span class="reply-preview-name" id="reply-preview-name"></span>
+                    <span class="reply-preview-text" id="reply-preview-text"></span>
+                </div>
+                <button id="reply-clear-btn" style="background:none;border:none;cursor:pointer;padding:0 0.25rem;color:#94a3b8;font-size:0.9rem;" title="ยกเลิกตอบกลับ">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+
             <div class="flex items-center gap-2">
                 <!-- ปุ่มแนบไฟล์ -->
                 <button id="file-trigger" class="stt-btn inactive" title="แนบรูปภาพหรือไฟล์">
@@ -497,31 +710,84 @@
                 </button>
                 <input type="file" id="file-input" class="hidden" accept="image/*,application/pdf,.doc,.docx">
 
-                <!-- ปุ่มส่งพิกัด GPS (Check-in) -->
-                <button id="location-btn" class="stt-btn inactive" title="GPS Check-in (ครั้งเดียว)" onclick="openGpsModal()">
-                    <i class="fas fa-location-dot"></i>
-                </button>
+                <!-- GPS Group Button (รวม Check-in + Auto-Track ไว้ใน popup เดียว) -->
+                <div class="relative" id="gps-group-wrapper">
+                    <button id="gps-group-btn" class="stt-btn inactive" title="GPS Check-in / Auto-Track"
+                            onclick="toggleGpsGroup(event)">
+                        <i class="fas fa-location-dot"></i>
+                    </button>
+                    <div class="gps-group-popup" id="gps-group-popup">
+                        <button class="gps-group-item" onclick="openGpsModal(); closeGpsGroup()">
+                            <i class="fas fa-location-dot" style="color:#3b82f6;"></i> Check-in ครั้งเดียว
+                        </button>
+                        {% if is_technician %}
+                        <button id="auto-track-btn" class="gps-group-item" onclick="toggleAutoTrack()">
+                            <i class="fas fa-satellite-dish"></i> Auto-Track GPS
+                        </button>
+                        {% endif %}
+                    </div>
+                </div>
 
-                {% if is_technician %}
-                <!-- ปุ่ม Auto-Track (เฉพาะ Technician) -->
-                <button id="auto-track-btn" class="stt-btn inactive" title="Auto-Track GPS (ติดตามอัตโนมัติ)" onclick="toggleAutoTrack()">
-                    <i class="fas fa-satellite-dish"></i>
-                </button>
-                {% endif %}
-
-                <!-- ปุ่มพูด (Speech-to-Text) -->
-                <button id="stt-start" class="stt-btn inactive" title="พูดเพื่อพิมพ์ (Speak to Text)">
-                    <i class="fas fa-microphone"></i>
-                </button>
-                
+                <!-- Input box — mic + sticker อยู่ข้างใน -->
                 <div class="flex-1 relative">
                     <div id="mention-dropdown"></div>
                     <input type="text" id="chat-message-input"
-                        class="w-full pl-4 pr-12 py-3 rounded-2xl bg-slate-100 border-none focus:ring-2 focus:ring-blue-500 text-slate-700"
+                        class="w-full pl-4 py-3 rounded-2xl bg-slate-100 border-none focus:ring-2 focus:ring-blue-500 text-slate-700"
+                        style="padding-right: 5rem;"
                         placeholder="พิมพ์ข้อความที่นี่..." autocomplete="off">
+
+                    <!-- ปุ่ม Mic ในกล่อง -->
+                    <button id="stt-start" class="input-inner-btn" style="right: 38px;" title="พูดเพื่อพิมพ์ (Speak to Text)">
+                        <i class="fas fa-microphone"></i>
+                    </button>
+
+                    <!-- ปุ่ม Sticker ในกล่อง -->
+                    <div id="sticker-wrapper" style="position:absolute; right:6px; top:50%; transform:translateY(-50%); z-index:5;">
+                        <button id="sticker-btn" class="input-inner-btn" style="position:static; transform:none;" title="ส่ง Sticker">
+                            <i class="fas fa-face-smile"></i>
+                        </button>
+                        <div class="sticker-picker" id="sticker-picker">
+                            <div class="sticker-item" data-code="wave" data-emoji="👋" data-label="สวัสดี">
+                                <span class="sticker-emoji">👋</span><span class="sticker-label">สวัสดี</span>
+                            </div>
+                            <div class="sticker-item" data-code="pray" data-emoji="🙏" data-label="ขอบคุณ">
+                                <span class="sticker-emoji">🙏</span><span class="sticker-label">ขอบคุณ</span>
+                            </div>
+                            <div class="sticker-item" data-code="thumbup" data-emoji="👍" data-label="โอเค">
+                                <span class="sticker-emoji">👍</span><span class="sticker-label">โอเค</span>
+                            </div>
+                            <div class="sticker-item" data-code="heart" data-emoji="❤️" data-label="รักเลย">
+                                <span class="sticker-emoji">❤️</span><span class="sticker-label">รักเลย</span>
+                            </div>
+                            <div class="sticker-item" data-code="laugh" data-emoji="😂" data-label="ฮ่าๆ">
+                                <span class="sticker-emoji">😂</span><span class="sticker-label">ฮ่าๆ</span>
+                            </div>
+                            <div class="sticker-item" data-code="sad" data-emoji="😢" data-label="เสียใจ">
+                                <span class="sticker-emoji">😢</span><span class="sticker-label">เสียใจ</span>
+                            </div>
+                            <div class="sticker-item" data-code="wow" data-emoji="😲" data-label="ว้าว">
+                                <span class="sticker-emoji">😲</span><span class="sticker-label">ว้าว</span>
+                            </div>
+                            <div class="sticker-item" data-code="fire" data-emoji="🔥" data-label="เยี่ยม">
+                                <span class="sticker-emoji">🔥</span><span class="sticker-label">เยี่ยม</span>
+                            </div>
+                            <div class="sticker-item" data-code="clap" data-emoji="👏" data-label="ปรบมือ">
+                                <span class="sticker-emoji">👏</span><span class="sticker-label">ปรบมือ</span>
+                            </div>
+                            <div class="sticker-item" data-code="bye" data-emoji="🫡" data-label="ลาก่อน">
+                                <span class="sticker-emoji">🫡</span><span class="sticker-label">ลาก่อน</span>
+                            </div>
+                            <div class="sticker-item" data-code="sleep" data-emoji="😴" data-label="หลับละ">
+                                <span class="sticker-emoji">😴</span><span class="sticker-label">หลับละ</span>
+                            </div>
+                            <div class="sticker-item" data-code="strong" data-emoji="💪" data-label="สู้ๆ">
+                                <span class="sticker-emoji">💪</span><span class="sticker-label">สู้ๆ</span>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
-                <button id="chat-message-submit" 
+                <button id="chat-message-submit"
                     class="p-3 bg-blue-600 text-white rounded-2xl hover:bg-blue-700 transition shadow-lg shadow-blue-200">
                     <i class="fas fa-paper-plane px-1"></i>
                 </button>
@@ -779,21 +1045,79 @@
             </a>`;
         }
 
-        const formattedMessage = data.message
-            ? (data.is_html ? data.message : highlightMentions(data.message.replace(/\n/g, '<br>')))
+        // ตรวจว่าเป็น sticker หรือไม่
+        const stickerMap = {
+            wave: '👋', pray: '🙏', thumbup: '👍', heart: '❤️',
+            laugh: '😂', sad: '😢', wow: '😲', fire: '🔥',
+            clap: '👏', bye: '🫡', sleep: '😴', strong: '💪'
+        };
+        const stickerLabels = {
+            wave: 'สวัสดี', pray: 'ขอบคุณ', thumbup: 'โอเค', heart: 'รักเลย',
+            laugh: 'ฮ่าๆ', sad: 'เสียใจ', wow: 'ว้าว', fire: 'เยี่ยม',
+            clap: 'ปรบมือ', bye: 'ลาก่อน', sleep: 'หลับละ', strong: 'สู้ๆ'
+        };
+        const stickerMatch = data.message && data.message.match(/^\[sticker:(\w+)\]$/);
+
+        let formattedMessage = '';
+        let extraBubbleClass = '';
+        if (stickerMatch) {
+            const code = stickerMatch[1];
+            const emoji = stickerMap[code] || '😊';
+            const label = stickerLabels[code] || code;
+            formattedMessage = `<span class="sticker-big">${emoji}</span><span class="sticker-name">${label}</span>`;
+            extraBubbleClass = 'sticker-bubble';
+        } else {
+            formattedMessage = data.message
+                ? (data.is_html ? data.message : highlightMentions(data.message.replace(/\n/g, '<br>')))
+                : '';
+        }
+
+        // Reply quote block
+        let replyHtml = '';
+        if (data.reply_to_id && data.reply_username) {
+            const safeRName = escapeHtml(data.reply_username || '');
+            const safeRText = escapeHtml((data.reply_preview || '').substring(0, 80));
+            replyHtml = `<div class="reply-quote" data-scroll-to="${data.reply_to_id}">
+                <div class="reply-quote-name">${safeRName}</div>
+                <span class="reply-quote-text">${safeRText}</span>
+            </div>`;
+        }
+
+        // Satisfaction badges for CHECK_OUT
+        let satisfactionHtml = '';
+        if (data.gps_check_type === 'CHECK_OUT') {
+            const hasComplete = data.customer_name && data.customer_phone;
+            const completeBadge = hasComplete
+                ? `<span class="sat-complete-badge">✅ ครบถ้วน — ${escapeHtml(data.customer_name||'')}</span>`
+                : `<span class="sat-incomplete-badge">⚠️ ข้อมูลไม่ครบ</span>`;
+            const ratingMap = {
+                VERY_SATISFIED: `<span class="rating-badge rating-very-satisfied">😊 พอใจมาก</span>`,
+                SATISFIED:      `<span class="rating-badge rating-satisfied">🙂 พอใจ</span>`,
+                NOT_SATISFIED:  `<span class="rating-badge rating-not-satisfied">😞 ไม่พอใจ</span>`,
+            };
+            const ratingBadge = data.customer_rating ? (ratingMap[data.customer_rating] || '') : '';
+            satisfactionHtml = `<div style="margin-top:0.3rem;display:flex;flex-wrap:wrap;gap:0.25rem;align-items:center;">${completeBadge}${ratingBadge}</div>`;
+        }
+
+        // Reply button
+        const msgId = data.id || '';
+        const replyBtnHtml = msgId
+            ? `<button class="reply-btn" data-reply-msgid="${msgId}" data-reply-user="${escapeAttr(data.username||'')}" data-reply-text="${escapeAttr((data.message||'').substring(0,60))}" title="ตอบกลับ">↩</button>`
             : '';
 
         const msgEl = document.createElement('div');
-        msgEl.className = `message-bubble ${bubbleClass}`;
-        msgEl.dataset.msgId = data.id;
+        msgEl.className = `message-bubble ${bubbleClass} ${extraBubbleClass}`;
+        if (msgId) msgEl.dataset.msgId = msgId;
         msgEl.innerHTML = `
             ${!isSelf ? `<div class="message-info">${data.username}</div>` : ''}
             <div class="message-text">
+                ${replyHtml}
                 ${mediaHtml}
-                <span class="block">${formattedMessage} ${sttIcon}</span>
+                <span class="block">${formattedMessage} ${stickerMatch ? '' : sttIcon}</span>
                 ${locationHtml}
+                ${satisfactionHtml}
             </div>
-            <div class="message-meta">${data.timestamp}</div>`;
+            <div class="message-meta">${replyBtnHtml}${data.timestamp}</div>`;
         messagesContainer.appendChild(msgEl);
     }
 
@@ -1147,14 +1471,75 @@
                 'is_stt': isSTT,
                 'latitude': lat,
                 'longitude': lon,
-                'location_name': locName
+                'location_name': locName,
+                'reply_to_id': replyToId,
+                'reply_preview': replyPreview,
+                'reply_username': replyUsername,
             }));
             document.getElementById('chat-message-input').value = '';
+            clearReply();
         } catch (e) {
             console.error("Error sending message:", e);
             alert("ไม่สามารถส่งข้อความได้เนื่องจากเกิดข้อผิดพลาดในการรับรองข้อมูล");
         }
     }
+
+    // ====== Helper: HTML escape ======
+    function escapeHtml(str) {
+        return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+    function escapeAttr(str) {
+        return String(str).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,' ');
+    }
+
+    // ====== Reply Message State ======
+    let replyToId = null;
+    let replyPreview = '';
+    let replyUsername = '';
+
+    function setReply(msgId, username, previewText) {
+        replyToId = msgId;
+        replyUsername = username;
+        replyPreview = previewText;
+        document.getElementById('reply-preview-name').textContent = username + ':';
+        document.getElementById('reply-preview-text').textContent = previewText;
+        document.getElementById('reply-preview-bar').classList.add('show');
+        document.getElementById('chat-message-input').focus();
+    }
+
+    function clearReply() {
+        replyToId = null;
+        replyUsername = '';
+        replyPreview = '';
+        document.getElementById('reply-preview-bar').classList.remove('show');
+    }
+
+    document.getElementById('reply-clear-btn').addEventListener('click', clearReply);
+
+    // ====== Scroll-to-message (for reply quote clicks) ======
+    function scrollToMsg(msgId) {
+        const el = messagesContainer.querySelector(`[data-msg-id="${msgId}"]`);
+        if (el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            el.style.transition = 'background 0.3s';
+            el.style.background = '#dbeafe';
+            setTimeout(() => { el.style.background = ''; }, 1600);
+        }
+    }
+
+    // Event delegation: reply button + reply quote scroll
+    messagesContainer.addEventListener('click', function(e) {
+        const replyBtn = e.target.closest('.reply-btn');
+        if (replyBtn) {
+            setReply(replyBtn.dataset.replyMsgid, replyBtn.dataset.replyUser, replyBtn.dataset.replyText);
+            e.stopPropagation();
+            return;
+        }
+        const quoteEl = e.target.closest('.reply-quote');
+        if (quoteEl && quoteEl.dataset.scrollTo) {
+            scrollToMsg(quoteEl.dataset.scrollTo);
+        }
+    });
 
     // --- GPS Check-in Modal (pure JS) ---
     const gpsOverlay    = document.getElementById('gpsModalOverlay');
@@ -1295,6 +1680,63 @@
         pendingGpsPayload = null;
     }
 
+    // --- GPS Group Popup ---
+    function toggleGpsGroup(e) {
+        e.stopPropagation();
+        const popup = document.getElementById('gps-group-popup');
+        const btn   = document.getElementById('gps-group-btn');
+        const isOpen = popup.classList.contains('show');
+        popup.classList.toggle('show', !isOpen);
+        btn.classList.toggle('active', !isOpen);
+        btn.classList.toggle('inactive', isOpen);
+    }
+    function closeGpsGroup() {
+        const popup = document.getElementById('gps-group-popup');
+        const btn   = document.getElementById('gps-group-btn');
+        popup.classList.remove('show');
+        // ถ้า auto-track ไม่ได้ทำงาน ให้ inactive ปกติ
+        {% if is_technician %}
+        const isTracking = document.getElementById('auto-track-btn') &&
+                           document.getElementById('auto-track-btn').classList.contains('tracking-active');
+        if (!isTracking) { btn.classList.remove('active'); btn.classList.add('inactive'); }
+        {% else %}
+        btn.classList.remove('active'); btn.classList.add('inactive');
+        {% endif %}
+    }
+
+    // --- ระบบ Sticker Picker ---
+    const stickerBtn = document.getElementById('sticker-btn');
+    const stickerPicker = document.getElementById('sticker-picker');
+
+    stickerBtn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        stickerPicker.classList.toggle('show');
+        stickerBtn.classList.toggle('active', stickerPicker.classList.contains('show'));
+    });
+
+    // ปิด popup ทั้งสองเมื่อคลิกที่อื่น
+    document.addEventListener('click', function(e) {
+        if (!document.getElementById('sticker-wrapper').contains(e.target)) {
+            stickerPicker.classList.remove('show');
+            stickerBtn.classList.remove('active');
+        }
+        if (!document.getElementById('gps-group-wrapper').contains(e.target)) {
+            closeGpsGroup();
+        }
+    });
+
+    // ส่ง sticker เมื่อคลิก
+    stickerPicker.querySelectorAll('.sticker-item').forEach(function(item) {
+        item.addEventListener('click', function() {
+            const code = item.dataset.code;
+            if (chatSocket && chatSocket.readyState === WebSocket.OPEN) {
+                chatSocket.send(JSON.stringify({ message: `[sticker:${code}]` }));
+            }
+            stickerPicker.classList.remove('show');
+            stickerBtn.classList.remove('active');
+        });
+    });
+
     // --- ระบบจัดการไฟล์ (File Attach) ---
     const fileTrigger = document.getElementById('file-trigger');
     const fileInput = document.getElementById('file-input');
@@ -1418,15 +1860,19 @@
     }
 
     function toggleAutoTrack() {
-        const btn = document.getElementById('auto-track-btn');
+        const btn      = document.getElementById('auto-track-btn');
+        const groupBtn = document.getElementById('gps-group-btn');
         if (watchId !== null) {
             // หยุด tracking
             navigator.geolocation.clearWatch(watchId);
             watchId = null;
             lastLat = null; lastLon = null;
-            btn.classList.remove('tracking');
-            btn.classList.add('inactive');
-            btn.title = 'Auto-Track GPS (ติดตามอัตโนมัติ)';
+            btn.classList.remove('tracking-active');
+            btn.innerHTML = '<i class="fas fa-satellite-dish"></i> Auto-Track GPS';
+            // GPS group button กลับ inactive
+            groupBtn.classList.remove('tracking');
+            groupBtn.classList.add('inactive');
+            groupBtn.title = 'GPS Check-in / Auto-Track';
             localStorage.setItem('autoTrack_room_{{ room.id }}', 'off');
         } else {
             // เริ่ม tracking
@@ -1459,9 +1905,12 @@
                 },
                 { enableHighAccuracy: true, maximumAge: 15000, timeout: 20000 }
             );
-            btn.classList.remove('inactive');
-            btn.classList.add('tracking');
-            btn.title = '🟢 Auto-Track กำลังทำงาน (คลิกเพื่อหยุด)';
+            btn.classList.add('tracking-active');
+            btn.innerHTML = '<i class="fas fa-satellite-dish" style="color:#16a34a;"></i> 🟢 กำลังติดตาม (หยุด)';
+            // GPS group button แสดงสถานะ tracking (สีเขียว)
+            groupBtn.classList.remove('inactive');
+            groupBtn.classList.add('tracking');
+            groupBtn.title = '🟢 Auto-Track กำลังทำงาน (คลิกเปิดเมนู)';
             localStorage.setItem('autoTrack_room_{{ room.id }}', 'on');
         }
     }

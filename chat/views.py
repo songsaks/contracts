@@ -200,9 +200,9 @@ def fetch_new_messages(request, room_id):
             pass
 
     if since_dt:
-        msgs = room.messages.filter(timestamp__gt=since_dt).order_by('timestamp').select_related('user')[:100]
+        msgs = room.messages.filter(timestamp__gt=since_dt).order_by('timestamp').select_related('user', 'reply_to__user')[:100]
     else:
-        msgs = room.messages.order_by('timestamp').select_related('user')[:50]
+        msgs = room.messages.order_by('timestamp').select_related('user', 'reply_to__user')[:50]
 
     data = []
     for msg in msgs:
@@ -219,6 +219,13 @@ def fetch_new_messages(request, room_id):
             'longitude': float(msg.longitude) if msg.longitude else None,
             'location_name': msg.location_name or '',
             'is_stt': msg.is_speech_to_text,
+            'gps_check_type': msg.gps_check_type or '',
+            'customer_rating': msg.customer_rating or '',
+            'customer_name': msg.customer_name or '',
+            'customer_phone': msg.customer_phone or '',
+            'reply_to_id': msg.reply_to_id,
+            'reply_preview': msg.reply_preview or '',
+            'reply_username': msg.reply_to.user.username if msg.reply_to_id and msg.reply_to else '',
         })
 
     return JsonResponse({'messages': data})
