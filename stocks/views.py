@@ -1915,21 +1915,21 @@ def precision_momentum_scanner(request):
 
         # ====== Top 5 หุ้นแนะนำซื้อ ======
         # เงื่อนไข: RVOL Bull ≥ 1.0x (มีแรงซื้อจริง) + RSI ไม่ overbought
-        def _top5_filter(min_rvol):
+        def _top5_filter(min_rvol, max_rsi=80):
             return sorted(
                 [c for c in candidates
                  if c.buy_score >= 50
                  and c.rvol_bullish
                  and c.rvol >= min_rvol
-                 and c.rsi <= 75],
+                 and c.rsi <= max_rsi],
                 key=lambda x: x.buy_score, reverse=True
             )[:5]
 
-        top5_buy = _top5_filter(1.0)          # ต้องการ RVOL ≥ 1.0x ก่อน
+        top5_buy = _top5_filter(1.0)          # RVOL ≥ 1.0x, RSI ≤ 80
         if len(top5_buy) < 5:
             top5_buy = _top5_filter(0.7)      # fallback: RVOL ≥ 0.7x
         if len(top5_buy) < 3:
-            top5_buy = _top5_filter(0.0)      # last resort: Bull direction เท่านั้น
+            top5_buy = _top5_filter(0.0)      # last resort: Bull direction, ไม่ fallback ถ้ามีน้อยกว่า 3
         for c in top5_buy:
             reasons = []
             in_zone = (c.demand_zone_start and c.demand_zone_end and
