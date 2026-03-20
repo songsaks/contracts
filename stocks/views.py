@@ -15,7 +15,7 @@ from .models import (
 )
 from .utils import (
     get_stock_data, analyze_with_ai, calculate_trailing_stop,
-    refresh_set100_symbols, find_supply_demand_zones
+    refresh_set100_symbols, find_supply_demand_zones, find_supply_demand_zones_v2
 )
 from decimal import Decimal
 from yahooquery import Ticker as YQTicker
@@ -2093,8 +2093,8 @@ def entry_finder(request, symbol):
         if isinstance(df.columns, pd.MultiIndex):
             df.columns = df.columns.droplevel(1)
 
-        # คำนวณ Supply & Demand Zone จาก utility function
-        sd_zone = find_supply_demand_zones(df)
+        # คำนวณ Supply & Demand Zone ด้วย v2 (52w high + ATR-based SL — ตรงกับ Precision Scanner)
+        sd_zone = find_supply_demand_zones_v2(df)
 
         # เตรียมข้อมูลกราฟ 120 วันล่าสุด
         # Chart Data
