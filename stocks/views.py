@@ -1796,7 +1796,7 @@ def precision_momentum_scanner(request):
 
     # ====== จัดเรียงผลลัพธ์ ======
     sort_by = request.GET.get('sort', 'score')
-    valid_sorts = {
+    valid_db_sorts = {
         'symbol': 'symbol',
         'score': '-technical_score',
         'price': '-price',
@@ -1806,7 +1806,8 @@ def precision_momentum_scanner(request):
         'prox': 'zone_proximity',
         'round_rr': '-risk_reward_ratio',
     }
-    order_field = valid_sorts.get(sort_by, '-technical_score')
+    use_db_sort = sort_by in valid_db_sorts
+    order_field = valid_db_sorts.get(sort_by, '-technical_score')
 
     # รายชื่อ scan runs ทั้งหมด (index 0 = ล่าสุด)
     all_runs = list(
@@ -1824,16 +1825,69 @@ def precision_momentum_scanner(request):
         run_idx = 0
     run_idx = max(0, min(run_idx, len(all_runs) - 1)) if all_runs else 0
 
-    candidates = PrecisionScanCandidate.objects.none()
+    candidates = []
     scanned_at = None
     if all_runs:
         selected_run = all_runs[run_idx]
-        candidates = (
-            PrecisionScanCandidate.objects
-            .filter(user=request.user, scan_run=selected_run)
-            .order_by(order_field)
-        )
+        qs = PrecisionScanCandidate.objects.filter(user=request.user, scan_run=selected_run)
+        if use_db_sort:
+            qs = qs.order_by(order_field)
+        candidates = list(qs)
         scanned_at = selected_run
+
+        # คำนวณ BUY Score และ SELL Score (composite) สำหรับแต่ละหุ้น
+        for c in candidates:
+            # --- BUY SCORE (0–100): ยิ่งสูง ยิ่งเหมาะซื้อตอนนี้ ---
+            buy = int(c.technical_score * 0.35)
+
+            in_zone = (c.demand_zone_start and c.demand_zone_end and
+                       c.price <= c.demand_zone_start and c.price >= c.demand_zone_end)
+            if in_zone:
+                buy += 30
+            elif c.zone_proximity <= 10:
+                buy += 20
+            elif c.zone_proximity <= 30:
+                buy += 10
+            elif c.zone_proximity <= 60:
+                buy += 5
+
+            rr = c.risk_reward_ratio or 0
+            if rr >= 3:     buy += 15
+            elif rr >= 2:   buy += 10
+            elif rr >= 1.5: buy += 5
+
+            if c.rvol_bullish and c.rvol >= 1.5:   buy += 10
+            elif c.rvol_bullish and c.rvol >= 1.0: buy += 5
+
+            if c.erc_volume_confirmed: buy += 5
+
+            if 55 <= c.rsi <= 70:   buy += 5
+            elif 45 <= c.rsi < 55:  buy += 2
+
+            c.buy_score = min(100, buy)
+
+            # --- SELL SCORE (0–100): ยิ่งสูง ยิ่งควรพิจารณาขาย ---
+            sell = 0
+            if c.supply_zone_start and c.price >= c.supply_zone_start:
+                sell += 50
+
+            if c.rsi > 75:   sell += 20
+            elif c.rsi > 70: sell += 10
+
+            if not c.rvol_bullish: sell += 15
+
+            if c.adx < 20: sell += 10
+
+            if c.year_high and c.price and c.price >= c.year_high * 0.95:
+                sell += 5
+
+            c.sell_score = min(100, sell)
+
+        # เรียงตาม BUY/SELL score ด้วย Python
+        if sort_by == 'buy':
+            candidates.sort(key=lambda x: x.buy_score, reverse=True)
+        elif sort_by == 'sell':
+            candidates.sort(key=lambda x: x.sell_score, reverse=True)
 
     context = {
         'title': 'Precision Momentum Scanner — กรองคุณภาพ',

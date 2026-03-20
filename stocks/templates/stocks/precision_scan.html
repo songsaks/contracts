@@ -346,6 +346,8 @@
                             <th class="ps-4"><a href="?sort=symbol&run_idx={{ selected_run_idx }}" class="text-decoration-none text-muted">SYMBOL</a></th>
                             <th><a href="?sort=prox&run_idx={{ selected_run_idx }}" class="text-decoration-none text-muted">ZONE STATUS</a></th>
                             <th><a href="?sort=score&run_idx={{ selected_run_idx }}" class="text-decoration-none text-muted">PRECISION SCORE</a></th>
+                            <th><a href="?sort=buy&run_idx={{ selected_run_idx }}" class="text-decoration-none {% if current_sort == 'buy' %}fw-bold{% else %}text-muted{% endif %}" style="{% if current_sort == 'buy' %}color:#16a34a;{% endif %}">BUY ▼</a></th>
+                            <th><a href="?sort=sell&run_idx={{ selected_run_idx }}" class="text-decoration-none {% if current_sort == 'sell' %}fw-bold{% else %}text-muted{% endif %}" style="{% if current_sort == 'sell' %}color:#dc2626;{% endif %}">SELL ▼</a></th>
                             <th><a href="?sort=round_rr&run_idx={{ selected_run_idx }}" class="text-decoration-none text-muted">RR</a></th>
                             <th><a href="?sort=rvol&run_idx={{ selected_run_idx }}" class="text-decoration-none text-muted">RVOL</a></th>
                             <th><a href="?sort=adx&run_idx={{ selected_run_idx }}" class="text-decoration-none text-muted">ADX</a></th>
@@ -422,6 +424,32 @@
                                     <span class="fw-bold small {% if item.technical_score >= 80 %}text-success{% elif item.technical_score >= 50 %}text-primary{% else %}text-warning{% endif %}">
                                         {{ item.technical_score }}
                                     </span>
+                                </div>
+                            </td>
+
+                            <!-- BUY SCORE -->
+                            <td>
+                                <div class="d-flex flex-column align-items-center gap-1">
+                                    <span class="fw-bold {% if item.buy_score >= 80 %}text-success{% elif item.buy_score >= 60 %}text-primary{% elif item.buy_score >= 40 %}text-warning{% else %}text-muted{% endif %}" style="font-size:0.92rem;line-height:1;">
+                                        {{ item.buy_score }}
+                                    </span>
+                                    <div class="progress" style="width:38px;height:3px;border-radius:2px;">
+                                        <div class="progress-bar {% if item.buy_score >= 80 %}bg-success{% elif item.buy_score >= 60 %}bg-primary{% elif item.buy_score >= 40 %}bg-warning{% else %}bg-secondary{% endif %}" role="progressbar" style="width:{{ item.buy_score }}%"></div>
+                                    </div>
+                                </div>
+                            </td>
+
+                            <!-- SELL SCORE -->
+                            <td>
+                                <div class="d-flex flex-column align-items-center gap-1">
+                                    <span class="fw-bold {% if item.sell_score >= 50 %}text-danger{% elif item.sell_score >= 20 %}text-warning{% else %}text-muted{% endif %}" style="font-size:0.92rem;line-height:1;">
+                                        {{ item.sell_score }}
+                                    </span>
+                                    {% if item.sell_score > 0 %}
+                                    <div class="progress" style="width:38px;height:3px;border-radius:2px;">
+                                        <div class="progress-bar {% if item.sell_score >= 50 %}bg-danger{% elif item.sell_score >= 20 %}bg-warning{% else %}bg-secondary{% endif %}" role="progressbar" style="width:{{ item.sell_score }}%"></div>
+                                    </div>
+                                    {% endif %}
                                 </div>
                             </td>
 
@@ -534,7 +562,7 @@
                         </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="13" class="text-center py-5 text-muted">
+                            <td colspan="15" class="text-center py-5 text-muted">
                                 <i class="fas fa-filter fa-2x mb-2 d-block opacity-25"></i>
                                 ไม่พบหุ้นที่ผ่านเกณฑ์ Precision ทั้งหมด
                             </td>
