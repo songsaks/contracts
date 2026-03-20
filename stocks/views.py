@@ -414,41 +414,56 @@ def portfolio_list(request):
                 percent_trail=3.0  # Trailing 3% จาก High
             ) if current_price > 0 else None
 
-            # ====== ดึง/คำนวณ Momentum Zone Data ======
-            # ตัด .BK suffix เพื่อให้ตรงกับ symbol ที่บันทึกจากการสแกน
-            # Momentum / Zone Data
+            # ====== ดึง/คำนวณ Zone Data — ใช้ PrecisionScanCandidate (v2) เสมอ ======
             clean_symbol = item.symbol.split('.')[0].upper()
-            from .utils import analyze_momentum_technical
+            from .utils import analyze_momentum_technical_v2
+            from .models import PrecisionScanCandidate
 
-            # ค้นหาข้อมูล momentum ที่เคยสแกนไว้ (clean symbol ก่อน ถ้าไม่เจอลอง full symbol)
-            mom_data = MomentumCandidate.objects.filter(user=request.user, symbol=clean_symbol).first()
-            if not mom_data:
-                mom_data = MomentumCandidate.objects.filter(user=request.user, symbol=item.symbol).first()
+            # 1. ลองหาผล Precision Scan ล่าสุดก่อน (ตรงกับ Precision Scanner ทุกค่า)
+            prec_data = (PrecisionScanCandidate.objects
+                         .filter(user=request.user, symbol=clean_symbol)
+                         .order_by('-scan_run').first())
 
-            # ถ้าไม่มีข้อมูลสแกน หรือผู้ใช้กด refresh — คำนวณ on-the-fly
-            # Calculate on-the-fly if needed
-            tech_analysis = analyze_momentum_technical(hist) if not hist.empty else None
-            if (not mom_data or request.GET.get('refresh') == 'true') and tech_analysis:
-                # สร้าง object ชั่วคราวเพื่อเก็บข้อมูลโดยไม่บันทึกลง DB
+            if prec_data and not request.GET.get('refresh') == 'true':
+                # ใช้ข้อมูลจาก Precision Scanner โดยตรง
                 class QuickMom: pass
-                q_mom = QuickMom()
-                q_mom.technical_score = tech_analysis['score']
-                q_mom.rvol = tech_analysis['rvol']
-                sd = tech_analysis.get('sd_zone')
-                if sd and sd.get('start') and sd['start'] > 0:
-                    q_mom.risk_reward_ratio = sd.get('rr_ratio', 0)
-                    q_mom.demand_zone_start = sd['start']
-                    q_mom.demand_zone_end = sd.get('end', 0)
-                    q_mom.supply_zone_start = sd.get('target', 0)
-                    q_mom.stop_loss = sd.get('stop_loss', None)
-                    # คำนวณ % ห่างจากราคาปัจจุบันถึง zone
-                    q_mom.zone_proximity = 0 if current_price <= sd['start'] else ((float(current_price) - sd['start']) / sd['start']) * 100
+                mom_data = QuickMom()
+                mom_data.technical_score = prec_data.technical_score
+                mom_data.rvol = prec_data.rvol
+                mom_data.risk_reward_ratio = prec_data.risk_reward_ratio
+                mom_data.demand_zone_start = prec_data.demand_zone_start
+                mom_data.demand_zone_end = prec_data.demand_zone_end
+                mom_data.supply_zone_start = prec_data.supply_zone_start
+                mom_data.stop_loss = prec_data.stop_loss
+                mom_data.zone_proximity = prec_data.zone_proximity
+            else:
+                # 2. คำนวณ on-the-fly ด้วย v2 (ตรงกับ Precision Scanner)
+                tech_analysis = analyze_momentum_technical_v2(hist) if not hist.empty else None
+                class QuickMom: pass
+                mom_data = QuickMom()
+                if tech_analysis:
+                    mom_data.technical_score = tech_analysis['score']
+                    mom_data.rvol = tech_analysis['rvol']
+                    sd = tech_analysis.get('sd_zone')
+                    if sd and sd.get('start') and sd['start'] > 0:
+                        mom_data.risk_reward_ratio = sd.get('rr_ratio', 0)
+                        mom_data.demand_zone_start = sd['start']
+                        mom_data.demand_zone_end = sd.get('end', 0)
+                        mom_data.supply_zone_start = sd.get('target', 0)
+                        mom_data.stop_loss = sd.get('stop_loss', None)
+                        mom_data.zone_proximity = 0 if current_price <= sd['start'] else ((float(current_price) - sd['start']) / sd['start']) * 100
+                    else:
+                        mom_data.risk_reward_ratio = 0
+                        mom_data.demand_zone_start = 0
+                        mom_data.stop_loss = None
+                        mom_data.zone_proximity = 999
                 else:
-                    q_mom.risk_reward_ratio = 0
-                    q_mom.demand_zone_start = 0
-                    q_mom.stop_loss = None
-                    q_mom.zone_proximity = 999  # ไม่พบโซน
-                mom_data = q_mom
+                    mom_data.technical_score = 0
+                    mom_data.rvol = 0
+                    mom_data.risk_reward_ratio = 0
+                    mom_data.demand_zone_start = 0
+                    mom_data.stop_loss = None
+                    mom_data.zone_proximity = 999
 
             total_market_value += market_value
             total_gain_loss += gain_loss
@@ -1889,6 +1904,51 @@ def precision_momentum_scanner(request):
         elif sort_by == 'sell':
             candidates.sort(key=lambda x: x.sell_score, reverse=True)
 
+        # ====== Top 5 หุ้นแนะนำซื้อ ======
+        top5_buy = sorted([c for c in candidates if c.buy_score >= 50],
+                          key=lambda x: x.buy_score, reverse=True)[:5]
+        for c in top5_buy:
+            reasons = []
+            in_zone = (c.demand_zone_start and c.demand_zone_end and
+                       c.price <= c.demand_zone_start and c.price >= c.demand_zone_end)
+            if in_zone:
+                reasons.append("อยู่ใน Entry Zone แล้ว")
+            elif c.zone_proximity <= 10:
+                reasons.append(f"ห่างโซนแค่ {c.zone_proximity:.0f}%")
+            elif c.zone_proximity <= 30:
+                reasons.append(f"ใกล้โซน {c.zone_proximity:.0f}%")
+
+            if c.rvol_bullish and c.rvol >= 1.5:
+                reasons.append(f"RVOL {c.rvol:.1f}x Bull แรง")
+            elif c.rvol_bullish and c.rvol >= 1.0:
+                reasons.append(f"RVOL {c.rvol:.1f}x Bull ยืนยัน")
+
+            rr = c.risk_reward_ratio or 0
+            if rr >= 3:
+                reasons.append(f"RR 1:{rr:.1f} ดีเยี่ยม")
+            elif rr >= 2:
+                reasons.append(f"RR 1:{rr:.1f} ดี")
+
+            if c.adx >= 30:
+                reasons.append(f"ADX {c.adx:.0f} เทรนด์แข็ง")
+            elif c.adx >= 25:
+                reasons.append(f"ADX {c.adx:.0f} มีเทรนด์")
+
+            if c.technical_score >= 85:
+                reasons.append(f"Precision {c.technical_score} สูงมาก")
+            elif c.technical_score >= 75:
+                reasons.append(f"Precision {c.technical_score} ดี")
+
+            if c.erc_volume_confirmed:
+                reasons.append("ERC ยืนยันแล้ว")
+
+            if 55 <= c.rsi <= 70:
+                reasons.append(f"RSI {c.rsi:.0f} จุดหวาน")
+
+            c.top_reasons = reasons[:4]
+    else:
+        top5_buy = []
+
     context = {
         'title': 'Precision Momentum Scanner — กรองคุณภาพ',
         'candidates': candidates,
@@ -1897,6 +1957,7 @@ def precision_momentum_scanner(request):
         'all_runs': all_runs,
         'selected_run_idx': run_idx,
         'has_scanned': request.method == "POST" or request.GET.get('scan') == 'true' or bool(all_runs),
+        'top5_buy': top5_buy,
     }
     return render(request, 'stocks/precision_scan.html', context)
 

@@ -319,6 +319,66 @@
 </div>
 {% endif %}
 
+<!-- TOP 5 BEST BUY RECOMMENDATIONS -->
+{% if top5_buy %}
+<div class="col-12 mb-2">
+    <div class="card border-0 shadow-sm" style="border-radius:1rem; background:linear-gradient(135deg,#f0fdf4 0%,#eff6ff 100%);">
+        <div class="card-body p-3">
+            <div class="d-flex align-items-center gap-2 mb-3">
+                <span style="font-size:1.3rem;">🏆</span>
+                <span class="fw-bold" style="font-size:1rem; color:#14532d;">Top 5 หุ้นแนะนำซื้อตอนนี้</span>
+                <span class="text-muted" style="font-size:0.8rem;">— เรียงตาม BUY Score (คะแนนรวมหลายปัจจัย)</span>
+            </div>
+            <div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-xl-5 g-2">
+                {% for item in top5_buy %}
+                <div class="col">
+                    <div class="h-100 p-3 position-relative" style="background:white; border-radius:0.85rem; border:2px solid {% if item.buy_score >= 80 %}#86efac{% elif item.buy_score >= 65 %}#93c5fd{% else %}#e2e8f0{% endif %}; box-shadow:0 1px 4px rgba(0,0,0,0.06);">
+                        <!-- Rank badge -->
+                        <span class="position-absolute" style="top:-10px; left:12px; background:{% if forloop.first %}#f59e0b{% elif forloop.counter == 2 %}#94a3b8{% elif forloop.counter == 3 %}#b45309{% else %}#6366f1{% endif %}; color:white; border-radius:999px; font-size:0.65rem; font-weight:700; padding:1px 8px;">#{{ forloop.counter }}</span>
+                        <!-- Symbol & BUY score -->
+                        <div class="d-flex align-items-center justify-content-between mb-1 mt-1">
+                            <span class="fw-bold" style="font-size:1rem; color:#1e293b;">{{ item.symbol }}</span>
+                            <span class="fw-bold px-2 rounded-pill" style="background:{% if item.buy_score >= 80 %}#dcfce7; color:#15803d{% elif item.buy_score >= 65 %}#dbeafe; color:#1d4ed8{% else %}#f1f5f9; color:#475569{% endif %}; font-size:0.82rem; border:1px solid {% if item.buy_score >= 80 %}#86efac{% elif item.buy_score >= 65 %}#93c5fd{% else %}#cbd5e1{% endif %};">BUY {{ item.buy_score }}</span>
+                        </div>
+                        <!-- Price + zone label -->
+                        <div class="mb-2 d-flex align-items-center gap-1 flex-wrap">
+                            <span style="font-size:0.88rem; font-weight:600; color:#0f172a;">฿{{ item.price }}</span>
+                            {% if item.demand_zone_start and item.price <= item.demand_zone_start and item.price >= item.demand_zone_end %}
+                            <span class="badge" style="background:#22c55e; font-size:0.6rem; padding:2px 6px;">IN ZONE</span>
+                            {% elif item.zone_proximity <= 10 %}
+                            <span class="badge" style="background:#f59e0b; font-size:0.6rem; padding:2px 6px;">NEAR {{ item.zone_proximity|floatformat:0 }}%</span>
+                            {% elif item.zone_proximity <= 30 %}
+                            <span class="badge" style="background:#fb923c; font-size:0.6rem; padding:2px 6px; color:white;">{{ item.zone_proximity|floatformat:0 }}% TO ZONE</span>
+                            {% endif %}
+                        </div>
+                        <!-- Reasons -->
+                        <ul class="mb-2 ps-0" style="list-style:none; font-size:0.75rem; color:#374151; line-height:1.75;">
+                            {% for reason in item.top_reasons %}
+                            <li><span style="color:#16a34a; font-weight:700;">✓</span> {{ reason }}</li>
+                            {% endfor %}
+                        </ul>
+                        <!-- Mini stats row -->
+                        <div class="d-flex gap-2 flex-wrap mb-2" style="font-size:0.72rem;">
+                            {% if item.risk_reward_ratio %}
+                            <span class="fw-semibold" style="color:{% if item.risk_reward_ratio >= 3 %}#16a34a{% elif item.risk_reward_ratio >= 2 %}#2563eb{% else %}#64748b{% endif %};">RR 1:{{ item.risk_reward_ratio|floatformat:1 }}</span>
+                            {% endif %}
+                            <span style="color:{% if item.rvol >= 1.5 %}#16a34a{% elif item.rvol >= 1.0 %}#2563eb{% else %}#94a3b8{% endif %}; font-weight:600;">{{ item.rvol|floatformat:1 }}x {% if item.rvol_bullish %}▲{% else %}▼{% endif %}</span>
+                            <span style="color:#64748b;">ADX {{ item.adx|floatformat:0 }}</span>
+                            <span style="color:#64748b;">RSI {{ item.rsi|floatformat:0 }}</span>
+                        </div>
+                        <!-- Sniper chart link -->
+                        <a href="{% url 'stocks:entry_finder' item.symbol %}" class="btn btn-sm w-100" style="background:#f0fdf4; color:#15803d; border:1px solid #bbf7d0; font-size:0.73rem; padding:3px 8px; border-radius:0.5rem;">
+                            <i class="fas fa-crosshairs me-1"></i>Sniper Chart
+                        </a>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
 <!-- SCAN RESULT TABLE -->
 <div class="col-12">
     <div class="card border-0 mb-4 shadow-sm" style="border-radius: 1rem;">
