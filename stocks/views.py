@@ -1853,26 +1853,35 @@ def precision_momentum_scanner(request):
         # คำนวณ BUY Score และ SELL Score (composite) สำหรับแต่ละหุ้น
         for c in candidates:
             # --- BUY SCORE (0–100): ยิ่งสูง ยิ่งเหมาะซื้อตอนนี้ ---
-            buy = int(c.technical_score * 0.35)
+            # สูตร v2: เพิ่มน้ำหนัก RVOL — volume จริงสำคัญกว่าแค่อยู่ใน zone
+            buy = int(c.technical_score * 0.30)   # max 30
 
             in_zone = (c.demand_zone_start and c.demand_zone_end and
                        c.price <= c.demand_zone_start and c.price >= c.demand_zone_end)
             if in_zone:
-                buy += 30
+                buy += 25
             elif c.zone_proximity <= 10:
-                buy += 20
+                buy += 15
             elif c.zone_proximity <= 30:
-                buy += 10
+                buy += 8
             elif c.zone_proximity <= 60:
-                buy += 5
+                buy += 3
+
+            # RVOL (น้ำหนักเพิ่มขึ้นมาก — volume แรงสะท้อนแรงซื้อจริง)
+            if c.rvol_bullish and c.rvol >= 2.0:   buy += 22
+            elif c.rvol_bullish and c.rvol >= 1.5: buy += 17
+            elif c.rvol_bullish and c.rvol >= 1.0: buy += 12
+            elif c.rvol_bullish and c.rvol >= 0.7: buy += 4
 
             rr = c.risk_reward_ratio or 0
             if rr >= 3:     buy += 15
             elif rr >= 2:   buy += 10
             elif rr >= 1.5: buy += 5
 
-            if c.rvol_bullish and c.rvol >= 1.5:   buy += 10
-            elif c.rvol_bullish and c.rvol >= 1.0: buy += 5
+            # ADX — เทรนด์ยิ่งแข็ง ยิ่งน่าเข้า
+            if c.adx >= 35:   buy += 8
+            elif c.adx >= 30: buy += 5
+            elif c.adx >= 25: buy += 2
 
             if c.erc_volume_confirmed: buy += 5
 
@@ -1905,8 +1914,12 @@ def precision_momentum_scanner(request):
             candidates.sort(key=lambda x: x.sell_score, reverse=True)
 
         # ====== Top 5 หุ้นแนะนำซื้อ ======
-        top5_buy = sorted([c for c in candidates if c.buy_score >= 50],
-                          key=lambda x: x.buy_score, reverse=True)[:5]
+        # เงื่อนไข: ต้องเป็น Bull RVOL เท่านั้น + RSI ไม่ overbought เกิน 75
+        top5_buy = sorted(
+            [c for c in candidates
+             if c.buy_score >= 50 and c.rvol_bullish and c.rsi <= 75],
+            key=lambda x: x.buy_score, reverse=True
+        )[:5]
         for c in top5_buy:
             reasons = []
             in_zone = (c.demand_zone_start and c.demand_zone_end and
