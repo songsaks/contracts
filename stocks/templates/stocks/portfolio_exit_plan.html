@@ -1,0 +1,229 @@
+{% extends 'base.html' %}
+{% load humanize %}
+
+{% block title %}แผนออกหุ้น — Portfolio Exit Plan{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-3 px-md-4 py-4">
+
+  <!-- Header -->
+  <div class="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-2">
+    <div>
+      <h4 class="fw-bold mb-0" style="color:#1e293b;">
+        <i class="fas fa-sign-out-alt me-2" style="color:#dc2626;"></i>แผนออกหุ้น
+      </h4>
+      <div class="small text-muted mt-1">เรียงตามความเร่งด่วน — ตัวที่ควรออกก่อนอยู่บนสุด</div>
+    </div>
+    <a href="{% url 'stocks:portfolio_list' %}" class="btn btn-outline-secondary btn-sm rounded-pill px-3">
+      <i class="fas fa-arrow-left me-1"></i> กลับพอร์ต
+    </a>
+  </div>
+
+  {% if not items %}
+  <div class="text-center py-5 text-muted">
+    <i class="fas fa-inbox fa-3x mb-3 opacity-25"></i>
+    <div>ไม่มีหุ้นในพอร์ต</div>
+  </div>
+  {% endif %}
+
+  {% for item in items %}
+  <div class="card border-0 shadow-sm mb-3 overflow-hidden"
+       style="border-radius:1rem;
+              border-left: 4px solid {% if item.exit_signal == 'STRONG EXIT' or item.sl_hit %}#dc2626{% elif item.exit_signal == 'EXIT' %}#f59e0b{% elif item.exit_signal == 'WATCH' %}#f59e0b{% else %}#22c55e{% endif %} !important;">
+
+    <div class="card-body p-0">
+
+      <!-- ===== ROW 1: Stock Header ===== -->
+      <div class="d-flex align-items-center justify-content-between p-3 pb-2 flex-wrap gap-2">
+
+        <!-- Symbol + name -->
+        <div class="d-flex align-items-center gap-3">
+          <div class="rounded-circle d-flex align-items-center justify-content-center fw-bold text-white"
+               style="width:42px;height:42px;flex-shrink:0;font-size:0.75rem;
+                      background:{% if item.exit_signal == 'STRONG EXIT' or item.sl_hit %}#dc2626{% elif item.exit_signal == 'EXIT' %}#f59e0b{% elif item.exit_signal == 'WATCH' %}#b45309{% else %}#16a34a{% endif %};">
+            {{ item.obj.symbol|slice:":3" }}
+          </div>
+          <div>
+            <div class="fw-bold" style="font-size:1rem;color:#1e293b;">{{ item.obj.symbol }}</div>
+            <div class="small text-muted">{{ item.obj.name|default:"" }} &nbsp;·&nbsp; ถือ {{ item.days_held }} วัน &nbsp;·&nbsp; {{ item.quantity|floatformat:0 }} หุ้น</div>
+          </div>
+        </div>
+
+        <!-- Price + P/L -->
+        <div class="text-end">
+          <div class="fw-bold" style="font-size:1.1rem;color:#1e293b;">฿{{ item.current_price|floatformat:2 }}</div>
+          <div class="small fw-bold {% if item.gain_loss_pct >= 0 %}text-success{% else %}text-danger{% endif %}">
+            {% if item.gain_loss_pct >= 0 %}+{% endif %}{{ item.gain_loss_pct|floatformat:2 }}%
+            <span class="text-muted fw-normal ms-1">จากทุน ฿{{ item.entry_price|floatformat:2 }}</span>
+          </div>
+        </div>
+
+        <!-- Action Badge -->
+        <div>
+          {% if item.exit_signal == 'STRONG EXIT' or item.sl_hit %}
+          <span class="badge px-3 py-2 rounded-pill" style="background:#dc2626;color:white;font-size:0.8rem;">
+            🚨 {{ item.action }}
+          </span>
+          {% elif item.exit_signal == 'EXIT' %}
+          <span class="badge px-3 py-2 rounded-pill" style="background:#f59e0b;color:white;font-size:0.8rem;">
+            ⚠️ {{ item.action }}
+          </span>
+          {% elif item.exit_signal == 'WATCH' %}
+          <span class="badge px-3 py-2 rounded-pill" style="background:rgba(245,158,11,0.15);color:#b45309;border:1px solid #f59e0b;font-size:0.8rem;">
+            👁 {{ item.action }}
+          </span>
+          {% elif item.tp_hit %}
+          <span class="badge px-3 py-2 rounded-pill" style="background:#2563eb;color:white;font-size:0.8rem;">
+            🎯 {{ item.action }}
+          </span>
+          {% else %}
+          <span class="badge px-3 py-2 rounded-pill" style="background:rgba(22,163,74,0.12);color:#15803d;border:1px solid #86efac;font-size:0.8rem;">
+            ✓ {{ item.action }}
+          </span>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- ===== ROW 2: Action Detail ===== -->
+      <div class="px-3 pb-2">
+        <div class="rounded-2 px-3 py-2 small fw-bold"
+             style="background:{% if item.exit_signal == 'STRONG EXIT' or item.sl_hit %}rgba(220,38,38,0.08){% elif item.exit_signal == 'EXIT' %}rgba(245,158,11,0.10){% elif item.exit_signal == 'WATCH' %}rgba(245,158,11,0.07){% else %}rgba(22,163,74,0.07){% endif %};
+                    color:{% if item.exit_signal == 'STRONG EXIT' or item.sl_hit %}#991b1b{% elif item.exit_signal == 'EXIT' %}#92400e{% elif item.exit_signal == 'WATCH' %}#92400e{% else %}#166534{% endif %};">
+          <i class="fas fa-lightbulb me-1"></i> {{ item.action_detail }}
+        </div>
+      </div>
+
+      <!-- ===== ROW 3: Progress Bar SL → Entry → Current → TP ===== -->
+      {% if item.sl_price and item.tp_price and item.current_pct is not None %}
+      <div class="px-3 pb-2">
+        <div class="d-flex justify-content-between small text-muted mb-1">
+          <span style="color:#dc2626;font-weight:600;">SL ฿{{ item.sl_price|floatformat:2 }}</span>
+          <span class="text-muted">ราคาปัจจุบัน ฿{{ item.current_price|floatformat:2 }}</span>
+          <span style="color:#2563eb;font-weight:600;">TP ฿{{ item.tp_price|floatformat:2 }}</span>
+        </div>
+
+        <!-- Progress track -->
+        <div class="position-relative" style="height:20px;">
+          <!-- Background track -->
+          <div class="rounded-pill overflow-hidden" style="height:8px;background:#f1f5f9;margin-top:6px;position:relative;">
+            <!-- Green fill up to current -->
+            <div class="rounded-pill" style="height:100%;width:{{ item.current_pct|floatformat:0 }}%;
+                         background:{% if item.sl_hit %}#dc2626{% elif item.current_pct >= 80 %}#2563eb{% elif item.current_pct >= 50 %}#16a34a{% else %}#f59e0b{% endif %};
+                         transition:width 0.5s;"></div>
+          </div>
+
+          <!-- Entry marker -->
+          <div style="position:absolute;top:0;left:{{ item.entry_pct|floatformat:0 }}%;transform:translateX(-50%);z-index:2;">
+            <div style="width:3px;height:20px;background:#64748b;border-radius:2px;margin:0 auto;"></div>
+          </div>
+        </div>
+
+        <div class="d-flex justify-content-between small mt-1" style="font-size:0.65rem;color:#94a3b8;">
+          <span>Stop Loss</span>
+          <span style="margin-left:{{ item.entry_pct|floatformat:0 }}%;">เข้าที่</span>
+          <span>Take Profit</span>
+        </div>
+
+        <!-- Distance summary -->
+        <div class="d-flex gap-3 mt-2 small">
+          {% if item.current_price > item.sl_price %}
+          <span style="color:#16a34a;">
+            <i class="fas fa-shield-alt me-1"></i>ห่าง SL {{ item.current_price|add:"-"|add:item.sl_price|floatformat:2 }}
+            ({{ item.sl_price|floatformat:0 }} → {{ item.current_price|floatformat:0 }})
+          </span>
+          {% else %}
+          <span style="color:#dc2626;font-weight:700;"><i class="fas fa-exclamation-triangle me-1"></i>หลุด SL แล้ว!</span>
+          {% endif %}
+          {% if item.tp_price and item.current_price < item.tp_price %}
+          <span style="color:#2563eb;">
+            <i class="fas fa-flag-checkered me-1"></i>เหลืออีก {{ item.tp_price|floatformat:1 }}→TP
+          </span>
+          {% elif item.tp_hit %}
+          <span style="color:#2563eb;font-weight:700;"><i class="fas fa-trophy me-1"></i>ถึง TP แล้ว!</span>
+          {% endif %}
+        </div>
+      </div>
+      {% endif %}
+
+      <!-- ===== ROW 4: SL / TP / Indicators Grid ===== -->
+      <div class="px-3 pb-2">
+        <div class="row g-2">
+          <div class="col-6 col-md-3">
+            <div class="rounded-2 p-2 text-center" style="background:#fff5f5;border:1px solid #fca5a5;">
+              <div style="font-size:0.6rem;color:#6b7280;margin-bottom:2px;">STOP LOSS</div>
+              <div class="fw-bold" style="color:#dc2626;font-size:0.9rem;">
+                {% if item.sl_price %}฿{{ item.sl_price|floatformat:2 }}{% else %}-{% endif %}
+              </div>
+              {% if item.sl_hit %}<div style="font-size:0.6rem;color:#dc2626;font-weight:700;">⚠️ หลุดแล้ว</div>{% endif %}
+            </div>
+          </div>
+          <div class="col-6 col-md-3">
+            <div class="rounded-2 p-2 text-center" style="background:#eff6ff;border:1px solid #bfdbfe;">
+              <div style="font-size:0.6rem;color:#6b7280;margin-bottom:2px;">TAKE PROFIT</div>
+              <div class="fw-bold" style="color:#2563eb;font-size:0.9rem;">
+                {% if item.tp_price %}฿{{ item.tp_price|floatformat:2 }}{% else %}-{% endif %}
+              </div>
+              {% if item.tp_hit %}<div style="font-size:0.6rem;color:#2563eb;font-weight:700;">🎯 ถึงแล้ว!</div>{% endif %}
+            </div>
+          </div>
+          <div class="col-4 col-md-2">
+            <div class="rounded-2 p-2 text-center" style="background:#f8fafc;border:1px solid #e2e8f0;">
+              <div style="font-size:0.6rem;color:#6b7280;margin-bottom:2px;">RSI</div>
+              <div class="fw-bold" style="font-size:0.9rem;color:{% if item.rsi > 75 %}#dc2626{% elif item.rsi > 65 %}#f59e0b{% else %}#16a34a{% endif %};">
+                {% if item.rsi %}{{ item.rsi|floatformat:0 }}{% else %}-{% endif %}
+              </div>
+            </div>
+          </div>
+          <div class="col-4 col-md-2">
+            <div class="rounded-2 p-2 text-center" style="background:#f8fafc;border:1px solid #e2e8f0;">
+              <div style="font-size:0.6rem;color:#6b7280;margin-bottom:2px;">REL MOM 3m</div>
+              <div class="fw-bold" style="font-size:0.9rem;color:{% if item.rel_3m >= 3 %}#16a34a{% elif item.rel_3m < 0 %}#dc2626{% else %}#f59e0b{% endif %};">
+                {% if item.rel_3m %}{% if item.rel_3m > 0 %}+{% endif %}{{ item.rel_3m|floatformat:1 }}%{% else %}-{% endif %}
+              </div>
+            </div>
+          </div>
+          <div class="col-4 col-md-2">
+            <div class="rounded-2 p-2 text-center" style="background:#f8fafc;border:1px solid #e2e8f0;">
+              <div style="font-size:0.6rem;color:#6b7280;margin-bottom:2px;">SELL SCORE</div>
+              <div class="fw-bold" style="font-size:0.9rem;color:{% if item.sell_score >= 50 %}#dc2626{% elif item.sell_score >= 30 %}#f59e0b{% else %}#16a34a{% endif %};">
+                {{ item.sell_score }}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== ROW 5: Active Triggers ===== -->
+      <div class="px-3 pb-3">
+        <div class="d-flex flex-wrap gap-2 align-items-center">
+          <span class="small text-muted" style="font-size:0.7rem;">สัญญาณ:</span>
+          {% for t in item.triggers %}
+          <span class="badge px-2 py-1 rounded-pill"
+                style="font-size:0.65rem;
+                       {% if t.level == 'danger' %}background:rgba(220,38,38,0.12);color:#dc2626;border:1px solid rgba(220,38,38,0.3);
+                       {% elif t.level == 'warning' %}background:rgba(245,158,11,0.12);color:#b45309;border:1px solid rgba(245,158,11,0.3);
+                       {% elif t.level == 'info' %}background:rgba(37,99,235,0.10);color:#1d4ed8;border:1px solid rgba(37,99,235,0.2);
+                       {% else %}background:rgba(22,163,74,0.10);color:#15803d;border:1px solid rgba(22,163,74,0.3);
+                       {% endif %}">
+            {% if t.level == 'danger' %}⚠️{% elif t.level == 'warning' %}👁{% elif t.level == 'success' %}✓{% endif %}
+            {{ t.label }}
+          </span>
+          {% endfor %}
+          {% if item.price_pattern %}
+          <span class="badge px-2 py-1 rounded-pill"
+                style="font-size:0.65rem;
+                       {% if item.price_pattern_score > 0 %}background:rgba(22,163,74,0.10);color:#15803d;border:1px solid rgba(22,163,74,0.3);
+                       {% elif item.price_pattern_score < 0 %}background:rgba(220,38,38,0.10);color:#dc2626;border:1px solid rgba(220,38,38,0.25);
+                       {% else %}background:#f1f5f9;color:#64748b;{% endif %}">
+            {% if item.price_pattern_score > 0 %}▲{% else %}▼{% endif %} {{ item.price_pattern }}
+          </span>
+          {% endif %}
+        </div>
+      </div>
+
+    </div><!-- /card-body -->
+  </div><!-- /card -->
+  {% endfor %}
+
+</div>
+{% endblock %}

@@ -265,6 +265,14 @@ class PrecisionScanCandidate(models.Model):
     upside_to_high = models.FloatField(default=0.0)
     zone_proximity = models.FloatField(default=999.0)
 
+    # ====== Price Pattern fields ======
+    price_pattern = models.CharField(max_length=30, blank=True, default='')
+    price_pattern_score = models.IntegerField(default=0)  # positive=bullish, negative=bearish
+
+    # ====== Relative Momentum vs SET Index ======
+    rel_momentum_1m = models.FloatField(default=0.0)   # stock 1m return − SET 1m return (%)
+    rel_momentum_3m = models.FloatField(default=0.0)   # stock 3m return − SET 3m return (%)
+
     class Meta:
         ordering = ['-scan_run', '-technical_score']
 

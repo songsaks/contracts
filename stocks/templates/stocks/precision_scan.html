@@ -261,24 +261,146 @@
                         </div>
                     </div>
 
+                    <!-- STEP 5: Price Pattern -->
+                    <div class="mb-4">
+                        <div class="d-flex align-items-center gap-2 mb-3">
+                            <span class="rounded-circle d-flex align-items-center justify-content-center fw-bold text-white"
+                                  style="width:28px;height:28px;background:#b45309;font-size:0.8rem;flex-shrink:0;">5</span>
+                            <h6 class="mb-0 fw-bold" style="color:#1e293b;">Price Pattern — แท่งเทียนบอกอะไร</h6>
+                        </div>
+                        <div class="row g-2">
+                            <!-- Bullish patterns -->
+                            <div class="col-md-6">
+                                <div class="rounded-3 p-3 h-100" style="background:#f0fdf4; border:1px solid #86efac;">
+                                    <div class="fw-bold small mb-2" style="color:#15803d;">▲ Bullish Patterns — เพิ่ม BUY Score</div>
+                                    <div class="small" style="line-height:2; color:#374151;">
+                                        <span class="badge me-1 px-2" style="background:rgba(22,163,74,0.15);color:#15803d;border:1px solid rgba(22,163,74,0.3);">▲ Bullish Engulf</span> <strong>+10</strong> แท่งขาขึ้นกลืนแท่งขาลง → แรงซื้อพลิกกลับ<br>
+                                        <span class="badge me-1 px-2" style="background:rgba(22,163,74,0.15);color:#15803d;border:1px solid rgba(22,163,74,0.3);">▲ Hammer</span> <strong>+10</strong> ไส้ล่างยาว → ราคา reject แรงขาลงออก<br>
+                                        <span class="badge me-1 px-2" style="background:rgba(22,163,74,0.15);color:#15803d;border:1px solid rgba(22,163,74,0.3);">▲ Morning Star</span> <strong>+8</strong> 3 แท่ง reversal หลังดิ่ง<br>
+                                        <span class="badge me-1 px-2" style="background:rgba(22,163,74,0.15);color:#15803d;border:1px solid rgba(22,163,74,0.3);">▲ Inside Bar↑</span> <strong>+6</strong> breakout จาก consolidation
+                                    </div>
+                                    <div class="mt-2 small p-2 rounded-2" style="background:rgba(22,163,74,0.06); color:#166534;">
+                                        💡 Bullish pattern ที่ Entry Zone = สัญญาณ timing เข้าแม่น — น้ำหนักเพิ่ม BUY Score สูงสุด +10
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- Bearish patterns -->
+                            <div class="col-md-6">
+                                <div class="rounded-3 p-3 h-100" style="background:#fff5f5; border:1px solid #fca5a5;">
+                                    <div class="fw-bold small mb-2" style="color:#dc2626;">▼ Bearish Patterns — หักออกจาก BUY Score</div>
+                                    <div class="small" style="line-height:2; color:#374151;">
+                                        <span class="badge me-1 px-2" style="background:rgba(220,38,38,0.12);color:#dc2626;border:1px solid rgba(220,38,38,0.3);">▼ Bearish Engulf</span> <strong>−10</strong> แท่งขาลงกลืนแท่งขาขึ้น → แรงขายแรง<br>
+                                        <span class="badge me-1 px-2" style="background:rgba(220,38,38,0.12);color:#dc2626;border:1px solid rgba(220,38,38,0.3);">▼ Shooting Star</span> <strong>−8</strong> ไส้บนยาว → ราคา reject แรงขาขึ้นออก<br>
+                                        <span class="badge me-1 px-2" style="background:rgba(220,38,38,0.12);color:#dc2626;border:1px solid rgba(220,38,38,0.3);">▼ Doji</span> <strong>−5</strong> แท่งลังเล body เล็กมาก → อ่อนแรง<br>
+                                        <span class="text-muted">— (ไม่มี pattern)</span> <strong>0</strong> ไม่มีผลต่อ score
+                                    </div>
+                                    <div class="mt-2 small p-2 rounded-2" style="background:rgba(220,38,38,0.06); color:#991b1b;">
+                                        ⚠️ ถ้าเห็น Bearish Pattern ที่ Zone — รอแท่งถัดไปก่อน อย่าเพิ่งรีบเข้า
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- STEP 6: Relative Momentum -->
+                    <div class="mb-4">
+                        <div class="d-flex align-items-center gap-2 mb-3">
+                            <span class="rounded-circle d-flex align-items-center justify-content-center fw-bold text-white"
+                                  style="width:28px;height:28px;background:#0891b2;font-size:0.8rem;flex-shrink:0;">6</span>
+                            <h6 class="mb-0 fw-bold" style="color:#1e293b;">REL MOM — หุ้นชนะตลาด (SET) หรือเปล่า?</h6>
+                        </div>
+                        <div class="rounded-3 p-3" style="background:#f0f9ff; border:1px solid #7dd3fc;">
+                            <div class="small mb-2" style="color:#0c4a6e;">
+                                <strong>Relative Momentum</strong> คือ return ของหุ้น <strong>เทียบกับ SET Index ช่วง 3 เดือน</strong><br>
+                                ถ้าหุ้นวิ่งชนะตลาด → momentum แข็งแกร่ง → โอกาสถือต่อสูง (ระยะ 1–6 เดือน)
+                            </div>
+                            <div class="row g-2 mt-1" style="font-size:0.82rem;">
+                                <div class="col-md-6" style="line-height:2; color:#374151;">
+                                    <span class="fw-bold" style="color:#16a34a;">+15% ขึ้นไป</span> → ชนะ SET แรงมาก — BUY +12 pts<br>
+                                    <span class="fw-bold" style="color:#16a34a;">+8% ถึง +15%</span> → ชนะ SET ชัดเจน — BUY +9 pts<br>
+                                    <span class="fw-bold" style="color:#65a30d;">+3% ถึง +8%</span> → ชนะ SET พอรับได้ — BUY +6 pts<br>
+                                    <span class="fw-bold" style="color:#92400e;">0% ถึง +3%</span> → เสมอ SET — BUY +3 pts
+                                </div>
+                                <div class="col-md-6" style="line-height:2; color:#374151;">
+                                    <span class="fw-bold" style="color:#6b7280;">−5% ถึง 0%</span> → แพ้ SET เล็กน้อย — เป็นกลาง<br>
+                                    <span class="fw-bold" style="color:#dc2626;">ต่ำกว่า −5%</span> → แพ้ SET ชัดเจน — BUY −8 pts ⚠️<br>
+                                    <span class="fw-bold text-muted">—</span> → ไม่มีข้อมูล SET วันนั้น
+                                </div>
+                            </div>
+                            <div class="mt-2 small p-2 rounded-2" style="background:rgba(8,145,178,0.07); color:#0c4a6e;">
+                                💡 ระยะ 6 เดือน: เลือกหุ้นที่ <strong>REL MOM เป็นบวก</strong> จะช่วยให้อยู่ในหุ้นที่ momentum ยังแรงอยู่ ไม่ใช่หุ้นที่ตลาดทิ้งไปแล้ว
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- STEP 7: Exit Signal -->
+                    <div class="mb-4">
+                        <div class="d-flex align-items-center gap-2 mb-3">
+                            <span class="rounded-circle d-flex align-items-center justify-content-center fw-bold text-white"
+                                  style="width:28px;height:28px;background:#dc2626;font-size:0.8rem;flex-shrink:0;">7</span>
+                            <h6 class="mb-0 fw-bold" style="color:#1e293b;">Exit Signal — ออกเมื่อไหร่? (1–3 เดือน)</h6>
+                        </div>
+                        <div class="row g-2">
+                            <!-- Exit levels -->
+                            <div class="col-md-7">
+                                <div class="rounded-3 p-3" style="background:#fff5f5; border:1px solid #fca5a5;">
+                                    <div class="fw-bold small mb-2" style="color:#dc2626;"><i class="fas fa-sign-out-alt me-1"></i> SELL Score — 5 สัญญาณออก</div>
+                                    <div class="small" style="line-height:1.9; color:#374151;">
+                                        <strong>1. ราคาถึง Supply Zone / 52w High</strong> → +45 pts — ออกทันที TP hit<br>
+                                        <strong>2. RSI > 72</strong> → +12–20 pts — overbought เริ่มทยอยขาย<br>
+                                        <strong>3. RVOL Bear แรง (≥ 1.5x)</strong> → +18 pts — แรงขายเข้ามา<br>
+                                        <strong>4. Rel Mom 1m ติดลบ</strong> → +6–12 pts — momentum สั้นอ่อนแล้ว<br>
+                                        <strong>5. Bearish Pattern</strong> → +5–10 pts — สัญญาณกลับตัว
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- Exit badge legend -->
+                            <div class="col-md-5">
+                                <div class="rounded-3 p-3 h-100" style="background:#fafafa; border:1px solid #e2e8f0;">
+                                    <div class="fw-bold small mb-2" style="color:#374151;">Badge ในคอลัมน์ SELL</div>
+                                    <div class="small" style="line-height:2.2;">
+                                        <span class="badge px-2" style="background:#dc2626;color:white;font-size:0.7rem;">🚨 ออก</span>
+                                        <strong> SELL ≥ 70</strong> — ออกทันที<br>
+                                        <span class="badge px-2" style="background:rgba(220,38,38,0.15);color:#dc2626;border:1px solid #dc2626;font-size:0.7rem;">⚠️ ออก</span>
+                                        <strong> SELL ≥ 50</strong> — ออกได้แล้ว<br>
+                                        <span class="badge px-2" style="background:rgba(245,158,11,0.15);color:#b45309;border:1px solid #f59e0b;font-size:0.7rem;">👁 เฝ้า</span>
+                                        <strong> SELL ≥ 30</strong> — เริ่มระวัง<br>
+                                        <span class="text-muted">ไม่มี badge</span> — ยังถือต่อได้ปกติ
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mt-2 rounded-3 p-3" style="background:#fff7ed; border:1px solid #fdba74;">
+                            <div class="fw-bold small mb-1" style="color:#c2410c;">📋 กฎการออกสำหรับ 1–3 เดือน</div>
+                            <div class="small" style="color:#374151; line-height:1.8;">
+                                <strong>ออกทันที:</strong> ราคาถึง Supply Zone | RSI > 78 | SELL Score ≥ 70<br>
+                                <strong>ทยอยขาย 50%:</strong> RSI > 72 | RVOL Bear แรง | SELL Score 50–69<br>
+                                <strong>เฝ้าระวัง:</strong> Rel Mom 1m ติดลบ | Bearish Pattern | SELL Score 30–49<br>
+                                <strong>ตัดขาดทุน:</strong> ราคาหลุด SL (Stop Loss) ในตาราง — ไม่มีข้อยกเว้น
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Checklist Summary -->
                     <div class="rounded-3 p-4" style="background:linear-gradient(135deg,#f5f3ff,#ede9fe); border:1px solid #c4b5fd;">
-                        <div class="fw-bold mb-3" style="color:#5b21b6;"><i class="fas fa-clipboard-check me-2"></i>Checklist ก่อนซื้อ — ต้องผ่านอย่างน้อย 5/7 ข้อ</div>
+                        <div class="fw-bold mb-3" style="color:#5b21b6;"><i class="fas fa-clipboard-check me-2"></i>Checklist ก่อนซื้อ — ต้องผ่านอย่างน้อย 6/9 ข้อ &nbsp;|&nbsp; <span style="color:#dc2626;">ออกเมื่อ SELL Badge ขึ้น</span></div>
                         <div class="row g-1" style="font-size:0.85rem; color:#374151;">
                             <div class="col-md-6">
                                 <div>☐ PRECISION SCORE ≥ 70</div>
                                 <div>☐ ADX ≥ 20 (เทรนด์ชัดเจน)</div>
                                 <div>☐ RSI อยู่ในช่วง 50–72</div>
                                 <div>☐ RVOL Bull ≥ 1.0x</div>
+                                <div>☐ REL MOM เป็นบวก (ชนะ SET)</div>
                             </div>
                             <div class="col-md-6">
                                 <div>☐ ERC VOL ✓ (มี badge สีม่วง)</div>
                                 <div>☐ ZONE STATUS ≤ NEAR / อยู่ IN ZONE</div>
                                 <div>☐ RR ≥ 1:2</div>
+                                <div>☐ PATTERN ไม่เป็น Bearish (ถ้ามี ควรเป็น Bullish)</div>
                             </div>
                         </div>
                         <div class="mt-3 small p-2 rounded-2" style="background:rgba(239,68,68,0.08); color:#991b1b; border:1px solid #fca5a5;">
-                            <strong>⚠️ สัญญาณหลีกเลี่ยง:</strong> RSI &gt; 75 | RVOL Bear ↓ | RR &lt; 1.5 | ADX &lt; 20 | ไฟแดงกระพริบ (ถึง TP แล้ว)
+                            <strong>⚠️ สัญญาณหลีกเลี่ยง:</strong> RSI &gt; 75 | RVOL Bear ↓ | RR &lt; 1.5 | ADX &lt; 20 | REL MOM ติดลบมาก | ไฟแดงกระพริบ | Bearish Pattern ที่ Zone
                         </div>
                     </div>
 
@@ -416,6 +538,8 @@
                             <th>ENTRY ZONE</th>
                             <th><a href="?sort=rsi&run_idx={{ selected_run_idx }}" class="text-decoration-none text-muted">RSI</a></th>
                             <th>ERC</th>
+                            <th style="width: 80px;">PATTERN</th>
+                            <th style="width: 80px;" title="Relative Momentum vs SET Index (3m)">REL MOM</th>
                             <th style="width: 55px;">SEC</th>
                             <th class="text-end pe-4">ACTION</th>
                         </tr>
@@ -499,16 +623,23 @@
                                 </div>
                             </td>
 
-                            <!-- SELL SCORE -->
+                            <!-- SELL / EXIT SCORE -->
                             <td>
                                 <div class="d-flex flex-column align-items-center gap-1">
-                                    <span class="fw-bold {% if item.sell_score >= 50 %}text-danger{% elif item.sell_score >= 20 %}text-warning{% else %}text-muted{% endif %}" style="font-size:0.92rem;line-height:1;">
+                                    <span class="fw-bold {% if item.sell_score >= 50 %}text-danger{% elif item.sell_score >= 30 %}text-warning{% else %}text-muted{% endif %}" style="font-size:0.92rem;line-height:1;">
                                         {{ item.sell_score }}
                                     </span>
                                     {% if item.sell_score > 0 %}
                                     <div class="progress" style="width:38px;height:3px;border-radius:2px;">
-                                        <div class="progress-bar {% if item.sell_score >= 50 %}bg-danger{% elif item.sell_score >= 20 %}bg-warning{% else %}bg-secondary{% endif %}" role="progressbar" style="width:{{ item.sell_score }}%"></div>
+                                        <div class="progress-bar {% if item.sell_score >= 50 %}bg-danger{% elif item.sell_score >= 30 %}bg-warning{% else %}bg-secondary{% endif %}" role="progressbar" style="width:{{ item.sell_score }}%"></div>
                                     </div>
+                                    {% endif %}
+                                    {% if item.exit_signal == 'STRONG EXIT' %}
+                                    <span class="badge px-1" style="background:#dc2626;color:white;font-size:0.55rem;letter-spacing:0.02em;">🚨 ออก</span>
+                                    {% elif item.exit_signal == 'EXIT' %}
+                                    <span class="badge px-1" style="background:rgba(220,38,38,0.15);color:#dc2626;border:1px solid #dc2626;font-size:0.55rem;">⚠️ ออก</span>
+                                    {% elif item.exit_signal == 'WATCH' %}
+                                    <span class="badge px-1" style="background:rgba(245,158,11,0.15);color:#b45309;border:1px solid #f59e0b;font-size:0.55rem;">👁 เฝ้า</span>
                                     {% endif %}
                                 </div>
                             </td>
@@ -597,6 +728,47 @@
                                 {% endif %}
                             </td>
 
+                            <!-- PRICE PATTERN -->
+                            <td>
+                                {% if item.price_pattern %}
+                                    {% if item.price_pattern_score > 0 %}
+                                    <span class="badge px-2 py-1 extra-extra-small"
+                                          style="background:rgba(22,163,74,0.12);color:#16a34a;border:1px solid rgba(22,163,74,0.3);"
+                                          title="Bullish pattern: +{{ item.price_pattern_score }} pts to BUY score">
+                                        ▲ {{ item.price_pattern }}
+                                    </span>
+                                    {% else %}
+                                    <span class="badge px-2 py-1 extra-extra-small"
+                                          style="background:rgba(220,38,38,0.10);color:#dc2626;border:1px solid rgba(220,38,38,0.25);"
+                                          title="Bearish pattern: {{ item.price_pattern_score }} pts to BUY score">
+                                        ▼ {{ item.price_pattern }}
+                                    </span>
+                                    {% endif %}
+                                {% else %}
+                                <span class="text-muted small">-</span>
+                                {% endif %}
+                            </td>
+
+                            <!-- RELATIVE MOMENTUM vs SET -->
+                            <td class="text-center">
+                                {% if item.rel_momentum_3m != 0 or item.rel_momentum_1m != 0 %}
+                                    {% with rel=item.rel_momentum_3m %}
+                                    {% if rel >= 3 %}
+                                        <div class="fw-bold extra-extra-small" style="color:#16a34a;">+{{ rel|floatformat:1 }}%</div>
+                                        <div class="extra-extra-small text-muted">vs SET</div>
+                                    {% elif rel >= 0 %}
+                                        <div class="fw-bold extra-extra-small" style="color:#65a30d;">+{{ rel|floatformat:1 }}%</div>
+                                        <div class="extra-extra-small text-muted">vs SET</div>
+                                    {% else %}
+                                        <div class="fw-bold extra-extra-small" style="color:#dc2626;">{{ rel|floatformat:1 }}%</div>
+                                        <div class="extra-extra-small text-muted">vs SET</div>
+                                    {% endif %}
+                                    {% endwith %}
+                                {% else %}
+                                    <span class="text-muted small">-</span>
+                                {% endif %}
+                            </td>
+
                             <!-- SECTOR -->
                             <td>
                                 <span class="badge bg-light text-muted fw-normal border extra-extra-small">
@@ -615,14 +787,189 @@
                             <!-- ACTION -->
                             <td class="text-end pe-4">
                                 <div class="d-flex justify-content-end gap-1">
+                                    <button class="btn btn-sm rounded-pill border"
+                                            style="{% if item.exit_signal == 'STRONG EXIT' %}background:#fef2f2;color:#dc2626;border-color:#fca5a5;{% elif item.exit_signal == 'EXIT' %}background:#fff7ed;color:#c2410c;border-color:#fdba74;{% else %}background:#f0fdf4;color:#15803d;border-color:#86efac;{% endif %}"
+                                            data-bs-toggle="collapse"
+                                            data-bs-target="#detail-{{ forloop.counter }}"
+                                            title="ดูแผนเข้า/ออก">
+                                        {% if item.exit_signal == 'STRONG EXIT' or item.exit_signal == 'EXIT' %}
+                                            <i class="fas fa-sign-out-alt"></i>
+                                        {% else %}
+                                            <i class="fas fa-sign-in-alt"></i>
+                                        {% endif %}
+                                    </button>
                                     <a href="{% url 'stocks:analyze' item.symbol_bk %}" class="btn btn-outline-primary btn-sm rounded-pill" target="_blank"><i class="fas fa-microscope"></i></a>
                                     <a href="{% url 'stocks:entry_finder' item.symbol %}" class="btn btn-sm rounded-pill" style="background: #7c3aed; color: white;" target="_blank"><i class="fas fa-crosshairs"></i></a>
                                 </div>
                             </td>
                         </tr>
+
+                        <!-- ENTRY / EXIT DETAIL ROW -->
+                        <tr class="collapse" id="detail-{{ forloop.counter }}">
+                            <td colspan="17" class="p-0">
+                                <div class="row g-0 mx-0" style="background:#f8fafc; border-top:2px solid {% if item.exit_signal == 'STRONG EXIT' %}#dc2626{% elif item.exit_signal == 'EXIT' %}#f59e0b{% else %}#22c55e{% endif %};">
+
+                                    <!-- ENTRY PLAN -->
+                                    <div class="col-md-6 p-3" style="border-right:1px solid #e2e8f0;">
+                                        <div class="d-flex align-items-center gap-2 mb-2">
+                                            <span class="badge rounded-pill px-3 py-1" style="background:#16a34a;color:white;font-size:0.75rem;">
+                                                <i class="fas fa-sign-in-alt me-1"></i> แผนเข้าซื้อ
+                                            </span>
+                                            <span class="fw-bold" style="color:#16a34a;">BUY Score {{ item.buy_score }}</span>
+                                        </div>
+
+                                        <div class="row g-2">
+                                            <div class="col-6">
+                                                <div class="rounded-2 p-2 text-center" style="background:#f0fdf4;border:1px solid #86efac;">
+                                                    <div class="extra-extra-small text-muted mb-1">ช่วงเข้าซื้อ</div>
+                                                    {% if item.demand_zone_start and item.demand_zone_end %}
+                                                    <div class="fw-bold small" style="color:#15803d;">฿{{ item.demand_zone_end|floatformat:2 }}</div>
+                                                    <div class="extra-extra-small text-muted">ถึง</div>
+                                                    <div class="fw-bold small" style="color:#15803d;">฿{{ item.demand_zone_start|floatformat:2 }}</div>
+                                                    {% else %}
+                                                    <div class="text-muted small">-</div>
+                                                    {% endif %}
+                                                </div>
+                                            </div>
+                                            <div class="col-6">
+                                                <div class="rounded-2 p-2 text-center" style="background:#fff5f5;border:1px solid #fca5a5;">
+                                                    <div class="extra-extra-small text-muted mb-1">Stop Loss</div>
+                                                    <div class="fw-bold small" style="color:#dc2626;">
+                                                        {% if item.stop_loss %}฿{{ item.stop_loss|floatformat:2 }}{% else %}-{% endif %}
+                                                    </div>
+                                                    <div class="extra-extra-small text-muted">ตัดขาดทุน</div>
+                                                </div>
+                                            </div>
+                                            <div class="col-6">
+                                                <div class="rounded-2 p-2 text-center" style="background:#eff6ff;border:1px solid #bfdbfe;">
+                                                    <div class="extra-extra-small text-muted mb-1">เป้าหมาย (TP)</div>
+                                                    <div class="fw-bold small" style="color:#1d4ed8;">
+                                                        {% if item.supply_zone_start %}฿{{ item.supply_zone_start|floatformat:2 }}{% else %}-{% endif %}
+                                                    </div>
+                                                    <div class="extra-extra-small text-muted">52w High</div>
+                                                </div>
+                                            </div>
+                                            <div class="col-6">
+                                                <div class="rounded-2 p-2 text-center" style="background:#fefce8;border:1px solid #fde68a;">
+                                                    <div class="extra-extra-small text-muted mb-1">RR Ratio</div>
+                                                    <div class="fw-bold small" style="color:#92400e;">
+                                                        {% if item.risk_reward_ratio %}1:{{ item.risk_reward_ratio|floatformat:1 }}{% else %}-{% endif %}
+                                                    </div>
+                                                    <div class="extra-extra-small text-muted">
+                                                        {% if item.risk_reward_ratio >= 3 %}ดีเยี่ยม{% elif item.risk_reward_ratio >= 2 %}ดี{% else %}พอรับได้{% endif %}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- เงื่อนไขเข้าที่ผ่านแล้ว -->
+                                        <div class="mt-2 small" style="color:#374151;">
+                                            <div class="fw-bold mb-1 extra-extra-small text-muted">เงื่อนไขเข้าที่ผ่าน:</div>
+                                            <div class="d-flex flex-wrap gap-1">
+                                                {% if item.price <= item.demand_zone_start and item.price >= item.demand_zone_end %}
+                                                <span class="badge" style="background:#dcfce7;color:#15803d;font-size:0.65rem;">✓ อยู่ใน Zone</span>
+                                                {% elif item.zone_proximity <= 10 %}
+                                                <span class="badge" style="background:#dcfce7;color:#15803d;font-size:0.65rem;">✓ ใกล้ Zone {{ item.zone_proximity|floatformat:0 }}%</span>
+                                                {% endif %}
+                                                {% if item.rvol_bullish and item.rvol >= 1.0 %}
+                                                <span class="badge" style="background:#dcfce7;color:#15803d;font-size:0.65rem;">✓ RVOL {{ item.rvol|floatformat:1 }}x Bull</span>
+                                                {% endif %}
+                                                {% if item.adx >= 25 %}
+                                                <span class="badge" style="background:#dcfce7;color:#15803d;font-size:0.65rem;">✓ ADX {{ item.adx|floatformat:0 }}</span>
+                                                {% endif %}
+                                                {% if item.rsi >= 50 and item.rsi <= 72 %}
+                                                <span class="badge" style="background:#dcfce7;color:#15803d;font-size:0.65rem;">✓ RSI {{ item.rsi|floatformat:0 }}</span>
+                                                {% endif %}
+                                                {% if item.erc_volume_confirmed %}
+                                                <span class="badge" style="background:#dcfce7;color:#15803d;font-size:0.65rem;">✓ ERC Vol</span>
+                                                {% endif %}
+                                                {% if item.price_pattern_score > 0 %}
+                                                <span class="badge" style="background:#dcfce7;color:#15803d;font-size:0.65rem;">✓ {{ item.price_pattern }}</span>
+                                                {% endif %}
+                                                {% if item.rel_momentum_3m > 0 %}
+                                                <span class="badge" style="background:#dcfce7;color:#15803d;font-size:0.65rem;">✓ ชนะ SET +{{ item.rel_momentum_3m|floatformat:1 }}%</span>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- EXIT PLAN -->
+                                    <div class="col-md-6 p-3">
+                                        <div class="d-flex align-items-center gap-2 mb-2">
+                                            <span class="badge rounded-pill px-3 py-1"
+                                                  style="background:{% if item.exit_signal == 'STRONG EXIT' %}#dc2626{% elif item.exit_signal == 'EXIT' %}#f59e0b{% else %}#6b7280{% endif %};color:white;font-size:0.75rem;">
+                                                <i class="fas fa-sign-out-alt me-1"></i> แผนออก
+                                            </span>
+                                            <span class="fw-bold"
+                                                  style="color:{% if item.exit_signal == 'STRONG EXIT' %}#dc2626{% elif item.exit_signal == 'EXIT' %}#f59e0b{% else %}#6b7280{% endif %};">
+                                                SELL Score {{ item.sell_score }}
+                                                {% if item.exit_signal == 'STRONG EXIT' %} — ออกทันที!
+                                                {% elif item.exit_signal == 'EXIT' %} — ออกได้แล้ว
+                                                {% elif item.exit_signal == 'WATCH' %} — เฝ้าระวัง
+                                                {% else %} — ยังถือได้{% endif %}
+                                            </span>
+                                        </div>
+
+                                        <!-- Exit price targets -->
+                                        <div class="row g-2 mb-2">
+                                            <div class="col-6">
+                                                <div class="rounded-2 p-2 text-center" style="background:#fff5f5;border:1px solid #fca5a5;">
+                                                    <div class="extra-extra-small text-muted mb-1">ออกที่ (TP)</div>
+                                                    <div class="fw-bold small" style="color:#dc2626;">
+                                                        {% if item.supply_zone_start %}฿{{ item.supply_zone_start|floatformat:2 }}{% else %}-{% endif %}
+                                                    </div>
+                                                    <div class="extra-extra-small text-muted">52w High</div>
+                                                </div>
+                                            </div>
+                                            <div class="col-6">
+                                                <div class="rounded-2 p-2 text-center" style="background:#fafafa;border:1px solid #e2e8f0;">
+                                                    <div class="extra-extra-small text-muted mb-1">ตัดขาดทุน (SL)</div>
+                                                    <div class="fw-bold small" style="color:#374151;">
+                                                        {% if item.stop_loss %}฿{{ item.stop_loss|floatformat:2 }}{% else %}-{% endif %}
+                                                    </div>
+                                                    <div class="extra-extra-small text-muted">ออกทันที</div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- สัญญาณออกที่ active อยู่ -->
+                                        <div class="small">
+                                            <div class="fw-bold mb-1 extra-extra-small text-muted">สัญญาณออกที่ active:</div>
+                                            <div class="d-flex flex-wrap gap-1">
+                                                {% if item.supply_zone_start and item.price >= item.supply_zone_start %}
+                                                <span class="badge" style="background:#fef2f2;color:#dc2626;border:1px solid #fca5a5;font-size:0.65rem;">🚨 ถึง TP แล้ว</span>
+                                                {% endif %}
+                                                {% if item.rsi > 72 %}
+                                                <span class="badge" style="background:#fef2f2;color:#dc2626;border:1px solid #fca5a5;font-size:0.65rem;">⚠️ RSI {{ item.rsi|floatformat:0 }} สูง</span>
+                                                {% endif %}
+                                                {% if not item.rvol_bullish and item.rvol >= 1.5 %}
+                                                <span class="badge" style="background:#fef2f2;color:#dc2626;border:1px solid #fca5a5;font-size:0.65rem;">⚠️ Bear Vol {{ item.rvol|floatformat:1 }}x</span>
+                                                {% elif not item.rvol_bullish %}
+                                                <span class="badge" style="background:#fff7ed;color:#c2410c;border:1px solid #fdba74;font-size:0.65rem;">👁 RVOL Bear</span>
+                                                {% endif %}
+                                                {% if item.rel_momentum_1m < 0 %}
+                                                <span class="badge" style="background:#fff7ed;color:#c2410c;border:1px solid #fdba74;font-size:0.65rem;">👁 Rel Mom 1m {{ item.rel_momentum_1m|floatformat:1 }}%</span>
+                                                {% endif %}
+                                                {% if item.price_pattern_score < 0 %}
+                                                <span class="badge" style="background:#fef2f2;color:#dc2626;border:1px solid #fca5a5;font-size:0.65rem;">⚠️ {{ item.price_pattern }}</span>
+                                                {% endif %}
+                                                {% if item.adx < 20 %}
+                                                <span class="badge" style="background:#fff7ed;color:#c2410c;border:1px solid #fdba74;font-size:0.65rem;">👁 ADX {{ item.adx|floatformat:0 }} อ่อน</span>
+                                                {% endif %}
+                                                {% if item.sell_score < 30 %}
+                                                <span class="badge" style="background:#f0fdf4;color:#15803d;font-size:0.65rem;">✓ ยังไม่มีสัญญาณออก</span>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                </div>
+                            </td>
+                        </tr>
+
                         {% empty %}
                         <tr>
-                            <td colspan="15" class="text-center py-5 text-muted">
+                            <td colspan="17" class="text-center py-5 text-muted">
                                 <i class="fas fa-filter fa-2x mb-2 d-block opacity-25"></i>
                                 ไม่พบหุ้นที่ผ่านเกณฑ์ Precision ทั้งหมด
                             </td>

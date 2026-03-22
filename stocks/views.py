@@ -15,7 +15,8 @@ from .models import (
 )
 from .utils import (
     get_stock_data, analyze_with_ai, calculate_trailing_stop,
-    refresh_set100_symbols, find_supply_demand_zones, find_supply_demand_zones_v2
+    refresh_set100_symbols, find_supply_demand_zones, find_supply_demand_zones_v2,
+    detect_price_pattern
 )
 from decimal import Decimal
 from yahooquery import Ticker as YQTicker
@@ -34,6 +35,80 @@ import pandas_ta as ta
 def admin_only(user):
     # อนุญาตให้ผู้ใช้ทุกคนที่ login แล้วเข้าถึงข้อมูลของตัวเองได้
     return user.is_authenticated # Changed to allow any user to see their own data
+
+# ====== _compute_signals — คำนวณ BUY/SELL Score + Exit Signal จาก PrecisionScanCandidate ======
+def _compute_signals(prec, current_price=None):
+    """Reusable scorer — ใช้ใน Portfolio, Watchlist, และ Precision Scanner."""
+    price  = float(current_price or getattr(prec, 'price', 0) or 0)
+    dz_s   = getattr(prec, 'demand_zone_start', None)
+    dz_e   = getattr(prec, 'demand_zone_end', None)
+    prox   = getattr(prec, 'zone_proximity', 999)
+    rvol_b = getattr(prec, 'rvol_bullish', True)
+    rvol   = getattr(prec, 'rvol', 0)
+    rr     = getattr(prec, 'risk_reward_ratio', 0) or 0
+    adx    = getattr(prec, 'adx', 0)
+    erc    = getattr(prec, 'erc_volume_confirmed', False)
+    rsi    = getattr(prec, 'rsi', 0)
+    pat    = getattr(prec, 'price_pattern_score', 0)
+    rel3   = getattr(prec, 'rel_momentum_3m', 0.0)
+    rel1   = getattr(prec, 'rel_momentum_1m', 0.0)
+    sz_s   = getattr(prec, 'supply_zone_start', None)
+    yr_h   = getattr(prec, 'year_high', 0)
+
+    # --- BUY SCORE ---
+    buy = int(getattr(prec, 'technical_score', 0) * 0.30)
+    in_zone = dz_s and dz_e and price <= dz_s and price >= dz_e
+    if in_zone:         buy += 25
+    elif prox <= 10:    buy += 15
+    elif prox <= 30:    buy += 8
+    elif prox <= 60:    buy += 3
+    if rvol_b and rvol >= 2.0:   buy += 22
+    elif rvol_b and rvol >= 1.5: buy += 17
+    elif rvol_b and rvol >= 1.0: buy += 12
+    elif rvol_b and rvol >= 0.7: buy += 4
+    if rr >= 3:     buy += 15
+    elif rr >= 2:   buy += 10
+    elif rr >= 1.5: buy += 5
+    if adx >= 35:   buy += 8
+    elif adx >= 30: buy += 5
+    elif adx >= 25: buy += 2
+    if erc: buy += 5
+    if 55 <= rsi <= 70:  buy += 5
+    elif 45 <= rsi < 55: buy += 2
+    buy += pat
+    rel = rel3 if rel3 != 0.0 else rel1
+    if rel >= 15:   buy += 12
+    elif rel >= 8:  buy += 9
+    elif rel >= 3:  buy += 6
+    elif rel >= 0:  buy += 3
+    elif rel >= -5: buy += 0
+    else:           buy -= 8
+    buy_score = max(0, min(100, buy))
+
+    # --- SELL SCORE ---
+    sell = 0
+    if sz_s and price >= sz_s:              sell += 45
+    elif yr_h and price >= yr_h * 0.97:    sell += 25
+    if rsi > 78:    sell += 20
+    elif rsi > 72:  sell += 12
+    elif rsi > 68:  sell += 5
+    if not rvol_b and rvol >= 1.5:  sell += 18
+    elif not rvol_b:                sell += 10
+    if rel1 < -5:   sell += 12
+    elif rel1 < 0:  sell += 6
+    if pat < -5:    sell += 10
+    elif pat < 0:   sell += 5
+    if adx < 15:    sell += 8
+    elif adx < 20:  sell += 4
+    sell_score = min(100, sell)
+
+    if sell_score >= 70:   exit_signal = 'STRONG EXIT'
+    elif sell_score >= 50: exit_signal = 'EXIT'
+    elif sell_score >= 30: exit_signal = 'WATCH'
+    else:                  exit_signal = ''
+
+    return {'buy_score': buy_score, 'sell_score': sell_score, 'exit_signal': exit_signal}
+
 
 # ====== Dashboard — หน้าแสดง Watchlist พร้อมราคาและ RSI แบบ Real-time ======
 
@@ -86,36 +161,70 @@ def dashboard(request):
                     if rsi_val < 30: rsi_status = "Oversold"
                     elif rsi_val > 70: rsi_status = "Overbought"
 
-            # ดึงข้อมูล Momentum Scan ที่เก็บไว้ (ถ้ามี)
+            # ดึงข้อมูลจาก PrecisionScanCandidate ก่อน (ตรงกับ Scanner ทุกค่า)
             clean_symbol = item.symbol.split('.')[0].upper()
-            mom_data = MomentumCandidate.objects.filter(user=request.user, symbol=clean_symbol).first()
-            if not mom_data:
-                mom_data = MomentumCandidate.objects.filter(user=request.user, symbol=item.symbol).first()
+            from .models import PrecisionScanCandidate
+            prec_data = (PrecisionScanCandidate.objects
+                         .filter(user=request.user, symbol=clean_symbol)
+                         .order_by('-scan_run').first())
 
-            # QuickMom fallback — คำนวณ on-the-fly ถ้าไม่มีข้อมูลสแกน
-            if not mom_data and not hist.empty:
-                tech_analysis = analyze_momentum_technical(hist)
-                if tech_analysis and tech_analysis.get('score', 0) > 0:
-                    class QuickMom: pass
-                    q_mom = QuickMom()
-                    q_mom.technical_score = tech_analysis['score']
-                    q_mom.rvol = tech_analysis.get('rvol', 1.0)
-                    sd = tech_analysis.get('sd_zone')
-                    if sd and sd.get('start') and sd['start'] > 0:
-                        q_mom.risk_reward_ratio = sd.get('rr_ratio', 0)
-                        q_mom.demand_zone_start = sd['start']
-                        q_mom.demand_zone_end = sd.get('end', 0)
-                        q_mom.supply_zone_start = sd.get('target', 0)
-                        q_mom.stop_loss = sd.get('stop_loss', None)
-                        q_mom.zone_proximity = 0 if (current and current <= sd['start']) else ((float(current or 0) - sd['start']) / sd['start']) * 100
-                    else:
-                        q_mom.risk_reward_ratio = 0
-                        q_mom.demand_zone_start = 0
-                        q_mom.demand_zone_end = 0
-                        q_mom.supply_zone_start = 0
-                        q_mom.stop_loss = None
-                        q_mom.zone_proximity = 999
-                    mom_data = q_mom
+            if prec_data:
+                class QuickMom: pass
+                mom_data = QuickMom()
+                mom_data.technical_score      = prec_data.technical_score
+                mom_data.rvol                 = prec_data.rvol
+                mom_data.rvol_bullish         = prec_data.rvol_bullish
+                mom_data.adx                  = prec_data.adx
+                mom_data.rsi                  = prec_data.rsi
+                mom_data.erc_volume_confirmed = prec_data.erc_volume_confirmed
+                mom_data.risk_reward_ratio    = prec_data.risk_reward_ratio
+                mom_data.demand_zone_start    = prec_data.demand_zone_start
+                mom_data.demand_zone_end      = prec_data.demand_zone_end
+                mom_data.supply_zone_start    = prec_data.supply_zone_start
+                mom_data.stop_loss            = prec_data.stop_loss
+                mom_data.zone_proximity       = prec_data.zone_proximity
+                mom_data.year_high            = prec_data.year_high
+                mom_data.price_pattern        = prec_data.price_pattern
+                mom_data.price_pattern_score  = prec_data.price_pattern_score
+                mom_data.rel_momentum_1m      = prec_data.rel_momentum_1m
+                mom_data.rel_momentum_3m      = prec_data.rel_momentum_3m
+            else:
+                # Fallback: คำนวณ on-the-fly ด้วย v2
+                from .utils import analyze_momentum_technical_v2
+                mom_data = None
+                if not hist.empty:
+                    tech_analysis = analyze_momentum_technical_v2(hist)
+                    if tech_analysis and tech_analysis.get('score', 0) > 0:
+                        class QuickMom: pass
+                        mom_data = QuickMom()
+                        mom_data.technical_score      = tech_analysis['score']
+                        mom_data.rvol                 = tech_analysis.get('rvol', 1.0)
+                        mom_data.rvol_bullish         = tech_analysis.get('rvol_bullish', True)
+                        mom_data.adx                  = 0
+                        mom_data.rsi                  = float(rsi_val or 0)
+                        mom_data.erc_volume_confirmed = False
+                        mom_data.year_high            = 0
+                        mom_data.price_pattern        = ''
+                        mom_data.price_pattern_score  = 0
+                        mom_data.rel_momentum_1m      = 0.0
+                        mom_data.rel_momentum_3m      = 0.0
+                        sd = tech_analysis.get('sd_zone')
+                        if sd and sd.get('start') and sd['start'] > 0:
+                            mom_data.risk_reward_ratio = sd.get('rr_ratio', 0)
+                            mom_data.demand_zone_start = sd['start']
+                            mom_data.demand_zone_end   = sd.get('end', 0)
+                            mom_data.supply_zone_start = sd.get('target', 0)
+                            mom_data.stop_loss         = sd.get('stop_loss', None)
+                            mom_data.zone_proximity    = 0 if (current and current <= sd['start']) else ((float(current or 0) - sd['start']) / sd['start']) * 100
+                        else:
+                            mom_data.risk_reward_ratio = 0
+                            mom_data.demand_zone_start = 0
+                            mom_data.demand_zone_end   = 0
+                            mom_data.supply_zone_start = 0
+                            mom_data.stop_loss         = None
+                            mom_data.zone_proximity    = 999
+
+            signals = _compute_signals(mom_data, current) if mom_data else {'buy_score': 0, 'sell_score': 0, 'exit_signal': ''}
 
             items.append({
                 'obj': item,
@@ -123,7 +232,10 @@ def dashboard(request):
                 'change': change,
                 'rsi': rsi_val,
                 'rsi_status': rsi_status,
-                'mom_data': mom_data
+                'mom_data': mom_data,
+                'buy_score': signals['buy_score'],
+                'sell_score': signals['sell_score'],
+                'exit_signal': signals['exit_signal'],
             })
         except:
             items.append({'obj': item, 'price': 'Error', 'change': 0, 'rsi': None, 'rsi_status': 'Error', 'mom_data': None})
@@ -428,14 +540,23 @@ def portfolio_list(request):
                 # ใช้ข้อมูลจาก Precision Scanner โดยตรง
                 class QuickMom: pass
                 mom_data = QuickMom()
-                mom_data.technical_score = prec_data.technical_score
-                mom_data.rvol = prec_data.rvol
+                mom_data.technical_score   = prec_data.technical_score
+                mom_data.rvol              = prec_data.rvol
+                mom_data.rvol_bullish      = prec_data.rvol_bullish
+                mom_data.adx               = prec_data.adx
+                mom_data.rsi               = prec_data.rsi
+                mom_data.erc_volume_confirmed = prec_data.erc_volume_confirmed
                 mom_data.risk_reward_ratio = prec_data.risk_reward_ratio
                 mom_data.demand_zone_start = prec_data.demand_zone_start
-                mom_data.demand_zone_end = prec_data.demand_zone_end
+                mom_data.demand_zone_end   = prec_data.demand_zone_end
                 mom_data.supply_zone_start = prec_data.supply_zone_start
-                mom_data.stop_loss = prec_data.stop_loss
-                mom_data.zone_proximity = prec_data.zone_proximity
+                mom_data.stop_loss         = prec_data.stop_loss
+                mom_data.zone_proximity    = prec_data.zone_proximity
+                mom_data.year_high         = prec_data.year_high
+                mom_data.price_pattern     = prec_data.price_pattern
+                mom_data.price_pattern_score = prec_data.price_pattern_score
+                mom_data.rel_momentum_1m   = prec_data.rel_momentum_1m
+                mom_data.rel_momentum_3m   = prec_data.rel_momentum_3m
             else:
                 # 2. คำนวณ on-the-fly ด้วย v2 (ตรงกับ Precision Scanner)
                 tech_analysis = analyze_momentum_technical_v2(hist) if not hist.empty else None
@@ -468,6 +589,8 @@ def portfolio_list(request):
             total_market_value += market_value
             total_gain_loss += gain_loss
 
+            signals = _compute_signals(mom_data, current_price) if mom_data else {'buy_score': 0, 'sell_score': 0, 'exit_signal': ''}
+
             items.append({
                 'obj': item,
                 'current_price': current_price,
@@ -477,7 +600,10 @@ def portfolio_list(request):
                 'gain_loss_pct': gain_loss_pct,
                 'rsi': rsi_val,
                 'trailing_stop_data': ts_data,
-                'mom_data': mom_data
+                'mom_data': mom_data,
+                'buy_score': signals['buy_score'],
+                'sell_score': signals['sell_score'],
+                'exit_signal': signals['exit_signal'],
             })
         except Exception as e:
             print(f"DEBUG: ERROR for {item.symbol}: {e}")
@@ -660,6 +786,181 @@ def portfolio_list(request):
         'chart_data': json.dumps(chart_data),
     }
     return render(request, 'stocks/portfolio.html', context)
+
+
+# ====== Portfolio Exit Plan — แผนออกหุ้นแต่ละตัว เรียงตามความเร่งด่วน ======
+
+@login_required
+def portfolio_exit_plan(request):
+    """
+    แสดงแผนออกจากหุ้นแต่ละตัวในพอร์ต พร้อม:
+    - Progress bar: SL → Entry → Current → TP
+    - Action recommendation ชัดเจน (ออกทันที / ทยอยขาย / เฝ้า / ถือต่อ)
+    - สัญญาณออกที่ active อยู่
+    - เรียงตาม SELL Score สูงสุดก่อน (urgent first)
+    """
+    portfolio_items = Portfolio.objects.filter(user=request.user)
+    items = []
+
+    for item in portfolio_items:
+        try:
+            symbol = item.symbol
+            t = yf.Ticker(symbol)
+            hist = t.history(period="1y")
+            if hist.empty:
+                alt = f"{symbol}.BK" if ".BK" not in symbol else symbol.replace(".BK", "")
+                hist = yf.Ticker(alt).history(period="1y")
+            if isinstance(hist.columns, pd.MultiIndex):
+                hist.columns = [col[0] for col in hist.columns]
+            hist = hist.loc[:, ~hist.columns.duplicated()]
+
+            current_price = float(hist['Close'].iloc[-1]) if not hist.empty else 0
+            day_change = 0
+            if not hist.empty and len(hist) >= 2:
+                prev = float(hist['Close'].iloc[-2])
+                day_change = ((current_price - prev) / prev * 100) if prev else 0
+
+            entry_price  = float(item.entry_price or 0)
+            quantity     = float(item.quantity or 0)
+            gain_loss_pct = ((current_price - entry_price) / entry_price * 100) if entry_price else 0
+
+            # days held
+            from datetime import date
+            days_held = (date.today() - item.added_at.date()).days if item.added_at else 0
+
+            # ดึง PrecisionScanCandidate
+            clean_symbol = symbol.split('.')[0].upper()
+            from .models import PrecisionScanCandidate
+            prec_data = (PrecisionScanCandidate.objects
+                         .filter(user=request.user, symbol=clean_symbol)
+                         .order_by('-scan_run').first())
+
+            sl_price = tp_price = rsi_val = adx_val = None
+            price_pattern = ''
+            price_pattern_score = 0
+            rel_1m = rel_3m = 0.0
+            rvol_bullish = True
+            rvol = 1.0
+            supply_zone_start = year_high = 0
+
+            if prec_data:
+                sl_price    = prec_data.stop_loss
+                tp_price    = prec_data.supply_zone_start
+                rsi_val     = prec_data.rsi
+                adx_val     = prec_data.adx
+                price_pattern       = prec_data.price_pattern
+                price_pattern_score = prec_data.price_pattern_score
+                rel_1m      = prec_data.rel_momentum_1m
+                rel_3m      = prec_data.rel_momentum_3m
+                rvol_bullish = prec_data.rvol_bullish
+                rvol        = prec_data.rvol
+                supply_zone_start = prec_data.supply_zone_start or 0
+                year_high   = prec_data.year_high or 0
+
+            signals = _compute_signals(prec_data, current_price) if prec_data else {'buy_score': 0, 'sell_score': 0, 'exit_signal': ''}
+            sell_score   = signals['sell_score']
+            exit_signal  = signals['exit_signal']
+
+            # ====== Progress Bar: SL → Entry → Current → TP ======
+            progress_pct   = None
+            current_pct    = None
+            entry_pct      = None
+            sl_hit         = False
+            tp_hit         = False
+
+            if sl_price and tp_price and tp_price > sl_price:
+                total_range    = tp_price - sl_price
+                sl_hit         = current_price <= sl_price
+                tp_hit         = current_price >= tp_price
+                current_pct    = min(100, max(0, (current_price - sl_price) / total_range * 100))
+                entry_pct      = min(100, max(0, (entry_price - sl_price) / total_range * 100))
+
+            # ====== Action Recommendation ======
+            if exit_signal == 'STRONG EXIT' or sl_hit:
+                action       = 'ออกทันที'
+                action_style = 'danger'
+                action_detail = f"ขายทั้งหมด {quantity:.0f} หุ้น — สัญญาณออกแรงมาก"
+            elif exit_signal == 'EXIT':
+                action       = 'ทยอยขาย 50%'
+                action_style = 'warning'
+                action_detail = f"ขาย {quantity/2:.0f} หุ้น เก็บกำไรบางส่วน — เฝ้าดูต่อ"
+            elif exit_signal == 'WATCH':
+                action       = 'เฝ้าระวัง'
+                action_style = 'warning-soft'
+                action_detail = "ยังถือได้ แต่เริ่มเฝ้าดู — ขันน็อต SL ให้แน่นขึ้น"
+            elif tp_price and current_price >= tp_price * 0.95:
+                action       = 'ใกล้ TP'
+                action_style = 'info'
+                action_detail = f"ราคาใกล้ TP แล้ว — เตรียมทยอยขาย"
+            else:
+                action       = 'ถือต่อ'
+                action_style = 'success'
+                action_detail = "ยังไม่มีสัญญาณออก — ถือต่อตาม SL เดิม"
+
+            # ====== Active Exit Triggers ======
+            triggers = []
+            if sl_hit:
+                triggers.append({'label': 'SL HIT — หลุด Stop Loss', 'level': 'danger'})
+            if tp_hit:
+                triggers.append({'label': f'TP Hit — ถึงเป้า ฿{tp_price:.2f}', 'level': 'danger'})
+            if rsi_val and rsi_val > 78:
+                triggers.append({'label': f'RSI {rsi_val:.0f} — overbought มาก', 'level': 'danger'})
+            elif rsi_val and rsi_val > 72:
+                triggers.append({'label': f'RSI {rsi_val:.0f} — เริ่ม overbought', 'level': 'warning'})
+            if not rvol_bullish and rvol >= 1.5:
+                triggers.append({'label': f'RVOL {rvol:.1f}x Bear — แรงขายเข้ามา', 'level': 'danger'})
+            elif not rvol_bullish:
+                triggers.append({'label': 'RVOL Bear — volume หันขาลง', 'level': 'warning'})
+            if rel_1m < -5:
+                triggers.append({'label': f'Rel Mom 1m {rel_1m:.1f}% — แพ้ SET มาก', 'level': 'warning'})
+            elif rel_1m < 0:
+                triggers.append({'label': f'Rel Mom 1m {rel_1m:.1f}% — เริ่มแพ้ SET', 'level': 'info'})
+            if price_pattern_score < -5:
+                triggers.append({'label': f'Pattern: {price_pattern} — สัญญาณขาย', 'level': 'danger'})
+            elif price_pattern_score < 0:
+                triggers.append({'label': f'Pattern: {price_pattern}', 'level': 'warning'})
+            if adx_val and adx_val < 20:
+                triggers.append({'label': f'ADX {adx_val:.0f} — เทรนด์อ่อนแรง', 'level': 'warning'})
+            if not triggers and exit_signal == '':
+                triggers.append({'label': 'ไม่มีสัญญาณออก — ถือต่อได้', 'level': 'success'})
+
+            items.append({
+                'obj':          item,
+                'current_price': current_price,
+                'day_change':   day_change,
+                'entry_price':  entry_price,
+                'gain_loss_pct': gain_loss_pct,
+                'quantity':     quantity,
+                'days_held':    days_held,
+                'sl_price':     sl_price,
+                'tp_price':     tp_price,
+                'rsi':          rsi_val,
+                'adx':          adx_val,
+                'price_pattern': price_pattern,
+                'price_pattern_score': price_pattern_score,
+                'rel_1m':       rel_1m,
+                'rel_3m':       rel_3m,
+                'rvol':         rvol,
+                'rvol_bullish': rvol_bullish,
+                'sell_score':   sell_score,
+                'exit_signal':  exit_signal,
+                'current_pct':  current_pct,
+                'entry_pct':    entry_pct,
+                'sl_hit':       sl_hit,
+                'tp_hit':       tp_hit,
+                'action':       action,
+                'action_style': action_style,
+                'action_detail': action_detail,
+                'triggers':     triggers,
+            })
+        except Exception as e:
+            print(f"[ExitPlan] Error {item.symbol}: {e}")
+            continue
+
+    # เรียงตาม SELL Score สูงสุดก่อน
+    items.sort(key=lambda x: x['sell_score'], reverse=True)
+
+    return render(request, 'stocks/portfolio_exit_plan.html', {'items': items})
 
 
 # ====== Portfolio Management — เพิ่ม/ลบ รายการพอร์ต ======
@@ -1634,6 +1935,22 @@ def precision_momentum_scanner(request):
                 .values_list('symbol', flat=True)
             )
 
+        # ====== ดึง SET Index เพื่อคำนวณ Relative Momentum (ทำครั้งเดียวก่อน loop) ======
+        set_1m_return = 0.0
+        set_3m_return = 0.0
+        try:
+            set_df = yf.download("^SET", period="6mo", interval="1d", progress=False)
+            if set_df is not None and not set_df.empty:
+                if isinstance(set_df.columns, pd.MultiIndex):
+                    set_df.columns = set_df.columns.droplevel(1)
+                set_close = set_df['Close'].dropna()
+                if len(set_close) >= 66:
+                    set_1m_return = float((set_close.iloc[-1] - set_close.iloc[-22]) / set_close.iloc[-22] * 100)
+                    set_3m_return = float((set_close.iloc[-1] - set_close.iloc[-66]) / set_close.iloc[-66] * 100)
+            print(f"[Precision] SET Index: 1m={set_1m_return:.2f}% 3m={set_3m_return:.2f}%")
+        except Exception as e:
+            print(f"[Precision] SET Index fetch failed: {e}")
+
         for symbol in scan_symbols:
             try:
                 print(f"[Precision] Scanning {symbol}...")
@@ -1761,6 +2078,23 @@ def precision_momentum_scanner(request):
 
                 gap_to_high = ((year_high - current_price) / current_price) * 100
 
+                # Price Pattern detection (ใช้ df ที่มีอยู่แล้ว)
+                pattern_result = detect_price_pattern(df)
+                pattern_name  = pattern_result['name']
+                pattern_score = pattern_result['score']
+
+                # ====== Relative Momentum vs SET Index ======
+                close_series = df['Close'].dropna()
+                rel_1m = rel_3m = 0.0
+                if len(close_series) >= 66:
+                    stock_1m = float((close_series.iloc[-1] - close_series.iloc[-22]) / close_series.iloc[-22] * 100)
+                    stock_3m = float((close_series.iloc[-1] - close_series.iloc[-66]) / close_series.iloc[-66] * 100)
+                    rel_1m = round(stock_1m - set_1m_return, 2)
+                    rel_3m = round(stock_3m - set_3m_return, 2)
+                elif len(close_series) >= 22:
+                    stock_1m = float((close_series.iloc[-1] - close_series.iloc[-22]) / close_series.iloc[-22] * 100)
+                    rel_1m = round(stock_1m - set_1m_return, 2)
+
                 PrecisionScanCandidate.objects.create(
                     user=request.user,
                     scan_run=scan_run_time,
@@ -1790,6 +2124,10 @@ def precision_momentum_scanner(request):
                     year_high=round(year_high, 2),
                     upside_to_high=round(gap_to_high, 2),
                     zone_proximity=round(prox_val, 2),
+                    price_pattern=pattern_name,
+                    price_pattern_score=pattern_score,
+                    rel_momentum_1m=rel_1m,
+                    rel_momentum_3m=rel_3m,
                 )
 
             except Exception as e:
@@ -1888,24 +2226,63 @@ def precision_momentum_scanner(request):
             if 55 <= c.rsi <= 70:   buy += 5
             elif 45 <= c.rsi < 55:  buy += 2
 
-            c.buy_score = min(100, buy)
+            # Price Pattern (+10/-10 max)
+            buy += c.price_pattern_score
 
-            # --- SELL SCORE (0–100): ยิ่งสูง ยิ่งควรพิจารณาขาย ---
+            # Relative Momentum vs SET (max +12, penalty -8)
+            # ใช้ 3m เป็นหลัก ถ้าไม่มีใช้ 1m
+            rel_mom = c.rel_momentum_3m if c.rel_momentum_3m != 0.0 else c.rel_momentum_1m
+            if rel_mom >= 15:    buy += 12   # ชนะ SET > 15% — แรงมาก
+            elif rel_mom >= 8:   buy += 9    # ชนะ SET 8–15%
+            elif rel_mom >= 3:   buy += 6    # ชนะ SET 3–8%
+            elif rel_mom >= 0:   buy += 3    # ชนะ SET นิดหน่อย
+            elif rel_mom >= -5:  buy += 0    # แพ้ SET เล็กน้อย — เป็นกลาง
+            else:                buy -= 8    # แพ้ SET > 5% — หักคะแนน
+
+            c.buy_score = max(0, min(100, buy))
+
+            # --- SELL / EXIT SCORE (0–100): ยิ่งสูง ยิ่งควรพิจารณาออก ---
+            # สำหรับ 1–3 เดือน: ตรวจ 5 มิติ
             sell = 0
+
+            # 1) ราคาถึง Supply Zone / 52w High → สัญญาณออกแรงที่สุด
             if c.supply_zone_start and c.price >= c.supply_zone_start:
-                sell += 50
+                sell += 45
+            elif c.year_high and c.price and c.price >= c.year_high * 0.97:
+                sell += 25  # ห่าง 52w High แค่ 3% — ใกล้มาก
 
-            if c.rsi > 75:   sell += 20
-            elif c.rsi > 70: sell += 10
+            # 2) RSI overbought
+            if c.rsi > 78:   sell += 20
+            elif c.rsi > 72: sell += 12
+            elif c.rsi > 68: sell += 5
 
-            if not c.rvol_bullish: sell += 15
+            # 3) Volume หันเป็น Bear (แรงขายเข้ามา)
+            if not c.rvol_bullish and c.rvol >= 1.5: sell += 18  # Bear volume แรง
+            elif not c.rvol_bullish:                 sell += 10  # Bear volume ทั่วไป
 
-            if c.adx < 20: sell += 10
+            # 4) Relative Momentum 1m กลับมาติดลบ (momentum สั้นอ่อน)
+            if c.rel_momentum_1m < -5:   sell += 12  # แพ้ SET > 5% ใน 1m
+            elif c.rel_momentum_1m < 0:  sell += 6   # เริ่มแพ้ SET
 
-            if c.year_high and c.price and c.price >= c.year_high * 0.95:
-                sell += 5
+            # 5) Bearish Price Pattern
+            if c.price_pattern_score < -5:  sell += 10  # Bearish Engulf / Shooting Star
+            elif c.price_pattern_score < 0: sell += 5   # Doji
+
+            # 6) เทรนด์อ่อนแรง (ADX ลดลงต่ำ)
+            if c.adx < 15:   sell += 8
+            elif c.adx < 20: sell += 4
 
             c.sell_score = min(100, sell)
+
+            # Exit Signal label สำหรับแสดงใน UI
+            if c.sell_score >= 70:
+                c.exit_signal = 'STRONG EXIT'
+            elif c.sell_score >= 50:
+                c.exit_signal = 'EXIT'
+            elif c.sell_score >= 30:
+                c.exit_signal = 'WATCH'
+            else:
+                c.exit_signal = ''
 
         # เรียงตาม BUY/SELL score ด้วย Python
         if sort_by == 'buy':
@@ -1967,6 +2344,15 @@ def precision_momentum_scanner(request):
 
             if 55 <= c.rsi <= 70:
                 reasons.append(f"RSI {c.rsi:.0f} จุดหวาน")
+
+            if c.price_pattern and c.price_pattern_score > 0:
+                reasons.append(f"Pattern: {c.price_pattern}")
+
+            rel = c.rel_momentum_3m if c.rel_momentum_3m != 0.0 else c.rel_momentum_1m
+            if rel >= 8:
+                reasons.append(f"ชนะ SET +{rel:.1f}% (3m)")
+            elif rel >= 3:
+                reasons.append(f"ชนะ SET +{rel:.1f}%")
 
             c.top_reasons = reasons[:4]
     else:

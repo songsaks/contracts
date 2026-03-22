@@ -522,6 +522,77 @@ def analyze_momentum_technical(df):
 #   - Stop loss คำนวณจาก ATR: refined_lower - (ATR * 0.5)
 #   - คืนค่า erc_volume_confirmed และ zone_target_source
 # ----------------------------------------------------------------------
+
+
+# ----------------------------------------------------------------------
+# detect_price_pattern — ตรวจจับ Price Pattern จาก OHLC (3 แท่งล่าสุด)
+#   Bullish patterns  → score > 0 (bonus ใน BUY score)
+#   Bearish patterns  → score < 0 (penalty ใน BUY score)
+#   No pattern        → score = 0
+#   Patterns: Hammer(+10), Bullish Engulfing(+10), Morning Star(+8),
+#             Inside Bar Break(+6), Shooting Star(-8), Bearish Engulfing(-10), Doji(-5)
+# ----------------------------------------------------------------------
+def detect_price_pattern(df):
+    if df is None or len(df) < 3:
+        return {'name': '', 'score': 0}
+
+    r3 = df.iloc[-3]  # oldest of last 3 candles
+    r2 = df.iloc[-2]  # middle candle
+    r1 = df.iloc[-1]  # latest candle
+
+    try:
+        o3, h3, l3, c3 = float(r3['Open']), float(r3['High']), float(r3['Low']), float(r3['Close'])
+        o2, h2, l2, c2 = float(r2['Open']), float(r2['High']), float(r2['Low']), float(r2['Close'])
+        o1, h1, l1, c1 = float(r1['Open']), float(r1['High']), float(r1['Low']), float(r1['Close'])
+    except (KeyError, TypeError, ValueError):
+        return {'name': '', 'score': 0}
+
+    body1 = abs(c1 - o1)
+    rng1  = h1 - l1 if h1 > l1 else 0.0001
+    upper_wick1 = h1 - max(o1, c1)
+    lower_wick1 = min(o1, c1) - l1
+
+    body2 = abs(c2 - o2)
+    body3 = abs(c3 - o3)
+
+    # ---- Bearish patterns (penalty) — check first so we don't miss early exit ----
+
+    # Bearish Engulfing: prev bullish → current bearish fully covers it
+    if c2 > o2 and c1 < o1 and o1 >= c2 and c1 <= o2:
+        return {'name': 'Bearish Engulf', 'score': -10}
+
+    # Shooting Star: long upper wick ≥ 2× body, closes in lower half
+    if (rng1 > 0 and upper_wick1 >= 2 * body1 and
+            lower_wick1 <= 0.3 * rng1 and c1 <= l1 + rng1 * 0.5):
+        return {'name': 'Shooting Star', 'score': -8}
+
+    # Doji: body ≤ 10% of range — indecision / potential reversal
+    if rng1 > 0 and body1 <= 0.1 * rng1:
+        return {'name': 'Doji', 'score': -5}
+
+    # ---- Bullish patterns (bonus) ----
+
+    # Bullish Engulfing: prev bearish → current bullish fully covers it
+    if c2 < o2 and c1 > o1 and o1 <= c2 and c1 >= o2:
+        return {'name': 'Bullish Engulf', 'score': 10}
+
+    # Hammer / Pin Bar: long lower wick ≥ 2× body, closes in upper half
+    if (rng1 > 0 and lower_wick1 >= 2 * body1 and
+            upper_wick1 <= 0.3 * rng1 and c1 >= l1 + rng1 * 0.5):
+        return {'name': 'Hammer', 'score': 10}
+
+    # Morning Star (3-candle reversal)
+    mid3 = (o3 + c3) / 2
+    if (c3 < o3 and body3 > 0 and       # candle-3 bearish
+            body2 <= 0.3 * body3 and    # candle-2 small (doji-like)
+            c1 > o1 and c1 > mid3):     # candle-1 bullish, closes above midpoint
+        return {'name': 'Morning Star', 'score': 8}
+
+    # Inside Bar Breakout: candle-2 inside candle-3, candle-1 breaks above
+    if h2 < h3 and l2 > l3 and c1 > h2:
+        return {'name': 'Inside Bar↑', 'score': 6}
+
+    return {'name': '', 'score': 0}
 def find_supply_demand_zones_v2(df):
     if df is None or len(df) < 50:
         return None
