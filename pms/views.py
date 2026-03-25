@@ -2713,6 +2713,26 @@ def gps_summary_report(request):
         )
         sat_incomplete_total_d = sum(sat_incomplete_by_user_d.values())
 
+        # Chart JSON — complete (stacked bar per technician)
+        complete_labels_d = sorted(sat_complete_by_user_d.keys())
+        sat_complete_chart_json_d = {}
+        if complete_labels_d:
+            sat_complete_chart_json_d = {
+                'labels':         complete_labels_d,
+                'very_satisfied': [sat_complete_by_user_d[u]['VERY_SATISFIED'] for u in complete_labels_d],
+                'satisfied':      [sat_complete_by_user_d[u]['SATISFIED']      for u in complete_labels_d],
+                'not_satisfied':  [sat_complete_by_user_d[u]['NOT_SATISFIED']  for u in complete_labels_d],
+            }
+
+        # Chart JSON — incomplete (bar per technician)
+        incomplete_labels_d = sorted(sat_incomplete_by_user_d.keys())
+        sat_incomplete_chart_json_d = {}
+        if incomplete_labels_d:
+            sat_incomplete_chart_json_d = {
+                'labels': incomplete_labels_d,
+                'counts': [sat_incomplete_by_user_d[u] for u in incomplete_labels_d],
+            }
+
         return render(request, 'pms/gps_summary_report.html', {
             'mode':           'daily',
             'report_date':    report_date,
@@ -2734,8 +2754,8 @@ def gps_summary_report(request):
             'sat_complete_total':        sat_complete_total_d,
             'sat_incomplete_total':      sat_incomplete_total_d,
             'sat_complete_by_user':      dict(sat_complete_by_user_d),
-            'sat_complete_chart_json':   json_lib.dumps({}),
-            'sat_incomplete_chart_json': json_lib.dumps({}),
+            'sat_complete_chart_json':   json_lib.dumps(sat_complete_chart_json_d),
+            'sat_incomplete_chart_json': json_lib.dumps(sat_incomplete_chart_json_d),
         })
 
     # ── MONTHLY MODE (continues below) ─────────────────────────────────
