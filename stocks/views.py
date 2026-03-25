@@ -2528,10 +2528,58 @@ def precision_momentum_scanner(request):
             [{'name': k, 'count': v} for k, v in sector_counts.items()],
             key=lambda x: x['count'], reverse=True
         )[:5]
+
+        # ====== Automated AI Insights (คำอธิบายวิเคราะห์ผลสแกน) ======
+        scan_insights = []
+        if top5_qualified:
+            best_setup = top5_qualified[0]
+            rr_val = best_setup.risk_reward_ratio or 0
+            rs_val = getattr(best_setup, "rs_rating", 0)
+            scan_insights.append({
+                'icon': '🏆',
+                'title': f'โฟกัสหลัก: {best_setup.symbol} (หน้าเทรดคุ้มค่า ปลอดภัยสูง)',
+                'desc': f'ถือเป็นหน้าเทรด Swing Trade ที่สมบูรณ์แบบที่สุดในรอบนี้ เพราะมีความแข็งแกร่ง (RS {rs_val}) เทรนด์ทำมุมสวยงาม แต่ราคาปัจจุบันกลับอยู่ใกล้จุดเข้าซื้อ ทำให้มีความคุ้มค่ากับความเสี่ยงสูง (RR 1:{rr_val:.1f}) ซื้อแล้วมีโอกาสชนะสูง'
+            })
+        
+        # หาหุ้นซิ่งที่สุดแต่เสี่ยงสูง (RS > 90 แต่ RR < 1.0)
+        high_risk_momentum = [c for c in top5_buy if getattr(c, 'rs_rating', 0) >= 90 and (c.risk_reward_ratio or 0) < 1.5]
+        if high_risk_momentum:
+            hm = high_risk_momentum[0]
+            if not top5_qualified or hm.symbol != top5_qualified[0].symbol:
+                scan_insights.append({
+                    'icon': '🚀',
+                    'title': f'สายซิ่ง (เสี่ยงสูง): {hm.symbol} (แรงทะลุกราฟ)',
+                    'desc': f'นี่คือ "หุ้นโคตรโมเมนตัม" วิ่งแรงชนะตลาดถึง {getattr(hm, "rs_rating", 0)}% วอลุ่มเข้าหนัก แต่อัตราคุ้มทุน (RR) ณ ราคานี้ได้เพียง 1:{hm.risk_reward_ratio or 0:.1f} แปลว่าราคาลอยขึ้นมาพอสมควรแล้ว "อย่าเพิ่งไล่ราคา (Market Buy) แนะนำให้เอาเข้า Watchlist แล้วรอซื้อตอนย่อตัวพักฐาน"'
+                })
+
+        # หาหุ้นเพิ่งเริ่มกลับตัว (MACD crossover)
+        reversal_stocks = [c for c in top5_buy if any('MACD' in str(r) for r in (c.top_reasons or []))]
+        if reversal_stocks and len(scan_insights) < 3:
+            rev = reversal_stocks[0]
+            skip = False
+            if top5_qualified and rev.symbol == top5_qualified[0].symbol: skip = True
+            if high_risk_momentum and rev.symbol == high_risk_momentum[0].symbol: skip = True
+            if not skip:
+                scan_insights.append({
+                    'icon': '🥈',
+                    'title': f'สัญญาณกลับตัว: {rev.symbol} (ต้นเทรนด์)',
+                    'desc': f'หุ้นตัวนี้มีสัญญาณเชิงบวกคือเกิด MACD Crossover (ตัดเส้น Signal ขึ้นมา) มักใช้ระบุจุดเริ่มต้นของรอบขาขึ้นชุดใหม่ น่าเก็บสะสมที่บริเวณแนวรับปัจจุบัน'
+                })
+        
+        # ถ้าระบบยังไม่มีคำแนะนำเลย
+        if not scan_insights and top5_buy:
+            top = top5_buy[0]
+            scan_insights.append({
+                'icon': '💡',
+                'title': f'น่าปั้นเทรนด์: {top.symbol}',
+                'desc': f'ได้คะแนนเข้าซื้อสูงสุดในรอบนี้ มีโครงสร้างทางเทคนิคโดยรวมเฉลี่ยดีที่สุด เหมาะเป็นหุ้นน่าจับตามอง'
+            })
+
     else:
         top5_buy = []
         top5_qualified = []
         top_sectors = []
+        scan_insights = []
 
     context = {
         'title': 'Precision Momentum Scanner — กรองคุณภาพ',
@@ -2546,6 +2594,7 @@ def precision_momentum_scanner(request):
         'scan_total': len(scan_symbols),   # จำนวน symbol ทั้งหมดใน ScannableSymbol (active)
         'scan_passed': len(candidates),    # ผ่านเกณฑ์ในรอบนั้น
         'top_sectors': top_sectors,        # กลุ่มอุตสาหกรรมผู้นำ
+        'scan_insights': scan_insights,    # คำอธิบายผลลัพธ์อัตโนมัติ
     }
     return render(request, 'stocks/precision_scan.html', context)
 
