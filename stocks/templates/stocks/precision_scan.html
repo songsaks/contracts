@@ -26,35 +26,33 @@
     </div>
 </div>
 
-<!-- ข้อแตกต่างจาก Momentum Scanner เดิม -->
+<!-- สรุปการอัปเดตระบบ Precision v3 (Pure Momentum) -->
 <div class="row mb-4">
     <div class="col-12">
         <button class="btn btn-sm rounded-pill px-4 shadow-sm" type="button"
                 data-bs-toggle="collapse" data-bs-target="#diffGuide" aria-expanded="false"
                 style="border: 1px solid #7c3aed; color: #7c3aed;">
-            <i class="fas fa-info-circle me-2"></i> ความแตกต่างจาก Momentum Scanner เดิม
+            <i class="fas fa-info-circle me-2"></i> สรุปการอัปเดตระบบ Precision v3 (Pure Momentum)
         </button>
         <div class="collapse mt-3" id="diffGuide">
             <div class="card card-body border-0 shadow-sm rounded-4 bg-light p-4">
                 <div class="row g-3">
                     <div class="col-md-6">
-                        <h6 class="fw-bold mb-3" style="color: #7c3aed;"><i class="fas fa-plus-circle me-2"></i> เกณฑ์ที่เข้มข้นขึ้น</h6>
+                        <h6 class="fw-bold mb-3" style="color: #7c3aed;"><i class="fas fa-rocket me-2"></i> ปลดล็อคเกณฑ์ล่าหุ้นต้นเทรนด์ (Reversal)</h6>
                         <ul class="list-unstyled small text-secondary">
-                            <li class="mb-2"><strong>ERC Volume Confirmed:</strong> แท่งเทียน ERC ต้องมี Body > 1.5x avg <em>และ</em> Volume > 1.5x avg (เดิมใช้แค่ Body)</li>
-                            <li class="mb-2"><strong>ADX ≥ 20:</strong> กรองเฉพาะหุ้นที่มีเทรนด์แข็งแกร่งจริง (Average Directional Index)</li>
-                            <li class="mb-2"><strong>Liquidity ≥ 500,000:</strong> ปริมาณซื้อขายเฉลี่ย 20 วันต้องสูงพอ ป้องกันหุ้นปั่น</li>
-                            <li class="mb-2"><strong>Supply Target = 52-Week High:</strong> เป้าหมายชัดเจน ไม่ตายตัวแค่ 60-120 วัน</li>
-                            <li class="mb-0"><strong>ATR-based Stop Loss:</strong> Stop Loss คำนวณจาก ATR × 0.5 แทนการใช้ Fixed 1%</li>
+                            <li class="mb-2"><strong>ยกเลิกเกณฑ์ EMA200 ภาคบังคับ:</strong> ให้โอกาสหุ้นที่ทำฐานย่ำเพื่อ Reversal ติดสแกนได้เร็วขึ้น</li>
+                            <li class="mb-2"><strong>ผ่อนปรน ADX ≥ 15 (เดิม 20):</strong> ตรวจจับหุ้นที่เพิ่งเริ่มมีแรงบิดกระตุกขึ้นจากโซนล่างสุด</li>
+                            <li class="mb-2"><strong>ยกเลิกคะแนนโบนัสด้านงบการเงิน:</strong> ระบบเพ่งเล็งไปที่ร่องรอย "กระแสเงินของสถาบัน" (Price & Volume Action) แบบ 100%</li>
+                            <li class="mb-0"><strong>ฐานหุ้นที่กว้างขึ้น:</strong> สแกนหาเพชรเม็ดงามครอบคลุมทั้ง SET100 และ MAI ทั้งตลาด</li>
                         </ul>
                     </div>
                     <div class="col-md-6">
-                        <h6 class="fw-bold mb-3" style="color: #4f46e5;"><i class="fas fa-chart-line me-2"></i> การให้คะแนนปรับปรุง</h6>
+                        <h6 class="fw-bold mb-3" style="color: #4f46e5;"><i class="fas fa-calculator me-2"></i> โครงสร้างคะแนนใหม่ V3 (เต็ม 100 pts)</h6>
                         <ul class="list-unstyled small text-secondary">
-                            <li class="mb-2"><strong>RVOL Bull/Bear แยกทิศทาง:</strong> วันขาขึ้น = คะแนนเต็ม, วันขาลง = ครึ่งคะแนน (25 pts max)</li>
-                            <li class="mb-2"><strong>RSI เพิ่มน้ำหนัก:</strong> 25 pts (จากเดิม 20 pts) — ให้ความสำคัญกับ RSI มากขึ้น</li>
-                            <li class="mb-2"><strong>Trend Score:</strong> คงเดิม 40 pts — ราคาเหนือ EMA50, EMA200, Golden Cross</li>
-                            <li class="mb-2"><strong>S/D Zone Bonus:</strong> 10 pts เมื่อราคา retest demand zone</li>
-                            <li class="mb-0"><strong>เก็บประวัติ 3 รอบ:</strong> เปรียบเทียบได้ว่าหุ้นไหนใหม่ในรอบนี้ (NEW badge)</li>
+                            <li class="mb-2"><strong>Risk/Reward & Zone (53 pts):</strong> ให้น้ำหนักสูงสุดกับจุดเข้าซื้อที่อยู่ใกล้ขอบล่างเส้น Demand Zone และให้โอกาสวิ่งมากกว่าจุดตัด SL</li>
+                            <li class="mb-2"><strong>Trend & Indicators (32 pts):</strong> คว้าแต้มหากหุ้นอยู่ในแดน RSI กระทิง, MACD เริ่มตัดขึ้น, และทรงกราฟเอาชนะ SET ได้</li>
+                            <li class="mb-2"><strong>RS Rating Bonus (15 pts):</strong> หุ้นผู้นำตลาดที่มีความแกร่งระดับ Top 15% รับแต้มโบนัสเพื่อดันขึ้น Rank บนสุด</li>
+                            <li class="mb-0"><strong>เงื่อนไขหลัก:</strong> ยังคงรักษาการยืนยันวอลุ่มแห้งหรือการพักตัวที่ชัดเจนด้วย ERC Volume</li>
                         </ul>
                     </div>
                 </div>
@@ -113,8 +111,8 @@
                                             <div class="fw-bold small" style="color:#1e293b;">ADX (ความแข็งแกร่งเทรนด์)</div>
                                             <div class="small text-muted mt-1">
                                                 <span class="badge bg-success bg-opacity-10 text-success me-1">≥ 30</span>เทรนด์แข็งมาก<br>
-                                                <span class="badge bg-warning bg-opacity-10 text-warning me-1 text-dark">20–29</span>เทรนด์ปานกลาง<br>
-                                                <span class="badge bg-danger bg-opacity-10 text-danger me-1">&lt; 20</span>ไม่มีเทรนด์
+                                                <span class="badge bg-warning bg-opacity-10 text-warning me-1 text-dark">15–29</span>เริ่มฟอร์มตัว/มีเทรนด์<br>
+                                                <span class="badge bg-danger bg-opacity-10 text-danger me-1">&lt; 15</span>ไร้ทิศทาง (บีบอัด)
                                             </div>
                                         </div>
                                     </div>
@@ -432,8 +430,7 @@
         </div>
         <h3 class="fw-bold" style="color: #7c3aed;">Precision Ready</h3>
         <p class="text-muted mx-auto" style="max-width: 600px;">
-            คลิกปุ่ม <strong>Precision Scan</strong> ด้านบน ระบบจะกรองหุ้นคุณภาพสูงจาก SET100+MAI
-            โดยเพิ่มเกณฑ์ ADX, Liquidity และ ERC Volume Confirmation เพื่อลดสัญญาณ False Positive
+            คลิกปุ่ม <strong>Precision Scan</strong> ด้านบน ระบบจะรันอัลกอริทึม <strong>Pure Momentum V3</strong> ค้นหาหุ้นที่มีความแข็งแกร่ง (RS Rating) และอยู่ในโซนเข้าซื้อระดับ Sniper จาก SET100+MAI ทั่วตลาด
         </p>
     </div>
 </div>
@@ -1132,11 +1129,11 @@
                 <h6 class="fw-bold mb-3 d-flex align-items-center">
                     <i class="fas fa-calculator me-2" style="color: #7c3aed;"></i> Precision Score (100 pts)
                 </h6>
-                <div class="small text-muted">
-                    <div class="mb-2"><strong>Trend (40 pts):</strong> EMA50/EMA200 alignment + Golden Cross</div>
-                    <div class="mb-2"><strong>RSI (25 pts):</strong> RSI 55-75 = +15, 45-55 = +7, ใกล้ 52w High = +10</div>
-                    <div class="mb-2"><strong>RVOL Bull/Bear (25 pts):</strong> RVOL วันขาขึ้น เต็ม pts, วันขาลง ครึ่ง pts</div>
-                    <div><strong>S/D Zone Retest (10 pts):</strong> ราคา retest demand zone</div>
+                <div class="small text-muted" style="line-height:1.5;">
+                    <div class="mb-2"><strong>Zone & Risk/Reward (53 pts):</strong> อยู่ใกล้เตา Demand Zone (+28) และมีอัพไซด์คุ้มค่าเทียบกับจุดตัดขาดทุน (+25)</div>
+                    <div class="mb-2"><strong>Momentum Indicators (32 pts):</strong> RSI อยู่ในโซน Bullish (+8), MACD ตัดขึ้น (+12), ชนะ SET Index อย่างชัดเจน (+12)</div>
+                    <div class="mb-2"><strong>Relative Strength (15 pts):</strong> หุ้นเป็น Market Leader ค่า RS >= 85 ได้โบนัสเต็ม 15 pts</div>
+                    <div><em class="text-primary" style="font-size:0.75rem;">* ระบบคิดคะแนนดิบรวมกัน แล้วตัด Max Limit ไว้ที่ 100 คะแนน (Pure Momentum Base ไม่สนงบการเงิน)</em></div>
                 </div>
             </div>
         </div>
@@ -1147,11 +1144,11 @@
                 <h6 class="fw-bold mb-3 d-flex align-items-center">
                     <i class="fas fa-shield-alt text-success me-2"></i> เกณฑ์กรองเพิ่มเติม
                 </h6>
-                <div class="small text-muted">
-                    <div class="mb-2"><strong>ADX ≥ 20:</strong> เทรนด์ต้องแข็งแกร่ง (20-25=weak, 25-50=strong, 50+=very strong)</div>
-                    <div class="mb-2"><strong>Liquidity ≥ 500,000:</strong> Avg daily volume 20 วันต้องสูงพอ</div>
-                    <div class="mb-2"><strong>ERC Vol Confirmed:</strong> แท่ง ERC ต้องมี Body + Volume > 1.5x avg ทั้งคู่</div>
-                    <div><strong>Supply = 52w High:</strong> เป้าหมายคือ High สูงสุดใน 1 ปี เสมอ</div>
+                <div class="small text-muted" style="line-height:1.5;">
+                    <div class="mb-2"><strong>ADX ≥ 15:</strong> ผ่อนปรนเกณฑ์ให้รับหุ้น Reversal เพิ่งกลับตัวจากโซนล่าง (15-20 เริ่มกระตุกเทรนด์, 20+ แข็งแรง)</div>
+                    <div class="mb-2"><strong>Liquidity ≥ 500,000:</strong> ป้องกันปั่นบอท Avg daily volume 20 วันต้องสูงพอ</div>
+                    <div class="mb-2"><strong>Trend Freedom:</strong> ไม่บังคับต้องอยู่เหนือเส้น EMA 200 อีกต่อไป แต่ห้ามร่วงลงมาจาก 52W High เกินกว่า 50%</div>
+                    <div><strong>ERC / Supply:</strong> ใช้แท่งทรงพลัง (ERC) ยืนยันการเข้า และ Supply 52w High เป็นจุดทำกำไร</div>
                 </div>
             </div>
         </div>
