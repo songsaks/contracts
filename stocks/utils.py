@@ -593,6 +593,10 @@ def detect_price_pattern(df):
         return {'name': 'Inside Bar↑', 'score': 6}
 
     return {'name': '', 'score': 0}
+
+# ----------------------------------------------------------------------
+# find_supply_demand_zones_v2 — เวอร์ชันปรับปรุง
+# ----------------------------------------------------------------------
 def find_supply_demand_zones_v2(df):
     if df is None or len(df) < 50:
         return None
@@ -721,69 +725,76 @@ def find_supply_demand_zones_v2(df):
 # ----------------------------------------------------------------------
 def analyze_momentum_technical_v2(df):
     if df is None or len(df) < 50:
-        return {'score': 0, 'rvol': 0, 'rsi': 0, 'ema200': 0, 'ema50': 0,
-                'rvol_bullish': True, 'avg_volume_20d': 0, 'sd_zone': None}
+        return {'score': 0, 'rvol': 0, 'rsi': 0, 'ema200': 0, 'ema50': 0, 'ema20': 0,
+                'rvol_bullish': True, 'avg_volume_20d': 0, 'sd_zone': None,
+                'ema20_aligned': False}
 
     import pandas_ta as ta
     df = df.copy()
 
     df['EMA200'] = ta.ema(df['Close'], length=200)
-    df['EMA50'] = ta.ema(df['Close'], length=50)
-    df['EMA20'] = ta.ema(df['Close'], length=20)
-    df['RSI'] = ta.rsi(df['Close'], length=14)
+    df['EMA50']  = ta.ema(df['Close'], length=50)
+    df['EMA20']  = ta.ema(df['Close'], length=20)
+    df['RSI']    = ta.rsi(df['Close'], length=14)
 
-    current_price = df['Close'].iloc[-1]
-    last_open = df['Open'].iloc[-1]
-    rsi = float(df['RSI'].iloc[-1]) if pd.notna(df['RSI'].iloc[-1]) else 50.0
+    current_price = float(df['Close'].iloc[-1])
+    last_open     = float(df['Open'].iloc[-1])
+    rsi    = float(df['RSI'].iloc[-1])    if pd.notna(df['RSI'].iloc[-1])    else 50.0
     ema200 = float(df['EMA200'].iloc[-1]) if pd.notna(df['EMA200'].iloc[-1]) else current_price
-    ema50 = float(df['EMA50'].iloc[-1]) if pd.notna(df['EMA50'].iloc[-1]) else current_price
+    ema50  = float(df['EMA50'].iloc[-1])  if pd.notna(df['EMA50'].iloc[-1])  else current_price
+    ema20  = float(df['EMA20'].iloc[-1])  if pd.notna(df['EMA20'].iloc[-1])  else current_price
 
     score = 0
 
     # 1. Trend Score (สูงสุด 40 คะแนน)
-    if current_price > ema200:
-        score += 15
-    if current_price > ema50:
-        score += 15
-    if ema50 > ema200:
-        score += 10
+    #    v3: เพิ่ม EMA20 > EMA50 > EMA200 full alignment (+8) — ลด weight ตัวเดี่ยวลงเล็กน้อย
+    ema20_aligned = (ema20 > ema50 > ema200)
+    if current_price > ema200: score += 12
+    if current_price > ema50:  score += 12
+    if ema50 > ema200:         score += 8
+    if ema20_aligned:          score += 8   # 3-layer confirmation (Minervini full stack)
 
-    # 2. RSI Score (สูงสุด 25 คะแนน — เพิ่มจาก 20)
-    year_high = df['High'].tail(252).max()
-    if 55 <= rsi <= 75:
-        score += 15   # RSI อยู่ใน momentum zone
+    # 2. RSI Score (สูงสุด 25 คะแนน)
+    #    v3: ย้าย optimal zone เป็น 65-80 (momentum breakout zone) แทน 55-75
+    year_high = float(df['High'].tail(252).max())
+    if 65 <= rsi <= 80:
+        score += 15   # จุดหวาน momentum — ไม่ overbought แต่กำลังวิ่ง
+    elif 55 <= rsi < 65:
+        score += 10   # momentum กำลังก่อตัว
+    elif rsi > 80:
+        score += 8    # overbought แต่ trend ยังแรง
     elif 45 <= rsi < 55:
-        score += 7    # RSI อยู่ในโซนกลาง
+        score += 5    # กลางๆ
     if current_price >= year_high * 0.85:
         score += 10   # ราคาใกล้ 52-week high
 
-    # 3. Direction-aware RVOL Score (สูงสุด 25 คะแนน — ลดจาก 30)
-    avg_vol = df['Volume'].tail(20).mean()
-    last_vol = df['Volume'].iloc[-1]
+    # 3. Direction-aware RVOL Score (สูงสุด 25 คะแนน)
+    avg_vol = float(df['Volume'].tail(20).mean())
+    last_vol = float(df['Volume'].iloc[-1])
     rvol = last_vol / avg_vol if avg_vol > 0 else 1.0
-    rvol_bullish = current_price >= last_open  # True = วันขาขึ้น
+    rvol_bullish = current_price >= last_open
 
     if rvol_bullish:
-        # วันขาขึ้น: ให้คะแนนเต็ม
-        if rvol >= 2.0:
-            score += 25
-        elif rvol >= 1.5:
-            score += 18
-        elif rvol >= 1.0:
-            score += 10
+        if rvol >= 2.0:   score += 25
+        elif rvol >= 1.5: score += 18
+        elif rvol >= 1.0: score += 10
     else:
-        # วันขาลง: ให้ครึ่งคะแนน (volume ที่เพิ่มขึ้นในวันลงเป็นสัญญาณแรงขาย)
-        if rvol >= 2.0:
-            score += 12
-        elif rvol >= 1.5:
-            score += 9
-        elif rvol >= 1.0:
-            score += 5
+        if rvol >= 2.0:   score += 12
+        elif rvol >= 1.5: score += 9
+        elif rvol >= 1.0: score += 5
 
-    # 4. Supply/Demand Zone (สูงสุด 10 คะแนน)
+    # 4. Supply/Demand Zone retest (สูงสุด 10 คะแนน)
     sd = find_supply_demand_zones_v2(df)
     if sd and sd['is_retesting']:
         score += 10
+
+    # 5. Performance returns (for RS Rating in view)
+    ret_1m = 0.0
+    ret_3m = 0.0
+    if len(df) >= 22:
+        ret_1m = float((df['Close'].iloc[-1] - df['Close'].iloc[-22]) / df['Close'].iloc[-22] * 100)
+    if len(df) >= 66:
+        ret_3m = float((df['Close'].iloc[-1] - df['Close'].iloc[-66]) / df['Close'].iloc[-66] * 100)
 
     return {
         'score': min(score, 100),
@@ -791,9 +802,13 @@ def analyze_momentum_technical_v2(df):
         'rsi': round(rsi, 2),
         'ema200': ema200,
         'ema50': ema50,
+        'ema20': ema20,
+        'ema20_aligned': ema20_aligned,
         'rvol_bullish': rvol_bullish,
         'avg_volume_20d': round(avg_vol, 0),
         'sd_zone': sd,
+        'stock_1m_return': ret_1m,
+        'stock_3m_return': ret_3m,
     }
 
 

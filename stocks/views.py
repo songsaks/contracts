@@ -38,7 +38,7 @@ def admin_only(user):
 
 # ====== _compute_signals — คำนวณ BUY/SELL Score + Exit Signal จาก PrecisionScanCandidate ======
 def _compute_signals(prec, current_price=None):
-    """Reusable scorer — ใช้ใน Portfolio, Watchlist, และ Precision Scanner."""
+    """Reusable scorer v3 — ใช้ใน Portfolio, Watchlist, และ Precision Scanner."""
     price  = float(current_price or getattr(prec, 'price', 0) or 0)
     dz_s   = getattr(prec, 'demand_zone_start', None)
     dz_e   = getattr(prec, 'demand_zone_end', None)
@@ -54,28 +54,55 @@ def _compute_signals(prec, current_price=None):
     rel1   = getattr(prec, 'rel_momentum_1m', 0.0)
     sz_s   = getattr(prec, 'supply_zone_start', None)
     yr_h   = getattr(prec, 'year_high', 0)
+    # v3 new fields (graceful fallback for old records)
+    macd_hist  = getattr(prec, 'macd_histogram', None) or 0.0
+    macd_cross = getattr(prec, 'macd_crossover', False)
+    bb_sq      = getattr(prec, 'bb_squeeze', False)
+    ema20_aln  = getattr(prec, 'ema20_aligned', False)
+    rs_rat     = getattr(prec, 'rs_rating', 0)
+    eps        = getattr(prec, 'eps_growth', 0)
+    rev        = getattr(prec, 'rev_growth', 0)
 
-    # --- BUY SCORE ---
-    buy = int(getattr(prec, 'technical_score', 0) * 0.30)
+    # ── BUY SCORE ─────────────────────────────────────────────────────
+    # base technical: technical_score คือผลลัพธ์จาก tech analyzer (max 100)
+    # เราลดน้ำหนักลงเหลือ 0.25 (max 25 pts) เพื่อเปิดทางให้ signals อื่นๆ
+    buy = int(getattr(prec, 'technical_score', 0) * 0.25) 
+
+    # Zone proximity (max 25)
     in_zone = dz_s and dz_e and price <= dz_s and price >= dz_e
     if in_zone:         buy += 25
     elif prox <= 10:    buy += 15
     elif prox <= 30:    buy += 8
     elif prox <= 60:    buy += 3
+
+    # RVOL direction-aware (max 22)
     if rvol_b and rvol >= 2.0:   buy += 22
     elif rvol_b and rvol >= 1.5: buy += 17
     elif rvol_b and rvol >= 1.0: buy += 12
     elif rvol_b and rvol >= 0.7: buy += 4
+
+    # R/R ratio (max 15)
     if rr >= 3:     buy += 15
     elif rr >= 2:   buy += 10
     elif rr >= 1.5: buy += 5
+
+    # ADX (max 8)
     if adx >= 35:   buy += 8
     elif adx >= 30: buy += 5
     elif adx >= 25: buy += 2
+
+    # ERC confirmed (max 5)
     if erc: buy += 5
-    if 55 <= rsi <= 70:  buy += 5
-    elif 45 <= rsi < 55: buy += 2
+
+    # RSI — v3: optimal zone ขยับเป็น 65-80 (max 8)
+    if 65 <= rsi <= 80:  buy += 8
+    elif 55 <= rsi < 65: buy += 4
+    elif rsi > 80:       buy += 2   # overbought แต่ trend ยังแรง
+
+    # Price pattern (max +10 / min -10)
     buy += pat
+
+    # Relative momentum (max +12 / min -8)
     rel = rel3 if rel3 != 0.0 else rel1
     if rel >= 15:   buy += 12
     elif rel >= 8:  buy += 9
@@ -83,12 +110,31 @@ def _compute_signals(prec, current_price=None):
     elif rel >= 0:  buy += 3
     elif rel >= -5: buy += 0
     else:           buy -= 8
+
+    # ── v3 new signals ────────────────────────────────────────────────
+    # MACD bullish crossover (max 12)
+    if macd_cross:          buy += 12
+    elif macd_hist > 0:     buy += 8   # histogram positive (buying pressure building)
+
+    # Bollinger Band Squeeze — pending breakout (max 6)
+    if bb_sq: buy += 6
+
+    # EMA20 > EMA50 > EMA200 full 3-layer alignment (max 5)
+    if ema20_aln: buy += 5
+
+    # ── v3 Relative Strength Rating (0-99 percentile) ───────────────────
+    # ยอดฮิต Minervini Style (max 15 pts) - ให้ความสำคัญกับ RS มากขึ้นเนื่องจากเน้น Momentum ล้วน
+    if rs_rat >= 85:   buy += 15
+    elif rs_rat >= 70: buy += 8
+    elif rs_rat >= 50: buy += 3
+
+
     buy_score = max(0, min(100, buy))
 
-    # --- SELL SCORE ---
+    # ── SELL SCORE ────────────────────────────────────────────────────
     sell = 0
     if sz_s and price >= sz_s:              sell += 45
-    elif yr_h and price >= yr_h * 0.97:    sell += 25
+    # ยกเลิกเงื่อนไขขายเมื่อใกล้วน 52w High เพราะเบรกเอาต์คือสัญญาณโมเมนตัมที่ดี
     if rsi > 78:    sell += 20
     elif rsi > 72:  sell += 12
     elif rsi > 68:  sell += 5
@@ -100,6 +146,9 @@ def _compute_signals(prec, current_price=None):
     elif pat < 0:   sell += 5
     if adx < 15:    sell += 8
     elif adx < 20:  sell += 4
+    # v3: MACD bearish (histogram negative + no crossover)
+    if not macd_cross and macd_hist < 0 and abs(macd_hist) > 0.01:
+        sell += 8
     sell_score = min(100, sell)
 
     if sell_score >= 70:   exit_signal = 'STRONG EXIT'
@@ -1907,11 +1956,12 @@ def precision_momentum_scanner(request):
     from .models import PrecisionScanCandidate
     from .utils import analyze_momentum_technical_v2
     from django.utils import timezone as tz
+    from yahooquery import Ticker as YQTicker
 
-    scan_symbols = ScannableSymbol.objects.filter(is_active=True).values_list('symbol', flat=True)
+    scan_symbols = list(ScannableSymbol.objects.filter(is_active=True).values_list('symbol', flat=True))
     if not scan_symbols:
         refresh_set100_symbols()
-        scan_symbols = ScannableSymbol.objects.filter(is_active=True).values_list('symbol', flat=True)
+        scan_symbols = list(ScannableSymbol.objects.filter(is_active=True).values_list('symbol', flat=True))
 
     if request.method == "POST" or request.GET.get('scan') == 'true':
         import pandas_ta as ta
@@ -1947,13 +1997,15 @@ def precision_momentum_scanner(request):
                 if len(set_close) >= 66:
                     set_1m_return = float((set_close.iloc[-1] - set_close.iloc[-22]) / set_close.iloc[-22] * 100)
                     set_3m_return = float((set_close.iloc[-1] - set_close.iloc[-66]) / set_close.iloc[-66] * 100)
-            print(f"[Precision] SET Index: 1m={set_1m_return:.2f}% 3m={set_3m_return:.2f}%")
+            import logging; logging.getLogger('stocks').info(f"[Precision] SET Index: 1m={set_1m_return:.2f}% 3m={set_3m_return:.2f}%")
         except Exception as e:
-            print(f"[Precision] SET Index fetch failed: {e}")
+            import logging; logging.getLogger('stocks').warning(f"[Precision] SET Index fetch failed: {e}")
 
-        for symbol in scan_symbols:
+        import concurrent.futures
+
+        def _process_precision_scan(symbol):
             try:
-                print(f"[Precision] Scanning {symbol}...")
+                # print(f"[Precision] Scanning {symbol}...")
                 df = yf.download(f"{symbol}.BK", period="1y", interval="1d", progress=False)
 
                 if df is None or df.empty:
@@ -1972,20 +2024,19 @@ def precision_momentum_scanner(request):
                         pass
 
                 if df is None or df.empty:
-                    continue
+                    return None
 
                 if isinstance(df.columns, pd.MultiIndex):
                     df.columns = df.columns.droplevel(1)
 
                 df = df.dropna(subset=['Close', 'High'])
                 if len(df) < 200:
-                    continue
+                    return None
 
                 # ====== Liquidity Filter: avg 20d volume >= 500,000 ======
                 avg_vol_20 = float(df['Volume'].tail(20).mean())
                 if avg_vol_20 < 500_000:
-                    print(f"[Precision] {symbol} skipped: low liquidity ({avg_vol_20:.0f})")
-                    continue
+                    return None   # skipped: low liquidity (logged at DEBUG level only)
 
                 # ====== คำนวณ Indicators ======
                 df['EMA200'] = ta.ema(df['Close'], length=200)
@@ -2002,50 +2053,79 @@ def precision_momentum_scanner(request):
                 ema200 = float(df['EMA200'].iloc[-1]) if pd.notna(df['EMA200'].iloc[-1]) else current_price
                 year_high = float(df['High'].tail(252).max())
 
-                # ====== ADX Filter >= 20 ======
+                # ====== ADX Filter (ผ่อนปรนให้หุ้นเพิ่งเริ่มเทรนด์) ======
                 adx_val = float(df['ADX_14'].iloc[-1]) if 'ADX_14' in df.columns and pd.notna(df['ADX_14'].iloc[-1]) else 0
-                if adx_val < 20:
-                    print(f"[Precision] {symbol} skipped: ADX {adx_val:.1f} < 20")
-                    continue
+                if adx_val < 15:
+                    # skipped (ADX < 15)
+                    return None
 
-                # ====== Trend Template Filter ======
-                is_uptrend = current_price > ema200
-                near_high = current_price >= year_high * 0.60
-                if not (is_uptrend and near_high):
-                    continue
+                # ====== Trend Template Filter (ผ่อนปรนเพื่อรับหุ้น Momentum เล่นรอบ) ======
+                # ยกเลิก is_uptrend ทิ้ง เพื่อเปิดโอกาสหุ้นลงแรงที่เพิ่งมีแรงงัดกลับ (Reversal Momentum)
+                # และยอมรับหุ้นที่ลงมาไม่เกิน 50% จากจุดสูงสุด 52 สัปดาห์ (เดิม 25% ซึ่งแคบเกินไป)
+                near_high  = current_price >= year_high * 0.50
+                if not near_high:
+                    return None
 
-                print(f"[Precision] MATCH: {symbol} (ADX:{adx_val:.1f})")
+                import logging; logger = logging.getLogger('stocks')
+                logger.debug(f"[Precision] MATCH: {symbol} (ADX:{adx_val:.1f})")
 
-                # ====== Precision Technical Analysis ======
+                # ====== Precision Technical Analysis (v3) ======
                 tech = analyze_momentum_technical_v2(df)
                 integrated_score = tech['score']
-                rvol = tech['rvol']
-                rsi = tech['rsi']
+                rvol         = tech['rvol']
+                rsi          = tech['rsi']
                 rvol_bullish = tech['rvol_bullish']
-                sd_zone = tech['sd_zone']
+                sd_zone      = tech['sd_zone']
+                ema20_aligned_flag = tech.get('ema20_aligned', False)
 
                 mfi_val = float(df['MFI'].iloc[-1]) if 'MFI' in df.columns and pd.notna(df['MFI'].iloc[-1]) else 0
 
-                # ====== Fundamental Data ======
-                sector = "Unknown"
-                eps_growth = 0.0
-                rev_growth = 0.0
-                fund_bonus = 0
+                # ====== MACD (12,26,9) — histogram + bullish crossover detection ======
+                macd_hist_val  = None
+                macd_cross_val = False
                 try:
-                    ticker = yf.Ticker(f"{symbol}.BK")
-                    info = ticker.info
-                    if isinstance(info, dict) and len(info) >= 5:
-                        sector = info.get('sector', 'Other')
-                        eps_growth = float(info.get('earningsQuarterlyGrowth', 0) or 0) * 100
-                        rev_growth = float(info.get('revenueGrowth', 0) or 0) * 100
-                    else:
-                        sector = "N/A"
-                    if eps_growth >= 20:
-                        fund_bonus += 10
-                    if rev_growth >= 10:
-                        fund_bonus += 10
+                    macd_df = ta.macd(df['Close'], fast=12, slow=26, signal=9)
+                    if macd_df is not None and not macd_df.empty:
+                        hist_col = [c for c in macd_df.columns if 'h' in c.lower() or 'hist' in c.lower()]
+                        macd_col = [c for c in macd_df.columns if c.lower().startswith('macd_')]
+                        sig_col  = [c for c in macd_df.columns if 'macds' in c.lower() or 'signal' in c.lower()]
+                        if hist_col:
+                            macd_hist_val = float(macd_df[hist_col[0]].iloc[-1]) if pd.notna(macd_df[hist_col[0]].iloc[-1]) else None
+                        # Bullish crossover = MACD line crosses above signal line in last 3 bars
+                        if macd_col and sig_col:
+                            m_ser = macd_df[macd_col[0]].dropna()
+                            s_ser = macd_df[sig_col[0]].dropna()
+                            if len(m_ser) >= 4 and len(s_ser) >= 4:
+                                # Check if MACD crossed above signal in last 3 candles
+                                for i in range(-3, 0):
+                                    if m_ser.iloc[i-1] <= s_ser.iloc[i-1] and m_ser.iloc[i] > s_ser.iloc[i]:
+                                        macd_cross_val = True
+                                        break
                 except Exception:
                     pass
+
+                # ====== Bollinger Bands Squeeze — bandwidth in bottom 20th pct (pending breakout) ======
+                bb_squeeze_flag = False
+                try:
+                    bb_df = ta.bbands(df['Close'], length=20, std=2)
+                    if bb_df is not None and not bb_df.empty:
+                        upper_col = [c for c in bb_df.columns if 'BBU' in c or 'upper' in c.lower()]
+                        lower_col = [c for c in bb_df.columns if 'BBL' in c or 'lower' in c.lower()]
+                        mid_col   = [c for c in bb_df.columns if 'BBM' in c or 'mid' in c.lower()]
+                        if upper_col and lower_col and mid_col:
+                            bbu = bb_df[upper_col[0]].dropna()
+                            bbl = bb_df[lower_col[0]].dropna()
+                            bbm = bb_df[mid_col[0]].dropna()
+                            if len(bbu) >= 20:
+                                bw = (bbu - bbl) / bbm  # bandwidth ratio
+                                pct20 = bw.quantile(0.20)
+                                if float(bw.iloc[-1]) <= float(pct20):
+                                    bb_squeeze_flag = True
+                except Exception:
+                    pass
+
+                # ====== Fundamental Data (bulk-fetched after all threads complete) ======
+                # ตัวแปรเหล่านี้ไม่ถูกใช้ใน thread — bulk enrichment เป็นตัวทำใน step 2
 
                 # ====== Supply & Demand Zone ======
                 entry_strat = ""
@@ -2083,56 +2163,162 @@ def precision_momentum_scanner(request):
                 pattern_name  = pattern_result['name']
                 pattern_score = pattern_result['score']
 
-                # ====== Relative Momentum vs SET Index ======
                 close_series = df['Close'].dropna()
                 rel_1m = rel_3m = 0.0
+                stock_3m_ret = 0.0
                 if len(close_series) >= 66:
                     stock_1m = float((close_series.iloc[-1] - close_series.iloc[-22]) / close_series.iloc[-22] * 100)
                     stock_3m = float((close_series.iloc[-1] - close_series.iloc[-66]) / close_series.iloc[-66] * 100)
+                    stock_3m_ret = stock_3m
                     rel_1m = round(stock_1m - set_1m_return, 2)
                     rel_3m = round(stock_3m - set_3m_return, 2)
                 elif len(close_series) >= 22:
                     stock_1m = float((close_series.iloc[-1] - close_series.iloc[-22]) / close_series.iloc[-22] * 100)
                     rel_1m = round(stock_1m - set_1m_return, 2)
 
-                PrecisionScanCandidate.objects.create(
-                    user=request.user,
-                    scan_run=scan_run_time,
-                    symbol=symbol,
-                    symbol_bk=f"{symbol}.BK",
-                    sector=sector,
-                    price=round(current_price, 2),
-                    rsi=round(rsi, 2),
-                    adx=round(adx_val, 2),
-                    mfi=round(mfi_val, 2),
-                    rvol=round(rvol, 2),
-                    eps_growth=round(eps_growth, 2),
-                    rev_growth=round(rev_growth, 2),
-                    technical_score=int(integrated_score + fund_bonus),
-                    avg_volume_20d=round(avg_vol_20, 0),
-                    rvol_bullish=rvol_bullish,
-                    erc_volume_confirmed=erc_vol_confirmed,
-                    zone_target_source=zone_target_src,
-                    is_new_entry=(symbol not in prev_symbols),
-                    entry_strategy=entry_strat,
-                    demand_zone_start=dz_start,
-                    demand_zone_end=dz_end,
-                    supply_zone_start=sz_start,
-                    supply_zone_end=sz_end,
-                    stop_loss=sl_price,
-                    risk_reward_ratio=rr_val,
-                    year_high=round(year_high, 2),
-                    upside_to_high=round(gap_to_high, 2),
-                    zone_proximity=round(prox_val, 2),
-                    price_pattern=pattern_name,
-                    price_pattern_score=pattern_score,
-                    rel_momentum_1m=rel_1m,
-                    rel_momentum_3m=rel_3m,
-                )
+                # Return dict instead of model to allow bulk fundamental enrichment and RS Ranking
+                return {
+                    'symbol': symbol,
+                    'price': round(current_price, 2),
+                    'rsi': round(rsi, 2),
+                    'adx': round(adx_val, 2),
+                    'mfi': round(mfi_val, 2),
+                    'rvol': round(rvol, 2),
+                    'technical_score': int(integrated_score),
+                    'avg_volume_20d': round(avg_vol_20, 0),
+                    'rvol_bullish': rvol_bullish,
+                    'erc_volume_confirmed': erc_vol_confirmed,
+                    'zone_target_src': zone_target_src,
+                    'entry_strat': entry_strat,
+                    'dz_start': dz_start,
+                    'dz_end': dz_end,
+                    'sz_start': sz_start,
+                    'sz_end': sz_end,
+                    'sl_price': sl_price,
+                    'rr_val': rr_val,
+                    'year_high': round(year_high, 2),
+                    'upside_to_high': round(gap_to_high, 2),
+                    'prox_val': round(prox_val, 2),
+                    'pattern_name': pattern_name,
+                    'pattern_score': pattern_score,
+                    'rel_1m': rel_1m,
+                    'rel_3m': rel_3m,
+                    'macd_histogram': round(macd_hist_val, 4) if macd_hist_val is not None else None,
+                    'macd_crossover': macd_cross_val,
+                    'bb_squeeze': bb_squeeze_flag,
+                    'ema20_aligned': ema20_aligned_flag,
+                    'stock_3m_ret': stock_3m_ret,
+                }
 
             except Exception as e:
-                print(f"[Precision] !!! Error scanning {symbol}: {str(e)}")
-                continue
+                import logging
+                logging.getLogger('stocks').exception(f"[Precision] Error scanning {symbol}: {e}")
+                return None
+
+        # ====== 1. RS Rating Ranking (Percentile based on stocks in this scan) ======
+        results = []
+        with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+            futures = [executor.submit(_process_precision_scan, sym) for sym in scan_symbols]
+            for future in concurrent.futures.as_completed(futures):
+                res = future.result()
+                if res:
+                    results.append(res)
+
+        if results:
+            # ใช้ Pandas เพื่อทำ percentile ranking (Minervini style)
+            scan_df = pd.DataFrame(results)
+            if not scan_df.empty and 'stock_3m_ret' in scan_df.columns:
+                # rank(pct=True) → 0.0–1.0, ×99 → 0–99, clip เพื่อป้องกัน edge case
+                scan_df['rs_rating'] = (
+                    scan_df['stock_3m_ret'].rank(pct=True) * 99
+                ).clip(0, 99).fillna(0).astype(int)
+            else:
+                scan_df['rs_rating'] = 0
+
+            # ====== 2. Bulk Fundamental Enrichment (Yahooquery) ======
+            # Fetch for all matched symbols in one go (Sector, EPS Growth, Rev Growth)
+            matched_symbols = [r['symbol'] for r in results]
+            symbols_bk = [f"{s}.BK" for s in matched_symbols]
+            
+            fund_data = {}
+            try:
+                yq_all = YQTicker(symbols_bk)
+                # เพิ่ม summaryProfile เพื่อดึง sector (ไม่ใช่ summaryDetail)
+                modules = yq_all.get_modules('financialData summaryProfile')
+
+                for sym_bk, data in modules.items():
+                    if not isinstance(data, dict):
+                        continue
+                    clean_sym = sym_bk.replace('.BK', '')
+                    profile   = data.get('summaryProfile', {})
+                    fin_data  = data.get('financialData', {})
+
+                    # Sector fallback chain: summaryProfile → assetProfile → 'Unknown'
+                    sector = (
+                        profile.get('sector')
+                        or data.get('assetProfile', {}).get('sector')
+                        or 'Unknown'
+                    )
+
+                    eps_growth = float(fin_data.get('earningsQuarterlyGrowth', 0) or 0) * 100
+                    rev_growth = float(fin_data.get('revenueGrowth', 0) or 0) * 100
+
+                    fund_data[clean_sym] = {
+                        'sector': sector,
+                        'eps_growth': eps_growth,
+                        'rev_growth': rev_growth,
+                    }
+            except Exception as e:
+                print(f"[Precision] Bulk Fundamental fetch failed: {e}")
+
+            # ====== 3. Final Model Mapping & Bulk Create ======
+            bulk_candidates = []
+            for r in scan_df.to_dict('records'):
+                sym = r['symbol']
+                f = fund_data.get(sym, {'sector': 'N/A', 'eps_growth': 0.0, 'rev_growth': 0.0})
+                
+                bulk_candidates.append(PrecisionScanCandidate(
+                    user=request.user,
+                    scan_run=scan_run_time,
+                    symbol=sym,
+                    symbol_bk=f"{sym}.BK",
+                    sector=f.get('sector') or 'Unknown',
+                    price=r['price'],
+                    rsi=r['rsi'],
+                    adx=r['adx'],
+                    mfi=r['mfi'],
+                    rvol=r['rvol'],
+                    eps_growth=round(f.get('eps_growth', 0), 2),
+                    rev_growth=round(f.get('rev_growth', 0), 2),
+                    technical_score=r['technical_score'],
+                    rs_rating=r['rs_rating'],
+                    avg_volume_20d=r['avg_volume_20d'],
+                    rvol_bullish=r['rvol_bullish'],
+                    erc_volume_confirmed=r['erc_volume_confirmed'],
+                    zone_target_source=r['zone_target_src'],
+                    is_new_entry=(sym not in prev_symbols),
+                    entry_strategy=r['entry_strat'],
+                    demand_zone_start=r['dz_start'],
+                    demand_zone_end=r['dz_end'],
+                    supply_zone_start=r['sz_start'],
+                    supply_zone_end=r['sz_end'],
+                    stop_loss=r['sl_price'],
+                    risk_reward_ratio=r['rr_val'],
+                    year_high=r['year_high'],
+                    upside_to_high=r['upside_to_high'],
+                    zone_proximity=r['prox_val'],
+                    price_pattern=r['pattern_name'],
+                    price_pattern_score=r['pattern_score'],
+                    rel_momentum_1m=r['rel_1m'],
+                    rel_momentum_3m=r['rel_3m'],
+                    macd_histogram=r['macd_histogram'],
+                    macd_crossover=r['macd_crossover'],
+                    bb_squeeze=r['bb_squeeze'],
+                    ema20_aligned=r['ema20_aligned'],
+                ))
+
+            if bulk_candidates:
+                PrecisionScanCandidate.objects.bulk_create(bulk_candidates)
 
         # เก็บไว้เพียง 3 รอบสแกนล่าสุด — ลบรอบเก่าออก
         distinct_runs = (
@@ -2158,6 +2344,7 @@ def precision_momentum_scanner(request):
         'adx': '-adx',
         'prox': 'zone_proximity',
         'round_rr': '-risk_reward_ratio',
+        'rs': '-rs_rating',          # RS Rating (Minervini Relative Strength)
     }
     use_db_sort = sort_by in valid_db_sorts
     order_field = valid_db_sorts.get(sort_by, '-technical_score')
@@ -2188,111 +2375,26 @@ def precision_momentum_scanner(request):
         candidates = list(qs)
         scanned_at = selected_run
 
-        # คำนวณ BUY Score และ SELL Score (composite) สำหรับแต่ละหุ้น
+        # ====== คำนวณ BUY/SELL Score ด้วย _compute_signals() เดียวกับ Dashboard/Watchlist ======
+        # ใช้สูตรกลางแทนการ duplicate logic — ทำให้ทุกหน้าแสดง score ที่สอดคล้องกัน
         for c in candidates:
-            # --- BUY SCORE (0–100): ยิ่งสูง ยิ่งเหมาะซื้อตอนนี้ ---
-            # สูตร v2: เพิ่มน้ำหนัก RVOL — volume จริงสำคัญกว่าแค่อยู่ใน zone
-            buy = int(c.technical_score * 0.30)   # max 30
+            sigs = _compute_signals(c)
+            c.buy_score  = sigs['buy_score']
+            c.sell_score = sigs['sell_score']
+            c.exit_signal = sigs['exit_signal']
 
-            in_zone = (c.demand_zone_start and c.demand_zone_end and
-                       c.price <= c.demand_zone_start and c.price >= c.demand_zone_end)
-            if in_zone:
-                buy += 25
-            elif c.zone_proximity <= 10:
-                buy += 15
-            elif c.zone_proximity <= 30:
-                buy += 8
-            elif c.zone_proximity <= 60:
-                buy += 3
-
-            # RVOL (น้ำหนักเพิ่มขึ้นมาก — volume แรงสะท้อนแรงซื้อจริง)
-            if c.rvol_bullish and c.rvol >= 2.0:   buy += 22
-            elif c.rvol_bullish and c.rvol >= 1.5: buy += 17
-            elif c.rvol_bullish and c.rvol >= 1.0: buy += 12
-            elif c.rvol_bullish and c.rvol >= 0.7: buy += 4
-
-            rr = c.risk_reward_ratio or 0
-            if rr >= 3:     buy += 15
-            elif rr >= 2:   buy += 10
-            elif rr >= 1.5: buy += 5
-
-            # ADX — เทรนด์ยิ่งแข็ง ยิ่งน่าเข้า
-            if c.adx >= 35:   buy += 8
-            elif c.adx >= 30: buy += 5
-            elif c.adx >= 25: buy += 2
-
-            if c.erc_volume_confirmed: buy += 5
-
-            if 55 <= c.rsi <= 70:   buy += 5
-            elif 45 <= c.rsi < 55:  buy += 2
-
-            # Price Pattern (+10/-10 max)
-            buy += c.price_pattern_score
-
-            # Relative Momentum vs SET (max +12, penalty -8)
-            # ใช้ 3m เป็นหลัก ถ้าไม่มีใช้ 1m
-            rel_mom = c.rel_momentum_3m if c.rel_momentum_3m != 0.0 else c.rel_momentum_1m
-            if rel_mom >= 15:    buy += 12   # ชนะ SET > 15% — แรงมาก
-            elif rel_mom >= 8:   buy += 9    # ชนะ SET 8–15%
-            elif rel_mom >= 3:   buy += 6    # ชนะ SET 3–8%
-            elif rel_mom >= 0:   buy += 3    # ชนะ SET นิดหน่อย
-            elif rel_mom >= -5:  buy += 0    # แพ้ SET เล็กน้อย — เป็นกลาง
-            else:                buy -= 8    # แพ้ SET > 5% — หักคะแนน
-
-            c.buy_score = max(0, min(100, buy))
-
-            # --- SELL / EXIT SCORE (0–100): ยิ่งสูง ยิ่งควรพิจารณาออก ---
-            # สำหรับ 1–3 เดือน: ตรวจ 5 มิติ
-            sell = 0
-
-            # 1) ราคาถึง Supply Zone / 52w High → สัญญาณออกแรงที่สุด
-            if c.supply_zone_start and c.price >= c.supply_zone_start:
-                sell += 45
-            elif c.year_high and c.price and c.price >= c.year_high * 0.97:
-                sell += 25  # ห่าง 52w High แค่ 3% — ใกล้มาก
-
-            # 2) RSI overbought
-            if c.rsi > 78:   sell += 20
-            elif c.rsi > 72: sell += 12
-            elif c.rsi > 68: sell += 5
-
-            # 3) Volume หันเป็น Bear (แรงขายเข้ามา)
-            if not c.rvol_bullish and c.rvol >= 1.5: sell += 18  # Bear volume แรง
-            elif not c.rvol_bullish:                 sell += 10  # Bear volume ทั่วไป
-
-            # 4) Relative Momentum 1m กลับมาติดลบ (momentum สั้นอ่อน)
-            if c.rel_momentum_1m < -5:   sell += 12  # แพ้ SET > 5% ใน 1m
-            elif c.rel_momentum_1m < 0:  sell += 6   # เริ่มแพ้ SET
-
-            # 5) Bearish Price Pattern
-            if c.price_pattern_score < -5:  sell += 10  # Bearish Engulf / Shooting Star
-            elif c.price_pattern_score < 0: sell += 5   # Doji
-
-            # 6) เทรนด์อ่อนแรง (ADX ลดลงต่ำ)
-            if c.adx < 15:   sell += 8
-            elif c.adx < 20: sell += 4
-
-            c.sell_score = min(100, sell)
-
-            # Exit Signal label สำหรับแสดงใน UI
-            if c.sell_score >= 70:
-                c.exit_signal = 'STRONG EXIT'
-            elif c.sell_score >= 50:
-                c.exit_signal = 'EXIT'
-            elif c.sell_score >= 30:
-                c.exit_signal = 'WATCH'
-            else:
-                c.exit_signal = ''
-
-        # เรียงตาม BUY/SELL score ด้วย Python
+        # เรียงตาม BUY/SELL/RS score ด้วย Python (fallback ถ้าไม่ใช่ DB sort)
         if sort_by == 'buy':
             candidates.sort(key=lambda x: x.buy_score, reverse=True)
         elif sort_by == 'sell':
             candidates.sort(key=lambda x: x.sell_score, reverse=True)
+        elif sort_by == 'rs':
+            candidates.sort(key=lambda x: getattr(x, 'rs_rating', 0), reverse=True)
 
-        # ====== Top 5 หุ้นแนะนำซื้อ ======
+        # ====== Top 5 หุ้นแนะนำซื้อ (BUY score สูง) ======
         # เงื่อนไข: RVOL Bull ≥ 1.0x (มีแรงซื้อจริง) + RSI ไม่ overbought
-        def _top5_filter(min_rvol, max_rsi=80):
+        def _top5_filter(min_rvol, max_rsi=85):
+            # max_rsi=85 สอดคล้องกับ _compute_signals ที่ยังให้ +2 กับ RSI 80-85
             return sorted(
                 [c for c in candidates
                  if c.buy_score >= 50
@@ -2302,11 +2404,36 @@ def precision_momentum_scanner(request):
                 key=lambda x: x.buy_score, reverse=True
             )[:5]
 
-        top5_buy = _top5_filter(1.0)          # RVOL ≥ 1.0x, RSI ≤ 80
+        top5_buy = _top5_filter(1.0)
         if len(top5_buy) < 5:
-            top5_buy = _top5_filter(0.7)      # fallback: RVOL ≥ 0.7x
+            top5_buy = _top5_filter(0.7)
         if len(top5_buy) < 3:
-            top5_buy = _top5_filter(0.0)      # last resort: Bull direction, ไม่ fallback ถ้ามีน้อยกว่า 3
+            top5_buy = _top5_filter(0.0)
+
+        # ====== Top 5 หุ้นที่ "ผ่านเกณฑ์ครบทุกข้อ" ======
+        # ผ่อนปรนเกณฑ์ ADX 20 (เดิม 25) และ RSI ขยายเพื่อให้มีตัวเลือกมากขึ้น 
+        def _is_fully_qualified(c):
+            rr = c.risk_reward_ratio or 0
+            in_zone = (c.demand_zone_start and c.demand_zone_end and
+                       c.price <= c.demand_zone_start and c.price >= c.demand_zone_end)
+            near_zone = in_zone or (c.zone_proximity <= 30)
+            return (
+                c.buy_score >= 65            # เดิม 70 (ปรับลดให้ยืดหยุ่นถ้าคะแนนตึงไป)
+                and rr >= 1.5                # เดิม 2.0
+                and c.adx >= 20              # เดิม 25
+                and 45 <= c.rsi <= 82        # เดิม 55 (เปิดรับหุ้นเพิ่งงัดจาก oversold)
+                and c.rvol_bullish
+                and c.rvol >= 0.8            # เดิม 1.0
+                and near_zone
+                and (c.sell_score or 0) < 50
+                and getattr(c, 'rs_rating', 0) >= 60  # เดิม 70
+            )
+
+        top5_qualified = sorted(
+            [c for c in candidates if _is_fully_qualified(c)],
+            key=lambda x: x.buy_score, reverse=True
+        )[:5]
+
         for c in top5_buy:
             reasons = []
             in_zone = (c.demand_zone_start and c.demand_zone_end and
@@ -2354,9 +2481,55 @@ def precision_momentum_scanner(request):
             elif rel >= 3:
                 reasons.append(f"ชนะ SET +{rel:.1f}%")
 
+            rs = getattr(c, 'rs_rating', 0)
+            if rs >= 85:
+                reasons.insert(1, f"RS {rs} — ผู้นำตลาด")   # สอดในตำแหน่ง 2 เสมอ
+            elif rs >= 70:
+                reasons.insert(1, f"RS {rs} — แข็งแกร่ง")
+
             c.top_reasons = reasons[:4]
+
+        # เพิ่ม reasons ให้ top5_qualified ด้วย (บางตัวอาจซ้ำกับ top5_buy)
+        for c in top5_qualified:
+            if not hasattr(c, 'top_reasons'):
+                reasons = []
+                in_zone = (c.demand_zone_start and c.demand_zone_end and
+                           c.price <= c.demand_zone_start and c.price >= c.demand_zone_end)
+                if in_zone:
+                    reasons.append("อยู่ใน Entry Zone แล้ว")
+                elif c.zone_proximity <= 10:
+                    reasons.append(f"ห่างโซนแค่ {c.zone_proximity:.0f}%")
+                else:
+                    reasons.append(f"ใกล้โซน {c.zone_proximity:.0f}%")
+                rr = c.risk_reward_ratio or 0
+                reasons.append(f"RR 1:{rr:.1f} ✓")
+                reasons.append(f"ADX {c.adx:.0f} ✓")
+                rs = getattr(c, 'rs_rating', 0)
+                if rs >= 85:
+                    reasons.insert(1, f"RS {rs} — ผู้นำตลาด")
+                elif rs >= 70:
+                    reasons.insert(1, f"RS {rs} — แข็งแกร่ง")
+                if c.rvol >= 1.5:
+                    reasons.append(f"RVOL {c.rvol:.1f}x Bull ✓")
+                c.top_reasons = reasons[:4]
+
+        # ====== Leading Sectors Analysis (v3) ======
+        # นับจำนวนหุ้นที่ 'แข็งแกร่ง' (buy_score >= 65) ในแต่ละ sector เพื่อหาผู้นำกลุ่ม
+        sector_counts = {}
+        for c in candidates:
+            if c.buy_score >= 65:
+                sec = c.sector or 'Unknown'
+                sector_counts[sec] = sector_counts.get(sec, 0) + 1
+        
+        # เรียงลำดับกลุ่มที่แข็งแกร่งที่สุด 5 อันดับแรก
+        top_sectors = sorted(
+            [{'name': k, 'count': v} for k, v in sector_counts.items()],
+            key=lambda x: x['count'], reverse=True
+        )[:5]
     else:
         top5_buy = []
+        top5_qualified = []
+        top_sectors = []
 
     context = {
         'title': 'Precision Momentum Scanner — กรองคุณภาพ',
@@ -2367,6 +2540,10 @@ def precision_momentum_scanner(request):
         'selected_run_idx': run_idx,
         'has_scanned': request.method == "POST" or request.GET.get('scan') == 'true' or bool(all_runs),
         'top5_buy': top5_buy,
+        'top5_qualified': top5_qualified,
+        'scan_total': len(scan_symbols),   # จำนวน symbol ทั้งหมดใน ScannableSymbol (active)
+        'scan_passed': len(candidates),    # ผ่านเกณฑ์ในรอบนั้น
+        'top_sectors': top_sectors,        # กลุ่มอุตสาหกรรมผู้นำ
     }
     return render(request, 'stocks/precision_scan.html', context)
 

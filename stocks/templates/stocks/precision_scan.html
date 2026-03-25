@@ -99,7 +99,7 @@
                                             <div class="small text-muted mt-1">
                                                 <span class="badge bg-success bg-opacity-10 text-success me-1">≥ 80</span>สัญญาณดีมาก<br>
                                                 <span class="badge bg-primary bg-opacity-10 text-primary me-1">70–79</span>ผ่านเกณฑ์<br>
-                                                <span class="badge bg-secondary bg-opacity-10 text-secondary me-1">&lt; 70</span>หลีกเลี่ยง
+                                                <span class="badge bg-info bg-opacity-10 text-info me-1">RS 85+</span>Minervini Leading
                                             </div>
                                         </div>
                                     </div>
@@ -151,11 +151,12 @@
                                     <div class="d-flex align-items-start gap-2">
                                         <span style="font-size:1.2rem;">💧</span>
                                         <div>
-                                            <div class="fw-bold small" style="color:#1d4ed8;">RSI (แรงซื้อ-ขาย)</div>
+                                            <div class="fw-bold small" style="color:#1d4ed8;">RSI (แรงซื้อ-ขาย) <span style="color:#7c3aed;font-size:0.7rem;">v3</span></div>
                                             <div class="small mt-1" style="color:#374151;">
-                                                <span class="badge" style="background:#dcfce7;color:#15803d;">55–70</span> จุดหวาน — momentum ดี<br>
-                                                <span class="badge bg-warning bg-opacity-10 text-warning text-dark">45–54</span> momentum ปานกลาง<br>
-                                                <span class="badge bg-danger bg-opacity-10 text-danger">&gt; 75</span> overbought — รอ pullback
+                                                <span class="badge" style="background:#dcfce7;color:#15803d;">65–80</span> จุดหวาน v3 — momentum breakout<br>
+                                                <span class="badge" style="background:#dbeafe;color:#1d4ed8;">55–64</span> momentum กำลังก่อตัว<br>
+                                                <span class="badge bg-info bg-opacity-10 text-info text-dark" style="border:1px solid #0dcaf0;">RS 0-99</span> Relative Strength Rank<br>
+                                                <span class="badge bg-danger bg-opacity-10 text-danger">&lt; 55</span> ยังไม่มี momentum
                                             </div>
                                         </div>
                                     </div>
@@ -385,24 +386,35 @@
 
                     <!-- Checklist Summary -->
                     <div class="rounded-3 p-4" style="background:linear-gradient(135deg,#f5f3ff,#ede9fe); border:1px solid #c4b5fd;">
-                        <div class="fw-bold mb-3" style="color:#5b21b6;"><i class="fas fa-clipboard-check me-2"></i>Checklist ก่อนซื้อ — ต้องผ่านอย่างน้อย 6/9 ข้อ &nbsp;|&nbsp; <span style="color:#dc2626;">ออกเมื่อ SELL Badge ขึ้น</span></div>
+                        <div class="fw-bold mb-3" style="color:#5b21b6;"><i class="fas fa-clipboard-check me-2"></i>Checklist ก่อนซื้อ v3 — ต้องผ่านอย่างน้อย 7/12 ข้อ &nbsp;|&nbsp; <span style="color:#dc2626;">ออกเมื่อ SELL Badge ขึ้น</span></div>
                         <div class="row g-1" style="font-size:0.85rem; color:#374151;">
                             <div class="col-md-6">
-                                <div>☐ PRECISION SCORE ≥ 70</div>
-                                <div>☐ ADX ≥ 20 (เทรนด์ชัดเจน)</div>
-                                <div>☐ RSI อยู่ในช่วง 50–72</div>
-                                <div>☐ RVOL Bull ≥ 1.0x</div>
+                                <div>☐ PRECISION SCORE ≥ 65</div>
+                                <div>☐ **RS RATING ≥ 60** (มี Momentum ชนะตลาด)</div>
+                                <div>☐ ADX ≥ 15 (เริ่มมีเทรนด์)</div>
+                                <div>☐ RSI อยู่ในช่วง <strong>45–80</strong> (momentum zone)</div>
+                                <div>☐ RVOL Bull ≥ 0.8x</div>
                                 <div>☐ REL MOM เป็นบวก (ชนะ SET)</div>
+                                <div>☐ ราคาห่างจาก 52w High ไม่เกิน <strong>50%</strong> (Reversal / Momentum)</div>
                             </div>
                             <div class="col-md-6">
                                 <div>☐ ERC VOL ✓ (มี badge สีม่วง)</div>
-                                <div>☐ ZONE STATUS ≤ NEAR / อยู่ IN ZONE</div>
-                                <div>☐ RR ≥ 1:2</div>
-                                <div>☐ PATTERN ไม่เป็น Bearish (ถ้ามี ควรเป็น Bullish)</div>
+                                <div>☐ ZONE STATUS ≤ NEAR / อยู่ IN ZONE (จุดเข้า Swing Trade)</div>
+                                <div>☐ RR ≥ 1:1.5 (ความคุ้มค่าความเสี่ยง)</div>
+                                <div>☐ PATTERN ไม่เป็น Bearish</div>
+                                <div>☐ <span style="color:#15803d;">MACD ✕</span> หรือ <span style="color:#15803d;">MACD+</span> (histogram บวก)</div>
+                                <div>☐ <span style="color:#4f46e5;">EMA✓</span> EMA20 > EMA50 > EMA200 aligned</div>
+
                             </div>
                         </div>
-                        <div class="mt-3 small p-2 rounded-2" style="background:rgba(239,68,68,0.08); color:#991b1b; border:1px solid #fca5a5;">
-                            <strong>⚠️ สัญญาณหลีกเลี่ยง:</strong> RSI &gt; 75 | RVOL Bear ↓ | RR &lt; 1.5 | ADX &lt; 20 | REL MOM ติดลบมาก | ไฟแดงกระพริบ | Bearish Pattern ที่ Zone
+                        <div class="mt-2 small p-2 rounded-2" style="background:rgba(79,70,229,0.07); color:#3730a3; border:1px solid #c4b5fd;">
+                            <strong>🎯 v3 Bonus signals:</strong>
+                            <span style="background:rgba(22,163,74,0.12);color:#15803d;border:1px solid rgba(22,163,74,0.3);padding:1px 7px;border-radius:4px;font-size:0.8rem;">MACD ✕</span> +12 pts &nbsp;
+                            <span style="background:rgba(245,158,11,0.15);color:#b45309;border:1px solid rgba(245,158,11,0.4);padding:1px 7px;border-radius:4px;font-size:0.8rem;">BB⚡</span> +6 pts &nbsp;
+                            <span style="background:rgba(79,70,229,0.12);color:#4f46e5;border:1px solid rgba(79,70,229,0.3);padding:1px 7px;border-radius:4px;font-size:0.8rem;">EMA✓</span> +5 pts
+                        </div>
+                        <div class="mt-2 small p-2 rounded-2" style="background:rgba(239,68,68,0.08); color:#991b1b; border:1px solid #fca5a5;">
+                            <strong>⚠️ สัญญาณหลีกเลี่ยง:</strong> RSI &gt; 82 | RVOL Bear ↓ | RR &lt; 1.5 | ADX &lt; 20 | REL MOM ติดลบมาก | MACD− | ไฟแดงกระพริบ | Bearish Pattern ที่ Zone
                         </div>
                     </div>
 
@@ -440,6 +452,73 @@
         {% if forloop.first %}(ล่าสุด){% endif %}
     </a>
     {% endfor %}
+</div>
+{% endif %}
+
+<!-- TOP 5 ผ่านเกณฑ์ครบทุกข้อ -->
+{% if top5_qualified %}
+<div class="col-12 mb-3">
+    <div class="card border-0 shadow-sm" style="border-radius:1rem; background:linear-gradient(135deg,#f0fdf4 0%,#ecfdf5 100%); border:2px solid #86efac !important;">
+        <div class="card-body p-3">
+            <div class="d-flex align-items-center gap-2 mb-3">
+                <span style="font-size:1.3rem;">✅</span>
+                <span class="fw-bold" style="font-size:1rem; color:#14532d;">Top {{ top5_qualified|length }} หุ้น "ผ่านเกณฑ์ครบทุกข้อ"</span>
+                <span class="text-muted" style="font-size:0.8rem;">— BUY ≥ 65 · RR ≥ 1:1.5 · ADX ≥ 20 · RSI 45–82 · RVOL Bull ≥ 0.8x · Zone ≤ 30% · <strong>RS ≥ 60</strong></span>
+            </div>
+            <div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-xl-5 g-2">
+                {% for item in top5_qualified %}
+                <div class="col">
+                    <div class="h-100 p-3 position-relative" style="background:white; border-radius:0.85rem; border:2px solid #86efac; box-shadow:0 2px 8px rgba(34,197,94,0.12);">
+                        <span class="position-absolute" style="top:-10px;left:12px;background:#16a34a;color:white;border-radius:999px;font-size:0.65rem;font-weight:700;padding:1px 8px;">#{{ forloop.counter }}</span>
+                        <div class="d-flex align-items-center justify-content-between mb-1 mt-1">
+                            <span class="fw-bold" style="font-size:1rem;color:#1e293b;">{{ item.symbol }}</span>
+                            <span class="fw-bold px-2 rounded-pill" style="background:#dcfce7;color:#15803d;font-size:0.82rem;border:1px solid #86efac;">BUY {{ item.buy_score }}</span>
+                        </div>
+                        <div class="mb-2 d-flex align-items-center gap-1 flex-wrap">
+                            <span style="font-size:0.88rem;font-weight:600;color:#0f172a;">฿{{ item.price }}</span>
+                            {% if item.demand_zone_start and item.price <= item.demand_zone_start and item.price >= item.demand_zone_end %}
+                            <span class="badge" style="background:#22c55e;font-size:0.6rem;padding:2px 6px;">IN ZONE</span>
+                            {% elif item.zone_proximity <= 10 %}
+                            <span class="badge" style="background:#f59e0b;font-size:0.6rem;padding:2px 6px;">NEAR {{ item.zone_proximity|floatformat:0 }}%</span>
+                            {% else %}
+                            <span class="badge" style="background:#fb923c;font-size:0.6rem;padding:2px 6px;color:white;">{{ item.zone_proximity|floatformat:0 }}% to zone</span>
+                            {% endif %}
+                        </div>
+                        <!-- เกณฑ์ที่ผ่าน -->
+                        <div class="mb-2" style="font-size:0.75rem;color:#374151;line-height:1.8;">
+                            <div><span style="color:#16a34a;font-weight:700;">✓</span> RR 1:{{ item.risk_reward_ratio|floatformat:1 }}</div>
+                            <div><span style="color:#16a34a;font-weight:700;">✓</span> RS Rating {{ item.rs_rating }} · ADX {{ item.adx|floatformat:0 }}</div>
+                            <div><span style="color:#16a34a;font-weight:700;">✓</span> RVOL {{ item.rvol|floatformat:1 }}x ▲</div>
+                            {% if item.macd_crossover %}<div><span style="color:#16a34a;font-weight:700;">✓</span> MACD ✕ crossover</div>{% endif %}
+                            {% if item.ema20_aligned %}<div><span style="color:#4f46e5;font-weight:700;">✓</span> EMA20 aligned</div>{% endif %}
+                            {% if item.bb_squeeze %}<div><span style="color:#b45309;font-weight:700;">✓</span> BB Squeeze ⚡</div>{% endif %}
+                        </div>
+                        <a href="{% url 'stocks:entry_finder' item.symbol %}" class="btn btn-sm w-100" style="background:#dcfce7;color:#15803d;border:1px solid #86efac;font-size:0.73rem;padding:3px 8px;border-radius:0.5rem;">
+                            <i class="fas fa-crosshairs me-1"></i>Sniper Chart
+                        </a>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% if not top5_qualified %}
+            <div class="text-center py-3 text-muted small">
+                <i class="fas fa-search me-1"></i>ยังไม่มีหุ้นที่ผ่านเกณฑ์ครบทุกข้อในรอบนี้ — ลองรอ scan รอบถัดไป
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% else %}
+<div class="col-12 mb-3">
+    <div class="alert border-0 shadow-sm" style="border-radius:1rem;background:linear-gradient(135deg,#f8fafc,#f1f5f9);border-left:4px solid #94a3b8 !important;">
+        <div class="d-flex align-items-center gap-2">
+            <span style="font-size:1.2rem;">🔍</span>
+            <div>
+                <div class="fw-bold small" style="color:#374151;">ยังไม่มีหุ้นผ่านเกณฑ์ครบทุกข้อในรอบนี้</div>
+                <div class="small text-muted">เกณฑ์: BUY ≥ 65 · RR ≥ 1:1.5 · ADX ≥ 20 · RSI 45–82 · RVOL Bull ≥ 0.8x · Zone ≤ 30%</div>
+            </div>
+        </div>
+    </div>
 </div>
 {% endif %}
 
@@ -486,6 +565,7 @@
                             {% if item.risk_reward_ratio %}
                             <span class="fw-semibold" style="color:{% if item.risk_reward_ratio >= 3 %}#16a34a{% elif item.risk_reward_ratio >= 2 %}#2563eb{% else %}#64748b{% endif %};">RR 1:{{ item.risk_reward_ratio|floatformat:1 }}</span>
                             {% endif %}
+                            <span class="fw-bold" title="RS Rating 0-99" style="color:#0891b2;">RS {{ item.rs_rating }}</span>
                             <span style="color:{% if item.rvol >= 1.5 %}#16a34a{% elif item.rvol >= 1.0 %}#2563eb{% else %}#94a3b8{% endif %}; font-weight:600;">{{ item.rvol|floatformat:1 }}x {% if item.rvol_bullish %}▲{% else %}▼{% endif %}</span>
                             <span style="color:#64748b;">ADX {{ item.adx|floatformat:0 }}</span>
                             <span style="color:#64748b;">RSI {{ item.rsi|floatformat:0 }}</span>
@@ -502,6 +582,24 @@
     </div>
 </div>
 {% endif %}
+    
+<!-- LEADING SECTORS BAR (v3) -->
+{% if top_sectors %}
+<div class="col-12 mb-3">
+    <div class="p-3 bg-white shadow-sm border" style="border-radius:1rem;">
+        <div class="d-flex align-items-center gap-3 overflow-auto no-scrollbar">
+            <span class="small fw-bold text-muted flex-shrink-0"><i class="fas fa-chart-pie me-1"></i> Leading Sectors:</span>
+            {% for sec in top_sectors %}
+            <div class="d-flex align-items-center gap-1 flex-shrink-0">
+                <span class="badge" style="background:#f1f5f9; color:#475569; border:1px solid #e2e8f0; font-size:0.75rem;">{{ sec.name }} ({{ sec.count }})</span>
+                {% if not forloop.last %}<i class="fas fa-chevron-right text-muted opacity-25 px-1" style="font-size:0.6rem;"></i>{% endif %}
+            </div>
+            {% endfor %}
+            <span class="ms-auto small text-muted opacity-75" style="font-size:0.65rem;">(based on symbols with BUY score ≥ 65)</span>
+        </div>
+    </div>
+</div>
+{% endif %}
 
 <!-- SCAN RESULT TABLE -->
 <div class="col-12">
@@ -513,6 +611,9 @@
                     รายชื่อหุ้นที่ผ่านเกณฑ์ Precision Filter
                     {% if candidates %}
                     <span class="badge rounded-pill" style="background: #7c3aed; font-size: 0.72rem;">{{ candidates|length }} ตัว</span>
+                    {% endif %}
+                    {% if scan_total %}
+                    <span class="text-muted fw-normal" style="font-size:0.75rem;">ผ่าน {{ scan_passed }}/{{ scan_total }} ตัว</span>
                     {% endif %}
                 </h5>
                 {% if scanned_at %}
@@ -532,6 +633,7 @@
                             <th><a href="?sort=score&run_idx={{ selected_run_idx }}" class="text-decoration-none text-muted">SCORE</a></th>
                             <th><a href="?sort=buy&run_idx={{ selected_run_idx }}" class="text-decoration-none {% if current_sort == 'buy' %}fw-bold{% else %}text-muted{% endif %}" style="{% if current_sort == 'buy' %}color:#16a34a;{% endif %}">BUY</a></th>
                             <th><a href="?sort=sell&run_idx={{ selected_run_idx }}" class="text-decoration-none {% if current_sort == 'sell' %}fw-bold{% else %}text-muted{% endif %}" style="{% if current_sort == 'sell' %}color:#dc2626;{% endif %}">SELL</a></th>
+                            <th><a href="?sort=rs&run_idx={{ selected_run_idx }}" class="text-decoration-none {% if current_sort == 'rs' %}fw-bold{% else %}text-muted{% endif %}" style="{% if current_sort == 'rs' %}color:#0891b2;{% endif %}" title="RS Rating (0-99) — Minervini Relative Strength">RS</a></th>
                             <th><a href="?sort=round_rr&run_idx={{ selected_run_idx }}" class="text-decoration-none text-muted">RR</a></th>
                             <th><a href="?sort=rvol&run_idx={{ selected_run_idx }}" class="text-decoration-none text-muted">RVOL</a></th>
                             <th><a href="?sort=adx&run_idx={{ selected_run_idx }}" class="text-decoration-none text-muted">ADX</a></th>
@@ -540,6 +642,7 @@
                             <th>ENTRY</th>
                             <th><a href="?sort=rsi&run_idx={{ selected_run_idx }}" class="text-decoration-none text-muted">RSI</a></th>
                             <th>ERC</th>
+                            <th style="width:68px;" title="MACD crossover / BB Squeeze / EMA20 aligned">SIGNAL</th>
                             <th style="width:65px;">PATTERN</th>
                             <th style="width:60px;" title="Relative Momentum vs SET Index (3m)">REL MOM</th>
                             <th style="width:40px;">SEC</th>
@@ -639,6 +742,19 @@
                                 {% endif %}
                             </td>
 
+                            <!-- RS RATING -->
+                            <td class="text-center">
+                                {% if item.rs_rating >= 85 %}
+                                    <span class="badge" style="background:#dcfce7;color:#15803d;font-size:0.72rem;font-weight:700;">{{ item.rs_rating }}</span>
+                                {% elif item.rs_rating >= 70 %}
+                                    <span class="badge" style="background:#dbeafe;color:#1d4ed8;font-size:0.72rem;font-weight:700;">{{ item.rs_rating }}</span>
+                                {% elif item.rs_rating > 0 %}
+                                    <span class="fw-semibold text-muted" style="font-size:0.72rem;">{{ item.rs_rating }}</span>
+                                {% else %}
+                                    <span class="text-muted">—</span>
+                                {% endif %}
+                            </td>
+
                             <!-- RR -->
                             <td>
                                 {% if item.risk_reward_ratio %}
@@ -705,6 +821,38 @@
                                 {% else %}
                                 <span class="text-muted">-</span>
                                 {% endif %}
+                            </td>
+
+                            <!-- v3 SIGNALS: MACD crossover / BB Squeeze / EMA20 aligned -->
+                            <td>
+                                <div class="d-flex flex-column gap-1">
+                                {% if item.macd_crossover %}
+                                <span class="badge px-1 py-0"
+                                      style="background:rgba(22,163,74,0.15);color:#15803d;border:1px solid rgba(22,163,74,0.4);font-size:0.56rem;"
+                                      title="MACD Bullish Crossover (ใน 3 วันล่าสุด)">MACD ✕</span>
+                                {% elif item.macd_histogram and item.macd_histogram > 0 %}
+                                <span class="badge px-1 py-0"
+                                      style="background:rgba(34,197,94,0.10);color:#16a34a;border:1px solid rgba(34,197,94,0.25);font-size:0.56rem;"
+                                      title="MACD Histogram บวก (buying pressure)">MACD+</span>
+                                {% elif item.macd_histogram and item.macd_histogram < 0 %}
+                                <span class="badge px-1 py-0"
+                                      style="background:rgba(220,38,38,0.08);color:#dc2626;border:1px solid rgba(220,38,38,0.2);font-size:0.56rem;"
+                                      title="MACD Histogram ลบ (selling pressure)">MACD−</span>
+                                {% endif %}
+                                {% if item.bb_squeeze %}
+                                <span class="badge px-1 py-0"
+                                      style="background:rgba(245,158,11,0.15);color:#b45309;border:1px solid rgba(245,158,11,0.4);font-size:0.56rem;"
+                                      title="Bollinger Band Squeeze — volatility ต่ำ รอ breakout">BB⚡</span>
+                                {% endif %}
+                                {% if item.ema20_aligned %}
+                                <span class="badge px-1 py-0"
+                                      style="background:rgba(79,70,229,0.12);color:#4f46e5;border:1px solid rgba(79,70,229,0.3);font-size:0.56rem;"
+                                      title="EMA20 > EMA50 > EMA200 Full Stack">EMA✓</span>
+                                {% endif %}
+                                {% if not item.macd_crossover and not item.bb_squeeze and not item.ema20_aligned %}
+                                <span class="text-muted">-</span>
+                                {% endif %}
+                                </div>
                             </td>
 
                             <!-- PRICE PATTERN -->

@@ -273,6 +273,13 @@ class PrecisionScanCandidate(models.Model):
     rel_momentum_1m = models.FloatField(default=0.0)   # stock 1m return − SET 1m return (%)
     rel_momentum_3m = models.FloatField(default=0.0)   # stock 3m return − SET 3m return (%)
 
+    # ====== New v3 indicators ======
+    macd_histogram   = models.FloatField(null=True, blank=True)   # MACD histogram value (positive = bullish pressure)
+    macd_crossover   = models.BooleanField(default=False)         # bullish MACD crossover in last 3 bars
+    bb_squeeze       = models.BooleanField(default=False)         # Bollinger Band width in bottom 20th pct (pending breakout)
+    ema20_aligned    = models.BooleanField(default=False)         # EMA20 > EMA50 > EMA200 full 3-layer alignment
+    rs_rating        = models.IntegerField(default=0)             # Relative Strength Rating (0-99 percentile)
+
     class Meta:
         ordering = ['-scan_run', '-technical_score']
 
