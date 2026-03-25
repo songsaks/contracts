@@ -3274,6 +3274,284 @@ def gps_daily_summary(request):
 
 
 @login_required
+def gps_daily_summary_send_to_chat(request):
+    """
+    ส่งสรุปการทำงานประจำวัน (GPS Daily Summary) ไปยัง ChatRoom id=1
+    — ส่งข้อความ HTML หนึ่งชุดสรุปทุกคน พร้อม broadcast ผ่าน WebSocket
+    """
+    if request.method != 'POST':
+        from django.http import JsonResponse
+        return JsonResponse({'ok': False, 'error': 'POST only'}, status=405)
+
+    from django.http import JsonResponse
+    from django.utils import timezone
+    from datetime import date, timedelta
+    from collections import defaultdict
+    from .models import TechnicianGPSLog, CustomerSatisfaction, ServiceQueueItem
+    from django.contrib.auth import get_user_model
+
+    User = get_user_model()
+    today = timezone.localdate()
+    THAI_DAYS = ['จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์', 'เสาร์', 'อาทิตย์']
+    THAI_MONTHS_SHORT = ['', 'ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.',
+                         'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.']
+
+    date_str = request.POST.get('date', today.isoformat())
+    try:
+        report_date = date.fromisoformat(date_str)
+    except (ValueError, TypeError):
+        report_date = today
+
+    day_name    = THAI_DAYS[report_date.weekday()]
+    month_short = THAI_MONTHS_SHORT[report_date.month]
+    date_label  = f"{day_name} {report_date.day} {month_short} {report_date.year + 543}"
+
+    # ── Reuse the same query logic as gps_daily_summary ─────────────────
+    gps_qs = TechnicianGPSLog.objects.filter(
+        timestamp__date=report_date
+    ).select_related('user').order_by('timestamp')
+
+    tech_raw = {}
+    for log in gps_qs:
+        uname = log.user.username
+        uid   = log.user_id
+        if uname not in tech_raw:
+            tech_raw[uname] = {
+                'user_id': uid,
+                'go_work': None, 'back_office': None,
+                'go_work_count': 0, 'back_office_count': 0,
+                'on_site_count': 0, 'check_out_count': 0,
+                'locations': [],
+                'satisfaction': [],
+                'sat_by_log': {},
+                'pending_checkins': [],
+                'work_sessions': [],
+            }
+        c = tech_raw[uname]
+        lt    = timezone.localtime(log.timestamp)
+        t_str = lt.strftime('%H:%M')
+        ct = log.check_type
+        if ct == 'GO_WORK':
+            c['go_work_count'] += 1
+            if c['go_work'] is None:
+                c['go_work'] = t_str
+        elif ct == 'BACK_OFFICE':
+            c['back_office_count'] += 1
+            c['back_office'] = t_str
+        elif ct in ('ON_SITE', 'CHECK_IN'):
+            c['on_site_count'] += 1
+            if log.location_name and log.location_name not in c['locations']:
+                c['locations'].append(log.location_name)
+            c['pending_checkins'].append({'time': t_str, 'dt': lt, 'location': log.location_name or ''})
+        elif ct == 'CHECK_OUT':
+            c['check_out_count'] += 1
+            if c['pending_checkins']:
+                ci = c['pending_checkins'].pop(0)
+                delta_min = max(0, int((lt - ci['dt']).total_seconds() / 60))
+                c['work_sessions'].append({
+                    'on_site_time': ci['time'], 'check_out_time': t_str,
+                    'duration_min': delta_min,
+                    'duration_str': (f"{delta_min // 60}ชม. {delta_min % 60}น." if delta_min >= 60 else f"{delta_min}น."),
+                    'location': ci['location'], 'check_out_log_id': log.id,
+                    'customer_name': '', 'rating': '',
+                })
+
+    sat_qs = CustomerSatisfaction.objects.filter(
+        gps_log__timestamp__date=report_date
+    ).select_related('gps_log__user')
+    for s in sat_qs:
+        uname = s.gps_log.user.username
+        if uname in tech_raw:
+            si = {'rating': s.rating, 'rating_display': s.get_rating_display(),
+                  'customer_name': s.customer_name or ''}
+            tech_raw[uname]['satisfaction'].append(si)
+            tech_raw[uname]['sat_by_log'][s.gps_log_id] = si
+
+    for c in tech_raw.values():
+        for session in c['work_sessions']:
+            sat = c['sat_by_log'].get(session['check_out_log_id'])
+            if sat:
+                session['customer_name'] = sat['customer_name']
+                session['rating']        = sat['rating']
+
+    queue_qs = ServiceQueueItem.objects.filter(
+        scheduled_date=report_date
+    ).prefetch_related('assigned_teams__members')
+    queue_by_user = defaultdict(list)
+    for qi in queue_qs.distinct():
+        for team in qi.assigned_teams.all():
+            for member in team.members.all():
+                queue_by_user[member.username].append({
+                    'title': qi.title,
+                    'completed': qi.status == 'COMPLETED',
+                    'status_display': qi.get_status_display(),
+                })
+
+    # ── Build tech_list ──────────────────────────────────────────────
+    tech_list = []
+    for uname in sorted(tech_raw.keys()):
+        c = tech_raw[uname]
+        go_ok      = c['go_work_count'] == 1
+        back_ok    = c['back_office_count'] == 1
+        bal_ok     = c['on_site_count'] == c['check_out_count']
+        consistent = go_ok and back_ok and bal_ok
+
+        work_duration = ''
+        if c['go_work'] and c['back_office']:
+            try:
+                from datetime import datetime as dt_cls
+                t1 = dt_cls.strptime(c['go_work'], '%H:%M')
+                t2 = dt_cls.strptime(c['back_office'], '%H:%M')
+                dm = int((t2 - t1).total_seconds() / 60)
+                if dm > 0:
+                    work_duration = f"{dm // 60}ชม. {dm % 60}น."
+            except Exception:
+                pass
+
+        sat_counts = {'VERY_SATISFIED': 0, 'SATISFIED': 0, 'NOT_SATISFIED': 0}
+        for s in c['satisfaction']:
+            if s['rating'] in sat_counts:
+                sat_counts[s['rating']] += 1
+
+        total_onsite_min = sum(s['duration_min'] for s in c['work_sessions'])
+        total_onsite_dur = (f"{total_onsite_min // 60}ชม. {total_onsite_min % 60}น."
+                            if total_onsite_min >= 60 else (f"{total_onsite_min}น." if total_onsite_min else ''))
+
+        queue_items = queue_by_user.get(uname, [])
+        jobs_done   = sum(1 for q in queue_items if q['completed'])
+
+        tech_list.append({
+            'username':          uname,
+            'consistent':        consistent,
+            'go_work_time':      c['go_work'] or '',
+            'back_office_time':  c['back_office'] or '',
+            'work_duration':     work_duration,
+            'on_site_count':     c['on_site_count'],
+            'check_out_count':   c['check_out_count'],
+            'locations':         c['locations'],
+            'sat_counts':        sat_counts,
+            'total_sat':         len(c['satisfaction']),
+            'work_sessions':     c['work_sessions'],
+            'total_onsite_dur':  total_onsite_dur,
+            'queue_items':       queue_items,
+            'jobs_done':         jobs_done,
+            'total_jobs':        len(queue_items),
+        })
+
+    if not tech_list:
+        return JsonResponse({'ok': False, 'error': 'ไม่มีข้อมูล GPS สำหรับวันนี้'})
+
+    # ── Build HTML message ────────────────────────────────────────────
+    RATING_EMOJI = {'VERY_SATISFIED': '😊', 'SATISFIED': '🙂', 'NOT_SATISFIED': '😞'}
+
+    cards_html = []
+    for t in tech_list:
+        status_color = '#22c55e' if t['consistent'] else '#f97316'
+        status_text  = 'GPS ✅ สอดคล้อง' if t['consistent'] else 'GPS ⚠️ ไม่ครบ'
+
+        # time row
+        time_parts = []
+        if t['go_work_time']:
+            time_parts.append(f"🚀 {t['go_work_time']}")
+        if t['back_office_time']:
+            time_parts.append(f"🏢 {t['back_office_time']}")
+        if t['work_duration']:
+            time_parts.append(f"({t['work_duration']})")
+        time_row = '  →  '.join(time_parts) if time_parts else '—'
+
+        # jobs
+        jobs_row = ''
+        if t['total_jobs']:
+            jobs_row = f"<div style='margin-top:4px;'>📋 งาน: {t['jobs_done']}/{t['total_jobs']} เสร็จ</div>"
+
+        # locations
+        loc_row = ''
+        if t['locations']:
+            locs = ', '.join(t['locations'][:4])
+            loc_row = f"<div style='margin-top:4px;'>📍 {locs}</div>"
+
+        # satisfaction
+        sat_parts = []
+        for rating, emoji in RATING_EMOJI.items():
+            cnt = t['sat_counts'].get(rating, 0)
+            if cnt:
+                sat_parts.append(f"{emoji}×{cnt}")
+        sat_row = ''
+        if sat_parts:
+            sat_row = f"<div style='margin-top:4px;'>⭐ {' '.join(sat_parts)} (จาก {t['total_sat']} ราย)</div>"
+
+        # on-site duration
+        dur_row = ''
+        if t['total_onsite_dur']:
+            dur_row = f"<div style='margin-top:4px;'>⏱ รวมหน้างาน: {t['total_onsite_dur']}</div>"
+
+        cards_html.append(f"""
+<div style="background:#f8fafc;border-left:4px solid {status_color};border-radius:0 10px 10px 0;
+            padding:10px 14px;margin:6px 0;font-family:sans-serif;font-size:0.92rem;">
+  <div style="font-weight:700;font-size:1rem;color:#1e293b;margin-bottom:4px;">
+    👷 {t['username']}
+    <span style="font-size:0.8rem;font-weight:500;color:{status_color};margin-left:8px;">{status_text}</span>
+  </div>
+  <div style="color:#475569;">{time_row}</div>
+  {jobs_row}{dur_row}{loc_row}{sat_row}
+</div>""")
+
+    consistent_count = sum(1 for t in tech_list if t['consistent'])
+    header_html = f"""
+<div style="background:#0f172a;color:white;border-radius:10px;padding:12px 16px;margin-bottom:8px;font-family:sans-serif;">
+  <div style="font-weight:700;font-size:1.05rem;">📋 สรุปการทำงานประจำวัน</div>
+  <div style="opacity:0.8;font-size:0.9rem;margin-top:2px;">
+    {date_label} &nbsp;·&nbsp; {len(tech_list)} คน &nbsp;·&nbsp;
+    GPS ✅ {consistent_count}/{len(tech_list)} คน
+  </div>
+</div>"""
+
+    full_html = header_html + '\n'.join(cards_html)
+
+    # ── Post to ChatRoom id=1 ─────────────────────────────────────────
+    try:
+        from chat.models import ChatRoom, ChatMessage
+        from channels.layers import get_channel_layer
+        from asgiref.sync import async_to_sync
+
+        chat_room = ChatRoom.objects.filter(pk=1, is_active=True).first()
+        if not chat_room:
+            return JsonResponse({'ok': False, 'error': 'ไม่พบห้องแชท id=1'})
+
+        msg = ChatMessage.objects.create(
+            room=chat_room,
+            user=request.user,
+            content=full_html,
+            is_html=True,
+        )
+
+        channel_layer = get_channel_layer()
+        async_to_sync(channel_layer.group_send)(
+            f'chat_{chat_room.id}',
+            {
+                'type': 'chat_message',
+                'message': full_html,
+                'username': request.user.username,
+                'user_id': request.user.id,
+                'is_stt': False,
+                'is_html': True,
+                'image_url': None,
+                'file_url': None,
+                'latitude': None,
+                'longitude': None,
+                'location_name': '',
+                'timestamp': timezone.localtime(msg.timestamp).strftime('%H:%M'),
+            }
+        )
+        return JsonResponse({'ok': True, 'sent': len(tech_list)})
+
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).error(f'gps_daily_summary_send_to_chat error: {e}')
+        return JsonResponse({'ok': False, 'error': str(e)})
+
+
+@login_required
 def gps_summary_export(request):
     """
     Export รายงานสรุป GPS รายเดือน เป็น CSV

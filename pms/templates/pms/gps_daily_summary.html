@@ -191,6 +191,58 @@
         .tl-item { min-width: 62px; }
         .session-badge { font-size: 0.8rem; }
     }
+
+    /* ── A4 Print Styles ──────────────────────────────────────────── */
+    @media print {
+        @page { size: A4 portrait; margin: 12mm 14mm; }
+
+        .navbar, .sidebar, nav, footer,
+        .date-nav-btn, #date-picker,
+        .no-print,
+        div.d-flex.gap-2.justify-content-center { display: none !important; }
+
+        body { background: white !important; font-size: 10pt; }
+        .container-fluid { padding: 0 !important; }
+
+        .page-header {
+            background: #0f172a !important;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+            border-radius: 0.5rem !important;
+            padding: 0.6rem 1rem !important;
+            margin-bottom: 0.75rem !important;
+        }
+        .row.g-3.mb-4 { margin-bottom: 0.5rem !important; }
+        .stat-card { box-shadow: none !important; padding: 0.5rem 0.75rem !important; }
+        .stat-value { font-size: 1.2rem !important; }
+
+        .tech-card {
+            box-shadow: none !important;
+            page-break-inside: avoid;
+            break-inside: avoid;
+            margin-bottom: 0.6rem !important;
+            border: 1px solid #cbd5e1 !important;
+        }
+        .tech-card.consistent   { border-left: 4px solid #22c55e !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        .tech-card.inconsistent { border-left: 4px solid #f97316 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+
+        .tech-avatar { display: none !important; }
+        .timeline    { display: none !important; }
+
+        .panel-section { padding: 0.4rem 0.75rem !important; }
+        .panel-label   { font-size: 0.72rem !important; margin-bottom: 0.3rem !important; }
+        .session-badge { font-size: 0.8rem !important; }
+        .dur-pill, .loc-chip, .sat-chip, .job-row { font-size: 0.78rem !important; }
+        .job-row  { padding: 0.25rem 0 !important; }
+        .status-pill { font-size: 0.72rem !important; padding: 0.15rem 0.5rem !important; }
+
+        .pill-ok, .pill-warn, .pill-info, .pill-gray,
+        .sat-vs, .sat-s, .sat-ns, .sat-inc,
+        .type-go, .type-onsite, .type-co, .type-back {
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+        }
+    }
 </style>
 {% endblock %}
 
@@ -212,7 +264,7 @@
                     {% endif %}
                 </div>
             </div>
-            <div class="d-flex align-items-center gap-2">
+            <div class="d-flex align-items-center gap-2 flex-wrap">
                 <a href="?date={{ prev_date|date:'Y-m-d' }}" class="date-nav-btn">
                     <i class="fas fa-chevron-left me-1"></i>ก่อนหน้า
                 </a>
@@ -226,6 +278,17 @@
                 <a href="?date={{ next_date|date:'Y-m-d' }}" class="date-nav-btn">
                     ถัดไป<i class="fas fa-chevron-right ms-1"></i>
                 </a>
+                <!-- Print button -->
+                <button onclick="window.print()" class="date-nav-btn no-print" title="พิมพ์ A4">
+                    <i class="fas fa-print me-1"></i>พิมพ์
+                </button>
+                <!-- Send to chatroom button -->
+                {% if tech_list %}
+                <button id="btn-send-chat" onclick="sendSummaryToChat()" class="date-nav-btn no-print"
+                        style="background:rgba(34,197,94,0.2); border-color:rgba(34,197,94,0.4);" title="ส่งสรุปไปยังห้องแชท">
+                    <i class="fas fa-paper-plane me-1"></i>ส่งห้องแชท
+                </button>
+                {% endif %}
             </div>
         </div>
     </div>
@@ -501,4 +564,46 @@
     </div>
 
 </div>
+
+{% block extra_js %}
+<script>
+function sendSummaryToChat() {
+    const btn = document.getElementById('btn-send-chat');
+    if (!btn) return;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>กำลังส่ง…';
+
+    const csrfToken = document.cookie.match(/csrftoken=([^;]+)/)?.[1] || '';
+    const date = '{{ report_date|date:"Y-m-d" }}';
+
+    fetch("{% url 'pms:gps_daily_summary_send_to_chat' %}", {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'X-CSRFToken': csrfToken,
+        },
+        body: 'date=' + encodeURIComponent(date),
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.ok) {
+            btn.innerHTML = '<i class="fas fa-check me-1"></i>ส่งแล้ว!';
+            btn.style.background = 'rgba(34,197,94,0.35)';
+            setTimeout(() => {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-paper-plane me-1"></i>ส่งห้องแชท';
+                btn.style.background = '';
+            }, 3000);
+        } else {
+            btn.innerHTML = '<i class="fas fa-exclamation-triangle me-1"></i>' + (data.error || 'เกิดข้อผิดพลาด');
+            btn.disabled = false;
+        }
+    })
+    .catch(() => {
+        btn.innerHTML = '<i class="fas fa-exclamation-triangle me-1"></i>เกิดข้อผิดพลาด';
+        btn.disabled = false;
+    });
+}
+</script>
+{% endblock %}
 {% endblock %}
