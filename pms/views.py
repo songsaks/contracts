@@ -3442,59 +3442,109 @@ def gps_daily_summary_send_to_chat(request):
         return JsonResponse({'ok': False, 'error': 'ไม่มีข้อมูล GPS สำหรับวันนี้'})
 
     # ── Build HTML message ────────────────────────────────────────────
-    RATING_EMOJI = {'VERY_SATISFIED': '😊', 'SATISFIED': '🙂', 'NOT_SATISFIED': '😞'}
+    RATING_EMOJI   = {'VERY_SATISFIED': '😊', 'SATISFIED': '🙂', 'NOT_SATISFIED': '😞'}
+    RATING_COLOR   = {'VERY_SATISFIED': '#15803d', 'SATISFIED': '#1d4ed8', 'NOT_SATISFIED': '#991b1b', '': '#64748b'}
+    RATING_BG      = {'VERY_SATISFIED': '#dcfce7', 'SATISFIED': '#dbeafe', 'NOT_SATISFIED': '#fee2e2', '': '#f1f5f9'}
+    RATING_LABEL   = {'VERY_SATISFIED': 'พอใจมาก', 'SATISFIED': 'พอใจ', 'NOT_SATISFIED': 'ไม่พอใจ', '': '—'}
+    SEP = '<div style="border-top:1px solid #e2e8f0;margin:6px 0;"></div>'
 
     cards_html = []
     for t in tech_list:
         status_color = '#22c55e' if t['consistent'] else '#f97316'
-        status_text  = 'GPS ✅ สอดคล้อง' if t['consistent'] else 'GPS ⚠️ ไม่ครบ'
+        status_bg    = '#dcfce7' if t['consistent'] else '#fff7ed'
+        status_text  = '✅ GPS สอดคล้อง' if t['consistent'] else '⚠️ GPS ไม่ครบ'
 
-        # time row
+        # ── Header row ──────────────────────────────────────────────
         time_parts = []
         if t['go_work_time']:
-            time_parts.append(f"🚀 {t['go_work_time']}")
+            time_parts.append(f"🚀 ออก {t['go_work_time']}")
         if t['back_office_time']:
-            time_parts.append(f"🏢 {t['back_office_time']}")
+            time_parts.append(f"🏢 กลับ {t['back_office_time']}")
         if t['work_duration']:
-            time_parts.append(f"({t['work_duration']})")
-        time_row = '  →  '.join(time_parts) if time_parts else '—'
+            time_parts.append(f"<span style='color:#1d4ed8;font-weight:700;'>({t['work_duration']})</span>")
+        time_row = ' &rarr; '.join(time_parts) if time_parts else '<span style="color:#94a3b8;">ยังไม่ออกงาน</span>'
 
-        # jobs
-        jobs_row = ''
-        if t['total_jobs']:
-            jobs_row = f"<div style='margin-top:4px;'>📋 งาน: {t['jobs_done']}/{t['total_jobs']} เสร็จ</div>"
+        # ── Work sessions (per งาน) ──────────────────────────────────
+        sessions_html = ''
+        if t['work_sessions']:
+            rows = []
+            for i, s in enumerate(t['work_sessions'], 1):
+                r = s.get('rating', '')
+                r_emoji = RATING_EMOJI.get(r, '')
+                r_label = RATING_LABEL.get(r, '—')
+                r_color = RATING_COLOR.get(r, '#64748b')
+                r_bg    = RATING_BG.get(r, '#f1f5f9')
+                cust    = s.get('customer_name', '')
+                loc     = s.get('location', '')
 
-        # locations
-        loc_row = ''
-        if t['locations']:
-            locs = ', '.join(t['locations'][:4])
-            loc_row = f"<div style='margin-top:4px;'>📍 {locs}</div>"
+                loc_span  = f' <span style="color:#1d4ed8;">📍 {loc}</span>' if loc else ''
+                cust_span = (f' <span style="background:{r_bg};color:{r_color};padding:1px 7px;'
+                             f'border-radius:999px;font-size:0.8rem;">'
+                             f'{r_emoji} {cust} · {r_label}</span>') if cust else ''
 
-        # satisfaction
-        sat_parts = []
-        for rating, emoji in RATING_EMOJI.items():
-            cnt = t['sat_counts'].get(rating, 0)
-            if cnt:
-                sat_parts.append(f"{emoji}×{cnt}")
-        sat_row = ''
-        if sat_parts:
-            sat_row = f"<div style='margin-top:4px;'>⭐ {' '.join(sat_parts)} (จาก {t['total_sat']} ราย)</div>"
+                rows.append(
+                    f'<div style="padding:3px 0;color:#334155;font-size:0.88rem;">'
+                    f'<span style="font-weight:600;color:#475569;">{i}.</span> '
+                    f'<span style="font-family:monospace;">{s["on_site_time"]} → {s["check_out_time"]}</span> '
+                    f'<span style="background:#eff6ff;color:#1d4ed8;padding:1px 7px;border-radius:999px;font-size:0.8rem;">'
+                    f'⏱ {s["duration_str"]}</span>'
+                    f'{loc_span}{cust_span}'
+                    f'</div>'
+                )
+            total_dur_badge = (f'<div style="margin-top:3px;color:#1d4ed8;font-weight:700;font-size:0.88rem;">'
+                               f'รวมหน้างาน: ⏱ {t["total_onsite_dur"]}</div>') if t['total_onsite_dur'] else ''
+            sessions_html = (
+                f'{SEP}'
+                f'<div style="font-size:0.78rem;font-weight:700;color:#64748b;text-transform:uppercase;'
+                f'letter-spacing:.04em;margin-bottom:3px;">⏱ งานหน้างาน ({len(t["work_sessions"])} งาน)</div>'
+                + ''.join(rows) + total_dur_badge
+            )
 
-        # on-site duration
-        dur_row = ''
-        if t['total_onsite_dur']:
-            dur_row = f"<div style='margin-top:4px;'>⏱ รวมหน้างาน: {t['total_onsite_dur']}</div>"
+        # ── Queue items ──────────────────────────────────────────────
+        queue_html = ''
+        if t['queue_items']:
+            rows = []
+            for q in t['queue_items']:
+                done = q['completed']
+                dot_color = '#22c55e' if done else '#3b82f6'
+                txt_color = '#15803d' if done else '#334155'
+                st_bg     = '#dcfce7' if done else '#dbeafe'
+                st_color  = '#15803d' if done else '#1d4ed8'
+                rows.append(
+                    f'<div style="padding:2px 0;font-size:0.88rem;color:{txt_color};">'
+                    f'<span style="display:inline-block;width:8px;height:8px;border-radius:50%;'
+                    f'background:{dot_color};margin-right:5px;"></span>'
+                    f'{q["title"][:50]}'
+                    f' <span style="background:{st_bg};color:{st_color};padding:0 6px;border-radius:4px;'
+                    f'font-size:0.75rem;">{q["status_display"]}</span>'
+                    f'</div>'
+                )
+            queue_html = (
+                f'{SEP}'
+                f'<div style="font-size:0.78rem;font-weight:700;color:#64748b;text-transform:uppercase;'
+                f'letter-spacing:.04em;margin-bottom:3px;">'
+                f'📋 คิวงาน ({t["jobs_done"]}/{t["total_jobs"]} เสร็จ)</div>'
+                + ''.join(rows)
+            )
 
-        cards_html.append(f"""
-<div style="background:#f8fafc;border-left:4px solid {status_color};border-radius:0 10px 10px 0;
-            padding:10px 14px;margin:6px 0;font-family:sans-serif;font-size:0.92rem;">
-  <div style="font-weight:700;font-size:1rem;color:#1e293b;margin-bottom:4px;">
-    👷 {t['username']}
-    <span style="font-size:0.8rem;font-weight:500;color:{status_color};margin-left:8px;">{status_text}</span>
-  </div>
-  <div style="color:#475569;">{time_row}</div>
-  {jobs_row}{dur_row}{loc_row}{sat_row}
-</div>""")
+        cards_html.append(
+            f'<div style="background:#ffffff;border:1px solid #e2e8f0;border-left:4px solid {status_color};'
+            f'border-radius:0 10px 10px 0;padding:10px 14px;margin:6px 0;font-family:sans-serif;">'
+
+            # name + status badge
+            f'<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px;">'
+            f'<span style="font-weight:700;font-size:1rem;color:#1e293b;">👷 {t["username"]}</span>'
+            f'<span style="background:{status_bg};color:{status_color};padding:2px 9px;border-radius:999px;'
+            f'font-size:0.78rem;font-weight:700;">{status_text}</span>'
+            f'</div>'
+
+            # time row
+            f'<div style="font-size:0.9rem;color:#475569;">{time_row}</div>'
+
+            # sessions + queue
+            f'{sessions_html}{queue_html}'
+            f'</div>'
+        )
 
     consistent_count = sum(1 for t in tech_list if t['consistent'])
     header_html = f"""
