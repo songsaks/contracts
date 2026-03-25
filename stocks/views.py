@@ -2005,8 +2005,10 @@ def precision_momentum_scanner(request):
 
         def _process_precision_scan(symbol):
             try:
-                # print(f"[Precision] Scanning {symbol}...")
-                df = yf.download(f"{symbol}.BK", period="1y", interval="1d", progress=False)
+                # ใช้ yf.Ticker().history() แทน yf.download() เพราะ yf.download() 
+                # มีบั๊ก Thread-safety กรองข้อมูลข้าม Symbol กันเมื่อรันใน ThreadPool 
+                ticker_obj = yf.Ticker(f"{symbol}.BK")
+                df = ticker_obj.history(period="1y", interval="1d")
 
                 if df is None or df.empty:
                     try:
