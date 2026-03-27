@@ -62,6 +62,10 @@ def _compute_signals(prec, current_price=None):
     rs_rat     = getattr(prec, 'rs_rating', 0)
     eps        = getattr(prec, 'eps_growth', 0)
     rev        = getattr(prec, 'rev_growth', 0)
+    # v4 trend following fields
+    ema20_rising = getattr(prec, 'ema20_rising', False)
+    hh_hl        = getattr(prec, 'hh_hl_structure', False)
+    ema20_slope  = getattr(prec, 'ema20_slope', 0.0)
 
     # ── BUY SCORE ─────────────────────────────────────────────────────
     # base technical: technical_score คือผลลัพธ์จาก tech analyzer (max 100)
@@ -123,11 +127,15 @@ def _compute_signals(prec, current_price=None):
     if ema20_aln: buy += 5
 
     # ── v3 Relative Strength Rating (0-99 percentile) ───────────────────
-    # ยอดฮิต Minervini Style (max 15 pts) - ให้ความสำคัญกับ RS มากขึ้นเนื่องจากเน้น Momentum ล้วน
     if rs_rat >= 85:   buy += 15
     elif rs_rat >= 70: buy += 8
     elif rs_rat >= 50: buy += 3
 
+    # ── v4 Trend Following quality (max 10 pts) ───────────────────────
+    # EMA20 rising = momentum มีโครงสร้างรองรับ ไม่ใช่แค่ spike สั้น
+    if ema20_rising and hh_hl:  buy += 10  # ทั้ง EMA rising + HH/HL = trend สมบูรณ์
+    elif ema20_rising:           buy += 5   # EMA rising เพียงอย่างเดียว
+    elif hh_hl:                  buy += 4   # HH/HL โดยที่ EMA ยังไม่ขึ้นชัด
 
     buy_score = max(0, min(100, buy))
 
@@ -1965,8 +1973,37 @@ def precision_momentum_scanner(request):
 
     if request.method == "POST" or request.GET.get('scan') == 'true':
         import pandas_ta as ta
+        from datetime import datetime as _dt, timedelta as _td, time as _dtime
+        import pytz as _pytz
 
         scan_run_time = tz.now()
+
+        # ====== Pin Scan Date — ให้ทุก Indicator ในรอบเดียวกันใช้ข้อมูล ณ วันเดียวกัน ======
+        # SET Exchange hours: เช้า 10:00-12:30, พักกลางวัน 12:30-14:30, บ่าย 14:30-16:30
+        # ระหว่างที่ตลาดเปิด (session ใดก็ตาม) close ของวันนี้ยังไม่ settled → ใช้เมื่อวาน
+        # หลัง 16:30 close settled → ใช้วันนี้
+        _bkk_tz = _pytz.timezone('Asia/Bangkok')
+        _now_bkk = _dt.now(_bkk_tz)
+        _t = _now_bkk.time()
+        _morning_session   = _dtime(10,  0) <= _t <= _dtime(12, 30)
+        _midday_break      = _dtime(12, 30) <  _t <  _dtime(14, 30)
+        _afternoon_session = _dtime(14, 30) <= _t <= _dtime(16, 30)
+        # ตลาดกำลังซื้อขายจริง (10:00-12:30 และ 14:30-16:30 เท่านั้น)
+        _market_trading = (
+            _now_bkk.weekday() < 5 and
+            (_morning_session or _afternoon_session)
+        )
+        # ช่วงวันตลาด (รวม midday break) — ใช้ข้อมูลเมื่อวาน เพราะ candle ยังไม่ settle
+        _market_day = (
+            _now_bkk.weekday() < 5 and
+            (_morning_session or _midday_break or _afternoon_session)
+        )
+        scan_end_date = (
+            (_now_bkk.date() - _td(days=1)) if _market_day else _now_bkk.date()
+        )
+        scan_end_str   = scan_end_date.strftime('%Y-%m-%d')
+        scan_start_str = (scan_end_date - _td(days=400)).strftime('%Y-%m-%d')
+        set_start_str  = (scan_end_date - _td(days=185)).strftime('%Y-%m-%d')
 
         # ดึง symbols ของรอบสแกนก่อนหน้า (เพื่อ is_new_entry)
         prev_run = (
@@ -1989,7 +2026,7 @@ def precision_momentum_scanner(request):
         set_1m_return = 0.0
         set_3m_return = 0.0
         try:
-            set_df = yf.download("^SET", period="6mo", interval="1d", progress=False)
+            set_df = yf.download("^SET", start=set_start_str, end=scan_end_str, interval="1d", progress=False)
             if set_df is not None and not set_df.empty:
                 if isinstance(set_df.columns, pd.MultiIndex):
                     set_df.columns = set_df.columns.droplevel(1)
@@ -2003,17 +2040,46 @@ def precision_momentum_scanner(request):
 
         import concurrent.futures
 
+        # ====== Pre-compute ABSOLUTE RS Rating from full universe (before technical filter) ======
+        # วิธีนี้ทำให้ RS Rating ของหุ้นเดิมเหมือนกันทุกรอบ Scan เพราะ rank กับ SET100 เต็มชุด
+        def _fetch_rs_return(sym):
+            try:
+                _df = yf.Ticker(f"{sym}.BK").history(start=set_start_str, end=scan_end_str, interval="1d")
+                if _df is None or _df.empty:
+                    return sym, None
+                if isinstance(_df.columns, pd.MultiIndex):
+                    _df.columns = _df.columns.droplevel(1)
+                _close = _df['Close'].dropna()
+                if len(_close) >= 66:
+                    return sym, float((_close.iloc[-1] - _close.iloc[-66]) / _close.iloc[-66] * 100)
+                return sym, None
+            except Exception:
+                return sym, None
+
+        rs_returns_all = {}
+        with concurrent.futures.ThreadPoolExecutor(max_workers=15) as _ex:
+            _futs = {_ex.submit(_fetch_rs_return, s): s for s in scan_symbols}
+            for _f in concurrent.futures.as_completed(_futs):
+                _sym, _ret = _f.result()
+                if _ret is not None:
+                    rs_returns_all[_sym] = _ret
+
+        rs_ratings_map = {}
+        if rs_returns_all:
+            _rs_ser = pd.Series(rs_returns_all)
+            rs_ratings_map = (_rs_ser.rank(pct=True) * 99).clip(0, 99).astype(int).to_dict()
+
         def _process_precision_scan(symbol):
             try:
                 # ใช้ yf.Ticker().history() แทน yf.download() เพราะ yf.download() 
                 # มีบั๊ก Thread-safety กรองข้อมูลข้าม Symbol กันเมื่อรันใน ThreadPool 
                 ticker_obj = yf.Ticker(f"{symbol}.BK")
-                df = ticker_obj.history(period="1y", interval="1d")
+                df = ticker_obj.history(start=scan_start_str, end=scan_end_str, interval="1d")
 
                 if df is None or df.empty:
                     try:
                         yq = YQTicker(f"{symbol}.BK")
-                        df = yq.history(period="1y", interval="1d")
+                        df = yq.history(start=scan_start_str, end=scan_end_str, interval="1d")
                         if isinstance(df, pd.DataFrame) and not df.empty:
                             df = df.reset_index()
                             if 'date' in df.columns:
@@ -2061,10 +2127,9 @@ def precision_momentum_scanner(request):
                     # skipped (ADX < 15)
                     return None
 
-                # ====== Trend Template Filter (ผ่อนปรนเพื่อรับหุ้น Momentum เล่นรอบ) ======
-                # ยกเลิก is_uptrend ทิ้ง เพื่อเปิดโอกาสหุ้นลงแรงที่เพิ่งมีแรงงัดกลับ (Reversal Momentum)
-                # และยอมรับหุ้นที่ลงมาไม่เกิน 50% จากจุดสูงสุด 52 สัปดาห์ (เดิม 25% ซึ่งแคบเกินไป)
-                near_high  = current_price >= year_high * 0.50
+                # ====== Trend Template Filter ======
+                # รับหุ้นที่อยู่ไม่ต่ำกว่า 35% จาก 52w High — กรองขยะออก แต่ยังเปิดรับ reversal
+                near_high  = current_price >= year_high * 0.65
                 if not near_high:
                     return None
 
@@ -2079,6 +2144,9 @@ def precision_momentum_scanner(request):
                 rvol_bullish = tech['rvol_bullish']
                 sd_zone      = tech['sd_zone']
                 ema20_aligned_flag = tech.get('ema20_aligned', False)
+                ema20_slope_val    = tech.get('ema20_slope', 0.0)
+                ema20_rising_flag  = tech.get('ema20_rising', False)
+                hh_hl_flag         = tech.get('hh_hl_structure', False)
 
                 mfi_val = float(df['MFI'].iloc[-1]) if 'MFI' in df.columns and pd.notna(df['MFI'].iloc[-1]) else 0
 
@@ -2209,7 +2277,11 @@ def precision_momentum_scanner(request):
                     'macd_crossover': macd_cross_val,
                     'bb_squeeze': bb_squeeze_flag,
                     'ema20_aligned': ema20_aligned_flag,
+                    'ema20_slope': round(ema20_slope_val, 3),
+                    'ema20_rising': ema20_rising_flag,
+                    'hh_hl_structure': hh_hl_flag,
                     'stock_3m_ret': stock_3m_ret,
+                    'rs_rating': rs_ratings_map.get(symbol, 0),
                 }
 
             except Exception as e:
@@ -2227,14 +2299,9 @@ def precision_momentum_scanner(request):
                     results.append(res)
 
         if results:
-            # ใช้ Pandas เพื่อทำ percentile ranking (Minervini style)
             scan_df = pd.DataFrame(results)
-            if not scan_df.empty and 'stock_3m_ret' in scan_df.columns:
-                # rank(pct=True) → 0.0–1.0, ×99 → 0–99, clip เพื่อป้องกัน edge case
-                scan_df['rs_rating'] = (
-                    scan_df['stock_3m_ret'].rank(pct=True) * 99
-                ).clip(0, 99).fillna(0).astype(int)
-            else:
+            # rs_rating คำนวณจาก full universe ก่อนหน้านี้แล้ว (absolute RS — stable across scans)
+            if 'rs_rating' not in scan_df.columns:
                 scan_df['rs_rating'] = 0
 
             # ====== 2. Bulk Fundamental Enrichment (Yahooquery) ======
@@ -2317,6 +2384,9 @@ def precision_momentum_scanner(request):
                     macd_crossover=r['macd_crossover'],
                     bb_squeeze=r['bb_squeeze'],
                     ema20_aligned=r['ema20_aligned'],
+                    ema20_slope=r.get('ema20_slope', 0.0),
+                    ema20_rising=r.get('ema20_rising', False),
+                    hh_hl_structure=r.get('hh_hl_structure', False),
                 ))
 
             if bulk_candidates:
@@ -2377,6 +2447,49 @@ def precision_momentum_scanner(request):
         candidates = list(qs)
         scanned_at = selected_run
 
+        # ====== Live Price Fetch (ถ้าตลาดเปิด) — แสดงราคาปัจจุบันคู่กับราคา close เมื่อวาน ======
+        # Indicator ยังคำนวณจาก settled close (คงที่), live price ใช้แสดงเท่านั้น
+        import pytz as _lpytz
+        from datetime import datetime as _ldt, time as _ldtime
+        _lbkk = _lpytz.timezone('Asia/Bangkok')
+        _lnow = _ldt.now(_lbkk)
+        _lt = _lnow.time()
+        # Live price: เฉพาะช่วงที่ตลาด SET ซื้อขายจริง (ไม่รวม midday break 12:30-14:30)
+        _lmarket_open = (
+            _lnow.weekday() < 5 and
+            (_ldtime(10, 0) <= _lt <= _ldtime(12, 30) or
+             _ldtime(14, 30) <= _lt <= _ldtime(16, 30))
+        )
+        live_prices = {}
+        if _lmarket_open and candidates:
+            try:
+                import concurrent.futures as _lcf
+                def _get_live(sym):
+                    try:
+                        fi = yf.Ticker(f"{sym}.BK").fast_info
+                        p = fi.last_price
+                        return sym, float(p) if p else None
+                    except Exception:
+                        return sym, None
+                with _lcf.ThreadPoolExecutor(max_workers=12) as _lex:
+                    for _sym, _p in _lex.map(_get_live, [c.symbol for c in candidates]):
+                        if _p:
+                            live_prices[_sym] = _p
+            except Exception:
+                pass
+
+        for c in candidates:
+            lp = live_prices.get(c.symbol)
+            c.live_price = lp
+            if lp and c.demand_zone_start and c.demand_zone_start > 0:
+                c.live_zone_prox = 0.0 if lp <= c.demand_zone_start else round(((lp - c.demand_zone_start) / c.demand_zone_start) * 100, 1)
+            else:
+                c.live_zone_prox = None
+            if lp and c.price and c.price > 0:
+                c.live_change_pct = round(((lp - c.price) / c.price) * 100, 2)
+            else:
+                c.live_change_pct = None
+
         # ====== คำนวณ BUY/SELL Score ด้วย _compute_signals() เดียวกับ Dashboard/Watchlist ======
         # ใช้สูตรกลางแทนการ duplicate logic — ทำให้ทุกหน้าแสดง score ที่สอดคล้องกัน
         for c in candidates:
@@ -2434,7 +2547,7 @@ def precision_momentum_scanner(request):
         top5_qualified = sorted(
             [c for c in candidates if _is_fully_qualified(c)],
             key=lambda x: x.buy_score, reverse=True
-        )[:5]
+        )
 
         for c in top5_buy:
             reasons = []
@@ -2591,11 +2704,28 @@ def precision_momentum_scanner(request):
         'has_scanned': request.method == "POST" or request.GET.get('scan') == 'true' or bool(all_runs),
         'top5_buy': top5_buy,
         'top5_qualified': top5_qualified,
-        'scan_total': len(scan_symbols),   # จำนวน symbol ทั้งหมดใน ScannableSymbol (active)
-        'scan_passed': len(candidates),    # ผ่านเกณฑ์ในรอบนั้น
-        'top_sectors': top_sectors,        # กลุ่มอุตสาหกรรมผู้นำ
-        'scan_insights': scan_insights,    # คำอธิบายผลลัพธ์อัตโนมัติ
+        'scan_total': len(scan_symbols),
+        'scan_passed': len(candidates),
+        'top_sectors': top_sectors,
+        'scan_insights': scan_insights,
+        'scan_data_date': None,  # คำนวณด้านล่าง
     }
+    # คำนวณ scan_data_date จาก scanned_at — ถ้า scan ทำหลัง 16:30 BKK ข้อมูลคือวันเดียวกัน
+    # ถ้า scan ทำระหว่าง 10:00-16:30 (ตลาดเปิด) ข้อมูลจะเป็นวันก่อนหน้า
+    if scanned_at:
+        import pytz as _sddtz
+        _bkk = _sddtz.timezone('Asia/Bangkok')
+        _st = scanned_at.astimezone(_bkk) if hasattr(scanned_at, 'astimezone') else scanned_at
+        from datetime import time as _t, timedelta as _tdd
+        # scan_data_date: midday break ยังถือว่า candle ของวันนั้นยังไม่ settle
+        _in_mkt = (
+            _st.weekday() < 5 and (
+                _t(10, 0) <= _st.time() <= _t(12, 30) or
+                _t(12, 30) < _st.time() < _t(14, 30) or
+                _t(14, 30) <= _st.time() <= _t(16, 30)
+            )
+        )
+        context['scan_data_date'] = (_st.date() - _tdd(days=1)) if _in_mkt else _st.date()
     return render(request, 'stocks/precision_scan.html', context)
 
 

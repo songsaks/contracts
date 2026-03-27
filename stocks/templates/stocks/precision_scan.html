@@ -382,27 +382,109 @@
                         </div>
                     </div>
 
+                    <!-- STEP 8: Trend Following (v4) -->
+                    <div class="mb-4">
+                        <div class="d-flex align-items-center gap-2 mb-3">
+                            <span class="rounded-circle d-flex align-items-center justify-content-center fw-bold text-white"
+                                  style="width:28px;height:28px;background:#0d9488;font-size:0.8rem;flex-shrink:0;">8</span>
+                            <h6 class="mb-0 fw-bold" style="color:#1e293b;">Trend Following (v4) — ยืนยันว่า Momentum มี Structure รองรับ</h6>
+                        </div>
+                        <div class="rounded-3 p-3 mb-3" style="background:#f0fdfa; border:1px solid #99f6e4;">
+                            <div class="small mb-0" style="color:#0f766e;">
+                                <strong>เหตุผล:</strong> Momentum อาจเป็นแค่การดีดตัวชั่วคราว — Trend Following ช่วยกรองเฉพาะหุ้นที่ <strong>โครงสร้างราคา</strong> ยืนยันว่า uptrend ยังอยู่ เหมาะสำหรับถือ <strong>1-6 เดือน</strong>
+                            </div>
+                        </div>
+                        <div class="row g-2">
+                            <div class="col-md-4">
+                                <div class="rounded-3 p-3 h-100" style="background:#f0fdfa; border:1px solid #99f6e4;">
+                                    <div class="fw-bold small mb-1" style="color:#0f766e;">
+                                        EMA20 Slope
+                                        <span class="badge px-2 ms-1" style="background:rgba(13,148,136,0.15);color:#0f766e;border:1px solid rgba(13,148,136,0.4);font-size:0.72rem;">EMA&#8593;</span>
+                                        <strong>+5 pts</strong>
+                                    </div>
+                                    <div class="small mt-1" style="color:#374151; line-height:1.8;">
+                                        slope = (EMA20<sub>today</sub> - EMA20<sub>5d ago</sub>) / EMA20<sub>5d ago</sub> x 100<br>
+                                        <span style="color:#0f766e;">slope &gt; 0.1%</span> = EMA20 กำลังขึ้น<br>
+                                        <span style="color:#6b7280;">slope &le; 0.1%</span> = EMA แบน/ลง
+                                    </div>
+                                    <div class="mt-2 small p-2 rounded-2" style="background:rgba(13,148,136,0.07);color:#0f766e;">
+                                        EMA20 ขึ้น = ราคาเฉลี่ย 20 วันมีทิศทาง ไม่ใช่ sideways
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="rounded-3 p-3 h-100" style="background:#f0fdfa; border:1px solid #99f6e4;">
+                                    <div class="fw-bold small mb-1" style="color:#0f766e;">
+                                        HH/HL Structure
+                                        <span class="badge px-2 ms-1" style="background:rgba(13,148,136,0.15);color:#0f766e;border:1px solid rgba(13,148,136,0.4);font-size:0.72rem;">HH/HL</span>
+                                        <strong>+4 pts</strong>
+                                    </div>
+                                    <div class="small mt-1" style="color:#374151; line-height:1.8;">
+                                        Higher High + Higher Low ใน <strong>20 แท่งล่าสุด</strong><br>
+                                        Swing High = สูงกว่า 2 แท่งซ้าย+ขวา<br>
+                                        Swing Low = ต่ำกว่า 2 แท่งซ้าย+ขวา<br>
+                                        <span style="color:#0f766e;">HH &amp; HL ครบ</span> = uptrend structure
+                                    </div>
+                                    <div class="mt-2 small p-2 rounded-2" style="background:rgba(13,148,136,0.07);color:#0f766e;">
+                                        Dow Theory: ขาขึ้นที่แท้ต้องมี HH และ HL เรื่อยๆ
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="rounded-3 p-3 h-100" style="background:linear-gradient(135deg,#ecfdf5,#f0fdfa); border:2px solid #10b981;">
+                                    <div class="fw-bold small mb-1" style="color:#047857;">
+                                        Trend Confirmed
+                                        <span class="badge px-2 ms-1" style="background:#10b981;color:white;font-size:0.72rem;">TREND&#10003;</span>
+                                        <strong>+10 pts</strong>
+                                    </div>
+                                    <div class="small mt-1" style="color:#374151; line-height:1.8;">
+                                        ต้องมี <strong>ทั้ง EMA&#8593; และ HH/HL</strong><br>
+                                        <span style="color:#047857;">ทั้งคู่</span> = TREND&#10003; (+10 pts)<br>
+                                        <span style="color:#0f766e;">EMA&#8593; เท่านั้น</span> = +5 pts<br>
+                                        <span style="color:#0f766e;">HH/HL เท่านั้น</span> = +4 pts
+                                    </div>
+                                    <div class="mt-2 small p-2 rounded-2" style="background:rgba(16,185,129,0.1);color:#047857;border:1px solid rgba(16,185,129,0.3);">
+                                        TREND&#10003; = momentum + structure = ถือได้ยาว 1-6 เดือน
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mt-3 rounded-3 p-3" style="background:#f8fafc; border:1px solid #e2e8f0;">
+                            <div class="fw-bold small mb-2" style="color:#374151;">วิธีอ่าน Badge ใน SIGNAL column</div>
+                            <div class="row g-2" style="font-size:0.82rem; color:#374151;">
+                                <div class="col-md-6" style="line-height:2.2;">
+                                    <span class="badge px-2 me-1" style="background:#10b981;color:white;">TREND&#10003;</span> EMA20 ขึ้น + HH/HL ครบ +10 pts<br>
+                                    <span class="badge px-2 me-1" style="background:rgba(13,148,136,0.15);color:#0f766e;border:1px solid rgba(13,148,136,0.4);">EMA&#8593;</span> EMA20 slope &gt; 0.1% (ยังไม่มี HH/HL) +5 pts
+                                </div>
+                                <div class="col-md-6" style="line-height:2.2;">
+                                    <span class="badge px-2 me-1" style="background:rgba(13,148,136,0.15);color:#0f766e;border:1px solid rgba(13,148,136,0.4);">HH/HL</span> โครงสร้างขาขึ้น (EMA แบน) +4 pts<br>
+                                    <span class="text-muted">ไม่มี badge</span> = ยังไม่มีโครงสร้าง trend ชัดเจน
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Checklist Summary -->
                     <div class="rounded-3 p-4" style="background:linear-gradient(135deg,#f5f3ff,#ede9fe); border:1px solid #c4b5fd;">
-                        <div class="fw-bold mb-3" style="color:#5b21b6;"><i class="fas fa-clipboard-check me-2"></i>Checklist ก่อนซื้อ v3 — ต้องผ่านอย่างน้อย 7/12 ข้อ &nbsp;|&nbsp; <span style="color:#dc2626;">ออกเมื่อ SELL Badge ขึ้น</span></div>
+                        <div class="fw-bold mb-3" style="color:#5b21b6;"><i class="fas fa-clipboard-check me-2"></i>Checklist ก่อนซื้อ v4 — ต้องผ่านอย่างน้อย 8/13 ข้อ &nbsp;|&nbsp; <span style="color:#dc2626;">ออกเมื่อ SELL Badge ขึ้น</span></div>
                         <div class="row g-1" style="font-size:0.85rem; color:#374151;">
                             <div class="col-md-6">
                                 <div>☐ PRECISION SCORE ≥ 65</div>
-                                <div>☐ **RS RATING ≥ 60** (มี Momentum ชนะตลาด)</div>
+                                <div>☐ RS RATING ≥ 60 (Momentum ชนะตลาด)</div>
                                 <div>☐ ADX ≥ 15 (เริ่มมีเทรนด์)</div>
                                 <div>☐ RSI อยู่ในช่วง <strong>45–80</strong> (momentum zone)</div>
                                 <div>☐ RVOL Bull ≥ 0.8x</div>
                                 <div>☐ REL MOM เป็นบวก (ชนะ SET)</div>
-                                <div>☐ ราคาห่างจาก 52w High ไม่เกิน <strong>50%</strong> (Reversal / Momentum)</div>
+                                <div>☐ ราคาห่างจาก 52w High ไม่เกิน <strong>35%</strong></div>
                             </div>
                             <div class="col-md-6">
                                 <div>☐ ERC VOL ✓ (มี badge สีม่วง)</div>
-                                <div>☐ ZONE STATUS ≤ NEAR / อยู่ IN ZONE (จุดเข้า Swing Trade)</div>
+                                <div>☐ ZONE STATUS ≤ NEAR / อยู่ IN ZONE</div>
                                 <div>☐ RR ≥ 1:1.5 (ความคุ้มค่าความเสี่ยง)</div>
                                 <div>☐ PATTERN ไม่เป็น Bearish</div>
-                                <div>☐ <span style="color:#15803d;">MACD ✕</span> หรือ <span style="color:#15803d;">MACD+</span> (histogram บวก)</div>
-                                <div>☐ <span style="color:#4f46e5;">EMA✓</span> EMA20 > EMA50 > EMA200 aligned</div>
-
+                                <div>☐ <span style="color:#15803d;">MACD ✕</span> หรือ MACD+ (histogram บวก)</div>
+                                <div>☐ <span style="color:#4f46e5;">EMA✓</span> EMA20 > EMA50 > EMA200</div>
+                                <div>☐ <span style="color:#0f766e;">TREND✓ หรือ EMA↑</span> (v4 — trend following)</div>
                             </div>
                         </div>
                         <div class="mt-2 small p-2 rounded-2" style="background:rgba(79,70,229,0.07); color:#3730a3; border:1px solid #c4b5fd;">
@@ -410,6 +492,12 @@
                             <span style="background:rgba(22,163,74,0.12);color:#15803d;border:1px solid rgba(22,163,74,0.3);padding:1px 7px;border-radius:4px;font-size:0.8rem;">MACD ✕</span> +12 pts &nbsp;
                             <span style="background:rgba(245,158,11,0.15);color:#b45309;border:1px solid rgba(245,158,11,0.4);padding:1px 7px;border-radius:4px;font-size:0.8rem;">BB⚡</span> +6 pts &nbsp;
                             <span style="background:rgba(79,70,229,0.12);color:#4f46e5;border:1px solid rgba(79,70,229,0.3);padding:1px 7px;border-radius:4px;font-size:0.8rem;">EMA✓</span> +5 pts
+                        </div>
+                        <div class="mt-2 small p-2 rounded-2" style="background:rgba(13,148,136,0.07); color:#0f766e; border:1px solid #99f6e4;">
+                            <strong>🌿 v4 Trend Following:</strong>
+                            <span style="background:#10b981;color:white;padding:1px 7px;border-radius:4px;font-size:0.8rem;">TREND&#10003;</span> +10 pts (EMA&#8593; + HH/HL) &nbsp;
+                            <span style="background:rgba(13,148,136,0.15);color:#0f766e;border:1px solid rgba(13,148,136,0.4);padding:1px 7px;border-radius:4px;font-size:0.8rem;">EMA&#8593;</span> +5 pts &nbsp;
+                            <span style="background:rgba(13,148,136,0.15);color:#0f766e;border:1px solid rgba(13,148,136,0.4);padding:1px 7px;border-radius:4px;font-size:0.8rem;">HH/HL</span> +4 pts
                         </div>
                         <div class="mt-2 small p-2 rounded-2" style="background:rgba(239,68,68,0.08); color:#991b1b; border:1px solid #fca5a5;">
                             <strong>⚠️ สัญญาณหลีกเลี่ยง:</strong> RSI &gt; 82 | RVOL Bear ↓ | RR &lt; 1.5 | ADX &lt; 20 | REL MOM ติดลบมาก | MACD− | ไฟแดงกระพริบ | Bearish Pattern ที่ Zone
@@ -489,6 +577,7 @@
                             {% if item.macd_crossover %}<div><span style="color:#16a34a;font-weight:700;">✓</span> MACD ✕ crossover</div>{% endif %}
                             {% if item.ema20_aligned %}<div><span style="color:#4f46e5;font-weight:700;">✓</span> EMA20 aligned</div>{% endif %}
                             {% if item.bb_squeeze %}<div><span style="color:#b45309;font-weight:700;">✓</span> BB Squeeze ⚡</div>{% endif %}
+                            {% if item.ema20_rising and item.hh_hl_structure %}<div><span style="color:#065f46;font-weight:700;">✓</span> Trend confirmed (EMA↑ + HH/HL)</div>{% elif item.ema20_rising %}<div><span style="color:#047857;font-weight:700;">✓</span> EMA20 rising</div>{% elif item.hh_hl_structure %}<div><span style="color:#0f766e;font-weight:700;">✓</span> HH/HL structure</div>{% endif %}
                         </div>
                         <a href="{% url 'stocks:entry_finder' item.symbol %}" class="btn btn-sm w-100" style="background:#dcfce7;color:#15803d;border:1px solid #86efac;font-size:0.73rem;padding:3px 8px;border-radius:0.5rem;">
                             <i class="fas fa-crosshairs me-1"></i>Sniper Chart
@@ -640,6 +729,11 @@
                     <i class="fas fa-clock me-1"></i> {{ scanned_at|date:"d/m/Y H:i" }}
                 </span>
                 {% endif %}
+                {% if scan_data_date %}
+                <span class="badge fw-normal" style="background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;" title="ข้อมูลราคา/indicator ทุกตัวในรอบนี้ใช้ข้อมูล ณ วันที่นี้เดียวกัน — ป้องกันผล Scan ที่ไม่สอดคล้องกัน">
+                    <i class="fas fa-database me-1"></i> ข้อมูล ณ {{ scan_data_date|date:"d/m/Y" }}
+                </span>
+                {% endif %}
             </div>
         </div>
         <div class="card-body p-0">
@@ -716,6 +810,11 @@
                                     {% endif %}
                                 {% else %}
                                     <span class="text-muted">-</span>
+                                {% endif %}
+                                {% if item.live_zone_prox is not None %}
+                                <div class="mt-1" style="font-size:0.62rem;color:#6b7280;" title="Zone proximity ตอนนี้ (live price)">
+                                    Live: {% if item.live_zone_prox == 0 %}<span style="color:#16a34a;font-weight:700;">IN</span>{% elif item.live_zone_prox <= 10 %}<span style="color:#f59e0b;font-weight:700;">{{ item.live_zone_prox|floatformat:0 }}%</span>{% else %}<span>{{ item.live_zone_prox|floatformat:0 }}%</span>{% endif %}
+                                </div>
                                 {% endif %}
                             </td>
 
@@ -810,6 +909,17 @@
                             <!-- PRICE -->
                             <td>
                                 <span class="fw-bold">฿{{ item.price|floatformat:2 }}</span>
+                                {% if item.live_price %}
+                                <div class="mt-1" style="font-size:0.68rem;line-height:1.2;">
+                                    <span style="color:#6b7280;">Live:</span>
+                                    <span class="fw-semibold" style="color:{% if item.live_change_pct >= 0 %}#16a34a{% else %}#dc2626{% endif %};">
+                                        ฿{{ item.live_price|floatformat:2 }}
+                                        {% if item.live_change_pct is not None %}
+                                        ({% if item.live_change_pct >= 0 %}+{% endif %}{{ item.live_change_pct|floatformat:1 }}%)
+                                        {% endif %}
+                                    </span>
+                                </div>
+                                {% endif %}
                             </td>
 
                             <!-- ENTRY ZONE -->
@@ -866,9 +976,22 @@
                                 {% if item.ema20_aligned %}
                                 <span class="badge px-1 py-0"
                                       style="background:rgba(79,70,229,0.12);color:#4f46e5;border:1px solid rgba(79,70,229,0.3);font-size:0.56rem;"
-                                      title="EMA20 > EMA50 > EMA200 Full Stack">EMA✓</span>
+                                      title="EMA20 > EMA50 > EMA200 Full Stack (Minervini)">EMA✓</span>
                                 {% endif %}
-                                {% if not item.macd_crossover and not item.bb_squeeze and not item.ema20_aligned %}
+                                {% if item.ema20_rising and item.hh_hl_structure %}
+                                <span class="badge px-1 py-0"
+                                      style="background:rgba(5,150,105,0.15);color:#065f46;border:1px solid rgba(5,150,105,0.4);font-size:0.56rem;"
+                                      title="EMA20 กำลังชี้ขึ้น + โครงสร้าง Higher High/Higher Low — Trend แท้จริง">TREND✓</span>
+                                {% elif item.ema20_rising %}
+                                <span class="badge px-1 py-0"
+                                      style="background:rgba(16,185,129,0.12);color:#047857;border:1px solid rgba(16,185,129,0.3);font-size:0.56rem;"
+                                      title="EMA20 slope กำลังชี้ขึ้น ({{ item.ema20_slope }}%)">EMA↑</span>
+                                {% elif item.hh_hl_structure %}
+                                <span class="badge px-1 py-0"
+                                      style="background:rgba(20,184,166,0.12);color:#0f766e;border:1px solid rgba(20,184,166,0.3);font-size:0.56rem;"
+                                      title="Higher High + Higher Low structure ใน 20 candles ล่าสุด">HH/HL</span>
+                                {% endif %}
+                                {% if not item.macd_crossover and not item.bb_squeeze and not item.ema20_aligned and not item.ema20_rising and not item.hh_hl_structure %}
                                 <span class="text-muted">-</span>
                                 {% endif %}
                                 </div>

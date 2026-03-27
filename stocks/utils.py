@@ -748,7 +748,7 @@ def analyze_momentum_technical_v2(df):
 
     # 1. Trend Score (สูงสุด 40 คะแนน)
     #    v3: เพิ่ม EMA20 > EMA50 > EMA200 full alignment (+8) — ลด weight ตัวเดี่ยวลงเล็กน้อย
-    ema20_aligned = (ema20 > ema50 > ema200)
+    ema20_aligned = (current_price > ema20 > ema50 > ema200)  # Full Minervini stack
     if current_price > ema200: score += 12
     if current_price > ema50:  score += 12
     if ema50 > ema200:         score += 8
@@ -796,6 +796,34 @@ def analyze_momentum_technical_v2(df):
     if len(df) >= 66:
         ret_3m = float((df['Close'].iloc[-1] - df['Close'].iloc[-66]) / df['Close'].iloc[-66] * 100)
 
+    # 6. EMA20 Slope — EMA กำลังชี้ขึ้นหรือแบน (Trend Following quality check)
+    ema20_slope = 0.0
+    ema20_rising = False
+    if len(df['EMA20'].dropna()) >= 6:
+        ema20_5d_ago = float(df['EMA20'].dropna().iloc[-6])
+        if ema20_5d_ago > 0:
+            ema20_slope = round((ema20 - ema20_5d_ago) / ema20_5d_ago * 100, 3)
+            ema20_rising = ema20_slope > 0.1  # ชี้ขึ้นอย่างมีนัยสำคัญ
+
+    # 7. Higher High / Higher Low structure (20 candles) — เทรนด์โครงสร้างจริง
+    hh_hl = False
+    if len(df) >= 20:
+        window = df.tail(20)
+        highs = window['High'].values
+        lows  = window['Low'].values
+        # หา swing high (ใหญ่กว่า 2 bars รอบข้าง) และ swing low
+        swing_highs = [highs[i] for i in range(2, len(highs)-2)
+                       if highs[i] > highs[i-1] and highs[i] > highs[i-2]
+                       and highs[i] > highs[i+1] and highs[i] > highs[i+2]]
+        swing_lows  = [lows[i] for i in range(2, len(lows)-2)
+                       if lows[i] < lows[i-1] and lows[i] < lows[i-2]
+                       and lows[i] < lows[i+1] and lows[i] < lows[i+2]]
+        # HH = swing high ล่าสุด > swing high ก่อนหน้า
+        # HL = swing low ล่าสุด > swing low ก่อนหน้า
+        has_hh = len(swing_highs) >= 2 and swing_highs[-1] > swing_highs[-2]
+        has_hl = len(swing_lows)  >= 2 and swing_lows[-1]  > swing_lows[-2]
+        hh_hl = has_hh and has_hl
+
     return {
         'score': min(score, 100),
         'rvol': round(rvol, 2),
@@ -804,6 +832,9 @@ def analyze_momentum_technical_v2(df):
         'ema50': ema50,
         'ema20': ema20,
         'ema20_aligned': ema20_aligned,
+        'ema20_slope': ema20_slope,
+        'ema20_rising': ema20_rising,
+        'hh_hl_structure': hh_hl,
         'rvol_bullish': rvol_bullish,
         'avg_volume_20d': round(avg_vol, 0),
         'sd_zone': sd,
