@@ -324,9 +324,14 @@
   </div>
 </div>
 
-<!-- Hidden AI summary data -->
+<!-- Hidden AI summary data (JSON เก็บไว้ใน DOM ให้ extra_js block อ่าน) -->
 <script id="ai-summary-data" type="application/json">{{ ai_summary_json }}</script>
+<span id="ai-url" data-url="{% url 'pms:work_summary_ai_analysis' %}" style="display:none;"></span>
+<span id="ai-csrf" data-csrf="{{ csrf_token }}" style="display:none;"></span>
 
+{% endblock %}
+
+{% block extra_js %}
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <script>
 (function () {
@@ -335,6 +340,8 @@
   const loading = document.getElementById("ai-loading");
   const result  = document.getElementById("ai-result");
   const summary = JSON.parse(document.getElementById("ai-summary-data").textContent);
+  const aiUrl   = document.getElementById("ai-url").dataset.url;
+  const csrf    = document.getElementById("ai-csrf").dataset.csrf;
 
   btn.addEventListener("click", function () {
     loading.style.display = "block";
@@ -342,12 +349,9 @@
     result.innerHTML      = "";
     modal.show();
 
-    fetch("{% url 'pms:work_summary_ai_analysis' %}", {
+    fetch(aiUrl, {
       method:  "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-CSRFToken":  "{{ csrf_token }}",
-      },
+      headers: { "Content-Type": "application/json", "X-CSRFToken": csrf },
       body: JSON.stringify({ summary: JSON.stringify(summary, null, 2) }),
     })
     .then(r => r.json())
@@ -363,7 +367,7 @@
     .catch(err => {
       loading.style.display = "none";
       result.style.display  = "block";
-      result.innerHTML = '<div class="alert alert-danger">ไม่สามารถเชื่อมต่อ AI ได้: ' + err + "</div>";
+      result.innerHTML = '<div class="alert alert-danger">ไม่สามารถเชื่อมต่อ AI: ' + err + "</div>";
     });
   });
 })();
