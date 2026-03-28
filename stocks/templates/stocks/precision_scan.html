@@ -23,6 +23,12 @@
            style="background: linear-gradient(135deg, #7c3aed, #4f46e5);">
             <i class="fas fa-crosshairs"></i> Precision Scan (SET100+MAI)
         </a>
+        {% if has_scanned and ai_scan_json %}
+        <button id="btn-ai-analyze" class="btn d-inline-flex align-items-center gap-2"
+                style="background:linear-gradient(135deg,#0891b2,#0e7490);color:white;border:none;">
+            <i class="fas fa-robot"></i> AI วิเคราะห์หุ้น
+        </button>
+        {% endif %}
     </div>
 </div>
 
@@ -1361,4 +1367,88 @@
     }
 </style>
 </div>
+
+{% if has_scanned and ai_scan_json %}
+<!-- AI Scan JSON data -->
+<script id="ai-scan-data" type="application/json">{{ ai_scan_json|safe }}</script>
+<span id="ai-endpoint" data-url="{% url 'stocks:precision_scan_ai_analysis' %}" data-csrf="{{ csrf_token }}"></span>
+
+<!-- AI Analysis Modal -->
+<div class="modal fade" id="aiScanModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header" style="background:linear-gradient(135deg,#0891b2,#0e7490);color:white;">
+                <h5 class="modal-title fw-bold"><i class="fas fa-robot me-2"></i>AI วิเคราะห์ผล Precision Scan</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4">
+                <div id="ai-loading" class="text-center py-5">
+                    <div class="spinner-border text-info mb-3" role="status"></div>
+                    <div class="text-muted">AI กำลังวิเคราะห์หุ้น Momentum...</div>
+                </div>
+                <div id="ai-result" class="d-none" style="line-height:1.7;"></div>
+                <div id="ai-error" class="d-none alert alert-danger"></div>
+            </div>
+            <div class="modal-footer border-0">
+                <small class="text-muted me-auto"><i class="fas fa-info-circle me-1"></i>วิเคราะห์โดย Gemini AI — ใช้ประกอบการตัดสินใจเท่านั้น</small>
+                <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">ปิด</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+{% if has_scanned and ai_scan_json %}
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script>
+(function () {
+    var btn = document.getElementById("btn-ai-analyze");
+    if (!btn) return;
+    var _done = false;
+
+    btn.addEventListener("click", function () {
+        var modal = new bootstrap.Modal(document.getElementById("aiScanModal"));
+        modal.show();
+        if (_done) return;
+
+        var ep = document.getElementById("ai-endpoint");
+        var aiUrl = ep.dataset.url;
+        var csrf = ep.dataset.csrf;
+        var scanData = JSON.parse(document.getElementById("ai-scan-data").textContent);
+
+        document.getElementById("ai-loading").classList.remove("d-none");
+        document.getElementById("ai-result").classList.add("d-none");
+        document.getElementById("ai-error").classList.add("d-none");
+
+        fetch(aiUrl, {
+            method: "POST",
+            headers: {"Content-Type": "application/json", "X-CSRFToken": csrf},
+            body: JSON.stringify({scan_data: scanData})
+        })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+            document.getElementById("ai-loading").classList.add("d-none");
+            if (data.status === "success") {
+                var el = document.getElementById("ai-result");
+                el.innerHTML = marked.parse(data.analysis);
+                el.classList.remove("d-none");
+                _done = true;
+            } else {
+                var err = document.getElementById("ai-error");
+                err.textContent = data.error || "เกิดข้อผิดพลาด";
+                err.classList.remove("d-none");
+            }
+        })
+        .catch(function (e) {
+            document.getElementById("ai-loading").classList.add("d-none");
+            var err = document.getElementById("ai-error");
+            err.textContent = "Connection error: " + e.message;
+            err.classList.remove("d-none");
+        });
+    });
+})();
+</script>
+{% endif %}
 {% endblock %}

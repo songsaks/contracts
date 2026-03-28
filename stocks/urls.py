@@ -20,6 +20,7 @@ urlpatterns = [
     path('macro/', views.macro_economy, name='macro'),
     path('momentum/', views.momentum_scanner, name='momentum_scanner'),
     path('momentum/precision/', views.precision_momentum_scanner, name='precision_momentum_scanner'),
+    path('momentum/precision/ai/', views.precision_scan_ai_analysis, name='precision_scan_ai_analysis'),
     path('multi-factor/', views.multi_factor_scanner, name='multi_factor_scanner'),
     path('entry-finder/<str:symbol>/', views.entry_finder, name='entry_finder'),
     path('signup/', views.signup, name='signup'),

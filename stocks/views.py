@@ -2726,6 +2726,39 @@ def precision_momentum_scanner(request):
             )
         )
         context['scan_data_date'] = (_st.date() - _tdd(days=1)) if _in_mkt else _st.date()
+
+    # Build AI scan JSON for Gemini analysis button
+    import json as _scan_json
+    def _ser_c(c):
+        return {
+            "symbol": c.symbol,
+            "price": c.price,
+            "buy_score": getattr(c, 'buy_score', 0),
+            "rs_rating": getattr(c, 'rs_rating', 0),
+            "rsi": round(c.rsi, 1),
+            "adx": round(c.adx, 1),
+            "rvol": round(c.rvol, 2),
+            "rvol_bullish": c.rvol_bullish,
+            "risk_reward_ratio": c.risk_reward_ratio,
+            "zone_proximity": round(c.zone_proximity, 1) if c.zone_proximity else None,
+            "macd_crossover": getattr(c, 'macd_crossover', False),
+            "ema20_aligned": getattr(c, 'ema20_aligned', False),
+            "ema20_rising": getattr(c, 'ema20_rising', False),
+            "hh_hl_structure": getattr(c, 'hh_hl_structure', False),
+            "bb_squeeze": getattr(c, 'bb_squeeze', False),
+            "rel_momentum_3m": getattr(c, 'rel_momentum_3m', 0),
+            "sector": c.sector,
+            "exit_signal": getattr(c, 'exit_signal', ''),
+            "top_reasons": getattr(c, 'top_reasons', []),
+        }
+    _ai_data = {
+        "scan_date": str(context.get('scan_data_date', '')),
+        "qualified_stocks": [_ser_c(c) for c in top5_qualified],
+        "top_buy_stocks": [_ser_c(c) for c in top5_buy],
+        "total_passed": len(candidates),
+        "top_sectors": [{"name": s["name"], "count": s["count"]} for s in top_sectors],
+    }
+    context['ai_scan_json'] = _scan_json.dumps(_ai_data, ensure_ascii=False, default=str)
     return render(request, 'stocks/precision_scan.html', context)
 
 
@@ -3283,3 +3316,93 @@ def realized_pl_report(request):
         'title': 'Realized P/L Report',
     }
     return render(request, 'stocks/realized_pl_report.html', context)
+
+
+# ======================================================================
+# PRECISION SCAN AI ANALYSIS
+# ======================================================================
+
+@login_required
+def precision_scan_ai_analysis(request):
+    import json as _json_lib
+    from django.http import JsonResponse
+    if request.method != "POST":
+        return JsonResponse({"error": "POST only"}, status=405)
+    try:
+        body = _json_lib.loads(request.body)
+        scan_data = body.get("scan_data", {})
+    except Exception:
+        return JsonResponse({"error": "Invalid JSON"}, status=400)
+
+    api_key = getattr(settings, "GEMINI_API_KEY", None)
+    if not api_key:
+        return JsonResponse({"error": "ไม่พบ GEMINI_API_KEY"}, status=500)
+
+    qualified = scan_data.get("qualified_stocks", [])
+    top_buy = scan_data.get("top_buy_stocks", [])
+    scan_date = scan_data.get("scan_date", "ไม่ระบุ")
+    total_passed = scan_data.get("total_passed", 0)
+    top_sectors = scan_data.get("top_sectors", [])
+
+    def _fmt_stock(s):
+        lines = [
+            "  - {sym}: ราคา {price} | BUY {buy} | RS {rs}".format(
+                sym=s["symbol"], price=s["price"], buy=s["buy_score"], rs=s["rs_rating"]),
+            "    RSI {rsi} | ADX {adx} | RVOL {rvol}x {dir} | RR 1:{rr}".format(
+                rsi=s["rsi"], adx=s["adx"], rvol=s["rvol"],
+                dir="Bull ▲" if s.get("rvol_bullish") else "Bear ▼",
+                rr=s.get("risk_reward_ratio", "-")),
+            "    Zone {z}% | {sec} | RelMom3m {rm}%".format(
+                z=s.get("zone_proximity", "-"), sec=s.get("sector", "-"),
+                rm=s.get("rel_momentum_3m", 0)),
+            "    Signals: {m}{e}{h}{b}{a}".format(
+                m="MACD✕ " if s.get("macd_crossover") else "",
+                e="EMA↑ " if s.get("ema20_rising") else "",
+                h="HH/HL " if s.get("hh_hl_structure") else "",
+                b="BB Squeeze " if s.get("bb_squeeze") else "",
+                a="EMA20 Aligned " if s.get("ema20_aligned") else ""),
+        ]
+        if s.get("top_reasons"):
+            lines.append("    เหตุผล: {r}".format(r=", ".join(s["top_reasons"])))
+        return "\n".join(lines)
+
+    q_text = "\n".join([_fmt_stock(s) for s in qualified]) if qualified else "  (ไม่มีหุ้นผ่านเกณฑ์ครบ)"
+    b_text = "\n".join([_fmt_stock(s) for s in top_buy]) if top_buy else "  (ไม่มีข้อมูล)"
+    sec_text = ", ".join(["{n}({c})".format(n=s["name"], c=s["count"]) for s in top_sectors]) if top_sectors else "ไม่ระบุ"
+
+    prompt = (
+        "คุณคือผู้เชี่ยวชาญด้านหุ้น SET"
+        " ที่ใช้ Precision Momentum (สไตล์ Mark Minervini + William O'Neil)\n"
+        "เชี่ยวชาญ Stage Analysis, RS Rating, Supply/Demand Zone,"
+        " RVOL Bull/Bear, MACD Crossover, EMA Alignment, Trend Following (HH/HL)\n\n"
+        "ผล Precision Scan วันที่ {sd} (ผ่านเกณฑ์ {tp} ตัว)"
+        " | Leading Sectors: {sec}\n\n"
+        "=== หุ้นผ่านเกณฑ์ครบทุกข้อ (Fully Qualified) ===\n{q}\n\n"
+        "=== Top หุ้นแนะนำซื้อ (BUY Score) ===\n{b}\n\n"
+        "วิเคราะห์ในหัวข้อต่อไปนี้:\n\n"
+        "## 1. ✨ ภาพรวมตลาดวันนี้\n"
+        "- บรรยากาศตลาด (Bullish/Mixed/Bearish), Sector นำตลาด\n\n"
+        "## 2. ✅ วิเคราะห์หุ้นผ่านเกณฑ์ครบทุกข้อ\n"
+        "- แต่ละตัว: จุดเด่น, ความเสี่ยง, โอกาสวิ่ง, ลำดับน่าสนใจ\n\n"
+        "## 3. 🏆 วิเคราะห์ Top BUY Score\n"
+        "- ตัวที่น่าสนใจที่สุด และทำไม | ระวังอะไร\n\n"
+        "## 4. ⚡ กลยุทธ์แนะนำ\n"
+        "- ลำดับซื้อ: ตัวไหนก่อน หลัง หรือรอ | Entry Zone ที่เหมาะสม\n\n"
+        "## 5. ⚠ ข้อควรระวัง\n"
+        "- RSI/RVOL/Zone น่าเป็นห่วง, Stop Loss discipline\n\n"
+        "ตอบภาษาไทย กระชับ เป็นมืออาชีพ"
+        " จัดรูปแบบ Markdown"
+        " เน้น Actionable Insights"
+    ).format(sd=scan_date, tp=total_passed, sec=sec_text, q=q_text, b=b_text)
+
+    try:
+        client = genai.Client(api_key=api_key)
+        response = client.models.generate_content(model="gemini-2.5-flash", contents=prompt)
+        if not response.text:
+            return JsonResponse({"error": "AI ไม่ตอบกลับ"}, status=500)
+        return JsonResponse({"status": "success", "analysis": response.text})
+    except Exception as e:
+        err = str(e)
+        if "API_KEY_INVALID" in err:
+            return JsonResponse({"error": "GEMINI_API_KEY ไม่ถูกต้อง"}, status=500)
+        return JsonResponse({"error": "Gemini error: {}".format(err)}, status=500)
