@@ -3811,3 +3811,198 @@ def gps_technician_stats(request):
         'months':            months,
         'today':             today,
     })
+
+
+# ======================================================================
+# WORK SUMMARY REPORT
+# ======================================================================
+
+@login_required
+def work_summary_report(request):
+    from .models import TechnicianGPSLog, CustomerSatisfaction, ServiceQueueItem, ServiceTeam
+    from datetime import timedelta
+    from collections import defaultdict
+    import json as json_lib
+
+    today = timezone.localdate()
+    date_from_str = request.GET.get("date_from", (today - timedelta(days=6)).isoformat())
+    date_to_str   = request.GET.get("date_to",   today.isoformat())
+    try:
+        date_from = date.fromisoformat(date_from_str)
+    except Exception:
+        date_from = today - timedelta(days=6)
+    try:
+        date_to = date.fromisoformat(date_to_str)
+    except Exception:
+        date_to = today
+
+    uid_filter       = request.GET.get("user_id", "")
+    task_type_filter = request.GET.get("task_type", "")
+    team_id_filter   = request.GET.get("team_id", "")
+
+    gps_qs = (
+        TechnicianGPSLog.objects
+        .filter(timestamp__date__gte=date_from, timestamp__date__lte=date_to)
+        .select_related("user", "queue_item", "queue_item__project", "queue_item__project__customer")
+        .prefetch_related("queue_item__assigned_teams")
+        .order_by("user_id", "timestamp")
+    )
+    if not user_can_view_all(request.user):
+        gps_qs = gps_qs.filter(user=request.user)
+    elif uid_filter:
+        gps_qs = gps_qs.filter(user_id=uid_filter)
+
+    sat_qs = CustomerSatisfaction.objects.filter(
+        gps_log__timestamp__date__gte=date_from,
+        gps_log__timestamp__date__lte=date_to,
+    ).select_related("gps_log")
+    if not user_can_view_all(request.user):
+        sat_qs = sat_qs.filter(gps_log__user=request.user)
+    sat_map = {s.gps_log_id: s for s in sat_qs}
+
+    by_user_date = defaultdict(list)
+    for log in gps_qs:
+        key = (log.user_id, timezone.localtime(log.timestamp).date())
+        by_user_date[key].append(log)
+
+    all_sessions = []
+    for (_uid, day), logs in sorted(by_user_date.items()):
+        pending = []
+        for log in logs:
+            lt = timezone.localtime(log.timestamp)
+            ct = log.check_type
+            if ct in ("ON_SITE", "CHECK_IN"):
+                pending.append({"log": log, "dt": lt})
+            elif ct == "CHECK_OUT" and pending:
+                ci      = pending.pop(0)
+                ci_log  = ci["log"]
+                delta_m = max(0, int((lt - ci["dt"]).total_seconds() / 60))
+                qi = log.queue_item or ci_log.queue_item
+                task_title = ci_log.location_name or log.location_name or "ไม่ระบุ"
+                task_type = ""
+                task_type_display = "ไม่ระบุ"
+                teams = []
+                project_name = "ไม่ระบุ"
+                customer_name = "ไม่ระบุ"
+                estimated_hours = None
+                if qi:
+                    task_title        = qi.title or task_title
+                    task_type         = qi.task_type or ""
+                    task_type_display = qi.get_task_type_display() or "ไม่ระบุ"
+                    teams             = list(qi.assigned_teams.values_list("name", flat=True))
+                    estimated_hours   = float(qi.estimated_hours) if qi.estimated_hours else None
+                    if qi.project:
+                        project_name = qi.project.name or "ไม่ระบุ"
+                        if qi.project.customer:
+                            customer_name = qi.project.customer.name or "ไม่ระบุ"
+                actual_hours = round(delta_m / 60, 2)
+                efficiency   = round(actual_hours / estimated_hours * 100) if estimated_hours else None
+                sat = sat_map.get(log.id)
+                all_sessions.append({
+                    "date": day, "date_str": day.strftime("%d/%m/%Y"),
+                    "technician": log.user.get_full_name() or log.user.username,
+                    "username": log.user.username, "user_id": log.user_id,
+                    "teams": teams, "teams_str": ", ".join(teams) if teams else "ไม่ระบุทีม",
+                    "task_title": task_title, "task_type": task_type,
+                    "task_type_display": task_type_display,
+                    "project_name": project_name, "customer_name": customer_name,
+                    "location": ci_log.location_name or log.location_name or "ไม่ระบุ",
+                    "check_in_time": ci["dt"].strftime("%H:%M"),
+                    "check_out_time": lt.strftime("%H:%M"),
+                    "duration_min": delta_m,
+                    "duration_str": (f"{delta_m//60}ชม. {delta_m%60}น." if delta_m >= 60 else f"{delta_m}น."),
+                    "actual_hours": actual_hours, "estimated_hours": estimated_hours,
+                    "efficiency": efficiency,
+                    "satisfaction_rating": sat.rating if sat else "",
+                    "satisfaction_display": sat.get_rating_display() if sat else "ไม่มีข้อมูล",
+                })
+
+    if task_type_filter:
+        all_sessions = [s for s in all_sessions if s["task_type"] == task_type_filter]
+    if team_id_filter:
+        try:
+            tname = ServiceTeam.objects.get(pk=int(team_id_filter)).name
+            all_sessions = [s for s in all_sessions if tname in s["teams"]]
+        except Exception:
+            pass
+
+    all_sessions.sort(key=lambda s: (s["date"], s["technician"]), reverse=True)
+    total_minutes = sum(s["duration_min"] for s in all_sessions)
+
+    by_tech = defaultdict(lambda: {"sessions": 0, "minutes": 0, "locs": set(), "sat": []})
+    by_type = defaultdict(lambda: {"count": 0, "minutes": 0})
+    by_team = defaultdict(lambda: {"count": 0, "minutes": 0})
+
+    for s in all_sessions:
+        bt = by_tech[s["technician"]]
+        bt["sessions"] += 1
+        bt["minutes"]  += s["duration_min"]
+        bt["locs"].add(s["location"])
+        if s["satisfaction_rating"]:
+            bt["sat"].append(s["satisfaction_rating"])
+        by_type[s["task_type_display"]]["count"]  += 1
+        by_type[s["task_type_display"]]["minutes"] += s["duration_min"]
+        for team in s["teams"]:
+            by_team[team]["count"]  += 1
+            by_team[team]["minutes"] += s["duration_min"]
+
+    tech_stats = sorted([
+        {"name": n, "sessions": d["sessions"], "hours": round(d["minutes"]/60,1),
+         "locs": len(d["locs"]),
+         "sat_pos": sum(1 for r in d["sat"] if r in ("VERY_SATISFIED","SATISFIED")),
+         "sat_total": len(d["sat"])}
+        for n, d in by_tech.items()
+    ], key=lambda x: x["hours"], reverse=True)
+    type_stats = [{"type": k, "count": v["count"], "hours": round(v["minutes"]/60,1)} for k,v in by_type.items()]
+    team_stats = [{"team": k, "count": v["count"], "hours": round(v["minutes"]/60,1)} for k,v in by_team.items()]
+
+    ai_summary = {
+        "period": f"{date_from_str} ถึง {date_to_str}",
+        "total_sessions": len(all_sessions),
+        "total_hours": round(total_minutes/60,1),
+        "technicians": tech_stats, "by_task_type": type_stats, "by_team": team_stats,
+        "sessions_sample": [
+            {"date": s["date_str"], "tech": s["technician"], "team": s["teams_str"],
+             "task": s["task_title"], "type": s["task_type_display"], "location": s["location"],
+             "duration": s["duration_str"],
+             "estimated": (str(s["estimated_hours"]) + "ชม.") if s["estimated_hours"] else "ไม่ระบุ",
+             "efficiency": (str(s["efficiency"]) + "%") if s["efficiency"] else "ไม่ระบุ",
+             "satisfaction": s["satisfaction_display"]}
+            for s in all_sessions[:50]
+        ],
+    }
+
+    User = get_user_model()
+    users_list = (User.objects.filter(is_active=True).order_by("username")
+                  if user_can_view_all(request.user) else [])
+    teams_all  = ServiceTeam.objects.filter(is_active=True).order_by("name")
+    task_type_choices = [("REPAIR","ซ่อม"),("INSTALLATION","ติดตั้ง"),
+                         ("DELIVERY","ส่งสินค้า"),("OTHER","อื่นๆ")]
+
+    return render(request, "pms/work_summary_report.html", {
+        "sessions": all_sessions, "total_sessions": len(all_sessions),
+        "total_hours": round(total_minutes/60,1),
+        "tech_stats": tech_stats, "type_stats": type_stats, "team_stats": team_stats,
+        "date_from_str": date_from_str, "date_to_str": date_to_str,
+        "selected_user_id": uid_filter, "selected_task_type": task_type_filter,
+        "selected_team_id": team_id_filter,
+        "users_list": users_list, "teams_all": teams_all,
+        "task_type_choices": task_type_choices,
+        "can_view_all": user_can_view_all(request.user),
+        "ai_summary_json": json_lib.dumps(ai_summary, ensure_ascii=False, default=str),
+    })
+
+
+@login_required
+def work_summary_ai_analysis(request):
+    from .ai_utils import get_gemini_work_analysis
+    import json as json_lib
+    if request.method != "POST":
+        return JsonResponse({"error": "POST only"}, status=405)
+    try:
+        body    = json_lib.loads(request.body)
+        summary = body.get("summary", "")
+    except Exception:
+        return JsonResponse({"error": "Invalid JSON"}, status=400)
+    analysis = get_gemini_work_analysis(summary)
+    return JsonResponse({"status": "success", "analysis": analysis})

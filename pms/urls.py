@@ -134,5 +134,9 @@ urlpatterns = [
     path('gps-tracking/summary/export/', views.gps_summary_export, name='gps_summary_export'),  # Export CSV
     path('gps-tracking/stats/', views.gps_technician_stats, name='gps_technician_stats'),        # กราฟสถิติรายบุคคล
     path('gps-tracking/<int:pk>/delete/', views.gps_log_delete, name='gps_log_delete'),       # ลบ GPS log entry
+
+    # ── Work Summary Report + AI Analysis ─────────────────────────────────
+    path('work-summary/', views.work_summary_report, name='work_summary_report'),              # รายงานสรุปการทำงาน
+    path('work-summary/ai/', views.work_summary_ai_analysis, name='work_summary_ai_analysis'), # AI วิเคราะห์ประสิทธิภาพ
 ]
 

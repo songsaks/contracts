@@ -1,0 +1,371 @@
+{% extends "pms/base_pms.html" %}
+{% load static %}
+
+{% block title %}รายงานสรุปการทำงาน — PMS{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+
+  <!-- Header -->
+  <div class="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-2">
+    <div>
+      <h4 class="fw-bold mb-0" style="color:#1e293b;">
+        <i class="fas fa-clipboard-list me-2" style="color:#6366f1;"></i>รายงานสรุปการทำงานภาคสนาม
+      </h4>
+      <p class="text-muted small mb-0 mt-1">สถานที่ · งาน · หน่วยงาน · ระยะเวลา พร้อม AI วิเคราะห์ประสิทธิภาพ</p>
+    </div>
+    <button id="btn-ai-analyze" class="btn btn-sm px-4 fw-semibold"
+            style="background:linear-gradient(135deg,#6366f1,#8b5cf6);color:white;border:none;border-radius:10px;">
+      <i class="fas fa-robot me-2"></i>AI วิเคราะห์ประสิทธิภาพ
+    </button>
+  </div>
+
+  <!-- Filter Bar -->
+  <form method="get" class="card border-0 shadow-sm rounded-3 p-3 mb-4">
+    <div class="row g-2 align-items-end">
+      <div class="col-6 col-md-2">
+        <label class="form-label small fw-semibold mb-1">วันที่เริ่ม</label>
+        <input type="date" name="date_from" class="form-control form-control-sm" value="{{ date_from_str }}">
+      </div>
+      <div class="col-6 col-md-2">
+        <label class="form-label small fw-semibold mb-1">วันที่สิ้นสุด</label>
+        <input type="date" name="date_to" class="form-control form-control-sm" value="{{ date_to_str }}">
+      </div>
+      {% if can_view_all %}
+      <div class="col-6 col-md-2">
+        <label class="form-label small fw-semibold mb-1">ช่าง</label>
+        <select name="user_id" class="form-select form-select-sm">
+          <option value="">— ทั้งหมด —</option>
+          {% for u in users_list %}
+          <option value="{{ u.pk }}" {% if selected_user_id == u.pk|stringformat:"s" %}selected{% endif %}>
+            {{ u.get_full_name|default:u.username }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+      {% endif %}
+      <div class="col-6 col-md-2">
+        <label class="form-label small fw-semibold mb-1">ประเภทงาน</label>
+        <select name="task_type" class="form-select form-select-sm">
+          <option value="">— ทั้งหมด —</option>
+          {% for val, label in task_type_choices %}
+          <option value="{{ val }}" {% if selected_task_type == val %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-6 col-md-2">
+        <label class="form-label small fw-semibold mb-1">ทีม</label>
+        <select name="team_id" class="form-select form-select-sm">
+          <option value="">— ทั้งหมด —</option>
+          {% for t in teams_all %}
+          <option value="{{ t.pk }}" {% if selected_team_id == t.pk|stringformat:"s" %}selected{% endif %}>{{ t.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-6 col-md-2">
+        <button type="submit" class="btn btn-primary btn-sm w-100">
+          <i class="fas fa-search me-1"></i>กรอง
+        </button>
+      </div>
+    </div>
+  </form>
+
+  <!-- KPI Cards -->
+  <div class="row g-3 mb-4">
+    <div class="col-6 col-md-3">
+      <div class="card border-0 shadow-sm rounded-3 p-3 text-center">
+        <div class="fw-bold" style="font-size:1.8rem;color:#6366f1;">{{ total_sessions }}</div>
+        <div class="small text-muted">งานที่ทำ (sessions)</div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="card border-0 shadow-sm rounded-3 p-3 text-center">
+        <div class="fw-bold" style="font-size:1.8rem;color:#10b981;">{{ total_hours }}</div>
+        <div class="small text-muted">ชั่วโมงทำงานรวม</div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="card border-0 shadow-sm rounded-3 p-3 text-center">
+        <div class="fw-bold" style="font-size:1.8rem;color:#f59e0b;">{{ tech_stats|length }}</div>
+        <div class="small text-muted">จำนวนช่าง</div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="card border-0 shadow-sm rounded-3 p-3 text-center">
+        <div class="fw-bold" style="font-size:1.8rem;color:#3b82f6;">
+          {% if total_sessions %}{% widthratio total_hours total_sessions 1 %}{% else %}0{% endif %}
+        </div>
+        <div class="small text-muted">ชม./งาน เฉลี่ย</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Stats Row -->
+  <div class="row g-3 mb-4">
+    <!-- By Technician -->
+    <div class="col-md-5">
+      <div class="card border-0 shadow-sm rounded-3 h-100">
+        <div class="card-header bg-white border-0 fw-semibold" style="color:#374151;">
+          <i class="fas fa-user-hard-hat me-2 text-indigo-500" style="color:#6366f1;"></i>สรุปรายช่าง
+        </div>
+        <div class="card-body p-0">
+          <div class="table-responsive">
+            <table class="table table-sm mb-0" style="font-size:0.83rem;">
+              <thead style="background:#f8fafc;">
+                <tr>
+                  <th class="ps-3">ช่าง</th>
+                  <th class="text-center">งาน</th>
+                  <th class="text-center">ชม.</th>
+                  <th class="text-center">สถานที่</th>
+                  <th class="text-center">ความพอใจ</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for t in tech_stats %}
+                <tr>
+                  <td class="ps-3 fw-semibold">{{ t.name }}</td>
+                  <td class="text-center">{{ t.sessions }}</td>
+                  <td class="text-center">
+                    <span class="badge" style="background:#ede9fe;color:#6366f1;">{{ t.hours }}ชม.</span>
+                  </td>
+                  <td class="text-center">{{ t.locs }}</td>
+                  <td class="text-center">
+                    {% if t.sat_total %}
+                      <span class="text-success fw-semibold">{{ t.sat_pos }}/{{ t.sat_total }}</span>
+                    {% else %}—{% endif %}
+                  </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="5" class="text-center text-muted py-3">ไม่มีข้อมูล</td></tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- By Task Type + Team -->
+    <div class="col-md-7">
+      <div class="row g-3 h-100">
+        <div class="col-md-6">
+          <div class="card border-0 shadow-sm rounded-3 h-100">
+            <div class="card-header bg-white border-0 fw-semibold" style="color:#374151;">
+              <i class="fas fa-tools me-2" style="color:#f59e0b;"></i>ประเภทงาน
+            </div>
+            <div class="card-body">
+              {% for t in type_stats %}
+              <div class="d-flex justify-content-between align-items-center mb-2">
+                <span class="small">{{ t.type }}</span>
+                <div class="text-end">
+                  <span class="badge bg-warning bg-opacity-15 text-warning border border-warning border-opacity-25 me-1">{{ t.count }} งาน</span>
+                  <span class="badge" style="background:#fef3c7;color:#92400e;">{{ t.hours }}ชม.</span>
+                </div>
+              </div>
+              {% empty %}
+              <p class="text-muted small">ไม่มีข้อมูล</p>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+        <div class="col-md-6">
+          <div class="card border-0 shadow-sm rounded-3 h-100">
+            <div class="card-header bg-white border-0 fw-semibold" style="color:#374151;">
+              <i class="fas fa-users-cog me-2" style="color:#10b981;"></i>ทีม/หน่วยงาน
+            </div>
+            <div class="card-body">
+              {% for t in team_stats %}
+              <div class="d-flex justify-content-between align-items-center mb-2">
+                <span class="small">{{ t.team }}</span>
+                <div class="text-end">
+                  <span class="badge bg-success bg-opacity-15 text-success border border-success border-opacity-25 me-1">{{ t.count }} งาน</span>
+                  <span class="badge" style="background:#ecfdf5;color:#065f46;">{{ t.hours }}ชม.</span>
+                </div>
+              </div>
+              {% empty %}
+              <p class="text-muted small">ไม่มีข้อมูล</p>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Work Sessions Table -->
+  <div class="card border-0 shadow-sm rounded-3">
+    <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center">
+      <span class="fw-semibold" style="color:#374151;">
+        <i class="fas fa-list-alt me-2" style="color:#6366f1;"></i>รายละเอียดการทำงาน
+        <span class="badge ms-2" style="background:#ede9fe;color:#6366f1;">{{ total_sessions }} รายการ</span>
+      </span>
+    </div>
+    <div class="card-body p-0">
+      <div class="table-responsive">
+        <table class="table table-hover mb-0" style="font-size:0.82rem;">
+          <thead style="background:#f8fafc;position:sticky;top:0;">
+            <tr>
+              <th class="ps-3" style="min-width:80px;">วันที่</th>
+              <th style="min-width:100px;">ช่าง</th>
+              <th style="min-width:110px;">ทีม/หน่วยงาน</th>
+              <th style="min-width:150px;">งาน</th>
+              <th style="min-width:80px;">ประเภท</th>
+              <th style="min-width:130px;">สถานที่</th>
+              <th class="text-center" style="min-width:90px;">เวลา</th>
+              <th class="text-center" style="min-width:80px;">ระยะเวลา</th>
+              <th class="text-center" style="min-width:70px;">ประสิทธิภาพ</th>
+              <th class="text-center" style="min-width:90px;">ความพอใจ</th>
+              <th style="min-width:100px;">โครงการ</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for s in sessions %}
+            <tr>
+              <td class="ps-3 text-muted">{{ s.date_str }}</td>
+              <td class="fw-semibold">{{ s.technician }}</td>
+              <td>
+                {% if s.teams %}
+                  {% for team in s.teams %}
+                  <span class="badge me-1" style="background:#ecfdf5;color:#065f46;font-size:0.72rem;">{{ team }}</span>
+                  {% endfor %}
+                {% else %}
+                <span class="text-muted small">—</span>
+                {% endif %}
+              </td>
+              <td>
+                <div class="fw-semibold" style="color:#1e293b;">{{ s.task_title }}</div>
+                {% if s.customer_name != "ไม่ระบุ" %}
+                <div class="small text-muted">{{ s.customer_name }}</div>
+                {% endif %}
+              </td>
+              <td>
+                {% if s.task_type == "REPAIR" %}
+                  <span class="badge" style="background:#fee2e2;color:#dc2626;">ซ่อม</span>
+                {% elif s.task_type == "INSTALLATION" %}
+                  <span class="badge" style="background:#dbeafe;color:#1d4ed8;">ติดตั้ง</span>
+                {% elif s.task_type == "DELIVERY" %}
+                  <span class="badge" style="background:#fef3c7;color:#92400e;">ส่งสินค้า</span>
+                {% elif s.task_type %}
+                  <span class="badge" style="background:#f3f4f6;color:#374151;">{{ s.task_type_display }}</span>
+                {% else %}
+                  <span class="text-muted small">—</span>
+                {% endif %}
+              </td>
+              <td>
+                <i class="fas fa-map-marker-alt me-1 text-danger" style="font-size:0.75rem;"></i>
+                {{ s.location }}
+              </td>
+              <td class="text-center">
+                <div class="small fw-semibold" style="color:#059669;">{{ s.check_in_time }}</div>
+                <div class="small fw-semibold" style="color:#dc2626;">{{ s.check_out_time }}</div>
+              </td>
+              <td class="text-center">
+                <span class="badge" style="background:#ede9fe;color:#6366f1;font-size:0.78rem;">{{ s.duration_str }}</span>
+              </td>
+              <td class="text-center">
+                {% if s.efficiency %}
+                  {% if s.efficiency <= 90 %}
+                    <span class="badge bg-success bg-opacity-15 text-success">{{ s.efficiency }}%</span>
+                  {% elif s.efficiency <= 120 %}
+                    <span class="badge bg-warning bg-opacity-15 text-warning">{{ s.efficiency }}%</span>
+                  {% else %}
+                    <span class="badge bg-danger bg-opacity-15 text-danger">{{ s.efficiency }}%</span>
+                  {% endif %}
+                {% else %}
+                  <span class="text-muted small">—</span>
+                {% endif %}
+              </td>
+              <td class="text-center">
+                {% if s.satisfaction_rating == "VERY_SATISFIED" %}
+                  <span class="badge" style="background:#dcfce7;color:#15803d;">😊 พอใจมาก</span>
+                {% elif s.satisfaction_rating == "SATISFIED" %}
+                  <span class="badge" style="background:#dbeafe;color:#1d4ed8;">🙂 พอใจ</span>
+                {% elif s.satisfaction_rating == "NOT_SATISFIED" %}
+                  <span class="badge" style="background:#fee2e2;color:#dc2626;">😞 ไม่พอใจ</span>
+                {% else %}
+                  <span class="text-muted small">—</span>
+                {% endif %}
+              </td>
+              <td class="small text-muted">{{ s.project_name }}</td>
+            </tr>
+            {% empty %}
+            <tr>
+              <td colspan="11" class="text-center text-muted py-5">
+                <i class="fas fa-inbox fa-2x mb-2 d-block opacity-25"></i>
+                ไม่พบข้อมูลการทำงานในช่วงที่เลือก
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- AI Analysis Modal -->
+<div class="modal fade" id="aiModal" tabindex="-1">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content border-0 rounded-4">
+      <div class="modal-header border-0" style="background:linear-gradient(135deg,#6366f1,#8b5cf6);color:white;">
+        <h5 class="modal-title fw-bold">
+          <i class="fas fa-robot me-2"></i>AI วิเคราะห์ประสิทธิภาพการทำงาน
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-4" id="ai-result-body">
+        <div class="text-center py-5" id="ai-loading">
+          <div class="spinner-border text-primary mb-3" role="status"></div>
+          <div class="text-muted">Gemini AI กำลังวิเคราะห์ข้อมูล...</div>
+        </div>
+        <div id="ai-result" style="display:none;"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Hidden AI summary data -->
+<script id="ai-summary-data" type="application/json">{{ ai_summary_json }}</script>
+
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script>
+(function () {
+  const btn     = document.getElementById("btn-ai-analyze");
+  const modal   = new bootstrap.Modal(document.getElementById("aiModal"));
+  const loading = document.getElementById("ai-loading");
+  const result  = document.getElementById("ai-result");
+  const summary = JSON.parse(document.getElementById("ai-summary-data").textContent);
+
+  btn.addEventListener("click", function () {
+    loading.style.display = "block";
+    result.style.display  = "none";
+    result.innerHTML      = "";
+    modal.show();
+
+    fetch("{% url 'pms:work_summary_ai_analysis' %}", {
+      method:  "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-CSRFToken":  "{{ csrf_token }}",
+      },
+      body: JSON.stringify({ summary: JSON.stringify(summary, null, 2) }),
+    })
+    .then(r => r.json())
+    .then(data => {
+      loading.style.display = "none";
+      result.style.display  = "block";
+      if (data.status === "success") {
+        result.innerHTML = marked.parse(data.analysis);
+      } else {
+        result.innerHTML = '<div class="alert alert-danger">เกิดข้อผิดพลาด: ' + (data.error || "ไม่ทราบสาเหตุ") + "</div>";
+      }
+    })
+    .catch(err => {
+      loading.style.display = "none";
+      result.style.display  = "block";
+      result.innerHTML = '<div class="alert alert-danger">ไม่สามารถเชื่อมต่อ AI ได้: ' + err + "</div>";
+    });
+  });
+})();
+</script>
+{% endblock %}

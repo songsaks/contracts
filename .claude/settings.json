@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "additionalDirectories": [
+      "\\tmp",
+      "C:\\Users\\asus\\AppData\\Local\\Temp"
+    ],
+    "allow": [
+      "Bash(.venv/Scripts/python manage.py:*)"
+    ]
+  }
+}
