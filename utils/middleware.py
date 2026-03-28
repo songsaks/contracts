@@ -11,7 +11,9 @@ _APP_ACCESS_MAP = {
     '/payroll/':   'access_payroll',
     '/stocks/':    'access_stocks',
     '/chat/':      'access_chat',
-    '/accounts/':  'access_accounts',
+    # ใช้ prefix เฉพาะส่วน management — ไม่รวม /accounts/login/, /accounts/logout/
+    '/accounts/users/': 'access_accounts',
+    '/accounts/roles/': 'access_accounts',
 }
 
 # ชื่อแสดงผลสำหรับแต่ละ app
