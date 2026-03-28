@@ -325,7 +325,7 @@
 </div>
 
 <!-- Hidden AI summary data (JSON เก็บไว้ใน DOM ให้ extra_js block อ่าน) -->
-<script id="ai-summary-data" type="application/json">{{ ai_summary_json }}</script>
+<script id="ai-summary-data" type="application/json">{{ ai_summary_json|safe }}</script>
 <span id="ai-url" data-url="{% url 'pms:work_summary_ai_analysis' %}" style="display:none;"></span>
 <span id="ai-csrf" data-csrf="{{ csrf_token }}" style="display:none;"></span>
 
@@ -336,7 +336,6 @@
 <script>
 (function () {
   const btn     = document.getElementById("btn-ai-analyze");
-  const modal   = new bootstrap.Modal(document.getElementById("aiModal"));
   const loading = document.getElementById("ai-loading");
   const result  = document.getElementById("ai-result");
   const summary = JSON.parse(document.getElementById("ai-summary-data").textContent);
@@ -344,6 +343,7 @@
   const csrf    = document.getElementById("ai-csrf").dataset.csrf;
 
   btn.addEventListener("click", function () {
+    const modal = new bootstrap.Modal(document.getElementById("aiModal"));
     loading.style.display = "block";
     result.style.display  = "none";
     result.innerHTML      = "";
