@@ -10,8 +10,9 @@ from django.contrib import messages
 from django.conf import settings
 from google import genai
 from .models import (
-    Watchlist, AnalysisCache, AssetCategory, Portfolio, 
-    MomentumCandidate, ScannableSymbol, MultiFactorCandidate, SoldStock
+    Watchlist, AnalysisCache, AssetCategory, Portfolio,
+    MomentumCandidate, ScannableSymbol, MultiFactorCandidate, SoldStock,
+    TitheRecord,
 )
 from .utils import (
     get_stock_data, analyze_with_ai, calculate_trailing_stop,
@@ -3406,3 +3407,98 @@ def precision_scan_ai_analysis(request):
         if "API_KEY_INVALID" in err:
             return JsonResponse({"error": "GEMINI_API_KEY ไม่ถูกต้อง"}, status=500)
         return JsonResponse({"error": "Gemini error: {}".format(err)}, status=500)
+
+
+# ====== tithe_report — รายงานทศางค์ 10% จากกำไรหุ้นรายเดือน ======
+
+@login_required
+def tithe_report(request):
+    """
+    แสดงกำไร/ขาดทุนรายเดือนจากการขายหุ้น
+    คำนวณทศางค์ 10% จากเดือนที่มีกำไร พร้อม track การจ่าย
+    """
+    from django.db.models import Sum
+    from django.db.models.functions import TruncMonth
+    import calendar
+
+    monthly_qs = (
+        SoldStock.objects
+        .filter(user=request.user)
+        .annotate(month_trunc=TruncMonth('sold_at'))
+        .values('month_trunc')
+        .annotate(total_pl=Sum('profit_loss'))
+        .order_by('-month_trunc')
+    )
+
+    tithe_map = {
+        (t.year, t.month): t
+        for t in TitheRecord.objects.filter(user=request.user)
+    }
+
+    months = []
+    total_profit = Decimal('0')
+    total_tithe_owed = Decimal('0')
+    total_tithe_paid = Decimal('0')
+
+    for entry in monthly_qs:
+        dt = entry['month_trunc']
+        yr, mo = dt.year, dt.month
+        pl = Decimal(str(entry['total_pl'] or 0))
+        tithe = (pl * Decimal('0.10')).quantize(Decimal('0.01')) if pl > 0 else Decimal('0')
+
+        rec = tithe_map.get((yr, mo))
+        is_paid = rec.is_paid if rec else False
+        paid_at = rec.paid_at if rec else None
+
+        if pl > 0:
+            total_profit += pl
+            total_tithe_owed += tithe
+            if is_paid:
+                total_tithe_paid += tithe
+
+        months.append({
+            'year': yr,
+            'month': mo,
+            'month_name': calendar.month_abbr[mo],
+            'pl': pl,
+            'tithe': tithe,
+            'is_paid': is_paid,
+            'paid_at': paid_at,
+        })
+
+    context = {
+        'months': months,
+        'total_profit': total_profit,
+        'total_tithe_owed': total_tithe_owed,
+        'total_tithe_paid': total_tithe_paid,
+        'total_tithe_remaining': total_tithe_owed - total_tithe_paid,
+    }
+    return render(request, 'stocks/tithe_report.html', context)
+
+
+@login_required
+def tithe_mark_paid(request):
+    """Toggle paid/unpaid status for a tithe month via AJAX POST."""
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST required'}, status=405)
+
+    from django.utils import timezone
+
+    try:
+        yr = int(request.POST.get('year', 0))
+        mo = int(request.POST.get('month', 0))
+    except (TypeError, ValueError):
+        return JsonResponse({'error': 'Invalid year/month'}, status=400)
+
+    rec, _ = TitheRecord.objects.get_or_create(
+        user=request.user, year=yr, month=mo,
+        defaults={'is_paid': False}
+    )
+    rec.is_paid = not rec.is_paid
+    rec.paid_at = timezone.now() if rec.is_paid else None
+    rec.save()
+
+    return JsonResponse({
+        'is_paid': rec.is_paid,
+        'paid_at': rec.paid_at.strftime('%d %b %Y %H:%M') if rec.paid_at else None,
+    })

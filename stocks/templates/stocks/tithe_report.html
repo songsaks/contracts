@@ -1,0 +1,315 @@
+{% extends 'stocks/base_stocks.html' %}
+{% load humanize %}
+
+{% block extra_css %}
+<style>
+    .tithe-hero {
+        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+        border-radius: 1.25rem;
+        padding: 2rem;
+        color: white;
+        position: relative;
+        overflow: hidden;
+    }
+    .tithe-hero::before {
+        content: '\271D';
+        position: absolute;
+        right: 1.5rem;
+        top: 50%;
+        transform: translateY(-50%);
+        font-size: 6rem;
+        opacity: 0.06;
+        color: #fbbf24;
+        font-family: serif;
+    }
+    .tithe-verse {
+        font-style: italic;
+        color: #fbbf24;
+        font-size: 0.92rem;
+        border-left: 3px solid #fbbf24;
+        padding-left: 0.75rem;
+        line-height: 1.6;
+    }
+    .tithe-card {
+        border-radius: 1rem;
+        border: none;
+        box-shadow: 0 2px 12px rgba(0,0,0,0.07);
+        overflow: hidden;
+    }
+    .stat-card {
+        border-radius: 0.875rem;
+        padding: 1.25rem 1.5rem;
+        border: 1px solid rgba(0,0,0,0.06);
+    }
+    .stat-label { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.06em; font-weight: 700; }
+    .stat-value { font-size: 1.6rem; font-weight: 800; line-height: 1.2; }
+
+    .tithe-table th {
+        font-size: 0.72rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: #64748b;
+        font-weight: 700;
+        padding: 0.85rem 1rem;
+        background: #f8fafc;
+        border-top: none;
+    }
+    .tithe-table td { padding: 0.85rem 1rem; vertical-align: middle; }
+    .tithe-table tbody tr { border-bottom: 1px solid #f1f5f9; transition: background 0.15s; }
+    .tithe-table tbody tr:hover { background: #fafbff; }
+    .tithe-table tbody tr:last-child { border-bottom: none; }
+
+    .pl-positive { color: #16a34a; font-weight: 700; }
+    .pl-negative { color: #dc2626; font-weight: 700; }
+    .tithe-amount { color: #7c3aed; font-weight: 700; }
+
+    .paid-badge {
+        display: inline-flex; align-items: center; gap: 0.35rem;
+        padding: 0.3rem 0.75rem; border-radius: 999px;
+        font-size: 0.72rem; font-weight: 700; text-transform: uppercase;
+    }
+    .paid-badge.paid { background: rgba(22,163,74,0.12); color: #15803d; }
+    .paid-badge.unpaid { background: rgba(234,179,8,0.12); color: #a16207; }
+    .paid-badge.no-tithe { background: #f1f5f9; color: #94a3b8; }
+
+    .btn-toggle-paid {
+        border: none; border-radius: 999px; padding: 0.3rem 0.9rem;
+        font-size: 0.75rem; font-weight: 700; cursor: pointer; transition: all 0.2s;
+    }
+    .btn-toggle-paid.btn-pay {
+        background: rgba(124,58,237,0.1); color: #7c3aed;
+    }
+    .btn-toggle-paid.btn-pay:hover { background: #7c3aed; color: white; }
+    .btn-toggle-paid.btn-unpay {
+        background: rgba(22,163,74,0.1); color: #15803d;
+    }
+    .btn-toggle-paid.btn-unpay:hover { background: #dc2626; color: white; }
+
+    .progress-tithe {
+        height: 10px; border-radius: 999px; background: #e2e8f0; overflow: hidden;
+    }
+    .progress-tithe-fill {
+        height: 100%; border-radius: 999px;
+        background: linear-gradient(90deg, #7c3aed, #a855f7);
+        transition: width 0.5s ease;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row g-4">
+
+    <!-- ===== HERO ===== -->
+    <div class="col-12">
+        <div class="tithe-hero">
+            <div class="row align-items-center g-3">
+                <div class="col-md-8">
+                    <div class="d-flex align-items-center gap-2 mb-2">
+                        <span style="font-size:1.6rem;">&#x271D;</span>
+                        <h3 class="fw-bold mb-0 text-white">ทศางค์จากกำไรหุ้น</h3>
+                    </div>
+                    <div class="tithe-verse">
+                        "จงนำทศางค์ทั้งหมดเข้ามาในคลัง เพื่อจะได้มีอาหารในนิเวศของเรา
+                        และทดลองเราดูในเรื่องนี้เถิด พระเจ้าจอมโยธาตรัสว่า
+                        เราจะเปิดหน้าต่างแห่งสวรรค์ให้เจ้า และเทพระพรให้แก่เจ้า
+                        จนไม่มีที่รับอีก"
+                    </div>
+                    <div class="text-warning small mt-2 fw-semibold">มาลาคี 3:10</div>
+                </div>
+                <div class="col-md-4 text-md-end">
+                    <div class="text-white-50 small mb-1">ยังค้างจ่าย</div>
+                    <div class="fw-bold text-warning" style="font-size:2rem;">
+                        ฿{{ total_tithe_remaining|floatformat:2|intcomma }}
+                    </div>
+                    <div class="text-white-50 small">จากทศางค์ทั้งหมด ฿{{ total_tithe_owed|floatformat:2|intcomma }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== SUMMARY CARDS ===== -->
+    <div class="col-6 col-md-3">
+        <div class="stat-card bg-white h-100">
+            <div class="stat-label text-success mb-1">กำไรรวม</div>
+            <div class="stat-value text-success">฿{{ total_profit|floatformat:0|intcomma }}</div>
+            <div class="small text-muted mt-1">เฉพาะเดือนที่กำไร</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="stat-card bg-white h-100">
+            <div class="stat-label mb-1" style="color:#7c3aed;">ทศางค์ที่ต้องถวาย</div>
+            <div class="stat-value" style="color:#7c3aed;">฿{{ total_tithe_owed|floatformat:0|intcomma }}</div>
+            <div class="small text-muted mt-1">10% ของกำไร</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="stat-card bg-white h-100">
+            <div class="stat-label text-primary mb-1">ถวายแล้ว</div>
+            <div class="stat-value text-primary">฿{{ total_tithe_paid|floatformat:0|intcomma }}</div>
+            <div class="small text-muted mt-1">ครบแล้ว {{ months|length }} เดือน</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="stat-card bg-white h-100">
+            <div class="stat-label text-warning mb-1">ยังค้างอยู่</div>
+            <div class="stat-value text-warning">฿{{ total_tithe_remaining|floatformat:0|intcomma }}</div>
+            {% if total_tithe_owed > 0 %}
+            {% with pct=total_tithe_paid|default:0 %}
+            <div class="progress-tithe mt-2">
+                <div class="progress-tithe-fill"
+                     style="width: {% if total_tithe_owed > 0 %}{% widthratio total_tithe_paid total_tithe_owed 100 %}{% else %}0{% endif %}%;"></div>
+            </div>
+            {% endwith %}
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- ===== TABLE ===== -->
+    <div class="col-12">
+        <div class="tithe-card bg-white">
+            <div class="d-flex align-items-center justify-content-between px-4 py-3 border-bottom">
+                <h5 class="fw-bold mb-0 text-dark">
+                    <i class="fas fa-calendar-alt me-2 text-primary"></i>รายละเอียดรายเดือน
+                </h5>
+                <a href="{% url 'stocks:realized_pl_report' %}" class="btn btn-light btn-sm rounded-pill px-3">
+                    <i class="fas fa-chart-line me-1"></i> P/L Report
+                </a>
+            </div>
+
+            {% if months %}
+            <div class="table-responsive">
+                <table class="table tithe-table mb-0">
+                    <thead>
+                        <tr>
+                            <th>เดือน</th>
+                            <th class="text-end">กำไร/ขาดทุน</th>
+                            <th class="text-end" style="color:#7c3aed;">ทศางค์ 10%</th>
+                            <th class="text-center">สถานะ</th>
+                            <th class="text-center col-hide-md">วันที่ถวาย</th>
+                            <th class="text-center">การกระทำ</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for m in months %}
+                        <tr id="row-{{ m.year }}-{{ m.month }}">
+                            <td>
+                                <div class="fw-bold text-dark">{{ m.month_name }} {{ m.year }}</div>
+                            </td>
+                            <td class="text-end">
+                                {% if m.pl > 0 %}
+                                <span class="pl-positive">+฿{{ m.pl|floatformat:2|intcomma }}</span>
+                                {% elif m.pl < 0 %}
+                                <span class="pl-negative">฿{{ m.pl|floatformat:2|intcomma }}</span>
+                                {% else %}
+                                <span class="text-muted">฿0.00</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-end">
+                                {% if m.tithe > 0 %}
+                                <span class="tithe-amount">฿{{ m.tithe|floatformat:2|intcomma }}</span>
+                                {% else %}
+                                <span class="text-muted small">—</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-center">
+                                {% if m.tithe <= 0 %}
+                                <span class="paid-badge no-tithe">ไม่มีกำไร</span>
+                                {% elif m.is_paid %}
+                                <span class="paid-badge paid status-badge" id="badge-{{ m.year }}-{{ m.month }}">
+                                    <i class="fas fa-check-circle"></i> ถวายแล้ว
+                                </span>
+                                {% else %}
+                                <span class="paid-badge unpaid status-badge" id="badge-{{ m.year }}-{{ m.month }}">
+                                    <i class="fas fa-clock"></i> ยังไม่ถวาย
+                                </span>
+                                {% endif %}
+                            </td>
+                            <td class="text-center col-hide-md">
+                                <span class="text-muted small paid-date" id="date-{{ m.year }}-{{ m.month }}">
+                                    {% if m.paid_at %}{{ m.paid_at|date:"d M Y" }}{% else %}—{% endif %}
+                                </span>
+                            </td>
+                            <td class="text-center">
+                                {% if m.tithe > 0 %}
+                                <button class="btn-toggle-paid {% if m.is_paid %}btn-unpay{% else %}btn-pay{% endif %}"
+                                        id="btn-{{ m.year }}-{{ m.month }}"
+                                        data-year="{{ m.year }}" data-month="{{ m.month }}"
+                                        data-tithe="{{ m.tithe }}"
+                                        onclick="togglePaid(this)">
+                                    {% if m.is_paid %}
+                                    <i class="fas fa-undo me-1"></i>ยกเลิก
+                                    {% else %}
+                                    <i class="fas fa-hand-holding-heart me-1"></i>ถวายแล้ว
+                                    {% endif %}
+                                </button>
+                                {% else %}
+                                <span class="text-muted small">—</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-center py-5 text-muted">
+                <i class="fas fa-dove fa-3x mb-3 opacity-25"></i>
+                <div class="fw-semibold">ยังไม่มีประวัติการขายหุ้น</div>
+                <div class="small mt-1">ขายหุ้นครั้งแรกแล้วมาคำนวณทศางค์กัน</div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- ===== BACK LINK ===== -->
+    <div class="col-12 pb-2">
+        <a href="{% url 'stocks:portfolio_list' %}" class="btn btn-light rounded-pill px-4">
+            <i class="fas fa-arrow-left me-2"></i>กลับไปพอร์ต
+        </a>
+    </div>
+
+</div>
+
+<input type="hidden" id="csrf-token" value="{{ csrf_token }}">
+<input type="hidden" id="mark-paid-url" value="{% url 'stocks:tithe_mark_paid' %}">
+{% endblock %}
+
+{% block scripts %}
+<script>
+function togglePaid(btn) {
+    const year  = btn.dataset.year;
+    const month = btn.dataset.month;
+    const url   = document.getElementById('mark-paid-url').value;
+    const csrf  = document.getElementById('csrf-token').value;
+
+    btn.disabled = true;
+
+    fetch(url, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRFToken': csrf},
+        body: `year=${year}&month=${month}`,
+    })
+    .then(r => r.json())
+    .then(data => {
+        const badge = document.getElementById(`badge-${year}-${month}`);
+        const dateEl = document.getElementById(`date-${year}-${month}`);
+
+        if (data.is_paid) {
+            badge.className = 'paid-badge paid status-badge';
+            badge.innerHTML = '<i class="fas fa-check-circle"></i> ถวายแล้ว';
+            btn.className = 'btn-toggle-paid btn-unpay';
+            btn.innerHTML = '<i class="fas fa-undo me-1"></i>ยกเลิก';
+            if (dateEl) dateEl.textContent = data.paid_at || '—';
+        } else {
+            badge.className = 'paid-badge unpaid status-badge';
+            badge.innerHTML = '<i class="fas fa-clock"></i> ยังไม่ถวาย';
+            btn.className = 'btn-toggle-paid btn-pay';
+            btn.innerHTML = '<i class="fas fa-hand-holding-heart me-1"></i>ถวายแล้ว';
+            if (dateEl) dateEl.textContent = '—';
+        }
+        btn.disabled = false;
+    })
+    .catch(() => { btn.disabled = false; });
+}
+</script>
+{% endblock %}

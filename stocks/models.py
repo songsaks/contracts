@@ -339,3 +339,27 @@ class SoldStock(models.Model):
 
     def __str__(self):
         return f"Sold: {self.symbol} (P/L: {self.profit_loss})"
+
+
+# ====== TitheRecord — บันทึกการถวายทศางค์จากกำไรหุ้น ======
+
+class TitheRecord(models.Model):
+    """
+    ติดตามการถวายทศางค์ 10% จากกำไรหุ้นรายเดือน
+    คำนวณจาก SoldStock.profit_loss ที่เป็นบวกในแต่ละเดือน
+    """
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    year = models.IntegerField()
+    month = models.IntegerField()   # 1–12
+    is_paid = models.BooleanField(default=False)
+    paid_at = models.DateTimeField(null=True, blank=True)
+    note = models.TextField(blank=True)
+
+    class Meta:
+        verbose_name = "Tithe Record"
+        verbose_name_plural = "Tithe Records"
+        unique_together = ('user', 'year', 'month')
+        ordering = ['-year', '-month']
+
+    def __str__(self):
+        return f"Tithe {self.year}/{self.month:02d} — {'paid' if self.is_paid else 'unpaid'}"
