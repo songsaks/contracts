@@ -3,6 +3,7 @@
 
 {% block extra_css %}
 <style>
+    /* ── Hero ── */
     .tithe-hero {
         background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
         border-radius: 1.25rem;
@@ -14,47 +15,52 @@
     .tithe-hero::before {
         content: '\271D';
         position: absolute;
-        right: 1.5rem;
-        top: 50%;
+        right: 2rem; top: 50%;
         transform: translateY(-50%);
-        font-size: 6rem;
-        opacity: 0.06;
-        color: #fbbf24;
-        font-family: serif;
+        font-size: 7rem; opacity: 0.07;
+        color: #fbbf24; font-family: serif;
     }
     .tithe-verse {
-        font-style: italic;
-        color: #fbbf24;
-        font-size: 0.92rem;
+        font-style: italic; color: #fbbf24;
+        font-size: 0.9rem;
         border-left: 3px solid #fbbf24;
-        padding-left: 0.75rem;
-        line-height: 1.6;
+        padding-left: 0.75rem; line-height: 1.65;
     }
-    .tithe-card {
-        border-radius: 1rem;
-        border: none;
-        box-shadow: 0 2px 12px rgba(0,0,0,0.07);
-        overflow: hidden;
-    }
+
+    /* ── Stat cards ── */
     .stat-card {
-        border-radius: 0.875rem;
+        border-radius: 1rem;
         padding: 1.25rem 1.5rem;
         border: 1px solid rgba(0,0,0,0.06);
+        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
     }
-    .stat-label { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.06em; font-weight: 700; }
-    .stat-value { font-size: 1.6rem; font-weight: 800; line-height: 1.2; }
+    .stat-label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.07em; font-weight: 700; }
+    .stat-value { font-size: 1.55rem; font-weight: 800; line-height: 1.2; }
 
-    .tithe-table th {
-        font-size: 0.72rem;
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-        color: #64748b;
-        font-weight: 700;
-        padding: 0.85rem 1rem;
-        background: #f8fafc;
-        border-top: none;
+    /* ── Chart card ── */
+    .chart-card {
+        border-radius: 1rem; border: 1px solid rgba(0,0,0,0.06);
+        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        background: white;
     }
-    .tithe-table td { padding: 0.85rem 1rem; vertical-align: middle; }
+    .chart-card-header {
+        padding: 1rem 1.5rem 0.5rem;
+        border-bottom: 1px solid #f1f5f9;
+        font-size: 0.8rem; font-weight: 700;
+        text-transform: uppercase; letter-spacing: 0.05em; color: #475569;
+    }
+
+    /* ── Table ── */
+    .tithe-card {
+        border-radius: 1rem; border: none;
+        box-shadow: 0 2px 12px rgba(0,0,0,0.07); overflow: hidden;
+    }
+    .tithe-table th {
+        font-size: 0.71rem; text-transform: uppercase;
+        letter-spacing: 0.05em; color: #64748b; font-weight: 700;
+        padding: 0.85rem 1rem; background: #f8fafc; border-top: none;
+    }
+    .tithe-table td { padding: 0.8rem 1rem; vertical-align: middle; }
     .tithe-table tbody tr { border-bottom: 1px solid #f1f5f9; transition: background 0.15s; }
     .tithe-table tbody tr:hover { background: #fafbff; }
     .tithe-table tbody tr:last-child { border-bottom: none; }
@@ -63,62 +69,62 @@
     .pl-negative { color: #dc2626; font-weight: 700; }
     .tithe-amount { color: #7c3aed; font-weight: 700; }
 
+    /* ── Badges ── */
     .paid-badge {
-        display: inline-flex; align-items: center; gap: 0.35rem;
-        padding: 0.3rem 0.75rem; border-radius: 999px;
-        font-size: 0.72rem; font-weight: 700; text-transform: uppercase;
+        display: inline-flex; align-items: center; gap: 0.3rem;
+        padding: 0.28rem 0.7rem; border-radius: 999px;
+        font-size: 0.7rem; font-weight: 700; text-transform: uppercase;
     }
-    .paid-badge.paid { background: rgba(22,163,74,0.12); color: #15803d; }
-    .paid-badge.unpaid { background: rgba(234,179,8,0.12); color: #a16207; }
+    .paid-badge.paid   { background: rgba(22,163,74,0.12);  color: #15803d; }
+    .paid-badge.unpaid { background: rgba(234,179,8,0.12);  color: #a16207; }
     .paid-badge.no-tithe { background: #f1f5f9; color: #94a3b8; }
 
+    /* ── Toggle button ── */
     .btn-toggle-paid {
-        border: none; border-radius: 999px; padding: 0.3rem 0.9rem;
-        font-size: 0.75rem; font-weight: 700; cursor: pointer; transition: all 0.2s;
+        border: none; border-radius: 999px; padding: 0.28rem 0.85rem;
+        font-size: 0.73rem; font-weight: 700; cursor: pointer; transition: all 0.2s;
     }
-    .btn-toggle-paid.btn-pay {
-        background: rgba(124,58,237,0.1); color: #7c3aed;
-    }
-    .btn-toggle-paid.btn-pay:hover { background: #7c3aed; color: white; }
-    .btn-toggle-paid.btn-unpay {
-        background: rgba(22,163,74,0.1); color: #15803d;
-    }
+    .btn-toggle-paid.btn-pay  { background: rgba(124,58,237,0.1); color: #7c3aed; }
+    .btn-toggle-paid.btn-pay:hover  { background: #7c3aed; color: white; }
+    .btn-toggle-paid.btn-unpay { background: rgba(22,163,74,0.1); color: #15803d; }
     .btn-toggle-paid.btn-unpay:hover { background: #dc2626; color: white; }
 
-    .progress-tithe {
-        height: 10px; border-radius: 999px; background: #e2e8f0; overflow: hidden;
-    }
+    /* ── Progress bar ── */
+    .progress-tithe { height: 8px; border-radius: 999px; background: #e2e8f0; overflow: hidden; margin-top: 0.5rem; }
     .progress-tithe-fill {
         height: 100%; border-radius: 999px;
         background: linear-gradient(90deg, #7c3aed, #a855f7);
-        transition: width 0.5s ease;
+        transition: width 0.6s ease;
     }
 </style>
 {% endblock %}
 
 {% block content %}
+
+<!-- JSON data for charts -->
+<script id="tithe-chart-data" type="application/json">{{ chart_json|safe }}</script>
+
 <div class="row g-4">
 
-    <!-- ===== HERO ===== -->
+    <!-- ════════════════ HERO ════════════════ -->
     <div class="col-12">
         <div class="tithe-hero">
             <div class="row align-items-center g-3">
                 <div class="col-md-8">
                     <div class="d-flex align-items-center gap-2 mb-2">
-                        <span style="font-size:1.6rem;">&#x271D;</span>
+                        <span style="font-size:1.5rem;">&#x271D;</span>
                         <h3 class="fw-bold mb-0 text-white">ทศางค์จากกำไรหุ้น</h3>
                     </div>
                     <div class="tithe-verse">
                         "จงนำทศางค์ทั้งหมดเข้ามาในคลัง เพื่อจะได้มีอาหารในนิเวศของเรา
                         และทดลองเราดูในเรื่องนี้เถิด พระเจ้าจอมโยธาตรัสว่า
-                        เราจะเปิดหน้าต่างแห่งสวรรค์ให้เจ้า และเทพระพรให้แก่เจ้า
-                        จนไม่มีที่รับอีก"
+                        เราจะเปิดหน้าต่างแห่งสวรรค์ให้เจ้า และเทพระพรให้แก่เจ้า จนไม่มีที่รับอีก"
                     </div>
                     <div class="text-warning small mt-2 fw-semibold">มาลาคี 3:10</div>
                 </div>
-                <div class="col-md-4 text-md-end">
+                <div class="col-md-4 text-md-end mt-2 mt-md-0">
                     <div class="text-white-50 small mb-1">ยังค้างจ่าย</div>
-                    <div class="fw-bold text-warning" style="font-size:2rem;">
+                    <div class="fw-bold text-warning" style="font-size:2.2rem; line-height:1.1;">
                         ฿{{ total_tithe_remaining|floatformat:2|intcomma }}
                     </div>
                     <div class="text-white-50 small">จากทศางค์ทั้งหมด ฿{{ total_tithe_owed|floatformat:2|intcomma }}</div>
@@ -127,7 +133,7 @@
         </div>
     </div>
 
-    <!-- ===== SUMMARY CARDS ===== -->
+    <!-- ════════════════ STAT CARDS ════════════════ -->
     <div class="col-6 col-md-3">
         <div class="stat-card bg-white h-100">
             <div class="stat-label text-success mb-1">กำไรรวม</div>
@@ -146,7 +152,13 @@
         <div class="stat-card bg-white h-100">
             <div class="stat-label text-primary mb-1">ถวายแล้ว</div>
             <div class="stat-value text-primary">฿{{ total_tithe_paid|floatformat:0|intcomma }}</div>
-            <div class="small text-muted mt-1">ครบแล้ว {{ months|length }} เดือน</div>
+            {% if total_tithe_owed > 0 %}
+            <div class="progress-tithe">
+                <div class="progress-tithe-fill"
+                     style="width:{% widthratio total_tithe_paid total_tithe_owed 100 %}%;
+                            background:linear-gradient(90deg,#2563eb,#3b82f6);"></div>
+            </div>
+            {% endif %}
         </div>
     </div>
     <div class="col-6 col-md-3">
@@ -154,17 +166,49 @@
             <div class="stat-label text-warning mb-1">ยังค้างอยู่</div>
             <div class="stat-value text-warning">฿{{ total_tithe_remaining|floatformat:0|intcomma }}</div>
             {% if total_tithe_owed > 0 %}
-            {% with pct=total_tithe_paid|default:0 %}
-            <div class="progress-tithe mt-2">
+            <div class="progress-tithe">
                 <div class="progress-tithe-fill"
-                     style="width: {% if total_tithe_owed > 0 %}{% widthratio total_tithe_paid total_tithe_owed 100 %}{% else %}0{% endif %}%;"></div>
+                     style="width:{% widthratio total_tithe_remaining total_tithe_owed 100 %}%;
+                            background:linear-gradient(90deg,#f59e0b,#fbbf24);"></div>
             </div>
-            {% endwith %}
             {% endif %}
         </div>
     </div>
 
-    <!-- ===== TABLE ===== -->
+    <!-- ════════════════ CHARTS ════════════════ -->
+    {% if months %}
+    <!-- Bar chart: Monthly Profit & Tithe -->
+    <div class="col-12 col-lg-8">
+        <div class="chart-card h-100">
+            <div class="chart-card-header">
+                <i class="fas fa-chart-bar me-2 text-primary"></i>กำไร/ขาดทุน & ทศางค์รายเดือน
+            </div>
+            <div class="p-3" style="height:300px;">
+                <canvas id="barChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Donut chart: Tithe Status -->
+    <div class="col-12 col-lg-4">
+        <div class="chart-card h-100">
+            <div class="chart-card-header">
+                <i class="fas fa-circle-notch me-2 text-primary"></i>สัดส่วนการถวาย
+            </div>
+            <div class="p-3 d-flex flex-column align-items-center justify-content-center" style="height:300px;">
+                <canvas id="donutChart" style="max-width:200px;max-height:200px;"></canvas>
+                <div class="d-flex gap-3 mt-3 small fw-semibold">
+                    <span><span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:#22c55e;"></span>
+                        ถวายแล้ว ฿{{ total_tithe_paid|floatformat:0|intcomma }}</span>
+                    <span><span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:#f59e0b;"></span>
+                        ค้างอยู่ ฿{{ total_tithe_remaining|floatformat:0|intcomma }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- ════════════════ TABLE ════════════════ -->
     <div class="col-12">
         <div class="tithe-card bg-white">
             <div class="d-flex align-items-center justify-content-between px-4 py-3 border-bottom">
@@ -215,17 +259,17 @@
                                 {% if m.tithe <= 0 %}
                                 <span class="paid-badge no-tithe">ไม่มีกำไร</span>
                                 {% elif m.is_paid %}
-                                <span class="paid-badge paid status-badge" id="badge-{{ m.year }}-{{ m.month }}">
+                                <span class="paid-badge paid" id="badge-{{ m.year }}-{{ m.month }}">
                                     <i class="fas fa-check-circle"></i> ถวายแล้ว
                                 </span>
                                 {% else %}
-                                <span class="paid-badge unpaid status-badge" id="badge-{{ m.year }}-{{ m.month }}">
+                                <span class="paid-badge unpaid" id="badge-{{ m.year }}-{{ m.month }}">
                                     <i class="fas fa-clock"></i> ยังไม่ถวาย
                                 </span>
                                 {% endif %}
                             </td>
                             <td class="text-center col-hide-md">
-                                <span class="text-muted small paid-date" id="date-{{ m.year }}-{{ m.month }}">
+                                <span class="text-muted small" id="date-{{ m.year }}-{{ m.month }}">
                                     {% if m.paid_at %}{{ m.paid_at|date:"d M Y" }}{% else %}—{% endif %}
                                 </span>
                             </td>
@@ -234,7 +278,6 @@
                                 <button class="btn-toggle-paid {% if m.is_paid %}btn-unpay{% else %}btn-pay{% endif %}"
                                         id="btn-{{ m.year }}-{{ m.month }}"
                                         data-year="{{ m.year }}" data-month="{{ m.month }}"
-                                        data-tithe="{{ m.tithe }}"
                                         onclick="togglePaid(this)">
                                     {% if m.is_paid %}
                                     <i class="fas fa-undo me-1"></i>ยกเลิก
@@ -261,7 +304,7 @@
         </div>
     </div>
 
-    <!-- ===== BACK LINK ===== -->
+    <!-- Back -->
     <div class="col-12 pb-2">
         <a href="{% url 'stocks:portfolio_list' %}" class="btn btn-light rounded-pill px-4">
             <i class="fas fa-arrow-left me-2"></i>กลับไปพอร์ต
@@ -275,34 +318,145 @@
 {% endblock %}
 
 {% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script>
+// ── Chart data ──────────────────────────────────────────────
+const _raw = JSON.parse(document.getElementById('tithe-chart-data').textContent);
+
+// ── Bar Chart ────────────────────────────────────────────────
+const barCtx = document.getElementById('barChart');
+if (barCtx && _raw.labels.length) {
+    const profitColors = _raw.profit.map(v => v >= 0 ? 'rgba(22,163,74,0.75)' : 'rgba(220,38,38,0.75)');
+    const profitBorderColors = _raw.profit.map(v => v >= 0 ? '#16a34a' : '#dc2626');
+
+    new Chart(barCtx, {
+        type: 'bar',
+        data: {
+            labels: _raw.labels,
+            datasets: [
+                {
+                    label: 'กำไร/ขาดทุน (฿)',
+                    data: _raw.profit,
+                    backgroundColor: profitColors,
+                    borderColor: profitBorderColors,
+                    borderWidth: 1.5,
+                    borderRadius: 6,
+                    order: 2,
+                },
+                {
+                    label: 'ทศางค์ 10% (฿)',
+                    data: _raw.tithe,
+                    type: 'line',
+                    backgroundColor: 'rgba(124,58,237,0.12)',
+                    borderColor: '#7c3aed',
+                    borderWidth: 2.5,
+                    pointBackgroundColor: '#7c3aed',
+                    pointRadius: 4,
+                    pointHoverRadius: 6,
+                    fill: true,
+                    tension: 0.35,
+                    order: 1,
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            plugins: {
+                legend: { position: 'top', labels: { font: { size: 11 }, padding: 12 } },
+                tooltip: {
+                    callbacks: {
+                        label: ctx => ` ${ctx.dataset.label}: ฿${ctx.parsed.y.toLocaleString('th-TH', {minimumFractionDigits:2})}`
+                    }
+                }
+            },
+            scales: {
+                x: { grid: { display: false }, ticks: { font: { size: 10 } } },
+                y: {
+                    grid: { color: 'rgba(0,0,0,0.04)' },
+                    ticks: {
+                        font: { size: 10 },
+                        callback: v => '฿' + v.toLocaleString('th-TH')
+                    }
+                }
+            }
+        }
+    });
+}
+
+// ── Donut Chart ──────────────────────────────────────────────
+const donutCtx = document.getElementById('donutChart');
+if (donutCtx) {
+    const paid      = parseFloat('{{ total_tithe_paid|floatformat:2 }}')  || 0;
+    const remaining = parseFloat('{{ total_tithe_remaining|floatformat:2 }}') || 0;
+    const total     = paid + remaining;
+
+    if (total > 0) {
+        new Chart(donutCtx, {
+            type: 'doughnut',
+            data: {
+                labels: ['ถวายแล้ว', 'ยังค้างอยู่'],
+                datasets: [{
+                    data: [paid, remaining],
+                    backgroundColor: ['#22c55e', '#f59e0b'],
+                    borderColor: ['#fff', '#fff'],
+                    borderWidth: 3,
+                    hoverOffset: 6,
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                cutout: '68%',
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: ctx => ` ${ctx.label}: ฿${ctx.parsed.toLocaleString('th-TH', {minimumFractionDigits:2})}`
+                        }
+                    }
+                }
+            }
+        });
+    } else {
+        // No tithe data — hide the canvas area
+        donutCtx.parentElement.innerHTML =
+            '<div class="text-center text-muted py-4"><i class="fas fa-dove fa-2x mb-2 opacity-25"></i><div class="small">ยังไม่มีข้อมูลทศางค์</div></div>';
+    }
+}
+
+// ── Toggle paid/unpaid ───────────────────────────────────────
 function togglePaid(btn) {
     const year  = btn.dataset.year;
     const month = btn.dataset.month;
     const url   = document.getElementById('mark-paid-url').value;
     const csrf  = document.getElementById('csrf-token').value;
-
     btn.disabled = true;
 
     fetch(url, {
         method: 'POST',
-        headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRFToken': csrf},
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRFToken': csrf },
         body: `year=${year}&month=${month}`,
     })
     .then(r => r.json())
     .then(data => {
-        const badge = document.getElementById(`badge-${year}-${month}`);
+        const badge  = document.getElementById(`badge-${year}-${month}`);
         const dateEl = document.getElementById(`date-${year}-${month}`);
 
         if (data.is_paid) {
-            badge.className = 'paid-badge paid status-badge';
-            badge.innerHTML = '<i class="fas fa-check-circle"></i> ถวายแล้ว';
+            if (badge) {
+                badge.className = 'paid-badge paid';
+                badge.innerHTML = '<i class="fas fa-check-circle"></i> ถวายแล้ว';
+            }
             btn.className = 'btn-toggle-paid btn-unpay';
             btn.innerHTML = '<i class="fas fa-undo me-1"></i>ยกเลิก';
             if (dateEl) dateEl.textContent = data.paid_at || '—';
         } else {
-            badge.className = 'paid-badge unpaid status-badge';
-            badge.innerHTML = '<i class="fas fa-clock"></i> ยังไม่ถวาย';
+            if (badge) {
+                badge.className = 'paid-badge unpaid';
+                badge.innerHTML = '<i class="fas fa-clock"></i> ยังไม่ถวาย';
+            }
             btn.className = 'btn-toggle-paid btn-pay';
             btn.innerHTML = '<i class="fas fa-hand-holding-heart me-1"></i>ถวายแล้ว';
             if (dateEl) dateEl.textContent = '—';

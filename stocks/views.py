@@ -3466,12 +3466,21 @@ def tithe_report(request):
             'paid_at': paid_at,
         })
 
+    # Build chart data (chronological order = reversed from newest-first list)
+    chart_months = list(reversed(months))
+    chart_data = json.dumps({
+        'labels':  [f"{m['month_name']} {m['year']}" for m in chart_months],
+        'profit':  [float(m['pl'])    for m in chart_months],
+        'tithe':   [float(m['tithe']) for m in chart_months],
+    }, ensure_ascii=False)
+
     context = {
         'months': months,
         'total_profit': total_profit,
         'total_tithe_owed': total_tithe_owed,
         'total_tithe_paid': total_tithe_paid,
         'total_tithe_remaining': total_tithe_owed - total_tithe_paid,
+        'chart_json': chart_data,
     }
     return render(request, 'stocks/tithe_report.html', context)
 
