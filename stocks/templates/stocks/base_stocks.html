@@ -186,6 +186,78 @@
             color: var(--accent-primary);
             box-shadow: 0 4px 12px rgba(67, 56, 202, 0.1);
         }
+
+        /* ── Responsive Utilities ─────────────────────────────── */
+
+        /* ตาราง: ซ่อน/แสดงคอลัมน์ตาม breakpoint */
+        .col-hide-xs  { display: none !important; }
+        @media (min-width: 576px)  { .col-hide-xs  { display: table-cell !important; } }
+        @media (max-width: 575px)  { .col-hide-sm  { display: none !important; } }
+        @media (max-width: 767px)  { .col-hide-md  { display: none !important; } }
+        @media (max-width: 991px)  { .col-hide-lg  { display: none !important; } }
+
+        /* ปรับ font size บนมือถือ */
+        @media (max-width: 767px) {
+            h1, .h1 { font-size: 1.5rem !important; }
+            h3, .h3 { font-size: 1.2rem !important; }
+            h4, .h4 { font-size: 1rem !important; }
+            body     { font-size: 0.88rem; }
+
+            .navbar-stocks .navbar-brand { font-size: 1.1rem; }
+
+            /* ลด padding ใน card บนมือถือ */
+            .p-4-mobile-3 { padding: 0.75rem !important; }
+            .card-premium .p-4 { padding: 1rem !important; }
+
+            /* ปุ่มใน header stack ได้ดี */
+            .btn-premium { padding: 0.5rem 1rem; font-size: 0.85rem; }
+        }
+
+        @media (max-width: 575px) {
+            /* ลด container padding ด้านข้าง */
+            .container, .container-fluid { padding-left: 0.5rem !important; padding-right: 0.5rem !important; }
+
+            /* ลด padding ใน card เพิ่มเติม */
+            .card-premium .p-4 { padding: 0.75rem !important; }
+            .card-body.p-4  { padding: 0.75rem !important; }
+            .card-body.p-3  { padding: 0.6rem !important; }
+
+            /* ข้อความ loading */
+            #loading-overlay h3 { font-size: 1.1rem; }
+            #loading-overlay p  { font-size: 0.78rem; }
+        }
+
+        /* ── Card price header: ป้องกัน symbol + price ชนกัน ── */
+        @media (max-width: 400px) {
+            .card-header-flex { flex-direction: column !important; align-items: flex-start !important; }
+            .card-header-flex .text-end { text-align: left !important; }
+        }
+
+        /* ── ตาราง: ลด font ทุกตาราง ── */
+        @media (max-width: 767px) {
+            .table-sm-compact { font-size: 0.72rem !important; }
+            .table-sm-compact td, .table-sm-compact th { padding: 0.35rem 0.4rem !important; }
+        }
+
+        /* ── Sticky action column in tables ── */
+        .table-sticky-action th:last-child,
+        .table-sticky-action td:last-child {
+            position: sticky;
+            right: 0;
+            background: white;
+            box-shadow: -2px 0 4px rgba(0,0,0,0.06);
+            z-index: 1;
+        }
+        .table-sticky-action tr:nth-child(even) td:last-child { background: #f9fafb; }
+        .table-sticky-action tr:hover td:last-child { background: rgba(99,102,241,0.04); }
+
+        /* ── chart responsive height ── */
+        @media (max-width: 575px) {
+            .chart-responsive { height: 260px !important; }
+        }
+        @media (min-width: 576px) and (max-width: 991px) {
+            .chart-responsive { height: 340px !important; }
+        }
     </style>
     {% block extra_css %}{% endblock %}
 </head>
@@ -206,7 +278,7 @@
             </button>
 
             <div class="collapse navbar-collapse" id="stocksNavbar">
-                <ul class="navbar-nav me-auto mb-2 mb-lg-0 ms-lg-5 gap-1">
+                <ul class="navbar-nav me-auto mb-2 mb-lg-0 ms-lg-4 gap-0 gap-lg-1">
                     <li class="nav-item">
                         <a class="nav-link px-3 py-2 rounded-xl {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}" href="{% url 'stocks:dashboard' %}">
                             <i class="fas fa-th-large"></i> Dashboard

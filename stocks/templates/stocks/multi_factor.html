@@ -183,25 +183,25 @@ th.sortable:hover { background: #f1f5f9; }
                     <th class="px-3 py-3 text-center sortable" onclick="sortTable('super')">
                         SUPER SCORE <i class="fas fa-sort text-muted ms-1" style="font-size:.7rem;"></i>
                     </th>
-                    <th class="px-3 py-3 text-center sortable" onclick="sortTable('momentum')">
+                    <th class="px-3 py-3 text-center col-hide-md sortable" onclick="sortTable('momentum')">
                         <span class="text-danger">MOM</span><br><span class="text-muted fw-normal" style="font-size:.65rem;">/40</span>
                     </th>
-                    <th class="px-3 py-3 text-center sortable" onclick="sortTable('volume')">
+                    <th class="px-3 py-3 text-center col-hide-md sortable" onclick="sortTable('volume')">
                         <span class="text-info">VOL</span><br><span class="text-muted fw-normal" style="font-size:.65rem;">/30</span>
                     </th>
-                    <th class="px-3 py-3 text-center sortable" onclick="sortTable('sentiment')">
+                    <th class="px-3 py-3 text-center col-hide-lg sortable" onclick="sortTable('sentiment')">
                         <span style="color:#7c3aed;">SENT</span><br><span class="text-muted fw-normal" style="font-size:.65rem;">/20</span>
                     </th>
-                    <th class="px-3 py-3 text-center sortable" onclick="sortTable('fundamental')">
+                    <th class="px-3 py-3 text-center col-hide-lg sortable" onclick="sortTable('fundamental')">
                         <span class="text-success">FUND</span><br><span class="text-muted fw-normal" style="font-size:.65rem;">/10</span>
                     </th>
-                    <th class="px-3 py-3 text-center sortable" onclick="sortTable('rvol')">RVOL</th>
+                    <th class="px-3 py-3 text-center col-hide-md sortable" onclick="sortTable('rvol')">RVOL</th>
                     <th class="px-3 py-3 text-center sortable" onclick="sortTable('rsi')">RSI</th>
-                    <th class="px-3 py-3 text-center">MFI</th>
-                    <th class="px-3 py-3 text-center">EPS%</th>
-                    <th class="px-3 py-3 text-center">REV%</th>
-                    <th class="px-3 py-3">SECTOR</th>
-                    <th class="px-3 py-3">SENTIMENT</th>
+                    <th class="px-3 py-3 text-center col-hide-lg">MFI</th>
+                    <th class="px-3 py-3 text-center col-hide-lg">EPS%</th>
+                    <th class="px-3 py-3 text-center col-hide-lg">REV%</th>
+                    <th class="px-3 py-3 col-hide-lg">SECTOR</th>
+                    <th class="px-3 py-3 col-hide-lg">SENTIMENT</th>
                 </tr>
             </thead>
             <tbody>
@@ -234,31 +234,31 @@ th.sortable:hover { background: #f1f5f9; }
                     </td>
 
                     <!-- Momentum /40 -->
-                    <td class="px-3 py-2 text-center">
+                    <td class="px-3 py-2 text-center col-hide-md">
                         <div class="fw-bold text-danger">{{ c.momentum_score }}</div>
                         <div class="factor-bar mt-1"><div class="factor-fill bg-danger" style="width:{% widthratio c.momentum_score 40 100 %}%;"></div></div>
                     </td>
 
                     <!-- Volume /30 -->
-                    <td class="px-3 py-2 text-center">
+                    <td class="px-3 py-2 text-center col-hide-md">
                         <div class="fw-bold text-info">{{ c.volume_score }}</div>
                         <div class="factor-bar mt-1"><div class="factor-fill bg-info" style="width:{% widthratio c.volume_score 30 100 %}%;"></div></div>
                     </td>
 
                     <!-- Sentiment /20 -->
-                    <td class="px-3 py-2 text-center">
+                    <td class="px-3 py-2 text-center col-hide-lg">
                         <div class="fw-bold" style="color:#7c3aed;">{{ c.sentiment_score }}</div>
                         <div class="factor-bar mt-1"><div class="factor-fill" style="width:{% widthratio c.sentiment_score 20 100 %}%;background:#7c3aed;"></div></div>
                     </td>
 
                     <!-- Fundamental /10 -->
-                    <td class="px-3 py-2 text-center">
+                    <td class="px-3 py-2 text-center col-hide-lg">
                         <div class="fw-bold text-success">{{ c.fundamental_score }}</div>
                         <div class="factor-bar mt-1"><div class="factor-fill bg-success" style="width:{% widthratio c.fundamental_score 10 100 %}%;"></div></div>
                     </td>
 
                     <!-- RVOL -->
-                    <td class="px-3 py-2 text-center">
+                    <td class="px-3 py-2 text-center col-hide-md">
                         {% if c.rvol >= 2.0 %}
                         <span class="rvol-badge bg-danger text-white">{{ c.rvol|floatformat:1 }}x</span>
                         {% elif c.rvol >= 1.5 %}
@@ -276,31 +276,31 @@ th.sortable:hover { background: #f1f5f9; }
                     </td>
 
                     <!-- MFI -->
-                    <td class="px-3 py-2 text-center">
+                    <td class="px-3 py-2 text-center col-hide-lg">
                         <span class="{% if c.mfi >= 60 %}text-success fw-semibold{% else %}text-muted{% endif %}">
                             {{ c.mfi|floatformat:0 }}
                         </span>
                     </td>
 
                     <!-- EPS% -->
-                    <td class="px-3 py-2 text-center">
+                    <td class="px-3 py-2 text-center col-hide-lg">
                         <span class="{% if c.eps_growth >= 20 %}text-success fw-bold{% elif c.eps_growth >= 10 %}text-success{% elif c.eps_growth < 0 %}text-danger{% else %}text-muted{% endif %}">
                             {{ c.eps_growth|floatformat:0 }}%
                         </span>
                     </td>
 
                     <!-- REV% -->
-                    <td class="px-3 py-2 text-center">
+                    <td class="px-3 py-2 text-center col-hide-lg">
                         <span class="{% if c.rev_growth >= 10 %}text-success fw-bold{% elif c.rev_growth < 0 %}text-danger{% else %}text-muted{% endif %}">
                             {{ c.rev_growth|floatformat:0 }}%
                         </span>
                     </td>
 
                     <!-- Sector -->
-                    <td class="px-3 py-2 text-muted small">{{ c.sector|truncatechars:18 }}</td>
+                    <td class="px-3 py-2 text-muted small col-hide-lg">{{ c.sector|truncatechars:18 }}</td>
 
                     <!-- Sentiment Label -->
-                    <td class="px-3 py-2">
+                    <td class="px-3 py-2 col-hide-lg">
                         {% if c.sentiment_label %}
                         <div class="fw-bold {% if c.sentiment_label == 'บวก' %}sent-pos{% elif c.sentiment_label == 'ลบ' %}sent-neg{% else %}sent-neu{% endif %}">
                             {% if c.sentiment_label == 'บวก' %}<i class="fas fa-arrow-up me-1"></i>{% elif c.sentiment_label == 'ลบ' %}<i class="fas fa-arrow-down me-1"></i>{% else %}<i class="fas fa-minus me-1"></i>{% endif %}

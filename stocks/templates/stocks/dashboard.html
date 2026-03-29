@@ -32,7 +32,7 @@
 
                     <div class="p-4 flex-grow-1 position-relative" style="z-index: 1;">
                         <!-- Header -->
-                        <div class="d-flex justify-content-between align-items-start mb-4">
+                        <div class="d-flex justify-content-between align-items-start mb-4 card-item-header">
                             <div class="d-flex align-items-center gap-3">
                                 <div class="position-relative">
                                     <div class="bg-primary bg-opacity-10 p-3 rounded-4 text-primary shadow-sm" style="width: 56px; height: 56px; display: flex; align-items: center; justify-content: center;">
@@ -86,7 +86,7 @@
                         </div>
 
                         <!-- Metrics Grid -->
-                        <div class="bg-light bg-opacity-40 p-4 rounded-4 mb-4 border border-light shadow-none">
+                        <div class="bg-light bg-opacity-40 p-3 p-sm-4 rounded-4 mb-4 border border-light shadow-none metrics-grid">
                             <div class="row g-2 text-center mb-3">
                                 <div class="col-4 border-end border-light">
                                     <div class="text-muted small mb-1" style="font-size: 0.7rem; letter-spacing: 0.5px;">CATEGORY</div>
@@ -307,6 +307,19 @@
 <style>
     .btn-xs { padding: 0.25rem 0.5rem; font-size: 0.75rem; }
     .truncate-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+    /* ── Responsive card fixes ─────────────────────── */
+    @media (max-width: 575px) {
+        /* ลด padding ใน card บนมือถือ */
+        .card-premium .p-4 { padding: 0.875rem !important; }
+        /* ป้องกัน symbol + price ล้น */
+        .card-item-header { gap: 0.5rem !important; }
+        .card-item-header .h4 { font-size: 0.95rem !important; }
+        .card-item-price   { font-size: 0.95rem !important; }
+        /* metrics grid: ลด font */
+        .metrics-grid .text-muted { font-size: 0.6rem !important; }
+        .metrics-grid .fw-bold    { font-size: 0.72rem !important; }
+    }
     .btn-premium-danger {
         background: linear-gradient(135deg, #ff4d4d 0%, #cc0000 100%);
         color: white; border: none;

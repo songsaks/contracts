@@ -4,7 +4,7 @@
 {% block title %}Sniper Entry Finder: {{ symbol }} — 9Com{% endblock %}
 
 {% block content %}
-<div class="row mb-4 animate__animated animate__fadeIn">
+<div class="row mb-3 mb-md-4 animate__animated animate__fadeIn">
     <div class="col-md-8">
         <nav aria-label="breadcrumb">
             <ol class="breadcrumb mb-2">
@@ -189,6 +189,20 @@
     }
     .chart-fullscreen #chart-wrapper {
         height: 80vh !important;
+    }
+
+    /* ── Responsive chart height ── */
+    @media (max-width: 575px) {
+        #chart-wrapper { height: 260px !important; }
+    }
+    @media (min-width: 576px) and (max-width: 991px) {
+        #chart-wrapper { height: 340px !important; }
+    }
+
+    /* ── Header: stack breadcrumb + price on mobile ── */
+    @media (max-width: 575px) {
+        .entry-finder-header { flex-direction: column !important; }
+        .entry-finder-header h1 { font-size: 1.25rem !important; }
     }
 </style>
 {% endblock %}

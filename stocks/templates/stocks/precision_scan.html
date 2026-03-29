@@ -745,26 +745,26 @@
         <div class="card-body p-0">
             <div class="table-responsive">
                 <table class="table table-sm table-hover align-middle mb-0" style="font-size:0.72rem;">
-                    <thead class="bg-light text-muted" style="font-size:0.68rem;">
+                    <thead class="bg-light text-muted" style="font-size:0.65rem;">
                         <tr>
                             <th class="ps-2"><a href="?sort=symbol&run_idx={{ selected_run_idx }}" class="text-decoration-none text-muted">SYMBOL</a></th>
                             <th><a href="?sort=prox&run_idx={{ selected_run_idx }}" class="text-decoration-none text-muted">ZONE</a></th>
-                            <th><a href="?sort=score&run_idx={{ selected_run_idx }}" class="text-decoration-none text-muted">SCORE</a></th>
+                            <th class="col-hide-md"><a href="?sort=score&run_idx={{ selected_run_idx }}" class="text-decoration-none text-muted">SCORE</a></th>
                             <th><a href="?sort=buy&run_idx={{ selected_run_idx }}" class="text-decoration-none {% if current_sort == 'buy' %}fw-bold{% else %}text-muted{% endif %}" style="{% if current_sort == 'buy' %}color:#16a34a;{% endif %}">BUY</a></th>
-                            <th><a href="?sort=sell&run_idx={{ selected_run_idx }}" class="text-decoration-none {% if current_sort == 'sell' %}fw-bold{% else %}text-muted{% endif %}" style="{% if current_sort == 'sell' %}color:#dc2626;{% endif %}">SELL</a></th>
-                            <th><a href="?sort=rs&run_idx={{ selected_run_idx }}" class="text-decoration-none {% if current_sort == 'rs' %}fw-bold{% else %}text-muted{% endif %}" style="{% if current_sort == 'rs' %}color:#0891b2;{% endif %}" title="RS Rating (0-99) — Minervini Relative Strength">RS</a></th>
+                            <th class="col-hide-md"><a href="?sort=sell&run_idx={{ selected_run_idx }}" class="text-decoration-none {% if current_sort == 'sell' %}fw-bold{% else %}text-muted{% endif %}" style="{% if current_sort == 'sell' %}color:#dc2626;{% endif %}">SELL</a></th>
+                            <th><a href="?sort=rs&run_idx={{ selected_run_idx }}" class="text-decoration-none {% if current_sort == 'rs' %}fw-bold{% else %}text-muted{% endif %}" style="{% if current_sort == 'rs' %}color:#0891b2;{% endif %}" title="RS Rating">RS</a></th>
                             <th><a href="?sort=round_rr&run_idx={{ selected_run_idx }}" class="text-decoration-none text-muted">RR</a></th>
                             <th><a href="?sort=rvol&run_idx={{ selected_run_idx }}" class="text-decoration-none text-muted">RVOL</a></th>
-                            <th><a href="?sort=adx&run_idx={{ selected_run_idx }}" class="text-decoration-none text-muted">ADX</a></th>
-                            <th>VOL</th>
-                            <th><a href="?sort=price&run_idx={{ selected_run_idx }}" class="text-decoration-none text-muted">PRICE</a></th>
-                            <th>ENTRY</th>
+                            <th class="col-hide-md"><a href="?sort=adx&run_idx={{ selected_run_idx }}" class="text-decoration-none text-muted">ADX</a></th>
+                            <th class="col-hide-lg">VOL</th>
+                            <th class="col-hide-md"><a href="?sort=price&run_idx={{ selected_run_idx }}" class="text-decoration-none text-muted">PRICE</a></th>
+                            <th class="col-hide-md">ENTRY</th>
                             <th><a href="?sort=rsi&run_idx={{ selected_run_idx }}" class="text-decoration-none text-muted">RSI</a></th>
-                            <th>ERC</th>
-                            <th style="width:68px;" title="MACD crossover / BB Squeeze / EMA20 aligned">SIGNAL</th>
-                            <th style="width:65px;">PATTERN</th>
-                            <th style="width:60px;" title="Relative Momentum vs SET Index (3m)">REL MOM</th>
-                            <th style="width:40px;">SEC</th>
+                            <th class="col-hide-lg">ERC</th>
+                            <th class="col-hide-md">SIGNAL</th>
+                            <th class="col-hide-lg">PATTERN</th>
+                            <th class="col-hide-md">REL MOM</th>
+                            <th class="col-hide-lg">SEC</th>
                             <th class="text-end pe-2">ACTION</th>
                         </tr>
                     </thead>
@@ -825,9 +825,9 @@
                             </td>
 
                             <!-- PRECISION SCORE -->
-                            <td>
+                            <td class="col-hide-md">
                                 <div class="d-flex align-items-center gap-1">
-                                    <div class="progress flex-grow-1" style="height:4px;min-width:28px;">
+                                    <div class="progress d-none d-xl-block" style="height:4px;min-width:28px;">
                                         <div class="progress-bar {% if item.technical_score >= 80 %}bg-success{% elif item.technical_score >= 50 %}bg-primary{% else %}bg-warning{% endif %}"
                                              role="progressbar" style="width:{{ item.technical_score }}%"></div>
                                     </div>
@@ -848,7 +848,7 @@
                             </td>
 
                             <!-- SELL / EXIT SCORE -->
-                            <td class="text-center">
+                            <td class="text-center col-hide-md">
                                 <span class="fw-bold {% if item.sell_score >= 50 %}text-danger{% elif item.sell_score >= 30 %}text-warning{% else %}text-muted{% endif %}">
                                     {{ item.sell_score }}
                                 </span>
@@ -901,19 +901,19 @@
                             </td>
 
                             <!-- ADX -->
-                            <td>
+                            <td class="col-hide-md">
                                 <span class="fw-semibold {% if item.adx >= 30 %}text-success{% elif item.adx >= 20 %}text-primary{% else %}text-muted{% endif %}">
                                     {{ item.adx|floatformat:1 }}
                                 </span>
                             </td>
 
                             <!-- AVG VOL 20d -->
-                            <td>
+                            <td class="col-hide-lg">
                                 <span class="text-muted">{{ item.avg_volume_20d|floatformat:0|intcomma }}</span>
                             </td>
 
                             <!-- PRICE -->
-                            <td>
+                            <td class="col-hide-md">
                                 <span class="fw-bold">฿{{ item.price|floatformat:2 }}</span>
                                 {% if item.live_price %}
                                 <div class="mt-1" style="font-size:0.68rem;line-height:1.2;">
@@ -929,7 +929,7 @@
                             </td>
 
                             <!-- ENTRY ZONE -->
-                            <td {% if item.demand_zone_start and item.price <= item.demand_zone_start and item.price >= item.demand_zone_end %}style="background:rgba(34,197,94,0.05);"{% endif %}>
+                            <td class="col-hide-md" {% if item.demand_zone_start and item.price <= item.demand_zone_start and item.price >= item.demand_zone_end %}style="background:rgba(34,197,94,0.05);"{% endif %}>
                                 {% if item.demand_zone_start %}
                                 <div style="line-height:1.3;">
                                     <span class="fw-bold text-success">{{ item.demand_zone_start|floatformat:2 }}</span>
@@ -949,7 +949,7 @@
                             </td>
 
                             <!-- ERC CONFIRMED -->
-                            <td>
+                            <td class="col-hide-lg">
                                 {% if item.erc_volume_confirmed %}
                                 <span class="badge px-1 py-0" style="background:rgba(124,58,237,0.12);color:#7c3aed;font-size:0.6rem;"
                                       title="ERC Volume Confirmed">✓</span>
@@ -959,7 +959,7 @@
                             </td>
 
                             <!-- v3 SIGNALS: MACD crossover / BB Squeeze / EMA20 aligned -->
-                            <td>
+                            <td class="col-hide-md">
                                 <div class="d-flex flex-column gap-1">
                                 {% if item.macd_crossover %}
                                 <span class="badge px-1 py-0"
@@ -1004,7 +1004,7 @@
                             </td>
 
                             <!-- PRICE PATTERN -->
-                            <td>
+                            <td class="col-hide-lg">
                                 {% if item.price_pattern %}
                                     {% if item.price_pattern_score > 0 %}
                                     <span class="badge px-1 py-0"
@@ -1025,7 +1025,7 @@
                             </td>
 
                             <!-- RELATIVE MOMENTUM vs SET -->
-                            <td class="text-center">
+                            <td class="text-center col-hide-md">
                                 {% if item.rel_momentum_3m != 0 or item.rel_momentum_1m != 0 %}
                                     {% with rel=item.rel_momentum_3m %}
                                     <span class="fw-bold" style="color:{% if rel >= 3 %}#16a34a{% elif rel >= 0 %}#65a30d{% else %}#dc2626{% endif %};">
@@ -1038,7 +1038,7 @@
                             </td>
 
                             <!-- SECTOR -->
-                            <td>
+                            <td class="col-hide-lg">
                                 <span class="badge bg-light text-muted fw-normal border" style="font-size:0.6rem;">
                                     {% if 'Financial' in item.sector %}FIN
                                     {% elif 'Industrial' in item.sector %}IND

@@ -71,7 +71,7 @@
                     {% endif %}
 
                     <div class="p-4 flex-grow-1 position-relative" style="z-index: 1;">
-                        <div class="d-flex justify-content-between align-items-start mb-4">
+                        <div class="d-flex justify-content-between align-items-start mb-4 card-item-header">
                             <!-- Left: Icon and Title -->
                             <div class="d-flex align-items-center gap-3">
                                 <div class="position-relative">
@@ -433,10 +433,10 @@
                             <th>วันที่ขาย</th>
                             <th>สัญลักษณ์</th>
                             <th class="text-center">จำนวน</th>
-                            <th class="text-end">ราคาทุน</th>
+                            <th class="text-end tx-hide-xs">ราคาทุน</th>
                             <th class="text-end">ราคาขาย</th>
                             <th class="text-end">กำไร/ขาดทุน</th>
-                            <th class="text-end">% P/L</th>
+                            <th class="text-end tx-hide-xs">% P/L</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -445,12 +445,12 @@
                             <td>{{ s.sold_at|date:"d/m/Y H:i" }}</td>
                             <td><span class="badge bg-primary bg-opacity-10 text-primary fw-bold">{{ s.symbol }}</span></td>
                             <td class="text-center">{{ s.quantity|floatformat:2|intcomma }}</td>
-                            <td class="text-end text-muted">฿{{ s.buy_price|floatformat:2|intcomma }}</td>
+                            <td class="text-end text-muted tx-hide-xs">฿{{ s.buy_price|floatformat:2|intcomma }}</td>
                             <td class="text-end fw-bold">฿{{ s.sell_price|floatformat:2|intcomma }}</td>
                             <td class="text-end fw-bold {% if s.profit_loss > 0 %}text-success{% elif s.profit_loss < 0 %}text-danger{% endif %}">
                                 {% if s.profit_loss > 0 %}+{% endif %}฿{{ s.profit_loss|floatformat:2|intcomma }}
                             </td>
-                            <td class="text-end fw-bold {% if s.profit_loss_pct > 0 %}text-success{% elif s.profit_loss_pct < 0 %}text-danger{% endif %}">
+                            <td class="text-end fw-bold tx-hide-xs {% if s.profit_loss_pct > 0 %}text-success{% elif s.profit_loss_pct < 0 %}text-danger{% endif %}">
                                 {% if s.profit_loss_pct > 0 %}+{% endif %}{{ s.profit_loss_pct }}%
                             </td>
                         </tr>
@@ -501,6 +501,24 @@
         animation: pulse-white 2s infinite;
     }
     .hover-primary:hover { color: var(--bs-primary) !important; }
+
+    /* ── Responsive portfolio ──────────────────────── */
+    @media (max-width: 575px) {
+        .card-premium .p-4 { padding: 0.875rem !important; }
+        /* Portfolio summary header */
+        .portfolio-header-stats { gap: 1rem !important; }
+        .portfolio-header-stats .h4 { font-size: 1rem !important; }
+        /* Transaction table: ซ่อนคอลัมน์ราคาทุนบนมือถือ */
+        .tx-hide-xs { display: none !important; }
+        /* card header */
+        .card-item-header .h4 { font-size: 0.9rem !important; }
+    }
+
+    /* Transaction table hide columns on sm */
+    @media (max-width: 575px) {
+        .col-hide-xs { display: none !important; }
+    }
+
     .btn-premium-danger {
         background: linear-gradient(135deg, #ff4d4d 0%, #cc0000 100%);
         color: white;

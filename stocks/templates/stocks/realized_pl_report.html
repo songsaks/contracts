@@ -46,14 +46,14 @@
     <div class="col-12">
         <div class="card-premium p-4 border-0 mb-4 bg-white shadow-sm">
             <h5 class="fw-bold mb-4 text-dark"><i class="fas fa-chart-line me-2 text-primary"></i> Cumulative Performance</h5>
-            <div style="height: 350px;">
+            <div class="chart-responsive" style="height: 350px;">
                 <canvas id="reportChart"></canvas>
             </div>
         </div>
     </div>
 
     <!-- Summary Table -->
-    <div class="col-lg-5">
+    <div class="col-12 col-lg-5">
         <div class="card-premium p-4 border-0 mb-4 bg-white shadow-sm h-100">
             <h5 class="fw-bold mb-4 text-dark"><i class="fas fa-table me-2 text-primary"></i> สรุปผลตามช่วงเวลา ({{ group_by|capfirst }})</h5>
             <div class="table-responsive">
@@ -86,7 +86,7 @@
     </div>
 
     <!-- Detailed List -->
-    <div class="col-lg-7">
+    <div class="col-12 col-lg-7">
         <div class="card-premium p-4 border-0 mb-4 bg-white shadow-sm h-100">
             <h5 class="fw-bold mb-4 text-dark"><i class="fas fa-list me-2 text-primary"></i> รายการขายทั้งหมด (Transactions)</h5>
             <div class="table-responsive">
