@@ -26,6 +26,7 @@ urlpatterns = [
     path('momentum/us-precision/', views.us_precision_scanner, name='us_precision_scanner'),
     path('momentum/us-precision/ai/', views.us_precision_scan_ai_analysis, name='us_precision_scan_ai_analysis'),
     path('multi-factor/', views.multi_factor_scanner, name='multi_factor_scanner'),
+    path('value/us-value/', views.us_value_scanner, name='us_value_scanner'),
     path('entry-finder/<str:symbol>/', views.entry_finder, name='entry_finder'),
     path('signup/', views.signup, name='signup'),
 ]

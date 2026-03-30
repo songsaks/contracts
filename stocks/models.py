@@ -302,6 +302,56 @@ class PrecisionScanCandidate(models.Model):
         return f"{self.symbol} - Score: {self.technical_score} (run: {self.scan_run})"
 
 
+# ====== ValueScanCandidate — US Value Stock Scanner ======
+
+class ValueScanCandidate(models.Model):
+    user        = models.ForeignKey(User, on_delete=models.CASCADE)
+    scan_run    = models.DateTimeField(db_index=True)
+    symbol      = models.CharField(max_length=20)
+    name        = models.CharField(max_length=100, default='')
+    sector      = models.CharField(max_length=100, default='Unknown')
+    price       = models.FloatField(default=0)
+    market_cap  = models.FloatField(default=0)          # USD billions
+
+    # ── Valuation Metrics ────────────────────────────────
+    pe_ratio       = models.FloatField(null=True, blank=True)   # trailing P/E
+    forward_pe     = models.FloatField(null=True, blank=True)
+    pb_ratio       = models.FloatField(null=True, blank=True)
+    peg_ratio      = models.FloatField(null=True, blank=True)
+    ps_ratio       = models.FloatField(null=True, blank=True)
+    dividend_yield = models.FloatField(default=0)               # percent
+
+    # ── Quality Metrics ──────────────────────────────────
+    roe            = models.FloatField(null=True, blank=True)   # percent
+    profit_margin  = models.FloatField(null=True, blank=True)   # percent
+    debt_equity    = models.FloatField(null=True, blank=True)   # ratio
+    current_ratio  = models.FloatField(null=True, blank=True)
+    revenue_growth = models.FloatField(null=True, blank=True)   # % YoY
+    fcf_yield      = models.FloatField(null=True, blank=True)   # FCF/MktCap %
+
+    # ── Price Action ─────────────────────────────────────
+    rsi            = models.FloatField(default=50)
+    year_high      = models.FloatField(default=0)
+    year_low       = models.FloatField(default=0)
+    pct_from_high  = models.FloatField(default=0)               # % below 52w high (positive = cheaper)
+    above_ema200   = models.BooleanField(default=False)
+
+    # ── Scores ───────────────────────────────────────────
+    valuation_score    = models.IntegerField(default=0)         # 0-40
+    quality_score      = models.IntegerField(default=0)         # 0-35
+    price_action_score = models.IntegerField(default=0)         # 0-25
+    total_score        = models.IntegerField(default=0)         # 0-100
+
+    # ── Meta ─────────────────────────────────────────────
+    is_new_entry = models.BooleanField(default=False)
+
+    class Meta:
+        ordering = ['-scan_run', '-total_score']
+
+    def __str__(self):
+        return f"{self.symbol} - Value Score: {self.total_score} (run: {self.scan_run})"
+
+
 # ====== ScannableSymbol — รายชื่อหุ้นที่ระบบสแกนได้ ======
 
 class ScannableSymbol(models.Model):

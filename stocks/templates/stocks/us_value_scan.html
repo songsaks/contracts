@@ -1,0 +1,470 @@
+{% extends 'stocks/base_stocks.html' %}
+{% load humanize %}
+
+{% block title %}US Value Scanner — 9Com{% endblock %}
+{% block container_class %}container-fluid px-2 px-md-3{% endblock %}
+
+{% block content %}
+<div>
+
+<!-- ── Page Header ──────────────────────────────────────────── -->
+<div class="row align-items-end mb-4">
+    <div class="col-md-7">
+        <h1 class="fw-bold mb-1" style="color:#15803d;">
+            <i class="fas fa-gem me-2"></i> US Value Stock Scanner
+        </h1>
+        <p class="text-muted mb-0">
+            All Sectors — Fundamental Quality + Cheap Valuation | P/E ≤ 25 | Market Cap ≥ $2B<br>
+            Score: Valuation (40 pts) + Quality (35 pts) + Price Action (25 pts) = 100 pts max
+        </p>
+    </div>
+    <div class="col-md-5 text-md-end mt-3 mt-md-0 d-flex flex-wrap justify-content-md-end gap-2">
+        <a href="{% url 'stocks:us_precision_scanner' %}" class="btn btn-outline-secondary d-inline-flex align-items-center gap-2">
+            <i class="fas fa-crosshairs"></i> US Momentum
+        </a>
+        <a href="?scan=true" onclick="showLoading()" class="btn d-inline-flex align-items-center gap-2"
+           style="background:linear-gradient(135deg,#15803d,#166534);color:white;border:none;">
+            <i class="fas fa-search-dollar"></i> Scan Value Stocks
+        </a>
+    </div>
+</div>
+
+<!-- ── Score Guide (collapsible) ───────────────────────────── -->
+<div class="row mb-4">
+    <div class="col-12">
+        <button class="btn btn-sm rounded-pill px-4 shadow-sm" type="button"
+                data-bs-toggle="collapse" data-bs-target="#valueGuide" aria-expanded="false"
+                style="border:1px solid #15803d;color:#15803d;">
+            <i class="fas fa-info-circle me-2"></i> Scoring Guide — US Value V1
+        </button>
+        <div class="collapse mt-3" id="valueGuide">
+            <div class="card card-body border-0 shadow-sm rounded-4 bg-light p-4">
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <h6 class="fw-bold mb-3" style="color:#15803d;"><i class="fas fa-tags me-2"></i> Valuation (40 pts)</h6>
+                        <ul class="list-unstyled small text-secondary mb-0">
+                            <li class="mb-1"><strong>P/E:</strong> &lt;10 (15) | 10–15 (12) | 15–20 (8) | 20–25 (4)</li>
+                            <li class="mb-1"><strong>P/B:</strong> &lt;1 (10) | 1–1.5 (7) | 1.5–2.5 (4)</li>
+                            <li class="mb-1"><strong>Div%:</strong> ≥4% (10) | 3% (7) | 2% (4) | 1% (2)</li>
+                            <li class="mb-0"><strong>PEG:</strong> &lt;1 (5) | 1–1.5 (3)</li>
+                        </ul>
+                    </div>
+                    <div class="col-md-4">
+                        <h6 class="fw-bold mb-3" style="color:#1d4ed8;"><i class="fas fa-medal me-2"></i> Quality (35 pts)</h6>
+                        <ul class="list-unstyled small text-secondary mb-0">
+                            <li class="mb-1"><strong>ROE:</strong> &gt;25% (15) | &gt;20% (12) | &gt;15% (8) | &gt;10% (5)</li>
+                            <li class="mb-1"><strong>Profit Margin:</strong> &gt;25% (10) | &gt;15% (7) | &gt;10% (5) | &gt;5% (3)</li>
+                            <li class="mb-0"><strong>Debt/Equity:</strong> &lt;0.3 (10) | &lt;0.5 (7) | &lt;1.0 (4) | &lt;1.5 (2)</li>
+                        </ul>
+                    </div>
+                    <div class="col-md-4">
+                        <h6 class="fw-bold mb-3" style="color:#7c3aed;"><i class="fas fa-chart-line me-2"></i> Price Action (25 pts)</h6>
+                        <ul class="list-unstyled small text-secondary mb-0">
+                            <li class="mb-1"><strong>Trend:</strong> Price &gt; EMA200 (10 pts)</li>
+                            <li class="mb-1"><strong>RSI:</strong> 30–50 underowned (7) | 50–60 normal (4)</li>
+                            <li class="mb-1"><strong>Discount:</strong> &gt;20% below 52w High (5) | &gt;10% (3)</li>
+                            <li class="mb-0"><strong>FCF Yield:</strong> &gt;5% (3) | &gt;3% (1)</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ── Results Card ─────────────────────────────────────────── -->
+<div class="card border-0 shadow-sm rounded-4 overflow-hidden">
+    <div class="card-header border-0 bg-white pt-4 pb-3 px-4">
+        <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
+            <div>
+                <h5 class="fw-bold mb-1 text-dark">
+                    <i class="fas fa-gem me-2" style="color:#15803d;"></i>
+                    Value Candidates
+                    {% if candidates %}<span class="badge rounded-pill ms-2" style="background:#15803d;font-size:0.75rem;">{{ candidates|length }}</span>{% endif %}
+                </h5>
+                {% if scanned_at %}
+                <div class="text-muted" style="font-size:0.78rem;"><i class="far fa-clock me-1"></i> Last scan: {{ scanned_at }}</div>
+                {% endif %}
+            </div>
+            <!-- Run Selector + Filter Toggles -->
+            <div class="d-flex flex-wrap gap-2 align-items-center justify-content-end">
+                {% if all_runs %}
+                <div class="d-flex gap-1 me-2">
+                    {% for run in all_runs %}
+                    <a href="?sort={{ current_sort }}&run_idx={{ forloop.counter0 }}"
+                       class="btn btn-sm rounded-pill px-3 {% if forloop.counter0 == selected_run_idx %}text-white{% else %}text-muted{% endif %}"
+                       style="font-size:0.7rem;{% if forloop.counter0 == selected_run_idx %}background:#15803d;border:1px solid #15803d;{% else %}border:1px solid #dee2e6;background:white;{% endif %}">
+                        Run {{ forloop.counter }}
+                    </a>
+                    {% endfor %}
+                </div>
+                {% endif %}
+                {% if candidates %}
+                <div class="d-flex flex-wrap gap-2 align-items-center">
+                    <span class="text-muted small fw-600 me-1">Filter:</span>
+                    <button class="btn btn-sm rounded-pill px-3" id="flt-div" onclick="_toggleValueFilter('div')"
+                            style="border:1px solid #15803d;color:#15803d;font-size:0.72rem;">Div ≥ 2%</button>
+                    <button class="btn btn-sm rounded-pill px-3" id="flt-pe" onclick="_toggleValueFilter('pe')"
+                            style="border:1px solid #1d4ed8;color:#1d4ed8;font-size:0.72rem;">P/E &lt; 15</button>
+                    <button class="btn btn-sm rounded-pill px-3" id="flt-roe" onclick="_toggleValueFilter('roe')"
+                            style="border:1px solid #7c3aed;color:#7c3aed;font-size:0.72rem;">ROE &gt; 15%</button>
+                    <button class="btn btn-sm rounded-pill px-3" id="flt-trend" onclick="_toggleValueFilter('trend')"
+                            style="border:1px solid #0891b2;color:#0891b2;font-size:0.72rem;">Above EMA200</button>
+                    <span class="text-muted small ms-2" id="visibleCount-value"></span>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <div class="card-body p-0">
+        {% if not has_scanned %}
+        <!-- Empty State -->
+        <div class="text-center py-5 px-4">
+            <i class="fas fa-gem fa-4x mb-4" style="color:#d1fae5;"></i>
+            <h5 class="fw-bold text-dark mb-2">Ready to Find Value Stocks</h5>
+            <p class="text-muted mb-4">Scan ~200 US stocks for P/E, P/B, Dividend, ROE and quality metrics<br>across all sectors including Tech, Financials, Healthcare and more.</p>
+            <a href="?scan=true" onclick="showLoading()" class="btn px-5 py-2 rounded-pill fw-bold"
+               style="background:linear-gradient(135deg,#15803d,#166534);color:white;border:none;">
+                <i class="fas fa-search-dollar me-2"></i> Start Value Scan
+            </a>
+        </div>
+        {% elif not candidates %}
+        <div class="text-center py-5 px-4">
+            <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
+            <p class="text-muted">No value candidates found. Try scanning again.</p>
+        </div>
+        {% else %}
+        <!-- Results Table -->
+        <div class="table-responsive">
+            <table class="table table-sm table-hover align-middle mb-0" id="scanTableValue" style="font-size:0.72rem;">
+                <thead class="bg-light text-muted" style="font-size:0.65rem;">
+                    <tr>
+                        <th class="ps-3"><a href="?sort=symbol&run_idx={{ selected_run_idx }}" class="text-decoration-none text-muted">SYMBOL</a></th>
+                        <th><a href="?sort=score&run_idx={{ selected_run_idx }}" class="text-decoration-none {% if current_sort == 'score' %}fw-bold text-success{% else %}text-muted{% endif %}">SCORE</a></th>
+                        <th class="col-hide-md">SECTOR</th>
+                        <th><a href="?sort=price&run_idx={{ selected_run_idx }}" class="text-decoration-none text-muted">PRICE</a></th>
+                        <th><a href="?sort=pe&run_idx={{ selected_run_idx }}" class="text-decoration-none {% if current_sort == 'pe' %}fw-bold text-primary{% else %}text-muted{% endif %}">P/E</a></th>
+                        <th><a href="?sort=pb&run_idx={{ selected_run_idx }}" class="text-decoration-none {% if current_sort == 'pb' %}fw-bold text-primary{% else %}text-muted{% endif %}">P/B</a></th>
+                        <th><a href="?sort=div&run_idx={{ selected_run_idx }}" class="text-decoration-none {% if current_sort == 'div' %}fw-bold text-success{% else %}text-muted{% endif %}">DIV%</a></th>
+                        <th><a href="?sort=roe&run_idx={{ selected_run_idx }}" class="text-decoration-none {% if current_sort == 'roe' %}fw-bold text-primary{% else %}text-muted{% endif %}">ROE%</a></th>
+                        <th class="col-hide-md">DEBT/E</th>
+                        <th><a href="?sort=rsi&run_idx={{ selected_run_idx }}" class="text-decoration-none text-muted">RSI</a></th>
+                        <th class="col-hide-md">TREND</th>
+                        <th class="col-hide-lg">FCF%</th>
+                        <th class="text-end pe-3">ACTION</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in candidates %}
+                    <tr class="{% if item.total_score >= 75 %}row-value-premium{% elif item.total_score >= 55 %}row-value-good{% elif item.is_new_entry %}row-new-entry{% endif %}"
+                        data-div="{{ item.dividend_yield }}"
+                        data-pe="{{ item.pe_ratio|default:'99' }}"
+                        data-roe="{{ item.roe|default:'0' }}"
+                        data-trend="{{ item.above_ema200|yesno:'true,false' }}">
+
+                        <!-- SYMBOL -->
+                        <td class="ps-3">
+                            <div class="d-flex align-items-center gap-1">
+                                <div class="rounded-circle d-flex align-items-center justify-content-center fw-bold flex-shrink-0"
+                                     style="width:26px;height:26px;background:rgba(21,128,61,0.12);color:#15803d;font-size:0.6rem;">
+                                    {{ item.symbol|slice:":3" }}
+                                </div>
+                                <div>
+                                    <span class="fw-bold">{{ item.symbol }}</span>
+                                    {% if item.is_new_entry %}
+                                    <span class="badge px-1 py-0" style="background:#15803d;font-size:0.55rem;">NEW</span>
+                                    {% endif %}
+                                    {% if item.above_ema200 %}
+                                    <span class="badge px-1 py-0" style="background:rgba(8,145,178,0.15);color:#0e7490;border:1px solid rgba(8,145,178,0.4);font-size:0.55rem;" title="Price above EMA200 — uptrend">↑EMA</span>
+                                    {% endif %}
+                                    <div class="text-muted" style="font-size:0.65rem;line-height:1.2;">{{ item.name|truncatechars:18 }}</div>
+                                </div>
+                            </div>
+                        </td>
+
+                        <!-- TOTAL SCORE -->
+                        <td>
+                            <div class="d-flex align-items-center gap-1">
+                                <div class="progress d-none d-xl-block" style="height:4px;min-width:28px;">
+                                    <div class="progress-bar {% if item.total_score >= 75 %}bg-success{% elif item.total_score >= 55 %}bg-primary{% else %}bg-warning{% endif %}"
+                                         role="progressbar" style="width:{{ item.total_score }}%"></div>
+                                </div>
+                                <span class="fw-bold {% if item.total_score >= 75 %}text-success{% elif item.total_score >= 55 %}text-primary{% else %}text-warning{% endif %}">
+                                    {{ item.total_score }}
+                                </span>
+                            </div>
+                            <div class="d-flex gap-1 mt-1" style="font-size:0.58rem;">
+                                <span style="color:#15803d;" title="Valuation">V:{{ item.valuation_score }}</span>
+                                <span style="color:#1d4ed8;" title="Quality">Q:{{ item.quality_score }}</span>
+                                <span style="color:#7c3aed;" title="Price Action">P:{{ item.price_action_score }}</span>
+                            </div>
+                        </td>
+
+                        <!-- SECTOR -->
+                        <td class="col-hide-md">
+                            <span class="text-muted" style="font-size:0.68rem;">{{ item.sector|truncatechars:14 }}</span>
+                        </td>
+
+                        <!-- PRICE -->
+                        <td>
+                            <span class="fw-bold">${{ item.price|floatformat:2 }}</span>
+                            {% if item.live_price %}
+                            <div style="font-size:0.65rem;color:#6b7280;">Live: ${{ item.live_price|floatformat:2 }}</div>
+                            {% endif %}
+                        </td>
+
+                        <!-- P/E -->
+                        <td>
+                            {% if item.pe_ratio %}
+                            <span class="fw-bold {% if item.pe_ratio < 10 %}text-success{% elif item.pe_ratio < 15 %}text-primary{% elif item.pe_ratio < 25 %}text-dark{% else %}text-warning{% endif %}">
+                                {{ item.pe_ratio|floatformat:1 }}
+                            </span>
+                            {% if item.forward_pe %}
+                            <div style="font-size:0.62rem;color:#6b7280;">Fwd: {{ item.forward_pe|floatformat:1 }}</div>
+                            {% endif %}
+                            {% else %}<span class="text-muted">-</span>{% endif %}
+                        </td>
+
+                        <!-- P/B -->
+                        <td>
+                            {% if item.pb_ratio %}
+                            <span class="fw-bold {% if item.pb_ratio < 1 %}text-success{% elif item.pb_ratio < 1.5 %}text-primary{% else %}text-dark{% endif %}">
+                                {{ item.pb_ratio|floatformat:2 }}
+                            </span>
+                            {% else %}<span class="text-muted">-</span>{% endif %}
+                        </td>
+
+                        <!-- DIVIDEND YIELD -->
+                        <td>
+                            {% if item.dividend_yield > 0 %}
+                            <span class="fw-bold {% if item.dividend_yield >= 4 %}text-success{% elif item.dividend_yield >= 2 %}text-primary{% else %}text-muted{% endif %}">
+                                {{ item.dividend_yield|floatformat:1 }}%
+                            </span>
+                            {% else %}<span class="text-muted">-</span>{% endif %}
+                        </td>
+
+                        <!-- ROE -->
+                        <td>
+                            {% if item.roe %}
+                            <span class="fw-bold {% if item.roe > 25 %}text-success{% elif item.roe > 15 %}text-primary{% else %}text-muted{% endif %}">
+                                {{ item.roe|floatformat:1 }}%
+                            </span>
+                            {% if item.profit_margin %}
+                            <div style="font-size:0.62rem;color:#6b7280;">Mgn: {{ item.profit_margin|floatformat:1 }}%</div>
+                            {% endif %}
+                            {% else %}<span class="text-muted">-</span>{% endif %}
+                        </td>
+
+                        <!-- DEBT/EQUITY -->
+                        <td class="col-hide-md">
+                            {% if item.debt_equity is not None %}
+                            <span class="fw-bold {% if item.debt_equity < 0.3 %}text-success{% elif item.debt_equity < 1.0 %}text-dark{% else %}text-danger{% endif %}">
+                                {{ item.debt_equity|floatformat:2 }}
+                            </span>
+                            {% else %}<span class="text-muted">-</span>{% endif %}
+                        </td>
+
+                        <!-- RSI -->
+                        <td>
+                            <span class="fw-bold {% if item.rsi < 30 %}text-danger{% elif item.rsi <= 50 %}text-success{% elif item.rsi > 70 %}text-danger{% else %}text-secondary{% endif %}">
+                                {{ item.rsi|floatformat:0 }}
+                            </span>
+                        </td>
+
+                        <!-- TREND (EMA200 + Discount) -->
+                        <td class="col-hide-md" style="font-size:0.68rem;">
+                            <div class="d-flex flex-column gap-1">
+                                {% if item.above_ema200 %}
+                                <span class="badge px-1 py-0" style="background:rgba(8,145,178,0.12);color:#0e7490;border:1px solid rgba(8,145,178,0.3);font-size:0.58rem;">↑ EMA200</span>
+                                {% else %}
+                                <span class="badge px-1 py-0" style="background:rgba(156,163,175,0.15);color:#6b7280;font-size:0.58rem;">↓ EMA200</span>
+                                {% endif %}
+                                {% if item.pct_from_high > 20 %}
+                                <span class="badge px-1 py-0" style="background:rgba(22,163,74,0.12);color:#15803d;border:1px solid rgba(22,163,74,0.3);font-size:0.58rem;" title="{{ item.pct_from_high|floatformat:1 }}% below 52w High">
+                                    -{{ item.pct_from_high|floatformat:0 }}% Hi
+                                </span>
+                                {% elif item.pct_from_high > 10 %}
+                                <span class="badge px-1 py-0" style="background:rgba(245,158,11,0.12);color:#b45309;font-size:0.58rem;">
+                                    -{{ item.pct_from_high|floatformat:0 }}% Hi
+                                </span>
+                                {% endif %}
+                            </div>
+                        </td>
+
+                        <!-- FCF YIELD -->
+                        <td class="col-hide-lg">
+                            {% if item.fcf_yield %}
+                            <span class="{% if item.fcf_yield > 5 %}text-success fw-bold{% elif item.fcf_yield > 0 %}text-secondary{% else %}text-danger{% endif %}">
+                                {{ item.fcf_yield|floatformat:1 }}%
+                            </span>
+                            {% else %}<span class="text-muted">-</span>{% endif %}
+                        </td>
+
+                        <!-- ACTION -->
+                        <td class="text-end pe-3">
+                            <div class="d-flex gap-1 justify-content-end">
+                                <button class="btn btn-light btn-sm rounded-pill px-2 border" style="font-size:0.62rem;"
+                                        onclick="toggleValueDetail('{{ item.symbol }}')">
+                                    <i class="fas fa-chevron-down" id="icon-{{ item.symbol }}"></i>
+                                </button>
+                                <a href="{% url 'stocks:analyze' item.symbol %}" class="btn btn-sm rounded-pill px-2" style="background:linear-gradient(135deg,#15803d,#166534);color:white;border:none;font-size:0.62rem;">
+                                    <i class="fas fa-chart-bar"></i>
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+
+                    <!-- ── EXPANDABLE DETAIL ROW ── -->
+                    <tr id="detail-{{ item.symbol }}" style="display:none;background:#f8fafc;">
+                        <td colspan="13" class="py-3 px-4">
+                            <div class="row g-3">
+                                <!-- Valuation Block -->
+                                <div class="col-md-4">
+                                    <div class="rounded-3 p-3" style="background:#f0fdf4;border:1px solid #86efac;">
+                                        <div class="fw-bold small mb-2" style="color:#15803d;"><i class="fas fa-tags me-1"></i> Valuation <span class="ms-1 badge" style="background:#15803d;font-size:0.6rem;">{{ item.valuation_score }} pts</span></div>
+                                        <div class="row g-1" style="font-size:0.75rem;">
+                                            <div class="col-6"><span class="text-muted">P/E:</span> <strong>{% if item.pe_ratio %}{{ item.pe_ratio|floatformat:1 }}{% else %}-{% endif %}</strong></div>
+                                            <div class="col-6"><span class="text-muted">Fwd P/E:</span> <strong>{% if item.forward_pe %}{{ item.forward_pe|floatformat:1 }}{% else %}-{% endif %}</strong></div>
+                                            <div class="col-6"><span class="text-muted">P/B:</span> <strong>{% if item.pb_ratio %}{{ item.pb_ratio|floatformat:2 }}{% else %}-{% endif %}</strong></div>
+                                            <div class="col-6"><span class="text-muted">P/S:</span> <strong>{% if item.ps_ratio %}{{ item.ps_ratio|floatformat:2 }}{% else %}-{% endif %}</strong></div>
+                                            <div class="col-6"><span class="text-muted">PEG:</span> <strong>{% if item.peg_ratio %}{{ item.peg_ratio|floatformat:2 }}{% else %}-{% endif %}</strong></div>
+                                            <div class="col-6"><span class="text-muted">Div Yield:</span> <strong class="text-success">{% if item.dividend_yield > 0 %}{{ item.dividend_yield|floatformat:2 }}%{% else %}-{% endif %}</strong></div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <!-- Quality Block -->
+                                <div class="col-md-4">
+                                    <div class="rounded-3 p-3" style="background:#eff6ff;border:1px solid #bfdbfe;">
+                                        <div class="fw-bold small mb-2" style="color:#1d4ed8;"><i class="fas fa-medal me-1"></i> Quality <span class="ms-1 badge" style="background:#1d4ed8;font-size:0.6rem;">{{ item.quality_score }} pts</span></div>
+                                        <div class="row g-1" style="font-size:0.75rem;">
+                                            <div class="col-6"><span class="text-muted">ROE:</span> <strong {% if item.roe and item.roe > 15 %}class="text-success"{% endif %}>{% if item.roe %}{{ item.roe|floatformat:1 }}%{% else %}-{% endif %}</strong></div>
+                                            <div class="col-6"><span class="text-muted">Net Margin:</span> <strong>{% if item.profit_margin %}{{ item.profit_margin|floatformat:1 }}%{% else %}-{% endif %}</strong></div>
+                                            <div class="col-6"><span class="text-muted">Debt/Equity:</span> <strong {% if item.debt_equity is not None and item.debt_equity < 0.5 %}class="text-success"{% endif %}>{% if item.debt_equity is not None %}{{ item.debt_equity|floatformat:2 }}{% else %}-{% endif %}</strong></div>
+                                            <div class="col-6"><span class="text-muted">Current Ratio:</span> <strong>{% if item.current_ratio %}{{ item.current_ratio|floatformat:2 }}{% else %}-{% endif %}</strong></div>
+                                            <div class="col-6"><span class="text-muted">Rev Growth:</span> <strong {% if item.revenue_growth > 0 %}class="text-success"{% elif item.revenue_growth < 0 %}class="text-danger"{% endif %}>{{ item.revenue_growth|floatformat:1 }}%</strong></div>
+                                            <div class="col-6"><span class="text-muted">FCF Yield:</span> <strong {% if item.fcf_yield > 5 %}class="text-success"{% endif %}>{% if item.fcf_yield %}{{ item.fcf_yield|floatformat:1 }}%{% else %}-{% endif %}</strong></div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <!-- Price Action Block -->
+                                <div class="col-md-4">
+                                    <div class="rounded-3 p-3" style="background:#faf5ff;border:1px solid #d8b4fe;">
+                                        <div class="fw-bold small mb-2" style="color:#7c3aed;"><i class="fas fa-chart-line me-1"></i> Price Action <span class="ms-1 badge" style="background:#7c3aed;font-size:0.6rem;">{{ item.price_action_score }} pts</span></div>
+                                        <div class="row g-1" style="font-size:0.75rem;">
+                                            <div class="col-6"><span class="text-muted">Price:</span> <strong>${{ item.price|floatformat:2 }}</strong></div>
+                                            <div class="col-6"><span class="text-muted">RSI (14):</span> <strong>{{ item.rsi|floatformat:1 }}</strong></div>
+                                            <div class="col-6"><span class="text-muted">52w High:</span> <strong>${{ item.year_high|floatformat:2 }}</strong></div>
+                                            <div class="col-6"><span class="text-muted">52w Low:</span> <strong>${{ item.year_low|floatformat:2 }}</strong></div>
+                                            <div class="col-6"><span class="text-muted">From High:</span> <strong class="{% if item.pct_from_high > 20 %}text-success{% else %}text-muted{% endif %}">-{{ item.pct_from_high|floatformat:1 }}%</strong></div>
+                                            <div class="col-6"><span class="text-muted">EMA200:</span>
+                                                {% if item.above_ema200 %}<strong class="text-success">Above ↑</strong>{% else %}<strong class="text-danger">Below ↓</strong>{% endif %}
+                                            </div>
+                                            <div class="col-6"><span class="text-muted">Mkt Cap:</span> <strong>${{ item.market_cap|floatformat:1 }}B</strong></div>
+                                            <div class="col-6"><span class="text-muted">Sector:</span> <strong>{{ item.sector|truncatechars:12 }}</strong></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+
+                    {% empty %}
+                    <tr><td colspan="13" class="text-center py-5 text-muted">No value candidates found.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+</div><!-- end container -->
+{% endblock %}
+
+<style>
+    .col-hide-md { display: table-cell; }
+    .col-hide-lg { display: table-cell; }
+    @media (max-width: 767px) {
+        .col-hide-md { display: none !important; }
+        .col-hide-lg { display: none !important; }
+    }
+    @media (min-width: 768px) and (max-width: 991px) {
+        .col-hide-lg { display: none !important; }
+    }
+    tr.row-value-premium { background: rgba(21,128,61,0.07) !important; border-left: 4px solid #15803d; }
+    tr.row-value-good    { background: rgba(29,78,216,0.04) !important; border-left: 4px solid #3b82f6; }
+    tr.row-new-entry     { background: rgba(124,58,237,0.03) !important; }
+    tr.row-value-premium:hover { background: rgba(21,128,61,0.13) !important; }
+    tr.row-value-good:hover    { background: rgba(29,78,216,0.10) !important; }
+    .extra-extra-small { font-size: 0.72rem; line-height: 1.3; }
+    .fw-600 { font-weight: 600; }
+</style>
+
+{% block scripts %}
+<script>
+// ── Expand/collapse detail row ────────────────────────────
+function toggleValueDetail(sym) {
+    const row  = document.getElementById('detail-' + sym);
+    const icon = document.getElementById('icon-' + sym);
+    if (!row) return;
+    const open = row.style.display === 'table-row';
+    row.style.display = open ? 'none' : 'table-row';
+    if (icon) icon.className = open ? 'fas fa-chevron-down' : 'fas fa-chevron-up';
+}
+
+// ── Filter toggles ────────────────────────────────────────
+const _valFilters = { div: false, pe: false, roe: false, trend: false };
+
+function _toggleValueFilter(key) {
+    _valFilters[key] = !_valFilters[key];
+    const btn = document.getElementById('flt-' + key);
+    if (btn) {
+        btn.style.fontWeight = _valFilters[key] ? '700' : '';
+        btn.style.background = _valFilters[key] ? (
+            key === 'div'   ? 'rgba(21,128,61,0.15)'  :
+            key === 'pe'    ? 'rgba(29,78,216,0.12)'   :
+            key === 'roe'   ? 'rgba(124,58,237,0.12)'  :
+            'rgba(8,145,178,0.12)'
+        ) : '';
+    }
+    _applyValueFilters();
+}
+
+function _applyValueFilters() {
+    const table = document.getElementById('scanTableValue');
+    if (!table) return;
+    const rows = table.querySelectorAll('tbody tr[data-div]');
+    let visible = 0;
+    rows.forEach(function(tr) {
+        const div   = parseFloat(tr.dataset.div   || 0);
+        const pe    = parseFloat(tr.dataset.pe    || 99);
+        const roe   = parseFloat(tr.dataset.roe   || 0);
+        const trend = tr.dataset.trend === 'true';
+
+        const pass =
+            (!_valFilters.div   || div >= 2) &&
+            (!_valFilters.pe    || (pe > 0 && pe < 15)) &&
+            (!_valFilters.roe   || roe > 15) &&
+            (!_valFilters.trend || trend);
+
+        tr.style.display = pass ? '' : 'none';
+        if (pass) visible++;
+
+        // Also hide associated detail row
+        const sym = tr.querySelector('[id^="icon-"]');
+        if (sym) {
+            const detailId = 'detail-' + sym.id.replace('icon-', '');
+            const detailRow = document.getElementById(detailId);
+            if (detailRow && !pass) detailRow.style.display = 'none';
+        }
+    });
+    const counter = document.getElementById('visibleCount-value');
+    if (counter) counter.textContent = visible + ' results';
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    _applyValueFilters();
+});
+</script>
+{% endblock %}

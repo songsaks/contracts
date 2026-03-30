@@ -12,7 +12,7 @@ from google import genai
 from .models import (
     Watchlist, AnalysisCache, AssetCategory, Portfolio,
     MomentumCandidate, ScannableSymbol, MultiFactorCandidate, SoldStock,
-    TitheRecord,
+    TitheRecord, ValueScanCandidate,
 )
 from .utils import (
     get_stock_data, analyze_with_ai, calculate_trailing_stop,
@@ -4469,3 +4469,376 @@ def us_precision_scan_ai_analysis(request):
         if "API_KEY_INVALID" in err:
             return JsonResponse({"error": "GEMINI_API_KEY is invalid"}, status=500)
         return JsonResponse({"error": "Gemini error: {}".format(err)}, status=500)
+
+
+# ============================================================
+# US VALUE SCANNER
+# ============================================================
+
+def _seed_value_symbols():
+    """~200 US value-oriented stocks across all sectors."""
+    return [
+        # Financials
+        'JPM','BAC','WFC','C','GS','MS','BRK-B','BLK','AXP','USB',
+        'TFC','MET','PRU','AFL','CB','ALL','SCHW','COF','DFS','SYF',
+        'PNC','HBAN','MTB','CFG','ZION',
+        # Healthcare
+        'JNJ','PFE','MRK','BMY','ABBV','AMGN','GILD','CVS','UNH',
+        'MDT','ABT','SYK','BSX','BIIB','CI','HUM','ELV',
+        # Energy
+        'XOM','CVX','COP','EOG','SLB','HAL','WMB','KMI','DVN',
+        'FANG','MRO','OXY','PSX','VLO','MPC',
+        # Consumer Staples
+        'KO','PEP','WMT','PG','CL','PM','MO','KMB','GIS','K',
+        'CPB','SJM','MKC','HSY','CAG','ADM','BG',
+        # Utilities
+        'NEE','DUK','SO','D','SRE','AEP','EXC','ED','XEL',
+        'WEC','ES','ETR','NI','CMS','AES',
+        # Industrials
+        'GE','HON','MMM','EMR','ETN','ROK','ITW','PH','GD',
+        'LMT','RTX','NOC','UPS','FDX','CSX','NSC','UNP','CAT','DE',
+        'CMI','PCAR','IR','AME','ROP',
+        # Materials
+        'LIN','APD','NEM','FCX','NUE','X','AA','MOS','CF','ALB',
+        # Real Estate
+        'AMT','PLD','O','VICI','CCI','DLR','EXR','WPC','SPG','PSA',
+        # Tech (value-priced)
+        'CSCO','IBM','INTC','HPQ','HPE','ORCL','QCOM','TXN',
+        'AVGO','AMAT','KLAC','GOOGL','META','MSFT','CTSH','CDW',
+        # Consumer Discretionary
+        'TGT','KR','GM','F','LEN','PHM','DHI','NVR','TOL',
+    ]
+
+
+def _score_value_candidate(info, df):
+    """
+    Score a stock on value criteria. Returns (val_score, qual_score, price_score, total).
+    """
+    import pandas_ta as ta
+
+    val_score = 0
+    qual_score = 0
+    price_score = 0
+
+    # ── Extract fundamentals ──────────────────────────────
+    pe  = info.get('trailingPE') or info.get('forwardPE')
+    fpe = info.get('forwardPE')
+    pb  = info.get('priceToBook')
+    peg = info.get('pegRatio')
+    ps  = info.get('priceToSalesTrailing12Months')
+    div = (info.get('dividendYield') or 0) * 100          # fraction → %
+    roe = (info.get('returnOnEquity') or 0) * 100          # fraction → %
+    margin = (info.get('profitMargins') or 0) * 100        # fraction → %
+    de_raw = info.get('debtToEquity')
+    de  = (de_raw / 100) if de_raw is not None else None   # yf sends %, convert to ratio
+    cr  = info.get('currentRatio')
+    rev_g = (info.get('revenueGrowth') or 0) * 100
+    mkt_cap = (info.get('marketCap') or 0) / 1e9           # → USD billions
+    fcf_raw = info.get('freeCashflow') or 0
+    fcf_yield = (fcf_raw / (info.get('marketCap') or 1)) * 100 if fcf_raw and mkt_cap > 0 else 0
+
+    # ── Valuation Score (max 40) ──────────────────────────
+    if pe and pe > 0:
+        if pe < 10:    val_score += 15
+        elif pe < 15:  val_score += 12
+        elif pe < 20:  val_score += 8
+        elif pe < 25:  val_score += 4
+
+    if pb and pb > 0:
+        if pb < 1:     val_score += 10
+        elif pb < 1.5: val_score += 7
+        elif pb < 2.5: val_score += 4
+
+    if div > 0:
+        if div >= 4:   val_score += 10
+        elif div >= 3: val_score += 7
+        elif div >= 2: val_score += 4
+        elif div >= 1: val_score += 2
+
+    if peg and peg > 0:
+        if peg < 1:    val_score += 5
+        elif peg < 1.5: val_score += 3
+
+    # ── Quality Score (max 35) ────────────────────────────
+    if roe > 0:
+        if roe > 25:   qual_score += 15
+        elif roe > 20: qual_score += 12
+        elif roe > 15: qual_score += 8
+        elif roe > 10: qual_score += 5
+
+    if margin > 0:
+        if margin > 25:  qual_score += 10
+        elif margin > 15: qual_score += 7
+        elif margin > 10: qual_score += 5
+        elif margin > 5:  qual_score += 3
+
+    if de is not None:
+        if de < 0.3:   qual_score += 10
+        elif de < 0.5: qual_score += 7
+        elif de < 1.0: qual_score += 4
+        elif de < 1.5: qual_score += 2
+
+    # ── Price Action Score (max 25) ───────────────────────
+    if df is not None and len(df) >= 50:
+        try:
+            close = df['Close']
+            ema200 = ta.ema(close, length=200)
+            rsi14  = ta.rsi(close, length=14)
+            last_close = float(close.iloc[-1])
+            y_high = float(df['High'].max())
+            y_low  = float(df['Low'].min())
+            pct_from_high = ((y_high - last_close) / y_high * 100) if y_high > 0 else 0
+
+            # EMA200 trend
+            if ema200 is not None and not ema200.dropna().empty:
+                ema200_val = float(ema200.dropna().iloc[-1])
+                if last_close > ema200_val:
+                    price_score += 10
+
+            # RSI — underowned zone
+            if rsi14 is not None and not rsi14.dropna().empty:
+                rsi_val = float(rsi14.dropna().iloc[-1])
+                if 30 <= rsi_val <= 50:  price_score += 7
+                elif 50 < rsi_val <= 60: price_score += 4
+
+            # Distance from 52w high
+            if pct_from_high > 20:   price_score += 5
+            elif pct_from_high > 10: price_score += 3
+
+        except Exception:
+            pass
+
+    # FCF yield bonus
+    if fcf_yield > 5:   price_score += 3
+    elif fcf_yield > 3: price_score += 1
+
+    total = min(val_score + qual_score + price_score, 100)
+    return val_score, qual_score, price_score, total
+
+
+@login_required
+def us_value_scanner(request):
+    """
+    US Value Stock Scanner — fundamental quality + cheap valuation.
+    P/E < 25 across all sectors (Financials, Energy, Healthcare, Tech, etc.)
+    """
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+    from datetime import datetime as _dt, timezone as _tz
+    import pandas_ta as ta
+
+    run_scan = request.GET.get('scan') == 'true'
+    current_sort = request.GET.get('sort', 'score')
+
+    sort_map = {
+        'score': '-total_score', 'val': '-valuation_score',
+        'qual': '-quality_score', 'pe': 'pe_ratio',
+        'pb': 'pb_ratio',        'div': '-dividend_yield',
+        'roe': '-roe',           'symbol': 'symbol',
+        'price': '-price',       'rsi': 'rsi',
+    }
+
+    # ── Load from DB (display mode) ───────────────────────
+    if not run_scan:
+        all_runs = list(
+            ValueScanCandidate.objects
+            .filter(user=request.user)
+            .values_list('scan_run', flat=True)
+            .order_by('-scan_run').distinct()
+        )
+        has_scanned = bool(all_runs)
+        candidates = []
+        scanned_at = None
+
+        try:
+            run_idx = int(request.GET.get('run_idx', 0))
+        except (ValueError, TypeError):
+            run_idx = 0
+        run_idx = max(0, min(run_idx, len(all_runs) - 1)) if all_runs else 0
+
+        if has_scanned:
+            selected_run = all_runs[run_idx]
+            scanned_at   = selected_run
+            qs = (ValueScanCandidate.objects
+                  .filter(user=request.user, scan_run=selected_run)
+                  .order_by(sort_map.get(current_sort, '-total_score')))
+            candidates = list(qs)
+
+            # Live prices (fast_info)
+            live_prices = {}
+            try:
+                import concurrent.futures as _lcf
+                def _get_live_val(sym):
+                    try:
+                        fi = yf.Ticker(sym).fast_info
+                        p = getattr(fi, 'last_price', None)
+                        return sym, round(float(p), 2) if p else None
+                    except Exception:
+                        return sym, None
+                with _lcf.ThreadPoolExecutor(max_workers=12) as ex:
+                    for sym, p in ex.map(_get_live_val, [c.symbol for c in candidates]):
+                        if p:
+                            live_prices[sym] = p
+            except Exception:
+                pass
+            for c in candidates:
+                c.live_price = live_prices.get(c.symbol)
+
+        return render(request, 'stocks/us_value_scan.html', {
+            'candidates':       candidates,
+            'has_scanned':      has_scanned,
+            'scanned_at':       scanned_at,
+            'all_runs':         all_runs,
+            'selected_run_idx': run_idx,
+            'current_sort':     current_sort,
+        })
+
+    # ── RUN SCAN ──────────────────────────────────────────
+    symbols = _seed_value_symbols()
+    scan_time = _dt.now(_tz.utc)
+    results = []
+
+    def _process_value_symbol(sym):
+        try:
+            ticker = yf.Ticker(sym)
+            info   = ticker.info or {}
+
+            price = info.get('regularMarketPrice') or info.get('currentPrice') or 0
+            if not price:
+                fi = getattr(ticker, 'fast_info', None)
+                price = getattr(fi, 'last_price', 0) or 0
+            if not price or price <= 0:
+                return None
+
+            # P/E filter — skip pure growth stocks (P/E > 30)
+            pe = info.get('trailingPE') or info.get('forwardPE')
+            if pe and pe > 30:
+                return None
+
+            # Market cap filter — at least $2B (mid/large cap)
+            mkt_cap = (info.get('marketCap') or 0) / 1e9
+            if mkt_cap < 2:
+                return None
+
+            # Download 1-year price history for technical indicators
+            df = yf.download(sym, period='1y', progress=False, auto_adjust=True)
+            if df is None or len(df) < 50:
+                return None
+            if isinstance(df.columns, pd.MultiIndex):
+                df.columns = df.columns.droplevel(1)
+
+            val_score, qual_score, price_score, total = _score_value_candidate(info, df)
+
+            # Minimum quality threshold
+            if total < 20:
+                return None
+
+            # Compute additional price stats
+            close = df['Close']
+            rsi14  = ta.rsi(close, length=14)
+            rsi_val = float(rsi14.dropna().iloc[-1]) if rsi14 is not None and not rsi14.dropna().empty else 50
+            y_high = float(df['High'].max())
+            y_low  = float(df['Low'].min())
+            pct_from_high = ((y_high - float(close.iloc[-1])) / y_high * 100) if y_high > 0 else 0
+
+            ema200 = ta.ema(close, length=200)
+            above_ema200 = False
+            if ema200 is not None and not ema200.dropna().empty:
+                above_ema200 = float(close.iloc[-1]) > float(ema200.dropna().iloc[-1])
+
+            div = (info.get('dividendYield') or 0) * 100
+            roe = (info.get('returnOnEquity') or 0) * 100
+            margin = (info.get('profitMargins') or 0) * 100
+            de_raw = info.get('debtToEquity')
+            de  = (de_raw / 100) if de_raw is not None else None
+            fcf_raw = info.get('freeCashflow') or 0
+            fcf_yield = (fcf_raw / (info.get('marketCap') or 1)) * 100 if fcf_raw and mkt_cap > 0 else 0
+
+            return {
+                'symbol':       sym,
+                'name':         info.get('longName') or info.get('shortName') or sym,
+                'sector':       info.get('sector') or 'Unknown',
+                'price':        round(float(price), 2),
+                'market_cap':   round(mkt_cap, 2),
+                'pe_ratio':     round(float(pe), 2) if pe and pe > 0 else None,
+                'forward_pe':   round(float(info.get('forwardPE') or 0), 2) or None,
+                'pb_ratio':     round(float(info.get('priceToBook') or 0), 2) or None,
+                'peg_ratio':    round(float(info.get('pegRatio') or 0), 2) or None,
+                'ps_ratio':     round(float(info.get('priceToSalesTrailing12Months') or 0), 2) or None,
+                'dividend_yield': round(div, 2),
+                'roe':          round(roe, 1) if roe else None,
+                'profit_margin': round(margin, 1) if margin else None,
+                'debt_equity':  round(de, 2) if de is not None else None,
+                'current_ratio': round(float(info.get('currentRatio') or 0), 2) or None,
+                'revenue_growth': round((info.get('revenueGrowth') or 0) * 100, 1),
+                'fcf_yield':    round(fcf_yield, 1),
+                'rsi':          round(rsi_val, 1),
+                'year_high':    round(y_high, 2),
+                'year_low':     round(y_low, 2),
+                'pct_from_high': round(pct_from_high, 1),
+                'above_ema200': above_ema200,
+                'valuation_score':    val_score,
+                'quality_score':      qual_score,
+                'price_action_score': price_score,
+                'total_score':        total,
+            }
+        except Exception:
+            return None
+
+    with ThreadPoolExecutor(max_workers=6) as pool:
+        futures = {pool.submit(_process_value_symbol, sym): sym for sym in symbols}
+        for future in as_completed(futures):
+            r = future.result()
+            if r:
+                results.append(r)
+
+    results.sort(key=lambda x: -x['total_score'])
+
+    # Fetch previous symbols for new-entry flag
+    prev_run_q = (ValueScanCandidate.objects
+                  .filter(user=request.user)
+                  .order_by('-scan_run')
+                  .values_list('scan_run', flat=True)
+                  .distinct()[:1])
+    prev_symbols = set()
+    if prev_run_q:
+        prev_symbols = set(
+            ValueScanCandidate.objects.filter(user=request.user, scan_run=prev_run_q[0])
+            .values_list('symbol', flat=True)
+        )
+
+    # Save new results FIRST
+    to_create = []
+    for r in results:
+        to_create.append(ValueScanCandidate(
+            user=request.user, scan_run=scan_time,
+            symbol=r['symbol'], name=r['name'], sector=r['sector'],
+            price=r['price'], market_cap=r['market_cap'],
+            pe_ratio=r['pe_ratio'], forward_pe=r['forward_pe'],
+            pb_ratio=r['pb_ratio'], peg_ratio=r['peg_ratio'],
+            ps_ratio=r['ps_ratio'], dividend_yield=r['dividend_yield'],
+            roe=r['roe'], profit_margin=r['profit_margin'],
+            debt_equity=r['debt_equity'], current_ratio=r['current_ratio'],
+            revenue_growth=r['revenue_growth'], fcf_yield=r['fcf_yield'],
+            rsi=r['rsi'], year_high=r['year_high'], year_low=r['year_low'],
+            pct_from_high=r['pct_from_high'], above_ema200=r['above_ema200'],
+            valuation_score=r['valuation_score'],
+            quality_score=r['quality_score'],
+            price_action_score=r['price_action_score'],
+            total_score=r['total_score'],
+            is_new_entry=(r['symbol'] not in prev_symbols),
+        ))
+    ValueScanCandidate.objects.bulk_create(to_create)
+
+    # THEN delete old runs (keep last 3)
+    distinct_runs = list(
+        ValueScanCandidate.objects
+        .filter(user=request.user)
+        .values_list('scan_run', flat=True)
+        .order_by('-scan_run').distinct()
+    )
+    if len(distinct_runs) > 3:
+        ValueScanCandidate.objects.filter(
+            user=request.user, scan_run__in=distinct_runs[3:]
+        ).delete()
+
+    return redirect(f'/stocks/value/us-value/?sort={current_sort}&run_idx=0')
