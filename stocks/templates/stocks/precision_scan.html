@@ -741,10 +741,26 @@
                 </span>
                 {% endif %}
             </div>
+            <!-- RS Filter + Quick Filters -->
+            <div class="px-3 pb-2 d-flex flex-wrap gap-2 align-items-center">
+                <div class="form-check form-switch mb-0 d-flex align-items-center gap-2">
+                    <input class="form-check-input" type="checkbox" id="rsFilter70SET" onchange="filterByRS('SET', this.checked)" style="cursor:pointer;">
+                    <label class="form-check-label small fw-semibold" for="rsFilter70SET" style="cursor:pointer;color:#0891b2;">RS ≥ 70</label>
+                </div>
+                <div class="form-check form-switch mb-0 d-flex align-items-center gap-2">
+                    <input class="form-check-input" type="checkbox" id="stage2FilterSET" onchange="filterByStage2('SET', this.checked)" style="cursor:pointer;">
+                    <label class="form-check-label small fw-semibold" for="stage2FilterSET" style="cursor:pointer;color:#16a34a;">Stage 2 Only</label>
+                </div>
+                <div class="form-check form-switch mb-0 d-flex align-items-center gap-2">
+                    <input class="form-check-input" type="checkbox" id="ppFilterSET" onchange="filterByPP('SET', this.checked)" style="cursor:pointer;">
+                    <label class="form-check-label small fw-semibold" for="ppFilterSET" style="cursor:pointer;color:#0e7490;">PP only</label>
+                </div>
+                <span class="text-muted small ms-auto" id="visibleCount-SET"></span>
+            </div>
         </div>
         <div class="card-body p-0">
             <div class="table-responsive">
-                <table class="table table-sm table-hover align-middle mb-0" style="font-size:0.72rem;">
+                <table class="table table-sm table-hover align-middle mb-0" id="scanTableSET" style="font-size:0.72rem;">
                     <thead class="bg-light text-muted" style="font-size:0.65rem;">
                         <tr>
                             <th class="ps-2"><a href="?sort=symbol&run_idx={{ selected_run_idx }}" class="text-decoration-none text-muted">SYMBOL</a></th>
@@ -770,7 +786,7 @@
                     </thead>
                     <tbody>
                         {% for item in candidates %}
-                        <tr class="{% if item.demand_zone_start and item.price <= item.demand_zone_start and item.price >= item.demand_zone_end %}row-entry-zone{% elif item.supply_zone_start and item.price >= item.supply_zone_start %}row-take-profit{% elif item.is_new_entry %}row-new-entry{% endif %}">
+                        <tr class="{% if item.demand_zone_start and item.price <= item.demand_zone_start and item.price >= item.demand_zone_end %}row-entry-zone{% elif item.supply_zone_start and item.price >= item.supply_zone_start %}row-take-profit{% elif item.is_new_entry %}row-new-entry{% endif %}" data-rs="{{ item.rs_rating }}" data-stage2="{{ item.stage2|yesno:'true,false' }}" data-pp="{{ item.pocket_pivot|yesno:'true,false' }}">
                             <!-- SYMBOL -->
                             <td class="ps-2">
                                 <div class="d-flex align-items-center gap-1">
@@ -790,7 +806,16 @@
                                     <div>
                                         <span class="fw-bold">{{ item.symbol }}</span>
                                         {% if item.is_new_entry %}
-                                        <span class="badge px-1 py-0" style="background:#7c3aed;font-size:0.55rem;">N</span>
+                                        <span class="badge px-1 py-0" style="background:#7c3aed;font-size:0.55rem;">NEW</span>
+                                        {% endif %}
+                                        {% if item.stage2 %}
+                                        <span class="badge px-1 py-0" style="background:#16a34a;font-size:0.55rem;" title="Weinstein Stage 2 — อยู่เหนือ SMA150 ที่กำลังชี้ขึ้น">S2</span>
+                                        {% endif %}
+                                        {% if item.pocket_pivot %}
+                                        <span class="badge px-1 py-0" style="background:#0891b2;font-size:0.55rem;" title="Pocket Pivot: volume วันขาขึ้น > max volume วันขาลง 10 วันก่อน">PP</span>
+                                        {% endif %}
+                                        {% if item.vdu_near_zone %}
+                                        <span class="badge px-1 py-0" style="background:#7c3aed;color:white;font-size:0.55rem;" title="Volume Dry-Up: volume ลด 3 วันติด + เงียบกว่า avg — สัญญาณ Accumulation">VDU</span>
                                         {% endif %}
                                     </div>
                                 </div>
@@ -882,8 +907,8 @@
                             <!-- RR -->
                             <td>
                                 {% if item.risk_reward_ratio %}
-                                <span class="fw-bold {% if item.risk_reward_ratio >= 3 %}text-success{% elif item.risk_reward_ratio >= 2 %}text-primary{% else %}text-muted{% endif %}">
-                                    1:{{ item.risk_reward_ratio|floatformat:1 }}
+                                <span class="fw-bold" style="color:{% if item.risk_reward_ratio >= 3 %}#16a34a{% elif item.risk_reward_ratio >= 2 %}#2563eb{% elif item.risk_reward_ratio >= 1.5 %}#92400e{% else %}#dc2626{% endif %};">
+                                    1:{{ item.risk_reward_ratio|floatformat:1 }}{% if item.risk_reward_ratio < 1.5 %} ⚠{% endif %}
                                 </span>
                                 {% else %}-{% endif %}
                             </td>
@@ -997,7 +1022,22 @@
                                       style="background:rgba(20,184,166,0.12);color:#0f766e;border:1px solid rgba(20,184,166,0.3);font-size:0.56rem;"
                                       title="Higher High + Higher Low structure ใน 20 candles ล่าสุด">HH/HL</span>
                                 {% endif %}
-                                {% if not item.macd_crossover and not item.bb_squeeze and not item.ema20_aligned and not item.ema20_rising and not item.hh_hl_structure %}
+                                {% if item.stage2 %}
+                                <span class="badge px-1 py-0"
+                                      style="background:rgba(22,163,74,0.15);color:#15803d;border:1px solid rgba(22,163,74,0.4);font-size:0.56rem;"
+                                      title="Weinstein Stage 2: ราคา > SMA150 ที่กำลังชี้ขึ้น — อยู่ใน Markup Phase">S2✓</span>
+                                {% endif %}
+                                {% if item.pocket_pivot %}
+                                <span class="badge px-1 py-0"
+                                      style="background:rgba(8,145,178,0.15);color:#0e7490;border:1px solid rgba(8,145,178,0.4);font-size:0.56rem;"
+                                      title="Pocket Pivot: volume วันขาขึ้น > max volume วันขาลง 10 วันก่อน — Institutional buying">PP⚡</span>
+                                {% endif %}
+                                {% if item.vdu_near_zone %}
+                                <span class="badge px-1 py-0"
+                                      style="background:rgba(124,58,237,0.12);color:#6d28d9;border:1px solid rgba(124,58,237,0.35);font-size:0.56rem;"
+                                      title="Volume Dry-Up: volume ลด 3 วันติด + เงียบกว่าค่าเฉลี่ย 70% — แรงขายหมด, Accumulation">VDU🤫</span>
+                                {% endif %}
+                                {% if not item.macd_crossover and not item.bb_squeeze and not item.ema20_aligned and not item.ema20_rising and not item.hh_hl_structure and not item.stage2 and not item.pocket_pivot and not item.vdu_near_zone %}
                                 <span class="text-muted">-</span>
                                 {% endif %}
                                 </div>
@@ -1124,7 +1164,7 @@
                                                         {% if item.risk_reward_ratio %}1:{{ item.risk_reward_ratio|floatformat:1 }}{% else %}-{% endif %}
                                                     </div>
                                                     <div class="extra-extra-small text-muted">
-                                                        {% if item.risk_reward_ratio >= 3 %}ดีเยี่ยม{% elif item.risk_reward_ratio >= 2 %}ดี{% else %}พอรับได้{% endif %}
+                                                        {% if item.risk_reward_ratio >= 3 %}ดีเยี่ยม{% elif item.risk_reward_ratio >= 2 %}ดี{% elif item.risk_reward_ratio >= 1.5 %}พอรับได้{% else %}⚠ ต่ำ{% endif %}
                                                     </div>
                                                 </div>
                                             </div>
@@ -1451,4 +1491,27 @@
 })();
 </script>
 {% endif %}
+<script>
+// ── Table Filter Helpers ──────────────────────────────────────────────
+function _applyFiltersSET() {
+    var rows = document.querySelectorAll('#scanTableSET tbody tr');
+    var rsOn = document.getElementById('rsFilter70SET') && document.getElementById('rsFilter70SET').checked;
+    var s2On = document.getElementById('stage2FilterSET') && document.getElementById('stage2FilterSET').checked;
+    var ppOn = document.getElementById('ppFilterSET') && document.getElementById('ppFilterSET').checked;
+    var visible = 0;
+    rows.forEach(function(row) {
+        var rs = parseInt(row.dataset.rs || '0');
+        var s2 = row.dataset.stage2 === 'true';
+        var pp = row.dataset.pp === 'true';
+        var show = (!rsOn || rs >= 70) && (!s2On || s2) && (!ppOn || pp);
+        row.style.display = show ? '' : 'none';
+        if (show) visible++;
+    });
+    var el = document.getElementById('visibleCount-SET');
+    if (el) el.textContent = visible + ' stocks shown';
+}
+function filterByRS(id, v)     { _applyFiltersSET(); }
+function filterByStage2(id, v) { _applyFiltersSET(); }
+function filterByPP(id, v)     { _applyFiltersSET(); }
+</script>
 {% endblock %}

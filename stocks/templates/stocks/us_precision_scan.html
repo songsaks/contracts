@@ -1,0 +1,1199 @@
+{% extends 'stocks/base_stocks.html' %}
+{% load humanize %}
+
+{% block title %}US Precision Scanner — 9Com{% endblock %}
+
+{% block container_class %}container-fluid px-2 px-md-3{% endblock %}
+
+{% block content %}
+<div>
+<div class="row align-items-end mb-4">
+    <div class="col-md-7">
+        <h1 class="fw-bold mb-1" style="color: #1d4ed8;">
+            <span style="font-size:1.1rem;">🇺🇸</span>
+            <i class="fas fa-crosshairs me-2 ms-1"></i> US Precision Momentum Scanner
+        </h1>
+        <p class="text-muted mb-0">
+            Nasdaq &amp; S&amp;P 500 — ERC Volume confirmed + ADX ≥ 15 + Liquidity ≥ 1M shares/day<br>
+            Supply Target = 52-Week High | ATR-based Stop Loss | RVOL Bull/Bear direction aware
+        </p>
+    </div>
+    <div class="col-md-5 text-md-end mt-3 mt-md-0 d-flex flex-wrap justify-content-md-end gap-2">
+        <a href="{% url 'stocks:precision_momentum_scanner' %}" class="btn btn-outline-secondary d-inline-flex align-items-center gap-2">
+            <i class="fas fa-chart-bar"></i> SET Precision Scan
+        </a>
+        <a href="?scan=true" onclick="showLoading()" class="btn d-inline-flex align-items-center gap-2"
+           style="background: linear-gradient(135deg, #1d4ed8, #0369a1); color:white; border:none;">
+            <i class="fas fa-crosshairs"></i> US Precision Scan
+        </a>
+        {% if has_scanned and ai_scan_json %}
+        <button id="btn-ai-analyze" class="btn d-inline-flex align-items-center gap-2"
+                style="background:linear-gradient(135deg,#0891b2,#0e7490);color:white;border:none;">
+            <i class="fas fa-robot"></i> AI Analysis
+        </button>
+        {% endif %}
+    </div>
+</div>
+
+<!-- System guide (collapsible) -->
+<div class="row mb-4">
+    <div class="col-12">
+        <button class="btn btn-sm rounded-pill px-4 shadow-sm" type="button"
+                data-bs-toggle="collapse" data-bs-target="#diffGuide" aria-expanded="false"
+                style="border: 1px solid #1d4ed8; color: #1d4ed8;">
+            <i class="fas fa-info-circle me-2"></i> System Overview — US Precision V3
+        </button>
+        <div class="collapse mt-3" id="diffGuide">
+            <div class="card card-body border-0 shadow-sm rounded-4 bg-light p-4">
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <h6 class="fw-bold mb-3" style="color: #1d4ed8;"><i class="fas fa-rocket me-2"></i> Filter Criteria</h6>
+                        <ul class="list-unstyled small text-secondary">
+                            <li class="mb-2"><strong>No EMA200 requirement:</strong> Allows early-stage reversal and base-building stocks to qualify</li>
+                            <li class="mb-2"><strong>ADX ≥ 15 (relaxed from 20):</strong> Captures stocks just starting to build momentum</li>
+                            <li class="mb-2"><strong>Pure Price &amp; Volume:</strong> Scoring focuses 100% on institutional footprints (not fundamentals)</li>
+                            <li class="mb-0"><strong>Universe:</strong> ~120 curated Nasdaq &amp; S&amp;P 500 leaders</li>
+                        </ul>
+                    </div>
+                    <div class="col-md-6">
+                        <h6 class="fw-bold mb-3" style="color: #0369a1;"><i class="fas fa-calculator me-2"></i> Score Structure V3 (Max 100 pts)</h6>
+                        <ul class="list-unstyled small text-secondary">
+                            <li class="mb-2"><strong>Zone &amp; Risk/Reward (53 pts):</strong> Near Demand Zone lower bound + favorable upside vs stop loss</li>
+                            <li class="mb-2"><strong>Momentum Indicators (32 pts):</strong> RSI in bull zone, MACD crossover, outperforms SPY (3m relative)</li>
+                            <li class="mb-2"><strong>RS Rating Bonus (15 pts):</strong> Market leaders (RS ≥ 85 = Top 15%) get bonus to surface at top</li>
+                            <li class="mb-0"><strong>Core requirement:</strong> ERC Volume confirmation or base consolidation</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Buying Checklist (collapsible) -->
+<div class="row mb-4">
+    <div class="col-12">
+        <button class="btn btn-sm rounded-pill px-4 shadow-sm" type="button"
+                data-bs-toggle="collapse" data-bs-target="#buyGuide" aria-expanded="false"
+                style="background: linear-gradient(135deg,#1d4ed8,#0369a1); color:white; border:none;">
+            <i class="fas fa-book-open me-2"></i> Buying Checklist — Read Before Trading
+        </button>
+        <div class="collapse mt-3" id="buyGuide">
+            <div class="card border-0 shadow-sm rounded-4 p-0 overflow-hidden">
+                <div style="background: linear-gradient(135deg,#0f172a,#1e3a5f); color:white; padding:1.25rem 1.75rem;">
+                    <h5 class="mb-1 fw-bold"><i class="fas fa-crosshairs me-2" style="color:#93c5fd;"></i>US Precision Scanner — Entry Checklist</h5>
+                    <p class="mb-0 small" style="opacity:0.75;">Check all signals before entering — more checks = higher probability</p>
+                </div>
+                <div class="p-4">
+
+                    <!-- STEP 1 -->
+                    <div class="mb-4">
+                        <div class="d-flex align-items-center gap-2 mb-3">
+                            <span class="rounded-circle d-flex align-items-center justify-content-center fw-bold text-white"
+                                  style="width:28px;height:28px;background:#1d4ed8;font-size:0.8rem;flex-shrink:0;">1</span>
+                            <h6 class="mb-0 fw-bold" style="color:#1e293b;">Primary Filters — Did the stock pass?</h6>
+                        </div>
+                        <div class="row g-2">
+                            <div class="col-md-4">
+                                <div class="rounded-3 p-3 h-100" style="background:#f8fafc; border:1px solid #e2e8f0;">
+                                    <div class="fw-bold small" style="color:#1e293b;">PRECISION SCORE</div>
+                                    <div class="small text-muted mt-1">
+                                        <span class="badge bg-success bg-opacity-10 text-success me-1">≥ 80</span>Very strong signal<br>
+                                        <span class="badge bg-primary bg-opacity-10 text-primary me-1">70–79</span>Passes criteria<br>
+                                        <span class="badge bg-info bg-opacity-10 text-info me-1">RS 85+</span>Minervini Leading
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="rounded-3 p-3 h-100" style="background:#f8fafc; border:1px solid #e2e8f0;">
+                                    <div class="fw-bold small" style="color:#1e293b;">ADX (Trend Strength)</div>
+                                    <div class="small text-muted mt-1">
+                                        <span class="badge bg-success bg-opacity-10 text-success me-1">≥ 30</span>Very strong trend<br>
+                                        <span class="badge bg-warning bg-opacity-10 text-warning me-1 text-dark">15–29</span>Forming/Trending<br>
+                                        <span class="badge bg-danger bg-opacity-10 text-danger me-1">&lt; 15</span>Choppy (filtered out)
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="rounded-3 p-3 h-100" style="background:#f8fafc; border:1px solid #e2e8f0;">
+                                    <div class="fw-bold small" style="color:#1e293b;">AVG VOL 20d (Liquidity)</div>
+                                    <div class="small text-muted mt-1">
+                                        <span class="badge bg-success bg-opacity-10 text-success me-1">≥ 5M</span>High liquidity<br>
+                                        <span class="badge bg-primary bg-opacity-10 text-primary me-1">1M–5M</span>Passes minimum<br>
+                                        <span class="badge bg-danger bg-opacity-10 text-danger me-1">&lt; 1M</span>Filtered out
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- STEP 2 -->
+                    <div class="mb-4">
+                        <div class="d-flex align-items-center gap-2 mb-3">
+                            <span class="rounded-circle d-flex align-items-center justify-content-center fw-bold text-white"
+                                  style="width:28px;height:28px;background:#0369a1;font-size:0.8rem;flex-shrink:0;">2</span>
+                            <h6 class="mb-0 fw-bold" style="color:#1e293b;">Momentum Check — Real buying pressure?</h6>
+                        </div>
+                        <div class="row g-2">
+                            <div class="col-md-4">
+                                <div class="rounded-3 p-3 h-100" style="background:#eff6ff; border:1px solid #bfdbfe;">
+                                    <div class="fw-bold small" style="color:#1d4ed8;">RSI (Buying/Selling Force)</div>
+                                    <div class="small mt-1" style="color:#374151;">
+                                        <span class="badge" style="background:#dcfce7;color:#15803d;">65–80</span> Momentum sweet spot<br>
+                                        <span class="badge" style="background:#dbeafe;color:#1d4ed8;">55–64</span> Building momentum<br>
+                                        <span class="badge bg-danger bg-opacity-10 text-danger">&lt; 55</span> Not yet trending
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="rounded-3 p-3 h-100" style="background:#eff6ff; border:1px solid #bfdbfe;">
+                                    <div class="fw-bold small" style="color:#1d4ed8;">RVOL (Volume Relative)</div>
+                                    <div class="small mt-1" style="color:#374151;">
+                                        <span style="color:#16a34a;">▲ Bull ≥ 1.5x</span> — Strong buying day ✅<br>
+                                        <span style="color:#16a34a;">▲ Bull ≥ 1.0x</span> — Normal, acceptable<br>
+                                        <span style="color:#dc2626;">▼ Bear ↓</span> — Selling pressure ⚠️
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="rounded-3 p-3 h-100" style="background:#eff6ff; border:1px solid #bfdbfe;">
+                                    <div class="fw-bold small" style="color:#1d4ed8;">ERC VOL ✓ (Confirmed)</div>
+                                    <div class="small mt-1" style="color:#374151;">
+                                        <span class="badge px-2" style="background:rgba(29,78,216,0.12);color:#1d4ed8;">VOL ✓</span> = Bullish ERC candle<br>
+                                        with Body + Volume above<br>
+                                        1.5× average confirmed<br>
+                                        <span style="color:#6b7280;">No badge = weaker signal</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- STEP 3: Entry Zone -->
+                    <div class="mb-4">
+                        <div class="d-flex align-items-center gap-2 mb-3">
+                            <span class="rounded-circle d-flex align-items-center justify-content-center fw-bold text-white"
+                                  style="width:28px;height:28px;background:#059669;font-size:0.8rem;flex-shrink:0;">3</span>
+                            <h6 class="mb-0 fw-bold" style="color:#1e293b;">Entry Zone — Wait for price to come to you</h6>
+                        </div>
+                        <div class="row g-2">
+                            <div class="col-md-6">
+                                <div class="rounded-3 p-3" style="background:#f0fdf4; border:1px solid #86efac;">
+                                    <div class="fw-bold small mb-2" style="color:#15803d;"><i class="fas fa-map-marker-alt me-1"></i> ENTRY ZONE</div>
+                                    <div style="font-family:monospace; font-size:0.82rem; line-height:2; color:#374151;">
+                                        <div><span style="color:#15803d; font-weight:700;">$182.00</span> ← Upper bound (start entering)</div>
+                                        <div><span style="color:#15803d; font-weight:700;">$178.50</span> ← Lower bound (best price)</div>
+                                        <div><span style="color:#dc2626; font-weight:700;">SL: $174.25</span> ← Cut loss immediately</div>
+                                    </div>
+                                    <div class="mt-2 small" style="color:#6b7280;">🟢 Green dot blinking = In zone now — enter here</div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="rounded-3 p-3" style="background:#f0fdf4; border:1px solid #86efac;">
+                                    <div class="fw-bold small mb-2" style="color:#15803d;">ZONE STATUS</div>
+                                    <div class="small" style="line-height:1.9; color:#374151;">
+                                        <span class="badge px-2" style="background:#22c55e;color:white;">🟢 ENTRY ZONE</span> In zone — buy now<br>
+                                        <span class="badge px-2" style="background:#f59e0b;color:white;">NEAR 10%</span> &lt;10% away — watch closely<br>
+                                        <span class="badge px-2" style="background:#facc15;color:#000;">CLOSE 30%</span> 10–30% away — watchlist<br>
+                                        <span class="badge px-2" style="background:#3b82f6;color:white;">WATCH 60%</span> Far — just monitor
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- STEP 4: RR -->
+                    <div class="mb-4">
+                        <div class="d-flex align-items-center gap-2 mb-3">
+                            <span class="rounded-circle d-flex align-items-center justify-content-center fw-bold text-white"
+                                  style="width:28px;height:28px;background:#0284c7;font-size:0.8rem;flex-shrink:0;">4</span>
+                            <h6 class="mb-0 fw-bold" style="color:#1e293b;">Risk/Reward — Is it worth the trade?</h6>
+                        </div>
+                        <div class="row g-2">
+                            <div class="col-md-6">
+                                <div class="rounded-3 p-3 h-100" style="background:#eff6ff; border:1px solid #bfdbfe;">
+                                    <div class="fw-bold small mb-2" style="color:#1d4ed8;">RR (Risk / Reward)</div>
+                                    <div class="small" style="line-height:1.9; color:#374151;">
+                                        <span class="fw-bold text-success">1:3+</span> — Excellent, strong edge ✅<br>
+                                        <span class="fw-bold text-primary">1:2</span> — Good if other signals confirm<br>
+                                        <span class="fw-bold text-warning">1:1.5</span> — Risky, evaluate carefully<br>
+                                        <span class="fw-bold text-danger">&lt; 1:1.5</span> — Avoid ❌
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="rounded-3 p-3 h-100" style="background:#fef3c7; border:1px solid #fde68a;">
+                                    <div class="fw-bold small mb-2" style="color:#92400e;">Profit Target (TP)</div>
+                                    <div class="small" style="line-height:1.9; color:#374151;">
+                                        TP = <strong>52-Week High</strong> (Year High column)<br>
+                                        🔴 Red dot blinking = price hit Supply Zone<br>
+                                        → <strong>Start trimming or exit</strong><br>
+                                        <span style="color:#6b7280;">Don't wait for full breakdown</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- STEP 5: REL MOM vs SPY -->
+                    <div class="mb-4">
+                        <div class="d-flex align-items-center gap-2 mb-3">
+                            <span class="rounded-circle d-flex align-items-center justify-content-center fw-bold text-white"
+                                  style="width:28px;height:28px;background:#0891b2;font-size:0.8rem;flex-shrink:0;">5</span>
+                            <h6 class="mb-0 fw-bold" style="color:#1e293b;">REL MOM — Is the stock beating SPY?</h6>
+                        </div>
+                        <div class="rounded-3 p-3" style="background:#f0f9ff; border:1px solid #7dd3fc;">
+                            <div class="small mb-2" style="color:#0c4a6e;">
+                                <strong>Relative Momentum</strong> = stock return <strong>vs SPY (3-month)</strong><br>
+                                If stock beats market → momentum is strong → higher chance of continuation (1–6 months)
+                            </div>
+                            <div class="row g-2 mt-1" style="font-size:0.82rem;">
+                                <div class="col-md-6" style="line-height:2; color:#374151;">
+                                    <span class="fw-bold" style="color:#16a34a;">+15%+</span> → Crushes SPY — BUY +12 pts<br>
+                                    <span class="fw-bold" style="color:#16a34a;">+8% to +15%</span> → Clearly beats SPY — BUY +9 pts<br>
+                                    <span class="fw-bold" style="color:#65a30d;">+3% to +8%</span> → Beats SPY adequately — BUY +6 pts<br>
+                                    <span class="fw-bold" style="color:#92400e;">0% to +3%</span> → Inline with market — BUY +3 pts
+                                </div>
+                                <div class="col-md-6" style="line-height:2; color:#374151;">
+                                    <span class="fw-bold" style="color:#6b7280;">-5% to 0%</span> → Slight underperform — neutral<br>
+                                    <span class="fw-bold" style="color:#dc2626;">Below -5%</span> → Lagging SPY — BUY -8 pts ⚠️<br>
+                                    <span class="fw-bold text-muted">—</span> → No SPY data available
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Checklist Summary -->
+                    <div class="rounded-3 p-4" style="background:linear-gradient(135deg,#eff6ff,#dbeafe); border:1px solid #93c5fd;">
+                        <div class="fw-bold mb-3" style="color:#1d4ed8;"><i class="fas fa-clipboard-check me-2"></i>Pre-Trade Checklist V4 — Pass at least 8/13 | <span style="color:#dc2626;">Exit when SELL badge appears</span></div>
+                        <div class="row g-1" style="font-size:0.85rem; color:#374151;">
+                            <div class="col-md-6">
+                                <div>☐ PRECISION SCORE ≥ 65</div>
+                                <div>☐ RS RATING ≥ 60 (Momentum vs market)</div>
+                                <div>☐ ADX ≥ 15 (Trend forming)</div>
+                                <div>☐ RSI in range <strong>45–80</strong> (momentum zone)</div>
+                                <div>☐ RVOL Bull ≥ 0.8x</div>
+                                <div>☐ REL MOM positive (beating SPY)</div>
+                                <div>☐ Price within <strong>35%</strong> of 52w High</div>
+                            </div>
+                            <div class="col-md-6">
+                                <div>☐ ERC VOL ✓ (blue badge)</div>
+                                <div>☐ ZONE STATUS ≤ NEAR / IN ZONE</div>
+                                <div>☐ RR ≥ 1:1.5</div>
+                                <div>☐ PATTERN not Bearish</div>
+                                <div>☐ <span style="color:#15803d;">MACD ✕</span> or MACD+ (positive histogram)</div>
+                                <div>☐ <span style="color:#1d4ed8;">EMA✓</span> EMA20 > EMA50 > EMA200</div>
+                                <div>☐ <span style="color:#0f766e;">TREND✓ or EMA↑</span> (trend following v4)</div>
+                            </div>
+                        </div>
+                        <div class="mt-2 small p-2 rounded-2" style="background:rgba(239,68,68,0.08); color:#991b1b; border:1px solid #fca5a5;">
+                            <strong>⚠️ Avoid signals:</strong> RSI &gt; 82 | RVOL Bear ↓ | RR &lt; 1.5 | ADX &lt; 20 | REL MOM deeply negative | MACD− | Red dot blinking | Bearish Pattern at Zone
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if not has_scanned %}
+<div class="card border-0 text-center py-5" style="border-radius: 1rem; background: linear-gradient(135deg, #eff6ff, #dbeafe);">
+    <div class="card-body">
+        <div class="display-3 text-muted mb-3 opacity-25" style="color: #1d4ed8 !important;">
+            🇺🇸
+        </div>
+        <h3 class="fw-bold" style="color: #1d4ed8;">US Precision Ready</h3>
+        <p class="text-muted mx-auto" style="max-width: 600px;">
+            Click <strong>US Precision Scan</strong> above. The algorithm will run <strong>Pure Momentum V3</strong>
+            scanning ~120 Nasdaq &amp; S&amp;P 500 leaders for high-quality setups near demand zones.
+        </p>
+    </div>
+</div>
+{% else %}
+
+<!-- SCAN HISTORY TABS -->
+{% if all_runs|length > 1 %}
+<div class="mb-3 d-flex align-items-center gap-2 flex-wrap">
+    <span class="small text-muted fw-semibold me-1"><i class="fas fa-history me-1"></i> Scan History:</span>
+    {% for run in all_runs %}
+    <a href="?run_idx={{ forloop.counter0 }}&sort={{ current_sort }}"
+       class="badge rounded-pill text-decoration-none px-3 py-2 {% if forloop.counter0 == selected_run_idx %}text-white{% else %}bg-light border text-muted{% endif %}"
+       style="{% if forloop.counter0 == selected_run_idx %}background: #1d4ed8;{% endif %} font-size: 0.78rem;">
+        {% if forloop.first %}<i class="fas fa-star me-1"></i>{% endif %}
+        {{ run|date:"d/m H:i" }}
+        {% if forloop.first %}(latest){% endif %}
+    </a>
+    {% endfor %}
+</div>
+{% endif %}
+
+<!-- TOP 5 FULLY QUALIFIED -->
+{% if top5_qualified %}
+<div class="col-12 mb-3">
+    <div class="card border-0 shadow-sm" style="border-radius:1rem; background:linear-gradient(135deg,#f0fdf4 0%,#ecfdf5 100%); border:2px solid #86efac !important;">
+        <div class="card-body p-3">
+            <div class="d-flex align-items-center gap-2 mb-3">
+                <span style="font-size:1.3rem;">✅</span>
+                <span class="fw-bold" style="font-size:1rem; color:#14532d;">Top {{ top5_qualified|length }} Fully Qualified Stocks</span>
+                <span class="text-muted" style="font-size:0.8rem;">— BUY ≥ 65 · RR ≥ 1:1.5 · ADX ≥ 20 · RSI 45–82 · RVOL Bull ≥ 0.8x · Zone ≤ 30% · <strong>RS ≥ 60</strong></span>
+            </div>
+            <div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-xl-5 g-2">
+                {% for item in top5_qualified %}
+                <div class="col">
+                    <div class="h-100 p-3 position-relative" style="background:white; border-radius:0.85rem; border:2px solid #86efac; box-shadow:0 2px 8px rgba(34,197,94,0.12);">
+                        <span class="position-absolute" style="top:-10px;left:12px;background:#16a34a;color:white;border-radius:999px;font-size:0.65rem;font-weight:700;padding:1px 8px;">#{{ forloop.counter }}</span>
+                        <div class="d-flex align-items-center justify-content-between mb-1 mt-1">
+                            <span class="fw-bold" style="font-size:1rem;color:#1e293b;">{{ item.symbol }}</span>
+                            <span class="fw-bold px-2 rounded-pill" style="background:#dcfce7;color:#15803d;font-size:0.82rem;border:1px solid #86efac;">BUY {{ item.buy_score }}</span>
+                        </div>
+                        <div class="mb-2 d-flex align-items-center gap-1 flex-wrap">
+                            <span style="font-size:0.88rem;font-weight:600;color:#0f172a;">${{ item.price }}</span>
+                            {% if item.demand_zone_start and item.price <= item.demand_zone_start and item.price >= item.demand_zone_end %}
+                            <span class="badge" style="background:#22c55e;font-size:0.6rem;padding:2px 6px;">IN ZONE</span>
+                            {% elif item.zone_proximity <= 10 %}
+                            <span class="badge" style="background:#f59e0b;font-size:0.6rem;padding:2px 6px;">NEAR {{ item.zone_proximity|floatformat:0 }}%</span>
+                            {% else %}
+                            <span class="badge" style="background:#fb923c;font-size:0.6rem;padding:2px 6px;color:white;">{{ item.zone_proximity|floatformat:0 }}% to zone</span>
+                            {% endif %}
+                        </div>
+                        <div class="mb-2" style="font-size:0.75rem;color:#374151;line-height:1.8;">
+                            <div><span style="color:#16a34a;font-weight:700;">✓</span> RR 1:{{ item.risk_reward_ratio|floatformat:1 }}</div>
+                            <div><span style="color:#16a34a;font-weight:700;">✓</span> RS Rating {{ item.rs_rating }} · ADX {{ item.adx|floatformat:0 }}</div>
+                            <div><span style="color:#16a34a;font-weight:700;">✓</span> RVOL {{ item.rvol|floatformat:1 }}x ▲</div>
+                            {% if item.macd_crossover %}<div><span style="color:#16a34a;font-weight:700;">✓</span> MACD ✕ crossover</div>{% endif %}
+                            {% if item.ema20_aligned %}<div><span style="color:#1d4ed8;font-weight:700;">✓</span> EMA20 aligned</div>{% endif %}
+                            {% if item.ema20_rising and item.hh_hl_structure %}<div><span style="color:#065f46;font-weight:700;">✓</span> Trend confirmed (EMA↑ + HH/HL)</div>{% elif item.ema20_rising %}<div><span style="color:#047857;font-weight:700;">✓</span> EMA20 rising</div>{% elif item.hh_hl_structure %}<div><span style="color:#0f766e;font-weight:700;">✓</span> HH/HL structure</div>{% endif %}
+                        </div>
+                        <a href="{% url 'stocks:entry_finder' item.symbol %}?market=US" class="btn btn-sm w-100" style="background:#dcfce7;color:#15803d;border:1px solid #86efac;font-size:0.73rem;padding:3px 8px;border-radius:0.5rem;">
+                            <i class="fas fa-crosshairs me-1"></i>Sniper Chart
+                        </a>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+{% else %}
+<div class="col-12 mb-3">
+    <div class="alert border-0 shadow-sm" style="border-radius:1rem;background:linear-gradient(135deg,#f8fafc,#f1f5f9);border-left:4px solid #94a3b8 !important;">
+        <div class="d-flex align-items-center gap-2">
+            <span style="font-size:1.2rem;">🔍</span>
+            <div>
+                <div class="fw-bold small" style="color:#374151;">No fully qualified stocks this scan</div>
+                <div class="small text-muted">Criteria: BUY ≥ 65 · RR ≥ 1:1.5 · ADX ≥ 20 · RSI 45–82 · RVOL Bull ≥ 0.8x · Zone ≤ 30%</div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- TOP 5 BUY RECOMMENDATIONS -->
+{% if top5_buy %}
+<div class="col-12 mb-2">
+    <div class="card border-0 shadow-sm" style="border-radius:1rem; background:linear-gradient(135deg,#f0fdf4 0%,#eff6ff 100%);">
+        <div class="card-body p-3">
+            <div class="d-flex align-items-center gap-2 mb-3">
+                <span style="font-size:1.3rem;">🏆</span>
+                <span class="fw-bold" style="font-size:1rem; color:#14532d;">Top 5 BUY Recommendations</span>
+                <span class="text-muted" style="font-size:0.8rem;">— Ranked by BUY Score (multi-factor composite)</span>
+            </div>
+            <div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-xl-5 g-2">
+                {% for item in top5_buy %}
+                <div class="col">
+                    <div class="h-100 p-3 position-relative" style="background:white; border-radius:0.85rem; border:2px solid {% if item.buy_score >= 80 %}#86efac{% elif item.buy_score >= 65 %}#93c5fd{% else %}#e2e8f0{% endif %}; box-shadow:0 1px 4px rgba(0,0,0,0.06);">
+                        <span class="position-absolute" style="top:-10px; left:12px; background:{% if forloop.first %}#f59e0b{% elif forloop.counter == 2 %}#94a3b8{% elif forloop.counter == 3 %}#b45309{% else %}#6366f1{% endif %}; color:white; border-radius:999px; font-size:0.65rem; font-weight:700; padding:1px 8px;">#{{ forloop.counter }}</span>
+                        <div class="d-flex align-items-center justify-content-between mb-1 mt-1">
+                            <span class="fw-bold" style="font-size:1rem; color:#1e293b;">{{ item.symbol }}</span>
+                            <span class="fw-bold px-2 rounded-pill" style="background:{% if item.buy_score >= 80 %}#dcfce7; color:#15803d{% elif item.buy_score >= 65 %}#dbeafe; color:#1d4ed8{% else %}#f1f5f9; color:#475569{% endif %}; font-size:0.82rem; border:1px solid {% if item.buy_score >= 80 %}#86efac{% elif item.buy_score >= 65 %}#93c5fd{% else %}#cbd5e1{% endif %};">BUY {{ item.buy_score }}</span>
+                        </div>
+                        <div class="mb-2 d-flex align-items-center gap-1 flex-wrap">
+                            <span style="font-size:0.88rem; font-weight:600; color:#0f172a;">${{ item.price }}</span>
+                            {% if item.demand_zone_start and item.price <= item.demand_zone_start and item.price >= item.demand_zone_end %}
+                            <span class="badge" style="background:#22c55e; font-size:0.6rem; padding:2px 6px;">IN ZONE</span>
+                            {% elif item.zone_proximity <= 10 %}
+                            <span class="badge" style="background:#f59e0b; font-size:0.6rem; padding:2px 6px;">NEAR {{ item.zone_proximity|floatformat:0 }}%</span>
+                            {% elif item.zone_proximity <= 30 %}
+                            <span class="badge" style="background:#fb923c; font-size:0.6rem; padding:2px 6px; color:white;">{{ item.zone_proximity|floatformat:0 }}% TO ZONE</span>
+                            {% endif %}
+                        </div>
+                        <ul class="mb-2 ps-0" style="list-style:none; font-size:0.75rem; color:#374151; line-height:1.75;">
+                            {% for reason in item.top_reasons %}
+                            <li><span style="color:#16a34a; font-weight:700;">✓</span> {{ reason }}</li>
+                            {% endfor %}
+                        </ul>
+                        <div class="d-flex gap-2 flex-wrap mb-2" style="font-size:0.72rem;">
+                            {% if item.risk_reward_ratio %}
+                            <span class="fw-semibold" style="color:{% if item.risk_reward_ratio >= 3 %}#16a34a{% elif item.risk_reward_ratio >= 2 %}#2563eb{% else %}#64748b{% endif %};">RR 1:{{ item.risk_reward_ratio|floatformat:1 }}</span>
+                            {% endif %}
+                            <span class="fw-bold" title="RS Rating 0-99" style="color:#0891b2;">RS {{ item.rs_rating }}</span>
+                            <span style="color:{% if item.rvol >= 1.5 %}#16a34a{% elif item.rvol >= 1.0 %}#2563eb{% else %}#94a3b8{% endif %}; font-weight:600;">{{ item.rvol|floatformat:1 }}x {% if item.rvol_bullish %}▲{% else %}▼{% endif %}</span>
+                            <span style="color:#64748b;">ADX {{ item.adx|floatformat:0 }}</span>
+                            <span style="color:#64748b;">RSI {{ item.rsi|floatformat:0 }}</span>
+                        </div>
+                        <a href="{% url 'stocks:entry_finder' item.symbol %}?market=US" class="btn btn-sm w-100" style="background:#f0fdf4; color:#15803d; border:1px solid #bbf7d0; font-size:0.73rem; padding:3px 8px; border-radius:0.5rem;">
+                            <i class="fas fa-crosshairs me-1"></i>Sniper Chart
+                        </a>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- LEADING SECTORS -->
+{% if top_sectors %}
+<div class="col-12 mb-3">
+    <div class="p-3 bg-white shadow-sm border" style="border-radius:1rem;">
+        <div class="d-flex align-items-center gap-3 overflow-auto no-scrollbar">
+            <span class="small fw-bold text-muted flex-shrink-0"><i class="fas fa-chart-pie me-1"></i> Leading Sectors:</span>
+            {% for sec in top_sectors %}
+            <div class="d-flex align-items-center gap-1 flex-shrink-0">
+                <span class="badge" style="background:#f1f5f9; color:#475569; border:1px solid #e2e8f0; font-size:0.75rem;">{{ sec.name }} ({{ sec.count }})</span>
+                {% if not forloop.last %}<i class="fas fa-chevron-right text-muted opacity-25 px-1" style="font-size:0.6rem;"></i>{% endif %}
+            </div>
+            {% endfor %}
+            <span class="ms-auto small text-muted opacity-75" style="font-size:0.65rem;">(stocks with BUY score ≥ 65)</span>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- AUTOMATED AI INSIGHTS -->
+{% if scan_insights %}
+<div class="col-12 mb-4">
+    <div class="p-4 shadow-sm border" style="border-radius:1rem; background:linear-gradient(135deg,#f8faff,#f1f5f9); border-color:#e2e8f0 !important;">
+        <h5 class="fw-bold mb-3" style="color:#334155;"><i class="fas fa-robot text-primary me-2"></i> System Insights (Automated)</h5>
+        <div class="row g-3">
+            {% for insight in scan_insights %}
+            <div class="col-md-{% if scan_insights|length == 1 %}12{% elif scan_insights|length == 2 %}6{% else %}4{% endif %}">
+                <div class="p-3 bg-white h-100 rounded-3 border" style="border-color:#e2e8f0 !important; box-shadow:0 2px 4px rgba(0,0,0,0.02);">
+                    <div class="d-flex align-items-center gap-2 mb-2">
+                        <span style="font-size:1.2rem;">{{ insight.icon }}</span>
+                        <span class="fw-bold" style="color:#0f172a; font-size:0.95rem;">{{ insight.title }}</span>
+                    </div>
+                    <p class="mb-0 text-muted" style="font-size:0.85rem; line-height:1.5;">{{ insight.desc }}</p>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- SCAN RESULT TABLE -->
+<div class="col-12">
+    <div class="card border-0 mb-4 shadow-sm" style="border-radius: 1rem;">
+        <div class="card-header bg-white border-bottom p-3">
+            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <h5 class="mb-0 fw-bold d-flex align-items-center gap-2">
+                    <i class="fas fa-crosshairs" style="color: #1d4ed8;"></i>
+                    US Stocks Passing Precision Filter
+                    {% if candidates %}
+                    <span class="badge rounded-pill" style="background: #1d4ed8; font-size: 0.72rem;">{{ candidates|length }}</span>
+                    {% endif %}
+                    {% if scan_total %}
+                    <span class="text-muted fw-normal" style="font-size:0.75rem;">{{ scan_passed }}/{{ scan_total }} passed</span>
+                    {% endif %}
+                </h5>
+                {% if scanned_at %}
+                <span class="badge bg-light text-muted border fw-normal">
+                    <i class="fas fa-clock me-1"></i> {{ scanned_at|date:"d/m/Y H:i" }}
+                </span>
+                {% endif %}
+                {% if scan_data_date %}
+                <span class="badge fw-normal" style="background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;">
+                    <i class="fas fa-database me-1"></i> Data as of {{ scan_data_date|date:"d/m/Y" }}
+                </span>
+                {% endif %}
+            </div>
+            <!-- Quick Filters -->
+            <div class="px-3 pb-2 d-flex flex-wrap gap-2 align-items-center">
+                <div class="form-check form-switch mb-0 d-flex align-items-center gap-2">
+                    <input class="form-check-input" type="checkbox" id="rsFilter70US" onchange="_applyFiltersUS()" style="cursor:pointer;">
+                    <label class="form-check-label small fw-semibold" for="rsFilter70US" style="cursor:pointer;color:#0891b2;">RS ≥ 70</label>
+                </div>
+                <div class="form-check form-switch mb-0 d-flex align-items-center gap-2">
+                    <input class="form-check-input" type="checkbox" id="stage2FilterUS" onchange="_applyFiltersUS()" style="cursor:pointer;">
+                    <label class="form-check-label small fw-semibold" for="stage2FilterUS" style="cursor:pointer;color:#16a34a;">Stage 2 Only</label>
+                </div>
+                <div class="form-check form-switch mb-0 d-flex align-items-center gap-2">
+                    <input class="form-check-input" type="checkbox" id="ppFilterUS" onchange="_applyFiltersUS()" style="cursor:pointer;">
+                    <label class="form-check-label small fw-semibold" for="ppFilterUS" style="cursor:pointer;color:#0e7490;">PP only</label>
+                </div>
+                <div class="form-check form-switch mb-0 d-flex align-items-center gap-2">
+                    <input class="form-check-input" type="checkbox" id="noEarnFilterUS" onchange="_applyFiltersUS()" style="cursor:pointer;">
+                    <label class="form-check-label small fw-semibold" for="noEarnFilterUS" style="cursor:pointer;color:#b45309;">Hide ⚡EARN</label>
+                </div>
+                <span class="text-muted small ms-auto" id="visibleCount-US"></span>
+            </div>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-sm table-hover align-middle mb-0" id="scanTableUS" style="font-size:0.72rem;">
+                    <thead class="bg-light text-muted" style="font-size:0.65rem;">
+                        <tr>
+                            <th class="ps-2"><a href="?sort=symbol&run_idx={{ selected_run_idx }}" class="text-decoration-none text-muted">SYMBOL</a></th>
+                            <th><a href="?sort=prox&run_idx={{ selected_run_idx }}" class="text-decoration-none text-muted">ZONE</a></th>
+                            <th class="col-hide-md"><a href="?sort=score&run_idx={{ selected_run_idx }}" class="text-decoration-none text-muted">SCORE</a></th>
+                            <th><a href="?sort=buy&run_idx={{ selected_run_idx }}" class="text-decoration-none {% if current_sort == 'buy' %}fw-bold{% else %}text-muted{% endif %}" style="{% if current_sort == 'buy' %}color:#16a34a;{% endif %}">BUY</a></th>
+                            <th class="col-hide-md"><a href="?sort=sell&run_idx={{ selected_run_idx }}" class="text-decoration-none {% if current_sort == 'sell' %}fw-bold{% else %}text-muted{% endif %}" style="{% if current_sort == 'sell' %}color:#dc2626;{% endif %}">SELL</a></th>
+                            <th><a href="?sort=rs&run_idx={{ selected_run_idx }}" class="text-decoration-none {% if current_sort == 'rs' %}fw-bold{% else %}text-muted{% endif %}" style="{% if current_sort == 'rs' %}color:#0891b2;{% endif %}" title="RS Rating">RS</a></th>
+                            <th><a href="?sort=round_rr&run_idx={{ selected_run_idx }}" class="text-decoration-none text-muted">RR</a></th>
+                            <th><a href="?sort=rvol&run_idx={{ selected_run_idx }}" class="text-decoration-none text-muted">RVOL</a></th>
+                            <th class="col-hide-md"><a href="?sort=adx&run_idx={{ selected_run_idx }}" class="text-decoration-none text-muted">ADX</a></th>
+                            <th class="col-hide-lg">VOL</th>
+                            <th class="col-hide-md"><a href="?sort=price&run_idx={{ selected_run_idx }}" class="text-decoration-none text-muted">PRICE</a></th>
+                            <th class="col-hide-md">ENTRY</th>
+                            <th><a href="?sort=rsi&run_idx={{ selected_run_idx }}" class="text-decoration-none text-muted">RSI</a></th>
+                            <th class="col-hide-lg">ERC</th>
+                            <th class="col-hide-md">SIGNAL</th>
+                            <th class="col-hide-lg">PATTERN</th>
+                            <th class="col-hide-md">REL MOM</th>
+                            <th class="col-hide-lg">SEC</th>
+                            <th class="text-end pe-2">ACTION</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in candidates %}
+                        <tr class="{% if item.demand_zone_start and item.price <= item.demand_zone_start and item.price >= item.demand_zone_end %}row-entry-zone{% elif item.supply_zone_start and item.price >= item.supply_zone_start %}row-take-profit{% elif item.is_new_entry %}row-new-entry{% endif %}" data-rs="{{ item.rs_rating }}" data-stage2="{{ item.stage2|yesno:'true,false' }}" data-pp="{{ item.pocket_pivot|yesno:'true,false' }}" data-earn="{{ item.earnings_soon|yesno:'true,false' }}">
+                            <!-- SYMBOL -->
+                            <td class="ps-2">
+                                <div class="d-flex align-items-center gap-1">
+                                    <div class="position-relative flex-shrink-0">
+                                        <div class="rounded-circle d-flex align-items-center justify-content-center fw-bold"
+                                             style="width:26px;height:26px;background:rgba(29,78,216,0.1);color:#1d4ed8;font-size:0.6rem;">
+                                            {{ item.symbol|slice:":3" }}
+                                        </div>
+                                        {% if item.demand_zone_start and item.price <= item.demand_zone_start and item.price >= item.demand_zone_end %}
+                                        <span class="position-absolute top-0 start-100 translate-middle signal-dot signal-entry"></span>
+                                        {% elif item.supply_zone_start and item.price >= item.supply_zone_start %}
+                                        <span class="position-absolute top-0 start-100 translate-middle signal-dot signal-profit"></span>
+                                        {% endif %}
+                                    </div>
+                                    <div>
+                                        <span class="fw-bold">{{ item.symbol }}</span>
+                                        {% if item.is_new_entry %}
+                                        <span class="badge px-1 py-0" style="background:#1d4ed8;font-size:0.55rem;">NEW</span>
+                                        {% endif %}
+                                        {% if item.stage2 %}
+                                        <span class="badge px-1 py-0" style="background:#16a34a;font-size:0.55rem;" title="Weinstein Stage 2 — price above rising SMA150">S2</span>
+                                        {% endif %}
+                                        {% if item.earnings_soon %}
+                                        <span class="badge px-1 py-0" style="background:#f59e0b;color:white;font-size:0.55rem;" title="Earnings within 14 days — trade with caution">⚡EARN</span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </td>
+
+                            <!-- ZONE STATUS -->
+                            <td>
+                                {% if item.supply_zone_start and item.price >= item.supply_zone_start %}
+                                    <span class="badge px-1 py-1" style="font-size:0.62rem;background:#dc2626;color:white;">TP</span>
+                                {% elif item.demand_zone_start and item.price <= item.demand_zone_start and item.price >= item.demand_zone_end %}
+                                    <span class="badge px-1 py-1" style="font-size:0.62rem;background:#16a34a;color:white;">ENTRY</span>
+                                {% elif item.demand_zone_start %}
+                                    {% if item.zone_proximity == 0 %}
+                                        <span class="badge px-1 py-1" style="font-size:0.62rem;background-color:#22c55e;color:white;">IN</span>
+                                    {% elif item.zone_proximity <= 10 %}
+                                        <span class="badge px-1 py-1" style="font-size:0.62rem;background-color:#f59e0b;color:white;">≤10%</span>
+                                    {% elif item.zone_proximity <= 30 %}
+                                        <span class="badge px-1 py-1" style="font-size:0.62rem;background-color:#facc15;color:#000;">≤30%</span>
+                                    {% elif item.zone_proximity <= 60 %}
+                                        <span class="badge px-1 py-1" style="font-size:0.62rem;background-color:#3b82f6;color:white;">≤60%</span>
+                                    {% else %}
+                                        <span class="text-muted" style="font-size:0.65rem;">{{ item.zone_proximity|floatformat:0 }}%</span>
+                                    {% endif %}
+                                {% else %}
+                                    <span class="text-muted">-</span>
+                                {% endif %}
+                                {% if item.live_zone_prox is not None %}
+                                <div class="mt-1" style="font-size:0.62rem;color:#6b7280;">
+                                    Live: {% if item.live_zone_prox == 0 %}<span style="color:#16a34a;font-weight:700;">IN</span>{% elif item.live_zone_prox <= 10 %}<span style="color:#f59e0b;font-weight:700;">{{ item.live_zone_prox|floatformat:0 }}%</span>{% else %}<span>{{ item.live_zone_prox|floatformat:0 }}%</span>{% endif %}
+                                </div>
+                                {% endif %}
+                            </td>
+
+                            <!-- PRECISION SCORE -->
+                            <td class="col-hide-md">
+                                <div class="d-flex align-items-center gap-1">
+                                    <div class="progress d-none d-xl-block" style="height:4px;min-width:28px;">
+                                        <div class="progress-bar {% if item.technical_score >= 80 %}bg-success{% elif item.technical_score >= 50 %}bg-primary{% else %}bg-warning{% endif %}"
+                                             role="progressbar" style="width:{{ item.technical_score }}%"></div>
+                                    </div>
+                                    <span class="fw-bold {% if item.technical_score >= 80 %}text-success{% elif item.technical_score >= 50 %}text-primary{% else %}text-warning{% endif %}">
+                                        {{ item.technical_score }}
+                                    </span>
+                                </div>
+                            </td>
+
+                            <!-- BUY SCORE -->
+                            <td class="text-center">
+                                <span class="fw-bold {% if item.buy_score >= 80 %}text-success{% elif item.buy_score >= 60 %}text-primary{% elif item.buy_score >= 40 %}text-warning{% else %}text-muted{% endif %}">
+                                    {{ item.buy_score }}
+                                </span>
+                                <div class="progress mt-1" style="width:28px;height:3px;border-radius:2px;margin:0 auto;">
+                                    <div class="progress-bar {% if item.buy_score >= 80 %}bg-success{% elif item.buy_score >= 60 %}bg-primary{% elif item.buy_score >= 40 %}bg-warning{% else %}bg-secondary{% endif %}" role="progressbar" style="width:{{ item.buy_score }}%"></div>
+                                </div>
+                            </td>
+
+                            <!-- SELL SCORE -->
+                            <td class="text-center col-hide-md">
+                                <span class="fw-bold {% if item.sell_score >= 50 %}text-danger{% elif item.sell_score >= 30 %}text-warning{% else %}text-muted{% endif %}">
+                                    {{ item.sell_score }}
+                                </span>
+                                {% if item.sell_score > 0 %}
+                                <div class="progress mt-1" style="width:28px;height:3px;border-radius:2px;margin:0 auto;">
+                                    <div class="progress-bar {% if item.sell_score >= 50 %}bg-danger{% elif item.sell_score >= 30 %}bg-warning{% else %}bg-secondary{% endif %}" role="progressbar" style="width:{{ item.sell_score }}%"></div>
+                                </div>
+                                {% endif %}
+                                {% if item.exit_signal == 'STRONG EXIT' %}
+                                <div><span class="badge px-1 mt-1" style="background:#dc2626;color:white;font-size:0.5rem;">🚨</span></div>
+                                {% elif item.exit_signal == 'EXIT' %}
+                                <div><span class="badge px-1 mt-1" style="background:rgba(220,38,38,0.15);color:#dc2626;border:1px solid #dc2626;font-size:0.5rem;">⚠️</span></div>
+                                {% elif item.exit_signal == 'WATCH' %}
+                                <div><span class="badge px-1 mt-1" style="background:rgba(245,158,11,0.15);color:#b45309;border:1px solid #f59e0b;font-size:0.5rem;">👁</span></div>
+                                {% endif %}
+                            </td>
+
+                            <!-- RS RATING -->
+                            <td class="text-center">
+                                {% if item.rs_rating >= 85 %}
+                                    <span class="badge" style="background:#dcfce7;color:#15803d;font-size:0.72rem;font-weight:700;">{{ item.rs_rating }}</span>
+                                {% elif item.rs_rating >= 70 %}
+                                    <span class="badge" style="background:#dbeafe;color:#1d4ed8;font-size:0.72rem;font-weight:700;">{{ item.rs_rating }}</span>
+                                {% elif item.rs_rating > 0 %}
+                                    <span class="fw-semibold text-muted" style="font-size:0.72rem;">{{ item.rs_rating }}</span>
+                                {% else %}
+                                    <span class="text-muted">—</span>
+                                {% endif %}
+                            </td>
+
+                            <!-- RR -->
+                            <td>
+                                {% if item.risk_reward_ratio %}
+                                <span class="fw-bold" style="color:{% if item.risk_reward_ratio >= 3 %}#16a34a{% elif item.risk_reward_ratio >= 2 %}#2563eb{% elif item.risk_reward_ratio >= 1.5 %}#92400e{% else %}#dc2626{% endif %};">
+                                    1:{{ item.risk_reward_ratio|floatformat:1 }}{% if item.risk_reward_ratio < 1.5 %} ⚠{% endif %}
+                                </span>
+                                {% else %}-{% endif %}
+                            </td>
+
+                            <!-- RVOL -->
+                            <td>
+                                <span class="fw-bold {% if item.rvol >= 1.5 %}text-danger{% elif item.rvol >= 1.0 %}text-primary{% else %}text-muted{% endif %}">
+                                    {{ item.rvol|floatformat:1 }}x
+                                </span>
+                                {% if item.rvol_bullish %}
+                                <span class="badge px-1 py-0 d-block mt-1" style="background:rgba(34,197,94,0.15);color:#16a34a;font-size:0.55rem;">▲</span>
+                                {% else %}
+                                <span class="badge px-1 py-0 d-block mt-1" style="background:rgba(239,68,68,0.1);color:#dc2626;font-size:0.55rem;">▼</span>
+                                {% endif %}
+                            </td>
+
+                            <!-- ADX -->
+                            <td class="col-hide-md">
+                                <span class="fw-semibold {% if item.adx >= 30 %}text-success{% elif item.adx >= 20 %}text-primary{% else %}text-muted{% endif %}">
+                                    {{ item.adx|floatformat:1 }}
+                                </span>
+                            </td>
+
+                            <!-- AVG VOL 20d -->
+                            <td class="col-hide-lg">
+                                <span class="text-muted">{{ item.avg_volume_20d|floatformat:0|intcomma }}</span>
+                            </td>
+
+                            <!-- PRICE -->
+                            <td class="col-hide-md">
+                                <span class="fw-bold">${{ item.price|floatformat:2 }}</span>
+                                {% if item.live_price %}
+                                <div class="mt-1" style="font-size:0.68rem;line-height:1.2;">
+                                    <span style="color:#6b7280;">Live:</span>
+                                    <span class="fw-semibold" style="color:{% if item.live_change_pct >= 0 %}#16a34a{% else %}#dc2626{% endif %};">
+                                        ${{ item.live_price|floatformat:2 }}
+                                        {% if item.live_change_pct is not None %}
+                                        ({% if item.live_change_pct >= 0 %}+{% endif %}{{ item.live_change_pct|floatformat:1 }}%)
+                                        {% endif %}
+                                    </span>
+                                </div>
+                                {% endif %}
+                            </td>
+
+                            <!-- ENTRY ZONE -->
+                            <td class="col-hide-md" {% if item.demand_zone_start and item.price <= item.demand_zone_start and item.price >= item.demand_zone_end %}style="background:rgba(34,197,94,0.05);"{% endif %}>
+                                {% if item.demand_zone_start %}
+                                <div style="line-height:1.3;">
+                                    <span class="fw-bold text-success">${{ item.demand_zone_start|floatformat:2 }}</span>
+                                    <span class="text-muted"> / ${{ item.demand_zone_end|floatformat:2 }}</span>
+                                    {% if item.stop_loss %}
+                                    <br><span class="text-danger">SL:${{ item.stop_loss|floatformat:2 }}</span>
+                                    {% endif %}
+                                </div>
+                                {% else %}-{% endif %}
+                            </td>
+
+                            <!-- RSI -->
+                            <td>
+                                <span class="fw-bold {% if item.rsi > 70 %}text-danger{% elif item.rsi > 55 %}text-success{% else %}text-secondary{% endif %}">
+                                    {{ item.rsi|floatformat:0 }}
+                                </span>
+                            </td>
+
+                            <!-- ERC CONFIRMED -->
+                            <td class="col-hide-lg">
+                                {% if item.erc_volume_confirmed %}
+                                <span class="badge px-1 py-0" style="background:rgba(29,78,216,0.12);color:#1d4ed8;font-size:0.6rem;">✓</span>
+                                {% else %}
+                                <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+
+                            <!-- SIGNAL badges -->
+                            <td class="col-hide-md">
+                                <div class="d-flex flex-column gap-1">
+                                {% if item.macd_crossover %}
+                                <span class="badge px-1 py-0" style="background:rgba(22,163,74,0.15);color:#15803d;border:1px solid rgba(22,163,74,0.4);font-size:0.56rem;" title="MACD Bullish Crossover">MACD ✕</span>
+                                {% elif item.macd_histogram and item.macd_histogram > 0 %}
+                                <span class="badge px-1 py-0" style="background:rgba(34,197,94,0.10);color:#16a34a;border:1px solid rgba(34,197,94,0.25);font-size:0.56rem;" title="MACD Histogram positive">MACD+</span>
+                                {% elif item.macd_histogram and item.macd_histogram < 0 %}
+                                <span class="badge px-1 py-0" style="background:rgba(220,38,38,0.08);color:#dc2626;border:1px solid rgba(220,38,38,0.2);font-size:0.56rem;" title="MACD Histogram negative">MACD−</span>
+                                {% endif %}
+                                {% if item.bb_squeeze %}
+                                <span class="badge px-1 py-0" style="background:rgba(245,158,11,0.15);color:#b45309;border:1px solid rgba(245,158,11,0.4);font-size:0.56rem;" title="Bollinger Band Squeeze — pending breakout">BB⚡</span>
+                                {% endif %}
+                                {% if item.ema20_aligned %}
+                                <span class="badge px-1 py-0" style="background:rgba(29,78,216,0.12);color:#1d4ed8;border:1px solid rgba(29,78,216,0.3);font-size:0.56rem;" title="EMA20 > EMA50 > EMA200 Full Stack">EMA✓</span>
+                                {% endif %}
+                                {% if item.ema20_rising and item.hh_hl_structure %}
+                                <span class="badge px-1 py-0" style="background:rgba(5,150,105,0.15);color:#065f46;border:1px solid rgba(5,150,105,0.4);font-size:0.56rem;" title="EMA20 rising + HH/HL structure — real uptrend">TREND✓</span>
+                                {% elif item.ema20_rising %}
+                                <span class="badge px-1 py-0" style="background:rgba(16,185,129,0.12);color:#047857;border:1px solid rgba(16,185,129,0.3);font-size:0.56rem;">EMA↑</span>
+                                {% elif item.hh_hl_structure %}
+                                <span class="badge px-1 py-0" style="background:rgba(20,184,166,0.12);color:#0f766e;border:1px solid rgba(20,184,166,0.3);font-size:0.56rem;">HH/HL</span>
+                                {% endif %}
+                                {% if item.stage2 %}
+                                <span class="badge px-1 py-0" style="background:rgba(22,163,74,0.15);color:#15803d;border:1px solid rgba(22,163,74,0.4);font-size:0.56rem;" title="Weinstein Stage 2: price > rising SMA150 — Markup Phase">S2✓</span>
+                                {% endif %}
+                                {% if item.pocket_pivot %}
+                                <span class="badge px-1 py-0" style="background:rgba(8,145,178,0.15);color:#0e7490;border:1px solid rgba(8,145,178,0.4);font-size:0.56rem;" title="Pocket Pivot: up-day vol > max down-day vol in prior 10 sessions">PP⚡</span>
+                                {% endif %}
+                                {% if item.vdu_near_zone %}
+                                <span class="badge px-1 py-0" style="background:rgba(124,58,237,0.12);color:#6d28d9;border:1px solid rgba(124,58,237,0.35);font-size:0.56rem;" title="Volume Dry-Up: 3-day declining volume below 70% avg — quiet accumulation">VDU🤫</span>
+                                {% endif %}
+                                {% if item.earnings_soon %}
+                                <span class="badge px-1 py-0" style="background:rgba(245,158,11,0.15);color:#b45309;border:1px solid rgba(245,158,11,0.5);font-size:0.56rem;" title="Earnings within 14 days">⚡EARN</span>
+                                {% endif %}
+                                {% if not item.macd_crossover and not item.bb_squeeze and not item.ema20_aligned and not item.ema20_rising and not item.hh_hl_structure and not item.stage2 and not item.pocket_pivot and not item.vdu_near_zone %}
+                                <span class="text-muted">-</span>
+                                {% endif %}
+                                </div>
+                            </td>
+
+                            <!-- PRICE PATTERN -->
+                            <td class="col-hide-lg">
+                                {% if item.price_pattern %}
+                                    {% if item.price_pattern_score > 0 %}
+                                    <span class="badge px-1 py-0" style="background:rgba(22,163,74,0.12);color:#16a34a;border:1px solid rgba(22,163,74,0.3);font-size:0.6rem;white-space:normal;" title="+{{ item.price_pattern_score }} pts">▲ {{ item.price_pattern }}</span>
+                                    {% else %}
+                                    <span class="badge px-1 py-0" style="background:rgba(220,38,38,0.10);color:#dc2626;border:1px solid rgba(220,38,38,0.25);font-size:0.6rem;white-space:normal;" title="{{ item.price_pattern_score }} pts">▼ {{ item.price_pattern }}</span>
+                                    {% endif %}
+                                {% else %}
+                                <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+
+                            <!-- REL MOM vs SPY -->
+                            <td class="text-center col-hide-md">
+                                {% if item.rel_momentum_3m != 0 or item.rel_momentum_1m != 0 %}
+                                    {% with rel=item.rel_momentum_3m %}
+                                    <span class="fw-bold" style="color:{% if rel >= 3 %}#16a34a{% elif rel >= 0 %}#65a30d{% else %}#dc2626{% endif %};">
+                                        {% if rel >= 0 %}+{% endif %}{{ rel|floatformat:1 }}%
+                                    </span>
+                                    {% endwith %}
+                                {% else %}
+                                    <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+
+                            <!-- SECTOR -->
+                            <td class="col-hide-lg">
+                                <span class="badge bg-light text-muted fw-normal border" style="font-size:0.6rem;">
+                                    {% if 'Financial' in item.sector %}FIN
+                                    {% elif 'Industrial' in item.sector %}IND
+                                    {% elif 'Consumer' in item.sector %}CONS
+                                    {% elif 'Healthcare' in item.sector %}HEA
+                                    {% elif 'Technology' in item.sector %}TECH
+                                    {% elif 'Energy' in item.sector %}ENR
+                                    {% elif 'Real Estate' in item.sector %}REIT
+                                    {% elif 'Communication' in item.sector %}COMM
+                                    {% elif 'Materials' in item.sector %}MAT
+                                    {% elif 'Utilities' in item.sector %}UTIL
+                                    {% else %}{{ item.sector|slice:":4"|upper }}{% endif %}
+                                </span>
+                            </td>
+
+                            <!-- ACTION -->
+                            <td class="text-end pe-2">
+                                <div class="d-flex justify-content-end gap-1">
+                                    <button class="btn btn-sm px-2 py-1 rounded border"
+                                            style="font-size:0.65rem;{% if item.exit_signal == 'STRONG EXIT' %}background:#fef2f2;color:#dc2626;border-color:#fca5a5;{% elif item.exit_signal == 'EXIT' %}background:#fff7ed;color:#c2410c;border-color:#fdba74;{% else %}background:#eff6ff;color:#1d4ed8;border-color:#93c5fd;{% endif %}"
+                                            data-bs-toggle="collapse"
+                                            data-bs-target="#detail-{{ forloop.counter }}">
+                                        {% if item.exit_signal == 'STRONG EXIT' or item.exit_signal == 'EXIT' %}
+                                            <i class="fas fa-sign-out-alt"></i>
+                                        {% else %}
+                                            <i class="fas fa-sign-in-alt"></i>
+                                        {% endif %}
+                                    </button>
+                                    <a href="{% url 'stocks:entry_finder' item.symbol %}?market=US" class="btn btn-sm px-2 py-1" style="font-size:0.65rem;background:#1d4ed8;color:white;" target="_blank"><i class="fas fa-crosshairs"></i></a>
+                                </div>
+                            </td>
+                        </tr>
+
+                        <!-- ENTRY / EXIT DETAIL ROW -->
+                        <tr class="collapse" id="detail-{{ forloop.counter }}">
+                            <td colspan="17" class="p-0">
+                                <div class="row g-0 mx-0" style="background:#f8fafc; border-top:2px solid {% if item.exit_signal == 'STRONG EXIT' %}#dc2626{% elif item.exit_signal == 'EXIT' %}#f59e0b{% else %}#22c55e{% endif %};">
+
+                                    <!-- ENTRY PLAN -->
+                                    <div class="col-md-6 p-3" style="border-right:1px solid #e2e8f0;">
+                                        <div class="d-flex align-items-center gap-2 mb-2">
+                                            <span class="badge rounded-pill px-3 py-1" style="background:#16a34a;color:white;font-size:0.75rem;">
+                                                <i class="fas fa-sign-in-alt me-1"></i> Entry Plan
+                                            </span>
+                                            <span class="fw-bold" style="color:#16a34a;">BUY Score {{ item.buy_score }}</span>
+                                        </div>
+                                        <div class="row g-2">
+                                            <div class="col-6">
+                                                <div class="rounded-2 p-2 text-center" style="background:#f0fdf4;border:1px solid #86efac;">
+                                                    <div class="extra-extra-small text-muted mb-1">Entry Range</div>
+                                                    {% if item.demand_zone_start and item.demand_zone_end %}
+                                                    <div class="fw-bold small" style="color:#15803d;">${{ item.demand_zone_end|floatformat:2 }}</div>
+                                                    <div class="extra-extra-small text-muted">to</div>
+                                                    <div class="fw-bold small" style="color:#15803d;">${{ item.demand_zone_start|floatformat:2 }}</div>
+                                                    {% else %}<div class="text-muted small">-</div>{% endif %}
+                                                </div>
+                                            </div>
+                                            <div class="col-6">
+                                                <div class="rounded-2 p-2 text-center" style="background:#fff5f5;border:1px solid #fca5a5;">
+                                                    <div class="extra-extra-small text-muted mb-1">Stop Loss</div>
+                                                    <div class="fw-bold small" style="color:#dc2626;">
+                                                        {% if item.stop_loss %}${{ item.stop_loss|floatformat:2 }}{% else %}-{% endif %}
+                                                    </div>
+                                                    <div class="extra-extra-small text-muted">Cut immediately</div>
+                                                </div>
+                                            </div>
+                                            <div class="col-6">
+                                                <div class="rounded-2 p-2 text-center" style="background:#eff6ff;border:1px solid #bfdbfe;">
+                                                    <div class="extra-extra-small text-muted mb-1">Target (TP)</div>
+                                                    <div class="fw-bold small" style="color:#1d4ed8;">
+                                                        {% if item.supply_zone_start %}${{ item.supply_zone_start|floatformat:2 }}{% else %}-{% endif %}
+                                                    </div>
+                                                    <div class="extra-extra-small text-muted">52w High</div>
+                                                </div>
+                                            </div>
+                                            <div class="col-6">
+                                                <div class="rounded-2 p-2 text-center" style="background:#fefce8;border:1px solid #fde68a;">
+                                                    <div class="extra-extra-small text-muted mb-1">RR Ratio</div>
+                                                    <div class="fw-bold small" style="color:#92400e;">
+                                                        {% if item.risk_reward_ratio %}1:{{ item.risk_reward_ratio|floatformat:1 }}{% else %}-{% endif %}
+                                                    </div>
+                                                    <div class="extra-extra-small text-muted">
+                                                        {% if item.risk_reward_ratio >= 3 %}Excellent{% elif item.risk_reward_ratio >= 2 %}Good{% elif item.risk_reward_ratio >= 1.5 %}Acceptable{% else %}⚠ Low{% endif %}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="mt-2 small" style="color:#374151;">
+                                            <div class="fw-bold mb-1 extra-extra-small text-muted">Entry conditions met:</div>
+                                            <div class="d-flex flex-wrap gap-1">
+                                                {% if item.demand_zone_start and item.price <= item.demand_zone_start and item.price >= item.demand_zone_end %}
+                                                <span class="badge" style="background:#dcfce7;color:#15803d;font-size:0.65rem;">✓ In Zone</span>
+                                                {% elif item.zone_proximity <= 10 %}
+                                                <span class="badge" style="background:#dcfce7;color:#15803d;font-size:0.65rem;">✓ Near Zone {{ item.zone_proximity|floatformat:0 }}%</span>
+                                                {% endif %}
+                                                {% if item.rvol_bullish and item.rvol >= 1.0 %}
+                                                <span class="badge" style="background:#dcfce7;color:#15803d;font-size:0.65rem;">✓ RVOL {{ item.rvol|floatformat:1 }}x Bull</span>
+                                                {% endif %}
+                                                {% if item.adx >= 25 %}
+                                                <span class="badge" style="background:#dcfce7;color:#15803d;font-size:0.65rem;">✓ ADX {{ item.adx|floatformat:0 }}</span>
+                                                {% endif %}
+                                                {% if item.rsi >= 50 and item.rsi <= 72 %}
+                                                <span class="badge" style="background:#dcfce7;color:#15803d;font-size:0.65rem;">✓ RSI {{ item.rsi|floatformat:0 }}</span>
+                                                {% endif %}
+                                                {% if item.erc_volume_confirmed %}
+                                                <span class="badge" style="background:#dcfce7;color:#15803d;font-size:0.65rem;">✓ ERC Vol</span>
+                                                {% endif %}
+                                                {% if item.price_pattern_score > 0 %}
+                                                <span class="badge" style="background:#dcfce7;color:#15803d;font-size:0.65rem;">✓ {{ item.price_pattern }}</span>
+                                                {% endif %}
+                                                {% if item.rel_momentum_3m > 0 %}
+                                                <span class="badge" style="background:#dcfce7;color:#15803d;font-size:0.65rem;">✓ Beats SPY +{{ item.rel_momentum_3m|floatformat:1 }}%</span>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- EXIT PLAN -->
+                                    <div class="col-md-6 p-3">
+                                        <div class="d-flex align-items-center gap-2 mb-2">
+                                            <span class="badge rounded-pill px-3 py-1"
+                                                  style="background:{% if item.exit_signal == 'STRONG EXIT' %}#dc2626{% elif item.exit_signal == 'EXIT' %}#f59e0b{% else %}#6b7280{% endif %};color:white;font-size:0.75rem;">
+                                                <i class="fas fa-sign-out-alt me-1"></i> Exit Plan
+                                            </span>
+                                            <span class="fw-bold"
+                                                  style="color:{% if item.exit_signal == 'STRONG EXIT' %}#dc2626{% elif item.exit_signal == 'EXIT' %}#f59e0b{% else %}#6b7280{% endif %};">
+                                                SELL Score {{ item.sell_score }}
+                                                {% if item.exit_signal == 'STRONG EXIT' %} — Exit now!
+                                                {% elif item.exit_signal == 'EXIT' %} — Consider exiting
+                                                {% elif item.exit_signal == 'WATCH' %} — Monitor closely
+                                                {% else %} — Hold{% endif %}
+                                            </span>
+                                        </div>
+                                        <div class="row g-2 mb-2">
+                                            <div class="col-6">
+                                                <div class="rounded-2 p-2 text-center" style="background:#fff5f5;border:1px solid #fca5a5;">
+                                                    <div class="extra-extra-small text-muted mb-1">Exit at (TP)</div>
+                                                    <div class="fw-bold small" style="color:#dc2626;">
+                                                        {% if item.supply_zone_start %}${{ item.supply_zone_start|floatformat:2 }}{% else %}-{% endif %}
+                                                    </div>
+                                                    <div class="extra-extra-small text-muted">52w High</div>
+                                                </div>
+                                            </div>
+                                            <div class="col-6">
+                                                <div class="rounded-2 p-2 text-center" style="background:#fafafa;border:1px solid #e2e8f0;">
+                                                    <div class="extra-extra-small text-muted mb-1">Stop Loss</div>
+                                                    <div class="fw-bold small" style="color:#374151;">
+                                                        {% if item.stop_loss %}${{ item.stop_loss|floatformat:2 }}{% else %}-{% endif %}
+                                                    </div>
+                                                    <div class="extra-extra-small text-muted">Exit immediately</div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="small">
+                                            <div class="fw-bold mb-1 extra-extra-small text-muted">Active exit signals:</div>
+                                            <div class="d-flex flex-wrap gap-1">
+                                                {% if item.supply_zone_start and item.price >= item.supply_zone_start %}
+                                                <span class="badge" style="background:#fef2f2;color:#dc2626;border:1px solid #fca5a5;font-size:0.65rem;">🚨 Hit TP</span>
+                                                {% endif %}
+                                                {% if item.rsi > 72 %}
+                                                <span class="badge" style="background:#fef2f2;color:#dc2626;border:1px solid #fca5a5;font-size:0.65rem;">⚠️ RSI {{ item.rsi|floatformat:0 }} high</span>
+                                                {% endif %}
+                                                {% if not item.rvol_bullish and item.rvol >= 1.5 %}
+                                                <span class="badge" style="background:#fef2f2;color:#dc2626;border:1px solid #fca5a5;font-size:0.65rem;">⚠️ Bear Vol {{ item.rvol|floatformat:1 }}x</span>
+                                                {% elif not item.rvol_bullish %}
+                                                <span class="badge" style="background:#fff7ed;color:#c2410c;border:1px solid #fdba74;font-size:0.65rem;">👁 RVOL Bear</span>
+                                                {% endif %}
+                                                {% if item.rel_momentum_1m < 0 %}
+                                                <span class="badge" style="background:#fff7ed;color:#c2410c;border:1px solid #fdba74;font-size:0.65rem;">👁 Rel Mom 1m {{ item.rel_momentum_1m|floatformat:1 }}%</span>
+                                                {% endif %}
+                                                {% if item.price_pattern_score < 0 %}
+                                                <span class="badge" style="background:#fef2f2;color:#dc2626;border:1px solid #fca5a5;font-size:0.65rem;">⚠️ {{ item.price_pattern }}</span>
+                                                {% endif %}
+                                                {% if item.sell_score < 30 %}
+                                                <span class="badge" style="background:#f0fdf4;color:#15803d;font-size:0.65rem;">✓ No exit signals</span>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                </div>
+                            </td>
+                        </tr>
+
+                        {% empty %}
+                        <tr>
+                            <td colspan="17" class="text-center py-5 text-muted">
+                                <i class="fas fa-filter fa-2x mb-2 d-block opacity-25"></i>
+                                No US stocks passed the Precision filter
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- INFO CARDS -->
+<div class="row g-3 mt-2">
+    <div class="col-md-4">
+        <div class="card border-0 shadow-sm h-100" style="border-radius: 1rem;">
+            <div class="card-body p-4">
+                <h6 class="fw-bold mb-3 d-flex align-items-center">
+                    <i class="fas fa-calculator me-2" style="color: #1d4ed8;"></i> Precision Score (100 pts)
+                </h6>
+                <div class="small text-muted" style="line-height:1.5;">
+                    <div class="mb-2"><strong>Zone &amp; Risk/Reward (53 pts):</strong> Near Demand Zone lower bound (+28) and favorable upside vs stop loss (+25)</div>
+                    <div class="mb-2"><strong>Momentum Indicators (32 pts):</strong> RSI in bull zone (+8), MACD crossover (+12), beats SPY clearly (+12)</div>
+                    <div class="mb-2"><strong>Relative Strength Bonus (15 pts):</strong> Market leaders RS ≥ 85 get full +15 pts bonus</div>
+                    <div><em class="text-primary" style="font-size:0.75rem;">* Raw score capped at 100. Pure Momentum — no fundamental scoring.</em></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card border-0 shadow-sm h-100" style="border-radius: 1rem;">
+            <div class="card-body p-4">
+                <h6 class="fw-bold mb-3 d-flex align-items-center">
+                    <i class="fas fa-shield-alt text-success me-2"></i> Additional Filters
+                </h6>
+                <div class="small text-muted" style="line-height:1.5;">
+                    <div class="mb-2"><strong>ADX ≥ 15:</strong> Relaxed to allow early-stage reversal candidates (15–20 starting, 20+ strong)</div>
+                    <div class="mb-2"><strong>Liquidity ≥ 1,000,000:</strong> Prevents thinly traded setups. Avg daily volume 20-day must exceed 1M shares</div>
+                    <div class="mb-2"><strong>Trend Freedom:</strong> No EMA200 requirement, but price must be within 35% of 52W High</div>
+                    <div><strong>ERC / Supply:</strong> Powerful candle (ERC) confirms entry. Supply at 52W High as take-profit target</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card border-0 shadow-sm h-100" style="border-radius: 1rem; border-left: 4px solid #1d4ed8 !important;">
+            <div class="card-body p-4">
+                <h6 class="fw-bold mb-3 d-flex align-items-center">
+                    <i class="fas fa-history me-2" style="color: #1d4ed8;"></i> Scan History System
+                </h6>
+                <div class="small text-muted">
+                    <div class="mb-2"><strong>Keeps 3 latest runs:</strong> Compare results across scan rounds</div>
+                    <div class="mb-2"><span class="badge px-2 py-1" style="background: #1d4ed8; color: white; font-size: 0.65rem;">NEW</span> Stocks appearing for first time in this run</div>
+                    <div class="mb-2"><strong>RVOL Bull/Bear:</strong> <span style="color:#16a34a;">▲ Bull</span> = buying day volume, <span style="color:#dc2626;">▼ Bear</span> = selling day</div>
+                    <div><strong>ERC VOL ✓:</strong> Blue badge = ERC volume confirmed</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endif %}
+
+<style>
+    .extra-small { font-size: 0.78rem; line-height: 1.4; }
+    .extra-extra-small { font-size: 0.72rem; line-height: 1.3; }
+    tr.row-entry-zone  { background: rgba(34, 197, 94, 0.07) !important; border-left: 4px solid #22c55e; }
+    tr.row-take-profit { background: rgba(239, 68, 68, 0.06) !important; border-left: 4px solid #ef4444; }
+    tr.row-new-entry   { background: rgba(29, 78, 216, 0.03) !important; }
+    tr.row-entry-zone:hover  { background: rgba(34, 197, 94, 0.13) !important; }
+    tr.row-take-profit:hover { background: rgba(239, 68, 68, 0.11) !important; }
+    .signal-dot { width: 14px; height: 14px; border-radius: 50%; border: 2px solid white; display: block; }
+    .signal-entry { background: #22c55e; animation: pulse-entry 1.4s ease-in-out infinite; }
+    .signal-profit { background: #ef4444; animation: pulse-profit 1.4s ease-in-out infinite; }
+    @keyframes pulse-entry {
+        0%   { transform: translate(-50%,-50%) scale(0.9); box-shadow: 0 0 0 0 rgba(34,197,94,0.75); }
+        60%  { transform: translate(-50%,-50%) scale(1.1); box-shadow: 0 0 0 9px rgba(34,197,94,0); }
+        100% { transform: translate(-50%,-50%) scale(0.9); box-shadow: 0 0 0 0 rgba(34,197,94,0); }
+    }
+    @keyframes pulse-profit {
+        0%   { transform: translate(-50%,-50%) scale(0.9); box-shadow: 0 0 0 0 rgba(239,68,68,0.75); }
+        60%  { transform: translate(-50%,-50%) scale(1.1); box-shadow: 0 0 0 9px rgba(239,68,68,0); }
+        100% { transform: translate(-50%,-50%) scale(0.9); box-shadow: 0 0 0 0 rgba(239,68,68,0); }
+    }
+</style>
+</div>
+
+{% if has_scanned and ai_scan_json %}
+<script id="ai-scan-data" type="application/json">{{ ai_scan_json|safe }}</script>
+<span id="ai-endpoint" data-url="{% url 'stocks:us_precision_scan_ai_analysis' %}" data-csrf="{{ csrf_token }}"></span>
+
+<!-- AI Analysis Modal -->
+<div class="modal fade" id="aiScanModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header" style="background:linear-gradient(135deg,#1d4ed8,#0369a1);color:white;">
+                <h5 class="modal-title fw-bold"><i class="fas fa-robot me-2"></i>AI Analysis — US Precision Scan</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4">
+                <div id="ai-loading" class="text-center py-5">
+                    <div class="spinner-border text-primary mb-3" role="status"></div>
+                    <div class="text-muted">AI is analyzing US momentum stocks...</div>
+                </div>
+                <div id="ai-result" class="d-none" style="line-height:1.7;"></div>
+                <div id="ai-error" class="d-none alert alert-danger"></div>
+            </div>
+            <div class="modal-footer border-0">
+                <small class="text-muted me-auto"><i class="fas fa-info-circle me-1"></i>Analysis by Gemini AI — For reference only, not financial advice.</small>
+                <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+{% if has_scanned and ai_scan_json %}
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script>
+(function () {
+    var btn = document.getElementById("btn-ai-analyze");
+    if (!btn) return;
+    var _done = false;
+
+    btn.addEventListener("click", function () {
+        var modal = new bootstrap.Modal(document.getElementById("aiScanModal"));
+        modal.show();
+        if (_done) return;
+
+        var ep = document.getElementById("ai-endpoint");
+        var aiUrl = ep.dataset.url;
+        var csrf = ep.dataset.csrf;
+        var scanData = JSON.parse(document.getElementById("ai-scan-data").textContent);
+
+        document.getElementById("ai-loading").classList.remove("d-none");
+        document.getElementById("ai-result").classList.add("d-none");
+        document.getElementById("ai-error").classList.add("d-none");
+
+        fetch(aiUrl, {
+            method: "POST",
+            headers: {"Content-Type": "application/json", "X-CSRFToken": csrf},
+            body: JSON.stringify({scan_data: scanData})
+        })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+            document.getElementById("ai-loading").classList.add("d-none");
+            if (data.status === "success") {
+                var el = document.getElementById("ai-result");
+                el.innerHTML = marked.parse(data.analysis);
+                el.classList.remove("d-none");
+                _done = true;
+            } else {
+                var err = document.getElementById("ai-error");
+                err.textContent = data.error || "An error occurred";
+                err.classList.remove("d-none");
+            }
+        })
+        .catch(function (e) {
+            document.getElementById("ai-loading").classList.add("d-none");
+            var err = document.getElementById("ai-error");
+            err.textContent = "Connection error: " + e.message;
+            err.classList.remove("d-none");
+        });
+    });
+})();
+</script>
+{% endif %}
+<script>
+function _applyFiltersUS() {
+    var rows   = document.querySelectorAll('#scanTableUS tbody tr');
+    var rsOn   = document.getElementById('rsFilter70US')   && document.getElementById('rsFilter70US').checked;
+    var s2On   = document.getElementById('stage2FilterUS') && document.getElementById('stage2FilterUS').checked;
+    var ppOn   = document.getElementById('ppFilterUS')     && document.getElementById('ppFilterUS').checked;
+    var hideEn = document.getElementById('noEarnFilterUS') && document.getElementById('noEarnFilterUS').checked;
+    var visible = 0;
+    rows.forEach(function(row) {
+        var rs   = parseInt(row.dataset.rs   || '0');
+        var s2   = row.dataset.stage2 === 'true';
+        var pp   = row.dataset.pp     === 'true';
+        var earn = row.dataset.earn   === 'true';
+        var show = (!rsOn || rs >= 70) && (!s2On || s2) && (!ppOn || pp) && (!hideEn || !earn);
+        row.style.display = show ? '' : 'none';
+        if (show) visible++;
+    });
+    var el = document.getElementById('visibleCount-US');
+    if (el) el.textContent = visible + ' stocks shown';
+}
+</script>
+{% endblock %}

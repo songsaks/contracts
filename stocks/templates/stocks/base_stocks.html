@@ -78,6 +78,33 @@
             opacity: 0.7;
         }
 
+        /* Dropdown premium style */
+        .navbar-stocks .dropdown-menu {
+            background: rgba(255, 255, 255, 0.98);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--border-soft) !important;
+            min-width: 200px;
+        }
+
+        .navbar-stocks .dropdown-item {
+            color: var(--text-muted);
+            font-weight: 600;
+            font-size: 0.88rem;
+            display: flex;
+            align-items: center;
+            transition: all 0.2s ease;
+        }
+
+        .navbar-stocks .dropdown-item:hover,
+        .navbar-stocks .dropdown-item.active {
+            background: rgba(99, 102, 241, 0.08);
+            color: var(--accent-primary);
+        }
+
+        .navbar-stocks .nav-link.dropdown-toggle::after {
+            opacity: 0.5;
+        }
+
         .card-premium {
             background: var(--card-white);
             border: 1px solid rgba(255, 255, 255, 0.7);
@@ -289,10 +316,33 @@
                             <i class="fas fa-wallet"></i> Portfolio
                         </a>
                     </li>
-                    <li class="nav-item">
-                        <a class="nav-link px-3 py-2 rounded-xl {% if request.resolver_match.url_name == 'momentum_scanner' %}active{% endif %}" href="{% url 'stocks:momentum_scanner' %}">
-                            <i class="fas fa-rocket"></i> Momentum Stock
+                    <!-- Momentum Dropdown -->
+                    <li class="nav-item dropdown">
+                        <a class="nav-link px-3 py-2 rounded-xl dropdown-toggle {% if request.resolver_match.url_name == 'momentum_scanner' or request.resolver_match.url_name == 'precision_momentum_scanner' or request.resolver_match.url_name == 'us_precision_scanner' %}active{% endif %}"
+                           href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="fas fa-rocket"></i> Momentum
                         </a>
+                        <ul class="dropdown-menu border-0 shadow-lg p-2 rounded-4 mt-1">
+                            <li>
+                                <a class="dropdown-item rounded-3 py-2 {% if request.resolver_match.url_name == 'momentum_scanner' %}active{% endif %}"
+                                   href="{% url 'stocks:momentum_scanner' %}">
+                                    <i class="fas fa-rocket me-2"></i> Momentum Scanner
+                                </a>
+                            </li>
+                            <li><hr class="dropdown-divider opacity-25 my-1"></li>
+                            <li>
+                                <a class="dropdown-item rounded-3 py-2 {% if request.resolver_match.url_name == 'precision_momentum_scanner' %}active{% endif %}"
+                                   href="{% url 'stocks:precision_momentum_scanner' %}">
+                                    <i class="fas fa-crosshairs me-2"></i> SET Precision
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item rounded-3 py-2 {% if request.resolver_match.url_name == 'us_precision_scanner' %}active{% endif %}"
+                                   href="{% url 'stocks:us_precision_scanner' %}">
+                                    🇺🇸 US Precision
+                                </a>
+                            </li>
+                        </ul>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link px-3 py-2 rounded-xl {% if request.resolver_match.url_name == 'multi_factor_scanner' %}active{% endif %}" href="{% url 'stocks:multi_factor_scanner' %}">

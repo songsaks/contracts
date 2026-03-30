@@ -227,6 +227,8 @@ class PrecisionScanCandidate(models.Model):
     - เก็บประวัติ scan (3 runs ล่าสุด) + is_new_entry flag
     """
     user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
+    # ตลาด: 'SET' = ตลาดหุ้นไทย, 'US' = NYSE/Nasdaq
+    market = models.CharField(max_length=10, default='SET', db_index=True)
     # เวลาที่รัน scan (ใช้ group scan runs ร่วมกัน)
     scan_run = models.DateTimeField(db_index=True)
     symbol = models.CharField(max_length=20)
@@ -285,6 +287,14 @@ class PrecisionScanCandidate(models.Model):
     ema20_rising     = models.BooleanField(default=False)         # EMA20 กำลังชี้ขึ้น (slope > 0.1%)
     hh_hl_structure  = models.BooleanField(default=False)         # Higher High + Higher Low ใน 20 candles ล่าสุด
 
+    # ====== Stage Analysis & Risk (v5) ======
+    stage2           = models.BooleanField(default=False)         # Weinstein Stage 2: price > SMA150 AND SMA150 rising
+    earnings_soon    = models.BooleanField(default=False)         # US only: earnings date within 14 days (caution)
+
+    # ====== Institutional Footprint (v6) ======
+    pocket_pivot     = models.BooleanField(default=False)         # Pocket Pivot: up-day vol > max down-day vol in prior 10 sessions
+    vdu_near_zone    = models.BooleanField(default=False)         # Volume Dry-Up: volume declining 3d + below 70% avg (quiet accumulation)
+
     class Meta:
         ordering = ['-scan_run', '-technical_score']
 
@@ -301,9 +311,11 @@ class ScannableSymbol(models.Model):
     และถูกอัปเดตอัตโนมัติเมื่อมีการ login (ผ่าน signals.py)
     """
     # สัญลักษณ์หุ้น (ไม่มี .BK — จะถูกเติมอัตโนมัติตอนสแกน)
-    symbol = models.CharField(max_length=20, unique=True)
+    symbol = models.CharField(max_length=20)
     # ชื่อดัชนีที่หุ้นนี้อยู่ เช่น "SET100", "SET100+MAI"
     index_name = models.CharField(max_length=50, default="SET100")
+    # ตลาด: 'SET' = ตลาดหุ้นไทย, 'US' = NYSE/Nasdaq
+    market = models.CharField(max_length=10, default='SET', db_index=True)
     # สถานะการใช้งาน (False = ไม่ถูกนำไปสแกน)
     is_active = models.BooleanField(default=True)
     # เวลาที่อัปเดตล่าสุด
@@ -311,9 +323,10 @@ class ScannableSymbol(models.Model):
 
     class Meta:
         ordering = ['symbol']
+        unique_together = ('symbol', 'market')
 
     def __str__(self):
-        return f"{self.symbol} ({self.index_name})"
+        return f"{self.symbol} ({self.index_name}) [{self.market}]"
 
 
 # ====== SoldStock — บันทึกประวัติการขายหุ้นและผลกำไรขาดทุน ======

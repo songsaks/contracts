@@ -2042,17 +2042,27 @@ def precision_momentum_scanner(request):
         import concurrent.futures
 
         # ====== Pre-compute ABSOLUTE RS Rating from full universe (before technical filter) ======
-        # วิธีนี้ทำให้ RS Rating ของหุ้นเดิมเหมือนกันทุกรอบ Scan เพราะ rank กับ SET100 เต็มชุด
+        # Minervini Weighted RS: Q1(last 63 bars)×40% + Q2×20% + Q3×20% + Q4×20%
+        # ให้น้ำหนักกับ momentum ล่าสุดมากที่สุด (เหมือน IBD RS Rating)
         def _fetch_rs_return(sym):
             try:
-                _df = yf.Ticker(f"{sym}.BK").history(start=set_start_str, end=scan_end_str, interval="1d")
+                _df = yf.Ticker(f"{sym}.BK").history(start=scan_start_str, end=scan_end_str, interval="1d")
                 if _df is None or _df.empty:
                     return sym, None
                 if isinstance(_df.columns, pd.MultiIndex):
                     _df.columns = _df.columns.droplevel(1)
                 _close = _df['Close'].dropna()
-                if len(_close) >= 66:
-                    return sym, float((_close.iloc[-1] - _close.iloc[-66]) / _close.iloc[-66] * 100)
+                n = len(_close)
+                if n >= 252:
+                    # Full Minervini 4-quarter weighted RS
+                    q1 = float((_close.iloc[-1]   - _close.iloc[-64])  / abs(_close.iloc[-64])  * 100)
+                    q2 = float((_close.iloc[-64]  - _close.iloc[-127]) / abs(_close.iloc[-127]) * 100)
+                    q3 = float((_close.iloc[-127] - _close.iloc[-190]) / abs(_close.iloc[-190]) * 100)
+                    q4 = float((_close.iloc[-190] - _close.iloc[-253]) / abs(_close.iloc[-253]) * 100)
+                    return sym, q1 * 0.4 + q2 * 0.2 + q3 * 0.2 + q4 * 0.2
+                elif n >= 66:
+                    # Fallback: 3m return
+                    return sym, float((_close.iloc[-1] - _close.iloc[-66]) / abs(_close.iloc[-66]) * 100)
                 return sym, None
             except Exception:
                 return sym, None
@@ -2195,6 +2205,20 @@ def precision_momentum_scanner(request):
                 except Exception:
                     pass
 
+                # ====== Stage 2 (Weinstein): price > SMA150 AND SMA150 rising ======
+                # Stage 2 = markup phase — หุ้นที่ผ่าน filter นี้อยู่ในช่วงที่ดีที่สุดสำหรับการซื้อ
+                stage2_flag = False
+                try:
+                    sma150 = ta.sma(df['Close'], length=150)
+                    if sma150 is not None:
+                        sma150_clean = sma150.dropna()
+                        if len(sma150_clean) >= 20:
+                            sma150_cur = float(sma150_clean.iloc[-1])
+                            sma150_4w  = float(sma150_clean.iloc[-20])  # ~4 สัปดาห์ก่อน
+                            stage2_flag = (current_price > sma150_cur) and (sma150_cur > sma150_4w)
+                except Exception:
+                    pass
+
                 # ====== Fundamental Data (bulk-fetched after all threads complete) ======
                 # ตัวแปรเหล่านี้ไม่ถูกใช้ใน thread — bulk enrichment เป็นตัวทำใน step 2
 
@@ -2228,6 +2252,45 @@ def precision_momentum_scanner(request):
                         prox_val = ((current_price - dz_start) / dz_start) * 100
 
                 gap_to_high = ((year_high - current_price) / current_price) * 100
+
+                # ====== Pocket Pivot (Morales & Kacher) ======
+                # Up-day volume > highest down-day volume in prior 10 sessions
+                pocket_pivot_flag = False
+                try:
+                    if len(df) >= 14:
+                        closes = df['Close'].values
+                        volumes = df['Volume'].values
+                        for _i in [-1, -2]:
+                            if float(closes[_i]) <= float(closes[_i - 1]):
+                                continue  # not an up day
+                            _start = len(volumes) + _i - 10
+                            _end   = len(volumes) + _i
+                            if _start < 1:
+                                continue
+                            _prior_c = closes[_start:_end]
+                            _prior_v = volumes[_start:_end]
+                            _prior_prev_c = closes[_start - 1:_end - 1]
+                            _down_mask = _prior_c < _prior_prev_c
+                            if not _down_mask.any():
+                                continue
+                            _max_down_vol = float(_prior_v[_down_mask].max())
+                            if float(volumes[_i]) > _max_down_vol and _max_down_vol > 0:
+                                pocket_pivot_flag = True
+                                break
+                except Exception:
+                    pass
+
+                # ====== Volume Dry-Up (VDU): เงียบสะสม — volume ลด 3 วันติด + ต่ำกว่า avg 70% ======
+                vdu_flag = False
+                try:
+                    if len(df) >= 4:
+                        _vols = df['Volume'].tail(4).values.astype(float)
+                        _avg20 = float(df['Volume'].tail(20).mean())
+                        _declining = (_vols[-1] < _vols[-2]) and (_vols[-2] < _vols[-3])
+                        _quiet     = _vols[-1] < _avg20 * 0.7
+                        vdu_flag   = _declining and _quiet
+                except Exception:
+                    pass
 
                 # Price Pattern detection (ใช้ df ที่มีอยู่แล้ว)
                 pattern_result = detect_price_pattern(df)
@@ -2283,6 +2346,9 @@ def precision_momentum_scanner(request):
                     'hh_hl_structure': hh_hl_flag,
                     'stock_3m_ret': stock_3m_ret,
                     'rs_rating': rs_ratings_map.get(symbol, 0),
+                    'stage2': stage2_flag,
+                    'pocket_pivot': pocket_pivot_flag,
+                    'vdu_near_zone': vdu_flag,
                 }
 
             except Exception as e:
@@ -2388,6 +2454,9 @@ def precision_momentum_scanner(request):
                     ema20_slope=r.get('ema20_slope', 0.0),
                     ema20_rising=r.get('ema20_rising', False),
                     hh_hl_structure=r.get('hh_hl_structure', False),
+                    stage2=r.get('stage2', False),
+                    pocket_pivot=r.get('pocket_pivot', False),
+                    vdu_near_zone=r.get('vdu_near_zone', False),
                 ))
 
             if bulk_candidates:
@@ -2941,14 +3010,19 @@ def entry_finder(request, symbol):
     - Stop Loss Line
     - EMA50 และ EMA200
     """
-    # เติม .BK suffix สำหรับหุ้นไทยที่ยังไม่มี
-    # Force .BK suffix for Thai symbols if not present
-    full_symbol = f"{symbol}.BK" if not symbol.endswith(".BK") else symbol
+    # ถ้า market=US ไม่ต้องเติม .BK (US stocks ใช้ ticker เดิม)
+    market = request.GET.get('market', 'SET')
+    if market == 'US':
+        full_symbol = symbol
+    else:
+        full_symbol = f"{symbol}.BK" if not symbol.endswith(".BK") else symbol
 
     try:
         df = yf.download(full_symbol, period="1y", interval="1d", progress=False)
         if df.empty:
             messages.error(request, f"ไม่พบข้อมูลสำหรับ {symbol}")
+            if market == 'US':
+                return redirect('stocks:us_precision_scanner')
             return redirect('stocks:momentum_scanner')
 
         # แก้ไข MultiIndex columns
@@ -3511,3 +3585,887 @@ def tithe_mark_paid(request):
         'is_paid': rec.is_paid,
         'paid_at': rec.paid_at.strftime('%d %b %Y %H:%M') if rec.paid_at else None,
     })
+
+
+# ======================================================================
+# US PRECISION MOMENTUM SCANNER — Nasdaq & S&P 500
+# ======================================================================
+
+def _seed_us_symbols():
+    """Seed curated US stock universe (~220 symbols, Nasdaq & S&P 500) into ScannableSymbol."""
+    US_SYMBOLS = [
+        # ── Mega-cap Tech ──────────────────────────────────────────────
+        "AAPL", "MSFT", "NVDA", "GOOGL", "GOOG", "AMZN", "META", "TSLA", "AVGO", "ORCL",
+        "AMD", "ARM", "DELL", "HPE", "WDC",
+        # ── Semiconductor ──────────────────────────────────────────────
+        "TSM", "QCOM", "INTC", "MU", "AMAT", "LRCX", "KLAC", "MRVL", "ON", "TXN",
+        "SMCI", "ASML", "NXPI", "MPWR", "WOLF",
+        # ── Cloud / Software ──────────────────────────────────────────
+        "CRM", "NOW", "SNOW", "PLTR", "PANW", "CRWD", "ZS", "NET", "DDOG", "MDB",
+        "ADBE", "INTU", "ANSS", "CDNS", "SNPS", "FTNT", "OKTA", "HUBS", "TWLO",
+        "TTD", "BILL", "GTLB", "DOCN", "ZM",
+        # ── Financials ────────────────────────────────────────────────
+        "JPM", "BAC", "WFC", "GS", "MS", "BLK", "SCHW", "AXP", "V", "MA",
+        "COF", "DFS", "SYF", "USB", "TFC", "KEY", "RF", "FITB",
+        "CB", "PGR", "ALL", "TRV", "MET", "PRU",
+        # ── Healthcare / Biotech ──────────────────────────────────────
+        "UNH", "LLY", "JNJ", "ABBV", "MRK", "PFE", "ABT", "TMO", "AMGN", "ISRG",
+        "DXCM", "IDXX", "ILMN", "MRNA", "REGN", "VRTX", "BIIB", "GILD", "BMY",
+        "CVS", "CI", "HUM", "MDT", "SYK", "BSX", "EW",
+        # ── Consumer Staples ──────────────────────────────────────────
+        "COST", "WMT", "TGT", "KR", "PG", "KO", "PEP", "CL", "MDLZ", "MO",
+        # ── Consumer Discretionary ────────────────────────────────────
+        "HD", "LOW", "NKE", "LULU", "DECK", "ONON", "RH",
+        "SBUX", "MCD", "YUM", "CMG", "DPZ",
+        "NFLX", "ABNB", "UBER", "DASH", "LYFT", "ETSY", "EBAY",
+        "BABA", "JD", "PDD",
+        # ── Energy ────────────────────────────────────────────────────
+        "XOM", "CVX", "COP", "EOG", "SLB", "PSX", "MPC", "VLO", "OXY", "HAL",
+        "DVN", "FANG", "APA", "MRO", "WMB", "KMI",
+        # ── Industrials / Aerospace ───────────────────────────────────
+        "CAT", "DE", "HON", "GE", "RTX", "LMT", "BA", "UPS", "FDX", "CSX",
+        "ITW", "EMR", "ETN", "PH", "ROK", "AME", "TT", "DHR", "NOC", "GD",
+        # ── FinTech / Payments ────────────────────────────────────────
+        "SPOT", "RBLX", "COIN", "SQ", "PYPL", "MSTR",
+        # ── REIT / Utilities ──────────────────────────────────────────
+        "AMT", "PLD", "CCI", "EQIX", "O", "WELL", "VICI", "PSA",
+        "NEE", "DUK", "SO", "AEP", "EXC",
+        # ── Conglomerate / Other ──────────────────────────────────────
+        "BRK-B", "PINS", "SNAP",
+        # ── Benchmarks ────────────────────────────────────────────────
+        "SPY", "QQQ", "IWM",
+    ]
+    for sym in US_SYMBOLS:
+        ScannableSymbol.objects.update_or_create(
+            symbol=sym, market='US',
+            defaults={'index_name': 'Nasdaq+S&P500', 'is_active': True},
+        )
+    return US_SYMBOLS
+
+
+@login_required
+def us_precision_scanner(request):
+    """
+    US Precision Momentum Scanner — Nasdaq & S&P 500
+    Same logic as precision_momentum_scanner but for US stocks:
+    - No .BK suffix
+    - Benchmark: SPY
+    - Market hours: 09:30-16:00 ET (America/New_York)
+    - Liquidity: avg 20d volume >= 1,000,000
+    - market='US' filter on all DB queries
+    """
+    from .models import PrecisionScanCandidate
+    from .utils import analyze_momentum_technical_v2
+    from django.utils import timezone as tz
+    from yahooquery import Ticker as YQTicker
+
+    scan_symbols = list(
+        ScannableSymbol.objects.filter(is_active=True, market='US').values_list('symbol', flat=True)
+    )
+    if not scan_symbols:
+        _seed_us_symbols()
+        scan_symbols = list(
+            ScannableSymbol.objects.filter(is_active=True, market='US').values_list('symbol', flat=True)
+        )
+
+    if request.method == "POST" or request.GET.get('scan') == 'true':
+        import pandas_ta as ta
+        from datetime import datetime as _dt, timedelta as _td, time as _dtime
+        import pytz as _pytz
+
+        scan_run_time = tz.now()
+
+        # ====== Pin Scan Date — NYSE/Nasdaq 09:30-16:00 ET ======
+        _ny_tz = _pytz.timezone('America/New_York')
+        _now_ny = _dt.now(_ny_tz)
+        _t = _now_ny.time()
+        _market_trading = (
+            _now_ny.weekday() < 5 and
+            _dtime(9, 30) <= _t <= _dtime(16, 0)
+        )
+        scan_end_date  = (_now_ny.date() - _td(days=1)) if _market_trading else _now_ny.date()
+        scan_end_str   = scan_end_date.strftime('%Y-%m-%d')
+        scan_start_str = (scan_end_date - _td(days=400)).strftime('%Y-%m-%d')
+        spy_start_str  = (scan_end_date - _td(days=185)).strftime('%Y-%m-%d')
+
+        # ดึง symbols รอบก่อน (is_new_entry flag)
+        prev_run = (
+            PrecisionScanCandidate.objects
+            .filter(user=request.user, market='US')
+            .values_list('scan_run', flat=True)
+            .order_by('-scan_run').distinct().first()
+        )
+        prev_symbols = set()
+        if prev_run:
+            prev_symbols = set(
+                PrecisionScanCandidate.objects
+                .filter(user=request.user, market='US', scan_run=prev_run)
+                .values_list('symbol', flat=True)
+            )
+
+        # ====== SPY Benchmark Returns ======
+        spy_1m_return = 0.0
+        spy_3m_return = 0.0
+        try:
+            spy_df = yf.download("SPY", start=spy_start_str, end=scan_end_str, interval="1d", progress=False)
+            if spy_df is not None and not spy_df.empty:
+                if isinstance(spy_df.columns, pd.MultiIndex):
+                    spy_df.columns = spy_df.columns.droplevel(1)
+                spy_close = spy_df['Close'].dropna()
+                if len(spy_close) >= 66:
+                    spy_1m_return = float((spy_close.iloc[-1] - spy_close.iloc[-22]) / spy_close.iloc[-22] * 100)
+                    spy_3m_return = float((spy_close.iloc[-1] - spy_close.iloc[-66]) / spy_close.iloc[-66] * 100)
+            import logging; logging.getLogger('stocks').info(
+                f"[US Precision] SPY: 1m={spy_1m_return:.2f}% 3m={spy_3m_return:.2f}%")
+        except Exception as e:
+            import logging; logging.getLogger('stocks').warning(f"[US Precision] SPY fetch failed: {e}")
+
+        import concurrent.futures
+
+        # ====== Pre-compute RS Ratings from full universe ======
+        # Minervini Weighted RS: Q1×40% + Q2×20% + Q3×20% + Q4×20%
+        def _fetch_rs_return_us(sym):
+            try:
+                _df = yf.Ticker(sym).history(start=scan_start_str, end=scan_end_str, interval="1d")
+                if _df is None or _df.empty:
+                    return sym, None
+                if isinstance(_df.columns, pd.MultiIndex):
+                    _df.columns = _df.columns.droplevel(1)
+                _close = _df['Close'].dropna()
+                n = len(_close)
+                if n >= 252:
+                    q1 = float((_close.iloc[-1]   - _close.iloc[-64])  / abs(_close.iloc[-64])  * 100)
+                    q2 = float((_close.iloc[-64]  - _close.iloc[-127]) / abs(_close.iloc[-127]) * 100)
+                    q3 = float((_close.iloc[-127] - _close.iloc[-190]) / abs(_close.iloc[-190]) * 100)
+                    q4 = float((_close.iloc[-190] - _close.iloc[-253]) / abs(_close.iloc[-253]) * 100)
+                    return sym, q1 * 0.4 + q2 * 0.2 + q3 * 0.2 + q4 * 0.2
+                elif n >= 66:
+                    return sym, float((_close.iloc[-1] - _close.iloc[-66]) / abs(_close.iloc[-66]) * 100)
+                return sym, None
+            except Exception:
+                return sym, None
+
+        rs_returns_all = {}
+        with concurrent.futures.ThreadPoolExecutor(max_workers=15) as _ex:
+            _futs = {_ex.submit(_fetch_rs_return_us, s): s for s in scan_symbols}
+            for _f in concurrent.futures.as_completed(_futs):
+                _sym, _ret = _f.result()
+                if _ret is not None:
+                    rs_returns_all[_sym] = _ret
+
+        rs_ratings_map = {}
+        if rs_returns_all:
+            _rs_ser = pd.Series(rs_returns_all)
+            rs_ratings_map = (_rs_ser.rank(pct=True) * 99).clip(0, 99).astype(int).to_dict()
+
+        def _process_us_scan(symbol):
+            try:
+                ticker_obj = yf.Ticker(symbol)
+                df = ticker_obj.history(start=scan_start_str, end=scan_end_str, interval="1d")
+
+                if df is None or df.empty:
+                    try:
+                        yq = YQTicker(symbol)
+                        df = yq.history(start=scan_start_str, end=scan_end_str, interval="1d")
+                        if isinstance(df, pd.DataFrame) and not df.empty:
+                            df = df.reset_index()
+                            if 'date' in df.columns:
+                                df.set_index('date', inplace=True)
+                            if 'symbol' in df.columns:
+                                df.drop(columns=['symbol'], inplace=True)
+                            df.rename(columns={'open': 'Open', 'high': 'High', 'low': 'Low',
+                                               'close': 'Close', 'volume': 'Volume'}, inplace=True)
+                    except Exception:
+                        pass
+
+                if df is None or df.empty:
+                    return None
+
+                if isinstance(df.columns, pd.MultiIndex):
+                    df.columns = df.columns.droplevel(1)
+
+                df = df.dropna(subset=['Close', 'High'])
+                if len(df) < 200:
+                    return None
+
+                # ====== Liquidity: avg 20d vol >= 1,000,000 ======
+                avg_vol_20 = float(df['Volume'].tail(20).mean())
+                if avg_vol_20 < 1_000_000:
+                    return None
+
+                # ====== Indicators ======
+                df['EMA200'] = ta.ema(df['Close'], length=200)
+                df['EMA50']  = ta.ema(df['Close'], length=50)
+                df['RSI']    = ta.rsi(df['Close'], length=14)
+                adx_df = ta.adx(df['High'], df['Low'], df['Close'], length=14)
+                if adx_df is not None and not adx_df.empty:
+                    df = pd.concat([df, adx_df], axis=1)
+                mfi_series = ta.mfi(df['High'], df['Low'], df['Close'], df['Volume'], length=14)
+                df['MFI'] = mfi_series
+
+                current_price = float(df['Close'].iloc[-1])
+                year_high = float(df['High'].tail(252).max())
+
+                adx_val = float(df['ADX_14'].iloc[-1]) if 'ADX_14' in df.columns and pd.notna(df['ADX_14'].iloc[-1]) else 0
+                if adx_val < 15:
+                    return None
+
+                near_high = current_price >= year_high * 0.65
+                if not near_high:
+                    return None
+
+                tech = analyze_momentum_technical_v2(df)
+                integrated_score = tech['score']
+                rvol             = tech['rvol']
+                rsi              = tech['rsi']
+                rvol_bullish     = tech['rvol_bullish']
+                sd_zone          = tech['sd_zone']
+                ema20_aligned_flag = tech.get('ema20_aligned', False)
+                ema20_slope_val    = tech.get('ema20_slope', 0.0)
+                ema20_rising_flag  = tech.get('ema20_rising', False)
+                hh_hl_flag         = tech.get('hh_hl_structure', False)
+
+                mfi_val = float(df['MFI'].iloc[-1]) if 'MFI' in df.columns and pd.notna(df['MFI'].iloc[-1]) else 0
+
+                # ====== MACD ======
+                macd_hist_val  = None
+                macd_cross_val = False
+                try:
+                    macd_df = ta.macd(df['Close'], fast=12, slow=26, signal=9)
+                    if macd_df is not None and not macd_df.empty:
+                        hist_col = [c for c in macd_df.columns if 'h' in c.lower() or 'hist' in c.lower()]
+                        macd_col = [c for c in macd_df.columns if c.lower().startswith('macd_')]
+                        sig_col  = [c for c in macd_df.columns if 'macds' in c.lower() or 'signal' in c.lower()]
+                        if hist_col:
+                            macd_hist_val = float(macd_df[hist_col[0]].iloc[-1]) if pd.notna(macd_df[hist_col[0]].iloc[-1]) else None
+                        if macd_col and sig_col:
+                            m_ser = macd_df[macd_col[0]].dropna()
+                            s_ser = macd_df[sig_col[0]].dropna()
+                            if len(m_ser) >= 4 and len(s_ser) >= 4:
+                                for i in range(-3, 0):
+                                    if m_ser.iloc[i-1] <= s_ser.iloc[i-1] and m_ser.iloc[i] > s_ser.iloc[i]:
+                                        macd_cross_val = True
+                                        break
+                except Exception:
+                    pass
+
+                # ====== BB Squeeze ======
+                bb_squeeze_flag = False
+                try:
+                    bb_df = ta.bbands(df['Close'], length=20, std=2)
+                    if bb_df is not None and not bb_df.empty:
+                        upper_col = [c for c in bb_df.columns if 'BBU' in c or 'upper' in c.lower()]
+                        lower_col = [c for c in bb_df.columns if 'BBL' in c or 'lower' in c.lower()]
+                        mid_col   = [c for c in bb_df.columns if 'BBM' in c or 'mid' in c.lower()]
+                        if upper_col and lower_col and mid_col:
+                            bbu = bb_df[upper_col[0]].dropna()
+                            bbl = bb_df[lower_col[0]].dropna()
+                            bbm = bb_df[mid_col[0]].dropna()
+                            if len(bbu) >= 20:
+                                bw = (bbu - bbl) / bbm
+                                pct20 = bw.quantile(0.20)
+                                if float(bw.iloc[-1]) <= float(pct20):
+                                    bb_squeeze_flag = True
+                except Exception:
+                    pass
+
+                # ====== Stage 2 (Weinstein): price > SMA150 AND SMA150 rising ======
+                stage2_flag = False
+                try:
+                    sma150 = ta.sma(df['Close'], length=150)
+                    if sma150 is not None:
+                        sma150_clean = sma150.dropna()
+                        if len(sma150_clean) >= 20:
+                            sma150_cur = float(sma150_clean.iloc[-1])
+                            sma150_4w  = float(sma150_clean.iloc[-20])
+                            stage2_flag = (current_price > sma150_cur) and (sma150_cur > sma150_4w)
+                except Exception:
+                    pass
+
+                # ====== Earnings Warning (US): earnings within 14 days ======
+                earnings_soon_flag = False
+                try:
+                    _earn_dates = yf.Ticker(symbol).earnings_dates
+                    if _earn_dates is not None and not _earn_dates.empty:
+                        from datetime import date as _date_cls
+                        _future = [
+                            d.date() if hasattr(d, 'date') else d
+                            for d in _earn_dates.index
+                            if (hasattr(d, 'date') and d.date() >= scan_end_date)
+                            or (isinstance(d, _date_cls) and d >= scan_end_date)
+                        ]
+                        if _future:
+                            _days_to = (min(_future) - scan_end_date).days
+                            earnings_soon_flag = _days_to <= 14
+                except Exception:
+                    pass
+
+                # ====== Supply & Demand Zone ======
+                entry_strat = ""
+                dz_start = dz_end = sz_start = sz_end = sl_price = rr_val = None
+                erc_vol_confirmed = False
+                zone_target_src   = '52w'
+
+                if sd_zone:
+                    entry_strat       = sd_zone['type']
+                    dz_start          = sd_zone['start']
+                    dz_end            = sd_zone['end']
+                    sz_start          = sd_zone['target']
+                    sz_end            = sd_zone['target'] * 1.02
+                    sl_price          = sd_zone['stop_loss']
+                    rr_val            = sd_zone['rr_ratio']
+                    erc_vol_confirmed = sd_zone.get('erc_volume_confirmed', False)
+                    zone_target_src   = sd_zone.get('zone_target_source', '52w')
+
+                prox_val = 999.0
+                if dz_start:
+                    prox_val = 0.0 if current_price <= dz_start else ((current_price - dz_start) / dz_start) * 100
+
+                gap_to_high = ((year_high - current_price) / current_price) * 100
+
+                # ====== Pocket Pivot ======
+                pocket_pivot_flag = False
+                try:
+                    if len(df) >= 14:
+                        closes  = df['Close'].values
+                        volumes = df['Volume'].values
+                        for _i in [-1, -2]:
+                            if float(closes[_i]) <= float(closes[_i - 1]):
+                                continue
+                            _start = len(volumes) + _i - 10
+                            _end   = len(volumes) + _i
+                            if _start < 1:
+                                continue
+                            _prior_c = closes[_start:_end]
+                            _prior_v = volumes[_start:_end]
+                            _prior_prev_c = closes[_start - 1:_end - 1]
+                            _down_mask = _prior_c < _prior_prev_c
+                            if not _down_mask.any():
+                                continue
+                            _max_down_vol = float(_prior_v[_down_mask].max())
+                            if float(volumes[_i]) > _max_down_vol and _max_down_vol > 0:
+                                pocket_pivot_flag = True
+                                break
+                except Exception:
+                    pass
+
+                # ====== Volume Dry-Up (VDU) ======
+                vdu_flag = False
+                try:
+                    if len(df) >= 4:
+                        _vols  = df['Volume'].tail(4).values.astype(float)
+                        _avg20 = float(df['Volume'].tail(20).mean())
+                        _declining = (_vols[-1] < _vols[-2]) and (_vols[-2] < _vols[-3])
+                        _quiet     = _vols[-1] < _avg20 * 0.7
+                        vdu_flag   = _declining and _quiet
+                except Exception:
+                    pass
+
+                pattern_result = detect_price_pattern(df)
+                pattern_name   = pattern_result['name']
+                pattern_score  = pattern_result['score']
+
+                close_series = df['Close'].dropna()
+                rel_1m = rel_3m = stock_3m_ret = 0.0
+                if len(close_series) >= 66:
+                    stock_1m    = float((close_series.iloc[-1] - close_series.iloc[-22]) / close_series.iloc[-22] * 100)
+                    stock_3m    = float((close_series.iloc[-1] - close_series.iloc[-66]) / close_series.iloc[-66] * 100)
+                    stock_3m_ret = stock_3m
+                    rel_1m      = round(stock_1m - spy_1m_return, 2)
+                    rel_3m      = round(stock_3m - spy_3m_return, 2)
+                elif len(close_series) >= 22:
+                    stock_1m = float((close_series.iloc[-1] - close_series.iloc[-22]) / close_series.iloc[-22] * 100)
+                    rel_1m   = round(stock_1m - spy_1m_return, 2)
+
+                return {
+                    'symbol': symbol, 'price': round(current_price, 2),
+                    'rsi': round(rsi, 2), 'adx': round(adx_val, 2), 'mfi': round(mfi_val, 2),
+                    'rvol': round(rvol, 2), 'technical_score': int(integrated_score),
+                    'avg_volume_20d': round(avg_vol_20, 0), 'rvol_bullish': rvol_bullish,
+                    'erc_volume_confirmed': erc_vol_confirmed, 'zone_target_src': zone_target_src,
+                    'entry_strat': entry_strat, 'dz_start': dz_start, 'dz_end': dz_end,
+                    'sz_start': sz_start, 'sz_end': sz_end, 'sl_price': sl_price, 'rr_val': rr_val,
+                    'year_high': round(year_high, 2), 'upside_to_high': round(gap_to_high, 2),
+                    'prox_val': round(prox_val, 2), 'pattern_name': pattern_name, 'pattern_score': pattern_score,
+                    'rel_1m': rel_1m, 'rel_3m': rel_3m,
+                    'macd_histogram': round(macd_hist_val, 4) if macd_hist_val is not None else None,
+                    'macd_crossover': macd_cross_val, 'bb_squeeze': bb_squeeze_flag,
+                    'ema20_aligned': ema20_aligned_flag, 'ema20_slope': round(ema20_slope_val, 3),
+                    'ema20_rising': ema20_rising_flag, 'hh_hl_structure': hh_hl_flag,
+                    'stock_3m_ret': stock_3m_ret, 'rs_rating': rs_ratings_map.get(symbol, 0),
+                    'stage2': stage2_flag,
+                    'earnings_soon': earnings_soon_flag,
+                    'pocket_pivot': pocket_pivot_flag,
+                    'vdu_near_zone': vdu_flag,
+                }
+
+            except Exception as e:
+                import logging
+                logging.getLogger('stocks').exception(f"[US Precision] Error scanning {symbol}: {e}")
+                return None
+
+        # ====== Concurrent Scan ======
+        results = []
+        with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+            futures = [executor.submit(_process_us_scan, sym) for sym in scan_symbols]
+            for future in concurrent.futures.as_completed(futures):
+                res = future.result()
+                if res:
+                    results.append(res)
+
+        if results:
+            scan_df = pd.DataFrame(results)
+            if 'rs_rating' not in scan_df.columns:
+                scan_df['rs_rating'] = 0
+
+            # ====== Bulk Fundamental Enrichment ======
+            matched_symbols = [r['symbol'] for r in results]
+            fund_data = {}
+            try:
+                yq_all = YQTicker(matched_symbols)
+                modules = yq_all.get_modules('financialData summaryProfile')
+                for sym_key, data in modules.items():
+                    if not isinstance(data, dict):
+                        continue
+                    profile  = data.get('summaryProfile', {})
+                    fin_data = data.get('financialData', {})
+                    sector = (
+                        profile.get('sector')
+                        or data.get('assetProfile', {}).get('sector')
+                        or 'Unknown'
+                    )
+                    eps_growth = float(fin_data.get('earningsQuarterlyGrowth', 0) or 0) * 100
+                    rev_growth = float(fin_data.get('revenueGrowth', 0) or 0) * 100
+                    fund_data[sym_key.upper()] = {
+                        'sector': sector, 'eps_growth': eps_growth, 'rev_growth': rev_growth,
+                    }
+            except Exception as e:
+                print(f"[US Precision] Bulk Fundamental fetch failed: {e}")
+
+            # ====== Bulk Create ======
+            bulk_candidates = []
+            for r in scan_df.to_dict('records'):
+                sym = r['symbol']
+                f = fund_data.get(sym.upper(), {'sector': 'N/A', 'eps_growth': 0.0, 'rev_growth': 0.0})
+                bulk_candidates.append(PrecisionScanCandidate(
+                    user=request.user, market='US', scan_run=scan_run_time,
+                    symbol=sym, symbol_bk=sym,
+                    sector=f.get('sector') or 'Unknown',
+                    price=r['price'], rsi=r['rsi'], adx=r['adx'], mfi=r['mfi'], rvol=r['rvol'],
+                    eps_growth=round(f.get('eps_growth', 0), 2),
+                    rev_growth=round(f.get('rev_growth', 0), 2),
+                    technical_score=r['technical_score'], rs_rating=r['rs_rating'],
+                    avg_volume_20d=r['avg_volume_20d'], rvol_bullish=r['rvol_bullish'],
+                    erc_volume_confirmed=r['erc_volume_confirmed'],
+                    zone_target_source=r['zone_target_src'],
+                    is_new_entry=(sym not in prev_symbols),
+                    entry_strategy=r['entry_strat'],
+                    demand_zone_start=r['dz_start'], demand_zone_end=r['dz_end'],
+                    supply_zone_start=r['sz_start'], supply_zone_end=r['sz_end'],
+                    stop_loss=r['sl_price'], risk_reward_ratio=r['rr_val'],
+                    year_high=r['year_high'], upside_to_high=r['upside_to_high'],
+                    zone_proximity=r['prox_val'], price_pattern=r['pattern_name'],
+                    price_pattern_score=r['pattern_score'],
+                    rel_momentum_1m=r['rel_1m'], rel_momentum_3m=r['rel_3m'],
+                    macd_histogram=r['macd_histogram'], macd_crossover=r['macd_crossover'],
+                    bb_squeeze=r['bb_squeeze'], ema20_aligned=r['ema20_aligned'],
+                    ema20_slope=r.get('ema20_slope', 0.0),
+                    ema20_rising=r.get('ema20_rising', False),
+                    hh_hl_structure=r.get('hh_hl_structure', False),
+                    stage2=r.get('stage2', False),
+                    earnings_soon=r.get('earnings_soon', False),
+                    pocket_pivot=r.get('pocket_pivot', False),
+                    vdu_near_zone=r.get('vdu_near_zone', False),
+                ))
+
+            if bulk_candidates:
+                PrecisionScanCandidate.objects.bulk_create(bulk_candidates)
+
+        # เก็บ 3 รอบล่าสุด
+        distinct_runs = (
+            PrecisionScanCandidate.objects
+            .filter(user=request.user, market='US')
+            .values_list('scan_run', flat=True)
+            .order_by('-scan_run').distinct()
+        )
+        runs_list = list(distinct_runs)
+        if len(runs_list) > 3:
+            PrecisionScanCandidate.objects.filter(
+                user=request.user, market='US', scan_run__in=runs_list[3:]
+            ).delete()
+
+    # ====== Sort & Display ======
+    sort_by = request.GET.get('sort', 'score')
+    valid_db_sorts = {
+        'symbol': 'symbol', 'score': '-technical_score', 'price': '-price',
+        'rsi': '-rsi', 'rvol': '-rvol', 'adx': '-adx',
+        'prox': 'zone_proximity', 'round_rr': '-risk_reward_ratio', 'rs': '-rs_rating',
+    }
+    use_db_sort  = sort_by in valid_db_sorts
+    order_field  = valid_db_sorts.get(sort_by, '-technical_score')
+
+    all_runs = list(
+        PrecisionScanCandidate.objects
+        .filter(user=request.user, market='US')
+        .values_list('scan_run', flat=True)
+        .order_by('-scan_run').distinct()
+    )
+
+    try:
+        run_idx = int(request.GET.get('run_idx', 0))
+    except (ValueError, TypeError):
+        run_idx = 0
+    run_idx = max(0, min(run_idx, len(all_runs) - 1)) if all_runs else 0
+
+    candidates = []
+    scanned_at = None
+    if all_runs:
+        selected_run = all_runs[run_idx]
+        qs = PrecisionScanCandidate.objects.filter(user=request.user, market='US', scan_run=selected_run)
+        if use_db_sort:
+            qs = qs.order_by(order_field)
+        candidates = list(qs)
+        scanned_at = selected_run
+
+        # ====== Live Price (NYSE hours) ======
+        import pytz as _lpytz
+        from datetime import datetime as _ldt, time as _ldtime
+        _lny = _lpytz.timezone('America/New_York')
+        _lnow = _ldt.now(_lny)
+        _lt   = _lnow.time()
+        _lmarket_open = (
+            _lnow.weekday() < 5 and
+            _ldtime(9, 30) <= _lt <= _ldtime(16, 0)
+        )
+        live_prices = {}
+        if _lmarket_open and candidates:
+            try:
+                import concurrent.futures as _lcf
+                def _get_live_us(sym):
+                    try:
+                        fi = yf.Ticker(sym).fast_info
+                        p = fi.last_price
+                        return sym, float(p) if p else None
+                    except Exception:
+                        return sym, None
+                with _lcf.ThreadPoolExecutor(max_workers=12) as _lex:
+                    for _sym, _p in _lex.map(_get_live_us, [c.symbol for c in candidates]):
+                        if _p:
+                            live_prices[_sym] = _p
+            except Exception:
+                pass
+
+        for c in candidates:
+            lp = live_prices.get(c.symbol)
+            c.live_price = lp
+            if lp and c.demand_zone_start and c.demand_zone_start > 0:
+                c.live_zone_prox = 0.0 if lp <= c.demand_zone_start else round(((lp - c.demand_zone_start) / c.demand_zone_start) * 100, 1)
+            else:
+                c.live_zone_prox = None
+            if lp and c.price and c.price > 0:
+                c.live_change_pct = round(((lp - c.price) / c.price) * 100, 2)
+            else:
+                c.live_change_pct = None
+
+        # ====== BUY/SELL Signals ======
+        for c in candidates:
+            sigs = _compute_signals(c)
+            c.buy_score   = sigs['buy_score']
+            c.sell_score  = sigs['sell_score']
+            c.exit_signal = sigs['exit_signal']
+
+        if sort_by == 'buy':
+            candidates.sort(key=lambda x: x.buy_score, reverse=True)
+        elif sort_by == 'sell':
+            candidates.sort(key=lambda x: x.sell_score, reverse=True)
+        elif sort_by == 'rs':
+            candidates.sort(key=lambda x: getattr(x, 'rs_rating', 0), reverse=True)
+
+        # ====== Top 5 BUY ======
+        def _top5_us(min_rvol, max_rsi=85):
+            return sorted(
+                [c for c in candidates
+                 if c.buy_score >= 50 and c.rvol_bullish
+                 and c.rvol >= min_rvol and c.rsi <= max_rsi],
+                key=lambda x: x.buy_score, reverse=True
+            )[:5]
+
+        top5_buy = _top5_us(1.0)
+        if len(top5_buy) < 5:
+            top5_buy = _top5_us(0.7)
+        if len(top5_buy) < 3:
+            top5_buy = _top5_us(0.0)
+
+        # ====== Top 5 Qualified ======
+        def _qualified_us(c):
+            rr = c.risk_reward_ratio or 0
+            in_zone   = (c.demand_zone_start and c.demand_zone_end and
+                         c.price <= c.demand_zone_start and c.price >= c.demand_zone_end)
+            near_zone = in_zone or (c.zone_proximity <= 30)
+            return (
+                c.buy_score >= 65 and rr >= 1.5 and c.adx >= 20 and
+                45 <= c.rsi <= 82 and c.rvol_bullish and c.rvol >= 0.8 and
+                near_zone and (c.sell_score or 0) < 50 and
+                getattr(c, 'rs_rating', 0) >= 60
+            )
+
+        top5_qualified = sorted(
+            [c for c in candidates if _qualified_us(c)],
+            key=lambda x: x.buy_score, reverse=True
+        )
+
+        for c in top5_buy:
+            reasons = []
+            in_zone = (c.demand_zone_start and c.demand_zone_end and
+                       c.price <= c.demand_zone_start and c.price >= c.demand_zone_end)
+            if in_zone:
+                reasons.append("In Entry Zone")
+            elif c.zone_proximity <= 10:
+                reasons.append(f"Near Zone {c.zone_proximity:.0f}%")
+            elif c.zone_proximity <= 30:
+                reasons.append(f"Approaching Zone {c.zone_proximity:.0f}%")
+            if c.rvol_bullish and c.rvol >= 1.5:
+                reasons.append(f"RVOL {c.rvol:.1f}x Bull Strong")
+            elif c.rvol_bullish and c.rvol >= 1.0:
+                reasons.append(f"RVOL {c.rvol:.1f}x Bull")
+            rr = c.risk_reward_ratio or 0
+            if rr >= 3:
+                reasons.append(f"RR 1:{rr:.1f} Excellent")
+            elif rr >= 2:
+                reasons.append(f"RR 1:{rr:.1f} Good")
+            if c.adx >= 30:
+                reasons.append(f"ADX {c.adx:.0f} Strong")
+            elif c.adx >= 25:
+                reasons.append(f"ADX {c.adx:.0f} Trending")
+            if c.technical_score >= 85:
+                reasons.append(f"Precision {c.technical_score} High")
+            elif c.technical_score >= 75:
+                reasons.append(f"Precision {c.technical_score}")
+            if c.erc_volume_confirmed:
+                reasons.append("ERC Confirmed")
+            if 55 <= c.rsi <= 70:
+                reasons.append(f"RSI {c.rsi:.0f} Sweet Spot")
+            if c.price_pattern and c.price_pattern_score > 0:
+                reasons.append(f"Pattern: {c.price_pattern}")
+            rel = c.rel_momentum_3m if c.rel_momentum_3m != 0.0 else c.rel_momentum_1m
+            if rel >= 8:
+                reasons.append(f"Beats SPY +{rel:.1f}% (3m)")
+            elif rel >= 3:
+                reasons.append(f"Beats SPY +{rel:.1f}%")
+            rs = getattr(c, 'rs_rating', 0)
+            if rs >= 85:
+                reasons.insert(1, f"RS {rs} — Market Leader")
+            elif rs >= 70:
+                reasons.insert(1, f"RS {rs} — Strong")
+            c.top_reasons = reasons[:4]
+
+        for c in top5_qualified:
+            if not hasattr(c, 'top_reasons'):
+                reasons = []
+                in_zone = (c.demand_zone_start and c.demand_zone_end and
+                           c.price <= c.demand_zone_start and c.price >= c.demand_zone_end)
+                if in_zone:
+                    reasons.append("In Entry Zone")
+                elif c.zone_proximity <= 10:
+                    reasons.append(f"Near Zone {c.zone_proximity:.0f}%")
+                else:
+                    reasons.append(f"Zone Dist {c.zone_proximity:.0f}%")
+                rr = c.risk_reward_ratio or 0
+                reasons.append(f"RR 1:{rr:.1f} ✓")
+                reasons.append(f"ADX {c.adx:.0f} ✓")
+                rs = getattr(c, 'rs_rating', 0)
+                if rs >= 85:
+                    reasons.insert(1, f"RS {rs} — Leader")
+                elif rs >= 70:
+                    reasons.insert(1, f"RS {rs} — Strong")
+                if c.rvol >= 1.5:
+                    reasons.append(f"RVOL {c.rvol:.1f}x Bull ✓")
+                c.top_reasons = reasons[:4]
+
+        # ====== Leading Sectors ======
+        sector_counts = {}
+        for c in candidates:
+            if c.buy_score >= 65:
+                sec = c.sector or 'Unknown'
+                sector_counts[sec] = sector_counts.get(sec, 0) + 1
+        top_sectors = sorted(
+            [{'name': k, 'count': v} for k, v in sector_counts.items()],
+            key=lambda x: x['count'], reverse=True
+        )[:5]
+
+        # ====== AI Insights ======
+        scan_insights = []
+        if top5_qualified:
+            best = top5_qualified[0]
+            rr_val = best.risk_reward_ratio or 0
+            rs_val = getattr(best, 'rs_rating', 0)
+            scan_insights.append({
+                'icon': '🏆',
+                'title': f'Best Setup: {best.symbol} (High Reward/Risk)',
+                'desc': (f'Top-ranked US play this scan. RS {rs_val}, strong trend, '
+                         f'price near entry zone. RR 1:{rr_val:.1f} — favorable reward-to-risk.'),
+            })
+        high_risk_mo = [c for c in top5_buy if getattr(c, 'rs_rating', 0) >= 90 and (c.risk_reward_ratio or 0) < 1.5]
+        if high_risk_mo:
+            hm = high_risk_mo[0]
+            if not top5_qualified or hm.symbol != top5_qualified[0].symbol:
+                scan_insights.append({
+                    'icon': '🚀',
+                    'title': f'Momentum Leader: {hm.symbol} (Extended)',
+                    'desc': (f'RS {getattr(hm, "rs_rating", 0)}, heavy volume. '
+                             f'RR 1:{hm.risk_reward_ratio or 0:.1f} — price extended. Watch for pullback entry.'),
+                })
+        if not scan_insights and top5_buy:
+            top = top5_buy[0]
+            scan_insights.append({
+                'icon': '💡',
+                'title': f'Watchlist: {top.symbol}',
+                'desc': 'Highest BUY score this scan. Monitor for entry near demand zone.',
+            })
+
+    else:
+        top5_buy = []
+        top5_qualified = []
+        top_sectors = []
+        scan_insights = []
+
+    context = {
+        'title': 'US Precision Momentum Scanner — Nasdaq & S&P 500',
+        'candidates': candidates,
+        'scanned_at': scanned_at,
+        'current_sort': sort_by,
+        'all_runs': all_runs,
+        'selected_run_idx': run_idx,
+        'has_scanned': request.method == "POST" or request.GET.get('scan') == 'true' or bool(all_runs),
+        'top5_buy': top5_buy,
+        'top5_qualified': top5_qualified,
+        'scan_total': len(scan_symbols),
+        'scan_passed': len(candidates),
+        'top_sectors': top_sectors,
+        'scan_insights': scan_insights,
+        'scan_data_date': None,
+    }
+
+    if scanned_at:
+        import pytz as _sddtz
+        _ny = _sddtz.timezone('America/New_York')
+        _st = scanned_at.astimezone(_ny) if hasattr(scanned_at, 'astimezone') else scanned_at
+        from datetime import time as _t, timedelta as _tdd
+        _in_mkt = (_st.weekday() < 5 and _t(9, 30) <= _st.time() <= _t(16, 0))
+        context['scan_data_date'] = (_st.date() - _tdd(days=1)) if _in_mkt else _st.date()
+
+    import json as _scan_json
+    def _ser_c_us(c):
+        return {
+            "symbol": c.symbol, "price": c.price,
+            "buy_score": getattr(c, 'buy_score', 0), "rs_rating": getattr(c, 'rs_rating', 0),
+            "rsi": round(c.rsi, 1), "adx": round(c.adx, 1), "rvol": round(c.rvol, 2),
+            "rvol_bullish": c.rvol_bullish, "risk_reward_ratio": c.risk_reward_ratio,
+            "zone_proximity": round(c.zone_proximity, 1) if c.zone_proximity else None,
+            "macd_crossover": getattr(c, 'macd_crossover', False),
+            "ema20_aligned": getattr(c, 'ema20_aligned', False),
+            "ema20_rising": getattr(c, 'ema20_rising', False),
+            "hh_hl_structure": getattr(c, 'hh_hl_structure', False),
+            "bb_squeeze": getattr(c, 'bb_squeeze', False),
+            "rel_momentum_3m": getattr(c, 'rel_momentum_3m', 0),
+            "sector": c.sector, "exit_signal": getattr(c, 'exit_signal', ''),
+            "top_reasons": getattr(c, 'top_reasons', []),
+        }
+    _ai_data = {
+        "scan_date": str(context.get('scan_data_date', '')),
+        "qualified_stocks": [_ser_c_us(c) for c in top5_qualified],
+        "top_buy_stocks": [_ser_c_us(c) for c in top5_buy],
+        "total_passed": len(candidates),
+        "top_sectors": [{"name": s["name"], "count": s["count"]} for s in top_sectors],
+    }
+    context['ai_scan_json'] = _scan_json.dumps(_ai_data, ensure_ascii=False, default=str)
+    return render(request, 'stocks/us_precision_scan.html', context)
+
+
+# ======================================================================
+# US PRECISION SCAN AI ANALYSIS
+# ======================================================================
+
+@login_required
+def us_precision_scan_ai_analysis(request):
+    import json as _json_lib
+    from django.http import JsonResponse
+    if request.method != "POST":
+        return JsonResponse({"error": "POST only"}, status=405)
+    try:
+        body = _json_lib.loads(request.body)
+        scan_data = body.get("scan_data", {})
+    except Exception:
+        return JsonResponse({"error": "Invalid JSON"}, status=400)
+
+    api_key = getattr(settings, "GEMINI_API_KEY", None)
+    if not api_key:
+        return JsonResponse({"error": "No GEMINI_API_KEY configured"}, status=500)
+
+    qualified    = scan_data.get("qualified_stocks", [])
+    top_buy      = scan_data.get("top_buy_stocks", [])
+    scan_date    = scan_data.get("scan_date", "N/A")
+    total_passed = scan_data.get("total_passed", 0)
+    top_sectors  = scan_data.get("top_sectors", [])
+
+    def _fmt_stock(s):
+        lines = [
+            "  - {sym}: Price ${price} | BUY {buy} | RS {rs}".format(
+                sym=s["symbol"], price=s["price"], buy=s["buy_score"], rs=s["rs_rating"]),
+            "    RSI {rsi} | ADX {adx} | RVOL {rvol}x {dir} | RR 1:{rr}".format(
+                rsi=s["rsi"], adx=s["adx"], rvol=s["rvol"],
+                dir="Bull ▲" if s.get("rvol_bullish") else "Bear ▼",
+                rr=s.get("risk_reward_ratio", "-")),
+            "    Zone {z}% | {sec} | RelMom3m vs SPY {rm}%".format(
+                z=s.get("zone_proximity", "-"), sec=s.get("sector", "-"),
+                rm=s.get("rel_momentum_3m", 0)),
+            "    Signals: {m}{e}{h}{b}{a}".format(
+                m="MACD✕ " if s.get("macd_crossover") else "",
+                e="EMA↑ " if s.get("ema20_rising") else "",
+                h="HH/HL " if s.get("hh_hl_structure") else "",
+                b="BB Squeeze " if s.get("bb_squeeze") else "",
+                a="EMA20 Aligned " if s.get("ema20_aligned") else ""),
+        ]
+        if s.get("top_reasons"):
+            lines.append("    Reasons: {r}".format(r=", ".join(s["top_reasons"])))
+        return "\n".join(lines)
+
+    q_text   = "\n".join([_fmt_stock(s) for s in qualified]) if qualified else "  (No fully qualified stocks)"
+    b_text   = "\n".join([_fmt_stock(s) for s in top_buy]) if top_buy else "  (No data)"
+    sec_text = ", ".join(["{n}({c})".format(n=s["name"], c=s["count"]) for s in top_sectors]) if top_sectors else "N/A"
+
+    prompt = (
+        "You are an expert US equity analyst specializing in Precision Momentum trading"
+        " (Mark Minervini SEPA + William O'Neil CAN SLIM methodology).\n"
+        "Expert in Stage Analysis, RS Rating, Supply/Demand Zone,"
+        " RVOL Bull/Bear, MACD Crossover, EMA Alignment, Trend Following (HH/HL).\n\n"
+        "US Precision Scan Date: {sd} | Stocks Passed Filter: {tp}"
+        " | Leading Sectors: {sec}\n\n"
+        "=== Fully Qualified Stocks (All Criteria Met) ===\n{q}\n\n"
+        "=== Top BUY Score Stocks ===\n{b}\n\n"
+        "Analyze the following:\n\n"
+        "## 1. 📊 US Market Overview\n"
+        "- Market sentiment (Bullish/Mixed/Bearish), Leading sectors, SPY context\n\n"
+        "## 2. ✅ Fully Qualified Setups\n"
+        "- Each stock: Key strengths, risks, upside potential, priority ranking\n\n"
+        "## 3. 🏆 Top BUY Score Analysis\n"
+        "- Most attractive setup and why | What to watch out for\n\n"
+        "## 4. ⚡ Trading Strategy\n"
+        "- Entry order: Which first, which to wait | Optimal entry zones\n\n"
+        "## 5. ⚠ Risk Warnings\n"
+        "- RSI/RVOL/Zone concerns | Stop Loss discipline | Macro risks\n\n"
+        "Reply in English. Be concise and professional."
+        " Format as Markdown. Focus on Actionable Insights."
+    ).format(sd=scan_date, tp=total_passed, sec=sec_text, q=q_text, b=b_text)
+
+    try:
+        client = genai.Client(api_key=api_key)
+        response = client.models.generate_content(model="gemini-2.5-flash", contents=prompt)
+        if not response.text:
+            return JsonResponse({"error": "AI did not respond"}, status=500)
+        return JsonResponse({"status": "success", "analysis": response.text})
+    except Exception as e:
+        err = str(e)
+        if "API_KEY_INVALID" in err:
+            return JsonResponse({"error": "GEMINI_API_KEY is invalid"}, status=500)
+        return JsonResponse({"error": "Gemini error: {}".format(err)}, status=500)
