@@ -825,6 +825,8 @@
                             <td>
                                 {% if item.supply_zone_start and item.price >= item.supply_zone_start %}
                                     <span class="badge px-1 py-1" style="font-size:0.62rem;background:#dc2626;color:white;">TP</span>
+                                {% elif item.supply_zone_start and item.upside_to_high <= 5 %}
+                                    <span class="badge px-1 py-1" style="font-size:0.62rem;background:#ea580c;color:white;" title="ใกล้ Take Profit: {{ item.supply_zone_start|floatformat:2 }}">~TP</span>
                                 {% elif item.demand_zone_start and item.price <= item.demand_zone_start and item.price >= item.demand_zone_end %}
                                     <span class="badge px-1 py-1" style="font-size:0.62rem;background:#16a34a;color:white;">ENTRY</span>
                                 {% elif item.demand_zone_start %}
@@ -961,6 +963,9 @@
                                     <span class="text-muted"> / {{ item.demand_zone_end|floatformat:2 }}</span>
                                     {% if item.stop_loss %}
                                     <br><span class="text-danger">SL:{{ item.stop_loss|floatformat:2 }}</span>
+                                    {% endif %}
+                                    {% if item.supply_zone_start %}
+                                    <br><span class="fw-bold" style="color:{% if item.price >= item.supply_zone_start %}#dc2626{% elif item.upside_to_high <= 5 %}#ea580c{% else %}#2563eb{% endif %};">TP:{{ item.supply_zone_start|floatformat:2 }}</span>
                                     {% endif %}
                                 </div>
                                 {% else %}-{% endif %}

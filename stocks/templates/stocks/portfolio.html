@@ -47,7 +47,16 @@
     <div class="col-lg-12">
         <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-3">
             <h5 class="fw-bold mb-0">Assets ({{ items|length }})</h5>
-            <div class="d-flex flex-wrap gap-2">
+            <div class="d-flex flex-wrap gap-2 align-items-center">
+                <!-- View Toggle -->
+                <div class="btn-group btn-group-sm" role="group" id="viewToggleGroup">
+                    <button type="button" class="btn btn-outline-secondary rounded-start-pill px-3" id="btn-card-view" onclick="setPortfolioView('card')" title="Card View">
+                        <i class="fas fa-th-large"></i>
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary rounded-end-pill px-3" id="btn-table-view" onclick="setPortfolioView('table')" title="Table View">
+                        <i class="fas fa-list"></i>
+                    </button>
+                </div>
                 {% if items|length > 0 %}
                 <a href="?analyze=true" class="btn btn-outline-success btn-sm rounded-pill px-3 px-md-4">
                     <i class="fas fa-brain"></i> <span class="d-none d-sm-inline ms-1">Analyze</span>
@@ -62,7 +71,8 @@
             </div>
         </div>
 
-        <div class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-3">
+        <!-- ══ CARD VIEW ══════════════════════════════════════ -->
+        <div id="portfolio-card-view" class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-3">
             {% for item in items %}
             <div class="col">
                 <div class="card-premium h-100 border-light border-opacity-50 position-relative overflow-hidden shadow-sm d-flex flex-column">
@@ -355,6 +365,143 @@
             </div>
             {% endfor %}
         </div>
+
+        <!-- ══ TABLE VIEW (hidden by default) ═══════════════ -->
+        <div id="portfolio-table-view" style="display:none;">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle port-table mb-0">
+                    <thead class="bg-light bg-opacity-50">
+                        <tr class="small text-muted text-uppercase" style="font-size:0.72rem;letter-spacing:0.4px;">
+                            <th>Symbol</th>
+                            <th class="text-end">Price</th>
+                            <th class="text-end">Day%</th>
+                            <th class="text-end">P/L%</th>
+                            <th class="text-end">P/L ฿</th>
+                            <th class="text-end">Value ฿</th>
+                            <th class="text-center d-none d-md-table-cell">Zone</th>
+                            <th class="text-end d-none d-md-table-cell">SL</th>
+                            <th class="text-end d-none d-md-table-cell">TP</th>
+                            <th class="text-center d-none d-lg-table-cell">Score/Signals</th>
+                            <th class="text-end">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in items %}
+                        <tr class="border-bottom border-light">
+                            <!-- Symbol -->
+                            <td>
+                                <div class="d-flex align-items-center gap-2">
+                                    <a href="{% url 'stocks:analyze' item.obj.symbol %}" class="fw-bold text-dark text-decoration-none hover-primary" style="font-size:0.95rem;">{{ item.obj.symbol }}</a>
+                                    {% if item.mom_data %}
+                                        {% if item.mom_data.demand_zone_start and item.current_price <= item.mom_data.demand_zone_start and item.current_price >= item.mom_data.demand_zone_end %}
+                                        <span class="badge bg-success bg-opacity-15 text-success rounded-pill" style="font-size:0.6rem;">IN ZONE</span>
+                                        {% elif item.mom_data.supply_zone_start and item.current_price >= item.mom_data.supply_zone_start %}
+                                        <span class="badge bg-danger bg-opacity-15 text-danger rounded-pill" style="font-size:0.6rem;">AT TP</span>
+                                        {% endif %}
+                                    {% endif %}
+                                    {% if item.exit_signal == 'STRONG EXIT' %}
+                                    <span class="badge bg-danger rounded-pill" style="font-size:0.58rem;">🚨EXIT</span>
+                                    {% elif item.exit_signal == 'EXIT' %}
+                                    <span class="badge" style="background:rgba(220,38,38,0.15);color:#dc2626;border:1px solid #dc2626;font-size:0.58rem;">⚠️EXIT</span>
+                                    {% elif item.exit_signal == 'WATCH' %}
+                                    <span class="badge" style="background:rgba(245,158,11,0.15);color:#b45309;font-size:0.58rem;">👁</span>
+                                    {% endif %}
+                                </div>
+                                <div class="text-muted" style="font-size:0.7rem;">{{ item.obj.name|default:item.obj.symbol|truncatechars:20 }}</div>
+                            </td>
+                            <!-- Price -->
+                            <td class="text-end fw-bold {% if item.day_change > 0 %}text-success{% elif item.day_change < 0 %}text-danger{% else %}text-dark{% endif %}" style="font-size:0.9rem;">
+                                ฿{{ item.current_price|floatformat:2 }}
+                            </td>
+                            <!-- Day% -->
+                            <td class="text-end">
+                                <span class="badge rounded-pill {% if item.day_change > 0 %}bg-success{% elif item.day_change < 0 %}bg-danger{% else %}bg-secondary{% endif %} bg-opacity-10 {% if item.day_change > 0 %}text-success{% elif item.day_change < 0 %}text-danger{% else %}text-secondary{% endif %}" style="font-size:0.7rem;">
+                                    {% if item.day_change > 0 %}+{% endif %}{{ item.day_change|floatformat:2 }}%
+                                </span>
+                            </td>
+                            <!-- P/L% -->
+                            <td class="text-end fw-bold {% if item.gain_loss > 0 %}text-success{% elif item.gain_loss < 0 %}text-danger{% else %}text-muted{% endif %}" style="font-size:0.85rem;">
+                                {% if item.obj.entry_price > 0 %}
+                                    {% if item.gain_loss > 0 %}+{% endif %}{{ item.gain_loss_pct|floatformat:1 }}%
+                                {% else %}-{% endif %}
+                            </td>
+                            <!-- P/L ฿ -->
+                            <td class="text-end fw-bold {% if item.gain_loss > 0 %}text-success{% elif item.gain_loss < 0 %}text-danger{% else %}text-muted{% endif %}" style="font-size:0.85rem;">
+                                {% if item.obj.entry_price > 0 %}
+                                    {% if item.gain_loss > 0 %}+{% endif %}฿{{ item.gain_loss|floatformat:0|intcomma }}
+                                {% else %}-{% endif %}
+                            </td>
+                            <!-- Value -->
+                            <td class="text-end fw-bold text-dark" style="font-size:0.85rem;">฿{{ item.market_value|floatformat:0|intcomma }}</td>
+                            <!-- Zone -->
+                            <td class="text-center d-none d-md-table-cell" style="font-size:0.75rem;">
+                                {% if item.mom_data %}
+                                    {% if item.mom_data.zone_proximity == 0 %}
+                                        <span class="text-success fw-bold blink-soft">IN ZONE</span>
+                                    {% elif item.mom_data.zone_proximity <= 15 %}
+                                        <span class="text-warning fw-bold">~{{ item.mom_data.zone_proximity|floatformat:0 }}%</span>
+                                    {% elif item.mom_data.zone_proximity >= 999 %}
+                                        <span class="text-muted">-</span>
+                                    {% else %}
+                                        <span class="text-muted">{{ item.mom_data.zone_proximity|floatformat:0 }}%</span>
+                                    {% endif %}
+                                {% else %}-{% endif %}
+                            </td>
+                            <!-- SL -->
+                            <td class="text-end d-none d-md-table-cell" style="font-size:0.8rem;">
+                                {% if item.mom_data and item.mom_data.stop_loss %}
+                                <span class="fw-bold {% if item.trailing_stop_data.color == 'danger' %}text-danger{% elif item.trailing_stop_data.color == 'warning' %}text-warning{% else %}text-muted{% endif %}">
+                                    ฿{{ item.mom_data.stop_loss|floatformat:2 }}
+                                </span>
+                                {% else %}<span class="text-muted">-</span>{% endif %}
+                            </td>
+                            <!-- TP -->
+                            <td class="text-end d-none d-md-table-cell" style="font-size:0.8rem;">
+                                {% if item.mom_data and item.mom_data.supply_zone_start %}
+                                <span class="fw-bold text-primary">฿{{ item.mom_data.supply_zone_start|floatformat:2 }}</span>
+                                {% else %}<span class="text-muted">-</span>{% endif %}
+                            </td>
+                            <!-- Score/Signals -->
+                            <td class="text-center d-none d-lg-table-cell">
+                                {% if item.mom_data %}
+                                <div class="d-flex gap-1 justify-content-center flex-wrap">
+                                    <span class="badge rounded-pill" style="background:rgba(22,163,74,0.12);color:#15803d;border:1px solid rgba(22,163,74,0.3);font-size:0.6rem;">B{{ item.buy_score }}</span>
+                                    <span class="badge rounded-pill" style="background:rgba(220,38,38,0.10);color:#dc2626;border:1px solid rgba(220,38,38,0.25);font-size:0.6rem;">S{{ item.sell_score }}</span>
+                                    {% if item.rsi %}<span class="badge rounded-pill bg-secondary bg-opacity-10 text-secondary" style="font-size:0.6rem;">RSI{{ item.rsi|floatformat:0 }}</span>{% endif %}
+                                    {% if item.mom_data.technical_score %}<span class="badge bg-dark bg-opacity-10 text-dark rounded-pill" style="font-size:0.6rem;">⭐{{ item.mom_data.technical_score }}</span>{% endif %}
+                                </div>
+                                {% else %}<span class="text-muted">-</span>{% endif %}
+                            </td>
+                            <!-- Actions -->
+                            <td class="text-end">
+                                <div class="d-flex gap-1 justify-content-end">
+                                    <a href="{% url 'stocks:entry_finder' item.obj.symbol %}" class="btn btn-danger btn-xs rounded-pill px-2 py-1" title="Sniper Chart" style="font-size:0.65rem;"><i class="fas fa-crosshairs"></i></a>
+                                    <button class="btn btn-light btn-xs rounded-circle border text-success" style="width:28px;height:28px;padding:0;"
+                                        onclick="openSellModal('{% url 'stocks:sell_stock' item.obj.pk %}','{{ item.obj.symbol }}','{{ item.obj.quantity }}','{{ item.current_price }}','{{ item.obj.entry_price }}')"
+                                        data-bs-toggle="modal" data-bs-target="#sellStockModal" title="Sell">
+                                        <i class="fas fa-hand-holding-usd" style="font-size:0.6rem;"></i>
+                                    </button>
+                                    <button class="btn btn-light btn-xs rounded-circle border" style="width:28px;height:28px;padding:0;"
+                                        onclick="editPortfolio('{{ item.obj.symbol }}','{{ item.obj.name|default:""|escapejs }}','{{ item.obj.quantity }}','{{ item.obj.entry_price }}','{{ item.obj.category }}')"
+                                        data-bs-toggle="modal" data-bs-target="#addPortfolioModal" title="Edit">
+                                        <i class="fas fa-edit" style="font-size:0.6rem;"></i>
+                                    </button>
+                                    <form action="{% url 'stocks:delete_from_portfolio' item.obj.pk %}" method="POST" class="d-inline" onsubmit="return confirm('ลบจากพอร์ตใช่หรือไม่?')">
+                                        {% csrf_token %}
+                                        <button type="submit" class="btn btn-light btn-xs rounded-circle border text-danger" style="width:28px;height:28px;padding:0;" title="Delete">
+                                            <i class="fas fa-trash-alt" style="font-size:0.6rem;"></i>
+                                        </button>
+                                    </form>
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="11" class="text-center py-5 text-muted">ยังไม่มีรายการในพอร์ต</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
     </div>
 
     {% if ai_analysis %}
@@ -535,6 +682,17 @@
         box-shadow: 0 6px 20px rgba(204, 0, 0, 0.3);
         color: white;
     }
+
+    /* ── Portfolio Table View ─────────────────────────── */
+    .port-table thead tr th { font-size: 0.7rem; padding: 0.6rem 0.75rem; }
+    .port-table tbody tr td { padding: 0.55rem 0.75rem; vertical-align: middle; }
+    .port-table tbody tr:hover { background: rgba(99,102,241,0.04); }
+    #viewToggleGroup .btn.active {
+        background: #6366f1;
+        color: white;
+        border-color: #6366f1;
+    }
+    .btn-xs { padding: 0.15rem 0.35rem; font-size: 0.7rem; }
 </style>
 
 <!-- Modal -->
@@ -683,6 +841,33 @@
         textEl.innerText = (profit >= 0 ? '+' : '') + '฿' + profit.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
         textEl.className = 'h4 fw-bold mb-0 ' + (profit >= 0 ? 'text-success' : 'text-danger');
     }
+
+    // ── Portfolio View Toggle ──────────────────────────────
+    function setPortfolioView(mode) {
+        const cardView  = document.getElementById('portfolio-card-view');
+        const tableView = document.getElementById('portfolio-table-view');
+        const btnCard   = document.getElementById('btn-card-view');
+        const btnTable  = document.getElementById('btn-table-view');
+
+        if (mode === 'table') {
+            cardView.style.display  = 'none';
+            tableView.style.display = 'block';
+            btnTable.classList.add('active');
+            btnCard.classList.remove('active');
+        } else {
+            cardView.style.display  = '';
+            tableView.style.display = 'none';
+            btnCard.classList.add('active');
+            btnTable.classList.remove('active');
+        }
+        try { localStorage.setItem('portfolioView', mode); } catch(e) {}
+    }
+
+    // Restore saved preference on load
+    document.addEventListener('DOMContentLoaded', function() {
+        const saved = (function(){ try { return localStorage.getItem('portfolioView'); } catch(e){ return null; } })();
+        setPortfolioView(saved === 'table' ? 'table' : 'card');
+    });
 
     // Markdown Parser
     document.addEventListener("DOMContentLoaded", function() {
