@@ -2531,26 +2531,30 @@ def precision_momentum_scanner(request):
              _ldtime(14, 30) <= _lt <= _ldtime(16, 30))
         )
         live_prices = {}
-        if _lmarket_open and candidates:
+        live_mcaps  = {}
+        if candidates:
             try:
                 import concurrent.futures as _lcf
                 def _get_live(sym):
                     try:
                         fi = yf.Ticker(f"{sym}.BK").fast_info
-                        p = fi.last_price
-                        return sym, float(p) if p else None
+                        p  = getattr(fi, 'last_price', None)
+                        mc = getattr(fi, 'market_cap', None)
+                        return sym, (float(p) if p else None), (round(float(mc)/1e9, 2) if mc else None)
                     except Exception:
-                        return sym, None
+                        return sym, None, None
                 with _lcf.ThreadPoolExecutor(max_workers=12) as _lex:
-                    for _sym, _p in _lex.map(_get_live, [c.symbol for c in candidates]):
-                        if _p:
-                            live_prices[_sym] = _p
+                    for _sym, _p, _mc in _lex.map(_get_live, [c.symbol for c in candidates]):
+                        if _p:  live_prices[_sym] = _p
+                        if _mc: live_mcaps[_sym]  = _mc
             except Exception:
                 pass
 
         for c in candidates:
             lp = live_prices.get(c.symbol)
-            c.live_price = lp
+            c.live_price      = lp
+            c.live_market_cap = live_mcaps.get(c.symbol)
+            c.is_live         = _lmarket_open and lp is not None
             if lp and c.demand_zone_start and c.demand_zone_start > 0:
                 c.live_zone_prox = 0.0 if lp <= c.demand_zone_start else round(((lp - c.demand_zone_start) / c.demand_zone_start) * 100, 1)
             else:
@@ -2561,12 +2565,22 @@ def precision_momentum_scanner(request):
                 c.live_change_pct = None
 
         # ====== คำนวณ BUY/SELL Score ด้วย _compute_signals() เดียวกับ Dashboard/Watchlist ======
-        # ใช้สูตรกลางแทนการ duplicate logic — ทำให้ทุกหน้าแสดง score ที่สอดคล้องกัน
         for c in candidates:
             sigs = _compute_signals(c)
             c.buy_score  = sigs['buy_score']
             c.sell_score = sigs['sell_score']
             c.exit_signal = sigs['exit_signal']
+
+        # ====== BUY Score Delta เทียบกับรอบก่อนหน้า ======
+        prev_buy_scores = {}
+        if len(all_runs) > run_idx + 1:
+            for _p in PrecisionScanCandidate.objects.filter(
+                    user=request.user, scan_run=all_runs[run_idx + 1]):
+                _ps = _compute_signals(_p)
+                prev_buy_scores[_p.symbol] = _ps['buy_score']
+        for c in candidates:
+            _prev = prev_buy_scores.get(c.symbol)
+            c.buy_score_delta = (c.buy_score - _prev) if _prev is not None else None
 
         # เรียงตาม BUY/SELL/RS score ด้วย Python (fallback ถ้าไม่ใช่ DB sort)
         if sort_by == 'buy':
@@ -4138,26 +4152,30 @@ def us_precision_scanner(request):
             _ldtime(9, 30) <= _lt <= _ldtime(16, 0)
         )
         live_prices = {}
-        if _lmarket_open and candidates:
+        live_mcaps  = {}
+        if candidates:
             try:
                 import concurrent.futures as _lcf
                 def _get_live_us(sym):
                     try:
                         fi = yf.Ticker(sym).fast_info
-                        p = fi.last_price
-                        return sym, float(p) if p else None
+                        p  = getattr(fi, 'last_price', None)
+                        mc = getattr(fi, 'market_cap', None)
+                        return sym, (float(p) if p else None), (round(float(mc)/1e9, 2) if mc else None)
                     except Exception:
-                        return sym, None
+                        return sym, None, None
                 with _lcf.ThreadPoolExecutor(max_workers=12) as _lex:
-                    for _sym, _p in _lex.map(_get_live_us, [c.symbol for c in candidates]):
-                        if _p:
-                            live_prices[_sym] = _p
+                    for _sym, _p, _mc in _lex.map(_get_live_us, [c.symbol for c in candidates]):
+                        if _p:  live_prices[_sym] = _p
+                        if _mc: live_mcaps[_sym]  = _mc
             except Exception:
                 pass
 
         for c in candidates:
             lp = live_prices.get(c.symbol)
-            c.live_price = lp
+            c.live_price      = lp
+            c.live_market_cap = live_mcaps.get(c.symbol)
+            c.is_live         = _lmarket_open and lp is not None
             if lp and c.demand_zone_start and c.demand_zone_start > 0:
                 c.live_zone_prox = 0.0 if lp <= c.demand_zone_start else round(((lp - c.demand_zone_start) / c.demand_zone_start) * 100, 1)
             else:
@@ -4173,6 +4191,17 @@ def us_precision_scanner(request):
             c.buy_score   = sigs['buy_score']
             c.sell_score  = sigs['sell_score']
             c.exit_signal = sigs['exit_signal']
+
+        # ====== BUY Score Delta vs previous run ======
+        prev_buy_scores_us = {}
+        if len(all_runs) > run_idx + 1:
+            for _p in PrecisionScanCandidate.objects.filter(
+                    user=request.user, market='US', scan_run=all_runs[run_idx + 1]):
+                _ps = _compute_signals(_p)
+                prev_buy_scores_us[_p.symbol] = _ps['buy_score']
+        for c in candidates:
+            _prev = prev_buy_scores_us.get(c.symbol)
+            c.buy_score_delta = (c.buy_score - _prev) if _prev is not None else None
 
         if sort_by == 'buy':
             candidates.sort(key=lambda x: x.buy_score, reverse=True)

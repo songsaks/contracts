@@ -566,7 +566,14 @@
                             <span class="fw-bold px-2 rounded-pill" style="background:#dcfce7;color:#15803d;font-size:0.82rem;border:1px solid #86efac;">BUY {{ item.buy_score }}</span>
                         </div>
                         <div class="mb-2 d-flex align-items-center gap-1 flex-wrap">
+                            {% if item.live_price %}
+                            <span style="font-size:0.88rem;font-weight:600;color:#0f172a;">฿{{ item.live_price|floatformat:2 }}</span>
+                            {% if item.live_change_pct is not None %}
+                            <span style="font-size:0.7rem;font-weight:600;color:{% if item.live_change_pct >= 0 %}#16a34a{% else %}#dc2626{% endif %};">{% if item.live_change_pct >= 0 %}+{% endif %}{{ item.live_change_pct|floatformat:1 }}%</span>
+                            {% endif %}
+                            {% else %}
                             <span style="font-size:0.88rem;font-weight:600;color:#0f172a;">฿{{ item.price }}</span>
+                            {% endif %}
                             {% if item.demand_zone_start and item.price <= item.demand_zone_start and item.price >= item.demand_zone_end %}
                             <span class="badge" style="background:#22c55e;font-size:0.6rem;padding:2px 6px;">IN ZONE</span>
                             {% elif item.zone_proximity <= 10 %}
@@ -635,9 +642,16 @@
                             <span class="fw-bold" style="font-size:1rem; color:#1e293b;">{{ item.symbol }}</span>
                             <span class="fw-bold px-2 rounded-pill" style="background:{% if item.buy_score >= 80 %}#dcfce7; color:#15803d{% elif item.buy_score >= 65 %}#dbeafe; color:#1d4ed8{% else %}#f1f5f9; color:#475569{% endif %}; font-size:0.82rem; border:1px solid {% if item.buy_score >= 80 %}#86efac{% elif item.buy_score >= 65 %}#93c5fd{% else %}#cbd5e1{% endif %};">BUY {{ item.buy_score }}</span>
                         </div>
-                        <!-- Price + zone label -->
+                        <!-- Price + zone label (Live price when available) -->
                         <div class="mb-2 d-flex align-items-center gap-1 flex-wrap">
+                            {% if item.live_price %}
+                            <span style="font-size:0.88rem; font-weight:600; color:#0f172a;">฿{{ item.live_price|floatformat:2 }}</span>
+                            {% if item.live_change_pct is not None %}
+                            <span style="font-size:0.7rem;font-weight:600;color:{% if item.live_change_pct >= 0 %}#16a34a{% else %}#dc2626{% endif %};">{% if item.live_change_pct >= 0 %}+{% endif %}{{ item.live_change_pct|floatformat:1 }}%</span>
+                            {% endif %}
+                            {% else %}
                             <span style="font-size:0.88rem; font-weight:600; color:#0f172a;">฿{{ item.price }}</span>
+                            {% endif %}
                             {% if item.demand_zone_start and item.price <= item.demand_zone_start and item.price >= item.demand_zone_end %}
                             <span class="badge" style="background:#22c55e; font-size:0.6rem; padding:2px 6px;">IN ZONE</span>
                             {% elif item.zone_proximity <= 10 %}
@@ -941,17 +955,18 @@
 
                             <!-- PRICE -->
                             <td class="col-hide-md">
-                                <span class="fw-bold">฿{{ item.price|floatformat:2 }}</span>
                                 {% if item.live_price %}
-                                <div class="mt-1" style="font-size:0.68rem;line-height:1.2;">
-                                    <span style="color:#6b7280;">Live:</span>
-                                    <span class="fw-semibold" style="color:{% if item.live_change_pct >= 0 %}#16a34a{% else %}#dc2626{% endif %};">
-                                        ฿{{ item.live_price|floatformat:2 }}
-                                        {% if item.live_change_pct is not None %}
-                                        ({% if item.live_change_pct >= 0 %}+{% endif %}{{ item.live_change_pct|floatformat:1 }}%)
-                                        {% endif %}
-                                    </span>
-                                </div>
+                                <span class="fw-bold" style="color:{% if item.live_change_pct and item.live_change_pct >= 0 %}#16a34a{% elif item.live_change_pct and item.live_change_pct < 0 %}#dc2626{% else %}#0f172a{% endif %};">
+                                    ฿{{ item.live_price|floatformat:2 }}
+                                </span>
+                                {% if item.live_change_pct is not None %}
+                                <span class="d-block" style="font-size:0.62rem;font-weight:600;color:{% if item.live_change_pct >= 0 %}#16a34a{% else %}#dc2626{% endif %};">
+                                    {% if item.live_change_pct >= 0 %}+{% endif %}{{ item.live_change_pct|floatformat:1 }}%
+                                </span>
+                                {% endif %}
+                                <div style="font-size:0.6rem;color:#94a3b8;">close: ฿{{ item.price|floatformat:2 }}</div>
+                                {% else %}
+                                <span class="fw-bold">฿{{ item.price|floatformat:2 }}</span>
                                 {% endif %}
                             </td>
 
