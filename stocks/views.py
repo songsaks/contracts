@@ -17,7 +17,7 @@ from .models import (
 from .utils import (
     get_stock_data, analyze_with_ai, calculate_trailing_stop,
     refresh_set100_symbols, find_supply_demand_zones, find_supply_demand_zones_v2,
-    detect_price_pattern
+    detect_price_pattern, _is_commodity, _fetch_commodity_macro, _score_commodity_signal
 )
 from decimal import Decimal
 from yahooquery import Ticker as YQTicker
@@ -349,12 +349,26 @@ def analyze(request, symbol):
                 extra_ctx += f"Stop Loss: {mom.stop_loss}\n"
                 extra_ctx += f"RR Ratio: {mom.risk_reward_ratio}\n"
 
+        # ====== Pre-fetch macro data & compute signal for commodities ======
+        # Done BEFORE AI call so we can pass signal into the prompt
+        history = data.get('history', pd.DataFrame())
+        is_commodity = _is_commodity(symbol)
+        macro_data   = {}
+        macro_signal = None
+        if is_commodity:
+            macro_data = _fetch_commodity_macro()
+            _ema200 = float(history['EMA_200'].iloc[-1]) if 'EMA_200' in history.columns and not history.empty else None
+            _rsi    = history['RSI'].iloc[-1]             if 'RSI'     in history.columns and not history.empty else None
+            _price  = float(history['Close'].iloc[-1])    if not history.empty else 0
+            macro_signal = _score_commodity_signal(symbol, _price, _ema200, _rsi, macro_data)
+            # Stash raw macro inside signal so AI function can re-use without double-fetching
+            macro_signal['_raw_macro'] = macro_data
+
         # ส่งข้อมูลให้ AI วิเคราะห์และรับผลเป็น Markdown
-        analysis_text = analyze_with_ai(symbol, data, extra_context=extra_ctx)
+        analysis_text = analyze_with_ai(symbol, data, extra_context=extra_ctx, macro_signal=macro_signal)
 
         # ====== เตรียมข้อมูลกราฟราคาและวอลลุ่ม ======
         # Prepare Chart Data (Price & Volume)
-        history = data.get('history', pd.DataFrame())
         chart_labels = []
         chart_values = []
         chart_volumes = []
@@ -456,7 +470,10 @@ def analyze(request, symbol):
             'current_rsi': current_rsi,
             'rsi_status': rsi_status,
             'news': news_list,
-            'title': f"AI Analysis: {symbol}"
+            'title': f"AI Analysis: {symbol}",
+            'is_commodity': is_commodity,
+            'macro_data': macro_data,
+            'macro_signal': macro_signal,
         }
         return render(request, 'stocks/analysis.html', context)
     except Exception as e:
@@ -683,7 +700,17 @@ def portfolio_list(request):
         # สร้าง string สรุปพอร์ตสำหรับส่งให้ AI
         port_data = []
         for it in items:
-            port_data.append(f"{it['obj'].symbol}: {it['obj'].quantity} units @ {it['obj'].entry_price} (Current: {it['current_price']}, P/L: {it['gain_loss_pct']:.2f}%, RSI: {it['rsi']})")
+            mom_info = ""
+            if it.get('mom_data'):
+                m = it['mom_data']
+                rvol = m.rvol if hasattr(m, 'rvol') else 0
+                rs = getattr(m, 'rs_rating', 0)
+                adx = m.adx if hasattr(m, 'adx') else 0
+                score = m.technical_score if hasattr(m, 'technical_score') else 0
+                buy_sc = it.get('buy_score', 0)
+                exit_sig = it.get('exit_signal', '')
+                mom_info = f", Score(0-100): {score}, BUY Score: {buy_sc}, RS(0-99): {rs}, RVOL: {rvol:.1f}x, ADX: {adx:.1f}, Exit Signal: '{exit_sig}'"
+            port_data.append(f"{it['obj'].symbol}: {it['obj'].quantity} units @ {it['obj'].entry_price} (Current: {it['current_price']}, P/L: {it['gain_loss_pct']:.2f}%, RSI: {it['rsi']}{mom_info})")
         port_str = "\n".join(port_data)
 
         # ====== PyPortfolioOpt — คำนวณ Efficient Frontier / Max Sharpe ======
@@ -766,14 +793,19 @@ def portfolio_list(request):
 
         # ====== สร้าง Prompt สำหรับ AI วิเคราะห์พอร์ต ======
         prompt = f"""
-        You are an expert Stock Portfolio Analyst. The user has the following assets in their portfolio (with Entry Price, Current Price, and Profit/Loss):
+        You are an expert Stock Portfolio Analyst specializing in "Precision Momentum Trading" (similar to Mark Minervini and CANSLIM).
+        The user has the following assets in their portfolio (with Entry Price, Current Price, and Profit/Loss, along with Momentum metrics):
         {port_str}
 
         {ppo_advice}
 
         Please analyze this portfolio and provide:
-        1. An overall assessment of the portfolio's health, performance, and diversification based on the Efficient Frontier data provided.
-        2. A brief analysis and clear recommendation for EACH individual asset (e.g., Hold, Buy More, Take Profit, Cut Loss) based on its current P/L, RSI, and Optimal Weights.
+        1. An overall assessment of the portfolio's health, performance, and diversification.
+        2. A brief analysis and clear recommendation for EACH individual asset (e.g., Hold, Buy More, Take Profit, Cut Loss).
+           - CRITICAL RULE: In your analysis, you MUST heavily weigh the Momentum metrics (Score, BUY Score, RS, RVOL, ADX, and Exit Signal).
+           - Do NOT immediately suggest cutting a loss JUST because P/L is slightly negative or RSI is > 70.
+           - If a stock has High RS (e.g. > 75), strong RVOL (> 1.5x) or a high BUY Score/Score, it indicates it is a "Market Leader" and in a strong uptrend. In such cases, suggest "Holding" to ride the momentum as long as the Exit Signal is not triggered, even if P/L is temporarily negative.
+           - Acknowledge the strength of the momentum. E.g., "แม้จะขาดทุน -2.35% แต่หุ้นมี RS แข็งแกร่งถึง 88 และ RVOL สูง บ่งบอกถึงแรงซื้อที่ยังมีอยู่ แนะนำให้ถือเพื่อรอจังหวะเด้งกลับ"
         3. Actionable strategic advice on what sectors or types of assets to consider adding next to balance the portfolio.
 
         Format your response beautifully in Markdown using Thai Language (Sarabun professional tone).
@@ -1562,7 +1594,9 @@ def macro_economy(request):
     macro_items = [
         {'id': 'set', 'name': 'SET Index (ดัชนีหุ้นไทย)', 'symbol': '^SET', 'unit': 'Points', 'desc': 'ดัชนีตลาดหลักทรัพย์แห่งประเทศไทย บ่งบอกสภาวะตลาดโดยรวม ถ้าเพิ่มขึ้นแปลว่าเศรษฐกิจ/ตลาดหุ้นไทยดีขึ้น'},
         {'id': 'usdthb', 'name': 'USD/THB (อัตราแลกเปลี่ยนดอลลาร์/บาท)', 'symbol': 'USDTHB=X', 'unit': 'THB', 'desc': 'บาทอ่อนชงดีต่อภาคส่งออกและการท่องเที่ยว แต่อาจทำให้เงินทุนต่างชาติไหลออก'},
-        {'id': 'gold', 'name': 'Gold (ราคาทองคำโลก GC=F)', 'symbol': 'GC=F', 'unit': 'USD/oz', 'desc': 'ทองคำเป็นสินทรัพย์ปลอดภัย (Safe Haven) มักจะขึ้นเมื่อเงินเฟ้อสูงหรือเศรษฐกิจมีความเสี่ยง'},
+        {'id': 'dxy', 'name': 'Dollar Index (DXY)', 'symbol': 'DX-Y.NYB', 'unit': 'Points', 'desc': 'ดัชนีดอลลาร์สหรัฐ บ่งบอกถึงกระแสเงินทุน (Fund Flow) ถ้าดอลลาร์แข็งแปลว่าเงินไหลเข้าสหรัฐฯ ส่งผลลบต่อทองคำและหุ้น'},
+        {'id': 'us10y', 'name': 'US 10Y Bond Yield', 'symbol': '^TNX', 'unit': '%', 'desc': 'อัตราผลตอบแทนพันธบัตรฯ 10 ปี (นำไปหาร 10 จากเลขที่นี่) ชี้วัดทิศทางอัตราดอกเบี้ย ถ้าขึ้นสูงจะกดดันราคาทองคำ'},
+        {'id': 'gold', 'name': 'Gold (ราคาทองคำโลก GC=F)', 'symbol': 'GC=F', 'unit': 'USD/oz', 'desc': 'ทองคำเป็นสินทรัพย์ปลอดภัย (Safe Haven) มักจะขึ้นเมื่อเงินเฟ้อสูง ดอลลาร์อ่อน หรือเศรษฐกิจมีความเสี่ยง'},
         {'id': 'wti', 'name': 'WTI Crude Oil (น้ำมันดิบ WTI)', 'symbol': 'CL=F', 'unit': 'USD/bbl', 'desc': 'ราคาน้ำมันจะกระทบโดยตรงต่อต้นทุนพลังงาน ค่าขนส่ง และอัตราเงินเฟ้อ'},
         {'id': 'brent', 'name': 'Brent Crude Oil (น้ำมันดิบเบรนท์)', 'symbol': 'BZ=F', 'unit': 'USD/bbl', 'desc': 'เป็นมาตรฐานราคาของฝั่งยุโรปและเอเชีย ซึ่งไทยมักมีต้นทุนแปรผันตามราคานี้'}
     ]
@@ -1603,8 +1637,16 @@ def macro_economy(request):
             continue
 
     # ====== AI Macro Analysis — วิเคราะห์ภาพรวมเศรษฐกิจด้วย Gemini ======
-    # AI Analysis for Macro Economy
+    _MACRO_CACHE_KEY = 'MACRO_ECONOMY'
     analysis_text = None
+    analysis_last_updated = None
+
+    # Load cached analysis on every page visit
+    _cached = AnalysisCache.objects.filter(user=request.user, symbol=_MACRO_CACHE_KEY).first()
+    if _cached:
+        analysis_text = _cached.analysis_data
+        analysis_last_updated = _cached.last_updated
+
     if request.GET.get('analyze') == 'true' and data:
         client = genai.Client(api_key=settings.GEMINI_API_KEY)
         model_name_to_use = 'gemini-2.5-flash'
@@ -1616,12 +1658,13 @@ def macro_economy(request):
         {data_str}
 
         Please provide a comprehensive 'Macroeconomic & Sector Strategy' report in Thai.
-        1. **Market Overview**: Summarize the current situation (Baht strength, Oil price trend, etc.).
+        1. **Market Overview & Fund Flow**: Summarize the current situation (Baht strength, Oil price trend, DXY and Bond Yield) and analyze the Global Fund Flow direction.
         2. **Economic Impact**: Analyze how these numbers affect the overall Thai economy and SET Index.
         3. **Sectoral Analysis & Target Stocks**: Identify industries (e.g. Energy, Banking, Export, Tourism, Transport) that are impacted.
            - สำหรับแต่ละกลุ่มอุตสาหกรรม ให้ระบุรายชื่อหุ้นไทยอย่างน้อย 5 หุ้นที่ได้รับผลกระทบ (ทั้งบวกหรือลบ)
            - พร้อมอธิบายสั้นๆ ว่าปัจจัยเศรษฐกิจชุดนี้ส่งผลต่อหุ้นกลุ่มนั้นอย่างไร
-        4. **Actionable Investment Strategy**: A clear strategy for the current market conditions.
+        4. **Gold Trading Strategy**: Deep dive into Gold. Based on DXY, US10Y, and macroeconomic risks, how should traders approach Gold right now? Provide actionable Buy/Sell/Hold bias and psychological levels if possible.
+        5. **Actionable Investment Strategy**: A clear strategy for the current market conditions.
 
         Format in beautiful Markdown for a professional web report. Use Sarabun style tone.
         IMPORTANT RULES:
@@ -1635,7 +1678,7 @@ def macro_economy(request):
                 model=model_name_to_use,
                 contents=prompt
             )
-            analysis_text = response.text
+            analysis_text = response.text or ""
 
             # ลบ markdown block wrapper ถ้า AI ไม่ปฏิบัติตาม prompt
             # Strip any residual markdown blocks if AI disobeys
@@ -1643,6 +1686,17 @@ def macro_economy(request):
                 analysis_text = analysis_text[len("```markdown"):].strip()
             if analysis_text.endswith("```"):
                 analysis_text = analysis_text[:-3].strip()
+            if not analysis_text:
+                analysis_text = "ไม่สามารถรับผลจาก AI ได้ในขณะนี้ กรุณาลองใหม่อีกครั้ง"
+
+            # Save to cache so user can read it on next visit
+            obj, _ = AnalysisCache.objects.update_or_create(
+                user=request.user,
+                symbol=_MACRO_CACHE_KEY,
+                defaults={'analysis_data': analysis_text}
+            )
+            analysis_last_updated = obj.last_updated
+
         except Exception as e:
             analysis_text = f"ไม่สามารถสร้างบทวิเคราะห์ได้ในขณะนี้: {str(e)}"
 
@@ -1650,6 +1704,7 @@ def macro_economy(request):
         'title': 'Macro Economy & Commodities',
         'data': data,
         'analysis': analysis_text,
+        'analysis_last_updated': analysis_last_updated,
         # ส่ง charts data เป็น JSON string สำหรับ JavaScript
         'charts_json': json.dumps(charts)
     }

@@ -528,6 +528,13 @@
                     <input class="form-check-input" type="checkbox" id="noEarnFilterUS" onchange="_applyFiltersUS()" style="cursor:pointer;">
                     <label class="form-check-label small fw-semibold" for="noEarnFilterUS" style="cursor:pointer;color:#b45309;">Hide ⚡EARN</label>
                 </div>
+                <select id="sectorFilterUS" onchange="_applyFiltersUS()" class="form-select form-select-sm rounded-pill" style="width:auto;font-size:0.72rem;border:1px solid #e2e8f0;color:#374151;cursor:pointer;">
+                    <option value="">All Sectors</option>
+                    {% for item in candidates %}<option value="{{ item.sector }}">{{ item.sector }}</option>{% endfor %}
+                </select>
+                <button onclick="exportScanCSV('scanTableUS','precision_us')" class="btn btn-sm rounded-pill px-3" style="border:1px solid #e2e8f0;background:white;color:#374151;font-size:0.72rem;">
+                    <i class="fas fa-download me-1"></i>CSV
+                </button>
                 <span class="text-muted small ms-auto" id="visibleCount-US"></span>
             </div>
         </div>
@@ -554,12 +561,13 @@
                             <th class="col-hide-lg">PATTERN</th>
                             <th class="col-hide-md">REL MOM</th>
                             <th class="col-hide-lg">SEC</th>
+                            <th class="col-hide-lg">MCAP</th>
                             <th class="text-end pe-2">ACTION</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for item in candidates %}
-                        <tr class="{% if item.demand_zone_start and item.price <= item.demand_zone_start and item.price >= item.demand_zone_end %}row-entry-zone{% elif item.supply_zone_start and item.price >= item.supply_zone_start %}row-take-profit{% elif item.is_new_entry %}row-new-entry{% endif %}" data-rs="{{ item.rs_rating }}" data-stage2="{{ item.stage2|yesno:'true,false' }}" data-pp="{{ item.pocket_pivot|yesno:'true,false' }}" data-earn="{{ item.earnings_soon|yesno:'true,false' }}">
+                        <tr class="{% if item.demand_zone_start and item.price <= item.demand_zone_start and item.price >= item.demand_zone_end %}row-entry-zone{% elif item.supply_zone_start and item.price >= item.supply_zone_start %}row-take-profit{% elif item.is_new_entry %}row-new-entry{% endif %}" data-rs="{{ item.rs_rating }}" data-stage2="{{ item.stage2|yesno:'true,false' }}" data-pp="{{ item.pocket_pivot|yesno:'true,false' }}" data-earn="{{ item.earnings_soon|yesno:'true,false' }}" data-sector="{{ item.sector }}">
                             <!-- SYMBOL -->
                             <td class="ps-2">
                                 <div class="d-flex align-items-center gap-1">
@@ -637,6 +645,11 @@
                                 <span class="fw-bold {% if item.buy_score >= 80 %}text-success{% elif item.buy_score >= 60 %}text-primary{% elif item.buy_score >= 40 %}text-warning{% else %}text-muted{% endif %}">
                                     {{ item.buy_score }}
                                 </span>
+                                {% if item.buy_score_delta is not None %}
+                                <div style="font-size:0.58rem;{% if item.buy_score_delta > 0 %}color:#16a34a;{% elif item.buy_score_delta < 0 %}color:#dc2626;{% else %}color:#94a3b8;{% endif %}">
+                                    {% if item.buy_score_delta > 0 %}▲+{{ item.buy_score_delta }}{% elif item.buy_score_delta < 0 %}▼{{ item.buy_score_delta }}{% else %}─{% endif %}
+                                </div>
+                                {% endif %}
                                 <div class="progress mt-1" style="width:28px;height:3px;border-radius:2px;margin:0 auto;">
                                     <div class="progress-bar {% if item.buy_score >= 80 %}bg-success{% elif item.buy_score >= 60 %}bg-primary{% elif item.buy_score >= 40 %}bg-warning{% else %}bg-secondary{% endif %}" role="progressbar" style="width:{{ item.buy_score }}%"></div>
                                 </div>
@@ -837,6 +850,17 @@
                                     {% elif 'Utilities' in item.sector %}UTIL
                                     {% else %}{{ item.sector|slice:":4"|upper }}{% endif %}
                                 </span>
+                            </td>
+
+                            <!-- MARKET CAP -->
+                            <td class="col-hide-lg">
+                                {% if item.live_market_cap %}
+                                <span class="text-muted" style="font-size:0.68rem;">
+                                    {% if item.live_market_cap >= 1000 %}{{ item.live_market_cap|floatformat:0 }}B
+                                    {% elif item.live_market_cap >= 1 %}{{ item.live_market_cap|floatformat:1 }}B
+                                    {% else %}{{ item.live_market_cap|floatformat:2 }}B{% endif %}
+                                </span>
+                                {% else %}<span class="text-muted">-</span>{% endif %}
                             </td>
 
                             <!-- ACTION -->
@@ -1187,18 +1211,58 @@ function _applyFiltersUS() {
     var s2On   = document.getElementById('stage2FilterUS') && document.getElementById('stage2FilterUS').checked;
     var ppOn   = document.getElementById('ppFilterUS')     && document.getElementById('ppFilterUS').checked;
     var hideEn = document.getElementById('noEarnFilterUS') && document.getElementById('noEarnFilterUS').checked;
+    var secEl  = document.getElementById('sectorFilterUS');
+    var secVal = secEl ? secEl.value : '';
     var visible = 0;
     rows.forEach(function(row) {
         var rs   = parseInt(row.dataset.rs   || '0');
         var s2   = row.dataset.stage2 === 'true';
         var pp   = row.dataset.pp     === 'true';
         var earn = row.dataset.earn   === 'true';
-        var show = (!rsOn || rs >= 70) && (!s2On || s2) && (!ppOn || pp) && (!hideEn || !earn);
+        var sec  = row.dataset.sector || '';
+        var show = (!rsOn || rs >= 70) && (!s2On || s2) && (!ppOn || pp) && (!hideEn || !earn) && (!secVal || sec === secVal);
         row.style.display = show ? '' : 'none';
         if (show) visible++;
     });
     var el = document.getElementById('visibleCount-US');
     if (el) el.textContent = visible + ' stocks shown';
+}
+
+// Deduplicate sector dropdown
+document.addEventListener('DOMContentLoaded', function() {
+    var sel = document.getElementById('sectorFilterUS');
+    if (!sel) return;
+    var seen = new Set(['']);
+    var keep = [sel.options[0]];
+    for (var i = 1; i < sel.options.length; i++) {
+        var v = sel.options[i].value;
+        if (!seen.has(v)) { seen.add(v); keep.push(sel.options[i]); }
+    }
+    while (sel.options.length > 0) sel.remove(0);
+    keep.forEach(function(o) { sel.add(o); });
+});
+
+// Export visible table rows to CSV
+function exportScanCSV(tableId, filename) {
+    var table = document.getElementById(tableId);
+    if (!table) return;
+    var rows = table.querySelectorAll('tr');
+    var csv = [];
+    rows.forEach(function(row) {
+        if (row.style.display === 'none') return;
+        var cols = row.querySelectorAll('th, td');
+        var data = [];
+        cols.forEach(function(col) {
+            var text = (col.innerText || '').replace(/\n/g,' ').replace(/,/g,';').trim();
+            data.push('"' + text + '"');
+        });
+        csv.push(data.join(','));
+    });
+    var blob = new Blob(['\ufeff' + csv.join('\n')], {type:'text/csv;charset=utf-8;'});
+    var link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = filename + '_' + new Date().toISOString().slice(0,10) + '.csv';
+    link.click();
 }
 </script>
 {% endblock %}

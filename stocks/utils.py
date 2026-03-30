@@ -129,13 +129,13 @@ def get_stock_data(symbol):
     normalized_news = []
     if raw_news:
         for n in raw_news:
-            if 'content' in n:
+            if n.get('content'):
                 # รูปแบบข่าวใหม่ของ yfinance — อยู่ใน key 'content'
                 c = n['content']
                 normalized_news.append({
                     'title': c.get('title', ''),
-                    'link': c.get('clickThroughUrl', {}).get('url', ''),
-                    'publisher': c.get('provider', {}).get('displayName', ''),
+                    'link': (c.get('clickThroughUrl') or {}).get('url', ''),
+                    'publisher': (c.get('provider') or {}).get('displayName', ''),
                     'providerPublishTime': c.get('pubDate', ''),
                 })
             else:
@@ -158,10 +158,336 @@ def get_stock_data(symbol):
 
 
 # ----------------------------------------------------------------------
+# Commodity / Futures helpers
+# ----------------------------------------------------------------------
+_COMMODITY_NAME_MAP = {
+    'GC=F': 'Gold Futures (COMEX)',
+    'SI=F': 'Silver Futures',
+    'PL=F': 'Platinum Futures',
+    'HG=F': 'Copper Futures',
+    'CL=F': 'Crude Oil WTI Futures',
+    'BZ=F': 'Crude Oil Brent Futures',
+    'NG=F': 'Natural Gas Futures',
+    'ZC=F': 'Corn Futures',
+    'ZS=F': 'Soybeans Futures',
+    'ZW=F': 'Wheat Futures',
+    'BTC-USD': 'Bitcoin (Crypto)',
+    'ETH-USD': 'Ethereum (Crypto)',
+}
+
+def _is_commodity(symbol: str) -> bool:
+    """Returns True for futures and crypto — assets with no stock fundamentals."""
+    return symbol.endswith('=F') or symbol.endswith('-USD') or symbol.endswith('-USDT')
+
+
+def _fetch_commodity_macro() -> dict:
+    """Fetch real-time macro indicators + GLD ETF fund-flow data."""
+    from concurrent.futures import ThreadPoolExecutor
+
+    macro = {}
+
+    def _fast(ticker_sym, key):
+        try:
+            v = getattr(yf.Ticker(ticker_sym).fast_info, 'last_price', None)
+            if v: macro[key] = round(float(v), 2)
+        except Exception:
+            pass
+
+    with ThreadPoolExecutor(max_workers=3) as ex:
+        ex.submit(_fast, "DX-Y.NYB", 'dxy')
+        ex.submit(_fast, "^TNX",     'tnx')
+        ex.submit(_fast, "^VIX",     'vix')
+
+    # GLD ETF — institutional fund-flow proxy for precious metals
+    try:
+        gld = yf.Ticker("GLD").history(period="1mo", auto_adjust=True)
+        if len(gld) >= 10:
+            avg_v = float(gld['Volume'].mean())
+            last_v = float(gld['Volume'].iloc[-1])
+            macro['gld_vol_ratio'] = round(last_v / max(avg_v, 1), 2)
+            if len(gld) >= 6:
+                macro['gld_5d_chg'] = round(
+                    (float(gld['Close'].iloc[-1]) - float(gld['Close'].iloc[-6]))
+                    / float(gld['Close'].iloc[-6]) * 100, 2
+                )
+            # net flow direction: count up vs down days in last 5 sessions
+            last5 = gld['Close'].diff().iloc[-5:]
+            macro['gld_net_flow'] = 'inflow' if (last5 > 0).sum() >= 3 else 'outflow'
+    except Exception:
+        pass
+
+    return macro
+
+
+def _score_commodity_signal(symbol: str, last_price: float, ema200, rsi, macro: dict) -> dict:
+    """
+    Compute a 0-100 macro+technical buy/wait signal for a commodity/futures.
+    Returns dict with score, recommendation, signals list ready for template rendering.
+    """
+    score = 0
+    max_pts = 0
+    signals = []
+
+    dxy           = macro.get('dxy')
+    tnx           = macro.get('tnx')
+    vix           = macro.get('vix')
+    gld_vol_ratio = macro.get('gld_vol_ratio')
+    gld_5d_chg    = macro.get('gld_5d_chg')
+    gld_net_flow  = macro.get('gld_net_flow')
+
+    is_precious = symbol in ('GC=F', 'SI=F', 'PL=F', 'HG=F')
+    is_energy   = symbol in ('CL=F', 'BZ=F', 'NG=F')
+
+    # ── Factor 1: USD Index (DXY) — 25 pts ────────────────────────────
+    if dxy is not None:
+        max_pts += 25
+        if is_precious:
+            if dxy < 99:      pts, icon = 25, '✅'
+            elif dxy < 101:   pts, icon = 20, '✅'
+            elif dxy < 103:   pts, icon = 13, '⚠️'
+            elif dxy < 105:   pts, icon =  5, '⚠️'
+            else:              pts, icon =  0, '❌'
+            strength = 'อ่อนมาก → บวกมากต่อทอง' if pts >= 20 else ('อ่อน → บวกต่อทอง' if pts >= 13 else ('แข็ง → กดดันทอง' if pts <= 5 else 'เป็นกลาง'))
+            note = f'USD Index (DXY) = {dxy} ({strength})'
+        else:
+            if dxy < 101:   pts, icon = 18, '✅'; note = f'DXY {dxy} (ดอลลาร์อ่อน → สนับสนุน commodity)'
+            elif dxy < 104: pts, icon = 10, '⚠️'; note = f'DXY {dxy} (เป็นกลาง)'
+            else:            pts, icon =  2, '❌'; note = f'DXY {dxy} (ดอลลาร์แข็ง → แรงกดดัน)'
+        score += pts
+        signals.append({'text': note, 'positive': pts >= 13, 'icon': icon, 'pts': pts, 'max': 25,
+                         'badge': 'success' if pts >= 20 else ('warning' if pts >= 8 else 'danger')})
+
+    # ── Factor 2: 10-Year Treasury Yield (TNX) — 25 pts (precious only) ─
+    if tnx is not None and is_precious:
+        max_pts += 25
+        if tnx < 3.5:   pts, icon = 25, '✅'; note = f'10yr Yield = {tnx}% (ต่ำมาก → ต้นทุนโอกาสน้อย → บวกมากต่อทอง)'
+        elif tnx < 4.0: pts, icon = 18, '✅'; note = f'10yr Yield = {tnx}% (พอรับได้ → สนับสนุนทอง)'
+        elif tnx < 4.5: pts, icon = 10, '⚠️'; note = f'10yr Yield = {tnx}% (ปานกลาง → กดดันบ้าง)'
+        elif tnx < 5.0: pts, icon =  4, '⚠️'; note = f'10yr Yield = {tnx}% (สูง → ต้นทุนโอกาสสูงขึ้น)'
+        else:            pts, icon =  0, '❌'; note = f'10yr Yield = {tnx}% (สูงมาก → ลบต่อทอง)'
+        score += pts
+        signals.append({'text': note, 'positive': pts >= 18, 'icon': icon, 'pts': pts, 'max': 25,
+                         'badge': 'success' if pts >= 18 else ('warning' if pts >= 8 else 'danger')})
+
+    # ── Factor 3: VIX — Safe-haven / Risk sentiment — 20 pts ──────────
+    if vix is not None:
+        max_pts += 20
+        if vix > 30:   pts, icon = 20, '✅'; note = f'VIX = {vix} (ตลาดหวาดกลัวมาก → อุปสงค์ safe-haven พุ่งสูง)'
+        elif vix > 25: pts, icon = 16, '✅'; note = f'VIX = {vix} (ความผันผวนสูง → อุปสงค์ safe-haven เพิ่ม)'
+        elif vix > 20: pts, icon = 11, '⚠️'; note = f'VIX = {vix} (ความผันผวนปานกลาง)'
+        elif vix > 15: pts, icon =  6, '⚠️'; note = f'VIX = {vix} (ตลาดค่อนข้างสงบ → อุปสงค์ safe-haven ต่ำ)'
+        else:           pts, icon =  3, '⚠️'; note = f'VIX = {vix} (ตลาดสงบมาก → demand ทองลดลง)'
+        score += pts
+        signals.append({'text': note, 'positive': pts >= 11, 'icon': icon, 'pts': pts, 'max': 20,
+                         'badge': 'success' if pts >= 16 else ('warning' if pts >= 6 else 'secondary')})
+
+    # ── Factor 4: Trend (EMA200) — 10 pts ─────────────────────────────
+    if ema200 and last_price:
+        max_pts += 10
+        if last_price > float(ema200):
+            pts, icon = 10, '✅'; note = f'Trend: ราคา ({last_price:,.0f}) อยู่เหนือ EMA200 ({float(ema200):,.0f}) — Uptrend'
+        else:
+            pts, icon =  2, '❌'; note = f'Trend: ราคา ({last_price:,.0f}) ต่ำกว่า EMA200 ({float(ema200):,.0f}) — Downtrend'
+        score += pts
+        signals.append({'text': note, 'positive': pts >= 10, 'icon': icon, 'pts': pts, 'max': 10,
+                         'badge': 'success' if pts >= 10 else 'danger'})
+
+    # ── Factor 5: RSI — Momentum / Oversold — 12 pts ──────────────────
+    if isinstance(rsi, (int, float)):
+        max_pts += 12
+        r = float(rsi)
+        if r < 30:    pts, icon = 12, '✅'; note = f'RSI {r:.0f} — Oversold (โอกาสซื้อที่ดีมาก)'
+        elif r < 45:  pts, icon = 10, '✅'; note = f'RSI {r:.0f} — Underowned (จังหวะสะสมดี)'
+        elif r < 60:  pts, icon =  7, '⚠️'; note = f'RSI {r:.0f} — Neutral (รอจังหวะถอยก่อนซื้อ)'
+        elif r < 70:  pts, icon =  3, '⚠️'; note = f'RSI {r:.0f} — เริ่มร้อนแรง (ระวังซื้อแพง)'
+        else:          pts, icon =  0, '❌'; note = f'RSI {r:.0f} — Overbought (หลีกเลี่ยง)'
+        score += pts
+        signals.append({'text': note, 'positive': pts >= 10, 'icon': icon, 'pts': pts, 'max': 12,
+                         'badge': 'success' if pts >= 10 else ('warning' if pts >= 7 else 'danger')})
+
+    # ── Factor 6: GLD ETF Fund Flow — 8 pts (precious metals only) ────
+    if gld_vol_ratio is not None and is_precious:
+        max_pts += 8
+        if gld_vol_ratio > 2.0:    pts, icon = 8, '✅'
+        elif gld_vol_ratio > 1.5:  pts, icon = 6, '✅'
+        elif gld_vol_ratio > 1.0:  pts, icon = 4, '⚠️'
+        else:                       pts, icon = 2, '⚠️'
+        flow_label = 'Inflow (เงินไหลเข้าทอง)' if gld_net_flow == 'inflow' else 'Outflow (เงินไหลออกจากทอง)'
+        chg_str = f', 5d: {"↑" if gld_5d_chg and gld_5d_chg > 0 else "↓"}{abs(gld_5d_chg):.1f}%' if gld_5d_chg is not None else ''
+        note = f'GLD ETF Fund Flow: Volume {gld_vol_ratio:.1f}x avg, {flow_label}{chg_str}'
+        score += pts
+        signals.append({'text': note, 'positive': pts >= 6, 'icon': icon, 'pts': pts, 'max': 8,
+                         'badge': 'success' if pts >= 6 else 'secondary'})
+
+    # ── Normalize to 100 and determine recommendation ─────────────────
+    pct = round(score / max_pts * 100) if max_pts > 0 else 0
+    pct = min(pct, 100)
+
+    if pct >= 70:   rec, rec_th, rec_color = 'BUY',        'ซื้อ / เข้าลงทุน',   'success'
+    elif pct >= 55: rec, rec_th, rec_color = 'ACCUMULATE', 'ทยอยสะสม',           'info'
+    elif pct >= 40: rec, rec_th, rec_color = 'WAIT',       'รอจังหวะที่ดีกว่า',  'warning'
+    else:           rec, rec_th, rec_color = 'AVOID',      'หลีกเลี่ยง',         'danger'
+
+    return {
+        'score': pct,
+        'recommendation': rec,
+        'recommendation_th': rec_th,
+        'rec_color': rec_color,
+        'signals': signals,
+    }
+
+
+def _analyze_commodity_with_ai(symbol: str, data: dict, macro_signal: dict = None) -> str:
+    """Specialized AI analysis for commodity futures and crypto (GC=F, CL=F, BTC-USD…)."""
+    history = data.get('history', pd.DataFrame())
+    news    = data.get('news', [])
+
+    # ── Technical indicators ──────────────────────────────────────────
+    last_price   = float(history['Close'].iloc[-1])  if not history.empty else 0
+    price_change = ((last_price - float(history['Close'].iloc[-2])) / float(history['Close'].iloc[-2]) * 100) if len(history) > 1 else 0
+    last_volume  = int(history['Volume'].iloc[-1])    if not history.empty else 0
+    avg_volume   = float(history['Volume'].mean())    if not history.empty else 1
+    vol_ratio    = last_volume / max(avg_volume, 1)
+
+    rsi      = history['RSI'].iloc[-1]           if 'RSI'          in history.columns else 'N/A'
+    macd_val = history['MACD_12_26_9'].iloc[-1]  if 'MACD_12_26_9' in history.columns else 'N/A'
+    macd_sig = history['MACDs_12_26_9'].iloc[-1] if 'MACDs_12_26_9' in history.columns else 'N/A'
+    ema200   = history['EMA_200'].iloc[-1]        if 'EMA_200'      in history.columns else None
+    ema50    = history['EMA_50'].iloc[-1]         if 'EMA_50'       in history.columns else None
+
+    year_high     = float(history['High'].max())  if not history.empty else None
+    year_low      = float(history['Low'].min())   if not history.empty else None
+    pct_from_high = ((last_price - year_high) / year_high * 100) if year_high else None
+
+    trend_note = ""
+    if ema200:
+        trend_note += f"{'ABOVE' if last_price > ema200 else 'BELOW'} EMA200 ({ema200:.2f})"
+    if ema50:
+        trend_note += f", {'ABOVE' if last_price > ema50 else 'BELOW'} EMA50 ({ema50:.2f})"
+
+    fmt_rsi  = f"{rsi:.1f}"      if isinstance(rsi,      float) else str(rsi)
+    fmt_macd = f"{macd_val:.2f}" if isinstance(macd_val, float) else str(macd_val)
+    fmt_sig  = f"{macd_sig:.2f}" if isinstance(macd_sig, float) else str(macd_sig)
+    fmt_high = f"{year_high:.2f}" if year_high else 'N/A'
+    fmt_low  = f"{year_low:.2f}"  if year_low  else 'N/A'
+    fmt_pct  = f"{pct_from_high:.1f}" if pct_from_high is not None else 'N/A'
+
+    # ── Macro data (passed in from caller to avoid double-fetch) ────────
+    if macro_signal and macro_signal.get('_raw_macro'):
+        macro = macro_signal['_raw_macro']
+    else:
+        macro = _fetch_commodity_macro()
+    dxy   = macro.get('dxy', 'N/A')
+    tnx   = macro.get('tnx', 'N/A')
+    vix   = macro.get('vix', 'N/A')
+
+    # ── News ──────────────────────────────────────────────────────────
+    news_content = "\nRecent Headlines:\n"
+    for n in news[:5]:
+        news_content += f"- {n.get('title', '')} ({n.get('publisher', '')})\n"
+
+    # ── Commodity type branching ──────────────────────────────────────
+    commodity_name = _COMMODITY_NAME_MAP.get(symbol, f'{symbol} (Futures/Crypto)')
+    is_precious_metal = symbol in ('GC=F', 'SI=F', 'PL=F')
+    is_energy         = symbol in ('CL=F', 'BZ=F', 'NG=F')
+    is_crypto         = symbol.endswith('-USD') or symbol.endswith('-USDT')
+
+    if is_precious_metal:
+        macro_context = f"""Macro Environment (Key Drivers for Precious Metals):
+- USD Index (DXY): {dxy}  ← ↑DXY = headwind for gold; ↓DXY = tailwind
+- 10-Year Treasury Yield (^TNX): {tnx}%  ← ↑real yields = opportunity cost rises = bearish gold
+- VIX Fear Index: {vix}  ← ↑VIX = safe-haven demand spike = bullish gold
+- Approximate Real Yield = TNX - inflation expectations (~2.5%); negative real yields = very bullish gold"""
+        analysis_sections = """Please provide a professional analysis in Thai language covering:
+1. **Macro & Monetary Policy Impact**: วิเคราะห์ผลกระทบ DXY, อัตราดอกเบี้ยแท้จริง (Real Yield = TNX - inflation), นโยบาย Fed และเงินเฟ้อต่อทิศทางราคา
+2. **Technical Analysis**: วิเคราะห์แนวโน้ม (EMA200/EMA50 trend), แนวรับ-แนวต้านสำคัญ, RSI momentum และสัญญาณ MACD
+3. **Safe-Haven & Geopolitical Demand**: ความเสี่ยงภูมิรัฐศาสตร์, VIX สูง, ความไม่แน่นอนทางการเงินและการเมืองโลก
+4. **Structural Gold Drivers**: ธนาคารกลางทั่วโลกสะสมทอง (Central Bank buying), กระแส de-dollarization, ETF Gold Flows (GLD/IAU), อุปสงค์เครื่องประดับจีน-อินเดีย, ฤดูกาล
+5. **Strategic Action Plan**: คำแนะนำ Buy/Hold/Sell พร้อม Entry Zone, Target Price และ Stop Loss ที่ชัดเจน สำหรับนักลงทุนรายย่อยไทย"""
+    elif is_energy:
+        macro_context = f"""Macro Environment (Key Drivers for Energy):
+- USD Index (DXY): {dxy}  ← dollar-denominated commodity correlation
+- 10-Year Treasury Yield (^TNX): {tnx}%  ← proxy for economic growth expectations
+- VIX Fear Index: {vix}  ← risk-off = demand concerns = bearish"""
+        analysis_sections = """Please provide a professional analysis in Thai language covering:
+1. **Supply & Demand Dynamics**: OPEC+ production policy, US shale output, global demand outlook (China, India, OECD)
+2. **Technical Analysis**: แนวโน้ม EMA, แนวรับ-แนวต้าน RSI และ MACD
+3. **Macro & Currency Impact**: DXY, ดัชนีเศรษฐกิจโลก, ความเชื่อมั่นนักลงทุน
+4. **Geopolitical Risk Premium**: ความเสี่ยงตะวันออกกลาง, รัสเซีย-ยูเครน, LNG trade flows
+5. **Strategic Action Plan**: คำแนะนำ Buy/Hold/Sell พร้อม Entry Zone, Target และ Stop Loss"""
+    elif is_crypto:
+        macro_context = f"""Macro Environment (Crypto Correlation Factors):
+- USD Index (DXY): {dxy}  ← inverse correlation with crypto
+- 10-Year Treasury Yield (^TNX): {tnx}%  ← risk appetite indicator
+- VIX Fear Index: {vix}  ← ↑VIX = risk-off = crypto weakness"""
+        analysis_sections = """Please provide a professional analysis in Thai language covering:
+1. **Macro & Liquidity Environment**: Fed policy, risk appetite, Bitcoin halving cycle, institutional adoption
+2. **Technical Analysis**: แนวโน้ม EMA200, แนวรับ-แนวต้านสำคัญ, RSI, MACD, on-chain signals
+3. **Market Sentiment**: Fear & Greed cycle, whale activity, exchange flows
+4. **Crypto-Specific Drivers**: Regulatory developments, network metrics, DeFi activity
+5. **Strategic Action Plan**: คำแนะนำ Buy/Hold/Sell พร้อม Entry Zone, Target และ Stop Loss"""
+    else:
+        macro_context = f"""Macro Environment:
+- USD Index (DXY): {dxy}
+- 10-Year Treasury Yield (^TNX): {tnx}%
+- VIX: {vix}"""
+        analysis_sections = """Please provide a professional analysis in Thai language covering:
+1. **Macro Environment**: ผลกระทบ DXY, อัตราดอกเบี้ย, ความเชื่อมั่นนักลงทุน
+2. **Technical Analysis**: แนวโน้ม EMA, RSI, MACD, แนวรับ-แนวต้าน
+3. **Supply & Demand**: ปัจจัยอุปสงค์อุปทานของ commodity นี้
+4. **Strategic Action Plan**: คำแนะนำ Buy/Hold/Sell พร้อม Target และ Stop Loss"""
+
+    # ── Macro signal context for AI (if computed) ────────────────────
+    signal_context = ""
+    if macro_signal:
+        signal_context = f"""
+Quantitative Macro Signal: {macro_signal['score']}/100 → {macro_signal['recommendation']} ({macro_signal['recommendation_th']})
+Signal Breakdown:
+"""
+        for sig in macro_signal.get('signals', []):
+            signal_context += f"  {sig['icon']} {sig['text']}  [{sig['pts']}/{sig['max']}]\n"
+        signal_context += "\nUse the signal score above as the basis for your final recommendation in section 5.\n"
+
+    prompt = f"""Analyze the commodity/futures contract {symbol} ({commodity_name}) for a trader/investor:
+
+{macro_context}
+{signal_context}
+Technical Snapshot:
+- Current Price: {last_price:.2f} USD ({price_change:+.2f}%)
+- 52-Week High: {fmt_high} | 52-Week Low: {fmt_low}
+- Distance from 52w High: {fmt_pct}%
+- Trend: {trend_note if trend_note else 'N/A'}
+- RSI(14): {fmt_rsi}
+- MACD: {fmt_macd} (Signal: {fmt_sig})
+- Volume Ratio vs 20-day avg: {vol_ratio:.2f}x
+{news_content}
+
+{analysis_sections}
+
+Format in Markdown for a professional web report. Output ONLY raw markdown."""
+
+    try:
+        client = genai.Client(api_key=settings.GEMINI_API_KEY)
+        response = client.models.generate_content(model='gemini-3-flash-preview', contents=prompt)
+        clean_text = response.text
+        if clean_text.startswith("```markdown"):
+            clean_text = clean_text[len("```markdown"):].strip()
+        if clean_text.endswith("```"):
+            clean_text = clean_text[:-3].strip()
+        return clean_text
+    except Exception as e:
+        return f"**Error generating commodity analysis:** {str(e)}"
+
+
+# ----------------------------------------------------------------------
 # analyze_with_ai — วิเคราะห์หุ้นด้วย Gemini AI
 # รวมข้อมูลพื้นฐาน + เทคนิค + ข่าว แล้วส่งให้ AI สรุปเป็นภาษาไทย
 # ----------------------------------------------------------------------
-def analyze_with_ai(symbol, data, extra_context=None):
+def analyze_with_ai(symbol, data, extra_context=None, macro_signal=None):
+    # Commodity / futures / crypto — use specialized analysis instead
+    if _is_commodity(symbol):
+        return _analyze_commodity_with_ai(symbol, data, macro_signal=macro_signal)
+
     info = data.get('info', {})
     yq = data.get('yq_data', {})
     history = data.get('history', pd.DataFrame())

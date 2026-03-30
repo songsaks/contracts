@@ -18,7 +18,13 @@
                 <div class="col-md-8">
                     <div class="d-flex align-items-center gap-3 mb-2">
                         <h1 class="fw-bold mb-0 text-dark">{{ symbol }}</h1>
+                        {% if is_commodity %}
+                        <span class="badge bg-warning bg-opacity-15 text-warning px-3 rounded-pill" style="border:1px solid #fbbf24;">
+                            <i class="fas fa-coins me-1"></i> Commodity / Futures
+                        </span>
+                        {% else %}
                         <span class="badge bg-primary bg-opacity-10 text-primary px-3 rounded-pill">{{ info.industry|default:"Asset" }}</span>
+                        {% endif %}
                         {% if current_rsi %}
                         <span class="badge {% if rsi_status == 'Oversold' %}bg-danger{% elif rsi_status == 'Overbought' %}bg-warning{% else %}bg-secondary{% endif %} bg-opacity-10 {% if rsi_status == 'Oversold' %}text-danger{% elif rsi_status == 'Overbought' %}text-warning text-dark{% else %}text-secondary{% endif %} px-3 rounded-pill">
                             RSI: {{ current_rsi|stringformat:".2f" }} ({{ rsi_status }})
@@ -48,6 +54,50 @@
 
         <!-- Metric Grid -->
         <div class="row g-2">
+        {% if is_commodity %}
+            <!-- ── Commodity Metrics ──────────────────────────────────────── -->
+            <div class="col-6 col-md-3 col-lg-2">
+                <div class="card-premium p-2 text-center" style="background:rgba(255,255,255,0.5);" data-bs-toggle="tooltip" data-bs-placement="top" title="RSI(14): Relative Strength Index — ต่ำกว่า 30 = Oversold (โอกาสซื้อ), สูงกว่า 70 = Overbought (ระวังขาย)">
+                    <div class="small text-muted fw-600">RSI(14) <i class="fas fa-info-circle ms-1" style="font-size: 0.7rem;"></i></div>
+                    <div class="fw-bold {% if current_rsi %}{% if current_rsi < 30 %}text-danger{% elif current_rsi > 70 %}text-warning{% else %}text-success{% endif %}{% endif %}">
+                        {{ current_rsi|floatformat:1|default:"N/A" }}
+                    </div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3 col-lg-2">
+                <div class="card-premium p-2 text-center" style="background:rgba(255,255,255,0.5);" data-bs-toggle="tooltip" data-bs-placement="top" title="52-Week High: ราคาสูงสุดในรอบ 1 ปี — ถ้าราคาปัจจุบันใกล้ระดับนี้ อาจมีแรงต้านสูง">
+                    <div class="small text-muted fw-600">52w High <i class="fas fa-info-circle ms-1" style="font-size: 0.7rem;"></i></div>
+                    <div class="fw-bold text-success">{{ fifty_two_week_high|floatformat:2|default:"N/A" }}</div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3 col-lg-2">
+                <div class="card-premium p-2 text-center" style="background:rgba(255,255,255,0.5);" data-bs-toggle="tooltip" data-bs-placement="top" title="52-Week Low: ราคาต่ำสุดในรอบ 1 ปี — แนวรับสำคัญในระยะยาว">
+                    <div class="small text-muted fw-600">52w Low <i class="fas fa-info-circle ms-1" style="font-size: 0.7rem;"></i></div>
+                    <div class="fw-bold text-danger">{{ recent_support|floatformat:2|default:"N/A" }}</div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3 col-lg-2">
+                <div class="card-premium p-2 text-center" style="background:rgba(255,255,255,0.5);" data-bs-toggle="tooltip" data-bs-placement="top" title="USD Index (DXY): ดัชนีความแข็งแกร่งของดอลลาร์สหรัฐ — ↑DXY = แรงกดดันต่อทอง/สินค้าโภคภัณฑ์; ↓DXY = เป็นบวกต่อทอง">
+                    <div class="small text-muted fw-600">DXY <i class="fas fa-info-circle ms-1" style="font-size: 0.7rem;"></i></div>
+                    <div class="fw-bold">{{ macro_data.dxy|default:"N/A" }}</div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3 col-lg-2">
+                <div class="card-premium p-2 text-center" style="background:rgba(255,255,255,0.5);" data-bs-toggle="tooltip" data-bs-placement="top" title="10-Year Treasury Yield: อัตราผลตอบแทนพันธบัตรสหรัฐ 10 ปี — ↑yield = ต้นทุนโอกาสสูงขึ้น = แรงกดดันทอง; ↓yield = ดีต่อทอง">
+                    <div class="small text-muted fw-600">10yr Yield% <i class="fas fa-info-circle ms-1" style="font-size: 0.7rem;"></i></div>
+                    <div class="fw-bold">{{ macro_data.tnx|default:"N/A" }}</div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3 col-lg-2">
+                <div class="card-premium p-2 text-center" style="background:rgba(255,255,255,0.5);" data-bs-toggle="tooltip" data-bs-placement="top" title="VIX Fear Index: ดัชนีความผันผวน S&P500 — ↑VIX = ตลาดกลัว = อุปสงค์สินทรัพย์ปลอดภัย (ทอง) สูงขึ้น">
+                    <div class="small text-muted fw-600">VIX <i class="fas fa-info-circle ms-1" style="font-size: 0.7rem;"></i></div>
+                    <div class="fw-bold {% if macro_data.vix %}{% if macro_data.vix > 30 %}text-danger{% elif macro_data.vix > 20 %}text-warning{% else %}text-success{% endif %}{% endif %}">
+                        {{ macro_data.vix|default:"N/A" }}
+                    </div>
+                </div>
+            </div>
+        {% else %}
+            <!-- ── Stock Fundamental Metrics ─────────────────────────────── -->
             <div class="col-6 col-md-3 col-lg-2">
                 <div class="card-premium p-2 text-center" style="background:rgba(255,255,255,0.5);" data-bs-toggle="tooltip" data-bs-placement="top" title="Price-to-Earnings: ใช้เปรียบเทียบราคาหุ้นกับกำไรต่อหุ้น หากหุ้นมี PE ต่ำแปลว่าราคาถูกเมื่อเทียบกับกำไร">
                     <div class="small text-muted fw-600">P/E <i class="fas fa-info-circle ms-1" style="font-size: 0.7rem;"></i></div>
@@ -84,6 +134,7 @@
                     <div class="fw-bold">{{ info.debtToEquity|floatformat:2|default:"N/A" }}</div>
                 </div>
             </div>
+        {% endif %}
         </div>
     </div>
     
@@ -95,16 +146,98 @@
             <div>
                 <h5 class="fw-bold mb-1 {% if is_breakout %}text-success{% else %}text-info-dark{% endif %}">
                     {% if is_breakout %}
-                        🔥 Breakout Alert! ราคาเริ่มทะลุแนวต้านสำคัญ
+                        🔥 Breakout Alert! {% if is_commodity %}Price breaking above 52w High{% else %}ราคาเริ่มทะลุแนวต้านสำคัญ{% endif %}
                     {% else %}
-                        🎯 Resistance Analysis (การวิเคราะห์แนวต้าน)
+                        🎯 {% if is_commodity %}Key Price Levels{% else %}Resistance Analysis (การวิเคราะห์แนวต้าน){% endif %}
                     {% endif %}
                 </h5>
                 <span class="text-muted d-block" style="font-size: 0.95rem;">
-                    แนวต้านสำคัญ 1 ปี (52-Week High): <b class="text-dark">฿{{ fifty_two_week_high|floatformat:2|default:"N/A" }}</b> | 
+                    {% if is_commodity %}
+                    52-Week High: <b class="text-dark">${{ fifty_two_week_high|floatformat:2|default:"N/A" }}</b> |
+                    20-Day Resistance: <b class="text-dark">${{ recent_resistance|floatformat:2|default:"N/A" }}</b> |
+                    20-Day Support: <b class="text-danger">${{ recent_support|floatformat:2|default:"N/A" }}</b>
+                    {% else %}
+                    แนวต้านสำคัญ 1 ปี (52-Week High): <b class="text-dark">฿{{ fifty_two_week_high|floatformat:2|default:"N/A" }}</b> |
                     แนวต้านย่อย (20 วัน): <b class="text-dark">฿{{ recent_resistance|floatformat:2|default:"N/A" }}</b> |
                     แนวรับ/จุดตัดขาดทุน (20-Day Low): <b class="text-danger">฿{{ recent_support|floatformat:2|default:"N/A" }}</b>
+                    {% endif %}
                 </span>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- ── Macro Signal Card (commodities only) ────────────────────── -->
+    {% if is_commodity and macro_signal %}
+    <div class="col-12 mb-4">
+        <div class="card-premium border-0 overflow-hidden"
+             style="border-left: 5px solid var(--bs-{{ macro_signal.rec_color }}) !important;">
+            <div class="p-3 d-flex align-items-center gap-2"
+                 style="background: rgba(0,0,0,0.03); border-bottom: 1px solid rgba(0,0,0,0.06);">
+                <i class="fas fa-signal text-{{ macro_signal.rec_color }}"></i>
+                <span class="fw-bold text-{{ macro_signal.rec_color }}">Macro + Fund Flow Signal</span>
+                <span class="ms-auto small text-muted">คะแนนรวมจาก DXY · Yield · VIX · Technical · Fund Flow</span>
+            </div>
+            <div class="p-4">
+                <div class="row g-4 align-items-start">
+
+                    <!-- Score Circle -->
+                    <div class="col-md-3 text-center">
+                        <div class="mb-1 small text-muted fw-600 text-uppercase" style="letter-spacing:.05em;">สัญญาณรวม</div>
+                        <div class="display-5 fw-black text-{{ macro_signal.rec_color }} lh-1">
+                            {{ macro_signal.recommendation }}
+                        </div>
+                        <div class="fw-600 text-{{ macro_signal.rec_color }} mt-1">{{ macro_signal.recommendation_th }}</div>
+                        <div class="mt-3">
+                            <div class="progress rounded-pill" style="height:10px;">
+                                <div class="progress-bar bg-{{ macro_signal.rec_color }}"
+                                     role="progressbar"
+                                     style="width:{{ macro_signal.score }}%"
+                                     aria-valuenow="{{ macro_signal.score }}" aria-valuemin="0" aria-valuemax="100">
+                                </div>
+                            </div>
+                            <div class="fw-bold text-{{ macro_signal.rec_color }} mt-2" style="font-size:1.1rem;">
+                                {{ macro_signal.score }}<span class="text-muted fw-normal small">/100</span>
+                            </div>
+                        </div>
+                        <div class="mt-3 small text-muted">
+                            {% if macro_signal.recommendation == 'BUY' %}
+                            ✅ สัญญาณ macro เอื้ออำนวย<br>เข้าลงทุนได้
+                            {% elif macro_signal.recommendation == 'ACCUMULATE' %}
+                            ⚠️ สัญญาณดี แต่รอ<br>จังหวะถอยทยอยสะสม
+                            {% elif macro_signal.recommendation == 'WAIT' %}
+                            ⏳ ยังไม่ใช่จังหวะ<br>รอ DXY/Yield อ่อนลง
+                            {% else %}
+                            ❌ ปัจจัย macro ไม่เอื้อ<br>หลีกเลี่ยงก่อน
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Signal Breakdown -->
+                    <div class="col-md-9">
+                        <div class="fw-600 mb-3 small text-uppercase text-muted" style="letter-spacing:.05em;">
+                            Signal Breakdown — ปัจจัยที่ใช้คำนวณสัญญาณ
+                        </div>
+                        <div class="d-flex flex-column gap-2">
+                            {% for sig in macro_signal.signals %}
+                            <div class="d-flex align-items-center gap-2 px-3 py-2 rounded-3"
+                                 style="background: {% if sig.positive %}rgba(22,163,74,0.06){% else %}rgba(0,0,0,0.03){% endif %}; border: 1px solid {% if sig.positive %}rgba(22,163,74,0.18){% else %}rgba(0,0,0,0.08){% endif %};">
+                                <span style="font-size:1rem; line-height:1;">{{ sig.icon }}</span>
+                                <span class="small flex-grow-1">{{ sig.text }}</span>
+                                <span class="badge bg-{{ sig.badge }} bg-opacity-15 text-{{ sig.badge }} rounded-pill px-2"
+                                      style="font-size:.65rem; white-space:nowrap;">
+                                    +{{ sig.pts }}/{{ sig.max }}
+                                </span>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        <div class="mt-3 small text-muted">
+                            <i class="fas fa-info-circle me-1"></i>
+                            สัญญาณนี้คำนวณจากข้อมูลอัตโนมัติ ใช้ประกอบการตัดสินใจเท่านั้น ไม่ใช่คำแนะนำการลงทุน
+                        </div>
+                    </div>
+
+                </div>
             </div>
         </div>
     </div>
