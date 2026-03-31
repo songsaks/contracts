@@ -404,6 +404,29 @@ class JobStatus(models.Model):
             pass
         return None
 
+    # เมื่อบันทึก: ถ้า status_key หรือ job_type เปลี่ยน ให้อัปเดต Project ทุกตัวที่ใช้ key เก่าโดยอัตโนมัติ
+    def save(self, *args, **kwargs):
+        old_key = old_job_type = None
+        if self.pk:
+            try:
+                original = JobStatus.objects.get(pk=self.pk)
+                old_key      = original.status_key
+                old_job_type = original.job_type
+            except JobStatus.DoesNotExist:
+                pass
+
+        super().save(*args, **kwargs)
+
+        # Cascade: update all projects that still carry the old status key
+        if old_key and (old_key != self.status_key or old_job_type != self.job_type):
+            Project.objects.filter(
+                job_type=old_job_type,
+                status=old_key,
+            ).update(
+                job_type=self.job_type,
+                status=self.status_key,
+            )
+
     # แสดงชื่อประเภทงานและชื่อสถานะ
     def __str__(self):
         jt_display = dict(Project.JobType.choices).get(self.job_type, self.job_type)
