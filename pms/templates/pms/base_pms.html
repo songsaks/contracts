@@ -602,7 +602,15 @@
             new TomSelect(el, {
                 placeholder: placeholder,
                 allowEmptyOption: true,
-                sortField: { field: 'text', direction: 'asc' },
+                sortField: function (a, b) {
+                    // Always pin the empty-value option (ทั้งหมด / placeholder) to the top
+                    if (a.value === '' && b.value !== '') return -1;
+                    if (a.value !== '' && b.value === '') return 1;
+                    // Sort the rest alphabetically
+                    if (a.text < b.text) return -1;
+                    if (a.text > b.text) return 1;
+                    return 0;
+                },
                 plugins: ['dropdown_input'],
                 maxOptions: 200,
                 dropdownParent: 'body',

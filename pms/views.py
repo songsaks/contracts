@@ -4,7 +4,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth import get_user_model
 from django.utils import timezone
-from django.db.models import Sum, Count, Q, F, Case, When, Value, DecimalField
+from django.db.models import Sum, Count, Q, F, Case, When, Value, DecimalField, IntegerField
 from django.db.models.functions import TruncMonth
 from django.http import FileResponse, JsonResponse
 from decimal import Decimal
@@ -197,9 +197,39 @@ def project_list(request):
     if date_from and date_to:
         projects = projects.filter(created_at__date__range=[date_from, date_to])
 
+    # Build status choices dynamically from JobStatus table so admin-added steps appear automatically.
+    # For each status_key, prefer the PROJECT job_type entry's label and sort_order,
+    # then SERVICE, REPAIR, RENTAL. Exclude CLOSED/CANCELLED (handled in history).
+    _js_rows = (
+        JobStatus.objects
+        .filter(is_active=True)
+        .exclude(status_key__in=['CLOSED', 'CANCELLED'])
+        .order_by(
+            'status_key',
+            Case(
+                When(job_type='PROJECT', then=Value(1)),
+                When(job_type='SERVICE', then=Value(2)),
+                When(job_type='REPAIR',  then=Value(3)),
+                default=Value(4),
+                output_field=IntegerField(),
+            ),
+            'sort_order',
+        )
+        .values('status_key', 'label', 'sort_order')
+    )
+    _seen_statuses = {}
+    for _row in _js_rows:
+        if _row['status_key'] not in _seen_statuses:
+            _seen_statuses[_row['status_key']] = (_row['label'], _row['sort_order'])
+
+    status_choices = [
+        (k, v[0])
+        for k, v in sorted(_seen_statuses.items(), key=lambda x: (x[1][1], x[0]))
+    ]
+
     context = {
         'projects': projects,
-        'status_choices': Project.Status.choices,
+        'status_choices': status_choices,
         'project_owners': ProjectOwner.objects.all(),
         'customers': Customer.objects.all().only('id', 'name'),
         'title': 'รายการงานที่กำลังดำเนินการ'
