@@ -581,6 +581,71 @@
         #file-preview-area { padding: 0 0.25rem; margin-bottom: 0.4rem; }
     }
 
+    /* ── Message Selection Mode ─────────────────────────────────── */
+    .selecting-mode .message-bubble {
+        cursor: pointer;
+        padding-left: 2.75rem !important;
+        transition: background 0.15s;
+    }
+    .selecting-mode .message-bubble::before {
+        content: '';
+        position: absolute;
+        left: 0.5rem;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        border: 2px solid #cbd5e1;
+        background: white;
+        flex-shrink: 0;
+        transition: all 0.15s;
+        z-index: 1;
+    }
+    .selecting-mode .message-bubble.msg-selected::before {
+        background: #3b82f6;
+        border-color: #3b82f6;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='white'%3E%3Cpath d='M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z'/%3E%3C/svg%3E");
+        background-size: 13px;
+        background-repeat: no-repeat;
+        background-position: center;
+    }
+    .selecting-mode .message-bubble.msg-selected {
+        background: rgba(59,130,246,0.07) !important;
+        border-radius: 0.75rem;
+    }
+    /* Selection toolbar */
+    #msg-select-toolbar {
+        display: none;
+        position: fixed;
+        bottom: 0; left: 0; right: 0;
+        background: #1e293b;
+        color: white;
+        padding: 0.85rem 1.25rem;
+        z-index: 2000;
+        align-items: center;
+        gap: 0.75rem;
+        box-shadow: 0 -6px 24px rgba(0,0,0,0.3);
+        border-top: 1px solid rgba(255,255,255,0.08);
+    }
+    #msg-select-toolbar.active { display: flex; }
+    .sel-copy-btn {
+        background: #22c55e; color: white; border: none;
+        padding: 0.5rem 1.1rem; border-radius: 2rem;
+        font-weight: 700; font-size: 0.85rem; cursor: pointer;
+        display: flex; align-items: center; gap: 0.4rem;
+        transition: background 0.15s;
+    }
+    .sel-copy-btn:hover { background: #16a34a; }
+    .sel-copy-btn:disabled { background: #64748b; cursor: not-allowed; }
+    .sel-cancel-btn {
+        background: rgba(255,255,255,0.12); color: #cbd5e1; border: none;
+        padding: 0.5rem 1rem; border-radius: 2rem;
+        font-size: 0.85rem; cursor: pointer; font-weight: 600;
+        transition: background 0.15s;
+    }
+    .sel-cancel-btn:hover { background: rgba(255,255,255,0.2); }
+
 </style>
 {% endblock %}
 
@@ -606,6 +671,13 @@
                 </div>
                 <span class="text-xs text-slate-500">{{ room.description|default:"ช่องทางสื่อสารสำหรับทีม 9Com" }}</span>
             </div>
+            <!-- ปุ่ม Copy as Image: แคปหน้าจอแชทเป็นภาพไปยัง Clipboard -->
+            <button id="copy-img-btn" onclick="copyMessagesAsImage()"
+                title="คัดลอกแชทเป็นภาพ (ส่งต่อผ่าน LINE / อื่นๆ)"
+                class="p-2 rounded-full text-slate-400 hover:text-green-600 hover:bg-green-50 transition flex-shrink-0"
+                style="font-size:1rem;">
+                <i id="copy-img-icon" class="fas fa-camera"></i>
+            </button>
             <!-- ปุ่ม Refresh: ดึงข้อความที่พลาดไป (สำคัญสำหรับมือถือที่หลุดการเชื่อมต่อ) -->
             <button id="refresh-btn" onclick="fetchNewMessages(true)"
                 title="ดึงข้อความที่พลาดไป"
@@ -805,6 +877,18 @@
             <!-- Data will be populated by JS -->
             <div class="text-center text-slate-400 text-sm py-4">กำลังโหลด...</div>
         </div>
+    </div>
+</div>
+
+<!-- Selection toolbar (shown when user is selecting messages) -->
+<div id="msg-select-toolbar">
+    <span id="sel-count-label" style="font-weight:600; font-size:0.9rem; color:#e2e8f0;">0 ข้อความ</span>
+    <span style="font-size:0.75rem; color:#94a3b8;">กดข้อความเพื่อเลือก / ยกเลิกการเลือก</span>
+    <div style="margin-left:auto; display:flex; gap:0.6rem; align-items:center;">
+        <button class="sel-copy-btn" id="sel-copy-btn" onclick="copySelectedMessagesAsImage()" disabled>
+            <i class="fas fa-camera"></i> คัดลอกเป็นภาพ
+        </button>
+        <button class="sel-cancel-btn" onclick="exitMessageSelectMode()">ยกเลิก</button>
     </div>
 </div>
 
@@ -1536,8 +1620,60 @@
         }
     }
 
-    // Event delegation: reply button + reply quote scroll
+    // ── Message Selection Mode ───────────────────────────────────────
+    let _selMode = false;
+    let _longPressTimer = null;
+
+    function enterMessageSelectMode(bubbleEl) {
+        _selMode = true;
+        messagesContainer.classList.add('selecting-mode');
+        document.getElementById('msg-select-toolbar').classList.add('active');
+        _toggleBubbleSelect(bubbleEl);
+    }
+
+    function exitMessageSelectMode() {
+        _selMode = false;
+        messagesContainer.classList.remove('selecting-mode');
+        messagesContainer.querySelectorAll('.msg-selected').forEach(el => el.classList.remove('msg-selected'));
+        document.getElementById('msg-select-toolbar').classList.remove('active');
+        _updateSelCount();
+    }
+
+    function _toggleBubbleSelect(bubbleEl) {
+        if (!bubbleEl) return;
+        bubbleEl.classList.toggle('msg-selected');
+        _updateSelCount();
+    }
+
+    function _updateSelCount() {
+        const n = messagesContainer.querySelectorAll('.msg-selected').length;
+        document.getElementById('sel-count-label').textContent = n + ' ข้อความ';
+        const copyBtn = document.getElementById('sel-copy-btn');
+        if (copyBtn) copyBtn.disabled = n === 0;
+    }
+
+    // Long press: touch (500ms) or desktop Ctrl+click
+    messagesContainer.addEventListener('touchstart', function(e) {
+        const bubble = e.target.closest('.message-bubble');
+        if (!bubble) return;
+        _longPressTimer = setTimeout(() => {
+            _longPressTimer = null;
+            if (!_selMode) enterMessageSelectMode(bubble);
+            else _toggleBubbleSelect(bubble);
+        }, 500);
+    }, { passive: true });
+
+    messagesContainer.addEventListener('touchend',  () => clearTimeout(_longPressTimer), { passive: true });
+    messagesContainer.addEventListener('touchmove', () => clearTimeout(_longPressTimer), { passive: true });
+
+    // Event delegation: reply button + reply quote scroll + selection
     messagesContainer.addEventListener('click', function(e) {
+        // In selection mode: toggling a bubble takes priority
+        if (_selMode) {
+            const bubble = e.target.closest('.message-bubble');
+            if (bubble) { e.stopPropagation(); _toggleBubbleSelect(bubble); return; }
+        }
+
         const replyBtn = e.target.closest('.reply-btn');
         if (replyBtn) {
             setReply(replyBtn.dataset.replyMsgid, replyBtn.dataset.replyUser, replyBtn.dataset.replyText);
@@ -1547,6 +1683,16 @@
         const quoteEl = e.target.closest('.reply-quote');
         if (quoteEl && quoteEl.dataset.scrollTo) {
             scrollToMsg(quoteEl.dataset.scrollTo);
+        }
+
+        // Desktop: Ctrl+click on bubble → enter/toggle selection
+        if (e.ctrlKey || e.metaKey) {
+            const bubble = e.target.closest('.message-bubble');
+            if (bubble) {
+                e.preventDefault();
+                if (!_selMode) enterMessageSelectMode(bubble);
+                else _toggleBubbleSelect(bubble);
+            }
         }
     });
 
@@ -1929,5 +2075,128 @@
         setTimeout(() => toggleAutoTrack(), 1500); // รอ WebSocket เปิดก่อน
     }
     {% endif %}
+
+    // ── Shared: build off-screen container and run html2canvas ─────────
+    async function _renderBubblesToImage(bubbles) {
+        const wrapper = document.createElement('div');
+        wrapper.style.cssText = [
+            'position:fixed;left:-9999px;top:0;',
+            'background:#f1f5f9;',
+            'padding:0.75rem 1rem 1rem;',
+            'min-width:300px;max-width:520px;',
+            'font-family:inherit;',
+            'border-radius:1rem;',
+        ].join('');
+
+        // Header: room name + date
+        const hdr = document.createElement('div');
+        hdr.style.cssText = 'display:flex;align-items:center;gap:0.5rem;padding-bottom:0.6rem;margin-bottom:0.5rem;border-bottom:1px solid #e2e8f0;';
+        hdr.innerHTML = `
+            <div style="width:26px;height:26px;border-radius:7px;background:{{ room.color_hex }};display:flex;align-items:center;justify-content:center;color:#fff;font-size:0.65rem;flex-shrink:0;">
+                <i class="fas fa-hashtag"></i>
+            </div>
+            <span style="font-weight:700;color:#1e293b;font-size:0.85rem;">{{ room.name }}</span>
+            <span style="margin-left:auto;color:#94a3b8;font-size:0.72rem;">${new Date().toLocaleDateString('th-TH',{day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'})}</span>`;
+        wrapper.appendChild(hdr);
+
+        bubbles.forEach(el => {
+            const clone = el.cloneNode(true);
+            clone.classList.remove('msg-selected');
+            clone.style.maxWidth = '100%';
+            // Remove action buttons from the snapshot
+            clone.querySelectorAll('.reply-btn').forEach(b => b.remove());
+            wrapper.appendChild(clone);
+        });
+
+        document.body.appendChild(wrapper);
+        try {
+            const canvas = await html2canvas(wrapper, {
+                backgroundColor: '#f1f5f9', scale: 2, useCORS: true, logging: false,
+            });
+            return canvas;
+        } finally {
+            document.body.removeChild(wrapper);
+        }
+    }
+
+    async function _canvasToClipboard(canvas, fallbackName) {
+        const btn  = document.getElementById('copy-img-btn');
+        const icon = document.getElementById('copy-img-icon');
+        canvas.toBlob(async (blob) => {
+            try {
+                await navigator.clipboard.write([new ClipboardItem({'image/png': blob})]);
+                icon.className = 'fas fa-check';
+                btn.classList.add('text-green-600');
+                showCopyToast('✅ คัดลอกภาพแล้ว — วางใน LINE หรือแอพอื่นได้เลย');
+            } catch {
+                const a = document.createElement('a');
+                a.download = fallbackName;
+                a.href = canvas.toDataURL('image/png');
+                a.click();
+                showCopyToast('📥 บันทึกภาพแล้ว (Clipboard ไม่รองรับ)');
+            }
+            setTimeout(() => {
+                icon.className = 'fas fa-camera';
+                btn.classList.remove('text-green-600');
+                btn.disabled = false;
+            }, 2500);
+        }, 'image/png');
+    }
+
+    // ── Copy SELECTED messages as image ────────────────────────────────
+    async function copySelectedMessagesAsImage() {
+        const selected = [...messagesContainer.querySelectorAll('.msg-selected')];
+        if (!selected.length) return;
+
+        const copyBtn = document.getElementById('sel-copy-btn');
+        copyBtn.disabled = true;
+        copyBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> กำลังสร้าง...';
+
+        try {
+            const canvas = await _renderBubblesToImage(selected);
+            canvas.toBlob(async (blob) => {
+                try {
+                    await navigator.clipboard.write([new ClipboardItem({'image/png': blob})]);
+                    showCopyToast('✅ คัดลอกภาพแล้ว — วางใน LINE หรือแอพอื่นได้เลย');
+                } catch {
+                    const a = document.createElement('a');
+                    a.download = 'chat_selected.png';
+                    a.href = canvas.toDataURL('image/png');
+                    a.click();
+                    showCopyToast('📥 บันทึกภาพแล้ว');
+                }
+                exitMessageSelectMode();
+            }, 'image/png');
+        } catch (err) {
+            showCopyToast('❌ เกิดข้อผิดพลาด: ' + err.message);
+            copyBtn.disabled = false;
+            copyBtn.innerHTML = '<i class="fas fa-camera"></i> คัดลอกเป็นภาพ';
+        }
+    }
+
+    // ── Camera header button: enters selection mode (no longer copies all) ─
+    function copyMessagesAsImage() {
+        if (_selMode) {
+            exitMessageSelectMode();
+        } else {
+            showCopyToast('💡 กด ค้างที่ข้อความ (หรือ Ctrl+Click) เพื่อเลือก แล้วกด คัดลอกเป็นภาพ');
+        }
+    }
+
+    function showCopyToast(msg) {
+        let t = document.getElementById('copy-img-toast');
+        if (!t) {
+            t = document.createElement('div');
+            t.id = 'copy-img-toast';
+            t.style.cssText = 'position:fixed;bottom:90px;left:50%;transform:translateX(-50%);background:#1e293b;color:#fff;padding:0.6rem 1.2rem;border-radius:2rem;font-size:0.82rem;font-weight:600;z-index:9999;box-shadow:0 8px 24px rgba(0,0,0,0.25);pointer-events:none;transition:opacity 0.3s;white-space:nowrap;max-width:90vw;text-align:center;';
+            document.body.appendChild(t);
+        }
+        t.textContent = msg;
+        t.style.opacity = '1';
+        clearTimeout(t._timer);
+        t._timer = setTimeout(() => { t.style.opacity = '0'; }, 3500);
+    }
 </script>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" defer></script>
 {% endblock %}

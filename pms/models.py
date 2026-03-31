@@ -137,6 +137,7 @@ class Project(models.Model):
         REQUESTING_ACTION = 'REQUESTING_ACTION', 'ขอดำเนินการ'
         INSTALLATION = 'INSTALLATION', 'คิว'
         DELIVERY = 'DELIVERY', 'คิว'
+        PREPARING_DOCS = 'PREPARING_DOCS', 'เตรียมเอกสารใบส่งสินค้า'
 
         ACCEPTED = 'ACCEPTED', 'ตรวจรับ'
         BILLING = 'BILLING', 'วางบิล'
