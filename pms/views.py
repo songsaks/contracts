@@ -2357,9 +2357,32 @@ def job_status_create(request):
 def job_status_update(request, pk):
     status = get_object_or_404(JobStatus, pk=pk)
     if request.method == 'POST':
+        # Capture old values before the form overwrites them
+        old_key      = status.status_key
+        old_job_type = status.job_type
+
         form = JobStatusForm(request.POST, instance=status)
         if form.is_valid():
             form.save()
+            new_key      = status.status_key
+            new_job_type = status.job_type
+
+            # If status_key or job_type changed, cascade-update all affected projects
+            if old_key != new_key or old_job_type != new_job_type:
+                updated = Project.objects.filter(
+                    job_type=old_job_type,
+                    status=old_key,
+                ).update(
+                    job_type=new_job_type,
+                    status=new_key,
+                )
+                if updated:
+                    messages.info(
+                        request,
+                        f'อัปเดตสถานะโครงการ {updated} รายการจาก '
+                        f'"{old_job_type}/{old_key}" → "{new_job_type}/{new_key}" เรียบร้อยแล้ว'
+                    )
+
             messages.success(request, 'แก้ไขขั้นตอนงานสำเร็จ')
             return redirect('pms:job_status_list')
     else:
