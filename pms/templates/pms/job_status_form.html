@@ -54,10 +54,16 @@
                             {% endif %}
                         </div>
 
-                        <div class="col-12 mt-4">
+                        <div class="col-12 col-md-6 mt-4">
                             <div class="form-check form-switch p-3 border rounded bg-light">
                                 {{ form.is_active }}
                                 <label class="form-check-label ms-2 fw-bold" for="{{ form.is_active.id_for_label }}">เปิดใช้งานสถานะนี้</label>
+                            </div>
+                        </div>
+                        <div class="col-12 col-md-6 mt-4">
+                            <div class="p-3 border rounded" style="background:#fff3cd; border-color:#ffc107 !important;">
+                                <div class="fw-bold text-warning-emphasis small mb-1"><i class="fas fa-robot me-1"></i>AI Queue</div>
+                                <div class="form-text text-muted small">สถานะที่มี <strong>รหัส (Key) นำหน้าด้วย <code>QUEUE_</code></strong> จะถูกส่งเข้า AI Service Queue อัตโนมัติ เช่น QUEUE_INSTALL, QUEUE_DELIVERY</div>
                             </div>
                         </div>
                     </div>

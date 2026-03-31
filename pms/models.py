@@ -209,13 +209,10 @@ class Project(models.Model):
         is_new = self.pk is None
         old_status = getattr(self, '_old_status', self.status)
 
-        # 3. กลไกการล็อกสถานะสำหรับ AI Queue (ป้องกันการเปลี่ยนสถานะหากงานในคิวยังไม่เสร็จ)
+        # 3. กลไกการล็อกสถานะสำหรับ AI Queue
+        # ทุก status_key ที่ขึ้นต้นด้วย QUEUE_ ถือเป็น "สถานะคิว" โดย convention
         if not is_new and old_status != self.status:
-            is_queue_status = False
-            if self.job_type == self.JobType.PROJECT and old_status == self.Status.INSTALLATION:
-                is_queue_status = True
-            elif self.job_type in [self.JobType.SERVICE, self.JobType.REPAIR] and old_status == self.Status.DELIVERY:
-                is_queue_status = True
+            is_queue_status = old_status.upper().startswith('QUEUE_')
 
             if is_queue_status and not getattr(self, '_changed_by_ai', False):
                 active_task = self.service_tasks.filter(
@@ -386,6 +383,7 @@ class JobStatus(models.Model):
     label = models.CharField(max_length=100)
     sort_order = models.PositiveIntegerField(default=0)
     is_active = models.BooleanField(default=True)
+    # Convention: status_key ที่ขึ้นต้นด้วย QUEUE_ จะส่งงานเข้า AI Service Queue อัตโนมัติ
 
     class Meta:
         ordering = ['job_type', 'sort_order']
@@ -847,24 +845,13 @@ class ServiceQueueItem(models.Model):
 
         if self.project and self.status in [self.Status.COMPLETED, self.Status.CANCELLED] and old_status != self.status:
             proj = self.project
-            # Only advance if we are currently in the Queue status
-            can_advance = False
-            next_status = None
-
-            if proj.job_type == Project.JobType.PROJECT and proj.status == Project.Status.INSTALLATION:
-                can_advance = True
-                next_status = Project.Status.WAITING_FOR_SALE_KEY
-            elif proj.job_type == Project.JobType.SERVICE and proj.status == Project.Status.DELIVERY:
-                can_advance = True
-                next_status = Project.Status.WAITING_FOR_SALE_KEY
-            elif proj.job_type == Project.JobType.REPAIR and proj.status == Project.Status.DELIVERY:
-                can_advance = True
-                next_status = Project.Status.WAITING_FOR_SALE_KEY
-
-            if can_advance and next_status:
-                proj.status = next_status
-                proj._changed_by_ai = True # Mark to bypass lock if needed
-                proj.save()
+            # Only advance if the project is in a QUEUE_ status (convention-based)
+            if proj.status.upper().startswith('QUEUE_'):
+                next_js = proj.get_next_status()
+                if next_js:
+                    proj.status = next_js.status_key
+                    proj._changed_by_ai = True
+                    proj.save()
 
     @property
     def is_overdue(self):

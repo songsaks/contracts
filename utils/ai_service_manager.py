@@ -161,65 +161,51 @@ def sync_projects_to_queue():
     Returns:
         int: จำนวน ServiceQueueItem ที่สร้างใหม่
     """
-    from pms.models import Project, ServiceQueueItem, ServiceTeam
+    from pms.models import Project, ServiceQueueItem, ServiceTeam, JobStatus
     from django.db.models import Q
 
-    # 1. Cleanup duplicates that might have slipped through (just in case)
-    # We keep the one that is most advanced or most recently updated.
-    # สถานะที่ถือว่า "active" (ยังอยู่ในกระบวนการ ยังไม่จบ)
     active_statuses = ['PENDING', 'SCHEDULED', 'IN_PROGRESS', 'INCOMPLETE']
-
-    # 2. Sync new items based on TRIGGER STATUSES
-    # ดึงทีมที่ active ทั้งหมดมาใช้สำหรับการแนะนำทีม
     teams = list(ServiceTeam.objects.filter(is_active=True))
     count = 0
 
-    # ONLY trigger tasks for these specific statuses (The "Queue" stage)
-    # กำหนด Q object สำหรับ filter เฉพาะ project ที่อยู่ใน trigger stage
-    trigger_q = (
-        Q(job_type='PROJECT', status='INSTALLATION') |
-        Q(job_type='SERVICE', status='DELIVERY') |
-        Q(job_type='REPAIR', status='DELIVERY')
-    )
+    # Convention: any project whose status_key starts with QUEUE_ enters the AI Queue
+    ready_projects = Project.objects.select_for_update().filter(status__startswith='QUEUE_')
 
-    # ใช้ select_for_update เพื่อ lock rows ระหว่างการซิงค์
-    # ป้องกัน race condition เมื่อมีหลาย process รันพร้อมกัน
-    ready_projects = Project.objects.select_for_update().filter(trigger_q)
+    if not ready_projects.exists():
+        return 0
+
+    # Map job_type → ServiceQueueItem.TaskType for the queue card label
+    _task_type_map = {
+        'PROJECT': 'INSTALLATION',
+        'REPAIR':  'REPAIR',
+        'SERVICE': 'DELIVERY',
+    }
 
     for proj in ready_projects:
-        # Loop Check: Look for an ACTIVE task (not completed/cancelled)
-        # We include INCOMPLETE because it's still alive in the queue for re-scheduling.
-        # ตรวจสอบว่า project นี้มี active queue item อยู่แล้วหรือไม่
         active_tasks = ServiceQueueItem.objects.filter(
             project=proj,
             status__in=active_statuses
         ).order_by('-updated_at')
 
         if active_tasks.exists():
-            # If accidentally duplicated, cleanup here
-            # ถ้าเกิด duplicate (มีมากกว่า 1 item) ให้ลบอันที่เก่ากว่าออก
             if active_tasks.count() > 1:
                 for t_del in active_tasks[1:]:
                     t_del.delete()
-            continue # Already locked/tracking this stage
+            continue
 
-        # กำหนดประเภทงานและ label ภาษาไทยตาม job_type ของ project
-        # Determine Task Type & Label based on Job Type
-        if proj.job_type == 'PROJECT':
-            task_type, label = 'INSTALLATION', 'คิว (ติดตั้ง)'
-        elif proj.job_type == 'REPAIR':
-            task_type, label = 'REPAIR', 'คิว (ซ่อม)'
-        elif proj.job_type == 'SERVICE':
-            task_type, label = 'DELIVERY', 'คิว (ส่งของ)'
-        else:
-            task_type, label = 'OTHER', 'คิว'
+        task_type = _task_type_map.get(proj.job_type, 'OTHER')
+        # Use the JobStatus label as the queue card title
+        js = JobStatus.objects.filter(
+            job_type=proj.job_type, status_key=proj.status, is_active=True
+        ).first()
+        label = js.label if js else proj.status
 
         # ขอคำแนะนำทีมจาก AI (หรือ fallback logic) เฉพาะเมื่อมีทีมในระบบ
         suggested_team = get_ai_team_suggestion(task_type, teams) if teams else None
 
         # สร้าง ServiceQueueItem ใหม่พร้อมข้อมูลครบถ้วน
         item = ServiceQueueItem.objects.create(
-            title=f"{label}: {proj.name}",
+            title=f"{label} · {proj.name}",
             description=f"ลูกค้า: {proj.customer.name}\n{proj.description or ''}".strip(),
             project=proj,
             task_type=task_type,
