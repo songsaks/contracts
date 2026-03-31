@@ -9,6 +9,7 @@
 """
 import logging
 import datetime
+import math
 from django.utils import timezone
 from django.db import models, transaction
 from django.conf import settings
@@ -19,9 +20,24 @@ import json
 logger = logging.getLogger(__name__)
 
 
+# ====== ฟังก์ชันคำนวณระยะทาง ======
+
+def haversine(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    """
+    คำนวณระยะทางระหว่างสองพิกัด (ละติจูด/ลองจิจูด) ด้วยสูตร Haversine
+    คืนค่าเป็นกิโลเมตร (km)
+    """
+    R = 6371.0  # รัศมีโลก (km)
+    phi1, phi2 = math.radians(lat1), math.radians(lat2)
+    dphi = math.radians(lat2 - lat1)
+    dlam = math.radians(lon2 - lon1)
+    a = math.sin(dphi / 2) ** 2 + math.cos(phi1) * math.cos(phi2) * math.sin(dlam / 2) ** 2
+    return R * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+
+
 # ====== ส่วนแนะนำทีมด้วย AI ======
 
-def get_ai_team_suggestion(task_type, teams):
+def get_ai_team_suggestion(task_type, teams, job_lat=None, job_lng=None):
     """
     ฟังก์ชันหลักสำหรับแนะนำทีมที่เหมาะสมตามประเภทงาน
     โดยจะพยายามใช้ Gemini AI ก่อน หากล้มเหลวจะ fallback ไปใช้ logic ปกติ
@@ -29,6 +45,8 @@ def get_ai_team_suggestion(task_type, teams):
     Args:
         task_type (str): ประเภทงาน เช่น 'INSTALLATION', 'REPAIR', 'DELIVERY'
         teams (list): รายการ ServiceTeam ที่มีอยู่ในระบบ
+        job_lat (float|None): ละติจูดของสถานที่ทำงาน
+        job_lng (float|None): ลองจิจูดของสถานที่ทำงาน
 
     Returns:
         ServiceTeam หรือ None หากไม่พบทีมที่เหมาะสม
@@ -43,8 +61,8 @@ def get_ai_team_suggestion(task_type, teams):
         # หาก Gemini ล้มเหลว ให้ log warning และ fallback ไปใช้ logic ปกติ
         logger.warning(f"AI team suggestion failed: {e}")
 
-    # Fallback: ใช้การจับคู่ทักษะ (skill matching) แทน AI
-    return _fallback_suggest_team(task_type, teams)
+    # Fallback: ใช้การจับคู่ทักษะ + ระยะทาง แทน AI
+    return _fallback_suggest_team(task_type, teams, job_lat=job_lat, job_lng=job_lng)
 
 
 def _ai_suggest_team(task_type, teams):
@@ -105,21 +123,27 @@ Pick the best team name. Reply with ONLY the team name, nothing else."""
     return _fallback_suggest_team(task_type, teams)
 
 
-def _fallback_suggest_team(task_type, teams):
+def _fallback_suggest_team(task_type, teams, job_lat=None, job_lng=None):
     """
     Fallback logic สำหรับกรณีที่ AI ไม่พร้อมใช้งาน
-    เลือกทีมโดยใช้เกณฑ์ 2 ข้อ:
+    เลือกทีมโดยใช้เกณฑ์ 3 ข้อ:
     1. ทีมที่มีทักษะตรงกับประเภทงาน จะได้คะแนนเพิ่ม +10
     2. ทีมที่มีภาระงานน้อยกว่า (slot ว่างมากกว่า) จะได้คะแนนสูงกว่า
-    เลือกทีมที่ได้คะแนนรวมสูงสุด
+    3. ทีมที่อยู่ใกล้สถานที่ทำงานจะได้คะแนนเพิ่ม (ถ้ามีพิกัดทั้งสองฝั่ง)
+       - ระยะ ≤ 20 km  → +8 คะแนน
+       - ระยะ ≤ 50 km  → +4 คะแนน
+       - ระยะ ≤ 100 km → +2 คะแนน
 
     Args:
         task_type (str): ประเภทงานที่ต้องการจับคู่กับทักษะทีม
         teams (list): รายการทีมทั้งหมด
+        job_lat (float|None): ละติจูดของสถานที่ทำงาน
+        job_lng (float|None): ลองจิจูดของสถานที่ทำงาน
 
     Returns:
         ServiceTeam ที่มีคะแนนสูงสุด หรือ None หากไม่มีทีมที่ active
     """
+    use_distance = job_lat is not None and job_lng is not None
     best = None
     best_score = -1
 
@@ -132,6 +156,20 @@ def _fallback_suggest_team(task_type, teams):
         # ถ้าทีมมีทักษะตรงกับประเภทงาน ให้คะแนนโบนัสเพิ่ม 10 คะแนน
         if task_type in team.skill_list():
             score += 10
+        # คะแนนระยะทาง: ทีมที่อยู่ใกล้งานได้คะแนนเพิ่ม
+        if use_distance and team.latitude is not None and team.longitude is not None:
+            try:
+                dist_km = haversine(float(team.latitude), float(team.longitude), job_lat, job_lng)
+                if dist_km <= 20:
+                    score += 8
+                elif dist_km <= 50:
+                    score += 4
+                elif dist_km <= 100:
+                    score += 2
+                # บันทึก log เพื่อ debug
+                logger.debug(f"Team '{team.name}': dist={dist_km:.1f} km to job site")
+            except Exception as e:
+                logger.debug(f"Distance calc failed for team '{team.name}': {e}")
         # อัปเดตทีมที่ดีที่สุดหากพบทีมที่มีคะแนนสูงกว่า
         if score > best_score:
             best_score = score
@@ -200,8 +238,17 @@ def sync_projects_to_queue():
         ).first()
         label = js.label if js else proj.status
 
+        # ดึงพิกัดสถานที่ทำงาน (lat/lng) จากลูกค้า เพื่อใช้คำนวณระยะทาง
+        job_lat = job_lng = None
+        try:
+            if proj.customer and proj.customer.latitude and proj.customer.longitude:
+                job_lat = float(proj.customer.latitude)
+                job_lng = float(proj.customer.longitude)
+        except Exception:
+            pass
+
         # ขอคำแนะนำทีมจาก AI (หรือ fallback logic) เฉพาะเมื่อมีทีมในระบบ
-        suggested_team = get_ai_team_suggestion(task_type, teams) if teams else None
+        suggested_team = get_ai_team_suggestion(task_type, teams, job_lat=job_lat, job_lng=job_lng) if teams else None
 
         # สร้าง ServiceQueueItem ใหม่พร้อมข้อมูลครบถ้วน
         item = ServiceQueueItem.objects.create(

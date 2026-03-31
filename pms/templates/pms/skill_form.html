@@ -1,0 +1,82 @@
+{% extends 'pms/base_pms.html' %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-7">
+        <div class="d-flex align-items-center gap-3 mb-4">
+            <a href="{% url 'pms:skill_list' %}" class="btn btn-outline-secondary btn-sm rounded-circle"
+               style="width:32px;height:32px;padding:0;display:flex;align-items:center;justify-content:center;">
+                <i class="fas fa-arrow-left"></i>
+            </a>
+            <h1 class="page-heading mb-0">{{ title }}</h1>
+        </div>
+
+        <div class="card shadow-sm border-0 overflow-hidden">
+            <div class="card-header bg-warning bg-opacity-10 border-bottom py-3">
+                <h6 class="mb-0 fw-bold">
+                    <i class="fas fa-star text-warning me-2"></i>รายละเอียดทักษะ
+                </h6>
+            </div>
+            <div class="card-body p-4">
+                <form method="post" class="needs-validation">
+                    {% csrf_token %}
+                    <div class="row g-3">
+
+                        <div class="col-12">
+                            <label for="{{ form.name.id_for_label }}" class="form-label fw-bold">
+                                ชื่อทักษะ <span class="text-danger">*</span>
+                            </label>
+                            {{ form.name }}
+                            <div class="form-text">ชื่อทักษะเฉพาะ เช่น "ติดตั้งระบบเครือข่าย", "ซ่อมแอร์"</div>
+                            {% if form.name.errors %}<div class="text-danger small">{{ form.name.errors }}</div>{% endif %}
+                        </div>
+
+                        <div class="col-md-6">
+                            <label for="{{ form.skill_type.id_for_label }}" class="form-label fw-bold">
+                                ประเภทงาน <span class="text-danger">*</span>
+                            </label>
+                            {{ form.skill_type }}
+                            <div class="form-text">ใช้จับคู่กับประเภทงานใน AI Queue</div>
+                            {% if form.skill_type.errors %}<div class="text-danger small">{{ form.skill_type.errors }}</div>{% endif %}
+                        </div>
+
+                        <div class="col-md-6 d-flex align-items-center pt-4">
+                            <div class="form-check form-switch p-3 border rounded bg-light w-100">
+                                {{ form.is_active }}
+                                <label class="form-check-label ms-2 fw-bold"
+                                       for="{{ form.is_active.id_for_label }}">เปิดใช้งานทักษะนี้</label>
+                            </div>
+                        </div>
+
+                        <div class="col-12">
+                            <label for="{{ form.description.id_for_label }}" class="form-label fw-bold">
+                                คำอธิบาย
+                            </label>
+                            {{ form.description }}
+                            {% if form.description.errors %}<div class="text-danger small">{{ form.description.errors }}</div>{% endif %}
+                        </div>
+
+                    </div>
+
+                    <div class="d-flex justify-content-end gap-2 mt-4 pt-3 border-top">
+                        <a href="{% url 'pms:skill_list' %}" class="btn btn-light px-4">ยกเลิก</a>
+                        <button type="submit" class="btn btn-primary px-5">
+                            <i class="fas fa-save me-2"></i>บันทึก
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        {% if skill %}
+        <div class="mt-3 text-center">
+            <a href="{% url 'pms:skill_delete' skill.pk %}" class="btn btn-sm btn-outline-danger rounded-pill px-4">
+                <i class="fas fa-trash me-1"></i> ลบทักษะนี้
+            </a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

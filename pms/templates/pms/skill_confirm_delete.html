@@ -1,0 +1,48 @@
+{% extends 'pms/base_pms.html' %}
+
+{% block title %}ยืนยันลบทักษะ{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="d-flex align-items-center gap-3 mb-4">
+            <a href="{% url 'pms:skill_list' %}" class="btn btn-outline-secondary btn-sm rounded-circle"
+               style="width:32px;height:32px;padding:0;display:flex;align-items:center;justify-content:center;">
+                <i class="fas fa-arrow-left"></i>
+            </a>
+            <h1 class="page-heading mb-0">ยืนยันการลบทักษะ</h1>
+        </div>
+
+        <div class="card border-danger border-2 shadow-sm">
+            <div class="card-header bg-danger text-white">
+                <i class="fas fa-exclamation-triangle me-2"></i> ลบทักษะ
+            </div>
+            <div class="card-body p-4">
+                <p class="mb-3">คุณต้องการลบทักษะนี้ออกจากระบบ?</p>
+                <div class="p-3 rounded-3 mb-4" style="background:#fff5f5; border:1px solid #fca5a5;">
+                    <div class="fw-bold fs-5">{{ skill.name }}</div>
+                    <div class="text-muted small mt-1">{{ skill.get_skill_type_display }}</div>
+                    {% if skill.description %}
+                    <div class="text-muted small mt-1">{{ skill.description }}</div>
+                    {% endif %}
+                </div>
+
+                {% if team_count %}
+                <div class="alert alert-warning py-2 small">
+                    <i class="fas fa-exclamation-circle me-1"></i>
+                    ทักษะนี้ถูกใช้งานโดย <strong>{{ team_count }} ทีม</strong> — การลบจะถอดออกจากทุกทีมทันที
+                </div>
+                {% endif %}
+
+                <form method="post" class="d-flex gap-2 justify-content-end mt-3">
+                    {% csrf_token %}
+                    <a href="{% url 'pms:skill_list' %}" class="btn btn-secondary px-4">ยกเลิก</a>
+                    <button type="submit" class="btn btn-danger px-4">
+                        <i class="fas fa-trash me-1"></i> ยืนยันลบ
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

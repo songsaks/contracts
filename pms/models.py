@@ -66,7 +66,11 @@ class Customer(models.Model):
     line_id = models.CharField(max_length=100, blank=True, verbose_name="Line ID")
     facebook = models.CharField(max_length=255, blank=True, verbose_name="Facebook Page/Profile")
     map_url = models.URLField(blank=True, verbose_name="ลิงก์ Google Maps", help_text="เพื่อความสะดวกในการเดินทาง")
-    
+    latitude  = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True,
+                                    verbose_name="ละติจูด (Latitude)")
+    longitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True,
+                                    verbose_name="ลองจิจูด (Longitude)")
+
     notes = models.TextField(blank=True, verbose_name="หมายเหตุพิเศษ/นิสัยลูกค้า", help_text="เช่น เงื่อนไขการเข้าพื้นที่ หรือพฤติกรรมการซื้อ")
 
     sla_plan = models.ForeignKey(
@@ -742,6 +746,30 @@ class RequestStatusLog(models.Model):
 
 # ===== AI Service Queue Models =====
 
+class Skill(models.Model):
+    """ทักษะที่ทีมบริการสามารถมีได้ — ใช้จับคู่กับประเภทงานใน AI Queue"""
+
+    class SkillType(models.TextChoices):
+        REPAIR       = 'REPAIR',       'งานซ่อม'
+        INSTALLATION = 'INSTALLATION', 'งานติดตั้ง'
+        DELIVERY     = 'DELIVERY',     'งานส่งของ'
+        OTHER        = 'OTHER',        'อื่นๆ'
+
+    name        = models.CharField(max_length=100, verbose_name='ชื่อทักษะ')
+    skill_type  = models.CharField(max_length=20, choices=SkillType.choices,
+                                   default=SkillType.OTHER, verbose_name='ประเภทงาน')
+    description = models.TextField(blank=True, verbose_name='คำอธิบาย')
+    is_active   = models.BooleanField(default=True, verbose_name='เปิดใช้งาน')
+
+    class Meta:
+        verbose_name        = 'ทักษะ'
+        verbose_name_plural = 'ทักษะ'
+        ordering            = ['skill_type', 'name']
+
+    def __str__(self):
+        return f"{self.name} ({self.get_skill_type_display()})"
+
+
 class ServiceTeam(models.Model):
     name = models.CharField(max_length=100, verbose_name="ชื่อทีม")
     members = models.ManyToManyField(
@@ -750,11 +778,22 @@ class ServiceTeam(models.Model):
     )
     skills = models.CharField(
         max_length=255, blank=True,
-        help_text="e.g. REPAIR,INSTALLATION,DELIVERY",
+        help_text="e.g. REPAIR,INSTALLATION,DELIVERY (legacy)",
+        verbose_name="ทักษะ (เดิม)"
+    )
+    team_skills = models.ManyToManyField(
+        Skill, blank=True, related_name='teams',
         verbose_name="ทักษะ"
     )
     max_tasks_per_day = models.PositiveIntegerField(default=5, verbose_name="งานสูงสุด/วัน")
     is_active = models.BooleanField(default=True, verbose_name="เปิดใช้งาน")
+
+    # ตำแหน่งฐานของทีม (lat/lng) สำหรับคำนวณระยะทาง
+    base_address = models.CharField(max_length=255, blank=True, verbose_name="ที่อยู่ฐาน")
+    latitude  = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True,
+                                    verbose_name="ละติจูด (Latitude)")
+    longitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True,
+                                    verbose_name="ลองจิจูด (Longitude)")
 
     google_chat_webhook = models.URLField(blank=True, verbose_name="Google Chat Webhook", help_text="URL สำหรับส่งแจ้งเตือนเข้าช่อง Google Chat")
     line_token = models.CharField(max_length=255, blank=True, verbose_name="LINE Token", help_text="LINE Notify Token สำหรับส่งแจ้งเตือน")
@@ -767,7 +806,14 @@ class ServiceTeam(models.Model):
         return self.name
 
     def skill_list(self):
+        """คืน list ของ skill_type จาก team_skills (M2M) พร้อม fallback ไปที่ legacy comma-string"""
+        from_m2m = list(self.team_skills.filter(is_active=True).values_list('skill_type', flat=True))
+        if from_m2m:
+            return list(dict.fromkeys(from_m2m))  # unique, preserve order
         return [s.strip() for s in self.skills.split(',') if s.strip()]
+
+    def has_location(self):
+        return self.latitude is not None and self.longitude is not None
 
 
 class ServiceQueueItem(models.Model):

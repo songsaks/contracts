@@ -1,8 +1,8 @@
 from django import forms
 from decimal import Decimal
 from .models import (
-    Project, ProductItem, Customer, Supplier, ProjectOwner, 
-    CustomerRequirement, SLAPlan, JobStatus, JobStatusAssignment
+    Project, ProductItem, Customer, Supplier, ProjectOwner,
+    CustomerRequirement, SLAPlan, JobStatus, JobStatusAssignment, Skill
 )
 
 class CustomerForm(forms.ModelForm):
@@ -267,6 +267,24 @@ class JobStatusForm(forms.ModelForm):
     # เปลี่ยนตัวพิมพ์เล็กให้เป็นตัวพิมพ์ใหญ่สำหรับ Status Key (เช่น sourcing -> SOURCING)
     def clean_status_key(self):
         return self.cleaned_data.get('status_key').upper()
+
+class SkillForm(forms.ModelForm):
+    class Meta:
+        model = Skill
+        fields = ['name', 'skill_type', 'description', 'is_active']
+        widgets = {
+            'name':        forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'เช่น ติดตั้งระบบเครือข่าย, ซ่อมเครื่องใช้ไฟฟ้า'}),
+            'skill_type':  forms.Select(attrs={'class': 'form-select'}),
+            'description': forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': 'คำอธิบายทักษะ (ไม่บังคับ)'}),
+            'is_active':   forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+        }
+        labels = {
+            'name':       'ชื่อทักษะ',
+            'skill_type': 'ประเภทงาน',
+            'description':'คำอธิบาย',
+            'is_active':  'เปิดใช้งาน',
+        }
+
 
 class JobStatusAssignmentForm(forms.ModelForm):
     class Meta:

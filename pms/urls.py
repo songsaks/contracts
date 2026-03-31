@@ -85,6 +85,12 @@ urlpatterns = [
     path('queue/ai/messages/', views.team_messages, name='team_messages'),                          # ข้อความทีมทั้งหมด
     path('queue/ai/messages/<int:team_id>/', views.team_messages, name='team_messages_by_team'),   # ข้อความทีมเฉพาะ
 
+    # ===== ทักษะ (Skills) =====
+    path('skills/', views.skill_list, name='skill_list'),
+    path('skills/create/', views.skill_create, name='skill_create'),
+    path('skills/<int:pk>/edit/', views.skill_update, name='skill_update'),
+    path('skills/<int:pk>/delete/', views.skill_delete, name='skill_delete'),
+
     # ===== ทีมบริการ (Service Teams) =====
     path('teams/', views.team_list, name='team_list'),
     path('teams/create/', views.team_create, name='team_create'),

@@ -1712,6 +1712,67 @@ def team_messages(request, team_id=None):
 
 # ===== Team Management Views — จัดการทีมบริการ =====
 
+# ===== Skill CRUD Views =====
+
+@login_required
+def skill_list(request):
+    from .models import Skill, ServiceTeam
+    skills = Skill.objects.prefetch_related('teams').order_by('skill_type', 'name')
+    return render(request, 'pms/skill_list.html', {
+        'skills': skills,
+        'active_count':   skills.filter(is_active=True).count(),
+        'inactive_count': skills.filter(is_active=False).count(),
+    })
+
+
+@login_required
+def skill_create(request):
+    from .forms import SkillForm
+    if request.method == 'POST':
+        form = SkillForm(request.POST)
+        if form.is_valid():
+            skill = form.save()
+            messages.success(request, f"✅ เพิ่มทักษะ '{skill.name}' เรียบร้อย")
+            return redirect('pms:skill_list')
+    else:
+        form = SkillForm()
+    return render(request, 'pms/skill_form.html', {'form': form, 'title': 'เพิ่มทักษะใหม่'})
+
+
+@login_required
+def skill_update(request, pk):
+    from .models import Skill
+    from .forms import SkillForm
+    skill = get_object_or_404(Skill, pk=pk)
+    if request.method == 'POST':
+        form = SkillForm(request.POST, instance=skill)
+        if form.is_valid():
+            form.save()
+            messages.success(request, f"✅ อัปเดตทักษะ '{skill.name}' เรียบร้อย")
+            return redirect('pms:skill_list')
+    else:
+        form = SkillForm(instance=skill)
+    return render(request, 'pms/skill_form.html', {
+        'form': form, 'skill': skill,
+        'title': f'แก้ไขทักษะ — {skill.name}',
+    })
+
+
+@login_required
+def skill_delete(request, pk):
+    from .models import Skill
+    skill = get_object_or_404(Skill, pk=pk)
+    if request.method == 'POST':
+        name = skill.name
+        skill.delete()
+        messages.success(request, f"🗑️ ลบทักษะ '{name}' เรียบร้อย")
+        return redirect('pms:skill_list')
+    return render(request, 'pms/skill_confirm_delete.html', {
+        'skill': skill,
+        'team_count': skill.teams.count(),
+    })
+
+
 # รายการทีมบริการทั้งหมดในระบบ (Service Team List)
 @login_required
 @login_required
@@ -1731,57 +1792,74 @@ def team_list(request):
 # สร้างทีมบริการใหม่ พร้อมตั้งค่าสมาชิก, ทักษะ, งานสูงสุด/วัน และ webhook แจ้งเตือน
 @login_required
 def team_create(request):
-    """สร้างทีมบริการใหม่ — รับค่า name, skills, members, webhook จากฟอร์ม"""
-    from .models import ServiceTeam
+    """สร้างทีมบริการใหม่ — รับค่า name, skills, members, webhook, lat/lng จากฟอร์ม"""
+    from .models import ServiceTeam, Skill
     from django.contrib.auth.models import User
 
     if request.method == 'POST':
         name       = request.POST.get('name', '').strip()
-        skills     = ','.join(filter(None, request.POST.getlist('skills')))
         max_tasks  = int(request.POST.get('max_tasks_per_day', 5) or 5)
         is_active  = 'is_active' in request.POST
         member_ids = request.POST.getlist('members')
+        skill_ids  = request.POST.getlist('team_skills')
+        lat_raw    = request.POST.get('latitude', '').strip()
+        lng_raw    = request.POST.get('longitude', '').strip()
 
         team = ServiceTeam.objects.create(
-            name=name, skills=skills,
-            max_tasks_per_day=max_tasks, is_active=is_active,
+            name=name,
+            max_tasks_per_day=max_tasks,
+            is_active=is_active,
+            base_address=request.POST.get('base_address', '').strip(),
+            latitude=lat_raw or None,
+            longitude=lng_raw or None,
             google_chat_webhook=request.POST.get('google_chat_webhook', '').strip(),
             line_token=request.POST.get('line_token', '').strip(),
         )
         team.members.set(member_ids)
+        team.team_skills.set(skill_ids)
         messages.success(request, f"✅ สร้างทีม '{name}' เรียบร้อย")
         return redirect('pms:team_list')
 
-    users = User.objects.filter(is_active=True).order_by('first_name', 'username')
-    return render(request, 'pms/team_form.html', {'users': users, 'title': 'สร้างทีมใหม่'})
+    users  = User.objects.filter(is_active=True).order_by('first_name', 'username')
+    skills = Skill.objects.filter(is_active=True).order_by('skill_type', 'name')
+    return render(request, 'pms/team_form.html', {
+        'users': users, 'skills': skills, 'title': 'สร้างทีมใหม่',
+    })
 
 
 # แก้ไขข้อมูลทีมบริการ — อัปเดตชื่อ, สมาชิก, ทักษะ และ webhook
 @login_required
 def team_update(request, pk):
     """แก้ไขข้อมูลทีมบริการที่มีอยู่"""
-    from .models import ServiceTeam
+    from .models import ServiceTeam, Skill
     from django.contrib.auth.models import User
 
     team = get_object_or_404(ServiceTeam, pk=pk)
 
     if request.method == 'POST':
+        lat_raw = request.POST.get('latitude', '').strip()
+        lng_raw = request.POST.get('longitude', '').strip()
         team.name              = request.POST.get('name', team.name).strip()
-        team.skills            = ','.join(filter(None, request.POST.getlist('skills')))
         team.max_tasks_per_day = int(request.POST.get('max_tasks_per_day', team.max_tasks_per_day) or 5)
         team.is_active         = 'is_active' in request.POST
+        team.base_address      = request.POST.get('base_address', '').strip()
+        team.latitude          = lat_raw or None
+        team.longitude         = lng_raw or None
         team.google_chat_webhook = request.POST.get('google_chat_webhook', '').strip()
         team.line_token          = request.POST.get('line_token', '').strip()
         team.save()
         team.members.set(request.POST.getlist('members'))
+        team.team_skills.set(request.POST.getlist('team_skills'))
         messages.success(request, f"✅ อัปเดตทีม '{team.name}' เรียบร้อย")
         return redirect('pms:team_list')
 
-    users = User.objects.filter(is_active=True).order_by('first_name', 'username')
+    users  = User.objects.filter(is_active=True).order_by('first_name', 'username')
+    skills = Skill.objects.filter(is_active=True).order_by('skill_type', 'name')
+    current_skill_ids = list(team.team_skills.values_list('pk', flat=True))
     return render(request, 'pms/team_form.html', {
-        'team': team, 'users': users,
+        'team': team, 'users': users, 'skills': skills,
+        'current_skill_ids': current_skill_ids,
         'title': f'แก้ไขทีม — {team.name}',
-        'current_skills': team.skill_list(),
     })
 
 

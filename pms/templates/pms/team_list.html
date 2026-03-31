@@ -52,7 +52,10 @@
             </h3>
             <p class="text-muted small mb-0">จัดการทีมบริการ สมาชิก ทักษะ และการแจ้งเตือน — ซิงก์กับ Django Admin โดยอัตโนมัติ</p>
         </div>
-        <div class="d-flex gap-2">
+        <div class="d-flex gap-2 flex-wrap">
+            <a href="{% url 'pms:skill_list' %}" class="btn btn-outline-warning rounded-pill px-4">
+                <i class="fas fa-star me-1"></i> จัดการทักษะ
+            </a>
             <a href="{% url 'pms:team_create' %}" class="btn btn-primary rounded-pill px-4">
                 <i class="fas fa-plus me-1"></i> เพิ่มทีมใหม่
             </a>
@@ -116,6 +119,7 @@
                         <th>สมาชิก</th>
                         <th style="width:18%;">ทักษะ</th>
                         <th class="text-center" style="width:90px;">งาน/วัน</th>
+                        <th class="text-center" style="width:70px;">ตำแหน่ง</th>
                         <th class="text-center" style="width:110px;">แจ้งเตือน</th>
                         <th class="text-center" style="width:90px;">สถานะ</th>
                         <th class="text-center" style="width:110px;">จัดการ</th>
@@ -147,10 +151,14 @@
 
                         <!-- ทักษะ -->
                         <td>
-                            {% for skill in team.skill_list %}
-                            <span class="skill-tag skill-{{ skill }}">{{ skill }}</span>
+                            {% for s in team.team_skills.all %}
+                            <span class="skill-tag skill-{{ s.skill_type }}">{{ s.name }}</span>
+                            {% empty %}
+                            {% for sk in team.skill_list %}
+                            <span class="skill-tag skill-{{ sk }}">{{ sk }}</span>
                             {% empty %}
                             <span class="text-muted small">—</span>
+                            {% endfor %}
                             {% endfor %}
                         </td>
 
@@ -159,6 +167,20 @@
                             <span class="badge bg-light text-dark border fw-bold" style="font-size:0.85rem; padding:4px 10px;">
                                 {{ team.max_tasks_per_day }}
                             </span>
+                        </td>
+
+                        <!-- ตำแหน่ง -->
+                        <td class="text-center">
+                            {% if team.latitude and team.longitude %}
+                            <span title="ตำแหน่งฐาน: {{ team.latitude }}, {{ team.longitude }}"
+                                  style="color:#3b82f6; font-size:1.1rem; cursor:default;">
+                                <i class="fas fa-map-marker-alt"></i>
+                            </span>
+                            {% else %}
+                            <span title="ยังไม่ระบุตำแหน่ง" style="color:#e2e8f0; font-size:1.1rem;">
+                                <i class="fas fa-map-marker-alt"></i>
+                            </span>
+                            {% endif %}
                         </td>
 
                         <!-- การแจ้งเตือน -->

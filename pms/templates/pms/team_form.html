@@ -132,53 +132,42 @@
 
                 <!-- ─── ทักษะ ──────────────────────────────────────── -->
                 <div class="form-section shadow-sm">
-                    <div class="section-title">
-                        <i class="fas fa-star text-warning"></i> ทักษะ / ประเภทงานที่ถนัด
+                    <div class="section-title d-flex justify-content-between align-items-center w-100">
+                        <span><i class="fas fa-star text-warning"></i> ทักษะ / ประเภทงานที่ถนัด</span>
+                        <a href="{% url 'pms:skill_list' %}" target="_blank"
+                           class="btn btn-outline-warning btn-sm rounded-pill py-0 px-2"
+                           style="font-size:0.72rem;" title="จัดการรายการทักษะ">
+                            <i class="fas fa-cog me-1"></i>จัดการทักษะ
+                        </a>
                     </div>
+                    {% if skills %}
                     <div class="skill-grid">
-                        {% with current=current_skills|default:'' %}
-
+                        {% for skill in skills %}
                         <div>
-                            <input type="checkbox" name="skills" value="REPAIR"
-                                id="skill_REPAIR" class="skill-option"
-                                {% if 'REPAIR' in current %}checked{% endif %}>
-                            <label for="skill_REPAIR" class="skill-label">
-                                <span class="skill-icon">🔧</span> ซ่อมแซม
+                            <input type="checkbox" name="team_skills" value="{{ skill.pk }}"
+                                id="skill_{{ skill.pk }}" class="skill-option"
+                                {% if skill.pk in current_skill_ids %}checked{% endif %}>
+                            <label for="skill_{{ skill.pk }}" class="skill-label">
+                                <span class="skill-icon">
+                                    {% if skill.skill_type == 'REPAIR' %}🔧
+                                    {% elif skill.skill_type == 'INSTALLATION' %}🔌
+                                    {% elif skill.skill_type == 'DELIVERY' %}🚚
+                                    {% else %}📋{% endif %}
+                                </span>
+                                {{ skill.name }}
                             </label>
                         </div>
-
-                        <div>
-                            <input type="checkbox" name="skills" value="INSTALLATION"
-                                id="skill_INST" class="skill-option"
-                                {% if 'INSTALLATION' in current %}checked{% endif %}>
-                            <label for="skill_INST" class="skill-label">
-                                <span class="skill-icon">🔌</span> ติดตั้ง
-                            </label>
-                        </div>
-
-                        <div>
-                            <input type="checkbox" name="skills" value="DELIVERY"
-                                id="skill_DEL" class="skill-option"
-                                {% if 'DELIVERY' in current %}checked{% endif %}>
-                            <label for="skill_DEL" class="skill-label">
-                                <span class="skill-icon">🚚</span> จัดส่ง
-                            </label>
-                        </div>
-
-                        <div>
-                            <input type="checkbox" name="skills" value="OTHER"
-                                id="skill_OTH" class="skill-option"
-                                {% if 'OTHER' in current %}checked{% endif %}>
-                            <label for="skill_OTH" class="skill-label">
-                                <span class="skill-icon">📋</span> อื่นๆ
-                            </label>
-                        </div>
-
-                        {% endwith %}
+                        {% endfor %}
                     </div>
+                    {% else %}
+                    <div class="text-muted small py-2">
+                        ยังไม่มีทักษะในระบบ —
+                        <a href="{% url 'pms:skill_list' %}" target="_blank">เพิ่มทักษะก่อน</a>
+                    </div>
+                    {% endif %}
                     <div class="form-text mt-2">
                         <i class="fas fa-info-circle me-1"></i>
-                        ระบบ AI Queue จะใช้ทักษะนี้จับคู่กับประเภทงาน
+                        ระบบ AI Queue จะใช้ทักษะนี้จับคู่กับประเภทงาน และคำนวณระยะทาง
                     </div>
                 </div>
 
@@ -225,8 +214,57 @@
 
             </div>
 
-            <!-- RIGHT column: Notifications + Submit -->
+            <!-- RIGHT column: Location + Notifications + Submit -->
             <div class="col-lg-5">
+
+                <!-- ─── ตำแหน่งฐาน (Lat/Lng) ─────────────────────── -->
+                <div class="form-section shadow-sm">
+                    <div class="section-title">
+                        <i class="fas fa-map-marker-alt text-primary"></i> ตำแหน่งฐานของทีม
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold small mb-1">ที่อยู่ฐาน (แสดงผล)</label>
+                        <input type="text" name="base_address" class="form-control form-control-sm"
+                            value="{{ team.base_address|default:'' }}"
+                            placeholder="เช่น อ.เมือง จ.เชียงใหม่">
+                    </div>
+
+                    <div class="row g-2 mb-2">
+                        <div class="col-6">
+                            <label class="form-label fw-semibold small mb-1">ละติจูด (Latitude)</label>
+                            <input type="number" name="latitude" id="teamLat" step="0.000001"
+                                   class="form-control form-control-sm"
+                                   value="{{ team.latitude|default:'' }}"
+                                   placeholder="เช่น 18.796143">
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label fw-semibold small mb-1">ลองจิจูด (Longitude)</label>
+                            <input type="number" name="longitude" id="teamLng" step="0.000001"
+                                   class="form-control form-control-sm"
+                                   value="{{ team.longitude|default:'' }}"
+                                   placeholder="เช่น 98.979263">
+                        </div>
+                    </div>
+
+                    <div class="form-text small mb-2">
+                        <i class="fas fa-lightbulb me-1 text-warning"></i>
+                        คัดลอกพิกัดจาก Google Maps: คลิกขวาที่แผนที่ → คัดลอกพิกัด
+                    </div>
+
+                    <button type="button" id="btnPickLocation" class="btn btn-outline-primary btn-sm rounded-pill w-100">
+                        <i class="fas fa-crosshairs me-1"></i> ใช้ตำแหน่งปัจจุบัน (GPS)
+                    </button>
+
+                    {% if team.latitude and team.longitude %}
+                    <div class="mt-2 text-center">
+                        <a href="https://www.google.com/maps?q={{ team.latitude }},{{ team.longitude }}"
+                           target="_blank" class="btn btn-outline-secondary btn-sm rounded-pill">
+                            <i class="fas fa-external-link-alt me-1"></i> ดูบน Google Maps
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
 
                 <!-- ─── การแจ้งเตือน ──────────────────────────────── -->
                 <div class="form-section shadow-sm">
@@ -354,5 +392,30 @@ document.querySelectorAll('.member-checkbox').forEach(cb => {
     }
 });
 updateCount();
+
+// ─── GPS location picker ─────────────────────────────────────
+document.getElementById('btnPickLocation')?.addEventListener('click', function() {
+    if (!navigator.geolocation) {
+        alert('เบราว์เซอร์ไม่รองรับ GPS');
+        return;
+    }
+    this.disabled = true;
+    this.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> กำลังค้นหาตำแหน่ง...';
+    const btn = this;
+    navigator.geolocation.getCurrentPosition(
+        pos => {
+            document.getElementById('teamLat').value = pos.coords.latitude.toFixed(6);
+            document.getElementById('teamLng').value = pos.coords.longitude.toFixed(6);
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-check me-1"></i> ได้ตำแหน่งแล้ว';
+            btn.className = btn.className.replace('btn-outline-primary', 'btn-success');
+        },
+        err => {
+            alert('ไม่สามารถดึงตำแหน่ง GPS ได้ กรุณากรอกพิกัดเอง');
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-crosshairs me-1"></i> ใช้ตำแหน่งปัจจุบัน (GPS)';
+        }
+    );
+});
 </script>
 {% endblock %}
