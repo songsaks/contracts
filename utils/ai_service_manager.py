@@ -217,6 +217,7 @@ def sync_projects_to_queue():
         'PROJECT': 'INSTALLATION',
         'REPAIR':  'REPAIR',
         'SERVICE': 'DELIVERY',
+        'SURVEY':  'SURVEY',
     }
 
     for proj in ready_projects:

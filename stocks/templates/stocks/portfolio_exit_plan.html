@@ -7,7 +7,7 @@
 <div class="container-fluid px-3 px-md-4 py-4">
 
   <!-- Header -->
-  <div class="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-2">
+  <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
     <div>
       <h4 class="fw-bold mb-0" style="color:#1e293b;">
         <i class="fas fa-sign-out-alt me-2" style="color:#dc2626;"></i>แผนออกหุ้น
@@ -18,6 +18,84 @@
       <i class="fas fa-arrow-left me-1"></i> กลับพอร์ต
     </a>
   </div>
+
+  <!-- ===== Portfolio Health Summary ===== -->
+  {% if total_count %}
+  <div class="row g-3 mb-4">
+
+    <!-- Market Condition -->
+    {% if market_condition and market_condition.phase != 'UNKNOWN' %}
+    <div class="col-12">
+      <div class="rounded-3 px-4 py-3 d-flex align-items-center gap-3 flex-wrap
+           {% if market_condition.color == 'success' %}bg-success bg-opacity-10 border border-success border-opacity-25
+           {% elif market_condition.color == 'info' %}bg-info bg-opacity-10 border border-info border-opacity-25
+           {% elif market_condition.color == 'warning' %}bg-warning bg-opacity-10 border border-warning border-opacity-25
+           {% else %}bg-danger bg-opacity-10 border border-danger border-opacity-25{% endif %}">
+        <i class="fas {% if market_condition.color == 'success' %}fa-arrow-trend-up text-success
+                      {% elif market_condition.color == 'info' %}fa-chart-line text-info
+                      {% elif market_condition.color == 'warning' %}fa-exclamation-triangle text-warning
+                      {% else %}fa-arrow-trend-down text-danger{% endif %} fa-lg"></i>
+        <div>
+          <span class="fw-bold small">ตลาดวันนี้: {{ market_condition.label }}</span>
+          <span class="ms-2 small text-muted">SET {{ market_condition.curr|floatformat:2 }} | 1m {% if market_condition.m1 > 0 %}+{% endif %}{{ market_condition.m1 }}%</span>
+        </div>
+        {% if market_condition.phase == 'DOWNTREND' or market_condition.phase == 'CORRECTION' %}
+        <span class="badge bg-danger ms-auto">ระวัง: พิจารณาลด Exposure</span>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Urgent -->
+    <div class="col-6 col-md-3">
+      <div class="card border-0 h-100 text-center p-3 rounded-3
+           {% if urgent_count > 0 %}bg-danger bg-opacity-10 border-danger border-opacity-25{% else %}bg-light{% endif %}">
+        <div class="display-6 fw-bold {% if urgent_count > 0 %}text-danger{% else %}text-muted{% endif %}">{{ urgent_count }}</div>
+        <div class="small fw-bold {% if urgent_count > 0 %}text-danger{% else %}text-muted{% endif %}">
+          {% if urgent_count > 0 %}🚨{% endif %} ออกทันที
+        </div>
+        <div class="extra-small text-muted mt-1">STRONG EXIT / SL Hit</div>
+      </div>
+    </div>
+
+    <!-- Warning -->
+    <div class="col-6 col-md-3">
+      <div class="card border-0 h-100 text-center p-3 rounded-3
+           {% if warning_count > 0 %}bg-warning bg-opacity-10{% else %}bg-light{% endif %}">
+        <div class="display-6 fw-bold {% if warning_count > 0 %}text-warning{% else %}text-muted{% endif %}">{{ warning_count }}</div>
+        <div class="small fw-bold {% if warning_count > 0 %}text-warning{% else %}text-muted{% endif %}">
+          {% if warning_count > 0 %}⚠️{% endif %} ทยอยขาย
+        </div>
+        <div class="extra-small text-muted mt-1">EXIT signal</div>
+      </div>
+    </div>
+
+    <!-- Watch -->
+    <div class="col-6 col-md-3">
+      <div class="card border-0 h-100 text-center p-3 rounded-3
+           {% if watch_count > 0 %}bg-orange bg-opacity-10{% else %}bg-light{% endif %}" style="{% if watch_count > 0 %}background:rgba(249,115,22,0.08);{% endif %}">
+        <div class="display-6 fw-bold {% if watch_count > 0 %}text-orange{% else %}text-muted{% endif %}" style="{% if watch_count > 0 %}color:#ea580c;{% endif %}">{{ watch_count }}</div>
+        <div class="small fw-bold" style="{% if watch_count > 0 %}color:#ea580c;{% endif %}">
+          {% if watch_count > 0 %}👁{% endif %} เฝ้าระวัง
+        </div>
+        <div class="extra-small text-muted mt-1">WATCH signal</div>
+      </div>
+    </div>
+
+    <!-- Healthy -->
+    <div class="col-6 col-md-3">
+      <div class="card border-0 h-100 text-center p-3 rounded-3
+           {% if healthy_count == total_count %}bg-success bg-opacity-10{% else %}bg-light{% endif %}">
+        <div class="display-6 fw-bold {% if healthy_count == total_count %}text-success{% else %}text-muted{% endif %}">{{ healthy_count }}</div>
+        <div class="small fw-bold {% if healthy_count == total_count %}text-success{% else %}text-muted{% endif %}">
+          {% if healthy_count == total_count %}✅{% endif %} ถือต่อได้
+        </div>
+        <div class="extra-small text-muted mt-1">avg sell score {{ avg_sell_score }}</div>
+      </div>
+    </div>
+
+  </div>
+  {% endif %}
 
   {% if not items %}
   <div class="text-center py-5 text-muted">

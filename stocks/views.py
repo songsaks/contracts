@@ -644,6 +644,15 @@ def portfolio_list(request):
                 mom_data.price_pattern_score = prec_data.price_pattern_score
                 mom_data.rel_momentum_1m   = prec_data.rel_momentum_1m
                 mom_data.rel_momentum_3m   = prec_data.rel_momentum_3m
+                mom_data.macd_histogram    = prec_data.macd_histogram
+                mom_data.macd_crossover    = prec_data.macd_crossover
+                mom_data.bb_squeeze        = prec_data.bb_squeeze
+                mom_data.ema20_aligned     = prec_data.ema20_aligned
+                mom_data.rs_rating         = prec_data.rs_rating
+                mom_data.ema20_rising      = prec_data.ema20_rising
+                mom_data.hh_hl_structure   = prec_data.hh_hl_structure
+                mom_data.cmf               = prec_data.cmf
+                mom_data.is_52w_breakout   = prec_data.is_52w_breakout
             else:
                 # 2. คำนวณ on-the-fly ด้วย v2 (ตรงกับ Precision Scanner)
                 tech_analysis = analyze_momentum_technical_v2(hist) if not hist.empty else None
@@ -944,6 +953,7 @@ def portfolio_exit_plan(request):
             rvol_bullish = True
             rvol = 1.0
             supply_zone_start = year_high = 0
+            cmf_val = None
 
             if prec_data:
                 sl_price    = prec_data.stop_loss
@@ -958,6 +968,7 @@ def portfolio_exit_plan(request):
                 rvol        = prec_data.rvol
                 supply_zone_start = prec_data.supply_zone_start or 0
                 year_high   = prec_data.year_high or 0
+                cmf_val     = prec_data.cmf
 
             signals = _compute_signals(prec_data, current_price) if prec_data else {'buy_score': 0, 'sell_score': 0, 'exit_signal': ''}
             sell_score   = signals['sell_score']
@@ -1058,6 +1069,11 @@ def portfolio_exit_plan(request):
                 triggers.append({'label': f'Pattern: {price_pattern}', 'level': 'warning'})
             if adx_val and adx_val < 20:
                 triggers.append({'label': f'ADX {adx_val:.0f} — เทรนด์อ่อนแรง', 'level': 'warning'})
+            if cmf_val is not None:
+                if cmf_val < -0.1:
+                    triggers.append({'label': f'CMF {cmf_val:.2f} — Distribution ชัดเจน เงินไหลออก', 'level': 'danger'})
+                elif cmf_val < -0.05:
+                    triggers.append({'label': f'CMF {cmf_val:.2f} — เริ่มมีแรงขายสุทธิ', 'level': 'warning'})
             if not triggers and exit_signal == '':
                 triggers.append({'label': 'ไม่มีสัญญาณออก — ถือต่อได้', 'level': 'success'})
 
@@ -1091,6 +1107,7 @@ def portfolio_exit_plan(request):
                 'triggers':     triggers,
                 'is_leader':    is_leader,
                 'is_laggard':   is_laggard,
+                'cmf':          cmf_val,
             })
         except Exception as e:
             print(f"[ExitPlan] Error {item.symbol}: {e}")
@@ -1099,7 +1116,41 @@ def portfolio_exit_plan(request):
     # เรียงตาม SELL Score สูงสุดก่อน
     items.sort(key=lambda x: x['sell_score'], reverse=True)
 
-    return render(request, 'stocks/portfolio_exit_plan.html', {'items': items})
+    # ====== Portfolio Health Summary ======
+    urgent_count   = sum(1 for i in items if i['exit_signal'] in ('STRONG EXIT',) or i['sl_hit'])
+    warning_count  = sum(1 for i in items if i['exit_signal'] == 'EXIT')
+    watch_count    = sum(1 for i in items if i['exit_signal'] == 'WATCH')
+    healthy_count  = sum(1 for i in items if not i['exit_signal'] and not i['sl_hit'])
+    total_count    = len(items)
+    avg_sell_score = round(sum(i['sell_score'] for i in items) / total_count, 1) if total_count else 0
+
+    # Market Condition
+    market_condition = {'phase': 'UNKNOWN', 'label': 'ไม่มีข้อมูล', 'color': 'secondary', 'score': 0}
+    try:
+        from datetime import datetime as _mcdt, timedelta as _mctd
+        import pytz as _mcpytz
+        _mc_bkk   = _mcpytz.timezone('Asia/Bangkok')
+        _mc_now   = _mcdt.now(_mc_bkk)
+        _mc_end   = _mc_now.date().strftime('%Y-%m-%d')
+        _mc_start = (_mc_now.date() - _mctd(days=430)).strftime('%Y-%m-%d')
+        _mc_df = yf.download("^SET", start=_mc_start, end=_mc_end, interval="1d", progress=False)
+        if _mc_df is not None and not _mc_df.empty:
+            if isinstance(_mc_df.columns, pd.MultiIndex):
+                _mc_df.columns = _mc_df.columns.droplevel(1)
+            market_condition = _get_market_condition(_mc_df)
+    except Exception:
+        pass
+
+    return render(request, 'stocks/portfolio_exit_plan.html', {
+        'items': items,
+        'urgent_count':  urgent_count,
+        'warning_count': warning_count,
+        'watch_count':   watch_count,
+        'healthy_count': healthy_count,
+        'total_count':   total_count,
+        'avg_sell_score': avg_sell_score,
+        'market_condition': market_condition,
+    })
 
 
 # ====== Portfolio Management — เพิ่ม/ลบ รายการพอร์ต ======

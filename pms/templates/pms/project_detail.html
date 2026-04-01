@@ -182,6 +182,15 @@
                 </div>
             </div>
             <div class="action-buttons">
+                {% if project.job_type == 'SURVEY' and project.status != 'CLOSED' and project.status != 'CANCELLED' %}
+                <a href="{% url 'pms:survey_convert_to_project' project.pk %}" 
+                   class="btn btn-primary px-3 shadow-sm fw-bold border-0 d-flex align-items-center gap-2" 
+                   style="border-radius: 8px; background: linear-gradient(135deg, #1d4ed8, #2563eb); font-size: 0.85rem; height: 36px;"
+                   onclick="return confirm('🚀 ยืนยันการเปลี่ยนจาก งานดูหน้างาน เป็น งานโครงการ (Project) ?\nโครงการจะถูกปรับเข้าสู่ขั้นตอน [เสนอราคา] โดยอัตโนมัติ')">
+                    <i class="fas fa-rocket"></i> <span class="d-none d-sm-inline">ลูกค้า OK: ทำโครงการต่อ</span><span class="d-sm-none">ทำโครงการต่อ</span>
+                </a>
+                {% endif %}
+
                 {% if active_queue_item %}
                 <a href="{% url 'pms:project_quotation' project.pk %}" class="btn-action" target="_blank" title="พิมพ์ใบเสนอราคา">
                     <i class="fas fa-print text-muted"></i>

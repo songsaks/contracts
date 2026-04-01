@@ -67,6 +67,7 @@ def service_create(request):
         if form.is_valid():
             project = form.save(commit=False)
             project.job_type = Project.JobType.SERVICE
+            project._changed_by_user = request.user
             project.save()
             # Auto-create value item
             pv = form.cleaned_data.get('project_value')
@@ -88,6 +89,7 @@ def repair_create(request):
         if form.is_valid():
             project = form.save(commit=False)
             project.job_type = Project.JobType.REPAIR
+            project._changed_by_user = request.user
             project.save()
             # Auto-create value item
             pv = form.cleaned_data.get('project_value')
@@ -109,6 +111,7 @@ def rental_create(request):
         if form.is_valid():
             project = form.save(commit=False)
             project.job_type = Project.JobType.RENTAL
+            project._changed_by_user = request.user
             project.save()
             # Auto-create value item
             pv = form.cleaned_data.get('project_value')
@@ -120,6 +123,47 @@ def rental_create(request):
     return render(request, 'pms/service_form.html', {
         'form': form, 'title': 'สร้างงานเช่าใหม่', 'theme_color': 'pms-rental',
     })
+
+
+# ฟังก์ชันสำหรับส่งช่างไปดูหน้างาน (Site Survey)
+# ระบบจะระบุประเภทงานเป็น 'SURVEY' และสถานะเริ่มต้นที่เริ่มคิวทันที (QUEUE_SURVEY)
+@login_required
+def survey_create(request):
+    if request.method == 'POST':
+        form = SalesServiceJobForm(request.POST, job_type=Project.JobType.SURVEY)
+        if form.is_valid():
+            project = form.save(commit=False)
+            project.job_type = Project.JobType.SURVEY
+            project.status = 'QUEUE_SURVEY'
+            project._changed_by_user = request.user
+            project.save()
+            # Auto-create value item (if any)
+            pv = form.cleaned_data.get('project_value')
+            _create_project_value_item(project, pv)
+            messages.success(request, 'สร้างงานสำรวจหน้างานในคิวเรียบร้อย')
+            return redirect('pms:project_detail', pk=project.pk)
+    else:
+        form = SalesServiceJobForm(initial={'status': 'QUEUE_SURVEY', 'name': 'ดูหน้างาน - '}, job_type=Project.JobType.SURVEY)
+    return render(request, 'pms/service_form.html', {
+        'form': form, 'title': 'สร้างงานดูหน้างาน (Site Survey)', 'theme_color': 'info',
+    })
+
+# ฟังก์ชันสำหรับเปลี่ยนประเภทงานจาก 'SURVEY' เป็น 'PROJECT'
+# ใช้เมื่อลูกค้าตกลงหลังการดูหน้างาน โดยจะเปลี่ยนสถานะเป็น 'QUOTED' (เสนอราคา) ทันที
+@login_required
+def survey_convert_to_project(request, pk):
+    project = get_object_or_404(Project, pk=pk)
+    if project.job_type != Project.JobType.SURVEY:
+        messages.warning(request, "งานนี้ไม่ใช่ประเภทงานดูหน้างาน ไม่สามารถแปลงได้")
+        return redirect('pms:project_detail', pk=pk)
+    
+    project.job_type = Project.JobType.PROJECT
+    project.status = Project.Status.QUOTED  # เปลี่ยนเป็นเสนอราคา
+    project._changed_by_user = request.user
+    project.save()
+    
+    messages.success(request, f'แปลงงาน "{project.name}" เป็นโครงการติดตั้งเรียบร้อยแล้ว ในขั้นตอนเสนอราคา')
+    return redirect('pms:project_detail', pk=pk)
 
 # ... queue_management ...
 
@@ -277,6 +321,8 @@ def project_detail(request, pk):
         theme_color = 'warning'
     elif project.job_type == Project.JobType.RENTAL:
         theme_color = 'pms-rental'
+    elif project.job_type == Project.JobType.SURVEY:
+        theme_color = 'info'
     else:  # PROJECT
         theme_color = 'primary'
 
@@ -431,6 +477,12 @@ def project_update(request, pk):
         title = 'แก้ไขงานเช่า'
         theme_color = 'pms-rental'
         form_kwargs['job_type'] = Project.JobType.RENTAL
+    elif project.job_type == Project.JobType.SURVEY:
+        FormClass = SalesServiceJobForm
+        template = 'pms/service_form.html'
+        title = 'แก้ไขงานดูหน้างาน'
+        theme_color = 'info'
+        form_kwargs['job_type'] = Project.JobType.SURVEY
     else:
         FormClass = ProjectForm
         template = 'pms/project_form.html'
@@ -458,17 +510,52 @@ def project_update(request, pk):
 
 
     if request.method == 'POST':
-
+        # เก็บสถานะเดิมไว้ตรวจสอบการข้ามขั้นตอน
+        old_status = project.status
         form = FormClass(request.POST, **form_kwargs)
         if form.is_valid():
             project = form.save(commit=False)
+            new_status = project.status
+
+            # ตรวจสอบการข้ามขั้นตอน (Jump Status Warning)
+            if old_status != new_status:
+                is_jumped = _check_skipped_steps(project.job_type, old_status, new_status)
+                if is_jumped:
+                    messages.info(request, "⚠️ คุณได้ทำระบบเปลี่ยนสถานะแบบข้ามขั้นตอนการทำงาน (Jump Status) เรียบร้อย")
+            
             project._changed_by_user = request.user
             project.save()
             form.save_m2m()
             messages.success(request, f'อัปเดต{title.replace("แก้ไข", "")}สำเร็จ')
             return redirect('pms:project_detail', pk=project.pk)
+        else:
+            # แจ้ง Error ให้ชัดเจนหาก validation ไม่ผ่าน
+            for error in form.non_field_errors():
+                messages.error(request, error)
+            for field, errors in form.errors.items():
+                for error in errors:
+                    messages.error(request, f"{field}: {error}")
     else:
         form = FormClass(**form_kwargs)
+
+
+def _check_skipped_steps(job_type, old_status_key, new_status_key):
+    """
+    ตรวจสอบว่าผู้ใช้เปลี่ยนสถานะข้ามขั้นตอนไปมากกว่า 1 ขั้นไปข้างหน้า (Forward Jump) หรือไม่
+    """
+    from .models import JobStatus
+    steps = list(JobStatus.objects.filter(job_type=job_type, is_active=True).order_by('sort_order').values_list('status_key', flat=True))
+    
+    if not steps:
+        return False
+        
+    try:
+        old_idx = steps.index(old_status_key)
+        new_idx = steps.index(new_status_key)
+        # ถ้าดัชนีใหม่มากกว่าดัชนีเดิมเกิน 1 (มีการข้าม)
+        return new_idx > old_idx + 1
+    except ValueError:
+        return False
         
     return render(request, template, {'form': form, 'title': title, 'theme_color': theme_color})
 
@@ -1243,6 +1330,7 @@ def create_project_from_requirement(request, pk):
                 # Since we don't have one in CustomerRequirement model pointing to CustomerRequest,
                 # we just mark requirement as converted.
                 # However, files need to be moved.
+                req_obj._changed_by_user = request.user
                 req_obj.save()
 
                 # Mark requirement as converted
@@ -1504,14 +1592,11 @@ def update_task_status(request, task_id):
                 task.project.responded_at = timezone.now()
                 task.project.save()
 
-            if new_status == 'COMPLETED':
-                task.completed_at = timezone.now()
+            if new_status in ['COMPLETED', 'CANCELLED']:
+                if new_status == 'COMPLETED':
+                    task.completed_at = timezone.now()
                 if task.project:
-                    # Logic is now in ServiceQueueItem.save()
                     task.project._changed_by_user = request.user
-                    # Still need to call save to trigger potential status change? 
-                    # Actually, task.save() above already handled it. 
-                    pass
             elif new_status == 'INCOMPLETE':
                 task.scheduled_date = None
                 task.scheduled_time = None
@@ -2043,7 +2128,9 @@ def request_create(request):
     if request.method == 'POST':
         form = CustomerRequestForm(request.POST)
         if form.is_valid():
-            req = form.save()
+            req = form.save(commit=False)
+            req._changed_by_user = request.user
+            req.save()
             messages.success(request, 'สร้างคำขอใหม่เรียบร้อย')
             return redirect('pms:request_detail', pk=req.pk)
     else:
@@ -2101,7 +2188,9 @@ def request_update(request, pk):
     if request.method == 'POST':
         form = CustomerRequestForm(request.POST, instance=req)
         if form.is_valid():
-            form.save()
+            req = form.save(commit=False)
+            req._changed_by_user = request.user
+            req.save()
             messages.success(request, 'บันทึกการแก้ไขเรียบร้อย')
             return redirect('pms:request_detail', pk=pk)
     else:
@@ -2339,13 +2428,10 @@ def set_project_assignment(request):
 # รองรับ query param ?force=1 เพื่อบังคับรันซ้ำแม้ข้อมูลมีอยู่แล้ว
 @login_required
 def seed_pms_statuses(request):
-    """Seed JobStatus มาตรฐานทั้ง 4 ประเภทงาน (PROJECT/SERVICE/REPAIR/RENTAL)"""
+    """Seed JobStatus สำหรับทุกประเภทงาน (PROJECT/SERVICE/REPAIR/RENTAL/SURVEY)
+       โดยจะเพิ่มเฉพาะที่ยังไม่มีในระบบ เพื่อไม่ให้ทับข้อมูลที่ user ปรับแก้เอง
+    """
     from .models import JobStatus, Project
-    
-    # Check if we already have some
-    if JobStatus.objects.exists() and not request.GET.get('force'):
-        messages.info(request, "ข้อมูลขั้นตอนงานมีอยู่แล้วในระบบ")
-        return redirect('pms:job_status_list')
 
     # Status configurations
     defaults = {
@@ -2368,6 +2454,11 @@ def seed_pms_statuses(request):
             (Project.Status.WAITING_FOR_SALE_KEY, 'รอคีย์ขาย', 45),
             (Project.Status.CLOSED, 'ปิดงานซ่อม', 50),
             (Project.Status.CANCELLED, 'ยกเลิก', 60),
+        ],
+        Project.JobType.SURVEY: [
+            ('QUEUE_SURVEY', 'ดูหน้างาน', 10),
+            (Project.Status.CLOSED, 'ปิดจบ', 20),
+            (Project.Status.CANCELLED, 'ยกเลิก', 30),
         ],
         Project.JobType.RENTAL: [
             (Project.Status.SOURCING, 'จัดหา', 10),
@@ -2396,7 +2487,9 @@ def seed_pms_statuses(request):
     count = 0
     for jt, steps in defaults.items():
         for key, label, sort in steps:
-            obj, created = JobStatus.objects.update_or_create(
+            # ใช้ get_or_create เพื่อเพิ่มเฉพาะ "รหัส (Key)" ที่ยังไม่มีในประเภทงานนั้นๆ
+            # หากมีอยู่แล้ว จะไม่ไปทับข้อมูลป้ายชื่อ (Label) หรือลำดับ (Sort) ที่คุณเคยแก้ค้างไว้
+            obj, created = JobStatus.objects.get_or_create(
                 job_type=jt,
                 status_key=key,
                 defaults={'label': label, 'sort_order': sort}

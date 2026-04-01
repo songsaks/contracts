@@ -146,6 +146,10 @@ class ProjectForm(forms.ModelForm):
                 (Project.Status.CANCELLED, 'ยกเลิก'),
             ]
 
+        # หากสร้างใหม่ (ไม่มี pk) ให้ปิดการแก้ไขสถานะ (ใช้ค่าเริ่มต้นตามที่ view กำหนด)
+        if not self.instance.pk:
+            self.fields['status'].disabled = True
+
 class SalesServiceJobForm(forms.ModelForm):
     project_value = forms.DecimalField(
         max_digits=12, decimal_places=2, required=False,
@@ -214,6 +218,10 @@ class SalesServiceJobForm(forms.ModelForm):
                 ]
             else:
                 self.fields['status'].choices = [(c[0], c[1]) for c in Project.Status.choices]
+
+        # หากสร้างใหม่ (ไม่มี pk) ให้ปิดการแก้ไขสถานะ
+        if not self.instance.pk:
+            self.fields['status'].disabled = True
 
 class ProductItemForm(forms.ModelForm):
     class Meta:

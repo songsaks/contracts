@@ -294,31 +294,35 @@
                                 {% endif %}
                                 <!-- EXIT SIGNAL -->
                                 {% if item.exit_signal == 'STRONG EXIT' %}
-                                <span class="badge px-2 py-1" style="background:#dc2626;color:white;font-size:0.65rem;">🚨 ออกทันที</span>
+                                <a href="{% url 'stocks:portfolio_exit_plan' %}" class="badge px-2 py-1 text-decoration-none" style="background:#dc2626;color:white;font-size:0.68rem;animation:pulse-red 1.2s infinite;">🚨 ออกทันที</a>
                                 {% elif item.exit_signal == 'EXIT' %}
-                                <span class="badge px-2 py-1" style="background:rgba(220,38,38,0.15);color:#dc2626;border:1px solid #dc2626;font-size:0.65rem;">⚠️ ออกได้แล้ว</span>
+                                <a href="{% url 'stocks:portfolio_exit_plan' %}" class="badge px-2 py-1 text-decoration-none" style="background:#f59e0b;color:white;font-size:0.68rem;">⚠️ ควรออก</a>
                                 {% elif item.exit_signal == 'WATCH' %}
-                                <span class="badge px-2 py-1" style="background:rgba(245,158,11,0.15);color:#b45309;border:1px solid #f59e0b;font-size:0.65rem;">👁 เฝ้าระวัง</span>
+                                <a href="{% url 'stocks:portfolio_exit_plan' %}" class="badge px-2 py-1 text-decoration-none" style="background:rgba(245,158,11,0.15);color:#b45309;border:1px solid #f59e0b;font-size:0.68rem;">👁 เฝ้าระวัง</a>
                                 {% endif %}
                             </div>
                             <!-- Active exit triggers -->
                             {% if item.sell_score >= 30 %}
-                            <div class="d-flex flex-wrap gap-1 mt-1">
+                            <div class="d-flex flex-wrap gap-1 mt-1 p-2 rounded-3" style="background:rgba(220,38,38,0.04);border:1px solid rgba(220,38,38,0.12);">
                                 {% if item.mom_data.supply_zone_start and item.current_price >= item.mom_data.supply_zone_start %}
-                                <span style="font-size:0.6rem;color:#dc2626;">🚨ถึง TP</span>
+                                <span style="font-size:0.62rem;color:#dc2626;font-weight:600;">🚨ถึง TP</span>
                                 {% endif %}
                                 {% if item.mom_data.rsi > 72 %}
-                                <span style="font-size:0.6rem;color:#dc2626;">⚠️RSI {{ item.mom_data.rsi|floatformat:0 }}</span>
+                                <span style="font-size:0.62rem;color:#dc2626;font-weight:600;">⚠️RSI {{ item.mom_data.rsi|floatformat:0 }}</span>
                                 {% endif %}
                                 {% if not item.mom_data.rvol_bullish %}
-                                <span style="font-size:0.6rem;color:#c2410c;">⚠️Bear Vol</span>
+                                <span style="font-size:0.62rem;color:#c2410c;font-weight:600;">⚠️Bear Vol</span>
                                 {% endif %}
                                 {% if item.mom_data.rel_momentum_1m < 0 %}
-                                <span style="font-size:0.6rem;color:#c2410c;">👁Rel Mom {{ item.mom_data.rel_momentum_1m|floatformat:1 }}%</span>
+                                <span style="font-size:0.62rem;color:#c2410c;">👁 {{ item.mom_data.rel_momentum_1m|floatformat:1 }}% vs SET</span>
                                 {% endif %}
                                 {% if item.mom_data.price_pattern_score < 0 %}
-                                <span style="font-size:0.6rem;color:#dc2626;">⚠️{{ item.mom_data.price_pattern }}</span>
+                                <span style="font-size:0.62rem;color:#dc2626;">⚠️{{ item.mom_data.price_pattern }}</span>
                                 {% endif %}
+                                {% if item.mom_data.cmf is not None and item.mom_data.cmf < -0.05 %}
+                                <span style="font-size:0.62rem;color:#dc2626;font-weight:600;">💸CMF {{ item.mom_data.cmf|floatformat:2 }}</span>
+                                {% endif %}
+                                <a href="{% url 'stocks:portfolio_exit_plan' %}" style="font-size:0.62rem;color:#7c3aed;margin-left:auto;">ดูแผน →</a>
                             </div>
                             {% endif %}
                         </div>
@@ -627,6 +631,11 @@
         0% { transform: scale(0.9) translate(-50%, -50%); box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7); }
         70% { transform: scale(1.1) translate(-50%, -50%); box-shadow: 0 0 0 10px rgba(34, 197, 94, 0); }
         100% { transform: scale(0.9) translate(-50%, -50%); box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+    }
+    @keyframes pulse-red {
+        0%   { opacity: 1; }
+        50%  { opacity: 0.65; }
+        100% { opacity: 1; }
     }
     @keyframes pulse-red {
         0% { transform: scale(0.9) translate(-50%, -50%); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.8); }

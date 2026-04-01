@@ -114,6 +114,15 @@
         transform: scale(1.05);
     }
 
+    /* Survey */
+    .icon-survey {
+        background: linear-gradient(135deg, #00d2ff 0%, #3a7bd5 100%);
+    }
+    .dispatch-card:hover .icon-survey {
+        box-shadow: 0 12px 30px rgba(58, 123, 213, 0.35);
+        transform: scale(1.05);
+    }
+
     .dispatch-label {
         font-weight: 700;
         font-size: 1.1rem;
@@ -270,6 +279,18 @@
                 <div class="dispatch-label">งานเช่า</div>
                 <div class="dispatch-sublabel">Rental</div>
                 <a href="{% url 'pms:rental_create' %}" class="stretched-link" title="สร้างงานเช่า"></a>
+            </div>
+        </div>
+
+        <!-- Site Survey -->
+        <div class="col-6 col-md-3">
+            <div class="card h-100 text-center p-3 p-md-4 dispatch-card position-relative">
+                <div class="app-icon icon-survey">
+                    <i class="fas fa-search-location"></i>
+                </div>
+                <div class="dispatch-label">ดูหน้างาน</div>
+                <div class="dispatch-sublabel">Survey</div>
+                <a href="{% url 'pms:survey_create' %}" class="stretched-link" title="สร้างงานดูหน้างาน"></a>
             </div>
         </div>
     </div>
