@@ -360,36 +360,31 @@ memberSearch.addEventListener('input', function() {
 });
 
 // ─── Member checkbox visual + count update ───────────────────
+function updateCheckStyle(cb) {
+    const check = cb.parentElement.querySelector('.member-check');
+    if (!check) return;
+    if (cb.checked) {
+        check.style.background = '#3b82f6';
+        check.style.borderColor = '#3b82f6';
+    } else {
+        check.style.background = 'white';
+        check.style.borderColor = '#cbd5e1';
+    }
+}
+
 function updateCount() {
     const n = document.querySelectorAll('.member-checkbox:checked').length;
     document.getElementById('selectedCount').textContent = n + ' คน';
 }
 
-document.querySelectorAll('.member-item').forEach(label => {
-    label.addEventListener('click', function(e) {
-        // Allow native checkbox state to toggle
-        const cb = this.querySelector('.member-checkbox');
-        if (e.target !== cb) cb.checked = !cb.checked;
-        // Update check indicator
-        const check = this.querySelector('.member-check');
-        if (cb.checked) {
-            check.style.background = '#3b82f6';
-            check.style.borderColor = '#3b82f6';
-        } else {
-            check.style.background = 'white';
-            check.style.borderColor = '#cbd5e1';
-        }
+// ใช้ change event บน checkbox โดยตรง — ไม่ต้อง toggle เอง
+document.querySelectorAll('.member-checkbox').forEach(cb => {
+    cb.addEventListener('change', function() {
+        updateCheckStyle(this);
         updateCount();
     });
-});
-
-// Init count and check indicators on load
-document.querySelectorAll('.member-checkbox').forEach(cb => {
-    const check = cb.parentElement.querySelector('.member-check');
-    if (cb.checked) {
-        check.style.background = '#3b82f6';
-        check.style.borderColor = '#3b82f6';
-    }
+    // init style on load
+    updateCheckStyle(cb);
 });
 updateCount();
 

@@ -1019,6 +1019,23 @@ def find_supply_demand_zones_v2(df):
 
     final_score = min(score, 100)
 
+    curr_close = df['Close'].iloc[-1]
+
+    # upside จากราคาปัจจุบันถึง target (%)
+    upside_from_price = ((target_price - float(curr_close)) / float(curr_close) * 100) if float(curr_close) > 0 else 0
+    # upside จากขอบบน zone ถึง target (%) — ใช้ประเมิน RR จริงถ้าเข้าที่ zone
+    upside_from_zone  = ((target_price - entry_price) / entry_price * 100) if entry_price > 0 else 0
+
+    # ราคาใกล้/เกิน target: upside จากราคาปัจจุบัน < 5% → setup นี้หมดอายุ
+    price_above_target = bool(upside_from_price < 5)
+    # RR ต่ำกว่า 1:1 → ไม่คุ้มความเสี่ยง
+    poor_rr = bool(rr_ratio < 1.0)
+    # ราคาอยู่ในโซน demand (±5%)
+    in_demand_zone = bool(
+        curr_close <= refined_upper * 1.05 and
+        curr_close >= refined_lower * 0.95
+    )
+
     return {
         'type': 'Sniper (DZ)',
         'start': float(round(refined_upper, 2)),
@@ -1027,12 +1044,13 @@ def find_supply_demand_zones_v2(df):
         'target': float(round(target_price, 2)),
         'rr_ratio': float(round(rr_ratio, 2)),
         'confidence_score': int(final_score),
-        'erc_volume_confirmed': True,   # ผ่าน filter volume แล้วเสมอ
+        'erc_volume_confirmed': True,
         'zone_target_source': zone_target_source,
-        'is_retesting': bool(
-            df['Close'].iloc[-1] <= refined_upper * 1.05 and
-            df['Close'].iloc[-1] >= refined_lower * 0.95
-        ),
+        'is_retesting': in_demand_zone and not price_above_target and not poor_rr,
+        'price_above_target': price_above_target,
+        'poor_rr': poor_rr,
+        'upside_from_price': float(round(upside_from_price, 1)),
+        'upside_from_zone': float(round(upside_from_zone, 1)),
         'erc_date': last_erc_idx.strftime('%Y-%m-%d') if hasattr(last_erc_idx, 'strftime') else str(last_erc_idx),
         'base_start': base_window.index[0].strftime('%Y-%m-%d') if hasattr(base_window.index[0], 'strftime') else str(base_window.index[0]),
         'base_end': base_window.index[-1].strftime('%Y-%m-%d') if hasattr(base_window.index[-1], 'strftime') else str(base_window.index[-1]),

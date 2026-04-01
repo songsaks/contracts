@@ -2044,15 +2044,19 @@ def precision_momentum_scanner(request):
         _morning_session   = _dtime(10,  0) <= _t <= _dtime(12, 30)
         _midday_break      = _dtime(12, 30) <  _t <  _dtime(14, 30)
         _afternoon_session = _dtime(14, 30) <= _t <= _dtime(16, 30)
+        _pre_market        = _t < _dtime(10, 0)   # ก่อน 10:00 — ตลาดยังไม่เปิด
         # ตลาดกำลังซื้อขายจริง (10:00-12:30 และ 14:30-16:30 เท่านั้น)
         _market_trading = (
             _now_bkk.weekday() < 5 and
             (_morning_session or _afternoon_session)
         )
-        # ช่วงวันตลาด (รวม midday break) — ใช้ข้อมูลเมื่อวาน เพราะ candle ยังไม่ settle
+        # ช่วงที่ candle ของวันนี้ยังไม่ settle:
+        #   - ระหว่าง 10:00-16:30 (ตลาดเปิด / midday break)
+        #   - ก่อน 10:00 ของวันทำการ (ตลาดยังไม่เปิด close วันนี้ยังไม่มี)
+        # ทั้งสองกรณีใช้ close เมื่อวาน เพื่อให้ผลสแกนสอดคล้องกัน
         _market_day = (
             _now_bkk.weekday() < 5 and
-            (_morning_session or _midday_break or _afternoon_session)
+            (_pre_market or _morning_session or _midday_break or _afternoon_session)
         )
         scan_end_date = (
             (_now_bkk.date() - _td(days=1)) if _market_day else _now_bkk.date()
@@ -2671,16 +2675,22 @@ def precision_momentum_scanner(request):
             in_zone = (c.demand_zone_start and c.demand_zone_end and
                        c.price <= c.demand_zone_start and c.price >= c.demand_zone_end)
             near_zone = in_zone or (c.zone_proximity <= 30)
+            # ตัดหุ้นที่ราคาวิ่งขึ้นเกือบถึง/เกิน target (supply_zone_start ≈ 52w high) แล้ว
+            # ถ้า upside เหลือน้อยกว่า 8% ไม่คุ้มค่าที่จะแนะนำอีกต่อไป
+            target = c.supply_zone_start or 0
+            upside_pct = ((target - c.price) / c.price * 100) if (target > 0 and c.price > 0) else 999
+            price_near_target = target > 0 and upside_pct < 8
             return (
-                c.buy_score >= 65            # เดิม 70 (ปรับลดให้ยืดหยุ่นถ้าคะแนนตึงไป)
-                and rr >= 1.5                # เดิม 2.0
-                and c.adx >= 20              # เดิม 25
-                and 45 <= c.rsi <= 82        # เดิม 55 (เปิดรับหุ้นเพิ่งงัดจาก oversold)
+                c.buy_score >= 65
+                and rr >= 1.5
+                and c.adx >= 20
+                and 45 <= c.rsi <= 82
                 and c.rvol_bullish
-                and c.rvol >= 0.8            # เดิม 1.0
+                and c.rvol >= 0.8
                 and near_zone
+                and not price_near_target      # กรอง: ราคาใกล้ target แล้ว → ไม่แนะนำ
                 and (c.sell_score or 0) < 50
-                and getattr(c, 'rs_rating', 0) >= 60  # เดิม 70
+                and getattr(c, 'rs_rating', 0) >= 60
             )
 
         top5_qualified = sorted(
@@ -2787,10 +2797,12 @@ def precision_momentum_scanner(request):
             best_setup = top5_qualified[0]
             rr_val = best_setup.risk_reward_ratio or 0
             rs_val = getattr(best_setup, "rs_rating", 0)
+            target_val = best_setup.supply_zone_start or 0
+            upside_left = ((target_val - best_setup.price) / best_setup.price * 100) if (target_val > 0 and best_setup.price > 0) else 0
             scan_insights.append({
                 'icon': '🏆',
                 'title': f'โฟกัสหลัก: {best_setup.symbol} (หน้าเทรดคุ้มค่า ปลอดภัยสูง)',
-                'desc': f'ถือเป็นหน้าเทรด Swing Trade ที่สมบูรณ์แบบที่สุดในรอบนี้ เพราะมีความแข็งแกร่ง (RS {rs_val}) เทรนด์ทำมุมสวยงาม แต่ราคาปัจจุบันกลับอยู่ใกล้จุดเข้าซื้อ ทำให้มีความคุ้มค่ากับความเสี่ยงสูง (RR 1:{rr_val:.1f}) ซื้อแล้วมีโอกาสชนะสูง'
+                'desc': f'ถือเป็นหน้าเทรด Swing Trade ที่สมบูรณ์แบบที่สุดในรอบนี้ เพราะมีความแข็งแกร่ง (RS {rs_val}) เทรนด์ทำมุมสวยงาม แต่ราคาปัจจุบันกลับอยู่ใกล้จุดเข้าซื้อ ทำให้มีความคุ้มค่ากับความเสี่ยงสูง (RR 1:{rr_val:.1f}) Upside เหลืออีก {upside_left:.1f}% ถึง Target ซื้อแล้วมีโอกาสชนะสูง'
             })
         
         # หาหุ้นซิ่งที่สุดแต่เสี่ยงสูง (RS > 90 แต่ RR < 1.0)
@@ -3087,7 +3099,27 @@ def entry_finder(request, symbol):
         full_symbol = f"{symbol}.BK" if not symbol.endswith(".BK") else symbol
 
     try:
-        df = yf.download(full_symbol, period="1y", interval="1d", progress=False)
+        # ใช้ scan_end_date เดียวกับ Precision Scanner เพื่อให้ Zone ตรงกัน
+        from datetime import datetime as _efdt, timedelta as _eftd, time as _efdtime
+        import pytz as _efpytz
+        _ef_bkk = _efpytz.timezone('Asia/Bangkok')
+        _ef_now = _efdt.now(_ef_bkk)
+        _ef_t   = _ef_now.time()
+        _ef_market_day = (
+            _ef_now.weekday() < 5 and
+            (
+                _ef_t < _efdtime(10, 0) or                                      # ก่อนเปิด
+                (_efdtime(10, 0) <= _ef_t <= _efdtime(12, 30)) or               # เช้า
+                (_efdtime(12, 30) < _ef_t < _efdtime(14, 30)) or               # พัก
+                (_efdtime(14, 30) <= _ef_t <= _efdtime(16, 30))                 # บ่าย
+            )
+        )
+        _ef_end_date  = (_ef_now.date() - _eftd(days=1)) if _ef_market_day else _ef_now.date()
+        _ef_end_str   = _ef_end_date.strftime('%Y-%m-%d')
+        _ef_start_str = (_ef_end_date - _eftd(days=400)).strftime('%Y-%m-%d')
+
+        df = yf.download(full_symbol, start=_ef_start_str, end=_ef_end_str,
+                         interval="1d", progress=False)
         if df.empty:
             messages.error(request, f"ไม่พบข้อมูลสำหรับ {symbol}")
             if market == 'US':
@@ -3098,17 +3130,15 @@ def entry_finder(request, symbol):
         if isinstance(df.columns, pd.MultiIndex):
             df.columns = df.columns.droplevel(1)
 
-        # คำนวณ Supply & Demand Zone ด้วย v2 (52w high + ATR-based SL — ตรงกับ Precision Scanner)
+        # คำนวณ Supply & Demand Zone ด้วย v2 (ใช้ข้อมูลชุดเดียวกับ Precision Scanner)
         sd_zone = find_supply_demand_zones_v2(df)
 
         # เตรียมข้อมูลกราฟ 120 วันล่าสุด
-        # Chart Data
-        history_subset = df.tail(120)
+        history_subset = df.tail(120).copy()
         chart_labels = [d.strftime('%Y-%m-%d') for d in history_subset.index]
         chart_values = [round(float(v), 2) for v in history_subset['Close'].values]
 
         # คำนวณ EMA50 และ EMA200 สำหรับแสดงในกราฟ
-        # Technical Indicators for context
         import pandas_ta as ta
         history_subset['EMA50'] = ta.ema(history_subset['Close'], length=50)
         history_subset['EMA200'] = ta.ema(history_subset['Close'], length=200)
@@ -3120,16 +3150,48 @@ def entry_finder(request, symbol):
         chart_values_json = json.dumps(chart_values)
         ema50_vals_json = json.dumps(ema50_vals)
         ema200_vals_json = json.dumps(ema200_vals)
-        sd_zone_json = json.dumps(sd_zone)  # ส่ง zone data ให้ chartjs-plugin-annotation
+        sd_zone_json = json.dumps(sd_zone)
 
-        curr_price = df['Close'].iloc[-1]
+        # ราคาปิดวันสุดท้ายของ historical data (ใช้คำนวณ zone เท่านั้น)
+        hist_close = float(df['Close'].iloc[-1])
+
+        # Live price จาก fast_info (ตรงกับ momentum card)
+        try:
+            _live_fi = yf.Ticker(full_symbol).fast_info
+            _live_p  = getattr(_live_fi, 'last_price', None)
+            curr_price = float(_live_p) if _live_p else hist_close
+        except Exception:
+            curr_price = hist_close
+
+        # ถ้า live price ต่างจาก hist_close → เพิ่มเป็น data point สุดท้ายในกราฟ
+        if abs(curr_price - hist_close) > 0.001:
+            _today_str = _ef_now.strftime('%Y-%m-%d')
+            chart_labels.append(_today_str)
+            chart_values.append(round(curr_price, 2))
+            ema50_vals.append(None)
+            ema200_vals.append(None)
+            chart_labels_json = json.dumps(chart_labels)
+            chart_values_json = json.dumps(chart_values)
+            ema50_vals_json   = json.dumps(ema50_vals)
+            ema200_vals_json  = json.dumps(ema200_vals)
+
+        # คำนวณ zone_proximity ให้ตรงกับที่ precision scanner แสดง
+        ef_zone_prox = None
+        if sd_zone and sd_zone.get('start'):
+            dz_top = sd_zone['start']
+            if curr_price <= dz_top:
+                ef_zone_prox = 0.0
+            else:
+                ef_zone_prox = round(((curr_price - dz_top) / dz_top) * 100, 1)
 
         context = {
             'symbol': symbol,
             'full_symbol': full_symbol,
-            'sd_zone': sd_zone,  # For template logic
-            'sd_zone_json': sd_zone_json,  # For JS
+            'sd_zone': sd_zone,
+            'sd_zone_json': sd_zone_json,
             'curr_price': round(curr_price, 2),
+            'zone_proximity': ef_zone_prox,
+            'scan_end_date': _ef_end_str,
             'chart_labels': chart_labels_json,
             'chart_values': chart_values_json,
             'ema50_vals': ema50_vals_json,

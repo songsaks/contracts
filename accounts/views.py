@@ -39,12 +39,9 @@ def user_list(request):
     # รับค่าจาก Query String สำหรับค้นหาและกรองข้อมูล
     search_query = request.GET.get('search', '')
     role_filter = request.GET.get('role', '')
-    status_filter = request.GET.get('status', 'active')
+    status_filter = request.GET.get('status', 'all')
 
     users = User.objects.all().order_by('first_name', 'username')
-
-    # ซ่อน Superuser จากหน้านี้เพื่อความปลอดภัยและแยกส่วนการบริหาร
-    users = users.exclude(is_superuser=True)
 
     # กรองตามคำค้นหา: ชื่อจริง นามสกุล หรือ username
     if search_query:
@@ -101,8 +98,10 @@ def user_create(request):
 @login_required
 @user_passes_test(is_admin_or_manager, login_url='/')
 def user_update(request, user_id):
-    # ดึง User ที่ต้องการแก้ไข หากไม่พบจะ return 404
     target_user = get_object_or_404(User, id=user_id)
+    if target_user.is_superuser:
+        messages.error(request, "Superuser จัดการได้ที่หน้า /admin เท่านั้น")
+        return redirect('accounts:user_list')
     if request.method == 'POST':
         # ส่ง instance=target_user เพื่อให้ฟอร์มอัปเดตแทนที่จะสร้างใหม่
         form = UserUpdateForm(request.POST, request.FILES, instance=target_user)
