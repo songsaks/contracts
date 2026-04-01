@@ -897,6 +897,10 @@
                     <input class="form-check-input" type="checkbox" id="ppFilterSET" onchange="filterByPP('SET', this.checked)" style="cursor:pointer;">
                     <label class="form-check-label small fw-semibold" for="ppFilterSET" style="cursor:pointer;color:#0e7490;">PP only</label>
                 </div>
+                <div class="form-check form-switch mb-0 d-flex align-items-center gap-2">
+                    <input class="form-check-input" type="checkbox" id="hideCmfDistSET" onchange="filterByCMFDist('SET', this.checked)" style="cursor:pointer;">
+                    <label class="form-check-label small fw-semibold" for="hideCmfDistSET" style="cursor:pointer;color:#d97706;">ซ่อน CMF ↓</label>
+                </div>
                 <select id="sectorFilterSET" onchange="_applyFiltersSET()" class="form-select form-select-sm rounded-pill" style="width:auto;font-size:0.72rem;border:1px solid #e2e8f0;color:#374151;cursor:pointer;">
                     <option value="">All Sectors</option>
                     {% for item in candidates %}<option value="{{ item.sector }}">{{ item.sector }}</option>{% endfor %}
@@ -936,7 +940,7 @@
                     </thead>
                     <tbody>
                         {% for item in candidates %}
-                        <tr class="{% if item.demand_zone_start and item.price <= item.demand_zone_start and item.price >= item.demand_zone_end %}row-entry-zone{% elif item.supply_zone_start and item.price >= item.supply_zone_start %}row-take-profit{% elif item.is_new_entry %}row-new-entry{% endif %}" data-rs="{{ item.rs_rating }}" data-stage2="{{ item.stage2|yesno:'true,false' }}" data-pp="{{ item.pocket_pivot|yesno:'true,false' }}" data-sector="{{ item.sector }}">
+                        <tr class="{% if item.demand_zone_start and item.price <= item.demand_zone_start and item.price >= item.demand_zone_end %}row-entry-zone{% elif item.supply_zone_start and item.price >= item.supply_zone_start %}row-take-profit{% elif item.is_new_entry %}row-new-entry{% endif %}{% if item.cmf is not None and item.cmf < -0.1 %} row-cmf-dist{% endif %}" data-rs="{{ item.rs_rating }}" data-stage2="{{ item.stage2|yesno:'true,false' }}" data-pp="{{ item.pocket_pivot|yesno:'true,false' }}" data-sector="{{ item.sector }}" data-cmfdist="{% if item.cmf is not None and item.cmf < -0.1 %}true{% else %}false{% endif %}">
                             <!-- SYMBOL -->
                             <td class="ps-2">
                                 <div class="d-flex align-items-center gap-1">
@@ -1550,6 +1554,18 @@
     tr.row-entry-zone:hover  { background: rgba(34, 197, 94, 0.13) !important; }
     tr.row-take-profit:hover { background: rgba(239, 68, 68, 0.11) !important; }
 
+    /* ── CMF Distribution warning row ──────────────────── */
+    tr.row-cmf-dist { opacity: 0.45; filter: grayscale(40%); border-left: 4px solid #f59e0b !important; }
+    tr.row-cmf-dist:hover { opacity: 0.7; filter: grayscale(20%); }
+    tr.row-cmf-dist td:first-child::after {
+        content: '⚠ CMF';
+        display: block;
+        font-size: 0.55rem;
+        color: #f59e0b;
+        font-weight: 700;
+        letter-spacing: 0.03em;
+    }
+
     /* ── Signal dot on avatar ───────────────────────────── */
     .signal-dot {
         width: 14px; height: 14px;
@@ -1693,27 +1709,30 @@
 // ── Table Filter Helpers ──────────────────────────────────────────────
 function _applyFiltersSET() {
     var rows = document.querySelectorAll('#scanTableSET tbody tr');
-    var rsOn  = document.getElementById('rsFilter70SET')   && document.getElementById('rsFilter70SET').checked;
-    var s2On  = document.getElementById('stage2FilterSET') && document.getElementById('stage2FilterSET').checked;
-    var ppOn  = document.getElementById('ppFilterSET')     && document.getElementById('ppFilterSET').checked;
-    var secEl = document.getElementById('sectorFilterSET');
+    var rsOn      = document.getElementById('rsFilter70SET')    && document.getElementById('rsFilter70SET').checked;
+    var s2On      = document.getElementById('stage2FilterSET')  && document.getElementById('stage2FilterSET').checked;
+    var ppOn      = document.getElementById('ppFilterSET')      && document.getElementById('ppFilterSET').checked;
+    var hideCMFOn = document.getElementById('hideCmfDistSET')   && document.getElementById('hideCmfDistSET').checked;
+    var secEl  = document.getElementById('sectorFilterSET');
     var secVal = secEl ? secEl.value : '';
     var visible = 0;
     rows.forEach(function(row) {
-        var rs  = parseInt(row.dataset.rs || '0');
-        var s2  = row.dataset.stage2 === 'true';
-        var pp  = row.dataset.pp     === 'true';
-        var sec = row.dataset.sector || '';
-        var show = (!rsOn || rs >= 70) && (!s2On || s2) && (!ppOn || pp) && (!secVal || sec === secVal);
+        var rs   = parseInt(row.dataset.rs || '0');
+        var s2   = row.dataset.stage2   === 'true';
+        var pp   = row.dataset.pp       === 'true';
+        var cmfd = row.dataset.cmfdist  === 'true';
+        var sec  = row.dataset.sector   || '';
+        var show = (!rsOn || rs >= 70) && (!s2On || s2) && (!ppOn || pp) && (!secVal || sec === secVal) && (!hideCMFOn || !cmfd);
         row.style.display = show ? '' : 'none';
         if (show) visible++;
     });
     var el = document.getElementById('visibleCount-SET');
     if (el) el.textContent = visible + ' stocks shown';
 }
-function filterByRS(id, v)     { _applyFiltersSET(); }
-function filterByStage2(id, v) { _applyFiltersSET(); }
-function filterByPP(id, v)     { _applyFiltersSET(); }
+function filterByRS(id, v)       { _applyFiltersSET(); }
+function filterByStage2(id, v)   { _applyFiltersSET(); }
+function filterByPP(id, v)       { _applyFiltersSET(); }
+function filterByCMFDist(id, v)  { _applyFiltersSET(); }
 
 // Deduplicate sector dropdown
 document.addEventListener('DOMContentLoaded', function() {
