@@ -182,7 +182,7 @@
                 </div>
             </div>
             <div class="action-buttons">
-                {% if project.job_type == 'SURVEY' and project.status != 'CLOSED' and project.status != 'CANCELLED' %}
+                {% if project.job_type == 'SURVEY' and project.status != 'CANCELLED' %}
                 <a href="{% url 'pms:survey_convert_to_project' project.pk %}" 
                    class="btn btn-primary px-3 shadow-sm fw-bold border-0 d-flex align-items-center gap-2" 
                    style="border-radius: 8px; background: linear-gradient(135deg, #1d4ed8, #2563eb); font-size: 0.85rem; height: 36px;"
