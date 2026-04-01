@@ -982,7 +982,7 @@
                                 {% if item.supply_zone_start and item.price >= item.supply_zone_start %}
                                     <span class="badge px-1 py-1" style="font-size:0.62rem;background:#dc2626;color:white;">TP</span>
                                 {% elif item.supply_zone_start and item.upside_to_high <= 5 %}
-                                    <span class="badge px-1 py-1" style="font-size:0.62rem;background:#ea580c;color:white;" title="ใกล้ Take Profit: {{ item.supply_zone_start|floatformat:2 }}">~TP</span>
+                                    <span class="badge px-1 py-1" style="font-size:0.62rem;background:#ea580c;color:white;" title="ใกล้ Take Profit: {{ item.supply_zone_start|floatformat:2 }}">NEAR TP</span>
                                 {% elif item.demand_zone_start and item.price <= item.demand_zone_start and item.price >= item.demand_zone_end %}
                                     <span class="badge px-1 py-1" style="font-size:0.62rem;background:#16a34a;color:white;">ENTRY</span>
                                 {% elif item.demand_zone_start %}

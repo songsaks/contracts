@@ -812,10 +812,10 @@ def portfolio_list(request):
         {ppo_advice}
 
         Please analyze this portfolio and provide:
-        1. An overall assessment of the portfolio's health, performance, and diversification.
         2. A brief analysis and clear recommendation for EACH individual asset (e.g., Hold, Buy More, Take Profit, Cut Loss).
            - CRITICAL RULE: In your analysis, you MUST heavily weigh the Momentum metrics (Score, BUY Score, RS, RVOL, ADX, and Exit Signal).
            - Do NOT immediately suggest cutting a loss JUST because P/L is slightly negative or RSI is > 70.
+           - **Consider Entry Price:** If a stock's price is below its technical Stop Loss but still above the Entry Price (in profit), suggest "Locking Profit" (ล็อกกำไร) or "Trailing Exit" instead of a harsh "Cut Loss".
            - If a stock has High RS (e.g. > 75), strong RVOL (> 1.5x) or a high BUY Score/Score, it indicates it is a "Market Leader" and in a strong uptrend. In such cases, suggest "Holding" to ride the momentum as long as the Exit Signal is not triggered, even if P/L is temporarily negative.
            - Acknowledge the strength of the momentum. E.g., "แม้จะขาดทุน -2.35% แต่หุ้นมี RS แข็งแกร่งถึง 88 และ RVOL สูง บ่งบอกถึงแรงซื้อที่ยังมีอยู่ แนะนำให้ถือเพื่อรอจังหวะเด้งกลับ"
         3. Actionable strategic advice on what sectors or types of assets to consider adding next to balance the portfolio.
@@ -978,10 +978,20 @@ def portfolio_exit_plan(request):
                 entry_pct      = min(100, max(0, (entry_price - sl_price) / total_range * 100))
 
             # ====== Action Recommendation ======
-            if exit_signal == 'STRONG EXIT' or sl_hit:
+            if exit_signal == 'STRONG EXIT':
                 action       = 'ออกทันที'
                 action_style = 'danger'
-                action_detail = f"ขายทั้งหมด {quantity:.0f} หุ้น — สัญญาณออกแรงมาก"
+                action_detail = f"ขายทั้งหมด {quantity:.0f} หุ้น — สัญญาณขายทางเทคนิคแรงมาก"
+            elif sl_hit:
+                # พิจารณาราคาซื้อต้นทุน (Entry Price) สอดคล้องกับที่ผู้ใช้แนะนำ
+                if entry_price > 0 and current_price < entry_price:
+                    action       = 'ตัดขาดทุน (Cut Loss)'
+                    action_style = 'danger'
+                    action_detail = f"ราคาหลุด SL และต่ำกว่าทุน — แนะนำขายเพื่อจำกัดความเสี่ยง"
+                else:
+                    action       = 'คู่มือล็อกกำไร (Trailing)'
+                    action_style = 'warning'
+                    action_detail = f"ราคาหลุด SL แต่ยังสูงกว่าทุน {gain_loss_pct:.1f}% — พิจารณาขายเพื่อปกป้องกำไร"
             elif exit_signal == 'EXIT':
                 action       = 'ทยอยขาย 50%'
                 action_style = 'warning'
