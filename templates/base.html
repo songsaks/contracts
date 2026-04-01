@@ -43,7 +43,7 @@
 
 <body class="bg-slate-50 text-slate-900 min-h-screen flex flex-col {% if request.resolver_match.app_name == 'repairs' %}font-['Outfit']{% endif %}">
     {% if request.path != '/' and request.resolver_match.url_name != 'login' %}
-    <nav class="{% if request.resolver_match.app_name == 'repairs' %}bg-gradient-to-r from-[#2c3e50] to-[#34495e] text-white shadow-md{% elif request.resolver_match.app_name == 'chat' %}bg-gradient-to-r from-indigo-700 to-[#1e1b4b] text-white shadow-md{% else %}bg-gradient-to-r from-[#4e73df] to-[#224abe] text-white shadow-md{% endif %} sticky top-0 z-50">
+    <nav class="{% if request.resolver_match.app_name == 'repairs' %}bg-gradient-to-r from-[#2c3e50] to-[#34495e] text-white shadow-md{% elif request.resolver_match.app_name == 'chat' %}bg-gradient-to-r from-indigo-700 to-[#1e1b4b] text-white shadow-md{% elif request.resolver_match.app_name == 'stocks' %}bg-gradient-to-r from-[#1e293b] to-[#0f172a] text-white shadow-md{% else %}bg-gradient-to-r from-[#4e73df] to-[#224abe] text-white shadow-md{% endif %} sticky top-0 z-50">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex justify-between h-16">
                 <div class="flex">
@@ -56,9 +56,9 @@
                         <a href="{% url 'chat:index' %}" class="text-xl font-bold text-white flex items-center gap-2">
                             <i class="fas fa-comments"></i>9Com Central Chat
                         </a>
-                        {% elif request.resolver_match.app_name == 'accounts' %}
-                        <a href="{% url 'accounts:user_list' %}" class="text-xl font-bold text-white flex items-center gap-2">
-                            <i class="fas fa-users-cog"></i>ระบบจัดการพนักงาน
+                        {% elif request.resolver_match.app_name == 'stocks' %}
+                        <a href="{% url 'stocks:dashboard' %}" class="text-xl font-bold text-white flex items-center gap-2">
+                            <i class="fas fa-chart-line"></i>สต็อกโมเมนตัม
                         </a>
                         {% else %}
                         <a href="{% url 'rentals:dashboard' %}" class="text-xl font-bold text-white">
@@ -104,6 +104,28 @@
                         <a href="{% url 'chat:index' %}"
                             class="text-white/80 hover:text-white hover:bg-white/10 rounded-md px-3 py-2 text-sm font-medium transition-colors flex items-center gap-1">
                             <i class="fas fa-list"></i> เลือกห้องแชท
+                        </a>
+                        {% elif request.resolver_match.app_name == 'stocks' %}
+                        <!-- Stocks Menu -->
+                        <a href="{% url 'stocks:dashboard' %}"
+                           class="text-white/80 hover:text-white hover:bg-white/10 rounded-md px-3 py-2 text-sm font-medium transition-colors">
+                            แดชบอร์ด
+                        </a>
+                        <a href="{% url 'stocks:portfolio_list' %}"
+                           class="text-white/80 hover:text-white hover:bg-white/10 rounded-md px-3 py-2 text-sm font-medium transition-colors">
+                            พอร์ต
+                        </a>
+                        <a href="{% url 'stocks:precision_momentum_scanner' %}"
+                           class="text-white/80 hover:text-white hover:bg-white/10 rounded-md px-3 py-2 text-sm font-medium transition-colors">
+                            สแกนหุ้น
+                        </a>
+                        <a href="{% url 'stocks:portfolio_exit_plan' %}"
+                           class="text-white/80 hover:text-white hover:bg-white/10 rounded-md px-3 py-2 text-sm font-medium transition-colors">
+                            แผนออกหุ้น
+                        </a>
+                        <a href="{% url 'stocks:recommendations' %}"
+                           class="text-white/80 hover:text-white hover:bg-white/10 rounded-md px-3 py-2 text-sm font-medium transition-colors">
+                            AI แนะนำ
                         </a>
                         {% elif request.resolver_match.app_name == 'accounts' %}
                         <!-- Accounts Menu -->
