@@ -44,7 +44,14 @@
             {{ item.obj.symbol|slice:":3" }}
           </div>
           <div>
-            <div class="fw-bold" style="font-size:1rem;color:#1e293b;">{{ item.obj.symbol }}</div>
+            <div class="d-flex align-items-center gap-2">
+              <div class="fw-bold" style="font-size:1rem;color:#1e293b;">{{ item.obj.symbol }}</div>
+              {% if item.is_leader %}
+                <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill" style="font-size:0.6rem;">LEADER</span>
+              {% elif item.is_laggard %}
+                <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle rounded-pill" style="font-size:0.6rem;">LAGGARD</span>
+              {% endif %}
+            </div>
             <div class="small text-muted">{{ item.obj.name|default:"" }} &nbsp;·&nbsp; ถือ {{ item.days_held }} วัน &nbsp;·&nbsp; {{ item.quantity|floatformat:0 }} หุ้น</div>
           </div>
         </div>
