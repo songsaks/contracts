@@ -43,6 +43,7 @@
     .badge-repair { background: #fff7ed; color: #c2410c; }
     .badge-delivery { background: #f0fdf4; color: #15803d; }
     .badge-install { background: #eff6ff; color: #1d4ed8; }
+    .badge-survey { background: #e0f2fe; color: #0369a1; }
     .badge-other { background: #f9fafb; color: #6b7280; }
 
     .team-pill {
@@ -86,6 +87,35 @@
     }
 
     /* Responsive */
+    .status-select {
+        border-radius: 50px !important;
+        font-weight: 700 !important;
+        font-size: 0.8rem !important;
+        padding: 0.4rem 1rem !important;
+        padding-right: 2.2rem !important;
+        cursor: pointer;
+        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        border-width: 2px !important;
+        background-color: #fff;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.08);
+        min-width: 130px;
+        height: 36px;
+    }
+    .status-select:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(0,0,0,0.12);
+        filter: brightness(1.02);
+    }
+    .status-select:focus {
+        box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.2) !important;
+    }
+
+    .st-scheduled { border-color: #cbd5e1 !important; color: #475569 !important; background: #f8fafc !important; }
+    .st-in-progress { border-color: #93c5fd !important; color: #1d4ed8 !important; background: #eff6ff !important; }
+    .st-completed { border-color: #86efac !important; color: #15803d !important; background: #f0fdf4 !important; }
+    .st-incomplete { border-color: #fca5a5 !important; color: #dc2626 !important; background: #fef2f2 !important; }
+    .st-cancelled { border-color: #e2e8f0 !important; color: #94a3b8 !important; background: #f1f5f9 !important; }
+
     @media (max-width: 767.98px) {
         .queue-header {
             padding: 1rem;
@@ -231,9 +261,10 @@
                         {% endif %}
                     </td>
                     <td class="px-3 py-3">
-                        {% if task.task_type == 'REPAIR' %}<span class="badge badge-repair"><i class="fas fa-wrench me-1"></i>คิว</span>
-                        {% elif task.task_type == 'DELIVERY' %}<span class="badge badge-delivery"><i class="fas fa-truck me-1"></i>คิว</span>
-                        {% elif task.task_type == 'INSTALLATION' %}<span class="badge badge-install"><i class="fas fa-tools me-1"></i>คิว</span>
+                        {% if task.task_type == 'REPAIR' %}<span class="badge badge-repair"><i class="fas fa-wrench me-1"></i>คิวซ่อม</span>
+                        {% elif task.task_type == 'DELIVERY' %}<span class="badge badge-delivery"><i class="fas fa-truck me-1"></i>คิวส่ง</span>
+                        {% elif task.task_type == 'INSTALLATION' %}<span class="badge badge-install"><i class="fas fa-tools me-1"></i>คิวติดตั้ง</span>
+                        {% elif task.task_type == 'SURVEY' %}<span class="badge badge-survey"><i class="fas fa-search me-1"></i>ดูหน้างาน</span>
                         {% else %}<span class="badge badge-other"><i class="fas fa-list me-1"></i>อื่นๆ</span>{% endif %}
                     </td>
                     <td class="px-3 py-3 small">
@@ -455,9 +486,10 @@
                             {% if task.project %}{{ task.project.customer.name|truncatechars:20 }}{% else %}-{% endif %}
                         </td>
                         <td class="px-3 py-3">
-                            {% if task.task_type == 'REPAIR' %}<span class="badge badge-repair"><i class="fas fa-wrench me-1"></i>คิว</span>
-                            {% elif task.task_type == 'DELIVERY' %}<span class="badge badge-delivery"><i class="fas fa-truck me-1"></i>คิว</span>
-                            {% elif task.task_type == 'INSTALLATION' %}<span class="badge badge-install"><i class="fas fa-tools me-1"></i>คิว</span>
+                            {% if task.task_type == 'REPAIR' %}<span class="badge badge-repair"><i class="fas fa-wrench me-1"></i>คิวซ่อม</span>
+                            {% elif task.task_type == 'DELIVERY' %}<span class="badge badge-delivery"><i class="fas fa-truck me-1"></i>คิวส่ง</span>
+                            {% elif task.task_type == 'INSTALLATION' %}<span class="badge badge-install"><i class="fas fa-tools me-1"></i>คิวติดตั้ง</span>
+                            {% elif task.task_type == 'SURVEY' %}<span class="badge badge-survey"><i class="fas fa-search me-1"></i>ดูหน้างาน</span>
                             {% else %}<span class="badge badge-other"><i class="fas fa-list me-1"></i>อื่นๆ</span>{% endif %}
                         </td>
                         <td class="px-3 py-3">
@@ -473,24 +505,27 @@
                             {% else %}-{% endif %}
                         </td>
                         <td class="px-3 py-3">
-                            <form action="{% url 'pms:update_task_status' task.id %}" method="post" class="d-flex gap-1">
+                            <form action="{% url 'pms:update_task_status' task.id %}" method="post" class="d-flex align-items-center gap-1">
                                 {% csrf_token %}
-                                <select name="status" onchange="this.form.submit()" class="form-select form-select-sm"
-                                    style="max-width:160px;
-                                    {% if task.status == 'COMPLETED' %}border-color:#22c55e;background:#f0fdf4;
-                                    {% elif task.status == 'IN_PROGRESS' %}border-color:#3b82f6;background:#eff6ff;
-                                    {% elif task.status == 'INCOMPLETE' %}border-color:#ef4444;background:#fef2f2;{% endif %}">
+                                <select name="status" onchange="this.form.submit()" class="form-select form-select-sm status-select shadow-sm
+                                    {% if task.status == 'COMPLETED' %}st-completed
+                                    {% elif task.status == 'IN_PROGRESS' %}st-in-progress
+                                    {% elif task.status == 'INCOMPLETE' %}st-incomplete
+                                    {% elif task.status == 'CANCELLED' %}st-cancelled
+                                    {% else %}st-scheduled{% endif %}">
                                     <option value="SCHEDULED" {% if task.status == 'SCHEDULED' %}selected{% endif %}>📋 รอทำ</option>
                                     <option value="IN_PROGRESS" {% if task.status == 'IN_PROGRESS' %}selected{% endif %}>🔄 กำลังทำ</option>
                                     <option value="COMPLETED" {% if task.status == 'COMPLETED' %}selected{% endif %}>✅ เสร็จ</option>
                                     <option value="INCOMPLETE" {% if task.status == 'INCOMPLETE' %}selected{% endif %}>❌ ยกยอด</option>
                                     <option value="CANCELLED" {% if task.status == 'CANCELLED' %}selected{% endif %}>🚫 ยกเลิก</option>
                                 </select>
-                                <input type="text" name="note" placeholder="โน้ต (ผล)" class="form-control form-control-sm" style="max-width:110px;">
-                                <input type="text" name="remarks" value="{{ task.remarks|default:'' }}" placeholder="หมายเหตุ" class="form-control form-control-sm" style="max-width:110px;" onchange="this.form.submit()">
+                                <div class="d-flex flex-column gap-1">
+                                    <input type="text" name="note" placeholder="โน้ต (ผล)" class="form-control form-control-sm border-0 bg-light px-2" style="max-width:120px; font-size:0.7rem; border-radius:15px;">
+                                    <input type="text" name="remarks" value="{{ task.remarks|default:'' }}" placeholder="หมายเหตุ" class="form-control form-control-sm border-0 bg-light px-2" style="max-width:120px; font-size:0.7rem; border-radius:15px;" onchange="this.form.submit()">
+                                </div>
                             </form>
                             {% if task.completion_note %}
-                            <div class="small text-muted mt-1">📝 {{ task.completion_note|truncatechars:40 }}</div>
+                            <div class="small text-muted mt-1 bg-light p-1 px-2 rounded-2 border-start border-4 border-danger" style="font-size:0.7rem;">📝 {{ task.completion_note|truncatechars:40 }}</div>
                             {% endif %}
                         </td>
                     </tr>
@@ -502,7 +537,7 @@
         <!-- Mobile -->
         <div class="d-md-none p-3">
             {% for task in tasks %}
-            <div class="task-card-mobile {% if task.status == 'COMPLETED' %}opacity-75{% endif %}">
+            <div class="task-card-mobile {% if task.status == 'COMPLETED' %}opacity-75{% endif %} shadow-sm border-light">
                 <div class="d-flex justify-content-between align-items-start mb-1">
                     <div>
                         <div class="task-title">
@@ -523,27 +558,29 @@
                     {% endif %}
                     {% endwith %}
                 </div>
-                <div class="task-meta mb-2">
-                    {% if task.project %}<span class="fw-semibold text-dark">{{ task.project.customer.name|truncatechars:20 }}</span> • {% endif %}
-                    {% if task.task_type == 'REPAIR' %}คิว{% elif task.task_type == 'DELIVERY' %}คิว{% elif task.task_type == 'INSTALLATION' %}คิว{% else %}อื่นๆ{% endif %}
+                <div class="task-meta mb-3">
+                    {% if task.project %}<span class="fw-semibold text-dark">{{ task.project.customer.name|truncatechars:27 }}</span> • {% endif %}
+                    {% if task.task_type == 'REPAIR' %}คิวซ่อม{% elif task.task_type == 'DELIVERY' %}คิวส่ง{% elif task.task_type == 'INSTALLATION' %}คิวติดตั้ง/หน้างาน{% else %}อื่นๆ{% endif %}
                     {% if task.deadline %} • ส่ง {{ task.deadline|date:"d/m" }}{% endif %}
                 </div>
-                <form action="{% url 'pms:update_task_status' task.id %}" method="post" class="d-flex flex-column gap-2">
+                <form action="{% url 'pms:update_task_status' task.id %}" method="post" class="d-flex flex-column gap-2 mb-2">
                     {% csrf_token %}
                     <div class="d-flex gap-2">
-                        <select name="status" onchange="this.form.submit()" class="form-select form-select-sm" style="font-size: 0.8rem;
-                            {% if task.status == 'COMPLETED' %}border-color:#22c55e;background:#f0fdf4;
-                            {% elif task.status == 'IN_PROGRESS' %}border-color:#3b82f6;background:#eff6ff;
-                            {% elif task.status == 'INCOMPLETE' %}border-color:#ef4444;background:#fef2f2;{% endif %}">
-                            <option value="SCHEDULED" {% if task.status == 'SCHEDULED' %}selected{% endif %}>📋 รอ</option>
-                            <option value="IN_PROGRESS" {% if task.status == 'IN_PROGRESS' %}selected{% endif %}>🔄 ทำ</option>
+                        <select name="status" onchange="this.form.submit()" class="form-select form-select-sm status-select shadow-sm flex-fill
+                            {% if task.status == 'COMPLETED' %}st-completed
+                            {% elif task.status == 'IN_PROGRESS' %}st-in-progress
+                            {% elif task.status == 'INCOMPLETE' %}st-incomplete
+                            {% elif task.status == 'CANCELLED' %}st-cancelled
+                            {% else %}st-scheduled{% endif %}">
+                            <option value="SCHEDULED" {% if task.status == 'SCHEDULED' %}selected{% endif %}>📋 รอทำ</option>
+                            <option value="IN_PROGRESS" {% if task.status == 'IN_PROGRESS' %}selected{% endif %}>🔄 กำลังทำ</option>
                             <option value="COMPLETED" {% if task.status == 'COMPLETED' %}selected{% endif %}>✅ เสร็จ</option>
                             <option value="INCOMPLETE" {% if task.status == 'INCOMPLETE' %}selected{% endif %}>❌ ยกยอด</option>
                             <option value="CANCELLED" {% if task.status == 'CANCELLED' %}selected{% endif %}>🚫 ยกเลิก</option>
                         </select>
-                        <input type="text" name="note" placeholder="โน้ต (ผล)..." class="form-control form-control-sm" style="font-size: 0.8rem;">
+                        <input type="text" name="note" placeholder="โน้ต (ผล)..." class="form-control form-control-sm border-0 bg-light px-2" style="font-size: 0.8rem; border-radius:15px; width:45%;">
                     </div>
-                    <input type="text" name="remarks" value="{{ task.remarks|default:'' }}" placeholder="หมายเหตุ..." class="form-control form-control-sm" style="font-size: 0.8rem;" onchange="this.form.submit()">
+                    <input type="text" name="remarks" value="{{ task.remarks|default:'' }}" placeholder="หมายเหตุ..." class="form-control form-control-sm border-0 bg-light px-2" style="font-size: 0.8rem; border-radius:15px;" onchange="this.form.submit()">
                 </form>
                 {% if task.completion_note %}
                 <div class="small text-muted mt-1">📝 {{ task.completion_note|truncatechars:35 }}</div>

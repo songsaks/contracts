@@ -538,6 +538,8 @@ def project_update(request, pk):
     else:
         form = FormClass(**form_kwargs)
 
+    return render(request, template, {'form': form, 'title': title, 'theme_color': theme_color})
+
 
 def _check_skipped_steps(job_type, old_status_key, new_status_key):
     """
@@ -545,19 +547,16 @@ def _check_skipped_steps(job_type, old_status_key, new_status_key):
     """
     from .models import JobStatus
     steps = list(JobStatus.objects.filter(job_type=job_type, is_active=True).order_by('sort_order').values_list('status_key', flat=True))
-    
+
     if not steps:
         return False
-        
+
     try:
         old_idx = steps.index(old_status_key)
         new_idx = steps.index(new_status_key)
-        # ถ้าดัชนีใหม่มากกว่าดัชนีเดิมเกิน 1 (มีการข้าม)
         return new_idx > old_idx + 1
     except ValueError:
         return False
-        
-    return render(request, template, {'form': form, 'title': title, 'theme_color': theme_color})
 
 # เพิ่มรายการสินค้า/บริการเข้าโครงการ — ป้องกันการเพิ่มเมื่อโครงการถูกล็อก
 @login_required
