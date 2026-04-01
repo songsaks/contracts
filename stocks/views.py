@@ -67,6 +67,9 @@ def _compute_signals(prec, current_price=None):
     ema20_rising = getattr(prec, 'ema20_rising', False)
     hh_hl        = getattr(prec, 'hh_hl_structure', False)
     ema20_slope  = getattr(prec, 'ema20_slope', 0.0)
+    # v7 money flow & breakout
+    cmf          = getattr(prec, 'cmf', None)
+    is_52w_bo    = getattr(prec, 'is_52w_breakout', False)
 
     # ── BUY SCORE ─────────────────────────────────────────────────────
     # base technical: technical_score คือผลลัพธ์จาก tech analyzer (max 100)
@@ -138,6 +141,11 @@ def _compute_signals(prec, current_price=None):
     elif ema20_rising:           buy += 5   # EMA rising เพียงอย่างเดียว
     elif hh_hl:                  buy += 4   # HH/HL โดยที่ EMA ยังไม่ขึ้นชัด
 
+    # ── v7 CMF buy bonus (max 6 pts) ─────────────────────────────────
+    if cmf is not None:
+        if cmf >= 0.1:    buy += 6   # สถาบันสะสมชัดเจน
+        elif cmf >= 0.05: buy += 3   # มีแรงซื้อสุทธิ
+
     buy_score = max(0, min(100, buy))
 
     # ── SELL SCORE ────────────────────────────────────────────────────
@@ -158,6 +166,10 @@ def _compute_signals(prec, current_price=None):
     # v3: MACD bearish (histogram negative + no crossover)
     if not macd_cross and macd_hist < 0 and abs(macd_hist) > 0.01:
         sell += 8
+    # v7: CMF distribution — เงินไหลออกสุทธิ
+    if cmf is not None:
+        if cmf < -0.1:    sell += 10  # Distribution ชัดเจน
+        elif cmf < -0.05: sell += 5   # เริ่มมีแรงขายสุทธิ
     sell_score = min(100, sell)
 
     if sell_score >= 70:   exit_signal = 'STRONG EXIT'
@@ -2001,6 +2013,114 @@ def momentum_scanner(request):
     return render(request, 'stocks/momentum.html', context)
 
 
+# ====== Market Condition Analyzer — วิเคราะห์สภาวะตลาด SET Index ======
+
+def _get_market_condition(set_df):
+    """
+    วิเคราะห์ SET Index เพื่อกำหนด Market Phase ปัจจุบัน
+    คืน dict: phase, label, color, score, indicators
+    """
+    import pandas as pd
+    if set_df is None or set_df.empty:
+        return {'phase': 'UNKNOWN', 'label': 'ไม่มีข้อมูล SET', 'color': 'secondary', 'score': 0}
+
+    close = set_df['Close'].dropna()
+    if len(close) < 50:
+        return {'phase': 'UNKNOWN', 'label': 'ข้อมูลไม่พอ', 'color': 'secondary', 'score': 0}
+
+    curr = float(close.iloc[-1])
+    ema50  = float(close.ewm(span=50, adjust=False).mean().iloc[-1])
+    ema200 = float(close.ewm(span=200, adjust=False).mean().iloc[-1]) if len(close) >= 200 else None
+    sma150 = float(close.rolling(150).mean().iloc[-1]) if len(close) >= 150 else None
+
+    # SMA150 slope เทียบ 20 วันที่แล้ว
+    sma150_slope = None
+    if sma150 and len(close) >= 170:
+        sma150_20d = float(close.rolling(150).mean().iloc[-21])
+        sma150_slope = ((sma150 - sma150_20d) / sma150_20d * 100) if sma150_20d else None
+
+    # 1m / 3m return ของ SET
+    m1 = float((close.iloc[-1] - close.iloc[-22]) / close.iloc[-22] * 100) if len(close) >= 22 else 0.0
+    m3 = float((close.iloc[-1] - close.iloc[-66]) / close.iloc[-66] * 100) if len(close) >= 66 else 0.0
+
+    score = 0
+    bullets = []  # เงื่อนไขที่ผ่าน
+
+    # EMA200
+    if ema200:
+        if curr > ema200:
+            score += 3
+            bullets.append(f"SET ({curr:.0f}) > EMA200 ({ema200:.0f}) ✅")
+        else:
+            score -= 3
+            bullets.append(f"SET ({curr:.0f}) < EMA200 ({ema200:.0f}) ❌")
+
+    # SMA150
+    if sma150:
+        if curr > sma150:
+            score += 2
+            bullets.append(f"SET > SMA150 ({sma150:.0f}) ✅")
+        else:
+            score -= 1
+            bullets.append(f"SET < SMA150 ({sma150:.0f}) ❌")
+
+    # SMA150 slope
+    if sma150_slope is not None:
+        if sma150_slope > 0.2:
+            score += 2
+            bullets.append(f"SMA150 ขาขึ้น (+{sma150_slope:.2f}%) ✅")
+        elif sma150_slope < -0.3:
+            score -= 2
+            bullets.append(f"SMA150 ขาลง ({sma150_slope:.2f}%) ❌")
+        else:
+            bullets.append(f"SMA150 sideways ({sma150_slope:.2f}%) ⚠️")
+
+    # EMA50
+    if curr > ema50:
+        score += 1
+
+    # Momentum 1m
+    if m1 > 3:
+        score += 2
+        bullets.append(f"SET +{m1:.1f}% (1 เดือน) ✅")
+    elif m1 > 0:
+        score += 1
+    elif m1 < -5:
+        score -= 2
+        bullets.append(f"SET {m1:.1f}% (1 เดือน) ❌")
+    else:
+        bullets.append(f"SET {m1:.1f}% (1 เดือน) ⚠️")
+
+    # กำหนด Phase
+    if score >= 7:
+        phase, color, label = 'UPTREND',    'success', 'ตลาดขาขึ้น — เหมาะสำหรับ Swing Buy'
+    elif score >= 4:
+        phase, color, label = 'RECOVERY',   'info',    'ตลาดฟื้นตัว — คัดเฉพาะหุ้นแข็งแกร่ง'
+    elif score >= 1:
+        phase, color, label = 'MIXED',      'warning', 'ตลาดผสม — เน้น Watchlist และ Risk Management'
+    elif score >= -2:
+        phase, color, label = 'CORRECTION', 'warning', 'ตลาดพักฐาน — ระวังสูง ลดขนาด Position'
+    else:
+        phase, color, label = 'DOWNTREND',  'danger',  'ตลาดขาลง — หลีกเลี่ยงการซื้อใหม่'
+
+    return {
+        'phase':  phase,
+        'color':  color,
+        'label':  label,
+        'score':  score,
+        'curr':   round(curr, 2),
+        'ema200': round(ema200, 2) if ema200 else None,
+        'sma150': round(sma150, 2) if sma150 else None,
+        'sma150_slope': round(sma150_slope, 2) if sma150_slope is not None else None,
+        'm1':     round(m1, 2),
+        'm3':     round(m3, 2),
+        'above_ema200':   bool(ema200 and curr > ema200),
+        'above_sma150':   bool(sma150 and curr > sma150),
+        'sma150_rising':  bool(sma150_slope and sma150_slope > 0.2),
+        'bullets': bullets,
+    }
+
+
 # ====== Precision Momentum Scanner — เวอร์ชันกรองคุณภาพสูง ======
 
 @login_required
@@ -2408,6 +2528,8 @@ def precision_momentum_scanner(request):
                     'stage2': stage2_flag,
                     'pocket_pivot': pocket_pivot_flag,
                     'vdu_near_zone': vdu_flag,
+                    'cmf': tech.get('cmf', 0.0),
+                    'is_52w_breakout': tech.get('is_52w_breakout', False),
                 }
 
             except Exception as e:
@@ -2516,6 +2638,8 @@ def precision_momentum_scanner(request):
                     stage2=r.get('stage2', False),
                     pocket_pivot=r.get('pocket_pivot', False),
                     vdu_near_zone=r.get('vdu_near_zone', False),
+                    cmf=r.get('cmf', None),
+                    is_52w_breakout=r.get('is_52w_breakout', False),
                 ))
 
             if bulk_candidates:
@@ -2845,6 +2969,23 @@ def precision_momentum_scanner(request):
         top_sectors = []
         scan_insights = []
 
+    # ====== Market Condition — ดึงข้อมูล SET Index สำหรับแสดงผล (GET + POST) ======
+    market_condition = {'phase': 'UNKNOWN', 'label': 'ไม่มีข้อมูล', 'color': 'secondary', 'score': 0}
+    try:
+        from datetime import datetime as _mcdt, timedelta as _mctd
+        import pytz as _mcpytz
+        _mc_bkk   = _mcpytz.timezone('Asia/Bangkok')
+        _mc_now   = _mcdt.now(_mc_bkk)
+        _mc_end   = _mc_now.date().strftime('%Y-%m-%d')
+        _mc_start = (_mc_now.date() - _mctd(days=430)).strftime('%Y-%m-%d')
+        _mc_df = yf.download("^SET", start=_mc_start, end=_mc_end, interval="1d", progress=False)
+        if _mc_df is not None and not _mc_df.empty:
+            if isinstance(_mc_df.columns, pd.MultiIndex):
+                _mc_df.columns = _mc_df.columns.droplevel(1)
+            market_condition = _get_market_condition(_mc_df)
+    except Exception:
+        pass
+
     context = {
         'title': 'Precision Momentum Scanner — กรองคุณภาพ',
         'candidates': candidates,
@@ -2860,6 +3001,7 @@ def precision_momentum_scanner(request):
         'top_sectors': top_sectors,
         'scan_insights': scan_insights,
         'scan_data_date': None,  # คำนวณด้านล่าง
+        'market_condition': market_condition,
     }
     # คำนวณ scan_data_date จาก scanned_at — ถ้า scan ทำหลัง 16:30 BKK ข้อมูลคือวันเดียวกัน
     # ถ้า scan ทำระหว่าง 10:00-16:30 (ตลาดเปิด) ข้อมูลจะเป็นวันก่อนหน้า

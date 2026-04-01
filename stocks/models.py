@@ -295,6 +295,10 @@ class PrecisionScanCandidate(models.Model):
     pocket_pivot     = models.BooleanField(default=False)         # Pocket Pivot: up-day vol > max down-day vol in prior 10 sessions
     vdu_near_zone    = models.BooleanField(default=False)         # Volume Dry-Up: volume declining 3d + below 70% avg (quiet accumulation)
 
+    # ====== Money Flow & Breakout (v7) ======
+    cmf              = models.FloatField(null=True, blank=True)   # Chaikin Money Flow 20d (>0.1=accumulation, <-0.1=distribution)
+    is_52w_breakout  = models.BooleanField(default=False)         # ราคาทะลุหรืออยู่ภายใน 1% ของ 52-week high
+
     class Meta:
         ordering = ['-scan_run', '-technical_score']
 

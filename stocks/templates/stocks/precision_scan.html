@@ -38,34 +38,162 @@
         <button class="btn btn-sm rounded-pill px-4 shadow-sm" type="button"
                 data-bs-toggle="collapse" data-bs-target="#diffGuide" aria-expanded="false"
                 style="border: 1px solid #7c3aed; color: #7c3aed;">
-            <i class="fas fa-info-circle me-2"></i> สรุปการอัปเดตระบบ Precision v3 (Pure Momentum)
+            <i class="fas fa-info-circle me-2"></i> สรุประบบ Precision v7 — ดูว่าคำนวณอะไรบ้าง
         </button>
         <div class="collapse mt-3" id="diffGuide">
-            <div class="card card-body border-0 shadow-sm rounded-4 bg-light p-4">
-                <div class="row g-3">
-                    <div class="col-md-6">
-                        <h6 class="fw-bold mb-3" style="color: #7c3aed;"><i class="fas fa-rocket me-2"></i> ปลดล็อคเกณฑ์ล่าหุ้นต้นเทรนด์ (Reversal)</h6>
-                        <ul class="list-unstyled small text-secondary">
-                            <li class="mb-2"><strong>ยกเลิกเกณฑ์ EMA200 ภาคบังคับ:</strong> ให้โอกาสหุ้นที่ทำฐานย่ำเพื่อ Reversal ติดสแกนได้เร็วขึ้น</li>
-                            <li class="mb-2"><strong>ผ่อนปรน ADX ≥ 15 (เดิม 20):</strong> ตรวจจับหุ้นที่เพิ่งเริ่มมีแรงบิดกระตุกขึ้นจากโซนล่างสุด</li>
-                            <li class="mb-2"><strong>ยกเลิกคะแนนโบนัสด้านงบการเงิน:</strong> ระบบเพ่งเล็งไปที่ร่องรอย "กระแสเงินของสถาบัน" (Price & Volume Action) แบบ 100%</li>
-                            <li class="mb-0"><strong>ฐานหุ้นที่กว้างขึ้น:</strong> สแกนหาเพชรเม็ดงามครอบคลุมทั้ง SET100 และ MAI ทั้งตลาด</li>
-                        </ul>
+            <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
+                <!-- Header -->
+                <div class="px-4 py-3" style="background:linear-gradient(135deg,#0f172a,#1e3a5f);color:white;">
+                    <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+                        <div>
+                            <h6 class="mb-0 fw-bold"><i class="fas fa-sliders-h me-2" style="color:#a78bfa;"></i>Precision Scanner v7 — โครงสร้างการให้คะแนน</h6>
+                            <div class="small mt-1" style="opacity:0.65;">ทุก indicator ถูกคำนวณจากข้อมูลตลาดจริง (Price & Volume) — ไม่มีการ hardcode ผลลัพธ์</div>
+                        </div>
+                        <span class="badge rounded-pill px-3 py-2" style="background:#7c3aed;font-size:0.75rem;">คะแนนรวมสูงสุด 100 pts</span>
                     </div>
-                    <div class="col-md-6">
-                        <h6 class="fw-bold mb-3" style="color: #4f46e5;"><i class="fas fa-calculator me-2"></i> โครงสร้างคะแนนใหม่ V3 (เต็ม 100 pts)</h6>
-                        <ul class="list-unstyled small text-secondary">
-                            <li class="mb-2"><strong>Risk/Reward & Zone (53 pts):</strong> ให้น้ำหนักสูงสุดกับจุดเข้าซื้อที่อยู่ใกล้ขอบล่างเส้น Demand Zone และให้โอกาสวิ่งมากกว่าจุดตัด SL</li>
-                            <li class="mb-2"><strong>Trend & Indicators (32 pts):</strong> คว้าแต้มหากหุ้นอยู่ในแดน RSI กระทิง, MACD เริ่มตัดขึ้น, และทรงกราฟเอาชนะ SET ได้</li>
-                            <li class="mb-2"><strong>RS Rating Bonus (15 pts):</strong> หุ้นผู้นำตลาดที่มีความแกร่งระดับ Top 15% รับแต้มโบนัสเพื่อดันขึ้น Rank บนสุด</li>
-                            <li class="mb-0"><strong>เงื่อนไขหลัก:</strong> ยังคงรักษาการยืนยันวอลุ่มแห้งหรือการพักตัวที่ชัดเจนด้วย ERC Volume</li>
-                        </ul>
+                </div>
+                <div class="card-body p-4">
+                    <div class="row g-3">
+
+                        <!-- คอลัมน์ซ้าย: scoring -->
+                        <div class="col-md-6">
+                            <p class="fw-bold small mb-2" style="color:#7c3aed;"><i class="fas fa-calculator me-1"></i> สูตรคะแนน (รวมได้สูงสุด 100 pts)</p>
+                            <div class="d-flex flex-column gap-2 small">
+                                <div class="d-flex align-items-start gap-2 p-2 rounded-3" style="background:#f8fafc;">
+                                    <span class="badge rounded-pill flex-shrink-0" style="background:#1d4ed8;min-width:52px;">40 pts</span>
+                                    <div><strong>Trend:</strong> Price vs EMA200/50/20 + Full Minervini Stack (EMA20>EMA50>EMA200)</div>
+                                </div>
+                                <div class="d-flex align-items-start gap-2 p-2 rounded-3" style="background:#f8fafc;">
+                                    <span class="badge rounded-pill flex-shrink-0" style="background:#0891b2;min-width:52px;">25 pts</span>
+                                    <div><strong>RSI + 52W Position:</strong> RSI 65-80 = จุดหวาน | ราคา ≥ 85% of 52W High</div>
+                                </div>
+                                <div class="d-flex align-items-start gap-2 p-2 rounded-3" style="background:#f8fafc;">
+                                    <span class="badge rounded-pill flex-shrink-0" style="background:#059669;min-width:52px;">25 pts</span>
+                                    <div><strong>RVOL (Direction-aware):</strong> Bull day RVOL ≥ 2x = 25 pts | Bear day ≥ 2x = 12 pts</div>
+                                </div>
+                                <div class="d-flex align-items-start gap-2 p-2 rounded-3" style="background:#f8fafc;">
+                                    <span class="badge rounded-pill flex-shrink-0" style="background:#7c3aed;min-width:52px;">10 pts</span>
+                                    <div><strong>Zone Retest:</strong> ราคากลับมาทดสอบ Demand Zone (ERC Bull confirmed)</div>
+                                </div>
+                                <div class="d-flex align-items-start gap-2 p-2 rounded-3 border" style="background:#fefce8;border-color:#fde68a !important;">
+                                    <span class="badge rounded-pill flex-shrink-0" style="background:#d97706;min-width:52px;">+8 pts</span>
+                                    <div><strong>CMF ≥ 0.10 (ใหม่ v7):</strong> Chaikin Money Flow — เงินสุทธิไหลเข้า 20 วัน ยืนยันว่าสถาบันสะสมอยู่</div>
+                                </div>
+                                <div class="d-flex align-items-start gap-2 p-2 rounded-3 border" style="background:#fefce8;border-color:#fde68a !important;">
+                                    <span class="badge rounded-pill flex-shrink-0" style="background:#d97706;min-width:52px;">+10 pts</span>
+                                    <div><strong>52W Breakout (ใหม่ v7):</strong> ราคาอยู่ภายใน 1% ของ 52-Week High — หุ้นที่ทำ New High มักวิ่งต่อ (Minervini)</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- คอลัมน์ขวา: filter + badges -->
+                        <div class="col-md-6">
+                            <p class="fw-bold small mb-2" style="color:#4f46e5;"><i class="fas fa-filter me-1"></i> เงื่อนไขกรองก่อนเข้า Scoring</p>
+                            <ul class="list-unstyled small text-secondary mb-4">
+                                <li class="mb-1"><i class="fas fa-check-circle text-success me-1"></i> <strong>Volume ≥ 500,000 หุ้น/วัน</strong> (avg 20 วัน) — กรองหุ้นไม่มีสภาพคล่อง</li>
+                                <li class="mb-1"><i class="fas fa-check-circle text-success me-1"></i> <strong>ADX ≥ 15</strong> — มีทิศทางแนวโน้มพอสมควร</li>
+                                <li class="mb-1"><i class="fas fa-check-circle text-success me-1"></i> <strong>ราคา ≥ 65% of 52W High</strong> — ไม่ใช่หุ้นที่ตกลงมาหนัก</li>
+                                <li class="mb-1"><i class="fas fa-check-circle text-success me-1"></i> <strong>ERC Bull ยืนยัน</strong> — Body + Volume > 1.5x avg (ทั้งคู่)</li>
+                            </ul>
+
+                            <p class="fw-bold small mb-2" style="color:#0891b2;"><i class="fas fa-tags me-1"></i> Badge ที่เห็นในผลสแกน</p>
+                            <div class="d-flex flex-wrap gap-1">
+                                <span class="badge px-2 py-1" style="background:rgba(22,163,74,0.15);color:#15803d;border:1px solid rgba(22,163,74,0.4);font-size:0.65rem;">S2 — Stage 2 (SMA150 ↑)</span>
+                                <span class="badge px-2 py-1" style="background:rgba(8,145,178,0.15);color:#0e7490;border:1px solid rgba(8,145,178,0.4);font-size:0.65rem;">PP — Pocket Pivot</span>
+                                <span class="badge px-2 py-1" style="background:rgba(124,58,237,0.12);color:#6d28d9;border:1px solid rgba(124,58,237,0.35);font-size:0.65rem;">VDU — Volume Dry-Up</span>
+                                <span class="badge px-2 py-1" style="background:rgba(245,158,11,0.15);color:#b45309;border:1px solid rgba(245,158,11,0.5);font-size:0.65rem;">🏔 52W Hi — New High</span>
+                                <span class="badge px-2 py-1" style="background:rgba(16,185,129,0.15);color:#059669;border:1px solid rgba(16,185,129,0.4);font-size:0.65rem;">CMF ↑ — สถาบันสะสม</span>
+                                <span class="badge px-2 py-1" style="background:rgba(220,38,38,0.08);color:#dc2626;border:1px solid rgba(220,38,38,0.3);font-size:0.65rem;">CMF ↓ — Distribution</span>
+                                <span class="badge px-2 py-1" style="background:rgba(245,158,11,0.15);color:#b45309;border:1px solid rgba(245,158,11,0.4);font-size:0.65rem;">BB⚡ — Squeeze</span>
+                                <span class="badge px-2 py-1" style="background:rgba(79,70,229,0.12);color:#4f46e5;border:1px solid rgba(79,70,229,0.3);font-size:0.65rem;">MACD✕ — Crossover</span>
+                            </div>
+
+                            <div class="mt-3 p-2 rounded-3 small" style="background:#fef3c7;color:#92400e;">
+                                <i class="fas fa-exclamation-triangle me-1"></i>
+                                <strong>Market Condition</strong> แสดงด้านบน — ถ้าตลาดอยู่ในช่วง DOWNTREND หรือ CORRECTION ผลสแกนควรใช้เป็น Watchlist เท่านั้น ยังไม่ซื้อทันที
+                            </div>
+                        </div>
+
                     </div>
                 </div>
             </div>
         </div>
     </div>
 </div>
+
+<!-- ===== Market Condition Banner ===== -->
+{% if market_condition and market_condition.phase != 'UNKNOWN' %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
+            <div class="card-body p-0">
+                <div class="d-flex align-items-stretch flex-wrap">
+                    <!-- Phase Badge -->
+                    <div class="d-flex align-items-center justify-content-center px-4 py-3 text-white fw-bold flex-shrink-0"
+                         style="min-width:180px;
+                         background:{% if market_condition.color == 'success' %}linear-gradient(135deg,#16a34a,#15803d)
+                                    {% elif market_condition.color == 'info' %}linear-gradient(135deg,#0891b2,#0e7490)
+                                    {% elif market_condition.color == 'warning' %}linear-gradient(135deg,#d97706,#b45309)
+                                    {% else %}linear-gradient(135deg,#dc2626,#b91c1c){% endif %};">
+                        <div class="text-center">
+                            <i class="fas {% if market_condition.color == 'success' %}fa-arrow-trend-up
+                                          {% elif market_condition.color == 'info' %}fa-chart-line
+                                          {% elif market_condition.color == 'warning' %}fa-exclamation-triangle
+                                          {% else %}fa-arrow-trend-down{% endif %} fa-2x mb-1"></i>
+                            <div class="small fw-bold" style="font-size:0.7rem;letter-spacing:0.05em;">MARKET</div>
+                            <div class="fw-bold">{{ market_condition.phase }}</div>
+                        </div>
+                    </div>
+                    <!-- Details -->
+                    <div class="flex-grow-1 p-3 px-4">
+                        <div class="d-flex align-items-center gap-2 mb-2">
+                            <span class="fw-bold text-dark">{{ market_condition.label }}</span>
+                            <span class="badge bg-{% if market_condition.color == 'warning' %}warning text-dark{% else %}{{ market_condition.color }}{% endif %} rounded-pill">Score {{ market_condition.score }}</span>
+                        </div>
+                        <div class="d-flex flex-wrap gap-3 small text-muted">
+                            {% if market_condition.curr %}
+                            <span><i class="fas fa-chart-bar me-1"></i> SET {{ market_condition.curr|floatformat:2 }}</span>
+                            {% endif %}
+                            {% if market_condition.ema200 %}
+                            <span class="{% if market_condition.above_ema200 %}text-success fw-bold{% else %}text-danger fw-bold{% endif %}">
+                                EMA200: {{ market_condition.ema200|floatformat:2 }}
+                                {% if market_condition.above_ema200 %}<i class="fas fa-check ms-1"></i>{% else %}<i class="fas fa-times ms-1"></i>{% endif %}
+                            </span>
+                            {% endif %}
+                            {% if market_condition.sma150 %}
+                            <span class="{% if market_condition.above_sma150 %}text-success fw-bold{% else %}text-danger fw-bold{% endif %}">
+                                SMA150: {{ market_condition.sma150|floatformat:2 }}
+                                {% if market_condition.above_sma150 %}<i class="fas fa-check ms-1"></i>{% else %}<i class="fas fa-times ms-1"></i>{% endif %}
+                            </span>
+                            {% endif %}
+                            {% if market_condition.sma150_slope is not None %}
+                            <span class="{% if market_condition.sma150_rising %}text-success{% else %}text-warning{% endif %}">
+                                SMA150 slope: {% if market_condition.sma150_slope > 0 %}+{% endif %}{{ market_condition.sma150_slope }}%
+                            </span>
+                            {% endif %}
+                            <span class="{% if market_condition.m1 > 0 %}text-success{% else %}text-danger{% endif %}">
+                                1m: {% if market_condition.m1 > 0 %}+{% endif %}{{ market_condition.m1 }}%
+                            </span>
+                            <span class="{% if market_condition.m3 > 0 %}text-success{% else %}text-danger{% endif %}">
+                                3m: {% if market_condition.m3 > 0 %}+{% endif %}{{ market_condition.m3 }}%
+                            </span>
+                        </div>
+                    </div>
+                    <!-- Warning strip สำหรับ Downtrend -->
+                    {% if market_condition.phase == 'DOWNTREND' or market_condition.phase == 'CORRECTION' %}
+                    <div class="d-flex align-items-center px-4 py-3 bg-danger bg-opacity-10 border-start border-danger border-2">
+                        <div class="text-danger small fw-bold text-center" style="max-width:160px;">
+                            <i class="fas fa-shield-alt d-block fa-lg mb-1"></i>
+                            ลดขนาด Position<br>และเน้น Cash
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
 
 <!-- ===== คู่มือการอ่านสัญญาณ ===== -->
 <div class="row mb-4">
@@ -839,6 +967,12 @@
                                         {% if item.vdu_near_zone %}
                                         <span class="badge px-1 py-0" style="background:#7c3aed;color:white;font-size:0.55rem;" title="Volume Dry-Up: volume ลด 3 วันติด + เงียบกว่า avg — สัญญาณ Accumulation">VDU</span>
                                         {% endif %}
+                                        {% if item.is_52w_breakout %}
+                                        <span class="badge px-1 py-0" style="background:#f59e0b;color:white;font-size:0.55rem;" title="52-Week High Breakout — ทะลุ/แตะ New High">🏔 HI</span>
+                                        {% endif %}
+                                        {% if item.cmf and item.cmf >= 0.1 %}
+                                        <span class="badge px-1 py-0" style="background:#10b981;color:white;font-size:0.55rem;" title="CMF {{ item.cmf|floatformat:2 }} — Chaikin Money Flow สูง สถาบันสะสม">CMF↑</span>
+                                        {% endif %}
                                     </div>
                                 </div>
                             </td>
@@ -1070,7 +1204,27 @@
                                       style="background:rgba(124,58,237,0.12);color:#6d28d9;border:1px solid rgba(124,58,237,0.35);font-size:0.56rem;"
                                       title="Volume Dry-Up: volume ลด 3 วันติด + เงียบกว่าค่าเฉลี่ย 70% — แรงขายหมด, Accumulation">VDU🤫</span>
                                 {% endif %}
-                                {% if not item.macd_crossover and not item.bb_squeeze and not item.ema20_aligned and not item.ema20_rising and not item.hh_hl_structure and not item.stage2 and not item.pocket_pivot and not item.vdu_near_zone %}
+                                {% if item.is_52w_breakout %}
+                                <span class="badge px-1 py-0"
+                                      style="background:rgba(245,158,11,0.15);color:#b45309;border:1px solid rgba(245,158,11,0.5);font-size:0.56rem;"
+                                      title="52-Week High Breakout — ราคาทะลุหรืออยู่ภายใน 1% ของ New High">🏔 52W Hi</span>
+                                {% endif %}
+                                {% if item.cmf is not None %}
+                                    {% if item.cmf >= 0.1 %}
+                                    <span class="badge px-1 py-0"
+                                          style="background:rgba(16,185,129,0.15);color:#059669;border:1px solid rgba(16,185,129,0.4);font-size:0.56rem;"
+                                          title="CMF {{ item.cmf|floatformat:2 }} — Chaikin Money Flow สูง สถาบันสะสมชัดเจน">CMF {{ item.cmf|floatformat:2 }}↑</span>
+                                    {% elif item.cmf >= 0.05 %}
+                                    <span class="badge px-1 py-0"
+                                          style="background:rgba(16,185,129,0.08);color:#10b981;border:1px solid rgba(16,185,129,0.25);font-size:0.56rem;"
+                                          title="CMF {{ item.cmf|floatformat:2 }} — มีแรงซื้อสุทธิ">CMF {{ item.cmf|floatformat:2 }}</span>
+                                    {% elif item.cmf < -0.1 %}
+                                    <span class="badge px-1 py-0"
+                                          style="background:rgba(220,38,38,0.08);color:#dc2626;border:1px solid rgba(220,38,38,0.3);font-size:0.56rem;"
+                                          title="CMF {{ item.cmf|floatformat:2 }} — Distribution (แรงขายสุทธิ)">CMF {{ item.cmf|floatformat:2 }}↓</span>
+                                    {% endif %}
+                                {% endif %}
+                                {% if not item.macd_crossover and not item.bb_squeeze and not item.ema20_aligned and not item.ema20_rising and not item.hh_hl_structure and not item.stage2 and not item.pocket_pivot and not item.vdu_near_zone and not item.is_52w_breakout %}
                                 <span class="text-muted">-</span>
                                 {% endif %}
                                 </div>

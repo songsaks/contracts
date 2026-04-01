@@ -1132,6 +1132,48 @@ def analyze_momentum_technical_v2(df):
     if sd and sd['is_retesting']:
         score += 10
 
+    # 5a. Chaikin Money Flow — CMF (สูงสุด 8 คะแนน)
+    # CMF = sum((( Close-Low)-(High-Close))/(High-Low)*Vol, N) / sum(Vol, N)
+    # > 0.1 = สถาบันสะสมแรง, > 0 = แรงซื้อ, < -0.1 = แรงขาย
+    cmf_val = 0.0
+    try:
+        _n = 20
+        if len(df) >= _n and 'High' in df.columns and 'Low' in df.columns:
+            _hi  = df['High'].tail(_n)
+            _lo  = df['Low'].tail(_n)
+            _cl  = df['Close'].tail(_n)
+            _vo  = df['Volume'].tail(_n).astype(float)
+            _rng = (_hi - _lo).replace(0, float('nan'))
+            _mfv = ((_cl - _lo) - (_hi - _cl)) / _rng * _vo
+            _sum_vol = _vo.sum()
+            if _sum_vol > 0:
+                cmf_val = float(_mfv.sum() / _sum_vol)
+        if cmf_val >= 0.1:
+            score += 8    # สะสมแรง — สถาบันเข้าซื้อชัดเจน
+        elif cmf_val >= 0.05:
+            score += 5    # มีแรงซื้อสุทธิ
+        elif cmf_val > 0:
+            score += 2    # แรงซื้อเล็กน้อย
+        elif cmf_val < -0.1:
+            score -= 3    # แรงขายชัดเจน — ลดคะแนน
+    except Exception:
+        pass
+
+    # 5b. 52-Week High Breakout (สูงสุด 10 คะแนน)
+    # Minervini: หุ้นที่ทำ new high มักวิ่งต่ออีกนาน
+    is_52w_breakout = False
+    try:
+        _52w_high = float(df['High'].tail(252).max())
+        if _52w_high > 0:
+            _gap_to_high = (current_price - _52w_high) / _52w_high * 100
+            if current_price >= _52w_high * 0.99:   # ทะลุหรือแตะ 52W high (±1%)
+                score += 10
+                is_52w_breakout = True
+            elif current_price >= _52w_high * 0.95:  # ห่าง 52W high ไม่เกิน 5%
+                score += 5
+    except Exception:
+        pass
+
     # 5. Performance returns (for RS Rating in view)
     ret_1m = 0.0
     ret_3m = 0.0
@@ -1184,6 +1226,8 @@ def analyze_momentum_technical_v2(df):
         'sd_zone': sd,
         'stock_1m_return': ret_1m,
         'stock_3m_return': ret_3m,
+        'cmf': round(cmf_val, 4),
+        'is_52w_breakout': is_52w_breakout,
     }
 
 
