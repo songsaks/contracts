@@ -125,80 +125,59 @@
         </div>
     </div>
 
-    <!-- Top Performer Spotlight (AI Choice) -->
-    {% if tech_stats %}
-    {% with top=tech_stats.0 %}
-    <div class="row mb-5">
-        <div class="col-12">
-            <div class="glass-card performer-card p-4 p-lg-5 border-0 shadow-lg">
-                <div class="row align-items-center">
-                    <div class="col-lg-1 text-center mb-3 mb-lg-0">
-                        <div class="score-circle bg-success text-white mx-auto shadow-sm" style="border-color: rgba(255,255,255,0.2);">
-                            {{ top.efficiency_score }}
-                        </div>
-                        <div class="small mt-2 fw-bold opacity-75">EFFICIENCY</div>
-                    </div>
-                    <div class="col-lg-4 border-lg-end border-white border-opacity-10 divider-vertical px-lg-4">
-                        <span class="badge bg-warning text-dark fw-bold px-3 py-2 mb-3 rounded-pill">
-                            <i class="fas fa-trophy me-2"></i>พนักงานดีเด่น (AI SELECTED)
-                        </span>
-                        <h1 class="fw-black mb-1 display-6">{{ top.name }}</h1>
-                        <div class="d-flex gap-2 flex-wrap mt-3">
-                            <span class="stat-pill pill-purple" style="background:rgba(255,255,255,0.1); color:white;">
-                                <i class="fas fa-briefcase"></i> {{ top.sessions }} งาน
-                            </span>
-                            <span class="stat-pill pill-green" style="background:rgba(255,255,255,0.1); color:white;">
-                                <i class="fas fa-smile"></i> {{ top.sat_pos }}/{{ top.sat_total }} พอใจ
-                            </span>
-                        </div>
-                    </div>
-                    <div class="col-lg-7 ps-lg-5 mt-4 mt-lg-0">
-                        <div class="row g-4">
-                            <div class="col-md-4 text-center">
-                                <div class="opacity-60 small fw-bold mb-1">ระยะทางรวม</div>
-                                <h3 class="mb-0 fw-bold">{{ top.total_dist }} <span class="fs-6 opacity-50">กม.</span></h3>
-                            </div>
-                            <div class="col-md-4 text-center">
-                                <div class="opacity-60 small fw-bold mb-1">ปริมาณน้ำมัน</div>
-                                <h3 class="mb-0 fw-bold">{{ top.fuel_liters }} <span class="fs-6 opacity-50">ลิตร</span></h3>
-                            </div>
-                            <div class="col-md-4 text-center">
-                                <div class="opacity-60 small fw-bold mb-1">ประเมินค่าใช้จ่าย</div>
-                                <h3 class="mb-0 fw-bold text-success" style="color:#d9f99d !important;">฿{{ top.fuel_cost }}</h3>
-                            </div>
-                        </div>
-                        <div class="mt-4 pt-3 border-top border-white border-opacity-10">
-                            <p class="mb-0 fs-6 opacity-75">
-                                <i class="fas fa-quote-left me-2 opacity-50"></i>
-                                ช่างมีความสามารถในการบริหารเวลาและจัดการเส้นทางได้ยอดเยี่ยม ส่งผลให้มีความคุ้มค่าต่อหน่วยงานสูงสุด
-                            </p>
-                        </div>
-                    </div>
-                </div>
+    <!-- Key Metrics Cards Row -->
+    <div class="row g-4 mb-5">
+        <div class="col-6 col-md-3">
+            <div class="glass-card p-4 text-center">
+                <div class="stat-pill pill-purple mb-3 mx-auto"><i class="fas fa-briefcase"></i> Total Jobs</div>
+                <h2 class="fw-black mb-0">{{ total_sessions }}</h2>
+                <div class="small text-muted mt-1">งานที่ทำสำเร็จ</div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="glass-card p-4 text-center">
+                <div class="stat-pill pill-blue mb-3 mx-auto"><i class="fas fa-clock"></i> Total Hours</div>
+                <h2 class="fw-black mb-0">{{ total_hours }}</h2>
+                <div class="small text-muted mt-1">ชั่วโมงทำงานรวม</div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="glass-card p-4 text-center">
+                <div class="stat-pill pill-green mb-3 mx-auto"><i class="fas fa-users"></i> Team Count</div>
+                <h2 class="fw-black mb-0">{{ tech_stats|length }}</h2>
+                <div class="small text-muted mt-1">จำนวนช่างสนาม</div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="glass-card p-4 text-center">
+                <div class="stat-pill pill-orange mb-3 mx-auto"><i class="fas fa-gas-pump"></i> Avg Cost</div>
+                <h2 class="fw-black mb-0">฿{% if total_sessions %}{% widthratio total_cost_all total_sessions 1 %}{% else %}0{% endif %}</h2>
+                <div class="small text-muted mt-1">ค่าใช้จ่ายเฉลี่ยต่องาน</div>
             </div>
         </div>
     </div>
-    {% endwith %}
-    {% endif %}
 
-    <!-- Analytics Charts Row -->
+    <!-- Grouped Charts Row (Team Comparison) -->
     <div class="row g-4 mb-5">
         <div class="col-lg-8">
             <div class="glass-card p-4 h-100">
                 <div class="d-flex justify-content-between align-items-center mb-4">
-                    <h5 class="fw-bold mb-0"><i class="fas fa-chart-radar me-2 text-indigo-500"></i>Performance Radar Analysis</h5>
-                    <div class="small text-muted">เปรียบเทียบสัดส่วนประสิทธิภาพ</div>
+                    <h5 class="fw-bold mb-0">
+                        <i class="fas fa-chart-bar me-2 text-indigo-500"></i>
+                        Efficiency Comparison Dashboard (Jobs vs Cost)
+                    </h5>
+                    <div class="small text-muted">จัดเรียงตามลำดับประสิทธิภาพ</div>
                 </div>
-                <div class="chart-container">
-                    <canvas id="radarChart"></canvas>
+                <div class="chart-container" style="height:350px;">
+                    <canvas id="barChart"></canvas>
                 </div>
             </div>
         </div>
         <div class="col-lg-4">
             <div class="glass-card p-4 h-100">
-                <h5 class="fw-bold mb-4"><i class="fas fa-chart-pie me-2 text-emerald-500"></i>Job Allocation</h5>
-                <div class="chart-container">
-                    <canvas id="doughnutChart"></canvas>
+                <h5 class="fw-bold mb-4"><i class="fas fa-chart-line me-2 text-emerald-500"></i>Hours Distribution</h5>
+                <div class="chart-container" style="height:350px;">
+                    <canvas id="hoursRadar"></canvas>
                 </div>
             </div>
         </div>
@@ -385,58 +364,69 @@
 document.addEventListener('DOMContentLoaded', function() {
     const summaryData = JSON.parse(document.getElementById('ai-summary-data').textContent);
     
-    // 1. Radar Chart (Efficiency)
+    // 1. Bar Chart (Comparison)
     const techNames = summaryData.technicians.map(t => t.name);
-    const scores = summaryData.technicians.map(t => t.efficiency_score);
-    const jobCounts = summaryData.technicians.map(t => t.sessions * 5); // Normalized for scale
+    const jobCounts = summaryData.technicians.map(t => t.sessions);
+    const totalHours = summaryData.technicians.map(t => t.hours);
+    const effScores = summaryData.technicians.map(t => t.efficiency_score);
+    const fuelCosts = summaryData.technicians.map(t => parseFloat(t.fuel_cost));
     
-    const radarCtx = document.getElementById('radarChart').getContext('2d');
+    const barCtx = document.getElementById('barChart').getContext('2d');
+    new Chart(barCtx, {
+        type: 'bar',
+        data: {
+            labels: techNames,
+            datasets: [
+                {
+                    label: 'Job Count (งาน)',
+                    data: jobCounts,
+                    backgroundColor: 'rgba(99, 102, 241, 0.8)',
+                    borderRadius: 8,
+                },
+                {
+                    label: 'Total Hours (ชม.)',
+                    data: totalHours,
+                    backgroundColor: 'rgba(16, 185, 129, 0.8)',
+                    borderRadius: 8,
+                },
+                {
+                    label: 'Efficiency (%)',
+                    data: effScores,
+                    backgroundColor: 'rgba(245, 158, 11, 0.8)',
+                    borderRadius: 8,
+                }
+            ]
+        },
+        options: {
+            maintainAspectRatio: false,
+            plugins: { legend: { position: 'bottom', labels: { usePointStyle: true, padding: 20 } } },
+            scales: { y: { beginAtZero: true, grid: { display: false } } }
+        }
+    });
+
+    // 2. Radar Chart (Hours Distribution)
+    const radarCtx = document.getElementById('hoursRadar').getContext('2d');
     new Chart(radarCtx, {
         type: 'radar',
         data: {
             labels: techNames,
             datasets: [{
-                label: 'Efficiency Score (%)',
-                data: scores,
+                label: 'Cost Weight (฿)',
+                data: fuelCosts.map(c => c / 10), // Scale relative to chart
                 fill: true,
-                backgroundColor: 'rgba(99, 102, 241, 0.2)',
-                borderColor: '#6366f1',
-                pointBackgroundColor: '#6366f1',
-                pointBorderColor: '#fff',
+                backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                borderColor: '#ef4444',
             }, {
-                label: 'Volume Index (Job x5)',
-                data: jobCounts,
+                label: 'Work Hours Distribution',
+                data: totalHours,
                 fill: true,
-                backgroundColor: 'rgba(16, 185, 129, 0.1)',
-                borderColor: '#10b981',
-                pointBackgroundColor: '#10b981',
+                backgroundColor: 'rgba(139, 92, 246, 0.2)',
+                borderColor: '#8b5cf6',
             }]
         },
         options: {
             maintainAspectRatio: false,
-            scales: { r: { beginAtZero: true, max: 100 } },
-            plugins: { legend: { position: 'bottom' } }
-        }
-    });
-
-    // 2. Doughnut Chart (Task Types)
-    const typeLabels = summaryData.by_task_type.map(t => t.type);
-    const typeCounts = summaryData.by_task_type.map(t => t.count);
-    const doughnutCtx = document.getElementById('doughnutChart').getContext('2d');
-    new Chart(doughnutCtx, {
-        type: 'doughnut',
-        data: {
-            labels: typeLabels,
-            datasets: [{
-                data: typeCounts,
-                backgroundColor: ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'],
-                borderWidth: 0,
-                hoverOffset: 15
-            }]
-        },
-        options: {
-            maintainAspectRatio: false,
-            cutout: '70%',
+            scales: { r: { beginAtZero: true } },
             plugins: { legend: { position: 'bottom' } }
         }
     });

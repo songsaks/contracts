@@ -4763,7 +4763,7 @@ def work_summary_report(request):
 
     return render(request, "pms/work_summary_report.html", {
         "sessions": all_sessions, "total_sessions": len(all_sessions),
-        "total_hours": round(total_minutes/60,1),
+        "total_hours": round(total_minutes/60,1), "total_cost_all": round(sum(float(t['fuel_cost']) for t in tech_stats), 2),
         "tech_stats": tech_stats, "type_stats": type_stats, "team_stats": team_stats,
         "date_from_str": date_from_str, "date_to_str": date_to_str,
         "selected_user_id": uid_filter, "selected_task_type": task_type_filter,
