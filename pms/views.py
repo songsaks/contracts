@@ -3761,13 +3761,14 @@ def gps_daily_summary_send_to_chat(request):
         if t['gps_count'] > 0:
             map_url = f"/pms/gps-tracking/map-embed/{t['username']}/{report_date.isoformat()}/"
             uname_t = t['username']
+            img_url = f'/pms/gps-tracking/map-image/{uname_t}/{report_date.isoformat()}/'
             map_html = (
                 f'{SEP}'
                 f'<div style="font-size:0.75rem;font-weight:700;color:#94a3b8;letter-spacing:.05em;margin-bottom:6px;">'
                 f'🗺️ เส้นทางการเดินทาง ({t["gps_count"]} จุด)</div>'
-                f'<iframe src="{map_url}" '
-                f'style="width:100%;height:240px;border:none;border-radius:10px;display:block;" '
-                f'loading="lazy" title="แผนที่ {uname_t}"></iframe>'
+                f'<img src="{img_url}" '
+                f'style="width:100%;border-radius:10px;border:1px solid #e2e8f0;display:block;" '
+                f'alt="แผนที่ {uname_t}" loading="lazy"/>'
             )
 
         cards_html.append(
@@ -3970,7 +3971,34 @@ if (PTS.length === 0) {{
   }});
 
   if (lls.length > 1) {{
-    L.polyline(lls, {{color:'#3b82f6',weight:3,opacity:0.75,dashArray:'7,5'}}).addTo(map);
+    L.polyline(lls, {{color:'#3b82f6',weight:3,opacity:0.75}}).addTo(map);
+
+    // ── Directional arrows on each segment ────────────────────────────
+    function _addArrow(map, p1, p2) {{
+      var dy = p2[0] - p1[0];
+      var dx = p2[1] - p1[1];
+      var dist = Math.sqrt(dx*dx + dy*dy);
+      if (dist < 0.00015) return;  // too short
+      var mx = p1[0] + dy * 0.55;
+      var my = p1[1] + dx * 0.55;
+      // angle in degrees for CSS rotate (Leaflet lat/lng: north=up)
+      var angleDeg = Math.atan2(dx, dy) * 180 / Math.PI;
+      var arrowIcon = L.divIcon({{
+        html: '<div style="transform:rotate(' + angleDeg + 'deg);' +
+              'font-size:16px;line-height:1;color:#2563eb;' +
+              'text-shadow:0 0 3px white,0 0 3px white;' +
+              'display:flex;align-items:center;justify-content:center;' +
+              'width:18px;height:18px;margin:-9px 0 0 -9px;">▶</div>',
+        className: '',
+        iconSize: [18, 18],
+        iconAnchor: [9, 9],
+      }});
+      L.marker([mx, my], {{icon: arrowIcon, interactive: false}}).addTo(map);
+    }}
+
+    for (var i = 0; i < lls.length - 1; i++) {{
+      _addArrow(map, lls[i], lls[i+1]);
+    }}
   }}
 
   // Legend
@@ -3993,6 +4021,197 @@ if (PTS.length === 0) {{
 </body>
 </html>"""
     return HttpResponse(html, content_type='text/html; charset=utf-8')
+
+
+@login_required
+def gps_map_image(request, username, date_str):
+    """
+    Generate PNG map image of a technician's GPS route using OSM tiles + Pillow.
+    Returns image/png response — ใช้ใน <img src="..."> ในห้องแชทได้เลย
+    """
+    import math, io, requests as req_lib
+    from PIL import Image, ImageDraw, ImageFont
+    from django.http import HttpResponse, Http404
+    from .models import TechnicianGPSLog
+    from django.utils import timezone
+    from datetime import date
+
+    try:
+        report_date = date.fromisoformat(date_str)
+    except (ValueError, TypeError):
+        raise Http404
+
+    logs = TechnicianGPSLog.objects.filter(
+        user__username=username,
+        timestamp__date=report_date,
+    ).order_by('timestamp')
+
+    points = []
+    for log in logs:
+        lat = float(log.latitude)
+        lng = float(log.longitude)
+        if lat != 0 or lng != 0:
+            points.append((lat, lng, log.check_type))
+
+    if not points:
+        # Return simple placeholder image
+        img = Image.new('RGB', (560, 200), color='#f1f5f9')
+        draw = ImageDraw.Draw(img)
+        draw.text((200, 90), 'ไม่มีข้อมูล GPS', fill='#94a3b8')
+        buf = io.BytesIO()
+        img.save(buf, 'PNG')
+        return HttpResponse(buf.getvalue(), content_type='image/png')
+
+    # ── Map parameters ───────────────────────────────────────────────────────
+    IMG_W, IMG_H = 560, 240
+    TILE_SIZE    = 256
+
+    def deg2num(lat, lng, zoom):
+        lat_r = math.radians(lat)
+        n = 2 ** zoom
+        x = (lng + 180) / 360 * n
+        y = (1 - math.log(math.tan(lat_r) + 1 / math.cos(lat_r)) / math.pi) / 2 * n
+        return x, y
+
+    def num2deg(xtile, ytile, zoom):
+        n = 2 ** zoom
+        lng = xtile / n * 360 - 180
+        lat_r = math.atan(math.sinh(math.pi * (1 - 2 * ytile / n)))
+        return math.degrees(lat_r), lng
+
+    lats = [p[0] for p in points]
+    lngs = [p[1] for p in points]
+    lat_min, lat_max = min(lats), max(lats)
+    lng_min, lng_max = min(lngs), max(lngs)
+
+    # Auto zoom
+    def _zoom_for_extent(lat_min, lat_max, lng_min, lng_max, w, h):
+        for zoom in range(16, 9, -1):
+            x0, y0 = deg2num(lat_max, lng_min, zoom)
+            x1, y1 = deg2num(lat_min, lng_max, zoom)
+            px_w = (x1 - x0) * TILE_SIZE
+            px_h = (y1 - y0) * TILE_SIZE
+            if px_w <= w * 0.75 and px_h <= h * 0.75:
+                return zoom
+        return 12
+
+    if lat_min == lat_max and lng_min == lng_max:
+        zoom = 14
+    else:
+        zoom = _zoom_for_extent(lat_min, lat_max, lng_min, lng_max, IMG_W, IMG_H)
+
+    center_lat = (lat_min + lat_max) / 2
+    center_lng = (lng_min + lng_max) / 2
+    cx, cy = deg2num(center_lat, center_lng, zoom)
+
+    # Tile range to cover IMG_W x IMG_H
+    tiles_x = math.ceil(IMG_W / TILE_SIZE) + 2
+    tiles_y = math.ceil(IMG_H / TILE_SIZE) + 2
+
+    tile_x0 = int(cx) - tiles_x // 2
+    tile_y0 = int(cy) - tiles_y // 2
+
+    canvas_w = (tiles_x + 1) * TILE_SIZE
+    canvas_h = (tiles_y + 1) * TILE_SIZE
+    canvas = Image.new('RGB', (canvas_w, canvas_h), '#e2e8f0')
+
+    headers = {'User-Agent': 'PMS-GPS-Report/1.0 (internal app)'}
+    for tx in range(tile_x0, tile_x0 + tiles_x + 1):
+        for ty in range(tile_y0, tile_y0 + tiles_y + 1):
+            tile_url = f'https://tile.openstreetmap.org/{zoom}/{tx}/{ty}.png'
+            try:
+                r = req_lib.get(tile_url, headers=headers, timeout=4)
+                if r.status_code == 200:
+                    tile_img = Image.open(io.BytesIO(r.content)).convert('RGB')
+                    px = (tx - tile_x0) * TILE_SIZE
+                    py = (ty - tile_y0) * TILE_SIZE
+                    canvas.paste(tile_img, (px, py))
+            except Exception:
+                pass
+
+    # Offset so center of canvas = center of map
+    offset_x = canvas_w // 2 - int((cx - int(cx)) * TILE_SIZE) - (int(cx) - tile_x0) * TILE_SIZE
+    offset_y = canvas_h // 2 - int((cy - int(cy)) * TILE_SIZE) - (int(cy) - tile_y0) * TILE_SIZE
+
+    def latlon_to_px(lat, lng):
+        tx, ty = deg2num(lat, lng, zoom)
+        px = int((tx - tile_x0) * TILE_SIZE) + offset_x + (IMG_W // 2 - canvas_w // 2)
+        py = int((ty - tile_y0) * TILE_SIZE) + offset_y + (IMG_H // 2 - canvas_h // 2)
+        return px, py
+
+    # Crop to IMG_W x IMG_H centered
+    left  = canvas_w // 2 - IMG_W // 2 - offset_x
+    top   = canvas_h // 2 - IMG_H // 2 - offset_y
+    map_img = canvas.crop((left, top, left + IMG_W, top + IMG_H))
+
+    def _latlon_to_crop(lat, lng):
+        tx, ty = deg2num(lat, lng, zoom)
+        px = int((tx - tile_x0) * TILE_SIZE) - left
+        py = int((ty - tile_y0) * TILE_SIZE) - top
+        return px, py
+
+    draw = ImageDraw.Draw(map_img)
+
+    # ── Helper: draw directional arrow at midpoint of segment ────────────
+    def _draw_arrow(d, p1, p2, color, size=9):
+        x1, y1 = p1
+        x2, y2 = p2
+        seg_len = math.hypot(x2 - x1, y2 - y1)
+        if seg_len < 20:   # too short — skip
+            return
+        angle = math.atan2(y2 - y1, x2 - x1)
+        # Place arrow at 55% along the segment
+        mx = x1 + (x2 - x1) * 0.55
+        my = y1 + (y2 - y1) * 0.55
+        # Tip and base of arrowhead
+        tip   = (mx + math.cos(angle) * size,       my + math.sin(angle) * size)
+        perp  = angle + math.pi / 2
+        left  = (mx - math.cos(angle) * size * 0.6 + math.cos(perp) * size * 0.55,
+                 my - math.sin(angle) * size * 0.6 + math.sin(perp) * size * 0.55)
+        right = (mx - math.cos(angle) * size * 0.6 - math.cos(perp) * size * 0.55,
+                 my - math.sin(angle) * size * 0.6 - math.sin(perp) * size * 0.55)
+        d.polygon([tip, left, right], fill=color, outline='white')
+
+    # Draw polyline segments + directional arrows
+    px_pts = [_latlon_to_crop(p[0], p[1]) for p in points]
+    LINE_COLOR = (59, 130, 246)   # #3b82f6
+    if len(px_pts) > 1:
+        draw.line(px_pts, fill=LINE_COLOR, width=3)
+        for i in range(len(px_pts) - 1):
+            _draw_arrow(draw, px_pts[i], px_pts[i + 1], LINE_COLOR)
+
+    # Marker colors
+    TYPE_COLOR = {
+        'GO_WORK':     (37, 99, 235),
+        'ON_SITE':     (22, 163, 74),
+        'CHECK_IN':    (22, 163, 74),
+        'CHECK_OUT':   (220, 38, 38),
+        'BACK_OFFICE': (124, 58, 237),
+        'TRAVEL':      (100, 116, 139),
+    }
+
+    R = 8
+    for i, (lat, lng, ct) in enumerate(points, 1):
+        px, py = _latlon_to_crop(lat, lng)
+        color = TYPE_COLOR.get(ct, (100, 116, 139))
+        draw.ellipse([px - R, py - R, px + R, py + R], fill=color, outline='white', width=2)
+        try:
+            draw.text((px - 4, py - 6), str(i), fill='white')
+        except Exception:
+            pass
+
+    # Header bar
+    bar = Image.new('RGB', (IMG_W, 28), (30, 41, 59))
+    bar_draw = ImageDraw.Draw(bar)
+    bar_draw.text((10, 6), f'{username}  |  {report_date.strftime("%d/%m/")+str(report_date.year+543)}  |  {len(points)} จุด', fill='white')
+    final = Image.new('RGB', (IMG_W, IMG_H + 28))
+    final.paste(bar, (0, 0))
+    final.paste(map_img, (0, 28))
+
+    buf = io.BytesIO()
+    final.save(buf, 'PNG', optimize=True)
+    buf.seek(0)
+    return HttpResponse(buf.getvalue(), content_type='image/png')
 
 
 @login_required
