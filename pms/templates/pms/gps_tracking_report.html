@@ -64,7 +64,11 @@
             </div>
             <button id="live-toggle-btn" onclick="toggleLiveControl()" class="btn btn-sm btn-outline-danger rounded-pill px-4 fw-bold">Live: ON</button>
             {% endif %}
-            <button class="btn btn-sm btn-dark rounded-pill px-4 fw-bold" onclick="enterFullscreen()">ขยายจอ</button>
+            <button class="btn btn-sm btn-dark rounded-pill px-4 fw-bold" onclick="enterFullscreen()"><i class="fas fa-expand me-1"></i> ขยายจอ</button>
+            <div class="btn-group">
+                <a href="{% url 'pms:gps_daily_summary' %}" class="btn btn-primary btn-sm px-3 fw-bold"><i class="fas fa-file-invoice me-1"></i> ประเมินผลรายวัน</a>
+                <a href="{% url 'pms:gps_summary_report' %}" class="btn btn-outline-primary btn-sm px-3 fw-bold"><i class="fas fa-calendar-alt me-1"></i> รายงานรายเดือน</a>
+            </div>
         </div>
     </div>
 
