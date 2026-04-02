@@ -3735,8 +3735,12 @@ def gps_daily_summary_send_to_chat(request):
         time_row = ' → '.join(time_parts) if time_parts else 'ยังไม่ออกงาน'
         dur_badge = (f'<span style="background:#dbeafe;color:#1d4ed8;padding:2px 8px;border-radius:999px;'
                      f'font-size:0.8rem;font-weight:700;margin-left:6px;">⏱ {t["work_duration"]}</span>') if t['work_duration'] else ''
-        dist_badge = (f'<span style="background:#fff7ed;color:#d97706;padding:2px 8px;border-radius:999px;'
-                      f'font-size:0.8rem;font-weight:700;margin-left:6px;">🛣️ {t["total_dist"]} กม.</span>')
+        dist_badge = ''
+        if t['total_dist'] > 0:
+            fuel_liters = round(t['total_dist'] / 12.0, 2)
+            fuel_cost   = round(fuel_liters * 35.0, 2)
+            dist_badge = (f'<span style="background:#fff7ed;color:#d97706;padding:2px 8px;border-radius:999px;'
+                          f'font-size:0.8rem;font-weight:700;margin-left:6px;">🛣️ {t["total_dist"]} กม. ({fuel_liters}ล. · {fuel_cost}บ.)</span>')
 
         # ── Stats pills ───────────────────────────────────────────────
         vs = t['sat_counts']['VERY_SATISFIED']
