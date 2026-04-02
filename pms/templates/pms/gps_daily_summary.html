@@ -776,29 +776,30 @@ function _buildMap(username, containerId, isFullscreen) {
     if (latlngs.length > 1) {
         const polyline = L.polyline(latlngs, { color: '#2563eb', weight: 4, opacity: 0.7 }).addTo(map);
         
-        // Add directional arrows (safely and clearly)
-        try {
-            if (typeof L.polylineDecorator === 'function') {
-                L.polylineDecorator(polyline, {
-                    patterns: [
-                        { 
-                            offset: '10%', 
-                            repeat: '100px', 
-                            symbol: L.Symbol.arrowHead({
-                                pixelSize: 20, 
-                                polygon: true, 
-                                pathOptions: {
-                                    stroke: false,
-                                    fillOpacity: 1, 
-                                    color: '#1e3a8a'
-                                }
-                            })
-                        }
-                    ]
-                }).addTo(map);
-            }
-        } catch (e) {
-            console.error("PolylineDecorator error:", e);
+        // Manual Arrow Heads (Native Leaflet - 100% Reliable)
+        for (let i = 0; i < latlngs.length - 1; i++) {
+            const p1 = latlngs[i];
+            const p2 = latlngs[i + 1];
+            
+            // Calculate midpoint
+            const mid = [(p1[0] + p2[0]) / 2, (p1[1] + p2[1]) / 2];
+            
+            // Calculate angle for icon rotation
+            const dy = p2[0] - p1[0];
+            const dx = p2[1] - p1[1];
+            const angle = Math.atan2(dy, dx) * 180 / Math.PI;
+            
+            // Draw arrow using div icon
+            const arrowIcon = L.divIcon({
+                html: `<div style="transform: rotate(${90 - angle}deg); color:#1e40af; font-size:24px; line-height:1; font-weight:bold; display:flex; align-items:center; justify-content:center; opacity:0.9;">
+                        <i class="fas fa-caret-up"></i>
+                       </div>`,
+                className: '',
+                iconSize: [24, 24],
+                iconAnchor: [12, 12]
+            });
+            
+            L.marker(mid, { icon: arrowIcon, interactive: false }).addTo(map);
         }
     }
 
