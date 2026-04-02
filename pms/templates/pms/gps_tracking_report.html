@@ -6,59 +6,55 @@
 <!-- Leaflet CSS -->
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <style>
-    #map { height: 600px; border-radius: 1rem; border: 1px solid #e2e8f0; transition: all 0.3s ease; }
-    .timeline-item { border-left: 3px solid #3b82f6; padding-left: 1rem; position: relative; margin-bottom: 1rem; }
+    #map { height: 650px; border-radius: 1.25rem; border: 1px solid #e2e8f0; transition: all 0.3s ease; box-shadow: inset 0 2px 4px rgba(0,0,0,0.05); }
+    .timeline-item { border-left: 3px solid #3b82f6; padding-left: 1rem; position: relative; margin-bottom: 1rem; cursor: pointer; transition: all 0.2s; }
+    .timeline-item:hover { background: rgba(59,130,246,0.05); border-radius: 0 8px 8px 0; }
     .timeline-item::before { content: ''; position: absolute; left: -7px; top: 4px; width: 11px; height: 11px; border-radius: 50%; background: #3b82f6; border: 2px solid white; box-shadow: 0 0 0 2px #3b82f6; }
+    
     .timeline-item.check-in   { border-color: #22c55e; }  .timeline-item.check-in::before   { background: #22c55e; box-shadow: 0 0 0 2px #22c55e; }
     .timeline-item.check-out  { border-color: #ef4444; }  .timeline-item.check-out::before  { background: #ef4444; box-shadow: 0 0 0 2px #ef4444; }
     .timeline-item.travel     { border-color: #f59e0b; }  .timeline-item.travel::before     { background: #f59e0b; box-shadow: 0 0 0 2px #f59e0b; }
     .timeline-item.on-site    { border-color: #3b82f6; }  .timeline-item.on-site::before    { background: #3b82f6; box-shadow: 0 0 0 2px #3b82f6; }
-    .tech-tab { cursor: pointer; transition: all 0.2s; min-width: 100px; }
-    .tech-tab.active { background: #3b82f6 !important; color: white !important; border-color: #3b82f6 !important; box-shadow: 0 4px 12px rgba(59,130,246,0.3); }
-    .timeline-item[data-lat] { cursor: pointer; transition: background 0.15s; }
-    .timeline-item[data-lat]:hover { background: rgba(59,130,246,0.06); border-radius: 0 0.5rem 0.5rem 0; }
-    
-    /* Fullscreen Map Styles */
-    .fullscreen-map {
-        position: fixed !important;
-        top: 0; left: 0; right: 0; bottom: 0;
-        width: 100% !important;
-        height: 100% !important;
-        z-index: 9999 !important;
-        margin: 0 !important;
-        border-radius: 0 !important;
-    }
+
+    .tech-tab { min-width: 100px; font-weight: 600; border-radius: 50px !important; }
+    .tech-tab.active { background: #3b82f6 !important; color: white !important; box-shadow: 0 4px 12px rgba(59,130,246,0.4); }
+
+    /* Fullscreen Map */
+    .fullscreen-map { position: fixed !important; top: 0; left: 0; right: 0; bottom: 0; width: 100% !important; height: 100% !important; z-index: 9999 !important; border-radius: 0 !important; }
     .fullscreen-btn-exit { display: none; }
-    .fullscreen-map .fullscreen-btn-exit { display: block; position: absolute; top: 20px; right: 20px; z-index: 10000; }
+    .fullscreen-map .fullscreen-btn-exit { display: block; position: absolute; top: 25px; right: 25px; z-index: 10001; }
     .fullscreen-map .fullscreen-btn-enter { display: none; }
 
-    /* Pulsing marker for latest position */
+    /* Latest Label & Pulse */
     @keyframes pulse-latest {
         0% { transform: scale(1); opacity: 1; }
-        50% { transform: scale(1.4); opacity: 0.5; }
+        50% { transform: scale(1.3); opacity: 0.6; }
         100% { transform: scale(1); opacity: 1; }
     }
-    .marker-pulse {
-        animation: pulse-latest 2s infinite ease-in-out;
-        border: 3px solid white !important;
+    .marker-pulse { animation: pulse-latest 2s infinite ease-in-out; border: 3px solid white !important; }
+    
+    /* High Visibility Label */
+    .latest-user-label {
+        background: #2563eb !important;
+        color: #ffffff !important;
+        padding: 4px 12px !important;
+        border-radius: 20px !important;
+        font-weight: 800 !important;
+        font-size: 14px !important;
+        white-space: nowrap !important;
+        border: 2px solid #ffffff !important;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.4) !important;
+        position: absolute !important;
+        top: -45px !important;
+        left: 50% !important;
+        transform: translateX(-50%) !important;
     }
-    .latest-label {
-        background: #3b82f6;
-        color: white;
-        border: 2px solid white;
-        border-radius: 12px;
-        padding: 2px 10px;
-        font-weight: 700;
-        font-size: 0.85rem;
-        white-space: nowrap;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-        z-index: 1000;
-    }
-    /* Ensure Leaflet doesn't clip our labels */
-    .leaflet-div-icon {
-        background: transparent !important;
-        border: none !important;
-        overflow: visible !important;
+
+    .leaflet-div-icon { background: none !important; border: none !important; overflow: visible !important; }
+    
+    /* Marker Label for regular points */
+    .marker-id-label {
+        background: white; border: 1px solid #ccc; padding: 1px 4px; border-radius: 4px; font-size: 10px; font-weight: bold; position: absolute; bottom: -15px; left: 50%; transform: translateX(-50%); white-space: nowrap;
     }
 </style>
 {% endblock %}
@@ -66,151 +62,96 @@
 {% block content %}
 <div class="container-fluid px-4 py-4">
 
-    <!-- ส่วนหัวหน้าจอรายงาน GPS (GPS Report Header) -->
+    <!-- Header -->
     <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-3">
         <div>
-            <h3 class="fw-bold mb-1"><i class="fas fa-map-marked-alt me-2 text-primary"></i>GPS Tracking Report</h3>
-            <p class="text-muted mb-0 small">รายงานเส้นทางการปฏิบัติงานของช่างภาคสนาม</p>
+            <h3 class="fw-bold mb-1"><i class="fas fa-map-marked-alt me-2 text-primary"></i>Team Real-time Monitor</h3>
+            <p class="text-muted mb-0 small">ติดตามตำแหน่งทีมช่างเทคนิคแบบเรียลไทม์บนแผนที่</p>
         </div>
-        <div class="d-flex gap-2 align-items-center">
+        <div class="d-flex gap-2">
             {% if report_date == today %}
-            <button id="live-btn" onclick="toggleLive()" class="btn btn-sm btn-outline-danger rounded-pill px-3">
-                <i class="fas fa-circle me-1" style="font-size:0.6rem;"></i> Live
+            <button id="live-btn" onclick="toggleLive()" class="btn btn-sm btn-outline-danger rounded-pill px-4 fw-bold">
+                <i class="fas fa-circle me-1 small"></i> Live
             </button>
-            <span id="live-status" style="display:none; font-size:0.75rem; color:#ef4444;">
-                <i class="fas fa-spinner fa-spin me-1"></i> กำลังติดตาม...
+            <span id="live-status" style="display:none; font-size:0.75rem; color:#dc2626;" class="mt-1">
+                <i class="fas fa-spinner fa-spin me-1"></i> Tracking...
             </span>
             {% endif %}
-            <a href="{% url 'pms:gps_daily_summary' %}" class="btn btn-outline-success btn-sm rounded-pill px-3">
-                <i class="fas fa-clipboard-list me-1"></i> สรุปรายวัน
-            </a>
-            <a href="{% url 'pms:gps_summary_report' %}" class="btn btn-outline-primary btn-sm rounded-pill px-3">
-                <i class="fas fa-calendar-alt me-1"></i> รายงานสรุปรายเดือน
-            </a>
             <a href="{% url 'pms:dashboard' %}" class="btn btn-outline-secondary btn-sm rounded-pill px-3">
-                <i class="fas fa-arrow-left me-1"></i> กลับ Dashboard
+                <i class="fas fa-arrow-left me-1"></i> Dashboard
             </a>
         </div>
     </div>
 
-    <!-- ส่วนตัวกรองข้อมูล (Filter Bar Section) -->
+    <!-- Stats & Filters -->
     <div class="card border-0 shadow-sm rounded-4 mb-4">
-        <div class="card-body p-3">
-            <form method="get" class="d-flex flex-wrap gap-3 align-items-end">
+        <div class="card-body p-3 d-flex flex-wrap align-items-center justify-content-between gap-3">
+            <form method="get" class="d-flex gap-2 align-items-end">
                 <div>
-                    <label class="form-label small text-muted mb-1">วันที่</label>
-                    <input type="date" name="date" value="{{ report_date|date:'Y-m-d' }}" class="form-control form-control-sm rounded-3" style="width:160px;">
+                    <label class="small text-muted mb-1 d-block">เลือกวันที่</label>
+                    <input type="date" name="date" value="{{ report_date|date:'Y-m-d' }}" class="form-control form-control-sm rounded-4" style="width:160px;">
                 </div>
-                {% if request.user.is_superuser or request.user.is_staff %}
-                <div>
-                    <label class="form-label small text-muted mb-1">ช่างเทคนิค</label>
-                    <select name="user_id" class="form-select form-select-sm rounded-3" style="width:180px;">
-                        <option value="">— ทุกคน —</option>
-                        {% for tech in technicians %}
-                        <option value="{{ tech.id }}" {% if selected_user_id == tech.id|stringformat:"s" %}selected{% endif %}>{{ tech.get_full_name|default:tech.username }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-                {% endif %}
-                <button type="submit" class="btn btn-primary btn-sm rounded-pill px-4">
-                    <i class="fas fa-search me-1"></i> ดูรายงาน
-                </button>
-                {% if report_date != today %}
-                <a href="?date={{ today|date:'Y-m-d' }}" class="btn btn-outline-secondary btn-sm rounded-pill px-3">วันนี้</a>
-                {% endif %}
+                <button type="submit" class="btn btn-primary btn-sm rounded-pill px-3">ตกลง</button>
+                {% if report_date != today %}<a href="?date={{ today|date:'Y-m-d' }}" class="btn btn-outline-primary btn-sm rounded-pill px-3">กลับไปวันนี้</a>{% endif %}
             </form>
+            
+            <div class="d-flex align-items-center gap-3">
+                <div class="form-check form-switch mb-0">
+                    <input class="form-check-input" type="checkbox" id="toggle-latest-only" onchange="refreshMap(mapData)" checked>
+                    <label class="form-check-label small fw-bold" for="toggle-latest-only">แสดงเฉพาะจุดล่าสุด</label>
+                </div>
+                <button class="btn btn-sm btn-secondary rounded-pill px-3" onclick="toggleFullscreen(true)">
+                    <i class="fas fa-expand me-1"></i> ขยายจอ
+                </button>
+            </div>
         </div>
     </div>
 
     {% if grouped %}
-
-    <!-- Tech Tabs (when multiple technicians) -->
+    <!-- Tabs -->
     <div class="d-flex flex-wrap gap-2 mb-3" id="tech-tabs">
-        <button class="btn btn-sm btn-outline-primary rounded-pill tech-tab active" data-tech="all" onclick="showTech('all', this)">
-            <i class="fas fa-users me-1"></i> ทั้งหมด
+        <button class="btn btn-sm btn-outline-primary tech-tab active" data-tech="all" onclick="showTech('all', this)">
+            <i class="fas fa-users me-1"></i> ทั้งหมด ({{ grouped|length }})
         </button>
         {% for username, user_logs in grouped.items %}
-        <button class="btn btn-sm btn-outline-primary rounded-pill tech-tab" data-tech="{{ username }}" onclick="showTech('{{ username }}', this)">
-            <i class="fas fa-user-hard-hat me-1"></i> {{ username }}
-            <span class="badge bg-primary bg-opacity-20 text-primary ms-1">{{ user_logs|length }}</span>
+        <button class="btn btn-sm btn-outline-primary tech-tab" data-tech="{{ username }}" onclick="showTech('{{ username }}', this)">
+            {{ username }} <span class="badge bg-primary bg-opacity-10 text-primary ms-1">{{ user_logs|length }}</span>
         </button>
         {% endfor %}
     </div>
 
     <div class="row g-4">
-        <!-- ส่วนแผนที่ (Map Visualization Section) -->
         <div class="col-lg-9">
-            <div class="card border-0 shadow-sm rounded-4 h-100">
-                <div class="card-header bg-white border-0 pt-3 pb-0 px-4 d-flex justify-content-between align-items-center">
-                    <h6 class="fw-bold mb-0"><i class="fas fa-map me-2 text-primary"></i>แผนที่ติดตามทีมแบบ Real-time</h6>
-                    <div class="d-flex gap-2">
-                        <div class="form-check form-switch mt-1">
-                            <input class="form-check-input" type="checkbox" id="toggle-latest-only" onchange="refreshCurrentView()">
-                            <label class="form-check-label small fw-semibold" for="toggle-latest-only">แสดงเฉพาะจุดล่าสุด</label>
-                        </div>
-                        <button class="btn btn-sm btn-light border rounded-pill px-3 fullscreen-btn-enter" onclick="toggleFullscreen(true)">
-                            <i class="fas fa-expand me-1"></i> ขยายจอ
-                        </button>
-                    </div>
-                </div>
-                <div class="card-body px-3 pb-3 position-relative">
-                    <button class="btn btn-dark btn-sm rounded-pill px-3 shadow fullscreen-btn-exit" onclick="toggleFullscreen(false)">
-                        <i class="fas fa-compress me-1"></i> ย่อขนาด
-                    </button>
+            <div class="card border-0 shadow-sm rounded-4 h-100 position-relative">
+                <button class="btn btn-dark btn-sm rounded-pill px-3 fullscreen-btn-exit shadow" onclick="toggleFullscreen(false)">
+                    <i class="fas fa-compress me-1"></i> ย่อขนาด
+                </button>
+                <div class="card-body p-2">
                     <div id="map"></div>
-                    <div class="mt-2 d-flex flex-wrap gap-3" style="font-size:0.75rem;">
-                        <span><span class="badge rounded-pill" style="background:#22c55e">&nbsp;</span> เริ่มงาน</span>
-                        <span><span class="badge rounded-pill" style="background:#3b82f6">&nbsp;</span> ที่หน้างาน</span>
-                        <span><span class="badge rounded-pill" style="background:#f59e0b">&nbsp;</span> เดินทาง</span>
-                        <span><span class="badge rounded-pill" style="background:#ef4444">&nbsp;</span> เสร็จงาน</span>
-                        <span><i class="fas fa-user-circle text-primary"></i> ช่างเทคนิคปัจจุบัน</span>
-                    </div>
                 </div>
             </div>
         </div>
 
-        <!-- ส่วนไทม์ไลน์เหตุการณ์ (Timeline Panel Section) -->
+        <!-- Timeline -->
         <div class="col-lg-3">
             <div class="card border-0 shadow-sm rounded-4 h-100">
-                <div class="card-header bg-white border-0 pt-3 pb-0 px-4">
-                    <h6 class="fw-bold mb-0"><i class="fas fa-clock me-2 text-primary"></i>Timeline การปฏิบัติงาน</h6>
+                <div class="card-header bg-white border-0 pt-3 px-4 fw-bold text-primary">
+                    <i class="fas fa-history me-2"></i>Timeline รายงาน GPS
                 </div>
-                <div class="card-body px-4 pb-3" style="max-height:500px; overflow-y:auto;">
+                <div id="timeline-container" class="card-body px-4 pb-3" style="max-height:580px; overflow-y:auto;">
                     {% for username, user_logs in grouped.items %}
-                    <div class="tech-section mb-3" data-tech="{{ username }}">
-                        <div class="fw-bold text-primary mb-2 small"><i class="fas fa-user-hard-hat me-1"></i>{{ username }}</div>
+                    <div class="tech-timeline-group mb-3" data-tech="{{ username }}">
+                        <div class="fw-bold text-secondary mb-2 small border-bottom pb-1">{{ username }}</div>
                         {% for log in user_logs %}
                         <div class="timeline-item {% if log.check_type == 'CHECK_IN' %}check-in{% elif log.check_type == 'CHECK_OUT' %}check-out{% elif log.check_type == 'TRAVEL' %}travel{% else %}on-site{% endif %}"
                              data-lat="{{ log.latitude }}" data-lon="{{ log.longitude }}"
-                             data-user="{{ log.user.username }}" data-idx="{{ forloop.counter0 }}"
-                             title="คลิกเพื่อดูตำแหน่งบนแผนที่"
-                             onclick="if(!event.target.closest('form'))gpsGoTo(this)">
-                            <div class="d-flex justify-content-between align-items-start">
-                                <div>
-                                    <div class="fw-bold" style="font-size:0.8rem;">{{ log.get_check_type_display }}</div>
-                                    <div class="text-muted" style="font-size:0.72rem;">{{ log.location_name|default:"ไม่ระบุชื่อ" }}</div>
-                                    <div style="font-size:0.62rem;font-family:monospace;color:#94a3b8;margin-top:1px;">
-                                        <i class="fas fa-crosshairs" style="font-size:0.55rem;"></i> {{ log.latitude }}, {{ log.longitude }}
-                                    </div>
-                                    {% if log.queue_item %}
-                                    <div class="badge bg-primary bg-opacity-10 text-primary mt-1" style="font-size:0.65rem;">
-                                        <i class="fas fa-briefcase me-1"></i>{{ log.queue_item.project.name|truncatechars:25 }}
-                                    </div>
-                                    {% endif %}
-                                    {% if log.notes %}
-                                    <div class="text-muted mt-1" style="font-size:0.7rem;"><i class="fas fa-comment-alt me-1"></i>{{ log.notes }}</div>
-                                    {% endif %}
-                                </div>
-                                <div class="text-end">
-                                    <div class="fw-bold text-muted" style="font-size:0.8rem;">{{ log.timestamp|date:"H:i" }}</div>
-                                    {% if request.user.is_staff or request.user == log.user %}
-                                    <form action="{% url 'pms:gps_log_delete' log.pk %}" method="post" class="d-inline mt-1" onsubmit="return confirm('ลบ GPS log นี้?')">
-                                        {% csrf_token %}
-                                        <button type="submit" class="btn btn-link btn-sm text-danger p-0" style="font-size:0.65rem;">ลบ</button>
-                                    </form>
-                                    {% endif %}
-                                </div>
+                             data-user="{{ username }}" data-idx="{{ forloop.counter0 }}"
+                             onclick="zoomToMarker('{{ username }}', {{ forloop.counter0 }})">
+                            <div class="d-flex justify-content-between">
+                                <span class="fw-bold" style="font-size:0.8rem;">{{ log.get_check_type_display }}</span>
+                                <span class="text-muted small">{{ log.timestamp|date:"H:i" }}</span>
                             </div>
+                            <div class="text-muted small text-truncate" style="font-size:0.7rem;">{{ log.location_name|default:"จุดพิกัด" }}</div>
                         </div>
                         {% endfor %}
                     </div>
@@ -219,230 +160,180 @@
             </div>
         </div>
     </div>
-
-    <!-- ส่วนสรุปสถิติรายบุคคล (Individual Summary Stats Section) -->
-    <div class="row g-3 mt-2">
-        {% for username, user_logs in grouped.items %}
-        <div class="col-md-4 col-sm-6 tech-section" data-tech="{{ username }}">
-            <div class="card border-0 shadow-sm rounded-4 p-3">
-                <div class="d-flex align-items-center gap-3">
-                    <div class="bg-primary bg-opacity-10 p-3 rounded-3 text-primary">
-                        <i class="fas fa-user-hard-hat fa-lg"></i>
-                    </div>
-                    <div>
-                        <div class="fw-bold">{{ username }}</div>
-                        <div class="text-muted small">{{ user_logs|length }} check-ins วันนี้</div>
-                        <div class="text-muted" style="font-size:0.72rem;">
-                            {% with first=user_logs.0 last=user_logs|last %}
-                            {% if first %}เริ่ม {{ first.timestamp|date:"H:i" }}{% endif %}
-                            {% if last and user_logs|length > 1 %} — สิ้นสุด {{ last.timestamp|date:"H:i" }}{% endif %}
-                            {% endwith %}
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        {% endfor %}
-    </div>
-
-
     {% else %}
     <div class="card border-0 shadow-sm rounded-4 p-5 text-center">
-        <i class="fas fa-map-marker-slash fa-3x text-muted mb-3 opacity-25"></i>
-        <h5 class="text-muted">ไม่มีข้อมูล GPS สำหรับวันที่ {{ report_date|date:"d M Y" }}</h5>
-        <p class="small text-muted">ช่างเทคนิคต้องกดเช็คอิน GPS ในห้องแชทเพื่อให้ข้อมูลปรากฏที่นี่</p>
+        <i class="fas fa-map-marker-slash fa-3x text-muted opacity-25 mb-3"></i>
+        <h5 class="text-muted">ไม่พบข้อมูลพิกัดในวันที่เลือก</h5>
     </div>
     {% endif %}
-
 </div>
 
 {{ map_data_json|json_script:"map-data" }}
 {% endblock %}
 
 {% block extra_js %}
-<!-- Leaflet JS -->
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-// ออกทันทีถ้าไม่มี #map (ไม่มีข้อมูล GPS)
 if (!document.getElementById('map')) { throw new Error('no-map'); }
 
 const mapData = JSON.parse(document.getElementById('map-data').textContent);
 const techList = Object.keys(mapData);
+const techColors = ['#2563eb','#dc2626','#16a34a','#ea580c','#9333ea','#0891b2','#4f46e5','#e11d48'];
 const typeColors = { 'CHECK_IN':'#22c55e', 'ON_SITE':'#3b82f6', 'TRAVEL':'#f59e0b', 'CHECK_OUT':'#ef4444' };
-const techColorPool = ['#3b82f6','#ef4444','#22c55e','#f59e0b','#8b5cf6','#ec4899','#14b8a6','#f97316'];
 const techColorMap = {};
-techList.forEach((name, i) => { techColorMap[name] = techColorPool[i % techColorPool.length]; });
-let colorIdx = techList.length;
+techList.forEach((name, i) => { techColorMap[name] = techColors[i % techColors.length]; });
 
-// สร้างแผนที่
+// Setup Map
 var map = L.map('map').setView([7.5664, 100.0674], 10);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap', maxZoom: 19 }).addTo(map);
 
-var allMarkers = [];
-var allPolylines = [];
-var techLayers = {};
+var markersRegistry = {}; // { username: [L.Marker, ...] }
+var polylineRegistry = {}; // { username: L.Polyline }
 
-// Helper: สร้างมาร์เกอร์ปกติ
-function createMarker(point, color, label) {
-    const initial = label.split(' ')[0].charAt(0).toUpperCase();
-    const icon = L.divIcon({
-        className: 'leaflet-div-icon',
-        html: `<div style="background:${color};width:26px;height:26px;border-radius:50%;border:2px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;color:white;font-size:0.75rem;font-weight:700;">${initial}</div>`,
-        iconSize: [26, 26], iconAnchor: [13, 13], popupAnchor: [0, -16]
-    });
-    const popupHtml = `<div style="min-width:160px;"><b>${label}</b><br><small>${point.check_type}</small><br><small>⏲️ ${point.time}</small></div>`;
-    return L.marker([point.lat, point.lng], { icon: icon }).bindPopup(popupHtml);
+function createMarker(username, point, index, isLatest) {
+    const color = techColorMap[username] || '#333';
+    let icon;
+    
+    if (isLatest) {
+        icon = L.divIcon({
+            className: 'custom-div-icon',
+            html: `<div class="marker-pulse" style="background:${color};width:40px;height:40px;border-radius:50%;border:3px solid white;box-shadow:0 0 15px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;">
+                    <i class="fas fa-user-hard-hat" style="color:white;font-size:1.2rem;"></i>
+                   </div>
+                   <div class="latest-user-label">${username}</div>`,
+            iconSize: [40, 40], iconAnchor: [20, 20], popupAnchor: [0, -45]
+        });
+    } else {
+        const initial = username.charAt(0).toUpperCase();
+        icon = L.divIcon({
+            className: 'custom-div-icon',
+            html: `<div style="background:${color};width:24px;height:24px;border-radius:50%;border:2px solid white;box-shadow:0 2px 5px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;color:white;font-size:0.7rem;font-weight:bold;">${initial}</div>
+                   <div class="marker-id-label">${index+1}</div>`,
+            iconSize: [24, 24], iconAnchor: [12, 12], popupAnchor: [0, -15]
+        });
+    }
+
+    const popupHtml = `
+        <div style="min-width:180px;">
+            <div style="font-weight:bold; border-bottom:1px solid #eee; padding-bottom:5px; margin-bottom:5px;">${username}</div>
+            <div class="small"><b>ประเภท:</b> ${point.check_type}</div>
+            <div class="small"><b>สถานที่:</b> ${point.location_name || '-'}</div>
+            <div class="small"><b>เวลา:</b> ${point.time}</div>
+            <div class="small"><b>งาน:</b> ${point.job || '-'}</div>
+        </div>
+    `;
+    return L.marker([point.lat, point.lng], { icon: icon, zIndexOffset: isLatest ? 2000 : 100 }).bindPopup(popupHtml);
 }
 
-// Helper: สร้างมาร์เกอร์พิเศษ (ล่าสุด - มีชื่อติดถาวร)
-function createLatestMarker(point, color, username) {
-    const icon = L.divIcon({
-        className: 'leaflet-div-icon',
-        html: `<div class="marker-pulse" style="background:${color};width:38px;height:38px;border-radius:50%;border:3px solid white;box-shadow:0 3px 12px rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;">
-                <i class="fas fa-user-hard-hat" style="color:white;font-size:1.1rem;"></i>
-               </div>
-               <div class="latest-label" style="position:absolute;top:-35px;left:50%;transform:translateX(-50%);">${username}</div>`,
-        iconSize: [38, 38], iconAnchor: [19, 19], popupAnchor: [0, -40]
-    });
-    const popupHtml = `<div style="min-width:180px;"><b>👷 ${username} (ล่าสุด)</b><br><small>${point.check_type}</small><br><small>📍 ${point.location_name}</small><br><small>⏲️ ${point.time}</small></div>`;
-    return L.marker([point.lat, point.lng], { icon: icon, zIndexOffset: 2000 }).bindPopup(popupHtml);
-}
+function refreshMap(data) {
+    const showOnlyLatest = document.getElementById('toggle-latest-only').checked;
+    const activeTech = document.querySelector('.tech-tab.active').dataset.tech;
 
-// ฟังก์ชันวาดแผนที่หลัก
-function refreshMap(newMapData) {
-    const latestOnlyToggle = document.getElementById('toggle-latest-only');
-    const latestOnly = latestOnlyToggle ? latestOnlyToggle.checked : false;
-    const activeTab = document.querySelector('.tech-tab.active');
-    const currentTab = activeTab ? activeTab.dataset.tech : 'all';
-    
-    // ล้างข้อมูลเดิม
-    if (allMarkers) allMarkers.forEach(m => { if(map.hasLayer(m)) map.removeLayer(m); });
-    if (allPolylines) allPolylines.forEach(p => { if(map.hasLayer(p)) map.removeLayer(p); });
-    allMarkers = []; 
-    allPolylines = [];
-    
-    // รีเซ็ต layers เฉพาะ tech ที่มีใน newMapData
-    Object.keys(newMapData).forEach(name => { techLayers[name] = []; });
+    // Clear old layers
+    Object.values(markersRegistry).forEach(list => list.forEach(m => map.removeLayer(m)));
+    Object.values(polylineRegistry).forEach(p => map.removeLayer(p));
+    markersRegistry = {};
+    polylineRegistry = {};
 
-    // วาดใหม่
-    Object.keys(newMapData).forEach(username => {
-        const points = newMapData[username];
+    let allBounds = [];
+
+    Object.keys(data).forEach(username => {
+        const points = data[username];
         if (!points || points.length === 0) return;
         
-        // กรองตาม Tab ถ้าไม่ได้เลือก 'all'
-        const isTabVisible = (currentTab === 'all' || currentTab === username);
+        const isVisible = (activeTech === 'all' || activeTech === username);
+        markersRegistry[username] = [];
+        
+        // Draw Points
+        points.forEach((pt, idx) => {
+            const isLatest = (idx === points.length - 1);
+            if (showOnlyLatest && !isLatest) return;
 
-        if (!techColorMap[username]) {
-            techColorMap[username] = techColorPool[colorIdx++ % techColorPool.length];
-        }
-        const color = techColorMap[username];
+            if (pt.lat == 0 || pt.lng == 0) return;
 
-        points.forEach((pt, i) => {
-            const isLatest = (i === points.length - 1);
-            if (latestOnly && !isLatest) return;
-
-            const lat = parseFloat(pt.lat);
-            const lng = parseFloat(pt.lng);
-            if (isNaN(lat) || isNaN(lng) || (lat === 0 && lng === 0)) return;
-
-            let marker;
-            if (isLatest) {
-                marker = createLatestMarker({lat, lng, ...pt}, color, username);
-            } else {
-                marker = createMarker({lat, lng, ...pt}, (typeColors[pt.check_type_key] || color), `${username} #${i+1}`);
+            const marker = createMarker(username, pt, idx, isLatest);
+            if (isVisible) {
+                marker.addTo(map);
+                allBounds.push([pt.lat, pt.lng]);
             }
-            
-            if (isTabVisible) marker.addTo(map);
-            if (!techLayers[username]) techLayers[username] = [];
-            techLayers[username].push(marker);
-            allMarkers.push(marker);
+            markersRegistry[username].push(marker);
         });
 
-        if (isTabVisible && !latestOnly && points.length > 1) {
-            const latlngs = points.filter(p => parseFloat(p.lat) != 0).map(p => [parseFloat(p.lat), parseFloat(p.lng)]);
-            if (latlngs.length > 1) {
-                const poly = L.polyline(latlngs, { color, weight: 3, opacity: 0.7, dashArray: '6,4' }).addTo(map);
-                techLayers[username].push(poly);
-                allPolylines.push(poly);
+        // Draw Polyline
+        if (isVisible && !showOnlyLatest && points.length > 1) {
+            const path = points.filter(p => p.lat != 0).map(p => [p.lat, p.lng]);
+            if (path.length > 1) {
+                const poly = L.polyline(path, { color: techColorMap[username], weight: 3, opacity: 0.6, dashArray: '5,5' }).addTo(map);
+                polylineRegistry[username] = poly;
             }
         }
     });
 
-    // Auto-center (เฉพาะตัวที่แสดงบนแผนที่)
-    const visibleMarkers = allMarkers.filter(m => map.hasLayer(m));
-    if (visibleMarkers.length > 0) {
-        const group = L.featureGroup(visibleMarkers);
-        if (visibleMarkers.length === 1) {
-            map.setView(visibleMarkers[0].getLatLng(), 16);
-        } else {
-            map.fitBounds(group.getBounds().pad(0.3));
-        }
+    // Auto fit
+    if (allBounds.length > 0) {
+        map.fitBounds(allBounds, { padding: [50, 50], maxZoom: 16 });
     }
 }
 
-// Initial render
-refreshMap(mapData);
-
-// Timeline navigation
-function gpsGoTo(el) {
-    const lat = parseFloat(el.getAttribute('data-lat')), lon = parseFloat(el.getAttribute('data-lon'));
-    if (isNaN(lat) || isNaN(lon) || (lat === 0 && lon === 0)) return;
-    map.flyTo([lat, lon], 17);
-    document.getElementById('map').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+function zoomToMarker(username, index) {
+    const list = markersRegistry[username];
+    if (list && list[index]) {
+        const marker = list[index];
+        if (!map.hasLayer(marker)) return; // Marker obscured by filter
+        map.setView(marker.getLatLng(), 17);
+        marker.openPopup();
+        document.getElementById('map').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
 }
 
-// Tab filtering
-function showTech(techName, btn) {
+function showTech(name, btn) {
     document.querySelectorAll('.tech-tab').forEach(t => t.classList.remove('active'));
     btn.classList.add('active');
     
-    // Show/hide UI sections
-    document.querySelectorAll('.tech-section').forEach(sec => {
-        sec.style.display = (techName === 'all' || sec.dataset.tech === techName) ? '' : 'none';
+    // UI toggle
+    document.querySelectorAll('.tech-timeline-group').forEach(el => {
+        el.style.display = (name === 'all' || el.dataset.tech === name) ? 'block' : 'none';
     });
-
+    
     refreshMap(mapData);
 }
 
-// Fullscreen
-function toggleFullscreen(enter) {
-    const container = document.getElementById('map').closest('.card');
-    if (enter) container.classList.add('fullscreen-map'); else container.classList.remove('fullscreen-map');
-    map.invalidateSize();
-}
-
-function refreshCurrentView() {
-    if (liveTimer) fetchLiveData(); else refreshMap(mapData);
+function toggleFullscreen(on) {
+    const el = document.getElementById('map').closest('.card');
+    if (on) el.classList.add('fullscreen-map'); else el.classList.remove('fullscreen-map');
+    setTimeout(() => map.invalidateSize(), 300);
 }
 
 // Live Updates
 let liveTimer = null;
-function fetchLiveData() {
+function fetchLive() {
     fetch(`{% url 'pms:gps_live_data' %}?user_id={{ selected_user_id|default:'' }}`)
         .then(r => r.json())
-        .then(data => {
-            refreshMap(data.map_data);
-            document.getElementById('live-status').innerHTML = `<i class="fas fa-circle me-1 text-danger"></i> Live — ${new Date().toLocaleTimeString()}`;
+        .then(res => {
+            Object.assign(mapData, res.map_data); // Update existing mapData object
+            refreshMap(mapData);
+            document.getElementById('live-status').innerHTML = `<i class="fas fa-circle me-1"></i> Live: ${new Date().toLocaleTimeString()}`;
         });
 }
 
 function toggleLive() {
-    const btn = document.getElementById('live-btn'), status = document.getElementById('live-status');
+    const btn = document.getElementById('live-btn');
+    const status = document.getElementById('live-status');
     if (liveTimer) {
         clearInterval(liveTimer); liveTimer = null;
-        btn.className = 'btn btn-sm btn-outline-danger rounded-pill px-3';
-        btn.innerHTML = '<i class="fas fa-circle me-1"></i> Live';
+        btn.className = 'btn btn-sm btn-outline-danger rounded-pill px-4 fw-bold';
+        btn.innerHTML = '<i class="fas fa-circle me-1 small"></i> Live';
         status.style.display = 'none';
     } else {
-        btn.className = 'btn btn-sm btn-danger rounded-pill px-3';
-        btn.innerHTML = '<i class="fas fa-stop me-1"></i> หยุด Live';
+        btn.className = 'btn btn-sm btn-danger rounded-pill px-4 fw-bold';
+        btn.innerHTML = '<i class="fas fa-stop me-1 small"></i> Stop Live';
         status.style.display = 'inline';
-        fetchLiveData(); liveTimer = setInterval(fetchLiveData, 30000);
+        fetchLive(); liveTimer = setInterval(fetchLive, 30000);
     }
 }
 
-{% if report_date == today %}
-document.addEventListener('DOMContentLoaded', () => setTimeout(toggleLive, 500));
-{% endif %}
+// Initial Run
+refreshMap(mapData);
+{% if report_date == today %}setTimeout(toggleLive, 1000);{% endif %}
 </script>
 {% endblock %}
