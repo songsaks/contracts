@@ -239,12 +239,41 @@ function zoomToPoint(user, idx, el) {
     el.classList.add('active');
 
     const markerList = currentMarkers[user];
-    if (markerList && markerList[idx]) {
-        const marker = markerList[idx];
-        if (!map.hasLayer(marker)) marker.addTo(map);
-        map.flyTo(marker.getLatLng(), 17, { duration: 1.5 });
-        setTimeout(() => marker.openPopup(), 1600);
+    let marker = (markerList && markerList[idx]) ? markerList[idx] : null;
+
+    if (!marker) {
+        // Fallback: Read coordinates directly from the clicked timeline element
+        const lat = parseFloat(el.getAttribute('data-lat'));
+        const lon = parseFloat(el.getAttribute('data-lon'));
+        
+        if (isNaN(lat) || isNaN(lon) || (lat === 0 && lon === 0)) {
+            alert('ไม่พบข้อมูลพิกัดที่ถูกต้อง (ละลอง) ของจุดนี้');
+            return;
+        }
+
+        // Dynamically create the marker if it's missing from the cache
+        marker = L.marker([lat, lon], {
+            icon: makeIcon(user, idx, false), // fallback as historical
+            zIndexOffset: idx
+        });
+        
+        // Try to get time/type from UI text
+        const timeStr = el.querySelector('.badge') ? el.querySelector('.badge').innerText : '';
+        const typeStr = el.querySelector('span.fw-bold.small') ? el.querySelector('span.fw-bold.small').innerText : 'พิกัด';
+        
+        marker.bindPopup(`<b>${user}</b><br>${typeStr}<br>${timeStr}<br><small>${lat},${lon}</small>`);
+        
+        // Save to cache so we don't recreate it if clicked again
+        if (!currentMarkers[user]) currentMarkers[user] = [];
+        currentMarkers[user][idx] = marker;
     }
+
+    if (!map.hasLayer(marker)) {
+        marker.addTo(map);
+    }
+    
+    map.flyTo(marker.getLatLng(), 17, { duration: 1.5 });
+    setTimeout(() => marker.openPopup(), 1600);
 }
 
 function filterByUser(user, btn) {
