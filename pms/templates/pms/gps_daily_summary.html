@@ -366,8 +366,10 @@
             <div class="stat-card">
                 <div class="stat-icon" style="background:#fef3c7;">🛣️</div>
                 <div>
-                    <div class="stat-value" style="color:#d97706;">{{ total_dist_all }}<span style="font-size:0.8rem; font-weight:600;"> กม.</span></div>
-                    <div class="stat-label">ระยะเดินทางรวม</div>
+                    <div class="stat-value" style="color:#d97706; font-size:1.5rem;">{{ total_dist_all }}<span style="font-size:0.8rem; font-weight:600;"> กม.</span></div>
+                    <div class="stat-label">
+                        รวม {{ total_fuel_all }} ลิตร · <b>{{ total_cost_all }} บาท</b>
+                    </div>
                 </div>
             </div>
         </div>
@@ -414,7 +416,10 @@
                     <span class="status-pill pill-info"><i class="fas fa-clock me-1"></i>{{ tech.work_duration }}</span>
                     {% endif %}
                     <span class="status-pill pill-gray" style="background:#fff7ed; color:#d97706; border:1px solid #ffedd5;">
-                        <i class="fas fa-road me-1"></i>{{ tech.total_dist }} กม.
+                        <i class="fas fa-road me-1"></i>{{ tech.total_dist }} กม. 
+                        <span style="font-weight:400; font-size:0.75rem; margin-left:4px; opacity:0.8;">
+                            ({{ tech.fuel_liters }} ลิตร · {{ tech.fuel_cost }} บ.)
+                        </span>
                     </span>
                     {% if tech.go_work_time %}
                     <span class="status-pill pill-gray">🚀 {{ tech.go_work_time }}{% if tech.back_office_time %} → 🏢 {{ tech.back_office_time }}{% endif %}</span>

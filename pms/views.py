@@ -3443,6 +3443,10 @@ def gps_daily_summary(request):
             for i in range(len(valid_pts)-1):
                 total_dist += haversine(valid_pts[i][0], valid_pts[i][1], valid_pts[i+1][0], valid_pts[i+1][1])
 
+        # Fuel calculation (12 km/L, 35 THB/L)
+        fuel_liters = total_dist / 12.0
+        fuel_cost   = fuel_liters * 35.0
+
         tech_list.append({
             'username':               uname,
             'user_id':                c['user_id'],
@@ -3471,6 +3475,8 @@ def gps_daily_summary(request):
             'total_onsite_duration':  total_onsite_duration,
             'total_onsite_min':       total_onsite_min,
             'total_dist':             round(total_dist, 2),
+            'fuel_liters':            round(fuel_liters, 2),
+            'fuel_cost':              round(fuel_cost, 2),
         })
 
     # ── Summary stats ──────────────────────────────────────────────────
@@ -3478,6 +3484,8 @@ def gps_daily_summary(request):
     consistent_techs      = sum(1 for t in tech_list if t['consistent'])
     total_locations       = sum(t['on_site_count'] for t in tech_list)
     total_dist_all        = sum(t['total_dist'] for t in tech_list)
+    total_fuel_all        = sum(t['fuel_liters'] for t in tech_list)
+    total_cost_all        = sum(t['fuel_cost'] for t in tech_list)
     total_sat             = sum(len(t['satisfaction']) for t in tech_list)
     total_sat_vs          = sum(t['sat_counts']['VERY_SATISFIED'] for t in tech_list)
     total_sat_s           = sum(t['sat_counts']['SATISFIED'] for t in tech_list)
@@ -3502,6 +3510,8 @@ def gps_daily_summary(request):
         'consistent_techs':         consistent_techs,
         'total_locations':          total_locations,
         'total_dist_all':           round(total_dist_all, 2),
+        'total_fuel_all':           round(total_fuel_all, 2),
+        'total_cost_all':           round(total_cost_all, 2),
         'total_sat':                total_sat,
         'total_sat_vs':             total_sat_vs,
         'total_sat_s':              total_sat_s,
@@ -3837,6 +3847,8 @@ def gps_daily_summary_send_to_chat(request):
     consistent_count = sum(1 for t in tech_list if t['consistent'])
     total_sites      = sum(t['on_site_count'] for t in tech_list)
     total_dist_all   = round(sum(t['total_dist'] for t in tech_list), 2)
+    total_fuel_all   = round(total_dist_all / 12.0, 2)
+    total_cost_all   = round(total_fuel_all * 35.0, 2)
     total_sat_all    = sum(t['total_sat'] for t in tech_list)
 
     header_html = f"""<div style="background:linear-gradient(135deg,#0f172a,#1e3a5f);color:white;border-radius:12px;padding:14px 18px;margin-bottom:10px;font-family:system-ui,sans-serif;box-shadow:0 2px 8px rgba(0,0,0,0.18);">
@@ -3846,6 +3858,7 @@ def gps_daily_summary_send_to_chat(request):
     <span style="background:rgba(255,255,255,0.12);padding:3px 12px;border-radius:999px;font-size:0.82rem;">👷 {len(tech_list)} คน</span>
     <span style="background:rgba(34,197,94,0.25);color:#86efac;padding:3px 12px;border-radius:999px;font-size:0.82rem;">✅ GPS {consistent_count}/{len(tech_list)}</span>
     <span style="background:rgba(255,255,255,0.12);padding:3px 12px;border-radius:999px;font-size:0.82rem;">🛣️ {total_dist_all} กม.</span>
+    <span style="background:rgba(255,255,255,0.12);padding:3px 12px;border-radius:999px;font-size:0.82rem;">⛽ {total_fuel_all}ล. ({total_cost_all}บ.)</span>
     <span style="background:rgba(255,255,255,0.12);padding:3px 12px;border-radius:999px;font-size:0.82rem;">📍 {total_sites} จุด</span>
   </div>
 </div>"""
