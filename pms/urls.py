@@ -142,6 +142,7 @@ urlpatterns = [
     path('gps-tracking/summary/export/', views.gps_summary_export, name='gps_summary_export'),  # Export CSV
     path('gps-tracking/stats/', views.gps_technician_stats, name='gps_technician_stats'),        # กราฟสถิติรายบุคคล
     path('gps-tracking/<int:pk>/delete/', views.gps_log_delete, name='gps_log_delete'),       # ลบ GPS log entry
+    path('gps-tracking/map-embed/<str:username>/<str:date_str>/', views.gps_map_embed, name='gps_map_embed'),  # Leaflet iframe embed
 
     # ── Work Summary Report + AI Analysis ─────────────────────────────────
     path('work-summary/', views.work_summary_report, name='work_summary_report'),              # รายงานสรุปการทำงาน

@@ -3645,31 +3645,7 @@ def gps_daily_summary_send_to_chat(request):
         queue_items = queue_by_user.get(uname, [])
         jobs_done   = sum(1 for q in queue_items if q['completed'])
 
-        # ── Build static map URL (OpenStreetMap staticmap) ──────────────
         gps_pts = c['gps_points']
-        static_map_url = ''
-        if gps_pts:
-            lats = [p[0] for p in gps_pts]
-            lngs = [p[1] for p in gps_pts]
-            center_lat = sum(lats) / len(lats)
-            center_lng = sum(lngs) / len(lngs)
-            TYPE_MARKER = {
-                'GO_WORK': 'blue',
-                'ON_SITE': 'green', 'CHECK_IN': 'green',
-                'CHECK_OUT': 'red',
-                'BACK_OFFICE': 'purple',
-                'TRAVEL': 'gray',
-            }
-            markers_param = '|'.join(
-                f'{lat},{lng},{TYPE_MARKER.get(ct, "gray")}-pushpin'
-                for lat, lng, ct in gps_pts
-            )
-            static_map_url = (
-                f'https://staticmap.openstreetmap.de/staticmap.php'
-                f'?center={center_lat:.6f},{center_lng:.6f}'
-                f'&zoom=13&size=560x220&maptype=mapnik'
-                f'&markers={markers_param}'
-            )
 
         tech_list.append({
             'username':          uname,
@@ -3687,7 +3663,6 @@ def gps_daily_summary_send_to_chat(request):
             'queue_items':       queue_items,
             'jobs_done':         jobs_done,
             'total_jobs':        len(queue_items),
-            'static_map_url':    static_map_url,
             'gps_count':         len(gps_pts),
         })
 
@@ -3781,16 +3756,17 @@ def gps_daily_summary_send_to_chat(request):
                 + ''.join(rows)
             )
 
-        # ── Static map image ──────────────────────────────────────────
+        # ── Leaflet iframe map ────────────────────────────────────────
         map_html = ''
-        if t['static_map_url']:
+        if t['gps_count'] > 0:
+            map_url = f"/pms/gps-tracking/map-embed/{t['username']}/{report_date.isoformat()}/"
             map_html = (
                 f'{SEP}'
                 f'<div style="font-size:0.75rem;font-weight:700;color:#94a3b8;letter-spacing:.05em;margin-bottom:6px;">'
                 f'🗺️ เส้นทางการเดินทาง ({t["gps_count"]} จุด)</div>'
-                f'<img src="{t["static_map_url"]}" '
-                f'style="width:100%;border-radius:8px;border:1px solid #e2e8f0;display:block;" '
-                f'alt="แผนที่การเดินทาง {t["username"]}" loading="lazy"/>'
+                f'<iframe src="{map_url}" '
+                f'style="width:100%;height:240px;border:none;border-radius:10px;display:block;" '
+                f'loading="lazy" title="แผนที่ {t[\'username\']}"></iframe>'
             )
 
         cards_html.append(
@@ -3878,6 +3854,144 @@ def gps_daily_summary_send_to_chat(request):
         import logging
         logging.getLogger(__name__).error(f'gps_daily_summary_send_to_chat error: {e}')
         return JsonResponse({'ok': False, 'error': str(e)})
+
+
+@login_required
+def gps_map_embed(request, username, date_str):
+    """
+    Standalone Leaflet map page สำหรับ embed ใน iframe ในห้องแชท
+    แสดงเส้นทาง GPS ของช่างคนหนึ่งในวันที่กำหนด
+    """
+    from django.http import HttpResponse
+    from .models import TechnicianGPSLog
+    from django.utils import timezone
+    from datetime import date
+    import json as json_lib
+
+    try:
+        report_date = date.fromisoformat(date_str)
+    except (ValueError, TypeError):
+        report_date = timezone.localdate()
+
+    logs = TechnicianGPSLog.objects.filter(
+        user__username=username,
+        timestamp__date=report_date,
+    ).order_by('timestamp')
+
+    TYPE_COLOR = {
+        'GO_WORK':     '#2563eb',
+        'ON_SITE':     '#16a34a',
+        'CHECK_IN':    '#16a34a',
+        'CHECK_OUT':   '#dc2626',
+        'BACK_OFFICE': '#7c3aed',
+        'TRAVEL':      '#64748b',
+    }
+    TYPE_ICON = {
+        'GO_WORK': '🚀', 'ON_SITE': '↑', 'CHECK_IN': '↑',
+        'CHECK_OUT': '↓', 'BACK_OFFICE': '🏢', 'TRAVEL': '•',
+    }
+    TYPE_LABEL = {
+        'GO_WORK': 'ออกทำงาน', 'ON_SITE': 'เริ่มงาน', 'CHECK_IN': 'เช็คอิน',
+        'CHECK_OUT': 'เสร็จงาน', 'BACK_OFFICE': 'กลับออฟฟิศ', 'TRAVEL': 'เดินทาง',
+    }
+
+    points = []
+    for i, log in enumerate(logs, 1):
+        lat = float(log.latitude)
+        lng = float(log.longitude)
+        if lat == 0 and lng == 0:
+            continue
+        lt = timezone.localtime(log.timestamp)
+        points.append({
+            'i': i, 'lat': lat, 'lng': lng,
+            'type': log.check_type,
+            'color': TYPE_COLOR.get(log.check_type, '#64748b'),
+            'icon': TYPE_ICON.get(log.check_type, '•'),
+            'label': TYPE_LABEL.get(log.check_type, log.check_type),
+            'time': lt.strftime('%H:%M'),
+            'location': log.location_name or '',
+            'notes': log.notes or '',
+        })
+
+    points_json = json_lib.dumps(points, ensure_ascii=False)
+    date_th = report_date.strftime('%d/%m/') + str(report_date.year + 543)
+
+    html = f"""<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<style>
+  * {{ margin:0;padding:0;box-sizing:border-box; }}
+  body {{ font-family:system-ui,sans-serif;background:#0f172a; }}
+  #header {{ background:linear-gradient(135deg,#1e293b,#334155);color:white;padding:8px 12px;font-size:0.82rem;display:flex;align-items:center;gap:8px; }}
+  #header strong {{ font-size:0.9rem; }}
+  #map {{ width:100%;height:calc(100vh - 40px); }}
+  .legend {{ background:white;padding:6px 10px;border-radius:8px;font-size:0.72rem;line-height:1.7; }}
+</style>
+</head>
+<body>
+<div id="header">
+  <span>👷</span>
+  <strong>{username}</strong>
+  <span style="opacity:0.7;">· {date_th} · {len(points)} จุด</span>
+</div>
+<div id="map"></div>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const PTS = {points_json};
+if (PTS.length === 0) {{
+  document.getElementById('map').innerHTML = '<div style="color:#94a3b8;text-align:center;padding:40px;font-size:0.9rem;">ไม่มีข้อมูล GPS</div>';
+}} else {{
+  const map = L.map('map');
+  L.tileLayer('https://{{s}}.tile.openstreetmap.org/{{z}}/{{x}}/{{y}}.png',{{
+    attribution:'© OpenStreetMap', maxZoom:18
+  }}).addTo(map);
+
+  const lls = [];
+  PTS.forEach(function(p, idx) {{
+    const icon = L.divIcon({{
+      html: '<div style="background:' + p.color + ';color:white;width:26px;height:26px;border-radius:50%;' +
+            'display:flex;align-items:center;justify-content:center;font-size:0.72rem;font-weight:700;' +
+            'border:2px solid white;box-shadow:0 2px 5px rgba(0,0,0,0.35);">' + p.i + '</div>',
+      className:'', iconSize:[26,26], iconAnchor:[13,13]
+    }});
+    const ll = [p.lat, p.lng];
+    lls.push(ll);
+    const popup = '<div style="font-size:0.8rem;min-width:150px;">' +
+      '<div style="font-weight:700;color:' + p.color + '">' + p.icon + ' ' + p.label + '</div>' +
+      '<div>' + p.time + '</div>' +
+      (p.location ? '<div style="color:#2563eb">📍 ' + p.location + '</div>' : '') +
+      (p.notes ? '<div style="color:#64748b;font-size:0.72rem">' + p.notes + '</div>' : '') +
+      '</div>';
+    L.marker(ll, {{icon}}).addTo(map).bindPopup(popup);
+  }});
+
+  if (lls.length > 1) {{
+    L.polyline(lls, {{color:'#3b82f6',weight:3,opacity:0.75,dashArray:'7,5'}}).addTo(map);
+  }}
+
+  // Legend
+  const legend = L.control({{position:'bottomright'}});
+  legend.onAdd = function() {{
+    const div = L.DomUtil.create('div','legend');
+    div.innerHTML = '<b style="display:block;margin-bottom:2px;">สัญลักษณ์</b>' +
+      '<span style="color:#2563eb">🚀 ออกทำงาน</span><br>' +
+      '<span style="color:#16a34a">↑ เริ่มงาน</span><br>' +
+      '<span style="color:#dc2626">↓ เสร็จงาน</span><br>' +
+      '<span style="color:#7c3aed">🏢 กลับออฟฟิศ</span><br>' +
+      '<span style="color:#64748b">• เดินทาง</span>';
+    return div;
+  }};
+  legend.addTo(map);
+
+  map.fitBounds(L.latLngBounds(lls), {{padding:[20,20]}});
+}}
+</script>
+</body>
+</html>"""
+    return HttpResponse(html, content_type='text/html; charset=utf-8')
 
 
 @login_required
