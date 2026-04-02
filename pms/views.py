@@ -3546,11 +3546,16 @@ def gps_daily_summary_send_to_chat(request):
                 'sat_by_log': {},
                 'pending_checkins': [],
                 'work_sessions': [],
+                'gps_points': [],   # (lat, lng, check_type)
             }
         c = tech_raw[uname]
         lt    = timezone.localtime(log.timestamp)
         t_str = lt.strftime('%H:%M')
         ct = log.check_type
+        lat = float(log.latitude)
+        lng = float(log.longitude)
+        if lat != 0 and lng != 0:
+            c['gps_points'].append((lat, lng, ct))
         if ct == 'GO_WORK':
             c['go_work_count'] += 1
             if c['go_work'] is None:
@@ -3640,6 +3645,32 @@ def gps_daily_summary_send_to_chat(request):
         queue_items = queue_by_user.get(uname, [])
         jobs_done   = sum(1 for q in queue_items if q['completed'])
 
+        # ── Build static map URL (OpenStreetMap staticmap) ──────────────
+        gps_pts = c['gps_points']
+        static_map_url = ''
+        if gps_pts:
+            lats = [p[0] for p in gps_pts]
+            lngs = [p[1] for p in gps_pts]
+            center_lat = sum(lats) / len(lats)
+            center_lng = sum(lngs) / len(lngs)
+            TYPE_MARKER = {
+                'GO_WORK': 'blue',
+                'ON_SITE': 'green', 'CHECK_IN': 'green',
+                'CHECK_OUT': 'red',
+                'BACK_OFFICE': 'purple',
+                'TRAVEL': 'gray',
+            }
+            markers_param = '|'.join(
+                f'{lat},{lng},{TYPE_MARKER.get(ct, "gray")}-pushpin'
+                for lat, lng, ct in gps_pts
+            )
+            static_map_url = (
+                f'https://staticmap.openstreetmap.de/staticmap.php'
+                f'?center={center_lat:.6f},{center_lng:.6f}'
+                f'&zoom=13&size=560x220&maptype=mapnik'
+                f'&markers={markers_param}'
+            )
+
         tech_list.append({
             'username':          uname,
             'consistent':        consistent,
@@ -3656,6 +3687,8 @@ def gps_daily_summary_send_to_chat(request):
             'queue_items':       queue_items,
             'jobs_done':         jobs_done,
             'total_jobs':        len(queue_items),
+            'static_map_url':    static_map_url,
+            'gps_count':         len(gps_pts),
         })
 
     if not tech_list:
@@ -3674,105 +3707,131 @@ def gps_daily_summary_send_to_chat(request):
         status_bg    = '#dcfce7' if t['consistent'] else '#fff7ed'
         status_text  = '✅ GPS สอดคล้อง' if t['consistent'] else '⚠️ GPS ไม่ครบ'
 
-        # ── Header row ──────────────────────────────────────────────
+        # ── Time summary row ─────────────────────────────────────────
         time_parts = []
         if t['go_work_time']:
-            time_parts.append(f"🚀 ออก {t['go_work_time']}")
+            time_parts.append(f"🚀 {t['go_work_time']}")
         if t['back_office_time']:
-            time_parts.append(f"🏢 กลับ {t['back_office_time']}")
-        if t['work_duration']:
-            time_parts.append(f"<span style='color:#1d4ed8;font-weight:700;'>({t['work_duration']})</span>")
-        time_row = ' &rarr; '.join(time_parts) if time_parts else '<span style="color:#94a3b8;">ยังไม่ออกงาน</span>'
+            time_parts.append(f"🏢 {t['back_office_time']}")
+        time_row = ' → '.join(time_parts) if time_parts else 'ยังไม่ออกงาน'
+        dur_badge = (f'<span style="background:#dbeafe;color:#1d4ed8;padding:2px 8px;border-radius:999px;'
+                     f'font-size:0.8rem;font-weight:700;margin-left:6px;">⏱ {t["work_duration"]}</span>') if t['work_duration'] else ''
 
-        # ── Work sessions (per งาน) ──────────────────────────────────
+        # ── Stats pills ───────────────────────────────────────────────
+        vs = t['sat_counts']['VERY_SATISFIED']
+        s_ = t['sat_counts']['SATISFIED']
+        ns = t['sat_counts']['NOT_SATISFIED']
+        sat_html = ''
+        if t['total_sat']:
+            sat_html = (
+                f'<span style="background:#dcfce7;color:#15803d;padding:1px 8px;border-radius:999px;font-size:0.78rem;">😊 {vs}</span> '
+                f'<span style="background:#dbeafe;color:#1d4ed8;padding:1px 8px;border-radius:999px;font-size:0.78rem;">🙂 {s_}</span> '
+                + (f'<span style="background:#fee2e2;color:#991b1b;padding:1px 8px;border-radius:999px;font-size:0.78rem;">😞 {ns}</span> ' if ns else '')
+            )
+
+        # ── Work sessions ─────────────────────────────────────────────
         sessions_html = ''
         if t['work_sessions']:
             rows = []
             for i, s in enumerate(t['work_sessions'], 1):
-                r = s.get('rating', '')
+                r      = s.get('rating', '')
                 r_emoji = RATING_EMOJI.get(r, '')
-                r_label = RATING_LABEL.get(r, '—')
+                r_label = RATING_LABEL.get(r, '')
                 r_color = RATING_COLOR.get(r, '#64748b')
                 r_bg    = RATING_BG.get(r, '#f1f5f9')
                 cust    = s.get('customer_name', '')
                 loc     = s.get('location', '')
-
-                loc_span  = f' <span style="color:#1d4ed8;">📍 {loc}</span>' if loc else ''
-                cust_span = (f' <span style="background:{r_bg};color:{r_color};padding:1px 7px;'
-                             f'border-radius:999px;font-size:0.8rem;">'
+                loc_span  = f'<span style="color:#2563eb;margin-left:4px;">📍{loc}</span>' if loc else ''
+                cust_span = (f'<span style="background:{r_bg};color:{r_color};padding:0 6px;border-radius:4px;font-size:0.75rem;margin-left:4px;">'
                              f'{r_emoji} {cust} · {r_label}</span>') if cust else ''
-
                 rows.append(
-                    f'<div style="padding:3px 0;color:#334155;font-size:0.88rem;">'
-                    f'<span style="font-weight:600;color:#475569;">{i}.</span> '
-                    f'<span style="font-family:monospace;">{s["on_site_time"]} → {s["check_out_time"]}</span> '
-                    f'<span style="background:#eff6ff;color:#1d4ed8;padding:1px 7px;border-radius:999px;font-size:0.8rem;">'
-                    f'⏱ {s["duration_str"]}</span>'
+                    f'<div style="padding:3px 0 3px 8px;border-left:3px solid #e2e8f0;margin:3px 0;font-size:0.85rem;color:#334155;">'
+                    f'<b>{i}.</b> <code style="background:#f1f5f9;padding:0 4px;border-radius:3px;">{s["on_site_time"]}→{s["check_out_time"]}</code> '
+                    f'<span style="background:#eff6ff;color:#2563eb;padding:0 6px;border-radius:4px;font-size:0.78rem;">⏱{s["duration_str"]}</span>'
                     f'{loc_span}{cust_span}'
                     f'</div>'
                 )
-            total_dur_badge = (f'<div style="margin-top:3px;color:#1d4ed8;font-weight:700;font-size:0.88rem;">'
-                               f'รวมหน้างาน: ⏱ {t["total_onsite_dur"]}</div>') if t['total_onsite_dur'] else ''
+            total_badge = (f'<div style="margin-top:4px;font-size:0.82rem;color:#1d4ed8;font-weight:700;">'
+                           f'รวมหน้างาน ⏱ {t["total_onsite_dur"]}</div>') if t['total_onsite_dur'] else ''
             sessions_html = (
                 f'{SEP}'
-                f'<div style="font-size:0.78rem;font-weight:700;color:#64748b;text-transform:uppercase;'
-                f'letter-spacing:.04em;margin-bottom:3px;">⏱ งานหน้างาน ({len(t["work_sessions"])} งาน)</div>'
-                + ''.join(rows) + total_dur_badge
+                f'<div style="font-size:0.75rem;font-weight:700;color:#94a3b8;letter-spacing:.05em;margin-bottom:4px;">⏱ งานหน้างาน {len(t["work_sessions"])} งาน</div>'
+                + ''.join(rows) + total_badge
             )
 
-        # ── Queue items ──────────────────────────────────────────────
+        # ── Queue items ───────────────────────────────────────────────
         queue_html = ''
         if t['queue_items']:
             rows = []
             for q in t['queue_items']:
-                done = q['completed']
-                dot_color = '#22c55e' if done else '#3b82f6'
-                txt_color = '#15803d' if done else '#334155'
-                st_bg     = '#dcfce7' if done else '#dbeafe'
-                st_color  = '#15803d' if done else '#1d4ed8'
+                done  = q['completed']
+                clr   = '#15803d' if done else '#334155'
+                bg    = '#dcfce7' if done else '#f1f5f9'
+                dot   = '✅' if done else '🔵'
                 rows.append(
-                    f'<div style="padding:2px 0;font-size:0.88rem;color:{txt_color};">'
-                    f'<span style="display:inline-block;width:8px;height:8px;border-radius:50%;'
-                    f'background:{dot_color};margin-right:5px;"></span>'
-                    f'{q["title"][:50]}'
-                    f' <span style="background:{st_bg};color:{st_color};padding:0 6px;border-radius:4px;'
-                    f'font-size:0.75rem;">{q["status_display"]}</span>'
-                    f'</div>'
+                    f'<div style="padding:2px 0;font-size:0.84rem;color:{clr};">'
+                    f'{dot} {q["title"][:55]}'
+                    f'<span style="background:{bg};color:{clr};padding:0 5px;border-radius:3px;font-size:0.72rem;margin-left:4px;">'
+                    f'{q["status_display"]}</span></div>'
                 )
             queue_html = (
                 f'{SEP}'
-                f'<div style="font-size:0.78rem;font-weight:700;color:#64748b;text-transform:uppercase;'
-                f'letter-spacing:.04em;margin-bottom:3px;">'
-                f'📋 คิวงาน ({t["jobs_done"]}/{t["total_jobs"]} เสร็จ)</div>'
+                f'<div style="font-size:0.75rem;font-weight:700;color:#94a3b8;letter-spacing:.05em;margin-bottom:4px;">'
+                f'📋 คิวงาน {t["jobs_done"]}/{t["total_jobs"]} เสร็จ</div>'
                 + ''.join(rows)
             )
 
+        # ── Static map image ──────────────────────────────────────────
+        map_html = ''
+        if t['static_map_url']:
+            map_html = (
+                f'{SEP}'
+                f'<div style="font-size:0.75rem;font-weight:700;color:#94a3b8;letter-spacing:.05em;margin-bottom:6px;">'
+                f'🗺️ เส้นทางการเดินทาง ({t["gps_count"]} จุด)</div>'
+                f'<img src="{t["static_map_url"]}" '
+                f'style="width:100%;border-radius:8px;border:1px solid #e2e8f0;display:block;" '
+                f'alt="แผนที่การเดินทาง {t["username"]}" loading="lazy"/>'
+            )
+
         cards_html.append(
-            f'<div style="background:#ffffff;border:1px solid #e2e8f0;border-left:4px solid {status_color};'
-            f'border-radius:0 10px 10px 0;padding:10px 14px;margin:6px 0;font-family:sans-serif;">'
+            f'<div style="background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;'
+            f'overflow:hidden;margin:8px 0;font-family:system-ui,sans-serif;box-shadow:0 1px 4px rgba(0,0,0,0.06);">'
 
-            # name + status badge
-            f'<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px;">'
-            f'<span style="font-weight:700;font-size:1rem;color:#1e293b;">👷 {t["username"]}</span>'
+            # ── Card header ───────────────────────────────────────────
+            f'<div style="background:linear-gradient(135deg,#1e293b,#334155);padding:10px 14px;'
+            f'display:flex;align-items:center;gap:8px;">'
+            f'<div style="background:{status_color};width:10px;height:10px;border-radius:50%;flex-shrink:0;"></div>'
+            f'<span style="font-weight:700;font-size:0.95rem;color:#fff;flex:1;">👷 {t["username"]}</span>'
             f'<span style="background:{status_bg};color:{status_color};padding:2px 9px;border-radius:999px;'
-            f'font-size:0.78rem;font-weight:700;">{status_text}</span>'
+            f'font-size:0.72rem;font-weight:700;">{status_text}</span>'
             f'</div>'
 
-            # time row
-            f'<div style="font-size:0.9rem;color:#475569;">{time_row}</div>'
-
-            # sessions + queue
-            f'{sessions_html}{queue_html}'
-            f'</div>'
+            # ── Card body ─────────────────────────────────────────────
+            f'<div style="padding:10px 14px;">'
+            # time + duration
+            f'<div style="font-size:0.88rem;color:#475569;margin-bottom:5px;">{time_row}{dur_badge}</div>'
+            # stat pills row
+            f'<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:2px;">'
+            f'<span style="background:#f1f5f9;color:#475569;padding:1px 8px;border-radius:999px;font-size:0.78rem;">🏠 {t["on_site_count"]} จุด</span>'
+            + (f'<span style="background:#f1f5f9;color:#475569;padding:1px 8px;border-radius:999px;font-size:0.78rem;">📊 {t["gps_count"]} GPS log</span>' if t['gps_count'] else '')
+            + sat_html
+            + f'</div>'
+            + sessions_html + queue_html + map_html
+            + f'</div></div>'
         )
 
     consistent_count = sum(1 for t in tech_list if t['consistent'])
-    header_html = f"""
-<div style="background:#0f172a;color:white;border-radius:10px;padding:12px 16px;margin-bottom:8px;font-family:sans-serif;">
-  <div style="font-weight:700;font-size:1.05rem;">📋 สรุปการทำงานประจำวัน</div>
-  <div style="opacity:0.8;font-size:0.9rem;margin-top:2px;">
-    {date_label} &nbsp;·&nbsp; {len(tech_list)} คน &nbsp;·&nbsp;
-    GPS ✅ {consistent_count}/{len(tech_list)} คน
+    total_sites      = sum(t['on_site_count'] for t in tech_list)
+    total_sat_all    = sum(t['total_sat'] for t in tech_list)
+
+    header_html = f"""<div style="background:linear-gradient(135deg,#0f172a,#1e3a5f);color:white;border-radius:12px;padding:14px 18px;margin-bottom:10px;font-family:system-ui,sans-serif;box-shadow:0 2px 8px rgba(0,0,0,0.18);">
+  <div style="font-weight:800;font-size:1.1rem;margin-bottom:6px;">📋 สรุปการทำงานประจำวัน</div>
+  <div style="opacity:0.85;font-size:0.88rem;margin-bottom:10px;">{date_label}</div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;">
+    <span style="background:rgba(255,255,255,0.12);padding:3px 12px;border-radius:999px;font-size:0.82rem;">👷 {len(tech_list)} คน</span>
+    <span style="background:rgba(34,197,94,0.25);color:#86efac;padding:3px 12px;border-radius:999px;font-size:0.82rem;">✅ GPS {consistent_count}/{len(tech_list)}</span>
+    <span style="background:rgba(255,255,255,0.12);padding:3px 12px;border-radius:999px;font-size:0.82rem;">📍 {total_sites} จุด</span>
+    <span style="background:rgba(255,255,255,0.12);padding:3px 12px;border-radius:999px;font-size:0.82rem;">😊 ประเมิน {total_sat_all} ครั้ง</span>
   </div>
 </div>"""
 
