@@ -16,6 +16,38 @@
         padding: 0.25rem 0.75rem;
         border-radius: 1rem;
     }
+    /* Fullscreen map overlay */
+    #map-fullscreen-overlay {
+        display: none;
+        position: fixed;
+        inset: 0;
+        z-index: 9999;
+        background: #0f172a;
+        flex-direction: column;
+    }
+    #map-fullscreen-overlay.active { display: flex; }
+    #map-fullscreen-header {
+        background: #1e293b;
+        color: white;
+        padding: 0.6rem 1rem;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        flex-shrink: 0;
+        font-size: 0.85rem;
+    }
+    #map-fullscreen-container { flex: 1; }
+    #map-fullscreen-close {
+        margin-left: auto;
+        background: rgba(255,255,255,0.12);
+        border: none;
+        color: white;
+        border-radius: 0.5rem;
+        padding: 0.3rem 0.8rem;
+        font-size: 0.8rem;
+        cursor: pointer;
+    }
+    #map-fullscreen-close:hover { background: rgba(255,255,255,0.22); }
     .page-header {
         background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 100%);
         color: white;
@@ -422,10 +454,17 @@
         <div class="panel-section pt-1 pb-2">
             <div class="d-flex align-items-center justify-content-between mb-1">
                 <div class="panel-label mb-0">แผนที่การเดินทาง</div>
-                <button class="btn btn-sm btn-outline-primary map-toggle-btn"
-                        onclick="toggleMap('{{ tech.username }}', {{ tech.logs|length }})">
-                    <i class="fas fa-map me-1"></i>แสดงแผนที่
-                </button>
+                <div class="d-flex gap-1">
+                    <button class="btn btn-sm btn-outline-primary map-toggle-btn"
+                            onclick="toggleMap('{{ tech.username }}', {{ tech.logs|length }}, this)">
+                        <i class="fas fa-map me-1"></i>แสดงแผนที่
+                    </button>
+                    <button class="btn btn-sm btn-outline-secondary map-toggle-btn"
+                            onclick="openFullscreen('{{ tech.username }}')"
+                            title="เปิดแผนที่เต็มจอ">
+                        <i class="fas fa-expand"></i>
+                    </button>
+                </div>
             </div>
             <div id="map-{{ tech.username }}" class="travel-map" style="display:none;"></div>
         </div>
@@ -592,6 +631,18 @@
 
 </div>
 
+<!-- Fullscreen map overlay -->
+<div id="map-fullscreen-overlay">
+    <div id="map-fullscreen-header">
+        <i class="fas fa-map-marked-alt"></i>
+        <span id="map-fullscreen-title">แผนที่การเดินทาง</span>
+        <button id="map-fullscreen-close" onclick="closeFullscreen()">
+            <i class="fas fa-compress me-1"></i>ปิดเต็มจอ
+        </button>
+    </div>
+    <div id="map-fullscreen-container"></div>
+</div>
+
 {% block extra_js %}
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
@@ -608,31 +659,69 @@ const TECH_GPS = {
 
 const _maps = {};
 
-function toggleMap(username, logCount) {
+function toggleMap(username, logCount, btn) {
     const el = document.getElementById('map-' + username);
     if (!el) return;
+    const b = btn || event.currentTarget;
 
     if (el.style.display === 'none') {
         el.style.display = 'block';
         if (!_maps[username]) {
-            _buildMap(username);
+            _buildMap(username, 'map-' + username);
         } else {
             _maps[username].invalidateSize();
         }
-        event.currentTarget.innerHTML = '<i class="fas fa-map me-1"></i>ซ่อนแผนที่';
+        b.innerHTML = '<i class="fas fa-map me-1"></i>ซ่อนแผนที่';
     } else {
         el.style.display = 'none';
-        event.currentTarget.innerHTML = '<i class="fas fa-map me-1"></i>แสดงแผนที่';
+        b.innerHTML = '<i class="fas fa-map me-1"></i>แสดงแผนที่';
     }
 }
 
-function _buildMap(username) {
+var _fsUsername = null;
+var _fsMap = null;
+
+function openFullscreen(username) {
+    const overlay = document.getElementById('map-fullscreen-overlay');
+    const container = document.getElementById('map-fullscreen-container');
+    const titleEl = document.getElementById('map-fullscreen-title');
+
+    titleEl.textContent = 'แผนที่การเดินทาง — ' + username;
+    overlay.classList.add('active');
+    document.body.style.overflow = 'hidden';
+
+    _fsUsername = username;
+
+    // Remove old map if switching user
+    if (_fsMap) { _fsMap.remove(); _fsMap = null; }
+    container.innerHTML = '<div id="map-fs-inner" style="width:100%;height:100%;"></div>';
+
+    setTimeout(function() {
+        _fsMap = _buildMap(username, 'map-fs-inner', true);
+    }, 50);
+}
+
+function closeFullscreen() {
+    const overlay = document.getElementById('map-fullscreen-overlay');
+    overlay.classList.remove('active');
+    document.body.style.overflow = '';
+    if (_fsMap) { _fsMap.remove(); _fsMap = null; }
+    _fsUsername = null;
+}
+
+// ESC to close
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') closeFullscreen();
+});
+
+function _buildMap(username, containerId, isFullscreen) {
     const points = TECH_GPS[username] || [];
     const validPts = points.filter(p => p.lat !== 0 && p.lng !== 0);
-    if (validPts.length === 0) return;
+    if (validPts.length === 0) return null;
 
-    const map = L.map('map-' + username, { zoomControl: true });
-    _maps[username] = map;
+    const mapId = containerId || ('map-' + username);
+    const map = L.map(mapId, { zoomControl: true });
+    if (!isFullscreen) _maps[username] = map;
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '© OpenStreetMap',
@@ -682,6 +771,7 @@ function _buildMap(username) {
 
     // Fit bounds
     map.fitBounds(L.latLngBounds(latlngs), { padding: [20, 20] });
+    return map;
 }
 
 function sendSummaryToChat() {
