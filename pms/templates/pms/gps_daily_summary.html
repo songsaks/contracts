@@ -364,10 +364,10 @@
         </div>
         <div class="col-6 col-md-3">
             <div class="stat-card">
-                <div class="stat-icon" style="background:#ede9fe;">📍</div>
+                <div class="stat-icon" style="background:#fef3c7;">🛣️</div>
                 <div>
-                    <div class="stat-value" style="color:#5b21b6;">{{ total_locations }}</div>
-                    <div class="stat-label">จุดหน้างาน</div>
+                    <div class="stat-value" style="color:#d97706;">{{ total_dist_all }}<span style="font-size:0.8rem; font-weight:600;"> กม.</span></div>
+                    <div class="stat-label">ระยะเดินทางรวม</div>
                 </div>
             </div>
         </div>
@@ -413,6 +413,9 @@
                     {% if tech.work_duration %}
                     <span class="status-pill pill-info"><i class="fas fa-clock me-1"></i>{{ tech.work_duration }}</span>
                     {% endif %}
+                    <span class="status-pill pill-gray" style="background:#fff7ed; color:#d97706; border:1px solid #ffedd5;">
+                        <i class="fas fa-road me-1"></i>{{ tech.total_dist }} กม.
+                    </span>
                     {% if tech.go_work_time %}
                     <span class="status-pill pill-gray">🚀 {{ tech.go_work_time }}{% if tech.back_office_time %} → 🏢 {{ tech.back_office_time }}{% endif %}</span>
                     {% endif %}
@@ -649,6 +652,7 @@
 
 {% block extra_js %}
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/leaflet-polyline-decorator@1.6.0/dist/leaflet.polylineDecorator.js"></script>
 <script>
 // ── GPS map data per technician ───────────────────────────────────────────
 const TECH_GPS = {
@@ -770,7 +774,14 @@ function _buildMap(username, containerId, isFullscreen) {
 
     // Draw polyline route
     if (latlngs.length > 1) {
-        L.polyline(latlngs, { color: '#3b82f6', weight: 3, opacity: 0.7, dashArray: '6,4' }).addTo(map);
+        const polyline = L.polyline(latlngs, { color: '#3b82f6', weight: 3, opacity: 0.7, dashArray: '6,4' }).addTo(map);
+        
+        // Add directional arrows
+        L.polylineDecorator(polyline, {
+            patterns: [
+                { offset: 25, repeat: 100, symbol: L.Symbol.arrowHead({pixelSize: 12, pathOptions: {fillOpacity: 1, weight: 0, color: '#3b82f6'}})}
+            ]
+        }).addTo(map);
     }
 
     // Fit bounds

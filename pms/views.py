@@ -3428,6 +3428,21 @@ def gps_daily_summary(request):
         else:
             total_onsite_duration = ''
 
+        # Total distance calculation
+        total_dist = 0
+        valid_pts = [(l['lat'], l['lng']) for l in c['logs'] if l['lat'] != 0 and l['lng'] != 0]
+        if len(valid_pts) > 1:
+            from math import sin, cos, sqrt, atan2, radians
+            def haversine(lat1, lon1, lat2, lon2):
+                R = 6371.0 # km
+                dlat = radians(lat2 - lat1)
+                dlon = radians(lon2 - lon1)
+                a = sin(dlat / 2)**2 + cos(radians(lat1)) * cos(radians(lat2)) * sin(dlon / 2)**2
+                c = 2 * atan2(sqrt(a), sqrt(1 - a))
+                return R * c
+            for i in range(len(valid_pts)-1):
+                total_dist += haversine(valid_pts[i][0], valid_pts[i][1], valid_pts[i+1][0], valid_pts[i+1][1])
+
         tech_list.append({
             'username':               uname,
             'user_id':                c['user_id'],
@@ -3455,12 +3470,14 @@ def gps_daily_summary(request):
             'work_sessions':          c['work_sessions'],
             'total_onsite_duration':  total_onsite_duration,
             'total_onsite_min':       total_onsite_min,
+            'total_dist':             round(total_dist, 2),
         })
 
     # ── Summary stats ──────────────────────────────────────────────────
     total_techs           = len(tech_list)
     consistent_techs      = sum(1 for t in tech_list if t['consistent'])
     total_locations       = sum(t['on_site_count'] for t in tech_list)
+    total_dist_all        = sum(t['total_dist'] for t in tech_list)
     total_sat             = sum(len(t['satisfaction']) for t in tech_list)
     total_sat_vs          = sum(t['sat_counts']['VERY_SATISFIED'] for t in tech_list)
     total_sat_s           = sum(t['sat_counts']['SATISFIED'] for t in tech_list)
@@ -3484,6 +3501,7 @@ def gps_daily_summary(request):
         'total_techs':              total_techs,
         'consistent_techs':         consistent_techs,
         'total_locations':          total_locations,
+        'total_dist_all':           round(total_dist_all, 2),
         'total_sat':                total_sat,
         'total_sat_vs':             total_sat_vs,
         'total_sat_s':              total_sat_s,
@@ -3647,6 +3665,21 @@ def gps_daily_summary_send_to_chat(request):
 
         gps_pts = c['gps_points']
 
+        # Total distance calculation
+        total_dist = 0
+        valid_pts = [(l[0], l[1]) for l in gps_pts]
+        if len(valid_pts) > 1:
+            from math import sin, cos, sqrt, atan2, radians
+            def haversine(lat1, lon1, lat2, lon2):
+                R = 6371.0 # km
+                dlat = radians(lat2 - lat1)
+                dlon = radians(lon2 - lon1)
+                a = sin(dlat / 2)**2 + cos(radians(lat1)) * cos(radians(lat2)) * sin(dlon / 2)**2
+                c = 2 * atan2(sqrt(a), sqrt(1 - a))
+                return R * c
+            for i in range(len(valid_pts)-1):
+                total_dist += haversine(valid_pts[i][0], valid_pts[i][1], valid_pts[i+1][0], valid_pts[i+1][1])
+
         tech_list.append({
             'username':          uname,
             'consistent':        consistent,
@@ -3664,6 +3697,7 @@ def gps_daily_summary_send_to_chat(request):
             'jobs_done':         jobs_done,
             'total_jobs':        len(queue_items),
             'gps_count':         len(gps_pts),
+            'total_dist':        round(total_dist, 2),
         })
 
     if not tech_list:
@@ -3691,6 +3725,8 @@ def gps_daily_summary_send_to_chat(request):
         time_row = ' → '.join(time_parts) if time_parts else 'ยังไม่ออกงาน'
         dur_badge = (f'<span style="background:#dbeafe;color:#1d4ed8;padding:2px 8px;border-radius:999px;'
                      f'font-size:0.8rem;font-weight:700;margin-left:6px;">⏱ {t["work_duration"]}</span>') if t['work_duration'] else ''
+        dist_badge = (f'<span style="background:#fff7ed;color:#d97706;padding:2px 8px;border-radius:999px;'
+                      f'font-size:0.8rem;font-weight:700;margin-left:6px;">🛣️ {t["total_dist"]} กม.</span>')
 
         # ── Stats pills ───────────────────────────────────────────────
         vs = t['sat_counts']['VERY_SATISFIED']
@@ -3786,8 +3822,8 @@ def gps_daily_summary_send_to_chat(request):
 
             # ── Card body ─────────────────────────────────────────────
             f'<div style="padding:10px 14px;">'
-            # time + duration
-            f'<div style="font-size:0.88rem;color:#475569;margin-bottom:5px;">{time_row}{dur_badge}</div>'
+            # time + duration + distance
+            f'<div style="font-size:0.88rem;color:#475569;margin-bottom:5px;">{time_row}{dur_badge}{dist_badge}</div>'
             # stat pills row
             f'<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:2px;">'
             f'<span style="background:#f1f5f9;color:#475569;padding:1px 8px;border-radius:999px;font-size:0.78rem;">🏠 {t["on_site_count"]} จุด</span>'
@@ -3800,6 +3836,7 @@ def gps_daily_summary_send_to_chat(request):
 
     consistent_count = sum(1 for t in tech_list if t['consistent'])
     total_sites      = sum(t['on_site_count'] for t in tech_list)
+    total_dist_all   = round(sum(t['total_dist'] for t in tech_list), 2)
     total_sat_all    = sum(t['total_sat'] for t in tech_list)
 
     header_html = f"""<div style="background:linear-gradient(135deg,#0f172a,#1e3a5f);color:white;border-radius:12px;padding:14px 18px;margin-bottom:10px;font-family:system-ui,sans-serif;box-shadow:0 2px 8px rgba(0,0,0,0.18);">
@@ -3808,8 +3845,8 @@ def gps_daily_summary_send_to_chat(request):
   <div style="display:flex;gap:8px;flex-wrap:wrap;">
     <span style="background:rgba(255,255,255,0.12);padding:3px 12px;border-radius:999px;font-size:0.82rem;">👷 {len(tech_list)} คน</span>
     <span style="background:rgba(34,197,94,0.25);color:#86efac;padding:3px 12px;border-radius:999px;font-size:0.82rem;">✅ GPS {consistent_count}/{len(tech_list)}</span>
+    <span style="background:rgba(255,255,255,0.12);padding:3px 12px;border-radius:999px;font-size:0.82rem;">🛣️ {total_dist_all} กม.</span>
     <span style="background:rgba(255,255,255,0.12);padding:3px 12px;border-radius:999px;font-size:0.82rem;">📍 {total_sites} จุด</span>
-    <span style="background:rgba(255,255,255,0.12);padding:3px 12px;border-radius:999px;font-size:0.82rem;">😊 ประเมิน {total_sat_all} ครั้ง</span>
   </div>
 </div>"""
 
@@ -3973,27 +4010,63 @@ if (PTS.length === 0) {{
   if (lls.length > 1) {{
     L.polyline(lls, {{color:'#3b82f6',weight:3,opacity:0.75}}).addTo(map);
 
-    // ── Directional arrows as L.polyline ">" shapes ─────────────────────
-    // Most reliable: pure Leaflet polylines, no divIcon/SVG issues
-    var ARROW_SIZE = 0.0012;   // half-width of arrowhead in degrees (≈130m)
-    var ARROW_COLOR = '#1d4ed8';
+    // ── Haversine distance (km) ──────────────────────────────────────────
+    function _haversine(p1, p2) {{
+      var R = 6371;
+      var dLat = (p2[0] - p1[0]) * Math.PI / 180;
+      var dLng = (p2[1] - p1[1]) * Math.PI / 180;
+      var a = Math.sin(dLat/2)*Math.sin(dLat/2) +
+              Math.cos(p1[0]*Math.PI/180)*Math.cos(p2[0]*Math.PI/180)*
+              Math.sin(dLng/2)*Math.sin(dLng/2);
+      return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    }}
 
-    function _drawArrowHead(map, tip_lat, tip_lng, angle) {{
-      // angle: bearing in radians (math: east=0, CCW positive)
-      // Draw 2 lines: tip → left-wing, tip → right-wing
-      var perpAngle = angle + Math.PI;   // pointing back
-      var wingAngle1 = perpAngle + 0.5;  // ~30°
-      var wingAngle2 = perpAngle - 0.5;
+    // ── Total distance display ───────────────────────────────────────────
+    var totalKm = 0;
+    for (var i = 0; i < lls.length - 1; i++) {{
+      totalKm += _haversine(lls[i], lls[i+1]);
+    }}
+    var distLabel = totalKm >= 1
+      ? totalKm.toFixed(1) + ' km'
+      : (totalKm * 1000).toFixed(0) + ' m';
 
-      var cos_lat = Math.cos(tip_lat * Math.PI / 180);
-      var w1_lat = tip_lat + Math.sin(wingAngle1) * ARROW_SIZE;
-      var w1_lng = tip_lng + Math.cos(wingAngle1) * ARROW_SIZE / cos_lat;
-      var w2_lat = tip_lat + Math.sin(wingAngle2) * ARROW_SIZE;
-      var w2_lng = tip_lng + Math.cos(wingAngle2) * ARROW_SIZE / cos_lat;
+    var distCtrl = L.control({{position: 'topleft'}});
+    distCtrl.onAdd = function() {{
+      var div = L.DomUtil.create('div');
+      div.style.cssText = 'background:#1e293b;color:white;padding:6px 12px;border-radius:8px;font-size:0.82rem;font-weight:700;box-shadow:0 2px 6px rgba(0,0,0,0.3);';
+      div.innerHTML = '📍 รวมระยะทาง: ' + distLabel;
+      return div;
+    }};
+    distCtrl.addTo(map);
 
-      var opts = {{color: ARROW_COLOR, weight: 3, opacity: 1}};
-      L.polyline([[tip_lat, tip_lng], [w1_lat, w1_lng]], opts).addTo(map);
-      L.polyline([[tip_lat, tip_lng], [w2_lat, w2_lng]], opts).addTo(map);
+    // ── Directional arrows — filled L.polygon triangles ──────────────────
+    // Size adapts to map zoom so always visible
+    function _arrowSize() {{
+      // degrees: ~zoom 10 → 0.012°, zoom 12 → 0.003°, zoom 14 → 0.0008°
+      return 0.006 / Math.pow(2, (map.getZoom() - 11) * 0.5);
+    }}
+
+    function _drawArrow(lat, lng, angleMath) {{
+      // angleMath: east=0, CCW positive (from Math.atan2(dy, dx))
+      // Filled triangle: tip pointing in direction of travel
+      var sz = _arrowSize();
+      var cos_lat = Math.cos(lat * Math.PI / 180);
+
+      // tip = point at +sz in direction of travel
+      var tipLat = lat + Math.sin(angleMath) * sz;
+      var tipLng = lng + Math.cos(angleMath) * sz / cos_lat;
+
+      // base left & right (perpendicular, behind tip)
+      var back = angleMath + Math.PI;
+      var w1Lat = lat + Math.sin(back + 0.45) * sz * 0.8;
+      var w1Lng = lng + Math.cos(back + 0.45) * sz * 0.8 / cos_lat;
+      var w2Lat = lat + Math.sin(back - 0.45) * sz * 0.8;
+      var w2Lng = lng + Math.cos(back - 0.45) * sz * 0.8 / cos_lat;
+
+      L.polygon(
+        [[tipLat, tipLng], [w1Lat, w1Lng], [w2Lat, w2Lng]],
+        {{color: 'white', weight: 1.5, fillColor: '#1d4ed8', fillOpacity: 1, opacity: 1}}
+      ).addTo(map);
     }}
 
     function _addArrowsOnSegment(p1, p2) {{
@@ -4001,24 +4074,37 @@ if (PTS.length === 0) {{
       var cos_lat = Math.cos(midLat * Math.PI / 180);
       var dy = p2[0] - p1[0];
       var dx = (p2[1] - p1[1]) * cos_lat;
-      var dist = Math.sqrt(dx * dx + dy * dy);
-      if (dist < 0.001) return;
+      var distDeg = Math.sqrt(dx*dx + dy*dy);
+      if (distDeg < 0.001) return;
 
-      var angle = Math.atan2(dy, dx);  // math bearing: east=0, CCW
-
-      // 1 arrow per ~0.005° (~550m), min 1, max 6
-      var nArrows = Math.min(6, Math.max(1, Math.floor(dist / 0.005)));
-      for (var k = 1; k <= nArrows; k++) {{
-        var t = k / (nArrows + 1);
-        var alat = p1[0] + (p2[0] - p1[0]) * t;
-        var alng = p1[1] + (p2[1] - p1[1]) * t;
-        _drawArrowHead(map, alat, alng, angle);
+      var angle = Math.atan2(dy, dx);
+      // 1 arrow per 0.01°, min 1, max 8
+      var n = Math.min(8, Math.max(1, Math.round(distDeg / 0.01)));
+      for (var k = 1; k <= n; k++) {{
+        var t = k / (n + 1);
+        _drawArrow(
+          p1[0] + (p2[0]-p1[0])*t,
+          p1[1] + (p2[1]-p1[1])*t,
+          angle
+        );
       }}
     }}
 
     for (var i = 0; i < lls.length - 1; i++) {{
-      _addArrowsOnSegment(lls[i], lls[i + 1]);
+      _addArrowsOnSegment(lls[i], lls[i+1]);
     }}
+
+    // Redraw arrows on zoom (size changes)
+    map.on('zoomend', function() {{
+      map.eachLayer(function(layer) {{
+        if (layer instanceof L.Polygon && layer.options.fillColor === '#1d4ed8') {{
+          map.removeLayer(layer);
+        }}
+      }});
+      for (var i = 0; i < lls.length - 1; i++) {{
+        _addArrowsOnSegment(lls[i], lls[i+1]);
+      }}
+    }});
   }}
 
   // Legend
