@@ -2361,12 +2361,13 @@ def project_assignment_matrix(request):
     User = get_user_model()
     users = User.objects.filter(is_active=True).order_by('username')
     
-    # Define the 4 main Job Types
+    # Define Job Types
     job_types = [
         (Project.JobType.PROJECT, '📂 งานโครงการ (Project)'),
         (Project.JobType.SERVICE, '🛠️ งานบริการ/งานขาย (Service)'),
         (Project.JobType.REPAIR, '🔧 งานซ่อม (Repair)'),
         (Project.JobType.RENTAL, '🏢 งานเช่า (Rental)'),
+        (Project.JobType.SURVEY, '🔍 ดูหน้างาน (Survey)'),
     ]
     
     matrix_data = []
