@@ -3760,13 +3760,14 @@ def gps_daily_summary_send_to_chat(request):
         map_html = ''
         if t['gps_count'] > 0:
             map_url = f"/pms/gps-tracking/map-embed/{t['username']}/{report_date.isoformat()}/"
+            uname_t = t['username']
             map_html = (
                 f'{SEP}'
                 f'<div style="font-size:0.75rem;font-weight:700;color:#94a3b8;letter-spacing:.05em;margin-bottom:6px;">'
                 f'🗺️ เส้นทางการเดินทาง ({t["gps_count"]} จุด)</div>'
                 f'<iframe src="{map_url}" '
                 f'style="width:100%;height:240px;border:none;border-radius:10px;display:block;" '
-                f'loading="lazy" title="แผนที่ {t[\'username\']}"></iframe>'
+                f'loading="lazy" title="แผนที่ {uname_t}"></iframe>'
             )
 
         cards_html.append(
