@@ -365,38 +365,14 @@ function createMarker(point, color, label) {
     return L.marker([point.lat, point.lng], { icon: icon }).bindPopup(popupHtml);
 }
 
-// วาดแผนที่สำหรับช่างแต่ละคน
-techList.forEach((username, idx) => {
-    const points = mapData[username];
-    if (!points || points.length === 0) return;
-    const color = techColors[idx % techColors.length];
-    const layers = [];
+// Seed colors for each user (so they don't change on refresh)
+const techColorMap = {};
+const techColorPool = ['#3b82f6','#ef4444','#22c55e','#f59e0b','#8b5cf6','#ec4899','#14b8a6','#f97316'];
+techList.forEach((name, i) => { techColorMap[name] = techColorPool[i % techColorPool.length]; });
+let colorIdx = techList.length;
 
-    // Markers
-    points.forEach((pt, i) => {
-        const markerColor = typeColors[pt.check_type_key] || color;
-        const marker = createMarker(pt, markerColor, `${username} #${i+1}`);
-        marker.addTo(map);
-        layers.push(marker);
-        allMarkers.push(marker);
-    });
-
-    // Polyline เส้นทาง
-    if (points.length > 1) {
-        const latlngs = points.map(p => [p.lat, p.lng]);
-        const poly = L.polyline(latlngs, { color: color, weight: 3, opacity: 0.7, dashArray: '6,4' }).addTo(map);
-        layers.push(poly);
-        allPolylines.push(poly);
-    }
-
-    techLayers[username] = layers;
-});
-
-// Fit map to markers
-if (allMarkers.length > 0) {
-    const group = L.featureGroup(allMarkers);
-    map.fitBounds(group.getBounds().pad(0.2));
-}
+// Initial render
+refreshMap(mapData);
 
 // Tab filtering
 function showTech(techName, btn) {
@@ -519,22 +495,24 @@ function refreshMap(newMapData) {
             const isLatest = (i === points.length - 1);
             if (latestOnly && !isLatest) return;
 
+            const lat = parseFloat(pt.lat);
+            const lng = parseFloat(pt.lng);
+            if (isNaN(lat) || isNaN(lng) || (lat === 0 && lng === 0)) return;
+
             const markerColor = typeColors[pt.check_type_key] || color;
             let marker;
             if (isLatest) {
-                marker = createLatestMarker(pt, color, username);
+                marker = createLatestMarker({lat, lng}, color, username);
                 // Add detail popup
-                const lat6 = Number(pt.lat).toFixed(6);
-                const lng6 = Number(pt.lng).toFixed(6);
                 marker.bindPopup(`<div style="min-width:170px;">
                     <div style="font-weight:700;font-size:1rem;color:${color};margin-bottom:4px;border-bottom:1px solid #eee;">👷 ${username} (ล่าสุด)</div>
                     <div class="fw-bold small">${pt.check_type}</div>
                     <div class="small text-muted mb-1">📍 ${pt.location_name}</div>
                     <div class="small text-muted mb-1">⏲️ ${pt.time}</div>
-                    <div style="font-size:0.7rem;font-family:monospace;color:#94a3b8;">${lat6}, ${lng6}</div>
+                    <div style="font-size:0.7rem;font-family:monospace;color:#94a3b8;">${lat.toFixed(6)}, ${lng.toFixed(6)}</div>
                 </div>`);
             } else {
-                marker = createMarker(pt, markerColor, `${username} #${i+1}`);
+                marker = createMarker({lat, lng, ...pt}, markerColor, `${username} #${i+1}`);
             }
             
             marker.addTo(map);
@@ -543,13 +521,25 @@ function refreshMap(newMapData) {
         });
 
         if (!latestOnly && points.length > 1) {
-            const latlngs = points.map(p => [p.lat, p.lng]);
-            const poly = L.polyline(latlngs, { color, weight: 3, opacity: 0.7, dashArray: '6,4' }).addTo(map);
-            layers.push(poly);
-            allPolylines.push(poly);
+            const latlngs = points.filter(p => p.lat != 0).map(p => [parseFloat(p.lat), parseFloat(p.lng)]);
+            if (latlngs.length > 1) {
+                const poly = L.polyline(latlngs, { color, weight: 3, opacity: 0.7, dashArray: '6,4' }).addTo(map);
+                layers.push(poly);
+                allPolylines.push(poly);
+            }
         }
         techLayers[username] = layers;
     });
+
+    // Auto-center map if we have markers
+    if (allMarkers.length > 0) {
+        const group = L.featureGroup(allMarkers);
+        if (allMarkers.length === 1) {
+            map.setView(allMarkers[0].getLatLng(), 15);
+        } else {
+            map.fitBounds(group.getBounds().pad(0.3));
+        }
+    }
 }
 
 function toggleLive() {
