@@ -3974,30 +3974,45 @@ if (PTS.length === 0) {{
     L.polyline(lls, {{color:'#3b82f6',weight:3,opacity:0.75}}).addTo(map);
 
     // ── Directional arrows on each segment ────────────────────────────
-    function _addArrow(map, p1, p2) {{
-      var dy = p2[0] - p1[0];
-      var dx = p2[1] - p1[1];
-      var dist = Math.sqrt(dx*dx + dy*dy);
-      if (dist < 0.00015) return;  // too short
-      var mx = p1[0] + dy * 0.55;
-      var my = p1[1] + dx * 0.55;
-      // angle in degrees for CSS rotate (Leaflet lat/lng: north=up)
-      var angleDeg = Math.atan2(dx, dy) * 180 / Math.PI;
-      var arrowIcon = L.divIcon({{
-        html: '<div style="transform:rotate(' + angleDeg + 'deg);' +
-              'font-size:16px;line-height:1;color:#2563eb;' +
-              'text-shadow:0 0 3px white,0 0 3px white;' +
-              'display:flex;align-items:center;justify-content:center;' +
-              'width:18px;height:18px;margin:-9px 0 0 -9px;">▶</div>',
+    function _makeArrowIcon(cssAngle) {{
+      return L.divIcon({{
+        html: '<div style="' +
+              'width:0;height:0;' +
+              'border-top:6px solid transparent;' +
+              'border-bottom:6px solid transparent;' +
+              'border-left:13px solid #1d4ed8;' +
+              'filter:drop-shadow(0 0 2px rgba(255,255,255,0.9)) drop-shadow(0 0 2px rgba(255,255,255,0.9));' +
+              'transform:rotate(' + cssAngle + 'deg);' +
+              'transform-origin:center center;' +
+              '"></div>',
         className: '',
-        iconSize: [18, 18],
-        iconAnchor: [9, 9],
+        iconSize: [13, 12],
+        iconAnchor: [6, 6],
       }});
-      L.marker([mx, my], {{icon: arrowIcon, interactive: false}}).addTo(map);
+    }}
+
+    function _addArrowsOnSegment(map, p1, p2) {{
+      var midLat  = (p1[0] + p2[0]) / 2;
+      var dy      = p2[0] - p1[0];
+      var dx      = (p2[1] - p1[1]) * Math.cos(midLat * Math.PI / 180);
+      var dist    = Math.sqrt(dx * dx + dy * dy);
+      if (dist < 0.0001) return;
+
+      var cssAngle = -Math.atan2(dy, dx) * 180 / Math.PI;
+      var icon     = _makeArrowIcon(cssAngle);
+
+      // Number of arrows: 1 per ~300m equivalent (0.003 deg), min 1, max 5
+      var nArrows = Math.min(5, Math.max(1, Math.floor(dist / 0.003)));
+      for (var k = 1; k <= nArrows; k++) {{
+        var t  = k / (nArrows + 1);
+        var alat = p1[0] + (p2[0] - p1[0]) * t;
+        var alng = p1[1] + (p2[1] - p1[1]) * t;
+        L.marker([alat, alng], {{icon: icon, interactive: false, zIndexOffset: -100}}).addTo(map);
+      }}
     }}
 
     for (var i = 0; i < lls.length - 1; i++) {{
-      _addArrow(map, lls[i], lls[i+1]);
+      _addArrowsOnSegment(map, lls[i], lls[i + 1]);
     }}
   }}
 
@@ -4152,25 +4167,28 @@ def gps_map_image(request, username, date_str):
 
     draw = ImageDraw.Draw(map_img)
 
-    # ── Helper: draw directional arrow at midpoint of segment ────────────
-    def _draw_arrow(d, p1, p2, color, size=9):
+    # ── Helper: draw directional arrows along a segment ─────────────────
+    def _draw_arrows_on_segment(d, p1, p2, color, size=8):
         x1, y1 = p1
         x2, y2 = p2
         seg_len = math.hypot(x2 - x1, y2 - y1)
-        if seg_len < 20:   # too short — skip
+        if seg_len < 25:
             return
         angle = math.atan2(y2 - y1, x2 - x1)
-        # Place arrow at 55% along the segment
-        mx = x1 + (x2 - x1) * 0.55
-        my = y1 + (y2 - y1) * 0.55
-        # Tip and base of arrowhead
-        tip   = (mx + math.cos(angle) * size,       my + math.sin(angle) * size)
         perp  = angle + math.pi / 2
-        left  = (mx - math.cos(angle) * size * 0.6 + math.cos(perp) * size * 0.55,
-                 my - math.sin(angle) * size * 0.6 + math.sin(perp) * size * 0.55)
-        right = (mx - math.cos(angle) * size * 0.6 - math.cos(perp) * size * 0.55,
-                 my - math.sin(angle) * size * 0.6 - math.sin(perp) * size * 0.55)
-        d.polygon([tip, left, right], fill=color, outline='white')
+        # 1 arrow per 80px, min 1, max 5
+        n_arrows = min(5, max(1, int(seg_len / 80)))
+        for k in range(1, n_arrows + 1):
+            t  = k / (n_arrows + 1)
+            mx = x1 + (x2 - x1) * t
+            my = y1 + (y2 - y1) * t
+            tip   = (mx + math.cos(angle) * size,
+                     my + math.sin(angle) * size)
+            left  = (mx - math.cos(angle) * size * 0.55 + math.cos(perp) * size * 0.5,
+                     my - math.sin(angle) * size * 0.55 + math.sin(perp) * size * 0.5)
+            right = (mx - math.cos(angle) * size * 0.55 - math.cos(perp) * size * 0.5,
+                     my - math.sin(angle) * size * 0.55 - math.sin(perp) * size * 0.5)
+            d.polygon([tip, left, right], fill=color, outline='white')
 
     # Draw polyline segments + directional arrows
     px_pts = [_latlon_to_crop(p[0], p[1]) for p in points]
@@ -4178,7 +4196,7 @@ def gps_map_image(request, username, date_str):
     if len(px_pts) > 1:
         draw.line(px_pts, fill=LINE_COLOR, width=3)
         for i in range(len(px_pts) - 1):
-            _draw_arrow(draw, px_pts[i], px_pts[i + 1], LINE_COLOR)
+            _draw_arrows_on_segment(draw, px_pts[i], px_pts[i + 1], LINE_COLOR)
 
     # Marker colors
     TYPE_COLOR = {
