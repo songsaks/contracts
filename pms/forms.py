@@ -219,9 +219,10 @@ class SalesServiceJobForm(forms.ModelForm):
             else:
                 self.fields['status'].choices = [(c[0], c[1]) for c in Project.Status.choices]
 
-        # หากสร้างใหม่ (ไม่มี pk) ให้ซ่อน status field — view จะ set ค่าเองใน save()
+        # หากสร้างใหม่ (ไม่มี pk) ให้แสดงสถานะแรกเป็น read-only (แก้ไขไม่ได้)
+        # view จะ set project.status ก่อน save() เพื่อป้องกัน disabled field ไม่ส่งค่า
         if not self.instance.pk:
-            self.fields['status'].widget = forms.HiddenInput()
+            self.fields['status'].disabled = True
             self.fields['status'].required = False
 
 class ProductItemForm(forms.ModelForm):

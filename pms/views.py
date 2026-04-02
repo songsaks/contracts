@@ -67,6 +67,7 @@ def service_create(request):
         if form.is_valid():
             project = form.save(commit=False)
             project.job_type = Project.JobType.SERVICE
+            project.status = Project.Status.SOURCING
             project._changed_by_user = request.user
             project.save()
             # Auto-create value item
@@ -89,6 +90,7 @@ def repair_create(request):
         if form.is_valid():
             project = form.save(commit=False)
             project.job_type = Project.JobType.REPAIR
+            project.status = Project.Status.SOURCING
             project._changed_by_user = request.user
             project.save()
             # Auto-create value item
@@ -111,6 +113,7 @@ def rental_create(request):
         if form.is_valid():
             project = form.save(commit=False)
             project.job_type = Project.JobType.RENTAL
+            project.status = Project.Status.SOURCING
             project._changed_by_user = request.user
             project.save()
             # Auto-create value item
