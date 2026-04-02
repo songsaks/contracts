@@ -3973,46 +3973,58 @@ if (PTS.length === 0) {{
   if (lls.length > 1) {{
     L.polyline(lls, {{color:'#3b82f6',weight:3,opacity:0.75}}).addTo(map);
 
-    // ── Directional arrows on each segment ────────────────────────────
-    function _makeArrowIcon(cssAngle) {{
-      return L.divIcon({{
-        html: '<div style="' +
-              'width:0;height:0;' +
-              'border-top:6px solid transparent;' +
-              'border-bottom:6px solid transparent;' +
-              'border-left:13px solid #1d4ed8;' +
-              'filter:drop-shadow(0 0 2px rgba(255,255,255,0.9)) drop-shadow(0 0 2px rgba(255,255,255,0.9));' +
-              'transform:rotate(' + cssAngle + 'deg);' +
-              'transform-origin:center center;' +
-              '"></div>',
-        className: '',
-        iconSize: [13, 12],
-        iconAnchor: [6, 6],
-      }});
+    // ── Directional arrows using SVG Polyline on Canvas ─────────────────
+    // Use Leaflet's own SVG overlay — most reliable cross-browser
+    var arrowLayer = L.layerGroup().addTo(map);
+
+    function _bearing(p1, p2) {{
+      // bearing in radians, east=0, CCW positive (math convention)
+      var midLat = (p1[0] + p2[0]) / 2 * Math.PI / 180;
+      var dy = p2[0] - p1[0];
+      var dx = (p2[1] - p1[1]) * Math.cos(midLat);
+      return Math.atan2(dy, dx);   // angle in math coords
     }}
 
-    function _addArrowsOnSegment(map, p1, p2) {{
-      var midLat  = (p1[0] + p2[0]) / 2;
-      var dy      = p2[0] - p1[0];
-      var dx      = (p2[1] - p1[1]) * Math.cos(midLat * Math.PI / 180);
-      var dist    = Math.sqrt(dx * dx + dy * dy);
-      if (dist < 0.0001) return;
+    function _svgArrow(angleDeg) {{
+      // Arrow pointing right (east=0). SVG rotated by angleDeg
+      // Triangle: tip at right, base at left
+      return '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="-10 -10 20 20">' +
+             '<polygon points="8,0 -6,-6 -4,0 -6,6" ' +
+             'fill="#1d4ed8" stroke="white" stroke-width="1.5" stroke-linejoin="round" ' +
+             'transform="rotate(' + (-angleDeg) + ')"/>' +
+             '</svg>';
+    }}
 
-      var cssAngle = -Math.atan2(dy, dx) * 180 / Math.PI;
-      var icon     = _makeArrowIcon(cssAngle);
+    function _addArrowsOnSegment(p1, p2) {{
+      var midLat = (p1[0] + p2[0]) / 2 * Math.PI / 180;
+      var dy = p2[0] - p1[0];
+      var dx = (p2[1] - p1[1]) * Math.cos(midLat);
+      var dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist < 0.0005) return;
 
-      // Number of arrows: 1 per ~300m equivalent (0.003 deg), min 1, max 5
-      var nArrows = Math.min(5, Math.max(1, Math.floor(dist / 0.003)));
+      // bearing → degrees for SVG rotate (SVG: CW from east)
+      var bearingRad = Math.atan2(dy, dx);
+      var bearingDeg = bearingRad * 180 / Math.PI;  // math degrees, east=0
+
+      var icon = L.divIcon({{
+        html: _svgArrow(bearingDeg),
+        className: '',
+        iconSize: [20, 20],
+        iconAnchor: [10, 10],
+      }});
+
+      // 1 arrow per ~0.004° (~440m), min 1, max 6
+      var nArrows = Math.min(6, Math.max(1, Math.floor(dist / 0.004)));
       for (var k = 1; k <= nArrows; k++) {{
-        var t  = k / (nArrows + 1);
+        var t = k / (nArrows + 1);
         var alat = p1[0] + (p2[0] - p1[0]) * t;
         var alng = p1[1] + (p2[1] - p1[1]) * t;
-        L.marker([alat, alng], {{icon: icon, interactive: false, zIndexOffset: -100}}).addTo(map);
+        L.marker([alat, alng], {{icon: icon, interactive: false, zIndexOffset: 50}}).addTo(arrowLayer);
       }}
     }}
 
     for (var i = 0; i < lls.length - 1; i++) {{
-      _addArrowsOnSegment(map, lls[i], lls[i + 1]);
+      _addArrowsOnSegment(lls[i], lls[i + 1]);
     }}
   }}
 
