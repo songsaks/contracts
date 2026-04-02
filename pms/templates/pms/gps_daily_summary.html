@@ -2,7 +2,20 @@
 {% block title %}สรุปการทำงานประจำวัน — {{ report_date|date:"d" }} {{ month_short }} {{ report_date|date:"Y" }}{% endblock %}
 
 {% block extra_css %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <style>
+    .travel-map {
+        height: 280px;
+        border-radius: 0.75rem;
+        overflow: hidden;
+        border: 1px solid #e2e8f0;
+        margin-top: 0.75rem;
+    }
+    .map-toggle-btn {
+        font-size: 0.72rem;
+        padding: 0.25rem 0.75rem;
+        border-radius: 1rem;
+    }
     .page-header {
         background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 100%);
         color: white;
@@ -404,6 +417,20 @@
         </div>
         {% endif %}
 
+        <!-- Travel Map -->
+        {% with map_id="map-"|add:tech.username %}
+        <div class="panel-section pt-1 pb-2">
+            <div class="d-flex align-items-center justify-content-between mb-1">
+                <div class="panel-label mb-0">แผนที่การเดินทาง</div>
+                <button class="btn btn-sm btn-outline-primary map-toggle-btn"
+                        onclick="toggleMap('{{ tech.username }}', {{ tech.logs|length }})">
+                    <i class="fas fa-map me-1"></i>แสดงแผนที่
+                </button>
+            </div>
+            <div id="map-{{ tech.username }}" class="travel-map" style="display:none;"></div>
+        </div>
+        {% endwith %}
+
         <!-- Consistency + Stats -->
         <div class="panel-section">
             <div class="panel-label">ความสอดคล้อง GPS</div>
@@ -566,7 +593,97 @@
 </div>
 
 {% block extra_js %}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
+// ── GPS map data per technician ───────────────────────────────────────────
+const TECH_GPS = {
+{% for tech in tech_list %}
+    "{{ tech.username }}": [
+        {% for log in tech.logs %}
+        { lat: {{ log.lat }}, lng: {{ log.lng }}, type: "{{ log.type }}", time: "{{ log.time }}", location: "{{ log.location|escapejs }}", notes: "{{ log.notes|escapejs }}" },
+        {% endfor %}
+    ],
+{% endfor %}
+};
+
+const _maps = {};
+
+function toggleMap(username, logCount) {
+    const el = document.getElementById('map-' + username);
+    if (!el) return;
+
+    if (el.style.display === 'none') {
+        el.style.display = 'block';
+        if (!_maps[username]) {
+            _buildMap(username);
+        } else {
+            _maps[username].invalidateSize();
+        }
+        event.currentTarget.innerHTML = '<i class="fas fa-map me-1"></i>ซ่อนแผนที่';
+    } else {
+        el.style.display = 'none';
+        event.currentTarget.innerHTML = '<i class="fas fa-map me-1"></i>แสดงแผนที่';
+    }
+}
+
+function _buildMap(username) {
+    const points = TECH_GPS[username] || [];
+    const validPts = points.filter(p => p.lat !== 0 && p.lng !== 0);
+    if (validPts.length === 0) return;
+
+    const map = L.map('map-' + username, { zoomControl: true });
+    _maps[username] = map;
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap',
+        maxZoom: 18,
+    }).addTo(map);
+
+    // Color/icon config per type
+    const TYPE_CONFIG = {
+        GO_WORK:     { color: '#2563eb', icon: '🚀', label: 'ออกทำงาน' },
+        ON_SITE:     { color: '#16a34a', icon: '↑',  label: 'เริ่มงาน'  },
+        CHECK_IN:    { color: '#16a34a', icon: '↑',  label: 'เช็คอิน'   },
+        CHECK_OUT:   { color: '#dc2626', icon: '↓',  label: 'เสร็จงาน'  },
+        BACK_OFFICE: { color: '#7c3aed', icon: '🏢', label: 'กลับออฟฟิศ' },
+        TRAVEL:      { color: '#64748b', icon: '•',  label: 'เดินทาง'   },
+    };
+
+    const latlngs = [];
+    validPts.forEach(function(p, i) {
+        const cfg = TYPE_CONFIG[p.type] || { color: '#64748b', icon: '•', label: p.type };
+        const markerHtml = `<div style="
+            background:${cfg.color};color:white;
+            width:28px;height:28px;border-radius:50%;
+            display:flex;align-items:center;justify-content:center;
+            font-size:0.75rem;font-weight:700;
+            border:2px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.3);
+            ">${i + 1}</div>`;
+
+        const icon = L.divIcon({ html: markerHtml, className: '', iconSize: [28, 28], iconAnchor: [14, 14] });
+        const ll = [p.lat, p.lng];
+        latlngs.push(ll);
+
+        const popupContent = `
+            <div style="font-size:0.8rem;min-width:160px">
+                <div style="font-weight:700;color:${cfg.color}">${cfg.icon} ${cfg.label}</div>
+                <div>${p.time}</div>
+                ${p.location ? `<div style="color:#475569">${p.location}</div>` : ''}
+                ${p.notes ? `<div style="color:#64748b;font-size:0.72rem;margin-top:2px">${p.notes}</div>` : ''}
+            </div>`;
+
+        L.marker(ll, { icon }).addTo(map).bindPopup(popupContent);
+    });
+
+    // Draw polyline route
+    if (latlngs.length > 1) {
+        L.polyline(latlngs, { color: '#3b82f6', weight: 3, opacity: 0.7, dashArray: '6,4' }).addTo(map);
+    }
+
+    // Fit bounds
+    map.fitBounds(L.latLngBounds(latlngs), { padding: [20, 20] });
+}
+
 function sendSummaryToChat() {
     const btn = document.getElementById('btn-send-chat');
     if (!btn) return;

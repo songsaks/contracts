@@ -3297,6 +3297,8 @@ def gps_daily_summary(request):
             'location': log.location_name or '',
             'notes': log.notes or '',
             'log_id': log.id,
+            'lat': float(log.latitude),
+            'lng': float(log.longitude),
         })
         ct = log.check_type
         if ct == 'GO_WORK':
