@@ -310,14 +310,19 @@ function createLatestMarker(point, color, username) {
 
 // ฟังก์ชันวาดแผนที่หลัก
 function refreshMap(newMapData) {
-    const latestOnly = document.getElementById('toggle-latest-only').checked;
-    const currentTab = document.querySelector('.tech-tab.active').dataset.tech;
+    const latestOnlyToggle = document.getElementById('toggle-latest-only');
+    const latestOnly = latestOnlyToggle ? latestOnlyToggle.checked : false;
+    const activeTab = document.querySelector('.tech-tab.active');
+    const currentTab = activeTab ? activeTab.dataset.tech : 'all';
     
     // ล้างข้อมูลเดิม
-    allMarkers.forEach(m => map.removeLayer(m));
-    allPolylines.forEach(p => map.removeLayer(p));
-    allMarkers = []; allPolylines = [];
-    techList.forEach(name => { techLayers[name] = []; });
+    if (allMarkers) allMarkers.forEach(m => { if(map.hasLayer(m)) map.removeLayer(m); });
+    if (allPolylines) allPolylines.forEach(p => { if(map.hasLayer(p)) map.removeLayer(p); });
+    allMarkers = []; 
+    allPolylines = [];
+    
+    // รีเซ็ต layers เฉพาะ tech ที่มีใน newMapData
+    Object.keys(newMapData).forEach(name => { techLayers[name] = []; });
 
     // วาดใหม่
     Object.keys(newMapData).forEach(username => {
@@ -325,16 +330,19 @@ function refreshMap(newMapData) {
         if (!points || points.length === 0) return;
         
         // กรองตาม Tab ถ้าไม่ได้เลือก 'all'
-        const isVisible = (currentTab === 'all' || currentTab === username);
+        const isTabVisible = (currentTab === 'all' || currentTab === username);
 
-        if (!techColorMap[username]) { techColorMap[username] = techColorPool[colorIdx++ % techColorPool.length]; }
+        if (!techColorMap[username]) {
+            techColorMap[username] = techColorPool[colorIdx++ % techColorPool.length];
+        }
         const color = techColorMap[username];
 
         points.forEach((pt, i) => {
             const isLatest = (i === points.length - 1);
             if (latestOnly && !isLatest) return;
 
-            const lat = parseFloat(pt.lat); const lng = parseFloat(pt.lng);
+            const lat = parseFloat(pt.lat);
+            const lng = parseFloat(pt.lng);
             if (isNaN(lat) || isNaN(lng) || (lat === 0 && lng === 0)) return;
 
             let marker;
@@ -344,13 +352,14 @@ function refreshMap(newMapData) {
                 marker = createMarker({lat, lng, ...pt}, (typeColors[pt.check_type_key] || color), `${username} #${i+1}`);
             }
             
-            if (isVisible) marker.addTo(map);
+            if (isTabVisible) marker.addTo(map);
+            if (!techLayers[username]) techLayers[username] = [];
             techLayers[username].push(marker);
             allMarkers.push(marker);
         });
 
-        if (isVisible && !latestOnly && points.length > 1) {
-            const latlngs = points.filter(p => p.lat != 0).map(p => [parseFloat(p.lat), parseFloat(p.lng)]);
+        if (isTabVisible && !latestOnly && points.length > 1) {
+            const latlngs = points.filter(p => parseFloat(p.lat) != 0).map(p => [parseFloat(p.lat), parseFloat(p.lng)]);
             if (latlngs.length > 1) {
                 const poly = L.polyline(latlngs, { color, weight: 3, opacity: 0.7, dashArray: '6,4' }).addTo(map);
                 techLayers[username].push(poly);
@@ -359,12 +368,15 @@ function refreshMap(newMapData) {
         }
     });
 
-    // Auto-center
+    // Auto-center (เฉพาะตัวที่แสดงบนแผนที่)
     const visibleMarkers = allMarkers.filter(m => map.hasLayer(m));
     if (visibleMarkers.length > 0) {
         const group = L.featureGroup(visibleMarkers);
-        if (visibleMarkers.length === 1) map.setView(visibleMarkers[0].getLatLng(), 16);
-        else map.fitBounds(group.getBounds().pad(0.3));
+        if (visibleMarkers.length === 1) {
+            map.setView(visibleMarkers[0].getLatLng(), 16);
+        } else {
+            map.fitBounds(group.getBounds().pad(0.3));
+        }
     }
 }
 
