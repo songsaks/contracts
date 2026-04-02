@@ -121,6 +121,7 @@
                         <div class="small fw-bold text-primary mb-2 mt-3">{{ username }}</div>
                         {% for log in user_logs %}
                         <div class="timeline-item {% if log.check_type == 'CHECK_IN' %}check-in{% elif log.check_type == 'CHECK_OUT' %}check-out{% elif log.check_type == 'TRAVEL' %}travel{% endif %}"
+                             data-lat="{{ log.latitude }}" data-lon="{{ log.longitude }}"
                              onclick="zoomToPoint('{{ username }}', {{ forloop.counter0 }}, this)">
                             <div class="d-flex justify-content-between align-items-center">
                                 <span class="fw-bold small">{{ log.get_check_type_display }}</span>
