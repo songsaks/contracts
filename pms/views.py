@@ -3973,53 +3973,46 @@ if (PTS.length === 0) {{
   if (lls.length > 1) {{
     L.polyline(lls, {{color:'#3b82f6',weight:3,opacity:0.75}}).addTo(map);
 
-    // ── Directional arrows using SVG Polyline on Canvas ─────────────────
-    // Use Leaflet's own SVG overlay — most reliable cross-browser
-    var arrowLayer = L.layerGroup().addTo(map);
+    // ── Directional arrows as L.polyline ">" shapes ─────────────────────
+    // Most reliable: pure Leaflet polylines, no divIcon/SVG issues
+    var ARROW_SIZE = 0.0012;   // half-width of arrowhead in degrees (≈130m)
+    var ARROW_COLOR = '#1d4ed8';
 
-    function _bearing(p1, p2) {{
-      // bearing in radians, east=0, CCW positive (math convention)
-      var midLat = (p1[0] + p2[0]) / 2 * Math.PI / 180;
-      var dy = p2[0] - p1[0];
-      var dx = (p2[1] - p1[1]) * Math.cos(midLat);
-      return Math.atan2(dy, dx);   // angle in math coords
-    }}
+    function _drawArrowHead(map, tip_lat, tip_lng, angle) {{
+      // angle: bearing in radians (math: east=0, CCW positive)
+      // Draw 2 lines: tip → left-wing, tip → right-wing
+      var perpAngle = angle + Math.PI;   // pointing back
+      var wingAngle1 = perpAngle + 0.5;  // ~30°
+      var wingAngle2 = perpAngle - 0.5;
 
-    function _svgArrow(angleDeg) {{
-      // Arrow pointing right (east=0). SVG rotated by angleDeg
-      // Triangle: tip at right, base at left
-      return '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="-10 -10 20 20">' +
-             '<polygon points="8,0 -6,-6 -4,0 -6,6" ' +
-             'fill="#1d4ed8" stroke="white" stroke-width="1.5" stroke-linejoin="round" ' +
-             'transform="rotate(' + (-angleDeg) + ')"/>' +
-             '</svg>';
+      var cos_lat = Math.cos(tip_lat * Math.PI / 180);
+      var w1_lat = tip_lat + Math.sin(wingAngle1) * ARROW_SIZE;
+      var w1_lng = tip_lng + Math.cos(wingAngle1) * ARROW_SIZE / cos_lat;
+      var w2_lat = tip_lat + Math.sin(wingAngle2) * ARROW_SIZE;
+      var w2_lng = tip_lng + Math.cos(wingAngle2) * ARROW_SIZE / cos_lat;
+
+      var opts = {{color: ARROW_COLOR, weight: 3, opacity: 1}};
+      L.polyline([[tip_lat, tip_lng], [w1_lat, w1_lng]], opts).addTo(map);
+      L.polyline([[tip_lat, tip_lng], [w2_lat, w2_lng]], opts).addTo(map);
     }}
 
     function _addArrowsOnSegment(p1, p2) {{
-      var midLat = (p1[0] + p2[0]) / 2 * Math.PI / 180;
+      var midLat = (p1[0] + p2[0]) / 2;
+      var cos_lat = Math.cos(midLat * Math.PI / 180);
       var dy = p2[0] - p1[0];
-      var dx = (p2[1] - p1[1]) * Math.cos(midLat);
+      var dx = (p2[1] - p1[1]) * cos_lat;
       var dist = Math.sqrt(dx * dx + dy * dy);
-      if (dist < 0.0005) return;
+      if (dist < 0.001) return;
 
-      // bearing → degrees for SVG rotate (SVG: CW from east)
-      var bearingRad = Math.atan2(dy, dx);
-      var bearingDeg = bearingRad * 180 / Math.PI;  // math degrees, east=0
+      var angle = Math.atan2(dy, dx);  // math bearing: east=0, CCW
 
-      var icon = L.divIcon({{
-        html: _svgArrow(bearingDeg),
-        className: '',
-        iconSize: [20, 20],
-        iconAnchor: [10, 10],
-      }});
-
-      // 1 arrow per ~0.004° (~440m), min 1, max 6
-      var nArrows = Math.min(6, Math.max(1, Math.floor(dist / 0.004)));
+      // 1 arrow per ~0.005° (~550m), min 1, max 6
+      var nArrows = Math.min(6, Math.max(1, Math.floor(dist / 0.005)));
       for (var k = 1; k <= nArrows; k++) {{
         var t = k / (nArrows + 1);
         var alat = p1[0] + (p2[0] - p1[0]) * t;
         var alng = p1[1] + (p2[1] - p1[1]) * t;
-        L.marker([alat, alng], {{icon: icon, interactive: false, zIndexOffset: 50}}).addTo(arrowLayer);
+        _drawArrowHead(map, alat, alng, angle);
       }}
     }}
 
