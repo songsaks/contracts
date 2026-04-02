@@ -3871,9 +3871,13 @@ def gps_daily_summary_send_to_chat(request):
         from channels.layers import get_channel_layer
         from asgiref.sync import async_to_sync
 
-        chat_room = ChatRoom.objects.filter(pk=1, is_active=True).first()
+        # ค้นหาห้อง "การตลาด" ถ้าไม่พบค่อยถอยไปหา ID=1 (ประกาศข่าวสาร/ทั่วไป)
+        chat_room = ChatRoom.objects.filter(name__icontains='การตลาด', is_active=True).first()
         if not chat_room:
-            return JsonResponse({'ok': False, 'error': 'ไม่พบห้องแชท id=1'})
+            chat_room = ChatRoom.objects.filter(pk=1, is_active=True).first()
+
+        if not chat_room:
+            return JsonResponse({'ok': False, 'error': 'ไม่พบห้องแชทที่จะส่งข้อมูล'})
 
         msg = ChatMessage.objects.create(
             room=chat_room,
