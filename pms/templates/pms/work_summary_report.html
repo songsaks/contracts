@@ -1,375 +1,483 @@
 {% extends "pms/base_pms.html" %}
 {% load static %}
 
-{% block title %}รายงานสรุปการทำงาน — PMS{% endblock %}
+{% block title %}AI Performance Dashboard — PMS{% endblock %}
+
+{% block extra_css %}
+<style>
+    :root {
+        --glass-bg: rgba(255, 255, 255, 0.7);
+        --glass-border: rgba(255, 255, 255, 0.3);
+        --pms-grad: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+    }
+    body {
+        background-color: #f8fafc;
+        background-image: 
+            radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.05) 0px, transparent 50%),
+            radial-gradient(at 100% 0%, rgba(139, 92, 246, 0.05) 0px, transparent 50%);
+    }
+    .glass-card {
+        background: var(--glass-bg);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border: 1px solid var(--glass-border);
+        border-radius: 1.25rem;
+        box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.07);
+        transition: all 0.3s ease;
+    }
+    .glass-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 12px 40px 0 rgba(31, 38, 135, 0.1);
+    }
+    .performer-card {
+        background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+        color: white;
+        position: relative;
+        overflow: hidden;
+    }
+    .performer-card::after {
+        content: "\f054";
+        font-family: "Font Awesome 5 Free";
+        font-weight: 900;
+        position: absolute;
+        right: -20px;
+        bottom: -20px;
+        font-size: 8rem;
+        opacity: 0.05;
+        transform: rotate(-15deg);
+    }
+    .stat-pill {
+        padding: 0.4rem 1rem;
+        border-radius: 100px;
+        font-weight: 600;
+        font-size: 0.75rem;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    .pill-purple { background: rgba(139, 92, 246, 0.1); color: #7c3aed; }
+    .pill-blue { background: rgba(59, 130, 246, 0.1); color: #1d4ed8; }
+    .pill-green { background: rgba(16, 185, 129, 0.1); color: #059669; }
+    .pill-orange { background: rgba(245, 158, 11, 0.1); color: #d97706; }
+
+    .score-circle {
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 800;
+        font-size: 1.2rem;
+        border: 4px solid rgba(255,255,255,0.1);
+    }
+
+    .table thead th {
+        background: transparent;
+        border-top: none;
+        text-transform: uppercase;
+        font-size: 0.7rem;
+        letter-spacing: 0.05em;
+        color: #64748b;
+        padding: 1rem 0.75rem;
+    }
+    .table td {
+        vertical-align: middle;
+        padding: 1rem 0.75rem;
+        border-color: rgba(0,0,0,0.03);
+    }
+    .btn-ai {
+        background: var(--pms-grad);
+        color: white;
+        border: none;
+        border-radius: 12px;
+        padding: 0.6rem 1.5rem;
+        font-weight: 600;
+        box-shadow: 0 4px 15px rgba(99, 102, 241, 0.3);
+    }
+    .btn-ai:hover {
+        transform: scale(1.02);
+        color: white;
+        box-shadow: 0 6px 20px rgba(99, 102, 241, 0.4);
+    }
+    .chart-container { height: 280px; position: relative; }
+</style>
+{% endblock %}
 
 {% block content %}
-<div class="container-fluid py-4">
+<div class="container-fluid py-4 px-lg-5">
 
-  <!-- Header -->
-  <div class="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-2">
-    <div>
-      <h4 class="fw-bold mb-0" style="color:#1e293b;">
-        <i class="fas fa-clipboard-list me-2" style="color:#6366f1;"></i>รายงานสรุปการทำงานภาคสนาม
-      </h4>
-      <p class="text-muted small mb-0 mt-1">สถานที่ · งาน · หน่วยงาน · ระยะเวลา พร้อม AI วิเคราะห์ประสิทธิภาพ</p>
-    </div>
-    <button id="btn-ai-analyze" class="btn btn-sm px-4 fw-semibold"
-            style="background:linear-gradient(135deg,#6366f1,#8b5cf6);color:white;border:none;border-radius:10px;">
-      <i class="fas fa-robot me-2"></i>AI วิเคราะห์ประสิทธิภาพ
-    </button>
-  </div>
-
-  <!-- Filter Bar -->
-  <form method="get" class="card border-0 shadow-sm rounded-3 p-3 mb-4">
-    <div class="row g-2 align-items-end">
-      <div class="col-6 col-md-2">
-        <label class="form-label small fw-semibold mb-1">วันที่เริ่ม</label>
-        <input type="date" name="date_from" class="form-control form-control-sm" value="{{ date_from_str }}">
-      </div>
-      <div class="col-6 col-md-2">
-        <label class="form-label small fw-semibold mb-1">วันที่สิ้นสุด</label>
-        <input type="date" name="date_to" class="form-control form-control-sm" value="{{ date_to_str }}">
-      </div>
-      {% if can_view_all %}
-      <div class="col-6 col-md-2">
-        <label class="form-label small fw-semibold mb-1">ช่าง</label>
-        <select name="user_id" class="form-select form-select-sm">
-          <option value="">— ทั้งหมด —</option>
-          {% for u in users_list %}
-          <option value="{{ u.pk }}" {% if selected_user_id == u.pk|stringformat:"s" %}selected{% endif %}>
-            {{ u.get_full_name|default:u.username }}
-          </option>
-          {% endfor %}
-        </select>
-      </div>
-      {% endif %}
-      <div class="col-6 col-md-2">
-        <label class="form-label small fw-semibold mb-1">ประเภทงาน</label>
-        <select name="task_type" class="form-select form-select-sm">
-          <option value="">— ทั้งหมด —</option>
-          {% for val, label in task_type_choices %}
-          <option value="{{ val }}" {% if selected_task_type == val %}selected{% endif %}>{{ label }}</option>
-          {% endfor %}
-        </select>
-      </div>
-      <div class="col-6 col-md-2">
-        <label class="form-label small fw-semibold mb-1">ทีม</label>
-        <select name="team_id" class="form-select form-select-sm">
-          <option value="">— ทั้งหมด —</option>
-          {% for t in teams_all %}
-          <option value="{{ t.pk }}" {% if selected_team_id == t.pk|stringformat:"s" %}selected{% endif %}>{{ t.name }}</option>
-          {% endfor %}
-        </select>
-      </div>
-      <div class="col-6 col-md-2">
-        <button type="submit" class="btn btn-primary btn-sm w-100">
-          <i class="fas fa-search me-1"></i>กรอง
-        </button>
-      </div>
-    </div>
-  </form>
-
-  <!-- KPI Cards -->
-  <div class="row g-3 mb-4">
-    <div class="col-6 col-md-3">
-      <div class="card border-0 shadow-sm rounded-3 p-3 text-center">
-        <div class="fw-bold" style="font-size:1.8rem;color:#6366f1;">{{ total_sessions }}</div>
-        <div class="small text-muted">งานที่ทำ (sessions)</div>
-      </div>
-    </div>
-    <div class="col-6 col-md-3">
-      <div class="card border-0 shadow-sm rounded-3 p-3 text-center">
-        <div class="fw-bold" style="font-size:1.8rem;color:#10b981;">{{ total_hours }}</div>
-        <div class="small text-muted">ชั่วโมงทำงานรวม</div>
-      </div>
-    </div>
-    <div class="col-6 col-md-3">
-      <div class="card border-0 shadow-sm rounded-3 p-3 text-center">
-        <div class="fw-bold" style="font-size:1.8rem;color:#f59e0b;">{{ tech_stats|length }}</div>
-        <div class="small text-muted">จำนวนช่าง</div>
-      </div>
-    </div>
-    <div class="col-6 col-md-3">
-      <div class="card border-0 shadow-sm rounded-3 p-3 text-center">
-        <div class="fw-bold" style="font-size:1.8rem;color:#3b82f6;">
-          {% if total_sessions %}{% widthratio total_hours total_sessions 1 %}{% else %}0{% endif %}
+    <!-- Header Section -->
+    <div class="row align-items-center mb-5">
+        <div class="col-lg-7">
+            <h2 class="fw-extrabold mb-1" style="letter-spacing: -0.02em; color: #1e293b;">
+                AI Performance Analysis <span class="text-indigo-600" style="color:#6366f1;">Dashboard</span>
+            </h2>
+            <p class="text-muted fw-medium fs-6">ประเมินประสิทธิผลการทำงาน รายจ่ายทรัพยากร และความพึงพอใจของลูกค้า</p>
         </div>
-        <div class="small text-muted">ชม./งาน เฉลี่ย</div>
-      </div>
+        <div class="col-lg-5 text-lg-end">
+            <button id="btn-ai-analyze" class="btn btn-ai me-2">
+                <i class="fas fa-brain me-2"></i>วิเคราะห์เชิงกึกด้วย AI
+            </button>
+            <a href="{% url 'pms:gps_summary_export' %}?date_from={{ date_from_str }}&date_to={{ date_to_str }}" class="btn btn-outline-secondary border-2 fw-bold" style="border-radius:12px; padding:0.55rem 1.2rem;">
+                <i class="fas fa-file-export me-1"></i>ส่งออก PDF
+            </a>
+        </div>
     </div>
-  </div>
 
-  <!-- Stats Row -->
-  <div class="row g-3 mb-4">
-    <!-- By Technician -->
-    <div class="col-md-5">
-      <div class="card border-0 shadow-sm rounded-3 h-100">
-        <div class="card-header bg-white border-0 fw-semibold" style="color:#374151;">
-          <i class="fas fa-user-hard-hat me-2 text-indigo-500" style="color:#6366f1;"></i>สรุปรายช่าง
-        </div>
-        <div class="card-body p-0">
-          <div class="table-responsive">
-            <table class="table table-sm mb-0" style="font-size:0.83rem;">
-              <thead style="background:#f8fafc;">
-                <tr>
-                  <th class="ps-3">ช่าง</th>
-                  <th class="text-center">งาน</th>
-                  <th class="text-center">ชม.</th>
-                  <th class="text-center">สถานที่</th>
-                  <th class="text-center">ความพอใจ</th>
-                </tr>
-              </thead>
-              <tbody>
-                {% for t in tech_stats %}
-                <tr>
-                  <td class="ps-3 fw-semibold">{{ t.name }}</td>
-                  <td class="text-center">{{ t.sessions }}</td>
-                  <td class="text-center">
-                    <span class="badge" style="background:#ede9fe;color:#6366f1;">{{ t.hours }}ชม.</span>
-                  </td>
-                  <td class="text-center">{{ t.locs }}</td>
-                  <td class="text-center">
-                    {% if t.sat_total %}
-                      <span class="text-success fw-semibold">{{ t.sat_pos }}/{{ t.sat_total }}</span>
-                    {% else %}—{% endif %}
-                  </td>
-                </tr>
-                {% empty %}
-                <tr><td colspan="5" class="text-center text-muted py-3">ไม่มีข้อมูล</td></tr>
-                {% endfor %}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-    </div>
-    <!-- By Task Type + Team -->
-    <div class="col-md-7">
-      <div class="row g-3 h-100">
-        <div class="col-md-6">
-          <div class="card border-0 shadow-sm rounded-3 h-100">
-            <div class="card-header bg-white border-0 fw-semibold" style="color:#374151;">
-              <i class="fas fa-tools me-2" style="color:#f59e0b;"></i>ประเภทงาน
-            </div>
-            <div class="card-body">
-              {% for t in type_stats %}
-              <div class="d-flex justify-content-between align-items-center mb-2">
-                <span class="small">{{ t.type }}</span>
-                <div class="text-end">
-                  <span class="badge bg-warning bg-opacity-15 text-warning border border-warning border-opacity-25 me-1">{{ t.count }} งาน</span>
-                  <span class="badge" style="background:#fef3c7;color:#92400e;">{{ t.hours }}ชม.</span>
+    <!-- Top Performer Spotlight (AI Choice) -->
+    {% if tech_stats %}
+    {% with top=tech_stats.0 %}
+    <div class="row mb-5">
+        <div class="col-12">
+            <div class="glass-card performer-card p-4 p-lg-5 border-0 shadow-lg">
+                <div class="row align-items-center">
+                    <div class="col-lg-1 text-center mb-3 mb-lg-0">
+                        <div class="score-circle bg-success text-white mx-auto shadow-sm" style="border-color: rgba(255,255,255,0.2);">
+                            {{ top.efficiency_score }}
+                        </div>
+                        <div class="small mt-2 fw-bold opacity-75">EFFICIENCY</div>
+                    </div>
+                    <div class="col-lg-4 border-lg-end border-white border-opacity-10 divider-vertical px-lg-4">
+                        <span class="badge bg-warning text-dark fw-bold px-3 py-2 mb-3 rounded-pill">
+                            <i class="fas fa-trophy me-2"></i>พนักงานดีเด่น (AI SELECTED)
+                        </span>
+                        <h1 class="fw-black mb-1 display-6">{{ top.name }}</h1>
+                        <div class="d-flex gap-2 flex-wrap mt-3">
+                            <span class="stat-pill pill-purple" style="background:rgba(255,255,255,0.1); color:white;">
+                                <i class="fas fa-briefcase"></i> {{ top.sessions }} งาน
+                            </span>
+                            <span class="stat-pill pill-green" style="background:rgba(255,255,255,0.1); color:white;">
+                                <i class="fas fa-smile"></i> {{ top.sat_pos }}/{{ top.sat_total }} พอใจ
+                            </span>
+                        </div>
+                    </div>
+                    <div class="col-lg-7 ps-lg-5 mt-4 mt-lg-0">
+                        <div class="row g-4">
+                            <div class="col-md-4 text-center">
+                                <div class="opacity-60 small fw-bold mb-1">ระยะทางรวม</div>
+                                <h3 class="mb-0 fw-bold">{{ top.total_dist }} <span class="fs-6 opacity-50">กม.</span></h3>
+                            </div>
+                            <div class="col-md-4 text-center">
+                                <div class="opacity-60 small fw-bold mb-1">ปริมาณน้ำมัน</div>
+                                <h3 class="mb-0 fw-bold">{{ top.fuel_liters }} <span class="fs-6 opacity-50">ลิตร</span></h3>
+                            </div>
+                            <div class="col-md-4 text-center">
+                                <div class="opacity-60 small fw-bold mb-1">ประเมินค่าใช้จ่าย</div>
+                                <h3 class="mb-0 fw-bold text-success" style="color:#d9f99d !important;">฿{{ top.fuel_cost }}</h3>
+                            </div>
+                        </div>
+                        <div class="mt-4 pt-3 border-top border-white border-opacity-10">
+                            <p class="mb-0 fs-6 opacity-75">
+                                <i class="fas fa-quote-left me-2 opacity-50"></i>
+                                ช่างมีความสามารถในการบริหารเวลาและจัดการเส้นทางได้ยอดเยี่ยม ส่งผลให้มีความคุ้มค่าต่อหน่วยงานสูงสุด
+                            </p>
+                        </div>
+                    </div>
                 </div>
-              </div>
-              {% empty %}
-              <p class="text-muted small">ไม่มีข้อมูล</p>
-              {% endfor %}
             </div>
-          </div>
         </div>
-        <div class="col-md-6">
-          <div class="card border-0 shadow-sm rounded-3 h-100">
-            <div class="card-header bg-white border-0 fw-semibold" style="color:#374151;">
-              <i class="fas fa-users-cog me-2" style="color:#10b981;"></i>ทีม/หน่วยงาน
-            </div>
-            <div class="card-body">
-              {% for t in team_stats %}
-              <div class="d-flex justify-content-between align-items-center mb-2">
-                <span class="small">{{ t.team }}</span>
-                <div class="text-end">
-                  <span class="badge bg-success bg-opacity-15 text-success border border-success border-opacity-25 me-1">{{ t.count }} งาน</span>
-                  <span class="badge" style="background:#ecfdf5;color:#065f46;">{{ t.hours }}ชม.</span>
+    </div>
+    {% endwith %}
+    {% endif %}
+
+    <!-- Analytics Charts Row -->
+    <div class="row g-4 mb-5">
+        <div class="col-lg-8">
+            <div class="glass-card p-4 h-100">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h5 class="fw-bold mb-0"><i class="fas fa-chart-radar me-2 text-indigo-500"></i>Performance Radar Analysis</h5>
+                    <div class="small text-muted">เปรียบเทียบสัดส่วนประสิทธิภาพ</div>
                 </div>
-              </div>
-              {% empty %}
-              <p class="text-muted small">ไม่มีข้อมูล</p>
-              {% endfor %}
+                <div class="chart-container">
+                    <canvas id="radarChart"></canvas>
+                </div>
             </div>
-          </div>
         </div>
-      </div>
+        <div class="col-lg-4">
+            <div class="glass-card p-4 h-100">
+                <h5 class="fw-bold mb-4"><i class="fas fa-chart-pie me-2 text-emerald-500"></i>Job Allocation</h5>
+                <div class="chart-container">
+                    <canvas id="doughnutChart"></canvas>
+                </div>
+            </div>
+        </div>
     </div>
-  </div>
 
-  <!-- Work Sessions Table -->
-  <div class="card border-0 shadow-sm rounded-3">
-    <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center">
-      <span class="fw-semibold" style="color:#374151;">
-        <i class="fas fa-list-alt me-2" style="color:#6366f1;"></i>รายละเอียดการทำงาน
-        <span class="badge ms-2" style="background:#ede9fe;color:#6366f1;">{{ total_sessions }} รายการ</span>
-      </span>
-    </div>
-    <div class="card-body p-0">
-      <div class="table-responsive">
-        <table class="table table-hover mb-0" style="font-size:0.82rem;">
-          <thead style="background:#f8fafc;position:sticky;top:0;">
-            <tr>
-              <th class="ps-3" style="min-width:80px;">วันที่</th>
-              <th style="min-width:100px;">ช่าง</th>
-              <th style="min-width:110px;">ทีม/หน่วยงาน</th>
-              <th style="min-width:150px;">งาน</th>
-              <th style="min-width:80px;">ประเภท</th>
-              <th style="min-width:130px;">สถานที่</th>
-              <th class="text-center" style="min-width:90px;">เวลา</th>
-              <th class="text-center" style="min-width:80px;">ระยะเวลา</th>
-              <th class="text-center" style="min-width:70px;">ประสิทธิภาพ</th>
-              <th class="text-center" style="min-width:90px;">ความพอใจ</th>
-              <th style="min-width:100px;">โครงการ</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for s in sessions %}
-            <tr>
-              <td class="ps-3 text-muted">{{ s.date_str }}</td>
-              <td class="fw-semibold">{{ s.technician }}</td>
-              <td>
-                {% if s.teams %}
-                  {% for team in s.teams %}
-                  <span class="badge me-1" style="background:#ecfdf5;color:#065f46;font-size:0.72rem;">{{ team }}</span>
-                  {% endfor %}
-                {% else %}
-                <span class="text-muted small">—</span>
-                {% endif %}
-              </td>
-              <td>
-                <div class="fw-semibold" style="color:#1e293b;">{{ s.task_title }}</div>
-                {% if s.customer_name != "ไม่ระบุ" %}
-                <div class="small text-muted">{{ s.customer_name }}</div>
-                {% endif %}
-              </td>
-              <td>
-                {% if s.task_type == "REPAIR" %}
-                  <span class="badge" style="background:#fee2e2;color:#dc2626;">ซ่อม</span>
-                {% elif s.task_type == "INSTALLATION" %}
-                  <span class="badge" style="background:#dbeafe;color:#1d4ed8;">ติดตั้ง</span>
-                {% elif s.task_type == "DELIVERY" %}
-                  <span class="badge" style="background:#fef3c7;color:#92400e;">ส่งสินค้า</span>
-                {% elif s.task_type %}
-                  <span class="badge" style="background:#f3f4f6;color:#374151;">{{ s.task_type_display }}</span>
-                {% else %}
-                  <span class="text-muted small">—</span>
-                {% endif %}
-              </td>
-              <td>
-                <i class="fas fa-map-marker-alt me-1 text-danger" style="font-size:0.75rem;"></i>
-                {{ s.location }}
-              </td>
-              <td class="text-center">
-                <div class="small fw-semibold" style="color:#059669;">{{ s.check_in_time }}</div>
-                <div class="small fw-semibold" style="color:#dc2626;">{{ s.check_out_time }}</div>
-              </td>
-              <td class="text-center">
-                <span class="badge" style="background:#ede9fe;color:#6366f1;font-size:0.78rem;">{{ s.duration_str }}</span>
-              </td>
-              <td class="text-center">
-                {% if s.efficiency %}
-                  {% if s.efficiency <= 90 %}
-                    <span class="badge bg-success bg-opacity-15 text-success">{{ s.efficiency }}%</span>
-                  {% elif s.efficiency <= 120 %}
-                    <span class="badge bg-warning bg-opacity-15 text-warning">{{ s.efficiency }}%</span>
-                  {% else %}
-                    <span class="badge bg-danger bg-opacity-15 text-danger">{{ s.efficiency }}%</span>
-                  {% endif %}
-                {% else %}
-                  <span class="text-muted small">—</span>
-                {% endif %}
-              </td>
-              <td class="text-center">
-                {% if s.satisfaction_rating == "VERY_SATISFIED" %}
-                  <span class="badge" style="background:#dcfce7;color:#15803d;">😊 พอใจมาก</span>
-                {% elif s.satisfaction_rating == "SATISFIED" %}
-                  <span class="badge" style="background:#dbeafe;color:#1d4ed8;">🙂 พอใจ</span>
-                {% elif s.satisfaction_rating == "NOT_SATISFIED" %}
-                  <span class="badge" style="background:#fee2e2;color:#dc2626;">😞 ไม่พอใจ</span>
-                {% else %}
-                  <span class="text-muted small">—</span>
-                {% endif %}
-              </td>
-              <td class="small text-muted">{{ s.project_name }}</td>
-            </tr>
-            {% empty %}
-            <tr>
-              <td colspan="11" class="text-center text-muted py-5">
-                <i class="fas fa-inbox fa-2x mb-2 d-block opacity-25"></i>
-                ไม่พบข้อมูลการทำงานในช่วงที่เลือก
-              </td>
-            </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  </div>
+    <!-- Filter & Detail Section -->
+    <div class="row g-4 mb-4">
+        <div class="col-lg-3">
+            <div class="glass-card p-4 position-sticky" style="top: 2rem;">
+                <h6 class="fw-bold mb-4">ตัวกรองข้อมูล</h6>
+                <form method="get">
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold text-muted">ช่วงวันที่</label>
+                        <input type="date" name="date_from" class="form-control rounded-3 border-light shadow-sm mb-2" value="{{ date_from_str }}">
+                        <input type="date" name="date_to" class="form-control rounded-3 border-light shadow-sm" value="{{ date_to_str }}">
+                    </div>
+                    {% if can_view_all %}
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold text-muted">เลือกช่าง</label>
+                        <select name="user_id" class="form-select rounded-3 border-light shadow-sm">
+                            <option value="">— ทั้งหมด —</option>
+                            {% for u in users_list %}
+                            <option value="{{ u.pk }}" {% if selected_user_id == u.pk|stringformat:"s" %}selected{% endif %}>{{ u.get_full_name|default:u.username }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    {% endif %}
+                    <div class="mb-4">
+                        <label class="form-label small fw-bold text-muted">ทีมสนาม</label>
+                        <select name="team_id" class="form-select rounded-3 border-light shadow-sm">
+                            <option value="">— ทั้งหมด —</option>
+                            {% for t in teams_all %}
+                            <option value="{{ t.pk }}" {% if selected_team_id == t.pk|stringformat:"s" %}selected{% endif %}>{{ t.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100 py-2 fw-bold" style="border-radius:12px;">
+                        <i class="fas fa-sync-alt me-2"></i>อัปเดตข้อมูล
+                    </button>
+                </form>
+            </div>
+        </div>
 
+        <div class="col-lg-9">
+            <!-- Ranking Table -->
+            <div class="glass-card p-0 overflow-hidden mb-4">
+                <div class="p-4 bg-white bg-opacity-50 border-bottom">
+                    <h5 class="fw-bold mb-0">KPI Ranking & Efficiency Score</h5>
+                </div>
+                <div class="table-responsive">
+                    <table class="table mb-0">
+                        <thead>
+                            <tr>
+                                <th class="ps-4">พนักงาน</th>
+                                <th class="text-center">JOB COUNT</th>
+                                <th class="text-center">HOURS</th>
+                                <th class="text-center">DIST (KM)</th>
+                                <th class="text-center">FUEL (฿)</th>
+                                <th class="text-center">SATISFACTION</th>
+                                <th class="text-center">SCORE</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for t in tech_stats %}
+                            <tr>
+                                <td class="ps-4">
+                                    <div class="d-flex align-items-center">
+                                        <div class="avatar-sm me-3 bg-indigo-100 text-indigo-600 rounded-circle d-flex align-items-center justify-content-center fw-bold" style="width:36px; height:36px; background:#eef2ff; color:#4f46e5;">
+                                            {{ t.name|slice:":1"|upper }}
+                                        </div>
+                                        <div>
+                                            <div class="fw-bold" style="color:#1e293b;">{{ t.name }}</div>
+                                            <div class="small text-muted">{{ t.locs }} สถานที่</div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="text-center"><span class="fw-semibold">{{ t.sessions }}</span></td>
+                                <td class="text-center"><span class="stat-pill pill-purple">{{ t.hours }} ชม.</span></td>
+                                <td class="text-center"><span class="text-muted">{{ t.total_dist }}</span></td>
+                                <td class="text-center text-orange-600 fw-bold">฿{{ t.fuel_cost }}</td>
+                                <td class="text-center">
+                                    <div class="d-flex align-items-center justify-content-center gap-1">
+                                        <span class="text-success fw-bold">{{ t.sat_pos }}</span>
+                                        <span class="text-muted small">/{{ t.sat_total }}</span>
+                                    </div>
+                                </td>
+                                <td class="text-center">
+                                    <span class="badge rounded-pill px-3 py-2" style="background:{% if t.efficiency_score >= 80 %}#10b981{% elif t.efficiency_score >= 60 %}#f59e0b{% else %}#ef4444{% endif %};">
+                                        {{ t.efficiency_score }}%
+                                    </span>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Detailed Log (Accordion/Table) -->
+            <div class="glass-card mb-4 overflow-hidden">
+                <div class="p-4 d-flex justify-content-between align-items-center bg-white bg-opacity-30">
+                    <h5 class="fw-bold mb-0">Detailed Work Logs</h5>
+                    <span class="small text-muted">แสดง 30 รายการล่าสุด</span>
+                </div>
+                <div class="table-responsive">
+                    <table class="table mb-0" style="font-size: 0.85rem;">
+                        <thead class="bg-light bg-opacity-50">
+                            <tr>
+                                <th class="ps-4">DATE</th>
+                                <th>TECH</th>
+                                <th>TASK / TYPE</th>
+                                <th>LOCATION</th>
+                                <th class="text-center">DURATION</th>
+                                <th class="text-center">EFF.</th>
+                                <th class="text-center">LINK</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for s in sessions %}
+                            <tr {% if forloop.counter > 20 %}class="d-none hidden-row"{% endif %}>
+                                <td class="ps-4 text-muted">{{ s.date_str }}</td>
+                                <td class="fw-bold">{{ s.technician }}</td>
+                                <td>
+                                    <div class="fw-semibold">{{ s.task_title }}</div>
+                                    <span class="small opacity-75">{{ s.task_type_display }}</span>
+                                </td>
+                                <td><i class="fas fa-map-marker-alt text-danger me-1 small"></i>{{ s.location }}</td>
+                                <td class="text-center"><span class="badge bg-light text-dark border">{{ s.duration_str }}</span></td>
+                                <td class="text-center">
+                                    {% if s.efficiency %}
+                                    <span class="fw-bold {% if s.efficiency < 100 %}text-success{% else %}text-danger{% endif %}">{{ s.efficiency }}%</span>
+                                    {% else %}—{% endif %}
+                                </td>
+                                <td class="text-center">
+                                    <a href="{% url 'pms:gps_tracking_report' %}?date={{ s.date|date:'Y-m-d' }}&user_id={{ s.user_id }}" class="btn btn-sm btn-icon border-0" title="ดูแผนที่">
+                                        <i class="fas fa-external-link-alt text-indigo-500"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                    {% if sessions|length > 20 %}
+                    <div class="p-3 text-center border-top">
+                        <button class="btn btn-sm fw-bold text-indigo-600" id="btn-show-more">แสดงทั้งหมด (+{{ sessions|length|add:"-20" }} รายการ)</button>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 
-<!-- AI Analysis Modal -->
-<div class="modal fade" id="aiModal" tabindex="-1">
-  <div class="modal-dialog modal-lg modal-dialog-scrollable">
-    <div class="modal-content border-0 rounded-4">
-      <div class="modal-header border-0" style="background:linear-gradient(135deg,#6366f1,#8b5cf6);color:white;">
-        <h5 class="modal-title fw-bold">
-          <i class="fas fa-robot me-2"></i>AI วิเคราะห์ประสิทธิภาพการทำงาน
-        </h5>
-        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-      </div>
-      <div class="modal-body p-4" id="ai-result-body">
-        <div class="text-center py-5" id="ai-loading">
-          <div class="spinner-border text-primary mb-3" role="status"></div>
-          <div class="text-muted">Gemini AI กำลังวิเคราะห์ข้อมูล...</div>
+<!-- AI Modal -->
+<div class="modal fade glass-modal" id="aiModal" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content border-0 rounded-4 shadow-2xl" style="background: rgba(255,255,255,0.95); backdrop-filter: blur(20px);">
+            <div class="modal-header border-0 p-4" style="background: var(--pms-grad); color:white; border-radius: 1rem 1rem 0 0;">
+                <h5 class="modal-title fw-bold"><i class="fas fa-magic me-2"></i>AI Efficiency Recommendations</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4" id="ai-result-body" style="max-height: 70vh; overflow-y: auto;">
+                <div id="ai-loading" class="text-center py-5">
+                    <div class="spinner-border text-indigo-500 mb-3" style="width: 3rem; height: 3rem;" role="status"></div>
+                    <h5 class="fw-bold text-indigo-700">Analysing Technician Dynamics...</h5>
+                    <p class="text-muted small">Gemini is evaluating fuel usage, site time, and team synergy.</p>
+                </div>
+                <div id="ai-result" class="markdown-body p-2" style="font-size: 0.95rem; line-height: 1.6; color: #334155;"></div>
+            </div>
         </div>
-        <div id="ai-result" style="display:none;"></div>
-      </div>
     </div>
-  </div>
 </div>
 
-<!-- Hidden AI summary data (JSON เก็บไว้ใน DOM ให้ extra_js block อ่าน) -->
+<!-- Scripts -->
 <script id="ai-summary-data" type="application/json">{{ ai_summary_json|safe }}</script>
 <span id="ai-url" data-url="{% url 'pms:work_summary_ai_analysis' %}" style="display:none;"></span>
 <span id="ai-csrf" data-csrf="{{ csrf_token }}" style="display:none;"></span>
-
 {% endblock %}
 
 {% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <script>
-(function () {
-  const btn     = document.getElementById("btn-ai-analyze");
-  const loading = document.getElementById("ai-loading");
-  const result  = document.getElementById("ai-result");
-  const summary = JSON.parse(document.getElementById("ai-summary-data").textContent);
-  const aiUrl   = document.getElementById("ai-url").dataset.url;
-  const csrf    = document.getElementById("ai-csrf").dataset.csrf;
-
-  btn.addEventListener("click", function () {
-    const modal = new bootstrap.Modal(document.getElementById("aiModal"));
-    loading.style.display = "block";
-    result.style.display  = "none";
-    result.innerHTML      = "";
-    modal.show();
-
-    fetch(aiUrl, {
-      method:  "POST",
-      headers: { "Content-Type": "application/json", "X-CSRFToken": csrf },
-      body: JSON.stringify({ summary: JSON.stringify(summary, null, 2) }),
-    })
-    .then(r => r.json())
-    .then(data => {
-      loading.style.display = "none";
-      result.style.display  = "block";
-      if (data.status === "success") {
-        result.innerHTML = marked.parse(data.analysis);
-      } else {
-        result.innerHTML = '<div class="alert alert-danger">เกิดข้อผิดพลาด: ' + (data.error || "ไม่ทราบสาเหตุ") + "</div>";
-      }
-    })
-    .catch(err => {
-      loading.style.display = "none";
-      result.style.display  = "block";
-      result.innerHTML = '<div class="alert alert-danger">ไม่สามารถเชื่อมต่อ AI: ' + err + "</div>";
+document.addEventListener('DOMContentLoaded', function() {
+    const summaryData = JSON.parse(document.getElementById('ai-summary-data').textContent);
+    
+    // 1. Radar Chart (Efficiency)
+    const techNames = summaryData.technicians.map(t => t.name);
+    const scores = summaryData.technicians.map(t => t.efficiency_score);
+    const jobCounts = summaryData.technicians.map(t => t.sessions * 5); // Normalized for scale
+    
+    const radarCtx = document.getElementById('radarChart').getContext('2d');
+    new Chart(radarCtx, {
+        type: 'radar',
+        data: {
+            labels: techNames,
+            datasets: [{
+                label: 'Efficiency Score (%)',
+                data: scores,
+                fill: true,
+                backgroundColor: 'rgba(99, 102, 241, 0.2)',
+                borderColor: '#6366f1',
+                pointBackgroundColor: '#6366f1',
+                pointBorderColor: '#fff',
+            }, {
+                label: 'Volume Index (Job x5)',
+                data: jobCounts,
+                fill: true,
+                backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                borderColor: '#10b981',
+                pointBackgroundColor: '#10b981',
+            }]
+        },
+        options: {
+            maintainAspectRatio: false,
+            scales: { r: { beginAtZero: true, max: 100 } },
+            plugins: { legend: { position: 'bottom' } }
+        }
     });
-  });
-})();
+
+    // 2. Doughnut Chart (Task Types)
+    const typeLabels = summaryData.by_task_type.map(t => t.type);
+    const typeCounts = summaryData.by_task_type.map(t => t.count);
+    const doughnutCtx = document.getElementById('doughnutChart').getContext('2d');
+    new Chart(doughnutCtx, {
+        type: 'doughnut',
+        data: {
+            labels: typeLabels,
+            datasets: [{
+                data: typeCounts,
+                backgroundColor: ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'],
+                borderWidth: 0,
+                hoverOffset: 15
+            }]
+        },
+        options: {
+            maintainAspectRatio: false,
+            cutout: '70%',
+            plugins: { legend: { position: 'bottom' } }
+        }
+    });
+
+    // AI Analysis Trigger
+    const btnAi      = document.getElementById("btn-ai-analyze");
+    const aiResult   = document.getElementById("ai-result");
+    const aiLoading  = document.getElementById("ai-loading");
+    const aiUrl      = document.getElementById("ai-url").dataset.url;
+    const csrf       = document.getElementById("ai-csrf").dataset.csrf;
+
+    btnAi.addEventListener("click", function() {
+        const modal = new bootstrap.Modal(document.getElementById("aiModal"));
+        aiLoading.style.display = "block";
+        aiResult.style.display  = "none";
+        modal.show();
+
+        fetch(aiUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "X-CSRFToken": csrf },
+            body: JSON.stringify({ summary: JSON.stringify(summaryData) })
+        })
+        .then(r => r.json())
+        .then(data => {
+            aiLoading.style.display = "none";
+            aiResult.style.display  = "block";
+            aiResult.innerHTML = marked.parse(data.analysis);
+        })
+        .catch(e => {
+            aiLoading.innerHTML = `<div class="alert alert-danger">Error: ${e.message}</div>`;
+        });
+    });
+
+    // Show more rows
+    const btnMore = document.getElementById("btn-show-more");
+    if(btnMore) {
+        btnMore.addEventListener("click", function() {
+            document.querySelectorAll(".hidden-row").forEach(r => r.classList.remove("d-none"));
+            btnMore.style.display = "none";
+        });
+    }
+});
 </script>
 {% endblock %}

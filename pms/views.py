@@ -4672,7 +4672,26 @@ def work_summary_report(request):
     all_sessions.sort(key=lambda s: (s["date"], s["technician"]), reverse=True)
     total_minutes = sum(s["duration_min"] for s in all_sessions)
 
-    by_tech = defaultdict(lambda: {"sessions": 0, "minutes": 0, "locs": set(), "sat": []})
+    # ── Distance & Fuel calculation for each tech ─────────────────────
+    tech_resource = defaultdict(lambda: {"total_dist": 0.0, "fuel_liters": 0.0, "fuel_cost": 0.0})
+    for (uid, _day), logs in by_user_date.items():
+        if not logs: continue
+        uname = logs[0].user.username
+        valid_pts = [(float(l.latitude), float(l.longitude)) for l in logs if float(l.latitude) != 0 and float(l.longitude) != 0]
+        if len(valid_pts) > 1:
+            from math import sin, cos, sqrt, atan2, radians
+            def haversine(lat1, lon1, lat2, lon2):
+                R = 6371.0
+                dlat, dlon = radians(lat2 - lat1), radians(lon2 - lon1)
+                a = sin(dlat / 2)**2 + cos(radians(lat1)) * cos(radians(lat2)) * sin(dlon / 2)**2
+                return R * 2 * atan2(sqrt(a), sqrt(1 - a))
+            d_sum = sum(haversine(valid_pts[i][0], valid_pts[i][1], valid_pts[i+1][0], valid_pts[i+1][1]) 
+                        for i in range(len(valid_pts)-1))
+            tech_resource[uname]["total_dist"] += d_sum
+            tech_resource[uname]["fuel_liters"] += (d_sum / 12.0)
+            tech_resource[uname]["fuel_cost"] += (d_sum / 12.0 * 35.0)
+
+    by_tech = defaultdict(lambda: {"sessions": 0, "minutes": 0, "locs": set(), "sat": [], "u_id": None})
     by_type = defaultdict(lambda: {"count": 0, "minutes": 0})
     by_team = defaultdict(lambda: {"count": 0, "minutes": 0})
 
@@ -4681,6 +4700,7 @@ def work_summary_report(request):
         bt["sessions"] += 1
         bt["minutes"]  += s["duration_min"]
         bt["locs"].add(s["location"])
+        bt["u_id"] = s["user_id"]
         if s["satisfaction_rating"]:
             bt["sat"].append(s["satisfaction_rating"])
         by_type[s["task_type_display"]]["count"]  += 1
@@ -4689,13 +4709,32 @@ def work_summary_report(request):
             by_team[team]["count"]  += 1
             by_team[team]["minutes"] += s["duration_min"]
 
-    tech_stats = sorted([
-        {"name": n, "sessions": d["sessions"], "hours": round(d["minutes"]/60,1),
-         "locs": len(d["locs"]),
-         "sat_pos": sum(1 for r in d["sat"] if r in ("VERY_SATISFIED","SATISFIED")),
-         "sat_total": len(d["sat"])}
-        for n, d in by_tech.items()
-    ], key=lambda x: x["hours"], reverse=True)
+    # ── Final Performance Ranking ─────────────────────────────────────
+    tech_stats = []
+    for n, d in by_tech.items():
+        res = tech_resource.get(n, {"total_dist": 0, "fuel_liters": 0, "fuel_cost": 0})
+        hours = round(d["minutes"] / 60, 1)
+        
+        # Efficiency Score Logic: (Avg Sat * 0.4) + (Job count * 0.4) + (Fuel efficiency * 0.2)
+        sat_score = sum(100 if s == "VERY_SATISFIED" else 70 if s == "SATISFIED" else 0 for s in d["sat"]) / len(d["sat"]) if d["sat"] else 50
+        job_score = min(100, (d["sessions"] / 10.0) * 100) 
+        fuel_per_job = (res["fuel_cost"] / d["sessions"]) if d["sessions"] else 1
+        resource_score = max(0, 100 - (fuel_per_job / 5.0)) 
+        
+        final_efficiency = round((sat_score * 0.4) + (job_score * 0.4) + (resource_score * 0.2))
+        
+        tech_stats.append({
+            "name": n, "user_id": d["u_id"], "sessions": d["sessions"], "hours": hours,
+            "locs": len(d["locs"]),
+            "sat_pos": sum(1 for r in d["sat"] if r in ("VERY_SATISFIED","SATISFIED")),
+            "sat_total": len(d["sat"]),
+            "total_dist": round(res["total_dist"], 2),
+            "fuel_liters": round(res["fuel_liters"], 2),
+            "fuel_cost": f"{res['fuel_cost']:.2f}",
+            "efficiency_score": final_efficiency,
+        })
+    
+    tech_stats.sort(key=lambda x: x["efficiency_score"], reverse=True)
     type_stats = [{"type": k, "count": v["count"], "hours": round(v["minutes"]/60,1)} for k,v in by_type.items()]
     team_stats = [{"team": k, "count": v["count"], "hours": round(v["minutes"]/60,1)} for k,v in by_team.items()]
 
@@ -4711,7 +4750,7 @@ def work_summary_report(request):
              "estimated": (str(s["estimated_hours"]) + "ชม.") if s["estimated_hours"] else "ไม่ระบุ",
              "efficiency": (str(s["efficiency"]) + "%") if s["efficiency"] else "ไม่ระบุ",
              "satisfaction": s["satisfaction_display"]}
-            for s in all_sessions[:50]
+            for s in all_sessions[:30]
         ],
     }
 
