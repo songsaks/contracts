@@ -774,14 +774,26 @@ function _buildMap(username, containerId, isFullscreen) {
 
     // Draw polyline route
     if (latlngs.length > 1) {
-        const polyline = L.polyline(latlngs, { color: '#3b82f6', weight: 4, opacity: 0.6, dashArray: '8,6' }).addTo(map);
+        const polyline = L.polyline(latlngs, { color: '#2563eb', weight: 3, opacity: 0.8 }).addTo(map);
         
         // Add directional arrows (safely)
         try {
             if (typeof L.polylineDecorator === 'function') {
                 L.polylineDecorator(polyline, {
                     patterns: [
-                        { offset: '10%', repeat: 100, symbol: L.Symbol.arrowHead({pixelSize: 10, polygon: false, pathOptions: {stroke: true, color: '#3b82f6', weight: 2}})}
+                        { 
+                            offset: 25, 
+                            repeat: 60, 
+                            symbol: L.Symbol.arrowHead({
+                                pixelSize: 16, 
+                                polygon: true, 
+                                pathOptions: {
+                                    fillOpacity: 1, 
+                                    color: '#1e3a8a', 
+                                    weight: 0
+                                }
+                            })
+                        }
                     ]
                 }).addTo(map);
             }
