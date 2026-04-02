@@ -652,7 +652,7 @@
 
 {% block extra_js %}
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="https://unpkg.com/leaflet-polyline-decorator@1.6.0/dist/leaflet.polylineDecorator.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet-polyline-decorator/1.6.0/leaflet.polylineDecorator.min.js"></script>
 <script>
 // ── GPS map data per technician ───────────────────────────────────────────
 const TECH_GPS = {
@@ -774,23 +774,23 @@ function _buildMap(username, containerId, isFullscreen) {
 
     // Draw polyline route
     if (latlngs.length > 1) {
-        const polyline = L.polyline(latlngs, { color: '#2563eb', weight: 3, opacity: 0.8 }).addTo(map);
+        const polyline = L.polyline(latlngs, { color: '#2563eb', weight: 4, opacity: 0.7 }).addTo(map);
         
-        // Add directional arrows (safely)
+        // Add directional arrows (safely and clearly)
         try {
             if (typeof L.polylineDecorator === 'function') {
                 L.polylineDecorator(polyline, {
                     patterns: [
                         { 
-                            offset: 25, 
-                            repeat: 60, 
+                            offset: '10%', 
+                            repeat: '100px', 
                             symbol: L.Symbol.arrowHead({
-                                pixelSize: 16, 
+                                pixelSize: 20, 
                                 polygon: true, 
                                 pathOptions: {
+                                    stroke: false,
                                     fillOpacity: 1, 
-                                    color: '#1e3a8a', 
-                                    weight: 0
+                                    color: '#1e3a8a'
                                 }
                             })
                         }
