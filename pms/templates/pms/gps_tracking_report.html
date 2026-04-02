@@ -22,6 +22,41 @@
     /* Fix: select dropdown อยู่หน้า panel */
     .card { overflow: visible !important; }
     select.form-select { position: relative; z-index: 10; }
+
+    /* Fullscreen Map Styles */
+    .fullscreen-map {
+        position: fixed !important;
+        top: 0; left: 0; right: 0; bottom: 0;
+        width: 100% !important;
+        height: 100% !important;
+        z-index: 9999 !important;
+        margin: 0 !important;
+        border-radius: 0 !important;
+    }
+    .fullscreen-btn-exit { display: none; }
+    .fullscreen-map .fullscreen-btn-exit { display: block; position: absolute; top: 20px; right: 20px; z-index: 10000; }
+    .fullscreen-map .fullscreen-btn-enter { display: none; }
+
+    /* Pulsing marker for latest position */
+    @keyframes pulse-latest {
+        0% { transform: scale(1); opacity: 1; }
+        50% { transform: scale(1.4); opacity: 0.5; }
+        100% { transform: scale(1); opacity: 1; }
+    }
+    .marker-pulse {
+        animation: pulse-latest 2s infinite ease-in-out;
+        border: 3px solid white !important;
+    }
+    .latest-label {
+        background: white;
+        border: 2px solid #3b82f6;
+        border-radius: 12px;
+        padding: 2px 8px;
+        font-weight: 700;
+        font-size: 0.75rem;
+        white-space: nowrap;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+    }
 </style>
 {% endblock %}
 
@@ -105,16 +140,29 @@
         <!-- ส่วนแผนที่ (Map Visualization Section) -->
         <div class="col-lg-9">
             <div class="card border-0 shadow-sm rounded-4 h-100">
-                <div class="card-header bg-white border-0 pt-3 pb-0 px-4">
-                    <h6 class="fw-bold mb-0"><i class="fas fa-map me-2 text-primary"></i>แผนที่เส้นทาง — {{ report_date|date:"d M Y" }}</h6>
+                <div class="card-header bg-white border-0 pt-3 pb-0 px-4 d-flex justify-content-between align-items-center">
+                    <h6 class="fw-bold mb-0"><i class="fas fa-map me-2 text-primary"></i>แผนที่ติดตามทีมแบบ Real-time</h6>
+                    <div class="d-flex gap-2">
+                        <div class="form-check form-switch mt-1">
+                            <input class="form-check-input" type="checkbox" id="toggle-latest-only" onchange="refreshCurrentView()">
+                            <label class="form-check-label small fw-semibold" for="toggle-latest-only">แสดงเฉพาะจุดล่าสุด</label>
+                        </div>
+                        <button class="btn btn-sm btn-light border rounded-pill px-3 fullscreen-btn-enter" onclick="toggleFullscreen(true)">
+                            <i class="fas fa-expand me-1"></i> ขยายจอ
+                        </button>
+                    </div>
                 </div>
-                <div class="card-body px-3 pb-3">
+                <div class="card-body px-3 pb-3 position-relative">
+                    <button class="btn btn-dark btn-sm rounded-pill px-3 shadow fullscreen-btn-exit" onclick="toggleFullscreen(false)">
+                        <i class="fas fa-compress me-1"></i> ย่อขนาด
+                    </button>
                     <div id="map"></div>
                     <div class="mt-2 d-flex flex-wrap gap-3" style="font-size:0.75rem;">
                         <span><span class="badge rounded-pill" style="background:#22c55e">&nbsp;</span> เริ่มงาน</span>
                         <span><span class="badge rounded-pill" style="background:#3b82f6">&nbsp;</span> ที่หน้างาน</span>
                         <span><span class="badge rounded-pill" style="background:#f59e0b">&nbsp;</span> เดินทาง</span>
                         <span><span class="badge rounded-pill" style="background:#ef4444">&nbsp;</span> เสร็จงาน</span>
+                        <span><i class="fas fa-user-circle text-primary"></i> ช่างเทคนิคปัจจุบัน</span>
                     </div>
                 </div>
             </div>
@@ -412,7 +460,44 @@ function fetchLiveData() {
         });
 }
 
+// ====== Fullscreen toggle ======
+function toggleFullscreen(enter) {
+    const mapEl = document.getElementById('map');
+    const container = mapEl.closest('.card');
+    if (enter) {
+        container.classList.add('fullscreen-map');
+        map.invalidateSize();
+    } else {
+        container.classList.remove('fullscreen-map');
+        map.invalidateSize();
+    }
+}
+
+function refreshCurrentView() {
+    if (liveTimer) {
+        fetchLiveData();
+    } else {
+        refreshMap(mapData);
+    }
+}
+
+function createLatestMarker(point, color, username) {
+    const icon = L.divIcon({
+        className: '',
+        html: `<div class="marker-pulse" style="background:${color};width:34px;height:34px;border-radius:50%;border:3px solid white;box-shadow:0 3px 8px rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;">
+                <i class="fas fa-user-hard-hat" style="color:white;font-size:1rem;"></i>
+               </div>
+               <div class="latest-label" style="position:absolute;top:-25px;left:50%;transform:translateX(-50%);">${username}</div>`,
+        iconSize: [34, 34],
+        iconAnchor: [17, 17],
+        popupAnchor: [0, -25]
+    });
+    return L.marker([point.lat, point.lng], { icon: icon, zIndexOffset: 1000 });
+}
+
 function refreshMap(newMapData) {
+    const latestOnly = document.getElementById('toggle-latest-only').checked;
+    
     // ลบ layer เดิมทั้งหมด
     allMarkers.forEach(m => map.removeLayer(m));
     allPolylines.forEach(p => map.removeLayer(p));
@@ -431,14 +516,33 @@ function refreshMap(newMapData) {
         const layers = [];
 
         points.forEach((pt, i) => {
+            const isLatest = (i === points.length - 1);
+            if (latestOnly && !isLatest) return;
+
             const markerColor = typeColors[pt.check_type_key] || color;
-            const marker = createMarker(pt, markerColor, `${username} #${i+1}`);
+            let marker;
+            if (isLatest) {
+                marker = createLatestMarker(pt, color, username);
+                // Add detail popup
+                const lat6 = Number(pt.lat).toFixed(6);
+                const lng6 = Number(pt.lng).toFixed(6);
+                marker.bindPopup(`<div style="min-width:170px;">
+                    <div style="font-weight:700;font-size:1rem;color:${color};margin-bottom:4px;border-bottom:1px solid #eee;">👷 ${username} (ล่าสุด)</div>
+                    <div class="fw-bold small">${pt.check_type}</div>
+                    <div class="small text-muted mb-1">📍 ${pt.location_name}</div>
+                    <div class="small text-muted mb-1">⏲️ ${pt.time}</div>
+                    <div style="font-size:0.7rem;font-family:monospace;color:#94a3b8;">${lat6}, ${lng6}</div>
+                </div>`);
+            } else {
+                marker = createMarker(pt, markerColor, `${username} #${i+1}`);
+            }
+            
             marker.addTo(map);
             layers.push(marker);
             allMarkers.push(marker);
         });
 
-        if (points.length > 1) {
+        if (!latestOnly && points.length > 1) {
             const latlngs = points.map(p => [p.lat, p.lng]);
             const poly = L.polyline(latlngs, { color, weight: 3, opacity: 0.7, dashArray: '6,4' }).addTo(map);
             layers.push(poly);
