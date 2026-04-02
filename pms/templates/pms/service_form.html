@@ -12,7 +12,10 @@
     }
 
     .form-card .card-header {
-        background: {% if theme_color == 'warning' %}linear-gradient(135deg, #f59e0b, #d97706){% else %}linear-gradient(135deg, #10b981, #059669){% endif %};
+        background: {% if theme_color == 'warning' %}linear-gradient(135deg, #f59e0b, #d97706)
+                   {% elif theme_color == 'info' %}linear-gradient(135deg, #06b6d4, #0284c7)
+                   {% elif theme_color == 'pms-rental' %}linear-gradient(135deg, #8b5cf6, #6d28d9)
+                   {% else %}linear-gradient(135deg, #10b981, #059669){% endif %};
         color: white;
         padding: 1.5rem;
     }
@@ -61,6 +64,10 @@
                     <span class="bg-white bg-opacity-20 p-3 rounded-circle me-3 d-flex align-items-center justify-content-center" style="width: 50px; height: 50px;">
                         {% if theme_color == 'warning' %}
                             <i class="fas fa-tools fa-lg"></i>
+                        {% elif theme_color == 'info' %}
+                            <i class="fas fa-map-marker-alt fa-lg"></i>
+                        {% elif theme_color == 'pms-rental' %}
+                            <i class="fas fa-box-open fa-lg"></i>
                         {% else %}
                             <i class="fas fa-shopping-cart fa-lg"></i>
                         {% endif %}
@@ -70,6 +77,10 @@
                         <p class="mb-0 small opacity-75">
                             {% if theme_color == 'warning' %}
                                 บันทึกข้อมูลการแจ้งซ่อมและกำหนดการเข้าบริการ
+                            {% elif theme_color == 'info' %}
+                                บันทึกคำขอดูหน้างาน พร้อมกำหนดช่างผู้รับผิดชอบ
+                            {% elif theme_color == 'pms-rental' %}
+                                สร้างสัญญาเช่าและกำหนดระยะเวลาการให้บริการ
                             {% else %}
                                 สร้างรายการงานขายและบริการสำหรับลูกค้า
                             {% endif %}
