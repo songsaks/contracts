@@ -6,23 +6,18 @@
 <!-- Leaflet CSS -->
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <style>
-    #map { height: 600px; border-radius: 1rem; border: 1px solid #e2e8f0; }
+    #map { height: 600px; border-radius: 1rem; border: 1px solid #e2e8f0; transition: all 0.3s ease; }
     .timeline-item { border-left: 3px solid #3b82f6; padding-left: 1rem; position: relative; margin-bottom: 1rem; }
     .timeline-item::before { content: ''; position: absolute; left: -7px; top: 4px; width: 11px; height: 11px; border-radius: 50%; background: #3b82f6; border: 2px solid white; box-shadow: 0 0 0 2px #3b82f6; }
     .timeline-item.check-in   { border-color: #22c55e; }  .timeline-item.check-in::before   { background: #22c55e; box-shadow: 0 0 0 2px #22c55e; }
     .timeline-item.check-out  { border-color: #ef4444; }  .timeline-item.check-out::before  { background: #ef4444; box-shadow: 0 0 0 2px #ef4444; }
     .timeline-item.travel     { border-color: #f59e0b; }  .timeline-item.travel::before     { background: #f59e0b; box-shadow: 0 0 0 2px #f59e0b; }
     .timeline-item.on-site    { border-color: #3b82f6; }  .timeline-item.on-site::before    { background: #3b82f6; box-shadow: 0 0 0 2px #3b82f6; }
-    .tech-tab { cursor: pointer; transition: all 0.2s; }
-    .tech-tab.active { background: #3b82f6 !important; color: white !important; border-color: #3b82f6 !important; }
+    .tech-tab { cursor: pointer; transition: all 0.2s; min-width: 100px; }
+    .tech-tab.active { background: #3b82f6 !important; color: white !important; border-color: #3b82f6 !important; box-shadow: 0 4px 12px rgba(59,130,246,0.3); }
     .timeline-item[data-lat] { cursor: pointer; transition: background 0.15s; }
     .timeline-item[data-lat]:hover { background: rgba(59,130,246,0.06); border-radius: 0 0.5rem 0.5rem 0; }
-    .timeline-item[data-lat]:hover::before { transform: scale(1.35); }
-
-    /* Fix: select dropdown อยู่หน้า panel */
-    .card { overflow: visible !important; }
-    select.form-select { position: relative; z-index: 10; }
-
+    
     /* Fullscreen Map Styles */
     .fullscreen-map {
         position: fixed !important;
@@ -48,14 +43,22 @@
         border: 3px solid white !important;
     }
     .latest-label {
-        background: white;
-        border: 2px solid #3b82f6;
+        background: #3b82f6;
+        color: white;
+        border: 2px solid white;
         border-radius: 12px;
-        padding: 2px 8px;
+        padding: 2px 10px;
         font-weight: 700;
-        font-size: 0.75rem;
+        font-size: 0.85rem;
         white-space: nowrap;
-        box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        z-index: 1000;
+    }
+    /* Ensure Leaflet doesn't clip our labels */
+    .leaflet-div-icon {
+        background: transparent !important;
+        border: none !important;
+        overflow: visible !important;
     }
 </style>
 {% endblock %}
@@ -122,7 +125,6 @@
     {% if grouped %}
 
     <!-- Tech Tabs (when multiple technicians) -->
-    {% if grouped|length > 1 %}
     <div class="d-flex flex-wrap gap-2 mb-3" id="tech-tabs">
         <button class="btn btn-sm btn-outline-primary rounded-pill tech-tab active" data-tech="all" onclick="showTech('all', this)">
             <i class="fas fa-users me-1"></i> ทั้งหมด
@@ -134,7 +136,6 @@
         </button>
         {% endfor %}
     </div>
-    {% endif %}
 
     <div class="row g-4">
         <!-- ส่วนแผนที่ (Map Visualization Section) -->
@@ -177,9 +178,7 @@
                 <div class="card-body px-4 pb-3" style="max-height:500px; overflow-y:auto;">
                     {% for username, user_logs in grouped.items %}
                     <div class="tech-section mb-3" data-tech="{{ username }}">
-                        {% if grouped|length > 1 %}
                         <div class="fw-bold text-primary mb-2 small"><i class="fas fa-user-hard-hat me-1"></i>{{ username }}</div>
-                        {% endif %}
                         {% for log in user_logs %}
                         <div class="timeline-item {% if log.check_type == 'CHECK_IN' %}check-in{% elif log.check_type == 'CHECK_OUT' %}check-out{% elif log.check_type == 'TRAVEL' %}travel{% else %}on-site{% endif %}"
                              data-lat="{{ log.latitude }}" data-lon="{{ log.longitude }}"
@@ -268,384 +267,170 @@
 if (!document.getElementById('map')) { throw new Error('no-map'); }
 
 const mapData = JSON.parse(document.getElementById('map-data').textContent);
-
-// สีประจำช่างแต่ละคน
-const techColors = ['#3b82f6','#ef4444','#22c55e','#f59e0b','#8b5cf6','#ec4899','#14b8a6','#f97316'];
 const techList = Object.keys(mapData);
-
-// สีตาม check_type
-const typeColors = {
-    'CHECK_IN':  '#22c55e',
-    'ON_SITE':   '#3b82f6',
-    'TRAVEL':    '#f59e0b',
-    'CHECK_OUT': '#ef4444',
-};
+const typeColors = { 'CHECK_IN':'#22c55e', 'ON_SITE':'#3b82f6', 'TRAVEL':'#f59e0b', 'CHECK_OUT':'#ef4444' };
+const techColorPool = ['#3b82f6','#ef4444','#22c55e','#f59e0b','#8b5cf6','#ec4899','#14b8a6','#f97316'];
+const techColorMap = {};
+techList.forEach((name, i) => { techColorMap[name] = techColorPool[i % techColorPool.length]; });
+let colorIdx = techList.length;
 
 // สร้างแผนที่
-var map = L.map('map').setView([7.5664, 100.0674], 10); // Default: สตูล
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '© OpenStreetMap contributors',
-    maxZoom: 19
-}).addTo(map);
+var map = L.map('map').setView([7.5664, 100.0674], 10);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap', maxZoom: 19 }).addTo(map);
 
 var allMarkers = [];
 var allPolylines = [];
-var techLayers = {};  // { username: [markers + polyline] }
+var techLayers = {};
 
-// ===== คลิก timeline → zoom map ไปยังตำแหน่งนั้น =====
-function gpsGoTo(el) {
-    var lat = parseFloat(el.getAttribute('data-lat'));
-    var lon = parseFloat(el.getAttribute('data-lon'));
-    var username = el.getAttribute('data-user');
-    var idx = parseInt(el.getAttribute('data-idx'));
-    if (isNaN(lat) || isNaN(lon) || (lat === 0 && lon === 0)) return;
-
-    // Scroll page so map is visible
-    document.getElementById('map').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-
-    // Fly map to that GPS point
-    map.flyTo([lat, lon], 17);
-
-    // Open marker popup after animation — fallback to plain popup if not found
-    setTimeout(function() {
-        var opened = false;
-        var layers = techLayers[username] || [];
-        var count = 0;
-        layers.forEach(function(layer) {
-            if (layer instanceof L.Marker) {
-                if (count === idx) {
-                    if (!map.hasLayer(layer)) map.addLayer(layer);
-                    layer.openPopup();
-                    opened = true;
-                }
-                count++;
-            }
-        });
-        if (!opened) {
-            L.popup({ maxWidth: 220 })
-                .setLatLng([lat, lon])
-                .setContent(
-                    '<div style="min-width:170px;">' +
-                    '<div style="font-weight:700;font-size:0.95rem;margin-bottom:4px;">' + username + ' — จุดที่ ' + (idx + 1) + '</div>' +
-                    '<div style="font-family:monospace;font-size:0.75rem;color:#64748b;">' + lat.toFixed(6) + ', ' + lon.toFixed(6) + '</div>' +
-                    '</div>'
-                )
-                .openOn(map);
-        }
-    }, 900);
-
-    // Highlight selected timeline item
-    document.querySelectorAll('.timeline-item').forEach(function(e) { e.style.outline = ''; });
-    el.style.outline = '2px solid #3b82f6';
-    setTimeout(function() { el.style.outline = ''; }, 3000);
-}
-
+// Helper: สร้างมาร์เกอร์ปกติ
 function createMarker(point, color, label) {
-    var initial = label.split(' ')[0].charAt(0).toUpperCase();
-    var lat6 = Number(point.lat).toFixed(6);
-    var lng6 = Number(point.lng).toFixed(6);
-    var icon = L.divIcon({
-        className: '',
-        html: '<div style="background:' + color + ';width:26px;height:26px;border-radius:50%;' +
-              'border:2px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.4);' +
-              'display:flex;align-items:center;justify-content:center;' +
-              'color:white;font-size:0.72rem;font-weight:700;">' + initial + '</div>',
-        iconSize: [26, 26],
-        iconAnchor: [13, 13],
-        popupAnchor: [0, -16]
+    const initial = label.split(' ')[0].charAt(0).toUpperCase();
+    const icon = L.divIcon({
+        className: 'leaflet-div-icon',
+        html: `<div style="background:${color};width:26px;height:26px;border-radius:50%;border:2px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;color:white;font-size:0.75rem;font-weight:700;">${initial}</div>`,
+        iconSize: [26, 26], iconAnchor: [13, 13], popupAnchor: [0, -16]
     });
-    var popupHtml = '<div style="min-width:170px;">' +
-        '<div style="font-weight:700;font-size:0.95rem;color:' + color + ';margin-bottom:4px;border-bottom:1px solid #f0f0f0;padding-bottom:3px;">' + label + '</div>' +
-        '<div style="font-size:0.8rem;margin-bottom:2px;">' + point.check_type + '</div>' +
-        '<div style="font-size:0.78rem;color:#555;margin-bottom:2px;">&#128205; ' + point.location_name + '</div>' +
-        '<div style="font-size:0.75rem;color:#888;">&#9200; ' + point.time + '</div>' +
-        '<div style="font-size:0.7rem;font-family:monospace;color:#94a3b8;margin-top:3px;">&#127991; ' + lat6 + ', ' + lng6 + '</div>' +
-        (point.job !== '-' ? '<div style="font-size:0.72rem;color:#888;margin-top:2px;">&#128188; ' + point.job + '</div>' : '') +
-        '</div>';
+    const popupHtml = `<div style="min-width:160px;"><b>${label}</b><br><small>${point.check_type}</small><br><small>⏲️ ${point.time}</small></div>`;
     return L.marker([point.lat, point.lng], { icon: icon }).bindPopup(popupHtml);
 }
 
+// Helper: สร้างมาร์เกอร์พิเศษ (ล่าสุด - มีชื่อติดถาวร)
 function createLatestMarker(point, color, username) {
     const icon = L.divIcon({
-        className: '',
-        html: `<div class="marker-pulse" style="background:${color};width:34px;height:34px;border-radius:50%;border:3px solid white;box-shadow:0 3px 8px rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;">
-                <i class="fas fa-user-hard-hat" style="color:white;font-size:1rem;"></i>
+        className: 'leaflet-div-icon',
+        html: `<div class="marker-pulse" style="background:${color};width:38px;height:38px;border-radius:50%;border:3px solid white;box-shadow:0 3px 12px rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;">
+                <i class="fas fa-user-hard-hat" style="color:white;font-size:1.1rem;"></i>
                </div>
-               <div class="latest-label" style="position:absolute;top:-25px;left:50%;transform:translateX(-50%);">${username}</div>`,
-        iconSize: [34, 34],
-        iconAnchor: [17, 17],
-        popupAnchor: [0, -25]
+               <div class="latest-label" style="position:absolute;top:-35px;left:50%;transform:translateX(-50%);">${username}</div>`,
+        iconSize: [38, 38], iconAnchor: [19, 19], popupAnchor: [0, -40]
     });
-    return L.marker([point.lat, point.lng], { icon: icon, zIndexOffset: 1000 });
+    const popupHtml = `<div style="min-width:180px;"><b>👷 ${username} (ล่าสุด)</b><br><small>${point.check_type}</small><br><small>📍 ${point.location_name}</small><br><small>⏲️ ${point.time}</small></div>`;
+    return L.marker([point.lat, point.lng], { icon: icon, zIndexOffset: 2000 }).bindPopup(popupHtml);
 }
 
+// ฟังก์ชันวาดแผนที่หลัก
 function refreshMap(newMapData) {
     const latestOnly = document.getElementById('toggle-latest-only').checked;
+    const currentTab = document.querySelector('.tech-tab.active').dataset.tech;
     
-    // ลบ layer เดิมทั้งหมด
+    // ล้างข้อมูลเดิม
     allMarkers.forEach(m => map.removeLayer(m));
     allPolylines.forEach(p => map.removeLayer(p));
     allMarkers = []; allPolylines = [];
-    Object.keys(techLayers).forEach(k => { techLayers[k] = []; });
+    techList.forEach(name => { techLayers[name] = []; });
 
     // วาดใหม่
     Object.keys(newMapData).forEach(username => {
         const points = newMapData[username];
         if (!points || points.length === 0) return;
+        
+        // กรองตาม Tab ถ้าไม่ได้เลือก 'all'
+        const isVisible = (currentTab === 'all' || currentTab === username);
 
-        if (!techColorMap[username]) {
-            techColorMap[username] = techColorPool[colorIdx++ % techColorPool.length];
-        }
+        if (!techColorMap[username]) { techColorMap[username] = techColorPool[colorIdx++ % techColorPool.length]; }
         const color = techColorMap[username];
-        const layers = [];
 
         points.forEach((pt, i) => {
             const isLatest = (i === points.length - 1);
             if (latestOnly && !isLatest) return;
 
-            const lat = parseFloat(pt.lat);
-            const lng = parseFloat(pt.lng);
+            const lat = parseFloat(pt.lat); const lng = parseFloat(pt.lng);
             if (isNaN(lat) || isNaN(lng) || (lat === 0 && lng === 0)) return;
 
-            const markerColor = typeColors[pt.check_type_key] || color;
             let marker;
             if (isLatest) {
-                marker = createLatestMarker({lat, lng}, color, username);
-                marker.bindPopup(`<div style="min-width:170px;">
-                    <div style="font-weight:700;font-size:1rem;color:${color};margin-bottom:4px;border-bottom:1px solid #eee;">👷 ${username} (ล่าสุด)</div>
-                    <div class="fw-bold small">${pt.check_type}</div>
-                    <div class="small text-muted mb-1">📍 ${pt.location_name}</div>
-                    <div class="small text-muted mb-1">⏲️ ${pt.time}</div>
-                    <div style="font-size:0.7rem;font-family:monospace;color:#94a3b8;">${lat.toFixed(6)}, ${lng.toFixed(6)}</div>
-                </div>`);
+                marker = createLatestMarker({lat, lng, ...pt}, color, username);
             } else {
-                marker = createMarker({lat, lng, ...pt}, markerColor, `${username} #${i+1}`);
+                marker = createMarker({lat, lng, ...pt}, (typeColors[pt.check_type_key] || color), `${username} #${i+1}`);
             }
             
-            marker.addTo(map);
-            layers.push(marker);
+            if (isVisible) marker.addTo(map);
+            techLayers[username].push(marker);
             allMarkers.push(marker);
         });
 
-        if (!latestOnly && points.length > 1) {
+        if (isVisible && !latestOnly && points.length > 1) {
             const latlngs = points.filter(p => p.lat != 0).map(p => [parseFloat(p.lat), parseFloat(p.lng)]);
             if (latlngs.length > 1) {
                 const poly = L.polyline(latlngs, { color, weight: 3, opacity: 0.7, dashArray: '6,4' }).addTo(map);
-                layers.push(poly);
+                techLayers[username].push(poly);
                 allPolylines.push(poly);
             }
         }
-        techLayers[username] = layers;
     });
 
-    if (allMarkers.length > 0) {
-        const group = L.featureGroup(allMarkers);
-        if (allMarkers.length === 1) {
-            map.setView(allMarkers[0].getLatLng(), 15);
-        } else {
-            map.fitBounds(group.getBounds().pad(0.3));
-        }
+    // Auto-center
+    const visibleMarkers = allMarkers.filter(m => map.hasLayer(m));
+    if (visibleMarkers.length > 0) {
+        const group = L.featureGroup(visibleMarkers);
+        if (visibleMarkers.length === 1) map.setView(visibleMarkers[0].getLatLng(), 16);
+        else map.fitBounds(group.getBounds().pad(0.3));
     }
 }
-
-// Initial state
-const techColorMap = {};
-const techColorPool = ['#3b82f6','#ef4444','#22c55e','#f59e0b','#8b5cf6','#ec4899','#14b8a6','#f97316'];
-let colorIdx = techList.length;
-techList.forEach((name, i) => { techColorMap[name] = techColorPool[i % techColorPool.length]; });
 
 // Initial render
 refreshMap(mapData);
 
-let liveTimer = null;
-const LIVE_INTERVAL = 30000;
+// Timeline navigation
+function gpsGoTo(el) {
+    const lat = parseFloat(el.getAttribute('data-lat')), lon = parseFloat(el.getAttribute('data-lon'));
+    if (isNaN(lat) || isNaN(lon) || (lat === 0 && lon === 0)) return;
+    map.flyTo([lat, lon], 17);
+    document.getElementById('map').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
 
 // Tab filtering
 function showTech(techName, btn) {
-    // Update tab styles
     document.querySelectorAll('.tech-tab').forEach(t => t.classList.remove('active'));
     btn.classList.add('active');
-
-    // Show/hide timeline sections
+    
+    // Show/hide UI sections
     document.querySelectorAll('.tech-section').forEach(sec => {
-        if (techName === 'all' || sec.dataset.tech === techName) {
-            sec.style.display = '';
-        } else {
-            sec.style.display = 'none';
-        }
+        sec.style.display = (techName === 'all' || sec.dataset.tech === techName) ? '' : 'none';
     });
 
-    // Show/hide map layers
-    techList.forEach(name => {
-        const layers = techLayers[name] || [];
-        layers.forEach(layer => {
-            if (techName === 'all' || name === techName) {
-                if (!map.hasLayer(layer)) map.addLayer(layer);
-            } else {
-                if (map.hasLayer(layer)) map.removeLayer(layer);
-            }
-        });
-    });
-
-    // Re-fit map
-    if (techName === 'all') {
-        if (allMarkers.length > 0) map.fitBounds(L.featureGroup(allMarkers).getBounds().pad(0.2));
-    } else {
-        const techMarkers = (techLayers[techName] || []).filter(l => l instanceof L.Marker);
-        if (techMarkers.length > 0) map.fitBounds(L.featureGroup(techMarkers).getBounds().pad(0.3));
-    }
+    refreshMap(mapData);
 }
 
-function fetchLiveData() {
-    const params = new URLSearchParams(window.location.search);
-    const userId = params.get('user_id') || '';
-    fetch(`{% url 'pms:gps_live_data' %}?user_id=${userId}`)
-        .then(r => r.json())
-        .then(data => {
-            refreshMap(data.map_data);
-            document.getElementById('live-status').innerHTML =
-                `<i class="fas fa-circle me-1 text-danger" style="font-size:0.5rem;"></i> Live — อัปเดตล่าสุด ${new Date().toLocaleTimeString('th-TH', {hour:'2-digit',minute:'2-digit',second:'2-digit'})}`;
-        })
-        .catch(() => {
-            document.getElementById('live-status').textContent = '⚠️ ไม่สามารถโหลดข้อมูลได้';
-        });
-}
-
-// ====== Fullscreen toggle ======
+// Fullscreen
 function toggleFullscreen(enter) {
-    const mapEl = document.getElementById('map');
-    const container = mapEl.closest('.card');
-    if (enter) {
-        container.classList.add('fullscreen-map');
-        map.invalidateSize();
-    } else {
-        container.classList.remove('fullscreen-map');
-        map.invalidateSize();
-    }
+    const container = document.getElementById('map').closest('.card');
+    if (enter) container.classList.add('fullscreen-map'); else container.classList.remove('fullscreen-map');
+    map.invalidateSize();
 }
 
 function refreshCurrentView() {
-    if (liveTimer) {
-        fetchLiveData();
-    } else {
-        refreshMap(mapData);
-    }
+    if (liveTimer) fetchLiveData(); else refreshMap(mapData);
 }
 
-function createLatestMarker(point, color, username) {
-    const icon = L.divIcon({
-        className: '',
-        html: `<div class="marker-pulse" style="background:${color};width:34px;height:34px;border-radius:50%;border:3px solid white;box-shadow:0 3px 8px rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;">
-                <i class="fas fa-user-hard-hat" style="color:white;font-size:1rem;"></i>
-               </div>
-               <div class="latest-label" style="position:absolute;top:-25px;left:50%;transform:translateX(-50%);">${username}</div>`,
-        iconSize: [34, 34],
-        iconAnchor: [17, 17],
-        popupAnchor: [0, -25]
-    });
-    return L.marker([point.lat, point.lng], { icon: icon, zIndexOffset: 1000 });
-}
-
-function refreshMap(newMapData) {
-    const latestOnly = document.getElementById('toggle-latest-only').checked;
-    
-    // ลบ layer เดิมทั้งหมด
-    allMarkers.forEach(m => map.removeLayer(m));
-    allPolylines.forEach(p => map.removeLayer(p));
-    allMarkers = []; allPolylines = [];
-    Object.keys(techLayers).forEach(k => { techLayers[k] = []; });
-
-    // วาดใหม่
-    Object.keys(newMapData).forEach(username => {
-        const points = newMapData[username];
-        if (!points || points.length === 0) return;
-
-        if (!techColorMap[username]) {
-            techColorMap[username] = techColorPool[colorIdx++ % techColorPool.length];
-        }
-        const color = techColorMap[username];
-        const layers = [];
-
-        points.forEach((pt, i) => {
-            const isLatest = (i === points.length - 1);
-            if (latestOnly && !isLatest) return;
-
-            const lat = parseFloat(pt.lat);
-            const lng = parseFloat(pt.lng);
-            if (isNaN(lat) || isNaN(lng) || (lat === 0 && lng === 0)) return;
-
-            const markerColor = typeColors[pt.check_type_key] || color;
-            let marker;
-            if (isLatest) {
-                marker = createLatestMarker({lat, lng}, color, username);
-                // Add detail popup
-                marker.bindPopup(`<div style="min-width:170px;">
-                    <div style="font-weight:700;font-size:1rem;color:${color};margin-bottom:4px;border-bottom:1px solid #eee;">👷 ${username} (ล่าสุด)</div>
-                    <div class="fw-bold small">${pt.check_type}</div>
-                    <div class="small text-muted mb-1">📍 ${pt.location_name}</div>
-                    <div class="small text-muted mb-1">⏲️ ${pt.time}</div>
-                    <div style="font-size:0.7rem;font-family:monospace;color:#94a3b8;">${lat.toFixed(6)}, ${lng.toFixed(6)}</div>
-                </div>`);
-            } else {
-                marker = createMarker({lat, lng, ...pt}, markerColor, `${username} #${i+1}`);
-            }
-            
-            marker.addTo(map);
-            layers.push(marker);
-            allMarkers.push(marker);
+// Live Updates
+let liveTimer = null;
+function fetchLiveData() {
+    fetch(`{% url 'pms:gps_live_data' %}?user_id={{ selected_user_id|default:'' }}`)
+        .then(r => r.json())
+        .then(data => {
+            refreshMap(data.map_data);
+            document.getElementById('live-status').innerHTML = `<i class="fas fa-circle me-1 text-danger"></i> Live — ${new Date().toLocaleTimeString()}`;
         });
-
-        if (!latestOnly && points.length > 1) {
-            const latlngs = points.filter(p => p.lat != 0).map(p => [parseFloat(p.lat), parseFloat(p.lng)]);
-            if (latlngs.length > 1) {
-                const poly = L.polyline(latlngs, { color, weight: 3, opacity: 0.7, dashArray: '6,4' }).addTo(map);
-                layers.push(poly);
-                allPolylines.push(poly);
-            }
-        }
-        techLayers[username] = layers;
-    });
-
-    // Auto-center map if we have markers
-    if (allMarkers.length > 0) {
-        const group = L.featureGroup(allMarkers);
-        if (allMarkers.length === 1) {
-            map.setView(allMarkers[0].getLatLng(), 15);
-        } else {
-            map.fitBounds(group.getBounds().pad(0.3));
-        }
-    }
 }
 
 function toggleLive() {
-    const btn = document.getElementById('live-btn');
-    const status = document.getElementById('live-status');
+    const btn = document.getElementById('live-btn'), status = document.getElementById('live-status');
     if (liveTimer) {
-        clearInterval(liveTimer);
-        liveTimer = null;
-        btn.classList.remove('btn-danger');
-        btn.classList.add('btn-outline-danger');
-        btn.innerHTML = '<i class="fas fa-circle me-1" style="font-size:0.6rem;"></i> Live';
+        clearInterval(liveTimer); liveTimer = null;
+        btn.className = 'btn btn-sm btn-outline-danger rounded-pill px-3';
+        btn.innerHTML = '<i class="fas fa-circle me-1"></i> Live';
         status.style.display = 'none';
     } else {
-        btn.classList.remove('btn-outline-danger');
-        btn.classList.add('btn-danger');
+        btn.className = 'btn btn-sm btn-danger rounded-pill px-3';
         btn.innerHTML = '<i class="fas fa-stop me-1"></i> หยุด Live';
         status.style.display = 'inline';
-        fetchLiveData(); // fetch ทันที
-        liveTimer = setInterval(fetchLiveData, LIVE_INTERVAL);
+        fetchLiveData(); liveTimer = setInterval(fetchLiveData, 30000);
     }
 }
 
-// Auto-start Live mode when viewing today's page
 {% if report_date == today %}
-document.addEventListener('DOMContentLoaded', () => {
-    setTimeout(() => toggleLive(), 500);
-});
+document.addEventListener('DOMContentLoaded', () => setTimeout(toggleLive, 500));
 {% endif %}
-
-
 </script>
-
-
 {% endblock %}
