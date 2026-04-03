@@ -318,7 +318,7 @@
                     </li>
                     <!-- Momentum Dropdown -->
                     <li class="nav-item dropdown">
-                        <a class="nav-link px-3 py-2 rounded-xl dropdown-toggle {% if request.resolver_match.url_name == 'momentum_scanner' or request.resolver_match.url_name == 'precision_momentum_scanner' or request.resolver_match.url_name == 'us_precision_scanner' %}active{% endif %}"
+                        <a class="nav-link px-3 py-2 rounded-xl dropdown-toggle {% if request.resolver_match.url_name == 'momentum_scanner' or request.resolver_match.url_name == 'precision_momentum_scanner' or request.resolver_match.url_name == 'us_precision_scanner' or request.resolver_match.url_name == 'scan_watchlist_view' %}active{% endif %}"
                            href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                             <i class="fas fa-rocket"></i> Momentum
                         </a>
@@ -340,6 +340,13 @@
                                 <a class="dropdown-item rounded-3 py-2 {% if request.resolver_match.url_name == 'us_precision_scanner' %}active{% endif %}"
                                    href="{% url 'stocks:us_precision_scanner' %}">
                                     🇺🇸 US Precision
+                                </a>
+                            </li>
+                            <li><hr class="dropdown-divider opacity-25 my-1"></li>
+                            <li>
+                                <a class="dropdown-item rounded-3 py-2 {% if request.resolver_match.url_name == 'scan_watchlist_view' %}active{% endif %}"
+                                   href="{% url 'stocks:scan_watchlist_view' %}">
+                                    <i class="fas fa-bell me-2 text-warning"></i> Scan Watchlist / Alert
                                 </a>
                             </li>
                             <li><hr class="dropdown-divider opacity-25 my-1"></li>

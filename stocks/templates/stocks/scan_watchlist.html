@@ -1,0 +1,172 @@
+{% extends 'stocks/base_stocks.html' %}
+{% load humanize %}
+
+{% block title %}Scan Watchlist / Alert — 9Com{% endblock %}
+
+{% block container_class %}container-fluid px-2 px-md-3{% endblock %}
+
+{% block content %}
+<div>
+<div class="row align-items-end mb-4">
+    <div class="col-md-8">
+        <h1 class="fw-bold mb-1" style="color:#b45309;"><i class="fas fa-bell me-2"></i> Scan Watchlist / Alert</h1>
+        <p class="text-muted mb-0">
+            หุ้นที่คุณติดตามจาก Precision Scanner — แจ้งเตือนเมื่อคะแนนถึง Threshold<br>
+            <small>คลิก <i class="far fa-bell"></i> ใน Scanner เพื่อเพิ่ม/ลบ</small>
+        </p>
+    </div>
+    <div class="col-md-4 text-md-end mt-3 mt-md-0">
+        <a href="{% url 'stocks:precision_momentum_scanner' %}" class="btn btn-outline-secondary btn-sm rounded-pill px-3">
+            <i class="fas fa-crosshairs me-1"></i> กลับไป Precision Scanner
+        </a>
+    </div>
+</div>
+
+{% if items %}
+<div class="card border-0 shadow-sm rounded-4 overflow-hidden">
+    <div class="px-4 py-3" style="background:linear-gradient(135deg,#0f172a,#1c1917);color:white;">
+        <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+            <div>
+                <h6 class="mb-0 fw-bold"><i class="fas fa-list me-2" style="color:#fbbf24;"></i>รายการ Watchlist ของคุณ</h6>
+                <div class="small mt-1" style="opacity:0.65;">{{ items|length }} รายการ — อัปเดตจาก Precision Scan ล่าสุด</div>
+            </div>
+        </div>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-hover mb-0" style="font-size:0.82rem;">
+            <thead>
+                <tr style="background:#f8fafc;font-size:0.72rem;color:#64748b;letter-spacing:0.03em;">
+                    <th class="ps-3">SYMBOL</th>
+                    <th>SECTOR</th>
+                    <th class="text-center">PRICE</th>
+                    <th class="text-center">SCORE</th>
+                    <th class="text-center">ALERT AT</th>
+                    <th class="text-center">STATUS</th>
+                    <th class="text-center">LAST SCAN</th>
+                    <th class="text-end pe-3">ACTION</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for entry in items %}
+                <tr class="{% if entry.triggered %}table-warning{% endif %}">
+                    <td class="ps-3">
+                        <div class="d-flex align-items-center gap-2">
+                            <div class="rounded-circle d-flex align-items-center justify-content-center fw-bold"
+                                 style="width:30px;height:30px;background:rgba(180,83,9,0.1);color:#b45309;font-size:0.6rem;flex-shrink:0;">
+                                {{ entry.watchlist.symbol|slice:":3" }}
+                            </div>
+                            <div>
+                                <div class="fw-bold">{{ entry.watchlist.symbol }}</div>
+                                <div class="text-muted" style="font-size:0.68rem;">เพิ่ม {{ entry.watchlist.added_date|date:"d M Y" }}</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td>
+                        <span class="badge rounded-pill px-2" style="background:#f1f5f9;color:#475569;font-size:0.65rem;">{{ entry.watchlist.sector|default:"Unknown" }}</span>
+                    </td>
+                    <td class="text-center">
+                        {% if entry.scan_data %}
+                        <span class="fw-bold">฿{{ entry.scan_data.price|floatformat:2 }}</span>
+                        {% else %}
+                        <span class="text-muted">-</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-center">
+                        {% if entry.scan_data %}
+                        <span class="fw-bold {% if entry.scan_data.technical_score >= 80 %}text-success{% elif entry.scan_data.technical_score >= 60 %}text-primary{% else %}text-secondary{% endif %}">
+                            {{ entry.scan_data.technical_score }}
+                        </span>
+                        {% if entry.delta is not None %}
+                        <span class="small {% if entry.delta > 0 %}text-success{% elif entry.delta < 0 %}text-danger{% else %}text-muted{% endif %}">
+                            {% if entry.delta > 0 %}+{% endif %}{{ entry.delta }}
+                        </span>
+                        {% endif %}
+                        {% else %}
+                        <span class="badge bg-secondary bg-opacity-10 text-secondary rounded-pill" style="font-size:0.65rem;">ยังไม่สแกน</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-center">
+                        <span class="badge rounded-pill px-2" style="background:#fef9c3;color:#b45309;font-size:0.72rem;border:1px solid #fde68a;">
+                            ≥ {{ entry.watchlist.alert_threshold }}
+                        </span>
+                    </td>
+                    <td class="text-center">
+                        {% if entry.triggered %}
+                        <span class="badge bg-warning text-dark rounded-pill px-2" style="font-size:0.7rem;">
+                            <i class="fas fa-bell me-1"></i>แจ้งเตือน!
+                        </span>
+                        {% elif entry.scan_data %}
+                        <span class="text-muted small">ปกติ</span>
+                        {% else %}
+                        <span class="text-muted small">-</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-center">
+                        {% if entry.scan_data %}
+                        <span class="small text-muted">{{ entry.scan_data.scan_run|date:"d M H:i" }}</span>
+                        {% else %}
+                        <span class="text-muted">-</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-end pe-3">
+                        <div class="d-flex justify-content-end gap-1">
+                            {% if entry.scan_data %}
+                            <a href="{% url 'stocks:entry_finder' entry.watchlist.symbol %}" class="btn btn-sm px-2 py-1" style="font-size:0.65rem;background:#7c3aed;color:white;" target="_blank" title="Sniper Chart"><i class="fas fa-crosshairs"></i></a>
+                            <a href="{% url 'stocks:analyze' entry.watchlist.symbol %}" class="btn btn-outline-primary btn-sm px-2 py-1" style="font-size:0.65rem;" target="_blank" title="Analyze"><i class="fas fa-microscope"></i></a>
+                            {% endif %}
+                            <button class="btn btn-sm px-2 py-1 watchlist-toggle-btn"
+                                    data-symbol="{{ entry.watchlist.symbol }}"
+                                    data-sector="{{ entry.watchlist.sector }}"
+                                    data-in-watchlist="true"
+                                    onclick="removeFromWatchlist(this)"
+                                    style="font-size:0.65rem;background:#fef2f2;color:#dc2626;border:1px solid #fca5a5;"
+                                    title="ลบออกจาก Watchlist">
+                                <i class="fas fa-trash-alt"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% else %}
+<div class="card border-0 shadow-sm rounded-4 text-center py-5">
+    <div class="card-body">
+        <i class="fas fa-bell-slash fa-3x mb-3" style="color:#e2e8f0;"></i>
+        <h5 class="fw-bold text-muted mb-2">ยังไม่มีหุ้นใน Watchlist</h5>
+        <p class="text-muted mb-4">ไปที่ Precision Scanner แล้วกดปุ่ม <i class="far fa-bell"></i> เพื่อติดตามหุ้น</p>
+        <a href="{% url 'stocks:precision_momentum_scanner' %}" class="btn btn-sm rounded-pill px-4" style="background:#7c3aed;color:white;">
+            <i class="fas fa-crosshairs me-1"></i> ไป Precision Scanner
+        </a>
+    </div>
+</div>
+{% endif %}
+
+</div>
+
+<script>
+function removeFromWatchlist(btn) {
+    var symbol = btn.dataset.symbol;
+    var sector = btn.dataset.sector;
+    if (!confirm('ลบ ' + symbol + ' ออกจาก Watchlist?')) return;
+    fetch("{% url 'stocks:watchlist_item_toggle' %}", {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}'},
+        body: JSON.stringify({symbol: symbol, sector: sector})
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.status === 'removed') {
+            var row = btn.closest('tr');
+            row.style.transition = 'opacity 0.3s';
+            row.style.opacity = '0';
+            setTimeout(() => row.remove(), 300);
+        }
+    })
+    .catch(e => console.error('Error:', e));
+}
+</script>
+{% endblock %}

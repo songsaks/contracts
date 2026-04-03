@@ -589,6 +589,11 @@ def analyze_with_ai(symbol, data, extra_context=None, macro_signal=None):
     rsi = history['RSI'].iloc[-1] if 'RSI' in history.columns else 'N/A'
     macd_val = history['MACD_12_26_9'].iloc[-1] if 'MACD_12_26_9' in history.columns else 'N/A'
     macd_sig = history['MACDs_12_26_9'].iloc[-1] if 'MACDs_12_26_9' in history.columns else 'N/A'
+    
+    # เพิ่ม EMA สำหรับการวิเคราะห์ Trend Following
+    ema20 = history['Close'].rolling(window=20).mean().iloc[-1] if not history.empty and len(history) >= 20 else 'N/A'
+    ema50 = history['Close'].rolling(window=50).mean().iloc[-1] if not history.empty and len(history) >= 50 else 'N/A'
+    ema200 = history['Close'].rolling(window=200).mean().iloc[-1] if not history.empty and len(history) >= 200 else 'N/A'
 
     # รวบรวมหัวข้อข่าวล่าสุด 5 ข้าวสำหรับ sentiment analysis
     news_content = "\nRecent Headlines:\n"
@@ -610,9 +615,10 @@ def analyze_with_ai(symbol, data, extra_context=None, macro_signal=None):
 
     Technical Snapshot:
     - Current Price: {last_price:.2f} ({price_change:+.2f}%)
+    - Trend Quality (EMA): EMA(20) = {ema20}, EMA(50) = {ema50}, EMA(200) = {ema200}
     - RSI(14): {rsi}
     - MACD: {macd_val} (Signal: {macd_sig})
-    - Volume: Current={last_volume}, 20-Day Avg={avg_volume:.0f} (Ratio: {vol_ratio:.2f}x)
+    - Volume Power: Current={last_volume}, 20-Day Avg={avg_volume:.0f} (Ratio by Volume: {vol_ratio:.2f}x)
 
     Business Profile & Management:
     {yq.get('profile', {}).get('longBusinessSummary', 'N/A')[:500] if (isinstance(yq, dict) and isinstance(yq.get('profile'), dict)) else 'N/A'}...
@@ -620,14 +626,17 @@ def analyze_with_ai(symbol, data, extra_context=None, macro_signal=None):
 
     {news_content}
 
-    Please provide a professional analysis in Thai language:
-    1. Business Quality & Management Review: วิเคราะห์ธุรกิจ และคุณภาพผู้บริหาร
-    2. Deep Fundamental & Valuation: วิเคราะห์ความคุ้มค่า (อ้างอิงจาก Fair Value / Pillar Scores ถ้ามี)
-    3. Advanced Technicals: วิเคราะห์แนวโน้มราคา
-    4. Sentiment Analysis: วิเคราะห์ทิศทางข่าวสาร
-    5. Strategic Action Plan: คำแนะนำ Buy/Hold/Sell
+    Please provide a professional swing-trading and momentum-focused analysis in Thai language:
+    1. Momentum & Trend Following Analysis: วิเคราะห์ความแข็งแกร่งของเทรนด์ เรียงลำดับความสวยงามของ EMA 20/50/200 พลังของ Volume และความชัดเจนของขาขึ้น
+    2. Fundamental vs Valuation Check: สรุปความคุ้มค่าเทียบกับราคาปัจจุปันคร่าวๆ ว่าธุรกิจยังมีพื้นฐานหนุนตัวเทรนด์ราคาหรือไม่
+    3. Sentiment & News Analysis: วิเคราะห์ทิศทางข่าวสารสำคัญที่มีผลกระทบกับราคาหุ้น
+    4. Strategic Action Plan (2-3 Months Outlook): วางแผนการลงทุนในระยะ 2-3 เดือนข้างหน้าชัดเจน! ต้องระบุ:
+       - สถานะปัจจุบัน (Buy / Hold / Avoid)
+       - จุดเข้าซื้อ (Entry Zone) ที่ปลอดภัย
+       - จุดตัดขาดทุน (Stop Loss) ทันทีถ้าราคาผิดทาง
+       - เป้าหมายทำกำไร (Take Profit Target) ในช่วง 2-3 เดือนข้างหน้า
 
-    Format in Markdown for professional web report. Output ONLY raw markdown.
+    Format in Markdown for a professional web report. Ensure clear bullet points, bold key numbers, and output ONLY raw markdown.
     """
 
     # ส่ง prompt ไปยัง Gemini API และทำความสะอาด Markdown ที่ได้กลับมา
@@ -1212,6 +1221,8 @@ def analyze_momentum_technical_v2(df):
         'stock_3m_return': ret_3m,
         'cmf': round(cmf_val, 4),
         'is_52w_breakout': is_52w_breakout,
+        'volume_surge': round(rvol, 2),
+        'is_volume_surge': rvol >= 1.5,
     }
 
 

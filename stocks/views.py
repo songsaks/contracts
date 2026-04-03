@@ -700,6 +700,8 @@ def portfolio_list(request):
                 'buy_score': signals['buy_score'],
                 'sell_score': signals['sell_score'],
                 'exit_signal': signals['exit_signal'],
+                'in_scan': prec_data is not None,
+                'scan_score': prec_data.technical_score if prec_data else None,
             })
         except Exception as e:
             print(f"DEBUG: ERROR for {item.symbol}: {e}")
@@ -2209,6 +2211,82 @@ def _get_market_condition(set_df):
     }
 
 
+# ====== Scan Watchlist Views ======
+
+@login_required
+def watchlist_item_toggle(request):
+    """AJAX POST — เพิ่ม/ลบหุ้นออกจาก ScanWatchlistItem และส่งไปที่ Market Watchlist (สำหรับรับ Alert เข้า Telegram)"""
+    import json
+    from django.http import JsonResponse
+    from .models import ScanWatchlistItem, Watchlist
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST required'}, status=405)
+    try:
+        data = json.loads(request.body)
+    except (ValueError, KeyError):
+        return JsonResponse({'error': 'invalid JSON'}, status=400)
+    symbol = data.get('symbol', '').strip().upper()
+    sector = data.get('sector', 'Unknown')
+    if not symbol:
+        return JsonResponse({'error': 'symbol required'}, status=400)
+        
+    obj, created = ScanWatchlistItem.objects.get_or_create(
+        user=request.user, symbol=symbol,
+        defaults={'sector': sector}
+    )
+    
+    if not created:
+        # ถ้ามีอยู่แล้ว สั่งลบออก (Un-toggle)
+        obj.delete()
+        # อนุโลมให้ลบออกจาก Market Watchlist ไปด้วยเลยเพื่อความสะดวก
+        Watchlist.objects.filter(user=request.user, symbol=symbol).delete()
+        return JsonResponse({'status': 'removed', 'symbol': symbol})
+        
+    # ถ้ายังไม่มี สั่งให้เพิ่มเข้าไปที่ฝั่ง Market Watchlist ด้วย (เพื่อให้ระบบ Telegram ส่องเป้าหมาย)
+    Watchlist.objects.get_or_create(user=request.user, symbol=symbol)
+    
+    return JsonResponse({'status': 'added', 'symbol': symbol})
+
+
+@login_required
+def scan_watchlist_view(request):
+    """แสดง Scan Watchlist พร้อม score ปัจจุบัน / รอบก่อน / delta / alert"""
+    from .models import ScanWatchlistItem, PrecisionScanCandidate
+    items = ScanWatchlistItem.objects.filter(user=request.user)
+
+    runs = list(
+        PrecisionScanCandidate.objects
+        .filter(user=request.user)
+        .values_list('scan_run', flat=True)
+        .order_by('-scan_run')
+        .distinct()[:2]
+    )
+    latest_run = runs[0] if len(runs) >= 1 else None
+    prev_run   = runs[1] if len(runs) >= 2 else None
+
+    latest_map = {c.symbol: c for c in PrecisionScanCandidate.objects.filter(user=request.user, scan_run=latest_run)} if latest_run else {}
+    prev_map   = {c.symbol: c for c in PrecisionScanCandidate.objects.filter(user=request.user, scan_run=prev_run)}   if prev_run   else {}
+
+    enriched = []
+    for item in items:
+        latest = latest_map.get(item.symbol)
+        prev   = prev_map.get(item.symbol)
+        cur_score  = latest.technical_score if latest else None
+        prev_score = prev.technical_score   if prev   else None
+        delta = (cur_score - prev_score) if (cur_score is not None and prev_score is not None) else None
+        enriched.append({
+            'watchlist':   item,
+            'scan_data':   latest,
+            'delta':       delta,
+            'triggered':   cur_score is not None and cur_score >= item.alert_threshold,
+        })
+
+    return render(request, 'stocks/scan_watchlist.html', {
+        'items':       enriched,
+        'latest_run':  latest_run,
+    })
+
+
 # ====== Precision Momentum Scanner — เวอร์ชันกรองคุณภาพสูง ======
 
 @login_required
@@ -2632,6 +2710,8 @@ def precision_momentum_scanner(request):
                     'vdu_near_zone': vdu_flag,
                     'cmf': tech.get('cmf', 0.0),
                     'is_52w_breakout': tech.get('is_52w_breakout', False),
+                    'volume_surge': tech.get('volume_surge', 1.0),
+                    'is_volume_surge': tech.get('is_volume_surge', False),
                 }
 
             except Exception as e:
@@ -2742,6 +2822,8 @@ def precision_momentum_scanner(request):
                     vdu_near_zone=r.get('vdu_near_zone', False),
                     cmf=r.get('cmf', None),
                     is_52w_breakout=r.get('is_52w_breakout', False),
+                    volume_surge=r.get('volume_surge', 1.0),
+                    is_volume_surge=r.get('is_volume_surge', False),
                 ))
 
             if bulk_candidates:
@@ -3154,6 +3236,13 @@ def precision_momentum_scanner(request):
         "top_sectors": [{"name": s["name"], "count": s["count"]} for s in top_sectors],
     }
     context['ai_scan_json'] = _scan_json.dumps(_ai_data, ensure_ascii=False, default=str)
+
+    # Watchlist symbols for toggle button state
+    from .models import ScanWatchlistItem
+    context['watchlist_symbols'] = set(
+        ScanWatchlistItem.objects.filter(user=request.user).values_list('symbol', flat=True)
+    )
+
     return render(request, 'stocks/precision_scan.html', context)
 
 

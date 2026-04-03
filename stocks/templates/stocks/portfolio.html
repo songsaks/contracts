@@ -118,6 +118,9 @@
                                         {% if item.mom_data %}
                                         <span class="badge bg-dark rounded-pill px-2" style="font-size: 0.7rem;">Score: {{ item.mom_data.technical_score }}</span>
                                         {% endif %}
+                                        {% if item.in_scan %}
+                                        <a href="{% url 'stocks:precision_momentum_scanner' %}#row-{{ item.obj.symbol }}" class="badge text-decoration-none rounded-pill px-2" style="background:#7c3aed;color:white;font-size:0.65rem;" title="อยู่ใน Precision Scan ล่าสุด — คลิกเพื่อดู">📊 Scan{% if item.scan_score %} {{ item.scan_score }}{% endif %}</a>
+                                        {% endif %}
                                     </div>
                                 </div>
                             </div>

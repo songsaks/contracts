@@ -316,11 +316,38 @@ class PrecisionScanCandidate(models.Model):
     cmf              = models.FloatField(null=True, blank=True)   # Chaikin Money Flow 20d (>0.1=accumulation, <-0.1=distribution)
     is_52w_breakout  = models.BooleanField(default=False)         # ราคาทะลุหรืออยู่ภายใน 1% ของ 52-week high
 
+    # ====== Volume Surge ======
+    volume_surge     = models.FloatField(default=1.0)             # current vol / avg_vol_20d ratio
+    is_volume_surge  = models.BooleanField(default=False)         # True if volume_surge >= 1.5x
+
     class Meta:
         ordering = ['-scan_run', '-technical_score']
 
     def __str__(self):
         return f"{self.symbol} - Score: {self.technical_score} (run: {self.scan_run})"
+
+
+# ====== ScanWatchlistItem — ติดตามหุ้นจาก Precision Scanner ======
+class ScanWatchlistItem(models.Model):
+    """
+    บันทึกหุ้นที่ผู้ใช้ต้องการติดตามจาก Precision Scanner
+    แจ้งเตือนเมื่อ technical_score เปลี่ยนแปลงเกิน threshold ระหว่าง scan
+    """
+    user            = models.ForeignKey(User, on_delete=models.CASCADE, related_name='scan_watchlist')
+    symbol          = models.CharField(max_length=20)
+    sector          = models.CharField(max_length=100, default='Unknown')
+    added_date      = models.DateTimeField(auto_now_add=True)
+    note            = models.TextField(blank=True)
+    alert_threshold = models.IntegerField(default=10)   # แจ้งเตือนเมื่อ score เปลี่ยน >= นี้
+
+    class Meta:
+        verbose_name = "Scan Watchlist Item"
+        verbose_name_plural = "Scan Watchlist Items"
+        unique_together = ('user', 'symbol')
+        ordering = ['-added_date']
+
+    def __str__(self):
+        return f"Watch: {self.symbol} ({self.user.username})"
 
 
 # ====== ValueScanCandidate — US Value Stock Scanner ======

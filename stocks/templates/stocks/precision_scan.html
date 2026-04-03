@@ -625,6 +625,10 @@
                     <input class="form-check-input" type="checkbox" id="hideCmfDistSET" onchange="filterByCMFDist('SET', this.checked)" style="cursor:pointer;">
                     <label class="form-check-label small fw-semibold" for="hideCmfDistSET" style="cursor:pointer;color:#d97706;">ซ่อน CMF ↓</label>
                 </div>
+                <div class="form-check form-switch mb-0 d-flex align-items-center gap-2">
+                    <input class="form-check-input" type="checkbox" id="volSurgeFilterSET" onchange="_applyFiltersSET()" style="cursor:pointer;">
+                    <label class="form-check-label small fw-semibold" for="volSurgeFilterSET" style="cursor:pointer;color:#f59e0b;">⚡ Vol Surge ≥1.5x</label>
+                </div>
                 <select id="sectorFilterSET" onchange="_applyFiltersSET()" class="form-select form-select-sm rounded-pill" style="width:auto;font-size:0.72rem;border:1px solid #e2e8f0;color:#374151;cursor:pointer;">
                     <option value="">All Sectors</option>
                     {% for item in candidates %}<option value="{{ item.sector }}">{{ item.sector }}</option>{% endfor %}
@@ -664,7 +668,7 @@
                     </thead>
                     <tbody>
                         {% for item in candidates %}
-                        <tr class="{% if item.demand_zone_start and item.price <= item.demand_zone_start and item.price >= item.demand_zone_end %}row-entry-zone{% elif item.supply_zone_start and item.price >= item.supply_zone_start %}row-take-profit{% elif item.is_new_entry %}row-new-entry{% endif %}{% if item.cmf is not None and item.cmf < -0.1 %} row-cmf-dist{% endif %}" data-rs="{{ item.rs_rating }}" data-stage2="{{ item.stage2|yesno:'true,false' }}" data-pp="{{ item.pocket_pivot|yesno:'true,false' }}" data-sector="{{ item.sector }}" data-cmfdist="{% if item.cmf is not None and item.cmf < -0.1 %}true{% else %}false{% endif %}">
+                        <tr class="{% if item.demand_zone_start and item.price <= item.demand_zone_start and item.price >= item.demand_zone_end %}row-entry-zone{% elif item.supply_zone_start and item.price >= item.supply_zone_start %}row-take-profit{% elif item.is_new_entry %}row-new-entry{% endif %}{% if item.cmf is not None and item.cmf < -0.1 %} row-cmf-dist{% endif %}" data-rs="{{ item.rs_rating }}" data-stage2="{{ item.stage2|yesno:'true,false' }}" data-pp="{{ item.pocket_pivot|yesno:'true,false' }}" data-sector="{{ item.sector }}" data-cmfdist="{% if item.cmf is not None and item.cmf < -0.1 %}true{% else %}false{% endif %}" data-volsurge="{{ item.is_volume_surge|yesno:'true,false' }}" id="row-{{ item.symbol }}">
                             <!-- SYMBOL -->
                             <td class="ps-2">
                                 <div class="d-flex align-items-center gap-1">
@@ -700,6 +704,9 @@
                                         {% endif %}
                                         {% if item.cmf and item.cmf >= 0.1 %}
                                         <span class="badge px-1 py-0" style="background:#10b981;color:white;font-size:0.55rem;" title="CMF {{ item.cmf|floatformat:2 }} — Chaikin Money Flow สูง สถาบันสะสม">CMF↑</span>
+                                        {% endif %}
+                                        {% if item.is_volume_surge %}
+                                        <span class="badge px-1 py-0" style="background:#f59e0b;color:#1c1917;font-size:0.55rem;" title="Volume Surge: {{ item.volume_surge|floatformat:1 }}x avg — ปริมาณซื้อขายพุ่งผิดปกติ">⚡{{ item.volume_surge|floatformat:1 }}x</span>
                                         {% endif %}
                                     </div>
                                 </div>
@@ -992,6 +999,15 @@
                                     </button>
                                     <a href="{% url 'stocks:analyze' item.symbol_bk %}" class="btn btn-outline-primary btn-sm px-2 py-1" style="font-size:0.65rem;" target="_blank"><i class="fas fa-microscope"></i></a>
                                     <a href="{% url 'stocks:entry_finder' item.symbol %}" class="btn btn-sm px-2 py-1" style="font-size:0.65rem;background:#7c3aed;color:white;" target="_blank"><i class="fas fa-crosshairs"></i></a>
+                                    <button class="btn btn-sm px-2 py-1 watchlist-toggle-btn"
+                                            data-symbol="{{ item.symbol }}"
+                                            data-sector="{{ item.sector }}"
+                                            data-in-watchlist="{% if item.symbol in watchlist_symbols %}true{% else %}false{% endif %}"
+                                            onclick="toggleWatchlist(this)"
+                                            style="font-size:0.65rem;{% if item.symbol in watchlist_symbols %}background:#fef9c3;color:#b45309;border:1px solid #fde68a;{% else %}background:#f8fafc;color:#94a3b8;border:1px solid #e2e8f0;{% endif %}"
+                                            title="{% if item.symbol in watchlist_symbols %}ลบออกจาก Alert Watchlist{% else %}เพิ่มใน Alert Watchlist{% endif %}">
+                                        {% if item.symbol in watchlist_symbols %}<i class="fas fa-bell"></i>{% else %}<i class="far fa-bell"></i>{% endif %}
+                                    </button>
                                 </div>
                             </td>
                         </tr>
@@ -1391,20 +1407,22 @@
 // ── Table Filter Helpers ──────────────────────────────────────────────
 function _applyFiltersSET() {
     var rows = document.querySelectorAll('#scanTableSET tbody tr');
-    var rsOn      = document.getElementById('rsFilter70SET')    && document.getElementById('rsFilter70SET').checked;
-    var s2On      = document.getElementById('stage2FilterSET')  && document.getElementById('stage2FilterSET').checked;
-    var ppOn      = document.getElementById('ppFilterSET')      && document.getElementById('ppFilterSET').checked;
-    var hideCMFOn = document.getElementById('hideCmfDistSET')   && document.getElementById('hideCmfDistSET').checked;
+    var rsOn       = document.getElementById('rsFilter70SET')    && document.getElementById('rsFilter70SET').checked;
+    var s2On       = document.getElementById('stage2FilterSET')  && document.getElementById('stage2FilterSET').checked;
+    var ppOn       = document.getElementById('ppFilterSET')      && document.getElementById('ppFilterSET').checked;
+    var hideCMFOn  = document.getElementById('hideCmfDistSET')   && document.getElementById('hideCmfDistSET').checked;
+    var volSurgeOn = document.getElementById('volSurgeFilterSET') && document.getElementById('volSurgeFilterSET').checked;
     var secEl  = document.getElementById('sectorFilterSET');
     var secVal = secEl ? secEl.value : '';
     var visible = 0;
     rows.forEach(function(row) {
         var rs   = parseInt(row.dataset.rs || '0');
         var s2   = row.dataset.stage2   === 'true';
-        var pp   = row.dataset.pp       === 'true';
-        var cmfd = row.dataset.cmfdist  === 'true';
-        var sec  = row.dataset.sector   || '';
-        var show = (!rsOn || rs >= 70) && (!s2On || s2) && (!ppOn || pp) && (!secVal || sec === secVal) && (!hideCMFOn || !cmfd);
+        var pp   = row.dataset.pp        === 'true';
+        var cmfd = row.dataset.cmfdist   === 'true';
+        var vsrg = row.dataset.volsurge  === 'true';
+        var sec  = row.dataset.sector    || '';
+        var show = (!rsOn || rs >= 70) && (!s2On || s2) && (!ppOn || pp) && (!secVal || sec === secVal) && (!hideCMFOn || !cmfd) && (!volSurgeOn || vsrg);
         row.style.display = show ? '' : 'none';
         if (show) visible++;
     });
@@ -1415,6 +1433,33 @@ function filterByRS(id, v)       { _applyFiltersSET(); }
 function filterByStage2(id, v)   { _applyFiltersSET(); }
 function filterByPP(id, v)       { _applyFiltersSET(); }
 function filterByCMFDist(id, v)  { _applyFiltersSET(); }
+
+// ── Watchlist Toggle ─────────────────────────────────────────────────
+function toggleWatchlist(btn) {
+    var symbol = btn.dataset.symbol;
+    var sector = btn.dataset.sector;
+    var inWl   = btn.dataset.inWatchlist === 'true';
+    fetch("{% url 'stocks:watchlist_item_toggle' %}", {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}'},
+        body: JSON.stringify({symbol: symbol, sector: sector})
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.status === 'added') {
+            btn.dataset.inWatchlist = 'true';
+            btn.innerHTML = '<i class="fas fa-bell"></i>';
+            btn.style.cssText = 'font-size:0.65rem;background:#fef9c3;color:#b45309;border:1px solid #fde68a;';
+            btn.title = 'ลบออกจาก Alert Watchlist';
+        } else {
+            btn.dataset.inWatchlist = 'false';
+            btn.innerHTML = '<i class="far fa-bell"></i>';
+            btn.style.cssText = 'font-size:0.65rem;background:#f8fafc;color:#94a3b8;border:1px solid #e2e8f0;';
+            btn.title = 'เพิ่มใน Alert Watchlist';
+        }
+    })
+    .catch(e => console.error('Watchlist toggle error:', e));
+}
 
 // Deduplicate sector dropdown
 document.addEventListener('DOMContentLoaded', function() {
