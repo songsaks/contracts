@@ -878,82 +878,40 @@
                                 {% endif %}
                             </td>
 
-                            <!-- v3 SIGNALS: MACD crossover / BB Squeeze / EMA20 aligned -->
+                            <!-- CLEAN v7 SIGNALS: EMA Stack / 52W Breakout / CMF -->
                             <td class="col-hide-md">
                                 <div class="d-flex flex-column gap-1">
-                                {% if item.macd_crossover %}
-                                <span class="badge px-1 py-0"
-                                      style="background:rgba(22,163,74,0.15);color:#15803d;border:1px solid rgba(22,163,74,0.4);font-size:0.56rem;"
-                                      title="MACD Bullish Crossover (ใน 3 วันล่าสุด)">MACD ✕</span>
-                                {% elif item.macd_histogram and item.macd_histogram > 0 %}
-                                <span class="badge px-1 py-0"
-                                      style="background:rgba(34,197,94,0.10);color:#16a34a;border:1px solid rgba(34,197,94,0.25);font-size:0.56rem;"
-                                      title="MACD Histogram บวก (buying pressure)">MACD+</span>
-                                {% elif item.macd_histogram and item.macd_histogram < 0 %}
-                                <span class="badge px-1 py-0"
-                                      style="background:rgba(220,38,38,0.08);color:#dc2626;border:1px solid rgba(220,38,38,0.2);font-size:0.56rem;"
-                                      title="MACD Histogram ลบ (selling pressure)">MACD−</span>
-                                {% endif %}
-                                {% if item.bb_squeeze %}
-                                <span class="badge px-1 py-0"
-                                      style="background:rgba(245,158,11,0.15);color:#b45309;border:1px solid rgba(245,158,11,0.4);font-size:0.56rem;"
-                                      title="Bollinger Band Squeeze — volatility ต่ำ รอ breakout">BB⚡</span>
-                                {% endif %}
                                 {% if item.ema20_aligned %}
                                 <span class="badge px-1 py-0"
                                       style="background:rgba(79,70,229,0.12);color:#4f46e5;border:1px solid rgba(79,70,229,0.3);font-size:0.56rem;"
-                                      title="EMA20 > EMA50 > EMA200 Full Stack (Minervini)">EMA✓</span>
-                                {% endif %}
-                                {% if item.ema20_rising and item.hh_hl_structure %}
-                                <span class="badge px-1 py-0"
-                                      style="background:rgba(5,150,105,0.15);color:#065f46;border:1px solid rgba(5,150,105,0.4);font-size:0.56rem;"
-                                      title="EMA20 กำลังชี้ขึ้น + โครงสร้าง Higher High/Higher Low — Trend แท้จริง">TREND✓</span>
-                                {% elif item.ema20_rising %}
-                                <span class="badge px-1 py-0"
-                                      style="background:rgba(16,185,129,0.12);color:#047857;border:1px solid rgba(16,185,129,0.3);font-size:0.56rem;"
-                                      title="EMA20 slope กำลังชี้ขึ้น ({{ item.ema20_slope }}%)">EMA↑</span>
-                                {% elif item.hh_hl_structure %}
-                                <span class="badge px-1 py-0"
-                                      style="background:rgba(20,184,166,0.12);color:#0f766e;border:1px solid rgba(20,184,166,0.3);font-size:0.56rem;"
-                                      title="Higher High + Higher Low structure ใน 20 candles ล่าสุด">HH/HL</span>
-                                {% endif %}
-                                {% if item.stage2 %}
-                                <span class="badge px-1 py-0"
-                                      style="background:rgba(22,163,74,0.15);color:#15803d;border:1px solid rgba(22,163,74,0.4);font-size:0.56rem;"
-                                      title="Weinstein Stage 2: ราคา > SMA150 ที่กำลังชี้ขึ้น — อยู่ใน Markup Phase">S2✓</span>
-                                {% endif %}
-                                {% if item.pocket_pivot %}
-                                <span class="badge px-1 py-0"
-                                      style="background:rgba(8,145,178,0.15);color:#0e7490;border:1px solid rgba(8,145,178,0.4);font-size:0.56rem;"
-                                      title="Pocket Pivot: volume วันขาขึ้น > max volume วันขาลง 10 วันก่อน — Institutional buying">PP⚡</span>
-                                {% endif %}
-                                {% if item.vdu_near_zone %}
-                                <span class="badge px-1 py-0"
-                                      style="background:rgba(124,58,237,0.12);color:#6d28d9;border:1px solid rgba(124,58,237,0.35);font-size:0.56rem;"
-                                      title="Volume Dry-Up: volume ลด 3 วันติด + เงียบกว่าค่าเฉลี่ย 70% — แรงขายหมด, Accumulation">VDU🤫</span>
+                                      title="Trend Quality: ราคา > EMA20 > EMA50 > EMA200 (Minervini Full Stack)">EMA✓</span>
                                 {% endif %}
                                 {% if item.is_52w_breakout %}
                                 <span class="badge px-1 py-0"
-                                      style="background:rgba(245,158,11,0.15);color:#b45309;border:1px solid rgba(245,158,11,0.5);font-size:0.56rem;"
-                                      title="52-Week High Breakout — ราคาทะลุหรืออยู่ภายใน 1% ของ New High">🏔 52W Hi</span>
+                                      style="background:rgba(220,38,38,0.12);color:#dc2626;border:1px solid rgba(220,38,38,0.3);font-size:0.56rem;"
+                                      title="Turbo Score: 52-Week High Breakout (+10 pts)">🏔 52W Hi</span>
                                 {% endif %}
                                 {% if item.cmf is not None %}
                                     {% if item.cmf >= 0.1 %}
                                     <span class="badge px-1 py-0"
                                           style="background:rgba(16,185,129,0.15);color:#059669;border:1px solid rgba(16,185,129,0.4);font-size:0.56rem;"
-                                          title="CMF {{ item.cmf|floatformat:2 }} — Chaikin Money Flow สูง สถาบันสะสมชัดเจน">CMF {{ item.cmf|floatformat:2 }}↑</span>
+                                          title="CMF {{ item.cmf|floatformat:2 }} — Money Flow สถาบันสะสมชัดเจน">CMF {{ item.cmf|floatformat:2 }}↑</span>
                                     {% elif item.cmf >= 0.05 %}
                                     <span class="badge px-1 py-0"
                                           style="background:rgba(16,185,129,0.08);color:#10b981;border:1px solid rgba(16,185,129,0.25);font-size:0.56rem;"
-                                          title="CMF {{ item.cmf|floatformat:2 }} — มีแรงซื้อสุทธิ">CMF {{ item.cmf|floatformat:2 }}</span>
+                                          title="CMF {{ item.cmf|floatformat:2 }} — เริ่มมีแรงเงินเข้า">CMF {{ item.cmf|floatformat:2 }}</span>
                                     {% elif item.cmf < -0.1 %}
                                     <span class="badge px-1 py-0"
                                           style="background:rgba(220,38,38,0.08);color:#dc2626;border:1px solid rgba(220,38,38,0.3);font-size:0.56rem;"
-                                          title="CMF {{ item.cmf|floatformat:2 }} — Distribution (แรงขายสุทธิ)">CMF {{ item.cmf|floatformat:2 }}↓</span>
+                                          title="CMF {{ item.cmf|floatformat:2 }} — ค่าลบ (แรงขายสถาบันออก)">CMF {{ item.cmf|floatformat:2 }}↓</span>
                                     {% endif %}
                                 {% endif %}
-                                {% if not item.macd_crossover and not item.bb_squeeze and not item.ema20_aligned and not item.ema20_rising and not item.hh_hl_structure and not item.stage2 and not item.pocket_pivot and not item.vdu_near_zone and not item.is_52w_breakout %}
-                                <span class="text-muted">-</span>
+                                {% if not item.ema20_aligned and not item.is_52w_breakout %}
+                                    {% if item.cmf is None %}
+                                        <span class="text-muted">-</span>
+                                    {% elif item.cmf > -0.1 and item.cmf < 0.05 %}
+                                        <span class="text-muted">-</span>
+                                    {% endif %}
                                 {% endif %}
                                 </div>
                             </td>
