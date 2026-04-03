@@ -46,10 +46,10 @@
                 <div class="px-4 py-3" style="background:linear-gradient(135deg,#0f172a,#1e3a5f);color:white;">
                     <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
                         <div>
-                            <h6 class="mb-0 fw-bold"><i class="fas fa-sliders-h me-2" style="color:#a78bfa;"></i>Precision Scanner v7 — โครงสร้างการให้คะแนน</h6>
-                            <div class="small mt-1" style="opacity:0.65;">ทุก indicator ถูกคำนวณจากข้อมูลตลาดจริง (Price & Volume) — ไม่มีการ hardcode ผลลัพธ์</div>
+                            <h6 class="mb-0 fw-bold"><i class="fas fa-sliders-h me-2" style="color:#a78bfa;"></i>Precision Scanner v7 — โครงสร้างการให้คะแนน (Clean v7)</h6>
+                            <div class="small mt-1" style="opacity:0.65;">เน้นเฉพาะ "หุ้นขาขึ้นแรง + เงินเข้าจริง" แบบ Pure Momentum</div>
                         </div>
-                        <span class="badge rounded-pill px-3 py-2" style="background:#7c3aed;font-size:0.75rem;">คะแนนรวมสูงสุด 100 pts</span>
+                        <span class="badge rounded-pill px-3 py-2" style="background:#7c3aed;font-size:0.75rem;">คะแนนรวมสูงสุด 100 + Turbo 10 pts</span>
                     </div>
                 </div>
                 <div class="card-body p-4">
@@ -57,31 +57,27 @@
 
                         <!-- คอลัมน์ซ้าย: scoring -->
                         <div class="col-md-6">
-                            <p class="fw-bold small mb-2" style="color:#7c3aed;"><i class="fas fa-calculator me-1"></i> สูตรคะแนน (รวมได้สูงสุด 100 pts)</p>
+                            <p class="fw-bold small mb-2" style="color:#7c3aed;"><i class="fas fa-calculator me-1"></i> สูตรคะแนน (รวมได้สูงสุด 110 pts)</p>
                             <div class="d-flex flex-column gap-2 small">
                                 <div class="d-flex align-items-start gap-2 p-2 rounded-3" style="background:#f8fafc;">
                                     <span class="badge rounded-pill flex-shrink-0" style="background:#1d4ed8;min-width:52px;">40 pts</span>
-                                    <div><strong>Trend:</strong> Price vs EMA200/50/20 + Full Minervini Stack (EMA20>EMA50>EMA200)</div>
+                                    <div><strong>Trend Quality:</strong> Full Minervini Stack (ราคาอยู่เหนือ EMA 20 > 50 > 200)</div>
                                 </div>
                                 <div class="d-flex align-items-start gap-2 p-2 rounded-3" style="background:#f8fafc;">
-                                    <span class="badge rounded-pill flex-shrink-0" style="background:#0891b2;min-width:52px;">25 pts</span>
-                                    <div><strong>RSI + 52W Position:</strong> RSI 65-80 = จุดหวาน | ราคา ≥ 85% of 52W High</div>
+                                    <span class="badge rounded-pill flex-shrink-0" style="background:#059669;min-width:52px;">30 pts</span>
+                                    <div><strong>Power Volume:</strong> แท่งเขียว + RVOL ≥ 2x (ถ้าแท่งแดงจะให้คะแนนน้อยลงมาก)</div>
                                 </div>
                                 <div class="d-flex align-items-start gap-2 p-2 rounded-3" style="background:#f8fafc;">
-                                    <span class="badge rounded-pill flex-shrink-0" style="background:#059669;min-width:52px;">25 pts</span>
-                                    <div><strong>RVOL (Direction-aware):</strong> Bull day RVOL ≥ 2x = 25 pts | Bear day ≥ 2x = 12 pts</div>
+                                    <span class="badge rounded-pill flex-shrink-0" style="background:#0891b2;min-width:52px;">20 pts</span>
+                                    <div><strong>Price Strength:</strong> ราคา ≥ 90% ของ 52-Week High (จ่อ Breakout)</div>
                                 </div>
                                 <div class="d-flex align-items-start gap-2 p-2 rounded-3" style="background:#f8fafc;">
-                                    <span class="badge rounded-pill flex-shrink-0" style="background:#7c3aed;min-width:52px;">10 pts</span>
-                                    <div><strong>Zone Retest:</strong> ราคากลับมาทดสอบ Demand Zone (ERC Bull confirmed)</div>
+                                    <span class="badge rounded-pill flex-shrink-0" style="background:#d97706;min-width:52px;">10 pts</span>
+                                    <div><strong>Money Flow:</strong> CMF ≥ 0.10 (มีเงินสถาบันไหลเข้าและเก็บของจริง)</div>
                                 </div>
                                 <div class="d-flex align-items-start gap-2 p-2 rounded-3 border" style="background:#fefce8;border-color:#fde68a !important;">
-                                    <span class="badge rounded-pill flex-shrink-0" style="background:#d97706;min-width:52px;">+8 pts</span>
-                                    <div><strong>CMF ≥ 0.10 (ใหม่ v7):</strong> Chaikin Money Flow — เงินสุทธิไหลเข้า 20 วัน ยืนยันว่าสถาบันสะสมอยู่</div>
-                                </div>
-                                <div class="d-flex align-items-start gap-2 p-2 rounded-3 border" style="background:#fefce8;border-color:#fde68a !important;">
-                                    <span class="badge rounded-pill flex-shrink-0" style="background:#d97706;min-width:52px;">+10 pts</span>
-                                    <div><strong>52W Breakout (ใหม่ v7):</strong> ราคาอยู่ภายใน 1% ของ 52-Week High — หุ้นที่ทำ New High มักวิ่งต่อ (Minervini)</div>
+                                    <span class="badge rounded-pill flex-shrink-0" style="background:#dc2626;min-width:52px;">+10 pts</span>
+                                    <div><strong>Turbo Score:</strong> ราคา ≥ 99% 52W High (ทำ New High แจกคะแนนพิเศษทันที)</div>
                                 </div>
                             </div>
                         </div>
@@ -214,54 +210,51 @@
 
                 <div class="p-4">
 
-                    <!-- STEP 1: คัดกรองเบื้องต้น -->
+                    <!-- STEP 1: กรองสัญญาณพื้นฐาน (Institutional Filters) -->
                     <div class="mb-4">
                         <div class="d-flex align-items-center gap-2 mb-3">
                             <span class="rounded-circle d-flex align-items-center justify-content-center fw-bold text-white"
                                   style="width:28px;height:28px;background:#7c3aed;font-size:0.8rem;flex-shrink:0;">1</span>
-                            <h6 class="mb-0 fw-bold" style="color:#1e293b;">คัดกรองเบื้องต้น — ดูก่อนว่าหุ้นผ่านเกณฑ์หรือไม่</h6>
+                            <h6 class="mb-0 fw-bold" style="color:#1e293b;">คัดกรองเบื้องต้น — ตัดหุ้นปั่นและสภาพคล่องต่ำทิ้ง (Institutional Grade)</h6>
                         </div>
                         <div class="row g-2">
-                            <div class="col-md-4">
-                                <div class="rounded-3 p-3 h-100" style="background:#f8fafc; border:1px solid #e2e8f0;">
-                                    <div class="d-flex align-items-start gap-2">
-                                        <span style="font-size:1.2rem;">🎯</span>
-                                        <div>
-                                            <div class="fw-bold small" style="color:#1e293b;">PRECISION SCORE</div>
-                                            <div class="small text-muted mt-1">
-                                                <span class="badge bg-success bg-opacity-10 text-success me-1">≥ 80</span>สัญญาณดีมาก<br>
-                                                <span class="badge bg-primary bg-opacity-10 text-primary me-1">70–79</span>ผ่านเกณฑ์<br>
-                                                <span class="badge bg-info bg-opacity-10 text-info me-1">RS 85+</span>Minervini Leading
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-md-4">
-                                <div class="rounded-3 p-3 h-100" style="background:#f8fafc; border:1px solid #e2e8f0;">
-                                    <div class="d-flex align-items-start gap-2">
-                                        <span style="font-size:1.2rem;">⚡</span>
-                                        <div>
-                                            <div class="fw-bold small" style="color:#1e293b;">ADX (ความแข็งแกร่งเทรนด์)</div>
-                                            <div class="small text-muted mt-1">
-                                                <span class="badge bg-success bg-opacity-10 text-success me-1">≥ 30</span>เทรนด์แข็งมาก<br>
-                                                <span class="badge bg-warning bg-opacity-10 text-warning me-1 text-dark">15–29</span>เริ่มฟอร์มตัว/มีเทรนด์<br>
-                                                <span class="badge bg-danger bg-opacity-10 text-danger me-1">&lt; 15</span>ไร้ทิศทาง (บีบอัด)
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
                             <div class="col-md-4">
                                 <div class="rounded-3 p-3 h-100" style="background:#f8fafc; border:1px solid #e2e8f0;">
                                     <div class="d-flex align-items-start gap-2">
                                         <span style="font-size:1.2rem;">📊</span>
                                         <div>
-                                            <div class="fw-bold small" style="color:#1e293b;">AVG VOL 20d (สภาพคล่อง)</div>
+                                            <div class="fw-bold small" style="color:#1e293b;">Turnover (มูลค่าซื้อขาย 20 วัน)</div>
                                             <div class="small text-muted mt-1">
-                                                <span class="badge bg-success bg-opacity-10 text-success me-1">≥ 1M</span>สภาพคล่องสูง<br>
-                                                <span class="badge bg-primary bg-opacity-10 text-primary me-1">500k–1M</span>ผ่านเกณฑ์ขั้นต่ำ<br>
-                                                <span class="badge bg-danger bg-opacity-10 text-danger me-1">&lt; 500k</span>ถูกกรองออกแล้ว
+                                                <span class="badge bg-success bg-opacity-10 text-success me-1">≥ 15 ล้าน฿</span> สถาบันเทรดได้<br>
+                                                <span class="badge bg-danger bg-opacity-10 text-danger me-1">&lt; 15 ล้าน฿</span> สภาพคล่องต่ำ ถูกคัดทิ้ง
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="rounded-3 p-3 h-100" style="background:#f8fafc; border:1px solid #e2e8f0;">
+                                    <div class="d-flex align-items-start gap-2">
+                                        <span style="font-size:1.2rem;">🏆</span>
+                                        <div>
+                                            <div class="fw-bold small" style="color:#1e293b;">RS Rating (ความแข็งแกร่ง)</div>
+                                            <div class="small text-muted mt-1">
+                                                <span class="badge bg-success bg-opacity-10 text-success me-1">≥ 70</span> ชนะหุ้นส่วนใหญ่ในตลาด<br>
+                                                <span class="badge bg-primary bg-opacity-10 text-primary me-1">80-99</span> หุ้นผู้นำตัวจริง (Leader)
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="rounded-3 p-3 h-100" style="background:#f8fafc; border:1px solid #e2e8f0;">
+                                    <div class="d-flex align-items-start gap-2">
+                                        <span style="font-size:1.2rem;">🚫</span>
+                                        <div>
+                                            <div class="fw-bold small" style="color:#1e293b;">Price Limit (ตัด Penny Stock)</div>
+                                            <div class="small text-muted mt-1">
+                                                <span class="badge bg-success bg-opacity-10 text-success me-1">≥ 1.00฿</span> ลงทุนได้อย่างปลอดภัยกว่า<br>
+                                                <span class="badge bg-danger bg-opacity-10 text-danger me-1">&lt; 1.00฿</span> หุ้นเศษสตางค์ ถูกคัดทิ้ง
                                             </div>
                                         </div>
                                     </div>
@@ -270,56 +263,37 @@
                         </div>
                     </div>
 
-                    <!-- STEP 2: ตรวจ Momentum -->
+                    <!-- STEP 2: ตรวจ Trend & Momentum -->
                     <div class="mb-4">
                         <div class="d-flex align-items-center gap-2 mb-3">
                             <span class="rounded-circle d-flex align-items-center justify-content-center fw-bold text-white"
                                   style="width:28px;height:28px;background:#4f46e5;font-size:0.8rem;flex-shrink:0;">2</span>
-                            <h6 class="mb-0 fw-bold" style="color:#1e293b;">ตรวจ Momentum — ราคาวิ่งขึ้นด้วยแรงซื้อจริงหรือเปล่า</h6>
+                            <h6 class="mb-0 fw-bold" style="color:#1e293b;">ตรวจ Trend และการเบรกเอาต์ (40 + 20 แต้ม)</h6>
                         </div>
                         <div class="row g-2">
-                            <div class="col-md-4">
+                            <div class="col-md-6">
                                 <div class="rounded-3 p-3 h-100" style="background:#eff6ff; border:1px solid #bfdbfe;">
                                     <div class="d-flex align-items-start gap-2">
-                                        <span style="font-size:1.2rem;">💧</span>
+                                        <span style="font-size:1.2rem;">📈</span>
                                         <div>
-                                            <div class="fw-bold small" style="color:#1d4ed8;">RSI (แรงซื้อ-ขาย) <span style="color:#7c3aed;font-size:0.7rem;">v3</span></div>
+                                            <div class="fw-bold small" style="color:#1d4ed8;">Trend Quality (Minervini Stack)</div>
                                             <div class="small mt-1" style="color:#374151;">
-                                                <span class="badge" style="background:#dcfce7;color:#15803d;">65–80</span> จุดหวาน v3 — momentum breakout<br>
-                                                <span class="badge" style="background:#dbeafe;color:#1d4ed8;">55–64</span> momentum กำลังก่อตัว<br>
-                                                <span class="badge bg-info bg-opacity-10 text-info text-dark" style="border:1px solid #0dcaf0;">RS 0-99</span> Relative Strength Rank<br>
-                                                <span class="badge bg-danger bg-opacity-10 text-danger">&lt; 55</span> ยังไม่มี momentum
+                                                <span class="badge px-2" style="background:rgba(22,163,74,0.15);color:#15803d;border:1px solid rgba(22,163,74,0.3);">40 pts</span> ราคา > EMA 20 > 50 > 200 (ครบแพทเทิร์นขาขึ้น)<br>
+                                                <span class="badge px-2 mt-1" style="background:rgba(124,58,237,0.15);color:#7c3aed;border:1px solid rgba(124,58,237,0.3);">10 pts</span> ชนะ EMA แต่ละเส้น
                                             </div>
                                         </div>
                                     </div>
                                 </div>
                             </div>
-                            <div class="col-md-4">
+                            <div class="col-md-6">
                                 <div class="rounded-3 p-3 h-100" style="background:#eff6ff; border:1px solid #bfdbfe;">
                                     <div class="d-flex align-items-start gap-2">
-                                        <span style="font-size:1.2rem;">🔊</span>
+                                        <span style="font-size:1.2rem;">🔥</span>
                                         <div>
-                                            <div class="fw-bold small" style="color:#1d4ed8;">RVOL (ปริมาณซื้อขาย)</div>
+                                            <div class="fw-bold small" style="color:#1d4ed8;">Price Strength (ความใกล้ High)</div>
                                             <div class="small mt-1" style="color:#374151;">
-                                                <span style="color:#16a34a;">▲ Bull ≥ 1.5x</span> — วันขาขึ้น volume แน่น ✅<br>
-                                                <span style="color:#16a34a;">▲ Bull ≥ 1.0x</span> — ปกติ พอรับได้<br>
-                                                <span style="color:#dc2626;">▼ Bear ↓</span> — แรงขายมา ⚠️ ระวัง
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-md-4">
-                                <div class="rounded-3 p-3 h-100" style="background:#eff6ff; border:1px solid #bfdbfe;">
-                                    <div class="d-flex align-items-start gap-2">
-                                        <span style="font-size:1.2rem;">✅</span>
-                                        <div>
-                                            <div class="fw-bold small" style="color:#1d4ed8;">ERC VOL ✓ (ยืนยัน)</div>
-                                            <div class="small mt-1" style="color:#374151;">
-                                                <span class="badge px-2" style="background:rgba(124,58,237,0.12);color:#7c3aed;">VOL ✓</span> แสดง = แท่งเทียนขาขึ้น<br>
-                                                (ERC) มี Body + Volume<br>
-                                                สูงกว่าค่าเฉลี่ย 1.5 เท่า<br>
-                                                <span style="color:#6b7280;">ไม่มี badge = สัญญาณอ่อน</span>
+                                                <span class="badge px-2" style="background:rgba(22,163,74,0.15);color:#15803d;border:1px solid rgba(22,163,74,0.3);">20 pts</span> จ่อเบรก (ห่าง 52W High ไม่เกิน 10%)<br>
+                                                <span class="badge px-2 mt-1" style="background:rgba(217,119,6,0.15);color:#d97706;border:1px solid rgba(217,119,6,0.3);">10 pts</span> พอมีลุ้น (ห่างไม่เกิน 15%)
                                             </div>
                                         </div>
                                     </div>
@@ -328,313 +302,63 @@
                         </div>
                     </div>
 
-                    <!-- STEP 3: จุดเข้าซื้อ -->
+                    <!-- STEP 3: ตรวจสอบพลังเม็ดเงิน (Volume & CMF) -->
                     <div class="mb-4">
                         <div class="d-flex align-items-center gap-2 mb-3">
                             <span class="rounded-circle d-flex align-items-center justify-content-center fw-bold text-white"
                                   style="width:28px;height:28px;background:#059669;font-size:0.8rem;flex-shrink:0;">3</span>
-                            <h6 class="mb-0 fw-bold" style="color:#1e293b;">จุดเข้าซื้อ — รอราคาลงมา Entry Zone</h6>
+                            <h6 class="mb-0 fw-bold" style="color:#1e293b;">ยืนยันแรงซื้อจากสถาบัน (30 + 10 แต้ม)</h6>
                         </div>
                         <div class="row g-2">
-                            <div class="col-md-6">
-                                <div class="rounded-3 p-3" style="background:#f0fdf4; border:1px solid #86efac;">
-                                    <div class="fw-bold small mb-2" style="color:#15803d;"><i class="fas fa-map-marker-alt me-1"></i> ENTRY ZONE — ราคาเข้าซื้อ</div>
-                                    <div style="font-family:monospace; font-size:0.82rem; line-height:2; color:#374151;">
-                                        <div><span style="color:#15803d; font-weight:700;">32.00</span> ← ขอบบน (เริ่มเข้าโซนได้)</div>
-                                        <div><span style="color:#15803d; font-weight:700;">30.50</span> ← ขอบล่าง (ต่ำสุดในโซน)</div>
-                                        <div><span style="color:#dc2626; font-weight:700;">SL: 29.69</span> ← ตัดขาดทุนทันที</div>
-                                    </div>
-                                    <div class="mt-2 small" style="color:#6b7280;">
-                                        🟢 ไฟเขียวกระพริบ = ราคาอยู่ใน Zone แล้ว — เข้าซื้อได้
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="rounded-3 p-3" style="background:#f0fdf4; border:1px solid #86efac;">
-                                    <div class="fw-bold small mb-2" style="color:#15803d;"><i class="fas fa-map-signs me-1"></i> ZONE STATUS — ห่างแค่ไหน</div>
-                                    <div class="small" style="line-height:1.9; color:#374151;">
-                                        <span class="badge px-2" style="background:#22c55e;color:white;">🟢 ENTRY ZONE</span> อยู่ในโซนแล้ว ซื้อได้เลย<br>
-                                        <span class="badge px-2" style="background:#f59e0b;color:white;">NEAR 10%</span> ห่าง &lt;10% — รอใกล้ ๆ<br>
-                                        <span class="badge px-2" style="background:#facc15;color:#000;">CLOSE 30%</span> ห่าง 10–30% — ใส่ watchlist<br>
-                                        <span class="badge px-2" style="background:#3b82f6;color:white;">WATCH 60%</span> ห่างมาก — แค่ติดตาม
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- STEP 4: RR & TP -->
-                    <div class="mb-4">
-                        <div class="d-flex align-items-center gap-2 mb-3">
-                            <span class="rounded-circle d-flex align-items-center justify-content-center fw-bold text-white"
-                                  style="width:28px;height:28px;background:#0284c7;font-size:0.8rem;flex-shrink:0;">4</span>
-                            <h6 class="mb-0 fw-bold" style="color:#1e293b;">ประเมิน Risk/Reward — คุ้มค่าหรือไม่</h6>
-                        </div>
-                        <div class="row g-2">
-                            <div class="col-md-6">
-                                <div class="rounded-3 p-3 h-100" style="background:#eff6ff; border:1px solid #bfdbfe;">
-                                    <div class="fw-bold small mb-2" style="color:#1d4ed8;"><i class="fas fa-balance-scale me-1"></i> RR (Risk / Reward)</div>
-                                    <div class="small" style="line-height:1.9; color:#374151;">
-                                        <span class="fw-bold text-success">1:3 ขึ้นไป</span> — ดีมาก ควรเข้า ✅<br>
-                                        <span class="fw-bold text-primary">1:2</span> — รับได้ ถ้าสัญญาณอื่นดี<br>
-                                        <span class="fw-bold text-warning">1:1.5</span> — เสี่ยงสูง พิจารณาให้ดี<br>
-                                        <span class="fw-bold text-danger">&lt; 1:1.5</span> — หลีกเลี่ยง ❌
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="rounded-3 p-3 h-100" style="background:#fef3c7; border:1px solid #fde68a;">
-                                    <div class="fw-bold small mb-2" style="color:#92400e;"><i class="fas fa-flag-checkered me-1"></i> เป้าหมายกำไร (TP)</div>
-                                    <div class="small" style="line-height:1.9; color:#374151;">
-                                        TP = <strong>52-Week High</strong> (ค่า Year High ในตาราง)<br>
-                                        🔴 ไฟแดงกระพริบ = ราคาถึง Supply Zone<br>
-                                        → <strong>ทยอยขายหรือปิด position</strong><br>
-                                        <span style="color:#6b7280;">อย่ารอให้ราคาพัง</span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- STEP 5: Price Pattern -->
-                    <div class="mb-4">
-                        <div class="d-flex align-items-center gap-2 mb-3">
-                            <span class="rounded-circle d-flex align-items-center justify-content-center fw-bold text-white"
-                                  style="width:28px;height:28px;background:#b45309;font-size:0.8rem;flex-shrink:0;">5</span>
-                            <h6 class="mb-0 fw-bold" style="color:#1e293b;">Price Pattern — แท่งเทียนบอกอะไร</h6>
-                        </div>
-                        <div class="row g-2">
-                            <!-- Bullish patterns -->
                             <div class="col-md-6">
                                 <div class="rounded-3 p-3 h-100" style="background:#f0fdf4; border:1px solid #86efac;">
-                                    <div class="fw-bold small mb-2" style="color:#15803d;">▲ Bullish Patterns — เพิ่ม BUY Score</div>
-                                    <div class="small" style="line-height:2; color:#374151;">
-                                        <span class="badge me-1 px-2" style="background:rgba(22,163,74,0.15);color:#15803d;border:1px solid rgba(22,163,74,0.3);">▲ Bullish Engulf</span> <strong>+10</strong> แท่งขาขึ้นกลืนแท่งขาลง → แรงซื้อพลิกกลับ<br>
-                                        <span class="badge me-1 px-2" style="background:rgba(22,163,74,0.15);color:#15803d;border:1px solid rgba(22,163,74,0.3);">▲ Hammer</span> <strong>+10</strong> ไส้ล่างยาว → ราคา reject แรงขาลงออก<br>
-                                        <span class="badge me-1 px-2" style="background:rgba(22,163,74,0.15);color:#15803d;border:1px solid rgba(22,163,74,0.3);">▲ Morning Star</span> <strong>+8</strong> 3 แท่ง reversal หลังดิ่ง<br>
-                                        <span class="badge me-1 px-2" style="background:rgba(22,163,74,0.15);color:#15803d;border:1px solid rgba(22,163,74,0.3);">▲ Inside Bar↑</span> <strong>+6</strong> breakout จาก consolidation
-                                    </div>
-                                    <div class="mt-2 small p-2 rounded-2" style="background:rgba(22,163,74,0.06); color:#166534;">
-                                        💡 Bullish pattern ที่ Entry Zone = สัญญาณ timing เข้าแม่น — น้ำหนักเพิ่ม BUY Score สูงสุด +10
+                                    <div class="d-flex align-items-start gap-2">
+                                        <span style="font-size:1.2rem;">🔊</span>
+                                        <div>
+                                            <div class="fw-bold small" style="color:#15803d;">Power Volume (RVOL)</div>
+                                            <div class="small mt-1" style="color:#374151;">
+                                                <span style="color:#16a34a;font-weight:bold;">แท่งเขียว:</span><br>
+                                                ▲ RVOL ≥ 2.0x ➔ <strong>30 pts</strong><br>
+                                                ▲ RVOL ≥ 1.5x ➔ <strong>20 pts</strong><br>
+                                                <span style="color:#dc2626;font-weight:bold;">แท่งแดง (โดนกด):</span><br>
+                                                ▼ RVOL ≥ 2.0x ➔ <strong>ได้แค่ 10 pts</strong>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
-                            <!-- Bearish patterns -->
                             <div class="col-md-6">
-                                <div class="rounded-3 p-3 h-100" style="background:#fff5f5; border:1px solid #fca5a5;">
-                                    <div class="fw-bold small mb-2" style="color:#dc2626;">▼ Bearish Patterns — หักออกจาก BUY Score</div>
-                                    <div class="small" style="line-height:2; color:#374151;">
-                                        <span class="badge me-1 px-2" style="background:rgba(220,38,38,0.12);color:#dc2626;border:1px solid rgba(220,38,38,0.3);">▼ Bearish Engulf</span> <strong>−10</strong> แท่งขาลงกลืนแท่งขาขึ้น → แรงขายแรง<br>
-                                        <span class="badge me-1 px-2" style="background:rgba(220,38,38,0.12);color:#dc2626;border:1px solid rgba(220,38,38,0.3);">▼ Shooting Star</span> <strong>−8</strong> ไส้บนยาว → ราคา reject แรงขาขึ้นออก<br>
-                                        <span class="badge me-1 px-2" style="background:rgba(220,38,38,0.12);color:#dc2626;border:1px solid rgba(220,38,38,0.3);">▼ Doji</span> <strong>−5</strong> แท่งลังเล body เล็กมาก → อ่อนแรง<br>
-                                        <span class="text-muted">— (ไม่มี pattern)</span> <strong>0</strong> ไม่มีผลต่อ score
-                                    </div>
-                                    <div class="mt-2 small p-2 rounded-2" style="background:rgba(220,38,38,0.06); color:#991b1b;">
-                                        ⚠️ ถ้าเห็น Bearish Pattern ที่ Zone — รอแท่งถัดไปก่อน อย่าเพิ่งรีบเข้า
+                                <div class="rounded-3 p-3 h-100" style="background:#f0fdf4; border:1px solid #86efac;">
+                                    <div class="d-flex align-items-start gap-2">
+                                        <span style="font-size:1.2rem;">💼</span>
+                                        <div>
+                                            <div class="fw-bold small" style="color:#15803d;">CMF (การสะสมของสถาบัน)</div>
+                                            <div class="small mt-1" style="color:#374151;">
+                                                <span class="badge bg-success bg-opacity-10 text-success me-1">CMF ≥ 0.10</span> <strong>+10 pts</strong> ยืนยันสถาบันเก็บของ<br>
+                                                <span class="badge bg-primary bg-opacity-10 text-primary me-1 mb-1">CMF ≥ 0.05</span> +5 pts เริ่มมีแรงเข้า<br>
+                                                <span class="badge bg-danger bg-opacity-10 text-danger me-1">CMF ≤ -0.10</span> <strong>-5 pts</strong> ลดคะแนน (กระจายของ)
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
                         </div>
                     </div>
-
-                    <!-- STEP 6: Relative Momentum -->
+                    
+                    <!-- STEP 4: TURBO Bonus -->
                     <div class="mb-4">
                         <div class="d-flex align-items-center gap-2 mb-3">
                             <span class="rounded-circle d-flex align-items-center justify-content-center fw-bold text-white"
-                                  style="width:28px;height:28px;background:#0891b2;font-size:0.8rem;flex-shrink:0;">6</span>
-                            <h6 class="mb-0 fw-bold" style="color:#1e293b;">REL MOM — หุ้นชนะตลาด (SET) หรือเปล่า?</h6>
+                                  style="width:28px;height:28px;background:#dc2626;font-size:0.8rem;flex-shrink:0;">4</span>
+                            <h6 class="mb-0 fw-bold" style="color:#1e293b;">Turbo Breakout โบนัสหุ้นวิ่งแรง (+10 pts)</h6>
                         </div>
-                        <div class="rounded-3 p-3" style="background:#f0f9ff; border:1px solid #7dd3fc;">
-                            <div class="small mb-2" style="color:#0c4a6e;">
-                                <strong>Relative Momentum</strong> คือ return ของหุ้น <strong>เทียบกับ SET Index ช่วง 3 เดือน</strong><br>
-                                ถ้าหุ้นวิ่งชนะตลาด → momentum แข็งแกร่ง → โอกาสถือต่อสูง (ระยะ 1–6 เดือน)
+                        <div class="rounded-3 p-3" style="background:#fff5f5; border:1px solid #fca5a5;">
+                            <div class="fw-bold small mb-2" style="color:#dc2626;"><i class="fas fa-rocket me-1"></i> โบนัสพิเศษ ทะลุหลอด 110/100</div>
+                            <div class="small" style="line-height:1.9; color:#374151;">
+                                ให้คะแนนบวกเพิ่มทันที <strong>+10 pts</strong> เมื่อ:<br>
+                                🚀 ถ้าราคาพุ่งขึ้นมาถึงระยะ <strong>99% ของจุดสุดยอด 52-Week High</strong><br>
+                                <em>หลักการ: หุ้นที่กระชากทำ New High ได้ มักจะวิ่งต่อไปเป็น Trend รอบใหญ่ที่สุด</em>
                             </div>
-                            <div class="row g-2 mt-1" style="font-size:0.82rem;">
-                                <div class="col-md-6" style="line-height:2; color:#374151;">
-                                    <span class="fw-bold" style="color:#16a34a;">+15% ขึ้นไป</span> → ชนะ SET แรงมาก — BUY +12 pts<br>
-                                    <span class="fw-bold" style="color:#16a34a;">+8% ถึง +15%</span> → ชนะ SET ชัดเจน — BUY +9 pts<br>
-                                    <span class="fw-bold" style="color:#65a30d;">+3% ถึง +8%</span> → ชนะ SET พอรับได้ — BUY +6 pts<br>
-                                    <span class="fw-bold" style="color:#92400e;">0% ถึง +3%</span> → เสมอ SET — BUY +3 pts
-                                </div>
-                                <div class="col-md-6" style="line-height:2; color:#374151;">
-                                    <span class="fw-bold" style="color:#6b7280;">−5% ถึง 0%</span> → แพ้ SET เล็กน้อย — เป็นกลาง<br>
-                                    <span class="fw-bold" style="color:#dc2626;">ต่ำกว่า −5%</span> → แพ้ SET ชัดเจน — BUY −8 pts ⚠️<br>
-                                    <span class="fw-bold text-muted">—</span> → ไม่มีข้อมูล SET วันนั้น
-                                </div>
-                            </div>
-                            <div class="mt-2 small p-2 rounded-2" style="background:rgba(8,145,178,0.07); color:#0c4a6e;">
-                                💡 ระยะ 6 เดือน: เลือกหุ้นที่ <strong>REL MOM เป็นบวก</strong> จะช่วยให้อยู่ในหุ้นที่ momentum ยังแรงอยู่ ไม่ใช่หุ้นที่ตลาดทิ้งไปแล้ว
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- STEP 7: Exit Signal -->
-                    <div class="mb-4">
-                        <div class="d-flex align-items-center gap-2 mb-3">
-                            <span class="rounded-circle d-flex align-items-center justify-content-center fw-bold text-white"
-                                  style="width:28px;height:28px;background:#dc2626;font-size:0.8rem;flex-shrink:0;">7</span>
-                            <h6 class="mb-0 fw-bold" style="color:#1e293b;">Exit Signal — ออกเมื่อไหร่? (1–3 เดือน)</h6>
-                        </div>
-                        <div class="row g-2">
-                            <!-- Exit levels -->
-                            <div class="col-md-7">
-                                <div class="rounded-3 p-3" style="background:#fff5f5; border:1px solid #fca5a5;">
-                                    <div class="fw-bold small mb-2" style="color:#dc2626;"><i class="fas fa-sign-out-alt me-1"></i> SELL Score — 5 สัญญาณออก</div>
-                                    <div class="small" style="line-height:1.9; color:#374151;">
-                                        <strong>1. ราคาถึง Supply Zone / 52w High</strong> → +45 pts — ออกทันที TP hit<br>
-                                        <strong>2. RSI > 72</strong> → +12–20 pts — overbought เริ่มทยอยขาย<br>
-                                        <strong>3. RVOL Bear แรง (≥ 1.5x)</strong> → +18 pts — แรงขายเข้ามา<br>
-                                        <strong>4. Rel Mom 1m ติดลบ</strong> → +6–12 pts — momentum สั้นอ่อนแล้ว<br>
-                                        <strong>5. Bearish Pattern</strong> → +5–10 pts — สัญญาณกลับตัว
-                                    </div>
-                                </div>
-                            </div>
-                            <!-- Exit badge legend -->
-                            <div class="col-md-5">
-                                <div class="rounded-3 p-3 h-100" style="background:#fafafa; border:1px solid #e2e8f0;">
-                                    <div class="fw-bold small mb-2" style="color:#374151;">Badge ในคอลัมน์ SELL</div>
-                                    <div class="small" style="line-height:2.2;">
-                                        <span class="badge px-2" style="background:#dc2626;color:white;font-size:0.7rem;">🚨 ออก</span>
-                                        <strong> SELL ≥ 70</strong> — ออกทันที<br>
-                                        <span class="badge px-2" style="background:rgba(220,38,38,0.15);color:#dc2626;border:1px solid #dc2626;font-size:0.7rem;">⚠️ ออก</span>
-                                        <strong> SELL ≥ 50</strong> — ออกได้แล้ว<br>
-                                        <span class="badge px-2" style="background:rgba(245,158,11,0.15);color:#b45309;border:1px solid #f59e0b;font-size:0.7rem;">👁 เฝ้า</span>
-                                        <strong> SELL ≥ 30</strong> — เริ่มระวัง<br>
-                                        <span class="text-muted">ไม่มี badge</span> — ยังถือต่อได้ปกติ
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="mt-2 rounded-3 p-3" style="background:#fff7ed; border:1px solid #fdba74;">
-                            <div class="fw-bold small mb-1" style="color:#c2410c;">📋 กฎการออกสำหรับ 1–3 เดือน</div>
-                            <div class="small" style="color:#374151; line-height:1.8;">
-                                <strong>ออกทันที:</strong> ราคาถึง Supply Zone | RSI > 78 | SELL Score ≥ 70<br>
-                                <strong>ทยอยขาย 50%:</strong> RSI > 72 | RVOL Bear แรง | SELL Score 50–69<br>
-                                <strong>เฝ้าระวัง:</strong> Rel Mom 1m ติดลบ | Bearish Pattern | SELL Score 30–49<br>
-                                <strong>ตัดขาดทุน:</strong> ราคาหลุด SL (Stop Loss) ในตาราง — ไม่มีข้อยกเว้น
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- STEP 8: Trend Following (v4) -->
-                    <div class="mb-4">
-                        <div class="d-flex align-items-center gap-2 mb-3">
-                            <span class="rounded-circle d-flex align-items-center justify-content-center fw-bold text-white"
-                                  style="width:28px;height:28px;background:#0d9488;font-size:0.8rem;flex-shrink:0;">8</span>
-                            <h6 class="mb-0 fw-bold" style="color:#1e293b;">Trend Following (v4) — ยืนยันว่า Momentum มี Structure รองรับ</h6>
-                        </div>
-                        <div class="rounded-3 p-3 mb-3" style="background:#f0fdfa; border:1px solid #99f6e4;">
-                            <div class="small mb-0" style="color:#0f766e;">
-                                <strong>เหตุผล:</strong> Momentum อาจเป็นแค่การดีดตัวชั่วคราว — Trend Following ช่วยกรองเฉพาะหุ้นที่ <strong>โครงสร้างราคา</strong> ยืนยันว่า uptrend ยังอยู่ เหมาะสำหรับถือ <strong>1-6 เดือน</strong>
-                            </div>
-                        </div>
-                        <div class="row g-2">
-                            <div class="col-md-4">
-                                <div class="rounded-3 p-3 h-100" style="background:#f0fdfa; border:1px solid #99f6e4;">
-                                    <div class="fw-bold small mb-1" style="color:#0f766e;">
-                                        EMA20 Slope
-                                        <span class="badge px-2 ms-1" style="background:rgba(13,148,136,0.15);color:#0f766e;border:1px solid rgba(13,148,136,0.4);font-size:0.72rem;">EMA&#8593;</span>
-                                        <strong>+5 pts</strong>
-                                    </div>
-                                    <div class="small mt-1" style="color:#374151; line-height:1.8;">
-                                        slope = (EMA20<sub>today</sub> - EMA20<sub>5d ago</sub>) / EMA20<sub>5d ago</sub> x 100<br>
-                                        <span style="color:#0f766e;">slope &gt; 0.1%</span> = EMA20 กำลังขึ้น<br>
-                                        <span style="color:#6b7280;">slope &le; 0.1%</span> = EMA แบน/ลง
-                                    </div>
-                                    <div class="mt-2 small p-2 rounded-2" style="background:rgba(13,148,136,0.07);color:#0f766e;">
-                                        EMA20 ขึ้น = ราคาเฉลี่ย 20 วันมีทิศทาง ไม่ใช่ sideways
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-md-4">
-                                <div class="rounded-3 p-3 h-100" style="background:#f0fdfa; border:1px solid #99f6e4;">
-                                    <div class="fw-bold small mb-1" style="color:#0f766e;">
-                                        HH/HL Structure
-                                        <span class="badge px-2 ms-1" style="background:rgba(13,148,136,0.15);color:#0f766e;border:1px solid rgba(13,148,136,0.4);font-size:0.72rem;">HH/HL</span>
-                                        <strong>+4 pts</strong>
-                                    </div>
-                                    <div class="small mt-1" style="color:#374151; line-height:1.8;">
-                                        Higher High + Higher Low ใน <strong>20 แท่งล่าสุด</strong><br>
-                                        Swing High = สูงกว่า 2 แท่งซ้าย+ขวา<br>
-                                        Swing Low = ต่ำกว่า 2 แท่งซ้าย+ขวา<br>
-                                        <span style="color:#0f766e;">HH &amp; HL ครบ</span> = uptrend structure
-                                    </div>
-                                    <div class="mt-2 small p-2 rounded-2" style="background:rgba(13,148,136,0.07);color:#0f766e;">
-                                        Dow Theory: ขาขึ้นที่แท้ต้องมี HH และ HL เรื่อยๆ
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-md-4">
-                                <div class="rounded-3 p-3 h-100" style="background:linear-gradient(135deg,#ecfdf5,#f0fdfa); border:2px solid #10b981;">
-                                    <div class="fw-bold small mb-1" style="color:#047857;">
-                                        Trend Confirmed
-                                        <span class="badge px-2 ms-1" style="background:#10b981;color:white;font-size:0.72rem;">TREND&#10003;</span>
-                                        <strong>+10 pts</strong>
-                                    </div>
-                                    <div class="small mt-1" style="color:#374151; line-height:1.8;">
-                                        ต้องมี <strong>ทั้ง EMA&#8593; และ HH/HL</strong><br>
-                                        <span style="color:#047857;">ทั้งคู่</span> = TREND&#10003; (+10 pts)<br>
-                                        <span style="color:#0f766e;">EMA&#8593; เท่านั้น</span> = +5 pts<br>
-                                        <span style="color:#0f766e;">HH/HL เท่านั้น</span> = +4 pts
-                                    </div>
-                                    <div class="mt-2 small p-2 rounded-2" style="background:rgba(16,185,129,0.1);color:#047857;border:1px solid rgba(16,185,129,0.3);">
-                                        TREND&#10003; = momentum + structure = ถือได้ยาว 1-6 เดือน
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="mt-3 rounded-3 p-3" style="background:#f8fafc; border:1px solid #e2e8f0;">
-                            <div class="fw-bold small mb-2" style="color:#374151;">วิธีอ่าน Badge ใน SIGNAL column</div>
-                            <div class="row g-2" style="font-size:0.82rem; color:#374151;">
-                                <div class="col-md-6" style="line-height:2.2;">
-                                    <span class="badge px-2 me-1" style="background:#10b981;color:white;">TREND&#10003;</span> EMA20 ขึ้น + HH/HL ครบ +10 pts<br>
-                                    <span class="badge px-2 me-1" style="background:rgba(13,148,136,0.15);color:#0f766e;border:1px solid rgba(13,148,136,0.4);">EMA&#8593;</span> EMA20 slope &gt; 0.1% (ยังไม่มี HH/HL) +5 pts
-                                </div>
-                                <div class="col-md-6" style="line-height:2.2;">
-                                    <span class="badge px-2 me-1" style="background:rgba(13,148,136,0.15);color:#0f766e;border:1px solid rgba(13,148,136,0.4);">HH/HL</span> โครงสร้างขาขึ้น (EMA แบน) +4 pts<br>
-                                    <span class="text-muted">ไม่มี badge</span> = ยังไม่มีโครงสร้าง trend ชัดเจน
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Checklist Summary -->
-                    <div class="rounded-3 p-4" style="background:linear-gradient(135deg,#f5f3ff,#ede9fe); border:1px solid #c4b5fd;">
-                        <div class="fw-bold mb-3" style="color:#5b21b6;"><i class="fas fa-clipboard-check me-2"></i>Checklist ก่อนซื้อ v4 — ต้องผ่านอย่างน้อย 8/13 ข้อ &nbsp;|&nbsp; <span style="color:#dc2626;">ออกเมื่อ SELL Badge ขึ้น</span></div>
-                        <div class="row g-1" style="font-size:0.85rem; color:#374151;">
-                            <div class="col-md-6">
-                                <div>☐ PRECISION SCORE ≥ 65</div>
-                                <div>☐ RS RATING ≥ 60 (Momentum ชนะตลาด)</div>
-                                <div>☐ ADX ≥ 15 (เริ่มมีเทรนด์)</div>
-                                <div>☐ RSI อยู่ในช่วง <strong>45–80</strong> (momentum zone)</div>
-                                <div>☐ RVOL Bull ≥ 0.8x</div>
-                                <div>☐ REL MOM เป็นบวก (ชนะ SET)</div>
-                                <div>☐ ราคาห่างจาก 52w High ไม่เกิน <strong>35%</strong></div>
-                            </div>
-                            <div class="col-md-6">
-                                <div>☐ ERC VOL ✓ (มี badge สีม่วง)</div>
-                                <div>☐ ZONE STATUS ≤ NEAR / อยู่ IN ZONE</div>
-                                <div>☐ RR ≥ 1:1.5 (ความคุ้มค่าความเสี่ยง)</div>
-                                <div>☐ PATTERN ไม่เป็น Bearish</div>
-                                <div>☐ <span style="color:#15803d;">MACD ✕</span> หรือ MACD+ (histogram บวก)</div>
-                                <div>☐ <span style="color:#4f46e5;">EMA✓</span> EMA20 > EMA50 > EMA200</div>
-                                <div>☐ <span style="color:#0f766e;">TREND✓ หรือ EMA↑</span> (v4 — trend following)</div>
-                            </div>
-                        </div>
-                        <div class="mt-2 small p-2 rounded-2" style="background:rgba(79,70,229,0.07); color:#3730a3; border:1px solid #c4b5fd;">
-                            <strong>🎯 v3 Bonus signals:</strong>
-                            <span style="background:rgba(22,163,74,0.12);color:#15803d;border:1px solid rgba(22,163,74,0.3);padding:1px 7px;border-radius:4px;font-size:0.8rem;">MACD ✕</span> +12 pts &nbsp;
-                            <span style="background:rgba(245,158,11,0.15);color:#b45309;border:1px solid rgba(245,158,11,0.4);padding:1px 7px;border-radius:4px;font-size:0.8rem;">BB⚡</span> +6 pts &nbsp;
-                            <span style="background:rgba(79,70,229,0.12);color:#4f46e5;border:1px solid rgba(79,70,229,0.3);padding:1px 7px;border-radius:4px;font-size:0.8rem;">EMA✓</span> +5 pts
-                        </div>
-                        <div class="mt-2 small p-2 rounded-2" style="background:rgba(13,148,136,0.07); color:#0f766e; border:1px solid #99f6e4;">
-                            <strong>🌿 v4 Trend Following:</strong>
-                            <span style="background:#10b981;color:white;padding:1px 7px;border-radius:4px;font-size:0.8rem;">TREND&#10003;</span> +10 pts (EMA&#8593; + HH/HL) &nbsp;
-                            <span style="background:rgba(13,148,136,0.15);color:#0f766e;border:1px solid rgba(13,148,136,0.4);padding:1px 7px;border-radius:4px;font-size:0.8rem;">EMA&#8593;</span> +5 pts &nbsp;
-                            <span style="background:rgba(13,148,136,0.15);color:#0f766e;border:1px solid rgba(13,148,136,0.4);padding:1px 7px;border-radius:4px;font-size:0.8rem;">HH/HL</span> +4 pts
-                        </div>
-                        <div class="mt-2 small p-2 rounded-2" style="background:rgba(239,68,68,0.08); color:#991b1b; border:1px solid #fca5a5;">
-                            <strong>⚠️ สัญญาณหลีกเลี่ยง:</strong> RSI &gt; 82 | RVOL Bear ↓ | RR &lt; 1.5 | ADX &lt; 20 | REL MOM ติดลบมาก | MACD− | ไฟแดงกระพริบ | Bearish Pattern ที่ Zone
                         </div>
                     </div>
 

@@ -1090,51 +1090,41 @@ def analyze_momentum_technical_v2(df):
 
     score = 0
 
-    # 1. Trend Score (สูงสุด 40 คะแนน)
-    #    v3: เพิ่ม EMA20 > EMA50 > EMA200 full alignment (+8) — ลด weight ตัวเดี่ยวลงเล็กน้อย
+    # ====== Clean v7 Scoring Proportion ======
+    # 1. Trend Quality Score (สูงสุด 40 คะแนน)
     ema20_aligned = (current_price > ema20 > ema50 > ema200)  # Full Minervini stack
-    if current_price > ema200: score += 12
-    if current_price > ema50:  score += 12
-    if ema50 > ema200:         score += 8
-    if ema20_aligned:          score += 8   # 3-layer confirmation (Minervini full stack)
+    if current_price > ema200: score += 10
+    if current_price > ema50:  score += 10
+    if ema50 > ema200:         score += 10
+    if ema20_aligned:          score += 10   # 4 เงื่อนไขครบได้ 40 คะแนนเต็ม
 
-    # 2. RSI Score (สูงสุด 25 คะแนน)
-    #    v3: ย้าย optimal zone เป็น 65-80 (momentum breakout zone) แทน 55-75
-    year_high = float(df['High'].tail(252).max())
-    if 65 <= rsi <= 80:
-        score += 15   # จุดหวาน momentum — ไม่ overbought แต่กำลังวิ่ง
-    elif 55 <= rsi < 65:
-        score += 10   # momentum กำลังก่อตัว
-    elif rsi > 80:
-        score += 8    # overbought แต่ trend ยังแรง
-    elif 45 <= rsi < 55:
-        score += 5    # กลางๆ
-    if current_price >= year_high * 0.85:
-        score += 10   # ราคาใกล้ 52-week high
-
-    # 3. Direction-aware RVOL Score (สูงสุด 25 คะแนน)
+    # 2. Power Volume Score (สูงสุด 30 คะแนน)
     avg_vol = float(df['Volume'].tail(20).mean())
     last_vol = float(df['Volume'].iloc[-1])
     rvol = last_vol / avg_vol if avg_vol > 0 else 1.0
     rvol_bullish = current_price >= last_open
 
     if rvol_bullish:
-        if rvol >= 2.0:   score += 25
-        elif rvol >= 1.5: score += 18
+        if rvol >= 2.0:   score += 30
+        elif rvol >= 1.5: score += 20
         elif rvol >= 1.0: score += 10
     else:
-        if rvol >= 2.0:   score += 12
-        elif rvol >= 1.5: score += 9
-        elif rvol >= 1.0: score += 5
+        # แท่งแดง หักล้าง momentum ให้คะแนนนิดเดียว
+        if rvol >= 2.0:   score += 10
+        elif rvol >= 1.5: score += 5
 
-    # 4. Supply/Demand Zone retest (สูงสุด 10 คะแนน)
+    # 3. Price Strength (สูงสุด 20 คะแนน)
+    year_high = float(df['High'].tail(252).max())
+    if year_high > 0:
+        if current_price >= year_high * 0.90:
+            score += 20  # หุ้นจ่อ Breakout หรือทำ New High
+        elif current_price >= year_high * 0.85:
+            score += 10  # ห่างไม่เกิน 15% ยังมีลุ้น
+
+    # Supply/Demand Zone Analysis (No score in Clean v7, just for annotation)
     sd = find_supply_demand_zones_v2(df)
-    if sd and sd['is_retesting']:
-        score += 10
 
-    # 5a. Chaikin Money Flow — CMF (สูงสุด 8 คะแนน)
-    # CMF = sum((( Close-Low)-(High-Close))/(High-Low)*Vol, N) / sum(Vol, N)
-    # > 0.1 = สถาบันสะสมแรง, > 0 = แรงซื้อ, < -0.1 = แรงขาย
+    # 4. Money Flow - CMF (สูงสุด 10 คะแนน)
     cmf_val = 0.0
     try:
         _n = 20
@@ -1148,29 +1138,23 @@ def analyze_momentum_technical_v2(df):
             _sum_vol = _vo.sum()
             if _sum_vol > 0:
                 cmf_val = float(_mfv.sum() / _sum_vol)
-        if cmf_val >= 0.1:
-            score += 8    # สะสมแรง — สถาบันเข้าซื้อชัดเจน
+        
+        if cmf_val >= 0.10:
+            score += 10    # สถาบันเก็บของชัดเจน
         elif cmf_val >= 0.05:
-            score += 5    # มีแรงซื้อสุทธิ
-        elif cmf_val > 0:
-            score += 2    # แรงซื้อเล็กน้อย
-        elif cmf_val < -0.1:
-            score -= 3    # แรงขายชัดเจน — ลดคะแนน
+            score += 5     # มีแรงซื้อ
+        elif cmf_val < -0.10:
+            score -= 5     # แรงขายชัดเจน ลดคะแนน
     except Exception:
         pass
 
-    # 5b. 52-Week High Breakout (สูงสุด 10 คะแนน)
-    # Minervini: หุ้นที่ทำ new high มักวิ่งต่ออีกนาน
+    # 5. Bonus: Turbo Score — 52-Week Breakout (+10 คะแนน)
     is_52w_breakout = False
     try:
-        _52w_high = float(df['High'].tail(252).max())
-        if _52w_high > 0:
-            _gap_to_high = (current_price - _52w_high) / _52w_high * 100
-            if current_price >= _52w_high * 0.99:   # ทะลุหรือแตะ 52W high (±1%)
+        if year_high > 0:
+            if current_price >= year_high * 0.99:  # เบรกหรือแตะ 52W High (±1%)
                 score += 10
                 is_52w_breakout = True
-            elif current_price >= _52w_high * 0.95:  # ห่าง 52W high ไม่เกิน 5%
-                score += 5
     except Exception:
         pass
 
@@ -1211,7 +1195,7 @@ def analyze_momentum_technical_v2(df):
         hh_hl = has_hh and has_hl
 
     return {
-        'score': min(score, 100),
+        'score': min(score, 110),
         'rvol': round(rvol, 2),
         'rsi': round(rsi, 2),
         'ema200': ema200,

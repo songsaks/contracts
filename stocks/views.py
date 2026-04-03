@@ -2379,10 +2379,24 @@ def precision_momentum_scanner(request):
                 if len(df) < 200:
                     return None
 
-                # ====== Liquidity Filter: avg 20d volume >= 500,000 ======
+                # ====== Liquidity & Quality Filters (Institutional Grade) ======
                 avg_vol_20 = float(df['Volume'].tail(20).mean())
-                if avg_vol_20 < 500_000:
-                    return None   # skipped: low liquidity (logged at DEBUG level only)
+                avg_close_20 = float(df['Close'].tail(20).mean())
+                avg_turnover_20 = avg_vol_20 * avg_close_20
+                
+                # 1. Turnover >= 15M THB (ตัดหุ้นปั่นสภาพคล่องต่ำที่รายใหญ่เข้าลงทุนไม่ได้)
+                if avg_turnover_20 < 15_000_000:
+                    return None
+                    
+                # 2. Minimum Price >= 1.00 (ตัดหุ้น Penny Stocks ต่ำกว่า 1 บาท)
+                current_price = float(df['Close'].iloc[-1])
+                if current_price < 1.00:
+                    return None
+                    
+                # 3. RS Rating >= 70 (ต้องแข็งแกร่งกว่าหุ้น 70% ในตลาด)
+                rs_val = rs_ratings_map.get(symbol, 0)
+                if rs_val < 70:
+                    return None
 
                 # ====== คำนวณ Indicators ======
                 df['EMA200'] = ta.ema(df['Close'], length=200)
