@@ -1,0 +1,5 @@
+CK (Score: 90, RS: 87, CMF: 0.2016, VolSurge: 1.59) -> Wait for: 14.5-15.1, SL: 14.15
+KKP (Score: 90, RS: 81, CMF: 0.1882, VolSurge: 1.21) -> Wait for: 74.75-76.5, SL: 73.95
+NYT (Score: 80, RS: 93, CMF: 0.1753, VolSurge: 0.94) -> Wait for: 4.0-4.2, SL: 3.95
+IVL (Score: 70, RS: 92, CMF: 0.1578, VolSurge: 0.51) -> Wait for: 22.6-23.3, SL: 21.99
+PTTEP (Score: 70, RS: 94, CMF: 0.1446, VolSurge: 0.8) -> Wait for: 146.5-149.0, SL: 144.32
