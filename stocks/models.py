@@ -16,6 +16,23 @@ class AssetCategory(models.TextChoices):
     CRYPTO = 'CRYPTO', 'Cryptocurrency'
     COMMODITY = 'COMMODITY', 'Commodity (ทอง/น้ำมัน)'
     FOREX = 'FOREX', 'Forex'
+# ====== Telegram Integration ======
+class UserTelegramProfile(models.Model):
+    """
+    ผูกบัญชีผู้ใช้เว็บในระบบเข้ากับ Telegram Chat ID สำหรับรับแจ้งเตือน
+    """
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='telegram_profile')
+    chat_id = models.CharField(max_length=50, unique=True, help_text="ได้จากการทักหาบอทแล้วดู ID")
+    is_active = models.BooleanField(default=True, help_text="เปิด/ปิด การแจ้งเตือนเข้า Telegram")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Telegram Profile"
+        verbose_name_plural = "Telegram Profiles"
+
+    def __str__(self):
+        return f"Telegram: {self.user.username} ({self.chat_id})"
+
 
 # ====== Watchlist — รายการหุ้นที่ผู้ใช้ต้องการติดตาม ======
 

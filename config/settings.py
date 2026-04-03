@@ -226,6 +226,7 @@ LOGOUT_REDIRECT_URL = '/'            # URL ที่ redirect ไปหลัง
 # ====== API Keys ======
 # คีย์สำหรับเรียกใช้ API ภายนอก (อ่านจาก .env เพื่อความปลอดภัย)
 GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')           # API key สำหรับ Google Gemini AI
+TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')   # API key สำหรับยิงแจ้งเตือนผ่าน Telegram Bot
 DELETE_PASSWORD = os.getenv('DELETE_PASSWORD', '9com') # รหัสผ่านยืนยันการลบข้อมูล
 
 # OpenClaw Chatbot Settings - REMOVED (Not in use)
