@@ -216,6 +216,14 @@ class SalesServiceJobForm(forms.ModelForm):
                     (Project.Status.CLOSED, 'ปิดจบ'),
                     (Project.Status.CANCELLED, 'ยกเลิก'),
                 ]
+            elif job_type == Project.JobType.SURVEY:
+                self.fields['status'].choices = [
+                    ('QUEUE_SURVEY', 'จัดคิวดูหน้างาน'),
+                    ('SURVEYING', 'กำลังดูหน้างาน'),
+                    (Project.Status.QUOTED, 'เสนอราคา'),
+                    (Project.Status.CLOSED, 'ปิดจบ'),
+                    (Project.Status.CANCELLED, 'ยกเลิก'),
+                ]
             else:
                 self.fields['status'].choices = [(c[0], c[1]) for c in Project.Status.choices]
 

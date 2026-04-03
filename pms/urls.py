@@ -148,5 +148,7 @@ urlpatterns = [
     # ── Work Summary Report + AI Analysis ─────────────────────────────────
     path('work-summary/', views.work_summary_report, name='work_summary_report'),              # รายงานสรุปการทำงาน
     path('work-summary/ai/', views.work_summary_ai_analysis, name='work_summary_ai_analysis'), # AI วิเคราะห์ประสิทธิภาพ
+    path('installation-report/', views.installation_report, name='installation_report'),        # รายงานมูลค่าและเวลาติดตั้ง
+    path('installation-report/send-to-chat/', views.installation_report_send_to_chat, name='installation_report_send_to_chat'),
 ]
 

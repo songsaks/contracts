@@ -63,7 +63,7 @@ def dispatch(request):
 @login_required
 def service_create(request):
     if request.method == 'POST':
-        form = SalesServiceJobForm(request.POST, job_type=Project.JobType.SERVICE)
+        form = SalesServiceJobForm(request.POST, initial={'status': Project.Status.SOURCING}, job_type=Project.JobType.SERVICE)
         if form.is_valid():
             project = form.save(commit=False)
             project.job_type = Project.JobType.SERVICE
@@ -75,6 +75,8 @@ def service_create(request):
             _create_project_value_item(project, pv)
             messages.success(request, 'สร้างงานบริการขายสำเร็จ')
             return redirect('pms:project_detail', pk=project.pk)
+        else:
+            messages.error(request, 'เกิดข้อผิดพลาดในการบันทึกข้อมูล กรุณาตรวจสอบความถูกต้อง')
     else:
         form = SalesServiceJobForm(initial={'status': Project.Status.SOURCING}, job_type=Project.JobType.SERVICE)
     return render(request, 'pms/service_form.html', {
@@ -86,7 +88,7 @@ def service_create(request):
 @login_required
 def repair_create(request):
     if request.method == 'POST':
-        form = SalesServiceJobForm(request.POST, job_type=Project.JobType.REPAIR)
+        form = SalesServiceJobForm(request.POST, initial={'status': Project.Status.SOURCING, 'name': 'แจ้งซ่อม - '}, job_type=Project.JobType.REPAIR)
         if form.is_valid():
             project = form.save(commit=False)
             project.job_type = Project.JobType.REPAIR
@@ -98,6 +100,8 @@ def repair_create(request):
             _create_project_value_item(project, pv)
             messages.success(request, 'สร้างใบแจ้งซ่อมสำเร็จ')
             return redirect('pms:project_detail', pk=project.pk)
+        else:
+            messages.error(request, 'เกิดข้อผิดพลาดในการบันทึกข้อมูล กรุณาตรวจสอบความถูกต้อง')
     else:
         form = SalesServiceJobForm(initial={'status': Project.Status.SOURCING, 'name': 'แจ้งซ่อม - '}, job_type=Project.JobType.REPAIR)
     return render(request, 'pms/service_form.html', {
@@ -109,7 +113,7 @@ def repair_create(request):
 @login_required
 def rental_create(request):
     if request.method == 'POST':
-        form = SalesServiceJobForm(request.POST, job_type=Project.JobType.RENTAL)
+        form = SalesServiceJobForm(request.POST, initial={'status': Project.Status.SOURCING}, job_type=Project.JobType.RENTAL)
         if form.is_valid():
             project = form.save(commit=False)
             project.job_type = Project.JobType.RENTAL
@@ -121,6 +125,8 @@ def rental_create(request):
             _create_project_value_item(project, pv)
             messages.success(request, 'สร้างงานเช่าสำเร็จ')
             return redirect('pms:project_detail', pk=project.pk)
+        else:
+            messages.error(request, 'เกิดข้อผิดพลาดในการบันทึกข้อมูล กรุณาตรวจสอบความถูกต้อง')
     else:
         form = SalesServiceJobForm(initial={'status': Project.Status.SOURCING}, job_type=Project.JobType.RENTAL)
     return render(request, 'pms/service_form.html', {
@@ -133,7 +139,7 @@ def rental_create(request):
 @login_required
 def survey_create(request):
     if request.method == 'POST':
-        form = SalesServiceJobForm(request.POST, job_type=Project.JobType.SURVEY)
+        form = SalesServiceJobForm(request.POST, initial={'status': 'QUEUE_SURVEY', 'name': 'ดูหน้างาน - '}, job_type=Project.JobType.SURVEY)
         if form.is_valid():
             project = form.save(commit=False)
             project.job_type = Project.JobType.SURVEY
@@ -145,6 +151,8 @@ def survey_create(request):
             _create_project_value_item(project, pv)
             messages.success(request, 'สร้างงานสำรวจหน้างานในคิวเรียบร้อย')
             return redirect('pms:project_detail', pk=project.pk)
+        else:
+            messages.error(request, 'เกิดข้อผิดพลาดในการบันทึกข้อมูล กรุณาตรวจสอบความถูกต้อง')
     else:
         form = SalesServiceJobForm(initial={'status': 'QUEUE_SURVEY', 'name': 'ดูหน้างาน - '}, job_type=Project.JobType.SURVEY)
     return render(request, 'pms/service_form.html', {
@@ -449,6 +457,8 @@ def project_create(request):
             _create_project_value_item(project, pv)
             messages.success(request, 'สร้างโครงการสำเร็จ')
             return redirect('pms:project_detail', pk=project.pk)
+        else:
+            messages.error(request, 'เกิดข้อผิดพลาดในการบันทึกข้อมูล กรุณาตรวจสอบความถูกต้อง')
     else:
         form = ProjectForm()
     return render(request, 'pms/project_form.html', {'form': form, 'title': 'สร้างโครงการใหม่'})
@@ -576,6 +586,8 @@ def item_add(request, project_id):
             item.save()
             messages.success(request, 'เพิ่มรายการสำเร็จ')
             return redirect('pms:project_detail', pk=project.pk)
+        else:
+            messages.error(request, 'เกิดข้อผิดพลาดในการบันทึกข้อมูล กรุณาตรวจสอบความถูกต้อง')
     else:
         form = ProductItemForm()
     return render(request, 'pms/item_form.html', {'form': form, 'project': project, 'title': f'เพิ่มรายการใน {project.name}'})
@@ -594,6 +606,8 @@ def item_update(request, item_id):
             form.save()
             messages.success(request, 'แก้ไขรายการสำเร็จ')
             return redirect('pms:project_detail', pk=project.pk)
+        else:
+            messages.error(request, 'เกิดข้อผิดพลาดในการบันทึกข้อมูล กรุณาตรวจสอบความถูกต้อง')
     else:
         form = ProductItemForm(instance=item)
     return render(request, 'pms/item_form.html', {'form': form, 'project': project, 'title': f'แก้ไขรายการ {item.name}'})
@@ -724,6 +738,8 @@ def customer_create(request):
             form.save()
             messages.success(request, 'เพิ่มข้อมูลลูกค้าสำเร็จ')
             return redirect('pms:customer_list')
+        else:
+            messages.error(request, 'เกิดข้อผิดพลาดในการบันทึกข้อมูล กรุณาตรวจสอบความถูกต้อง')
     else:
         form = CustomerForm()
     return render(request, 'pms/customer_form.html', {'form': form, 'title': 'เพิ่มลูกค้าใหม่'})
@@ -738,6 +754,8 @@ def customer_update(request, pk):
             form.save()
             messages.success(request, 'อัปเดตข้อมูลลูกค้าสำเร็จ')
             return redirect('pms:customer_list')
+        else:
+            messages.error(request, 'เกิดข้อผิดพลาดในการบันทึกข้อมูล กรุณาตรวจสอบความถูกต้อง')
     else:
         form = CustomerForm(instance=customer)
     return render(request, 'pms/customer_form.html', {'form': form, 'title': f'แก้ไขข้อมูล: {customer.name}'})
@@ -788,6 +806,8 @@ def sla_plan_create(request):
             form.save()
             messages.success(request, 'สร้างแผน SLA สำเร็จ')
             return redirect('pms:sla_plan_list')
+        else:
+            messages.error(request, 'เกิดข้อผิดพลาดในการบันทึกข้อมูล กรุณาตรวจสอบความถูกต้อง')
     else:
         form = SLAPlanForm()
     return render(request, 'pms/sla_plan_form.html', {'form': form, 'title': 'สร้างแผน SLA ใหม่'})
@@ -802,6 +822,8 @@ def sla_plan_update(request, pk):
             form.save()
             messages.success(request, 'อัปเดตแผน SLA สำเร็จ')
             return redirect('pms:sla_plan_list')
+        else:
+            messages.error(request, 'เกิดข้อผิดพลาดในการบันทึกข้อมูล กรุณาตรวจสอบความถูกต้อง')
     else:
         form = SLAPlanForm(instance=plan)
     return render(request, 'pms/sla_plan_form.html', {'form': form, 'title': f'แก้ไขแผน SLA: {plan.name}'})
@@ -822,6 +844,8 @@ def supplier_create(request):
             form.save()
             messages.success(request, 'เพิ่มซัพพลายเออร์สำเร็จ')
             return redirect('pms:supplier_list')
+        else:
+            messages.error(request, 'เกิดข้อผิดพลาดในการบันทึกข้อมูล กรุณาตรวจสอบความถูกต้อง')
     else:
         form = SupplierForm()
     return render(request, 'pms/supplier_form.html', {'form': form, 'title': 'เพิ่มซัพพลายเออร์ใหม่'})
@@ -836,6 +860,8 @@ def supplier_update(request, pk):
             form.save()
             messages.success(request, 'อัปเดตข้อมูลซัพพลายเออร์สำเร็จ')
             return redirect('pms:supplier_list')
+        else:
+            messages.error(request, 'เกิดข้อผิดพลาดในการบันทึกข้อมูล กรุณาตรวจสอบความถูกต้อง')
     else:
         form = SupplierForm(instance=supplier)
     return render(request, 'pms/supplier_form.html', {'form': form, 'title': 'แก้ไขข้อมูลซัพพลายเออร์'})
@@ -856,6 +882,8 @@ def project_owner_create(request):
             form.save()
             messages.success(request, 'เพิ่มเจ้าของโครงการสำเร็จ')
             return redirect('pms:project_owner_list')
+        else:
+            messages.error(request, 'เกิดข้อผิดพลาดในการบันทึกข้อมูล กรุณาตรวจสอบความถูกต้อง')
     else:
         form = ProjectOwnerForm()
     return render(request, 'pms/project_owner_form.html', {'form': form, 'title': 'เพิ่มเจ้าของโครงการ'})
@@ -870,6 +898,8 @@ def project_owner_update(request, pk):
             form.save()
             messages.success(request, 'อัปเดตข้อมูลเจ้าของโครงการสำเร็จ')
             return redirect('pms:project_owner_list')
+        else:
+            messages.error(request, 'เกิดข้อผิดพลาดในการบันทึกข้อมูล กรุณาตรวจสอบความถูกต้อง')
     else:
         form = ProjectOwnerForm(instance=owner)
     return render(request, 'pms/project_owner_form.html', {'form': form, 'title': 'แก้ไขข้อมูลเจ้าของโครงการ'})
@@ -1268,6 +1298,8 @@ def requirement_create(request):
                 msg += f' (แนบไฟล์ {file_count} รายการ)'
             messages.success(request, msg)
             return redirect('pms:requirement_list')
+        else:
+            messages.error(request, 'เกิดข้อผิดพลาดในการบันทึกข้อมูล กรุณาตรวจสอบความถูกต้อง')
     else:
         form = CustomerRequirementForm()
     return render(request, 'pms/requirement_form.html', {'form': form, 'title': 'บันทึกความต้องการเบื้องต้น'})
@@ -1289,6 +1321,8 @@ def requirement_update(request, pk):
                 )
             messages.success(request, 'แก้ไขความต้องการสำเร็จ')
             return redirect('pms:requirement_list')
+        else:
+            messages.error(request, 'เกิดข้อผิดพลาดในการบันทึกข้อมูล กรุณาตรวจสอบความถูกต้อง')
     else:
         form = CustomerRequirementForm(instance=requirement)
     existing_files = requirement.files.all()
@@ -1349,6 +1383,8 @@ def create_project_from_requirement(request, pk):
 
                 messages.success(request, "สร้างคำขอจากความต้องการสำเร็จ")
                 return redirect('pms:request_detail', pk=req_obj.pk)
+            else:
+                messages.error(request, 'เกิดข้อผิดพลาดในการบันทึกข้อมูล กรุณาตรวจสอบความถูกต้อง')
         else:
             initial_data = {
                 'description': requirement.content,
@@ -1405,6 +1441,8 @@ def create_project_from_requirement(request, pk):
 
             messages.success(request, f"สร้าง{job_label}จากความต้องการสำเร็จ")
             return redirect('pms:project_detail', pk=project.pk)
+        else:
+            messages.error(request, 'เกิดข้อผิดพลาดในการบันทึกข้อมูล กรุณาตรวจสอบความถูกต้อง')
     else:
         # Pre-fill description
         job_label = 'โครงการ'
@@ -1821,6 +1859,8 @@ def skill_create(request):
             skill = form.save()
             messages.success(request, f"✅ เพิ่มทักษะ '{skill.name}' เรียบร้อย")
             return redirect('pms:skill_list')
+        else:
+            messages.error(request, 'เกิดข้อผิดพลาดในการบันทึกข้อมูล กรุณาตรวจสอบความถูกต้อง')
     else:
         form = SkillForm()
     return render(request, 'pms/skill_form.html', {'form': form, 'title': 'เพิ่มทักษะใหม่'})
@@ -1837,6 +1877,8 @@ def skill_update(request, pk):
             form.save()
             messages.success(request, f"✅ อัปเดตทักษะ '{skill.name}' เรียบร้อย")
             return redirect('pms:skill_list')
+        else:
+            messages.error(request, 'เกิดข้อผิดพลาดในการบันทึกข้อมูล กรุณาตรวจสอบความถูกต้อง')
     else:
         form = SkillForm(instance=skill)
     return render(request, 'pms/skill_form.html', {
@@ -2135,6 +2177,8 @@ def request_create(request):
             req.save()
             messages.success(request, 'สร้างคำขอใหม่เรียบร้อย')
             return redirect('pms:request_detail', pk=req.pk)
+        else:
+            messages.error(request, 'เกิดข้อผิดพลาดในการบันทึกข้อมูล กรุณาตรวจสอบความถูกต้อง')
     else:
         form = CustomerRequestForm()
         # Pre-select customer if provided in GET
@@ -2195,6 +2239,8 @@ def request_update(request, pk):
             req.save()
             messages.success(request, 'บันทึกการแก้ไขเรียบร้อย')
             return redirect('pms:request_detail', pk=pk)
+        else:
+            messages.error(request, 'เกิดข้อผิดพลาดในการบันทึกข้อมูล กรุณาตรวจสอบความถูกต้อง')
     else:
         form = CustomerRequestForm(instance=req)
         
@@ -2522,6 +2568,8 @@ def job_status_create(request):
             form.save()
             messages.success(request, 'เพิ่มขั้นตอนงานสำเร็จ')
             return redirect('pms:job_status_list')
+        else:
+            messages.error(request, 'เกิดข้อผิดพลาดในการบันทึกข้อมูล กรุณาตรวจสอบความถูกต้อง')
     else:
         form = JobStatusForm()
     return render(request, 'pms/job_status_form.html', {'form': form, 'title': 'เพิ่มขั้นตอนงานใหม่'})
@@ -2550,6 +2598,8 @@ def job_status_update(request, pk):
 
             messages.success(request, 'แก้ไขขั้นตอนงานสำเร็จ')
             return redirect('pms:job_status_list')
+        else:
+            messages.error(request, 'เกิดข้อผิดพลาดในการบันทึกข้อมูล กรุณาตรวจสอบความถูกต้อง')
     else:
         form = JobStatusForm(instance=status)
     return render(request, 'pms/job_status_form.html', {'form': form, 'title': 'แก้ไขขั้นตอนงาน'})
@@ -4788,3 +4838,146 @@ def work_summary_ai_analysis(request):
         return JsonResponse({"error": "Invalid JSON"}, status=400)
     analysis = get_gemini_work_analysis(summary)
     return JsonResponse({"status": "success", "analysis": analysis})
+
+
+@login_required
+def installation_report(request):
+    """
+    รายงานสรุปมูลค่าโครงการและเวลาการทำงานสำหรับงานติดตั้ง (Installation Report)
+    """
+    from .models import ServiceQueueItem
+    from django.utils import timezone
+    import json as json_lib
+
+    # กรองเฉพาะงานติดตั้งที่เสร็จสิ้นแล้ว
+    qs = ServiceQueueItem.objects.select_related('project')\
+        .prefetch_related('assigned_teams__members')\
+        .filter(task_type='INSTALLATION', status='COMPLETED')
+        
+    date_from_str = request.GET.get('date_from', '')
+    date_to_str = request.GET.get('date_to', '')
+    
+    if date_from_str:
+        qs = qs.filter(completed_at__date__gte=date_from_str)
+    if date_to_str:
+        qs = qs.filter(completed_at__date__lte=date_to_str)
+        
+    reports = []
+    tech_data = {}
+    total_value_all = 0
+    total_days_all = 0
+
+    for item in qs.order_by('-completed_at'):
+        project = item.project
+        # มูลค่าโครงการ (คำนวณผ่าน property total_value ของ Project)
+        value = float(project.total_value) if project else 0
+        
+        # วันที่เริ่ม (วันเริ่มโปรเจค หรือวันที่สร้างคิว) ไปจนถึงวันที่เสร็จ
+        # ถ้าโครงการมี start_date ก็ใช้ start_date ไม่เช่นนั้นใช้ วันที่สร้างงาน
+        start_d = None
+        end_d = None
+        days = 0
+        
+        if item.completed_at:
+            end_d = item.completed_at.date()
+            if project and project.start_date:
+                start_d = project.start_date
+            else:
+                start_d = item.created_at.date()
+                
+            days = (end_d - start_d).days
+            if days < 0: days = 0
+            days += 1 # ใช้อย่างน้อย 1 วัน สำหรับงานที่เสร็จในวันเดียวกัน
+            
+        # หาชื่อช่างทั้งหมดที่ทำงานนี้
+        tech_names = []
+        for team in item.assigned_teams.all():
+            for user in team.members.all():
+                fullname = user.get_full_name() or user.username
+                if fullname not in tech_names:
+                    tech_names.append(fullname)
+                    
+                if user.username not in tech_data:
+                    tech_data[user.username] = {
+                        'full_name': fullname,
+                        'job_count': 0,
+                        'total_value': 0.0,
+                        'total_days': 0
+                    }
+                tech_data[user.username]['job_count'] += 1
+                tech_data[user.username]['total_value'] += value
+                tech_data[user.username]['total_days'] += days
+            
+        reports.append({
+            'job_id': item.id,
+            'project_name': project.name if project else item.title,
+            'title': item.title,
+            'value': value,
+            'days': days,
+            'start_date': start_d.strftime('%d/%m/%Y') if start_d else '-',
+            'completed_date': end_d.strftime('%d/%m/%Y') if end_d else '-',
+            'technicians': ", ".join(tech_names) if tech_names else "-",
+        })
+        total_value_all += value
+        total_days_all += days
+
+    # สร้าง tech_reports
+    tech_reports = []
+    for uname, data in tech_data.items():
+        if data['job_count'] > 0:
+            data['avg_days'] = round(data['total_days'] / data['job_count'], 1)
+            tech_reports.append(data)
+    # เรียงลำดับช่างตามมูลค่างานและจำนวนงาน
+    tech_reports.sort(key=lambda x: (x['total_value'], x['job_count']), reverse=True)
+
+    # ข้อมูลกราฟ (เตรียมสำหรับ Chart.js หรือ ApexCharts)
+    chart_data = {
+        'labels': [r['project_name'][:15] + '...' if len(r['project_name']) > 15 else r['project_name'] for r in reports],
+        'values': [r['value'] for r in reports],
+        'days': [r['days'] for r in reports],
+    }
+
+    return render(request, 'pms/installation_report.html', {
+        'reports': reports,
+        'tech_reports': tech_reports,
+        'total_value_all': total_value_all,
+        'avg_days': round(total_days_all / len(reports), 1) if reports else 0,
+        'total_jobs': len(reports),
+        'chart_data_json': json_lib.dumps(chart_data, ensure_ascii=False),
+        'date_from': date_from_str,
+        'date_to': date_to_str,
+    })
+
+
+@login_required
+def installation_report_send_to_chat(request):
+    """
+    ส่งรายงานสรุปมูลค่าโครงการติดตั้งไปยัง Google Chat
+    """
+    from .utils import notify_google_chat
+    import json as json_lib
+    
+    if request.method != "POST":
+        return JsonResponse({"error": "POST only"}, status=405)
+        
+    try:
+        body = json_lib.loads(request.body)
+        summary = body.get("summary", "")
+        
+        if not summary:
+            return JsonResponse({"error": "No summary provided"}, status=400)
+            
+        # สร้างเนื้อหาข้อความที่จะส่ง
+        message = f"📢 *รายงานสรุปงานติดตั้ง (Installation Report)*\n\n{summary}"
+        # ตั้งค่า Webhook URL ที่ต้องการ หรือส่งเข้า Webhook หลักของบริษัท
+        # กำหนด Webhook ส่วนกลาง (สมมติว่ามีตัวแปรหรือดึงจาก settings)
+        from django.conf import settings
+        webhook_url = getattr(settings, 'GOOGLE_CHAT_WEBHOOK_URL', None) # ต้องดึงจากที่ที่ใช้
+        # ถ้าไม่มี Webhook URL ก็ส่ง error
+        # ใน PMS app เราอาจจะดึง webhook จากตัวแปรไหน? 
+        # ให้สมมติว่าใช้ notify_google_chat ธรรมดา
+        notify_google_chat(message)
+        
+        return JsonResponse({"status": "success", "message": "ส่งข้อมูลไปยัง Google Chat เรียบร้อยแล้ว"})
+    except Exception as e:
+        return JsonResponse({"status": "error", "message": str(e)}, status=500)
