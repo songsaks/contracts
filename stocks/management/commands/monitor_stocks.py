@@ -1,5 +1,6 @@
 from django.core.management.base import BaseCommand
 from django.utils import timezone
+from django.core.cache import cache
 from stocks.models import Watchlist, Portfolio, UserTelegramProfile, PrecisionScanCandidate
 from stocks.telegram_utils import send_telegram_message
 import yfinance as yf
@@ -74,17 +75,20 @@ class Command(BaseCommand):
                 if latest_scan and latest_scan.demand_zone_start:
                     # ถ้าราคาไหลลงมาตกมาที่โซนเข้าซื้อ หรือย่อแตะ EMA20 (demand_zone_start ของ v7 มักคือ EMA20/Buy zone)
                     if price <= latest_scan.demand_zone_start and price >= latest_scan.demand_zone_end:
-                        msg = (
-                            f"🔔 <b>[PRECISION ALERT] โซนเข้าซื้อ!</b>\n"
-                            f"หุ้น: <b>{w.symbol}</b>\n"
-                            f"ราคาปัจจุบัน: <b>฿{price:.2f}</b>\n"
-                            f"⬇️ ทะลุเข้าเป้าหมาย EMA / Demand Zone:\n"
-                            f"🎯 โซนยิง: ฿{latest_scan.demand_zone_end:.2f} - ฿{latest_scan.demand_zone_start:.2f}\n"
-                            f"🛡️ ตัดขาดทุนถ้าหลุด: ฿{latest_scan.stop_loss:.2f}"
-                        )
-                        success = send_telegram_message(chat_id, msg)
-                        if success:
-                            self.stdout.write(self.style.SUCCESS(f"-> Sent Entry alert for {w.symbol} to {user.username}"))
+                        cache_key = f"alert_entry_{user.id}_{w.symbol}_{latest_scan.demand_zone_start}"
+                        if not cache.get(cache_key):  # ถ้ายังไม่เคยเตือนจุดราคานี้
+                            msg = (
+                                f"🔔 <b>[PRECISION ALERT] โซนเข้าซื้อ!</b>\n"
+                                f"หุ้น: <b>{w.symbol}</b>\n"
+                                f"ราคาปัจจุบัน: <b>฿{price:.2f}</b>\n"
+                                f"⬇️ ทะลุเข้าเป้าหมาย EMA / Demand Zone:\n"
+                                f"🎯 โซนยิง: ฿{latest_scan.demand_zone_end:.2f} - ฿{latest_scan.demand_zone_start:.2f}\n"
+                                f"🛡️ ตัดขาดทุนถ้าหลุด: ฿{latest_scan.stop_loss:.2f}"
+                            )
+                            success = send_telegram_message(chat_id, msg)
+                            if success:
+                                cache.set(cache_key, True, timeout=43200) # มิวต์ไม่ส่งซ้ำ 12 ชั่วโมง
+                                self.stdout.write(self.style.SUCCESS(f"-> Sent Entry alert for {w.symbol} to {user.username}"))
 
             # 3.2 ตรวจสอบ Portfolio (หาจุดขาย TP / ตัดขาดทุน SL)
             portfolios = Portfolio.objects.filter(user=user)
@@ -97,26 +101,33 @@ class Command(BaseCommand):
                 latest_scan = PrecisionScanCandidate.objects.filter(symbol=clean_symbol).order_by('-scan_run').first()
                 if latest_scan:
                     alert_msg = ""
+                    cache_key = ""
+                    
                     # เช็คเป้าหมายทำกำไร (TAKE PROFIT)
                     if latest_scan.supply_zone_start and price >= latest_scan.supply_zone_start:
-                        alert_msg = (
-                            f"🔴 <b>[TAKE PROFIT ALERT] ชนเป้าหมายกำไร!</b>\n"
-                            f"หุ้น: <b>{p.symbol}</b> (ในพอร์ต)\n"
-                            f"ราคาปัจจุบัน: <b>฿{price:.2f}</b>\n"
-                            f"💵 เข้าสู่โซนเทขายทำกำไรรอบสวิงแล้ว!"
-                        )
+                        cache_key = f"alert_tp_{user.id}_{p.symbol}_{latest_scan.supply_zone_start}"
+                        if not cache.get(cache_key):
+                            alert_msg = (
+                                f"🔴 <b>[TAKE PROFIT ALERT] ชนเป้าหมายกำไร!</b>\n"
+                                f"หุ้น: <b>{p.symbol}</b> (ในพอร์ต)\n"
+                                f"ราคาปัจจุบัน: <b>฿{price:.2f}</b>\n"
+                                f"💵 เข้าสู่โซนเทขายทำกำไรรอบสวิงแล้ว!"
+                            )
                     # เช็คระวังการดิ่งลงทะลุ SL
                     elif latest_scan.stop_loss and price <= latest_scan.stop_loss:
-                         alert_msg = (
-                            f"⚠️ <b>[STOP LOSS ALERT] ระวังหลุดแนวรับ!</b>\n"
-                            f"หุ้น: <b>{p.symbol}</b> (ในพอร์ต)\n"
-                            f"ราคาปัจจุบัน: <b>฿{price:.2f}</b>\n"
-                            f"🩸 ราคาหลุดจุดตัดขาดทุน (SL) ที่ ฿{latest_scan.stop_loss:.2f} ไปแล้ว ควรพิจารณาคัตลอส"
-                        )
+                         cache_key = f"alert_sl_{user.id}_{p.symbol}_{latest_scan.stop_loss}"
+                         if not cache.get(cache_key):
+                             alert_msg = (
+                                f"⚠️ <b>[STOP LOSS ALERT] ระวังหลุดแนวรับ!</b>\n"
+                                f"หุ้น: <b>{p.symbol}</b> (ในพอร์ต)\n"
+                                f"ราคาปัจจุบัน: <b>฿{price:.2f}</b>\n"
+                                f"🩸 ราคาหลุดจุดตัดขาดทุน (SL) ที่ ฿{latest_scan.stop_loss:.2f} ไปแล้ว ควรพิจารณาคัตลอส"
+                            )
                     
-                    if alert_msg:
+                    if alert_msg and cache_key:
                         success = send_telegram_message(chat_id, alert_msg)
                         if success:
+                            cache.set(cache_key, True, timeout=43200) # มิวต์ไม่ส่งซ้ำ 12 ชั่วโมง
                             self.stdout.write(self.style.SUCCESS(f"-> Sent Exit alert for {p.symbol} to {user.username}"))
 
         self.stdout.write(self.style.SUCCESS("✅ รันการตรวจสอบเสร็จสิ้น"))

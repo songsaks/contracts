@@ -22,3 +22,8 @@ class SoldStockAdmin(admin.ModelAdmin):
     list_display = ('symbol', 'user', 'quantity', 'sell_price', 'profit_loss', 'sold_at')
     list_filter = ('symbol', 'sold_at')
     search_fields = ('symbol',)
+
+from .models import UserTelegramProfile
+@admin.register(UserTelegramProfile)
+class UserTelegramProfileAdmin(admin.ModelAdmin):
+    list_display = ('user', 'chat_id', 'is_active')
