@@ -2074,6 +2074,36 @@
     if (localStorage.getItem('autoTrack_room_{{ room.id }}') === 'on') {
         setTimeout(() => toggleAutoTrack(), 1500); // รอ WebSocket เปิดก่อน
     }
+
+    // ── Force-Track Poll (ทุก 30 วินาที) ──────────────────────
+    const FORCE_TRACK_URL = '/pms/gps-tracking/track-state/';
+    let forceTrackActive = false;
+
+    function checkForceTrack() {
+        fetch(FORCE_TRACK_URL)
+            .then(r => r.json())
+            .then(data => {
+                const btn = document.getElementById('auto-track-btn');
+                if (!btn) return;
+                if (data.force && watchId === null) {
+                    // บังคับเปิด auto-track
+                    toggleAutoTrack();
+                    forceTrackActive = true;
+                    btn.innerHTML = '<i class="fas fa-satellite-dish" style="color:#16a34a;"></i> 🟢 Force-Track (ล็อก)';
+                    btn.disabled  = true;
+                    btn.title     = 'Auto-Track ถูกเปิดโดยผู้จัดการ — ปิดไม่ได้';
+                } else if (!data.force && forceTrackActive) {
+                    // ถูก admin ปิด
+                    if (watchId !== null) toggleAutoTrack();
+                    forceTrackActive = false;
+                    btn.disabled = false;
+                    btn.title    = 'Auto-Track GPS';
+                }
+            })
+            .catch(() => {});
+    }
+    setTimeout(checkForceTrack, 2000);
+    setInterval(checkForceTrack, 30000);
     {% endif %}
 
     // ── Shared: build off-screen container and run html2canvas ─────────

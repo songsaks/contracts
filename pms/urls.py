@@ -134,6 +134,8 @@ urlpatterns = [
     path('api/notifications/counts/', views.get_notification_counts, name='get_notification_counts'),  # จำนวนแจ้งเตือน (Polling)
 
     # ===== GPS Tracking — ติดตามพิกัดช่าง =====
+    path('gps-tracking/track-state/', views.gps_track_state, name='gps_track_state'),                              # API สถานะ force-track ของตัวเอง
+    path('gps-tracking/track-state/<int:user_id>/toggle/', views.gps_track_state_toggle, name='gps_track_state_toggle'),  # Admin toggle force-track
     path('gps-tracking/', views.gps_tracking_report, name='gps_tracking_report'),             # รายงานเส้นทางประจำวัน
     path('gps-tracking/live/', views.gps_live_data, name='gps_live_data'),                    # JSON API สำหรับ Live mode
     path('gps-tracking/daily-summary/', views.gps_daily_summary, name='gps_daily_summary'),   # รายงานสรุปการทำงานรายวัน

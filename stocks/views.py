@@ -1694,13 +1694,14 @@ def macro_economy(request):
     """
     # รายการข้อมูลมหภาคที่ต้องดึงพร้อม symbol Yahoo Finance
     macro_items = [
-        {'id': 'set', 'name': 'SET Index (ดัชนีหุ้นไทย)', 'symbol': '^SET', 'unit': 'Points', 'desc': 'ดัชนีตลาดหลักทรัพย์แห่งประเทศไทย บ่งบอกสภาวะตลาดโดยรวม ถ้าเพิ่มขึ้นแปลว่าเศรษฐกิจ/ตลาดหุ้นไทยดีขึ้น'},
-        {'id': 'usdthb', 'name': 'USD/THB (อัตราแลกเปลี่ยนดอลลาร์/บาท)', 'symbol': 'USDTHB=X', 'unit': 'THB', 'desc': 'บาทอ่อนชงดีต่อภาคส่งออกและการท่องเที่ยว แต่อาจทำให้เงินทุนต่างชาติไหลออก'},
-        {'id': 'dxy', 'name': 'Dollar Index (DXY)', 'symbol': 'DX-Y.NYB', 'unit': 'Points', 'desc': 'ดัชนีดอลลาร์สหรัฐ บ่งบอกถึงกระแสเงินทุน (Fund Flow) ถ้าดอลลาร์แข็งแปลว่าเงินไหลเข้าสหรัฐฯ ส่งผลลบต่อทองคำและหุ้น'},
-        {'id': 'us10y', 'name': 'US 10Y Bond Yield', 'symbol': '^TNX', 'unit': '%', 'desc': 'อัตราผลตอบแทนพันธบัตรฯ 10 ปี (นำไปหาร 10 จากเลขที่นี่) ชี้วัดทิศทางอัตราดอกเบี้ย ถ้าขึ้นสูงจะกดดันราคาทองคำ'},
-        {'id': 'gold', 'name': 'Gold (ราคาทองคำโลก GC=F)', 'symbol': 'GC=F', 'unit': 'USD/oz', 'desc': 'ทองคำเป็นสินทรัพย์ปลอดภัย (Safe Haven) มักจะขึ้นเมื่อเงินเฟ้อสูง ดอลลาร์อ่อน หรือเศรษฐกิจมีความเสี่ยง'},
-        {'id': 'wti', 'name': 'WTI Crude Oil (น้ำมันดิบ WTI)', 'symbol': 'CL=F', 'unit': 'USD/bbl', 'desc': 'ราคาน้ำมันจะกระทบโดยตรงต่อต้นทุนพลังงาน ค่าขนส่ง และอัตราเงินเฟ้อ'},
-        {'id': 'brent', 'name': 'Brent Crude Oil (น้ำมันดิบเบรนท์)', 'symbol': 'BZ=F', 'unit': 'USD/bbl', 'desc': 'เป็นมาตรฐานราคาของฝั่งยุโรปและเอเชีย ซึ่งไทยมักมีต้นทุนแปรผันตามราคานี้'}
+        {'id': 'set', 'name': 'SET Index (ดัชนีหุ้นไทย)', 'symbol': '^SET', 'unit': 'Points', 'desc': 'ดัชนีตลาดหลักทรัพย์แห่งประเทศไทย บ่งบอกสภาวะตลาดโดยรวม'},
+        {'id': 'spx', 'name': 'S&P 500 (ตลาดหุ้นสหรัฐฯ)', 'symbol': '^GSPC', 'unit': 'Points', 'desc': 'ดัชนีหุ้นใหญ่ 500 ตัวของสหรัฐฯ สะท้อนภาพรวมตลาดโลก'},
+        {'id': 'usdthb', 'name': 'USD/THB (อัตราแลกเปลี่ยน)', 'symbol': 'USDTHB=X', 'unit': 'THB', 'desc': 'ค่าเงินบาทเทียบดอลลาร์สิงคโปร์/สหรัฐฯ'},
+        {'id': 'dxy', 'name': 'Dollar Index (DXY)', 'symbol': 'DX-Y.NYB', 'unit': 'Points', 'desc': 'ดัชนีดอลลาร์สหรัฐ บ่งบอกถึงกระแสเงินทุน (Fund Flow)'},
+        {'id': 'us10y', 'name': 'US 10Y Bond Yield', 'symbol': '^TNX', 'unit': '%', 'desc': 'อัตราดอกเบี้ยพันธบัตรฯ 10 ปี สหรัฐฯ'},
+        {'id': 'gold', 'name': 'Gold (ทองคำโลก)', 'symbol': 'GC=F', 'unit': 'USD/oz', 'desc': 'สินทรัพย์ปลอดภัยและตัววัดเงินเฟ้อ'},
+        {'id': 'btc', 'name': 'Bitcoin (BTC-USD)', 'symbol': 'BTC-USD', 'unit': 'USD', 'desc': 'สินทรัพย์ดิจิทัล (Crypto) สะท้อนความกล้าเสี่ยง (Risk-on) ของตลาด'},
+        {'id': 'wti', 'name': 'WTI Crude Oil (น้ำมันดิบ)', 'symbol': 'CL=F', 'unit': 'USD/bbl', 'desc': 'ต้นทุนพลังงานและเศรษฐกิจโลก'}
     ]
 
     data = []
@@ -1716,7 +1717,6 @@ def macro_economy(request):
                 prev_price = hist['Close'].iloc[-2]
                 pct_change = ((current_price - prev_price) / prev_price) * 100
 
-                # เตรียมข้อมูล labels และ values สำหรับกราฟ Chart.js
                 # Chart data
                 dates = [d.strftime('%Y-%m-%d') for d in hist.index]
                 prices = [float(p) for p in hist['Close'].tolist()]
@@ -1739,7 +1739,7 @@ def macro_economy(request):
             continue
 
     # ====== AI Macro Analysis — วิเคราะห์ภาพรวมเศรษฐกิจด้วย Gemini ======
-    _MACRO_CACHE_KEY = 'MACRO_ECONOMY'
+    _MACRO_CACHE_KEY = 'MACRO_ECONOMY_V2'
     analysis_text = None
     analysis_last_updated = None
 
@@ -1754,25 +1754,29 @@ def macro_economy(request):
         model_name_to_use = 'gemini-2.5-flash'
 
         # สร้าง string สรุปข้อมูลมหภาคเพื่อส่งให้ AI
-        data_str = "\n".join([f"{d['name']}: {d['price']:.2f} ({d['change']:+.2f}%)" for d in data])
+        data_str = "\n".join([f"{d['name']}: {d['price']:.2f} ({d['change']:+.2f}%) - {d['desc']}" for d in data])
         prompt = f"""
-        You are an expert Thai Macroeconomist and Investment Strategist. Based on the following current market data:
+        คุณคือผู้เชี่ยวชาญด้านเศรษฐศาสตร์มหาภาค (Senior Economist) และนักกลยุทธ์การลงทุนระดับโลก (Global Investment Strategist) 
+        จงวิเคราะห์ข้อมูลตลาดปัจจุบันด้านล่างนี้ และสรุปภาพรวมเศรษฐกิจและการลงทุนให้มีความลุ่มลึกระดับสถาบัน:
+        
+        [Market Data Summary]:
         {data_str}
 
-        Please provide a comprehensive 'Macroeconomic & Sector Strategy' report in Thai.
-        1. **Market Overview & Fund Flow**: Summarize the current situation (Baht strength, Oil price trend, DXY and Bond Yield) and analyze the Global Fund Flow direction.
-        2. **Economic Impact**: Analyze how these numbers affect the overall Thai economy and SET Index.
-        3. **Sectoral Analysis & Target Stocks**: Identify industries (e.g. Energy, Banking, Export, Tourism, Transport) that are impacted.
-           - สำหรับแต่ละกลุ่มอุตสาหกรรม ให้ระบุรายชื่อหุ้นไทยอย่างน้อย 5 หุ้นที่ได้รับผลกระทบ (ทั้งบวกหรือลบ)
-           - พร้อมอธิบายสั้นๆ ว่าปัจจัยเศรษฐกิจชุดนี้ส่งผลต่อหุ้นกลุ่มนั้นอย่างไร
-        4. **Gold Trading Strategy**: Deep dive into Gold. Based on DXY, US10Y, and macroeconomic risks, how should traders approach Gold right now? Provide actionable Buy/Sell/Hold bias and psychological levels if possible.
-        5. **Actionable Investment Strategy**: A clear strategy for the current market conditions.
+        โปรดเขียนรายงาน "Global Investment Outlook & Asset Allocation" เป็นภาษาไทย โดยมีหัวข้อดังนี้:
+        1. **Fund Flow & Risk Appetite**: วิเคราะห์ความสัมพันธ์ของ DXY, Bond Yield เเละ Bitcoin ตอนนี้ตลาดอยู่ในภาวะ Risk-on (กล้าเสี่ยง) หรือ Risk-off (กลัว) เงินกำลังไหลออกจากตลาดหุ้นไปสู่หลุมหลบภัย (Gold) หรือไหลเข้าสู่ระบบใหม่ (Crypto)?
+        2. **US vs Thai Market Direction**: วิเคราะห์เปรียบเทียบตลาดหุ้นสหรัฐฯ (S&P 500) และไทย (SET) ทิศทางเป็นอย่างไร? มีปัจจัยอะไรที่สวนทางกันหรือไม่?
+        3. **Asset Allocation (การจัดพอร์ตแนะนำ)**: แนะนำสัดส่วนการลงทุนที่เหมาะสมใน 'ตอนนี้' (เช่น หุ้นกี่ %, ทองคำกี่ %, คริปโตกี่ %, เงินสดกี่ %) โดยอ้างอิงจากความเสี่ยงเศรษฐกิจมหาภาค
+        4. **Deep Dive: Gold & Crypto**: เจาะลึกทองคำและบิทคอยน์ในฐานะสินทรัพย์ทางเลือก (Alternative Assets) ในสภาวะปัจจุบันควรสะสม, ถือเฉยๆ หรือหาจังหวะขาย?
+        5. **Sector Strategy (US & Thai)**: เจาะกลุ่มอุตสาหกรรมโดดเด่น:
+           - **US Sectors**: แนะนำกลุ่มที่น่าสนใจในตลาดสหรัฐฯ (เช่น Tech, Healthcare, Energy) พร้อมตัวอย่างบริษัทยักษ์ใหญ่
+           - **Thai Sectors**: แนะนำกลุ่ม Winner ในไทย (เช่น Tourism, Export, Banking) พร้อมระบุรายชื่อหุ้น 3-5 ตัว
+        6. **Strategic Summary (1-3 Months Outlook)**: สรุปกลยุทธ์สั้นๆ 1-3 เดือนข้างหน้าว่าควรโฟกัสที่จุดใดมากที่สุด
 
-        Format in beautiful Markdown for a professional web report. Use Sarabun style tone.
-        IMPORTANT RULES:
-        1. DO NOT include any conversational preamble or outro.
-        2. Output ONLY the raw markdown text.
-        3. DO NOT wrap the output in ```markdown code blocks.
+        ข้อกำหนดการตอบ:
+        - ใช้โทนเสียงระดับมืออาชีพ น่าเชื่อถือ (Institutional Tone)
+        - ใช้ Markdown จัดรูปแบบให้สวยงาม (ใช้ตารางเเนะนำ Asset Allocation จะดีมาก)
+        - ห้ามมีคำเกริ่นนำหรือคำส่งท้าย
+        - ส่งออกมาเป็น Raw Markdown เท่านั้น
         """
 
         try:

@@ -984,6 +984,29 @@ class TechnicianGPSLog(models.Model):
         return f"{self.user.username} | {self.get_check_type_display()} | {self.timestamp.strftime('%d/%m/%Y %H:%M')}"
 
 
+class TechnicianTrackingState(models.Model):
+    """
+    เก็บสถานะ Force Auto-Track ของช่างแต่ละคน
+    - force_track = True เมื่อช่าง GO_WORK → client จะเปิด auto-track อัตโนมัติและปิดไม่ได้
+    - force_track = False เมื่อ BACK_OFFICE หรือ admin ปิด
+    """
+    user        = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
+                                       related_name='tracking_state', verbose_name="ช่าง")
+    force_track = models.BooleanField(default=False, verbose_name="บังคับ Auto-Track")
+    forced_at   = models.DateTimeField(null=True, blank=True, verbose_name="เวลาที่เปิด")
+    toggled_by  = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True,
+                                    on_delete=models.SET_NULL, related_name='+',
+                                    verbose_name="ปิด/เปิดโดย")
+
+    class Meta:
+        verbose_name = "สถานะ Auto-Track ช่าง"
+        verbose_name_plural = "สถานะ Auto-Track ช่าง"
+
+    def __str__(self):
+        state = 'ON' if self.force_track else 'OFF'
+        return f"{self.user.username} — Force Track: {state}"
+
+
 class CustomerSatisfaction(models.Model):
     """
     ผลประเมินความพอใจของลูกค้าหลังช่างเช็คเอาท์ (Check-out)

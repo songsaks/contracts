@@ -2697,6 +2697,38 @@ def get_notification_counts(request):
     })
 
 
+# ====== GPS Force-Track State API ======
+
+@login_required
+def gps_track_state(request):
+    """JSON API — คืนสถานะ force_track ของ user ปัจจุบัน (poll จาก chat room)"""
+    from .models import TechnicianTrackingState
+    try:
+        state = request.user.tracking_state
+        force = state.force_track
+    except TechnicianTrackingState.DoesNotExist:
+        force = False
+    return JsonResponse({'force': force, 'user': request.user.username})
+
+
+@login_required
+def gps_track_state_toggle(request, user_id):
+    """Admin toggle force_track สำหรับ user คนใดคนหนึ่ง"""
+    if not user_can_view_all(request.user):
+        return JsonResponse({'error': 'unauthorized'}, status=403)
+    from django.contrib.auth import get_user_model
+    from .models import TechnicianTrackingState
+    User = get_user_model()
+    target = get_object_or_404(User, pk=user_id)
+    state, _ = TechnicianTrackingState.objects.get_or_create(user=target)
+    state.force_track = not state.force_track
+    from django.utils import timezone
+    state.forced_at  = timezone.now() if state.force_track else None
+    state.toggled_by = request.user
+    state.save(update_fields=['force_track', 'forced_at', 'toggled_by'])
+    return JsonResponse({'force': state.force_track, 'user': target.username})
+
+
 # รายงานติดตามพิกัดการทำงานของช่างเทคนิคภาคสนาม (Field Technician GPS Tracking)
 # แสดงภาพรวมเส้นทางการทำงานจริงบนแผนที่ Leaflet ในแต่ละช่วงเวลา (Check-in/Out)
 # เพื่อการตรวจสอบความโปร่งใสและประสิทธิภาพในการออกปฏิบัติงานนอกสถานที่

@@ -95,6 +95,53 @@
         </div>
     </div>
 
+    {% if request.user.is_staff %}
+    <!-- Force Auto-Track Panel — admin only -->
+    <div class="card border-0 shadow-sm rounded-4 mb-4" style="border-left:4px solid #7c3aed !important;">
+        <div class="card-body py-3 px-4">
+            <div class="d-flex align-items-center gap-2 mb-3">
+                <i class="fas fa-satellite-dish" style="color:#7c3aed;"></i>
+                <span class="fw-bold" style="color:#7c3aed;">Force Auto-Track — ควบคุม GPS ช่าง</span>
+                <span class="badge rounded-pill bg-secondary bg-opacity-10 text-secondary" style="font-size:0.65rem;">Admin only</span>
+            </div>
+            <div class="d-flex flex-wrap gap-3" id="force-track-panel">
+                {% for username, logs in grouped.items %}
+                {% with user_obj=logs.0.user %}
+                {% with state=user_obj.tracking_state %}
+                <div class="d-flex align-items-center gap-2 p-2 rounded-3" style="background:#f8fafc;min-width:200px;">
+                    <div class="rounded-circle d-flex align-items-center justify-content-center fw-bold"
+                         style="width:32px;height:32px;background:rgba(124,58,237,0.1);color:#7c3aed;font-size:0.65rem;flex-shrink:0;">
+                        {{ username|slice:":2"|upper }}
+                    </div>
+                    <div class="flex-grow-1">
+                        <div class="fw-bold small">{{ username }}</div>
+                        <div class="small text-muted" style="font-size:0.65rem;">
+                            {% if state.force_track %}
+                            <span class="text-success">🟢 Force ON</span>
+                            {% if state.forced_at %} · {{ state.forced_at|date:"H:i" }}{% endif %}
+                            {% else %}
+                            <span class="text-secondary">⚪ ปกติ</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <button class="btn btn-sm rounded-pill px-3 force-track-btn"
+                            data-user-id="{{ user_obj.pk }}"
+                            data-username="{{ username }}"
+                            onclick="toggleForceTrack(this)"
+                            style="font-size:0.7rem;{% if state.force_track %}background:#dcfce7;color:#15803d;border:1px solid #86efac;{% else %}background:#f1f5f9;color:#64748b;border:1px solid #e2e8f0;{% endif %}">
+                        {% if state.force_track %}<i class="fas fa-lock me-1"></i>Force ON{% else %}<i class="fas fa-lock-open me-1"></i>ปลดล็อก{% endif %}
+                    </button>
+                </div>
+                {% endwith %}
+                {% endwith %}
+                {% empty %}
+                <span class="text-muted small">ไม่มีช่างที่บันทึก GPS วันนี้</span>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
     {% if grouped %}
     <!-- Filter Tabs -->
     <div class="d-flex flex-wrap gap-2 mb-4 overflow-auto pb-1" id="tech-tabs">
@@ -320,5 +367,30 @@ function toggleLiveControl() {
 // Start
 renderMap();
 {% if report_date == today %}toggleLiveControl();{% endif %}
+
+// ── Force-Track Admin Toggle ─────────────────────────────────
+function toggleForceTrack(btn) {
+    const userId   = btn.dataset.userId;
+    const username = btn.dataset.username;
+    fetch(`{% url 'pms:gps_track_state_toggle' 0 %}`.replace('/0/', `/${userId}/`), {
+        method: 'POST',
+        headers: {'X-CSRFToken': '{{ csrf_token }}'}
+    })
+    .then(r => r.json())
+    .then(data => {
+        const card = btn.closest('.d-flex.align-items-center');
+        const statusEl = card.querySelector('.small.text-muted');
+        if (data.force) {
+            btn.style.cssText = 'font-size:0.7rem;background:#dcfce7;color:#15803d;border:1px solid #86efac;';
+            btn.innerHTML = '<i class="fas fa-lock me-1"></i>Force ON';
+            statusEl.innerHTML = '<span class="text-success">🟢 Force ON</span>';
+        } else {
+            btn.style.cssText = 'font-size:0.7rem;background:#f1f5f9;color:#64748b;border:1px solid #e2e8f0;';
+            btn.innerHTML = '<i class="fas fa-lock-open me-1"></i>ปลดล็อก';
+            statusEl.innerHTML = '<span class="text-secondary">⚪ ปกติ</span>';
+        }
+    })
+    .catch(e => console.error('Force-track toggle error:', e));
+}
 </script>
 {% endblock %}
