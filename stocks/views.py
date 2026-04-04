@@ -3586,6 +3586,9 @@ def multi_factor_scanner(request):
         from django.http import JsonResponse as _JsonResponse
         key = f'multifactor_scan_{request.user.id}'
         status = cache.get(key, {'state': 'idle'})
+        # เมื่อ done ถูก poll แล้ว ให้ reset เป็น idle ทันที ป้องกัน reload loop
+        if status.get('state') == 'done':
+            cache.delete(key)
         return _JsonResponse(status)
 
     # ====== SCAN (POST — ทำ background เพื่อไม่ให้ nginx timeout) ======

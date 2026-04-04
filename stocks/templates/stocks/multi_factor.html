@@ -398,6 +398,7 @@ function sortTable(key) {
 
 // ── Background scan polling ───────────────────────────────────────────────
 let _pollTimer = null;
+let _sawRunning = false;   // true เมื่อเห็น state=running ครั้งแรก — ป้องกัน reload loop
 
 function _showScanProgress(progress, total) {
     const overlay = document.getElementById('loadingOverlay');
@@ -416,12 +417,17 @@ function pollScanStatus() {
         .then(r => r.json())
         .then(data => {
             if (data.state === 'running') {
+                _sawRunning = true;
                 _showScanProgress(data.progress || 0, data.total || 0);
                 _pollTimer = setTimeout(pollScanStatus, 2000);
             } else if (data.state === 'done') {
                 hideLoading();
-                // รีโหลดเพื่อแสดงผลการสแกน
-                window.location.reload();
+                if (_sawRunning) {
+                    // รีโหลดเพื่อแสดงผลการสแกน (เฉพาะเมื่อเราเห็น running จริงๆ)
+                    _sawRunning = false;
+                    window.location.reload();
+                }
+                // ถ้าไม่เคยเห็น running (cold load → done) → ไม่ reload ป้องกัน infinite loop
             } else {
                 // idle — ไม่ต้องทำอะไร
                 hideLoading();
