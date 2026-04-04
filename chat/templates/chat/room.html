@@ -1761,6 +1761,20 @@
                         gps_check_type: checkType,
                         gps_notes: notes,
                     }));
+                    {% if is_technician %}
+                    // GO_WORK → บังคับ Auto-Track ทันที ปิดไม่ได้
+                    if (checkType === 'GO_WORK') {
+                        localStorage.setItem('autoTrack_room_{{ room.id }}', 'on');
+                        localStorage.setItem('forceTrack_room_{{ room.id }}', 'on');
+                        setTimeout(() => _applyForceTrack(true), 800); // รอ WebSocket confirm
+                    }
+                    // BACK_OFFICE → ปลดล็อก และหยุด Auto-Track
+                    if (checkType === 'BACK_OFFICE') {
+                        localStorage.removeItem('forceTrack_room_{{ room.id }}');
+                        localStorage.setItem('autoTrack_room_{{ room.id }}', 'off');
+                        setTimeout(() => _applyForceTrack(false), 800);
+                    }
+                    {% endif %}
                 }
             },
             (error) => {
@@ -2002,7 +2016,7 @@
     {% if is_technician %}
     let watchId = null;
     let lastSentTime = 0;
-    const TRACK_INTERVAL_MS = 15 * 60 * 1000; // ส่งทุก 15 นาที (throttle)
+    const TRACK_INTERVAL_MS = 20 * 60 * 1000; // ส่งทุก 20 นาที (throttle)
     const TRACK_MIN_DISTANCE_M = 5000;        // หรือถ้าขยับ >= 5 กิโลเมตร
     let lastLat = null, lastLon = null;
 
@@ -2075,34 +2089,70 @@
         setTimeout(() => toggleAutoTrack(), 1500); // รอ WebSocket เปิดก่อน
     }
 
-    // ── Force-Track Poll (ทุก 30 วินาที) ──────────────────────
-    const FORCE_TRACK_URL = '/pms/gps-tracking/track-state/';
+    // ── Wake Lock — ป้องกันหน้าจอดับระหว่าง Force-Track ────
+    let wakeLock = null;
+
+    async function _requestWakeLock() {
+        if (!('wakeLock' in navigator)) return; // ไม่รองรับ (iOS Safari < 16.4)
+        try {
+            wakeLock = await navigator.wakeLock.request('screen');
+        } catch (e) { /* ไม่ได้รับ permission — ไม่ crash */ }
+    }
+
+    function _releaseWakeLock() {
+        if (wakeLock) { wakeLock.release(); wakeLock = null; }
+    }
+
+    // Re-acquire wake lock เมื่อหน้าจอกลับมา (visibility change)
+    document.addEventListener('visibilitychange', () => {
+        if (forceTrackActive && document.visibilityState === 'visible') {
+            _requestWakeLock();
+        }
+    });
+
+    // ── Force-Track: apply/remove lock ──────────────────────
     let forceTrackActive = false;
+
+    function _applyForceTrack(force) {
+        const btn = document.getElementById('auto-track-btn');
+        if (!btn) return;
+        if (force) {
+            if (watchId === null) toggleAutoTrack(); // เริ่ม tracking ถ้ายังไม่ได้เริ่ม
+            forceTrackActive = true;
+            _requestWakeLock(); // ขอให้หน้าจอไม่ดับ
+            btn.innerHTML = '<i class="fas fa-satellite-dish" style="color:#16a34a;"></i> 🟢 Force-Track (ล็อก)';
+            btn.disabled  = true;
+            btn.title     = 'Auto-Track ถูกล็อก — กลับที่ทำงานก่อนจึงปิดได้';
+            btn.onclick   = null; // ป้องกัน click
+        } else {
+            if (watchId !== null) toggleAutoTrack(); // หยุด tracking
+            forceTrackActive = false;
+            _releaseWakeLock(); // คืน wake lock
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-satellite-dish"></i> Auto-Track GPS';
+            btn.title     = 'Auto-Track GPS';
+            btn.onclick   = () => toggleAutoTrack();
+        }
+    }
+
+    // ── Force-Track Poll (ทุก 30 วินาที — backup จาก server) ──
+    const FORCE_TRACK_URL = '/pms/gps-tracking/track-state/';
 
     function checkForceTrack() {
         fetch(FORCE_TRACK_URL)
             .then(r => r.json())
             .then(data => {
-                const btn = document.getElementById('auto-track-btn');
-                if (!btn) return;
-                if (data.force && watchId === null) {
-                    // บังคับเปิด auto-track
-                    toggleAutoTrack();
-                    forceTrackActive = true;
-                    btn.innerHTML = '<i class="fas fa-satellite-dish" style="color:#16a34a;"></i> 🟢 Force-Track (ล็อก)';
-                    btn.disabled  = true;
-                    btn.title     = 'Auto-Track ถูกเปิดโดยผู้จัดการ — ปิดไม่ได้';
-                } else if (!data.force && forceTrackActive) {
-                    // ถูก admin ปิด
-                    if (watchId !== null) toggleAutoTrack();
-                    forceTrackActive = false;
-                    btn.disabled = false;
-                    btn.title    = 'Auto-Track GPS';
-                }
+                if (data.force && !forceTrackActive)      _applyForceTrack(true);
+                else if (!data.force && forceTrackActive) _applyForceTrack(false);
             })
             .catch(() => {});
     }
-    setTimeout(checkForceTrack, 2000);
+
+    // Resume force-track จาก localStorage ถ้าเคยเปิดไว้
+    if (localStorage.getItem('forceTrack_room_{{ room.id }}') === 'on') {
+        setTimeout(() => _applyForceTrack(true), 1500);
+    }
+    setTimeout(checkForceTrack, 3000);
     setInterval(checkForceTrack, 30000);
     {% endif %}
 
