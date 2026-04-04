@@ -3614,20 +3614,26 @@ def multi_factor_scanner(request):
             User = get_user_model()
             user = User.objects.get(pk=user_id)
 
-            scan_symbols = ScannableSymbol.objects.filter(is_active=True).values_list('symbol', flat=True)
+            scan_symbols = ScannableSymbol.objects.filter(
+                is_active=True, index_name='SET100'
+            ).values_list('symbol', flat=True)
             if not scan_symbols:
                 refresh_set100_symbols()
-                scan_symbols = ScannableSymbol.objects.filter(is_active=True).values_list('symbol', flat=True)
+                scan_symbols = ScannableSymbol.objects.filter(
+                    is_active=True, index_name='SET100'
+                ).values_list('symbol', flat=True)
 
             MultiFactorCandidate.objects.filter(user=user).delete()
-            sym_list = list(scan_symbols)
+            # deduplicate while preserving order
+            seen = set()
+            sym_list = [s for s in scan_symbols if not (s in seen or seen.add(s))]
 
             _cache.set(cache_key, {'state': 'running', 'progress': 0, 'total': len(sym_list)}, timeout=600)
 
             # โหลด sector cache จาก DB ครั้งเดียว
             sector_cache = {
                 s.symbol: s.sector
-                for s in ScannableSymbol.objects.filter(is_active=True).only('symbol', 'sector')
+                for s in ScannableSymbol.objects.filter(is_active=True, index_name='SET100').only('symbol', 'sector')
             }
 
             # Phase 1: Batch download
