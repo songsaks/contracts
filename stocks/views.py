@@ -3580,151 +3580,161 @@ def multi_factor_scanner(request):
     สแกนหุ้นด้วยระบบ Multi-Factor Super Score
     รวม 4 ปัจจัย: Momentum(40) + Volume/Flow(30) + Sentiment AI(20) + Fundamental(10)
     """
-    # ====== SCAN (POST only — PRG pattern) ======
+    # ====== SCAN STATUS POLL (AJAX) ======
+    if request.GET.get('scan_status') == '1':
+        from django.core.cache import cache
+        key = f'multifactor_scan_{request.user.id}'
+        status = cache.get(key, {'state': 'idle'})
+        return JsonResponse(status)
+
+    # ====== SCAN (POST — ทำ background เพื่อไม่ให้ nginx timeout) ======
     if request.method == "POST" and request.POST.get('action') == 'scan':
-        # import หนักเฉพาะตอนสแกนจริง ไม่ใช่ทุก request
-        import pandas_ta as ta
-        from concurrent.futures import ThreadPoolExecutor, as_completed
+        from django.core.cache import cache
+        import threading
 
-        scan_symbols = ScannableSymbol.objects.filter(is_active=True).values_list('symbol', flat=True)
-        if not scan_symbols:
-            refresh_set100_symbols()
+        user_id  = request.user.id
+        cache_key = f'multifactor_scan_{user_id}'
+
+        # ป้องกันการสแกนซ้ำถ้ายังรันอยู่
+        current = cache.get(cache_key, {})
+        if current.get('state') == 'running':
+            return JsonResponse({'queued': True})
+
+        cache.set(cache_key, {'state': 'running', 'progress': 0, 'total': 0}, timeout=600)
+
+        def _run_scan(user_id, cache_key):
+            import django
+            django.setup()
+            import pandas_ta as ta
+            from concurrent.futures import ThreadPoolExecutor, as_completed
+            from django.contrib.auth import get_user_model
+            from django.core.cache import cache as _cache
+
+            User = get_user_model()
+            user = User.objects.get(pk=user_id)
+
             scan_symbols = ScannableSymbol.objects.filter(is_active=True).values_list('symbol', flat=True)
+            if not scan_symbols:
+                refresh_set100_symbols()
+                scan_symbols = ScannableSymbol.objects.filter(is_active=True).values_list('symbol', flat=True)
 
-        MultiFactorCandidate.objects.filter(user=request.user).delete()
-        sym_list = list(scan_symbols)
+            MultiFactorCandidate.objects.filter(user=user).delete()
+            sym_list = list(scan_symbols)
 
-        # โหลด sector cache จาก DB ครั้งเดียว (ไม่ต้อง fetch .info ในทุก thread)
-        sector_cache = {
-            s.symbol: s.sector
-            for s in ScannableSymbol.objects.filter(is_active=True).only('symbol', 'sector')
-        }
+            _cache.set(cache_key, {'state': 'running', 'progress': 0, 'total': len(sym_list)}, timeout=600)
 
-        # ──────────────────────────────────────────────────────────────
-        # Phase 1: Batch download ราคาทุก symbol ในคำสั่งเดียว
-        # yfinance ใช้ threading ภายใน → เร็วกว่าดาวน์โหลดแยกมาก
-        # ──────────────────────────────────────────────────────────────
-        tickers_str = " ".join(f"{s}.BK" for s in sym_list)
-        try:
-            batch_df = yf.download(
-                tickers_str,
-                period="1y", interval="1d",
-                group_by='ticker',
-                progress=False, threads=True,
-            )
-        except Exception as e:
-            print(f"[MultiFactorScan] Batch download failed: {e}")
-            batch_df = None
+            # โหลด sector cache จาก DB ครั้งเดียว
+            sector_cache = {
+                s.symbol: s.sector
+                for s in ScannableSymbol.objects.filter(is_active=True).only('symbol', 'sector')
+            }
 
-        # ──────────────────────────────────────────────────────────────
-        # Phase 2: ฟังก์ชันประมวลผลต่อหุ้น (รันใน thread)
-        # ──────────────────────────────────────────────────────────────
-        def _get_df(symbol):
-            """ดึง DataFrame ราคาจาก batch หรือ fallback โหลดแยก"""
-            sym_bk = f"{symbol}.BK"
-            df = None
-            if batch_df is not None and not batch_df.empty:
-                try:
-                    df = batch_df[sym_bk].copy() if len(sym_list) > 1 else batch_df.copy()
-                except Exception:
-                    df = None
-            if df is None or (hasattr(df, 'empty') and df.empty):
-                try:
-                    df = yf.download(sym_bk, period="1y", interval="1d", progress=False)
-                except Exception:
-                    return None
-            return df
-
-        def process_one(symbol):
+            # Phase 1: Batch download
+            tickers_str = " ".join(f"{s}.BK" for s in sym_list)
             try:
-                df = _get_df(symbol)
-                if df is None or df.empty:
-                    return None
-                if isinstance(df.columns, pd.MultiIndex):
-                    df.columns = df.columns.droplevel(1)
-                df = df.dropna(subset=['Close', 'High'])
-                if len(df) < 60:
-                    return None
-                df = df.copy()
-
-                # คำนวณ indicators
-                df['EMA50']  = ta.ema(df['Close'], length=50)
-                df['EMA200'] = ta.ema(df['Close'], length=200)
-                df['RSI']    = ta.rsi(df['Close'], length=14)
-                adx_df = ta.adx(df['High'], df['Low'], df['Close'], length=14)
-                if adx_df is not None and not adx_df.empty:
-                    df = pd.concat([df, adx_df], axis=1)
-                df['MFI']  = ta.mfi(df['High'], df['Low'], df['Close'], df['Volume'], length=14)
-                df['RVOL'] = df['Volume'] / df['Volume'].rolling(20).mean()
-
-                last    = df.iloc[-1]
-                price   = float(df['Close'].iloc[-1])
-                rsi     = float(last.get('RSI')    or 0) if pd.notna(last.get('RSI'))    else 0
-                adx_val = float(last.get('ADX_14') or 0) if 'ADX_14' in df.columns and pd.notna(last.get('ADX_14')) else 0
-                mfi_val = float(last.get('MFI')    or 0) if pd.notna(last.get('MFI'))    else 0
-                rvol    = float(last.get('RVOL')   or 1) if pd.notna(last.get('RVOL'))   else 1.0
-                ema50   = float(last.get('EMA50')  or 0) if pd.notna(last.get('EMA50'))  else 0
-                ema200  = float(last.get('EMA200') or 0) if pd.notna(last.get('EMA200')) else 0
-
-                above_ema200 = bool(price > ema200) if ema200 else False
-                above_ema50  = bool(price > ema50)  if ema50  else False
-
-                # Momentum Score (max 40)
-                mom = 0
-                if above_ema200:                        mom += 15
-                if above_ema50:                         mom += 5
-                if 55 <= rsi <= 72:                     mom += 15
-                elif 45 <= rsi < 55 or 72 < rsi <= 80: mom += 7
-                if adx_val >= 30:                       mom += 5
-
-                # Volume/Flow Score (max 30)
-                vol = 0
-                if rvol >= 3.0:     vol += 15
-                elif rvol >= 2.0:   vol += 12
-                elif rvol >= 1.5:   vol += 8
-                elif rvol >= 1.0:   vol += 4
-                if mfi_val >= 70:   vol += 15
-                elif mfi_val >= 60: vol += 10
-                elif mfi_val >= 50: vol += 5
-
-                # Sector จาก cache (ไม่ fetch .info — ประหยัดเวลามาก)
-                sector = sector_cache.get(symbol, 'Unknown')
-                eps_g = rev_g = fund = 0.0
-
-                vol_score = min(vol, 30)
-                return dict(
-                    symbol=symbol, sector=sector, price=round(price, 2),
-                    momentum_score=mom, volume_score=vol_score,
-                    sentiment_score=0, fundamental_score=fund,
-                    super_score=mom + vol_score + fund,
-                    rsi=round(rsi, 2), adx=round(adx_val, 2),
-                    mfi=round(mfi_val, 2), rvol=round(rvol, 2),
-                    eps_growth=round(eps_g, 2), rev_growth=round(rev_g, 2),
-                    above_ema200=above_ema200, above_ema50=above_ema50,
+                batch_df = yf.download(
+                    tickers_str, period="1y", interval="1d",
+                    group_by='ticker', progress=False, threads=True,
                 )
             except Exception as e:
-                print(f"[MultiFactorScan] {symbol}: {e}")
-                return None
+                print(f"[MultiFactorScan] Batch download failed: {e}")
+                batch_df = None
 
-        # ──────────────────────────────────────────────────────────────
-        # Phase 3: รันขนาน 12 threads — fundamentals เป็น I/O bound
-        # ──────────────────────────────────────────────────────────────
-        raw_results = []
-        with ThreadPoolExecutor(max_workers=12) as executor:
-            futures = {executor.submit(process_one, s): s for s in sym_list}
-            for future in as_completed(futures):
-                r = future.result()
-                if r:
-                    raw_results.append(r)
+            def _get_df(symbol):
+                sym_bk = f"{symbol}.BK"
+                df = None
+                if batch_df is not None and not batch_df.empty:
+                    try:
+                        df = batch_df[sym_bk].copy() if len(sym_list) > 1 else batch_df.copy()
+                    except Exception:
+                        df = None
+                if df is None or (hasattr(df, 'empty') and df.empty):
+                    try:
+                        df = yf.download(sym_bk, period="1y", interval="1d", progress=False)
+                    except Exception:
+                        return None
+                return df
 
-        # ──────────────────────────────────────────────────────────────
-        # Phase 4: Bulk create — 1 SQL INSERT แทน 100+
-        # ──────────────────────────────────────────────────────────────
-        MultiFactorCandidate.objects.bulk_create([
-            MultiFactorCandidate(user=request.user, **r) for r in raw_results
-        ])
+            def process_one(symbol):
+                try:
+                    df = _get_df(symbol)
+                    if df is None or df.empty:
+                        return None
+                    if isinstance(df.columns, pd.MultiIndex):
+                        df.columns = df.columns.droplevel(1)
+                    df = df.dropna(subset=['Close', 'High'])
+                    if len(df) < 60:
+                        return None
+                    df = df.copy()
+                    df['EMA50']  = ta.ema(df['Close'], length=50)
+                    df['EMA200'] = ta.ema(df['Close'], length=200)
+                    df['RSI']    = ta.rsi(df['Close'], length=14)
+                    adx_df = ta.adx(df['High'], df['Low'], df['Close'], length=14)
+                    if adx_df is not None and not adx_df.empty:
+                        df = pd.concat([df, adx_df], axis=1)
+                    df['MFI']  = ta.mfi(df['High'], df['Low'], df['Close'], df['Volume'], length=14)
+                    df['RVOL'] = df['Volume'] / df['Volume'].rolling(20).mean()
+                    last    = df.iloc[-1]
+                    price   = float(df['Close'].iloc[-1])
+                    rsi     = float(last.get('RSI')    or 0) if pd.notna(last.get('RSI'))    else 0
+                    adx_val = float(last.get('ADX_14') or 0) if 'ADX_14' in df.columns and pd.notna(last.get('ADX_14')) else 0
+                    mfi_val = float(last.get('MFI')    or 0) if pd.notna(last.get('MFI'))    else 0
+                    rvol    = float(last.get('RVOL')   or 1) if pd.notna(last.get('RVOL'))   else 1.0
+                    ema50   = float(last.get('EMA50')  or 0) if pd.notna(last.get('EMA50'))  else 0
+                    ema200  = float(last.get('EMA200') or 0) if pd.notna(last.get('EMA200')) else 0
+                    above_ema200 = bool(price > ema200) if ema200 else False
+                    above_ema50  = bool(price > ema50)  if ema50  else False
+                    mom = 0
+                    if above_ema200:                        mom += 15
+                    if above_ema50:                         mom += 5
+                    if 55 <= rsi <= 72:                     mom += 15
+                    elif 45 <= rsi < 55 or 72 < rsi <= 80: mom += 7
+                    if adx_val >= 30:                       mom += 5
+                    vol = 0
+                    if rvol >= 3.0:     vol += 15
+                    elif rvol >= 2.0:   vol += 12
+                    elif rvol >= 1.5:   vol += 8
+                    elif rvol >= 1.0:   vol += 4
+                    if mfi_val >= 70:   vol += 15
+                    elif mfi_val >= 60: vol += 10
+                    elif mfi_val >= 50: vol += 5
+                    sector = sector_cache.get(symbol, 'Unknown')
+                    vol_score = min(vol, 30)
+                    return dict(
+                        symbol=symbol, sector=sector, price=round(price, 2),
+                        momentum_score=mom, volume_score=vol_score,
+                        sentiment_score=0, fundamental_score=0,
+                        super_score=mom + vol_score,
+                        rsi=round(rsi, 2), adx=round(adx_val, 2),
+                        mfi=round(mfi_val, 2), rvol=round(rvol, 2),
+                        eps_growth=0.0, rev_growth=0.0,
+                        above_ema200=above_ema200, above_ema50=above_ema50,
+                    )
+                except Exception as e:
+                    print(f"[MultiFactorScan] {symbol}: {e}")
+                    return None
 
-        messages.success(request, f"✅ สแกนเสร็จสิ้น — พบ {len(raw_results)} หุ้น")
+            # Phase 2: รันขนาน + update progress
+            raw_results = []
+            done = 0
+            with ThreadPoolExecutor(max_workers=12) as executor:
+                futures = {executor.submit(process_one, s): s for s in sym_list}
+                for future in as_completed(futures):
+                    r = future.result()
+                    if r:
+                        raw_results.append(r)
+                    done += 1
+                    _cache.set(cache_key, {'state': 'running', 'progress': done, 'total': len(sym_list)}, timeout=600)
+
+            # Phase 3: Bulk create
+            MultiFactorCandidate.objects.bulk_create([
+                MultiFactorCandidate(user=user, **r) for r in raw_results
+            ])
+            _cache.set(cache_key, {'state': 'done', 'count': len(raw_results)}, timeout=300)
+
+        # เปิด background thread แล้ว return ทันที — ไม่ block nginx
+        t = threading.Thread(target=_run_scan, args=(user_id, cache_key), daemon=True)
+        t.start()
         return redirect('stocks:multi_factor_scanner')
 
     # ====== AI SENTIMENT (batch) ======

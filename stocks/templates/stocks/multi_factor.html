@@ -46,8 +46,18 @@ th.sortable:hover { background: #f1f5f9; }
 <!-- Loading Overlay -->
 <div class="loading-overlay" id="loadingOverlay">
     <div class="spin-ring"></div>
-    <div class="text-white fw-semibold fs-5">กำลังสแกนหุ้นทั้งหมด…</div>
-    <div class="text-white-50 small">ดึงข้อมูล 1 ปี + คำนวณ 4 ปัจจัย กรุณารอสักครู่</div>
+    <div class="text-white fw-semibold fs-5" id="overlayTitle">กำลังสแกนหุ้นทั้งหมด…</div>
+    <div class="text-white-50 small" id="overlaySubtitle">ดึงข้อมูล 1 ปี + คำนวณ 4 ปัจจัย กรุณารอสักครู่</div>
+    <!-- Progress Bar (shown during background scan) -->
+    <div id="overlayProgress" style="display:none;width:320px;">
+        <div class="d-flex justify-content-between text-white-50 mb-1" style="font-size:.8rem;">
+            <span>ความคืบหน้า</span>
+            <span id="progressText">0 / 0</span>
+        </div>
+        <div style="height:8px;border-radius:4px;background:rgba(255,255,255,.15);">
+            <div id="progressBar" style="height:100%;border-radius:4px;background:#6366f1;width:0%;transition:width .4s;"></div>
+        </div>
+    </div>
 </div>
 
 <!-- Header -->
@@ -358,19 +368,25 @@ th.sortable:hover { background: #f1f5f9; }
 </div>
 
 <script>
+// ── Overlay helpers ───────────────────────────────────────────────────────
 function showLoading(type) {
     const overlay = document.getElementById('loadingOverlay');
     overlay.style.display = 'flex';
     if (type === 'sentimentLoading') {
-        overlay.querySelector('div:nth-child(2)').textContent = 'กำลังวิเคราะห์ Sentiment ด้วย Gemini…';
-        overlay.querySelector('div:nth-child(3)').textContent = 'ส่งรายชื่อหุ้น 30 ตัวไปให้ AI ประเมินข่าวล่าสุด';
+        document.getElementById('overlayTitle').textContent = 'กำลังวิเคราะห์ Sentiment ด้วย Gemini…';
+        document.getElementById('overlaySubtitle').textContent = 'ส่งรายชื่อหุ้น 30 ตัวไปให้ AI ประเมินข่าวล่าสุด';
     }
+}
+
+function hideLoading() {
+    document.getElementById('loadingOverlay').style.display = 'none';
 }
 
 function confirmRescan() {
     if (confirm('⚠️ สแกนใหม่จะลบผลเก่าทั้งหมด\nต้องการดำเนินการต่อหรือไม่?')) {
-        showLoading('scanLoading');
         document.getElementById('scanForm').submit();
+        // ไม่ showLoading ที่นี่ — background scan จะ redirect ทันที,
+        // จากนั้น pollScanStatus() จะตรวจจับ state=running เอง
     }
 }
 
@@ -379,5 +395,47 @@ function sortTable(key) {
     url.searchParams.set('sort', key);
     window.location.href = url.toString();
 }
+
+// ── Background scan polling ───────────────────────────────────────────────
+let _pollTimer = null;
+
+function _showScanProgress(progress, total) {
+    const overlay = document.getElementById('loadingOverlay');
+    overlay.style.display = 'flex';
+    document.getElementById('overlayTitle').textContent = 'กำลังสแกนหุ้นทั้งหมด…';
+    document.getElementById('overlaySubtitle').textContent = 'ระบบทำงานในพื้นหลัง — หน้านี้จะรีเฟรชอัตโนมัติเมื่อเสร็จ';
+    document.getElementById('overlayProgress').style.display = 'block';
+
+    const pct = total > 0 ? Math.round(progress / total * 100) : 0;
+    document.getElementById('progressBar').style.width = pct + '%';
+    document.getElementById('progressText').textContent = progress + ' / ' + total;
+}
+
+function pollScanStatus() {
+    fetch('?scan_status=1', {headers: {'X-Requested-With': 'XMLHttpRequest'}})
+        .then(r => r.json())
+        .then(data => {
+            if (data.state === 'running') {
+                _showScanProgress(data.progress || 0, data.total || 0);
+                _pollTimer = setTimeout(pollScanStatus, 2000);
+            } else if (data.state === 'done') {
+                hideLoading();
+                // รีโหลดเพื่อแสดงผลการสแกน
+                window.location.reload();
+            } else {
+                // idle — ไม่ต้องทำอะไร
+                hideLoading();
+            }
+        })
+        .catch(() => {
+            // network error — retry
+            _pollTimer = setTimeout(pollScanStatus, 5000);
+        });
+}
+
+// เริ่ม poll ทันทีเมื่อโหลดหน้า
+document.addEventListener('DOMContentLoaded', function () {
+    pollScanStatus();
+});
 </script>
 {% endblock %}
