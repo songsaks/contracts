@@ -1284,7 +1284,7 @@ def analyze_momentum_technical_v2(df):
 
 
 # ----------------------------------------------------------------------
-# refresh_set100_symbols — อัปเดตรายชื่อหุ้น SET100 + MAI ในฐานข้อมูล
+# refresh_set100_symbols — อัปเดตรายชื่อหุ้น SET100 + SET200 + MAI ในฐานข้อมูล
 # ใช้รันครั้งแรกหรือเมื่อต้องการ refresh รายชื่อหุ้นที่ Scanner ใช้
 # ----------------------------------------------------------------------
 def refresh_set100_symbols():
@@ -1304,6 +1304,39 @@ def refresh_set100_symbols():
         "TKN", "TLI", "TQM", "TSTH", "TTW", "VGI", "BCP", "NYT",
     ]
 
+    # รายชื่อหุ้น SET101-200 — Mid Cap สภาพคล่องดี (ณ เม.ย. 2026)
+    set200_symbols = [
+        # Property / Real Estate
+        "AP", "LPN", "ORI", "NOBLE", "SC", "SENA", "LALIN", "RICHY", "SPVI", "TICON",
+        # Healthcare
+        "TNH", "SKR", "NTV", "LPH", "VIBHA", "WPH",
+        # Food & Beverage
+        "GFPT", "TFG", "ASIAN", "BR", "BTG", "GOLD", "KAMART", "GGC",
+        # Financial Services
+        "AEON", "AEONTS", "ASK", "GL", "MFC", "KBS", "MBKET",
+        # Energy / Utilities
+        "DEMCO", "HYDRO", "TPIPP", "EASTW", "ESSO",
+        # Industrial / Manufacturing
+        "HANA", "SVI", "KSL", "KTIS", "SAT", "ROH", "MILL", "DRT", "TPAC",
+        # Consumer / Retail
+        "BEAUTY", "MAKRO", "MAJOR", "ERW", "MBK", "HOME", "OCC", "OHTL",
+        # Transportation / Aviation
+        "AAV", "NOK", "BA",
+        # Technology / Telecom
+        "INET", "IFS", "JAS",
+        # Media / Entertainment
+        "GRAMMY", "MONO",
+        # Construction / Infra
+        "ITD", "CK" , "TASCO", "SEAFCO",
+        # Agribusiness
+        "TVO", "CHARAN", "SSF",
+        # Others — liquid mid-cap
+        "WICE", "J", "MACO", "CI", "NNCL", "PCSGH", "CHAYO",
+        "SQ", "PROUD", "ASAP", "MBK", "ORI", "PREC", "AIT",
+    ]
+    # ลบ duplicate ออก (กรณีมีซ้ำกับ set100)
+    set200_symbols = [s for s in dict.fromkeys(set200_symbols) if s not in set100_symbols]
+
     # รายชื่อหุ้น MAI ที่ได้รับความนิยม
     mai_symbols = [
         "AU", "SPA", "DITTO", "BE8", "BBIK", "IIG", "SABUY", "SECURE", "JDF", "PROEN",
@@ -1318,6 +1351,13 @@ def refresh_set100_symbols():
             defaults={'index_name': 'SET100', 'is_active': True}
         )
 
+    # อัปเดต SET200
+    for sym in set200_symbols:
+        ScannableSymbol.objects.update_or_create(
+            symbol=sym,
+            defaults={'index_name': 'SET200', 'is_active': True}
+        )
+
     # อัปเดต MAI
     for sym in mai_symbols:
         ScannableSymbol.objects.update_or_create(
@@ -1326,7 +1366,7 @@ def refresh_set100_symbols():
         )
 
     # ปิดการใช้งานหุ้นที่ไม่ได้อยู่ใน list นี้ (ถูก add มาจากแหล่งอื่น)
-    known = set(set100_symbols) | set(mai_symbols)
+    known = set(set100_symbols) | set(set200_symbols) | set(mai_symbols)
     ScannableSymbol.objects.exclude(symbol__in=known).update(is_active=False)
 
-    print(f"Refreshed {len(set100_symbols)} SET100 + {len(mai_symbols)} MAI symbols. Others deactivated.")
+    print(f"Refreshed {len(set100_symbols)} SET100 + {len(set200_symbols)} SET200 + {len(mai_symbols)} MAI symbols. Others deactivated.")

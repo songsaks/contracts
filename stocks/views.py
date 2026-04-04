@@ -2429,7 +2429,7 @@ def precision_momentum_scanner(request):
                 return sym, None
 
         rs_returns_all = {}
-        with concurrent.futures.ThreadPoolExecutor(max_workers=15) as _ex:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=20) as _ex:
             _futs = {_ex.submit(_fetch_rs_return, s): s for s in scan_symbols}
             for _f in concurrent.futures.as_completed(_futs):
                 _sym, _ret = _f.result()
@@ -2737,7 +2737,7 @@ def precision_momentum_scanner(request):
 
         # ====== 1. RS Rating Ranking (Percentile based on stocks in this scan) ======
         results = []
-        with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=20) as executor:
             futures = [executor.submit(_process_precision_scan, sym) for sym in scan_symbols]
             for future in concurrent.futures.as_completed(futures):
                 res = future.result()
@@ -3618,12 +3618,12 @@ def multi_factor_scanner(request):
             user = User.objects.get(pk=user_id)
 
             scan_symbols = ScannableSymbol.objects.filter(
-                is_active=True, index_name='SET100'
+                is_active=True
             ).values_list('symbol', flat=True).distinct()
             if not scan_symbols:
                 refresh_set100_symbols()
                 scan_symbols = ScannableSymbol.objects.filter(
-                    is_active=True, index_name='SET100'
+                    is_active=True
                 ).values_list('symbol', flat=True).distinct()
 
             MultiFactorCandidate.objects.filter(user=user).delete()
@@ -3637,7 +3637,7 @@ def multi_factor_scanner(request):
             sector_cache = {
                 s.symbol: s.sector
                 for s in ScannableSymbol.objects.filter(
-                    is_active=True, index_name='SET100'
+                    is_active=True
                 ).only('symbol', 'sector')
             }
 
