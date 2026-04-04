@@ -3583,9 +3583,10 @@ def multi_factor_scanner(request):
     # ====== SCAN STATUS POLL (AJAX) ======
     if request.GET.get('scan_status') == '1':
         from django.core.cache import cache
+        from django.http import JsonResponse as _JsonResponse
         key = f'multifactor_scan_{request.user.id}'
         status = cache.get(key, {'state': 'idle'})
-        return JsonResponse(status)
+        return _JsonResponse(status)
 
     # ====== SCAN (POST — ทำ background เพื่อไม่ให้ nginx timeout) ======
     if request.method == "POST" and request.POST.get('action') == 'scan':
@@ -3598,7 +3599,7 @@ def multi_factor_scanner(request):
         # ป้องกันการสแกนซ้ำถ้ายังรันอยู่
         current = cache.get(cache_key, {})
         if current.get('state') == 'running':
-            return JsonResponse({'queued': True})
+            return redirect('stocks:multi_factor_scanner')
 
         cache.set(cache_key, {'state': 'running', 'progress': 0, 'total': 0}, timeout=600)
 
