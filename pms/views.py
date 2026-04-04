@@ -62,15 +62,16 @@ def dispatch(request):
 # ระบบจะระบุประเภทงานเป็น 'SERVICE' อัตโนมัติ และสร้างรายการสินค้าเริ่มต้นจากมูลค่าโครงการที่ระบุ
 @login_required
 def service_create(request):
+    from .models import JobStatus
+    first_status = JobStatus.get_first_status(Project.JobType.SERVICE)
     if request.method == 'POST':
-        form = SalesServiceJobForm(request.POST, initial={'status': Project.Status.SOURCING}, job_type=Project.JobType.SERVICE)
+        form = SalesServiceJobForm(request.POST, job_type=Project.JobType.SERVICE)
         if form.is_valid():
             project = form.save(commit=False)
             project.job_type = Project.JobType.SERVICE
-            project.status = Project.Status.SOURCING
+            project.status   = first_status
             project._changed_by_user = request.user
             project.save()
-            # Auto-create value item
             pv = form.cleaned_data.get('project_value')
             _create_project_value_item(project, pv)
             messages.success(request, 'สร้างงานบริการขายสำเร็จ')
@@ -78,7 +79,7 @@ def service_create(request):
         else:
             messages.error(request, 'เกิดข้อผิดพลาดในการบันทึกข้อมูล กรุณาตรวจสอบความถูกต้อง')
     else:
-        form = SalesServiceJobForm(initial={'status': Project.Status.SOURCING}, job_type=Project.JobType.SERVICE)
+        form = SalesServiceJobForm(job_type=Project.JobType.SERVICE)
     return render(request, 'pms/service_form.html', {
         'form': form, 'title': 'สร้างงานบริการขายใหม่', 'theme_color': 'success',
     })
@@ -87,15 +88,16 @@ def service_create(request):
 # ใช้สำหรับการบันทึกงานซ่อมถึงสถานที่ลูกค้า โดยระบบจะระบุประเภทงานเป็น 'REPAIR'
 @login_required
 def repair_create(request):
+    from .models import JobStatus
+    first_status = JobStatus.get_first_status(Project.JobType.REPAIR)
     if request.method == 'POST':
-        form = SalesServiceJobForm(request.POST, initial={'status': Project.Status.SOURCING, 'name': 'แจ้งซ่อม - '}, job_type=Project.JobType.REPAIR)
+        form = SalesServiceJobForm(request.POST, job_type=Project.JobType.REPAIR)
         if form.is_valid():
             project = form.save(commit=False)
             project.job_type = Project.JobType.REPAIR
-            project.status = Project.Status.SOURCING
+            project.status   = first_status
             project._changed_by_user = request.user
             project.save()
-            # Auto-create value item
             pv = form.cleaned_data.get('project_value')
             _create_project_value_item(project, pv)
             messages.success(request, 'สร้างใบแจ้งซ่อมสำเร็จ')
@@ -103,7 +105,7 @@ def repair_create(request):
         else:
             messages.error(request, 'เกิดข้อผิดพลาดในการบันทึกข้อมูล กรุณาตรวจสอบความถูกต้อง')
     else:
-        form = SalesServiceJobForm(initial={'status': Project.Status.SOURCING, 'name': 'แจ้งซ่อม - '}, job_type=Project.JobType.REPAIR)
+        form = SalesServiceJobForm(initial={'name': 'แจ้งซ่อม - '}, job_type=Project.JobType.REPAIR)
     return render(request, 'pms/service_form.html', {
         'form': form, 'title': 'สร้างใบแจ้งซ่อม (On-site Repair)', 'theme_color': 'warning',
     })
@@ -112,15 +114,16 @@ def repair_create(request):
 # ใช้สำหรับการทำเรื่องเช่าสินค้า โดยระบบจะระบุประเภทงานเป็น 'RENTAL' ให้ทันที
 @login_required
 def rental_create(request):
+    from .models import JobStatus
+    first_status = JobStatus.get_first_status(Project.JobType.RENTAL)
     if request.method == 'POST':
-        form = SalesServiceJobForm(request.POST, initial={'status': Project.Status.SOURCING}, job_type=Project.JobType.RENTAL)
+        form = SalesServiceJobForm(request.POST, job_type=Project.JobType.RENTAL)
         if form.is_valid():
             project = form.save(commit=False)
             project.job_type = Project.JobType.RENTAL
-            project.status = Project.Status.SOURCING
+            project.status   = first_status
             project._changed_by_user = request.user
             project.save()
-            # Auto-create value item
             pv = form.cleaned_data.get('project_value')
             _create_project_value_item(project, pv)
             messages.success(request, 'สร้างงานเช่าสำเร็จ')

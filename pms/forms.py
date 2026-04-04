@@ -227,10 +227,17 @@ class SalesServiceJobForm(forms.ModelForm):
             else:
                 self.fields['status'].choices = [(c[0], c[1]) for c in Project.Status.choices]
 
-        # หากสร้างใหม่ (ไม่มี pk) ให้ลบ status ออกจาก form validation ทั้งหมด
-        # view จะ set project.status = SOURCING (หรือ first status) ก่อน save() เอง
+        # หากสร้างใหม่ (ไม่มี pk) ให้แสดงสถานะแรกเป็น read-only
+        # view จะ set project.status ก่อน save() — ไม่ต้อง validate choices
         if not self.instance.pk:
-            self.fields.pop('status', None)
+            # ดึง first status จาก choices ที่มีอยู่จริง (ไม่ hardcode)
+            current_choices = list(self.fields['status'].choices)
+            first_choice = current_choices[0] if current_choices else (Project.Status.SOURCING, 'สถานะแรก')
+            # จำกัดให้มีแค่ choice เดียว (first status) เพื่อให้ disabled field ผ่าน validation
+            self.fields['status'].choices  = [first_choice]
+            self.fields['status'].initial  = first_choice[0]
+            self.fields['status'].disabled = True
+            self.fields['status'].required = False
 
 class ProductItemForm(forms.ModelForm):
     class Meta:

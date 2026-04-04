@@ -408,6 +408,17 @@ class JobStatus(models.Model):
             pass
         return None
 
+    # คืนค่า status_key แรกสุด (sort_order น้อยที่สุด) สำหรับ job_type ที่ระบุ
+    @staticmethod
+    def get_first_status(job_type):
+        try:
+            first = JobStatus.objects.filter(job_type=job_type, is_active=True).order_by('sort_order').first()
+            if first:
+                return first.status_key
+        except Exception:
+            pass
+        return Project.Status.SOURCING  # fallback
+
     # เมื่อบันทึก: ถ้า status_key หรือ job_type เปลี่ยน ให้อัปเดต Project ทุกตัวที่ใช้ key เก่าโดยอัตโนมัติ
     def save(self, *args, **kwargs):
         old_key = old_job_type = None
