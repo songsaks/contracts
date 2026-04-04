@@ -3616,12 +3616,12 @@ def multi_factor_scanner(request):
 
             scan_symbols = ScannableSymbol.objects.filter(
                 is_active=True, index_name='SET100'
-            ).values_list('symbol', flat=True)
+            ).values_list('symbol', flat=True).distinct()
             if not scan_symbols:
                 refresh_set100_symbols()
                 scan_symbols = ScannableSymbol.objects.filter(
                     is_active=True, index_name='SET100'
-                ).values_list('symbol', flat=True)
+                ).values_list('symbol', flat=True).distinct()
 
             MultiFactorCandidate.objects.filter(user=user).delete()
             # deduplicate while preserving order
@@ -3633,7 +3633,9 @@ def multi_factor_scanner(request):
             # โหลด sector cache จาก DB ครั้งเดียว
             sector_cache = {
                 s.symbol: s.sector
-                for s in ScannableSymbol.objects.filter(is_active=True, index_name='SET100').only('symbol', 'sector')
+                for s in ScannableSymbol.objects.filter(
+                    is_active=True, index_name='SET100'
+                ).only('symbol', 'sector')
             }
 
             # Phase 1: Batch download

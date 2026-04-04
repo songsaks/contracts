@@ -1290,8 +1290,8 @@ def analyze_momentum_technical_v2(df):
 def refresh_set100_symbols():
     from .models import ScannableSymbol
 
-    # รายชื่อหุ้น SET100 + MAI ที่นิยม (ใช้เป็น seed ถ้ายังไม่มีในฐานข้อมูล)
-    default_symbols = [
+    # รายชื่อหุ้น SET100 (ณ เม.ย. 2026)
+    set100_symbols = [
         "ADVANC", "AOT", "AWC", "BBL", "BDMS", "BEM", "BGRIM", "BH", "BJC", "BTS",
         "CBG", "CENTEL", "CHG", "CK", "CKP", "COM7", "CPALL", "CPF", "CPN", "CRC",
         "DELTA", "EA", "EGCO", "GLOBAL", "GPSC", "GULF", "HMPRO", "IRPC", "IVL",
@@ -1302,18 +1302,31 @@ def refresh_set100_symbols():
         "ICHI", "KEX", "KKP", "MEGA", "ONEE", "PLANB", "PSL", "PTG", "QH", "RBF",
         "RS", "SABINA", "SINGER", "SIRI", "SPRC", "SYNEX", "THANI", "TIDLOR", "TIPH",
         "TKN", "TLI", "TQM", "TSTH", "TTW", "VGI", "BCP", "NYT",
-
-        # หุ้น MAI ที่ได้รับความนิยม
-        "AU", "SPA", "DITTO", "BE8", "BBIK", "IIG", "SABUY", "SECURE", "JDF", "PROEN",
-        "ZIGA", "XPG", "SMD", "TACC", "TMC", "TPCH", "FPI", "FSMART", "NDR",
-        "NETBAY", "BIZ", "BROOK", "COLOR", "CHO", "D", "KUN", "MVP", "SE", "UKEM"
     ]
 
-    # บันทึกหรืออัปเดตรายชื่อในฐานข้อมูล (ไม่ซ้ำ)
-    for sym in default_symbols:
+    # รายชื่อหุ้น MAI ที่ได้รับความนิยม
+    mai_symbols = [
+        "AU", "SPA", "DITTO", "BE8", "BBIK", "IIG", "SABUY", "SECURE", "JDF", "PROEN",
+        "ZIGA", "XPG", "SMD", "TACC", "TMC", "TPCH", "FPI", "FSMART", "NDR",
+        "NETBAY", "BIZ", "BROOK", "COLOR", "CHO", "D", "KUN", "MVP", "SE", "UKEM",
+    ]
+
+    # อัปเดต SET100
+    for sym in set100_symbols:
         ScannableSymbol.objects.update_or_create(
             symbol=sym,
-            defaults={'index_name': 'SET100+MAI', 'is_active': True}
+            defaults={'index_name': 'SET100', 'is_active': True}
         )
 
-    print(f"Refreshed {len(default_symbols)} scannable symbols in database.")
+    # อัปเดต MAI
+    for sym in mai_symbols:
+        ScannableSymbol.objects.update_or_create(
+            symbol=sym,
+            defaults={'index_name': 'MAI', 'is_active': True}
+        )
+
+    # ปิดการใช้งานหุ้นที่ไม่ได้อยู่ใน list นี้ (ถูก add มาจากแหล่งอื่น)
+    known = set(set100_symbols) | set(mai_symbols)
+    ScannableSymbol.objects.exclude(symbol__in=known).update(is_active=False)
+
+    print(f"Refreshed {len(set100_symbols)} SET100 + {len(mai_symbols)} MAI symbols. Others deactivated.")
