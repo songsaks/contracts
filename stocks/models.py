@@ -108,6 +108,12 @@ class Portfolio(models.Model):
     category = models.CharField(max_length=20, choices=AssetCategory.choices, default=AssetCategory.STOCK)
     # วันที่เพิ่มเข้าพอร์ต
     added_at = models.DateTimeField(auto_now_add=True)
+    # ราคาสูงสุดนับจากเข้าซื้อ (ใช้คำนวณ Trailing Stop)
+    highest_price = models.DecimalField(max_digits=12, decimal_places=4, default=0, blank=True)
+    # ATR ล่าสุด ณ วันที่ scan (อัปเดตทุกครั้งที่ portfolio_scan)
+    atr = models.FloatField(default=0.0, blank=True)
+    # ATR multiplier สำหรับ trailing stop (default 2.5x ATR)
+    trail_multiplier = models.FloatField(default=2.5, blank=True)
 
     class Meta:
         verbose_name = "Portfolio"
@@ -414,6 +420,8 @@ class ScannableSymbol(models.Model):
     index_name = models.CharField(max_length=50, default="SET100")
     # ตลาด: 'SET' = ตลาดหุ้นไทย, 'US' = NYSE/Nasdaq
     market = models.CharField(max_length=10, default='SET', db_index=True)
+    # กลุ่มอุตสาหกรรม (cache จาก yfinance.info — ดึงครั้งเดียว)
+    sector = models.CharField(max_length=100, default='Unknown', blank=True)
     # สถานะการใช้งาน (False = ไม่ถูกนำไปสแกน)
     is_active = models.BooleanField(default=True)
     # เวลาที่อัปเดตล่าสุด

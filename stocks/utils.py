@@ -50,6 +50,63 @@ def calculate_trailing_stop(symbol, current_price, entry_price, highest_price_si
 
 
 # ----------------------------------------------------------------------
+# calculate_atr_trailing_stop — Trailing Stop แบบ ATR (แม่นกว่า fixed %)
+# trailing_stop = highest_price_since_entry - (ATR × multiplier)
+# ----------------------------------------------------------------------
+def calculate_atr_trailing_stop(df, entry_price, highest_price_db=0.0, multiplier=2.5):
+    """
+    คำนวณ ATR-based Trailing Stop
+    - df: DataFrame ที่มี High, Low, Close อย่างน้อย 14 แท่ง
+    - entry_price: ราคาที่เข้าซื้อ
+    - highest_price_db: highest_price ที่เก็บไว้ใน DB (อาจสูงกว่า current high)
+    - multiplier: จำนวน ATR ที่ trailing ห่างจาก high (default 2.5x)
+    Returns dict พร้อม trailing_stop, atr, highest, distance_pct, status, color
+    """
+    if df is None or df.empty or len(df) < 14:
+        return None
+
+    current_price = float(df['Close'].iloc[-1])
+
+    # คำนวณ ATR 14
+    atr_series = ta.atr(df['High'], df['Low'], df['Close'], length=14)
+    if atr_series is None or atr_series.empty:
+        return None
+    atr = float(atr_series.iloc[-1])
+    if atr <= 0:
+        return None
+
+    # highest = max(ราคาสูงสุดใน hist, entry_price, highest จาก DB)
+    hist_high   = float(df['High'].max())
+    highest     = max(current_price, entry_price, highest_price_db, hist_high)
+    trailing_stop = highest - (atr * multiplier)
+    trailing_stop = max(trailing_stop, entry_price * 0.85)  # ไม่ต่ำกว่า -15% จาก entry
+
+    distance_pct = ((current_price - trailing_stop) / current_price * 100) if current_price > 0 else 0
+    gain_from_entry = ((current_price - entry_price) / entry_price * 100) if entry_price > 0 else 0
+
+    if current_price <= trailing_stop:
+        status, color = 'SELL (TRAILING STOP)', 'danger'
+    elif current_price <= trailing_stop * 1.02:
+        status, color = 'WARNING (NEAR STOP)', 'warning'
+    elif gain_from_entry >= 20:
+        status, color = 'RIDE TREND 🚀', 'success'
+    else:
+        status, color = 'HOLD', 'secondary'
+
+    return {
+        'trailing_stop':  round(trailing_stop, 2),
+        'atr':            round(atr, 4),
+        'highest':        round(highest, 2),
+        'current_price':  round(current_price, 2),
+        'distance_pct':   round(distance_pct, 1),
+        'gain_from_entry': round(gain_from_entry, 1),
+        'status':         status,
+        'color':          color,
+        'multiplier':     multiplier,
+    }
+
+
+# ----------------------------------------------------------------------
 # get_stock_data — ดึงข้อมูลหุ้นจาก yfinance + yahooquery
 # ครอบคลุม: ราคา, งบการเงิน, Indicator (RSI/MACD), ข่าว, โปรไฟล์บริษัท
 # ----------------------------------------------------------------------

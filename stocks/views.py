@@ -601,17 +601,29 @@ def portfolio_list(request):
             gain_loss = market_value - cost_basis
             gain_loss_pct = (gain_loss / cost_basis * 100) if cost_basis > 0 else 0
 
-            # ====== คำนวณ Trailing Stop ======
-            # ใช้ราคาสูงสุดใน 1 ปีเป็น highest_price_since_buy
-            # Trailing Stop
-            recent_high = hist['High'].max() if not hist.empty else None
-            ts_data = calculate_trailing_stop(
-                symbol=item.symbol,
-                current_price=float(current_price),
+            # ====== คำนวณ ATR Trailing Stop ======
+            from .utils import calculate_atr_trailing_stop
+            atr_ts = calculate_atr_trailing_stop(
+                df=hist if not hist.empty else None,
                 entry_price=float(item.entry_price or 0),
-                highest_price_since_buy=recent_high,
-                percent_trail=3.0  # Trailing 3% จาก High
+                highest_price_db=float(item.highest_price or 0),
+                multiplier=float(item.trail_multiplier or 2.5),
             ) if current_price > 0 else None
+
+            # อัปเดต highest_price และ ATR ใน DB ถ้าสูงขึ้น
+            if atr_ts and current_price > 0:
+                new_high = atr_ts['highest']
+                update_fields = []
+                if float(item.highest_price or 0) < new_high:
+                    item.highest_price = new_high
+                    update_fields.append('highest_price')
+                if abs(float(item.atr or 0) - atr_ts['atr']) > 0.0001:
+                    item.atr = atr_ts['atr']
+                    update_fields.append('atr')
+                if update_fields:
+                    item.save(update_fields=update_fields)
+
+            ts_data = atr_ts  # ยังคง key เดิมใน template
 
             # ====== ดึง/คำนวณ Zone Data — ใช้ PrecisionScanCandidate (v2) เสมอ ======
             clean_symbol = item.symbol.split('.')[0].upper()
@@ -3582,6 +3594,12 @@ def multi_factor_scanner(request):
         MultiFactorCandidate.objects.filter(user=request.user).delete()
         sym_list = list(scan_symbols)
 
+        # โหลด sector cache จาก DB ครั้งเดียว (ไม่ต้อง fetch .info ในทุก thread)
+        sector_cache = {
+            s.symbol: s.sector
+            for s in ScannableSymbol.objects.filter(is_active=True).only('symbol', 'sector')
+        }
+
         # ──────────────────────────────────────────────────────────────
         # Phase 1: Batch download ราคาทุก symbol ในคำสั่งเดียว
         # yfinance ใช้ threading ภายใน → เร็วกว่าดาวน์โหลดแยกมาก
@@ -3653,40 +3671,25 @@ def multi_factor_scanner(request):
 
                 # Momentum Score (max 40)
                 mom = 0
-                if above_ema200:                   mom += 15
-                if above_ema50:                    mom += 5
-                if 55 <= rsi <= 72:                mom += 15
+                if above_ema200:                        mom += 15
+                if above_ema50:                         mom += 5
+                if 55 <= rsi <= 72:                     mom += 15
                 elif 45 <= rsi < 55 or 72 < rsi <= 80: mom += 7
-                if adx_val >= 30:                  mom += 5
+                if adx_val >= 30:                       mom += 5
 
                 # Volume/Flow Score (max 30)
                 vol = 0
-                if rvol >= 3.0:   vol += 15
-                elif rvol >= 2.0: vol += 12
-                elif rvol >= 1.5: vol += 8
-                elif rvol >= 1.0: vol += 4
+                if rvol >= 3.0:     vol += 15
+                elif rvol >= 2.0:   vol += 12
+                elif rvol >= 1.5:   vol += 8
+                elif rvol >= 1.0:   vol += 4
                 if mfi_val >= 70:   vol += 15
                 elif mfi_val >= 60: vol += 10
                 elif mfi_val >= 50: vol += 5
 
-                # Fundamental Score (max 10)  — fetch .info ใน thread เดิมเลย
-                sector = "Unknown"; eps_g = 0.0; rev_g = 0.0; fund = 0
-                try:
-                    info = yf.Ticker(f"{symbol}.BK").info or {}
-                    # yfinance บางตัวส่ง sparse dict มา (เช่น {'trailingPegRatio': None})
-                    # ตรวจว่ามีข้อมูลพอ ก่อนนำไปใช้
-                    if isinstance(info, dict) and len(info) >= 5:
-                        sector = info.get('sector', 'Other') or 'Other'
-                        eps_g  = float(info.get('earningsQuarterlyGrowth') or 0) * 100
-                        rev_g  = float(info.get('revenueGrowth') or 0) * 100
-                        pe     = float(info.get('trailingPE') or 0)
-                        if eps_g >= 20:   fund += 4
-                        elif eps_g >= 10: fund += 2
-                        if rev_g >= 10:   fund += 3
-                        elif rev_g >= 5:  fund += 1
-                        if 5 <= pe <= 30: fund += 3
-                except Exception:
-                    pass
+                # Sector จาก cache (ไม่ fetch .info — ประหยัดเวลามาก)
+                sector = sector_cache.get(symbol, 'Unknown')
+                eps_g = rev_g = fund = 0.0
 
                 vol_score = min(vol, 30)
                 return dict(
