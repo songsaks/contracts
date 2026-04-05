@@ -2463,298 +2463,298 @@ def precision_momentum_scanner(request):
                 _cache.set(ckey, {'state': 'running', 'progress': 0, 'total': len(sym_list), 'phase': 'สแกนหุ้น…'}, timeout=900)
 
                 def _process_precision_scan(symbol):
-            try:
-                # ใช้ yf.Ticker().history() แทน yf.download() เพราะ yf.download() 
-                # มีบั๊ก Thread-safety กรองข้อมูลข้าม Symbol กันเมื่อรันใน ThreadPool 
-                ticker_obj = yf.Ticker(f"{symbol}.BK")
-                df = ticker_obj.history(start=scan_start_str, end=scan_end_str, interval="1d")
-
-                if df is None or df.empty:
                     try:
-                        yq = YQTicker(f"{symbol}.BK")
-                        df = yq.history(start=scan_start_str, end=scan_end_str, interval="1d")
-                        if isinstance(df, pd.DataFrame) and not df.empty:
-                            df = df.reset_index()
-                            if 'date' in df.columns:
-                                df.set_index('date', inplace=True)
-                            if 'symbol' in df.columns:
-                                df.drop(columns=['symbol'], inplace=True)
-                            df.rename(columns={'open': 'Open', 'high': 'High', 'low': 'Low',
-                                               'close': 'Close', 'volume': 'Volume'}, inplace=True)
-                    except Exception:
-                        pass
+                        # ใช้ yf.Ticker().history() แทน yf.download() เพราะ yf.download() 
+                        # มีบั๊ก Thread-safety กรองข้อมูลข้าม Symbol กันเมื่อรันใน ThreadPool 
+                        ticker_obj = yf.Ticker(f"{symbol}.BK")
+                        df = ticker_obj.history(start=scan_start_str, end=scan_end_str, interval="1d")
 
-                if df is None or df.empty:
-                    return None
+                        if df is None or df.empty:
+                            try:
+                                yq = YQTicker(f"{symbol}.BK")
+                                df = yq.history(start=scan_start_str, end=scan_end_str, interval="1d")
+                                if isinstance(df, pd.DataFrame) and not df.empty:
+                                    df = df.reset_index()
+                                    if 'date' in df.columns:
+                                        df.set_index('date', inplace=True)
+                                    if 'symbol' in df.columns:
+                                        df.drop(columns=['symbol'], inplace=True)
+                                    df.rename(columns={'open': 'Open', 'high': 'High', 'low': 'Low',
+                                                       'close': 'Close', 'volume': 'Volume'}, inplace=True)
+                            except Exception:
+                                pass
 
-                if isinstance(df.columns, pd.MultiIndex):
-                    df.columns = df.columns.droplevel(1)
+                        if df is None or df.empty:
+                            return None
 
-                df = df.dropna(subset=['Close', 'High'])
-                if len(df) < 200:
-                    return None
+                        if isinstance(df.columns, pd.MultiIndex):
+                            df.columns = df.columns.droplevel(1)
 
-                # ====== Liquidity & Quality Filters (Institutional Grade) ======
-                avg_vol_20 = float(df['Volume'].tail(20).mean())
-                avg_close_20 = float(df['Close'].tail(20).mean())
-                avg_turnover_20 = avg_vol_20 * avg_close_20
+                        df = df.dropna(subset=['Close', 'High'])
+                        if len(df) < 200:
+                            return None
+
+                        # ====== Liquidity & Quality Filters (Institutional Grade) ======
+                        avg_vol_20 = float(df['Volume'].tail(20).mean())
+                        avg_close_20 = float(df['Close'].tail(20).mean())
+                        avg_turnover_20 = avg_vol_20 * avg_close_20
                 
-                # 1. Turnover >= 15M THB (ตัดหุ้นปั่นสภาพคล่องต่ำที่รายใหญ่เข้าลงทุนไม่ได้)
-                if avg_turnover_20 < 15_000_000:
-                    return None
+                        # 1. Turnover >= 15M THB (ตัดหุ้นปั่นสภาพคล่องต่ำที่รายใหญ่เข้าลงทุนไม่ได้)
+                        if avg_turnover_20 < 15_000_000:
+                            return None
                     
-                # 2. Minimum Price >= 1.00 (ตัดหุ้น Penny Stocks ต่ำกว่า 1 บาท)
-                current_price = float(df['Close'].iloc[-1])
-                if current_price < 1.00:
-                    return None
+                        # 2. Minimum Price >= 1.00 (ตัดหุ้น Penny Stocks ต่ำกว่า 1 บาท)
+                        current_price = float(df['Close'].iloc[-1])
+                        if current_price < 1.00:
+                            return None
                     
-                # 3. RS Rating >= 70 (ต้องแข็งแกร่งกว่าหุ้น 70% ในตลาด)
-                rs_val = rs_ratings_map.get(symbol, 0)
-                if rs_val < 70:
-                    return None
+                        # 3. RS Rating >= 70 (ต้องแข็งแกร่งกว่าหุ้น 70% ในตลาด)
+                        rs_val = rs_ratings_map.get(symbol, 0)
+                        if rs_val < 70:
+                            return None
 
-                # ====== คำนวณ Indicators ======
-                df['EMA200'] = ta.ema(df['Close'], length=200)
-                df['EMA50'] = ta.ema(df['Close'], length=50)
-                df['RSI'] = ta.rsi(df['Close'], length=14)
-                adx_df = ta.adx(df['High'], df['Low'], df['Close'], length=14)
-                if adx_df is not None and not adx_df.empty:
-                    df = pd.concat([df, adx_df], axis=1)
-                mfi_series = ta.mfi(df['High'], df['Low'], df['Close'], df['Volume'], length=14)
-                df['MFI'] = mfi_series
+                        # ====== คำนวณ Indicators ======
+                        df['EMA200'] = ta.ema(df['Close'], length=200)
+                        df['EMA50'] = ta.ema(df['Close'], length=50)
+                        df['RSI'] = ta.rsi(df['Close'], length=14)
+                        adx_df = ta.adx(df['High'], df['Low'], df['Close'], length=14)
+                        if adx_df is not None and not adx_df.empty:
+                            df = pd.concat([df, adx_df], axis=1)
+                        mfi_series = ta.mfi(df['High'], df['Low'], df['Close'], df['Volume'], length=14)
+                        df['MFI'] = mfi_series
 
-                last_row = df.iloc[-1]
-                current_price = float(last_row['Close'])
-                ema200 = float(df['EMA200'].iloc[-1]) if pd.notna(df['EMA200'].iloc[-1]) else current_price
-                year_high = float(df['High'].tail(252).max())
+                        last_row = df.iloc[-1]
+                        current_price = float(last_row['Close'])
+                        ema200 = float(df['EMA200'].iloc[-1]) if pd.notna(df['EMA200'].iloc[-1]) else current_price
+                        year_high = float(df['High'].tail(252).max())
 
-                # ====== ADX Filter (ผ่อนปรนให้หุ้นเพิ่งเริ่มเทรนด์) ======
-                adx_val = float(df['ADX_14'].iloc[-1]) if 'ADX_14' in df.columns and pd.notna(df['ADX_14'].iloc[-1]) else 0
-                if adx_val < 15:
-                    # skipped (ADX < 15)
-                    return None
+                        # ====== ADX Filter (ผ่อนปรนให้หุ้นเพิ่งเริ่มเทรนด์) ======
+                        adx_val = float(df['ADX_14'].iloc[-1]) if 'ADX_14' in df.columns and pd.notna(df['ADX_14'].iloc[-1]) else 0
+                        if adx_val < 15:
+                            # skipped (ADX < 15)
+                            return None
 
-                # ====== Trend Template Filter ======
-                # รับหุ้นที่อยู่ไม่ต่ำกว่า 35% จาก 52w High — กรองขยะออก แต่ยังเปิดรับ reversal
-                near_high  = current_price >= year_high * 0.65
-                if not near_high:
-                    return None
+                        # ====== Trend Template Filter ======
+                        # รับหุ้นที่อยู่ไม่ต่ำกว่า 35% จาก 52w High — กรองขยะออก แต่ยังเปิดรับ reversal
+                        near_high  = current_price >= year_high * 0.65
+                        if not near_high:
+                            return None
 
-                import logging; logger = logging.getLogger('stocks')
-                logger.debug(f"[Precision] MATCH: {symbol} (ADX:{adx_val:.1f})")
+                        import logging; logger = logging.getLogger('stocks')
+                        logger.debug(f"[Precision] MATCH: {symbol} (ADX:{adx_val:.1f})")
 
-                # ====== Precision Technical Analysis (v3) ======
-                tech = analyze_momentum_technical_v2(df)
-                integrated_score = tech['score']
-                rvol         = tech['rvol']
-                rsi          = tech['rsi']
-                rvol_bullish = tech['rvol_bullish']
-                sd_zone      = tech['sd_zone']
-                ema20_aligned_flag = tech.get('ema20_aligned', False)
-                ema20_slope_val    = tech.get('ema20_slope', 0.0)
-                ema20_rising_flag  = tech.get('ema20_rising', False)
-                hh_hl_flag         = tech.get('hh_hl_structure', False)
+                        # ====== Precision Technical Analysis (v3) ======
+                        tech = analyze_momentum_technical_v2(df)
+                        integrated_score = tech['score']
+                        rvol         = tech['rvol']
+                        rsi          = tech['rsi']
+                        rvol_bullish = tech['rvol_bullish']
+                        sd_zone      = tech['sd_zone']
+                        ema20_aligned_flag = tech.get('ema20_aligned', False)
+                        ema20_slope_val    = tech.get('ema20_slope', 0.0)
+                        ema20_rising_flag  = tech.get('ema20_rising', False)
+                        hh_hl_flag         = tech.get('hh_hl_structure', False)
 
-                mfi_val = float(df['MFI'].iloc[-1]) if 'MFI' in df.columns and pd.notna(df['MFI'].iloc[-1]) else 0
+                        mfi_val = float(df['MFI'].iloc[-1]) if 'MFI' in df.columns and pd.notna(df['MFI'].iloc[-1]) else 0
 
-                # ====== MACD (12,26,9) — histogram + bullish crossover detection ======
-                macd_hist_val  = None
-                macd_cross_val = False
-                try:
-                    macd_df = ta.macd(df['Close'], fast=12, slow=26, signal=9)
-                    if macd_df is not None and not macd_df.empty:
-                        hist_col = [c for c in macd_df.columns if 'h' in c.lower() or 'hist' in c.lower()]
-                        macd_col = [c for c in macd_df.columns if c.lower().startswith('macd_')]
-                        sig_col  = [c for c in macd_df.columns if 'macds' in c.lower() or 'signal' in c.lower()]
-                        if hist_col:
-                            macd_hist_val = float(macd_df[hist_col[0]].iloc[-1]) if pd.notna(macd_df[hist_col[0]].iloc[-1]) else None
-                        # Bullish crossover = MACD line crosses above signal line in last 3 bars
-                        if macd_col and sig_col:
-                            m_ser = macd_df[macd_col[0]].dropna()
-                            s_ser = macd_df[sig_col[0]].dropna()
-                            if len(m_ser) >= 4 and len(s_ser) >= 4:
-                                # Check if MACD crossed above signal in last 3 candles
-                                for i in range(-3, 0):
-                                    if m_ser.iloc[i-1] <= s_ser.iloc[i-1] and m_ser.iloc[i] > s_ser.iloc[i]:
-                                        macd_cross_val = True
+                        # ====== MACD (12,26,9) — histogram + bullish crossover detection ======
+                        macd_hist_val  = None
+                        macd_cross_val = False
+                        try:
+                            macd_df = ta.macd(df['Close'], fast=12, slow=26, signal=9)
+                            if macd_df is not None and not macd_df.empty:
+                                hist_col = [c for c in macd_df.columns if 'h' in c.lower() or 'hist' in c.lower()]
+                                macd_col = [c for c in macd_df.columns if c.lower().startswith('macd_')]
+                                sig_col  = [c for c in macd_df.columns if 'macds' in c.lower() or 'signal' in c.lower()]
+                                if hist_col:
+                                    macd_hist_val = float(macd_df[hist_col[0]].iloc[-1]) if pd.notna(macd_df[hist_col[0]].iloc[-1]) else None
+                                # Bullish crossover = MACD line crosses above signal line in last 3 bars
+                                if macd_col and sig_col:
+                                    m_ser = macd_df[macd_col[0]].dropna()
+                                    s_ser = macd_df[sig_col[0]].dropna()
+                                    if len(m_ser) >= 4 and len(s_ser) >= 4:
+                                        # Check if MACD crossed above signal in last 3 candles
+                                        for i in range(-3, 0):
+                                            if m_ser.iloc[i-1] <= s_ser.iloc[i-1] and m_ser.iloc[i] > s_ser.iloc[i]:
+                                                macd_cross_val = True
+                                                break
+                        except Exception:
+                            pass
+
+                        # ====== Bollinger Bands Squeeze — bandwidth in bottom 20th pct (pending breakout) ======
+                        bb_squeeze_flag = False
+                        try:
+                            bb_df = ta.bbands(df['Close'], length=20, std=2)
+                            if bb_df is not None and not bb_df.empty:
+                                upper_col = [c for c in bb_df.columns if 'BBU' in c or 'upper' in c.lower()]
+                                lower_col = [c for c in bb_df.columns if 'BBL' in c or 'lower' in c.lower()]
+                                mid_col   = [c for c in bb_df.columns if 'BBM' in c or 'mid' in c.lower()]
+                                if upper_col and lower_col and mid_col:
+                                    bbu = bb_df[upper_col[0]].dropna()
+                                    bbl = bb_df[lower_col[0]].dropna()
+                                    bbm = bb_df[mid_col[0]].dropna()
+                                    if len(bbu) >= 20:
+                                        bw = (bbu - bbl) / bbm  # bandwidth ratio
+                                        pct20 = bw.quantile(0.20)
+                                        if float(bw.iloc[-1]) <= float(pct20):
+                                            bb_squeeze_flag = True
+                        except Exception:
+                            pass
+
+                        # ====== Stage 2 (Weinstein): price > SMA150 AND SMA150 rising ======
+                        # Stage 2 = markup phase — หุ้นที่ผ่าน filter นี้อยู่ในช่วงที่ดีที่สุดสำหรับการซื้อ
+                        stage2_flag = False
+                        try:
+                            sma150 = ta.sma(df['Close'], length=150)
+                            if sma150 is not None:
+                                sma150_clean = sma150.dropna()
+                                if len(sma150_clean) >= 20:
+                                    sma150_cur = float(sma150_clean.iloc[-1])
+                                    sma150_4w  = float(sma150_clean.iloc[-20])  # ~4 สัปดาห์ก่อน
+                                    stage2_flag = (current_price > sma150_cur) and (sma150_cur > sma150_4w)
+                        except Exception:
+                            pass
+
+                        # ====== Fundamental Data (bulk-fetched after all threads complete) ======
+                        # ตัวแปรเหล่านี้ไม่ถูกใช้ใน thread — bulk enrichment เป็นตัวทำใน step 2
+
+                        # ====== Supply & Demand Zone ======
+                        entry_strat = ""
+                        dz_start = None
+                        dz_end = None
+                        sz_start = None
+                        sz_end = None
+                        sl_price = None
+                        rr_val = None
+                        erc_vol_confirmed = False
+                        zone_target_src = '52w'
+
+                        if sd_zone:
+                            entry_strat = sd_zone['type']
+                            dz_start = sd_zone['start']
+                            dz_end = sd_zone['end']
+                            sz_start = sd_zone['target']
+                            sz_end = sd_zone['target'] * 1.02
+                            sl_price = sd_zone['stop_loss']
+                            rr_val = sd_zone['rr_ratio']
+                            erc_vol_confirmed = sd_zone.get('erc_volume_confirmed', False)
+                            zone_target_src = sd_zone.get('zone_target_source', '52w')
+
+                        prox_val = 999.0
+                        if dz_start:
+                            if current_price <= dz_start:
+                                prox_val = 0.0
+                            else:
+                                prox_val = ((current_price - dz_start) / dz_start) * 100
+
+                        gap_to_high = ((year_high - current_price) / current_price) * 100
+
+                        # ====== Pocket Pivot (Morales & Kacher) ======
+                        # Up-day volume > highest down-day volume in prior 10 sessions
+                        pocket_pivot_flag = False
+                        try:
+                            if len(df) >= 14:
+                                closes = df['Close'].values
+                                volumes = df['Volume'].values
+                                for _i in [-1, -2]:
+                                    if float(closes[_i]) <= float(closes[_i - 1]):
+                                        continue  # not an up day
+                                    _start = len(volumes) + _i - 10
+                                    _end   = len(volumes) + _i
+                                    if _start < 1:
+                                        continue
+                                    _prior_c = closes[_start:_end]
+                                    _prior_v = volumes[_start:_end]
+                                    _prior_prev_c = closes[_start - 1:_end - 1]
+                                    _down_mask = _prior_c < _prior_prev_c
+                                    if not _down_mask.any():
+                                        continue
+                                    _max_down_vol = float(_prior_v[_down_mask].max())
+                                    if float(volumes[_i]) > _max_down_vol and _max_down_vol > 0:
+                                        pocket_pivot_flag = True
                                         break
-                except Exception:
-                    pass
+                        except Exception:
+                            pass
 
-                # ====== Bollinger Bands Squeeze — bandwidth in bottom 20th pct (pending breakout) ======
-                bb_squeeze_flag = False
-                try:
-                    bb_df = ta.bbands(df['Close'], length=20, std=2)
-                    if bb_df is not None and not bb_df.empty:
-                        upper_col = [c for c in bb_df.columns if 'BBU' in c or 'upper' in c.lower()]
-                        lower_col = [c for c in bb_df.columns if 'BBL' in c or 'lower' in c.lower()]
-                        mid_col   = [c for c in bb_df.columns if 'BBM' in c or 'mid' in c.lower()]
-                        if upper_col and lower_col and mid_col:
-                            bbu = bb_df[upper_col[0]].dropna()
-                            bbl = bb_df[lower_col[0]].dropna()
-                            bbm = bb_df[mid_col[0]].dropna()
-                            if len(bbu) >= 20:
-                                bw = (bbu - bbl) / bbm  # bandwidth ratio
-                                pct20 = bw.quantile(0.20)
-                                if float(bw.iloc[-1]) <= float(pct20):
-                                    bb_squeeze_flag = True
-                except Exception:
-                    pass
+                        # ====== Volume Dry-Up (VDU): เงียบสะสม — volume ลด 3 วันติด + ต่ำกว่า avg 70% ======
+                        vdu_flag = False
+                        try:
+                            if len(df) >= 4:
+                                _vols = df['Volume'].tail(4).values.astype(float)
+                                _avg20 = float(df['Volume'].tail(20).mean())
+                                _declining = (_vols[-1] < _vols[-2]) and (_vols[-2] < _vols[-3])
+                                _quiet     = _vols[-1] < _avg20 * 0.7
+                                vdu_flag   = _declining and _quiet
+                        except Exception:
+                            pass
 
-                # ====== Stage 2 (Weinstein): price > SMA150 AND SMA150 rising ======
-                # Stage 2 = markup phase — หุ้นที่ผ่าน filter นี้อยู่ในช่วงที่ดีที่สุดสำหรับการซื้อ
-                stage2_flag = False
-                try:
-                    sma150 = ta.sma(df['Close'], length=150)
-                    if sma150 is not None:
-                        sma150_clean = sma150.dropna()
-                        if len(sma150_clean) >= 20:
-                            sma150_cur = float(sma150_clean.iloc[-1])
-                            sma150_4w  = float(sma150_clean.iloc[-20])  # ~4 สัปดาห์ก่อน
-                            stage2_flag = (current_price > sma150_cur) and (sma150_cur > sma150_4w)
-                except Exception:
-                    pass
+                        # Price Pattern detection (ใช้ df ที่มีอยู่แล้ว)
+                        pattern_result = detect_price_pattern(df)
+                        pattern_name  = pattern_result['name']
+                        pattern_score = pattern_result['score']
 
-                # ====== Fundamental Data (bulk-fetched after all threads complete) ======
-                # ตัวแปรเหล่านี้ไม่ถูกใช้ใน thread — bulk enrichment เป็นตัวทำใน step 2
+                        close_series = df['Close'].dropna()
+                        rel_1m = rel_3m = 0.0
+                        stock_3m_ret = 0.0
+                        if len(close_series) >= 66:
+                            stock_1m = float((close_series.iloc[-1] - close_series.iloc[-22]) / close_series.iloc[-22] * 100)
+                            stock_3m = float((close_series.iloc[-1] - close_series.iloc[-66]) / close_series.iloc[-66] * 100)
+                            stock_3m_ret = stock_3m
+                            rel_1m = round(stock_1m - set_1m_return, 2)
+                            rel_3m = round(stock_3m - set_3m_return, 2)
+                        elif len(close_series) >= 22:
+                            stock_1m = float((close_series.iloc[-1] - close_series.iloc[-22]) / close_series.iloc[-22] * 100)
+                            rel_1m = round(stock_1m - set_1m_return, 2)
 
-                # ====== Supply & Demand Zone ======
-                entry_strat = ""
-                dz_start = None
-                dz_end = None
-                sz_start = None
-                sz_end = None
-                sl_price = None
-                rr_val = None
-                erc_vol_confirmed = False
-                zone_target_src = '52w'
+                        # Return dict instead of model to allow bulk fundamental enrichment and RS Ranking
+                        return {
+                            'symbol': symbol,
+                            'price': round(current_price, 2),
+                            'rsi': round(rsi, 2),
+                            'adx': round(adx_val, 2),
+                            'mfi': round(mfi_val, 2),
+                            'rvol': round(rvol, 2),
+                            'technical_score': int(integrated_score),
+                            'avg_volume_20d': round(avg_vol_20, 0),
+                            'rvol_bullish': rvol_bullish,
+                            'erc_volume_confirmed': erc_vol_confirmed,
+                            'zone_target_src': zone_target_src,
+                            'entry_strat': entry_strat,
+                            'dz_start': dz_start,
+                            'dz_end': dz_end,
+                            'sz_start': sz_start,
+                            'sz_end': sz_end,
+                            'sl_price': sl_price,
+                            'rr_val': rr_val,
+                            'year_high': round(year_high, 2),
+                            'upside_to_high': round(gap_to_high, 2),
+                            'prox_val': round(prox_val, 2),
+                            'pattern_name': pattern_name,
+                            'pattern_score': pattern_score,
+                            'rel_1m': rel_1m,
+                            'rel_3m': rel_3m,
+                            'macd_histogram': round(macd_hist_val, 4) if macd_hist_val is not None else None,
+                            'macd_crossover': macd_cross_val,
+                            'bb_squeeze': bb_squeeze_flag,
+                            'ema20_aligned': ema20_aligned_flag,
+                            'ema20_slope': round(ema20_slope_val, 3),
+                            'ema20_rising': ema20_rising_flag,
+                            'hh_hl_structure': hh_hl_flag,
+                            'stock_3m_ret': stock_3m_ret,
+                            'rs_rating': rs_ratings_map.get(symbol, 0),
+                            'stage2': stage2_flag,
+                            'pocket_pivot': pocket_pivot_flag,
+                            'vdu_near_zone': vdu_flag,
+                            'cmf': tech.get('cmf', 0.0),
+                            'is_52w_breakout': tech.get('is_52w_breakout', False),
+                            'volume_surge': tech.get('volume_surge', 1.0),
+                            'is_volume_surge': tech.get('is_volume_surge', False),
+                        }
 
-                if sd_zone:
-                    entry_strat = sd_zone['type']
-                    dz_start = sd_zone['start']
-                    dz_end = sd_zone['end']
-                    sz_start = sd_zone['target']
-                    sz_end = sd_zone['target'] * 1.02
-                    sl_price = sd_zone['stop_loss']
-                    rr_val = sd_zone['rr_ratio']
-                    erc_vol_confirmed = sd_zone.get('erc_volume_confirmed', False)
-                    zone_target_src = sd_zone.get('zone_target_source', '52w')
-
-                prox_val = 999.0
-                if dz_start:
-                    if current_price <= dz_start:
-                        prox_val = 0.0
-                    else:
-                        prox_val = ((current_price - dz_start) / dz_start) * 100
-
-                gap_to_high = ((year_high - current_price) / current_price) * 100
-
-                # ====== Pocket Pivot (Morales & Kacher) ======
-                # Up-day volume > highest down-day volume in prior 10 sessions
-                pocket_pivot_flag = False
-                try:
-                    if len(df) >= 14:
-                        closes = df['Close'].values
-                        volumes = df['Volume'].values
-                        for _i in [-1, -2]:
-                            if float(closes[_i]) <= float(closes[_i - 1]):
-                                continue  # not an up day
-                            _start = len(volumes) + _i - 10
-                            _end   = len(volumes) + _i
-                            if _start < 1:
-                                continue
-                            _prior_c = closes[_start:_end]
-                            _prior_v = volumes[_start:_end]
-                            _prior_prev_c = closes[_start - 1:_end - 1]
-                            _down_mask = _prior_c < _prior_prev_c
-                            if not _down_mask.any():
-                                continue
-                            _max_down_vol = float(_prior_v[_down_mask].max())
-                            if float(volumes[_i]) > _max_down_vol and _max_down_vol > 0:
-                                pocket_pivot_flag = True
-                                break
-                except Exception:
-                    pass
-
-                # ====== Volume Dry-Up (VDU): เงียบสะสม — volume ลด 3 วันติด + ต่ำกว่า avg 70% ======
-                vdu_flag = False
-                try:
-                    if len(df) >= 4:
-                        _vols = df['Volume'].tail(4).values.astype(float)
-                        _avg20 = float(df['Volume'].tail(20).mean())
-                        _declining = (_vols[-1] < _vols[-2]) and (_vols[-2] < _vols[-3])
-                        _quiet     = _vols[-1] < _avg20 * 0.7
-                        vdu_flag   = _declining and _quiet
-                except Exception:
-                    pass
-
-                # Price Pattern detection (ใช้ df ที่มีอยู่แล้ว)
-                pattern_result = detect_price_pattern(df)
-                pattern_name  = pattern_result['name']
-                pattern_score = pattern_result['score']
-
-                close_series = df['Close'].dropna()
-                rel_1m = rel_3m = 0.0
-                stock_3m_ret = 0.0
-                if len(close_series) >= 66:
-                    stock_1m = float((close_series.iloc[-1] - close_series.iloc[-22]) / close_series.iloc[-22] * 100)
-                    stock_3m = float((close_series.iloc[-1] - close_series.iloc[-66]) / close_series.iloc[-66] * 100)
-                    stock_3m_ret = stock_3m
-                    rel_1m = round(stock_1m - set_1m_return, 2)
-                    rel_3m = round(stock_3m - set_3m_return, 2)
-                elif len(close_series) >= 22:
-                    stock_1m = float((close_series.iloc[-1] - close_series.iloc[-22]) / close_series.iloc[-22] * 100)
-                    rel_1m = round(stock_1m - set_1m_return, 2)
-
-                # Return dict instead of model to allow bulk fundamental enrichment and RS Ranking
-                return {
-                    'symbol': symbol,
-                    'price': round(current_price, 2),
-                    'rsi': round(rsi, 2),
-                    'adx': round(adx_val, 2),
-                    'mfi': round(mfi_val, 2),
-                    'rvol': round(rvol, 2),
-                    'technical_score': int(integrated_score),
-                    'avg_volume_20d': round(avg_vol_20, 0),
-                    'rvol_bullish': rvol_bullish,
-                    'erc_volume_confirmed': erc_vol_confirmed,
-                    'zone_target_src': zone_target_src,
-                    'entry_strat': entry_strat,
-                    'dz_start': dz_start,
-                    'dz_end': dz_end,
-                    'sz_start': sz_start,
-                    'sz_end': sz_end,
-                    'sl_price': sl_price,
-                    'rr_val': rr_val,
-                    'year_high': round(year_high, 2),
-                    'upside_to_high': round(gap_to_high, 2),
-                    'prox_val': round(prox_val, 2),
-                    'pattern_name': pattern_name,
-                    'pattern_score': pattern_score,
-                    'rel_1m': rel_1m,
-                    'rel_3m': rel_3m,
-                    'macd_histogram': round(macd_hist_val, 4) if macd_hist_val is not None else None,
-                    'macd_crossover': macd_cross_val,
-                    'bb_squeeze': bb_squeeze_flag,
-                    'ema20_aligned': ema20_aligned_flag,
-                    'ema20_slope': round(ema20_slope_val, 3),
-                    'ema20_rising': ema20_rising_flag,
-                    'hh_hl_structure': hh_hl_flag,
-                    'stock_3m_ret': stock_3m_ret,
-                    'rs_rating': rs_ratings_map.get(symbol, 0),
-                    'stage2': stage2_flag,
-                    'pocket_pivot': pocket_pivot_flag,
-                    'vdu_near_zone': vdu_flag,
-                    'cmf': tech.get('cmf', 0.0),
-                    'is_52w_breakout': tech.get('is_52w_breakout', False),
-                    'volume_surge': tech.get('volume_surge', 1.0),
-                    'is_volume_surge': tech.get('is_volume_surge', False),
-                }
-
-            except Exception as e:
-                import logging
-                logging.getLogger('stocks').exception(f"[Precision] Error scanning {symbol}: {e}")
-                return None
+                    except Exception as e:
+                        import logging
+                        logging.getLogger('stocks').exception(f"[Precision] Error scanning {symbol}: {e}")
+                        return None
 
                 # ====== Scan all symbols with progress tracking ======
                 results = []
