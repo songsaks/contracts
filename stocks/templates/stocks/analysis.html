@@ -261,6 +261,9 @@
                     <i class="fas fa-brain me-2"></i> AI Intelligence Analysis
                 </h4>
                 <div class="d-flex flex-wrap align-items-center gap-2 d-print-none">
+                    <a href="{% url 'stocks:crew_analyze' symbol %}" class="btn btn-warning btn-sm rounded-pill fw-bold text-dark px-3 animate-pulse">
+                        <i class="fas fa-robot me-1"></i> CrewAI Agent Analysis
+                    </a>
                     <button class="btn btn-outline-success btn-sm rounded-pill" onclick="exportHTMLToExcel('markdown-content', '{{ symbol }}_Analysis_Report')">
                         <i class="fas fa-file-excel"></i> <span class="d-none d-sm-inline ms-1">Excel</span>
                     </button>

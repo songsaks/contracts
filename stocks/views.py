@@ -19,6 +19,7 @@ from .utils import (
     refresh_set100_symbols, find_supply_demand_zones, find_supply_demand_zones_v2,
     detect_price_pattern, _is_commodity, _fetch_commodity_macro, _score_commodity_signal
 )
+from .crew_analysis import MomentumCrew
 from decimal import Decimal
 from yahooquery import Ticker as YQTicker
 import requests
@@ -491,6 +492,30 @@ def analyze(request, symbol):
     except Exception as e:
         messages.error(request, f"Error analyzing {symbol}: {str(e)}")
         return redirect('stocks:dashboard')
+
+@login_required
+def crew_analyze(request, symbol):
+    """
+    หน้าแสดงผลการวิเคราะห์เจาะลึกด้วย CrewAI Multi-Agent System.
+    ใช้เวลาในการประมวลผลนานกว่าปกติเพราะ Agent มีการโต้ตอบกัน.
+    """
+    try:
+        crew = MomentumCrew(symbol)
+        result = crew.run_analysis()
+        
+        # ดึงข้อมูลเบื้องต้นเพื่อใช้ในหัวข่าว
+        data = get_stock_data(symbol)
+        
+        context = {
+            'symbol': symbol,
+            'crew_result': result,
+            'info': data.get('info', {}),
+            'title': f'CrewAI Deep Analysis: {symbol}'
+        }
+        return render(request, 'stocks/crew_result.html', context)
+    except Exception as e:
+        messages.error(request, f"CrewAI Analysis Error: {str(e)}")
+        return redirect('stocks:analyze', symbol=symbol)
 
 # ====== Watchlist Management — เพิ่ม/ลบ รายการ Watchlist ======
 
@@ -5382,3 +5407,26 @@ def us_value_scanner(request):
         ).delete()
 
     return redirect(f'/stocks/value/us-value/?sort={current_sort}&run_idx=0')
+@login_required
+def crew_analyze(request, symbol):
+    """
+    หน้าแสดงผลการวิเคราะห์เจาะลึกด้วย CrewAI Multi-Agent System.
+    ใช้เวลาในการประมวลผลนานกว่าปกติเพราะ Agent มีการโต้ตอบกัน.
+    """
+    try:
+        crew = MomentumCrew(symbol)
+        result = crew.run_analysis()
+        
+        # ดึงข้อมูลเบื้องต้นเพื่อใช้ในหัวข่าว
+        data = get_stock_data(symbol)
+        
+        context = {
+            'symbol': symbol,
+            'crew_result': result,
+            'info': data.get('info', {}),
+            'title': f'CrewAI Deep Analysis: {symbol}'
+        }
+        return render(request, 'stocks/crew_result.html', context)
+    except Exception as e:
+        messages.error(request, f"CrewAI Analysis Error: {str(e)}")
+        return redirect('stocks:analyze', symbol=symbol)

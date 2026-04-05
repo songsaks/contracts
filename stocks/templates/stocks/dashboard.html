@@ -239,8 +239,11 @@
                                 <a href="{% url 'stocks:entry_finder' item.obj.symbol %}" class="btn btn-premium-danger btn-sm rounded-pill px-3 fw-bold" style="font-size: 0.8rem;">
                                     <i class="fas fa-crosshairs me-1"></i> Sniper Chart
                                 </a>
-                                <a href="{% url 'stocks:analyze' item.obj.symbol %}" class="btn btn-outline-primary btn-sm rounded-pill px-3" style="font-size: 0.8rem;">
-                                    <i class="fas fa-robot me-1"></i> AI
+                                <a href="{% url 'stocks:analyze' item.obj.symbol %}" class="btn btn-outline-primary btn-sm rounded-pill px-3" style="font-size: 0.8rem;" title="AI Summary (Fast)">
+                                    <i class="fas fa-magic me-1"></i> AI
+                                </a>
+                                <a href="{% url 'stocks:crew_analyze' item.obj.symbol %}" class="btn btn-warning btn-sm rounded-pill px-2 fw-bold text-dark" style="font-size: 0.75rem;" title="CrewAI Agents (Deep)">
+                                    <i class="fas fa-robot"></i> Crew
                                 </a>
                             </div>
                             <form action="{% url 'stocks:delete_from_watchlist' item.obj.pk %}" method="POST" class="d-inline" onsubmit="return confirm('ลบรายการนี้ใช่หรือไม่?')">

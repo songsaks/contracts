@@ -1048,8 +1048,9 @@
                                             <i class="fas fa-sign-in-alt"></i>
                                         {% endif %}
                                     </button>
-                                    <a href="{% url 'stocks:analyze' item.symbol_bk %}" class="btn btn-outline-primary btn-sm px-2 py-1" style="font-size:0.65rem;" target="_blank"><i class="fas fa-microscope"></i></a>
-                                    <a href="{% url 'stocks:entry_finder' item.symbol %}" class="btn btn-sm px-2 py-1" style="font-size:0.65rem;background:#7c3aed;color:white;" target="_blank"><i class="fas fa-crosshairs"></i></a>
+                                    <a href="{% url 'stocks:analyze' item.symbol_bk %}" class="btn btn-outline-primary btn-sm px-2 py-1" style="font-size:0.65rem;" target="_blank" title="AI Fast Summary"><i class="fas fa-magic"></i></a>
+                                    <a href="{% url 'stocks:crew_analyze' item.symbol_bk %}" class="btn btn-warning btn-sm px-2 py-1 fw-bold text-dark" style="font-size:0.65rem;" target="_blank" title="CrewAI Agent Analysis (Deep)"><i class="fas fa-robot"></i></a>
+                                    <a href="{% url 'stocks:entry_finder' item.symbol %}" class="btn btn-sm px-2 py-1" style="font-size:0.65rem;background:#7c3aed;color:white;" target="_blank" title="Sniper Chart"><i class="fas fa-crosshairs"></i></a>
                                     <button class="btn btn-sm px-2 py-1 watchlist-toggle-btn"
                                             data-symbol="{{ item.symbol }}"
                                             data-sector="{{ item.sector }}"
