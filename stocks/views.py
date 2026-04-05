@@ -2329,119 +2329,140 @@ def precision_momentum_scanner(request):
         refresh_set100_symbols()
         scan_symbols = list(ScannableSymbol.objects.filter(is_active=True).values_list('symbol', flat=True))
 
-    if request.method == "POST" or request.GET.get('scan') == 'true':
-        import pandas_ta as ta
-        from datetime import datetime as _dt, timedelta as _td, time as _dtime
-        import pytz as _pytz
+    # ====== AJAX Status Poll ======
+    if request.GET.get('scan_status') == '1':
+        from django.core.cache import cache as _cp
+        from django.http import JsonResponse as _JR
+        _key = f'precision_scan_{request.user.id}'
+        _st = _cp.get(_key, {'state': 'idle'})
+        if _st.get('state') == 'done':
+            _cp.delete(_key)
+        return _JR(_st)
 
-        scan_run_time = tz.now()
+    if request.method == "POST" and request.POST.get('action') == 'scan':
+        from django.core.cache import cache as _cache_bg
+        import threading
 
-        # ====== Pin Scan Date — ให้ทุก Indicator ในรอบเดียวกันใช้ข้อมูล ณ วันเดียวกัน ======
-        # SET Exchange hours: เช้า 10:00-12:30, พักกลางวัน 12:30-14:30, บ่าย 14:30-16:30
-        # ระหว่างที่ตลาดเปิด (session ใดก็ตาม) close ของวันนี้ยังไม่ settled → ใช้เมื่อวาน
-        # หลัง 16:30 close settled → ใช้วันนี้
-        _bkk_tz = _pytz.timezone('Asia/Bangkok')
-        _now_bkk = _dt.now(_bkk_tz)
-        _t = _now_bkk.time()
-        _morning_session   = _dtime(10,  0) <= _t <= _dtime(12, 30)
-        _midday_break      = _dtime(12, 30) <  _t <  _dtime(14, 30)
-        _afternoon_session = _dtime(14, 30) <= _t <= _dtime(16, 30)
-        _pre_market        = _t < _dtime(10, 0)   # ก่อน 10:00 — ตลาดยังไม่เปิด
-        # ตลาดกำลังซื้อขายจริง (10:00-12:30 และ 14:30-16:30 เท่านั้น)
-        _market_trading = (
-            _now_bkk.weekday() < 5 and
-            (_morning_session or _afternoon_session)
-        )
-        # ช่วงที่ candle ของวันนี้ยังไม่ settle:
-        #   - ระหว่าง 10:00-16:30 (ตลาดเปิด / midday break)
-        #   - ก่อน 10:00 ของวันทำการ (ตลาดยังไม่เปิด close วันนี้ยังไม่มี)
-        # ทั้งสองกรณีใช้ close เมื่อวาน เพื่อให้ผลสแกนสอดคล้องกัน
-        _market_day = (
-            _now_bkk.weekday() < 5 and
-            (_pre_market or _morning_session or _midday_break or _afternoon_session)
-        )
-        scan_end_date = (
-            (_now_bkk.date() - _td(days=1)) if _market_day else _now_bkk.date()
-        )
-        scan_end_str   = scan_end_date.strftime('%Y-%m-%d')
-        scan_start_str = (scan_end_date - _td(days=400)).strftime('%Y-%m-%d')
-        set_start_str  = (scan_end_date - _td(days=185)).strftime('%Y-%m-%d')
+        user_id   = request.user.id
+        cache_key = f'precision_scan_{user_id}'
 
-        # ดึง symbols ของรอบสแกนก่อนหน้า (เพื่อ is_new_entry)
-        prev_run = (
-            PrecisionScanCandidate.objects
-            .filter(user=request.user)
-            .values_list('scan_run', flat=True)
-            .order_by('-scan_run')
-            .distinct()
-            .first()
-        )
-        prev_symbols = set()
-        if prev_run:
-            prev_symbols = set(
-                PrecisionScanCandidate.objects
-                .filter(user=request.user, scan_run=prev_run)
-                .values_list('symbol', flat=True)
-            )
+        _cur = _cache_bg.get(cache_key, {})
+        if _cur.get('state') == 'running':
+            return redirect('stocks:precision_momentum_scanner')
 
-        # ====== ดึง SET Index เพื่อคำนวณ Relative Momentum (ทำครั้งเดียวก่อน loop) ======
-        set_1m_return = 0.0
-        set_3m_return = 0.0
-        try:
-            set_df = yf.download("^SET", start=set_start_str, end=scan_end_str, interval="1d", progress=False)
-            if set_df is not None and not set_df.empty:
-                if isinstance(set_df.columns, pd.MultiIndex):
-                    set_df.columns = set_df.columns.droplevel(1)
-                set_close = set_df['Close'].dropna()
-                if len(set_close) >= 66:
-                    set_1m_return = float((set_close.iloc[-1] - set_close.iloc[-22]) / set_close.iloc[-22] * 100)
-                    set_3m_return = float((set_close.iloc[-1] - set_close.iloc[-66]) / set_close.iloc[-66] * 100)
-            import logging; logging.getLogger('stocks').info(f"[Precision] SET Index: 1m={set_1m_return:.2f}% 3m={set_3m_return:.2f}%")
-        except Exception as e:
-            import logging; logging.getLogger('stocks').warning(f"[Precision] SET Index fetch failed: {e}")
+        _cache_bg.set(cache_key, {'state': 'running', 'progress': 0, 'total': 0, 'phase': 'เตรียมข้อมูล…'}, timeout=900)
 
-        import concurrent.futures
-
-        # ====== Pre-compute ABSOLUTE RS Rating from full universe (before technical filter) ======
-        # Minervini Weighted RS: Q1(last 63 bars)×40% + Q2×20% + Q3×20% + Q4×20%
-        # ให้น้ำหนักกับ momentum ล่าสุดมากที่สุด (เหมือน IBD RS Rating)
-        def _fetch_rs_return(sym):
+        def _run_precision_bg(uid, ckey, sym_list):
             try:
-                _df = yf.Ticker(f"{sym}.BK").history(start=scan_start_str, end=scan_end_str, interval="1d")
-                if _df is None or _df.empty:
-                    return sym, None
-                if isinstance(_df.columns, pd.MultiIndex):
-                    _df.columns = _df.columns.droplevel(1)
-                _close = _df['Close'].dropna()
-                n = len(_close)
-                if n >= 252:
-                    # Full Minervini 4-quarter weighted RS
-                    q1 = float((_close.iloc[-1]   - _close.iloc[-64])  / abs(_close.iloc[-64])  * 100)
-                    q2 = float((_close.iloc[-64]  - _close.iloc[-127]) / abs(_close.iloc[-127]) * 100)
-                    q3 = float((_close.iloc[-127] - _close.iloc[-190]) / abs(_close.iloc[-190]) * 100)
-                    q4 = float((_close.iloc[-190] - _close.iloc[-253]) / abs(_close.iloc[-253]) * 100)
-                    return sym, q1 * 0.4 + q2 * 0.2 + q3 * 0.2 + q4 * 0.2
-                elif n >= 66:
-                    # Fallback: 3m return
-                    return sym, float((_close.iloc[-1] - _close.iloc[-66]) / abs(_close.iloc[-66]) * 100)
-                return sym, None
-            except Exception:
-                return sym, None
+                import django
+                django.setup()
+                import pandas_ta as ta
+                from datetime import datetime as _dt, timedelta as _td, time as _dtime
+                import pytz as _pytz
+                import concurrent.futures
+                from django.contrib.auth import get_user_model
+                from django.core.cache import cache as _cache
+                from django.utils import timezone as tz
+                from yahooquery import Ticker as YQTicker
+                from .models import PrecisionScanCandidate
+                from .utils import analyze_momentum_technical_v2
 
-        rs_returns_all = {}
-        with concurrent.futures.ThreadPoolExecutor(max_workers=20) as _ex:
-            _futs = {_ex.submit(_fetch_rs_return, s): s for s in scan_symbols}
-            for _f in concurrent.futures.as_completed(_futs):
-                _sym, _ret = _f.result()
-                if _ret is not None:
-                    rs_returns_all[_sym] = _ret
+                User = get_user_model()
+                user = User.objects.get(pk=uid)
+                scan_run_time = tz.now()
 
-        rs_ratings_map = {}
-        if rs_returns_all:
-            _rs_ser = pd.Series(rs_returns_all)
-            rs_ratings_map = (_rs_ser.rank(pct=True) * 99).clip(0, 99).astype(int).to_dict()
+                # ====== Pin Scan Date ======
+                _bkk_tz = _pytz.timezone('Asia/Bangkok')
+                _now_bkk = _dt.now(_bkk_tz)
+                _t = _now_bkk.time()
+                _morning_session   = _dtime(10,  0) <= _t <= _dtime(12, 30)
+                _midday_break      = _dtime(12, 30) <  _t <  _dtime(14, 30)
+                _afternoon_session = _dtime(14, 30) <= _t <= _dtime(16, 30)
+                _pre_market        = _t < _dtime(10, 0)
+                _market_day = (
+                    _now_bkk.weekday() < 5 and
+                    (_pre_market or _morning_session or _midday_break or _afternoon_session)
+                )
+                scan_end_date = (
+                    (_now_bkk.date() - _td(days=1)) if _market_day else _now_bkk.date()
+                )
+                scan_end_str   = scan_end_date.strftime('%Y-%m-%d')
+                scan_start_str = (scan_end_date - _td(days=400)).strftime('%Y-%m-%d')
+                set_start_str  = (scan_end_date - _td(days=185)).strftime('%Y-%m-%d')
 
-        def _process_precision_scan(symbol):
+                # ดึง symbols รอบก่อนหน้า (is_new_entry)
+                prev_run = (
+                    PrecisionScanCandidate.objects
+                    .filter(user=user)
+                    .values_list('scan_run', flat=True)
+                    .order_by('-scan_run')
+                    .distinct()
+                    .first()
+                )
+                prev_symbols = set()
+                if prev_run:
+                    prev_symbols = set(
+                        PrecisionScanCandidate.objects
+                        .filter(user=user, scan_run=prev_run)
+                        .values_list('symbol', flat=True)
+                    )
+
+                # ====== SET Index ======
+                set_1m_return = 0.0
+                set_3m_return = 0.0
+                try:
+                    set_df = yf.download("^SET", start=set_start_str, end=scan_end_str, interval="1d", progress=False)
+                    if set_df is not None and not set_df.empty:
+                        if isinstance(set_df.columns, pd.MultiIndex):
+                            set_df.columns = set_df.columns.droplevel(1)
+                        set_close = set_df['Close'].dropna()
+                        if len(set_close) >= 66:
+                            set_1m_return = float((set_close.iloc[-1] - set_close.iloc[-22]) / set_close.iloc[-22] * 100)
+                            set_3m_return = float((set_close.iloc[-1] - set_close.iloc[-66]) / set_close.iloc[-66] * 100)
+                    import logging; logging.getLogger('stocks').info(f"[Precision] SET Index: 1m={set_1m_return:.2f}% 3m={set_3m_return:.2f}%")
+                except Exception as e:
+                    import logging; logging.getLogger('stocks').warning(f"[Precision] SET Index fetch failed: {e}")
+
+                # ====== Pre-compute RS Rating ======
+                _cache.set(ckey, {'state': 'running', 'progress': 0, 'total': len(sym_list), 'phase': 'คำนวณ RS Rating…'}, timeout=900)
+
+                def _fetch_rs_return(sym):
+                    try:
+                        _df = yf.Ticker(f"{sym}.BK").history(start=scan_start_str, end=scan_end_str, interval="1d")
+                        if _df is None or _df.empty:
+                            return sym, None
+                        if isinstance(_df.columns, pd.MultiIndex):
+                            _df.columns = _df.columns.droplevel(1)
+                        _close = _df['Close'].dropna()
+                        n = len(_close)
+                        if n >= 252:
+                            q1 = float((_close.iloc[-1]   - _close.iloc[-64])  / abs(_close.iloc[-64])  * 100)
+                            q2 = float((_close.iloc[-64]  - _close.iloc[-127]) / abs(_close.iloc[-127]) * 100)
+                            q3 = float((_close.iloc[-127] - _close.iloc[-190]) / abs(_close.iloc[-190]) * 100)
+                            q4 = float((_close.iloc[-190] - _close.iloc[-253]) / abs(_close.iloc[-253]) * 100)
+                            return sym, q1 * 0.4 + q2 * 0.2 + q3 * 0.2 + q4 * 0.2
+                        elif n >= 66:
+                            return sym, float((_close.iloc[-1] - _close.iloc[-66]) / abs(_close.iloc[-66]) * 100)
+                        return sym, None
+                    except Exception:
+                        return sym, None
+
+                rs_returns_all = {}
+                with concurrent.futures.ThreadPoolExecutor(max_workers=20) as _ex:
+                    _futs = {_ex.submit(_fetch_rs_return, s): s for s in sym_list}
+                    for _f in concurrent.futures.as_completed(_futs):
+                        _sym, _ret = _f.result()
+                        if _ret is not None:
+                            rs_returns_all[_sym] = _ret
+
+                rs_ratings_map = {}
+                if rs_returns_all:
+                    _rs_ser = pd.Series(rs_returns_all)
+                    rs_ratings_map = (_rs_ser.rank(pct=True) * 99).clip(0, 99).astype(int).to_dict()
+
+                _cache.set(ckey, {'state': 'running', 'progress': 0, 'total': len(sym_list), 'phase': 'สแกนหุ้น…'}, timeout=900)
+
+                def _process_precision_scan(symbol):
             try:
                 # ใช้ yf.Ticker().history() แทน yf.download() เพราะ yf.download() 
                 # มีบั๊ก Thread-safety กรองข้อมูลข้าม Symbol กันเมื่อรันใน ThreadPool 
@@ -2735,128 +2756,139 @@ def precision_momentum_scanner(request):
                 logging.getLogger('stocks').exception(f"[Precision] Error scanning {symbol}: {e}")
                 return None
 
-        # ====== 1. RS Rating Ranking (Percentile based on stocks in this scan) ======
-        results = []
-        with concurrent.futures.ThreadPoolExecutor(max_workers=20) as executor:
-            futures = [executor.submit(_process_precision_scan, sym) for sym in scan_symbols]
-            for future in concurrent.futures.as_completed(futures):
-                res = future.result()
-                if res:
-                    results.append(res)
+                # ====== Scan all symbols with progress tracking ======
+                results = []
+                done_count = 0
+                with concurrent.futures.ThreadPoolExecutor(max_workers=20) as executor:
+                    futures = [executor.submit(_process_precision_scan, sym) for sym in sym_list]
+                    for future in concurrent.futures.as_completed(futures):
+                        res = future.result()
+                        if res:
+                            results.append(res)
+                        done_count += 1
+                        _cache.set(ckey, {
+                            'state': 'running', 'progress': done_count,
+                            'total': len(sym_list), 'phase': 'สแกนหุ้น…'
+                        }, timeout=900)
 
-        if results:
-            scan_df = pd.DataFrame(results)
-            # rs_rating คำนวณจาก full universe ก่อนหน้านี้แล้ว (absolute RS — stable across scans)
-            if 'rs_rating' not in scan_df.columns:
-                scan_df['rs_rating'] = 0
+                if results:
+                    scan_df = pd.DataFrame(results)
+                    if 'rs_rating' not in scan_df.columns:
+                        scan_df['rs_rating'] = 0
 
-            # ====== 2. Bulk Fundamental Enrichment (Yahooquery) ======
-            # Fetch for all matched symbols in one go (Sector, EPS Growth, Rev Growth)
-            matched_symbols = [r['symbol'] for r in results]
-            symbols_bk = [f"{s}.BK" for s in matched_symbols]
-            
-            fund_data = {}
-            try:
-                yq_all = YQTicker(symbols_bk)
-                # เพิ่ม summaryProfile เพื่อดึง sector (ไม่ใช่ summaryDetail)
-                modules = yq_all.get_modules('financialData summaryProfile')
+                    _cache.set(ckey, {'state': 'running', 'progress': done_count, 'total': len(sym_list), 'phase': 'ดึงข้อมูล Fundamental…'}, timeout=900)
 
-                for sym_bk, data in modules.items():
-                    if not isinstance(data, dict):
-                        continue
-                    clean_sym = sym_bk.replace('.BK', '')
-                    profile   = data.get('summaryProfile', {})
-                    fin_data  = data.get('financialData', {})
+                    # ====== Bulk Fundamental Enrichment ======
+                    matched_symbols = [r['symbol'] for r in results]
+                    symbols_bk = [f"{s}.BK" for s in matched_symbols]
+                    fund_data = {}
+                    try:
+                        yq_all = YQTicker(symbols_bk)
+                        modules = yq_all.get_modules('financialData summaryProfile')
+                        for sym_bk, data in modules.items():
+                            if not isinstance(data, dict):
+                                continue
+                            clean_sym = sym_bk.replace('.BK', '')
+                            profile  = data.get('summaryProfile', {})
+                            fin_data = data.get('financialData', {})
+                            sector   = (
+                                profile.get('sector')
+                                or data.get('assetProfile', {}).get('sector')
+                                or 'Unknown'
+                            )
+                            eps_growth = float(fin_data.get('earningsQuarterlyGrowth', 0) or 0) * 100
+                            rev_growth = float(fin_data.get('revenueGrowth', 0) or 0) * 100
+                            fund_data[clean_sym] = {'sector': sector, 'eps_growth': eps_growth, 'rev_growth': rev_growth}
+                    except Exception as e:
+                        print(f"[Precision] Bulk Fundamental fetch failed: {e}")
 
-                    # Sector fallback chain: summaryProfile → assetProfile → 'Unknown'
-                    sector = (
-                        profile.get('sector')
-                        or data.get('assetProfile', {}).get('sector')
-                        or 'Unknown'
-                    )
+                    # ====== Bulk Create ======
+                    bulk_candidates = []
+                    for r in scan_df.to_dict('records'):
+                        sym = r['symbol']
+                        f = fund_data.get(sym, {'sector': 'N/A', 'eps_growth': 0.0, 'rev_growth': 0.0})
+                        bulk_candidates.append(PrecisionScanCandidate(
+                            user=user,
+                            scan_run=scan_run_time,
+                            symbol=sym,
+                            symbol_bk=f"{sym}.BK",
+                            sector=f.get('sector') or 'Unknown',
+                            price=r['price'],
+                            rsi=r['rsi'],
+                            adx=r['adx'],
+                            mfi=r['mfi'],
+                            rvol=r['rvol'],
+                            eps_growth=round(f.get('eps_growth', 0), 2),
+                            rev_growth=round(f.get('rev_growth', 0), 2),
+                            technical_score=r['technical_score'],
+                            rs_rating=r['rs_rating'],
+                            avg_volume_20d=r['avg_volume_20d'],
+                            rvol_bullish=r['rvol_bullish'],
+                            erc_volume_confirmed=r['erc_volume_confirmed'],
+                            zone_target_source=r['zone_target_src'],
+                            is_new_entry=(sym not in prev_symbols),
+                            entry_strategy=r['entry_strat'],
+                            demand_zone_start=r['dz_start'],
+                            demand_zone_end=r['dz_end'],
+                            supply_zone_start=r['sz_start'],
+                            supply_zone_end=r['sz_end'],
+                            stop_loss=r['sl_price'],
+                            risk_reward_ratio=r['rr_val'],
+                            year_high=r['year_high'],
+                            upside_to_high=r['upside_to_high'],
+                            zone_proximity=r['prox_val'],
+                            price_pattern=r['pattern_name'],
+                            price_pattern_score=r['pattern_score'],
+                            rel_momentum_1m=r['rel_1m'],
+                            rel_momentum_3m=r['rel_3m'],
+                            macd_histogram=r['macd_histogram'],
+                            macd_crossover=r['macd_crossover'],
+                            bb_squeeze=r['bb_squeeze'],
+                            ema20_aligned=r['ema20_aligned'],
+                            ema20_slope=r.get('ema20_slope', 0.0),
+                            ema20_rising=r.get('ema20_rising', False),
+                            hh_hl_structure=r.get('hh_hl_structure', False),
+                            stage2=r.get('stage2', False),
+                            pocket_pivot=r.get('pocket_pivot', False),
+                            vdu_near_zone=r.get('vdu_near_zone', False),
+                            cmf=r.get('cmf', None),
+                            is_52w_breakout=r.get('is_52w_breakout', False),
+                            volume_surge=r.get('volume_surge', 1.0),
+                            is_volume_surge=r.get('is_volume_surge', False),
+                        ))
 
-                    eps_growth = float(fin_data.get('earningsQuarterlyGrowth', 0) or 0) * 100
-                    rev_growth = float(fin_data.get('revenueGrowth', 0) or 0) * 100
+                    if bulk_candidates:
+                        PrecisionScanCandidate.objects.bulk_create(bulk_candidates)
 
-                    fund_data[clean_sym] = {
-                        'sector': sector,
-                        'eps_growth': eps_growth,
-                        'rev_growth': rev_growth,
-                    }
-            except Exception as e:
-                print(f"[Precision] Bulk Fundamental fetch failed: {e}")
+                # เก็บ 3 รอบล่าสุด
+                distinct_runs = (
+                    PrecisionScanCandidate.objects
+                    .filter(user=user)
+                    .values_list('scan_run', flat=True)
+                    .order_by('-scan_run')
+                    .distinct()
+                )
+                runs_list = list(distinct_runs)
+                if len(runs_list) > 3:
+                    old_runs = runs_list[3:]
+                    PrecisionScanCandidate.objects.filter(user=user, scan_run__in=old_runs).delete()
 
-            # ====== 3. Final Model Mapping & Bulk Create ======
-            bulk_candidates = []
-            for r in scan_df.to_dict('records'):
-                sym = r['symbol']
-                f = fund_data.get(sym, {'sector': 'N/A', 'eps_growth': 0.0, 'rev_growth': 0.0})
-                
-                bulk_candidates.append(PrecisionScanCandidate(
-                    user=request.user,
-                    scan_run=scan_run_time,
-                    symbol=sym,
-                    symbol_bk=f"{sym}.BK",
-                    sector=f.get('sector') or 'Unknown',
-                    price=r['price'],
-                    rsi=r['rsi'],
-                    adx=r['adx'],
-                    mfi=r['mfi'],
-                    rvol=r['rvol'],
-                    eps_growth=round(f.get('eps_growth', 0), 2),
-                    rev_growth=round(f.get('rev_growth', 0), 2),
-                    technical_score=r['technical_score'],
-                    rs_rating=r['rs_rating'],
-                    avg_volume_20d=r['avg_volume_20d'],
-                    rvol_bullish=r['rvol_bullish'],
-                    erc_volume_confirmed=r['erc_volume_confirmed'],
-                    zone_target_source=r['zone_target_src'],
-                    is_new_entry=(sym not in prev_symbols),
-                    entry_strategy=r['entry_strat'],
-                    demand_zone_start=r['dz_start'],
-                    demand_zone_end=r['dz_end'],
-                    supply_zone_start=r['sz_start'],
-                    supply_zone_end=r['sz_end'],
-                    stop_loss=r['sl_price'],
-                    risk_reward_ratio=r['rr_val'],
-                    year_high=r['year_high'],
-                    upside_to_high=r['upside_to_high'],
-                    zone_proximity=r['prox_val'],
-                    price_pattern=r['pattern_name'],
-                    price_pattern_score=r['pattern_score'],
-                    rel_momentum_1m=r['rel_1m'],
-                    rel_momentum_3m=r['rel_3m'],
-                    macd_histogram=r['macd_histogram'],
-                    macd_crossover=r['macd_crossover'],
-                    bb_squeeze=r['bb_squeeze'],
-                    ema20_aligned=r['ema20_aligned'],
-                    ema20_slope=r.get('ema20_slope', 0.0),
-                    ema20_rising=r.get('ema20_rising', False),
-                    hh_hl_structure=r.get('hh_hl_structure', False),
-                    stage2=r.get('stage2', False),
-                    pocket_pivot=r.get('pocket_pivot', False),
-                    vdu_near_zone=r.get('vdu_near_zone', False),
-                    cmf=r.get('cmf', None),
-                    is_52w_breakout=r.get('is_52w_breakout', False),
-                    volume_surge=r.get('volume_surge', 1.0),
-                    is_volume_surge=r.get('is_volume_surge', False),
-                ))
+                _cache.set(ckey, {'state': 'done', 'count': len(results)}, timeout=300)
 
-            if bulk_candidates:
-                PrecisionScanCandidate.objects.bulk_create(bulk_candidates)
+            except Exception as _bg_err:
+                import logging
+                logging.getLogger('stocks').exception(f"[PrecisionBG] Error: {_bg_err}")
+                from django.core.cache import cache as _ec
+                _ec.set(ckey, {'state': 'idle'}, timeout=60)
 
-        # เก็บไว้เพียง 3 รอบสแกนล่าสุด — ลบรอบเก่าออก
-        distinct_runs = (
-            PrecisionScanCandidate.objects
-            .filter(user=request.user)
-            .values_list('scan_run', flat=True)
-            .order_by('-scan_run')
-            .distinct()
+        # เปิด background thread แล้ว return ทันที
+        _t = threading.Thread(
+            target=_run_precision_bg,
+            args=(user_id, cache_key, scan_symbols),
+            daemon=True
         )
-        runs_list = list(distinct_runs)
-        if len(runs_list) > 3:
-            old_runs = runs_list[3:]
-            PrecisionScanCandidate.objects.filter(user=request.user, scan_run__in=old_runs).delete()
+        _t.start()
+        return redirect('stocks:precision_momentum_scanner')
 
     # ====== จัดเรียงผลลัพธ์ ======
     sort_by = request.GET.get('sort', 'score')

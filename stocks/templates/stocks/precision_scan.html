@@ -6,6 +6,24 @@
 {% block container_class %}container-fluid px-2 px-md-3{% endblock %}
 
 {% block content %}
+
+<!-- Loading Overlay -->
+<div class="loading-overlay" id="precisionLoadingOverlay" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.82);z-index:9999;flex-direction:column;align-items:center;justify-content:center;gap:1rem;">
+    <div class="spin-ring"></div>
+    <div class="text-white fw-semibold fs-5" id="precisionOverlayTitle">กำลังสแกนหุ้น…</div>
+    <div class="text-white-50 small" id="precisionOverlaySubtitle">ระบบทำงานในพื้นหลัง — หน้านี้จะรีเฟรชอัตโนมัติเมื่อเสร็จ</div>
+    <div id="precisionOverlayPhase" class="text-white-50 small" style="font-style:italic;"></div>
+    <div id="precisionOverlayProgress" style="display:none;width:320px;">
+        <div class="d-flex justify-content-between text-white-50 mb-1" style="font-size:.8rem;">
+            <span>ความคืบหน้า</span>
+            <span id="precisionProgressText">0 / 0</span>
+        </div>
+        <div style="height:8px;border-radius:4px;background:rgba(255,255,255,.15);">
+            <div id="precisionProgressBar" style="height:100%;border-radius:4px;background:#7c3aed;width:0%;transition:width .4s;"></div>
+        </div>
+    </div>
+</div>
+
 <div>
 <div class="row align-items-end mb-4">
     <div class="col-md-7">
@@ -19,10 +37,21 @@
         <a href="{% url 'stocks:momentum_scanner' %}" class="btn btn-outline-secondary d-inline-flex align-items-center gap-2">
             <i class="fas fa-rocket"></i> ไปหน้า Momentum Scan เดิม
         </a>
-        <a href="?scan=true" onclick="showLoading()" class="btn btn-premium d-inline-flex align-items-center gap-2"
-           style="background: linear-gradient(135deg, #7c3aed, #4f46e5);">
-            <i class="fas fa-crosshairs"></i> Precision Scan (SET100+MAI)
-        </a>
+        <form method="post" id="precisionScanForm" style="display:inline;">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="scan">
+            {% if has_scanned %}
+            <button type="button" onclick="confirmRescanPrecision()" class="btn btn-premium d-inline-flex align-items-center gap-2"
+                    style="background: linear-gradient(135deg, #7c3aed, #4f46e5);">
+                <i class="fas fa-crosshairs"></i> Precision Scan ใหม่
+            </button>
+            {% else %}
+            <button type="submit" class="btn btn-premium d-inline-flex align-items-center gap-2"
+                    style="background: linear-gradient(135deg, #7c3aed, #4f46e5);">
+                <i class="fas fa-crosshairs"></i> Precision Scan (SET100+MAI)
+            </button>
+            {% endif %}
+        </form>
         {% if has_scanned and ai_scan_json %}
         <button id="btn-ai-analyze" class="btn d-inline-flex align-items-center gap-2"
                 style="background:linear-gradient(135deg,#0891b2,#0e7490);color:white;border:none;">
@@ -1495,6 +1524,57 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     while (sel.options.length > 0) sel.remove(0);
     keep.forEach(function(o) { sel.add(o); });
+});
+
+// ── Background scan polling ───────────────────────────────────────────
+let _precisionPollTimer = null;
+let _precisionSawRunning = false;
+
+function _showPrecisionProgress(progress, total, phase) {
+    const ov = document.getElementById('precisionLoadingOverlay');
+    ov.style.display = 'flex';
+    document.getElementById('precisionOverlayProgress').style.display = 'block';
+    document.getElementById('precisionOverlayPhase').textContent = phase || '';
+    const pct = total > 0 ? Math.round(progress / total * 100) : 0;
+    document.getElementById('precisionProgressBar').style.width = pct + '%';
+    document.getElementById('precisionProgressText').textContent = progress + ' / ' + total;
+}
+
+function _hidePrecisionOverlay() {
+    document.getElementById('precisionLoadingOverlay').style.display = 'none';
+}
+
+function pollPrecisionStatus() {
+    fetch('?scan_status=1', {headers: {'X-Requested-With': 'XMLHttpRequest'}})
+        .then(r => r.json())
+        .then(data => {
+            if (data.state === 'running') {
+                _precisionSawRunning = true;
+                _showPrecisionProgress(data.progress || 0, data.total || 0, data.phase || '');
+                _precisionPollTimer = setTimeout(pollPrecisionStatus, 2000);
+            } else if (data.state === 'done') {
+                _hidePrecisionOverlay();
+                if (_precisionSawRunning) {
+                    _precisionSawRunning = false;
+                    window.location.reload();
+                }
+            } else {
+                _hidePrecisionOverlay();
+            }
+        })
+        .catch(() => {
+            _precisionPollTimer = setTimeout(pollPrecisionStatus, 5000);
+        });
+}
+
+function confirmRescanPrecision() {
+    if (confirm('⚠️ สแกนใหม่จะลบผลเก่าทั้งหมด\nต้องการดำเนินการต่อหรือไม่?')) {
+        document.getElementById('precisionScanForm').submit();
+    }
+}
+
+document.addEventListener('DOMContentLoaded', function () {
+    pollPrecisionStatus();
 });
 
 // Export visible table rows to CSV
