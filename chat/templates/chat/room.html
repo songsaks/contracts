@@ -2016,8 +2016,8 @@
     {% if is_technician %}
     let watchId = null;
     let lastSentTime = 0;
-    const TRACK_INTERVAL_MS = 20 * 60 * 1000; // ส่งทุก 20 นาที (throttle)
-    const TRACK_MIN_DISTANCE_M = 5000;        // หรือถ้าขยับ >= 5 กิโลเมตร
+    const TRACK_INTERVAL_MS = 5 * 60 * 1000;  // เปลี่ยนเป็น 5 นาที (เดิม 20 นาที)
+    const TRACK_MIN_DISTANCE_M = 500;         // เปลี่ยนเป็น 500 เมตร (เดิม 5 กิโลเมตร)
     let lastLat = null, lastLon = null;
 
     function calcDistance(lat1, lon1, lat2, lon2) {
@@ -2043,9 +2043,14 @@
             groupBtn.classList.add('inactive');
             groupBtn.title = 'GPS Check-in / Auto-Track';
             localStorage.setItem('autoTrack_room_{{ room.id }}', 'off');
+            _releaseWakeLock(); // คืน Wake Lock เมื่อหยุด
         } else {
             // เริ่ม tracking
             if (!navigator.geolocation) { alert('เบราว์เซอร์ไม่รองรับ GPS'); return; }
+            
+            // ขอ Wake Lock เพื่อพยายามให้เครื่องไม่ Sleep (Best effort)
+            _requestWakeLock();
+            
             watchId = navigator.geolocation.watchPosition(
                 (pos) => {
                     const lat = pos.coords.latitude;
@@ -2053,7 +2058,7 @@
                     const now = Date.now();
                     const dist = (lastLat !== null) ? calcDistance(lastLat, lastLon, lat, lon) : Infinity;
 
-                    // ส่งเมื่อเคลื่อนที่ >= 50m หรือผ่านไป 5 นาที
+                    // ส่งเมื่อเคลื่อนที่ >= 500m หรือผ่านไป 5 นาที
                     if (dist >= TRACK_MIN_DISTANCE_M || (now - lastSentTime) >= TRACK_INTERVAL_MS) {
                         chatSocket.send(JSON.stringify({
                             'message': '🛰️ Auto-Track — กำลังเดินทาง',
@@ -2062,25 +2067,34 @@
                             'longitude': lon,
                             'location_name': 'Auto-Track',
                             'gps_check_type': 'TRAVEL',
-                            'gps_notes': `ความแม่นยำ: ${Math.round(pos.coords.accuracy)}m`,
+                            'gps_notes': `ความแม่นยำ: ${Math.round(pos.coords.accuracy)}m | แบตเตอรี่: ${Math.round((pos.coords.altitude || 0))}m alt`,
                         }));
                         lastLat = lat; lastLon = lon;
                         lastSentTime = now;
                     }
                 },
                 (err) => {
-                    alert('❌ Auto-Track หยุดทำงาน: ' + (err.code === 1 ? 'ไม่อนุญาต GPS' : 'ไม่พบสัญญาณ'));
-                    toggleAutoTrack(); // reset button
+                    console.error('Auto-Track Error:', err);
+                    if (err.code === 1) {
+                        alert('❌ Auto-Track หยุดทำงาน: กรุณาอนุญาตให้เข้าถึงตำแหน่งที่ตั้ง (Always Allow)');
+                        toggleAutoTrack();
+                    }
                 },
-                { enableHighAccuracy: true, maximumAge: 15000, timeout: 20000 }
+                { enableHighAccuracy: true, maximumAge: 10000, timeout: 25000 }
             );
             btn.classList.add('tracking-active');
             btn.innerHTML = '<i class="fas fa-satellite-dish" style="color:#16a34a;"></i> 🟢 กำลังติดตาม (หยุด)';
             // GPS group button แสดงสถานะ tracking (สีเขียว)
             groupBtn.classList.remove('inactive');
             groupBtn.classList.add('tracking');
-            groupBtn.title = '🟢 Auto-Track กำลังทำงาน (คลิกเปิดเมนู)';
+            groupBtn.title = '🟢 Auto-Track กำลังทำงาน (หน้าจอจะเปิดค้างไว้)';
             localStorage.setItem('autoTrack_room_{{ room.id }}', 'on');
+            
+            // แจ้งเตือนผู้ใช้ครั้งเดียว
+            if (!localStorage.getItem('gps_alert_shown')) {
+                showCopyToast('💡 เพื่อให้ GPS ทำงานต่อเนื่องบนมือถือ กรุณาอย่าปิดหน้านี้หรือล็อคหน้าจอครับ');
+                localStorage.setItem('gps_alert_shown', 'true');
+            }
         }
     }
 
@@ -2105,8 +2119,17 @@
 
     // Re-acquire wake lock เมื่อหน้าจอกลับมา (visibility change)
     document.addEventListener('visibilitychange', () => {
-        if (forceTrackActive && document.visibilityState === 'visible') {
-            _requestWakeLock();
+        if (document.visibilityState === 'visible') {
+            // Re-acquire wake lock if any tracking is ON
+            if (watchId !== null) {
+                _requestWakeLock();
+            }
+            
+            // ตรวจสอบว่า WatchPosition ยังทำงานอยู่ไหม (Best effort)
+            if (localStorage.getItem('autoTrack_room_{{ room.id }}') === 'on' && watchId === null) {
+                console.log('Auto-Track seems to have died in background, restarting...');
+                toggleAutoTrack();
+            }
         }
     });
 
