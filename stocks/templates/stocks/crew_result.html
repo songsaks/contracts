@@ -1,20 +1,114 @@
 {% extends 'stocks/base_stocks.html' %}
 
 {% block content %}
+
+{% if loading %}
+<!-- ══════════════════════════════════════════════
+     LOADING STATE — background thread in progress
+══════════════════════════════════════════════ -->
+<div style="
+    position:fixed;inset:0;background:rgba(15,23,42,0.92);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    z-index:9999;gap:1.5rem;">
+
+    <!-- Spinner -->
+    <div style="
+        width:72px;height:72px;border-radius:50%;
+        border:6px solid rgba(124,58,237,0.2);
+        border-top-color:#7c3aed;
+        animation:crewSpin 1s linear infinite;">
+    </div>
+
+    <!-- Agent icons -->
+    <div style="display:flex;gap:1.5rem;">
+        <div style="text-align:center;">
+            <div style="width:44px;height:44px;background:#2563eb;border-radius:50%;
+                        display:flex;align-items:center;justify-content:center;margin:0 auto 4px;">
+                <i class="fas fa-chart-line" style="color:white;font-size:18px;"></i>
+            </div>
+            <small style="color:#94a3b8;font-size:0.65rem;">Technical</small>
+        </div>
+        <div style="text-align:center;">
+            <div style="width:44px;height:44px;background:#0891b2;border-radius:50%;
+                        display:flex;align-items:center;justify-content:center;margin:0 auto 4px;">
+                <i class="fas fa-search" style="color:white;font-size:18px;"></i>
+            </div>
+            <small style="color:#94a3b8;font-size:0.65rem;">Researcher</small>
+        </div>
+        <div style="text-align:center;">
+            <div style="width:44px;height:44px;background:#dc2626;border-radius:50%;
+                        display:flex;align-items:center;justify-content:center;margin:0 auto 4px;">
+                <i class="fas fa-shield-alt" style="color:white;font-size:18px;"></i>
+            </div>
+            <small style="color:#94a3b8;font-size:0.65rem;">Risk Mgr</small>
+        </div>
+    </div>
+
+    <div style="text-align:center;">
+        <div style="color:white;font-size:1.3rem;font-weight:700;margin-bottom:6px;">
+            <i class="fas fa-robot" style="color:#7c3aed;margin-right:8px;"></i>
+            Multi-Agent กำลังวิเคราะห์ <span style="color:#a78bfa;">{{ symbol }}</span>
+        </div>
+        <div id="crewPhase" style="color:#94a3b8;font-size:0.9rem;">เริ่มต้น Multi-Agent…</div>
+        <div style="color:#64748b;font-size:0.78rem;margin-top:8px;">
+            Agent 3 ตัวกำลังทำงานพร้อมกัน — ใช้เวลา 30-90 วินาที
+        </div>
+    </div>
+</div>
+
+<style>
+@keyframes crewSpin { to { transform: rotate(360deg); } }
+</style>
+
+<script>
+(function() {
+    var pollUrl = window.location.pathname + '?crew_status=1';
+    var timer;
+
+    function poll() {
+        fetch(pollUrl, { credentials: 'same-origin' })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (data.state === 'running') {
+                    var ph = document.getElementById('crewPhase');
+                    if (ph && data.phase) ph.textContent = data.phase;
+                    timer = setTimeout(poll, 3000);
+                } else if (data.state === 'done') {
+                    window.location.reload();
+                } else {
+                    timer = setTimeout(poll, 3000);
+                }
+            })
+            .catch(function() { timer = setTimeout(poll, 5000); });
+    }
+
+    document.addEventListener('DOMContentLoaded', function() { poll(); });
+})();
+</script>
+
+{% else %}
+<!-- ══════════════════════════════════════════════
+     RESULT STATE
+══════════════════════════════════════════════ -->
 <div class="row">
     <div class="col-12">
         <nav aria-label="breadcrumb" class="mb-4">
             <ol class="breadcrumb">
-                <li class="breadcrumb-item"><a href="{% url 'stocks:dashboard' %}" class="text-primary text-decoration-none fw-600">Dashboard</a></li>
-                <li class="breadcrumb-item"><a href="{% url 'stocks:analyze' symbol %}" class="text-primary text-decoration-none fw-600">{{ symbol }} Analysis</a></li>
+                <li class="breadcrumb-item">
+                    <a href="{% url 'stocks:dashboard' %}" class="text-primary text-decoration-none fw-600">Dashboard</a>
+                </li>
+                <li class="breadcrumb-item">
+                    <a href="{% url 'stocks:analyze' symbol %}" class="text-primary text-decoration-none fw-600">{{ symbol }} Analysis</a>
+                </li>
                 <li class="breadcrumb-item active text-muted">CrewAI Deep Dive</li>
             </ol>
         </nav>
     </div>
 
-    <!-- Agent Team Header -->
+    <!-- Header -->
     <div class="col-12 mb-4">
-        <div class="card-premium p-4 border-0 mb-3 bg-gradient-dark text-white">
+        <div class="card-premium p-4 border-0 mb-3 text-white"
+             style="background:linear-gradient(135deg,#1e293b 0%,#0f172a 100%);">
             <div class="row align-items-center">
                 <div class="col-md-8">
                     <div class="d-flex align-items-center gap-3 mb-2">
@@ -28,22 +122,25 @@
                 <div class="col-md-4 text-md-end mt-3 mt-md-0">
                     <div class="d-flex justify-content-md-end gap-3">
                         <div class="text-center">
-                            <div class="avatar-sm bg-primary rounded-circle mb-1 mx-auto d-flex align-items-center justify-content-center">
-                                <i class="fas fa-chart-line text-white"></i>
+                            <div style="width:32px;height:32px;background:#2563eb;border-radius:50%;
+                                        display:flex;align-items:center;justify-content:center;margin:0 auto 4px;">
+                                <i class="fas fa-chart-line text-white" style="font-size:13px;"></i>
                             </div>
-                            <small class="d-block opacity-75" style="font-size: 0.6rem;">Technical</small>
+                            <small class="d-block opacity-75" style="font-size:0.6rem;">Technical</small>
                         </div>
                         <div class="text-center">
-                            <div class="avatar-sm bg-info rounded-circle mb-1 mx-auto d-flex align-items-center justify-content-center">
-                                <i class="fas fa-search text-white"></i>
+                            <div style="width:32px;height:32px;background:#0891b2;border-radius:50%;
+                                        display:flex;align-items:center;justify-content:center;margin:0 auto 4px;">
+                                <i class="fas fa-search text-white" style="font-size:13px;"></i>
                             </div>
-                            <small class="d-block opacity-75" style="font-size: 0.6rem;">Researcher</small>
+                            <small class="d-block opacity-75" style="font-size:0.6rem;">Researcher</small>
                         </div>
                         <div class="text-center">
-                            <div class="avatar-sm bg-danger rounded-circle mb-1 mx-auto d-flex align-items-center justify-content-center">
-                                <i class="fas fa-shield-alt text-white"></i>
+                            <div style="width:32px;height:32px;background:#dc2626;border-radius:50%;
+                                        display:flex;align-items:center;justify-content:center;margin:0 auto 4px;">
+                                <i class="fas fa-shield-alt text-white" style="font-size:13px;"></i>
                             </div>
-                            <small class="d-block opacity-75" style="font-size: 0.6rem;">Risk Mgr</small>
+                            <small class="d-block opacity-75" style="font-size:0.6rem;">Risk Mgr</small>
                         </div>
                     </div>
                 </div>
@@ -51,31 +148,36 @@
         </div>
     </div>
 
-    <!-- The Report -->
+    <!-- Report -->
     <div class="col-12">
         <div class="card-premium p-4 border-0 mb-4 bg-white shadow-sm">
             <div class="d-flex align-items-center justify-content-between mb-4 pb-2 border-bottom">
                 <h4 class="fw-bold mb-0">
                     <i class="fas fa-file-contract text-primary me-2"></i> Agentic Momentum Report
                 </h4>
-                <a href="{% url 'stocks:analyze' symbol %}" class="btn btn-sm btn-outline-secondary rounded-pill px-3">
-                    <i class="fas fa-arrow-left me-1"></i> Back to Analysis
-                </a>
-            </div>
-            
-            <div class="report-content">
-                <textarea id="raw-markdown" style="display: none;">{{ crew_result }}</textarea>
-                <div id="markdown-content">
-                    <!-- Markdown will be rendered here -->
+                <div class="d-flex gap-2">
+                    <a href="{% url 'stocks:crew_analyze' symbol %}"
+                       class="btn btn-sm btn-outline-primary rounded-pill px-3">
+                        <i class="fas fa-sync me-1"></i> Re-analyze
+                    </a>
+                    <a href="{% url 'stocks:analyze' symbol %}"
+                       class="btn btn-sm btn-outline-secondary rounded-pill px-3">
+                        <i class="fas fa-arrow-left me-1"></i> Back
+                    </a>
                 </div>
             </div>
-            
+
+            <div class="report-content">
+                <textarea id="raw-markdown" style="display:none;">{{ crew_result }}</textarea>
+                <div id="markdown-content"></div>
+            </div>
+
             <div class="mt-5 p-3 rounded-3 bg-light border-start border-4 border-warning">
                 <small class="text-muted">
-                    <i class="fas fa-exclamation-triangle me-1"></i> 
-                    <strong>Note:</strong> This analysis was generated by a team of autonomous AI agents (CrewAI). 
-                    The findings include technical data retrieval and sentiment reasoning. 
-                    Always verify against your own financial goals.
+                    <i class="fas fa-exclamation-triangle me-1"></i>
+                    <strong>หมายเหตุ:</strong> รายงานนี้สร้างโดย AI Multi-Agent (CrewAI + Gemini)
+                    อิงจากข้อมูลตลาดจริงและข่าวล่าสุด
+                    ใช้เป็นข้อมูลประกอบการตัดสินใจเท่านั้น — ไม่ใช่คำแนะนำการลงทุน
                 </small>
             </div>
         </div>
@@ -83,52 +185,27 @@
 </div>
 
 <style>
-    .bg-gradient-dark {
-        background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
-    }
-    .avatar-sm {
-        width: 32px;
-        height: 32px;
-        font-size: 14px;
-    }
-    .report-content {
-        line-height: 1.8;
-        font-size: 1.05rem;
-    }
-    .report-content h1, .report-content h2, .report-content h3, .report-content h4 {
-        color: #1e293b;
-        margin-top: 1.8rem;
-        margin-bottom: 1.2rem;
-        font-weight: 700;
-        border-bottom: 1px solid #f1f5f9;
-        padding-bottom: 0.5rem;
-    }
-    .report-content p {
-        margin-bottom: 1.25rem;
-    }
-    .report-content ul, .report-content ol {
-        margin-bottom: 1.5rem;
-        padding-left: 1.5rem;
-    }
-    .report-content li {
-        margin-bottom: 0.7rem;
-    }
-    .report-content strong {
-        color: #0f172a;
-    }
-    .report-content hr {
-        margin: 2rem 0;
-        opacity: 0.1;
-    }
+.report-content { line-height:1.8; font-size:1.05rem; }
+.report-content h1,.report-content h2,.report-content h3,.report-content h4 {
+    color:#1e293b; margin-top:1.8rem; margin-bottom:1.2rem;
+    font-weight:700; border-bottom:1px solid #f1f5f9; padding-bottom:0.5rem;
+}
+.report-content p  { margin-bottom:1.25rem; }
+.report-content ul,.report-content ol { margin-bottom:1.5rem; padding-left:1.5rem; }
+.report-content li { margin-bottom:0.7rem; }
+.report-content strong { color:#0f172a; }
+.report-content hr { margin:2rem 0; opacity:0.1; }
 </style>
 
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        const rawContent = document.getElementById('raw-markdown').value;
-        if (rawContent) {
-            document.getElementById('markdown-content').innerHTML = marked.parse(rawContent);
-        }
-    });
+document.addEventListener('DOMContentLoaded', function() {
+    var raw = document.getElementById('raw-markdown').value;
+    if (raw) {
+        document.getElementById('markdown-content').innerHTML = marked.parse(raw);
+    }
+});
 </script>
+{% endif %}
+
 {% endblock %}

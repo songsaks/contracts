@@ -496,26 +496,66 @@ def analyze(request, symbol):
 @login_required
 def crew_analyze(request, symbol):
     """
-    หน้าแสดงผลการวิเคราะห์เจาะลึกด้วย CrewAI Multi-Agent System.
-    ใช้เวลาในการประมวลผลนานกว่าปกติเพราะ Agent มีการโต้ตอบกัน.
+    CrewAI Multi-Agent Deep Analysis — runs in background thread,
+    progress polled via AJAX so the browser never times out.
     """
-    try:
-        crew = MomentumCrew(symbol)
-        result = crew.run_analysis()
-        
-        # ดึงข้อมูลเบื้องต้นเพื่อใช้ในหัวข่าว
+    import threading as _th
+    from django.core.cache import cache as _cp
+    from django.http import JsonResponse as _JR
+
+    user_id   = request.user.id
+    cache_key = f'crew_analysis_{user_id}_{symbol}'
+
+    # ── AJAX status poll ─────────────────────────────────────────────
+    if request.GET.get('crew_status') == '1':
+        st = _cp.get(cache_key, {'state': 'idle'})
+        # Don't delete on done — page reload will consume & delete it
+        return _JR(st)
+
+    # ── Result ready (page reload after done) ────────────────────────
+    cached = _cp.get(cache_key)
+    if cached and cached.get('state') == 'done':
+        result = cached.get('result', '')
+        _cp.delete(cache_key)
         data = get_stock_data(symbol)
-        
-        context = {
-            'symbol': symbol,
+        return render(request, 'stocks/crew_result.html', {
+            'symbol':      symbol,
             'crew_result': result,
-            'info': data.get('info', {}),
-            'title': f'CrewAI Deep Analysis: {symbol}'
-        }
-        return render(request, 'stocks/crew_result.html', context)
-    except Exception as e:
-        messages.error(request, f"CrewAI Analysis Error: {str(e)}")
-        return redirect('stocks:analyze', symbol=symbol)
+            'info':        data.get('info', {}),
+            'title':       f'CrewAI Deep Analysis: {symbol}',
+            'loading':     False,
+        })
+
+    # ── Background worker ────────────────────────────────────────────
+    def _run_crew_bg(ckey, sym):
+        try:
+            from django.core.cache import cache as _c
+            from .crew_analysis import MomentumCrew as _MC
+            _c.set(ckey, {'state': 'running', 'phase': 'Technical Analysis…'}, timeout=600)
+            mc     = _MC(sym)
+            result = mc.run_analysis()
+            _c.set(ckey, {'state': 'done', 'result': result}, timeout=600)
+        except Exception as exc:
+            from django.core.cache import cache as _c
+            _c.set(ckey, {'state': 'done', 'result': f'Error: {exc}'}, timeout=600)
+
+    # Start only if not already running
+    if not cached or cached.get('state') == 'idle':
+        _cp.set(cache_key, {'state': 'running', 'phase': 'เริ่มต้น Multi-Agent…'}, timeout=600)
+        _th.Thread(target=_run_crew_bg, args=(cache_key, symbol), daemon=True).start()
+
+    # ── Show loading page ────────────────────────────────────────────
+    try:
+        info = get_stock_data(symbol).get('info', {})
+    except Exception:
+        info = {}
+
+    return render(request, 'stocks/crew_result.html', {
+        'symbol':  symbol,
+        'info':    info,
+        'title':   f'CrewAI Deep Analysis: {symbol}',
+        'loading': True,
+    })
 
 # ====== Watchlist Management — เพิ่ม/ลบ รายการ Watchlist ======
 
@@ -5407,26 +5447,3 @@ def us_value_scanner(request):
         ).delete()
 
     return redirect(f'/stocks/value/us-value/?sort={current_sort}&run_idx=0')
-@login_required
-def crew_analyze(request, symbol):
-    """
-    หน้าแสดงผลการวิเคราะห์เจาะลึกด้วย CrewAI Multi-Agent System.
-    ใช้เวลาในการประมวลผลนานกว่าปกติเพราะ Agent มีการโต้ตอบกัน.
-    """
-    try:
-        crew = MomentumCrew(symbol)
-        result = crew.run_analysis()
-        
-        # ดึงข้อมูลเบื้องต้นเพื่อใช้ในหัวข่าว
-        data = get_stock_data(symbol)
-        
-        context = {
-            'symbol': symbol,
-            'crew_result': result,
-            'info': data.get('info', {}),
-            'title': f'CrewAI Deep Analysis: {symbol}'
-        }
-        return render(request, 'stocks/crew_result.html', context)
-    except Exception as e:
-        messages.error(request, f"CrewAI Analysis Error: {str(e)}")
-        return redirect('stocks:analyze', symbol=symbol)
