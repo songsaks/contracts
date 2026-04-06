@@ -247,7 +247,6 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 function exportPDF() {
-    var raw     = document.getElementById('raw-markdown').value;
     var symbol  = '{{ symbol }}';
     var company = '{{ info.longName|default:symbol|escapejs }}';
     var now     = new Date();
@@ -256,10 +255,16 @@ function exportPDF() {
         hour:'2-digit', minute:'2-digit'
     });
 
-    var css = [
+    // Open new clean window — write shell HTML only (no content yet)
+    var win = window.open('', '_blank', 'width=900,height=750');
+    win.document.write([
+        '<!DOCTYPE html><html lang="th"><head>',
+        '<meta charset="utf-8">',
+        '<title>CrewAI ' + symbol + ' Analysis</title>',
+        '<style>',
         '@page{size:A4;margin:16mm 18mm 20mm 18mm;}',
-        'body{font-family:"Sarabun","TH Sarabun New",Tahoma,sans-serif;font-size:11pt;color:#1e293b;background:#fff;line-height:1.85;margin:0;padding:0;}',
-        '.cover{border-bottom:3pt solid #1d40af;padding-bottom:14pt;margin-bottom:20pt;}',
+        'body{font-family:"Sarabun","TH Sarabun New",Tahoma,sans-serif;font-size:11pt;color:#1e293b;background:#fff;line-height:1.85;margin:0;padding:20px;}',
+        '#cover{border-bottom:3pt solid #1d40af;padding-bottom:14pt;margin-bottom:20pt;}',
         '.cover-badge{font-size:8pt;color:#7c3aed;font-weight:700;letter-spacing:1px;margin-bottom:4pt;}',
         '.cover-symbol{font-size:28pt;font-weight:900;color:#0f172a;line-height:1.1;}',
         '.cover-company{font-size:13pt;color:#475569;margin-top:4pt;}',
@@ -277,39 +282,42 @@ function exportPDF() {
         'th{background:#1e3a5f;color:#fff;padding:5pt 8pt;text-align:left;}',
         'td{padding:5pt 8pt;border-bottom:0.5pt solid #e2e8f0;}',
         'tr:nth-child(even) td{background:#f8fafc;}',
-        '.disclaimer{margin-top:24pt;padding:8pt 12pt;border-left:4pt solid #f59e0b;background:#fffbeb;font-size:8.5pt;color:#92400e;}',
-        '.page-footer{margin-top:16pt;padding-top:6pt;border-top:0.5pt solid #e2e8f0;font-size:7.5pt;color:#94a3b8;display:flex;justify-content:space-between;}',
-    ].join('');
-
-    // Encode markdown as base64 to avoid any quote/encoding issues
-    var encoded = btoa(unescape(encodeURIComponent(raw)));
-
-    var html = '<!DOCTYPE html><html lang="th"><head>' +
-        '<meta charset="utf-8">' +
-        '<title>CrewAI ' + symbol + ' Analysis</title>' +
-        '<style>' + css + '</style>' +
-        '</head><body>' +
-        '<div class="cover">' +
-          '<div class="cover-badge">\uD83E\uDD16 CREWAI MULTI-AGENT ANALYSIS</div>' +
-          '<div class="cover-symbol">' + symbol + '</div>' +
-          '<div class="cover-company">' + company + '</div>' +
-          '<div class="cover-date">Generated: ' + dateStr + '</div>' +
-        '</div>' +
-        '<div id="report-body"></div>' +
-        '<div class="disclaimer"><strong>\u26A0 \u0E2B\u0E21\u0E32\u0E22\u0E40\u0E2B\u0E15\u0E38 / Disclaimer:</strong> \u0E23\u0E32\u0E22\u0E07\u0E32\u0E19\u0E19\u0E35\u0E49\u0E2A\u0E23\u0E49\u0E32\u0E07\u0E42\u0E14\u0E22 AI Multi-Agent (CrewAI + Gemini) \u0E2D\u0E34\u0E07\u0E08\u0E32\u0E01\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E15\u0E25\u0E32\u0E14\u0E08\u0E23\u0E34\u0E07\u0E41\u0E25\u0E30\u0E02\u0E48\u0E32\u0E27\u0E25\u0E48\u0E32\u0E2A\u0E38\u0E14 \u0E43\u0E0A\u0E49\u0E40\u0E1B\u0E47\u0E19\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E1B\u0E23\u0E30\u0E01\u0E2D\u0E1A\u0E01\u0E32\u0E23\u0E15\u0E31\u0E14\u0E2A\u0E34\u0E19\u0E43\u0E08\u0E40\u0E17\u0E48\u0E32\u0E19\u0E31\u0E49\u0E19 \u2014 \u0E44\u0E21\u0E48\u0E43\u0E0A\u0E48\u0E04\u0E33\u0E41\u0E19\u0E30\u0E19\u0E33\u0E01\u0E32\u0E23\u0E25\u0E07\u0E17\u0E38\u0E19</div>' +
-        '<div class="page-footer"><span>CrewAI Analysis Report &middot; ' + symbol + '</span><span>' + dateStr + '</span></div>' +
-        '<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"><\/script>' +
-        '<script>' +
-          'var md = decodeURIComponent(escape(atob("' + encoded + '")));' +
-          'document.getElementById("report-body").innerHTML = marked.parse(md);' +
-          'window.onload = function(){ window.print(); };' +
-        '<\/script>' +
-        '</body></html>';
-
-    var win = window.open('', '_blank', 'width=900,height=700');
-    win.document.write(html);
+        '#disclaimer{margin-top:24pt;padding:8pt 12pt;border-left:4pt solid #f59e0b;background:#fffbeb;font-size:8.5pt;color:#92400e;}',
+        '#footer{margin-top:16pt;padding-top:6pt;border-top:0.5pt solid #e2e8f0;font-size:7.5pt;color:#94a3b8;display:flex;justify-content:space-between;}',
+        '</style>',
+        '</head><body>',
+        '<div id="cover">',
+          '<div class="cover-badge">&#x1F916; CREWAI MULTI-AGENT ANALYSIS</div>',
+          '<div class="cover-symbol" id="cv-sym"></div>',
+          '<div class="cover-company" id="cv-co"></div>',
+          '<div class="cover-date" id="cv-dt"></div>',
+        '</div>',
+        '<div id="report-body"></div>',
+        '<div id="disclaimer"></div>',
+        '<div id="footer"><span id="ft-left"></span><span id="ft-right"></span></div>',
+        '</body></html>'
+    ].join(''));
     win.document.close();
+
+    // Populate via DOM — bypasses all string/encoding issues
+    var d = win.document;
+    d.getElementById('cv-sym').textContent  = symbol;
+    d.getElementById('cv-co').textContent   = company;
+    d.getElementById('cv-dt').textContent   = 'Generated: ' + dateStr;
+    d.getElementById('ft-left').textContent  = 'CrewAI Analysis Report · ' + symbol;
+    d.getElementById('ft-right').textContent = dateStr;
+
+    // Copy already-rendered HTML from current page
+    d.getElementById('report-body').innerHTML =
+        document.getElementById('markdown-content').innerHTML;
+
+    d.getElementById('disclaimer').innerHTML =
+        '<strong>&#x26A0; หมายเหตุ / Disclaimer:</strong> ' +
+        'รายงานนี้สร้างโดย AI Multi-Agent (CrewAI + Gemini) อิงจากข้อมูลตลาดจริงและข่าวล่าสุด ' +
+        'ใช้เป็นข้อมูลประกอบการตัดสินใจเท่านั้น — ไม่ใช่คำแนะนำการลงทุน';
+
     win.focus();
+    setTimeout(function(){ win.print(); }, 300);
 }
 </script>
 {% endif %}
