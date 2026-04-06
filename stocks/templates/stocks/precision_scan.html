@@ -1882,6 +1882,9 @@ document.addEventListener('DOMContentLoaded', function() {
     while (sel.options.length > 0) sel.remove(0);
     keep.forEach(function(o) { sel.add(o); });
 
+    // Ensure default is All Sectors (empty value)
+    sel.value = "";
+
     // Apply filters immediately (e.g. for automatic RS >= 70)
     _applyFiltersSET();
 });
