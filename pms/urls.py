@@ -140,6 +140,7 @@ urlpatterns = [
     path('gps-tracking/live/', views.gps_live_data, name='gps_live_data'),                    # JSON API สำหรับ Live mode
     path('gps-tracking/daily-summary/', views.gps_daily_summary, name='gps_daily_summary'),   # รายงานสรุปการทำงานรายวัน
     path('gps-tracking/daily-summary/send-to-chat/', views.gps_daily_summary_send_to_chat, name='gps_daily_summary_send_to_chat'),  # ส่งสรุปไปยังห้องแชท
+    path('gps-tracking/warn-notify/', views.gps_track_warn_notify, name='gps_track_warn_notify'),  # แจ้งเตือนช่างที่ GPS หาย
     path('gps-tracking/summary/', views.gps_summary_report, name='gps_summary_report'),       # รายงานสรุปรายเดือน
     path('gps-tracking/summary/export/', views.gps_summary_export, name='gps_summary_export'),  # Export CSV
     path('gps-tracking/stats/', views.gps_technician_stats, name='gps_technician_stats'),        # กราฟสถิติรายบุคคล

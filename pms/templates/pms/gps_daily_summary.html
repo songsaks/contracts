@@ -395,6 +395,30 @@
         {% endif %}
     </div>
 
+    {% if tracking_warnings and is_today %}
+    <!-- ── GPS Warning Banner ── -->
+    <div style="background:#fef2f2;border:1.5px solid #fca5a5;border-radius:10px;padding:14px 18px;margin-bottom:1.2rem;">
+        <div style="font-weight:700;color:#dc2626;font-size:1rem;margin-bottom:8px;">
+            <i class="fas fa-satellite-dish me-2"></i>⚠️ ช่างต่อไปนี้ไม่ส่ง GPS มากกว่า 25 นาที
+        </div>
+        {% for w in tracking_warnings %}
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;
+                    background:white;border:1px solid #fca5a5;border-radius:8px;padding:8px 12px;margin-bottom:6px;"
+             id="warn-row-{{ w.user_id }}">
+            <div>
+                <b style="color:#dc2626;">{{ w.username }}</b>
+                — พิกัดล่าสุด: <code>{{ w.track_warning_last_lat }}, {{ w.track_warning_last_lng }}</code>
+                เวลา <b>{{ w.track_warning_last_time }}</b>
+            </div>
+            <button class="btn btn-sm btn-danger rounded-pill px-3 mt-1"
+                    onclick="sendGpsWarn({{ w.user_id }}, '{{ w.username }}', '{{ w.track_warning_last_time }}', '{{ w.track_warning_last_lat }}', '{{ w.track_warning_last_lng }}', this)">
+                <i class="fas fa-bell me-1"></i> แจ้งเตือน
+            </button>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
     {% if tech_list %}
 
     <!-- Technician Cards -->
@@ -411,6 +435,13 @@
                     <span class="status-pill pill-ok"><i class="fas fa-check-circle"></i> GPS สอดคล้อง</span>
                     {% else %}
                     <span class="status-pill pill-warn"><i class="fas fa-exclamation-triangle"></i> GPS ไม่ครบ</span>
+                    {% endif %}
+                    {% if tech.track_warning %}
+                    <span class="status-pill" style="background:#fee2e2;color:#dc2626;border:1px solid #fca5a5;">
+                        <i class="fas fa-satellite-dish"></i> GPS หาย &gt;25 นาที
+                        — {{ tech.track_warning_last_lat }}, {{ tech.track_warning_last_lng }}
+                        เวลา {{ tech.track_warning_last_time }}
+                    </span>
                     {% endif %}
                     {% if tech.work_duration %}
                     <span class="status-pill pill-info"><i class="fas fa-clock me-1"></i>{{ tech.work_duration }}</span>
@@ -812,6 +843,31 @@ function _buildMap(username, containerId, isFullscreen) {
     map.fitBounds(L.latLngBounds(latlngs), { padding: [20, 20] });
     return map;
 }
+
+// ── GPS Warning Notify ────────────────────────────────────────────────
+function sendGpsWarn(userId, username, lastTime, lastLat, lastLng, btn) {
+    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>ส่ง…'; }
+    const csrfToken = document.cookie.match(/csrftoken=([^;]+)/)?.[1] || '';
+    fetch('/pms/gps-tracking/warn-notify/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+        body: JSON.stringify({ user_id: userId, username, last_time: lastTime, last_lat: lastLat, last_lng: lastLng }),
+        credentials: 'same-origin',
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (btn) {
+            btn.innerHTML = '<i class="fas fa-check me-1"></i>ส่งแล้ว';
+            btn.classList.replace('btn-danger', 'btn-success');
+        }
+    })
+    .catch(() => { if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-bell me-1"></i> แจ้งเตือน'; } });
+}
+
+{% if is_today %}
+// Auto-refresh ทุก 5 นาที เพื่ออัปเดต warning บนหน้าวันนี้
+setTimeout(function() { window.location.reload(); }, 5 * 60 * 1000);
+{% endif %}
 
 function sendSummaryToChat() {
     const btn = document.getElementById('btn-send-chat');

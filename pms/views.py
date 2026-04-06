@@ -3532,6 +3532,33 @@ def gps_daily_summary(request):
         fuel_liters = total_dist / 12.0
         fuel_cost   = fuel_liters * 35.0
 
+        # ── ตรวจสอบ Auto-Track หายไปหรือไม่ ──────────────────────────
+        # ช่างที่ GO_WORK แล้ว ยังไม่ BACK_OFFICE และไม่มี TRAVEL/GPS ใน 25 นาทีที่ผ่านมา
+        track_warning = False
+        track_warning_last_lat  = None
+        track_warning_last_lng  = None
+        track_warning_last_time = None
+        if c['go_work_count'] > 0 and c['back_office_count'] == 0 and report_date == today:
+            from django.utils import timezone as _tz
+            now_local = _tz.localtime(_tz.now())
+            # หา log ล่าสุดทุกประเภทที่มีพิกัดจริง
+            last_log_with_coords = next(
+                (l for l in reversed(c['logs']) if l['lat'] != 0 and l['lng'] != 0),
+                None
+            )
+            if last_log_with_coords:
+                from datetime import datetime as _dt
+                last_t = _dt.strptime(last_log_with_coords['time'], '%H:%M').replace(
+                    year=now_local.year, month=now_local.month, day=now_local.day,
+                    tzinfo=now_local.tzinfo
+                )
+                minutes_since = (now_local - last_t).total_seconds() / 60
+                if minutes_since > 25:
+                    track_warning           = True
+                    track_warning_last_lat  = last_log_with_coords['lat']
+                    track_warning_last_lng  = last_log_with_coords['lng']
+                    track_warning_last_time = last_log_with_coords['time']
+
         tech_list.append({
             'username':               uname,
             'user_id':                c['user_id'],
@@ -3562,6 +3589,10 @@ def gps_daily_summary(request):
             'total_dist':             round(total_dist, 2),
             'fuel_liters':            round(fuel_liters, 2),
             'fuel_cost':              round(fuel_cost, 2),
+            'track_warning':          track_warning,
+            'track_warning_last_lat': track_warning_last_lat,
+            'track_warning_last_lng': track_warning_last_lng,
+            'track_warning_last_time':track_warning_last_time,
         })
 
     # ── Summary stats ──────────────────────────────────────────────────
@@ -3603,7 +3634,99 @@ def gps_daily_summary(request):
         'total_sat_ns':             total_sat_ns,
         'total_jobs_done':          total_jobs_done,
         'total_onsite_duration_all': total_onsite_duration_all,
+        'tracking_warnings':        [t for t in tech_list if t.get('track_warning')],
+        'is_today':                 report_date == today,
     })
+
+
+@login_required
+def gps_track_warn_notify(request):
+    """
+    ส่ง WebSocket notification เตือนช่างที่ไม่ส่ง GPS location มา > 25 นาที
+    POST body: { user_id, username, last_time, last_lat, last_lng }
+    — ส่งข้อความเตือนไปยังห้อง chat หลัก (id=1 หรือ 'การตลาด')
+    — และส่ง personal notification ไปยัง channel ของช่างคนนั้น
+    """
+    if request.method != 'POST':
+        from django.http import JsonResponse
+        return JsonResponse({'ok': False}, status=405)
+
+    from django.http import JsonResponse
+    import json as _json
+    from channels.layers import get_channel_layer
+    from asgiref.sync import async_to_sync
+
+    try:
+        body      = _json.loads(request.body)
+        target_id = int(body.get('user_id', 0))
+        username  = body.get('username', '')
+        last_time = body.get('last_time', '')
+        last_lat  = body.get('last_lat', '')
+        last_lng  = body.get('last_lng', '')
+    except Exception:
+        return JsonResponse({'ok': False, 'error': 'bad request'}, status=400)
+
+    msg_html = (
+        f'<div style="background:#fee2e2;border-left:4px solid #dc2626;padding:10px 14px;border-radius:6px;">'
+        f'<b style="color:#dc2626;">⚠️ GPS หายไป — {username}</b><br>'
+        f'ไม่พบสัญญาณ GPS มากกว่า 25 นาที<br>'
+        f'พิกัดล่าสุด: <b>{last_lat}, {last_lng}</b> เวลา {last_time}<br>'
+        f'<span style="color:#7f1d1d;">กรุณาเปิด Auto-Track หรือแจ้งตำแหน่งปัจจุบัน</span>'
+        f'</div>'
+    )
+
+    channel_layer = get_channel_layer()
+
+    # ส่งไปห้อง chat หลัก (room id=1)
+    try:
+        from chat.models import ChatRoom, ChatMessage
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+
+        chat_room = ChatRoom.objects.filter(name__icontains='การตลาด', is_active=True).first()
+        if not chat_room:
+            chat_room = ChatRoom.objects.filter(pk=1, is_active=True).first()
+
+        if chat_room:
+            msg_obj = ChatMessage.objects.create(
+                room=chat_room,
+                user=request.user,
+                content=msg_html,
+                is_html=True,
+            )
+            async_to_sync(channel_layer.group_send)(
+                f'chat_{chat_room.id}',
+                {
+                    'type':      'chat_message',
+                    'id':        msg_obj.id,
+                    'message':   msg_html,
+                    'username':  request.user.username,
+                    'user_id':   request.user.id,
+                    'is_html':   True,
+                    'is_stt':    False,
+                    'image_url': None,
+                    'file_url':  None,
+                    'gps_check_type': '',
+                    'timestamp': '',
+                    'mentions':  [username.lower()],
+                }
+            )
+    except Exception as e:
+        pass
+
+    # ส่ง personal WebSocket notification ไปยัง channel ของช่างคนนั้น
+    try:
+        async_to_sync(channel_layer.group_send)(
+            f'user_{target_id}',
+            {
+                'type':    'user_notification',
+                'message': f'⚠️ ระบบตรวจพบว่า Auto-Track GPS ของคุณหยุดทำงานมากกว่า 25 นาที กรุณาเปิด Auto-Track ใหม่อีกครั้ง',
+            }
+        )
+    except Exception:
+        pass
+
+    return JsonResponse({'ok': True})
 
 
 @login_required
