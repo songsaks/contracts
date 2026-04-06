@@ -7,6 +7,7 @@ urlpatterns = [
     path('', views.dashboard, name='dashboard'),
     path('analyze/<str:symbol>/', views.analyze, name='analyze'),
     path('analyze/crew/<str:symbol>/', views.crew_analyze, name='crew_analyze'),
+    path('analyze/crew/<str:symbol>/export/docx/', views.crew_export_docx, name='crew_export_docx'),
     path('watchlist/add/', views.add_to_watchlist, name='add_to_watchlist'),
     path('watchlist/<int:pk>/delete/', views.delete_from_watchlist, name='delete_from_watchlist'),
     path('portfolio/', views.portfolio_list, name='portfolio_list'),

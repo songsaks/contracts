@@ -149,22 +149,40 @@
     </div>
 
     <!-- Report -->
-    <div class="col-12">
+    <div class="col-12 print-area">
         <div class="card-premium p-4 border-0 mb-4 bg-white shadow-sm">
             <div class="d-flex align-items-center justify-content-between mb-4 pb-2 border-bottom">
                 <h4 class="fw-bold mb-0">
                     <i class="fas fa-file-contract text-primary me-2"></i> Agentic Momentum Report
                 </h4>
-                <div class="d-flex gap-2">
+                <div class="d-flex gap-2 flex-wrap">
+                    <button id="btnExportPDF" onclick="exportPDF()"
+                            class="btn btn-sm btn-danger rounded-pill px-3 no-print">
+                        <i class="fas fa-file-pdf me-1"></i> Export PDF
+                    </button>
+                    <button onclick="document.getElementById('docxForm').submit()"
+                            class="btn btn-sm btn-primary rounded-pill px-3 no-print">
+                        <i class="fas fa-file-word me-1"></i> Export Word
+                    </button>
                     <a href="{% url 'stocks:crew_analyze' symbol %}"
-                       class="btn btn-sm btn-outline-primary rounded-pill px-3">
+                       class="btn btn-sm btn-outline-primary rounded-pill px-3 no-print">
                         <i class="fas fa-sync me-1"></i> Re-analyze
                     </a>
                     <a href="{% url 'stocks:analyze' symbol %}"
-                       class="btn btn-sm btn-outline-secondary rounded-pill px-3">
+                       class="btn btn-sm btn-outline-secondary rounded-pill px-3 no-print">
                         <i class="fas fa-arrow-left me-1"></i> Back
                     </a>
                 </div>
+
+                {# Hidden form for Word export #}
+                <form id="docxForm" method="post"
+                      action="{% url 'stocks:crew_export_docx' symbol %}"
+                      style="display:none;">
+                    {% csrf_token %}
+                    <input type="hidden" name="markdown_content" id="docxMarkdown">
+                    <input type="hidden" name="company_name"
+                           value="{{ info.longName|default:symbol }}">
+                </form>
             </div>
 
             <div class="report-content">
@@ -185,7 +203,8 @@
 </div>
 
 <style>
-.report-content { line-height:1.8; font-size:1.05rem; }
+/* ── Screen styles ───────────────────────────────────────── */
+.report-content { line-height:1.85; font-size:1.05rem; }
 .report-content h1,.report-content h2,.report-content h3,.report-content h4 {
     color:#1e293b; margin-top:1.8rem; margin-bottom:1.2rem;
     font-weight:700; border-bottom:1px solid #f1f5f9; padding-bottom:0.5rem;
@@ -194,17 +213,107 @@
 .report-content ul,.report-content ol { margin-bottom:1.5rem; padding-left:1.5rem; }
 .report-content li { margin-bottom:0.7rem; }
 .report-content strong { color:#0f172a; }
-.report-content hr { margin:2rem 0; opacity:0.1; }
+.report-content hr { margin:2rem 0; border-color:#f1f5f9; }
+
 </style>
 
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     var raw = document.getElementById('raw-markdown').value;
-    if (raw) {
-        document.getElementById('markdown-content').innerHTML = marked.parse(raw);
-    }
+    if (!raw) return;
+
+    var parsed = marked.parse(raw);
+
+    // Render on-screen
+    document.getElementById('markdown-content').innerHTML = parsed;
+
+    // Populate print wrapper
+    document.getElementById('pdf-body').innerHTML = parsed;
+
+    var now = new Date();
+    var dateStr = now.toLocaleDateString('th-TH', {
+        year:'numeric', month:'long', day:'numeric',
+        hour:'2-digit', minute:'2-digit'
+    });
+    var el = document.getElementById('pdf-gen-date');
+    if (el) el.textContent = 'Generated: ' + dateStr;
+    var ft = document.getElementById('pdf-footer-date');
+    if (ft) ft.textContent = dateStr;
+
+    // Sync markdown to Word export form
+    var docxInput = document.getElementById('docxMarkdown');
+    if (docxInput) docxInput.value = raw;
 });
+
+function exportPDF() {
+    var raw = document.getElementById('raw-markdown').value;
+    var symbol   = '{{ symbol }}';
+    var company  = '{{ info.longName|default:symbol|escapejs }}';
+    var bodyHtml = document.getElementById('markdown-content').innerHTML;
+    var now      = new Date();
+    var dateStr  = now.toLocaleDateString('th-TH', {
+        year:'numeric', month:'long', day:'numeric',
+        hour:'2-digit', minute:'2-digit'
+    });
+
+    var html = '<!DOCTYPE html><html lang="th"><head>' +
+        '<meta charset="utf-8">' +
+        '<title>CrewAI ' + symbol + ' Analysis</title>' +
+        '<style>' +
+        '@page { size:A4; margin:16mm 18mm 20mm 18mm; }' +
+        'body { font-family: "Sarabun","TH Sarabun New",Tahoma,sans-serif; font-size:11pt; color:#1e293b; background:#fff; line-height:1.85; margin:0; padding:0; }' +
+        /* cover */
+        '.cover { border-bottom:3pt solid #1d40af; padding-bottom:14pt; margin-bottom:20pt; }' +
+        '.cover-badge { font-size:8pt; color:#7c3aed; font-weight:700; letter-spacing:1px; margin-bottom:4pt; }' +
+        '.cover-symbol { font-size:28pt; font-weight:900; color:#0f172a; line-height:1.1; }' +
+        '.cover-company { font-size:13pt; color:#475569; margin-top:4pt; }' +
+        '.cover-date { font-size:8.5pt; color:#94a3b8; margin-top:6pt; }' +
+        /* headings */
+        'h1 { font-size:16pt; font-weight:800; color:#0f172a; border-bottom:2pt solid #1d40af; padding-bottom:5pt; margin:20pt 0 8pt; page-break-after:avoid; }' +
+        'h2 { font-size:13pt; font-weight:700; color:#1d40af; border-bottom:1pt solid #bfdbfe; padding-bottom:4pt; margin:16pt 0 6pt; page-break-after:avoid; }' +
+        'h3 { font-size:12pt; font-weight:700; color:#059669; margin:12pt 0 4pt; page-break-after:avoid; }' +
+        'h4 { font-size:11pt; font-weight:700; color:#334155; margin:8pt 0 3pt; page-break-after:avoid; }' +
+        /* body */
+        'p { margin:0 0 8pt; }' +
+        'ul,ol { margin:0 0 10pt; padding-left:16pt; }' +
+        'li { margin-bottom:4pt; }' +
+        'strong { color:#0f172a; font-weight:700; }' +
+        'em { color:#475569; font-style:italic; }' +
+        'hr { border:none; border-top:1pt solid #e2e8f0; margin:14pt 0; }' +
+        'blockquote { border-left:4pt solid #7c3aed; margin:8pt 0; padding:6pt 12pt; background:#f5f3ff; color:#4c1d95; font-style:italic; }' +
+        'code { background:#f1f5f9; padding:1pt 4pt; border-radius:2pt; font-family:monospace; font-size:9.5pt; color:#dc2626; }' +
+        'pre { background:#f1f5f9; padding:8pt; border-radius:4pt; overflow:auto; }' +
+        'table { width:100%; border-collapse:collapse; margin:8pt 0; font-size:10pt; }' +
+        'th { background:#1e3a5f; color:#fff; padding:5pt 8pt; text-align:left; }' +
+        'td { padding:5pt 8pt; border-bottom:0.5pt solid #e2e8f0; }' +
+        'tr:nth-child(even) td { background:#f8fafc; }' +
+        /* disclaimer */
+        '.disclaimer { margin-top:24pt; padding:8pt 12pt; border-left:4pt solid #f59e0b; background:#fffbeb; font-size:8.5pt; color:#92400e; }' +
+        /* page footer */
+        '.page-footer { margin-top:16pt; padding-top:6pt; border-top:0.5pt solid #e2e8f0; font-size:7.5pt; color:#94a3b8; display:flex; justify-content:space-between; }' +
+        '</style>' +
+        '</head><body>' +
+        '<div class="cover">' +
+        '<div class="cover-badge">🤖 CREWAI MULTI-AGENT ANALYSIS</div>' +
+        '<div class="cover-symbol">' + symbol + '</div>' +
+        '<div class="cover-company">' + company + '</div>' +
+        '<div class="cover-date">Generated: ' + dateStr + '</div>' +
+        '</div>' +
+        bodyHtml +
+        '<div class="disclaimer"><strong>⚠ หมายเหตุ / Disclaimer:</strong> รายงานนี้สร้างโดย AI Multi-Agent (CrewAI + Gemini) อิงจากข้อมูลตลาดจริงและข่าวล่าสุด ใช้เป็นข้อมูลประกอบการตัดสินใจเท่านั้น — ไม่ใช่คำแนะนำการลงทุน</div>' +
+        '<div class="page-footer"><span>CrewAI Analysis Report &middot; ' + symbol + '</span><span>' + dateStr + '</span></div>' +
+        '</body></html>';
+
+    var win = window.open('', '_blank', 'width=900,height=700');
+    win.document.write(html);
+    win.document.close();
+    win.focus();
+    win.onload = function() {
+        win.print();
+        // win.close(); // uncomment if you want auto-close after print
+    };
+}
 </script>
 {% endif %}
 

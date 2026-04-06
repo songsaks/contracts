@@ -557,6 +557,269 @@ def crew_analyze(request, symbol):
         'loading': True,
     })
 
+# ====== CrewAI Export — Word / PDF ======
+
+@login_required
+def crew_export_docx(request, symbol):
+    """Export CrewAI analysis as a formatted Word document (.docx)"""
+    if request.method != 'POST':
+        from django.shortcuts import redirect
+        return redirect('stocks:crew_analyze', symbol=symbol)
+
+    from docx import Document
+    from docx.shared import Inches, Pt, RGBColor, Cm
+    from docx.enum.text import WD_ALIGN_PARAGRAPH
+    from docx.oxml.ns import qn
+    from docx.oxml import OxmlElement
+    import re
+    from io import BytesIO
+
+    markdown_text = request.POST.get('markdown_content', '')
+    company_name  = request.POST.get('company_name', symbol)
+
+    # ── Document setup ──────────────────────────────────────────────
+    doc = Document()
+
+    # Page margins
+    for section in doc.sections:
+        section.top_margin    = Cm(2.0)
+        section.bottom_margin = Cm(2.0)
+        section.left_margin   = Cm(2.5)
+        section.right_margin  = Cm(2.5)
+
+    # ── Theme colors ────────────────────────────────────────────────
+    COLOR_TITLE   = RGBColor(0x0f, 0x17, 0x2a)   # navy
+    COLOR_H1      = RGBColor(0x1e, 0x29, 0x3b)
+    COLOR_H2      = RGBColor(0x1d, 0x40, 0xaf)   # blue-800
+    COLOR_H3      = RGBColor(0x07, 0x89, 0x16)   # green
+    COLOR_BODY    = RGBColor(0x1e, 0x29, 0x3b)
+    COLOR_MUTED   = RGBColor(0x64, 0x74, 0x8b)
+
+    def _set_font(run, size, bold=False, color=None, italic=False):
+        run.font.name      = 'Sarabun'
+        run.font.size      = Pt(size)
+        run.font.bold      = bold
+        run.font.italic    = italic
+        if color:
+            run.font.color.rgb = color
+
+    def _para_spacing(para, before=0, after=6, line=None):
+        from docx.oxml.ns import qn
+        from docx.oxml import OxmlElement
+        pPr = para._p.get_or_add_pPr()
+        spacing = OxmlElement('w:spacing')
+        spacing.set(qn('w:before'), str(before * 20))
+        spacing.set(qn('w:after'),  str(after  * 20))
+        if line:
+            spacing.set(qn('w:line'),     str(line * 20))
+            spacing.set(qn('w:lineRule'), 'exact')
+        pPr.append(spacing)
+
+    def _add_border_bottom(para, color='1d40af', size=12):
+        """Add bottom border to paragraph (used for h1/h2)"""
+        pPr = para._p.get_or_add_pPr()
+        pBdr = OxmlElement('w:pBdr')
+        bottom = OxmlElement('w:bottom')
+        bottom.set(qn('w:val'),   'single')
+        bottom.set(qn('w:sz'),    str(size))
+        bottom.set(qn('w:space'), '4')
+        bottom.set(qn('w:color'), color)
+        pBdr.append(bottom)
+        pPr.append(pBdr)
+
+    def _apply_inline(run_text, para, default_size=11, default_color=None):
+        """Parse **bold**, *italic*, `code` inline markers into runs"""
+        segments = re.split(r'(\*\*.*?\*\*|\*.*?\*|`.*?`)', run_text)
+        for seg in segments:
+            if seg.startswith('**') and seg.endswith('**'):
+                run = para.add_run(seg[2:-2])
+                _set_font(run, default_size, bold=True, color=default_color or COLOR_BODY)
+            elif seg.startswith('*') and seg.endswith('*'):
+                run = para.add_run(seg[1:-1])
+                _set_font(run, default_size, italic=True, color=default_color or COLOR_BODY)
+            elif seg.startswith('`') and seg.endswith('`'):
+                run = para.add_run(seg[1:-1])
+                run.font.name = 'Courier New'
+                run.font.size = Pt(default_size - 1)
+                run.font.color.rgb = RGBColor(0xdc, 0x26, 0x26)
+            else:
+                run = para.add_run(seg)
+                _set_font(run, default_size, color=default_color or COLOR_BODY)
+
+    # ── Cover header ────────────────────────────────────────────────
+    # Top accent bar (using shaded paragraph)
+    accent = doc.add_paragraph()
+    accent.paragraph_format.space_before = Pt(0)
+    accent.paragraph_format.space_after  = Pt(0)
+    run_accent = accent.add_run('▬' * 60)
+    run_accent.font.color.rgb = COLOR_H2
+    run_accent.font.size      = Pt(6)
+
+    # Title
+    title_p = doc.add_paragraph()
+    _para_spacing(title_p, before=8, after=2)
+    r1 = title_p.add_run(f'🤖  CrewAI Multi-Agent Analysis')
+    _set_font(r1, 22, bold=True, color=COLOR_TITLE)
+
+    # Symbol + company
+    sym_p = doc.add_paragraph()
+    _para_spacing(sym_p, before=0, after=2)
+    r2 = sym_p.add_run(f'{symbol}')
+    _set_font(r2, 28, bold=True, color=COLOR_H2)
+    r3 = sym_p.add_run(f'  ·  {company_name}')
+    _set_font(r3, 16, color=COLOR_MUTED)
+
+    # Date line
+    from django.utils import timezone as _tz
+    date_p = doc.add_paragraph()
+    _para_spacing(date_p, before=0, after=12)
+    r4 = date_p.add_run(f'Generated: {_tz.now().strftime("%d %B %Y  %H:%M")}')
+    _set_font(r4, 10, italic=True, color=COLOR_MUTED)
+
+    # Divider
+    div = doc.add_paragraph()
+    _add_border_bottom(div, color='1d40af', size=16)
+    _para_spacing(div, before=0, after=12)
+
+    # ── Parse markdown ──────────────────────────────────────────────
+    lines = markdown_text.splitlines()
+    i = 0
+    while i < len(lines):
+        line = lines[i].rstrip()
+
+        # Blank line
+        if not line.strip():
+            i += 1
+            continue
+
+        # H1
+        if line.startswith('# '):
+            text = line[2:].strip()
+            p = doc.add_paragraph()
+            _add_border_bottom(p, color='0f172a', size=12)
+            _para_spacing(p, before=14, after=4)
+            run = p.add_run(text)
+            _set_font(run, 18, bold=True, color=COLOR_H1)
+            i += 1
+            continue
+
+        # H2
+        if line.startswith('## '):
+            text = line[3:].strip()
+            p = doc.add_paragraph()
+            _add_border_bottom(p, color='1d40af', size=8)
+            _para_spacing(p, before=12, after=3)
+            run = p.add_run(text)
+            _set_font(run, 14, bold=True, color=COLOR_H2)
+            i += 1
+            continue
+
+        # H3
+        if line.startswith('### '):
+            text = line[4:].strip()
+            p = doc.add_paragraph()
+            _para_spacing(p, before=10, after=2)
+            run = p.add_run(text)
+            _set_font(run, 12, bold=True, color=COLOR_H3)
+            i += 1
+            continue
+
+        # H4
+        if line.startswith('#### '):
+            text = line[5:].strip()
+            p = doc.add_paragraph()
+            _para_spacing(p, before=8, after=2)
+            run = p.add_run(text)
+            _set_font(run, 11, bold=True, color=COLOR_BODY)
+            i += 1
+            continue
+
+        # Horizontal rule
+        if re.match(r'^[-*_]{3,}$', line.strip()):
+            hr = doc.add_paragraph()
+            _add_border_bottom(hr, color='cbd5e1', size=6)
+            _para_spacing(hr, before=8, after=8)
+            i += 1
+            continue
+
+        # Unordered list
+        if re.match(r'^[-*+]\s', line):
+            text = re.sub(r'^[-*+]\s', '', line)
+            p = doc.add_paragraph(style='List Bullet')
+            p.paragraph_format.left_indent = Cm(0.8)
+            _para_spacing(p, before=1, after=1)
+            _apply_inline(text, p)
+            i += 1
+            continue
+
+        # Ordered list
+        if re.match(r'^\d+\.\s', line):
+            text = re.sub(r'^\d+\.\s', '', line)
+            p = doc.add_paragraph(style='List Number')
+            p.paragraph_format.left_indent = Cm(0.8)
+            _para_spacing(p, before=1, after=1)
+            _apply_inline(text, p)
+            i += 1
+            continue
+
+        # Blockquote
+        if line.startswith('> '):
+            text = line[2:].strip()
+            p = doc.add_paragraph()
+            p.paragraph_format.left_indent  = Cm(1.0)
+            p.paragraph_format.right_indent = Cm(1.0)
+            _para_spacing(p, before=4, after=4)
+            pPr = p._p.get_or_add_pPr()
+            pBdr = OxmlElement('w:pBdr')
+            left_bdr = OxmlElement('w:left')
+            left_bdr.set(qn('w:val'),   'single')
+            left_bdr.set(qn('w:sz'),    '16')
+            left_bdr.set(qn('w:space'), '8')
+            left_bdr.set(qn('w:color'), '7c3aed')
+            pBdr.append(left_bdr)
+            pPr.append(pBdr)
+            run = p.add_run(text)
+            _set_font(run, 11, italic=True, color=COLOR_MUTED)
+            i += 1
+            continue
+
+        # Normal paragraph
+        p = doc.add_paragraph()
+        _para_spacing(p, before=2, after=4)
+        _apply_inline(line, p)
+        i += 1
+
+    # ── Footer disclaimer ────────────────────────────────────────────
+    doc.add_paragraph()
+    disc_outer = doc.add_paragraph()
+    _add_border_bottom(disc_outer, color='f59e0b', size=16)
+    _para_spacing(disc_outer, before=16, after=4)
+    dr = disc_outer.add_run('⚠  หมายเหตุ / Disclaimer')
+    _set_font(dr, 10, bold=True, color=RGBColor(0xd9, 0x77, 0x06))
+
+    disc_p = doc.add_paragraph()
+    _para_spacing(disc_p, before=2, after=2)
+    disc_r = disc_p.add_run(
+        'รายงานนี้สร้างโดย AI Multi-Agent (CrewAI + Gemini) อิงจากข้อมูลตลาดจริงและข่าวล่าสุด '
+        'ใช้เป็นข้อมูลประกอบการตัดสินใจเท่านั้น — ไม่ใช่คำแนะนำการลงทุน'
+    )
+    _set_font(disc_r, 9, italic=True, color=COLOR_MUTED)
+
+    # ── Return file ──────────────────────────────────────────────────
+    buf = BytesIO()
+    doc.save(buf)
+    buf.seek(0)
+
+    from django.http import HttpResponse
+    resp = HttpResponse(
+        buf.read(),
+        content_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    )
+    safe_symbol = re.sub(r'[^\w\-]', '_', symbol)
+    resp['Content-Disposition'] = f'attachment; filename="CrewAI_{safe_symbol}_Analysis.docx"'
+    return resp
+
+
 # ====== Watchlist Management — เพิ่ม/ลบ รายการ Watchlist ======
 
 @login_required
