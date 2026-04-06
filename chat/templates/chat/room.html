@@ -2017,7 +2017,7 @@
     let watchId = null;
     let lastSentTime = 0;
     const TRACK_INTERVAL_MS = 20 * 60 * 1000;  // ส่งทุก 20 นาที
-    const TRACK_MIN_DISTANCE_M = 5000;          // หรือเคลื่อนที่ >= 5 กิโลเมตร
+    const TRACK_MIN_DISTANCE_M = 3000;          // หรือเคลื่อนที่ >= 3 กิโลเมตร
     let lastLat = null, lastLon = null;
 
     function calcDistance(lat1, lon1, lat2, lon2) {
@@ -2177,6 +2177,92 @@
     }
     setTimeout(checkForceTrack, 3000);
     setInterval(checkForceTrack, 30000);
+
+    // ── GPS Self-Check — เตือนช่างเมื่อไม่ได้ส่ง GPS > 25 นาที ──────────
+    // ทำงานเฉพาะเมื่อ GO_WORK (forceTrack) เปิดอยู่
+    var _lastGpsSentTime = Date.now(); // reset ทุกครั้งที่ส่ง TRAVEL
+    var _gpsWarnShown    = false;
+
+    // hook: อัปเดต _lastGpsSentTime ทุกครั้งที่ส่ง TRAVEL
+    const _origSend = chatSocket ? chatSocket.send.bind(chatSocket) : null;
+    if (_origSend) {
+        chatSocket.send = function(data) {
+            try {
+                const p = JSON.parse(data);
+                if (p.gps_check_type === 'TRAVEL' || p.gps_check_type === 'ON_SITE' ||
+                    p.gps_check_type === 'CHECK_OUT' || p.gps_check_type === 'GO_WORK') {
+                    _lastGpsSentTime = Date.now();
+                    _gpsWarnShown    = false;
+                    document.getElementById('gpsWarnBanner')?.remove();
+                }
+            } catch(e) {}
+            return _origSend(data);
+        };
+    }
+
+    function _playWarnSound() {
+        try {
+            const ctx = new (window.AudioContext || window.webkitAudioContext)();
+            [0, 300, 600].forEach(function(delay) {
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.connect(gain); gain.connect(ctx.destination);
+                osc.type = 'sine'; osc.frequency.value = 880;
+                gain.gain.setValueAtTime(0.4, ctx.currentTime + delay/1000);
+                gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + delay/1000 + 0.4);
+                osc.start(ctx.currentTime + delay/1000);
+                osc.stop(ctx.currentTime + delay/1000 + 0.5);
+            });
+        } catch(e) {}
+    }
+
+    function _showGpsWarnBanner(minAgo) {
+        if (document.getElementById('gpsWarnBanner')) return; // ซ้ำ
+        const banner = document.createElement('div');
+        banner.id = 'gpsWarnBanner';
+        banner.style.cssText = [
+            'position:fixed','bottom:80px','left:50%','transform:translateX(-50%)',
+            'background:#dc2626','color:white','padding:14px 22px',
+            'border-radius:12px','z-index:9999','font-weight:700',
+            'font-size:0.95rem','box-shadow:0 4px 20px rgba(220,38,38,0.5)',
+            'display:flex','align-items:center','gap:12px','max-width:90vw',
+            'animation:gpsBannerPulse 1s infinite alternate',
+        ].join(';');
+        banner.innerHTML = `
+            <i class="fas fa-satellite-dish" style="font-size:1.4rem;"></i>
+            <div>
+                <div>⚠️ GPS ไม่ได้ส่งมา ${minAgo} นาทีแล้ว!</div>
+                <div style="font-size:0.78rem;font-weight:400;margin-top:2px;">
+                    กรุณาเปิด Auto-Track หรือกด Check-in ใหม่
+                </div>
+            </div>
+            <button onclick="this.parentElement.remove();_gpsWarnShown=false;"
+                    style="background:rgba(255,255,255,0.2);border:none;color:white;
+                           border-radius:8px;padding:4px 10px;cursor:pointer;font-size:0.8rem;">
+                ปิด
+            </button>`;
+        document.body.appendChild(banner);
+
+        // CSS animation
+        if (!document.getElementById('gpsBannerStyle')) {
+            const s = document.createElement('style');
+            s.id = 'gpsBannerStyle';
+            s.textContent = '@keyframes gpsBannerPulse{from{opacity:1}to{opacity:0.75}}';
+            document.head.appendChild(s);
+        }
+    }
+
+    function _checkGpsSelf() {
+        if (!forceTrackActive) return; // ยังไม่ได้ GO_WORK
+        const minAgo = Math.floor((Date.now() - _lastGpsSentTime) / 60000);
+        if (minAgo >= 25 && !_gpsWarnShown) {
+            _gpsWarnShown = true;
+            _playWarnSound();
+            _showGpsWarnBanner(minAgo);
+        }
+    }
+
+    setInterval(_checkGpsSelf, 2 * 60 * 1000); // ตรวจทุก 2 นาที
     {% endif %}
 
     // ── Shared: build off-screen container and run html2canvas ─────────

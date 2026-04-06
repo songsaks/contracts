@@ -3640,6 +3640,67 @@ def gps_daily_summary(request):
 
 
 @login_required
+def gps_warn_status_api(request):
+    """
+    JSON API — คืนรายชื่อช่างที่ GO_WORK แล้วแต่ไม่มี GPS log > 25 นาที (วันนี้เท่านั้น)
+    ใช้โดย gps_tracking_report เพื่อ poll ทุก 2 นาที
+    """
+    from django.http import JsonResponse
+    from .models import TechnicianGPSLog
+    from django.utils import timezone
+    from django.contrib.auth import get_user_model
+
+    if not user_can_view_all(request.user):
+        return JsonResponse({'warnings': []})
+
+    User     = get_user_model()
+    today    = timezone.localdate()
+    now_local = timezone.localtime(timezone.now())
+    WARN_MIN = 25
+
+    # ดึง GPS log ทั้งหมดของวันนี้
+    logs = TechnicianGPSLog.objects.filter(
+        timestamp__date=today
+    ).select_related('user').order_by('user__username', 'timestamp')
+
+    # จัดกลุ่ม
+    from collections import defaultdict
+    by_user = defaultdict(list)
+    for log in logs:
+        by_user[log.user].append(log)
+
+    warnings = []
+    for user, user_logs in by_user.items():
+        types = [l.check_type for l in user_logs]
+        has_go   = 'GO_WORK'     in types
+        has_back = 'BACK_OFFICE' in types
+        if not has_go or has_back:
+            continue  # ยังไม่ออกงาน หรือกลับแล้ว
+
+        # หา log ล่าสุดที่มีพิกัดจริง
+        last = next(
+            (l for l in reversed(user_logs) if float(l.latitude) != 0 and float(l.longitude) != 0),
+            None
+        )
+        if not last:
+            continue
+
+        last_local = timezone.localtime(last.timestamp)
+        minutes_ago = (now_local - last_local).total_seconds() / 60
+        if minutes_ago >= WARN_MIN:
+            warnings.append({
+                'user_id':   user.id,
+                'username':  user.username,
+                'last_time': last_local.strftime('%H:%M'),
+                'last_lat':  str(last.latitude),
+                'last_lng':  str(last.longitude),
+                'minutes_ago': round(minutes_ago),
+            })
+
+    return JsonResponse({'warnings': warnings})
+
+
+@login_required
 def gps_track_warn_notify(request):
     """
     ส่ง WebSocket notification เตือนช่างที่ไม่ส่ง GPS location มา > 25 นาที
