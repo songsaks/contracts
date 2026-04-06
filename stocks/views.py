@@ -2691,6 +2691,44 @@ def precision_momentum_scanner(request):
                         except Exception:
                             pass
 
+                        # ====== Ichimoku Cloud ======
+                        ichimoku_above_kumo = False
+                        ichimoku_tk_cross   = False
+                        ichimoku_kumo_green = False
+                        ichimoku_chikou_ok  = False
+                        ichimoku_score_val  = 0
+                        try:
+                            if len(df) >= 52:
+                                _h9  = df['High'].rolling(9).max()
+                                _l9  = df['Low'].rolling(9).min()
+                                _h26 = df['High'].rolling(26).max()
+                                _l26 = df['Low'].rolling(26).min()
+                                _h52 = df['High'].rolling(52).max()
+                                _l52 = df['Low'].rolling(52).min()
+                                _tenkan = (_h9  + _l9)  / 2
+                                _kijun  = (_h26 + _l26) / 2
+                                _span_a = ((_tenkan + _kijun) / 2).shift(26)
+                                _span_b = ((_h52   + _l52)  / 2).shift(26)
+                                _sa_cur = float(_span_a.iloc[-1]) if pd.notna(_span_a.iloc[-1]) else 0
+                                _sb_cur = float(_span_b.iloc[-1]) if pd.notna(_span_b.iloc[-1]) else 0
+                                # 1) Price above Kumo
+                                ichimoku_above_kumo = current_price > max(_sa_cur, _sb_cur) > 0
+                                # 2) TK Cross bullish in last 5 bars
+                                for _i in range(-5, 0):
+                                    if (_tenkan.iloc[_i-1] <= _kijun.iloc[_i-1]
+                                            and _tenkan.iloc[_i] > _kijun.iloc[_i]):
+                                        ichimoku_tk_cross = True
+                                        break
+                                # 3) Future Kumo green (SpanA > SpanB at current shifted position)
+                                ichimoku_kumo_green = _sa_cur > _sb_cur and _sa_cur > 0
+                                # 4) Chikou Span clear (current close > close 26 bars ago)
+                                if len(df) >= 27:
+                                    ichimoku_chikou_ok = float(df['Close'].iloc[-1]) > float(df['Close'].iloc[-27])
+                                ichimoku_score_val = sum([ichimoku_above_kumo, ichimoku_tk_cross,
+                                                         ichimoku_kumo_green, ichimoku_chikou_ok])
+                        except Exception:
+                            pass
+
                         # Price Pattern detection (ใช้ df ที่มีอยู่แล้ว)
                         pattern_result = detect_price_pattern(df)
                         pattern_name  = pattern_result['name']
@@ -2752,6 +2790,11 @@ def precision_momentum_scanner(request):
                             'is_52w_breakout': tech.get('is_52w_breakout', False),
                             'volume_surge': tech.get('volume_surge', 1.0),
                             'is_volume_surge': tech.get('is_volume_surge', False),
+                            'ichimoku_above_kumo': ichimoku_above_kumo,
+                            'ichimoku_tk_cross': ichimoku_tk_cross,
+                            'ichimoku_kumo_green': ichimoku_kumo_green,
+                            'ichimoku_chikou_ok': ichimoku_chikou_ok,
+                            'ichimoku_score': ichimoku_score_val,
                         }
 
                     except Exception as e:
@@ -2858,6 +2901,11 @@ def precision_momentum_scanner(request):
                             is_52w_breakout=r.get('is_52w_breakout', False),
                             volume_surge=r.get('volume_surge', 1.0),
                             is_volume_surge=r.get('is_volume_surge', False),
+                            ichimoku_above_kumo=r.get('ichimoku_above_kumo', False),
+                            ichimoku_tk_cross=r.get('ichimoku_tk_cross', False),
+                            ichimoku_kumo_green=r.get('ichimoku_kumo_green', False),
+                            ichimoku_chikou_ok=r.get('ichimoku_chikou_ok', False),
+                            ichimoku_score=r.get('ichimoku_score', 0),
                         ))
 
                     if bulk_candidates:
@@ -4489,6 +4537,40 @@ def us_precision_scanner(request):
                 except Exception:
                     pass
 
+                # ====== Ichimoku Cloud ======
+                ichimoku_above_kumo = False
+                ichimoku_tk_cross   = False
+                ichimoku_kumo_green = False
+                ichimoku_chikou_ok  = False
+                ichimoku_score_val  = 0
+                try:
+                    if len(df) >= 52:
+                        _h9  = df['High'].rolling(9).max()
+                        _l9  = df['Low'].rolling(9).min()
+                        _h26 = df['High'].rolling(26).max()
+                        _l26 = df['Low'].rolling(26).min()
+                        _h52 = df['High'].rolling(52).max()
+                        _l52 = df['Low'].rolling(52).min()
+                        _tenkan = (_h9  + _l9)  / 2
+                        _kijun  = (_h26 + _l26) / 2
+                        _span_a = ((_tenkan + _kijun) / 2).shift(26)
+                        _span_b = ((_h52   + _l52)  / 2).shift(26)
+                        _sa_cur = float(_span_a.iloc[-1]) if pd.notna(_span_a.iloc[-1]) else 0
+                        _sb_cur = float(_span_b.iloc[-1]) if pd.notna(_span_b.iloc[-1]) else 0
+                        ichimoku_above_kumo = current_price > max(_sa_cur, _sb_cur) > 0
+                        for _i in range(-5, 0):
+                            if (_tenkan.iloc[_i-1] <= _kijun.iloc[_i-1]
+                                    and _tenkan.iloc[_i] > _kijun.iloc[_i]):
+                                ichimoku_tk_cross = True
+                                break
+                        ichimoku_kumo_green = _sa_cur > _sb_cur and _sa_cur > 0
+                        if len(df) >= 27:
+                            ichimoku_chikou_ok = float(df['Close'].iloc[-1]) > float(df['Close'].iloc[-27])
+                        ichimoku_score_val = sum([ichimoku_above_kumo, ichimoku_tk_cross,
+                                                 ichimoku_kumo_green, ichimoku_chikou_ok])
+                except Exception:
+                    pass
+
                 pattern_result = detect_price_pattern(df)
                 pattern_name   = pattern_result['name']
                 pattern_score  = pattern_result['score']
@@ -4525,6 +4607,11 @@ def us_precision_scanner(request):
                     'earnings_soon': earnings_soon_flag,
                     'pocket_pivot': pocket_pivot_flag,
                     'vdu_near_zone': vdu_flag,
+                    'ichimoku_above_kumo': ichimoku_above_kumo,
+                    'ichimoku_tk_cross': ichimoku_tk_cross,
+                    'ichimoku_kumo_green': ichimoku_kumo_green,
+                    'ichimoku_chikou_ok': ichimoku_chikou_ok,
+                    'ichimoku_score': ichimoku_score_val,
                 }
 
             except Exception as e:
@@ -4604,6 +4691,11 @@ def us_precision_scanner(request):
                     earnings_soon=r.get('earnings_soon', False),
                     pocket_pivot=r.get('pocket_pivot', False),
                     vdu_near_zone=r.get('vdu_near_zone', False),
+                    ichimoku_above_kumo=r.get('ichimoku_above_kumo', False),
+                    ichimoku_tk_cross=r.get('ichimoku_tk_cross', False),
+                    ichimoku_kumo_green=r.get('ichimoku_kumo_green', False),
+                    ichimoku_chikou_ok=r.get('ichimoku_chikou_ok', False),
+                    ichimoku_score=r.get('ichimoku_score', 0),
                 ))
 
             if bulk_candidates:

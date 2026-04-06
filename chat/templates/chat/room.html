@@ -745,6 +745,12 @@
                     {% endif %}
                 </div>
                 <div class="message-meta">
+                    {% if user.is_staff or user.is_superuser %}
+                    <button class="text-slate-400 hover:text-red-500 transition-colors mr-2 text-[11px]" 
+                            onclick="confirmDeleteMessage(event, {{ msg.id }})" title="ลบข้อความ">
+                        <i class="fas fa-trash-alt"></i>
+                    </button>
+                    {% endif %}
                     <button class="reply-btn" data-reply-msgid="{{ msg.id }}" data-reply-user="{{ msg.user.username|escapejs }}" data-reply-text="{% if msg.reply_preview %}{{ msg.reply_preview|truncatechars:60|escapejs }}{% else %}{{ msg.content|truncatechars:60|escapejs }}{% endif %}" title="ตอบกลับ">↩</button>
                     {{ msg.timestamp|date:"H:i" }}
                 </div>
@@ -1037,6 +1043,7 @@
     const roomId = JSON.parse(document.getElementById('room-id').textContent);
     const userId = JSON.parse(document.getElementById('user-id').textContent);
     const currentUsername = "{{ request.user.username }}";
+    const isAdmin = {{ user.is_staff|yesno:"true,false" }} || {{ user.is_superuser|yesno:"true,false" }};
     const fetchMsgsUrl = "{% url 'chat:fetch_new_messages' room.id %}";
     const messagesContainer = document.getElementById('chat-messages');
     const layoutWrapper = document.querySelector('.layout-wrapper');
@@ -1190,6 +1197,13 @@
             ? `<button class="reply-btn" data-reply-msgid="${msgId}" data-reply-user="${escapeAttr(data.username||'')}" data-reply-text="${escapeAttr((data.message||'').substring(0,60))}" title="ตอบกลับ">↩</button>`
             : '';
 
+        const deleteBtnHtml = (msgId && isAdmin)
+            ? `<button class="text-slate-400 hover:text-red-500 transition-colors mr-2 text-[11px]" 
+                       onclick="confirmDeleteMessage(event, ${msgId})" title="ลบข้อความ">
+                <i class="fas fa-trash-alt"></i>
+               </button>`
+            : '';
+
         const msgEl = document.createElement('div');
         msgEl.className = `message-bubble ${bubbleClass} ${extraBubbleClass}`;
         if (msgId) msgEl.dataset.msgId = msgId;
@@ -1202,7 +1216,7 @@
                 ${locationHtml}
                 ${satisfactionHtml}
             </div>
-            <div class="message-meta">${replyBtnHtml}${data.timestamp}</div>`;
+            <div class="message-meta">${deleteBtnHtml}${replyBtnHtml}${data.timestamp}</div>`;
         messagesContainer.appendChild(msgEl);
     }
 
@@ -1412,6 +1426,18 @@
         const data = JSON.parse(e.data);
         if (!data) return;
 
+        // ─── Handle Message Deleted (Admin action) ───
+        if (data.type === 'message_deleted') {
+            const el = document.querySelector(`.message-bubble[data-msg-id="${data.message_id}"]`);
+            if (el) {
+                el.style.opacity = '0';
+                el.style.transform = 'scale(0.9)';
+                el.style.transition = 'all 0.3s ease';
+                setTimeout(() => el.remove(), 300);
+            }
+            return;
+        }
+
         // ตอบ heartbeat — ไม่ต้องแสดงผลอะไร
         if (data.type === 'pong' || data.type === 'ping') return;
 
@@ -1547,6 +1573,33 @@
         wsUserLeft = true;
         stopWsHeartbeat();
     });
+
+    // ลบข้อความ (สำหรับ Admin)
+    window.confirmDeleteMessage = function(event, messageId) {
+        event.preventDefault();
+        event.stopPropagation();
+        if (confirm("⚠️ คุณแน่ใจหรือไม่ว่าต้องการลบข้อความนี้?\n(การลบจะไม่สามารถกู้คืนได้)")) {
+            fetch(`/chat/message/${messageId}/delete/`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}',
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.status === 'ok') {
+                    // ข้อความจะถูกลบผ่าน WebSocket handler ที่เราเพิ่มไว้ข้างบน
+                } else {
+                    alert("ไม่สามารถลบข้อความได้: " + (data.error || "Unknown error"));
+                }
+            })
+            .catch(err => {
+                console.error("Delete message error:", err);
+                alert("เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์");
+            });
+        }
+    };
 
     // ส่งข้อความ
     function sendMessage(text, isSTT = false, lat = null, lon = null, locName = '') {

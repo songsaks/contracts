@@ -326,6 +326,13 @@ class PrecisionScanCandidate(models.Model):
     volume_surge     = models.FloatField(default=1.0)             # current vol / avg_vol_20d ratio
     is_volume_surge  = models.BooleanField(default=False)         # True if volume_surge >= 1.5x
 
+    # ====== Ichimoku Cloud (v8) ======
+    ichimoku_above_kumo = models.BooleanField(default=False)      # ราคาอยู่เหนือ Kumo (SpanA & SpanB)
+    ichimoku_tk_cross   = models.BooleanField(default=False)      # Tenkan ตัด Kijun ขึ้น ใน 5 แท่งล่าสุด
+    ichimoku_kumo_green = models.BooleanField(default=False)      # Kumo อนาคตเป็นสีเขียว (SpanA > SpanB)
+    ichimoku_chikou_ok  = models.BooleanField(default=False)      # Chikou อยู่เหนือราคา 26 แท่งก่อน
+    ichimoku_score      = models.IntegerField(default=0)          # คะแนนรวม Ichimoku (0-4)
+
     class Meta:
         ordering = ['-scan_run', '-technical_score']
 

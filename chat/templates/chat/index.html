@@ -126,6 +126,14 @@
                 <h1 class="text-3xl font-extrabold">ศูนย์แชทกลาง 9Com Cloud</h1>
                 <p class="text-white/80">สื่อสารแบบทันทีกับเพื่อนร่วมทีมในทุกระบบที่คุณดูแล</p>
             </div>
+            {% if user.is_staff or user.is_superuser %}
+            <div class="ml-auto">
+                <button onclick="openCreateRoomModal()" class="bg-white/20 hover:bg-white/30 backdrop-blur-md text-white px-4 py-2 rounded-xl border border-white/30 transition-all flex items-center gap-2">
+                    <i class="fas fa-plus"></i>
+                    <span class="hidden sm:inline">สร้างห้องแชท</span>
+                </button>
+            </div>
+            {% endif %}
         </div>
     </div>
 
@@ -147,9 +155,18 @@
                         z-index:10;
                     ">🔔</span>
                 </div>
-                <span class="px-3 py-1 text-xs font-semibold bg-slate-100 text-slate-600 rounded-full border border-slate-200 whitespace-nowrap">
-                    {{ room.get_app_category_display }}
-                </span>
+                <div class="flex flex-col items-end gap-2">
+                    <span class="px-3 py-1 text-xs font-semibold bg-slate-100 text-slate-600 rounded-full border border-slate-200 whitespace-nowrap">
+                        {{ room.get_app_category_display }}
+                    </span>
+                    {% if user.is_superuser %}
+                    <span onclick="confirmDeleteRoom(event, {{ room.id }}, '{{ room.name|escapejs }}')" 
+                          class="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
+                          title="ลบห้องแชทนี้">
+                        <i class="fas fa-trash-alt"></i>
+                    </span>
+                    {% endif %}
+                </div>
             </div>
             <div class="room-title">{{ room.name }}</div>
             <div class="room-desc">{{ room.description|default:"ไม่มีคำอธิบายเพิ่มเติม" }}</div>
@@ -166,6 +183,60 @@
         {% endfor %}
     </div>
 </div>
+
+<!-- Modal: สร้างห้องแชทใหม่ -->
+<div id="createRoomModal" class="fixed inset-0 z-[3000] hidden flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+    <div class="bg-white rounded-3xl w-full max-w-md shadow-2xl overflow-hidden scale-95 opacity-0 transition-all duration-300 transform" id="modalContent">
+        <div class="bg-slate-50 px-6 py-4 border-bottom flex items-center justify-between">
+            <h2 class="text-xl font-bold text-slate-800"><i class="fas fa-plus-circle text-blue-500 mr-2"></i>สร้างห้องแชทใหม่</h2>
+            <button onclick="closeCreateRoomModal()" class="text-slate-400 hover:text-slate-600 transition-colors">
+                <i class="fas fa-times text-xl"></i>
+            </button>
+        </div>
+        <form action="{% url 'chat:room_create' %}" method="POST" class="p-6">
+            {% csrf_token %}
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-bold text-slate-700 mb-1">ชื่อห้องแชท *</label>
+                    <input type="text" name="name" required placeholder="เช่น แจ้งสอย, จองห้องประชุม"
+                           class="w-full px-4 py-2 rounded-xl border border-slate-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all outline-none">
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-slate-700 mb-1">หมวดหมู่ระบบ</label>
+                    <select name="app_category" class="w-full px-4 py-2 rounded-xl border border-slate-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all outline-none">
+                        {% for val, label in app_choices %}
+                            <option value="{{ val }}">{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-slate-700 mb-1">คำอธิบาย</label>
+                    <textarea name="description" rows="2" placeholder="อธิบายวัตถุประสงค์ของห้องนี้..."
+                              class="w-full px-4 py-2 rounded-xl border border-slate-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all outline-none"></textarea>
+                </div>
+                <div class="flex items-center gap-4">
+                    <div class="flex-1">
+                        <label class="block text-sm font-bold text-slate-700 mb-1">สีประจำห้อง</label>
+                        <input type="color" name="color_hex" value="#3b82f6" class="w-full h-10 p-1 rounded-lg border border-slate-200 cursor-pointer">
+                    </div>
+                    <div class="flex items-center gap-2 pt-6">
+                        <input type="checkbox" name="is_private" id="is_private" class="w-5 h-5 rounded border-slate-300 text-blue-600 focus:ring-blue-500">
+                        <label for="is_private" class="text-sm font-bold text-slate-700 cursor-pointer">ห้องส่วนตัว</label>
+                    </div>
+                </div>
+            </div>
+            <div class="mt-8 flex gap-3">
+                <button type="button" onclick="closeCreateRoomModal()" class="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 text-slate-600 font-bold hover:bg-slate-50 transition-all">ยกเลิก</button>
+                <button type="submit" class="flex-1 px-4 py-2.5 rounded-xl bg-blue-600 text-white font-bold hover:bg-blue-700 shadow-lg shadow-blue-200 transition-all">สร้างห้อง</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal: ยืนยันการลบห้อง -->
+<form id="deleteRoomForm" action="" method="POST" style="display:none;">
+    {% csrf_token %}
+</form>
 
 {% endblock content %}
 
@@ -185,5 +256,36 @@ window.showRoomBell = function(roomId) {
         if (card) { card.style.borderColor = ''; card.style.boxShadow = ''; }
     }, 60000);
 };
+
+// --- Modal Functions ---
+function openCreateRoomModal() {
+    const modal = document.getElementById('createRoomModal');
+    const content = document.getElementById('modalContent');
+    modal.classList.remove('hidden');
+    setTimeout(() => {
+        content.classList.remove('scale-95', 'opacity-0');
+    }, 10);
+    document.body.style.overflow = 'hidden';
+}
+
+function closeCreateRoomModal() {
+    const modal = document.getElementById('createRoomModal');
+    const content = document.getElementById('modalContent');
+    content.classList.add('scale-95', 'opacity-0');
+    setTimeout(() => {
+        modal.classList.add('hidden');
+    }, 300);
+    document.body.style.overflow = '';
+}
+
+function confirmDeleteRoom(event, roomId, roomName) {
+    event.preventDefault();
+    event.stopPropagation();
+    if (confirm(`⚠️ ยืนยันการลบห้องแชท "${roomName}" ใช่หรือไม่?\nข้อความและไฟล์ทั้งหมดในห้องนี้จะถูกลบถาวร!`)) {
+        const form = document.getElementById('deleteRoomForm');
+        form.action = "{% url 'chat:room_delete' 0 %}".replace('/0/', '/' + roomId + '/');
+        form.submit();
+    }
+}
 </script>
 {% endblock %}

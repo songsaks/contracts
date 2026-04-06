@@ -20,6 +20,7 @@ class ChatRoom(models.Model):
         ('repairs', 'ระบบงานซ่อม (Repairs)'),
         ('pms', 'ระบบบริหารโครงการ (PMS)'),
         ('payroll', 'ระบบเงินเดือน (Payroll)'),
+        ('stocks', 'ระบบวิเคราะห์หุ้น (Stocks)'),
     )
 
     # ชื่อห้องแชท (ต้องไม่ซ้ำกันในระบบ)

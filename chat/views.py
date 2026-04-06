@@ -36,7 +36,8 @@ def chat_index(request):
         ).distinct().order_by('created_at')
 
     return render(request, 'chat/index.html', {
-        'rooms': rooms
+        'rooms': rooms,
+        'app_choices': ChatRoom.APP_CHOICES
     })
 
 
@@ -229,3 +230,84 @@ def fetch_new_messages(request, room_id):
         })
 
     return JsonResponse({'messages': data})
+
+
+# ====== Administrative Views (Manage Rooms & Messages) ======
+
+@login_required
+def room_create(request):
+    """
+    สร้างห้องแชทใหม่ (จำกัดเฉพาะ Staff/Admin)
+    """
+    if not request.user.is_staff and not request.user.is_superuser:
+        messages.error(request, "คุณไม่มีสิทธิ์ในการสร้างห้องแชท")
+        return redirect('chat:index')
+
+    if request.method == 'POST':
+        name = request.POST.get('name')
+        app_category = request.POST.get('app_category', 'general')
+        description = request.POST.get('description', '')
+        color_hex = request.POST.get('color_hex', '#3b82f6')
+        is_private = request.POST.get('is_private') == 'on'
+
+        if not name:
+            messages.error(request, "กรุณาระบุชื่อห้องแชท")
+            return redirect('chat:index')
+
+        try:
+            room = ChatRoom.objects.create(
+                name=name,
+                app_category=app_category,
+                description=description,
+                color_hex=color_hex,
+                is_private=is_private
+            )
+            messages.success(request, f"สร้างห้องแชท '{room.name}' เรียบร้อยแล้ว")
+        except Exception as e:
+            messages.error(request, f"เกิดข้อผิดพลาด: {str(e)}")
+
+    return redirect('chat:index')
+
+
+@login_required
+def room_delete(request, room_id):
+    """
+    ลบห้องแชท (จำกัดเฉพาะ Superuser - ตามเงื่อนไข 'ลบได้เฉพาะ user admin เท่านั้น')
+    """
+    if not request.user.is_superuser:
+        messages.error(request, "คุณไม่มีสิทธิ์ในการลบห้องแชท (จำกัดเฉพาะ Admin สูงสุด)")
+        return redirect('chat:index')
+
+    room = get_object_or_404(ChatRoom, pk=room_id)
+    room_name = room.name
+    room.delete()
+    messages.success(request, f"ลบห้องแชท '{room_name}' เรียบร้อยแล้ว")
+    return redirect('chat:index')
+
+
+@login_required
+def message_delete(request, message_id):
+    """
+    ลบข้อความแชท (จำกัดเฉพาะ Admin/Staff)
+    """
+    message = get_object_or_404(ChatMessage, pk=message_id)
+    room_id = message.room_id
+
+    # ตรวจสอบสิทธิ์: เฉพาะ Admin/Staff หรือเจ้าของข้อความ (ในที่นี้เน้น Admin ตามโจทย์จัดการแชท)
+    if not request.user.is_staff and not request.user.is_superuser:
+        return JsonResponse({'error': 'Permission denied'}, status=403)
+
+    message.delete()
+
+    # แจ้งเตือนคนอื่นในห้องว่าข้อความถูกลบ (Best effort via empty broadcast)
+    # หรือจะส่ง type 'message_deleted' ไปให้ฝั่ง client ลบออกจาก DOM ก็ได้
+    channel_layer = get_channel_layer()
+    async_to_sync(channel_layer.group_send)(
+        f'chat_{room_id}',
+        {
+            'type': 'message_deleted',
+            'message_id': message_id
+        }
+    )
+
+    return JsonResponse({'status': 'ok'})

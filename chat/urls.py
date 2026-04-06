@@ -15,4 +15,9 @@ urlpatterns = [
     path('project/<int:project_id>/', views.project_chat, name='project_chat'),
     # ดึงข้อความใหม่ที่พลาดไป (Mobile reconnect / Manual refresh)
     path('<int:room_id>/messages/', views.fetch_new_messages, name='fetch_new_messages'),
+
+    # ===== Administrative Endpoints (Manage Status/Messages) =====
+    path('room/create/', views.room_create, name='room_create'),
+    path('room/<int:room_id>/delete/', views.room_delete, name='room_delete'),
+    path('message/<int:message_id>/delete/', views.message_delete, name='message_delete'),
 ]
