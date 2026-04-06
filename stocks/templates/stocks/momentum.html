@@ -4,6 +4,45 @@
 {% block title %}Momentum Scanner — 9Com{% endblock %}
 
 {% block content %}
+{% if is_scanning %}
+<div id="momentumLoadingOverlay" style="position:fixed;inset:0;background:rgba(15,23,42,0.92);
+     z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1.2rem;">
+    <div style="width:64px;height:64px;border-radius:50%;border:6px solid rgba(239,68,68,0.2);
+                border-top-color:#ef4444;animation:mSpin 1s linear infinite;"></div>
+    <div style="color:white;font-size:1.2rem;font-weight:700;">
+        <i class="fas fa-rocket" style="color:#ef4444;margin-right:8px;"></i> กำลังสแกนหุ้น…
+    </div>
+    <div id="momentumPhase" style="color:#94a3b8;font-size:0.88rem;">เริ่มสแกน…</div>
+    <div style="width:280px;background:rgba(255,255,255,0.1);border-radius:8px;height:8px;overflow:hidden;">
+        <div id="momentumBar" style="height:100%;background:#ef4444;width:0%;transition:width 0.4s;border-radius:8px;"></div>
+    </div>
+    <div id="momentumProgressText" style="color:#64748b;font-size:0.78rem;">0 / 0</div>
+    <div style="color:#475569;font-size:0.75rem;">ระบบสแกนหุ้นในพื้นหลัง กรุณารอจนเสร็จ</div>
+</div>
+<style>@keyframes mSpin { to { transform: rotate(360deg); } }</style>
+<script>
+(function() {
+    var _mSawRunning = true;
+    function poll() {
+        fetch('?scan_status=1', { credentials: 'same-origin' })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (data.state === 'running') {
+                    var prog = data.progress || 0, total = data.total || 1;
+                    document.getElementById('momentumPhase').textContent = data.phase || 'สแกน…';
+                    document.getElementById('momentumBar').style.width = Math.round(prog/total*100) + '%';
+                    document.getElementById('momentumProgressText').textContent = prog + ' / ' + total;
+                    setTimeout(poll, 2000);
+                } else {
+                    window.location.href = window.location.pathname;
+                }
+            })
+            .catch(function() { setTimeout(poll, 3000); });
+    }
+    document.addEventListener('DOMContentLoaded', function() { setTimeout(poll, 1500); });
+})();
+</script>
+{% endif %}
 <div class="container-fluid px-2 px-md-4">
 <div class="row align-items-end mb-4">
     <div class="col-md-7">
@@ -335,80 +374,8 @@
     document.addEventListener("DOMContentLoaded", function() {
         const rawContent = document.getElementById('raw-markdown').value;
         const targetDiv = document.getElementById('markdown-content');
-        if(rawContent && targetDiv) {
-            targetDiv.innerHTML = marked.parse(rawContent);
-        }
+        if(rawContent && targetDiv) { targetDiv.innerHTML = marked.parse(rawContent); }
     });
 </script>
 {% endif %}
-
-<!-- Loading overlay -->
-<div id="momentumLoadingOverlay" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,0.92);
-     z-index:9999;flex-direction:column;align-items:center;justify-content:center;gap:1.2rem;">
-    <div style="width:64px;height:64px;border-radius:50%;border:6px solid rgba(239,68,68,0.2);
-                border-top-color:#ef4444;animation:mSpin 1s linear infinite;"></div>
-    <div style="color:white;font-size:1.2rem;font-weight:700;">
-        <i class="fas fa-rocket" style="color:#ef4444;margin-right:8px;"></i> กำลังสแกนหุ้น…
-    </div>
-    <div id="momentumPhase" style="color:#94a3b8;font-size:0.88rem;">เริ่มสแกน…</div>
-    <div style="width:280px;background:rgba(255,255,255,0.1);border-radius:8px;height:8px;overflow:hidden;">
-        <div id="momentumBar" style="height:100%;background:#ef4444;width:0%;transition:width 0.4s;border-radius:8px;"></div>
-    </div>
-    <div id="momentumProgressText" style="color:#64748b;font-size:0.78rem;">0 / 0</div>
-</div>
-<style>@keyframes mSpin { to { transform: rotate(360deg); } }</style>
-
-<script>
-var _mPollTimer = null;
-var _mSawRunning = false;
-
-function showMomentumLoading() {
-    var ov = document.getElementById('momentumLoadingOverlay');
-    ov.style.display = 'flex';
-    _mSawRunning = false;
-    _mPollTimer = setTimeout(pollMomentumStatus, 2000);
-}
-
-function pollMomentumStatus() {
-    fetch('?scan_status=1', { credentials: 'same-origin' })
-        .then(function(r) { return r.json(); })
-        .then(function(data) {
-            if (data.state === 'running') {
-                _mSawRunning = true;
-                var phase = data.phase || 'สแกน…';
-                var prog  = data.progress || 0;
-                var total = data.total || 1;
-                document.getElementById('momentumPhase').textContent = phase;
-                document.getElementById('momentumBar').style.width = Math.round(prog / total * 100) + '%';
-                document.getElementById('momentumProgressText').textContent = prog + ' / ' + total;
-                _mPollTimer = setTimeout(pollMomentumStatus, 2000);
-            } else if (data.state === 'done') {
-                document.getElementById('momentumLoadingOverlay').style.display = 'none';
-                if (_mSawRunning) { window.location.reload(); }
-            } else {
-                // idle — ยังไม่เริ่ม ลอง poll ต่อถ้าเพิ่งคลิก
-                if (_mSawRunning) {
-                    document.getElementById('momentumLoadingOverlay').style.display = 'none';
-                    window.location.reload();
-                } else {
-                    _mPollTimer = setTimeout(pollMomentumStatus, 2000);
-                }
-            }
-        })
-        .catch(function() { _mPollTimer = setTimeout(pollMomentumStatus, 3000); });
-}
-
-// Auto-resume if scan was running before page load
-document.addEventListener('DOMContentLoaded', function() {
-    fetch('?scan_status=1', { credentials: 'same-origin' })
-        .then(function(r) { return r.json(); })
-        .then(function(data) {
-            if (data.state === 'running') {
-                document.getElementById('momentumLoadingOverlay').style.display = 'flex';
-                _mSawRunning = true;
-                _mPollTimer = setTimeout(pollMomentumStatus, 2000);
-            }
-        }).catch(function() {});
-});
-</script>
 {% endblock %}

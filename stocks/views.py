@@ -2066,8 +2066,8 @@ def momentum_scanner(request):
     }
     order_field = valid_sorts.get(sort_by, '-technical_score')
 
-    # ดึงผลสแกนล่าสุดของ user นี้จาก database
-    candidates = MomentumCandidate.objects.filter(user=request.user).order_by(order_field)
+    # ดึงผลสแกนล่าสุดของ user นี้จาก database — ใช้ distinct เพื่อกัน duplicate
+    candidates = MomentumCandidate.objects.filter(user=request.user).order_by(order_field).distinct()
 
     # หาเวลาสแกนล่าสุด
     # Get last scan time from the first candidate if available
@@ -2106,14 +2106,18 @@ def momentum_scanner(request):
         except Exception as e:
             ai_analysis = f"AI Error: {str(e)}"
 
+    # ตรวจว่ากำลังสแกนอยู่ — ถ้าใช่ ซ่อน results เพื่อไม่ให้กระพริบ
+    _scan_state = _cp.get(cache_key, {})
+    is_scanning = _scan_state.get('state') == 'running'
+
     context = {
         'title': 'Global Momentum Scanner (CAN SLIM)',
-        'candidates': candidates,
+        'candidates': candidates if not is_scanning else [],
         'ai_analysis': ai_analysis,
         'scanned_at': scanned_at,
         'current_sort': sort_by,
-        # has_scanned: แสดงตารางผลเมื่อมีการสแกน หรือมีข้อมูลเก่าอยู่แล้ว
-        'has_scanned': request.method == "POST" or request.GET.get('scan') == 'true' or candidates.exists()
+        'is_scanning': is_scanning,
+        'has_scanned': candidates.exists() and not is_scanning,
     }
     return render(request, 'stocks/momentum.html', context)
 
