@@ -639,8 +639,8 @@
             <!-- RS Filter + Quick Filters -->
             <div class="px-3 pb-2 d-flex flex-wrap gap-2 align-items-center">
                 <div class="form-check form-switch mb-0 d-flex align-items-center gap-2">
-                    <input class="form-check-input" type="checkbox" id="rsFilter70SET" onchange="filterByRS('SET', this.checked)" style="cursor:pointer;">
-                    <label class="form-check-label small fw-semibold" for="rsFilter70SET" style="cursor:pointer;color:#0891b2;">RS ≥ 70</label>
+                    <input class="form-check-input" type="checkbox" id="rsiFilter70SET" onchange="_applyFiltersSET()" style="cursor:pointer;">
+                    <label class="form-check-label small fw-semibold" for="rsiFilter70SET" style="cursor:pointer;color:#ef4444;">🔥 RSI < 70</label>
                 </div>
                 <div class="form-check form-switch mb-0 d-flex align-items-center gap-2">
                     <input class="form-check-input" type="checkbox" id="stage2FilterSET" onchange="filterByStage2('SET', this.checked)" style="cursor:pointer;">
@@ -718,7 +718,7 @@
                     </thead>
                     <tbody>
                         {% for item in candidates %}
-                        <tr class="{% if item.demand_zone_start and item.price <= item.demand_zone_start and item.price >= item.demand_zone_end %}row-entry-zone{% elif item.supply_zone_start and item.price >= item.supply_zone_start %}row-take-profit{% elif item.is_new_entry %}row-new-entry{% endif %}{% if item.cmf is not None and item.cmf < -0.1 %} row-cmf-dist{% endif %}" data-rs="{{ item.rs_rating }}" data-stage2="{{ item.stage2|yesno:'true,false' }}" data-pp="{{ item.pocket_pivot|yesno:'true,false' }}" data-sector="{{ item.sector }}" data-cmfdist="{% if item.cmf is not None and item.cmf < -0.1 %}true{% else %}false{% endif %}" data-volsurge="{{ item.is_volume_surge|yesno:'true,false' }}" data-ichi="{{ item.ichimoku_score }}" id="row-{{ item.symbol }}">
+                        <tr class="{% if item.demand_zone_start and item.price <= item.demand_zone_start and item.price >= item.demand_zone_end %}row-entry-zone{% elif item.supply_zone_start and item.price >= item.supply_zone_start %}row-take-profit{% elif item.is_new_entry %}row-new-entry{% endif %}{% if item.cmf is not None and item.cmf < -0.1 %} row-cmf-dist{% endif %}" data-rs="{{ item.rs_rating }}" data-rsi="{{ item.rsi }}" data-stage2="{{ item.stage2|yesno:'true,false' }}" data-pp="{{ item.pocket_pivot|yesno:'true,false' }}" data-sector="{{ item.sector }}" data-cmfdist="{% if item.cmf is not None and item.cmf < -0.1 %}true{% else %}false{% endif %}" data-volsurge="{{ item.is_volume_surge|yesno:'true,false' }}" data-ichi="{{ item.ichimoku_score }}" id="row-{{ item.symbol }}">
                             <!-- SYMBOL -->
                             <td class="ps-2">
                                 <div class="d-flex align-items-center gap-1">
@@ -1803,7 +1803,6 @@
 // ── Table Filter Helpers ──────────────────────────────────────────────
 function _applyFiltersSET() {
     var rows = document.querySelectorAll('#scanTableSET tbody tr');
-    var rsOn       = document.getElementById('rsFilter70SET')    && document.getElementById('rsFilter70SET').checked;
     var s2On       = document.getElementById('stage2FilterSET')  && document.getElementById('stage2FilterSET').checked;
     var ppOn       = document.getElementById('ppFilterSET')      && document.getElementById('ppFilterSET').checked;
     var hideCMFOn  = document.getElementById('hideCmfDistSET')   && document.getElementById('hideCmfDistSET').checked;
@@ -1814,13 +1813,24 @@ function _applyFiltersSET() {
     var visible = 0;
     rows.forEach(function(row) {
         var rs   = parseInt(row.dataset.rs || '0');
+        var rsi  = parseFloat(row.dataset.rsi || '0');
         var s2   = row.dataset.stage2   === 'true';
         var pp   = row.dataset.pp        === 'true';
         var cmfd = row.dataset.cmfdist   === 'true';
         var vsrg = row.dataset.volsurge  === 'true';
         var ichi = parseInt(row.dataset.ichi || '0');
         var sec  = row.dataset.sector    || '';
-        var show = (!rsOn || rs >= 70) && (!s2On || s2) && (!ppOn || pp) && (!secVal || sec === secVal) && (!hideCMFOn || !cmfd) && (!volSurgeOn || vsrg) && (!ichiOn || ichi >= 3);
+
+        var rsiOn     = document.getElementById('rsiFilter70SET') && document.getElementById('rsiFilter70SET').checked;
+
+        var show = (rs >= 70) && 
+                   (!rsiOn || rsi < 70) && 
+                   (!s2On || s2) && 
+                   (!ppOn || pp) && 
+                   (!secVal || sec === secVal) && 
+                   (!hideCMFOn || !cmfd) && 
+                   (!volSurgeOn || vsrg) && 
+                   (!ichiOn || ichi >= 3);
         row.style.display = show ? '' : 'none';
         if (show) visible++;
     });
@@ -1871,6 +1881,9 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     while (sel.options.length > 0) sel.remove(0);
     keep.forEach(function(o) { sel.add(o); });
+
+    // Apply filters immediately (e.g. for automatic RS >= 70)
+    _applyFiltersSET();
 });
 
 // ── Background scan polling ───────────────────────────────────────────
