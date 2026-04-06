@@ -4964,6 +4964,11 @@ def us_precision_scanner(request):
         top_sectors = []
         scan_insights = []
 
+    from .models import ScanWatchlistItem
+    watchlist_symbols = set(
+        ScanWatchlistItem.objects.filter(user=request.user).values_list('symbol', flat=True)
+    )
+
     context = {
         'title': 'US Precision Momentum Scanner — Nasdaq & S&P 500',
         'candidates': candidates,
@@ -4979,6 +4984,7 @@ def us_precision_scanner(request):
         'top_sectors': top_sectors,
         'scan_insights': scan_insights,
         'scan_data_date': None,
+        'watchlist_symbols': watchlist_symbols,
     }
 
     if scanned_at:
