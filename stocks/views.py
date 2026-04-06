@@ -1899,221 +1899,155 @@ def macro_economy(request):
 def momentum_scanner(request):
     """
     Globally scans SET100 roughly matching Mark Minervini Trend Template.
-    Requires significant processing time, might be better offloaded in prod,
-    but done synchronously here for demonstration.
-
-    เกณฑ์การคัดกรอง:
-    1. ราคาต้องยืนเหนือ EMA200 (Long Term Uptrend)
-    2. ราคาต้องอยู่ภายใน 40% ของ 52-Week High (Near High Filter)
-    3. คำนวณ Technical Score รวม RSI, RVOL, EMA alignment
-    4. หา Supply & Demand Zone สำหรับ Sniper Entry
+    Runs in a background thread to avoid 504 timeout.
     """
-    # โหลดรายชื่อหุ้นที่จะสแกนจาก database
-    # Load symbols from database
-    scan_symbols = ScannableSymbol.objects.filter(is_active=True).values_list('symbol', flat=True)
+    import threading as _th
+    from django.core.cache import cache as _cp
+    from django.http import JsonResponse as _JR
 
-    # ถ้า DB ว่างเปล่า ให้ refresh รายชื่อหุ้นอัตโนมัติ (Self-healing)
-    # If DB is empty, trigger a refresh immediately (Self-healing)
-    if not scan_symbols:
-        refresh_set100_symbols()
-        scan_symbols = ScannableSymbol.objects.filter(is_active=True).values_list('symbol', flat=True)
+    user_id   = request.user.id
+    cache_key = f'momentum_scan_{user_id}'
 
-    candidates = []
+    # ── AJAX status poll ──────────────────────────────────────────────
+    if request.GET.get('scan_status') == '1':
+        st = _cp.get(cache_key, {'state': 'idle'})
+        if st.get('state') == 'done':
+            _cp.delete(cache_key)
+        return _JR(st)
 
-    # สแกนเฉพาะเมื่อผู้ใช้กด POST หรือส่ง ?scan=true เพื่อลด load server
-    # We only scan if requested to avoid huge load on every page visit
-    if request.method == "POST" or request.GET.get('scan') == 'true':
-        # ลบผลสแกนเก่าของ user นี้ก่อนเริ่มสแกนใหม่
-        # Clear previous results for this user ONLY
-        MomentumCandidate.objects.filter(user=request.user).delete()
+    # ── Trigger background scan ───────────────────────────────────────
+    if request.GET.get('scan') == 'true' or request.method == 'POST':
+        scan_symbols = list(ScannableSymbol.objects.filter(is_active=True).values_list('symbol', flat=True))
+        if not scan_symbols:
+            refresh_set100_symbols()
+            scan_symbols = list(ScannableSymbol.objects.filter(is_active=True).values_list('symbol', flat=True))
 
-        import pandas_ta as ta
-        for symbol in scan_symbols:
-            try:
-                # Let yfinance handle internal auth
-                print(f"Scanning {symbol}...")
-                # ดึงข้อมูลราคา 1 ปีจาก yfinance (ต้องการอย่างน้อย 200 วัน สำหรับ EMA200)
-                df = yf.download(f"{symbol}.BK", period="1y", interval="1d", progress=False)
+        already = _cp.get(cache_key, {})
+        if already.get('state') != 'running':
+            _cp.set(cache_key, {'state': 'running', 'progress': 0, 'total': len(scan_symbols), 'phase': 'เริ่มสแกน…'}, timeout=600)
 
-                # ถ้า yfinance ล้มเหลว ลองใช้ yahooquery เป็น fallback
-                if df is None or df.empty:
-                    print(f"yfinance failed for {symbol}, trying yahooquery...")
-                    try:
-                        yq = YQTicker(f"{symbol}.BK")
-                        df = yq.history(period="1y", interval="1d")
-                        if isinstance(df, pd.DataFrame) and not df.empty:
-                            # yahooquery returns a dataframe with [symbol, date] index.
-                            df = df.reset_index()
-                            if 'date' in df.columns:
-                                df.set_index('date', inplace=True)
-                            if 'symbol' in df.columns:
-                                df.drop(columns=['symbol'], inplace=True)
-                            # แปลงชื่อ columns ให้ตรงกับ yfinance (ตัวพิมพ์ใหญ่)
-                            # Map columns to match yfinance (Capitalized)
-                            df.rename(columns={'open': 'Open', 'high': 'High', 'low': 'Low', 'close': 'Close', 'volume': 'Volume'}, inplace=True)
-                            print(f"Successfully recovered {symbol} via yahooquery")
-                    except Exception as yqe:
-                        print(f"yahooquery also failed for {symbol}: {yqe}")
+            def _run_momentum_bg(uid, ckey, sym_list):
+                try:
+                    import pandas as _pd
+                    import pandas_ta as _ta
+                    import yfinance as _yf
+                    from django.core.cache import cache as _c
+                    from .models import MomentumCandidate as _MC, ScannableSymbol as _SS
+                    from yahooquery import Ticker as _YQT
+                    from .utils import analyze_momentum_technical, find_supply_demand_zones
+                    from django.contrib.auth import get_user_model
+                    User = get_user_model()
+                    user = User.objects.get(pk=uid)
 
-                if df is None or df.empty:
-                    continue
+                    _MC.objects.filter(user=user).delete()
+                    total = len(sym_list)
 
-                # จัดการ MultiIndex columns (เกิดขึ้นเมื่อ yfinance download หลาย ticker)
-                if isinstance(df.columns, pd.MultiIndex):
-                    # Flatten the columns by dropping the ticker level
-                    df.columns = df.columns.droplevel(1)
+                    for idx, symbol in enumerate(sym_list):
+                        _c.set(ckey, {'state': 'running', 'progress': idx + 1, 'total': total,
+                                      'phase': f'สแกน {symbol} ({idx+1}/{total})…'}, timeout=600)
+                        try:
+                            df = _yf.download(f"{symbol}.BK", period="1y", interval="1d", progress=False)
+                            if df is None or df.empty:
+                                try:
+                                    yq = _YQT(f"{symbol}.BK")
+                                    df = yq.history(period="1y", interval="1d")
+                                    if isinstance(df, _pd.DataFrame) and not df.empty:
+                                        df = df.reset_index()
+                                        if 'date' in df.columns:
+                                            df.set_index('date', inplace=True)
+                                        if 'symbol' in df.columns:
+                                            df.drop(columns=['symbol'], inplace=True)
+                                        df.rename(columns={'open':'Open','high':'High','low':'Low','close':'Close','volume':'Volume'}, inplace=True)
+                                except Exception:
+                                    pass
+                            if df is None or df.empty:
+                                continue
+                            if isinstance(df.columns, _pd.MultiIndex):
+                                df.columns = df.columns.droplevel(1)
+                            df = df.dropna(subset=['Close', 'High'])
+                            if len(df) < 150:
+                                continue
 
-                # กรองแถวที่ขาด Close หรือ High
-                df = df.dropna(subset=['Close', 'High'])
-                # ต้องการข้อมูลอย่างน้อย 150 วันสำหรับ EMA150
-                if len(df) < 150:
-                    continue
+                            df['EMA50']  = _ta.ema(df['Close'], length=50)
+                            df['EMA150'] = _ta.ema(df['Close'], length=150)
+                            df['EMA200'] = _ta.ema(df['Close'], length=200)
+                            df['RSI']    = _ta.rsi(df['Close'], length=14)
+                            adx_df = _ta.adx(df['High'], df['Low'], df['Close'], length=14)
+                            if adx_df is not None and not adx_df.empty:
+                                df = _pd.concat([df, adx_df], axis=1)
+                            mfi = _ta.mfi(df['High'], df['Low'], df['Close'], df['Volume'], length=14)
+                            df['MFI'] = mfi
+                            avg_vol_20 = df['Volume'].rolling(window=20).mean()
+                            df['RVOL'] = df['Volume'] / avg_vol_20
 
-                # ====== คำนวณ Technical Indicators ======
-                df['EMA50'] = ta.ema(df['Close'], length=50)
-                df['EMA150'] = ta.ema(df['Close'], length=150)
-                df['EMA200'] = ta.ema(df['Close'], length=200)
-                df['RSI'] = ta.rsi(df['Close'], length=14)
+                            tech         = analyze_momentum_technical(df)
+                            current_price = float(df['Close'].iloc[-1])
+                            year_high     = float(df['High'].tail(252).max())
+                            integrated_score = tech['score']
+                            rvol  = tech['rvol']
+                            rsi   = tech['rsi']
+                            ema200 = tech['ema200']
+                            mfi_val = float(df['MFI'].iloc[-1]) if 'MFI' in df.columns and _pd.notna(df['MFI'].iloc[-1]) else 0
+                            adx     = float(df['ADX_14'].iloc[-1]) if 'ADX_14' in df.columns and _pd.notna(df['ADX_14'].iloc[-1]) else 0
+                            gap_to_high = ((year_high - current_price) / current_price) * 100
 
-                # คำนวณ ADX (Average Directional Index) — วัดความแรงของเทรนด์
-                # ADX Calculation
-                adx_df = ta.adx(df['High'], df['Low'], df['Close'], length=14)
-                if adx_df is not None and not adx_df.empty:
-                    df = pd.concat([df, adx_df], axis=1)
+                            if not (current_price > ema200 and current_price >= year_high * 0.60):
+                                continue
 
-                # คำนวณ MFI (Money Flow Index) — วัดแรงซื้อ/ขายตามวอลลุ่ม
-                # Money Flow Index (MFI)
-                mfi = ta.mfi(df['High'], df['Low'], df['Close'], df['Volume'], length=14)
-                df['MFI'] = mfi
+                            sector = 'Unknown'; eps_growth = 0.0; rev_growth = 0.0; fund_bonus = 0
+                            try:
+                                info = _yf.Ticker(f"{symbol}.BK").info
+                                if isinstance(info, dict) and len(info) >= 5:
+                                    sector     = info.get('sector', 'Other')
+                                    eps_growth = float(info.get('earningsQuarterlyGrowth', 0) or 0) * 100
+                                    rev_growth = float(info.get('revenueGrowth', 0) or 0) * 100
+                                if eps_growth >= 20: fund_bonus += 10
+                                if rev_growth >= 10: fund_bonus += 10
+                            except Exception:
+                                pass
 
-                # คำนวณ Relative Volume (RVOL) — วอลลุ่มปัจจุบันเทียบค่าเฉลี่ย 20 วัน
-                # Relative Volume (RVOL) - Current Volume vs 20-day Average
-                avg_vol_20 = df['Volume'].rolling(window=20).mean()
-                df['RVOL'] = df['Volume'] / avg_vol_20
+                            sd_zone = find_supply_demand_zones(df)
+                            dz_start = dz_end = sz_start = sz_end = sl_price = rr_val = None
+                            entry_strat = ''
+                            if sd_zone:
+                                entry_strat = sd_zone['type']
+                                dz_start = sd_zone['start']; dz_end = sd_zone['end']
+                                sz_start = sd_zone['target']; sz_end = sd_zone['target'] * 1.02
+                                sl_price = sd_zone['stop_loss']; rr_val = sd_zone['rr_ratio']
 
-                # ดึงค่าล่าสุดของทุก indicator
-                # Extract last values
-                last_row = df.iloc[-1]
+                            prox_val = 999.0
+                            if dz_start:
+                                prox_val = 0.0 if current_price <= dz_start else ((current_price - dz_start) / dz_start) * 100
 
-                # ใช้ centralized utility function เพื่อความสม่ำเสมอระหว่าง scanner และ portfolio
-                # Use centralized utility for consistent results across all pages
-                from .utils import analyze_momentum_technical
-                tech = analyze_momentum_technical(df)
+                            _MC.objects.create(
+                                user=user, symbol=symbol, symbol_bk=f"{symbol}.BK",
+                                sector=sector, price=round(current_price, 2),
+                                rsi=round(rsi, 2), adx=round(adx, 2),
+                                mfi=round(mfi_val, 2), rvol=round(rvol, 2),
+                                eps_growth=round(eps_growth, 2), rev_growth=round(rev_growth, 2),
+                                technical_score=int(integrated_score + fund_bonus),
+                                entry_strategy=entry_strat,
+                                demand_zone_start=dz_start, demand_zone_end=dz_end,
+                                supply_zone_start=sz_start, supply_zone_end=sz_end,
+                                stop_loss=sl_price, risk_reward_ratio=rr_val,
+                                year_high=round(year_high, 2),
+                                upside_to_high=round(gap_to_high, 2),
+                                zone_proximity=round(prox_val, 2),
+                            )
+                        except Exception:
+                            continue
 
-                current_price = float(df['Close'].iloc[-1])
-                # ราคาสูงสุดใน 252 วัน (ประมาณ 1 ปีทำการ)
-                year_high = float(df['High'].tail(252).max())
+                    _c.set(ckey, {'state': 'done'}, timeout=300)
+                except Exception as exc:
+                    from django.core.cache import cache as _c
+                    _c.set(ckey, {'state': 'done'}, timeout=300)
 
-                integrated_score = tech['score']
-                rvol = tech['rvol']
-                rsi = tech['rsi']
-                ema200 = tech['ema200']
+            _th.Thread(target=_run_momentum_bg, args=(user_id, cache_key, scan_symbols), daemon=True).start()
 
-                # ดึงค่า MFI และ ADX จาก DataFrame โดยตรง (scanner-specific)
-                # Scanner-specific indicators
-                mfi_val = float(df['MFI'].iloc[-1]) if 'MFI' in df.columns and pd.notna(df['MFI'].iloc[-1]) else 0
-                adx = float(df['ADX_14'].iloc[-1]) if 'ADX_14' in df.columns and pd.notna(df['ADX_14'].iloc[-1]) else 0
-                gap_to_high = ((year_high - current_price) / current_price) * 100
+        from django.shortcuts import redirect as _redir
+        return _redir('stocks:momentum_scanner')
 
-                # ====== เกณฑ์กรองหุ้น (Relaxed Trend Template) ======
-                # Base filter (Relaxed Trend Template)
-                # 1. Price above EMA200 (Essential for long term uptrend)
-                # 2. Within 40% of 52-week high
-                is_uptrend = (current_price > ema200)
-                near_high = (current_price >= year_high * 0.60)
-
-                if is_uptrend and near_high:
-                    print(f"MATCH FOUND: {symbol} (Score: {integrated_score})")
-                    # ดึง sector และ fundamental เฉพาะหุ้นที่ผ่านเกณฑ์เพื่อประหยัดเวลา
-                    # Fetching sector & fundamentals only for candidates to save time
-                    sector = "Unknown"
-                    eps_growth = 0.0
-                    rev_growth = 0.0
-                    fund_bonus = 0
-
-                    try:
-                        ticker = yf.Ticker(f"{symbol}.BK")
-                        info = ticker.info
-                        if isinstance(info, dict) and len(info) >= 5:
-                            sector = info.get('sector', 'Other')
-
-                            # ดึงการเติบโตของ EPS และรายได้ (แปลงเป็น %)
-                            eps_growth = float(info.get('earningsQuarterlyGrowth', 0) or 0) * 100
-                            rev_growth = float(info.get('revenueGrowth', 0) or 0) * 100
-                        else:
-                            sector = "N/A"
-                            eps_growth = 0
-                            rev_growth = 0
-
-                        # บวกคะแนน bonus ตามเกณฑ์ CAN SLIM
-                        # Fundamental Bonus (CAN SLIM Criteria)
-                        if eps_growth >= 20: fund_bonus += 10  # EPS Growth > 20%
-                        if rev_growth >= 10: fund_bonus += 10  # Revenue Growth > 10%
-                    except Exception as e:
-                        print(f"Fundamental fetch error for {symbol}: {e}")
-                        pass
-
-                    # ====== Supply & Demand Analysis (Sniper Entry) ======
-                    sd_zone = find_supply_demand_zones(df)
-                    entry_strat = ""
-                    dz_start = None
-                    dz_end = None
-                    sz_start = None
-                    sz_end = None
-                    sl_price = None
-                    rr_val = None
-
-                    if sd_zone:
-                        entry_strat = sd_zone['type']
-                        dz_start = sd_zone['start']
-                        dz_end = sd_zone['end']
-                        sz_start = sd_zone['target']
-                        sz_end = sd_zone['target'] * 1.02 # เพิ่ม 2% สำหรับ visual buffer
-                        sl_price = sd_zone['stop_loss']
-                        rr_val = sd_zone['rr_ratio']
-
-                    # คำนวณ % ห่างจากราคาปัจจุบันถึงขอบบน Demand Zone
-                    # Calculate Proximity to Zone
-                    prox_val = 999.0
-                    if dz_start:
-                        if current_price <= dz_start:
-                            prox_val = 0.0  # ราคาอยู่ใน Zone แล้ว
-                        else:
-                            prox_val = ((current_price - dz_start) / dz_start) * 100
-
-                    # บันทึกผลการสแกนลง database
-                    obj = MomentumCandidate.objects.create(
-                        user=request.user,
-                        symbol=symbol,
-                        symbol_bk=f"{symbol}.BK",
-                        sector=sector,
-                        price=round(current_price, 2),
-                        rsi=round(rsi, 2),
-                        adx=round(adx, 2),
-                        mfi=round(mfi_val, 2),
-                        rvol=round(rvol, 2),
-                        eps_growth=round(eps_growth, 2),
-                        rev_growth=round(rev_growth, 2),
-                        technical_score=int(integrated_score + fund_bonus),
-
-                        entry_strategy=entry_strat,
-                        demand_zone_start=dz_start,
-                        demand_zone_end=dz_end,
-                        supply_zone_start=sz_start,
-                        supply_zone_end=sz_end,
-                        stop_loss=sl_price,
-                        risk_reward_ratio=rr_val,
-
-                        year_high=round(year_high, 2),
-                        upside_to_high=round(gap_to_high, 2),
-                        zone_proximity=round(prox_val, 2)
-                    )
-                    candidates.append(obj)
-            except Exception as e:
-                import traceback
-                print(f"!!! Error scanning {symbol}: {str(e)}")
-                # traceback.print_exc()
-                continue
+    # ── Display saved results ─────────────────────────────────────────
 
     # ====== จัดเรียงผลการสแกนตาม parameter ที่ผู้ใช้เลือก ======
     # Define Sorting Logic

@@ -16,7 +16,7 @@
            style="background: linear-gradient(135deg, #7c3aed, #4f46e5); color: white;">
             <i class="fas fa-crosshairs"></i> Precision Scan — กรองคุณภาพ
         </a>
-        <a href="?scan=true" onclick="showLoading()" class="btn btn-premium d-inline-flex align-items-center gap-2" style="background: linear-gradient(135deg, #ef4444, #f97316);">
+        <a href="?scan=true" onclick="showMomentumLoading()" class="btn btn-premium d-inline-flex align-items-center gap-2" style="background: linear-gradient(135deg, #ef4444, #f97316);">
             <i class="fas fa-search-dollar"></i> สแกนหุ้น (SET100+MAI)
         </a>
     </div>
@@ -299,7 +299,7 @@
 
 {% if candidates and not ai_analysis %}
 <div class="text-center mt-4 mb-5">
-    <a href="?scan=true&analyze=true" onclick="showLoading()" class="btn btn-success btn-lg rounded-pill px-5 d-inline-flex align-items-center gap-2 shadow-sm" style="transition: all 0.3s; background: linear-gradient(135deg, #10b981, #059669); border: none;">
+    <a href="?scan=true&analyze=true" onclick="showMomentumLoading()" class="btn btn-success btn-lg rounded-pill px-5 d-inline-flex align-items-center gap-2 shadow-sm" style="transition: all 0.3s; background: linear-gradient(135deg, #10b981, #059669); border: none;">
         <i class="fas fa-brain"></i> ให้ AI คัด Superperformance Stock จากรายชื่อนี้
     </a>
 </div>
@@ -341,4 +341,74 @@
     });
 </script>
 {% endif %}
+
+<!-- Loading overlay -->
+<div id="momentumLoadingOverlay" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,0.92);
+     z-index:9999;flex-direction:column;align-items:center;justify-content:center;gap:1.2rem;">
+    <div style="width:64px;height:64px;border-radius:50%;border:6px solid rgba(239,68,68,0.2);
+                border-top-color:#ef4444;animation:mSpin 1s linear infinite;"></div>
+    <div style="color:white;font-size:1.2rem;font-weight:700;">
+        <i class="fas fa-rocket" style="color:#ef4444;margin-right:8px;"></i> กำลังสแกนหุ้น…
+    </div>
+    <div id="momentumPhase" style="color:#94a3b8;font-size:0.88rem;">เริ่มสแกน…</div>
+    <div style="width:280px;background:rgba(255,255,255,0.1);border-radius:8px;height:8px;overflow:hidden;">
+        <div id="momentumBar" style="height:100%;background:#ef4444;width:0%;transition:width 0.4s;border-radius:8px;"></div>
+    </div>
+    <div id="momentumProgressText" style="color:#64748b;font-size:0.78rem;">0 / 0</div>
+</div>
+<style>@keyframes mSpin { to { transform: rotate(360deg); } }</style>
+
+<script>
+var _mPollTimer = null;
+var _mSawRunning = false;
+
+function showMomentumLoading() {
+    var ov = document.getElementById('momentumLoadingOverlay');
+    ov.style.display = 'flex';
+    _mSawRunning = false;
+    _mPollTimer = setTimeout(pollMomentumStatus, 2000);
+}
+
+function pollMomentumStatus() {
+    fetch('?scan_status=1', { credentials: 'same-origin' })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (data.state === 'running') {
+                _mSawRunning = true;
+                var phase = data.phase || 'สแกน…';
+                var prog  = data.progress || 0;
+                var total = data.total || 1;
+                document.getElementById('momentumPhase').textContent = phase;
+                document.getElementById('momentumBar').style.width = Math.round(prog / total * 100) + '%';
+                document.getElementById('momentumProgressText').textContent = prog + ' / ' + total;
+                _mPollTimer = setTimeout(pollMomentumStatus, 2000);
+            } else if (data.state === 'done') {
+                document.getElementById('momentumLoadingOverlay').style.display = 'none';
+                if (_mSawRunning) { window.location.reload(); }
+            } else {
+                // idle — ยังไม่เริ่ม ลอง poll ต่อถ้าเพิ่งคลิก
+                if (_mSawRunning) {
+                    document.getElementById('momentumLoadingOverlay').style.display = 'none';
+                    window.location.reload();
+                } else {
+                    _mPollTimer = setTimeout(pollMomentumStatus, 2000);
+                }
+            }
+        })
+        .catch(function() { _mPollTimer = setTimeout(pollMomentumStatus, 3000); });
+}
+
+// Auto-resume if scan was running before page load
+document.addEventListener('DOMContentLoaded', function() {
+    fetch('?scan_status=1', { credentials: 'same-origin' })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (data.state === 'running') {
+                document.getElementById('momentumLoadingOverlay').style.display = 'flex';
+                _mSawRunning = true;
+                _mPollTimer = setTimeout(pollMomentumStatus, 2000);
+            }
+        }).catch(function() {});
+});
+</script>
 {% endblock %}
