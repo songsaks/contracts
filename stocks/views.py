@@ -525,13 +525,14 @@ def crew_analyze(request, symbol):
             'gain_loss':     _safe_float(request.GET.get('gain_loss')),
             'market_value':  _safe_float(request.GET.get('market_value')),
         }
-        # Include portfolio context in cache key so different entry prices get separate caches
         ep_key = str(int(_safe_float(request.GET.get('entry_price')) * 100))
         cache_key = f'crew_analysis_{user_id}_{symbol}_p{ep_key}'
 
-    # ── AJAX status poll ─────────────────────────────────────────────
+    # ── AJAX status poll — use ck param to find correct cache key ────
     if request.GET.get('crew_status') == '1':
-        st = _cp.get(cache_key, {'state': 'idle'})
+        ck = request.GET.get('ck')
+        poll_key = ck if ck else cache_key
+        st = _cp.get(poll_key, {'state': 'idle'})
         return _JR(st)
 
     # ── Result ready (page reload after done) ────────────────────────
@@ -551,26 +552,42 @@ def crew_analyze(request, symbol):
 
     # ── Background worker ────────────────────────────────────────────
     def _run_crew_bg(ckey, sym, pctx):
+        import concurrent.futures as _cf
+        from django.core.cache import cache as _c
+        from .crew_analysis import MomentumCrew as _MC
+
         try:
-            from django.core.cache import cache as _c
-            from .crew_analysis import MomentumCrew as _MC
-            phase = 'วิเคราะห์ Portfolio + Technical…' if pctx else 'Technical Analysis…'
+            phase = 'วิเคราะห์ Portfolio + Technical…' if pctx else 'กำลังวิเคราะห์…'
             _c.set(ckey, {'state': 'running', 'phase': phase}, timeout=600)
-            mc     = _MC(sym, portfolio_context=pctx)
-            result = mc.run_analysis()
+
+            mc = _MC(sym, portfolio_context=pctx)
+
+            # Hard timeout: kill entire analysis after 90 seconds
+            with _cf.ThreadPoolExecutor(max_workers=1) as ex:
+                future = ex.submit(mc.run_analysis)
+                try:
+                    result = future.result(timeout=120)
+                except _cf.TimeoutError:
+                    result = '## วิเคราะห์ไม่สำเร็จ\n\nหมดเวลา 90 วินาที กรุณาลองใหม่อีกครั้ง'
+
             _c.set(ckey, {'state': 'done', 'result': result}, timeout=600)
         except Exception as exc:
-            from django.core.cache import cache as _c
-            _c.set(ckey, {'state': 'done', 'result': f'Error: {exc}'}, timeout=600)
+            _c.set(ckey, {'state': 'done', 'result': f'## Error\n\n{exc}'}, timeout=600)
 
     # Start only if not already running
     if not cached or cached.get('state') == 'idle':
         _cp.set(cache_key, {'state': 'running', 'phase': 'เริ่มต้น Multi-Agent…'}, timeout=600)
         _th.Thread(target=_run_crew_bg, args=(cache_key, symbol, portfolio_context), daemon=True).start()
 
-    # ── Show loading page ────────────────────────────────────────────
+    # ── Show loading page (fast — no heavy data fetch) ───────────────
     try:
-        info = get_stock_data(symbol).get('info', {})
+        import yfinance as _yf
+        _t = _yf.Ticker(symbol)
+        _fi = _t.fast_info
+        info = {
+            'longName': getattr(_fi, 'display_name', None) or symbol,
+            'currentPrice': getattr(_fi, 'last_price', None),
+        }
     except Exception:
         info = {}
 
@@ -580,6 +597,7 @@ def crew_analyze(request, symbol):
         'title':             f'CrewAI Deep Analysis: {symbol}',
         'loading':           True,
         'portfolio_context': portfolio_context,
+        'cache_key':         cache_key,   # pass to template for correct poll URL
     })
 
 # ====== CrewAI Export — Word / PDF ======

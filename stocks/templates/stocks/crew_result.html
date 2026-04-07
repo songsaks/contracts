@@ -47,12 +47,13 @@
     <div style="text-align:center;">
         <div style="color:white;font-size:1.3rem;font-weight:700;margin-bottom:6px;">
             <i class="fas fa-robot" style="color:#7c3aed;margin-right:8px;"></i>
-            Multi-Agent กำลังวิเคราะห์ <span style="color:#a78bfa;">{{ symbol }}</span>
+            AI กำลังวิเคราะห์ <span style="color:#a78bfa;">{{ symbol }}</span>
         </div>
-        <div id="crewPhase" style="color:#94a3b8;font-size:0.9rem;">เริ่มต้น Multi-Agent…</div>
+        <div id="crewPhase" style="color:#94a3b8;font-size:0.9rem;">กำลังวิเคราะห์…</div>
         <div style="color:#64748b;font-size:0.78rem;margin-top:8px;">
-            Agent 3 ตัวกำลังทำงานพร้อมกัน — ใช้เวลา 30-90 วินาที
+            ใช้เวลาประมาณ 30-60 วินาที
         </div>
+        <div id="elapsedTimer" style="color:#475569;font-size:0.72rem;margin-top:4px;">00:00</div>
     </div>
 </div>
 
@@ -62,10 +63,31 @@
 
 <script>
 (function() {
-    var pollUrl = window.location.pathname + '?crew_status=1';
+    var pollUrl = window.location.pathname + '?crew_status=1&ck={{ cache_key|urlencode }}';
     var timer;
+    var startTime = Date.now();
+    var TIMEOUT_MS = 3 * 60 * 1000; // 3 minutes max
+
+    // Elapsed timer display
+    var elapsedInterval = setInterval(function() {
+        var sec = Math.floor((Date.now() - startTime) / 1000);
+        var m = String(Math.floor(sec / 60)).padStart(2, '0');
+        var s = String(sec % 60).padStart(2, '0');
+        var el = document.getElementById('elapsedTimer');
+        if (el) el.textContent = m + ':' + s;
+    }, 1000);
 
     function poll() {
+        // Timeout guard
+        if (Date.now() - startTime > TIMEOUT_MS) {
+            clearInterval(elapsedInterval);
+            var ph = document.getElementById('crewPhase');
+            if (ph) ph.textContent = 'หมดเวลา — กรุณาลองใหม่';
+            var ph2 = document.querySelector('[style*="30-60"]');
+            if (ph2) ph2.textContent = 'กด Re-analyze เพื่อเริ่มใหม่';
+            return;
+        }
+
         fetch(pollUrl, { credentials: 'same-origin' })
             .then(function(r) { return r.json(); })
             .then(function(data) {
@@ -74,6 +96,7 @@
                     if (ph && data.phase) ph.textContent = data.phase;
                     timer = setTimeout(poll, 3000);
                 } else if (data.state === 'done') {
+                    clearInterval(elapsedInterval);
                     window.location.reload();
                 } else {
                     timer = setTimeout(poll, 3000);

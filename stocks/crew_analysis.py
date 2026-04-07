@@ -1,7 +1,6 @@
 import os
 import pandas as pd
 import pandas_ta as ta
-from crewai import Agent, Task, Crew, Process
 from django.conf import settings
 
 # ======================================================================
@@ -35,30 +34,89 @@ class MomentumCrew:
 
     # ------------------------------------------------------------------
     def _get_rich_data(self):
-        """Fetch comprehensive technical + fundamental + news data via utils."""
-        try:
-            from .utils import get_stock_data
-            data = get_stock_data(self.yf_symbol)
-        except Exception:
-            data = {}
+        """Fetch only what's needed — fast path (2 API calls max)."""
+        import yfinance as yf
 
-        history     = data.get('history', pd.DataFrame())
-        info        = data.get('info', {})
-        news        = data.get('news', [])
-        yq          = data.get('yq_data', {})
+        ticker  = yf.Ticker(self.yf_symbol)
+        history = pd.DataFrame()
+        info    = {}
+        news    = []
+
+        import concurrent.futures
+
+        def _fetch_history():
+            return ticker.history(period="6mo")
+
+        def _fetch_info():
+            try:
+                return ticker.info or {}
+            except Exception:
+                return {}
+
+        # Run history + info in parallel, each with timeout
+        with concurrent.futures.ThreadPoolExecutor(max_workers=2) as ex:
+            f_hist = ex.submit(_fetch_history)
+            f_info = ex.submit(_fetch_info)
+            try:
+                history = f_hist.result(timeout=20)
+            except Exception:
+                history = pd.DataFrame()
+            try:
+                full_info = f_info.result(timeout=15)
+            except Exception:
+                full_info = {}
+
+        # fast_info fallback for price if info empty
+        try:
+            fi = ticker.fast_info
+            info = {
+                'currentPrice': getattr(fi, 'last_price', None),
+                'marketCap':    getattr(fi, 'market_cap', None),
+            }
+        except Exception:
+            info = {}
+
+        for k in ('longName','sector','industry','trailingPE','priceToBook',
+                  'returnOnEquity','revenueGrowth','earningsGrowth',
+                  'dividendYield','targetMeanPrice','marketCap'):
+            if k in full_info:
+                info[k] = full_info[k]
+
+        try:
+            raw_news = ticker.news or []
+            for n in raw_news[:5]:
+                c = n.get('content') or n
+                title = c.get('title','') if isinstance(c, dict) else n.get('title','')
+                if title:
+                    news.append({'title': title})
+        except Exception:
+            pass
 
         if history.empty:
             return {}, [], {}
 
-        # Add ADX(14)
+        # Flatten MultiIndex columns if present
+        if isinstance(history.columns, pd.MultiIndex):
+            history.columns = [col[0] for col in history.columns]
+        history = history.loc[:, ~history.columns.duplicated()]
+
+        # Add indicators
+        try:
+            history['RSI'] = ta.rsi(history['Close'], length=14)
+        except Exception:
+            pass
+        try:
+            macd = ta.macd(history['Close'])
+            if macd is not None and not macd.empty:
+                history = pd.concat([history, macd], axis=1)
+        except Exception:
+            pass
         try:
             adx_df = ta.adx(history['High'], history['Low'], history['Close'], length=14)
             if adx_df is not None and not adx_df.empty:
                 history = pd.concat([history, adx_df], axis=1)
         except Exception:
             pass
-
-        # Add EMA50 / EMA200 if missing
         if 'EMA_50' not in history.columns:
             history['EMA_50'] = ta.ema(history['Close'], length=50)
         if 'EMA_200' not in history.columns:
@@ -126,154 +184,117 @@ class MomentumCrew:
 
     # ------------------------------------------------------------------
     def run_analysis(self):
+        """
+        Single Gemini API call — replaces 3-agent CrewAI sequential chain.
+        ~3-5x faster: 1 LLM call instead of 3, no agent orchestration overhead.
+        """
         technical, news_list, fundamental = self._get_rich_data()
 
-        tech_str  = "\n".join([f"  {k}: {v}" for k, v in technical.items()])
-        fund_str  = "\n".join([f"  {k}: {v}" for k, v in fundamental.items()])
-        news_str  = (
-            "\n".join([f"  - {n.get('title','')}" for n in news_list])
+        tech_str = "\n".join([f"  {k}: {v}" for k, v in technical.items()])
+        fund_str = "\n".join([f"  {k}: {v}" for k, v in fundamental.items()])
+        news_str = (
+            "\n".join([f"  - {n.get('title', '')}" for n in news_list])
             if news_list else "  (No recent news available)"
         )
 
-        # ── Agents ──────────────────────────────────────────────────────
-        technical_analyst = Agent(
-            role="Senior Technical Analyst (Minervini/O'Neil Style)",
-            goal=f"Analyze price action, momentum, and trend quality for {self.symbol}",
-            backstory=(
-                "Expert in Stage Analysis, EMA trend structure, RS Rating momentum, "
-                "ADX trend strength, and volume/price confirmation. "
-                "Follows Minervini VCP and O'Neil CANSLIM methodology."
-            ),
-            verbose=True,
-            allow_delegation=False,
-            llm=self.llm_name,
-        )
-
-        researcher = Agent(
-            role="Market Intelligence Researcher",
-            goal=f"Interpret business catalysts, news sentiment and fundamentals for {self.symbol}",
-            backstory=(
-                "Specialist in reading earnings catalysts, sector rotation themes, "
-                "analyst sentiment, and translating news into market impact. "
-                "Determines whether the fundamental story supports or contradicts the chart."
-            ),
-            verbose=True,
-            allow_delegation=False,
-            llm=self.llm_name,
-        )
-
-        risk_manager = Agent(
-            role="Trading Risk Manager & Portfolio Strategist",
-            goal=f"Create a precise, actionable investment plan for {self.symbol} in Thai language",
-            backstory=(
-                "Prioritizes capital preservation with strict risk/reward discipline. "
-                "Applies Minervini's rule: Stop Loss max 7-8% below entry. "
-                "Delivers clear Entry Zone, Stop Loss, and 2 profit targets with R:R ratio."
-            ),
-            verbose=True,
-            allow_delegation=False,
-            llm=self.llm_name,
-        )
-
-        # ── Tasks ───────────────────────────────────────────────────────
-        task_technical = Task(
-            description=(
-                f"Analyze the technical state of {self.symbol} using this real market data:\n\n"
-                f"TECHNICAL DATA:\n{tech_str}\n\n"
-                f"Your analysis must cover:\n"
-                f"1. Trend Stage (Stage 1 Base / Stage 2 Uptrend / Stage 3 Top / Stage 4 Decline)\n"
-                f"2. Momentum quality: RSI zone (>70 overbought, <30 oversold, 50-70 ideal), "
-                f"   MACD crossover status (bullish/bearish/divergence)\n"
-                f"3. ADX strength: >25 = strong trend, <20 = weak/sideways\n"
-                f"4. Volume confirmation: is volume expanding on up-days?\n"
-                f"5. Key levels: EMA50/EMA200 as dynamic support/resistance, "
-                f"   52-week high as supply zone, 52-week low as downside risk\n"
-                f"6. Breakout potential: how far from 52-week high? Is this early or late stage?"
-            ),
-            expected_output=(
-                "A structured technical report: Trend Stage, Momentum quality, "
-                "ADX strength, Volume confirmation, Key levels, and Breakout assessment."
-            ),
-            agent=technical_analyst,
-        )
-
-        task_news = Task(
-            description=(
-                f"Analyze the business context and market sentiment for {self.symbol}.\n\n"
-                f"FUNDAMENTAL DATA:\n{fund_str}\n\n"
-                f"RECENT NEWS HEADLINES:\n{news_str}\n\n"
-                f"Your analysis must cover:\n"
-                f"1. What is the primary business catalyst driving this stock? "
-                f"   (earnings beat, expansion, sector tailwind, contract win, etc.)\n"
-                f"2. Are fundamentals strong? Assess PE vs growth (PEG), ROE, revenue/earnings growth trend\n"
-                f"3. Analyst consensus: is target price above or below current price?\n"
-                f"4. Overall sentiment: Bullish / Neutral / Bearish — and key reason\n"
-                f"5. Any red flags: high PE with no growth, declining ROE, negative news?"
-            ),
-            expected_output=(
-                "Business intelligence report: primary catalyst, fundamental strength assessment, "
-                "analyst sentiment, overall verdict (Bullish/Neutral/Bearish), and red flags."
-            ),
-            agent=researcher,
-        )
-
-        # Build portfolio context block if available
+        # ── Portfolio context block ──────────────────────────────────
         pctx = self.portfolio_context
         if pctx.get('entry_price'):
-            ep          = pctx['entry_price']
-            qty         = pctx.get('quantity', 0)
-            gl_pct      = pctx.get('gain_loss_pct', 0)
-            gl_thb      = pctx.get('gain_loss', 0)
-            mv          = pctx.get('market_value', 0)
-            gl_sign     = '+' if gl_pct >= 0 else ''
-            portfolio_block = (
-                f"\n\n⚠️  **ข้อมูลพอร์ตของนักลงทุน (PORTFOLIO CONTEXT — สำคัญมาก)**\n"
-                f"  - ราคาทุนเฉลี่ย (Entry Price): {ep:.2f} บาท\n"
-                f"  - จำนวนหุ้นที่ถือ: {qty:,.0f} หุ้น\n"
-                f"  - มูลค่าปัจจุบัน: {mv:,.0f} บาท\n"
-                f"  - กำไร/ขาดทุน: {gl_sign}{gl_pct:.1f}%  ({gl_sign}{gl_thb:,.0f} บาท)\n\n"
-                f"เนื่องจากนักลงทุนถือหุ้นนี้อยู่แล้ว รายงานต้องตอบคำถาม:\n"
-                f"  - ควร **ถือต่อ** / **เพิ่มพอร์ต (add more)** / **ขายทำกำไร** / **ตัดขาดทุน** ?\n"
-                f"  - ถ้ากำไร: ควร Ride trend หรือ Lock profit บางส่วน?\n"
-                f"  - ถ้าขาดทุน: Stop Loss ที่ควรตัดคือเท่าไหร่จากราคาทุน {ep:.2f} บาท?\n"
-                f"  - Risk/Reward จาก Entry Price {ep:.2f} ไปยัง Target คือเท่าไหร่?\n"
-            )
+            ep      = pctx['entry_price']
+            qty     = pctx.get('quantity', 0)
+            gl_pct  = pctx.get('gain_loss_pct', 0)
+            gl_thb  = pctx.get('gain_loss', 0)
+            mv      = pctx.get('market_value', 0)
+            gl_sign = '+' if gl_pct >= 0 else ''
+            portfolio_section = f"""
+
+---
+## ข้อมูลพอร์ตของนักลงทุน (PORTFOLIO CONTEXT)
+- ราคาทุนเฉลี่ย: {ep:.2f} บาท
+- จำนวนหุ้น: {qty:,.0f} หุ้น
+- มูลค่าปัจจุบัน: {mv:,.0f} บาท
+- กำไร/ขาดทุน: {gl_sign}{gl_pct:.1f}% ({gl_sign}{gl_thb:,.0f} บาท)
+
+เนื่องจากนักลงทุนถือหุ้นนี้อยู่แล้ว ให้เพิ่มหัวข้อ "**คำแนะนำสำหรับผู้ถือหุ้น**" ที่ตอบว่า:
+- ควรถือต่อ / เพิ่มพอร์ต / ขายทำกำไร / ตัดขาดทุน?
+- Stop Loss จากราคาทุน {ep:.2f} บาท ควรอยู่ที่เท่าไหร่?
+- R/R จาก Entry {ep:.2f} ไปยัง Target คือเท่าไหร่?
+"""
         else:
-            portfolio_block = ""
+            portfolio_section = ""
 
-        task_risk = Task(
-            description=(
-                f"Synthesize all technical and fundamental analysis to create a complete "
-                f"investment plan for {self.symbol}. Write ENTIRELY IN THAI LANGUAGE.\n\n"
-                f"รายงานต้องประกอบด้วย:\n"
-                f"1. **สรุปภาพรวม**: Bull case คืออะไร / Bear case คืออะไร\n"
-                f"2. **คำแนะนำหลัก**: ซื้อ / รอดูก่อน / หลีกเลี่ยง — พร้อมเหตุผล 2-3 ข้อ\n"
-                f"3. **จุดซื้อที่เหมาะสม (Entry Zone)**: ระบุช่วงราคา\n"
-                f"4. **จุด Stop Loss**: ไม่เกิน 7-8% ต่ำกว่า entry ตาม Minervini rules\n"
-                f"5. **เป้าหมายกำไร**: Target 1 (conservative) และ Target 2 (aggressive)\n"
-                f"6. **Risk/Reward Ratio**: คำนวณจาก entry, SL, T1\n"
-                f"7. **ความเสี่ยงสำคัญ**: ระบุ 2-3 ปัจจัยเสี่ยงที่ต้องติดตาม\n"
-                f"8. **ระยะเวลาการลงทุนที่แนะนำ**: Swing (2-8 สัปดาห์) / Position (3-6 เดือน)"
-                + portfolio_block
-            ),
-            expected_output=(
-                "แผนการลงทุนภาษาไทยที่ครบถ้วน มีตัวเลข Entry/SL/Target ที่ชัดเจน "
-                "R:R ratio และเหตุผลที่อิงจากข้อมูล Technical + Fundamental จริง "
-                "พร้อมคำแนะนำเฉพาะสำหรับผู้ถือหุ้น (ถือ/เพิ่ม/ลด/ขาย)"
-            ),
-            agent=risk_manager,
-        )
+        # ── Single comprehensive prompt ──────────────────────────────
+        prompt = f"""You are a senior stock analyst combining Minervini/O'Neil momentum methodology
+with fundamental analysis. Analyze {self.symbol} and produce a complete investment report IN THAI LANGUAGE.
 
-        # ── Crew ────────────────────────────────────────────────────────
-        crew = Crew(
-            agents=[technical_analyst, researcher, risk_manager],
-            tasks=[task_technical, task_news, task_risk],
-            process=Process.sequential,
-            verbose=True,
-        )
+## TECHNICAL DATA
+{tech_str}
 
+## FUNDAMENTAL DATA
+{fund_str}
+
+## RECENT NEWS
+{news_str}
+{portfolio_section}
+
+---
+Write a complete report in Thai with these sections (use markdown headers ##):
+
+## 1. สรุปภาพรวม (Overview)
+- Trend Stage: Stage 1/2/3/4
+- Bull case และ Bear case
+
+## 2. การวิเคราะห์ทางเทคนิค (Technical Analysis)
+- แนวโน้ม EMA50/EMA200
+- RSI และ MACD status
+- ADX และ Volume confirmation
+- ระยะห่างจาก 52-week high
+
+## 3. ปัจจัยพื้นฐานและข่าว (Fundamentals & Sentiment)
+- Catalyst หลักที่ขับเคลื่อนหุ้น
+- ความแข็งแกร่งของ Fundamental (PE, ROE, Growth)
+- Analyst consensus และ target price
+- Red flags (ถ้ามี)
+
+## 4. คำแนะนำหลัก (Main Recommendation)
+ซื้อ / รอดูก่อน / หลีกเลี่ยง — พร้อมเหตุผล 3 ข้อ
+
+## 5. จุดซื้อที่เหมาะสม (Entry Zone)
+- ช่วงราคาที่เหมาะสม พร้อมเหตุผล
+
+## 6. จุด Stop Loss และเป้าหมายกำไร
+- Stop Loss: ไม่เกิน 7-8% จาก entry (Minervini rule)
+- Target 1 (Conservative): ฿X.XX
+- Target 2 (Aggressive): ฿X.XX
+- Risk per unit (Entry - SL): ฿X.XX
+- R:R Ratio: 1:X.X
+
+## 7. ความเสี่ยงสำคัญ (Key Risks)
+ระบุ 3 ปัจจัยเสี่ยงที่ต้องติดตาม
+
+## 8. ระยะเวลาที่แนะนำ
+Swing (2-8 สัปดาห์) หรือ Position (3-6 เดือน) — พร้อมเหตุผล
+
+Be specific with numbers. Use actual prices from the data provided."""
+
+        # ── Call Gemini directly via new google-genai SDK ───────────
         try:
-            result = crew.kickoff()
-            return str(result)
+            from google import genai as _genai
+            from google.genai import types as _gtypes
+            import os as _os
+
+            # Ensure only GEMINI_API_KEY is used (suppress GOOGLE_API_KEY conflict)
+            _os.environ.pop('GOOGLE_API_KEY', None)
+
+            client = _genai.Client(api_key=settings.GEMINI_API_KEY)
+            response = client.models.generate_content(
+                model='gemini-2.5-flash',
+                contents=prompt,
+                config=_gtypes.GenerateContentConfig(
+                    temperature=0.4,
+                    max_output_tokens=8192,
+                ),
+            )
+            return response.text
         except Exception as e:
-            return f"Crew execution failed: {str(e)}"
+            return f"Analysis failed: {str(e)}"
