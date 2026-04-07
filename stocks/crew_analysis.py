@@ -41,7 +41,11 @@ class MomentumCrew:
         """Format fundamental values: convert decimal ratios to percentage strings."""
         if val is None:
             return 'N/A'
-        if k in ('dividendYield', 'revenueGrowth', 'earningsGrowth', 'returnOnEquity') and isinstance(val, (int, float)):
+        if k == 'dividendYield' and isinstance(val, (int, float)):
+            # yahooquery returns dividendYield already as percentage (e.g. 3.86), not decimal
+            v = val if val > 1 else val * 100
+            return f"{v:.2f}%"
+        if k in ('revenueGrowth', 'earningsGrowth', 'returnOnEquity') and isinstance(val, (int, float)):
             return f"{val * 100:.2f}%"
         return val
 
