@@ -9,8 +9,19 @@ from django.conf import settings
 # ======================================================================
 
 class MomentumCrew:
-    def __init__(self, symbol):
-        self.symbol = symbol
+    def __init__(self, symbol, portfolio_context=None):
+        """
+        portfolio_context (dict, optional): ข้อมูลพอร์ตของผู้ใช้สำหรับหุ้นตัวนี้
+          {
+            'entry_price':    float,  # ราคาทุนเฉลี่ย
+            'quantity':       float,  # จำนวนหุ้น
+            'gain_loss_pct':  float,  # % กำไร/ขาดทุน
+            'gain_loss':      float,  # กำไร/ขาดทุนเป็นบาท
+            'market_value':   float,  # มูลค่าตลาดปัจจุบัน
+          }
+        """
+        self.symbol           = symbol
+        self.portfolio_context = portfolio_context or {}
         # Auto-add .BK for SET stocks (no dot, no dash, no =)
         self.yf_symbol = (
             symbol if ('.' in symbol or '=' in symbol or '-' in symbol)
@@ -206,6 +217,30 @@ class MomentumCrew:
             agent=researcher,
         )
 
+        # Build portfolio context block if available
+        pctx = self.portfolio_context
+        if pctx.get('entry_price'):
+            ep          = pctx['entry_price']
+            qty         = pctx.get('quantity', 0)
+            gl_pct      = pctx.get('gain_loss_pct', 0)
+            gl_thb      = pctx.get('gain_loss', 0)
+            mv          = pctx.get('market_value', 0)
+            gl_sign     = '+' if gl_pct >= 0 else ''
+            portfolio_block = (
+                f"\n\n⚠️  **ข้อมูลพอร์ตของนักลงทุน (PORTFOLIO CONTEXT — สำคัญมาก)**\n"
+                f"  - ราคาทุนเฉลี่ย (Entry Price): {ep:.2f} บาท\n"
+                f"  - จำนวนหุ้นที่ถือ: {qty:,.0f} หุ้น\n"
+                f"  - มูลค่าปัจจุบัน: {mv:,.0f} บาท\n"
+                f"  - กำไร/ขาดทุน: {gl_sign}{gl_pct:.1f}%  ({gl_sign}{gl_thb:,.0f} บาท)\n\n"
+                f"เนื่องจากนักลงทุนถือหุ้นนี้อยู่แล้ว รายงานต้องตอบคำถาม:\n"
+                f"  - ควร **ถือต่อ** / **เพิ่มพอร์ต (add more)** / **ขายทำกำไร** / **ตัดขาดทุน** ?\n"
+                f"  - ถ้ากำไร: ควร Ride trend หรือ Lock profit บางส่วน?\n"
+                f"  - ถ้าขาดทุน: Stop Loss ที่ควรตัดคือเท่าไหร่จากราคาทุน {ep:.2f} บาท?\n"
+                f"  - Risk/Reward จาก Entry Price {ep:.2f} ไปยัง Target คือเท่าไหร่?\n"
+            )
+        else:
+            portfolio_block = ""
+
         task_risk = Task(
             description=(
                 f"Synthesize all technical and fundamental analysis to create a complete "
@@ -219,10 +254,12 @@ class MomentumCrew:
                 f"6. **Risk/Reward Ratio**: คำนวณจาก entry, SL, T1\n"
                 f"7. **ความเสี่ยงสำคัญ**: ระบุ 2-3 ปัจจัยเสี่ยงที่ต้องติดตาม\n"
                 f"8. **ระยะเวลาการลงทุนที่แนะนำ**: Swing (2-8 สัปดาห์) / Position (3-6 เดือน)"
+                + portfolio_block
             ),
             expected_output=(
                 "แผนการลงทุนภาษาไทยที่ครบถ้วน มีตัวเลข Entry/SL/Target ที่ชัดเจน "
-                "R:R ratio และเหตุผลที่อิงจากข้อมูล Technical + Fundamental จริง"
+                "R:R ratio และเหตุผลที่อิงจากข้อมูล Technical + Fundamental จริง "
+                "พร้อมคำแนะนำเฉพาะสำหรับผู้ถือหุ้น (ถือ/เพิ่ม/ลด/ขาย)"
             ),
             agent=risk_manager,
         )

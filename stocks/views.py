@@ -498,6 +498,9 @@ def crew_analyze(request, symbol):
     """
     CrewAI Multi-Agent Deep Analysis — runs in background thread,
     progress polled via AJAX so the browser never times out.
+
+    Optional GET params (from Portfolio page):
+      ?entry_price=2.40&quantity=10000&gain_loss_pct=5.2&gain_loss=1200&market_value=25200
     """
     import threading as _th
     from django.core.cache import cache as _cp
@@ -506,10 +509,29 @@ def crew_analyze(request, symbol):
     user_id   = request.user.id
     cache_key = f'crew_analysis_{user_id}_{symbol}'
 
+    # ── Portfolio context from GET params ────────────────────────────
+    def _safe_float(val, default=0.0):
+        try:
+            return float(val) if val else default
+        except (ValueError, TypeError):
+            return default
+
+    portfolio_context = {}
+    if request.GET.get('entry_price'):
+        portfolio_context = {
+            'entry_price':   _safe_float(request.GET.get('entry_price')),
+            'quantity':      _safe_float(request.GET.get('quantity')),
+            'gain_loss_pct': _safe_float(request.GET.get('gain_loss_pct')),
+            'gain_loss':     _safe_float(request.GET.get('gain_loss')),
+            'market_value':  _safe_float(request.GET.get('market_value')),
+        }
+        # Include portfolio context in cache key so different entry prices get separate caches
+        ep_key = str(int(_safe_float(request.GET.get('entry_price')) * 100))
+        cache_key = f'crew_analysis_{user_id}_{symbol}_p{ep_key}'
+
     # ── AJAX status poll ─────────────────────────────────────────────
     if request.GET.get('crew_status') == '1':
         st = _cp.get(cache_key, {'state': 'idle'})
-        # Don't delete on done — page reload will consume & delete it
         return _JR(st)
 
     # ── Result ready (page reload after done) ────────────────────────
@@ -519,20 +541,22 @@ def crew_analyze(request, symbol):
         _cp.delete(cache_key)
         data = get_stock_data(symbol)
         return render(request, 'stocks/crew_result.html', {
-            'symbol':      symbol,
-            'crew_result': result,
-            'info':        data.get('info', {}),
-            'title':       f'CrewAI Deep Analysis: {symbol}',
-            'loading':     False,
+            'symbol':            symbol,
+            'crew_result':       result,
+            'info':              data.get('info', {}),
+            'title':             f'CrewAI Deep Analysis: {symbol}',
+            'loading':           False,
+            'portfolio_context': portfolio_context,
         })
 
     # ── Background worker ────────────────────────────────────────────
-    def _run_crew_bg(ckey, sym):
+    def _run_crew_bg(ckey, sym, pctx):
         try:
             from django.core.cache import cache as _c
             from .crew_analysis import MomentumCrew as _MC
-            _c.set(ckey, {'state': 'running', 'phase': 'Technical Analysis…'}, timeout=600)
-            mc     = _MC(sym)
+            phase = 'วิเคราะห์ Portfolio + Technical…' if pctx else 'Technical Analysis…'
+            _c.set(ckey, {'state': 'running', 'phase': phase}, timeout=600)
+            mc     = _MC(sym, portfolio_context=pctx)
             result = mc.run_analysis()
             _c.set(ckey, {'state': 'done', 'result': result}, timeout=600)
         except Exception as exc:
@@ -542,7 +566,7 @@ def crew_analyze(request, symbol):
     # Start only if not already running
     if not cached or cached.get('state') == 'idle':
         _cp.set(cache_key, {'state': 'running', 'phase': 'เริ่มต้น Multi-Agent…'}, timeout=600)
-        _th.Thread(target=_run_crew_bg, args=(cache_key, symbol), daemon=True).start()
+        _th.Thread(target=_run_crew_bg, args=(cache_key, symbol, portfolio_context), daemon=True).start()
 
     # ── Show loading page ────────────────────────────────────────────
     try:
@@ -551,10 +575,11 @@ def crew_analyze(request, symbol):
         info = {}
 
     return render(request, 'stocks/crew_result.html', {
-        'symbol':  symbol,
-        'info':    info,
-        'title':   f'CrewAI Deep Analysis: {symbol}',
-        'loading': True,
+        'symbol':            symbol,
+        'info':              info,
+        'title':             f'CrewAI Deep Analysis: {symbol}',
+        'loading':           True,
+        'portfolio_context': portfolio_context,
     })
 
 # ====== CrewAI Export — Word / PDF ======
@@ -3963,132 +3988,137 @@ def multi_factor_scanner(request):
             User = get_user_model()
             user = User.objects.get(pk=user_id)
 
-            scan_symbols = ScannableSymbol.objects.filter(
-                is_active=True
-            ).values_list('symbol', flat=True).distinct()
-            if not scan_symbols:
-                refresh_set100_symbols()
-                scan_symbols = ScannableSymbol.objects.filter(
-                    is_active=True
-                ).values_list('symbol', flat=True).distinct()
-
-            MultiFactorCandidate.objects.filter(user=user).delete()
-            # deduplicate while preserving order
-            seen = set()
-            sym_list = [s for s in scan_symbols if not (s in seen or seen.add(s))]
-
-            _cache.set(cache_key, {'state': 'running', 'progress': 0, 'total': len(sym_list)}, timeout=600)
-
-            # โหลด sector cache จาก DB ครั้งเดียว
-            sector_cache = {
-                s.symbol: s.sector
-                for s in ScannableSymbol.objects.filter(
-                    is_active=True
-                ).only('symbol', 'sector')
-            }
-
-            # Phase 1: Batch download
-            tickers_str = " ".join(f"{s}.BK" for s in sym_list)
             try:
-                batch_df = yf.download(
-                    tickers_str, period="1y", interval="1d",
-                    group_by='ticker', progress=False, threads=True,
-                )
-            except Exception as e:
-                print(f"[MultiFactorScan] Batch download failed: {e}")
-                batch_df = None
+                scan_symbols = ScannableSymbol.objects.filter(
+                    is_active=True, market='SET'
+                ).values_list('symbol', flat=True).distinct()
+                if not scan_symbols:
+                    refresh_set100_symbols()
+                    scan_symbols = ScannableSymbol.objects.filter(
+                        is_active=True, market='SET'
+                    ).values_list('symbol', flat=True).distinct()
 
-            def _get_df(symbol):
-                sym_bk = f"{symbol}.BK"
-                df = None
-                if batch_df is not None and not batch_df.empty:
-                    try:
-                        df = batch_df[sym_bk].copy() if len(sym_list) > 1 else batch_df.copy()
-                    except Exception:
-                        df = None
-                if df is None or (hasattr(df, 'empty') and df.empty):
-                    try:
-                        df = yf.download(sym_bk, period="1y", interval="1d", progress=False)
-                    except Exception:
-                        return None
-                return df
+                MultiFactorCandidate.objects.filter(user=user).delete()
+                # deduplicate while preserving order
+                seen = set()
+                sym_list = [s for s in scan_symbols if not (s in seen or seen.add(s))]
 
-            def process_one(symbol):
+                _cache.set(cache_key, {'state': 'running', 'progress': 0, 'total': len(sym_list)}, timeout=600)
+
+                # โหลด sector cache จาก DB ครั้งเดียว
+                sector_cache = {
+                    s.symbol: s.sector
+                    for s in ScannableSymbol.objects.filter(
+                        is_active=True, market='SET'
+                    ).only('symbol', 'sector')
+                }
+
+                # Phase 1: Batch download
+                tickers_str = " ".join(f"{s}.BK" for s in sym_list)
                 try:
-                    df = _get_df(symbol)
-                    if df is None or df.empty:
-                        return None
-                    if isinstance(df.columns, pd.MultiIndex):
-                        df.columns = df.columns.droplevel(1)
-                    df = df.dropna(subset=['Close', 'High'])
-                    if len(df) < 60:
-                        return None
-                    df = df.copy()
-                    df['EMA50']  = ta.ema(df['Close'], length=50)
-                    df['EMA200'] = ta.ema(df['Close'], length=200)
-                    df['RSI']    = ta.rsi(df['Close'], length=14)
-                    adx_df = ta.adx(df['High'], df['Low'], df['Close'], length=14)
-                    if adx_df is not None and not adx_df.empty:
-                        df = pd.concat([df, adx_df], axis=1)
-                    df['MFI']  = ta.mfi(df['High'], df['Low'], df['Close'], df['Volume'], length=14)
-                    df['RVOL'] = df['Volume'] / df['Volume'].rolling(20).mean()
-                    last    = df.iloc[-1]
-                    price   = float(df['Close'].iloc[-1])
-                    rsi     = float(last.get('RSI')    or 0) if pd.notna(last.get('RSI'))    else 0
-                    adx_val = float(last.get('ADX_14') or 0) if 'ADX_14' in df.columns and pd.notna(last.get('ADX_14')) else 0
-                    mfi_val = float(last.get('MFI')    or 0) if pd.notna(last.get('MFI'))    else 0
-                    rvol    = float(last.get('RVOL')   or 1) if pd.notna(last.get('RVOL'))   else 1.0
-                    ema50   = float(last.get('EMA50')  or 0) if pd.notna(last.get('EMA50'))  else 0
-                    ema200  = float(last.get('EMA200') or 0) if pd.notna(last.get('EMA200')) else 0
-                    above_ema200 = bool(price > ema200) if ema200 else False
-                    above_ema50  = bool(price > ema50)  if ema50  else False
-                    mom = 0
-                    if above_ema200:                        mom += 15
-                    if above_ema50:                         mom += 5
-                    if 55 <= rsi <= 72:                     mom += 15
-                    elif 45 <= rsi < 55 or 72 < rsi <= 80: mom += 7
-                    if adx_val >= 30:                       mom += 5
-                    vol = 0
-                    if rvol >= 3.0:     vol += 15
-                    elif rvol >= 2.0:   vol += 12
-                    elif rvol >= 1.5:   vol += 8
-                    elif rvol >= 1.0:   vol += 4
-                    if mfi_val >= 70:   vol += 15
-                    elif mfi_val >= 60: vol += 10
-                    elif mfi_val >= 50: vol += 5
-                    sector = sector_cache.get(symbol, 'Unknown')
-                    vol_score = min(vol, 30)
-                    return dict(
-                        symbol=symbol, sector=sector, price=round(price, 2),
-                        momentum_score=mom, volume_score=vol_score,
-                        sentiment_score=0, fundamental_score=0,
-                        super_score=mom + vol_score,
-                        rsi=round(rsi, 2), adx=round(adx_val, 2),
-                        mfi=round(mfi_val, 2), rvol=round(rvol, 2),
-                        eps_growth=0.0, rev_growth=0.0,
-                        above_ema200=above_ema200, above_ema50=above_ema50,
+                    batch_df = yf.download(
+                        tickers_str, period="1y", interval="1d",
+                        group_by='ticker', progress=False, threads=True,
                     )
                 except Exception as e:
-                    print(f"[MultiFactorScan] {symbol}: {e}")
-                    return None
+                    print(f"[MultiFactorScan] Batch download failed: {e}")
+                    batch_df = None
 
-            # Phase 2: รันขนาน + update progress
-            raw_results = []
-            done = 0
-            with ThreadPoolExecutor(max_workers=12) as executor:
-                futures = {executor.submit(process_one, s): s for s in sym_list}
-                for future in as_completed(futures):
-                    r = future.result()
-                    if r:
-                        raw_results.append(r)
-                    done += 1
-                    _cache.set(cache_key, {'state': 'running', 'progress': done, 'total': len(sym_list)}, timeout=600)
+                def _get_df(symbol):
+                    sym_bk = f"{symbol}.BK"
+                    df = None
+                    if batch_df is not None and not batch_df.empty:
+                        try:
+                            df = batch_df[sym_bk].copy() if len(sym_list) > 1 else batch_df.copy()
+                        except Exception:
+                            df = None
+                    if df is None or (hasattr(df, 'empty') and df.empty):
+                        try:
+                            df = yf.download(sym_bk, period="1y", interval="1d", progress=False)
+                        except Exception:
+                            return None
+                    return df
 
-            # Phase 3: Bulk create
-            MultiFactorCandidate.objects.bulk_create([
-                MultiFactorCandidate(user=user, **r) for r in raw_results
-            ])
-            _cache.set(cache_key, {'state': 'done', 'count': len(raw_results)}, timeout=300)
+                def process_one(symbol):
+                    try:
+                        df = _get_df(symbol)
+                        if df is None or df.empty:
+                            return None
+                        if isinstance(df.columns, pd.MultiIndex):
+                            df.columns = df.columns.droplevel(1)
+                        df = df.dropna(subset=['Close', 'High'])
+                        if len(df) < 60:
+                            return None
+                        df = df.copy()
+                        df['EMA50']  = ta.ema(df['Close'], length=50)
+                        df['EMA200'] = ta.ema(df['Close'], length=200)
+                        df['RSI']    = ta.rsi(df['Close'], length=14)
+                        adx_df = ta.adx(df['High'], df['Low'], df['Close'], length=14)
+                        if adx_df is not None and not adx_df.empty:
+                            df = pd.concat([df, adx_df], axis=1)
+                        df['MFI']  = ta.mfi(df['High'], df['Low'], df['Close'], df['Volume'], length=14)
+                        df['RVOL'] = df['Volume'] / df['Volume'].rolling(20).mean()
+                        last    = df.iloc[-1]
+                        price   = float(df['Close'].iloc[-1])
+                        rsi     = float(last.get('RSI')    or 0) if pd.notna(last.get('RSI'))    else 0
+                        adx_val = float(last.get('ADX_14') or 0) if 'ADX_14' in df.columns and pd.notna(last.get('ADX_14')) else 0
+                        mfi_val = float(last.get('MFI')    or 0) if pd.notna(last.get('MFI'))    else 0
+                        rvol    = float(last.get('RVOL')   or 1) if pd.notna(last.get('RVOL'))   else 1.0
+                        ema50   = float(last.get('EMA50')  or 0) if pd.notna(last.get('EMA50'))  else 0
+                        ema200  = float(last.get('EMA200') or 0) if pd.notna(last.get('EMA200')) else 0
+                        above_ema200 = bool(price > ema200) if ema200 else False
+                        above_ema50  = bool(price > ema50)  if ema50  else False
+                        mom = 0
+                        if above_ema200:                        mom += 15
+                        if above_ema50:                         mom += 5
+                        if 55 <= rsi <= 72:                     mom += 15
+                        elif 45 <= rsi < 55 or 72 < rsi <= 80: mom += 7
+                        if adx_val >= 30:                       mom += 5
+                        vol = 0
+                        if rvol >= 3.0:     vol += 15
+                        elif rvol >= 2.0:   vol += 12
+                        elif rvol >= 1.5:   vol += 8
+                        elif rvol >= 1.0:   vol += 4
+                        if mfi_val >= 70:   vol += 15
+                        elif mfi_val >= 60: vol += 10
+                        elif mfi_val >= 50: vol += 5
+                        sector = sector_cache.get(symbol, 'Unknown')
+                        vol_score = min(vol, 30)
+                        return dict(
+                            symbol=symbol, sector=sector, price=round(price, 2),
+                            momentum_score=mom, volume_score=vol_score,
+                            sentiment_score=0, fundamental_score=0,
+                            super_score=mom + vol_score,
+                            rsi=round(rsi, 2), adx=round(adx_val, 2),
+                            mfi=round(mfi_val, 2), rvol=round(rvol, 2),
+                            eps_growth=0.0, rev_growth=0.0,
+                            above_ema200=above_ema200, above_ema50=above_ema50,
+                        )
+                    except Exception as e:
+                        print(f"[MultiFactorScan] {symbol}: {e}")
+                        return None
+
+                # Phase 2: รันขนาน + update progress
+                raw_results = []
+                done = 0
+                with ThreadPoolExecutor(max_workers=12) as executor:
+                    futures = {executor.submit(process_one, s): s for s in sym_list}
+                    for future in as_completed(futures):
+                        r = future.result()
+                        if r:
+                            raw_results.append(r)
+                        done += 1
+                        _cache.set(cache_key, {'state': 'running', 'progress': done, 'total': len(sym_list)}, timeout=600)
+
+                # Phase 3: Bulk create
+                MultiFactorCandidate.objects.bulk_create([
+                    MultiFactorCandidate(user=user, **r) for r in raw_results
+                ])
+                _cache.set(cache_key, {'state': 'done', 'count': len(raw_results)}, timeout=300)
+            except Exception as e:
+                import traceback
+                print(f"[MultiFactorScan] CRITICAL ERROR: {e}\n{traceback.format_exc()}")
+                _cache.set(cache_key, {'state': 'done', 'error': str(e)}, timeout=300)
 
         # เปิด background thread แล้ว return ทันที — ไม่ block nginx
         t = threading.Thread(target=_run_scan, args=(user_id, cache_key), daemon=True)
