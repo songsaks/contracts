@@ -132,6 +132,7 @@ class MomentumCrew:
                   'dividendYield', 'targetMeanPrice', 'marketCap', 'recommendationKey'):
             info[k] = self._fmt_fundamental(k, merged.get(k))
 
+        news = []
         try:
             raw_news = ticker.news or []
             for n in raw_news[:5]:
