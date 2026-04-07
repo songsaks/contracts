@@ -80,7 +80,12 @@ class MomentumCrew:
                   'returnOnEquity','revenueGrowth','earningsGrowth',
                   'dividendYield','targetMeanPrice','marketCap'):
             if k in full_info:
-                info[k] = full_info[k]
+                val = full_info[k]
+                # Pre-format percentage ratios for AI clarity (0.05 -> 5.00%)
+                if k in ('dividendYield', 'revenueGrowth', 'earningsGrowth', 'returnOnEquity') and isinstance(val, (int, float)):
+                    info[k] = f"{val * 100:.2f}%"
+                else:
+                    info[k] = val
 
         try:
             raw_news = ticker.news or []
