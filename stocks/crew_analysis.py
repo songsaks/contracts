@@ -224,10 +224,10 @@ class MomentumCrew:
             'Market_Cap_MTHB':     _f((info.get('marketCap') or 0) / 1e6),
             'PE_Ratio':            _f(info.get('trailingPE')),
             'PBV':                 _f(info.get('priceToBook')),
-            'ROE_%':               _f((info.get('returnOnEquity') or 0) * 100),
-            'Revenue_Growth_%':    _f((info.get('revenueGrowth') or 0) * 100),
-            'Earnings_Growth_%':   _f((info.get('earningsGrowth') or 0) * 100),
-            'Dividend_Yield_%':    _f((info.get('dividendYield') or 0) * 100),
+            'ROE_%':               info.get('returnOnEquity', 'N/A'),
+            'Revenue_Growth_%':    info.get('revenueGrowth', 'N/A'),
+            'Earnings_Growth_%':   info.get('earningsGrowth', 'N/A'),
+            'Dividend_Yield_%':    info.get('dividendYield', 'N/A'),
             'Analyst_Target_Price':_f(info.get('targetMeanPrice')),
         }
 
