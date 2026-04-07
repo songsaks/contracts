@@ -1,6 +1,9 @@
 import os
+import concurrent.futures
 import pandas as pd
 import pandas_ta as ta
+import yfinance as yf
+from yahooquery import Ticker as YQTicker
 from django.conf import settings
 
 # ======================================================================
@@ -33,16 +36,28 @@ class MomentumCrew:
         self.llm_name = "gemini/gemini-2.5-flash"
 
     # ------------------------------------------------------------------
+    @staticmethod
+    def _fmt_fundamental(k, val):
+        """Format fundamental values: convert decimal ratios to percentage strings."""
+        if val is None:
+            return 'N/A'
+        if k in ('dividendYield', 'revenueGrowth', 'earningsGrowth', 'returnOnEquity') and isinstance(val, (int, float)):
+            return f"{val * 100:.2f}%"
+        return val
+
+    @staticmethod
+    def _yq_extract(source, sym):
+        """Safely extract a symbol's dict from a yahooquery property response."""
+        if isinstance(source, dict) and sym in source and isinstance(source[sym], dict):
+            return source[sym]
+        return {}
+
+    # ------------------------------------------------------------------
     def _get_rich_data(self):
-        """Fetch only what's needed — fast path (2 API calls max)."""
-        import yfinance as yf
-
-        ticker  = yf.Ticker(self.yf_symbol)
-        history = pd.DataFrame()
-        info    = {}
-        news    = []
-
-        import concurrent.futures
+        """Fetch price history, yfinance info, and yahooquery fundamentals in parallel."""
+        ticker    = yf.Ticker(self.yf_symbol)
+        yq_ticker = YQTicker(self.yf_symbol)
+        sym       = self.yf_symbol
 
         def _fetch_history():
             return ticker.history(period="6mo")
@@ -53,20 +68,54 @@ class MomentumCrew:
             except Exception:
                 return {}
 
-        # Run history + info in parallel, each with timeout
-        with concurrent.futures.ThreadPoolExecutor(max_workers=2) as ex:
-            f_hist = ex.submit(_fetch_history)
-            f_info = ex.submit(_fetch_info)
-            try:
-                history = f_hist.result(timeout=20)
-            except Exception:
-                history = pd.DataFrame()
-            try:
-                full_info = f_info.result(timeout=15)
-            except Exception:
-                full_info = {}
+        def _fetch_yq():
+            """Batch yahooquery fundamentals — more reliable for Thai stocks."""
+            result = {}
+            # financial_data: ROE, growth, target price, analyst rec
+            d = self._yq_extract(yq_ticker.financial_data, sym)
+            for k in ('returnOnEquity', 'revenueGrowth', 'earningsGrowth',
+                      'targetMeanPrice', 'recommendationKey'):
+                if k in d:
+                    result[k] = d[k]
+            # summary_detail: PE, dividend, market cap
+            d = self._yq_extract(yq_ticker.summary_detail, sym)
+            for k, dest in (('trailingPE', 'trailingPE'), ('dividendYield', 'dividendYield'),
+                            ('marketCap', 'marketCap')):
+                result.setdefault(dest, d.get(k))
+            # key_stats: PBV
+            d = self._yq_extract(yq_ticker.key_stats, sym)
+            result.setdefault('priceToBook', d.get('priceToBook'))
+            # asset_profile: sector, industry
+            d = self._yq_extract(yq_ticker.asset_profile, sym)
+            result.setdefault('sector',   d.get('sector'))
+            result.setdefault('industry', d.get('industry'))
+            return result
 
-        # fast_info fallback for price if info empty
+        # Run all 3 fetches in parallel, collect results with a shared timeout
+        history   = pd.DataFrame()
+        full_info = {}
+        yq_data   = {}
+        with concurrent.futures.ThreadPoolExecutor(max_workers=3) as ex:
+            futures = {
+                ex.submit(_fetch_history): 'hist',
+                ex.submit(_fetch_info):    'info',
+                ex.submit(_fetch_yq):      'yq',
+            }
+            for f in concurrent.futures.as_completed(futures, timeout=25):
+                key = futures[f]
+                try:
+                    result = f.result()
+                    if key == 'hist':
+                        history   = result
+                    elif key == 'info':
+                        full_info = result
+                    else:
+                        yq_data   = result
+                except Exception:
+                    pass
+
+        # fast_info for current price (always available, no timeout risk)
+        info = {}
         try:
             fi = ticker.fast_info
             info = {
@@ -74,23 +123,14 @@ class MomentumCrew:
                 'marketCap':    getattr(fi, 'market_cap', None),
             }
         except Exception:
-            info = {}
+            pass
 
-        for k in ('longName','sector','industry','trailingPE','priceToBook',
-                  'returnOnEquity','revenueGrowth','earningsGrowth',
-                  'dividendYield','dividendRate','targetMeanPrice','marketCap'):
-            if k in full_info:
-                val = full_info[k]
-                if val is None:
-                    info[k] = "N/A"
-                    continue
-                # Pre-format percentage ratios for AI clarity
-                if k in ('dividendYield', 'revenueGrowth', 'earningsGrowth', 'returnOnEquity') and isinstance(val, (int, float)):
-                    info[k] = f"{val * 100:.2f}%"
-                else:
-                    info[k] = val
-            else:
-                info[k] = "N/A"
+        # yahooquery fills missing, yfinance non-None values take priority
+        merged = {**yq_data, **{k: v for k, v in full_info.items() if v is not None}}
+        for k in ('longName', 'sector', 'industry', 'trailingPE', 'priceToBook',
+                  'returnOnEquity', 'revenueGrowth', 'earningsGrowth',
+                  'dividendYield', 'targetMeanPrice', 'marketCap', 'recommendationKey'):
+            info[k] = self._fmt_fundamental(k, merged.get(k))
 
         try:
             raw_news = ticker.news or []
