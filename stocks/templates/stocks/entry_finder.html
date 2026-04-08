@@ -25,11 +25,14 @@
             <div class="small text-muted mb-0">ราคาปัจจุบัน</div>
             <div class="h3 fw-bold mb-0 text-dark">฿{{ curr_price|floatformat:2 }}</div>
             {% if zone_proximity is not None %}
-            <div class="small mt-1
-                {% if zone_proximity == 0 %}text-success fw-bold
-                {% elif zone_proximity <= 10 %}text-warning fw-bold
+            <div class="small mt-1 fw-bold
+                {% if zone_status == 'in_zone' %}text-success
+                {% elif zone_status == 'broke' %}text-danger
+                {% elif zone_proximity <= 10 %}text-warning
                 {% else %}text-muted{% endif %}">
-                {% if zone_proximity == 0 %}อยู่ใน Zone แล้ว
+                {% if zone_status == 'in_zone' %}อยู่ใน Zone แล้ว
+                {% elif zone_status == 'broke' %}หลุดต่ำกว่า Zone {{ zone_proximity|floatformat:1 }}%
+                {% elif zone_proximity <= 10 %}ใกล้ Zone {{ zone_proximity|floatformat:1 }}%
                 {% else %}ห่างโซน {{ zone_proximity|floatformat:1 }}%{% endif %}
             </div>
             {% endif %}

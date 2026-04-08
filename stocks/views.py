@@ -3980,14 +3980,24 @@ def entry_finder(request, symbol):
             ema50_vals_json   = json.dumps(ema50_vals)
             ema200_vals_json  = json.dumps(ema200_vals)
 
-        # คำนวณ zone_proximity ให้ตรงกับที่ precision scanner แสดง
+        # คำนวณ zone_proximity และ zone_status
         ef_zone_prox = None
+        ef_zone_status = 'above'   # 'in_zone' | 'broke' | 'above'
         if sd_zone and sd_zone.get('start'):
-            dz_top = sd_zone['start']
-            if curr_price <= dz_top:
+            dz_top = float(sd_zone['start'])
+            dz_bot = float(sd_zone.get('end') or 0)
+            if dz_bot > 0 and curr_price < dz_bot:
+                # ราคาหลุดต่ำกว่า zone (ทะลุ SL)
+                ef_zone_prox = round(((dz_bot - curr_price) / dz_bot) * 100, 1)  # % ต่ำกว่า zone
+                ef_zone_status = 'broke'
+            elif curr_price <= dz_top:
+                # ราคาอยู่ใน demand zone
                 ef_zone_prox = 0.0
+                ef_zone_status = 'in_zone'
             else:
+                # ราคาอยู่เหนือ zone
                 ef_zone_prox = round(((curr_price - dz_top) / dz_top) * 100, 1)
+                ef_zone_status = 'above'
 
         context = {
             'symbol': symbol,
@@ -3996,6 +4006,7 @@ def entry_finder(request, symbol):
             'sd_zone_json': sd_zone_json,
             'curr_price': round(curr_price, 2),
             'zone_proximity': ef_zone_prox,
+            'zone_status': ef_zone_status,
             'scan_end_date': _ef_end_str,
             'chart_labels': chart_labels_json,
             'chart_values': chart_values_json,
