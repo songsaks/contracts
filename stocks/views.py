@@ -2425,38 +2425,69 @@ def momentum_scanner(request):
 
     candidate_list = list(candidates) if not is_scanning else []
 
-    # ====== Live Price — เพื่อให้ badge (IN ZONE / NEAR TP) ถูกต้องตามราคาปัจจุบัน ======
+    # ====== Live Price + Fresh Zone — recompute zone จาก historical data ใหม่ทุกครั้ง ======
     if candidate_list:
         try:
             import concurrent.futures as _mcf
             def _mom_live(sym):
                 try:
-                    fi = yf.Ticker(f"{sym}.BK").fast_info
+                    full_sym = f"{sym}.BK"
+                    fi = yf.Ticker(full_sym).fast_info
                     p = getattr(fi, 'last_price', None)
-                    return sym, float(p) if p else None
+                    live_price = float(p) if p else None
+
+                    # Recompute zone fresh — ใช้ 400 วันเหมือน entry_finder เพื่อให้ zone ตรงกัน
+                    from datetime import datetime as _mdt, timedelta as _mtd
+                    import pytz as _mpytz
+                    _mnow = _mdt.now(_mpytz.timezone('Asia/Bangkok'))
+                    _mend = (_mnow.date()).strftime('%Y-%m-%d')
+                    _mstart = (_mnow.date() - _mtd(days=400)).strftime('%Y-%m-%d')
+                    df = yf.download(full_sym, start=_mstart, end=_mend, interval='1d', progress=False)
+                    fresh_zone = None
+                    if df is not None and len(df) >= 50:
+                        if isinstance(df.columns, pd.MultiIndex):
+                            df.columns = df.columns.get_level_values(0)
+                        fresh_zone = find_supply_demand_zones_v2(df)
+                    return sym, live_price, fresh_zone
                 except Exception:
-                    return sym, None
+                    return sym, None, None
+
             live_map = {}
-            with _mcf.ThreadPoolExecutor(max_workers=10) as _mex:
-                for _s, _p in _mex.map(_mom_live, [c.symbol for c in candidate_list]):
-                    if _p:
-                        live_map[_s] = _p
+            zone_map = {}   # fresh zones — keyed by symbol
+            with _mcf.ThreadPoolExecutor(max_workers=6) as _mex:
+                for _s, _p, _z in _mex.map(_mom_live, [c.symbol for c in candidate_list]):
+                    if _p: live_map[_s] = _p
+                    if _z: zone_map[_s] = _z
         except Exception:
             live_map = {}
+            zone_map = {}
 
         for c in candidate_list:
-            lp = live_map.get(c.symbol)
+            lp  = live_map.get(c.symbol)
             c.live_price = lp
             ref = lp if lp else float(c.price or 0)
-            dz_s = float(c.demand_zone_start or 0)
-            dz_e = float(c.demand_zone_end   or 0)
-            sz_s = float(c.supply_zone_start or 0)
-            # zone status ตาม live price
-            c.live_in_zone   = dz_s > 0 and dz_e > 0 and dz_e <= ref <= dz_s
+
+            # ใช้ fresh zone ถ้ามี มิฉะนั้น fallback ไป DB zone
+            fz = zone_map.get(c.symbol)
+            if fz:
+                dz_s = float(fz.get('start') or 0)
+                dz_e = float(fz.get('end')   or 0)
+                sz_s = float(fz.get('target') or 0)
+                # อัปเดต zone ใน candidate object ด้วย เพื่อให้ template แสดงถูก
+                c.demand_zone_start = dz_s or c.demand_zone_start
+                c.demand_zone_end   = dz_e or c.demand_zone_end
+                c.supply_zone_start = sz_s or c.supply_zone_start
+            else:
+                dz_s = float(c.demand_zone_start or 0)
+                dz_e = float(c.demand_zone_end   or 0)
+                sz_s = float(c.supply_zone_start or 0)
+
+            # zone status ตาม live price + fresh zone
+            c.live_in_zone    = dz_s > 0 and dz_e > 0 and dz_e <= ref <= dz_s
             c.live_broke_zone = dz_e > 0 and ref < dz_e
-            c.live_above_tp  = sz_s > 0 and ref >= sz_s
-            c.live_near_tp   = (not c.live_above_tp) and sz_s > 0 and dz_s > 0 and (sz_s - ref) / (sz_s - dz_s) * 100 <= 15 if (sz_s - dz_s) > 0 else False
-            c.live_zone_prox = 0.0 if ref <= dz_s else round((ref - dz_s) / dz_s * 100, 1) if dz_s > 0 else 999
+            c.live_above_tp   = sz_s > 0 and ref >= sz_s
+            c.live_near_tp    = (not c.live_above_tp) and sz_s > 0 and dz_s > 0 and (sz_s - ref) / (sz_s - dz_s) * 100 <= 15 if (sz_s - dz_s) > 0 else False
+            c.live_zone_prox  = 0.0 if ref <= dz_s else round((ref - dz_s) / dz_s * 100, 1) if dz_s > 0 else 999
             if lp and float(c.price or 0) > 0:
                 c.live_change_pct = round((lp - float(c.price)) / float(c.price) * 100, 2)
             else:
@@ -3950,11 +3981,24 @@ def entry_finder(request, symbol):
         ema50_vals = [round(float(v), 2) if pd.notna(v) else None for v in history_subset['EMA50'].values]
         ema200_vals = [round(float(v), 2) if pd.notna(v) else None for v in history_subset['EMA200'].values]
 
+        # OHLCV สำหรับ candlestick chart
+        ohlcv_data = [
+            {
+                'x': chart_labels[i],
+                'o': round(float(history_subset['Open'].values[i]), 2),
+                'h': round(float(history_subset['High'].values[i]), 2),
+                'l': round(float(history_subset['Low'].values[i]), 2),
+                'c': round(float(history_subset['Close'].values[i]), 2),
+            }
+            for i in range(len(chart_labels))
+        ]
+
         # แปลงข้อมูล chart เป็น JSON สำหรับ JavaScript
         chart_labels_json = json.dumps(chart_labels)
         chart_values_json = json.dumps(chart_values)
         ema50_vals_json = json.dumps(ema50_vals)
         ema200_vals_json = json.dumps(ema200_vals)
+        ohlcv_json = json.dumps(ohlcv_data)
         sd_zone_json = json.dumps(sd_zone)
 
         # ราคาปิดวันสุดท้ายของ historical data (ใช้คำนวณ zone เท่านั้น)
@@ -3975,10 +4019,18 @@ def entry_finder(request, symbol):
             chart_values.append(round(curr_price, 2))
             ema50_vals.append(None)
             ema200_vals.append(None)
+            ohlcv_data.append({
+                'x': _today_str,
+                'o': round(curr_price, 2),
+                'h': round(curr_price, 2),
+                'l': round(curr_price, 2),
+                'c': round(curr_price, 2),
+            })
             chart_labels_json = json.dumps(chart_labels)
             chart_values_json = json.dumps(chart_values)
             ema50_vals_json   = json.dumps(ema50_vals)
             ema200_vals_json  = json.dumps(ema200_vals)
+            ohlcv_json        = json.dumps(ohlcv_data)
 
         def _set_tick(price):
             """คืน tick size ของหุ้น SET ตามช่วงราคา"""
@@ -4036,6 +4088,7 @@ def entry_finder(request, symbol):
             'chart_values': chart_values_json,
             'ema50_vals': ema50_vals_json,
             'ema200_vals': ema200_vals_json,
+            'ohlcv_data': ohlcv_json,
             'title': f"Sniper Entry: {symbol}"
         }
         return render(request, 'stocks/entry_finder.html', context)
