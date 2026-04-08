@@ -377,16 +377,16 @@
             { label: 'EMA 200', data: ema200, borderColor: 'rgba(59,130,246,0.5)', borderWidth:1, pointRadius:0, fill:false, type:'line' }
         ];
 
-        // ── EMA datasets สำหรับ candlestick chart (ใช้ {x, y} time-based) ──
+        // ── EMA datasets สำหรับ candlestick chart (x เป็น timestamp) ──────
         const emaCandle = [
             {
                 label: 'EMA 50', type: 'line',
-                data: labels.map((d, i) => ema50[i] != null ? { x: d, y: ema50[i] } : null).filter(Boolean),
+                data: labels.map((d, i) => ema50[i] != null ? { x: new Date(d).getTime(), y: ema50[i] } : null).filter(Boolean),
                 borderColor: 'rgba(249,115,22,0.6)', borderWidth:1, pointRadius:0, fill:false
             },
             {
                 label: 'EMA 200', type: 'line',
-                data: labels.map((d, i) => ema200[i] != null ? { x: d, y: ema200[i] } : null).filter(Boolean),
+                data: labels.map((d, i) => ema200[i] != null ? { x: new Date(d).getTime(), y: ema200[i] } : null).filter(Boolean),
                 borderColor: 'rgba(59,130,246,0.6)', borderWidth:1, pointRadius:0, fill:false
             }
         ];
@@ -414,8 +414,8 @@
         }
 
         function buildCandleConfig() {
-            // แปลง x เป็น ISO string ที่ date adapter รู้จัก
-            const candleData = ohlcv.map(d => ({ x: d.x, o: d.o, h: d.h, l: d.l, c: d.c }));
+            // chartjs-chart-financial ต้องการ x เป็น millisecond timestamp
+            const candleData = ohlcv.map(d => ({ x: new Date(d.x).getTime(), o: d.o, h: d.h, l: d.l, c: d.c }));
             return {
                 type: 'candlestick',
                 data: {
