@@ -3336,6 +3336,10 @@ def precision_momentum_scanner(request):
                 c.live_change_pct = round(((lp - c.price) / c.price) * 100, 2)
             else:
                 c.live_change_pct = None
+            # upside_to_tp: % ห่างจากราคาปัจจุบัน (live ถ้ามี) ถึง supply_zone_start (TP จริง)
+            ref_price = lp if lp else float(c.price or 0)
+            tp = float(c.supply_zone_start or 0)
+            c.upside_to_tp = round(((tp - ref_price) / ref_price * 100), 1) if (tp > 0 and ref_price > 0) else 999
 
         # ====== คำนวณ BUY/SELL Score ด้วย _compute_signals() เดียวกับ Dashboard/Watchlist ======
         for c in candidates:
