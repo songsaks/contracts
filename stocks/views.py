@@ -3980,23 +3980,45 @@ def entry_finder(request, symbol):
             ema50_vals_json   = json.dumps(ema50_vals)
             ema200_vals_json  = json.dumps(ema200_vals)
 
+        def _set_tick(price):
+            """คืน tick size ของหุ้น SET ตามช่วงราคา"""
+            p = float(price or 0)
+            if p < 2:    return 0.01
+            if p < 5:    return 0.02
+            if p < 10:   return 0.05
+            if p < 25:   return 0.10
+            if p < 100:  return 0.25
+            if p < 200:  return 0.50
+            return 1.00
+
         # คำนวณ zone_proximity และ zone_status
-        ef_zone_prox = None
+        ef_zone_prox   = None
+        ef_zone_ticks  = None   # จำนวน ticks ที่ห่างจาก zone
+        ef_zone_baht   = None   # ระยะห่างในหน่วยบาท
         ef_zone_status = 'above'   # 'in_zone' | 'broke' | 'above'
         if sd_zone and sd_zone.get('start'):
             dz_top = float(sd_zone['start'])
             dz_bot = float(sd_zone.get('end') or 0)
+            tick   = _set_tick(curr_price)
             if dz_bot > 0 and curr_price < dz_bot:
                 # ราคาหลุดต่ำกว่า zone (ทะลุ SL)
-                ef_zone_prox = round(((dz_bot - curr_price) / dz_bot) * 100, 1)  # % ต่ำกว่า zone
+                gap = round(dz_bot - curr_price, 4)
+                ef_zone_prox  = round((gap / dz_bot) * 100, 1)
+                ef_zone_ticks = round(gap / tick)
+                ef_zone_baht  = round(gap, 2)
                 ef_zone_status = 'broke'
             elif curr_price <= dz_top:
                 # ราคาอยู่ใน demand zone
-                ef_zone_prox = 0.0
+                ef_zone_prox  = 0.0
+                ef_zone_ticks = 0
+                ef_zone_baht  = 0.0
                 ef_zone_status = 'in_zone'
             else:
                 # ราคาอยู่เหนือ zone
-                ef_zone_prox = round(((curr_price - dz_top) / dz_top) * 100, 1)
+                gap = round(curr_price - dz_top, 4)
+                ef_zone_prox  = round((gap / dz_top) * 100, 1)
+                ef_zone_ticks = round(gap / tick)
+                ef_zone_baht  = round(gap, 2)
                 ef_zone_status = 'above'
 
         context = {
@@ -4006,6 +4028,8 @@ def entry_finder(request, symbol):
             'sd_zone_json': sd_zone_json,
             'curr_price': round(curr_price, 2),
             'zone_proximity': ef_zone_prox,
+            'zone_ticks': ef_zone_ticks,
+            'zone_baht': ef_zone_baht,
             'zone_status': ef_zone_status,
             'scan_end_date': _ef_end_str,
             'chart_labels': chart_labels_json,

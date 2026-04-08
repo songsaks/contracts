@@ -27,13 +27,32 @@
             {% if zone_proximity is not None %}
             <div class="small mt-1 fw-bold
                 {% if zone_status == 'in_zone' %}text-success
-                {% elif zone_status == 'broke' %}text-danger
+                {% elif zone_status == 'broke' %}
+                    {% if zone_ticks <= 3 %}text-warning
+                    {% elif zone_ticks <= 10 %}text-danger
+                    {% else %}text-danger{% endif %}
                 {% elif zone_proximity <= 10 %}text-warning
                 {% else %}text-muted{% endif %}">
-                {% if zone_status == 'in_zone' %}อยู่ใน Zone แล้ว
-                {% elif zone_status == 'broke' %}หลุดต่ำกว่า Zone {{ zone_proximity|floatformat:1 }}%
-                {% elif zone_proximity <= 10 %}ใกล้ Zone {{ zone_proximity|floatformat:1 }}%
-                {% else %}ห่างโซน {{ zone_proximity|floatformat:1 }}%{% endif %}
+                {% if zone_status == 'in_zone' %}
+                    อยู่ใน Zone แล้ว
+                {% elif zone_status == 'broke' %}
+                    {% if zone_ticks <= 3 %}
+                        เพิ่งหลุด Zone {{ zone_proximity|floatformat:1 }}%
+                        <span style="font-size:0.75rem;opacity:0.85;">(฿{{ zone_baht }} · {{ zone_ticks }} ticks — อาจ false break)</span>
+                    {% elif zone_ticks <= 10 %}
+                        หลุดโซน {{ zone_proximity|floatformat:1 }}%
+                        <span style="font-size:0.75rem;opacity:0.85;">(฿{{ zone_baht }} · {{ zone_ticks }} ticks)</span>
+                    {% else %}
+                        <span style="color:#b00020;">หลุดโซนมาก {{ zone_proximity|floatformat:1 }}%</span>
+                        <span style="font-size:0.75rem;opacity:0.85;">(฿{{ zone_baht }} · {{ zone_ticks }} ticks — โซนเสีย)</span>
+                    {% endif %}
+                {% elif zone_proximity <= 10 %}
+                    ใกล้ Zone {{ zone_proximity|floatformat:1 }}%
+                    <span style="font-size:0.75rem;opacity:0.85;">(฿{{ zone_baht }} · {{ zone_ticks }} ticks)</span>
+                {% else %}
+                    ห่างโซน {{ zone_proximity|floatformat:1 }}%
+                    <span style="font-size:0.75rem;opacity:0.85;">(฿{{ zone_baht }} · {{ zone_ticks }} ticks)</span>
+                {% endif %}
             </div>
             {% endif %}
             <div class="extra-small text-muted mt-1">ข้อมูล ณ {{ scan_end_date }}</div>
