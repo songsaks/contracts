@@ -2633,10 +2633,10 @@ def precision_momentum_scanner(request):
     from django.utils import timezone as tz
     from yahooquery import Ticker as YQTicker
 
-    scan_symbols = list(ScannableSymbol.objects.filter(is_active=True).values_list('symbol', flat=True))
+    scan_symbols = list(ScannableSymbol.objects.filter(is_active=True, market='SET').values_list('symbol', flat=True))
     if not scan_symbols:
         refresh_set100_symbols()
-        scan_symbols = list(ScannableSymbol.objects.filter(is_active=True).values_list('symbol', flat=True))
+        scan_symbols = list(ScannableSymbol.objects.filter(is_active=True, market='SET').values_list('symbol', flat=True))
 
     # ====== AJAX Status Poll ======
     if request.GET.get('scan_status') == '1':
