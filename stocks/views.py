@@ -2423,14 +2423,53 @@ def momentum_scanner(request):
     _scan_state = _cp.get(cache_key, {})
     is_scanning = _scan_state.get('state') == 'running'
 
+    candidate_list = list(candidates) if not is_scanning else []
+
+    # ====== Live Price — เพื่อให้ badge (IN ZONE / NEAR TP) ถูกต้องตามราคาปัจจุบัน ======
+    if candidate_list:
+        try:
+            import concurrent.futures as _mcf
+            def _mom_live(sym):
+                try:
+                    fi = yf.Ticker(f"{sym}.BK").fast_info
+                    p = getattr(fi, 'last_price', None)
+                    return sym, float(p) if p else None
+                except Exception:
+                    return sym, None
+            live_map = {}
+            with _mcf.ThreadPoolExecutor(max_workers=10) as _mex:
+                for _s, _p in _mex.map(_mom_live, [c.symbol for c in candidate_list]):
+                    if _p:
+                        live_map[_s] = _p
+        except Exception:
+            live_map = {}
+
+        for c in candidate_list:
+            lp = live_map.get(c.symbol)
+            c.live_price = lp
+            ref = lp if lp else float(c.price or 0)
+            dz_s = float(c.demand_zone_start or 0)
+            dz_e = float(c.demand_zone_end   or 0)
+            sz_s = float(c.supply_zone_start or 0)
+            # zone status ตาม live price
+            c.live_in_zone   = dz_s > 0 and dz_e > 0 and dz_e <= ref <= dz_s
+            c.live_broke_zone = dz_e > 0 and ref < dz_e
+            c.live_above_tp  = sz_s > 0 and ref >= sz_s
+            c.live_near_tp   = (not c.live_above_tp) and sz_s > 0 and dz_s > 0 and (sz_s - ref) / (sz_s - dz_s) * 100 <= 15 if (sz_s - dz_s) > 0 else False
+            c.live_zone_prox = 0.0 if ref <= dz_s else round((ref - dz_s) / dz_s * 100, 1) if dz_s > 0 else 999
+            if lp and float(c.price or 0) > 0:
+                c.live_change_pct = round((lp - float(c.price)) / float(c.price) * 100, 2)
+            else:
+                c.live_change_pct = None
+
     context = {
         'title': 'Global Momentum Scanner (CAN SLIM)',
-        'candidates': candidates if not is_scanning else [],
+        'candidates': candidate_list,
         'ai_analysis': ai_analysis,
         'scanned_at': scanned_at,
         'current_sort': sort_by,
         'is_scanning': is_scanning,
-        'has_scanned': candidates.exists() and not is_scanning,
+        'has_scanned': bool(candidate_list) or (candidates.exists() and not is_scanning),
     }
     return render(request, 'stocks/momentum.html', context)
 
