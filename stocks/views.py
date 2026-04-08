@@ -2436,13 +2436,15 @@ def momentum_scanner(request):
                     p = getattr(fi, 'last_price', None)
                     live_price = float(p) if p else None
 
-                    # Recompute zone fresh — ใช้ 400 วันเหมือน entry_finder เพื่อให้ zone ตรงกัน
+                    # Recompute zone fresh — ใช้ Ticker().history() แทน yf.download()
+                    # เพราะ yf.download() มีบั๊ก Thread-safety ทำให้ข้อมูลปนกันข้าม symbol
                     from datetime import datetime as _mdt, timedelta as _mtd
                     import pytz as _mpytz
                     _mnow = _mdt.now(_mpytz.timezone('Asia/Bangkok'))
                     _mend = (_mnow.date()).strftime('%Y-%m-%d')
                     _mstart = (_mnow.date() - _mtd(days=400)).strftime('%Y-%m-%d')
-                    df = yf.download(full_sym, start=_mstart, end=_mend, interval='1d', progress=False)
+                    _t = yf.Ticker(full_sym)
+                    df = _t.history(start=_mstart, end=_mend, interval='1d')
                     fresh_zone = None
                     if df is not None and len(df) >= 50:
                         if isinstance(df.columns, pd.MultiIndex):
