@@ -2684,20 +2684,21 @@ def precision_momentum_scanner(request):
                 _bkk_tz = _pytz.timezone('Asia/Bangkok')
                 _now_bkk = _dt.now(_bkk_tz)
                 _t = _now_bkk.time()
-                _morning_session   = _dtime(10,  0) <= _t <= _dtime(12, 30)
-                _midday_break      = _dtime(12, 30) <  _t <  _dtime(14, 30)
-                _afternoon_session = _dtime(14, 30) <= _t <= _dtime(16, 30)
-                _pre_market        = _t < _dtime(10, 0)
-                _market_day = (
+                _market_open = (
                     _now_bkk.weekday() < 5 and
-                    (_pre_market or _morning_session or _midday_break or _afternoon_session)
+                    (_dtime(10, 0) <= _t <= _dtime(12, 30) or
+                     _dtime(12, 30) < _t < _dtime(16, 30))
                 )
-                scan_end_date = (
-                    (_now_bkk.date() - _td(days=1)) if _market_day else _now_bkk.date()
-                )
+                # yfinance download end= is exclusive, so:
+                # - during market hours: use today as end (gets yesterday's settled close)
+                # - after market close (>= 16:30) or weekend: use tomorrow as end (gets today's close)
+                if _market_open:
+                    scan_end_date  = _now_bkk.date()
+                else:
+                    scan_end_date  = _now_bkk.date() + _td(days=1)
                 scan_end_str   = scan_end_date.strftime('%Y-%m-%d')
-                scan_start_str = (scan_end_date - _td(days=400)).strftime('%Y-%m-%d')
-                set_start_str  = (scan_end_date - _td(days=185)).strftime('%Y-%m-%d')
+                scan_start_str = (_now_bkk.date() - _td(days=400)).strftime('%Y-%m-%d')
+                set_start_str  = (_now_bkk.date() - _td(days=185)).strftime('%Y-%m-%d')
 
                 # ดึง symbols รอบก่อนหน้า (is_new_entry)
                 prev_run = (
