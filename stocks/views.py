@@ -2429,6 +2429,24 @@ def momentum_scanner(request):
     if candidate_list:
         try:
             import concurrent.futures as _mcf
+            # คำนวณ end date เหมือน entry_finder — ห้ามรวม today's incomplete bar ตอนตลาดเปิด
+            import pytz as _mpytz
+            from datetime import datetime as _mdt, timedelta as _mtd, time as _mtime
+            _mnow   = _mdt.now(_mpytz.timezone('Asia/Bangkok'))
+            _mt     = _mnow.time()
+            _market_open_now = (
+                _mnow.weekday() < 5 and
+                (
+                    _mt < _mtime(10, 0) or
+                    (_mtime(10, 0) <= _mt <= _mtime(12, 30)) or
+                    (_mtime(12, 30) < _mt < _mtime(14, 30)) or
+                    (_mtime(14, 30) <= _mt <= _mtime(16, 30))
+                )
+            )
+            _mend_date  = (_mnow.date() - _mtd(days=1)) if _market_open_now else _mnow.date()
+            _mend_str   = _mend_date.strftime('%Y-%m-%d')
+            _mstart_str = (_mend_date - _mtd(days=400)).strftime('%Y-%m-%d')
+
             def _mom_live(sym):
                 try:
                     full_sym = f"{sym}.BK"
@@ -2436,15 +2454,9 @@ def momentum_scanner(request):
                     p = getattr(fi, 'last_price', None)
                     live_price = float(p) if p else None
 
-                    # Recompute zone fresh — ใช้ Ticker().history() แทน yf.download()
-                    # เพราะ yf.download() มีบั๊ก Thread-safety ทำให้ข้อมูลปนกันข้าม symbol
-                    from datetime import datetime as _mdt, timedelta as _mtd
-                    import pytz as _mpytz
-                    _mnow = _mdt.now(_mpytz.timezone('Asia/Bangkok'))
-                    _mend = (_mnow.date()).strftime('%Y-%m-%d')
-                    _mstart = (_mnow.date() - _mtd(days=400)).strftime('%Y-%m-%d')
+                    # Recompute zone — ใช้ Ticker().history() (thread-safe), end date เหมือน entry_finder
                     _t = yf.Ticker(full_sym)
-                    df = _t.history(start=_mstart, end=_mend, interval='1d')
+                    df = _t.history(start=_mstart_str, end=_mend_str, interval='1d')
                     fresh_zone = None
                     if df is not None and len(df) >= 50:
                         if isinstance(df.columns, pd.MultiIndex):
