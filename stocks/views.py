@@ -3396,21 +3396,46 @@ def precision_momentum_scanner(request):
         )
         live_prices = {}
         live_mcaps  = {}
+        live_zones  = {}   # fresh zones — keyed by symbol
         if candidates:
             try:
                 import concurrent.futures as _lcf
+                from datetime import timedelta as _ltd, time as _ltime2
+                # end date เหมือน entry_finder
+                _prec_market_open = (
+                    _lnow.weekday() < 5 and
+                    (
+                        _lt < _ltime2(10, 0) or
+                        (_ltime2(10, 0) <= _lt <= _ltime2(12, 30)) or
+                        (_ltime2(12, 30) < _lt < _ltime2(14, 30)) or
+                        (_ltime2(14, 30) <= _lt <= _ltime2(16, 30))
+                    )
+                )
+                _prec_end_date  = (_lnow.date() - _ltd(days=1)) if _prec_market_open else _lnow.date()
+                _prec_end_str   = _prec_end_date.strftime('%Y-%m-%d')
+                _prec_start_str = (_prec_end_date - _ltd(days=400)).strftime('%Y-%m-%d')
+
                 def _get_live(sym):
                     try:
-                        fi = yf.Ticker(f"{sym}.BK").fast_info
+                        full_sym = f"{sym}.BK"
+                        fi = yf.Ticker(full_sym).fast_info
                         p  = getattr(fi, 'last_price', None)
                         mc = getattr(fi, 'market_cap', None)
-                        return sym, (float(p) if p else None), (round(float(mc)/1e9, 2) if mc else None)
+                        # Recompute zone fresh (thread-safe: Ticker().history())
+                        df = yf.Ticker(full_sym).history(start=_prec_start_str, end=_prec_end_str, interval='1d')
+                        fz = None
+                        if df is not None and len(df) >= 50:
+                            if isinstance(df.columns, pd.MultiIndex):
+                                df.columns = df.columns.get_level_values(0)
+                            fz = find_supply_demand_zones_v2(df)
+                        return sym, (float(p) if p else None), (round(float(mc)/1e9, 2) if mc else None), fz
                     except Exception:
-                        return sym, None, None
-                with _lcf.ThreadPoolExecutor(max_workers=12) as _lex:
-                    for _sym, _p, _mc in _lex.map(_get_live, [c.symbol for c in candidates]):
+                        return sym, None, None, None
+                with _lcf.ThreadPoolExecutor(max_workers=6) as _lex:
+                    for _sym, _p, _mc, _fz in _lex.map(_get_live, [c.symbol for c in candidates]):
                         if _p:  live_prices[_sym] = _p
                         if _mc: live_mcaps[_sym]  = _mc
+                        if _fz: live_zones[_sym]  = _fz
             except Exception:
                 pass
 
@@ -3419,6 +3444,15 @@ def precision_momentum_scanner(request):
             c.live_price      = lp
             c.live_market_cap = live_mcaps.get(c.symbol)
             c.is_live         = _lmarket_open and lp is not None
+
+            # อัปเดต zone ด้วย fresh data ถ้ามี
+            fz = live_zones.get(c.symbol)
+            if fz:
+                c.demand_zone_start = fz.get('start') or c.demand_zone_start
+                c.demand_zone_end   = fz.get('end')   or c.demand_zone_end
+                c.supply_zone_start = fz.get('target') or c.supply_zone_start
+                c.stop_loss         = fz.get('stop_loss') or c.stop_loss
+
             if lp and c.demand_zone_start and c.demand_zone_start > 0:
                 c.live_zone_prox = 0.0 if lp <= c.demand_zone_start else round(((lp - c.demand_zone_start) / c.demand_zone_start) * 100, 1)
             else:
@@ -3428,14 +3462,13 @@ def precision_momentum_scanner(request):
             else:
                 c.live_change_pct = None
             # upside_to_tp: % ของ range Entry→TP ที่ยังเหลืออยู่
-            # NEAR TP เมื่อราคาวิ่งไปแล้ว >= 85% ของระยะ Entry→TP
             ref_price = lp if lp else float(c.price or 0)
             tp    = float(c.supply_zone_start or 0)
             entry = float(c.demand_zone_start or 0)
             total_range = tp - entry
             if tp > 0 and entry > 0 and total_range > 0 and ref_price > 0:
                 remaining = tp - ref_price
-                c.upside_to_tp = round((remaining / total_range) * 100, 1)  # % range ที่ยังเหลือ
+                c.upside_to_tp = round((remaining / total_range) * 100, 1)
             else:
                 c.upside_to_tp = 999
 
