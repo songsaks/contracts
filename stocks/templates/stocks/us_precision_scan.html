@@ -14,8 +14,8 @@
             <i class="fas fa-crosshairs me-2 ms-1"></i> US Precision Momentum Scanner
         </h1>
         <p class="text-muted mb-0">
-            Nasdaq &amp; S&amp;P 500 — ERC Volume confirmed + ADX ≥ 15 + Liquidity ≥ 1M shares/day<br>
-            Supply Target = 52-Week High | ATR-based Stop Loss | RVOL Bull/Bear direction aware
+            Nasdaq &amp; S&amp;P 500 — RS ≥ 60 · ADX ≥ 15 · Liquidity ≥ 1M shares/day<br>
+            52W Breakout +15pts · Stage 2 Weinstein +8pts · RVOL Bull/Bear direction aware
         </p>
     </div>
     <div class="col-md-5 text-md-end mt-3 mt-md-0 d-flex flex-wrap justify-content-md-end gap-2">
@@ -41,27 +41,29 @@
         <button class="btn btn-sm rounded-pill px-4 shadow-sm" type="button"
                 data-bs-toggle="collapse" data-bs-target="#diffGuide" aria-expanded="false"
                 style="border: 1px solid #1d4ed8; color: #1d4ed8;">
-            <i class="fas fa-info-circle me-2"></i> System Overview — US Precision V3
+            <i class="fas fa-info-circle me-2"></i> System Overview — US Precision V4
         </button>
         <div class="collapse mt-3" id="diffGuide">
             <div class="card card-body border-0 shadow-sm rounded-4 bg-light p-4">
                 <div class="row g-3">
                     <div class="col-md-6">
-                        <h6 class="fw-bold mb-3" style="color: #1d4ed8;"><i class="fas fa-rocket me-2"></i> Filter Criteria</h6>
+                        <h6 class="fw-bold mb-3" style="color: #1d4ed8;"><i class="fas fa-filter me-2"></i> Pre-Scan Filters</h6>
                         <ul class="list-unstyled small text-secondary">
-                            <li class="mb-2"><strong>No EMA200 requirement:</strong> Allows early-stage reversal and base-building stocks to qualify</li>
-                            <li class="mb-2"><strong>ADX ≥ 15 (relaxed from 20):</strong> Captures stocks just starting to build momentum</li>
-                            <li class="mb-2"><strong>Pure Price &amp; Volume:</strong> Scoring focuses 100% on institutional footprints (not fundamentals)</li>
-                            <li class="mb-0"><strong>Universe:</strong> ~120 curated Nasdaq &amp; S&amp;P 500 leaders</li>
+                            <li class="mb-2"><strong>Liquidity ≥ 1M shares/day</strong> (avg 20 days) — institutional-grade only</li>
+                            <li class="mb-2"><strong>RS Rating ≥ 60</strong> — must outperform peer group (no data = pass)</li>
+                            <li class="mb-2"><strong>ADX ≥ 15</strong> — trend forming (allows early-stage momentum)</li>
+                            <li class="mb-0"><strong>Price ≥ 65% of 52W High</strong> — not in severe downtrend</li>
                         </ul>
                     </div>
                     <div class="col-md-6">
-                        <h6 class="fw-bold mb-3" style="color: #0369a1;"><i class="fas fa-calculator me-2"></i> Score Structure V3 (Max 100 pts)</h6>
+                        <h6 class="fw-bold mb-3" style="color: #0369a1;"><i class="fas fa-calculator me-2"></i> Score Structure V4 (capped 100 pts)</h6>
                         <ul class="list-unstyled small text-secondary">
-                            <li class="mb-2"><strong>Zone &amp; Risk/Reward (53 pts):</strong> Near Demand Zone lower bound + favorable upside vs stop loss</li>
-                            <li class="mb-2"><strong>Momentum Indicators (32 pts):</strong> RSI in bull zone, MACD crossover, outperforms SPY (3m relative)</li>
-                            <li class="mb-2"><strong>RS Rating Bonus (15 pts):</strong> Market leaders (RS ≥ 85 = Top 15%) get bonus to surface at top</li>
-                            <li class="mb-0"><strong>Core requirement:</strong> ERC Volume confirmation or base consolidation</li>
+                            <li class="mb-2"><strong>Zone Proximity (25 pts):</strong> In zone = full / ≤10% away = 15 pts</li>
+                            <li class="mb-2"><strong>Power Volume (22 pts):</strong> Bull RVOL ≥ 2x — institutional buying</li>
+                            <li class="mb-2"><strong>52W Breakout (15 pts):</strong> New high — strongest momentum signal</li>
+                            <li class="mb-2"><strong>RS Rating (15 pts):</strong> RS ≥ 85 = market leader bonus</li>
+                            <li class="mb-2"><strong>MACD Crossover (12 pts):</strong> Momentum initiating</li>
+                            <li class="mb-0"><strong>Stage 2 Weinstein (8 pts):</strong> Price > SMA150 rising</li>
                         </ul>
                     </div>
                 </div>
@@ -1416,7 +1418,7 @@ function _applyFiltersUS() {
         var earn = row.dataset.earn   === 'true';
         var ichi = parseInt(row.dataset.ichi || '0');
         var sec  = row.dataset.sector || '';
-        var show = (!rsOn || rs >= 70) && (!s2On || s2) && (!ppOn || pp) && (!hideEn || !earn) && (!ichiOn || ichi >= 3) && (!secVal || sec === secVal);
+        var show = (rs >= 60 || rs === 0) && (!rsOn || rs >= 70) && (!s2On || s2) && (!ppOn || pp) && (!hideEn || !earn) && (!ichiOn || ichi >= 3) && (!secVal || sec === secVal);
         row.style.display = show ? '' : 'none';
         if (show) visible++;
     });

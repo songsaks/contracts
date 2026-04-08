@@ -4916,6 +4916,15 @@ def us_precision_scanner(request):
                 if avg_vol_20 < 1_000_000:
                     return None
 
+                current_price = float(df['Close'].iloc[-1])
+
+                # ====== RS Rating >= 60 (None = ข้อมูลไม่พอ → ไม่ตัดออก) ======
+                import logging as _ulg; _us_log = _ulg.getLogger('stocks.scan')
+                rs_val = rs_ratings_map.get(symbol, None)
+                if rs_val is not None and rs_val < 60:
+                    _us_log.info(f"[US SCAN SKIP] {symbol}: RS {rs_val} < 60")
+                    return None
+
                 # ====== Indicators ======
                 df['EMA200'] = ta.ema(df['Close'], length=200)
                 df['EMA50']  = ta.ema(df['Close'], length=50)
@@ -4926,7 +4935,7 @@ def us_precision_scanner(request):
                 mfi_series = ta.mfi(df['High'], df['Low'], df['Close'], df['Volume'], length=14)
                 df['MFI'] = mfi_series
 
-                current_price = float(df['Close'].iloc[-1])
+                current_price = float(df['Close'].iloc[-1])  # re-assign after indicators (same value)
                 year_high = float(df['High'].tail(252).max())
 
                 adx_val = float(df['ADX_14'].iloc[-1]) if 'ADX_14' in df.columns and pd.notna(df['ADX_14'].iloc[-1]) else 0
@@ -5149,7 +5158,7 @@ def us_precision_scanner(request):
                     'macd_crossover': macd_cross_val, 'bb_squeeze': bb_squeeze_flag,
                     'ema20_aligned': ema20_aligned_flag, 'ema20_slope': round(ema20_slope_val, 3),
                     'ema20_rising': ema20_rising_flag, 'hh_hl_structure': hh_hl_flag,
-                    'stock_3m_ret': stock_3m_ret, 'rs_rating': rs_ratings_map.get(symbol, 0),
+                    'stock_3m_ret': stock_3m_ret, 'rs_rating': rs_ratings_map.get(symbol, 0),  # 0 = ไม่มีข้อมูล (ผ่าน pre-filter แล้ว)
                     'stage2': stage2_flag,
                     'earnings_soon': earnings_soon_flag,
                     'pocket_pivot': pocket_pivot_flag,
