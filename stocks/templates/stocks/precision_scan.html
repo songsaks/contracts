@@ -455,17 +455,21 @@
                             {% else %}
                             <span style="font-size:0.88rem;font-weight:600;color:#0f172a;">฿{{ item.price }}</span>
                             {% endif %}
-                            {% with prox=item.live_zone_prox|default:item.zone_proximity %}
-                            {% if item.demand_zone_end and item.price < item.demand_zone_end %}
+                            {% with prox=item.live_zone_prox|default:item.zone_proximity ref=item.live_price|default:item.price %}
+                            {% if item.supply_zone_start and ref >= item.supply_zone_start %}
+                            <span class="badge" style="background:#dc2626;font-size:0.6rem;padding:2px 6px;color:white;">AT TP</span>
+                            {% elif item.upside_to_tp <= 15 and item.upside_to_tp > 0 %}
+                            <span class="badge" style="background:#ea580c;font-size:0.6rem;padding:2px 6px;color:white;">NEAR TP</span>
+                            {% elif item.demand_zone_end and ref < item.demand_zone_end %}
                             <span class="badge" style="background:#ef4444;font-size:0.6rem;padding:2px 6px;color:white;">BROKE</span>
-                            {% elif item.demand_zone_start and item.price <= item.demand_zone_start %}
+                            {% elif item.demand_zone_start and ref <= item.demand_zone_start %}
                             <span class="badge" style="background:#22c55e;font-size:0.6rem;padding:2px 6px;">IN ZONE</span>
                             {% elif prox <= 5 %}
-                            <span class="badge" style="background:#16a34a;font-size:0.6rem;padding:2px 6px;color:white;" title="{{ prox|floatformat:1 }}% เหนือโซน">&lt;5% zone</span>
+                            <span class="badge" style="background:#16a34a;font-size:0.6rem;padding:2px 6px;color:white;" title="{{ prox|floatformat:1 }}%">&lt;5% zone</span>
                             {% elif prox <= 10 %}
-                            <span class="badge" style="background:#f59e0b;font-size:0.6rem;padding:2px 6px;" title="{{ prox|floatformat:1 }}% เหนือโซน">&lt;10% zone</span>
+                            <span class="badge" style="background:#f59e0b;font-size:0.6rem;padding:2px 6px;" title="{{ prox|floatformat:1 }}%">&lt;10% zone</span>
                             {% else %}
-                            <span class="badge" style="background:#fb923c;font-size:0.6rem;padding:2px 6px;color:white;" title="{{ prox|floatformat:1 }}% เหนือโซน">&gt;10% zone</span>
+                            <span class="badge" style="background:#fb923c;font-size:0.6rem;padding:2px 6px;color:white;" title="{{ prox|floatformat:1 }}%">&gt;10% zone</span>
                             {% endif %}
                             {% endwith %}
                         </div>
