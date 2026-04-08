@@ -3430,9 +3430,9 @@ def precision_momentum_scanner(request):
             if in_zone:
                 reasons.append("อยู่ใน Entry Zone แล้ว")
             elif c.zone_proximity <= 10:
-                reasons.append(f"ห่างโซนแค่ {c.zone_proximity:.0f}%")
+                reasons.append(f"เหนือโซน {c.zone_proximity:.0f}% (รอย่อ)")
             elif c.zone_proximity <= 30:
-                reasons.append(f"ใกล้โซน {c.zone_proximity:.0f}%")
+                reasons.append(f"เหนือโซน {c.zone_proximity:.0f}%")
 
             if c.rvol_bullish and c.rvol >= 1.5:
                 reasons.append(f"RVOL {c.rvol:.1f}x Bull แรง")
@@ -3487,9 +3487,9 @@ def precision_momentum_scanner(request):
                 if in_zone:
                     reasons.append("อยู่ใน Entry Zone แล้ว")
                 elif c.zone_proximity <= 10:
-                    reasons.append(f"ห่างโซนแค่ {c.zone_proximity:.0f}%")
+                    reasons.append(f"เหนือโซน {c.zone_proximity:.0f}% (รอย่อ)")
                 else:
-                    reasons.append(f"ใกล้โซน {c.zone_proximity:.0f}%")
+                    reasons.append(f"เหนือโซน {c.zone_proximity:.0f}%")
                 rr = c.risk_reward_ratio or 0
                 reasons.append(f"RR 1:{rr:.1f} ✓")
                 reasons.append(f"ADX {c.adx:.0f} ✓")

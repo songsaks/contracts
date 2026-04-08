@@ -458,9 +458,9 @@
                             {% if item.demand_zone_start and item.price <= item.demand_zone_start and item.price >= item.demand_zone_end %}
                             <span class="badge" style="background:#22c55e;font-size:0.6rem;padding:2px 6px;">IN ZONE</span>
                             {% elif item.zone_proximity <= 10 %}
-                            <span class="badge" style="background:#f59e0b;font-size:0.6rem;padding:2px 6px;">NEAR {{ item.zone_proximity|floatformat:0 }}%</span>
+                            <span class="badge" style="background:#f59e0b;font-size:0.6rem;padding:2px 6px;" title="ราคาเหนือ Demand Zone {{ item.zone_proximity|floatformat:0 }}% — รอย่อตัวเข้าโซน">↑{{ item.zone_proximity|floatformat:0 }}% zone</span>
                             {% else %}
-                            <span class="badge" style="background:#fb923c;font-size:0.6rem;padding:2px 6px;color:white;">{{ item.zone_proximity|floatformat:0 }}% to zone</span>
+                            <span class="badge" style="background:#fb923c;font-size:0.6rem;padding:2px 6px;color:white;">↑{{ item.zone_proximity|floatformat:0 }}% zone</span>
                             {% endif %}
                         </div>
                         <!-- เกณฑ์ที่ผ่าน -->
@@ -536,9 +536,9 @@
                             {% if item.demand_zone_start and item.price <= item.demand_zone_start and item.price >= item.demand_zone_end %}
                             <span class="badge" style="background:#22c55e; font-size:0.6rem; padding:2px 6px;">IN ZONE</span>
                             {% elif item.zone_proximity <= 10 %}
-                            <span class="badge" style="background:#f59e0b; font-size:0.6rem; padding:2px 6px;">NEAR {{ item.zone_proximity|floatformat:0 }}%</span>
+                            <span class="badge" style="background:#f59e0b; font-size:0.6rem; padding:2px 6px;" title="ราคาเหนือ Demand Zone {{ item.zone_proximity|floatformat:0 }}% — รอย่อตัวเข้าโซน">↑{{ item.zone_proximity|floatformat:0 }}% zone</span>
                             {% elif item.zone_proximity <= 30 %}
-                            <span class="badge" style="background:#fb923c; font-size:0.6rem; padding:2px 6px; color:white;">{{ item.zone_proximity|floatformat:0 }}% TO ZONE</span>
+                            <span class="badge" style="background:#fb923c; font-size:0.6rem; padding:2px 6px; color:white;">↑{{ item.zone_proximity|floatformat:0 }}% zone</span>
                             {% endif %}
                         </div>
                         <!-- Reasons -->
