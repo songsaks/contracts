@@ -3383,7 +3383,8 @@ def precision_momentum_scanner(request):
                  if c.buy_score >= 50
                  and c.rvol_bullish
                  and c.rvol >= min_rvol
-                 and c.rsi <= max_rsi],
+                 and c.rsi <= max_rsi
+                 and not (c.demand_zone_end and float(getattr(c, 'live_price', None) or c.price or 0) < float(c.demand_zone_end))],
                 key=lambda x: x.buy_score, reverse=True
             )[:5]
 
@@ -3397,13 +3398,20 @@ def precision_momentum_scanner(request):
         # ผ่อนปรนเกณฑ์ ADX 20 (เดิม 25) และ RSI ขยายเพื่อให้มีตัวเลือกมากขึ้น 
         def _is_fully_qualified(c):
             rr = c.risk_reward_ratio or 0
-            in_zone = (c.demand_zone_start and c.demand_zone_end and
-                       c.price <= c.demand_zone_start and c.price >= c.demand_zone_end)
-            near_zone = in_zone or (c.zone_proximity <= 30)
-            # ตัดหุ้นที่ราคาวิ่งขึ้นเกือบถึง/เกิน target (supply_zone_start ≈ 52w high) แล้ว
-            # ถ้า upside เหลือน้อยกว่า 8% ไม่คุ้มค่าที่จะแนะนำอีกต่อไป
+            dz_start = float(c.demand_zone_start or 0)
+            dz_end   = float(c.demand_zone_end   or 0)
+            # ใช้ live price ถ้ามี เพราะ zone_proximity ใน DB เป็นค่า ณ เวลาสแกน
+            price    = float(getattr(c, 'live_price', None) or c.price or 0)
+            live_prox = getattr(c, 'live_zone_prox', None)
+            effective_prox = live_prox if live_prox is not None else c.zone_proximity
+            in_zone  = dz_start > 0 and dz_end > 0 and dz_end <= price <= dz_start
+            above_zone = price > dz_start and effective_prox <= 30
+            near_zone  = in_zone or above_zone
+            # ตัดหุ้นที่ราคาหลุดต่ำกว่า demand zone (ทะลุ SL) — ไม่ใช่จุดซื้อแล้ว
+            broke_zone = dz_end > 0 and price < dz_end
+            # ตัดหุ้นที่ราคาวิ่งขึ้นเกือบถึง/เกิน target แล้ว
             target = c.supply_zone_start or 0
-            upside_pct = ((target - c.price) / c.price * 100) if (target > 0 and c.price > 0) else 999
+            upside_pct = ((target - price) / price * 100) if (target > 0 and price > 0) else 999
             price_near_target = target > 0 and upside_pct < 8
             return (
                 c.buy_score >= 65
@@ -3413,7 +3421,8 @@ def precision_momentum_scanner(request):
                 and c.rvol_bullish
                 and c.rvol >= 0.8
                 and near_zone
-                and not price_near_target      # กรอง: ราคาใกล้ target แล้ว → ไม่แนะนำ
+                and not broke_zone             # กรอง: ราคาหลุดต่ำกว่า zone (ทะลุ SL)
+                and not price_near_target      # กรอง: ราคาใกล้ target แล้ว
                 and (c.sell_score or 0) < 50
                 and getattr(c, 'rs_rating', 0) >= 60
             )
