@@ -4061,12 +4061,20 @@ def entry_finder(request, symbol):
         ef_zone_prox   = None
         ef_zone_ticks  = None   # จำนวน ticks ที่ห่างจาก zone
         ef_zone_baht   = None   # ระยะห่างในหน่วยบาท
-        ef_zone_status = 'above'   # 'in_zone' | 'broke' | 'above'
+        ef_zone_status = 'above'   # 'at_tp' | 'in_zone' | 'broke' | 'above'
         if sd_zone and sd_zone.get('start'):
-            dz_top = float(sd_zone['start'])
-            dz_bot = float(sd_zone.get('end') or 0)
-            tick   = _set_tick(curr_price)
-            if dz_bot > 0 and curr_price < dz_bot:
+            dz_top  = float(sd_zone['start'])
+            dz_bot  = float(sd_zone.get('end') or 0)
+            target  = float(sd_zone.get('target') or 0)
+            tick    = _set_tick(curr_price)
+            if target > 0 and curr_price >= target:
+                # ราคาถึงหรือเกิน target แล้ว — Take Profit zone
+                gap = round(curr_price - target, 4)
+                ef_zone_prox  = round((gap / target) * 100, 1)
+                ef_zone_ticks = round(gap / tick)
+                ef_zone_baht  = round(gap, 2)
+                ef_zone_status = 'at_tp'
+            elif dz_bot > 0 and curr_price < dz_bot:
                 # ราคาหลุดต่ำกว่า zone (ทะลุ SL)
                 gap = round(dz_bot - curr_price, 4)
                 ef_zone_prox  = round((gap / dz_bot) * 100, 1)

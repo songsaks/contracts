@@ -26,14 +26,17 @@
             <div class="h3 fw-bold mb-0 text-dark">฿{{ curr_price|floatformat:2 }}</div>
             {% if zone_proximity is not None %}
             <div class="small mt-1 fw-bold
-                {% if zone_status == 'in_zone' %}text-success
+                {% if zone_status == 'at_tp' %}text-danger
+                {% elif zone_status == 'in_zone' %}text-success
                 {% elif zone_status == 'broke' %}
                     {% if zone_ticks <= 3 %}text-warning
-                    {% elif zone_ticks <= 10 %}text-danger
                     {% else %}text-danger{% endif %}
                 {% elif zone_proximity <= 10 %}text-warning
                 {% else %}text-muted{% endif %}">
-                {% if zone_status == 'in_zone' %}
+                {% if zone_status == 'at_tp' %}
+                    <span style="color:#b00020;">&#9888; ถึง Target แล้ว +{{ zone_proximity|floatformat:1 }}%</span>
+                    <span style="font-size:0.75rem;opacity:0.85;">(฿{{ zone_baht }} · {{ zone_ticks }} ticks เกิน Target)</span>
+                {% elif zone_status == 'in_zone' %}
                     อยู่ใน Zone แล้ว
                 {% elif zone_status == 'broke' %}
                     {% if zone_ticks <= 3 %}
