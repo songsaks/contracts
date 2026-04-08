@@ -1843,8 +1843,8 @@ function _applyFiltersSET() {
 
         var rsiOn     = document.getElementById('rsiFilter70SET') && document.getElementById('rsiFilter70SET').checked;
 
-        var show = (rs >= 70) && 
-                   (!rsiOn || rsi < 70) && 
+        var show = (rs >= 60 || rs === 0) &&
+                   (!rsiOn || rsi < 70) &&
                    (!s2On || s2) && 
                    (!ppOn || pp) && 
                    (!secVal || sec === secVal) && 
