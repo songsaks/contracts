@@ -71,6 +71,7 @@ def _compute_signals(prec, current_price=None):
     # v7 money flow & breakout
     cmf          = getattr(prec, 'cmf', None)
     is_52w_bo    = getattr(prec, 'is_52w_breakout', False)
+    stage2       = getattr(prec, 'stage2', False)
 
     # ── BUY SCORE ─────────────────────────────────────────────────────
     # base technical: technical_score คือผลลัพธ์จาก tech analyzer (max 100)
@@ -95,10 +96,10 @@ def _compute_signals(prec, current_price=None):
     elif rr >= 2:   buy += 10
     elif rr >= 1.5: buy += 5
 
-    # ADX (max 8)
-    if adx >= 35:   buy += 8
-    elif adx >= 30: buy += 5
-    elif adx >= 25: buy += 2
+    # ADX (max 8) — ปรับ threshold ให้เหมาะกับ SET (liquidity ต่ำกว่า US → ADX มักอยู่ 15-25)
+    if adx >= 25:   buy += 8
+    elif adx >= 20: buy += 5
+    elif adx >= 15: buy += 2
 
     # ERC confirmed (max 5)
     if erc: buy += 5
@@ -147,6 +148,13 @@ def _compute_signals(prec, current_price=None):
         if cmf >= 0.1:    buy += 6   # สถาบันสะสมชัดเจน
         elif cmf >= 0.05: buy += 3   # มีแรงซื้อสุทธิ
 
+    # ── v8 SET-specific signals ───────────────────────────────────────
+    # 52-week breakout (max 15) — signal สำคัญมากใน SET (Minervini/O'Neil)
+    if is_52w_bo: buy += 15
+
+    # Stage 2 Weinstein: price > SMA150 AND SMA150 rising (max 8)
+    if stage2: buy += 8
+
     buy_score = max(0, min(100, buy))
 
     # ── SELL SCORE ────────────────────────────────────────────────────
@@ -156,8 +164,10 @@ def _compute_signals(prec, current_price=None):
     if rsi > 78:    sell += 20
     elif rsi > 72:  sell += 12
     elif rsi > 68:  sell += 5
-    if not rvol_b and rvol >= 1.5:  sell += 18
-    elif not rvol_b:                sell += 10
+    # Volume bearish penalty — ผ่อนลงสำหรับ SET เพราะหลายวัน volume เป็น neutral ไม่ใช่ bearish จริง
+    if not rvol_b and rvol >= 2.0:  sell += 18   # volume สูงมากและเป็น bearish = แรงขายจริง
+    elif not rvol_b and rvol >= 1.5: sell += 10  # volume สูงปานกลางและ bearish
+    # rvol_b = False แต่ volume ปกติ → ไม่ penalty
     if rel1 < -5:   sell += 12
     elif rel1 < 0:  sell += 6
     if pat < -5:    sell += 10
@@ -2445,7 +2455,7 @@ def momentum_scanner(request):
             )
             _mend_date  = (_mnow.date() - _mtd(days=1)) if _market_open_now else _mnow.date()
             _mend_str   = _mend_date.strftime('%Y-%m-%d')
-            _mstart_str = (_mend_date - _mtd(days=400)).strftime('%Y-%m-%d')
+            _mstart_str = (_mend_date - _mtd(days=600)).strftime('%Y-%m-%d')
 
             def _mom_live(sym):
                 try:
@@ -2788,7 +2798,7 @@ def precision_momentum_scanner(request):
                 else:
                     scan_end_date  = _now_bkk.date() + _td(days=1)
                 scan_end_str   = scan_end_date.strftime('%Y-%m-%d')
-                scan_start_str = (_now_bkk.date() - _td(days=400)).strftime('%Y-%m-%d')
+                scan_start_str = (_now_bkk.date() - _td(days=600)).strftime('%Y-%m-%d')  # 600 วัน → ~430 trading days, EMA200 warm-up มีพอ
                 set_start_str  = (_now_bkk.date() - _td(days=185)).strftime('%Y-%m-%d')
 
                 # ดึง symbols รอบก่อนหน้า (is_new_entry)
@@ -2900,18 +2910,23 @@ def precision_momentum_scanner(request):
                         avg_close_20 = float(df['Close'].tail(20).mean())
                         avg_turnover_20 = avg_vol_20 * avg_close_20
                 
-                        # 1. Turnover >= 15M THB (ตัดหุ้นปั่นสภาพคล่องต่ำที่รายใหญ่เข้าลงทุนไม่ได้)
-                        if avg_turnover_20 < 15_000_000:
-                            return None
-                    
-                        # 2. Minimum Price >= 1.00 (ตัดหุ้น Penny Stocks ต่ำกว่า 1 บาท)
+                        import logging as _lg; _scan_log = _lg.getLogger('stocks.scan')
                         current_price = float(df['Close'].iloc[-1])
-                        if current_price < 1.00:
+
+                        # 1. Turnover >= 10M THB
+                        if avg_turnover_20 < 10_000_000:
+                            _scan_log.info(f"[SCAN SKIP] {symbol}: Turnover ฿{avg_turnover_20/1e6:.1f}M < 10M")
                             return None
-                    
-                        # 3. RS Rating >= 70 (ต้องแข็งแกร่งกว่าหุ้น 70% ในตลาด)
-                        rs_val = rs_ratings_map.get(symbol, 0)
-                        if rs_val < 70:
+
+                        # 2. Minimum Price >= 1.00
+                        if current_price < 1.00:
+                            _scan_log.info(f"[SCAN SKIP] {symbol}: Price ฿{current_price} < 1.00")
+                            return None
+
+                        # 3. RS Rating >= 60 (None = ข้อมูลไม่พอ → ไม่ตัดออก)
+                        rs_val = rs_ratings_map.get(symbol, None)
+                        if rs_val is not None and rs_val < 60:
+                            _scan_log.info(f"[SCAN SKIP] {symbol}: RS {rs_val} < 60")
                             return None
 
                         # ====== คำนวณ Indicators ======
@@ -2929,16 +2944,16 @@ def precision_momentum_scanner(request):
                         ema200 = float(df['EMA200'].iloc[-1]) if pd.notna(df['EMA200'].iloc[-1]) else current_price
                         year_high = float(df['High'].tail(252).max())
 
-                        # ====== ADX Filter (ผ่อนปรนให้หุ้นเพิ่งเริ่มเทรนด์) ======
+                        # ====== ADX Filter ======
                         adx_val = float(df['ADX_14'].iloc[-1]) if 'ADX_14' in df.columns and pd.notna(df['ADX_14'].iloc[-1]) else 0
                         if adx_val < 15:
-                            # skipped (ADX < 15)
+                            _scan_log.info(f"[SCAN SKIP] {symbol}: ADX {adx_val:.1f} < 15")
                             return None
 
                         # ====== Trend Template Filter ======
-                        # รับหุ้นที่อยู่ไม่ต่ำกว่า 35% จาก 52w High — กรองขยะออก แต่ยังเปิดรับ reversal
                         near_high  = current_price >= year_high * 0.65
                         if not near_high:
+                            _scan_log.info(f"[SCAN SKIP] {symbol}: Price ฿{current_price} < 65% of 52wH ฿{year_high} ({current_price/year_high*100:.0f}%)")
                             return None
 
                         import logging; logger = logging.getLogger('stocks')
@@ -4008,33 +4023,35 @@ def entry_finder(request, symbol):
         )
         _ef_end_date  = (_ef_now.date() - _eftd(days=1)) if _ef_market_day else _ef_now.date()
         _ef_end_str   = _ef_end_date.strftime('%Y-%m-%d')
-        _ef_start_str = (_ef_end_date - _eftd(days=400)).strftime('%Y-%m-%d')
+        _ef_start_str = (_ef_end_date - _eftd(days=600)).strftime('%Y-%m-%d')
 
-        df = yf.download(full_symbol, start=_ef_start_str, end=_ef_end_str,
-                         interval="1d", progress=False)
-        if df.empty:
+        _ef_ticker = yf.Ticker(full_symbol)
+        df = _ef_ticker.history(start=_ef_start_str, end=_ef_end_str, interval='1d')
+        if df is None or df.empty:
             messages.error(request, f"ไม่พบข้อมูลสำหรับ {symbol}")
             if market == 'US':
                 return redirect('stocks:us_precision_scanner')
             return redirect('stocks:momentum_scanner')
 
-        # แก้ไข MultiIndex columns
+        # แก้ไข MultiIndex columns (ถ้ามี)
         if isinstance(df.columns, pd.MultiIndex):
             df.columns = df.columns.droplevel(1)
 
         # คำนวณ Supply & Demand Zone ด้วย v2 (ใช้ข้อมูลชุดเดียวกับ Precision Scanner)
         sd_zone = find_supply_demand_zones_v2(df)
 
-        # เตรียมข้อมูลกราฟ 120 วันล่าสุด
+        # คำนวณ EMA บน df เต็ม (600 วัน) ก่อน เพื่อให้ EMA200 warm-up ครบ
+        # ถ้าคำนวณบน subset 120 วัน → EMA200 จะเป็น NaN ทั้งหมด
+        import pandas_ta as ta
+        df['EMA50']  = ta.ema(df['Close'], length=50)
+        df['EMA200'] = ta.ema(df['Close'], length=200)
+
+        # เตรียมข้อมูลกราฟ 120 วันล่าสุด (slice หลังจากคำนวณ EMA แล้ว)
         history_subset = df.tail(120).copy()
         chart_labels = [d.strftime('%Y-%m-%d') for d in history_subset.index]
         chart_values = [round(float(v), 2) for v in history_subset['Close'].values]
 
-        # คำนวณ EMA50 และ EMA200 สำหรับแสดงในกราฟ
-        import pandas_ta as ta
-        history_subset['EMA50'] = ta.ema(history_subset['Close'], length=50)
-        history_subset['EMA200'] = ta.ema(history_subset['Close'], length=200)
-        ema50_vals = [round(float(v), 2) if pd.notna(v) else None for v in history_subset['EMA50'].values]
+        ema50_vals  = [round(float(v), 2) if pd.notna(v) else None for v in history_subset['EMA50'].values]
         ema200_vals = [round(float(v), 2) if pd.notna(v) else None for v in history_subset['EMA200'].values]
 
         # OHLCV สำหรับ candlestick chart
@@ -4791,7 +4808,7 @@ def us_precision_scanner(request):
         )
         scan_end_date  = (_now_ny.date() - _td(days=1)) if _market_trading else _now_ny.date()
         scan_end_str   = scan_end_date.strftime('%Y-%m-%d')
-        scan_start_str = (scan_end_date - _td(days=400)).strftime('%Y-%m-%d')
+        scan_start_str = (scan_end_date - _td(days=600)).strftime('%Y-%m-%d')  # 600 วัน → ~430 trading days, EMA200 warm-up มีพอ
         spy_start_str  = (scan_end_date - _td(days=185)).strftime('%Y-%m-%d')
 
         # ดึง symbols รอบก่อน (is_new_entry flag)

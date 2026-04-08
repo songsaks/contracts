@@ -75,10 +75,10 @@
                 <div class="px-4 py-3" style="background:linear-gradient(135deg,#0f172a,#1e3a5f);color:white;">
                     <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
                         <div>
-                            <h6 class="mb-0 fw-bold"><i class="fas fa-sliders-h me-2" style="color:#a78bfa;"></i>Precision Scanner v7 — โครงสร้างการให้คะแนน (Clean v7)</h6>
-                            <div class="small mt-1" style="opacity:0.65;">เน้นเฉพาะ "หุ้นขาขึ้นแรง + เงินเข้าจริง" แบบ Pure Momentum</div>
+                            <h6 class="mb-0 fw-bold"><i class="fas fa-sliders-h me-2" style="color:#a78bfa;"></i>Precision Scanner v8 — โครงสร้างการให้คะแนน (SET Edition)</h6>
+                            <div class="small mt-1" style="opacity:0.65;">ปรับ threshold ให้เหมาะกับตลาดหุ้นไทย — Pure Momentum + Zone Entry</div>
                         </div>
-                        <span class="badge rounded-pill px-3 py-2" style="background:#7c3aed;font-size:0.75rem;">คะแนนรวมสูงสุด 100 + Turbo 10 pts</span>
+                        <span class="badge rounded-pill px-3 py-2" style="background:#7c3aed;font-size:0.75rem;">คะแนนรวมสูงสุด 100 pts (capped)</span>
                     </div>
                 </div>
                 <div class="card-body p-4">
@@ -86,27 +86,35 @@
 
                         <!-- คอลัมน์ซ้าย: scoring -->
                         <div class="col-md-6">
-                            <p class="fw-bold small mb-2" style="color:#7c3aed;"><i class="fas fa-calculator me-1"></i> สูตรคะแนน (รวมได้สูงสุด 110 pts)</p>
+                            <p class="fw-bold small mb-2" style="color:#7c3aed;"><i class="fas fa-calculator me-1"></i> สูตรคะแนน (หลายองค์ประกอบ รวม capped ที่ 100)</p>
                             <div class="d-flex flex-column gap-2 small">
                                 <div class="d-flex align-items-start gap-2 p-2 rounded-3" style="background:#f8fafc;">
-                                    <span class="badge rounded-pill flex-shrink-0" style="background:#1d4ed8;min-width:52px;">40 pts</span>
-                                    <div><strong>Trend Quality:</strong> Full Minervini Stack (ราคาอยู่เหนือ EMA 20 > 50 > 200)</div>
+                                    <span class="badge rounded-pill flex-shrink-0" style="background:#1d4ed8;min-width:52px;">25 pts</span>
+                                    <div><strong>Zone Proximity:</strong> อยู่ใน Zone = เต็ม / ใกล้ Zone ≤10% = 15 pts</div>
                                 </div>
                                 <div class="d-flex align-items-start gap-2 p-2 rounded-3" style="background:#f8fafc;">
-                                    <span class="badge rounded-pill flex-shrink-0" style="background:#059669;min-width:52px;">30 pts</span>
-                                    <div><strong>Power Volume:</strong> แท่งเขียว + RVOL ≥ 2x (ถ้าแท่งแดงจะให้คะแนนน้อยลงมาก)</div>
+                                    <span class="badge rounded-pill flex-shrink-0" style="background:#059669;min-width:52px;">22 pts</span>
+                                    <div><strong>Power Volume:</strong> แท่งเขียว + RVOL ≥ 2x — เงินไหลเข้าจริง</div>
                                 </div>
                                 <div class="d-flex align-items-start gap-2 p-2 rounded-3" style="background:#f8fafc;">
-                                    <span class="badge rounded-pill flex-shrink-0" style="background:#0891b2;min-width:52px;">20 pts</span>
-                                    <div><strong>Price Strength:</strong> ราคา ≥ 90% ของ 52-Week High (จ่อ Breakout)</div>
+                                    <span class="badge rounded-pill flex-shrink-0" style="background:#0891b2;min-width:52px;">15 pts</span>
+                                    <div><strong>RS Rating ≥ 85:</strong> หุ้น outperform ตลาดแรงมาก (relative strength)</div>
                                 </div>
                                 <div class="d-flex align-items-start gap-2 p-2 rounded-3" style="background:#f8fafc;">
-                                    <span class="badge rounded-pill flex-shrink-0" style="background:#d97706;min-width:52px;">10 pts</span>
-                                    <div><strong>Money Flow:</strong> CMF ≥ 0.10 (มีเงินสถาบันไหลเข้าและเก็บของจริง)</div>
+                                    <span class="badge rounded-pill flex-shrink-0" style="background:#d97706;min-width:52px;">15 pts</span>
+                                    <div><strong>52W Breakout:</strong> ราคาทำ New High ใหม่ — signal สำคัญ SET</div>
                                 </div>
-                                <div class="d-flex align-items-start gap-2 p-2 rounded-3 border" style="background:#fefce8;border-color:#fde68a !important;">
-                                    <span class="badge rounded-pill flex-shrink-0" style="background:#dc2626;min-width:52px;">+10 pts</span>
-                                    <div><strong>Turbo Score:</strong> ราคา ≥ 99% 52W High (ทำ New High แจกคะแนนพิเศษทันที)</div>
+                                <div class="d-flex align-items-start gap-2 p-2 rounded-3" style="background:#f8fafc;">
+                                    <span class="badge rounded-pill flex-shrink-0" style="background:#7c3aed;min-width:52px;">12 pts</span>
+                                    <div><strong>MACD Crossover:</strong> MACD ตัดขึ้น signal line — momentum เริ่มต้น</div>
+                                </div>
+                                <div class="d-flex align-items-start gap-2 p-2 rounded-3" style="background:#f8fafc;">
+                                    <span class="badge rounded-pill flex-shrink-0" style="background:#0f766e;min-width:52px;">8 pts</span>
+                                    <div><strong>Stage 2 (Weinstein):</strong> ราคา > SMA150 และ SMA150 กำลังขึ้น</div>
+                                </div>
+                                <div class="d-flex align-items-start gap-2 p-2 rounded-3" style="background:#f8fafc;">
+                                    <span class="badge rounded-pill flex-shrink-0" style="background:#475569;min-width:52px;">+ อื่นๆ</span>
+                                    <div><strong>ADX / RSI / EMA / CMF / R:R / Pattern / Momentum</strong> — รวมหลาย signals</div>
                                 </div>
                             </div>
                         </div>
@@ -115,10 +123,11 @@
                         <div class="col-md-6">
                             <p class="fw-bold small mb-2" style="color:#4f46e5;"><i class="fas fa-filter me-1"></i> เงื่อนไขกรองก่อนเข้า Scoring</p>
                             <ul class="list-unstyled small text-secondary mb-4">
-                                <li class="mb-1"><i class="fas fa-check-circle text-success me-1"></i> <strong>Volume ≥ 500,000 หุ้น/วัน</strong> (avg 20 วัน) — กรองหุ้นไม่มีสภาพคล่อง</li>
+                                <li class="mb-1"><i class="fas fa-check-circle text-success me-1"></i> <strong>Turnover ≥ 10M THB/วัน</strong> (avg 20 วัน) — กรองหุ้นไม่มีสภาพคล่อง</li>
+                                <li class="mb-1"><i class="fas fa-check-circle text-success me-1"></i> <strong>ราคา ≥ 1.00 บาท</strong> — กรองหุ้น penny</li>
+                                <li class="mb-1"><i class="fas fa-check-circle text-success me-1"></i> <strong>RS Rating ≥ 60</strong> — หุ้นต้อง outperform กลุ่มที่สแกน (ถ้าไม่มีข้อมูลผ่านได้)</li>
                                 <li class="mb-1"><i class="fas fa-check-circle text-success me-1"></i> <strong>ADX ≥ 15</strong> — มีทิศทางแนวโน้มพอสมควร</li>
                                 <li class="mb-1"><i class="fas fa-check-circle text-success me-1"></i> <strong>ราคา ≥ 65% of 52W High</strong> — ไม่ใช่หุ้นที่ตกลงมาหนัก</li>
-                                <li class="mb-1"><i class="fas fa-check-circle text-success me-1"></i> <strong>ERC Bull ยืนยัน</strong> — Body + Volume > 1.5x avg (ทั้งคู่)</li>
                             </ul>
 
                             <p class="fw-bold small mb-2" style="color:#0891b2;"><i class="fas fa-tags me-1"></i> Badge ที่เห็นในผลสแกน</p>
