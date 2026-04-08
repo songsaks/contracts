@@ -3453,18 +3453,27 @@ def precision_momentum_scanner(request):
                 c.supply_zone_start = fz.get('target') or c.supply_zone_start
                 c.stop_loss         = fz.get('stop_loss') or c.stop_loss
 
-            if lp and c.demand_zone_start and c.demand_zone_start > 0:
-                c.live_zone_prox = 0.0 if lp <= c.demand_zone_start else round(((lp - c.demand_zone_start) / c.demand_zone_start) * 100, 1)
+            ref_price = lp if lp else float(c.price or 0)
+            dz_top = float(c.demand_zone_start or 0)
+            dz_bot = float(c.demand_zone_end   or 0)
+            tp     = float(c.supply_zone_start or 0)
+
+            if lp and dz_top > 0:
+                c.live_zone_prox = 0.0 if lp <= dz_top else round(((lp - dz_top) / dz_top) * 100, 1)
             else:
                 c.live_zone_prox = None
             if lp and c.price and c.price > 0:
-                c.live_change_pct = round(((lp - c.price) / c.price) * 100, 2)
+                c.live_change_pct = round(((lp - float(c.price)) / float(c.price)) * 100, 2)
             else:
                 c.live_change_pct = None
+
+            # precompute zone status flags — ใช้ใน template แทนการคำนวณใน {% if %}
+            c.live_at_tp      = tp > 0 and ref_price >= tp
+            c.live_broke_zone = dz_bot > 0 and ref_price < dz_bot
+            c.live_in_zone    = dz_top > 0 and dz_bot > 0 and dz_bot <= ref_price <= dz_top
+
             # upside_to_tp: % ของ range Entry→TP ที่ยังเหลืออยู่
-            ref_price = lp if lp else float(c.price or 0)
-            tp    = float(c.supply_zone_start or 0)
-            entry = float(c.demand_zone_start or 0)
+            entry = dz_top
             total_range = tp - entry
             if tp > 0 and entry > 0 and total_range > 0 and ref_price > 0:
                 remaining = tp - ref_price

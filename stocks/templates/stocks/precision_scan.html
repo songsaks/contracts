@@ -455,14 +455,14 @@
                             {% else %}
                             <span style="font-size:0.88rem;font-weight:600;color:#0f172a;">฿{{ item.price }}</span>
                             {% endif %}
-                            {% with prox=item.live_zone_prox|default:item.zone_proximity ref=item.live_price|default:item.price %}
-                            {% if item.supply_zone_start and ref >= item.supply_zone_start %}
+                            {% with prox=item.live_zone_prox|default:item.zone_proximity %}
+                            {% if item.live_at_tp %}
                             <span class="badge" style="background:#dc2626;font-size:0.6rem;padding:2px 6px;color:white;">AT TP</span>
                             {% elif item.upside_to_tp <= 15 and item.upside_to_tp > 0 %}
                             <span class="badge" style="background:#ea580c;font-size:0.6rem;padding:2px 6px;color:white;">NEAR TP</span>
-                            {% elif item.demand_zone_end and ref < item.demand_zone_end %}
+                            {% elif item.live_broke_zone %}
                             <span class="badge" style="background:#ef4444;font-size:0.6rem;padding:2px 6px;color:white;">BROKE</span>
-                            {% elif item.demand_zone_start and ref <= item.demand_zone_start %}
+                            {% elif item.live_in_zone %}
                             <span class="badge" style="background:#22c55e;font-size:0.6rem;padding:2px 6px;">IN ZONE</span>
                             {% elif prox <= 5 %}
                             <span class="badge" style="background:#16a34a;font-size:0.6rem;padding:2px 6px;color:white;" title="{{ prox|floatformat:1 }}%">&lt;5% zone</span>
@@ -785,32 +785,23 @@
 
                             <!-- ZONE STATUS -->
                             <td>
-                                {% with prox=item.live_zone_prox|default:item.zone_proximity ref_price=item.live_price|default:item.price %}
-                                {% if item.supply_zone_start and ref_price >= item.supply_zone_start %}
+                                {% with prox=item.live_zone_prox|default:item.zone_proximity %}
+                                {% if item.live_at_tp %}
                                     <span class="badge px-1 py-1" style="font-size:0.62rem;background:#dc2626;color:white;">AT TP</span>
                                 {% elif item.upside_to_tp <= 15 and item.upside_to_tp > 0 %}
-                                    <span class="badge px-1 py-1" style="font-size:0.62rem;background:#ea580c;color:white;" title="ใกล้ Take Profit: {{ item.supply_zone_start|floatformat:2 }} (เหลือ {{ item.upside_to_tp }}% ของ range)">NEAR TP</span>
-                                {% elif item.demand_zone_end and ref_price < item.demand_zone_end %}
+                                    <span class="badge px-1 py-1" style="font-size:0.62rem;background:#ea580c;color:white;" title="เหลือ {{ item.upside_to_tp }}% ของ range">NEAR TP</span>
+                                {% elif item.live_broke_zone %}
                                     <span class="badge px-1 py-1" style="font-size:0.62rem;background:#ef4444;color:white;">BROKE</span>
-                                {% elif item.demand_zone_start and ref_price <= item.demand_zone_start %}
+                                {% elif item.live_in_zone %}
                                     <span class="badge px-1 py-1" style="font-size:0.62rem;background:#16a34a;color:white;">IN ZONE</span>
-                                {% elif item.demand_zone_start %}
-                                    {% if prox <= 5 %}
-                                        <span class="badge px-1 py-1" style="font-size:0.62rem;background:#16a34a;color:white;" title="{{ prox|floatformat:1 }}%">&lt;5%</span>
-                                    {% elif prox <= 10 %}
-                                        <span class="badge px-1 py-1" style="font-size:0.62rem;background:#f59e0b;color:white;" title="{{ prox|floatformat:1 }}%">&lt;10%</span>
-                                    {% else %}
-                                        <span class="badge px-1 py-1" style="font-size:0.62rem;background:#fb923c;color:white;" title="{{ prox|floatformat:1 }}%">&gt;10%</span>
-                                    {% endif %}
+                                {% elif prox <= 5 %}
+                                    <span class="badge px-1 py-1" style="font-size:0.62rem;background:#16a34a;color:white;" title="{{ prox|floatformat:1 }}%">&lt;5%</span>
+                                {% elif prox <= 10 %}
+                                    <span class="badge px-1 py-1" style="font-size:0.62rem;background:#f59e0b;color:white;" title="{{ prox|floatformat:1 }}%">&lt;10%</span>
                                 {% else %}
-                                    <span class="text-muted">-</span>
+                                    <span class="badge px-1 py-1" style="font-size:0.62rem;background:#fb923c;color:white;" title="{{ prox|floatformat:1 }}%">&gt;10%</span>
                                 {% endif %}
                                 {% endwith %}
-                                {% if item.live_zone_prox is not None %}
-                                <div class="mt-1" style="font-size:0.6rem;color:#6b7280;">
-                                    {{ item.live_zone_prox|floatformat:1 }}%
-                                </div>
-                                {% endif %}
                             </td>
 
                             <!-- PRECISION SCORE -->
