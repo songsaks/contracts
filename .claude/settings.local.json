@@ -4,7 +4,8 @@
       "Bash(python manage.py makemigrations:*)",
       "Bash(.venv/Scripts/python -c \"from docx import Document; from docx.shared import Pt, RGBColor, Cm; print\\('python-docx OK'\\)\")",
       "Bash(.venv/Scripts/python -c ':*)",
-      "Bash(xargs grep:*)"
+      "Bash(xargs grep:*)",
+      "Read(//d/DjangoProjects/contracts/**)"
     ]
   }
 }

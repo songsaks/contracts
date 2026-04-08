@@ -2223,10 +2223,14 @@ def momentum_scanner(request):
 
     # ── Trigger background scan ───────────────────────────────────────
     if request.GET.get('scan') == 'true' or request.method == 'POST':
-        scan_symbols = list(ScannableSymbol.objects.filter(is_active=True).values_list('symbol', flat=True))
+        scan_symbols = list(dict.fromkeys(  # deduplicate while preserving order
+            ScannableSymbol.objects.filter(is_active=True, market='SET').values_list('symbol', flat=True)
+        ))
         if not scan_symbols:
             refresh_set100_symbols()
-            scan_symbols = list(ScannableSymbol.objects.filter(is_active=True).values_list('symbol', flat=True))
+            scan_symbols = list(dict.fromkeys(
+                ScannableSymbol.objects.filter(is_active=True, market='SET').values_list('symbol', flat=True)
+            ))
 
         already = _cp.get(cache_key, {})
         if already.get('state') != 'running':
@@ -2325,20 +2329,23 @@ def momentum_scanner(request):
                             if dz_start:
                                 prox_val = 0.0 if current_price <= dz_start else ((current_price - dz_start) / dz_start) * 100
 
-                            _MC.objects.create(
-                                user=user, symbol=symbol, symbol_bk=f"{symbol}.BK",
-                                sector=sector, price=round(current_price, 2),
-                                rsi=round(rsi, 2), adx=round(adx, 2),
-                                mfi=round(mfi_val, 2), rvol=round(rvol, 2),
-                                eps_growth=round(eps_growth, 2), rev_growth=round(rev_growth, 2),
-                                technical_score=int(integrated_score + fund_bonus),
-                                entry_strategy=entry_strat,
-                                demand_zone_start=dz_start, demand_zone_end=dz_end,
-                                supply_zone_start=sz_start, supply_zone_end=sz_end,
-                                stop_loss=sl_price, risk_reward_ratio=rr_val,
-                                year_high=round(year_high, 2),
-                                upside_to_high=round(gap_to_high, 2),
-                                zone_proximity=round(prox_val, 2),
+                            _MC.objects.update_or_create(
+                                user=user, symbol=symbol,
+                                defaults=dict(
+                                    symbol_bk=f"{symbol}.BK",
+                                    sector=sector, price=round(current_price, 2),
+                                    rsi=round(rsi, 2), adx=round(adx, 2),
+                                    mfi=round(mfi_val, 2), rvol=round(rvol, 2),
+                                    eps_growth=round(eps_growth, 2), rev_growth=round(rev_growth, 2),
+                                    technical_score=int(integrated_score + fund_bonus),
+                                    entry_strategy=entry_strat,
+                                    demand_zone_start=dz_start, demand_zone_end=dz_end,
+                                    supply_zone_start=sz_start, supply_zone_end=sz_end,
+                                    stop_loss=sl_price, risk_reward_ratio=rr_val,
+                                    year_high=round(year_high, 2),
+                                    upside_to_high=round(gap_to_high, 2),
+                                    zone_proximity=round(prox_val, 2),
+                                )
                             )
                         except Exception:
                             continue

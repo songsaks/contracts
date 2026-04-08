@@ -185,8 +185,8 @@ class MomentumCandidate(models.Model):
     scanned_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        # เรียงตาม technical_score จากมากไปน้อย (หุ้นดีสุดขึ้นก่อน)
         ordering = ['-technical_score']
+        unique_together = ('user', 'symbol')
 
     def __str__(self):
         return f"{self.symbol} - Score: {self.technical_score}"
