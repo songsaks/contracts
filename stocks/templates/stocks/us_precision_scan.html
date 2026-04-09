@@ -1467,23 +1467,6 @@ function _applyFiltersUS() {
     if (el) el.textContent = visible + ' stocks shown';
 }
 
-// Deduplicate sector dropdown
-document.addEventListener('DOMContentLoaded', function() {
-    var sel = document.getElementById('sectorFilterUS');
-    if (!sel) return;
-    var seen = new Set(['']);
-    var keep = [sel.options[0]];
-    for (var i = 1; i < sel.options.length; i++) {
-        var v = sel.options[i].value;
-        if (!seen.has(v)) { seen.add(v); keep.push(sel.options[i]); }
-    }
-    while (sel.options.length > 0) sel.remove(0);
-    keep.forEach(function(o) { sel.add(o); });
-
-    // Ensure default is All Sectors (empty value)
-    sel.value = "";
-    _applyFiltersUS();
-});
 
 // Watchlist Toggle
 function toggleWatchlist(btn) {
@@ -1558,7 +1541,26 @@ function confirmRescanUS() {
 }
 
 document.addEventListener('DOMContentLoaded', function () {
+    // 1. Initialize polling
     pollUSPrecisionStatus();
+    
+    // 2. Setup sector filter
+    const sel = document.getElementById('sectorFilterUS');
+    if (sel) {
+        // Deduplicate
+        const seen = new Set(['']);
+        const keep = [sel.options[0]];
+        for (let i = 1; i < sel.options.length; i++) {
+            const v = sel.options[i].value;
+            if (v && !seen.has(v)) { seen.add(v); keep.push(sel.options[i]); }
+        }
+        while (sel.options.length > 0) sel.remove(0);
+        keep.forEach(o => sel.add(o));
+
+        // Forced Default to All Sectors
+        sel.value = "";
+        _applyFiltersUS();
+    }
 });
 </script>
 {% endblock %}
