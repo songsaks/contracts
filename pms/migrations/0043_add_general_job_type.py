@@ -6,7 +6,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('pms', '0042_remove_techniciangpslog_accuracy'),
+        ('pms', '0040_tracking_state'),
     ]
 
     operations = [
