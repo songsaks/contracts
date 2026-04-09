@@ -4155,9 +4155,12 @@ def entry_finder(request, symbol):
                 ef_zone_baht  = round(gap, 2)
                 ef_zone_status = 'above'
 
+        currency = '$' if market == 'US' else '฿'
         context = {
             'symbol': symbol,
             'full_symbol': full_symbol,
+            'market': market,
+            'currency': currency,
             'sd_zone': sd_zone,
             'sd_zone_json': sd_zone_json,
             'curr_price': round(curr_price, 2),
