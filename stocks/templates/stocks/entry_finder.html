@@ -23,7 +23,7 @@
         </a>
         <div class="bg-white p-3 rounded-4 shadow-sm border text-end">
             <div class="small text-muted mb-0">ราคาปัจจุบัน</div>
-            <div class="h3 fw-bold mb-0 text-dark">฿{{ curr_price|floatformat:2 }}</div>
+            <div class="h3 fw-bold mb-0 text-dark">{{ currency }}{{ curr_price|floatformat:2 }}</div>
             {% if zone_proximity is not None %}
             <div class="small mt-1 fw-bold
                 {% if zone_status == 'at_tp' %}text-danger
@@ -35,26 +35,26 @@
                 {% else %}text-muted{% endif %}">
                 {% if zone_status == 'at_tp' %}
                     <span style="color:#b00020;">&#9888; ถึง Target แล้ว +{{ zone_proximity|floatformat:1 }}%</span>
-                    <span style="font-size:0.75rem;opacity:0.85;">(฿{{ zone_baht }} · {{ zone_ticks }} ticks เกิน Target)</span>
+                    <span style="font-size:0.75rem;opacity:0.85;">({{ currency }}{{ zone_baht }} · {{ zone_ticks }} ticks เกิน Target)</span>
                 {% elif zone_status == 'in_zone' %}
                     อยู่ใน Zone แล้ว
                 {% elif zone_status == 'broke' %}
                     {% if zone_ticks <= 3 %}
                         เพิ่งหลุด Zone {{ zone_proximity|floatformat:1 }}%
-                        <span style="font-size:0.75rem;opacity:0.85;">(฿{{ zone_baht }} · {{ zone_ticks }} ticks — อาจ false break)</span>
+                        <span style="font-size:0.75rem;opacity:0.85;">({{ currency }}{{ zone_baht }} · {{ zone_ticks }} ticks — อาจ false break)</span>
                     {% elif zone_ticks <= 10 %}
                         หลุดโซน {{ zone_proximity|floatformat:1 }}%
-                        <span style="font-size:0.75rem;opacity:0.85;">(฿{{ zone_baht }} · {{ zone_ticks }} ticks)</span>
+                        <span style="font-size:0.75rem;opacity:0.85;">({{ currency }}{{ zone_baht }} · {{ zone_ticks }} ticks)</span>
                     {% else %}
                         <span style="color:#b00020;">หลุดโซนมาก {{ zone_proximity|floatformat:1 }}%</span>
-                        <span style="font-size:0.75rem;opacity:0.85;">(฿{{ zone_baht }} · {{ zone_ticks }} ticks — โซนเสีย)</span>
+                        <span style="font-size:0.75rem;opacity:0.85;">({{ currency }}{{ zone_baht }} · {{ zone_ticks }} ticks — โซนเสีย)</span>
                     {% endif %}
                 {% elif zone_proximity <= 10 %}
                     ใกล้ Zone {{ zone_proximity|floatformat:1 }}%
-                    <span style="font-size:0.75rem;opacity:0.85;">(฿{{ zone_baht }} · {{ zone_ticks }} ticks)</span>
+                    <span style="font-size:0.75rem;opacity:0.85;">({{ currency }}{{ zone_baht }} · {{ zone_ticks }} ticks)</span>
                 {% else %}
                     ห่างโซน {{ zone_proximity|floatformat:1 }}%
-                    <span style="font-size:0.75rem;opacity:0.85;">(฿{{ zone_baht }} · {{ zone_ticks }} ticks)</span>
+                    <span style="font-size:0.75rem;opacity:0.85;">({{ currency }}{{ zone_baht }} · {{ zone_ticks }} ticks)</span>
                 {% endif %}
             </div>
             {% endif %}
@@ -106,8 +106,8 @@
                             <div class="text-muted extra-small">ซื้อที่แนวขอบบนของโซนดีมานด์</div>
                         </div>
                         <div class="text-end">
-                            <div class="h5 fw-bold text-primary mb-0">฿{{ sd_zone.start|floatformat:2 }}</div>
-                            <div class="text-muted small">ถึง ฿{{ sd_zone.end|floatformat:2 }}</div>
+                            <div class="h5 fw-bold text-primary mb-0">{{ currency }}{{ sd_zone.start|floatformat:2 }}</div>
+                            <div class="text-muted small">ถึง {{ currency }}{{ sd_zone.end|floatformat:2 }}</div>
                         </div>
                     </div>
                     
@@ -116,7 +116,7 @@
                             <div class="fw-bold text-dark">Stop Loss (SL)</div>
                             <div class="text-muted extra-small">จุดตัดขาดทุนใต้ฐานโซนเล็กน้อย</div>
                         </div>
-                        <div class="h5 fw-bold text-danger mb-0">฿{{ sd_zone.stop_loss|floatformat:2 }}</div>
+                        <div class="h5 fw-bold text-danger mb-0">{{ currency }}{{ sd_zone.stop_loss|floatformat:2 }}</div>
                     </div>
                     
                     <div class="list-group-item px-0 py-3 bg-transparent d-flex justify-content-between align-items-center">
@@ -124,7 +124,7 @@
                             <div class="fw-bold text-dark">Target Price (Supply)</div>
                             <div class="text-muted extra-small">เป้าหมายกำไรที่แนวต้านล่าสุด</div>
                         </div>
-                        <div class="h5 fw-bold text-success mb-0">฿{{ sd_zone.target|floatformat:2 }}</div>
+                        <div class="h5 fw-bold text-success mb-0">{{ currency }}{{ sd_zone.target|floatformat:2 }}</div>
                     </div>
                 </div>
 
@@ -134,7 +134,7 @@
                         <i class="fas fa-exclamation-triangle fa-2x"></i>
                         <div>
                             <div class="fw-bold">ราคาใกล้/เกิน Target แล้ว</div>
-                            <div class="small">ราคาปัจจุบัน (฿{{ curr_price }}) เข้าใกล้เป้าหมาย ฿{{ sd_zone.target }} — โซนเข้าซื้อนี้ไม่เหมาะสมแล้ว ควรรอ setup ใหม่</div>
+                            <div class="small">ราคาปัจจุบัน ({{ currency }}{{ curr_price }}) เข้าใกล้เป้าหมาย {{ currency }}{{ sd_zone.target }} — โซนเข้าซื้อนี้ไม่เหมาะสมแล้ว ควรรอ setup ใหม่</div>
                         </div>
                     </div>
                     {% elif sd_zone.poor_rr %}
@@ -142,7 +142,7 @@
                         <i class="fas fa-balance-scale fa-2x"></i>
                         <div>
                             <div class="fw-bold">RR ต่ำกว่า 1:1 — ไม่คุ้มความเสี่ยง</div>
-                            <div class="small">Target (฿{{ sd_zone.target }}) ใกล้เกินไป — upside เหลือเพียง {{ sd_zone.upside_from_zone|floatformat:1 }}% แต่ risk สูงกว่า ไม่แนะนำให้เข้าเทรด ณ จุดนี้</div>
+                            <div class="small">Target ({{ currency }}{{ sd_zone.target }}) ใกล้เกินไป — upside เหลือเพียง {{ sd_zone.upside_from_zone|floatformat:1 }}% แต่ risk สูงกว่า ไม่แนะนำให้เข้าเทรด ณ จุดนี้</div>
                         </div>
                     </div>
                     {% elif sd_zone.is_retesting %}
