@@ -2653,23 +2653,26 @@ def watchlist_item_toggle(request):
         return JsonResponse({'error': 'invalid JSON'}, status=400)
     symbol = data.get('symbol', '').strip().upper()
     sector = data.get('sector', 'Unknown')
+    market = data.get('market', 'SET') # Default to SET if not provided
     if not symbol:
         return JsonResponse({'error': 'symbol required'}, status=400)
         
     obj, created = ScanWatchlistItem.objects.get_or_create(
-        user=request.user, symbol=symbol,
+        user=request.user, symbol=symbol, market=market,
         defaults={'sector': sector}
     )
     
     if not created:
         # ถ้ามีอยู่แล้ว สั่งลบออก (Un-toggle)
         obj.delete()
-        # อนุโลมให้ลบออกจาก Market Watchlist ไปด้วยเลยเพื่อความสะดวก
-        Watchlist.objects.filter(user=request.user, symbol=symbol).delete()
+        # สำหรับ SET ให้ลบออกจาก Market Watchlist หลักด้วย (ถ้ามี)
+        if market == 'SET':
+            Watchlist.objects.filter(user=request.user, symbol=symbol).delete()
         return JsonResponse({'status': 'removed', 'symbol': symbol})
         
-    # ถ้ายังไม่มี สั่งให้เพิ่มเข้าไปที่ฝั่ง Market Watchlist ด้วย (เพื่อให้ระบบ Telegram ส่องเป้าหมาย)
-    Watchlist.objects.get_or_create(user=request.user, symbol=symbol)
+    # สำหรับ SET สั่งให้เพิ่มเข้าไปที่ฝั่ง Market Watchlist ด้วย (เพื่อให้ระบบ Telegram ส่องเป้าหมาย)
+    if market == 'SET':
+        Watchlist.objects.get_or_create(user=request.user, symbol=symbol)
     
     return JsonResponse({'status': 'added', 'symbol': symbol})
 
@@ -2678,11 +2681,13 @@ def watchlist_item_toggle(request):
 def scan_watchlist_view(request):
     """แสดง Scan Watchlist พร้อม score ปัจจุบัน / รอบก่อน / delta / alert"""
     from .models import ScanWatchlistItem, PrecisionScanCandidate
-    items = ScanWatchlistItem.objects.filter(user=request.user)
+    
+    market = request.GET.get('market', 'SET')
+    items = ScanWatchlistItem.objects.filter(user=request.user, market=market)
 
     runs = list(
         PrecisionScanCandidate.objects
-        .filter(user=request.user)
+        .filter(user=request.user, market=market)
         .values_list('scan_run', flat=True)
         .order_by('-scan_run')
         .distinct()[:2]
@@ -2690,8 +2695,8 @@ def scan_watchlist_view(request):
     latest_run = runs[0] if len(runs) >= 1 else None
     prev_run   = runs[1] if len(runs) >= 2 else None
 
-    latest_map = {c.symbol: c for c in PrecisionScanCandidate.objects.filter(user=request.user, scan_run=latest_run)} if latest_run else {}
-    prev_map   = {c.symbol: c for c in PrecisionScanCandidate.objects.filter(user=request.user, scan_run=prev_run)}   if prev_run   else {}
+    latest_map = {c.symbol: c for c in PrecisionScanCandidate.objects.filter(user=request.user, market=market, scan_run=latest_run)} if latest_run else {}
+    prev_map   = {c.symbol: c for c in PrecisionScanCandidate.objects.filter(user=request.user, market=market, scan_run=prev_run)}   if prev_run   else {}
 
     enriched = []
     for item in items:
@@ -2710,6 +2715,7 @@ def scan_watchlist_view(request):
     return render(request, 'stocks/scan_watchlist.html', {
         'items':       enriched,
         'latest_run':  latest_run,
+        'market':      market,
     })
 
 
@@ -2796,10 +2802,9 @@ def precision_momentum_scanner(request):
                 scan_start_str = (_now_bkk.date() - _td(days=600)).strftime('%Y-%m-%d')  # 600 วัน → ~430 trading days, EMA200 warm-up มีพอ
                 set_start_str  = (_now_bkk.date() - _td(days=185)).strftime('%Y-%m-%d')
 
-                # ดึง symbols รอบก่อนหน้า (is_new_entry)
                 prev_run = (
                     PrecisionScanCandidate.objects
-                    .filter(user=user)
+                    .filter(user=user, market='SET')
                     .values_list('scan_run', flat=True)
                     .order_by('-scan_run')
                     .distinct()
@@ -3263,6 +3268,7 @@ def precision_momentum_scanner(request):
                         f = fund_data.get(sym, {'sector': 'N/A', 'eps_growth': 0.0, 'rev_growth': 0.0})
                         bulk_candidates.append(PrecisionScanCandidate(
                             user=user,
+                            market='SET',
                             scan_run=scan_run_time,
                             symbol=sym,
                             symbol_bk=f"{sym}.BK",
@@ -3322,7 +3328,7 @@ def precision_momentum_scanner(request):
                 # เก็บ 3 รอบล่าสุด
                 distinct_runs = (
                     PrecisionScanCandidate.objects
-                    .filter(user=user)
+                    .filter(user=user, market='SET')
                     .values_list('scan_run', flat=True)
                     .order_by('-scan_run')
                     .distinct()
@@ -3330,7 +3336,7 @@ def precision_momentum_scanner(request):
                 runs_list = list(distinct_runs)
                 if len(runs_list) > 3:
                     old_runs = runs_list[3:]
-                    PrecisionScanCandidate.objects.filter(user=user, scan_run__in=old_runs).delete()
+                    PrecisionScanCandidate.objects.filter(user=user, market='SET', scan_run__in=old_runs).delete()
 
                 _cache.set(ckey, {'state': 'done', 'count': len(results)}, timeout=300)
 
@@ -3368,7 +3374,7 @@ def precision_momentum_scanner(request):
     # รายชื่อ scan runs ทั้งหมด (index 0 = ล่าสุด)
     all_runs = list(
         PrecisionScanCandidate.objects
-        .filter(user=request.user)
+        .filter(user=request.user, market='SET')
         .values_list('scan_run', flat=True)
         .order_by('-scan_run')
         .distinct()
@@ -4786,7 +4792,8 @@ def us_precision_scanner(request):
     scan_symbols = list(
         ScannableSymbol.objects.filter(is_active=True, market='US').values_list('symbol', flat=True)
     )
-    if not scan_symbols:
+    # If symbols are missing or deactivated (e.g. by Thai refresh bug), re-seed them
+    if len(scan_symbols) < 100:
         _seed_us_symbols()
         scan_symbols = list(
             ScannableSymbol.objects.filter(is_active=True, market='US').values_list('symbol', flat=True)

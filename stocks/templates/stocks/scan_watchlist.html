@@ -9,15 +9,19 @@
 <div>
 <div class="row align-items-end mb-4">
     <div class="col-md-8">
-        <h1 class="fw-bold mb-1" style="color:#b45309;"><i class="fas fa-bell me-2"></i> Scan Watchlist / Alert</h1>
+        <h1 class="fw-bold mb-1" style="color:#b45309;"><i class="fas fa-bell me-2"></i> {% if market == 'US' %}US{% else %}Thai{% endif %} Scan Watchlist / Alert</h1>
         <p class="text-muted mb-0">
-            หุ้นที่คุณติดตามจาก Precision Scanner — แจ้งเตือนเมื่อคะแนนถึง Threshold<br>
+            หุ้นที่คุณติดตามจาก {% if market == 'US' %}US{% endif %} Precision Scanner — แจ้งเตือนเมื่อคะแนนถึง Threshold<br>
             <small>คลิก <i class="far fa-bell"></i> ใน Scanner เพื่อเพิ่ม/ลบ</small>
         </p>
     </div>
     <div class="col-md-4 text-md-end mt-3 mt-md-0">
-        <a href="{% url 'stocks:precision_momentum_scanner' %}" class="btn btn-outline-secondary btn-sm rounded-pill px-3">
-            <i class="fas fa-crosshairs me-1"></i> กลับไป Precision Scanner
+        <div class="btn-group rounded-pill overflow-hidden border" style="background:white;">
+            <a href="?market=SET" class="btn btn-sm px-3 {% if market == 'SET' %}btn-primary{% else %}btn-light{% endif %}" style="font-size:0.75rem;">Thai Market</a>
+            <a href="?market=US" class="btn btn-sm px-3 {% if market == 'US' %}btn-primary{% else %}btn-light{% endif %}" style="font-size:0.75rem;">US Market</a>
+        </div>
+        <a href="{% if market == 'US' %}{% url 'stocks:us_precision_scanner' %}{% else %}{% url 'stocks:precision_momentum_scanner' %}{% endif %}" class="btn btn-outline-secondary btn-sm rounded-pill px-3 ms-2">
+            <i class="fas fa-crosshairs me-1"></i> กลับไป Scanner
         </a>
     </div>
 </div>
@@ -27,7 +31,7 @@
     <div class="px-4 py-3" style="background:linear-gradient(135deg,#0f172a,#1c1917);color:white;">
         <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
             <div>
-                <h6 class="mb-0 fw-bold"><i class="fas fa-list me-2" style="color:#fbbf24;"></i>รายการ Watchlist ของคุณ</h6>
+                <h6 class="mb-0 fw-bold"><i class="fas fa-list me-2" style="color:#fbbf24;"></i>รายการ Watchlist ({% if market == 'US' %}US{% else %}SET{% endif %})</h6>
                 <div class="small mt-1" style="opacity:0.65;">{{ items|length }} รายการ — อัปเดตจาก Precision Scan ล่าสุด</div>
             </div>
         </div>
@@ -66,7 +70,7 @@
                     </td>
                     <td class="text-center">
                         {% if entry.scan_data %}
-                        <span class="fw-bold">฿{{ entry.scan_data.price|floatformat:2 }}</span>
+                        <span class="fw-bold">{% if market == 'US' %}${% else %}฿{% endif %}{{ entry.scan_data.price|floatformat:2 }}</span>
                         {% else %}
                         <span class="text-muted">-</span>
                         {% endif %}
@@ -117,6 +121,7 @@
                             <button class="btn btn-sm px-2 py-1 watchlist-toggle-btn"
                                     data-symbol="{{ entry.watchlist.symbol }}"
                                     data-sector="{{ entry.watchlist.sector }}"
+                                    data-market="{{ market }}"
                                     data-in-watchlist="true"
                                     onclick="removeFromWatchlist(this)"
                                     style="font-size:0.65rem;background:#fef2f2;color:#dc2626;border:1px solid #fca5a5;"
@@ -151,11 +156,12 @@
 function removeFromWatchlist(btn) {
     var symbol = btn.dataset.symbol;
     var sector = btn.dataset.sector;
+    var market = btn.dataset.market || 'SET';
     if (!confirm('ลบ ' + symbol + ' ออกจาก Watchlist?')) return;
     fetch("{% url 'stocks:watchlist_item_toggle' %}", {
         method: 'POST',
         headers: {'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}'},
-        body: JSON.stringify({symbol: symbol, sector: sector})
+        body: JSON.stringify({symbol: symbol, sector: sector, market: market})
     })
     .then(r => r.json())
     .then(data => {

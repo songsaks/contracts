@@ -1365,8 +1365,8 @@ def refresh_set100_symbols():
             defaults={'index_name': 'MAI', 'is_active': True}
         )
 
-    # ปิดการใช้งานหุ้นที่ไม่ได้อยู่ใน list นี้ (ถูก add มาจากแหล่งอื่น)
+    # ปิดการใช้งานหุ้นที่ไม่ได้อยู่ใน list นี้ และเป็นตลาดไทย (SET)
     known = set(set100_symbols) | set(set200_symbols) | set(mai_symbols)
-    ScannableSymbol.objects.exclude(symbol__in=known).update(is_active=False)
+    ScannableSymbol.objects.filter(market='SET').exclude(symbol__in=known).update(is_active=False)
 
     print(f"Refreshed {len(set100_symbols)} SET100 + {len(set200_symbols)} SET200 + {len(mai_symbols)} MAI symbols. Others deactivated.")

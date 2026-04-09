@@ -1870,7 +1870,7 @@ function toggleWatchlist(btn) {
     fetch("{% url 'stocks:watchlist_item_toggle' %}", {
         method: 'POST',
         headers: {'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}'},
-        body: JSON.stringify({symbol: symbol, sector: sector})
+        body: JSON.stringify({symbol: symbol, sector: sector, market: 'SET'})
     })
     .then(r => r.json())
     .then(data => {

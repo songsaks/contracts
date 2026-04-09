@@ -348,6 +348,7 @@ class ScanWatchlistItem(models.Model):
     """
     user            = models.ForeignKey(User, on_delete=models.CASCADE, related_name='scan_watchlist')
     symbol          = models.CharField(max_length=20)
+    market          = models.CharField(max_length=10, default='SET', db_index=True)
     sector          = models.CharField(max_length=100, default='Unknown')
     added_date      = models.DateTimeField(auto_now_add=True)
     note            = models.TextField(blank=True)
@@ -356,7 +357,7 @@ class ScanWatchlistItem(models.Model):
     class Meta:
         verbose_name = "Scan Watchlist Item"
         verbose_name_plural = "Scan Watchlist Items"
-        unique_together = ('user', 'symbol')
+        unique_together = ('user', 'symbol', 'market')
         ordering = ['-added_date']
 
     def __str__(self):

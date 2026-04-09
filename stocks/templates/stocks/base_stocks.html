@@ -353,9 +353,15 @@
                             </li>
                             <li><hr class="dropdown-divider opacity-25 my-1"></li>
                             <li>
-                                <a class="dropdown-item rounded-3 py-2 {% if request.resolver_match.url_name == 'scan_watchlist_view' %}active{% endif %}"
-                                   href="{% url 'stocks:scan_watchlist_view' %}">
-                                    <i class="fas fa-bell me-2 text-warning"></i> Scan Watchlist / Alert
+                                <a class="dropdown-item rounded-3 py-2 {% if request.resolver_match.url_name == 'scan_watchlist_view' and market == 'SET' %}active{% endif %}"
+                                   href="{% url 'stocks:scan_watchlist_view' %}?market=SET">
+                                    <i class="fas fa-bell me-2 text-warning"></i> Watchlist (SET)
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item rounded-3 py-2 {% if request.resolver_match.url_name == 'scan_watchlist_view' and market == 'US' %}active{% endif %}"
+                                   href="{% url 'stocks:scan_watchlist_view' %}?market=US">
+                                    <i class="fas fa-bell me-2 text-warning"></i> Watchlist (US)
                                 </a>
                             </li>
                             <li><hr class="dropdown-divider opacity-25 my-1"></li>
