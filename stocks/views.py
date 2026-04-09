@@ -2790,13 +2790,8 @@ def precision_momentum_scanner(request):
                     (_dtime(10, 0) <= _t <= _dtime(12, 30) or
                      _dtime(12, 30) < _t < _dtime(16, 30))
                 )
-                # yfinance download end= is exclusive, so:
-                # - during market hours: use today as end (gets yesterday's settled close)
-                # - after market close (>= 16:30) or weekend: use tomorrow as end (gets today's close)
-                if _market_open:
-                    scan_end_date  = _now_bkk.date()
-                else:
-                    scan_end_date  = _now_bkk.date() + _td(days=1)
+                # yfinance download end= is exclusive. To include today's data, use tomorrow.
+                scan_end_date  = _now_bkk.date() + _td(days=1)
                 scan_end_str   = scan_end_date.strftime('%Y-%m-%d')
                 scan_start_str = (_now_bkk.date() - _td(days=600)).strftime('%Y-%m-%d')  # 600 วัน → ~430 trading days, EMA200 warm-up มีพอ
                 set_start_str  = (_now_bkk.date() - _td(days=185)).strftime('%Y-%m-%d')
@@ -4770,17 +4765,23 @@ def _seed_us_symbols():
 def us_precision_scanner(request):
     """
     US Precision Momentum Scanner — Nasdaq & S&P 500
-    Same logic as precision_momentum_scanner but for US stocks:
-    - No .BK suffix
-    - Benchmark: SPY
-    - Market hours: 09:30-16:00 ET (America/New_York)
-    - Liquidity: avg 20d volume >= 1,000,000
     - market='US' filter on all DB queries
+    - Background scanning to prevent timeouts
     """
     from .models import PrecisionScanCandidate
     from .utils import analyze_momentum_technical_v2
     from django.utils import timezone as tz
     from yahooquery import Ticker as YQTicker
+
+    # AJAX status polling
+    if request.GET.get('scan_status') == '1':
+        from django.core.cache import cache as _cp
+        from django.http import JsonResponse as _JR
+        _key = f'us_precision_scan_{request.user.id}'
+        _st = _cp.get(_key, {'state': 'idle'})
+        if _st.get('state') == 'done':
+            _cp.delete(_key)
+        return _JR(_st)
 
     scan_symbols = list(
         ScannableSymbol.objects.filter(is_active=True, market='US').values_list('symbol', flat=True)
@@ -4801,14 +4802,11 @@ def us_precision_scanner(request):
         # ====== Pin Scan Date — NYSE/Nasdaq 09:30-16:00 ET ======
         _ny_tz = _pytz.timezone('America/New_York')
         _now_ny = _dt.now(_ny_tz)
-        _t = _now_ny.time()
-        _market_trading = (
-            _now_ny.weekday() < 5 and
-            _dtime(9, 30) <= _t <= _dtime(16, 0)
-        )
-        scan_end_date  = (_now_ny.date() - _td(days=1)) if _market_trading else _now_ny.date()
-        scan_end_str   = scan_end_date.strftime('%Y-%m-%d')
-        scan_start_str = (scan_end_date - _td(days=600)).strftime('%Y-%m-%d')  # 600 วัน → ~430 trading days, EMA200 warm-up มีพอ
+        
+        # yfinance end date is exclusive. To include today's data, we must set end to tomorrow.
+        scan_end_date  = _now_ny.date()
+        scan_end_str   = (scan_end_date + _td(days=1)).strftime('%Y-%m-%d')
+        scan_start_str = (scan_end_date - _td(days=600)).strftime('%Y-%m-%d')  # 600 days warm-up
         spy_start_str  = (scan_end_date - _td(days=185)).strftime('%Y-%m-%d')
 
         # ดึง symbols รอบก่อน (is_new_entry flag)

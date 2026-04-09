@@ -6,6 +6,36 @@
 {% block container_class %}container-fluid px-2 px-md-3{% endblock %}
 
 {% block content %}
+<!-- Loading Overlay -->
+<div class="loading-overlay" id="usPrecisionLoadingOverlay" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.85);z-index:9999;flex-direction:column;align-items:center;justify-content:center;gap:1rem;">
+    <div class="spin-ring"></div>
+    <div class="text-white fw-semibold fs-5" id="usPrecisionOverlayTitle">กำลังสแกนหุ้น US Precision…</div>
+    <div class="text-white-50 small" id="usPrecisionOverlaySubtitle">ระบบเรียกข้อมูลจาก Yahoo Finance รายตัว — หน้านี้จะรีเฟรชอัตโนมัติเมื่อเสร็จ</div>
+    <div id="usPrecisionOverlayPhase" class="text-white-50 small" style="font-style:italic;"></div>
+    <div id="usPrecisionOverlayProgress" style="display:none;width:320px;">
+        <div class="d-flex justify-content-between text-white-50 mb-1" style="font-size:.8rem;">
+            <span>ความคืบหน้า</span>
+            <span id="usPrecisionProgressText">0 / 0</span>
+        </div>
+        <div style="height:8px;border-radius:4px;background:rgba(255,255,255,.15);">
+            <div id="usPrecisionProgressBar" style="height:100%;border-radius:4px;background:#3b82f6;width:0%;transition:width .4s;"></div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .spin-ring {
+        width: 48px;
+        height: 48px;
+        border: 5px solid rgba(255, 255, 255, 0.1);
+        border-top-color: #3b82f6;
+        border-radius: 50%;
+        animation: spin-us 1s linear infinite;
+    }
+    @keyframes spin-us {
+        to { transform: rotate(360deg); }
+    }
+</style>
 <div>
 <div class="row align-items-end mb-4">
     <div class="col-md-7">
@@ -22,10 +52,21 @@
         <a href="{% url 'stocks:precision_momentum_scanner' %}" class="btn btn-outline-secondary d-inline-flex align-items-center gap-2">
             <i class="fas fa-chart-bar"></i> SET Precision Scan
         </a>
-        <a href="?scan=true" onclick="showLoading()" class="btn d-inline-flex align-items-center gap-2"
-           style="background: linear-gradient(135deg, #1d4ed8, #0369a1); color:white; border:none;">
-            <i class="fas fa-crosshairs"></i> US Precision Scan
-        </a>
+        <form method="post" id="usPrecisionScanForm" style="display:inline;">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="scan">
+            {% if has_scanned %}
+            <button type="button" onclick="confirmRescanUS()" class="btn btn-premium d-inline-flex align-items-center gap-2"
+                    style="background: linear-gradient(135deg, #1d4ed8, #0369a1); color:white; border:none;">
+                <i class="fas fa-crosshairs"></i> สแกนใหม่ (US)
+            </button>
+            {% else %}
+            <button type="submit" class="btn btn-premium d-inline-flex align-items-center gap-2"
+                    style="background: linear-gradient(135deg, #1d4ed8, #0369a1); color:white; border:none;">
+                <i class="fas fa-crosshairs"></i> เริ่มสแกน US Precision
+            </button>
+            {% endif %}
+        </form>
         {% if has_scanned and ai_scan_json %}
         <button id="btn-ai-analyze" class="btn d-inline-flex align-items-center gap-2"
                 style="background:linear-gradient(135deg,#0891b2,#0e7490);color:white;border:none;">
@@ -1438,6 +1479,10 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     while (sel.options.length > 0) sel.remove(0);
     keep.forEach(function(o) { sel.add(o); });
+
+    // Ensure default is All Sectors (empty value)
+    sel.value = "";
+    _applyFiltersUS();
 });
 
 // Watchlist Toggle
@@ -1467,27 +1512,53 @@ function toggleWatchlist(btn) {
     .catch(e => console.error('Watchlist toggle error:', e));
 }
 
-// Export visible table rows to CSV
-function exportScanCSV(tableId, filename) {
-    var table = document.getElementById(tableId);
-    if (!table) return;
-    var rows = table.querySelectorAll('tr');
-    var csv = [];
-    rows.forEach(function(row) {
-        if (row.style.display === 'none') return;
-        var cols = row.querySelectorAll('th, td');
-        var data = [];
-        cols.forEach(function(col) {
-            var text = (col.innerText || '').replace(/\n/g,' ').replace(/,/g,';').trim();
-            data.push('"' + text + '"');
-        });
-        csv.push(data.join(','));
+// ── Background scan polling ───────────────────────────────────────────
+function pollUSPrecisionStatus() {
+    fetch("?scan_status=1")
+    .then(r => r.json())
+    .then(data => {
+        const overlay = document.getElementById('usPrecisionLoadingOverlay');
+        const phase   = document.getElementById('usPrecisionOverlayPhase');
+        const prog    = document.getElementById('usPrecisionOverlayProgress');
+        const pBar    = document.getElementById('usPrecisionProgressBar');
+        const pText   = document.getElementById('usPrecisionProgressText');
+
+        if (data.state === 'running') {
+            overlay.style.display = 'flex';
+            phase.innerText = data.phase || 'กำลังรันสแกน…';
+            if (data.total > 0) {
+                prog.style.display = 'block';
+                let pct = Math.round((data.progress / data.total) * 100);
+                pBar.style.width = pct + '%';
+                pText.innerText = data.progress + ' / ' + data.total;
+            } else {
+                prog.style.display = 'none';
+            }
+            setTimeout(pollUSPrecisionStatus, 2000);
+        } else if (data.state === 'done') {
+            if (data.error) {
+                alert("สแกนผิดพลาด: " + data.error);
+                overlay.style.display = 'none';
+            } else {
+                phase.innerText = "สแกนสำเร็จ! กำลังรีเฟรช…";
+                setTimeout(() => window.location.reload(), 1000);
+            }
+        }
+    })
+    .catch(e => {
+        console.error("Polling error:", e);
+        setTimeout(pollUSPrecisionStatus, 5000);
     });
-    var blob = new Blob(['\ufeff' + csv.join('\n')], {type:'text/csv;charset=utf-8;'});
-    var link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = filename + '_' + new Date().toISOString().slice(0,10) + '.csv';
-    link.click();
 }
+
+function confirmRescanUS() {
+    if (confirm('⚠️ การสแกนใหม่จะใช้เวลาประมาณ 1-2 นาที และลบผลสแกนเดิม\nต้องการดำเนินการต่อหรือไม่?')) {
+        document.getElementById('usPrecisionScanForm').submit();
+    }
+}
+
+document.addEventListener('DOMContentLoaded', function () {
+    pollUSPrecisionStatus();
+});
 </script>
 {% endblock %}
