@@ -123,6 +123,15 @@
         transform: scale(1.05);
     }
 
+    /* General */
+    .icon-general {
+        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    }
+    .dispatch-card:hover .icon-general {
+        box-shadow: 0 12px 30px rgba(245, 87, 108, 0.35);
+        transform: scale(1.05);
+    }
+
     .dispatch-label {
         font-weight: 700;
         font-size: 1.1rem;
@@ -291,6 +300,18 @@
                 <div class="dispatch-label">ดูหน้างาน</div>
                 <div class="dispatch-sublabel">Survey</div>
                 <a href="{% url 'pms:survey_create' %}" class="stretched-link" title="สร้างงานดูหน้างาน"></a>
+            </div>
+        </div>
+
+        <!-- General -->
+        <div class="col-6 col-md-3">
+            <div class="card h-100 text-center p-3 p-md-4 dispatch-card position-relative">
+                <div class="app-icon icon-general">
+                    <i class="fas fa-box-open"></i>
+                </div>
+                <div class="dispatch-label">งานทั่วไป</div>
+                <div class="dispatch-sublabel">General</div>
+                <a href="{% url 'pms:general_create' %}" class="stretched-link" title="สร้างงานทั่วไป"></a>
             </div>
         </div>
     </div>

@@ -15,6 +15,7 @@
         background: {% if theme_color == 'warning' %}linear-gradient(135deg, #f59e0b, #d97706)
                    {% elif theme_color == 'info' %}linear-gradient(135deg, #06b6d4, #0284c7)
                    {% elif theme_color == 'pms-rental' %}linear-gradient(135deg, #8b5cf6, #6d28d9)
+                   {% elif theme_color == 'pms-general' %}linear-gradient(135deg, #f093fb, #f5576c)
                    {% else %}linear-gradient(135deg, #10b981, #059669){% endif %};
         color: white;
         padding: 1.5rem;
@@ -67,6 +68,8 @@
                         {% elif theme_color == 'info' %}
                             <i class="fas fa-map-marker-alt fa-lg"></i>
                         {% elif theme_color == 'pms-rental' %}
+                            <i class="fas fa-key fa-lg"></i>
+                        {% elif theme_color == 'pms-general' %}
                             <i class="fas fa-box-open fa-lg"></i>
                         {% else %}
                             <i class="fas fa-shopping-cart fa-lg"></i>
@@ -81,6 +84,8 @@
                                 บันทึกคำขอดูหน้างาน พร้อมกำหนดช่างผู้รับผิดชอบ
                             {% elif theme_color == 'pms-rental' %}
                                 สร้างสัญญาเช่าและกำหนดระยะเวลาการให้บริการ
+                            {% elif theme_color == 'pms-general' %}
+                                สร้างงานทั่วไป เช่น ส่งของ บริการหลังการขาย ส่งเอกสาร
                             {% else %}
                                 สร้างรายการงานขายและบริการสำหรับลูกค้า
                             {% endif %}

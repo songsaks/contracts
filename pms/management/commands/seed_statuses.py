@@ -69,6 +69,11 @@ class Command(BaseCommand):
                 (Project.Status.CLOSED, 'ปิดจบ', 20),
                 (Project.Status.CANCELLED, 'ยกเลิก', 30),
             ],
+            Project.JobType.GENERAL: [
+                ('QUEUE_GENERAL', 'งานทั่วไป', 10),
+                (Project.Status.CLOSED, 'ปิดจบ', 20),
+                (Project.Status.CANCELLED, 'ยกเลิก', 30),
+            ],
         }
 
         created_count = 0

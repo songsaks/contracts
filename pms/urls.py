@@ -46,6 +46,7 @@ urlpatterns = [
     path('repair/create/', views.repair_create, name='repair_create'),           # สร้างใบแจ้งซ่อม
     path('rental/create/', views.rental_create, name='rental_create'),           # สร้างงานเช่า
     path('survey/create/', views.survey_create, name='survey_create'),           # สร้างงานดูหน้างาน
+    path('general/create/', views.general_create, name='general_create'),       # สร้างงานทั่วไป
     path('survey/<int:pk>/convert/', views.survey_convert_to_project, name='survey_convert_to_project'),  # แปลง SURVEY เป็น PROJECT
     path('tracking/', views.sla_tracking_dashboard, name='tracking'),            # แดชบอร์ด SLA Tracking
 

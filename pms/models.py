@@ -143,6 +143,7 @@ class Project(models.Model):
         DELIVERY = 'DELIVERY', 'คิว'
         PREPARING_DOCS = 'PREPARING_DOCS', 'เตรียมเอกสารใบส่งสินค้า'
         QUEUE_SURVEY = 'QUEUE_SURVEY', 'รอเข้าคิวดูหน้างาน'
+        QUEUE_GENERAL = 'QUEUE_GENERAL', 'รอเข้าคิวงานทั่วไป'
 
         ACCEPTED = 'ACCEPTED', 'ตรวจรับ'
         BILLING = 'BILLING', 'วางบิล'
@@ -157,6 +158,7 @@ class Project(models.Model):
         REPAIR = 'REPAIR', 'งานแจ้งซ่อม (Repair Service)'
         RENTAL = 'RENTAL', 'งานเช่า (Rental Service)'
         SURVEY = 'SURVEY', 'งานดูหน้างาน (Site Survey)'
+        GENERAL = 'GENERAL', 'งานทั่วไป (General)'
 
     customer = models.ForeignKey(Customer, on_delete=models.CASCADE, related_name='projects', verbose_name="ลูกค้า")
     owner = models.ForeignKey(ProjectOwner, on_delete=models.SET_NULL, null=True, blank=True, related_name='projects', verbose_name="เจ้าของโครงการ")
@@ -841,6 +843,7 @@ class ServiceQueueItem(models.Model):
         INSTALLATION = 'INSTALLATION', 'งานติดตั้ง'
         DELIVERY = 'DELIVERY', 'งานส่งของ'
         SURVEY = 'SURVEY', 'ดูหน้างาน/สำรวจ'
+        GENERAL = 'GENERAL', 'งานทั่วไป'
         OTHER = 'OTHER', 'อื่นๆ'
 
     class Status(models.TextChoices):

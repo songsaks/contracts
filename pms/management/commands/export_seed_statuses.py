@@ -51,6 +51,7 @@ class Command(BaseCommand):
             Project.JobType.REPAIR:  'Project.JobType.REPAIR',
             Project.JobType.RENTAL:  'Project.JobType.RENTAL',
             Project.JobType.SURVEY:  'Project.JobType.SURVEY',
+            Project.JobType.GENERAL: 'Project.JobType.GENERAL',
         }
 
         # Build a reverse map: status_key → Project.Status.XXX or 'raw_string'

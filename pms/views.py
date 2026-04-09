@@ -162,6 +162,33 @@ def survey_create(request):
         'form': form, 'title': 'สร้างงานดูหน้างาน (Site Survey)', 'theme_color': 'info',
     })
 
+
+# ฟังก์ชันสำหรับสร้างงานทั่วไป (General Task)
+# เช่น งานส่งของ งานบริการหลังการขาย ส่งเอกสาร ฯลฯ
+# เมื่อสร้างเสร็จจะเข้าคิว AI Queue ทันที (QUEUE_GENERAL)
+@login_required
+def general_create(request):
+    if request.method == 'POST':
+        form = SalesServiceJobForm(request.POST, initial={'status': 'QUEUE_GENERAL', 'name': 'งานทั่วไป - '}, job_type=Project.JobType.GENERAL)
+        if form.is_valid():
+            project = form.save(commit=False)
+            project.job_type = Project.JobType.GENERAL
+            project.status = 'QUEUE_GENERAL'
+            project._changed_by_user = request.user
+            project.save()
+            # Auto-create value item (if any)
+            pv = form.cleaned_data.get('project_value')
+            _create_project_value_item(project, pv)
+            messages.success(request, 'สร้างงานทั่วไปในคิวเรียบร้อย')
+            return redirect('pms:project_detail', pk=project.pk)
+        else:
+            messages.error(request, 'เกิดข้อผิดพลาดในการบันทึกข้อมูล กรุณาตรวจสอบความถูกต้อง')
+    else:
+        form = SalesServiceJobForm(initial={'status': 'QUEUE_GENERAL', 'name': 'งานทั่วไป - '}, job_type=Project.JobType.GENERAL)
+    return render(request, 'pms/service_form.html', {
+        'form': form, 'title': 'สร้างงานทั่วไป (General Task)', 'theme_color': 'pms-general',
+    })
+
 # ฟังก์ชันสำหรับเปลี่ยนประเภทงานจาก 'SURVEY' เป็น 'PROJECT'
 # ใช้เมื่อลูกค้าตกลงหลังการดูหน้างาน โดยจะเปลี่ยนสถานะเป็น 'QUOTED' (เสนอราคา) ทันที
 @login_required
@@ -337,6 +364,8 @@ def project_detail(request, pk):
         theme_color = 'pms-rental'
     elif project.job_type == Project.JobType.SURVEY:
         theme_color = 'info'
+    elif project.job_type == Project.JobType.GENERAL:
+        theme_color = 'pms-general'
     else:  # PROJECT
         theme_color = 'primary'
 
@@ -499,6 +528,12 @@ def project_update(request, pk):
         title = 'แก้ไขงานดูหน้างาน'
         theme_color = 'info'
         form_kwargs['job_type'] = Project.JobType.SURVEY
+    elif project.job_type == Project.JobType.GENERAL:
+        FormClass = SalesServiceJobForm
+        template = 'pms/service_form.html'
+        title = 'แก้ไขงานทั่วไป'
+        theme_color = 'pms-general'
+        form_kwargs['job_type'] = Project.JobType.GENERAL
     else:
         FormClass = ProjectForm
         template = 'pms/project_form.html'
@@ -2417,6 +2452,7 @@ def project_assignment_matrix(request):
         (Project.JobType.REPAIR, '🔧 งานซ่อม (Repair)'),
         (Project.JobType.RENTAL, '🏢 งานเช่า (Rental)'),
         (Project.JobType.SURVEY, '🔍 ดูหน้างาน (Survey)'),
+        (Project.JobType.GENERAL, '📦 งานทั่วไป (General)'),
     ]
     
     matrix_data = []
@@ -2480,7 +2516,7 @@ def set_project_assignment(request):
 # รองรับ query param ?force=1 เพื่อบังคับรันซ้ำแม้ข้อมูลมีอยู่แล้ว
 @login_required
 def seed_pms_statuses(request):
-    """Seed JobStatus สำหรับทุกประเภทงาน (PROJECT/SERVICE/REPAIR/RENTAL/SURVEY)
+    """Seed JobStatus สำหรับทุกประเภทงาน (PROJECT/SERVICE/REPAIR/RENTAL/SURVEY/GENERAL)
        โดยจะเพิ่มเฉพาะที่ยังไม่มีในระบบ เพื่อไม่ให้ทับข้อมูลที่ user ปรับแก้เอง
     """
     from .models import JobStatus, Project
@@ -2509,6 +2545,11 @@ def seed_pms_statuses(request):
         ],
         Project.JobType.SURVEY: [
             ('QUEUE_SURVEY', 'ดูหน้างาน', 10),
+            (Project.Status.CLOSED, 'ปิดจบ', 20),
+            (Project.Status.CANCELLED, 'ยกเลิก', 30),
+        ],
+        Project.JobType.GENERAL: [
+            ('QUEUE_GENERAL', 'งานทั่วไป', 10),
             (Project.Status.CLOSED, 'ปิดจบ', 20),
             (Project.Status.CANCELLED, 'ยกเลิก', 30),
         ],
