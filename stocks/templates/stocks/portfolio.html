@@ -157,7 +157,7 @@
                                     <div class="text-muted small mb-1" style="font-size: 0.7rem; letter-spacing: 0.5px;">AVG COST</div>
                                     <div class="fw-bold fs-6">
                                         {% if item.obj.entry_price > 0 %}
-                                            ฿{{ item.obj.entry_price|floatformat:1|intcomma }}
+                                            ฿{{ item.obj.entry_price|floatformat:2|intcomma }}
                                         {% else %}
                                             <span class="text-muted small fw-normal">Not Set</span>
                                         {% endif %}
@@ -754,11 +754,11 @@
                         </div>
                         <div class="col-md-6">
                             <label class="form-label small text-muted">Quantity (จำนวนหุ้น)</label>
-                            <input type="number" id="port-quantity" step="0.0001" name="quantity" class="form-control rounded-3" value="0" style="background:#f8fafc;">
+                            <input type="number" id="port-quantity" step="0.01" name="quantity" class="form-control rounded-3" value="0.00" style="background:#f8fafc;">
                         </div>
                         <div class="col-md-6">
                             <label class="form-label small text-muted">Entry Price (ราคาทุน)</label>
-                            <input type="number" id="port-price" step="0.0001" name="entry_price" class="form-control rounded-3" value="0" style="background:#f8fafc;">
+                            <input type="number" id="port-price" step="0.01" name="entry_price" class="form-control rounded-3" value="0.00" style="background:#f8fafc;">
                         </div>
                     </div>
                 </div>
@@ -832,8 +832,8 @@
         document.getElementById('port-symbol').value = symbol;
         document.getElementById('port-symbol').readOnly = true;
         document.getElementById('port-name').value = name;
-        document.getElementById('port-quantity').value = qty;
-        document.getElementById('port-price').value = price;
+        document.getElementById('port-quantity').value = parseFloat(qty || 0).toFixed(2);
+        document.getElementById('port-price').value = parseFloat(price || 0).toFixed(2);
         document.getElementById('port-category').value = category;
         document.getElementById('port-modal-title').innerText = 'Edit Position';
     }
