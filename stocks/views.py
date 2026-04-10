@@ -1618,6 +1618,7 @@ def sell_stock(request, pk):
                 symbol=portfolio_item.symbol,
                 quantity=sell_quantity,
                 buy_price=portfolio_item.entry_price,
+                bought_at=portfolio_item.added_at,
                 sell_price=sell_price,
                 profit_loss=profit_loss,
                 profit_loss_pct=profit_loss_pct

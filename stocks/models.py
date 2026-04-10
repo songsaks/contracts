@@ -460,6 +460,7 @@ class SoldStock(models.Model):
     symbol = models.CharField(max_length=20)
     quantity = models.DecimalField(max_digits=12, decimal_places=4)
     buy_price = models.DecimalField(max_digits=12, decimal_places=4, help_text="ราคาทุนเฉลี่ยขณะที่ซื้อ")
+    bought_at = models.DateTimeField(null=True, blank=True, help_text="วันที่เข้าซื้อครั้งแรก")
     sell_price = models.DecimalField(max_digits=12, decimal_places=4, help_text="ราคาที่ขายออกไป")
     profit_loss = models.DecimalField(max_digits=12, decimal_places=4, help_text="กำไร/ขาดทุนสุทธิ (เป็นจำนวนเงิน)")
     profit_loss_pct = models.DecimalField(max_digits=8, decimal_places=2, help_text="กำไร/ขาดทุน (%)")

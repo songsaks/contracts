@@ -93,8 +93,10 @@
                 <table class="table table-sm table-hover align-middle">
                     <thead class="bg-light bg-opacity-50">
                         <tr class="extra-small text-muted text-uppercase">
-                            <th>วันที่</th>
+                            <th>ซื้อเมื่อ</th>
+                            <th>ขายเมื่อ</th>
                             <th>หุ้น</th>
+                            <th class="text-end">จำนวน</th>
                             <th class="text-end">ร.ทุน</th>
                             <th class="text-end">ร.ขาย</th>
                             <th class="text-end">กำไร/ขาดทุน</th>
@@ -102,9 +104,11 @@
                     </thead>
                     <tbody>
                         {% for s in sold_stocks %}
-                        <tr style="font-size: 0.9rem;">
-                            <td class="text-nowrap">{{ s.sold_at|date:"d M Y" }}</td>
+                        <tr style="font-size: 0.85rem;">
+                            <td class="text-nowrap text-muted small">{{ s.bought_at|date:"d M y"|default:"-" }}</td>
+                            <td class="text-nowrap fw-bold">{{ s.sold_at|date:"d M y" }}</td>
                             <td><span class="badge bg-primary bg-opacity-10 text-primary">{{ s.symbol }}</span></td>
+                            <td class="text-end">{{ s.quantity|floatformat:0|intcomma }}</td>
                             <td class="text-end text-muted">฿{{ s.buy_price|floatformat:2|intcomma }}</td>
                             <td class="text-end fw-bold">฿{{ s.sell_price|floatformat:2|intcomma }}</td>
                             <td class="text-end fw-bold {% if s.profit_loss > 0 %}text-success{% elif s.profit_loss < 0 %}text-danger{% endif %} text-nowrap">
