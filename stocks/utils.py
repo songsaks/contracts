@@ -77,9 +77,14 @@ def calculate_atr_trailing_stop(df, entry_price, highest_price_db=0.0, multiplie
     if atr <= 0:
         return None
 
-    # highest = max(ราคาสูงสุดใน hist, entry_price, highest จาก DB)
-    hist_high   = float(df['High'].max())
-    highest     = max(current_price, entry_price, highest_price_db, hist_high)
+    # highest = max(ราคาปัจจุบัน, ราคาสูงสุดที่บันทึกไว้ใน DB)
+    # ตัด hist_high ออกเพื่อเลิกใช้ราคาสูงสุดในรอบปี (ซึ่งอาจเกิดก่อนวันซื้อ)
+    highest = max(current_price, highest_price_db)
+    
+    # ถ้ายังไม่เคยบันทึก High (เช่น เพิ่งซื้อ) ให้ใช้ราคาปัจจุบันเป็นฐาน
+    if highest <= 0:
+        highest = current_price
+
     trailing_stop = highest - (atr * multiplier)
     trailing_stop = max(trailing_stop, entry_price * 0.85)  # ไม่ต่ำกว่า -15% จาก entry
 
