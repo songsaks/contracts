@@ -991,6 +991,8 @@ def portfolio_list(request):
                 multiplier=float(item.trail_multiplier or 2.5),
             ) if current_price > 0 else None
 
+            print(f"DEBUG: {symbol} Price={current_price}, DB_High={item.highest_price}, ATR_High={atr_ts['highest'] if atr_ts else 'N/A'}")
+            
             # อัปเดต highest_price และ ATR ใน DB ถ้าสูงขึ้น
             if atr_ts and current_price > 0:
                 new_high = atr_ts['highest']
