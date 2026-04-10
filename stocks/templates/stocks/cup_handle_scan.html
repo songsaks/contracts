@@ -561,8 +561,9 @@
 
 /* Dark popover — force above all layers */
 .popover.ch-dark { background:#0f172a; border:1px solid #334155; max-width:360px; z-index:10000 !important; }
-.popover.ch-dark .popover-header { background:#1e293b; color:#f1f5f9; border-bottom:1px solid #334155; font-size:0.78rem; padding:8px 12px; }
-.popover.ch-dark .popover-body { padding:10px 12px; color:#e2e8f0; }
+.popover.ch-dark .popover-header { background:#1e293b !important; color:#f1f5f9 !important; border-bottom:1px solid #334155 !important; font-size:0.78rem; padding:8px 12px; }
+.popover.ch-dark .popover-body { padding:10px 12px; color:#e2e8f0 !important; background:#0f172a !important; }
+.popover.ch-dark .popover-body * { color:inherit !important; }
 
 /* Arrow all directions */
 .popover.ch-dark.bs-popover-end   .popover-arrow::before { border-right-color:#334155 !important; }
@@ -579,7 +580,7 @@
 
 .ch-val-table { width:100%; border-collapse:collapse; margin-bottom:8px; font-size:0.71rem; }
 .ch-val-table tr { border-bottom:1px solid #1e293b; }
-.ch-val-table td { padding:3px 5px; vertical-align:top; color:#e2e8f0; }
+.ch-val-table td { padding:3px 5px; vertical-align:top; color:#e2e8f0 !important; }
 .ch-section { font-size:0.7rem; margin-bottom:5px; line-height:1.5; }
 .ch-action { background:#1e293b; border-radius:5px; padding:5px 8px; font-size:0.71rem; color:#f1f5f9; margin-top:6px; }
 
