@@ -790,11 +790,11 @@
                         </div>
                         <div class="col-md-6">
                             <label class="form-label small text-muted">จำนวนที่ขาย</label>
-                            <input type="number" id="sell-quantity" step="0.0001" name="quantity" class="form-control rounded-3" style="background:#f8fafc;" required oninput="calculateProfit()">
+                            <input type="number" id="sell-quantity" step="0.01" name="quantity" class="form-control rounded-3" style="background:#f8fafc;" required oninput="calculateProfit()">
                         </div>
                         <div class="col-md-6">
                             <label class="form-label small text-muted">ราคาที่ขาย (ต่อหุ้น)</label>
-                            <input type="number" id="sell-price" step="0.0001" name="sell_price" class="form-control rounded-3" style="background:#f8fafc;" required oninput="calculateProfit()">
+                            <input type="number" id="sell-price" step="0.01" name="sell_price" class="form-control rounded-3" style="background:#f8fafc;" required oninput="calculateProfit()">
                         </div>
                         <div class="col-12 mt-4">
                             <div class="p-3 rounded-4 border bg-light text-center">
@@ -842,10 +842,10 @@
     function openSellModal(sellUrl, symbol, qty, currentPrice, entryPrice) {
         try {
             document.getElementById('sell-symbol-text').innerText = symbol;
-            document.getElementById('owned-qty-text').innerText = qty;
-            document.getElementById('sell-quantity').value = qty;
+            document.getElementById('owned-qty-text').innerText = parseFloat(qty || 0).toFixed(2);
+            document.getElementById('sell-quantity').value = parseFloat(qty || 0).toFixed(2);
             document.getElementById('sell-quantity').max = qty;
-            document.getElementById('sell-price').value = currentPrice;
+            document.getElementById('sell-price').value = parseFloat(currentPrice || 0).toFixed(2);
             
             // ใช้ค่า entry price ที่ส่งมาจาก django โดยตรง
             currentEntryPrice = parseFloat(entryPrice) || 0;
