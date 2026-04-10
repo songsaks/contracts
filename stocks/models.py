@@ -470,6 +470,65 @@ class SoldStock(models.Model):
 
 # ====== TitheRecord — บันทึกการถวายทศางค์จากกำไรหุ้น ======
 
+# ====== CupHandleCandidate — ผลลัพธ์ Cup & Handle Scanner ======
+
+class CupHandleCandidate(models.Model):
+    """
+    เก็บผลการสแกนหุ้นที่กำลัง form Cup & Handle Pattern
+    (William O'Neil — CAN SLIM methodology)
+    """
+    user     = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
+    scan_run = models.DateTimeField(db_index=True)
+    symbol   = models.CharField(max_length=20, db_index=True)
+    sector   = models.CharField(max_length=100, default='Unknown')
+    price    = models.FloatField(default=0.0)
+
+    # ── Cup geometry ──────────────────────────────────────────────
+    cup_high        = models.FloatField(default=0.0)   # ขอบซ้าย/ขวาของ Cup (pivot high)
+    cup_low         = models.FloatField(default=0.0)   # ก้น Cup
+    cup_depth_pct   = models.FloatField(default=0.0)   # ความลึก Cup เป็น % (15-35% = ideal)
+    cup_length_days = models.IntegerField(default=0)   # ความยาว Cup เป็นวัน (≥35 วัน = ideal)
+    cup_start_date  = models.DateField(null=True, blank=True)
+    cup_end_date    = models.DateField(null=True, blank=True)
+
+    # ── Handle geometry ───────────────────────────────────────────
+    handle_high       = models.FloatField(default=0.0)  # ขอบบนของ Handle
+    handle_low        = models.FloatField(default=0.0)  # ขอบล่างของ Handle
+    handle_depth_pct  = models.FloatField(default=0.0)  # ความลึก Handle (≤15% = ideal)
+    handle_length_days= models.IntegerField(default=0)
+    handle_start_date = models.DateField(null=True, blank=True)
+
+    # ── Breakout & Target ─────────────────────────────────────────
+    breakout_price  = models.FloatField(default=0.0)   # ราคา breakout = cup_high
+    target_price    = models.FloatField(default=0.0)   # target = cup_high + cup_depth
+    stop_loss       = models.FloatField(default=0.0)   # SL = ใต้ handle_low
+    risk_reward     = models.FloatField(default=0.0)
+
+    # ── Volume ───────────────────────────────────────────────────
+    avg_vol_20d         = models.FloatField(default=0.0)
+    cup_vol_confirmed   = models.BooleanField(default=False)  # Volume ลดลงใน Cup (ideal)
+    handle_vol_dry      = models.BooleanField(default=False)  # Volume แห้งใน Handle (ideal)
+
+    # ── Pattern Stage ─────────────────────────────────────────────
+    # 'forming'  = กำลัง form Cup ยังไม่ครบ
+    # 'handle'   = Cup ครบแล้ว กำลัง form Handle
+    # 'ready'    = Handle ครบ รอ Breakout
+    # 'breakout' = Breakout แล้ว (Volume confirm)
+    stage           = models.CharField(max_length=20, default='forming')
+    confidence_score= models.IntegerField(default=0)   # 0-100
+    rs_rating       = models.IntegerField(default=0)
+    adx             = models.FloatField(default=0.0)
+    rsi             = models.FloatField(default=0.0)
+
+    class Meta:
+        ordering = ['-scan_run', '-confidence_score']
+        indexes  = [models.Index(fields=['user', 'scan_run'])]
+        verbose_name = 'Cup & Handle Candidate'
+
+    def __str__(self):
+        return f"{self.symbol} [{self.stage}] score={self.confidence_score}"
+
+
 class TitheRecord(models.Model):
     """
     ติดตามการถวายทศางค์ 10% จากกำไรหุ้นรายเดือน

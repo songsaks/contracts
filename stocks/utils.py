@@ -1370,3 +1370,262 @@ def refresh_set100_symbols():
     ScannableSymbol.objects.filter(market='SET').exclude(symbol__in=known).update(is_active=False)
 
     print(f"Refreshed {len(set100_symbols)} SET100 + {len(set200_symbols)} SET200 + {len(mai_symbols)} MAI symbols. Others deactivated.")
+
+
+# ======================================================================
+# detect_cup_and_handle — Cup & Handle Pattern Detection
+# William O'Neil (CAN SLIM) methodology
+# ======================================================================
+
+def _test_cup_from_pivot(df, pivot_high_abs, pivot_high_val, dates, n):
+    """
+    ทดสอบ cup pattern จาก pivot ที่กำหนด
+    Returns dict หรือ None
+    """
+    import pandas_ta as ta
+
+    last_price = float(df['Close'].iloc[-1])
+
+    # ต้องมีข้อมูลหลัง pivot พอสำหรับ cup
+    cup_segment = df.iloc[pivot_high_abs:]
+    if len(cup_segment) < 20:
+        return None
+
+    cup_low_val = float(cup_segment['Low'].min())
+    cup_low_idx = int(cup_segment['Low'].values.argmin())
+    cup_low_abs = pivot_high_abs + cup_low_idx
+
+    cup_depth_pct = (pivot_high_val - cup_low_val) / pivot_high_val * 100
+    if not (10 <= cup_depth_pct <= 45):
+        return None
+
+    recovery_segment = df.iloc[cup_low_abs:]
+    if len(recovery_segment) < 3:
+        return None
+
+    # recovery threshold 78% — หุ้นต้องฟื้นมาได้ระดับนี้จึงถือว่า cup ใกล้สมบูรณ์
+    recovery_threshold = pivot_high_val * 0.78
+    recovered_mask     = recovery_segment['Close'] >= recovery_threshold
+
+    # ─── FORMING STAGE ───────────────────────────────────────────────────
+    if not recovered_mask.any():
+        cup_length_so_far = n - 1 - pivot_high_abs
+        if cup_length_so_far < 25:
+            return None
+
+        cup_depth_abs   = pivot_high_val - cup_low_val
+        breakout_price  = pivot_high_val
+        target_price    = pivot_high_val + cup_depth_abs
+        stop_loss_price = cup_low_val * 0.99
+        rr_risk         = breakout_price - stop_loss_price
+        rr_reward       = target_price - breakout_price
+        rr              = round(rr_reward / rr_risk, 2) if rr_risk > 0 else 0
+
+        cup_vols = df.iloc[pivot_high_abs:n]['Volume']
+        cup_vol_confirmed = False
+        if len(cup_vols) >= 10:
+            mid = len(cup_vols) // 2
+            cup_vol_confirmed = float(cup_vols.iloc[mid:].mean()) < float(cup_vols.iloc[:mid].mean())
+
+        score = 20
+        if 15 <= cup_depth_pct <= 35:
+            score += 8
+        if cup_length_so_far >= 50:
+            score += 8
+        elif cup_length_so_far >= 35:
+            score += 4
+        if cup_vol_confirmed:
+            score += 5
+        try:
+            if 'EMA200' not in df.columns:
+                df['EMA200'] = ta.ema(df['Close'], length=200)
+            last_ema200 = float(df['EMA200'].iloc[-1]) if pd.notna(df['EMA200'].iloc[-1]) else 0
+            if last_price > last_ema200 > 0:
+                score += 5
+        except Exception:
+            pass
+
+        return {
+            'stage':              'forming',
+            'cup_high':           round(pivot_high_val, 2),
+            'cup_low':            round(cup_low_val, 2),
+            'cup_depth_pct':      round(cup_depth_pct, 1),
+            'cup_length_days':    cup_length_so_far,
+            'cup_start_date':     dates[pivot_high_abs].date() if hasattr(dates[pivot_high_abs], 'date') else None,
+            'cup_end_date':       dates[n - 1].date() if hasattr(dates[n - 1], 'date') else None,
+            'handle_high':        0.0,
+            'handle_low':         0.0,
+            'handle_depth_pct':   0.0,
+            'handle_length_days': 0,
+            'handle_start_date':  None,
+            'breakout_price':     round(breakout_price, 2),
+            'target_price':       round(target_price, 2),
+            'stop_loss':          round(stop_loss_price, 2),
+            'risk_reward':        rr,
+            'cup_vol_confirmed':  cup_vol_confirmed,
+            'handle_vol_dry':     False,
+            'confidence_score':   min(score, 100),
+            'current_price':      round(last_price, 2),
+        }
+
+    # ─── HANDLE / READY / BREAKOUT STAGE ────────────────────────────────
+    cup_right_label = recovered_mask.idxmax()
+    cup_right_abs   = df.index.get_loc(cup_right_label)
+    cup_length      = cup_right_abs - pivot_high_abs
+
+    if cup_length < 20:
+        return None
+
+    cup_bottom_position = (cup_low_abs - pivot_high_abs) / max(cup_length, 1)
+    if cup_bottom_position > 0.85:
+        return None
+
+    handle_segment = df.iloc[cup_right_abs:]
+    handle_dry_vol = False
+
+    if len(handle_segment) < 3:
+        handle_high_val  = float(df['High'].iloc[cup_right_abs])
+        handle_low_val   = handle_high_val
+        handle_depth_pct = 0.0
+        handle_length    = 0
+        stage = 'handle'
+    else:
+        handle_high_val  = float(handle_segment['High'].max())
+        handle_low_val   = float(handle_segment['Low'].min())
+        handle_depth_pct = (handle_high_val - handle_low_val) / handle_high_val * 100
+        handle_length    = len(handle_segment)
+
+        cup_midpoint = cup_low_val + (pivot_high_val - cup_low_val) * 0.5
+        if handle_low_val < cup_midpoint:
+            return None
+
+        if handle_depth_pct > 20:
+            return None
+
+        avg_vol_cup    = float(df.iloc[pivot_high_abs:cup_right_abs]['Volume'].mean())
+        avg_vol_handle = float(handle_segment['Volume'].mean())
+        handle_dry_vol = avg_vol_handle < avg_vol_cup * 0.8
+
+        last_close = float(df['Close'].iloc[-1])
+        if last_close >= pivot_high_val * 0.98:
+            stage = 'breakout'
+        elif handle_length >= 5:
+            stage = 'ready'
+        else:
+            stage = 'handle'
+
+    cup_vols = df.iloc[pivot_high_abs:cup_right_abs]['Volume']
+    if len(cup_vols) >= 10:
+        mid               = len(cup_vols) // 2
+        cup_vol_confirmed = float(cup_vols.iloc[mid:].mean()) < float(cup_vols.iloc[:mid].mean())
+    else:
+        cup_vol_confirmed = False
+
+    cup_depth_abs   = pivot_high_val - cup_low_val
+    breakout_price  = pivot_high_val
+    target_price    = pivot_high_val + cup_depth_abs
+    stop_loss_price = handle_low_val * 0.99 if handle_low_val > 0 else cup_low_val * 0.99
+    rr_risk         = breakout_price - stop_loss_price
+    rr_reward       = target_price - breakout_price
+    rr              = round(rr_reward / rr_risk, 2) if rr_risk > 0 else 0
+
+    score = 30
+    if 20 <= cup_depth_pct <= 30:
+        score += 15
+    elif 15 <= cup_depth_pct <= 35:
+        score += 8
+    if cup_length >= 50:
+        score += 10
+    elif cup_length >= 35:
+        score += 5
+    if stage in ('ready', 'breakout'):
+        score += 15 if handle_depth_pct <= 10 else (8 if handle_depth_pct <= 15 else 0)
+        if handle_dry_vol:
+            score += 10
+    if cup_vol_confirmed:
+        score += 5
+    if rr >= 3:
+        score += 15
+    elif rr >= 2:
+        score += 10
+    elif rr >= 1.5:
+        score += 5
+    try:
+        if 'EMA200' not in df.columns:
+            df['EMA200'] = ta.ema(df['Close'], length=200)
+        last_ema200 = float(df['EMA200'].iloc[-1]) if pd.notna(df['EMA200'].iloc[-1]) else 0
+        if last_price > last_ema200 > 0:
+            score += 5
+    except Exception:
+        pass
+
+    return {
+        'stage':              stage,
+        'cup_high':           round(pivot_high_val, 2),
+        'cup_low':            round(cup_low_val, 2),
+        'cup_depth_pct':      round(cup_depth_pct, 1),
+        'cup_length_days':    cup_length,
+        'cup_start_date':     dates[pivot_high_abs].date() if hasattr(dates[pivot_high_abs], 'date') else None,
+        'cup_end_date':       dates[cup_right_abs].date() if hasattr(dates[cup_right_abs], 'date') else None,
+        'handle_high':        round(handle_high_val, 2),
+        'handle_low':         round(handle_low_val, 2),
+        'handle_depth_pct':   round(handle_depth_pct, 1),
+        'handle_length_days': handle_length,
+        'handle_start_date':  dates[cup_right_abs].date() if hasattr(dates[cup_right_abs], 'date') else None,
+        'breakout_price':     round(breakout_price, 2),
+        'target_price':       round(target_price, 2),
+        'stop_loss':          round(stop_loss_price, 2),
+        'risk_reward':        rr,
+        'cup_vol_confirmed':  cup_vol_confirmed,
+        'handle_vol_dry':     handle_dry_vol,
+        'confidence_score':   min(score, 100),
+        'current_price':      round(last_price, 2),
+    }
+
+
+def detect_cup_and_handle(df):
+    """
+    ตรวจหา Cup & Handle Pattern จาก OHLCV DataFrame (daily bars)
+    ลองหลาย pivot candidates (200d / 150d / 100d / 60d window)
+    เลือก pattern ที่ดีที่สุด (stage สูงสุด + confidence สูงสุด)
+
+    Stages: forming → handle → ready → breakout
+    """
+    if df is None or len(df) < 60:
+        return None
+
+    df    = df.copy()
+    dates = df.index
+    n     = len(df)
+
+    # ── หา pivot candidates จาก lookback หลายระดับ ──
+    _stage_rank = {'breakout': 0, 'ready': 1, 'handle': 2, 'forming': 3}
+    results     = []
+    seen_pivots = set()
+
+    for lookback in (200, 150, 100, 60):
+        lb = min(n - 1, lookback)
+        if lb < 30:
+            continue
+        seg        = df.iloc[n - lb:]
+        piv_val    = float(seg['High'].max())
+        piv_idx    = int(seg['High'].values.argmax())
+        piv_abs    = n - lb + piv_idx
+
+        if piv_abs >= n - 10:
+            continue
+        if piv_abs in seen_pivots:
+            continue
+        seen_pivots.add(piv_abs)
+
+        res = _test_cup_from_pivot(df, piv_abs, piv_val, dates, n)
+        if res is not None:
+            results.append(res)
+
+    if not results:
+        return None
+
+    # เลือก stage ดีที่สุด → confidence สูงสุด
+    results.sort(key=lambda r: (_stage_rank.get(r['stage'], 9), -r['confidence_score']))
+    return results[0]
+

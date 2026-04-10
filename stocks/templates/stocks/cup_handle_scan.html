@@ -1,0 +1,694 @@
+{% extends 'stocks/base_stocks.html' %}
+{% load humanize %}
+
+{% block title %}Cup & Handle Scanner — SET{% endblock %}
+{% block container_class %}container-fluid px-2 px-md-3{% endblock %}
+
+{% block content %}
+<div>
+
+<!-- ===== Header ===== -->
+<div class="row align-items-end mb-4">
+    <div class="col-md-8">
+        <h1 class="fw-bold mb-1" style="color:#d97706;">
+            <i class="fas fa-trophy me-2"></i> Cup &amp; Handle Scanner
+        </h1>
+        <p class="text-muted mb-0">
+            ตรวจหาหุ้นที่กำลัง form Cup &amp; Handle Pattern (William O'Neil — CAN SLIM)<br>
+            <span class="small">Liquidity ≥ 5M THB/วัน · Cup depth 12-40% · ย้อนหลัง 600 วัน</span>
+        </p>
+    </div>
+    <div class="col-md-4 text-md-end mt-3 mt-md-0 d-flex gap-2 justify-content-md-end">
+        <button class="btn btn-sm px-3 py-2 rounded-pill"
+                data-bs-toggle="collapse" data-bs-target="#userManual"
+                style="border:1px solid #d97706;color:#d97706;font-size:0.8rem;">
+            <i class="fas fa-book me-1"></i> คู่มือการใช้งาน
+        </button>
+        <a href="?scan=true" onclick="document.getElementById('loadingOverlay').style.display='flex'"
+           class="btn px-4 py-2 fw-semibold"
+           style="background:linear-gradient(135deg,#d97706,#b45309);color:white;border:none;border-radius:0.75rem;">
+            <i class="fas fa-search me-2"></i> Scan
+        </a>
+    </div>
+</div>
+
+<!-- ===== Loading Overlay ===== -->
+<div id="loadingOverlay" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,0.85);z-index:9999;flex-direction:column;align-items:center;justify-content:center;gap:1rem;">
+    <div class="spinner-border text-warning" style="width:3rem;height:3rem;"></div>
+    <div class="text-white fw-bold fs-5">กำลังสแกน Cup &amp; Handle...</div>
+    <div id="scanProgress" class="text-white-50 small">เริ่มต้น...</div>
+    <div style="width:320px;background:rgba(255,255,255,0.1);border-radius:999px;height:8px;">
+        <div id="scanBar" style="width:0%;height:100%;background:#d97706;border-radius:999px;transition:width 0.3s;"></div>
+    </div>
+</div>
+
+<!-- ===== User Manual ===== -->
+<div class="collapse mb-4" id="userManual">
+<div class="card border-0 shadow-sm rounded-4 overflow-hidden">
+    <div class="card-header border-0 py-3 px-4 fw-bold" style="background:linear-gradient(135deg,#1e293b,#0f172a);color:white;">
+        <i class="fas fa-book me-2" style="color:#d97706;"></i> คู่มือการใช้งาน Cup &amp; Handle Scanner
+    </div>
+    <div class="card-body p-4">
+        <div class="row g-4">
+
+            <!-- ส่วนที่ 1: Pattern คืออะไร -->
+            <div class="col-12">
+                <h6 class="fw-bold mb-3" style="color:#d97706;"><i class="fas fa-shapes me-2"></i>1. Cup &amp; Handle คืออะไร?</h6>
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <div class="p-3 rounded-3 h-100" style="background:#fffbeb;border:1px solid #fde68a;">
+                            <div class="fw-bold mb-2" style="color:#d97706;">☕ Cup (ถ้วย)</div>
+                            <p class="small text-secondary mb-0">ราคาย่อตัวลงแล้วฟื้นกลับในรูปทรง U — แสดงว่าสถาบันยังไม่ขาย และมีแรงซื้อรองรับที่ก้น Cup ความลึก <strong>20-30%</strong> คือ ideal</p>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="p-3 rounded-3 h-100" style="background:#eff6ff;border:1px solid #bfdbfe;">
+                            <div class="fw-bold mb-2" style="color:#2563eb;">🤏 Handle (ด้ามจับ)</div>
+                            <p class="small text-secondary mb-0">การย่อเล็กน้อยหลัง Cup ครบ — เป็นช่วงที่ผู้ถือหุ้นอ่อนมือขายออก ก่อนที่สถาบันจะดันราคาขึ้น Volume ควรแห้ง (VDU)</p>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="p-3 rounded-3 h-100" style="background:#f0fdf4;border:1px solid #bbf7d0;">
+                            <div class="fw-bold mb-2" style="color:#16a34a;">🚀 Breakout</div>
+                            <p class="small text-secondary mb-0">ราคาทะลุ pivot high (ขอบขวา Cup) พร้อม Volume สูง ≥ 1.5x — คือจุดซื้อจริง Target = Cup high + Cup depth</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ส่วนที่ 2: อธิบายหัวข้อตาราง -->
+            <div class="col-12">
+                <h6 class="fw-bold mb-3" style="color:#d97706;"><i class="fas fa-table me-2"></i>2. อธิบายแต่ละหัวข้อในตาราง</h6>
+                <div class="row g-2 small">
+
+                    <div class="col-md-6">
+                        <div class="p-3 rounded-3" style="background:#f8fafc;border:1px solid #e2e8f0;">
+                            <div class="fw-bold text-dark mb-1">📊 Stage — สถานะ Pattern</div>
+                            <div class="text-secondary">
+                                <div class="mb-1"><span class="badge me-1" style="background:#f1f5f9;color:#64748b;">🔄 Forming</span> กำลัง form Cup ยังไม่ครบ → <strong>ใส่ Watchlist รอ</strong></div>
+                                <div class="mb-1"><span class="badge me-1" style="background:#fef3c7;color:#d97706;">⏳ Handle</span> Cup ครบ กำลัง form Handle → <strong>เฝ้าดูใกล้ชิด</strong></div>
+                                <div class="mb-1"><span class="badge me-1" style="background:#dbeafe;color:#1d4ed8;">✅ Ready</span> Handle ครบ รอ Breakout → <strong>เตรียมเงิน วาง Alert</strong></div>
+                                <div><span class="badge me-1" style="background:#dcfce7;color:#15803d;">🚀 Breakout</span> ราคาทะลุ pivot high → <strong>พิจารณาซื้อ</strong></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-md-6">
+                        <div class="p-3 rounded-3" style="background:#f8fafc;border:1px solid #e2e8f0;">
+                            <div class="fw-bold text-dark mb-1">💰 Breakout Price — ราคา Breakout</div>
+                            <p class="text-secondary mb-0">คือ pivot high หรือขอบขวาของ Cup — ราคาที่ต้องทะลุขึ้น <strong>พร้อม Volume สูง</strong> ถึงจะถือว่า Breakout จริง ห้ามซื้อก่อนราคาถึงจุดนี้</p>
+                        </div>
+                    </div>
+
+                    <div class="col-md-6">
+                        <div class="p-3 rounded-3" style="background:#f8fafc;border:1px solid #e2e8f0;">
+                            <div class="fw-bold text-dark mb-1">🎯 Target — เป้าหมายกำไร</div>
+                            <p class="text-secondary mb-0">คำนวณจาก: <code>Breakout Price + Cup Depth (บาท)</code><br>
+                            ตัวอย่าง: Cup high 200, Cup ลึก 20% (40 บาท) → Target = 240<br>
+                            <span class="text-warning">แนะนำทำกำไร 50% ที่ Conservative target ก่อน</span></p>
+                        </div>
+                    </div>
+
+                    <div class="col-md-6">
+                        <div class="p-3 rounded-3" style="background:#f8fafc;border:1px solid #e2e8f0;">
+                            <div class="fw-bold text-dark mb-1">🛡️ Stop Loss — จุดตัดขาดทุน</div>
+                            <p class="text-secondary mb-0">อยู่ใต้ Handle low เล็กน้อย — ถ้าราคาหลุดตรงนี้แสดงว่า pattern ล้มเหลว ต้องตัดขาดทุนทันที ไม่รอ <strong>Minervini rule: SL ≤ 7-8% จาก entry</strong></p>
+                        </div>
+                    </div>
+
+                    <div class="col-md-6">
+                        <div class="p-3 rounded-3" style="background:#f8fafc;border:1px solid #e2e8f0;">
+                            <div class="fw-bold text-dark mb-1">⚖️ R:R — Risk/Reward Ratio</div>
+                            <p class="text-secondary mb-0">คำนวณจาก <strong>Entry = Breakout Price</strong><br>
+                            <code>Risk = Breakout - Stop Loss</code><br>
+                            <code>Reward = Target - Breakout</code><br>
+                            R:R ที่ดี ≥ 1:2 | ตัวเลขสมจริงกว่าการใช้ราคาปัจจุบัน</p>
+                        </div>
+                    </div>
+
+                    <div class="col-md-6">
+                        <div class="p-3 rounded-3" style="background:#f8fafc;border:1px solid #e2e8f0;">
+                            <div class="fw-bold text-dark mb-1">📐 Cup Depth — ความลึก Cup</div>
+                            <p class="text-secondary mb-0">% ที่ราคาย่อลงจาก pivot high ถึงก้น Cup<br>
+                            <span class="text-success fw-bold">20-30% = Ideal</span> (ไม่ลึกเกิน ไม่ตื้นเกิน)<br>
+                            &lt;15% = ตื้นเกิน อาจไม่ใช่ pattern จริง<br>
+                            &gt;35% = ลึกเกิน ความเสี่ยงสูง</p>
+                        </div>
+                    </div>
+
+                    <div class="col-md-6">
+                        <div class="p-3 rounded-3" style="background:#f8fafc;border:1px solid #e2e8f0;">
+                            <div class="fw-bold text-dark mb-1">📅 Cup (วัน) — ความยาว Cup</div>
+                            <p class="text-secondary mb-0">จำนวนวันที่ใช้ form Cup<br>
+                            <span class="text-success fw-bold">≥ 35 วัน = Ideal</span> (สถาบันสะสมมาก)<br>
+                            25-34 วัน = พอใช้<br>
+                            &lt;25 วัน = สั้นเกิน ระวัง false pattern</p>
+                        </div>
+                    </div>
+
+                    <div class="col-md-6">
+                        <div class="p-3 rounded-3" style="background:#f8fafc;border:1px solid #e2e8f0;">
+                            <div class="fw-bold text-dark mb-1">🤏 Handle Depth — ความลึก Handle</div>
+                            <p class="text-secondary mb-0">% ที่ราคาย่อลงระหว่าง form Handle<br>
+                            <span class="text-success fw-bold">≤ 10% = Ideal</span><br>
+                            10-15% = พอใช้<br>
+                            &gt;15% = ลึกเกิน สัญญาณอ่อนลง<br>
+                            — = Handle ยังไม่ครบ</p>
+                        </div>
+                    </div>
+
+                    <div class="col-md-6">
+                        <div class="p-3 rounded-3" style="background:#f8fafc;border:1px solid #e2e8f0;">
+                            <div class="fw-bold text-dark mb-1">🎯 Confidence — ความน่าเชื่อถือ</div>
+                            <p class="text-secondary mb-0">คะแนน 0-100 รวมจาก: Cup depth ideal + Cup length + Handle quality + Volume pattern + R:R + EMA200<br>
+                            <span class="text-success fw-bold">≥ 75 = ดี</span> |
+                            <span class="text-warning fw-bold">55-74 = พอใช้</span> |
+                            <span class="text-muted">&lt;55 = อ่อน</span></p>
+                        </div>
+                    </div>
+
+                    <div class="col-md-6">
+                        <div class="p-3 rounded-3" style="background:#f8fafc;border:1px solid #e2e8f0;">
+                            <div class="fw-bold text-dark mb-1">🔔 Signals — สัญญาณเสริม</div>
+                            <p class="text-secondary mb-0">
+                            <span class="badge me-1" style="background:#dcfce7;color:#15803d;">Vol↓Cup</span> Volume ลดตอนก้น Cup = สถาบันไม่ขาย ✓<br>
+                            <span class="badge me-1" style="background:#dbeafe;color:#1d4ed8;">VDU</span> Volume แห้งใน Handle = เตรียม breakout ✓<br>
+                            <span class="badge me-1" style="background:#fef3c7;color:#d97706;">RS80</span> RS Rating — ยิ่งสูงยิ่งดี (≥70 = แข็งแกร่ง)</p>
+                        </div>
+                    </div>
+
+                    <div class="col-md-6">
+                        <div class="p-3 rounded-3" style="background:#f8fafc;border:1px solid #e2e8f0;">
+                            <div class="fw-bold text-dark mb-1">📈 ADX / RSI</div>
+                            <p class="text-secondary mb-0">
+                            <strong>ADX</strong> = ความแข็งแกร่งของ trend | ≥15 = มี trend พอ | ≥25 = trend แข็งแกร่ง<br>
+                            <strong>RSI</strong> = momentum | 40-70 = zone ที่ดีสำหรับ setup | &gt;80 = overbought ระวัง</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ส่วนที่ 3: วิธีใช้ทีละขั้น -->
+            <div class="col-12">
+                <h6 class="fw-bold mb-3" style="color:#d97706;"><i class="fas fa-list-ol me-2"></i>3. วิธีใช้งานทีละขั้นตอน</h6>
+                <div class="row g-2">
+                    {% for step, desc, color in steps_placeholder %}{% endfor %}
+                </div>
+                <div class="d-flex flex-column gap-2 small">
+                    <div class="d-flex gap-3 p-3 rounded-3 align-items-start" style="background:#f0fdf4;border:1px solid #bbf7d0;">
+                        <span class="rounded-circle fw-bold text-white d-flex align-items-center justify-content-center flex-shrink-0" style="width:28px;height:28px;background:#16a34a;font-size:0.8rem;">1</span>
+                        <div><strong>กด Scan</strong> — ระบบสแกนทุกหุ้นใน SET ใช้เวลา 2-5 นาที ระหว่างรอดูแถบ progress</div>
+                    </div>
+                    <div class="d-flex gap-3 p-3 rounded-3 align-items-start" style="background:#eff6ff;border:1px solid #bfdbfe;">
+                        <span class="rounded-circle fw-bold text-white d-flex align-items-center justify-content-center flex-shrink-0" style="width:28px;height:28px;background:#2563eb;font-size:0.8rem;">2</span>
+                        <div><strong>ดู Stage ก่อน</strong> — เน้นดู <strong>Ready</strong> และ <strong>Breakout</strong> เป็นหลัก Forming/Handle ใส่ Watchlist รอ</div>
+                    </div>
+                    <div class="d-flex gap-3 p-3 rounded-3 align-items-start" style="background:#fffbeb;border:1px solid #fde68a;">
+                        <span class="rounded-circle fw-bold text-white d-flex align-items-center justify-content-center flex-shrink-0" style="width:28px;height:28px;background:#d97706;font-size:0.8rem;">3</span>
+                        <div><strong>กรอง Quality</strong> — เลือกหุ้นที่มี Confidence ≥ 70 + Cup Depth 20-30% + มี Signal VDU หรือ Vol↓Cup</div>
+                    </div>
+                    <div class="d-flex gap-3 p-3 rounded-3 align-items-start" style="background:#fdf4ff;border:1px solid #e9d5ff;">
+                        <span class="rounded-circle fw-bold text-white d-flex align-items-center justify-content-center flex-shrink-0" style="width:28px;height:28px;background:#7c3aed;font-size:0.8rem;">4</span>
+                        <div><strong>ตรวจ R:R</strong> — ตัวเลขในตารางคำนวณจาก <code>Entry = Breakout Price</code> แล้ว เลือกหุ้นที่มี R:R ≥ 1:2 ขึ้นไป</div>
+                    </div>
+                    <div class="d-flex gap-3 p-3 rounded-3 align-items-start" style="background:#fff7ed;border:1px solid #fed7aa;">
+                        <span class="rounded-circle fw-bold text-white d-flex align-items-center justify-content-center flex-shrink-0" style="width:28px;height:28px;background:#ea580c;font-size:0.8rem;">5</span>
+                        <div><strong>รอ Breakout จริง</strong> — ซื้อเมื่อราคาทะลุ Breakout Price <strong>พร้อม Volume ≥ 1.5x average</strong> ในวันเดียวกัน ถ้า Volume ไม่ขึ้นอย่าเพิ่งซื้อ</div>
+                    </div>
+                    <div class="d-flex gap-3 p-3 rounded-3 align-items-start" style="background:#fff1f2;border:1px solid #fecdd3;">
+                        <span class="rounded-circle fw-bold text-white d-flex align-items-center justify-content-center flex-shrink-0" style="width:28px;height:28px;background:#dc2626;font-size:0.8rem;">6</span>
+                        <div><strong>วาง Stop Loss ทันที</strong> — หลังซื้อต้องวาง SL ที่ Handle low ทันที ถ้าราคาหลุด SL ตัดขาดทุนไม่รอ</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ส่วนที่ 4: เกณฑ์ที่ดี -->
+            <div class="col-12">
+                <h6 class="fw-bold mb-3" style="color:#d97706;"><i class="fas fa-star me-2"></i>4. เกณฑ์ Setup ที่ดี (Ideal)</h6>
+                <div class="row g-2 small">
+                    <div class="col-md-6">
+                        <div class="p-3 rounded-3" style="background:#f0fdf4;border:1px solid #bbf7d0;">
+                            <div class="fw-bold text-success mb-2">✅ ดีมาก (ควรสนใจ)</div>
+                            <ul class="text-secondary mb-0 ps-3">
+                                <li>Cup Depth 20-30%</li>
+                                <li>Cup ≥ 35 วัน</li>
+                                <li>Handle Depth ≤ 10%</li>
+                                <li>มี VDU ใน Handle</li>
+                                <li>มี Vol↓Cup</li>
+                                <li>Confidence ≥ 75</li>
+                                <li>RS ≥ 70</li>
+                                <li>ADX ≥ 15</li>
+                                <li>R:R จริง ≥ 1:2</li>
+                            </ul>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="p-3 rounded-3" style="background:#fff1f2;border:1px solid #fecdd3;">
+                            <div class="fw-bold text-danger mb-2">❌ ระวัง / หลีกเลี่ยง</div>
+                            <ul class="text-secondary mb-0 ps-3">
+                                <li>Cup &lt; 25 วัน (V-shape)</li>
+                                <li>Cup Depth &gt; 40% (ลึกเกิน)</li>
+                                <li>Handle ลงต่ำกว่ากลาง Cup</li>
+                                <li>Handle Depth &gt; 15%</li>
+                                <li>Breakout ไม่มี Volume</li>
+                                <li>ADX &lt; 10 (ไม่มี trend)</li>
+                                <li>RSI &gt; 80 ตอน Breakout</li>
+                                <li>ตลาดโดยรวมอยู่ใน Downtrend</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+</div>
+
+{% if not has_scanned %}
+<!-- ===== Empty State ===== -->
+<div class="row">
+    <div class="col-12 text-center py-5">
+        <i class="fas fa-trophy fa-4x mb-3" style="color:#e5e7eb;"></i>
+        <h4 class="text-muted fw-semibold">ยังไม่มีผลสแกน</h4>
+        <p class="text-muted small">กด "Scan" เพื่อเริ่มค้นหา Cup &amp; Handle Pattern ในตลาด SET</p>
+        <a href="?scan=true" onclick="document.getElementById('loadingOverlay').style.display='flex'"
+           class="btn px-4 py-2 fw-semibold mt-2"
+           style="background:linear-gradient(135deg,#d97706,#b45309);color:white;border:none;border-radius:0.75rem;">
+            <i class="fas fa-search me-2"></i> เริ่มสแกน
+        </a>
+    </div>
+</div>
+
+{% else %}
+
+<!-- ===== Run History ===== -->
+{% if all_runs|length > 1 %}
+<div class="mb-3 d-flex align-items-center gap-2 flex-wrap">
+    <span class="small text-muted fw-semibold"><i class="fas fa-history me-1"></i> ประวัติ Scan:</span>
+    {% for run in all_runs %}
+    <a href="?run_idx={{ forloop.counter0 }}&sort={{ current_sort }}"
+       class="badge rounded-pill text-decoration-none px-3 py-2 {% if forloop.counter0 == selected_run_idx %}text-white{% else %}bg-light border text-muted{% endif %}"
+       style="{% if forloop.counter0 == selected_run_idx %}background:#d97706;{% endif %}font-size:0.72rem;">
+        {{ run|date:"d M H:i" }}
+    </a>
+    {% endfor %}
+</div>
+{% endif %}
+
+<!-- ===== Summary Stats ===== -->
+<div class="row g-3 mb-4">
+    <div class="col-6 col-md-3">
+        <div class="card border-0 shadow-sm rounded-4 p-3 text-center">
+            <div class="fw-bold fs-3" style="color:#16a34a;">{{ stage_counts.breakout }}</div>
+            <div class="small text-muted">🚀 Breakout</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card border-0 shadow-sm rounded-4 p-3 text-center">
+            <div class="fw-bold fs-3" style="color:#2563eb;">{{ stage_counts.ready }}</div>
+            <div class="small text-muted">✅ Ready to Break</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card border-0 shadow-sm rounded-4 p-3 text-center">
+            <div class="fw-bold fs-3" style="color:#d97706;">{{ stage_counts.handle }}</div>
+            <div class="small text-muted">⏳ Handle Forming</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card border-0 shadow-sm rounded-4 p-3 text-center">
+            <div class="fw-bold fs-3" style="color:#64748b;">{{ stage_counts.forming }}</div>
+            <div class="small text-muted">🔄 Cup Forming</div>
+        </div>
+    </div>
+</div>
+
+<!-- ===== Results Table ===== -->
+<div class="card border-0 shadow-sm rounded-4 overflow-hidden">
+    <div class="card-header border-0 py-3 px-4 d-flex align-items-center justify-content-between flex-wrap gap-2"
+         style="background:linear-gradient(135deg,#fffbeb,#fef3c7);">
+        <div>
+            <span class="fw-bold" style="color:#d97706;"><i class="fas fa-trophy me-2"></i>ผลสแกน Cup &amp; Handle</span>
+            <span class="badge rounded-pill ms-2" style="background:#d97706;font-size:0.7rem;">{{ candidates|length }} หุ้น</span>
+        </div>
+        <div class="d-flex gap-2 small">
+            <a href="?sort=confidence&run_idx={{ selected_run_idx }}" class="btn btn-sm rounded-pill {% if current_sort == 'confidence' %}btn-warning{% else %}btn-outline-secondary{% endif %}">Confidence</a>
+            <a href="?sort=rr&run_idx={{ selected_run_idx }}" class="btn btn-sm rounded-pill {% if current_sort == 'rr' %}btn-warning{% else %}btn-outline-secondary{% endif %}">R:R</a>
+            <a href="?sort=depth&run_idx={{ selected_run_idx }}" class="btn btn-sm rounded-pill {% if current_sort == 'depth' %}btn-warning{% else %}btn-outline-secondary{% endif %}">Depth</a>
+        </div>
+    </div>
+
+    {% if candidates %}
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0 small" id="cupHandleTable">
+            <thead style="background:#fefce8;font-size:0.72rem;color:#78716c;">
+                <tr>
+                    <th class="ps-3">หุ้น</th>
+                    <th>
+                        Stage
+                        <i class="fas fa-info-circle ms-1 text-muted" style="cursor:pointer;"
+                           data-bs-toggle="tooltip" title="สถานะของ Pattern: Forming=กำลัง form Cup, Handle=กำลัง form Handle, Ready=รอ Breakout, Breakout=ทะลุแล้ว"></i>
+                    </th>
+                    <th class="text-end">ราคา</th>
+                    <th class="text-end">
+                        Breakout
+                        <i class="fas fa-info-circle ms-1 text-muted" style="cursor:pointer;"
+                           data-bs-toggle="tooltip" title="ราคาที่ต้องทะลุขึ้นพร้อม Volume สูง = จุดซื้อจริง (= pivot high / ขอบขวา Cup)"></i>
+                    </th>
+                    <th class="text-end">
+                        Target
+                        <i class="fas fa-info-circle ms-1 text-muted" style="cursor:pointer;"
+                           data-bs-toggle="tooltip" title="เป้าหมายกำไร = Breakout Price + Cup Depth (บาท)"></i>
+                    </th>
+                    <th class="text-end">
+                        Stop Loss
+                        <i class="fas fa-info-circle ms-1 text-muted" style="cursor:pointer;"
+                           data-bs-toggle="tooltip" title="จุดตัดขาดทุน = ใต้ Handle low — ถ้าราคาหลุดตรงนี้ต้องขายทันที"></i>
+                    </th>
+                    <th class="text-end">
+                        R:R
+                        <i class="fas fa-info-circle ms-1 text-muted" style="cursor:pointer;"
+                           data-bs-toggle="tooltip" title="Risk/Reward คำนวณจาก Entry = Breakout Price | Risk = Breakout - Stop Loss | Reward = Target - Breakout | ≥1:2 = ดี"></i>
+                    </th>
+                    <th class="text-end">
+                        Cup Depth
+                        <i class="fas fa-info-circle ms-1 text-muted" style="cursor:pointer;"
+                           data-bs-toggle="tooltip" title="ความลึก Cup เป็น % | Ideal: 20-30% | ลึกเกิน 40% = ระวัง"></i>
+                    </th>
+                    <th class="text-end">
+                        Cup (วัน)
+                        <i class="fas fa-info-circle ms-1 text-muted" style="cursor:pointer;"
+                           data-bs-toggle="tooltip" title="จำนวนวันที่ใช้ form Cup | Ideal: ≥35 วัน | ยิ่งนานยิ่งแข็งแกร่ง"></i>
+                    </th>
+                    <th class="text-end">
+                        Handle Depth
+                        <i class="fas fa-info-circle ms-1 text-muted" style="cursor:pointer;"
+                           data-bs-toggle="tooltip" title="ความลึก Handle เป็น % | Ideal: ≤10% | — = Handle ยังไม่ครบ"></i>
+                    </th>
+                    <th class="text-end">
+                        Confidence
+                        <i class="fas fa-info-circle ms-1 text-muted" style="cursor:pointer;"
+                           data-bs-toggle="tooltip" title="คะแนนความน่าเชื่อถือ 0-100 รวมจาก: Cup depth + Cup length + Handle quality + Volume + R:R + EMA200"></i>
+                    </th>
+                    <th class="text-center">
+                        Signals
+                        <i class="fas fa-info-circle ms-1 text-muted" style="cursor:pointer;"
+                           data-bs-toggle="tooltip" title="Vol↓Cup = Volume ลดในCup (ดี) | VDU = Volume แห้งใน Handle (ดี) | RS = Relative Strength Rating"></i>
+                    </th>
+                    <th class="text-end pe-3">
+                        ADX / RSI
+                        <i class="fas fa-info-circle ms-1 text-muted" style="cursor:pointer;"
+                           data-bs-toggle="tooltip" title="ADX = ความแข็งแกร่ง trend (≥15 พอใช้ ≥25 ดี) | RSI = momentum (40-70 = zone ที่ดี)"></i>
+                    </th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for item in candidates %}
+            <tr class="ch-popover-row" style="cursor:pointer;"
+                data-symbol="{{ item.symbol }}"
+                data-stage="{{ item.stage }}"
+                data-price="{{ item.price }}"
+                data-pivot="{{ item.cup_high }}"
+                data-cup-low="{{ item.cup_low }}"
+                data-cup-depth="{{ item.cup_depth_pct }}"
+                data-cup-length="{{ item.cup_length_days }}"
+                data-handle-depth="{{ item.handle_depth_pct }}"
+                data-handle-length="{{ item.handle_length_days }}"
+                data-breakout="{{ item.breakout_price }}"
+                data-target="{{ item.target_price }}"
+                data-stop="{{ item.stop_loss }}"
+                data-rr="{{ item.risk_reward }}"
+                data-confidence="{{ item.confidence_score }}"
+                data-adx="{{ item.adx }}"
+                data-rsi="{{ item.rsi }}"
+                data-vol-cup="{% if item.cup_vol_confirmed %}1{% else %}0{% endif %}"
+                data-vdu="{% if item.handle_vol_dry %}1{% else %}0{% endif %}"
+                data-rs="{{ item.rs_rating }}">
+                <td class="ps-3">
+                    <div class="fw-bold" style="color:#1e293b;">{{ item.symbol }}</div>
+                    <div class="text-muted" style="font-size:0.65rem;">฿{{ item.price|floatformat:2 }}</div>
+                </td>
+                <td>
+                    {% if item.stage == 'breakout' %}
+                        <span class="badge px-2 py-1 rounded-pill" style="background:#dcfce7;color:#15803d;font-size:0.68rem;">🚀 Breakout</span>
+                    {% elif item.stage == 'ready' %}
+                        <span class="badge px-2 py-1 rounded-pill" style="background:#dbeafe;color:#1d4ed8;font-size:0.68rem;">✅ Ready</span>
+                    {% elif item.stage == 'handle' %}
+                        <span class="badge px-2 py-1 rounded-pill" style="background:#fef3c7;color:#d97706;font-size:0.68rem;">⏳ Handle</span>
+                    {% else %}
+                        <span class="badge px-2 py-1 rounded-pill" style="background:#f1f5f9;color:#64748b;font-size:0.68rem;">🔄 Forming</span>
+                    {% endif %}
+                </td>
+                <td class="text-end">฿{{ item.price|floatformat:2 }}</td>
+                <td class="text-end fw-semibold" style="color:#d97706;">฿{{ item.breakout_price|floatformat:2 }}</td>
+                <td class="text-end" style="color:#16a34a;">฿{{ item.target_price|floatformat:2 }}</td>
+                <td class="text-end" style="color:#dc2626;">฿{{ item.stop_loss|floatformat:2 }}</td>
+                <td class="text-end">
+                    {% if item.risk_reward >= 2 %}
+                        <span class="fw-bold" style="color:#16a34a;">1:{{ item.risk_reward|floatformat:1 }}</span>
+                    {% elif item.risk_reward >= 1.5 %}
+                        <span style="color:#d97706;">1:{{ item.risk_reward|floatformat:1 }}</span>
+                    {% else %}
+                        <span class="text-muted">1:{{ item.risk_reward|floatformat:1 }}</span>
+                    {% endif %}
+                </td>
+                <td class="text-end">
+                    <span class="{% if 20 <= item.cup_depth_pct <= 30 %}fw-bold text-success{% elif item.cup_depth_pct > 35 %}text-danger{% else %}text-muted{% endif %}">
+                        {{ item.cup_depth_pct|floatformat:1 }}%
+                    </span>
+                </td>
+                <td class="text-end">
+                    <span class="{% if item.cup_length_days >= 35 %}text-success{% elif item.cup_length_days >= 25 %}text-warning{% else %}text-danger{% endif %}">
+                        {{ item.cup_length_days }}d
+                    </span>
+                </td>
+                <td class="text-end">
+                    {% if item.handle_depth_pct > 0 %}
+                        <span class="{% if item.handle_depth_pct <= 10 %}text-success{% elif item.handle_depth_pct <= 15 %}text-warning{% else %}text-danger{% endif %}">
+                            {{ item.handle_depth_pct|floatformat:1 }}%
+                        </span>
+                    {% else %}
+                        <span class="text-muted">—</span>
+                    {% endif %}
+                </td>
+                <td class="text-end">
+                    <span class="fw-bold {% if item.confidence_score >= 75 %}text-success{% elif item.confidence_score >= 55 %}text-warning{% else %}text-muted{% endif %}">
+                        {{ item.confidence_score }}
+                    </span>
+                </td>
+                <td class="text-center">
+                    <div class="d-flex gap-1 justify-content-center flex-wrap">
+                        {% if item.cup_vol_confirmed %}
+                        <span class="badge px-1" style="background:#dcfce7;color:#15803d;font-size:0.6rem;" title="Volume ลดลงใน Cup = สถาบันไม่ขาย">Vol↓Cup</span>
+                        {% endif %}
+                        {% if item.handle_vol_dry %}
+                        <span class="badge px-1" style="background:#dbeafe;color:#1d4ed8;font-size:0.6rem;" title="Volume แห้งใน Handle = เตรียม Breakout">VDU</span>
+                        {% endif %}
+                        {% if item.rs_rating >= 70 %}
+                        <span class="badge px-1" style="background:#fef3c7;color:#d97706;font-size:0.6rem;" title="RS Rating — outperform กลุ่ม">RS{{ item.rs_rating }}</span>
+                        {% endif %}
+                    </div>
+                </td>
+                <td class="text-end pe-3">
+                    <span class="{% if item.adx >= 25 %}text-success{% elif item.adx >= 15 %}text-warning{% else %}text-danger{% endif %}">ADX {{ item.adx|floatformat:0 }}</span>
+                    <span class="text-muted"> / </span>
+                    <span class="{% if 40 <= item.rsi <= 70 %}text-success{% elif item.rsi > 80 %}text-danger{% else %}text-muted{% endif %}">RSI {{ item.rsi|floatformat:0 }}</span>
+                </td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="text-center py-5 text-muted">
+        <i class="fas fa-search fa-3x mb-3 opacity-25"></i>
+        <p>ไม่พบ Cup &amp; Handle Pattern ในรอบสแกนนี้</p>
+    </div>
+    {% endif %}
+</div>
+
+{% endif %}
+</div>
+
+<!-- ===== Progress Polling ===== -->
+<script>
+(function() {
+    var overlay = document.getElementById('loadingOverlay');
+    var bar     = document.getElementById('scanBar');
+    var prog    = document.getElementById('scanProgress');
+
+    function checkStatus() {
+        fetch('?scan_status=1')
+            .then(r => r.json())
+            .then(data => {
+                if (data.state === 'running') {
+                    overlay.style.display = 'flex';
+                    var pct = data.total > 0 ? Math.round(data.progress / data.total * 100) : 0;
+                    bar.style.width  = pct + '%';
+                    prog.textContent = data.phase || ('สแกน ' + data.progress + '/' + data.total);
+                    setTimeout(checkStatus, 1500);
+                } else if (data.state === 'done') {
+                    overlay.style.display = 'none';
+                    window.location.reload();
+                } else {
+                    overlay.style.display = 'none';
+                }
+            })
+            .catch(() => { overlay.style.display = 'none'; });
+    }
+
+    if (overlay && overlay.style.display === 'flex') {
+        setTimeout(checkStatus, 1000);
+    } else {
+        fetch('?scan_status=1')
+            .then(r => r.json())
+            .then(data => {
+                if (data.state === 'running') {
+                    overlay.style.display = 'flex';
+                    checkStatus();
+                }
+            }).catch(() => {});
+    }
+
+    // Bootstrap tooltips are initialized in the popover script below
+})();
+</script>
+
+<!-- ===== Cup & Handle Row Popover ===== -->
+<style>
+.ch-popover-row:hover { background: rgba(217,119,6,0.06) !important; }
+
+/* Dark popover — force above all layers */
+.popover.ch-dark { background:#0f172a; border:1px solid #334155; max-width:360px; z-index:10000 !important; }
+.popover.ch-dark .popover-header { background:#1e293b; color:#f1f5f9; border-bottom:1px solid #334155; font-size:0.78rem; padding:8px 12px; }
+.popover.ch-dark .popover-body { padding:10px 12px; color:#e2e8f0; }
+
+/* Arrow all directions */
+.popover.ch-dark.bs-popover-end   .popover-arrow::before { border-right-color:#334155 !important; }
+.popover.ch-dark.bs-popover-end   .popover-arrow::after  { border-right-color:#0f172a !important; }
+.popover.ch-dark.bs-popover-start .popover-arrow::before { border-left-color:#334155 !important; }
+.popover.ch-dark.bs-popover-start .popover-arrow::after  { border-left-color:#0f172a !important; }
+.popover.ch-dark.bs-popover-top   .popover-arrow::before { border-top-color:#334155 !important; }
+.popover.ch-dark.bs-popover-top   .popover-arrow::after  { border-top-color:#0f172a !important; }
+.popover.ch-dark.bs-popover-bottom .popover-arrow::before{ border-bottom-color:#334155 !important; }
+.popover.ch-dark.bs-popover-bottom .popover-arrow::after { border-bottom-color:#0f172a !important; }
+
+/* Prevent table-responsive from clipping popovers */
+.table-responsive { overflow: visible !important; }
+
+.ch-val-table { width:100%; border-collapse:collapse; margin-bottom:8px; font-size:0.71rem; }
+.ch-val-table tr { border-bottom:1px solid #1e293b; }
+.ch-val-table td { padding:3px 5px; vertical-align:top; color:#e2e8f0; }
+.ch-section { font-size:0.7rem; margin-bottom:5px; line-height:1.5; }
+.ch-action { background:#1e293b; border-radius:5px; padding:5px 8px; font-size:0.71rem; color:#f1f5f9; margin-top:6px; }
+
+/* Tooltip header icons - ensure they appear above table */
+.tooltip { z-index:10001 !important; }
+</style>
+
+<script>
+(function() {
+    function fmtN(v, d) { return parseFloat(v).toFixed(d || 2); }
+
+    function buildContent(row) {
+        var sym     = row.dataset.symbol;
+        var stage   = row.dataset.stage;
+        var price   = parseFloat(row.dataset.price);
+        var pivot   = parseFloat(row.dataset.pivot);
+        var cupLow  = parseFloat(row.dataset.cupLow);
+        var depth   = parseFloat(row.dataset.cupDepth);
+        var cupLen  = parseInt(row.dataset.cupLength);
+        var hDepth  = parseFloat(row.dataset.handleDepth);
+        var hLen    = parseInt(row.dataset.handleLength);
+        var bo      = parseFloat(row.dataset.breakout);
+        var tgt     = parseFloat(row.dataset.target);
+        var sl      = parseFloat(row.dataset.stop);
+        var rr      = parseFloat(row.dataset.rr);
+        var conf    = parseInt(row.dataset.confidence);
+        var adx     = parseFloat(row.dataset.adx);
+        var rsi     = parseFloat(row.dataset.rsi);
+        var volCup  = row.dataset.volCup === '1';
+        var vdu     = row.dataset.vdu === '1';
+        var rs      = parseInt(row.dataset.rs);
+
+        var distPct = ((bo - price) / price * 100).toFixed(1);
+        var tgtPct  = ((tgt - bo) / bo * 100).toFixed(1);
+
+        var depthColor  = (depth>=20&&depth<=30) ? '#22c55e' : (depth>35 ? '#ef4444' : '#f59e0b');
+        var depthNote   = (depth>=20&&depth<=30) ? 'Ideal ✅' : (depth>35 ? 'ลึกเกิน ⚠️' : (depth<15 ? 'ตื้นเกิน' : 'พอใช้'));
+        var lenColor    = cupLen>=35 ? '#22c55e' : (cupLen>=25 ? '#f59e0b' : '#ef4444');
+        var lenNote     = cupLen>=50 ? 'Ideal ✅' : (cupLen>=35 ? 'ดี' : 'สั้น');
+        var handleStr   = hLen > 0 ? (hLen + ' วัน (depth ' + fmtN(hDepth,1) + '%)') : 'ยังไม่ก่อตัว';
+        var hDepthColor = hDepth<=10 ? '#22c55e' : (hDepth<=15 ? '#f59e0b' : '#ef4444');
+
+        // ข้อดี / ข้อควรระวัง
+        var goods = [], warns = [];
+        if (depth>=20 && depth<=30) goods.push('Cup Depth ' + fmtN(depth,1) + '% อยู่ใน ideal zone');
+        else if (depth < 15) warns.push('Cup Depth ' + fmtN(depth,1) + '% ตื้นเกิน');
+        else if (depth > 35) warns.push('Cup Depth ' + fmtN(depth,1) + '% ลึกเกิน ระวัง');
+        if (cupLen >= 50) goods.push('Cup ' + cupLen + ' วัน = accumulation นาน');
+        else if (cupLen >= 35) goods.push('Cup ' + cupLen + ' วัน ดี');
+        else warns.push('Cup ' + cupLen + ' วัน ค่อนข้างสั้น');
+        if (volCup) goods.push('Volume ลดใน cup = สถาบันไม่ขาย');
+        if (vdu) goods.push('Volume แห้งใน Handle (VDU) ✅');
+        if (rs >= 70) goods.push('RS ' + rs + ' — outperform กลุ่ม');
+        if (adx >= 25) goods.push('ADX ' + fmtN(adx,0) + ' trend แข็งแกร่ง');
+        else if (adx < 10) warns.push('ADX ' + fmtN(adx,0) + ' ไม่มี trend');
+        if (hLen > 0 && hDepth <= 10) goods.push('Handle ตื้น ' + fmtN(hDepth,1) + '% ✅');
+        else if (hDepth > 15) warns.push('Handle ลึก ' + fmtN(hDepth,1) + '%');
+        if (parseFloat(distPct) > 20) warns.push('ห่าง Breakout ' + distPct + '% — รอนาน');
+        if (rsi > 75) warns.push('RSI ' + fmtN(rsi,0) + ' ใกล้ Overbought');
+        if (conf >= 75) goods.push('Confidence ' + conf + ' สูง ✅');
+
+        // Action
+        var action = '';
+        if (stage==='breakout') action = '🚀 พิจารณาซื้อ — ทะลุแล้ว ตรวจ Volume';
+        else if (stage==='ready') action = '🎯 เตรียมเงิน วาง Alert ที่ ฿' + fmtN(bo,2);
+        else if (stage==='handle') action = '👀 เฝ้าดู Handle — วาง Alert ฿' + fmtN(bo,2);
+        else action = '📋 Watchlist — รอ Cup สมบูรณ์';
+
+        var goodsHtml = goods.length ? '<div class="ch-section" style="color:#86efac;"><strong style="color:#22c55e;">ข้อดี</strong><br>' + goods.map(function(g){return '• '+g;}).join('<br>') + '</div>' : '';
+        var warnsHtml = warns.length ? '<div class="ch-section" style="color:#fde68a;"><strong style="color:#f59e0b;">ข้อควรระวัง</strong><br>' + warns.map(function(w){return '• '+w;}).join('<br>') + '</div>' : '';
+
+        return '<table class="ch-val-table">'
+            + '<tr><td style="color:#94a3b8;">Pivot High</td><td style="color:#f59e0b;font-weight:600;">฿'+fmtN(pivot,2)+'</td><td style="color:#64748b;">ขอบซ้าย cup</td></tr>'
+            + '<tr><td style="color:#94a3b8;">Cup Low</td><td style="color:#ef4444;font-weight:600;">฿'+fmtN(cupLow,2)+'</td><td style="color:#64748b;">ก้น cup</td></tr>'
+            + '<tr><td style="color:#94a3b8;">Cup Depth</td><td style="color:'+depthColor+';font-weight:600;">'+fmtN(depth,1)+'%</td><td style="color:#64748b;">'+depthNote+'</td></tr>'
+            + '<tr><td style="color:#94a3b8;">Cup Length</td><td style="color:'+lenColor+';font-weight:600;">'+cupLen+' วัน</td><td style="color:#64748b;">'+lenNote+'</td></tr>'
+            + '<tr><td style="color:#94a3b8;">Handle</td><td style="color:#e2e8f0;font-weight:600;">'+handleStr+'</td><td></td></tr>'
+            + '<tr><td style="color:#94a3b8;">Breakout</td><td style="color:#f59e0b;font-weight:600;">฿'+fmtN(bo,2)+'</td><td style="color:#64748b;">ห่าง '+distPct+'%</td></tr>'
+            + '<tr><td style="color:#94a3b8;">Target</td><td style="color:#22c55e;font-weight:600;">฿'+fmtN(tgt,2)+'</td><td style="color:#64748b;">+'+tgtPct+'%</td></tr>'
+            + '<tr><td style="color:#94a3b8;">Stop Loss</td><td style="color:#ef4444;font-weight:600;">฿'+fmtN(sl,2)+'</td><td style="color:#64748b;">R:R 1:'+fmtN(rr,1)+'</td></tr>'
+            + '<tr><td style="color:#94a3b8;">ADX / RSI</td><td style="color:#e2e8f0;">'+fmtN(adx,0)+' / '+fmtN(rsi,0)+'</td><td style="color:#64748b;">Conf '+conf+'</td></tr>'
+            + '</table>'
+            + goodsHtml + warnsHtml
+            + '<div class="ch-action">' + action + '</div>';
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        // Init row popovers (Cup & Handle detail)
+        document.querySelectorAll('.ch-popover-row').forEach(function(row) {
+            new bootstrap.Popover(row, {
+                trigger:           'hover focus',
+                html:              true,
+                sanitize:          false,
+                placement:         'right',
+                fallbackPlacements:['left', 'top', 'bottom'],
+                customClass:       'ch-dark',
+                title:       '<span style="color:#f59e0b;font-weight:700;">' + row.dataset.symbol + '</span>'
+                           + ' <span style="color:#64748b;font-size:0.7rem;font-weight:400;">Cup &amp; Handle Analysis</span>',
+                content:     buildContent(row),
+                delay:       { show: 250, hide: 150 },
+                container:   'body',
+            });
+        });
+
+        // Init header ℹ tooltips
+        document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(function(el) {
+            new bootstrap.Tooltip(el, { placement: 'top' });
+        });
+    });
+})();
+</script>
+{% endblock %}
