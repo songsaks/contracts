@@ -12,12 +12,12 @@ from google import genai
 from .models import (
     Watchlist, AnalysisCache, AssetCategory, Portfolio,
     MomentumCandidate, ScannableSymbol, MultiFactorCandidate, SoldStock,
-    TitheRecord, ValueScanCandidate,
+    TitheRecord, ValueScanCandidate, PrecisionScanCandidate,
 )
 from .utils import (
     get_stock_data, analyze_with_ai, calculate_trailing_stop,
     refresh_set100_symbols, find_supply_demand_zones, find_supply_demand_zones_v2,
-    detect_price_pattern, _is_commodity, _fetch_commodity_macro, _score_commodity_signal
+    detect_price_pattern, detect_vcp_pattern, _is_commodity, _fetch_commodity_macro, _score_commodity_signal
 )
 from .crew_analysis import MomentumCrew
 from decimal import Decimal
@@ -2722,6 +2722,54 @@ def scan_watchlist_view(request):
 # ====== Precision Momentum Scanner — เวอร์ชันกรองคุณภาพสูง ======
 
 @login_required
+def vcp_manual(request):
+    return render(request, 'stocks/vcp_manual.html')
+
+@login_required
+def minervini_sepa_scanner(request):
+    """
+    Minervini SEPA Scanner — ระบบสแกนเจาะจงเฉพาะตามตำรา Mark Minervini
+    กรองเฉพาะหุ้นที่อยู่ใน Stage 2 และมีฟอร์ม VCP/VDU
+    """
+    # ดึงรายชื่อรอบการสแกน (ใช้จาก PrecisionScanCandidate)
+    all_runs = list(
+        PrecisionScanCandidate.objects
+        .filter(user=request.user, market='SET')
+        .values_list('scan_run', flat=True)
+        .order_by('-scan_run')
+        .distinct()
+    )
+    
+    candidates = []
+    last_updated = None
+    selected_run_idx = int(request.GET.get('run_idx', 0))
+
+    if all_runs:
+        if selected_run_idx < len(all_runs):
+            run_time = all_runs[selected_run_idx]
+            # กรองเฉพาะ Stage 2 และต้องมี RS Rating หรือ VCP Setup
+            candidates = PrecisionScanCandidate.objects.filter(
+                user=request.user,
+                scan_run=run_time,
+                stage2=True
+            ).order_by('-vcp_setup', '-rs_rating')
+            last_updated = run_time
+            
+    # เพิ่มเติม: กรองเฉพาะตัวที่มีสัญญาณ VCP เพื่อความ Clean
+    vcp_only = request.GET.get('vcp_only') == '1'
+    if vcp_only:
+        candidates = [c for c in candidates if c.vcp_setup]
+        
+    context = {
+        'candidates': candidates,
+        'last_updated': last_updated,
+        'all_runs': all_runs,
+        'selected_run_idx': selected_run_idx,
+        'vcp_only': vcp_only,
+    }
+    return render(request, 'stocks/sepa_scanner.html', context)
+
+@login_required
 def precision_momentum_scanner(request):
     """
     Precision Momentum Scanner — กรองคุณภาพสูงกว่า momentum_scanner
@@ -2761,10 +2809,14 @@ def precision_momentum_scanner(request):
 
         user_id   = request.user.id
         cache_key = f'precision_scan_{user_id}'
+        
+        # เก็บหน้าที่ต้องกลับไปหลังสแกนเสร็จ
+        raw_next = request.POST.get('next_url')
+        next_url = 'stocks:minervini_sepa_scanner' if raw_next == 'sepa' else 'stocks:precision_momentum_scanner'
 
         _cur = _cache_bg.get(cache_key, {})
         if _cur.get('state') == 'running':
-            return redirect('stocks:precision_momentum_scanner')
+            return redirect(next_url)
 
         _cache_bg.set(cache_key, {'state': 'running', 'progress': 0, 'total': 0, 'phase': 'เตรียมข้อมูล…'}, timeout=900)
 
@@ -3203,11 +3255,9 @@ def precision_momentum_scanner(request):
                             'is_52w_breakout': tech.get('is_52w_breakout', False),
                             'volume_surge': tech.get('volume_surge', 1.0),
                             'is_volume_surge': tech.get('is_volume_surge', False),
-                            'ichimoku_above_kumo': ichimoku_above_kumo,
-                            'ichimoku_tk_cross': ichimoku_tk_cross,
-                            'ichimoku_kumo_green': ichimoku_kumo_green,
-                            'ichimoku_chikou_ok': ichimoku_chikou_ok,
                             'ichimoku_score': ichimoku_score_val,
+                            # ====== VCP Detection ======
+                            'vcp': detect_vcp_pattern(df),
                         }
 
                     except Exception as e:
@@ -3320,6 +3370,11 @@ def precision_momentum_scanner(request):
                             ichimoku_kumo_green=r.get('ichimoku_kumo_green', False),
                             ichimoku_chikou_ok=r.get('ichimoku_chikou_ok', False),
                             ichimoku_score=r.get('ichimoku_score', 0),
+                            # VCP v9
+                            vcp_setup=r.get('vcp', {}).get('setup', False),
+                            vcp_contractions=r.get('vcp', {}).get('contractions', 0),
+                            vcp_tightness=r.get('vcp', {}).get('tightness', 0.0),
+                            vcp_vdu=r.get('vcp', {}).get('vdu_confirmed', False),
                         ))
 
                     if bulk_candidates:
@@ -3353,6 +3408,12 @@ def precision_momentum_scanner(request):
             daemon=True
         )
         _t.start()
+        
+        # Redirect กลับหน้าที่ส่งมา (เช่น SEPA)
+        next_url = request.POST.get('next_url')
+        if next_url == 'sepa':
+            return redirect('stocks:minervini_sepa_scanner')
+            
         return redirect('stocks:precision_momentum_scanner')
 
     # ====== จัดเรียงผลลัพธ์ ======
@@ -4067,11 +4128,29 @@ def entry_finder(request, symbol):
             for i in range(len(chart_labels))
         ]
 
+        # ====== RS Line (Relative Strength vs SET) ======
+        rs_line_vals = []
+        try:
+            set_df = yf.download("^SET", start=_ef_start_str, end=_ef_end_str, interval='1d', progress=False)
+            if set_df is not None and not set_df.empty:
+                if isinstance(set_df.columns, pd.MultiIndex):
+                    set_df.columns = set_df.columns.droplevel(1)
+                
+                # รวมข้อมูลเพื่อเฉลี่ย ratio (RS Line = Stock / Index)
+                combined = pd.concat([df['Close'], set_df['Close']], axis=1, keys=['stock', 'set']).dropna()
+                combined['rs'] = combined['stock'] / combined['set']
+                
+                rs_subset = combined['rs'].tail(len(history_subset))
+                rs_line_vals = [float(v) for v in rs_subset.values]
+        except Exception as e:
+            import logging; logging.getLogger('stocks').error(f"RS Line Error: {e}")
+
         # แปลงข้อมูล chart เป็น JSON สำหรับ JavaScript
         chart_labels_json = json.dumps(chart_labels)
         chart_values_json = json.dumps(chart_values)
         ema50_vals_json = json.dumps(ema50_vals)
         ema200_vals_json = json.dumps(ema200_vals)
+        rs_line_json = json.dumps(rs_line_vals)
         ohlcv_json = json.dumps(ohlcv_data)
         sd_zone_json = json.dumps(sd_zone)
 
@@ -4173,6 +4252,7 @@ def entry_finder(request, symbol):
             'chart_values': chart_values_json,
             'ema50_vals': ema50_vals_json,
             'ema200_vals': ema200_vals_json,
+            'rs_line_vals': rs_line_json,
             'ohlcv_data': ohlcv_json,
             'title': f"Sniper Entry: {symbol}"
         }
@@ -5166,6 +5246,7 @@ def us_precision_scanner(request):
 # ======================================================================
 # US PRECISION SCAN AI ANALYSIS
 # ======================================================================
+
 
 @login_required
 def us_precision_scan_ai_analysis(request):

@@ -333,6 +333,12 @@ class PrecisionScanCandidate(models.Model):
     ichimoku_chikou_ok  = models.BooleanField(default=False)      # Chikou อยู่เหนือราคา 26 แท่งก่อน
     ichimoku_score      = models.IntegerField(default=0)          # คะแนนรวม Ichimoku (0-4)
 
+    # ====== Volatility Contraction Pattern (VCP) (v9) ======
+    vcp_setup           = models.BooleanField(default=False)      # เข้าข่าย VCP Pattern หรือไม่
+    vcp_contractions    = models.IntegerField(default=0)          # จำนวนการบีบตัว (T) เช่น 2, 3, 4
+    vcp_tightness       = models.FloatField(default=0.0)          # ความลึกของการบีบตัวล่าสุด (%)
+    vcp_vdu             = models.BooleanField(default=False)      # Volume Dry-Up ยืนยันในลูกสุดท้ายหรือไม่
+
     class Meta:
         ordering = ['-scan_run', '-technical_score']
 

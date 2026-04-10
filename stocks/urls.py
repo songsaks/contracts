@@ -30,8 +30,10 @@ urlpatterns = [
     path('momentum/us-precision/', views.us_precision_scanner, name='us_precision_scanner'),
     path('momentum/us-precision/ai/', views.us_precision_scan_ai_analysis, name='us_precision_scan_ai_analysis'),
     path('momentum/cup-handle/', views.cup_handle_scanner, name='cup_handle_scanner'),
+    path('momentum/sepa/', views.minervini_sepa_scanner, name='minervini_sepa_scanner'),
     path('multi-factor/', views.multi_factor_scanner, name='multi_factor_scanner'),
     path('value/us-value/', views.us_value_scanner, name='us_value_scanner'),
     path('entry-finder/<str:symbol>/', views.entry_finder, name='entry_finder'),
+    path('vcp-manual/', views.vcp_manual, name='vcp_manual'),
     path('signup/', views.signup, name='signup'),
 ]

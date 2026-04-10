@@ -1,0 +1,145 @@
+{% extends "stocks/base_stocks.html" %}
+{% block content %}
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-9">
+            <div class="card border-0 shadow-sm" style="border-radius: 1.25rem; overflow: hidden;">
+                <div class="card-header bg-white border-0 pt-4 pb-0 px-4">
+                    <div class="d-flex align-items-center gap-2 mb-2">
+                        <span style="font-size: 1.5rem;">🎯</span>
+                        <h2 class="fw-bold mb-0" style="color: #1e293b;">VCP Manual & Strategy Guide</h2>
+                    </div>
+                    <p class="text-muted small">เทคนิคการคัดกรองหุ้นแบบสถาบัน (Volatility Contraction Pattern)</p>
+                </div>
+                <div class="card-body p-4 pt-2" style="font-family: 'Inter', 'Noto Sans Thai', sans-serif; line-height: 1.7; color: #334155;">
+                    
+                    <div class="alert alert-info border-0 shadow-sm mb-4" style="background: #eff6ff; border-radius: 0.85rem;">
+                        <i class="fas fa-info-circle me-2"></i>
+                        VCP เป็นหนึ่งในกลยุทธ์ที่ได้รับการพิสูจน์แล้วว่ามีประสิทธิภาพสูงสุดในการหาหุ้นที่จะวิ่งแรง (Superperformance) พัฒนาโดย Mark Minervini
+                    </div>
+
+                    <h4 class="fw-bold mb-3 border-start border-4 border-primary ps-3" style="color: #0f172a;">1. VCP คืออะไร?</h4>
+                    <p>
+                        <strong>Volatility Contraction Pattern</strong> คือสภาวะที่ราคาหุ้นมีการบีบตัว "แคบลงเรื่อยๆ" 
+                        เป็นการสะสมพลังสะท้อนถึงการโอนถ่ายหุ้นจากมือที่อ่อนแอ (Weak Hands) ไปยังนักลงทุนมืออาชีพ 
+                        เมื่อแรงขายหมดไป ราคาจะถีบตัวขึ้นอย่างรุนแรงเมื่อมีแรงซื้อเพียงเล็กน้อย
+                    </p>
+
+                    <h4 class="fw-bold mt-5 mb-3 border-start border-4 border-primary ps-3" style="color: #0f172a;">2. การบีบตัว (Contractions - T)</h4>
+                    <p>หุ้นชั้นยอดมักจะมีการบีบตัว 2-4 รอบ (เรียกว่า T1, T2, T3...)</p>
+                    <div class="table-responsive mb-4">
+                        <table class="table table-bordered" style="border-radius: 0.5rem; overflow: hidden;">
+                            <thead class="bg-light">
+                                <tr>
+                                    <th>รอบการบีบ</th>
+                                    <th>ลักษณะความกว้าง</th>
+                                    <th>ความหมาย</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><strong>T1</strong></td>
+                                    <td>-20% ถึง -30%</td>
+                                    <td>กว้างที่สุด เป็นจุดเริ่มสร้างฐาน</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>T2</strong></td>
+                                    <td>-10% ถึง -15%</td>
+                                    <td>แคบลง เริ่มมีแรงซื้อประคอง</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>T3 / T4</strong></td>
+                                    <td><strong>< 10% (Tight)</strong></td>
+                                    <td><strong>บีบแคบมาก แรงขายเหือดหาย (จุดสังเกต)</strong></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <h4 class="fw-bold mt-5 mb-4 border-start border-4 border-success ps-3" style="color: #0f172a;">3. เจาะลึก VDU (Volume Dry-Up): การแยกแยะ 2 ระดับ</h4>
+                    <p class="mb-4">ในระบบสแกนของเรามีการแยกแยะสัญญาณแรงขายเหือดหาย (VDU) ออกเป็น 2 รูปแบบ เพื่อให้คุณวางแผนการเทรดได้อย่างแม่นยำ:</p>
+
+                    <div class="row g-4">
+                        <!-- VDU สีม่วง -->
+                        <div class="col-md-6">
+                            <div class="card h-100 border-0 shadow-sm" style="background: #fdfaff; border-radius: 1rem; border: 1px solid #e9d5ff !important;">
+                                <div class="card-body p-4">
+                                    <div class="d-flex align-items-center gap-2 mb-3">
+                                        <span class="badge" style="background: #7c3aed; padding: 6px 12px; font-size: 0.75rem;">VDU สีม่วง</span>
+                                        <span class="fw-bold" style="color: #6b21a8;">General VDU (เงียบสะสม)</span>
+                                    </div>
+                                    <ul class="small ps-3 mb-0" style="color: #581c87; line-height: 1.8; list-style-type: none;">
+                                        <li><i class="fas fa-cog me-2"></i> <strong>เงื่อนไข:</strong> Volume ลด 3 วันติด + ต่ำกว่าเฉือน 20 วัน (70%)</li>
+                                        <li><i class="fas fa-search me-2"></i> <strong>ความหมาย:</strong> หุ้นเริ่มนิ่ง ไม่มีคนอยากขาย <strong>"แต่ยังไม่เป็น VCP"</strong></li>
+                                        <li><i class="fas fa-bullseye me-2"></i> <strong>กลยุทธ์:</strong> <span class="text-primary fw-bold">เฝ้าไว้ (Watchlist)</span> รอให้ราคาสร้างฐานบีบตัวจน Badge แดงขึ้น</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- VCP ✅ สีแดง -->
+                        <div class="col-md-6">
+                            <div class="card h-100 border-0 shadow-sm" style="background: #fff1f2; border-radius: 1rem; border: 1px solid #fecdd3 !important;">
+                                <div class="card-body p-4">
+                                    <div class="d-flex align-items-center gap-2 mb-3">
+                                        <span class="badge" style="background: #dc2626; padding: 6px 12px; font-size: 0.75rem;">VCP ✅ สีแดง</span>
+                                        <span class="fw-bold" style="color: #9f1239;">VCP-Specific VDU</span>
+                                    </div>
+                                    <ul class="small ps-3 mb-0" style="color: #881337; line-height: 1.8; list-style-type: none;">
+                                        <li><i class="fas fa-flask me-2"></i> <strong>เงื่อนไข:</strong> เกิดขึ้นใน <strong>ลูกสุดท้ายของการบีบตัว</strong> VCP เท่านั้น</li>
+                                        <li><i class="fas fa-gem me-2"></i> <strong>ความหมาย:</strong> ยืนยันสถาบันเก็บของจนหมด Supply "แรงขายเกลี้ยตลาด"</li>
+                                        <li><i class="fas fa-rocket me-2"></i> <strong>กลยุทธ์:</strong> <span class="text-danger fw-bold">พิจารณาซื้อ (Cheat Entry)</span> พร้อมรับแรงระเบิด</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mt-4 p-3 rounded-3 border-start border-4 border-warning" style="background: #fffbeb; font-size: 0.85rem; color: #92400e;">
+                        <i class="fas fa-lightbulb me-2"></i> <strong>สรุปแบบเข้าใจง่าย:</strong> 
+                        VDU ม่วงบอกว่า "หุ้นกำลังหลับ" (ให้เฝ้า) / VCP ✅ แดงบอกว่า "พร้อมกระโดดรั้ง" (เข้าทำ)
+                    </div>
+
+                    <div class="row g-4 mt-2">
+                        <div class="col-md-6">
+                            <div class="p-3 bg-light rounded-3 h-100 border-top border-4 border-danger">
+                                <h6 class="fw-bold text-danger"><i class="fas fa-times-circle me-1"></i> เลี่ยงหุ้นถ้า...</h6>
+                                <ul class="small mb-0">
+                                    <li>บีบตัวกว้างเกินไป (ลูกสุดท้าย > 15%)</li>
+                                    <li>Volume ยังสูงในขณะที่ราคาย่อตัว</li>
+                                    <li>ราคาอยู่ใต้เส้น EMA200 (ไม่ใช่หุ้นขาขึ้น)</li>
+                                </ul>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="p-3 bg-light rounded-3 h-100 border-top border-4 border-success">
+                                <h6 class="fw-bold text-success"><i class="fas fa-check-circle me-1"></i> ซื้อเมื่อ...</h6>
+                                <ul class="small mb-0">
+                                    <li>ผ่านเงื่อนไข 🎯 VCP และ VDU ✅</li>
+                                    <li>ราคาทะลุ High เดิม (Pivot Point)</li>
+                                    <li>มี Volume Surge สนับสนุนในวัน Breakout</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <h4 class="fw-bold mt-5 mb-3 border-start border-4 border-warning ps-3" style="color: #0f172a;">4. วิธีหาหุ้นในระบบ</h4>
+                    <ol>
+                        <li>ไปที่หน้า <strong>Precision Scanner</strong></li>
+                        <li>กดสแกนเพื่อให้ระบบประมวลผลอัลกอริทึม VCP ล่าสุด</li>
+                        <li>มองหาสัญลักษณ์ 🎯 ในตาราง หรือเปิดฟิลเตอร์ <strong>"VCP Only"</strong></li>
+                        <li>นำเมเาส์ไปวางเพื่อดู <strong>Tightness</strong> และการยืนยัน <strong>VDU</strong></li>
+                    </ol>
+
+                    <hr class="my-5">
+                    <div class="text-center">
+                        <a href="{% url 'stocks:precision_momentum_scanner' %}" class="btn btn-primary px-4 py-2" style="border-radius: 10px;">
+                            กลับไปหน้าตัวสแกน <i class="fas fa-arrow-right ms-2"></i>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

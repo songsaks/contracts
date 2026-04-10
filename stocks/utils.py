@@ -5,6 +5,8 @@ from google import genai
 from django.conf import settings
 from yahooquery import Ticker as YQTicker
 import pandas_ta as ta
+import numpy as np
+from scipy.signal import argrelextrema
 
 # ======================================================================
 # stocks/utils.py — ฟังก์ชันหลักสำหรับวิเคราะห์หุ้นและดึงข้อมูลตลาด
@@ -985,6 +987,111 @@ def detect_price_pattern(df):
         return {'name': 'Inside Bar↑', 'score': 6}
 
     return {'name': '', 'score': 0}
+
+def detect_vcp_pattern(df):
+    """
+    ตรวจจับ Volatility Contraction Pattern (VCP) ตามแนวทาง Mark Minervini
+    เงื่อนไข:
+    1. Prior Uptrend: ราคาต้องอยู่เหนือ EMA200
+    2. Consolidation: ราคาพักตัวสะสมเป็นคลื่นที่แคบลงเรื่อยๆ (T1, T2, T3...)
+    3. Tightness: คลื่นลูกสุดท้ายควรมีความลึก < 10%
+    """
+    if df is None or len(df) < 150:
+        return {'setup': False, 'contractions': 0, 'tightness': 0.0}
+
+    try:
+        df = df.copy()
+        # Ensure column names are clean
+        if isinstance(df.columns, pd.MultiIndex):
+            df.columns = df.columns.get_level_values(0)
+            
+        prices = df['Close'].values
+        # 1. เช็คเทรนด์ขาขึ้นมาก่อน (Prior Uptrend)
+        
+        # ค้นหา EMA200 ถ้าไม่มีให้คำนวณ
+        ema200_val = None
+        if 'EMA200' in df.columns:
+            ema200_val = float(df['EMA200'].iloc[-1])
+        else:
+            ema200 = ta.ema(df['Close'], length=200)
+            if ema200 is not None:
+                ema200_val = float(ema200.iloc[-1])
+        
+        curr_price = float(prices[-1])
+        
+        # ต้องยืนเหนือ EMA200
+        if ema200_val is None or curr_price < ema200_val:
+            return {'setup': False, 'contractions': 0, 'tightness': 0.0}
+
+        # 2. หาฐานราคาสูงสุดในรอบ 150 วัน
+        base_period = df.tail(150)
+        base_high = float(base_period['High'].max())
+        base_high_idx = base_period['High'].idxmax()
+        
+        # เริ่มนับจากจุดสูงสุดของฐาน
+        base_data = df.loc[base_high_idx:]
+        if len(base_data) < 10:
+            return {'setup': False, 'contractions': 0, 'tightness': 0.0}
+            
+        # 3. ตรวจสอบการบีบตัว (Contractions)
+        # เราหา Swing Highs/Lows หลังจาก Base High
+        data_prices = base_data['Close'].values
+        # ใช้ order=5 สำหรับ swing detection เบื้องต้น
+        max_idx = argrelextrema(data_prices, np.greater, order=5)[0]
+        
+        swings = []
+        # รอบแรกคือจาก Base High ลงไปที่ Low ต่ำสุดก้นฐาน
+        first_low = base_data['Low'].min()
+        depth1 = ((base_high - first_low) / base_high) * 100
+        swings.append(depth1)
+        
+        # รอบถัดมาคือมองหา Swing High ย่อยๆ แล้วหา Low ที่ตามหลังแต่ละ High
+        last_depth = depth1
+        for i in range(len(max_idx)):
+            h_val = float(data_prices[max_idx[i]])
+            # หา Low ที่ตามมาหลังจาก High นี้
+            sub_lows = base_data['Low'].iloc[max_idx[i]:]
+            if sub_lows.empty: continue
+            l_val = float(sub_lows.min())
+            depth = ((h_val - l_val) / h_val) * 100
+            
+            # VCP คือความลึกต้องค่อยๆ น้อยลง และเป็นคลื่นที่สมเหตุสมผล (> 1.5%)
+            if depth < last_depth * 0.9 and depth > 1.5:
+                swings.append(depth)
+                last_depth = depth
+        
+        if len(swings) >= 2:
+            tightness = swings[-1]
+            # VCP ที่ดีลูกสุดท้ายควรแคบ (< 10-12%)
+            is_vcp = tightness <= 10 or (len(swings) >= 3 and tightness <= 12)
+            
+            # --- ใหม่: ตรวจสอบ Volume Dry-up (VDU) ในรอบสุดท้าย ---
+            vdu_confirmed = False
+            try:
+                # ดูปริมาณซื้อขาย 5 วันล่าสุด เทียบกับค่าเฉลี่ย 50 วัน
+                recent_vol = base_period['Volume'].tail(5).mean()
+                avg_vol_50 = base_period['Volume'].tail(50).mean()
+                # ถ้า Volume ช่วงท้ายน้อยกว่าค่าเฉลี่ย 40% ขึ้นไป ถือว่า VDU ชัดเจน
+                if recent_vol < avg_vol_50 * 0.7:
+                    vdu_confirmed = True
+            except:
+                pass
+            
+            # ต้องอยู่ใกล้ไฮ (Pivot point) ไม่เกิน 8%
+            near_pivot = curr_price >= base_high * 0.92
+            
+            return {
+                'setup': is_vcp and near_pivot,
+                'contractions': len(swings),
+                'tightness': round(tightness, 1),
+                'vdu_confirmed': vdu_confirmed
+            }
+            
+    except Exception as e:
+        import logging
+        logging.getLogger('stocks').error(f"VCP Detection Error: {e}")
+        
+    return {'setup': False, 'contractions': 0, 'tightness': 0.0}
 
 # ----------------------------------------------------------------------
 # find_supply_demand_zones_v2 — เวอร์ชันปรับปรุง

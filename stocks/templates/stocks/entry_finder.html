@@ -281,6 +281,7 @@
         const prices  = {{ chart_values|safe }};
         const ema50   = {{ ema50_vals|safe }};
         const ema200  = {{ ema200_vals|safe }};
+        const rsLine  = {{ rs_line_vals|safe }};
         const ohlcv   = {{ ohlcv_data|safe }};
         
         const sdZone = {{ sd_zone_json|safe }};
@@ -377,7 +378,17 @@
         // ── EMA datasets สำหรับ line chart (ใช้ index labels) ────────────
         const emaLine = [
             { label: 'EMA 50',  data: ema50,  borderColor: 'rgba(249,115,22,0.5)', borderWidth:1, pointRadius:0, fill:false, type:'line' },
-            { label: 'EMA 200', data: ema200, borderColor: 'rgba(59,130,246,0.5)', borderWidth:1, pointRadius:0, fill:false, type:'line' }
+            { label: 'EMA 200', data: ema200, borderColor: 'rgba(59,130,246,0.5)', borderWidth:1, pointRadius:0, fill:false, type:'line' },
+            { 
+                label: 'RS Line (vs SET)', 
+                data: rsLine, 
+                borderColor: '#7c3aed', 
+                borderWidth: 2, 
+                pointRadius: 0, 
+                fill: false, 
+                type: 'line',
+                yAxisID: 'yrs' 
+            }
         ];
 
         // ── EMA datasets สำหรับ candlestick chart (x เป็น timestamp) ──────
@@ -410,7 +421,14 @@
                     plugins: sharedPlugins,
                     scales: {
                         x: { ticks: { maxRotation:0, autoSkip:true, maxTicksLimit:8, font:{size:10} }, grid:{display:false} },
-                        y: { position:'right', ticks: { font:{size:10} } }
+                        y: { position:'right', ticks: { font:{size:10} }, grid:{borderDash:[3,3]} },
+                        yrs: {
+                            position: 'left',
+                            display: true,
+                            grid: { display: false },
+                            ticks: { display: false }, // ซ่อนตัวเลข ratio เพื่อความสะอาด
+                            title: { display: true, text: 'Relative Strength (RS)', font: { size: 10, weight: 'bold' }, color: '#7c3aed' }
+                        }
                     }
                 }
             };

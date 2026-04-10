@@ -1,0 +1,232 @@
+{% extends "stocks/base_stocks.html" %}
+{% block content %}
+<div class="container-fluid py-4" style="background-color: #f8fafc; min-height: 100vh;">
+    <!-- HEADER SECTION -->
+    <div class="d-flex align-items-center justify-content-between mb-4 px-2">
+        <div>
+            <div class="d-flex align-items-center gap-2 mb-1">
+                <span style="font-size: 1.5rem;">🦅</span>
+                <h2 class="fw-bold mb-0" style="color: #0f172a; letter-spacing: -0.025em;">Minervini SEPA Scanner</h2>
+            </div>
+            <p class="text-muted small mb-0">
+                <i class="fas fa-shield-alt me-1"></i> Institutional-Grade Filtering: <strong>Stage 2 Trend + VCP Pattern + Volume Dry-Up</strong>
+            </p>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="{% url 'stocks:vcp_manual' %}" class="btn btn-outline-secondary btn-sm rounded-pill px-3">
+                <i class="fas fa-book-open me-1"></i> SEPA Manual
+            </a>
+            <form action="{% url 'stocks:precision_momentum_scanner' %}" method="POST" class="d-inline">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="scan">
+                <input type="hidden" name="next_url" value="sepa">
+                <button type="submit" class="btn btn-primary btn-sm rounded-pill px-4 shadow-sm fw-bold">
+                    <i class="fas fa-satellite-dish me-1"></i> Run New SEPA Scan
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- CRITERIA QUICK BAR -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <div class="bg-white p-3 rounded-4 shadow-sm border-0 d-flex align-items-center gap-3">
+                <div class="rounded-circle d-flex align-items-center justify-content-center" style="width:40px;height:40px;background:#dcfce7;color:#15803d;">
+                    <i class="fas fa-chart-line"></i>
+                </div>
+                <div>
+                    <div class="small fw-bold text-dark">Stage 2 Trend</div>
+                    <div class="text-muted" style="font-size:0.7rem;">Trend Template Only</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="bg-white p-3 rounded-4 shadow-sm border-0 d-flex align-items-center gap-3">
+                <div class="rounded-circle d-flex align-items-center justify-content-center" style="width:40px;height:40px;background:#fee2e2;color:#dc2626;">
+                    <i class="fas fa-bullseye"></i>
+                </div>
+                <div>
+                    <div class="small fw-bold text-dark">VCP Setup</div>
+                    <div class="text-muted" style="font-size:0.7rem;">Volatility Contraction</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="bg-white p-3 rounded-4 shadow-sm border-0 d-flex align-items-center gap-3">
+                <div class="rounded-circle d-flex align-items-center justify-content-center" style="width:40px;height:40px;background:#f3e8ff;color:#7c3aed;">
+                    <i class="fas fa-tint-slash"></i>
+                </div>
+                <div>
+                    <div class="small fw-bold text-dark">Volume Dry-Up</div>
+                    <div class="text-muted" style="font-size:0.7rem;">Institutional Exhaustion</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="bg-white p-3 rounded-4 shadow-sm border-0 d-flex align-items-center gap-3">
+                <div class="rounded-circle d-flex align-items-center justify-content-center" style="width:40px;height:40px;background:#e0f2fe;color:#0ea5e9;">
+                    <i class="fas fa-trophy"></i>
+                </div>
+                <div>
+                    <div class="small fw-bold text-dark">RS Rating 70+</div>
+                    <div class="text-muted" style="font-size:0.7rem;">Strength vs Market</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MAIN TABLE SECTION -->
+    <div class="bg-white rounded-4 shadow-sm border-0 overflow-hidden">
+        <!-- FILTER BAR -->
+        <div class="p-3 border-bottom d-flex align-items-center justify-content-between flex-wrap gap-3">
+            <div class="d-flex align-items-center gap-3">
+                <span class="small text-muted fw-bold"><i class="fas fa-filter me-1"></i> FILTERS:</span>
+                <div class="form-check form-switch mb-0">
+                    <input class="form-check-input" type="checkbox" id="vcpOnlyToggle" {% if vcp_only %}checked{% endif %} 
+                           onchange="location.href='?vcp_only=' + (this.checked ? '1' : '0')">
+                    <label class="form-check-label small fw-semibold" for="vcpOnlyToggle">🎯 VCP Only</label>
+                </div>
+            </div>
+            
+            {% if all_runs %}
+            <div class="d-flex align-items-center gap-2">
+                <span class="small text-muted fw-bold">History:</span>
+                <select class="form-select form-select-sm rounded-pill" style="width: auto; font-size: 0.75rem;" 
+                        onchange="location.href='?run_idx=' + this.value + '&vcp_only={{ vcp_only|yesno:'1,0' }}'">
+                    {% for run in all_runs %}
+                    <option value="{{ forloop.counter0 }}" {% if forloop.counter0 == selected_run_idx %}selected{% endif %}>
+                        {{ run|date:"d/m H:i" }}{% if forloop.first %} (Latest){% endif %}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            {% endif %}
+        </div>
+
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0" style="font-size: 0.82rem;">
+                <thead class="bg-light text-muted small text-uppercase">
+                    <tr>
+                        <th class="ps-4 border-0 py-3" style="width: 180px;">Symbol</th>
+                        <th class="border-0 py-3">Price / Chg</th>
+                        <th class="border-0 py-3 text-center">Trend Stage</th>
+                        <th class="border-0 py-3 text-center">VCP Base</th>
+                        <th class="border-0 py-3 text-center">Institutional Signal</th>
+                        <th class="border-0 py-3 text-center">RS Rating</th>
+                        <th class="pe-4 border-0 py-3 text-end">Action</th>
+                    </tr>
+                </thead>
+                <tbody class="border-0">
+                    {% for item in candidates %}
+                    <tr class="border-bottom border-light">
+                        <!-- Symbol -->
+                        <td class="ps-4 py-3">
+                            <div class="d-flex align-items-center gap-2">
+                                <div class="rounded-circle d-flex align-items-center justify-content-center fw-bold" 
+                                     style="width:30px;height:30px;background:#f1f5f9;color:#475569;font-size:0.65rem;">
+                                    {{ item.symbol|slice:":3" }}
+                                </div>
+                                <div>
+                                    <div class="fw-bold text-dark" style="font-size: 0.95rem;">{{ item.symbol }}</div>
+                                    <div class="text-muted" style="font-size: 0.68rem;">{{ item.sector|default:"N/A" }}</div>
+                                </div>
+                            </div>
+                        </td>
+                        <!-- Price -->
+                        <td class="py-3">
+                            <div class="fw-bold text-dark">฿{{ item.live_price|default:item.price|floatformat:2 }}</div>
+                            <div class="{% if item.live_change_pct >= 0 %}text-success{% else %}text-danger{% endif %} fw-semibold" style="font-size: 0.72rem;">
+                                {% if item.live_change_pct >= 0 %}+{% endif %}{{ item.live_change_pct|floatformat:1 }}%
+                            </div>
+                        </td>
+                        <!-- Trend Stage -->
+                        <td class="py-3 text-center">
+                            {% if item.stage2 %}
+                            <span class="badge rounded-pill px-3 py-1" style="background:#dcfce7; color:#15803d; border:1px solid #86efac;">
+                                <i class="fas fa-check-circle me-1"></i> STAGE 2
+                            </span>
+                            {% else %}
+                            <span class="badge rounded-pill px-3 py-1" style="background:#f1f5f9; color:#64748b;">
+                                STAGE 1/3
+                            </span>
+                            {% endif %}
+                        </td>
+                        <!-- VCP Base -->
+                        <td class="py-3 text-center">
+                            {% if item.vcp_setup %}
+                            <div class="d-inline-block text-start">
+                                <span class="badge rounded-pill px-3 py-1 mb-1 d-block" style="background:#fee2e2; color:#dc2626; border:1px solid #fecdd3;">
+                                    🎯 {{ item.vcp_contractions }}T Base
+                                </span>
+                                <div class="text-muted" style="font-size: 0.65rem; padding-left: 8px;">
+                                    Tightness: <strong>{{ item.vcp_tightness }}%</strong>
+                                </div>
+                            </div>
+                            {% else %}
+                            <span class="text-muted">—</span>
+                            {% endif %}
+                        </td>
+                        <!-- Signals -->
+                        <td class="py-3 text-center">
+                            <div class="d-flex justify-content-center gap-1">
+                                {% if item.vcp_vdu or item.vdu_near_zone %}
+                                <span class="badge rounded-pill px-2 py-1" style="background:#f3e8ff; color:#7c3aed; border:1px solid #e9d5ff;" title="Volume Dry-Up Confirmed">
+                                    VDU ✅
+                                </span>
+                                {% endif %}
+                                {% if item.pocket_pivot %}
+                                <span class="badge rounded-pill px-2 py-1" style="background:#e0f2fe; color:#0369a1; border:1px solid #bae6fd;" title="Pocket Pivot Detection">
+                                    PP 🔥
+                                </span>
+                                {% endif %}
+                                {% if not item.vcp_vdu and not item.pocket_pivot %}
+                                <span class="text-muted">—</span>
+                                {% endif %}
+                            </div>
+                        </td>
+                        <!-- RS Rating -->
+                        <td class="py-3 text-center">
+                            <div class="fw-bold" style="color: {% if item.rs_rating >= 80 %}#15803d{% elif item.rs_rating >= 70 %}#2563eb{% else %}#1e293b{% endif %}; font-size: 1rem;">
+                                {{ item.rs_rating }}
+                            </div>
+                            <div class="text-muted" style="font-size: 0.65rem;">Rank</div>
+                        </td>
+                        <!-- Action -->
+                        <td class="pe-4 py-3 text-end">
+                            <a href="{% url 'stocks:entry_finder' item.symbol %}" class="btn btn-sm btn-light rounded-pill px-3" style="font-size: 0.72rem;">
+                                <i class="fas fa-crosshairs me-1 text-primary"></i> Sniper
+                            </a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="7" class="text-center py-5">
+                            <div class="text-muted">
+                                <i class="fas fa-search mb-2 d-block" style="font-size: 2rem; opacity: 0.5;"></i>
+                                No high-potential SEPA setups found in this scan.<br>
+                                Try running a new session or check the previous runs.
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- FOOTER INFO -->
+        <div class="p-3 bg-light-subtle border-top text-center">
+            <p class="mb-0 text-muted" style="font-size: 0.73rem;">
+                <i class="fas fa-info-circle me-1"></i> <strong>Minervini SEPA Scanner</strong> matches stocks against strict institutional supply/demand criteria. High RS Rating + VCP + Stage 2 creates the highest probability for explosive breakouts.
+            </p>
+        </div>
+    </div>
+</div>
+
+<style>
+    .bg-purple { background-color: #7c3aed; }
+    .text-purple { color: #7c3aed; }
+    .table-hover tbody tr:hover {
+        background-color: #f8fafc;
+    }
+</style>
+{% endblock %}
