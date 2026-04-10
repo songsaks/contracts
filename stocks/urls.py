@@ -35,5 +35,7 @@ urlpatterns = [
     path('value/us-value/', views.us_value_scanner, name='us_value_scanner'),
     path('entry-finder/<str:symbol>/', views.entry_finder, name='entry_finder'),
     path('vcp-manual/', views.vcp_manual, name='vcp_manual'),
+    path('scanner-guide/', views.scanner_guide, name='scanner_guide'),
     path('signup/', views.signup, name='signup'),
 ]
+

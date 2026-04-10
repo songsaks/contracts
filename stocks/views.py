@@ -5935,3 +5935,13 @@ def cup_handle_scanner(request):
         },
     }
     return render(request, 'stocks/cup_handle_scan.html', context)
+
+
+@login_required
+def scanner_guide(request):
+    """
+    แสดงคู่มือการใช้งานและการทำงานของ Scanner ทั้ง 3 รูปแบบ
+    (Precision Momentum, Cup & Handle, Standard Momentum)
+    """
+    return render(request, 'stocks/scanner_guide.html')
+

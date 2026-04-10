@@ -1,0 +1,378 @@
+{% extends 'stocks/base_stocks.html' %}
+{% load static %}
+
+{% block title %}คู่มือการใช้งาน Scanner — AI Analyst{% endblock %}
+
+{% block content %}
+<div class="row mb-5 animate-in">
+    <div class="col-lg-12">
+        <nav aria-label="breadcrumb" class="mb-4">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{% url 'stocks:dashboard' %}" class="text-decoration-none">Dashboard</a></li>
+                <li class="breadcrumb-item active">Scanner Guide</li>
+            </ol>
+        </nav>
+        
+        <div class="d-flex align-items-center gap-3 mb-4">
+            <div class="bg-primary bg-gradient text-white rounded-4 d-flex align-items-center justify-content-center" style="width: 60px; height: 60px; box-shadow: 0 10px 20px rgba(67, 56, 202, 0.2);">
+                <i class="fas fa-book-open fs-3"></i>
+            </div>
+            <div>
+                <h1 class="h2 fw-bold mb-1 text-slate-800">Scanner Methodology Guide</h1>
+                <p class="text-muted mb-0">เจาะลึกขั้นตอนการทำงานและหัวใจสำคัญของระบบสแกนหุ้นทั้ง 3 รูปแบบ</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Navigation Tabs -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card-premium border-0 p-2 shadow-sm">
+            <ul class="nav nav-pills nav-fill gap-2" id="guideTabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active rounded-3 py-3 font-semibold d-flex align-items-center justify-content-center gap-2" 
+                            id="pms-tab" data-bs-toggle="pill" data-bs-target="#pms-content" type="button" role="tab">
+                        <i class="fas fa-crosshairs"></i> Precision Momentum
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link rounded-3 py-3 font-semibold d-flex align-items-center justify-content-center gap-2" 
+                            id="ch-tab" data-bs-toggle="pill" data-bs-target="#ch-content" type="button" role="tab">
+                        <i class="fas fa-trophy text-warning"></i> Cup & Handle
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link rounded-3 py-3 font-semibold d-flex align-items-center justify-content-center gap-2" 
+                            id="standard-tab" data-bs-toggle="pill" data-bs-target="#standard-content" type="button" role="tab">
+                        <i class="fas fa-rocket"></i> Momentum Scanner
+                    </button>
+                </li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+<!-- Tab Contents -->
+<div class="tab-content" id="guideTabsContent">
+    
+    <!-- 1. Precision Momentum Scanner -->
+    <div class="tab-pane fade show active" id="pms-content" role="tabpanel">
+        <div class="row g-4">
+            <div class="col-lg-8">
+                <div class="card-premium p-4 p-md-5 h-100">
+                    <div class="d-flex align-items-center gap-3 mb-4">
+                        <span class="badge bg-primary-subtle text-primary px-3 py-2 rounded-pill font-bold">V8 ENGINE</span>
+                        <h2 class="h3 fw-bold mb-0">Precision Momentum Scanner</h2>
+                    </div>
+                    
+                    <p class="lead text-slate-600 mb-5">ระบบสแกนประสิทธิภาพสูงที่เน้น <strong>Sniper Entry</strong> และความแม่นยำของจุดเข้าซื้อ ออกแบบมาเพื่อลดสัญญาณหลอกและคัดเฉพาะหุ้นที่เป็นขาขึ้นแข็งแกร่งเท่านั้น</p>
+                    
+                    <div class="mb-5">
+                        <h4 class="fw-bold text-slate-800 mb-4 border-start border-4 border-primary ps-3">ขั้นตอนการทำงานหลัก</h4>
+                        <div class="timeline-manual">
+                            <div class="timeline-item-manual pb-4">
+                                <div class="timeline-icon-manual"><i class="fas fa-map-marker-alt"></i></div>
+                                <h5>Supply / Demand Zone Detection</h5>
+                                <p class="text-muted">โปรแกรมค้นหาแท่งเทียน <strong>ERC (Extended Range Candle)</strong> ซึ่งเป็นสัญลักษณ์ของการเข้าเก็บทองคำหรือหุ้นของรายใหญ่ แล้วย้อนหาฐาน (Base) เพื่อกำหนดโซนราคาที่ได้เปรียบ</p>
+                            </div>
+                            <div class="timeline-item-manual pb-4">
+                                <div class="timeline-icon-manual"><i class="fas fa-calculator"></i></div>
+                                <h5>Multi-Factor Scoring (0-100)</h5>
+                                <p class="text-muted">คำนวณคะแนนผ่านตัวแปรสำคัญ: <strong>ADX</strong> (ความแรงของเทรนด์), <strong>RSI</strong> (กำลังของราคา), และ <strong>RVOL</strong> (ความผิดปกติของวอลลุ่ม) เพื่อกรองเฉพาะหุ้นที่มีเงินไหลเข้าจริง</p>
+                            </div>
+                            <div class="timeline-item-manual pb-4">
+                                <div class="timeline-icon-manual"><i class="fas fa-stream"></i></div>
+                                <h5>Trend Following Validation</h5>
+                                <p class="text-muted">ตรวจสอบโครงสร้างราคาแบบ <strong>Stage 2 Weinstein</strong> โดยเช็คการเรียงตัวของ EMA 20, 50, และ 200 เพื่อยืนยันว่าหุ้นอยู่ในแนวโน้มขาขึ้นที่มั่นคง</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-light rounded-4 p-4 border-start border-4 border-info">
+                        <h5 class="fw-bold mb-2"><i class="fas fa-lightbulb text-warning me-2"></i>การใช้งาน (How to Use)</h5>
+                        <ul class="mb-0 text-slate-700">
+                            <li class="mb-2"><strong>หาหุ้น "Buy on Dip":</strong> เหมาะสำหรับหาจังหวะที่หุ้นขาขึ้นกำลังย่อตัวลงมาแตะแนวรับที่แข็งแรง</li>
+                            <li class="mb-2"><strong>ตรวจเช็ค Risk/Reward:</strong> ระบบจะคำนวณ RR ให้โดยอัตโนมัติ ควรเลือกตัวที่มี RR > 1.5 เท่าขึ้นไป</li>
+                            <li><strong>จุดเข้าซื้อ:</strong> เมื่อราคาไหลลงมาในกรอบ Demand Zone และเริ่มมีการ "หยุดตก" หรือมีแท่งเทียนกลับตัว</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-4">
+                <div class="card-premium p-4 bg-primary text-white h-100 shadow-lg">
+                    <h4 class="fw-bold mb-4">Key Metrics</h4>
+                    <div class="d-flex flex-column gap-3">
+                        <div class="metric-card p-3 rounded-4 bg-white bg-opacity-10">
+                            <h6 class="text-white-50 small mb-1">หัวใจหลัก</h6>
+                            <div class="h5 fw-bold mb-0">โซนแนวรับรายใหญ่ (S/D)</div>
+                        </div>
+                        <div class="metric-card p-3 rounded-4 bg-white bg-opacity-10">
+                            <h6 class="text-white-50 small mb-1">ระยะเวลาถือ</h6>
+                            <div class="h5 fw-bold mb-0">กลาง (Swing Trade)</div>
+                        </div>
+                        <div class="metric-card p-3 rounded-4 bg-white bg-opacity-10">
+                            <h6 class="text-white-50 small mb-1">ความแม่นยำ</h6>
+                            <div class="h5 fw-bold mb-0">สูงมาก (V8 Engine)</div>
+                        </div>
+                    </div>
+                    <div class="mt-auto pt-5">
+                        <p class="small text-white-50">"เน้นปลอดภัย พื้นฐานเทคนิคแน่น มั่นใจในทุกจุดเข้าซื้อ"</p>
+                        <a href="{% url 'stocks:precision_momentum_scanner' %}" class="btn btn-light w-100 rounded-pill fw-bold py-2 mt-2">Go to Scanner</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 2. Cup & Handle Scanner -->
+    <div class="tab-pane fade" id="ch-content" role="tabpanel">
+        <div class="row g-4">
+            <div class="col-lg-8">
+                <div class="card-premium p-4 p-md-5 h-100">
+                    <div class="d-flex align-items-center gap-3 mb-4">
+                        <span class="badge bg-warning-subtle text-warning px-3 py-2 rounded-pill font-bold">BIG BASE</span>
+                        <h2 class="h3 fw-bold mb-0">Cup & Handle Scanner</h2>
+                    </div>
+                    
+                    <p class="lead text-slate-600 mb-5">เครื่องมือตรวจจับโครงสร้างราคาระยะยาวที่เป็นเอกลักษณ์ที่สุดในการเทรนด์หุ้น เน้นหาหุ้นที่สะสมพลังมานานและพร้อมจะพุ่งทะยาน (Breakout)</p>
+                    
+                    <div class="mb-5">
+                        <h4 class="fw-bold text-slate-800 mb-4 border-start border-4 border-warning ps-3">ขั้นตอนการทำงานหลัก</h4>
+                        <div class="timeline-manual">
+                            <div class="timeline-item-manual pb-4">
+                                <div class="timeline-icon-manual bg-warning"><i class="fas fa-history"></i></div>
+                                <h5>Long-term Pivot Detection</h5>
+                                <p class="text-muted">ย้อนกลับไปดูข้อมูล 60 ถึง 200 วัน เพื่อหาจุดสูงสุดเดิมที่แข็งแกร่งที่สุด (Pivot High) ซึ่งจะเป็นจุดกำหนดปากถ้วย</p>
+                            </div>
+                            <div class="timeline-item-manual pb-4">
+                                <div class="timeline-icon-manual bg-warning"><i class="fas fa-shapes"></i></div>
+                                <h5>Cup Formation Check</h5>
+                                <p class="text-muted">ตรวจสอบความลึกของการย่อตัว (Cup Depth 10-45%) และระยะเวลาการพักตัวที่นานพอ รวมถึงการฟื้นตัวกลับมาที่ขอบปากด้านขวา</p>
+                            </div>
+                            <div class="timeline-item-manual pb-4">
+                                <div class="timeline-icon-manual bg-warning"><i class="fas fa-mug-hot"></i></div>
+                                <h5>Handle & Volume Analysis</h5>
+                                <p class="text-muted"><strong>ส่วนสำคัญที่สุด:</strong> ตรวจดูการฟักตัวเป็น "หูถ้วย" (Handle) ซึ่งวอลลุ่มต้อง "แห้ง" (Dry up) แสดงถึงแรงขายที่หมดไปแล้ว</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-light rounded-4 p-4 border-start border-4 border-warning">
+                        <h5 class="fw-bold mb-2 text-warning-emphasis"><i class="fas fa-lightbulb me-2"></i>การใช้งาน (How to Use)</h5>
+                        <ul class="mb-0 text-slate-700">
+                            <li class="mb-2"><strong>หาหุ้นต้นเทรนด์ใหญ่:</strong> เหมาะสำหรับนักลงทุนที่ต้องการ "หุ้นผู้ชนะ" ในรอบ 3-6 เดือน</li>
+                            <li class="mb-2"><strong>สังเกต Stage:</strong> ระบบจะบอกว่าอยู่ในขั้น Forming, Handle หรือ Ready (พร้อมระเบิด)</li>
+                            <li><strong>จุดซื้อ:</strong> เมื่อราคาทะลุ High เดิม (Pivot High) หรือเส้นแนวต้านของ Handle พร้อมวอลลุ่มหนาแน่น</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-4">
+                <div class="card-premium p-4 bg-dark text-white h-100 shadow-lg">
+                    <h4 class="fw-bold mb-4">Key Metrics</h4>
+                    <div class="d-flex flex-column gap-3">
+                        <div class="metric-card p-3 rounded-4 bg-white bg-opacity-10 border border-white border-opacity-10">
+                            <h6 class="text-white-50 small mb-1">หัวใจหลัก</h6>
+                            <div class="h5 fw-bold mb-0">โครงสร้างราคา (Pattern)</div>
+                        </div>
+                        <div class="metric-card p-3 rounded-4 bg-white bg-opacity-10 border border-white border-opacity-10">
+                            <h6 class="text-white-50 small mb-1">ระยะเวลาถือ</h6>
+                            <div class="h5 fw-bold mb-0">ยาว (หลายสัปดาห์/เดือน)</div>
+                        </div>
+                        <div class="metric-card p-3 rounded-4 bg-white bg-opacity-10 border border-white border-opacity-10">
+                            <h6 class="text-white-50 small mb-1">ความแม่นยำ</h6>
+                            <div class="h5 fw-bold mb-0">สูง (ถ้า Breakout สำเร็จ)</div>
+                        </div>
+                    </div>
+                    <div class="mt-auto pt-5">
+                        <p class="small text-white-50">"ถ้วยที่ดียิ่งฐานแน่นเท่าไหร่ เมื่อระเบิดขึ้นไปจะยิ่งแรงเท่านั้น"</p>
+                        <a href="{% url 'stocks:cup_handle_scanner' %}" class="btn btn-warning w-100 rounded-pill fw-bold py-2 mt-2">Go to Scanner</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 3. Momentum Scanner -->
+    <div class="tab-pane fade" id="standard-content" role="tabpanel">
+        <div class="row g-4">
+            <div class="col-lg-8">
+                <div class="card-premium p-4 p-md-5 h-100">
+                    <div class="d-flex align-items-center gap-3 mb-4">
+                        <span class="badge bg-danger-subtle text-danger px-3 py-2 rounded-pill font-bold">SPEED SCALE</span>
+                        <h2 class="h3 fw-bold mb-0">Momentum Scanner</h2>
+                    </div>
+                    
+                    <p class="lead text-slate-600 mb-5">เครื่องวัด "ความร้อนแรง" ของตลาดรายวัน ใช้สำหรับมองหาหุ้นที่กำลังเป็นที่สนใจของมวลชนและมีเงินไหลเข้าอย่างรวดเร็ว ณ ปัจจุบัน</p>
+                    
+                    <div class="mb-5">
+                        <h4 class="fw-bold text-slate-800 mb-4 border-start border-4 border-danger ps-3">ขั้นตอนการทำงานหลัก</h4>
+                        <div class="timeline-manual">
+                            <div class="timeline-item-manual pb-4">
+                                <div class="timeline-icon-manual bg-danger"><i class="fas fa-bolt"></i></div>
+                                <h5>Price & Volume Spikes</h5>
+                                <p class="text-muted">มอนิเตอร์ %Change และวอลลุ่มที่พุ่งเข้ามาอย่างกะทันหันในกรอบระยะเวลาสั้นๆ (Daily/Hourly)</p>
+                            </div>
+                            <div class="timeline-item-manual pb-4">
+                                <div class="timeline-icon-manual bg-danger"><i class="fas fa-balance-scale"></i></div>
+                                <h5>Relative Strength (RS) Index</h5>
+                                <p class="text-muted">เปรียบเทียบความแข็งแกร่งของหุ้นกับดัชนีตลาด (SET Index) เพื่อหาหุ้นที่ "ฝืนตลาด" หรือวิ่งแรงกว่าตลาด</p>
+                            </div>
+                            <div class="timeline-item-manual pb-4">
+                                <div class="timeline-icon-manual bg-danger"><i class="fas fa-chart-bar"></i></div>
+                                <h5>Intraday Indicator Crossover</h5>
+                                <p class="text-muted">ใช้ RSI และ MACD ในไทม์เฟรมที่สั้นลง เพื่อหาจุดตัดขึ้น (Golden Cross) ที่ยืนยันกระแสเงินไหลเข้า</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-light rounded-4 p-4 border-start border-4 border-danger">
+                        <h5 class="fw-bold mb-2 text-danger-emphasis"><i class="fas fa-lightbulb me-2"></i>การใช้งาน (How to Use)</h5>
+                        <ul class="mb-0 text-slate-700">
+                            <li class="mb-2"><strong>เล่นตามน้ำ (Follow Trend):</strong> เหมาะสำหรับสายเก็งกำไรระยะสั้น (Day Trade)</li>
+                            <li class="mb-2"><strong>คัดหุ้น Top Gainer:</strong> ใช้ส่องดูว่าหุ้นที่วิ่งวันนี้ มีวอลลุ่มซัพพอร์ตหรือไม่ (RVOL > 2.0)</li>
+                            <li><strong>จุดซื้อ:</strong> เมื่อราคาเบรกแนวต้านย่อย (Minor Resistance) พร้อมแรงสนับสนุนจาก Volume</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-4">
+                <div class="card-premium p-4 bg-gradient text-white h-100 shadow-lg" style="background: linear-gradient(135deg, #ef4444, #991b1b);">
+                    <h4 class="fw-bold mb-4">Key Metrics</h4>
+                    <div class="d-flex flex-column gap-3">
+                        <div class="metric-card p-3 rounded-4 bg-white bg-opacity-10">
+                            <h6 class="text-white-50 small mb-1">หัวใจหลัก</h6>
+                            <div class="h5 fw-bold mb-0">ความแรงปัจจุบัน (Price Spike)</div>
+                        </div>
+                        <div class="metric-card p-3 rounded-4 bg-white bg-opacity-10">
+                            <h6 class="text-white-50 small mb-1">ระยะเวลาถือ</h6>
+                            <div class="h5 fw-bold mb-0">สั้น (Day/Swing Trade)</div>
+                        </div>
+                        <div class="metric-card p-3 rounded-4 bg-white bg-opacity-10">
+                            <h6 class="text-white-50 small mb-1">ความแม่นยำ</h6>
+                            <div class="h5 fw-bold mb-0">ปานกลาง (ต้องระวังดอย)</div>
+                        </div>
+                    </div>
+                    <div class="mt-auto pt-5">
+                        <p class="small text-white-50">"อย่าเข้าไล่ราคาในขณะที่ RSI สูงเกินไป ให้รอจังหวะย่อในตัวที่โมเมนตัมพุ่งแรง"</p>
+                        <a href="{% url 'stocks:momentum_scanner' %}" class="btn btn-outline-light w-100 rounded-pill fw-bold py-2 mt-2">Go to Scanner</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Final Comparison & Summary Card -->
+<div class="row mt-5 animate-in" style="animation-delay: 0.2s;">
+    <div class="col-12">
+        <div class="card-premium p-4 p-md-5">
+            <h3 class="fw-bold mb-4 text-center">Scanner Comparison Matrix</h3>
+            <div class="table-responsive">
+                <table class="table table-hover border-top">
+                    <thead>
+                        <tr class="bg-light">
+                            <th class="py-3 border-0">คุณสมบัติ</th>
+                            <th class="py-3 border-0">Precision Momentum</th>
+                            <th class="py-3 border-0 text-warning-emphasis">Cup & Handle</th>
+                            <th class="py-3 border-0 text-danger-emphasis">Momentum Scanner</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td class="fw-bold py-3 text-muted">ปรัชญาการสแกน</td>
+                            <td>เข้าซื้อที่แนวรับ (Sniper)</td>
+                            <td>เข้าซื้อจังหวะระเบิด (Breakout)</td>
+                            <td>เข้าซื้อตามกระแส (Follow Flow)</td>
+                        </tr>
+                        <tr>
+                            <td class="fw-bold py-3 text-muted">ความหายาก</td>
+                            <td>เจอเรื่อยๆ ทุกวัน</td>
+                            <td>เจอน้อย/หายาก (แต่คุ้ม)</td>
+                            <td>เจอเยอะตลอดเวลา</td>
+                        </tr>
+                        <tr>
+                            <td class="fw-bold py-3 text-muted">ตัวบ่งชี้หลัก</td>
+                            <td>Demand Zone + RVOL</td>
+                            <td>Pattern + Handle Base</td>
+                            <td>%Change + RS Rating</td>
+                        </tr>
+                        <tr>
+                            <td class="fw-bold py-3 text-muted">ความเสี่ยง</td>
+                            <td>ต่ำ (มี Stop Loss ใกล้)</td>
+                            <td>ต่ำ-กลาง (คัดจากฐานราคานาน)</td>
+                            <td>สูง (ถ้าเข้าไล่ราคา)</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            
+            <div class="mt-4 p-4 rounded-4 bg-indigo-50 border border-indigo-100">
+                <h5 class="fw-bold text-indigo-900 mb-3"><i class="fas fa-star me-2"></i>Antigravity's Pro Tip:</h5>
+                <p class="text-indigo-800 mb-0">"สำหรับการจัดพอร์ตที่มีประสิทธิภาพ ให้เริ่มมองหาตัวเลือกจาก <strong>Precision Scanner</strong> เป็นอันดับแรกเพื่อความปลอดภัย ต่อเนื่องด้วย <strong>Cup & Handle</strong> เพื่อลุ้นตัวที่จะทำกำไรคำใหญ่ และสุดท้ายตรวจสอบ <strong>Momentum Scanner</strong> เพื่อดูว่าหุ้นที่เราคัดมาแล้ว ตัวไหน 'พร้อมวิ่ง' ที่สุดในวันนี้ครับ"</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .timeline-manual {
+        position: relative;
+        padding-left: 20px;
+    }
+    .timeline-manual::before {
+        content: '';
+        position: absolute;
+        left: 0;
+        top: 0;
+        height: 100%;
+        width: 1px;
+        background: #e2e8f0;
+    }
+    .timeline-item-manual {
+        position: relative;
+        padding-left: 2rem;
+    }
+    .timeline-icon-manual {
+        position: absolute;
+        left: -12.5px;
+        width: 25px;
+        height: 25px;
+        background: var(--accent-primary);
+        color: white;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.7rem;
+        z-index: 10;
+        box-shadow: 0 0 0 4px white;
+    }
+    .nav-pills .nav-link {
+        color: var(--text-muted);
+        background: transparent;
+        transition: all 0.3s ease;
+    }
+    .nav-pills .nav-link.active {
+        background: var(--accent-primary);
+        box-shadow: 0 4px 15px rgba(67, 56, 202, 0.2);
+    }
+    #ch-tab.active { background-color: #d97706 !important; }
+    #standard-tab.active { background-color: #ef4444 !important; }
+    
+    .metric-card {
+        transition: all 0.2s ease;
+    }
+    .metric-card:hover {
+        background: rgba(255,255,255,0.15);
+    }
+    .animate-in {
+        animation: fadeInUp 0.5s ease-out forwards;
+    }
+    @keyframes fadeInUp {
+        from { opacity: 0; transform: translateY(20px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+</style>
+{% endblock %}
