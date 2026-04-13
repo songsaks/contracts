@@ -5900,7 +5900,7 @@ def cup_handle_scanner(request):
         return _redir('stocks:cup_handle_scanner')
 
     # ── Display results ───────────────────────────────────────────
-    from .models import CupHandleCandidate as _CHC
+    from .models import CupHandleCandidate as _CHC, ScanWatchlistItem as _SWI
 
     all_runs = list(
         _CHC.objects.filter(user=request.user)
@@ -5918,19 +5918,14 @@ def cup_handle_scanner(request):
     scanned_at = None
     if all_runs:
         selected_run = all_runs[run_idx]
-        sort_by      = request.GET.get('sort', 'confidence')
-        order_map    = {
-            'confidence': '-confidence_score',
-            'rr':         '-risk_reward',
-            'depth':      'cup_depth_pct',
-        }
-        order_field = order_map.get(sort_by, '-confidence_score')
-        candidates  = list(_CHC.objects.filter(user=request.user, scan_run=selected_run).order_by(order_field))
-        scanned_at  = selected_run
+        candidates   = list(_CHC.objects.filter(user=request.user, scan_run=selected_run))
+        scanned_at   = selected_run
 
+    # เรียงตาม Stage Priority → Confidence เสมอ
     stage_order = {'breakout': 0, 'ready': 1, 'handle': 2, 'forming': 3}
     candidates.sort(key=lambda c: (stage_order.get(c.stage, 9), -c.confidence_score))
 
+    # Stage counts (ก่อน filter เพื่อแสดงใน summary cards)
     stage_counts = {
         'breakout': sum(1 for c in candidates if c.stage == 'breakout'),
         'ready':    sum(1 for c in candidates if c.stage == 'ready'),
@@ -5938,14 +5933,58 @@ def cup_handle_scanner(request):
         'forming':  sum(1 for c in candidates if c.stage == 'forming'),
     }
 
+    # ── Filters ───────────────────────────────────────────────────
+    stage_filter = request.GET.get('stage', 'all')
+    try:
+        min_conf = int(request.GET.get('min_conf', 0))
+    except (ValueError, TypeError):
+        min_conf = 0
+    rs_only = request.GET.get('rs_only') == '1'
+
+    if stage_filter != 'all':
+        candidates = [c for c in candidates if c.stage == stage_filter]
+    if min_conf > 0:
+        candidates = [c for c in candidates if c.confidence_score >= min_conf]
+    if rs_only:
+        candidates = [c for c in candidates if c.rs_rating >= 70]
+
+    # ── Computed fields ───────────────────────────────────────────
+    for c in candidates:
+        # % ห่างจาก Breakout Price
+        if c.breakout_price > 0 and c.price > 0:
+            c.pct_to_breakout = round((c.breakout_price - c.price) / c.price * 100, 1)
+            c.pct_to_breakout = max(0.0, c.pct_to_breakout)
+        else:
+            c.pct_to_breakout = 0.0
+        # Recovery % (ใช้แสดง progress bar สำหรับ Forming)
+        if c.cup_high > c.cup_low:
+            raw = (c.price - c.cup_low) / (c.cup_high - c.cup_low) * 100
+            c.recovery_pct = round(min(100.0, max(0.0, raw)), 1)
+        else:
+            c.recovery_pct = 0.0
+
+    # หุ้น Forming ที่ฟื้นตัวมากที่สุด (สำหรับ smart summary)
+    forming_list = [c for c in candidates if c.stage == 'forming']
+    closest_forming = max(forming_list, key=lambda c: c.recovery_pct, default=None)
+
+    # Watchlist symbols ของ user
+    watchlist_symbols = set(
+        _SWI.objects.filter(user=request.user, market='SET').values_list('symbol', flat=True)
+    )
+
     context = {
         'candidates':       candidates,
         'has_scanned':      bool(all_runs),
         'scanned_at':       scanned_at,
         'all_runs':         all_runs,
         'selected_run_idx': run_idx,
-        'current_sort':     request.GET.get('sort', 'confidence'),
+        'current_sort':     request.GET.get('sort', 'stage'),
         'stage_counts':     stage_counts,
+        'stage_filter':     stage_filter,
+        'min_conf':         min_conf,
+        'rs_only':          rs_only,
+        'closest_forming':  closest_forming,
+        'watchlist_symbols': watchlist_symbols,
         'stage_labels': {
             'breakout': ('Breakout',       '#16a34a'),
             'ready':    ('Ready to Break', '#2563eb'),

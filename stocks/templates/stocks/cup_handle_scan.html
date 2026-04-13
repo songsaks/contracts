@@ -297,45 +297,94 @@
 {% endif %}
 
 <!-- ===== Summary Stats ===== -->
-<div class="row g-3 mb-4">
+<div class="row g-3 mb-3">
     <div class="col-6 col-md-3">
-        <div class="card border-0 shadow-sm rounded-4 p-3 text-center">
+        <a href="?stage=breakout&run_idx={{ selected_run_idx }}&min_conf={{ min_conf }}&rs_only={{ rs_only|yesno:'1,0' }}"
+           class="card border-0 shadow-sm rounded-4 p-3 text-center text-decoration-none {% if stage_filter == 'breakout' %}border-success border-2{% endif %}"
+           style="{% if stage_filter == 'breakout' %}background:#f0fdf4;border:2px solid #16a34a !important;{% endif %}">
             <div class="fw-bold fs-3" style="color:#16a34a;">{{ stage_counts.breakout }}</div>
             <div class="small text-muted">🚀 Breakout</div>
-        </div>
+        </a>
     </div>
     <div class="col-6 col-md-3">
-        <div class="card border-0 shadow-sm rounded-4 p-3 text-center">
+        <a href="?stage=ready&run_idx={{ selected_run_idx }}&min_conf={{ min_conf }}&rs_only={{ rs_only|yesno:'1,0' }}"
+           class="card border-0 shadow-sm rounded-4 p-3 text-center text-decoration-none"
+           style="{% if stage_filter == 'ready' %}background:#eff6ff;border:2px solid #2563eb !important;{% endif %}">
             <div class="fw-bold fs-3" style="color:#2563eb;">{{ stage_counts.ready }}</div>
             <div class="small text-muted">✅ Ready to Break</div>
-        </div>
+        </a>
     </div>
     <div class="col-6 col-md-3">
-        <div class="card border-0 shadow-sm rounded-4 p-3 text-center">
+        <a href="?stage=handle&run_idx={{ selected_run_idx }}&min_conf={{ min_conf }}&rs_only={{ rs_only|yesno:'1,0' }}"
+           class="card border-0 shadow-sm rounded-4 p-3 text-center text-decoration-none"
+           style="{% if stage_filter == 'handle' %}background:#fffbeb;border:2px solid #d97706 !important;{% endif %}">
             <div class="fw-bold fs-3" style="color:#d97706;">{{ stage_counts.handle }}</div>
             <div class="small text-muted">⏳ Handle Forming</div>
-        </div>
+        </a>
     </div>
     <div class="col-6 col-md-3">
-        <div class="card border-0 shadow-sm rounded-4 p-3 text-center">
+        <a href="?stage=forming&run_idx={{ selected_run_idx }}&min_conf={{ min_conf }}&rs_only={{ rs_only|yesno:'1,0' }}"
+           class="card border-0 shadow-sm rounded-4 p-3 text-center text-decoration-none"
+           style="{% if stage_filter == 'forming' %}background:#f8fafc;border:2px solid #64748b !important;{% endif %}">
             <div class="fw-bold fs-3" style="color:#64748b;">{{ stage_counts.forming }}</div>
             <div class="small text-muted">🔄 Cup Forming</div>
-        </div>
+        </a>
     </div>
 </div>
 
+<!-- Smart Summary Banner — แสดงเมื่อไม่มี Breakout/Ready -->
+{% if stage_counts.breakout == 0 and stage_counts.ready == 0 and stage_counts.handle == 0 %}
+<div class="alert rounded-4 border-0 shadow-sm mb-3 d-flex align-items-start gap-3" style="background:#fffbeb;border-left:4px solid #d97706 !important;">
+    <span style="font-size:1.5rem;">💡</span>
+    <div>
+        <div class="fw-bold mb-1" style="color:#92400e;">ยังไม่มีหุ้นพร้อม Breakout วันนี้</div>
+        <div class="small text-secondary">
+            มี <strong>{{ stage_counts.forming }} หุ้น</strong> กำลังสร้างถ้วย (Cup Forming) — ยังไม่ถึงจังหวะซื้อ
+            {% if closest_forming %}
+            <br>หุ้นที่ <strong>ฟื้นตัวมากที่สุด</strong>:
+            <span class="fw-bold" style="color:#d97706;">{{ closest_forming.symbol }}</span>
+            ฟื้น {{ closest_forming.recovery_pct }}% แล้ว
+            (เหลือ {{ closest_forming.pct_to_breakout }}% ถึง Breakout)
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endif %}
+
 <!-- ===== Results Table ===== -->
 <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
-    <div class="card-header border-0 py-3 px-4 d-flex align-items-center justify-content-between flex-wrap gap-2"
-         style="background:linear-gradient(135deg,#fffbeb,#fef3c7);">
-        <div>
-            <span class="fw-bold" style="color:#d97706;"><i class="fas fa-trophy me-2"></i>ผลสแกน Cup &amp; Handle</span>
-            <span class="badge rounded-pill ms-2" style="background:#d97706;font-size:0.7rem;">{{ candidates|length }} หุ้น</span>
-        </div>
-        <div class="d-flex gap-2 small">
-            <a href="?sort=confidence&run_idx={{ selected_run_idx }}" class="btn btn-sm rounded-pill {% if current_sort == 'confidence' %}btn-warning{% else %}btn-outline-secondary{% endif %}">Confidence</a>
-            <a href="?sort=rr&run_idx={{ selected_run_idx }}" class="btn btn-sm rounded-pill {% if current_sort == 'rr' %}btn-warning{% else %}btn-outline-secondary{% endif %}">R:R</a>
-            <a href="?sort=depth&run_idx={{ selected_run_idx }}" class="btn btn-sm rounded-pill {% if current_sort == 'depth' %}btn-warning{% else %}btn-outline-secondary{% endif %}">Depth</a>
+    <div class="card-header border-0 py-3 px-4" style="background:linear-gradient(135deg,#fffbeb,#fef3c7);">
+        <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-2">
+            <div>
+                <span class="fw-bold" style="color:#d97706;"><i class="fas fa-trophy me-2"></i>ผลสแกน Cup &amp; Handle</span>
+                <span class="badge rounded-pill ms-2" style="background:#d97706;font-size:0.7rem;">{{ candidates|length }} หุ้น</span>
+            </div>
+            <div class="d-flex gap-2 align-items-center flex-wrap">
+                <!-- RS Filter -->
+                <div class="form-check form-switch mb-0">
+                    <input class="form-check-input" type="checkbox" id="rsOnlyToggle"
+                           {% if rs_only %}checked{% endif %} onchange="applyChFilters()">
+                    <label class="form-check-label small fw-semibold" for="rsOnlyToggle" style="color:#d97706;">RS ≥ 70</label>
+                </div>
+                <!-- Confidence filter -->
+                <div class="d-flex align-items-center gap-1 small">
+                    <span class="text-muted fw-semibold">Conf ≥</span>
+                    <select id="minConfSelect" class="form-select form-select-sm rounded-pill"
+                            style="width:70px;font-size:0.72rem;" onchange="applyChFilters()">
+                        <option value="0"  {% if min_conf == 0  %}selected{% endif %}>All</option>
+                        <option value="55" {% if min_conf == 55 %}selected{% endif %}>55</option>
+                        <option value="70" {% if min_conf == 70 %}selected{% endif %}>70</option>
+                        <option value="80" {% if min_conf == 80 %}selected{% endif %}>80</option>
+                    </select>
+                </div>
+                <!-- All stages reset -->
+                {% if stage_filter != 'all' %}
+                <a href="?stage=all&run_idx={{ selected_run_idx }}&min_conf={{ min_conf }}&rs_only={{ rs_only|yesno:'1,0' }}"
+                   class="btn btn-sm btn-outline-secondary rounded-pill" style="font-size:0.72rem;">
+                    <i class="fas fa-times me-1"></i> ล้าง Filter
+                </a>
+                {% endif %}
+            </div>
         </div>
     </div>
 
@@ -351,6 +400,11 @@
                            data-bs-toggle="tooltip" title="สถานะของ Pattern: Forming=กำลัง form Cup, Handle=กำลัง form Handle, Ready=รอ Breakout, Breakout=ทะลุแล้ว"></i>
                     </th>
                     <th class="text-end">ราคา</th>
+                    <th class="text-end">
+                        % to BO
+                        <i class="fas fa-info-circle ms-1 text-muted" style="cursor:pointer;"
+                           data-bs-toggle="tooltip" title="% ห่างจากราคาปัจจุบันไปยัง Breakout Price — ยิ่งน้อยยิ่งใกล้จุดซื้อ"></i>
+                    </th>
                     <th class="text-end">
                         Breakout
                         <i class="fas fa-info-circle ms-1 text-muted" style="cursor:pointer;"
@@ -401,6 +455,7 @@
                         <i class="fas fa-info-circle ms-1 text-muted" style="cursor:pointer;"
                            data-bs-toggle="tooltip" title="ADX = ความแข็งแกร่ง trend (≥15 พอใช้ ≥25 ดี) | RSI = momentum (40-70 = zone ที่ดี)"></i>
                     </th>
+                    <th class="text-center pe-3">Watch</th>
                 </tr>
             </thead>
             <tbody>
@@ -427,7 +482,7 @@
                 data-rs="{{ item.rs_rating }}">
                 <td class="ps-3">
                     <div class="fw-bold" style="color:#1e293b;">{{ item.symbol }}</div>
-                    <div class="text-muted" style="font-size:0.65rem;">฿{{ item.price|floatformat:2 }}</div>
+                    <div class="text-muted" style="font-size:0.65rem;">{{ item.sector|default:"—" }}</div>
                 </td>
                 <td>
                     {% if item.stage == 'breakout' %}
@@ -437,10 +492,28 @@
                     {% elif item.stage == 'handle' %}
                         <span class="badge px-2 py-1 rounded-pill" style="background:#fef3c7;color:#d97706;font-size:0.68rem;">⏳ Handle</span>
                     {% else %}
-                        <span class="badge px-2 py-1 rounded-pill" style="background:#f1f5f9;color:#64748b;font-size:0.68rem;">🔄 Forming</span>
+                        <div>
+                            <span class="badge px-2 py-1 rounded-pill" style="background:#f1f5f9;color:#64748b;font-size:0.68rem;">🔄 Forming</span>
+                            <div class="mt-1" style="width:70px;" title="ฟื้นตัว {{ item.recovery_pct }}% แล้ว">
+                                <div style="background:#e2e8f0;border-radius:999px;height:4px;overflow:hidden;">
+                                    <div style="width:{{ item.recovery_pct }}%;height:100%;background:{% if item.recovery_pct >= 80 %}#d97706{% elif item.recovery_pct >= 50 %}#2563eb{% else %}#94a3b8{% endif %};border-radius:999px;"></div>
+                                </div>
+                                <div style="font-size:0.58rem;color:#94a3b8;margin-top:1px;">{{ item.recovery_pct }}% recovered</div>
+                            </div>
+                        </div>
                     {% endif %}
                 </td>
                 <td class="text-end">฿{{ item.price|floatformat:2 }}</td>
+                <!-- % to Breakout -->
+                <td class="text-end">
+                    {% if item.stage == 'breakout' %}
+                        <span class="badge rounded-pill px-2" style="background:#dcfce7;color:#15803d;font-size:0.65rem;">✅ Done</span>
+                    {% else %}
+                        <span class="fw-semibold" style="color:{% if item.pct_to_breakout <= 5 %}#16a34a{% elif item.pct_to_breakout <= 10 %}#d97706{% else %}#94a3b8{% endif %};font-size:0.8rem;">
+                            {{ item.pct_to_breakout|floatformat:1 }}%
+                        </span>
+                    {% endif %}
+                </td>
                 <td class="text-end fw-semibold" style="color:#d97706;">฿{{ item.breakout_price|floatformat:2 }}</td>
                 <td class="text-end" style="color:#16a34a;">฿{{ item.target_price|floatformat:2 }}</td>
                 <td class="text-end" style="color:#dc2626;">฿{{ item.stop_loss|floatformat:2 }}</td>
@@ -494,6 +567,16 @@
                     <span class="{% if item.adx >= 25 %}text-success{% elif item.adx >= 15 %}text-warning{% else %}text-danger{% endif %}">ADX {{ item.adx|floatformat:0 }}</span>
                     <span class="text-muted"> / </span>
                     <span class="{% if 40 <= item.rsi <= 70 %}text-success{% elif item.rsi > 80 %}text-danger{% else %}text-muted{% endif %}">RSI {{ item.rsi|floatformat:0 }}</span>
+                </td>
+                <!-- Watchlist toggle -->
+                <td class="text-center pe-3">
+                    <button class="btn btn-sm ch-watch-btn rounded-circle p-0"
+                            data-symbol="{{ item.symbol }}"
+                            data-sector="{{ item.sector|default:'' }}"
+                            style="width:28px;height:28px;border:none;background:transparent;font-size:1rem;line-height:1;"
+                            title="{% if item.symbol in watchlist_symbols %}ลบออกจาก Watchlist{% else %}เพิ่มเข้า Watchlist{% endif %}">
+                        {% if item.symbol in watchlist_symbols %}⭐{% else %}☆{% endif %}
+                    </button>
                 </td>
             </tr>
             {% endfor %}
@@ -589,6 +672,43 @@
 </style>
 
 <script>
+// ── Filter function ──────────────────────────────────────────────
+function applyChFilters() {
+    var rsOnly   = document.getElementById('rsOnlyToggle').checked ? '1' : '0';
+    var minConf  = document.getElementById('minConfSelect').value;
+    var stage    = '{{ stage_filter }}';
+    var runIdx   = {{ selected_run_idx }};
+    location.href = '?stage=' + stage + '&run_idx=' + runIdx + '&min_conf=' + minConf + '&rs_only=' + rsOnly;
+}
+
+// ── Watchlist Toggle ─────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', function() {
+    var csrfToken = '{{ csrf_token }}';
+    document.querySelectorAll('.ch-watch-btn').forEach(function(btn) {
+        btn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            var sym    = btn.dataset.symbol;
+            var sector = btn.dataset.sector || 'Unknown';
+            fetch('{% url "stocks:watchlist_item_toggle" %}', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrfToken},
+                body: JSON.stringify({symbol: sym, sector: sector, market: 'SET'})
+            })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (data.status === 'added') {
+                    btn.textContent = '⭐';
+                    btn.title = 'ลบออกจาก Watchlist';
+                } else {
+                    btn.textContent = '☆';
+                    btn.title = 'เพิ่มเข้า Watchlist';
+                }
+            })
+            .catch(function() { alert('เกิดข้อผิดพลาด กรุณาลองใหม่'); });
+        });
+    });
+});
+
 (function() {
     function fmtN(v, d) { return parseFloat(v).toFixed(d || 2); }
 
