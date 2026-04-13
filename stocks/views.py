@@ -5728,6 +5728,313 @@ def us_value_scanner(request):
     return redirect(f'/stocks/value/us-value/?sort={current_sort}&run_idx=0')
 
 
+# ======================================================================
+# US SEPA SCANNER — แยกต่างหากจาก US Precision Scanner
+# Model: USSepaCandidate (ไม่แตะ PrecisionScanCandidate เลย)
+# ======================================================================
+
+@login_required
+def us_sepa_scanner(request):
+    """
+    US SEPA Scanner — Stage 2 + VCP + RS ≥70 สำหรับหุ้น Nasdaq/S&P500
+    ใช้ USSepaCandidate (แยกต่างหากจาก PrecisionScanCandidate อย่างสมบูรณ์)
+    """
+    import yfinance as yf
+    import pandas as pd
+    from .models import USSepaCandidate, ScannableSymbol, ScanWatchlistItem
+
+    # AJAX scan status
+    if request.GET.get('scan_status') == '1':
+        from django.core.cache import cache as _cp
+        from django.http import JsonResponse as _JR
+        _key = f'us_sepa_scan_{request.user.id}'
+        st = _cp.get(_key, {'state': 'idle'})
+        if st.get('state') == 'done':
+            _cp.delete(_key)
+        return _JR(st)
+
+    # ── Trigger background scan ────────────────────────────────────
+    if request.method == 'POST' or request.GET.get('scan') == 'true':
+        from django.core.cache import cache as _cache_bg
+        import threading
+        user_id   = request.user.id
+        cache_key = f'us_sepa_scan_{user_id}'
+
+        if _cache_bg.get(cache_key, {}).get('state') == 'running':
+            return redirect('stocks:us_sepa_scanner')
+
+        sym_list = list(ScannableSymbol.objects.filter(is_active=True, market='US').values_list('symbol', flat=True))
+        if len(sym_list) < 100:
+            _seed_us_symbols()
+            sym_list = list(ScannableSymbol.objects.filter(is_active=True, market='US').values_list('symbol', flat=True))
+
+        _cache_bg.set(cache_key, {'state': 'running', 'progress': 0, 'total': len(sym_list), 'phase': 'Starting US SEPA scan…'}, timeout=1200)
+
+        def _run_bg(uid, ckey, syms):
+            try:
+                import django; django.setup()
+                import pandas_ta as ta
+                import concurrent.futures
+                import pytz as _pytz
+                from datetime import datetime as _dt, timedelta as _td
+                from django.contrib.auth import get_user_model
+                from django.core.cache import cache as _c
+                from django.utils import timezone as tz
+                from .models import USSepaCandidate as _USC, ScannableSymbol
+                from .utils import detect_vcp_pattern
+
+                User = get_user_model()
+                user = User.objects.get(pk=uid)
+                _ny  = _pytz.timezone('America/New_York')
+                now  = _dt.now(_ny)
+                end_str   = (now.date() + _td(days=1)).strftime('%Y-%m-%d')
+                start_str = (now.date() - _td(days=600)).strftime('%Y-%m-%d')
+                scan_run  = tz.now()
+
+                # Keep only 3 latest runs
+                old_runs = list(_USC.objects.filter(user=user).values_list('scan_run', flat=True).distinct().order_by('-scan_run')[3:])
+                if old_runs:
+                    _USC.objects.filter(user=user, scan_run__in=old_runs).delete()
+
+                # ── Step 1: Compute RS Rating ─────────────────────────────
+                _c.set(ckey, {'state': 'running', 'progress': 0, 'total': len(syms), 'phase': 'Computing RS Ratings…'}, timeout=1200)
+
+                def _fetch_rs(s):
+                    try:
+                        d = yf.Ticker(s).history(start=start_str, end=end_str, interval='1d')
+                        if d is None or d.empty: return s, None
+                        if isinstance(d.columns, pd.MultiIndex): d.columns = d.columns.droplevel(1)
+                        cl = d['Close'].dropna()
+                        if len(cl) < 252: return s, None
+                        r = float(
+                            (cl.iloc[-1]-cl.iloc[-64])/abs(cl.iloc[-64])*0.4 +
+                            (cl.iloc[-64]-cl.iloc[-127])/abs(cl.iloc[-127])*0.2 +
+                            (cl.iloc[-127]-cl.iloc[-190])/abs(cl.iloc[-190])*0.2 +
+                            (cl.iloc[-190]-cl.iloc[-253])/abs(cl.iloc[-253])*0.2
+                        ) * 100
+                        return s, r
+                    except: return s, None
+
+                rs_raw = {}
+                with concurrent.futures.ThreadPoolExecutor(max_workers=15) as ex:
+                    for s, r in ex.map(_fetch_rs, syms):
+                        if r is not None: rs_raw[s] = r
+                rs_map = {}
+                if rs_raw:
+                    ser = pd.Series(rs_raw)
+                    rs_map = (ser.rank(pct=True) * 99).clip(0, 99).astype(int).to_dict()
+
+                # ── Step 2: SEPA Technical Scan ───────────────────────────
+                _c.set(ckey, {'state': 'running', 'progress': 0, 'total': len(syms), 'phase': 'SEPA Technical Scan…'}, timeout=1200)
+
+                results = []
+                def _scan_one(symbol):
+                    try:
+                        rs_v = rs_map.get(symbol, 0)
+                        if rs_v < 60: return None  # pre-filter; display shows ≥70
+
+                        df = yf.Ticker(symbol).history(start=start_str, end=end_str, interval='1d')
+                        if df is None or df.empty: return None
+                        if isinstance(df.columns, pd.MultiIndex): df.columns = df.columns.droplevel(1)
+                        df = df.dropna(subset=['Close', 'High', 'Low'])
+                        if len(df) < 200: return None
+
+                        # Liquidity: avg daily volume ≥ 1M shares
+                        if float(df['Volume'].tail(20).mean()) < 1_000_000: return None
+
+                        curr = float(df['Close'].iloc[-1])
+                        year_h = float(df['High'].tail(252).max())
+
+                        # Stage 2: price > SMA150 AND SMA150 trending up
+                        s2 = False
+                        try:
+                            s150 = ta.sma(df['Close'], 150)
+                            if s150 is not None and pd.notna(s150.iloc[-1]) and pd.notna(s150.iloc[-20]):
+                                s2 = (curr > float(s150.iloc[-1])) and (float(s150.iloc[-1]) > float(s150.iloc[-20]))
+                        except: pass
+                        if not s2: return None
+
+                        # ADX
+                        adx_v = 0.0
+                        try:
+                            adx_df = ta.adx(df['High'], df['Low'], df['Close'], 14)
+                            if adx_df is not None:
+                                col = [c for c in adx_df.columns if c.startswith('ADX_')]
+                                if col and pd.notna(adx_df[col[0]].iloc[-1]):
+                                    adx_v = float(adx_df[col[0]].iloc[-1])
+                        except: pass
+
+                        # RSI
+                        rsi_v = 50.0
+                        try:
+                            r = ta.rsi(df['Close'], 14)
+                            if r is not None and pd.notna(r.iloc[-1]):
+                                rsi_v = float(r.iloc[-1])
+                        except: pass
+
+                        # RVOL
+                        rvol_v = 1.0
+                        try:
+                            avg20 = float(df['Volume'].tail(20).mean())
+                            if avg20 > 0:
+                                rvol_v = round(float(df['Volume'].iloc[-1]) / avg20, 2)
+                        except: pass
+
+                        # VCP
+                        vcp = detect_vcp_pattern(df)
+
+                        # VDU (Volume Dry-Up near zone)
+                        vdu_near = False
+                        try:
+                            rv5 = float(df['Volume'].tail(5).mean())
+                            rv50 = float(df['Volume'].tail(50).mean())
+                            vdu_near = (rv5 < rv50 * 0.70) and (curr >= year_h * 0.88)
+                        except: pass
+
+                        # Pocket Pivot
+                        pp = False
+                        try:
+                            vols = df['Volume'].values
+                            closes = df['Close'].values
+                            if len(vols) >= 12:
+                                today_vol = vols[-1]
+                                today_up  = closes[-1] > closes[-2]
+                                dn_vols   = [vols[-(i+2)] for i in range(10) if closes[-(i+2)] < closes[-(i+3)]]
+                                if today_up and dn_vols and today_vol > max(dn_vols):
+                                    pp = True
+                        except: pass
+
+                        return {
+                            'symbol': symbol,
+                            'price': round(curr, 2),
+                            'stage2': True,
+                            'rs_rating': rs_v,
+                            'vcp_setup': vcp.get('setup', False),
+                            'vcp_contractions': vcp.get('contractions', 0),
+                            'vcp_tightness': vcp.get('tightness', 0.0),
+                            'vcp_vdu': vcp.get('vdu_confirmed', False),
+                            'pocket_pivot': pp,
+                            'vdu_near_zone': vdu_near,
+                            'adx': round(adx_v, 1),
+                            'rsi': round(rsi_v, 1),
+                            'rvol': rvol_v,
+                            'year_high': round(year_h, 2),
+                            'upside_to_high': round((year_h - curr) / curr * 100, 2),
+                        }
+                    except: return None
+
+                done = 0
+                with concurrent.futures.ThreadPoolExecutor(max_workers=12) as ex:
+                    futs = {ex.submit(_scan_one, s): s for s in syms}
+                    for fut in concurrent.futures.as_completed(futs):
+                        done += 1
+                        if done % 15 == 0:
+                            _c.set(ckey, {'state': 'running', 'progress': done, 'total': len(syms), 'phase': f'Scanning {done}/{len(syms)}…'}, timeout=1200)
+                        r = fut.result()
+                        if r: results.append(r)
+
+                # ── Step 3: Enrich sector names ───────────────────────────
+                if results:
+                    _c.set(ckey, {'state': 'running', 'progress': done, 'total': len(syms), 'phase': 'Fetching sector data…'}, timeout=1200)
+                    from yahooquery import Ticker as YQT
+                    sector_map = {}
+                    name_map   = {}
+                    try:
+                        yqa = YQT([r['symbol'] for r in results])
+                        mods = yqa.get_modules('summaryProfile quoteType')
+                        for k, d in mods.items():
+                            if isinstance(d, dict):
+                                sp = d.get('summaryProfile', {})
+                                qt = d.get('quoteType', {})
+                                sector_map[k.upper()] = sp.get('sector', 'Unknown') or 'Unknown'
+                                name_map[k.upper()]   = qt.get('shortName', '') or ''
+                    except: pass
+
+                    bulk = [_USC(
+                        user=user, scan_run=scan_run,
+                        symbol=r['symbol'],
+                        name=name_map.get(r['symbol'], ''),
+                        sector=sector_map.get(r['symbol'], 'Unknown'),
+                        price=r['price'],
+                        stage2=r['stage2'],
+                        rs_rating=r['rs_rating'],
+                        vcp_setup=r['vcp_setup'],
+                        vcp_contractions=r['vcp_contractions'],
+                        vcp_tightness=r['vcp_tightness'],
+                        vcp_vdu=r['vcp_vdu'],
+                        pocket_pivot=r['pocket_pivot'],
+                        vdu_near_zone=r['vdu_near_zone'],
+                        adx=r['adx'],
+                        rsi=r['rsi'],
+                        rvol=r['rvol'],
+                        year_high=r['year_high'],
+                        upside_to_high=r['upside_to_high'],
+                    ) for r in results]
+                    _USC.objects.bulk_create(bulk)
+
+                _c.set(ckey, {'state': 'done'}, timeout=300)
+            except Exception as exc:
+                import logging
+                logging.getLogger('stocks').exception(f'[US SEPA] bg scan error: {exc}')
+                from django.core.cache import cache as _c2
+                _c2.set(ckey, {'state': 'done'}, timeout=300)
+
+        import threading as _thr
+        _thr.Thread(target=_run_bg, args=(request.user.id, cache_key, sym_list), daemon=True).start()
+        return redirect('stocks:us_sepa_scanner')
+
+    # ── Display ────────────────────────────────────────────────────
+    all_runs = list(
+        USSepaCandidate.objects.filter(user=request.user)
+        .values_list('scan_run', flat=True).distinct().order_by('-scan_run')
+    )
+    try:
+        run_idx = max(0, min(int(request.GET.get('run_idx', 0)), len(all_runs) - 1)) if all_runs else 0
+    except (ValueError, TypeError):
+        run_idx = 0
+
+    candidates  = []
+    last_updated = None
+    if all_runs:
+        run_time    = all_runs[run_idx]
+        candidates  = list(USSepaCandidate.objects.filter(user=request.user, scan_run=run_time).order_by('-vcp_setup', '-rs_rating'))
+        last_updated = run_time
+
+    # Filters
+    vcp_only     = request.GET.get('vcp_only') == '1'
+    hide_at_tp   = request.GET.get('hide_at_tp', '1') == '1'
+
+    if vcp_only:
+        candidates = [c for c in candidates if c.vcp_setup]
+    if hide_at_tp:
+        candidates = [c for c in candidates if c.upside_to_high >= 5.0]
+
+    # RS filter: enforce ≥70 (scan saves down to 60 for flexibility)
+    candidates = [c for c in candidates if c.rs_rating >= 70]
+
+    # Computed display fields
+    for c in candidates:
+        c.dist_from_pivot = round(c.upside_to_high, 1)
+        if c.upside_to_high < 5:
+            c.tp_status = 'at_tp'
+        elif c.upside_to_high < 10:
+            c.tp_status = 'near_tp'
+        else:
+            c.tp_status = None
+
+    watchlist_symbols = set(ScanWatchlistItem.objects.filter(user=request.user).values_list('symbol', flat=True))
+
+    context = {
+        'candidates':    candidates,
+        'last_updated':  last_updated,
+        'all_runs':      all_runs,
+        'selected_run_idx': run_idx,
+        'vcp_only':      vcp_only,
+        'hide_at_tp':    hide_at_tp,
+        'watchlist_symbols': watchlist_symbols,
+    }
+    return render(request, 'stocks/us_sepa_scanner.html', context)
+
 
 @login_required
 def cup_handle_scanner(request):

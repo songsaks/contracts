@@ -536,6 +536,54 @@ class CupHandleCandidate(models.Model):
         return f"{self.symbol} [{self.stage}] score={self.confidence_score}"
 
 
+# ====== USSepaCandidate — ผลลัพธ์ US SEPA Scanner (แยกต่างหากจาก PrecisionScanCandidate) ======
+
+class USSepaCandidate(models.Model):
+    """
+    เก็บผลการสแกน US SEPA (Minervini Stage 2 + VCP + RS) สำหรับหุ้น US
+    แยกต่างหากจาก PrecisionScanCandidate อย่างสมบูรณ์
+    """
+    user        = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
+    scan_run    = models.DateTimeField(db_index=True)
+    symbol      = models.CharField(max_length=20)
+    name        = models.CharField(max_length=100, blank=True, default='')
+    sector      = models.CharField(max_length=100, default='Unknown')
+    price       = models.FloatField(default=0.0)
+
+    # ── SEPA Stage 2 ────────────────────────────────────────────
+    stage2      = models.BooleanField(default=False)    # price > SMA150 AND SMA150 rising
+
+    # ── Relative Strength ───────────────────────────────────────
+    rs_rating   = models.IntegerField(default=0)        # 0-99 percentile vs universe
+
+    # ── VCP (Volatility Contraction Pattern) ────────────────────
+    vcp_setup        = models.BooleanField(default=False)
+    vcp_contractions = models.IntegerField(default=0)
+    vcp_tightness    = models.FloatField(default=0.0)   # depth of last contraction (%)
+    vcp_vdu          = models.BooleanField(default=False)
+
+    # ── Institutional Signals ───────────────────────────────────
+    pocket_pivot  = models.BooleanField(default=False)
+    vdu_near_zone = models.BooleanField(default=False)
+
+    # ── Technicals ──────────────────────────────────────────────
+    adx   = models.FloatField(default=0.0)
+    rsi   = models.FloatField(default=0.0)
+    rvol  = models.FloatField(default=1.0)
+
+    # ── Price levels ────────────────────────────────────────────
+    year_high      = models.FloatField(default=0.0)
+    upside_to_high = models.FloatField(default=0.0)     # (year_high - price) / price * 100
+
+    class Meta:
+        ordering = ['-scan_run', '-rs_rating']
+        indexes  = [models.Index(fields=['user', 'scan_run'])]
+        verbose_name = 'US SEPA Candidate'
+
+    def __str__(self):
+        return f"{self.symbol} RS={self.rs_rating} VCP={self.vcp_setup}"
+
+
 class TitheRecord(models.Model):
     """
     ติดตามการถวายทศางค์ 10% จากกำไรหุ้นรายเดือน
