@@ -52,6 +52,10 @@
         <a href="{% url 'stocks:precision_momentum_scanner' %}" class="btn btn-outline-secondary d-inline-flex align-items-center gap-2">
             <i class="fas fa-chart-bar"></i> SET Precision Scan
         </a>
+        <a href="{% url 'stocks:us_sepa_scanner' %}" class="btn d-inline-flex align-items-center gap-2"
+           style="background:#eff6ff;color:#1d4ed8;border:1.5px solid #93c5fd;">
+            <i class="fas fa-shield-alt"></i> US SEPA Mode
+        </a>
         <form method="post" id="usPrecisionScanForm" style="display:inline;">
             {% csrf_token %}
             <input type="hidden" name="action" value="scan">
