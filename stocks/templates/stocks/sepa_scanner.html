@@ -79,28 +79,41 @@
     <div class="bg-white rounded-4 shadow-sm border-0 overflow-hidden">
         <!-- FILTER BAR -->
         <div class="p-3 border-bottom d-flex align-items-center justify-content-between flex-wrap gap-3">
-            <div class="d-flex align-items-center gap-3">
+            <div class="d-flex align-items-center gap-3 flex-wrap">
                 <span class="small text-muted fw-bold"><i class="fas fa-filter me-1"></i> FILTERS:</span>
                 <div class="form-check form-switch mb-0">
-                    <input class="form-check-input" type="checkbox" id="vcpOnlyToggle" {% if vcp_only %}checked{% endif %} 
-                           onchange="location.href='?vcp_only=' + (this.checked ? '1' : '0')">
+                    <input class="form-check-input" type="checkbox" id="vcpOnlyToggle" {% if vcp_only %}checked{% endif %}
+                           onchange="applyFilters()">
                     <label class="form-check-label small fw-semibold" for="vcpOnlyToggle">🎯 VCP Only</label>
                 </div>
+                <div class="form-check form-switch mb-0">
+                    <input class="form-check-input" type="checkbox" id="hideAtTpToggle" {% if hide_at_tp %}checked{% endif %}
+                           onchange="applyFilters()">
+                    <label class="form-check-label small fw-semibold" for="hideAtTpToggle">🚫 ซ่อน AT/NEAR TP</label>
+                </div>
             </div>
-            
-            {% if all_runs %}
-            <div class="d-flex align-items-center gap-2">
-                <span class="small text-muted fw-bold">History:</span>
-                <select class="form-select form-select-sm rounded-pill" style="width: auto; font-size: 0.75rem;" 
-                        onchange="location.href='?run_idx=' + this.value + '&vcp_only={{ vcp_only|yesno:'1,0' }}'">
-                    {% for run in all_runs %}
-                    <option value="{{ forloop.counter0 }}" {% if forloop.counter0 == selected_run_idx %}selected{% endif %}>
-                        {{ run|date:"d/m H:i" }}{% if forloop.first %} (Latest){% endif %}
-                    </option>
-                    {% endfor %}
-                </select>
+
+            <div class="d-flex align-items-center gap-3 flex-wrap">
+                {% if last_updated %}
+                <span class="small text-muted">
+                    <i class="fas fa-clock me-1"></i>
+                    ข้อมูล ณ <strong>{{ last_updated|date:"d M Y H:i" }}</strong>
+                </span>
+                {% endif %}
+                {% if all_runs %}
+                <div class="d-flex align-items-center gap-2">
+                    <span class="small text-muted fw-bold">History:</span>
+                    <select class="form-select form-select-sm rounded-pill" style="width: auto; font-size: 0.75rem;"
+                            onchange="location.href='?run_idx=' + this.value + '&vcp_only={{ vcp_only|yesno:'1,0' }}&hide_at_tp={{ hide_at_tp|yesno:'1,0' }}'">
+                        {% for run in all_runs %}
+                        <option value="{{ forloop.counter0 }}" {% if forloop.counter0 == selected_run_idx %}selected{% endif %}>
+                            {{ run|date:"d/m H:i" }}{% if forloop.first %} (Latest){% endif %}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                {% endif %}
             </div>
-            {% endif %}
         </div>
 
         <div class="table-responsive">
@@ -111,6 +124,7 @@
                         <th class="border-0 py-3">Price / Chg</th>
                         <th class="border-0 py-3 text-center">Trend Stage</th>
                         <th class="border-0 py-3 text-center">VCP Base</th>
+                        <th class="border-0 py-3 text-center">% from Pivot</th>
                         <th class="border-0 py-3 text-center">Institutional Signal</th>
                         <th class="border-0 py-3 text-center">RS Rating</th>
                         <th class="pe-4 border-0 py-3 text-end">Action</th>
@@ -122,7 +136,7 @@
                         <!-- Symbol -->
                         <td class="ps-4 py-3">
                             <div class="d-flex align-items-center gap-2">
-                                <div class="rounded-circle d-flex align-items-center justify-content-center fw-bold" 
+                                <div class="rounded-circle d-flex align-items-center justify-content-center fw-bold"
                                      style="width:30px;height:30px;background:#f1f5f9;color:#475569;font-size:0.65rem;">
                                     {{ item.symbol|slice:":3" }}
                                 </div>
@@ -138,6 +152,11 @@
                             <div class="{% if item.live_change_pct >= 0 %}text-success{% else %}text-danger{% endif %} fw-semibold" style="font-size: 0.72rem;">
                                 {% if item.live_change_pct >= 0 %}+{% endif %}{{ item.live_change_pct|floatformat:1 }}%
                             </div>
+                            {% if item.tp_status == 'at_tp' %}
+                            <span class="badge rounded-pill px-2 mt-1 d-inline-block" style="background:#fef2f2;color:#dc2626;border:1px solid #fecdd3;font-size:0.6rem;">AT TP</span>
+                            {% elif item.tp_status == 'near_tp' %}
+                            <span class="badge rounded-pill px-2 mt-1 d-inline-block" style="background:#fffbeb;color:#d97706;border:1px solid #fde68a;font-size:0.6rem;">NEAR TP</span>
+                            {% endif %}
                         </td>
                         <!-- Trend Stage -->
                         <td class="py-3 text-center">
@@ -163,6 +182,24 @@
                                 </div>
                             </div>
                             {% else %}
+                            <span class="badge rounded-pill px-2 py-1" style="background:#f8fafc;color:#94a3b8;border:1px solid #e2e8f0;font-size:0.68rem;">
+                                No Setup
+                            </span>
+                            {% endif %}
+                        </td>
+                        <!-- % from Pivot -->
+                        <td class="py-3 text-center">
+                            {% if item.dist_from_pivot is not None %}
+                            <div class="fw-bold" style="font-size:0.9rem;
+                                color:{% if item.dist_from_pivot <= 5 %}#15803d{% elif item.dist_from_pivot <= 10 %}#2563eb{% else %}#64748b{% endif %};">
+                                {{ item.dist_from_pivot }}%
+                            </div>
+                            <div class="text-muted" style="font-size:0.62rem;">
+                                {% if item.dist_from_pivot <= 5 %}&lt;5% Buy Zone
+                                {% elif item.dist_from_pivot <= 10 %}Near Pivot
+                                {% else %}Far from Pivot{% endif %}
+                            </div>
+                            {% else %}
                             <span class="text-muted">—</span>
                             {% endif %}
                         </td>
@@ -179,7 +216,7 @@
                                     PP 🔥
                                 </span>
                                 {% endif %}
-                                {% if not item.vcp_vdu and not item.pocket_pivot %}
+                                {% if not item.vcp_vdu and not item.vdu_near_zone and not item.pocket_pivot %}
                                 <span class="text-muted">—</span>
                                 {% endif %}
                             </div>
@@ -200,7 +237,7 @@
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="7" class="text-center py-5">
+                        <td colspan="8" class="text-center py-5">
                             <div class="text-muted">
                                 <i class="fas fa-search mb-2 d-block" style="font-size: 2rem; opacity: 0.5;"></i>
                                 No high-potential SEPA setups found in this scan.<br>
@@ -229,4 +266,12 @@
         background-color: #f8fafc;
     }
 </style>
+<script>
+function applyFilters() {
+    var vcpOnly   = document.getElementById('vcpOnlyToggle').checked   ? '1' : '0';
+    var hideAtTp  = document.getElementById('hideAtTpToggle').checked  ? '1' : '0';
+    var runIdx    = {{ selected_run_idx }};
+    location.href = '?run_idx=' + runIdx + '&vcp_only=' + vcpOnly + '&hide_at_tp=' + hideAtTp;
+}
+</script>
 {% endblock %}

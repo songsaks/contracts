@@ -2750,25 +2750,44 @@ def minervini_sepa_scanner(request):
     if all_runs:
         if selected_run_idx < len(all_runs):
             run_time = all_runs[selected_run_idx]
-            # กรองเฉพาะ Stage 2 และต้องมี RS Rating หรือ VCP Setup
-            candidates = PrecisionScanCandidate.objects.filter(
+            # กรองเฉพาะ Stage 2 + RS Rating >= 70 (ตาม SEPA criteria)
+            candidates = list(PrecisionScanCandidate.objects.filter(
                 user=request.user,
                 scan_run=run_time,
-                stage2=True
-            ).order_by('-vcp_setup', '-rs_rating')
+                stage2=True,
+                rs_rating__gte=70,
+            ).order_by('-vcp_setup', '-rs_rating'))
             last_updated = run_time
-            
+
     # เพิ่มเติม: กรองเฉพาะตัวที่มีสัญญาณ VCP เพื่อความ Clean
     vcp_only = request.GET.get('vcp_only') == '1'
     if vcp_only:
         candidates = [c for c in candidates if c.vcp_setup]
-        
+
+    # hide_at_tp: ซ่อนหุ้นที่ราคาอยู่ใกล้/ถึง Target (upside_to_high < 5%)
+    hide_at_tp = request.GET.get('hide_at_tp', '1') == '1'
+    if hide_at_tp:
+        candidates = [c for c in candidates if c.upside_to_high >= 5.0]
+
+    # คำนวณ field เพิ่มเติมสำหรับแสดงผล
+    for c in candidates:
+        # % ห่างจาก Pivot (52w High) = upside_to_high แต่แสดงให้ชัดขึ้น
+        c.dist_from_pivot = round(c.upside_to_high, 1)
+        # สถานะ TP
+        if c.upside_to_high < 5:
+            c.tp_status = 'at_tp'
+        elif c.upside_to_high < 10:
+            c.tp_status = 'near_tp'
+        else:
+            c.tp_status = None
+
     context = {
         'candidates': candidates,
         'last_updated': last_updated,
         'all_runs': all_runs,
         'selected_run_idx': selected_run_idx,
         'vcp_only': vcp_only,
+        'hide_at_tp': hide_at_tp,
     }
     return render(request, 'stocks/sepa_scanner.html', context)
 
