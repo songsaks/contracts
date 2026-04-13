@@ -120,25 +120,36 @@
             <table class="table table-hover align-middle mb-0" style="font-size: 0.82rem;">
                 <thead class="bg-light text-muted small text-uppercase">
                     <tr>
-                        <th class="ps-4 border-0 py-3" style="width: 180px;">Symbol</th>
+                        <th class="ps-4 border-0 py-3" style="width: 200px;">Symbol</th>
                         <th class="border-0 py-3">Price / Chg</th>
                         <th class="border-0 py-3 text-center">Trend Stage</th>
                         <th class="border-0 py-3 text-center">VCP Base</th>
                         <th class="border-0 py-3 text-center">% from Pivot</th>
                         <th class="border-0 py-3 text-center">Institutional Signal</th>
                         <th class="border-0 py-3 text-center">RS Rating</th>
+                        <th class="border-0 py-3 text-center">
+                            SEPA Score
+                            <i class="fas fa-info-circle ms-1 text-muted" style="cursor:pointer;"
+                               data-bs-toggle="tooltip"
+                               title="คะแนนรวม: VCP quality(65) + VDU(20) + RS×0.7(~69) + ADX(10) + Proximity(10) — ยิ่งสูงยิ่งพร้อม Breakout"></i>
+                        </th>
                         <th class="pe-4 border-0 py-3 text-end">Action</th>
                     </tr>
                 </thead>
                 <tbody class="border-0">
                     {% for item in candidates %}
                     <tr class="border-bottom border-light">
-                        <!-- Symbol -->
+                        <!-- Symbol + Rank -->
                         <td class="ps-4 py-3">
                             <div class="d-flex align-items-center gap-2">
-                                <div class="rounded-circle d-flex align-items-center justify-content-center fw-bold"
-                                     style="width:30px;height:30px;background:#f1f5f9;color:#475569;font-size:0.65rem;">
-                                    {{ item.symbol|slice:":3" }}
+                                <!-- Rank Badge -->
+                                <div class="rounded-circle d-flex align-items-center justify-content-center fw-bold flex-shrink-0"
+                                     style="width:26px;height:26px;font-size:0.65rem;
+                                     {% if item.sepa_rank == 1 %}background:#fef3c7;color:#92400e;border:1.5px solid #f59e0b;
+                                     {% elif item.sepa_rank == 2 %}background:#f1f5f9;color:#334155;border:1.5px solid #94a3b8;
+                                     {% elif item.sepa_rank == 3 %}background:#fff7ed;color:#9a3412;border:1.5px solid #fb923c;
+                                     {% else %}background:#f8fafc;color:#94a3b8;border:1px solid #e2e8f0;{% endif %}">
+                                    #{{ item.sepa_rank }}
                                 </div>
                                 <div>
                                     <div class="fw-bold text-dark" style="font-size: 0.95rem;">{{ item.symbol }}</div>
@@ -228,6 +239,19 @@
                             </div>
                             <div class="text-muted" style="font-size: 0.65rem;">Rank</div>
                         </td>
+                        <!-- SEPA Score -->
+                        <td class="py-3 text-center">
+                            <div class="fw-bold" style="font-size:1rem;
+                                color:{% if item.sepa_score >= 120 %}#15803d{% elif item.sepa_score >= 90 %}#2563eb{% elif item.sepa_score >= 60 %}#d97706{% else %}#64748b{% endif %};">
+                                {{ item.sepa_score }}
+                            </div>
+                            <div class="text-muted" style="font-size:0.62rem;">
+                                {% if item.sepa_score >= 120 %}Elite Setup
+                                {% elif item.sepa_score >= 90 %}Strong Setup
+                                {% elif item.sepa_score >= 60 %}Developing
+                                {% else %}Weak{% endif %}
+                            </div>
+                        </td>
                         <!-- Action -->
                         <td class="pe-4 py-3 text-end">
                             <a href="{% url 'stocks:entry_finder' item.symbol %}" class="btn btn-sm btn-light rounded-pill px-3" style="font-size: 0.72rem;">
@@ -237,7 +261,7 @@
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="8" class="text-center py-5">
+                        <td colspan="9" class="text-center py-5">
                             <div class="text-muted">
                                 <i class="fas fa-search mb-2 d-block" style="font-size: 2rem; opacity: 0.5;"></i>
                                 No high-potential SEPA setups found in this scan.<br>

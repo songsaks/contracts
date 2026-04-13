@@ -2769,9 +2769,9 @@ def minervini_sepa_scanner(request):
     if hide_at_tp:
         candidates = [c for c in candidates if c.upside_to_high >= 5.0]
 
-    # คำนวณ field เพิ่มเติมสำหรับแสดงผล
+    # คำนวณ field เพิ่มเติมสำหรับแสดงผล + SEPA Score
     for c in candidates:
-        # % ห่างจาก Pivot (52w High) = upside_to_high แต่แสดงให้ชัดขึ้น
+        # % ห่างจาก Pivot (52w High)
         c.dist_from_pivot = round(c.upside_to_high, 1)
         # สถานะ TP
         if c.upside_to_high < 5:
@@ -2780,6 +2780,36 @@ def minervini_sepa_scanner(request):
             c.tp_status = 'near_tp'
         else:
             c.tp_status = None
+        # SEPA Score
+        sc = 0
+        if c.vcp_setup:
+            sc += 30
+            sc += int(max(0, (10 - min(c.vcp_tightness, 10)) * 2))
+            sc += min(c.vcp_contractions, 5) * 3
+        if c.vcp_vdu or c.vdu_near_zone:
+            sc += 20
+        if c.pocket_pivot:
+            sc += 10
+        sc += int(c.rs_rating * 0.7)
+        if c.adx >= 25:
+            sc += 10
+        elif c.adx >= 15:
+            sc += 5
+        if c.vcp_setup:
+            if c.dist_from_pivot <= 5:
+                sc += 10
+            elif c.dist_from_pivot <= 10:
+                sc += 5
+            elif c.dist_from_pivot > 15:
+                sc -= 5
+        c.sepa_score = sc
+
+    # Sort by SEPA Score descending
+    candidates.sort(key=lambda c: c.sepa_score, reverse=True)
+
+    # Assign rank
+    for i, c in enumerate(candidates, 1):
+        c.sepa_rank = i
 
     context = {
         'candidates': candidates,
@@ -6012,7 +6042,7 @@ def us_sepa_scanner(request):
     # RS filter: enforce ≥70 (scan saves down to 60 for flexibility)
     candidates = [c for c in candidates if c.rs_rating >= 70]
 
-    # Computed display fields
+    # Computed display fields + SEPA Score
     for c in candidates:
         c.dist_from_pivot = round(c.upside_to_high, 1)
         if c.upside_to_high < 5:
@@ -6021,6 +6051,44 @@ def us_sepa_scanner(request):
             c.tp_status = 'near_tp'
         else:
             c.tp_status = None
+
+        # ── SEPA Score (0-200) ─────────────────────────────────
+        # VCP Setup quality (0-65 pts)
+        sc = 0
+        if c.vcp_setup:
+            sc += 30
+            sc += int(max(0, (10 - min(c.vcp_tightness, 10)) * 2))  # tighter = better (max 20)
+            sc += min(c.vcp_contractions, 5) * 3                     # more contractions = better (max 15)
+        # Volume Dry-Up confirmed (20 pts)
+        if c.vcp_vdu or c.vdu_near_zone:
+            sc += 20
+        # Pocket Pivot (10 pts)
+        if c.pocket_pivot:
+            sc += 10
+        # RS Rating (weight 0.7, max ~69 pts)
+        sc += int(c.rs_rating * 0.7)
+        # ADX strength (0-10 pts)
+        if c.adx >= 25:
+            sc += 10
+        elif c.adx >= 15:
+            sc += 5
+        # Proximity to pivot bonus (only for VCP stocks)
+        if c.vcp_setup:
+            dist = c.dist_from_pivot
+            if dist <= 5:
+                sc += 10
+            elif dist <= 10:
+                sc += 5
+            elif dist > 15:
+                sc -= 5
+        c.sepa_score = sc
+
+    # Sort by SEPA Score descending
+    candidates.sort(key=lambda c: c.sepa_score, reverse=True)
+
+    # Assign rank
+    for i, c in enumerate(candidates, 1):
+        c.sepa_rank = i
 
     watchlist_symbols = set(ScanWatchlistItem.objects.filter(user=request.user).values_list('symbol', flat=True))
 
