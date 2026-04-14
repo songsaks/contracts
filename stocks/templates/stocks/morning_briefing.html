@@ -142,10 +142,8 @@
     </div>
     {% endfor %}
 
-    <!-- raw markdown store (safe JSON) -->
-    {% for b in briefings %}
-    <script id="mbraw-{{ forloop.counter0 }}" type="application/json">{{ b.report_md|escapejs }}</script>
-    {% endfor %}
+    <!-- markdown data as proper JSON array -->
+    <script id="mbAllRaw" type="application/json">{{ briefings_md_json|safe }}</script>
 
 </div>
 
@@ -180,12 +178,13 @@
 
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <script>
+var MB_DATA = JSON.parse(document.getElementById('mbAllRaw').textContent);
+
 document.addEventListener('DOMContentLoaded', function() {
-    document.querySelectorAll('.briefing-content').forEach(function(el) {
-        var idx = el.id.replace('content-', '');
-        var src = document.getElementById('mbraw-' + idx);
-        if (src && typeof marked !== 'undefined') {
-            el.innerHTML = marked.parse(src.textContent);
+    MB_DATA.forEach(function(md, idx) {
+        var el = document.getElementById('content-' + idx);
+        if (el && typeof marked !== 'undefined') {
+            el.innerHTML = marked.parse(md);
         }
     });
 });

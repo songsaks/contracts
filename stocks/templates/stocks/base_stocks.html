@@ -393,9 +393,9 @@
                         </ul>
                     </li>
 
-                    <!-- Value Dropdown -->
+                    <!-- Value + Multi-Factor Dropdown -->
                     <li class="nav-item dropdown">
-                        <a class="nav-link px-3 py-2 rounded-xl dropdown-toggle {% if request.resolver_match.url_name == 'recommendations' or request.resolver_match.url_name == 'us_value_scanner' %}active{% endif %}"
+                        <a class="nav-link px-3 py-2 rounded-xl dropdown-toggle {% if request.resolver_match.url_name in 'recommendations,us_value_scanner,multi_factor_scanner' %}active{% endif %}"
                            href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                             <i class="fas fa-gem"></i> Value
                         </a>
@@ -403,7 +403,7 @@
                             <li>
                                 <a class="dropdown-item rounded-3 py-2 {% if request.resolver_match.url_name == 'recommendations' %}active{% endif %}"
                                    href="{% url 'stocks:recommendations' %}">
-                                    <i class="fas fa-magic me-1"></i> Value Stock
+                                    <i class="fas fa-magic me-1"></i> Value Stock (SET)
                                 </a>
                             </li>
                             <li>
@@ -412,24 +412,36 @@
                                     🇺🇸 US Value
                                 </a>
                             </li>
+                            <li><hr class="dropdown-divider opacity-25 my-1"></li>
+                            <li>
+                                <a class="dropdown-item rounded-3 py-2 {% if request.resolver_match.url_name == 'multi_factor_scanner' %}active{% endif %}"
+                                   href="{% url 'stocks:multi_factor_scanner' %}">
+                                    <i class="fas fa-layer-group me-1" style="color:#6366f1;"></i> Multi-Factor
+                                </a>
+                            </li>
                         </ul>
                     </li>
-                    <li class="nav-item">
-                        <a class="nav-link px-3 py-2 rounded-xl {% if request.resolver_match.url_name == 'multi_factor_scanner' %}active{% endif %}" href="{% url 'stocks:multi_factor_scanner' %}">
-                            <i class="fas fa-layer-group"></i> Multi-Factor
+                    <!-- Macro + Morning Briefing Dropdown -->
+                    <li class="nav-item dropdown">
+                        <a class="nav-link px-3 py-2 rounded-xl dropdown-toggle {% if request.resolver_match.url_name == 'macro' or request.resolver_match.url_name == 'morning_briefing' %}active{% endif %}"
+                           href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false"
+                           style="{% if request.resolver_match.url_name != 'macro' and request.resolver_match.url_name != 'morning_briefing' %}background:linear-gradient(135deg,rgba(245,158,11,0.08),rgba(239,68,68,0.08));{% endif %}">
+                            <i class="fas fa-globe" style="color:#f59e0b;"></i> Macro
                         </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link px-3 py-2 rounded-xl {% if request.resolver_match.url_name == 'macro' %}active{% endif %}" href="{% url 'stocks:macro' %}">
-                            <i class="fas fa-globe"></i> Macro
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link px-3 py-2 rounded-xl {% if request.resolver_match.url_name == 'morning_briefing' %}active{% endif %}"
-                           href="{% url 'stocks:morning_briefing' %}"
-                           style="{% if request.resolver_match.url_name == 'morning_briefing' %}{% else %}background:linear-gradient(135deg,rgba(245,158,11,0.1),rgba(239,68,68,0.1));{% endif %}">
-                            <i class="fas fa-sun" style="color:#f59e0b;"></i> Morning Briefing
-                        </a>
+                        <ul class="dropdown-menu border-0 shadow-lg p-2 rounded-4 mt-1">
+                            <li>
+                                <a class="dropdown-item rounded-3 py-2 {% if request.resolver_match.url_name == 'macro' %}active{% endif %}"
+                                   href="{% url 'stocks:macro' %}">
+                                    <i class="fas fa-globe me-1"></i> Macro Economy
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item rounded-3 py-2 {% if request.resolver_match.url_name == 'morning_briefing' %}active{% endif %}"
+                                   href="{% url 'stocks:morning_briefing' %}">
+                                    <i class="fas fa-sun me-1" style="color:#f59e0b;"></i> Morning Briefing
+                                </a>
+                            </li>
+                        </ul>
                     </li>
                 </ul>
 
