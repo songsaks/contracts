@@ -5,7 +5,9 @@
       "Bash(.venv/Scripts/python -c \"from docx import Document; from docx.shared import Pt, RGBColor, Cm; print\\('python-docx OK'\\)\")",
       "Bash(.venv/Scripts/python -c ':*)",
       "Bash(xargs grep:*)",
-      "Read(//d/DjangoProjects/contracts/**)"
+      "Read(//d/DjangoProjects/contracts/**)",
+      "Bash(ls -lh /d/DjangoProjects/contracts/stocks/templates/stocks/*.html)",
+      "Bash(awk '{print $9, \"\\(\" $5 \"\\)\"}')"
     ]
   }
 }

@@ -32,6 +32,7 @@ urlpatterns = [
     path('momentum/us-sepa/', views.us_sepa_scanner, name='us_sepa_scanner'),
     path('momentum/cup-handle/', views.cup_handle_scanner, name='cup_handle_scanner'),
     path('momentum/sepa/', views.minervini_sepa_scanner, name='minervini_sepa_scanner'),
+    path('momentum/quick-ai/<str:symbol>/', views.momentum_quick_analysis, name='momentum_quick_analysis'),
     path('multi-factor/', views.multi_factor_scanner, name='multi_factor_scanner'),
     path('value/us-value/', views.us_value_scanner, name='us_value_scanner'),
     path('entry-finder/<str:symbol>/', views.entry_finder, name='entry_finder'),

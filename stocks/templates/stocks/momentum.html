@@ -144,6 +144,8 @@
                                 <th class="col-hide-lg"><a href="?sort=eps" class="text-decoration-none text-muted">EPS Q</a></th>
                                 <th class="col-hide-lg"><a href="?sort=rev" class="text-decoration-none text-muted">REV %</a></th>
                                 <th class="col-hide-lg"><a href="?sort=gap" class="text-decoration-none text-muted">GAP %</a></th>
+                                <th class="col-hide-lg"><a href="?sort=adx" class="text-decoration-none text-muted">ADX</a></th>
+                                <th class="col-hide-lg"><a href="?sort=mfi" class="text-decoration-none text-muted">MFI</a></th>
                                 <th class="col-hide-lg" style="width: 60px;">SEC</th>
                                 <th class="text-end pe-2">ACTION</th>
                             </tr>
@@ -258,6 +260,16 @@
                                 <td class="col-hide-lg"><span class="small {% if item.rev_growth >= 10 %}text-primary fw-bold{% endif %}">{{ item.rev_growth|floatformat:0 }}%</span></td>
                                 <td class="col-hide-lg"><span class="text-muted small">{{ item.upside_to_high|floatformat:1 }}%</span></td>
                                 <td class="col-hide-lg">
+                                    <span class="badge px-2 py-1 {% if item.adx >= 30 %}bg-success bg-opacity-15 text-success{% elif item.adx >= 20 %}bg-primary bg-opacity-10 text-primary{% else %}bg-secondary bg-opacity-10 text-secondary{% endif %}" style="font-size:0.65rem;" title="ADX ≥30 = Trend แข็งแกร่ง">
+                                        {{ item.adx|floatformat:0 }}
+                                    </span>
+                                </td>
+                                <td class="col-hide-lg">
+                                    <span class="badge px-2 py-1 {% if item.mfi >= 60 %}bg-success bg-opacity-15 text-success{% elif item.mfi >= 40 %}bg-secondary bg-opacity-10 text-secondary{% else %}bg-danger bg-opacity-10 text-danger{% endif %}" style="font-size:0.65rem;" title="MFI ≥60 = เงินไหลเข้า (Accumulation)">
+                                        {{ item.mfi|floatformat:0 }}
+                                    </span>
+                                </td>
+                                <td class="col-hide-lg">
                                     <span class="badge bg-light text-muted fw-normal border" style="font-size:0.62rem;">
                                         {% if 'Financial' in item.sector %}FIN
                                         {% elif 'Industrial' in item.sector %}IND
@@ -272,6 +284,12 @@
                                 </td>
                                 <td class="text-end pe-2">
                                     <div class="d-flex justify-content-end gap-1">
+                                        <button onclick="runMomentumCrewAI('{{ item.symbol }}')"
+                                                class="btn btn-sm px-2"
+                                                style="font-size:0.65rem;background:linear-gradient(135deg,#f59e0b,#ef4444);color:white;border:none;"
+                                                title="CrewAI Expert Analysis (3 Agents: Technical + Risk + Smart Money)">
+                                            <i class="fas fa-bolt"></i>
+                                        </button>
                                         <a href="{% url 'stocks:analyze' item.symbol_bk %}" class="btn btn-outline-primary btn-sm px-2" style="font-size:0.65rem;" target="_blank"><i class="fas fa-microscope"></i></a>
                                         <a href="{% url 'stocks:entry_finder' item.symbol %}" class="btn btn-danger btn-sm px-2" style="font-size:0.65rem;" target="_blank"><i class="fas fa-crosshairs"></i></a>
                                     </div>
@@ -382,6 +400,69 @@
 {% endif %}
 
 {% endif %}
+
+<!-- ====== CrewAI Short-Term Expert Modal ====== -->
+<div class="modal fade" id="crewAIModal" tabindex="-1" aria-labelledby="crewAIModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content border-0 shadow-lg" style="border-radius:1rem;overflow:hidden;">
+            <div class="modal-header border-0 py-3 px-4" style="background:linear-gradient(135deg,#1e1b4b,#312e81);">
+                <div>
+                    <h5 class="modal-title text-white fw-bold mb-0" id="crewAIModalLabel">
+                        <i class="fas fa-bolt me-2" style="color:#f59e0b;"></i>
+                        CrewAI Expert Analysis — <span id="crewAISymbolLabel">...</span>
+                    </h5>
+                    <small class="text-indigo-200" style="color:#a5b4fc;font-size:0.72rem;">
+                        3 Specialized Agents: Technical Momentum · Risk Management · Smart Money &amp; Catalyst
+                    </small>
+                </div>
+                <button type="button" class="btn-close btn-close-white ms-auto" data-bs-dismiss="modal"></button>
+            </div>
+
+            <!-- Loading state -->
+            <div id="crewAILoading" class="d-none text-center py-5 px-4" style="background:#0f172a;">
+                <div style="width:52px;height:52px;border-radius:50%;border:5px solid rgba(245,158,11,0.2);border-top-color:#f59e0b;animation:mSpin 1s linear infinite;margin:0 auto 1.2rem;"></div>
+                <div class="fw-bold mb-1" style="color:#f59e0b;font-size:1rem;">กำลังวิเคราะห์ด้วย 3 Expert Agents…</div>
+                <div id="crewAIPhase" style="color:#64748b;font-size:0.8rem;">เริ่มต้น…</div>
+                <div class="mt-3 d-flex justify-content-center gap-3" style="font-size:0.72rem;color:#475569;">
+                    <span><i class="fas fa-chart-line me-1" style="color:#f59e0b;"></i>Technical Analyst</span>
+                    <span><i class="fas fa-shield-alt me-1" style="color:#10b981;"></i>Risk Expert</span>
+                    <span><i class="fas fa-eye me-1" style="color:#6366f1;"></i>Smart Money Scout</span>
+                </div>
+            </div>
+
+            <!-- Result state -->
+            <div id="crewAIResult" class="d-none modal-body p-0">
+                <!-- Agent badges bar -->
+                <div class="d-flex gap-2 flex-wrap px-4 py-3 border-bottom" style="background:#f8fafc;">
+                    <span class="badge rounded-pill px-3 py-2" style="background:#fef3c7;color:#92400e;font-size:0.7rem;">
+                        <i class="fas fa-chart-line me-1"></i> Agent 1 · Technical Momentum
+                    </span>
+                    <span class="badge rounded-pill px-3 py-2" style="background:#d1fae5;color:#065f46;font-size:0.7rem;">
+                        <i class="fas fa-shield-alt me-1"></i> Agent 2 · Risk &amp; Entry
+                    </span>
+                    <span class="badge rounded-pill px-3 py-2" style="background:#ede9fe;color:#4c1d95;font-size:0.7rem;">
+                        <i class="fas fa-eye me-1"></i> Agent 3 · Smart Money &amp; Final Verdict
+                    </span>
+                </div>
+                <div class="p-4 p-md-5 analysis-content" id="crewAIContent" style="background:#fff;"></div>
+            </div>
+
+            <!-- Error state -->
+            <div id="crewAIError" class="d-none text-center py-5 px-4">
+                <i class="fas fa-exclamation-triangle fa-2x text-warning mb-3"></i>
+                <div class="text-muted" id="crewAIErrorMsg">เกิดข้อผิดพลาด กรุณาลองใหม่</div>
+            </div>
+
+            <div class="modal-footer border-top py-2 px-4 d-none" id="crewAIFooter" style="background:#f8fafc;">
+                <small class="text-muted me-auto" style="font-size:0.7rem;">
+                    <i class="fas fa-robot me-1"></i> วิเคราะห์โดย CrewAI + Gemini 2.5 Flash · เพื่อการศึกษาเท่านั้น
+                </small>
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">ปิด</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 {% endblock %}
 
 {% block scripts %}
@@ -395,4 +476,105 @@
     });
 </script>
 {% endif %}
+
+<!-- CrewAI Modal Script -->
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script>
+(function() {
+    var _crewPollTimer = null;
+    var _crewSymbol   = null;
+
+    window.runMomentumCrewAI = function(symbol) {
+        _crewSymbol = symbol;
+
+        // Reset modal state
+        document.getElementById('crewAISymbolLabel').textContent = symbol;
+        document.getElementById('crewAILoading').classList.remove('d-none');
+        document.getElementById('crewAIResult').classList.add('d-none');
+        document.getElementById('crewAIError').classList.add('d-none');
+        document.getElementById('crewAIFooter').classList.add('d-none');
+        document.getElementById('crewAIPhase').textContent = 'กำลังเริ่มต้น…';
+
+        // Open modal
+        var modal = new bootstrap.Modal(document.getElementById('crewAIModal'));
+        modal.show();
+
+        // Stop previous poll if any
+        if (_crewPollTimer) { clearTimeout(_crewPollTimer); _crewPollTimer = null; }
+
+        // Start analysis
+        fetch('/stocks/momentum/quick-ai/' + encodeURIComponent(symbol) + '/', {
+            credentials: 'same-origin',
+            headers: { 'X-CSRFToken': _getCsrf() }
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (data.state === 'done') {
+                _showCrewResult(data.result);
+            } else {
+                _pollCrew(symbol, 3000);
+            }
+        })
+        .catch(function(err) { _showCrewError('ไม่สามารถเชื่อมต่อ Server ได้'); });
+    };
+
+    function _pollCrew(symbol, delay) {
+        _crewPollTimer = setTimeout(function() {
+            fetch('/stocks/momentum/quick-ai/' + encodeURIComponent(symbol) + '/?mq_status=1', {
+                credentials: 'same-origin'
+            })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (data.phase) {
+                    document.getElementById('crewAIPhase').textContent = data.phase;
+                }
+                if (data.state === 'done') {
+                    _showCrewResult(data.result);
+                } else if (data.state === 'running' || data.state === 'idle') {
+                    _pollCrew(symbol, 3500);
+                } else {
+                    _showCrewError('ไม่ได้รับข้อมูลจาก Server');
+                }
+            })
+            .catch(function() { _pollCrew(symbol, 4000); });
+        }, delay);
+    }
+
+    function _showCrewResult(markdown) {
+        document.getElementById('crewAILoading').classList.add('d-none');
+        document.getElementById('crewAIError').classList.add('d-none');
+        var resultDiv = document.getElementById('crewAIResult');
+        var contentDiv = document.getElementById('crewAIContent');
+        if (typeof marked !== 'undefined') {
+            contentDiv.innerHTML = marked.parse(markdown || '');
+        } else {
+            contentDiv.innerText = markdown || '';
+        }
+        resultDiv.classList.remove('d-none');
+        document.getElementById('crewAIFooter').classList.remove('d-none');
+    }
+
+    function _showCrewError(msg) {
+        document.getElementById('crewAILoading').classList.add('d-none');
+        document.getElementById('crewAIResult').classList.add('d-none');
+        document.getElementById('crewAIErrorMsg').textContent = msg;
+        document.getElementById('crewAIError').classList.remove('d-none');
+    }
+
+    function _getCsrf() {
+        var m = document.cookie.match(/csrftoken=([^;]+)/);
+        return m ? m[1] : '';
+    }
+
+    // Stop polling when modal closes
+    document.addEventListener('DOMContentLoaded', function() {
+        var el = document.getElementById('crewAIModal');
+        if (el) {
+            el.addEventListener('hidden.bs.modal', function() {
+                if (_crewPollTimer) { clearTimeout(_crewPollTimer); _crewPollTimer = null; }
+            });
+        }
+    });
+})();
+</script>
 {% endblock %}

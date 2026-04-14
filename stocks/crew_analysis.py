@@ -6,6 +6,272 @@ import yfinance as yf
 from yahooquery import Ticker as YQTicker
 from django.conf import settings
 
+
+# ======================================================================
+# MomentumShortTermCrew — CrewAI Multi-Agent (Short-Term Focus)
+# ======================================================================
+
+class MomentumShortTermCrew:
+    """
+    CrewAI 3-agent analysis for short-term momentum trading (2-6 weeks).
+
+    Agents:
+      1. Short-Term Momentum Technician  — Breakout quality, entry timing
+      2. Risk & Entry Expert             — ATR stop, exact prices, R:R
+      3. Smart Money & Catalyst Scout    — Volume flow, sector, catalyst + final verdict
+
+    Uses pre-computed scan_data from MomentumCandidate to avoid redundant fetches,
+    then fetches only minimal extra data (MACD, BB, momentum %, news).
+    """
+
+    def __init__(self, symbol, scan_data=None):
+        self.symbol    = symbol
+        self.scan_data = scan_data or {}
+        self.yf_symbol = (
+            symbol if ('.' in symbol or '=' in symbol or '-' in symbol)
+            else f"{symbol}.BK"
+        )
+        os.environ["GEMINI_API_KEY"] = settings.GEMINI_API_KEY
+
+    # ------------------------------------------------------------------
+    def _get_extra_data(self):
+        """Fetch lightweight extra data: MACD, BB position, momentum %, news."""
+        try:
+            ticker = yf.Ticker(self.yf_symbol)
+            hist   = ticker.history(period="3mo")
+            if hist.empty:
+                return {}
+
+            if isinstance(hist.columns, pd.MultiIndex):
+                hist.columns = [col[0] for col in hist.columns]
+            hist   = hist.loc[:, ~hist.columns.duplicated()]
+            closes = hist['Close'].dropna()
+            n      = len(closes)
+            result = {}
+
+            # MACD
+            try:
+                macd_df = ta.macd(closes)
+                if macd_df is not None and not macd_df.empty:
+                    m_col = next((c for c in macd_df.columns if c.startswith('MACD_') and 'MACDs' not in c and 'MACDh' not in c), None)
+                    s_col = next((c for c in macd_df.columns if c.startswith('MACDs_')), None)
+                    if m_col and s_col:
+                        mv = float(macd_df[m_col].iloc[-1])
+                        sv = float(macd_df[s_col].iloc[-1])
+                        if not (pd.isna(mv) or pd.isna(sv)):
+                            result['macd']         = round(mv, 3)
+                            result['macd_signal']  = round(sv, 3)
+                            result['macd_bullish'] = mv > sv
+            except Exception:
+                pass
+
+            # Bollinger Band %B position
+            try:
+                bb_df = ta.bbands(closes, length=20, std=2)
+                if bb_df is not None and not bb_df.empty:
+                    u = next((c for c in bb_df.columns if 'BBU' in c), None)
+                    l = next((c for c in bb_df.columns if 'BBL' in c), None)
+                    if u and l:
+                        price = float(closes.iloc[-1])
+                        bbu   = float(bb_df[u].iloc[-1])
+                        bbl   = float(bb_df[l].iloc[-1])
+                        if bbu > bbl:
+                            result['bb_position'] = round((price - bbl) / (bbu - bbl) * 100, 1)
+            except Exception:
+                pass
+
+            # Short-term momentum
+            if n >= 22:
+                result['momentum_1m'] = round(
+                    (closes.iloc[-1] - closes.iloc[-22]) / closes.iloc[-22] * 100, 1)
+            if n >= min(n, 66):
+                result['momentum_3m'] = round(
+                    (closes.iloc[-1] - closes.iloc[-min(n, 66)]) / closes.iloc[-min(n, 66)] * 100, 1)
+
+            # Volume acceleration (5-day vs 20-day)
+            vols = hist['Volume'].dropna()
+            if len(vols) >= 20:
+                v5  = float(vols.tail(5).mean())
+                v20 = float(vols.tail(20).mean())
+                result['vol_5v20'] = round(v5 / v20, 2) if v20 > 0 else 1.0
+
+            # Recent news headlines
+            result['news'] = []
+            try:
+                raw_news = ticker.news or []
+                for n_item in raw_news[:4]:
+                    c     = n_item.get('content') or n_item
+                    title = c.get('title', '') if isinstance(c, dict) else n_item.get('title', '')
+                    if title:
+                        result['news'].append(title)
+            except Exception:
+                pass
+
+            return result
+        except Exception:
+            return {}
+
+    # ------------------------------------------------------------------
+    def run_analysis(self):
+        """
+        Run CrewAI sequential 3-agent analysis.
+        Returns a combined markdown string (Thai language).
+        """
+        from crewai import Agent, Task, Crew, Process
+        from crewai.llm import LLM
+
+        llm   = LLM(model="gemini/gemini-2.5-flash", api_key=settings.GEMINI_API_KEY)
+        extra = self._get_extra_data()
+        sd    = self.scan_data
+
+        # ── Build shared context block ────────────────────────────────
+        news_text = '; '.join(extra.get('news', [])) or 'ไม่มีข้อมูล'
+        context = f"""
+หุ้น: {self.symbol}
+ราคาปัจจุบัน: {sd.get('price', 'N/A')} บาท
+Technical Score: {sd.get('technical_score', 'N/A')}/100
+RSI (14): {sd.get('rsi', 'N/A')}
+ADX (14): {sd.get('adx', 'N/A')}
+MFI (14): {sd.get('mfi', 'N/A')}
+RVOL: {sd.get('rvol', 'N/A')}x
+
+Demand Zone: {sd.get('demand_zone_end', 'N/A')} – {sd.get('demand_zone_start', 'N/A')} บาท
+Supply Zone: {sd.get('supply_zone_end', 'N/A')} – {sd.get('supply_zone_start', 'N/A')} บาท
+Risk/Reward Ratio: 1:{sd.get('risk_reward_ratio', 'N/A')}
+Zone Proximity: {sd.get('zone_proximity', 'N/A')}% ห่างจาก Demand Zone
+
+EPS Growth: {sd.get('eps_growth', 'N/A')}%
+Revenue Growth: {sd.get('rev_growth', 'N/A')}%
+Sector: {sd.get('sector', 'N/A')}
+52W High: {sd.get('year_high', 'N/A')} บาท  |  Upside to High: {sd.get('upside_to_high', 'N/A')}%
+
+MACD: {extra.get('macd', 'N/A')} (Signal: {extra.get('macd_signal', 'N/A')}) → {'🟢 Bullish Cross' if extra.get('macd_bullish') else '🔴 Bearish / Below Signal'}
+Bollinger Band Position: {extra.get('bb_position', 'N/A')}%  (0%=Lower Band, 100%=Upper Band)
+Momentum 1M: {extra.get('momentum_1m', 'N/A')}%
+Momentum 3M: {extra.get('momentum_3m', 'N/A')}%
+Volume Acceleration (5d/20d): {extra.get('vol_5v20', 'N/A')}x
+ข่าวล่าสุด: {news_text}
+"""
+
+        # ── Agent 1 : Short-Term Momentum Technician ──────────────────
+        technician = Agent(
+            role="Short-Term Momentum Technical Analyst",
+            goal=(
+                "วิเคราะห์คุณภาพ Breakout/Momentum ระยะสั้น 2-6 สัปดาห์ "
+                "และหาจังหวะ Entry ที่มีความเสี่ยงต่ำที่สุด"
+            ),
+            backstory=(
+                "คุณเป็นนักวิเคราะห์เทคนิคผู้เชี่ยวชาญด้าน Short-term Momentum Trading "
+                "ตามแนวทาง Mark Minervini (SEPA) และ William O'Neil (CAN SLIM) "
+                "เชี่ยวชาญการอ่านสัญญาณ Breakout, VCP (Volatility Contraction Pattern), "
+                "Price-Volume relationship, และ Stage Analysis "
+                "คุณมองหาหุ้นที่มีคุณภาพ Breakout สูง เข้าใกล้ Base ต่ำสุด ความเสี่ยงต่ำ"
+            ),
+            llm=llm,
+            verbose=False,
+            allow_delegation=False,
+        )
+
+        # ── Agent 2 : Risk & Entry Specialist ────────────────────────
+        risk_expert = Agent(
+            role="Risk Management & Precision Entry Expert",
+            goal=(
+                "คำนวณจุด Entry ที่แม่นยำ, Stop Loss ตาม ATR และ Demand Zone, "
+                "พร้อม R:R ≥ 2:1 สำหรับ Short-term Trade"
+            ),
+            backstory=(
+                "คุณเป็นผู้เชี่ยวชาญด้าน Risk Management ระดับ Professional "
+                "ใช้ ATR-based stop loss, Supply & Demand Zone, และ Fibonacci Retracement "
+                "เพื่อกำหนด Entry/Stop/Target ที่แม่นยำ "
+                "กฎหลัก: Stop Loss ห้ามเกิน 7-8% จาก Entry, R:R ≥ 2:1 ทุก Trade "
+                "และคำนวณ Position Size จากพอร์ต 100,000 บาท Risk 1% ต่อ Trade"
+            ),
+            llm=llm,
+            verbose=False,
+            allow_delegation=False,
+        )
+
+        # ── Agent 3 : Smart Money & Catalyst Scout ───────────────────
+        catalyst_scout = Agent(
+            role="Smart Money Flow & Catalyst Scout",
+            goal=(
+                "ตรวจสอบ Institutional Volume, Sector Rotation, และ Catalyst "
+                "ที่จะขับเคลื่อนราคาในระยะ 2-6 สัปดาห์ พร้อมสรุป Final Verdict"
+            ),
+            backstory=(
+                "คุณเป็นผู้เชี่ยวชาญด้านการอ่านเงิน Smart Money, Sector Rotation "
+                "และการหา Catalyst ที่ซ่อนอยู่ "
+                "เชี่ยวชาญ Volume Accumulation vs Distribution, Relative Strength vs SET Index "
+                "คุณอ่าน RVOL และ Volume Acceleration เพื่อบอกว่าเงินใหญ่กำลังสะสมหรือกระจายหุ้น "
+                "และสรุป Final Verdict ที่ชัดเจน Action-oriented พร้อมเหตุผล"
+            ),
+            llm=llm,
+            verbose=False,
+            allow_delegation=False,
+        )
+
+        # ── Task 1 ────────────────────────────────────────────────────
+        task1 = Task(
+            description=f"""วิเคราะห์คุณภาพ Momentum ระยะสั้นของ {self.symbol}:
+
+{context}
+
+เขียนรายงานเป็นภาษาไทย ครอบคลุม:
+1. **Stage Analysis**: หุ้นอยู่ใน Stage 1/2/3/4? (Stage 2 = Uptrend เท่านั้น)
+2. **Breakout Quality**: กำลัง Breakout ใหม่ / Consolidating หลัง Breakout / Pullback to Support?
+3. **Momentum Strength**: RSI {sd.get('rsi','N/A')}, ADX {sd.get('adx','N/A')}, MACD, Momentum 1M/3M บ่งชี้ว่าอะไร?
+4. **Entry Timing**: ตอนนี้เข้าซื้อได้เลย / รอ Pullback ไป Demand Zone / ยังไม่ถึงเวลา?
+5. **Breakout Score**: 0-100 พร้อมเหตุผลสั้นๆ""",
+            agent=technician,
+            expected_output="รายงาน Technical ระยะสั้น 5 หัวข้อ ภาษาไทย กระชับชัดเจน"
+        )
+
+        # ── Task 2 ────────────────────────────────────────────────────
+        task2 = Task(
+            description=f"""คำนวณ Risk Management สำหรับ {self.symbol}:
+
+{context}
+
+เขียนตาราง Risk Management เป็นภาษาไทย:
+1. **Best Entry Zone**: ช่วงราคาเข้าที่ดีที่สุด (อ้างอิง Demand Zone และ Context จาก Agent 1)
+2. **Stop Loss**: คำนวณจาก Demand Zone ล่างสุด — ห้ามเกิน 7-8% จาก Entry
+3. **Target 1 (Conservative, R:R 1.5:1)**: ราคา ฿X.XX
+4. **Target 2 (Aggressive, R:R 2.5:1–3:1)**: ราคา ฿X.XX
+5. **Position Size**: พอร์ต 100,000 บาท Risk 1% → ซื้อกี่หุ้น?
+6. **สรุป R:R**: Entry ฿___ → Stop ฿___ → Target ฿___ = R:R 1:___""",
+            agent=risk_expert,
+            expected_output="ตาราง Risk Management ชัดเจน ระบุราคาตัวเลขครบทุกจุด"
+        )
+
+        # ── Task 3 ────────────────────────────────────────────────────
+        task3 = Task(
+            description=f"""วิเคราะห์ Smart Money และสรุปขั้นสุดท้ายสำหรับ {self.symbol}:
+
+{context}
+
+เขียนรายงานสุดท้ายเป็นภาษาไทย:
+1. **Smart Money Signal**: RVOL {sd.get('rvol','N/A')}x และ Volume 5d/20d = {extra.get('vol_5v20','N/A')}x → เงินใหญ่สะสม หรือกระจายหุ้น?
+2. **Sector Momentum**: Sector {sd.get('sector','N/A')} ตอนนี้ร้อนแรงหรืออ่อนแรง?
+3. **Catalyst**: Catalyst อะไรที่อาจขับเคลื่อนราคาใน 2-6 สัปดาห์ข้างหน้า? (EPS Growth {sd.get('eps_growth','N/A')}%, Rev Growth {sd.get('rev_growth','N/A')}%)
+4. **⚠️ Key Risks**: 3 ปัจจัยเสี่ยงสำคัญ
+5. **🎯 FINAL VERDICT**:
+   - **BUY NOW** / **WAIT FOR PULLBACK** / **AVOID** — เลือก 1 อย่างชัดเจน
+   - เหตุผล 3 ข้อหลัก (Technical + Smart Money + Catalyst)
+   - ระยะเวลาที่คาดหวัง: __ สัปดาห์""",
+            agent=catalyst_scout,
+            expected_output="รายงาน Smart Money + Final Verdict ชัดเจน Action-oriented"
+        )
+
+        crew = Crew(
+            agents=[technician, risk_expert, catalyst_scout],
+            tasks=[task1, task2, task3],
+            process=Process.sequential,
+            verbose=False,
+        )
+
+        result = crew.kickoff()
+        return str(result)
+
 # ======================================================================
 # CrewAI Stock Analysis System — Minervini/O'Neil Momentum Style
 # ======================================================================

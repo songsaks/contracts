@@ -610,6 +610,100 @@ def crew_analyze(request, symbol):
         'cache_key':         cache_key,   # pass to template for correct poll URL
     })
 
+# ====== Momentum Quick CrewAI Analysis (AJAX modal) ======
+
+@login_required
+def momentum_quick_analysis(request, symbol):
+    """
+    Short-term CrewAI multi-agent analysis for a momentum candidate.
+    Returns JSON — designed to be called from a modal (no page reload).
+
+    Flow:
+      1. POST/GET → start background analysis → return {'state': 'running'}
+      2. Poll ?mq_status=1 until {'state': 'done', 'result': '...'}
+      3. Render markdown in modal via marked.js
+    """
+    import threading as _th
+    from django.core.cache import cache as _cp
+    from django.http import JsonResponse as _JR
+
+    user_id   = request.user.id
+    cache_key = f'mq_analysis_{user_id}_{symbol}'
+
+    # ── Poll ─────────────────────────────────────────────────────────
+    if request.GET.get('mq_status') == '1':
+        st = _cp.get(cache_key, {'state': 'idle'})
+        return _JR(st)
+
+    # ── Already running ───────────────────────────────────────────────
+    cached = _cp.get(cache_key)
+    if cached and cached.get('state') == 'running':
+        return _JR({'state': 'running'})
+
+    # ── Return cached done result ─────────────────────────────────────
+    if cached and cached.get('state') == 'done':
+        _cp.delete(cache_key)
+        return _JR({'state': 'done', 'result': cached.get('result', '')})
+
+    # ── Collect scan data from MomentumCandidate model ───────────────
+    scan_data = {}
+    try:
+        from .models import MomentumCandidate as _MCM
+
+        def _sf(val):
+            try:
+                return float(val) if val is not None else None
+            except (TypeError, ValueError):
+                return None
+
+        cand = _MCM.objects.filter(user=request.user, symbol=symbol).first()
+        if cand:
+            scan_data = {
+                'price':             _sf(cand.price),
+                'technical_score':   cand.technical_score,
+                'rsi':               _sf(cand.rsi),
+                'adx':               _sf(cand.adx),
+                'mfi':               _sf(cand.mfi),
+                'rvol':              _sf(cand.rvol),
+                'demand_zone_start': _sf(cand.demand_zone_start),
+                'demand_zone_end':   _sf(cand.demand_zone_end),
+                'supply_zone_start': _sf(cand.supply_zone_start),
+                'supply_zone_end':   _sf(cand.supply_zone_end),
+                'risk_reward_ratio': _sf(cand.risk_reward_ratio),
+                'zone_proximity':    _sf(cand.zone_proximity),
+                'eps_growth':        _sf(cand.eps_growth) or 0,
+                'rev_growth':        _sf(cand.rev_growth) or 0,
+                'sector':            cand.sector or 'N/A',
+                'year_high':         _sf(cand.year_high),
+                'upside_to_high':    _sf(cand.upside_to_high),
+            }
+    except Exception:
+        pass
+
+    # ── Background worker ─────────────────────────────────────────────
+    def _run_bg(ckey, sym, sd):
+        from django.core.cache import cache as _c
+        try:
+            _c.set(ckey, {'state': 'running', 'phase': 'กำลังวิเคราะห์ด้วย 3 Expert Agents…'}, timeout=600)
+            from .crew_analysis import MomentumShortTermCrew as _STC
+            import concurrent.futures as _cf
+            crew = _STC(sym, scan_data=sd)
+            with _cf.ThreadPoolExecutor(max_workers=1) as ex:
+                future = ex.submit(crew.run_analysis)
+                try:
+                    result = future.result(timeout=180)
+                except _cf.TimeoutError:
+                    result = '## หมดเวลาวิเคราะห์\n\nกรุณาลองใหม่อีกครั้ง'
+            _c.set(ckey, {'state': 'done', 'result': result}, timeout=900)
+        except Exception as exc:
+            from django.core.cache import cache as _c2
+            _c2.set(ckey, {'state': 'done', 'result': f'## เกิดข้อผิดพลาด\n\n{exc}'}, timeout=60)
+
+    _cp.set(cache_key, {'state': 'running'}, timeout=600)
+    _th.Thread(target=_run_bg, args=(cache_key, symbol, scan_data), daemon=True).start()
+    return _JR({'state': 'running', 'cache_key': cache_key})
+
+
 # ====== CrewAI Export — Word / PDF ======
 
 @login_required
