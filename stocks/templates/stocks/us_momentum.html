@@ -1,0 +1,637 @@
+{% extends 'stocks/base_stocks.html' %}
+{% load humanize %}
+
+{% block title %}US Momentum Scanner — 9Com{% endblock %}
+
+{% block content %}
+{% if is_scanning %}
+<div id="usMomLoadingOverlay" style="position:fixed;inset:0;background:rgba(15,23,42,0.93);
+     z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1.2rem;">
+    <div style="width:64px;height:64px;border-radius:50%;border:6px solid rgba(59,130,246,0.2);
+                border-top-color:#3b82f6;animation:usSpin 1s linear infinite;"></div>
+    <div style="color:white;font-size:1.2rem;font-weight:700;">
+        <span style="margin-right:8px;">🇺🇸</span> กำลังสแกนหุ้น US…
+    </div>
+    <div id="usMomPhase" style="color:#94a3b8;font-size:0.88rem;">เริ่มสแกน…</div>
+    <div style="width:300px;background:rgba(255,255,255,0.1);border-radius:8px;height:8px;overflow:hidden;">
+        <div id="usMomBar" style="height:100%;background:linear-gradient(90deg,#3b82f6,#6366f1);width:0%;transition:width 0.4s;border-radius:8px;"></div>
+    </div>
+    <div id="usMomProgressText" style="color:#64748b;font-size:0.78rem;">0 / 0</div>
+    <div style="color:#475569;font-size:0.75rem;">สแกน Nasdaq + S&amp;P 500 (~200 stocks) • ใช้เวลา 2-4 นาที</div>
+</div>
+<style>@keyframes usSpin { to { transform: rotate(360deg); } }</style>
+<script>
+(function() {
+    function poll() {
+        fetch('?scan_status=1', { credentials: 'same-origin' })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (data.state === 'running') {
+                    var prog = data.progress || 0, total = data.total || 1;
+                    document.getElementById('usMomPhase').textContent = data.phase || 'สแกน…';
+                    document.getElementById('usMomBar').style.width = Math.round(prog / total * 100) + '%';
+                    document.getElementById('usMomProgressText').textContent = prog + ' / ' + total;
+                    setTimeout(poll, 2000);
+                } else {
+                    window.location.href = window.location.pathname;
+                }
+            })
+            .catch(function() { setTimeout(poll, 3000); });
+    }
+    document.addEventListener('DOMContentLoaded', function() { setTimeout(poll, 1500); });
+})();
+</script>
+{% endif %}
+
+<div class="container-fluid px-2 px-md-4">
+<div class="row align-items-end mb-4">
+    <div class="col-md-7">
+        <h1 class="fw-bold mb-1" style="color:#3b82f6;">
+            🇺🇸 US Momentum Scanner
+        </h1>
+        <p class="text-muted mb-0">
+            สแกนหุ้น Nasdaq + S&amp;P 500 ด้วย Minervini Trend Template + RS Rating + Stage 2<br>
+            <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 fw-normal" style="font-size:0.7rem;">
+                <i class="fas fa-database me-1"></i> ไม่บันทึก Database — ผลสแกนเก็บใน Memory 2 ชั่วโมง
+            </span>
+        </p>
+    </div>
+    <div class="col-md-5 text-md-end mt-3 mt-md-0 d-flex flex-wrap justify-content-md-end gap-2">
+        <a href="{% url 'stocks:momentum_scanner' %}" class="btn btn-outline-secondary d-inline-flex align-items-center gap-2" style="font-size:0.82rem;">
+            <span>🇹🇭</span> SET Scanner
+        </a>
+        <a href="{% url 'stocks:us_precision_scanner' %}" class="btn d-inline-flex align-items-center gap-2"
+           style="background:linear-gradient(135deg,#7c3aed,#4f46e5);color:white;font-size:0.82rem;">
+            <i class="fas fa-crosshairs"></i> US Precision Scan
+        </a>
+        <a href="?scan=true" onclick="document.getElementById('usMomLoadingOverlay') && document.getElementById('usMomLoadingOverlay').classList.remove('d-none')"
+           class="btn d-inline-flex align-items-center gap-2"
+           style="background:linear-gradient(135deg,#3b82f6,#6366f1);color:white;">
+            <i class="fas fa-search-dollar"></i> สแกนหุ้น US
+        </a>
+    </div>
+</div>
+
+<!-- Trading Playbook for US -->
+<div class="row mb-4">
+    <div class="col-12">
+        <button class="btn btn-outline-primary btn-sm rounded-pill px-4 shadow-sm" type="button"
+                data-bs-toggle="collapse" data-bs-target="#usPlaybook" aria-expanded="false"
+                style="border-color:#3b82f6;color:#3b82f6;">
+            <i class="fas fa-book-reader me-2"></i> US Momentum Trading Playbook
+        </button>
+        <div class="collapse mt-3" id="usPlaybook">
+            <div class="card card-body border-0 shadow-sm rounded-4 p-4" style="background:#f0f7ff;">
+                <div class="row">
+                    <div class="col-md-6 border-end">
+                        <h6 class="fw-bold mb-3" style="color:#1d4ed8;"><i class="fas fa-shopping-cart me-2"></i> US Entry Checklist</h6>
+                        <ul class="list-unstyled small text-secondary">
+                            <li class="mb-2"><strong>1. RS Rating ≥ 80:</strong> เลือกเฉพาะ Leader ที่แข็งแกร่งกว่า Nasdaq/S&amp;P 500</li>
+                            <li class="mb-2"><strong>2. Stage 2 ✅:</strong> ราคาต้องสูงกว่า SMA150 และ SMA150 ต้องเป็นขาขึ้น (Weinstein)</li>
+                            <li class="mb-2"><strong>3. ZONE STATUS:</strong> เข้าซื้อเมื่อ <span class="badge bg-success px-2">IN ZONE</span> หรือ <span class="badge px-2" style="background:#f59e0b;color:white;">NEAR</span></li>
+                            <li class="mb-2"><strong>4. RVOL > 1.5x:</strong> Institutional Accumulation confirmation</li>
+                            <li class="mb-2"><strong>5. ⚠️ Earnings Check:</strong> หลีกเลี่ยงเข้าหุ้น 2 สัปดาห์ก่อน Earnings ถ้า RS &lt; 85</li>
+                        </ul>
+                    </div>
+                    <div class="col-md-6 ps-md-4 mt-4 mt-md-0">
+                        <h6 class="fw-bold mb-3 text-danger"><i class="fas fa-sign-out-alt me-2"></i> US Exit Strategy</h6>
+                        <ul class="list-unstyled small text-secondary">
+                            <li class="mb-2"><strong>1. Stop Loss:</strong> ≤ 7-8% จาก Entry (Minervini rule) หรือหลุด Demand Zone</li>
+                            <li class="mb-2"><strong>2. Take Profit:</strong> ขายบางส่วนที่ R:R 1:2 และส่วนที่เหลือที่ Supply Zone</li>
+                            <li class="mb-2"><strong>3. RSI > 80:</strong> เริ่ม Reduce Position ถ้า RSI เกิน 80 ในหุ้น US</li>
+                            <li class="mb-2"><strong>4. Earnings Gap Risk:</strong> ขายก่อน Earnings ถ้าไม่ต้องการรับ Gap Risk</li>
+                            <li class="mb-2"><strong>5. Stage 3 Signal:</strong> ออกทันทีถ้า SMA150 เริ่มหมุนลง (Stage 3)</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if not has_scanned %}
+<div class="card border-0 text-center py-5" style="background:linear-gradient(135deg,#eff6ff,#eef2ff);border-radius:1rem;">
+    <div class="card-body">
+        <div class="display-3 mb-3" style="opacity:0.3;">🇺🇸</div>
+        <h3 class="fw-bold" style="color:#1d4ed8;">Ready to Scan US Markets</h3>
+        <p class="text-muted mx-auto" style="max-width:600px;">
+            คลิกปุ่ม "สแกนหุ้น US" เพื่อสแกน Nasdaq + S&amp;P 500 (~200 stocks)<br>
+            ระบบจะคำนวณ <strong>RS Rating, Stage 2, EMA Stack, Supply/Demand Zones</strong> ทันที
+        </p>
+        <a href="?scan=true" class="btn btn-lg mt-3 px-5"
+           style="background:linear-gradient(135deg,#3b82f6,#6366f1);color:white;border:none;border-radius:2rem;">
+            <i class="fas fa-search-dollar me-2"></i> เริ่มสแกน Nasdaq + S&amp;P 500
+        </a>
+    </div>
+</div>
+
+{% else %}
+
+<!-- SCAN RESULT TABLE -->
+<div class="col-12">
+    <div class="card border-0 mb-4 shadow-sm" style="border-radius:1rem;">
+        <div class="card-header bg-white border-bottom p-4">
+            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <h5 class="mb-0 fw-bold d-flex align-items-center gap-2">
+                    <span>🇺🇸</span>
+                    <span style="color:#1d4ed8;">US Momentum Leaders</span>
+                    <span class="badge bg-primary bg-opacity-10 text-primary border fw-normal" style="font-size:0.72rem;">
+                        {{ candidates|length }} stocks
+                    </span>
+                </h5>
+                <div class="d-flex gap-2 align-items-center flex-wrap">
+                    {% if scanned_at %}
+                    <span class="badge bg-light text-muted border fw-normal">
+                        <i class="fas fa-clock me-1"></i> {{ scanned_at|date:"d/m/Y H:i" }}
+                    </span>
+                    {% endif %}
+                    <span class="badge bg-light text-muted border fw-normal" style="font-size:0.68rem;">
+                        <i class="fas fa-memory me-1"></i> In-Memory (no DB)
+                    </span>
+                </div>
+            </div>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="bg-light text-muted small" style="font-size:0.78rem;">
+                        <tr>
+                            <th class="ps-3"><a href="?sort=symbol" class="text-decoration-none text-muted">SYMBOL</a></th>
+                            <th class="col-hide-md"><a href="?sort=prox" class="text-decoration-none text-muted">ZONE</a></th>
+                            <th><a href="?sort=score" class="text-decoration-none text-muted">SCORE</a></th>
+                            <th><a href="?sort=rs" class="text-decoration-none text-muted">RS</a></th>
+                            <th><a href="?sort=round_rr" class="text-decoration-none text-muted">RR</a></th>
+                            <th><a href="?sort=rvol" class="text-decoration-none text-muted">RVOL</a></th>
+                            <th class="col-hide-md"><a href="?sort=price" class="text-decoration-none text-muted">PRICE</a></th>
+                            <th class="col-hide-md">ENTRY ZONE</th>
+                            <th><a href="?sort=rsi" class="text-decoration-none text-muted">RSI</a></th>
+                            <th class="col-hide-lg"><a href="?sort=adx" class="text-decoration-none text-muted">ADX</a></th>
+                            <th class="col-hide-lg"><a href="?sort=mfi" class="text-decoration-none text-muted">MFI</a></th>
+                            <th class="col-hide-lg"><a href="?sort=rel1m" class="text-decoration-none text-muted">REL 1M</a></th>
+                            <th class="col-hide-lg"><a href="?sort=gap" class="text-decoration-none text-muted">GAP%</a></th>
+                            <th class="col-hide-lg">SIGNALS</th>
+                            <th class="text-end pe-2">ACTION</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in candidates %}
+                        <tr>
+                            <!-- SYMBOL -->
+                            <td class="ps-3">
+                                <div class="d-flex align-items-center gap-2">
+                                    <div class="position-relative">
+                                        <div class="rounded-circle d-flex align-items-center justify-content-center fw-bold"
+                                             style="width:36px;height:36px;background:rgba(59,130,246,0.1);color:#3b82f6;font-size:0.72rem;">
+                                            {{ item.symbol|slice:":3" }}
+                                        </div>
+                                        {% if item.live_in_zone %}
+                                        <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-success border border-light"
+                                              style="padding:0.35em !important;animation:pulse-green 2s infinite;" title="อยู่ในโซนเข้าซื้อ!">
+                                            <span class="visually-hidden">In Zone</span>
+                                        </span>
+                                        {% elif item.live_above_tp %}
+                                        <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger border border-light"
+                                              style="padding:0.35em !important;animation:pulse-red 2s infinite;" title="ถึง Target แล้ว">
+                                            <span class="visually-hidden">Take Profit</span>
+                                        </span>
+                                        {% endif %}
+                                    </div>
+                                    <div class="d-flex flex-column">
+                                        <h6 class="mb-0 fw-bold">{{ item.symbol }}</h6>
+                                        <small class="text-muted" style="font-size:0.62rem;">{{ item.sector|default:"—"|slice:":8" }}</small>
+                                        {% if item.live_in_zone %}<span class="extra-extra-small text-success fw-bold">ENTRY ZONE</span>
+                                        {% elif item.live_above_tp %}<span class="extra-extra-small text-danger fw-bold">TAKE PROFIT</span>
+                                        {% elif item.live_broke_zone %}<span class="extra-extra-small text-danger fw-bold">BROKE ZONE</span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </td>
+
+                            <!-- ZONE STATUS -->
+                            <td class="col-hide-md">
+                                {% if item.live_above_tp %}
+                                    <span class="badge px-2 py-1" style="font-size:0.68rem;background:#dc2626;color:white;">AT TP</span>
+                                {% elif item.live_near_tp %}
+                                    <span class="badge px-2 py-1" style="font-size:0.68rem;background:#ea580c;color:white;">NEAR TP</span>
+                                {% elif item.live_broke_zone %}
+                                    <span class="badge px-2 py-1" style="font-size:0.68rem;background:#7f1d1d;color:white;">BROKE</span>
+                                {% elif item.live_in_zone %}
+                                    <span class="badge px-2 py-1" style="font-size:0.68rem;background:#22c55e;color:white;">IN ZONE</span>
+                                {% elif item.demand_zone_start %}
+                                    {% if item.live_zone_prox <= 10 %}
+                                        <span class="badge px-2 py-1" style="font-size:0.68rem;background:#f59e0b;color:white;">NEAR</span>
+                                    {% elif item.live_zone_prox <= 30 %}
+                                        <span class="badge px-2 py-1" style="font-size:0.68rem;background:#facc15;color:#000;">CLOSE</span>
+                                    {% elif item.live_zone_prox <= 60 %}
+                                        <span class="badge px-2 py-1" style="font-size:0.68rem;background:#3b82f6;color:white;">WATCH</span>
+                                    {% else %}
+                                        <span class="text-muted small">↑{{ item.live_zone_prox|floatformat:0 }}%</span>
+                                    {% endif %}
+                                {% else %}
+                                    <span class="text-muted small">—</span>
+                                {% endif %}
+                            </td>
+
+                            <!-- SCORE -->
+                            <td>
+                                <div class="d-flex align-items-center gap-1">
+                                    <div class="progress d-none d-lg-block" style="height:4px;width:36px;">
+                                        <div class="progress-bar {% if item.technical_score >= 80 %}bg-success{% elif item.technical_score >= 60 %}bg-primary{% else %}bg-warning{% endif %}"
+                                             role="progressbar" style="width:{{ item.technical_score }}%"></div>
+                                    </div>
+                                    <span class="fw-bold small {% if item.technical_score >= 80 %}text-success{% elif item.technical_score >= 60 %}text-primary{% else %}text-warning{% endif %}">
+                                        {{ item.technical_score }}
+                                    </span>
+                                </div>
+                            </td>
+
+                            <!-- RS RATING -->
+                            <td>
+                                <span class="badge px-2 py-1 {% if item.rs_rating >= 85 %}bg-success{% elif item.rs_rating >= 70 %}bg-primary{% elif item.rs_rating >= 60 %}bg-warning text-dark{% else %}bg-secondary{% endif %}"
+                                      style="font-size:0.68rem;" title="RS Rating vs Nasdaq/S&P500 (0-99)">
+                                    {{ item.rs_rating }}
+                                </span>
+                            </td>
+
+                            <!-- RR -->
+                            <td>
+                                {% if item.risk_reward_ratio %}
+                                <span class="fw-bold {% if item.risk_reward_ratio >= 3 %}text-success{% elif item.risk_reward_ratio >= 2 %}text-primary{% else %}text-muted{% endif %}">
+                                    1:{{ item.risk_reward_ratio|floatformat:1 }}
+                                </span>
+                                {% else %}—{% endif %}
+                            </td>
+
+                            <!-- RVOL -->
+                            <td>
+                                <span class="fw-bold {% if item.rvol >= 1.5 %}text-danger{% elif item.rvol >= 1.0 %}text-primary{% else %}text-muted{% endif %}">
+                                    {{ item.rvol|floatformat:1 }}x
+                                </span>
+                            </td>
+
+                            <!-- PRICE -->
+                            <td class="col-hide-md">
+                                {% if item.live_price %}
+                                <span class="fw-bold" style="font-size:0.8rem;">${{ item.live_price|floatformat:2 }}</span>
+                                {% if item.live_change_pct is not None %}
+                                <div style="font-size:0.65rem;color:{% if item.live_change_pct >= 0 %}#16a34a{% else %}#dc2626{% endif %};">
+                                    {% if item.live_change_pct >= 0 %}+{% endif %}{{ item.live_change_pct|floatformat:1 }}%
+                                </div>
+                                {% endif %}
+                                {% else %}
+                                <span class="fw-bold" style="font-size:0.8rem;">${{ item.price|floatformat:2 }}</span>
+                                {% endif %}
+                            </td>
+
+                            <!-- ENTRY ZONE -->
+                            <td class="col-hide-md" {% if item.live_in_zone %}style="background:rgba(34,197,94,0.05);"{% endif %}>
+                                {% if item.demand_zone_start %}
+                                <div class="d-flex flex-column" style="font-size:0.7rem;">
+                                    <span class="fw-bold text-success">${{ item.demand_zone_start|floatformat:2 }}</span>
+                                    <span class="text-muted">${{ item.demand_zone_end|floatformat:2 }}</span>
+                                </div>
+                                {% else %}—{% endif %}
+                            </td>
+
+                            <!-- RSI -->
+                            <td>
+                                <span class="badge {% if item.rsi > 75 %}bg-danger{% elif item.rsi > 60 %}bg-success{% else %}bg-secondary{% endif %} bg-opacity-10
+                                             {% if item.rsi > 75 %}text-danger{% elif item.rsi > 60 %}text-success{% else %}text-secondary{% endif %} px-2" style="font-size:0.68rem;">
+                                    {{ item.rsi|floatformat:1 }}
+                                </span>
+                            </td>
+
+                            <!-- ADX -->
+                            <td class="col-hide-lg">
+                                <span class="badge px-2 py-1 {% if item.adx >= 30 %}bg-success bg-opacity-15 text-success{% elif item.adx >= 20 %}bg-primary bg-opacity-10 text-primary{% else %}bg-secondary bg-opacity-10 text-secondary{% endif %}"
+                                      style="font-size:0.65rem;" title="ADX ≥30 = Strong Trend">
+                                    {{ item.adx|floatformat:0 }}
+                                </span>
+                            </td>
+
+                            <!-- MFI -->
+                            <td class="col-hide-lg">
+                                <span class="badge px-2 py-1 {% if item.mfi >= 60 %}bg-success bg-opacity-15 text-success{% elif item.mfi >= 40 %}bg-secondary bg-opacity-10 text-secondary{% else %}bg-danger bg-opacity-10 text-danger{% endif %}"
+                                      style="font-size:0.65rem;" title="MFI ≥60 = Money Flow In">
+                                    {{ item.mfi|floatformat:0 }}
+                                </span>
+                            </td>
+
+                            <!-- REL 1M vs SPY -->
+                            <td class="col-hide-lg">
+                                <span class="small fw-bold {% if item.rel_1m > 5 %}text-success{% elif item.rel_1m > 0 %}text-primary{% elif item.rel_1m < -5 %}text-danger{% else %}text-muted{% endif %}">
+                                    {% if item.rel_1m > 0 %}+{% endif %}{{ item.rel_1m|floatformat:1 }}%
+                                </span>
+                            </td>
+
+                            <!-- GAP % -->
+                            <td class="col-hide-lg">
+                                <span class="text-muted small">{{ item.upside_to_high|floatformat:1 }}%</span>
+                            </td>
+
+                            <!-- SIGNALS (Stage2, MACD, BB) -->
+                            <td class="col-hide-lg">
+                                <div class="d-flex gap-1 flex-wrap">
+                                    {% if item.stage2 %}
+                                    <span class="badge px-1" style="font-size:0.58rem;background:#d1fae5;color:#065f46;" title="Stage 2 Weinstein">S2</span>
+                                    {% endif %}
+                                    {% if item.macd_crossover %}
+                                    <span class="badge px-1" style="font-size:0.58rem;background:#dbeafe;color:#1e40af;" title="MACD Bullish Cross">MC</span>
+                                    {% endif %}
+                                    {% if item.bb_squeeze %}
+                                    <span class="badge px-1" style="font-size:0.58rem;background:#fef3c7;color:#92400e;" title="Bollinger Band Squeeze">BBs</span>
+                                    {% endif %}
+                                </div>
+                            </td>
+
+                            <!-- ACTION -->
+                            <td class="text-end pe-2">
+                                <div class="d-flex justify-content-end gap-1">
+                                    <button onclick="runUSCrewAI('{{ item.symbol }}')"
+                                            class="btn btn-sm px-2"
+                                            style="font-size:0.65rem;background:linear-gradient(135deg,#3b82f6,#6366f1);color:white;border:none;"
+                                            title="CrewAI US Expert Analysis (3 Agents)">
+                                        <i class="fas fa-bolt"></i>
+                                    </button>
+                                    <a href="{% url 'stocks:analyze' item.symbol %}" class="btn btn-outline-primary btn-sm px-2"
+                                       style="font-size:0.65rem;" target="_blank" title="Deep Analysis">
+                                        <i class="fas fa-microscope"></i>
+                                    </a>
+                                    <a href="{% url 'stocks:entry_finder' item.symbol %}" class="btn btn-danger btn-sm px-2"
+                                       style="font-size:0.65rem;" target="_blank" title="Entry Finder">
+                                        <i class="fas fa-crosshairs"></i>
+                                    </a>
+                                </div>
+            </td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="15" class="text-center py-5 text-muted">ไม่พบหุ้นที่เข้าเกณฑ์</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- INFO CARDS -->
+<div class="row g-3 mt-2">
+    <div class="col-md-4">
+        <div class="card border-0 shadow-sm h-100" style="border-radius:1rem;">
+            <div class="card-body p-4">
+                <h6 class="fw-bold mb-3 d-flex align-items-center">
+                    <i class="fas fa-calculator text-primary me-2"></i> US Scoring System
+                </h6>
+                <div class="small text-muted">
+                    <div class="mb-2"><strong>Trend (35%):</strong> EMA Stack (Price > EMA50 > EMA200)</div>
+                    <div class="mb-2"><strong>Momentum (20%):</strong> RSI Bullish Zone (55-80)</div>
+                    <div class="mb-2"><strong>Volume (20%):</strong> RVOL ≥ 1.5x Bullish direction</div>
+                    <div class="mb-2"><strong>Price (10%):</strong> ราคาใกล้ 52W High (≥90%)</div>
+                    <div><strong>RS Rating (15%):</strong> RS ≥ 85 = +15 pts (Market Leader)</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card border-0 shadow-sm h-100" style="border-radius:1rem;">
+            <div class="card-body p-4">
+                <h6 class="fw-bold mb-3 d-flex align-items-center">
+                    <i class="fas fa-info-circle text-success me-2"></i> Column Guide
+                </h6>
+                <div class="small text-muted">
+                    <div class="mb-2"><strong>RS:</strong> Relative Strength vs Nasdaq/S&P (0-99) — ≥85 = Top 15% Leaders</div>
+                    <div class="mb-2"><strong>REL 1M:</strong> Return เทียบ SPY ใน 1 เดือน (+ve = Outperform)</div>
+                    <div class="mb-2"><strong>S2:</strong> Stage 2 Weinstein ✅ (Price > SMA150 rising)</div>
+                    <div class="mb-2"><strong>MC:</strong> MACD Bullish Crossover (last 3 days)</div>
+                    <div><strong>BBs:</strong> Bollinger Band Squeeze (volatility contraction)</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card border-0 shadow-sm h-100" style="border-radius:1rem;border-left:4px solid #3b82f6 !important;">
+            <div class="card-body p-4">
+                <h6 class="fw-bold mb-3 d-flex align-items-center">
+                    <i class="fas fa-filter text-primary me-2"></i> Filter Criteria
+                </h6>
+                <div class="small text-muted">
+                    <div class="mb-2"><strong>Price > EMA200:</strong> Uptrend confirmed</div>
+                    <div class="mb-2"><strong>Price ≥ 65% of 52W High:</strong> Strong performer</div>
+                    <div class="mb-2"><strong>ADX ≥ 15:</strong> Trend has direction</div>
+                    <div class="mb-2"><strong>Avg Volume ≥ 500K:</strong> Liquidity filter</div>
+                    <div><strong>~200 symbols:</strong> Nasdaq 100 + S&P 500 leaders</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .extra-extra-small { font-size:0.72rem;line-height:1.3; }
+    @keyframes pulse-green {
+        0%   { transform:scale(0.95) translate(-50%,-50%);box-shadow:0 0 0 0 rgba(34,197,94,0.7); }
+        70%  { transform:scale(1) translate(-50%,-50%);box-shadow:0 0 0 6px rgba(34,197,94,0); }
+        100% { transform:scale(0.95) translate(-50%,-50%);box-shadow:0 0 0 0 rgba(34,197,94,0); }
+    }
+    @keyframes pulse-red {
+        0%   { transform:scale(0.95) translate(-50%,-50%);box-shadow:0 0 0 0 rgba(239,68,68,0.7); }
+        70%  { transform:scale(1) translate(-50%,-50%);box-shadow:0 0 0 6px rgba(239,68,68,0); }
+        100% { transform:scale(0.95) translate(-50%,-50%);box-shadow:0 0 0 0 rgba(239,68,68,0); }
+    }
+</style>
+
+{% if candidates and not ai_analysis %}
+<div class="text-center mt-4 mb-5">
+    <a href="?analyze=true" class="btn btn-lg rounded-pill px-5 d-inline-flex align-items-center gap-2 shadow-sm"
+       style="background:linear-gradient(135deg,#3b82f6,#6366f1);color:white;border:none;transition:all 0.3s;">
+        <i class="fas fa-brain"></i> ให้ AI คัด US Superperformance Stocks จากรายชื่อนี้
+    </a>
+</div>
+{% endif %}
+
+{% if ai_analysis %}
+<div class="col-12 mt-4" id="ai-analysis-section">
+    <div class="border-0 overflow-hidden mb-5" style="border-radius:1rem;background:white;box-shadow:0 4px 24px rgba(59,130,246,0.1);">
+        <div class="p-4 border-bottom bg-white d-flex flex-wrap justify-content-between align-items-center gap-3">
+            <h4 class="fw-bold mb-0" style="color:#1d4ed8;">
+                <i class="fas fa-magic me-2"></i> AI Insight: US Superperformance Selection
+            </h4>
+            <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 px-3 py-2 rounded-pill">
+                <i class="fas fa-robot me-1"></i> Gemini + US Expert Prompt
+            </span>
+        </div>
+        <div class="p-4 p-md-5 analysis-content" id="us-markdown-content"></div>
+        <input type="hidden" id="us-raw-markdown" value="{{ ai_analysis|escape }}">
+    </div>
+</div>
+{% endif %}
+
+{% endif %}
+
+<!-- ====== CrewAI US Expert Modal ====== -->
+<div class="modal fade" id="usCrewAIModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content border-0 shadow-lg" style="border-radius:1rem;overflow:hidden;">
+            <div class="modal-header border-0 py-3 px-4" style="background:linear-gradient(135deg,#1e3a8a,#1d4ed8);">
+                <div>
+                    <h5 class="modal-title text-white fw-bold mb-0">
+                        <i class="fas fa-bolt me-2" style="color:#60a5fa;"></i>
+                        US CrewAI Expert — <span id="usCrewSymbolLabel">...</span>
+                    </h5>
+                    <small style="color:#93c5fd;font-size:0.72rem;">
+                        3 US Market Agents: Technical (RS Rating + Stage 2) · Risk (Earnings-aware) · Market Scout (Fed + Sector)
+                    </small>
+                </div>
+                <button type="button" class="btn-close btn-close-white ms-auto" data-bs-dismiss="modal"></button>
+            </div>
+
+            <!-- Loading -->
+            <div id="usCrewLoading" class="d-none text-center py-5 px-4" style="background:#0f172a;">
+                <div style="width:52px;height:52px;border-radius:50%;border:5px solid rgba(59,130,246,0.2);border-top-color:#3b82f6;animation:usSpin 1s linear infinite;margin:0 auto 1.2rem;"></div>
+                <div class="fw-bold mb-1" style="color:#60a5fa;font-size:1rem;">กำลังวิเคราะห์ด้วย 3 US Expert Agents…</div>
+                <div id="usCrewPhase" style="color:#64748b;font-size:0.8rem;">เริ่มต้น…</div>
+                <div class="mt-3 d-flex justify-content-center gap-3" style="font-size:0.72rem;color:#475569;">
+                    <span><i class="fas fa-chart-line me-1" style="color:#60a5fa;"></i>US Technical + RS</span>
+                    <span><i class="fas fa-shield-alt me-1" style="color:#34d399;"></i>Risk + Earnings</span>
+                    <span><i class="fas fa-globe-americas me-1" style="color:#a78bfa;"></i>Fed + Sector</span>
+                </div>
+            </div>
+
+            <!-- Result -->
+            <div id="usCrewResult" class="d-none modal-body p-0">
+                <div class="d-flex gap-2 flex-wrap px-4 py-3 border-bottom" style="background:#f0f7ff;">
+                    <span class="badge rounded-pill px-3 py-2" style="background:#dbeafe;color:#1e40af;font-size:0.7rem;">
+                        <i class="fas fa-chart-line me-1"></i> Agent 1 · US Technical + RS Rating
+                    </span>
+                    <span class="badge rounded-pill px-3 py-2" style="background:#d1fae5;color:#065f46;font-size:0.7rem;">
+                        <i class="fas fa-shield-alt me-1"></i> Agent 2 · Risk + Earnings Awareness
+                    </span>
+                    <span class="badge rounded-pill px-3 py-2" style="background:#ede9fe;color:#4c1d95;font-size:0.7rem;">
+                        <i class="fas fa-globe-americas me-1"></i> Agent 3 · Fed + Sector + Final Verdict
+                    </span>
+                </div>
+                <div class="p-4 p-md-5 analysis-content" id="usCrewContent" style="background:#fff;"></div>
+            </div>
+
+            <!-- Error -->
+            <div id="usCrewError" class="d-none text-center py-5 px-4">
+                <i class="fas fa-exclamation-triangle fa-2x text-warning mb-3"></i>
+                <div class="text-muted" id="usCrewErrorMsg">เกิดข้อผิดพลาด กรุณาลองใหม่</div>
+            </div>
+
+            <div class="modal-footer border-top py-2 px-4 d-none" id="usCrewFooter" style="background:#f0f7ff;">
+                <small class="text-muted me-auto" style="font-size:0.7rem;">
+                    <i class="fas fa-robot me-1"></i> CrewAI + Gemini 2.5 Flash · US Market Expert · เพื่อการศึกษาเท่านั้น
+                </small>
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">ปิด</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+</div><!-- end container-fluid -->
+{% endblock %}
+
+{% block scripts %}
+{% if ai_analysis %}
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    var raw = document.getElementById('us-raw-markdown');
+    var tgt = document.getElementById('us-markdown-content');
+    if (raw && tgt && typeof marked !== 'undefined') {
+        tgt.innerHTML = marked.parse(raw.value);
+    }
+});
+</script>
+{% endif %}
+
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script>
+(function() {
+    var _pollTimer = null;
+
+    window.runUSCrewAI = function(symbol) {
+        document.getElementById('usCrewSymbolLabel').textContent = symbol;
+        document.getElementById('usCrewLoading').classList.remove('d-none');
+        document.getElementById('usCrewResult').classList.add('d-none');
+        document.getElementById('usCrewError').classList.add('d-none');
+        document.getElementById('usCrewFooter').classList.add('d-none');
+        document.getElementById('usCrewPhase').textContent = 'กำลังเริ่มต้น…';
+
+        var modal = new bootstrap.Modal(document.getElementById('usCrewAIModal'));
+        modal.show();
+
+        if (_pollTimer) { clearTimeout(_pollTimer); _pollTimer = null; }
+
+        fetch('/stocks/momentum/us/quick-ai/' + encodeURIComponent(symbol) + '/', {
+            credentials: 'same-origin',
+            headers: { 'X-CSRFToken': _getCsrf() }
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (data.state === 'done') {
+                _showResult(data.result);
+            } else {
+                _poll(symbol, 3000);
+            }
+        })
+        .catch(function() { _showError('ไม่สามารถเชื่อมต่อ Server ได้'); });
+    };
+
+    function _poll(symbol, delay) {
+        _pollTimer = setTimeout(function() {
+            fetch('/stocks/momentum/us/quick-ai/' + encodeURIComponent(symbol) + '/?mq_status=1', {
+                credentials: 'same-origin'
+            })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (data.phase) document.getElementById('usCrewPhase').textContent = data.phase;
+                if (data.state === 'done') {
+                    _showResult(data.result);
+                } else if (data.state === 'running' || data.state === 'idle') {
+                    _poll(symbol, 3500);
+                } else {
+                    _showError('ไม่ได้รับข้อมูลจาก Server');
+                }
+            })
+            .catch(function() { _poll(symbol, 4000); });
+        }, delay);
+    }
+
+    function _showResult(markdown) {
+        document.getElementById('usCrewLoading').classList.add('d-none');
+        document.getElementById('usCrewError').classList.add('d-none');
+        var content = document.getElementById('usCrewContent');
+        if (typeof marked !== 'undefined') {
+            content.innerHTML = marked.parse(markdown || '');
+        } else {
+            content.innerText = markdown || '';
+        }
+        document.getElementById('usCrewResult').classList.remove('d-none');
+        document.getElementById('usCrewFooter').classList.remove('d-none');
+    }
+
+    function _showError(msg) {
+        document.getElementById('usCrewLoading').classList.add('d-none');
+        document.getElementById('usCrewResult').classList.add('d-none');
+        document.getElementById('usCrewErrorMsg').textContent = msg;
+        document.getElementById('usCrewError').classList.remove('d-none');
+    }
+
+    function _getCsrf() {
+        var m = document.cookie.match(/csrftoken=([^;]+)/);
+        return m ? m[1] : '';
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        var el = document.getElementById('usCrewAIModal');
+        if (el) {
+            el.addEventListener('hidden.bs.modal', function() {
+                if (_pollTimer) { clearTimeout(_pollTimer); _pollTimer = null; }
+            });
+        }
+    });
+})();
+</script>
+{% endblock %}

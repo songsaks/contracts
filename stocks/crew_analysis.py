@@ -272,6 +272,297 @@ Volume Acceleration (5d/20d): {extra.get('vol_5v20', 'N/A')}x
         result = crew.kickoff()
         return str(result)
 
+
+# ======================================================================
+# USMomentumShortTermCrew — CrewAI Multi-Agent (US Market Focus)
+# ======================================================================
+
+class USMomentumShortTermCrew:
+    """
+    CrewAI 3-agent analysis for short-term US momentum trading (1-4 weeks).
+    Agents:
+      1. US Technical Momentum Analyst   — Stage 2, RS Rating, Breakout quality
+      2. US Risk & Entry Specialist      — ATR stop, position sizing in USD, R:R
+      3. US Market Context Scout         — Fed policy, sector rotation, earnings catalyst + verdict
+    """
+
+    def __init__(self, symbol, scan_data=None):
+        self.symbol    = symbol
+        self.scan_data = scan_data or {}
+        os.environ["GEMINI_API_KEY"] = settings.GEMINI_API_KEY
+
+    # ------------------------------------------------------------------
+    def _get_extra_data(self):
+        """Fetch lightweight extra: MACD, BB, momentum vs SPY, news."""
+        try:
+            import concurrent.futures as _cf
+
+            ticker = yf.Ticker(self.symbol)
+            spy_t  = yf.Ticker("SPY")
+
+            def _hist():
+                return ticker.history(period="3mo")
+
+            def _spy():
+                return spy_t.history(period="3mo")
+
+            hist = spy_hist = pd.DataFrame()
+            with _cf.ThreadPoolExecutor(max_workers=2) as ex:
+                fh = ex.submit(_hist)
+                fs = ex.submit(_spy)
+                hist     = fh.result(timeout=20)
+                spy_hist = fs.result(timeout=20)
+
+            if hist.empty:
+                return {}
+
+            if isinstance(hist.columns, pd.MultiIndex):
+                hist.columns = [col[0] for col in hist.columns]
+            hist = hist.loc[:, ~hist.columns.duplicated()]
+            closes = hist['Close'].dropna()
+            n = len(closes)
+            result = {}
+
+            # MACD
+            try:
+                macd_df = ta.macd(closes)
+                if macd_df is not None and not macd_df.empty:
+                    m_col = next((c for c in macd_df.columns if c.startswith('MACD_') and 'MACDs' not in c and 'MACDh' not in c), None)
+                    s_col = next((c for c in macd_df.columns if c.startswith('MACDs_')), None)
+                    if m_col and s_col:
+                        mv = float(macd_df[m_col].iloc[-1])
+                        sv = float(macd_df[s_col].iloc[-1])
+                        if not (pd.isna(mv) or pd.isna(sv)):
+                            result['macd']         = round(mv, 3)
+                            result['macd_signal']  = round(sv, 3)
+                            result['macd_bullish'] = mv > sv
+            except Exception:
+                pass
+
+            # Bollinger Band %B
+            try:
+                bb_df = ta.bbands(closes, length=20, std=2)
+                if bb_df is not None and not bb_df.empty:
+                    u = next((c for c in bb_df.columns if 'BBU' in c), None)
+                    l = next((c for c in bb_df.columns if 'BBL' in c), None)
+                    if u and l:
+                        price = float(closes.iloc[-1])
+                        bbu   = float(bb_df[u].iloc[-1])
+                        bbl   = float(bb_df[l].iloc[-1])
+                        if bbu > bbl:
+                            result['bb_position'] = round((price - bbl) / (bbu - bbl) * 100, 1)
+            except Exception:
+                pass
+
+            # Momentum vs SPY
+            if n >= 22:
+                result['momentum_1m'] = round((closes.iloc[-1] - closes.iloc[-22]) / closes.iloc[-22] * 100, 1)
+            if n >= min(n, 66):
+                result['momentum_3m'] = round((closes.iloc[-1] - closes.iloc[-min(n, 66)]) / closes.iloc[-min(n, 66)] * 100, 1)
+
+            # SPY comparison
+            if not spy_hist.empty:
+                if isinstance(spy_hist.columns, pd.MultiIndex):
+                    spy_hist.columns = [col[0] for col in spy_hist.columns]
+                sc = spy_hist['Close'].dropna()
+                if len(sc) >= 22 and n >= 22:
+                    result['spy_1m'] = round((sc.iloc[-1] - sc.iloc[-22]) / sc.iloc[-22] * 100, 1)
+                    result['rel_strength_1m'] = round(result['momentum_1m'] - result['spy_1m'], 1)
+
+            # Volume acceleration
+            vols = hist['Volume'].dropna()
+            if len(vols) >= 20:
+                v5  = float(vols.tail(5).mean())
+                v20 = float(vols.tail(20).mean())
+                result['vol_5v20'] = round(v5 / v20, 2) if v20 > 0 else 1.0
+
+            # News
+            result['news'] = []
+            try:
+                raw_news = ticker.news or []
+                for n_item in raw_news[:4]:
+                    c     = n_item.get('content') or n_item
+                    title = c.get('title', '') if isinstance(c, dict) else n_item.get('title', '')
+                    if title:
+                        result['news'].append(title)
+            except Exception:
+                pass
+
+            return result
+        except Exception:
+            return {}
+
+    # ------------------------------------------------------------------
+    def run_analysis(self):
+        """Run CrewAI sequential 3-agent analysis for US market. Returns markdown (Thai)."""
+        from crewai import Agent, Task, Crew, Process
+        from crewai.llm import LLM
+
+        llm   = LLM(model="gemini/gemini-2.5-flash", api_key=settings.GEMINI_API_KEY)
+        extra = self._get_extra_data()
+        sd    = self.scan_data
+
+        news_text = '; '.join(extra.get('news', [])) or 'No recent news'
+        macd_status = '🟢 Bullish Cross' if extra.get('macd_bullish') else ('🔴 Bearish' if extra.get('macd_bullish') is False else 'N/A')
+        rel_str = f"{extra.get('rel_strength_1m', 'N/A'):+.1f}% vs SPY" if isinstance(extra.get('rel_strength_1m'), (int, float)) else 'N/A'
+
+        context = f"""
+Stock: {self.symbol}
+Current Price: ${sd.get('price', 'N/A')}
+Technical Score: {sd.get('technical_score', 'N/A')}/100
+RS Rating (vs Nasdaq/S&P): {sd.get('rs_rating', 'N/A')}/99
+Stage 2 (Weinstein): {'✅ YES' if sd.get('stage2') else '❌ NO'}
+MACD Crossover (recent): {'✅ YES' if sd.get('macd_crossover') else '❌ NO'}
+BB Squeeze: {'✅ YES — Volatility Contraction' if sd.get('bb_squeeze') else '❌ NO'}
+
+RSI (14): {sd.get('rsi', 'N/A')}
+ADX (14): {sd.get('adx', 'N/A')}
+MFI (14): {sd.get('mfi', 'N/A')}
+RVOL: {sd.get('rvol', 'N/A')}x  (RVOL Bullish: {'YES' if sd.get('rvol_bullish') else 'NO'})
+
+Demand Zone: ${sd.get('demand_zone_end', 'N/A')} – ${sd.get('demand_zone_start', 'N/A')}
+Supply Zone: ${sd.get('supply_zone_start', 'N/A')}
+Risk/Reward: 1:{sd.get('risk_reward_ratio', 'N/A')}
+Zone Proximity: {sd.get('zone_proximity', 'N/A')}% above Demand Zone
+
+52W High: ${sd.get('year_high', 'N/A')}  |  Upside to High: {sd.get('upside_to_high', 'N/A')}%
+Sector: {sd.get('sector', 'N/A')}
+Rel Return 1M vs Index: {sd.get('rel_1m', 'N/A')}%
+Rel Return 3M vs Index: {sd.get('rel_3m', 'N/A')}%
+
+Extra data:
+MACD: {extra.get('macd', 'N/A')} / Signal: {extra.get('macd_signal', 'N/A')} → {macd_status}
+Bollinger Band Position: {extra.get('bb_position', 'N/A')}% (0%=lower band, 100%=upper band)
+Stock 1M Return: {extra.get('momentum_1m', 'N/A')}%  |  SPY 1M: {extra.get('spy_1m', 'N/A')}%  → RS: {rel_str}
+Volume Acceleration (5d/20d): {extra.get('vol_5v20', 'N/A')}x
+Recent Headlines: {news_text}
+"""
+
+        # ── Agent 1 : US Technical Momentum Analyst ───────────────────
+        technician = Agent(
+            role="US Market Short-Term Momentum Technical Analyst",
+            goal=(
+                "วิเคราะห์คุณภาพ Breakout และ Momentum ระยะสั้น 1-4 สัปดาห์ของหุ้น US "
+                "โดยใช้ Minervini Stage 2, CAN SLIM, และ RS Rating เป็นหลัก"
+            ),
+            backstory=(
+                "คุณเป็นผู้เชี่ยวชาญด้านหุ้น US ที่ใช้แนวทาง Mark Minervini (SEPA) และ William O'Neil (CAN SLIM) "
+                "เชี่ยวชาญการอ่าน Stage 2 Weinstein, Volatility Contraction Pattern (VCP), "
+                "RS Rating (Relative Strength vs Nasdaq/S&P 500), Pivot Point Breakout, "
+                "และ High Volume Tight Areas (HVTA) "
+                "คุณประเมิน Breakout Quality จาก Volume Confirmation, ADX, และ Price Action "
+                "เน้นหุ้นที่มี RS Rating ≥ 80 และอยู่ใน Stage 2 เท่านั้น"
+            ),
+            llm=llm,
+            verbose=False,
+            allow_delegation=False,
+        )
+
+        # ── Agent 2 : US Risk & Entry Specialist ──────────────────────
+        risk_expert = Agent(
+            role="US Market Risk Management & Entry Timing Expert",
+            goal=(
+                "คำนวณ Entry ที่แม่นยำ, ATR-based Stop Loss, และ R:R สำหรับ US market "
+                "โดยคำนึงถึงความเสี่ยงพิเศษของ US เช่น Earnings Date และ Fed Events"
+            ),
+            backstory=(
+                "คุณเป็น Risk Manager ที่เชี่ยวชาญ US stock market โดยเฉพาะ "
+                "ใช้ Daily/Weekly ATR สำหรับ position sizing, "
+                "ตรวจสอบ Earnings Date ก่อนเข้า Trade เพื่อหลีกเลี่ยง Gap Risk, "
+                "และคำนวณ Position Size แบบ Fixed % Risk (1-2% per trade) "
+                "กฎหลัก: Stop Loss ≤ 7-8% จาก Entry, R:R ≥ 2:1, "
+                "ไม่เข้าหุ้นภายใน 2 สัปดาห์ก่อน Earnings ถ้า RS < 85"
+            ),
+            llm=llm,
+            verbose=False,
+            allow_delegation=False,
+        )
+
+        # ── Agent 3 : US Market Context Scout ────────────────────────
+        market_scout = Agent(
+            role="US Market Context & Catalyst Intelligence Scout",
+            goal=(
+                "วิเคราะห์ภาพรวมตลาด US, Sector Rotation, นโยบาย Fed, "
+                "และ Catalyst ที่จะขับเคลื่อนราคาในระยะ 1-4 สัปดาห์ พร้อม Final Verdict"
+            ),
+            backstory=(
+                "คุณเป็นผู้เชี่ยวชาญด้าน US Market Macro Context และ Sector Intelligence "
+                "ติดตาม Fed Rate decisions, CPI/PCE data, Earnings Season, "
+                "Sector Rotation (Growth vs Value, Tech vs Energy), "
+                "และ Institutional Fund Flow (13F filings awareness) "
+                "คุณผสาน Technical + Macro + Catalyst เพื่อตัดสินใจ BUY/WAIT/AVOID "
+                "ที่ชัดเจนและ Action-oriented เสมอ"
+            ),
+            llm=llm,
+            verbose=False,
+            allow_delegation=False,
+        )
+
+        # ── Task 1 ────────────────────────────────────────────────────
+        task1 = Task(
+            description=f"""Analyze short-term US momentum quality for {self.symbol}:
+
+{context}
+
+Write in Thai language, covering:
+1. **Stage Analysis**: Stage 2 Weinstein ✅/❌ — อธิบายว่าทำไม
+2. **RS Rating {sd.get('rs_rating','N/A')}/99**: ดีหรือไม่? มี Relative Outperformance vs SPY/QQQ ไหม?
+3. **Breakout Quality**: Breakout ใหม่ / Consolidating after Breakout / Pullback to Support? Pattern ที่เห็น?
+4. **Momentum Confirmation**: RSI {sd.get('rsi','N/A')}, ADX {sd.get('adx','N/A')}, MACD, Volume → ยืนยัน Momentum แค่ไหน?
+5. **Entry Timing**: ตอนนี้เข้าได้เลย / รอ Pullback / ยังไม่ถึงเวลา?
+6. **Breakout Quality Score**: 0-100 พร้อมเหตุผล""",
+            agent=technician,
+            expected_output="รายงาน Technical สั้นกระชับ 6 หัวข้อ ภาษาไทย"
+        )
+
+        # ── Task 2 ────────────────────────────────────────────────────
+        task2 = Task(
+            description=f"""Calculate Risk Management for US stock {self.symbol}:
+
+{context}
+
+Write in Thai language, provide precise Risk Management plan:
+1. **Best Entry**: ช่วงราคา Entry ที่ดีที่สุด (Demand Zone / Pullback level / Breakout pivot)
+2. **Stop Loss**: ATR-based + Demand Zone — ≤7-8% จาก Entry ตาม Minervini rule
+3. **Earnings Risk**: ⚠️ ควรระวัง Earnings Date ไหม? (ถ้าใกล้ = ลด position size ลง 50%)
+4. **Target 1 (1.5:1 R:R)**: $X.XX
+5. **Target 2 (2.5:1 R:R)**: $X.XX
+6. **Position Size**: Portfolio $10,000 USD, Risk 1.5% per trade → ซื้อกี่หุ้น?
+7. **R:R Summary**: Entry $___  → Stop $___  → Target $___  = R:R 1:___""",
+            agent=risk_expert,
+            expected_output="ตาราง Risk Management ระบุราคาทุกจุดชัดเจน"
+        )
+
+        # ── Task 3 ────────────────────────────────────────────────────
+        task3 = Task(
+            description=f"""Analyze US Market Context and give Final Verdict for {self.symbol}:
+
+{context}
+
+Write in Thai language:
+1. **SPY/QQQ Trend**: ตลาด US โดยรวมขาขึ้น/ลง/Sideways? เหมาะสำหรับ Momentum Buying ไหม?
+2. **Sector {sd.get('sector','N/A')}**: Sector นี้ร้อนแรงหรือถูกขายทิ้ง? มี Sector Rotation เกิดขึ้นไหม?
+3. **Smart Money Signal**: RVOL {sd.get('rvol','N/A')}x, MFI {sd.get('mfi','N/A')}, Volume 5d/20d = {extra.get('vol_5v20','N/A')}x → Institutional Accumulation หรือ Distribution?
+4. **Catalyst 1-4 สัปดาห์**: Earnings / Product launch / Fed meeting / Macro data ที่อาจขับเคลื่อนหุ้น
+5. **⚠️ Key Risks**: 3 ปัจจัยเสี่ยงหลักสำหรับ US market
+6. **🎯 FINAL VERDICT**:
+   - **BUY NOW** / **WAIT FOR PULLBACK** / **AVOID**
+   - เหตุผล 3 ข้อ (Stage/RS + Smart Money + Macro/Catalyst)
+   - Timeframe: __ สัปดาห์""",
+            agent=market_scout,
+            expected_output="US Market context + clear Final Verdict พร้อมเหตุผลครบถ้วน"
+        )
+
+        crew = Crew(
+            agents=[technician, risk_expert, market_scout],
+            tasks=[task1, task2, task3],
+            process=Process.sequential,
+            verbose=False,
+        )
+
+        result = crew.kickoff()
+        return str(result)
+
 # ======================================================================
 # CrewAI Stock Analysis System — Minervini/O'Neil Momentum Style
 # ======================================================================

@@ -4941,6 +4941,539 @@ def tithe_mark_paid(request):
 
 
 # ======================================================================
+# US MOMENTUM SCANNER (no-DB) — same logic as SET scanner, US stocks
+# ======================================================================
+
+# Shared US symbol universe — reused by both scanners
+_US_MOMENTUM_SYMBOLS = [
+    # Mega-cap Tech
+    "AAPL", "MSFT", "NVDA", "GOOGL", "AMZN", "META", "TSLA", "AVGO", "ORCL", "AMD",
+    "ARM", "DELL", "HPE",
+    # Semiconductor
+    "TSM", "QCOM", "INTC", "MU", "AMAT", "LRCX", "KLAC", "MRVL", "TXN", "SMCI",
+    "ASML", "NXPI", "MPWR",
+    # Cloud / Software
+    "CRM", "NOW", "SNOW", "PLTR", "PANW", "CRWD", "ZS", "NET", "DDOG", "MDB",
+    "ADBE", "INTU", "CDNS", "SNPS", "FTNT", "OKTA", "HUBS", "TTD", "GTLB",
+    # Financials
+    "JPM", "BAC", "GS", "MS", "BLK", "AXP", "V", "MA", "COF", "CB", "PGR",
+    # Healthcare / Biotech
+    "UNH", "LLY", "ABBV", "MRK", "TMO", "AMGN", "ISRG", "DXCM", "REGN", "VRTX",
+    "GILD", "BMY", "MDT", "SYK", "BSX",
+    # Consumer Discretionary
+    "HD", "LOW", "NKE", "LULU", "DECK", "ONON", "SBUX", "MCD", "CMG", "NFLX",
+    "ABNB", "UBER",
+    # Consumer Staples
+    "COST", "WMT", "PG", "KO", "PEP",
+    # Energy
+    "XOM", "CVX", "COP", "EOG", "SLB", "OXY",
+    # Industrials
+    "CAT", "DE", "HON", "GE", "RTX", "LMT", "UPS", "ETN", "DHR",
+    # FinTech / Payments
+    "COIN", "SQ", "PYPL", "MSTR", "SPOT",
+    # Benchmarks (used for RS calc, filtered out of results)
+    "SPY", "QQQ",
+]
+
+@login_required
+def us_momentum_scanner(request):
+    """
+    US Momentum Scanner — scans ~200 Nasdaq/S&P 500 stocks using Minervini Trend Template.
+    No database storage: results kept in Django cache (TTL 2h) per user.
+    """
+    import threading as _th
+    from django.core.cache import cache as _cp
+    from django.http import JsonResponse as _JR
+
+    user_id       = request.user.id
+    cache_key     = f'us_momentum_scan_{user_id}'
+    results_key   = f'us_momentum_results_{user_id}'
+    scanned_at_key = f'us_momentum_ts_{user_id}'
+
+    # ── AJAX scan progress poll ───────────────────────────────────────
+    if request.GET.get('scan_status') == '1':
+        st = _cp.get(cache_key, {'state': 'idle'})
+        if st.get('state') == 'done':
+            _cp.delete(cache_key)
+        return _JR(st)
+
+    # ── Trigger background scan ───────────────────────────────────────
+    if request.GET.get('scan') == 'true' or request.method == 'POST':
+        cur = _cp.get(cache_key, {})
+        if cur.get('state') != 'running':
+            scan_syms = [s for s in _US_MOMENTUM_SYMBOLS if s not in ('SPY', 'QQQ', 'IWM')]
+            _cp.set(cache_key, {
+                'state': 'running', 'progress': 0,
+                'total': len(scan_syms), 'phase': 'เตรียมข้อมูล…'
+            }, timeout=900)
+
+            def _run_us_bg(uid, ckey, rkey, tskey, sym_list):
+                try:
+                    import pandas_ta as _ta
+                    import pandas as _pd
+                    import concurrent.futures as _cf
+                    from datetime import timedelta as _td
+                    from django.core.cache import cache as _c
+                    from django.utils import timezone as _tz
+                    from .utils import find_supply_demand_zones_v2
+
+                    import pytz as _pytz
+                    from datetime import datetime as _dt
+                    _ny_tz      = _pytz.timezone('America/New_York')
+                    _now_ny     = _dt.now(_ny_tz)
+                    _end_date   = _now_ny.date()
+                    _end_str    = (_end_date + _td(days=1)).strftime('%Y-%m-%d')
+                    _start_str  = (_end_date - _td(days=600)).strftime('%Y-%m-%d')
+                    _spy_start  = (_end_date - _td(days=185)).strftime('%Y-%m-%d')
+
+                    total = len(sym_list)
+
+                    # ── Step 1: SPY benchmark returns ─────────────────
+                    _c.set(ckey, {'state': 'running', 'progress': 0, 'total': total, 'phase': 'โหลด SPY Benchmark…'}, timeout=900)
+                    spy_1m = spy_3m = 0.0
+                    try:
+                        spy_df = yf.download("SPY", start=_spy_start, end=_end_str, interval="1d", progress=False)
+                        if spy_df is not None and not spy_df.empty:
+                            if isinstance(spy_df.columns, _pd.MultiIndex):
+                                spy_df.columns = spy_df.columns.droplevel(1)
+                            sc = spy_df['Close'].dropna()
+                            if len(sc) >= 66:
+                                spy_1m = float((sc.iloc[-1] - sc.iloc[-22]) / sc.iloc[-22] * 100)
+                                spy_3m = float((sc.iloc[-1] - sc.iloc[-66]) / sc.iloc[-66] * 100)
+                    except Exception:
+                        pass
+
+                    # ── Step 2: RS Rating (4-quarter weighted) ────────
+                    _c.set(ckey, {'state': 'running', 'progress': 0, 'total': total, 'phase': 'คำนวณ RS Rating…'}, timeout=900)
+
+                    def _fetch_rs(sym):
+                        try:
+                            d = yf.Ticker(sym).history(start=_start_str, end=_end_str, interval="1d")
+                            if d is None or d.empty:
+                                return sym, None
+                            if isinstance(d.columns, _pd.MultiIndex):
+                                d.columns = d.columns.droplevel(1)
+                            cl = d['Close'].dropna()
+                            if len(cl) >= 252:
+                                r = float(
+                                    (cl.iloc[-1] - cl.iloc[-64]) / abs(cl.iloc[-64]) * 0.4 +
+                                    (cl.iloc[-64] - cl.iloc[-127]) / abs(cl.iloc[-127]) * 0.2 +
+                                    (cl.iloc[-127] - cl.iloc[-190]) / abs(cl.iloc[-190]) * 0.2 +
+                                    (cl.iloc[-190] - cl.iloc[-253]) / abs(cl.iloc[-253]) * 0.2
+                                ) * 100
+                                return sym, r
+                            return sym, None
+                        except Exception:
+                            return sym, None
+
+                    rs_raw = {}
+                    with _cf.ThreadPoolExecutor(max_workers=15) as ex:
+                        futs = {ex.submit(_fetch_rs, s): s for s in sym_list}
+                        for f in _cf.as_completed(futs, timeout=120):
+                            s, r = f.result()
+                            if r is not None:
+                                rs_raw[s] = r
+
+                    rs_map = {}
+                    if rs_raw:
+                        ser = _pd.Series(rs_raw)
+                        rs_map = (ser.rank(pct=True) * 99).clip(0, 99).astype(int).to_dict()
+
+                    # ── Step 3: Technical scan ─────────────────────────
+                    _c.set(ckey, {'state': 'running', 'progress': 0, 'total': total, 'phase': 'Technical Scan…'}, timeout=900)
+
+                    results    = []
+                    lock       = _th.Lock()
+                    done_count = [0]
+
+                    def _scan_one(symbol):
+                        try:
+                            ticker = yf.Ticker(symbol)
+                            df = ticker.history(start=_start_str, end=_end_str, interval="1d")
+                            if df is None or df.empty:
+                                return None
+                            if isinstance(df.columns, _pd.MultiIndex):
+                                df.columns = df.columns.droplevel(1)
+                            df = df.dropna(subset=['Close', 'High'])
+                            if len(df) < 150:
+                                return None
+
+                            # Liquidity filter — ≥500K avg daily volume
+                            av20 = float(df['Volume'].tail(20).mean())
+                            if av20 < 500_000:
+                                return None
+
+                            # Indicators
+                            df['EMA50']  = _ta.ema(df['Close'], length=50)
+                            df['EMA150'] = _ta.ema(df['Close'], length=150)
+                            df['EMA200'] = _ta.ema(df['Close'], length=200)
+                            df['RSI']    = _ta.rsi(df['Close'], length=14)
+                            adx_df = _ta.adx(df['High'], df['Low'], df['Close'], length=14)
+                            if adx_df is not None and not adx_df.empty:
+                                df = _pd.concat([df, adx_df], axis=1)
+                            mfi_s = _ta.mfi(df['High'], df['Low'], df['Close'], df['Volume'], length=14)
+                            if mfi_s is not None:
+                                df['MFI'] = mfi_s
+                            vol_avg = df['Volume'].rolling(20).mean()
+                            df['RVOL'] = df['Volume'] / vol_avg
+
+                            last         = df.iloc[-1]
+                            current_p    = float(last['Close'])
+                            year_high    = float(df['High'].tail(252).max())
+                            ema200       = float(last.get('EMA200', 0) or 0)
+                            ema50        = float(last.get('EMA50', 0) or 0)
+                            rsi_val      = float(last.get('RSI', 50) or 50)
+                            adx_val      = float(last['ADX_14']) if 'ADX_14' in df.columns and _pd.notna(last.get('ADX_14')) else 0
+                            mfi_val      = float(last['MFI']) if 'MFI' in df.columns and _pd.notna(last.get('MFI')) else 0
+                            rvol_val     = float(last['RVOL']) if _pd.notna(last.get('RVOL')) else 1.0
+
+                            # ── Minervini Trend Template filters ──────
+                            if not (current_p > ema200 and current_p >= year_high * 0.65):
+                                return None
+                            if adx_val < 15:
+                                return None
+
+                            rs_v = rs_map.get(symbol, 0)
+
+                            # ── Score (0–100) ─────────────────────────
+                            score = 0
+                            # Trend alignment (max 35)
+                            if current_p > ema200:               score += 15
+                            if current_p > ema50:                score += 10
+                            if ema50 > ema200:                   score += 10
+                            # Momentum (max 20)
+                            if 55 < rsi_val < 80:                score += 15
+                            elif 45 < rsi_val <= 55:             score += 5
+                            # Volume/RVOL (max 20)
+                            last_close  = float(df['Close'].iloc[-1])
+                            prev_close  = float(df['Close'].iloc[-2]) if len(df) > 1 else last_close
+                            is_bullish  = last_close >= prev_close
+                            if is_bullish and rvol_val >= 1.5:   score += 20
+                            elif is_bullish and rvol_val >= 1.0: score += 12
+                            elif rvol_val >= 1.0:                score += 5
+                            # Price strength (max 10)
+                            if current_p >= year_high * 0.90:    score += 10
+                            elif current_p >= year_high * 0.80:  score += 5
+                            # RS Rating bonus (max 15)
+                            if rs_v >= 85:                       score += 15
+                            elif rs_v >= 70:                     score += 8
+                            elif rs_v >= 60:                     score += 3
+                            score = min(score, 100)
+
+                            # ── MACD crossover ────────────────────────
+                            m_cross = False
+                            try:
+                                md = _ta.macd(df['Close'])
+                                if md is not None and not md.empty:
+                                    mc = md.columns[0]
+                                    ms = next((c for c in md.columns if 'MACDs' in c), None)
+                                    if mc and ms:
+                                        for i in range(-3, 0):
+                                            if md[mc].iloc[i-1] <= md[ms].iloc[i-1] and md[mc].iloc[i] > md[ms].iloc[i]:
+                                                m_cross = True
+                                                break
+                            except Exception:
+                                pass
+
+                            # ── BB Squeeze ────────────────────────────
+                            bb_sqz = False
+                            try:
+                                bb = _ta.bbands(df['Close'])
+                                if bb is not None and not bb.empty:
+                                    bu = next((c for c in bb.columns if 'BBU' in c), None)
+                                    bl = next((c for c in bb.columns if 'BBL' in c), None)
+                                    bm = next((c for c in bb.columns if 'BBM' in c), None)
+                                    if bu and bl and bm:
+                                        bw = (bb[bu] - bb[bl]) / bb[bm]
+                                        if float(bw.iloc[-1]) <= float(bw.quantile(0.2)):
+                                            bb_sqz = True
+                            except Exception:
+                                pass
+
+                            # ── Stage 2 ───────────────────────────────
+                            stage2 = False
+                            try:
+                                s150 = _ta.sma(df['Close'], length=150)
+                                if s150 is not None and not s150.empty:
+                                    stage2 = (current_p > float(s150.iloc[-1])) and (float(s150.iloc[-1]) > float(s150.iloc[-20]))
+                            except Exception:
+                                pass
+
+                            # ── Supply / Demand Zone ──────────────────
+                            sd_zone = find_supply_demand_zones_v2(df)
+                            dz_s = dz_e = sz_s = rr_v = None
+                            prox = 999.0
+                            if sd_zone:
+                                dz_s = sd_zone.get('start')
+                                dz_e = sd_zone.get('end')
+                                sz_s = sd_zone.get('target')
+                                rr_v = sd_zone.get('rr_ratio')
+                                if dz_s:
+                                    prox = 0.0 if current_p <= dz_s else round((current_p - dz_s) / dz_s * 100, 2)
+
+                            # ── Relative returns ──────────────────────
+                            rel_1m = rel_3m = 0.0
+                            cl = df['Close'].dropna()
+                            if len(cl) >= 22:
+                                rel_1m = round(float((cl.iloc[-1] - cl.iloc[-22]) / cl.iloc[-22] * 100) - spy_1m, 2)
+                            if len(cl) >= 66:
+                                rel_3m = round(float((cl.iloc[-1] - cl.iloc[-66]) / cl.iloc[-66] * 100) - spy_3m, 2)
+
+                            # ── Sector ────────────────────────────────
+                            sector = 'Unknown'
+                            try:
+                                info = ticker.info or {}
+                                sector = info.get('sector', 'Unknown') or 'Unknown'
+                            except Exception:
+                                pass
+
+                            return {
+                                'symbol':            symbol,
+                                'price':             round(current_p, 2),
+                                'technical_score':   score,
+                                'rs_rating':         rs_v,
+                                'rsi':               round(rsi_val, 2),
+                                'adx':               round(adx_val, 2),
+                                'mfi':               round(mfi_val, 2),
+                                'rvol':              round(rvol_val, 2),
+                                'rvol_bullish':      is_bullish and rvol_val >= 1.0,
+                                'demand_zone_start': round(dz_s, 2) if dz_s else None,
+                                'demand_zone_end':   round(dz_e, 2) if dz_e else None,
+                                'supply_zone_start': round(sz_s, 2) if sz_s else None,
+                                'risk_reward_ratio': round(rr_v, 2) if rr_v else None,
+                                'zone_proximity':    round(prox, 2),
+                                'year_high':         round(year_high, 2),
+                                'upside_to_high':    round((year_high - current_p) / current_p * 100, 2),
+                                'sector':            sector,
+                                'stage2':            stage2,
+                                'macd_crossover':    m_cross,
+                                'bb_squeeze':        bb_sqz,
+                                'rel_1m':            rel_1m,
+                                'rel_3m':            rel_3m,
+                                # live fields (filled on display)
+                                'live_price':       None,
+                                'live_change_pct':  None,
+                                'live_in_zone':     False,
+                                'live_broke_zone':  False,
+                                'live_above_tp':    False,
+                                'live_near_tp':     False,
+                                'live_zone_prox':   999,
+                            }
+                        except Exception:
+                            return None
+
+                    with _cf.ThreadPoolExecutor(max_workers=8) as ex:
+                        futs = {ex.submit(_scan_one, s): s for s in sym_list}
+                        for idx, f in enumerate(_cf.as_completed(futs, timeout=600)):
+                            try:
+                                r = f.result()
+                                if r:
+                                    with lock:
+                                        results.append(r)
+                            except Exception:
+                                pass
+                            done_count[0] += 1
+                            if done_count[0] % 5 == 0:
+                                _c.set(ckey, {
+                                    'state': 'running',
+                                    'progress': done_count[0],
+                                    'total': total,
+                                    'phase': f'Scanning… ({done_count[0]}/{total})',
+                                }, timeout=900)
+
+                    # Sort by score desc
+                    results.sort(key=lambda x: x['technical_score'], reverse=True)
+
+                    _c.set(rkey, results, timeout=7200)
+                    _c.set(tskey, _tz.now().isoformat(), timeout=7200)
+                    _c.set(ckey, {'state': 'done'}, timeout=300)
+
+                except Exception as exc:
+                    from django.core.cache import cache as _c2
+                    _c2.set(ckey, {'state': 'done'}, timeout=300)
+
+            _th.Thread(
+                target=_run_us_bg,
+                args=(user_id, cache_key, results_key, scanned_at_key, scan_syms),
+                daemon=True,
+            ).start()
+
+        from django.shortcuts import redirect as _redir
+        return _redir('stocks:us_momentum_scanner')
+
+    # ── Display results ───────────────────────────────────────────────
+    sort_by = request.GET.get('sort', 'score')
+    valid_sorts = {
+        'symbol': 'symbol', 'score': 'technical_score', 'rs': 'rs_rating',
+        'rsi': 'rsi', 'rvol': 'rvol', 'adx': 'adx', 'mfi': 'mfi',
+        'price': 'price', 'gap': 'upside_to_high', 'prox': 'zone_proximity',
+        'round_rr': 'risk_reward_ratio', 'rel1m': 'rel_1m',
+    }
+    sort_field  = valid_sorts.get(sort_by, 'technical_score')
+    sort_rev    = sort_by not in ('symbol', 'gap', 'prox')
+
+    raw_results = _cp.get(results_key) or []
+
+    _scan_state = _cp.get(cache_key, {})
+    is_scanning = _scan_state.get('state') == 'running'
+
+    candidate_list = []
+    if raw_results and not is_scanning:
+        candidate_list = sorted(raw_results, key=lambda x: (x.get(sort_field) or 0), reverse=sort_rev)
+
+    # ── Live prices + zone status ─────────────────────────────────────
+    if candidate_list:
+        try:
+            import concurrent.futures as _mcf
+
+            def _live_us(sym):
+                try:
+                    fi = yf.Ticker(sym).fast_info
+                    p  = getattr(fi, 'last_price', None)
+                    return sym, float(p) if p else None
+                except Exception:
+                    return sym, None
+
+            live_map = {}
+            with _mcf.ThreadPoolExecutor(max_workers=8) as ex:
+                for sym, lp in ex.map(_live_us, [c['symbol'] for c in candidate_list]):
+                    if lp:
+                        live_map[sym] = lp
+        except Exception:
+            live_map = {}
+
+        for c in candidate_list:
+            lp  = live_map.get(c['symbol'])
+            c['live_price']      = lp
+            ref = lp if lp else float(c['price'] or 0)
+            dz_s = float(c['demand_zone_start'] or 0)
+            dz_e = float(c['demand_zone_end']   or 0)
+            sz_s = float(c['supply_zone_start'] or 0)
+            c['live_in_zone']   = dz_s > 0 and dz_e > 0 and dz_e <= ref <= dz_s
+            c['live_broke_zone'] = dz_e > 0 and ref < dz_e
+            c['live_above_tp']  = sz_s > 0 and ref >= sz_s
+            c['live_near_tp']   = (
+                not c['live_above_tp'] and sz_s > 0 and dz_s > 0 and
+                (sz_s - ref) / (sz_s - dz_s) * 100 <= 15
+                if (sz_s - dz_s) > 0 else False
+            )
+            c['live_zone_prox'] = 0.0 if ref <= dz_s else (
+                round((ref - dz_s) / dz_s * 100, 1) if dz_s > 0 else 999
+            )
+            c['live_change_pct'] = (
+                round((lp - float(c['price'])) / float(c['price']) * 100, 2)
+                if lp and float(c['price'] or 0) > 0 else None
+            )
+
+    # ── AI Superperformance filter ────────────────────────────────────
+    ai_analysis = None
+    if candidate_list and request.GET.get('analyze') == 'true':
+        syms = [c['symbol'] for c in candidate_list[:30]]
+        try:
+            client = genai.Client(api_key=settings.GEMINI_API_KEY)
+            prompt = f"""You are a top US momentum stock analyst using Minervini/O'Neil methodology.
+
+From this list of US stocks that passed the Trend Template filter:
+{', '.join(syms)}
+
+Analyze current news, earnings momentum, sector rotation, and market sentiment to identify
+the top 5-7 "Superperformance" candidates most likely to make significant moves in the next 2-6 weeks.
+
+Write in Thai language, markdown format:
+- For each pick: symbol, why it's the leader (RS Rating, Stage 2, Catalyst), key risk
+- Focus on Relative Strength leaders and stocks near breakout pivots
+- Note any Earnings dates or Fed events to watch
+- No intro, no outro"""
+            response = client.models.generate_content(model='gemini-2.5-flash', contents=prompt)
+            ai_analysis = response.text
+            if ai_analysis and ai_analysis.startswith("```"):
+                ai_analysis = ai_analysis.split('\n', 1)[-1].rsplit('```', 1)[0].strip()
+        except Exception as e:
+            ai_analysis = f"AI Error: {str(e)}"
+
+    scanned_at_iso = _cp.get(scanned_at_key)
+    scanned_at = None
+    if scanned_at_iso:
+        try:
+            from datetime import datetime as _dtparse
+            scanned_at = _dtparse.fromisoformat(scanned_at_iso)
+        except Exception:
+            pass
+
+    return render(request, 'stocks/us_momentum.html', {
+        'title':        'US Momentum Scanner',
+        'candidates':   candidate_list,
+        'ai_analysis':  ai_analysis,
+        'scanned_at':   scanned_at,
+        'current_sort': sort_by,
+        'is_scanning':  is_scanning,
+        'has_scanned':  bool(raw_results) or is_scanning,
+    })
+
+
+@login_required
+def us_momentum_quick_analysis(request, symbol):
+    """
+    Quick CrewAI multi-agent analysis for a US momentum stock.
+    AJAX endpoint — returns JSON, displayed in a modal.
+    """
+    import threading as _th
+    from django.core.cache import cache as _cp
+    from django.http import JsonResponse as _JR
+
+    user_id   = request.user.id
+    cache_key = f'us_mq_analysis_{user_id}_{symbol}'
+
+    # Poll
+    if request.GET.get('mq_status') == '1':
+        return _JR(_cp.get(cache_key, {'state': 'idle'}))
+
+    cached = _cp.get(cache_key)
+    if cached:
+        if cached.get('state') == 'running':
+            return _JR({'state': 'running'})
+        if cached.get('state') == 'done':
+            _cp.delete(cache_key)
+            return _JR({'state': 'done', 'result': cached.get('result', '')})
+
+    # Get scan data from cache results
+    scan_data = {}
+    try:
+        results_key = f'us_momentum_results_{user_id}'
+        raw = _cp.get(results_key) or []
+        for item in raw:
+            if item.get('symbol') == symbol:
+                scan_data = dict(item)
+                break
+    except Exception:
+        pass
+
+    # Background analysis
+    _cp.set(cache_key, {'state': 'running'}, timeout=600)
+
+    def _run_us_crew(ckey, sym, sd):
+        from django.core.cache import cache as _c
+        try:
+            _c.set(ckey, {'state': 'running', 'phase': 'กำลังวิเคราะห์ด้วย 3 US Expert Agents…'}, timeout=600)
+            from .crew_analysis import USMomentumShortTermCrew as _USC
+            import concurrent.futures as _cf
+            crew = _USC(sym, scan_data=sd)
+            with _cf.ThreadPoolExecutor(max_workers=1) as ex:
+                fut = ex.submit(crew.run_analysis)
+                try:
+                    result = fut.result(timeout=180)
+                except _cf.TimeoutError:
+                    result = '## Timeout\n\nกรุณาลองใหม่อีกครั้ง'
+            _c.set(ckey, {'state': 'done', 'result': result}, timeout=900)
+        except Exception as exc:
+            from django.core.cache import cache as _c2
+            _c2.set(ckey, {'state': 'done', 'result': f'## Error\n\n{exc}'}, timeout=60)
+
+    _th.Thread(target=_run_us_crew, args=(cache_key, symbol, scan_data), daemon=True).start()
+    return _JR({'state': 'running'})
+
+
+# ======================================================================
 # US PRECISION MOMENTUM SCANNER — Nasdaq & S&P 500
 # ======================================================================
 
