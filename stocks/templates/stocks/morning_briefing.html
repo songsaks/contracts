@@ -1,0 +1,227 @@
+{% extends 'stocks/base_stocks.html' %}
+{% load humanize %}
+
+{% block title %}Morning Briefing — 9Com{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-2 px-md-4 py-4" style="max-width:1100px;">
+
+    <!-- ── LOADING OVERLAY ─────────────────────────────────────── -->
+    <div id="mbOverlay" style="display:{% if is_generating %}flex{% else %}none{% endif %};
+         position:fixed;inset:0;background:rgba(15,23,42,0.92);z-index:9999;
+         flex-direction:column;align-items:center;justify-content:center;gap:1.2rem;">
+        <div style="width:64px;height:64px;border-radius:50%;border:6px solid rgba(251,191,36,0.2);
+                    border-top-color:#fbbf24;animation:mbSpin 1s linear infinite;"></div>
+        <div style="color:white;font-size:1.2rem;font-weight:700;">🌅 กำลังสร้าง Morning Briefing…</div>
+        <div id="mbPhase" style="color:#94a3b8;font-size:0.88rem;">กำลังเริ่มต้น…</div>
+        <div style="color:#475569;font-size:0.75rem;">AI กำลังวิเคราะห์ข้อมูลทั้งหมด • ใช้เวลา 1-2 นาที</div>
+    </div>
+    <style>@keyframes mbSpin { to { transform: rotate(360deg); } }</style>
+    {% if is_generating %}
+    <script>
+    (function() {
+        function poll() {
+            fetch('?mb_status=1', {credentials:'same-origin'})
+                .then(r => r.json())
+                .then(data => {
+                    if (data.phase) document.getElementById('mbPhase').textContent = data.phase;
+                    if (data.state === 'done') { window.location.reload(); }
+                    else { setTimeout(poll, 2500); }
+                })
+                .catch(() => setTimeout(poll, 3000));
+        }
+        setTimeout(poll, 1500);
+    })();
+    </script>
+    {% endif %}
+
+    <!-- ── HEADER ──────────────────────────────────────────────── -->
+    <div class="row align-items-end mb-4">
+        <div class="col-md-7">
+            <div class="d-flex align-items-center gap-2 mb-1">
+                <span style="font-size:1.8rem;">🌅</span>
+                <h1 class="fw-bold mb-0" style="color:#1e293b;letter-spacing:-0.025em;">Morning Briefing</h1>
+            </div>
+            <p class="text-muted mb-0" style="font-size:0.88rem;">
+                AI รวมข้อมูล Portfolio · Momentum SET/US · Precision · SEPA · Cup&amp;Handle · Macro
+                สร้างแผนซื้อ/ขายและภาพรวมเศรษฐกิจประจำวัน
+            </p>
+        </div>
+        <div class="col-md-5 text-md-end mt-3 mt-md-0 d-flex flex-wrap justify-content-md-end align-items-center gap-2">
+            {% if briefings|length > 1 %}
+            <select id="historySelect" class="form-select form-select-sm rounded-pill"
+                    style="width:auto;font-size:0.8rem;" onchange="showBriefing(this.value)">
+                {% for b in briefings %}
+                <option value="{{ forloop.counter0 }}">{{ b.created_at|date:"d M Y H:i" }}</option>
+                {% endfor %}
+            </select>
+            {% endif %}
+            <form method="post" id="mbForm" onsubmit="startGenerate()">
+                {% csrf_token %}
+                <button type="submit" id="mbBtn"
+                        class="btn d-inline-flex align-items-center gap-2 fw-semibold"
+                        style="background:linear-gradient(135deg,#f59e0b,#ef4444);color:white;
+                               border:none;border-radius:0.75rem;padding:0.5rem 1.2rem;">
+                    <i class="fas fa-bolt"></i>
+                    {% if latest %}สร้างรายงานใหม่{% else %}สร้างรายงาน{% endif %}
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- ── NO REPORT ──────────────────────────────────────────── -->
+    {% if not latest and not is_generating %}
+    <div class="card border-0 shadow-sm rounded-4 text-center py-5 mb-4">
+        <div class="card-body">
+            <div style="font-size:3rem;" class="mb-3">🌄</div>
+            <h4 class="fw-semibold mb-2">ยังไม่มีรายงาน</h4>
+            <p class="text-muted mb-4">กดปุ่ม <strong>"สร้างรายงาน"</strong> เพื่อให้ AI วิเคราะห์และสร้าง Morning Briefing</p>
+            <div class="d-flex flex-wrap justify-content-center gap-2 mb-4">
+                <span class="badge rounded-pill px-3 py-2" style="background:#eff6ff;color:#1e40af;font-size:0.78rem;"><i class="fas fa-globe me-1"></i>Macro</span>
+                <span class="badge rounded-pill px-3 py-2" style="background:#f0fdf4;color:#15803d;font-size:0.78rem;"><i class="fas fa-briefcase me-1"></i>Portfolio</span>
+                <span class="badge rounded-pill px-3 py-2" style="background:#fef3c7;color:#92400e;font-size:0.78rem;">🇹🇭 Momentum SET</span>
+                <span class="badge rounded-pill px-3 py-2" style="background:#ede9fe;color:#5b21b6;font-size:0.78rem;">🇺🇸 Momentum US</span>
+                <span class="badge rounded-pill px-3 py-2" style="background:#fce7f3;color:#9d174d;font-size:0.78rem;"><i class="fas fa-crosshairs me-1"></i>Precision + SEPA</span>
+                <span class="badge rounded-pill px-3 py-2" style="background:#fff7ed;color:#c2410c;font-size:0.78rem;"><i class="fas fa-circle-notch me-1"></i>Cup &amp; Handle</span>
+            </div>
+            <form method="post" onsubmit="startGenerate()">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-lg fw-bold px-5 rounded-pill"
+                        style="background:linear-gradient(135deg,#f59e0b,#ef4444);color:white;border:none;">
+                    <i class="fas fa-bolt me-2"></i> สร้าง Morning Briefing
+                </button>
+            </form>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- ── REPORT CARDS ────────────────────────────────────────── -->
+    {% for b in briefings %}
+    <div class="briefing-card {% if not forloop.first %}d-none{% endif %}" data-idx="{{ forloop.counter0 }}">
+
+        <!-- Meta bar -->
+        <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+            <div class="d-flex align-items-center gap-2 flex-wrap">
+                <span class="badge rounded-pill px-3 py-2"
+                      style="background:linear-gradient(135deg,#f59e0b,#ef4444);color:white;font-size:0.78rem;">
+                    <i class="fas fa-calendar-day me-1"></i> {{ b.created_at|date:"d M Y H:i" }}
+                </span>
+                {% if b.portfolio_count %}<span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 rounded-pill px-2" style="font-size:0.68rem;">Port {{ b.portfolio_count }}</span>{% endif %}
+                {% if b.momentum_set_count %}<span class="badge rounded-pill px-2" style="font-size:0.68rem;background:#fef3c7;color:#92400e;">SET {{ b.momentum_set_count }}</span>{% endif %}
+                {% if b.momentum_us_count %}<span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 rounded-pill px-2" style="font-size:0.68rem;">US {{ b.momentum_us_count }}</span>{% endif %}
+                {% if b.precision_count %}<span class="badge rounded-pill px-2" style="font-size:0.68rem;background:#ede9fe;color:#5b21b6;">Prec {{ b.precision_count }}</span>{% endif %}
+                {% if b.cup_handle_count %}<span class="badge rounded-pill px-2" style="font-size:0.68rem;background:#fff7ed;color:#c2410c;">C&H {{ b.cup_handle_count }}</span>{% endif %}
+            </div>
+            <div class="d-flex gap-2">
+                <button onclick="copyBriefing({{ forloop.counter0 }})"
+                        class="btn btn-sm btn-outline-secondary rounded-pill px-3" style="font-size:0.75rem;">
+                    <i class="fas fa-copy me-1"></i> Copy
+                </button>
+                <button onclick="window.print()"
+                        class="btn btn-sm btn-outline-secondary rounded-pill px-3" style="font-size:0.75rem;">
+                    <i class="fas fa-print me-1"></i> Print
+                </button>
+            </div>
+        </div>
+
+        <!-- Report card -->
+        <div class="card border-0 shadow-sm rounded-4 mb-4" style="overflow:hidden;">
+            <div class="card-header border-0 py-3 px-4"
+                 style="background:linear-gradient(135deg,#0f172a,#1e3a5f);">
+                <div class="d-flex align-items-center gap-2">
+                    <span style="font-size:1.2rem;">🌅</span>
+                    <span class="fw-bold text-white">Morning Briefing — {{ b.created_at|date:"d M Y" }}</span>
+                    <span class="badge bg-warning text-dark ms-auto" style="font-size:0.68rem;">Gemini AI</span>
+                </div>
+            </div>
+            <div class="card-body px-4 py-4">
+                <div class="briefing-content" id="content-{{ forloop.counter0 }}"
+                     style="line-height:1.85;color:#1e293b;"></div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+
+    <!-- raw markdown store (safe JSON) -->
+    {% for b in briefings %}
+    <script id="mbraw-{{ forloop.counter0 }}" type="application/json">{{ b.report_md|escapejs }}</script>
+    {% endfor %}
+
+</div>
+
+<style>
+.briefing-content h1,.briefing-content h2 {
+    color:#1e3a5f;margin-top:1.5rem;margin-bottom:.4rem;
+    padding-bottom:.3rem;border-bottom:1px solid #e2e8f0;
+}
+.briefing-content h2 { font-size:1.08rem; }
+.briefing-content h3 { font-size:.97rem;color:#1d4ed8;margin-top:1rem; }
+.briefing-content ul { padding-left:1.4rem; }
+.briefing-content li { margin-bottom:.3rem; }
+.briefing-content strong { color:#0f172a; }
+.briefing-content table {
+    width:100%;border-collapse:collapse;margin:1rem 0;font-size:.85rem;
+}
+.briefing-content th {
+    background:#1e3a5f;color:white;padding:.45rem .75rem;text-align:left;
+}
+.briefing-content td { padding:.4rem .75rem;border-bottom:1px solid #e2e8f0; }
+.briefing-content tr:hover td { background:#f8fafc; }
+.briefing-content blockquote {
+    border-left:3px solid #f59e0b;margin:.8rem 0;padding:.5rem 1rem;
+    background:#fffbeb;border-radius:0 .5rem .5rem 0;color:#92400e;
+}
+.briefing-content hr { border-color:#e2e8f0;margin:1.2rem 0; }
+@media print {
+    .btn,.navbar,#mbOverlay,select { display:none !important; }
+    .card { box-shadow:none !important;border:1px solid #e2e8f0 !important; }
+}
+</style>
+
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.briefing-content').forEach(function(el) {
+        var idx = el.id.replace('content-', '');
+        var src = document.getElementById('mbraw-' + idx);
+        if (src && typeof marked !== 'undefined') {
+            el.innerHTML = marked.parse(src.textContent);
+        }
+    });
+});
+
+function showBriefing(idx) {
+    document.querySelectorAll('.briefing-card').forEach(c => c.classList.add('d-none'));
+    var t = document.querySelector('.briefing-card[data-idx="' + idx + '"]');
+    if (t) t.classList.remove('d-none');
+}
+
+function startGenerate() {
+    document.getElementById('mbOverlay').style.display = 'flex';
+    document.getElementById('mbBtn').disabled = true;
+    setTimeout(function pollStatus() {
+        fetch('?mb_status=1', {credentials:'same-origin'})
+            .then(r => r.json())
+            .then(data => {
+                if (data.phase) document.getElementById('mbPhase').textContent = data.phase;
+                if (data.state === 'done') { window.location.reload(); }
+                else { setTimeout(pollStatus, 2500); }
+            })
+            .catch(() => setTimeout(pollStatus, 3000));
+    }, 3000);
+}
+
+function copyBriefing(idx) {
+    var el = document.getElementById('content-' + idx);
+    if (!el) return;
+    navigator.clipboard.writeText(el.innerText).then(function() {
+        var card = document.querySelector('.briefing-card[data-idx="' + idx + '"]');
+        var btn = card ? card.querySelector('button') : null;
+        if (btn) {
+            btn.innerHTML = '<i class="fas fa-check me-1"></i> Copied!';
+            setTimeout(() => btn.innerHTML = '<i class="fas fa-copy me-1"></i> Copy', 2000);
+        }
+    });
+}
+</script>
+{% endblock %}

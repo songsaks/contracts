@@ -2,7 +2,7 @@ from django.contrib import admin
 from .models import (
     Watchlist, AnalysisCache, Portfolio, SoldStock, UserTelegramProfile,
     MomentumCandidate, MultiFactorCandidate, PrecisionScanCandidate,
-    ValueScanCandidate, CupHandleCandidate, USSepaCandidate,
+    ValueScanCandidate, CupHandleCandidate, USSepaCandidate, MorningBriefing,
 )
 
 
@@ -102,6 +102,15 @@ class CupHandleCandidateAdmin(admin.ModelAdmin):
 
     def get_queryset(self, request):
         return super().get_queryset(request).select_related('user')
+
+
+@admin.register(MorningBriefing)
+class MorningBriefingAdmin(admin.ModelAdmin):
+    list_display = ('user', 'created_at', 'portfolio_count', 'momentum_set_count', 'momentum_us_count', 'precision_count')
+    list_filter = ('user',)
+    ordering = ('-created_at',)
+    date_hierarchy = 'created_at'
+    readonly_fields = ('report_md', 'created_at')
 
 
 @admin.register(USSepaCandidate)

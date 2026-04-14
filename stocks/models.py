@@ -602,6 +602,30 @@ class USSepaCandidate(models.Model):
         return f"{self.symbol} RS={self.rs_rating} VCP={self.vcp_setup}"
 
 
+class MorningBriefing(models.Model):
+    """
+    รายงานสรุปประจำวัน — ภาพรวมเศรษฐกิจ + แผนซื้อ/ขายหุ้น
+    สร้างโดย AI จากข้อมูล Portfolio, Momentum, Precision, SEPA, Cup&Handle
+    """
+    user        = models.ForeignKey(User, on_delete=models.CASCADE)
+    created_at  = models.DateTimeField(auto_now_add=True, db_index=True)
+    report_md   = models.TextField(help_text='Markdown report from Gemini AI')
+    # ข้อมูล snapshot ที่ใช้สร้างรายงาน
+    portfolio_count     = models.IntegerField(default=0)
+    momentum_set_count  = models.IntegerField(default=0)
+    momentum_us_count   = models.IntegerField(default=0)
+    precision_count     = models.IntegerField(default=0)
+    sepa_count          = models.IntegerField(default=0)
+    cup_handle_count    = models.IntegerField(default=0)
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'Morning Briefing'
+
+    def __str__(self):
+        return f"Briefing {self.created_at.strftime('%Y-%m-%d %H:%M')} — {self.user.username}"
+
+
 class TitheRecord(models.Model):
     """
     ติดตามการถวายทศางค์ 10% จากกำไรหุ้นรายเดือน

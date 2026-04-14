@@ -2175,6 +2175,241 @@ def us_recommendations(request):
 
 
 
+# ====== Morning Briefing — รายงานสรุปประจำวัน ======
+
+@login_required
+def morning_briefing(request):
+    """
+    รายงานสรุปประจำวัน — กดปุ่มเดียว AI รวมข้อมูลทั้งหมด:
+    Portfolio + Momentum SET/US + Precision + SEPA + Cup&Handle + Macro
+    แล้วสร้างแผนซื้อ/ขายและภาพรวมเศรษฐกิจ
+    """
+    from .models import (
+        MorningBriefing as _MB, Portfolio as _Port,
+        MomentumCandidate as _MC, PrecisionScanCandidate as _PSC,
+        CupHandleCandidate as _CHC, USSepaCandidate as _USC,
+    )
+    from django.core.cache import cache as _cp
+    from django.http import JsonResponse as _JR
+
+    cache_key = f'morning_briefing_{request.user.id}'
+
+    # ── AJAX poll ────────────────────────────────────────────────
+    if request.GET.get('mb_status') == '1':
+        return _JR(_cp.get(cache_key, {'state': 'idle'}))
+
+    # ── POST: trigger generation ──────────────────────────────────
+    if request.method == 'POST':
+        existing = _cp.get(cache_key, {})
+        if existing.get('state') == 'running':
+            return redirect('stocks:morning_briefing')
+
+        _cp.set(cache_key, {'state': 'running', 'phase': 'กำลังรวบรวมข้อมูล…'}, timeout=600)
+
+        def _run(uid, ckey):
+            import django; django.setup()
+            import yfinance as _yf
+            from django.core.cache import cache as _c
+            from django.contrib.auth import get_user_model
+            from django.utils import timezone as tz
+            from .models import (
+                MorningBriefing as MB, Portfolio,
+                MomentumCandidate, PrecisionScanCandidate,
+                CupHandleCandidate, USSepaCandidate,
+            )
+            from django.conf import settings as _s
+            from google import genai as _genai
+
+            User = get_user_model()
+            user = User.objects.get(pk=uid)
+
+            try:
+                # ── 1. Portfolio ────────────────────────────────
+                _c.set(ckey, {'state': 'running', 'phase': 'ดึงข้อมูล Portfolio…'}, timeout=600)
+                portfolio = list(Portfolio.objects.filter(user=user))
+                port_lines = []
+                for p in portfolio:
+                    try:
+                        ticker_sym = p.symbol if not p.symbol.endswith('.BK') else p.symbol
+                        hist = _yf.Ticker(ticker_sym).history(period='5d')
+                        if hist.empty:
+                            hist = _yf.Ticker(f'{p.symbol}.BK').history(period='5d')
+                        if not hist.empty:
+                            cur = float(hist['Close'].iloc[-1])
+                            entry = float(p.entry_price)
+                            pl_pct = (cur - entry) / entry * 100
+                            port_lines.append(f"  - {p.symbol}: ราคาปัจจุบัน {cur:.2f} (ทุน {entry:.2f}, P/L {pl_pct:+.1f}%)")
+                        else:
+                            port_lines.append(f"  - {p.symbol}: ทุน {float(p.entry_price):.2f} (ไม่สามารถดึงราคาได้)")
+                    except Exception:
+                        port_lines.append(f"  - {p.symbol}: ทุน {float(p.entry_price):.2f}")
+
+                # ── 2. Momentum SET ─────────────────────────────
+                _c.set(ckey, {'state': 'running', 'phase': 'ดึงข้อมูล Momentum SET…'}, timeout=600)
+                mom_set = list(MomentumCandidate.objects.filter(user=user, market='SET').order_by('-technical_score')[:10])
+                mom_set_lines = [f"  - {c.symbol}: Score={c.technical_score} RSI={c.rsi:.0f} RS={c.rs_rating} Price={c.price:.2f}" for c in mom_set]
+
+                # ── 3. Momentum US ──────────────────────────────
+                _c.set(ckey, {'state': 'running', 'phase': 'ดึงข้อมูล Momentum US…'}, timeout=600)
+                mom_us = list(MomentumCandidate.objects.filter(user=user, market='US').order_by('-technical_score')[:10])
+                mom_us_lines = [f"  - {c.symbol}: Score={c.technical_score} RSI={c.rsi:.0f} RS={c.rs_rating} Price={c.price:.2f}" for c in mom_us]
+
+                # ── 4. Precision SET (latest run) ───────────────
+                _c.set(ckey, {'state': 'running', 'phase': 'ดึงข้อมูล Precision…'}, timeout=600)
+                prec_run = PrecisionScanCandidate.objects.filter(user=user, market='SET').values_list('scan_run', flat=True).order_by('-scan_run').first()
+                prec_set = []
+                if prec_run:
+                    prec_set = list(PrecisionScanCandidate.objects.filter(user=user, market='SET', scan_run=prec_run).order_by('-technical_score')[:8])
+                prec_lines = [f"  - {c.symbol}: Score={c.technical_score} RS={c.rs_rating} Stage2={'✓' if c.stage2 else '✗'} RR={c.risk_reward_ratio:.1f} Prox={c.zone_proximity:.1f}%" for c in prec_set]
+
+                # ── 5. SEPA SET (from Precision) ────────────────
+                sepa_set = [c for c in prec_set if c.stage2 and c.rs_rating >= 70]
+                sepa_lines = [f"  - {c.symbol}: RS={c.rs_rating} VCP={'✓' if c.vcp_setup else '✗'} Score={c.technical_score}" for c in sepa_set]
+
+                # ── 6. Cup & Handle ─────────────────────────────
+                _c.set(ckey, {'state': 'running', 'phase': 'ดึงข้อมูล Cup & Handle…'}, timeout=600)
+                cup_run = CupHandleCandidate.objects.filter(user=user).values_list('scan_run', flat=True).order_by('-scan_run').first()
+                cup_list = []
+                if cup_run:
+                    cup_list = list(CupHandleCandidate.objects.filter(user=user, scan_run=cup_run).order_by('-rs_rating')[:8])
+                cup_lines = [f"  - {c.symbol}: Price={c.price:.2f} Breakout={c.breakout_price:.2f} Target={c.target_price:.2f} RS={c.rs_rating}" for c in cup_list]
+
+                # ── 7. US SEPA ──────────────────────────────────
+                _c.set(ckey, {'state': 'running', 'phase': 'ดึงข้อมูล US SEPA…'}, timeout=600)
+                us_sepa_run = USSepaCandidate.objects.filter(user=user).values_list('scan_run', flat=True).order_by('-scan_run').first()
+                us_sepa_list = []
+                if us_sepa_run:
+                    us_sepa_list = list(USSepaCandidate.objects.filter(user=user, scan_run=us_sepa_run, stage2=True).order_by('-rs_rating')[:8])
+                us_sepa_lines = [f"  - {c.symbol}: RS={c.rs_rating} VCP={'✓' if c.vcp_setup else '✗'} ADX={c.adx:.0f} Price={c.price:.2f}" for c in us_sepa_list]
+
+                # ── 8. Macro data ───────────────────────────────
+                _c.set(ckey, {'state': 'running', 'phase': 'ดึงข้อมูล Macro…'}, timeout=600)
+                macro_symbols = {
+                    'SET Index': '^SET', 'S&P 500': '^GSPC', 'Nasdaq': '^IXIC',
+                    'USD/THB': 'USDTHB=X', 'DXY': 'DX-Y.NYB', 'US 10Y Yield': '^TNX',
+                    'Gold': 'GC=F', 'WTI Oil': 'CL=F', 'Bitcoin': 'BTC-USD',
+                }
+                macro_lines = []
+                for name, sym in macro_symbols.items():
+                    try:
+                        h = _yf.Ticker(sym).history(period='5d')
+                        if not h.empty and len(h) >= 2:
+                            cur = float(h['Close'].iloc[-1])
+                            prev = float(h['Close'].iloc[-2])
+                            chg = (cur - prev) / prev * 100
+                            macro_lines.append(f"  - {name}: {cur:.2f} ({chg:+.2f}%)")
+                    except Exception:
+                        pass
+
+                # ── 9. Build prompt ─────────────────────────────
+                _c.set(ckey, {'state': 'running', 'phase': 'AI กำลังวิเคราะห์และสร้างรายงาน…'}, timeout=600)
+
+                today_str = tz.now().strftime('%d %B %Y')
+
+                prompt = f"""คุณคือ Senior Portfolio Manager และ Macro Strategist ระดับสถาบัน
+วันที่: {today_str}
+
+จงสร้าง **Morning Briefing Report** ภาษาไทยแบบครบถ้วน จากข้อมูลด้านล่าง:
+
+---
+## 📊 MACRO ECONOMY
+{chr(10).join(macro_lines) if macro_lines else 'ไม่มีข้อมูล'}
+
+## 💼 PORTFOLIO (หุ้นที่ถืออยู่)
+{chr(10).join(port_lines) if port_lines else 'ไม่มีพอร์ต'}
+
+## 🇹🇭 MOMENTUM SET (Top 10 by Score)
+{chr(10).join(mom_set_lines) if mom_set_lines else 'ยังไม่ได้สแกน'}
+
+## 🇺🇸 MOMENTUM US (Top 10 by Score)
+{chr(10).join(mom_us_lines) if mom_us_lines else 'ยังไม่ได้สแกน'}
+
+## 🎯 PRECISION SCAN — SET (Top 8)
+{chr(10).join(prec_lines) if prec_lines else 'ยังไม่ได้สแกน'}
+
+## 🦅 SEPA — SET Stage 2 + RS≥70
+{chr(10).join(sepa_lines) if sepa_lines else 'ยังไม่ได้สแกน'}
+
+## ☕ CUP & HANDLE — SET
+{chr(10).join(cup_lines) if cup_lines else 'ยังไม่ได้สแกน'}
+
+## 🦅 US SEPA — Stage 2 + VCP
+{chr(10).join(us_sepa_lines) if us_sepa_lines else 'ยังไม่ได้สแกน'}
+
+---
+จงเขียนรายงานเป็นภาษาไทย **Markdown** โดยมีหัวข้อดังนี้:
+
+## 1. 🌍 ภาพรวมเศรษฐกิจและตลาดโลกวันนี้
+วิเคราะห์ Macro: Risk-on/Risk-off, Fund Flow, SET vs S&P500, ทิศทางดอกเบี้ย, Gold/BTC
+
+## 2. 💼 สถานะพอร์ต — ควรทำอะไรวันนี้?
+รายหุ้นใน Portfolio — แต่ละตัวควร: ✅ Hold | ➕ Add | ⚠️ Trail Stop | 🔴 ขาย
+ระบุเหตุผลสั้น ๆ จาก P/L% และบรรยากาศตลาด
+
+## 3. 🇹🇭 หุ้น SET น่าสนใจวันนี้
+Top 3-5 จาก Momentum + Precision + SEPA + Cup&Handle รวมกัน
+พร้อม Entry Zone, Stop Loss, Target และ Priority (🔥 สูง / ⚡ กลาง / 👀 เฝ้าดู)
+
+## 4. 🇺🇸 หุ้น US น่าสนใจวันนี้
+Top 3-5 จาก Momentum US + US SEPA
+พร้อม Entry, Stop, Target และ Priority
+
+## 5. ⚡ สรุปแผนปฏิบัติการวันนี้
+ตารางสรุป: หุ้น | ตลาด | Action | ราคาเข้า | Stop | เหตุผล
+เรียงตาม Priority สูงสุดก่อน
+
+## 6. ⚠️ ความเสี่ยงที่ต้องระวังวันนี้
+Macro risks, Earnings, การเมือง หรือสัญญาณที่น่าเป็นห่วง
+"""
+
+                client = _genai.Client(api_key=_s.GEMINI_API_KEY)
+                resp = client.models.generate_content(
+                    model='gemini-2.5-flash',
+                    contents=prompt,
+                )
+                report_text = resp.text or '## ไม่สามารถสร้างรายงานได้'
+
+                # ── 10. Save to DB ──────────────────────────────
+                MB.objects.create(
+                    user=user,
+                    report_md=report_text,
+                    portfolio_count=len(portfolio),
+                    momentum_set_count=len(mom_set),
+                    momentum_us_count=len(mom_us),
+                    precision_count=len(prec_set),
+                    sepa_count=len(sepa_set),
+                    cup_handle_count=len(cup_list),
+                )
+
+                # Keep only 7 latest reports per user
+                old_ids = list(MB.objects.filter(user=user).order_by('-created_at').values_list('id', flat=True)[7:])
+                if old_ids:
+                    MB.objects.filter(id__in=old_ids).delete()
+
+                _c.set(ckey, {'state': 'done'}, timeout=300)
+
+            except Exception as exc:
+                import logging
+                logging.getLogger('stocks').exception(f'[MorningBriefing] error: {exc}')
+                from django.core.cache import cache as _c2
+                _c2.set(ckey, {'state': 'done', 'error': str(exc)}, timeout=60)
+
+        import threading as _th
+        _th.Thread(target=_run, args=(request.user.id, cache_key), daemon=True).start()
+        return redirect('stocks:morning_briefing')
+
+    # ── GET: display ─────────────────────────────────────────────
+    from .models import MorningBriefing as _MB
+    is_generating = (_cp.get(cache_key, {}).get('state') == 'running')
+    briefings = list(_MB.objects.filter(user=request.user)[:7])
+
+    return render(request, 'stocks/morning_briefing.html', {
+        'briefings':     briefings,
+        'latest':        briefings[0] if briefings else None,
+        'is_generating': is_generating,
+    })
+
+
 # ====== Macro Economy — ภาพรวมเศรษฐกิจมหภาคและสินค้าโภคภัณฑ์ ======
 
 @login_required

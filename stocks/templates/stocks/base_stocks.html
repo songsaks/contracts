@@ -424,6 +424,13 @@
                             <i class="fas fa-globe"></i> Macro
                         </a>
                     </li>
+                    <li class="nav-item">
+                        <a class="nav-link px-3 py-2 rounded-xl {% if request.resolver_match.url_name == 'morning_briefing' %}active{% endif %}"
+                           href="{% url 'stocks:morning_briefing' %}"
+                           style="{% if request.resolver_match.url_name == 'morning_briefing' %}{% else %}background:linear-gradient(135deg,rgba(245,158,11,0.1),rgba(239,68,68,0.1));{% endif %}">
+                            <i class="fas fa-sun" style="color:#f59e0b;"></i> Morning Briefing
+                        </a>
+                    </li>
                 </ul>
 
                 <div class="d-flex align-items-center gap-3">
