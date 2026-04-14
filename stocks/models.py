@@ -184,12 +184,30 @@ class MomentumCandidate(models.Model):
     # เวลาที่สแกนล่าสุด (auto_now อัปเดตทุกครั้งที่บันทึก)
     scanned_at = models.DateTimeField(auto_now=True)
 
+    # ====== US-specific / extended fields ======
+    # ตลาด: 'SET' (ไทย) หรือ 'US' (Nasdaq/S&P500)
+    market = models.CharField(max_length=10, default='SET', db_index=True)
+    # Relative Strength Rating เทียบ Nasdaq/S&P 500 (0-99)
+    rs_rating = models.IntegerField(default=0)
+    # Stage 2 Weinstein (Price > SMA150 rising)
+    stage2 = models.BooleanField(default=False)
+    # MACD Bullish Crossover ใน 3 วันล่าสุด
+    macd_crossover = models.BooleanField(default=False)
+    # Bollinger Band Squeeze (volatility contraction)
+    bb_squeeze = models.BooleanField(default=False)
+    # Return เทียบ Benchmark 1 เดือน (vs SPY หรือ SET Index)
+    rel_1m = models.FloatField(default=0.0)
+    # Return เทียบ Benchmark 3 เดือน
+    rel_3m = models.FloatField(default=0.0)
+    # RVOL เป็น Bullish direction (แท่งขึ้น + volume สูง)
+    rvol_bullish = models.BooleanField(default=False)
+
     class Meta:
         ordering = ['-technical_score']
-        unique_together = ('user', 'symbol')
+        unique_together = ('user', 'symbol', 'market')
 
     def __str__(self):
-        return f"{self.symbol} - Score: {self.technical_score}"
+        return f"{self.symbol} [{self.market}] - Score: {self.technical_score}"
 
 # ====== MultiFactorCandidate — ผลลัพธ์ Multi-Factor Scoring ======
 

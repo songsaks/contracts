@@ -4233,8 +4233,25 @@ def entry_finder(request, symbol):
         _ef_end_str   = _ef_end_date.strftime('%Y-%m-%d')
         _ef_start_str = (_ef_end_date - _eftd(days=600)).strftime('%Y-%m-%d')
 
-        _ef_ticker = yf.Ticker(full_symbol)
-        df = _ef_ticker.history(start=_ef_start_str, end=_ef_end_str, interval='1d')
+        # Retry up to 4 times with exponential backoff (handles yfinance rate limits)
+        import time as _eftime, random as _efrnd
+        df = None
+        for _ef_attempt in range(4):
+            try:
+                _ef_ticker = yf.Ticker(full_symbol)
+                df = _ef_ticker.history(start=_ef_start_str, end=_ef_end_str, interval='1d')
+                if df is not None and not df.empty:
+                    break
+            except Exception as _ef_exc:
+                _ef_msg = str(_ef_exc).lower()
+                if 'rate' in _ef_msg or 'too many' in _ef_msg or '429' in _ef_msg:
+                    _wait = 2 ** _ef_attempt + _efrnd.uniform(0, 1)
+                    _eftime.sleep(_wait)
+                    continue
+                raise
+            if _ef_attempt < 3:
+                _eftime.sleep(1.5 * (_ef_attempt + 1))
+
         if df is None or df.empty:
             messages.error(request, f"ไม่พบข้อมูลสำหรับ {symbol}")
             if market == 'US':
@@ -5004,16 +5021,14 @@ _US_MOMENTUM_SYMBOLS = [
 def us_momentum_scanner(request):
     """
     US Momentum Scanner — scans ~200 Nasdaq/S&P 500 stocks using Minervini Trend Template.
-    No database storage: results kept in Django cache (TTL 2h) per user.
+    Results saved to MomentumCandidate (market='US') — same as SET scanner.
     """
     import threading as _th
     from django.core.cache import cache as _cp
     from django.http import JsonResponse as _JR
 
-    user_id       = request.user.id
-    cache_key     = f'us_momentum_scan_{user_id}'
-    results_key   = f'us_momentum_results_{user_id}'
-    scanned_at_key = f'us_momentum_ts_{user_id}'
+    user_id   = request.user.id
+    cache_key = f'us_momentum_scan_{user_id}'
 
     # ── AJAX scan progress poll ───────────────────────────────────────
     if request.GET.get('scan_status') == '1':
@@ -5032,7 +5047,7 @@ def us_momentum_scanner(request):
                 'total': len(scan_syms), 'phase': 'เตรียมข้อมูล…'
             }, timeout=900)
 
-            def _run_us_bg(uid, ckey, rkey, tskey, sym_list):
+            def _run_us_bg(uid, ckey, sym_list):
                 try:
                     import pandas_ta as _ta
                     import pandas as _pd
@@ -5040,7 +5055,11 @@ def us_momentum_scanner(request):
                     from datetime import timedelta as _td
                     from django.core.cache import cache as _c
                     from django.utils import timezone as _tz
+                    from django.contrib.auth import get_user_model
                     from .utils import find_supply_demand_zones_v2
+                    from .models import MomentumCandidate as _MCM
+                    _User = get_user_model()
+                    _user = _User.objects.get(pk=uid)
 
                     import pytz as _pytz
                     from datetime import datetime as _dt
@@ -5333,11 +5352,44 @@ def us_momentum_scanner(request):
                                     'phase': f'Scanning… ({done_count[0]}/{total})',
                                 }, timeout=900)
 
-                    # Sort by score desc
-                    results.sort(key=lambda x: x['technical_score'], reverse=True)
+                    # ── Save to DB (delete old, bulk create new) ──────
+                    _MCM.objects.filter(user=_user, market='US').delete()
+                    _bulk = []
+                    for r in results:
+                        _bulk.append(_MCM(
+                            user=_user,
+                            market='US',
+                            symbol=r['symbol'],
+                            symbol_bk=r['symbol'],   # US has no .BK suffix
+                            sector=r.get('sector', 'Unknown'),
+                            price=r['price'],
+                            rsi=r['rsi'],
+                            adx=r['adx'],
+                            mfi=r['mfi'],
+                            rvol=r['rvol'],
+                            rvol_bullish=r.get('rvol_bullish', False),
+                            eps_growth=0.0,
+                            rev_growth=0.0,
+                            technical_score=r['technical_score'],
+                            rs_rating=r.get('rs_rating', 0),
+                            stage2=r.get('stage2', False),
+                            macd_crossover=r.get('macd_crossover', False),
+                            bb_squeeze=r.get('bb_squeeze', False),
+                            rel_1m=r.get('rel_1m', 0.0),
+                            rel_3m=r.get('rel_3m', 0.0),
+                            demand_zone_start=r.get('demand_zone_start'),
+                            demand_zone_end=r.get('demand_zone_end'),
+                            supply_zone_start=r.get('supply_zone_start'),
+                            supply_zone_end=None,
+                            stop_loss=None,
+                            risk_reward_ratio=r.get('risk_reward_ratio'),
+                            year_high=r.get('year_high', 0.0),
+                            upside_to_high=r.get('upside_to_high', 0.0),
+                            zone_proximity=r.get('zone_proximity', 999.0),
+                        ))
+                    if _bulk:
+                        _MCM.objects.bulk_create(_bulk, ignore_conflicts=True)
 
-                    _c.set(rkey, results, timeout=7200)
-                    _c.set(tskey, _tz.now().isoformat(), timeout=7200)
                     _c.set(ckey, {'state': 'done'}, timeout=300)
 
                 except Exception as exc:
@@ -5346,34 +5398,42 @@ def us_momentum_scanner(request):
 
             _th.Thread(
                 target=_run_us_bg,
-                args=(user_id, cache_key, results_key, scanned_at_key, scan_syms),
+                args=(user_id, cache_key, scan_syms),
                 daemon=True,
             ).start()
 
         from django.shortcuts import redirect as _redir
         return _redir('stocks:us_momentum_scanner')
 
-    # ── Display results ───────────────────────────────────────────────
+    # ── Display results from DB ───────────────────────────────────────
     sort_by = request.GET.get('sort', 'score')
     valid_sorts = {
-        'symbol': 'symbol', 'score': 'technical_score', 'rs': 'rs_rating',
-        'rsi': 'rsi', 'rvol': 'rvol', 'adx': 'adx', 'mfi': 'mfi',
-        'price': 'price', 'gap': 'upside_to_high', 'prox': 'zone_proximity',
-        'round_rr': 'risk_reward_ratio', 'rel1m': 'rel_1m',
+        'symbol':    'symbol',
+        'score':     '-technical_score',
+        'rs':        '-rs_rating',
+        'rsi':       '-rsi',
+        'rvol':      '-rvol',
+        'adx':       '-adx',
+        'mfi':       '-mfi',
+        'price':     '-price',
+        'gap':       'upside_to_high',
+        'prox':      'zone_proximity',
+        'round_rr':  '-risk_reward_ratio',
+        'rel1m':     '-rel_1m',
     }
-    sort_field  = valid_sorts.get(sort_by, 'technical_score')
-    sort_rev    = sort_by not in ('symbol', 'gap', 'prox')
-
-    raw_results = _cp.get(results_key) or []
+    order_field = valid_sorts.get(sort_by, '-technical_score')
 
     _scan_state = _cp.get(cache_key, {})
     is_scanning = _scan_state.get('state') == 'running'
 
-    candidate_list = []
-    if raw_results and not is_scanning:
-        candidate_list = sorted(raw_results, key=lambda x: (x.get(sort_field) or 0), reverse=sort_rev)
+    db_candidates = (
+        MomentumCandidate.objects.filter(user=request.user, market='US')
+        .order_by(order_field)
+        if not is_scanning else MomentumCandidate.objects.none()
+    )
 
-    # ── Live prices + zone status ─────────────────────────────────────
+    # Attach live price + zone status (same pattern as SET scanner)
+    candidate_list = list(db_candidates)
     if candidate_list:
         try:
             import concurrent.futures as _mcf
@@ -5387,40 +5447,40 @@ def us_momentum_scanner(request):
                     return sym, None
 
             live_map = {}
-            with _mcf.ThreadPoolExecutor(max_workers=8) as ex:
-                for sym, lp in ex.map(_live_us, [c['symbol'] for c in candidate_list]):
+            with _mcf.ThreadPoolExecutor(max_workers=6) as ex:
+                for sym, lp in ex.map(_live_us, [c.symbol for c in candidate_list]):
                     if lp:
                         live_map[sym] = lp
         except Exception:
             live_map = {}
 
         for c in candidate_list:
-            lp  = live_map.get(c['symbol'])
-            c['live_price']      = lp
-            ref = lp if lp else float(c['price'] or 0)
-            dz_s = float(c['demand_zone_start'] or 0)
-            dz_e = float(c['demand_zone_end']   or 0)
-            sz_s = float(c['supply_zone_start'] or 0)
-            c['live_in_zone']   = dz_s > 0 and dz_e > 0 and dz_e <= ref <= dz_s
-            c['live_broke_zone'] = dz_e > 0 and ref < dz_e
-            c['live_above_tp']  = sz_s > 0 and ref >= sz_s
-            c['live_near_tp']   = (
-                not c['live_above_tp'] and sz_s > 0 and dz_s > 0 and
-                (sz_s - ref) / (sz_s - dz_s) * 100 <= 15
-                if (sz_s - dz_s) > 0 else False
+            lp  = live_map.get(c.symbol)
+            c.live_price = lp
+            ref  = lp if lp else float(c.price or 0)
+            dz_s = float(c.demand_zone_start or 0)
+            dz_e = float(c.demand_zone_end   or 0)
+            sz_s = float(c.supply_zone_start or 0)
+            c.live_in_zone    = dz_s > 0 and dz_e > 0 and dz_e <= ref <= dz_s
+            c.live_broke_zone = dz_e > 0 and ref < dz_e
+            c.live_above_tp   = sz_s > 0 and ref >= sz_s
+            c.live_near_tp    = (
+                not c.live_above_tp and sz_s > 0 and dz_s > 0 and
+                (sz_s - dz_s) > 0 and (sz_s - ref) / (sz_s - dz_s) * 100 <= 15
             )
-            c['live_zone_prox'] = 0.0 if ref <= dz_s else (
+            c.live_zone_prox  = (
+                0.0 if ref <= dz_s else
                 round((ref - dz_s) / dz_s * 100, 1) if dz_s > 0 else 999
             )
-            c['live_change_pct'] = (
-                round((lp - float(c['price'])) / float(c['price']) * 100, 2)
-                if lp and float(c['price'] or 0) > 0 else None
+            c.live_change_pct = (
+                round((lp - float(c.price)) / float(c.price) * 100, 2)
+                if lp and float(c.price or 0) > 0 else None
             )
 
     # ── AI Superperformance filter ────────────────────────────────────
     ai_analysis = None
     if candidate_list and request.GET.get('analyze') == 'true':
-        syms = [c['symbol'] for c in candidate_list[:30]]
+        syms = [c.symbol for c in candidate_list[:30]]
         try:
             client = genai.Client(api_key=settings.GEMINI_API_KEY)
             prompt = f"""You are a top US momentum stock analyst using Minervini/O'Neil methodology.
@@ -5443,14 +5503,8 @@ Write in Thai language, markdown format:
         except Exception as e:
             ai_analysis = f"AI Error: {str(e)}"
 
-    scanned_at_iso = _cp.get(scanned_at_key)
-    scanned_at = None
-    if scanned_at_iso:
-        try:
-            from datetime import datetime as _dtparse
-            scanned_at = _dtparse.fromisoformat(scanned_at_iso)
-        except Exception:
-            pass
+    last_scan = MomentumCandidate.objects.filter(user=request.user, market='US').order_by('-scanned_at').first()
+    scanned_at = last_scan.scanned_at if last_scan else None
 
     return render(request, 'stocks/us_momentum.html', {
         'title':        'US Momentum Scanner',
@@ -5459,7 +5513,7 @@ Write in Thai language, markdown format:
         'scanned_at':   scanned_at,
         'current_sort': sort_by,
         'is_scanning':  is_scanning,
-        'has_scanned':  bool(raw_results) or is_scanning,
+        'has_scanned':  db_candidates.exists() if not is_scanning else True,
     })
 
 
@@ -5490,13 +5544,34 @@ def us_momentum_quick_analysis(request, symbol):
 
     # Get scan data from cache results
     scan_data = {}
+    # Load scan data from DB (market='US')
     try:
-        results_key = f'us_momentum_results_{user_id}'
-        raw = _cp.get(results_key) or []
-        for item in raw:
-            if item.get('symbol') == symbol:
-                scan_data = dict(item)
-                break
+        cand = MomentumCandidate.objects.filter(user=request.user, symbol=symbol, market='US').first()
+        if cand:
+            scan_data = {
+                'symbol':            cand.symbol,
+                'price':             float(cand.price),
+                'technical_score':   cand.technical_score,
+                'rs_rating':         cand.rs_rating,
+                'rsi':               float(cand.rsi),
+                'adx':               float(cand.adx),
+                'mfi':               float(cand.mfi),
+                'rvol':              float(cand.rvol),
+                'rvol_bullish':      cand.rvol_bullish,
+                'demand_zone_start': float(cand.demand_zone_start) if cand.demand_zone_start else None,
+                'demand_zone_end':   float(cand.demand_zone_end) if cand.demand_zone_end else None,
+                'supply_zone_start': float(cand.supply_zone_start) if cand.supply_zone_start else None,
+                'risk_reward_ratio': float(cand.risk_reward_ratio) if cand.risk_reward_ratio else None,
+                'zone_proximity':    float(cand.zone_proximity),
+                'sector':            cand.sector or 'Unknown',
+                'year_high':         float(cand.year_high),
+                'upside_to_high':    float(cand.upside_to_high),
+                'stage2':            cand.stage2,
+                'macd_crossover':    cand.macd_crossover,
+                'bb_squeeze':        cand.bb_squeeze,
+                'rel_1m':            float(cand.rel_1m),
+                'rel_3m':            float(cand.rel_3m),
+            }
     except Exception:
         pass
 
