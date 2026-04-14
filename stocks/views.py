@@ -4405,7 +4405,19 @@ def entry_finder(request, symbol):
         return render(request, 'stocks/entry_finder.html', context)
     except Exception as e:
         messages.error(request, f"Error finding zones for {symbol}: {str(e)}")
-        return redirect('stocks:momentum_scanner')
+        # Redirect back to the referring page, fallback to US or SET scanner by symbol suffix
+        referer = request.META.get('HTTP_REFERER', '')
+        if 'momentum/us' in referer:
+            return redirect('stocks:us_momentum_scanner')
+        if 'us-precision' in referer or 'us-sepa' in referer:
+            return redirect('stocks:us_precision_scanner')
+        if referer:
+            from django.http import HttpResponseRedirect
+            return HttpResponseRedirect(referer)
+        # Fallback: US scanner if symbol has no .BK suffix, else SET
+        if symbol.endswith('.BK') or '.' not in symbol and len(symbol) <= 5:
+            return redirect('stocks:momentum_scanner')
+        return redirect('stocks:us_momentum_scanner')
 
 # ====== Signup — สมัครสมาชิกใหม่ ======
 
@@ -5060,32 +5072,43 @@ def us_momentum_scanner(request):
                     _c.set(ckey, {'state': 'running', 'progress': 0, 'total': total, 'phase': 'คำนวณ RS Rating…'}, timeout=900)
 
                     def _fetch_rs(sym):
-                        try:
-                            d = yf.Ticker(sym).history(start=_start_str, end=_end_str, interval="1d")
-                            if d is None or d.empty:
+                        import time as _t, random as _rnd
+                        _t.sleep(_rnd.uniform(0.05, 0.3))
+                        for _att in range(3):
+                            try:
+                                d = yf.Ticker(sym).history(start=_start_str, end=_end_str, interval="1d")
+                                if d is None or d.empty:
+                                    return sym, None
+                                if isinstance(d.columns, _pd.MultiIndex):
+                                    d.columns = d.columns.droplevel(1)
+                                cl = d['Close'].dropna()
+                                if len(cl) >= 252:
+                                    r = float(
+                                        (cl.iloc[-1] - cl.iloc[-64]) / abs(cl.iloc[-64]) * 0.4 +
+                                        (cl.iloc[-64] - cl.iloc[-127]) / abs(cl.iloc[-127]) * 0.2 +
+                                        (cl.iloc[-127] - cl.iloc[-190]) / abs(cl.iloc[-190]) * 0.2 +
+                                        (cl.iloc[-190] - cl.iloc[-253]) / abs(cl.iloc[-253]) * 0.2
+                                    ) * 100
+                                    return sym, r
                                 return sym, None
-                            if isinstance(d.columns, _pd.MultiIndex):
-                                d.columns = d.columns.droplevel(1)
-                            cl = d['Close'].dropna()
-                            if len(cl) >= 252:
-                                r = float(
-                                    (cl.iloc[-1] - cl.iloc[-64]) / abs(cl.iloc[-64]) * 0.4 +
-                                    (cl.iloc[-64] - cl.iloc[-127]) / abs(cl.iloc[-127]) * 0.2 +
-                                    (cl.iloc[-127] - cl.iloc[-190]) / abs(cl.iloc[-190]) * 0.2 +
-                                    (cl.iloc[-190] - cl.iloc[-253]) / abs(cl.iloc[-253]) * 0.2
-                                ) * 100
-                                return sym, r
-                            return sym, None
-                        except Exception:
-                            return sym, None
+                            except Exception as _e:
+                                _emsg = str(_e).lower()
+                                if 'rate' in _emsg or 'too many' in _emsg or '429' in _emsg:
+                                    _t.sleep(2 ** _att + _rnd.uniform(0, 1))
+                                    continue
+                                return sym, None
+                        return sym, None
 
                     rs_raw = {}
-                    with _cf.ThreadPoolExecutor(max_workers=15) as ex:
+                    with _cf.ThreadPoolExecutor(max_workers=6) as ex:
                         futs = {ex.submit(_fetch_rs, s): s for s in sym_list}
-                        for f in _cf.as_completed(futs, timeout=120):
-                            s, r = f.result()
-                            if r is not None:
-                                rs_raw[s] = r
+                        for f in _cf.as_completed(futs, timeout=180):
+                            try:
+                                s, r = f.result()
+                                if r is not None:
+                                    rs_raw[s] = r
+                            except Exception:
+                                pass
 
                     rs_map = {}
                     if rs_raw:
@@ -5100,9 +5123,25 @@ def us_momentum_scanner(request):
                     done_count = [0]
 
                     def _scan_one(symbol):
+                        import time as _time
+                        import random as _random
+                        # Small random jitter to spread requests
+                        _time.sleep(_random.uniform(0.1, 0.6))
                         try:
-                            ticker = yf.Ticker(symbol)
-                            df = ticker.history(start=_start_str, end=_end_str, interval="1d")
+                            # Retry up to 3 times with exponential backoff on rate-limit
+                            df = _pd.DataFrame()
+                            for _attempt in range(3):
+                                try:
+                                    ticker = yf.Ticker(symbol)
+                                    df = ticker.history(start=_start_str, end=_end_str, interval="1d")
+                                    if df is not None and not df.empty:
+                                        break
+                                except Exception as _e:
+                                    _emsg = str(_e).lower()
+                                    if 'rate' in _emsg or 'too many' in _emsg or '429' in _emsg:
+                                        _time.sleep(2 ** _attempt + _random.uniform(0, 1))
+                                        continue
+                                    break
                             if df is None or df.empty:
                                 return None
                             if isinstance(df.columns, _pd.MultiIndex):
@@ -5275,9 +5314,9 @@ def us_momentum_scanner(request):
                         except Exception:
                             return None
 
-                    with _cf.ThreadPoolExecutor(max_workers=8) as ex:
+                    with _cf.ThreadPoolExecutor(max_workers=4) as ex:
                         futs = {ex.submit(_scan_one, s): s for s in sym_list}
-                        for idx, f in enumerate(_cf.as_completed(futs, timeout=600)):
+                        for idx, f in enumerate(_cf.as_completed(futs, timeout=900)):
                             try:
                                 r = f.result()
                                 if r:
