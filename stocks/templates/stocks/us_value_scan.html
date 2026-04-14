@@ -26,6 +26,16 @@
            style="background:linear-gradient(135deg,#15803d,#166534);color:white;border:none;">
             <i class="fas fa-search-dollar"></i> Scan Value Stocks
         </a>
+        {% if has_scanned %}
+        <form method="post" action="{% url 'stocks:clear_scan_data' %}" class="d-inline" onsubmit="return confirm('ลบข้อมูลสแกน US Value ทั้งหมด?')">
+            {% csrf_token %}
+            <input type="hidden" name="scanner" value="us_value">
+            <input type="hidden" name="next" value="{% url 'stocks:us_value_scanner' %}">
+            <button type="submit" class="btn btn-outline-secondary d-inline-flex align-items-center gap-2" style="font-size:0.82rem;">
+                <i class="fas fa-trash-alt"></i> ล้างข้อมูล
+            </button>
+        </form>
+        {% endif %}
     </div>
 </div>
 

@@ -29,6 +29,16 @@
                     <i class="fas fa-satellite-dish me-1"></i> Run US SEPA Scan
                 </button>
             </form>
+            {% if candidates %}
+            <form method="post" action="{% url 'stocks:clear_scan_data' %}" class="d-inline" onsubmit="return confirm('ลบข้อมูลสแกน US SEPA ทั้งหมด?')">
+                {% csrf_token %}
+                <input type="hidden" name="scanner" value="us_sepa">
+                <input type="hidden" name="next" value="{% url 'stocks:us_sepa_scanner' %}">
+                <button type="submit" class="btn btn-outline-secondary btn-sm rounded-pill px-3">
+                    <i class="fas fa-trash-alt"></i> ล้างข้อมูล
+                </button>
+            </form>
+            {% endif %}
         </div>
     </div>
 

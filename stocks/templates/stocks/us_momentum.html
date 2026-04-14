@@ -69,6 +69,14 @@
            style="background:linear-gradient(135deg,#3b82f6,#6366f1);color:white;">
             <i class="fas fa-search-dollar"></i> สแกนหุ้น US
         </a>
+        <form method="post" action="{% url 'stocks:clear_scan_data' %}" class="d-inline" onsubmit="return confirm('ลบข้อมูลสแกน US Momentum ทั้งหมด?')">
+            {% csrf_token %}
+            <input type="hidden" name="scanner" value="momentum_us">
+            <input type="hidden" name="next" value="{% url 'stocks:us_momentum_scanner' %}">
+            <button type="submit" class="btn btn-outline-secondary d-inline-flex align-items-center gap-2" style="font-size:0.82rem;">
+                <i class="fas fa-trash-alt"></i> ล้างข้อมูล
+            </button>
+        </form>
     </div>
 </div>
 

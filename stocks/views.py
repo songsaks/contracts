@@ -4,6 +4,7 @@
 
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
+from django.views.decorators.http import require_POST
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth import login
 from django.contrib import messages
@@ -4437,6 +4438,44 @@ def entry_finder(request, symbol):
         return redirect('stocks:us_momentum_scanner')
 
 # ====== Signup — สมัครสมาชิกใหม่ ======
+
+@login_required
+@require_POST
+def clear_scan_data(request):
+    """
+    ลบผลสแกนของ user ออกจาก database
+    POST parameter: scanner = momentum_set | momentum_us | precision_set | precision_us |
+                               multifactor | cup_handle | us_sepa | us_value
+    """
+    from .models import (
+        MomentumCandidate, MultiFactorCandidate, PrecisionScanCandidate,
+        ValueScanCandidate, CupHandleCandidate, USSepaCandidate,
+    )
+    from django.contrib import messages as _msg
+
+    scanner = request.POST.get('scanner', '')
+    next_url = request.POST.get('next', '/')
+
+    _map = {
+        'momentum_set':  (MomentumCandidate,       {'user': request.user, 'market': 'SET'}),
+        'momentum_us':   (MomentumCandidate,        {'user': request.user, 'market': 'US'}),
+        'precision_set': (PrecisionScanCandidate,   {'user': request.user, 'market': 'SET'}),
+        'precision_us':  (PrecisionScanCandidate,   {'user': request.user, 'market': 'US'}),
+        'multifactor':   (MultiFactorCandidate,     {'user': request.user}),
+        'cup_handle':    (CupHandleCandidate,        {'user': request.user}),
+        'us_sepa':       (USSepaCandidate,           {'user': request.user}),
+        'us_value':      (ValueScanCandidate,        {'user': request.user}),
+    }
+
+    if scanner in _map:
+        model_cls, filters = _map[scanner]
+        deleted_count, _ = model_cls.objects.filter(**filters).delete()
+        _msg.success(request, f'ลบข้อมูลสแกน {deleted_count} รายการเรียบร้อยแล้ว')
+    else:
+        _msg.error(request, 'ไม่พบประเภท scanner ที่ระบุ')
+
+    return redirect(next_url)
+
 
 def signup(request):
     """

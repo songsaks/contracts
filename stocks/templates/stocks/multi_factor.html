@@ -103,6 +103,16 @@ th.sortable:hover { background: #f1f5f9; }
             </button>
             {% endif %}
         </form>
+        {% if has_scanned %}
+        <form method="post" action="{% url 'stocks:clear_scan_data' %}" class="d-inline" onsubmit="return confirm('ลบข้อมูลสแกน Multi-Factor ทั้งหมด?')">
+            {% csrf_token %}
+            <input type="hidden" name="scanner" value="multifactor">
+            <input type="hidden" name="next" value="{% url 'stocks:multi_factor_scanner' %}">
+            <button type="submit" class="btn btn-outline-secondary d-inline-flex align-items-center gap-2" style="font-size:0.82rem;">
+                <i class="fas fa-trash-alt"></i> ล้างข้อมูล
+            </button>
+        </form>
+        {% endif %}
     </div>
 </div>
 
