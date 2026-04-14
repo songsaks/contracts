@@ -4944,35 +4944,48 @@ def tithe_mark_paid(request):
 # US MOMENTUM SCANNER (no-DB) — same logic as SET scanner, US stocks
 # ======================================================================
 
-# Shared US symbol universe — reused by both scanners
+# Shared US symbol universe — ~220 symbols (Nasdaq + S&P 500 leaders)
 _US_MOMENTUM_SYMBOLS = [
-    # Mega-cap Tech
-    "AAPL", "MSFT", "NVDA", "GOOGL", "AMZN", "META", "TSLA", "AVGO", "ORCL", "AMD",
-    "ARM", "DELL", "HPE",
-    # Semiconductor
-    "TSM", "QCOM", "INTC", "MU", "AMAT", "LRCX", "KLAC", "MRVL", "TXN", "SMCI",
-    "ASML", "NXPI", "MPWR",
-    # Cloud / Software
+    # ── Mega-cap Tech ──────────────────────────────────────────────────
+    "AAPL", "MSFT", "NVDA", "GOOGL", "GOOG", "AMZN", "META", "TSLA", "AVGO", "ORCL",
+    "AMD", "ARM", "DELL", "HPE", "WDC",
+    # ── Semiconductor ──────────────────────────────────────────────────
+    "TSM", "QCOM", "INTC", "MU", "AMAT", "LRCX", "KLAC", "MRVL", "ON", "TXN",
+    "SMCI", "ASML", "NXPI", "MPWR", "WOLF",
+    # ── Cloud / Software ───────────────────────────────────────────────
     "CRM", "NOW", "SNOW", "PLTR", "PANW", "CRWD", "ZS", "NET", "DDOG", "MDB",
-    "ADBE", "INTU", "CDNS", "SNPS", "FTNT", "OKTA", "HUBS", "TTD", "GTLB",
-    # Financials
-    "JPM", "BAC", "GS", "MS", "BLK", "AXP", "V", "MA", "COF", "CB", "PGR",
-    # Healthcare / Biotech
-    "UNH", "LLY", "ABBV", "MRK", "TMO", "AMGN", "ISRG", "DXCM", "REGN", "VRTX",
-    "GILD", "BMY", "MDT", "SYK", "BSX",
-    # Consumer Discretionary
-    "HD", "LOW", "NKE", "LULU", "DECK", "ONON", "SBUX", "MCD", "CMG", "NFLX",
-    "ABNB", "UBER",
-    # Consumer Staples
-    "COST", "WMT", "PG", "KO", "PEP",
-    # Energy
-    "XOM", "CVX", "COP", "EOG", "SLB", "OXY",
-    # Industrials
-    "CAT", "DE", "HON", "GE", "RTX", "LMT", "UPS", "ETN", "DHR",
-    # FinTech / Payments
-    "COIN", "SQ", "PYPL", "MSTR", "SPOT",
-    # Benchmarks (used for RS calc, filtered out of results)
-    "SPY", "QQQ",
+    "ADBE", "INTU", "ANSS", "CDNS", "SNPS", "FTNT", "OKTA", "HUBS", "TWLO",
+    "TTD", "BILL", "GTLB", "DOCN", "ZM",
+    # ── Financials ─────────────────────────────────────────────────────
+    "JPM", "BAC", "WFC", "GS", "MS", "BLK", "SCHW", "AXP", "V", "MA",
+    "COF", "DFS", "SYF", "USB", "TFC", "KEY", "RF", "FITB",
+    "CB", "PGR", "ALL", "TRV", "MET", "PRU",
+    # ── Healthcare / Biotech ───────────────────────────────────────────
+    "UNH", "LLY", "JNJ", "ABBV", "MRK", "PFE", "ABT", "TMO", "AMGN", "ISRG",
+    "DXCM", "IDXX", "ILMN", "MRNA", "REGN", "VRTX", "BIIB", "GILD", "BMY",
+    "CVS", "CI", "HUM", "MDT", "SYK", "BSX", "EW",
+    # ── Consumer Staples ───────────────────────────────────────────────
+    "COST", "WMT", "TGT", "KR", "PG", "KO", "PEP", "CL", "MDLZ", "MO",
+    # ── Consumer Discretionary ─────────────────────────────────────────
+    "HD", "LOW", "NKE", "LULU", "DECK", "ONON", "RH",
+    "SBUX", "MCD", "YUM", "CMG", "DPZ",
+    "NFLX", "ABNB", "UBER", "DASH", "ETSY", "EBAY",
+    "BABA", "JD", "PDD",
+    # ── Energy ─────────────────────────────────────────────────────────
+    "XOM", "CVX", "COP", "EOG", "SLB", "PSX", "MPC", "VLO", "OXY", "HAL",
+    "DVN", "FANG", "APA", "MRO", "WMB", "KMI",
+    # ── Industrials / Aerospace ────────────────────────────────────────
+    "CAT", "DE", "HON", "GE", "RTX", "LMT", "BA", "UPS", "FDX", "CSX",
+    "ITW", "EMR", "ETN", "PH", "ROK", "AME", "TT", "DHR", "NOC", "GD",
+    # ── FinTech / Payments / Crypto ────────────────────────────────────
+    "SPOT", "RBLX", "COIN", "SQ", "PYPL", "MSTR",
+    # ── REIT / Utilities ───────────────────────────────────────────────
+    "AMT", "PLD", "CCI", "EQIX", "O", "WELL", "VICI", "PSA",
+    "NEE", "DUK", "SO", "AEP", "EXC",
+    # ── Conglomerate / Other ───────────────────────────────────────────
+    "BRK-B", "PINS", "SNAP",
+    # ── Benchmarks (RS calc only — filtered from results) ──────────────
+    "SPY", "QQQ", "IWM",
 ]
 
 @login_required
