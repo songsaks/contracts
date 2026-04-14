@@ -355,12 +355,13 @@
                             <!-- ACTION -->
                             <td class="text-end pe-2">
                                 <div class="d-flex justify-content-end gap-1">
-                                    <button onclick="runUSCrewAI('{{ item.symbol }}')"
-                                            class="btn btn-sm px-2"
-                                            style="font-size:0.65rem;background:linear-gradient(135deg,#3b82f6,#6366f1);color:white;border:none;"
-                                            title="CrewAI US Expert Analysis (3 Agents)">
+                                    <a href="{% url 'stocks:us_momentum_crew_page' item.symbol %}"
+                                       target="_blank"
+                                       class="btn btn-sm px-2"
+                                       style="font-size:0.65rem;background:linear-gradient(135deg,#3b82f6,#6366f1);color:white;border:none;"
+                                       title="CrewAI US Expert Analysis — เปิดหน้าใหม่">
                                         <i class="fas fa-bolt"></i>
-                                    </button>
+                                    </a>
                                     <a href="{% url 'stocks:analyze' item.symbol %}" class="btn btn-outline-primary btn-sm px-2"
                                        style="font-size:0.65rem;" target="_blank" title="Deep Analysis">
                                         <i class="fas fa-microscope"></i>

@@ -35,6 +35,7 @@ urlpatterns = [
     path('momentum/quick-ai/<str:symbol>/', views.momentum_quick_analysis, name='momentum_quick_analysis'),
     path('momentum/us/', views.us_momentum_scanner, name='us_momentum_scanner'),
     path('momentum/us/quick-ai/<str:symbol>/', views.us_momentum_quick_analysis, name='us_momentum_quick_analysis'),
+    path('momentum/us/crew/<str:symbol>/', views.us_momentum_crew_page, name='us_momentum_crew_page'),
     path('multi-factor/', views.multi_factor_scanner, name='multi_factor_scanner'),
     path('value/us-value/', views.us_value_scanner, name='us_value_scanner'),
     path('entry-finder/<str:symbol>/', views.entry_finder, name='entry_finder'),

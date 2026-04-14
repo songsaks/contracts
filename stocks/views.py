@@ -5639,6 +5639,89 @@ def us_momentum_quick_analysis(request, symbol):
     return _JR({'state': 'running'})
 
 
+@login_required
+def us_momentum_crew_page(request, symbol):
+    """
+    Standalone full-page CrewAI analysis for a US momentum stock.
+    Opens in a new tab — does not block the scanner page.
+    GET  → render the page (triggers analysis in background)
+    GET ?mq_status=1 → AJAX poll (same logic as us_momentum_quick_analysis)
+    """
+    import threading as _th
+    from django.core.cache import cache as _cp
+    from django.http import JsonResponse as _JR
+
+    user_id   = request.user.id
+    # share the same cache key so existing in-progress analysis is reused
+    cache_key = f'us_mq_analysis_{user_id}_{symbol}'
+
+    # AJAX poll
+    if request.GET.get('mq_status') == '1':
+        return _JR(_cp.get(cache_key, {'state': 'idle'}))
+
+    # Load scan data from DB
+    scan_data = {}
+    try:
+        cand = MomentumCandidate.objects.filter(user=request.user, symbol=symbol, market='US').first()
+        if cand:
+            scan_data = {
+                'symbol':            cand.symbol,
+                'price':             float(cand.price),
+                'technical_score':   cand.technical_score,
+                'rs_rating':         cand.rs_rating,
+                'rsi':               float(cand.rsi),
+                'adx':               float(cand.adx),
+                'mfi':               float(cand.mfi),
+                'rvol':              float(cand.rvol),
+                'rvol_bullish':      cand.rvol_bullish,
+                'demand_zone_start': float(cand.demand_zone_start) if cand.demand_zone_start else None,
+                'demand_zone_end':   float(cand.demand_zone_end) if cand.demand_zone_end else None,
+                'supply_zone_start': float(cand.supply_zone_start) if cand.supply_zone_start else None,
+                'risk_reward_ratio': float(cand.risk_reward_ratio) if cand.risk_reward_ratio else None,
+                'zone_proximity':    float(cand.zone_proximity),
+                'sector':            cand.sector or 'Unknown',
+                'year_high':         float(cand.year_high),
+                'upside_to_high':    float(cand.upside_to_high),
+                'stage2':            cand.stage2,
+                'macd_crossover':    cand.macd_crossover,
+                'bb_squeeze':        cand.bb_squeeze,
+                'rel_1m':            float(cand.rel_1m),
+                'rel_3m':            float(cand.rel_3m),
+            }
+    except Exception:
+        pass
+
+    # Trigger background analysis (skip if already running/done)
+    existing = _cp.get(cache_key)
+    if not existing or existing.get('state') not in ('running', 'done'):
+        _cp.set(cache_key, {'state': 'running'}, timeout=600)
+
+        def _run(ckey, sym, sd):
+            from django.core.cache import cache as _c
+            try:
+                _c.set(ckey, {'state': 'running', 'phase': 'กำลังวิเคราะห์ด้วย 3 US Expert Agents…'}, timeout=600)
+                from .crew_analysis import USMomentumShortTermCrew as _USC
+                import concurrent.futures as _cf
+                crew = _USC(sym, scan_data=sd)
+                with _cf.ThreadPoolExecutor(max_workers=1) as ex:
+                    fut = ex.submit(crew.run_analysis)
+                    try:
+                        result = fut.result(timeout=180)
+                    except _cf.TimeoutError:
+                        result = '## Timeout\n\nกรุณาลองใหม่อีกครั้ง'
+                _c.set(ckey, {'state': 'done', 'result': result}, timeout=900)
+            except Exception as exc:
+                from django.core.cache import cache as _c2
+                _c2.set(ckey, {'state': 'done', 'result': f'## Error\n\n{exc}'}, timeout=60)
+
+        _th.Thread(target=_run, args=(cache_key, symbol, scan_data), daemon=True).start()
+
+    return render(request, 'stocks/us_momentum_crew_page.html', {
+        'symbol':    symbol,
+        'scan_data': scan_data,
+    })
+
+
 # ======================================================================
 # US PRECISION MOMENTUM SCANNER — Nasdaq & S&P 500
 # ======================================================================
