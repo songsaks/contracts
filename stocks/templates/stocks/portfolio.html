@@ -35,20 +35,20 @@
                         {% if has_set %}
                         <div class="d-flex align-items-center gap-2">
                             <span class="badge rounded-pill px-2 py-1" style="background:#fef9c3;color:#92400e;font-size:0.7rem;min-width:86px;text-align:center;">🇹🇭 หุ้นไทย</span>
-                            <span class="fw-bold text-dark" style="min-width:105px;text-align:right;font-size:0.9rem;">฿{{ total_set_value|floatformat:0|intcomma }}</span>
-                            <span class="fw-semibold text-secondary" style="min-width:100px;text-align:right;font-size:0.82rem;">฿{{ total_set_cost|floatformat:0|intcomma }}</span>
+                            <span class="fw-bold text-dark" style="min-width:105px;text-align:right;font-size:0.9rem;">฿{{ total_set_value|floatformat:2|intcomma }}</span>
+                            <span class="fw-semibold text-secondary" style="min-width:100px;text-align:right;font-size:0.82rem;">฿{{ total_set_cost|floatformat:2|intcomma }}</span>
                             <span class="fw-bold {% if total_set_pl > 0 %}text-success{% elif total_set_pl < 0 %}text-danger{% else %}text-dark{% endif %}" style="min-width:100px;text-align:right;font-size:0.9rem;">
-                                {% if total_set_pl > 0 %}+{% endif %}฿{{ total_set_pl|floatformat:0|intcomma }}
+                                {% if total_set_pl > 0 %}+{% endif %}฿{{ total_set_pl|floatformat:2|intcomma }}
                             </span>
                         </div>
                         {% endif %}
                         {% if has_us %}
                         <div class="d-flex align-items-center gap-2">
                             <span class="badge rounded-pill px-2 py-1" style="background:#dbeafe;color:#1e40af;font-size:0.7rem;min-width:86px;text-align:center;">🇺🇸 หุ้น US</span>
-                            <span class="fw-bold text-dark" style="min-width:105px;text-align:right;font-size:0.9rem;">${{ total_us_value|floatformat:0|intcomma }}</span>
-                            <span class="fw-semibold text-secondary" style="min-width:100px;text-align:right;font-size:0.82rem;">${{ total_us_cost|floatformat:0|intcomma }}</span>
+                            <span class="fw-bold text-dark" style="min-width:105px;text-align:right;font-size:0.9rem;">${{ total_us_value|floatformat:2|intcomma }}</span>
+                            <span class="fw-semibold text-secondary" style="min-width:100px;text-align:right;font-size:0.82rem;">${{ total_us_cost|floatformat:2|intcomma }}</span>
                             <span class="fw-bold {% if total_us_pl > 0 %}text-success{% elif total_us_pl < 0 %}text-danger{% else %}text-dark{% endif %}" style="min-width:100px;text-align:right;font-size:0.9rem;">
-                                {% if total_us_pl > 0 %}+{% endif %}${{ total_us_pl|floatformat:0|intcomma }}
+                                {% if total_us_pl > 0 %}+{% endif %}${{ total_us_pl|floatformat:2|intcomma }}
                             </span>
                         </div>
                         {% endif %}
