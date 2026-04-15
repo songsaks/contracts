@@ -290,6 +290,14 @@
                         <input type="text" name="name" class="form-control rounded-3" style="background:#f8fafc;">
                     </div>
                     <div class="mb-3">
+                        <label class="form-label small text-muted">ตลาด (Market)</label>
+                        <select name="market" class="form-select rounded-3" style="background:#f8fafc;">
+                            {% for code, label in market_types %}
+                            <option value="{{ code }}">{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
                         <label class="form-label small text-muted">Category</label>
                         <select name="category" class="form-select rounded-3" style="background:#f8fafc;">
                             {% for code, label in categories %}

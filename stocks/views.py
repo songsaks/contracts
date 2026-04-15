@@ -11,10 +11,11 @@ from django.contrib import messages
 from django.conf import settings
 from google import genai
 from .models import (
-    Watchlist, AnalysisCache, AssetCategory, Portfolio,
+    Watchlist, AnalysisCache, AssetCategory, MarketType, Portfolio,
     MomentumCandidate, ScannableSymbol, MultiFactorCandidate, SoldStock,
     TitheRecord, ValueScanCandidate, PrecisionScanCandidate,
 )
+from .forms import AddPortfolioForm, SellStockForm, AddWatchlistForm
 from .utils import (
     get_stock_data, analyze_with_ai, calculate_trailing_stop,
     refresh_set100_symbols, find_supply_demand_zones, find_supply_demand_zones_v2,
@@ -363,7 +364,11 @@ def dashboard(request):
         except:
             items.append({'obj': item, 'price': 'Error', 'change': 0, 'rsi': None, 'rsi_status': 'Error', 'mom_data': None})
 
-    return render(request, 'stocks/dashboard.html', {'items': items, 'categories': AssetCategory.choices})
+    return render(request, 'stocks/dashboard.html', {
+        'items': items,
+        'categories': AssetCategory.choices,
+        'market_types': MarketType.choices,
+    })
 
 # ====== Analyze — วิเคราะห์หุ้นรายตัวด้วย AI (Gemini) ======
 
@@ -1015,18 +1020,22 @@ def crew_export_docx(request, symbol):
 def add_to_watchlist(request):
     """รับ POST form เพิ่ม symbol เข้า Watchlist ของ user ปัจจุบัน"""
     if request.method == 'POST':
-        symbol = request.POST.get('symbol').upper()
-        category = request.POST.get('category', AssetCategory.STOCK)
-        name = request.POST.get('name', '')
-
-        if symbol:
-            # get_or_create ป้องกันการเพิ่ม symbol ซ้ำ
+        form = AddWatchlistForm(request.POST)
+        if form.is_valid():
+            symbol = form.cleaned_data['symbol']
             Watchlist.objects.get_or_create(
                 user=request.user,
                 symbol=symbol,
-                defaults={'name': name, 'category': category}
+                defaults={
+                    'name': form.cleaned_data['name'],
+                    'category': form.cleaned_data['category'],
+                }
             )
             messages.success(request, f"เพิ่ม {symbol} เข้าใน Watchlist แล้ว")
+        else:
+            for field, errors in form.errors.items():
+                for error in errors:
+                    messages.error(request, f"{error}")
 
     return redirect('stocks:dashboard')
 
@@ -1127,7 +1136,7 @@ def portfolio_list(request):
             cost_basis = float(item.quantity) * float(item.entry_price or 0)
             gain_loss = market_value - cost_basis
             gain_loss_pct = (gain_loss / cost_basis * 100) if cost_basis > 0 else 0
-            is_us = '.BK' not in used_symbol
+            is_us = item.market == MarketType.US
 
             # ====== คำนวณ ATR Trailing Stop ======
             from .utils import calculate_atr_trailing_stop
@@ -1262,7 +1271,7 @@ def portfolio_list(request):
                 'obj': item, 'current_price': 0, 'day_change': 0, 'market_value': 0,
                 'gain_loss': 0, 'gain_loss_pct': 0, 'rsi': None,
                 'trailing_stop_data': None, 'mom_data': None,
-                'is_us': _is_us_symbol(item.symbol, _portfolio_us_set),
+                'is_us': item.market == MarketType.US,
             })
 
     # ── USD/THB rate for combined totals ──
@@ -1465,6 +1474,7 @@ def portfolio_list(request):
         'total_combined_cost': total_set_cost + total_us_cost * usd_thb,
         'total_combined_pl': total_set_pl + total_us_pl * usd_thb,
         'categories': AssetCategory.choices,
+        'market_types': MarketType.choices,
         'title': 'My Portfolio',
         'ai_analysis': ai_analysis,
         'sold_stocks': sold_stocks,
@@ -1744,19 +1754,25 @@ def add_to_portfolio(request):
         entry_price = request.POST.get('entry_price', 0)
         category = request.POST.get('category', AssetCategory.STOCK)
 
-        if symbol:
-            # update_or_create: สร้างใหม่ หรืออัปเดตถ้ามี symbol นั้นอยู่แล้ว
+        form = AddPortfolioForm(request.POST)
+        if form.is_valid():
+            symbol = form.cleaned_data['symbol']
             Portfolio.objects.update_or_create(
                 user=request.user,
                 symbol=symbol,
                 defaults={
-                    'name': name,
-                    'quantity': quantity,
-                    'entry_price': entry_price,
-                    'category': category
+                    'name': form.cleaned_data['name'],
+                    'quantity': form.cleaned_data['quantity'],
+                    'entry_price': form.cleaned_data['entry_price'],
+                    'category': form.cleaned_data['category'],
+                    'market': form.cleaned_data['market'],
                 }
             )
             messages.success(request, f"เพิ่ม {symbol} เข้าพอร์ตเรียบร้อยแล้ว")
+        else:
+            for field, errors in form.errors.items():
+                for error in errors:
+                    messages.error(request, f"{error}")
     return redirect('stocks:portfolio_list')
 
 @login_required
@@ -1776,24 +1792,22 @@ def sell_stock(request, pk):
     portfolio_item = get_object_or_404(Portfolio, pk=pk, user=request.user)
     
     if request.method == 'POST':
-        try:
-            qty_str = request.POST.get('quantity', '0')
-            price_str = request.POST.get('sell_price', '0')
-            
-            sell_quantity = Decimal(qty_str)
-            sell_price = Decimal(price_str)
-            
-            if sell_quantity <= 0 or sell_quantity > portfolio_item.quantity:
-                messages.error(request, f"จำนวนหุ้นไม่ถูกต้อง (มีอยู่ {portfolio_item.quantity} หุ้น)")
+        form = SellStockForm(request.POST)
+        if form.is_valid():
+            sell_quantity = form.cleaned_data['quantity']
+            sell_price = form.cleaned_data['sell_price']
+
+            if sell_quantity > portfolio_item.quantity:
+                messages.error(request, f"จำนวนเกินที่ถือครองอยู่ (มีอยู่ {portfolio_item.quantity} หุ้น)")
                 return redirect('stocks:portfolio_list')
-            
+
             # คำนวณกำไร/ขาดทุน
             cost_of_sold_shares = sell_quantity * portfolio_item.entry_price
             sell_revenue = sell_quantity * sell_price
             profit_loss = sell_revenue - cost_of_sold_shares
             profit_loss_pct = (profit_loss / cost_of_sold_shares * 100) if cost_of_sold_shares > 0 else 0
-            
-            # บันทึกประวัติการขาย
+
+            # บันทึกประวัติการขาย พร้อม market จาก Portfolio
             SoldStock.objects.create(
                 user=request.user,
                 symbol=portfolio_item.symbol,
@@ -1802,9 +1816,10 @@ def sell_stock(request, pk):
                 bought_at=portfolio_item.added_at,
                 sell_price=sell_price,
                 profit_loss=profit_loss,
-                profit_loss_pct=profit_loss_pct
+                profit_loss_pct=profit_loss_pct,
+                market=portfolio_item.market,
             )
-            
+
             # อัปเดตพอร์ต
             portfolio_item.quantity -= sell_quantity
             if portfolio_item.quantity <= 0:
@@ -1813,10 +1828,11 @@ def sell_stock(request, pk):
             else:
                 portfolio_item.save()
                 messages.success(request, f"ขาย {portfolio_item.symbol} จำนวน {sell_quantity} หุ้น เรียบร้อยแล้ว")
-                
-        except (ValueError, Exception) as e:
-            messages.error(request, f"เกิดข้อผิดพลาด: {str(e)}")
-            
+        else:
+            for field, errors in form.errors.items():
+                for error in errors:
+                    messages.error(request, f"{error}")
+
     return redirect('stocks:portfolio_list')
 
 # ====== Recommendations — คำแนะนำหุ้นรายวันจาก AI ======
@@ -5100,9 +5116,13 @@ def realized_pl_report(request):
         sold_stocks = [s for s in sold_stocks if s.sold_at.date() <= _dt2.strptime(end_date, '%Y-%m-%d').date()]
 
     # Annotate each record with is_us + pl_thb
+    # ใช้ s.market ก่อน (บันทึกตอนขาย) — ถ้าไม่มีหรือ default SET ให้ fallback _is_us_symbol
     us_set = _build_us_symbol_set(request.user)
     for s in sold_stocks:
-        s.is_us = _is_us_symbol(s.symbol, us_set)
+        if s.market and s.market != MarketType.SET:
+            s.is_us = s.market == MarketType.US
+        else:
+            s.is_us = _is_us_symbol(s.symbol, us_set)
         s.pl_thb = float(s.profit_loss) * usd_thb if s.is_us else float(s.profit_loss)
 
     summary_dict = defaultdict(lambda: {'items': [], 'total_pl': 0, 'total_pl_thb': 0})
@@ -5262,7 +5282,10 @@ def tithe_report(request):
     us_set = _build_us_symbol_set(request.user)
     monthly_raw = defaultdict(Decimal)
     for s in sold_stocks:
-        is_us = _is_us_symbol(s.symbol, us_set)
+        if s.market and s.market != MarketType.SET:
+            is_us = s.market == MarketType.US
+        else:
+            is_us = _is_us_symbol(s.symbol, us_set)
         pl_raw = Decimal(str(s.profit_loss or 0))
         pl_thb = pl_raw * usd_thb_d if is_us else pl_raw
         key = (s.sold_at.year, s.sold_at.month)

@@ -16,6 +16,13 @@ class AssetCategory(models.TextChoices):
     CRYPTO = 'CRYPTO', 'Cryptocurrency'
     COMMODITY = 'COMMODITY', 'Commodity (ทอง/น้ำมัน)'
     FOREX = 'FOREX', 'Forex'
+
+class MarketType(models.TextChoices):
+    """ตลาด/ประเภทสินทรัพย์ที่ชัดเจน — ใช้แยก หุ้นไทย / หุ้น US / Crypto"""
+    SET = 'SET', 'หุ้นไทย (SET)'
+    US = 'US', 'หุ้น US'
+    CRYPTO = 'CRYPTO', 'Cryptocurrency'
+    OTHER = 'OTHER', 'อื่นๆ'
 # ====== Telegram Integration ======
 class UserTelegramProfile(models.Model):
     """
@@ -106,6 +113,8 @@ class Portfolio(models.Model):
     entry_price = models.DecimalField(max_digits=12, decimal_places=4, default=0)
     # ประเภทสินทรัพย์
     category = models.CharField(max_length=20, choices=AssetCategory.choices, default=AssetCategory.STOCK)
+    # ตลาด: SET=หุ้นไทย, US=หุ้นอเมริกา, CRYPTO=คริปโต, OTHER=อื่นๆ
+    market = models.CharField(max_length=10, choices=MarketType.choices, default=MarketType.SET)
     # วันที่เพิ่มเข้าพอร์ต
     added_at = models.DateTimeField(auto_now_add=True)
     # ราคาสูงสุดนับจากเข้าซื้อ (ใช้คำนวณ Trailing Stop)
@@ -483,6 +492,8 @@ class SoldStock(models.Model):
     profit_loss = models.DecimalField(max_digits=12, decimal_places=4, help_text="กำไร/ขาดทุนสุทธิ (เป็นจำนวนเงิน)")
     profit_loss_pct = models.DecimalField(max_digits=8, decimal_places=2, help_text="กำไร/ขาดทุน (%)")
     sold_at = models.DateTimeField(auto_now_add=True)
+    # ตลาดของหุ้นที่ขาย — ใช้คำนวณ USD→THB ได้ถูกต้องโดยไม่ต้องเดาจาก symbol
+    market = models.CharField(max_length=10, choices=MarketType.choices, default=MarketType.SET)
 
     class Meta:
         verbose_name = "Sold Stock"

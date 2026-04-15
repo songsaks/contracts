@@ -406,7 +406,7 @@
                                     <i class="fas fa-hand-holding-usd fa-xs"></i>
                                 </button>
                                 <button type="button" class="btn btn-light btn-sm rounded-circle shadow-sm border" style="width: 36px; height: 36px;"
-                                    onclick="editPortfolio('{{ item.obj.symbol }}', '{{ item.obj.name|default:""|escapejs }}', '{{ item.obj.quantity }}', '{{ item.obj.entry_price }}', '{{ item.obj.category }}')" 
+                                    onclick="editPortfolio('{{ item.obj.symbol }}', '{{ item.obj.name|default:""|escapejs }}', '{{ item.obj.quantity }}', '{{ item.obj.entry_price }}', '{{ item.obj.category }}', '{{ item.obj.market }}')" 
                                     data-bs-toggle="modal" data-bs-target="#addPortfolioModal">
                                     <i class="fas fa-edit fa-xs"></i>
                                 </button>
@@ -560,7 +560,7 @@
                                         <i class="fas fa-hand-holding-usd" style="font-size:0.6rem;"></i>
                                     </button>
                                     <button class="btn btn-light btn-xs rounded-circle border" style="width:28px;height:28px;padding:0;"
-                                        onclick="editPortfolio('{{ item.obj.symbol }}','{{ item.obj.name|default:""|escapejs }}','{{ item.obj.quantity }}','{{ item.obj.entry_price }}','{{ item.obj.category }}')"
+                                        onclick="editPortfolio('{{ item.obj.symbol }}','{{ item.obj.name|default:""|escapejs }}','{{ item.obj.quantity }}','{{ item.obj.entry_price }}','{{ item.obj.category }}','{{ item.obj.market }}')"
                                         data-bs-toggle="modal" data-bs-target="#addPortfolioModal" title="Edit">
                                         <i class="fas fa-edit" style="font-size:0.6rem;"></i>
                                     </button>
@@ -795,6 +795,14 @@
                             <input type="text" id="port-symbol" name="symbol" class="form-control rounded-3" style="background:#f8fafc;" required>
                         </div>
                         <div class="col-md-6">
+                            <label class="form-label small text-muted">ตลาด (Market)</label>
+                            <select id="port-market" name="market" class="form-select rounded-3" style="background:#f8fafc;">
+                                {% for code, label in market_types %}
+                                <option value="{{ code }}">{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-6">
                             <label class="form-label small text-muted">Category</label>
                             <select id="port-category" name="category" class="form-select rounded-3" style="background:#f8fafc;">
                                 {% for code, label in categories %}
@@ -879,16 +887,18 @@
         document.getElementById('port-quantity').value = '0';
         document.getElementById('port-price').value = '0';
         document.getElementById('port-category').value = 'STOCK';
+        document.getElementById('port-market').value = 'SET';
         document.getElementById('port-modal-title').innerText = 'Add Position to Portfolio';
     }
 
-    function editPortfolio(symbol, name, qty, price, category) {
+    function editPortfolio(symbol, name, qty, price, category, market) {
         document.getElementById('port-symbol').value = symbol;
         document.getElementById('port-symbol').readOnly = true;
         document.getElementById('port-name').value = name;
         document.getElementById('port-quantity').value = parseFloat(qty || 0).toFixed(2);
         document.getElementById('port-price').value = parseFloat(price || 0).toFixed(2);
         document.getElementById('port-category').value = category;
+        document.getElementById('port-market').value = market || 'SET';
         document.getElementById('port-modal-title').innerText = 'Edit Position';
     }
 
