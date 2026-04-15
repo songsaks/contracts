@@ -39,6 +39,26 @@ def admin_only(user):
     # อนุญาตให้ผู้ใช้ทุกคนที่ login แล้วเข้าถึงข้อมูลของตัวเองได้
     return user.is_authenticated # Changed to allow any user to see their own data
 
+# ====== _build_us_symbol_set — สร้าง set ของสัญลักษณ์หุ้น US สำหรับ user ======
+def _build_us_symbol_set(user):
+    """
+    Return a set of stock symbols (uppercase, no .BK) that are US stocks for this user.
+    Uses MomentumCandidate(market='US') as the source of truth.
+    """
+    from .models import MomentumCandidate
+    return set(
+        MomentumCandidate.objects.filter(user=user, market='US')
+        .values_list('symbol', flat=True)
+    )
+
+
+def _is_us_symbol(symbol, us_set):
+    """True only if symbol is a known US stock. Thai stocks without .BK default to SET."""
+    if '.BK' in symbol:
+        return False
+    return symbol.split('.')[0].upper() in us_set
+
+
 # ====== _get_usd_thb — ดึงอัตราแลกเปลี่ยน USD/THB (cache 15 นาที) ======
 def _get_usd_thb():
     """Return current USD/THB rate, cached 15 min. Fallback = 33.5."""
@@ -1043,6 +1063,7 @@ def portfolio_list(request):
     total_us_cost = 0
     total_us_pl = 0
     print(f"DEBUG: Portfolio Scan Started for {getattr(request.user, 'username', 'Anonymous')}")
+    _portfolio_us_set = _build_us_symbol_set(request.user)
 
     for item in portfolio_items:
         try:
@@ -1241,7 +1262,7 @@ def portfolio_list(request):
                 'obj': item, 'current_price': 0, 'day_change': 0, 'market_value': 0,
                 'gain_loss': 0, 'gain_loss_pct': 0, 'rsi': None,
                 'trailing_stop_data': None, 'mom_data': None,
-                'is_us': '.BK' not in item.symbol,
+                'is_us': _is_us_symbol(item.symbol, _portfolio_us_set),
             })
 
     # ── USD/THB rate for combined totals ──
@@ -5079,8 +5100,9 @@ def realized_pl_report(request):
         sold_stocks = [s for s in sold_stocks if s.sold_at.date() <= _dt2.strptime(end_date, '%Y-%m-%d').date()]
 
     # Annotate each record with is_us + pl_thb
+    us_set = _build_us_symbol_set(request.user)
     for s in sold_stocks:
-        s.is_us = '.BK' not in s.symbol
+        s.is_us = _is_us_symbol(s.symbol, us_set)
         s.pl_thb = float(s.profit_loss) * usd_thb if s.is_us else float(s.profit_loss)
 
     summary_dict = defaultdict(lambda: {'items': [], 'total_pl': 0, 'total_pl_thb': 0})
@@ -5237,9 +5259,10 @@ def tithe_report(request):
 
     # ── Aggregate per month with USD→THB conversion ──
     sold_stocks = SoldStock.objects.filter(user=request.user).order_by('sold_at')
+    us_set = _build_us_symbol_set(request.user)
     monthly_raw = defaultdict(Decimal)
     for s in sold_stocks:
-        is_us = '.BK' not in s.symbol
+        is_us = _is_us_symbol(s.symbol, us_set)
         pl_raw = Decimal(str(s.profit_loss or 0))
         pl_thb = pl_raw * usd_thb_d if is_us else pl_raw
         key = (s.sold_at.year, s.sold_at.month)
