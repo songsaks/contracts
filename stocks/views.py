@@ -1069,6 +1069,9 @@ def portfolio_list(request):
     total_set_cost = 0
     total_set_pl = 0
     total_us_value = 0
+    total_crypto_value = 0
+    total_crypto_cost = 0
+    total_crypto_pl = 0
     total_us_cost = 0
     total_us_pl = 0
     print(f"DEBUG: Portfolio Scan Started for {getattr(request.user, 'username', 'Anonymous')}")
@@ -1235,10 +1238,15 @@ def portfolio_list(request):
 
             total_market_value += market_value
             total_gain_loss += gain_loss
-            if is_us:
+            _market = item.market
+            if _market == MarketType.US:
                 total_us_value += market_value
                 total_us_cost += cost_basis
                 total_us_pl += gain_loss
+            elif _market == MarketType.CRYPTO:
+                total_crypto_value += market_value
+                total_crypto_cost += cost_basis
+                total_crypto_pl += gain_loss
             else:
                 total_set_value += market_value
                 total_set_cost += cost_basis
@@ -1262,6 +1270,7 @@ def portfolio_list(request):
                 'in_scan': prec_data is not None,
                 'scan_score': prec_data.technical_score if prec_data else None,
                 'is_us': is_us,
+                'market': item.market,
             })
         except Exception as e:
             print(f"DEBUG: ERROR for {item.symbol}: {e}")
@@ -1272,17 +1281,19 @@ def portfolio_list(request):
                 'gain_loss': 0, 'gain_loss_pct': 0, 'rsi': None,
                 'trailing_stop_data': None, 'mom_data': None,
                 'is_us': item.market == MarketType.US,
+                'market': item.market,
             })
 
     # ── USD/THB rate for combined totals ──
-    usd_thb = _get_usd_thb() if any(it.get('is_us') for it in items) else 1.0
+    usd_thb = _get_usd_thb() if any(it.get('market') in (MarketType.US, MarketType.CRYPTO) for it in items) else 1.0
 
-    # ── Sort items: SET first, then US; mark group headers ──
-    items.sort(key=lambda x: (1 if x.get('is_us') else 0, x['obj'].symbol))
-    _prev_is_us = None
+    # ── Sort items: SET → US → CRYPTO → OTHER; mark group headers ──
+    _market_order = {MarketType.SET: 0, MarketType.US: 1, MarketType.CRYPTO: 2, MarketType.OTHER: 3}
+    items.sort(key=lambda x: (_market_order.get(x.get('market', MarketType.SET), 99), x['obj'].symbol))
+    _prev_market = None
     for _it in items:
-        _it['show_group_header'] = (_it.get('is_us') != _prev_is_us)
-        _prev_is_us = _it.get('is_us')
+        _it['show_group_header'] = (_it.get('market') != _prev_market)
+        _prev_market = _it.get('market')
 
     # ====== AI Portfolio Analysis ด้วย Gemini + PyPortfolioOpt ======
     ai_analysis = None
@@ -1467,12 +1478,16 @@ def portfolio_list(request):
         'total_us_value': total_us_value,
         'total_us_cost': total_us_cost,
         'total_us_pl': total_us_pl,
-        'has_set': any(not it.get('is_us') for it in items),
-        'has_us': any(it.get('is_us') for it in items),
+        'total_crypto_value': total_crypto_value,
+        'total_crypto_cost': total_crypto_cost,
+        'total_crypto_pl': total_crypto_pl,
+        'has_set': any(it.get('market') == MarketType.SET for it in items),
+        'has_us': any(it.get('market') == MarketType.US for it in items),
+        'has_crypto': any(it.get('market') == MarketType.CRYPTO for it in items),
         'usd_thb': round(usd_thb, 2),
-        'total_combined_value': total_set_value + total_us_value * usd_thb,
-        'total_combined_cost': total_set_cost + total_us_cost * usd_thb,
-        'total_combined_pl': total_set_pl + total_us_pl * usd_thb,
+        'total_combined_value': total_set_value + (total_us_value + total_crypto_value) * usd_thb,
+        'total_combined_cost': total_set_cost + (total_us_cost + total_crypto_cost) * usd_thb,
+        'total_combined_pl': total_set_pl + (total_us_pl + total_crypto_pl) * usd_thb,
         'categories': AssetCategory.choices,
         'market_types': MarketType.choices,
         'title': 'My Portfolio',
@@ -7618,4 +7633,43 @@ def scanner_guide(request):
     (Precision Momentum, Cup & Handle, Standard Momentum)
     """
     return render(request, 'stocks/scanner_guide.html')
+
+
+@login_required
+def crypto_hub(request):
+    """
+    หน้าต่างศูนย์กลางการวิเคราะห์ Cryptocurrency
+    ดึงข้อมูลจาก Alternative.me (Fear & Greed Index) และข้อมูลราคา Real-time เบื้องต้น
+    """
+    import urllib.request
+    import json
+    
+    # ── Fetch Fear & Greed Index ──
+    fng_value = 50
+    fng_value_classification = "Neutral"
+    try:
+        url = "https://api.alternative.me/fng/?limit=1"
+        req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
+        with urllib.request.urlopen(req, timeout=5) as response:
+            data = json.loads(response.read().decode())
+            if data and "data" in data and len(data["data"]) > 0:
+                fng_value = int(data["data"][0]["value"])
+                fng_value_classification = data["data"][0]["value_classification"]
+    except Exception as e:
+        print(f"Error fetching Fear and Greed Index: {e}")
+
+    # กำหนดเหรียญสำคัญ
+    crypto_symbols = [
+        {'symbol': 'BTC-USD', 'name': 'Bitcoin'},
+        {'symbol': 'ETH-USD', 'name': 'Ethereum'},
+        {'symbol': 'SOL-USD', 'name': 'Solana'}
+    ]
+
+    context = {
+        'fng_value': fng_value,
+        'fng_classification': fng_value_classification,
+        'crypto_symbols': crypto_symbols
+    }
+    
+    return render(request, 'stocks/crypto_hub.html', context)
 

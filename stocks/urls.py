@@ -44,5 +44,6 @@ urlpatterns = [
     path('signup/', views.signup, name='signup'),
     path('scan/clear/', views.clear_scan_data, name='clear_scan_data'),
     path('morning-briefing/', views.morning_briefing, name='morning_briefing'),
+    path('crypto-hub/', views.crypto_hub, name='crypto_hub'),
 ]
 

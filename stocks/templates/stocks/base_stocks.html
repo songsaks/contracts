@@ -443,7 +443,24 @@
                             </li>
                         </ul>
                     </li>
+                    <!-- Crypto Hub Dropdown -->
+                    <li class="nav-item dropdown">
+                        <a class="nav-link px-3 py-2 rounded-xl dropdown-toggle {% if request.resolver_match.url_name == 'crypto_hub' %}active{% endif %}"
+                           href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false"
+                           style="color: #10b981 !important;">
+                            <i class="fab fa-bitcoin" style="color: #10b981;"></i> Crypto
+                        </a>
+                        <ul class="dropdown-menu border-0 shadow-lg p-2 rounded-4 mt-1">
+                            <li>
+                                <a class="dropdown-item rounded-3 py-2 {% if request.resolver_match.url_name == 'crypto_hub' %}active{% endif %}"
+                                   href="{% url 'stocks:crypto_hub' %}">
+                                    <i class="fas fa-chart-network me-1" style="color: #10b981;"></i> Crypto Hub
+                                </a>
+                            </li>
+                        </ul>
+                    </li>
                 </ul>
+
 
                 <div class="d-flex align-items-center gap-3">
                     {% if user.is_authenticated %}
