@@ -104,6 +104,14 @@
 <!-- JSON data for charts -->
 <script id="tithe-chart-data" type="application/json">{{ chart_json|safe }}</script>
 
+{% if usd_thb %}
+<div class="alert d-flex align-items-center gap-2 mb-3 rounded-3"
+     style="background:#eff6ff;border:1px solid #bfdbfe;color:#1e40af;font-size:0.8rem;padding:0.5rem 1rem;">
+  <i class="fas fa-exchange-alt"></i>
+  <span>กำไรหุ้น US แปลงเป็นเงินบาทแล้ว <strong>อัตราแลกเปลี่ยน USD/THB = {{ usd_thb }}</strong> · ใช้สำหรับคำนวณทศางค์</span>
+</div>
+{% endif %}
+
 <div class="row g-4">
 
     <!-- ════════════════ HERO ════════════════ -->

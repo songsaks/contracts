@@ -52,6 +52,18 @@
                             </span>
                         </div>
                         {% endif %}
+                        <!-- รวม row -->
+                        {% if has_set and has_us %}
+                        <div class="d-flex align-items-center gap-2 mt-1" style="border-top:1px solid #e2e8f0;padding-top:6px;">
+                            <span class="badge rounded-pill px-2 py-1" style="background:#0f172a;color:white;font-size:0.7rem;min-width:86px;text-align:center;">รวม (฿)</span>
+                            <span class="fw-black text-dark" style="min-width:105px;text-align:right;font-size:0.95rem;">฿{{ total_combined_value|floatformat:2|intcomma }}</span>
+                            <span class="fw-semibold text-secondary" style="min-width:100px;text-align:right;font-size:0.85rem;">฿{{ total_combined_cost|floatformat:2|intcomma }}</span>
+                            <span class="fw-black {% if total_combined_pl > 0 %}text-success{% elif total_combined_pl < 0 %}text-danger{% else %}text-dark{% endif %}" style="min-width:100px;text-align:right;font-size:0.95rem;">
+                                {% if total_combined_pl > 0 %}+{% endif %}฿{{ total_combined_pl|floatformat:2|intcomma }}
+                            </span>
+                        </div>
+                        <div style="font-size:0.58rem;color:#94a3b8;text-align:right;margin-top:2px;">USD/THB = {{ usd_thb }}</div>
+                        {% endif %}
                     </div>
                 </div>
             </div>

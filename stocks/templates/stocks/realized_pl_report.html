@@ -58,11 +58,18 @@
             <h5 class="fw-bold mb-4 text-dark"><i class="fas fa-table me-2 text-primary"></i> สรุปผลตามช่วงเวลา ({{ group_by|capfirst }})</h5>
             <div class="table-responsive">
                 <table class="table table-hover align-middle">
+                    {% if usd_thb %}
+                    <div class="alert mb-2 rounded-2 d-flex align-items-center gap-2"
+                         style="background:#eff6ff;border:1px solid #bfdbfe;color:#1e40af;font-size:0.75rem;padding:0.4rem 0.75rem;">
+                      <i class="fas fa-exchange-alt"></i>
+                      หุ้น US แปลงเป็น ฿ แล้ว &nbsp;|&nbsp; USD/THB = <strong>{{ usd_thb }}</strong>
+                    </div>
+                    {% endif %}
                     <thead class="bg-light bg-opacity-50">
                         <tr class="small text-muted text-uppercase">
                             <th>ช่วงเวลา</th>
                             <th class="text-center">จำนวนขาย</th>
-                            <th class="text-end">กำไร/ขาดทุน</th>
+                            <th class="text-end">กำไร/ขาดทุน (฿)</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -70,8 +77,8 @@
                         <tr>
                             <td class="fw-bold">{{ entry.period }}</td>
                             <td class="text-center">{{ entry.count }}</td>
-                            <td class="text-end fw-bold {% if entry.total_pl > 0 %}text-success{% elif entry.total_pl < 0 %}text-danger{% endif %} text-nowrap">
-                                {% if entry.total_pl > 0 %}+{% endif %}฿{{ entry.total_pl|floatformat:2|intcomma }}
+                            <td class="text-end fw-bold {% if entry.total_pl_thb > 0 %}text-success{% elif entry.total_pl_thb < 0 %}text-danger{% endif %} text-nowrap">
+                                {% if entry.total_pl_thb > 0 %}+{% endif %}฿{{ entry.total_pl_thb|floatformat:2|intcomma }}
                             </td>
                         </tr>
                         {% empty %}
@@ -79,6 +86,15 @@
                             <td colspan="3" class="text-center py-4 text-muted">ไม่พบข้อมูล</td>
                         </tr>
                         {% endfor %}
+                        {% if summary_list %}
+                        <tr style="border-top:2px solid #e2e8f0;background:#f8fafc;">
+                            <td class="fw-bold text-dark">รวมทั้งหมด</td>
+                            <td></td>
+                            <td class="text-end fw-black text-nowrap {% if total_pl_thb > 0 %}text-success{% elif total_pl_thb < 0 %}text-danger{% endif %}">
+                                {% if total_pl_thb > 0 %}+{% endif %}฿{{ total_pl_thb|floatformat:2|intcomma }}
+                            </td>
+                        </tr>
+                        {% endif %}
                     </tbody>
                 </table>
             </div>
@@ -99,7 +115,7 @@
                             <th class="text-end">จำนวน</th>
                             <th class="text-end">ร.ทุน</th>
                             <th class="text-end">ร.ขาย</th>
-                            <th class="text-end">กำไร/ขาดทุน</th>
+                            <th class="text-end">กำไร/ขาดทุน (฿)</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -107,12 +123,16 @@
                         <tr style="font-size: 0.85rem;">
                             <td class="text-nowrap text-muted small">{{ s.bought_at|date:"d M y"|default:"-" }}</td>
                             <td class="text-nowrap fw-bold">{{ s.sold_at|date:"d M y" }}</td>
-                            <td><span class="badge bg-primary bg-opacity-10 text-primary">{{ s.symbol }}</span></td>
+                            <td>
+                                <span class="badge bg-primary bg-opacity-10 text-primary">{{ s.symbol }}</span>
+                                {% if s.is_us %}<span class="badge rounded-pill ms-1" style="background:#dbeafe;color:#1e40af;font-size:0.58rem;">US</span>{% endif %}
+                            </td>
                             <td class="text-end">{{ s.quantity|floatformat:0|intcomma }}</td>
-                            <td class="text-end text-muted">฿{{ s.buy_price|floatformat:2|intcomma }}</td>
-                            <td class="text-end fw-bold">฿{{ s.sell_price|floatformat:2|intcomma }}</td>
-                            <td class="text-end fw-bold {% if s.profit_loss > 0 %}text-success{% elif s.profit_loss < 0 %}text-danger{% endif %} text-nowrap">
-                                {% if s.profit_loss > 0 %}+{% endif %}฿{{ s.profit_loss|floatformat:2|intcomma }}
+                            <td class="text-end text-muted">{% if s.is_us %}${% else %}฿{% endif %}{{ s.buy_price|floatformat:2|intcomma }}</td>
+                            <td class="text-end fw-bold">{% if s.is_us %}${% else %}฿{% endif %}{{ s.sell_price|floatformat:2|intcomma }}</td>
+                            <td class="text-end fw-bold {% if s.pl_thb > 0 %}text-success{% elif s.pl_thb < 0 %}text-danger{% endif %} text-nowrap">
+                                {% if s.pl_thb > 0 %}+{% endif %}฿{{ s.pl_thb|floatformat:2|intcomma }}
+                                {% if s.is_us %}<div class="text-muted fw-normal" style="font-size:0.65rem;">({% if s.profit_loss > 0 %}+{% endif %}${{ s.profit_loss|floatformat:2 }})</div>{% endif %}
                             </td>
                         </tr>
                         {% empty %}

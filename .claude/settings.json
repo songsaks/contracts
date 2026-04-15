@@ -2,7 +2,8 @@
   "permissions": {
     "allow": [
       "Bash(.venv/Scripts/python manage.py:*)",
-      "Bash(python:*)"
+      "Bash(python:*)",
+      "Bash(grep -n \"profit_loss\\\\|total_pl\\\\|tithe\\\\|฿\\\\|\\\\$\" d:/DjangoProjects/contracts/stocks/templates/stocks/tithe_report.html)"
     ],
     "additionalDirectories": [
       "\\tmp",

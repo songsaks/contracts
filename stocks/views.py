@@ -39,6 +39,27 @@ def admin_only(user):
     # อนุญาตให้ผู้ใช้ทุกคนที่ login แล้วเข้าถึงข้อมูลของตัวเองได้
     return user.is_authenticated # Changed to allow any user to see their own data
 
+# ====== _get_usd_thb — ดึงอัตราแลกเปลี่ยน USD/THB (cache 15 นาที) ======
+def _get_usd_thb():
+    """Return current USD/THB rate, cached 15 min. Fallback = 33.5."""
+    from django.core.cache import cache
+    rate = cache.get('usd_thb_rate')
+    if rate:
+        return float(rate)
+    try:
+        t = yf.Ticker('USDTHB=X')
+        hist = t.history(period='2d')
+        rate = float(hist['Close'].iloc[-1]) if not hist.empty else 0
+        if not rate:
+            rate = float(t.info.get('regularMarketPrice') or t.info.get('currentPrice') or 33.5)
+    except Exception:
+        rate = 33.5
+    if rate < 25 or rate > 50:
+        rate = 33.5
+    cache.set('usd_thb_rate', rate, 900)
+    return float(rate)
+
+
 # ====== _compute_signals — คำนวณ BUY/SELL Score + Exit Signal จาก PrecisionScanCandidate ======
 def _compute_signals(prec, current_price=None):
     """Reusable scorer v3 — ใช้ใน Portfolio, Watchlist, และ Precision Scanner."""
@@ -1223,6 +1244,9 @@ def portfolio_list(request):
                 'is_us': '.BK' not in item.symbol,
             })
 
+    # ── USD/THB rate for combined totals ──
+    usd_thb = _get_usd_thb() if any(it.get('is_us') for it in items) else 1.0
+
     # ── Sort items: SET first, then US; mark group headers ──
     items.sort(key=lambda x: (1 if x.get('is_us') else 0, x['obj'].symbol))
     _prev_is_us = None
@@ -1415,6 +1439,10 @@ def portfolio_list(request):
         'total_us_pl': total_us_pl,
         'has_set': any(not it.get('is_us') for it in items),
         'has_us': any(it.get('is_us') for it in items),
+        'usd_thb': round(usd_thb, 2),
+        'total_combined_value': total_set_value + total_us_value * usd_thb,
+        'total_combined_cost': total_set_cost + total_us_cost * usd_thb,
+        'total_combined_pl': total_set_pl + total_us_pl * usd_thb,
         'categories': AssetCategory.choices,
         'title': 'My Portfolio',
         'ai_analysis': ai_analysis,
@@ -5030,52 +5058,59 @@ def realized_pl_report(request):
     """
     รายงานกำไรขาดทุนสะสมที่เกิดขึ้นจริง (Realized P/L)
     พร้อมตัวกรอง รายวัน รายเดือน รายปี และช่วงเวลา
+    แปลงกำไรหุ้น US → เงินบาท สำหรับใช้คำนวณทศางค์
     """
     import json
     from collections import defaultdict
-    
+
+    usd_thb = _get_usd_thb()
+
     start_date = request.GET.get('start_date')
     end_date = request.GET.get('end_date')
-    group_by = request.GET.get('group_by', 'month') # day, month, year
+    group_by = request.GET.get('group_by', 'month')
 
-    sold_stocks = SoldStock.objects.filter(user=request.user).order_by('sold_at')
+    sold_stocks = list(SoldStock.objects.filter(user=request.user).order_by('sold_at'))
 
     if start_date:
-        sold_stocks = sold_stocks.filter(sold_at__date__gte=start_date)
+        from datetime import datetime as _dt
+        sold_stocks = [s for s in sold_stocks if s.sold_at.date() >= _dt.strptime(start_date, '%Y-%m-%d').date()]
     if end_date:
-        sold_stocks = sold_stocks.filter(sold_at__date__lte=end_date)
+        from datetime import datetime as _dt2
+        sold_stocks = [s for s in sold_stocks if s.sold_at.date() <= _dt2.strptime(end_date, '%Y-%m-%d').date()]
 
-    # Grouping logic
-    summary_dict = defaultdict(lambda: {'items': [], 'total_pl': 0})
-    
+    # Annotate each record with is_us + pl_thb
+    for s in sold_stocks:
+        s.is_us = '.BK' not in s.symbol
+        s.pl_thb = float(s.profit_loss) * usd_thb if s.is_us else float(s.profit_loss)
+
+    summary_dict = defaultdict(lambda: {'items': [], 'total_pl': 0, 'total_pl_thb': 0})
     chart_labels = []
     chart_data = []
     running_pl = 0
-    
+
     for s in sold_stocks:
         if group_by == 'day':
             key = s.sold_at.strftime('%Y-%m-%d')
         elif group_by == 'year':
             key = s.sold_at.strftime('%Y')
-        else: # month
+        else:
             key = s.sold_at.strftime('%Y-%m')
-            
+
         summary_dict[key]['items'].append(s)
         summary_dict[key]['total_pl'] += float(s.profit_loss)
-        
-        # สำหรับกราฟเส้น (Performance)
-        running_pl += float(s.profit_loss)
-        chart_labels.append(s.sold_at.strftime('%Y-%m-%d %H:%M'))
-        chart_data.append(running_pl)
+        summary_dict[key]['total_pl_thb'] += s.pl_thb
 
-    # เตรียมข้อมูลสรุปสำหรับตาราง (Sorted รายการล่าสุดขึ้นก่อน)
+        running_pl += s.pl_thb
+        chart_labels.append(s.sold_at.strftime('%Y-%m-%d %H:%M'))
+        chart_data.append(round(running_pl, 2))
+
     summary_list = []
-    sorted_keys = sorted(summary_dict.keys(), reverse=True)
-    for k in sorted_keys:
+    for k in sorted(summary_dict.keys(), reverse=True):
         summary_list.append({
             'period': k,
             'items': summary_dict[k]['items'],
             'total_pl': summary_dict[k]['total_pl'],
+            'total_pl_thb': summary_dict[k]['total_pl_thb'],
             'count': len(summary_dict[k]['items'])
         })
 
@@ -5088,6 +5123,8 @@ def realized_pl_report(request):
         'end_date': end_date,
         'group_by': group_by,
         'title': 'Realized P/L Report',
+        'usd_thb': round(usd_thb, 2),
+        'total_pl_thb': sum(s.pl_thb for s in sold_stocks),
     }
     return render(request, 'stocks/realized_pl_report.html', context)
 
@@ -5189,19 +5226,24 @@ def tithe_report(request):
     """
     แสดงกำไร/ขาดทุนรายเดือนจากการขายหุ้น
     คำนวณทศางค์ 10% จากเดือนที่มีกำไร พร้อม track การจ่าย
+    แปลงกำไรหุ้น US → เงินบาท ด้วยอัตราแลกเปลี่ยนปัจจุบัน
     """
-    from django.db.models import Sum
-    from django.db.models.functions import TruncMonth
+    from collections import defaultdict
     import calendar
 
-    monthly_qs = (
-        SoldStock.objects
-        .filter(user=request.user)
-        .annotate(month_trunc=TruncMonth('sold_at'))
-        .values('month_trunc')
-        .annotate(total_pl=Sum('profit_loss'))
-        .order_by('-month_trunc')
-    )
+    # ── Exchange rate ──
+    usd_thb = _get_usd_thb()
+    usd_thb_d = Decimal(str(round(usd_thb, 4)))
+
+    # ── Aggregate per month with USD→THB conversion ──
+    sold_stocks = SoldStock.objects.filter(user=request.user).order_by('sold_at')
+    monthly_raw = defaultdict(Decimal)
+    for s in sold_stocks:
+        is_us = '.BK' not in s.symbol
+        pl_raw = Decimal(str(s.profit_loss or 0))
+        pl_thb = pl_raw * usd_thb_d if is_us else pl_raw
+        key = (s.sold_at.year, s.sold_at.month)
+        monthly_raw[key] += pl_thb
 
     tithe_map = {
         (t.year, t.month): t
@@ -5213,10 +5255,8 @@ def tithe_report(request):
     total_tithe_owed = Decimal('0')
     total_tithe_paid = Decimal('0')
 
-    for entry in monthly_qs:
-        dt = entry['month_trunc']
-        yr, mo = dt.year, dt.month
-        pl = Decimal(str(entry['total_pl'] or 0))
+    for (yr, mo) in sorted(monthly_raw.keys(), reverse=True):
+        pl = monthly_raw[(yr, mo)].quantize(Decimal('0.01'))
         tithe = (pl * Decimal('0.10')).quantize(Decimal('0.01')) if pl > 0 else Decimal('0')
 
         rec = tithe_map.get((yr, mo))
@@ -5254,6 +5294,7 @@ def tithe_report(request):
         'total_tithe_paid': total_tithe_paid,
         'total_tithe_remaining': total_tithe_owed - total_tithe_paid,
         'chart_json': chart_data,
+        'usd_thb': round(usd_thb, 2),
     }
     return render(request, 'stocks/tithe_report.html', context)
 
