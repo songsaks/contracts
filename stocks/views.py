@@ -1015,6 +1015,12 @@ def portfolio_list(request):
     items = []
     total_market_value = 0
     total_gain_loss = 0
+    total_set_value = 0
+    total_set_cost = 0
+    total_set_pl = 0
+    total_us_value = 0
+    total_us_cost = 0
+    total_us_pl = 0
     print(f"DEBUG: Portfolio Scan Started for {getattr(request.user, 'username', 'Anonymous')}")
 
     for item in portfolio_items:
@@ -1028,11 +1034,14 @@ def portfolio_list(request):
             hist = t.history(period="1y")
 
             # ถ้าไม่มีข้อมูล ลองเพิ่ม/ลบ .BK suffix (รองรับหุ้นไทย)
+            used_symbol = symbol
             if hist.empty:
                 alt_sym = f"{symbol}.BK" if ".BK" not in symbol else symbol.replace(".BK", "")
                 print(f"DEBUG: {symbol} empty, trying {alt_sym}")
                 t = yf.Ticker(alt_sym)
                 hist = t.history(period="1y")
+                if not hist.empty:
+                    used_symbol = alt_sym
 
             current_price = 0
             rsi_val = None
@@ -1076,6 +1085,7 @@ def portfolio_list(request):
             cost_basis = float(item.quantity) * float(item.entry_price or 0)
             gain_loss = market_value - cost_basis
             gain_loss_pct = (gain_loss / cost_basis * 100) if cost_basis > 0 else 0
+            is_us = '.BK' not in used_symbol
 
             # ====== คำนวณ ATR Trailing Stop ======
             from .utils import calculate_atr_trailing_stop
@@ -1174,6 +1184,14 @@ def portfolio_list(request):
 
             total_market_value += market_value
             total_gain_loss += gain_loss
+            if is_us:
+                total_us_value += market_value
+                total_us_cost += cost_basis
+                total_us_pl += gain_loss
+            else:
+                total_set_value += market_value
+                total_set_cost += cost_basis
+                total_set_pl += gain_loss
 
             signals = _compute_signals(mom_data, current_price) if mom_data else {'buy_score': 0, 'sell_score': 0, 'exit_signal': ''}
 
@@ -1192,6 +1210,7 @@ def portfolio_list(request):
                 'exit_signal': signals['exit_signal'],
                 'in_scan': prec_data is not None,
                 'scan_score': prec_data.technical_score if prec_data else None,
+                'is_us': is_us,
             })
         except Exception as e:
             print(f"DEBUG: ERROR for {item.symbol}: {e}")
@@ -1200,8 +1219,16 @@ def portfolio_list(request):
             items.append({
                 'obj': item, 'current_price': 0, 'day_change': 0, 'market_value': 0,
                 'gain_loss': 0, 'gain_loss_pct': 0, 'rsi': None,
-                'trailing_stop_data': None, 'mom_data': None
+                'trailing_stop_data': None, 'mom_data': None,
+                'is_us': '.BK' not in item.symbol,
             })
+
+    # ── Sort items: SET first, then US; mark group headers ──
+    items.sort(key=lambda x: (1 if x.get('is_us') else 0, x['obj'].symbol))
+    _prev_is_us = None
+    for _it in items:
+        _it['show_group_header'] = (_it.get('is_us') != _prev_is_us)
+        _prev_is_us = _it.get('is_us')
 
     # ====== AI Portfolio Analysis ด้วย Gemini + PyPortfolioOpt ======
     ai_analysis = None
@@ -1380,6 +1407,14 @@ def portfolio_list(request):
         'items': items,
         'total_market_value': total_market_value,
         'total_gain_loss': total_gain_loss,
+        'total_set_value': total_set_value,
+        'total_set_cost': total_set_cost,
+        'total_set_pl': total_set_pl,
+        'total_us_value': total_us_value,
+        'total_us_cost': total_us_cost,
+        'total_us_pl': total_us_pl,
+        'has_set': any(not it.get('is_us') for it in items),
+        'has_us': any(it.get('is_us') for it in items),
         'categories': AssetCategory.choices,
         'title': 'My Portfolio',
         'ai_analysis': ai_analysis,

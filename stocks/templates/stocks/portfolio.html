@@ -25,17 +25,33 @@
                             <i class="fas fa-hand-holding-heart me-1"></i> ทศางค์
                         </a>
                     </div>
-                    <div class="d-flex justify-content-md-end gap-4">
-                        <div>
-                            <div class="small text-muted uppercase fw-600" style="letter-spacing: 0.5px;">TOTAL VALUE</div>
-                            <div class="h4 fw-bold mb-0 text-dark">฿{{ total_market_value|floatformat:2|intcomma }}</div>
+                    <div class="d-flex flex-column gap-1">
+                        <div class="d-flex gap-2" style="font-size:0.62rem;color:#94a3b8;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;">
+                            <span style="min-width:86px;"></span>
+                            <span style="min-width:105px;text-align:right;">MARKET VALUE</span>
+                            <span style="min-width:100px;text-align:right;">TOTAL COST</span>
+                            <span style="min-width:100px;text-align:right;">TOTAL P/L</span>
                         </div>
-                        <div>
-                            <div class="small text-muted uppercase fw-600" style="letter-spacing: 0.5px;">TOTAL P/L</div>
-                            <div class="h4 fw-bold mb-0 {% if total_gain_loss > 0 %}stock-positive{% elif total_gain_loss < 0 %}stock-negative{% endif %}">
-                                {% if total_gain_loss > 0 %}+{% endif %}฿{{ total_gain_loss|floatformat:2|intcomma }}
-                            </div>
+                        {% if has_set %}
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="badge rounded-pill px-2 py-1" style="background:#fef9c3;color:#92400e;font-size:0.7rem;min-width:86px;text-align:center;">🇹🇭 หุ้นไทย</span>
+                            <span class="fw-bold text-dark" style="min-width:105px;text-align:right;font-size:0.9rem;">฿{{ total_set_value|floatformat:0|intcomma }}</span>
+                            <span class="fw-semibold text-secondary" style="min-width:100px;text-align:right;font-size:0.82rem;">฿{{ total_set_cost|floatformat:0|intcomma }}</span>
+                            <span class="fw-bold {% if total_set_pl > 0 %}text-success{% elif total_set_pl < 0 %}text-danger{% else %}text-dark{% endif %}" style="min-width:100px;text-align:right;font-size:0.9rem;">
+                                {% if total_set_pl > 0 %}+{% endif %}฿{{ total_set_pl|floatformat:0|intcomma }}
+                            </span>
                         </div>
+                        {% endif %}
+                        {% if has_us %}
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="badge rounded-pill px-2 py-1" style="background:#dbeafe;color:#1e40af;font-size:0.7rem;min-width:86px;text-align:center;">🇺🇸 หุ้น US</span>
+                            <span class="fw-bold text-dark" style="min-width:105px;text-align:right;font-size:0.9rem;">${{ total_us_value|floatformat:0|intcomma }}</span>
+                            <span class="fw-semibold text-secondary" style="min-width:100px;text-align:right;font-size:0.82rem;">${{ total_us_cost|floatformat:0|intcomma }}</span>
+                            <span class="fw-bold {% if total_us_pl > 0 %}text-success{% elif total_us_pl < 0 %}text-danger{% else %}text-dark{% endif %}" style="min-width:100px;text-align:right;font-size:0.9rem;">
+                                {% if total_us_pl > 0 %}+{% endif %}${{ total_us_pl|floatformat:0|intcomma }}
+                            </span>
+                        </div>
+                        {% endif %}
                     </div>
                 </div>
             </div>
@@ -74,6 +90,18 @@
         <!-- ══ CARD VIEW ══════════════════════════════════════ -->
         <div id="portfolio-card-view" class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-3">
             {% for item in items %}
+            {% if item.show_group_header %}
+            <div class="col-12 pb-1{% if not forloop.first %} mt-2{% endif %}">
+                <div class="d-flex align-items-center gap-2">
+                    {% if item.is_us %}
+                    <span class="badge rounded-pill px-3 py-2" style="background:#dbeafe;color:#1e40af;font-size:0.8rem;">🇺🇸 หุ้น US</span>
+                    {% else %}
+                    <span class="badge rounded-pill px-3 py-2" style="background:#fef9c3;color:#92400e;font-size:0.8rem;">🇹🇭 หุ้นไทย (SET)</span>
+                    {% endif %}
+                    <hr class="flex-grow-1 m-0" style="border-color:#e2e8f0;">
+                </div>
+            </div>
+            {% endif %}
             <div class="col">
                 <div class="card-premium h-100 border-light border-opacity-50 position-relative overflow-hidden shadow-sm d-flex flex-column">
                     <!-- Professional Background Score Indicator (Moved and Refined to prevent overlap) -->
@@ -127,7 +155,7 @@
 
                             <!-- Right: Price and Quick Badges -->
                             <div class="text-end position-relative" style="z-index: 2;">
-                                <div class="h4 fw-bold mb-1 {% if item.day_change > 0 %}text-success{% elif item.day_change < 0 %}text-danger{% else %}text-dark{% endif %}">฿{{ item.current_price|floatformat:2|intcomma }}</div>
+                                <div class="h4 fw-bold mb-1 {% if item.day_change > 0 %}text-success{% elif item.day_change < 0 %}text-danger{% else %}text-dark{% endif %}">{% if item.is_us %}${% else %}฿{% endif %}{{ item.current_price|floatformat:2|intcomma }}</div>
                                 <div class="d-flex flex-column align-items-end gap-1">
                                     <span class="badge {% if item.day_change > 0 %}bg-success{% elif item.day_change < 0 %}bg-danger{% else %}bg-secondary{% endif %} bg-opacity-10 {% if item.day_change > 0 %}text-success{% elif item.day_change < 0 %}text-danger{% else %}text-secondary{% endif %} rounded-pill" style="font-size: 0.7rem; font-weight: 700;">
                                         {% if item.day_change > 0 %}+{% endif %}{{ item.day_change|floatformat:2 }}%
@@ -157,7 +185,7 @@
                                     <div class="text-muted small mb-1" style="font-size: 0.7rem; letter-spacing: 0.5px;">AVG COST</div>
                                     <div class="fw-bold fs-6">
                                         {% if item.obj.entry_price > 0 %}
-                                            ฿{{ item.obj.entry_price|floatformat:2|intcomma }}
+                                            {% if item.is_us %}${% else %}฿{% endif %}{{ item.obj.entry_price|floatformat:2|intcomma }}
                                         {% else %}
                                             <span class="text-muted small fw-normal">Not Set</span>
                                         {% endif %}
@@ -170,7 +198,7 @@
                                         {% if item.gain_loss > 0 %}+{% endif %}{{ item.gain_loss_pct|floatformat:1 }}%
                                     </div>
                                     <div class="{% if item.gain_loss > 0 %}text-success{% elif item.gain_loss < 0 %}text-danger{% else %}text-muted{% endif %}" style="font-size: 0.72rem; font-weight: 600;">
-                                        {% if item.gain_loss > 0 %}+{% endif %}฿{{ item.gain_loss|floatformat:0|intcomma }}
+                                        {% if item.gain_loss > 0 %}+{% endif %}{% if item.is_us %}${% else %}฿{% endif %}{{ item.gain_loss|floatformat:0|intcomma }}
                                     </div>
                                     {% else %}
                                     <div class="fw-bold fs-6 text-muted">-</div>
@@ -200,7 +228,7 @@
                                 </div>
                                 <div class="col-4">
                                     <div class="text-muted small mb-1" style="font-size: 0.7rem; letter-spacing: 0.5px;">ENTRY ZONE</div>
-                                    <div class="fw-bold text-success" style="font-size: 0.8rem;">฿{{ item.mom_data.demand_zone_start|floatformat:2|default:"-" }}</div>
+                                    <div class="fw-bold text-success" style="font-size: 0.8rem;">{% if item.is_us %}${% else %}฿{% endif %}{{ item.mom_data.demand_zone_start|floatformat:2|default:"-" }}</div>
                                 </div>
                             </div>
                             {% endif %}
@@ -218,7 +246,7 @@
                                     <i class="fas fa-chart-line me-1"></i>Trailing Stop (ATR×{{ item.obj.trail_multiplier }})
                                 </div>
                                 <div class="fw-bold {% if item.trailing_stop_data.color == 'danger' %}text-danger{% elif item.trailing_stop_data.color == 'warning' %}text-warning{% else %}text-success{% endif %}" style="font-size:1rem;">
-                                    ฿{{ item.trailing_stop_data.trailing_stop|floatformat:2 }}
+                                    {% if item.is_us %}${% else %}฿{% endif %}{{ item.trailing_stop_data.trailing_stop|floatformat:2 }}
                                 </div>
                                 <div class="mt-1" style="font-size:0.62rem;font-weight:600;">
                                     {% if item.trailing_stop_data.color == 'danger' %}
@@ -232,7 +260,7 @@
                                     {% endif %}
                                 </div>
                                 <div class="mt-1 text-muted" style="font-size:0.58rem;">
-                                    High: ฿{{ item.trailing_stop_data.highest|floatformat:2 }} · ห่าง {{ item.trailing_stop_data.distance_pct|floatformat:1 }}%
+                                    High: {% if item.is_us %}${% else %}฿{% endif %}{{ item.trailing_stop_data.highest|floatformat:2 }} · ห่าง {{ item.trailing_stop_data.distance_pct|floatformat:1 }}%
                                     {% if item.trailing_stop_data.gain_from_entry != 0 %}
                                     · จากทุน {% if item.trailing_stop_data.gain_from_entry > 0 %}+{% endif %}{{ item.trailing_stop_data.gain_from_entry|floatformat:1 }}%
                                     {% endif %}
@@ -254,7 +282,7 @@
                                 </div>
                                 {% if item.mom_data.supply_zone_start %}
                                 <div class="fw-bold text-primary" style="font-size: 1rem;">
-                                    ฿{{ item.mom_data.supply_zone_start|floatformat:2 }}
+                                    {% if item.is_us %}${% else %}฿{% endif %}{{ item.mom_data.supply_zone_start|floatformat:2 }}
                                 </div>
                                 <div class="mt-1 text-primary" style="font-size: 0.62rem; font-weight: 600; opacity: 0.75;">
                                     <i class="fas fa-arrow-up me-1"></i>TARGET
@@ -356,7 +384,7 @@
                                    title="CrewAI วิเคราะห์โดยพิจารณาราคาทุนของคุณ">
                                     <i class="fas fa-robot me-1"></i> CrewAI
                                 </a>
-                                <div class="text-muted d-none d-sm-block" style="font-size: 0.82rem;">Value: <span class="fw-bold text-dark">฿{{ item.market_value|floatformat:0|intcomma }}</span></div>
+                                <div class="text-muted d-none d-sm-block" style="font-size: 0.82rem;">Value: <span class="fw-bold text-dark">{% if item.is_us %}${% else %}฿{% endif %}{{ item.market_value|floatformat:0|intcomma }}</span></div>
                             </div>
                             <div class="d-flex gap-2">
                                 <button type="button" class="btn btn-light btn-sm rounded-circle shadow-sm border text-success" style="width: 36px; height: 36px;"
@@ -400,8 +428,8 @@
                             <th class="text-end">Price</th>
                             <th class="text-end">Day%</th>
                             <th class="text-end">P/L%</th>
-                            <th class="text-end">P/L ฿</th>
-                            <th class="text-end">Value ฿</th>
+                            <th class="text-end">P/L</th>
+                            <th class="text-end">Value</th>
                             <th class="text-center d-none d-md-table-cell">Zone</th>
                             <th class="text-end d-none d-md-table-cell">SL</th>
                             <th class="text-end d-none d-md-table-cell">TP</th>
@@ -411,6 +439,20 @@
                     </thead>
                     <tbody>
                         {% for item in items %}
+                        {% if item.show_group_header %}
+                        <tr>
+                            <td colspan="11" class="pt-3 pb-1 px-2">
+                                <div class="d-flex align-items-center gap-2">
+                                    {% if item.is_us %}
+                                    <span class="badge rounded-pill px-3 py-1" style="background:#dbeafe;color:#1e40af;font-size:0.72rem;">🇺🇸 หุ้น US ($)</span>
+                                    {% else %}
+                                    <span class="badge rounded-pill px-3 py-1" style="background:#fef9c3;color:#92400e;font-size:0.72rem;">🇹🇭 หุ้นไทย (SET) (฿)</span>
+                                    {% endif %}
+                                    <hr class="flex-grow-1 m-0" style="border-color:#e2e8f0;">
+                                </div>
+                            </td>
+                        </tr>
+                        {% endif %}
                         <tr class="border-bottom border-light">
                             <!-- Symbol -->
                             <td>
@@ -435,7 +477,7 @@
                             </td>
                             <!-- Price -->
                             <td class="text-end fw-bold {% if item.day_change > 0 %}text-success{% elif item.day_change < 0 %}text-danger{% else %}text-dark{% endif %}" style="font-size:0.9rem;">
-                                ฿{{ item.current_price|floatformat:2 }}
+                                {% if item.is_us %}${% else %}฿{% endif %}{{ item.current_price|floatformat:2 }}
                             </td>
                             <!-- Day% -->
                             <td class="text-end">
@@ -449,14 +491,14 @@
                                     {% if item.gain_loss > 0 %}+{% endif %}{{ item.gain_loss_pct|floatformat:1 }}%
                                 {% else %}-{% endif %}
                             </td>
-                            <!-- P/L ฿ -->
+                            <!-- P/L -->
                             <td class="text-end fw-bold {% if item.gain_loss > 0 %}text-success{% elif item.gain_loss < 0 %}text-danger{% else %}text-muted{% endif %}" style="font-size:0.85rem;">
                                 {% if item.obj.entry_price > 0 %}
-                                    {% if item.gain_loss > 0 %}+{% endif %}฿{{ item.gain_loss|floatformat:0|intcomma }}
+                                    {% if item.gain_loss > 0 %}+{% endif %}{% if item.is_us %}${% else %}฿{% endif %}{{ item.gain_loss|floatformat:0|intcomma }}
                                 {% else %}-{% endif %}
                             </td>
                             <!-- Value -->
-                            <td class="text-end fw-bold text-dark" style="font-size:0.85rem;">฿{{ item.market_value|floatformat:0|intcomma }}</td>
+                            <td class="text-end fw-bold text-dark" style="font-size:0.85rem;">{% if item.is_us %}${% else %}฿{% endif %}{{ item.market_value|floatformat:0|intcomma }}</td>
                             <!-- Zone -->
                             <td class="text-center d-none d-md-table-cell" style="font-size:0.75rem;">
                                 {% if item.mom_data %}
@@ -475,14 +517,14 @@
                             <td class="text-end d-none d-md-table-cell" style="font-size:0.8rem;">
                                 {% if item.mom_data and item.mom_data.stop_loss %}
                                 <span class="fw-bold {% if item.trailing_stop_data.color == 'danger' %}text-danger{% elif item.trailing_stop_data.color == 'warning' %}text-warning{% else %}text-muted{% endif %}">
-                                    ฿{{ item.mom_data.stop_loss|floatformat:2 }}
+                                    {% if item.is_us %}${% else %}฿{% endif %}{{ item.mom_data.stop_loss|floatformat:2 }}
                                 </span>
                                 {% else %}<span class="text-muted">-</span>{% endif %}
                             </td>
                             <!-- TP -->
                             <td class="text-end d-none d-md-table-cell" style="font-size:0.8rem;">
                                 {% if item.mom_data and item.mom_data.supply_zone_start %}
-                                <span class="fw-bold text-primary">฿{{ item.mom_data.supply_zone_start|floatformat:2 }}</span>
+                                <span class="fw-bold text-primary">{% if item.is_us %}${% else %}฿{% endif %}{{ item.mom_data.supply_zone_start|floatformat:2 }}</span>
                                 {% else %}<span class="text-muted">-</span>{% endif %}
                             </td>
                             <!-- Score/Signals -->
