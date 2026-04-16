@@ -555,10 +555,13 @@ class CupHandleCandidate(models.Model):
     rs_rating       = models.IntegerField(default=0)
     adx             = models.FloatField(default=0.0)
     rsi             = models.FloatField(default=0.0)
+    # ── Market ────────────────────────────────────────────────────
+    market          = models.CharField(max_length=10, default='SET')  # 'SET' | 'US'
+    breakout_vol_ok = models.BooleanField(default=False)  # Volume ≥1.5x avg on breakout bar
 
     class Meta:
         ordering = ['-scan_run', '-confidence_score']
-        indexes  = [models.Index(fields=['user', 'scan_run'])]
+        indexes  = [models.Index(fields=['user', 'scan_run', 'market'])]
         verbose_name = 'Cup & Handle Candidate'
 
     def __str__(self):

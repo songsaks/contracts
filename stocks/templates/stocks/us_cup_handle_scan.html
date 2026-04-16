@@ -1,0 +1,572 @@
+{% extends 'stocks/base_stocks.html' %}
+{% load humanize %}
+
+{% block title %}US Cup & Handle Scanner{% endblock %}
+{% block container_class %}container-fluid px-2 px-md-3{% endblock %}
+
+{% block content %}
+<div>
+
+<!-- ===== Header ===== -->
+<div class="row align-items-end mb-4">
+    <div class="col-md-8">
+        <h1 class="fw-bold mb-1" style="color:#2563eb;">
+            <i class="fas fa-trophy me-2"></i> 🇺🇸 US Cup &amp; Handle Scanner
+        </h1>
+        <p class="text-muted mb-0">
+            ตรวจหาหุ้น US ที่กำลัง form Cup &amp; Handle Pattern (William O'Neil — CAN SLIM)<br>
+            <span class="small">Universe ~{{ total_symbols }} หุ้น · Liquidity ≥ $1M USD/วัน · Cup depth 12-40% · ย้อนหลัง 600 วัน</span>
+        </p>
+    </div>
+    <div class="col-md-4 text-md-end mt-3 mt-md-0 d-flex gap-2 justify-content-md-end">
+        <button class="btn btn-sm px-3 py-2 rounded-pill"
+                data-bs-toggle="collapse" data-bs-target="#userManual"
+                style="border:1px solid #2563eb;color:#2563eb;font-size:0.8rem;">
+            <i class="fas fa-book me-1"></i> คู่มือการใช้งาน
+        </button>
+        <a href="?scan=true" onclick="document.getElementById('loadingOverlay').style.display='flex'"
+           class="btn px-4 py-2 fw-semibold"
+           style="background:linear-gradient(135deg,#2563eb,#1d4ed8);color:white;border:none;border-radius:0.75rem;">
+            <i class="fas fa-search me-2"></i> Scan
+        </a>
+        {% if all_runs %}
+        <form method="post" action="{% url 'stocks:clear_scan_data' %}" class="d-inline" onsubmit="return confirm('ลบข้อมูลสแกน US Cup & Handle ทั้งหมด?')">
+            {% csrf_token %}
+            <input type="hidden" name="scanner" value="us_cup_handle">
+            <input type="hidden" name="next" value="{% url 'stocks:us_cup_handle_scanner' %}">
+            <button type="submit" class="btn btn-outline-secondary d-inline-flex align-items-center gap-2" style="font-size:0.82rem;">
+                <i class="fas fa-trash-alt"></i> ล้างข้อมูล
+            </button>
+        </form>
+        {% endif %}
+    </div>
+</div>
+
+<!-- ===== Loading Overlay ===== -->
+<div id="loadingOverlay" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,0.85);z-index:9999;flex-direction:column;align-items:center;justify-content:center;gap:1rem;">
+    <div class="spinner-border text-primary" style="width:3rem;height:3rem;"></div>
+    <div class="text-white fw-bold fs-5">กำลังสแกน US Cup &amp; Handle...</div>
+    <div id="scanProgress" class="text-white-50 small">เริ่มต้น...</div>
+    <div style="width:320px;background:rgba(255,255,255,0.1);border-radius:999px;height:8px;">
+        <div id="scanBar" style="width:0%;height:100%;background:#2563eb;border-radius:999px;transition:width 0.3s;"></div>
+    </div>
+</div>
+
+<!-- ===== User Manual ===== -->
+<div class="collapse mb-4" id="userManual">
+<div class="card border-0 shadow-sm rounded-4 overflow-hidden">
+    <div class="card-header border-0 py-3 px-4 fw-bold" style="background:linear-gradient(135deg,#1e293b,#0f172a);color:white;">
+        <i class="fas fa-book me-2" style="color:#2563eb;"></i> คู่มือการใช้งาน US Cup &amp; Handle Scanner
+    </div>
+    <div class="card-body p-4">
+        <div class="row g-4">
+            <div class="col-12">
+                <h6 class="fw-bold mb-3" style="color:#2563eb;"><i class="fas fa-shapes me-2"></i>1. Cup &amp; Handle คืออะไร?</h6>
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <div class="p-3 rounded-3 h-100" style="background:#eff6ff;border:1px solid #bfdbfe;">
+                            <div class="fw-bold mb-2" style="color:#2563eb;">☕ Cup (ถ้วย)</div>
+                            <p class="small text-secondary mb-0">ราคาย่อตัวลงแล้วฟื้นกลับในรูปทรง U — แสดงว่าสถาบันยังไม่ขาย ความลึก <strong>20-30%</strong> คือ ideal สำหรับหุ้น US</p>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="p-3 rounded-3 h-100" style="background:#f0fdf4;border:1px solid #bbf7d0;">
+                            <div class="fw-bold mb-2" style="color:#16a34a;">🤏 Handle (ด้ามจับ)</div>
+                            <p class="small text-secondary mb-0">การย่อเล็กน้อยหลัง Cup ครบ — Volume ควรแห้ง (VDU) เตรียม Breakout Handle depth ≤ 10-15%</p>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="p-3 rounded-3 h-100" style="background:#fef3c7;border:1px solid #fde68a;">
+                            <div class="fw-bold mb-2" style="color:#d97706;">🚀 Breakout + Volume</div>
+                            <p class="small text-secondary mb-0">ราคาทะลุ pivot high พร้อม <strong>Volume ≥ 1.5x avg</strong> — O'Neil rule ที่สำคัญที่สุด ระบบตรวจ <code>breakout_vol_ok</code> ให้อัตโนมัติ</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="p-3 rounded-3" style="background:#f0fdf4;border:1px solid #bbf7d0;">
+                    <div class="fw-bold text-success mb-2">✅ เกณฑ์ดีมาก (US Stocks)</div>
+                    <ul class="text-secondary small mb-0 ps-3">
+                        <li>Cup Depth 20-30%</li>
+                        <li>Cup ≥ 35 วัน (6-7 สัปดาห์)</li>
+                        <li>Handle Depth ≤ 10%</li>
+                        <li>มี VDU ใน Handle</li>
+                        <li>Breakout Vol ≥ 1.5x avg <span class="badge ms-1" style="background:#dcfce7;color:#15803d;font-size:0.6rem;">ตรวจอัตโนมัติ</span></li>
+                        <li>Confidence ≥ 75 · RS ≥ 70</li>
+                        <li>ADX ≥ 15 · RSI 40-70</li>
+                        <li>R:R ≥ 1:2</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="p-3 rounded-3" style="background:#fff1f2;border:1px solid #fecdd3;">
+                    <div class="fw-bold text-danger mb-2">❌ ระวัง / หลีกเลี่ยง</div>
+                    <ul class="text-secondary small mb-0 ps-3">
+                        <li>Cup &lt; 25 วัน (V-shape)</li>
+                        <li>Cup Depth &gt; 40% (ลึกเกิน)</li>
+                        <li>Handle ลงต่ำกว่ากลาง Cup</li>
+                        <li>Handle Depth &gt; 15%</li>
+                        <li>Breakout ไม่มี Volume (Vol↑ ไม่ติด)</li>
+                        <li>ADX &lt; 10 (ไม่มี trend)</li>
+                        <li>RSI &gt; 80 ตอน Breakout</li>
+                        <li>S&P 500 / Nasdaq อยู่ใน Downtrend</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+</div>
+
+{% if not has_scanned %}
+<div class="row">
+    <div class="col-12 text-center py-5">
+        <i class="fas fa-trophy fa-4x mb-3" style="color:#e5e7eb;"></i>
+        <h4 class="text-muted fw-semibold">ยังไม่มีผลสแกน</h4>
+        <p class="text-muted small">กด "Scan" เพื่อเริ่มค้นหา Cup &amp; Handle Pattern ใน Universe ~{{ total_symbols }} หุ้น US</p>
+        <a href="?scan=true" onclick="document.getElementById('loadingOverlay').style.display='flex'"
+           class="btn px-4 py-2 fw-semibold mt-2"
+           style="background:linear-gradient(135deg,#2563eb,#1d4ed8);color:white;border:none;border-radius:0.75rem;">
+            <i class="fas fa-search me-2"></i> เริ่มสแกน
+        </a>
+    </div>
+</div>
+
+{% else %}
+
+<!-- ===== Run History ===== -->
+{% if all_runs|length > 1 %}
+<div class="mb-3 d-flex align-items-center gap-2 flex-wrap">
+    <span class="small text-muted fw-semibold"><i class="fas fa-history me-1"></i> ประวัติ Scan:</span>
+    {% for run in all_runs %}
+    <a href="?run_idx={{ forloop.counter0 }}&sort={{ current_sort }}"
+       class="badge rounded-pill text-decoration-none px-3 py-2"
+       style="{% if forloop.counter0 == selected_run_idx %}background:#2563eb;color:white;{% else %}background:#f1f5f9;color:#64748b;{% endif %}font-size:0.72rem;">
+        {{ run|date:"d M H:i" }}
+    </a>
+    {% endfor %}
+</div>
+{% endif %}
+
+<!-- ===== Summary Stats ===== -->
+<div class="row g-3 mb-3">
+    <div class="col-6 col-md-3">
+        <a href="?stage=breakout&run_idx={{ selected_run_idx }}&min_conf={{ min_conf }}&rs_only={{ rs_only|yesno:'1,0' }}"
+           class="card border-0 shadow-sm rounded-4 p-3 text-center text-decoration-none"
+           style="{% if stage_filter == 'breakout' %}background:#f0fdf4;border:2px solid #16a34a !important;{% endif %}">
+            <div class="fw-bold fs-3" style="color:#16a34a;">{{ stage_counts.breakout }}</div>
+            <div class="small text-muted">🚀 Breakout</div>
+        </a>
+    </div>
+    <div class="col-6 col-md-3">
+        <a href="?stage=ready&run_idx={{ selected_run_idx }}&min_conf={{ min_conf }}&rs_only={{ rs_only|yesno:'1,0' }}"
+           class="card border-0 shadow-sm rounded-4 p-3 text-center text-decoration-none"
+           style="{% if stage_filter == 'ready' %}background:#eff6ff;border:2px solid #2563eb !important;{% endif %}">
+            <div class="fw-bold fs-3" style="color:#2563eb;">{{ stage_counts.ready }}</div>
+            <div class="small text-muted">✅ Ready to Break</div>
+        </a>
+    </div>
+    <div class="col-6 col-md-3">
+        <a href="?stage=handle&run_idx={{ selected_run_idx }}&min_conf={{ min_conf }}&rs_only={{ rs_only|yesno:'1,0' }}"
+           class="card border-0 shadow-sm rounded-4 p-3 text-center text-decoration-none"
+           style="{% if stage_filter == 'handle' %}background:#fffbeb;border:2px solid #d97706 !important;{% endif %}">
+            <div class="fw-bold fs-3" style="color:#d97706;">{{ stage_counts.handle }}</div>
+            <div class="small text-muted">⏳ Handle Forming</div>
+        </a>
+    </div>
+    <div class="col-6 col-md-3">
+        <a href="?stage=forming&run_idx={{ selected_run_idx }}&min_conf={{ min_conf }}&rs_only={{ rs_only|yesno:'1,0' }}"
+           class="card border-0 shadow-sm rounded-4 p-3 text-center text-decoration-none"
+           style="{% if stage_filter == 'forming' %}background:#f8fafc;border:2px solid #64748b !important;{% endif %}">
+            <div class="fw-bold fs-3" style="color:#64748b;">{{ stage_counts.forming }}</div>
+            <div class="small text-muted">🔄 Cup Forming</div>
+        </a>
+    </div>
+</div>
+
+{% if stage_counts.breakout == 0 and stage_counts.ready == 0 and stage_counts.handle == 0 %}
+<div class="alert rounded-4 border-0 shadow-sm mb-3 d-flex align-items-start gap-3" style="background:#eff6ff;border-left:4px solid #2563eb !important;">
+    <span style="font-size:1.5rem;">💡</span>
+    <div>
+        <div class="fw-bold mb-1" style="color:#1e40af;">ยังไม่มีหุ้น US พร้อม Breakout วันนี้</div>
+        <div class="small text-secondary">
+            มี <strong>{{ stage_counts.forming }} หุ้น</strong> กำลังสร้างถ้วย (Cup Forming) — ยังไม่ถึงจังหวะซื้อ
+            {% if closest_forming %}
+            <br>หุ้นที่ <strong>ฟื้นตัวมากที่สุด</strong>:
+            <span class="fw-bold" style="color:#2563eb;">{{ closest_forming.symbol }}</span>
+            ฟื้น {{ closest_forming.recovery_pct }}% แล้ว
+            (เหลือ {{ closest_forming.pct_to_breakout }}% ถึง Breakout)
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- ===== Results Table ===== -->
+<div class="card border-0 shadow-sm rounded-4 overflow-hidden">
+    <div class="card-header border-0 py-3 px-4" style="background:linear-gradient(135deg,#eff6ff,#dbeafe);">
+        <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-2">
+            <div>
+                <span class="fw-bold" style="color:#2563eb;"><i class="fas fa-trophy me-2"></i>ผลสแกน US Cup &amp; Handle</span>
+                <span class="badge rounded-pill ms-2" style="background:#2563eb;font-size:0.7rem;">{{ candidates|length }} หุ้น</span>
+                {% if scanned_at %}<span class="text-muted small ms-2">สแกนเมื่อ {{ scanned_at|date:"d M Y H:i" }}</span>{% endif %}
+            </div>
+            <div class="d-flex gap-2 align-items-center flex-wrap">
+                <div class="form-check form-switch mb-0">
+                    <input class="form-check-input" type="checkbox" id="rsOnlyToggle"
+                           {% if rs_only %}checked{% endif %} onchange="applyChFilters()">
+                    <label class="form-check-label small fw-semibold" for="rsOnlyToggle" style="color:#2563eb;">RS ≥ 70</label>
+                </div>
+                <div class="d-flex align-items-center gap-1 small">
+                    <span class="text-muted fw-semibold">Conf ≥</span>
+                    <select id="minConfSelect" class="form-select form-select-sm rounded-pill"
+                            style="width:70px;font-size:0.72rem;" onchange="applyChFilters()">
+                        <option value="0"  {% if min_conf == 0  %}selected{% endif %}>All</option>
+                        <option value="55" {% if min_conf == 55 %}selected{% endif %}>55</option>
+                        <option value="70" {% if min_conf == 70 %}selected{% endif %}>70</option>
+                        <option value="80" {% if min_conf == 80 %}selected{% endif %}>80</option>
+                    </select>
+                </div>
+                {% if stage_filter != 'all' %}
+                <a href="?stage=all&run_idx={{ selected_run_idx }}&min_conf={{ min_conf }}&rs_only={{ rs_only|yesno:'1,0' }}"
+                   class="btn btn-sm btn-outline-secondary rounded-pill" style="font-size:0.72rem;">
+                    <i class="fas fa-times me-1"></i> ล้าง Filter
+                </a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    {% if candidates %}
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0 small" id="cupHandleTable">
+            <thead style="background:#f0f7ff;font-size:0.72rem;color:#78716c;">
+                <tr>
+                    <th class="ps-3">Symbol</th>
+                    <th>Stage</th>
+                    <th class="text-end">Price ($)</th>
+                    <th class="text-end">% to BO</th>
+                    <th class="text-end">Breakout ($)</th>
+                    <th class="text-end">Target ($)</th>
+                    <th class="text-end">Stop Loss ($)</th>
+                    <th class="text-end">R:R</th>
+                    <th class="text-end">Cup Depth</th>
+                    <th class="text-end">Cup (Days)</th>
+                    <th class="text-end">Handle Depth</th>
+                    <th class="text-end">Confidence</th>
+                    <th class="text-center">Signals</th>
+                    <th class="text-end pe-3">ADX / RSI</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for item in candidates %}
+            <tr class="ch-popover-row" style="cursor:pointer;"
+                data-symbol="{{ item.symbol }}"
+                data-stage="{{ item.stage }}"
+                data-price="{{ item.price }}"
+                data-pivot="{{ item.cup_high }}"
+                data-cup-low="{{ item.cup_low }}"
+                data-cup-depth="{{ item.cup_depth_pct }}"
+                data-cup-length="{{ item.cup_length_days }}"
+                data-handle-depth="{{ item.handle_depth_pct }}"
+                data-handle-length="{{ item.handle_length_days }}"
+                data-breakout="{{ item.breakout_price }}"
+                data-target="{{ item.target_price }}"
+                data-stop="{{ item.stop_loss }}"
+                data-rr="{{ item.risk_reward }}"
+                data-confidence="{{ item.confidence_score }}"
+                data-adx="{{ item.adx }}"
+                data-rsi="{{ item.rsi }}"
+                data-vol-cup="{% if item.cup_vol_confirmed %}1{% else %}0{% endif %}"
+                data-vdu="{% if item.handle_vol_dry %}1{% else %}0{% endif %}"
+                data-bvol="{% if item.breakout_vol_ok %}1{% else %}0{% endif %}"
+                data-rs="{{ item.rs_rating }}">
+
+                <td class="ps-3">
+                    <div class="fw-bold" style="color:#1e293b;">{{ item.symbol }}</div>
+                    <div class="text-muted" style="font-size:0.65rem;">{{ item.sector|default:"—" }}</div>
+                </td>
+                <td>
+                    {% if item.stage == 'breakout' %}
+                        <span class="badge px-2 py-1 rounded-pill" style="background:#dcfce7;color:#15803d;font-size:0.68rem;">🚀 Breakout</span>
+                        {% if item.breakout_vol_ok %}
+                        <div style="font-size:0.58rem;color:#15803d;margin-top:2px;">Vol ✅ confirmed</div>
+                        {% else %}
+                        <div style="font-size:0.58rem;color:#ef4444;margin-top:2px;">Vol ⚠️ low</div>
+                        {% endif %}
+                    {% elif item.stage == 'ready' %}
+                        <span class="badge px-2 py-1 rounded-pill" style="background:#dbeafe;color:#1d4ed8;font-size:0.68rem;">✅ Ready</span>
+                    {% elif item.stage == 'handle' %}
+                        <span class="badge px-2 py-1 rounded-pill" style="background:#fef3c7;color:#d97706;font-size:0.68rem;">⏳ Handle</span>
+                    {% else %}
+                        <div>
+                            <span class="badge px-2 py-1 rounded-pill" style="background:#f1f5f9;color:#64748b;font-size:0.68rem;">🔄 Forming</span>
+                            <div class="mt-1" style="width:70px;" title="ฟื้นตัว {{ item.recovery_pct }}% แล้ว">
+                                <div style="background:#e2e8f0;border-radius:999px;height:4px;overflow:hidden;">
+                                    <div style="width:{{ item.recovery_pct }}%;height:100%;background:{% if item.recovery_pct >= 80 %}#2563eb{% elif item.recovery_pct >= 50 %}#7c3aed{% else %}#94a3b8{% endif %};border-radius:999px;"></div>
+                                </div>
+                                <div style="font-size:0.58rem;color:#94a3b8;margin-top:1px;">{{ item.recovery_pct }}% recovered</div>
+                            </div>
+                        </div>
+                    {% endif %}
+                </td>
+                <td class="text-end">${{ item.price|floatformat:2 }}</td>
+                <td class="text-end">
+                    {% if item.stage == 'breakout' %}
+                        <span class="badge rounded-pill px-2" style="background:#dcfce7;color:#15803d;font-size:0.65rem;">✅ Done</span>
+                    {% else %}
+                        <span class="fw-semibold" style="color:{% if item.pct_to_breakout <= 5 %}#16a34a{% elif item.pct_to_breakout <= 10 %}#d97706{% else %}#94a3b8{% endif %};font-size:0.8rem;">
+                            {{ item.pct_to_breakout|floatformat:1 }}%
+                        </span>
+                    {% endif %}
+                </td>
+                <td class="text-end fw-semibold" style="color:#2563eb;">${{ item.breakout_price|floatformat:2 }}</td>
+                <td class="text-end" style="color:#16a34a;">${{ item.target_price|floatformat:2 }}</td>
+                <td class="text-end" style="color:#dc2626;">${{ item.stop_loss|floatformat:2 }}</td>
+                <td class="text-end">
+                    {% if item.risk_reward >= 2 %}
+                        <span class="fw-bold" style="color:#16a34a;">1:{{ item.risk_reward|floatformat:1 }}</span>
+                    {% elif item.risk_reward >= 1.5 %}
+                        <span style="color:#d97706;">1:{{ item.risk_reward|floatformat:1 }}</span>
+                    {% else %}
+                        <span class="text-muted">1:{{ item.risk_reward|floatformat:1 }}</span>
+                    {% endif %}
+                </td>
+                <td class="text-end">
+                    <span class="{% if 20 <= item.cup_depth_pct <= 30 %}fw-bold text-success{% elif item.cup_depth_pct > 35 %}text-danger{% else %}text-muted{% endif %}">
+                        {{ item.cup_depth_pct|floatformat:1 }}%
+                    </span>
+                </td>
+                <td class="text-end">
+                    <span class="{% if item.cup_length_days >= 35 %}text-success{% elif item.cup_length_days >= 25 %}text-warning{% else %}text-danger{% endif %}">
+                        {{ item.cup_length_days }}d
+                    </span>
+                </td>
+                <td class="text-end">
+                    {% if item.handle_depth_pct > 0 %}
+                        <span class="{% if item.handle_depth_pct <= 10 %}text-success{% elif item.handle_depth_pct <= 15 %}text-warning{% else %}text-danger{% endif %}">
+                            {{ item.handle_depth_pct|floatformat:1 }}%
+                        </span>
+                    {% else %}
+                        <span class="text-muted">—</span>
+                    {% endif %}
+                </td>
+                <td class="text-end">
+                    <span class="fw-bold {% if item.confidence_score >= 75 %}text-success{% elif item.confidence_score >= 55 %}text-warning{% else %}text-muted{% endif %}">
+                        {{ item.confidence_score }}
+                    </span>
+                </td>
+                <td class="text-center">
+                    <div class="d-flex gap-1 justify-content-center flex-wrap">
+                        {% if item.cup_vol_confirmed %}
+                        <span class="badge px-1" style="background:#dcfce7;color:#15803d;font-size:0.6rem;" title="Volume ลดลงใน Cup = สถาบันไม่ขาย">Vol↓Cup</span>
+                        {% endif %}
+                        {% if item.handle_vol_dry %}
+                        <span class="badge px-1" style="background:#dbeafe;color:#1d4ed8;font-size:0.6rem;" title="Volume แห้งใน Handle = เตรียม Breakout">VDU</span>
+                        {% endif %}
+                        {% if item.breakout_vol_ok %}
+                        <span class="badge px-1" style="background:#fef9c3;color:#854d0e;font-size:0.6rem;" title="Breakout Volume ≥ 1.5x avg — O'Neil confirmed">Vol↑BO</span>
+                        {% endif %}
+                        {% if item.rs_rating >= 70 %}
+                        <span class="badge px-1" style="background:#fef3c7;color:#d97706;font-size:0.6rem;">RS{{ item.rs_rating }}</span>
+                        {% endif %}
+                    </div>
+                </td>
+                <td class="text-end pe-3">
+                    <span class="{% if item.adx >= 25 %}text-success{% elif item.adx >= 15 %}text-warning{% else %}text-danger{% endif %}">ADX {{ item.adx|floatformat:0 }}</span>
+                    <span class="text-muted"> / </span>
+                    <span class="{% if 40 <= item.rsi <= 70 %}text-success{% elif item.rsi > 80 %}text-danger{% else %}text-muted{% endif %}">RSI {{ item.rsi|floatformat:0 }}</span>
+                </td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="text-center py-5 text-muted">
+        <i class="fas fa-search fa-3x mb-3 opacity-25"></i>
+        <p>ไม่พบ US Cup &amp; Handle Pattern ในรอบสแกนนี้</p>
+    </div>
+    {% endif %}
+</div>
+
+{% endif %}
+</div>
+
+<!-- ===== Progress Polling ===== -->
+<script>
+(function() {
+    var overlay = document.getElementById('loadingOverlay');
+    var bar     = document.getElementById('scanBar');
+    var prog    = document.getElementById('scanProgress');
+
+    function checkStatus() {
+        fetch('?scan_status=1')
+            .then(r => r.json())
+            .then(data => {
+                if (data.state === 'running') {
+                    overlay.style.display = 'flex';
+                    var pct = data.total > 0 ? Math.round(data.progress / data.total * 100) : 0;
+                    bar.style.width  = pct + '%';
+                    prog.textContent = data.phase || ('สแกน ' + data.progress + '/' + data.total);
+                    setTimeout(checkStatus, 1500);
+                } else if (data.state === 'done') {
+                    overlay.style.display = 'none';
+                    window.location.reload();
+                } else {
+                    overlay.style.display = 'none';
+                }
+            })
+            .catch(() => { overlay.style.display = 'none'; });
+    }
+
+    if (overlay && overlay.style.display === 'flex') {
+        setTimeout(checkStatus, 1000);
+    } else {
+        fetch('?scan_status=1')
+            .then(r => r.json())
+            .then(data => {
+                if (data.state === 'running') {
+                    overlay.style.display = 'flex';
+                    checkStatus();
+                }
+            }).catch(() => {});
+    }
+})();
+</script>
+
+<style>
+.ch-popover-row:hover { background: rgba(37,99,235,0.05) !important; }
+.popover.ch-dark { background:#0f172a; border:1px solid #334155; max-width:360px; z-index:10000 !important; }
+.popover.ch-dark .popover-header { background:#1e293b !important; color:#f1f5f9 !important; border-bottom:1px solid #334155 !important; font-size:0.78rem; padding:8px 12px; }
+.popover.ch-dark .popover-body { padding:10px 12px; color:#e2e8f0 !important; background:#0f172a !important; }
+.popover.ch-dark .popover-body * { color:inherit !important; }
+.popover.ch-dark.bs-popover-end   .popover-arrow::before { border-right-color:#334155 !important; }
+.popover.ch-dark.bs-popover-end   .popover-arrow::after  { border-right-color:#0f172a !important; }
+.popover.ch-dark.bs-popover-start .popover-arrow::before { border-left-color:#334155 !important; }
+.popover.ch-dark.bs-popover-start .popover-arrow::after  { border-left-color:#0f172a !important; }
+.popover.ch-dark.bs-popover-top   .popover-arrow::before { border-top-color:#334155 !important; }
+.popover.ch-dark.bs-popover-top   .popover-arrow::after  { border-top-color:#0f172a !important; }
+.popover.ch-dark.bs-popover-bottom .popover-arrow::before{ border-bottom-color:#334155 !important; }
+.popover.ch-dark.bs-popover-bottom .popover-arrow::after { border-bottom-color:#0f172a !important; }
+.table-responsive { overflow: visible !important; }
+.ch-val-table { width:100%; border-collapse:collapse; margin-bottom:8px; font-size:0.71rem; }
+.ch-val-table tr { border-bottom:1px solid #1e293b; }
+.ch-val-table td { padding:3px 5px; vertical-align:top; color:#e2e8f0 !important; }
+.ch-section { font-size:0.7rem; margin-bottom:5px; line-height:1.5; }
+.ch-action { background:#1e293b; border-radius:5px; padding:5px 8px; font-size:0.71rem; color:#f1f5f9; margin-top:6px; }
+.tooltip { z-index:10001 !important; }
+</style>
+
+<script>
+function applyChFilters() {
+    var rsOnly  = document.getElementById('rsOnlyToggle').checked ? '1' : '0';
+    var minConf = document.getElementById('minConfSelect').value;
+    var stage   = '{{ stage_filter }}';
+    var runIdx  = {{ selected_run_idx }};
+    location.href = '?stage=' + stage + '&run_idx=' + runIdx + '&min_conf=' + minConf + '&rs_only=' + rsOnly;
+}
+
+(function() {
+    function fmtN(v, d) { return parseFloat(v).toFixed(d || 2); }
+
+    function buildContent(row) {
+        var sym    = row.dataset.symbol;
+        var stage  = row.dataset.stage;
+        var price  = parseFloat(row.dataset.price);
+        var pivot  = parseFloat(row.dataset.pivot);
+        var cupLow = parseFloat(row.dataset.cupLow);
+        var depth  = parseFloat(row.dataset.cupDepth);
+        var cupLen = parseInt(row.dataset.cupLength);
+        var hDepth = parseFloat(row.dataset.handleDepth);
+        var hLen   = parseInt(row.dataset.handleLength);
+        var bo     = parseFloat(row.dataset.breakout);
+        var tgt    = parseFloat(row.dataset.target);
+        var sl     = parseFloat(row.dataset.stop);
+        var rr     = parseFloat(row.dataset.rr);
+        var conf   = parseInt(row.dataset.confidence);
+        var adx    = parseFloat(row.dataset.adx);
+        var rsi    = parseFloat(row.dataset.rsi);
+        var volCup = row.dataset.volCup === '1';
+        var vdu    = row.dataset.vdu === '1';
+        var bvol   = row.dataset.bvol === '1';
+        var rs     = parseInt(row.dataset.rs);
+
+        var distPct = ((bo - price) / price * 100).toFixed(1);
+        var tgtPct  = ((tgt - bo) / bo * 100).toFixed(1);
+
+        var depthColor = (depth>=20&&depth<=30) ? '#22c55e' : (depth>35 ? '#ef4444' : '#f59e0b');
+        var depthNote  = (depth>=20&&depth<=30) ? 'Ideal ✅' : (depth>35 ? 'Too Deep ⚠️' : (depth<15 ? 'Too Shallow' : 'OK'));
+        var lenColor   = cupLen>=35 ? '#22c55e' : (cupLen>=25 ? '#f59e0b' : '#ef4444');
+        var lenNote    = cupLen>=50 ? 'Ideal ✅' : (cupLen>=35 ? 'Good' : 'Short');
+        var handleStr  = hLen > 0 ? (hLen + ' days (depth ' + fmtN(hDepth,1) + '%)') : 'Not formed';
+
+        var goods = [], warns = [];
+        if (depth>=20 && depth<=30) goods.push('Cup Depth ' + fmtN(depth,1) + '% — ideal zone');
+        else if (depth < 15) warns.push('Cup Depth ' + fmtN(depth,1) + '% too shallow');
+        else if (depth > 35) warns.push('Cup Depth ' + fmtN(depth,1) + '% too deep');
+        if (cupLen >= 50) goods.push('Cup ' + cupLen + ' days — strong accumulation');
+        else if (cupLen >= 35) goods.push('Cup ' + cupLen + ' days — good');
+        else warns.push('Cup ' + cupLen + ' days — too short');
+        if (volCup) goods.push('Volume decrease in cup ✅');
+        if (vdu)    goods.push('Volume dry-up in Handle (VDU) ✅');
+        if (bvol)   goods.push('Breakout Volume ≥ 1.5x avg ✅ (O\'Neil confirmed)');
+        else if (stage==='breakout') warns.push('Breakout Volume below 1.5x — weak signal');
+        if (rs >= 70) goods.push('RS ' + rs + ' — outperforming peers');
+        if (adx >= 25) goods.push('ADX ' + fmtN(adx,0) + ' strong trend');
+        else if (adx < 10) warns.push('ADX ' + fmtN(adx,0) + ' — no trend');
+        if (hLen > 0 && hDepth <= 10) goods.push('Handle depth ' + fmtN(hDepth,1) + '% — tight ✅');
+        else if (hDepth > 15) warns.push('Handle depth ' + fmtN(hDepth,1) + '% — too wide');
+        if (parseFloat(distPct) > 20) warns.push(distPct + '% away from breakout');
+        if (rsi > 75) warns.push('RSI ' + fmtN(rsi,0) + ' — near overbought');
+        if (conf >= 75) goods.push('Confidence ' + conf + ' — high ✅');
+
+        var action = '';
+        if (stage==='breakout') action = bvol ? '🚀 Volume confirmed — consider entry' : '⚠️ Breakout without volume — wait for confirmation';
+        else if (stage==='ready') action = '🎯 Set alert at $' + fmtN(bo,2) + ' — ready to break';
+        else if (stage==='handle') action = '👀 Watch handle — alert $' + fmtN(bo,2);
+        else action = '📋 Add to watchlist — cup forming';
+
+        var goodsHtml = goods.length ? '<div class="ch-section" style="color:#86efac;"><strong style="color:#22c55e;">Strengths</strong><br>' + goods.map(g=>'• '+g).join('<br>') + '</div>' : '';
+        var warnsHtml = warns.length ? '<div class="ch-section" style="color:#fde68a;"><strong style="color:#f59e0b;">Watch out</strong><br>' + warns.map(w=>'• '+w).join('<br>') + '</div>' : '';
+
+        return '<table class="ch-val-table">'
+            + '<tr><td style="color:#94a3b8;">Pivot High</td><td style="color:#f59e0b;font-weight:600;">$'+fmtN(pivot,2)+'</td><td style="color:#64748b;">cup left edge</td></tr>'
+            + '<tr><td style="color:#94a3b8;">Cup Low</td><td style="color:#ef4444;font-weight:600;">$'+fmtN(cupLow,2)+'</td><td style="color:#64748b;">cup bottom</td></tr>'
+            + '<tr><td style="color:#94a3b8;">Cup Depth</td><td style="color:'+depthColor+';font-weight:600;">'+fmtN(depth,1)+'%</td><td style="color:#64748b;">'+depthNote+'</td></tr>'
+            + '<tr><td style="color:#94a3b8;">Cup Length</td><td style="color:'+lenColor+';font-weight:600;">'+cupLen+' days</td><td style="color:#64748b;">'+lenNote+'</td></tr>'
+            + '<tr><td style="color:#94a3b8;">Handle</td><td style="color:#e2e8f0;font-weight:600;">'+handleStr+'</td><td></td></tr>'
+            + '<tr><td style="color:#94a3b8;">Breakout</td><td style="color:#f59e0b;font-weight:600;">$'+fmtN(bo,2)+'</td><td style="color:#64748b;">'+distPct+'% away</td></tr>'
+            + '<tr><td style="color:#94a3b8;">Target</td><td style="color:#22c55e;font-weight:600;">$'+fmtN(tgt,2)+'</td><td style="color:#64748b;">+'+tgtPct+'%</td></tr>'
+            + '<tr><td style="color:#94a3b8;">Stop Loss</td><td style="color:#ef4444;font-weight:600;">$'+fmtN(sl,2)+'</td><td style="color:#64748b;">R:R 1:'+fmtN(rr,1)+'</td></tr>'
+            + '<tr><td style="color:#94a3b8;">ADX / RSI</td><td style="color:#e2e8f0;">'+fmtN(adx,0)+' / '+fmtN(rsi,0)+'</td><td style="color:#64748b;">Conf '+conf+'</td></tr>'
+            + '</table>'
+            + goodsHtml + warnsHtml
+            + '<div class="ch-action">' + action + '</div>';
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        document.querySelectorAll('.ch-popover-row').forEach(function(row) {
+            new bootstrap.Popover(row, {
+                trigger:            'hover focus',
+                html:               true,
+                sanitize:           false,
+                placement:          'right',
+                fallbackPlacements: ['left', 'top', 'bottom'],
+                customClass:        'ch-dark',
+                title: '<span style="color:#60a5fa;font-weight:700;">' + row.dataset.symbol + '</span>'
+                     + ' <span style="color:#64748b;font-size:0.7rem;font-weight:400;">🇺🇸 Cup &amp; Handle</span>',
+                content:  buildContent(row),
+                delay:    { show: 250, hide: 150 },
+                container:'body',
+            });
+        });
+
+        // Bootstrap tooltips
+        document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(function(el) {
+            new bootstrap.Tooltip(el, { trigger: 'hover' });
+        });
+    });
+})();
+</script>
+{% endblock %}

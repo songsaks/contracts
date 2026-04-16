@@ -4820,7 +4820,8 @@ def clear_scan_data(request):
         'precision_set': (PrecisionScanCandidate,   {'user': request.user, 'market': 'SET'}),
         'precision_us':  (PrecisionScanCandidate,   {'user': request.user, 'market': 'US'}),
         'multifactor':   (MultiFactorCandidate,     {'user': request.user}),
-        'cup_handle':    (CupHandleCandidate,        {'user': request.user}),
+        'cup_handle':    (CupHandleCandidate,        {'user': request.user, 'market': 'SET'}),
+        'us_cup_handle': (CupHandleCandidate,        {'user': request.user, 'market': 'US'}),
         'us_sepa':       (USSepaCandidate,           {'user': request.user}),
         'us_value':      (ValueScanCandidate,        {'user': request.user}),
     }
@@ -7624,6 +7625,283 @@ def cup_handle_scanner(request):
         },
     }
     return render(request, 'stocks/cup_handle_scan.html', context)
+
+
+# ====== US Cup & Handle Scanner ======
+
+@login_required
+def us_cup_handle_scanner(request):
+    """
+    US Cup & Handle Scanner — สแกน หุ้น US จาก _US_MOMENTUM_SYMBOLS universe
+    ใช้ logic เดียวกับ SET scanner แต่:
+    - ไม่เติม .BK suffix
+    - liquidity filter เป็น USD (avg_vol * avg_price >= 1,000,000 USD)
+    - บันทึก market='US' แยกต่างหาก
+    - ตรวจ breakout_vol_ok (volume ≥1.5x avg on breakout bar) — O'Neil rule
+    """
+    import threading as _th
+    from django.core.cache import cache as _cp
+    from django.http import JsonResponse as _JR
+
+    user_id   = request.user.id
+    cache_key = f'us_cup_handle_scan_{user_id}'
+
+    if request.GET.get('scan_status') == '1':
+        st = _cp.get(cache_key, {'state': 'idle'})
+        if st.get('state') == 'done':
+            _cp.delete(cache_key)
+        return _JR(st)
+
+    if request.GET.get('scan') == 'true' or request.method == 'POST':
+        scan_symbols = [s for s in _US_MOMENTUM_SYMBOLS if s not in ('SPY', 'QQQ', 'IWM')]
+
+        already = _cp.get(cache_key, {})
+        if already.get('state') != 'running':
+            _cp.set(cache_key, {
+                'state': 'running', 'progress': 0,
+                'total': len(scan_symbols), 'phase': 'เริ่มสแกน US Cup & Handle...'
+            }, timeout=900)
+
+            def _run_us_cup_handle_bg(uid, ckey, sym_list):
+                try:
+                    import pandas as _pd
+                    import pandas_ta as _ta
+                    import yfinance as _yf
+                    import concurrent.futures as _cf
+                    from django.core.cache import cache as _c
+                    from django.contrib.auth import get_user_model
+                    from datetime import datetime as _dt, timedelta as _td
+                    import pytz as _pytz
+                    from .models import CupHandleCandidate as _CHC
+                    from .utils import detect_cup_and_handle
+
+                    User      = get_user_model()
+                    user      = User.objects.get(pk=uid)
+                    _now      = _dt.now(_pytz.utc)
+                    _end_str  = _now.date().strftime('%Y-%m-%d')
+                    _start    = (_now.date() - _td(days=600)).strftime('%Y-%m-%d')
+                    _scan_run = _dt.now(_pytz.utc)
+
+                    # เก็บ 3 รอบล่าสุด ลบเก่า
+                    old_runs = list(
+                        _CHC.objects.filter(user=user, market='US')
+                        .values_list('scan_run', flat=True)
+                        .distinct().order_by('-scan_run')[2:]
+                    )
+                    if old_runs:
+                        _CHC.objects.filter(user=user, market='US', scan_run__in=old_runs).delete()
+
+                    total   = len(sym_list)
+                    results = []
+
+                    def _scan_one(symbol):
+                        try:
+                            df = _yf.Ticker(symbol).history(start=_start, end=_end_str, interval='1d')
+                            if df is None or df.empty or len(df) < 60:
+                                return None
+                            if isinstance(df.columns, _pd.MultiIndex):
+                                df.columns = df.columns.droplevel(1)
+                            df = df.dropna(subset=['Close', 'High', 'Low'])
+
+                            # Liquidity filter — USD (≥$1M daily turnover)
+                            avg_vol   = float(df['Volume'].tail(20).mean())
+                            avg_price = float(df['Close'].tail(20).mean())
+                            if avg_vol * avg_price < 1_000_000:
+                                return None
+
+                            pat = detect_cup_and_handle(df)
+                            if pat is None:
+                                return None
+
+                            # Breakout volume confirmation (O'Neil rule: ≥1.5x avg on breakout day)
+                            breakout_vol_ok = False
+                            if pat['stage'] == 'breakout':
+                                last_vol = float(df['Volume'].iloc[-1])
+                                breakout_vol_ok = last_vol >= avg_vol * 1.5
+
+                            # RS return (3M)
+                            close_s   = df['Close'].dropna()
+                            rs_return = None
+                            if len(close_s) >= 66:
+                                rs_return = float(
+                                    (close_s.iloc[-1] - close_s.iloc[-66]) / abs(close_s.iloc[-66]) * 100
+                                )
+
+                            # ADX & RSI
+                            adx_val = 0.0
+                            rsi_val = 50.0
+                            try:
+                                adx_df = _ta.adx(df['High'], df['Low'], df['Close'], length=14)
+                                if adx_df is not None and not adx_df.empty:
+                                    col = [c for c in adx_df.columns if c.startswith('ADX_')]
+                                    if col and _pd.notna(adx_df[col[0]].iloc[-1]):
+                                        adx_val = float(adx_df[col[0]].iloc[-1])
+                                rsi_s = _ta.rsi(df['Close'], length=14)
+                                if rsi_s is not None and _pd.notna(rsi_s.iloc[-1]):
+                                    rsi_val = float(rsi_s.iloc[-1])
+                            except Exception:
+                                pass
+
+                            return {
+                                'symbol': symbol, 'pat': pat,
+                                'rs_return': rs_return, 'adx': adx_val,
+                                'rsi': rsi_val, 'avg_vol': avg_vol,
+                                'breakout_vol_ok': breakout_vol_ok,
+                            }
+                        except Exception:
+                            return None
+
+                    with _cf.ThreadPoolExecutor(max_workers=20) as ex:
+                        futs = {ex.submit(_scan_one, s): s for s in sym_list}
+                        done = 0
+                        for fut in _cf.as_completed(futs):
+                            done += 1
+                            _c.set(ckey, {
+                                'state': 'running', 'progress': done,
+                                'total': total, 'phase': f'สแกน {done}/{total}...'
+                            }, timeout=900)
+                            res = fut.result()
+                            if res:
+                                results.append(res)
+
+                    # RS percentile rank
+                    rs_vals = {r['symbol']: r['rs_return'] for r in results if r['rs_return'] is not None}
+                    rs_map  = {}
+                    if rs_vals:
+                        rs_ser = _pd.Series(rs_vals)
+                        rs_map = (rs_ser.rank(pct=True) * 99).clip(0, 99).astype(int).to_dict()
+
+                    # Save to DB
+                    for res in results:
+                        pat = res['pat']
+                        _CHC.objects.create(
+                            user=user, scan_run=_scan_run, market='US',
+                            symbol=res['symbol'],
+                            price=pat['current_price'],
+                            cup_high=pat['cup_high'],
+                            cup_low=pat['cup_low'],
+                            cup_depth_pct=pat['cup_depth_pct'],
+                            cup_length_days=pat['cup_length_days'],
+                            cup_start_date=pat['cup_start_date'],
+                            cup_end_date=pat['cup_end_date'],
+                            handle_high=pat['handle_high'],
+                            handle_low=pat['handle_low'],
+                            handle_depth_pct=pat['handle_depth_pct'],
+                            handle_length_days=pat['handle_length_days'],
+                            handle_start_date=pat['handle_start_date'],
+                            breakout_price=pat['breakout_price'],
+                            target_price=pat['target_price'],
+                            stop_loss=pat['stop_loss'],
+                            risk_reward=pat['risk_reward'],
+                            avg_vol_20d=res['avg_vol'],
+                            cup_vol_confirmed=pat['cup_vol_confirmed'],
+                            handle_vol_dry=pat['handle_vol_dry'],
+                            breakout_vol_ok=res['breakout_vol_ok'],
+                            stage=pat['stage'],
+                            confidence_score=pat['confidence_score'],
+                            rs_rating=rs_map.get(res['symbol'], 0),
+                            adx=res['adx'],
+                            rsi=res['rsi'],
+                        )
+
+                    _c.set(ckey, {'state': 'done'}, timeout=300)
+                except Exception as exc:
+                    import logging
+                    logging.getLogger('stocks').exception(f'[US Cup&Handle] bg scan error: {exc}')
+                    from django.core.cache import cache as _c2
+                    _c2.set(ckey, {'state': 'done'}, timeout=300)
+
+            _th.Thread(
+                target=_run_us_cup_handle_bg,
+                args=(user_id, cache_key, scan_symbols),
+                daemon=True
+            ).start()
+
+        from django.shortcuts import redirect as _redir
+        return _redir('stocks:us_cup_handle_scanner')
+
+    # ── Display results ───────────────────────────────────────────
+    from .models import CupHandleCandidate as _CHC
+
+    all_runs = list(
+        _CHC.objects.filter(user=request.user, market='US')
+        .values_list('scan_run', flat=True)
+        .distinct().order_by('-scan_run')
+    )
+
+    try:
+        run_idx = int(request.GET.get('run_idx', 0))
+    except (ValueError, TypeError):
+        run_idx = 0
+    run_idx = max(0, min(run_idx, len(all_runs) - 1)) if all_runs else 0
+
+    candidates = []
+    scanned_at = None
+    if all_runs:
+        selected_run = all_runs[run_idx]
+        candidates   = list(_CHC.objects.filter(user=request.user, market='US', scan_run=selected_run))
+        scanned_at   = selected_run
+
+    stage_order = {'breakout': 0, 'ready': 1, 'handle': 2, 'forming': 3}
+    candidates.sort(key=lambda c: (stage_order.get(c.stage, 9), -c.confidence_score))
+
+    stage_counts = {
+        'breakout': sum(1 for c in candidates if c.stage == 'breakout'),
+        'ready':    sum(1 for c in candidates if c.stage == 'ready'),
+        'handle':   sum(1 for c in candidates if c.stage == 'handle'),
+        'forming':  sum(1 for c in candidates if c.stage == 'forming'),
+    }
+
+    stage_filter = request.GET.get('stage', 'all')
+    try:
+        min_conf = int(request.GET.get('min_conf', 0))
+    except (ValueError, TypeError):
+        min_conf = 0
+    rs_only = request.GET.get('rs_only') == '1'
+
+    if stage_filter != 'all':
+        candidates = [c for c in candidates if c.stage == stage_filter]
+    if min_conf > 0:
+        candidates = [c for c in candidates if c.confidence_score >= min_conf]
+    if rs_only:
+        candidates = [c for c in candidates if c.rs_rating >= 70]
+
+    for c in candidates:
+        if c.breakout_price > 0 and c.price > 0:
+            c.pct_to_breakout = round((c.breakout_price - c.price) / c.price * 100, 1)
+            c.pct_to_breakout = max(0.0, c.pct_to_breakout)
+        else:
+            c.pct_to_breakout = 0.0
+        if c.cup_high > c.cup_low:
+            raw = (c.price - c.cup_low) / (c.cup_high - c.cup_low) * 100
+            c.recovery_pct = round(min(100.0, max(0.0, raw)), 1)
+        else:
+            c.recovery_pct = 0.0
+
+    forming_list    = [c for c in candidates if c.stage == 'forming']
+    closest_forming = max(forming_list, key=lambda c: c.recovery_pct, default=None)
+
+    context = {
+        'candidates':        candidates,
+        'has_scanned':       bool(all_runs),
+        'scanned_at':        scanned_at,
+        'all_runs':          all_runs,
+        'selected_run_idx':  run_idx,
+        'current_sort':      request.GET.get('sort', 'stage'),
+        'stage_counts':      stage_counts,
+        'stage_filter':      stage_filter,
+        'min_conf':          min_conf,
+        'rs_only':           rs_only,
+        'closest_forming':   closest_forming,
+        'stage_labels': {
+            'breakout': ('Breakout',       '#16a34a'),
+            'ready':    ('Ready to Break', '#2563eb'),
+            'handle':   ('Handle Forming', '#d97706'),
+            'forming':  ('Cup Forming',    '#64748b'),
+        },
+        'total_symbols': len(_US_MOMENTUM_SYMBOLS),
+    }
+    return render(request, 'stocks/us_cup_handle_scan.html', context)
 
 
 @login_required
