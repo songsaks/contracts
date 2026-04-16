@@ -45,6 +45,8 @@ urlpatterns = [
     path('signup/', views.signup, name='signup'),
     path('scan/clear/', views.clear_scan_data, name='clear_scan_data'),
     path('morning-briefing/', views.morning_briefing, name='morning_briefing'),
+    path('macro-playbook/', views.macro_playbook_view, name='macro_playbook'),
+    path('macro-playbook/run/', views.macro_playbook_run_ajax, name='macro_playbook_run'),
     path('crypto-hub/', views.crypto_hub, name='crypto_hub'),
 ]
 

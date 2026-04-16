@@ -1010,3 +1010,150 @@ Be specific with numbers. Use actual prices from the data provided."""
             return response.text
         except Exception as e:
             return f"Analysis failed: {str(e)}"
+
+# ======================================================================
+# MacroPlaybookCrew — CrewAI Multi-Agent (Global Daily Briefing)
+# ======================================================================
+
+class MacroPlaybookCrew:
+    """
+    CrewAI 5-Agent analysis for Daily Playbook in Macro Menu.
+    Agents:
+      1. Global Macro Strategist (DXY, 10Y Yield)
+      2. Thai Market Specialist (SET, local context)
+      3. US Equities Analyst (S&P500, Nasdaq)
+      4. Alternative Asset Expert (Crypto, Gold)
+      5. Chief Investment Officer (Synthesizes all into 4 Time Periods daily plan)
+    """
+
+    def __init__(self):
+        os.environ["GEMINI_API_KEY"] = settings.GEMINI_API_KEY
+        
+    def _fetch_asset_prices(self):
+        assets = {
+            'DXY': 'DX-Y.NYB',
+            'US10Y': '^TNX',
+            'SET': '^SET.BK',
+            'S&P500': '^GSPC',
+            'Nasdaq': '^IXIC',
+            'Gold': 'GC=F',
+            'Bitcoin': 'BTC-USD',
+        }
+        prices = {}
+        for name, ticker in assets.items():
+            try:
+                t = yf.Ticker(ticker)
+                hist = t.history(period="5d")
+                if not hist.empty:
+                    last = hist['Close'].iloc[-1]
+                    prev = hist['Close'].iloc[-2] if len(hist) > 1 else last
+                    chg = ((last - prev) / prev) * 100
+                    prices[name] = f"Price: {last:.2f} (Chg: {chg:+.2f}%)"
+                else:
+                    prices[name] = "N/A"
+            except:
+                prices[name] = "Error fetching"
+                
+        # Fear & Greed Index
+        try:
+            import urllib.request
+            import json
+            req = urllib.request.Request("https://api.alternative.me/fng/?limit=1", headers={'User-Agent': 'Mozilla'})
+            with urllib.request.urlopen(req, timeout=3) as resp:
+                data = json.loads(resp.read().decode())
+                if data and "data" in data:
+                    val = data["data"][0]["value"]
+                    clas = data["data"][0]["value_classification"]
+                    prices['Crypto_Fear_Greed'] = f"{val}/100 ({clas})"
+        except:
+            prices['Crypto_Fear_Greed'] = "N/A"
+            
+        return prices
+
+    def run_analysis(self):
+        from crewai import Agent, Task, Crew, Process
+        from crewai.llm import LLM
+
+        llm = LLM(model="gemini/gemini-2.5-flash", api_key=settings.GEMINI_API_KEY)
+        data = self._fetch_asset_prices()
+        
+        context_str = "\n".join([f"{k}: {v}" for k, v in data.items()])
+
+        # Agents
+        macro_strategist = Agent(
+            role="Global Macro Strategist",
+            goal="วิเคราะห์ภาพรวมเศรษฐกิจโลกจาก DXY และ US10Y เพื่อประเมิน Risk On/Off",
+            backstory="นักยุทธศาสตร์เศรษฐกิจมหภาคระดับโลกที่สามารถชี้ทิศทางเงินทุนเคลื่อนย้ายได้เฉียบขาด",
+            llm=llm, verbose=False, allow_delegation=False
+        )
+
+        thai_expert = Agent(
+            role="Thai Equity Specialist",
+            goal="วิเคราะห์สถานะของตลาด SET ว่าวันนี้ควรเน้นซื้อหุ้นแบบไหน หรือควรระวัง",
+            backstory="ผู้เชี่ยวชาญตลาดหุ้นไทยที่เข้าใจ Momentum และวงจร Fund flow ต่างชาติ",
+            llm=llm, verbose=False, allow_delegation=False
+        )
+
+        us_expert = Agent(
+            role="US Wall Street Analyst",
+            goal="รีวิวทิศทาง S&P500 และ Nasdaq คืนนี้",
+            backstory="นักวิเคราะห์ Wall Street ที่เชี่ยวชาญ Sector Rotation และ Swing Trading",
+            llm=llm, verbose=False, allow_delegation=False
+        )
+
+        alt_expert = Agent(
+            role="Alternative Asset Expert",
+            goal="ชี้เป้าความร้อนแรงของตลาด Crypto (Bitcoin) และ Gold ตามค่า Fear & Greed",
+            backstory="เซียนเทรดที่อ่านอารมณ์ตลาดคริปโตเก่งมาก และจับจังหวะสวิงทองคำได้แม่นยำ",
+            llm=llm, verbose=False, allow_delegation=False
+        )
+
+        cio = Agent(
+            role="Chief Investment Officer (CIO)",
+            goal="รวบรวมรายงานจากลูกน้อง 4 คน และผลิตเป็น 'Daily AI Playbook' ที่เข้าใจง่าย เป็น Action Plan",
+            backstory="หัวหน้ากองทุน Private Hedge Fund ที่จะสั่งการลูกทีมเสมอ ว่าตารางงาน 4 ช่วงเวลาของวันต้องทำอะไรบ้าง",
+            llm=llm, verbose=False, allow_delegation=False
+        )
+
+        # Tasks
+        task1 = Task(
+            description=f"Market Data:\n{context_str}\n\nวิเคราะห์สภาพตลาดระดับโลก (DXY, US10Y) สรุปเป็นพารากราฟสั้นๆ พร้อมบอกว่ามันคือภาวะ Risk On หรือ Risk Off",
+            agent=macro_strategist,
+            expected_output="บทสรุปภาพรวมโลก"
+        )
+        task2 = Task(
+            description=f"Market Data:\n{context_str}\n\nวิเคราะห์ตลาดหุ้นไทย (SET) ควรอำนวยความสะดวกสายเทรดเดอร์อย่างไร หุ้นใหญ่/กลาง/เล็ก ควรเล่นทรงไหน",
+            agent=thai_expert,
+            expected_output="กลยุทธ์ตลาดหุ้นไทย"
+        )
+        task3 = Task(
+            description=f"Market Data:\n{context_str}\n\nให้มุมมองสำหรับคนที่จะรอเริ่มเทรดหุ้นอเมริกาคืนนี้ ดัชนีหลักกำลังบอกอะไร",
+            agent=us_expert,
+            expected_output="กลยุทธ์ตลาดหุ้นอเมริกา"
+        )
+        task4 = Task(
+            description=f"Market Data:\n{context_str}\n\nแปลความหมายตลาดทองคำและคริปโต (เกจวัดความกลัวโลภคืออะไร) ควรรอหรือลุย",
+            agent=alt_expert,
+            expected_output="กลยุทธ์สินทรัพย์ทางเลือก"
+        )
+        task_cio = Task(
+            description="""เอาผลวิเคราะห์ทั้งหมดจาก 4 Tasks ด้านบนมาเรียบเรียงใหม่ เขียนเป็น "รายงานแผนงานประจำวัน (Daily Action Playbook)" โดยแบ่งเป็น 4 บท (ภาษาไทย) ดังนี้:
+1. ☀️ Pre-Market (เตรียมตัวตอนเช้า): ให้คำแนะนำภาพรวมและอารมณ์ตลาดวันนี้ สรุปสินทรัพย์ที่จะรุ่งและจะร่วง
+2. 📈 Market Open (ตลาดไทยเปิด): แนะนำ Action (ซื้อ/ขาย/ห้ามทำอะไร) สำหรับตลาดหุ้นไทย
+3. 🛑 Market Close (ตลาดปิด): ช่วงบ่ายแก่ๆ ควรโฟกัสเก็บหุ้นลักษณะไหนข้ามวัน
+4. 🌙 Night Routine (ตลาด US & Crypto): แผนการรบช่วงกลางคืนสำหรับคริปโตและอเมริกา
+พยายามจัดรูปแบบให้สวยงาม (ใช้ Markdown, หัวข้อ, และ Bullet Points ให้เป็นระเบียบชัดเจน) โทนมืออาชีพฟันธง""",
+            agent=cio,
+            expected_output="Daily Playbook 4 ช่วงเวลาที่อ่านง่ายที่สุด"
+        )
+
+        crew = Crew(
+            agents=[macro_strategist, thai_expert, us_expert, alt_expert, cio],
+            tasks=[task1, task2, task3, task4, task_cio],
+            process=Process.sequential,
+            verbose=False,
+        )
+
+        result = crew.kickoff()
+        return str(result)
+

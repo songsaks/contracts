@@ -7951,3 +7951,49 @@ def crypto_hub(request):
     
     return render(request, 'stocks/crypto_hub.html', context)
 
+
+@login_required
+def macro_playbook_view(request):
+    """
+    หน้าแสดงรายงาน Daily Mastermind Briefing (Playbook)
+    โครงสร้างแบบ AJAX Loading เหมือนหน้า Crew Analysis อื่นๆ
+    """
+    return render(request, 'stocks/macro_playbook.html')
+
+
+@login_required
+def macro_playbook_run_ajax(request):
+    """
+    รัน CrewAI 5 Agents เบื้องหลังและเคลียร์ Cache เมื่อให้ผลลัพธ์
+    """
+    import threading as _th
+    from django.core.cache import cache as _cp
+    from django.http import JsonResponse as _JR
+    
+    user_id = request.user.id
+    cache_key = f'macro_playbook_{user_id}'
+
+    # Check status
+    if request.GET.get('status_check') == '1':
+        st = _cp.get(cache_key, {'state': 'idle'})
+        return _JR(st)
+
+    def _run_bg():
+        from .crew_analysis import MacroPlaybookCrew
+        try:
+            _cp.set(cache_key, {'state': 'running', 'phase': 'Agents กำลังประชุมและดึงราคาตลาด...'}, timeout=600)
+            crew = MacroPlaybookCrew()
+            result = crew.run_analysis()
+            _cp.set(cache_key, {'state': 'done', 'result': result}, timeout=600)
+        except Exception as exc:
+            _cp.set(cache_key, {'state': 'done', 'result': f'## Error\nเกิดข้อผิดพลาดในการรัน Agents: {exc}'}, timeout=600)
+
+    # Start if idle
+    current_state = _cp.get(cache_key, {}).get('state', 'idle')
+    if current_state == 'idle' or request.GET.get('force') == '1':
+        _cp.set(cache_key, {'state': 'running', 'phase': 'กำลังเรียกทีมผู้เชี่ยวชาญ...'}, timeout=600)
+        _th.Thread(target=_run_bg, daemon=True).start()
+        
+    return _JR({'status': 'started'})
+
+

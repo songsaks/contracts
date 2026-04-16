@@ -447,8 +447,16 @@
                                     <i class="fas fa-sun me-1" style="color:#f59e0b;"></i> Morning Briefing
                                 </a>
                             </li>
+                            <li><hr class="dropdown-divider opacity-25 my-1"></li>
+                            <li>
+                                <a class="dropdown-item rounded-3 py-2 {% if request.resolver_match.url_name == 'macro_playbook' %}active{% endif %} text-indigo-700 fw-bold"
+                                   href="{% url 'stocks:macro_playbook' %}">
+                                    <i class="fas fa-robot me-1 text-indigo-600"></i> Daily Mastermind Playbook
+                                </a>
+                            </li>
                         </ul>
                     </li>
+
                     <!-- Crypto Hub Dropdown -->
                     <li class="nav-item dropdown">
                         <a class="nav-link px-3 py-2 rounded-xl dropdown-toggle {% if request.resolver_match.url_name == 'crypto_hub' %}active{% endif %}"

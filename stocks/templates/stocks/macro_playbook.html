@@ -1,0 +1,232 @@
+{% extends 'stocks/base_stocks.html' %}
+{% load static %}
+
+{% block title %}Daily Mastermind Playbook — CrewAI{% endblock %}
+
+{% block extra_css %}
+<!-- Include marked.js for rendering markdown -->
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+<style>
+    .playbook-container {
+        max-width: 900px;
+        margin: 0 auto;
+    }
+    .header-banner {
+        background: linear-gradient(135deg, #1e293b, #0f172a);
+        color: white;
+        border-radius: 20px;
+        padding: 2.5rem;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+        position: relative;
+        overflow: hidden;
+    }
+    .header-banner::after {
+        content: '';
+        position: absolute;
+        top: -50%;
+        right: -10%;
+        width: 300px;
+        height: 300px;
+        background: radial-gradient(circle, rgba(99, 102, 241, 0.2) 0%, transparent 70%);
+        border-radius: 50%;
+    }
+    
+    .loading-state {
+        min-height: 400px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+    }
+    
+    .agent-avatars {
+        display: flex;
+        justify-content: center;
+        gap: 15px;
+        margin-bottom: 20px;
+    }
+    
+    .agent-avatar {
+        width: 50px;
+        height: 50px;
+        border-radius: 50%;
+        background: #f1f5f9;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.2rem;
+        border: 2px solid #e2e8f0;
+        transition: transform 0.3s ease;
+    }
+    .agent-avatar.active {
+        border-color: #6366f1;
+        background: #e0e7ff;
+        color: #4338ca;
+        transform: scale(1.1);
+        box-shadow: 0 0 15px rgba(99, 102, 241, 0.4);
+    }
+    
+    .pulse-ring {
+        content: '';
+        width: 60px;
+        height: 60px;
+        border: 3px solid #6366f1;
+        border-radius: 50%;
+        position: absolute;
+        animation: pulsate infinite 1.5s;
+    }
+    
+    @keyframes pulsate {
+        0% { transform: scale(0.8); opacity: 1; }
+        100% { transform: scale(1.5); opacity: 0; }
+    }
+    
+    /* Markdown Styles for Report */
+    .markdown-content {
+        line-height: 1.8;
+        color: #1e293b;
+        font-size: 1.05rem;
+    }
+    .markdown-content h1, .markdown-content h2, .markdown-content h3 {
+        color: #0f172a;
+        font-weight: 700;
+        margin-top: 2rem;
+        margin-bottom: 1rem;
+        border-bottom: 2px solid #f1f5f9;
+        padding-bottom: 0.5rem;
+    }
+    .markdown-content h1 { font-size: 1.8rem; color: #4338ca; border-bottom: 3px solid #e0e7ff; }
+    .markdown-content h2 { font-size: 1.5rem; }
+    .markdown-content strong { color: #334155; }
+    .markdown-content ul { padding-left: 1.5rem; margin-bottom: 1.5rem; }
+    .markdown-content li { margin-bottom: 0.5rem; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-4 playbook-container">
+    <div class="header-banner mb-4">
+        <div class="d-flex align-items-center gap-3 mb-2">
+            <div class="bg-indigo-500 rounded-circle d-flex align-items-center justify-content-center" style="width: 50px; height: 50px; background: #6366f1;">
+                <i class="fas fa-robot text-white fs-4"></i>
+            </div>
+            <div>
+                <h2 class="fw-bold mb-0">Daily Mastermind Playbook</h2>
+                <span class="text-white-50"><i class="fas fa-users-cog me-1"></i> Multi-Agent CrewAI Analysis</span>
+            </div>
+        </div>
+        <p class="mt-3 text-slate-300 mb-0">
+            ระบบจะดึงผู้เชี่ยวชาญ AI 5 ท่าน (Macro, Thai, US, Crypto, CIO) เพื่อวิเคราะห์สภาวะตลาดล่าสุดผ่านข้อมูลราคาแยกย่อย และสรุปรวมเป็นแผนการเทรด 4 ช่วงเวลาในแต่ละวัน
+        </p>
+    </div>
+
+    <div class="card-premium p-4 p-md-5">
+        
+        <!-- Action Buttons -->
+        <div class="text-center mb-4" id="action-section">
+            <button class="btn btn-premium px-5 py-3 fw-bold fs-5 shadow-lg" onclick="generatePlaybook()">
+                <i class="fas fa-bolt me-2 text-warning"></i> Generate Today's Playbook
+            </button>
+            <p class="small text-muted mt-2">ประมวลผลประมาณ 45-90 วินาที</p>
+        </div>
+
+        <!-- Loading State -->
+        <div id="loading-section" class="loading-state" style="display: none;">
+            <div class="agent-avatars">
+                <div class="agent-avatar" id="agent-1" title="Macro Strategist"><i class="fas fa-globe"></i></div>
+                <div class="agent-avatar" id="agent-2" title="Thai Equity"><i class="fas fa-flag-thailand"></i></div>
+                <div class="agent-avatar" id="agent-3" title="US Equity"><i class="fas fa-flag-usa"></i></div>
+                <div class="agent-avatar" id="agent-4" title="Crypto & Gold"><i class="fab fa-bitcoin"></i></div>
+                <div class="agent-avatar" id="agent-5" title="CIO"><i class="fas fa-user-tie"></i></div>
+            </div>
+            
+            <div class="spinner-border text-primary mt-4 mb-3" style="width: 3rem; height: 3rem;" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <h4 class="fw-bold text-indigo-900 mb-2">AI Mastermind is in session...</h4>
+            <p class="text-muted" id="status-text">กำลังรวบรวมทิศทางราคาตลาดโลกล่าสุด</p>
+        </div>
+
+        <!-- Result Status -->
+        <div id="result-section" style="display: none;">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <span class="badge bg-success-subtle text-success px-3 py-2 rounded-pill fw-bold">
+                    <i class="fas fa-check-circle me-1"></i> Analysis Complete
+                </span>
+                <button class="btn btn-sm btn-outline-secondary" onclick="generatePlaybook(true)">
+                    <i class="fas fa-sync-alt me-1"></i> Re-Run
+                </button>
+            </div>
+            
+            <div class="markdown-content" id="report-content">
+                <!-- Data will be rendered here by marked.js -->
+            </div>
+        </div>
+
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let pollInterval = null;
+
+    function animateAgents() {
+        // Simple visual feedback cycling through agents
+        let current = 1;
+        setInterval(() => {
+            document.querySelectorAll('.agent-avatar').forEach(a => a.classList.remove('active'));
+            document.getElementById('agent-' + current).classList.add('active');
+            current = current >= 5 ? 1 : current + 1;
+        }, 800);
+    }
+
+    function generatePlaybook(force = false) {
+        document.getElementById('action-section').style.display = 'none';
+        document.getElementById('result-section').style.display = 'none';
+        document.getElementById('loading-section').style.display = 'flex';
+        
+        animateAgents();
+
+        let url = "{% url 'stocks:macro_playbook_run' %}?run=1";
+        if(force) url += "&force=1";
+
+        fetch(url)
+            .then(res => res.json())
+            .then(data => {
+                // start polling
+                pollInterval = setInterval(checkStatus, 3000);
+            })
+            .catch(err => {
+                alert("Error starting analysis.");
+                console.error(err);
+            });
+    }
+
+    function checkStatus() {
+        fetch("{% url 'stocks:macro_playbook_run' %}?status_check=1")
+            .then(res => res.json())
+            .then(data => {
+                if (data.state === 'running') {
+                    if (data.phase) {
+                        document.getElementById('status-text').innerText = data.phase;
+                    }
+                } else if (data.state === 'done') {
+                    clearInterval(pollInterval);
+                    document.getElementById('loading-section').style.display = 'none';
+                    document.getElementById('result-section').style.display = 'block';
+                    
+                    // Render Markdown
+                    if (data.result) {
+                        document.getElementById('report-content').innerHTML = marked.parse(data.result);
+                    } else {
+                        document.getElementById('report-content').innerHTML = "<p class='text-danger'>ไม่พบผลลัพธ์จาก AI</p>";
+                    }
+                }
+            })
+            .catch(err => console.error("Poll error:", err));
+    }
+</script>
+{% endblock %}
