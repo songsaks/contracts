@@ -7965,10 +7965,12 @@ def macro_playbook_view(request):
 def macro_playbook_run_ajax(request):
     """
     รัน CrewAI 5 Agents เบื้องหลังและเคลียร์ Cache เมื่อให้ผลลัพธ์
+    พร้อมวิเคราะห์ Portfolio ปัจจุบันของผู้ใช้งาน
     """
     import threading as _th
     from django.core.cache import cache as _cp
     from django.http import JsonResponse as _JR
+    from .models import Portfolio
     
     user_id = request.user.id
     cache_key = f'macro_playbook_{user_id}'
@@ -7978,11 +7980,17 @@ def macro_playbook_run_ajax(request):
         st = _cp.get(cache_key, {'state': 'idle'})
         return _JR(st)
 
-    def _run_bg():
+    # Fetch user portfolio data before threading to avoid DB context issues in thread
+    try:
+        user_portfolio_list = list(Portfolio.objects.filter(user=request.user).values('symbol', 'quantity', 'entry_price', 'market'))
+    except Exception:
+        user_portfolio_list = []
+
+    def _run_bg(portfolio_data):
         from .crew_analysis import MacroPlaybookCrew
         try:
             _cp.set(cache_key, {'state': 'running', 'phase': 'Agents กำลังประชุมและดึงราคาตลาด...'}, timeout=600)
-            crew = MacroPlaybookCrew()
+            crew = MacroPlaybookCrew(portfolio_data=portfolio_data)
             result = crew.run_analysis()
             _cp.set(cache_key, {'state': 'done', 'result': result}, timeout=600)
         except Exception as exc:
@@ -7992,8 +8000,9 @@ def macro_playbook_run_ajax(request):
     current_state = _cp.get(cache_key, {}).get('state', 'idle')
     if current_state == 'idle' or request.GET.get('force') == '1':
         _cp.set(cache_key, {'state': 'running', 'phase': 'กำลังเรียกทีมผู้เชี่ยวชาญ...'}, timeout=600)
-        _th.Thread(target=_run_bg, daemon=True).start()
+        _th.Thread(target=_run_bg, args=(user_portfolio_list,), daemon=True).start()
         
     return _JR({'status': 'started'})
+
 
 

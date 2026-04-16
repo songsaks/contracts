@@ -1026,8 +1026,9 @@ class MacroPlaybookCrew:
       5. Chief Investment Officer (Synthesizes all into 4 Time Periods daily plan)
     """
 
-    def __init__(self):
+    def __init__(self, portfolio_data=None):
         os.environ["GEMINI_API_KEY"] = settings.GEMINI_API_KEY
+        self.portfolio_data = portfolio_data or []
         
     def _fetch_asset_prices(self):
         assets = {
@@ -1078,6 +1079,13 @@ class MacroPlaybookCrew:
         data = self._fetch_asset_prices()
         
         context_str = "\n".join([f"{k}: {v}" for k, v in data.items()])
+        
+        portfolio_str = "พอร์ตว่าง / ไม่มีข้อมูลหุ้นที่ถือ"
+        if self.portfolio_data:
+            port_items = []
+            for item in self.portfolio_data:
+                port_items.append(f"- {item['symbol']} ({item['market']}): ทุน {item['entry_price']} บาท/USD")
+            portfolio_str = "\n".join(port_items)
 
         # Agents
         macro_strategist = Agent(
@@ -1110,8 +1118,8 @@ class MacroPlaybookCrew:
 
         cio = Agent(
             role="Chief Investment Officer (CIO)",
-            goal="รวบรวมรายงานจากลูกน้อง 4 คน และผลิตเป็น 'Daily AI Playbook' ที่เข้าใจง่าย เป็น Action Plan",
-            backstory="หัวหน้ากองทุน Private Hedge Fund ที่จะสั่งการลูกทีมเสมอ ว่าตารางงาน 4 ช่วงเวลาของวันต้องทำอะไรบ้าง",
+            goal="รวบรวมรายงานจากลูกน้อง 4 คน และผลิตเป็น 'Daily AI Playbook' ที่เข้าใจง่าย เป็น Action Plan พร้อมวิเคราะห์ Portfolio ปัจจุบันของผู้ใช้งาน",
+            backstory="หัวหน้ากองทุน Private Hedge Fund ที่จะสั่งการลูกทีมเสมอ ว่าตารางงาน 4 ช่วงเวลาของวันต้องทำอะไรบ้าง และให้คำแนะนำพอร์ตฟอลิโอโดยอิงจากสภาพตลาดปัจจุบัน",
             llm=llm, verbose=False, allow_delegation=False
         )
 
@@ -1137,14 +1145,19 @@ class MacroPlaybookCrew:
             expected_output="กลยุทธ์สินทรัพย์ทางเลือก"
         )
         task_cio = Task(
-            description="""เอาผลวิเคราะห์ทั้งหมดจาก 4 Tasks ด้านบนมาเรียบเรียงใหม่ เขียนเป็น "รายงานแผนงานประจำวัน (Daily Action Playbook)" โดยแบ่งเป็น 4 บท (ภาษาไทย) ดังนี้:
-1. ☀️ Pre-Market (เตรียมตัวตอนเช้า): ให้คำแนะนำภาพรวมและอารมณ์ตลาดวันนี้ สรุปสินทรัพย์ที่จะรุ่งและจะร่วง
-2. 📈 Market Open (ตลาดไทยเปิด): แนะนำ Action (ซื้อ/ขาย/ห้ามทำอะไร) สำหรับตลาดหุ้นไทย
-3. 🛑 Market Close (ตลาดปิด): ช่วงบ่ายแก่ๆ ควรโฟกัสเก็บหุ้นลักษณะไหนข้ามวัน
-4. 🌙 Night Routine (ตลาด US & Crypto): แผนการรบช่วงกลางคืนสำหรับคริปโตและอเมริกา
-พยายามจัดรูปแบบให้สวยงาม (ใช้ Markdown, หัวข้อ, และ Bullet Points ให้เป็นระเบียบชัดเจน) โทนมืออาชีพฟันธง""",
+            description=f"""เอาผลวิเคราะห์ทั้งหมดจาก 4 Tasks ด้านบนมาเรียบเรียงใหม่ 
+รวมถึงดูข้อมูล Portfolio ของเจ้านาย (User) ปัจจุบันที่กำลังถืออยู่:
+{portfolio_str}
+
+เขียนเป็น "รายงานแผนงานประจำวัน (Daily Action Playbook)" โดยแบ่งเป็น 5 บท (ภาษาไทย) ดังนี้:
+1. ☀️ Pre-Market & Macro: ให้คำแนะนำภาพรวมและอารมณ์ตลาดวันนี้ สรุปสินทรัพย์ที่จะรุ่งและจะร่วง
+2. 💼 My Portfolio Action: ให้คำแนะนำสั้นๆ ว่าหุ้นที่กำลังถือในเรดาร์ตัวไหนควรระวังตัวไหนควรถือต่อ (อิงจากภาพรวม Macro และตลาดวันนี้ ให้คำแนะนำกระชับ)
+3. 📈 Market Open (ตลาดเปิดไทย): แนะนำ Action (ซื้อ/ขาย/ห้ามทำอะไร) สำหรับตลาดหุ้นไทยประจำวัน
+4. 🛑 Market Close (ตลาดปิด): ช่วงบ่ายแก่ๆ ควรรันสแกนเนอร์และเก็บหุ้นลักษณะไหนข้ามวัน
+5. 🌙 Night Routine (US & Crypto): แผนการรบช่วงกลางคืนสำหรับคริปโตและหุ้นอเมริกา
+พยายามจัดรูปแบบให้สวยงามอย่างมาก (ใช้ Markdown, ไอคอน Emoji, และ Bullet Points ขีดเส้นใต้เน้นคำสำคัญ) โทนมืออาชีพ ฟันธง ไม่คลุมเครือ""",
             agent=cio,
-            expected_output="Daily Playbook 4 ช่วงเวลาที่อ่านง่ายที่สุด"
+            expected_output="Daily Playbook 5 ส่วนที่ครอบคลุมแผนแบบรายวันและพอร์ตฟอลิโอ"
         )
 
         crew = Crew(
