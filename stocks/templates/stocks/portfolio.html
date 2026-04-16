@@ -203,7 +203,7 @@
                             <div class="row g-2 text-center mb-3">
                                 <div class="col-4 border-end border-light">
                                     <div class="text-muted small mb-1" style="font-size: 0.7rem; letter-spacing: 0.5px;">QUANTITY</div>
-                                    <div class="fw-bold fs-6">{{ item.obj.quantity|floatformat:2|intcomma }}</div>
+                                    <div class="fw-bold fs-6">{% if item.market == 'CRYPTO' %}{{ item.obj.quantity|floatformat:7 }}{% else %}{{ item.obj.quantity|floatformat:2|intcomma }}{% endif %}</div>
                                 </div>
                                 <div class="col-4 border-end border-light">
                                     <div class="text-muted small mb-1" style="font-size: 0.7rem; letter-spacing: 0.5px;">AVG COST</div>
@@ -413,7 +413,7 @@
                             <div class="d-flex gap-2">
                                 <button type="button" class="btn btn-light btn-sm rounded-circle shadow-sm border text-success" style="width: 36px; height: 36px;"
                                     title="ขายหุ้น"
-                                    onclick="openSellModal('{% url 'stocks:sell_stock' item.obj.pk %}', '{{ item.obj.symbol }}', '{{ item.obj.quantity }}', '{{ item.current_price }}', '{{ item.obj.entry_price }}')"
+                                    onclick="openSellModal('{% url 'stocks:sell_stock' item.obj.pk %}', '{{ item.obj.symbol }}', '{{ item.obj.quantity }}', '{{ item.current_price }}', '{{ item.obj.entry_price }}', '{{ item.obj.market }}')"
                                     data-bs-toggle="modal" data-bs-target="#sellStockModal">
                                     <i class="fas fa-hand-holding-usd fa-xs"></i>
                                 </button>
@@ -569,7 +569,7 @@
                                 <div class="d-flex gap-1 justify-content-end">
                                     <a href="{% url 'stocks:entry_finder' item.obj.symbol %}" class="btn btn-danger btn-xs rounded-pill px-2 py-1" title="Sniper Chart" style="font-size:0.65rem;"><i class="fas fa-crosshairs"></i></a>
                                     <button class="btn btn-light btn-xs rounded-circle border text-success" style="width:28px;height:28px;padding:0;"
-                                        onclick="openSellModal('{% url 'stocks:sell_stock' item.obj.pk %}','{{ item.obj.symbol }}','{{ item.obj.quantity }}','{{ item.current_price }}','{{ item.obj.entry_price }}')"
+                                        onclick="openSellModal('{% url 'stocks:sell_stock' item.obj.pk %}','{{ item.obj.symbol }}','{{ item.obj.quantity }}','{{ item.current_price }}','{{ item.obj.entry_price }}','{{ item.obj.market }}')"
                                         data-bs-toggle="modal" data-bs-target="#sellStockModal" title="Sell">
                                         <i class="fas fa-hand-holding-usd" style="font-size:0.6rem;"></i>
                                     </button>
@@ -909,7 +909,8 @@
         document.getElementById('port-symbol').value = symbol;
         document.getElementById('port-symbol').readOnly = true;
         document.getElementById('port-name').value = name;
-        document.getElementById('port-quantity').value = parseFloat(qty || 0).toFixed(2);
+        document.getElementById('port-quantity').step = market === 'CRYPTO' ? '0.0000001' : '0.01';
+        document.getElementById('port-quantity').value = market === 'CRYPTO' ? parseFloat(qty || 0).toFixed(7) : parseFloat(qty || 0).toFixed(2);
         document.getElementById('port-price').value = parseFloat(price || 0).toFixed(2);
         document.getElementById('port-category').value = category;
         document.getElementById('port-market').value = market || 'SET';
@@ -917,12 +918,16 @@
     }
 
     let currentEntryPrice = 0;
-    function openSellModal(sellUrl, symbol, qty, currentPrice, entryPrice) {
+    function openSellModal(sellUrl, symbol, qty, currentPrice, entryPrice, market) {
         try {
+            const isCrypto = market === 'CRYPTO';
+            const qtyDecimals = isCrypto ? 7 : 2;
             document.getElementById('sell-symbol-text').innerText = symbol;
-            document.getElementById('owned-qty-text').innerText = parseFloat(qty || 0).toFixed(2);
-            document.getElementById('sell-quantity').value = parseFloat(qty || 0).toFixed(2);
-            document.getElementById('sell-quantity').max = qty;
+            document.getElementById('owned-qty-text').innerText = parseFloat(qty || 0).toFixed(qtyDecimals);
+            const sellQtyInput = document.getElementById('sell-quantity');
+            sellQtyInput.step = isCrypto ? '0.0000001' : '0.01';
+            sellQtyInput.value = parseFloat(qty || 0).toFixed(qtyDecimals);
+            sellQtyInput.max = qty;
             document.getElementById('sell-price').value = parseFloat(currentPrice || 0).toFixed(2);
             
             // ใช้ค่า entry price ที่ส่งมาจาก django โดยตรง
