@@ -5026,10 +5026,15 @@ def multi_factor_scanner(request):
                         done += 1
                         _cache.set(cache_key, {'state': 'running', 'progress': done, 'total': len(sym_list)}, timeout=600)
 
-                # Phase 3: Bulk create
-                MultiFactorCandidate.objects.bulk_create([
-                    MultiFactorCandidate(user=user, **r) for r in raw_results
-                ])
+                # Phase 3: Atomic delete+create to guarantee no duplicates
+                from django.db import transaction
+                with transaction.atomic():
+                    MultiFactorCandidate.objects.filter(
+                        user=user, symbol__in=[r['symbol'] for r in raw_results]
+                    ).delete()
+                    MultiFactorCandidate.objects.bulk_create([
+                        MultiFactorCandidate(user=user, **r) for r in raw_results
+                    ])
                 _cache.set(cache_key, {'state': 'done', 'count': len(raw_results)}, timeout=300)
             except Exception as e:
                 import traceback
@@ -5268,9 +5273,15 @@ def us_multi_factor_scanner(request):
                         done += 1
                         _cache.set(cache_key, {'state': 'running', 'progress': done, 'total': len(sym_list)}, timeout=600)
 
-                MultiFactorCandidate.objects.bulk_create([
-                    MultiFactorCandidate(user=user, **r) for r in raw_results
-                ])
+                # Final atomic delete+create to guarantee no duplicates
+                from django.db import transaction
+                with transaction.atomic():
+                    MultiFactorCandidate.objects.filter(
+                        user=user, symbol__in=[r['symbol'] for r in raw_results]
+                    ).delete()
+                    MultiFactorCandidate.objects.bulk_create([
+                        MultiFactorCandidate(user=user, **r) for r in raw_results
+                    ])
                 _cache.set(cache_key, {'state': 'done', 'count': len(raw_results)}, timeout=300)
             except Exception as e:
                 import traceback
