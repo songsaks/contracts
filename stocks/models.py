@@ -113,6 +113,8 @@ class Portfolio(models.Model):
     entry_price = models.DecimalField(max_digits=12, decimal_places=4, default=0)
     # ประเภทสินทรัพย์
     category = models.CharField(max_length=20, choices=AssetCategory.choices, default=AssetCategory.STOCK)
+    # กลยุทธ์การเข้าซื้อ
+    strategy = models.CharField(max_length=50, blank=True, null=True, help_text="e.g. Turtle S1, SEPA, Cup&Handle")
     # ตลาด: SET=หุ้นไทย, US=หุ้นอเมริกา, CRYPTO=คริปโต, OTHER=อื่นๆ
     market = models.CharField(max_length=10, choices=MarketType.choices, default=MarketType.SET)
     # วันที่เพิ่มเข้าพอร์ต
