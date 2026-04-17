@@ -5013,13 +5013,15 @@ def multi_factor_scanner(request):
 
                 # Phase 2: รันขนาน + update progress
                 raw_results = []
+                seen_symbols = set()
                 done = 0
                 with ThreadPoolExecutor(max_workers=12) as executor:
                     futures = {executor.submit(process_one, s): s for s in sym_list}
                     for future in as_completed(futures):
                         r = future.result()
-                        if r:
+                        if r and r['symbol'] not in seen_symbols:
                             raw_results.append(r)
+                            seen_symbols.add(r['symbol'])
                         done += 1
                         _cache.set(cache_key, {'state': 'running', 'progress': done, 'total': len(sym_list)}, timeout=600)
 
@@ -5151,7 +5153,11 @@ def us_multi_factor_scanner(request):
             user = User.objects.get(pk=user_id)
 
             try:
-                sym_list = [s for s in _US_MOMENTUM_SYMBOLS if s not in ('SPY', 'QQQ', 'IWM')]
+                # deduplicate while preserving order
+                _excl = {'SPY', 'QQQ', 'IWM'}
+                _seen = set()
+                sym_list = [s for s in _US_MOMENTUM_SYMBOLS
+                            if s not in _excl and not (s in _seen or _seen.add(s))]
                 MultiFactorCandidate.objects.filter(user=user, market='US').delete()
 
                 _cache.set(cache_key, {'state': 'running', 'progress': 0, 'total': len(sym_list)}, timeout=600)
@@ -5247,13 +5253,15 @@ def us_multi_factor_scanner(request):
                         return None
 
                 raw_results = []
+                seen_symbols = set()
                 done = 0
                 with ThreadPoolExecutor(max_workers=10) as executor:
                     futures = {executor.submit(process_one, s): s for s in sym_list}
                     for future in as_completed(futures):
                         r = future.result()
-                        if r:
+                        if r and r['symbol'] not in seen_symbols:
                             raw_results.append(r)
+                            seen_symbols.add(r['symbol'])
                         done += 1
                         _cache.set(cache_key, {'state': 'running', 'progress': done, 'total': len(sym_list)}, timeout=600)
 
