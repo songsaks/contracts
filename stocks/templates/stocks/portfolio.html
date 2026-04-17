@@ -164,6 +164,11 @@
                                         <a href="{% url 'stocks:analyze' item.obj.symbol %}" class="text-dark text-decoration-none hover-primary">
                                             {{ item.obj.symbol }}
                                         </a>
+                                        {% if item.obj.strategy == 'Turtle S1' %}
+                                        <span class="badge bg-success bg-opacity-10 text-success rounded-pill ms-1" style="font-size:0.65rem;border:1px solid #22c55e;">🐢 S1</span>
+                                        {% elif item.obj.strategy == 'Turtle S2' %}
+                                        <span class="badge bg-danger bg-opacity-10 text-danger rounded-pill ms-1" style="font-size:0.65rem;border:1px solid #ef4444;">🐢 S2</span>
+                                        {% endif %}
                                     </h4>
                                     <div class="text-muted d-flex align-items-center gap-2 mt-1" style="font-size: 0.85rem;">
                                         {{ item.obj.name|default:item.obj.symbol }}
@@ -484,6 +489,11 @@
                             <td>
                                 <div class="d-flex align-items-center gap-2">
                                     <a href="{% url 'stocks:analyze' item.obj.symbol %}" class="fw-bold text-dark text-decoration-none hover-primary" style="font-size:0.95rem;">{{ item.obj.symbol }}</a>
+                                    {% if item.obj.strategy == 'Turtle S1' %}
+                                    <span class="badge bg-success bg-opacity-10 text-success rounded-pill" style="font-size:0.6rem;border:1px solid #22c55e;">🐢 S1</span>
+                                    {% elif item.obj.strategy == 'Turtle S2' %}
+                                    <span class="badge bg-danger bg-opacity-10 text-danger rounded-pill" style="font-size:0.6rem;border:1px solid #ef4444;">🐢 S2</span>
+                                    {% endif %}
                                     {% if item.mom_data %}
                                         {% if item.mom_data.demand_zone_start and item.current_price <= item.mom_data.demand_zone_start and item.current_price >= item.mom_data.demand_zone_end %}
                                         <span class="badge bg-success bg-opacity-15 text-success rounded-pill" style="font-size:0.6rem;">IN ZONE</span>
