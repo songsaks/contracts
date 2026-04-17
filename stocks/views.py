@@ -592,6 +592,8 @@ def crew_analyze(request, symbol):
         st = _cp.get(poll_key, {'state': 'idle'})
         return _JR(st)
 
+    strategy_param = request.GET.get('strategy')
+
     # ── Result ready (page reload after done) ────────────────────────
     cached = _cp.get(cache_key)
     if cached and cached.get('state') == 'done':
@@ -608,7 +610,7 @@ def crew_analyze(request, symbol):
         })
 
     # ── Background worker ────────────────────────────────────────────
-    def _run_crew_bg(ckey, sym, pctx):
+    def _run_crew_bg(ckey, sym, pctx, strat):
         import concurrent.futures as _cf
         from django.core.cache import cache as _c
         from .crew_analysis import MomentumCrew as _MC
@@ -617,7 +619,7 @@ def crew_analyze(request, symbol):
             phase = 'วิเคราะห์ Portfolio + Technical…' if pctx else 'กำลังวิเคราะห์…'
             _c.set(ckey, {'state': 'running', 'phase': phase}, timeout=600)
 
-            mc = _MC(sym, portfolio_context=pctx)
+            mc = _MC(sym, portfolio_context=pctx, strategy=strat)
 
             # Hard timeout: kill entire analysis after 90 seconds
             with _cf.ThreadPoolExecutor(max_workers=1) as ex:
@@ -634,7 +636,7 @@ def crew_analyze(request, symbol):
     # Start only if not already running
     if not cached or cached.get('state') == 'idle':
         _cp.set(cache_key, {'state': 'running', 'phase': 'เริ่มต้น Multi-Agent…'}, timeout=600)
-        _th.Thread(target=_run_crew_bg, args=(cache_key, symbol, portfolio_context), daemon=True).start()
+        _th.Thread(target=_run_crew_bg, args=(cache_key, symbol, portfolio_context, strategy_param), daemon=True).start()
 
     # ── Show loading page (fast — no heavy data fetch) ───────────────
     try:

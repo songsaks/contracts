@@ -71,9 +71,17 @@
     <div class="card-premium">
         <div class="card-body p-0">
             {% if candidates %}
-            <div class="px-4 py-3 border-bottom d-flex justify-content-between align-items-center bg-light">
-                <span class="text-muted"><i class="far fa-clock me-1"></i> อัปเดตล่าสุด: {{ last_updated|date:"d M Y H:i" }}</span>
-                <span class="badge bg-success rounded-pill px-3 py-2">{{ candidates|length }} หุ้นจุดพลุ</span>
+            <div class="px-4 py-3 border-bottom d-flex justify-content-between align-items-center bg-light flex-wrap gap-3">
+                <div>
+                    <span class="text-muted"><i class="far fa-clock me-1"></i> อัปเดตล่าสุด: {{ last_updated|date:"d M Y H:i" }}</span>
+                    <span class="badge bg-success rounded-pill px-3 py-2 ms-2">{{ candidates|length }} หุ้นจุดพลุ</span>
+                </div>
+                <div class="d-flex align-items-center gap-2 bg-white px-3 py-2 rounded-pill shadow-sm border">
+                    <span class="text-secondary fw-bold mb-0" style="font-size: 0.85rem;"><i class="fas fa-calculator text-primary me-1"></i> ความเสี่ยง 1% จากทุน:</span>
+                    <input type="number" id="totalCapitalInput" class="form-control form-control-sm text-end border-0 bg-light rounded-pill px-3 fw-bold text-dark" style="width: 140px; font-size: 0.9rem; box-shadow: inset 0 1px 3px rgba(0,0,0,0.1);" value="1000000">
+                    <span class="text-secondary fw-bold" style="font-size: 0.85rem;">บาท</span>
+                    <button class="btn btn-sm btn-primary rounded-pill px-3 fw-bold shadow-sm" onclick="calculateTurtleUnits()">คำนวณไม้ (1 Unit)</button>
+                </div>
             </div>
             
             <div class="table-responsive">
@@ -92,7 +100,7 @@
                     </thead>
                     <tbody>
                         {% for c in candidates %}
-                        <tr class="turtle-row" data-prec-score="{{ c.precision_score|default:0 }}">
+                        <tr class="turtle-row" data-prec-score="{{ c.precision_score|default:0 }}" data-price="{{ c.price|default:0 }}" data-atr="{{ c.atr_20d|default:0 }}">
                             <td class="ps-4">
                                 <span class="fw-bold fs-5 text-dark">{{ c.symbol }}</span>
                                 {% if c.market == 'US' %}
@@ -114,8 +122,12 @@
                                 {% endif %}
                             </td>
                             <td>{{ c.avg_vol_20d|floatformat:0 }}</td>
-                            <td>{{ c.atr_20d|floatformat:2 }} 
-                                <span class="text-muted small">(N)</span>
+                            <td>
+                                <div class="fw-bold text-dark">{{ c.atr_20d|floatformat:2 }} <span class="text-muted small fw-normal">(N)</span></div>
+                                <div class="mt-1 position-calc-result d-none">
+                                    <span class="badge bg-dark rounded-pill px-2 py-1 shadow-sm" style="font-size:0.65rem;">1 Unit: <span class="unit-shares text-warning fs-6">0</span> หุ้น</span><br>
+                                    <small class="text-muted fst-italic" style="font-size:0.65rem;">(ใช้เงินรวม <span class="unit-cost fw-bold text-dark">0</span> ฿)</small>
+                                </div>
                             </td>
                             <td class="text-center">
                                 {% if c.sys1_breakout %}
@@ -134,9 +146,14 @@
                                 {% endif %}
                             </td>
                             <td class="text-end pe-4">
-                                <button class="btn btn-sm btn-outline-primary fw-bold" onclick="window.open(`https://finance.yahoo.com/quote/{{ c.symbol }}{% if c.market == 'SET' %}.BK{% endif %}/chart`, '_blank')">
-                                    Chart <i class="fas fa-external-link-alt ms-1 text-xs"></i>
-                                </button>
+                                <div class="d-flex justify-content-end gap-2">
+                                    <button class="btn btn-sm btn-outline-primary fw-bold px-3" onclick="window.open(`https://finance.yahoo.com/quote/{{ c.symbol }}{% if c.market == 'SET' %}.BK{% endif %}/chart`, '_blank')">
+                                        Chart <i class="fas fa-external-link-alt ms-1 text-xs"></i>
+                                    </button>
+                                    <button class="btn btn-sm text-white fw-bold px-3 shadow-sm align-items-center d-flex" style="background: linear-gradient(135deg, #7c3aed 0%, #4f46e5 100%); border: none;" onclick="window.open(`{% url 'stocks:crew_analyze' c.symbol %}?strategy=turtle`, '_blank')" title="วิเคราะห์ด้วย CrewAI (โหมดเต่า)">
+                                        <i class="fas fa-robot me-1"></i> AI
+                                    </button>
+                                </div>
                             </td>
                         </tr>
                         {% endfor %}
@@ -228,6 +245,54 @@
                 }
             } else {
                 row.style.display = '';
+            }
+        });
+    }
+
+    function calculateTurtleUnits() {
+        const capitalInput = document.getElementById('totalCapitalInput').value;
+        const totalCapital = parseFloat(capitalInput) || 0;
+        
+        if (totalCapital <= 0) {
+            alert('กรุณาระบุเงินทุนหน้าตักที่ถูกต้อง');
+            return;
+        }
+
+        const riskAmount = totalCapital * 0.01; // 1% Risk
+
+        const rows = document.querySelectorAll('.turtle-row');
+        rows.forEach(row => {
+            const price = parseFloat(row.getAttribute('data-price')) || 0;
+            const atr = parseFloat(row.getAttribute('data-atr')) || 0;
+            
+            const resultDiv = row.querySelector('.position-calc-result');
+            const sharesSpan = row.querySelector('.unit-shares');
+            const costSpan = row.querySelector('.unit-cost');
+
+            if (atr > 0 && price > 0) {
+                const stopLossDistance = atr * 2; // 2N Stop
+                let rawShares = Math.floor(riskAmount / stopLossDistance);
+                
+                // ปัดเศษให้เป็น Board Lot (ทีละ 100 หุ้น) สำหรับหุ้นไทย แต่ถ้า US ปล่อยเศษได้
+                const marketSelectValue = document.getElementById('marketSelect').value;
+                if (marketSelectValue === 'SET') {
+                    rawShares = Math.floor(rawShares / 100) * 100;
+                }
+                
+                const totalCost = rawShares * price;
+                
+                if (rawShares > 0) {
+                    sharesSpan.innerText = rawShares.toLocaleString();
+                    costSpan.innerText = totalCost.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0});
+                    resultDiv.classList.remove('d-none');
+                } else {
+                    // Risk too big for 1 board lot
+                    sharesSpan.innerText = "ทุนไม่พอเปรียบเทียบ";
+                    costSpan.innerText = "-";
+                    resultDiv.classList.remove('d-none');
+                }
+            } else {
+                resultDiv.classList.add('d-none');
             }
         });
     }

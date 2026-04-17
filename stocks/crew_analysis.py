@@ -568,7 +568,7 @@ Write in Thai language:
 # ======================================================================
 
 class MomentumCrew:
-    def __init__(self, symbol, portfolio_context=None):
+    def __init__(self, symbol, portfolio_context=None, strategy=None):
         """
         portfolio_context (dict, optional): ข้อมูลพอร์ตของผู้ใช้สำหรับหุ้นตัวนี้
           {
@@ -578,9 +578,11 @@ class MomentumCrew:
             'gain_loss':      float,  # กำไร/ขาดทุนเป็นบาท
             'market_value':   float,  # มูลค่าตลาดปัจจุบัน
           }
+        strategy (str, optional): กลยุทธ์เฉพาะเจาะจงที่ใช้เรียก เช่น 'turtle'
         """
         self.symbol           = symbol
         self.portfolio_context = portfolio_context or {}
+        self.strategy         = strategy
         # Auto-add .BK for SET stocks (no dot, no dash, no =)
         self.yf_symbol = (
             symbol if ('.' in symbol or '=' in symbol or '-' in symbol)
@@ -985,9 +987,17 @@ Write a complete report in Thai with these sections (use markdown headers ##):
 ระบุ 3 ปัจจัยเสี่ยงที่ต้องติดตาม
 
 ## 9. ระยะเวลาที่แนะนำ
-Swing (2-8 สัปดาห์) หรือ Position (3-6 เดือน) — อ้างอิง Volatility และ ATR%
+Swing (2-8 สัปดาห์) หรือ Position (3-6 เดือน) — อ้างอิง Volatility และ ATR%"""
 
-Be specific with numbers. Use actual prices from the data provided."""
+        if self.strategy == 'turtle':
+            prompt += """\n\n## 10. วิเคราะห์สถานะ Turtle Breakout (Specialized Module)
+ในฐานะผู้เชี่ยวชาญ Turtle Trading System ให้ออกความเห็นในประเด็นต่อไปนี้:
+- พฤติกรรมการทะลุกรอบ: หุ้นกำลังทำ 20-Day High (System 1) หรือ 55-Day High (System 2) หรือไม่?
+- ความแข็งแกร่งของการทะลุ: Volume ทะลุกรอบสูงกว่า 20-Day Average ปกติแค่ไหน? น่าเชื่อถือหรือไม่? (ดู RVOL ประกอบ)
+- แนะนำจุดหนี (Trailing Stop) ตามแนวทางเต่าคือ 10-Day Low (สำหรับ System 1) หรือ 20-Day Low (สำหรับ System 2) ให้อยู่ที่กี่บาทโดยประมาณ?
+- หุ้นตัวนี้เหมาะกับการรันเทรนด์ระยะยาวแบบ Turtle Trend Following หรือไม่?"""
+
+        prompt += "\n\nBe specific with numbers. Use actual prices from the data provided."
 
         # ── Call Gemini directly via new google-genai SDK ───────────
         try:
