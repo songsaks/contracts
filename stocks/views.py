@@ -4910,7 +4910,8 @@ def multi_factor_scanner(request):
                         is_active=True, market='SET'
                     ).values_list('symbol', flat=True).distinct()
 
-                MultiFactorCandidate.objects.filter(user=user, market='SET').delete()
+                # Delete any existing SET records for these symbols
+                MultiFactorCandidate.objects.filter(user=user, symbol__in=sym_list).delete()
                 # deduplicate while preserving order
                 seen = set()
                 sym_list = [s for s in scan_symbols if not (s in seen or seen.add(s))]
@@ -5158,7 +5159,9 @@ def us_multi_factor_scanner(request):
                 _seen = set()
                 sym_list = [s for s in _US_MOMENTUM_SYMBOLS
                             if s not in _excl and not (s in _seen or _seen.add(s))]
-                MultiFactorCandidate.objects.filter(user=user, market='US').delete()
+                # Delete any existing US records (market='US') AND any stale records
+                # with wrong market value (e.g. market='SET' from before migration)
+                MultiFactorCandidate.objects.filter(user=user, symbol__in=sym_list).delete()
 
                 _cache.set(cache_key, {'state': 'running', 'progress': 0, 'total': len(sym_list)}, timeout=600)
 
