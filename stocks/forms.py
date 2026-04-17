@@ -10,6 +10,7 @@ class AddPortfolioForm(forms.Form):
     entry_price = forms.DecimalField(max_digits=12, decimal_places=4)
     category = forms.ChoiceField(choices=AssetCategory.choices)
     market = forms.ChoiceField(choices=MarketType.choices)
+    strategy = forms.CharField(max_length=50, required=False, strip=True)
 
     def clean_symbol(self):
         symbol = self.cleaned_data['symbol'].strip().upper()
