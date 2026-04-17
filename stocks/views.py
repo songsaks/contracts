@@ -82,7 +82,7 @@ def _get_usd_thb():
 
 
 # ====== _compute_signals — คำนวณ BUY/SELL Score + Exit Signal จาก PrecisionScanCandidate ======
-def _compute_signals(prec, current_price=None):
+def _compute_signals(prec, current_price=None, is_turtle=False, turtle_stop=None):
     """Reusable scorer v3 — ใช้ใน Portfolio, Watchlist, และ Precision Scanner."""
     price  = float(current_price or getattr(prec, 'price', 0) or 0)
     dz_s   = getattr(prec, 'demand_zone_start', None)
@@ -202,28 +202,35 @@ def _compute_signals(prec, current_price=None):
 
     # ── SELL SCORE ────────────────────────────────────────────────────
     sell = 0
-    if sz_s and price >= sz_s:              sell += 45
-    # ยกเลิกเงื่อนไขขายเมื่อใกล้วน 52w High เพราะเบรกเอาต์คือสัญญาณโมเมนตัมที่ดี
-    if rsi > 78:    sell += 20
-    elif rsi > 72:  sell += 12
-    elif rsi > 68:  sell += 5
-    # Volume bearish penalty — ผ่อนลงสำหรับ SET เพราะหลายวัน volume เป็น neutral ไม่ใช่ bearish จริง
-    if not rvol_b and rvol >= 2.0:  sell += 18   # volume สูงมากและเป็น bearish = แรงขายจริง
-    elif not rvol_b and rvol >= 1.5: sell += 10  # volume สูงปานกลางและ bearish
-    # rvol_b = False แต่ volume ปกติ → ไม่ penalty
-    if rel1 < -5:   sell += 12
-    elif rel1 < 0:  sell += 6
-    if pat < -5:    sell += 10
-    elif pat < 0:   sell += 5
-    if adx < 15:    sell += 8
-    elif adx < 20:  sell += 4
-    # v3: MACD bearish (histogram negative + no crossover)
-    if not macd_cross and macd_hist < 0 and abs(macd_hist) > 0.01:
-        sell += 8
-    # v7: CMF distribution — เงินไหลออกสุทธิ
-    if cmf is not None:
-        if cmf < -0.1:    sell += 10  # Distribution ชัดเจน
-        elif cmf < -0.05: sell += 5   # เริ่มมีแรงขายสุทธิ
+    if is_turtle:
+        # Turtles only exit on 10D/20D Low (turtle_stop)
+        if turtle_stop and price <= turtle_stop:
+            sell = 100
+        else:
+            sell = 0
+    else:
+        if sz_s and price >= sz_s:              sell += 45
+        # ยกเลิกเงื่อนไขขายเมื่อใกล้วน 52w High เพราะเบรกเอาต์คือสัญญาณโมเมนตัมที่ดี
+        if rsi > 78:    sell += 20
+        elif rsi > 72:  sell += 12
+        elif rsi > 68:  sell += 5
+        # Volume bearish penalty — ผ่อนลงสำหรับ SET เพราะหลายวัน volume เป็น neutral ไม่ใช่ bearish จริง
+        if not rvol_b and rvol >= 2.0:  sell += 18   # volume สูงมากและเป็น bearish = แรงขายจริง
+        elif not rvol_b and rvol >= 1.5: sell += 10  # volume สูงปานกลางและ bearish
+        # rvol_b = False แต่ volume ปกติ → ไม่ penalty
+        if rel1 < -5:   sell += 12
+        elif rel1 < 0:  sell += 6
+        if pat < -5:    sell += 10
+        elif pat < 0:   sell += 5
+        if adx < 15:    sell += 8
+        elif adx < 20:  sell += 4
+        # v3: MACD bearish (histogram negative + no crossover)
+        if not macd_cross and macd_hist < 0 and abs(macd_hist) > 0.01:
+            sell += 8
+        # v7: CMF distribution — เงินไหลออกสุทธิ
+        if cmf is not None:
+            if cmf < -0.1:    sell += 10  # Distribution ชัดเจน
+            elif cmf < -0.05: sell += 5   # เริ่มมีแรงขายสุทธิ
     sell_score = min(100, sell)
 
     if sell_score >= 70:   exit_signal = 'STRONG EXIT'
@@ -1227,8 +1234,8 @@ def portfolio_list(request):
                 mom_data.risk_reward_ratio = prec_data.risk_reward_ratio
                 mom_data.demand_zone_start = prec_data.demand_zone_start
                 mom_data.demand_zone_end   = prec_data.demand_zone_end
-                mom_data.supply_zone_start = prec_data.supply_zone_start
-                mom_data.stop_loss         = prec_data.stop_loss
+                mom_data.supply_zone_start = pyramid_price if is_turtle else prec_data.supply_zone_start
+                mom_data.stop_loss         = current_stop if is_turtle else prec_data.stop_loss
                 mom_data.zone_proximity    = prec_data.zone_proximity
                 mom_data.year_high         = prec_data.year_high
                 mom_data.price_pattern     = prec_data.price_pattern
@@ -1257,8 +1264,8 @@ def portfolio_list(request):
                         mom_data.risk_reward_ratio = sd.get('rr_ratio', 0)
                         mom_data.demand_zone_start = sd['start']
                         mom_data.demand_zone_end = sd.get('end', 0)
-                        mom_data.supply_zone_start = sd.get('target', 0)
-                        mom_data.stop_loss = sd.get('stop_loss', None)
+                        mom_data.supply_zone_start = pyramid_price if is_turtle else sd.get('target', 0)
+                        mom_data.stop_loss = current_stop if is_turtle else sd.get('stop_loss', None)
                         mom_data.zone_proximity = 0 if current_price <= sd['start'] else ((float(current_price) - sd['start']) / sd['start']) * 100
                     else:
                         mom_data.risk_reward_ratio = 0
@@ -1289,7 +1296,12 @@ def portfolio_list(request):
                 total_set_cost += cost_basis
                 total_set_pl += gain_loss
 
-            signals = _compute_signals(mom_data, current_price) if mom_data else {'buy_score': 0, 'sell_score': 0, 'exit_signal': ''}
+            signals = _compute_signals(
+                mom_data, 
+                current_price, 
+                is_turtle=is_turtle, 
+                turtle_stop=(current_stop if is_turtle else None)
+            ) if mom_data else {'buy_score': 0, 'sell_score': 0, 'exit_signal': ''}
 
             items.append({
                 'obj': item,
