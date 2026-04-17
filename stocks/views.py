@@ -8336,15 +8336,30 @@ def turtle_scanner(request):
     - System 1: Breakout 20-day high (Exit: 10-day low)
     - System 2: Breakout 55-day high (Exit: 20-day low)
     """
-    from .models import TurtleScanCandidate
+    from .models import TurtleScanCandidate, PrecisionScanCandidate, USPrecisionScanCandidate
     
     market = request.GET.get('market', 'SET')
-    candidates = TurtleScanCandidate.objects.filter(user=request.user, market=market)
+    candidates_qs = TurtleScanCandidate.objects.filter(user=request.user, market=market)
     
-    if candidates.exists():
-        latest_run = candidates.first().scan_run
-        candidates = candidates.filter(scan_run=latest_run).order_by('symbol')
+    candidates = []
+    if candidates_qs.exists():
+        latest_run = candidates_qs.first().scan_run
+        candidates = list(candidates_qs.filter(scan_run=latest_run).order_by('symbol'))
         last_updated = latest_run
+        
+        PrecModel = PrecisionScanCandidate if market == 'SET' else USPrecisionScanCandidate
+        prec_qs = PrecModel.objects.filter(user=request.user)
+        latest_prec_run = prec_qs.values_list('scan_run', flat=True).order_by('-scan_run').first()
+        if latest_prec_run:
+            prec_dict = {p.symbol: p for p in prec_qs.filter(scan_run=latest_prec_run)}
+            for c in candidates:
+                p_match = prec_dict.get(c.symbol)
+                if p_match:
+                    c.precision_score = p_match.technical_score
+                    c.rs_rating = p_match.rs_rating
+                else:
+                    c.precision_score = None
+                    c.rs_rating = None
     else:
         last_updated = None
 

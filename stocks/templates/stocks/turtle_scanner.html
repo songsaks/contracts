@@ -42,6 +42,10 @@
         </div>
         
         <div class="d-flex align-items-center gap-3">
+            <div class="form-check form-switch text-white me-2">
+                <input class="form-check-input" type="checkbox" role="switch" id="filterQualityToggle" onclick="toggleQualityFilter()">
+                <label class="form-check-label fw-bold" for="filterQualityToggle">🟢 Precision > 75</label>
+            </div>
             <select id="marketSelect" class="form-select bg-white bg-opacity-25 text-white border-0 fw-bold fw-lg" style="width: auto;">
                 <option value="SET" {% if selected_market == 'SET' %}selected{% endif %} class="text-dark">🇹🇭 SET Index</option>
                 <option value="US" {% if selected_market == 'US' %}selected{% endif %} class="text-dark">🇺🇸 US Market</option>
@@ -78,6 +82,7 @@
                         <tr>
                             <th class="ps-4">Symbol</th>
                             <th>Current Price</th>
+                            <th>Precision <i class="fas fa-magic text-warning small"></i></th>
                             <th>20-Day Vol (Avg)</th>
                             <th>ATR (Volatility)</th>
                             <th class="text-center">System 1 (ระยะสั้น)</th>
@@ -87,15 +92,26 @@
                     </thead>
                     <tbody>
                         {% for c in candidates %}
-                        <tr>
+                        <tr class="turtle-row" data-prec-score="{{ c.precision_score|default:0 }}">
                             <td class="ps-4">
                                 <span class="fw-bold fs-5 text-dark">{{ c.symbol }}</span>
                                 {% if c.market == 'US' %}
                                     <span class="badge bg-primary-subtle text-primary ms-1">US</span>
                                 {% endif %}
+                                {% if c.precision_score >= 75 and c.rs_rating >= 80 %}
+                                    <span class="badge bg-warning text-dark ms-1 rounded-pill" title="Golden Signal">🔥 TURTLE x PMS</span>
+                                {% endif %}
                             </td>
                             <td>
                                 <span class="fw-bold">{{ c.price|floatformat:2 }}</span>
+                            </td>
+                            <td>
+                                {% if c.precision_score %}
+                                    <span class="badge {% if c.precision_score >= 75 %}bg-success{% else %}bg-secondary{% endif %} bg-opacity-25 text-dark border"><i class="fas fa-star text-warning"></i> {{ c.precision_score }}</span>
+                                    {% if c.rs_rating %}<br><small class="text-muted fw-bold">RS: {{ c.rs_rating }}</small>{% endif %}
+                                {% else %}
+                                    <span class="text-muted small">-</span>
+                                {% endif %}
                             </td>
                             <td>{{ c.avg_vol_20d|floatformat:0 }}</td>
                             <td>{{ c.atr_20d|floatformat:2 }} 
@@ -198,6 +214,22 @@
         document.getElementById('scanProgress').classList.add('d-none');
         document.getElementById('runScanBtn').disabled = false;
         clearInterval(pollInterval);
+    }
+    function toggleQualityFilter() {
+        const isChecked = document.getElementById('filterQualityToggle').checked;
+        const rows = document.querySelectorAll('.turtle-row');
+        rows.forEach(row => {
+            const score = parseInt(row.getAttribute('data-prec-score')) || 0;
+            if (isChecked) {
+                if (score >= 75) {
+                    row.style.display = '';
+                } else {
+                    row.style.display = 'none';
+                }
+            } else {
+                row.style.display = '';
+            }
+        });
     }
 </script>
 {% endblock %}
