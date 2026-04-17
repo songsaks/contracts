@@ -254,6 +254,7 @@ class MultiFactorCandidate(models.Model):
     above_ema50 = models.BooleanField(default=False)
 
     scanned_at = models.DateTimeField(auto_now=True)
+    market = models.CharField(max_length=10, default='SET')  # 'SET' or 'US'
 
     class Meta:
         ordering = ['-super_score']

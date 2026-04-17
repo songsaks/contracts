@@ -4819,7 +4819,8 @@ def clear_scan_data(request):
         'momentum_us':   (MomentumCandidate,        {'user': request.user, 'market': 'US'}),
         'precision_set': (PrecisionScanCandidate,   {'user': request.user, 'market': 'SET'}),
         'precision_us':  (PrecisionScanCandidate,   {'user': request.user, 'market': 'US'}),
-        'multifactor':   (MultiFactorCandidate,     {'user': request.user}),
+        'multifactor':   (MultiFactorCandidate,     {'user': request.user, 'market': 'SET'}),
+        'us_multifactor':(MultiFactorCandidate,     {'user': request.user, 'market': 'US'}),
         'cup_handle':    (CupHandleCandidate,        {'user': request.user, 'market': 'SET'}),
         'us_cup_handle': (CupHandleCandidate,        {'user': request.user, 'market': 'US'}),
         'us_sepa':       (USSepaCandidate,           {'user': request.user}),
@@ -4909,7 +4910,7 @@ def multi_factor_scanner(request):
                         is_active=True, market='SET'
                     ).values_list('symbol', flat=True).distinct()
 
-                MultiFactorCandidate.objects.filter(user=user).delete()
+                MultiFactorCandidate.objects.filter(user=user, market='SET').delete()
                 # deduplicate while preserving order
                 seen = set()
                 sym_list = [s for s in scan_symbols if not (s in seen or seen.add(s))]
@@ -4997,6 +4998,7 @@ def multi_factor_scanner(request):
                         vol_score = min(vol, 30)
                         return dict(
                             symbol=symbol, sector=sector, price=round(price, 2),
+                            market='SET',
                             momentum_score=mom, volume_score=vol_score,
                             sentiment_score=0, fundamental_score=0,
                             super_score=mom + vol_score,
@@ -5038,7 +5040,7 @@ def multi_factor_scanner(request):
 
     # ====== AI SENTIMENT (batch) ======
     if request.GET.get('sentiment') == 'true':
-        candidates_qs = MultiFactorCandidate.objects.filter(user=request.user).order_by('-super_score')[:30]
+        candidates_qs = MultiFactorCandidate.objects.filter(user=request.user, market='SET').order_by('-super_score')[:30]
         symbols_list  = [c.symbol for c in candidates_qs]
         if symbols_list:
             try:
@@ -5067,14 +5069,14 @@ reason: ภาษาไทย ไม่เกิน 60 ตัวอักษร"
                     label = item.get('label', '')
                     reason= item.get('reason', '')
                     MultiFactorCandidate.objects.filter(
-                        user=request.user, symbol=sym
+                        user=request.user, symbol=sym, market='SET'
                     ).update(
                         sentiment_score=score,
                         sentiment_label=label,
                         sentiment_reason=reason,
                     )
                 # recalculate super_score for updated records
-                for c in MultiFactorCandidate.objects.filter(user=request.user):
+                for c in MultiFactorCandidate.objects.filter(user=request.user, market='SET'):
                     c.super_score = c.momentum_score + c.volume_score + c.sentiment_score + c.fundamental_score
                     c.save(update_fields=['super_score'])
             except Exception as e:
@@ -5094,7 +5096,7 @@ reason: ภาษาไทย ไม่เกิน 60 ตัวอักษร"
         'symbol': 'symbol',
     }
     order_field = valid_sorts.get(sort_by, '-super_score')
-    candidates  = MultiFactorCandidate.objects.filter(user=request.user).order_by(order_field)
+    candidates  = MultiFactorCandidate.objects.filter(user=request.user, market='SET').order_by(order_field)
     last_scan   = candidates.first()
 
     context = {
@@ -5105,6 +5107,238 @@ reason: ภาษาไทย ไม่เกิน 60 ตัวอักษร"
         'has_sentiment': candidates.filter(sentiment_score__gt=0).exists(),
     }
     return render(request, 'stocks/multi_factor.html', context)
+
+
+@login_required
+def us_multi_factor_scanner(request):
+    """
+    US Multi-Factor Super Score Scanner
+    Same 4-factor logic as SET scanner but for US stocks (Nasdaq/S&P 500 universe)
+    """
+    # ====== SCAN STATUS POLL (AJAX) ======
+    if request.GET.get('scan_status') == '1':
+        from django.core.cache import cache
+        from django.http import JsonResponse as _JsonResponse
+        key = f'us_multifactor_scan_{request.user.id}'
+        status = cache.get(key, {'state': 'idle'})
+        if status.get('state') == 'done':
+            cache.delete(key)
+        return _JsonResponse(status)
+
+    # ====== SCAN (POST) ======
+    if request.method == "POST" and request.POST.get('action') == 'scan':
+        from django.core.cache import cache
+        import threading
+
+        user_id   = request.user.id
+        cache_key = f'us_multifactor_scan_{user_id}'
+
+        current = cache.get(cache_key, {})
+        if current.get('state') == 'running':
+            return redirect('stocks:us_multi_factor_scanner')
+
+        cache.set(cache_key, {'state': 'running', 'progress': 0, 'total': 0}, timeout=600)
+
+        def _run_scan(user_id, cache_key):
+            import django
+            django.setup()
+            import pandas_ta as ta
+            from concurrent.futures import ThreadPoolExecutor, as_completed
+            from django.contrib.auth import get_user_model
+            from django.core.cache import cache as _cache
+
+            User = get_user_model()
+            user = User.objects.get(pk=user_id)
+
+            try:
+                sym_list = [s for s in _US_MOMENTUM_SYMBOLS if s not in ('SPY', 'QQQ', 'IWM')]
+                MultiFactorCandidate.objects.filter(user=user, market='US').delete()
+
+                _cache.set(cache_key, {'state': 'running', 'progress': 0, 'total': len(sym_list)}, timeout=600)
+
+                # Phase 1: Batch download
+                tickers_str = " ".join(sym_list)
+                try:
+                    batch_df = yf.download(
+                        tickers_str, period="1y", interval="1d",
+                        group_by='ticker', progress=False, threads=True,
+                    )
+                except Exception as e:
+                    print(f"[USMultiFactorScan] Batch download failed: {e}")
+                    batch_df = None
+
+                def _get_df(symbol):
+                    df = None
+                    if batch_df is not None and not batch_df.empty:
+                        try:
+                            df = batch_df[symbol].copy() if len(sym_list) > 1 else batch_df.copy()
+                        except Exception:
+                            df = None
+                    if df is None or (hasattr(df, 'empty') and df.empty):
+                        try:
+                            df = yf.download(symbol, period="1y", interval="1d", progress=False)
+                        except Exception:
+                            return None
+                    return df
+
+                def process_one(symbol):
+                    try:
+                        df = _get_df(symbol)
+                        if df is None or df.empty:
+                            return None
+                        if isinstance(df.columns, pd.MultiIndex):
+                            df.columns = df.columns.droplevel(1)
+                        df = df.dropna(subset=['Close', 'High'])
+                        if len(df) < 60:
+                            return None
+                        df = df.copy()
+                        df['EMA50']  = ta.ema(df['Close'], length=50)
+                        df['EMA200'] = ta.ema(df['Close'], length=200)
+                        df['RSI']    = ta.rsi(df['Close'], length=14)
+                        adx_df = ta.adx(df['High'], df['Low'], df['Close'], length=14)
+                        if adx_df is not None and not adx_df.empty:
+                            df = pd.concat([df, adx_df], axis=1)
+                        df['MFI']  = ta.mfi(df['High'], df['Low'], df['Close'], df['Volume'], length=14)
+                        df['RVOL'] = df['Volume'] / df['Volume'].rolling(20).mean()
+                        last    = df.iloc[-1]
+                        price   = float(df['Close'].iloc[-1])
+                        rsi     = float(last.get('RSI')    or 0) if pd.notna(last.get('RSI'))    else 0
+                        adx_val = float(last.get('ADX_14') or 0) if 'ADX_14' in df.columns and pd.notna(last.get('ADX_14')) else 0
+                        mfi_val = float(last.get('MFI')    or 0) if pd.notna(last.get('MFI'))    else 0
+                        rvol    = float(last.get('RVOL')   or 1) if pd.notna(last.get('RVOL'))   else 1.0
+                        ema50   = float(last.get('EMA50')  or 0) if pd.notna(last.get('EMA50'))  else 0
+                        ema200  = float(last.get('EMA200') or 0) if pd.notna(last.get('EMA200')) else 0
+                        above_ema200 = bool(price > ema200) if ema200 else False
+                        above_ema50  = bool(price > ema50)  if ema50  else False
+                        # Sector from yfinance info (best effort)
+                        try:
+                            info = yf.Ticker(symbol).info
+                            sector = info.get('sector', 'Unknown') or 'Unknown'
+                        except Exception:
+                            sector = 'Unknown'
+                        mom = 0
+                        if above_ema200:                        mom += 15
+                        if above_ema50:                         mom += 5
+                        if 55 <= rsi <= 72:                     mom += 15
+                        elif 45 <= rsi < 55 or 72 < rsi <= 80: mom += 7
+                        if adx_val >= 30:                       mom += 5
+                        vol = 0
+                        if rvol >= 3.0:     vol += 15
+                        elif rvol >= 2.0:   vol += 12
+                        elif rvol >= 1.5:   vol += 8
+                        elif rvol >= 1.0:   vol += 4
+                        if mfi_val >= 70:   vol += 15
+                        elif mfi_val >= 60: vol += 10
+                        elif mfi_val >= 50: vol += 5
+                        vol_score = min(vol, 30)
+                        return dict(
+                            symbol=symbol, sector=sector, price=round(price, 2),
+                            market='US',
+                            momentum_score=mom, volume_score=vol_score,
+                            sentiment_score=0, fundamental_score=0,
+                            super_score=mom + vol_score,
+                            rsi=round(rsi, 2), adx=round(adx_val, 2),
+                            mfi=round(mfi_val, 2), rvol=round(rvol, 2),
+                            eps_growth=0.0, rev_growth=0.0,
+                            above_ema200=above_ema200, above_ema50=above_ema50,
+                        )
+                    except Exception as e:
+                        print(f"[USMultiFactorScan] {symbol}: {e}")
+                        return None
+
+                raw_results = []
+                done = 0
+                with ThreadPoolExecutor(max_workers=10) as executor:
+                    futures = {executor.submit(process_one, s): s for s in sym_list}
+                    for future in as_completed(futures):
+                        r = future.result()
+                        if r:
+                            raw_results.append(r)
+                        done += 1
+                        _cache.set(cache_key, {'state': 'running', 'progress': done, 'total': len(sym_list)}, timeout=600)
+
+                MultiFactorCandidate.objects.bulk_create([
+                    MultiFactorCandidate(user=user, **r) for r in raw_results
+                ])
+                _cache.set(cache_key, {'state': 'done', 'count': len(raw_results)}, timeout=300)
+            except Exception as e:
+                import traceback
+                print(f"[USMultiFactorScan] CRITICAL ERROR: {e}\n{traceback.format_exc()}")
+                _cache.set(cache_key, {'state': 'done', 'error': str(e)}, timeout=300)
+
+        t = threading.Thread(target=_run_scan, args=(user_id, cache_key), daemon=True)
+        t.start()
+        return redirect('stocks:us_multi_factor_scanner')
+
+    # ====== AI SENTIMENT (batch) ======
+    if request.GET.get('sentiment') == 'true':
+        candidates_qs = MultiFactorCandidate.objects.filter(user=request.user, market='US').order_by('-super_score')[:30]
+        symbols_list  = [c.symbol for c in candidates_qs]
+        if symbols_list:
+            try:
+                client = genai.Client(api_key=settings.GEMINI_API_KEY)
+                prompt = f"""Analyze the latest news sentiment for these US stocks:
+{', '.join(symbols_list)}
+
+Reply with a JSON array only, no other text:
+[{{"symbol":"AAPL","score":15,"label":"Positive","reason":"One-sentence summary"}}]
+
+score: 0-20 (20=very positive, 10=neutral, 0=very negative)
+label: "Positive" or "Neutral" or "Negative"
+reason: English, max 80 characters"""
+                resp = client.models.generate_content(
+                    model='gemini-2.5-flash',
+                    contents=prompt
+                )
+                import json, re
+                raw = resp.text.strip()
+                raw = re.sub(r'^```(?:json)?\s*', '', raw)
+                raw = re.sub(r'\s*```$', '', raw)
+                data = json.loads(raw)
+                for item in data:
+                    sym   = item.get('symbol','').upper()
+                    score = int(item.get('score', 0))
+                    label = item.get('label', '')
+                    reason= item.get('reason', '')
+                    MultiFactorCandidate.objects.filter(
+                        user=request.user, symbol=sym, market='US'
+                    ).update(
+                        sentiment_score=score,
+                        sentiment_label=label,
+                        sentiment_reason=reason,
+                    )
+                for c in MultiFactorCandidate.objects.filter(user=request.user, market='US'):
+                    c.super_score = c.momentum_score + c.volume_score + c.sentiment_score + c.fundamental_score
+                    c.save(update_fields=['super_score'])
+            except Exception as e:
+                messages.warning(request, f"AI Sentiment Error: {e}")
+        return redirect('stocks:us_multi_factor_scanner')
+
+    # ====== Sort & Render ======
+    sort_by = request.GET.get('sort', 'super')
+    valid_sorts = {
+        'super': '-super_score',
+        'momentum': '-momentum_score',
+        'volume': '-volume_score',
+        'sentiment': '-sentiment_score',
+        'fundamental': '-fundamental_score',
+        'rsi': '-rsi',
+        'rvol': '-rvol',
+        'symbol': 'symbol',
+    }
+    order_field = valid_sorts.get(sort_by, '-super_score')
+    candidates  = MultiFactorCandidate.objects.filter(user=request.user, market='US').order_by(order_field)
+    last_scan   = candidates.first()
+
+    context = {
+        'candidates':    candidates,
+        'current_sort':  sort_by,
+        'has_scanned':   candidates.exists(),
+        'scanned_at':    last_scan.scanned_at if last_scan else None,
+        'has_sentiment': candidates.filter(sentiment_score__gt=0).exists(),
+        'total_symbols': len([s for s in _US_MOMENTUM_SYMBOLS if s not in ('SPY', 'QQQ', 'IWM')]),
+    }
+    return render(request, 'stocks/us_multi_factor.html', context)
 
 @login_required
 def realized_pl_report(request):

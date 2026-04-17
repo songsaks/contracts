@@ -1,0 +1,442 @@
+{% extends 'stocks/base_stocks.html' %}
+{% load humanize %}
+
+{% block title %}US Multi-Factor Super Score — 9Com{% endblock %}
+
+{% block content %}
+<style>
+.factor-bar { height: 6px; border-radius: 3px; background: #e2e8f0; overflow: hidden; }
+.factor-fill { height: 100%; border-radius: 3px; transition: width .5s; }
+.super-ring {
+    width: 52px; height: 52px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 800; font-size: 1rem;
+}
+.score-s  { background: #dcfce7; color: #15803d; }
+.score-a  { background: #dbeafe; color: #1d4ed8; }
+.score-b  { background: #fef9c3; color: #854d0e; }
+.score-c  { background: #fee2e2; color: #b91c1c; }
+.sent-pos { color: #16a34a; }
+.sent-neu { color: #64748b; }
+.sent-neg { color: #dc2626; }
+.factor-chip { font-size: 0.65rem; padding: 1px 6px; border-radius: 99px; font-weight: 600; }
+.loading-overlay {
+    position: fixed; inset: 0; background: rgba(15,23,42,.6);
+    backdrop-filter: blur(4px); z-index: 9999;
+    display: none; flex-direction: column;
+    align-items: center; justify-content: center; gap: 1rem;
+}
+.spin-ring {
+    width: 64px; height: 64px; border-radius: 50%;
+    border: 6px solid rgba(255,255,255,.2);
+    border-top-color: #1d4ed8;
+    animation: spin 1s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.weight-card {
+    border-radius: 1rem; padding: 1rem 1.25rem;
+    border-left: 4px solid var(--c);
+    background: white;
+}
+th.sortable { cursor: pointer; user-select: none; white-space: nowrap; }
+th.sortable:hover { background: #f1f5f9; }
+.rvol-badge { display:inline-block; padding:1px 7px; border-radius:99px; font-size:.7rem; font-weight:700; }
+</style>
+
+<!-- Loading Overlay -->
+<div class="loading-overlay" id="loadingOverlay">
+    <div class="spin-ring"></div>
+    <div class="text-white fw-semibold fs-5" id="overlayTitle">Scanning US stocks…</div>
+    <div class="text-white-50 small" id="overlaySubtitle">Downloading 1Y data + computing 4 factors, please wait</div>
+    <div id="overlayProgress" style="display:none;width:320px;">
+        <div class="d-flex justify-content-between text-white-50 mb-1" style="font-size:.8rem;">
+            <span>Progress</span>
+            <span id="progressText">0 / 0</span>
+        </div>
+        <div style="height:8px;border-radius:4px;background:rgba(255,255,255,.15);">
+            <div id="progressBar" style="height:100%;border-radius:4px;background:#1d4ed8;width:0%;transition:width .4s;"></div>
+        </div>
+    </div>
+</div>
+
+<!-- Header -->
+<div class="row align-items-end mb-4">
+    <div class="col-md-7">
+        <h1 class="fw-bold mb-1" style="color:#1d4ed8;">
+            🇺🇸 US Multi-Factor Super Score
+        </h1>
+        <p class="text-muted mb-0">
+            Score US stocks with 4 factors — Momentum · Volume/Flow · Sentiment AI · Fundamental<br>
+            Universe: ~{{ total_symbols }} Nasdaq / S&P 500 stocks
+        </p>
+        {% if scanned_at %}
+        <div class="mt-2">
+            <span class="badge bg-light text-secondary border" style="font-size:.75rem;">
+                <i class="fas fa-clock me-1"></i> Last scan: {{ scanned_at|date:"d/m/Y H:i" }}
+            </span>
+            <span class="badge bg-light text-secondary border ms-1" style="font-size:.75rem;">
+                <i class="fas fa-database me-1"></i> {{ candidates|length }} stocks
+            </span>
+        </div>
+        {% endif %}
+    </div>
+    <div class="col-md-5 text-md-end mt-3 mt-md-0 d-flex flex-wrap justify-content-md-end gap-2">
+        <!-- Switch to SET -->
+        <a href="{% url 'stocks:multi_factor_scanner' %}" class="btn btn-outline-secondary d-inline-flex align-items-center gap-2" style="font-size:0.82rem;">
+            🇹🇭 Switch to SET
+        </a>
+        {% if has_scanned %}
+        <a href="?sentiment=true" class="btn btn-outline-success d-inline-flex align-items-center gap-2"
+            onclick="showLoading('sentimentLoading')">
+            <i class="fas fa-brain"></i> AI Sentiment
+        </a>
+        {% endif %}
+        <form method="post" id="scanForm" onsubmit="showLoading('scanLoading')">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="scan">
+            {% if has_scanned %}
+            <button type="button" class="btn d-inline-flex align-items-center gap-2"
+                style="background:linear-gradient(135deg,#1d4ed8,#2563eb);color:white;"
+                onclick="confirmRescan()">
+                <i class="fas fa-sync-alt"></i> Rescan
+            </button>
+            {% else %}
+            <button type="submit" class="btn d-inline-flex align-items-center gap-2"
+                style="background:linear-gradient(135deg,#1d4ed8,#2563eb);color:white;">
+                <i class="fas fa-search-dollar"></i> Scan US Stocks
+            </button>
+            {% endif %}
+        </form>
+        {% if has_scanned %}
+        <form method="post" action="{% url 'stocks:clear_scan_data' %}" class="d-inline" onsubmit="return confirm('Clear all US Multi-Factor scan data?')">
+            {% csrf_token %}
+            <input type="hidden" name="scanner" value="us_multifactor">
+            <input type="hidden" name="next" value="{% url 'stocks:us_multi_factor_scanner' %}">
+            <button type="submit" class="btn btn-outline-secondary d-inline-flex align-items-center gap-2" style="font-size:0.82rem;">
+                <i class="fas fa-trash-alt"></i> Clear
+            </button>
+        </form>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Weight Cards -->
+<div class="row g-3 mb-4">
+    <div class="col-6 col-md-3">
+        <div class="weight-card shadow-sm" style="--c:#ef4444;">
+            <div class="d-flex justify-content-between align-items-center mb-1">
+                <span class="fw-bold text-danger small"><i class="fas fa-rocket me-1"></i>Momentum</span>
+                <span class="badge bg-danger">40%</span>
+            </div>
+            <div class="extra-small text-muted">RSI 55-72 + above EMA200 + ADX</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="weight-card shadow-sm" style="--c:#0ea5e9;">
+            <div class="d-flex justify-content-between align-items-center mb-1">
+                <span class="fw-bold text-info small"><i class="fas fa-water me-1"></i>Volume/Flow</span>
+                <span class="badge bg-info">30%</span>
+            </div>
+            <div class="extra-small text-muted">RVOL > 1.5 + MFI > 60</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="weight-card shadow-sm" style="--c:#8b5cf6;">
+            <div class="d-flex justify-content-between align-items-center mb-1">
+                <span class="fw-bold small" style="color:#7c3aed;"><i class="fas fa-brain me-1"></i>Sentiment AI</span>
+                <span class="badge" style="background:#7c3aed;">20%</span>
+            </div>
+            <div class="extra-small text-muted">Latest news analysis via Gemini</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="weight-card shadow-sm" style="--c:#22c55e;">
+            <div class="d-flex justify-content-between align-items-center mb-1">
+                <span class="fw-bold text-success small"><i class="fas fa-chart-bar me-1"></i>Fundamental</span>
+                <span class="badge bg-success">10%</span>
+            </div>
+            <div class="extra-small text-muted">EPS Growth + Revenue + P/E</div>
+        </div>
+    </div>
+</div>
+
+{% if not has_scanned %}
+<!-- Empty State -->
+<div class="card border-0 text-center py-5 shadow-sm" style="border-radius:1.5rem;">
+    <div class="card-body py-5">
+        <div class="display-3 opacity-10 mb-3" style="color:#1d4ed8;">🇺🇸</div>
+        <h3 class="fw-bold">Ready to Scan</h3>
+        <p class="text-muted mx-auto" style="max-width:550px;">
+            Click <strong>Scan US Stocks</strong> to score all ~{{ total_symbols }} US stocks across 4 factors.<br>
+            Then click <strong>AI Sentiment</strong> to get Gemini's latest news scores.
+        </p>
+        <button type="submit" form="scanForm" class="btn btn-lg mt-2"
+            style="background:linear-gradient(135deg,#1d4ed8,#2563eb);color:white;border-radius:.75rem;"
+            onclick="showLoading('scanLoading')">
+            <i class="fas fa-search-dollar me-2"></i> Start Scan
+        </button>
+    </div>
+</div>
+
+{% else %}
+<!-- Result Table -->
+<div class="card border-0 shadow-sm mb-4" style="border-radius:1.25rem;overflow:hidden;">
+    <div class="card-header bg-white border-bottom p-3 p-md-4">
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+            <div>
+                <h5 class="mb-0 fw-bold"><i class="fas fa-trophy text-warning me-2"></i>
+                    Scan Results — {{ candidates|length }} US Stocks
+                </h5>
+                {% if scanned_at %}
+                <small class="text-muted">Updated: {{ scanned_at|date:"d/m/Y H:i" }}</small>
+                {% endif %}
+            </div>
+            {% if not has_sentiment %}
+            <div class="alert alert-warning py-1 px-3 mb-0 small rounded-pill">
+                <i class="fas fa-info-circle me-1"></i> Sentiment = 0 — click "AI Sentiment" to add scores
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0" style="font-size:.82rem;">
+            <thead class="table-light">
+                <tr>
+                    <th class="px-3 py-3 sortable" onclick="sortTable('symbol')">SYMBOL</th>
+                    <th class="px-3 py-3 text-center sortable" onclick="sortTable('super')">
+                        SUPER SCORE <i class="fas fa-sort text-muted ms-1" style="font-size:.7rem;"></i>
+                    </th>
+                    <th class="px-3 py-3 text-center col-hide-md sortable" onclick="sortTable('momentum')">
+                        <span class="text-danger">MOM</span><br><span class="text-muted fw-normal" style="font-size:.65rem;">/40</span>
+                    </th>
+                    <th class="px-3 py-3 text-center col-hide-md sortable" onclick="sortTable('volume')">
+                        <span class="text-info">VOL</span><br><span class="text-muted fw-normal" style="font-size:.65rem;">/30</span>
+                    </th>
+                    <th class="px-3 py-3 text-center col-hide-lg sortable" onclick="sortTable('sentiment')">
+                        <span style="color:#7c3aed;">SENT</span><br><span class="text-muted fw-normal" style="font-size:.65rem;">/20</span>
+                    </th>
+                    <th class="px-3 py-3 text-center col-hide-lg sortable" onclick="sortTable('fundamental')">
+                        <span class="text-success">FUND</span><br><span class="text-muted fw-normal" style="font-size:.65rem;">/10</span>
+                    </th>
+                    <th class="px-3 py-3 text-center col-hide-md sortable" onclick="sortTable('rvol')">RVOL</th>
+                    <th class="px-3 py-3 text-center sortable" onclick="sortTable('rsi')">RSI</th>
+                    <th class="px-3 py-3 text-center col-hide-lg">MFI</th>
+                    <th class="px-3 py-3 col-hide-lg">SECTOR</th>
+                    <th class="px-3 py-3 col-hide-lg">SENTIMENT</th>
+                    <th class="px-3 py-3 text-center">CHART</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for c in candidates %}
+                {% with score=c.super_score %}
+                <tr class="{% if score >= 70 %}table-success bg-opacity-25{% elif score >= 50 %}table-warning bg-opacity-10{% endif %}">
+                    <!-- Symbol -->
+                    <td class="px-3 py-2 fw-bold">
+                        <a href="{% url 'stocks:analyze' c.symbol %}" class="text-decoration-none text-dark">
+                            {{ c.symbol }}
+                        </a>
+                        <div class="text-muted" style="font-size:.65rem;">${{ c.price|floatformat:2 }}</div>
+                        <div class="mt-1 d-flex gap-1 flex-wrap">
+                            {% if c.above_ema200 %}<span class="factor-chip bg-success text-white">EMA200✓</span>{% endif %}
+                            {% if c.above_ema50 %}<span class="factor-chip bg-primary text-white">EMA50✓</span>{% endif %}
+                        </div>
+                    </td>
+
+                    <!-- Super Score Ring -->
+                    <td class="px-3 py-2 text-center">
+                        <div class="d-flex flex-column align-items-center gap-1">
+                            <div class="super-ring {% if score >= 70 %}score-s{% elif score >= 50 %}score-a{% elif score >= 30 %}score-b{% else %}score-c{% endif %}">
+                                {{ score }}
+                            </div>
+                            <div class="factor-bar w-100" style="width:60px!important;">
+                                <div class="factor-fill" style="width:{{ score }}%;background:{% if score >= 70 %}#22c55e{% elif score >= 50 %}#3b82f6{% elif score >= 30 %}#f59e0b{% else %}#ef4444{% endif %};"></div>
+                            </div>
+                        </div>
+                    </td>
+
+                    <!-- Momentum /40 -->
+                    <td class="px-3 py-2 text-center col-hide-md">
+                        <div class="fw-bold text-danger">{{ c.momentum_score }}</div>
+                        <div class="factor-bar mt-1"><div class="factor-fill bg-danger" style="width:{% widthratio c.momentum_score 40 100 %}%;"></div></div>
+                    </td>
+
+                    <!-- Volume /30 -->
+                    <td class="px-3 py-2 text-center col-hide-md">
+                        <div class="fw-bold text-info">{{ c.volume_score }}</div>
+                        <div class="factor-bar mt-1"><div class="factor-fill bg-info" style="width:{% widthratio c.volume_score 30 100 %}%;"></div></div>
+                    </td>
+
+                    <!-- Sentiment /20 -->
+                    <td class="px-3 py-2 text-center col-hide-lg">
+                        <div class="fw-bold" style="color:#7c3aed;">{{ c.sentiment_score }}</div>
+                        <div class="factor-bar mt-1"><div class="factor-fill" style="width:{% widthratio c.sentiment_score 20 100 %}%;background:#7c3aed;"></div></div>
+                    </td>
+
+                    <!-- Fundamental /10 -->
+                    <td class="px-3 py-2 text-center col-hide-lg">
+                        <div class="fw-bold text-success">{{ c.fundamental_score }}</div>
+                        <div class="factor-bar mt-1"><div class="factor-fill bg-success" style="width:{% widthratio c.fundamental_score 10 100 %}%;"></div></div>
+                    </td>
+
+                    <!-- RVOL -->
+                    <td class="px-3 py-2 text-center col-hide-md">
+                        {% if c.rvol >= 2.0 %}
+                        <span class="rvol-badge bg-danger text-white">{{ c.rvol|floatformat:1 }}x</span>
+                        {% elif c.rvol >= 1.5 %}
+                        <span class="rvol-badge bg-warning text-dark">{{ c.rvol|floatformat:1 }}x</span>
+                        {% else %}
+                        <span class="rvol-badge bg-light text-muted">{{ c.rvol|floatformat:1 }}x</span>
+                        {% endif %}
+                    </td>
+
+                    <!-- RSI -->
+                    <td class="px-3 py-2 text-center">
+                        <span class="fw-semibold {% if 55 <= c.rsi <= 72 %}text-success{% elif c.rsi > 72 %}text-danger{% else %}text-muted{% endif %}">
+                            {{ c.rsi|floatformat:0 }}
+                        </span>
+                    </td>
+
+                    <!-- MFI -->
+                    <td class="px-3 py-2 text-center col-hide-lg">
+                        <span class="{% if c.mfi >= 60 %}text-success fw-semibold{% else %}text-muted{% endif %}">
+                            {{ c.mfi|floatformat:0 }}
+                        </span>
+                    </td>
+
+                    <!-- Sector -->
+                    <td class="px-3 py-2 text-muted small col-hide-lg">{{ c.sector|truncatechars:18 }}</td>
+
+                    <!-- Sentiment Label -->
+                    <td class="px-3 py-2 col-hide-lg">
+                        {% if c.sentiment_label %}
+                        <div class="fw-bold {% if c.sentiment_label == 'Positive' %}sent-pos{% elif c.sentiment_label == 'Negative' %}sent-neg{% else %}sent-neu{% endif %}">
+                            {% if c.sentiment_label == 'Positive' %}<i class="fas fa-arrow-up me-1"></i>{% elif c.sentiment_label == 'Negative' %}<i class="fas fa-arrow-down me-1"></i>{% else %}<i class="fas fa-minus me-1"></i>{% endif %}
+                            {{ c.sentiment_label }}
+                        </div>
+                        {% if c.sentiment_reason %}
+                        <div class="text-muted" style="font-size:.65rem;max-width:140px;">{{ c.sentiment_reason|truncatechars:80 }}</div>
+                        {% endif %}
+                        {% else %}
+                        <span class="text-muted small">—</span>
+                        {% endif %}
+                    </td>
+
+                    <!-- Chart Link -->
+                    <td class="px-3 py-2 text-center">
+                        <a href="{% url 'stocks:analyze' c.symbol %}" class="btn btn-outline-primary btn-sm rounded-pill px-2 py-0" style="font-size:.7rem;">
+                            <i class="fas fa-chart-line me-1"></i>Chart
+                        </a>
+                    </td>
+                </tr>
+                {% endwith %}
+                {% empty %}
+                <tr><td colspan="12" class="text-center py-5 text-muted">No results — click Scan US Stocks to start</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Legend -->
+<div class="row g-3 mb-4">
+    <div class="col-md-6">
+        <div class="card border-0 shadow-sm p-3" style="border-radius:1rem;">
+            <h6 class="fw-bold mb-3"><i class="fas fa-info-circle text-primary me-2"></i>Super Score Grades</h6>
+            <div class="d-flex flex-wrap gap-2">
+                <span class="super-ring score-s" style="width:42px;height:42px;font-size:.8rem;">S</span> <span class="align-self-center small">≥ 70 — Very Strong Setup</span>
+            </div>
+            <div class="d-flex flex-wrap gap-2 mt-2">
+                <span class="super-ring score-a" style="width:42px;height:42px;font-size:.8rem;">A</span> <span class="align-self-center small">50–69 — Interesting</span>
+            </div>
+            <div class="d-flex flex-wrap gap-2 mt-2">
+                <span class="super-ring score-b" style="width:42px;height:42px;font-size:.8rem;">B</span> <span class="align-self-center small">30–49 — Caution</span>
+            </div>
+            <div class="d-flex flex-wrap gap-2 mt-2">
+                <span class="super-ring score-c" style="width:42px;height:42px;font-size:.8rem;">C</span> <span class="align-self-center small">< 30 — Avoid</span>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card border-0 shadow-sm p-3" style="border-radius:1rem;">
+            <h6 class="fw-bold mb-3"><i class="fas fa-calculator text-success me-2"></i>Scoring Formula</h6>
+            <table class="table table-sm table-borderless mb-0 small">
+                <tr><td><strong class="text-danger">Momentum (40)</strong></td><td class="text-muted">EMA200(15) + EMA50(5) + RSI(15) + ADX(5)</td></tr>
+                <tr><td><strong class="text-info">Volume (30)</strong></td><td class="text-muted">RVOL(15) + MFI(15)</td></tr>
+                <tr><td><strong style="color:#7c3aed;">Sentiment (20)</strong></td><td class="text-muted">Gemini AI news analysis 0–20</td></tr>
+                <tr><td><strong class="text-success">Fundamental (10)</strong></td><td class="text-muted">EPS(4) + Revenue(3) + P/E(3)</td></tr>
+            </table>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<script>
+function showLoading(type) {
+    const overlay = document.getElementById('loadingOverlay');
+    overlay.style.display = 'flex';
+    if (type === 'sentimentLoading') {
+        document.getElementById('overlayTitle').textContent = 'Running AI Sentiment analysis…';
+        document.getElementById('overlaySubtitle').textContent = 'Sending top 30 symbols to Gemini for news scoring';
+    }
+}
+
+function hideLoading() {
+    document.getElementById('loadingOverlay').style.display = 'none';
+}
+
+function confirmRescan() {
+    if (confirm('⚠️ Rescan will delete all current results.\nContinue?')) {
+        document.getElementById('scanForm').submit();
+    }
+}
+
+function sortTable(key) {
+    const url = new URL(window.location.href);
+    url.searchParams.set('sort', key);
+    window.location.href = url.toString();
+}
+
+let _pollTimer = null;
+let _sawRunning = false;
+
+function _showScanProgress(progress, total) {
+    const overlay = document.getElementById('loadingOverlay');
+    overlay.style.display = 'flex';
+    document.getElementById('overlayTitle').textContent = 'Scanning US stocks…';
+    document.getElementById('overlaySubtitle').textContent = 'Running in background — page will auto-refresh when done';
+    document.getElementById('overlayProgress').style.display = 'block';
+
+    const pct = total > 0 ? Math.round(progress / total * 100) : 0;
+    document.getElementById('progressBar').style.width = pct + '%';
+    document.getElementById('progressText').textContent = progress + ' / ' + total;
+}
+
+function pollScanStatus() {
+    fetch('?scan_status=1', {headers: {'X-Requested-With': 'XMLHttpRequest'}})
+        .then(r => r.json())
+        .then(data => {
+            if (data.state === 'running') {
+                _sawRunning = true;
+                _showScanProgress(data.progress || 0, data.total || 0);
+                _pollTimer = setTimeout(pollScanStatus, 2000);
+            } else if (data.state === 'done') {
+                hideLoading();
+                if (_sawRunning) {
+                    _sawRunning = false;
+                    window.location.reload();
+                }
+            } else {
+                hideLoading();
+            }
+        })
+        .catch(() => {
+            _pollTimer = setTimeout(pollScanStatus, 5000);
+        });
+}
+
+document.addEventListener('DOMContentLoaded', function () {
+    pollScanStatus();
+});
+</script>
+{% endblock %}
