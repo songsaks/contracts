@@ -5224,12 +5224,8 @@ def us_multi_factor_scanner(request):
                         ema200  = float(last.get('EMA200') or 0) if pd.notna(last.get('EMA200')) else 0
                         above_ema200 = bool(price > ema200) if ema200 else False
                         above_ema50  = bool(price > ema50)  if ema50  else False
-                        # Sector from yfinance info (best effort)
-                        try:
-                            info = yf.Ticker(symbol).info
-                            sector = info.get('sector', 'Unknown') or 'Unknown'
-                        except Exception:
-                            sector = 'Unknown'
+                        # Use static sector map — avoid per-symbol API call (193 calls = very slow)
+                        sector = _US_SECTOR_MAP.get(symbol, 'Unknown')
                         mom = 0
                         if above_ema200:                        mom += 15
                         if above_ema50:                         mom += 5
@@ -5650,6 +5646,75 @@ def tithe_mark_paid(request):
 # ======================================================================
 
 # Shared US symbol universe — ~220 symbols (Nasdaq + S&P 500 leaders)
+_US_SECTOR_MAP = {
+    # Technology
+    "AAPL":"Technology","MSFT":"Technology","NVDA":"Technology","GOOGL":"Technology",
+    "GOOG":"Technology","AMZN":"Technology","META":"Technology","TSLA":"Technology",
+    "AVGO":"Technology","ORCL":"Technology","AMD":"Technology","ARM":"Technology",
+    "DELL":"Technology","HPE":"Technology","WDC":"Technology","TSM":"Technology",
+    "QCOM":"Technology","INTC":"Technology","MU":"Technology","AMAT":"Technology",
+    "LRCX":"Technology","KLAC":"Technology","MRVL":"Technology","ON":"Technology",
+    "TXN":"Technology","SMCI":"Technology","ASML":"Technology","NXPI":"Technology",
+    "MPWR":"Technology","WOLF":"Technology","CRM":"Technology","NOW":"Technology",
+    "SNOW":"Technology","PLTR":"Technology","PANW":"Technology","CRWD":"Technology",
+    "ZS":"Technology","NET":"Technology","DDOG":"Technology","MDB":"Technology",
+    "ADBE":"Technology","INTU":"Technology","ANSS":"Technology","CDNS":"Technology",
+    "SNPS":"Technology","FTNT":"Technology","OKTA":"Technology","HUBS":"Technology",
+    "TWLO":"Technology","TTD":"Technology","BILL":"Technology","GTLB":"Technology",
+    "DOCN":"Technology","ZM":"Technology",
+    # Financial Services
+    "JPM":"Financial Services","BAC":"Financial Services","WFC":"Financial Services",
+    "GS":"Financial Services","MS":"Financial Services","BLK":"Financial Services",
+    "SCHW":"Financial Services","AXP":"Financial Services","V":"Financial Services",
+    "MA":"Financial Services","COF":"Financial Services","DFS":"Financial Services",
+    "SYF":"Financial Services","USB":"Financial Services","TFC":"Financial Services",
+    "KEY":"Financial Services","RF":"Financial Services","FITB":"Financial Services",
+    "COIN":"Financial Services","SQ":"Financial Services","PYPL":"Financial Services",
+    # Insurance
+    "CB":"Financial Services","PGR":"Financial Services","ALL":"Financial Services",
+    "TRV":"Financial Services","MET":"Financial Services","PRU":"Financial Services",
+    # Healthcare
+    "UNH":"Healthcare","LLY":"Healthcare","JNJ":"Healthcare","ABBV":"Healthcare",
+    "MRK":"Healthcare","PFE":"Healthcare","ABT":"Healthcare","TMO":"Healthcare",
+    "AMGN":"Healthcare","ISRG":"Healthcare","DXCM":"Healthcare","IDXX":"Healthcare",
+    "ILMN":"Healthcare","MRNA":"Healthcare","REGN":"Healthcare","VRTX":"Healthcare",
+    "BIIB":"Healthcare","GILD":"Healthcare","BMY":"Healthcare","CVS":"Healthcare",
+    "CI":"Healthcare","HUM":"Healthcare","MDT":"Healthcare","SYK":"Healthcare",
+    "BSX":"Healthcare","EW":"Healthcare",
+    # Consumer Staples
+    "COST":"Consumer Staples","WMT":"Consumer Staples","TGT":"Consumer Staples",
+    "KR":"Consumer Staples","PG":"Consumer Staples","KO":"Consumer Staples",
+    "PEP":"Consumer Staples","CL":"Consumer Staples","MDLZ":"Consumer Staples","MO":"Consumer Staples",
+    # Consumer Discretionary
+    "HD":"Consumer Discretionary","LOW":"Consumer Discretionary","NKE":"Consumer Discretionary",
+    "LULU":"Consumer Discretionary","DECK":"Consumer Discretionary","ONON":"Consumer Discretionary",
+    "RH":"Consumer Discretionary","SBUX":"Consumer Discretionary","MCD":"Consumer Discretionary",
+    "YUM":"Consumer Discretionary","CMG":"Consumer Discretionary","DPZ":"Consumer Discretionary",
+    "NFLX":"Consumer Discretionary","ABNB":"Consumer Discretionary","UBER":"Consumer Discretionary",
+    "DASH":"Consumer Discretionary","ETSY":"Consumer Discretionary","EBAY":"Consumer Discretionary",
+    "BABA":"Consumer Discretionary","JD":"Consumer Discretionary","PDD":"Consumer Discretionary",
+    "SPOT":"Consumer Discretionary","RBLX":"Consumer Discretionary",
+    # Energy
+    "XOM":"Energy","CVX":"Energy","COP":"Energy","EOG":"Energy","SLB":"Energy",
+    "PSX":"Energy","MPC":"Energy","VLO":"Energy","OXY":"Energy","HAL":"Energy",
+    "DVN":"Energy","FANG":"Energy","APA":"Energy","MRO":"Energy","WMB":"Energy","KMI":"Energy",
+    # Industrials
+    "CAT":"Industrials","DE":"Industrials","HON":"Industrials","GE":"Industrials",
+    "RTX":"Industrials","LMT":"Industrials","BA":"Industrials","UPS":"Industrials",
+    "FDX":"Industrials","CSX":"Industrials","ITW":"Industrials","EMR":"Industrials",
+    "ETN":"Industrials","PH":"Industrials","ROK":"Industrials","AME":"Industrials",
+    "TT":"Industrials","DHR":"Industrials","NOC":"Industrials","GD":"Industrials",
+    # Real Estate
+    "AMT":"Real Estate","PLD":"Real Estate","CCI":"Real Estate","EQIX":"Real Estate",
+    "O":"Real Estate","WELL":"Real Estate","VICI":"Real Estate","PSA":"Real Estate",
+    # Utilities
+    "NEE":"Utilities","DUK":"Utilities","SO":"Utilities","AEP":"Utilities","EXC":"Utilities",
+    # Communication
+    "PINS":"Communication","SNAP":"Communication",
+    # Conglomerate
+    "BRK-B":"Conglomerate","MSTR":"Technology",
+}
+
 _US_MOMENTUM_SYMBOLS = [
     # ── Mega-cap Tech ──────────────────────────────────────────────────
     "AAPL", "MSFT", "NVDA", "GOOGL", "GOOG", "AMZN", "META", "TSLA", "AVGO", "ORCL",
