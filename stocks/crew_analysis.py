@@ -568,7 +568,7 @@ Write in Thai language:
 # ======================================================================
 
 class MomentumCrew:
-    def __init__(self, symbol, portfolio_context=None, strategy=None):
+    def __init__(self, symbol, portfolio_context=None, strategy=None, market='SET'):
         """
         portfolio_context (dict, optional): ข้อมูลพอร์ตของผู้ใช้สำหรับหุ้นตัวนี้
           {
@@ -579,15 +579,20 @@ class MomentumCrew:
             'market_value':   float,  # มูลค่าตลาดปัจจุบัน
           }
         strategy (str, optional): กลยุทธ์เฉพาะเจาะจงที่ใช้เรียก เช่น 'turtle'
+        market (str, optional): ตลาดของหุ้น เช่น 'SET', 'US'
         """
         self.symbol           = symbol
         self.portfolio_context = portfolio_context or {}
         self.strategy         = strategy
+        self.market           = market
         # Auto-add .BK for SET stocks (no dot, no dash, no =)
-        self.yf_symbol = (
-            symbol if ('.' in symbol or '=' in symbol or '-' in symbol)
-            else f"{symbol}.BK"
-        )
+        if self.market == 'US':
+            self.yf_symbol = symbol
+        else:
+            self.yf_symbol = (
+                symbol if ('.' in symbol or '=' in symbol or '-' in symbol)
+                else f"{symbol}.BK"
+            )
 
         os.environ["GOOGLE_API_KEY"] = settings.GEMINI_API_KEY
         os.environ["GEMINI_API_KEY"] = settings.GEMINI_API_KEY

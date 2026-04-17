@@ -150,7 +150,7 @@
                                     <button class="btn btn-sm btn-outline-primary fw-bold px-3" onclick="window.open(`https://finance.yahoo.com/quote/{{ c.symbol }}{% if c.market == 'SET' %}.BK{% endif %}/chart`, '_blank')">
                                         Chart <i class="fas fa-external-link-alt ms-1 text-xs"></i>
                                     </button>
-                                    <button class="btn btn-sm text-white fw-bold px-3 shadow-sm align-items-center d-flex" style="background: linear-gradient(135deg, #7c3aed 0%, #4f46e5 100%); border: none;" onclick="window.open(`{% url 'stocks:crew_analyze' c.symbol %}?strategy=turtle`, '_blank')" title="วิเคราะห์ด้วย CrewAI (โหมดเต่า)">
+                                    <button class="btn btn-sm text-white fw-bold px-3 shadow-sm align-items-center d-flex" style="background: linear-gradient(135deg, #7c3aed 0%, #4f46e5 100%); border: none;" onclick="window.open(`{% url 'stocks:crew_analyze' c.symbol %}?strategy=turtle&market={{ c.market }}`, '_blank')" title="วิเคราะห์ด้วย CrewAI (โหมดเต่า)">
                                         <i class="fas fa-robot me-1"></i> AI
                                     </button>
                                 </div>

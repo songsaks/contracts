@@ -593,6 +593,7 @@ def crew_analyze(request, symbol):
         return _JR(st)
 
     strategy_param = request.GET.get('strategy')
+    market_param = request.GET.get('market', 'SET')
 
     # ── Result ready (page reload after done) ────────────────────────
     cached = _cp.get(cache_key)
@@ -610,7 +611,7 @@ def crew_analyze(request, symbol):
         })
 
     # ── Background worker ────────────────────────────────────────────
-    def _run_crew_bg(ckey, sym, pctx, strat):
+    def _run_crew_bg(ckey, sym, pctx, strat, mkt):
         import concurrent.futures as _cf
         from django.core.cache import cache as _c
         from .crew_analysis import MomentumCrew as _MC
@@ -619,7 +620,7 @@ def crew_analyze(request, symbol):
             phase = 'วิเคราะห์ Portfolio + Technical…' if pctx else 'กำลังวิเคราะห์…'
             _c.set(ckey, {'state': 'running', 'phase': phase}, timeout=600)
 
-            mc = _MC(sym, portfolio_context=pctx, strategy=strat)
+            mc = _MC(sym, portfolio_context=pctx, strategy=strat, market=mkt)
 
             # Hard timeout: kill entire analysis after 90 seconds
             with _cf.ThreadPoolExecutor(max_workers=1) as ex:
@@ -636,7 +637,7 @@ def crew_analyze(request, symbol):
     # Start only if not already running
     if not cached or cached.get('state') == 'idle':
         _cp.set(cache_key, {'state': 'running', 'phase': 'เริ่มต้น Multi-Agent…'}, timeout=600)
-        _th.Thread(target=_run_crew_bg, args=(cache_key, symbol, portfolio_context, strategy_param), daemon=True).start()
+        _th.Thread(target=_run_crew_bg, args=(cache_key, symbol, portfolio_context, strategy_param, market_param), daemon=True).start()
 
     # ── Show loading page (fast — no heavy data fetch) ───────────────
     try:
@@ -1166,6 +1167,38 @@ def portfolio_list(request):
                     update_fields.append('atr')
                 if update_fields:
                     item.save(update_fields=update_fields)
+
+            # ====== Override Trailing Stop with Turtle Logic ======
+            is_turtle = item.strategy and ('turtle' in item.strategy.lower() or '🐢' in item.strategy)
+            if is_turtle and atr_ts and hist is not None and not hist.empty:
+                is_s2 = 'S2' in item.strategy.upper() or '20' in item.strategy
+                periods = 20 if is_s2 else 10
+                nday_low = float(hist['Low'].tail(periods).min())
+                initial_stop = float(item.entry_price or 0) - (2.0 * atr_ts['atr'])
+                current_stop = max(initial_stop, nday_low) if float(item.entry_price or 0) > 0 else nday_low
+                
+                dist_pct = ((current_price - current_stop) / current_price * 100) if current_price > 0 else 0
+                
+                if current_price <= current_stop:
+                    status = 'EXIT HIT'
+                    color = 'danger'
+                elif dist_pct <= 3.0:
+                    status = 'NEAR EXIT'
+                    color = 'warning'
+                else:
+                    status = 'RIDE TREND 🚀'
+                    color = 'success'
+                    
+                atr_ts.update({
+                    'trailing_stop': current_stop,
+                    'color': color,
+                    'status': status,
+                    'distance_pct': dist_pct,
+                    'is_turtle': True,
+                    'turtle_sys': 'S2 (20D Low)' if is_s2 else 'S1 (10D Low)',
+                    'nday_low': nday_low,
+                    'initial_stop': initial_stop
+                })
 
             ts_data = atr_ts  # ยังคง key เดิมใน template
 

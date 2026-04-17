@@ -272,7 +272,11 @@
                                 {% if item.trailing_stop_data.color == 'danger' %}border-danger{% elif item.trailing_stop_data.color == 'warning' %}border-warning{% else %}border-success border-opacity-50{% endif %}"
                                 style="{% if item.trailing_stop_data.color == 'danger' %}background:rgba(239,68,68,0.10);{% elif item.trailing_stop_data.color == 'warning' %}background:rgba(255,193,7,0.12);{% else %}background:rgba(34,197,94,0.07);{% endif %}">
                                 <div class="text-muted mb-1" style="font-size:0.62rem;font-weight:700;letter-spacing:0.8px;text-transform:uppercase;">
-                                    <i class="fas fa-chart-line me-1"></i>Trailing Stop (ATR×{{ item.obj.trail_multiplier }})
+                                    {% if item.trailing_stop_data.is_turtle %}
+                                        <i class="fas fa-turtle me-1"></i>Turtle Stop ({{ item.trailing_stop_data.turtle_sys }})
+                                    {% else %}
+                                        <i class="fas fa-chart-line me-1"></i>Trailing Stop (ATR×{{ item.obj.trail_multiplier }})
+                                    {% endif %}
                                 </div>
                                 <div class="fw-bold {% if item.trailing_stop_data.color == 'danger' %}text-danger{% elif item.trailing_stop_data.color == 'warning' %}text-warning{% else %}text-success{% endif %}" style="font-size:1rem;">
                                     {% if item.market != 'SET' %}${% else %}฿{% endif %}{{ item.trailing_stop_data.trailing_stop|floatformat:2 }}
@@ -289,7 +293,11 @@
                                     {% endif %}
                                 </div>
                                 <div class="mt-1 text-muted" style="font-size:0.58rem;">
-                                    High: {% if item.market != 'SET' %}${% else %}฿{% endif %}{{ item.trailing_stop_data.highest|floatformat:2 }} · ห่าง {{ item.trailing_stop_data.distance_pct|floatformat:1 }}%
+                                    {% if item.trailing_stop_data.is_turtle %}
+                                        Low: {% if item.market != 'SET' %}${% else %}฿{% endif %}{{ item.trailing_stop_data.nday_low|floatformat:2 }} · ห่าง {{ item.trailing_stop_data.distance_pct|floatformat:1 }}%
+                                    {% else %}
+                                        High: {% if item.market != 'SET' %}${% else %}฿{% endif %}{{ item.trailing_stop_data.highest|floatformat:2 }} · ห่าง {{ item.trailing_stop_data.distance_pct|floatformat:1 }}%
+                                    {% endif %}
                                     {% if item.trailing_stop_data.gain_from_entry != 0 %}
                                     · จากทุน {% if item.trailing_stop_data.gain_from_entry > 0 %}+{% endif %}{{ item.trailing_stop_data.gain_from_entry|floatformat:1 }}%
                                     {% endif %}
