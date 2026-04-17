@@ -8336,7 +8336,7 @@ def turtle_scanner(request):
     - System 1: Breakout 20-day high (Exit: 10-day low)
     - System 2: Breakout 55-day high (Exit: 20-day low)
     """
-    from .models import TurtleScanCandidate, PrecisionScanCandidate, USPrecisionScanCandidate
+    from .models import TurtleScanCandidate, PrecisionScanCandidate
     
     market = request.GET.get('market', 'SET')
     candidates_qs = TurtleScanCandidate.objects.filter(user=request.user, market=market)
@@ -8347,8 +8347,7 @@ def turtle_scanner(request):
         candidates = list(candidates_qs.filter(scan_run=latest_run).order_by('symbol'))
         last_updated = latest_run
         
-        PrecModel = PrecisionScanCandidate if market == 'SET' else USPrecisionScanCandidate
-        prec_qs = PrecModel.objects.filter(user=request.user)
+        prec_qs = PrecisionScanCandidate.objects.filter(user=request.user, market=market)
         latest_prec_run = prec_qs.values_list('scan_run', flat=True).order_by('-scan_run').first()
         if latest_prec_run:
             prec_dict = {p.symbol: p for p in prec_qs.filter(scan_run=latest_prec_run)}
