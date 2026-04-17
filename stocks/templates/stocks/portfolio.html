@@ -825,8 +825,17 @@
                             </select>
                         </div>
                         <div class="col-md-6">
+                        <div class="col-md-6">
                             <label class="form-label small text-muted">Strategy (Optional)</label>
-                            <input type="text" id="port-strategy" name="strategy" class="form-control rounded-3" placeholder="e.g. Turtle S1" style="background:#f8fafc;">
+                            <select id="port-strategy" name="strategy" class="form-select rounded-3" style="background:#f8fafc;">
+                                <option value="">-- None --</option>
+                                <option value="Turtle S1">🐢 Turtle S1 (Breakout 20D / Exit 10D Low)</option>
+                                <option value="Turtle S2">🐢 Turtle S2 (Breakout 55D / Exit 20D Low)</option>
+                                <option value="Precision">🎯 Precision Momentum</option>
+                                <option value="Value">💎 Value Investment</option>
+                                <option value="Dividend">💸 Dividend Play</option>
+                                <option value="Other">🛠️ Other (อื่นๆ)</option>
+                            </select>
                         </div>
                         <div class="col-12">
                             <label class="form-label small text-muted">Asset Name (Optional)</label>

@@ -1781,6 +1781,7 @@ def add_to_portfolio(request):
                     'entry_price': form.cleaned_data['entry_price'],
                     'category': form.cleaned_data['category'],
                     'market': form.cleaned_data['market'],
+                    'strategy': form.cleaned_data.get('strategy', ''),
                 }
             )
             messages.success(request, f"เพิ่ม {symbol} เข้าพอร์ตเรียบร้อยแล้ว")
