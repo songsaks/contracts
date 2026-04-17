@@ -8325,5 +8325,183 @@ def macro_playbook_run_ajax(request):
         
     return _JR({'status': 'started'})
 
+# ======================================================================
+# Turtle Trader Scanner (Mechanical Breakout System)
+# ======================================================================
+
+@login_required
+def turtle_scanner(request):
+    """
+    หน้าแสดงผลการสแกนด้วยระบบ Turtle Trading
+    - System 1: Breakout 20-day high (Exit: 10-day low)
+    - System 2: Breakout 55-day high (Exit: 20-day low)
+    """
+    from .models import TurtleScanCandidate
+    
+    market = request.GET.get('market', 'SET')
+    candidates = TurtleScanCandidate.objects.filter(user=request.user, market=market)
+    
+    if candidates.exists():
+        latest_run = candidates.first().scan_run
+        candidates = candidates.filter(scan_run=latest_run).order_by('symbol')
+        last_updated = latest_run
+    else:
+        last_updated = None
+
+    context = {
+        'candidates': candidates,
+        'last_updated': last_updated,
+        'selected_market': market,
+        'title': "Turtle Trader Scanner"
+    }
+    return render(request, 'stocks/turtle_scanner.html', context)
+
+
+@login_required
+def turtle_scanner_run_ajax(request):
+    """
+    รัน Turtle Scanner เบื้องหลัง 
+    (ดึงข้อมูลย้อนหลัง 3-6 เดือนเพื่อหาสถิติ 20-day, 55-day High/Low)
+    """
+    from .models import ScannableSymbol, TurtleScanCandidate
+    import concurrent.futures as _cf
+    import pandas as _pd
+    import yfinance as _yf
+    from django.utils import timezone as _tz
+    import threading as _th
+    from django.core.cache import cache as _cp
+    from django.http import JsonResponse as _JR
+    import time as _time
+    import random as _random
+
+    user_id = request.user.id
+    market_param = request.GET.get('market', 'SET')
+    ckey = f'turtle_scan_{user_id}_{market_param}'
+
+    c_state = _cp.get(ckey, {'state': 'idle'})
+    if request.GET.get('status_check') == '1':
+        return _JR(c_state)
+
+    if c_state.get('state') == 'running' and request.GET.get('force') != '1':
+        return _JR({'status': 'started'})
+
+    # Get symbols
+    symbols_qs = ScannableSymbol.objects.filter(is_active=True, market=market_param)
+    sym_list = [s.symbol for s in symbols_qs]
+    if not sym_list:
+        return _JR({'status': 'done', 'error': f'ไม่พบหุ้นใน watchlist สำหรับตลาด {market_param}'})
+
+    def _bg_task(syms, market):
+        scan_time = _tz.now()
+        _cp.set(ckey, {'state': 'running', 'progress': 0, 'total': len(syms)}, timeout=3600)
+        
+        results = []
+        processed = 0
+
+        def _process_sym(symbol):
+            try:
+                yf_sym = f"{symbol}.BK" if market == 'SET' and '.' not in symbol else symbol
+                t = _yf.Ticker(yf_sym)
+                for attempt in range(2):
+                    try:
+                        df = t.history(period="6mo")
+                        break
+                    except Exception as e:
+                        if 'rate' in str(e).lower() or '429' in str(e).lower():
+                            _time.sleep(2 ** attempt + _random.uniform(0, 1))
+                            continue
+                        raise e
+                
+                if df is None or df.empty or len(df) < 60:
+                    return None
+                    
+                if isinstance(df.columns, _pd.MultiIndex):
+                    df.columns = df.columns.droplevel(1)
+                df = df.dropna(subset=['Close', 'High', 'Low'])
+                
+                # Liquidity filter
+                avg_vol = float(df['Volume'].tail(20).mean())
+                if avg_vol < 500_000 and market == 'SET':
+                    return None
+                    
+                # Calculate Turtle indicators
+                # Original rules: breakout of HIGHEST high of PREVIOUS 20 days.
+                # Shift(1) ensures we don't count today's high in the past 20 days.
+                df['High_20'] = df['High'].rolling(20).max().shift(1)
+                df['Low_10'] = df['Low'].rolling(10).min().shift(1)
+                
+                df['High_55'] = df['High'].rolling(55).max().shift(1)
+                df['Low_20'] = df['Low'].rolling(20).min().shift(1)
+                
+                # True Range for ATR
+                df['H_L'] = df['High'] - df['Low']
+                df['H_PC'] = abs(df['High'] - df['Close'].shift(1))
+                df['L_PC'] = abs(df['Low'] - df['Close'].shift(1))
+                df['TR'] = df[['H_L', 'H_PC', 'L_PC']].max(axis=1)
+                # Exponential Moving Average of TR for N (usually 20-day EMA or Wilder's Smoothing)
+                df['ATR_20'] = df['TR'].ewm(span=20, adjust=False).mean()
+
+                last_row = df.iloc[-1]
+                current_high = float(last_row['High'])
+                current_close = float(last_row['Close'])
+                
+                sys1_break = False
+                sys2_break = False
+                
+                h20 = float(last_row.get('High_20', 0))
+                l10 = float(last_row.get('Low_10', 0))
+                h55 = float(last_row.get('High_55', 0))
+                l20 = float(last_row.get('Low_20', 0))
+                atr20 = float(last_row.get('ATR_20', 0))
+                
+                if h20 > 0 and current_close >= h20:
+                    sys1_break = True
+                if h55 > 0 and current_close >= h55:
+                    sys2_break = True
+                    
+                # Only save if it's a breakout today
+                if sys1_break or sys2_break:
+                    return TurtleScanCandidate(
+                        user=request.user,
+                        scan_run=scan_time,
+                        symbol=symbol,
+                        market=market,
+                        price=current_close,
+                        sys1_breakout=sys1_break,
+                        high_20d=round(h20, 2),
+                        low_10d=round(l10, 2),
+                        sys2_breakout=sys2_break,
+                        high_55d=round(h55, 2),
+                        low_20d=round(l20, 2),
+                        avg_vol_20d=avg_vol,
+                        atr_20d=round(atr20, 4)
+                    )
+            except Exception:
+                pass
+            return None
+
+        # Thread pool execution
+        with _cf.ThreadPoolExecutor(max_workers=5) as executor:
+            futures = {executor.submit(_process_sym, s): s for s in syms}
+            for fut in _cf.as_completed(futures):
+                res = fut.result()
+                if res:
+                    results.append(res)
+                processed += 1
+                if processed % 10 == 0:
+                    _cp.set(ckey, {'state': 'running', 'progress': processed, 'total': len(syms)}, timeout=3600)
+
+        # Save to DB
+        if results:
+            TurtleScanCandidate.objects.filter(user=request.user, market=market).delete()
+            TurtleScanCandidate.objects.bulk_create(results)
+
+        _cp.set(ckey, {'state': 'done', 'found': len(results)}, timeout=3600)
+
+    _cp.set(ckey, {'state': 'running', 'progress': 0, 'total': len(sym_list)}, timeout=3600)
+    _th.Thread(target=_bg_task, args=(sym_list, market_param), daemon=True).start()
+    
+    return _JR({'status': 'started'})
+
 
 

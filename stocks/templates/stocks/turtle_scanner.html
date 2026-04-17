@@ -1,0 +1,203 @@
+{% extends 'stocks/base_stocks.html' %}
+{% load static %}
+
+{% block title %}🐢 Turtle Trader Scanner ({{ selected_market }}){% endblock %}
+
+{% block extra_css %}
+<style>
+    .turtle-header {
+        background: linear-gradient(135deg, #14532d, #166534);
+        color: white;
+        border-radius: 20px;
+        padding: 2.5rem;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+    }
+    
+    .table-turtle th {
+        background-color: #f8fafc;
+        border-bottom: 2px solid #e2e8f0;
+        color: #475569;
+        font-weight: 700;
+    }
+    .table-turtle td {
+        vertical-align: middle;
+        font-weight: 500;
+    }
+    
+    .badge-sys1 { background-color: #10b981; color: white; }
+    .badge-sys2 { background-color: #3b82f6; color: white; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-4">
+    <!-- Header -->
+    <div class="turtle-header mb-4 d-flex justify-content-between align-items-center">
+        <div>
+            <h2 class="fw-bold mb-1"><i class="fas fa-turtle me-2 text-success-light"></i> Turtle Mechanical Breakout</h2>
+            <p class="text-success-light mb-0 opacity-75">
+                System 1: Breakout 20-Day High (Exit 10-Day Low) <br>
+                System 2: Breakout 55-Day High (Exit 20-Day Low)
+            </p>
+        </div>
+        
+        <div class="d-flex align-items-center gap-3">
+            <select id="marketSelect" class="form-select bg-white bg-opacity-25 text-white border-0 fw-bold fw-lg" style="width: auto;">
+                <option value="SET" {% if selected_market == 'SET' %}selected{% endif %} class="text-dark">🇹🇭 SET Index</option>
+                <option value="US" {% if selected_market == 'US' %}selected{% endif %} class="text-dark">🇺🇸 US Market</option>
+            </select>
+            
+            <button id="runScanBtn" class="btn btn-warning fw-bold shadow-sm px-4">
+                <i class="fas fa-play me-2"></i> รันระบบ Turtle
+            </button>
+        </div>
+    </div>
+    
+    <!-- Loading State -->
+    <div id="scanProgress" class="card-premium d-none mb-4 p-4 text-center">
+        <div class="spinner-border text-success mb-3" role="status"></div>
+        <h5 class="fw-bold text-success-800">กำลังสแกนราคาหุ้น...</h5>
+        <div class="progress mt-3 mx-auto" style="height: 15px; max-width: 400px; border-radius: 10px;">
+            <div id="progressBar" class="progress-bar bg-success progress-bar-striped progress-bar-animated" style="width: 0%"></div>
+        </div>
+        <p id="progressText" class="mt-2 text-muted small">เตรียมพร้อม...</p>
+    </div>
+
+    <!-- Results Table -->
+    <div class="card-premium">
+        <div class="card-body p-0">
+            {% if candidates %}
+            <div class="px-4 py-3 border-bottom d-flex justify-content-between align-items-center bg-light">
+                <span class="text-muted"><i class="far fa-clock me-1"></i> อัปเดตล่าสุด: {{ last_updated|date:"d M Y H:i" }}</span>
+                <span class="badge bg-success rounded-pill px-3 py-2">{{ candidates|length }} หุ้นจุดพลุ</span>
+            </div>
+            
+            <div class="table-responsive">
+                <table class="table table-hover table-turtle mb-0">
+                    <thead>
+                        <tr>
+                            <th class="ps-4">Symbol</th>
+                            <th>Current Price</th>
+                            <th>20-Day Vol (Avg)</th>
+                            <th>ATR (Volatility)</th>
+                            <th class="text-center">System 1 (ระยะสั้น)</th>
+                            <th class="text-center">System 2 (ระยะยาว)</th>
+                            <th class="text-end pe-4">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for c in candidates %}
+                        <tr>
+                            <td class="ps-4">
+                                <span class="fw-bold fs-5 text-dark">{{ c.symbol }}</span>
+                                {% if c.market == 'US' %}
+                                    <span class="badge bg-primary-subtle text-primary ms-1">US</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <span class="fw-bold">{{ c.price|floatformat:2 }}</span>
+                            </td>
+                            <td>{{ c.avg_vol_20d|floatformat:0 }}</td>
+                            <td>{{ c.atr_20d|floatformat:2 }} 
+                                <span class="text-muted small">(N)</span>
+                            </td>
+                            <td class="text-center">
+                                {% if c.sys1_breakout %}
+                                    <span class="badge badge-sys1 py-2 px-3 fw-bold shadow-sm">20-D Breakout</span>
+                                    <br><small class="text-muted">High: {{ c.high_20d|floatformat:2 }} | <span class="text-danger">Exit: {{ c.low_10d|floatformat:2 }}</span></small>
+                                {% else %}
+                                    <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-center">
+                                {% if c.sys2_breakout %}
+                                    <span class="badge badge-sys2 py-2 px-3 fw-bold shadow-sm">55-D Breakout</span>
+                                    <br><small class="text-muted">High: {{ c.high_55d|floatformat:2 }} | <span class="text-danger">Exit: {{ c.low_20d|floatformat:2 }}</span></small>
+                                {% else %}
+                                    <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-end pe-4">
+                                <button class="btn btn-sm btn-outline-primary fw-bold" onclick="window.open(`https://finance.yahoo.com/quote/{{ c.symbol }}{% if c.market == 'SET' %}.BK{% endif %}/chart`, '_blank')">
+                                    Chart <i class="fas fa-external-link-alt ms-1 text-xs"></i>
+                                </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="p-5 text-center">
+                <div class="text-muted mb-3"><i class="fas fa-turtle fa-3x opacity-25"></i></div>
+                <h4 class="text-secondary fw-bold">รอบทิศทาง...</h4>
+                <p class="text-muted">ไม่พบหุ้นทะลุกรอบ 20-Day หรือ 55-Day High ในวันนี้<br>ระบบ Turtle เน้นรอคอยอย่างใจเย็น</p>
+                <button class="btn btn-success mt-2 px-4 shadow-sm" onclick="runScan(true)">
+                    รัน Scan ตรวจสอบอีกครั้ง
+                </button>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let pollInterval = null;
+    const marketSelect = document.getElementById('marketSelect');
+    
+    marketSelect.addEventListener('change', function() {
+        window.location.href = "{% url 'stocks:turtle_scanner' %}?market=" + this.value;
+    });
+
+    document.getElementById('runScanBtn').addEventListener('click', () => runScan(true));
+
+    function runScan(force = false) {
+        document.getElementById('scanProgress').classList.remove('d-none');
+        document.getElementById('runScanBtn').disabled = true;
+        
+        let url = "{% url 'stocks:turtle_scanner_run' %}?market=" + marketSelect.value;
+        if(force) url += "&force=1";
+
+        fetch(url)
+            .then(res => res.json())
+            .then(data => {
+                if(data.error) {
+                    alert(data.error);
+                    resetUI();
+                    return;
+                }
+                pollInterval = setInterval(checkStatus, 2000);
+            })
+            .catch(err => {
+                console.error(err);
+                alert("เกิดข้อผิดพลาดในการเริ่มต้นสแกน");
+                resetUI();
+            });
+    }
+
+    function checkStatus() {
+        let url = "{% url 'stocks:turtle_scanner_run' %}?market=" + marketSelect.value + "&status_check=1";
+        fetch(url)
+            .then(res => res.json())
+            .then(data => {
+                if(data.state === 'running') {
+                    let pct = data.total > 0 ? Math.round((data.progress / data.total) * 100) : 0;
+                    document.getElementById('progressBar').style.width = pct + "%";
+                    document.getElementById('progressText').innerText = `ดึงข้อมูลหุ้น ${data.progress} / ${data.total} ตัว`;
+                } else if(data.state === 'done') {
+                    clearInterval(pollInterval);
+                    window.location.reload();
+                }
+            })
+            .catch(err => console.error(err));
+    }
+
+    function resetUI() {
+        document.getElementById('scanProgress').classList.add('d-none');
+        document.getElementById('runScanBtn').disabled = false;
+        clearInterval(pollInterval);
+    }
+</script>
+{% endblock %}

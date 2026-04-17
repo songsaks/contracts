@@ -661,3 +661,37 @@ class TitheRecord(models.Model):
 
     def __str__(self):
         return f"Tithe {self.year}/{self.month:02d} — {'paid' if self.is_paid else 'unpaid'}"
+
+# ====== TurtleScanCandidate — ผลลัพธ์ Turtle Trader Scanner ======
+
+class TurtleScanCandidate(models.Model):
+    """
+    เก็บผลลัพธ์การสแกนระบบ Turtle Trading
+    System 1: Breakout 20-day high (Exit: 10-day low)
+    System 2: Breakout 55-day high (Exit: 20-day low)
+    """
+    user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
+    scan_run = models.DateTimeField(db_index=True)
+    symbol = models.CharField(max_length=20)
+    market = models.CharField(max_length=10, default='SET', db_index=True)
+    price = models.FloatField(default=0.0)
+    
+    # -- 20-day high breakout (System 1) --
+    sys1_breakout = models.BooleanField(default=False)
+    high_20d = models.FloatField(default=0.0)
+    low_10d = models.FloatField(default=0.0) # Exit for System 1
+    
+    # -- 55-day high breakout (System 2) --
+    sys2_breakout = models.BooleanField(default=False)
+    high_55d = models.FloatField(default=0.0)
+    low_20d = models.FloatField(default=0.0) # Exit for System 2
+    
+    avg_vol_20d = models.FloatField(default=0.0)
+    atr_20d = models.FloatField(default=0.0) # N (Volatility measurement)
+    
+    class Meta:
+        ordering = ['-scan_run', 'symbol']
+        verbose_name = 'Turtle Scan Candidate'
+
+    def __str__(self):
+        return f"{self.symbol} - S1:{self.sys1_breakout} S2:{self.sys2_breakout} (run: {self.scan_run})"
