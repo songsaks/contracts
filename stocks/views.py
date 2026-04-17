@@ -1176,6 +1176,7 @@ def portfolio_list(request):
                 nday_low = float(hist['Low'].tail(periods).min())
                 initial_stop = float(item.entry_price or 0) - (2.0 * atr_ts['atr'])
                 current_stop = max(initial_stop, nday_low) if float(item.entry_price or 0) > 0 else nday_low
+                pyramid_price = current_price + (atr_ts['atr'] * 0.5) if current_price > 0 else 0
                 
                 dist_pct = ((current_price - current_stop) / current_price * 100) if current_price > 0 else 0
                 
@@ -1197,7 +1198,8 @@ def portfolio_list(request):
                     'is_turtle': True,
                     'turtle_sys': 'S2 (20D Low)' if is_s2 else 'S1 (10D Low)',
                     'nday_low': nday_low,
-                    'initial_stop': initial_stop
+                    'initial_stop': initial_stop,
+                    'pyramid_price': pyramid_price
                 })
 
             ts_data = atr_ts  # ยังคง key เดิมใน template

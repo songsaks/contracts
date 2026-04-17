@@ -90,9 +90,10 @@
                         <tr>
                             <th class="ps-4">Symbol</th>
                             <th>Current Price</th>
-                            <th>Precision <i class="fas fa-magic text-warning small"></i></th>
+                            <th>Precision <i class="fas fa-edit text-xs opacity-50"></i></th>
                             <th>20-Day Vol (Avg)</th>
                             <th>ATR (Volatility)</th>
+                            <th>Pyramiding (ไม้ต่อไป)</th>
                             <th class="text-center">System 1 (ระยะสั้น)</th>
                             <th class="text-center">System 2 (ระยะยาว)</th>
                             <th class="text-end pe-4">Action</th>
@@ -126,8 +127,19 @@
                                 <div class="fw-bold text-dark">{{ c.atr_20d|floatformat:2 }} <span class="text-muted small fw-normal">(N)</span></div>
                                 <div class="mt-1 position-calc-result d-none">
                                     <span class="badge bg-dark rounded-pill px-2 py-1 shadow-sm" style="font-size:0.65rem;">1 Unit: <span class="unit-shares text-warning fs-6">0</span> หุ้น</span><br>
-                                    <small class="text-muted fst-italic" style="font-size:0.65rem;">(ใช้เงินรวม <span class="unit-cost fw-bold text-dark">0</span> ฿)</small>
+                                    <small class="text-muted fst-italic" style="font-size:0.65rem;">(ใช้เงิน <span class="unit-cost fw-bold text-dark">0</span> ฿)</small>
                                 </div>
+                            </td>
+                            <td>
+                                <div class="next-unit-result d-none">
+                                    <div class="fw-bold text-primary" style="font-size:0.9rem;">+0.5N: <span class="next-price">0.00</span></div>
+                                    <div class="mt-1">
+                                        <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 rounded-pill px-2 py-1" style="font-size:0.65rem;">
+                                            <i class="fas fa-plus-circle me-1"></i>เติม <span class="next-shares fw-bold">0</span> หุ้น
+                                        </span>
+                                    </div>
+                                </div>
+                                <div class="next-unit-placeholder text-muted small">-</div>
                             </td>
                             <td class="text-center">
                                 {% if c.sys1_breakout %}
@@ -285,14 +297,31 @@
                     sharesSpan.innerText = rawShares.toLocaleString();
                     costSpan.innerText = totalCost.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0});
                     resultDiv.classList.remove('d-none');
+                    
+                    // --- Pyramiding Calc ---
+                    const nextPrice = price + (atr * 0.5);
+                    const nextResultDiv = row.querySelector('.next-unit-result');
+                    const nextPlaceholder = row.querySelector('.next-unit-placeholder');
+                    const nextPriceSpan = row.querySelector('.next-price');
+                    const nextSharesSpan = row.querySelector('.next-shares');
+                    
+                    nextPriceSpan.innerText = nextPrice.toFixed(2);
+                    nextSharesSpan.innerText = rawShares.toLocaleString(); // Quantity is same as 1 Unit
+                    
+                    nextResultDiv.classList.remove('d-none');
+                    nextPlaceholder.classList.add('d-none');
                 } else {
                     // Risk too big for 1 board lot
                     sharesSpan.innerText = "ทุนไม่พอเปรียบเทียบ";
                     costSpan.innerText = "-";
                     resultDiv.classList.remove('d-none');
+                    row.querySelector('.next-unit-result').classList.add('d-none');
+                    row.querySelector('.next-unit-placeholder').classList.remove('d-none');
                 }
             } else {
                 resultDiv.classList.add('d-none');
+                row.querySelector('.next-unit-result').classList.add('d-none');
+                row.querySelector('.next-unit-placeholder').classList.remove('d-none');
             }
         });
     }
