@@ -418,7 +418,7 @@
                                     <i class="fas fa-hand-holding-usd fa-xs"></i>
                                 </button>
                                 <button type="button" class="btn btn-light btn-sm rounded-circle shadow-sm border" style="width: 36px; height: 36px;"
-                                    onclick="editPortfolio('{{ item.obj.symbol }}', '{{ item.obj.name|default:""|escapejs }}', '{{ item.obj.quantity }}', '{{ item.obj.entry_price }}', '{{ item.obj.category }}', '{{ item.obj.market }}')" 
+                                    onclick="editPortfolio('{{ item.obj.symbol }}', '{{ item.obj.name|default:""|escapejs }}', '{{ item.obj.quantity }}', '{{ item.obj.entry_price }}', '{{ item.obj.category }}', '{{ item.obj.market }}', '{{ item.obj.strategy|default_if_none:""|escapejs }}')" 
                                     data-bs-toggle="modal" data-bs-target="#addPortfolioModal">
                                     <i class="fas fa-edit fa-xs"></i>
                                 </button>
@@ -574,7 +574,7 @@
                                         <i class="fas fa-hand-holding-usd" style="font-size:0.6rem;"></i>
                                     </button>
                                     <button class="btn btn-light btn-xs rounded-circle border" style="width:28px;height:28px;padding:0;"
-                                        onclick="editPortfolio('{{ item.obj.symbol }}','{{ item.obj.name|default:""|escapejs }}','{{ item.obj.quantity }}','{{ item.obj.entry_price }}','{{ item.obj.category }}','{{ item.obj.market }}')"
+                                        onclick="editPortfolio('{{ item.obj.symbol }}','{{ item.obj.name|default:""|escapejs }}','{{ item.obj.quantity }}','{{ item.obj.entry_price }}','{{ item.obj.category }}','{{ item.obj.market }}','{{ item.obj.strategy|default_if_none:""|escapejs }}')"
                                         data-bs-toggle="modal" data-bs-target="#addPortfolioModal" title="Edit">
                                         <i class="fas fa-edit" style="font-size:0.6rem;"></i>
                                     </button>
@@ -918,7 +918,7 @@
         document.getElementById('port-modal-title').innerText = 'Add Position to Portfolio';
     }
 
-    function editPortfolio(symbol, name, qty, price, category, market) {
+    function editPortfolio(symbol, name, qty, price, category, market, strategy) {
         document.getElementById('port-symbol').value = symbol;
         document.getElementById('port-symbol').readOnly = true;
         document.getElementById('port-name').value = name;
@@ -927,6 +927,7 @@
         document.getElementById('port-price').value = parseFloat(price || 0).toFixed(2);
         document.getElementById('port-category').value = category;
         document.getElementById('port-market').value = market || 'SET';
+        document.getElementById('port-strategy').value = strategy || '';
         document.getElementById('port-modal-title').innerText = 'Edit Position';
     }
 
