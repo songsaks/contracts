@@ -346,12 +346,29 @@ def project_list(request):
 # ประวัติงานที่ปิดจบหรือยกเลิกแล้ว — เรียงจากล่าสุดขึ้นก่อน รองรับค้นหาและกรองประเภทงาน
 @login_required
 def history_list(request):
-    """แสดงงานที่มีสถานะ CLOSED/CANCELLED เรียงตาม closed_at ล่าสุด"""
-    projects = Project.objects.filter(
-        status__in=[Project.Status.CLOSED, Project.Status.CANCELLED]
-    ).order_by('-closed_at')
+    """
+    แสดงงานที่จบแล้ว (CLOSED/CANCELLED) 
+    ค่าเริ่มต้น: ไม่แสดงงานมูลค่า 0 และไม่แสดงงานยกเลิก (ต้องเลือกใน Filter)
+    """
+    # 1. Search & Filters
+    search_q = request.GET.get('q', '')
+    jt_filter = request.GET.get('job_type', '')
+    show_zero = request.GET.get('show_zero') == 'on'
+    show_cancelled = request.GET.get('show_cancelled') == 'on'
+    sort_by = request.GET.get('sort', '-closed_at')
+
+    # 2. Base Query with Annotation
+    projects = Project.objects.annotate(
+        val=Sum(F('items__quantity') * F('items__unit_price'))
+    ).filter(status__in=[Project.Status.CLOSED, Project.Status.CANCELLED])
+
+    # 3. Applying Filters
+    if not show_zero:
+        projects = projects.filter(val__gt=0)
     
-    search_q = request.GET.get('q')
+    if not show_cancelled:
+        projects = projects.exclude(status=Project.Status.CANCELLED)
+
     if search_q:
         projects = projects.filter(
             Q(name__icontains=search_q) |
@@ -359,15 +376,34 @@ def history_list(request):
             Q(owner__name__icontains=search_q)
         )
         
-    jt_filter = request.GET.get('job_type')
     if jt_filter:
         projects = projects.filter(job_type=jt_filter)
+
+    # 4. Sorting logic
+    sort_map = {
+        'name': 'name',
+        'customer': 'customer__name',
+        'status': 'status',
+        'value': 'val',
+        'date': 'closed_at',
+        '-name': '-name',
+        '-customer': '-customer__name',
+        '-status': '-status',
+        '-value': '-val',
+        '-date': '-closed_at',
+    }
+    actual_sort = sort_map.get(sort_by, '-closed_at')
+    projects = projects.order_by(actual_sort)
 
     context = {
         'projects': projects,
         'title': 'ประวัติงานทั้งหมด (ปิดงาน/ยกเลิก)',
         'job_types': Project.JobType.choices,
         'search_q': search_q,
+        'jt_filter': jt_filter,
+        'show_zero': show_zero,
+        'show_cancelled': show_cancelled,
+        'sort_by': sort_by,
     }
     return render(request, 'pms/history_list.html', context)
 
