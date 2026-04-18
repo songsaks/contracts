@@ -105,7 +105,7 @@
         border-radius: 10px;
         padding: 0.6rem 1.5rem;
         font-weight: 700;
-        min-width: 120px;
+        min-width: 100px;
     }
 
     .chart-box {
@@ -115,6 +115,13 @@
         box-shadow: 0 5px 15px rgba(0,0,0,0.03);
         border: 1px solid #f1f5f9;
         height: 100%;
+    }
+
+    .filter-box-sm {
+        background: white; 
+        padding: 0.5rem 0.75rem; 
+        border: 1px solid #e2e8f0; 
+        border-radius: 10px;
     }
 
     @media print {
@@ -155,75 +162,84 @@
         <div class="p-4">
             <!-- Filter Section -->
             <div class="filter-section mb-4 shadow-sm">
-                <form method="get" class="row g-3 align-items-end">
-                    <div class="col-md-3">
-                        <label class="form-label small fw-bold text-muted">คำค้นหา</label>
+                <form method="get" class="row g-3 align-items-center">
+                    <div class="col-md-2">
+                        <label class="form-label small fw-bold text-muted mb-1">คำค้นหา</label>
                         <div class="input-group">
                             <span class="input-group-text bg-white border-end-0" style="border-radius: 10px 0 0 10px;">
                                 <i class="fas fa-search text-muted"></i>
                             </span>
                             <input type="text" name="q" class="form-control form-control-report border-start-0" 
-                                   placeholder="ชื่อโครงการ, ลูกค้า..." value="{{ search_q|default:'' }}"
+                                   placeholder="ค้นหางาน..." value="{{ search_q|default:'' }}"
                                    style="border-radius: 0 10px 10px 0;">
                         </div>
                     </div>
+                    
                     <div class="col-md-2">
-                        <label class="form-label small fw-bold text-muted">เจ้าของโครงการ</label>
-                        <select name="owner" class="form-select form-control-report">
+                        <label class="form-label small fw-bold text-muted mb-1">เจ้าของโครงการ</label>
+                        <select name="owner" class="form-select form-control-report" onchange="this.form.submit()">
                             <option value="">ทั้งหมด</option>
                             {% for o in project_owners %}
                             <option value="{{ o.id }}" {% if current_owner == o.id|stringformat:"s" %}selected{% endif %}>{{ o.name }}</option>
                             {% endfor %}
                         </select>
                     </div>
+
                     <div class="col-md-2">
-                        <label class="form-label small fw-bold text-muted">สถานะ</label>
-                        <select name="status" class="form-select form-control-report">
-                            <option value="">ทั้งหมด</option>
+                        <label class="form-label small fw-bold text-muted mb-1">สถานะ</label>
+                        <select name="status" class="form-select form-control-report" onchange="this.form.submit()">
+                            <option value="">Active</option>
                             {% for code, label in status_choices %}
-                            <option value="{{ code }}" {% if current_status == code %}selected{% endif %}>{{ label }}</option>
+                                {% if code != 'CLOSED' and code != 'CANCELLED' %}
+                                <option value="{{ code }}" {% if current_status == code %}selected{% endif %}>{{ label }}</option>
+                                {% endif %}
                             {% endfor %}
                         </select>
                     </div>
-                    
+
                     <div class="col-md-4">
-                        <label class="form-label small fw-bold text-muted">ช่วงวิเคราะห์ (เริ่มต้น - สิ้นสุด)</label>
-                        <div class="row g-2">
-                            <div class="col-6">
-                                <div class="input-group">
-                                    <select name="start_month" class="form-select form-control-report text-center p-1" style="font-size: 0.8rem;">
-                                        {% for m_val, m_label in month_choices %}
-                                        <option value="{{ m_val }}" {% if s_m == m_val %}selected{% endif %}>{{ m_label|slice:":3" }}</option>
-                                        {% endfor %}
-                                    </select>
-                                    <select name="start_year" class="form-select form-control-report text-center p-1" style="font-size: 0.8rem;">
-                                        {% for y in year_choices %}
-                                        <option value="{{ y }}" {% if s_y == y %}selected{% endif %}>{{ y }}</option>
-                                        {% endfor %}
-                                    </select>
-                                </div>
+                        <label class="form-label small fw-bold text-muted mb-1">ช่วงเวลา (เริ่ม - สิ้นสุด)</label>
+                        <div class="d-flex align-items-center gap-2">
+                            <div class="input-group input-group-sm">
+                                <select name="start_month" class="form-select" onchange="this.form.submit()" style="min-width: 65px;">
+                                    {% for m_v, m_l in month_choices %}
+                                    <option value="{{ m_v }}" {% if s_m == m_v %}selected{% endif %}>{{ m_l|slice:":3" }}</option>
+                                    {% endfor %}
+                                </select>
+                                <select name="start_year" class="form-select" onchange="this.form.submit()" style="min-width: 75px;">
+                                    {% for y in year_choices %}
+                                    <option value="{{ y }}" {% if s_y == y %}selected{% endif %}>{{ y }}</option>
+                                    {% endfor %}
+                                </select>
                             </div>
-                            <div class="col-6">
-                                <div class="input-group">
-                                    <select name="end_month" class="form-select form-control-report text-center p-1" style="font-size: 0.8rem;">
-                                        {% for m_val, m_label in month_choices %}
-                                        <option value="{{ m_val }}" {% if e_m == m_val %}selected{% endif %}>{{ m_label|slice:":3" }}</option>
-                                        {% endfor %}
-                                    </select>
-                                    <select name="end_year" class="form-select form-control-report text-center p-1" style="font-size: 0.8rem;">
-                                        {% for y in year_choices %}
-                                        <option value="{{ y }}" {% if e_y == y %}selected{% endif %}>{{ y }}</option>
-                                        {% endfor %}
-                                    </select>
-                                </div>
+                            <span class="text-muted small">ถึง</span>
+                            <div class="input-group input-group-sm">
+                                <select name="end_month" class="form-select" onchange="this.form.submit()" style="min-width: 65px;">
+                                    {% for m_v, m_l in month_choices %}
+                                    <option value="{{ m_v }}" {% if e_m == m_v %}selected{% endif %}>{{ m_l|slice:":3" }}</option>
+                                    {% endfor %}
+                                </select>
+                                <select name="end_year" class="form-select" onchange="this.form.submit()" style="min-width: 75px;">
+                                    {% for y in year_choices %}
+                                    <option value="{{ y }}" {% if e_y == y %}selected{% endif %}>{{ y }}</option>
+                                    {% endfor %}
+                                </select>
                             </div>
                         </div>
                     </div>
 
-                    <div class="col-md-1">
-                        <button type="submit" class="btn btn-primary search-btn w-100">
-                             ค้นหา
-                        </button>
+                    <div class="col-md-2">
+                        <label class="form-label small fw-bold text-muted mb-1">แสดงงานพิเศษ</label>
+                        <div class="filter-box-sm d-flex flex-column gap-1" style="font-size: 0.75rem;">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="show_closed" id="showClosed" {% if show_closed %}checked{% endif %} onchange="this.form.submit()">
+                                <label class="form-check-label" for="showClosed">งานที่ปิดจบ</label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="show_cancelled" id="showCancelled" {% if show_cancelled %}checked{% endif %} onchange="this.form.submit()">
+                                <label class="form-check-label" for="showCancelled">งานที่ยกเลิก</label>
+                            </div>
+                        </div>
                     </div>
                 </form>
             </div>
@@ -231,10 +247,10 @@
             <!-- Action Buttons -->
             <div class="d-flex justify-content-end gap-2 mb-3 btn-no-print">
                 <button onclick="window.print()" class="btn btn-outline-secondary rounded-pill px-4">
-                    <i class="fas fa-print me-2"></i>พิมพ์รายงาน
+                    <i class="fas fa-print me-2"></i>พิมพ์
                 </button>
                 <a href="?{% query_transform request export='excel' %}" class="btn btn-outline-success rounded-pill px-4">
-                    <i class="fas fa-file-excel me-2"></i>ส่งออก Excel
+                    <i class="fas fa-file-excel me-2"></i>Excel
                 </a>
             </div>
 
@@ -276,7 +292,7 @@
                         <tr class="project-row" data-val="{{ p.val }}">
                             <td>
                                 <div class="project-name">{{ p.name }}</div>
-                                <div class="customer-name">{{ p.customer.name }}</div>
+                                <div class="customer-name text-truncate" style="max-width: 200px;">{{ p.customer.name }}</div>
                             </td>
                             <td>
                                 <div class="fw-bold" style="font-size: 0.85rem;">{{ p.owner.name|default:"-" }}</div>
@@ -303,7 +319,7 @@
                         </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="6" class="text-center py-5 text-muted">ไม่พบข้อมูลตามเงื่อนไขที่เลือก</td>
+                            <td colspan="6" class="text-center py-5 text-muted">ไม่พบข้อมูลมูลค่าโครงการตามเงื่อนไขที่เลือก</td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -339,21 +355,19 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
     document.addEventListener('DOMContentLoaded', function() {
-        // --- 1. Calculate Summary ---
         let total = 0;
         document.querySelectorAll('.project-row').forEach(row => {
             total += parseFloat(row.getAttribute('data-val')) || 0;
         });
         document.getElementById('totalDisplay').textContent = '฿' + total.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0});
 
-        // --- 2. Monthly Trend Chart ---
         const ctxMonthly = document.getElementById('monthlySalesChart').getContext('2d');
         new Chart(ctxMonthly, {
             type: 'line',
             data: {
                 labels: {{ chart_months|safe }},
                 datasets: [{
-                    label: 'ยอดขายสะสม (บาท)',
+                    label: 'ยอดสะสม (บาท)',
                     data: {{ chart_month_values|safe }},
                     borderColor: '#4f46e5',
                     backgroundColor: 'rgba(79, 70, 229, 0.1)',
@@ -380,14 +394,13 @@
             }
         });
 
-        // --- 3. Yearly Comparison Chart ---
         const ctxYearly = document.getElementById('yearlySalesChart').getContext('2d');
         new Chart(ctxYearly, {
             type: 'bar',
             data: {
                 labels: {{ chart_years|safe }},
                 datasets: [{
-                    label: 'ยอดขายรวม (บาท)',
+                    label: 'ยอดรวม (บาท)',
                     data: {{ chart_year_values|safe }},
                     backgroundColor: '#7c3aed',
                     borderRadius: 8,

@@ -98,15 +98,10 @@
 
     #aiContent {
         background: rgba(255, 255, 255, 0.7);
-        backdrop-filter: blur(10px);
-        border: 1px solid rgba(255, 255, 255, 0.5);
-        color: #1e293b;
+        padding: 1.5rem;
         border-radius: 20px;
-    }
-
-    #aiContent h1, #aiContent h2, #aiContent h3 {
-        color: #4f46e5;
-        font-weight: 800;
+        border: 1px solid white;
+        backdrop-filter: blur(10px);
         margin-top: 1.5rem;
     }
 
@@ -138,35 +133,56 @@
         transform: translateY(-5px) scale(1.02);
         box-shadow: 0 15px 30px rgba(79, 70, 229, 0.3);
         background: linear-gradient(135deg, #4338ca 0%, #6d28d9 100%);
+        color: white;
     }
 
-    /* Dropdown & Tom Select Overlap Fixes */
+    .btn-ai-analyze:disabled {
+        background: #cbd5e1;
+        transform: none;
+        box-shadow: none;
+    }
+
+    .typing-cursor::after {
+        content: "|";
+        animation: blink 1s infinite;
+    }
+
+    @keyframes blink {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0; }
+    }
+
+    /* Page Header Overrides */
+    .page-heading {
+        font-weight: 900;
+        letter-spacing: -1px;
+        color: #1e293b;
+    }
+
     .filter-card-container {
-        overflow: visible !important;
-        position: relative;
-        z-index: 1050; /* Higher than other cards */
+        border-radius: 24px;
+        border: 1px solid #e2e8f0;
     }
 
-    #filterForm .ts-wrapper {
-        min-width: 140px;
-        margin-bottom: 0;
+    .filter-input-group {
+        position: relative;
+    }
+
+    .btn-white {
+        background-color: white;
+        color: var(--bs-primary);
     }
 
     #filterForm .ts-control {
-        padding-right: 42px !important; /* Extra room for the arrow */
-        background-color: #f8fafc !important;
-        border-radius: 50rem !important;
-        border: 1.5px solid transparent !important;
-        transition: all 0.2s ease;
-        line-height: normal;
-        display: flex;
-        align-items: center;
-    }
-
-    #filterForm .ts-wrapper.focus .ts-control {
-        border-color: var(--primary-color) !important;
-        background-color: white !important;
-        box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.1) !important;
+        border: none !important;
+        background: #f1f5f9 !important;
+        border-radius: 50px !important;
+        padding-left: 20px !important;
+        padding-right: 40px !important;
+        font-size: 0.85rem !important;
+        font-weight: 600 !important;
+        min-height: 36px !important;
+        box-shadow: none !important;
     }
 
     #filterForm .ts-wrapper.single .ts-control::after {
@@ -188,729 +204,513 @@
 {% endblock %}
 
 {% block content %}
-<div class="row g-4 mb-4">
-    <!-- ส่วนหัวหน้าจอ (Page Header & Filters) -->
-    <div class="col-12">
-        <div class="card analytics-card shadow-sm p-4 filter-card-container">
-            <div class="row align-items-center g-3">
-                <div class="col-md-6 text-center text-md-start">
-                    <h1 class="page-heading mb-0">
-                        <i class="fas fa-chart-pie me-2 text-primary" style="font-size: 0.85em;"></i>
-                        Business Dashboard
-                    </h1>
-                    <p class="text-muted small mb-0 mt-2">วิเคราะห์ข้อมูลสรุปผลการดำเนินงานรายเดือน</p>
+<div class="container-fluid py-4">
+    <!-- Header Row -->
+    <div class="row g-4 mb-4">
+        <div class="col-12">
+            <div class="card analytics-card shadow-sm p-4 filter-card-container">
+                <div class="row align-items-center g-3">
+                    <div class="col-md-5 text-center text-md-start">
+                        <h1 class="page-heading mb-0">
+                            <i class="fas fa-chart-pie me-2 text-primary" style="font-size: 0.85em;"></i>
+                            Business Dashboard
+                        </h1>
+                        <p class="text-muted small mb-0 mt-2">วิเคราะห์ข้อมูลสรุปผลการดำเนินงานรายเดือน</p>
+                    </div>
+                    <div class="col-md-7">
+                        <form method="get" class="d-flex flex-wrap justify-content-md-end gap-2 align-items-center" id="filterForm">
+                            <!-- Mode Selector -->
+                            <div class="btn-group btn-group-sm rounded-pill shadow-sm bg-light p-1" role="group">
+                                <input type="radio" class="btn-check" name="mode" id="modeDaily" value="daily" {% if mode == 'daily' %}checked{% endif %} onchange="toggleInputs()">
+                                <label class="btn btn-sm rounded-pill px-3 {% if mode == 'daily' %}btn-white shadow-sm fw-bold{% else %}text-muted{% endif %}" for="modeDaily" id="labelDaily">รายวัน</label>
+                                
+                                <input type="radio" class="btn-check" name="mode" id="modeMonthly" value="monthly" {% if mode == 'monthly' or not mode %}checked{% endif %} onchange="toggleInputs()">
+                                <label class="btn btn-sm rounded-pill px-3 {% if mode == 'monthly' or not mode %}btn-white shadow-sm fw-bold{% else %}text-muted{% endif %}" for="modeMonthly" id="labelMonthly">รายเดือน</label>
+                                
+                                <input type="radio" class="btn-check" name="mode" id="modeYearly" value="yearly" {% if mode == 'yearly' %}checked{% endif %} onchange="toggleInputs()">
+                                <label class="btn btn-sm rounded-pill px-3 {% if mode == 'yearly' %}btn-white shadow-sm fw-bold{% else %}text-muted{% endif %}" for="modeYearly" id="labelYearly">รายปี</label>
+                            </div>
+
+                            <!-- Date Inputs -->
+                            <div class="filter-input-group d-flex align-items-center gap-2 {% if mode != 'daily' %}d-none{% endif %}" id="groupDaily">
+                                <input type="date" name="start_date" class="form-control form-control-sm border-0 bg-light rounded-pill px-3" value="{{ date_start|default:date_filter }}">
+                                <span class="text-muted small">ถึง</span>
+                                <input type="date" name="end_date" class="form-control form-control-sm border-0 bg-light rounded-pill px-3" value="{{ date_end|default:date_filter }}">
+                            </div>
+
+                            <div class="filter-input-group d-flex gap-2 {% if mode == 'daily' %}d-none{% endif %}" id="groupMonthYear">
+                                <select name="month" class="form-select form-select-sm border-0 bg-light rounded-pill no-tom-select {% if mode == 'yearly' %}d-none{% endif %}" id="monthInput">
+                                    {% for val, label in month_choices %}
+                                    <option value="{{ val }}" {% if month_filter == val %}selected{% endif %}>{{ label }}</option>
+                                    {% endfor %}
+                                </select>
+                                <select name="year" class="form-select form-select-sm border-0 bg-light rounded-pill no-tom-select" id="yearInput">
+                                    {% for y in year_choices %}
+                                    <option value="{{ y }}" {% if year_filter == y %}selected{% endif %}>{{ y }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+
+                            <button type="submit" class="btn btn-primary btn-sm rounded-circle d-flex align-items-center justify-content-center shadow-sm" style="width: 36px; height: 36px; padding: 0;">
+                                <i class="fas fa-search"></i>
+                            </button>
+                        </form>
+                        <!-- Button Below Date -->
+                        <div class="d-flex justify-content-end mt-3">
+                            <a href="{% url 'pms:owner_sales_report' %}" class="btn btn-outline-primary btn-sm rounded-pill px-4 shadow-sm fw-bold">
+                                <i class="fas fa-file-invoice-dollar me-2"></i>ดูรายงานฉบับเต็ม
+                            </a>
+                        </div>
+                    </div>
                 </div>
-                <div class="col-md-6">
-                    <form method="get" class="d-flex flex-wrap justify-content-md-end gap-2 align-items-center" id="filterForm">
-                        <!-- Mode Selector -->
-                        <div class="btn-group btn-group-sm rounded-pill shadow-sm bg-light p-1" role="group">
-                            <input type="radio" class="btn-check" name="mode" id="modeDaily" value="daily" {% if mode == 'daily' %}checked{% endif %} onchange="toggleInputs()">
-                            <label class="btn btn-sm rounded-pill px-3 {% if mode == 'daily' %}btn-white shadow-sm fw-bold{% else %}text-muted{% endif %}" for="modeDaily" id="labelDaily">รายวัน</label>
-                            
-                            <input type="radio" class="btn-check" name="mode" id="modeMonthly" value="monthly" {% if mode == 'monthly' or not mode %}checked{% endif %} onchange="toggleInputs()">
-                            <label class="btn btn-sm rounded-pill px-3 {% if mode == 'monthly' or not mode %}btn-white shadow-sm fw-bold{% else %}text-muted{% endif %}" for="modeMonthly" id="labelMonthly">รายเดือน</label>
-                            
-                            <input type="radio" class="btn-check" name="mode" id="modeYearly" value="yearly" {% if mode == 'yearly' %}checked{% endif %} onchange="toggleInputs()">
-                            <label class="btn btn-sm rounded-pill px-3 {% if mode == 'yearly' %}btn-white shadow-sm fw-bold{% else %}text-muted{% endif %}" for="modeYearly" id="labelYearly">รายปี</label>
-                        </div>
+            </div>
+        </div>
+    </div>
 
-                        <!-- Daily Input (Range) -->
-                        <div class="filter-input-group d-flex align-items-center gap-2 {% if mode != 'daily' %}d-none{% endif %}" id="groupDaily">
-                            <input type="date" name="start_date" class="form-control form-control-sm border-0 bg-light rounded-pill px-3" value="{{ date_start|default:date_filter }}" title="เริ่มวันที่">
-                            <span class="text-muted small">ถึง</span>
-                            <input type="date" name="end_date" class="form-control form-control-sm border-0 bg-light rounded-pill px-3" value="{{ date_end|default:date_filter }}" title="ถึงวันที่">
-                        </div>
+    <!-- Summary Stats Row (Double Column Panel) -->
+    <div class="row g-4 mb-4">
+        <div class="col-md-6">
+            <div class="card analytics-card shadow-sm h-100 p-4" style="border-left: 6px solid #10b981;">
+                <div class="d-flex align-items-center gap-4">
+                    <div class="bg-success bg-opacity-10 text-success p-4 rounded-4">
+                        <i class="fas fa-hand-holding-usd fa-3x"></i>
+                    </div>
+                    <div>
+                        <div class="text-muted small fw-bold text-uppercase mb-1">ยอดขายที่ปิดจบ</div>
+                        <div class="fw-900 h2 mb-0 text-success">฿{{ actual_sales|floatformat:0|intcomma }}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card analytics-card shadow-sm h-100 p-4" style="border-left: 6px solid #4f46e5;">
+                <div class="d-flex align-items-center gap-4">
+                    <div class="bg-primary bg-opacity-10 text-primary p-4 rounded-4">
+                        <i class="fas fa-coins fa-3x"></i>
+                    </div>
+                    <div>
+                        <div class="text-muted small fw-bold text-uppercase mb-1">ยอดรวมงานทั้งหมด</div>
+                        <div class="fw-900 h2 mb-0 text-primary">฿{{ total_job_value|floatformat:0|intcomma }}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6">
+            <div class="card analytics-card shadow-sm h-100 p-4" style="border-left: 6px solid #ef4444;">
+                <div class="d-flex align-items-center gap-4">
+                    <div class="bg-danger bg-opacity-10 text-danger p-4 rounded-4">
+                        <i class="fas fa-ban fa-3x"></i>
+                    </div>
+                    <div>
+                        <div class="text-muted small fw-bold text-uppercase mb-1">งานที่ยกเลิก</div>
+                        <div class="fw-900 h2 mb-0 text-danger">{{ cancelled_count }} งาน</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card analytics-card shadow-sm h-100 p-4" style="border-left: 6px solid #64748b;">
+                <div class="d-flex align-items-center gap-4">
+                    <div class="bg-secondary bg-opacity-10 text-secondary p-4 rounded-4">
+                        <i class="fas fa-file-invoice-dollar fa-3x"></i>
+                    </div>
+                    <div>
+                        <div class="text-muted small fw-bold text-uppercase mb-1">มูลค่างานที่ยกเลิก</div>
+                        <div class="fw-900 h2 mb-0 text-dark">฿{{ cancelled_value|floatformat:0|intcomma }}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
 
-                        <!-- Month/Year Inputs -->
-                        <div class="filter-input-group d-flex gap-2 {% if mode == 'daily' %}d-none{% endif %}" id="groupMonthYear">
-                            <select name="month" class="form-select form-select-sm border-0 bg-light rounded-pill no-tom-select {% if mode == 'yearly' %}d-none{% endif %}" id="monthInput">
-                                {% for val, label in month_choices %}
-                                <option value="{{ val }}" {% if month_filter == val %}selected{% endif %}>{{ label }}</option>
-                                {% endfor %}
-                            </select>
-                            <select name="year" class="form-select form-select-sm border-0 bg-light rounded-pill no-tom-select" id="yearInput">
-                                {% for y in year_choices %}
-                                <option value="{{ y }}" {% if year_filter == y %}selected{% endif %}>{{ y }}</option>
-                                {% endfor %}
-                            </select>
-                        </div>
+        <div class="col-md-6">
+            <div class="card analytics-card shadow-sm h-100 p-4" style="border-left: 6px solid #f59e0b;">
+                <div class="d-flex align-items-center gap-4">
+                    <div class="bg-warning bg-opacity-10 text-warning p-4 rounded-4">
+                        <i class="fas fa-tools fa-3x"></i>
+                    </div>
+                    <div>
+                        <div class="text-muted small fw-bold text-uppercase mb-1">งานที่กำลังดำเนินการ</div>
+                        <div class="fw-900 h2 mb-0 text-warning">{{ active_projects }} งาน</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card analytics-card shadow-sm h-100 p-4" style="border-left: 6px solid #06b6d4;">
+                <div class="d-flex align-items-center gap-4">
+                    <div class="bg-info bg-opacity-10 text-info p-4 rounded-4">
+                        <i class="fas fa-layer-group fa-3x"></i>
+                    </div>
+                    <div>
+                        <div class="text-muted small fw-bold text-uppercase mb-1">รวมงานสะสม</div>
+                        <div class="fw-900 h2 mb-0 text-info">{{ total_projects }} งาน</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 
-                        <button type="submit" class="btn btn-primary btn-sm rounded-circle shadow-sm d-flex align-items-center justify-content-center" style="width: 36px; height: 36px; padding: 0;">
-                            <i class="fas fa-search" style="font-size: 0.85rem;"></i>
+    <!-- Charts & Analytics Row -->
+    <div class="row g-4 mb-4">
+        <!-- Row 1: Completion -->
+        <div class="col-lg-6">
+            <div class="card analytics-card shadow-sm p-4 h-100">
+                <h5 class="fw-800 mb-4"><i class="fas fa-check-circle me-2 text-success"></i>เปรียบเทียบจำนวนงาน (Total vs Closed)</h5>
+                <div class="chart-container" style="height: 350px;">
+                    <canvas id="completionChart"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-6">
+            <div class="card analytics-card shadow-sm p-4 h-100">
+                <h5 class="fw-800 mb-4"><i class="fas fa-coins me-2 text-warning"></i>เปรียบเทียบมูลค่างาน (Total Value vs Closed)</h5>
+                <div class="chart-container" style="height: 350px;">
+                    <canvas id="completionValueChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Row 2: Trends -->
+        <div class="col-lg-6">
+            <div class="card analytics-card shadow-sm p-4 h-100">
+                <h5 class="fw-800 mb-4"><i class="fas fa-chart-line me-2 text-primary"></i>แนวโน้มยอดขายรายเดือน</h5>
+                <div class="chart-container">
+                    <canvas id="monthlySalesChart"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-6">
+            <div class="card analytics-card shadow-sm p-4 h-100">
+                <h5 class="fw-800 mb-4"><i class="fas fa-users-cog me-2 text-primary"></i>แนวโน้มยอดขายรายบุคคล</h5>
+                <div class="chart-container">
+                    <canvas id="ownerTrendChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Row 3: Breakdown -->
+        <div class="col-lg-4">
+            <div class="card analytics-card shadow-sm p-4 h-100">
+                <h5 class="fw-800 mb-4"><i class="fas fa-chart-pie me-2 text-primary"></i>สัดส่วนประเภทงาน</h5>
+                <div class="chart-container" style="height: 250px;">
+                    <canvas id="typeDistChart"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-8">
+            <div class="card analytics-card shadow-sm p-4 h-100">
+                <div class="d-flex align-items-center justify-content-between mb-4">
+                    <h5 class="fw-800 mb-0"><i class="fas fa-trophy me-2 text-primary"></i>10 อันดับลูกค้า</h5>
+                    <span class="stat-badge">Top Customers</span>
+                </div>
+                <div class="chart-container" style="height: 300px;">
+                    <canvas id="customerSalesChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- AI Analysis Section -->
+    <div class="row g-4 mb-5">
+        <div class="col-12">
+            <div class="ai-card p-5">
+                <div class="row align-items-center">
+                    <div class="col-md-7">
+                        <div class="d-flex align-items-center gap-3 mb-4">
+                            <div class="ai-badge">AI INSIGHTS</div>
+                            <i class="fas fa-robot text-primary fs-3 robot-icon"></i>
+                        </div>
+                        <h2 class="fw-900 mb-3" style="letter-spacing: -1px;">วิเคราะห์ภาพรวมธุรกิจด้วย AI</h2>
+                        <p class="text-muted fs-5 mb-4">รับคำแนะนำเชิงกลยุทธ์ตามทิศทางยอดขายและข้อมูลโครงการในมือคุณ</p>
+                        <button id="analyzeBtn" class="btn btn-primary btn-ai-analyze btn-lg rounded-pill px-5 fw-bold shadow-lg">
+                            <i class="fas fa-wand-magic-sparkles me-2"></i>เริ่มการวิเคราะห์เชิงลึก
                         </button>
-                    </form>
+                    </div>
+                    <div class="col-md-5 text-center d-none d-md-block">
+                        <div style="font-size: 8rem; color: #4f46e5; opacity: 0.1;">
+                            <i class="fas fa-brain"></i>
+                        </div>
+                    </div>
+                </div>
 
-                    <script>
-                    function toggleInputs() {
-                        const mode = document.querySelector('input[name="mode"]:checked').value;
-                        const groupDaily = document.getElementById('groupDaily');
-                        const groupMonthYear = document.getElementById('groupMonthYear');
-                        const monthInput = document.getElementById('monthInput');
-                        
-                        // Update Labels
-                        document.querySelectorAll('.btn-group label').forEach(lbl => {
-                            lbl.classList.remove('btn-white', 'shadow-sm', 'fw-bold');
-                            lbl.classList.add('text-muted');
-                        });
-                        const activeId = 'label' + mode.charAt(0).toUpperCase() + mode.slice(1);
-                        const activeLabel = document.getElementById(activeId);
-                        if(activeLabel) {
-                            activeLabel.classList.remove('text-muted');
-                            activeLabel.classList.add('btn-white', 'shadow-sm', 'fw-bold');
-                        }
-
-                        if (mode === 'daily') {
-                            groupDaily.classList.remove('d-none');
-                            groupMonthYear.classList.add('d-none');
-                        } else {
-                            groupDaily.classList.add('d-none');
-                            groupMonthYear.classList.remove('d-none');
-                            
-                            if (mode === 'yearly') {
-                                monthInput.classList.add('d-none');
-                            } else {
-                                monthInput.classList.remove('d-none');
-                            }
-                        }
-                    }
-                    </script>
-                    <style>
-                        .btn-white {
-                            background-color: white;
-                            color: var(--bs-primary);
-                        }
-                    </style>
+                <div id="aiResponseContainer" class="d-none mt-5">
+                    <div id="aiContent" class="typing-cursor">
+                        <!-- AI content will flow here -->
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 
-
-    <!-- ส่วนสรุปสถิติหลัก (Summary Stats - 3 Rows of 2 Columns) -->
-    <div class="col-md-6 mb-4">
-        <div class="card analytics-card shadow-sm h-100 p-4" style="border-left: 6px solid #10b981; border-radius: 18px; background: #fff;">
-            <div class="d-flex align-items-center gap-4">
-                <div class="bg-success bg-opacity-10 text-success p-4 rounded-4">
-                    <i class="fas fa-hand-holding-usd fa-3x"></i>
-                </div>
-                <div>
-                    <div class="text-dark mb-1" style="font-size: 1rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em;">ยอดขายที่ปิดจบ</div>
-                    <div class="fw-900 mb-0" style="font-size: 2.8rem; letter-spacing: -1.5px; color: #10b981; line-height: 1.1;">฿{{ actual_sales|floatformat:0|intcomma }}</div>
-                </div>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-6 mb-4">
-        <div class="card analytics-card shadow-sm h-100 p-4" style="border-left: 6px solid #4f46e5; border-radius: 18px; background: #fff;">
-            <div class="d-flex align-items-center gap-4">
-                <div class="bg-primary bg-opacity-10 text-primary p-4 rounded-4">
-                    <i class="fas fa-coins fa-3x"></i>
-                </div>
-                <div>
-                    <div class="text-dark mb-1" style="font-size: 1rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em;">ยอดรวมงานทั้งหมด</div>
-                    <div class="fw-900 mb-0" style="font-size: 2.8rem; letter-spacing: -1.5px; color: #4f46e5; line-height: 1.1;">฿{{ total_job_value|floatformat:0|intcomma }}</div>
-                </div>
-            </div>
-        </div>
-    </div>
-    
-    <div class="col-md-6 mb-4">
-        <div class="card analytics-card shadow-sm h-100 p-4" style="border-left: 6px solid #ef4444; border-radius: 18px; background: #fff;">
-            <div class="d-flex align-items-center gap-4">
-                <div class="bg-danger bg-opacity-10 text-danger p-4 rounded-4">
-                    <i class="fas fa-ban fa-3x"></i>
-                </div>
-                <div>
-                    <div class="text-dark mb-1" style="font-size: 1rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em;">งานที่ยกเลิก</div>
-                    <div class="fw-900 mb-0" style="font-size: 2.8rem; letter-spacing: -1.5px; color: #ef4444; line-height: 1.1;">{{ cancelled_count }} <span style="font-size: 1.5rem; color: #6b7280; font-weight: 600;">งาน</span></div>
-                </div>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-6 mb-4">
-        <div class="card analytics-card shadow-sm h-100 p-4" style="border-left: 6px solid #6b7280; border-radius: 18px; background: #fff;">
-            <div class="d-flex align-items-center gap-4">
-                <div class="bg-secondary bg-opacity-10 text-secondary p-4 rounded-4">
-                    <i class="fas fa-file-invoice-dollar fa-3x"></i>
-                </div>
-                <div>
-                    <div class="text-dark mb-1" style="font-size: 1rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em;">มูลค่างานที่ยกเลิก</div>
-                    <div class="fw-900 mb-0" style="font-size: 2.8rem; letter-spacing: -1.5px; color: #374151; line-height: 1.1;">฿{{ cancelled_value|floatformat:0|intcomma }}</div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div class="col-md-6 mb-4">
-        <div class="card analytics-card shadow-sm h-100 p-4" style="border-left: 6px solid #f59e0b; border-radius: 18px; background: #fff;">
-            <div class="d-flex align-items-center gap-4">
-                <div class="bg-warning bg-opacity-10 text-warning p-4 rounded-4">
-                    <i class="fas fa-tools fa-3x"></i>
-                </div>
-                <div>
-                    <div class="text-dark mb-1" style="font-size: 1rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em;">งานที่กำลังดำเนินการ</div>
-                    <div class="fw-900 mb-0" style="font-size: 2.8rem; letter-spacing: -1.5px; color: #d97706; line-height: 1.1;">{{ active_projects }} <span style="font-size: 1.5rem; color: #6b7280; font-weight: 600;">งาน</span></div>
-                </div>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-6 mb-4">
-        <div class="card analytics-card shadow-sm h-100 p-4" style="border-left: 6px solid #06b6d4; border-radius: 18px; background: #fff;">
-            <div class="d-flex align-items-center gap-4">
-                <div class="bg-info bg-opacity-10 text-info p-4 rounded-4">
-                    <i class="fas fa-layer-group fa-3x"></i>
-                </div>
-                <div>
-                    <div class="text-dark mb-1" style="font-size: 1rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em;">รวมงานสะสม</div>
-                    <div class="fw-900 mb-0" style="font-size: 2.8rem; letter-spacing: -1.5px; color: #0891b2; line-height: 1.1;">{{ total_projects }} <span style="font-size: 1.5rem; color: #6b7280; font-weight: 600;">งาน</span></div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- ส่วนวิเคราะห์การจบงาน (Completion Analysis - Quantity & Value) -->
-    <div class="col-lg-6">
-        <div class="card analytics-card shadow-sm p-4 h-100">
-            <h5 class="fw-800 mb-4"><i class="fas fa-check-circle me-2 text-success"></i>เปรียบเทียบจำนวนงาน (Total vs Closed)</h5>
-            <div class="chart-container" style="height: 350px;">
-                <canvas id="completionChart"></canvas>
-            </div>
-        </div>
-    </div>
-    
-    <div class="col-lg-6">
-        <div class="card analytics-card shadow-sm p-4 h-100">
-            <h5 class="fw-800 mb-4"><i class="fas fa-coins me-2 text-warning"></i>เปรียบเทียบมูลค่างาน (Total Value vs Closed)</h5>
-            <div class="chart-container" style="height: 350px;">
-                <canvas id="completionValueChart"></canvas>
-            </div>
-        </div>
-    </div>
-
-    <!-- Row 2: Monthly Trends -->
-    <div class="col-lg-6">
-        <div class="card analytics-card shadow-sm p-4 h-100">
-            <h5 class="fw-800 mb-4"><i class="fas fa-chart-line me-2 text-primary"></i>แนวโน้มยอดขายรายเดือน (แยกตามประเภท)</h5>
-            <div class="chart-container">
-                <canvas id="monthlySalesChart"></canvas>
-            </div>
-        </div>
-    </div>
-
-    <div class="col-lg-6">
-        <div class="card analytics-card shadow-sm p-4 h-100">
-            <h5 class="fw-800 mb-4"><i class="fas fa-users-cog me-2 text-primary"></i>แนวโน้มยอดขายรายบุคคล (รายเดือน)</h5>
-            <div class="chart-container">
-                <canvas id="ownerTrendChart"></canvas>
-            </div>
-        </div>
-    </div>
-
-    <!-- Row 3: Performance Analysis -->
-    <div class="col-lg-4">
-        <div class="card analytics-card shadow-sm p-4 h-100">
-            <h5 class="fw-800 mb-4"><i class="fas fa-chart-pie me-2 text-primary"></i>สัดส่วนประเภทงาน</h5>
-            <div class="chart-container" style="height: 250px;">
-                <canvas id="typeDistChart"></canvas>
-            </div>
-        </div>
-    </div>
-
-    <div class="col-lg-8">
-        <div class="card analytics-card shadow-sm p-4 h-100">
-            <h5 class="fw-800 mb-4"><i class="fas fa-trophy me-2 text-primary"></i>10 อันดับลูกค้า</h5>
-            <div class="chart-container" style="height: 300px;">
-                <canvas id="customerSalesChart"></canvas>
-            </div>
-        </div>
-    </div>
-
-
-    <!-- ส่วนตารางสรุปยอดขายพนักงานรายบุคคล (Individual Sales Summary Table) -->
-    <div class="col-12 mt-4">
-        <div class="card analytics-card shadow-sm border-0">
-            <div class="card-header bg-white py-4 px-4 border-0">
-                <div class="d-flex align-items-center justify-content-between flex-wrap gap-3">
+    <!-- Table Section -->
+    <div class="row g-4 mb-4">
+        <div class="col-12">
+            <div class="card analytics-card shadow-sm border-0">
+                <div class="card-header bg-white py-4 px-4 border-0 border-bottom">
                     <div class="d-flex align-items-center gap-3">
-                        <div class="bg-primary bg-opacity-10 p-2 rounded-3">
-                            <i class="fas fa-users text-primary"></i>
+                        <div class="bg-primary bg-opacity-10 p-2 rounded-3 text-primary">
+                            <i class="fas fa-users-cog"></i>
                         </div>
                         <h5 class="fw-800 mb-0">สรุปยอดขายพนักงานรายบุคคล {{ year_filter }}</h5>
                     </div>
-                    <div>
-                        <a href="{% url 'pms:owner_sales_report' %}" class="btn btn-outline-primary btn-sm rounded-pill px-4">
-                            <i class="fas fa-file-invoice-dollar me-2"></i>ดูรายงานฉบับเต็ม
-                        </a>
-                    </div>
                 </div>
-            </div>
-            <div class="card-body p-0">
-                <div class="table-responsive">
-                    <table class="table table-hover align-middle mb-0">
-                        <thead class="bg-light text-muted small text-uppercase">
-                            <tr>
-                                <th class="ps-4 py-3">พนักงาน</th>
-                                <th class="text-center py-3">จำนวนงานที่สำเร็จ</th>
-                                <th class="text-end py-3">ยอดขายสะสม (ปิดงาน)</th>
-                                <th class="pe-4 py-3" style="width: 25%;">ผลงานเฉลี่ย</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for owner in sales_by_owner %}
-                            {% if owner.total_sales > 0 %}
-                            <tr>
-                                <td class="ps-4">
-                                    <div class="d-flex align-items-center gap-3">
-                                        <div class="owner-avatar" style="width: 35px; height: 35px; font-size: 0.9rem;">
-                                            {{ owner.name|slice:":1" }}
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="bg-light">
+                                <tr>
+                                    <th class="ps-4 py-3 text-uppercase small fw-bold">ลำดับ</th>
+                                    <th class="py-3 text-uppercase small fw-bold">เจ้าของโครงการ</th>
+                                    <th class="text-center py-3 text-uppercase small fw-bold">จำนวนโครงการ</th>
+                                    <th class="text-end py-3 text-uppercase small fw-bold">ยอดขายปัจจุบัน</th>
+                                    <th class="text-end py-3 text-uppercase small fw-bold pe-4">เป้ายอดขายรวม</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in sales_by_owner %}
+                                <tr>
+                                    <td class="ps-4 fw-bold text-muted">#{{ forloop.counter }}</td>
+                                    <td>
+                                        <div class="d-flex align-items-center gap-3">
+                                            <div class="owner-avatar">{{ item.name|slice:":1" }}</div>
+                                            <span class="fw-bold">{{ item.name }}</span>
                                         </div>
-                                        <span class="fw-bold">{{ owner.name }}</span>
-                                    </div>
-                                </td>
-                                <td class="text-center fw-semibold text-secondary">
-                                    {{ owner.job_count }} งาน
-                                </td>
-                                <td class="text-end fw-bold text-primary">
-                                    ฿{{ owner.total_sales|floatformat:0|intcomma }}
-                                </td>
-                                <td class="pe-4">
-                                    <div class="d-flex align-items-center gap-3">
-                                        <div class="progress flex-grow-1" style="height: 6px;">
-                                            <div class="progress-bar bg-primary rounded-pill" style="width: {{ owner.performance_pct }}%"></div>
-                                        </div>
-                                        <span class="small fw-800 text-primary">{{ owner.performance_pct|floatformat:1 }}%</span>
-                                    </div>
-                                </td>
-                            </tr>
-                            {% endif %}
-                            {% empty %}
-                            <tr>
-                                <td colspan="4" class="text-center py-5 text-muted">
-                                    <i class="fas fa-folder-open fa-3x mb-3 opacity-25"></i>
-                                    <p class="mb-0">ยังไม่มีข้อมูลยอดขายในระบบ</p>
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- ส่วนการวิเคราะห์เชิงลึกด้วย AI (AI Analysis Section) -->
-    <div class="col-12 mt-5">
-        <div class="card ai-card">
-            <div class="card-body p-4 p-md-5 position-relative" style="z-index: 1;">
-                <div class="d-flex flex-column flex-md-row align-items-center justify-content-between gap-4">
-                    <div class="text-center text-md-start">
-                        <div class="d-inline-flex align-items-center gap-2 ai-badge small mb-3">
-                            <i class="fas fa-robot robot-icon"></i>
-                            <span>AI BUSINESS INSIGHTS</span>
-                        </div>
-                        <h2 class="fw-900 text-dark mb-2" style="letter-spacing: -0.5px;">บทวิเคราะห์ธุรกิจอัจฉริยะ</h2>
-                        <p class="text-secondary fs-5 mb-0 opacity-75">รับคำแนะนำเชิงกลยุทธ์และการสรุปผลภาพรวมด้วยขุมพลัง Gemini AI</p>
-                    </div>
-                    <button id="btnAiAnalyze" class="btn btn-ai-analyze btn-lg text-white rounded-pill px-5 py-3 d-flex align-items-center gap-3 shadow-lg">
-                        <i class="fas fa-wand-magic-sparkles"></i>
-                        <span class="fw-bold">ประมวลผลการวิเคราะห์</span>
-                    </button>
-                </div>
-
-                <!-- AI Response Container -->
-                <div id="aiResponseArea" class="mt-5 d-none">
-                    <div class="d-flex align-items-center gap-3 mb-4">
-                        <div class="h-px bg-primary bg-opacity-25 flex-grow-1"></div>
-                        <span class="small fw-bold text-primary text-uppercase ls-2">Analysis Result</span>
-                        <div class="h-px bg-primary bg-opacity-25 flex-grow-1"></div>
-                    </div>
-                    
-                    <div id="aiLoading" class="ai-loading-container d-none">
-                        <div class="spinner-grow text-primary mb-3" role="status" style="width: 3rem; height: 3rem;"></div>
-                        <div class="fw-bold text-primary h5">กำลังวิเคราะห์ข้อมูลเชิงลึก...</div>
-                        <p class="text-muted small">ระบบกำลังใช้ AI ประมวลผลข้อมูลยอดขายและแนวโน้มธุรกิจของคุณ</p>
-                    </div>
-
-                    <div id="aiContent" class="markdown-body p-4 p-md-5 shadow-inner" style="font-size: 1.1rem; line-height: 2;">
-                        <!-- AI Analysis will be injected here -->
-                    </div>
-
-                    <div class="text-center mt-4 opacity-50 small">
-                        <i class="fas fa-info-circle me-1"></i> ผลลัพธ์นี้ถูกสร้างขึ้นโดย AI โปรดใช้ดุลยพินิจในการประกอบการตัดสินใจ
+                                    </td>
+                                    <td class="text-center">
+                                        <span class="badge bg-light text-dark rounded-pill px-3">{{ item.job_count }}</span>
+                                    </td>
+                                    <td class="text-end fw-bold text-success">
+                                        ฿{{ item.total_sales|floatformat:0|intcomma }}
+                                    </td>
+                                    <td class="text-end fw-bold text-primary pe-4">
+                                        ฿{{ item.total_value|default:0|floatformat:0|intcomma }}
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="5" class="text-center py-5 text-muted">ไม่พบข้อมูลยอดขายรายบุคคล</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 </div>
-{% endblock %}
 
-{% block scripts %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        const pmsBlue = '#4f46e5';
-        const pmsGreen = '#10b981';
-        const pmsOrange = '#f59e0b';
-        const secondaryColor = '#8b5cf6';
-        
-        // Monthly Trends by Person Chart
-        const ctxOwnerTrends = document.getElementById('ownerTrendChart').getContext('2d');
-        new Chart(ctxOwnerTrends, {
-            type: 'line',
-            data: {
-                labels: {{ chart_months|safe }},
-                datasets: {{ chart_owner_trends|safe }}
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: { 
-                        position: 'bottom',
-                        labels: { boxWidth: 12, usePointStyle: true, font: { size: 11 } }
-                    },
-                    tooltip: {
-                        mode: 'index',
-                        intersect: false,
-                        callbacks: {
-                            label: function(context) {
-                                let label = context.dataset.label || '';
-                                if (label) label += ': ';
-                                label += '฿' + context.parsed.y.toLocaleString();
-                                return label;
-                            }
-                        }
-                    }
-                },
-                scales: {
-                    x: { grid: { display: false } },
-                    y: { 
-                        beginAtZero: true,
-                        ticks: { callback: value => '฿' + (value/1000).toFixed(0) + 'k' }
-                    }
-                }
-            }
-        });
-
-        // Completion Analysis Chart (Total vs Closed)
-        const ctxCompletion = document.getElementById('completionChart').getContext('2d');
-        new Chart(ctxCompletion, {
-            type: 'bar',
-            data: {
-                labels: {{ chart_months|safe }},
-                datasets: [
-                    {
-                        label: 'งานรับเข้าทั้งหมด (Total)',
-                        data: {{ chart_completion_total|safe }},
-                        backgroundColor: '#94a3b8', // Slate-400
-                        borderRadius: 4,
-                        barPercentage: 0.6,
-                        categoryPercentage: 0.8
-                    },
-                    {
-                        label: 'งานปิดจบแล้ว (Closed)',
-                        data: {{ chart_completion_closed|safe }},
-                        backgroundColor: '#10b981', // Emerald-500
-                        borderRadius: 4,
-                        barPercentage: 0.6,
-                        categoryPercentage: 0.8
-                    }
-                ]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                interaction: {
-                    mode: 'index',
-                    intersect: false,
-                },
-                plugins: {
-                    legend: { 
-                        position: 'top', 
-                        align: 'end',
-                        labels: { usePointStyle: true, font: { weight: 'bold' } } 
-                    },
-                    tooltip: {
-                        backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                        titleColor: '#1e293b',
-                        bodyColor: '#475569',
-                        borderColor: '#e2e8f0',
-                        borderWidth: 1,
-                        padding: 10,
-                        callbacks: {
-                            label: function(context) {
-                                let label = context.dataset.label || '';
-                                if (label) label += ': ';
-                                label += context.raw + ' งาน';
-                                return label;
-                            }
-                        }
-                    }
-                },
-                scales: {
-                    x: { 
-                        grid: { display: false }
-                    },
-                    y: { 
-                        beginAtZero: true,
-                        grid: { borderDash: [4, 4], color: '#f1f5f9' },
-                        ticks: { stepSize: 1 }
-                    }
-                }
-            }
-        });
-
-        // Completion Value Analysis Chart (Total Value vs Closed Value)
-        const ctxCompletionValue = document.getElementById('completionValueChart').getContext('2d');
-        new Chart(ctxCompletionValue, {
-            type: 'bar',
-            data: {
-                labels: {{ chart_months|safe }},
-                datasets: [
-                    {
-                        label: 'มูลค่างานรับเข้า (Total)',
-                        data: {{ chart_completion_total_value|safe }},
-                        backgroundColor: '#a5b4fc', // Indigo-300
-                        borderRadius: 4,
-                        barPercentage: 0.6,
-                        categoryPercentage: 0.8
-                    },
-                    {
-                        label: 'มูลค่างานปิดจบ (Closed)',
-                        data: {{ chart_completion_closed_value|safe }},
-                        backgroundColor: '#f59e0b', // Amber-500
-                        borderRadius: 4,
-                        barPercentage: 0.6,
-                        categoryPercentage: 0.8
-                    }
-                ]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                interaction: {
-                    mode: 'index',
-                    intersect: false,
-                },
-                plugins: {
-                    legend: { 
-                        position: 'top', 
-                        align: 'end',
-                        labels: { usePointStyle: true, font: { weight: 'bold' } } 
-                    },
-                    tooltip: {
-                        backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                        titleColor: '#1e293b',
-                        bodyColor: '#475569',
-                        borderColor: '#e2e8f0',
-                        borderWidth: 1,
-                        padding: 10,
-                        callbacks: {
-                            label: function(context) {
-                                let label = context.dataset.label || '';
-                                if (label) label += ': ';
-                                label += '฿' + context.parsed.y.toLocaleString();
-                                return label;
-                            }
-                        }
-                    }
-                },
-                scales: {
-                    x: { 
-                        grid: { display: false }
-                    },
-                    y: { 
-                        beginAtZero: true,
-                        grid: { borderDash: [4, 4], color: '#f1f5f9' },
-                        ticks: { 
-                             callback: value => '฿' + (value/1000).toFixed(0) + 'k'
-                        }
-                    }
-                }
-            }
-        });
-
-        // Sales by Month Chart (Updated layout/options)
-        const ctxMonthly = document.getElementById('monthlySalesChart').getContext('2d');
-        new Chart(ctxMonthly, {
-            type: 'bar',
-            data: {
-                labels: {{ chart_months|safe }},
-                datasets: [
-                    {
-                        label: 'โครงการ',
-                        data: {{ chart_project_series|safe }},
-                        backgroundColor: pmsBlue,
-                        borderRadius: 6,
-                    },
-                    {
-                        label: 'งานขาย',
-                        data: {{ chart_service_series|safe }},
-                        backgroundColor: pmsGreen,
-                        borderRadius: 6,
-                    },
-                    {
-                        label: 'งานซ่อม',
-                        data: {{ chart_repair_series|safe }},
-                        backgroundColor: pmsOrange,
-                        borderRadius: 6,
-                    }
-                ]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                scales: {
-                    x: { stacked: true, grid: { display: false } },
-                    y: { 
-                        stacked: true, 
-                        beginAtZero: true,
-                        ticks: {
-                            callback: value => '฿' + (value/1000).toFixed(0) + 'k'
-                        }
-                    }
-                },
-                plugins: {
-                    legend: { position: 'bottom', labels: { usePointStyle: true, font: { weight: '600' } } }
-                }
-            }
-        });
-
-        // 2. Job Type Pie Chart
-        const ctxTypeDist = document.getElementById('typeDistChart').getContext('2d');
-        new Chart(ctxTypeDist, {
-            type: 'doughnut',
-            data: {
-                labels: {{ chart_type_labels|safe }},
-                datasets: [{
-                    data: {{ chart_type_values|safe }},
-                    backgroundColor: [pmsBlue, pmsGreen, pmsOrange],
-                    borderWidth: 0,
-                    hoverOffset: 15
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                cutout: '65%',
-                plugins: {
-                    legend: { position: 'bottom', labels: { usePointStyle: true, padding: 20 } }
-                }
-            }
-        });
-
-        // 4. Top Customers Chart
-        const ctxCustomers = document.getElementById('customerSalesChart').getContext('2d');
-        new Chart(ctxCustomers, {
-            type: 'bar',
-            data: {
-                labels: {{ chart_customers|safe }},
-                datasets: [
-                    {
-                        label: 'ปิดงานแล้ว',
-                        data: {{ chart_customer_closed|safe }},
-                        backgroundColor: pmsGreen, // Green for completed
-                        borderRadius: 6,
-                    },
-                    {
-                        label: 'อยู่ระหว่างดำเนินการ',
-                        data: {{ chart_customer_active|safe }},
-                        backgroundColor: pmsBlue, // Blue for active
-                        borderRadius: 6,
-                    }
-                ]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: { 
-                    legend: { 
-                        display: true, 
-                        position: 'bottom',
-                        labels: { usePointStyle: true }
-                    } 
-                },
-                scales: {
-                    x: { stacked: true, grid: { display: false } },
-                    y: { 
-                        stacked: true,
-                        beginAtZero: true,
-                        ticks: { callback: value => '฿' + (value/1000).toFixed(0) + 'k' }
-                    }
-                }
-            }
-        });
-
-        // Manual init for Month/Year to preserve chronological order (disable alphabetical auto-sort)
-        ['#monthInput', '#yearInput'].forEach(selector => {
-            const el = document.querySelector(selector);
-            if (el && !el.tomselect) {
-                new TomSelect(el, {
-                    allowEmptyOption: true,
-                    sortField: null, // Keep original HTML order (JAN to DEC)
-                    plugins: ['dropdown_input'],
-                    render: {
-                        option: (data, escape) => `<div class="option">${escape(data.text)}</div>`,
-                        item: (data, escape) => `<div>${escape(data.text)}</div>`
-                    }
-                });
-            }
-        });
+function toggleInputs() {
+    const mode = document.querySelector('input[name="mode"]:checked').value;
+    const groupDaily = document.getElementById('groupDaily');
+    const groupMonthYear = document.getElementById('groupMonthYear');
+    const monthInput = document.getElementById('monthInput');
+    
+    document.querySelectorAll('.btn-group label').forEach(lbl => {
+        lbl.classList.remove('btn-white', 'shadow-sm', 'fw-bold');
+        lbl.classList.add('text-muted');
     });
-</script>
+    
+    const activeId = 'label' + mode.charAt(0).toUpperCase() + mode.slice(1);
+    const activeLabel = document.getElementById(activeId);
+    if(activeLabel) {
+        activeLabel.classList.remove('text-muted');
+        activeLabel.classList.add('btn-white', 'shadow-sm', 'fw-bold');
+    }
 
-<!-- Add Marked.js for Markdown rendering -->
-<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-<script>
-    document.getElementById('btnAiAnalyze').addEventListener('click', function() {
-        const btn = this;
-        const responseArea = document.getElementById('aiResponseArea');
-        const loading = document.getElementById('aiLoading');
-        const content = document.getElementById('aiContent');
-        
-        // UI State
-        responseArea.classList.remove('d-none');
-        loading.classList.remove('d-none');
-        content.classList.add('d-none');
-        btn.disabled = true;
-        btn.innerHTML = '<span class="spinner-grow spinner-grow-sm me-2"></span> กำลังประมวลผล...';
+    if (mode === 'daily') {
+        groupDaily.classList.remove('d-none');
+        groupMonthYear.classList.add('d-none');
+    } else {
+        groupDaily.classList.add('d-none');
+        groupMonthYear.classList.remove('d-none');
+        if (mode === 'yearly') {
+            monthInput.classList.add('d-none');
+        } else {
+            monthInput.classList.remove('d-none');
+        }
+    }
+}
 
-        // Smooth scroll to loading area
-        responseArea.scrollIntoView({ behavior: 'smooth', block: 'center' });
+document.addEventListener('DOMContentLoaded', function() {
+    // Correcting Variable Names for Chart.js
+    const chartMonths = {{ chart_months|safe }};
+    const completionTotal = {{ chart_completion_total|safe }};
+    const completionClosed = {{ chart_completion_closed|safe }};
+    const completionTotalValue = {{ chart_completion_total_value|safe }};
+    const completionClosedValue = {{ chart_completion_closed_value|safe }};
+    
+    const projectSeries = {{ chart_project_series|safe }};
+    const serviceSeries = {{ chart_service_series|safe }};
+    const repairSeries = {{ chart_repair_series|safe }};
+    
+    const ownerTrends = {{ chart_owner_trends|safe }};
+    const typeLabels = {{ chart_type_labels|safe }};
+    const typeValues = {{ chart_type_values|safe }};
+    
+    const customerLabels = {{ chart_customers|safe }};
+    const customerClosed = {{ chart_customer_closed|safe }};
 
-        // Prepare context params (month/year from current filter)
-        const urlParams = new URLSearchParams(window.location.search);
-        const month = urlParams.get('month') || '';
-        const year = urlParams.get('year') || '';
+    // 1. Completion Chart (Quantity) - Using aggregate totals for doughnut center
+    const totalCount = completionTotal.reduce((a, b) => a + b, 0);
+    const closedCount = completionClosed.reduce((a, b) => a + b, 0);
+    const pendingCount = Math.max(0, {{ active_projects }});
 
-        fetch(`{% url 'pms:ai_dashboard_analysis' %}?month=${month}&year=${year}`)
-            .then(response => response.json())
-            .then(data => {
-                loading.classList.add('d-none');
-                content.classList.remove('d-none');
-                
-                if (data.status === 'success') {
-                    content.innerHTML = marked.parse(data.analysis);
-                    // Scroll to top of content
-                    setTimeout(() => {
-                        content.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                    }, 100);
-                } else {
-                    content.innerHTML = '<div class="alert alert-danger shadow-sm border-0 rounded-4 p-4"><i class="fas fa-exclamation-triangle me-2"></i> เกิดข้อผิดพลาดในการเรียกใช้ AI กรุณาลองใหม่ภายหลัง</div>';
-                }
-            })
-            .catch(error => {
-                console.error('AI Error:', error);
-                loading.classList.add('d-none');
-                content.classList.remove('d-none');
-                content.innerHTML = '<div class="alert alert-danger shadow-sm border-0 rounded-4 p-4"><i class="fas fa-wifi-slash me-2"></i> ไม่สามารถเชื่อมต่อกับ AI ได้</div>';
-            })
-            .finally(() => {
-                btn.disabled = false;
-                btn.innerHTML = '<i class="fas fa-wand-magic-sparkles"></i> ประมวลผลอีกครั้ง';
-            });
+    new Chart(document.getElementById('completionChart'), {
+        type: 'doughnut',
+        data: {
+            labels: ['Closed Projects', 'Active Projects'],
+            datasets: [{
+                data: [closedCount, pendingCount],
+                backgroundColor: ['#10b981', '#4f46e5'],
+                borderWidth: 0,
+                hoverOffset: 15
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'bottom', labels: { usePointStyle: true, padding: 25 } }
+            },
+            cutout: '70%'
+        }
     });
+
+    // 2. Completion Value Chart
+    new Chart(document.getElementById('completionValueChart'), {
+        type: 'bar',
+        data: {
+            labels: ['Closed Value', 'Total Value'],
+            datasets: [{
+                label: 'Value (฿)',
+                data: [{{ actual_sales }}, {{ total_job_value }}],
+                backgroundColor: ['#10b981', '#4f46e5'],
+                borderRadius: 12,
+                barThickness: 50
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: { y: { beginAtZero: true, grid: { color: '#f1f5f9' } } }
+        }
+    });
+
+    // 3. Monthly Sales Trend (Summary)
+    new Chart(document.getElementById('monthlySalesChart'), {
+        type: 'line',
+        data: {
+            labels: chartMonths,
+            datasets: [{
+                label: 'Service',
+                data: serviceSeries,
+                borderColor: '#10b981',
+                backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                fill: true,
+                tension: 0.4
+            }, {
+                label: 'Project',
+                data: projectSeries,
+                borderColor: '#4f46e5',
+                tension: 0.4
+            }, {
+                label: 'Repair',
+                data: repairSeries,
+                borderColor: '#f59e0b',
+                tension: 0.4
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { position: 'bottom' } },
+            scales: { y: { grid: { color: '#f1f5f9' } } }
+        }
+    });
+
+    // 4. Owner Trend Chart
+    new Chart(document.getElementById('ownerTrendChart'), {
+        type: 'line',
+        data: {
+            labels: chartMonths,
+            datasets: ownerTrends
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10 } } } }
+        }
+    });
+
+    // 5. Project Type Distribution
+    new Chart(document.getElementById('typeDistChart'), {
+        type: 'polarArea',
+        data: {
+            labels: typeLabels,
+            datasets: [{
+                data: typeValues,
+                backgroundColor: ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#ec4899', '#8b5cf6']
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } }
+        }
+    });
+
+    // 6. Customer Sales Chart
+    new Chart(document.getElementById('customerSalesChart'), {
+        type: 'bar',
+        data: {
+            labels: customerLabels,
+            datasets: [{
+                label: 'Sales Vol (฿)',
+                data: customerClosed,
+                backgroundColor: '#4f46e5',
+                borderRadius: 8
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            indexAxis: 'y',
+            plugins: { legend: { display: false } }
+        }
+    });
+
+    // AI Analysis Logic
+    const analyzeBtn = document.getElementById('analyzeBtn');
+    const aiResponseContainer = document.getElementById('aiResponseContainer');
+    const aiContent = document.getElementById('aiContent');
+
+    analyzeBtn.addEventListener('click', async () => {
+        analyzeBtn.disabled = true;
+        analyzeBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i> กำลังวิเคราะห์ข้อมูล...';
+        aiResponseContainer.classList.remove('d-none');
+        aiContent.innerHTML = '<p class="text-muted">โปรดรอสักครู่ AI กำลังรวบรวมข้อมูลดิบและประมวลผลเชิงลึก...</p>';
+
+        try {
+            const response = await fetch('{% url "pms:ai_dashboard_analysis" %}?{{ request.GET.urlencode }}');
+            const data = await response.json();
+            if (data.status === 'success') {
+                aiContent.innerHTML = data.analysis.replace(/\n/g, '<br>').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+                aiContent.classList.remove('typing-cursor');
+            } else {
+                aiContent.innerHTML = `<p class="text-danger">เกิดข้อผิดพลาด: ${data.message}</p>`;
+            }
+        } catch (error) {
+            aiContent.innerHTML = `<p class="text-danger">เกิดข้อผิดพลาดในการเชื่อมต่อกับ AI</p>`;
+        } finally {
+            analyzeBtn.disabled = false;
+            analyzeBtn.innerHTML = '<i class="fas fa-wand-magic-sparkles me-2"></i> เริ่มการวิเคราะห์เชิงลึก';
+        }
+    });
+});
 </script>
 {% endblock %}
-

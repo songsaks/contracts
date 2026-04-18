@@ -5282,9 +5282,12 @@ def owner_sales_report(request):
     search_q = request.GET.get('q', '')
     owner_id = request.GET.get('owner')
     status_filter = request.GET.get('status', '')
+    show_closed = request.GET.get('show_closed') == 'on'
+    show_cancelled = request.GET.get('show_cancelled') == 'on'
     
     # Month/Year Filters
     now = timezone.now()
+    # ... (rest of the date logic stays the same)
     start_month = request.GET.get('start_month')
     start_year = request.GET.get('start_year')
     end_month = request.GET.get('end_month')
@@ -5328,6 +5331,12 @@ def owner_sales_report(request):
         projects = projects.filter(owner_id=owner_id)
     if status_filter:
         projects = projects.filter(status=status_filter)
+
+    # Exclude CLOSED/CANCELLED unless checked
+    if not show_closed:
+        projects = projects.exclude(status=Project.Status.CLOSED)
+    if not show_cancelled:
+        projects = projects.exclude(status=Project.Status.CANCELLED)
 
     # --- Sorting ---
     sort_by = request.GET.get('sort', '-created_at')
@@ -5432,5 +5441,7 @@ def owner_sales_report(request):
         'chart_years': chart_years,
         'chart_year_values': chart_year_values,
         'sort_by': sort_by,
+        'show_closed': show_closed,
+        'show_cancelled': show_cancelled,
     }
     return render(request, 'pms/owner_sales_report.html', context)
