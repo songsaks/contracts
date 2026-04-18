@@ -288,7 +288,7 @@ def project_list(request):
     ]
 
     # Handle Sorting
-    sort_by = request.GET.get('sort')
+    sort_by = request.GET.get('sort', '-date')
     
     # Annotation for logical status priority
     status_priority_cases = []
@@ -300,17 +300,26 @@ def project_list(request):
             *status_priority_cases,
             default=Value(999),
             output_field=IntegerField()
-        )
+        ),
+        val=Sum(F('items__quantity') * F('items__unit_price'))
     )
 
-    if sort_by == 'status':
-        projects = projects.order_by('status_priority', '-created_at')
-    elif sort_by == 'owner':
-        projects = projects.order_by('owner__name', '-created_at')
-    elif sort_by == 'customer':
-        projects = projects.order_by('customer__name', '-created_at')
-    else:
-        projects = projects.order_by('-created_at')
+    sort_map = {
+        'name': 'name',
+        'customer': 'customer__name',
+        'owner': 'owner__name',
+        'status': 'status_priority',
+        'value': 'val',
+        'date': 'created_at',
+        '-name': '-name',
+        '-customer': '-customer__name',
+        '-owner': '-owner__name',
+        '-status': '-status_priority',
+        '-value': '-val',
+        '-date': '-created_at',
+    }
+    actual_sort = sort_map.get(sort_by, '-created_at')
+    projects = projects.order_by(actual_sort)
 
     # Filter
     status_filter = request.GET.get('status')
