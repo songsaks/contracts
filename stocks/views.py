@@ -3157,27 +3157,36 @@ def watchlist_item_toggle(request):
         data = json.loads(request.body)
     except (ValueError, KeyError):
         return JsonResponse({'error': 'invalid JSON'}, status=400)
-    symbol = data.get('symbol', '').strip().upper()
-    sector = data.get('sector', 'Unknown')
-    market = data.get('market', 'SET') # Default to SET if not provided
+    symbol   = data.get('symbol', '').strip().upper()
+    sector   = data.get('sector', 'Unknown')
+    market   = data.get('market', 'SET')
+    strategy = data.get('strategy', 'PRECISION')
+    note     = data.get('note', '')
+
     if not symbol:
         return JsonResponse({'error': 'symbol required'}, status=400)
         
     obj, created = ScanWatchlistItem.objects.get_or_create(
         user=request.user, symbol=symbol, market=market,
-        defaults={'sector': sector}
+        defaults={'sector': sector, 'strategy': strategy, 'note': note}
     )
     
     if not created:
-        # ถ้ามีอยู่แล้ว สั่งลบออก (Un-toggle)
+        # หากมีอยู่แล้ว ให้ลบออก (Un-toggle)
         obj.delete()
-        # สำหรับ SET ให้ลบออกจาก Market Watchlist หลักด้วย (ถ้ามี)
         if market == 'SET':
             Watchlist.objects.filter(user=request.user, symbol=symbol).delete()
         return JsonResponse({'status': 'removed', 'symbol': symbol})
         
-    # สำหรับ SET สั่งให้เพิ่มเข้าไปที่ฝั่ง Market Watchlist ด้วย (เพื่อให้ระบบ Telegram ส่องเป้าหมาย)
+    # หากเพิ่มใหม่ ให้อัปเดตค่าหากมีการส่งมา (กรณี get_or_create ใช้ defaults แค่ตอนสร้าง)
+    obj.strategy = strategy
+    obj.note     = note
+    obj.save()
+
+    # สำหรับ SET สั่งให้เพิ่มเข้าไปที่ฝั่ง Market Watchlist ด้วย
     if market == 'SET':
+        # เราเก็บข้อมูล Pattern/Strategy ลงในฟิลด์ strategy ของ Portfolio ได้ แต่ Watchlist ปกติไม่มี
+        # ดังนั้นจะเน้นเก็บใน ScanWatchlistItem เป็นหลัก
         Watchlist.objects.get_or_create(user=request.user, symbol=symbol)
     
     return JsonResponse({'status': 'added', 'symbol': symbol})

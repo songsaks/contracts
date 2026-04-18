@@ -741,6 +741,19 @@ class MomentumCrew:
         if 'EMA_200' not in history.columns:
             history['EMA_200'] = ta.ema(history['Close'], length=200)
 
+        # ── Turtle Trading Indicators ──────────────────────────
+        # System 1: 20-day high (Breakout), 10-day low (Exit)
+        # System 2: 55-day high (Breakout), 20-day low (Exit)
+        try:
+            history['DON_20_H'] = history['High'].rolling(window=20).max()
+            history['DON_20_L'] = history['Low'].rolling(window=20).min()
+            history['DON_55_H'] = history['High'].rolling(window=55).max()
+            history['DON_10_L'] = history['Low'].rolling(window=10).min()
+            # ATR (N) for volatility
+            history['ATR_20']   = ta.atr(history['High'], history['Low'], history['Close'], length=20)
+        except Exception:
+            pass
+
         last = history.iloc[-1]
 
         def _f(val, dec=2):
@@ -783,6 +796,12 @@ class MomentumCrew:
                     price > float(last['EMA_200'])
                 ) else 'DOWNTREND / NEUTRAL'
             ),
+            # Turtle Data
+            'Turtle_S1_High20':   _f(last.get('DON_20_H')),
+            'Turtle_S1_Exit10':   _f(last.get('DON_10_L')),
+            'Turtle_S2_High55':   _f(last.get('DON_55_H')),
+            'Turtle_S2_Exit20':   _f(last.get('DON_20_L')),
+            'Turtle_ATR_N':       _f(last.get('ATR_20')),
         }
 
         # ── Quantitative Metrics ─────────────────────────────────────
@@ -974,34 +993,31 @@ Write a complete report in Thai with these sections (use markdown headers ##):
 - Analyst consensus และ target price
 - Red flags (ถ้ามี)
 
-## 5. คำแนะนำหลัก (Main Recommendation)
-ซื้อ / รอดูก่อน / หลีกเลี่ยง — พร้อมเหตุผล 3 ข้อ
-(อ้างอิงทั้ง technical + quantitative + fundamental)
+## 5. การวิเคราะห์กลยุทธ์ Turtle Breakout (Turtle Trading Analysis)
+- สถานะขอบเขตระยาว: หุ้นนี้กำลังทำ 20-Day High (S1) หรือ 55-Day High (S2) หรือไม่?
+- ความแรงของการทะลุ: ปริมาณการซื้อขาย (RVOL) ยืนยันความแข็งแกร่งหรือไม่?
+- ข้อมูลจุดออก (Turtle Exit): แนะนำแนวรับสำคัญและจุดหนีตามแนวทาง Turtle (10-Day Low หรือ 20-Day Low) ที่ตัวเลขเท่าใด?
+- ความเหมาะสม: หุ้นนี้เหมาะกับการถือรันเทรนด์ระยะยาวแบบเต่าแค่ไหน? (High risk/High reward?)
 
-## 6. จุดซื้อที่เหมาะสม (Entry Zone)
+## 6. คำแนะนำหลัก (Main Recommendation)
+ซื้อ / รอดูก่อน / หลีกเลี่ยง — พร้อมเหตุผล 3 ข้อ
+(รวมทั้ง technical + quantitative + fundamental + turtle)
+
+## 7. จุดซื้อที่เหมาะสม (Entry Zone)
 - ช่วงราคาที่เหมาะสม พร้อมเหตุผล
 
-## 7. จุด Stop Loss และเป้าหมายกำไร
-- Stop Loss: ไม่เกิน 7-8% จาก entry (Minervini rule) — คำนวณจาก ATR ด้วย
+## 8. จุด Stop Loss และเป้าหมายกำไร
+- Stop Loss: ไม่เกิน 7-8% จาก entry (Minervini rule) — คำนวณจาก ATR และ Turtle Exit ด้วย
 - Target 1 (Conservative): ฿X.XX
 - Target 2 (Aggressive): ฿X.XX
 - Risk per unit (Entry - SL): ฿X.XX
 - R:R Ratio: 1:X.X
 
-## 8. ความเสี่ยงสำคัญ (Key Risks)
+## 9. ความเสี่ยงสำคัญ (Key Risks)
 ระบุ 3 ปัจจัยเสี่ยงที่ต้องติดตาม
 
-## 9. ระยะเวลาที่แนะนำ
+## 10. ระยะเวลาที่แนะนำ
 Swing (2-8 สัปดาห์) หรือ Position (3-6 เดือน) — อ้างอิง Volatility และ ATR%"""
-
-        if self.strategy == 'turtle':
-            prompt += """\n\n## 10. วิเคราะห์สถานะ Turtle Breakout (Specialized Module)
-ในฐานะผู้เชี่ยวชาญ Turtle Trading System ให้ออกความเห็นในประเด็นต่อไปนี้:
-- พฤติกรรมการทะลุกรอบ: หุ้นกำลังทำ 20-Day High (System 1) หรือ 55-Day High (System 2) หรือไม่?
-- ความแข็งแกร่งของการทะลุ: Volume ทะลุกรอบสูงกว่า 20-Day Average ปกติแค่ไหน? น่าเชื่อถือหรือไม่? (ดู RVOL ประกอบ)
-- แนะนำจุดหนี (Trailing Stop) ตามแนวทางเต่าคือ 10-Day Low (สำหรับ System 1) หรือ 20-Day Low (สำหรับ System 2) ให้อยู่ที่กี่บาทโดยประมาณ?
-- หุ้นตัวนี้เหมาะกับการรันเทรนด์ระยะยาวแบบ Turtle Trend Following หรือไม่?"""
-
         prompt += "\n\nBe specific with numbers. Use actual prices from the data provided."
 
         # ── Call Gemini directly via new google-genai SDK ───────────

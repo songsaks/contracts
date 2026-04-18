@@ -1989,15 +1989,64 @@ function filterByStage2(id, v)   { _applyFiltersSET(); }
 function filterByPP(id, v)       { _applyFiltersSET(); }
 function filterByCMFDist(id, v)  { _applyFiltersSET(); }
 
-// ── Watchlist Toggle ─────────────────────────────────────────────────
+// ── Watchlist Toggle Logic (Modal-based) ──────────────────────────────
+let _currentWlBtn = null;
+
 function toggleWatchlist(btn) {
-    var symbol = btn.dataset.symbol;
-    var sector = btn.dataset.sector;
-    var inWl   = btn.dataset.inWatchlist === 'true';
+    const inWl = btn.dataset.inWatchlist === 'true';
+    if (inWl) {
+        // หากมีอยู่แล้ว ให้ลบออกทันทีไม่ถาม
+        performToggle(btn, {symbol: btn.dataset.symbol, sector: btn.dataset.sector, strategy: '', note: ''});
+    } else {
+        // หากยังไม่มี ให้เปิด Modal ให้เลือกแนวทาง
+        openWatchlistModal(btn);
+    }
+}
+
+function openWatchlistModal(btn) {
+    _currentWlBtn = btn;
+    document.getElementById('watchlistModalSymbol').textContent = btn.dataset.symbol;
+    document.getElementById('watchlistSymbolInput').value = btn.dataset.symbol;
+    document.getElementById('watchlistSectorInput').value = btn.dataset.sector;
+    document.getElementById('watchlistNote').value = "";
+    
+    // ตั้งค่า Default
+    document.getElementById('watchlistStrategy').value = "PRECISION";
+    
+    const myModal = new bootstrap.Modal(document.getElementById('watchlistModal'));
+    myModal.show();
+}
+
+function submitWatchlist() {
+    const btn = _currentWlBtn;
+    if (!btn) return;
+    
+    const data = {
+        symbol: document.getElementById('watchlistSymbolInput').value,
+        sector: document.getElementById('watchlistSectorInput').value,
+        strategy: document.getElementById('watchlistStrategy').value,
+        note: document.getElementById('watchlistNote').value,
+        market: 'SET'
+    };
+    
+    const submitBtn = document.getElementById('watchlistSubmitBtn');
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>กำลังบันทึก...';
+
+    performToggle(btn, data, () => {
+        const modalEl = document.getElementById('watchlistModal');
+        const modalInstance = bootstrap.Modal.getInstance(modalEl);
+        if (modalInstance) modalInstance.hide();
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = 'บันทึกรายการ';
+    });
+}
+
+function performToggle(btn, payload, callback) {
     fetch("{% url 'stocks:watchlist_item_toggle' %}", {
         method: 'POST',
         headers: {'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}'},
-        body: JSON.stringify({symbol: symbol, sector: sector, market: 'SET'})
+        body: JSON.stringify(payload)
     })
     .then(r => r.json())
     .then(data => {
@@ -2012,8 +2061,12 @@ function toggleWatchlist(btn) {
             btn.style.cssText = 'font-size:0.65rem;background:#f8fafc;color:#94a3b8;border:1px solid #e2e8f0;';
             btn.title = 'เพิ่มใน Alert Watchlist';
         }
+        if (callback) callback();
     })
-    .catch(e => console.error('Watchlist toggle error:', e));
+    .catch(e => {
+        console.error('Watchlist toggle error:', e);
+        if (callback) callback();
+    });
 }
 
 // Deduplicate sector dropdown
@@ -2110,6 +2163,44 @@ function exportScanCSV(tableId, filename) {
     link.click();
 }
 </script>
+
+<!-- Watchlist Configuration Modal -->
+<div class="modal fade" id="watchlistModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header" style="background:#1e293b; color:white;">
+                <h5 class="modal-title fw-bold"><i class="fas fa-bell me-2"></i>เฝ้าติดตาม: <span id="watchlistModalSymbol"></span></h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4">
+                <input type="hidden" id="watchlistSymbolInput">
+                <input type="hidden" id="watchlistSectorInput">
+                
+                <div class="mb-3">
+                    <label class="form-label fw-bold small text-muted">เลือกกลยุทธ์ (Pattern)</label>
+                    <select class="form-select" id="watchlistStrategy">
+                        <option value="PRECISION">Precision (Demand Zone)</option>
+                        <option value="TURTLE_S1">Turtle S1 (Breakout 20D / Exit 10D Low)</option>
+                        <option value="TURTLE_S2">Turtle S2 (Breakout 55D / Exit 20D Low)</option>
+                        <option value="SEPA">SEPA (Minervini Stage 2)</option>
+                        <option value="CUP_HANDLE">Cup & Handle</option>
+                        <option value="OTHER">อื่นๆ</option>
+                    </select>
+                </div>
+
+                <div class="mb-0">
+                    <label class="form-label fw-bold small text-muted">บันทึกเพิ่มเติม (Note)</label>
+                    <textarea class="form-control" id="watchlistNote" rows="2" placeholder="เช่น รอย่อเข้าโซน, รอลุ้น Breakout..."></textarea>
+                </div>
+            </div>
+            <div class="modal-footer border-0">
+                <button type="button" class="btn btn-outline-secondary btn-sm px-3" data-bs-dismiss="modal">ยกเลิก</button>
+                <button type="button" class="btn btn-primary btn-sm px-4" id="watchlistSubmitBtn" onclick="submitWatchlist()">บันทึกรายการ</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 {% endblock %}
 
 

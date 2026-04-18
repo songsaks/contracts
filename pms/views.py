@@ -258,7 +258,59 @@ def project_list(request):
     # Default: Show active projects (Exclude CLOSED and CANCELLED)
     projects = Project.objects.exclude(
         status__in=[Project.Status.CLOSED, Project.Status.CANCELLED]
-    ).order_by('-created_at')
+    )
+
+    # Build status choices dynamically from JobStatus table so admin-added steps appear automatically.
+    _js_rows = (
+        JobStatus.objects
+        .filter(is_active=True)
+        .exclude(status_key__in=['CLOSED', 'CANCELLED'])
+        .order_by(
+            'sort_order',
+            Case(
+                When(job_type='PROJECT', then=Value(1)),
+                When(job_type='SERVICE', then=Value(2)),
+                When(job_type='REPAIR',  then=Value(3)),
+                default=Value(4),
+                output_field=IntegerField(),
+            ),
+        )
+        .values('status_key', 'label', 'sort_order')
+    )
+    _seen_statuses = {}
+    for _row in _js_rows:
+        if _row['status_key'] not in _seen_statuses:
+            _seen_statuses[_row['status_key']] = (_row['label'], _row['sort_order'])
+
+    status_choices = [
+        (k, v[0])
+        for k, v in sorted(_seen_statuses.items(), key=lambda x: (x[1][1], x[0]))
+    ]
+
+    # Handle Sorting
+    sort_by = request.GET.get('sort')
+    
+    # Annotation for logical status priority
+    status_priority_cases = []
+    for i, (k, v) in enumerate(status_choices):
+        status_priority_cases.append(When(status=k, then=Value(i)))
+    
+    projects = projects.annotate(
+        status_priority=Case(
+            *status_priority_cases,
+            default=Value(999),
+            output_field=IntegerField()
+        )
+    )
+
+    if sort_by == 'status':
+        projects = projects.order_by('status_priority', '-created_at')
+    elif sort_by == 'owner':
+        projects = projects.order_by('owner__name', '-created_at')
+    elif sort_by == 'customer':
+        projects = projects.order_by('customer__name', '-created_at')
+    else:
+        projects = projects.order_by('-created_at')
 
     # Filter
     status_filter = request.GET.get('status')
@@ -281,36 +333,6 @@ def project_list(request):
     date_to = request.GET.get('date_to')
     if date_from and date_to:
         projects = projects.filter(created_at__date__range=[date_from, date_to])
-
-    # Build status choices dynamically from JobStatus table so admin-added steps appear automatically.
-    # For each status_key, prefer the PROJECT job_type entry's label and sort_order,
-    # then SERVICE, REPAIR, RENTAL. Exclude CLOSED/CANCELLED (handled in history).
-    _js_rows = (
-        JobStatus.objects
-        .filter(is_active=True)
-        .exclude(status_key__in=['CLOSED', 'CANCELLED'])
-        .order_by(
-            'status_key',
-            Case(
-                When(job_type='PROJECT', then=Value(1)),
-                When(job_type='SERVICE', then=Value(2)),
-                When(job_type='REPAIR',  then=Value(3)),
-                default=Value(4),
-                output_field=IntegerField(),
-            ),
-            'sort_order',
-        )
-        .values('status_key', 'label', 'sort_order')
-    )
-    _seen_statuses = {}
-    for _row in _js_rows:
-        if _row['status_key'] not in _seen_statuses:
-            _seen_statuses[_row['status_key']] = (_row['label'], _row['sort_order'])
-
-    status_choices = [
-        (k, v[0])
-        for k, v in sorted(_seen_statuses.items(), key=lambda x: (x[1][1], x[0]))
-    ]
 
     context = {
         'projects': projects,
@@ -5241,3 +5263,174 @@ def installation_report_send_to_chat(request):
         return JsonResponse({"status": "success", "message": "ส่งข้อมูลไปยัง Google Chat เรียบร้อยแล้ว"})
     except Exception as e:
         return JsonResponse({"status": "error", "message": str(e)}, status=500)
+
+
+@login_required
+def owner_sales_report(request):
+    """
+    รายงานการขายเป้าหมาย (เจ้าของโครงการ) โดยละเอียด
+    แสดงเฉพาะงานที่มีมูลค่า และแยกตามพนักงานที่ขายงานนั้นๆ
+    รองรับการกรองช่วงเดือน/ปี, การส่งออก Excel และการแสดงกราฟสถิติ
+    """
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
+    from django.http import HttpResponse
+    from django.db.models.functions import TruncMonth, TruncYear
+    import calendar
+
+    # --- Filters Management ---
+    search_q = request.GET.get('q', '')
+    owner_id = request.GET.get('owner')
+    status_filter = request.GET.get('status', '')
+    
+    # Month/Year Filters
+    now = timezone.now()
+    start_month = request.GET.get('start_month')
+    start_year = request.GET.get('start_year')
+    end_month = request.GET.get('end_month')
+    end_year = request.GET.get('end_year')
+
+    # Default logic for Owner (Initial Load)
+    is_initial = all(x is None for x in [owner_id, start_month, start_year, search_q])
+    if is_initial:
+        try:
+            matched_owner = ProjectOwner.objects.get(email__iexact=request.user.email)
+            owner_id = str(matched_owner.id)
+        except (ProjectOwner.DoesNotExist, ProjectOwner.MultipleObjectsReturned):
+            pass
+
+    # Build Date Range
+    # If initial load, default to Start of current year to See data
+    s_m = int(start_month) if start_month and start_month.isdigit() else (1 if is_initial else now.month)
+    s_y = int(start_year) if start_year and start_year.isdigit() else now.year
+    e_m = int(end_month) if end_month and end_month.isdigit() else now.month
+    e_y = int(end_year) if end_year and end_year.isdigit() else now.year
+
+    # Boundary check and optimization
+    start_date = timezone.make_aware(datetime(s_y, s_m, 1))
+    _, last_day = calendar.monthrange(e_y, e_m)
+    end_date = timezone.make_aware(datetime(e_y, e_m, last_day, 23, 59, 59))
+
+    # --- Base Query ---
+    # Annotate total project value (items count * unit price)
+    projects = Project.objects.annotate(
+        val=Sum(F('items__quantity') * F('items__unit_price'))
+    ).filter(val__gt=0, created_at__range=[start_date, end_date])
+
+    # Applying secondary filters
+    if search_q:
+        projects = projects.filter(
+            Q(name__icontains=search_q) |
+            Q(customer__name__icontains=search_q) |
+            Q(owner__name__icontains=search_q)
+        )
+    if owner_id:
+        projects = projects.filter(owner_id=owner_id)
+    if status_filter:
+        projects = projects.filter(status=status_filter)
+
+    # --- Sorting ---
+    sort_by = request.GET.get('sort', '-created_at')
+    # Predefined safe sorting fields
+    sort_map = {
+        'name': 'name',
+        'customer': 'customer__name',
+        'owner': 'owner__name',
+        'status': 'status',
+        'value': 'val',
+        'date': 'created_at',
+        '-name': '-name',
+        '-customer': '-customer__name',
+        '-owner': '-owner__name',
+        '-status': '-status',
+        '-value': '-val',
+        '-date': '-created_at',
+    }
+    actual_sort = sort_map.get(sort_by, '-created_at')
+    projects = projects.order_by(actual_sort)
+
+    # --- Excel Export Branch ---
+    if request.GET.get('export') == 'excel':
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Sales Report"
+        
+        # Style Definitions
+        header_font = Font(bold=True, color="FFFFFF")
+        header_fill = PatternFill(start_color="4F46E5", end_color="4F46E5", fill_type="solid")
+        center_align = Alignment(horizontal="center")
+        right_align = Alignment(horizontal="right")
+        border = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
+
+        # Header Row
+        headers = ["ชื่อโครงการ", "ลูกค้า", "เจ้าของโครงการ", "สถานะ", "มูลค่าโครงการ (บาท)", "วันที่สร้าง"]
+        ws.append(headers)
+        for cell in ws[1]:
+            cell.font = header_font
+            cell.fill = header_fill
+            cell.alignment = center_align
+            cell.border = border
+
+        # Data Rows
+        # Ensure we fetch related data for efficiency
+        for p in projects.select_related('customer', 'owner'):
+            row = [
+                p.name,
+                p.customer.name,
+                p.owner.name if p.owner else "N/A",
+                p.get_status_display(),
+                float(p.val or 0),
+                p.created_at.strftime('%d/%m/%Y')
+            ]
+            ws.append(row)
+        
+        # Auto-adjust column width (heuristic)
+        for col in ws.columns:
+            max_length = 0
+            column = col[0].column_letter
+            for cell in col:
+                try:
+                    if len(str(cell.value)) > max_length:
+                        max_length = len(str(cell.value))
+                except: pass
+            ws.column_dimensions[column].width = max_length + 5
+
+        response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+        response['Content-Disposition'] = f'attachment; filename=Sales_Report_{now.strftime("%Y%m%d")}.xlsx'
+        wb.save(response)
+        return response
+
+    # --- Chart Data Aggregation ---
+    # Monthly aggregate for the filtered set
+    monthly_data = projects.annotate(month=TruncMonth('created_at')).values('month')\
+        .annotate(total=Sum(F('items__quantity') * F('items__unit_price'))).order_by('month')
+    
+    # Yearly aggregate
+    yearly_data = projects.annotate(year=TruncYear('created_at')).values('year')\
+        .annotate(total=Sum(F('items__quantity') * F('items__unit_price'))).order_by('year')
+
+    chart_months = [d['month'].strftime('%b %Y') for d in monthly_data]
+    chart_month_values = [float(d['total'] or 0) for d in monthly_data]
+    
+    chart_years = [d['year'].strftime('%Y') for d in yearly_data]
+    chart_year_values = [float(d['total'] or 0) for d in yearly_data]
+
+    # --- Render ---
+    context = {
+        'projects': projects,
+        'project_owners': ProjectOwner.objects.all(),
+        'status_choices': Project.Status.choices,
+        'title': 'รายงานการขายสรุปตามเจ้าของโครงการ',
+        'search_q': search_q,
+        'current_owner': owner_id,
+        'current_status': status_filter,
+        's_m': s_m, 's_y': s_y, 'e_m': e_m, 'e_y': e_y,
+        'month_choices': [(i, calendar.month_name[i]) for i in range(1, 13)],
+        'year_choices': range(now.year - 5, now.year + 2),
+        'chart_months': chart_months,
+        'chart_month_values': chart_month_values,
+        'chart_years': chart_years,
+        'chart_year_values': chart_year_values,
+        'sort_by': sort_by,
+    }
+    return render(request, 'pms/owner_sales_report.html', context)

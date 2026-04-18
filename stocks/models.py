@@ -24,6 +24,15 @@ class MarketType(models.TextChoices):
     CRYPTO = 'CRYPTO', 'Cryptocurrency'
     OTHER = 'OTHER', 'อื่นๆ'
 # ====== Telegram Integration ======
+class StrategyPattern(models.TextChoices):
+    """กลยุทธ์การเทรดที่ใช้เลือกใน Watchlist และ Portfolio"""
+    PRECISION = 'PRECISION', 'Precision (Demand Zone)'
+    TURTLE_S1 = 'TURTLE_S1', 'Turtle S1 (Breakout 20D / Exit 10D Low)'
+    TURTLE_S2 = 'TURTLE_S2', 'Turtle S2 (Breakout 55D / Exit 20D Low)'
+    SEPA = 'SEPA', 'SEPA (Minervini)'
+    CUP_HANDLE = 'CUP_HANDLE', 'Cup & Handle'
+    OTHER = 'OTHER', 'อื่นๆ'
+
 class UserTelegramProfile(models.Model):
     """
     ผูกบัญชีผู้ใช้เว็บในระบบเข้ากับ Telegram Chat ID สำหรับรับแจ้งเตือน
@@ -388,6 +397,7 @@ class ScanWatchlistItem(models.Model):
     sector          = models.CharField(max_length=100, default='Unknown')
     added_date      = models.DateTimeField(auto_now_add=True)
     note            = models.TextField(blank=True)
+    strategy        = models.CharField(max_length=50, choices=StrategyPattern.choices, default=StrategyPattern.PRECISION)
     alert_threshold = models.IntegerField(default=10)   # แจ้งเตือนเมื่อ score เปลี่ยน >= นี้
 
     class Meta:

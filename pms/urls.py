@@ -155,5 +155,6 @@ urlpatterns = [
     path('work-summary/ai/', views.work_summary_ai_analysis, name='work_summary_ai_analysis'), # AI วิเคราะห์ประสิทธิภาพ
     path('installation-report/', views.installation_report, name='installation_report'),        # รายงานมูลค่าและเวลาติดตั้ง
     path('installation-report/send-to-chat/', views.installation_report_send_to_chat, name='installation_report_send_to_chat'),
+    path('owner-sales-report/', views.owner_sales_report, name='owner_sales_report'),
 ]
 
