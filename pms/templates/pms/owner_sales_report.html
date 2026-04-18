@@ -188,7 +188,7 @@
                     <div class="col-md-2">
                         <label class="form-label small fw-bold text-muted mb-1">สถานะ</label>
                         <select name="status" class="form-select form-control-report" onchange="this.form.submit()">
-                            <option value="">Active</option>
+                            <option value="">ทั้งหมด</option>
                             {% for code, label in status_choices %}
                                 {% if code != 'CLOSED' and code != 'CANCELLED' %}
                                 <option value="{{ code }}" {% if current_status == code %}selected{% endif %}>{{ label }}</option>
