@@ -1201,7 +1201,6 @@ def dashboard(request):
                 'borderWidth': 3
             })
 
-    # 3. Sales by Person (Project Owner) - Yearly
     sales_by_owner = ProjectOwner.objects.annotate(
         total_sales=Sum(
             Case(
@@ -1222,7 +1221,7 @@ def dashboard(request):
             ),
             distinct=True
         )
-    ).order_by('-total_sales')
+    ).filter(total_sales__gt=0).order_by('-total_sales')
 
     owner_names = [o.name for o in sales_by_owner if o.total_sales and o.total_sales > 0]
     owner_sales = [float(o.total_sales or 0) for o in sales_by_owner if o.total_sales and o.total_sales > 0]

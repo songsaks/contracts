@@ -298,11 +298,14 @@
                                 <div class="fw-bold" style="font-size: 0.85rem;">{{ p.owner.name|default:"-" }}</div>
                             </td>
                             <td class="text-center">
-                                <span class="badge status-badge 
-                                    {% if p.status == 'CLOSED' %}bg-success bg-opacity-10 text-success
-                                    {% elif p.status == 'CANCELLED' %}bg-danger bg-opacity-10 text-danger
-                                    {% else %}bg-primary bg-opacity-10 text-primary{% endif %}">
-                                    {{ p.get_status_display }}
+                                <span class="badge 
+                                    {% if p.job_type == 'SERVICE' %}bg-pms-service
+                                    {% elif p.job_type == 'REPAIR' %}bg-pms-repair
+                                    {% elif p.job_type == 'RENTAL' %}bg-pms-rental
+                                    {% elif p.job_type == 'SURVEY' %}bg-info
+                                    {% elif p.job_type == 'GENERAL' %}bg-pms-general
+                                    {% else %}bg-pms-project{% endif %}">
+                                    {{ p.get_job_status_display }}
                                 </span>
                             </td>
                             <td class="text-end value-cell">
