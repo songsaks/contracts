@@ -70,7 +70,7 @@
                     <thead class="bg-light text-muted small uppercase fw-bold">
                         <tr>
                             <th class="ps-4 py-3">
-                                <a href="?{% for k,v in request.GET.items %}{% if k != 'sort' %}{{ k }}={{ v }}&{% endif %}{% endfor %}sort={% if sort_by == 'name' %}-name{% else %}name{% endif %}" class="text-decoration-none text-muted">
+                                <a href="?{% query_transform request sort=sort_by|yesno:'-name,name' if sort_by == 'name' else 'name' %}" class="text-decoration-none text-muted">
                                     งาน / โครงการ 
                                     {% if sort_by == 'name' %}<i class="fas fa-sort-up"></i>
                                     {% elif sort_by == '-name' %}<i class="fas fa-sort-down"></i>
@@ -78,7 +78,7 @@
                                 </a>
                             </th>
                             <th class="py-3">
-                                <a href="?{% for k,v in request.GET.items %}{% if k != 'sort' %}{{ k }}={{ v }}&{% endif %}{% endfor %}sort={% if sort_by == 'customer' %}-customer{% else %}customer{% endif %}" class="text-decoration-none text-muted">
+                                <a href="?{% query_transform request sort=sort_by|yesno:'-customer,customer' if sort_by == 'customer' else 'customer' %}" class="text-decoration-none text-muted">
                                     ลูกค้า 
                                     {% if sort_by == 'customer' %}<i class="fas fa-sort-up"></i>
                                     {% elif sort_by == '-customer' %}<i class="fas fa-sort-down"></i>
@@ -87,7 +87,7 @@
                             </th>
                             <th class="py-3 text-center">สถานะ</th>
                             <th class="py-3 text-end">
-                                <a href="?{% for k,v in request.GET.items %}{% if k != 'sort' %}{{ k }}={{ v }}&{% endif %}{% endfor %}sort={% if sort_by == 'value' %}-value{% else %}value{% endif %}" class="text-decoration-none text-muted">
+                                <a href="?{% query_transform request sort=sort_by|yesno:'value,-value' if sort_by == '-value' else '-value' %}" class="text-decoration-none text-muted">
                                     มูลค่า 
                                     {% if sort_by == 'value' %}<i class="fas fa-sort-up"></i>
                                     {% elif sort_by == '-value' %}<i class="fas fa-sort-down"></i>
@@ -95,7 +95,7 @@
                                 </a>
                             </th>
                             <th class="py-3 text-center">
-                                <a href="?{% for k,v in request.GET.items %}{% if k != 'sort' %}{{ k }}={{ v }}&{% endif %}{% endfor %}sort={% if sort_by == 'date' %}-date{% else %}date{% endif %}" class="text-decoration-none text-muted">
+                                <a href="?{% query_transform request sort=sort_by|yesno:'date,-date' if sort_by == '-date' else '-date' %}" class="text-decoration-none text-muted">
                                     วันที่ปิดจบ/ยกเลิก 
                                     {% if sort_by == 'date' %}<i class="fas fa-sort-up"></i>
                                     {% elif sort_by == '-date' %}<i class="fas fa-sort-down"></i>
