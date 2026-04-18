@@ -5426,7 +5426,9 @@ def owner_sales_report(request):
     # --- Render ---
     context = {
         'projects': projects,
-        'project_owners': ProjectOwner.objects.all(),
+        'project_owners': ProjectOwner.objects.annotate(
+            total_sales=Sum(F('projects__items__quantity') * F('projects__items__unit_price'))
+        ).filter(total_sales__gt=0).order_by('name'),
         'status_choices': Project.Status.choices,
         'title': 'รายงานการขายสรุปตามเจ้าของโครงการ',
         'search_q': search_q,
