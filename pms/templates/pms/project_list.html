@@ -91,7 +91,7 @@
                     <thead class="table-light">
                         <tr>
                             <th>
-                                <a href="?{% query_transform request sort=sort_by|yesno:'-name,name' if sort_by == 'name' else 'name' %}" class="text-decoration-none text-dark d-flex align-items-center gap-1">
+                                <a href="?{% query_transform request sort=next_sort_name %}" class="text-decoration-none text-dark d-flex align-items-center gap-1">
                                     ชื่อโครงการ
                                     {% if sort_by == 'name' %}<i class="fas fa-sort-up"></i>
                                     {% elif sort_by == '-name' %}<i class="fas fa-sort-down"></i>
@@ -99,7 +99,7 @@
                                 </a>
                             </th>
                             <th>
-                                <a href="?{% query_transform request sort=sort_by|yesno:'-customer,customer' if sort_by == 'customer' else 'customer' %}" class="text-decoration-none text-dark d-flex align-items-center gap-1">
+                                <a href="?{% query_transform request sort=next_sort_customer %}" class="text-decoration-none text-dark d-flex align-items-center gap-1">
                                     ลูกค้า
                                     {% if sort_by == 'customer' %}<i class="fas fa-sort-up"></i>
                                     {% elif sort_by == '-customer' %}<i class="fas fa-sort-down"></i>
@@ -107,7 +107,7 @@
                                 </a>
                             </th>
                             <th>
-                                <a href="?{% query_transform request sort=sort_by|yesno:'-owner,owner' if sort_by == 'owner' else 'owner' %}" class="text-decoration-none text-dark d-flex align-items-center gap-1">
+                                <a href="?{% query_transform request sort=next_sort_owner %}" class="text-decoration-none text-dark d-flex align-items-center gap-1">
                                     เจ้าของโครงการ
                                     {% if sort_by == 'owner' %}<i class="fas fa-sort-up"></i>
                                     {% elif sort_by == '-owner' %}<i class="fas fa-sort-down"></i>
@@ -115,7 +115,7 @@
                                 </a>
                             </th>
                             <th>
-                                <a href="?{% query_transform request sort=sort_by|yesno:'-status,status' if sort_by == 'status' else 'status' %}" class="text-decoration-none text-dark d-flex align-items-center gap-1">
+                                <a href="?{% query_transform request sort=next_sort_status %}" class="text-decoration-none text-dark d-flex align-items-center gap-1">
                                     สถานะ
                                     {% if sort_by == 'status_priority' or sort_by == 'status' %}<i class="fas fa-sort-up"></i>
                                     {% elif sort_by == '-status_priority' or sort_by == '-status' %}<i class="fas fa-sort-down"></i>
@@ -123,7 +123,7 @@
                                 </a>
                             </th>
                             <th class="text-end">
-                                <a href="?{% query_transform request sort=sort_by|yesno:'value,-value' if sort_by == '-value' else '-value' %}" class="text-decoration-none text-dark d-flex align-items-center justify-content-end gap-1">
+                                <a href="?{% query_transform request sort=next_sort_value %}" class="text-decoration-none text-dark d-flex align-items-center justify-content-end gap-1">
                                     มูลค่าโครงการ
                                     {% if sort_by == 'value' %}<i class="fas fa-sort-up"></i>
                                     {% elif sort_by == '-value' %}<i class="fas fa-sort-down"></i>
@@ -131,10 +131,10 @@
                                 </a>
                             </th>
                             <th class="text-center">
-                                <a href="?{% query_transform request sort=sort_by|yesno:'date,-date' if sort_by == '-date' else '-date' %}" class="text-decoration-none text-dark d-flex align-items-center justify-content-center gap-1">
+                                <a href="?{% query_transform request sort=next_sort_date %}" class="text-decoration-none text-dark d-flex align-items-center justify-content-center gap-1">
                                     วันที่สร้าง
-                                    {% if sort_by == 'date' %}<i class="fas fa-sort-up"></i>
-                                    {% elif sort_by == '-date' %}<i class="fas fa-sort-down"></i>
+                                    {% if sort_by == 'date' or sort_by == 'created_at' %}<i class="fas fa-sort-up"></i>
+                                    {% elif sort_by == '-date' or sort_by == '-created_at' %}<i class="fas fa-sort-down"></i>
                                     {% else %}<i class="fas fa-sort small opacity-50"></i>{% endif %}
                                 </a>
                             </th>

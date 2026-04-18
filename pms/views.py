@@ -348,7 +348,14 @@ def project_list(request):
         'status_choices': status_choices,
         'project_owners': ProjectOwner.objects.all(),
         'customers': Customer.objects.all().only('id', 'name'),
-        'title': 'รายการงานที่กำลังดำเนินการ'
+        'title': 'รายการงานที่กำลังดำเนินการ',
+        'sort_by': sort_by,
+        'next_sort_name': '-name' if sort_by == 'name' else 'name',
+        'next_sort_customer': '-customer' if sort_by == 'customer' else 'customer',
+        'next_sort_owner': '-owner' if sort_by == 'owner' else 'owner',
+        'next_sort_status': '-status' if sort_by == 'status' or sort_by == 'status_priority' else 'status',
+        'next_sort_value': 'value' if sort_by == '-value' else '-value',
+        'next_sort_date': 'date' if sort_by == '-date' else '-date',
     }
     return render(request, 'pms/project_list.html', context)
 
@@ -413,6 +420,10 @@ def history_list(request):
         'show_zero': show_zero,
         'show_cancelled': show_cancelled,
         'sort_by': sort_by,
+        'next_sort_name': '-name' if sort_by == 'name' else 'name',
+        'next_sort_customer': '-customer' if sort_by == 'customer' else 'customer',
+        'next_sort_value': 'value' if sort_by == '-value' else '-value',
+        'next_sort_date': 'date' if sort_by == '-date' or sort_by == '-closed_at' else '-date',
     }
     return render(request, 'pms/history_list.html', context)
 
