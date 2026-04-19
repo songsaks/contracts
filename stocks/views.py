@@ -18,7 +18,7 @@ from .models import (
 from .forms import AddPortfolioForm, SellStockForm, AddWatchlistForm
 from .utils import (
     get_stock_data, analyze_with_ai, calculate_trailing_stop,
-    refresh_set100_symbols, find_supply_demand_zones, find_supply_demand_zones_v2,
+    refresh_all_thai_symbols, find_supply_demand_zones, find_supply_demand_zones_v2,
     detect_price_pattern, detect_vcp_pattern, _is_commodity, _fetch_commodity_macro, _score_commodity_signal
 )
 from .crew_analysis import MomentumCrew
@@ -665,6 +665,78 @@ def crew_analyze(request, symbol):
         'loading':           True,
         'portfolio_context': portfolio_context,
         'cache_key':         cache_key,   # pass to template for correct poll URL
+    })
+
+@login_required
+def core_analyze(request, symbol):
+    """
+    "The Core Project" — Renaissance-inspired Multi-Agent Deep Analysis.
+    Uses TheCoreCrew with Anomaly Hunter, Backtest Engineer, and Execution Decider.
+    """
+    import threading as _th
+    from django.core.cache import cache as _cp
+    from django.http import JsonResponse as _JR
+
+    user_id   = request.user.id
+    cache_key = f'core_analysis_{user_id}_{symbol}'
+
+    # ── AJAX status poll ─────────────────────────────────────────────
+    if request.GET.get('core_status') == '1':
+        ck = request.GET.get('ck')
+        poll_key = ck if ck else cache_key
+        st = _cp.get(poll_key, {'state': 'idle'})
+        return _JR(st)
+
+    # ── Result ready ─────────────────────────────────────────────────
+    cached = _cp.get(cache_key)
+    if cached and cached.get('state') == 'done':
+        result = cached.get('result', '')
+        _cp.delete(cache_key)
+        data = get_stock_data(symbol)
+        return render(request, 'stocks/crew_result.html', {
+            'symbol':      symbol,
+            'crew_result': result,
+            'info':        data.get('info', {}),
+            'title':       f'The Core Project: {symbol}',
+            'loading':     False,
+        })
+
+    # ── Background worker ────────────────────────────────────────────
+    def _run_core_bg(ckey, sym):
+        import concurrent.futures as _cf
+        from django.core.cache import cache as _c
+        from .crew_analysis import TheCoreCrew as _TCC
+
+        try:
+            _c.set(ckey, {'state': 'running', 'phase': 'Anomaly Hunter กำลังสแกน WACC/PEGY…'}, timeout=600)
+            
+            # รันการวิเคราะห์เชิงลึก
+            crew = _TCC(sym)
+            with _cf.ThreadPoolExecutor(max_workers=1) as ex:
+                future = ex.submit(crew.run_analysis)
+                try:
+                    # Anomaly Hunter + Backtest ใช้เวลาพอสมควร (timeout 2 นาที)
+                    result = future.result(timeout=120) 
+                except _cf.TimeoutError:
+                    result = '## วิเคราะห์ "The Core" ไม่สำเร็จ\n\nการวิเคราะห์เชิงลึกใช้เวลาเกินกำหนด กรุณาลองใหม่อีกครั้ง'
+
+            _c.set(ckey, {'state': 'done', 'result': result}, timeout=600)
+        except Exception as exc:
+            _c.set(ckey, {'state': 'done', 'result': f'## Error\n\n{exc}'}, timeout=600)
+
+    # Start Worker
+    if not cached or cached.get('state') == 'idle':
+        _cp.set(cache_key, {'state': 'running', 'phase': 'เริ่มต้นโครงวิเคราะห์ The Core…'}, timeout=600)
+        _th.Thread(target=_run_core_bg, args=(cache_key, symbol), daemon=True).start()
+
+    # Show loading
+    return render(request, 'stocks/crew_result.html', {
+        'symbol':    symbol,
+        'title':     f'The Core Analysis: {symbol}',
+        'loading':   True,
+        'cache_key': cache_key,
+        # Special polling parameter for the client JS to use Correct URL
+        'is_core':   True, 
     })
 
 # ====== Momentum Quick CrewAI Analysis (AJAX modal) ======
@@ -2739,11 +2811,12 @@ def momentum_scanner(request):
 
     # ── Trigger background scan ───────────────────────────────────────
     if request.GET.get('scan') == 'true' or request.method == 'POST':
+        from .utils import refresh_all_thai_symbols
         scan_symbols = list(dict.fromkeys(  # deduplicate while preserving order
             ScannableSymbol.objects.filter(is_active=True, market='SET').values_list('symbol', flat=True)
         ))
         if not scan_symbols:
-            refresh_set100_symbols()
+            refresh_all_thai_symbols()
             scan_symbols = list(dict.fromkeys(
                 ScannableSymbol.objects.filter(is_active=True, market='SET').values_list('symbol', flat=True)
             ))
@@ -2757,43 +2830,79 @@ def momentum_scanner(request):
                     import pandas as _pd
                     import pandas_ta as _ta
                     import yfinance as _yf
+                    import numpy as _np
                     from django.core.cache import cache as _c
-                    from .models import MomentumCandidate as _MC, ScannableSymbol as _SS
-                    from yahooquery import Ticker as _YQT
+                    from .models import MomentumCandidate as _MC
                     from .utils import analyze_momentum_technical, find_supply_demand_zones
                     from django.contrib.auth import get_user_model
                     User = get_user_model()
                     user = User.objects.get(pk=uid)
 
                     _MC.objects.filter(user=user).delete()
-                    total = len(sym_list)
-
-                    for idx, symbol in enumerate(sym_list):
-                        _c.set(ckey, {'state': 'running', 'progress': idx + 1, 'total': total,
-                                      'phase': f'สแกน {symbol} ({idx+1}/{total})…'}, timeout=600)
+                    
+                    # --- STAGE 1: Fast Screening (The Radar) ---
+                    # Scan all 800+ symbols for basic liquidity and trend
+                    _c.set(ckey, {'state': 'running', 'progress': 5, 'total': 100, 'phase': f'Stage 1: สแกนด่วน {len(sym_list)} ตัว (Radar Mode)...'}, timeout=600)
+                    
+                    candidates = []
+                    # Chunk download to be safe and responsive
+                    chunk_size = 40
+                    for i in range(0, len(sym_list), chunk_size):
+                        chunk = sym_list[i:i + chunk_size]
+                        symbols_bk = [f"{s}.BK" for s in chunk]
+                        
+                        _c.set(ckey, {'state': 'running', 'progress': int((i/len(sym_list))*40) + 5, 
+                                      'total': 100, 'phase': f'Stage 1: กำลังสแกนกลุ่ม {i//chunk_size + 1}...'}, timeout=600)
+                        
                         try:
-                            df = _yf.download(f"{symbol}.BK", period="1y", interval="1d", progress=False)
-                            if df is None or df.empty:
+                            # Download OHLC for the chunk
+                            data = _yf.download(symbols_bk, period="1y", interval="1d", progress=False, group_by='ticker', threads=True)
+                            
+                            for symbol in chunk:
                                 try:
-                                    yq = _YQT(f"{symbol}.BK")
-                                    df = yq.history(period="1y", interval="1d")
-                                    if isinstance(df, _pd.DataFrame) and not df.empty:
-                                        df = df.reset_index()
-                                        if 'date' in df.columns:
-                                            df.set_index('date', inplace=True)
-                                        if 'symbol' in df.columns:
-                                            df.drop(columns=['symbol'], inplace=True)
-                                        df.rename(columns={'open':'Open','high':'High','low':'Low','close':'Close','volume':'Volume'}, inplace=True)
-                                except Exception:
-                                    pass
-                            if df is None or df.empty:
-                                continue
-                            if isinstance(df.columns, _pd.MultiIndex):
-                                df.columns = df.columns.droplevel(1)
-                            df = df.dropna(subset=['Close', 'High'])
-                            if len(df) < 150:
-                                continue
+                                    s_bk = f"{symbol}.BK"
+                                    if s_bk not in data or data[s_bk].empty: continue
+                                    df = data[s_bk].dropna(subset=['Close'])
+                                    if len(df) < 150: continue
+                                    
+                                    curr_price = float(df['Close'].iloc[-1])
+                                    curr_vol   = float(df['Volume'].iloc[-1])
+                                    avg_vol_20 = df['Volume'].tail(20).mean()
+                                    avg_val_20 = (df['Close'] * df['Volume']).tail(20).mean() # Liquidity in Baht
+                                    
+                                    # EXPERT FILTER 1: Liquidity (> 5M Baht average)
+                                    if avg_val_20 < 5000000: continue
+                                    
+                                    # EXPERT FILTER 2: Trend (Price > EMA200)
+                                    ema200 = _ta.ema(df['Close'], length=200)
+                                    if ema200 is None or ema200.empty or curr_price < float(ema200.iloc[-1]):
+                                        continue
+                                        
+                                    # EXPERT FILTER 3: RSI Momentum (> 45)
+                                    rsi = _ta.rsi(df['Close'], length=14)
+                                    if rsi is None or rsi.empty or float(rsi.iloc[-1]) < 45:
+                                        continue
+                                    
+                                    # All Pass? Add to list with a quick score for ranking
+                                    quick_score = float(rsi.iloc[-1]) + (curr_vol / avg_vol_20 * 10)
+                                    candidates.append({'symbol': symbol, 'df': df, 'score': quick_score})
+                                except Exception: continue
+                        except Exception: continue
 
+                    # Sort by quick score and take top 100 for deep pass
+                    candidates = sorted(candidates, key=lambda x: x['score'], reverse=True)[:100]
+                    
+                    # --- STAGE 2: Deep Analysis (The Detailer) ---
+                    _c.set(ckey, {'state': 'running', 'progress': 50, 'total': 100, 'phase': f'Stage 2: เจาะลึกหุ้นที่เข้ารอบ {len(candidates)} ตัว...'}, timeout=600)
+                    
+                    for idx, cand in enumerate(candidates):
+                        symbol = cand['symbol']
+                        df     = cand['df']
+                        _c.set(ckey, {'state': 'running', 'progress': 50 + int((idx/len(candidates))*50), 
+                                      'total': 100, 'phase': f'Stage 2: วิเคราะห์ละเอียด {symbol} ({idx+1}/{len(candidates)})...'}, timeout=600)
+                        
+                        try:
+                            # Full technical analysis
                             df['EMA50']  = _ta.ema(df['Close'], length=50)
                             df['EMA150'] = _ta.ema(df['Close'], length=150)
                             df['EMA200'] = _ta.ema(df['Close'], length=200)
@@ -2806,7 +2915,7 @@ def momentum_scanner(request):
                             avg_vol_20 = df['Volume'].rolling(window=20).mean()
                             df['RVOL'] = df['Volume'] / avg_vol_20
 
-                            tech         = analyze_momentum_technical(df)
+                            tech = analyze_momentum_technical(df)
                             current_price = float(df['Close'].iloc[-1])
                             year_high     = float(df['High'].tail(252).max())
                             integrated_score = tech['score']
@@ -2817,20 +2926,21 @@ def momentum_scanner(request):
                             adx     = float(df['ADX_14'].iloc[-1]) if 'ADX_14' in df.columns and _pd.notna(df['ADX_14'].iloc[-1]) else 0
                             gap_to_high = ((year_high - current_price) / current_price) * 100
 
-                            if not (current_price > ema200 and current_price >= year_high * 0.60):
-                                continue
-
+                            # Fundamental bonus (only for top candidates to save time)
                             sector = 'Unknown'; eps_growth = 0.0; rev_growth = 0.0; fund_bonus = 0
                             try:
-                                info = _yf.Ticker(f"{symbol}.BK").info
-                                if isinstance(info, dict) and len(info) >= 5:
-                                    sector     = info.get('sector', 'Other')
-                                    eps_growth = float(info.get('earningsQuarterlyGrowth', 0) or 0) * 100
-                                    rev_growth = float(info.get('revenueGrowth', 0) or 0) * 100
+                                info = _yf.Ticker(f"{symbol}.BK").basic_info
+                                sector = "Market Asset"
+                                # info for fundamental growth requires full .info (slower)
+                                # we only do this if it's top 20 or so if we want extreme speed, 
+                                # but let's try with info.get for all top 100
+                                full_info = _yf.Ticker(f"{symbol}.BK").info
+                                sector = full_info.get('sector', 'Other')
+                                eps_growth = float(full_info.get('earningsQuarterlyGrowth', 0) or 0) * 100
+                                rev_growth = float(full_info.get('revenueGrowth', 0) or 0) * 100
                                 if eps_growth >= 20: fund_bonus += 10
                                 if rev_growth >= 10: fund_bonus += 10
-                            except Exception:
-                                pass
+                            except Exception: pass
 
                             sd_zone = find_supply_demand_zones(df)
                             dz_start = dz_end = sz_start = sz_end = sl_price = rr_val = None
@@ -2863,8 +2973,7 @@ def momentum_scanner(request):
                                     zone_proximity=round(prox_val, 2),
                                 )
                             )
-                        except Exception:
-                            continue
+                        except Exception: continue
 
                     _c.set(ckey, {'state': 'done'}, timeout=300)
                 except Exception as exc:
@@ -3354,7 +3463,7 @@ def precision_momentum_scanner(request):
 
     scan_symbols = list(ScannableSymbol.objects.filter(is_active=True, market='SET').values_list('symbol', flat=True))
     if not scan_symbols:
-        refresh_set100_symbols()
+        refresh_all_thai_symbols()
         scan_symbols = list(ScannableSymbol.objects.filter(is_active=True, market='SET').values_list('symbol', flat=True))
 
     # ====== AJAX Status Poll ======
@@ -4964,7 +5073,7 @@ def multi_factor_scanner(request):
                     is_active=True, market='SET'
                 ).values_list('symbol', flat=True).distinct()
                 if not scan_symbols:
-                    refresh_set100_symbols()
+                    refresh_all_thai_symbols()
                     scan_symbols = ScannableSymbol.objects.filter(
                         is_active=True, market='SET'
                     ).values_list('symbol', flat=True).distinct()
@@ -7762,7 +7871,7 @@ def cup_handle_scanner(request):
             _SS.objects.filter(is_active=True, market='SET').values_list('symbol', flat=True)
         ))
         if not scan_symbols:
-            refresh_set100_symbols()
+            refresh_all_thai_symbols()
             scan_symbols = list(dict.fromkeys(
                 _SS.objects.filter(is_active=True, market='SET').values_list('symbol', flat=True)
             ))
@@ -8573,8 +8682,195 @@ def turtle_scanner_run_ajax(request):
 
     _cp.set(ckey, {'state': 'running', 'progress': 0, 'total': len(sym_list)}, timeout=3600)
     _th.Thread(target=_bg_task, args=(sym_list, market_param), daemon=True).start()
-    
+
     return _JR({'status': 'started'})
 
+
+# ---------------------------------------------------------------------------
+# Stock Chart View — Turtle Breakout + Momentum
+# ---------------------------------------------------------------------------
+
+@login_required
+def stock_chart(request, symbol):
+    market = request.GET.get('market', 'SET')
+    context = {
+        'symbol': symbol.upper(),
+        'market': market,
+    }
+    return render(request, 'stocks/stock_chart.html', context)
+
+
+@login_required
+def stock_chart_data(request, symbol):
+    import json as _json
+    import yfinance as _yf
+    import pandas as _pd
+    import numpy as _np
+    from django.http import JsonResponse as _JR
+
+    symbol = symbol.upper()
+    market = request.GET.get('market', 'SET')
+    period = request.GET.get('period', '1y')
+
+    # Append .BK for SET stocks
+    yf_symbol = symbol + '.BK' if market == 'SET' else symbol
+    
+    # Padding: ดึงข้อมูลเผื่อล่วงหน้าเพื่อให้เส้น Donchian 55 และ RSI มีค่าเพียงพอ
+    download_period = '2y' if period in ('1y', '2y') else '1y' 
+
+    try:
+        df = _yf.download(yf_symbol, period=download_period, auto_adjust=True,
+                          progress=False, group_by='column')
+        
+        if df is None or df.empty:
+            return _JR({'error': f'ไม่พบข้อมูลสำหรับ {yf_symbol} (yfinance returned empty)'}, status=404)
+
+        # 1. จัดการ MultiIndex (yfinance 0.2.x มักจะคืน (Field, Symbol) หรือ (Symbol, Field))
+        if isinstance(df.columns, _pd.MultiIndex):
+            if yf_symbol in df.columns.get_level_values(0): # Case (Symbol, Field)
+                df.columns = df.columns.get_level_values(1)
+            else: # Case (Field, Symbol)
+                df.columns = df.columns.get_level_values(0)
+
+        # 2. ปรับชื่อคอลัมน์ให้เป็นมาตรฐาน (Standardize Capitalization)
+        df.columns = [str(c).capitalize() for c in df.columns]
+        
+        # คืนค่าคอลัมน์ที่จำเป็น (Handle Adj Close/Close redundancy)
+        if 'Adj close' in df.columns:
+            df.rename(columns={'Adj close': 'Close'}, inplace=True)
+        elif 'Adj close' not in df.columns and 'Close' not in df.columns:
+            # บางกรณี yfinance คืนค่า 'Regular market price' หรืออื่นๆ
+            potential_close = [c for c in df.columns if 'close' in c.lower()]
+            if potential_close:
+                df.rename(columns={potential_close[0]: 'Close'}, inplace=True)
+
+        required = ['Open', 'High', 'Low', 'Close', 'Volume']
+        missing = [c for c in required if c not in df.columns]
+        if missing:
+            return _JR({'error': f'ไม่สามารถดึงข้อมูลที่จำเป็นได้: {missing}'}, status=500)
+
+        df = df[required].copy()
+        
+        # 3. จัดการข้อมูลว่างเฉพาะจุด (หลีกเลี่ยงการ dropna ล้างทั้งแถว)
+        # เติมค่าว่างด้วยวิธี ffill สำหรับราคาส่วน volume เป็น 0
+        df[['Open', 'High', 'Low', 'Close']] = df[['Open', 'High', 'Low', 'Close']].ffill()
+        df['Volume'] = df['Volume'].fillna(0)
+        
+        df.index = _pd.to_datetime(df.index)
+        df.sort_index(inplace=True)
+
+        # Donchian Channel 20 & 55
+        df['dc20_upper'] = df['High'].rolling(20).max()
+        df['dc20_lower'] = df['Low'].rolling(20).min()
+        df['dc55_upper'] = df['High'].rolling(55).max()
+        df['dc55_lower'] = df['Low'].rolling(55).min()
+        df['dc10_lower'] = df['Low'].rolling(10).min()
+
+        # RSI 14
+        delta = df['Close'].diff()
+        gain = delta.clip(lower=0).rolling(14).mean()
+        loss = (-delta.clip(upper=0)).rolling(14).mean()
+        rs = gain / loss.replace(0, _np.nan)
+        df['rsi'] = 100 - (100 / (1 + rs))
+
+        # Turtle breakout signals (compare close vs previous day's channel)
+        df['sys1_signal'] = df['Close'] >= df['dc20_upper'].shift(1)
+        df['sys2_signal'] = df['Close'] >= df['dc55_upper'].shift(1)
+        df['sys1_exit']   = df['Close'] <= df['dc10_lower'].shift(1)
+
+        # Use 'YYYY-MM-DD' string — required by Lightweight Charts for daily data
+        def datestr(dt):
+            return _pd.Timestamp(dt).strftime('%Y-%m-%d')
+
+        candles, vol, dc20u, dc20l, dc55u, dc55l, rsi_data = [], [], [], [], [], [], []
+        signals = []
+
+        for dt, row in df.iterrows():
+            t = datestr(dt)
+            o = float(row['Open']); h = float(row['High'])
+            l = float(row['Low']);  c = float(row['Close'])
+            candles.append({'time': t, 'open': round(o, 2), 'high': round(h, 2),
+                            'low': round(l, 2), 'close': round(c, 2)})
+            vol.append({'time': t, 'value': int(row['Volume']),
+                        'color': '#26a69a' if c >= o else '#ef5350'})
+
+            if _pd.notna(row['dc20_upper']):
+                dc20u.append({'time': t, 'value': round(float(row['dc20_upper']), 2)})
+                dc20l.append({'time': t, 'value': round(float(row['dc20_lower']), 2)})
+            if _pd.notna(row['dc55_upper']):
+                dc55u.append({'time': t, 'value': round(float(row['dc55_upper']), 2)})
+                dc55l.append({'time': t, 'value': round(float(row['dc55_lower']), 2)})
+            if _pd.notna(row['rsi']):
+                rsi_data.append({'time': t, 'value': round(float(row['rsi']), 2)})
+
+            if row['sys1_signal']:
+                signals.append({'time': t, 'type': 'sys1_buy',
+                                 'price': round(float(row['Close']), 2)})
+            if row['sys2_signal']:
+                signals.append({'time': t, 'type': 'sys2_buy',
+                                 'price': round(float(row['Close']), 2)})
+            if row['sys1_exit']:
+                signals.append({'time': t, 'type': 'sys1_exit',
+                                 'price': round(float(row['Close']), 2)})
+
+        # 4. กรองข้อมูลเฉพาะช่วงที่ผู้ใช้ต้องการกลับไปที่ Frontend
+        # (เพื่อให้กราฟแสดงเฉพาะช่วงที่เลือก แต่เส้นเทคนิคมีค่าสมบูรณ์)
+        final_candles = []
+        final_vol = []
+        final_dc20u, final_dc20l = [], []
+        final_dc55u, final_dc55l = [], []
+        final_rsi = []
+        final_signals = []
+
+        # คำนวณจุดตัดของเวลา (Cut-off date)
+        from datetime import datetime as _dt, timedelta as _td
+        now_date = _dt.now().date()
+        if period == '3mo':   cutoff = now_date - _td(days=95)
+        elif period == '6mo': cutoff = now_date - _td(days=185)
+        elif period == '1y':  cutoff = now_date - _td(days=370)
+        elif period == '2y':  cutoff = now_date - _td(days=735)
+        else: cutoff = df.index[0].date() if not df.empty else now_date
+
+        for c in candles:
+            # แปลง string 'YYYY-MM-DD' กลับเป็น date เพื่อเทียบ
+            c_date = _dt.strptime(c['time'], '%Y-%m-%d').date()
+            if c_date >= cutoff: final_candles.append(c)
+        for v in vol:
+            if _dt.strptime(v['time'], '%Y-%m-%d').date() >= cutoff: final_vol.append(v)
+        for d in dc20u:
+            if _dt.strptime(d['time'], '%Y-%m-%d').date() >= cutoff: final_dc20u.append(d)
+        for d in dc20l:
+            if _dt.strptime(d['time'], '%Y-%m-%d').date() >= cutoff: final_dc20l.append(d)
+        for d in dc55u:
+            if _dt.strptime(d['time'], '%Y-%m-%d').date() >= cutoff: final_dc55u.append(d)
+        for d in dc55l:
+            if _dt.strptime(d['time'], '%Y-%m-%d').date() >= cutoff: final_dc55l.append(d)
+        for r in rsi_data:
+            if _dt.strptime(r['time'], '%Y-%m-%d').date() >= cutoff: final_rsi.append(r)
+        for s in signals:
+            if _dt.strptime(s['time'], '%Y-%m-%d').date() >= cutoff: final_signals.append(s)
+
+        # ถ้ากรองแล้วไม่เหลือข้อมูลเลย ให้เอาข้อมูลทั้งหมดกลับไป (Fall-back)
+        if not final_candles:
+            final_candles, final_vol, final_rsi = candles, vol, rsi_data
+            final_dc20u, final_dc20l = dc20u, dc20l
+            final_dc55u, final_dc55l = dc55u, dc55l
+            final_signals = signals
+
+        return _JR({
+            'symbol': symbol,
+            'market': market,
+            'candles': final_candles,
+            'volume': final_vol,
+            'dc20_upper': final_dc20u,
+            'dc20_lower': final_dc20l,
+            'dc55_upper': final_dc55u,
+            'dc55_lower': final_dc55l,
+            'rsi': final_rsi,
+            'signals': final_signals,
+        })
+
+    except Exception as e:
+        return _JR({'error': str(e)}, status=500)
 
 

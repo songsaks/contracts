@@ -14,6 +14,136 @@ from scipy.signal import argrelextrema
 
 
 # ----------------------------------------------------------------------
+# calculate_valuation_metrics — คำนวณ WACC, PEGY และอัตราส่วนเชิงลึก
+# ----------------------------------------------------------------------
+def calculate_valuation_metrics(info, history, financials, balance_sheet):
+    """
+    คำนวณตัวชี้วัดมูลค่ากิจการสำหรับ Anomaly Hunter:
+    - PEGY: P/E / (Growth + Dividend Yield)
+    - WACC: ต้นทุนเงินทุนถัวเฉลี่ย (ช่วยดูว่า ROE ที่ได้นั้นคุ้มค่าจริงไหม)
+    """
+    results = {
+        'pegy': 'N/A',
+        'wacc': 'N/A',
+        'cost_of_equity': 'N/A',
+        'cost_of_debt': 'N/A'
+    }
+    
+    try:
+        # 1. PEGY Ratio = PE / (EPS Growth + Div Yield)
+        pe = info.get('trailingPE')
+        eps_g = info.get('earningsGrowth', 0) or 0
+        div_y = info.get('dividendYield', 0) or 0
+        
+        # ปรับค่าให้อยู่ในรูป % (8% -> 8.0)
+        growth_sum = (eps_g * 100) + (div_y * 100)
+        if pe and growth_sum > 0:
+            results['pegy'] = round(pe / growth_sum, 2)
+
+        # 2. WACC Calculation (แบบประมาณการ)
+        # Cost of Equity (CAPM) = Rf + Beta(Rm - Rf)
+        # ดึง Rf จาก ^TNX (~4%) และ Rm สมมติที่ 10%
+        rf = 0.04
+        rm = 0.10
+        beta = info.get('beta', 1.0) or 1.0
+        re = rf + (beta * (rm - rf))
+        results['cost_of_equity'] = f"{re*100:.2f}%"
+
+        # Cost of Debt = Interest Expense / Total Debt
+        # ดึงข้อมูลจากงบการเงิน
+        if balance_sheet is not None and not balance_sheet.empty and financials is not None and not financials.empty:
+            # Flatten MultiIndex if needed
+            if isinstance(balance_sheet.columns, pd.MultiIndex): balance_sheet.columns = balance_sheet.columns.droplevel(1)
+            if isinstance(financials.columns, pd.MultiIndex): financials.columns = financials.columns.droplevel(1)
+            
+            latest_bs = balance_sheet.iloc[:, 0]
+            latest_fin = financials.iloc[:, 0]
+            
+            total_debt = latest_bs.get('Total Debt', latest_bs.get('Total Liabilities Net Minority Interest', 0))
+            interest_exp = abs(latest_fin.get('Interest Expense', 0))
+            
+            rd = (interest_exp / total_debt) if total_debt > 0 else 0.05 # fallback 5%
+            results['cost_of_debt'] = f"{rd*100:.2f}%"
+            
+            # WACC = (E/V * Re) + (D/V * Rd * (1-T))
+            mkt_cap = info.get('marketCap', 0)
+            v = mkt_cap + total_debt
+            if v > 0:
+                tax_rate = 0.20 # สมมติ 20%
+                wacc = ((mkt_cap / v) * re) + ((total_debt / v) * rd * (1 - tax_rate))
+                results['wacc'] = f"{wacc*100:.2f}%"
+                
+    except Exception as e:
+        print(f"DEBUG: Valuation calculation failed: {e}")
+
+    return results
+
+
+# ----------------------------------------------------------------------
+# auto_backtest_strategy — Engine สำหรับ Backtest Engineer Agent
+# รับเงื่อนไขพื้นฐานแล้วรันข้อมูลย้อนหลังทันที
+# ----------------------------------------------------------------------
+def auto_backtest_strategy(df, strategy_type='momentum_rsi', period_days=250):
+    """
+    รัน Backtest แบบด่วน
+    - strategy_type: 'momentum_rsi', 'ema_cross', 'breakout'
+    Returns: {win_rate, total_return, max_drawdown, signals_count}
+    """
+    if df is None or len(df) < 60:
+        return {"error": "Insufficient data"}
+
+    data = df.tail(period_days).copy()
+    signals = []
+    
+    # ตัวอย่างกลยุทธ์พื้นฐาน สำหรับให้ Agent นำไปอ้างอิง
+    if strategy_type == 'momentum_rsi':
+        # Buy when RSI < 35, Sell when RSI > 70
+        data['signal'] = 0
+        if 'RSI' not in data.columns: data['RSI'] = ta.rsi(data['Close'], length=14)
+        data.loc[data['RSI'] < 35, 'signal'] = 1
+        data.loc[data['RSI'] > 70, 'signal'] = -1
+    
+    elif strategy_type == 'ema_cross':
+        # EMA 20 cross above EMA 50
+        e20 = ta.ema(data['Close'], length=20)
+        e50 = ta.ema(data['Close'], length=50)
+        data['signal'] = np.where(e20 > e50, 1, -1)
+    
+    else:  # Breakout
+        high_20 = data['High'].rolling(20).max().shift(1)
+        data['signal'] = np.where(data['Close'] > high_20, 1, -1)
+
+    # คำนวณผลตอบแทนแบบง่าย (Daily Return * Signal)
+    data['returns'] = data['Close'].pct_change()
+    data['strategy_returns'] = data['returns'] * data['signal'].shift(1)
+    
+    total_return = (data['strategy_returns'] + 1).prod() - 1
+    
+    # สรุปผล
+    wins = len(data[data['strategy_returns'] > 0])
+    losses = len(data[data['strategy_returns'] < 0])
+    total_trades = wins + losses
+    win_rate = (wins / total_trades * 100) if total_trades > 0 else 0
+    
+    # Drawdown
+    cum_returns = (data['strategy_returns'] + 1).cumprod()
+    running_max = cum_returns.cummax()
+    drawdown = (cum_returns - running_max) / running_max
+    max_dd = drawdown.min()
+
+    return {
+        'strategy_name': strategy_type,
+        'period_days': period_days,
+        'total_return_pct': round(total_return * 100, 2),
+        'win_rate_pct': round(win_rate, 2),
+        'max_drawdown_pct': round(max_dd * 100, 2),
+        'trades_count': total_trades
+    }
+
+
+
+
+# ----------------------------------------------------------------------
 # calculate_trailing_stop — คำนวณ Trailing Stop Loss
 # ใช้ป้องกันความเสี่ยงหลังจากซื้อหุ้น โดยตั้ง stop loss ตาม %
 # ของราคาสูงสุดที่เคยทำได้นับตั้งแต่ซื้อ
@@ -1399,83 +1529,118 @@ def analyze_momentum_technical_v2(df):
 # refresh_set100_symbols — อัปเดตรายชื่อหุ้น SET100 + SET200 + MAI ในฐานข้อมูล
 # ใช้รันครั้งแรกหรือเมื่อต้องการ refresh รายชื่อหุ้นที่ Scanner ใช้
 # ----------------------------------------------------------------------
-def refresh_set100_symbols():
+def refresh_all_thai_symbols():
+    """
+    ขยายการสแกนเป็น All Market (SET + MAI) ประมาณ 800+ ตัว
+    โดยจะใช้ Liquidity Filter ในการคัดออกภายหลัง
+    """
     from .models import ScannableSymbol
 
-    # รายชื่อหุ้น SET100 (ณ เม.ย. 2026)
-    set100_symbols = [
+    # รายชื่อกลุ่มอุตสาหกรรมและหุ้นหลักๆ ใน SET + MAI (แบบครอบคลุม)
+    all_symbols = [
+        # --- รายชื่อหุ้น SET + MAI (800+ ตัว) ---
         "ADVANC", "AOT", "AWC", "BBL", "BDMS", "BEM", "BGRIM", "BH", "BJC", "BTS",
         "CBG", "CENTEL", "CHG", "CK", "CKP", "COM7", "CPALL", "CPF", "CPN", "CRC",
         "DELTA", "EA", "EGCO", "GLOBAL", "GPSC", "GULF", "HMPRO", "IRPC", "IVL",
         "JMART", "JMT", "KBANK", "KCE", "KTB", "KTC", "LH", "MINT", "MTC", "OR",
         "OSP", "PTT", "PTTEP", "PTTGC", "RATCH", "SAWAD", "SCB", "SCC", "SCGP", "SPALI",
-        "STA", "STGT", "TCAP", "TISCO", "TOP", "TRUE", "TTB", "TU", "WHA",
-        "AMATA", "BAM", "BANPU", "BAY", "BCH", "BLA", "BPP", "DOHOME", "FORTH", "GUNKUL",
-        "ICHI", "KEX", "KKP", "MEGA", "ONEE", "PLANB", "PSL", "PTG", "QH", "RBF",
-        "RS", "SABINA", "SINGER", "SIRI", "SPRC", "SYNEX", "THANI", "TIDLOR", "TIPH",
-        "TKN", "TLI", "TQM", "TSTH", "TTW", "VGI", "BCP", "NYT",
+        "STA", "STGT", "TCAP", "TISCO", "TOP", "TRUE", "TTB", "TU", "WHA", "AMATA",
+        "BAM", "BANPU", "BAY", "BCH", "BLA", "BPP", "DOHOME", "FORTH", "GUNKUL", "ICHI",
+        "KEX", "KKP", "MEGA", "ONEE", "PLANB", "PSL", "PTG", "QH", "RBF", "RS",
+        "SABINA", "SINGER", "SIRI", "SPRC", "SYNEX", "THANI", "TIDLOR", "TIPH", "TKN",
+        "TLI", "TQM", "TSTH", "TTW", "VGI", "BCP", "NYT", "AAV", "AP", "BA", "BCPG",
+        "BEAUTY", "BEC", "CHAYO", "DMT", "ERW", "ESSO", "GFPT", "GJS", "HANA", "ITD",
+        "JAS", "KISS", "LHFG", "LPN", "MAJOR", "MBK", "MC", "NER", "NOBLE", "ORI",
+        "PRM", "PSH", "S", "SAMART", "SAPPE", "SAT", "SC", "SGP", "SKR", "SNNP",
+        "SPCG", "STARK", "STEC", "SUPER", "TASCO", "THCOM", "TPIPL", "TPIPP",
+        "TTA", "TTCL", "TVO", "UVAN", "VIBHA", "WORK", "XO", "7UP", "A5", "ABM",
+        "ACE", "ADB", "ADD", "AGE", "AH", "AIE", "AIRA", "AIT", "AJ", "AKP", "AKR",
+        "ALL", "ALLA", "ALT", "ALUCON", "AMANAH", "AMARIN", "AMATAV", "AMC", "ANAN", 
+        "ANW", "APCS", "APURE", "AQUA", "AS", "ASAP", "ASEFA", "ASIA", "ASIAN", 
+        "ASIMAR", "ASK", "ASN", "ASP", "ASW", "ATP30", "AU", "AUCT", "AYUD", "B", 
+        "B52", "BAFS", "BBIK", "BBGI", "BCH", "BCP", "BCPG", "BCT", "BDMS", "BE8", 
+        "BEAUTY", "BEC", "BEYOND", "BGC", "BGRIM", "BH", "BIG", "BIOTEC", "BIS", 
+        "BIZ", "BJC", "BJCHI", "BKD", "BKI", "BKKCP", "BLA", "BLAND", "BLISS", 
+        "BM", "BPP", "BROOK", "BRR", "BR", "BSBM", "BSM", "BTNC", "BTW", "BWG", 
+        "BYD", "CBG", "CCET", "CCP", "CEN", "CENTEL", "CFRESH", "CGD", "CGH", 
+        "CH", "CHAYO", "CHEWA", "CHG", "CHOTI", "CHOW", "CI", "CIG", "CITY", 
+        "CK", "CKP", "CM", "CMC", "CMO", "CMR", "CNT", "COLOR", "COM7", "COMAN", 
+        "COTTO", "CPALL", "CPF", "CPI", "CPL", "CPN", "CPNCG", "CPNREIT", "CPW", 
+        "CRANE", "CRC", "CRD", "CSC", "CSP", "CSR", "CSS", "CTW", "CWT", "D", 
+        "DCC", "DCON", "DDD", "DELTA", "DEMCO", "DHOME", "DIMET", "DITTO", 
+        "DMT", "DOD", "DOHOME", "DRT", "DTAC", "DTCENT", "DUSIT", "DVB", "DX", 
+        "EASON", "EASTW", "ECF", "ECL", "EE", "EFORL", "EKH", "EMC", "EP", 
+        "EPG", "ERW", "ETC", "ETE", "EVER", "FANCY", "FE", "FLOYD", "FMT", 
+        "FN", "FNS", "FORTH", "FPI", "FPT", "FSX", "FSS", "FSMART", "FTE", 
+        "FTI", "FVC", "GBX", "GC", "GCAP", "GEL", "GENCO", "GIFT", "GJS", 
+        "GL", "GLAND", "GLOBAL", "GLOCON", "GLORY", "GPI", "GRAMMY", "GRAND", 
+        "GREEN", "GSC", "GTB", "GULF", "GUMY", "GUNKUL", "HANA", "HARN", 
+        "HFT", "HMPRO", "HPVC", "HTC", "HTECH", "HUMAN", "HYDRO", "ICC", 
+        "ICHI", "ICN", "IDCP", "IFEC", "IFS", "IHL", "IIG", "III", "ILINK", 
+        "ILM", "IMH", "IND", "INET", "INGRS", "INOX", "INSURE", "INTUCH", 
+        "IP", "IRPC", "IT", "ITEL", "ITD", "ITNS", "IVL", "J", "JAS", "JKN", 
+        "JMART", "JMT", "JP", "JTS", "JUBILE", "JUTHA", "JWD", "K", "KAMART", 
+        "KBS", "KC", "KCE", "KCM", "KEX", "KGI", "KIAT", "KISS", "KK", 
+        "KKP", "KME", "KMC", "KOOL", "KSL", "KST", "KTC", "KTM", "KUMWEL", 
+        "KUN", "KWC", "KWM", "L&E", "LALIN", "LANNA", "LDC", "LEE", "LEO", 
+        "LH", "LHBANK", "LHFG", "LHK", "LOXLEY", "LPH", "LPN", "LRH", "LST", 
+        "M", "MACO", "MAJOR", "MAKRO", "MALEE", "MANRIN", "MATCH", "MATI", 
+        "MAX", "MBAX", "MBK", "MC", "M-CHAI", "MCS", "MDX", "MEGA", "METCO", 
+        "METR", "MFC", "MFEC", "MGT", "MICRO", "MILL", "MINT", "MJD", "MK", 
+        "ML", "ML", "MM", "MODERN", "MONO", "MOONG", "MORE", "MPIC", "MSC", 
+        "MTC", "MTI", "MTW", "MVP", "NC", "NCH", "NCL", "NDR", "NETBAY", 
+        "NEX", "NFC", "NKI", "NLY", "NMG", "NNCL", "NOBLE", "NOK", "NPK", 
+        "NRF", "NSL", "NTV", "NUSA", "NVC", "NVD", "NV", "NWR", "NYT", "OCC", 
+        "OGC", "OHTL", "OISHI", "ONE", "ONEE", "OPERA", "ORI", "OSP", "OTANI", 
+        "PACO", "PAF", "PANEL", "PAP", "PATO", "PB", "PCSGH", "PDG", "PDJ", 
+        "PE", "PERA", "PG", "PHG", "PHOL", "PICO", "PJW", "PK", "PL", "PLANB", 
+        "PLANET", "PLAT", "PLE", "PM", "PMTA", "POLAR", "POLY", "POST", 
+        "PPPM", "PPP", "PR", "PR9", "PRAKIT", "PRAPAT", "PREC", "PREB", 
+        "PRECHA", "PRIME", "PRIN", "PRINC", "PRM", "PROEN", "PROS", "PROUD", 
+        "PSG", "PSH", "PSL", "PT", "PTE", "PTG", "PTL", "PTT", "PTTEP", 
+        "PTTGC", "PYLON", "Q-CON", "QH", "QLT", "QTC", "RJH", "RML", "RS", 
+        "RSP", "S", "S11", "SABINA", "SABUY", "SAK", "SAM", "SAMART", 
+        "SAMCO", "SAMTEL", "SANKO", "SAPPE", "SAT", "SAUCE", "SAWAD", 
+        "SAWANG", "SBP", "SC", "SCB", "SCC", "SCCC", "SCG", "SCGP", "SCI", 
+        "SCM", "SCP", "SDC", "SE", "SEAFCO", "SE-ED", "SELIC", "SENA", 
+        "SENAJ", "SFLEX", "SFP", "SGC", "SGE", "SGF", "SHANG", "SICT", 
+        "SIMAT", "SINGER", "SIRI", "SIRIP", "SIS", "SISB", "SITHAI", 
+        "SK", "SKN", "SKP", "SKR", "SKY", "SLP", "SM", "SMART", "SMPC", 
+        "SNC", "SNNP", "SNP", "SO", "SOLAR", "SONIC", "SORKON", "SPA", 
+        "SPACK", "SPALI", "SPC", "SPCG", "SPVI", "SQ", "SR", "SRICHA", 
+        "SSC", "SSF", "SSP", "SST", "STA", "STARK", "STEC", "STECH", 
+        "STGT", "STOWER", "STP", "STPI", "SUC", "SUN", "SUPER", "SUTHA", 
+        "SVH", "SVI", "SWC", "SYMC", "SYNEX", "SYNTEC", "TACC", "TAE", 
+        "TAKUNI", "TAPAC", "TASCO", "TBSP", "TC", "TCC", "TCCC", "TCJ", 
+        "TCMC", "TCOAT", "TEAM", "TEAMG", "TFG", "TFI", "TFM", "TFMAMA", 
+        "TGH", "TGPRO", "TH", "THAI", "THANA", "THANI", "THCOM", "THG", 
+        "THIP", "THRE", "THREL", "TIC", "TIDLOR", "TIF1", "TIGER", "TILE", 
+        "TIP", "TIPH", "TISCO", "TITAN", "TK", "TKN", "TKS", "TKT", 
+        "TLI", "TM", "TMC", "TMD", "TMI", "TMILL", "TMW", "TNDT", 
+        "TNH", "TNITY", "TNL", "TNP", "TNR", "TOG", "TOP", "TOPP", 
+        "TPA", "TPAC", "TPBI", "TPCH", "TPIPL", "TPIPP", "TPLAS", 
+        "TPOLY", "TPP", "TPS", "TQM", "TR", "TRC", "TRITN", "TRT", 
+        "TRU", "TRUBB", "TRUE", "TSC", "TSE", "TSF", "TSI", "TSR", 
+        "TSTE", "TSTH", "TTA", "TTB", "TTCL", "TTI", "TTW", "TU", 
+        "TVD", "TVO", "TVT", "TWPC", "TWZ", "TYCN", "U", "UAC", 
+        "UBE", "UBIS", "UEC", "UKEM", "UNIQ", "UOBKH", "UP", "UPF", 
+        "UPOIC", "UT", "UTP", "UV", "UVAN", "UWC", "VGI", "VIBHA", 
+        "VIH", "VNG", "VPO", "VRANDA", "W", "WAVE", "WHA", "WHAUP", 
+        "WICE", "WIIK", "WIN", "WINMED", "WINNER", "WORK", "WP", "WPH", 
+        "WR", "XO", "YGG", "YONG", "ZIGA"
     ]
 
-    # รายชื่อหุ้น SET101-200 — Mid Cap สภาพคล่องดี (ณ เม.ย. 2026)
-    set200_symbols = [
-        # Property / Real Estate
-        "AP", "LPN", "ORI", "NOBLE", "SC", "SENA", "LALIN", "RICHY", "SPVI", "TICON",
-        # Healthcare
-        "TNH", "SKR", "NTV", "LPH", "VIBHA", "WPH",
-        # Food & Beverage
-        "GFPT", "TFG", "ASIAN", "BR", "BTG", "GOLD", "KAMART", "GGC",
-        # Financial Services
-        "AEON", "AEONTS", "ASK", "GL", "MFC", "KBS", "MBKET",
-        # Energy / Utilities
-        "DEMCO", "HYDRO", "TPIPP", "EASTW", "ESSO",
-        # Industrial / Manufacturing
-        "HANA", "SVI", "KSL", "KTIS", "SAT", "ROH", "MILL", "DRT", "TPAC",
-        # Consumer / Retail
-        "BEAUTY", "MAKRO", "MAJOR", "ERW", "MBK", "HOME", "OCC", "OHTL",
-        # Transportation / Aviation
-        "AAV", "NOK", "BA",
-        # Technology / Telecom
-        "INET", "IFS", "JAS",
-        # Media / Entertainment
-        "GRAMMY", "MONO",
-        # Construction / Infra
-        "ITD", "CK" , "TASCO", "SEAFCO",
-        # Agribusiness
-        "TVO", "CHARAN", "SSF",
-        # Others — liquid mid-cap
-        "WICE", "J", "MACO", "CI", "NNCL", "PCSGH", "CHAYO",
-        "SQ", "PROUD", "ASAP", "MBK", "ORI", "PREC", "AIT",
-    ]
-    # ลบ duplicate ออก (กรณีมีซ้ำกับ set100)
-    set200_symbols = [s for s in dict.fromkeys(set200_symbols) if s not in set100_symbols]
+    # ลบนามสกุล .BK ออก (ถ้ามี) และจัดการ duplicates
+    all_symbols = sorted(list(set([s.replace(".BK", "") for s in all_symbols])))
 
-    # รายชื่อหุ้น MAI ที่ได้รับความนิยม
-    mai_symbols = [
-        "AU", "SPA", "DITTO", "BE8", "BBIK", "IIG", "SABUY", "SECURE", "JDF", "PROEN",
-        "ZIGA", "XPG", "SMD", "TACC", "TMC", "TPCH", "FPI", "FSMART", "NDR",
-        "NETBAY", "BIZ", "BROOK", "COLOR", "CHO", "D", "KUN", "MVP", "SE", "UKEM",
-    ]
-
-    # อัปเดต SET100
-    for sym in set100_symbols:
+    # อัปเดตเข้าระบบ
+    for sym in all_symbols:
         ScannableSymbol.objects.update_or_create(
             symbol=sym,
-            defaults={'index_name': 'SET100', 'is_active': True}
+            market='SET',
+            defaults={'index_name': 'SET+MAI (ALL)', 'is_active': True}
         )
-
-    # อัปเดต SET200
-    for sym in set200_symbols:
-        ScannableSymbol.objects.update_or_create(
-            symbol=sym,
-            defaults={'index_name': 'SET200', 'is_active': True}
-        )
-
-    # อัปเดต MAI
-    for sym in mai_symbols:
-        ScannableSymbol.objects.update_or_create(
-            symbol=sym,
-            defaults={'index_name': 'MAI', 'is_active': True}
-        )
+    return len(all_symbols)
 
     # ปิดการใช้งานหุ้นที่ไม่ได้อยู่ใน list นี้ และเป็นตลาดไทย (SET)
     known = set(set100_symbols) | set(set200_symbols) | set(mai_symbols)

@@ -103,7 +103,7 @@
                         {% for c in candidates %}
                         <tr class="turtle-row" data-prec-score="{{ c.precision_score|default:0 }}" data-price="{{ c.price|default:0 }}" data-atr="{{ c.atr_20d|default:0 }}">
                             <td class="ps-4">
-                                <span class="fw-bold fs-5 text-dark">{{ c.symbol }}</span>
+                                <a href="{% url 'stocks:stock_chart' c.symbol %}?market={{ c.market }}" target="_blank" class="fw-bold fs-5 text-dark text-decoration-none" title="View Chart">{{ c.symbol }} <i class="fas fa-chart-line fa-xs text-primary ms-1"></i></a>
                                 {% if c.market == 'US' %}
                                     <span class="badge bg-primary-subtle text-primary ms-1">US</span>
                                 {% endif %}

@@ -63,7 +63,11 @@
 
 <script>
 (function() {
+    {% if is_core %}
+    var pollUrl = window.location.pathname + '?core_status=1&ck={{ cache_key|urlencode }}';
+    {% else %}
     var pollUrl = window.location.pathname + '?crew_status=1&ck={{ cache_key|urlencode }}';
+    {% endif %}
     var timer;
     var startTime = Date.now();
     var TIMEOUT_MS = 3 * 60 * 1000; // 3 minutes max

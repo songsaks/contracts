@@ -6,7 +6,8 @@ app_name = 'stocks'
 urlpatterns = [
     path('', views.dashboard, name='dashboard'),
     path('analyze/<str:symbol>/', views.analyze, name='analyze'),
-    path('analyze/crew/<str:symbol>/', views.crew_analyze, name='crew_analyze'),
+     path('analyze/crew/<str:symbol>/', views.crew_analyze, name='crew_analyze'),
+    path('analyze/core/<str:symbol>/', views.core_analyze, name='core_analyze'),
     path('analyze/crew/<str:symbol>/export/docx/', views.crew_export_docx, name='crew_export_docx'),
     path('watchlist/add/', views.add_to_watchlist, name='add_to_watchlist'),
     path('watchlist/<int:pk>/delete/', views.delete_from_watchlist, name='delete_from_watchlist'),
@@ -51,5 +52,7 @@ urlpatterns = [
     path('macro-playbook/', views.macro_playbook_view, name='macro_playbook'),
     path('macro-playbook/run/', views.macro_playbook_run_ajax, name='macro_playbook_run'),
     path('crypto-hub/', views.crypto_hub, name='crypto_hub'),
+    path('chart/<str:symbol>/', views.stock_chart, name='stock_chart'),
+    path('chart/<str:symbol>/data/', views.stock_chart_data, name='stock_chart_data'),
 ]
 

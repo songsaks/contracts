@@ -233,9 +233,8 @@ th.sortable:hover { background: #f1f5f9; }
                 <tr class="{% if score >= 70 %}table-success bg-opacity-25{% elif score >= 50 %}table-warning bg-opacity-10{% endif %}">
                     <!-- Symbol -->
                     <td class="px-3 py-2 fw-bold">
-                        <a href="{% url 'stocks:analyze' c.symbol %}" class="text-decoration-none text-dark">
-                            {{ c.symbol }}
-                        </a>
+                        <a href="{% url 'stocks:analyze' c.symbol %}" class="text-decoration-none text-dark">{{ c.symbol }}</a>
+                        <a href="{% url 'stocks:stock_chart' c.symbol %}?market=US" target="_blank" class="ms-1 text-primary" title="Chart"><i class="fas fa-chart-line fa-xs"></i></a>
                         <div class="text-muted" style="font-size:.65rem;">${{ c.price|floatformat:2 }}</div>
                         <div class="mt-1 d-flex gap-1 flex-wrap">
                             {% if c.above_ema200 %}<span class="factor-chip bg-success text-white">EMA200✓</span>{% endif %}

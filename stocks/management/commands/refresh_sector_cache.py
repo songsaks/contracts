@@ -3,7 +3,7 @@ python manage.py refresh_sector_cache
 
 ดึง sector จาก yfinance ครั้งเดียวสำหรับทุก ScannableSymbol
 แล้วเก็บใน ScannableSymbol.sector เพื่อให้ multi_factor_scanner ไม่ต้องดึงซ้ำ
-รันเดือนละครั้ง หรือหลัง refresh_set100_symbols
+รันเดือนละครั้ง หรือหลัง refresh_all_thai_symbols
 """
 from django.core.management.base import BaseCommand
 from concurrent.futures import ThreadPoolExecutor, as_completed

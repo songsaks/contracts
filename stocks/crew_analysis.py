@@ -564,6 +564,140 @@ Write in Thai language:
         return str(result)
 
 # ======================================================================
+# TheCoreCrew — Renaissance-Style Multi-Agent (Institutional Selection)
+# ======================================================================
+
+class TheCoreCrew:
+    """
+    "The Core Project" — Renaissance-inspired analysis.
+    Agents:
+      1. Anomaly Hunter    — Deep Fundamental (WACC, PEGY) + Tech anomalies
+      2. Backtest Engineer — Validate strategy with historical win rates
+      3. Execution Decider — Final summary, daily report & alert logic
+    """
+
+    def __init__(self, symbol):
+        self.symbol = symbol
+        self.yf_symbol = (
+            symbol if ('.' in symbol or '=' in symbol or '-' in symbol)
+            else f"{symbol}.BK"
+        )
+        os.environ["GEMINI_API_KEY"] = settings.GEMINI_API_KEY
+
+    def run_analysis(self):
+        from crewai import Agent, Task, Crew, Process
+        from crewai.llm import LLM
+        from .utils import get_stock_data, calculate_valuation_metrics, auto_backtest_strategy
+
+        llm = LLM(model="gemini/gemini-2.5-flash", api_key=settings.GEMINI_API_KEY)
+        
+        # 1. Fetch Rich Data
+        data = get_stock_data(self.yf_symbol)
+        info = data.get('info', {})
+        hist = data.get('history', pd.DataFrame())
+        fins = data.get('financials', pd.DataFrame())
+        bs   = data.get('balance_sheet', pd.DataFrame())
+        
+        # 2. Compute Quant Valuation
+        valuation = calculate_valuation_metrics(info, hist, fins, bs)
+        
+        # 3. Pre-run Backtests for different strategies
+        bt_rsi = auto_backtest_strategy(hist, 'momentum_rsi')
+        bt_ema = auto_backtest_strategy(hist, 'ema_cross')
+        
+        # Build Context
+        context = f"""
+หุ้น: {self.symbol}
+ราคาปัจจุบัน: {info.get('currentPrice', 'N/A')} {info.get('currency', 'THB')}
+Market Cap: {info.get('marketCap', 'N/A')}
+
+[Financial Valuation Metrics]
+- WACC (ต้นทุนเงินทุน): {valuation.get('wacc')}
+- PEGY Ratio: {valuation.get('pegy')} (PEG + Dividend Yield)
+- Cost of Equity: {valuation.get('cost_of_equity')}
+- Cost of Debt: {valuation.get('cost_of_debt')}
+- ROE: {info.get('returnOnEquity', 'N/A')}
+- PEG: {info.get('pegRatio', 'N/A')}
+
+[Technical Snapshot]
+- RSI: {hist['RSI'].iloc[-1] if 'RSI' in hist.columns else 'N/A'}
+- 52W High/Low: {info.get('fiftyTwoWeekHigh')} / {info.get('fiftyTwoWeekLow')}
+- Change 1M: {((hist['Close'].iloc[-1] - hist['Close'].iloc[-22])/hist['Close'].iloc[-22]*100) if len(hist)>22 else 'N/A'}%
+
+[Automated Backtest Results]
+1. Strategy RSI Mean Reversion: Win Rate {bt_rsi.get('win_rate_pct')}% | Return {bt_rsi.get('total_return_pct')}%
+2. Strategy EMA Cross Trend: Win Rate {bt_ema.get('win_rate_pct')}% | Return {bt_ema.get('total_return_pct')}%
+"""
+
+        # --- Define Agents ---
+        hunter = Agent(
+            role="Anomaly Hunter (Fundamental & Tech Analyst)",
+            goal=f"เฟ้นหาความผิดปกติของ {self.symbol} ทั้งเชิงมูลค่า (WACC, PEGY) และสัญญาณทางเทคนิค",
+            backstory=(
+                "คุณเป็นนักวิเคราะห์สไตล์ Renaissance Technologies ที่มองหาการบิดเบือนของราคา "
+                "คุณตรวจสอบว่า ROE สูงกว่า WACC หรือไม่ (เพื่อดูการสร้างมูลค่าจริง) "
+                "และตรวจสอบ PEGY เพื่อหาหุ้นที่เติบโตสูงแต่ราคาถูก "
+                "คุณมองหา Anomaly ที่ตลาดมองข้าม"
+            ),
+            llm=llm,
+            verbose=False
+        )
+
+        engineer = Agent(
+            role="Backtest Engineer",
+            goal="พิสูจน์สัญญาณซื้อขายด้วยข้อมูลย้อนหลัง และสรุปค่า Win Rate/Risk ตามสถิติจริง",
+            backstory=(
+                "คุณเป็น Quant Engineer ที่เชื่อถือแต่ตัวเลขสถิติ "
+                "คุณจะนำผลการทดสอบ RSI Momentum และ EMA Cross มาประเมินว่า "
+                "ในอดีตหุ้นตัวนี้ตอบสนองต่อกลยุทธ์ไหนได้ดีที่สุด และ Win Rate เกิน 55% หรือไม่"
+            ),
+            llm=llm,
+            verbose=False
+        )
+
+        decider = Agent(
+            role="Execution Decider",
+            goal="สรุป Action Plan ขั้นสุดท้าย และเขียนรายงาน Daily Report รูปแบบย่อยง่าย",
+            backstory=(
+                "คุณคือผู้นำทีมที่รวบรวมข้อมูลจาก Hunter และ Engineer "
+                "คุณมีหน้าที่ตัดสินใจว่า 'วันนี้ต้องทำอะไร' และสื่อสารออกมาให้มีพลัง Action-oriented "
+                "รายงานของคุณต้องสั้น กระชับ และแจ้งเตือนจุดที่ต้องโฟกัสใน Dashboard"
+            ),
+            llm=llm,
+            verbose=False
+        )
+
+        # --- Define Tasks ---
+        task_hunt = Task(
+            description=f"วิเคราะห์ความผิดปกติของ {self.symbol} โดยใช้ Valuation Context:\n{context}\nระบุว่านี่คือหุ้น Undervalued ที่มีคุณภาพ (ROE > WACC) หรือไม่",
+            agent=hunter,
+            expected_output="รายงานวิเคราะห์ Anomaly เชิงมูลค่าและเทคนิค"
+        )
+
+        task_test = Task(
+            description=f"ประเมินผล Backtest ของ {self.symbol} จากข้อมูลสถิติที่ได้รับ:\n{context}\nสรุปว่ากลยุทธ์ไหนมีโอกาสสำเร็จสูงสุดในหุ้นตัวนี้",
+            agent=engineer,
+            expected_output="สรุปจุดแข็งเชิงสถิติกำกับด้วย Win Rate"
+        )
+
+        task_decide = Task(
+            description=f"เขียนรายงานสรุป Daily Report สำหรับ {self.symbol}:\nครอบคลุมคำแนะนำ BUY/HOLD/SELL ตารางราคาเข้า/เป้าหมาย/Stop และสิ่งที่ต้องเฝ้าระวังใน Dashboard",
+            agent=decider,
+            expected_output="Daily Report ภาษาไทย สไตล์คนทำงาน (Actionable Insights)"
+        )
+
+        crew = Crew(
+            agents=[hunter, engineer, decider],
+            tasks=[task_hunt, task_test, task_decide],
+            process=Process.sequential,
+            verbose=False
+        )
+
+        return str(crew.kickoff())
+
+
+
+# ======================================================================
 # CrewAI Stock Analysis System — Minervini/O'Neil Momentum Style
 # ======================================================================
 

@@ -1,0 +1,293 @@
+{% extends 'stocks/base_stocks.html' %}
+{% load static %}
+
+{% block title %}📈 {{ symbol }} Chart{% endblock %}
+
+{% block extra_css %}
+<style>
+  .chart-header {
+    background: linear-gradient(135deg, #0f172a, #1e3a5f);
+    color: white;
+    border-radius: 16px;
+    padding: 1.5rem 2rem;
+  }
+  .period-btn {
+    background: rgba(255,255,255,0.1);
+    color: white;
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 8px;
+    padding: 4px 14px;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .period-btn:hover, .period-btn.active {
+    background: #3b82f6;
+    border-color: #3b82f6;
+  }
+  .legend-dot {
+    display: inline-block;
+    width: 12px; height: 12px;
+    border-radius: 50%;
+    margin-right: 5px;
+  }
+  .signal-badge {
+    font-size: 0.75rem;
+    padding: 2px 8px;
+    border-radius: 20px;
+  }
+  #chart-container { position: relative; width: 100%; height: 420px; border-radius: 12px; overflow: hidden; }
+  #rsi-container   { position: relative; width: 100%; height: 160px; border-radius: 12px; overflow: hidden; }
+  #vol-container   { position: relative; width: 100%; height: 100px; border-radius: 12px; overflow: hidden; }
+  .panel-label {
+    position: absolute; top: 8px; left: 12px;
+    font-size: 0.72rem; font-weight: 700;
+    color: #475569; z-index: 10; pointer-events: none;
+  }
+  #crosshair-info {
+    font-size: 0.8rem; color: #cbd5e1;
+    min-height: 24px;
+  }
+  .symbol-input-wrap { position: relative; }
+  .symbol-input-wrap input {
+    background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.25);
+    color: white;
+    border-radius: 8px;
+    padding: 6px 14px;
+    font-weight: 700;
+    text-transform: uppercase;
+    width: 120px;
+  }
+  .symbol-input-wrap input::placeholder { color: rgba(255,255,255,0.4); }
+  .signal-table td, .signal-table th { font-size: 0.82rem; padding: 6px 10px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-4">
+
+  <!-- Header -->
+  <div class="chart-header mb-3 d-flex flex-wrap align-items-center justify-content-between gap-3">
+    <div class="d-flex align-items-center gap-3">
+      <div>
+        <h4 class="fw-bold mb-0">📈 <span id="display-symbol">{{ symbol }}</span></h4>
+        <small class="opacity-60">Turtle Breakout + Momentum Chart</small>
+      </div>
+      <form id="symbol-form" class="d-flex gap-2 align-items-center" onsubmit="changeSymbol(event)">
+        <div class="symbol-input-wrap">
+          <input type="text" id="symbol-input" placeholder="Symbol…" value="{{ symbol }}">
+        </div>
+        <select id="market-select" class="form-select form-select-sm bg-transparent text-white border-secondary" style="width:auto;">
+          <option value="SET" {% if market == 'SET' %}selected{% endif %}>🇹🇭 SET</option>
+          <option value="US"  {% if market == 'US'  %}selected{% endif %}>🇺🇸 US</option>
+          <option value="CRYPTO" {% if market == 'CRYPTO' %}selected{% endif %}>🪙 Crypto</option>
+        </select>
+        <button type="submit" class="period-btn">Go</button>
+      </form>
+    </div>
+
+    <div class="d-flex gap-2 flex-wrap">
+      <button class="period-btn" onclick="loadPeriod('3mo')">3mo</button>
+      <button class="period-btn" onclick="loadPeriod('6mo')">6mo</button>
+      <button class="period-btn active" onclick="loadPeriod('1y')">1y</button>
+      <button class="period-btn" onclick="loadPeriod('2y')">2y</button>
+    </div>
+  </div>
+
+  <!-- Legend -->
+  <div class="d-flex gap-4 mb-2 flex-wrap" id="crosshair-info">
+    <span><span class="legend-dot" style="background:#22c55e;"></span>DC20 Upper</span>
+    <span><span class="legend-dot" style="background:#86efac;border:1px dashed #22c55e;"></span>DC20 Lower</span>
+    <span><span class="legend-dot" style="background:#f59e0b;"></span>DC55 Upper</span>
+    <span><span class="legend-dot" style="background:#fcd34d;border:1px dashed #f59e0b;"></span>DC55 Lower</span>
+    <span>▲ <span style="color:#22c55e;">Sys1 Buy</span></span>
+    <span>▲ <span style="color:#f59e0b;">Sys2 Buy</span></span>
+    <span>▼ <span style="color:#ef4444;">Exit</span></span>
+  </div>
+
+  <!-- Status -->
+  <div id="chart-status" class="text-primary fw-bold mb-2 ps-1" style="min-height:24px;"></div>
+
+  <!-- Main chart -->
+  <div class="bg-white rounded-3 p-0 mb-2 border" style="position:relative;">
+    <div class="panel-label">OHLCV — Donchian Channel</div>
+    <div id="chart-container"></div>
+  </div>
+
+  <!-- RSI panel -->
+  <div class="bg-white rounded-3 p-0 mb-2 border" style="position:relative;">
+    <div class="panel-label">RSI (14)</div>
+    <div id="rsi-container"></div>
+  </div>
+
+  <!-- Volume panel -->
+  <div class="bg-dark rounded-3 p-0 mb-3" style="position:relative;">
+    <div class="panel-label">Volume</div>
+    <div id="vol-container"></div>
+  </div>
+
+  <!-- Signal table -->
+  <div class="card border-0 shadow-sm">
+    <div class="card-header fw-bold">🐢 Turtle Signals (Recent)</div>
+    <div class="card-body p-0">
+      <table class="table table-sm signal-table mb-0" id="signal-table">
+        <thead class="table-light">
+          <tr>
+            <th>Date</th>
+            <th>Type</th>
+            <th>Price</th>
+          </tr>
+        </thead>
+        <tbody id="signal-tbody">
+          <tr><td colspan="3" class="text-center text-muted py-3">Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/lightweight-charts@3.8.0/dist/lightweight-charts.standalone.production.js"></script>
+<script>
+let currentSymbol = "{{ symbol }}";
+let currentMarket = "{{ market }}";
+let currentPeriod = "1y";
+let mainChart = null, rsiChart = null, volChart = null;
+
+function setStatus(msg) {
+  document.getElementById('chart-status').textContent = msg;
+}
+
+function mkChart(elId, height) {
+  if (typeof LightweightCharts === 'undefined') {
+     throw new Error("Library กราฟยังโหลดไม่เสร็จ กรุณารอสักครู่หรือ Refresh หน้าจอ");
+  }
+  const el = document.getElementById(elId);
+  const w = el.clientWidth || el.offsetWidth || el.parentElement.clientWidth || 800;
+  console.log(`Creating chart in ${elId} with width: ${w}`);
+  return LightweightCharts.createChart(el, {
+    width: w, height,
+    layout: { backgroundColor: '#ffffff', textColor: '#334155' },
+    grid: { vertLines: { color: '#f1f5f9' }, horzLines: { color: '#f1f5f9' } },
+    crosshair: { mode: 1 },
+    rightPriceScale: { borderColor: '#e2e8f0' },
+    timeScale: { borderColor: '#e2e8f0', timeVisible: true, secondsVisible: false },
+  });
+}
+
+function destroyAll() {
+  [mainChart, rsiChart, volChart].forEach(c => { if (c) c.remove(); });
+  mainChart = rsiChart = volChart = null;
+}
+
+function renderCharts(data) {
+  destroyAll();
+  mainChart = mkChart('chart-container', 420);
+  rsiChart  = mkChart('rsi-container',   160);
+  volChart  = mkChart('vol-container',   100);
+
+  // — Main: Candlestick
+  const cs = mainChart.addCandlestickSeries({
+    upColor: '#16a34a', downColor: '#dc2626',
+    borderUpColor: '#16a34a', borderDownColor: '#dc2626',
+    wickUpColor: '#16a34a', wickDownColor: '#dc2626',
+  });
+  cs.setData(data.candles);
+
+  // — Donchian 20 (green)
+  mainChart.addLineSeries({ color: '#16a34a', lineWidth: 1, priceLineVisible: false, lastValueVisible: false }).setData(data.dc20_upper);
+  mainChart.addLineSeries({ color: '#16a34a', lineWidth: 1, lineStyle: 1, priceLineVisible: false, lastValueVisible: false }).setData(data.dc20_lower);
+
+  // — Donchian 55 (orange)
+  mainChart.addLineSeries({ color: '#d97706', lineWidth: 1, priceLineVisible: false, lastValueVisible: false }).setData(data.dc55_upper);
+  mainChart.addLineSeries({ color: '#d97706', lineWidth: 1, lineStyle: 1, priceLineVisible: false, lastValueVisible: false }).setData(data.dc55_lower);
+
+  // — Markers
+  const markers = data.signals.map(s => ({
+    time: s.time,
+    position: s.type === 'sys1_exit' ? 'aboveBar' : 'belowBar',
+    color:  s.type === 'sys1_buy' ? '#16a34a' : s.type === 'sys2_buy' ? '#d97706' : '#dc2626',
+    shape:  s.type === 'sys1_exit' ? 'arrowDown' : 'arrowUp',
+    text:   s.type === 'sys1_buy' ? 'S1' : s.type === 'sys2_buy' ? 'S2' : 'Exit',
+  })).sort((a, b) => a.time < b.time ? -1 : 1);
+  cs.setMarkers(markers);
+
+  // — RSI
+  const rsiS = rsiChart.addLineSeries({ color: '#6366f1', lineWidth: 2, priceLineVisible: false, lastValueVisible: true });
+  rsiS.setData(data.rsi);
+  if (data.rsi.length) {
+    const t0 = data.rsi[0].time, t1 = data.rsi[data.rsi.length - 1].time;
+    rsiChart.addLineSeries({ color: '#ef4444', lineWidth: 1, lineStyle: 1, priceLineVisible: false, lastValueVisible: false })
+      .setData([{ time: t0, value: 70 }, { time: t1, value: 70 }]);
+    rsiChart.addLineSeries({ color: '#22c55e', lineWidth: 1, lineStyle: 1, priceLineVisible: false, lastValueVisible: false })
+      .setData([{ time: t0, value: 30 }, { time: t1, value: 30 }]);
+  }
+
+  // — Volume
+  volChart.addHistogramSeries({ priceFormat: { type: 'volume' }, priceScaleId: '' }).setData(data.volume);
+
+  // Fit & sync
+  mainChart.timeScale().fitContent();
+  rsiChart.timeScale().fitContent();
+  volChart.timeScale().fitContent();
+  mainChart.timeScale().subscribeVisibleLogicalRangeChange(r => {
+    if (r) { rsiChart.timeScale().setVisibleLogicalRange(r); volChart.timeScale().setVisibleLogicalRange(r); }
+  });
+
+  // Resize support
+  window.onresize = () => {
+    const w = document.getElementById('chart-container').offsetWidth;
+    if (mainChart) mainChart.resize(w, 420);
+    if (rsiChart) rsiChart.resize(w, 160);
+    if (volChart) volChart.resize(w, 100);
+  };
+}
+
+function loadData(sym, mkt, period) {
+  setStatus(`⏳ กำลังโหลด ${sym}…`);
+  document.getElementById('signal-tbody').innerHTML = '<tr><td colspan="3" class="text-center text-muted">Loading…</td></tr>';
+
+  fetch(`/stocks/chart/${sym}/data/?market=${mkt}&period=${period}`)
+    .then(r => r.json())
+    .then(data => {
+      if (data.error) { setStatus('❌ ' + data.error); return; }
+      setStatus('');
+      renderCharts(data);
+      document.getElementById('display-symbol').textContent = data.symbol;
+
+      // Signal table
+      const recent = [...data.signals].reverse().slice(0, 20);
+      const typeLabel = {
+        sys1_buy:  '<span class="badge bg-success">▲ Sys1 Buy</span>',
+        sys2_buy:  '<span class="badge bg-warning text-dark">▲ Sys2 Buy</span>',
+        sys1_exit: '<span class="badge bg-danger">▼ Exit</span>',
+      };
+      document.getElementById('signal-tbody').innerHTML = recent.length
+        ? recent.map(s => `<tr><td>${s.time}</td><td>${typeLabel[s.type]||s.type}</td><td>${s.price.toFixed(2)}</td></tr>`).join('')
+        : '<tr><td colspan="3" class="text-center text-muted">No signals</td></tr>';
+    })
+    .catch(e => setStatus('❌ Error: ' + e.message));
+}
+
+function loadPeriod(p) {
+  currentPeriod = p;
+  document.querySelectorAll('.period-btn').forEach(b => b.classList.toggle('active', b.textContent.trim() === p));
+  loadData(currentSymbol, currentMarket, currentPeriod);
+}
+
+function changeSymbol(e) {
+  e.preventDefault();
+  const sym = document.getElementById('symbol-input').value.trim().toUpperCase();
+  const mkt = document.getElementById('market-select').value;
+  if (!sym) return;
+  currentSymbol = sym; currentMarket = mkt;
+  history.pushState({}, '', `/stocks/chart/${sym}/?market=${mkt}`);
+  loadData(sym, mkt, currentPeriod);
+}
+
+window.addEventListener('load', () => loadData(currentSymbol, currentMarket, currentPeriod));
+</script>
+{% endblock %}
