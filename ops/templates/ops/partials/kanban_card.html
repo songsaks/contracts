@@ -1,0 +1,24 @@
+<div class="kanban-card" data-id="{{ goal.id }}">
+    <span class="card-dept 
+        {% if goal.department.name == 'Sales' %}dept-sales
+        {% elif goal.department.name == 'Technician' %}dept-tech
+        {% elif goal.department.name == 'Warehouse' %}dept-warehouse
+        {% elif goal.department.name == 'Social Media' %}dept-social
+        {% else %}bg-light text-dark{% endif %}">
+        {{ goal.department.name }}
+    </span>
+    <div class="card-title">{{ goal.title }}</div>
+    
+    <div class="progress-mini">
+        <div class="progress-bar-mini" style="width:{{ goal.success_percentage }}%; background-color: {{ goal.status_color }};"></div>
+    </div>
+    
+    <div class="card-footer">
+        <span class="text-muted" style="font-size: 0.75rem;">
+            <i class="fas fa-bullseye me-1"></i>{{ goal.target_value }} {{ goal.unit }}
+        </span>
+        <span class="fw-bold text-dark" style="font-size: 0.8rem;">
+            {{ goal.success_percentage|floatformat:0 }}%
+        </span>
+    </div>
+</div>

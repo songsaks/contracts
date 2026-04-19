@@ -1,9 +1,11 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
+from django.http import JsonResponse
 from .models import WeeklyGoal, DailyProgress, Department, Employee
 from django.utils import timezone
 from django.db.models import Sum
+import json
 
 @login_required
 def dashboard(request):
@@ -185,3 +187,85 @@ def ai_analysis(request):
         'analysis': analysis,
         'data_context': data_context
     })
+
+# ====== Scheduler Views ======
+
+@login_required
+def scheduler_view(request):
+    """แสดงหน้าปฏิทินวางแผนงาน"""
+    departments = Department.objects.all()
+    return render(request, 'ops/scheduler.html', {
+        'departments': departments,
+    })
+
+@login_required
+def scheduler_data(request):
+    """ส่งข้อมูลเป้าหมายรายสัปดาห์ในรูปแบบ JSON สำหรับ FullCalendar"""
+    goals = WeeklyGoal.objects.all()
+    events = []
+    
+    # กำหนดสีตามฝ่าย (เพื่อให้ดูง่ายในปฏิทิน)
+    color_map = {
+        'Sales': '#3b82f6',      # Blue
+        'Technician': '#f59e0b', # Amber
+        'Warehouse': '#10b981',  # Emerald
+        'Social Media': '#ec4899' # Pink
+    }
+    
+    for goal in goals:
+        # คำนวณสี
+        bg_color = color_map.get(goal.department.name, '#6366f1')
+        
+        events.append({
+            'id': goal.id,
+            'title': f"[{goal.department.name}] {goal.title}",
+            'start': goal.start_date.isoformat(),
+            'end': (goal.end_date + timezone.timedelta(days=1)).isoformat(), # FullCalendar end is exclusive
+            'backgroundColor': bg_color,
+            'borderColor': bg_color,
+            'extendedProps': {
+                'department': goal.department.name,
+                'target': f"{goal.target_value} {goal.unit}",
+                'progress': f"{goal.success_percentage}%"
+            }
+        })
+    
+    return JsonResponse(events, safe=False)
+
+# ====== Kanban Views ======
+
+@login_required
+def kanban_view(request):
+    """แสดงบอร์ดคุมสถานะงาน (Kanban)"""
+    goals = WeeklyGoal.objects.all().order_by('status', '-created_at')
+    
+    # จัดกลุ่มเป้าหมายตามสถานะ
+    todo = goals.filter(status='todo')
+    doing = goals.filter(status='doing')
+    done = goals.filter(status='done')
+    blocked = goals.filter(status='blocked')
+    
+    return render(request, 'ops/kanban.html', {
+        'todo': todo,
+        'doing': doing,
+        'done': done,
+        'blocked': blocked,
+    })
+
+@login_required
+def update_goal_status(request):
+    """API สำหรับอัปเดตสถานะเป้าหมายเมื่อลากการ์ดมาวาง (AJAX)"""
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            goal_id = data.get('goal_id')
+            new_status = data.get('status')
+            
+            goal = WeeklyGoal.objects.get(id=goal_id)
+            goal.status = new_status
+            goal.save()
+            
+            return JsonResponse({'status': 'success'})
+        except Exception as e:
+            return JsonResponse({'status': 'error', 'message': str(e)}, status=400)
+    return JsonResponse({'status': 'error', 'message': 'Method not allowed'}, status=405)

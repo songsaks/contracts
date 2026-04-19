@@ -1,0 +1,198 @@
+{% extends "ops/base_ops.html" %}
+
+{% block title %}Calendar Scheduler — Ops Planning{% endblock %}
+
+{% block extra_css %}
+<!-- FullCalendar CSS -->
+<script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js'></script>
+<style>
+    :root {
+        --fc-border-color: #e2e8f0;
+        --fc-today-bg-color: #f8fafc;
+        --fc-button-bg-color: #3b82f6;
+        --fc-button-border-color: #3b82f6;
+        --fc-button-hover-bg-color: #2563eb;
+        --fc-event-border-radius: 6px;
+    }
+
+    .scheduler-container {
+        background: white;
+        padding: 2rem;
+        border-radius: 20px;
+        border: 1px solid #e2e8f0;
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+        min-height: 800px;
+    }
+
+    #calendar {
+        height: 750px;
+        font-family: 'Outfit', sans-serif;
+    }
+
+    @media (max-width: 768px) {
+        #calendar {
+            height: 500px; /* ลดความสูงลงในมือถือ */
+        }
+        .fc .fc-toolbar-title {
+            font-size: 1.1rem;
+        }
+        .fc .fc-button {
+            padding: 0.25rem 0.5rem !important;
+            font-size: 0.8rem !important;
+        }
+    }
+
+    .fc .fc-toolbar-title {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: #1e293b;
+    }
+
+    .fc .fc-button-primary {
+        background-color: var(--fc-button-bg-color);
+        border-color: var(--fc-button-border-color);
+        text-transform: capitalize;
+        font-weight: 600;
+        padding: 0.5rem 1rem;
+    }
+
+    .fc-event {
+        cursor: pointer;
+        padding: 4px 8px;
+        font-size: 0.85rem;
+        transition: transform 0.1s;
+    }
+
+    .fc-event:hover {
+        transform: scale(1.02);
+        z-index: 5;
+    }
+
+    /* Legend */
+    .calendar-legend {
+        display: flex;
+        gap: 1.5rem;
+        margin-bottom: 2rem;
+        flex-wrap: wrap;
+    }
+
+    .legend-item {
+        display: flex;
+        items-center: center;
+        gap: 0.5rem;
+        font-size: 0.9rem;
+        font-weight: 600;
+        color: #64748b;
+    }
+
+    .dot {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row mb-4 animate__animated animate__fadeIn">
+    <div class="col-12">
+        <h2 class="fw-bold text-dark">
+            <i class="fas fa-calendar-alt text-primary me-2"></i> ปฏิทินวางแผนงานรายสัปดาห์
+        </h2>
+        <p class="text-muted">ตรวจสอบตารางงานและเป้าหมายของทุกฝ่ายในรูปแบบ Timeline</p>
+    </div>
+</div>
+
+<div class="calendar-legend animate__animated animate__fadeIn">
+    {% for dept in departments %}
+    <div class="legend-item">
+        <span class="dot" style="background-color: 
+            {% if dept.name == 'Sales' %}#3b82f6
+            {% elif dept.name == 'Technician' %}#f59e0b
+            {% elif dept.name == 'Warehouse' %}#10b981
+            {% elif dept.name == 'Social Media' %}#ec4899
+            {% else %}#6366f1{% endif %};"></span>
+        {{ dept.name }}
+    </div>
+    {% endfor %}
+</div>
+
+<div class="scheduler-container animate__animated animate__fadeInUp">
+    <div id='calendar'></div>
+</div>
+
+<!-- Modal for details -->
+<div class="modal fade" id="eventModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title fw-bold" id="modalTitle"></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <span class="badge bg-light text-dark border" id="modalDept"></span>
+                </div>
+                <div class="mb-4">
+                    <h6 class="text-muted small text-uppercase fw-bold mb-2">เป้าหมาย & ความคืบหน้า</h6>
+                    <div class="d-flex justify-content-between align-items-end mb-1">
+                        <span class="h4 fw-bold text-primary mb-0" id="modalTarget"></span>
+                        <span class="badge bg-success" id="modalProgress"></span>
+                    </div>
+                </div>
+                <div class="mb-4">
+                    <h6 class="text-muted small text-uppercase fw-bold mb-2">ระยะเวลา</h6>
+                    <p class="mb-1" id="modalDates"></p>
+                </div>
+            </div>
+            <div class="modal-footer border-0">
+                <button type="button" class="btn btn-light" data-bs-dismiss="modal">ปิด</button>
+                <a href="#" id="modalReportLink" class="btn btn-primary px-4">ดูรายละเอียด</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        var calendarEl = document.getElementById('calendar');
+        var eventModal = new bootstrap.Modal(document.getElementById('eventModal'));
+        
+        var calendar = new FullCalendar.Calendar(calendarEl, {
+            initialView: 'dayGridMonth',
+            headerToolbar: {
+                left: 'prev,next today',
+                center: 'title',
+                right: 'dayGridMonth,timeGridWeek'
+            },
+            events: '{% url "ops:scheduler_data" %}',
+            locale: 'th',
+            firstDay: 1, // Start on Monday
+            eventClick: function(info) {
+                // Show modal with information
+                document.getElementById('modalTitle').innerText = info.event.title;
+                document.getElementById('modalDept').innerText = info.event.extendedProps.department;
+                document.getElementById('modalTarget').innerText = info.event.extendedProps.target;
+                document.getElementById('modalProgress').innerText = info.event.extendedProps.progress;
+                
+                // Format dates
+                const startStr = info.event.start.toLocaleDateString('th-TH');
+                const end = new Date(info.event.end);
+                end.setDate(end.getDate() - 1); // Adjust back from FullCalendar exclusive end
+                const endStr = end.toLocaleDateString('th-TH');
+                document.getElementById('modalDates').innerText = `${startStr} - ${endStr}`;
+                
+                // Link to report
+                document.getElementById('modalReportLink').href = `/ops/report/${info.event.id}/`;
+                
+                eventModal.show();
+            }
+        });
+        
+        calendar.render();
+    });
+</script>
+{% endblock %}

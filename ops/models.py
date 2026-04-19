@@ -24,7 +24,15 @@ class WeeklyGoal(models.Model):
     start_date = models.DateField(verbose_name="วันที่เริ่ม (จันทร์)")
     end_date = models.DateField(verbose_name="วันที่สิ้นสุด (เสาร์)")
     target_value = models.FloatField(default=0, verbose_name="ตัวเลขเป้าหมาย (Target)")
-    unit = models.CharField(max_length=50, default="งาน", verbose_name="หน่วยวัด (บาท/งาน/โพสต์)")
+    unit = models.CharField(max_length=20, default='งาน', verbose_name="หน่วยวัด")
+    
+    STATUS_CHOICES = (
+        ('todo', 'รอดำเนินการ (To Do)'),
+        ('doing', 'กำลังทำ (In Progress)'),
+        ('done', 'เสร็จสิ้น (Done)'),
+        ('blocked', 'ติดปัญหา (Blocked)'),
+    )
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='todo', verbose_name="สถานะ")
     created_at = models.DateTimeField(auto_now_add=True)
 
     @property

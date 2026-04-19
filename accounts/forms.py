@@ -38,6 +38,7 @@ class UserCreateForm(forms.ModelForm):
     access_payroll = forms.BooleanField(label="เข้าใช้ระบบเงินเดือน", required=False)
     access_stocks = forms.BooleanField(label="เข้าใช้ระบบวิเคราะห์หุ้น AI", required=False)
     access_accounts = forms.BooleanField(label="เข้าใช้ระบบจัดการพนักงาน (User Management)", required=False)
+    access_ops = forms.BooleanField(label="เข้าใช้ระบบวางแผน (Ops App)", required=False)
 
     # ====== สิทธิ์เข้าห้องแชทส่วนตัว ======
     chat_rooms = forms.ModelMultipleChoiceField(
@@ -82,6 +83,7 @@ class UserCreateForm(forms.ModelForm):
             profile.access_payroll = self.cleaned_data.get('access_payroll', False)
             profile.access_stocks = self.cleaned_data.get('access_stocks', False)
             profile.access_accounts = self.cleaned_data.get('access_accounts', False)
+            profile.access_ops = self.cleaned_data.get('access_ops', False)
             profile.save()
 
             # บันทึกห้องแชทที่ได้รับอนุญาต
@@ -115,6 +117,7 @@ class UserUpdateForm(forms.ModelForm):
     access_payroll = forms.BooleanField(label="เข้าใช้ระบบเงินเดือน", required=False)
     access_stocks = forms.BooleanField(label="เข้าใช้ระบบวิเคราะห์หุ้น AI", required=False)
     access_accounts = forms.BooleanField(label="เข้าใช้ระบบจัดการพนักงาน (User Management)", required=False)
+    access_ops = forms.BooleanField(label="เข้าใช้ระบบวางแผน (Ops App)", required=False)
 
     # ====== สิทธิ์เข้าห้องแชทส่วนตัว ======
     chat_rooms = forms.ModelMultipleChoiceField(
@@ -160,6 +163,7 @@ class UserUpdateForm(forms.ModelForm):
             self.fields['access_payroll'].initial = self.instance.profile.access_payroll
             self.fields['access_stocks'].initial = self.instance.profile.access_stocks
             self.fields['access_accounts'].initial = self.instance.profile.access_accounts
+            self.fields['access_ops'].initial = self.instance.profile.access_ops
 
             # โหลดห้องแชทที่ User นี้มีสิทธิ์เข้าถึงอยู่แล้ว
             if hasattr(self.instance, 'allowed_chat_rooms'):
@@ -193,6 +197,7 @@ class UserUpdateForm(forms.ModelForm):
             profile.access_payroll = self.cleaned_data.get('access_payroll', False)
             profile.access_stocks = self.cleaned_data.get('access_stocks', False)
             profile.access_accounts = self.cleaned_data.get('access_accounts', False)
+            profile.access_ops = self.cleaned_data.get('access_ops', False)
             profile.save()
 
             # อัปเดตห้องแชทที่ได้รับอนุญาต (Clear ของเดิมแล้วใส่ใหม่)

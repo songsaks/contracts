@@ -1,0 +1,265 @@
+{% extends "ops/base_ops.html" %}
+
+{% block title %}Kanban Board — Ops Portfolio{% endblock %}
+
+{% block extra_css %}
+<!-- SortableJS -->
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+<style>
+    .kanban-board {
+        display: flex;
+        gap: 1.25rem;
+        overflow-x: auto;
+        padding: 0.5rem 0.5rem 1.5rem 0.5rem;
+        min-height: calc(100vh - 250px);
+        scroll-snap-type: x mandatory; /* ให้มัน Snap ทีละคอลัมน์ในมือถือ */
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .kanban-column {
+        flex: 0 0 320px;
+        background: #f1f5f9;
+        border-radius: 16px;
+        display: flex;
+        flex-direction: column;
+        border: 1px solid #e2e8f0;
+        scroll-snap-align: start;
+    }
+
+    @media (max-width: 768px) {
+        .kanban-column {
+            flex: 0 0 85vw; /* ในมือถือให้เห็นเกือบเต็มจอ จะได้ไม่อึดอัด */
+        }
+        .kanban-board {
+            gap: 0.75rem;
+        }
+    }
+
+    .column-header {
+        padding: 1.25rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .column-title {
+        font-weight: 700;
+        font-size: 0.95rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: #475569;
+    }
+
+    .count-badge {
+        background: #cbd5e1;
+        color: #475569;
+        font-size: 0.75rem;
+        padding: 0.2rem 0.6rem;
+        border-radius: 20px;
+        font-weight: 700;
+    }
+
+    .kanban-items {
+        flex: 1;
+        padding: 0.75rem;
+        min-height: 100px;
+    }
+
+    /* Card Styling */
+    .kanban-card {
+        background: white;
+        border-radius: 12px;
+        padding: 1rem;
+        margin-bottom: 0.75rem;
+        border: 1px solid #e2e8f0;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        cursor: grab;
+        transition: transform 0.15s, box-shadow 0.15s;
+    }
+
+    .kanban-card:active { cursor: grabbing; }
+    .kanban-card.sortable-ghost { opacity: 0.4; transform: scale(0.95); }
+
+    .card-dept {
+        font-size: 0.7rem;
+        font-weight: 800;
+        text-transform: uppercase;
+        margin-bottom: 0.5rem;
+        display: inline-block;
+        padding: 0.1rem 0.5rem;
+        border-radius: 4px;
+    }
+
+    .card-title {
+        font-weight: 600;
+        font-size: 0.9rem;
+        color: #1e293b;
+        margin-bottom: 0.75rem;
+        line-height: 1.4;
+    }
+
+    .card-footer {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border-top: 1px solid #f1f5f9;
+        padding-top: 0.75rem;
+        margin-top: 0.75rem;
+    }
+
+    .progress-mini {
+        height: 6px;
+        width: 100%;
+        background: #f1f5f9;
+        border-radius: 10px;
+        overflow: hidden;
+    }
+
+    .progress-bar-mini {
+        height: 100%;
+        transition: width 0.3s;
+    }
+
+    /* Column colors */
+    .col-todo { border-top: 4px solid #94a3b8; }
+    .col-doing { border-top: 4px solid #3b82f6; }
+    .col-done { border-top: 4px solid #10b981; }
+    .col-blocked { border-top: 4px solid #ef4444; }
+
+    /* Dept Colors */
+    .dept-sales { background: #dbeafe; color: #1e40af; }
+    .dept-tech { background: #fef3c7; color: #92400e; }
+    .dept-warehouse { background: #dcfce7; color: #166534; }
+    .dept-social { background: #fce7f3; color: #9d174d; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row mb-4 animate__animated animate__fadeIn">
+    <div class="col-12 d-flex justify-content-between align-items-center">
+        <div>
+            <h2 class="fw-bold text-dark mb-1">
+                <i class="fas fa-chalkboard text-primary me-2"></i> Workflow Kanban
+            </h2>
+            <p class="text-muted mb-0">ลากและวางเพื่อเปลี่ยนสถานะงานประจำสัปดาห์</p>
+        </div>
+        <a href="{% url 'ops:goal_create' %}" class="btn-premium">
+            <i class="fas fa-plus me-2"></i>สร้างแผนงานใหม่
+        </a>
+    </div>
+</div>
+
+<div class="kanban-board pb-4 animate__animated animate__fadeInUp">
+    <!-- To Do -->
+    <div class="kanban-column col-todo">
+        <div class="column-header">
+            <span class="column-title">รอดำเนินการ (To Do)</span>
+            <span class="count-badge" id="todo-count">{{ todo.count }}</span>
+        </div>
+        <div class="kanban-items" id="todo" data-status="todo">
+            {% for goal in todo %}
+                {% include "ops/partials/kanban_card.html" with goal=goal %}
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Doing -->
+    <div class="kanban-column col-doing">
+        <div class="column-header">
+            <span class="column-title">กำลังทำ (Doing)</span>
+            <span class="count-badge" id="doing-count">{{ doing.count }}</span>
+        </div>
+        <div class="kanban-items" id="doing" data-status="doing">
+            {% for goal in doing %}
+                {% include "ops/partials/kanban_card.html" with goal=goal %}
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Blocked -->
+    <div class="kanban-column col-blocked">
+        <div class="column-header">
+            <span class="column-title text-danger">ติดปัญหา (Blocked)</span>
+            <span class="count-badge bg-danger text-white" id="blocked-count">{{ blocked.count }}</span>
+        </div>
+        <div class="kanban-items" id="blocked" data-status="blocked">
+            {% for goal in blocked %}
+                {% include "ops/partials/kanban_card.html" with goal=goal %}
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Done -->
+    <div class="kanban-column col-done">
+        <div class="column-header">
+            <span class="column-title text-success">เสร็จสิ้น (Done)</span>
+            <span class="count-badge bg-success text-white" id="done-count">{{ done.count }}</span>
+        </div>
+        <div class="kanban-items" id="done" data-status="done">
+            {% for goal in done %}
+                {% include "ops/partials/kanban_card.html" with goal=goal %}
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const columns = ['todo', 'doing', 'done', 'blocked'];
+        
+        columns.forEach(status => {
+            const el = document.getElementById(status);
+            new Sortable(el, {
+                group: 'kanban',
+                animation: 150,
+                ghostClass: 'sortable-ghost',
+                onEnd: function (evt) {
+                    const goalId = evt.item.dataset.id;
+                    const newStatus = evt.to.dataset.status;
+                    
+                    // อัปเดตตัวเลขใน Badge
+                    updateBadges();
+                    
+                    // ส่งข้อมูลไปหลังบ้าน
+                    updateStatusOnServer(goalId, newStatus);
+                }
+            });
+        });
+
+        function updateBadges() {
+            columns.forEach(status => {
+                const count = document.getElementById(status).children.length;
+                document.getElementById(`${status}-count`).innerText = count;
+            });
+        }
+
+        function updateStatusOnServer(goalId, status) {
+            fetch('{% url "ops:update_goal_status" %}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                body: JSON.stringify({
+                    goal_id: goalId,
+                    status: status
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status !== 'success') {
+                    alert('เกิดข้อผิดพลาดในการอัปเดตสถานะ');
+                    location.reload();
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('ไม่สามารถติดต่อเซิร์ฟเวอร์ได้');
+            });
+        }
+    });
+</script>
+{% endblock %}

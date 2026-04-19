@@ -86,6 +86,7 @@ class UserProfile(models.Model):
     access_payroll = models.BooleanField(default=True, verbose_name="เข้าใช้ระบบเงินเดือน")
     access_stocks = models.BooleanField(default=False, verbose_name="เข้าใช้ระบบวิเคราะห์หุ้น AI")
     access_accounts = models.BooleanField(default=False, verbose_name="เข้าใช้ระบบจัดการพนักงาน (User Management)")
+    access_ops = models.BooleanField(default=False, verbose_name="เข้าใช้ระบบวางแผน (Ops App)")
 
     class Meta:
         verbose_name = "โปรไฟล์พนักงาน"
@@ -149,6 +150,7 @@ class UserProfile(models.Model):
             'access_payroll': 'Payroll',
             'access_stocks': 'Stocks',
             'access_accounts': 'Accounts',
+            'access_ops': 'Ops',
         }
 
         # วนลูปทุก Field ใน Mapping เพื่อเพิ่ม/ลบ User ออกจาก Group ตามสิทธิ์
