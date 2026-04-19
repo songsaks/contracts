@@ -1,0 +1,40 @@
+{% extends "ops/base_ops.html" %}
+{% load static %}
+
+{% block title %}AI Root Cause Analysis — Ops{% endblock %}
+
+{% block content %}
+<div class="row animate__animated animate__fadeIn">
+    <div class="col-12">
+        <div class="card card-premium overflow-hidden border-0 shadow-lg">
+            <div class="bg-primary p-4 text-white d-flex align-items-center gap-3">
+                <i class="fas fa-microchip fs-2"></i>
+                <div>
+                    <h3 class="mb-0 fw-bold">AI Root Cause Analysis</h3>
+                    <p class="mb-0 opacity-75">การวิเคราะห์เชิงลึกจากข้อมูลอุปสรรคประจำสัปดาห์</p>
+                </div>
+            </div>
+            
+            <div class="card-body p-5">
+                {% if error %}
+                    <div class="alert alert-danger rounded-4">{{ error }}</div>
+                {% else %}
+                    <div class="ai-response-content shadow-sm p-4 rounded-4 bg-light border-start border-5 border-primary">
+                        <div style="line-height: 1.8; font-size: 1.1rem; white-space: pre-wrap;">{{ analysis }}</div>
+                    </div>
+                    
+                    <div class="mt-5">
+                        <h6 class="fw-bold text-muted small text-uppercase">Raw Data Analysed:</h6>
+                        <pre class="bg-dark text-success p-3 rounded-3 small mt-2" style="max-height: 200px; overflow-y: auto;">{{ data_context }}</pre>
+                    </div>
+
+                    <div class="mt-4 text-center">
+                        <button onclick="window.print()" class="btn btn-outline-dark rounded-pill me-2">พิมพ์ผลวิเคราะห์</button>
+                        <a href="{% url 'ops:dashboard' %}" class="btn btn-premium">กลับหน้า Dashboard</a>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

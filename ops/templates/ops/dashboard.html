@@ -1,0 +1,72 @@
+{% extends "ops/base_ops.html" %}
+
+{% block title %}Ops Dashboard — Operations Management{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="fw-bold text-dark mb-1"><i class="fas fa-calendar-check text-primary me-2"></i>Ops Dashboard</h1>
+            <p class="text-muted mb-0">การจัดการแผนงานและสรุปรายสัปดาห์</p>
+        </div>
+        <button class="btn btn-premium shadow-sm" data-bs-toggle="modal" data-bs-target="#createAgendaModal">
+            <i class="fas fa-plus me-1"></i> เริ่มสัปดาห์ใหม่
+        </button>
+    </div>
+
+    <div class="row g-4">
+        {% for agenda in agendas %}
+        <div class="col-md-4">
+            <a href="{% url 'ops:agenda_detail' agenda.pk %}" class="text-decoration-none">
+                <div class="card card-premium h-100 border-0 shadow-sm p-4">
+                    <div class="d-flex justify-content-between align-items-start mb-3">
+                        <div class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 px-3 py-2 rounded-pill">
+                            <i class="fas fa-clock me-1"></i> {{ agenda.week_start_date|date:"d M Y" }}
+                        </div>
+                        <i class="fas fa-arrow-right text-muted opacity-50"></i>
+                    </div>
+                    <h4 class="fw-bold text-dark mb-2">{{ agenda.title }}</h4>
+                    <div class="d-flex gap-3 text-muted small">
+                        <span><i class="fas fa-tasks me-1"></i> {{ agenda.tasks.count }} งาน</span>
+                        <span><i class="fas fa-sticky-note me-1"></i> {{ agenda.notes.count }} บันทึก</span>
+                    </div>
+                </div>
+            </a>
+        </div>
+        {% empty %}
+        <div class="col-12">
+            <div class="text-center py-5 bg-white rounded-4 border dashed">
+                <i class="fas fa-calendar-alt fa-3x text-muted mb-3 opacity-25"></i>
+                <h5 class="text-muted">ยังไม่มีแผนงานสัปดาห์ใดๆ เริ่มต้นใช้งานได้ทันที!</h5>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- Modal -->
+<div class="modal fade" id="createAgendaModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <form action="{% url 'ops:agenda_create' %}" method="POST" class="modal-content border-0 shadow-lg rounded-4">
+            {% csrf_token %}
+            <div class="modal-header border-0 p-4 pb-0">
+                <h5 class="modal-title fw-bold">เริ่มสัปดาห์แผนงานใหม่</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4">
+                <div class="mb-3">
+                    <label class="form-label fw-bold text-muted small">ชื่อหัวข้อสัปดาห์</label>
+                    <input type="text" name="title" class="form-control rounded-3 border-light bg-light p-3" placeholder="เช่น สัปดาห์ที่ 16: โฟกัสเป้ายอดขาย" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-bold text-muted small">วันที่เริ่มต้นสัปดาห์</label>
+                    <input type="date" name="week_start_date" class="form-control rounded-3 border-light bg-light p-3" value="{{ now|date:'Y-m-d' }}" required>
+                </div>
+            </div>
+            <div class="modal-footer border-0 p-4 pt-0">
+                <button type="submit" class="btn btn-premium w-100 py-3">สร้างสัปดาห์แผนงาน</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

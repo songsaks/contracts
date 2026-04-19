@@ -1,0 +1,116 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Operations Management — 9Com{% endblock %}</title>
+    <link rel="icon" type="image/svg+xml" href="{% static 'images/favicon.svg' %}?v=2">
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome CSS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --bg-light: #f4f7fe;
+            --card-white: #ffffff;
+            --accent-primary: #4f46e5;
+            --accent-secondary: #7c3aed;
+            --text-main: #1e293b;
+            --text-muted: #64748b;
+            --positive: #10b981;
+            --negative: #ef4444;
+            --border-soft: #e2e8f0;
+            --shadow-premium: 0 10px 30px rgba(0, 0, 0, 0.04);
+        }
+
+        body {
+            font-family: 'Outfit', 'Sarabun', sans-serif;
+            background-color: var(--bg-light);
+            color: var(--text-main);
+            min-height: 100vh;
+        }
+
+        .navbar-ops {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(15px);
+            border-bottom: 1px solid var(--border-soft);
+            padding: 0.8rem 0;
+        }
+        
+        .navbar-ops .navbar-brand {
+            font-weight: 800;
+            color: var(--accent-primary) !important;
+        }
+
+        .card-premium {
+            background: var(--card-white);
+            border: 1px solid rgba(255, 255, 255, 0.7);
+            border-radius: 20px;
+            box-shadow: var(--shadow-premium);
+            transition: all 0.3s ease;
+        }
+
+        .btn-premium {
+            background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-weight: 600;
+            padding: 0.75rem 1.5rem;
+            transition: all 0.3s ease;
+        }
+        .btn-premium:hover { transform: translateY(-2px); opacity: 0.9; color: white; }
+
+        .nav-link { font-weight: 600; color: var(--text-muted) !important; }
+        .nav-link.active { color: var(--accent-primary) !important; }
+        
+        .home-btn {
+            width: 40px; height: 40px; border-radius: 12px;
+            background: var(--bg-light); color: var(--text-main);
+            display: flex; align-items: center; justify-content: center;
+            border: 1px solid var(--border-soft);
+        }
+    </style>
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+
+    <nav class="navbar navbar-expand-lg sticky-top navbar-ops">
+        <div class="container">
+            <a class="navbar-brand d-flex align-items-center gap-2" href="{% url 'ops:dashboard' %}">
+                <i class="fas fa-tasks fs-3"></i>
+                <div class="d-flex flex-column">
+                    <span style="letter-spacing: -0.5px; line-height: 1;">OPS MANAGER</span>
+                    <span class="text-muted small fw-normal" style="font-size: 0.65rem;">OPERATIONS & PLANNING</span>
+                </div>
+            </a>
+
+            <div class="collapse navbar-collapse" id="opsNavbar">
+                <ul class="navbar-nav me-auto mb-2 mb-lg-0 ms-lg-4">
+                    <li class="nav-item">
+                        <a class="nav-link px-3 {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}" href="{% url 'ops:dashboard' %}">หน้าหลัก</a>
+                    </li>
+                </ul>
+
+                <div class="d-flex align-items-center gap-3">
+                    <span class="small fw-bold text-muted">{{ user.username }}</span>
+                    <a href="/" class="home-btn" title="กลับหน้าหลัก">
+                        <i class="fas fa-home"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container py-4">
+        {% block content %}{% endblock %}
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

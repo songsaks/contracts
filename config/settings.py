@@ -79,6 +79,7 @@ INSTALLED_APPS = [
     'payroll',   # ระบบเงินเดือน
     'accounts',  # ระบบบัญชีผู้ใช้งาน (User accounts)
     'chat',      # ระบบแชทแบบ Real-time
+    'ops',       # ระบบจัดการแผนงานและการปฏิบัติงาน (Operations)
 ]
 
 # ====== Middleware ======

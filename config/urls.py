@@ -35,6 +35,7 @@ urlpatterns = [
     path('payroll/', include('payroll.urls')),                 # URL ของระบบเงินเดือน
     path('chatbot/', include('chatbot.urls')),                 # URL ของระบบ Chatbot
     path('chat/', include('chat.urls')),                       # URL ของระบบแชท Real-time
+    path('ops/', include('ops.urls')),                         # URL ของระบบจัดการปฏิบัติงาน
     path('', include('landing.urls')),                        # URL ของหน้าแรก (root path)
 ]
 

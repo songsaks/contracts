@@ -1,0 +1,79 @@
+{% extends "ops/base_ops.html" %}
+
+{% block title %}Weekly Assessment Report — Ops{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <h2 class="fw-bold mb-0">รายงานประเมินผลรายสัปดาห์</h2>
+                <p class="text-muted">สรุปความสำเร็จและอุปสรรคเพื่อใช้ประชุมวันเสาร์</p>
+            </div>
+            <button onclick="window.print()" class="btn btn-outline-dark rounded-pill">
+                <i class="fas fa-print me-2"></i> พิมพ์รายงาน
+            </button>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4">
+    <div class="col-12">
+        <div class="card card-premium overflow-hidden border-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0 align-middle">
+                    <thead class="bg-light">
+                        <tr>
+                            <th class="px-4 py-3 border-0">ฝ่าย / เป้าหมาย</th>
+                            <th class="py-3 border-0">ผลงาน / เป้าหมาย</th>
+                            <th class="py-3 border-0 text-center">% สำเร็จ</th>
+                            <th class="py-3 border-0">อุปสรรคที่พบนล</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in summary %}
+                        <tr>
+                            <td class="px-4 py-4">
+                                <div class="fw-bold">{{ item.goal.title }}</div>
+                                <div class="small text-muted">{{ item.goal.department.name }}</div>
+                            </td>
+                            <td>
+                                <span class="fw-bold">{{ item.total_actual|floatformat:0 }}</span> 
+                                <span class="text-muted">/ {{ item.goal.target_value|floatformat:0 }} {{ item.goal.unit }}</span>
+                            </td>
+                            <td class="text-center">
+                                <span class="badge bg-{{ item.goal.status_color }} rounded-pill px-3">
+                                    {{ item.success_rate|floatformat:1 }}%
+                                </span>
+                            </td>
+                            <td style="max-width: 300px;">
+                                <ul class="small mb-0 ps-3">
+                                    {% for obs in item.obstacles %}
+                                    <li class="text-muted mb-1">{{ obs }}</li>
+                                    {% empty %}
+                                    <li class="text-success small">ไม่มีอุปสรรคบันทึกเข้ามา</li>
+                                    {% endfor %}
+                                </ul>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="mt-5 p-4 bg-white rounded-4 border border-info border-dashed">
+    <div class="d-flex align-items-center justify-content-between mb-3">
+        <div class="d-flex align-items-center gap-3">
+            <i class="fas fa-robot text-info fs-3"></i>
+            <h5 class="mb-0 fw-bold">AI Analytics</h5>
+        </div>
+        <a href="{% url 'ops:ai_analysis' %}" class="btn btn-info text-white rounded-pill shadow-sm">
+            <i class="fas fa-brain me-2"></i> Deep Dive with AI
+        </a>
+    </div>
+    <p class="text-muted">ให้ AI ช่วยวิเคราะห์ข้อมูลอุปสรรคเพื่อหา Root Cause ของสัปดาห์นี้และเสนอ Action Plan สำหรับวันจันทร์หน้า</p>
+</div>
+{% endblock %}

@@ -1,0 +1,229 @@
+{% extends "ops/base_ops.html" %}
+
+{% block title %}{{ agenda.title }} — Ops Detail{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="card card-premium border-0 shadow-sm p-4 mb-4">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb mb-1">
+                        <li class="breadcrumb-item"><a href="{% url 'ops:dashboard' %}" class="text-decoration-none">Ops Dashboard</a></li>
+                        <li class="breadcrumb-item active">{{ agenda.week_start_date|date:"M Y" }}</li>
+                    </ol>
+                </nav>
+                <h2 class="fw-bold text-dark mb-0"><i class="fas fa-calendar-alt text-primary me-2"></i>{{ agenda.title }}</h2>
+            </div>
+            <div class="d-flex gap-2">
+                <button class="btn btn-outline-primary rounded-pill px-4 shadow-none" data-bs-toggle="modal" data-bs-target="#addNoteModal">
+                    <i class="fas fa-sticky-note me-1"></i> เพิ่มบันทึก
+                </button>
+                <button class="btn btn-premium shadow-sm px-4" data-bs-toggle="modal" data-bs-target="#addTaskModal">
+                    <i class="fas fa-plus me-1"></i> เพิ่มงาน
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <!-- Planning & Recap (Left Column) -->
+        <div class="col-lg-4">
+            <!-- Planning Notes -->
+            <div class="card card-premium border-0 shadow-sm mb-4">
+                <div class="card-header bg-white border-0 p-4 pb-1">
+                    <h5 class="fw-bold text-primary"><i class="fas fa-clipboard-list me-2"></i>แผนงานต้นสัปดาห์</h5>
+                </div>
+                <div class="card-body p-4">
+                    {% for note in notes %}
+                        {% if note.note_type == 'PLAN' %}
+                        <div class="p-3 bg-light rounded-3 mb-3 border-start border-primary border-4">
+                            <p class="mb-2 text-dark">{{ note.content|linebreaksbr }}</p>
+                            <small class="text-muted d-block">{{ note.created_at|date:"D H:i" }} — โดย {{ note.created_by.username }}</small>
+                        </div>
+                        {% endif %}
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Saturday Recap -->
+            <div class="card card-premium border-0 shadow-sm mb-4 bg-dark text-white">
+                <div class="card-header bg-transparent border-0 p-4 pb-1">
+                    <h5 class="fw-bold text-warning"><i class="fas fa-flag-checkered me-2"></i>สรุปผลวันเสาร์</h5>
+                </div>
+                <div class="card-body p-4">
+                    {% for note in notes %}
+                        {% if note.note_type == 'RECAP' %}
+                        <div class="p-3 bg-white bg-opacity-10 rounded-3 mb-3">
+                            <p class="mb-2 text-white">{{ note.content|linebreaksbr }}</p>
+                            <small class="text-white-50 d-block">{{ note.created_at|date:"D H:i" }}</small>
+                        </div>
+                        {% endif %}
+                    {% empty %}
+                        <p class="text-white-50 small italic">รอกรอกผลสรุปในวันเสาร์...</p>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- AI Summary Section -->
+            <div class="card card-premium border-0 shadow-lg mb-4" style="background: linear-gradient(135deg, #4f46e5, #7c3aed);">
+                <div class="card-body p-4 text-white">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h5 class="fw-bold mb-0"><i class="fas fa-robot me-2"></i>AI สรุปงานส่ง Chat</h5>
+                        <form action="{% url 'ops:ai_summarize' agenda.pk %}" method="POST">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-sm btn-white text-primary fw-bold rounded-pill">
+                                อัปเดตสรุป
+                            </button>
+                        </form>
+                    </div>
+                    {% if agenda.ai_summary %}
+                        <div class="bg-white bg-opacity-10 p-3 rounded-3" style="font-size: 0.88rem; white-space: pre-wrap;">{{ agenda.ai_summary }}</div>
+                        <button class="btn btn-warning btn-sm w-100 mt-3 fw-bold rounded-pill" onclick="copyToClipboard('{{ agenda.ai_summary|escapejs }}')">
+                           <i class="fas fa-copy me-1"></i> คัดลอกไปส่งใน Chat
+                        </button>
+                    {% else %}
+                        <p class="small opacity-75">กดปุ่ม "อัปเดตสรุป" เพื่อให้ AI ช่วยสรุปงานสัปดาห์นี้ครับ</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Task List (Right Column) -->
+        <div class="col-lg-8">
+            <div class="card card-premium border-0 shadow-sm h-100">
+                <div class="card-header bg-white border-0 p-4 pb-1">
+                    <h5 class="fw-bold"><i class="fas fa-tasks me-2 text-secondary"></i>รายการรายละเอียดงานแยกตามฝ่าย</h5>
+                </div>
+                <div class="card-body p-4">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle">
+                            <thead class="bg-light text-muted small">
+                                <tr>
+                                    <th>ฝ่าย</th>
+                                    <th>งาน</th>
+                                    <th>ผู้รับผิดชอบ</th>
+                                    <th>สถานะ</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for task in tasks %}
+                                <tr>
+                                    <td>
+                                        <span class="badge bg-secondary bg-opacity-10 text-secondary border px-2 py-1">{{ task.department.name|default:"ไม่มีฝ่าย" }}</span>
+                                    </td>
+                                    <td>
+                                        <div class="fw-bold text-dark">{{ task.title }}</div>
+                                        <div class="small text-muted">{{ task.description|truncatechars:50 }}</div>
+                                    </td>
+                                    <td>
+                                        <div class="d-flex align-items-center gap-2">
+                                            <div class="rounded-circle bg-light d-flex align-items-center justify-content-center" style="width:24px; height:24px;">
+                                                <i class="fas fa-user text-muted" style="font-size:0.7rem;"></i>
+                                            </div>
+                                            <span class="small">{{ task.assigned_to.username|default:"รอระบุ" }}</span>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <span class="badge 
+                                            {% if task.status == 'DONE' %}bg-success{% elif task.status == 'DOING' %}bg-primary{% elif task.status == 'BLOCKED' %}bg-danger{% else %}bg-light text-dark border{% endif %} 
+                                            rounded-pill px-3 py-1">
+                                            {{ task.get_status_display }}
+                                        </span>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="4" class="text-center py-5 text-muted">ยังไม่มีการเพิ่มรายการงาน</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Task Modal -->
+<div class="modal fade" id="addTaskModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <form action="{% url 'ops:task_add' agenda.pk %}" method="POST" class="modal-content border-0 shadow-lg rounded-4">
+            {% csrf_token %}
+            <div class="modal-header border-0 p-4 pb-0">
+                <h5 class="modal-title fw-bold">เพิ่มงานใหม่</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4">
+                <div class="mb-3">
+                    <label class="form-label fw-bold text-muted small">ระบุหัวข้องาน</label>
+                    <input type="text" name="title" class="form-control rounded-3 border-light bg-light p-3" placeholder="เช่น ส่งรายงานภาษี หรือ เตรียมกราฟ SET" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-bold text-muted small">ฝ่ายที่รับผิดชอบ</label>
+                    <select name="department" class="form-select rounded-3 border-light bg-light p-3">
+                        <option value="">เลือกฝ่าย...</option>
+                        {% for dept in departments %}
+                        <option value="{{ dept.id }}">{{ dept.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-bold text-muted small">รายละเอียด</label>
+                    <textarea name="description" class="form-control rounded-3 border-light bg-light p-3" rows="3"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer border-0 p-4 pt-0">
+                <button type="submit" class="btn btn-premium w-100 py-3">เพิ่มลงรายการงาน</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Add Note Modal -->
+<div class="modal fade" id="addNoteModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <form action="{% url 'ops:note_add' agenda.pk %}" method="POST" class="modal-content border-0 shadow-lg rounded-4">
+            {% csrf_token %}
+            <div class="modal-header border-0 p-4 pb-0">
+                <h5 class="modal-title fw-bold">บันทึกการประชุม</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4">
+                 <div class="mb-3">
+                    <label class="form-label fw-bold text-muted small">ประเภทบันทึก</label>
+                    <div class="d-flex gap-2">
+                        <input type="radio" class="btn-check" name="note_type" id="typePlan" value="PLAN" checked>
+                        <label class="btn btn-outline-primary rounded-pill px-3" for="typePlan">วางแผน (จ./อ.)</label>
+                        
+                        <input type="radio" class="btn-check" name="note_type" id="typeRecap" value="RECAP">
+                        <label class="btn btn-outline-warning rounded-pill px-3" for="typeRecap">สรุปงาน (เสาร์)</label>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-bold text-muted small">เนื้อหาบันทึก</label>
+                    <textarea name="content" class="form-control rounded-3 border-light bg-light p-3" rows="6" placeholder="กรอกข้อความที่ได้จากการประชุมประจำสัปดาห์..." required></textarea>
+                </div>
+            </div>
+            <div class="modal-footer border-0 p-4 pt-0">
+                <button type="submit" class="btn btn-premium w-100 py-3">บันทึกลงระบบ</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function copyToClipboard(text) {
+    navigator.clipboard.writeText(text).then(() => {
+        alert('คัดลอกข้อความสรุปแล้ว! คุณสามารถนำไปวางในห้องแชทได้ทันที');
+    });
+}
+</script>
+
+<style>
+.btn-white { background: white; color: #4f46e5; border: none; }
+.btn-white:hover { background: #f8fafc; }
+</style>
+{% endblock %}

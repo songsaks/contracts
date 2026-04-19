@@ -1,0 +1,30 @@
+{% extends "ops/base_ops.html" %}
+
+{% block title %}Create New Agenda — Ops{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card card-premium border-0 shadow-lg p-5">
+                <h2 class="fw-bold text-dark mb-4 text-center">เริ่มสัปดาห์แผนงานใหม่</h2>
+                <form action="{% url 'ops:agenda_create' %}" method="POST">
+                    {% csrf_token %}
+                    <div class="mb-4">
+                        <label class="form-label fw-bold text-muted small">ชื่อหัวข้อสัปดาห์</label>
+                        <input type="text" name="title" class="form-control rounded-3 border-light bg-light p-3" placeholder="เช่น สัปดาห์ที่ 16: โฟกัสเป้ายอดขาย" required>
+                    </div>
+                    <div class="mb-4">
+                        <label class="form-label fw-bold text-muted small">วันที่เริ่มต้นสัปดาห์</label>
+                        <input type="date" name="week_start_date" class="form-control rounded-3 border-light bg-light p-3" value="{{ now|date:'Y-m-d' }}" required>
+                    </div>
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-premium py-3 mb-2">สร้างสัปดาห์แผนงาน</button>
+                        <a href="{% url 'ops:dashboard' %}" class="btn btn-light text-muted py-3">ยกเลิก</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

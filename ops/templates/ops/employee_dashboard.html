@@ -1,0 +1,52 @@
+{% extends "ops/base_ops.html" %}
+
+{% block title %}My Goals — Ops Manager{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card card-premium p-4 border-0 bg-primary text-white mb-4">
+            <div class="d-flex align-items-center gap-3">
+                <div class="bg-white bg-opacity-25 rounded-circle p-3">
+                    <i class="fas fa-user-tie fs-3"></i>
+                </div>
+                <div>
+                    <h5 class="mb-0 fw-bold">สวัสดี, {{ user.username }}</h5>
+                    <p class="mb-0 small opacity-75">ฝ่าย: {{ employee.department.name }}</p>
+                </div>
+            </div>
+        </div>
+        
+        <h5 class="fw-bold mb-3">เป้าหมายของคุณสัปดาห์นี้</h5>
+        
+        {% for goal in goals %}
+        <div class="card card-premium p-4 border-0 mb-3 shadow-sm">
+            <div class="d-flex justify-content-between align-items-start mb-2">
+                <div>
+                    <h6 class="fw-bold mb-1">{{ goal.title }}</h6>
+                    <p class="small text-muted mb-0">{{ goal.description|truncatewords:10 }}</p>
+                </div>
+            </div>
+
+            <div class="my-3">
+                <div class="d-flex justify-content-between mb-1">
+                    <span class="small fw-bold">{{ goal.total_actual|floatformat:0 }} / {{ goal.target_value|floatformat:0 }} {{ goal.unit }}</span>
+                    <span class="small fw-bold text-{{ goal.status_color }}">{{ goal.success_percentage|floatformat:1 }}%</span>
+                </div>
+                <div class="progress rounded-pill" style="height: 8px;">
+                    <div class="progress-bar bg-{{ goal.status_color }}" style="width: {{ goal.success_percentage }}%"></div>
+                </div>
+            </div>
+
+            <a href="{% url 'ops:report_progress' goal.id %}" class="btn btn-outline-primary rounded-pill w-100 fw-bold">
+                <i class="fas fa-edit me-2"></i> บันทึกผลงานวันนี้
+            </a>
+        </div>
+        {% empty %}
+        <div class="text-center py-5">
+            <p class="text-muted">ไม่มีเป้าหมายที่มอบหมายให้ฝ่ายของคุณในขณะนี้</p>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

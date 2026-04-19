@@ -1,0 +1,133 @@
+{% extends "ops/base_ops.html" %}
+
+{% block title %}Management Center — Ops{% endblock %}
+
+{% block content %}
+<div class="row mb-5 animate__animated animate__fadeIn">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <h2 class="fw-bold mb-0">Management Center</h2>
+                <p class="text-muted">บริหารจัดการโครงสร้างองค์กรและพนักงาน</p>
+            </div>
+            <a href="{% url 'ops:dashboard' %}" class="btn btn-outline-secondary rounded-pill">
+                <i class="fas fa-arrow-left me-2"></i> กลับ Dashboard
+            </a>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4">
+    <!-- Department Management -->
+    <div class="col-lg-6">
+        <div class="card card-premium p-4 border-0 h-100 shadow-sm">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h5 class="fw-bold mb-0"><i class="fas fa-sitemap text-primary me-2"></i> จัดการฝ่าย</h5>
+                <button type="button" class="btn btn-sm btn-primary rounded-pill" data-bs-toggle="modal" data-bs-target="#addDeptModal">
+                    <i class="fas fa-plus me-1"></i> เพิ่มฝ่าย
+                </button>
+            </div>
+            
+            <div class="list-group list-group-flush">
+                {% for dept in depts %}
+                <div class="list-group-item d-flex justify-content-between align-items-center px-0 py-3">
+                    <div>
+                        <div class="fw-bold">{{ dept.name }}</div>
+                        <div class="small text-muted">{{ dept.employees.count }} พนักงาน</div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Employee Assignment -->
+    <div class="col-lg-6">
+        <div class="card card-premium p-4 border-0 h-100 shadow-sm">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h5 class="fw-bold mb-0"><i class="fas fa-users text-success me-2"></i> จัดการพนักงาน</h5>
+                <button type="button" class="btn btn-sm btn-success rounded-pill" data-bs-toggle="modal" data-bs-target="#addEmployeeModal">
+                    <i class="fas fa-user-plus me-1"></i> ตั้งค่าพนักงาน
+                </button>
+            </div>
+
+            <div class="table-responsive">
+                <table class="table table-hover align-middle small">
+                    <thead>
+                        <tr>
+                            <th>ชื่อพนักงาน</th>
+                            <th>ฝ่าย</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for emp in employees %}
+                        <tr>
+                            <td class="fw-bold">{{ emp.user.username }}</td>
+                            <td><span class="badge bg-light text-dark border">{{ emp.department.name }}</span></td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Add Department -->
+<div class="modal fade" id="addDeptModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 rounded-4 shadow">
+            <form action="{% url 'ops:dept_create' %}" method="POST">
+                {% csrf_token %}
+                <div class="modal-header border-0 p-4 pb-0">
+                    <h5 class="fw-bold">เพิ่มฝ่ายใหม่</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <input type="text" name="name" class="form-control form-control-lg bg-light border-0" placeholder="ชื่อฝ่าย (เช่น ฝ่ายช่าง)" required>
+                </div>
+                <div class="modal-footer border-0 p-4 pt-0">
+                    <button type="submit" class="btn btn-primary w-100 py-3 rounded-3">ยืนยัน</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Add Employee Profile -->
+<div class="modal fade" id="addEmployeeModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 rounded-4 shadow">
+            <form action="{% url 'ops:employee_create' %}" method="POST">
+                {% csrf_token %}
+                <div class="modal-header border-0 p-4 pb-0">
+                    <h5 class="fw-bold">ผูกฝ่ายให้พนักงาน</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <div class="mb-3">
+                        <label class="small fw-bold text-muted">เลือก User</label>
+                        <select name="user_id" class="form-select bg-light border-0" required>
+                            {% for u in users %}
+                            <option value="{{ u.id }}">{{ u.username }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label class="small fw-bold text-muted">เลือกฝ่าย</label>
+                        <select name="dept_id" class="form-select bg-light border-0" required>
+                            {% for d in depts %}
+                            <option value="{{ d.id }}">{{ d.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer border-0 p-4 pt-0">
+                    <button type="submit" class="btn btn-success w-100 py-3 rounded-3">บันทึกข้อมูล</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

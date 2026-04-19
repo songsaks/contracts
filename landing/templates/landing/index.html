@@ -211,13 +211,13 @@
         /* ====== กริดสำหรับแสดงการ์ดระบบต่าง ๆ ====== */
         .cards-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-            gap: 1.5rem;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.25rem;
             max-width: 1200px;
             margin: 0 auto;
         }
 
-        /* ====== สไตล์การ์ดแต่ละใบ ====== */
+        /* ====== สไตล์การ์ดแต่ละใบ (Compact Mode) ====== */
         .card {
             position: relative;
             display: flex;
@@ -226,8 +226,8 @@
             text-align: center;
             text-decoration: none;
             color: inherit;
-            padding: 2.5rem 1.5rem 2rem;
-            border-radius: 1.5rem;
+            padding: 1.75rem 1.25rem 1.5rem;
+            border-radius: 1.25rem;
             background: var(--card-bg);
             border: 1px solid var(--card-border);
             box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04), 0 4px 12px rgba(0, 0, 0, 0.03);
@@ -313,23 +313,23 @@
             box-shadow: 0 20px 50px -12px rgba(16, 185, 129, 0.18), 0 8px 20px -4px rgba(0, 0, 0, 0.06);
         }
 
-        /* ====== กล่องไอคอนของการ์ด ====== */
+        /* ====== กล่องไอคอนของการ์ด (Smaller) ====== */
         .card__icon {
             position: relative;
             z-index: 1;
-            width: 72px;
-            height: 72px;
-            border-radius: 1.25rem;
+            width: 60px;
+            height: 60px;
+            border-radius: 1rem;
             display: flex;
             align-items: center;
             justify-content: center;
-            margin-bottom: 1.5rem;
+            margin-bottom: 1.25rem;
             transition: all 0.4s ease;
         }
 
         .card__icon svg {
-            width: 32px;
-            height: 32px;
+            width: 28px;
+            height: 28px;
             transition: transform 0.4s ease;
         }
 
@@ -397,15 +397,14 @@
             box-shadow: 0 8px 24px -4px rgba(16, 185, 129, 0.25);
         }
 
-        /* ====== เนื้อหาภายในการ์ด ====== */
-        /* ชื่อระบบภาษาไทย */
+        /* ชื่อระบบภาษาไทย (Compact) */
         .card__title-th {
             position: relative;
             z-index: 1;
-            font-size: 1.5rem;
+            font-size: 1.24rem;
             font-weight: 800;
             color: var(--text-primary);
-            margin-bottom: 0.25rem;
+            margin-bottom: 0.15rem;
             transition: color 0.3s ease;
         }
 
@@ -1086,6 +1085,28 @@
                         <div class="card__title-th">วิเคราะห์หุ้น AI</div>
                         <div class="card__title-en">Stock Analyst AI</div>
                         <p class="card__desc">วิเคราะห์สินทรัพย์ด้วยพลัง AI</p>
+                    </div>
+                    <div class="card__action">
+                        เข้าสู่ระบบ
+                        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                        </svg>
+                    </div>
+                </a>
+                {% endif %}
+
+                <!-- ====== การ์ด: Ops Management (Weekly Operations) ====== -->
+                {% if user.is_authenticated %}
+                <a href="{% url 'ops:dashboard' %}" class="card card--purple" id="card-ops">
+                    <div class="card__icon">
+                        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                        </svg>
+                    </div>
+                    <div class="card__content">
+                        <div class="card__title-th">วางแผนการประกอบการ</div>
+                        <div class="card__title-en">Ops Management</div>
+                        <p class="card__desc">วางแผนงานประชุม และติดตามงานรายฝ่าย</p>
                     </div>
                     <div class="card__action">
                         เข้าสู่ระบบ
