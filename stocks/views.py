@@ -2897,12 +2897,16 @@ def momentum_scanner(request):
                     
                     for idx, cand in enumerate(candidates):
                         symbol = cand['symbol']
+
+                    # Stage 2: Deep technical analysis
+                    pre_results = []
+                    for idx, cand in enumerate(candidates):
+                        symbol = cand['symbol']
                         df     = cand['df']
-                        _c.set(ckey, {'state': 'running', 'progress': 50 + int((idx/len(candidates))*50), 
-                                      'total': 100, 'phase': f'Stage 2: วิเคราะห์ละเอียด {symbol} ({idx+1}/{len(candidates)})...'}, timeout=600)
+                        _c.set(ckey, {'state': 'running', 'progress': 50 + int((idx/len(candidates))*30), 
+                                      'total': 100, 'phase': f'Stage 2: Technical {symbol} ({idx+1}/{len(candidates)})...'}, timeout=600)
                         
                         try:
-                            # Full technical analysis
                             df['EMA50']  = _ta.ema(df['Close'], length=50)
                             df['EMA150'] = _ta.ema(df['Close'], length=150)
                             df['EMA200'] = _ta.ema(df['Close'], length=200)
@@ -2918,131 +2922,94 @@ def momentum_scanner(request):
                             tech = analyze_momentum_technical(df)
                             current_price = float(df['Close'].iloc[-1])
                             year_high     = float(df['High'].tail(252).max())
-                            integrated_score = tech['score']
-                            rvol  = tech['rvol']
-                            rsi   = tech['rsi']
-                            ema200 = tech['ema200']
-                            mfi_val = float(df['MFI'].iloc[-1]) if 'MFI' in df.columns and _pd.notna(df['MFI'].iloc[-1]) else 0
-                            adx     = float(df['ADX_14'].iloc[-1]) if 'ADX_14' in df.columns and _pd.notna(df['ADX_14'].iloc[-1]) else 0
-                            gap_to_high = ((year_high - current_price) / current_price) * 100
-
-                            # Fundamental bonus (only for top candidates to save time)
-                            sector = 'Unknown'; eps_growth = 0.0; rev_growth = 0.0; fund_bonus = 0
-                            try:
-                                info = _yf.Ticker(f"{symbol}.BK").basic_info
-                                sector = "Market Asset"
-                                # info for fundamental growth requires full .info (slower)
-                                # we only do this if it's top 20 or so if we want extreme speed, 
-                                # but let's try with info.get for all top 100
-                                full_info = _yf.Ticker(f"{symbol}.BK").info
-                                sector = full_info.get('sector', 'Other')
-                                eps_growth = float(full_info.get('earningsQuarterlyGrowth', 0) or 0) * 100
-                                rev_growth = float(full_info.get('revenueGrowth', 0) or 0) * 100
-                                if eps_growth >= 20: fund_bonus += 10
-                                if rev_growth >= 10: fund_bonus += 10
-                            except Exception: pass
-
-                            sd_zone = find_supply_demand_zones(df)
-                            dz_start = dz_end = sz_start = sz_end = sl_price = rr_val = None
-                            entry_strat = ''
-                            if sd_zone:
-                                entry_strat = sd_zone['type']
-                                dz_start = sd_zone['start']; dz_end = sd_zone['end']
-                                sz_start = sd_zone['target']; sz_end = sd_zone['target'] * 1.02
-                                sl_price = sd_zone['stop_loss']; rr_val = sd_zone['rr_ratio']
-
-                            prox_val = 999.0
-                            if dz_start:
-                                prox_val = 0.0 if current_price <= dz_start else ((current_price - dz_start) / dz_start) * 100
-
-                            _MC.objects.update_or_create(
-                                user=user, symbol=symbol,
-                                defaults=dict(
-                                    symbol_bk=f"{symbol}.BK",
-                                    sector=sector, price=round(current_price, 2),
-                                    rsi=round(rsi, 2), adx=round(adx, 2),
-                                    mfi=round(mfi_val, 2), rvol=round(rvol, 2),
-                                    eps_growth=round(eps_growth, 2), rev_growth=round(rev_growth, 2),
-                                    technical_score=int(integrated_score + fund_bonus),
-                                    entry_strategy=entry_strat,
-                                    demand_zone_start=dz_start, demand_zone_end=dz_end,
-                                    supply_zone_start=sz_start, supply_zone_end=sz_end,
-                                    stop_loss=sl_price, risk_reward_ratio=rr_val,
-                                    year_high=round(year_high, 2),
-                                    upside_to_high=round(gap_to_high, 2),
-                                    zone_proximity=round(prox_val, 2),
-                                )
-                            )
+                            sd_zone       = find_supply_demand_zones(df)
+                            
+                            pre_results.append({
+                                'symbol': symbol, 'df': df, 'tech': tech, 
+                                'price': current_price, 'year_high': year_high, 'sd_zone': sd_zone
+                            })
                         except Exception: continue
 
-                    _c.set(ckey, {'state': 'done'}, timeout=300)
-                except Exception as exc:
-                    from django.core.cache import cache as _c
-                    _c.set(ckey, {'state': 'done'}, timeout=300)
+                    # --- STAGE 3: Bulk Fundamental (The Enforcer) ---
+                    _c.set(ckey, {'state': 'running', 'progress': 85, 'total': 100, 'phase': 'Stage 3: ดึงข้อมูลพื้นฐานแบบกลุ่ม...'}, timeout=600)
+                    from .utils import YQTicker
+                    matched_symbols = [r['symbol'] for r in pre_results]
+                    symbols_bk = [f"{s}.BK" for s in matched_symbols]
+                    fund_data = {}
+                    if matched_symbols:
+                        try:
+                            yq_all = YQTicker(symbols_bk)
+                            modules = yq_all.get_modules('financialData summaryProfile')
+                            for sym_bk, data in modules.items():
+                                if not isinstance(data, dict): continue
+                                clean_sym = sym_bk.replace('.BK', '')
+                                profile  = data.get('summaryProfile', {})
+                                fin_data = data.get('financialData', {})
+                                sector   = profile.get('sector') or data.get('assetProfile', {}).get('sector') or 'Other'
+                                eps_growth = float(fin_data.get('earningsQuarterlyGrowth', 0) or 0) * 100
+                                rev_growth = float(fin_data.get('revenueGrowth', 0) or 0) * 100
+                                fund_data[clean_sym] = {'sector': sector, 'eps_growth': eps_growth, 'rev_growth': rev_growth}
+                        except Exception: pass
 
+                    # FINAL: Save all to DB
+                    _c.set(ckey, {'state': 'running', 'progress': 95, 'total': 100, 'phase': 'บันทึกข้อมูล...'}, timeout=600)
+                    for r in pre_results:
+                        sym = r['symbol']
+                        df = r['df']
+                        tech = r['tech']
+                        sd = r['sd_zone']
+                        f = fund_data.get(sym, {'sector': 'N/A', 'eps_growth': 0.0, 'rev_growth': 0.0})
+                        
+                        dz_start = dz_end = sz_start = sz_end = sl_price = rr_val = None
+                        entry_strat = ''
+                        if sd:
+                            entry_strat = sd['type']; dz_start = sd['start']; dz_end = sd['end']
+                            sz_start = sd['target']; sz_end = sd['target'] * 1.02
+                            sl_price = sd['stop_loss']; rr_val = sd['rr_ratio']
+
+                        _MC.objects.create(
+                            user=user, symbol=sym, market='SET',
+                            price=r['price'], rsi=tech['rsi'], adx=float(df['ADX_14'].iloc[-1]) if 'ADX_14' in df.columns else 0,
+                            mfi=float(df['MFI'].iloc[-1]) if 'MFI' in df.columns else 0,
+                            rvol=tech['rvol'], rvol_bullish=tech['rvol_bullish'],
+                            technical_score=tech['score'], rs_rating=0, # Computed separately or manually
+                            entry_strategy=entry_strat, demand_zone_start=dz_start, demand_zone_end=dz_end,
+                            supply_zone_start=sz_start, supply_zone_end=sz_end, stop_loss=sl_price, risk_reward_ratio=rr_val,
+                            year_high=r['year_high'], upside_to_high=((r['year_high'] - r['price'])/r['price'])*100,
+                            sector=f['sector'], eps_growth=f['eps_growth'], rev_growth=f['rev_growth'],
+                            stage2=r['price'] > tech['ema200']
+                        )
+                except Exception as e:
+                    import logging; logging.getLogger('stocks').error(f"Momentum Scan Error: {e}")
+                finally:
+                    _c.set(ckey, {'state': 'done', 'progress': 100, 'total': 100, 'phase': 'เสร็จสิ้น'}, timeout=60)
+
+            # Start Worker
             _th.Thread(target=_run_momentum_bg, args=(user_id, cache_key, scan_symbols), daemon=True).start()
 
-        from django.shortcuts import redirect as _redir
-        return _redir('stocks:momentum_scanner')
-
-    # ── Display saved results ─────────────────────────────────────────
-
-    # ====== จัดเรียงผลการสแกนตาม parameter ที่ผู้ใช้เลือก ======
-    # Define Sorting Logic
-    sort_by = request.GET.get('sort', 'score')
-    valid_sorts = {
-        'symbol': 'symbol',
-        'score': '-technical_score',
-        'price': '-price',
-        'rsi': '-rsi',
-        'rvol': '-rvol',
-        'eps': '-eps_growth',
-        'rev': '-rev_growth',
-        'gap': 'upside_to_high',
-        'prox': 'zone_proximity',       # เรียงตามระยะห่างจาก Zone (น้อยสุดก่อน = ใกล้โซนสุด)
-        'round_rr': '-risk_reward_ratio' # เรียงตาม RR Ratio (มากสุดก่อน)
-    }
-    order_field = valid_sorts.get(sort_by, '-technical_score')
-
-    # ดึงผลสแกนล่าสุดของ user นี้จาก database — ใช้ distinct เพื่อกัน duplicate
-    candidates = MomentumCandidate.objects.filter(user=request.user).order_by(order_field).distinct()
-
-    # หาเวลาสแกนล่าสุด
-    # Get last scan time from the first candidate if available
-    last_scan = MomentumCandidate.objects.filter(user=request.user).order_by('-scanned_at').first()
-    scanned_at = last_scan.scanned_at if last_scan else None
-
-    # ====== AI Insight — คัด Superperformance Stocks จากรายชื่อที่ผ่านเกณฑ์ ======
-    ai_analysis = None
-    if candidates and request.GET.get('analyze') == 'true':
-        symbols_list = [c.symbol for c in candidates]
+    # ====== Handle AI Summary Analysis (Optional) ======
+    ai_analysis = ""
+    if request.GET.get('analyze') == 'true':
         try:
-            client = genai.Client(api_key=settings.GEMINI_API_KEY)
-            model_name_to_use = 'gemini-2.5-flash'
-
-            # Prompt ให้ AI วิเคราะห์ข่าวและ Sentiment แล้วคัดหุ้น Superperformance
-            prompt = f"""จากรายชื่อหุ้นใน SET ที่ผ่านเกณฑ์ Momentum ขาขึ้น (Trend Template) ณ ขณะนี้ ได้แก่:
-{', '.join(symbols_list)}
-
-ช่วยวิเคราะห์ข่าวล่าสุด แนวโน้มอุตสาหกรรม และ Sentiment ของตลาดไทยในสัปดาห์นี้
-เพื่อคัดกรองว่าตัวไหนในกลุ่มนี้มีโอกาสเป็น 'Superperformance Stocks' (สไตล์ Mark Minervini) มากที่สุด
-พร้อมอธิบายเหตุผลประกอบสั้นๆ และเน้นย้ำเรื่องจุดเสี่ยงที่ต้องระวัง
-
-เขียนเป็นภาษาไทย รูปแบบ Markdown ที่เป็นทางการและสวยงาม สไตล์นักวิเคราะห์หุ้น المحترف
-ไม่ต้องเกริ่นนำ ไม่ต้องลงท้าย
-"""
-            response = client.models.generate_content(
-                model=model_name_to_use,
-                contents=prompt
-            )
-            ai_analysis = response.text
-            # ลบ markdown block wrapper ถ้า AI ไม่ปฏิบัติตาม prompt
-            if ai_analysis.startswith("```markdown"):
-                ai_analysis = ai_analysis[11:].strip()
-            if ai_analysis.endswith("```"):
-                ai_analysis = ai_analysis[:-3].strip()
+            from .models import MomentumCandidate
+            data_to_analyze = []
+            top_best = MomentumCandidate.objects.filter(user=request.user).order_by('-technical_score')[:15]
+            for t in top_best:
+                data_to_analyze.append({
+                    'symbol': t.symbol, 'score': t.technical_score, 'rvol': t.rvol, 'rsi': t.rsi,
+                    'eps_growth': t.eps_growth, 'rev_growth': t.rev_growth, 'upside': t.upside_to_high
+                })
+            
+            if data_to_analyze:
+                prompt = f"หุ้นไทย Momentum แรงที่สุด 15 ตัวจากระบบสแกน: {json.dumps(data_to_analyze)}\nช่วยวิเคราะห์และคัดเลือก 3-5 ตัวที่น่าสนใจที่สุด พร้อมเหตุผลเชิงกลยุทธ์ตามสไตล์ Mark Minervini และบอกจุดระวัง"
+                ai_analysis = analyze_with_ai(prompt)
         except Exception as e:
-            ai_analysis = f"AI Error: {str(e)}"
+            ai_analysis = f"AI Analysis Error: {str(e)}"
+
+    # Get results for display
+    sort_by = request.GET.get('sort', '-technical_score')
+    candidates = MomentumCandidate.objects.filter(user=request.user).order_by(sort_by)
+    scanned_at = candidates.first().created_at if candidates.exists() else None
 
     # ตรวจว่ากำลังสแกนอยู่ — ถ้าใช่ ซ่อน results เพื่อไม่ให้กระพริบ
     _scan_state = _cp.get(cache_key, {})
@@ -3559,44 +3526,48 @@ def precision_momentum_scanner(request):
                 except Exception as e:
                     import logging; logging.getLogger('stocks').warning(f"[Precision] SET Index fetch failed: {e}")
 
-                # ====== Pre-compute RS Rating ======
-                _cache.set(ckey, {'state': 'running', 'progress': 0, 'total': len(sym_list), 'phase': 'คำนวณ RS Rating…'}, timeout=900)
 
-                def _fetch_rs_return(sym):
-                    try:
-                        _df = yf.Ticker(f"{sym}.BK").history(start=scan_start_str, end=scan_end_str, interval="1d")
-                        if _df is None or _df.empty:
-                            return sym, None
-                        if isinstance(_df.columns, pd.MultiIndex):
-                            _df.columns = _df.columns.droplevel(1)
-                        _close = _df['Close'].dropna()
-                        n = len(_close)
-                        if n >= 252:
-                            q1 = float((_close.iloc[-1]   - _close.iloc[-64])  / abs(_close.iloc[-64])  * 100)
-                            q2 = float((_close.iloc[-64]  - _close.iloc[-127]) / abs(_close.iloc[-127]) * 100)
-                            q3 = float((_close.iloc[-127] - _close.iloc[-190]) / abs(_close.iloc[-190]) * 100)
-                            q4 = float((_close.iloc[-190] - _close.iloc[-253]) / abs(_close.iloc[-253]) * 100)
-                            return sym, q1 * 0.4 + q2 * 0.2 + q3 * 0.2 + q4 * 0.2
-                        elif n >= 66:
-                            return sym, float((_close.iloc[-1] - _close.iloc[-66]) / abs(_close.iloc[-66]) * 100)
-                        return sym, None
-                    except Exception:
-                        return sym, None
-
+                # ====== Phase 1: Bulk RS Rating Calculation ======
+                _cache.set(ckey, {'state': 'running', 'progress': 5, 'total': 100, 'phase': 'คำนวณ RS Rating แบบกลุ่ม...'}, timeout=900)
+                
                 rs_returns_all = {}
-                with concurrent.futures.ThreadPoolExecutor(max_workers=20) as _ex:
-                    _futs = {_ex.submit(_fetch_rs_return, s): s for s in sym_list}
-                    for _f in concurrent.futures.as_completed(_futs):
-                        _sym, _ret = _f.result()
-                        if _ret is not None:
-                            rs_returns_all[_sym] = _ret
+                chunk_size = 50
+                for i in range(0, len(sym_list), chunk_size):
+                    chunk = sym_list[i : i + chunk_size]
+                    symbols_bk = [f"{s}.BK" for s in chunk]
+                    
+                    _cache.set(ckey, {'state': 'running', 'progress': 5 + int((i/len(sym_list))*15), 'total': 100, 'phase': f'ดึงข้อมูล RS ({i//chunk_size + 1})...'}, timeout=900)
+                    
+                    try:
+                        import yfinance as _yf_bulk
+                        rs_data = _yf_bulk.download(symbols_bk, start=scan_start_str, end=scan_end_str, interval="1d", progress=False, group_by='ticker', threads=True)
+                        for symbol in chunk:
+                            try:
+                                s_bk = f"{symbol}.BK"
+                                if s_bk not in rs_data or rs_data[s_bk].empty: continue
+                                _close = rs_data[s_bk]['Close'].dropna()
+                                n = len(_close)
+                                if n >= 66:
+                                    if n >= 252:
+                                        q1 = float((_close.iloc[-1]   - _close.iloc[-64])  / abs(_close.iloc[-64])  * 100)
+                                        q2 = float((_close.iloc[-64]  - _close.iloc[-127]) / abs(_close.iloc[-127]) * 100)
+                                        q3 = float((_close.iloc[-127] - _close.iloc[-190]) / abs(_close.iloc[-190]) * 100)
+                                        q4 = float((_close.iloc[-190] - _close.iloc[-253]) / abs(_close.iloc[-253]) * 100)
+                                        rs_returns_all[symbol] = q1 * 0.4 + q2 * 0.2 + q3 * 0.2 + q4 * 0.2
+                                    else:
+                                        rs_returns_all[symbol] = float((_close.iloc[-1] - _close.iloc[-66]) / abs(_close.iloc[-66]) * 100)
+                            except Exception: continue
+                    except Exception: continue
 
                 rs_ratings_map = {}
                 if rs_returns_all:
                     _rs_ser = pd.Series(rs_returns_all)
                     rs_ratings_map = (_rs_ser.rank(pct=True) * 99).clip(0, 99).astype(int).to_dict()
 
-                _cache.set(ckey, {'state': 'running', 'progress': 0, 'total': len(sym_list), 'phase': 'สแกนหุ้น…'}, timeout=900)
+                # Phase 2: เจาะลึกหุ้นที่เข้ารอบ
+                results_to_process = [s for s in sym_list if rs_ratings_map.get(s, 0) >= 60]
+                if not results_to_process:
+                    results_to_process = sym_list[:20] # Safety fallback
 
                 def _process_precision_scan(symbol):
                     try:
@@ -3938,20 +3909,21 @@ def precision_momentum_scanner(request):
                         logging.getLogger('stocks').exception(f"[Precision] Error scanning {symbol}: {e}")
                         return None
 
-                # ====== Scan all symbols with progress tracking ======
+
+                # ====== Phase 2: Deep Scan (only for candidates) ======
+                _cache.set(ckey, {'state': 'running', 'progress': 25, 'total': 100, 'phase': f'สแกนละเอียด (จำนวน {len(results_to_process)} ตัว)...'}, timeout=900)
+                
                 results = []
                 done_count = 0
                 with concurrent.futures.ThreadPoolExecutor(max_workers=20) as executor:
-                    futures = [executor.submit(_process_precision_scan, sym) for sym in sym_list]
+                    futures = [executor.submit(_process_precision_scan, sym) for sym in results_to_process]
                     for future in concurrent.futures.as_completed(futures):
                         res = future.result()
                         if res:
                             results.append(res)
                         done_count += 1
-                        _cache.set(ckey, {
-                            'state': 'running', 'progress': done_count,
-                            'total': len(sym_list), 'phase': 'สแกนหุ้น…'
-                        }, timeout=900)
+                        _cache.set(ckey, {'state': 'running', 'progress': 25 + int((done_count/len(results_to_process))*70), 
+                                          'total': 100, 'phase': f'สแกนละเอียด {done_count}/{len(results_to_process)}...'}, timeout=900)
 
                 if results:
                     scan_df = pd.DataFrame(results)
@@ -8580,98 +8552,64 @@ def turtle_scanner_run_ajax(request):
         results = []
         processed = 0
 
-        def _process_sym(symbol):
+        # --- Optimized Bulk Processing ---
+        _c.set(ckey, {'state': 'running', 'progress': 5, 'total': 100, 'phase': 'Stage 1: สแกนด่วน (Radar Mode)...'}, timeout=3600)
+        
+        results = []
+        chunk_size = 40
+        for i in range(0, len(syms), chunk_size):
+            chunk = syms[i : i + chunk_size]
+            symbols_bk = [f"{s}.BK" if market == 'SET' and '.' not in s else s for s in chunk]
+            
+            _c.set(ckey, {'state': 'running', 'progress': int((i/len(syms))*90), 'total': 100, 'phase': f'กำลังสแกนกลุ่ม {i//chunk_size + 1}...'}, timeout=3600)
+            
             try:
-                yf_sym = f"{symbol}.BK" if market == 'SET' and '.' not in symbol else symbol
-                t = _yf.Ticker(yf_sym)
-                for attempt in range(2):
+                # Bulk Download
+                data = _yf.download(symbols_bk, period="6mo", interval="1d", progress=False, group_by='ticker', threads=True)
+                
+                for symbol in chunk:
                     try:
-                        df = t.history(period="6mo")
-                        break
-                    except Exception as e:
-                        if 'rate' in str(e).lower() or '429' in str(e).lower():
-                            _time.sleep(2 ** attempt + _random.uniform(0, 1))
-                            continue
-                        raise e
-                
-                if df is None or df.empty or len(df) < 60:
-                    return None
-                    
-                if isinstance(df.columns, _pd.MultiIndex):
-                    df.columns = df.columns.droplevel(1)
-                df = df.dropna(subset=['Close', 'High', 'Low'])
-                
-                # Liquidity filter
-                avg_vol = float(df['Volume'].tail(20).mean())
-                if avg_vol < 500_000 and market == 'SET':
-                    return None
-                    
-                # Calculate Turtle indicators
-                # Original rules: breakout of HIGHEST high of PREVIOUS 20 days.
-                # Shift(1) ensures we don't count today's high in the past 20 days.
-                df['High_20'] = df['High'].rolling(20).max().shift(1)
-                df['Low_10'] = df['Low'].rolling(10).min().shift(1)
-                
-                df['High_55'] = df['High'].rolling(55).max().shift(1)
-                df['Low_20'] = df['Low'].rolling(20).min().shift(1)
-                
-                # True Range for ATR
-                df['H_L'] = df['High'] - df['Low']
-                df['H_PC'] = abs(df['High'] - df['Close'].shift(1))
-                df['L_PC'] = abs(df['Low'] - df['Close'].shift(1))
-                df['TR'] = df[['H_L', 'H_PC', 'L_PC']].max(axis=1)
-                # Exponential Moving Average of TR for N (usually 20-day EMA or Wilder's Smoothing)
-                df['ATR_20'] = df['TR'].ewm(span=20, adjust=False).mean()
+                        s_bk = f"{symbol}.BK" if market == 'SET' and '.' not in symbol else symbol
+                        if s_bk not in data or data[s_bk].empty: continue
+                        df = data[s_bk].dropna(subset=['Close'])
+                        if len(df) < 50: continue
+                        
+                        # Liquidity filter (SET Only)
+                        avg_vol = float(df['Volume'].tail(20).mean())
+                        avg_val = (df['Close'] * df['Volume']).tail(20).mean()
+                        if market == 'SET' and avg_val < 3_000_000: continue # Min 3M Value
+                        
+                        # Calculate Turtle
+                        df['High_20'] = df['High'].rolling(20).max().shift(1)
+                        df['Low_10'] = df['Low'].rolling(10).min().shift(1)
+                        df['High_55'] = df['High'].rolling(55).max().shift(1)
+                        df['Low_20'] = df['Low'].rolling(20).min().shift(1)
+                        
+                        # ATR
+                        df['H_L'] = df['High'] - df['Low']
+                        df['H_PC'] = abs(df['High'] - df['Close'].shift(1))
+                        df['L_PC'] = abs(df['Low'] - df['Close'].shift(1))
+                        df['TR'] = df[['H_L', 'H_PC', 'L_PC']].max(axis=1)
+                        df['ATR_20'] = df['TR'].ewm(span=20, adjust=False).mean()
 
-                last_row = df.iloc[-1]
-                current_high = float(last_row['High'])
-                current_close = float(last_row['Close'])
-                
-                sys1_break = False
-                sys2_break = False
-                
-                h20 = float(last_row.get('High_20', 0))
-                l10 = float(last_row.get('Low_10', 0))
-                h55 = float(last_row.get('High_55', 0))
-                l20 = float(last_row.get('Low_20', 0))
-                atr20 = float(last_row.get('ATR_20', 0))
-                
-                if h20 > 0 and current_close >= h20:
-                    sys1_break = True
-                if h55 > 0 and current_close >= h55:
-                    sys2_break = True
-                    
-                # Only save if it's a breakout today
-                if sys1_break or sys2_break:
-                    return TurtleScanCandidate(
-                        user=request.user,
-                        scan_run=scan_time,
-                        symbol=symbol,
-                        market=market,
-                        price=current_close,
-                        sys1_breakout=sys1_break,
-                        high_20d=round(h20, 2),
-                        low_10d=round(l10, 2),
-                        sys2_breakout=sys2_break,
-                        high_55d=round(h55, 2),
-                        low_20d=round(l20, 2),
-                        avg_vol_20d=avg_vol,
-                        atr_20d=round(atr20, 4)
-                    )
-            except Exception:
-                pass
-            return None
-
-        # Thread pool execution
-        with _cf.ThreadPoolExecutor(max_workers=5) as executor:
-            futures = {executor.submit(_process_sym, s): s for s in syms}
-            for fut in _cf.as_completed(futures):
-                res = fut.result()
-                if res:
-                    results.append(res)
-                processed += 1
-                if processed % 10 == 0:
-                    _cp.set(ckey, {'state': 'running', 'progress': processed, 'total': len(syms)}, timeout=3600)
+                        last_row = df.iloc[-1]
+                        current_close = float(last_row['Close'])
+                        h20 = float(last_row.get('High_20', 0))
+                        h55 = float(last_row.get('High_55', 0))
+                        
+                        sys1 = h20 > 0 and current_close >= h20
+                        sys2 = h55 > 0 and current_close >= h55
+                        
+                        if sys1 or sys2:
+                            results.append(TurtleScanCandidate(
+                                user=user, scan_run=scan_time, symbol=symbol, market=market,
+                                price=current_close, sys1_breakout=sys1,
+                                high_20d=round(h20, 2), low_10d=round(float(last_row.get('Low_10', 0)), 2),
+                                sys2_breakout=sys2, high_55d=round(h55, 2), low_20d=round(float(last_row.get('Low_20', 0)), 2),
+                                avg_vol_20d=avg_vol, atr_20d=round(float(last_row.get('ATR_20', 0)), 4)
+                            ))
+                    except Exception: continue
+            except Exception: continue
 
         # Save to DB
         if results:

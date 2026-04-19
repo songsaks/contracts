@@ -4,423 +4,472 @@
 
 {% block extra_css %}
 <style>
-    .report-card {
-        border: none;
-        border-radius: 20px;
-        background: white;
-        box-shadow: 0 10px 30px rgba(0,0,0,0.05);
-        overflow: hidden;
-    }
-    
-    .report-header {
-        background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
-        padding: 2.5rem 2rem;
-        color: white;
-        position: relative;
-    }
-    
-    .report-header::after {
-        content: '';
-        position: absolute;
-        bottom: 0;
-        left: 0;
-        right: 0;
-        height: 40px;
-        background: white;
-        clip-path: polygon(0 100%, 100% 100%, 100% 0);
-    }
-    
-    .filter-section {
-        background: #f8fafc;
-        border-radius: 15px;
-        padding: 1.5rem;
-        margin-top: -20px;
-        position: relative;
-        z-index: 10;
-        border: 1px solid #e2e8f0;
-    }
-    
-    .table-pms-report thead th {
-        background: #f1f5f9;
-        color: #475569;
-        font-weight: 700;
-        text-transform: uppercase;
-        font-size: 0.75rem;
-        letter-spacing: 0.05em;
-        padding: 1rem;
-        border: none;
-    }
-    
-    .table-pms-report tbody td {
-        padding: 1.25rem 1rem;
-        border-bottom: 1px solid #f1f5f9;
-        vertical-align: middle;
-    }
+/* ── Base ── */
+.report-header {
+    background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+    padding: 1.75rem 1.5rem 3rem;
+    color: white;
+    position: relative;
+    border-radius: 20px 20px 0 0;
+}
+.report-header::after {
+    content: '';
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 36px;
+    background: #f8fafc;
+    clip-path: polygon(0 100%, 100% 100%, 100% 0);
+}
+.report-card {
+    border: none;
+    border-radius: 20px;
+    background: white;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.07);
+    overflow: hidden;
+}
+.stat-pill {
+    background: rgba(255,255,255,0.15);
+    border-radius: 14px;
+    padding: 0.75rem 1.25rem;
+    backdrop-filter: blur(6px);
+    border: 1px solid rgba(255,255,255,0.2);
+}
+/* ── Filter ── */
+.filter-section {
+    background: #f8fafc;
+    border-radius: 16px;
+    border: 1px solid #e2e8f0;
+    padding: 1.25rem;
+    position: relative;
+    z-index: 10;
+}
+.form-control-report, .form-select-report {
+    border-radius: 10px;
+    border: 1px solid #e2e8f0;
+    padding: 0.55rem 0.9rem;
+    font-size: 0.875rem;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+.form-control-report:focus, .form-select-report:focus {
+    border-color: #4f46e5;
+    box-shadow: 0 0 0 3px rgba(79,70,229,0.12);
+    outline: none;
+}
+/* ── Desktop Table ── */
+.table-pms-report thead th {
+    background: #f1f5f9;
+    color: #475569;
+    font-weight: 700;
+    text-transform: uppercase;
+    font-size: 0.72rem;
+    letter-spacing: 0.05em;
+    padding: 0.85rem 1rem;
+    border: none;
+    white-space: nowrap;
+    position: sticky;
+    top: 0;
+    z-index: 2;
+}
+.table-pms-report thead th a {
+    color: inherit;
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+.table-pms-report tbody td {
+    padding: 1rem;
+    border-bottom: 1px solid #f1f5f9;
+    vertical-align: middle;
+}
+.table-pms-report tbody tr:hover { background: #fafbff; }
+.project-name { font-weight: 700; color: #1e293b; font-size: 0.9rem; }
+.customer-name { font-size: 0.8rem; color: #64748b; }
+.value-cell { font-weight: 800; color: #10b981; font-family: 'Inter', sans-serif; }
 
-    .table-pms-report thead th a {
-        color: inherit;
-        text-decoration: none;
+/* ── Mobile Cards ── */
+.proj-card {
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+    padding: 1rem 1.1rem;
+    background: white;
+    transition: box-shadow 0.2s;
+}
+.proj-card:active { box-shadow: 0 4px 16px rgba(0,0,0,0.1); }
+.proj-card .val { font-size: 1.1rem; font-weight: 800; color: #10b981; }
+.proj-card .meta { font-size: 0.78rem; color: #94a3b8; }
+
+/* ── Status badges ── */
+.status-badge {
+    font-size: 0.7rem;
+    font-weight: 700;
+    padding: 4px 10px;
+    border-radius: 8px;
+}
+
+/* ── Chart ── */
+.chart-box {
+    background: #fff;
+    padding: 1.25rem;
+    border-radius: 16px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.04);
+    border: 1px solid #f1f5f9;
+    height: 100%;
+}
+
+/* ── Sticky mobile total bar ── */
+.mobile-total-bar {
+    display: none;
+}
+@media (max-width: 767px) {
+    .mobile-total-bar {
         display: flex;
+        position: sticky;
+        bottom: 0;
+        left: 0; right: 0;
+        background: #4f46e5;
+        color: white;
+        padding: 0.75rem 1.25rem;
+        justify-content: space-between;
         align-items: center;
-        gap: 5px;
-    }
-    
-    .project-name {
+        z-index: 100;
         font-weight: 700;
-        color: #1e293b;
-        margin-bottom: 0.25rem;
+        box-shadow: 0 -4px 16px rgba(79,70,229,0.25);
     }
-    
-    .customer-name {
-        font-size: 0.85rem;
-        color: #64748b;
-    }
-    
-    .value-cell {
-        font-weight: 800;
-        font-family: 'Inter', sans-serif;
-        color: #10b981;
-    }
-    
-    .status-badge {
-        font-size: 0.7rem;
-        font-weight: 700;
-        padding: 6px 12px;
-        border-radius: 8px;
-    }
-
-    .form-control-report {
-        border-radius: 10px;
-        border: 1px solid #e2e8f0;
-        padding: 0.6rem 1rem;
-        transition: all 0.2s;
-    }
-
-    .form-control-report:focus {
-        border-color: #4f46e5;
-        box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.1);
-    }
-
-    .search-btn {
-        border-radius: 10px;
-        padding: 0.6rem 1.5rem;
-        font-weight: 700;
-        min-width: 100px;
-    }
-
-    .chart-box {
-        background: #fff;
-        padding: 1.5rem;
-        border-radius: 20px;
-        box-shadow: 0 5px 15px rgba(0,0,0,0.03);
-        border: 1px solid #f1f5f9;
-        height: 100%;
-    }
-
-    .filter-box-sm {
-        background: white; 
-        padding: 0.5rem 0.75rem; 
-        border: 1px solid #e2e8f0; 
-        border-radius: 10px;
-    }
-
-    @media print {
-        .filter-section, .btn-no-print, nav, .sidebar {
-            display: none !important;
-        }
-        .report-header {
-            background: #fff !important;
-            color: #000 !important;
-            padding: 1rem 0 !important;
-        }
-        .report-header::after { display: none; }
-        .container-fluid { padding: 0 !important; }
-        .report-card { box-shadow: none !important; }
-    }
+}
+@media print {
+    .filter-section, .btn-no-print, nav, .sidebar, .mobile-total-bar { display: none !important; }
+    .report-header { background: #fff !important; color: #000 !important; padding: 1rem 0 !important; border-radius: 0 !important; }
+    .report-header::after { display: none; }
+    .container-fluid { padding: 0 !important; }
+    .report-card { box-shadow: none !important; }
+}
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="container-fluid py-4">
-    <div class="report-card">
-        <!-- Header Section -->
-        <div class="report-header">
-            <div class="row align-items-center">
-                <div class="col-md-7">
-                    <h1 class="display-6 fw-900 mb-2">รายงานการขายรายบุคคล</h1>
-                    <p class="mb-0 opacity-75 fs-5">สรุปรายละเอียดงานขายและมูลค่าโครงการแยกตามเจ้าของโครงการ</p>
-                </div>
-                <div class="col-md-5 text-md-end">
-                    <div class="d-inline-block text-start bg-white bg-opacity-10 p-3 rounded-4 backdrop-blur">
-                        <div class="small opacity-75">มูลค่ารวมที่เลือก</div>
-                        <div class="h2 fw-900 mb-0" id="totalDisplay">฿0</div>
-                    </div>
-                </div>
+<div class="container-fluid py-3 py-md-4">
+<div class="report-card">
+
+    <!-- ── Header ── -->
+    <div class="report-header">
+        <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3">
+            <div>
+                <h1 class="h4 h3-md fw-900 mb-1">รายงานการขายรายบุคคล</h1>
+                <p class="mb-0 opacity-75 small">สรุปมูลค่าโครงการแยกตามเจ้าของ</p>
+            </div>
+            <div class="stat-pill text-center text-md-start d-inline-block">
+                <div class="small opacity-75 mb-1">มูลค่ารวมที่แสดง</div>
+                <div class="fs-4 fw-900 mb-0" id="totalDisplay">฿0</div>
             </div>
         </div>
-        
-        <div class="p-4">
-            <!-- Filter Section -->
-            <div class="filter-section mb-4 shadow-sm">
-                <form method="get" class="row g-3 align-items-center">
-                    <div class="col-md-2">
-                        <label class="form-label small fw-bold text-muted mb-1">คำค้นหา</label>
-                        <div class="input-group">
-                            <span class="input-group-text bg-white border-end-0" style="border-radius: 10px 0 0 10px;">
-                                <i class="fas fa-search text-muted"></i>
-                            </span>
-                            <input type="text" name="q" class="form-control form-control-report border-start-0" 
-                                   placeholder="ค้นหางาน..." value="{{ search_q|default:'' }}"
-                                   style="border-radius: 0 10px 10px 0;">
-                        </div>
-                    </div>
-                    
-                    <div class="col-md-2">
-                        <label class="form-label small fw-bold text-muted mb-1">เจ้าของโครงการ</label>
-                        <select name="owner" class="form-select form-control-report" onchange="this.form.submit()">
-                            <option value="">ทั้งหมด</option>
-                            {% for o in project_owners %}
-                            <option value="{{ o.id }}" {% if current_owner == o.id|stringformat:"s" %}selected{% endif %}>{{ o.name }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
+    </div>
 
-                    <div class="col-md-2">
-                        <label class="form-label small fw-bold text-muted mb-1">สถานะ</label>
-                        <select name="status" class="form-select form-control-report" onchange="this.form.submit()">
-                            <option value="">ทั้งหมด</option>
-                            {% for code, label in status_choices %}
-                                {% if code != 'CLOSED' and code != 'CANCELLED' %}
-                                <option value="{{ code }}" {% if current_status == code %}selected{% endif %}>{{ label }}</option>
-                                {% endif %}
-                            {% endfor %}
-                        </select>
-                    </div>
+    <div class="p-3 p-md-4 bg-light" style="border-radius:0;">
 
-                    <div class="col-md-4">
-                        <label class="form-label small fw-bold text-muted mb-1">ช่วงเวลา (เริ่ม - สิ้นสุด)</label>
-                        <div class="d-flex align-items-center gap-2">
+        <!-- ── Filter ── -->
+        <div class="filter-section mb-3">
+
+            <!-- Mobile toggle -->
+            <div class="d-md-none d-flex justify-content-between align-items-center mb-2"
+                 data-bs-toggle="collapse" data-bs-target="#filterCollapse" style="cursor:pointer;">
+                <span class="fw-bold text-primary"><i class="fas fa-filter me-2"></i>ตัวกรอง</span>
+                <i class="fas fa-chevron-down text-muted"></i>
+            </div>
+
+            <form method="get" id="filterForm">
+                <div class="collapse show" id="filterCollapse">
+                    <div class="row g-2">
+
+                        <!-- Search -->
+                        <div class="col-12 col-sm-6 col-md-3 col-lg-2">
+                            <label class="form-label small fw-bold text-muted mb-1">ค้นหา</label>
                             <div class="input-group input-group-sm">
-                                <select name="start_month" class="form-select" onchange="this.form.submit()" style="min-width: 65px;">
+                                <span class="input-group-text bg-white"><i class="fas fa-search text-muted"></i></span>
+                                <input type="text" name="q" class="form-control form-control-report border-start-0"
+                                       placeholder="ชื่องาน / ลูกค้า" value="{{ search_q|default:'' }}">
+                            </div>
+                        </div>
+
+                        <!-- Owner -->
+                        <div class="col-6 col-sm-6 col-md-3 col-lg-2">
+                            <label class="form-label small fw-bold text-muted mb-1">เจ้าของ</label>
+                            <select name="owner" class="form-select form-select-sm form-select-report" onchange="this.form.submit()">
+                                <option value="">ทั้งหมด</option>
+                                {% for o in project_owners %}
+                                <option value="{{ o.id }}" {% if current_owner == o.id|stringformat:"s" %}selected{% endif %}>{{ o.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <!-- Status -->
+                        <div class="col-6 col-sm-6 col-md-3 col-lg-2">
+                            <label class="form-label small fw-bold text-muted mb-1">สถานะ</label>
+                            <select name="status" class="form-select form-select-sm form-select-report" onchange="this.form.submit()">
+                                <option value="">ทั้งหมด</option>
+                                {% for code, label in status_choices %}
+                                    {% if code != 'CLOSED' and code != 'CANCELLED' %}
+                                    <option value="{{ code }}" {% if current_status == code %}selected{% endif %}>{{ label }}</option>
+                                    {% endif %}
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <!-- Date range -->
+                        <div class="col-12 col-md-6 col-lg-4">
+                            <label class="form-label small fw-bold text-muted mb-1">ช่วงเวลา</label>
+                            <div class="d-flex align-items-center gap-1">
+                                <select name="start_month" class="form-select form-select-sm" onchange="this.form.submit()">
                                     {% for m_v, m_l in month_choices %}
                                     <option value="{{ m_v }}" {% if s_m == m_v %}selected{% endif %}>{{ m_l|slice:":3" }}</option>
                                     {% endfor %}
                                 </select>
-                                <select name="start_year" class="form-select" onchange="this.form.submit()" style="min-width: 75px;">
+                                <select name="start_year" class="form-select form-select-sm" onchange="this.form.submit()" style="min-width:72px;">
                                     {% for y in year_choices %}
                                     <option value="{{ y }}" {% if s_y == y %}selected{% endif %}>{{ y }}</option>
                                     {% endfor %}
                                 </select>
-                            </div>
-                            <span class="text-muted small">ถึง</span>
-                            <div class="input-group input-group-sm">
-                                <select name="end_month" class="form-select" onchange="this.form.submit()" style="min-width: 65px;">
+                                <span class="text-muted px-1">–</span>
+                                <select name="end_month" class="form-select form-select-sm" onchange="this.form.submit()">
                                     {% for m_v, m_l in month_choices %}
                                     <option value="{{ m_v }}" {% if e_m == m_v %}selected{% endif %}>{{ m_l|slice:":3" }}</option>
                                     {% endfor %}
                                 </select>
-                                <select name="end_year" class="form-select" onchange="this.form.submit()" style="min-width: 75px;">
+                                <select name="end_year" class="form-select form-select-sm" onchange="this.form.submit()" style="min-width:72px;">
                                     {% for y in year_choices %}
                                     <option value="{{ y }}" {% if e_y == y %}selected{% endif %}>{{ y }}</option>
                                     {% endfor %}
                                 </select>
                             </div>
                         </div>
-                    </div>
 
-                    <div class="col-md-2">
-                        <label class="form-label small fw-bold text-muted mb-1">แสดงงานพิเศษ</label>
-                        <div class="filter-box-sm d-flex flex-column gap-1" style="font-size: 0.75rem;">
-                            <div class="form-check">
-                                <input class="form-check-input" type="checkbox" name="show_closed" id="showClosed" {% if show_closed %}checked{% endif %} onchange="this.form.submit()">
-                                <label class="form-check-label" for="showClosed">งานที่ปิดจบ</label>
+                        <!-- Special toggles + search btn -->
+                        <div class="col-12 col-md-auto d-flex flex-wrap align-items-end gap-2">
+                            <div class="d-flex gap-3 align-items-center" style="font-size:0.8rem;">
+                                <div class="form-check mb-0">
+                                    <input class="form-check-input" type="checkbox" name="show_closed" id="showClosed" {% if show_closed %}checked{% endif %} onchange="this.form.submit()">
+                                    <label class="form-check-label" for="showClosed">ปิดจบ</label>
+                                </div>
+                                <div class="form-check mb-0">
+                                    <input class="form-check-input" type="checkbox" name="show_cancelled" id="showCancelled" {% if show_cancelled %}checked{% endif %} onchange="this.form.submit()">
+                                    <label class="form-check-label" for="showCancelled">ยกเลิก</label>
+                                </div>
                             </div>
-                            <div class="form-check">
-                                <input class="form-check-input" type="checkbox" name="show_cancelled" id="showCancelled" {% if show_cancelled %}checked{% endif %} onchange="this.form.submit()">
-                                <label class="form-check-label" for="showCancelled">งานที่ยกเลิก</label>
-                            </div>
+                            <button type="submit" class="btn btn-primary btn-sm px-3 rounded-pill">
+                                <i class="fas fa-search me-1"></i>ค้นหา
+                            </button>
                         </div>
-                    </div>
-                </form>
-            </div>
 
-            <!-- Action Buttons -->
-            <div class="d-flex justify-content-end gap-2 mb-3 btn-no-print">
-                <button onclick="window.print()" class="btn btn-outline-secondary rounded-pill px-4">
-                    <i class="fas fa-print me-2"></i>พิมพ์
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <!-- ── Action Buttons ── -->
+        <div class="d-flex justify-content-between align-items-center mb-3 btn-no-print">
+            <div class="text-muted small">พบ <strong>{{ projects|length }}</strong> รายการ</div>
+            <div class="d-flex gap-2">
+                <button onclick="window.print()" class="btn btn-outline-secondary btn-sm rounded-pill px-3">
+                    <i class="fas fa-print me-1"></i><span class="d-none d-sm-inline">พิมพ์</span>
                 </button>
-                <a href="?{% query_transform request export='excel' %}" class="btn btn-outline-success rounded-pill px-4">
-                    <i class="fas fa-file-excel me-2"></i>Excel
+                <a href="?{% query_transform request export='excel' %}" class="btn btn-outline-success btn-sm rounded-pill px-3">
+                    <i class="fas fa-file-excel me-1"></i><span class="d-none d-sm-inline">Excel</span>
                 </a>
             </div>
-
-            <!-- Table Section -->
-            <div class="table-responsive">
-                <table class="table table-pms-report align-middle" id="reportTable">
-                    <thead>
-                        <tr>
-                            <th style="min-width: 250px;">
-                                <a href="?{% query_transform request sort='name' %}">
-                                    โครงการ / ลูกค้า <i class="fas fa-sort opacity-25"></i>
-                                </a>
-                            </th>
-                            <th>
-                                <a href="?{% query_transform request sort='owner' %}">
-                                    เจ้าของ <i class="fas fa-sort opacity-25"></i>
-                                </a>
-                            </th>
-                            <th class="text-center">
-                                <a href="?{% query_transform request sort='status' %}">
-                                    สถานะ <i class="fas fa-sort opacity-25"></i>
-                                </a>
-                            </th>
-                            <th class="text-end">
-                                <a href="?{% query_transform request sort='value' %}">
-                                    มูลค่าโครงการ <i class="fas fa-sort opacity-25"></i>
-                                </a>
-                            </th>
-                            <th class="text-center">
-                                <a href="?{% query_transform request sort='date' %}">
-                                    วันที่สร้าง <i class="fas fa-sort opacity-25"></i>
-                                </a>
-                            </th>
-                            <th class="text-center btn-no-print">จัดการ</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for p in projects %}
-                        <tr class="project-row" data-val="{{ p.val }}">
-                            <td>
-                                <div class="project-name">{{ p.name }}</div>
-                                <div class="customer-name text-truncate" style="max-width: 200px;">{{ p.customer.name }}</div>
-                            </td>
-                            <td>
-                                <div class="fw-bold" style="font-size: 0.85rem;">{{ p.owner.name|default:"-" }}</div>
-                            </td>
-                            <td class="text-center">
-                                <span class="badge 
-                                    {% if p.job_type == 'SERVICE' %}bg-pms-service
-                                    {% elif p.job_type == 'REPAIR' %}bg-pms-repair
-                                    {% elif p.job_type == 'RENTAL' %}bg-pms-rental
-                                    {% elif p.job_type == 'SURVEY' %}bg-info
-                                    {% elif p.job_type == 'GENERAL' %}bg-pms-general
-                                    {% else %}bg-pms-project{% endif %}">
-                                    {{ p.get_job_status_display }}
-                                </span>
-                            </td>
-                            <td class="text-end value-cell">
-                                ฿{{ p.val|floatformat:2|intcomma }}
-                            </td>
-                            <td class="text-center text-muted small">
-                                {{ p.created_at|date:"d/m/Y" }}
-                            </td>
-                            <td class="text-center btn-no-print">
-                                <a href="{% url 'pms:project_detail' p.pk %}" class="btn btn-sm btn-light rounded-pill">
-                                    <i class="fas fa-eye"></i>
-                                </a>
-                            </td>
-                        </tr>
-                        {% empty %}
-                        <tr>
-                            <td colspan="6" class="text-center py-5 text-muted">ไม่พบข้อมูลมูลค่าโครงการตามเงื่อนไขที่เลือก</td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-
-            <!-- Analytics Charts Section -->
-            <div class="row mt-5 g-4">
-                <div class="col-lg-6">
-                    <div class="chart-box">
-                        <h5 class="fw-800 mb-4 text-primary"><i class="fas fa-chart-line me-2"></i>แนวโน้มยอดขายรายเดือน</h5>
-                        <div style="height: 300px;">
-                            <canvas id="monthlySalesChart"></canvas>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-lg-6">
-                    <div class="chart-box">
-                        <h5 class="fw-800 mb-4 text-primary"><i class="fas fa-chart-bar me-2"></i>ยอดรวมสะสมรายปี</h5>
-                        <div style="height: 300px;">
-                            <canvas id="yearlySalesChart"></canvas>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
         </div>
-    </div>
+
+        <!-- ── Desktop Table (md+) ── -->
+        <div class="d-none d-md-block table-responsive rounded-3 border">
+            <table class="table table-pms-report align-middle mb-0" id="reportTable">
+                <thead>
+                    <tr>
+                        <th style="min-width:220px;">
+                            <a href="?{% query_transform request sort='name' %}">โครงการ / ลูกค้า <i class="fas fa-sort opacity-40"></i></a>
+                        </th>
+                        <th>
+                            <a href="?{% query_transform request sort='owner' %}">เจ้าของ <i class="fas fa-sort opacity-40"></i></a>
+                        </th>
+                        <th class="text-center">
+                            <a href="?{% query_transform request sort='status' %}">สถานะ <i class="fas fa-sort opacity-40"></i></a>
+                        </th>
+                        <th class="text-end">
+                            <a href="?{% query_transform request sort='value' %}">มูลค่า <i class="fas fa-sort opacity-40"></i></a>
+                        </th>
+                        <th class="text-center">
+                            <a href="?{% query_transform request sort='date' %}">วันที่ <i class="fas fa-sort opacity-40"></i></a>
+                        </th>
+                        <th class="text-center btn-no-print" style="width:60px;"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for p in projects %}
+                    <tr class="project-row" data-val="{{ p.val }}">
+                        <td>
+                            <div class="project-name">{{ p.name }}</div>
+                            <div class="customer-name text-truncate" style="max-width:220px;">{{ p.customer.name }}</div>
+                        </td>
+                        <td><span style="font-size:0.85rem;font-weight:600;">{{ p.owner.name|default:"-" }}</span></td>
+                        <td class="text-center">
+                            <span class="badge status-badge
+                                {% if p.job_type == 'SERVICE' %}bg-pms-service
+                                {% elif p.job_type == 'REPAIR' %}bg-pms-repair
+                                {% elif p.job_type == 'RENTAL' %}bg-pms-rental
+                                {% elif p.job_type == 'SURVEY' %}bg-info
+                                {% elif p.job_type == 'GENERAL' %}bg-pms-general
+                                {% else %}bg-pms-project{% endif %}">
+                                {{ p.get_job_status_display }}
+                            </span>
+                        </td>
+                        <td class="text-end value-cell">฿{{ p.val|floatformat:2|intcomma }}</td>
+                        <td class="text-center text-muted small">{{ p.created_at|date:"d/m/Y" }}</td>
+                        <td class="text-center btn-no-print">
+                            <a href="{% url 'pms:project_detail' p.pk %}" class="btn btn-sm btn-light rounded-pill">
+                                <i class="fas fa-eye"></i>
+                            </a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="6" class="text-center py-5 text-muted">ไม่พบข้อมูล</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- ── Mobile Cards (< md) ── -->
+        <div class="d-md-none d-flex flex-column gap-2" id="mobileCards">
+            {% for p in projects %}
+            <div class="proj-card project-row" data-val="{{ p.val }}">
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                    <div style="flex:1; min-width:0;">
+                        <div class="project-name text-truncate">{{ p.name }}</div>
+                        <div class="customer-name text-truncate">{{ p.customer.name }}</div>
+                    </div>
+                    <a href="{% url 'pms:project_detail' p.pk %}" class="btn btn-sm btn-light rounded-pill ms-2 flex-shrink-0">
+                        <i class="fas fa-eye"></i>
+                    </a>
+                </div>
+                <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="badge status-badge
+                            {% if p.job_type == 'SERVICE' %}bg-pms-service
+                            {% elif p.job_type == 'REPAIR' %}bg-pms-repair
+                            {% elif p.job_type == 'RENTAL' %}bg-pms-rental
+                            {% elif p.job_type == 'SURVEY' %}bg-info
+                            {% elif p.job_type == 'GENERAL' %}bg-pms-general
+                            {% else %}bg-pms-project{% endif %}">
+                            {{ p.get_job_status_display }}
+                        </span>
+                        <span class="meta">{{ p.owner.name|default:"-" }}</span>
+                    </div>
+                    <div class="text-end">
+                        <div class="val">฿{{ p.val|floatformat:0|intcomma }}</div>
+                        <div class="meta">{{ p.created_at|date:"d/m/Y" }}</div>
+                    </div>
+                </div>
+            </div>
+            {% empty %}
+            <div class="text-center py-5 text-muted">ไม่พบข้อมูล</div>
+            {% endfor %}
+        </div>
+
+        <!-- ── Charts ── -->
+        <div class="row mt-4 g-3">
+            <div class="col-12 col-lg-6">
+                <div class="chart-box">
+                    <h6 class="fw-800 mb-3 text-primary"><i class="fas fa-chart-line me-2"></i>แนวโน้มยอดขายรายเดือน</h6>
+                    <div style="height:260px;"><canvas id="monthlySalesChart"></canvas></div>
+                </div>
+            </div>
+            <div class="col-12 col-lg-6">
+                <div class="chart-box">
+                    <h6 class="fw-800 mb-3 text-primary"><i class="fas fa-chart-bar me-2"></i>ยอดรวมสะสมรายปี</h6>
+                    <div style="height:260px;"><canvas id="yearlySalesChart"></canvas></div>
+                </div>
+            </div>
+        </div>
+
+    </div><!-- /p-4 -->
+</div><!-- /report-card -->
+
+<!-- ── Mobile sticky total bar ── -->
+<div class="mobile-total-bar btn-no-print">
+    <span><i class="fas fa-baht-sign me-1"></i> ยอดรวม</span>
+    <span id="mobileTotalDisplay" class="fs-5">฿0</span>
 </div>
+
+</div><!-- /container -->
 {% endblock %}
 
 {% block scripts %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        let total = 0;
-        document.querySelectorAll('.project-row').forEach(row => {
-            total += parseFloat(row.getAttribute('data-val')) || 0;
-        });
-        document.getElementById('totalDisplay').textContent = '฿' + total.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0});
-
-        const ctxMonthly = document.getElementById('monthlySalesChart').getContext('2d');
-        new Chart(ctxMonthly, {
-            type: 'line',
-            data: {
-                labels: {{ chart_months|safe }},
-                datasets: [{
-                    label: 'ยอดสะสม (บาท)',
-                    data: {{ chart_month_values|safe }},
-                    borderColor: '#4f46e5',
-                    backgroundColor: 'rgba(79, 70, 229, 0.1)',
-                    borderWidth: 3,
-                    fill: true,
-                    tension: 0.4,
-                    pointRadius: 4,
-                    pointBackgroundColor: '#fff',
-                    pointBorderColor: '#4f46e5',
-                    pointBorderWidth: 2
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: { legend: { display: false } },
-                scales: {
-                    x: { grid: { display: false } },
-                    y: { 
-                        beginAtZero: true,
-                        ticks: { callback: v => '฿' + (v >= 1000 ? (v/1000).toFixed(0) + 'k' : v) }
-                    }
-                }
-            }
-        });
-
-        const ctxYearly = document.getElementById('yearlySalesChart').getContext('2d');
-        new Chart(ctxYearly, {
-            type: 'bar',
-            data: {
-                labels: {{ chart_years|safe }},
-                datasets: [{
-                    label: 'ยอดรวม (บาท)',
-                    data: {{ chart_year_values|safe }},
-                    backgroundColor: '#7c3aed',
-                    borderRadius: 8,
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: { legend: { display: false } },
-                scales: {
-                    y: { 
-                        beginAtZero: true,
-                        ticks: { callback: v => '฿' + (v >= 1000 ? (v/1000).toFixed(0) + 'k' : v) }
-                    }
-                }
-            }
-        });
+document.addEventListener('DOMContentLoaded', function() {
+    // Compute total
+    let total = 0;
+    document.querySelectorAll('.project-row').forEach(r => {
+        total += parseFloat(r.getAttribute('data-val')) || 0;
     });
+    const fmt = v => '฿' + v.toLocaleString('th-TH', {maximumFractionDigits: 0});
+    document.getElementById('totalDisplay').textContent = fmt(total);
+    const mob = document.getElementById('mobileTotalDisplay');
+    if (mob) mob.textContent = fmt(total);
+
+    // Monthly chart
+    new Chart(document.getElementById('monthlySalesChart'), {
+        type: 'line',
+        data: {
+            labels: {{ chart_months|safe }},
+            datasets: [{
+                label: 'ยอดสะสม',
+                data: {{ chart_month_values|safe }},
+                borderColor: '#4f46e5',
+                backgroundColor: 'rgba(79,70,229,0.08)',
+                borderWidth: 2.5,
+                fill: true,
+                tension: 0.4,
+                pointRadius: 3,
+                pointBackgroundColor: '#fff',
+                pointBorderColor: '#4f46e5',
+                pointBorderWidth: 2,
+            }]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+                x: { grid: { display: false }, ticks: { font: { size: 11 } } },
+                y: { beginAtZero: true, ticks: { font: { size: 11 }, callback: v => v >= 1000000 ? (v/1000000).toFixed(1)+'M' : v >= 1000 ? (v/1000).toFixed(0)+'k' : v } }
+            }
+        }
+    });
+
+    // Yearly chart
+    new Chart(document.getElementById('yearlySalesChart'), {
+        type: 'bar',
+        data: {
+            labels: {{ chart_years|safe }},
+            datasets: [{
+                label: 'ยอดรวม',
+                data: {{ chart_year_values|safe }},
+                backgroundColor: '#7c3aed',
+                borderRadius: 8,
+            }]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+                y: { beginAtZero: true, ticks: { font: { size: 11 }, callback: v => v >= 1000000 ? (v/1000000).toFixed(1)+'M' : v >= 1000 ? (v/1000).toFixed(0)+'k' : v } }
+            }
+        }
+    });
+
+    // Mobile filter collapse state
+    const fc = document.getElementById('filterCollapse');
+    const isMobile = window.innerWidth < 768;
+    if (isMobile && fc) {
+        fc.classList.remove('show');
+    }
+});
 </script>
 {% endblock %}

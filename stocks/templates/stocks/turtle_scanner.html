@@ -159,10 +159,13 @@
                             </td>
                             <td class="text-end pe-4">
                                 <div class="d-flex justify-content-end gap-2">
-                                    <button class="btn btn-sm btn-outline-primary fw-bold px-3" onclick="window.open(`https://finance.yahoo.com/quote/{{ c.symbol }}{% if c.market == 'SET' %}.BK{% endif %}/chart`, '_blank')">
-                                        Chart <i class="fas fa-external-link-alt ms-1 text-xs"></i>
+                                    <button class="btn btn-sm btn-outline-primary fw-bold px-3" onclick="window.open(`{% url 'stocks:stock_chart' c.symbol %}?market={{ c.market }}`, '_blank')">
+                                        Chart <i class="fas fa-chart-line ms-1 text-xs"></i>
                                     </button>
-                                    <button class="btn btn-sm text-white fw-bold px-3 shadow-sm align-items-center d-flex" style="background: linear-gradient(135deg, #7c3aed 0%, #4f46e5 100%); border: none;" onclick="window.open(`{% url 'stocks:crew_analyze' c.symbol %}?strategy=turtle&market={{ c.market }}`, '_blank')" title="วิเคราะห์ด้วย CrewAI (โหมดเต่า)">
+                                    <button class="btn btn-sm text-white fw-bold px-3 shadow-sm align-items-center d-flex border-0" style="background: linear-gradient(135deg, #7c3aed 0%, #4f46e5 100%);" onclick="window.open(`{% url 'stocks:core_analyze' c.symbol %}`, '_blank')" title="The Core Analysis: วิเคราะห์ 3 มิติเชิงลึก">
+                                        <i class="fas fa-microchip me-1"></i> Core
+                                    </button>
+                                    <button class="btn btn-sm text-white fw-bold px-3 shadow-sm align-items-center d-flex" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); border: none;" onclick="window.open(`{% url 'stocks:crew_analyze' c.symbol %}?strategy=turtle&market={{ c.market }}`, '_blank')" title="วิเคราะห์ด้วย CrewAI (โหมดเต่า)">
                                         <i class="fas fa-robot me-1"></i> AI
                                     </button>
                                 </div>
