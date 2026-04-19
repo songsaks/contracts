@@ -109,6 +109,69 @@
   <!-- Status -->
   <div id="chart-status" class="text-primary fw-bold mb-2 ps-1" style="min-height:24px;"></div>
 
+  <!-- Tactical Command Center (NEW) -->
+  <div class="row g-3 mb-3" id="tactical-panel" style="display: none;">
+    <div class="col-md-3">
+      <div class="card border-0 shadow-sm h-100 bg-primary bg-opacity-10">
+        <div class="card-body py-3">
+          <small class="text-primary fw-bold text-uppercase d-block mb-1" title="Average True Range (20D): ค่าความผันผวนเฉลี่ย 20 วันล่าสุด ใช้คำนวณระยะ Stop Loss และขนาดไม้">
+            <i class="fas fa-wave-square"></i> Volatility (N) <i class="fas fa-info-circle ms-1 opacity-50"></i>
+          </small>
+          <div class="d-flex align-items-baseline gap-2">
+            <h3 class="fw-bold mb-0 text-primary" id="tac-n">0.00</h3>
+            <span class="text-muted small">ATR(20)</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-5">
+      <div class="card border-0 shadow-sm h-100 bg-warning bg-opacity-10 border-start border-warning border-4">
+        <div class="card-body py-3">
+          <div class="d-flex justify-content-between align-items-start">
+            <div>
+              <small class="text-warning-800 fw-bold text-uppercase d-block mb-1" title="ราคาเป้าหมายที่จะซื้อเพิ่ม (Pyramiding) เมื่อราคาวิ่งขึ้นไปอีก 0.5N จากราคาทุนเดิม">
+                <i class="fas fa-plus-circle"></i> Next Unit (+0.5N) <i class="fas fa-info-circle ms-1 opacity-50"></i>
+              </small>
+              <h3 class="fw-bold mb-0 text-dark" id="tac-next-price">0.00</h3>
+            </div>
+            <div class="text-end">
+              <small class="text-muted d-block" title="จำนวนหุ้นที่แนะนำให้ซื้อเพิ่มเพื่อให้ความเสี่ยงรวมไม่เกิน 1% ของพอร์ต โดยอิงจากระยะ 2N Stop Loss">Suggest Shares <i class="fas fa-question-circle opacity-50"></i></small>
+              <span class="badge bg-warning text-dark fw-bold" id="tac-suggest-shares">Calculating…</span>
+            </div>
+          </div>
+          <div class="mt-2 text-muted d-flex align-items-center gap-1" style="font-size: 0.75rem;">
+            *อิงความเสี่ยง 1% จากทุน: 
+            <input type="number" id="tac-capital-input" class="form-control form-control-sm text-end border-0 bg-white shadow-sm fw-bold" style="width: 100px; font-size: 0.75rem;" value="1000000" onchange="updateTacticalWithCapital()">
+            ฿
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="card border-0 shadow-sm h-100 bg-danger bg-opacity-10 border-start border-danger border-4">
+        <div class="card-body py-3">
+          <small class="text-danger fw-bold text-uppercase d-block mb-1" title="จุดขายตัดขาดทุนหรือขายทำกำไร (Trailing Stop) ซึ่งจะขยับขึ้นตามราคาที่ทำจุดสูงสุดใหม่">
+            <i class="fas fa-shield-alt"></i> Dynamic Exit (Trailing) <i class="fas fa-info-circle ms-1 opacity-50"></i>
+          </small>
+          <div class="row g-2">
+            <div class="col-6">
+              <div class="p-2 bg-white rounded-2 border" title="System 1 Exit: จุดขายเมื่อราคาหลุดจุดต่ำสุดในรอบ 10 วัน (เหมาะสำหรับรอบสั้น)">
+                <small class="text-muted d-block" style="font-size:0.65rem;">S1 (10D Low)</small>
+                <span class="fw-bold text-danger" id="tac-exit-10">0.00</span>
+              </div>
+            </div>
+            <div class="col-6">
+              <div class="p-2 bg-white rounded-2 border" title="System 2 Exit: จุดขายเมื่อราคาหลุดจุดต่ำสุดในรอบ 20 วัน (เหมาะสำหรับการรันเทรนด์ยาว)">
+                <small class="text-muted d-block" style="font-size:0.65rem;">S2 (20D Low)</small>
+                <span class="fw-bold text-danger" id="tac-exit-20">0.00</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Main chart -->
   <div class="bg-white rounded-3 p-0 mb-2 border" style="position:relative;">
     <div class="panel-label">OHLCV — Donchian Channel</div>
@@ -156,6 +219,19 @@ let currentSymbol = "{{ symbol }}";
 let currentMarket = "{{ market }}";
 let currentPeriod = "1y";
 let mainChart = null, rsiChart = null, volChart = null;
+let globalTacticalData = null;
+
+function updateTacticalWithCapital() {
+    if (!globalTacticalData) return;
+    const capital = parseFloat(document.getElementById('tac-capital-input').value) || 0;
+    const riskAmount = capital * 0.01;
+    const stopDistance = globalTacticalData.n * 2;
+    if (stopDistance > 0) {
+        let shares = Math.floor(riskAmount / stopDistance);
+        if (currentMarket === 'SET') shares = Math.floor(shares / 100) * 100;
+        document.getElementById('tac-suggest-shares').textContent = shares.toLocaleString() + ' หุ้น';
+    }
+}
 
 function setStatus(msg) {
   document.getElementById('chart-status').textContent = msg;
@@ -257,6 +333,17 @@ function loadData(sym, mkt, period) {
       setStatus('');
       renderCharts(data);
       document.getElementById('display-symbol').textContent = data.symbol;
+      
+      // Update Tactical Panel
+      if (data.tactical) {
+        globalTacticalData = data.tactical;
+        document.getElementById('tactical-panel').style.display = 'flex';
+        document.getElementById('tac-n').textContent = data.tactical.n.toFixed(4);
+        document.getElementById('tac-next-price').textContent = data.tactical.next_unit.toFixed(2);
+        document.getElementById('tac-exit-10').textContent = data.tactical.exit_10d_low.toFixed(2);
+        document.getElementById('tac-exit-20').textContent = data.tactical.exit_20d_low.toFixed(2);
+        updateTacticalWithCapital();
+      }
 
       // Signal table
       const recent = [...data.signals].reverse().slice(0, 20);

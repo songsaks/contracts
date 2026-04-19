@@ -8710,6 +8710,29 @@ def stock_chart_data(request, symbol):
         rs = gain / loss.replace(0, _np.nan)
         df['rsi'] = 100 - (100 / (1 + rs))
 
+        # --- Tactical Analysis (N and Next Units) ---
+        # Calculate ATR (Wilder's method)
+        df['h_l'] = df['High'] - df['Low']
+        df['h_pc'] = (df['High'] - df['Close'].shift(1)).abs()
+        df['l_pc'] = (df['Low'] - df['Close'].shift(1)).abs()
+        df['tr'] = df[['h_l', 'h_pc', 'l_pc']].max(axis=1)
+        df['atr_20'] = df['tr'].ewm(alpha=1/20, adjust=False).mean() # N for 20 days
+        
+        last_row = df.iloc[-1]
+        n_val = round(float(last_row['atr_20']), 4)
+        curr_price = float(last_row['Close'])
+        
+        tactical = {
+            'price': round(curr_price, 2),
+            'n': n_val,
+            'next_unit': round(curr_price + (n_val * 0.5), 2),
+            'stop_loss_2n': round(curr_price - (n_val * 2), 2),
+            'exit_10d_low': round(float(last_row['dc10_lower']), 2),
+            'exit_20d_low': round(float(last_row['dc20_lower']), 2),
+            'high_20d': round(float(last_row['dc20_upper']), 2),
+            'high_55d': round(float(last_row['dc55_upper']), 2),
+        }
+
         # Turtle breakout signals (compare close vs previous day's channel)
         df['sys1_signal'] = df['Close'] >= df['dc20_upper'].shift(1)
         df['sys2_signal'] = df['Close'] >= df['dc55_upper'].shift(1)
@@ -8750,14 +8773,20 @@ def stock_chart_data(request, symbol):
                 signals.append({'time': t, 'type': 'sys1_exit',
                                  'price': round(float(row['Close']), 2)})
 
-        # 4. กรองข้อมูลเฉพาะช่วงที่ผู้ใช้ต้องการกลับไปที่ Frontend
-        # (เพื่อให้กราฟแสดงเฉพาะช่วงที่เลือก แต่เส้นเทคนิคมีค่าสมบูรณ์)
-        final_candles = []
-        final_vol = []
-        final_dc20u, final_dc20l = [], []
-        final_dc55u, final_dc55l = [], []
-        final_rsi = []
-        final_signals = []
+        # 4. Filter and return
+        return _JR({
+            'symbol': symbol,
+            'market': market,
+            'tactical': tactical,
+            'candles': candles,
+            'volume': vol,
+            'dc20_upper': dc20u,
+            'dc20_lower': dc20l,
+            'dc55_upper': dc55u,
+            'dc55_lower': dc55l,
+            'rsi': rsi_data,
+            'signals': signals
+        })
 
         # คำนวณจุดตัดของเวลา (Cut-off date)
         from datetime import datetime as _dt, timedelta as _td
