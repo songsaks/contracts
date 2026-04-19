@@ -2991,7 +2991,6 @@ def momentum_scanner(request):
     ai_analysis = ""
     if request.GET.get('analyze') == 'true':
         try:
-            from .models import MomentumCandidate
             data_to_analyze = []
             top_best = MomentumCandidate.objects.filter(user=request.user).order_by('-technical_score')[:15]
             for t in top_best:
