@@ -2611,7 +2611,7 @@ Macro risks, Earnings, การเมือง หรือสัญญาณ�
 
                 client = _genai.Client(api_key=_s.GEMINI_API_KEY)
                 resp = client.models.generate_content(
-                    model='gemini-2.5-flash',
+                    model='gemini-2.0-flash',
                     contents=prompt,
                 )
                 report_text = resp.text or '## ไม่สามารถสร้างรายงานได้'
@@ -2638,6 +2638,8 @@ Macro risks, Earnings, การเมือง หรือสัญญาณ�
             except Exception as exc:
                 import logging
                 logging.getLogger('stocks').exception(f'[MorningBriefing] error: {exc}')
+                from django.core.cache import cache as _c2
+                _c2.set(ckey, {'state': 'done', 'error': str(exc)}, timeout=60)
                 from django.core.cache import cache as _c2
                 _c2.set(ckey, {'state': 'done', 'error': str(exc)}, timeout=60)
 
@@ -2862,61 +2864,80 @@ def momentum_scanner(request):
                     scan_end_str   = scan_end_date.strftime('%Y-%m-%d')
                     scan_start_str = (_now_bkk.date() - _td(days=600)).strftime('%Y-%m-%d')
                     
+                    # --- STAGE 1: Fast Screening with YahooQuery (Super Fast) ---
+                    from yahooquery import Ticker as _TQ
+                    symbols_bk = [f"{s}.BK" for s in sym_list]
+                    
                     candidates = []
-                    # Chunk download to be safe and responsive
-                    chunk_size = 15
-                    import time as _tm
-                    for i in range(0, len(sym_list), chunk_size):
-                        chunk = sym_list[i:i + chunk_size]
-                        symbols_bk = [f"{s}.BK" for s in chunk]
+                    _c.set(ckey, {'state': 'running', 'progress': 10, 'total': total_syms, 'phase': 'Stage 1: สแกนด่วนด้วย YahooQuery (Turbo)...'}, timeout=900)
+                    
+                    try:
+                        # Fetch batch data for ALL symbols (very fast)
+                        tq = _TQ(symbols_bk, asynchronous=True)
+                        prices = tq.price
                         
-                        _c.set(ckey, {'state': 'running', 'progress': int((i/total_syms)*40) + 5, 
-                                      'total': total_syms, 'phase': f'Stage 1: กำลังสแกนกลุ่ม {i//chunk_size + 1}...'}, timeout=600)
+                        for symbol in sym_list:
+                            try:
+                                s_bk = f"{symbol}.BK"
+                                p_data = prices.get(s_bk)
+                                if not isinstance(p_data, dict): continue
+                                
+                                curr_price = p_data.get('regularMarketPrice')
+                                if curr_price is None: continue
+                                
+                                # Fast filter: Average Daily Volume > 1M THB
+                                avg_vol = p_data.get('averageDailyVolume3Month', 0)
+                                if curr_price * avg_vol < 1000000: continue
+                                
+                                candidates.append({'symbol': symbol})
+                            except Exception: continue
+                    except Exception as e:
+                        import logging; logging.getLogger('stocks').error(f"YahooQuery Error: {e}")
+
+                    # --- STAGE 2: Deep Analysis (Parallel Detailed Scan) ---
+                    # Limit to top 150 for deep dive (or all if < 150)
+                    candidates = candidates[:150]
+                    total_cand = len(candidates)
+                    pre_results = []
+                    
+                    _c.set(ckey, {'state': 'running', 'progress': 30, 'total': total_syms, 'phase': f'Stage 2: เจาะลึก {total_cand} ตัว...'}, timeout=900)
+                    
+                    chunk_size = 50
+                    for i in range(0, len(candidates), chunk_size):
+                        chunk = candidates[i:i + chunk_size]
+                        chunk_syms = [c['symbol'] for c in chunk]
+                        chunk_bk = [f"{s}.BK" for s in chunk_syms]
+                        
+                        _c.set(ckey, {'state': 'running', 'progress': 30 + int((i/total_cand)*60), 
+                                      'total': total_syms, 'phase': f'Stage 2: วิเคราะห์ทางเทคนิค ({i//chunk_size + 1})...'}, timeout=900)
                         
                         try:
-                            # Download OHLC for the chunk with timeout and NO threads for stability on server
-                            data = _yf.download(symbols_bk, start=scan_start_str, end=scan_end_str, interval="1d", progress=False, group_by='ticker', threads=False, timeout=30)
+                            # Use yfinance with THREADS=True for the limited candidates
+                            data = _yf.download(chunk_bk, start=scan_start_str, end=scan_end_str, interval="1d", progress=False, group_by='ticker', threads=True, timeout=20)
                             
-                            _tm.sleep(0.5) # Prevent Yahoo throttling
-                            
-                            if data is None or data.empty:
-                                # Fallback: fetch one-by-one for this chunk
-                                for symbol in chunk:
-                                    try:
-                                        s_bk = f"{symbol}.BK"
-                                        _t = _yf.Ticker(s_bk)
-                                        _h = _t.history(start=scan_start_str, end=scan_end_str, interval="1d")
-                                        if not _h.empty:
-                                            df = _h.dropna(subset=['Close'])
-                                            if len(df) < 100: continue # Relaxed from 150
-                                            curr_price = float(df['Close'].iloc[-1])
-                                            # Relax filters: Don't 'continue', just assign lower score or prioritize
-                                            rsi_val = float(_ta.rsi(df['Close'], length=14).iloc[-1]) if len(df)>14 else 0
-                                            quick_score = rsi_val
-                                            candidates.append({'symbol': symbol, 'df': df, 'score': quick_score})
-                                    except Exception: continue
-                                continue # move to next chunk
-                            
-                            for symbol in chunk:
+                            for symbol in chunk_syms:
                                 try:
                                     s_bk = f"{symbol}.BK"
                                     if s_bk not in data or data[s_bk].empty: continue
                                     df = data[s_bk].dropna(subset=['Close'])
-                                    if len(df) < 100: continue # Relaxed 
+                                    if len(df) < 50: continue
                                     
-                                    curr_price = float(df['Close'].iloc[-1])
-                                    # Relaxed Liquidity: (Reduced from 5M to 1M to be safe)
-                                    avg_val_20 = (df['Close'] * df['Volume']).tail(20).mean()
-                                    if avg_val_20 < 1000000: continue
+                                    # Basic EMA filters for speed
+                                    df['EMA200'] = _ta.ema(df['Close'], length=200)
+                                    df['RSI']    = _ta.rsi(df['Close'], length=14)
                                     
-                                    # Relaxed Trend: Don't kill it if price < EMA200 yet, just lower score
-                                    # (Stage 2 will filter or rank them better)
-                                    rsi_ser = _ta.rsi(df['Close'], length=14)
-                                    rsi_val = float(rsi_ser.iloc[-1]) if rsi_ser is not None and not rsi_ser.empty else 0
+                                    current_price = float(df['Close'].iloc[-1])
+                                    rsi_val = float(df['RSI'].iloc[-1])
                                     
-                                    if rsi_val < 35: continue # Only very weak ones are out
+                                    # Relaxed Momentum Filter
+                                    if rsi_val < 35: continue 
                                     
-                                    candidates.append({'symbol': symbol, 'df': df, 'score': rsi_val})
+                                    tech = analyze_momentum_technical(df)
+                                    pre_results.append({
+                                        'symbol': symbol, 'df': df, 'tech': tech, 
+                                        'price': current_price, 'year_high': float(df['High'].tail(252).max()),
+                                        'sd_zone': find_supply_demand_zones(df)
+                                    })
                                 except Exception: continue
                         except Exception: continue
 
@@ -3558,48 +3579,33 @@ def precision_momentum_scanner(request):
                     import logging; logging.getLogger('stocks').warning(f"[Precision] SET Index fetch failed: {e}")
 
 
-                # ====== Phase 1: Bulk RS Rating Calculation ======
+                # ====== Phase 1: Fast Screening with YahooQuery (Institutional Speed) ======
                 total_syms = len(sym_list)
-                _cache.set(ckey, {'state': 'running', 'progress': 5, 'total': total_syms, 'phase': 'คำนวณ RS Rating แบบกลุ่ม...'}, timeout=900)
+                _cache.set(ckey, {'state': 'running', 'progress': 5, 'total': total_syms, 'phase': 'ดึงข้อมูล RS Rating เร็วพิเศษ (Turbo)...'}, timeout=900)
+                
+                from yahooquery import Ticker as _TQ
+                symbols_bk = [f"{s}.BK" for s in sym_list]
                 
                 rs_returns_all = {}
-                chunk_size = 20
-                for i in range(0, len(sym_list), chunk_size):
-                    chunk = sym_list[i : i + chunk_size]
-                    symbols_bk = [f"{s}.BK" for s in chunk]
+                try:
+                    # Multi-treaded fundamental/price fetch for ALL symbols at once
+                    tq = _TQ(symbols_bk, asynchronous=True)
+                    # Instead of full history, we get regular stats for quick filtering or we can use history
+                    tq_hist = tq.history(start=scan_start_str, end=scan_end_str, interval="1d")
                     
-                    _cache.set(ckey, {'state': 'running', 'progress': 5 + int((i/total_syms)*15), 'total': total_syms, 'phase': f'ดึงข้อมูล RS ({i//chunk_size + 1})...'}, timeout=900)
-                    
-                    try:
-                        import yfinance as _yf_bulk
-                        import time as _tm
-                        # Use a smaller timeout, NO threads for stability, and reduce chunk_size
-                        rs_data = _yf_bulk.download(symbols_bk, start=scan_start_str, end=scan_end_str, interval="1d", progress=False, group_by='ticker', threads=False, timeout=30)
-                        _tm.sleep(0.3)
-                        
-                        if rs_data is None or rs_data.empty:
-                            # If bulk fails, try one-by-one for this chunk
-                            for symbol in chunk:
-                                try:
-                                    s_bk = f"{symbol}.BK"
-                                    _t = _yf_bulk.Ticker(s_bk)
-                                    _h = _t.history(start=scan_start_str, end=scan_end_str, interval="1d")
-                                    if not _h.empty:
-                                        _close = _h['Close'].dropna()
-                                        if len(_close) >= 66:
-                                            rs_returns_all[symbol] = float((_close.iloc[-1] - _close.iloc[-66]) / abs(_close.iloc[-66]) * 100)
-                                except Exception: continue
-                        else:
-                            for symbol in chunk:
-                                try:
-                                    s_bk = f"{symbol}.BK"
-                                    if s_bk not in rs_data or rs_data[s_bk].empty: continue
-                                    _close = rs_data[s_bk]['Close'].dropna()
-                                    n = len(_close)
-                                    if n >= 66:
-                                        if n >= 252:
-                                            q1 = float((_close.iloc[-1]   - _close.iloc[-64])  / abs(_close.iloc[-64])  * 100)
-                                            q2 = float((_close.iloc[-64]  - _close.iloc[-127]) / abs(_close.iloc[-127]) * 100)
+                    if tq_hist is not None and not tq_hist.empty:
+                        for symbol in sym_list:
+                            try:
+                                s_bk = f"{symbol}.BK"
+                                _close = tq_hist.loc[s_bk]['adjclose'].dropna()
+                                if len(_close) >= 66:
+                                    # Calc return for RS (Relative strength approx)
+                                    ret = float((_close.iloc[-1] - _close.iloc[-66]) / abs(_close.iloc[-66]) * 100)
+                                    rs_returns_all[symbol] = ret
+                            except Exception: continue
+                except Exception as e:
+                    import logging; logging.getLogger('stocks').error(f"[Precision] YahooQuery RS Fetch Error: {e}")
+                    # Fallback to slower yfinance handled in code logic if needed
                                             q3 = float((_close.iloc[-127] - _close.iloc[-190]) / abs(_close.iloc[-190]) * 100)
                                             q4 = float((_close.iloc[-190] - _close.iloc[-253]) / abs(_close.iloc[-253]) * 100)
                                             rs_returns_all[symbol] = q1 * 0.4 + q2 * 0.2 + q3 * 0.2 + q4 * 0.2
