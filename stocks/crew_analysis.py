@@ -24,13 +24,21 @@ class MomentumShortTermCrew:
     then fetches only minimal extra data (MACD, BB, momentum %, news).
     """
 
-    def __init__(self, symbol, scan_data=None):
+    def __init__(self, symbol, scan_data=None, market='SET'):
         self.symbol    = symbol
+        self.market    = market
         self.scan_data = scan_data or {}
-        self.yf_symbol = (
-            symbol if ('.' in symbol or '=' in symbol or '-' in symbol)
-            else f"{symbol}.BK"
-        )
+        
+        self.benchmark_name = "SET Index" if market == 'SET' else "S&P 500 / Nasdaq"
+        self.currency       = "฿" if market == 'SET' else "$"
+
+        if self.market == 'US':
+            self.yf_symbol = symbol
+        else:
+            self.yf_symbol = (
+                symbol if ('.' in symbol or '=' in symbol or '-' in symbol)
+                else f"{symbol}.BK"
+            )
         os.environ["GEMINI_API_KEY"] = settings.GEMINI_API_KEY
 
     # ------------------------------------------------------------------
@@ -235,10 +243,10 @@ Volume Acceleration (5d/20d): {extra.get('vol_5v20', 'N/A')}x
 เขียนตาราง Risk Management เป็นภาษาไทย:
 1. **Best Entry Zone**: ช่วงราคาเข้าที่ดีที่สุด (อ้างอิง Demand Zone และ Context จาก Agent 1)
 2. **Stop Loss**: คำนวณจาก Demand Zone ล่างสุด — ห้ามเกิน 7-8% จาก Entry
-3. **Target 1 (Conservative, R:R 1.5:1)**: ราคา ฿X.XX
-4. **Target 2 (Aggressive, R:R 2.5:1–3:1)**: ราคา ฿X.XX
-5. **Position Size**: พอร์ต 100,000 บาท Risk 1% → ซื้อกี่หุ้น?
-6. **สรุป R:R**: Entry ฿___ → Stop ฿___ → Target ฿___ = R:R 1:___""",
+3. **Target 1 (Conservative, R:R 1.5:1)**: ราคา {self.currency}X.XX
+4. **Target 2 (Aggressive, R:R 2.5:1–3:1)**: ราคา {self.currency}X.XX
+5. **Position Size**: พอร์ต {('100,000 บาท' if self.market == 'SET' else '$10,000 USD')} Risk 1% → ซื้อกี่หุ้น?
+6. **สรุป R:R**: Entry {self.currency}___ → Stop {self.currency}___ → Target {self.currency}___ = R:R 1:___""",
             agent=risk_expert,
             expected_output="ตาราง Risk Management ชัดเจน ระบุราคาตัวเลขครบทุกจุด"
         )
@@ -576,12 +584,17 @@ class TheCoreCrew:
       3. Execution Decider — Final summary, daily report & alert logic
     """
 
-    def __init__(self, symbol):
+    def __init__(self, symbol, market='SET'):
         self.symbol = symbol
-        self.yf_symbol = (
-            symbol if ('.' in symbol or '=' in symbol or '-' in symbol)
-            else f"{symbol}.BK"
-        )
+        self.market = market
+        
+        if market == 'US':
+            self.yf_symbol = symbol
+        else:
+            self.yf_symbol = (
+                symbol if ('.' in symbol or '=' in symbol or '-' in symbol)
+                else f"{symbol}.BK"
+            )
         os.environ["GEMINI_API_KEY"] = settings.GEMINI_API_KEY
 
     def run_analysis(self):
@@ -620,9 +633,11 @@ Market Cap: {info.get('marketCap', 'N/A')}
 - PEG: {info.get('pegRatio', 'N/A')}
 
 [Technical Snapshot]
-- RSI: {hist['RSI'].iloc[-1] if 'RSI' in hist.columns else 'N/A'}
+- RSI: {hist['RSI'].iloc[-1] if not hist.empty and 'RSI' in hist.columns else 'N/A'}
 - 52W High/Low: {info.get('fiftyTwoWeekHigh')} / {info.get('fiftyTwoWeekLow')}
 - Change 1M: {((hist['Close'].iloc[-1] - hist['Close'].iloc[-22])/hist['Close'].iloc[-22]*100) if len(hist)>22 else 'N/A'}%
+- Market: {self.market}
+- Benchmark Comparison: {("S&P 500" if self.market == "US" else "SET Index")}
 
 [Automated Backtest Results]
 1. Strategy RSI Mean Reversion: Win Rate {bt_rsi.get('win_rate_pct')}% | Return {bt_rsi.get('total_return_pct')}%
@@ -719,6 +734,10 @@ class MomentumCrew:
         self.portfolio_context = portfolio_context or {}
         self.strategy         = strategy
         self.market           = market
+        self.benchmark_name   = "SET Index" if market == 'SET' else "S&P 500 / Nasdaq"
+        self.currency         = "บาท" if market == 'SET' else "USD"
+        self.curr_sym         = "฿" if market == 'SET' else "$"
+
         # Auto-add .BK for SET stocks (no dot, no dash, no =)
         if self.market == 'US':
             self.yf_symbol = symbol
