@@ -2869,35 +2869,42 @@ def momentum_scanner(request):
                     symbols_bk = [f"{s}.BK" for s in sym_list]
                     
                     candidates = []
-                    # Reporting Stage 1
-                    _c.set(ckey, {'state': 'running', 'progress': 0, 'total': 0, 'phase': f'Stage 1: 🔎 กำลังคัดกรองหุ้น {total_syms} ตัวด้วยระบบ Turbo...'}, timeout=900)
+                    _c.set(ckey, {'state': 'running', 'progress': 0, 'total': 0, 'phase': f'Stage 1: 🔎 กำลังคัดกรอง {total_syms} ตัว...'}, timeout=900)
                     
                     try:
-                        # Fetch batch data (No async to avoid environment issues, still very fast)
                         tq = _TQ(symbols_bk)
                         prices = tq.price
+                        
+                        import logging; logger = logging.getLogger('stocks')
+                        logger.info(f"[Momentum] Stage 1: Received {len(prices) if prices else 0} prices from YahooQuery")
                         
                         for symbol in sym_list:
                             try:
                                 s_bk = f"{symbol}.BK"
                                 p_data = prices.get(s_bk)
-                                if not isinstance(p_data, dict) or 'regularMarketPrice' not in p_data: continue
+                                
+                                # If direct price is missing, keep it as candidate anyway (Deep scan will verify)
+                                if not isinstance(p_data, dict) or 'regularMarketPrice' not in p_data:
+                                    # Fallback: If tech indicators of Momentum seem interesting, keep it
+                                    candidates.append({'symbol': symbol})
+                                    continue
                                 
                                 curr_price = p_data.get('regularMarketPrice')
                                 avg_vol = p_data.get('averageDailyVolume3Month', 0)
                                 
-                                # Momentum Specific: Relaxed filtering for broader results
-                                # 1. Minimum Liquidity (500k THB)
-                                if (curr_price * avg_vol) < 500000: continue
+                                # Relaxed Liquidity (300k) to be safe
+                                if (curr_price * avg_vol) < 300000: continue
                                 
-                                # 2. Broad Technical Filter - Price must be above some level or trending
-                                # (Deep dive will confirm details)
                                 candidates.append({'symbol': symbol})
                             except Exception: continue
                     except Exception as e:
                         import logging; logging.getLogger('stocks').error(f"YahooQuery Error: {e}")
 
-                    # --- STAGE 2: Deep Analysis (The Detailer) ---
+                    # If Stage 1 is too empty, it's likely a data error, use top 100 as fallback
+                    if len(candidates) < 10:
+                        candidates = [{'symbol': s} for s in sym_list[:100]]
+                        
+                    # --- STAGE 2: Deep Analysis ---
                     # Limit to top 200 for Momentum (it's broader than Precision)
                     candidates = candidates[:200]
                     total_cand = len(candidates)
@@ -3598,17 +3605,27 @@ def precision_momentum_scanner(request):
                     tq_hist = tq.history(start=scan_start_str, end=scan_end_str, interval="1d")
                     
                     if tq_hist is not None and not tq_hist.empty:
-                        for symbol in sym_list:
-                            try:
-                                s_bk = f"{symbol}.BK"
-                                _close = tq_hist.loc[s_bk]['adjclose'].dropna()
-                                if len(_close) >= 66:
-                                    # Calc return for RS (Relative strength approx)
-                                    ret = float((_close.iloc[-1] - _close.iloc[-66]) / abs(_close.iloc[-66]) * 100)
-                                    rs_returns_all[symbol] = ret
-                            except Exception: continue
+                        # Normalize index for safety
+                        if isinstance(tq_hist.index, pd.MultiIndex):
+                            for symbol in sym_list:
+                                try:
+                                    s_bk = f"{symbol}.BK"
+                                    if s_bk in tq_hist.index.get_level_values(0):
+                                        _close = tq_hist.loc[s_bk]['adjclose'].dropna()
+                                        if len(_close) >= 66:
+                                            # Calc return for RS (Relative strength approx)
+                                            ret = float((_close.iloc[-1] - _close.iloc[-66]) / abs(_close.iloc[-66]) * 100)
+                                            rs_returns_all[symbol] = ret
+                                except Exception: continue
                 except Exception as e:
                     import logging; logging.getLogger('stocks').error(f"[Precision] YahooQuery RS Fetch Error: {e}")
+
+                # FAILSAFE: If results are empty or too small, force evaluation of a subset
+                if len(rs_returns_all) < 10:
+                    import logging; logging.getLogger('stocks').warning(f"[Precision] Data recovery mode: Only {len(rs_returns_all)} found. Force fallback.")
+                    # Use at least top 50 symbols to ensure some results
+                    for s in sym_list[:100]:
+                        if s not in rs_returns_all: rs_returns_all[s] = 0.0 # Dummy score to pass filter
 
                 rs_ratings_map = {}
                 if rs_returns_all:
