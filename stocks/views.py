@@ -9163,16 +9163,22 @@ def portfolio_refresh_prices(request):
 
     def _fetch_price(item):
         symbol = item.symbol.upper()
-        sym_yf = symbol if '.' in symbol else f"{symbol}.BK"
+        market = item.market  # 'SET', 'US', 'CRYPTO', 'OTHER'
+
+        if market == 'SET':
+            sym_yf = symbol if symbol.endswith('.BK') else f"{symbol}.BK"
+        elif market == 'CRYPTO':
+            # BTC → BTC-USD, BTC-USD → BTC-USD (ใช้ตามที่บันทึกไว้)
+            sym_yf = symbol if '-' in symbol else f"{symbol}-USD"
+        else:
+            # US + OTHER: ใช้ symbol ตรงๆ (DELL, KEY, AAPL ฯลฯ)
+            sym_yf = symbol.replace('.BK', '')
+
         try:
             fi = yf.Ticker(sym_yf).fast_info
             price = float(getattr(fi, 'last_price', None) or 0)
-            if price <= 0:
-                # fallback: try without .BK (US stocks)
-                fi2 = yf.Ticker(symbol).fast_info
-                price = float(getattr(fi2, 'last_price', None) or 0)
             return item, price
-        except Exception as e:
+        except Exception:
             return item, 0.0
 
     updated, skipped, errors = [], [], []
@@ -9180,6 +9186,7 @@ def portfolio_refresh_prices(request):
     with concurrent.futures.ThreadPoolExecutor(max_workers=10) as ex:
         futures = {ex.submit(_fetch_price, item): item for item in items}
         for fut in concurrent.futures.as_completed(futures):
+            orig_item = futures[fut]
             try:
                 item, price = fut.result(timeout=15)
                 if price <= 0:
@@ -9192,8 +9199,8 @@ def portfolio_refresh_prices(request):
                     updated.append({'symbol': item.symbol, 'price': price, 'prev_high': old_high})
                 else:
                     skipped.append({'symbol': item.symbol, 'price': price, 'highest': old_high})
-            except Exception as e:
-                errors.append(str(e))
+            except Exception:
+                errors.append(orig_item.symbol)
 
     return JsonResponse({'updated': updated, 'skipped': skipped, 'errors': errors})
 

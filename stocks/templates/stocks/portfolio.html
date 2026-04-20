@@ -858,7 +858,6 @@
                             </select>
                         </div>
                         <div class="col-md-6">
-                        <div class="col-md-6">
                             <label class="form-label small text-muted">Strategy (Optional)</label>
                             <select id="port-strategy" name="strategy" class="form-select rounded-3" style="background:#f8fafc;">
                                 <option value="">-- None --</option>
@@ -901,36 +900,34 @@
                 <h5 class="modal-title fw-bold text-success"><i class="fas fa-hand-holding-usd me-2"></i> Sell Stock: <span id="sell-symbol-text"></span></h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <form id="sell-stock-form" method="POST">
-                {% csrf_token %}
-                <div class="modal-body pt-3">
-                    <div class="row g-3">
-                        <div class="col-12">
-                            <div class="alert alert-info py-2" style="font-size: 0.85rem;">
-                                <i class="fas fa-info-circle me-1"></i> ถือครองอยู่: <span id="owned-qty-text" class="fw-bold"></span> หุ้น
-                            </div>
+            <div class="modal-body pt-3">
+                <div id="sell-error-msg" class="alert alert-danger py-2 d-none" style="font-size:0.85rem;"></div>
+                <div class="row g-3">
+                    <div class="col-12">
+                        <div class="alert alert-info py-2" style="font-size: 0.85rem;">
+                            <i class="fas fa-info-circle me-1"></i> ถือครองอยู่: <span id="owned-qty-text" class="fw-bold"></span> หุ้น
                         </div>
-                        <div class="col-md-6">
-                            <label class="form-label small text-muted">จำนวนที่ขาย</label>
-                            <input type="number" id="sell-quantity" step="0.01" name="quantity" class="form-control rounded-3" style="background:#f8fafc;" required oninput="calculateProfit()">
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label small text-muted">ราคาที่ขาย (ต่อหุ้น)</label>
-                            <input type="number" id="sell-price" step="0.01" name="sell_price" class="form-control rounded-3" style="background:#f8fafc;" required oninput="calculateProfit()">
-                        </div>
-                        <div class="col-12 mt-4">
-                            <div class="p-3 rounded-4 border bg-light text-center">
-                                <div class="text-muted small uppercase mb-1">คาดการณ์กำไร/ขาดทุน</div>
-                                <div id="est-profit-text" class="h4 fw-bold mb-0">฿0.00</div>
-                            </div>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label small text-muted">จำนวนที่ขาย</label>
+                        <input type="number" id="sell-quantity" step="0.01" name="quantity" class="form-control rounded-3" style="background:#f8fafc;" required oninput="calculateProfit()">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label small text-muted">ราคาที่ขาย (ต่อหุ้น)</label>
+                        <input type="number" id="sell-price" step="0.01" name="sell_price" class="form-control rounded-3" style="background:#f8fafc;" required oninput="calculateProfit()">
+                    </div>
+                    <div class="col-12 mt-4">
+                        <div class="p-3 rounded-4 border bg-light text-center">
+                            <div class="text-muted small uppercase mb-1">คาดการณ์กำไร/ขาดทุน</div>
+                            <div id="est-profit-text" class="h4 fw-bold mb-0">฿0.00</div>
                         </div>
                     </div>
                 </div>
-                <div class="modal-footer border-0">
-                    <button type="button" class="btn btn-link text-muted" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-success px-4 rounded-pill">ยืนยันการขาย</button>
-                </div>
-            </form>
+            </div>
+            <div class="modal-footer border-0">
+                <button type="button" class="btn btn-link text-muted" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" id="sell-confirm-btn" class="btn btn-success px-4 rounded-pill" onclick="submitSell()">ยืนยันการขาย</button>
+            </div>
         </div>
     </div>
 </div>
@@ -965,28 +962,70 @@
     }
 
     let currentEntryPrice = 0;
+    let _sellUrl = '';
     function openSellModal(sellUrl, symbol, qty, currentPrice, entryPrice, market) {
         try {
+            _sellUrl = sellUrl;
             const isCrypto = market === 'CRYPTO';
             const qtyDecimals = isCrypto ? 7 : 2;
             document.getElementById('sell-symbol-text').innerText = symbol;
             document.getElementById('owned-qty-text').innerText = parseFloat(qty || 0).toFixed(qtyDecimals);
+            document.getElementById('sell-error-msg').classList.add('d-none');
             const sellQtyInput = document.getElementById('sell-quantity');
             sellQtyInput.step = isCrypto ? '0.0000001' : '0.01';
             sellQtyInput.value = parseFloat(qty || 0).toFixed(qtyDecimals);
             sellQtyInput.max = qty;
-            document.getElementById('sell-price').value = parseFloat(currentPrice || 0).toFixed(2);
-            
-            // ใช้ค่า entry price ที่ส่งมาจาก django โดยตรง
+            const cp = parseFloat(currentPrice) || 0;
+            document.getElementById('sell-price').value = cp > 0 ? cp.toFixed(2) : '';
             currentEntryPrice = parseFloat(entryPrice) || 0;
-
-            const form = document.getElementById('sell-stock-form');
-            form.action = sellUrl;
-            
+            document.getElementById('sell-confirm-btn').disabled = false;
             calculateProfit();
         } catch (err) {
-            console.error("Error opening sell modal:", err);
+            console.error("openSellModal error:", err);
         }
+    }
+
+    function submitSell() {
+        const qty   = parseFloat(document.getElementById('sell-quantity').value);
+        const price = parseFloat(document.getElementById('sell-price').value);
+        const errEl = document.getElementById('sell-error-msg');
+
+        if (!qty || qty <= 0) {
+            errEl.textContent = 'กรุณากรอกจำนวนที่ต้องการขาย'; errEl.classList.remove('d-none'); return;
+        }
+        if (!price || price <= 0) {
+            errEl.textContent = 'กรุณากรอกราคาขาย (ต้องมากกว่า 0)'; errEl.classList.remove('d-none'); return;
+        }
+        if (!_sellUrl) {
+            errEl.textContent = 'เกิดข้อผิดพลาด กรุณา refresh หน้า'; errEl.classList.remove('d-none'); return;
+        }
+
+        errEl.classList.add('d-none');
+        const btn = document.getElementById('sell-confirm-btn');
+        btn.disabled = true;
+        btn.textContent = 'กำลังบันทึก...';
+
+        const fd = new FormData();
+        fd.append('quantity', qty);
+        fd.append('sell_price', price);
+        fd.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+
+        fetch(_sellUrl, { method: 'POST', body: fd })
+            .then(r => {
+                if (r.redirected || r.ok) {
+                    bootstrap.Modal.getInstance(document.getElementById('sellStockModal')).hide();
+                    location.reload();
+                } else {
+                    errEl.textContent = 'เกิดข้อผิดพลาด (HTTP ' + r.status + ')';
+                    errEl.classList.remove('d-none');
+                    btn.disabled = false; btn.textContent = 'ยืนยันการขาย';
+                }
+            })
+            .catch(e => {
+                errEl.textContent = 'เชื่อมต่อไม่ได้ กรุณาลองใหม่';
+                errEl.classList.remove('d-none');
+                btn.disabled = false; btn.textContent = 'ยืนยันการขาย';
+            });
     }
 
     function calculateProfit() {
@@ -1138,7 +1177,10 @@
             } else {
                 showToast(`ราคาทุกตัวไม่เปลี่ยนแปลง (${s} ตัวคงเดิม)`, 'info');
             }
-            if (e > 0) showToast(`⚠️ ดึงราคาไม่ได้ ${e} ตัว`, 'warning');
+            if (e > 0) {
+                const errNames = data.errors.join(', ');
+                showToast(`⚠️ ดึงราคาไม่ได้ ${e} ตัว: ${errNames}`, 'warning');
+            }
 
             // reload page ถ้ามีการอัปเดต เพื่อให้ trailing stop คำนวณใหม่
             if (u > 0) setTimeout(() => location.reload(), 1500);
