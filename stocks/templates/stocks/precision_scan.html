@@ -510,12 +510,12 @@
                         </div>
                         <div class="mb-2 d-flex align-items-center gap-1 flex-wrap">
                             {% if item.live_price %}
-                            <span style="font-size:0.88rem;font-weight:600;color:#0f172a;">฿{{ item.live_price|floatformat:2 }}</span>
+                            <span style="font-size:0.88rem;font-weight:600;color:#0f172a;">{% if item.market == 'US' %}${% else %}฿{% endif %}{{ item.live_price|floatformat:2 }}</span>
                             {% if item.live_change_pct is not None %}
                             <span style="font-size:0.7rem;font-weight:600;color:{% if item.live_change_pct >= 0 %}#16a34a{% else %}#dc2626{% endif %};">{% if item.live_change_pct >= 0 %}+{% endif %}{{ item.live_change_pct|floatformat:1 }}%</span>
                             {% endif %}
                             {% else %}
-                            <span style="font-size:0.88rem;font-weight:600;color:#0f172a;">฿{{ item.price }}</span>
+                            <span style="font-size:0.88rem;font-weight:600;color:#0f172a;">{% if item.market == 'US' %}${% else %}฿{% endif %}{{ item.price }}</span>
                             {% endif %}
                             {% with prox=item.live_zone_prox|default:item.zone_proximity %}
                             {% if item.live_at_tp %}
@@ -621,12 +621,12 @@
                         <!-- Price + zone label (Live price when available) -->
                         <div class="mb-2 d-flex align-items-center gap-1 flex-wrap">
                             {% if item.live_price %}
-                            <span style="font-size:0.88rem; font-weight:600; color:#0f172a;">฿{{ item.live_price|floatformat:2 }}</span>
+                            <span style="font-size:0.88rem; font-weight:600; color:#0f172a;">{% if item.market == 'US' %}${% else %}฿{% endif %}{{ item.live_price|floatformat:2 }}</span>
                             {% if item.live_change_pct is not None %}
                             <span style="font-size:0.7rem;font-weight:600;color:{% if item.live_change_pct >= 0 %}#16a34a{% else %}#dc2626{% endif %};">{% if item.live_change_pct >= 0 %}+{% endif %}{{ item.live_change_pct|floatformat:1 }}%</span>
                             {% endif %}
                             {% else %}
-                            <span style="font-size:0.88rem; font-weight:600; color:#0f172a;">฿{{ item.price }}</span>
+                            <span style="font-size:0.88rem; font-weight:600; color:#0f172a;">{% if item.market == 'US' %}${% else %}฿{% endif %}{{ item.price }}</span>
                             {% endif %}
                             {% with prox=item.live_zone_prox|default:item.zone_proximity %}
                             {% if item.live_at_tp %}
@@ -1026,16 +1026,16 @@
                             <td class="col-hide-md">
                                 {% if item.live_price %}
                                 <span class="fw-bold" style="color:{% if item.live_change_pct and item.live_change_pct >= 0 %}#16a34a{% elif item.live_change_pct and item.live_change_pct < 0 %}#dc2626{% else %}#0f172a{% endif %};">
-                                    ฿{{ item.live_price|floatformat:2 }}
+                                    {% if item.market == 'US' %}${% else %}฿{% endif %}{{ item.live_price|floatformat:2 }}
                                 </span>
                                 {% if item.live_change_pct is not None %}
                                 <span class="d-block" style="font-size:0.62rem;font-weight:600;color:{% if item.live_change_pct >= 0 %}#16a34a{% else %}#dc2626{% endif %};">
                                     {% if item.live_change_pct >= 0 %}+{% endif %}{{ item.live_change_pct|floatformat:1 }}%
                                 </span>
                                 {% endif %}
-                                <div style="font-size:0.6rem;color:#94a3b8;">close: ฿{{ item.price|floatformat:2 }}</div>
+                                <div style="font-size:0.6rem;color:#94a3b8;">close: {% if item.market == 'US' %}${% else %}฿{% endif %}{{ item.price|floatformat:2 }}</div>
                                 {% else %}
-                                <span class="fw-bold">฿{{ item.price|floatformat:2 }}</span>
+                                <span class="fw-bold">{% if item.market == 'US' %}${% else %}฿{% endif %}{{ item.price|floatformat:2 }}</span>
                                 {% endif %}
                             </td>
 
@@ -1267,9 +1267,9 @@
                                                 <div class="rounded-2 p-2 text-center" style="background:#f0fdf4;border:1px solid #86efac;">
                                                     <div class="extra-extra-small text-muted mb-1">ช่วงเข้าซื้อ</div>
                                                     {% if item.demand_zone_start and item.demand_zone_end %}
-                                                    <div class="fw-bold small" style="color:#15803d;">฿{{ item.demand_zone_end|floatformat:2 }}</div>
+                                                    <div class="fw-bold small" style="color:#15803d;">{% if item.market == 'US' %}${% else %}฿{% endif %}{{ item.demand_zone_end|floatformat:2 }}</div>
                                                     <div class="extra-extra-small text-muted">ถึง</div>
-                                                    <div class="fw-bold small" style="color:#15803d;">฿{{ item.demand_zone_start|floatformat:2 }}</div>
+                                                    <div class="fw-bold small" style="color:#15803d;">{% if item.market == 'US' %}${% else %}฿{% endif %}{{ item.demand_zone_start|floatformat:2 }}</div>
                                                     {% else %}
                                                     <div class="text-muted small">-</div>
                                                     {% endif %}
@@ -1279,7 +1279,7 @@
                                                 <div class="rounded-2 p-2 text-center" style="background:#fff5f5;border:1px solid #fca5a5;">
                                                     <div class="extra-extra-small text-muted mb-1">Stop Loss</div>
                                                     <div class="fw-bold small" style="color:#dc2626;">
-                                                        {% if item.stop_loss %}฿{{ item.stop_loss|floatformat:2 }}{% else %}-{% endif %}
+                                                        {% if item.stop_loss %}{% if item.market == 'US' %}${% else %}฿{% endif %}{{ item.stop_loss|floatformat:2 }}{% else %}-{% endif %}
                                                     </div>
                                                     <div class="extra-extra-small text-muted">ตัดขาดทุน</div>
                                                 </div>
@@ -1288,7 +1288,7 @@
                                                 <div class="rounded-2 p-2 text-center" style="background:#eff6ff;border:1px solid #bfdbfe;">
                                                     <div class="extra-extra-small text-muted mb-1">เป้าหมาย (TP)</div>
                                                     <div class="fw-bold small" style="color:#1d4ed8;">
-                                                        {% if item.supply_zone_start %}฿{{ item.supply_zone_start|floatformat:2 }}{% else %}-{% endif %}
+                                                        {% if item.supply_zone_start %}{% if item.market == 'US' %}${% else %}฿{% endif %}{{ item.supply_zone_start|floatformat:2 }}{% else %}-{% endif %}
                                                     </div>
                                                     <div class="extra-extra-small text-muted">52w High</div>
                                                 </div>

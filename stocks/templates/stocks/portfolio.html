@@ -669,7 +669,7 @@
                     <thead class="text-muted small uppercase">
                         <tr>
                             <th>เดือน</th>
-                            <th class="text-end">กำไร/ขาดทุน</th>
+                            <th class="text-end">กำไร/ขาดทุน (฿)</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -705,9 +705,9 @@
                             <th>วันที่ขาย</th>
                             <th>สัญลักษณ์</th>
                             <th class="text-center">จำนวน</th>
-                            <th class="text-end tx-hide-xs">ราคาทุน</th>
-                            <th class="text-end">ราคาขาย</th>
-                            <th class="text-end">กำไร/ขาดทุน</th>
+                            <th class="text-end tx-hide-xs">ทุน</th>
+                            <th class="text-end">ขายที่</th>
+                            <th class="text-end">P/L</th>
                             <th class="text-end tx-hide-xs">% P/L</th>
                         </tr>
                     </thead>
@@ -717,10 +717,10 @@
                             <td>{{ s.sold_at|date:"d/m/Y H:i" }}</td>
                             <td><span class="badge bg-primary bg-opacity-10 text-primary fw-bold">{{ s.symbol }}</span></td>
                             <td class="text-center">{{ s.quantity|floatformat:2|intcomma }}</td>
-                            <td class="text-end text-muted tx-hide-xs">฿{{ s.buy_price|floatformat:2|intcomma }}</td>
-                            <td class="text-end fw-bold">฿{{ s.sell_price|floatformat:2|intcomma }}</td>
+                            <td class="text-end text-muted tx-hide-xs">{% if s.market != 'SET' %}${% else %}฿{% endif %}{{ s.buy_price|floatformat:2|intcomma }}</td>
+                            <td class="text-end fw-bold">{% if s.market != 'SET' %}${% else %}฿{% endif %}{{ s.sell_price|floatformat:2|intcomma }}</td>
                             <td class="text-end fw-bold {% if s.profit_loss > 0 %}text-success{% elif s.profit_loss < 0 %}text-danger{% endif %}">
-                                {% if s.profit_loss > 0 %}+{% endif %}฿{{ s.profit_loss|floatformat:2|intcomma }}
+                                {% if s.profit_loss > 0 %}+{% endif %}{% if s.market != 'SET' %}${% else %}฿{% endif %}{{ s.profit_loss|floatformat:2|intcomma }}
                             </td>
                             <td class="text-end fw-bold tx-hide-xs {% if s.profit_loss_pct > 0 %}text-success{% elif s.profit_loss_pct < 0 %}text-danger{% endif %}">
                                 {% if s.profit_loss_pct > 0 %}+{% endif %}{{ s.profit_loss_pct }}%

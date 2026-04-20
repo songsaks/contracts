@@ -1562,7 +1562,11 @@ def portfolio_list(request):
     chart_data = []
     running_pl = 0
     for s in sold_stocks:
-        running_pl += float(s.profit_loss)
+        val = float(s.profit_loss)
+        # Convert to THB for chart if US/Crypto
+        if s.market in (MarketType.US, MarketType.CRYPTO):
+            val *= usd_thb
+        running_pl += val
         chart_labels.append(s.sold_at.strftime('%Y-%m-%d %H:%M'))
         chart_data.append(running_pl)
 
@@ -1572,7 +1576,10 @@ def portfolio_list(request):
     for s in sold_stocks:
         month_key = s.sold_at.strftime('%B %Y') # e.g. March 2024
         monthly_summary_dict[month_key]['items'].append(s)
-        monthly_summary_dict[month_key]['total_pl'] += float(s.profit_loss)
+        val = float(s.profit_loss)
+        if s.market in (MarketType.US, MarketType.CRYPTO):
+            val *= usd_thb
+        monthly_summary_dict[month_key]['total_pl'] += val
     
     # แปลงเป็น list และเรียงลำดับเดือน (ล่าสุดขึ้นก่อน)
     # หมายเหตุ: การเรียงลำดับตามชื่อเดือนอาจจะเพี้ยน ต้องใช้ key ที่เป็นตัวเลข หรือเรียงจาก sold_at แทน
@@ -4096,7 +4103,7 @@ def precision_momentum_scanner(request):
     scanned_at = None
     if all_runs:
         selected_run = all_runs[run_idx]
-        qs = PrecisionScanCandidate.objects.filter(user=request.user, scan_run=selected_run)
+        qs = PrecisionScanCandidate.objects.filter(user=request.user, scan_run=selected_run, market='SET')
         if use_db_sort:
             qs = qs.order_by(order_field)
         candidates = list(qs)
@@ -4705,7 +4712,23 @@ def entry_finder(request, symbol):
     - EMA50 และ EMA200
     """
     # ถ้า market=US ไม่ต้องเติม .BK (US stocks ใช้ ticker เดิม)
-    market = request.GET.get('market', 'SET')
+    market = request.GET.get('market')
+    
+    # หากไม่ได้ระบุ market มาใน URL ให้ลองตรวจสอบจากฐานข้อมูลก่อน
+    if not market:
+        from .models import PrecisionScanCandidate, MomentumCandidate
+        # ลองหาจากรอบสแกนล่าสุด
+        cand = PrecisionScanCandidate.objects.filter(symbol=symbol).order_by('-scan_run').first()
+        if cand:
+            market = cand.market
+        else:
+            # ลองหาจาก momentum
+            mom = MomentumCandidate.objects.filter(symbol=symbol).first()
+            if mom:
+                market = mom.market
+            else:
+                market = 'SET' # Default
+    
     if market == 'US':
         full_symbol = symbol
     else:

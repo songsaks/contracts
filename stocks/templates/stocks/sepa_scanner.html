@@ -159,7 +159,7 @@
                         </td>
                         <!-- Price -->
                         <td class="py-3">
-                            <div class="fw-bold text-dark">฿{{ item.live_price|default:item.price|floatformat:2 }}</div>
+                            <div class="fw-bold text-dark">{% if item.market == 'US' %}${% else %}฿{% endif %}{{ item.live_price|default:item.price|floatformat:2 }}</div>
                             <div class="{% if item.live_change_pct >= 0 %}text-success{% else %}text-danger{% endif %} fw-semibold" style="font-size: 0.72rem;">
                                 {% if item.live_change_pct >= 0 %}+{% endif %}{{ item.live_change_pct|floatformat:1 }}%
                             </div>

@@ -79,7 +79,7 @@
                 <div class="d-flex align-items-center gap-2 bg-white px-3 py-2 rounded-pill shadow-sm border">
                     <span class="text-secondary fw-bold mb-0" style="font-size: 0.85rem;"><i class="fas fa-calculator text-primary me-1"></i> ความเสี่ยง 1% จากทุน:</span>
                     <input type="number" id="totalCapitalInput" class="form-control form-control-sm text-end border-0 bg-light rounded-pill px-3 fw-bold text-dark" style="width: 140px; font-size: 0.9rem; box-shadow: inset 0 1px 3px rgba(0,0,0,0.1);" value="1000000">
-                    <span class="text-secondary fw-bold" style="font-size: 0.85rem;">บาท</span>
+                    <span class="text-secondary fw-bold currency-label" style="font-size: 0.85rem;">{% if selected_market == 'US' %}ดอลลาร์ ($){% else %}บาท (฿){% endif %}</span>
                     <button class="btn btn-sm btn-primary rounded-pill px-3 fw-bold shadow-sm" onclick="calculateTurtleUnits()">คำนวณไม้ (1 Unit)</button>
                 </div>
             </div>
@@ -127,7 +127,7 @@
                                 <div class="fw-bold text-dark">{{ c.atr_20d|floatformat:2 }} <span class="text-muted small fw-normal">(N)</span></div>
                                 <div class="mt-1 position-calc-result d-none">
                                     <span class="badge bg-dark rounded-pill px-2 py-1 shadow-sm" style="font-size:0.65rem;">1 Unit: <span class="unit-shares text-warning fs-6">0</span> หุ้น</span><br>
-                                    <small class="text-muted fst-italic" style="font-size:0.65rem;">(ใช้เงิน <span class="unit-cost fw-bold text-dark">0</span> ฿)</small>
+                                    <small class="text-muted fst-italic" style="font-size:0.65rem;">(ใช้เงิน <span class="unit-cost fw-bold text-dark">0</span> {% if c.market == 'US' %}${% else %}฿{% endif %})</small>
                                 </div>
                             </td>
                             <td>
