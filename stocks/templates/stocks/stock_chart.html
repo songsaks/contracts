@@ -61,6 +61,20 @@
   }
   .symbol-input-wrap input::placeholder { color: rgba(255,255,255,0.4); }
   .signal-table td, .signal-table th { font-size: 0.82rem; padding: 6px 10px; }
+
+  /* Fullscreen Styles */
+  #chart-fullscreen-wrapper:-webkit-full-screen {
+    width: 100% !important; height: 100% !important;
+    background: #f8fafc !important;
+    padding: 20px !important;
+    overflow-y: auto !important;
+  }
+  #chart-fullscreen-wrapper:fullscreen {
+    width: 100% !important; height: 100% !important;
+    background: #f8fafc !important;
+    padding: 20px !important;
+    overflow-y: auto !important;
+  }
 </style>
 {% endblock %}
 
@@ -87,16 +101,23 @@
       </form>
     </div>
 
-    <div class="d-flex gap-2 flex-wrap">
+    <div class="d-flex gap-2 flex-wrap align-items-center">
       <button class="period-btn" onclick="loadPeriod('3mo')">3mo</button>
       <button class="period-btn" onclick="loadPeriod('6mo')">6mo</button>
       <button class="period-btn active" onclick="loadPeriod('1y')">1y</button>
       <button class="period-btn" onclick="loadPeriod('2y')">2y</button>
+      <div class="vr mx-1 opacity-20 text-white"></div>
+      <button class="btn btn-sm btn-outline-info rounded-pill px-3" onclick="toggleFullscreen()" title="ขยายเต็มหน้าจอ">
+        <i class="fas fa-expand"></i> เต็มจอ
+      </button>
     </div>
   </div>
 
+  <!-- Fullscreen Wrapper Starts Here -->
+  <div id="chart-fullscreen-wrapper" class="bg-light-subtle rounded-4 p-0">
+
   <!-- Legend -->
-  <div class="d-flex gap-4 mb-2 flex-wrap" id="crosshair-info">
+  <div class="d-flex gap-4 mb-2 flex-wrap px-4 pt-3" id="crosshair-info">
     <span><span class="legend-dot" style="background:#22c55e;"></span>DC20 Upper</span>
     <span><span class="legend-dot" style="background:#86efac;border:1px dashed #22c55e;"></span>DC20 Lower</span>
     <span><span class="legend-dot" style="background:#f59e0b;"></span>DC55 Upper</span>
@@ -107,7 +128,7 @@
   </div>
 
   <!-- Status -->
-  <div id="chart-status" class="text-primary fw-bold mb-2 ps-1" style="min-height:24px;"></div>
+  <div id="chart-status" class="text-primary fw-bold mb-2 ps-4" style="min-height:24px;"></div>
 
   <!-- Tactical Command Center (NEW) -->
   <div class="row g-3 mb-3" id="tactical-panel" style="display: none;">
@@ -185,10 +206,12 @@
   </div>
 
   <!-- Volume panel -->
-  <div class="bg-dark rounded-3 p-0 mb-3" style="position:relative;">
+  <div class="bg-dark rounded-3 p-0 border" style="position:relative;">
     <div class="panel-label">Volume</div>
     <div id="vol-container"></div>
   </div>
+
+  </div> <!-- /#chart-fullscreen-wrapper -->
 
   <!-- Signal table -->
   <div class="card border-0 shadow-sm">
@@ -374,6 +397,33 @@ function changeSymbol(e) {
   history.pushState({}, '', `/stocks/chart/${sym}/?market=${mkt}`);
   loadData(sym, mkt, currentPeriod);
 }
+
+function toggleFullscreen() {
+    const elem = document.getElementById('chart-fullscreen-wrapper');
+    if (!document.fullscreenElement) {
+        if (elem.requestFullscreen) {
+            elem.requestFullscreen();
+        } else if (elem.webkitRequestFullscreen) { /* Safari */
+            elem.webkitRequestFullscreen();
+        } else if (elem.msRequestFullscreen) { /* IE11 */
+            elem.msRequestFullscreen();
+        }
+    } else {
+        if (document.exitFullscreen) {
+            document.exitFullscreen();
+        }
+    }
+}
+
+// Re-adjust chart sizes on fullscreen change
+document.addEventListener('fullscreenchange', () => {
+    setTimeout(() => {
+        const w = document.getElementById('chart-container').offsetWidth;
+        if (mainChart) mainChart.resize(w, 420);
+        if (rsiChart)  rsiChart.resize(w, 160);
+        if (volChart)  volChart.resize(w, 150);
+    }, 100);
+});
 
 window.addEventListener('load', () => loadData(currentSymbol, currentMarket, currentPeriod));
 </script>
