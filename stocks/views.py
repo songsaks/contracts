@@ -2823,11 +2823,11 @@ def momentum_scanner(request):
     if request.GET.get('scan') == 'true' or request.method == 'POST':
         from .utils import refresh_all_thai_symbols, get_top_ranked_symbols
         # ใช้ Top 300 หุ้นใหญ่เท่านั้นเพื่อความเร็วและคุณภาพ
-        scan_symbols = get_top_ranked_symbols(market='SET', limit=200)
+        scan_symbols = get_top_ranked_symbols(market='SET', limit=200, auto_refresh=True)
         
         if not scan_symbols:
             refresh_all_thai_symbols()
-            scan_symbols = get_top_ranked_symbols(market='SET', limit=200)
+            scan_symbols = get_top_ranked_symbols(market='SET', limit=200, auto_refresh=True)
 
         already = _cp.get(cache_key, {})
         if already.get('state') != 'running':
@@ -3497,10 +3497,10 @@ def precision_momentum_scanner(request):
     from django.utils import timezone as tz
     from yahooquery import Ticker as YQTicker
 
-    scan_symbols = get_top_ranked_symbols(market='SET', limit=200)
+    scan_symbols = get_top_ranked_symbols(market='SET', limit=200, auto_refresh=True)
     if not scan_symbols:
         refresh_all_thai_symbols()
-        scan_symbols = get_top_ranked_symbols(market='SET', limit=200)
+        scan_symbols = get_top_ranked_symbols(market='SET', limit=200, auto_refresh=True)
 
     # ====== AJAX Status Poll ======
     if request.GET.get('scan_status') == '1':
@@ -7934,11 +7934,11 @@ def cup_handle_scanner(request):
     if request.GET.get('scan') == 'true' or request.method == 'POST':
         from .utils import refresh_all_thai_symbols, get_top_ranked_symbols
         # ใช้ Top 300 หุ้นใหญ่เท่านั้นเพื่อความเร็วและแม่นยำ (Cup & Handle ต้องการสภาพคล่อง)
-        scan_symbols = get_top_ranked_symbols(market='SET', limit=200)
+        scan_symbols = get_top_ranked_symbols(market='SET', limit=200, auto_refresh=True)
         
         if not scan_symbols:
             refresh_all_thai_symbols()
-            scan_symbols = get_top_ranked_symbols(market='SET', limit=200)
+            scan_symbols = get_top_ranked_symbols(market='SET', limit=200, auto_refresh=True)
 
         already = _cp.get(cache_key, {})
         if already.get('state') != 'running':
