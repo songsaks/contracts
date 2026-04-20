@@ -9146,3 +9146,54 @@ def debug_scan_symbol(request, symbol):
     return JsonResponse(result, json_dumps_params={'indent': 2})
 
 
+@login_required
+@require_POST
+def portfolio_refresh_prices(request):
+    """
+    Lightweight price refresh — fetches current price via fast_info (parallel)
+    and updates highest_price in Portfolio if price has risen.
+    Returns JSON: { updated: [...], skipped: [...], errors: [...] }
+    """
+    from django.http import JsonResponse
+    import concurrent.futures
+
+    items = list(Portfolio.objects.filter(user=request.user, category='STOCK'))
+    if not items:
+        return JsonResponse({'updated': [], 'skipped': [], 'errors': []})
+
+    def _fetch_price(item):
+        symbol = item.symbol.upper()
+        sym_yf = symbol if '.' in symbol else f"{symbol}.BK"
+        try:
+            fi = yf.Ticker(sym_yf).fast_info
+            price = float(getattr(fi, 'last_price', None) or 0)
+            if price <= 0:
+                # fallback: try without .BK (US stocks)
+                fi2 = yf.Ticker(symbol).fast_info
+                price = float(getattr(fi2, 'last_price', None) or 0)
+            return item, price
+        except Exception as e:
+            return item, 0.0
+
+    updated, skipped, errors = [], [], []
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=10) as ex:
+        futures = {ex.submit(_fetch_price, item): item for item in items}
+        for fut in concurrent.futures.as_completed(futures):
+            try:
+                item, price = fut.result(timeout=15)
+                if price <= 0:
+                    errors.append(item.symbol)
+                    continue
+                old_high = float(item.highest_price or 0)
+                if price > old_high:
+                    item.highest_price = price
+                    item.save(update_fields=['highest_price'])
+                    updated.append({'symbol': item.symbol, 'price': price, 'prev_high': old_high})
+                else:
+                    skipped.append({'symbol': item.symbol, 'price': price, 'highest': old_high})
+            except Exception as e:
+                errors.append(str(e))
+
+    return JsonResponse({'updated': updated, 'skipped': skipped, 'errors': errors})
+

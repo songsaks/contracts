@@ -13,6 +13,10 @@
                 </div>
                 <div class="col-md-6 text-md-end mt-3 mt-md-0 d-flex flex-column align-items-md-end gap-2">
                     <div class="d-flex gap-2 flex-wrap justify-content-md-end">
+                        <button id="refreshPricesBtn" onclick="refreshPortfolioPrices()" class="btn btn-sm rounded-pill px-3 fw-bold"
+                                style="background:linear-gradient(135deg,#059669,#047857);color:white;border:none;">
+                            <i class="fas fa-sync-alt me-1"></i> <span id="refreshBtnText">อัปเดตราคา</span>
+                        </button>
                         <a href="{% url 'stocks:portfolio_exit_plan' %}" class="btn btn-sm rounded-pill px-3 fw-bold"
                            style="background:linear-gradient(135deg,#dc2626,#b91c1c);color:white;border:none;">
                             <i class="fas fa-sign-out-alt me-1"></i> แผนออกหุ้น
@@ -1110,5 +1114,50 @@
             }
         }
     });
+
+    function refreshPortfolioPrices() {
+        const btn = document.getElementById('refreshPricesBtn');
+        const txt = document.getElementById('refreshBtnText');
+        btn.disabled = true;
+        txt.textContent = 'กำลังดึงราคา...';
+        btn.querySelector('i').classList.add('fa-spin');
+
+        fetch("{% url 'stocks:portfolio_refresh_prices' %}", {
+            method: 'POST',
+            headers: {'X-CSRFToken': '{{ csrf_token }}'},
+        })
+        .then(r => r.json())
+        .then(data => {
+            const u = data.updated.length;
+            const s = data.skipped.length;
+            const e = data.errors.length;
+
+            if (u > 0) {
+                const names = data.updated.map(x => `${x.symbol} ฿${x.price.toFixed(2)}`).join(', ');
+                showToast(`✅ อัปเดต ${u} ตัว: ${names}`, 'success');
+            } else {
+                showToast(`ราคาทุกตัวไม่เปลี่ยนแปลง (${s} ตัวคงเดิม)`, 'info');
+            }
+            if (e > 0) showToast(`⚠️ ดึงราคาไม่ได้ ${e} ตัว`, 'warning');
+
+            // reload page ถ้ามีการอัปเดต เพื่อให้ trailing stop คำนวณใหม่
+            if (u > 0) setTimeout(() => location.reload(), 1500);
+        })
+        .catch(() => showToast('เกิดข้อผิดพลาด กรุณาลองใหม่', 'danger'))
+        .finally(() => {
+            btn.disabled = false;
+            txt.textContent = 'อัปเดตราคา';
+            btn.querySelector('i').classList.remove('fa-spin');
+        });
+    }
+
+    function showToast(msg, type = 'info') {
+        const t = document.createElement('div');
+        t.className = `alert alert-${type} alert-dismissible position-fixed shadow-lg`;
+        t.style.cssText = 'bottom:1.5rem;right:1.5rem;z-index:9999;max-width:420px;font-size:0.9rem;';
+        t.innerHTML = `${msg}<button type="button" class="btn-close" data-bs-dismiss="alert"></button>`;
+        document.body.appendChild(t);
+        setTimeout(() => t.remove(), 5000);
+    }
 </script>
 {% endblock %}

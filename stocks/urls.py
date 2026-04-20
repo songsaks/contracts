@@ -57,5 +57,6 @@ urlpatterns = [
     path('chart/<str:symbol>/data/', views.stock_chart_data, name='stock_chart_data'),
     path('gold-trading/', views.gold_trading, name='gold_trading'),
     path('debug-scan/<str:symbol>/', views.debug_scan_symbol, name='debug_scan_symbol'),
+    path('portfolio/refresh-prices/', views.portfolio_refresh_prices, name='portfolio_refresh_prices'),
 ]
 
