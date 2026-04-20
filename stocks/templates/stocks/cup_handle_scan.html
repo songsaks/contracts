@@ -24,10 +24,16 @@
                 style="border:1px solid #d97706;color:#d97706;font-size:0.8rem;">
             <i class="fas fa-book me-1"></i> คู่มือการใช้งาน
         </button>
+        <a href="{% url 'stocks:refresh_market_caps' %}?next={{ request.path }}" 
+           class="btn btn-sm px-3 py-2 rounded-pill"
+           style="border:1px solid #ff9800; color:#ef6c00; font-size:0.8rem;"
+           title="อัปเดตอันดับ Market Cap 200 อันดับแรก">
+            <i class="fas fa-sync-alt me-1"></i> อัปเดตอันดับ T200
+        </a>
         <a href="?scan=true" onclick="document.getElementById('loadingOverlay').style.display='flex'"
            class="btn px-4 py-2 fw-semibold"
            style="background:linear-gradient(135deg,#d97706,#b45309);color:white;border:none;border-radius:0.75rem;">
-            <i class="fas fa-search me-2"></i> Scan
+            <i class="fas fa-search me-2"></i> Scan (Top 200)
         </a>
         {% if all_runs %}
         <form method="post" action="{% url 'stocks:clear_scan_data' %}" class="d-inline" onsubmit="return confirm('ลบข้อมูลสแกน Cup & Handle ทั้งหมด?')">

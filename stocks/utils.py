@@ -1906,3 +1906,90 @@ def detect_cup_and_handle(df):
     results.sort(key=lambda r: (_stage_rank.get(r['stage'], 9), -r['confidence_score']))
     return results[0]
 
+
+# ----------------------------------------------------------------------
+# refresh_market_caps — ดึง Market Cap ของหุ้น SET ทั้งหมดมาเก็บไว้
+# เพื่อนำมาใช้จัดอันดับ Top 300 สำหรับการสแกนแบบ High Performance
+# ----------------------------------------------------------------------
+def refresh_market_caps():
+    from .models import ScannableSymbol
+    from django.utils import timezone
+    import logging
+    logger = logging.getLogger('stocks')
+
+    symbols = ScannableSymbol.objects.filter(is_active=True, market='SET')
+    sym_list = [f"{s.symbol}.BK" for s in symbols]
+    
+    if not sym_list:
+        return 0
+
+    count = 0
+    chunk_size = 100
+    for i in range(0, len(sym_list), chunk_size):
+        chunk = sym_list[i : i + chunk_size]
+        try:
+            tq = YQTicker(chunk)
+            # summaryDetail contains marketCap
+            details = tq.summary_detail
+            price_data = tq.price
+            
+            for s_bk in chunk:
+                try:
+                    cap = 0.0
+                    if isinstance(details, dict) and s_bk in details:
+                        cap = details[s_bk].get('marketCap', 0.0) or 0.0
+                    
+                    # Fallback to price module if summaryDetail missing it
+                    if not cap and isinstance(price_data, dict) and s_bk in price_data:
+                        cap = price_data[s_bk].get('marketCap', 0.0) or 0.0
+                    
+                    if cap:
+                        sym_clean = s_bk.replace('.BK', '')
+                        ScannableSymbol.objects.filter(symbol=sym_clean, market='SET').update(
+                            market_cap=cap,
+                            last_cap_update=timezone.now()
+                        )
+                        count += 1
+                except Exception: continue
+        except Exception as e:
+            logger.error(f"Error refreshing market caps for chunk {i}: {e}")
+            
+    return count
+
+def get_top_ranked_symbols(market='SET', limit=200, auto_refresh=False):
+    """
+    คืนค่ารายชื่อหุ้น Top Ranked ตาม Market Cap 
+    ถ้า auto_refresh=True และตั้งค่าการอัปเดตไว้นานกว่า 1 วัน จะเริ่มกระบวนการอัปเดตก่อนส่งคืนค่า
+    """
+    from .models import ScannableSymbol
+    from django.utils import timezone
+    
+    if market == 'SET' and auto_refresh:
+        # เช็คว่าข้อมูลเก่าเกิน 1 วันหรือไม่
+        sample = ScannableSymbol.objects.filter(is_active=True, market='SET', market_cap__gt=0).first()
+        needs_refresh = False
+        if not sample:
+            needs_refresh = True
+        elif not sample.last_cap_update or sample.last_cap_update.date() < timezone.localtime(timezone.now()).date():
+            needs_refresh = True
+            
+        if needs_refresh:
+            try:
+                refresh_market_caps()
+            except Exception as e:
+                import logging
+                logging.getLogger('stocks').error(f"Auto-refresh market cap failed: {e}")
+                logging.getLogger('stocks').error(f"Auto-refresh market cap failed: {e}")
+
+    # Try getting stocks with Market Cap first
+    top_stocks = list(ScannableSymbol.objects.filter(is_active=True, market=market, market_cap__gt=0)
+                      .order_by('-market_cap')[:limit]
+                      .values_list('symbol', flat=True))
+    
+    if len(top_stocks) < 50:
+        # Fallback if no Market Cap data yet
+        return list(ScannableSymbol.objects.filter(is_active=True, market=market)
+                    .order_by('symbol')[:limit]
+                    .values_list('symbol', flat=True))
+                    
+    return top_stocks

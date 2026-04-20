@@ -476,10 +476,13 @@ class ScannableSymbol(models.Model):
     market = models.CharField(max_length=10, default='SET', db_index=True)
     # กลุ่มอุตสาหกรรม (cache จาก yfinance.info — ดึงครั้งเดียว)
     sector = models.CharField(max_length=100, default='Unknown', blank=True)
+    # มูลค่าบริษัท (Market Cap) สำหรับจัดลำดับความสำคัญ
+    market_cap = models.FloatField(default=0.0, help_text="Market capitalization in THB for SET, USD for US")
     # สถานะการใช้งาน (False = ไม่ถูกนำไปสแกน)
     is_active = models.BooleanField(default=True)
     # เวลาที่อัปเดตล่าสุด
     last_updated = models.DateTimeField(auto_now=True)
+    last_cap_update = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         ordering = ['symbol']

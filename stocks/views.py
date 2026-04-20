@@ -19,7 +19,8 @@ from .forms import AddPortfolioForm, SellStockForm, AddWatchlistForm
 from .utils import (
     get_stock_data, analyze_with_ai, calculate_trailing_stop,
     refresh_all_thai_symbols, find_supply_demand_zones, find_supply_demand_zones_v2,
-    detect_price_pattern, detect_vcp_pattern, _is_commodity, _fetch_commodity_macro, _score_commodity_signal
+    detect_price_pattern, detect_vcp_pattern, _is_commodity, _fetch_commodity_macro, _score_commodity_signal,
+    analyze_momentum_technical_v2
 )
 from .crew_analysis import MomentumCrew
 from decimal import Decimal
@@ -2820,15 +2821,13 @@ def momentum_scanner(request):
 
     # ── Trigger background scan ───────────────────────────────────────
     if request.GET.get('scan') == 'true' or request.method == 'POST':
-        from .utils import refresh_all_thai_symbols
-        scan_symbols = list(dict.fromkeys(  # deduplicate while preserving order
-            ScannableSymbol.objects.filter(is_active=True, market='SET').values_list('symbol', flat=True)
-        ))
+        from .utils import refresh_all_thai_symbols, get_top_ranked_symbols
+        # ใช้ Top 300 หุ้นใหญ่เท่านั้นเพื่อความเร็วและคุณภาพ
+        scan_symbols = get_top_ranked_symbols(market='SET', limit=200)
+        
         if not scan_symbols:
             refresh_all_thai_symbols()
-            scan_symbols = list(dict.fromkeys(
-                ScannableSymbol.objects.filter(is_active=True, market='SET').values_list('symbol', flat=True)
-            ))
+            scan_symbols = get_top_ranked_symbols(market='SET', limit=200)
 
         already = _cp.get(cache_key, {})
         if already.get('state') != 'running':
@@ -2843,11 +2842,12 @@ def momentum_scanner(request):
                     import numpy as _np
                     from django.core.cache import cache as _c
                     from .models import MomentumCandidate as _MC
-                    from .utils import analyze_momentum_technical, find_supply_demand_zones
+                    from .utils import analyze_momentum_technical, find_supply_demand_zones, get_top_ranked_symbols as _GTRS
                     from django.contrib.auth import get_user_model
                     User = get_user_model()
                     user = User.objects.get(pk=uid)
-
+                    
+                    sym_list = _GTRS(market='SET', limit=200, auto_refresh=True)
                     _MC.objects.filter(user=user).delete()
                     
                     # --- STAGE 1: Fast Screening (The Radar) ---
@@ -2864,45 +2864,40 @@ def momentum_scanner(request):
                     scan_end_str   = scan_end_date.strftime('%Y-%m-%d')
                     scan_start_str = (_now_bkk.date() - _td(days=600)).strftime('%Y-%m-%d')
                     
-                    # --- STAGE 1: Fast Screening with YahooQuery (Super Fast) ---
+                    # --- STAGE 1: Fast Screening (Turbo Chunks) ---
                     from yahooquery import Ticker as _TQ
-                    symbols_bk = [f"{s}.BK" for s in sym_list]
+                    _c.set(ckey, {'state': 'running', 'progress': 5, 'total': total_syms, 'phase': 'Stage 1: 🔎 Fast Screening...'}, timeout=900)
                     
                     candidates = []
-                    _c.set(ckey, {'state': 'running', 'progress': 0, 'total': 0, 'phase': f'Stage 1: 🔎 กำลังคัดกรอง {total_syms} ตัว...'}, timeout=900)
-                    
-                    try:
-                        tq = _TQ(symbols_bk)
-                        prices = tq.price
-                        
-                        import logging; logger = logging.getLogger('stocks')
-                        logger.info(f"[Momentum] Stage 1: Received {len(prices) if prices else 0} prices from YahooQuery")
-                        
-                        for symbol in sym_list:
-                            try:
-                                s_bk = f"{symbol}.BK"
-                                p_data = prices.get(s_bk)
-                                
-                                # If direct price is missing, keep it as candidate anyway (Deep scan will verify)
-                                if not isinstance(p_data, dict) or 'regularMarketPrice' not in p_data:
-                                    # Fallback: If tech indicators of Momentum seem interesting, keep it
+                    chunk_size = 100
+                    for i in range(0, total_syms, chunk_size):
+                        chunk = sym_list[i : i + chunk_size]
+                        chunk_bk = [f"{s}.BK" for s in chunk]
+                        _c.set(ckey, {'state': 'running', 'progress': 5 + int((i/total_syms)*15), 'total': total_syms, 'phase': f'Phase 1: กรองราคาด่วน {i}/{total_syms}...'}, timeout=600)
+                        try:
+                            tq = _TQ(chunk_bk, timeout=60)
+                            prices = tq.price
+                            for symbol in chunk:
+                                try:
+                                    s_bk = f"{symbol}.BK"
+                                    if not isinstance(prices, dict) or s_bk not in prices:
+                                        candidates.append({'symbol': symbol}); continue
+                                    
+                                    p_data = prices.get(s_bk)
+                                    if not isinstance(p_data, dict) or 'regularMarketPrice' not in p_data:
+                                        candidates.append({'symbol': symbol}); continue
+                                    
+                                    curr_p = p_data.get('regularMarketPrice')
+                                    avg_vol = p_data.get('averageDailyVolume3Month', 0)
+                                    # Very loose liquidity filter to ensure we get results
+                                    if (curr_p * avg_vol) < 150000: continue
                                     candidates.append({'symbol': symbol})
-                                    continue
-                                
-                                curr_price = p_data.get('regularMarketPrice')
-                                avg_vol = p_data.get('averageDailyVolume3Month', 0)
-                                
-                                # Relaxed Liquidity (300k) to be safe
-                                if (curr_price * avg_vol) < 300000: continue
-                                
-                                candidates.append({'symbol': symbol})
-                            except Exception: continue
-                    except Exception as e:
-                        import logging; logging.getLogger('stocks').error(f"YahooQuery Error: {e}")
+                                except Exception: candidates.append({'symbol': symbol})
+                        except Exception:
+                            for sym in chunk: candidates.append({'symbol': sym})
 
-                    # If Stage 1 is too empty, it's likely a data error, use top 100 as fallback
-                    if len(candidates) < 10:
-                        candidates = [{'symbol': s} for s in sym_list[:100]]
+                    if len(candidates) < 20: # Emergency fallback
+                        candidates = [{'symbol': s} for s in sym_list[:150]]
                         
                     # --- STAGE 2: Deep Technical Analysis (Multi-threaded Turbo) ---
                     total_cand = len(candidates)
@@ -2924,8 +2919,8 @@ def momentum_scanner(request):
                             if adx is not None: df = pd.concat([df, adx], axis=1)
                             df['MFI'] = _ta.mfi(df['High'], df['Low'], df['Close'], df['Volume'], length=14)
                             
-                            tech = analyze_momentum_technical(df)
-                            if tech['rsi'] < 35: return None # Low barrier to ensure results
+                            tech = analyze_momentum_technical_v2(df)
+                            if tech.get('rsi', 0) < 35: return None 
                             
                             return {
                                 'symbol': symbol, 'df': df, 'tech': tech,
@@ -2936,14 +2931,44 @@ def momentum_scanner(request):
                         except Exception: return None
 
                     # Run Stage 2 in parallel for speed
-                    with _cf.ThreadPoolExecutor(max_workers=20) as executor:
+                    with _cf.ThreadPoolExecutor(max_workers=15) as executor:
                         futs = {executor.submit(_analyze_one, c['symbol']): c['symbol'] for c in candidates[:150]}
                         done = 0
                         for fut in _cf.as_completed(futs):
                             done += 1
                             if done % 10 == 0:
-                                _c.set(ckey, {'state': 'running', 'progress': 20 + int((done/150)*60), 'phase': f'Analyzing {done}/150...'}, timeout=600)
-                            res = fut.result()
+                                _c.set(ckey, {'state': 'running', 'progress': 20 + int((done/150)*65), 'phase': f'Analyzing {done}/150...'}, timeout=600)
+                            
+                            res = None
+                            try:
+                                res = fut.result(timeout=25)
+                            except Exception: pass
+                            
+                            # FALLBACK: If Threaded yfinance fails, try ONE last Sync check with YahooQuery for this symbol
+                            if not res:
+                                symbol = futs[fut]
+                                try:
+                                    s_bk = f"{symbol}.BK"
+                                    tq_single = _TQ(s_bk)
+                                    h = tq_single.history(period='1y', interval='1d')
+                                    if h is not None and not h.empty:
+                                        if isinstance(h.index, pd.MultiIndex): h = h.xs(s_bk, level=0)
+                                        # Minimal data requirement reduced to 40
+                                        if len(h) >= 40:
+                                            h.rename(columns={'adjclose': 'Close', 'high': 'High', 'low': 'Low', 'open': 'Open', 'volume': 'Volume'}, inplace=True)
+                                            h['EMA50'] = _ta.ema(h['Close'], length=50)
+                                            h['EMA200'] = _ta.ema(h['Close'], length=min(200, len(h)-1))
+                                            h['RSI'] = _ta.rsi(h['Close'], length=14)
+                                            tech = analyze_momentum_technical_v2(h)
+                                            if tech.get('rsi', 0) > 30: 
+                                                 res = {
+                                                    'symbol': symbol, 'df': h, 'tech': tech,
+                                                    'price': float(h['Close'].iloc[-1]),
+                                                    'year_high': float(h['High'].tail(252).max()),
+                                                    'sd_zone': find_supply_demand_zones(h)
+                                                }
+                                except Exception: pass
+                                
                             if res: pre_results.append(res)
 
                     # --- STAGE 3: Bulk Fundamental ---
@@ -2969,6 +2994,7 @@ def momentum_scanner(request):
 
                     # FINAL: Save to DB
                     _c.set(ckey, {'state': 'running', 'progress': 95, 'phase': 'Saving results...'}, timeout=600)
+                    bulk_objs = []
                     for r in pre_results:
                         sym = r['symbol']
                         sd  = r['sd_zone']
@@ -2983,18 +3009,31 @@ def momentum_scanner(request):
                             sz_start = sd['target']; sz_end = sd['target'] * 1.02
                             sl_price = sd['stop_loss']; rr_val = sd['rr_ratio']
 
-                        _MC.objects.create(
-                            user=user, symbol=sym, market='SET', price=r['price'],
-                            rsi=tech['rsi'], adx=float(df['ADX_14'].iloc[-1]) if 'ADX_14' in df.columns else 0,
+                        bulk_objs.append(_MC(
+                            user=user, symbol=sym, symbol_bk=f"{sym}.BK", market='SET', price=r['price'],
+                            rsi=tech.get('rsi', 0), 
+                            adx=float(df['ADX_14'].iloc[-1]) if 'ADX_14' in df.columns else 0,
                             mfi=float(df['MFI'].iloc[-1]) if 'MFI' in df.columns else 0,
-                            rvol=tech['rvol'], rvol_bullish=tech['rvol_bullish'],
-                            technical_score=tech['score'], rs_rating=0,
-                            entry_strategy=entry_strat, demand_zone_start=dz_start, demand_zone_end=dz_end,
-                            supply_zone_start=sz_start, supply_zone_end=sz_end, stop_loss=sl_price, risk_reward_ratio=rr_val,
-                            year_high=r['year_high'], upside_to_high=((r['year_high'] - r['price'])/r['price'])*100,
-                            sector=f['sector'], eps_growth=f['eps_growth'], rev_growth=f['rev_growth'],
+                            rvol=tech.get('rvol', 0), 
+                            rvol_bullish=tech.get('rvol_bullish', False),
+                            technical_score=tech.get('score', 0), 
+                            rs_rating=0,
+                            entry_strategy=entry_strat, 
+                            demand_zone_start=dz_start, 
+                            demand_zone_end=dz_end,
+                            supply_zone_start=sz_start, 
+                            supply_zone_end=sz_end, 
+                            stop_loss=sl_price, 
+                            risk_reward_ratio=rr_val,
+                            year_high=r['year_high'], 
+                            upside_to_high=((r['year_high'] - r['price'])/r['price'])*100 if r['price'] > 0 else 0,
+                            sector=f['sector'], 
+                            eps_growth=f['eps_growth'], 
+                            rev_growth=f['rev_growth'],
                             stage2=r['price'] > float(df['EMA200'].iloc[-1]) if 'EMA200' in df.columns else False
-                        )
+                        ))
+                    if bulk_objs:
+                        _MC.objects.bulk_create(bulk_objs)
                 except Exception as e:
                     import logging; logging.getLogger('stocks').error(f"Momentum Scan Error: {e}")
                 finally:
@@ -3439,14 +3478,14 @@ def precision_momentum_scanner(request):
     8. is_new_entry flag (หุ้นใหม่ vs ยังอยู่จากรอบก่อน)
     """
     from .models import PrecisionScanCandidate
-    from .utils import analyze_momentum_technical_v2
+    from .utils import analyze_momentum_technical_v2, get_top_ranked_symbols
     from django.utils import timezone as tz
     from yahooquery import Ticker as YQTicker
 
-    scan_symbols = list(ScannableSymbol.objects.filter(is_active=True, market='SET').values_list('symbol', flat=True))
+    scan_symbols = get_top_ranked_symbols(market='SET', limit=200)
     if not scan_symbols:
         refresh_all_thai_symbols()
-        scan_symbols = list(ScannableSymbol.objects.filter(is_active=True, market='SET').values_list('symbol', flat=True))
+        scan_symbols = get_top_ranked_symbols(market='SET', limit=200)
 
     # ====== AJAX Status Poll ======
     if request.GET.get('scan_status') == '1':
@@ -3488,7 +3527,8 @@ def precision_momentum_scanner(request):
                 from django.utils import timezone as tz
                 from yahooquery import Ticker as YQTicker
                 from .models import PrecisionScanCandidate
-                from .utils import analyze_momentum_technical_v2
+                from .utils import analyze_momentum_technical_v2, get_top_ranked_symbols as _GTRS
+                sym_list = _GTRS(market='SET', limit=200, auto_refresh=True)
 
                 User = get_user_model()
                 user = User.objects.get(pk=uid)
@@ -3544,32 +3584,34 @@ def precision_momentum_scanner(request):
 
                 # ====== Phase 1: Fast Screening with YahooQuery (Institutional Speed) ======
                 total_syms = len(sym_list)
-                _cache.set(ckey, {'state': 'running', 'progress': 5, 'total': total_syms, 'phase': 'ดึงข้อมูล RS Rating เร็วพิเศษ (Turbo)...'}, timeout=900)
+                _cache.set(ckey, {'state': 'running', 'progress': 5, 'total': total_syms, 'phase': 'ดึงข้อมูล RS Rating...'}, timeout=900)
                 
                 from yahooquery import Ticker as _TQ
-                symbols_bk = [f"{s}.BK" for s in sym_list]
-                
                 rs_returns_all = {}
-                try:
-                    # Sync data retrieval (Still very fast for batch)
-                    tq = _TQ(symbols_bk)
-                    tq_hist = tq.history(start=scan_start_str, end=scan_end_str, interval="1d")
-                    
-                    if tq_hist is not None and not tq_hist.empty:
-                        # Normalize index for safety
-                        if isinstance(tq_hist.index, pd.MultiIndex):
-                            for symbol in sym_list:
-                                try:
-                                    s_bk = f"{symbol}.BK"
-                                    if s_bk in tq_hist.index.get_level_values(0):
-                                        _close = tq_hist.loc[s_bk]['adjclose'].dropna()
-                                        if len(_close) >= 66:
-                                            # Calc return for RS (Relative strength approx)
-                                            ret = float((_close.iloc[-1] - _close.iloc[-66]) / abs(_close.iloc[-66]) * 100)
-                                            rs_returns_all[symbol] = ret
-                                except Exception: continue
-                except Exception as e:
-                    import logging; logging.getLogger('stocks').error(f"[Precision] YahooQuery RS Fetch Error: {e}")
+                
+                # Fetch history in chunks of 80 to prevent hangs
+                import logging; logger = logging.getLogger('stocks')
+                chunk_size = 80
+                for i in range(0, len(sym_list), chunk_size):
+                    chunk = sym_list[i : i + chunk_size]
+                    chunk_bk = [f"{s}.BK" for s in chunk]
+                    _cache.set(ckey, {'state': 'running', 'progress': 5 + int((i/total_syms)*15), 'total': total_syms, 'phase': f'Phase 1: โหลดข้อมูลกลุ่ม {i//chunk_size + 1}...'}, timeout=900)
+                    try:
+                        tq = _TQ(chunk_bk)
+                        tq_hist = tq.history(start=scan_start_str, end=scan_end_str, interval="1d")
+                        if tq_hist is not None and not tq_hist.empty:
+                            if isinstance(tq_hist.index, pd.MultiIndex):
+                                for symbol in chunk:
+                                    try:
+                                        s_bk = f"{symbol}.BK"
+                                        if s_bk in tq_hist.index.get_level_values(0):
+                                            _close = tq_hist.loc[s_bk]['adjclose'].dropna()
+                                            if len(_close) >= 66:
+                                                ret = float((_close.iloc[-1] - _close.iloc[-66]) / abs(_close.iloc[-66]) * 100)
+                                                rs_returns_all[symbol] = ret
+                                    except Exception: continue
+                    except Exception as e:
+                        logger.error(f"RS Chunk Error at {i}: {e}")
 
                 # FAILSAFE: If results are empty or too small, force evaluation of a subset
                 if len(rs_returns_all) < 10:
@@ -7138,6 +7180,8 @@ def us_precision_scan_ai_analysis(request):
         return JsonResponse({"error": "Gemini error: {}".format(err)}, status=500)
 
 
+
+
 # ============================================================
 # US VALUE SCANNER
 # ============================================================
@@ -7873,15 +7917,13 @@ def cup_handle_scanner(request):
         return _JR(st)
 
     if request.GET.get('scan') == 'true' or request.method == 'POST':
-        from .models import ScannableSymbol as _SS, CupHandleCandidate as _CHC
-        scan_symbols = list(dict.fromkeys(
-            _SS.objects.filter(is_active=True, market='SET').values_list('symbol', flat=True)
-        ))
+        from .utils import refresh_all_thai_symbols, get_top_ranked_symbols
+        # ใช้ Top 300 หุ้นใหญ่เท่านั้นเพื่อความเร็วและแม่นยำ (Cup & Handle ต้องการสภาพคล่อง)
+        scan_symbols = get_top_ranked_symbols(market='SET', limit=200)
+        
         if not scan_symbols:
             refresh_all_thai_symbols()
-            scan_symbols = list(dict.fromkeys(
-                _SS.objects.filter(is_active=True, market='SET').values_list('symbol', flat=True)
-            ))
+            scan_symbols = get_top_ranked_symbols(market='SET', limit=200)
 
         already = _cp.get(cache_key, {})
         if already.get('state') != 'running':
@@ -7895,49 +7937,71 @@ def cup_handle_scanner(request):
                     import concurrent.futures as _cf
                     from django.core.cache import cache as _c
                     from django.contrib.auth import get_user_model
+                    from django.utils import timezone as tz
                     from datetime import datetime as _dt, timedelta as _td
                     import pytz as _pytz
                     from .models import CupHandleCandidate as _CHC
-                    from .utils import detect_cup_and_handle
+                    from .utils import detect_cup_and_handle, get_top_ranked_symbols as _GTRS
+                    from yahooquery import Ticker as _TQ
+                    sym_list = _GTRS(market='SET', limit=200, auto_refresh=True)
 
                     User      = get_user_model()
                     user      = User.objects.get(pk=uid)
                     _bkk      = _pytz.timezone('Asia/Bangkok')
                     _now      = _dt.now(_bkk)
-                    _end_str  = _now.date().strftime('%Y-%m-%d')
+                    _end_str  = (_now.date() + _td(days=1)).strftime('%Y-%m-%d')
                     _start    = (_now.date() - _td(days=600)).strftime('%Y-%m-%d')
-                    _scan_run = _dt.now(_pytz.utc)
+                    _scan_run = tz.now()
 
-                    # เก็บ 3 รอบล่าสุด ลบเก่า
-                    old_runs = list(
-                        _CHC.objects.filter(user=user)
-                        .values_list('scan_run', flat=True)
-                        .distinct().order_by('-scan_run')[2:]
-                    )
-                    if old_runs:
-                        _CHC.objects.filter(user=user, scan_run__in=old_runs).delete()
+                    # 1. ลบข้อมูลเก่าที่เกิน 3 รอบ
+                    old_runs = list(_CHC.objects.filter(user=user).values_list('scan_run', flat=True).distinct().order_by('-scan_run'))
+                    if len(old_runs) >= 3:
+                        _CHC.objects.filter(user=user, scan_run__in=old_runs[2:]).delete()
 
-                    total   = len(sym_list)
+                    _CHC.objects.filter(user=user, scan_run=_scan_run).delete()
+
+                    total = len(sym_list)
                     results = []
+
+                    # --- STAGE 1: Bulk Screening (Fast) ---
+                    _c.set(ckey, {'state': 'running', 'progress': 5, 'total': total, 'phase': 'Stage 1: 🔎 กรองสุขภาพคล่อง (Bulk)...'}, timeout=900)
+                    chunk_size = 100
+                    candidates = []
+                    for i in range(0, total, chunk_size):
+                        chunk = sym_list[i : i + chunk_size]
+                        chunk_bk = [f"{s}.BK" for s in chunk]
+                        try:
+                            tq = _TQ(chunk_bk, timeout=60)
+                            prices = tq.price
+                            for symbol in chunk:
+                                s_bk = f"{symbol}.BK"
+                                if isinstance(prices, dict) and s_bk in prices:
+                                    p_data = prices[s_bk]
+                                    if isinstance(p_data, dict) and 'regularMarketPrice' in p_data:
+                                        vol_3m = p_data.get('averageDailyVolume3Month', 0)
+                                        price = p_data.get('regularMarketPrice', 0)
+                                        if (vol_3m * price) >= 1_000_000:
+                                            candidates.append(symbol)
+                        except Exception:
+                            candidates.extend(chunk)
+
+                    # --- STAGE 2: Pattern Analysis (Threaded) ---
+                    total_cand = len(candidates)
+                    _c.set(ckey, {'state': 'running', 'progress': 20, 'total': total_cand, 'phase': f'Stage 2: ☕ วิเคราะห์รูปแบบ {total_cand} ตัว...'}, timeout=900)
 
                     def _scan_one(symbol):
                         try:
-                            df = _yf.Ticker(f'{symbol}.BK').history(start=_start, end=_end_str, interval='1d')
-                            if df is None or df.empty or len(df) < 60:
+                            s_bk = f'{symbol}.BK'
+                            ticker_obj = _yf.Ticker(s_bk)
+                            df = ticker_obj.history(start=_start, end=_end_str, interval="1d")
+                            if df is None or df.empty or len(df) < 80:
                                 return None
                             if isinstance(df.columns, _pd.MultiIndex):
                                 df.columns = df.columns.droplevel(1)
                             df = df.dropna(subset=['Close', 'High', 'Low'])
-
-                            # Liquidity filter
-                            avg_vol   = float(df['Volume'].tail(20).mean())
-                            avg_price = float(df['Close'].tail(20).mean())
-                            if avg_vol * avg_price < 5_000_000:
-                                return None
-
+                            
                             pat = detect_cup_and_handle(df)
-                            if pat is None:
-                                return None
+                            if pat is None: return None
 
                             # RS return (3M)
                             close_s = df['Close'].dropna()
@@ -7946,76 +8010,52 @@ def cup_handle_scanner(request):
                                 rs_return = float((close_s.iloc[-1] - close_s.iloc[-66]) / abs(close_s.iloc[-66]) * 100)
 
                             # ADX & RSI
-                            adx_val = 0.0
-                            rsi_val = 50.0
+                            adx_val, rsi_val = 0.0, 50.0
                             try:
                                 adx_df = _ta.adx(df['High'], df['Low'], df['Close'], length=14)
                                 if adx_df is not None and not adx_df.empty:
                                     col = [c for c in adx_df.columns if c.startswith('ADX_')]
-                                    if col and _pd.notna(adx_df[col[0]].iloc[-1]):
-                                        adx_val = float(adx_df[col[0]].iloc[-1])
+                                    if col: adx_val = float(adx_df[col[0]].iloc[-1])
                                 rsi_s = _ta.rsi(df['Close'], length=14)
-                                if rsi_s is not None and _pd.notna(rsi_s.iloc[-1]):
-                                    rsi_val = float(rsi_s.iloc[-1])
-                            except Exception:
-                                pass
+                                if rsi_s is not None: rsi_val = float(rsi_s.iloc[-1])
+                            except Exception: pass
 
                             return {'symbol': symbol, 'pat': pat, 'rs_return': rs_return,
-                                    'adx': adx_val, 'rsi': rsi_val, 'avg_vol': avg_vol}
-                        except Exception:
-                            return None
+                                    'adx': adx_val, 'rsi': rsi_val, 'avg_vol': float(df['Volume'].tail(20).mean())}
+                        except Exception: return None
 
-                    with _cf.ThreadPoolExecutor(max_workers=20) as ex:
-                        futs = {ex.submit(_scan_one, s): s for s in sym_list}
+                    with _cf.ThreadPoolExecutor(max_workers=15) as ex:
+                        futs = {ex.submit(_scan_one, s): s for s in candidates}
                         done = 0
                         for fut in _cf.as_completed(futs):
                             done += 1
-                            _c.set(ckey, {'state': 'running', 'progress': done, 'total': total,
-                                          'phase': f'สแกน {done}/{total}...'}, timeout=900)
-                            res = fut.result()
-                            if res:
-                                results.append(res)
-
-                    # RS percentile rank
-                    rs_map  = {}
+                            if done % 5 == 0:
+                                _c.set(ckey, {'state': 'running', 'progress': 20 + int((done/total_cand)*75), 'total': total_cand,
+                                              'phase': f'วิเคราะห์ {done}/{total_cand}...'}, timeout=900)
+                            try:
+                                res = fut.result()
+                                if res: results.append(res)
+                            except Exception: pass
+                    
+                    # RS Percentile
+                    rs_map = {}
                     rs_vals = {r['symbol']: r['rs_return'] for r in results if r['rs_return'] is not None}
                     if rs_vals:
                         rs_ser = _pd.Series(rs_vals)
                         rs_map = (rs_ser.rank(pct=True) * 99).clip(0, 99).astype(int).to_dict()
 
                     # Save to DB
-                    for res in results:
-                        pat = res['pat']
-                        _CHC.objects.create(
-                            user=user, scan_run=_scan_run,
-                            symbol=res['symbol'],
-                            price=pat['current_price'],
-                            cup_high=pat['cup_high'],
-                            cup_low=pat['cup_low'],
-                            cup_depth_pct=pat['cup_depth_pct'],
-                            cup_length_days=pat['cup_length_days'],
-                            cup_start_date=pat['cup_start_date'],
-                            cup_end_date=pat['cup_end_date'],
-                            handle_high=pat['handle_high'],
-                            handle_low=pat['handle_low'],
-                            handle_depth_pct=pat['handle_depth_pct'],
-                            handle_length_days=pat['handle_length_days'],
-                            handle_start_date=pat['handle_start_date'],
-                            breakout_price=pat['breakout_price'],
-                            target_price=pat['target_price'],
-                            stop_loss=pat['stop_loss'],
-                            risk_reward=pat['risk_reward'],
-                            avg_vol_20d=res['avg_vol'],
-                            cup_vol_confirmed=pat['cup_vol_confirmed'],
-                            handle_vol_dry=pat['handle_vol_dry'],
-                            stage=pat['stage'],
-                            confidence_score=pat['confidence_score'],
-                            rs_rating=rs_map.get(res['symbol'], 0),
-                            adx=res['adx'],
-                            rsi=res['rsi'],
-                        )
-
-                    _c.set(ckey, {'state': 'done'}, timeout=300)
+                    objs = []
+                    for r in results:
+                        objs.append(_CHC(
+                            user=user, scan_run=_scan_run, symbol=r['symbol'], 
+                            symbol_bk=f"{r['symbol']}.BK",
+                            rs_rating=rs_map.get(r['symbol'], 0),
+                            adx=r['adx'], rsi=r['rsi'], avg_vol_20d=r['avg_vol'],
+                            **r['pat']
+                        ))
+                    _CHC.objects.bulk_create(objs)
+                    _c.set(ckey, {'state': 'done', 'progress': 100}, timeout=300)
                 except Exception as exc:
                     import logging
                     logging.getLogger('stocks').exception(f'[Cup&Handle] bg scan error: {exc}')
@@ -8925,6 +8965,30 @@ def stock_chart_data(request, symbol):
     except Exception as e:
         return _JR({'error': str(e)}, status=500)
 
+@login_required
+def refresh_market_caps_view(request):
+    """
+    Manual trigger to refresh market caps for all SET symbols.
+    """
+    from .utils import refresh_market_caps
+    from .models import ScannableSymbol
+    from django.contrib import messages
+    from django.shortcuts import redirect
+    from django.utils import timezone
+    
+    # ⚡ High-speed check: ดึงแค่นามประทับเวลา (Timestamp) ล่าสุดมาดูค่าเดียว
+    last_update_dt = ScannableSymbol.objects.filter(is_active=True, market='SET', market_cap__gt=0)\
+                                          .values_list('last_cap_update', flat=True).first()
+    today = timezone.localtime(timezone.now()).date()
+    
+    if last_update_dt and last_update_dt.date() == today:
+        messages.info(request, "ข้อมูลอันดับ Market Cap ของวันนี้อัปเดตเรียบร้อยแล้วครับ สแกนต่อได้ทันที!")
+    else:
+        count = refresh_market_caps()
+        messages.success(request, f"สำเร็จ! อัปเดตข้อมูล Market Cap หุ้นไทยแล้ว {count} ตัว ระบบพร้อมจัดอันดับ Top 200 เพื่อสแกนแล้วครับ")
+    
+    next_url = request.GET.get('next') or 'stocks:momentum_scanner'
+    return redirect(next_url)
 
 @login_required
 def gold_trading(request):
@@ -8935,7 +8999,7 @@ def gold_trading(request):
     return render(request, 'stocks/gold_trading.html', {
         'symbol': symbol,
         'title': 'Gold Robot Command Center',
-        'market': 'US', # Gold is traded globally in USD
+        'market': 'US',
     })
 
 

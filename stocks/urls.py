@@ -48,6 +48,7 @@ urlpatterns = [
     path('scan/turtle/run/', views.turtle_scanner_run_ajax, name='turtle_scanner_run'),
     path('signup/', views.signup, name='signup'),
     path('scan/clear/', views.clear_scan_data, name='clear_scan_data'),
+    path('scan/refresh-caps/', views.refresh_market_caps_view, name='refresh_market_caps'),
     path('morning-briefing/', views.morning_briefing, name='morning_briefing'),
     path('macro-playbook/', views.macro_playbook_view, name='macro_playbook'),
     path('macro-playbook/run/', views.macro_playbook_run_ajax, name='macro_playbook_run'),
