@@ -703,7 +703,7 @@ def core_analyze(request, symbol):
         })
 
     # ── Background worker ────────────────────────────────────────────
-    def _run_core_bg(ckey, sym):
+    def _run_core_bg(ckey, sym, mkt):
         import concurrent.futures as _cf
         from django.core.cache import cache as _c
         from .crew_analysis import TheCoreCrew as _TCC
@@ -712,7 +712,7 @@ def core_analyze(request, symbol):
             _c.set(ckey, {'state': 'running', 'phase': 'Anomaly Hunter กำลังสแกน WACC/PEGY…'}, timeout=600)
             
             # รันการวิเคราะห์เชิงลึก
-            crew = _TCC(sym)
+            crew = _TCC(sym, market=mkt)
             with _cf.ThreadPoolExecutor(max_workers=1) as ex:
                 future = ex.submit(crew.run_analysis)
                 try:
@@ -728,7 +728,7 @@ def core_analyze(request, symbol):
     # Start Worker
     if not cached or cached.get('state') == 'idle':
         _cp.set(cache_key, {'state': 'running', 'phase': 'เริ่มต้นโครงวิเคราะห์ The Core…'}, timeout=600)
-        _th.Thread(target=_run_core_bg, args=(cache_key, symbol), daemon=True).start()
+        _th.Thread(target=_run_core_bg, args=(cache_key, symbol, market_param), daemon=True).start()
 
     # Show loading
     return render(request, 'stocks/crew_result.html', {
@@ -811,13 +811,13 @@ def momentum_quick_analysis(request, symbol):
         pass
 
     # ── Background worker ─────────────────────────────────────────────
-    def _run_bg(ckey, sym, sd):
+    def _run_bg(ckey, sym, sd, mkt):
         from django.core.cache import cache as _c
         try:
             _c.set(ckey, {'state': 'running', 'phase': 'กำลังวิเคราะห์ด้วย 3 Expert Agents…'}, timeout=600)
             from .crew_analysis import MomentumShortTermCrew as _STC
             import concurrent.futures as _cf
-            crew = _STC(sym, scan_data=sd)
+            crew = _STC(sym, scan_data=sd, market=mkt)
             with _cf.ThreadPoolExecutor(max_workers=1) as ex:
                 future = ex.submit(crew.run_analysis)
                 try:
@@ -829,8 +829,9 @@ def momentum_quick_analysis(request, symbol):
             from django.core.cache import cache as _c2
             _c2.set(ckey, {'state': 'done', 'result': f'## เกิดข้อผิดพลาด\n\n{exc}'}, timeout=60)
 
+    market = cand.market if cand else 'SET'
     _cp.set(cache_key, {'state': 'running'}, timeout=600)
-    _th.Thread(target=_run_bg, args=(cache_key, symbol, scan_data), daemon=True).start()
+    _th.Thread(target=_run_bg, args=(cache_key, symbol, scan_data, market), daemon=True).start()
     return _JR({'state': 'running', 'cache_key': cache_key})
 
 

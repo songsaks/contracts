@@ -1028,7 +1028,7 @@ class MomentumCrew:
             'Company':             info.get('longName', self.symbol),
             'Sector':              info.get('sector', 'N/A'),
             'Industry':            info.get('industry', 'N/A'),
-            'Market_Cap_MTHB':     _f((info.get('marketCap') or 0) / 1e6),
+            f'Market_Cap_({("MUSD" if self.market == "US" else "MTHB")})': _f((info.get('marketCap') or 0) / 1e6),
             'PE_Ratio':            _f(info.get('trailingPE')),
             'PBV':                 _f(info.get('priceToBook')),
             'ROE_%':               info.get('returnOnEquity', 'N/A'),
@@ -1087,6 +1087,11 @@ class MomentumCrew:
 with quantitative analysis and fundamental research. Analyze {self.symbol} and produce a complete
 investment report IN THAI LANGUAGE.
 
+IMPORTANT: This is a {self.market} stock. 
+- Use ONLY "{self.currency}" or "{self.curr_sym}" as the currency unit for ALL prices and calculations. NEVER use "Baht" or "บาท".
+- Use ONLY "{self.benchmark_name}" as the benchmark market comparison. NEVER mention "SET Index" or Thai market.
+- Even if writing in Thai, the context MUST be 100% {self.market} market.
+
 ## TECHNICAL DATA
 {tech_str}
 
@@ -1114,9 +1119,9 @@ Write a complete report in Thai with these sections (use markdown headers ##):
 - ระยะห่างจาก 52-week high
 
 ## 3. การวิเคราะห์เชิงปริมาณ (Quantitative Analysis)
-- Price Momentum (1M/3M/6M) เทียบกับตลาด — หุ้นนี้แรงหรืออ่อนกว่า SET?
+- Price Momentum (1M/3M/6M) เทียบกับตลาด — หุ้นนี้แรงหรืออ่อนกว่า {self.benchmark_name}?
 - Volatility Regime — ความผันผวนสูง/ต่ำกว่าปกติ เหมาะ swing หรือ position trade?
-- Risk per trade (ATR%) — ถ้าซื้อ 100,000 บาท ควร stop ที่เท่าไหร่?
+- Risk per trade (ATR%) — ถ้าซื้อ {('100,000 บาท' if self.market == 'SET' else '$10,000 USD')} ควร stop ที่เท่าไหร่?
 - Sharpe Proxy — risk-adjusted return ดีแค่ไหน
 - Volume Trend — สถาบันกำลังสะสมหรือลดหุ้น?
 - Max Drawdown 6M — ความเสี่ยงขาลงสูงสุดที่เคยเจอ
@@ -1128,23 +1133,23 @@ Write a complete report in Thai with these sections (use markdown headers ##):
 - Red flags (ถ้ามี)
 
 ## 5. การวิเคราะห์กลยุทธ์ Turtle Breakout (Turtle Trading Analysis)
-- สถานะขอบเขตระยาว: หุ้นนี้กำลังทำ 20-Day High (S1) หรือ 55-Day High (S2) หรือไม่?
+- สถานะขอบเขตระยะยาว: หุ้นนี้กำลังทำ 20-Day High (S1) หรือ 55-Day High (S2) หรือไม่?
 - ความแรงของการทะลุ: ปริมาณการซื้อขาย (RVOL) ยืนยันความแข็งแกร่งหรือไม่?
 - ข้อมูลจุดออก (Turtle Exit): แนะนำแนวรับสำคัญและจุดหนีตามแนวทาง Turtle (10-Day Low หรือ 20-Day Low) ที่ตัวเลขเท่าใด?
 - ความเหมาะสม: หุ้นนี้เหมาะกับการถือรันเทรนด์ระยะยาวแบบเต่าแค่ไหน? (High risk/High reward?)
 
 ## 6. คำแนะนำหลัก (Main Recommendation)
 ซื้อ / รอดูก่อน / หลีกเลี่ยง — พร้อมเหตุผล 3 ข้อ
-(รวมทั้ง technical + quantitative + fundamental + turtle)
+(Technical + Quantitative + Fundamental + Turtle)
 
 ## 7. จุดซื้อที่เหมาะสม (Entry Zone)
 - ช่วงราคาที่เหมาะสม พร้อมเหตุผล
 
 ## 8. จุด Stop Loss และเป้าหมายกำไร
 - Stop Loss: ไม่เกิน 7-8% จาก entry (Minervini rule) — คำนวณจาก ATR และ Turtle Exit ด้วย
-- Target 1 (Conservative): ฿X.XX
-- Target 2 (Aggressive): ฿X.XX
-- Risk per unit (Entry - SL): ฿X.XX
+- Target 1 (Conservative): {self.curr_sym}X.XX
+- Target 2 (Aggressive): {self.curr_sym}X.XX
+- Risk per unit (Entry - SL): {self.curr_sym}X.XX
 - R:R Ratio: 1:X.X
 
 ## 9. ความเสี่ยงสำคัญ (Key Risks)
