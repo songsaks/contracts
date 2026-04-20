@@ -94,6 +94,7 @@
                             <th>20-Day Vol (Avg)</th>
                             <th title="N (ATR 20) — ค่าความผันผวนเฉลี่ยเพื่อใช้คุมความเสี่ยง">ATR (Volatility)</th>
                             <th title="+0.5N: ราคาเป้าหมายที่ควรซื้อเพิ่มเมื่อหุ้นพุ่งต่อ">Pyramiding (ไม้ต่อไป)</th>
+                            <th class="text-center" title="สัญญาณ: Just Broke = ทะลุใน 5 วันล่าสุด | Near Break = ภายใน 3% ของ high">สัญญาณ</th>
                             <th title="S1: Breakout 20 วัน (สีเขียว) และจุดหนี 10 วัน (สีแดง)" class="text-center">System 1 (ระยะสั้น)</th>
                             <th title="S2: Breakout 55 วัน (สีส้ม) และจุดหนี 20 วัน (สีแดง)" class="text-center">System 2 (ระยะยาว)</th>
                             <th class="text-end pe-4">Action</th>
@@ -141,18 +142,48 @@
                                 </div>
                                 <div class="next-unit-placeholder text-muted small">-</div>
                             </td>
+                            <!-- Signal column -->
+                            <td class="text-center">
+                                {% if c.sys1_breakout or c.sys2_breakout %}
+                                    {% if c.sys1_days_ago == 0 or c.sys2_days_ago == 0 %}
+                                        <span class="badge bg-success fw-bold px-2 py-1">🚀 Just Broke</span>
+                                        <div class="text-muted" style="font-size:0.7rem;">วันนี้</div>
+                                    {% else %}
+                                        <span class="badge bg-success fw-bold px-2 py-1">🚀 Just Broke</span>
+                                        <div class="text-muted" style="font-size:0.7rem;">
+                                            {% with days=c.sys1_days_ago|default:c.sys2_days_ago %}{{ days }} วันที่แล้ว{% endwith %}
+                                        </div>
+                                    {% endif %}
+                                {% elif c.sys1_near or c.sys2_near %}
+                                    <span class="badge bg-warning text-dark fw-bold px-2 py-1">⚡ Near Break</span>
+                                    <div class="text-muted" style="font-size:0.7rem;">
+                                        {% if c.pct_to_20d %}{{ c.pct_to_20d|floatformat:1 }}% to 20D{% endif %}
+                                        {% if c.pct_to_55d %} / {{ c.pct_to_55d|floatformat:1 }}% to 55D{% endif %}
+                                    </div>
+                                {% else %}
+                                    <span class="text-muted small">-</span>
+                                {% endif %}
+                            </td>
+                            <!-- System 1 -->
                             <td class="text-center">
                                 {% if c.sys1_breakout %}
-                                    <span class="badge badge-sys1 py-2 px-3 fw-bold shadow-sm">20-D Breakout</span>
+                                    <span class="badge badge-sys1 py-1 px-2 fw-bold">20-D {% if c.sys1_days_ago == 0 %}Today{% else %}+{{ c.sys1_days_ago }}d{% endif %}</span>
                                     <br><small class="text-muted">High: {{ c.high_20d|floatformat:2 }} | <span class="text-danger">Exit: {{ c.low_10d|floatformat:2 }}</span></small>
+                                {% elif c.sys1_near %}
+                                    <span class="badge bg-warning bg-opacity-25 text-warning-emphasis border border-warning border-opacity-50 py-1 px-2">Near {{ c.pct_to_20d|floatformat:1 }}%</span>
+                                    <br><small class="text-muted">High: {{ c.high_20d|floatformat:2 }}</small>
                                 {% else %}
                                     <span class="text-muted">-</span>
                                 {% endif %}
                             </td>
+                            <!-- System 2 -->
                             <td class="text-center">
                                 {% if c.sys2_breakout %}
-                                    <span class="badge badge-sys2 py-2 px-3 fw-bold shadow-sm">55-D Breakout</span>
+                                    <span class="badge badge-sys2 py-1 px-2 fw-bold">55-D {% if c.sys2_days_ago == 0 %}Today{% else %}+{{ c.sys2_days_ago }}d{% endif %}</span>
                                     <br><small class="text-muted">High: {{ c.high_55d|floatformat:2 }} | <span class="text-danger">Exit: {{ c.low_20d|floatformat:2 }}</span></small>
+                                {% elif c.sys2_near %}
+                                    <span class="badge bg-warning bg-opacity-25 text-warning-emphasis border border-warning border-opacity-50 py-1 px-2">Near {{ c.pct_to_55d|floatformat:1 }}%</span>
+                                    <br><small class="text-muted">High: {{ c.high_55d|floatformat:2 }}</small>
                                 {% else %}
                                     <span class="text-muted">-</span>
                                 {% endif %}

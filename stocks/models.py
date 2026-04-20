@@ -702,8 +702,16 @@ class TurtleScanCandidate(models.Model):
     low_20d = models.FloatField(default=0.0) # Exit for System 2
     
     avg_vol_20d = models.FloatField(default=0.0)
-    atr_20d = models.FloatField(default=0.0) # N (Volatility measurement)
-    
+    atr_20d = models.FloatField(default=0.0)
+
+    # Extended: 5-day window + near break
+    sys1_days_ago = models.IntegerField(null=True, blank=True)   # 0=today, 1-4=within 5 days
+    sys2_days_ago = models.IntegerField(null=True, blank=True)
+    sys1_near     = models.BooleanField(default=False)            # within 3% of 20-day high
+    sys2_near     = models.BooleanField(default=False)            # within 3% of 55-day high
+    pct_to_20d    = models.FloatField(null=True, blank=True)      # % to 20-day high (negative = above)
+    pct_to_55d    = models.FloatField(null=True, blank=True)
+
     class Meta:
         ordering = ['-scan_run', 'symbol']
         verbose_name = 'Turtle Scan Candidate'

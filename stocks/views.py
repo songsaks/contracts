@@ -3060,8 +3060,23 @@ def momentum_scanner(request):
         except Exception as e:
             ai_analysis = f"AI Analysis Error: {str(e)}"
 
-    # Get results for display
-    sort_by = request.GET.get('sort', '-technical_score')
+    # ป้องกัน FieldError จาก ?sort= ค่าที่ไม่มีในฐานข้อมูล
+    _MOMENTUM_SORT_MAP = {
+        'score':          '-technical_score',
+        'technical_score':'-technical_score',
+        'price':          '-price',
+        'rsi':            '-rsi',
+        'rvol':           '-rvol',
+        'rs':             '-rs_rating',
+        'rs_rating':      '-rs_rating',
+        'symbol':         'symbol',
+        'adx':            '-adx',
+        'upside':         '-upside_to_high',
+    }
+    raw_sort   = request.GET.get('sort', '-technical_score')
+    sort_by    = _MOMENTUM_SORT_MAP.get(raw_sort, raw_sort if raw_sort.lstrip('-') in {
+        'technical_score','price','rsi','rvol','rs_rating','symbol','adx','upside_to_high','mfi'
+    } else '-technical_score')
     candidates = MomentumCandidate.objects.filter(user=request.user).order_by(sort_by)
     scanned_at = candidates.first().scanned_at if candidates.exists() else None
 
@@ -8558,7 +8573,7 @@ def turtle_scanner(request):
     
     candidates = []
     if candidates_qs.exists():
-        latest_run = candidates_qs.first().scan_run
+        latest_run = candidates_qs.order_by('-scan_run').values_list('scan_run', flat=True).first()
         candidates = list(candidates_qs.filter(scan_run=latest_run).order_by('symbol'))
         last_updated = latest_run
         
@@ -8641,6 +8656,9 @@ def turtle_scanner_run_ajax(request):
         return _JR({'state': 'done', 'error': f'ไม่พบหุ้นใน watchlist สำหรับตลาด {market_param}'})
 
     def _bg_task(syms, market):
+        from django.contrib.auth import get_user_model as _GUM
+        user = _GUM().objects.get(pk=user_id)
+
         # Auto-refresh market cap rankings daily (SET only)
         if market == 'SET':
             try:
@@ -8681,6 +8699,10 @@ def turtle_scanner_run_ajax(request):
                 except Exception: continue
         except Exception as e:
             import logging; logging.getLogger('stocks').error(f"[Turtle] YahooQuery Error: {e}")
+
+        # Fallback: ถ้า Stage 1 fail หรือได้ candidates น้อยกว่า 10% ให้ใช้ sym_list ทั้งหมด
+        if len(candidates) < max(1, len(syms) * 0.10):
+            candidates = [{'symbol': s} for s in syms]
 
         # --- STAGE 2: Systematic Analysis (Detailed Scan) ---
         total_cand = len(candidates)
@@ -8727,26 +8749,53 @@ def turtle_scanner_run_ajax(request):
 
                         last_row = df.iloc[-1]
                         current_close = float(last_row['Close'])
-                        h20 = float(last_row.get('High_20', 0))
-                        h55 = float(last_row.get('High_55', 0))
-                        
-                        sys1 = h20 > 0 and current_close >= h20
-                        sys2 = h55 > 0 and current_close >= h55
-                        
-                        if sys1 or sys2:
+                        h20 = float(last_row.get('High_20', 0) or 0)
+                        h55 = float(last_row.get('High_55', 0) or 0)
+                        atr = float(last_row.get('ATR_20', 0) or 0)
+                        l10 = float(last_row.get('Low_10', 0) or 0)
+                        l20 = float(last_row.get('Low_20', 0) or 0)
+
+                        # --- Just Broke: breakout in last 5 trading days ---
+                        window = df.tail(5)
+                        sys1_days_ago = None
+                        sys2_days_ago = None
+                        for d_ago, (_, row) in enumerate(window.iloc[::-1].iterrows()):
+                            rh20 = float(row.get('High_20', 0) or 0)
+                            rh55 = float(row.get('High_55', 0) or 0)
+                            rc   = float(row['Close'])
+                            if sys1_days_ago is None and rh20 > 0 and rc >= rh20:
+                                sys1_days_ago = d_ago
+                            if sys2_days_ago is None and rh55 > 0 and rc >= rh55:
+                                sys2_days_ago = d_ago
+
+                        sys1 = sys1_days_ago is not None
+                        sys2 = sys2_days_ago is not None
+
+                        # --- Near Break: within 3% of channel high ---
+                        sys1_near = (not sys1) and h20 > 0 and current_close >= h20 * 0.97
+                        sys2_near = (not sys2) and h55 > 0 and current_close >= h55 * 0.97
+
+                        pct_to_20d = round((current_close - h20) / h20 * 100, 2) if h20 > 0 else None
+                        pct_to_55d = round((current_close - h55) / h55 * 100, 2) if h55 > 0 else None
+
+                        if sys1 or sys2 or sys1_near or sys2_near:
                             results.append(TurtleScanCandidate(
                                 user=user, scan_run=scan_time, symbol=symbol, market=market,
-                                price=current_close, sys1_breakout=sys1,
-                                high_20d=round(h20, 2), low_10d=round(float(last_row.get('Low_10', 0)), 2),
-                                sys2_breakout=sys2, high_55d=round(h55, 2), low_20d=round(float(last_row.get('Low_20', 0)), 2),
-                                avg_vol_20d=avg_vol, atr_20d=round(float(last_row.get('ATR_20', 0)), 4)
+                                price=current_close,
+                                sys1_breakout=sys1, sys1_days_ago=sys1_days_ago,
+                                high_20d=round(h20, 2), low_10d=round(l10, 2),
+                                sys2_breakout=sys2, sys2_days_ago=sys2_days_ago,
+                                high_55d=round(h55, 2), low_20d=round(l20, 2),
+                                sys1_near=sys1_near, sys2_near=sys2_near,
+                                pct_to_20d=pct_to_20d, pct_to_55d=pct_to_55d,
+                                avg_vol_20d=avg_vol, atr_20d=round(atr, 4),
                             ))
                     except Exception: continue
             except Exception: continue
 
-        # Save to DB
+        # Save to DB — always delete old + save new so scan_run timestamp always updates
+        TurtleScanCandidate.objects.filter(user=user, market=market).delete()
         if results:
-            TurtleScanCandidate.objects.filter(user=request.user, market=market).delete()
             TurtleScanCandidate.objects.bulk_create(results)
 
         _cp.set(ckey, {'state': 'done', 'found': len(results)}, timeout=3600)
