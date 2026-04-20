@@ -9066,3 +9066,83 @@ def gold_trading(request):
     })
 
 
+@login_required
+def debug_scan_symbol(request, symbol):
+    """
+    Debug endpoint — fetch data for one symbol and return full breakdown.
+    Call: /stocks/debug-scan/CK/
+    Shows exactly what the scanner computes (RSI, RVOL, ADX, score breakdown).
+    Staff-only for safety.
+    """
+    from django.http import JsonResponse
+    if not request.user.is_staff:
+        return JsonResponse({'error': 'staff only'}, status=403)
+
+    import yfinance as yf
+    import pandas_ta as ta
+    import pandas as pd
+    from .utils import find_supply_demand_zones, find_supply_demand_zones_v2, analyze_momentum_technical_v2
+
+    sym_bk = f"{symbol.upper()}.BK"
+    result = {'symbol': symbol, 'sym_bk': sym_bk}
+
+    try:
+        df = yf.download(sym_bk, period='1y', interval='1d', progress=False, timeout=20)
+        result['rows_fetched'] = len(df)
+        result['is_multindex'] = isinstance(df.columns, pd.MultiIndex)
+
+        if isinstance(df.columns, pd.MultiIndex):
+            df.columns = df.columns.droplevel(1)
+
+        if df.empty or len(df) < 55:
+            result['error'] = f'Not enough data: {len(df)} rows'
+            return JsonResponse(result)
+
+        # Raw last bar
+        result['last_close'] = float(df['Close'].iloc[-1])
+        result['last_open']  = float(df['Open'].iloc[-1])
+        result['last_vol']   = float(df['Volume'].iloc[-1])
+        result['avg_vol_20'] = float(df['Volume'].tail(20).mean())
+        result['rvol_raw']   = round(result['last_vol'] / result['avg_vol_20'], 3) if result['avg_vol_20'] > 0 else 0
+
+        # Compute indicators
+        df['EMA50']  = ta.ema(df['Close'], length=50)
+        df['EMA200'] = ta.ema(df['Close'], length=200)
+        df['EMA20']  = ta.ema(df['Close'], length=20)
+        df['RSI']    = ta.rsi(df['Close'], length=14)
+        adx_df = ta.adx(df['High'], df['Low'], df['Close'], length=14)
+        if adx_df is not None:
+            df = pd.concat([df, adx_df], axis=1)
+        df['MFI'] = ta.mfi(df['High'], df['Low'], df['Close'], df['Volume'], length=14)
+
+        result['rsi']    = round(float(df['RSI'].iloc[-1]), 2) if pd.notna(df['RSI'].iloc[-1]) else None
+        result['ema20']  = round(float(df['EMA20'].iloc[-1]), 2) if pd.notna(df['EMA20'].iloc[-1]) else None
+        result['ema50']  = round(float(df['EMA50'].iloc[-1]), 2) if pd.notna(df['EMA50'].iloc[-1]) else None
+        result['ema200'] = round(float(df['EMA200'].iloc[-1]), 2) if pd.notna(df['EMA200'].iloc[-1]) else None
+        result['adx']    = round(float(df['ADX_14'].iloc[-1]), 2) if 'ADX_14' in df.columns and pd.notna(df['ADX_14'].iloc[-1]) else None
+        result['mfi']    = round(float(df['MFI'].iloc[-1]), 2) if pd.notna(df['MFI'].iloc[-1]) else None
+        result['year_high'] = round(float(df['High'].tail(252).max()), 2)
+
+        # Score conditions breakdown
+        p = result['last_close']
+        result['cond_above_ema200']   = bool(p > result['ema200']) if result['ema200'] else False
+        result['cond_above_ema50']    = bool(p > result['ema50']) if result['ema50'] else False
+        result['cond_golden_cross']   = bool(result['ema50'] > result['ema200']) if (result['ema50'] and result['ema200']) else False
+        result['cond_ema20_aligned']  = bool(p > result['ema20'] > result['ema50'] > result['ema200']) if all([result['ema20'], result['ema50'], result['ema200']]) else False
+        result['cond_rsi_ok']         = bool(55 <= (result['rsi'] or 0) <= 75)
+        result['cond_near_52w_high']  = bool(p >= result['year_high'] * 0.85)
+        result['cond_52w_breakout']   = bool(p >= result['year_high'] * 0.99)
+        result['rvol_bullish']        = bool(p >= result['last_open'])
+
+        # Full v2 score
+        tech = analyze_momentum_technical_v2(df)
+        result['v2_score'] = tech.get('score')
+        result['v2_rvol']  = tech.get('rvol')
+        result['v2_rsi']   = tech.get('rsi')
+
+    except Exception as e:
+        result['exception'] = str(e)
+
+    return JsonResponse(result, json_dumps_params={'indent': 2})
+
+
