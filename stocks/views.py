@@ -1,4 +1,4 @@
-﻿# ====== views.py - View หลักของระบบวิเคราะห์หุ้น AI ======
+# ====== views.py - View หลักของระบบวิเคราะห์หุ้น AI ======
 # ทุก view ต้องผ่านการ login (@login_required)
 # ใช้ yfinance, yahooquery ดึงข้อมูลตลาด และ Gemini AI วิเคราะห์
 
@@ -2869,38 +2869,41 @@ def momentum_scanner(request):
                     symbols_bk = [f"{s}.BK" for s in sym_list]
                     
                     candidates = []
-                    _c.set(ckey, {'state': 'running', 'progress': 10, 'total': total_syms, 'phase': 'Stage 1: สแกนด่วนด้วย YahooQuery (Turbo)...'}, timeout=900)
+                    # Reporting Stage 1
+                    _c.set(ckey, {'state': 'running', 'progress': 0, 'total': 0, 'phase': f'Stage 1: 🔎 กำลังคัดกรองหุ้น {total_syms} ตัวด้วยระบบ Turbo...'}, timeout=900)
                     
                     try:
-                        # Fetch batch data for ALL symbols (very fast)
-                        tq = _TQ(symbols_bk, asynchronous=True)
+                        # Fetch batch data (No async to avoid environment issues, still very fast)
+                        tq = _TQ(symbols_bk)
                         prices = tq.price
                         
                         for symbol in sym_list:
                             try:
                                 s_bk = f"{symbol}.BK"
                                 p_data = prices.get(s_bk)
-                                if not isinstance(p_data, dict): continue
+                                if not isinstance(p_data, dict) or 'regularMarketPrice' not in p_data: continue
                                 
                                 curr_price = p_data.get('regularMarketPrice')
-                                if curr_price is None: continue
-                                
-                                # Fast filter: Average Daily Volume > 1M THB
                                 avg_vol = p_data.get('averageDailyVolume3Month', 0)
-                                if curr_price * avg_vol < 1000000: continue
                                 
+                                # Momentum Specific: Relaxed filtering for broader results
+                                # 1. Minimum Liquidity (500k THB)
+                                if (curr_price * avg_vol) < 500000: continue
+                                
+                                # 2. Broad Technical Filter - Price must be above some level or trending
+                                # (Deep dive will confirm details)
                                 candidates.append({'symbol': symbol})
                             except Exception: continue
                     except Exception as e:
                         import logging; logging.getLogger('stocks').error(f"YahooQuery Error: {e}")
 
-                    # --- STAGE 2: Deep Analysis (Parallel Detailed Scan) ---
-                    # Limit to top 150 for deep dive (or all if < 150)
-                    candidates = candidates[:150]
+                    # --- STAGE 2: Deep Analysis (The Detailer) ---
+                    # Limit to top 200 for Momentum (it's broader than Precision)
+                    candidates = candidates[:200]
                     total_cand = len(candidates)
                     pre_results = []
                     
-                    _c.set(ckey, {'state': 'running', 'progress': 30, 'total': total_syms, 'phase': f'Stage 2: เจาะลึก {total_cand} ตัว...'}, timeout=900)
+                    _c.set(ckey, {'state': 'running', 'progress': 0, 'total': total_cand, 'phase': f'Stage 2: 🚀 เจาะลึกวิเคราะห์ทางเทคนิค {total_cand} ตัว...'}, timeout=900)
                     
                     chunk_size = 50
                     for i in range(0, len(candidates), chunk_size):
@@ -2908,12 +2911,11 @@ def momentum_scanner(request):
                         chunk_syms = [c['symbol'] for c in chunk]
                         chunk_bk = [f"{s}.BK" for s in chunk_syms]
                         
-                        _c.set(ckey, {'state': 'running', 'progress': 30 + int((i/total_cand)*60), 
-                                      'total': total_syms, 'phase': f'Stage 2: วิเคราะห์ทางเทคนิค ({i//chunk_size + 1})...'}, timeout=900)
+                        _c.set(ckey, {'state': 'running', 'progress': i, 'total': total_cand, 'phase': f'กำลังประมวลผลกลุ่มที่ {i//chunk_size + 1}...'}, timeout=900)
                         
                         try:
-                            # Use yfinance with THREADS=True for the limited candidates
-                            data = _yf.download(chunk_bk, start=scan_start_str, end=scan_end_str, interval="1d", progress=False, group_by='ticker', threads=True, timeout=20)
+                            # Use yfinance with THREADS for details
+                            data = _yf.download(chunk_bk, start=scan_start_str, end=scan_end_str, interval="1d", progress=False, group_by='ticker', threads=True, timeout=30)
                             
                             for symbol in chunk_syms:
                                 try:
@@ -2922,20 +2924,23 @@ def momentum_scanner(request):
                                     df = data[s_bk].dropna(subset=['Close'])
                                     if len(df) < 50: continue
                                     
-                                    # Basic EMA filters for speed
+                                    # Momentum Indicator calculations
+                                    df['EMA50']  = _ta.ema(df['Close'], length=50)
                                     df['EMA200'] = _ta.ema(df['Close'], length=200)
                                     df['RSI']    = _ta.rsi(df['Close'], length=14)
                                     
-                                    current_price = float(df['Close'].iloc[-1])
-                                    rsi_val = float(df['RSI'].iloc[-1])
+                                    curr = float(df['Close'].iloc[-1])
+                                    rsi_val = float(df['RSI'].iloc[-1]) if not df['RSI'].empty else 0
                                     
-                                    # Relaxed Momentum Filter
-                                    if rsi_val < 35: continue 
+                                    # RELAXED MOMENTUM CRITERIA:
+                                    # - Price can be slightly below EMA200 if RSI is strong (reversal)
+                                    # - Or Price is above EMA200 (uptrend)
+                                    if rsi_val < 40: continue # Only keep showing some life
                                     
                                     tech = analyze_momentum_technical(df)
                                     pre_results.append({
                                         'symbol': symbol, 'df': df, 'tech': tech, 
-                                        'price': current_price, 'year_high': float(df['High'].tail(252).max()),
+                                        'price': curr, 'year_high': float(df['High'].tail(252).max()),
                                         'sd_zone': find_supply_demand_zones(df)
                                     })
                                 except Exception: continue
@@ -3588,9 +3593,8 @@ def precision_momentum_scanner(request):
                 
                 rs_returns_all = {}
                 try:
-                    # Multi-treaded fundamental/price fetch for ALL symbols at once
-                    tq = _TQ(symbols_bk, asynchronous=True)
-                    # Instead of full history, we get regular stats for quick filtering or we can use history
+                    # Sync data retrieval (Still very fast for batch)
+                    tq = _TQ(symbols_bk)
                     tq_hist = tq.history(start=scan_start_str, end=scan_end_str, interval="1d")
                     
                     if tq_hist is not None and not tq_hist.empty:
@@ -8636,44 +8640,56 @@ def turtle_scanner_run_ajax(request):
         results = []
         processed = 0
 
-        # --- Optimized Bulk Processing ---
-        _cp.set(ckey, {'state': 'running', 'progress': 5, 'total': total_syms, 'phase': 'Stage 1: สแกนด่วน (Radar Mode)...'}, timeout=3600)
+        # --- STAGE 1: Fast Screening with YahooQuery (Radar Mode) ---
+        _cp.set(ckey, {'state': 'running', 'progress': 0, 'total': 0, 'phase': f'Stage 1: 🔎 คัดกรองหุ้นทั้งตลาด {total_syms} ตัว (Turbo)...'}, timeout=3600)
         
-        results = []
-        chunk_size = 20
-        import time as _tm
-        for i in range(0, len(syms), chunk_size):
-            chunk = syms[i : i + chunk_size]
-            symbols_bk = [f"{s}.BK" if market == 'SET' and '.' not in s else s for s in chunk]
+        from yahooquery import Ticker as _TQ
+        symbols_bk = [f"{s}.BK" if market == 'SET' and '.' not in s else s for s in syms]
+        
+        candidates = []
+        try:
+            tq = _TQ(symbols_bk)
+            prices = tq.price
+            for symbol in syms:
+                try:
+                    s_bk = f"{symbol}.BK" if market == 'SET' and '.' not in symbol else symbol
+                    p_data = prices.get(s_bk)
+                    if not isinstance(p_data, dict) or 'regularMarketPrice' not in p_data: continue
+                    
+                    # Basic Liquidity for Turtle (Min 200k Value)
+                    avg_vol = p_data.get('averageDailyVolume3Month', 0)
+                    curr_p = p_data.get('regularMarketPrice')
+                    if (curr_p * avg_vol) < 200000: continue
+                    
+                    candidates.append({'symbol': symbol})
+                except Exception: continue
+        except Exception as e:
+            import logging; logging.getLogger('stocks').error(f"[Turtle] YahooQuery Error: {e}")
+
+        # --- STAGE 2: Systematic Analysis (Detailed Scan) ---
+        total_cand = len(candidates)
+        _cp.set(ckey, {'state': 'running', 'progress': 0, 'total': total_cand, 'phase': f'Stage 2: 🐢 วิเคราะห์ Turtle Breakout {total_cand} ตัว...'}, timeout=3600)
+        
+        chunk_size = 50
+        for i in range(0, len(candidates), chunk_size):
+            chunk = candidates[i : i + chunk_size]
+            chunk_syms = [c['symbol'] for c in chunk]
+            chunk_bk = [f"{s}.BK" if market == 'SET' and '.' not in s else s for s in chunk_syms]
             
-            _cp.set(ckey, {'state': 'running', 'progress': int((i/total_syms)*90), 'total': total_syms, 'phase': f'กำลังสแกนกลุ่ม {i//chunk_size + 1}...'}, timeout=3600)
+            _cp.set(ckey, {'state': 'running', 'progress': i, 'total': total_cand, 'phase': f'กำลังวิเคราะห์กลุ่มที่ {i//chunk_size + 1}...'}, timeout=3600)
             
             try:
-                # Bulk Download with Timeout and NO threads
-                data = _yf.download(symbols_bk, period="6mo", interval="1d", progress=False, group_by='ticker', threads=False, timeout=30)
-                _tm.sleep(0.3)
+                # Use yfinance with THREADS=True for performance
+                data = _yf.download(chunk_bk, period="6mo", interval="1d", progress=False, group_by='ticker', threads=True, timeout=30)
                 
-                if data is None or data.empty:
-                    # Fallback to individual
-                    for symbol in chunk:
-                        try:
-                            s_bk = f"{symbol}.BK" if market == 'SET' and '.' not in symbol else symbol
-                            _t = _yf.Ticker(s_bk)
-                            _h = _t.history(period="6mo", interval="1d")
-                            if not _h.empty:
-                                df = _h.dropna(subset=['Close'])
-                                if len(df) < 50: continue
-                                # Proceed with turtle calc here (same as loop below) - for brevity simplified
-                                # Actually we'll just skip the bulk part if data is empty and let the next i-loop try its best
-                                pass
-                        except Exception: continue
-                
-                for symbol in chunk:
+                for symbol in chunk_syms:
                     try:
                         s_bk = f"{symbol}.BK" if market == 'SET' and '.' not in symbol else symbol
                         if s_bk not in data or data[s_bk].empty: continue
                         df = data[s_bk].dropna(subset=['Close'])
-                        if len(df) < 50: continue
+                        if len(df) < 55: continue
+                        
+                        avg_vol = float(df['Volume'].tail(20).mean())
                         
                         # Liquidity filter (SET Only)
                         avg_vol = float(df['Volume'].tail(20).mean())
