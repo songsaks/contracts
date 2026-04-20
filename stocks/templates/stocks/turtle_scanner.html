@@ -205,8 +205,10 @@
         document.getElementById('scanProgress').classList.remove('d-none');
         document.getElementById('runScanBtn').disabled = true;
         
+        let isPrecisionOnly = document.getElementById('filterQualityToggle').checked;
         let url = "{% url 'stocks:turtle_scanner_run' %}?market=" + marketSelect.value;
         if(force) url += "&force=1";
+        if(isPrecisionOnly) url += "&precision_only=true";
 
         fetch(url)
             .then(res => res.json())
