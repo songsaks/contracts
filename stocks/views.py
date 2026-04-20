@@ -2864,7 +2864,8 @@ def momentum_scanner(request):
                     
                     candidates = []
                     # Chunk download to be safe and responsive
-                    chunk_size = 40
+                    chunk_size = 15
+                    import time as _tm
                     for i in range(0, len(sym_list), chunk_size):
                         chunk = sym_list[i:i + chunk_size]
                         symbols_bk = [f"{s}.BK" for s in chunk]
@@ -2873,8 +2874,10 @@ def momentum_scanner(request):
                                       'total': total_syms, 'phase': f'Stage 1: กำลังสแกนกลุ่ม {i//chunk_size + 1}...'}, timeout=600)
                         
                         try:
-                            # Download OHLC for the chunk with timeout and explicit dates (important for SET)
-                            data = _yf.download(symbols_bk, start=scan_start_str, end=scan_end_str, interval="1d", progress=False, group_by='ticker', threads=True, timeout=30)
+                            # Download OHLC for the chunk with timeout and NO threads for stability on server
+                            data = _yf.download(symbols_bk, start=scan_start_str, end=scan_end_str, interval="1d", progress=False, group_by='ticker', threads=False, timeout=30)
+                            
+                            _tm.sleep(0.5) # Prevent Yahoo throttling
                             
                             if data is None or data.empty:
                                 # Fallback: fetch one-by-one for this chunk
@@ -3560,7 +3563,7 @@ def precision_momentum_scanner(request):
                 _cache.set(ckey, {'state': 'running', 'progress': 5, 'total': total_syms, 'phase': 'คำนวณ RS Rating แบบกลุ่ม...'}, timeout=900)
                 
                 rs_returns_all = {}
-                chunk_size = 50
+                chunk_size = 20
                 for i in range(0, len(sym_list), chunk_size):
                     chunk = sym_list[i : i + chunk_size]
                     symbols_bk = [f"{s}.BK" for s in chunk]
@@ -3569,8 +3572,10 @@ def precision_momentum_scanner(request):
                     
                     try:
                         import yfinance as _yf_bulk
-                        # Use a smaller timeout and try to be more robust
-                        rs_data = _yf_bulk.download(symbols_bk, start=scan_start_str, end=scan_end_str, interval="1d", progress=False, group_by='ticker', threads=True, timeout=30)
+                        import time as _tm
+                        # Use a smaller timeout, NO threads for stability, and reduce chunk_size
+                        rs_data = _yf_bulk.download(symbols_bk, start=scan_start_str, end=scan_end_str, interval="1d", progress=False, group_by='ticker', threads=False, timeout=30)
+                        _tm.sleep(0.3)
                         
                         if rs_data is None or rs_data.empty:
                             # If bulk fails, try one-by-one for this chunk
@@ -8637,7 +8642,8 @@ def turtle_scanner_run_ajax(request):
         _cp.set(ckey, {'state': 'running', 'progress': 5, 'total': total_syms, 'phase': 'Stage 1: สแกนด่วน (Radar Mode)...'}, timeout=3600)
         
         results = []
-        chunk_size = 40
+        chunk_size = 20
+        import time as _tm
         for i in range(0, len(syms), chunk_size):
             chunk = syms[i : i + chunk_size]
             symbols_bk = [f"{s}.BK" if market == 'SET' and '.' not in s else s for s in chunk]
@@ -8645,8 +8651,9 @@ def turtle_scanner_run_ajax(request):
             _cp.set(ckey, {'state': 'running', 'progress': int((i/total_syms)*90), 'total': total_syms, 'phase': f'กำลังสแกนกลุ่ม {i//chunk_size + 1}...'}, timeout=3600)
             
             try:
-                # Bulk Download with Timeout
-                data = _yf.download(symbols_bk, period="6mo", interval="1d", progress=False, group_by='ticker', threads=True, timeout=30)
+                # Bulk Download with Timeout and NO threads
+                data = _yf.download(symbols_bk, period="6mo", interval="1d", progress=False, group_by='ticker', threads=False, timeout=30)
+                _tm.sleep(0.3)
                 
                 if data is None or data.empty:
                     # Fallback to individual
