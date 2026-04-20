@@ -8984,12 +8984,18 @@ def refresh_market_caps_view(request):
     from django.shortcuts import redirect
     from django.utils import timezone
     
-    # ⚡ High-speed check: ดึงแค่นามประทับเวลา (Timestamp) ล่าสุดมาดูค่าเดียว
+    # ⚡ High-speed check: ดึงแค่ timestamp ล่าสุดมาดูค่าเดียว + แปลงเป็น BKK timezone ก่อนเช็ค
     last_update_dt = ScannableSymbol.objects.filter(is_active=True, market='SET', market_cap__gt=0)\
                                           .values_list('last_cap_update', flat=True).first()
     today = timezone.localtime(timezone.now()).date()
     
-    if last_update_dt and last_update_dt.date() == today:
+    # ต้องแปลง UTC → Bangkok timezone ก่อนเปรียบเทียบวันที่ มิฉะนั้นจะ off ได้ถึง 7 ชั่วโมง
+    already_today = (
+        last_update_dt is not None and
+        timezone.localtime(last_update_dt).date() == today
+    )
+
+    if already_today:
         messages.info(request, "ข้อมูลอันดับ Market Cap ของวันนี้อัปเดตเรียบร้อยแล้วครับ สแกนต่อได้ทันที!")
     else:
         count = refresh_market_caps()

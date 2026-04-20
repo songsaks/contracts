@@ -1965,20 +1965,20 @@ def get_top_ranked_symbols(market='SET', limit=200, auto_refresh=False):
     from django.utils import timezone
     
     if market == 'SET' and auto_refresh:
-        # เช็คว่าข้อมูลเก่าเกิน 1 วันหรือไม่
-        sample = ScannableSymbol.objects.filter(is_active=True, market='SET', market_cap__gt=0).first()
-        needs_refresh = False
-        if not sample:
-            needs_refresh = True
-        elif not sample.last_cap_update or sample.last_cap_update.date() < timezone.localtime(timezone.now()).date():
-            needs_refresh = True
-            
+        # เช็คว่าข้อมูลเก่าเกิน 1 วันหรือไม่ (แปลง UTC → Bangkok ก่อนเปรียบเทียบ)
+        last_dt = ScannableSymbol.objects.filter(is_active=True, market='SET', market_cap__gt=0)\
+                                        .values_list('last_cap_update', flat=True).first()
+        today = timezone.localtime(timezone.now()).date()
+        needs_refresh = (
+            last_dt is None or
+            timezone.localtime(last_dt).date() < today
+        )
+
         if needs_refresh:
             try:
                 refresh_market_caps()
             except Exception as e:
                 import logging
-                logging.getLogger('stocks').error(f"Auto-refresh market cap failed: {e}")
                 logging.getLogger('stocks').error(f"Auto-refresh market cap failed: {e}")
 
     # Try getting stocks with Market Cap first
