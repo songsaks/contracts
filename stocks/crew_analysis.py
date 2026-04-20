@@ -30,7 +30,8 @@ class MomentumShortTermCrew:
         self.scan_data = scan_data or {}
         
         self.benchmark_name = "SET Index" if market == 'SET' else "S&P 500 / Nasdaq"
-        self.currency       = "฿" if market == 'SET' else "$"
+        self.currency       = "บาท" if market == 'SET' else "USD"
+        self.curr_sym       = "฿" if market == 'SET' else "$"
 
         if self.market == 'US':
             self.yf_symbol = symbol
@@ -136,9 +137,9 @@ class MomentumShortTermCrew:
         news_text = '; '.join(extra.get('news', [])) or 'ไม่มีข้อมูล'
         context = f"""
 หุ้น: {self.symbol}
-ราคาปัจจุบัน: {sd.get('price', 'N/A')} บาท
+ราคาปัจจุบัน: {sd.get('price', 'N/A')} {self.currency}
 Technical Score: {sd.get('technical_score', 'N/A')}/100
-RSI (14): {sd.get('rsi', 'N/A')}
+Relative Strength vs {self.benchmark_name}: {sd.get('rs_rating', 'N/A')}
 ADX (14): {sd.get('adx', 'N/A')}
 MFI (14): {sd.get('mfi', 'N/A')}
 RVOL: {sd.get('rvol', 'N/A')}x
@@ -243,10 +244,10 @@ Volume Acceleration (5d/20d): {extra.get('vol_5v20', 'N/A')}x
 เขียนตาราง Risk Management เป็นภาษาไทย:
 1. **Best Entry Zone**: ช่วงราคาเข้าที่ดีที่สุด (อ้างอิง Demand Zone และ Context จาก Agent 1)
 2. **Stop Loss**: คำนวณจาก Demand Zone ล่างสุด — ห้ามเกิน 7-8% จาก Entry
-3. **Target 1 (Conservative, R:R 1.5:1)**: ราคา {self.currency}X.XX
-4. **Target 2 (Aggressive, R:R 2.5:1–3:1)**: ราคา {self.currency}X.XX
+3. **Target 1 (Conservative)**: {self.curr_sym}X.XX
+4. **Target 2 (Aggressive)**: {self.curr_sym}X.XX
 5. **Position Size**: พอร์ต {('100,000 บาท' if self.market == 'SET' else '$10,000 USD')} Risk 1% → ซื้อกี่หุ้น?
-6. **สรุป R:R**: Entry {self.currency}___ → Stop {self.currency}___ → Target {self.currency}___ = R:R 1:___""",
+6. **สรุป R:R**: Entry {self.curr_sym}___ → Stop {self.curr_sym}___ → Target {self.curr_sym}___ = R:R 1:___""",
             agent=risk_expert,
             expected_output="ตาราง Risk Management ชัดเจน ระบุราคาตัวเลขครบทุกจุด"
         )
@@ -621,8 +622,9 @@ class TheCoreCrew:
         # Build Context
         context = f"""
 หุ้น: {self.symbol}
-ราคาปัจจุบัน: {info.get('currentPrice', 'N/A')} {info.get('currency', 'THB')}
-Market Cap: {info.get('marketCap', 'N/A')}
+ราคาปัจจุบัน: {info.get('currentPrice', 'N/A')} {('บาท' if self.market == 'SET' else 'USD')}
+Sector: {info.get('sector', 'N/A')}
+Market Cap: {valuation.get('market_cap', 'N/A')} {('ล้านบาท' if self.market == 'SET' else 'MUSD')}
 
 [Financial Valuation Metrics]
 - WACC (ต้นทุนเงินทุน): {valuation.get('wacc')}
@@ -982,7 +984,7 @@ class MomentumCrew:
             if atr_s is not None and not atr_s.empty and isinstance(price, float):
                 atr_val = float(atr_s.iloc[-1])
                 quant['ATR_14_pct'] = _f(atr_val / price * 100)
-                quant['ATR_14_baht'] = _f(atr_val)
+                quant[f'ATR_14_{self.currency.lower()}'] = _f(atr_val)
 
             # Sharpe Proxy (6M risk-adjusted momentum)
             if n >= 126:
@@ -1067,13 +1069,32 @@ class MomentumCrew:
         """
         technical, news_list, fundamental, quant = self._get_rich_data()
 
-        tech_str  = "\n".join([f"  {k}: {v}" for k, v in technical.items()])
+        # ── Format values with explicit currency symbol ──────────────
+        PRICE_KEYS = {'Price', '52w_High', '52w_Low', 'EMA_50', 'EMA_200',
+                      'Turtle_S1_High20', 'Turtle_S1_Exit10',
+                      'Turtle_S2_High55', 'Turtle_S2_Exit20',
+                      f'ATR_14_{self.currency.lower()}'}
+        def _fmt_val(k, v):
+            if k in PRICE_KEYS and isinstance(v, (int, float)):
+                return f"{self.curr_sym}{v}"
+            return v
+
+        tech_str  = "\n".join([f"  {k}: {_fmt_val(k, v)}" for k, v in technical.items()])
         fund_str  = "\n".join([f"  {k}: {v}" for k, v in fundamental.items()])
         quant_str = "\n".join([f"  {k}: {v}" for k, v in quant.items()]) if quant else "  (ข้อมูลไม่เพียงพอ)"
         news_str  = (
             "\n".join([f"  - {n.get('title', '')}" for n in news_list])
             if news_list else "  (No recent news available)"
         )
+
+        # ── Validate data quality ─────────────────────────────────────
+        current_price = technical.get('Price', 'N/A')
+        data_warning = ""
+        if not technical or current_price in ('N/A', 0, None):
+            data_warning = (
+                "\n⚠️ WARNING: Market data could not be fetched. "
+                "DO NOT hallucinate prices. State 'Data unavailable' where needed.\n"
+            )
 
         # ── Portfolio context block ──────────────────────────────────
         pctx = self.portfolio_context
@@ -1088,28 +1109,33 @@ class MomentumCrew:
 
 ---
 ## ข้อมูลพอร์ตของนักลงทุน (PORTFOLIO CONTEXT)
-- ราคาทุนเฉลี่ย: {ep:.2f} บาท
+- ราคาทุนเฉลี่ย: {ep:.2f} {self.currency}
 - จำนวนหุ้น: {qty:,.0f} หุ้น
-- มูลค่าปัจจุบัน: {mv:,.0f} บาท
-- กำไร/ขาดทุน: {gl_sign}{gl_pct:.1f}% ({gl_sign}{gl_thb:,.0f} บาท)
+- มูลค่าปัจจุบัน: {mv:,.0f} {self.currency}
+- กำไร/ขาดทุน: {gl_sign}{gl_pct:.1f}% ({gl_sign}{gl_thb:,.0f} {self.currency})
 
 เนื่องจากนักลงทุนถือหุ้นนี้อยู่แล้ว ให้เพิ่มหัวข้อ "**คำแนะนำสำหรับผู้ถือหุ้น**" ที่ตอบว่า:
 - ควรถือต่อ / เพิ่มพอร์ต / ขายทำกำไร / ตัดขาดทุน?
-- Stop Loss จากราคาทุน {ep:.2f} บาท ควรอยู่ที่เท่าไหร่?
+- Stop Loss จากราคาทุน {ep:.2f} {self.currency} ควรอยู่ที่เท่าไหร่?
 - R/R จาก Entry {ep:.2f} ไปยัง Target คือเท่าไหร่?
 """
         else:
             portfolio_section = ""
 
         # ── Single comprehensive prompt ──────────────────────────────
-        prompt = f"""You are a senior stock analyst combining Minervini/O'Neil momentum methodology
+        price_display = f"{self.curr_sym}{current_price}" if isinstance(current_price, (int, float)) else "N/A"
+        prompt = f"""{data_warning}You are a senior stock analyst combining Minervini/O'Neil momentum methodology
 with quantitative analysis and fundamental research. Analyze {self.symbol} and produce a complete
 investment report IN THAI LANGUAGE.
 
-IMPORTANT: This is a {self.market} stock. 
-- Use ONLY "{self.currency}" or "{self.curr_sym}" as the currency unit for ALL prices and calculations. NEVER use "Baht" or "บาท".
-- Use ONLY "{self.benchmark_name}" as the benchmark market comparison. NEVER mention "SET Index" or Thai market.
-- Even if writing in Thai, the context MUST be 100% {self.market} market.
+MARKET CONTEXT (MUST FOLLOW EXACTLY):
+- Market: {self.market}
+- Currency: {self.currency} (symbol: {self.curr_sym})
+- Current Price: {price_display}
+- Benchmark: {self.benchmark_name}
+- ALL prices in this report MUST use "{self.curr_sym}" prefix (e.g. {self.curr_sym}50.25)
+- NEVER use "฿", "Baht", or "บาท" for {self.market} stocks
+- NEVER compare to SET Index or Thai market
 
 ## TECHNICAL DATA
 {tech_str}
@@ -1165,7 +1191,7 @@ Write a complete report in Thai with these sections (use markdown headers ##):
 - ช่วงราคาที่เหมาะสม พร้อมเหตุผล
 
 ## 8. จุด Stop Loss และเป้าหมายกำไร
-- Stop Loss: ไม่เกิน 7-8% จาก entry (Minervini rule) — คำนวณจาก ATR และ Turtle Exit ด้วย
+- Stop Loss: {self.curr_sym}X.XX (ไม่เกิน 7-8% จาก entry — คำนวณจาก ATR และ Turtle Exit ด้วย)
 - Target 1 (Conservative): {self.curr_sym}X.XX
 - Target 2 (Aggressive): {self.curr_sym}X.XX
 - Risk per unit (Entry - SL): {self.curr_sym}X.XX
