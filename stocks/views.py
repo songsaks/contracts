@@ -8634,13 +8634,21 @@ def turtle_scanner_run_ajax(request):
         if not sym_list:
             return _JR({'state': 'done', 'error': 'ไม่พบหุ้นที่มีคะแนน > 75 ในฐานข้อมูล Precision ล่าสุด'})
     else:
-        symbols_qs = ScannableSymbol.objects.filter(is_active=True, market=market_param)
-        sym_list = [s.symbol for s in symbols_qs]
+        from .utils import get_top_ranked_symbols
+        sym_list = get_top_ranked_symbols(market=market_param, limit=200)
         
     if not sym_list:
         return _JR({'state': 'done', 'error': f'ไม่พบหุ้นใน watchlist สำหรับตลาด {market_param}'})
 
     def _bg_task(syms, market):
+        # Auto-refresh market cap rankings daily (SET only)
+        if market == 'SET':
+            try:
+                from .utils import get_top_ranked_symbols as _GTRS
+                syms = _GTRS(market='SET', limit=200, auto_refresh=True)
+            except Exception:
+                pass  # ใช้รายชื่อเดิมที่ได้จาก Main Thread ถ้า refresh ล้มเหลว
+
         scan_time = _tz.now()
         total_syms = len(syms)
         _cp.set(ckey, {'state': 'running', 'progress': 0, 'total': total_syms}, timeout=3600)
