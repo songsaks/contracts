@@ -325,6 +325,11 @@
                             <i class="fas fa-wallet"></i> Portfolio
                         </a>
                     </li>
+                    <li class="nav-item">
+                        <a class="nav-link px-3 py-2 rounded-xl {% if request.resolver_match.url_name == 'gold_trading' %}active{% endif %}" href="{% url 'stocks:gold_trading' %}" style="color: #f59e0b !important; font-weight: 800;">
+                            <i class="fas fa-robot"></i> Gold Robot
+                        </a>
+                    </li>
                     <!-- Momentum Dropdown -->
                     <li class="nav-item dropdown">
                         <a class="nav-link px-3 py-2 rounded-xl dropdown-toggle {% if request.resolver_match.url_name == 'momentum_scanner' or request.resolver_match.url_name == 'us_momentum_scanner' or request.resolver_match.url_name == 'precision_momentum_scanner' or request.resolver_match.url_name == 'us_precision_scanner' or request.resolver_match.url_name == 'scan_watchlist_view' or request.resolver_match.url_name == 'cup_handle_scanner' or request.resolver_match.url_name == 'us_cup_handle_scanner' %}active{% endif %}"

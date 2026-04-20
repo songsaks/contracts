@@ -2849,7 +2849,8 @@ def momentum_scanner(request):
                     
                     # --- STAGE 1: Fast Screening (The Radar) ---
                     # Scan all 800+ symbols for basic liquidity and trend
-                    _c.set(ckey, {'state': 'running', 'progress': 5, 'total': 100, 'phase': f'Stage 1: สแกนด่วน {len(sym_list)} ตัว (Radar Mode)...'}, timeout=600)
+                    total_syms = len(sym_list)
+                    _c.set(ckey, {'state': 'running', 'progress': 5, 'total': total_syms, 'phase': f'Stage 1: สแกนด่วน {total_syms} ตัว (Radar Mode)...'}, timeout=600)
                     
                     candidates = []
                     # Chunk download to be safe and responsive
@@ -2858,12 +2859,38 @@ def momentum_scanner(request):
                         chunk = sym_list[i:i + chunk_size]
                         symbols_bk = [f"{s}.BK" for s in chunk]
                         
-                        _c.set(ckey, {'state': 'running', 'progress': int((i/len(sym_list))*40) + 5, 
-                                      'total': 100, 'phase': f'Stage 1: กำลังสแกนกลุ่ม {i//chunk_size + 1}...'}, timeout=600)
+                        _c.set(ckey, {'state': 'running', 'progress': int((i/total_syms)*40) + 5, 
+                                      'total': total_syms, 'phase': f'Stage 1: กำลังสแกนกลุ่ม {i//chunk_size + 1}...'}, timeout=600)
                         
                         try:
-                            # Download OHLC for the chunk
-                            data = _yf.download(symbols_bk, period="1y", interval="1d", progress=False, group_by='ticker', threads=True)
+                            # Download OHLC for the chunk with timeout
+                            data = _yf.download(symbols_bk, period="1y", interval="1d", progress=False, group_by='ticker', threads=True, timeout=30)
+                            
+                            if data is None or data.empty:
+                                # Fallback: fetch one-by-one for this chunk
+                                for symbol in chunk:
+                                    try:
+                                        s_bk = f"{symbol}.BK"
+                                        _t = _yf.Ticker(s_bk)
+                                        _h = _t.history(period="1y", interval="1d")
+                                        if not _h.empty:
+                                            # Put single df into the 'data' format expected by the loop
+                                            # We simulate the structure since the loop expects data[s_bk]
+                                            # For simplicity, we just process it here or modify the structure.
+                                            # Let's just process it and continue
+                                            df = _h.dropna(subset=['Close'])
+                                            if len(df) < 150: continue
+                                            curr_price = float(df['Close'].iloc[-1])
+                                            avg_val_20 = (df['Close'] * df['Volume']).tail(20).mean()
+                                            if avg_val_20 < 5000000: continue
+                                            ema200 = _ta.ema(df['Close'], length=200)
+                                            if ema200 is None or ema200.empty or curr_price < float(ema200.iloc[-1]): continue
+                                            rsi = _ta.rsi(df['Close'], length=14)
+                                            if rsi is None or rsi.empty or float(rsi.iloc[-1]) < 45: continue
+                                            quick_score = float(rsi.iloc[-1])
+                                            candidates.append({'symbol': symbol, 'df': df, 'score': quick_score})
+                                    except Exception: continue
+                                continue # move to next chunk
                             
                             for symbol in chunk:
                                 try:
@@ -2898,9 +2925,10 @@ def momentum_scanner(request):
 
                     # Sort by quick score and take top 100 for deep pass
                     candidates = sorted(candidates, key=lambda x: x['score'], reverse=True)[:100]
+                    total_cand = len(candidates)
                     
                     # --- STAGE 2: Deep Analysis (The Detailer) ---
-                    _c.set(ckey, {'state': 'running', 'progress': 50, 'total': 100, 'phase': f'Stage 2: เจาะลึกหุ้นที่เข้ารอบ {len(candidates)} ตัว...'}, timeout=600)
+                    _c.set(ckey, {'state': 'running', 'progress': 50, 'total': total_syms, 'phase': f'Stage 2: เจาะลึกหุ้นที่เข้ารอบ {total_cand} ตัว...'}, timeout=600)
                     
                     for idx, cand in enumerate(candidates):
                         symbol = cand['symbol']
@@ -2910,8 +2938,8 @@ def momentum_scanner(request):
                     for idx, cand in enumerate(candidates):
                         symbol = cand['symbol']
                         df     = cand['df']
-                        _c.set(ckey, {'state': 'running', 'progress': 50 + int((idx/len(candidates))*30), 
-                                      'total': 100, 'phase': f'Stage 2: Technical {symbol} ({idx+1}/{len(candidates)})...'}, timeout=600)
+                        _c.set(ckey, {'state': 'running', 'progress': 50 + int((idx/total_cand)*30), 
+                                      'total': total_syms, 'phase': f'Stage 2: Technical {symbol} ({idx+1}/{total_cand})...'}, timeout=600)
                         
                         try:
                             df['EMA50']  = _ta.ema(df['Close'], length=50)
@@ -2938,7 +2966,7 @@ def momentum_scanner(request):
                         except Exception: continue
 
                     # --- STAGE 3: Bulk Fundamental (The Enforcer) ---
-                    _c.set(ckey, {'state': 'running', 'progress': 85, 'total': 100, 'phase': 'Stage 3: ดึงข้อมูลพื้นฐานแบบกลุ่ม...'}, timeout=600)
+                    _c.set(ckey, {'state': 'running', 'progress': 85, 'total': total_syms, 'phase': 'Stage 3: ดึงข้อมูลพื้นฐานแบบกลุ่ม...'}, timeout=600)
                     from .utils import YQTicker
                     matched_symbols = [r['symbol'] for r in pre_results]
                     symbols_bk = [f"{s}.BK" for s in matched_symbols]
@@ -3534,7 +3562,8 @@ def precision_momentum_scanner(request):
 
 
                 # ====== Phase 1: Bulk RS Rating Calculation ======
-                _cache.set(ckey, {'state': 'running', 'progress': 5, 'total': 100, 'phase': 'คำนวณ RS Rating แบบกลุ่ม...'}, timeout=900)
+                total_syms = len(sym_list)
+                _cache.set(ckey, {'state': 'running', 'progress': 5, 'total': total_syms, 'phase': 'คำนวณ RS Rating แบบกลุ่ม...'}, timeout=900)
                 
                 rs_returns_all = {}
                 chunk_size = 50
@@ -3542,27 +3571,42 @@ def precision_momentum_scanner(request):
                     chunk = sym_list[i : i + chunk_size]
                     symbols_bk = [f"{s}.BK" for s in chunk]
                     
-                    _cache.set(ckey, {'state': 'running', 'progress': 5 + int((i/len(sym_list))*15), 'total': 100, 'phase': f'ดึงข้อมูล RS ({i//chunk_size + 1})...'}, timeout=900)
+                    _cache.set(ckey, {'state': 'running', 'progress': 5 + int((i/total_syms)*15), 'total': total_syms, 'phase': f'ดึงข้อมูล RS ({i//chunk_size + 1})...'}, timeout=900)
                     
                     try:
                         import yfinance as _yf_bulk
-                        rs_data = _yf_bulk.download(symbols_bk, start=scan_start_str, end=scan_end_str, interval="1d", progress=False, group_by='ticker', threads=True)
-                        for symbol in chunk:
-                            try:
-                                s_bk = f"{symbol}.BK"
-                                if s_bk not in rs_data or rs_data[s_bk].empty: continue
-                                _close = rs_data[s_bk]['Close'].dropna()
-                                n = len(_close)
-                                if n >= 66:
-                                    if n >= 252:
-                                        q1 = float((_close.iloc[-1]   - _close.iloc[-64])  / abs(_close.iloc[-64])  * 100)
-                                        q2 = float((_close.iloc[-64]  - _close.iloc[-127]) / abs(_close.iloc[-127]) * 100)
-                                        q3 = float((_close.iloc[-127] - _close.iloc[-190]) / abs(_close.iloc[-190]) * 100)
-                                        q4 = float((_close.iloc[-190] - _close.iloc[-253]) / abs(_close.iloc[-253]) * 100)
-                                        rs_returns_all[symbol] = q1 * 0.4 + q2 * 0.2 + q3 * 0.2 + q4 * 0.2
-                                    else:
-                                        rs_returns_all[symbol] = float((_close.iloc[-1] - _close.iloc[-66]) / abs(_close.iloc[-66]) * 100)
-                            except Exception: continue
+                        # Use a smaller timeout and try to be more robust
+                        rs_data = _yf_bulk.download(symbols_bk, start=scan_start_str, end=scan_end_str, interval="1d", progress=False, group_by='ticker', threads=True, timeout=30)
+                        
+                        if rs_data is None or rs_data.empty:
+                            # If bulk fails, try one-by-one for this chunk
+                            for symbol in chunk:
+                                try:
+                                    s_bk = f"{symbol}.BK"
+                                    _t = _yf_bulk.Ticker(s_bk)
+                                    _h = _t.history(start=scan_start_str, end=scan_end_str, interval="1d")
+                                    if not _h.empty:
+                                        _close = _h['Close'].dropna()
+                                        if len(_close) >= 66:
+                                            rs_returns_all[symbol] = float((_close.iloc[-1] - _close.iloc[-66]) / abs(_close.iloc[-66]) * 100)
+                                except Exception: continue
+                        else:
+                            for symbol in chunk:
+                                try:
+                                    s_bk = f"{symbol}.BK"
+                                    if s_bk not in rs_data or rs_data[s_bk].empty: continue
+                                    _close = rs_data[s_bk]['Close'].dropna()
+                                    n = len(_close)
+                                    if n >= 66:
+                                        if n >= 252:
+                                            q1 = float((_close.iloc[-1]   - _close.iloc[-64])  / abs(_close.iloc[-64])  * 100)
+                                            q2 = float((_close.iloc[-64]  - _close.iloc[-127]) / abs(_close.iloc[-127]) * 100)
+                                            q3 = float((_close.iloc[-127] - _close.iloc[-190]) / abs(_close.iloc[-190]) * 100)
+                                            q4 = float((_close.iloc[-190] - _close.iloc[-253]) / abs(_close.iloc[-253]) * 100)
+                                            rs_returns_all[symbol] = q1 * 0.4 + q2 * 0.2 + q3 * 0.2 + q4 * 0.2
+                                        else:
+                                            rs_returns_all[symbol] = float((_close.iloc[-1] - _close.iloc[-66]) / abs(_close.iloc[-66]) * 100)
+                                except Exception: continue
                     except Exception: continue
 
                 rs_ratings_map = {}
@@ -8861,5 +8905,18 @@ def stock_chart_data(request, symbol):
 
     except Exception as e:
         return _JR({'error': str(e)}, status=500)
+
+
+@login_required
+def gold_trading(request):
+    """
+    Gold Trading & Robot Command Center (XAU/USD).
+    """
+    symbol = "XAUUSD=X"
+    return render(request, 'stocks/gold_trading.html', {
+        'symbol': symbol,
+        'title': 'Gold Robot Command Center',
+        'market': 'US', # Gold is traded globally in USD
+    })
 
 

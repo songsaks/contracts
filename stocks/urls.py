@@ -54,5 +54,6 @@ urlpatterns = [
     path('crypto-hub/', views.crypto_hub, name='crypto_hub'),
     path('chart/<str:symbol>/', views.stock_chart, name='stock_chart'),
     path('chart/<str:symbol>/data/', views.stock_chart_data, name='stock_chart_data'),
+    path('gold-trading/', views.gold_trading, name='gold_trading'),
 ]
 

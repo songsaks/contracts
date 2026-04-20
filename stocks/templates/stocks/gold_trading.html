@@ -1,0 +1,370 @@
+{% extends 'stocks/base_stocks.html' %}
+{% load static %}
+{% load humanize %}
+
+{% block title %}🦅 Gold Robot Command Center (XAU/USD){% endblock %}
+
+{% block extra_css %}
+<style>
+    :root {
+        --gold-primary: #f59e0b;
+        --gold-dark: #b45309;
+        --war-room-bg: #0f172a;
+        --panel-bg: #1e293b;
+    }
+
+    body {
+        background-color: var(--war-room-bg);
+        color: #f1f5f9;
+        overflow-x: hidden;
+    }
+
+    .war-room-header {
+        background: linear-gradient(135deg, #1e293b, #0f172a);
+        border-bottom: 2px solid var(--gold-primary);
+        padding: 1.5rem 2rem;
+        border-radius: 0 0 24px 24px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    }
+
+    .status-badge {
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        font-weight: 800;
+        padding: 6px 14px;
+        border-radius: 50px;
+    }
+
+    .bot-status-off { background: #334155; color: #94a3b8; }
+    .bot-status-on { background: #10b981; color: white; animation: pulse 2s infinite; }
+
+    @keyframes pulse {
+        0% { opacity: 1; }
+        50% { opacity: 0.6; }
+        100% { opacity: 1; }
+    }
+
+    .trading-panel {
+        background: var(--panel-bg);
+        border-radius: 16px;
+        border: 1px solid rgba(255,255,255,0.05);
+        transition: transform 0.2s;
+    }
+
+    .trading-panel:hover {
+        border-color: var(--gold-primary);
+    }
+
+    .gold-value {
+        font-family: 'JetBrains Mono', monospace;
+        font-weight: 800;
+        color: var(--gold-primary);
+    }
+
+    .chart-box {
+        background: white;
+        border-radius: 16px;
+        overflow: hidden;
+        min-height: 600px;
+        border: 4px solid var(--panel-bg);
+    }
+
+    .btn-gold {
+        background: var(--gold-primary);
+        color: #000;
+        font-weight: 700;
+        border: none;
+    }
+    .btn-gold:hover {
+        background: var(--gold-dark);
+        color: #fff;
+    }
+
+    #bot-logs::-webkit-scrollbar { width: 5px; }
+    #bot-logs::-webkit-scrollbar-thumb { background: #475569; border-radius: 10px; }
+
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-3">
+    
+    <!-- Header -->
+    <div class="war-room-header mb-4 d-flex justify-content-between align-items-center flex-wrap gap-3">
+        <div>
+            <div class="d-flex align-items-center gap-3">
+                <h2 class="fw-black mb-0" style="letter-spacing: -1px; color: #fff;">GOLD COMMAND CENTER</h2>
+                <span class="status-badge bot-status-off" id="bot-status-indicator">● BOT STANDBY</span>
+            </div>
+            <p class="text-muted small mt-1 mb-0 opacity-75">Institutional Automated Trading Interface · XAU/USD Spot Gold</p>
+        </div>
+        
+        <div class="d-flex gap-2">
+            <button class="btn btn-dark rounded-pill px-4 fw-bold border-secondary" onclick="toggleBot()">
+                <i class="fas fa-robot me-2 text-warning"></i> Toggle Robot
+            </button>
+            <button class="btn btn-gold rounded-pill px-4 shadow" onclick="toggleFullscreen()">
+                <i class="fas fa-expand me-2"></i> Fullscreen
+            </button>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <!-- LEFT: Control & Performance -->
+        <div class="col-xl-4 col-lg-5">
+            
+            <!-- Real-time Price Card -->
+            <div class="trading-panel p-4 mb-4">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <span class="text-muted fw-bold small">PRICE FEED: XAU/USD</span>
+                    <span class="badge bg-danger rounded-pill" style="font-size: 0.6rem;">REALTIME</span>
+                </div>
+                <div class="d-flex align-items-baseline gap-2">
+                    <h1 class="gold-value display-4 mb-0" id="gold-price-display">----.--</h1>
+                    <span class="fs-4 text-muted">USD</span>
+                </div>
+                <div id="gold-change-display" class="mt-1 fw-bold text-success" style="font-size: 1.1rem;">+0.00%</div>
+            </div>
+
+            <!-- Position Calculator -->
+            <div class="trading-panel p-4 mb-4">
+                <h6 class="fw-bold mb-3 border-bottom border-secondary pb-2" style="color: var(--gold-primary);">
+                    <i class="fas fa-microchip me-2"></i> Tactical Risk Manager
+                </h6>
+                <div class="row g-3">
+                    <div class="col-12 col-md-6">
+                        <label class="small text-muted mb-1 d-block">Account Balance ($)</label>
+                        <input type="number" id="capital-input" class="form-control form-control-sm bg-dark text-white border-secondary fw-bold" value="10000">
+                    </div>
+                    <div class="col-12 col-md-6">
+                        <label class="small text-muted mb-1 d-block">Risk per Trade (%)</label>
+                        <input type="number" id="risk-pct" class="form-control form-control-sm bg-dark text-white border-secondary fw-bold" value="1">
+                    </div>
+                </div>
+                
+                <div class="mt-4 p-3 rounded-3" style="background: rgba(245, 158, 11, 0.05); border: 1px dashed var(--gold-primary);">
+                    <div class="row text-center">
+                        <div class="col-6 border-end border-secondary border-opacity-25">
+                            <small class="text-muted d-block" style="font-size: 0.65rem;">STOP DISTANCE (2N)</small>
+                            <span class="fw-bold text-danger fs-5" id="tac-sl-dist">-.--</span>
+                        </div>
+                        <div class="col-6">
+                            <small class="text-muted d-block" style="font-size: 0.65rem;">SUGGESTED SIZE</small>
+                            <span class="fw-bold text-success fs-5" id="tac-suggest-size">-.-- Oz</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Orders/Bot Activity -->
+            <div class="trading-panel p-3">
+                <h6 class="fw-bold mb-3 px-2 small text-muted"><i class="fas fa-terminal me-2"></i> BOT ACTIVITY LOG</h6>
+                <div id="bot-logs" class="small px-2" style="height: 180px; overflow-y: auto; font-family: 'JetBrains Mono', 'Courier New', monospace; font-size: 0.72rem;">
+                    <div class="text-muted opacity-50">[INIT] Secure encrypted handshake...</div>
+                    <div class="text-muted opacity-50">[INIT] Datastream XAU:USD sync...</div>
+                    <div class="text-success">[READY] Turtle Engine Online.</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- RIGHT: Main Chart Area -->
+        <div class="col-xl-8 col-lg-7">
+            <div id="wrapper-to-fullscreen">
+                <div class="chart-box shadow-lg">
+                    <div class="p-3 bg-white border-bottom d-flex justify-content-between align-items-center flex-wrap gap-2">
+                        <div class="d-flex gap-3 align-items-center" style="font-size: 0.75rem; font-weight: 700;">
+                            <span class="text-dark"><i class="fas fa-chart-area me-1"></i> XAUUSD CHART</span>
+                            <span class="text-muted">|</span>
+                            <span><span class="legend-dot" style="background:#16a34a; display:inline-block; width:10px; height:10px; border-radius:50%;"></span> DC20</span>
+                            <span><span class="legend-dot" style="background:#d97706; display:inline-block; width:10px; height:10px; border-radius:50%;"></span> DC55</span>
+                            <span class="badge bg-light text-primary py-1 px-2 border" id="live-n-val">ATR(20): -</span>
+                        </div>
+                        <div class="btn-group btn-group-sm">
+                            <button class="btn btn-outline-secondary px-3 active" onclick="loadPeriod('3mo')">3M</button>
+                            <button class="btn btn-outline-secondary px-3" onclick="loadPeriod('6mo')">6M</button>
+                            <button class="btn btn-outline-secondary px-3" onclick="loadPeriod('1y')">1Y</button>
+                        </div>
+                    </div>
+                    <div id="chart-container" style="height: 380px;"></div>
+                    <div id="rsi-container" style="height: 120px;"></div>
+                    <div id="vol-container" style="height: 80px;"></div>
+                </div>
+            </div>
+            
+            <div class="mt-4 d-flex justify-content-center gap-3">
+                <button class="btn btn-lg btn-gold rounded-pill px-5 shadow-lg d-flex align-items-center" onclick="simulateExecution('BUY')">
+                    <i class="fas fa-bolt me-2"></i> EXECUTE MANUAL BUY (DEMO)
+                </button>
+                <button class="btn btn-lg btn-outline-danger rounded-pill px-4 d-flex align-items-center" onclick="simulateExecution('SELL')">
+                    SELL
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Scripts -->
+<script src="https://cdn.jsdelivr.net/npm/lightweight-charts@3.8.0/dist/lightweight-charts.standalone.production.js"></script>
+<script>
+    let currentSymbol = "{{ symbol }}";
+    let currentMarket = "US";
+    let currentPeriod = "3mo";
+    let mainChart, rsiChart, volChart;
+    let botActive = false;
+    let lastPrice = 0;
+    let globalTactical = null;
+
+    function toggleBot() {
+        botActive = !botActive;
+        const ind = document.getElementById('bot-status-indicator');
+        if (botActive) {
+            ind.classList.remove('bot-status-off');
+            ind.classList.add('bot-status-on');
+            ind.innerText = '● BOT ACTIVE (SEARCHING)';
+            logMessage('Turtle Bot Activated. Scanning DC Overlays...', 'text-success');
+        } else {
+            ind.classList.remove('bot-status-on');
+            ind.classList.add('bot-status-off');
+            ind.innerText = '● BOT STANDBY';
+            logMessage('Robot deactivated. All tasks suspended.', 'text-muted');
+        }
+    }
+
+    function logMessage(msg, colorClass) {
+        const d = new Date();
+        const ts = d.getHours().toString().padStart(2, '0') + ':' + d.getMinutes().toString().padStart(2, '0') + ':' + d.getSeconds().toString().padStart(2, '0');
+        const log = document.getElementById('bot-logs');
+        const div = document.createElement('div');
+        div.className = colorClass + ' mb-1';
+        div.innerHTML = `<span class="text-muted">[${ts}]</span> ${msg}`;
+        log.prepend(div);
+    }
+
+    function simulateExecution(type) {
+        logMessage(`REQUEST: Execute ${type} order at Market...`, 'text-warning');
+        setTimeout(() => {
+            logMessage(`DEMO SUCCESS: ${type} 1.00 Oz XAUUSD @ ${lastPrice}`, 'text-info fw-bold');
+        }, 600);
+    }
+
+    function mkChart(elId, height) {
+        const el = document.getElementById(elId);
+        return LightweightCharts.createChart(el, {
+            width: el.offsetWidth,
+            height: height,
+            layout: { backgroundColor: '#ffffff', textColor: '#334155' },
+            grid: { vertLines: { color: '#f1f5f9' }, horzLines: { color: '#f1f5f9' } },
+            timeScale: { borderColor: '#e2e8f0', timeVisible: true },
+        });
+    }
+
+    function loadData() {
+        console.log("Loading gold data...");
+        fetch(`/stocks/chart/${currentSymbol}/data/?market=${currentMarket}&period=${currentPeriod}`)
+            .then(res => res.json())
+            .then(data => {
+                if (data.error) return;
+                renderCharts(data);
+                
+                if (data.tactical) {
+                    globalTactical = data.tactical;
+                    document.getElementById('live-n-val').innerText = `ATR(20): ${data.tactical.n.toFixed(2)}`;
+                    document.getElementById('tac-sl-dist').innerText = (data.tactical.n * 2).toFixed(2);
+                    lastPrice = data.candles[data.candles.length-1].close;
+                    document.getElementById('gold-price-display').innerText = lastPrice.toFixed(2);
+                    
+                    // Calc change
+                    const prevPrice = data.candles[data.candles.length-2].close;
+                    const change = ((lastPrice - prevPrice) / prevPrice) * 100;
+                    const cDisp = document.getElementById('gold-change-display');
+                    cDisp.innerText = (change >= 0 ? '+' : '') + change.toFixed(2) + '%';
+                    cDisp.className = "mt-1 fw-bold " + (change >= 0 ? "text-success" : "text-danger");
+                    
+                    calculateSize();
+                }
+            });
+    }
+
+    function calculateSize() {
+        if(!globalTactical) return;
+        const cap = parseFloat(document.getElementById('capital-input').value) || 0;
+        const risk = parseFloat(document.getElementById('risk-pct').value) || 0;
+        const riskAmount = cap * (risk / 100);
+        const stopDist = globalTactical.n * 2;
+        if (stopDist > 0) {
+            const size = riskAmount / stopDist;
+            document.getElementById('tac-suggest-size').innerText = size.toFixed(2) + " Oz";
+        }
+    }
+
+    function renderCharts(data) {
+        if (mainChart) mainChart.remove();
+        if (rsiChart) rsiChart.remove();
+        if (volChart) volChart.remove();
+
+        const w = document.getElementById('chart-container').offsetWidth;
+        mainChart = mkChart('chart-container', 380);
+        rsiChart = mkChart('rsi-container', 120);
+        volChart = mkChart('vol-container', 80);
+
+        const cs = mainChart.addCandlestickSeries({ upColor: '#16a34a', downColor: '#dc2626' });
+        cs.setData(data.candles);
+
+        mainChart.addLineSeries({ color: '#16a34a', lineWidth: 1, lastValueVisible: false }).setData(data.dc20_upper);
+        mainChart.addLineSeries({ color: '#16a34a', lineWidth: 1, lineStyle: 2, lastValueVisible: false }).setData(data.dc20_lower);
+        mainChart.addLineSeries({ color: '#d97706', lineWidth: 1, lastValueVisible: false }).setData(data.dc55_upper);
+        mainChart.addLineSeries({ color: '#d97706', lineWidth: 1, lineStyle: 2, lastValueVisible: false }).setData(data.dc55_lower);
+
+        rsiChart.addLineSeries({ color: '#6366f1', lineWidth: 2 }).setData(data.rsi);
+        volChart.addHistogramSeries({ priceFormat: { type: 'volume' } }).setData(data.volume);
+
+        mainChart.timeScale().fitContent();
+        rsiChart.timeScale().fitContent();
+        volChart.timeScale().fitContent();
+    }
+
+    function loadPeriod(p) {
+        currentPeriod = p;
+        document.querySelectorAll('.btn-group button').forEach(b => {
+            b.classList.toggle('active', b.innerText.toLowerCase() === p);
+        });
+        loadData();
+    }
+
+    function toggleFullscreen() {
+        const el = document.getElementById('wrapper-to-fullscreen');
+        if (!document.fullscreenElement) {
+            el.requestFullscreen().catch(err => {
+                alert(`Error attempting to enable full-screen mode: ${err.message}`);
+            });
+        } else {
+            document.exitFullscreen();
+        }
+    }
+
+    document.addEventListener('fullscreenchange', () => {
+        setTimeout(() => {
+            const w = document.getElementById('chart-container').offsetWidth;
+            if (mainChart) mainChart.resize(w, 380);
+            if (rsiChart)  rsiChart.resize(w, 120);
+            if (volChart)  volChart.resize(w, 80);
+        }, 100);
+    });
+
+    document.getElementById('capital-input').onchange = calculateSize;
+    document.getElementById('risk-pct').onchange = calculateSize;
+
+    // Refresh every 60s for mock live feel
+    setInterval(loadData, 60000);
+
+    window.onresize = () => {
+        const w = document.getElementById('chart-container').offsetWidth;
+        if (mainChart) mainChart.resize(w, 380);
+        if (rsiChart) rsiChart.resize(w, 120);
+        if (volChart) volChart.resize(w, 80);
+    };
+
+    window.onload = loadData;
+</script>
+{% endblock %}

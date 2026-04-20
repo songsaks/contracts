@@ -30,10 +30,91 @@
             
             <div class="list-group list-group-flush">
                 {% for dept in depts %}
-                <div class="list-group-item d-flex justify-content-between align-items-center px-0 py-3">
+                <div class="list-group-item d-flex justify-content-between align-items-center px-0 py-3 border-bottom">
                     <div>
-                        <div class="fw-bold">{{ dept.name }}</div>
-                        <div class="small text-muted">{{ dept.employees.count }} พนักงาน</div>
+                        <div class="fw-bold fs-5">{{ dept.name }}</div>
+                        <div class="small text-muted"><i class="fas fa-users me-1"></i> {{ dept.employees.count }} พนักงาน</div>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <!-- Manage Members Button -->
+                        <button type="button" class="btn btn-sm btn-outline-info rounded-pill px-3" data-bs-toggle="modal" data-bs-target="#membersModal{{ dept.id }}" title="จัดการสมาชิก">
+                            <i class="fas fa-user-plus"></i>
+                        </button>
+                        <!-- Rename Button -->
+                        <button type="button" class="btn btn-sm btn-outline-warning rounded-pill px-3" data-bs-toggle="modal" data-bs-target="#editDeptModal{{ dept.id }}" title="แก้ไขชื่อ">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <!-- Delete Button -->
+                        <a href="{% url 'ops:dept_delete' dept.id %}" 
+                           class="btn btn-sm btn-outline-danger rounded-pill px-3 {% if dept.employees.count > 0 %}disabled{% endif %}" 
+                           onclick="return confirm('ยืนยันการลบฝ่าย {{ dept.name }}?')"
+                           title="{% if dept.employees.count > 0 %}ไม่สามารถลบได้เนื่องจากมีพนักงานอยู่{% else %}ลบฝ่าย{% endif %}">
+                            <i class="fas fa-trash"></i>
+                        </a>
+                    </div>
+                </div>
+
+                <!-- Modal: Manage Members for this Dept -->
+                <div class="modal fade" id="membersModal{{ dept.id }}" tabindex="-1">
+                    <div class="modal-dialog modal-dialog-centered modal-lg">
+                        <div class="modal-content border-0 rounded-4 shadow-lg">
+                            <form action="{% url 'ops:members_update' dept.id %}" method="POST">
+                                {% csrf_token %}
+                                <div class="modal-header border-0 p-4 pb-0">
+                                    <h5 class="fw-bold">จัดการพนักงานในฝ่าย: <span class="text-primary">{{ dept.name }}</span></h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                </div>
+                                <div class="modal-body p-4">
+                                    <p class="text-muted small mb-4">เลือกติ๊กถูกรายชื่อพนักงานที่ต้องการให้อยู่ในฝ่ายนี้ (คนที่มีฝ่ายอื่นอยู่แล้วจะถูกย้ายมาที่นี่ทันที)</p>
+                                    <div class="row g-2 overflow-auto" style="max-height: 400px;">
+                                        {% for u in all_users %}
+                                        <div class="col-md-6">
+                                            <div class="card bg-light border-0 p-2 h-100">
+                                                <div class="form-check d-flex align-items-center gap-2">
+                                                    <input class="form-check-input" type="checkbox" name="user_ids" value="{{ u.id }}" id="user{{ dept.id }}{{ u.id }}" 
+                                                           {% if u.employee_profile.department == dept %}checked{% endif %}>
+                                                    <label class="form-check-label w-100 py-1" for="user{{ dept.id }}{{ u.id }}">
+                                                        <div class="fw-bold">{{ u.username }}</div>
+                                                        <div class="small text-muted">
+                                                            {% if u.employee_profile.department %}
+                                                                ต้นสังกัดเดิม: <span class="badge bg-secondary opacity-50">{{ u.employee_profile.department.name }}</span>
+                                                            {% else %}
+                                                                <span class="text-success fst-italic">ยังไม่มีฝ่าย</span>
+                                                            {% endif %}
+                                                        </div>
+                                                    </label>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                                <div class="modal-footer border-0 p-4 pt-0">
+                                    <button type="submit" class="btn btn-primary w-100 py-3 rounded-3 shadow">อัปเดตรายชื่อพนักงานทั้งหมด</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Modal: Rename Department -->
+                <div class="modal fade" id="editDeptModal{{ dept.id }}" tabindex="-1">
+                    <div class="modal-dialog modal-dialog-centered">
+                        <div class="modal-content border-0 rounded-4">
+                            <form action="{% url 'ops:dept_update' dept.id %}" method="POST">
+                                {% csrf_token %}
+                                <div class="modal-header border-0 p-4 pb-0">
+                                    <h5 class="fw-bold">แก้ไขชื่อฝ่าย</h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                </div>
+                                <div class="modal-body p-4">
+                                    <input type="text" name="name" class="form-control form-control-lg bg-light border-0" value="{{ dept.name }}" required>
+                                </div>
+                                <div class="modal-footer border-0 p-4 pt-0">
+                                    <button type="submit" class="btn btn-warning w-100 py-3 rounded-3">บันทึกการเปลี่ยนแปลง</button>
+                                </div>
+                            </form>
+                        </div>
                     </div>
                 </div>
                 {% endfor %}

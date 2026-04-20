@@ -1,4 +1,5 @@
 from django.shortcuts import render, get_object_or_404, redirect
+from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 from django.http import JsonResponse
@@ -114,14 +115,15 @@ def management_view(request):
     
     depts = Department.objects.all()
     employees = Employee.objects.all()
-    # Find users who don't have an employee profile yet
     existing_employee_users = Employee.objects.values_list('user_id', flat=True)
     users = User.objects.exclude(id__in=existing_employee_users)
+    all_users = User.objects.all().order_by('username')
     
     return render(request, 'ops/management.html', {
         'depts': depts,
         'employees': employees,
-        'users': users
+        'users': users,
+        'all_users': all_users
     })
 
 @login_required
@@ -130,6 +132,49 @@ def dept_create(request):
         name = request.POST.get('name')
         if name:
             Department.objects.create(name=name)
+        messages.success(request, f"สร้างฝ่าย {name} สำเร็จแล้ว")
+    return redirect('ops:management')
+
+@login_required
+def dept_update(request, dept_id):
+    if request.method == 'POST' and request.user.is_superuser:
+        dept = get_object_or_404(Department, id=dept_id)
+        name = request.POST.get('name')
+        if name:
+            old_name = dept.name
+            dept.name = name
+            dept.save()
+            messages.success(request, f"เปลี่ยนชื่อฝ่ายจาก {old_name} เป็น {name} สำเร็จ")
+    return redirect('ops:management')
+
+@login_required
+def dept_delete(request, dept_id):
+    if request.user.is_superuser:
+        dept = get_object_or_404(Department, id=dept_id)
+        emp_count = dept.employees.count()
+        if emp_count > 0:
+            messages.error(request, f"ไม่สามารถลบฝ่าย {dept.name} ได้เนื่องจากยังมีสมาชิก {emp_count} คน กรุณาย้ายสมาชิกออกก่อน")
+        else:
+            dept.delete()
+            messages.success(request, f"ลบฝ่ายสำเร็จแล้ว")
+    return redirect('ops:management')
+
+@login_required
+def bulk_update_members(request, dept_id):
+    if request.method == 'POST' and request.user.is_superuser:
+        dept = get_object_or_404(Department, id=dept_id)
+        user_ids = request.POST.getlist('user_ids') # IDs of users selected for THIS department
+        
+        # 1. Any user who is currently in this department but NOT in the selected list
+        # should have their department set to None.
+        Employee.objects.filter(department=dept).exclude(user_id__in=user_ids).update(department=None)
+        
+        # 2. For all selected users, update or create their profile to be in THIS department
+        selected_users = User.objects.filter(id__in=user_ids)
+        for user in selected_users:
+            Employee.objects.update_or_create(user=user, defaults={'department': dept})
+            
+        messages.success(request, f"จัดการสมาชิกฝ่าย {dept.name} เรียบร้อยแล้ว (มีสมาชิกทั้งหมด {selected_users.count()} คน)")
     return redirect('ops:management')
 
 @login_required
