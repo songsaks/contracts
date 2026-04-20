@@ -3008,7 +3008,7 @@ def momentum_scanner(request):
     # Get results for display
     sort_by = request.GET.get('sort', '-technical_score')
     candidates = MomentumCandidate.objects.filter(user=request.user).order_by(sort_by)
-    scanned_at = candidates.first().created_at if candidates.exists() else None
+    scanned_at = candidates.first().scanned_at if candidates.exists() else None
 
     # ตรวจว่ากำลังสแกนอยู่ — ถ้าใช่ ซ่อน results เพื่อไม่ให้กระพริบ
     _scan_state = _cp.get(cache_key, {})
