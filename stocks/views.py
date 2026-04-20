@@ -2904,126 +2904,77 @@ def momentum_scanner(request):
                     if len(candidates) < 10:
                         candidates = [{'symbol': s} for s in sym_list[:100]]
                         
-                    # --- STAGE 2: Deep Analysis ---
-                    # Limit to top 200 for Momentum (it's broader than Precision)
-                    candidates = candidates[:200]
+                    # --- STAGE 2: Deep Technical Analysis (Multi-threaded Turbo) ---
                     total_cand = len(candidates)
                     pre_results = []
+                    _c.set(ckey, {'state': 'running', 'progress': 20, 'total': total_cand, 'phase': f'Stage 2: Technical Scan ({total_cand})...'}, timeout=900)
                     
-                    _c.set(ckey, {'state': 'running', 'progress': 0, 'total': total_cand, 'phase': f'Stage 2: 🚀 เจาะลึกวิเคราะห์ทางเทคนิค {total_cand} ตัว...'}, timeout=900)
-                    
-                    chunk_size = 50
-                    for i in range(0, len(candidates), chunk_size):
-                        chunk = candidates[i:i + chunk_size]
-                        chunk_syms = [c['symbol'] for c in chunk]
-                        chunk_bk = [f"{s}.BK" for s in chunk_syms]
-                        
-                        _c.set(ckey, {'state': 'running', 'progress': i, 'total': total_cand, 'phase': f'กำลังประมวลผลกลุ่มที่ {i//chunk_size + 1}...'}, timeout=900)
-                        
+                    import concurrent.futures as _cf
+                    def _analyze_one(symbol):
                         try:
-                            # Use yfinance with THREADS for details
-                            data = _yf.download(chunk_bk, start=scan_start_str, end=scan_end_str, interval="1d", progress=False, group_by='ticker', threads=True, timeout=30)
+                            s_bk = f"{symbol}.BK"
+                            df = _yf.download(s_bk, period="1y", interval="1d", progress=False, timeout=20)
+                            if df is None or df.empty or len(df) < 55: return None
+                            if isinstance(df.columns, pd.MultiIndex): df.columns = df.columns.droplevel(1)
                             
-                            for symbol in chunk_syms:
-                                try:
-                                    s_bk = f"{symbol}.BK"
-                                    if s_bk not in data or data[s_bk].empty: continue
-                                    df = data[s_bk].dropna(subset=['Close'])
-                                    if len(df) < 50: continue
-                                    
-                                    # Momentum Indicator calculations
-                                    df['EMA50']  = _ta.ema(df['Close'], length=50)
-                                    df['EMA200'] = _ta.ema(df['Close'], length=200)
-                                    df['RSI']    = _ta.rsi(df['Close'], length=14)
-                                    
-                                    curr = float(df['Close'].iloc[-1])
-                                    rsi_val = float(df['RSI'].iloc[-1]) if not df['RSI'].empty else 0
-                                    
-                                    # RELAXED MOMENTUM CRITERIA:
-                                    # - Price can be slightly below EMA200 if RSI is strong (reversal)
-                                    # - Or Price is above EMA200 (uptrend)
-                                    if rsi_val < 40: continue # Only keep showing some life
-                                    
-                                    tech = analyze_momentum_technical(df)
-                                    pre_results.append({
-                                        'symbol': symbol, 'df': df, 'tech': tech, 
-                                        'price': curr, 'year_high': float(df['High'].tail(252).max()),
-                                        'sd_zone': find_supply_demand_zones(df)
-                                    })
-                                except Exception: continue
-                        except Exception: continue
-
-                    # Sort by quick score and take top 150 for deep pass (expanded from 100)
-                    candidates = sorted(candidates, key=lambda x: x['score'], reverse=True)[:150]
-                    total_cand = len(candidates)
-                    
-                    # --- STAGE 2: Deep Analysis (The Detailer) ---
-                    _c.set(ckey, {'state': 'running', 'progress': 50, 'total': total_syms, 'phase': f'Stage 2: เจาะลึกหุ้นที่เข้ารอบ {total_cand} ตัว...'}, timeout=900)
-                    
-                    for idx, cand in enumerate(candidates):
-                        symbol = cand['symbol']
-
-                    # Stage 2: Deep technical analysis
-                    pre_results = []
-                    for idx, cand in enumerate(candidates):
-                        symbol = cand['symbol']
-                        df     = cand['df']
-                        _c.set(ckey, {'state': 'running', 'progress': 50 + int((idx/total_cand)*30), 
-                                      'total': total_syms, 'phase': f'Stage 2: Technical {symbol} ({idx+1}/{total_cand})...'}, timeout=600)
-                        
-                        try:
-                            df['EMA50']  = _ta.ema(df['Close'], length=50)
-                            df['EMA150'] = _ta.ema(df['Close'], length=150)
+                            df['EMA50'] = _ta.ema(df['Close'], length=50)
                             df['EMA200'] = _ta.ema(df['Close'], length=200)
-                            df['RSI']    = _ta.rsi(df['Close'], length=14)
-                            adx_df = _ta.adx(df['High'], df['Low'], df['Close'], length=14)
-                            if adx_df is not None and not adx_df.empty:
-                                df = _pd.concat([df, adx_df], axis=1)
-                            mfi = _ta.mfi(df['High'], df['Low'], df['Close'], df['Volume'], length=14)
-                            df['MFI'] = mfi
-                            avg_vol_20 = df['Volume'].rolling(window=20).mean()
-                            df['RVOL'] = df['Volume'] / avg_vol_20
-
-                            tech = analyze_momentum_technical(df)
-                            current_price = float(df['Close'].iloc[-1])
-                            year_high     = float(df['High'].tail(252).max())
-                            sd_zone       = find_supply_demand_zones(df)
+                            df['RSI'] = _ta.rsi(df['Close'], length=14)
+                            adx = _ta.adx(df['High'], df['Low'], df['Close'], length=14)
+                            if adx is not None: df = pd.concat([df, adx], axis=1)
+                            df['MFI'] = _ta.mfi(df['High'], df['Low'], df['Close'], df['Volume'], length=14)
                             
-                            pre_results.append({
-                                'symbol': symbol, 'df': df, 'tech': tech, 
-                                'price': current_price, 'year_high': year_high, 'sd_zone': sd_zone
-                            })
-                        except Exception: continue
+                            tech = analyze_momentum_technical(df)
+                            if tech['rsi'] < 35: return None # Low barrier to ensure results
+                            
+                            return {
+                                'symbol': symbol, 'df': df, 'tech': tech,
+                                'price': float(df['Close'].iloc[-1]),
+                                'year_high': float(df['High'].tail(252).max()),
+                                'sd_zone': find_supply_demand_zones(df)
+                            }
+                        except Exception: return None
 
-                    # --- STAGE 3: Bulk Fundamental (The Enforcer) ---
-                    _c.set(ckey, {'state': 'running', 'progress': 85, 'total': total_syms, 'phase': 'Stage 3: ดึงข้อมูลพื้นฐานแบบกลุ่ม...'}, timeout=900)
-                    from .utils import YQTicker
-                    matched_symbols = [r['symbol'] for r in pre_results]
-                    symbols_bk = [f"{s}.BK" for s in matched_symbols]
+                    # Run Stage 2 in parallel for speed
+                    with _cf.ThreadPoolExecutor(max_workers=20) as executor:
+                        futs = {executor.submit(_analyze_one, c['symbol']): c['symbol'] for c in candidates[:150]}
+                        done = 0
+                        for fut in _cf.as_completed(futs):
+                            done += 1
+                            if done % 10 == 0:
+                                _c.set(ckey, {'state': 'running', 'progress': 20 + int((done/150)*60), 'phase': f'Analyzing {done}/150...'}, timeout=600)
+                            res = fut.result()
+                            if res: pre_results.append(res)
+
+                    # --- STAGE 3: Bulk Fundamental ---
                     fund_data = {}
-                    if matched_symbols:
+                    if pre_results:
+                        _c.set(ckey, {'state': 'running', 'progress': 85, 'phase': 'Stage 3: Fundamental...'}, timeout=900)
+                        from .utils import YQTicker
+                        match_bk = [f"{r['symbol']}.BK" for r in pre_results]
                         try:
-                            yq_all = YQTicker(symbols_bk)
+                            yq_all = YQTicker(match_bk)
                             modules = yq_all.get_modules('financialData summaryProfile')
-                            for sym_bk, data in modules.items():
-                                if not isinstance(data, dict): continue
-                                clean_sym = sym_bk.replace('.BK', '')
-                                profile  = data.get('summaryProfile', {})
-                                fin_data = data.get('financialData', {})
-                                sector   = profile.get('sector') or data.get('assetProfile', {}).get('sector') or 'Other'
-                                eps_growth = float(fin_data.get('earningsQuarterlyGrowth', 0) or 0) * 100
-                                rev_growth = float(fin_data.get('revenueGrowth', 0) or 0) * 100
-                                fund_data[clean_sym] = {'sector': sector, 'eps_growth': eps_growth, 'rev_growth': rev_growth}
+                            for s_bk, val in modules.items():
+                                if not isinstance(val, dict): continue
+                                sym_clean = s_bk.replace('.BK','')
+                                prof = val.get('summaryProfile', {})
+                                fin  = val.get('financialData', {})
+                                fund_data[sym_clean] = {
+                                    'sector': prof.get('sector', 'Other'),
+                                    'eps_growth': float(fin.get('earningsQuarterlyGrowth', 0) or 0) * 100,
+                                    'rev_growth': float(fin.get('revenueGrowth', 0) or 0) * 100
+                                }
                         except Exception: pass
 
-                    # FINAL: Save all to DB
-                    _c.set(ckey, {'state': 'running', 'progress': 95, 'total': 100, 'phase': 'บันทึกข้อมูล...'}, timeout=600)
+                    # FINAL: Save to DB
+                    _c.set(ckey, {'state': 'running', 'progress': 95, 'phase': 'Saving results...'}, timeout=600)
                     for r in pre_results:
                         sym = r['symbol']
-                        df = r['df']
+                        sd  = r['sd_zone']
                         tech = r['tech']
-                        sd = r['sd_zone']
-                        f = fund_data.get(sym, {'sector': 'N/A', 'eps_growth': 0.0, 'rev_growth': 0.0})
+                        df = r['df']
+                        f   = fund_data.get(sym, {'sector': 'N/A', 'eps_growth': 0.0, 'rev_growth': 0.0})
                         
                         dz_start = dz_end = sz_start = sz_end = sl_price = rr_val = None
                         entry_strat = ''
@@ -3033,16 +2984,16 @@ def momentum_scanner(request):
                             sl_price = sd['stop_loss']; rr_val = sd['rr_ratio']
 
                         _MC.objects.create(
-                            user=user, symbol=sym, market='SET',
-                            price=r['price'], rsi=tech['rsi'], adx=float(df['ADX_14'].iloc[-1]) if 'ADX_14' in df.columns else 0,
+                            user=user, symbol=sym, market='SET', price=r['price'],
+                            rsi=tech['rsi'], adx=float(df['ADX_14'].iloc[-1]) if 'ADX_14' in df.columns else 0,
                             mfi=float(df['MFI'].iloc[-1]) if 'MFI' in df.columns else 0,
                             rvol=tech['rvol'], rvol_bullish=tech['rvol_bullish'],
-                            technical_score=tech['score'], rs_rating=0, # Computed separately or manually
+                            technical_score=tech['score'], rs_rating=0,
                             entry_strategy=entry_strat, demand_zone_start=dz_start, demand_zone_end=dz_end,
                             supply_zone_start=sz_start, supply_zone_end=sz_end, stop_loss=sl_price, risk_reward_ratio=rr_val,
                             year_high=r['year_high'], upside_to_high=((r['year_high'] - r['price'])/r['price'])*100,
                             sector=f['sector'], eps_growth=f['eps_growth'], rev_growth=f['rev_growth'],
-                            stage2=r['price'] > tech['ema200']
+                            stage2=r['price'] > float(df['EMA200'].iloc[-1]) if 'EMA200' in df.columns else False
                         )
                 except Exception as e:
                     import logging; logging.getLogger('stocks').error(f"Momentum Scan Error: {e}")
