@@ -245,7 +245,7 @@
                                 <a href="{% url 'stocks:crew_analyze' item.obj.symbol %}" class="btn btn-warning btn-sm rounded-pill px-2 fw-bold text-dark" style="font-size: 0.75rem;" title="CrewAI Agents (Deep)">
                                     <i class="fas fa-robot"></i> Crew
                                 </a>
-                                <a href="{% url 'stocks:core_analyze' item.obj.symbol %}" class="btn btn-sm rounded-pill px-2 fw-bold text-white shadow-sm" 
+                                <a href="{% url 'stocks:core_analyze' item.obj.symbol %}?market={{ item.market|default:'SET' }}" class="btn btn-sm rounded-pill px-2 fw-bold text-white shadow-sm" 
                                    style="font-size: 0.75rem; background:linear-gradient(135deg,#6366f1 0%,#4338ca 100%); border:none;" title="The Core Analysis (Renaissance Style)">
                                     <i class="fas fa-microchip"></i> Core
                                 </a>

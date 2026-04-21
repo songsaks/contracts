@@ -261,7 +261,7 @@
                     <i class="fas fa-brain me-2"></i> AI Intelligence Analysis
                 </h4>
                 <div class="d-flex flex-wrap align-items-center gap-2 d-print-none">
-                    <a href="{% url 'stocks:core_analyze' symbol %}" class="btn btn-indigo btn-sm rounded-pill fw-bold text-white px-3 animate-pulse" style="background:linear-gradient(135deg,#6366f1 0%,#4338ca 100%);">
+                    <a href="{% url 'stocks:core_analyze' symbol %}?market={{ market|default:'SET' }}" class="btn btn-indigo btn-sm rounded-pill fw-bold text-white px-3 animate-pulse" style="background:linear-gradient(135deg,#6366f1 0%,#4338ca 100%);">
                         <i class="fas fa-microchip me-1"></i> The Core Analysis
                     </a>
                     <a href="{% url 'stocks:crew_analyze' symbol %}" class="btn btn-warning btn-sm rounded-pill fw-bold text-dark px-3 mt-1 mt-sm-0">

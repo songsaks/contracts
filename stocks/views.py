@@ -358,6 +358,15 @@ def dashboard(request):
 
             signals = _compute_signals(mom_data, current) if mom_data else {'buy_score': 0, 'sell_score': 0, 'exit_signal': ''}
 
+            # Heuristic market detection
+            mkt = 'SET'
+            if '.BK' in item.symbol: mkt = 'SET'
+            elif item.category == AssetCategory.CRYPTO: mkt = 'CRYPTO'
+            elif '-' in item.symbol and item.category != AssetCategory.CRYPTO: mkt = 'US'
+            elif '.' not in item.symbol and '=' not in item.symbol and '-' not in item.symbol:
+                mkt = 'US'
+            elif '=' in item.symbol: mkt = 'OTHER' # Commodities usually use =F
+
             items.append({
                 'obj': item,
                 'price': current,
@@ -368,7 +377,9 @@ def dashboard(request):
                 'buy_score': signals['buy_score'],
                 'sell_score': signals['sell_score'],
                 'exit_signal': signals['exit_signal'],
+                'market': mkt,
             })
+
         except:
             items.append({'obj': item, 'price': 'Error', 'change': 0, 'rsi': None, 'rsi_status': 'Error', 'mom_data': None})
 
@@ -687,6 +698,9 @@ def core_analyze(request, symbol):
         poll_key = ck if ck else cache_key
         st = _cp.get(poll_key, {'state': 'idle'})
         return _JR(st)
+
+    strategy_param = request.GET.get('strategy')
+    market_param = request.GET.get('market', 'SET')
 
     # ── Result ready ─────────────────────────────────────────────────
     cached = _cp.get(cache_key)
@@ -1558,45 +1572,74 @@ def portfolio_list(request):
         except Exception as e:
             ai_analysis = f"ไม่สามารถวิเคราะห์พอร์ตได้ในขณะนี้: {str(e)}"
 
-    # ====== เตรียมข้อมูลสำหรับกราฟประวัติกำไร/ขาดทุน (Realized P/L) ======
-    sold_stocks = SoldStock.objects.filter(user=request.user).order_by('sold_at')
+    # ── Performance Chart data (All time) ──
+    all_sold_stocks = SoldStock.objects.filter(user=request.user).order_by('sold_at')
     chart_labels = []
     chart_data = []
     running_pl = 0
-    for s in sold_stocks:
+    for s in all_sold_stocks:
         val = float(s.profit_loss)
-        # Convert to THB for chart if US/Crypto
         if s.market in (MarketType.US, MarketType.CRYPTO):
             val *= usd_thb
         running_pl += val
         chart_labels.append(s.sold_at.strftime('%Y-%m-%d %H:%M'))
         chart_data.append(running_pl)
 
-    # ====== เตรียมข้อมูลตารางสรุปรายเดือน (Monthly Summary) ======
+    # ── Available Months for Filter ──
+    # สร้าง list ของเดือน/ปีที่มีรายการขายจริง เพื่อให้ User เลือก
+    available_months = []
+    seen_months = set()
+    for s in all_sold_stocks[::-1]:
+        m_key = s.sold_at.strftime('%Y-%m')
+        if m_key not in seen_months:
+            available_months.append({
+                'key': m_key,
+                'name': s.sold_at.strftime('%B %Y')
+            })
+            seen_months.add(m_key)
+
+    # ── Filter Transactions ──
+    from django.utils import timezone
+    now = timezone.now()
+    default_month = now.strftime('%Y-%m')
+    
+    # ถ้าเดือนปัจจุบันไม่มีรายการขาย ให้เลือกเดือนล่าสุดที่มีรายการเป็นค่าเริ่มต้น
+    if not all_sold_stocks.filter(sold_at__year=now.year, sold_at__month=now.month).exists() and available_months:
+        default_month = available_months[0]['key']
+
+    selected_month = request.GET.get('month', default_month)
+    
+    # ถ้าระบุ 'all' จะแสดงทั้งหมดเหมือนเดิม
+    if selected_month == 'all':
+        sold_stocks = all_sold_stocks[::-1]
+    else:
+        try:
+            yr, mn = map(int, selected_month.split('-'))
+            sold_stocks = all_sold_stocks.filter(sold_at__year=yr, sold_at__month=mn).order_by('-sold_at')
+        except:
+            sold_stocks = all_sold_stocks[::-1]
+
+    # ── Monthly Summary (Table on the right) ──
     from collections import defaultdict
     monthly_summary_dict = defaultdict(lambda: {'items': [], 'total_pl': 0})
-    for s in sold_stocks:
-        month_key = s.sold_at.strftime('%B %Y') # e.g. March 2024
+    for s in all_sold_stocks:
+        month_key = s.sold_at.strftime('%B %Y')
+        month_id = s.sold_at.strftime('%Y-%m')
         monthly_summary_dict[month_key]['items'].append(s)
+        monthly_summary_dict[month_key]['month_id'] = month_id
         val = float(s.profit_loss)
         if s.market in (MarketType.US, MarketType.CRYPTO):
             val *= usd_thb
         monthly_summary_dict[month_key]['total_pl'] += val
     
-    # แปลงเป็น list และเรียงลำดับเดือน (ล่าสุดขึ้นก่อน)
-    # หมายเหตุ: การเรียงลำดับตามชื่อเดือนอาจจะเพี้ยน ต้องใช้ key ที่เป็นตัวเลข หรือเรียงจาก sold_at แทน
-    # ดังนั้นจะดึงเดือนล่าสุดจาก sold_stocks ที่เรียงมาแล้ว
     monthly_summary = []
-    unique_months = []
-    for s in sold_stocks[::-1]: # วนย้อนกลับจากล่าสุด
-        m_key = s.sold_at.strftime('%B %Y')
-        if m_key not in unique_months:
-            unique_months.append(m_key)
-            monthly_summary.append({
-                'month_name': m_key,
-                'items': monthly_summary_dict[m_key]['items'],
-                'total_pl': monthly_summary_dict[m_key]['total_pl']
-            })
+    for m_name in [m['name'] for m in available_months]:
+        monthly_summary.append({
+            'month_name': m_name,
+            'month_id': monthly_summary_dict[m_name]['month_id'],
+            'items': monthly_summary_dict[m_name]['items'],
+            'total_pl': monthly_summary_dict[m_name]['total_pl']
+        })
 
     context = {
         'items': items,
@@ -1624,6 +1667,8 @@ def portfolio_list(request):
         'ai_analysis': ai_analysis,
         'sold_stocks': sold_stocks,
         'monthly_summary': monthly_summary,
+        'available_months': available_months,
+        'selected_month': selected_month,
         'chart_labels': json.dumps(chart_labels),
         'chart_data': json.dumps(chart_data),
     }
@@ -1953,6 +1998,12 @@ def sell_stock(request, pk):
             profit_loss = sell_revenue - cost_of_sold_shares
             profit_loss_pct = (profit_loss / cost_of_sold_shares * 100) if cost_of_sold_shares > 0 else 0
 
+            # ── Currency Conversion (Tithe calculation requirement) ──
+            # ดึงอัตราแลกเปลี่ยน ณ เดี๋ยวนี้ (ตอนขาย)
+            fx_rate = 1.0
+            if portfolio_item.market == MarketType.US:
+                fx_rate = _get_usd_thb()
+            
             # บันทึกประวัติการขาย พร้อม market จาก Portfolio
             SoldStock.objects.create(
                 user=request.user,
@@ -1964,6 +2015,9 @@ def sell_stock(request, pk):
                 profit_loss=profit_loss,
                 profit_loss_pct=profit_loss_pct,
                 market=portfolio_item.market,
+                settlement_rate=fx_rate,
+                profit_loss_thb=float(profit_loss) * fx_rate,
+                sell_revenue_thb=float(sell_revenue) * fx_rate,
             )
 
             # อัปเดตพอร์ต
@@ -5624,7 +5678,13 @@ def realized_pl_report(request):
             s.is_us = s.market == MarketType.US
         else:
             s.is_us = _is_us_symbol(s.symbol, us_set)
-        s.pl_thb = float(s.profit_loss) * usd_thb if s.is_us else float(s.profit_loss)
+        
+        # ลอจิกใหม่: ถ้ามี profit_loss_thb (ที่บันทึกตอนขาย) ให้ใช้ค่านั้นเลย
+        # ถ้าเป็น 0 หรือเป็นข้อมูลเก่า ให้คำนวณจาก usd_thb ปัจจุบัน (fallback)
+        if hasattr(s, 'profit_loss_thb') and s.profit_loss_thb != 0:
+            s.pl_thb = float(s.profit_loss_thb)
+        else:
+            s.pl_thb = float(s.profit_loss) * usd_thb if s.is_us else float(s.profit_loss)
 
     summary_dict = defaultdict(lambda: {'items': [], 'total_pl': 0, 'total_pl_thb': 0})
     chart_labels = []
@@ -5787,8 +5847,14 @@ def tithe_report(request):
             is_us = s.market == MarketType.US
         else:
             is_us = _is_us_symbol(s.symbol, us_set)
-        pl_raw = Decimal(str(s.profit_loss or 0))
-        pl_thb = pl_raw * usd_thb_d if is_us else pl_raw
+        
+        # ลอจิกใหม่: ใช้ profit_loss_thb ที่บันทึกไว้ ณ วันที่ขาย (ถ้ามี)
+        if hasattr(s, 'profit_loss_thb') and s.profit_loss_thb != 0:
+            pl_thb = Decimal(str(s.profit_loss_thb))
+        else:
+            pl_raw = Decimal(str(s.profit_loss or 0))
+            pl_thb = pl_raw * usd_thb_d if is_us else pl_raw
+            
         key = (s.sold_at.year, s.sold_at.month)
         monthly_raw[key] += pl_thb
 

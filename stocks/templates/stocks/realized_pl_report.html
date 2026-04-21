@@ -132,7 +132,14 @@
                             <td class="text-end fw-bold">{% if s.is_us %}${% else %}฿{% endif %}{{ s.sell_price|floatformat:2|intcomma }}</td>
                             <td class="text-end fw-bold {% if s.pl_thb > 0 %}text-success{% elif s.pl_thb < 0 %}text-danger{% endif %} text-nowrap">
                                 {% if s.pl_thb > 0 %}+{% endif %}฿{{ s.pl_thb|floatformat:2|intcomma }}
-                                {% if s.is_us %}<div class="text-muted fw-normal" style="font-size:0.65rem;">({% if s.profit_loss > 0 %}+{% endif %}${{ s.profit_loss|floatformat:2 }})</div>{% endif %}
+                                {% if s.is_us %}
+                                    <div class="text-muted fw-normal" style="font-size:0.65rem;">
+                                        ({% if s.profit_loss > 0 %}+{% endif %}${{ s.profit_loss|floatformat:2 }}) 
+                                        {% if s.settlement_rate and s.settlement_rate != 1.0 %}
+                                            | Rate: {{ s.settlement_rate|floatformat:2 }}
+                                        {% endif %}
+                                    </div>
+                                {% endif %}
                             </td>
                         </tr>
                         {% empty %}

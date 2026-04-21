@@ -510,6 +510,11 @@ class SoldStock(models.Model):
     sold_at = models.DateTimeField(auto_now_add=True)
     # ตลาดของหุ้นที่ขาย — ใช้คำนวณ USD→THB ได้ถูกต้องโดยไม่ต้องเดาจาก symbol
     market = models.CharField(max_length=10, choices=MarketType.choices, default=MarketType.SET)
+    
+    # ====== Localization & Tithe fields (v2) ======
+    settlement_rate = models.DecimalField(max_digits=12, decimal_places=4, default=1.0, help_text="อัตราแลกเปลี่ยน ณ ตอนขาย (e.g. USDTHB)")
+    profit_loss_thb = models.DecimalField(max_digits=14, decimal_places=2, default=0, help_text="กำไร/ขาดทุนในหน่วยบาท (คำนวณ ณ วันขาย)")
+    sell_revenue_thb = models.DecimalField(max_digits=14, decimal_places=2, default=0, help_text="รายได้รวมในหน่วยบาท")
 
     class Meta:
         verbose_name = "Sold Stock"

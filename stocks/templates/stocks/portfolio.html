@@ -436,6 +436,12 @@
                                    title="CrewAI วิเคราะห์โดยพิจารณาราคาทุนของคุณ">
                                     <i class="fas fa-robot me-1"></i> CrewAI
                                 </a>
+                                <a href="{% url 'stocks:core_analyze' item.obj.symbol %}?market={{ item.obj.market }}"
+                                   class="btn btn-sm rounded-pill px-3 fw-bold text-white shadow-sm" 
+                                   style="background:linear-gradient(135deg,#6366f1 0%,#4338ca 100%); border:none; font-size:0.8rem;" 
+                                   title="The Core Analysis: วิเคราะห์ 3 มิติเชิงลึก" target="_blank">
+                                    <i class="fas fa-microchip me-1"></i> Core
+                                </a>
                                 <div class="text-muted d-none d-sm-block" style="font-size: 0.82rem;">Value: <span class="fw-bold text-dark">{% if item.market != 'SET' %}${% else %}฿{% endif %}{{ item.market_value|floatformat:0|intcomma }}</span></div>
                             </div>
                             <div class="d-flex gap-2">
@@ -680,8 +686,13 @@
                         {% for month in monthly_summary %}
                         <tr class="border-bottom border-light">
                             <td class="py-3">
-                                <div class="fw-bold">{{ month.month_name }}</div>
-                                <div class="text-muted extra-extra-small">{{ month.items|length }} รายการขาย</div>
+                                <a href="?month={{ month.month_id }}#transaction-history" class="text-decoration-none">
+                                    <div class="fw-bold {% if selected_month == month.month_id %}text-primary{% else %}text-dark{% endif %}">
+                                        {{ month.month_name }}
+                                        {% if selected_month == month.month_id %}<i class="fas fa-chevron-right ms-1"></i>{% endif %}
+                                    </div>
+                                    <div class="text-muted extra-extra-small">{{ month.items|length }} รายการขาย</div>
+                                </a>
                             </td>
                             <td class="text-end py-3 fw-bold {% if month.total_pl > 0 %}text-success{% elif month.total_pl < 0 %}text-danger{% endif %}">
                                 {% if month.total_pl > 0 %}+{% endif %}฿{{ month.total_pl|floatformat:2|intcomma }}
@@ -699,9 +710,21 @@
     </div>
 
     <!-- Detailed Transactions Table -->
-    <div class="col-12 mt-2">
+    <div class="col-12 mt-2" id="transaction-history">
         <div class="card-premium p-4 border-0 mb-4 bg-white shadow-sm">
-            <h5 class="fw-bold mb-4 text-dark"><i class="fas fa-history me-2 text-primary"></i> ประวัติการซื้อขาย (Transaction History)</h5>
+            <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-3">
+                <h5 class="fw-bold mb-0 text-dark"><i class="fas fa-history me-2 text-primary"></i> ประวัติการซื้อขาย (Transaction History)</h5>
+                
+                <form method="GET" class="d-flex align-items-center gap-2">
+                    <label class="small text-muted d-none d-md-inline">แสดงเฉพาะช่วงเวลา:</label>
+                    <select name="month" class="form-select form-select-sm rounded-pill px-3" style="width: auto; background-color: #f8fafc;" onchange="this.form.submit()">
+                        <option value="all" {% if selected_month == 'all' %}selected{% endif %}>ทั้งหมด (All Time)</option>
+                        {% for m in available_months %}
+                        <option value="{{ m.key }}" {% if selected_month == m.key %}selected{% endif %}>{{ m.name }}</option>
+                        {% endfor %}
+                    </select>
+                </form>
+            </div>
             <div class="table-responsive">
                 <table class="table table-hover align-middle">
                     <thead class="bg-light bg-opacity-50">
