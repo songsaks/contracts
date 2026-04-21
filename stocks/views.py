@@ -1181,13 +1181,19 @@ def portfolio_list(request):
             print(f"DEBUG: Processing {symbol}")
 
             # ====== ดึงข้อมูลราคาจาก yfinance ======
-            # Data fetch
-            t = yf.Ticker(symbol)
+            # Determine correct symbol string for yfinance based on database market field
+            fetch_symbol = symbol
+            if item.market == MarketType.SET and not symbol.endswith('.BK'):
+                fetch_symbol = f"{symbol}.BK"
+            elif item.market == MarketType.CRYPTO and '-' not in symbol:
+                fetch_symbol = f"{symbol}-USD"
+            
+            t = yf.Ticker(fetch_symbol)
             hist = t.history(period="1y")
 
-            # ถ้าไม่มีข้อมูล ลองเพิ่ม/ลบ .BK suffix (รองรับหุ้นไทย)
-            used_symbol = symbol
-            if hist.empty:
+            # Fallback if empty (for robustness with manually entered symbols)
+            used_symbol = fetch_symbol
+            if hist.empty and fetch_symbol == symbol:
                 alt_sym = f"{symbol}.BK" if ".BK" not in symbol else symbol.replace(".BK", "")
                 print(f"DEBUG: {symbol} empty, trying {alt_sym}")
                 t = yf.Ticker(alt_sym)
@@ -1692,11 +1698,22 @@ def portfolio_exit_plan(request):
     for item in portfolio_items:
         try:
             symbol = item.symbol
-            t = yf.Ticker(symbol)
+            # Determine correct symbol string for yfinance based on database market field
+            fetch_symbol = symbol
+            if item.market == MarketType.SET and not symbol.endswith('.BK'):
+                fetch_symbol = f"{symbol}.BK"
+            elif item.market == MarketType.CRYPTO and '-' not in symbol:
+                fetch_symbol = f"{symbol}-USD"
+            
+            t = yf.Ticker(fetch_symbol)
             hist = t.history(period="1y")
-            if hist.empty:
-                alt = f"{symbol}.BK" if ".BK" not in symbol else symbol.replace(".BK", "")
-                hist = yf.Ticker(alt).history(period="1y")
+
+            # Fallback if empty (for robustness with manually entered symbols)
+            if hist.empty and fetch_symbol == symbol:
+                alt_sym = f"{symbol}.BK" if ".BK" not in symbol else symbol.replace(".BK", "")
+                print(f"DEBUG: {symbol} empty, trying {alt_sym}")
+                t = yf.Ticker(alt_sym)
+                hist = t.history(period="1y")
             if isinstance(hist.columns, pd.MultiIndex):
                 hist.columns = [col[0] for col in hist.columns]
             hist = hist.loc[:, ~hist.columns.duplicated()]
@@ -1947,6 +1964,12 @@ def add_to_portfolio(request):
         form = AddPortfolioForm(request.POST)
         if form.is_valid():
             symbol = form.cleaned_data['symbol']
+            market = form.cleaned_data['market']
+            
+            # Standardize SET symbols to have .BK suffix
+            if market == MarketType.SET and not symbol.endswith('.BK'):
+                symbol = f"{symbol}.BK"
+
             Portfolio.objects.update_or_create(
                 user=request.user,
                 symbol=symbol,
@@ -1955,7 +1978,7 @@ def add_to_portfolio(request):
                     'quantity': form.cleaned_data['quantity'],
                     'entry_price': form.cleaned_data['entry_price'],
                     'category': form.cleaned_data['category'],
-                    'market': form.cleaned_data['market'],
+                    'market': market,
                     'strategy': form.cleaned_data.get('strategy', ''),
                 }
             )
