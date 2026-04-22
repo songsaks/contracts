@@ -36,13 +36,23 @@
     padding: 2px 8px;
     border-radius: 20px;
   }
-  #chart-container { position: relative; width: 100%; height: 420px; border-radius: 12px; overflow: hidden; }
+  #chart-container { position: relative; width: 100%; height: 600px; border-radius: 12px; overflow: hidden; }
+  #macd-container  { position: relative; width: 100%; height: 160px; border-radius: 12px; overflow: hidden; }
   #rsi-container   { position: relative; width: 100%; height: 160px; border-radius: 12px; overflow: hidden; }
-  #vol-container   { position: relative; width: 100%; height: 100px; border-radius: 12px; overflow: hidden; }
+  #vol-container   { position: relative; width: 100%; height: 120px; border-radius: 12px; overflow: hidden; }
+  
+  .indicator-panel {
+    background: white; border-radius: 12px; padding: 15px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.05); margin-bottom: 15px;
+  }
+  .indicator-group { display: flex; flex-wrap: wrap; gap: 15px; align-items: center; }
+  .indicator-check { display: flex; align-items: center; gap: 6px; font-size: 0.85rem; font-weight: 600; cursor: pointer; color: #475569; }
+  .indicator-check input { width: 16px; height: 16px; cursor: pointer; }
+  
   .panel-label {
     position: absolute; top: 8px; left: 12px;
     font-size: 0.72rem; font-weight: 700;
-    color: #475569; z-index: 10; pointer-events: none;
+    color: #475569; z-index: 10; pointer-events: none; opacity: 0.7;
   }
   #crosshair-info {
     font-size: 0.8rem; color: #cbd5e1;
@@ -130,6 +140,23 @@
   <!-- Status -->
   <div id="chart-status" class="text-primary fw-bold mb-2 ps-4" style="min-height:24px;"></div>
 
+  <!-- Indicator Toggles -->
+  <div class="indicator-panel">
+    <div class="indicator-group">
+      <span class="text-muted small fw-bold me-2"><i class="fas fa-sliders-h"></i> INDICATORS:</span>
+      <label class="indicator-check"><input type="checkbox" id="check-dc" checked onchange="toggleIndicators()"> Donchian (S1/S2)</label>
+      <label class="indicator-check"><input type="checkbox" id="check-bb" onchange="toggleIndicators()"> Bollinger Bands</label>
+      <label class="indicator-check"><input type="checkbox" id="check-ema20" onchange="toggleIndicators()"> EMA 20</label>
+      <label class="indicator-check"><input type="checkbox" id="check-ema50" onchange="toggleIndicators()"> EMA 50</label>
+      <label class="indicator-check"><input type="checkbox" id="check-ema200" onchange="toggleIndicators()"> EMA 200</label>
+      <div class="vr mx-1 opacity-20"></div>
+      <label class="indicator-check"><input type="checkbox" id="check-macd" onchange="toggleIndicators()"> MACD Panel</label>
+      <label class="indicator-check"><input type="checkbox" id="check-rsi" checked onchange="toggleIndicators()"> RSI Panel</label>
+      <label class="indicator-check"><input type="checkbox" id="check-vol" checked onchange="toggleIndicators()"> Volume Panel</label>
+      <label class="indicator-check ms-auto"><input type="checkbox" id="check-markers" checked onchange="toggleIndicators()"> Show Signals</label>
+    </div>
+  </div>
+
   <!-- Tactical Command Center (NEW) -->
   <div class="row g-3 mb-3" id="tactical-panel" style="display: none;">
     <div class="col-md-3">
@@ -194,20 +221,26 @@
   </div>
 
   <!-- Main chart -->
-  <div class="bg-white rounded-3 p-0 mb-2 border" style="position:relative;">
-    <div class="panel-label">OHLCV — Donchian Channel</div>
+  <div class="bg-white rounded-3 p-0 mb-3 border" style="position:relative;">
+    <div class="panel-label" id="main-panel-label">OHLCV — PRICE CHART</div>
     <div id="chart-container"></div>
   </div>
 
+  <!-- MACD panel -->
+  <div class="bg-white rounded-3 p-0 mb-3 border" id="macd-wrapper" style="position:relative; display:none;">
+    <div class="panel-label">MACD (12, 26, 9)</div>
+    <div id="macd-container"></div>
+  </div>
+
   <!-- RSI panel -->
-  <div class="bg-white rounded-3 p-0 mb-2 border" style="position:relative;">
+  <div class="bg-white rounded-3 p-0 mb-3 border" id="rsi-wrapper" style="position:relative;">
     <div class="panel-label">RSI (14)</div>
     <div id="rsi-container"></div>
   </div>
 
   <!-- Volume panel -->
-  <div class="bg-dark rounded-3 p-0 border" style="position:relative;">
-    <div class="panel-label">Volume</div>
+  <div class="bg-white rounded-3 p-0 border" id="vol-wrapper" style="position:relative;">
+    <div class="panel-label">VOLUME</div>
     <div id="vol-container"></div>
   </div>
 
@@ -241,8 +274,14 @@
 let currentSymbol = "{{ symbol }}";
 let currentMarket = "{{ market }}";
 let currentPeriod = "1y";
-let mainChart = null, rsiChart = null, volChart = null;
+let mainChart = null, macdChart = null, rsiChart = null, volChart = null;
+let candleSeries = null;
+let currentData = null;
 let globalTacticalData = null;
+
+// Chart Series Storage
+let dcSeries = [], bbSeries = [], emaSeries = {e20:null, e50:null, e200:null};
+let macdSeries = {macd:null, signal:null, hist:null};
 
 function updateTacticalWithCapital() {
     if (!globalTacticalData) return;
@@ -278,71 +317,131 @@ function mkChart(elId, height) {
 }
 
 function destroyAll() {
-  [mainChart, rsiChart, volChart].forEach(c => { if (c) c.remove(); });
-  mainChart = rsiChart = volChart = null;
+  [mainChart, macdChart, rsiChart, volChart].forEach(c => { if (c) c.remove(); });
+  mainChart = macdChart = rsiChart = volChart = null;
+  dcSeries = []; bbSeries = []; emaSeries = {e20:null, e50:null, e200:null};
+}
+
+function syncCharts() {
+    const charts = [mainChart, macdChart, rsiChart, volChart].filter(c => c !== null);
+    charts.forEach(c => {
+        c.timeScale().subscribeVisibleLogicalRangeChange(r => {
+            charts.forEach(other => {
+                if (other !== c) other.timeScale().setVisibleLogicalRange(r);
+            });
+        });
+    });
 }
 
 function renderCharts(data) {
+  currentData = data;
   destroyAll();
-  mainChart = mkChart('chart-container', 420);
-  rsiChart  = mkChart('rsi-container',   160);
-  volChart  = mkChart('vol-container',   100);
+  
+  const hMain = 600;
+  const hSub  = 160;
+  const hVol  = 120;
 
-  // — Main: Candlestick
-  const cs = mainChart.addCandlestickSeries({
-    upColor: '#16a34a', downColor: '#dc2626',
-    borderUpColor: '#16a34a', borderDownColor: '#dc2626',
-    wickUpColor: '#16a34a', wickDownColor: '#dc2626',
+  mainChart = mkChart('chart-container', hMain);
+  
+  const showMACD = document.getElementById('check-macd').checked;
+  const showRSI  = document.getElementById('check-rsi').checked;
+  const showVol  = document.getElementById('check-vol').checked;
+
+  document.getElementById('macd-wrapper').style.display = showMACD ? 'block' : 'none';
+  document.getElementById('rsi-wrapper').style.display  = showRSI ? 'block' : 'none';
+  document.getElementById('vol-wrapper').style.display  = showVol ? 'block' : 'none';
+
+  if (showMACD) macdChart = mkChart('macd-container', hSub);
+  if (showRSI)  rsiChart  = mkChart('rsi-container', hSub);
+  if (showVol)  volChart  = mkChart('vol-container', hVol);
+
+  // --- Main Panel: Candles ---
+  candleSeries = mainChart.addCandlestickSeries({
+    upColor: '#10b981', downColor: '#ef4444',
+    borderUpColor: '#10b981', borderDownColor: '#ef4444',
+    wickUpColor: '#10b981', wickDownColor: '#ef4444',
   });
-  cs.setData(data.candles);
+  candleSeries.setData(data.candles);
 
-  // — Donchian 20 (green)
-  mainChart.addLineSeries({ color: '#16a34a', lineWidth: 1, priceLineVisible: false, lastValueVisible: false }).setData(data.dc20_upper);
-  mainChart.addLineSeries({ color: '#16a34a', lineWidth: 1, lineStyle: 1, priceLineVisible: false, lastValueVisible: false }).setData(data.dc20_lower);
-
-  // — Donchian 55 (orange)
-  mainChart.addLineSeries({ color: '#d97706', lineWidth: 1, priceLineVisible: false, lastValueVisible: false }).setData(data.dc55_upper);
-  mainChart.addLineSeries({ color: '#d97706', lineWidth: 1, lineStyle: 1, priceLineVisible: false, lastValueVisible: false }).setData(data.dc55_lower);
-
-  // — Markers
-  const markers = data.signals.map(s => ({
-    time: s.time,
-    position: s.type === 'sys1_exit' ? 'aboveBar' : 'belowBar',
-    color:  s.type === 'sys1_buy' ? '#16a34a' : s.type === 'sys2_buy' ? '#d97706' : '#dc2626',
-    shape:  s.type === 'sys1_exit' ? 'arrowDown' : 'arrowUp',
-    text:   s.type === 'sys1_buy' ? 'S1' : s.type === 'sys2_buy' ? 'S2' : 'Exit',
-  })).sort((a, b) => a.time < b.time ? -1 : 1);
-  cs.setMarkers(markers);
-
-  // — RSI
-  const rsiS = rsiChart.addLineSeries({ color: '#6366f1', lineWidth: 2, priceLineVisible: false, lastValueVisible: true });
-  rsiS.setData(data.rsi);
-  if (data.rsi.length) {
-    const t0 = data.rsi[0].time, t1 = data.rsi[data.rsi.length - 1].time;
-    rsiChart.addLineSeries({ color: '#ef4444', lineWidth: 1, lineStyle: 1, priceLineVisible: false, lastValueVisible: false })
-      .setData([{ time: t0, value: 70 }, { time: t1, value: 70 }]);
-    rsiChart.addLineSeries({ color: '#22c55e', lineWidth: 1, lineStyle: 1, priceLineVisible: false, lastValueVisible: false })
-      .setData([{ time: t0, value: 30 }, { time: t1, value: 30 }]);
+  // --- Donchian Channels ---
+  if (document.getElementById('check-dc').checked) {
+    dcSeries.push(mainChart.addLineSeries({ color: '#10b981', lineWidth: 1, lineStyle: 0, priceLineVisible: false, lastValueVisible: false }));
+    dcSeries.push(mainChart.addLineSeries({ color: '#10b981', lineWidth: 1, lineStyle: 1, priceLineVisible: false, lastValueVisible: false }));
+    dcSeries.push(mainChart.addLineSeries({ color: '#f59e0b', lineWidth: 1, lineStyle: 0, priceLineVisible: false, lastValueVisible: false }));
+    dcSeries.push(mainChart.addLineSeries({ color: '#f59e0b', lineWidth: 1, lineStyle: 1, priceLineVisible: false, lastValueVisible: false }));
+    dcSeries[0].setData(data.dc20_upper);
+    dcSeries[1].setData(data.dc20_lower);
+    dcSeries[2].setData(data.dc55_upper);
+    dcSeries[3].setData(data.dc55_lower);
   }
 
-  // — Volume
-  volChart.addHistogramSeries({ priceFormat: { type: 'volume' }, priceScaleId: '' }).setData(data.volume);
+  // --- Bollinger Bands ---
+  if (document.getElementById('check-bb').checked) {
+    bbSeries.push(mainChart.addLineSeries({ color: 'rgba(99, 102, 241, 0.4)', lineWidth: 1, priceLineVisible: false, lastValueVisible: false }));
+    bbSeries.push(mainChart.addLineSeries({ color: 'rgba(99, 102, 241, 0.4)', lineWidth: 1, priceLineVisible: false, lastValueVisible: false }));
+    bbSeries[0].setData(data.bb_upper);
+    bbSeries[1].setData(data.bb_lower);
+  }
 
-  // Fit & sync
+  // --- EMAs ---
+  if (document.getElementById('check-ema20').checked) {
+    emaSeries.e20 = mainChart.addLineSeries({ color: '#3b82f6', lineWidth: 1.5, priceLineVisible: false, lastValueVisible: true, title: 'EMA 20' });
+    emaSeries.e20.setData(data.ema20);
+  }
+  if (document.getElementById('check-ema50').checked) {
+    emaSeries.e50 = mainChart.addLineSeries({ color: '#8b5cf6', lineWidth: 1.5, priceLineVisible: false, lastValueVisible: true, title: 'EMA 50' });
+    emaSeries.e50.setData(data.ema50);
+  }
+  if (document.getElementById('check-ema200').checked) {
+    emaSeries.e200 = mainChart.addLineSeries({ color: '#f43f5e', lineWidth: 2, priceLineVisible: false, lastValueVisible: true, title: 'EMA 200' });
+    emaSeries.e200.setData(data.ema200);
+  }
+
+  // --- Markers ---
+  if (document.getElementById('check-markers').checked) {
+    const markers = data.signals.map(s => ({
+        time: s.time,
+        position: s.type === 'sys1_exit' ? 'aboveBar' : 'belowBar',
+        color:  s.type === 'sys1_buy' ? '#10b981' : s.type === 'sys2_buy' ? '#f59e0b' : '#ef4444',
+        shape:  s.type === 'sys1_exit' ? 'arrowDown' : 'arrowUp',
+        text:   s.type === 'sys1_buy' ? 'S1' : s.type === 'sys2_buy' ? 'S2' : 'Exit',
+    })).sort((a, b) => a.time < b.time ? -1 : 1);
+    candleSeries.setMarkers(markers);
+  }
+
+  // --- MACD Panel ---
+  if (showMACD && macdChart) {
+    macdSeries.macd   = macdChart.addLineSeries({ color: '#2563eb', lineWidth: 1, priceLineVisible: false });
+    macdSeries.signal = macdChart.addLineSeries({ color: '#f59e0b', lineWidth: 1, priceLineVisible: false });
+    macdSeries.hist   = macdChart.addHistogramSeries({ priceLineVisible: false });
+    
+    macdSeries.macd.setData(data.macd);
+    macdSeries.signal.setData(data.macd_sig);
+    macdSeries.hist.setData(data.macd_hist.map(h => ({
+        time: h.time, value: h.value, color: h.value >= 0 ? 'rgba(16, 185, 129, 0.5)' : 'rgba(239, 68, 68, 0.5)'
+    })));
+  }
+
+  // --- RSI Panel ---
+  if (showRSI && rsiChart) {
+    const rsiS = rsiChart.addLineSeries({ color: '#6366f1', lineWidth: 2, priceLineVisible: false, lastValueVisible: true });
+    rsiS.setData(data.rsi);
+    const t0 = data.rsi[0].time, t1 = data.rsi[data.rsi.length - 1].time;
+    rsiChart.addLineSeries({ color: '#ef4444', lineWidth: 1, lineStyle: 1, priceLineVisible: false }).setData([{ time: t0, value: 70 }, { time: t1, value: 70 }]);
+    rsiChart.addLineSeries({ color: '#10b981', lineWidth: 1, lineStyle: 1, priceLineVisible: false }).setData([{ time: t0, value: 30 }, { time: t1, value: 30 }]);
+  }
+
+  // --- Volume Panel ---
+  if (showVol && volChart) {
+    volChart.addHistogramSeries({ priceFormat: { type: 'volume' }, priceScaleId: '' }).setData(data.volume);
+  }
+
+  syncCharts();
   mainChart.timeScale().fitContent();
-  rsiChart.timeScale().fitContent();
-  volChart.timeScale().fitContent();
-  mainChart.timeScale().subscribeVisibleLogicalRangeChange(r => {
-    if (r) { rsiChart.timeScale().setVisibleLogicalRange(r); volChart.timeScale().setVisibleLogicalRange(r); }
-  });
+}
 
-  // Resize support
-  window.onresize = () => {
-    const w = document.getElementById('chart-container').offsetWidth;
-    if (mainChart) mainChart.resize(w, 420);
-    if (rsiChart) rsiChart.resize(w, 160);
-    if (volChart) volChart.resize(w, 100);
-  };
+function toggleIndicators() {
+    if (currentData) renderCharts(currentData);
 }
 
 function loadData(sym, mkt, period) {
@@ -415,15 +514,22 @@ function toggleFullscreen() {
     }
 }
 
-// Re-adjust chart sizes on fullscreen change
-document.addEventListener('fullscreenchange', () => {
-    setTimeout(() => {
-        const w = document.getElementById('chart-container').offsetWidth;
-        if (mainChart) mainChart.resize(w, 420);
-        if (rsiChart)  rsiChart.resize(w, 160);
-        if (volChart)  volChart.resize(w, 150);
-    }, 100);
-});
+// Re-adjust chart sizes on window resize or fullscreen change
+function handleResize() {
+    const container = document.getElementById('chart-container');
+    if (!container) return;
+    const w = container.offsetWidth;
+    const hMain = 600;
+    const hSub = 160;
+    const hVol = 120;
+    if (mainChart) mainChart.resize(w, hMain);
+    if (macdChart) macdChart.resize(w, hSub);
+    if (rsiChart)  rsiChart.resize(w, hSub);
+    if (volChart)  volChart.resize(w, hVol);
+}
+
+window.onresize = handleResize;
+document.addEventListener('fullscreenchange', () => setTimeout(handleResize, 150));
 
 window.addEventListener('load', () => loadData(currentSymbol, currentMarket, currentPeriod));
 </script>

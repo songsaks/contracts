@@ -8983,6 +8983,24 @@ def stock_chart_data(request, symbol):
         rs = gain / loss.replace(0, _np.nan)
         df['rsi'] = 100 - (100 / (1 + rs))
 
+        # --- Trend Following: EMA ---
+        df['ema20']  = df['Close'].ewm(span=20, adjust=False).mean()
+        df['ema50']  = df['Close'].ewm(span=50, adjust=False).mean()
+        df['ema200'] = df['Close'].ewm(span=200, adjust=False).mean()
+
+        # --- Momentum: MACD ---
+        exp12 = df['Close'].ewm(span=12, adjust=False).mean()
+        exp26 = df['Close'].ewm(span=26, adjust=False).mean()
+        df['macd']    = exp12 - exp26
+        df['macd_sig'] = df['macd'].ewm(span=9, adjust=False).mean()
+        df['macd_hist'] = df['macd'] - df['macd_sig']
+
+        # --- Volatility: Bollinger Bands ---
+        ma20 = df['Close'].rolling(window=20).mean()
+        std20 = df['Close'].rolling(window=20).std()
+        df['bb_upper'] = ma20 + (std20 * 2)
+        df['bb_lower'] = ma20 - (std20 * 2)
+
         # --- Tactical Analysis (N and Next Units) ---
         # Calculate ATR (Wilder's method)
         df['h_l'] = df['High'] - df['Low']
@@ -9011,11 +9029,14 @@ def stock_chart_data(request, symbol):
         df['sys2_signal'] = df['Close'] >= df['dc55_upper'].shift(1)
         df['sys1_exit']   = df['Close'] <= df['dc10_lower'].shift(1)
 
-        # Use 'YYYY-MM-DD' string - required by Lightweight Charts for daily data
         def datestr(dt):
             return _pd.Timestamp(dt).strftime('%Y-%m-%d')
 
-        candles, vol, dc20u, dc20l, dc55u, dc55l, rsi_data = [], [], [], [], [], [], []
+        candles, vol, rsi_data = [], [], []
+        dc20u, dc20l, dc55u, dc55l = [], [], [], []
+        ema20, ema50, ema200 = [], [], []
+        bbu, bbl = [], []
+        macd, macd_sig, macd_hist = [], [], []
         signals = []
 
         for dt, row in df.iterrows():
@@ -9033,80 +9054,42 @@ def stock_chart_data(request, symbol):
             if _pd.notna(row['dc55_upper']):
                 dc55u.append({'time': t, 'value': round(float(row['dc55_upper']), 2)})
                 dc55l.append({'time': t, 'value': round(float(row['dc55_lower']), 2)})
+            
             if _pd.notna(row['rsi']):
                 rsi_data.append({'time': t, 'value': round(float(row['rsi']), 2)})
+            
+            if _pd.notna(row['ema20']):
+                ema20.append({'time': t, 'value': round(float(row['ema20']), 2)})
+            if _pd.notna(row['ema50']):
+                ema50.append({'time': t, 'value': round(float(row['ema50']), 2)})
+            if _pd.notna(row['ema200']):
+                ema200.append({'time': t, 'value': round(float(row['ema200']), 2)})
+            
+            if _pd.notna(row['bb_upper']):
+                bbu.append({'time': t, 'value': round(float(row['bb_upper']), 2)})
+                bbl.append({'time': t, 'value': round(float(row['bb_lower']), 2)})
+            
+            if _pd.notna(row['macd']):
+                macd.append({'time': t, 'value': round(float(row['macd']), 2)})
+                macd_sig.append({'time': t, 'value': round(float(row['macd_sig']), 2)})
+                macd_hist.append({'time': t, 'value': round(float(row['macd_hist']), 2)})
 
             if row['sys1_signal']:
-                signals.append({'time': t, 'type': 'sys1_buy',
-                                 'price': round(float(row['Close']), 2)})
+                signals.append({'time': t, 'type': 'sys1_buy', 'price': round(float(row['Close']), 2)})
             if row['sys2_signal']:
-                signals.append({'time': t, 'type': 'sys2_buy',
-                                 'price': round(float(row['Close']), 2)})
+                signals.append({'time': t, 'type': 'sys2_buy', 'price': round(float(row['Close']), 2)})
             if row['sys1_exit']:
-                signals.append({'time': t, 'type': 'sys1_exit',
-                                 'price': round(float(row['Close']), 2)})
+                signals.append({'time': t, 'type': 'sys1_exit', 'price': round(float(row['Close']), 2)})
 
-        # 4. Filter and return
         return _JR({
-            'symbol': symbol,
-            'market': market,
-            'tactical': tactical,
-            'candles': candles,
-            'volume': vol,
-            'dc20_upper': dc20u,
-            'dc20_lower': dc20l,
-            'dc55_upper': dc55u,
-            'dc55_lower': dc55l,
-            'rsi': rsi_data,
+            'symbol': symbol, 'market': market, 'tactical': tactical,
+            'candles': candles, 'volume': vol, 'rsi': rsi_data,
+            'dc20_upper': dc20u, 'dc20_lower': dc20l,
+            'dc55_upper': dc55u, 'dc55_lower': dc55l,
+            'ema20': ema20, 'ema50': ema50, 'ema200': ema200,
+            'bb_upper': bbu, 'bb_lower': bbl,
+            'macd': macd, 'macd_sig': macd_sig, 'macd_hist': macd_hist,
             'signals': signals
-        })
-
-        # คำนวณจุดตัดของเวลา (Cut-off date)
-        from datetime import datetime as _dt, timedelta as _td
-        now_date = _dt.now().date()
-        if period == '3mo':   cutoff = now_date - _td(days=95)
-        elif period == '6mo': cutoff = now_date - _td(days=185)
-        elif period == '1y':  cutoff = now_date - _td(days=370)
-        elif period == '2y':  cutoff = now_date - _td(days=735)
-        else: cutoff = df.index[0].date() if not df.empty else now_date
-
-        for c in candles:
-            # แปลง string 'YYYY-MM-DD' กลับเป็น date เพื่อเทียบ
-            c_date = _dt.strptime(c['time'], '%Y-%m-%d').date()
-            if c_date >= cutoff: final_candles.append(c)
-        for v in vol:
-            if _dt.strptime(v['time'], '%Y-%m-%d').date() >= cutoff: final_vol.append(v)
-        for d in dc20u:
-            if _dt.strptime(d['time'], '%Y-%m-%d').date() >= cutoff: final_dc20u.append(d)
-        for d in dc20l:
-            if _dt.strptime(d['time'], '%Y-%m-%d').date() >= cutoff: final_dc20l.append(d)
-        for d in dc55u:
-            if _dt.strptime(d['time'], '%Y-%m-%d').date() >= cutoff: final_dc55u.append(d)
-        for d in dc55l:
-            if _dt.strptime(d['time'], '%Y-%m-%d').date() >= cutoff: final_dc55l.append(d)
-        for r in rsi_data:
-            if _dt.strptime(r['time'], '%Y-%m-%d').date() >= cutoff: final_rsi.append(r)
-        for s in signals:
-            if _dt.strptime(s['time'], '%Y-%m-%d').date() >= cutoff: final_signals.append(s)
-
-        # ถ้ากรองแล้วไม่เหลือข้อมูลเลย ให้เอาข้อมูลทั้งหมดกลับไป (Fall-back)
-        if not final_candles:
-            final_candles, final_vol, final_rsi = candles, vol, rsi_data
-            final_dc20u, final_dc20l = dc20u, dc20l
-            final_dc55u, final_dc55l = dc55u, dc55l
-            final_signals = signals
-
-        return _JR({
-            'symbol': symbol,
-            'market': market,
-            'candles': final_candles,
-            'volume': final_vol,
-            'dc20_upper': final_dc20u,
-            'dc20_lower': final_dc20l,
-            'dc55_upper': final_dc55u,
-            'dc55_lower': final_dc55l,
-            'rsi': final_rsi,
-            'signals': final_signals,
         })
 
     except Exception as e:
