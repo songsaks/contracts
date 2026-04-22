@@ -131,31 +131,25 @@
             </div>
 
             <!-- Position Calculator -->
-            <div class="trading-panel p-3 p-md-4 mb-3 mb-md-4">
-                <h6 class="fw-bold mb-3 border-bottom border-secondary pb-2" style="color: var(--gold-primary);">
-                    <i class="fas fa-microchip me-2"></i> Risk Manager
-                </h6>
+            <div class="trading-panel p-3 p-md-4 mb-3 mb-md-4 border-warning shadow-sm" style="border: 2px solid var(--gold-primary) !important;">
+                <h5 class="fw-bold mb-3 pb-2 border-bottom border-secondary" style="color: var(--gold-primary);">
+                    <i class="fas fa-flag me-2"></i> 1. START HERE
+                </h5>
                 <div class="row g-2 g-md-3">
                     <div class="col-6 col-md-12">
-                        <label class="small text-muted mb-1 d-block">Capital ($)</label>
-                        <input type="number" id="capital-input" class="form-control form-control-sm bg-dark text-white border-secondary fw-bold" value="10000">
+                        <label class="small text-muted mb-1 d-block fw-bold">CAPITAL ($)</label>
+                        <input type="number" id="capital-input" class="form-control form-control-lg bg-dark text-white border-secondary fw-black fs-4" value="100">
                     </div>
                     <div class="col-6 col-md-12">
-                        <label class="small text-muted mb-1 d-block">Risk (%)</label>
-                        <input type="number" id="risk-pct" class="form-control form-control-sm bg-dark text-white border-secondary fw-bold" value="1">
+                        <label class="small text-muted mb-1 d-block fw-bold">RISK (%)</label>
+                        <input type="number" id="risk-pct" class="form-control form-control-lg bg-dark text-white border-secondary fw-black fs-4" value="1">
                     </div>
                 </div>
                 
-                <div class="mt-3 mt-md-4 p-2 p-md-3 rounded-3" style="background: rgba(245, 158, 11, 0.05); border: 1px dashed var(--gold-primary);">
-                    <div class="row text-center">
-                        <div class="col-6 border-end border-secondary border-opacity-25">
-                            <small class="text-muted d-block" style="font-size: 0.6rem;">STOP (2N)</small>
-                            <span class="fw-bold text-danger" id="tac-sl-dist">-.--</span>
-                        </div>
-                        <div class="col-6">
-                            <small class="text-muted d-block" style="font-size: 0.6rem;">SUGGESTED</small>
-                            <span class="fw-bold text-success" id="tac-suggest-size">-.-- Oz</span>
-                        </div>
+                <div class="mt-4 p-3 rounded-3" style="background: rgba(245, 158, 11, 0.15); border: 1px solid var(--gold-primary);">
+                    <div class="text-center">
+                        <small class="text-muted d-block fw-bold mb-1" style="font-size: 0.75rem; letter-spacing: 1px;">SUGGESTED SIZE</small>
+                        <span class="fw-black text-success display-6 d-block" id="tac-suggest-size">-.-- Oz</span>
                     </div>
                 </div>
             </div>
