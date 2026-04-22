@@ -183,7 +183,7 @@
                                 </div>
                             </div>
                             <div class="d-flex gap-2">
-                                <a href="javascript:void(0)" onclick="syncAccount(this, {{ acc.pk }})" class="btn btn-sm btn-light rounded-pill px-3 fw-bold">
+                                <a href="javascript:void(0)" onclick="syncAccount(this, '{% url 'stocks:sync_trading_account' acc.pk %}')" class="btn btn-sm btn-light rounded-pill px-3 fw-bold">
                                      <i class="fas fa-sync-alt me-1"></i> Refresh
                                  </a>
                                 <button class="btn btn-sm btn-outline-danger rounded-pill px-3 fw-bold" 
@@ -217,32 +217,32 @@
 </div>
 <!-- Script สำหรับ Sync ยอดเงิน (ย้ายมาไว้ใน Block Content เพื่อความชัวร์) -->
 <script>
-async function syncAccount(btn, pk) {
-    console.log("Syncing account:", pk);
+async function syncAccount(btn, url) {
+    console.log("Syncing via URL:", url);
     const originalContent = btn.innerHTML;
     btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Syncing...';
     btn.classList.add('disabled');
     
     try {
-        const response = await fetch(`/stocks/trading-accounts/${pk}/sync/`, {
+        const response = await fetch(url, {
             method: 'POST',
             headers: {
                 'X-CSRFToken': '{{ csrf_token }}',
+                'Content-Type': 'application/json'
             }
         });
         const data = await response.json();
         
         if (data.success) {
-            // สำเร็จ -> Reload เพื่อดูยอดเงินใหม่
             window.location.reload(); 
         } else {
-            alert('Error: ' + (data.error || 'Unknown error'));
+            alert('API Error: ' + (data.error || 'Unknown error'));
             btn.innerHTML = originalContent;
             btn.classList.remove('disabled');
         }
     } catch (err) {
-        console.error("Sync Error:", err);
-        alert('Connection error. Please check your internet or server logs.');
+        console.error("Sync Exception:", err);
+        alert('Connection error. Server took too long to respond or URL is invalid.');
         btn.innerHTML = originalContent;
         btn.classList.remove('disabled');
     }
