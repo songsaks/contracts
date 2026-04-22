@@ -9031,6 +9031,8 @@ def stock_chart_data(request, symbol):
             'exit_20d_low': round(float(last_row['dc20_lower']), 2),
             'high_20d': round(float(last_row['dc20_upper']), 2),
             'high_55d': round(float(last_row['dc55_upper']), 2),
+            'rsi': round(float(last_row['rsi']), 2),
+            'ema200': round(float(last_row['ema200']), 2),
         }
 
         # Turtle breakout signals (compare close vs previous day's channel)
