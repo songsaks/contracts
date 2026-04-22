@@ -748,8 +748,8 @@ class TradingAccount(models.Model):
     user        = models.ForeignKey(User, on_delete=models.CASCADE, related_name='trading_accounts')
     broker      = models.CharField(max_length=20, choices=BrokerType.choices, default=BrokerType.META_API)
     account_id  = models.CharField(max_length=100, help_text="เลขพอร์ต หรือ Account ID")
-    api_key     = models.CharField(max_length=1000, blank=True, help_text="API Key / Token")
-    api_secret  = models.CharField(max_length=1000, blank=True, help_text="API Secret / Password")
+    api_key     = models.TextField(blank=True, help_text="API Key / Token")
+    api_secret  = models.TextField(blank=True, help_text="API Secret / Password")
     
     # สถานะพอร์ตเบื้องต้น (ดึงจาก API มาพักไว้)
     balance     = models.DecimalField(max_digits=14, decimal_places=2, default=0.0)
