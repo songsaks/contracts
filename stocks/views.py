@@ -9130,6 +9130,49 @@ def delete_trading_account_view(request, pk):
     acc.delete()
     return redirect('stocks:trading_accounts')
 
+@csrf_exempt
+@login_required
+def execute_gold_trade_ajax(request):
+    """
+    รับคำสั่งจากปุ่มเทรดในหน้า Gold Command Center
+    """
+    if request.method != 'POST':
+        return _JR({'error': 'Post required'}, status=400)
+    
+    import json
+    from .trading_bridge import RobotBridge
+    
+    try:
+        data = json.loads(request.body)
+        symbol = data.get('symbol', 'GC=F')
+        side   = data.get('side', 'BUY')
+        price  = data.get('price')
+        sl     = data.get('sl')
+        tp     = data.get('tp')
+        volume = data.get('volume', 0.01)
+        strategy = data.get('strategy', 'Manual')
+
+        # เรียกใช้ RobotBridge
+        bridge = RobotBridge(user=request.user)
+        order = bridge.execute_trade(
+            symbol=symbol,
+            side=side,
+            volume=volume,
+            price=price,
+            sl=sl,
+            tp=tp,
+            strategy=strategy
+        )
+
+        return _JR({
+            'success': True,
+            'order_id': order.order_id,
+            'message': f'ส่งคำสั่ง {side} เรียบร้อยแล้ว (ID: {order.order_id})'
+        })
+
+    except Exception as e:
+        return _JR({'success': False, 'error': str(e)}, status=500)
+
 @login_required
 def refresh_market_caps_view(request):
     """

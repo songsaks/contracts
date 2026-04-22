@@ -195,10 +195,10 @@
             </div>
             
             <div class="mt-4 d-flex justify-content-center gap-3">
-                <button class="btn btn-lg btn-gold rounded-pill px-5 shadow-lg d-flex align-items-center" onclick="simulateExecution('BUY')">
-                    <i class="fas fa-bolt me-2"></i> EXECUTE MANUAL BUY (DEMO)
+                <button class="btn btn-lg btn-gold rounded-pill px-5 shadow-lg d-flex align-items-center" onclick="executeTrade('BUY')">
+                    <i class="fas fa-bolt me-2"></i> EXECUTE LIVE BUY
                 </button>
-                <button class="btn btn-lg btn-outline-danger rounded-pill px-4 d-flex align-items-center" onclick="simulateExecution('SELL')">
+                <button class="btn btn-lg btn-outline-danger rounded-pill px-4 d-flex align-items-center" onclick="executeTrade('SELL')">
                     SELL
                 </button>
             </div>
@@ -243,11 +243,41 @@
         log.prepend(div);
     }
 
-    function simulateExecution(type) {
-        logMessage(`REQUEST: Execute ${type} order at Market...`, 'text-warning');
-        setTimeout(() => {
-            logMessage(`DEMO SUCCESS: ${type} 1.00 Oz XAUUSD @ ${lastPrice}`, 'text-info fw-bold');
-        }, 600);
+    function executeTrade(type) {
+        if (!confirm(`Are you sure you want to execute a LIVE ${type} order at Market?`)) return;
+
+        logMessage(`REQUEST: Sending ${type} order to RobotBridge...`, 'text-warning');
+        
+        const slValue = globalTactical ? (type === 'BUY' ? lastPrice - (globalTactical.n * 2) : lastPrice + (globalTactical.n * 2)) : null;
+
+        fetch("{% url 'stocks:execute_gold_trade' %}", {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify({
+                symbol: currentSymbol,
+                side: type,
+                price: lastPrice,
+                sl: slValue,
+                volume: 0.01,
+                strategy: "Manual (UI Command)"
+            })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                logMessage(`SUCCESS: Order ${data.order_id} filled @ ${lastPrice}`, 'text-info fw-bold');
+                logMessage(data.message, 'text-success small');
+            } else {
+                logMessage(`FAILED: ${data.error}`, 'text-danger fw-bold');
+            }
+        })
+        .catch(err => {
+            logMessage(`ERROR: System failure or no active trading account.`, 'text-danger');
+            console.error(err);
+        });
     }
 
     function mkChart(elId, height) {

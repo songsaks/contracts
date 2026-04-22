@@ -58,6 +58,7 @@ urlpatterns = [
     path('gold-trading/', views.gold_trading, name='gold_trading'),
     path('debug-scan/<str:symbol>/', views.debug_scan_symbol, name='debug_scan_symbol'),
     path('portfolio/refresh-prices/', views.portfolio_refresh_prices, name='portfolio_refresh_prices'),
+    path('gold-trading/execute/', views.execute_gold_trade_ajax, name='execute_gold_trade'),
     path('trading-accounts/', views.trading_accounts_view, name='trading_accounts'),
     path('trading-accounts/<int:pk>/delete/', views.delete_trading_account_view, name='delete_trading_account'),
 ]
