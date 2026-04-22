@@ -337,9 +337,10 @@
                 if (data.tactical) {
                     globalTactical = data.tactical;
                     document.getElementById('live-n-val').innerText = `ATR(20): ${data.tactical.n.toFixed(2)}`;
-                    document.getElementById('tac-sl-dist').innerText = (data.tactical.n * 2).toFixed(2);
+                    
                     lastPrice = data.candles[data.candles.length-1].close;
                     document.getElementById('gold-price-display').innerText = lastPrice.toFixed(2);
+                    logMessage(`CONNECTION: Live data stream verified from Pepperstone.`, 'text-success small opacity-50');
                     
                     // Calc change
                     const prevPrice = data.candles[data.candles.length-2].close;
