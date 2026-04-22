@@ -9151,17 +9151,19 @@ def sync_trading_account_ajax(request, pk):
     acc = get_object_or_404(TradingAccount, pk=pk, user=request.user)
     bridge = RobotBridge(user=request.user, account=acc)
     
-    success = bridge.sync_account_balance()
-    
-    if success:
-        return JsonResponse({
-            'success': True,
-            'balance': float(acc.balance),
-            'equity': float(acc.equity),
-            'currency': acc.currency
-        })
-    else:
-        return JsonResponse({'success': False, 'error': 'Failed to sync with Broker API'}, status=400)
+    try:
+        success = bridge.sync_account_balance()
+        if success:
+            return JsonResponse({
+                'success': True,
+                'balance': float(acc.balance),
+                'equity': float(acc.equity),
+                'currency': acc.currency
+            })
+        else:
+            return JsonResponse({'success': False, 'error': 'API returned failure. Check if account is connected in MetaApi.'}, status=400)
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
 
 @csrf_exempt
 @login_required
