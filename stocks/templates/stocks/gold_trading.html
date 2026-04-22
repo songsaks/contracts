@@ -211,7 +211,7 @@
     </div>
     <div class="d-flex align-items-center gap-2 flex-wrap">
         <span class="status-pill pill-standby" id="bot-status-indicator">● STANDBY</span>
-        <button class="btn btn-sm btn-outline-warning fw-bold rounded-pill" onclick="toggleBot()">
+        <button class="btn btn-sm btn-outline-warning fw-bold rounded-pill" onclick="toggleAiStrategist()">
             <i class="fas fa-robot me-1"></i> Robot
         </button>
         <button class="btn btn-sm fw-bold rounded-pill" style="background:var(--gold);color:#000;" onclick="toggleFullscreen()">
@@ -300,10 +300,37 @@
 
                 <!-- Auto-execute toggle -->
                 <div class="form-check form-switch mt-3 d-flex align-items-center gap-2">
-                    <input class="form-check-input" type="checkbox" id="auto-execute-toggle" style="width:2.5em;height:1.25em;">
+                    <input class="form-check-input" type="checkbox" id="auto-execute-toggle" style="width:2.5em;height:1.25em;" onclick="toggleAutoExecute()">
                     <label class="form-check-label fw-bold text-danger" for="auto-execute-toggle" style="font-size:.75rem;">
                         AUTO-EXECUTE (Browser)
                     </label>
+                </div>
+            </div>
+        </div>
+
+        <!-- Live Positions Card -->
+        <div class="g-card mt-1">
+            <div class="g-card-header d-flex justify-content-between align-items-center">
+                <span><i class="fas fa-briefcase me-1"></i> LIVE POSITIONS</span>
+                <span id="pos-count-badge" class="badge rounded-pill bg-primary">0</span>
+            </div>
+            <div class="p-0">
+                <div class="table-responsive">
+                    <table class="table table-dark table-hover mb-0" style="font-size:0.7rem; background:transparent;">
+                        <thead style="background:rgba(255,255,255,0.03);">
+                            <tr>
+                                <th class="ps-3">Type</th>
+                                <th>Size</th>
+                                <th>Entry</th>
+                                <th class="text-end pe-3">Profit</th>
+                            </tr>
+                        </thead>
+                        <tbody id="positions-list-body">
+                            <tr>
+                                <td colspan="4" class="text-center py-4 text-muted">No open positions</td>
+                            </tr>
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </div>
@@ -349,12 +376,17 @@
         <!-- Execute Buttons -->
         <div class="g-card">
             <div class="g-card-header"><i class="fas fa-bolt me-1 text-warning"></i> Order Execution</div>
-            <div class="p-3 d-flex gap-3">
-                <button class="btn-execute-buy flex-grow-1" onclick="executeTrade('BUY')">
-                    <i class="fas fa-arrow-trend-up me-2"></i> EXECUTE BUY
-                </button>
-                <button class="btn-execute-sell flex-grow-1" onclick="executeTrade('SELL')">
-                    <i class="fas fa-arrow-trend-down me-2"></i> EXECUTE SELL
+            <div class="p-3 d-flex flex-column gap-2">
+                <div class="d-flex gap-2">
+                    <button class="btn-execute-buy flex-grow-1" onclick="executeTrade('BUY')">
+                        <i class="fas fa-arrow-trend-up me-2"></i> EXECUTE BUY
+                    </button>
+                    <button class="btn-execute-sell flex-grow-1" onclick="executeTrade('SELL')">
+                        <i class="fas fa-arrow-trend-down me-2"></i> EXECUTE SELL
+                    </button>
+                </div>
+                <button class="btn btn-danger fw-bold rounded-pill w-100 py-2" onclick="closeAllPositions()" style="font-size:0.75rem;">
+                    <i class="fas fa-times-circle me-1"></i> CLOSE ALL POSITIONS
                 </button>
             </div>
         </div>
@@ -380,7 +412,7 @@
     let lastPrice = 0;
     let globalTactical = null;
 
-    function toggleBot() {
+    function toggleAutoExecute() {
         botActive = !botActive;
         const ind = document.getElementById('bot-status-indicator');
         if (botActive) {
@@ -612,7 +644,65 @@
     setInterval(loadData, 60000);
     window.onload = loadData;
 
-    function toggleBot() {
+// ══════ POSITIONS POLLING ══════
+async function fetchPositions() {
+    try {
+        const res = await fetch('{% url "stocks:get_gold_positions" %}');
+        const data = await res.json();
+        const body = document.getElementById('positions-list-body');
+        const badge = document.getElementById('pos-count-badge');
+        
+        if (data.success && data.positions && data.positions.length > 0) {
+            badge.innerText = data.positions.length;
+            let html = '';
+            data.positions.forEach(pos => {
+                const isBuy = pos.type === 'POSITION_TYPE_BUY';
+                const pl = parseFloat(pos.unrealizedProfit || 0);
+                const plClass = pl >= 0 ? 'text-success' : 'text-danger';
+                
+                html += `
+                    <tr>
+                        <td class="ps-3"><span class="badge ${isBuy?'bg-success':'bg-danger'}">${isBuy?'BUY':'SELL'}</span></td>
+                        <td>${pos.volume} Oz</td>
+                        <td>${parseFloat(pos.openPrice).toFixed(2)}</td>
+                        <td class="text-end pe-3 fw-bold ${plClass}">${pl >= 0 ? '+':''}${pl.toFixed(2)}</td>
+                    </tr>
+                `;
+            });
+            body.innerHTML = html;
+        } else {
+            badge.innerText = '0';
+            body.innerHTML = '<tr><td colspan="4" class="text-center py-3 text-muted">No open positions</td></tr>';
+        }
+    } catch (e) { console.error("Position fetch error", e); }
+}
+
+async function closeAllPositions() {
+    if(!confirm('Are you sure you want to CLOSE ALL open gold positions immediately?')) return;
+    
+    logMessage('REQUEST: Sending CLOSE ALL command...', 'text-warning');
+    try {
+        const res = await fetch('{% url "stocks:close_all_gold_positions" %}', {
+            method: 'POST',
+            headers: {'X-CSRFToken': '{{ csrf_token }}'}
+        });
+        const data = await res.json();
+        if (data.success) {
+            logMessage('SUCCESS: All positions closed successfully.', 'text-info fw-bold');
+            fetchPositions();
+        } else {
+            logMessage('FAILED: Close command failed: ' + (data.error || 'Unknown error'), 'text-danger fw-bold');
+        }
+    } catch (e) {
+        logMessage('ERROR: Connection error while closing positions.', 'text-danger');
+    }
+}
+
+// Polling interval
+setInterval(fetchPositions, 5000);
+fetchPositions();
+
+    function toggleAiStrategist() {
         const modal = new bootstrap.Modal(document.getElementById('aiBotModal'));
         modal.show();
         

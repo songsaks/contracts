@@ -9167,6 +9167,33 @@ def sync_trading_account_ajax(request, pk):
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)}, status=500)
 
+@login_required
+def get_gold_positions_ajax(request):
+    """
+    ดึงรายการออเดอร์ทองที่เปิดอยู่
+    """
+    from .trading_bridge import RobotBridge
+    bridge = RobotBridge(user=request.user)
+    try:
+        positions = bridge.get_open_positions()
+        return JsonResponse({'success': True, 'positions': positions})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+@csrf_exempt
+@login_required
+def close_all_gold_positions_ajax(request):
+    """
+    สั่งปิดออเดอร์ทองทั้งหมด
+    """
+    from .trading_bridge import RobotBridge
+    bridge = RobotBridge(user=request.user)
+    try:
+        success = bridge.close_all_positions()
+        return JsonResponse({'success': success})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
 @csrf_exempt
 @login_required
 def execute_gold_trade_ajax(request):

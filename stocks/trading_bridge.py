@@ -179,3 +179,71 @@ class RobotBridge:
         except Exception as e:
             logger.error(f"Fast Sync Exception: {str(e)}")
             return False
+
+    def get_open_positions(self):
+        """
+        ดึงรายการออเดอร์ที่เปิดค้างอยู่ทั้งหมด
+        """
+        if self.broker_type != BrokerType.META_API:
+            return []
+
+        token = self.account.api_key.strip()
+        account_id = self.account.account_id
+        
+        # ค้นหา Region เพื่อความแม่นยำ
+        try:
+            info_url = f"https://mt-provisioning-api-v1.agiliumtrade.ai/users/current/accounts/{account_id}"
+            info_res = requests.get(info_url, headers={"auth-token": token}, timeout=5)
+            region = info_res.json().get('region', 'new-york') if info_res.status_code == 200 else 'new-york'
+        except:
+            region = "new-york"
+
+        url = f"https://mt-client-api-v1.{region}.agiliumtrade.ai/users/current/accounts/{account_id}/positions"
+        headers = {"auth-token": token}
+
+        try:
+            res = requests.get(url, headers=headers, timeout=5)
+            if res.status_code == 200:
+                return res.json() # คืนค่า List ของ Positions
+            return []
+        except:
+            return []
+
+    def close_all_positions(self):
+        """
+        สั่งปิดออเดอร์ทั้งหมดในพอร์ตทันที (Panic Button)
+        """
+        positions = self.get_open_positions()
+        success_count = 0
+        
+        for pos in positions:
+            pos_id = pos.get('id')
+            
+            # ส่งคำสั่งปิดผ่าน Trade Endpoint
+            token = self.account.api_key.strip()
+            account_id = self.account.account_id
+            
+            # ตรวจหา Region
+            try:
+                info_url = f"https://mt-provisioning-api-v1.agiliumtrade.ai/users/current/accounts/{account_id}"
+                info_res = requests.get(info_url, headers={"auth-token": token}, timeout=5)
+                region = info_res.json().get('region', 'new-york') if info_res.status_code == 200 else 'new-york'
+            except:
+                region = "new-york"
+            
+            url = f"https://mt-client-api-v1.{region}.agiliumtrade.ai/users/current/accounts/{account_id}/trade"
+            headers = {"auth-token": token, "Content-Type": "application/json"}
+            
+            payload = {
+                "actionType": "POSITION_CLOSE_ID",
+                "positionId": pos_id
+            }
+            
+            try:
+                res = requests.post(url, headers=headers, json=payload, timeout=5)
+                if res.status_code == 200:
+                    success_count += 1
+            except:
+                continue
+                
+        return success_count > 0
