@@ -8,6 +8,8 @@ import pandas_ta as ta
 
 import pandas as pd
 
+from django.utils import timezone
+
 class Command(BaseCommand):
     help = 'Runs the Gold Trading Robot (Server-Side) 24/7'
 
@@ -18,9 +20,10 @@ class Command(BaseCommand):
         while True:
             try:
                 # 1. Update Heartbeat
+                now = timezone.now()
                 activity, created = BotActivity.objects.get_or_create(bot_name="Gold Server Bot")
                 activity.status = "ACTIVE"
-                activity.message = f"Scanning {symbol} at {datetime.datetime.now().strftime('%H:%M:%S')}"
+                activity.message = f"Scanning {symbol} at {now.strftime('%H:%M:%S')}"
                 activity.save()
 
                 # 2. Fetch Data
