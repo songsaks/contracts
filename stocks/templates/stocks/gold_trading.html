@@ -160,6 +160,35 @@
                 </div>
             </div>
 
+            <!-- Tactical Intelligence Panel (NEW) -->
+            <div class="trading-panel p-3 p-md-4 mb-3 mb-md-4 border-warning border-opacity-25" style="background: linear-gradient(145deg, rgba(245, 158, 11, 0.08), rgba(0,0,0,0));">
+                <h6 class="fw-bold mb-3 small text-warning"><i class="fas fa-satellite-dish me-2"></i> TACTICAL INTELLIGENCE</h6>
+                
+                <div class="d-flex align-items-center justify-content-between mb-3">
+                    <span class="small text-muted">SIGNAL:</span>
+                    <span id="tactical-signal" class="badge rounded-pill px-3 py-2 bg-secondary" style="font-size: 0.75rem;">NEUTRAL</span>
+                </div>
+                
+                <div class="row g-2 mb-3">
+                    <div class="col-6">
+                        <div class="p-2 rounded bg-dark border border-secondary border-opacity-25 text-center">
+                            <div class="text-muted" style="font-size: 0.6rem;">PROFIT TARGET</div>
+                            <div class="fw-bold text-success small" id="tactical-tp">-.--</div>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="p-2 rounded bg-dark border border-secondary border-opacity-25 text-center">
+                            <div class="text-muted" style="font-size: 0.6rem;">HARD STOP</div>
+                            <div class="fw-bold text-danger small" id="tactical-sl">-.--</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="small text-muted mb-0 opacity-75" style="font-size: 0.65rem; line-height: 1.4;">
+                    <i class="fas fa-info-circle me-1"></i> Based on Turtle 20-Day Breakout & 2N Volatility Stop logic.
+                </div>
+            </div>
+
             <!-- Orders/Bot Activity -->
             <div class="trading-panel p-3 d-none d-md-block">
                 <h6 class="fw-bold mb-3 px-2 small text-muted"><i class="fas fa-terminal me-2"></i> BOT ACTIVITY LOG</h6>
@@ -337,6 +366,26 @@
                     const cDisp = document.getElementById('gold-change-display');
                     cDisp.innerText = (change >= 0 ? '+' : '') + change.toFixed(2) + '%';
                     cDisp.className = "mt-1 fw-bold " + (change >= 0 ? "text-success" : "text-danger");
+                    
+                    // Tactical Intelligence Logic
+                    const upper20 = data.dc20_upper[data.dc20_upper.length-1].value;
+                    const lower20 = data.dc20_lower[data.dc20_lower.length-1].value;
+                    const sigEl = document.getElementById('tactical-signal');
+                    
+                    if (lastPrice >= upper20) {
+                        sigEl.innerText = "BULLISH BREAKOUT";
+                        sigEl.className = "badge rounded-pill px-3 py-2 bg-success shadow-sm";
+                    } else if (lastPrice <= lower20) {
+                        sigEl.innerText = "BEARISH REVERSAL";
+                        sigEl.className = "badge rounded-pill px-3 py-2 bg-danger shadow-sm";
+                    } else {
+                        sigEl.innerText = "NEUTRAL";
+                        sigEl.className = "badge rounded-pill px-3 py-2 bg-secondary";
+                    }
+
+                    // Guidance
+                    document.getElementById('tactical-tp').innerText = (lastPrice + data.tactical.n).toFixed(2);
+                    document.getElementById('tactical-sl').innerText = (lastPrice - (data.tactical.n * 2)).toFixed(2);
                     
                     calculateSize();
                 }
