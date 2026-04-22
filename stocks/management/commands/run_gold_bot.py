@@ -22,16 +22,21 @@ class Command(BaseCommand):
                 activity.save()
 
                 # 2. Fetch Data
-                df = yf.download(symbol, period='1y', interval='1d', progress=False)
+                df = yf.download(symbol, period='1y', interval='1d', progress=False, auto_adjust=True)
                 if df.empty:
                     time.sleep(60)
                     continue
+                
+                # Handle MultiIndex if present
+                if isinstance(df.columns, yf.pandas.MultiIndex):
+                    df.columns = df.columns.get_level_values(0)
 
                 # 3. Compute Turtle Logic
                 df['dc20_upper'] = df['High'].rolling(20).max()
+                df = df.dropna(subset=['dc20_upper'])
                 
                 last_price = float(df['Close'].iloc[-1])
-                upper20 = float(df['dc20_upper'].iloc[-2]) # Use previous day's high for breakout level
+                upper20 = float(df['dc20_upper'].iloc[-2]) 
                 
                 # 4. Check for Breakout
                 if last_price >= upper20:
