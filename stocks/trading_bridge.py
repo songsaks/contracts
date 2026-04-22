@@ -74,19 +74,21 @@ class RobotBridge:
     def _trade_via_meta_api(self, symbol, side, volume, price, sl, tp):
         """
         ส่งคำสั่งผ่าน MetaApi (MT4/MT5 Cloud API) 
-        โดยใช้ REST API เพื่อความรวดเร็วและไม่ต้องติดตั้ง SDK ขนาดใหญ่บน Server
         """
-        token = self.account.api_key      # MetaApi Personal Access Token
-        account_id = self.account.account_id # MetaApi Account ID (UUID)
+        token = self.account.api_key.strip() # ตัดช่องว่างหัวท้ายเพื่อความชัวร์
+        account_id = self.account.account_id
         
         if not token or not account_id:
             raise ValueError("MetaApi Token or Account ID is missing in TradingAccount configuration.")
 
-        # 1. จัดเตรียมข้อมูล Order
-        # สำหรับ MetaApi REST: https://metaapi.cloud/docs/client/restApi/trading/trade/
-        # URL: https://mt-client-api-v1.new-york.agiliumtrade.ai/users/current/accounts/:accountId/trade
-        
-        region = "new-york" # หรือเปลี่ยนตาม Account Region
+        # ตรวจหา Region จริงของบัญชี (New York/London/Singapore) เพื่อความแม่นยำ
+        try:
+            info_url = f"https://mt-provisioning-api-v1.agiliumtrade.ai/users/current/accounts/{account_id}"
+            info_res = requests.get(info_url, headers={"auth-token": token}, timeout=5)
+            region = info_res.json().get('region', 'new-york') if info_res.status_code == 200 else 'new-york'
+        except:
+            region = "new-york"
+
         url = f"https://mt-client-api-v1.{region}.agiliumtrade.ai/users/current/accounts/{account_id}/trade"
         
         headers = {
@@ -94,17 +96,15 @@ class RobotBridge:
             "Content-Type": "application/json"
         }
         
-        # แปลง Side เป็น MetaApi format
-        # MetaApi types: ORDER_TYPE_BUY, ORDER_TYPE_SELL
-        order_type = "ORDER_TYPE_BUY" if side.upper() == "BUY" else "ORDER_TYPE_SELL"
+        # แมปชื่อ Symbol ให้เข้ากับ Broker (เช่น GC=F -> XAUUSD)
+        clean_symbol = symbol.replace("GC=F", "XAUUSD")
         
         payload = {
-            "symbol": symbol.replace("GC=F", "XAUUSD"), # แมปชื่อ Symbol ให้เข้ากับ Broker
+            "symbol": clean_symbol,
             "actionType": "ORDER_TYPE_BUY" if side.upper() == "BUY" else "ORDER_TYPE_SELL",
             "volume": float(volume),
         }
         
-        # เพิ่ม SL/TP ถ้ามี
         if sl: payload["stopLoss"] = float(sl)
         if tp: payload["takeProfit"] = float(tp)
 
