@@ -153,20 +153,16 @@ class RobotBridge:
         headers = {"auth-token": token}
 
         try:
-            # 1. ตรวจสอบ Region ของ Account นี้ก่อน
+            # Fast Sync: ลด Timeout เหลือ 3 วินาทีเพื่อไม่ให้หน้าเว็บค้าง
             info_url = f"https://mt-provisioning-api-v1.agiliumtrade.ai/users/current/accounts/{account_id}"
-            info_res = requests.get(info_url, headers=headers, timeout=10)
-            
-            region = "new-york" # default
-            if info_res.status_code == 200:
-                region = info_res.json().get('region', 'new-york')
-                logger.info(f"MetaApi Region Detected: {region}")
-            else:
-                logger.warning(f"Could not detect MetaApi region, using default. Status: {info_res.status_code}")
+            try:
+                info_res = requests.get(info_url, headers=headers, timeout=3)
+                region = info_res.json().get('region', 'new-york') if info_res.status_code == 200 else 'new-york'
+            except:
+                region = 'new-york' # ถ้าช้าให้ใช้ default ทันที
 
-            # 2. ดึงข้อมูล Account Information ตาม Region ที่ถูกต้อง
             url = f"https://mt-client-api-v1.{region}.agiliumtrade.ai/users/current/accounts/{account_id}/account-information"
-            response = requests.get(url, headers=headers, timeout=10)
+            response = requests.get(url, headers=headers, timeout=5)
             
             if response.status_code == 200:
                 data = response.json()
@@ -174,12 +170,10 @@ class RobotBridge:
                 self.account.equity   = Decimal(str(data.get('equity', 0)))
                 self.account.currency = data.get('currency', 'USD')
                 self.account.save()
-                logger.info(f"Sync Balance Success: {self.account.balance} {self.account.currency}")
                 return True
             else:
-                logger.error(f"Sync Balance Failed ({response.status_code}): {response.text}")
                 return False
 
         except Exception as e:
-            logger.error(f"Sync Balance Exception: {str(e)}")
+            logger.error(f"Fast Sync Exception: {str(e)}")
             return False
