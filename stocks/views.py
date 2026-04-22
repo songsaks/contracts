@@ -4058,6 +4058,11 @@ def precision_momentum_scanner(request):
                             'ichimoku_score': ichimoku_score_val,
                             # ====== VCP Detection ======
                             'vcp': detect_vcp_pattern(df),
+                            # ====== Launcher Data (v10) ======
+                            'launcher_score': tech.get('launcher_score', 0),
+                            'turtle_dist_pct': tech.get('turtle_dist_pct', 99.0),
+                            'is_explosive': tech.get('is_explosive', False),
+                            'tightness_idx': tech.get('tightness_idx', 99.0),
                         }
 
                     except Exception as e:
@@ -4176,6 +4181,11 @@ def precision_momentum_scanner(request):
                             vcp_contractions=r.get('vcp', {}).get('contractions', 0),
                             vcp_tightness=r.get('vcp', {}).get('tightness', 0.0),
                             vcp_vdu=r.get('vcp', {}).get('vdu_confirmed', False),
+                            # Launcher v10
+                            launcher_score=r.get('launcher_score', 0),
+                            turtle_dist_pct=r.get('turtle_dist_pct', 99.0),
+                            is_explosive=r.get('is_explosive', False),
+                            tightness_idx=r.get('tightness_idx', 99.0),
                         ))
 
                     if bulk_candidates:
@@ -4229,6 +4239,7 @@ def precision_momentum_scanner(request):
         'prox': 'zone_proximity',
         'round_rr': '-risk_reward_ratio',
         'rs': '-rs_rating',          # RS Rating (Minervini Relative Strength)
+        'launcher': '-launcher_score', # Explosive Launcher Score
     }
     use_db_sort = sort_by in valid_db_sorts
     order_field = valid_db_sorts.get(sort_by, '-technical_score')
@@ -4296,17 +4307,11 @@ def precision_momentum_scanner(request):
                 def _get_live(sym):
                     try:
                         full_sym = f"{sym}.BK"
+                        # Use fast_info for quick price/mcap without downloading full history
                         fi = yf.Ticker(full_sym).fast_info
                         p  = getattr(fi, 'last_price', None)
                         mc = getattr(fi, 'market_cap', None)
-                        # Recompute zone fresh (thread-safe: Ticker().history())
-                        df = yf.Ticker(full_sym).history(start=_prec_start_str, end=_prec_end_str, interval='1d')
-                        fz = None
-                        if df is not None and len(df) >= 50:
-                            if isinstance(df.columns, pd.MultiIndex):
-                                df.columns = df.columns.get_level_values(0)
-                            fz = find_supply_demand_zones_v2(df)
-                        return sym, (float(p) if p else None), (round(float(mc)/1e9, 2) if mc else None), fz
+                        return sym, (float(p) if p else None), (round(float(mc)/1e9, 2) if mc else None), None
                     except Exception:
                         return sym, None, None, None
                 with _lcf.ThreadPoolExecutor(max_workers=6) as _lex:
@@ -8678,9 +8683,11 @@ def turtle_scanner(request):
                 if p_match:
                     c.precision_score = p_match.technical_score
                     c.rs_rating = p_match.rs_rating
+                    c.launcher_score = p_match.launcher_score
                 else:
                     c.precision_score = None
                     c.rs_rating = None
+                    c.launcher_score = None
     else:
         last_updated = None
 

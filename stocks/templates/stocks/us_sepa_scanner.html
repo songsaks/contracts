@@ -124,24 +124,19 @@
         </div>
 
         <!-- TABLE -->
-        <div class="table-responsive">
-            <table class="table table-hover align-middle mb-0" style="font-size:0.82rem;">
+        <div class="table-responsive table-sticky-action">
+            <table class="table table-hover align-middle mb-0 table-sm-compact" style="font-size:0.82rem;">
                 <thead class="bg-light text-muted small text-uppercase">
                     <tr>
-                        <th class="ps-4 border-0 py-3" style="width:200px;">Symbol</th>
+                        <th class="ps-4 border-0 py-3" style="width:140px;">Symbol</th>
                         <th class="border-0 py-3">Price</th>
-                        <th class="border-0 py-3 text-center">Trend Stage</th>
-                        <th class="border-0 py-3 text-center">VCP Base</th>
-                        <th class="border-0 py-3 text-center">% from Pivot</th>
-                        <th class="border-0 py-3 text-center">Institutional Signal</th>
-                        <th class="border-0 py-3 text-center">RS Rating</th>
-                        <th class="border-0 py-3 text-center">ADX / RSI</th>
-                        <th class="border-0 py-3 text-center">
-                            SEPA Score
-                            <i class="fas fa-info-circle ms-1 text-muted" style="cursor:pointer;"
-                               data-bs-toggle="tooltip"
-                               title="คะแนนรวม: VCP quality(65) + VDU(20) + RS×0.7(~69) + ADX(10) + Proximity(10) — ยิ่งสูงยิ่งพร้อม Breakout"></i>
-                        </th>
+                        <th class="border-0 py-3 text-center col-hide-md">Trend Stage</th>
+                        <th class="border-0 py-3 text-center col-hide-sm">VCP Base</th>
+                        <th class="border-0 py-3 text-center col-hide-sm">% from Pivot</th>
+                        <th class="border-0 py-3 text-center col-hide-md">Institutional Signal</th>
+                        <th class="border-0 py-3 text-center col-hide-sm">RS</th>
+                        <th class="border-0 py-3 text-center col-hide-md">ADX/RSI</th>
+                        <th class="border-0 py-3 text-center">Score</th>
                         <th class="pe-4 border-0 py-3 text-end">Action</th>
                     </tr>
                 </thead>
@@ -177,72 +172,64 @@
                             {% endif %}
                         </td>
                         <!-- Stage -->
-                        <td class="py-3 text-center">
+                        <td class="py-3 text-center col-hide-md">
                             {% if item.stage2 %}
-                            <span class="badge rounded-pill px-3 py-1" style="background:#dcfce7;color:#15803d;border:1px solid #86efac;">
-                                <i class="fas fa-check-circle me-1"></i> STAGE 2
-                            </span>
+                                <span class="badge rounded-pill px-3 py-1" style="background:#dcfce7;color:#15803d;border:1px solid #86efac;">
+                                    <i class="fas fa-check-circle me-1"></i> STAGE 2
+                                </span>
                             {% else %}
-                            <span class="badge rounded-pill px-3 py-1" style="background:#f1f5f9;color:#64748b;">Other</span>
+                                <span class="badge rounded-pill px-3 py-1" style="background:#f1f5f9;color:#64748b;">Other</span>
                             {% endif %}
                         </td>
                         <!-- VCP Base -->
-                        <td class="py-3 text-center">
+                        <td class="py-3 text-center col-hide-sm">
                             {% if item.vcp_setup %}
-                            <div class="d-inline-block text-start">
-                                <span class="badge rounded-pill px-3 py-1 mb-1 d-block" style="background:#fee2e2;color:#dc2626;border:1px solid #fecdd3;">
-                                    🎯 {{ item.vcp_contractions }}T Base
-                                </span>
-                                <div class="text-muted" style="font-size:0.65rem;padding-left:8px;">
-                                    Tightness: <strong>{{ item.vcp_tightness }}%</strong>
+                                <div class="d-inline-block text-start">
+                                    <span class="badge rounded-pill px-3 py-1 mb-1 d-block text-center" style="background:#fee2e2;color:#dc2626;border:1px solid #fecdd3;">
+                                        🎯 {{ item.vcp_contractions }}T
+                                    </span>
+                                    <div class="text-muted text-center" style="font-size:0.65rem;">
+                                        <strong>{{ item.vcp_tightness }}%</strong>
+                                    </div>
                                 </div>
-                            </div>
                             {% else %}
-                            <span class="badge rounded-pill px-2 py-1" style="background:#f8fafc;color:#94a3b8;border:1px solid #e2e8f0;font-size:0.68rem;">No Setup</span>
+                                <span class="badge rounded-pill px-2 py-1" style="background:#f8fafc;color:#94a3b8;border:1px solid #e2e8f0;font-size:0.68rem;">—</span>
                             {% endif %}
                         </td>
                         <!-- % from Pivot -->
-                        <td class="py-3 text-center">
+                        <td class="py-3 text-center col-hide-sm">
                             <div class="fw-bold" style="font-size:0.9rem;
                                 color:{% if item.dist_from_pivot <= 5 %}#15803d{% elif item.dist_from_pivot <= 10 %}#2563eb{% else %}#64748b{% endif %};">
                                 {{ item.dist_from_pivot }}%
                             </div>
-                            <div class="text-muted" style="font-size:0.62rem;">
-                                {% if item.dist_from_pivot <= 5 %}&lt;5% Buy Zone
-                                {% elif item.dist_from_pivot <= 10 %}Near Pivot
-                                {% else %}Far from Pivot{% endif %}
-                            </div>
                         </td>
                         <!-- Signals -->
-                        <td class="py-3 text-center">
+                        <td class="py-3 text-center col-hide-md">
                             <div class="d-flex justify-content-center gap-1 flex-wrap">
                                 {% if item.vcp_vdu or item.vdu_near_zone %}
-                                <span class="badge rounded-pill px-2 py-1" style="background:#f3e8ff;color:#7c3aed;border:1px solid #e9d5ff;" title="Volume Dry-Up Confirmed">VDU ✅</span>
+                                    <span class="badge rounded-pill px-2 py-1" style="background:#f3e8ff;color:#7c3aed;border:1px solid #e9d5ff;">VDU ✅</span>
                                 {% endif %}
                                 {% if item.pocket_pivot %}
-                                <span class="badge rounded-pill px-2 py-1" style="background:#e0f2fe;color:#0369a1;border:1px solid #bae6fd;" title="Pocket Pivot">PP 🔥</span>
+                                    <span class="badge rounded-pill px-2 py-1" style="background:#e0f2fe;color:#0369a1;border:1px solid #bae6fd;">PP 🔥</span>
                                 {% endif %}
                                 {% if not item.vcp_vdu and not item.vdu_near_zone and not item.pocket_pivot %}
-                                <span class="text-muted">—</span>
+                                    <span class="text-muted">—</span>
                                 {% endif %}
                             </div>
                         </td>
                         <!-- RS Rating -->
-                        <td class="py-3 text-center">
+                        <td class="py-3 text-center col-hide-sm">
                             <div class="fw-bold" style="color:{% if item.rs_rating >= 80 %}#15803d{% elif item.rs_rating >= 70 %}#2563eb{% else %}#1e293b{% endif %};font-size:1rem;">
                                 {{ item.rs_rating }}
                             </div>
-                            <div class="text-muted" style="font-size:0.65rem;">Rank</div>
                         </td>
                         <!-- ADX / RSI -->
-                        <td class="py-3 text-center">
-                            <span class="{% if item.adx >= 25 %}text-success{% elif item.adx >= 15 %}text-warning{% else %}text-danger{% endif %}" style="font-size:0.75rem;">
-                                ADX {{ item.adx|floatformat:0 }}
-                            </span>
-                            <span class="text-muted"> / </span>
-                            <span class="{% if 40 <= item.rsi <= 70 %}text-success{% elif item.rsi > 80 %}text-danger{% else %}text-muted{% endif %}" style="font-size:0.75rem;">
-                                RSI {{ item.rsi|floatformat:0 }}
-                            </span>
+                        <td class="py-3 text-center col-hide-md">
+                            <div class="small">
+                                <span class="{% if item.adx >= 25 %}text-success{% elif item.adx >= 15 %}text-warning{% else %}text-danger{% endif %}">A:{{ item.adx|floatformat:0 }}</span>
+                                <span class="text-muted">|</span>
+                                <span class="{% if 40 <= item.rsi <= 70 %}text-success{% elif item.rsi > 80 %}text-danger{% else %}text-muted{% endif %}">R:{{ item.rsi|floatformat:0 }}</span>
+                            </div>
                         </td>
                         <!-- SEPA Score -->
                         <td class="py-3 text-center">

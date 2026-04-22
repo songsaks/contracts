@@ -141,18 +141,18 @@
                 </div>
             </div>
             <div class="card-body p-0">
-                <div class="table-responsive">
-                    <table class="table table-hover align-middle mb-0">
+                <div class="table-responsive table-sticky-action">
+                    <table class="table table-hover align-middle mb-0 table-sm-compact">
                         <thead class="bg-light text-muted small" style="font-size: 0.78rem;">
                             <tr>
                                 <th class="ps-3" title="สัญลักษณ์หุ้น"><a href="?sort=symbol" class="text-decoration-none text-muted">SYMBOL</a></th>
-                                <th class="col-hide-md" title="สถานะความใกล้เคียงกับ Demand Zone"><a href="?sort=prox" class="text-decoration-none text-muted">ZONE</a></th>
+                                <th class="col-hide-sm" title="สถานะความใกล้เคียงกับ Demand Zone"><a href="?sort=prox" class="text-decoration-none text-muted">ZONE</a></th>
                                 <th title="คะแนนความแข็งแกร่งทางเทคนิค (0-100)"><a href="?sort=score" class="text-decoration-none text-muted">SCORE</a></th>
-                                <th title="Risk-Reward Ratio: อัตราส่วนกำไรเทียบความเสี่ยง"><a href="?sort=round_rr" class="text-decoration-none text-muted">RR</a></th>
-                                <th title="Relative Volume: ปริมาณซื้อขายปัจจุบันเทียบค่าเฉลี่ย 20 วัน (ตัวเลขสูง = มีแรงซื้อขายผิดปกติ)"><a href="?sort=rvol" class="text-decoration-none text-muted">RVOL</a></th>
+                                <th class="col-hide-sm" title="Risk-Reward Ratio: อัตราส่วนกำไรเทียบความเสี่ยง"><a href="?sort=round_rr" class="text-decoration-none text-muted">RR</a></th>
+                                <th class="col-hide-md" title="Relative Volume: ปริมาณซื้อขายปัจจุบันเทียบค่าเฉลี่ย 20 วัน (ตัวเลขสูง = มีแรงซื้อขายผิดปกติ)"><a href="?sort=rvol" class="text-decoration-none text-muted">RVOL</a></th>
                                 <th class="col-hide-md" title="ราคาล่าสุด (Real-time)"><a href="?sort=price" class="text-decoration-none text-muted">PRICE</a></th>
-                                <th class="col-hide-md" title="ช่วงราคาที่แนะนำให้เข้าซื้อ (Demand Zone)">ENTRY ZONE</th>
-                                <th title="Relative Strength Index (14 วัน)"><a href="?sort=rsi" class="text-decoration-none text-muted">RSI</a></th>
+                                <th class="col-hide-lg" title="ช่วงราคาที่แนะนำให้เข้าซื้อ (Demand Zone)">ENTRY ZONE</th>
+                                <th class="col-hide-sm" title="Relative Strength Index (14 วัน)"><a href="?sort=rsi" class="text-decoration-none text-muted">RSI</a></th>
                                 <th class="col-hide-lg" title="การเติบโตของกำไรต่อหุ้นรายไตรมาส"><a href="?sort=eps" class="text-decoration-none text-muted">EPS Q</a></th>
                                 <th class="col-hide-lg" title="การเติบโตของรายได้รายปี (Revenue Growth)"><a href="?sort=rev" class="text-decoration-none text-muted">REV %</a></th>
                                 <th class="col-hide-lg" title="ระยะห่างจากราคาสูงสุดในรอบ 1 ปี (Upside to 52W High)"><a href="?sort=gap" class="text-decoration-none text-muted">GAP %</a></th>
@@ -196,7 +196,7 @@
                                         </div>
                                     </div>
                                 </td>
-                                <td class="col-hide-md">
+                                <td class="col-hide-sm">
                                     {% if item.live_above_tp %}
                                         <span class="badge px-2 py-1" style="font-size:0.68rem;background:#dc2626;color:white;" title="ราคาเกิน Target แล้ว">AT TP</span>
                                     {% elif item.live_near_tp %}
@@ -230,14 +230,14 @@
                                         </span>
                                     </div>
                                 </td>
-                                <td>
+                                <td class="col-hide-sm">
                                     {% if item.risk_reward_ratio %}
                                     <span class="fw-bold {% if item.risk_reward_ratio >= 3 %}text-success{% elif item.risk_reward_ratio >= 2 %}text-primary{% else %}text-muted{% endif %}">
                                         1:{{ item.risk_reward_ratio|floatformat:1 }}
                                     </span>
                                     {% else %}-{% endif %}
                                 </td>
-                                <td>
+                                <td class="col-hide-md">
                                     <span class="fw-bold {% if item.rvol >= 1.5 %}text-danger{% elif item.rvol >= 1.0 %}text-primary{% else %}text-muted{% endif %}">
                                         {{ item.rvol|floatformat:1 }}x
                                     </span>
@@ -254,7 +254,7 @@
                                     <span class="fw-bold" style="font-size:0.8rem;">฿{{ item.price|floatformat:2 }}</span>
                                     {% endif %}
                                 </td>
-                                <td class="col-hide-md" {% if item.live_in_zone %}style="background: rgba(34, 197, 94, 0.05);"{% endif %}>
+                                <td class="col-hide-lg" {% if item.live_in_zone %}style="background: rgba(34, 197, 94, 0.05);"{% endif %}>
                                     {% if item.demand_zone_start %}
                                     <div class="d-flex flex-column" style="font-size: 0.7rem;">
                                         <span class="fw-bold text-success">{{ item.demand_zone_start|floatformat:2 }}</span>
@@ -262,7 +262,7 @@
                                     </div>
                                     {% else %}-{% endif %}
                                 </td>
-                                <td>
+                                <td class="col-hide-sm">
                                     <span class="badge {% if item.rsi > 70 %}bg-danger{% elif item.rsi > 60 %}bg-success{% else %}bg-secondary{% endif %} bg-opacity-10
                                                  {% if item.rsi > 70 %}text-danger{% elif item.rsi > 60 %}text-success{% else %}text-secondary{% endif %} px-2" style="font-size:0.68rem;">
                                         {{ item.rsi|floatformat:1 }}

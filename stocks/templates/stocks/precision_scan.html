@@ -24,6 +24,18 @@
     </div>
 </div>
 
+<style>
+    .launcher-rocket { font-size: 1.2rem; transition: transform 0.3s ease; }
+    .launcher-rocket.fire { 
+        animation: launcher-fire 1.5s infinite alternate;
+        filter: drop-shadow(0 0 5px #ef4444);
+    }
+    @keyframes launcher-fire {
+        from { transform: translateY(0) scale(1); filter: drop-shadow(0 0 2px #f59e0b); }
+        to { transform: translateY(-3px) scale(1.2); filter: drop-shadow(0 0 8px #ef4444); }
+    }
+</style>
+
 <div>
 <div class="row align-items-end mb-4">
     <div class="col-md-7">
@@ -128,6 +140,10 @@
                                 <div class="d-flex align-items-start gap-2 p-2 rounded-3" style="background:#f8fafc;">
                                     <span class="badge rounded-pill flex-shrink-0" style="background:#0f766e;min-width:52px;">8 pts</span>
                                     <div><strong>Stage 2 (Weinstein):</strong> ราคา > SMA150 และ SMA150 กำลังขึ้น</div>
+                                </div>
+                                <div class="d-flex align-items-start gap-2 p-2 rounded-3" style="background:#fef2f2; border:1px solid #fee2e2;">
+                                    <span class="badge rounded-pill flex-shrink-0" style="background:#7c3aed;min-width:52px;">v10 🔥</span>
+                                    <div><strong>Explosive Launcher:</strong> ราคาบีบตัว (Tightness) + Volume แห้ง (VDU) + จ่อ Turtle DC20</div>
                                 </div>
                                 <div class="d-flex align-items-start gap-2 p-2 rounded-3" style="background:#f8fafc;">
                                     <span class="badge rounded-pill flex-shrink-0" style="background:#475569;min-width:52px;">+ อื่นๆ</span>
@@ -771,6 +787,11 @@
                     <input class="form-check-input" type="checkbox" id="ichiFilterSET" onchange="_applyFiltersSET()" style="cursor:pointer;">
                     <label class="form-check-label small fw-semibold" for="ichiFilterSET" style="cursor:pointer;color:#059669;">☁ Ichi ≥ 3</label>
                 </div>
+                <!-- Launcher Filter -->
+                <div class="form-check form-switch mb-0 d-flex align-items-center gap-2">
+                    <input class="form-check-input" type="checkbox" id="launcherFilterSET" onchange="_applyFiltersSET()" style="cursor:pointer;">
+                    <label class="form-check-label small fw-semibold" for="launcherFilterSET" style="cursor:pointer;color:#7c3aed;">🚀 Launcher Only</label>
+                </div>
                 <!-- VCP Filter -->
                 <div class="form-check form-switch mb-0 d-flex align-items-center gap-2">
                     <input class="form-check-input" type="checkbox" id="vcpFilterSET" onchange="_applyFiltersSET()" style="cursor:pointer;">
@@ -788,8 +809,8 @@
             </div>
         </div>
         <div class="card-body p-0">
-            <div class="table-responsive">
-                <table class="table table-sm table-hover align-middle mb-0" id="scanTableSET" style="font-size:0.72rem;">
+            <div class="table-responsive table-sticky-action">
+                <table class="table table-hover align-middle mb-0 table-sm-compact" id="scanTableSET" style="font-size:0.75rem;">
                     <thead class="bg-light text-muted" style="font-size:0.65rem;">
                         <tr>
                             <th class="ps-2"><a href="?sort=symbol&run_idx={{ selected_run_idx }}" class="text-decoration-none text-muted">SYMBOL</a></th>
@@ -798,13 +819,14 @@
                             <th><a href="?sort=buy&run_idx={{ selected_run_idx }}" class="text-decoration-none {% if current_sort == 'buy' %}fw-bold{% else %}text-muted{% endif %}" style="{% if current_sort == 'buy' %}color:#16a34a;{% endif %}">BUY</a></th>
                             <th class="col-hide-md"><a href="?sort=sell&run_idx={{ selected_run_idx }}" class="text-decoration-none {% if current_sort == 'sell' %}fw-bold{% else %}text-muted{% endif %}" style="{% if current_sort == 'sell' %}color:#dc2626;{% endif %}">SELL</a></th>
                             <th><a href="?sort=rs&run_idx={{ selected_run_idx }}" class="text-decoration-none {% if current_sort == 'rs' %}fw-bold{% else %}text-muted{% endif %}" style="{% if current_sort == 'rs' %}color:#0891b2;{% endif %}" title="RS Rating">RS</a></th>
+                            <th><a href="?sort=launcher&run_idx={{ selected_run_idx }}" class="text-decoration-none {% if current_sort == 'launcher' %}fw-bold{% else %}text-muted{% endif %}" style="{% if current_sort == 'launcher' %}color:#7c3aed;{% endif %}" title="Launcher Score (Tightness + Proximity)">LAUNCHER 🚀</a></th>
                             <th><a href="?sort=round_rr&run_idx={{ selected_run_idx }}" class="text-decoration-none text-muted">RR</a></th>
-                            <th><a href="?sort=rvol&run_idx={{ selected_run_idx }}" class="text-decoration-none text-muted">RVOL</a></th>
+                            <th class="col-hide-sm"><a href="?sort=rvol&run_idx={{ selected_run_idx }}" class="text-decoration-none text-muted">RVOL</a></th>
                             <th class="col-hide-md"><a href="?sort=adx&run_idx={{ selected_run_idx }}" class="text-decoration-none text-muted">ADX</a></th>
                             <th class="col-hide-lg">VOL</th>
                             <th class="col-hide-md"><a href="?sort=price&run_idx={{ selected_run_idx }}" class="text-decoration-none text-muted">PRICE</a></th>
-                            <th class="col-hide-md">ENTRY</th>
-                            <th><a href="?sort=rsi&run_idx={{ selected_run_idx }}" class="text-decoration-none text-muted">RSI</a></th>
+                            <th class="col-hide-lg">ENTRY</th>
+                            <th class="col-hide-sm"><a href="?sort=rsi&run_idx={{ selected_run_idx }}" class="text-decoration-none text-muted">RSI</a></th>
                             <th class="col-hide-lg">ERC</th>
                             <th class="col-hide-md">
                                 SIGNAL
@@ -827,7 +849,7 @@
                             <th class="col-hide-md">REL MOM</th>
                             <th class="col-hide-lg">SEC</th>
                             <th class="col-hide-lg">MCAP</th>
-                            <th class="text-center" style="min-width:150px;">RECOMMENDATION</th>
+                            <th class="text-center col-hide-sm" style="min-width:140px;">REC</th>
                             <th class="text-end pe-2">ACTION</th>
                         </tr>
                     </thead>
@@ -847,7 +869,10 @@
     data-vol-surge="{{ item.volume_surge|default:0 }}"
     data-pattern="{{ item.price_pattern|default:'' }}"
     data-pattern-score="{{ item.price_pattern_score|default:0 }}"
-    data-ema-aligned="{{ item.ema20_aligned|yesno:'1,0' }}"
+    data-vcp-vdu="{{ item.vcp_vdu|yesno:'true,false' }}"
+    data-launcher="{{ item.launcher_score|default:0 }}"
+    data-turtle-dist="{{ item.turtle_dist_pct|default:99 }}"
+    style="{% if item.is_explosive %}background:rgba(124,58,237,0.03);{% endif %}"
     data-cmf="{{ item.cmf|default:0 }}"
     data-rs="{{ item.rs_rating|default:0 }}"
     data-score="{{ item.technical_score|default:0 }}"
@@ -991,6 +1016,32 @@
                                 {% else %}
                                     <span class="text-muted">—</span>
                                 {% endif %}
+                            </td>
+
+                            <!-- LAUNCHER v10 -->
+                            <td class="text-center">
+                                <div class="d-flex flex-column align-items-center">
+                                    {% if item.launcher_score >= 85 %}
+                                        <div class="launcher-rocket fire" title="Explosive Setup! 🔥🚀">🚀</div>
+                                    {% elif item.launcher_score >= 70 %}
+                                        <div class="launcher-rocket" title="Launcher Ready! 🚀">🚀</div>
+                                    {% elif item.launcher_score >= 45 %}
+                                        <div class="text-muted" title="Tightening... ⏳" style="font-size:0.9rem;">⏳</div>
+                                    {% else %}
+                                        <span class="text-muted opacity-25" style="font-size:0.6rem;">—</span>
+                                    {% endif %}
+                                    
+                                    <div class="fw-bold" style="font-size:0.72rem; color:{% if item.launcher_score >= 70 %}#7c3aed{% elif item.launcher_score >= 45 %}#4f46e5{% else %}#94a3b8{% endif %};">
+                                        {{ item.launcher_score }}
+                                    </div>
+                                    
+                                    {% if item.launcher_score >= 40 %}
+                                    <div class="fw-bold {% if item.turtle_dist_pct <= 2 %}text-danger{% else %}text-muted{% endif %}" 
+                                         style="font-size:0.6rem; margin-top:-1px;" title="Distance to Turtle DC20 Breakout">
+                                        🎯 {{ item.turtle_dist_pct|floatformat:1 }}%
+                                    </div>
+                                    {% endif %}
+                                </div>
                             </td>
 
                             <!-- RR -->
@@ -1963,6 +2014,7 @@ function _applyFiltersSET() {
     var volSurgeOn = document.getElementById('volSurgeFilterSET') && document.getElementById('volSurgeFilterSET').checked;
     var ichiOn     = document.getElementById('ichiFilterSET')    && document.getElementById('ichiFilterSET').checked;
     var vcpOn      = document.getElementById('vcpFilterSET')     && document.getElementById('vcpFilterSET').checked;
+    var launcherOn = document.getElementById('launcherFilterSET') && document.getElementById('launcherFilterSET').checked;
     var secEl  = document.getElementById('sectorFilterSET');
     var secVal = secEl ? secEl.value : '';
     var visible = 0;
@@ -1975,6 +2027,7 @@ function _applyFiltersSET() {
         var vsrg = row.dataset.volsurge  === 'true';
         var ichi = parseInt(row.dataset.ichi || '0');
         var vcp  = row.dataset.vcp       === 'true';
+        var launcher = parseInt(row.dataset.launcher || '0');
         var sec  = row.dataset.sector    || '';
 
         var rsiOn     = document.getElementById('rsiFilter70SET') && document.getElementById('rsiFilter70SET').checked;
@@ -1987,6 +2040,7 @@ function _applyFiltersSET() {
                    (!hideCMFOn || !cmfd) && 
                    (!volSurgeOn || vsrg) && 
                    (!vcpOn || vcp) &&
+                   (!launcherOn || launcher >= 70) &&
                    (!ichiOn || ichi >= 3);
         row.style.display = show ? '' : 'none';
         if (show) visible++;

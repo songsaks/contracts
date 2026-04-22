@@ -74,15 +74,60 @@ class RobotBridge:
     def _trade_via_meta_api(self, symbol, side, volume, price, sl, tp):
         """
         ส่งคำสั่งผ่าน MetaApi (MT4/MT5 Cloud API) 
-        เหมาะที่สุดสำหรับรัน Django บน Linux Ubuntu
+        โดยใช้ REST API เพื่อความรวดเร็วและไม่ต้องติดตั้ง SDK ขนาดใหญ่บน Server
         """
-        # TODO: ติดตั้ง 'metaapi-cloud-sdk' และส่งคำสั่งจริงที่นี่
-        # นี่คือ Placeholder สำหรับจำลองการส่งค่าคืนจาก API
-        return {
-            'order_id': f'MT5-{timezone.now().timestamp()}',
-            'status': 'OPEN',
-            'actual_price': price
+        token = self.account.api_key      # MetaApi Personal Access Token
+        account_id = self.account.account_id # MetaApi Account ID (UUID)
+        
+        if not token or not account_id:
+            raise ValueError("MetaApi Token or Account ID is missing in TradingAccount configuration.")
+
+        # 1. จัดเตรียมข้อมูล Order
+        # สำหรับ MetaApi REST: https://metaapi.cloud/docs/client/restApi/trading/trade/
+        # URL: https://mt-client-api-v1.new-york.agiliumtrade.ai/users/current/accounts/:accountId/trade
+        
+        region = "new-york" # หรือเปลี่ยนตาม Account Region
+        url = f"https://mt-client-api-v1.{region}.agiliumtrade.ai/users/current/accounts/{account_id}/trade"
+        
+        headers = {
+            "auth-token": token,
+            "Content-Type": "application/json"
         }
+        
+        # แปลง Side เป็น MetaApi format
+        # MetaApi types: ORDER_TYPE_BUY, ORDER_TYPE_SELL
+        order_type = "ORDER_TYPE_BUY" if side.upper() == "BUY" else "ORDER_TYPE_SELL"
+        
+        payload = {
+            "symbol": symbol.replace("GC=F", "XAUUSD"), # แมปชื่อ Symbol ให้เข้ากับ Broker
+            "actionType": "ORDER_TYPE_BUY" if side.upper() == "BUY" else "ORDER_TYPE_SELL",
+            "volume": float(volume),
+        }
+        
+        # เพิ่ม SL/TP ถ้ามี
+        if sl: payload["stopLoss"] = float(sl)
+        if tp: payload["takeProfit"] = float(tp)
+
+        try:
+            logger.info(f"MetaApi Request: {url} | Payload: {payload}")
+            response = requests.post(url, headers=headers, json=payload, timeout=15)
+            res_data = response.json()
+            
+            if response.status_code == 200:
+                logger.info(f"MetaApi Success: {res_data}")
+                return {
+                    'order_id': res_data.get('orderId') or f"MT5-{timezone.now().timestamp()}",
+                    'status': 'OPEN',
+                    'actual_price': res_data.get('price') or price
+                }
+            else:
+                error_msg = res_data.get('message', 'Unknown Error')
+                logger.error(f"MetaApi Error ({response.status_code}): {error_msg}")
+                raise Exception(f"MetaApi Error: {error_msg}")
+
+        except Exception as e:
+            logger.error(f"MetaApi Connection Error: {str(e)}")
+            raise e
 
     def _trade_via_oanda(self, symbol, side, volume, price, sl, tp):
         """

@@ -378,6 +378,12 @@ class PrecisionScanCandidate(models.Model):
     vcp_tightness       = models.FloatField(default=0.0)          # ความลึกของการบีบตัวล่าสุด (%)
     vcp_vdu             = models.BooleanField(default=False)      # Volume Dry-Up ยืนยันในลูกสุดท้ายหรือไม่
 
+    # ====== Explosive Launcher (v10) ======
+    launcher_score      = models.IntegerField(default=0)          # คะแนนความอั้น (0-100)
+    turtle_dist_pct     = models.FloatField(default=99.0)         # % ระยะห่างจากจุดเบรค Turtle (DC20)
+    is_explosive        = models.BooleanField(default=False)      # เป็นหุ้นที่พร้อมระเบิดหรือไม่ (score > 70)
+    tightness_idx       = models.FloatField(default=99.0)         # ดัชนีความบีบตัวของราคา (ต่ำยิ่งดี)
+
     class Meta:
         ordering = ['-scan_run', '-technical_score']
 

@@ -600,23 +600,23 @@
             </div>
         </div>
         <div class="card-body p-0">
-            <div class="table-responsive">
-                <table class="table table-sm table-hover align-middle mb-0" id="scanTableUS" style="font-size:0.72rem;">
+            <div class="table-responsive table-sticky-action">
+                <table class="table table-hover align-middle mb-0 table-sm-compact" id="scanTableUS" style="font-size:0.75rem;">
                     <thead class="bg-light text-muted" style="font-size:0.65rem;">
                         <tr>
                             <th class="ps-2"><a href="?sort=symbol&run_idx={{ selected_run_idx }}" class="text-decoration-none text-muted">SYMBOL</a></th>
-                            <th><a href="?sort=prox&run_idx={{ selected_run_idx }}" class="text-decoration-none text-muted">ZONE</a></th>
+                            <th class="col-hide-sm"><a href="?sort=prox&run_idx={{ selected_run_idx }}" class="text-decoration-none text-muted">ZONE</a></th>
                             <th class="col-hide-md"><a href="?sort=score&run_idx={{ selected_run_idx }}" class="text-decoration-none text-muted">SCORE</a></th>
                             <th><a href="?sort=buy&run_idx={{ selected_run_idx }}" class="text-decoration-none {% if current_sort == 'buy' %}fw-bold{% else %}text-muted{% endif %}" style="{% if current_sort == 'buy' %}color:#16a34a;{% endif %}">BUY</a></th>
                             <th class="col-hide-md"><a href="?sort=sell&run_idx={{ selected_run_idx }}" class="text-decoration-none {% if current_sort == 'sell' %}fw-bold{% else %}text-muted{% endif %}" style="{% if current_sort == 'sell' %}color:#dc2626;{% endif %}">SELL</a></th>
-                            <th><a href="?sort=rs&run_idx={{ selected_run_idx }}" class="text-decoration-none {% if current_sort == 'rs' %}fw-bold{% else %}text-muted{% endif %}" style="{% if current_sort == 'rs' %}color:#0891b2;{% endif %}" title="RS Rating">RS</a></th>
+                            <th class="col-hide-sm"><a href="?sort=rs&run_idx={{ selected_run_idx }}" class="text-decoration-none {% if current_sort == 'rs' %}fw-bold{% else %}text-muted{% endif %}" style="{% if current_sort == 'rs' %}color:#0891b2;{% endif %}" title="RS Rating">RS</a></th>
                             <th><a href="?sort=round_rr&run_idx={{ selected_run_idx }}" class="text-decoration-none text-muted">RR</a></th>
-                            <th><a href="?sort=rvol&run_idx={{ selected_run_idx }}" class="text-decoration-none text-muted">RVOL</a></th>
+                            <th class="col-hide-md"><a href="?sort=rvol&run_idx={{ selected_run_idx }}" class="text-decoration-none text-muted">RVOL</a></th>
                             <th class="col-hide-md"><a href="?sort=adx&run_idx={{ selected_run_idx }}" class="text-decoration-none text-muted">ADX</a></th>
                             <th class="col-hide-lg">VOL</th>
                             <th class="col-hide-md"><a href="?sort=price&run_idx={{ selected_run_idx }}" class="text-decoration-none text-muted">PRICE</a></th>
-                            <th class="col-hide-md">ENTRY</th>
-                            <th><a href="?sort=rsi&run_idx={{ selected_run_idx }}" class="text-decoration-none text-muted">RSI</a></th>
+                            <th class="col-hide-lg">ENTRY</th>
+                            <th class="col-hide-sm"><a href="?sort=rsi&run_idx={{ selected_run_idx }}" class="text-decoration-none text-muted">RSI</a></th>
                             <th class="col-hide-lg">ERC</th>
                             <th class="col-hide-md">
                                 SIGNAL
@@ -624,18 +624,8 @@
                                       style="cursor:pointer;display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;background:#fef2f2;color:#dc2626;border-radius:50%;font-size:0.55rem;font-weight:700;margin-left:2px;vertical-align:middle;"
                                       title="คู่มือ Signals">?</span>
                             </th>
-                            <th class="col-hide-md text-center">
-                                ICHI
-                                <span onclick="document.getElementById('ichiModal').style.display='flex'"
-                                      style="cursor:pointer;display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;background:#e0f2fe;color:#0284c7;border-radius:50%;font-size:0.55rem;font-weight:700;margin-left:2px;vertical-align:middle;"
-                                      title="คู่มือ Ichimoku">?</span>
-                            </th>
-                            <th class="col-hide-lg">
-                                PATTERN
-                                <span onclick="document.getElementById('candlePatternModal').style.display='flex'"
-                                      style="cursor:pointer;display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;background:#fef3c7;color:#d97706;border-radius:50%;font-size:0.55rem;font-weight:700;margin-left:2px;vertical-align:middle;"
-                                      title="คู่มือแท่งเทียน">?</span>
-                            </th>
+                            <th class="col-hide-md text-center">ICHI</th>
+                            <th class="col-hide-lg">PATTERN</th>
                             <th class="col-hide-md">REL MOM</th>
                             <th class="col-hide-lg">SEC</th>
                             <th class="col-hide-lg">MCAP</th>
@@ -678,7 +668,7 @@
                             </td>
 
                             <!-- ZONE STATUS -->
-                            <td>
+                            <td class="col-hide-sm">
                                 {% if item.supply_zone_start and item.price >= item.supply_zone_start %}
                                     <span class="badge px-1 py-1" style="font-size:0.62rem;background:#dc2626;color:white;">TP</span>
                                 {% elif item.supply_zone_start and item.upside_to_high <= 5 %}
@@ -755,7 +745,7 @@
                             </td>
 
                             <!-- RS RATING -->
-                            <td class="text-center">
+                            <td class="text-center col-hide-sm">
                                 {% if item.rs_rating >= 85 %}
                                     <span class="badge" style="background:#dcfce7;color:#15803d;font-size:0.72rem;font-weight:700;">{{ item.rs_rating }}</span>
                                 {% elif item.rs_rating >= 70 %}
@@ -768,7 +758,7 @@
                             </td>
 
                             <!-- RR -->
-                            <td>
+                            <td class="col-hide-sm">
                                 {% if item.risk_reward_ratio %}
                                 <span class="fw-bold" style="color:{% if item.risk_reward_ratio >= 3 %}#16a34a{% elif item.risk_reward_ratio >= 2 %}#2563eb{% elif item.risk_reward_ratio >= 1.5 %}#92400e{% else %}#dc2626{% endif %};">
                                     1:{{ item.risk_reward_ratio|floatformat:1 }}{% if item.risk_reward_ratio < 1.5 %} ⚠{% endif %}
@@ -777,7 +767,7 @@
                             </td>
 
                             <!-- RVOL -->
-                            <td>
+                            <td class="col-hide-md">
                                 <span class="fw-bold {% if item.rvol >= 1.5 %}text-danger{% elif item.rvol >= 1.0 %}text-primary{% else %}text-muted{% endif %}">
                                     {{ item.rvol|floatformat:1 }}x
                                 </span>
@@ -833,7 +823,7 @@
                             </td>
 
                             <!-- RSI -->
-                            <td>
+                            <td class="col-hide-sm">
                                 <span class="fw-bold {% if item.rsi > 70 %}text-danger{% elif item.rsi > 55 %}text-success{% else %}text-secondary{% endif %}">
                                     {{ item.rsi|floatformat:0 }}
                                 </span>

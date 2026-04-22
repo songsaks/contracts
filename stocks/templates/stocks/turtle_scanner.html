@@ -26,33 +26,45 @@
     
     .badge-sys1 { background-color: #10b981; color: white; }
     .badge-sys2 { background-color: #3b82f6; color: white; }
+
+    /* Launcher v10 Styles */
+    .text-purple { color: #7c3aed !important; }
+    .bg-purple-subtle { background-color: rgba(124, 58, 237, 0.1); border: 1px solid rgba(124, 58, 237, 0.2); }
+    .launcher-tag { padding: 0.15rem 0.4rem; border-radius: 4px; font-size: 0.65rem; font-weight: 700; }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="container-fluid px-4 py-4">
     <!-- Header -->
-    <div class="turtle-header mb-4 d-flex justify-content-between align-items-center">
-        <div>
+    <div class="turtle-header mb-4 d-flex flex-wrap justify-content-between align-items-center gap-4">
+        <div class="flex-grow-1">
             <h2 class="fw-bold mb-1"><i class="fas fa-turtle me-2 text-success-light"></i> Turtle Mechanical Breakout</h2>
-            <p class="text-success-light mb-0 opacity-75">
-                System 1: Breakout 20-Day High (Exit 10-Day Low) <br>
+            <p class="text-success-light mb-0 opacity-75 d-none d-sm-block">
+                System 1: Breakout 20-Day High (Exit 10-Day Low) | 
                 System 2: Breakout 55-Day High (Exit 20-Day Low)
+            </p>
+            <p class="text-success-light mb-0 opacity-75 d-sm-none small">
+                S1: 20D High/10D Low | S2: 55D High/20D Low
             </p>
         </div>
         
-        <div class="d-flex align-items-center gap-3">
-            <div class="form-check form-switch text-white me-2">
+        <div class="d-flex flex-wrap align-items-center gap-2 gap-md-3">
+            <div class="form-check form-switch text-white">
                 <input class="form-check-input" type="checkbox" role="switch" id="filterQualityToggle" onclick="toggleQualityFilter()">
-                <label class="form-check-label fw-bold" for="filterQualityToggle">🟢 Precision > 75</label>
+                <label class="form-check-label fw-bold small" for="filterQualityToggle">🟢 Precision>75</label>
             </div>
-            <select id="marketSelect" class="form-select bg-white bg-opacity-25 text-white border-0 fw-bold fw-lg" style="width: auto;">
-                <option value="SET" {% if selected_market == 'SET' %}selected{% endif %} class="text-dark">🇹🇭 SET Index</option>
-                <option value="US" {% if selected_market == 'US' %}selected{% endif %} class="text-dark">🇺🇸 US Market</option>
+            <div class="form-check form-switch text-white">
+                <input class="form-check-input" type="checkbox" role="switch" id="filterLauncherToggle" onclick="toggleLauncherFilter()">
+                <label class="form-check-label fw-bold small" for="filterLauncherToggle">🚀 Launcher>70</label>
+            </div>
+            <select id="marketSelect" class="form-select bg-white bg-opacity-25 text-white border-0 fw-bold rounded-pill px-3" style="width: auto;">
+                <option value="SET" {% if selected_market == 'SET' %}selected{% endif %} class="text-dark">🇹🇭 SET</option>
+                <option value="US" {% if selected_market == 'US' %}selected{% endif %} class="text-dark">🇺🇸 US</option>
             </select>
             
-            <button id="runScanBtn" class="btn btn-warning fw-bold shadow-sm px-4">
-                <i class="fas fa-play me-2"></i> รันระบบ Turtle
+            <button id="runScanBtn" class="btn btn-warning fw-bold shadow-sm px-3 px-md-4 rounded-pill">
+                <i class="fas fa-play me-2"></i> สแกน
             </button>
         </div>
     </div>
@@ -71,38 +83,40 @@
     <div class="card-premium">
         <div class="card-body p-0">
             {% if candidates %}
-            <div class="px-4 py-3 border-bottom d-flex justify-content-between align-items-center bg-light flex-wrap gap-3">
-                <div>
-                    <span class="text-muted"><i class="far fa-clock me-1"></i> อัปเดตล่าสุด: {{ last_updated|date:"d M Y H:i" }}</span>
-                    <span class="badge bg-success rounded-pill px-3 py-2 ms-2">{{ candidates|length }} หุ้นจุดพลุ</span>
+            <div class="px-3 px-md-4 py-3 border-bottom d-flex justify-content-between align-items-center bg-light flex-wrap gap-3">
+                <div class="d-flex align-items-center flex-wrap gap-2">
+                    <span class="text-muted small"><i class="far fa-clock me-1"></i> {{ last_updated|date:"H:i" }}</span>
+                    <span class="badge bg-success rounded-pill px-3 py-1">{{ candidates|length }} หุ้นจุดพลุ</span>
                 </div>
-                <div class="d-flex align-items-center gap-2 bg-white px-3 py-2 rounded-pill shadow-sm border">
-                    <span class="text-secondary fw-bold mb-0" style="font-size: 0.85rem;"><i class="fas fa-calculator text-primary me-1"></i> ความเสี่ยง 1% จากทุน:</span>
-                    <input type="number" id="totalCapitalInput" class="form-control form-control-sm text-end border-0 bg-light rounded-pill px-3 fw-bold text-dark" style="width: 140px; font-size: 0.9rem; box-shadow: inset 0 1px 3px rgba(0,0,0,0.1);" value="1000000">
-                    <span class="text-secondary fw-bold currency-label" style="font-size: 0.85rem;">{% if selected_market == 'US' %}ดอลลาร์ ($){% else %}บาท (฿){% endif %}</span>
-                    <button class="btn btn-sm btn-primary rounded-pill px-3 fw-bold shadow-sm" onclick="calculateTurtleUnits()">คำนวณไม้ (1 Unit)</button>
+                <div class="d-flex flex-wrap align-items-center gap-2 bg-white px-2 px-md-3 py-2 rounded-pill shadow-sm border">
+                    <span class="text-secondary fw-bold mb-0 d-none d-lg-inline" style="font-size: 0.82rem;"><i class="fas fa-calculator text-primary me-1"></i> ความเสี่ยง 1% จากทุน:</span>
+                    <input type="number" id="totalCapitalInput" class="form-control form-control-sm text-end border-0 bg-light rounded-pill px-3 fw-bold text-dark" style="width: 100px; font-size: 0.85rem;" value="1000000">
+                    <button class="btn btn-sm btn-primary rounded-pill px-3 fw-bold shadow-sm" onclick="calculateTurtleUnits()">คำนวณไม้</button>
+                    <button class="btn btn-sm btn-outline-purple rounded-pill px-2 fw-bold shadow-sm" onclick="sortLauncher()" title="เรียงลำดับ Launcher" style="border-color: #7c3aed; color: #7c3aed;">
+                        <i class="fas fa-sort-amount-down"></i>
+                    </button>
                 </div>
             </div>
             
-            <div class="table-responsive">
-                <table class="table table-hover table-turtle mb-0">
+            <div class="table-responsive table-sticky-action">
+                <table class="table table-hover table-turtle table-sm-compact mb-0">
                     <thead>
                         <tr>
-                            <th class="ps-4">Symbol</th>
-                            <th>Current Price</th>
-                            <th title="คะแนน Precision Momentum และค่า Relative Strength">Precision <i class="fas fa-edit text-xs opacity-50"></i></th>
-                            <th>20-Day Vol (Avg)</th>
-                            <th title="N (ATR 20) — ค่าความผันผวนเฉลี่ยเพื่อใช้คุมความเสี่ยง">ATR (Volatility)</th>
-                            <th title="+0.5N: ราคาเป้าหมายที่ควรซื้อเพิ่มเมื่อหุ้นพุ่งต่อ">Pyramiding (ไม้ต่อไป)</th>
-                            <th class="text-center" title="สัญญาณ: Just Broke = ทะลุใน 5 วันล่าสุด | Near Break = ภายใน 3% ของ high">สัญญาณ</th>
-                            <th title="S1: Breakout 20 วัน (สีเขียว) และจุดหนี 10 วัน (สีแดง)" class="text-center">System 1 (ระยะสั้น)</th>
-                            <th title="S2: Breakout 55 วัน (สีส้ม) และจุดหนี 20 วัน (สีแดง)" class="text-center">System 2 (ระยะยาว)</th>
-                            <th class="text-end pe-4">Action</th>
+                            <th class="ps-3 ps-md-4">Symbol</th>
+                            <th>Price</th>
+                            <th>Score</th>
+                            <th class="col-hide-lg">Vol (20D)</th>
+                            <th class="col-hide-sm">ATR (N)</th>
+                            <th class="col-hide-lg">Pyramiding</th>
+                            <th class="text-center">Signal</th>
+                            <th class="text-center col-hide-sm">System 1</th>
+                            <th class="text-center col-hide-md">System 2</th>
+                            <th class="text-end pe-3 pe-md-4">Action</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for c in candidates %}
-                        <tr class="turtle-row" data-prec-score="{{ c.precision_score|default:0 }}" data-price="{{ c.price|default:0 }}" data-atr="{{ c.atr_20d|default:0 }}">
+                        <tr class="turtle-row" data-prec-score="{{ c.precision_score|default:0 }}" data-launcher-score="{{ c.launcher_score|default:0 }}" data-price="{{ c.price|default:0 }}" data-atr="{{ c.atr_20d|default:0 }}">
                             <td class="ps-4">
                                 <a href="{% url 'stocks:stock_chart' c.symbol %}?market={{ c.market }}" target="_blank" class="fw-bold fs-5 text-dark text-decoration-none" title="View Chart">{{ c.symbol }} <i class="fas fa-chart-line fa-xs text-primary ms-1"></i></a>
                                 {% if c.market == 'US' %}
@@ -118,20 +132,27 @@
                             <td>
                                 {% if c.precision_score %}
                                     <span class="badge {% if c.precision_score >= 75 %}bg-success{% else %}bg-secondary{% endif %} bg-opacity-25 text-dark border"><i class="fas fa-star text-warning"></i> {{ c.precision_score }}</span>
+                                    {% if c.launcher_score %}
+                                        <div class="mt-1">
+                                            <span class="launcher-tag bg-purple-subtle text-purple" title="Launcher Score: Explosive Potential">
+                                                🚀 {{ c.launcher_score }}
+                                            </span>
+                                        </div>
+                                    {% endif %}
                                     {% if c.rs_rating %}<br><small class="text-muted fw-bold">RS: {{ c.rs_rating }}</small>{% endif %}
                                 {% else %}
                                     <span class="text-muted small">-</span>
                                 {% endif %}
                             </td>
-                            <td>{{ c.avg_vol_20d|floatformat:0 }}</td>
-                            <td>
+                            <td class="col-hide-md">{{ c.avg_vol_20d|floatformat:0 }}</td>
+                            <td class="col-hide-sm">
                                 <div class="fw-bold text-dark">{{ c.atr_20d|floatformat:2 }} <span class="text-muted small fw-normal">(N)</span></div>
                                 <div class="mt-1 position-calc-result d-none">
                                     <span class="badge bg-dark rounded-pill px-2 py-1 shadow-sm" style="font-size:0.65rem;">1 Unit: <span class="unit-shares text-warning fs-6">0</span> หุ้น</span><br>
                                     <small class="text-muted fst-italic" style="font-size:0.65rem;">(ใช้เงิน <span class="unit-cost fw-bold text-dark">0</span> {% if c.market == 'US' %}${% else %}฿{% endif %})</small>
                                 </div>
                             </td>
-                            <td>
+                            <td class="col-hide-lg">
                                 <div class="next-unit-result d-none">
                                     <div class="fw-bold text-primary" style="font-size:0.9rem;">+0.5N: <span class="next-price">0.00</span></div>
                                     <div class="mt-1">
@@ -165,10 +186,10 @@
                                 {% endif %}
                             </td>
                             <!-- System 1 -->
-                            <td class="text-center">
+                            <td class="text-center col-hide-sm">
                                 {% if c.sys1_breakout %}
                                     <span class="badge badge-sys1 py-1 px-2 fw-bold">20-D {% if c.sys1_days_ago == 0 %}Today{% else %}+{{ c.sys1_days_ago }}d{% endif %}</span>
-                                    <br><small class="text-muted">High: {{ c.high_20d|floatformat:2 }} | <span class="text-danger">Exit: {{ c.low_10d|floatformat:2 }}</span></small>
+                                    <br><small class="text-muted">H: {{ c.high_20d|floatformat:2 }} | <span class="text-danger">E: {{ c.low_10d|floatformat:2 }}</span></small>
                                 {% elif c.sys1_near %}
                                     <span class="badge bg-warning bg-opacity-25 text-warning-emphasis border border-warning border-opacity-50 py-1 px-2">Near {{ c.pct_to_20d|floatformat:1 }}%</span>
                                     <br><small class="text-muted">High: {{ c.high_20d|floatformat:2 }}</small>
@@ -177,10 +198,10 @@
                                 {% endif %}
                             </td>
                             <!-- System 2 -->
-                            <td class="text-center">
+                            <td class="text-center col-hide-md">
                                 {% if c.sys2_breakout %}
                                     <span class="badge badge-sys2 py-1 px-2 fw-bold">55-D {% if c.sys2_days_ago == 0 %}Today{% else %}+{{ c.sys2_days_ago }}d{% endif %}</span>
-                                    <br><small class="text-muted">High: {{ c.high_55d|floatformat:2 }} | <span class="text-danger">Exit: {{ c.low_20d|floatformat:2 }}</span></small>
+                                    <br><small class="text-muted">H: {{ c.high_55d|floatformat:2 }} | <span class="text-danger">E: {{ c.low_20d|floatformat:2 }}</span></small>
                                 {% elif c.sys2_near %}
                                     <span class="badge bg-warning bg-opacity-25 text-warning-emphasis border border-warning border-opacity-50 py-1 px-2">Near {{ c.pct_to_55d|floatformat:1 }}%</span>
                                     <br><small class="text-muted">High: {{ c.high_55d|floatformat:2 }}</small>
@@ -282,19 +303,44 @@
     }
     function toggleQualityFilter() {
         const isChecked = document.getElementById('filterQualityToggle').checked;
+        if (isChecked) document.getElementById('filterLauncherToggle').checked = false; // Reset other filter
+        applyFilters();
+    }
+
+    function toggleLauncherFilter() {
+        const isChecked = document.getElementById('filterLauncherToggle').checked;
+        if (isChecked) document.getElementById('filterQualityToggle').checked = false; // Reset other filter
+        applyFilters();
+    }
+
+    function applyFilters() {
+        const showQuality = document.getElementById('filterQualityToggle').checked;
+        const showLauncher = document.getElementById('filterLauncherToggle').checked;
         const rows = document.querySelectorAll('.turtle-row');
+        
         rows.forEach(row => {
-            const score = parseInt(row.getAttribute('data-prec-score')) || 0;
-            if (isChecked) {
-                if (score >= 75) {
-                    row.style.display = '';
-                } else {
-                    row.style.display = 'none';
-                }
-            } else {
-                row.style.display = '';
-            }
+            const prec = parseInt(row.getAttribute('data-prec-score')) || 0;
+            const launcher = parseInt(row.getAttribute('data-launcher-score')) || 0;
+            
+            let visible = true;
+            if (showQuality && prec < 75) visible = false;
+            if (showLauncher && launcher < 70) visible = false;
+            
+            row.style.display = visible ? '' : 'none';
         });
+    }
+
+    function sortLauncher() {
+        const tbody = document.querySelector('table.table-turtle tbody');
+        const rows = Array.from(tbody.querySelectorAll('tr.turtle-row'));
+        
+        rows.sort((a, b) => {
+            const valA = parseInt(a.getAttribute('data-launcher-score')) || 0;
+            const valB = parseInt(b.getAttribute('data-launcher-score')) || 0;
+            return valB - valA; // Descending
+        });
+        
+        rows.forEach(row => tbody.appendChild(row));
     }
 
     function calculateTurtleUnits() {

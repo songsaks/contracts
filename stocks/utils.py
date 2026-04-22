@@ -1502,6 +1502,28 @@ def analyze_momentum_technical_v2(df):
         has_hl = len(swing_lows)  >= 2 and swing_lows[-1]  > swing_lows[-2]
         hh_hl = has_hh and has_hl
 
+    # ====== 8. Explosive Launcher Logic (Pre-Breakout) ======
+    launcher_score = 0
+    # A. Price Tightness (5-day standard deviation / Close)
+    # ถ้า SD ต่ำ แปลว่าบีบตัวแคบมาก
+    std_5 = float(df['Close'].tail(5).std())
+    tightness = (std_5 / current_price * 100) if current_price > 0 else 99
+    if tightness < 1.0:    launcher_score += 40  # แคบมาก (Ultra Tight)
+    elif tightness < 2.0:  launcher_score += 25  # เริ่มบีบตัว
+    
+    # B. Turtle Proximity (Distance to 20-day High)
+    high_20 = float(df['High'].tail(20).max())
+    turtle_dist = ((high_20 - current_price) / current_price * 100) if current_price > 0 else 99
+    if turtle_dist < 1.0:   launcher_score += 30  # จ่อเบรค (Ready to Shoot)
+    elif turtle_dist < 3.0: launcher_score += 15
+    
+    # C. Volume Dry-Up (VDU) - แรงขายหมดหรือยัง?
+    vol_3d_avg = float(df['Volume'].tail(3).mean())
+    if vol_3d_avg < avg_vol * 0.6:  # Volume 3 วันที่ผ่านมาเฉลี่ยต่ำกว่า 60% ของค่าเฉลี่ย
+        launcher_score += 30
+    elif vol_3d_avg < avg_vol * 0.8:
+        launcher_score += 15
+
     return {
         'score': min(score, 110),
         'rvol': round(rvol, 2),
@@ -1522,6 +1544,11 @@ def analyze_momentum_technical_v2(df):
         'is_52w_breakout': is_52w_breakout,
         'volume_surge': round(rvol, 2),
         'is_volume_surge': rvol >= 1.5,
+        # Launcher Data
+        'launcher_score': launcher_score,
+        'turtle_dist_pct': round(turtle_dist, 2),
+        'is_explosive': launcher_score >= 70,
+        'tightness_idx': round(tightness, 2),
     }
 
 

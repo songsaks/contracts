@@ -326,14 +326,26 @@
     /* ── Responsive card fixes ─────────────────────── */
     @media (max-width: 575px) {
         /* ลด padding ใน card บนมือถือ */
-        .card-premium .p-4 { padding: 0.875rem !important; }
+        .card-premium .p-4 { padding: 1rem !important; }
         /* ป้องกัน symbol + price ล้น */
-        .card-item-header { gap: 0.5rem !important; }
-        .card-item-header .h4 { font-size: 0.95rem !important; }
-        .card-item-price   { font-size: 0.95rem !important; }
-        /* metrics grid: ลด font */
-        .metrics-grid .text-muted { font-size: 0.6rem !important; }
-        .metrics-grid .fw-bold    { font-size: 0.72rem !important; }
+        .card-item-header { gap: 0.5rem !important; margin-bottom: 1.25rem !important; }
+        .card-item-header .h4 { font-size: 1.1rem !important; }
+        .card-item-header .text-muted { font-size: 0.78rem !important; }
+        .card-item-price   { font-size: 1.1rem !important; }
+        /* metrics grid: ลด font และ padding */
+        .metrics-grid { padding: 0.75rem !important; margin-bottom: 1rem !important; }
+        .metrics-grid .text-muted { font-size: 0.58rem !important; letter-spacing: 0.2px !important; }
+        .metrics-grid .fw-bold    { font-size: 0.78rem !important; }
+        .metrics-grid .fs-6       { font-size: 0.78rem !important; }
+        /* SL/TP boxes */
+        .card-premium .d-flex.gap-2.mb-4 { margin-bottom: 1rem !important; gap: 0.5rem !important; }
+        .card-premium .p-3.rounded-4.text-center { padding: 0.75rem 0.5rem !important; }
+        .card-premium .p-3.rounded-4.text-center .fw-bold { font-size: 0.88rem !important; }
+        /* signal info */
+        .card-premium .px-4.pb-3 { padding-left: 1rem !important; padding-right: 1rem !important; }
+        /* footer buttons */
+        .card-premium .p-4.mt-auto { padding: 1rem !important; }
+        .card-premium .btn-sm { padding: 0.4rem 0.75rem !important; font-size: 0.72rem !important; }
     }
     .btn-premium-danger {
         background: linear-gradient(135deg, #ff4d4d 0%, #cc0000 100%);

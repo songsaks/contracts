@@ -13,41 +13,41 @@
 
     <!-- Symbol Header -->
     <div class="col-12 mb-4">
-        <div class="card-premium p-4 border-0 mb-3">
+        <div class="card-premium p-3 p-md-4 border-0 mb-3">
             <div class="row align-items-center">
-                <div class="col-md-8">
-                    <div class="d-flex align-items-center gap-3 mb-2">
+                <div class="col-md-7">
+                    <div class="d-flex align-items-center flex-wrap gap-2 gap-md-3 mb-2">
                         <h1 class="fw-bold mb-0 text-dark">{{ symbol }}</h1>
                         {% if is_commodity %}
-                        <span class="badge bg-warning bg-opacity-15 text-warning px-3 rounded-pill" style="border:1px solid #fbbf24;">
-                            <i class="fas fa-coins me-1"></i> Commodity / Futures
+                        <span class="badge bg-warning bg-opacity-15 text-warning px-2 py-1 rounded-pill small" style="border:1px solid #fbbf24; font-size: 0.70rem;">
+                            <i class="fas fa-coins me-1"></i> Commodity
                         </span>
                         {% else %}
-                        <span class="badge bg-primary bg-opacity-10 text-primary px-3 rounded-pill">{{ info.industry|default:"Asset" }}</span>
+                        <span class="badge bg-primary bg-opacity-10 text-primary px-2 py-1 rounded-pill small" style="font-size: 0.70rem;">{{ info.industry|default:"Asset" }}</span>
                         {% endif %}
                         {% if current_rsi %}
-                        <span class="badge {% if rsi_status == 'Oversold' %}bg-danger{% elif rsi_status == 'Overbought' %}bg-warning{% else %}bg-secondary{% endif %} bg-opacity-10 {% if rsi_status == 'Oversold' %}text-danger{% elif rsi_status == 'Overbought' %}text-warning text-dark{% else %}text-secondary{% endif %} px-3 rounded-pill">
-                            RSI: {{ current_rsi|stringformat:".2f" }} ({{ rsi_status }})
+                        <span class="badge {% if rsi_status == 'Oversold' %}bg-danger{% elif rsi_status == 'Overbought' %}bg-warning{% else %}bg-secondary{% endif %} bg-opacity-10 {% if rsi_status == 'Oversold' %}text-danger{% elif rsi_status == 'Overbought' %}text-warning text-dark{% else %}text-secondary{% endif %} px-2 py-1 rounded-pill small" style="font-size: 0.70rem;">
+                            RSI: {{ current_rsi|floatformat:1 }}
                         </span>
                         {% endif %}
                     </div>
-                    <h5 class="text-muted mb-0">{{ info.longName|default:symbol }}</h5>
+                    <h5 class="text-muted mb-0 small-mobile">{{ info.longName|default:symbol }}</h5>
                 </div>
-                <div class="col-md-4 text-md-end mt-3 mt-md-0">
+                <div class="col-md-5 text-md-end mt-3 mt-md-0">
                     <div class="h2 fw-bold mb-0">{{ info.currentPrice|default:info.regularMarketPrice }} <small class="h6 text-muted">{{ info.currency }}</small></div>
-                    <div class="d-flex justify-content-md-end gap-2 mt-2">
+                    <div class="d-flex justify-content-md-end flex-wrap gap-2 mt-2">
                         {% if info.auditRisk %}
-                        <span class="badge bg-dark bg-opacity-10 text-dark border border-dark border-opacity-25 px-2 py-1" style="font-size: 0.7rem;" title="Audit Risk (1-10, lower is better)">
+                        <span class="badge bg-dark bg-opacity-10 text-dark border border-dark border-opacity-25 px-2 py-1" style="font-size: 0.65rem;">
                             Audit Risk: {{ info.auditRisk }}
                         </span>
                         {% endif %}
                         {% if info.boardRisk %}
-                        <span class="badge bg-dark bg-opacity-10 text-dark border border-dark border-opacity-25 px-2 py-1" style="font-size: 0.7rem;" title="Board Risk (1-10, lower is better)">
+                        <span class="badge bg-dark bg-opacity-10 text-dark border border-dark border-opacity-25 px-2 py-1" style="font-size: 0.65rem;">
                             Board Risk: {{ info.boardRisk }}
                         </span>
                         {% endif %}
+                        <div class="text-muted w-100 small mt-1">Market Cap: {{ info.marketCap|default:"N/A" }}</div>
                     </div>
-                    <small class="text-muted d-block mt-1">Market Cap: {{ info.marketCap|default:"N/A" }}</small>
                 </div>
             </div>
         </div>
@@ -245,9 +245,9 @@
 
     <!-- Price Chart -->
     <div class="col-12 mb-4">
-        <div class="card-premium p-4">
+        <div class="card-premium p-3 p-md-4">
             <h5 class="fw-bold mb-3"><i class="fas fa-chart-area me-2 text-info"></i> Historical Price (90 Days)</h5>
-            <div style="height: 350px; width: 100%;">
+            <div class="chart-responsive" style="height: 350px; width: 100%;">
                 <canvas id="priceChart"></canvas>
             </div>
         </div>
