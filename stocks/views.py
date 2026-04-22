@@ -5,6 +5,8 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_POST
+from django.views.decorators.csrf import csrf_exempt
+from django.http import JsonResponse
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth import login
 from django.contrib import messages
@@ -9137,7 +9139,7 @@ def execute_gold_trade_ajax(request):
     รับคำสั่งจากปุ่มเทรดในหน้า Gold Command Center
     """
     if request.method != 'POST':
-        return _JR({'error': 'Post required'}, status=400)
+        return JsonResponse({'error': 'Post required'}, status=400)
     
     import json
     from .trading_bridge import RobotBridge
@@ -9164,14 +9166,14 @@ def execute_gold_trade_ajax(request):
             strategy=strategy
         )
 
-        return _JR({
+        return JsonResponse({
             'success': True,
             'order_id': order.order_id,
             'message': f'ส่งคำสั่ง {side} เรียบร้อยแล้ว (ID: {order.order_id})'
         })
 
     except Exception as e:
-        return _JR({'success': False, 'error': str(e)}, status=500)
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
 
 @login_required
 def refresh_market_caps_view(request):
