@@ -9244,7 +9244,7 @@ def gold_trading(request):
     """
     Gold Trading & Robot Command Center (XAU/USD).
     """
-    symbol = "GC=F"
+    symbol = "XAUUSD=X"
     return render(request, 'stocks/gold_trading.html', {
         'symbol': symbol,
         'title': 'Gold Robot Command Center',
