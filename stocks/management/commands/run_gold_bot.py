@@ -6,6 +6,8 @@ from stocks.trading_bridge import RobotBridge
 import yfinance as yf
 import pandas_ta as ta
 
+import pandas as pd
+
 class Command(BaseCommand):
     help = 'Runs the Gold Trading Robot (Server-Side) 24/7'
 
@@ -28,7 +30,7 @@ class Command(BaseCommand):
                     continue
                 
                 # Handle MultiIndex if present
-                if isinstance(df.columns, yf.pandas.MultiIndex):
+                if isinstance(df.columns, pd.MultiIndex):
                     df.columns = df.columns.get_level_values(0)
 
                 # 3. Compute Turtle Logic
