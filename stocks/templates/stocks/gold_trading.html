@@ -119,79 +119,58 @@
 
     <div class="row g-4">
         <!-- LEFT: Control & Performance -->
-        <div class="col-xl-3 col-lg-4">
-            
-            <!-- Real-time Price Card -->
-            <div class="trading-panel p-3 p-md-4 mb-3 mb-md-4">
-                <div class="d-flex justify-content-between align-items-center mb-2 mb-md-3">
-                    <span class="text-muted fw-bold small">PRICE FEED: GOLD</span>
-                    <span class="badge bg-danger rounded-pill" style="font-size: 0.6rem;">LIVE</span>
-                </div>
+        <!-- LEFT: Tactical Panels -->
+        <div class="col-xl-3 col-lg-4 mb-3">
+            <!-- Unified Intelligence Panel (Price + Signal) -->
+            <div class="trading-panel p-2 mb-2 border-bottom border-warning border-3 d-flex justify-content-between align-items-center">
                 <div class="d-flex align-items-baseline gap-2">
-                    <h1 class="gold-value display-5 display-md-4 mb-0" id="gold-price-display">----.--</h1>
-                    <span class="fs-5 text-muted">USD</span>
+                    <span id="gold-price-display" class="fw-black fs-4 text-dark">----.--</span>
+                    <small id="gold-change-display" class="text-success fw-bold" style="font-size: 0.7rem;">+0.00%</small>
                 </div>
-                <div id="gold-change-display" class="mt-1 fw-bold text-success" style="font-size: 1rem;">+0.00%</div>
+                <span id="tactical-signal" class="badge rounded-pill bg-secondary" style="font-size: 0.65rem;">NEUTRAL</span>
             </div>
 
-            <!-- Position Calculator -->
-            <div class="trading-panel p-4 mb-4 border-warning shadow-lg" style="border: 3px solid var(--gold-primary) !important;">
-                <h4 class="fw-black mb-4 pb-2 border-bottom border-secondary text-uppercase" style="color: var(--gold-primary); letter-spacing: 1px;">
-                    <i class="fas fa-flag me-2"></i> 1. START HERE
-                </h4>
-                <div class="row g-3">
-                    <div class="col-12">
-                        <label class="fs-5 text-dark mb-2 d-block fw-black text-uppercase">CAPITAL ($)</label>
-                        <input type="number" id="capital-input" class="form-control form-control-lg bg-light text-dark border-dark fw-black display-4 py-3" value="100" style="font-size: 3.5rem !important; height: auto !important;">
-                    </div>
-                    <div class="col-12 mt-4">
-                        <label class="fs-5 text-dark mb-2 d-block fw-black text-uppercase">RISK (%)</label>
-                        <input type="number" id="risk-pct" class="form-control form-control-lg bg-light text-dark border-dark fw-black display-4 py-3" value="1" style="font-size: 3.5rem !important; height: auto !important;">
-                    </div>
-                </div>
-                
-                <div class="mt-5 p-4 rounded-3 text-center" style="background: #fff7ed; border: 2px solid var(--gold-primary);">
-                    <small class="text-dark d-block fw-black mb-2 text-uppercase" style="font-size: 1.2rem; letter-spacing: 2px;">SUGGESTED SIZE</small>
-                    <span class="fw-black text-success display-3 d-block" id="tac-suggest-size" style="font-size: 5rem !important; line-height: 1;">-.-- Oz</span>
-                </div>
-            </div>
-
-            <!-- Tactical Intelligence Panel (NEW) -->
-            <div class="trading-panel p-3 p-md-4 mb-3 mb-md-4 border-warning border-opacity-25" style="background: linear-gradient(145deg, rgba(245, 158, 11, 0.08), rgba(0,0,0,0));">
-                <h6 class="fw-bold mb-3 small text-warning"><i class="fas fa-satellite-dish me-2"></i> TACTICAL INTELLIGENCE</h6>
-                
-                <div class="d-flex align-items-center justify-content-between mb-3">
-                    <span class="small text-muted">SIGNAL:</span>
-                    <span id="tactical-signal" class="badge rounded-pill px-3 py-2 bg-secondary" style="font-size: 0.75rem;">NEUTRAL</span>
-                </div>
-                
-                <div class="row g-2 mb-3">
+            <!-- Position Calculator (Ultra Compact) -->
+            <div class="trading-panel p-2 mb-2 border-warning shadow-sm" style="border: 2px solid var(--gold-primary) !important;">
+                <div class="row g-2 mb-2 text-center">
                     <div class="col-6">
-                        <div class="p-2 rounded bg-dark border border-secondary border-opacity-25 text-center">
-                            <div class="text-muted" style="font-size: 0.6rem;">PROFIT TARGET</div>
-                            <div class="fw-bold text-success small" id="tactical-tp">-.--</div>
+                        <small class="text-muted fw-bold text-uppercase" style="font-size: 0.55rem;">CAPITAL ($)</small>
+                        <input type="number" id="capital-input" class="form-control bg-light text-dark border-dark fw-bold text-center" value="100" style="font-size: 1rem !important; height: 35px !important; border-radius: 8px;">
+                    </div>
+                    <div class="col-6">
+                        <small class="text-muted fw-bold text-uppercase" style="font-size: 0.55rem;">RISK (%)</small>
+                        <input type="number" id="risk-pct" class="form-control bg-light text-dark border-dark fw-bold text-center" value="1" style="font-size: 1rem !important; height: 35px !important; border-radius: 8px;">
+                    </div>
+                </div>
+                <div class="p-2 rounded-2 text-center" style="background: #fff7ed; border: 1px solid var(--gold-primary);">
+                    <small class="text-dark fw-black mb-0 text-uppercase" style="font-size: 0.55rem;">SUGGESTED SIZE: </small>
+                    <span class="fw-black text-success" id="tac-suggest-size" style="font-size: 1.4rem !important;">-.-- Oz</span>
+                </div>
+            </div>
+
+            <!-- Tactical Guidance (Inline) -->
+            <div class="trading-panel p-2 mb-2">
+                <div class="row g-1 text-center">
+                    <div class="col-6">
+                        <div class="p-1 rounded bg-light border border-secondary border-opacity-25">
+                            <small class="text-muted d-block" style="font-size: 0.5rem;">TARGET</small>
+                            <span class="fw-bold text-success" id="tactical-tp" style="font-size: 0.75rem;">-.--</span>
                         </div>
                     </div>
                     <div class="col-6">
-                        <div class="p-2 rounded bg-dark border border-secondary border-opacity-25 text-center">
-                            <div class="text-muted" style="font-size: 0.6rem;">HARD STOP</div>
-                            <div class="fw-bold text-danger small" id="tactical-sl">-.--</div>
+                        <div class="p-1 rounded bg-light border border-secondary border-opacity-25">
+                            <small class="text-muted d-block" style="font-size: 0.5rem;">STOP</small>
+                            <span class="fw-bold text-danger" id="tactical-sl" style="font-size: 0.75rem;">-.--</span>
                         </div>
                     </div>
                 </div>
-                
-                <div class="small text-muted mb-0 opacity-75" style="font-size: 0.65rem; line-height: 1.4;">
-                    <i class="fas fa-info-circle me-1"></i> Based on Turtle 20-Day Breakout & 2N Volatility Stop logic.
-                </div>
             </div>
 
-            <!-- Orders/Bot Activity -->
-            <div class="trading-panel p-3 d-none d-md-block">
-                <h6 class="fw-bold mb-3 px-2 small text-muted"><i class="fas fa-terminal me-2"></i> BOT ACTIVITY LOG</h6>
-                <div id="bot-logs" class="small px-2" style="height: 180px; overflow-y: auto; font-family: 'JetBrains Mono', 'Courier New', monospace; font-size: 0.72rem;">
-                    <div class="text-muted opacity-50">[INIT] Secure encrypted handshake...</div>
-                    <div class="text-muted opacity-50">[INIT] Datastream XAU:USD sync...</div>
-                    <div class="text-success">[READY] Turtle Engine Online.</div>
+            <!-- Orders/Bot Activity (Stretched to match chart) -->
+            <div class="trading-panel p-2 d-none d-md-block shadow-sm flex-grow-1" style="min-height: 280px;">
+                <h6 class="fw-bold mb-1 px-1 small text-muted" style="font-size: 0.6rem;"><i class="fas fa-terminal me-1"></i> ACTIVITY LOG</h6>
+                <div id="bot-logs" class="p-2 rounded-2" style="height: calc(100% - 25px); overflow-y: auto; font-family: 'JetBrains Mono', monospace; font-size: 0.6rem; background: #f8fafc; border: 1px solid #e2e8f0;">
+                    <div class="text-muted opacity-50">[READY] Turtle Engine Online.</div>
                 </div>
             </div>
         </div>
