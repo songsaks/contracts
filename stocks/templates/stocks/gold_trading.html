@@ -9,24 +9,28 @@
 {% block extra_css %}
 <style>
     :root {
-        --gold-primary: #f59e0b;
-        --gold-dark: #b45309;
-        --war-room-bg: #0f172a;
-        --panel-bg: #1e293b;
+        --gold-primary: #d97706;
+        --gold-dark: #92400e;
+        --war-room-bg: #f8fafc;
+        --panel-bg: #ffffff;
+        --text-main: #0f172a;
+        --text-muted: #64748b;
+        --border-color: #e2e8f0;
     }
 
     body {
         background-color: var(--war-room-bg);
-        color: #f1f5f9;
+        color: var(--text-main);
         overflow-x: hidden;
+        font-family: 'Inter', system-ui, -apple-system, sans-serif;
     }
 
     .war-room-header {
-        background: linear-gradient(135deg, #1e293b, #0f172a);
-        border-bottom: 2px solid var(--gold-primary);
-        padding: 1.5rem 2rem;
+        background: white;
+        border-bottom: 3px solid var(--gold-primary);
+        padding: 1rem 2rem;
+        box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
         border-radius: 0 0 24px 24px;
-        box-shadow: 0 10px 30px rgba(0,0,0,0.5);
     }
 
     .status-badge {
@@ -38,7 +42,7 @@
         border-radius: 50px;
     }
 
-    .bot-status-off { background: #334155; color: #94a3b8; }
+    .bot-status-off { background: #e2e8f0; color: #64748b; }
     .bot-status-on { background: #10b981; color: white; animation: pulse 2s infinite; }
 
     @keyframes pulse {
@@ -131,26 +135,24 @@
             </div>
 
             <!-- Position Calculator -->
-            <div class="trading-panel p-3 p-md-4 mb-3 mb-md-4 border-warning shadow-sm" style="border: 2px solid var(--gold-primary) !important;">
-                <h5 class="fw-bold mb-3 pb-2 border-bottom border-secondary" style="color: var(--gold-primary);">
+            <div class="trading-panel p-4 mb-4 border-warning shadow-lg" style="border: 3px solid var(--gold-primary) !important;">
+                <h4 class="fw-black mb-4 pb-2 border-bottom border-secondary text-uppercase" style="color: var(--gold-primary); letter-spacing: 1px;">
                     <i class="fas fa-flag me-2"></i> 1. START HERE
-                </h5>
-                <div class="row g-2 g-md-3">
-                    <div class="col-6 col-md-12">
-                        <label class="small text-muted mb-1 d-block fw-bold">CAPITAL ($)</label>
-                        <input type="number" id="capital-input" class="form-control form-control-lg bg-dark text-white border-secondary fw-black fs-4" value="100">
+                </h4>
+                <div class="row g-3">
+                    <div class="col-12">
+                        <label class="fs-5 text-dark mb-2 d-block fw-black text-uppercase">CAPITAL ($)</label>
+                        <input type="number" id="capital-input" class="form-control form-control-lg bg-light text-dark border-dark fw-black display-4 py-3" value="100" style="font-size: 3.5rem !important; height: auto !important;">
                     </div>
-                    <div class="col-6 col-md-12">
-                        <label class="small text-muted mb-1 d-block fw-bold">RISK (%)</label>
-                        <input type="number" id="risk-pct" class="form-control form-control-lg bg-dark text-white border-secondary fw-black fs-4" value="1">
+                    <div class="col-12 mt-4">
+                        <label class="fs-5 text-dark mb-2 d-block fw-black text-uppercase">RISK (%)</label>
+                        <input type="number" id="risk-pct" class="form-control form-control-lg bg-light text-dark border-dark fw-black display-4 py-3" value="1" style="font-size: 3.5rem !important; height: auto !important;">
                     </div>
                 </div>
                 
-                <div class="mt-4 p-3 rounded-3" style="background: rgba(245, 158, 11, 0.15); border: 1px solid var(--gold-primary);">
-                    <div class="text-center">
-                        <small class="text-muted d-block fw-bold mb-1" style="font-size: 0.75rem; letter-spacing: 1px;">SUGGESTED SIZE</small>
-                        <span class="fw-black text-success display-6 d-block" id="tac-suggest-size">-.-- Oz</span>
-                    </div>
+                <div class="mt-5 p-4 rounded-3 text-center" style="background: #fff7ed; border: 2px solid var(--gold-primary);">
+                    <small class="text-dark d-block fw-black mb-2 text-uppercase" style="font-size: 1.2rem; letter-spacing: 2px;">SUGGESTED SIZE</small>
+                    <span class="fw-black text-success display-3 d-block" id="tac-suggest-size" style="font-size: 5rem !important; line-height: 1;">-.-- Oz</span>
                 </div>
             </div>
 
@@ -329,8 +331,14 @@
         return LightweightCharts.createChart(el, {
             width: el.offsetWidth,
             height: height,
-            layout: { backgroundColor: '#ffffff', textColor: '#334155' },
-            grid: { vertLines: { color: '#f1f5f9' }, horzLines: { color: '#f1f5f9' } },
+            layout: { 
+                backgroundColor: '#ffffff', 
+                textColor: '#1e293b' 
+            },
+            grid: { 
+                vertLines: { color: '#f1f5f9' }, 
+                horzLines: { color: '#f1f5f9' } 
+            },
             timeScale: { borderColor: '#e2e8f0', timeVisible: true },
         });
     }
