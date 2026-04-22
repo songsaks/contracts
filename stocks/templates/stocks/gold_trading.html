@@ -127,7 +127,11 @@
                     <span id="gold-price-display" class="fw-black fs-4 text-dark">----.--</span>
                     <small id="gold-change-display" class="text-success fw-bold" style="font-size: 0.7rem;">+0.00%</small>
                 </div>
-                <div class="text-end">
+                <div class="text-end d-flex flex-column align-items-end">
+                    <div class="form-check form-switch mb-1">
+                        <input class="form-check-input" type="checkbox" id="auto-execute-toggle">
+                        <label class="form-check-label fw-bold text-danger" for="auto-execute-toggle" style="font-size: 0.55rem;">AUTO-EXECUTE</label>
+                    </div>
                     <small class="text-muted d-block" style="font-size: 0.5rem;">BREAKOUT AT</small>
                     <span id="breakout-level-display" class="fw-bold text-primary" style="font-size: 0.8rem;">----.--</span>
                 </div>
@@ -272,8 +276,8 @@
         }
     }
 
-    function executeTrade(type) {
-        if (!confirm(`Are you sure you want to execute a LIVE ${type} order at Market?`)) return;
+    function executeTrade(type, skipConfirm = false) {
+        if (!skipConfirm && !confirm(`Are you sure you want to execute a LIVE ${type} order at Market?`)) return;
 
         logMessage(`REQUEST: Sending ${type} order to RobotBridge...`, 'text-warning');
         
@@ -360,9 +364,18 @@
                     
                     document.getElementById('breakout-level-display').innerText = upper20.toFixed(2);
                     
+                    const isAuto = document.getElementById('auto-execute-toggle').checked;
+                    const prevSignal = sigEl.innerText;
+
                     if (lastPrice >= upper20) {
                         sigEl.innerText = "BULLISH BREAKOUT";
                         sigEl.className = "badge rounded-pill px-3 py-2 bg-success shadow-sm";
+                        
+                        // Auto Execute Logic
+                        if (isAuto && prevSignal !== "BULLISH BREAKOUT") {
+                            logMessage(`AUTO-PILOT: Breakout detected at ${lastPrice}. Executing BUY order...`, 'text-info fw-bold');
+                            executeTrade('BUY', true); // Pass true to skip confirmation
+                        }
                     } else if (lastPrice <= lower20) {
                         sigEl.innerText = "BEARISH REVERSAL";
                         sigEl.className = "badge rounded-pill px-3 py-2 bg-danger shadow-sm";
