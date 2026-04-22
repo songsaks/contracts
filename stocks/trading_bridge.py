@@ -12,8 +12,10 @@ class RobotBridge:
     รองรับการทำงานบน Ubuntu Server และ PostgreSQL
     """
     
-    def __init__(self, account_id=None, user=None):
-        if account_id:
+    def __init__(self, account_id=None, user=None, account=None):
+        if account:
+            self.account = account
+        elif account_id:
             self.account = TradingAccount.objects.get(pk=account_id)
         elif user:
             # ดึงบัญชีแรกที่ Active ของผู้ใช้
