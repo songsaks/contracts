@@ -127,6 +127,10 @@
                     <span id="gold-price-display" class="fw-black fs-4 text-dark">----.--</span>
                     <small id="gold-change-display" class="text-success fw-bold" style="font-size: 0.7rem;">+0.00%</small>
                 </div>
+                <div class="text-end">
+                    <small class="text-muted d-block" style="font-size: 0.5rem;">BREAKOUT AT</small>
+                    <span id="breakout-level-display" class="fw-bold text-primary" style="font-size: 0.8rem;">----.--</span>
+                </div>
                 <span id="tactical-signal" class="badge rounded-pill bg-secondary" style="font-size: 0.65rem;">NEUTRAL</span>
             </div>
 
@@ -353,6 +357,8 @@
                     const upper20 = data.dc20_upper[data.dc20_upper.length-1].value;
                     const lower20 = data.dc20_lower[data.dc20_lower.length-1].value;
                     const sigEl = document.getElementById('tactical-signal');
+                    
+                    document.getElementById('breakout-level-display').innerText = upper20.toFixed(2);
                     
                     if (lastPrice >= upper20) {
                         sigEl.innerText = "BULLISH BREAKOUT";
