@@ -1,0 +1,218 @@
+{% extends 'stocks/base_stocks.html' %}
+{% load static %}
+{% load humanize %}
+
+{% block title %}🔌 เชื่อมต่อบัญชีเทรด - AI Stock Analyst{% endblock %}
+
+{% block extra_css %}
+<style>
+    .broker-card {
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        border: 1px solid var(--border-soft);
+        border-radius: 20px;
+        background: var(--card-white);
+        overflow: hidden;
+    }
+    .broker-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 20px 40px rgba(0,0,0,0.08);
+        border-color: var(--accent-secondary);
+    }
+    .broker-icon {
+        width: 48px;
+        height: 48px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 12px;
+        background: rgba(99, 102, 241, 0.1);
+        color: var(--accent-primary);
+        font-size: 1.5rem;
+    }
+    .account-badge {
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        padding: 4px 10px;
+        border-radius: 6px;
+    }
+    .status-active { background: #dcfce7; color: #166534; }
+    .status-inactive { background: #f1f5f9; color: #475569; }
+
+    .form-label {
+        font-weight: 600;
+        font-size: 0.85rem;
+        color: var(--text-muted);
+        margin-bottom: 0.4rem;
+    }
+    .form-control, .form-select {
+        border-radius: 12px;
+        padding: 0.6rem 1rem;
+        border-color: #e2e8f0;
+        font-size: 0.9rem;
+    }
+    .form-control:focus {
+        box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1);
+        border-color: var(--accent-secondary);
+    }
+    .btn-connect {
+        border-radius: 12px;
+        padding: 0.7rem 1.5rem;
+        font-weight: 700;
+        background: var(--accent-primary);
+        border: none;
+        transition: all 0.2s;
+    }
+    .btn-connect:hover {
+        background: var(--accent-secondary);
+        transform: scale(1.02);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row g-4">
+        <!-- LEFT: Add Account Form -->
+        <div class="col-lg-4">
+            <div class="card border-0 shadow-sm p-4" style="border-radius: 24px; position: sticky; top: 2rem;">
+                <h4 class="fw-bold mb-1">เชื่อมพอร์ตใหม่</h4>
+                <p class="text-muted small mb-4">เชื่อมต่อบัญชีเทรดเพื่อใช้งานระบบ Robot</p>
+                
+                <form method="POST">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label class="form-label">เลือกประเภท Broker</label>
+                        <select name="broker" class="form-select" required>
+                            {% for val, label in broker_types %}
+                                <option value="{{ val }}">{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Account ID / เลขพอร์ต</label>
+                        <input type="text" name="account_id" class="form-control" placeholder="เช่น 12345678" required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">API Key / Token</label>
+                        <input type="password" name="api_key" class="form-control" placeholder="••••••••••••">
+                        <div class="form-text small">สำหรับดึงข้อมูลพอร์ตผ่าน API</div>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <label class="form-label">API Secret / Password</label>
+                        <input type="password" name="api_secret" class="form-control" placeholder="••••••••••••">
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary btn-connect w-100 mb-3">
+                        <i class="fas fa-plug me-2"></i> เชื่อมต่อบัญชีตอนนี้
+                    </button>
+                    
+                    <div class="alert alert-info py-2 small border-0" style="border-radius: 12px;">
+                        <i class="fas fa-shield-alt me-2"></i> ข้อมูลของคุณจะถูกเก็บเป็นความลับและเข้าถึงได้เฉพาะระบบ Robot เท่านั้น
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- RIGHT: Accounts List -->
+        <div class="col-lg-8">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h3 class="fw-bold mb-0">บัญชีที่เชื่อมต่อแล้ว</h3>
+                    <p class="text-muted small mb-0">คุณมีบัญชีที่กำลังใช้งานอยู่ {{ accounts|length }} บัญชี</p>
+                </div>
+            </div>
+
+            {% if not accounts %}
+            <div class="text-center py-5 bg-white rounded-4 border border-dashed">
+                <div class="mb-3">
+                    <i class="fas fa-link-slash fa-3x text-light"></i>
+                </div>
+                <h5 class="text-muted">ยังไม่มีบัญชีที่เชื่อมต่อ</h5>
+                <p class="text-muted small">กรุณาเพิ่มบัญชีเทรดของคุณที่เมนูด้านซ้าย</p>
+            </div>
+            {% else %}
+            <div class="row g-3">
+                {% for acc in accounts %}
+                <div class="col-12">
+                    <div class="broker-card p-4">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div class="d-flex gap-3">
+                                <div class="broker-icon">
+                                    {% if acc.broker == 'META_API' %}
+                                        <i class="fas fa-server"></i>
+                                    {% elif acc.broker == 'IBKR' %}
+                                        <i class="fas fa-building-columns"></i>
+                                    {% else %}
+                                        <i class="fas fa-globe"></i>
+                                    {% endif %}
+                                </div>
+                                <div>
+                                    <h5 class="fw-bold mb-1">{{ acc.get_broker_display }}</h5>
+                                    <div class="d-flex align-items-center gap-2">
+                                        <code class="text-primary fw-bold">{{ acc.account_id }}</code>
+                                        <span class="account-badge {% if acc.is_active %}status-active{% else %}status-inactive{% endif %}">
+                                            {% if acc.is_active %}Active{% else %}Inactive{% endif %}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="text-end">
+                                <div class="text-muted small mb-1">Equity</div>
+                                <h4 class="fw-bold mb-0 {% if acc.equity > acc.balance %}text-success{% endif %}">
+                                    {{ acc.equity|floatformat:2|intcomma }} <small class="fs-6 fw-normal">{{ acc.currency }}</small>
+                                </h4>
+                            </div>
+                        </div>
+                        
+                        <hr class="my-4 opacity-50">
+                        
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div class="d-flex gap-4">
+                                <div>
+                                    <div class="small text-muted mb-0">Balance</div>
+                                    <div class="fw-bold">{{ acc.balance|floatformat:2|intcomma }}</div>
+                                </div>
+                                <div>
+                                    <div class="small text-muted mb-0">Connected At</div>
+                                    <div class="fw-bold">{{ acc.created_at|date:"d M Y" }}</div>
+                                </div>
+                            </div>
+                            <div class="d-flex gap-2">
+                                <a href="#" class="btn btn-sm btn-light rounded-pill px-3 fw-bold">
+                                    <i class="fas fa-sync-alt me-1"></i> Refresh
+                                </a>
+                                <button class="btn btn-sm btn-outline-danger rounded-pill px-3 fw-bold" 
+                                        onclick="if(confirm('ยืนยันระบบการยกเลิกเชื่อมต่อบัญชีนี้?')) location.href='{% url 'stocks:delete_trading_account' acc.pk %}'">
+                                    <i class="fas fa-trash-alt"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+            
+            <div class="mt-5 p-4 rounded-4" style="background: #1e293b; color: white;">
+                <div class="row align-items-center">
+                    <div class="col-md-2 text-center text-md-start mb-3 mb-md-0">
+                        <i class="fas fa-robot fa-3x text-warning"></i>
+                    </div>
+                    <div class="col-md-7">
+                        <h5 class="fw-bold">พร้อมเริ่มเทรดอัตโนมัติ?</h5>
+                        <p class="small text-light opacity-75 mb-0">หลังจากเชื่อมต่อบัญชีแล้ว คุณสามารถตั้งค่า Robot ในหน้า Gold Command Center เพื่อให้ AI วิเคราะห์และสั่งเทรดตามกลยุทธ์ได้ทันที</p>
+                    </div>
+                    <div class="col-md-3 text-md-end mt-3 mt-md-0">
+                        <a href="{% url 'stocks:gold_trading' %}" class="btn btn-warning fw-bold px-4 rounded-pill">ไปที่ Command Center</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

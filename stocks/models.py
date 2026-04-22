@@ -723,3 +723,82 @@ class TurtleScanCandidate(models.Model):
 
     def __str__(self):
         return f"{self.symbol} - S1:{self.sys1_breakout} S2:{self.sys2_breakout} (run: {self.scan_run})"
+
+
+# ====== Automated Trading Infrastructure (v2) ======
+
+class BrokerType(models.TextChoices):
+    """ประเภทของ Broker ที่ระบบรองรับสำหรับการเทรดจริง"""
+    META_API = 'META_API', 'MetaApi (MT4/MT5 Cloud)'
+    OANDA    = 'OANDA', 'OANDA (REST API)'
+    IBKR     = 'IBKR', 'Interactive Brokers'
+    TOP_TRADER = 'TOP_TRADER', 'Top-Trader (SET)'
+    OTHER    = 'OTHER', 'อื่นๆ / Manual'
+
+class TradingAccount(models.Model):
+    """
+    เก็บข้อมูลบัญชีเทรดจริงของผู้ใช้สำหรับเชื่อมต่อกับ API
+    """
+    user        = models.ForeignKey(User, on_delete=models.CASCADE, related_name='trading_accounts')
+    broker      = models.CharField(max_length=20, choices=BrokerType.choices, default=BrokerType.META_API)
+    account_id  = models.CharField(max_length=100, help_text="เลขพอร์ต หรือ Account ID")
+    api_key     = models.CharField(max_length=255, blank=True, help_text="API Key / Token")
+    api_secret  = models.CharField(max_length=255, blank=True, help_text="API Secret / Password")
+    
+    # สถานะพอร์ตเบื้องต้น (ดึงจาก API มาพักไว้)
+    balance     = models.DecimalField(max_digits=14, decimal_places=2, default=0.0)
+    equity      = models.DecimalField(max_digits=14, decimal_places=2, default=0.0)
+    currency    = models.CharField(max_length=10, default='USD')
+    
+    is_active   = models.BooleanField(default=True, help_text="เปิด/ปิด การให้ Robot เข้าถึงพอร์ตนี้")
+    created_at  = models.DateTimeField(auto_now_add=True)
+    updated_at  = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Trading Account"
+        unique_together = ('user', 'account_id', 'broker')
+
+    def __str__(self):
+        return f"{self.broker} - {self.account_id} ({self.user.username})"
+
+class TradeOrder(models.Model):
+    """
+    บันทึกรายการคำสั่งซื้อขายจริงที่ส่งไปยัง Broker
+    ใช้ติดตามสถานะตั้งแต่เริ่มเปิด จนถึงปิดออเดอร์
+    """
+    class OrderStatus(models.TextChoices):
+        PENDING = 'PENDING', 'รอเข้าซื้อ (Pending)'
+        OPEN    = 'OPEN', 'เปิดสถานะแล้ว (Live)'
+        CLOSED  = 'CLOSED', 'ปิดสถานะแล้ว (Closed)'
+        CANCELLED = 'CANCELLED', 'ยกเลิก (Cancelled)'
+
+    user        = models.ForeignKey(User, on_delete=models.CASCADE)
+    account     = models.ForeignKey(TradingAccount, on_delete=models.CASCADE, related_name='orders')
+    
+    symbol      = models.CharField(max_length=20, help_text="e.g. XAUUSD, GC=F, PTT")
+    order_id    = models.CharField(max_length=100, blank=True, help_text="Ticket ID จาก Broker")
+    
+    # รายละเอียดการเทรด
+    order_type  = models.CharField(max_length=10, choices=[('BUY', 'Buy'), ('SELL', 'Sell')])
+    volume      = models.DecimalField(max_digits=12, decimal_places=4, help_text="จำนวน Lots / Units")
+    
+    entry_price = models.DecimalField(max_digits=12, decimal_places=4, null=True, blank=True)
+    stop_loss   = models.DecimalField(max_digits=12, decimal_places=4, null=True, blank=True)
+    take_profit = models.DecimalField(max_digits=12, decimal_places=4, null=True, blank=True)
+    
+    # สถานะและผลลัพธ์
+    status      = models.CharField(max_length=20, choices=OrderStatus.choices, default=OrderStatus.PENDING)
+    opened_at   = models.DateTimeField(null=True, blank=True)
+    closed_at   = models.DateTimeField(null=True, blank=True)
+    
+    exit_price  = models.DecimalField(max_digits=12, decimal_places=4, null=True, blank=True)
+    profit_loss = models.DecimalField(max_digits=14, decimal_places=2, default=0.0, help_text="กำไร/ขาดทุนสุทธิ (Net P/L)")
+    
+    # เชื่อมโยงกับกลยุทธ์
+    strategy    = models.CharField(max_length=50, blank=True, help_text="e.g. Turtle S1, Precision DZ")
+    comment     = models.TextField(blank=True, help_text="บันทึกเพิ่มเติมจาก Robot หรือ AI")
+    created_at  = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-opened_at', '-created_at']
+        verbose_name = "Trade Order"

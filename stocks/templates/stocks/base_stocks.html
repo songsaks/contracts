@@ -447,6 +447,30 @@
                         </ul>
                     </li>
                     <!-- Macro + Morning Briefing Dropdown -->
+                    <!-- Auto Trading Dropdown -->
+                    <li class="nav-item dropdown">
+                        <a class="nav-link px-3 py-2 rounded-xl dropdown-toggle {% if request.resolver_match.url_name in 'gold_trading,trading_accounts' %}active{% endif %}"
+                           href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false"
+                           style="background: linear-gradient(135deg, rgba(245, 158, 11, 0.1), rgba(217, 119, 6, 0.1)); border: 1px solid rgba(245, 158, 11, 0.2);">
+                            <i class="fas fa-robot text-warning"></i> Robot
+                        </a>
+                        <ul class="dropdown-menu border-0 shadow-lg p-2 rounded-4 mt-1">
+                            <li>
+                                <a class="dropdown-item rounded-3 py-2 {% if request.resolver_match.url_name == 'gold_trading' %}active{% endif %}" 
+                                   href="{% url 'stocks:gold_trading' %}">
+                                    <i class="fas fa-microchip me-1 text-warning"></i> Gold Command Center
+                                </a>
+                            </li>
+                            <li><hr class="dropdown-divider opacity-25 my-1"></li>
+                            <li>
+                                <a class="dropdown-item rounded-3 py-2 {% if request.resolver_match.url_name == 'trading_accounts' %}active{% endif %}" 
+                                   href="{% url 'stocks:trading_accounts' %}">
+                                    <i class="fas fa-plug me-1 text-primary"></i> Connect Broker (เชื่อมต่อพอร์ต)
+                                </a>
+                            </li>
+                        </ul>
+                    </li>
+
                     <li class="nav-item dropdown">
                         <a class="nav-link px-3 py-2 rounded-xl dropdown-toggle {% if request.resolver_match.url_name in 'macro,morning_briefing,stock_chart,macro_playbook' %}active{% endif %}"
                            href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false"
@@ -477,13 +501,6 @@
                                 <a class="dropdown-item rounded-3 py-2 {% if request.resolver_match.url_name == 'macro_playbook' %}active{% endif %} text-indigo-700 fw-bold"
                                    href="{% url 'stocks:macro_playbook' %}">
                                     <i class="fas fa-robot me-1 text-indigo-600"></i> Daily Mastermind Playbook
-                                </a>
-                            </li>
-                            <li><hr class="dropdown-divider opacity-25 my-1"></li>
-                            <li>
-                                <a class="dropdown-item rounded-3 py-2 {% if request.resolver_match.url_name == 'gold_trading' %}active{% endif %}" 
-                                   href="{% url 'stocks:gold_trading' %}" style="color: #f59e0b !important; font-weight: 800;">
-                                    <i class="fas fa-robot me-1"></i> Gold Robot
                                 </a>
                             </li>
                         </ul>

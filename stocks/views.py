@@ -9096,6 +9096,41 @@ def stock_chart_data(request, symbol):
         return _JR({'error': str(e)}, status=500)
 
 @login_required
+def trading_accounts_view(request):
+    """
+    หน้าจอจัดการบัญชีเทรด (List & Add)
+    """
+    from .models import TradingAccount, BrokerType
+    
+    if request.method == 'POST':
+        broker = request.POST.get('broker')
+        acc_id = request.POST.get('account_id')
+        key    = request.POST.get('api_key', '')
+        secret = request.POST.get('api_secret', '')
+        
+        TradingAccount.objects.create(
+            user=request.user,
+            broker=broker,
+            account_id=acc_id,
+            api_key=key,
+            api_secret=secret
+        )
+        return redirect('stocks:trading_accounts')
+
+    accounts = TradingAccount.objects.filter(user=request.user)
+    return render(request, 'stocks/trading_account_list.html', {
+        'accounts': accounts,
+        'broker_types': BrokerType.choices
+    })
+
+@login_required
+def delete_trading_account_view(request, pk):
+    from .models import TradingAccount
+    acc = get_object_or_404(TradingAccount, pk=pk, user=request.user)
+    acc.delete()
+    return redirect('stocks:trading_accounts')
+
+@login_required
 def refresh_market_caps_view(request):
     """
     Manual trigger to refresh market caps for all SET symbols.
