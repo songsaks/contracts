@@ -80,5 +80,5 @@ class Command(BaseCommand):
                     activity.message = str(e)
                     activity.save()
 
-            # Wait 60 seconds for next cycle
-            time.sleep(60)
+            # Wait 30 seconds for next cycle
+            time.sleep(30)

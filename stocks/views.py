@@ -9402,13 +9402,14 @@ def get_bot_status_ajax(request):
         import datetime
         from django.utils import timezone
         diff = timezone.now() - activity.last_heartbeat
-        is_alive = diff.total_seconds() < 180
+        is_alive = diff.total_seconds() < 600
         
         return _JR({
             'status': activity.status if is_alive else "OFFLINE",
             'last_heartbeat': activity.last_heartbeat.strftime('%H:%M:%S'),
             'message': activity.message,
-            'is_alive': is_alive
+            'is_alive': is_alive,
+            'debug_diff': diff.total_seconds() # เพิ่มเพื่อเช็คว่าต่างกันกี่วิ
         })
     except BotActivity.DoesNotExist:
         return _JR({'status': 'OFFLINE', 'is_alive': False})
