@@ -215,11 +215,10 @@
         </div>
     </div>
 </div>
-{% endblock %}
-
-{% block extra_js %}
+<!-- Script สำหรับ Sync ยอดเงิน (ย้ายมาไว้ใน Block Content เพื่อความชัวร์) -->
 <script>
 async function syncAccount(btn, pk) {
+    console.log("Syncing account:", pk);
     const originalContent = btn.innerHTML;
     btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Syncing...';
     btn.classList.add('disabled');
@@ -234,19 +233,20 @@ async function syncAccount(btn, pk) {
         const data = await response.json();
         
         if (data.success) {
-            // Update UI
-            location.reload(); 
+            // สำเร็จ -> Reload เพื่อดูยอดเงินใหม่
+            window.location.reload(); 
         } else {
             alert('Error: ' + (data.error || 'Unknown error'));
             btn.innerHTML = originalContent;
             btn.classList.remove('disabled');
         }
     } catch (err) {
-        console.error(err);
-        alert('Connection error');
+        console.error("Sync Error:", err);
+        alert('Connection error. Please check your internet or server logs.');
         btn.innerHTML = originalContent;
         btn.classList.remove('disabled');
     }
 }
 </script>
+
 {% endblock %}
