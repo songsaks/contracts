@@ -62,5 +62,6 @@ urlpatterns = [
     path('trading-accounts/', views.trading_accounts_view, name='trading_accounts'),
     path('trading-accounts/<int:pk>/delete/', views.delete_trading_account_view, name='delete_trading_account'),
     path('trading-accounts/<int:pk>/sync/', views.sync_trading_account_ajax, name='sync_trading_account'),
+    path('gold-trading/bot-status/', views.get_bot_status_ajax, name='get_bot_status'),
 ]
 

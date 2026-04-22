@@ -808,3 +808,20 @@ class TradeOrder(models.Model):
     class Meta:
         ordering = ['-opened_at', '-created_at']
         verbose_name = "Trade Order"
+
+class BotActivity(models.Model):
+    """
+    บันทึกสถานะการทำงาน (Heartbeat) และกิจกรรมของบอทที่รันบน Server
+    ช่วยให้หน้าจอ UI แสดงผลได้ว่าบอททำงานอยู่จริงหรือไม่
+    """
+    bot_name = models.CharField(max_length=100, default="Gold Robot")
+    status = models.CharField(max_length=50, default="ACTIVE") # ACTIVE, STOPPED, ERROR
+    last_heartbeat = models.DateTimeField(auto_now=True)
+    message = models.TextField(blank=True, help_text="บันทึกกิจกรรมล่าสุดของบอท")
+    
+    class Meta:
+        verbose_name = "Bot Activity"
+        verbose_name_plural = "Bot Activities"
+
+    def __str__(self):
+        return f"{self.bot_name} - {self.status} ({self.last_heartbeat})"

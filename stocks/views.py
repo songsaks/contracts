@@ -9390,3 +9390,25 @@ def portfolio_refresh_prices(request):
 
     return JsonResponse({'updated': updated, 'skipped': skipped, 'errors': errors})
 
+@login_required
+def get_bot_status_ajax(request):
+    """
+    ดึงสถานะล่าสุดของบอทที่รันบน Server มาโชว์ที่หน้าจอ UI
+    """
+    from .models import BotActivity
+    try:
+        activity = BotActivity.objects.get(bot_name="Gold Server Bot")
+        # เช็คว่า heartbeat ล่าสุดไม่เกิน 3 นาที
+        import datetime
+        from django.utils import timezone
+        diff = timezone.now() - activity.last_heartbeat
+        is_alive = diff.total_seconds() < 180
+        
+        return _JR({
+            'status': activity.status if is_alive else "OFFLINE",
+            'last_heartbeat': activity.last_heartbeat.strftime('%H:%M:%S'),
+            'message': activity.message,
+            'is_alive': is_alive
+        })
+    except BotActivity.DoesNotExist:
+        return _JR({'status': 'OFFLINE', 'is_alive': False})

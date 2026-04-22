@@ -128,9 +128,13 @@
                     <small id="gold-change-display" class="text-success fw-bold" style="font-size: 0.7rem;">+0.00%</small>
                 </div>
                 <div class="text-end d-flex flex-column align-items-end">
+                    <div class="d-flex align-items-center mb-1">
+                        <div id="bot-status-lamp" class="rounded-circle me-1" style="width: 8px; height: 8px; background: #94a3b8;"></div>
+                        <small id="bot-status-text" class="fw-bold text-muted" style="font-size: 0.55rem;">SERVER BOT: OFFLINE</small>
+                    </div>
                     <div class="form-check form-switch mb-1">
                         <input class="form-check-input" type="checkbox" id="auto-execute-toggle">
-                        <label class="form-check-label fw-bold text-danger" for="auto-execute-toggle" style="font-size: 0.55rem;">AUTO-EXECUTE</label>
+                        <label class="form-check-label fw-bold text-danger" for="auto-execute-toggle" style="font-size: 0.55rem;">AUTO-EXECUTE (BROWSER)</label>
                     </div>
                     <small class="text-muted d-block" style="font-size: 0.5rem;">BREAKOUT AT</small>
                     <span id="breakout-level-display" class="fw-bold text-primary" style="font-size: 0.8rem;">----.--</span>
@@ -349,6 +353,26 @@
                     lastPrice = data.candles[data.candles.length-1].close;
                     document.getElementById('gold-price-display').innerText = lastPrice.toFixed(2);
                     logMessage(`CONNECTION: Live data stream verified from Pepperstone.`, 'text-success small opacity-50');
+                    
+                    // Fetch Server Bot Status
+                    fetch("{% url 'stocks:get_bot_status' %}")
+                        .then(r => r.json())
+                        .then(b => {
+                            const lamp = document.getElementById('bot-status-lamp');
+                            const txt = document.getElementById('bot-status-text');
+                            if (b.is_alive) {
+                                lamp.style.background = "#22c55e"; // Green
+                                txt.innerText = "SERVER BOT: ACTIVE (" + b.last_heartbeat + ")";
+                                txt.className = "fw-bold text-success";
+                                if (b.message && b.message.includes("EXECUTED")) {
+                                    logMessage("SERVER BOT EVENT: " + b.message, 'text-primary fw-bold');
+                                }
+                            } else {
+                                lamp.style.background = "#94a3b8"; // Gray
+                                txt.innerText = "SERVER BOT: OFFLINE";
+                                txt.className = "fw-bold text-muted";
+                            }
+                        });
                     
                     // Calc change
                     const prevPrice = data.candles[data.candles.length-2].close;
