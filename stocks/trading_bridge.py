@@ -144,15 +144,31 @@ class RobotBridge:
         """
         ดึงยอดคงเหลือปัจจุบันจาก Broker มาอัปเดตใน Database
         """
+        if self.broker_type != BrokerType.META_API:
+            return False
+
+        token = self.account.api_key
+        account_id = self.account.account_id
+        
+        # MetaApi REST API สำหรับดึงข้อมูล Account Information
+        region = "new-york"
+        url = f"https://mt-client-api-v1.{region}.agiliumtrade.ai/users/current/accounts/{account_id}/account-information"
+        
+        headers = {"auth-token": token}
+
         try:
-            # Placeholder: ดึงค่าล่าสุดจาก Broker (ในงานจริงต้องเรียก API)
-            # ตัวอย่าง MetaApi result:
-            # balance = api.get_account_information().balance
-            
-            # จำลองค่าเผื่อการทดสอบ
-            self.account.balance += Decimal('0.00') 
-            self.account.save()
-            return True
+            response = requests.get(url, headers=headers, timeout=10)
+            if response.status_code == 200:
+                data = response.json()
+                self.account.balance  = Decimal(str(data.get('balance', 0)))
+                self.account.equity   = Decimal(str(data.get('equity', 0)))
+                self.account.currency = data.get('currency', 'USD')
+                self.account.save()
+                logger.info(f"Sync Balance Success: {self.account.balance} {self.account.currency}")
+                return True
+            else:
+                logger.error(f"Sync Balance Failed ({response.status_code}): {response.text}")
+                return False
         except Exception as e:
-            logger.error(f"Sync Balance Error: {str(e)}")
+            logger.error(f"Sync Balance Exception: {str(e)}")
             return False

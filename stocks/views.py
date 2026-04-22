@@ -9141,6 +9141,30 @@ def delete_trading_account_view(request, pk):
 
 @csrf_exempt
 @login_required
+def sync_trading_account_ajax(request, pk):
+    """
+    ดึงยอดเงินล่าสุดจาก Broker มาอัปเดต (AJAX)
+    """
+    from .models import TradingAccount
+    from .trading_bridge import RobotBridge
+    
+    acc = get_object_or_404(TradingAccount, pk=pk, user=request.user)
+    bridge = RobotBridge(user=request.user, account=acc)
+    
+    success = bridge.sync_account_balance()
+    
+    if success:
+        return JsonResponse({
+            'success': True,
+            'balance': float(acc.balance),
+            'equity': float(acc.equity),
+            'currency': acc.currency
+        })
+    else:
+        return JsonResponse({'success': False, 'error': 'Failed to sync with Broker API'}, status=400)
+
+@csrf_exempt
+@login_required
 def execute_gold_trade_ajax(request):
     """
     รับคำสั่งจากปุ่มเทรดในหน้า Gold Command Center

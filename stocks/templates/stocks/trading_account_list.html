@@ -183,9 +183,9 @@
                                 </div>
                             </div>
                             <div class="d-flex gap-2">
-                                <a href="#" class="btn btn-sm btn-light rounded-pill px-3 fw-bold">
-                                    <i class="fas fa-sync-alt me-1"></i> Refresh
-                                </a>
+                                <a href="javascript:void(0)" onclick="syncAccount(this, {{ acc.pk }})" class="btn btn-sm btn-light rounded-pill px-3 fw-bold">
+                                     <i class="fas fa-sync-alt me-1"></i> Refresh
+                                 </a>
                                 <button class="btn btn-sm btn-outline-danger rounded-pill px-3 fw-bold" 
                                         onclick="if(confirm('ยืนยันระบบการยกเลิกเชื่อมต่อบัญชีนี้?')) location.href='{% url 'stocks:delete_trading_account' acc.pk %}'">
                                     <i class="fas fa-trash-alt"></i>
@@ -215,4 +215,38 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+async function syncAccount(btn, pk) {
+    const originalContent = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Syncing...';
+    btn.classList.add('disabled');
+    
+    try {
+        const response = await fetch(`/stocks/trading-accounts/${pk}/sync/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}',
+            }
+        });
+        const data = await response.json();
+        
+        if (data.success) {
+            // Update UI
+            location.reload(); 
+        } else {
+            alert('Error: ' + (data.error || 'Unknown error'));
+            btn.innerHTML = originalContent;
+            btn.classList.remove('disabled');
+        }
+    } catch (err) {
+        console.error(err);
+        alert('Connection error');
+        btn.innerHTML = originalContent;
+        btn.classList.remove('disabled');
+    }
+}
+</script>
 {% endblock %}
