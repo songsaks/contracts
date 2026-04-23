@@ -9491,14 +9491,41 @@ PID_FILE = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'gold_bot.pi
 def start_gold_bot_ajax(request):
     """สั่งเริ่มการทำงานของบอทใน Background"""
     if os.path.exists(PID_FILE):
-        return JsonResponse({'success': False, 'error': 'Bot is already running (PID file exists)'})
+        try:
+            with open(PID_FILE, 'r') as f:
+                pid = int(f.read().strip())
+            
+            # เช็คว่า Process ยังอยู่จริงไหม
+            if os.name == 'nt':
+                import ctypes
+                PROCESS_QUERY_INFORMATION = 0x0400
+                handle = ctypes.windll.kernel32.OpenProcess(PROCESS_QUERY_INFORMATION, False, pid)
+                if handle:
+                    ctypes.windll.kernel32.CloseHandle(handle)
+                    return JsonResponse({'success': False, 'error': 'Bot is already running (Live Process)'})
+            else:
+                os.kill(pid, 0) # ส่งสัญญาณ 0 เพื่อเช็คว่า Process มีอยู่จริงไหม
+                return JsonResponse({'success': False, 'error': 'Bot is already running (Live Process)'})
+        except (ValueError, ProcessLookupError, OSError):
+            # ถ้ามาถึงตรงนี้แปลว่า PID เก่าตายไปแล้ว ให้ลบไฟล์ทิ้งและรันใหม่
+            if os.path.exists(PID_FILE):
+                os.remove(PID_FILE)
     
     try:
         # สั่งรันบอทใน Background
-        process = subprocess.Popen(
-            ['python', 'manage.py', 'run_gold_bot'],
-            creationflags=subprocess.CREATE_NEW_CONSOLE if os.name == 'nt' else 0
-        )
+        if os.name == 'nt':
+            process = subprocess.Popen(
+                ['python', 'manage.py', 'run_gold_bot'],
+                creationflags=subprocess.CREATE_NEW_CONSOLE
+            )
+        else:
+            # สำหรับ Linux (Ubuntu)
+            process = subprocess.Popen(
+                ['python3', 'manage.py', 'run_gold_bot'],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                start_new_session=True
+            )
         
         # บันทึก PID ไว้สำหรับสั่งปิด
         with open(PID_FILE, 'w') as f:
