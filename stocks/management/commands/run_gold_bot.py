@@ -1,122 +1,134 @@
+import os
 import time
 import datetime
-from django.core.management.base import BaseCommand
-from stocks.models import TradingAccount, BotActivity, TradeOrder
-from stocks.trading_bridge import RobotBridge
-import yfinance as yf
-import pandas_ta as ta
 import pandas as pd
+import pandas_ta as ta
+import yfinance as yf
+from django.core.management.base import BaseCommand
 from django.utils import timezone
-from decimal import Decimal
+from stocks.models import TradingAccount, TradeOrder, BotActivity
+from stocks.trading_bridge import RobotBridge
 
 class Command(BaseCommand):
-    help = 'Runs the Gold Trading Robot with Multi-Strategy (Sniper/Scalper/Swing)'
+    help = 'Run Gold Trading Bot with Multi-Strategy (Sniper/Scalper/Swing)'
 
-    # --- SETTINGS ---
-    RISK_PER_TRADE = 0.01  
-    MIN_LOT = 0.01        
-    SYMBOL = "GC=F"       
-    BROKER_SYMBOL = "XAUUSD" 
+    SYMBOL = "GC=F" # Gold Futures for Data
+    BROKER_SYMBOL = "XAUUSD" # For MetaApi
+    RISK_PER_TRADE = 0.02 # 2% per trade
+    MIN_LOT = 0.01
+
+    def update_heartbeat(self, status="ACTIVE", message=""):
+        BotActivity.objects.update_or_create(
+            bot_name="Gold Server Bot",
+            defaults={
+                'status': status,
+                'last_heartbeat': timezone.now(),
+                'message': message
+            }
+        )
 
     def handle(self, *args, **options):
         self.stdout.write(self.style.SUCCESS(f'--- Gold Robot [COMMANDER] Started (Risk: {self.RISK_PER_TRADE*100}%) ---'))
         
-        while True:
-            try:
-                # 1. Heartbeat
-                activity, created = BotActivity.objects.get_or_create(bot_name="Gold Server Bot")
-                activity.status = "ACTIVE"
-                activity.save()
-
-                # 2. Fetch Data
-                df = yf.download(self.SYMBOL, period='1y', interval='1d', progress=False, auto_adjust=True, timeout=15)
-                if df.empty:
-                    time.sleep(30)
-                    continue
-                if isinstance(df.columns, pd.MultiIndex): df.columns = df.columns.get_level_values(0)
-
-                # 3. Indicators
-                df['dc10_upper'] = df['High'].rolling(10).max()
-                df['dc20_upper'] = df['High'].rolling(20).max()
-                df['ema9'] = ta.ema(df['Close'], length=9)
-                df['ema200'] = ta.ema(df['Close'], length=200)
-                df['rsi'] = ta.rsi(df['Close'], length=14)
-                df['atr'] = ta.atr(df['High'], df['Low'], df['Close'], length=20)
-                
-                df = df.dropna()
-                last_row, prev_row = df.iloc[-1], df.iloc[-2]
-                
-                curr_price = float(last_row['Close'])
-                upper10 = float(prev_row['dc10_upper'])
-                upper20 = float(prev_row['dc20_upper'])
-                ema9 = float(last_row['ema9'])
-                ema200 = float(last_row['ema200'])
-                rsi = float(last_row['rsi'])
-                atr = float(last_row['atr'])
-                
-                # 4. Multi-Strategy Logic
-                # A: SNIPER (Ultra-fast reversal)
-                sn_buy = curr_price >= ema9 and rsi > 45 and curr_price > ema200
-                
-                # B: SCALPER (Short-term breakout)
-                sc_buy = curr_price >= upper10 and rsi > 50 and curr_price > ema9
-                
-                # C: SWING (Medium-term trend)
-                sw_buy = curr_price >= upper20 and rsi < 70 and curr_price > ema200
-
-                # Priority: Sniper is fastest, but Swing is most reliable.
-                # If we want aggressive, we pick the first one that hits.
-                signal_type = None
-                if sc_buy: signal_type = "SCALPER_10D"
-                elif sn_buy: signal_type = "SNIPER_EMA9"
-                elif sw_buy: signal_type = "SWING_20D"
-
-                if signal_type:
-                    self.stdout.write(self.style.WARNING(f"SIGNAL: {signal_type} DETECTED @ {curr_price}"))
+        try:
+            self.update_heartbeat(status="ACTIVE", message="Bot starting up...")
+            
+            while True:
+                try:
+                    # 1. Fetch Data
+                    df = yf.download(self.SYMBOL, period='1y', interval='1d', progress=False, auto_adjust=True, timeout=15)
+                    if df.empty:
+                        self.update_heartbeat(status="ACTIVE", message="Waiting for data from Yahoo...")
+                        time.sleep(30)
+                        continue
                     
-                    accounts = TradingAccount.objects.filter(is_active=True)
-                    for acc in accounts:
-                        today = datetime.date.today()
-                        already_traded = TradeOrder.objects.filter(
-                            account=acc, symbol=self.BROKER_SYMBOL, 
-                            created_at__date=today, strategy__icontains=signal_type
-                        ).exists()
+                    if isinstance(df.columns, pd.MultiIndex): 
+                        df.columns = df.columns.get_level_values(0)
 
-                        if not already_traded:
-                            bridge = RobotBridge(acc)
-                            balance = float(acc.balance) if acc.balance > 0 else 1000.0
-                            risk_amount = balance * self.RISK_PER_TRADE
-                            
-                            # SL Management
-                            if signal_type == "SNIPER_EMA9": sl_mult = 0.5 # Very tight
-                            elif signal_type == "SCALPER_10D": sl_mult = 1.0
-                            else: sl_mult = 2.0
-                            
-                            sl_distance = sl_mult * atr
-                            suggested_lots = risk_amount / sl_distance if sl_distance > 0 else self.MIN_LOT
-                            final_lots = round(max(self.MIN_LOT, min(suggested_lots, 1.0)), 2)
-                            sl_price = curr_price - sl_distance
-                            
-                            self.stdout.write(self.style.SUCCESS(f"Executing {signal_type}: {final_lots} Lots"))
+                    # 2. Indicators
+                    df['dc10_upper'] = df['High'].rolling(10).max()
+                    df['dc20_upper'] = df['High'].rolling(20).max()
+                    df['ema9'] = ta.ema(df['Close'], length=9)
+                    df['ema200'] = ta.ema(df['Close'], length=200)
+                    df['rsi'] = ta.rsi(df['Close'], length=14)
+                    df['atr'] = ta.atr(df['High'], df['Low'], df['Close'], length=20)
+                    
+                    df = df.dropna()
+                    if df.empty:
+                        time.sleep(30)
+                        continue
 
-                            res = bridge.execute_market_order(
-                                self.BROKER_SYMBOL, "BUY", final_lots, 
-                                comment=f"Robot:{signal_type}",
-                                stop_loss=sl_price
-                            )
-                            
-                            activity.message = f"EXEC: {signal_type} BUY {final_lots} @ {curr_price:.2f}"
-                            activity.save()
+                    last_row, prev_row = df.iloc[-1], df.iloc[-2]
+                    
+                    curr_price = float(last_row['Close'])
+                    upper10 = float(prev_row['dc10_upper'])
+                    upper20 = float(prev_row['dc20_upper'])
+                    ema9 = float(last_row['ema9'])
+                    ema200 = float(last_row['ema200'])
+                    rsi = float(last_row['rsi'])
+                    atr = float(last_row['atr'])
+                    
+                    # 3. Strategy Logic (Long Only)
+                    # A: SNIPER (EMA9 Crossover)
+                    sn_buy = curr_price >= ema9 and prev_row['Close'] < prev_row['ema9'] and curr_price > ema200
+                    
+                    # B: SCALPER (10D High Breakout)
+                    sc_buy = curr_price >= upper10 and rsi > 50 and curr_price > ema9
+                    
+                    # C: SWING (20D High Breakout)
+                    sw_buy = curr_price >= upper20 and rsi < 70 and curr_price > ema200
 
-                else:
-                    activity.message = f"Watching... Price: {curr_price:.2f} | EMA9: {ema9:.2f}"
-                    activity.save()
+                    signal_type = None
+                    if sw_buy: signal_type = "SWING_20D"
+                    elif sc_buy: signal_type = "SCALPER_10D"
+                    elif sn_buy: signal_type = "SNIPER_EMA9"
 
-            except Exception as e:
-                self.stdout.write(self.style.ERROR(f"ERROR: {str(e)}"))
-                if 'activity' in locals():
-                    activity.status = "ERROR"
-                    activity.message = str(e)[:200]
-                    activity.save()
+                    if signal_type:
+                        self.stdout.write(self.style.WARNING(f"SIGNAL: {signal_type} DETECTED @ {curr_price}"))
+                        
+                        # Execute for all active accounts
+                        accounts = TradingAccount.objects.filter(is_active=True)
+                        for acc in accounts:
+                            # Prevent multiple trades same day same strategy
+                            today = datetime.date.today()
+                            already_traded = TradeOrder.objects.filter(
+                                user=acc.user, symbol=self.BROKER_SYMBOL, 
+                                created_at__date=today, strategy__icontains=signal_type
+                            ).exists()
 
-            time.sleep(30)
+                            if not already_traded:
+                                bridge = RobotBridge(user=acc.user)
+                                balance = float(acc.balance) if acc.balance > 0 else 1000.0
+                                risk_amount = balance * self.RISK_PER_TRADE
+                                
+                                # Set SL based on strategy
+                                if signal_type == "SNIPER_EMA9": sl_mult = 0.5
+                                elif signal_type == "SCALPER_10D": sl_mult = 1.0
+                                else: sl_mult = 1.5
+                                
+                                sl_dist = sl_mult * atr
+                                lots = round(max(self.MIN_LOT, risk_amount / sl_dist if sl_dist > 0 else self.MIN_LOT), 2)
+                                sl_price = curr_price - sl_dist
+                                
+                                self.stdout.write(self.style.SUCCESS(f"Executing {signal_type} for {acc.account_name}"))
+                                res = bridge.execute_trade(
+                                    symbol=self.BROKER_SYMBOL, side="BUY", volume=lots,
+                                    strategy=signal_type, stop_loss=sl_price
+                                )
+                                
+                                self.update_heartbeat(status="ACTIVE", message=f"TRADE: {signal_type} BUY {lots} @ {curr_price}")
+                    else:
+                        self.update_heartbeat(status="ACTIVE", message=f"Watching... Price: {curr_price:.2f} | EMA9: {ema9:.2f}")
+
+                except Exception as e:
+                    import traceback
+                    error_msg = f"ERROR: {str(e)}\n{traceback.format_exc()}"
+                    self.stdout.write(self.style.ERROR(error_msg))
+                    self.update_heartbeat(status="ERROR", message=str(e)[:200])
+                    time.sleep(30)
+
+                time.sleep(60)
+                
+        except Exception as e:
+            self.stdout.write(self.style.ERROR(f"FATAL: {str(e)}"))
+            self.update_heartbeat(status="ERROR", message=f"FATAL: {str(e)}")
