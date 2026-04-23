@@ -717,8 +717,9 @@
                         btnStart.classList.remove('d-none');
                         btnStop.classList.add('d-none');
                     }
-                    if (b.message && !b.message.includes("Scanning")) {
+                    if (b.message && !b.message.includes("Scanning") && b.message !== window.lastBotMsg) {
                         logMessage(b.message, b.status === 'ERROR' ? 'text-danger fw-bold' : 'text-info');
+                        window.lastBotMsg = b.message;
                     }
                 });
 
