@@ -80,6 +80,7 @@ INSTALLED_APPS = [
     'accounts',  # ระบบบัญชีผู้ใช้งาน (User accounts)
     'chat',      # ระบบแชทแบบ Real-time
     'ops',       # ระบบจัดการแผนงานและการปฏิบัติงาน (Operations)
+    'board',     # กระดานความรู้พนักงาน (Knowledge Board)
 ]
 
 # ====== Middleware ======

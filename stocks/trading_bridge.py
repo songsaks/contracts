@@ -13,10 +13,17 @@ class RobotBridge:
     """
     
     def __init__(self, account_id=None, user=None, account=None):
+        self.account = None
         if account:
             self.account = account
         elif account_id:
-            self.account = TradingAccount.objects.get(pk=account_id)
+            try:
+                # ป้องกัน Error: Field 'id' expected a number but got ...
+                safe_id = int(str(account_id).strip())
+                self.account = TradingAccount.objects.get(pk=safe_id)
+            except (ValueError, TypeError, TradingAccount.DoesNotExist):
+                if user:
+                    self.account = TradingAccount.objects.filter(user=user, is_active=True).first()
         elif user:
             # ดึงบัญชีแรกที่ Active ของผู้ใช้
             self.account = TradingAccount.objects.filter(user=user, is_active=True).first()

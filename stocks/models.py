@@ -818,7 +818,7 @@ class BotActivity(models.Model):
     status = models.CharField(max_length=50, default="ACTIVE") # ACTIVE, STOPPED, ERROR
     last_heartbeat = models.DateTimeField(auto_now=True)
     message = models.TextField(blank=True, help_text="บันทึกกิจกรรมล่าสุดของบอท")
-    
+
     class Meta:
         verbose_name = "Bot Activity"
         verbose_name_plural = "Bot Activities"

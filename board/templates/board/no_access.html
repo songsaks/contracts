@@ -1,0 +1,22 @@
+{% extends "board/base_board.html" %}
+
+{% block title %}ไม่มีสิทธิ์เข้าถึง — Knowledge Board{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center justify-content-center" style="min-height:60vh">
+  <div class="text-center" style="max-width:400px">
+    <div class="mx-auto mb-4 d-flex align-items-center justify-content-center rounded-circle"
+         style="width:80px;height:80px;background:#e0e7ff">
+      <i class="fas fa-lock fa-2x" style="color:#6366f1"></i>
+    </div>
+    <h2 class="fw-bold mb-2" style="color:#1e1b4b">ไม่มีสิทธิ์เข้าถึง</h2>
+    <p class="text-muted mb-4">
+      กระดานความรู้นี้สำหรับพนักงานที่ได้รับสิทธิ์เท่านั้น<br>
+      หากต้องการเข้าถึง กรุณาติดต่อผู้ดูแลระบบ
+    </p>
+    <a href="/" class="btn-board text-decoration-none">
+      <i class="fas fa-home"></i> กลับหน้าหลัก
+    </a>
+  </div>
+</div>
+{% endblock %}

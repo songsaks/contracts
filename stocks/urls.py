@@ -65,5 +65,7 @@ urlpatterns = [
     path('gold-trading/bot-status/', views.get_bot_status_ajax, name='get_bot_status'),
     path('gold-trading/positions/', views.get_gold_positions_ajax, name='get_gold_positions'),
     path('gold-trading/close-all/', views.close_all_gold_positions_ajax, name='close_all_gold_positions'),
+    path('gold-trading/start-bot/', views.start_gold_bot_ajax, name='start_gold_bot'),
+    path('gold-trading/stop-bot/', views.stop_gold_bot_ajax, name='stop_gold_bot'),
 ]
 

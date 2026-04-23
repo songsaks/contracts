@@ -3,8 +3,9 @@ from .models import (
     Watchlist, AnalysisCache, Portfolio, SoldStock, UserTelegramProfile,
     MomentumCandidate, MultiFactorCandidate, PrecisionScanCandidate,
     ValueScanCandidate, CupHandleCandidate, USSepaCandidate, MorningBriefing,
+    TradingAccount, TradeOrder, BotActivity, 
+    TitheRecord, ScannableSymbol, TurtleScanCandidate
 )
-
 
 @admin.register(Watchlist)
 class WatchlistAdmin(admin.ModelAdmin):
@@ -12,18 +13,15 @@ class WatchlistAdmin(admin.ModelAdmin):
     list_filter = ('category', 'is_active')
     search_fields = ('symbol', 'name')
 
-
 @admin.register(AnalysisCache)
 class AnalysisCacheAdmin(admin.ModelAdmin):
     list_display = ('symbol', 'user', 'last_updated')
     search_fields = ('symbol',)
 
-
 @admin.register(Portfolio)
 class PortfolioAdmin(admin.ModelAdmin):
     list_display = ('symbol', 'user', 'quantity', 'entry_price', 'added_at')
     search_fields = ('symbol',)
-
 
 @admin.register(SoldStock)
 class SoldStockAdmin(admin.ModelAdmin):
@@ -31,15 +29,9 @@ class SoldStockAdmin(admin.ModelAdmin):
     list_filter = ('symbol', 'sold_at')
     search_fields = ('symbol',)
 
-
 @admin.register(UserTelegramProfile)
 class UserTelegramProfileAdmin(admin.ModelAdmin):
     list_display = ('user', 'chat_id', 'is_active')
-
-
-# ─────────────────────────────────────────────────────────────────
-# Scan Result Models
-# ─────────────────────────────────────────────────────────────────
 
 @admin.register(MomentumCandidate)
 class MomentumCandidateAdmin(admin.ModelAdmin):
@@ -52,7 +44,6 @@ class MomentumCandidateAdmin(admin.ModelAdmin):
     def get_queryset(self, request):
         return super().get_queryset(request).select_related('user')
 
-
 @admin.register(MultiFactorCandidate)
 class MultiFactorCandidateAdmin(admin.ModelAdmin):
     list_display = ('symbol', 'user', 'price', 'super_score', 'momentum_score', 'volume_score', 'scanned_at')
@@ -63,7 +54,6 @@ class MultiFactorCandidateAdmin(admin.ModelAdmin):
 
     def get_queryset(self, request):
         return super().get_queryset(request).select_related('user')
-
 
 @admin.register(PrecisionScanCandidate)
 class PrecisionScanCandidateAdmin(admin.ModelAdmin):
@@ -77,7 +67,6 @@ class PrecisionScanCandidateAdmin(admin.ModelAdmin):
     def get_queryset(self, request):
         return super().get_queryset(request).select_related('user')
 
-
 @admin.register(ValueScanCandidate)
 class ValueScanCandidateAdmin(admin.ModelAdmin):
     list_display = ('symbol', 'user', 'scan_run', 'price', 'total_score', 'pe_ratio', 'roe', 'sector')
@@ -89,7 +78,6 @@ class ValueScanCandidateAdmin(admin.ModelAdmin):
 
     def get_queryset(self, request):
         return super().get_queryset(request).select_related('user')
-
 
 @admin.register(CupHandleCandidate)
 class CupHandleCandidateAdmin(admin.ModelAdmin):
@@ -103,7 +91,6 @@ class CupHandleCandidateAdmin(admin.ModelAdmin):
     def get_queryset(self, request):
         return super().get_queryset(request).select_related('user')
 
-
 @admin.register(MorningBriefing)
 class MorningBriefingAdmin(admin.ModelAdmin):
     list_display = ('user', 'created_at', 'portfolio_count', 'momentum_set_count', 'momentum_us_count', 'precision_count')
@@ -111,7 +98,6 @@ class MorningBriefingAdmin(admin.ModelAdmin):
     ordering = ('-created_at',)
     date_hierarchy = 'created_at'
     readonly_fields = ('report_md', 'created_at')
-
 
 @admin.register(USSepaCandidate)
 class USSepaScandidateAdmin(admin.ModelAdmin):
@@ -124,3 +110,19 @@ class USSepaScandidateAdmin(admin.ModelAdmin):
 
     def get_queryset(self, request):
         return super().get_queryset(request).select_related('user')
+
+@admin.register(TradingAccount)
+class TradingAccountAdmin(admin.ModelAdmin):
+    list_display = ('user', 'broker', 'account_id', 'balance', 'equity', 'is_active')
+    list_filter = ('broker', 'is_active')
+
+@admin.register(TradeOrder)
+class TradeOrderAdmin(admin.ModelAdmin):
+    list_display = ('user', 'symbol', 'order_type', 'volume', 'status', 'opened_at')
+    list_filter = ('status', 'order_type')
+    search_fields = ('symbol', 'order_id')
+
+@admin.register(BotActivity)
+class BotActivityAdmin(admin.ModelAdmin):
+    list_display = ('bot_name', 'status', 'last_heartbeat', 'message')
+    ordering = ('-last_heartbeat',)

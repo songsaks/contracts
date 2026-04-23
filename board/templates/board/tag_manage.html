@@ -1,0 +1,145 @@
+{% extends "board/base_board.html" %}
+
+{% block title %}จัดการ Tags — Knowledge Board{% endblock %}
+
+{% block content %}
+<nav class="small text-muted mb-4 d-flex align-items-center gap-1">
+  <a href="{% url 'board:list' %}" class="text-decoration-none" style="color:#6366f1">
+    <i class="fas fa-book-open me-1"></i>Knowledge Board
+  </a>
+  <span>/</span>
+  <span class="text-dark fw-medium">จัดการ Tags</span>
+</nav>
+
+<div class="row g-4">
+
+  <!-- Create form -->
+  <div class="col-lg-4">
+    <div class="board-card p-4 sticky-top" style="top:80px">
+      <h6 class="fw-bold mb-4" style="color:#1e1b4b">
+        <i class="fas fa-plus me-2" style="color:#6366f1"></i>สร้าง Tag ใหม่
+      </h6>
+      <form method="post">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="create">
+
+        <div class="mb-3">
+          <label class="form-label fw-semibold small text-muted">ชื่อ Tag <span class="text-danger">*</span></label>
+          <input type="text" name="name" required maxlength="50" class="board-input"
+                 placeholder="เช่น Huawei, MikroTik, Solar...">
+        </div>
+
+        <div class="mb-4">
+          <label class="form-label fw-semibold small text-muted">สี</label>
+          <div class="d-flex align-items-center gap-3">
+            <input type="color" name="color" id="tag-color-input" value="#6366f1"
+                   class="form-control form-control-color rounded-3 border-0"
+                   style="width:50px;height:36px;cursor:pointer">
+            <div class="d-flex flex-wrap gap-1">
+              {% for c in color_presets %}
+              <button type="button" class="rounded-circle border-0 tag-color-preset"
+                      data-color="{{ c }}"
+                      style="width:22px;height:22px;background:{{ c }};cursor:pointer"></button>
+              {% endfor %}
+            </div>
+          </div>
+          <!-- Preview -->
+          <div class="mt-2">
+            <span id="tag-preview" class="badge rounded-pill px-3 py-2 fw-semibold" style="background:#6366f122;color:#6366f1;border:1.5px solid #6366f155;font-size:.8rem">
+              ตัวอย่าง Tag
+            </span>
+          </div>
+        </div>
+
+        <button type="submit" class="btn-board w-100 justify-content-center">
+          <i class="fas fa-plus"></i> สร้าง Tag
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Tag list -->
+  <div class="col-lg-8">
+    <div class="board-card overflow-hidden">
+      <div class="px-4 py-3 border-bottom d-flex align-items-center justify-content-between">
+        <h6 class="fw-bold mb-0" style="color:#1e1b4b">
+          <i class="fas fa-tags me-2" style="color:#6366f1"></i>Tags ทั้งหมด ({{ tags.count }})
+        </h6>
+      </div>
+
+      {% if tags %}
+      <div class="divide-y">
+        {% for tag in tags %}
+        <div class="px-4 py-3 d-flex align-items-center justify-content-between gap-3 border-bottom" id="tag-row-{{ tag.pk }}">
+
+          <div class="d-flex align-items-center gap-3 flex-grow-1">
+            <!-- Color dot + badge -->
+            <span class="badge rounded-pill px-3 py-2 fw-semibold"
+                  style="background:{{ tag.color }}22;color:{{ tag.color }};border:1.5px solid {{ tag.color }}55;font-size:.8rem">
+              {{ tag.name }}
+            </span>
+            <span class="small text-muted">{{ tag.cnt }} โพสต์</span>
+          </div>
+
+          <div class="d-flex align-items-center gap-2 flex-shrink-0">
+            <!-- Color update -->
+            <form method="post" class="d-flex align-items-center gap-1">
+              {% csrf_token %}
+              <input type="hidden" name="action" value="update_color">
+              <input type="hidden" name="tag_id" value="{{ tag.pk }}">
+              <input type="color" name="color" value="{{ tag.color }}"
+                     class="form-control form-control-color rounded-2 border-0 p-0"
+                     style="width:28px;height:28px;cursor:pointer"
+                     title="เปลี่ยนสี"
+                     onchange="this.form.submit()">
+            </form>
+            <!-- Delete -->
+            <form method="post" onsubmit="return confirm('ลบ tag {{ tag.name }}?')">
+              {% csrf_token %}
+              <input type="hidden" name="action" value="delete">
+              <input type="hidden" name="tag_id" value="{{ tag.pk }}">
+              <button type="submit" class="btn btn-sm btn-outline-danger rounded-3 border-0 p-1"
+                      style="width:28px;height:28px" title="ลบ tag">
+                <i class="fas fa-times" style="font-size:.7rem"></i>
+              </button>
+            </form>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="px-4 py-5 text-center text-muted">
+        <i class="fas fa-tags fa-2x mb-3 d-block opacity-25"></i>
+        ยังไม่มี tag สร้าง tag แรกได้เลย
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const colorInput   = document.getElementById('tag-color-input');
+const tagPreview   = document.getElementById('tag-preview');
+const nameInput    = document.querySelector('input[name="name"]');
+
+function updatePreview() {
+  const c = colorInput.value;
+  tagPreview.style.background = c + '22';
+  tagPreview.style.color = c;
+  tagPreview.style.borderColor = c + '55';
+  tagPreview.textContent = nameInput.value || 'ตัวอย่าง Tag';
+}
+
+colorInput.addEventListener('input', updatePreview);
+nameInput.addEventListener('input', updatePreview);
+
+document.querySelectorAll('.tag-color-preset').forEach(btn => {
+  btn.addEventListener('click', () => {
+    colorInput.value = btn.dataset.color;
+    updatePreview();
+  });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,380 @@
+{% extends "board/base_board.html" %}
+
+{% block title %}{{ post.title }} — Knowledge Board{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="https://cdn.ckeditor.com/ckeditor5/42.0.0/ckeditor5.css">
+<style>
+  .ck-content img  { max-width:100%; height:auto; border-radius:8px; }
+  .ck-content table { border-collapse:collapse; width:100%; }
+  .ck-content td, .ck-content th { border:1px solid #e2e8f0; padding:.5rem .75rem; }
+  .ck-content th { background:#f8fafc; font-weight:600; }
+  .ck-content figure.image { margin:1rem 0; }
+  .ck-content figure.image.image-style-side { float:right; margin-left:1.5rem; max-width:40%; }
+  .ck-content h1 { font-size:1.6rem; font-weight:800; margin:.75rem 0 .4rem; }
+  .ck-content h2 { font-size:1.25rem; font-weight:700; margin:.75rem 0 .4rem; }
+  .ck-content h3 { font-size:1.05rem; font-weight:600; margin:.6rem 0 .3rem; }
+  .ck-content p   { margin-bottom:.6rem; line-height:1.8; }
+  .ck-content ul, .ck-content ol { padding-left:1.5rem; margin-bottom:.6rem; }
+  .ck-content blockquote { border-left:4px solid #a5b4fc; padding:.5rem 1rem; background:#f5f3ff; border-radius:6px; margin:.75rem 0; }
+  .ck-content pre { background:#1e293b; color:#e2e8f0; padding:1rem; border-radius:10px; font-size:.85rem; overflow-x:auto; }
+  .attach-card { background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:.75rem 1rem; display:flex; align-items:center; gap:.75rem; text-decoration:none; transition:.2s; }
+  .attach-card:hover { background:#f0f4ff; border-color:#c7d2fe; }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- Breadcrumb -->
+<nav class="small text-muted mb-4 d-flex align-items-center gap-1 flex-wrap">
+  <a href="{% url 'board:list' %}" class="text-decoration-none" style="color:#6366f1">
+    <i class="fas fa-book-open me-1"></i>Knowledge Board
+  </a>
+  <span>/</span>
+  {% if post.category %}<span>{{ post.category.name }}</span><span>/</span>{% endif %}
+  <span class="text-dark fw-medium">{{ post.title|truncatechars:50 }}</span>
+</nav>
+
+<!-- Post -->
+<div class="board-card mb-4">
+
+  {% if post.category %}
+  <div class="px-4 py-2 small fw-semibold d-flex align-items-center gap-2 rounded-top-3"
+       style="background:{{ post.category.color }}18;border-bottom:1px solid {{ post.category.color }}33;color:{{ post.category.color }}">
+    <i class="{{ post.category.icon }}"></i>{{ post.category.name }}
+  </div>
+  {% endif %}
+
+  <div class="px-4 pt-4 pb-3">
+    <!-- Type + pin badges -->
+    <div class="d-flex align-items-center gap-2 flex-wrap mb-2">
+      <span class="badge rounded-2 d-inline-flex align-items-center gap-1"
+            style="background:{{ post.type_display.bg }};color:{{ post.type_display.color }};font-size:.78rem;font-weight:600;padding:.3rem .7rem">
+        <i class="{{ post.type_display.icon }}"></i>{{ post.type_display.label }}
+      </span>
+      {% if post.is_pinned %}
+      <span class="badge rounded-2" style="background:#fef3c7;color:#92400e;font-size:.78rem">
+        <i class="fas fa-thumbtack me-1"></i>ปักหมุด
+      </span>
+      {% endif %}
+    </div>
+
+    <!-- Title -->
+    <h4 class="fw-bold mb-3" style="color:#1e1b4b">{{ post.title }}</h4>
+
+    <!-- Meta -->
+    <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+      <div class="small text-muted d-flex flex-wrap align-items-center gap-3">
+        <span><i class="fas fa-user-circle me-1" style="color:#6366f1"></i>
+          <strong class="text-dark">{{ post.author.get_full_name|default:post.author.username }}</strong>
+        </span>
+        <span><i class="fas fa-calendar me-1"></i>{{ post.created_at|date:"d M Y H:i" }}</span>
+        {% if post.updated_at != post.created_at %}
+        <span><i class="fas fa-pen me-1"></i>แก้ไข {{ post.updated_at|date:"d M Y" }}</span>
+        {% endif %}
+        <span><i class="fas fa-eye me-1"></i>{{ post.views }}</span>
+
+        <!-- Like button -->
+        <button id="like-btn"
+                class="btn btn-sm d-inline-flex align-items-center gap-1 rounded-3 border-0 ms-auto fw-semibold"
+                style="background:{% if user_liked %}#fee2e2{% else %}#f1f5f9{% endif %};
+                       color:{% if user_liked %}#ef4444{% else %}#64748b{% endif %};
+                       padding:.3rem .85rem;font-size:.82rem;transition:.2s"
+                data-url="{% url 'board:toggle_like' post.pk %}"
+                data-csrf="{{ csrf_token }}">
+          <i class="fa{% if user_liked %}s{% else %}r{% endif %} fa-heart"></i>
+          <span id="like-count">{{ like_count }}</span>
+          <span>มีประโยชน์</span>
+        </button>
+      </div>
+      {% if access.can_moderate or post.author == request.user %}
+      <form method="post" action="{% url 'board:delete_post' post.pk %}" onsubmit="return confirm('ลบโพสต์นี้?')">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-sm btn-outline-danger rounded-3">
+          <i class="fas fa-trash-alt me-1"></i>ลบ
+        </button>
+      </form>
+      {% endif %}
+    </div>
+
+    <!-- Tags -->
+    {% if post.tags.all %}
+    <div class="d-flex flex-wrap gap-1 mt-3">
+      {% for tag in post.tags.all %}
+      <a href="{% url 'board:list' %}?tag={{ tag.pk }}"
+         class="badge rounded-pill text-decoration-none"
+         style="background:{{ tag.color }}22;color:{{ tag.color }};border:1px solid {{ tag.color }}55;font-size:.75rem;font-weight:600">
+        <i class="fas fa-tag me-1" style="font-size:.6rem"></i>{{ tag.name }}
+      </a>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </div>
+
+  <hr class="mx-4 my-0" style="border-color:#e0e7ff">
+
+  <!-- Content -->
+  <div class="px-4 py-4 ck-content">{{ post.content|safe }}</div>
+
+  <!-- Attachments -->
+  {% if post.attachments.all %}
+  <div class="px-4 pb-4">
+    <hr class="mb-3" style="border-color:#e0e7ff">
+    <div class="small fw-semibold text-muted mb-3">
+      <i class="fas fa-paperclip me-1"></i>ไฟล์แนบ ({{ post.attachments.count }})
+    </div>
+    <div class="row g-2">
+      {% for att in post.attachments.all %}
+      <div class="col-md-6" id="att-{{ att.pk }}">
+        <div class="attach-card">
+          <i class="fas {{ att.icon_info.fa }} fa-lg flex-shrink-0" style="color:{{ att.icon_info.color }}"></i>
+          <div class="flex-grow-1 min-w-0">
+            <div class="small fw-semibold text-truncate" style="color:#1e293b">{{ att.name }}</div>
+            <div class="text-muted" style="font-size:.72rem">{{ att.size_display }}</div>
+          </div>
+          <a href="{{ att.file.url }}" download="{{ att.name }}"
+             class="btn btn-sm rounded-3 flex-shrink-0"
+             style="background:#e0e7ff;color:#6366f1;font-size:.75rem;padding:.25rem .6rem">
+            <i class="fas fa-download"></i>
+          </a>
+          {% if access.can_moderate or att.uploaded_by == request.user or post.author == request.user %}
+          <button type="button" class="btn btn-sm btn-link p-0 text-danger delete-att-btn flex-shrink-0"
+                  data-pk="{{ att.pk }}" data-url="{% url 'board:delete_attachment' att.pk %}"
+                  title="ลบไฟล์">
+            <i class="fas fa-times"></i>
+          </button>
+          {% endif %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+</div>
+
+<!-- Related posts -->
+{% if related %}
+<div class="board-card px-4 py-4 mb-4">
+  <h6 class="fw-bold mb-3" style="color:#1e1b4b">
+    <i class="fas fa-link me-2" style="color:#6366f1"></i>โพสต์ที่เกี่ยวข้อง
+  </h6>
+  <div class="row g-2">
+    {% for rp in related %}
+    <div class="col-md-6">
+      <a href="{% url 'board:post_detail' rp.pk %}" class="d-flex align-items-start gap-2 p-2 rounded-3 text-decoration-none"
+         style="background:#f8fafc;border:1px solid #e2e8f0;transition:.2s" onmouseover="this.style.background='#f0f4ff'" onmouseout="this.style.background='#f8fafc'">
+        <span class="rounded-2 d-flex align-items-center justify-content-center flex-shrink-0 mt-1"
+              style="width:28px;height:28px;background:{{ rp.type_display.bg }}">
+          <i class="{{ rp.type_display.icon }}" style="color:{{ rp.type_display.color }};font-size:.7rem"></i>
+        </span>
+        <div class="min-w-0">
+          <div class="small fw-semibold text-truncate" style="color:#1e293b">{{ rp.title }}</div>
+          <div class="d-flex gap-2 flex-wrap mt-1">
+            {% for tag in rp.tags.all|slice:":3" %}
+            <span class="badge rounded-pill" style="background:{{ tag.color }}22;color:{{ tag.color }};font-size:.63rem;font-weight:600">{{ tag.name }}</span>
+            {% endfor %}
+          </div>
+        </div>
+      </a>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+<!-- Comments -->
+<div class="board-card px-4 py-4">
+  <h6 class="fw-bold mb-4" style="color:#1e1b4b">
+    <i class="fas fa-comments me-2" style="color:#6366f1"></i>ความคิดเห็น ({{ top_comments.count }})
+  </h6>
+
+  <div id="comments-container" class="mb-4">
+    {% for comment in top_comments %}
+    <div class="comment-box mb-3" id="comment-{{ comment.pk }}">
+      <div class="d-flex align-items-start justify-content-between gap-2">
+        <div>
+          <span class="fw-semibold small" style="color:#1e293b">
+            {{ comment.author.get_full_name|default:comment.author.username }}
+          </span>
+          <span class="small text-muted ms-2">{{ comment.created_at|date:"d M Y H:i" }}</span>
+        </div>
+        <div class="d-flex gap-2">
+          <button class="btn btn-link p-0 small reply-btn" style="color:#6366f1" data-id="{{ comment.pk }}">
+            <i class="fas fa-reply me-1"></i>ตอบ
+          </button>
+          {% if access.can_moderate or comment.author == request.user %}
+          <button class="btn btn-link p-0 small text-danger delete-comment-btn"
+                  data-id="{{ comment.pk }}" data-url="{% url 'board:delete_comment' comment.pk %}">
+            <i class="fas fa-times"></i>
+          </button>
+          {% endif %}
+        </div>
+      </div>
+      <p class="small mt-1 mb-0" style="color:#374151;white-space:pre-wrap">{{ comment.content }}</p>
+      <div id="replies-{{ comment.pk }}">
+        {% for reply in comment.replies.all %}
+        <div class="reply-box" id="comment-{{ reply.pk }}">
+          <div class="d-flex align-items-start justify-content-between gap-2">
+            <div>
+              <span class="fw-semibold small" style="color:#1e293b">{{ reply.author.get_full_name|default:reply.author.username }}</span>
+              <span class="small text-muted ms-2">{{ reply.created_at|date:"d M Y H:i" }}</span>
+            </div>
+            {% if access.can_moderate or reply.author == request.user %}
+            <button class="btn btn-link p-0 small text-danger delete-comment-btn"
+                    data-id="{{ reply.pk }}" data-url="{% url 'board:delete_comment' reply.pk %}">
+              <i class="fas fa-times"></i>
+            </button>
+            {% endif %}
+          </div>
+          <p class="small mt-1 mb-0" style="color:#374151;white-space:pre-wrap">{{ reply.content }}</p>
+        </div>
+        {% endfor %}
+      </div>
+      <div class="reply-form d-none mt-2" id="reply-form-{{ comment.pk }}">
+        <textarea class="board-input mt-1" rows="2" placeholder="เขียนตอบกลับ..." data-parent="{{ comment.pk }}" style="resize:none;font-size:.85rem"></textarea>
+        <div class="d-flex gap-2 mt-2">
+          <button class="btn-board submit-reply" style="font-size:.8rem;padding:.35rem .9rem" data-parent="{{ comment.pk }}">
+            <i class="fas fa-paper-plane"></i> ส่ง
+          </button>
+          <button class="btn btn-link p-0 small text-muted cancel-reply" data-parent="{{ comment.pk }}">ยกเลิก</button>
+        </div>
+      </div>
+    </div>
+    {% empty %}
+    <p class="small text-muted">ยังไม่มีความคิดเห็น</p>
+    {% endfor %}
+  </div>
+
+  <div class="pt-3 border-top">
+    <div class="small fw-semibold text-muted mb-2">เพิ่มความคิดเห็น</div>
+    <textarea id="new-comment" class="board-input" rows="3" placeholder="เขียนความคิดเห็น..." style="resize:none"></textarea>
+    <div class="d-flex justify-content-end mt-2">
+      <button id="submit-comment" class="btn-board">
+        <i class="fas fa-paper-plane"></i> ส่ง
+      </button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const COMMENT_URL = "{% url 'board:add_comment' post.pk %}";
+const CSRF = "{{ csrf_token }}";
+
+function makeCommentHTML(d) {
+  return `<div class="comment-box mb-3" id="comment-${d.id}">
+    <div class="d-flex align-items-start justify-content-between gap-2">
+      <div><span class="fw-semibold small" style="color:#1e293b">${d.author}</span>
+      <span class="small text-muted ms-2">${d.created_at}</span></div>
+      <button class="btn btn-link p-0 small reply-btn" style="color:#6366f1" data-id="${d.id}">
+        <i class="fas fa-reply me-1"></i>ตอบ</button>
+    </div>
+    <p class="small mt-1 mb-0" style="color:#374151;white-space:pre-wrap">${d.content}</p>
+    <div id="replies-${d.id}"></div>
+    <div class="reply-form d-none mt-2" id="reply-form-${d.id}">
+      <textarea class="board-input mt-1" rows="2" placeholder="เขียนตอบกลับ..." data-parent="${d.id}" style="resize:none;font-size:.85rem"></textarea>
+      <div class="d-flex gap-2 mt-2">
+        <button class="btn-board submit-reply" style="font-size:.8rem;padding:.35rem .9rem" data-parent="${d.id}">
+          <i class="fas fa-paper-plane"></i> ส่ง</button>
+        <button class="btn btn-link p-0 small text-muted cancel-reply" data-parent="${d.id}">ยกเลิก</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+function makeReplyHTML(d) {
+  return `<div class="reply-box" id="comment-${d.id}">
+    <div><span class="fw-semibold small" style="color:#1e293b">${d.author}</span>
+    <span class="small text-muted ms-2">${d.created_at}</span></div>
+    <p class="small mt-1 mb-0" style="color:#374151;white-space:pre-wrap">${d.content}</p>
+  </div>`;
+}
+
+async function postComment(content, parentId=null) {
+  const fd = new FormData();
+  fd.append('content', content);
+  fd.append('csrfmiddlewaretoken', CSRF);
+  if (parentId) fd.append('parent_id', parentId);
+  return (await fetch(COMMENT_URL, {method:'POST', body:fd})).json();
+}
+
+document.getElementById('submit-comment').addEventListener('click', async () => {
+  const ta = document.getElementById('new-comment');
+  const d = await postComment(ta.value.trim());
+  if (d.ok) {
+    ta.value = '';
+    const c = document.getElementById('comments-container');
+    c.querySelector('p.text-muted')?.remove();
+    c.insertAdjacentHTML('beforeend', makeCommentHTML(d));
+    bindEvents();
+  }
+});
+
+function bindEvents() {
+  document.querySelectorAll('.reply-btn').forEach(btn => {
+    btn.onclick = () => {
+      const f = document.getElementById(`reply-form-${btn.dataset.id}`);
+      document.querySelectorAll('.reply-form').forEach(x => { if(x!==f) x.classList.add('d-none'); });
+      f.classList.toggle('d-none');
+      if (!f.classList.contains('d-none')) f.querySelector('textarea').focus();
+    };
+  });
+  document.querySelectorAll('.cancel-reply').forEach(btn => {
+    btn.onclick = () => document.getElementById(`reply-form-${btn.dataset.parent}`).classList.add('d-none');
+  });
+  document.querySelectorAll('.submit-reply').forEach(btn => {
+    btn.onclick = async () => {
+      const pid = btn.dataset.parent;
+      const ta = document.getElementById(`reply-form-${pid}`).querySelector('textarea');
+      const d = await postComment(ta.value.trim(), pid);
+      if (d.ok) {
+        ta.value = '';
+        document.getElementById(`reply-form-${pid}`).classList.add('d-none');
+        document.getElementById(`replies-${pid}`).insertAdjacentHTML('beforeend', makeReplyHTML(d));
+      }
+    };
+  });
+  document.querySelectorAll('.delete-comment-btn').forEach(btn => {
+    btn.onclick = async () => {
+      if (!confirm('ลบความคิดเห็นนี้?')) return;
+      const r = await (await fetch(btn.dataset.url, {method:'POST', headers:{'X-CSRFToken':CSRF}})).json();
+      if (r.ok) document.getElementById(`comment-${btn.dataset.id}`)?.remove();
+    };
+  });
+}
+bindEvents();
+
+// Like toggle
+const likeBtn = document.getElementById('like-btn');
+if (likeBtn) {
+  likeBtn.addEventListener('click', async () => {
+    const r = await (await fetch(likeBtn.dataset.url, {
+      method: 'POST', headers: {'X-CSRFToken': likeBtn.dataset.csrf}
+    })).json();
+    if (r.ok) {
+      document.getElementById('like-count').textContent = r.count;
+      const icon = likeBtn.querySelector('i');
+      if (r.liked) {
+        icon.className = 'fas fa-heart';
+        likeBtn.style.background = '#fee2e2';
+        likeBtn.style.color = '#ef4444';
+      } else {
+        icon.className = 'far fa-heart';
+        likeBtn.style.background = '#f1f5f9';
+        likeBtn.style.color = '#64748b';
+      }
+    }
+  });
+}
+
+// Attachment delete
+document.querySelectorAll('.delete-att-btn').forEach(btn => {
+  btn.onclick = async () => {
+    if (!confirm('ลบไฟล์แนบนี้?')) return;
+    const r = await (await fetch(btn.dataset.url, {method:'POST', headers:{'X-CSRFToken':CSRF}})).json();
+    if (r.ok) document.getElementById(`att-${btn.dataset.pk}`)?.remove();
+  };
+});
+</script>
+{% endblock %}

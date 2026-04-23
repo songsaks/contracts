@@ -1,0 +1,458 @@
+{% extends "board/base_board.html" %}
+{% block title %}Dashboard — Knowledge Board{% endblock %}
+
+{% block extra_css %}
+<style>
+    .stat-card {
+        background: #fff;
+        border-radius: 16px;
+        border: 1px solid var(--border-soft);
+        box-shadow: var(--shadow);
+        padding: 1.25rem 1.5rem;
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+    .stat-icon {
+        width: 48px; height: 48px;
+        border-radius: 12px;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 1.25rem;
+        flex-shrink: 0;
+    }
+    .stat-value {
+        font-size: 1.75rem;
+        font-weight: 800;
+        line-height: 1;
+        color: var(--text-main);
+    }
+    .stat-label {
+        font-size: 0.78rem;
+        color: var(--text-muted);
+        font-weight: 500;
+        margin-top: 0.2rem;
+    }
+
+    .section-title {
+        font-size: 0.85rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--text-muted);
+        margin-bottom: 0.85rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    .section-title::after {
+        content: '';
+        flex: 1;
+        height: 1px;
+        background: var(--border-soft);
+    }
+
+    /* top post rows */
+    .top-post-row {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 0.6rem 0;
+        border-bottom: 1px solid #f1f5f9;
+    }
+    .top-post-row:last-child { border-bottom: none; }
+    .top-rank {
+        width: 24px; height: 24px;
+        border-radius: 6px;
+        background: #ede9fe;
+        color: #5b21b6;
+        font-size: 0.75rem;
+        font-weight: 700;
+        display: flex; align-items: center; justify-content: center;
+        flex-shrink: 0;
+    }
+    .top-rank.gold   { background:#fef3c7; color:#92400e; }
+    .top-rank.silver { background:#f1f5f9; color:#475569; }
+    .top-rank.bronze { background:#fff7ed; color:#9a3412; }
+
+    .top-post-title {
+        font-size: 0.875rem;
+        font-weight: 600;
+        color: var(--text-main);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        flex: 1;
+        text-decoration: none;
+    }
+    .top-post-title:hover { color: var(--board-primary); }
+    .top-post-val {
+        font-size: 0.8rem;
+        font-weight: 700;
+        color: var(--text-muted);
+        flex-shrink: 0;
+    }
+
+    /* type bars */
+    .type-bar-row { margin-bottom: 0.85rem; }
+    .type-bar-label {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 0.3rem;
+        font-size: 0.82rem;
+        font-weight: 600;
+    }
+    .type-bar-track {
+        height: 8px;
+        background: #f1f5f9;
+        border-radius: 99px;
+        overflow: hidden;
+    }
+    .type-bar-fill {
+        height: 100%;
+        border-radius: 99px;
+        transition: width 0.8s cubic-bezier(.22,.61,.36,1);
+    }
+
+    /* contributor leaderboard */
+    .contrib-row {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 0.55rem 0;
+        border-bottom: 1px solid #f1f5f9;
+    }
+    .contrib-row:last-child { border-bottom: none; }
+    .contrib-avatar {
+        width: 34px; height: 34px;
+        border-radius: 50%;
+        background: linear-gradient(135deg,#6366f1,#8b5cf6);
+        color: #fff;
+        font-weight: 700;
+        font-size: 0.85rem;
+        display: flex; align-items: center; justify-content: center;
+        flex-shrink: 0;
+    }
+    .contrib-name {
+        font-size: 0.875rem;
+        font-weight: 600;
+        flex: 1;
+    }
+    .contrib-pills {
+        display: flex;
+        gap: 0.4rem;
+    }
+    .contrib-pill {
+        font-size: 0.72rem;
+        font-weight: 600;
+        padding: 0.15rem 0.55rem;
+        border-radius: 99px;
+    }
+
+    /* tag cloud */
+    .tag-cloud {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.45rem;
+    }
+    .tag-cloud-item {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.3rem;
+        border-radius: 99px;
+        padding: 0.25rem 0.7rem;
+        font-weight: 600;
+        text-decoration: none;
+        border: 1.5px solid transparent;
+        transition: opacity 0.15s, transform 0.15s;
+    }
+    .tag-cloud-item:hover { opacity: 0.8; transform: translateY(-1px); }
+
+    /* recent feed */
+    .recent-item {
+        display: flex;
+        align-items: flex-start;
+        gap: 0.85rem;
+        padding: 0.7rem 0;
+        border-bottom: 1px solid #f1f5f9;
+    }
+    .recent-item:last-child { border-bottom: none; }
+    .recent-dot {
+        width: 8px; height: 8px;
+        border-radius: 50%;
+        margin-top: 0.45rem;
+        flex-shrink: 0;
+    }
+    .recent-meta {
+        font-size: 0.75rem;
+        color: var(--text-muted);
+        margin-top: 0.15rem;
+    }
+    .recent-title {
+        font-size: 0.875rem;
+        font-weight: 600;
+        color: var(--text-main);
+        text-decoration: none;
+        line-height: 1.4;
+    }
+    .recent-title:hover { color: var(--board-primary); }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- Page header -->
+<div class="d-flex align-items-center justify-content-between mb-4">
+    <div>
+        <h1 class="fw-800 mb-0" style="font-size:1.5rem">
+            <i class="fas fa-chart-bar me-2" style="color:#6366f1"></i>Dashboard
+        </h1>
+        <p class="text-muted mb-0" style="font-size:0.85rem">ภาพรวม Knowledge Board</p>
+    </div>
+    <a href="{% url 'board:list' %}" class="btn-board-outline">
+        <i class="fas fa-th-list"></i> หน้าหลัก
+    </a>
+</div>
+
+<!-- ===== Stat Cards ===== -->
+<div class="row g-3 mb-4">
+    <div class="col-6 col-md-4 col-lg-2-4">
+        <div class="stat-card">
+            <div class="stat-icon" style="background:#ede9fe">
+                <i class="fas fa-file-alt" style="color:#6366f1"></i>
+            </div>
+            <div>
+                <div class="stat-value">{{ total_posts }}</div>
+                <div class="stat-label">โพสต์ทั้งหมด</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-4 col-lg-2-4">
+        <div class="stat-card">
+            <div class="stat-icon" style="background:#d1fae5">
+                <i class="fas fa-comments" style="color:#059669"></i>
+            </div>
+            <div>
+                <div class="stat-value">{{ total_comments }}</div>
+                <div class="stat-label">ความคิดเห็น</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-4 col-lg-2-4">
+        <div class="stat-card">
+            <div class="stat-icon" style="background:#fef3c7">
+                <i class="fas fa-eye" style="color:#d97706"></i>
+            </div>
+            <div>
+                <div class="stat-value">{{ total_views }}</div>
+                <div class="stat-label">การเข้าชม</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-4 col-lg-2-4">
+        <div class="stat-card">
+            <div class="stat-icon" style="background:#fce7f3">
+                <i class="fas fa-heart" style="color:#e11d48"></i>
+            </div>
+            <div>
+                <div class="stat-value">{{ total_likes }}</div>
+                <div class="stat-label">ถูกใจ</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-4 col-lg-2-4">
+        <div class="stat-card">
+            <div class="stat-icon" style="background:#ecfdf5">
+                <i class="fas fa-plus-circle" style="color:#10b981"></i>
+            </div>
+            <div>
+                <div class="stat-value">{{ new_this_month }}</div>
+                <div class="stat-label">ใหม่เดือนนี้</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    /* 5-column layout on large screens */
+    @media (min-width: 992px) {
+        .col-lg-2-4 { flex: 0 0 20%; max-width: 20%; }
+    }
+</style>
+
+<!-- ===== Main grid ===== -->
+<div class="row g-4">
+
+    <!-- Left column -->
+    <div class="col-lg-8">
+
+        <!-- Top viewed + Top liked side by side -->
+        <div class="row g-3 mb-4">
+            <div class="col-md-6">
+                <div class="board-card p-3">
+                    <div class="section-title"><i class="fas fa-eye" style="color:#d97706"></i> ยอดวิวสูงสุด</div>
+                    {% for p in top_viewed %}
+                    <div class="top-post-row">
+                        <span class="top-rank {% if forloop.counter == 1 %}gold{% elif forloop.counter == 2 %}silver{% elif forloop.counter == 3 %}bronze{% endif %}">
+                            {{ forloop.counter }}
+                        </span>
+                        <a href="{% url 'board:post_detail' p.pk %}" class="top-post-title">{{ p.title }}</a>
+                        <span class="top-post-val"><i class="fas fa-eye me-1"></i>{{ p.views }}</span>
+                    </div>
+                    {% empty %}
+                    <p class="text-muted small">ยังไม่มีข้อมูล</p>
+                    {% endfor %}
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="board-card p-3">
+                    <div class="section-title"><i class="fas fa-heart" style="color:#e11d48"></i> ถูกใจมากสุด</div>
+                    {% for p in top_liked %}
+                    <div class="top-post-row">
+                        <span class="top-rank {% if forloop.counter == 1 %}gold{% elif forloop.counter == 2 %}silver{% elif forloop.counter == 3 %}bronze{% endif %}">
+                            {{ forloop.counter }}
+                        </span>
+                        <a href="{% url 'board:post_detail' p.pk %}" class="top-post-title">{{ p.title }}</a>
+                        <span class="top-post-val"><i class="fas fa-heart me-1" style="color:#e11d48"></i>{{ p.like_cnt }}</span>
+                    </div>
+                    {% empty %}
+                    <p class="text-muted small">ยังไม่มีข้อมูล</p>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Top commented -->
+        <div class="board-card p-3 mb-4">
+            <div class="section-title"><i class="fas fa-comments" style="color:#059669"></i> ถกเถียงมากสุด</div>
+            <div class="row g-0">
+                {% for p in top_commented %}
+                <div class="col-12">
+                    <div class="top-post-row">
+                        <span class="top-rank {% if forloop.counter == 1 %}gold{% elif forloop.counter == 2 %}silver{% elif forloop.counter == 3 %}bronze{% endif %}">
+                            {{ forloop.counter }}
+                        </span>
+                        <a href="{% url 'board:post_detail' p.pk %}" class="top-post-title">{{ p.title }}</a>
+                        <span class="top-post-val"><i class="fas fa-comment me-1" style="color:#059669"></i>{{ p.cmt_cnt }}</span>
+                    </div>
+                </div>
+                {% empty %}
+                <p class="text-muted small">ยังไม่มีข้อมูล</p>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Post type distribution -->
+        <div class="board-card p-3 mb-4">
+            <div class="section-title"><i class="fas fa-layer-group" style="color:#6366f1"></i> สัดส่วนประเภทโพสต์</div>
+            {% for t in type_data %}
+            <div class="type-bar-row">
+                <div class="type-bar-label">
+                    <span>
+                        <span class="me-1" style="font-size:0.9rem; color:{{ t.color }}">{{ t.icon }}</span>
+                        <span style="color:{{ t.color }}; font-weight:700">{{ t.label }}</span>
+                    </span>
+                    <span class="text-muted">{{ t.count }} โพสต์ ({{ t.pct|floatformat:0 }}%)</span>
+                </div>
+                <div class="type-bar-track">
+                    <div class="type-bar-fill" style="width:{{ t.pct|floatformat:0 }}%; background:{{ t.color }}" data-pct="{{ t.pct|floatformat:0 }}"></div>
+                </div>
+            </div>
+            {% empty %}
+            <p class="text-muted small">ยังไม่มีข้อมูล</p>
+            {% endfor %}
+        </div>
+
+        <!-- Tag cloud -->
+        {% if top_tags %}
+        <div class="board-card p-3">
+            <div class="section-title"><i class="fas fa-tags" style="color:#6366f1"></i> แท็กยอดนิยม</div>
+            <div class="tag-cloud">
+                {% for tag in top_tags %}
+                {% with sz=tag.cnt %}
+                <a href="{% url 'board:list' %}?tag={{ tag.name }}"
+                   class="tag-cloud-item"
+                   style="background:{{ tag.color }}22; color:{{ tag.color }}; border-color:{{ tag.color }}44;
+                          font-size:{% if sz >= 10 %}1rem{% elif sz >= 5 %}0.875rem{% elif sz >= 3 %}0.8rem{% else %}0.75rem{% endif %}">
+                    <i class="fas fa-hashtag" style="font-size:0.7em; opacity:0.7"></i>
+                    {{ tag.name }}
+                    <span style="font-size:0.7em; opacity:0.7">({{ sz }})</span>
+                </a>
+                {% endwith %}
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+    </div><!-- /left col -->
+
+    <!-- Right column -->
+    <div class="col-lg-4">
+
+        <!-- Top contributors -->
+        <div class="board-card p-3 mb-4">
+            <div class="section-title"><i class="fas fa-trophy" style="color:#d97706"></i> นักเขียนยอดเยี่ยม</div>
+            {% for u in top_contributors %}
+            <div class="contrib-row">
+                <div class="contrib-avatar">
+                    {{ u.get_full_name|default:u.username|slice:":1"|upper }}
+                </div>
+                <div class="flex-fill" style="min-width:0">
+                    <div class="contrib-name text-truncate">{{ u.get_full_name|default:u.username }}</div>
+                </div>
+                <div class="contrib-pills">
+                    <span class="contrib-pill" style="background:#ede9fe; color:#5b21b6">
+                        <i class="fas fa-file-alt me-1" style="font-size:0.65em"></i>{{ u.post_cnt }}
+                    </span>
+                    <span class="contrib-pill" style="background:#fce7f3; color:#be185d">
+                        <i class="fas fa-heart me-1" style="font-size:0.65em"></i>{{ u.like_cnt }}
+                    </span>
+                </div>
+            </div>
+            {% empty %}
+            <p class="text-muted small">ยังไม่มีข้อมูล</p>
+            {% endfor %}
+        </div>
+
+        <!-- Recent activity -->
+        <div class="board-card p-3">
+            <div class="section-title"><i class="fas fa-clock" style="color:#6366f1"></i> โพสต์ล่าสุด</div>
+            {% for p in recent_posts %}
+            <div class="recent-item">
+                <div class="recent-dot" style="background:{{ p.type_display.bg }}"></div>
+                <div style="min-width:0">
+                    <a href="{% url 'board:post_detail' p.pk %}" class="recent-title d-block text-truncate">
+                        {{ p.title }}
+                    </a>
+                    <div class="recent-meta">
+                        <span style="color:{{ p.type_display.color }}; font-weight:600">{{ p.type_display.icon }} {{ p.type_display.label }}</span>
+                        &middot;
+                        {{ p.author.get_full_name|default:p.author.username }}
+                        &middot;
+                        {{ p.created_at|date:"d M Y" }}
+                    </div>
+                </div>
+            </div>
+            {% empty %}
+            <p class="text-muted small">ยังไม่มีข้อมูล</p>
+            {% endfor %}
+        </div>
+
+    </div><!-- /right col -->
+
+</div><!-- /main grid -->
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+/* animate bars on load */
+document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('.type-bar-fill').forEach(el => {
+        const target = el.dataset.pct;
+        el.style.width = '0%';
+        setTimeout(() => { el.style.width = target + '%'; }, 100);
+    });
+});
+</script>
+{% endblock %}

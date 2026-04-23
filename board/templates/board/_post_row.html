@@ -1,0 +1,39 @@
+<div class="d-flex align-items-start gap-3">
+  <!-- Type badge -->
+  <span class="rounded-2 d-inline-flex align-items-center justify-content-center flex-shrink-0 mt-1"
+        style="width:32px;height:32px;background:{{ post.type_display.bg }}">
+    <i class="{{ post.type_display.icon }}" style="color:{{ post.type_display.color }};font-size:.8rem"></i>
+  </span>
+
+  <div class="flex-grow-1 min-w-0">
+    <div class="d-flex align-items-center gap-2 flex-wrap mb-1">
+      {% if post.is_pinned %}
+      <span class="badge rounded-pill" style="background:#fef3c7;color:#92400e;font-size:.68rem">
+        <i class="fas fa-thumbtack me-1"></i>ปักหมุด
+      </span>
+      {% endif %}
+      <span class="fw-semibold text-truncate" style="color:#1e293b;max-width:400px">{{ post.title }}</span>
+    </div>
+
+    <!-- Tags -->
+    {% if post.tags.all %}
+    <div class="d-flex flex-wrap gap-1 mb-1">
+      {% for tag in post.tags.all %}
+      <span class="badge rounded-pill" style="background:{{ tag.color }}22;color:{{ tag.color }};border:1px solid {{ tag.color }}44;font-size:.68rem;font-weight:600">
+        {{ tag.name }}
+      </span>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    <div class="small text-muted d-flex flex-wrap gap-3">
+      <span><i class="fas fa-user-circle me-1"></i>{{ post.author.get_full_name|default:post.author.username }}</span>
+      <span><i class="fas fa-clock me-1"></i>{{ post.created_at|date:"d M Y" }}</span>
+      <span><i class="fas fa-eye me-1"></i>{{ post.views }}</span>
+      <span><i class="fas fa-comment me-1"></i>{{ post.comment_count }}</span>
+      {% if post.attachments.count %}<span><i class="fas fa-paperclip me-1"></i>{{ post.attachments.count }}</span>{% endif %}
+    </div>
+  </div>
+
+  <i class="fas fa-chevron-right text-muted mt-2 flex-shrink-0" style="font-size:.7rem"></i>
+</div>

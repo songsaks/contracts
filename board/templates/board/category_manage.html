@@ -1,0 +1,95 @@
+{% extends "board/base_board.html" %}
+
+{% block title %}จัดการหมวดหมู่ — Knowledge Board{% endblock %}
+
+{% block content %}
+<nav class="small text-muted mb-4 d-flex align-items-center gap-1">
+  <a href="{% url 'board:list' %}" class="text-decoration-none" style="color:#6366f1">
+    <i class="fas fa-book-open me-1"></i>Knowledge Board
+  </a>
+  <span>/</span>
+  <span class="text-dark fw-medium">จัดการหมวดหมู่</span>
+</nav>
+
+<div class="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-3">
+  <h5 class="fw-bold mb-0" style="color:#1e1b4b">
+    <i class="fas fa-th-large me-2" style="color:#6366f1"></i>หมวดหมู่ทั้งหมด
+  </h5>
+  <a href="{% url 'board:category_create' %}" class="btn-board text-decoration-none">
+    <i class="fas fa-plus"></i> เพิ่มหมวดหมู่
+  </a>
+</div>
+
+{% if categories %}
+<div class="row g-3">
+  {% for cat in categories %}
+  <div class="col-md-6 col-lg-4">
+    <div class="board-card h-100 overflow-hidden">
+
+      <!-- Cover image -->
+      {% if cat.image %}
+      <div style="height:140px;overflow:hidden">
+        <img src="{{ cat.image.url }}" alt="{{ cat.name }}"
+             class="w-100 h-100" style="object-fit:cover">
+      </div>
+      {% else %}
+      <div class="d-flex align-items-center justify-content-center"
+           style="height:100px;background:{{ cat.color }}18">
+        <i class="{{ cat.icon }} fa-2x" style="color:{{ cat.color }}"></i>
+      </div>
+      {% endif %}
+
+      <div class="p-3">
+        <div class="d-flex align-items-start justify-content-between gap-2">
+          <div class="flex-grow-1">
+            <div class="d-flex align-items-center gap-2 mb-1">
+              <span class="rounded-2 d-inline-flex align-items-center justify-content-center text-white"
+                    style="width:28px;height:28px;background:{{ cat.color }};font-size:.75rem;flex-shrink:0">
+                <i class="{{ cat.icon }}"></i>
+              </span>
+              <span class="fw-bold" style="color:#1e293b">{{ cat.name }}</span>
+            </div>
+            {% if cat.description %}
+            <div class="small text-muted mb-1">{{ cat.description }}</div>
+            {% endif %}
+            {% if cat.external_link %}
+            <a href="{{ cat.external_link }}" target="_blank" rel="noopener"
+               class="small text-decoration-none d-inline-flex align-items-center gap-1" style="color:#6366f1">
+              <i class="fas fa-external-link-alt" style="font-size:.65rem"></i>
+              ลิงก์ภายนอก
+            </a>
+            {% endif %}
+            <div class="small text-muted mt-1">
+              <i class="fas fa-layer-group me-1"></i>{{ cat.posts.count }} โพสต์
+              &nbsp;·&nbsp;ลำดับ {{ cat.order }}
+            </div>
+          </div>
+        </div>
+
+        <div class="d-flex gap-2 mt-3 pt-2 border-top">
+          <a href="{% url 'board:category_edit' cat.pk %}"
+             class="btn-board-outline text-decoration-none" style="font-size:.78rem;padding:.3rem .8rem">
+            <i class="fas fa-pen"></i> แก้ไข
+          </a>
+          <form method="post" action="{% url 'board:category_delete' cat.pk %}"
+                onsubmit="return confirm('ลบหมวดหมู่ {{ cat.name }}?')">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-sm btn-outline-danger rounded-3"
+                    style="font-size:.78rem;padding:.3rem .8rem">
+              <i class="fas fa-trash me-1"></i>ลบ
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+{% else %}
+<div class="board-card text-center py-5 text-muted">
+  <i class="fas fa-th-large fa-3x mb-3 d-block opacity-25"></i>
+  ยังไม่มีหมวดหมู่ <a href="{% url 'board:category_create' %}" style="color:#6366f1">สร้างตอนนี้</a>
+</div>
+{% endif %}
+{% endblock %}

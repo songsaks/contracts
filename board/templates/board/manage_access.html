@@ -1,0 +1,194 @@
+{% extends "board/base_board.html" %}
+
+{% block title %}จัดการสิทธิ์ — Knowledge Board{% endblock %}
+
+{% block content %}
+
+<nav class="small text-muted mb-4 d-flex align-items-center gap-1">
+  <a href="{% url 'board:list' %}" class="text-decoration-none" style="color:#6366f1">
+    <i class="fas fa-book-open me-1"></i>Knowledge Board
+  </a>
+  <span>/</span>
+  <span class="text-dark fw-medium">จัดการสิทธิ์ผู้ใช้</span>
+</nav>
+
+<div class="row g-4">
+
+  <!-- Grant form -->
+  <div class="col-lg-4">
+    <div class="board-card p-4 sticky-top" style="top:80px">
+      <h6 class="fw-bold mb-4" style="color:#1e1b4b">
+        <i class="fas fa-user-plus me-2" style="color:#6366f1"></i>เพิ่ม / แก้ไขสิทธิ์
+      </h6>
+
+      <form method="post">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="grant">
+
+        <div class="mb-3">
+          <label class="form-label fw-semibold small text-muted">เลือกผู้ใช้ <span class="text-danger">*</span></label>
+          <input type="text" id="user-search" class="board-input mb-1"
+                 placeholder="ค้นหาชื่อหรือ username..." autocomplete="off">
+          <select name="username" id="user-select" required class="board-input" size="5"
+                  style="border-radius:10px;overflow-y:auto">
+            {% for u in all_users %}
+            <option value="{{ u.username }}">
+              {{ u.get_full_name|default:u.username }}{% if u.get_full_name %} (@{{ u.username }}){% endif %}
+            </option>
+            {% empty %}
+            <option disabled>— ผู้ใช้ทั้งหมดได้รับสิทธิ์แล้ว —</option>
+            {% endfor %}
+          </select>
+          <div class="small text-muted mt-1">
+            <i class="fas fa-info-circle me-1"></i>
+            เพื่ออัปเดตสิทธิ์ผู้ใช้ที่มีอยู่ ให้เลือกจากตารางด้านขวาแล้วกดแก้ไข
+          </div>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label fw-semibold small text-muted">บทบาท</label>
+          <select name="role" class="board-input">
+            {% for val, label in role_choices %}
+            <option value="{{ val }}">{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="mb-4">
+          <label class="form-label fw-semibold small text-muted">หมายเหตุ</label>
+          <input type="text" name="note" maxlength="200" class="board-input"
+                 placeholder="เช่น ฝ่าย HR, ผู้บริหาร">
+        </div>
+
+        <button type="submit" class="btn-board w-100 justify-content-center">
+          <i class="fas fa-save"></i> บันทึกสิทธิ์
+        </button>
+      </form>
+
+      <!-- Role legend -->
+      <div class="mt-4 pt-3 border-top d-flex flex-column gap-2">
+        <div class="d-flex align-items-center gap-2">
+          <span class="badge-role-viewer">viewer</span>
+          <span class="small text-muted">อ่านและแสดงความเห็น</span>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+          <span class="badge-role-editor">editor</span>
+          <span class="small text-muted">สร้างโพสต์ได้</span>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+          <span class="badge-role-moderator">moderator</span>
+          <span class="small text-muted">จัดการกระดาน / ปักหมุด / ลบ</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Access list -->
+  <div class="col-lg-8">
+    <div class="board-card overflow-hidden">
+      <div class="px-4 py-3 border-bottom d-flex align-items-center justify-content-between">
+        <h6 class="fw-bold mb-0" style="color:#1e1b4b">
+          <i class="fas fa-users me-2" style="color:#6366f1"></i>
+          ผู้ใช้ที่มีสิทธิ์ ({{ all_access.count }})
+        </h6>
+      </div>
+
+      {% if all_access %}
+      {% for item in all_access %}
+      <div class="px-4 py-3 d-flex align-items-center justify-content-between gap-3 border-bottom">
+        <div class="d-flex align-items-center gap-3">
+          <div class="rounded-circle d-flex align-items-center justify-content-center fw-bold small"
+               style="width:38px;height:38px;background:#e0e7ff;color:#6366f1;flex-shrink:0">
+            {{ item.user.username|slice:":1"|upper }}
+          </div>
+          <div>
+            <div class="fw-semibold small" style="color:#1e293b">
+              {{ item.user.get_full_name|default:item.user.username }}
+              <span class="text-muted fw-normal">@{{ item.user.username }}</span>
+            </div>
+            {% if item.note %}
+            <div class="small text-muted">{{ item.note }}</div>
+            {% endif %}
+            {% if item.granted_by %}
+            <div class="small" style="color:#94a3b8">โดย {{ item.granted_by.username }} · {{ item.granted_at|date:"d M Y" }}</div>
+            {% endif %}
+          </div>
+        </div>
+        <div class="d-flex align-items-center gap-2 flex-shrink-0">
+          <span class="badge-role-{{ item.role }}">{{ item.role }}</span>
+          <!-- Edit button — fill form on left -->
+          <button type="button" class="btn btn-sm rounded-3 border-0 p-1 edit-access-btn"
+                  style="width:28px;height:28px;background:#e0e7ff;color:#6366f1"
+                  title="แก้ไขสิทธิ์"
+                  data-username="{{ item.user.username }}"
+                  data-role="{{ item.role }}"
+                  data-note="{{ item.note }}">
+            <i class="fas fa-pen" style="font-size:.7rem"></i>
+          </button>
+          <form method="post" onsubmit="return confirm('ยกเลิกสิทธิ์ {{ item.user.username }}?')">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="revoke">
+            <input type="hidden" name="access_id" value="{{ item.pk }}">
+            <button type="submit" class="btn btn-sm btn-outline-danger rounded-3 border-0 p-1"
+                    title="ยกเลิกสิทธิ์" style="width:28px;height:28px">
+              <i class="fas fa-times" style="font-size:.75rem"></i>
+            </button>
+          </form>
+        </div>
+      </div>
+      {% endfor %}
+      {% else %}
+      <div class="px-4 py-5 text-center text-muted">
+        <i class="fas fa-users-slash fa-2x mb-3 d-block opacity-25"></i>
+        ยังไม่มีผู้ใช้ที่ได้รับสิทธิ์
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// ===== Search filter =====
+const searchInput = document.getElementById('user-search');
+const userSelect  = document.getElementById('user-select');
+const allOptions  = Array.from(userSelect ? userSelect.options : []);
+
+if (searchInput && userSelect) {
+  searchInput.addEventListener('input', () => {
+    const q = searchInput.value.toLowerCase();
+    userSelect.innerHTML = '';
+    const filtered = allOptions.filter(o => o.text.toLowerCase().includes(q));
+    if (filtered.length === 0) {
+      userSelect.add(new Option('— ไม่พบผู้ใช้ —', '', false, false));
+    } else {
+      filtered.forEach(o => userSelect.add(o.cloneNode(true)));
+    }
+  });
+}
+
+// ===== Edit existing access =====
+document.querySelectorAll('.edit-access-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const username = btn.dataset.username;
+    const role     = btn.dataset.role;
+    const note     = btn.dataset.note;
+
+    if (searchInput) searchInput.value = username;
+    if (userSelect) {
+      userSelect.innerHTML = '';
+      userSelect.add(new Option(username, username, true, true));
+    }
+
+    const roleSelect = document.querySelector('select[name="role"]');
+    if (roleSelect) roleSelect.value = role;
+
+    const noteInput = document.querySelector('input[name="note"]');
+    if (noteInput) noteInput.value = note;
+
+    document.querySelector('.sticky-top')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+});
+</script>
+{% endblock %}

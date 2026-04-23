@@ -1,0 +1,221 @@
+{% extends "board/base_board.html" %}
+
+{% block title %}{% if cat %}แก้ไข{% else %}เพิ่ม{% endif %}หมวดหมู่ — Knowledge Board{% endblock %}
+
+{% block content %}
+<nav class="small text-muted mb-4 d-flex align-items-center gap-1 flex-wrap">
+  <a href="{% url 'board:list' %}" class="text-decoration-none" style="color:#6366f1">
+    <i class="fas fa-book-open me-1"></i>Knowledge Board
+  </a>
+  <span>/</span>
+  <a href="{% url 'board:category_list' %}" class="text-decoration-none" style="color:#6366f1">จัดการหมวดหมู่</a>
+  <span>/</span>
+  <span class="text-dark fw-medium">{% if cat %}แก้ไข "{{ cat.name }}"{% else %}เพิ่มหมวดหมู่ใหม่{% endif %}</span>
+</nav>
+
+<div class="row justify-content-center">
+  <div class="col-lg-7">
+    <div class="board-card p-4">
+      <h5 class="fw-bold mb-4" style="color:#1e1b4b">
+        <i class="fas fa-{% if cat %}pen{% else %}plus{% endif %} me-2" style="color:#6366f1"></i>
+        {% if cat %}แก้ไขหมวดหมู่{% else %}เพิ่มหมวดหมู่ใหม่{% endif %}
+      </h5>
+
+      <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+
+        <!-- Name -->
+        <div class="mb-3">
+          <label class="form-label fw-semibold small text-muted">ชื่อหมวดหมู่ <span class="text-danger">*</span></label>
+          <input type="text" name="name" required maxlength="80" class="board-input"
+                 value="{{ cat.name|default:'' }}" placeholder="เช่น ข่าวสารองค์กร">
+        </div>
+
+        <!-- Icon -->
+        <div class="mb-3">
+          <label class="form-label fw-semibold small text-muted">
+            ไอคอน (Font Awesome class)
+            <a href="https://fontawesome.com/icons" target="_blank" class="ms-1 small" style="color:#6366f1">
+              <i class="fas fa-external-link-alt"></i> เลือกไอคอน
+            </a>
+          </label>
+          <div class="d-flex gap-2 align-items-center">
+            <input type="text" name="icon" class="board-input" id="icon-input"
+                   value="{{ cat.icon|default:'fas fa-folder' }}" placeholder="fas fa-folder">
+            <span id="icon-preview" class="fa-xl flex-shrink-0" style="color:#6366f1;width:30px;text-align:center">
+              <i class="{{ cat.icon|default:'fas fa-folder' }}"></i>
+            </span>
+          </div>
+        </div>
+
+        <!-- Color -->
+        <div class="mb-3">
+          <label class="form-label fw-semibold small text-muted">สี</label>
+          <div class="d-flex align-items-center gap-3">
+            <input type="color" name="color" class="form-control form-control-color rounded-3 border-0"
+                   value="{{ cat.color|default:'#6366f1' }}" style="width:60px;height:40px;cursor:pointer">
+            <div class="d-flex gap-2 flex-wrap" id="color-presets">
+              {% for c in color_presets %}
+              <button type="button" class="rounded-circle border-0 color-preset"
+                      data-color="{{ c }}"
+                      style="width:26px;height:26px;background:{{ c }};cursor:pointer;transition:.2s"
+                      title="{{ c }}"></button>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+
+        <!-- Order -->
+        <div class="mb-3">
+          <label class="form-label fw-semibold small text-muted">ลำดับการแสดงผล</label>
+          <input type="number" name="order" class="board-input" min="0"
+                 value="{{ cat.order|default:0 }}" style="max-width:120px">
+        </div>
+
+        <!-- Description -->
+        <div class="mb-3">
+          <label class="form-label fw-semibold small text-muted">คำอธิบายสั้น (ไม่บังคับ)</label>
+          <input type="text" name="description" maxlength="200" class="board-input"
+                 value="{{ cat.description|default:'' }}" placeholder="อธิบายหมวดหมู่นี้">
+        </div>
+
+        <!-- External link -->
+        <div class="mb-3">
+          <label class="form-label fw-semibold small text-muted">
+            <i class="fas fa-external-link-alt me-1"></i>ลิงก์ภายนอก (ไม่บังคับ)
+          </label>
+          <input type="url" name="external_link" class="board-input"
+                 value="{{ cat.external_link|default:'' }}"
+                 placeholder="https://example.com">
+          <div class="small text-muted mt-1">เมื่อคลิกที่หมวดหมู่จะเปิดลิงก์นี้ในแท็บใหม่แทน</div>
+        </div>
+
+        <!-- Image -->
+        <div class="mb-4">
+          <label class="form-label fw-semibold small text-muted">
+            <i class="fas fa-image me-1"></i>รูปภาพหน้าปก (ไม่บังคับ)
+          </label>
+
+          {% if cat and cat.image %}
+          <div class="mb-2">
+            <img src="{{ cat.image.url }}" alt="current"
+                 class="rounded-3 border" style="max-height:120px;object-fit:cover">
+            <div class="form-check mt-2">
+              <input type="checkbox" name="clear_image" id="clear-img" class="form-check-input">
+              <label for="clear-img" class="form-check-label small text-danger">ลบรูปภาพปัจจุบัน</label>
+            </div>
+          </div>
+          {% endif %}
+
+          <div class="upload-zone rounded-3 text-center py-4 px-3 position-relative"
+               id="upload-zone"
+               style="border:2px dashed #c7d2fe;background:#f5f3ff;cursor:pointer;transition:.2s">
+            <i class="fas fa-cloud-upload-alt fa-2x mb-2 d-block" style="color:#a5b4fc"></i>
+            <div class="small text-muted">คลิกหรือลากรูปภาพมาวาง</div>
+            <div class="small text-muted" style="font-size:.75rem">PNG, JPG, WEBP — ขนาดสูงสุด 5 MB</div>
+            <input type="file" name="image" id="image-input" accept="image/*"
+                   class="position-absolute top-0 start-0 w-100 h-100 opacity-0" style="cursor:pointer">
+          </div>
+          <div id="img-preview" class="mt-2 d-none">
+            <img id="img-preview-img" class="rounded-3 border" style="max-height:120px;object-fit:cover">
+            <button type="button" id="clear-preview" class="btn btn-link p-0 ms-2 small text-danger">ยกเลิก</button>
+          </div>
+        </div>
+
+        <!-- Preview -->
+        <div class="mb-4 p-3 rounded-3" id="live-preview" style="background:#f5f3ff;border:1px dashed #c7d2fe">
+          <div class="small fw-semibold text-muted mb-2">ตัวอย่างการแสดงผล</div>
+          <div class="d-flex align-items-center gap-3">
+            <span id="prev-icon-wrap" class="rounded-3 d-flex align-items-center justify-content-center text-white"
+                  style="width:40px;height:40px;background:#6366f1;font-size:.95rem;flex-shrink:0">
+              <i id="prev-icon" class="{{ cat.icon|default:'fas fa-folder' }}"></i>
+            </span>
+            <div>
+              <div id="prev-name" class="fw-bold" style="color:#1e293b">{{ cat.name|default:'ชื่อหมวดหมู่' }}</div>
+              <div id="prev-desc" class="small text-muted">{{ cat.description|default:'คำอธิบาย' }}</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Buttons -->
+        <div class="d-flex gap-3 align-items-center pt-3 border-top">
+          <button type="submit" class="btn-board">
+            <i class="fas fa-save"></i> บันทึก
+          </button>
+          <a href="{% url 'board:category_list' %}" class="small text-muted text-decoration-none">ยกเลิก</a>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// ===== Icon preview =====
+const iconInput   = document.getElementById('icon-input');
+const iconPreview = document.getElementById('icon-preview');
+const prevIcon    = document.getElementById('prev-icon');
+
+iconInput.addEventListener('input', () => {
+  iconPreview.innerHTML = `<i class="${iconInput.value}"></i>`;
+  prevIcon.className    = iconInput.value;
+});
+
+// ===== Color presets =====
+const colorInput = document.querySelector('input[name="color"]');
+const prevWrap   = document.getElementById('prev-icon-wrap');
+
+document.querySelectorAll('.color-preset').forEach(btn => {
+  btn.addEventListener('click', () => {
+    colorInput.value = btn.dataset.color;
+    colorInput.dispatchEvent(new Event('input'));
+  });
+});
+colorInput.addEventListener('input', () => {
+  prevWrap.style.background = colorInput.value;
+});
+
+// ===== Name/desc live preview =====
+document.querySelector('input[name="name"]').addEventListener('input', e => {
+  document.getElementById('prev-name').textContent = e.target.value || 'ชื่อหมวดหมู่';
+});
+document.querySelector('input[name="description"]').addEventListener('input', e => {
+  document.getElementById('prev-desc').textContent = e.target.value || 'คำอธิบาย';
+});
+
+// ===== Image preview =====
+const imageInput = document.getElementById('image-input');
+const zone       = document.getElementById('upload-zone');
+const previewDiv = document.getElementById('img-preview');
+const previewImg = document.getElementById('img-preview-img');
+
+imageInput.addEventListener('change', showPreview);
+document.getElementById('clear-preview').addEventListener('click', () => {
+  imageInput.value = '';
+  previewDiv.classList.add('d-none');
+  zone.classList.remove('d-none');
+});
+
+zone.addEventListener('dragover', e => { e.preventDefault(); zone.style.borderColor = '#6366f1'; });
+zone.addEventListener('dragleave', () => { zone.style.borderColor = '#c7d2fe'; });
+zone.addEventListener('drop', e => {
+  e.preventDefault();
+  zone.style.borderColor = '#c7d2fe';
+  const dt = e.dataTransfer;
+  if (dt.files.length) { imageInput.files = dt.files; showPreview(); }
+});
+
+function showPreview() {
+  const file = imageInput.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    previewImg.src = e.target.result;
+    previewDiv.classList.remove('d-none');
+    zone.classList.add('d-none');
+  };
+  reader.readAsDataURL(file);
+}
+</script>
+{% endblock %}

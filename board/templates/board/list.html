@@ -1,0 +1,185 @@
+{% extends "board/base_board.html" %}
+
+{% block title %}Knowledge Board{% endblock %}
+
+{% block content %}
+
+<!-- Hero -->
+<div class="rounded-4 mb-4 p-4" style="background:linear-gradient(135deg,#1e1b4b 0%,#312e81 60%,#4338ca 100%)">
+  <div class="d-flex align-items-center justify-content-between flex-wrap gap-3 mb-3">
+    <div>
+      <h4 class="fw-bold text-white mb-1"><i class="fas fa-book-open me-2" style="color:#a5b4fc"></i>Knowledge Board</h4>
+      <div class="small" style="color:#a5b4fc">ข่าวสาร ความรู้ และการอัปเดตภายในทีม</div>
+    </div>
+    <div class="d-flex gap-2 flex-wrap">
+      {% if access.can_post %}
+      <a href="{% url 'board:create_post' %}" class="btn fw-semibold rounded-3"
+         style="background:#fff;color:#4338ca;font-size:.85rem;padding:.4rem 1rem">
+        <i class="fas fa-pen-nib me-1"></i>สร้างโพสต์
+      </a>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Search bar -->
+  <form method="get" action="{% url 'board:list' %}">
+    <div class="input-group" style="max-width:540px">
+      <span class="input-group-text border-0 rounded-start-3" style="background:rgba(255,255,255,.15)">
+        <i class="fas fa-search" style="color:#a5b4fc"></i>
+      </span>
+      <input type="text" name="q" value="{{ q }}" class="form-control border-0"
+             placeholder="ค้นหาโพสต์ ชื่อหมวดหมู่ หรือ tag..."
+             style="background:rgba(255,255,255,.15);color:#fff;font-size:.9rem"
+             autocomplete="off">
+      {% if q %}<a href="{% url 'board:list' %}" class="btn border-0 rounded-end-3" style="background:rgba(255,255,255,.15);color:#a5b4fc"><i class="fas fa-times"></i></a>{% endif %}
+      <button class="btn rounded-end-3 fw-semibold" style="background:#6366f1;color:#fff;font-size:.85rem">ค้นหา</button>
+    </div>
+    {% if sel_type %}<input type="hidden" name="type" value="{{ sel_type }}">{% endif %}
+    {% if sel_tag  %}<input type="hidden" name="tag"  value="{{ sel_tag }}">{% endif %}
+    {% if sel_cat  %}<input type="hidden" name="cat"  value="{{ sel_cat }}">{% endif %}
+  </form>
+</div>
+
+<!-- Post-type filter chips -->
+<div class="d-flex align-items-center gap-2 flex-wrap mb-4">
+  <a href="{% url 'board:list' %}{% if q %}?q={{ q }}{% endif %}"
+     class="badge rounded-pill text-decoration-none px-3 py-2 fw-semibold"
+     style="background:{% if not sel_type %}#6366f1;color:#fff{% else %}#e0e7ff;color:#6366f1{% endif %}">
+    ทั้งหมด
+  </a>
+  {% for val, label in post_type_choices %}
+  {% with meta=post_type_meta|dictsort:"label" %}{% endwith %}
+  <a href="?type={{ val }}{% if q %}&q={{ q }}{% endif %}{% if sel_tag %}&tag={{ sel_tag }}{% endif %}{% if sel_cat %}&cat={{ sel_cat }}{% endif %}"
+     class="badge rounded-pill text-decoration-none px-3 py-2 fw-semibold"
+     style="{% if sel_type == val %}background:#6366f1;color:#fff{% else %}background:#e0e7ff;color:#4338ca{% endif %}">
+    {{ label }}
+  </a>
+  {% endfor %}
+</div>
+
+<!-- Main layout -->
+<div class="row g-4">
+
+  <!-- LEFT sidebar -->
+  <div class="col-lg-3">
+
+    <!-- Categories -->
+    <div class="fw-bold small text-muted text-uppercase mb-2" style="letter-spacing:.05em">หมวดหมู่</div>
+    {% for cat in categories %}
+    <a href="?cat={{ cat.pk }}{% if q %}&q={{ q }}{% endif %}{% if sel_type %}&type={{ sel_type }}{% endif %}"
+       class="board-card d-flex align-items-center gap-3 px-3 py-2 mb-2 text-decoration-none {% if sel_cat == cat.pk|stringformat:'s' %}border border-2{% endif %}"
+       style="{% if sel_cat == cat.pk|stringformat:'s' %}border-color:{{ cat.color }} !important{% endif %}">
+      {% if cat.image %}
+      <img src="{{ cat.image.url }}" class="rounded-2 flex-shrink-0" style="width:36px;height:36px;object-fit:cover">
+      {% else %}
+      <span class="rounded-2 d-flex align-items-center justify-content-center text-white flex-shrink-0"
+            style="width:36px;height:36px;background:{{ cat.color }};font-size:.8rem">
+        <i class="{{ cat.icon }}"></i>
+      </span>
+      {% endif %}
+      <div class="flex-grow-1 min-w-0">
+        <div class="fw-semibold small text-truncate" style="color:#1e293b">{{ cat.name }}</div>
+        <div class="text-muted" style="font-size:.72rem">{{ cat.posts.count }} โพสต์</div>
+      </div>
+      {% if cat.external_link %}
+      <a href="{{ cat.external_link }}" target="_blank" rel="noopener" onclick="event.stopPropagation()"
+         class="text-muted" style="font-size:.7rem"><i class="fas fa-external-link-alt"></i></a>
+      {% endif %}
+    </a>
+    {% empty %}
+    <div class="small text-muted">ยังไม่มีหมวดหมู่</div>
+    {% endfor %}
+
+    <!-- Tag cloud -->
+    {% if all_tags %}
+    <div class="fw-bold small text-muted text-uppercase mt-4 mb-2" style="letter-spacing:.05em">Tags</div>
+    <div class="d-flex flex-wrap gap-1">
+      {% for tag in all_tags %}
+      <a href="?tag={{ tag.pk }}{% if q %}&q={{ q }}{% endif %}{% if sel_type %}&type={{ sel_type }}{% endif %}"
+         class="badge rounded-pill text-decoration-none px-2 py-1"
+         style="background:{{ tag.color }}22;color:{{ tag.color }};border:1px solid {{ tag.color }}44;font-size:.72rem;font-weight:600">
+        {{ tag.name }}
+        <span class="ms-1 opacity-75">{{ tag.cnt }}</span>
+      </a>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Clear filters -->
+    {% if is_filtered %}
+    <div class="mt-3">
+      <a href="{% url 'board:list' %}" class="btn btn-sm btn-outline-secondary rounded-3 w-100">
+        <i class="fas fa-times me-1"></i>ล้างตัวกรอง
+      </a>
+    </div>
+    {% endif %}
+
+  </div>
+
+  <!-- RIGHT: Posts -->
+  <div class="col-lg-9">
+
+    {% if is_filtered %}
+    <!-- Flat filtered results -->
+    <div class="small text-muted mb-3">
+      {% if q %}<span class="fw-semibold text-dark">"{{ q }}"</span> — {% endif %}
+      พบ {{ recent_posts|length }} รายการ
+    </div>
+
+    {% for post in recent_posts %}
+    <a href="{% url 'board:post_detail' post.pk %}" class="board-card d-block px-4 py-3 mb-2 text-decoration-none">
+      {% include "board/_post_row.html" %}
+    </a>
+    {% empty %}
+    <div class="board-card text-center py-5 text-muted">
+      <i class="fas fa-search fa-2x mb-3 d-block opacity-25"></i>ไม่พบโพสต์ที่ตรงกัน
+    </div>
+    {% endfor %}
+
+    {% else %}
+    <!-- Organized by category -->
+    {% for cat in categories %}
+    {% if cat.posts.all %}
+    <div id="cat-{{ cat.pk }}" class="mb-5">
+      <div class="d-flex align-items-center gap-2 mb-3">
+        {% if cat.image %}
+        <img src="{{ cat.image.url }}" class="rounded-2" style="width:28px;height:28px;object-fit:cover">
+        {% else %}
+        <span class="rounded-2 d-flex align-items-center justify-content-center text-white"
+              style="width:28px;height:28px;background:{{ cat.color }};font-size:.75rem;flex-shrink:0">
+          <i class="{{ cat.icon }}"></i>
+        </span>
+        {% endif %}
+        <span class="fw-bold" style="color:#1e293b">{{ cat.name }}</span>
+        {% if cat.external_link %}
+        <a href="{{ cat.external_link }}" target="_blank" rel="noopener" class="ms-1 small text-muted">
+          <i class="fas fa-external-link-alt"></i>
+        </a>
+        {% endif %}
+      </div>
+      {% for post in cat.posts.all %}
+      <a href="{% url 'board:post_detail' post.pk %}" class="board-card d-block px-4 py-3 mb-2 text-decoration-none">
+        {% include "board/_post_row.html" %}
+      </a>
+      {% endfor %}
+    </div>
+    {% endif %}
+    {% endfor %}
+
+    <!-- Posts without category -->
+    {% for post in recent_posts %}{% if not post.category %}
+    <a href="{% url 'board:post_detail' post.pk %}" class="board-card d-block px-4 py-3 mb-2 text-decoration-none">
+      {% include "board/_post_row.html" %}
+    </a>
+    {% endif %}{% endfor %}
+
+    {% if not categories and not recent_posts %}
+    <div class="board-card text-center py-5 text-muted">
+      <i class="fas fa-inbox fa-3x mb-3 d-block opacity-25"></i>ยังไม่มีโพสต์
+    </div>
+    {% endif %}
+    {% endif %}
+
+  </div>
+</div>
+{% endblock %}

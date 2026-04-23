@@ -8979,11 +8979,12 @@ def stock_chart_data(request, symbol):
         df.sort_index(inplace=True)
 
         # Donchian Channel 20 & 55
+        df['dc10_upper'] = df['High'].rolling(10).max()
+        df['dc10_lower'] = df['Low'].rolling(10).min()
         df['dc20_upper'] = df['High'].rolling(20).max()
         df['dc20_lower'] = df['Low'].rolling(20).min()
         df['dc55_upper'] = df['High'].rolling(55).max()
         df['dc55_lower'] = df['Low'].rolling(55).min()
-        df['dc10_lower'] = df['Low'].rolling(10).min()
 
         # RSI 14
         delta = df['Close'].diff()
@@ -8993,6 +8994,7 @@ def stock_chart_data(request, symbol):
         df['rsi'] = 100 - (100 / (1 + rs))
 
         # --- Trend Following: EMA ---
+        df['ema9']   = df['Close'].ewm(span=9, adjust=False).mean()
         df['ema20']  = df['Close'].ewm(span=20, adjust=False).mean()
         df['ema50']  = df['Close'].ewm(span=50, adjust=False).mean()
         df['ema200'] = df['Close'].ewm(span=200, adjust=False).mean()
@@ -9022,16 +9024,52 @@ def stock_chart_data(request, symbol):
         n_val = round(float(last_row['atr_20']), 4)
         curr_price = float(last_row['Close'])
         
+        # 🚥 Strategic Signal Logic
+        def get_signal(buy_cond, sell_cond):
+            if buy_cond: return 'BUY'
+            if sell_cond: return 'SELL'
+            return 'WAIT'
+
+        # Short: DC10 + RSI
+        short_buy = curr_price >= float(last_row['dc10_upper']) and float(last_row['rsi']) > 50
+        short_sell = curr_price <= float(last_row['dc10_lower'])
+        
+        # ⏱️ Breakout Age Analysis (User Suggestion)
+        breakout_age = 0
+        dist_from_breakout = 0
+        if short_buy:
+            # Find how many candles ago it first broke DC10 upper
+            past_df = df.iloc[:-1].iloc[::-1] # All except last, reversed
+            for i, (idx, row) in enumerate(past_df.iterrows()):
+                if row['Close'] >= row['dc10_upper']:
+                    breakout_age += 1
+                else:
+                    break
+            dist_from_breakout = round(((curr_price - float(last_row['dc10_upper'])) / float(last_row['dc10_upper'])) * 100, 2)
+
+        # Medium: DC20 + EMA200
+        med_buy = curr_price >= float(last_row['dc20_upper']) and curr_price > float(last_row['ema200'])
+        med_sell = curr_price <= float(last_row['dc10_lower'])
+        
+        # Long: DC55
+        long_buy = curr_price >= float(last_row['dc55_upper'])
+        long_sell = curr_price <= float(last_row['dc20_lower'])
+
         tactical = {
             'price': round(curr_price, 2),
             'n': n_val,
-            'next_unit': round(curr_price + (n_val * 0.5), 2),
-            'stop_loss_2n': round(curr_price - (n_val * 2), 2),
-            'exit_10d_low': round(float(last_row['dc10_lower']), 2),
-            'exit_20d_low': round(float(last_row['dc20_lower']), 2),
+            'signals': {
+                'short': get_signal(short_buy, short_sell),
+                'medium': get_signal(med_buy, med_sell),
+                'long': get_signal(long_buy, long_sell)
+            },
+            'breakout_age': breakout_age,
+            'breakout_dist': dist_from_breakout,
+            'short_term_high': round(float(last_row['dc10_upper']), 2),
             'high_20d': round(float(last_row['dc20_upper']), 2),
             'high_55d': round(float(last_row['dc55_upper']), 2),
             'rsi': round(float(last_row['rsi']), 2),
+            'ema9': round(float(last_row['ema9']), 2),
             'ema200': round(float(last_row['ema200']), 2),
         }
 
@@ -9092,7 +9130,7 @@ def stock_chart_data(request, symbol):
             if row['sys1_exit']:
                 signals.append({'time': t, 'type': 'sys1_exit', 'price': round(float(row['Close']), 2)})
 
-        return _JR({
+        return JsonResponse({
             'symbol': symbol, 'market': market, 'tactical': tactical,
             'candles': candles, 'volume': vol, 'rsi': rsi_data,
             'dc20_upper': dc20u, 'dc20_lower': dc20l,
@@ -9104,7 +9142,7 @@ def stock_chart_data(request, symbol):
         })
 
     except Exception as e:
-        return _JR({'error': str(e)}, status=500)
+        return JsonResponse({'error': str(e)}, status=500)
 
 @login_required
 def trading_accounts_view(request):
@@ -9433,7 +9471,7 @@ def get_bot_status_ajax(request):
         diff = timezone.now() - activity.last_heartbeat
         is_alive = diff.total_seconds() < 600
         
-        return _JR({
+        return JsonResponse({
             'status': activity.status if is_alive else "OFFLINE",
             'last_heartbeat': activity.last_heartbeat.strftime('%H:%M:%S'),
             'message': activity.message,
@@ -9441,4 +9479,59 @@ def get_bot_status_ajax(request):
             'debug_diff': diff.total_seconds() # เพิ่มเพื่อเช็คว่าต่างกันกี่วิ
         })
     except BotActivity.DoesNotExist:
-        return _JR({'status': 'OFFLINE', 'is_alive': False})
+        return JsonResponse({'status': 'OFFLINE', 'is_alive': False})
+
+import subprocess
+import os
+import signal
+
+PID_FILE = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'gold_bot.pid')
+
+@login_required
+def start_gold_bot_ajax(request):
+    """สั่งเริ่มการทำงานของบอทใน Background"""
+    if os.path.exists(PID_FILE):
+        return JsonResponse({'success': False, 'error': 'Bot is already running (PID file exists)'})
+    
+    try:
+        # สั่งรันบอทใน Background
+        process = subprocess.Popen(
+            ['python', 'manage.py', 'run_gold_bot'],
+            creationflags=subprocess.CREATE_NEW_CONSOLE if os.name == 'nt' else 0
+        )
+        
+        # บันทึก PID ไว้สำหรับสั่งปิด
+        with open(PID_FILE, 'w') as f:
+            f.write(str(process.pid))
+            
+        return JsonResponse({'success': True, 'pid': process.pid})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
+
+@login_required
+def stop_gold_bot_ajax(request):
+    """สั่งหยุดบอทโดยอ้างอิงจาก PID"""
+    if not os.path.exists(PID_FILE):
+        return JsonResponse({'success': False, 'error': 'No running bot found'})
+    
+    try:
+        with open(PID_FILE, 'r') as f:
+            pid = int(f.read())
+        
+        if os.name == 'nt':
+            # Windows: ใช้ taskkill เพื่อปิดทั้ง process tree
+            subprocess.run(['taskkill', '/F', '/T', '/PID', str(pid)])
+        else:
+            os.kill(pid, signal.SIGTERM)
+            
+        os.remove(PID_FILE)
+        
+        # อัปเดตสถานะใน DB ด้วย
+        from .models import BotActivity
+        BotActivity.objects.filter(bot_name="Gold Server Bot").update(status="STOPPED", message="Bot stopped by user via UI")
+        
+        return JsonResponse({'success': True})
+    except Exception as e:
+        if os.path.exists(PID_FILE): os.remove(PID_FILE)
+        return JsonResponse({'success': False, 'error': str(e)})
+
