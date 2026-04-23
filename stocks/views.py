@@ -9541,6 +9541,9 @@ def start_gold_bot_ajax(request):
         # สั่งรันบอทใน Background
         import sys
         python_exe = sys.executable
+        log_dir = os.path.dirname(os.path.dirname(__file__))
+        stdout_log = open(os.path.join(log_dir, 'bot_stdout.log'), 'a')
+        stderr_log = open(os.path.join(log_dir, 'bot_stderr.log'), 'a')
         
         if os.name == 'nt':
             process = subprocess.Popen(
@@ -9548,12 +9551,11 @@ def start_gold_bot_ajax(request):
                 creationflags=subprocess.CREATE_NEW_CONSOLE
             )
         else:
-            # สำหรับ Linux (Ubuntu): ใช้ Python ตัวเดียวกับที่รัน Web
-            # และส่งออก Log ไปที่ไฟล์เพื่อตรวจสอบภายหลังได้
+            # สำหรับ Linux (Ubuntu): บันทึก Log ลงไฟล์เพื่อตรวจสอบ
             process = subprocess.Popen(
                 [python_exe, 'manage.py', 'run_gold_bot'],
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
+                stdout=stdout_log,
+                stderr=stderr_log,
                 start_new_session=True,
                 env=os.environ.copy()
             )
