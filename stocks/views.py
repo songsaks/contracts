@@ -9539,18 +9539,23 @@ def start_gold_bot_ajax(request):
     
     try:
         # สั่งรันบอทใน Background
+        import sys
+        python_exe = sys.executable
+        
         if os.name == 'nt':
             process = subprocess.Popen(
-                ['python', 'manage.py', 'run_gold_bot'],
+                [python_exe, 'manage.py', 'run_gold_bot'],
                 creationflags=subprocess.CREATE_NEW_CONSOLE
             )
         else:
-            # สำหรับ Linux (Ubuntu)
+            # สำหรับ Linux (Ubuntu): ใช้ Python ตัวเดียวกับที่รัน Web
+            # และส่งออก Log ไปที่ไฟล์เพื่อตรวจสอบภายหลังได้
             process = subprocess.Popen(
-                ['python3', 'manage.py', 'run_gold_bot'],
+                [python_exe, 'manage.py', 'run_gold_bot'],
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
-                start_new_session=True
+                start_new_session=True,
+                env=os.environ.copy()
             )
         
         # บันทึก PID ไว้สำหรับสั่งปิด
