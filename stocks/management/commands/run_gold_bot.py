@@ -29,7 +29,7 @@ class Command(BaseCommand):
                 activity.save()
 
                 # 2. Fetch Data
-                df = yf.download(self.SYMBOL, period='1y', interval='1d', progress=False, auto_adjust=True)
+                df = yf.download(self.SYMBOL, period='1y', interval='1d', progress=False, auto_adjust=True, timeout=15)
                 if df.empty:
                     time.sleep(30)
                     continue
