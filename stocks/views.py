@@ -9461,25 +9461,51 @@ def portfolio_refresh_prices(request):
 def get_bot_status_ajax(request):
     """
     ดึงสถานะล่าสุดของบอทที่รันบน Server มาโชว์ที่หน้าจอ UI
+    โดยเช็คทั้งจาก Database และเช็ค Process จริงในระบบ
     """
     from .models import BotActivity
+    from django.utils import timezone
+    import datetime
+    
+    # 1. เช็คว่ามีไฟล์ PID และ Process ยังรันอยู่ไหม
+    is_process_alive = False
+    if os.path.exists(PID_FILE):
+        try:
+            with open(PID_FILE, 'r') as f:
+                pid = int(f.read().strip())
+            if os.name == 'nt':
+                import ctypes
+                handle = ctypes.windll.kernel32.OpenProcess(0x0400, False, pid)
+                if handle:
+                    is_process_alive = True
+                    ctypes.windll.kernel32.CloseHandle(handle)
+            else:
+                os.kill(pid, 0)
+                is_process_alive = True
+        except:
+            is_process_alive = False
+
+    # 2. ดึงข้อมูลจากฐานข้อมูล
     try:
         activity = BotActivity.objects.get(bot_name="Gold Server Bot")
-        # เช็คว่า heartbeat ล่าสุดไม่เกิน 3 นาที
-        import datetime
-        from django.utils import timezone
         diff = timezone.now() - activity.last_heartbeat
-        is_alive = diff.total_seconds() < 600
+        # ถ้า DB บอกว่า Active และเวลาไม่เก่าเกินไป หรือ Process ในเครื่องยังรันอยู่
+        is_active = (activity.status == "ACTIVE" and diff.total_seconds() < 300) or is_process_alive
         
         return JsonResponse({
-            'status': activity.status if is_alive else "OFFLINE",
+            'status': "ACTIVE" if is_active else "OFFLINE",
             'last_heartbeat': activity.last_heartbeat.strftime('%H:%M:%S'),
             'message': activity.message,
-            'is_alive': is_alive,
-            'debug_diff': diff.total_seconds() # เพิ่มเพื่อเช็คว่าต่างกันกี่วิ
+            'is_alive': is_active,
+            'process_running': is_process_alive,
+            'debug_diff': diff.total_seconds()
         })
     except BotActivity.DoesNotExist:
-        return JsonResponse({'status': 'OFFLINE', 'is_alive': False})
+        return JsonResponse({
+            'status': "ACTIVE" if is_process_alive else "OFFLINE",
+            'is_alive': is_process_alive,
+            'process_running': is_process_alive
+        })
 
 import subprocess
 import os
