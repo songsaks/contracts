@@ -51,12 +51,16 @@
         
         <div class="d-flex flex-wrap align-items-center gap-2 gap-md-3">
             <div class="form-check form-switch text-white">
+                <input class="form-check-input" type="checkbox" role="switch" id="filterEliteToggle" onclick="toggleEliteFilter()">
+                <label class="form-check-label fw-bold small" for="filterEliteToggle">🏆 Elite Only</label>
+            </div>
+            <div class="form-check form-switch text-white">
                 <input class="form-check-input" type="checkbox" role="switch" id="filterQualityToggle" onclick="toggleQualityFilter()">
-                <label class="form-check-label fw-bold small" for="filterQualityToggle">🟢 Precision>75</label>
+                <label class="form-check-label fw-bold small" for="filterQualityToggle">🟢 Prec>75</label>
             </div>
             <div class="form-check form-switch text-white">
                 <input class="form-check-input" type="checkbox" role="switch" id="filterLauncherToggle" onclick="toggleLauncherFilter()">
-                <label class="form-check-label fw-bold small" for="filterLauncherToggle">🚀 Launcher>70</label>
+                <label class="form-check-label fw-bold small" for="filterLauncherToggle">🚀 L>70</label>
             </div>
             <select id="marketSelect" class="form-select bg-white bg-opacity-25 text-white border-0 fw-bold rounded-pill px-3" style="width: auto;">
                 <option value="SET" {% if selected_market == 'SET' %}selected{% endif %} class="text-dark">🇹🇭 SET</option>
@@ -64,7 +68,7 @@
             </select>
             
             <button id="runScanBtn" class="btn btn-warning fw-bold shadow-sm px-3 px-md-4 rounded-pill">
-                <i class="fas fa-play me-2"></i> สแกน
+                <i class="fas fa-play me-2"></i> Run Scan
             </button>
         </div>
     </div>
@@ -105,24 +109,33 @@
                             <th class="ps-3 ps-md-4">Symbol</th>
                             <th>Price</th>
                             <th>Score</th>
+                            <th>Trend Analysis</th>
                             <th class="col-hide-lg">Vol (20D)</th>
                             <th class="col-hide-sm">ATR (N)</th>
                             <th class="col-hide-lg">Pyramiding</th>
                             <th class="text-center">Signal</th>
-                            <th class="text-center col-hide-sm">System 1</th>
-                            <th class="text-center col-hide-md">System 2</th>
+                            <th class="text-center col-hide-sm">S1 (20D)</th>
+                            <th class="text-center col-hide-md">S2 (55D)</th>
                             <th class="text-end pe-3 pe-md-4">Action</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for c in candidates %}
-                        <tr class="turtle-row" data-prec-score="{{ c.precision_score|default:0 }}" data-launcher-score="{{ c.launcher_score|default:0 }}" data-price="{{ c.price|default:0 }}" data-atr="{{ c.atr_20d|default:0 }}">
+                        <tr class="turtle-row" 
+                            data-prec-score="{{ c.technical_score|default:0 }}" 
+                            data-launcher-score="{{ c.launcher_score|default:0 }}" 
+                            data-elite="{{ c.is_elite|yesno:'1,0' }}"
+                            data-stage2="{{ c.stage2|yesno:'1,0' }}"
+                            data-price="{{ c.price|default:0 }}" 
+                            data-atr="{{ c.atr_20d|default:0 }}">
                             <td class="ps-4">
                                 <a href="{% url 'stocks:stock_chart' c.symbol %}?market={{ c.market }}" target="_blank" class="fw-bold fs-5 text-dark text-decoration-none" title="View Chart">{{ c.symbol }} <i class="fas fa-chart-line fa-xs text-primary ms-1"></i></a>
                                 {% if c.market == 'US' %}
                                     <span class="badge bg-primary-subtle text-primary ms-1">US</span>
                                 {% endif %}
-                                {% if c.precision_score >= 75 and c.rs_rating >= 80 %}
+                                {% if c.is_elite %}
+                                    <span class="badge bg-warning text-dark ms-1 rounded-pill" style="box-shadow: 0 0 8px rgba(245,158,11,0.5);" title="Elite Signal: Stage 2 + Strong ADX">🔥 ELITE TURTLE</span>
+                                {% elif c.technical_score >= 75 and c.rs_rating >= 80 %}
                                     <span class="badge bg-warning text-dark ms-1 rounded-pill" title="Golden Signal">🔥 TURTLE x PMS</span>
                                 {% endif %}
                             </td>
@@ -130,8 +143,8 @@
                                 <span class="fw-bold">{{ c.price|floatformat:2 }}</span>
                             </td>
                             <td>
-                                {% if c.precision_score %}
-                                    <span class="badge {% if c.precision_score >= 75 %}bg-success{% else %}bg-secondary{% endif %} bg-opacity-25 text-dark border"><i class="fas fa-star text-warning"></i> {{ c.precision_score }}</span>
+                                {% if c.technical_score %}
+                                    <span class="badge {% if c.technical_score >= 75 %}bg-success{% else %}bg-secondary{% endif %} bg-opacity-25 text-dark border"><i class="fas fa-star text-warning"></i> {{ c.technical_score }}</span>
                                     {% if c.launcher_score %}
                                         <div class="mt-1">
                                             <span class="launcher-tag bg-purple-subtle text-purple" title="Launcher Score: Explosive Potential">
@@ -139,10 +152,23 @@
                                             </span>
                                         </div>
                                     {% endif %}
-                                    {% if c.rs_rating %}<br><small class="text-muted fw-bold">RS: {{ c.rs_rating }}</small>{% endif %}
+                                    {% if c.rs_rating %}<div class="small text-muted fw-bold mt-1">RS: {{ c.rs_rating }}</div>{% endif %}
                                 {% else %}
                                     <span class="text-muted small">-</span>
                                 {% endif %}
+                            </td>
+                            <td>
+                                <div class="d-flex flex-column gap-1">
+                                    {% if c.stage2 %}
+                                        <span class="badge bg-success-subtle text-success border border-success border-opacity-25" style="font-size:0.65rem;">STAGE 2 (Uptrend)</span>
+                                    {% else %}
+                                        <span class="badge bg-light text-muted border" style="font-size:0.65rem;">STAGE 1/3 (Neutral)</span>
+                                    {% endif %}
+                                    <div class="small fw-bold {% if c.adx >= 20 %}text-primary{% else %}text-muted{% endif %}">
+                                        ADX: {{ c.adx|floatformat:1 }} 
+                                        {% if c.adx >= 25 %}<i class="fas fa-bolt text-warning" title="Strong Trend"></i>{% endif %}
+                                    </div>
+                                </div>
                             </td>
                             <td class="col-hide-md">{{ c.avg_vol_20d|floatformat:0 }}</td>
                             <td class="col-hide-sm">
@@ -301,28 +327,46 @@
         document.getElementById('runScanBtn').disabled = false;
         clearInterval(pollInterval);
     }
+    function toggleEliteFilter() {
+        const isChecked = document.getElementById('filterEliteToggle').checked;
+        if (isChecked) {
+            document.getElementById('filterQualityToggle').checked = false;
+            document.getElementById('filterLauncherToggle').checked = false;
+        }
+        applyFilters();
+    }
+
     function toggleQualityFilter() {
         const isChecked = document.getElementById('filterQualityToggle').checked;
-        if (isChecked) document.getElementById('filterLauncherToggle').checked = false; // Reset other filter
+        if (isChecked) {
+            document.getElementById('filterEliteToggle').checked = false;
+            document.getElementById('filterLauncherToggle').checked = false;
+        }
         applyFilters();
     }
 
     function toggleLauncherFilter() {
         const isChecked = document.getElementById('filterLauncherToggle').checked;
-        if (isChecked) document.getElementById('filterQualityToggle').checked = false; // Reset other filter
+        if (isChecked) {
+            document.getElementById('filterEliteToggle').checked = false;
+            document.getElementById('filterQualityToggle').checked = false;
+        }
         applyFilters();
     }
 
     function applyFilters() {
+        const showElite = document.getElementById('filterEliteToggle').checked;
         const showQuality = document.getElementById('filterQualityToggle').checked;
         const showLauncher = document.getElementById('filterLauncherToggle').checked;
         const rows = document.querySelectorAll('.turtle-row');
         
         rows.forEach(row => {
+            const isElite = row.getAttribute('data-elite') === '1';
             const prec = parseInt(row.getAttribute('data-prec-score')) || 0;
             const launcher = parseInt(row.getAttribute('data-launcher-score')) || 0;
             
             let visible = true;
+            if (showElite && !isElite) visible = false;
             if (showQuality && prec < 75) visible = false;
             if (showLauncher && launcher < 70) visible = false;
             

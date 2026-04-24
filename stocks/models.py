@@ -715,6 +715,13 @@ class TurtleScanCandidate(models.Model):
     avg_vol_20d = models.FloatField(default=0.0)
     atr_20d = models.FloatField(default=0.0)
 
+    # -- Quality Metrics (v2 Upgrade) --
+    technical_score = models.IntegerField(null=True, blank=True, help_text="คะแนนจาก Precision Scan")
+    rs_rating       = models.IntegerField(null=True, blank=True, help_text="Relative Strength Rating")
+    stage2          = models.BooleanField(default=False, help_text="True if Price > SMA150 and SMA150 rising")
+    adx             = models.FloatField(null=True, blank=True, help_text="Average Directional Index")
+    is_elite        = models.BooleanField(default=False, help_text="ผ่านเกณฑ์คุณภาพระดับสูงครบทุกข้อ")
+
     # Extended: 5-day window + near break
     sys1_days_ago = models.IntegerField(null=True, blank=True)   # 0=today, 1-4=within 5 days
     sys2_days_ago = models.IntegerField(null=True, blank=True)

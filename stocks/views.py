@@ -6895,8 +6895,8 @@ def us_precision_scanner(request):
                             spy_3m = float((c.iloc[-1] - c.iloc[-66])/c.iloc[-66]*100)
                 except: pass
 
-                # RS Rating
-                _cache_inner.set(ckey, {'state': 'running', 'progress': 0, 'total': len(sym_list), 'phase': 'RS Ratings…'}, timeout=1200)
+                # RS Rating (Percentile Rank of 3M Returns to match Thai version's short-term momentum focus)
+                _cache_inner.set(ckey, {'state': 'running', 'progress': 0, 'total': len(sym_list), 'phase': 'RS Ratings (Momentum Focus)…'}, timeout=1200)
                 def _fetch_rs(s):
                     try:
                         d = yf.Ticker(s).history(start=scan_start_str, end=scan_end_str, interval="1d")
@@ -6904,9 +6904,9 @@ def us_precision_scanner(request):
                         if isinstance(d.columns, pd.MultiIndex): d.columns = d.columns.droplevel(1)
                         cl = d['Close'].dropna()
                         n = len(cl)
-                        if n >= 252:
-                            r = float((cl.iloc[-1] - cl.iloc[-64])/abs(cl.iloc[-64])*0.4 + (cl.iloc[-64] - cl.iloc[-127])/abs(cl.iloc[-127])*0.2 + (cl.iloc[-127] - cl.iloc[-190])/abs(cl.iloc[-190])*0.2 + (cl.iloc[-190] - cl.iloc[-253])/abs(cl.iloc[-253])*0.2) * 100
-                            return s, r
+                        if n >= 66: # 3-Month focus
+                            ret = float((cl.iloc[-1] - cl.iloc[-66])/abs(cl.iloc[-66])) * 100
+                            return s, ret
                         return s, None
                     except: return s, None
                 
@@ -6963,32 +6963,24 @@ def us_precision_scanner(request):
                         adx_v = float(df['ADX_14'].iloc[-1]) if 'ADX_14' in df.columns else 0
                         if adx_v < 15: return None
 
-                        # MACD & BB
-                        m_cross = False
+                        # Ichimoku Score
+                        ichimoku_score_val = 0
                         try:
-                            md = ta.macd(df['Close'])
-                            if md is not None:
-                                m_s = md['MACD_12_26_9']
-                                s_s = md['MACDs_12_26_9']
-                                for i in range(-3, 0):
-                                    if m_s.iloc[i-1] <= s_s.iloc[i-1] and m_s.iloc[i] > s_s.iloc[i]:
-                                        m_cross = True; break
-                        except: pass
-                        
-                        sqz = False
-                        try:
-                            bb = ta.bbands(df['Close'])
-                            if bb is not None:
-                                bw = (bb['BBU_20_2.0'] - bb['BBL_20_2.0'])/bb['BBM_20_2.0']
-                                if float(bw.iloc[-1]) <= float(bw.quantile(0.2)): sqz = True
-                        except: pass
-
-                        # Stage 2
-                        s2 = False
-                        try:
-                            s150 = ta.sma(df['Close'], 150)
-                            if s150 is not None:
-                                s2 = (current_p > s150.iloc[-1]) and (s150.iloc[-1] > s150.iloc[-20])
+                            if len(df) >= 52:
+                                _h9 = df['High'].rolling(9).max(); _l9 = df['Low'].rolling(9).min()
+                                _h26 = df['High'].rolling(26).max(); _l26 = df['Low'].rolling(26).min()
+                                _h52 = df['High'].rolling(52).max(); _l52 = df['Low'].rolling(52).min()
+                                _tenkan = (_h9 + _l9) / 2; _kijun = (_h26 + _l26) / 2
+                                _span_a = ((_tenkan + _kijun) / 2).shift(26); _span_b = ((_h52 + _l52) / 2).shift(26)
+                                _sa_cur = float(_span_a.iloc[-1]); _sb_cur = float(_span_b.iloc[-1])
+                                i_above = current_p > max(_sa_cur, _sb_cur) > 0
+                                i_tk = False
+                                for _i in range(-5, 0):
+                                    if _tenkan.iloc[_i-1] <= _kijun.iloc[_i-1] and _tenkan.iloc[_i] > _kijun.iloc[_i]:
+                                        i_tk = True; break
+                                i_kumo = _sa_cur > _sb_cur > 0
+                                i_chikou = current_p > float(df['Close'].iloc[-27]) if len(df) >= 27 else False
+                                ichimoku_score_val = sum([i_above, i_tk, i_kumo, i_chikou])
                         except: pass
 
                         return {
@@ -7012,6 +7004,12 @@ def us_precision_scanner(request):
                             'macd_crossover': m_cross, 'bb_squeeze': sqz, 'stage2': s2, 'rs_rating': rs_v,
                             'ema20_aligned': tech.get('ema20_aligned', False), 'ema20_rising': tech.get('ema20_rising', False),
                             'hh_hl_structure': tech.get('hh_hl_structure', False),
+                            'ichimoku_score': ichimoku_score_val,
+                            'vcp': detect_vcp_pattern(df),
+                            'launcher_score': tech.get('launcher_score', 0),
+                            'turtle_dist_pct': tech.get('turtle_dist_pct', 99.0),
+                            'is_explosive': tech.get('is_explosive', False),
+                            'tightness_idx': tech.get('tightness_idx', 99.0),
                         }
                     except: return None
 
@@ -7060,7 +7058,16 @@ def us_precision_scanner(request):
                             zone_proximity=r['prox_val'], rel_momentum_1m=r['rel_1m'], rel_momentum_3m=r['rel_3m'],
                             macd_crossover=r['macd_crossover'], bb_squeeze=r['bb_squeeze'],
                             ema20_aligned=r['ema20_aligned'], ema20_rising=r['ema20_rising'],
-                            hh_hl_structure=r['hh_hl_structure'], stage2=r['stage2']
+                            hh_hl_structure=r['hh_hl_structure'], stage2=r['stage2'],
+                            ichimoku_score=r.get('ichimoku_score', 0),
+                            vcp_setup=r.get('vcp', {}).get('setup', False),
+                            vcp_contractions=r.get('vcp', {}).get('contractions', 0),
+                            vcp_tightness=r.get('vcp', {}).get('tightness', 0.0),
+                            vcp_vdu=r.get('vcp', {}).get('vdu_confirmed', False),
+                            launcher_score=r.get('launcher_score', 0),
+                            turtle_dist_pct=r.get('turtle_dist_pct', 99.0),
+                            is_explosive=r.get('is_explosive', False),
+                            tightness_idx=r.get('tightness_idx', 99.0),
                         ))
                     PrecisionScanCandidate.objects.bulk_create(bulk)
                     
@@ -7079,7 +7086,8 @@ def us_precision_scanner(request):
     sort_by = request.GET.get('sort', 'score')
     valid_sorts = {
         'symbol':'symbol','score':'-technical_score','price':'-price',
-        'rsi':'-rsi','rvol':'-rvol','adx':'-adx','prox':'zone_proximity','rs':'-rs_rating'
+        'rsi':'-rsi','rvol':'-rvol','adx':'-adx','prox':'zone_proximity','rs':'-rs_rating',
+        'launcher': '-launcher_score',
     }
     order = valid_sorts.get(sort_by, '-technical_score')
     
@@ -8681,11 +8689,11 @@ def turtle_scanner(request):
             for c in candidates:
                 p_match = prec_dict.get(c.symbol)
                 if p_match:
-                    c.precision_score = p_match.technical_score
+                    c.technical_score = p_match.technical_score
                     c.rs_rating = p_match.rs_rating
                     c.launcher_score = p_match.launcher_score
                 else:
-                    c.precision_score = None
+                    c.technical_score = None
                     c.rs_rating = None
                     c.launcher_score = None
     else:
@@ -8839,6 +8847,28 @@ def turtle_scanner_run_ajax(request):
                         df['High_55'] = df['High'].rolling(55).max().shift(1)
                         df['Low_20'] = df['Low'].rolling(20).min().shift(1)
                         
+                        # -- Stage 2 Analysis (v2) --
+                        df['SMA150'] = df['Close'].rolling(150).mean()
+                        df['SMA200'] = df['Close'].rolling(200).mean()
+                        
+                        # -- ADX Calculation (v2) --
+                        df['H_L'] = df['High'] - df['Low']
+                        df['H_PC'] = abs(df['High'] - df['Close'].shift(1))
+                        df['L_PC'] = abs(df['Low'] - df['Close'].shift(1))
+                        df['TR'] = df[['H_L', 'H_PC', 'L_PC']].max(axis=1)
+                        
+                        # +DI / -DI
+                        df['up_move'] = df['High'] - df['High'].shift(1)
+                        df['down_move'] = df['Low'].shift(1) - df['Low']
+                        df['plus_dm'] = _pd.Series([m if m > 0 and m > n else 0 for m, n in zip(df['up_move'], df['down_move'])], index=df.index)
+                        df['minus_dm'] = _pd.Series([n if n > 0 and n > m else 0 for m, n in zip(df['down_move'], df['up_move'])], index=df.index)
+                        
+                        df['ATR_14'] = df['TR'].rolling(14).mean() # simplified for speed
+                        df['plus_di'] = 100 * (df['plus_dm'].rolling(14).mean() / df['ATR_14'])
+                        df['minus_di'] = 100 * (df['minus_dm'].rolling(14).mean() / df['ATR_14'])
+                        df['dx'] = 100 * (abs(df['plus_di'] - df['minus_di']) / (df['plus_di'] + df['minus_di']))
+                        df['adx_val'] = df['dx'].rolling(14).mean()
+                        
                         # ATR
                         df['H_L'] = df['High'] - df['Low']
                         df['H_PC'] = abs(df['High'] - df['Close'].shift(1))
@@ -8853,6 +8883,14 @@ def turtle_scanner_run_ajax(request):
                         atr = float(last_row.get('ATR_20', 0) or 0)
                         l10 = float(last_row.get('Low_10', 0) or 0)
                         l20 = float(last_row.get('Low_20', 0) or 0)
+                        
+                        # v2 Metrics
+                        adx_curr = float(last_row.get('adx_val', 0) or 0)
+                        sma150 = float(last_row.get('SMA150', 0) or 0)
+                        sma200 = float(last_row.get('SMA200', 0) or 0)
+                        
+                        # Weinsteins Stage 2: Price > SMA150 AND SMA150 > SMA200 (approx)
+                        is_stage2 = current_close > sma150 and sma150 > sma200 and current_close > sma200
 
                         # --- Just Broke: breakout in last 5 trading days ---
                         window = df.tail(5)
@@ -8878,6 +8916,18 @@ def turtle_scanner_run_ajax(request):
                         pct_to_55d = round((current_close - h55) / h55 * 100, 2) if h55 > 0 else None
 
                         if sys1 or sys2 or sys1_near or sys2_near:
+                            # Sync with Precision Score if available
+                            p_score = None
+                            rs_rat = None
+                            from .models import PrecisionScanCandidate
+                            p_match = PrecisionScanCandidate.objects.filter(user=user, symbol=symbol, market=market).order_by('-scan_run').first()
+                            if p_match:
+                                p_score = p_match.technical_score
+                                rs_rat = p_match.rs_rating
+                            
+                            # Elite Setup logic: Stage 2 + Strong ADX + Good RS
+                            is_elite = is_stage2 and adx_curr >= 20 and (rs_rat is None or rs_rat >= 70)
+
                             results.append(TurtleScanCandidate(
                                 user=user, scan_run=scan_time, symbol=symbol, market=market,
                                 price=current_close,
@@ -8888,6 +8938,9 @@ def turtle_scanner_run_ajax(request):
                                 sys1_near=sys1_near, sys2_near=sys2_near,
                                 pct_to_20d=pct_to_20d, pct_to_55d=pct_to_55d,
                                 avg_vol_20d=avg_vol, atr_20d=round(atr, 4),
+                                adx=round(adx_curr, 2), stage2=is_stage2,
+                                technical_score=p_score, rs_rating=rs_rat,
+                                is_elite=is_elite
                             ))
                     except Exception: continue
             except Exception: continue
