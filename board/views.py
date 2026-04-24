@@ -229,6 +229,64 @@ def board_create_post(request):
 
 
 # ---------------------------------------------------------------------------
+# Edit post
+# ---------------------------------------------------------------------------
+
+@login_required
+def board_edit_post(request, pk):
+    access, err = _require_access(request)
+    if err:
+        return err
+
+    post = get_object_or_404(BoardPost, pk=pk)
+
+    # only author or moderator can edit
+    if not (access.can_moderate or post.author == request.user):
+        return HttpResponseForbidden()
+
+    categories = BoardCategory.objects.all()
+    all_tags   = BoardTag.objects.all()
+
+    if request.method == 'POST':
+        title       = request.POST.get('title', '').strip()
+        content     = request.POST.get('content', '').strip()
+        category_id = request.POST.get('category') or None
+        post_type   = request.POST.get('post_type', post.post_type)
+        is_pinned   = bool(request.POST.get('is_pinned')) and access.can_moderate
+        tag_ids     = request.POST.getlist('tags')
+
+        if not title or not strip_tags(content):
+            messages.error(request, 'กรุณากรอกหัวข้อและเนื้อหา')
+        else:
+            post.title       = title
+            post.content     = content
+            post.category_id = category_id
+            post.post_type   = post_type
+            post.is_pinned   = is_pinned
+            post.save()
+            post.tags.set(tag_ids)
+
+            for f in request.FILES.getlist('attachments'):
+                BoardAttachment.objects.create(
+                    post=post, file=f,
+                    name=f.name, size=f.size,
+                    uploaded_by=request.user,
+                )
+
+            messages.success(request, 'แก้ไขโพสต์เรียบร้อยแล้ว')
+            return redirect('board:post_detail', pk=post.pk)
+
+    return render(request, 'board/edit_post.html', {
+        'post':              post,
+        'categories':        categories,
+        'access':            access,
+        'all_tags':          all_tags,
+        'post_type_choices': BoardPost.TYPE_CHOICES,
+        'post_type_meta':    BoardPost.TYPE_META,
+    })
+
+
+# ---------------------------------------------------------------------------
 # Delete post
 # ---------------------------------------------------------------------------
 

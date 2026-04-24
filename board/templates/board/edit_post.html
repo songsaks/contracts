@@ -1,0 +1,333 @@
+{% extends "board/base_board.html" %}
+
+{% block title %}แก้ไขโพสต์ — Knowledge Board{% endblock %}
+
+{% block extra_css %}
+<link href="https://cdn.quilljs.com/1.3.7/quill.snow.css" rel="stylesheet">
+<style>
+  #quill-editor {
+    min-height: 380px;
+    font-size: 0.95rem;
+    font-family: 'Outfit', 'Sarabun', sans-serif;
+    background: #fff;
+  }
+  .ql-toolbar.ql-snow {
+    border: 1.5px solid #e2e8f0;
+    border-bottom: 1px solid #e2e8f0;
+    border-radius: 10px 10px 0 0;
+    background: #f8fafc;
+    padding: 6px 8px;
+  }
+  .ql-container.ql-snow {
+    border: 1.5px solid #e2e8f0;
+    border-top: none;
+    border-radius: 0 0 10px 10px;
+    font-size: 0.95rem;
+  }
+  .ql-editor { min-height: 380px; padding: 16px 20px; line-height: 1.8; }
+  .ql-editor.ql-blank::before { color: #94a3b8; font-style: normal; }
+
+  .type-chip {
+    cursor:pointer; border:2px solid transparent; border-radius:10px;
+    padding:.5rem .9rem; transition:.2s; user-select:none;
+  }
+  .type-chip:hover { transform:translateY(-1px); }
+  .type-chip.selected { border-color: currentColor; }
+
+  .tag-chip {
+    cursor:pointer; border-radius:20px; padding:.25rem .75rem;
+    font-size:.8rem; font-weight:600; transition:.2s; user-select:none; opacity:.6;
+  }
+  .tag-chip.selected { opacity:1; box-shadow:0 0 0 2px currentColor; }
+
+  .drop-zone {
+    border:2px dashed #c7d2fe; border-radius:12px;
+    background:#f5f3ff; cursor:pointer; transition:.2s;
+  }
+  .drop-zone.over { border-color:#6366f1; background:#ede9fe; }
+</style>
+{% endblock %}
+
+{% block content %}
+<nav class="small text-muted mb-4 d-flex align-items-center gap-1">
+  <a href="{% url 'board:list' %}" class="text-decoration-none" style="color:#6366f1">
+    <i class="fas fa-book-open me-1"></i>Knowledge Board
+  </a>
+  <span>/</span>
+  <a href="{% url 'board:post_detail' post.pk %}" class="text-decoration-none" style="color:#6366f1">{{ post.title|truncatechars:40 }}</a>
+  <span>/</span>
+  <span class="text-dark fw-medium">แก้ไข</span>
+</nav>
+
+<div class="row justify-content-center">
+<div class="col-xl-9">
+<div class="board-card p-4">
+  <h5 class="fw-bold mb-4" style="color:#1e1b4b">
+    <i class="fas fa-pen me-2" style="color:#6366f1"></i>แก้ไขโพสต์
+  </h5>
+
+  <form method="post" enctype="multipart/form-data" id="post-form">
+    {% csrf_token %}
+
+    <!-- ① Post type -->
+    <div class="mb-4">
+      <label class="form-label fw-semibold small text-muted">ประเภทโพสต์</label>
+      <input type="hidden" name="post_type" id="post-type-input" value="{{ post.post_type }}">
+      <div id="type-chips" class="d-flex flex-wrap gap-2"></div>
+    </div>
+
+    <!-- ② Title -->
+    <div class="mb-3">
+      <label class="form-label fw-semibold small text-muted">หัวข้อโพสต์ <span class="text-danger">*</span></label>
+      <input type="text" name="title" required maxlength="200" class="board-input"
+             value="{{ post.title }}" placeholder="เขียนหัวข้อที่ชัดเจน...">
+    </div>
+
+    <!-- ③ Category -->
+    <div class="mb-3">
+      <label class="form-label fw-semibold small text-muted">หมวดหมู่</label>
+      <select name="category" class="board-input">
+        <option value="">— ไม่ระบุ —</option>
+        {% for cat in categories %}
+        <option value="{{ cat.pk }}" {% if post.category_id == cat.pk %}selected{% endif %}>{{ cat.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <!-- ④ Tags -->
+    {% if all_tags %}
+    <div class="mb-4">
+      <label class="form-label fw-semibold small text-muted">Tags (คลิกเพื่อเลือก)</label>
+      <div id="tag-chips" class="d-flex flex-wrap gap-2">
+        {% for tag in all_tags %}
+        <label class="tag-chip mb-0 {% if tag in post.tags.all %}selected{% endif %}"
+               style="background:{{ tag.color }}22;color:{{ tag.color }};border:1.5px solid {{ tag.color }}55">
+          <input type="checkbox" name="tags" value="{{ tag.pk }}" class="d-none tag-cb"
+                 {% if tag in post.tags.all %}checked{% endif %}>
+          {{ tag.name }}
+        </label>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- ⑤ Editor -->
+    <div class="mb-4">
+      <label class="form-label fw-semibold small text-muted">เนื้อหา <span class="text-danger">*</span></label>
+      <div id="quill-editor"></div>
+      <input type="hidden" name="content" id="content-input">
+      <div class="d-flex justify-content-end mt-1">
+        <span style="font-size:0.72rem; color:#94a3b8" id="word-count"></span>
+      </div>
+    </div>
+
+    <!-- ⑥ Existing attachments -->
+    {% if post.attachments.exists %}
+    <div class="mb-4">
+      <label class="form-label fw-semibold small text-muted">
+        <i class="fas fa-paperclip me-1"></i>ไฟล์แนบที่มีอยู่
+      </label>
+      <div class="d-flex flex-wrap gap-2">
+        {% for att in post.attachments.all %}
+        <div class="d-flex align-items-center gap-2 px-3 py-2 rounded-3"
+             style="background:#f8fafc;border:1px solid #e2e8f0" id="att-{{ att.pk }}">
+          <i class="fas {{ att.icon_info.fa }}" style="color:{{ att.icon_info.color }}"></i>
+          <span class="small">{{ att.name }}</span>
+          <span class="small text-muted">{{ att.size_display }}</span>
+          <button type="button" class="btn btn-link p-0 text-danger small"
+                  onclick="deleteAttachment({{ att.pk }}, this)">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- ⑦ Add more attachments -->
+    <div class="mb-4">
+      <label class="form-label fw-semibold small text-muted">
+        <i class="fas fa-cloud-upload-alt me-1"></i>เพิ่มไฟล์แนบใหม่
+      </label>
+      <div class="drop-zone text-center py-3 px-3 position-relative" id="drop-zone">
+        <i class="fas fa-cloud-upload-alt fa-2x mb-1 d-block" style="color:#a5b4fc"></i>
+        <div class="small text-muted">คลิกหรือลากไฟล์มาวาง</div>
+        <input type="file" name="attachments" id="file-input" multiple
+               class="position-absolute top-0 start-0 w-100 h-100 opacity-0" style="cursor:pointer">
+      </div>
+      <div id="file-list" class="mt-2"></div>
+    </div>
+
+    <!-- ⑧ Pin -->
+    {% if access.can_moderate %}
+    <div class="mb-4">
+      <div class="form-check">
+        <input type="checkbox" name="is_pinned" class="form-check-input" id="pin-check"
+               style="accent-color:#6366f1" {% if post.is_pinned %}checked{% endif %}>
+        <label for="pin-check" class="form-check-label small fw-medium">
+          <i class="fas fa-thumbtack me-1" style="color:#f59e0b"></i>ปักหมุดโพสต์นี้
+        </label>
+      </div>
+    </div>
+    {% endif %}
+
+    <div class="d-flex align-items-center gap-3 pt-3 border-top">
+      <button type="submit" class="btn-board">
+        <i class="fas fa-save"></i> บันทึกการแก้ไข
+      </button>
+      <a href="{% url 'board:post_detail' post.pk %}" class="small text-muted text-decoration-none">ยกเลิก</a>
+    </div>
+  </form>
+</div>
+</div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.quilljs.com/1.3.7/quill.min.js"></script>
+<script>
+// ===== Type chips =====
+const TYPE_META   = {{ post_type_meta|safe }};
+const typeInput   = document.getElementById('post-type-input');
+const typeContainer = document.getElementById('type-chips');
+const currentType = '{{ post.post_type }}';
+
+['general','announcement','wiki','sop','faq','lesson'].forEach(val => {
+  const m = TYPE_META[val];
+  if (!m) return;
+  const chip = document.createElement('div');
+  chip.className = 'type-chip d-flex align-items-center gap-2';
+  chip.dataset.val = val;
+  chip.innerHTML = `<i class="${m.icon}" style="color:${m.color}"></i><span style="font-size:.85rem;font-weight:600;color:${m.color}">${m.label}</span>`;
+  chip.style.background = m.bg;
+  if (val === currentType) { chip.classList.add('selected'); chip.style.borderColor = m.color; }
+  chip.addEventListener('click', () => {
+    typeContainer.querySelectorAll('.type-chip').forEach(c => {
+      c.classList.remove('selected'); c.style.borderColor = 'transparent';
+    });
+    chip.classList.add('selected'); chip.style.borderColor = m.color;
+    typeInput.value = val;
+  });
+  typeContainer.appendChild(chip);
+});
+
+// ===== Tag chips =====
+document.querySelectorAll('.tag-chip').forEach(chip => {
+  const cb = chip.querySelector('.tag-cb');
+  chip.addEventListener('click', () => {
+    cb.checked = !cb.checked;
+    chip.classList.toggle('selected', cb.checked);
+  });
+});
+
+// ===== File list =====
+const fileInput = document.getElementById('file-input');
+const fileList  = document.getElementById('file-list');
+const dropZone  = document.getElementById('drop-zone');
+let selectedFiles = new DataTransfer();
+
+fileInput.addEventListener('change', () => { addFiles(fileInput.files); fileInput.value=''; });
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('over'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('over'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault(); dropZone.classList.remove('over');
+  addFiles(e.dataTransfer.files);
+});
+function addFiles(files) {
+  for (const f of files) selectedFiles.items.add(f);
+  renderFileList();
+}
+function removeFile(idx) {
+  const dt = new DataTransfer();
+  Array.from(selectedFiles.files).forEach((f, i) => { if (i !== idx) dt.items.add(f); });
+  selectedFiles = dt; renderFileList();
+}
+function renderFileList() {
+  fileInput.files = selectedFiles.files;
+  const files = Array.from(selectedFiles.files);
+  if (!files.length) { fileList.innerHTML = ''; return; }
+  fileList.innerHTML = files.map((f, i) => `
+    <div class="d-flex align-items-center gap-2 px-3 py-2 rounded-3 mb-1" style="background:#f8fafc;border:1px solid #e2e8f0">
+      <i class="fas fa-file text-muted"></i>
+      <span class="small flex-grow-1 text-truncate">${f.name}</span>
+      <span class="small text-muted">${(f.size/1024).toFixed(1)} KB</span>
+      <button type="button" class="btn btn-link p-0 text-danger small" onclick="removeFile(${i})">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>`).join('');
+}
+
+// ===== Delete existing attachment =====
+const CSRF = '{{ csrf_token }}';
+function deleteAttachment(pk, btn) {
+  if (!confirm('ลบไฟล์นี้?')) return;
+  fetch(`/board/attachment/${pk}/delete/`, {
+    method: 'POST',
+    headers: { 'X-CSRFToken': CSRF },
+  }).then(r => r.json()).then(d => {
+    if (d.ok) document.getElementById(`att-${pk}`).remove();
+  });
+}
+
+// ===== Quill (with existing content) =====
+const UPLOAD = '{% url "board:upload_image" %}';
+function imageUploadHandler() {
+  const input = document.createElement('input');
+  input.type = 'file'; input.accept = 'image/*';
+  input.click();
+  input.onchange = async () => {
+    const file = input.files[0];
+    if (!file) return;
+    const data = new FormData();
+    data.append('upload', file);
+    data.append('csrfmiddlewaretoken', CSRF);
+    try {
+      const res  = await fetch(UPLOAD, { method: 'POST', body: data });
+      const json = await res.json();
+      if (json.url) {
+        const range = quill.getSelection(true);
+        quill.insertEmbed(range.index, 'image', json.url);
+        quill.setSelection(range.index + 1);
+      }
+    } catch(e) { console.error('Upload failed', e); }
+  };
+}
+
+const quill = new Quill('#quill-editor', {
+  theme: 'snow',
+  modules: {
+    toolbar: {
+      container: [
+        [{ header: [1, 2, 3, 4, false] }],
+        ['bold', 'italic', 'underline', 'strike'],
+        [{ color: [] }, { background: [] }],
+        [{ font: [] }, { size: ['small', false, 'large', 'huge'] }],
+        [{ align: [] }],
+        [{ list: 'ordered' }, { list: 'bullet' }, { indent: '-1' }, { indent: '+1' }],
+        ['link', 'image', 'blockquote', 'code-block'],
+        ['clean'],
+      ],
+      handlers: { image: imageUploadHandler },
+    },
+  },
+});
+
+// load existing content
+quill.root.innerHTML = `{{ post.content|escapejs }}`;
+
+// word count
+quill.on('text-change', () => {
+  const text  = quill.getText().trim();
+  const words = text ? text.split(/\s+/).filter(Boolean).length : 0;
+  document.getElementById('word-count').textContent = `${words} คำ  ${text.length} ตัวอักษร`;
+});
+
+// sync on submit
+document.getElementById('post-form').addEventListener('submit', e => {
+  if (quill.getText().trim().length === 0) {
+    e.preventDefault(); quill.focus(); return;
+  }
+  document.getElementById('content-input').value = quill.root.innerHTML;
+});
+</script>
+{% endblock %}

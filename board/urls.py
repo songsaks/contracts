@@ -7,6 +7,7 @@ urlpatterns = [
     path('', views.board_list, name='list'),
     path('post/new/', views.board_create_post, name='create_post'),
     path('post/<int:pk>/', views.board_post_detail, name='post_detail'),
+    path('post/<int:pk>/edit/', views.board_edit_post, name='edit_post'),
     path('post/<int:pk>/delete/', views.board_delete_post, name='delete_post'),
     path('post/<int:post_pk>/comment/', views.board_add_comment, name='add_comment'),
     path('comment/<int:pk>/delete/', views.board_delete_comment, name='delete_comment'),
