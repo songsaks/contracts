@@ -263,6 +263,12 @@
                 </button>
             </div>
             {% endif %}
+            
+            <div id="noEliteMessage" class="p-5 text-center d-none">
+                <div class="text-muted mb-3"><i class="fas fa-crown fa-3x opacity-25" style="color: #f59e0b;"></i></div>
+                <h4 class="text-secondary fw-bold">ไม่พบหุ้นระดับ Elite ในรอบนี้</h4>
+                <p class="text-muted">หุ้นในตลาดอาจจะยังไม่มีเทรนด์ที่แข็งแกร่งพอ (ADX < 20) หรือไม่ได้อยู่ใน Stage 2 ขาขึ้น<br>ลองปิดตัวกรอง Elite หรือสแกนตลาดอื่นๆ ดูครับ</p>
+            </div>
         </div>
     </div>
 </div>
@@ -359,7 +365,11 @@
         const showQuality = document.getElementById('filterQualityToggle').checked;
         const showLauncher = document.getElementById('filterLauncherToggle').checked;
         const rows = document.querySelectorAll('.turtle-row');
+        const noEliteMsg = document.getElementById('noEliteMessage');
+        const tableBody = document.querySelector('table.table-turtle tbody');
+        const tableHeader = document.querySelector('table.table-turtle thead');
         
+        let visibleCount = 0;
         rows.forEach(row => {
             const isElite = row.getAttribute('data-elite') === '1';
             const prec = parseInt(row.getAttribute('data-prec-score')) || 0;
@@ -371,7 +381,17 @@
             if (showLauncher && launcher < 70) visible = false;
             
             row.style.display = visible ? '' : 'none';
+            if (visible) visibleCount++;
         });
+
+        // Show/Hide "No Elite" message
+        if (visibleCount === 0 && (showElite || showQuality || showLauncher)) {
+            noEliteMsg.classList.remove('d-none');
+            if (tableHeader) tableHeader.style.display = 'none';
+        } else {
+            noEliteMsg.classList.add('d-none');
+            if (tableHeader) tableHeader.style.display = '';
+        }
     }
 
     function sortLauncher() {

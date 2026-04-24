@@ -2085,14 +2085,14 @@ def recommendations(request):
             except:
                 inf = {}
             
-            hist_short = t.history(period="6mo")
+            hist_short = t.history(period="1y")
             
             # If sym without .BK fails, try with .BK
             if (not inf or hist_short.empty) and ".BK" not in sym:
                 try:
                     alt_t = yf.Ticker(f"{sym}.BK")
                     alt_inf = alt_t.info
-                    alt_hist = alt_t.history(period="6mo")
+                    alt_hist = alt_t.history(period="1y")
                     if isinstance(alt_inf, dict) and alt_inf:
                         t = alt_t
                         inf = alt_inf
@@ -2349,7 +2349,7 @@ def us_recommendations(request):
             try:
                 t = yf.Ticker(sym)
                 inf = t.info
-                hist = t.history(period="6mo")
+                hist = t.history(period="1y")
                 if hist.empty: continue
                 
                 rsi_series = ta.rsi(hist['Close'], length=14)
@@ -2772,7 +2772,7 @@ def macro_economy(request):
     for item in macro_items:
         try:
             t = yf.Ticker(item['symbol'])
-            hist = t.history(period='3mo')
+            hist = t.history(period='1y')
             if not hist.empty:
                 current_price = hist['Close'].iloc[-1]
                 prev_price = hist['Close'].iloc[-2]
@@ -3642,7 +3642,7 @@ def precision_momentum_scanner(request):
                 scan_end_date  = _now_bkk.date() + _td(days=1)
                 scan_end_str   = scan_end_date.strftime('%Y-%m-%d')
                 scan_start_str = (_now_bkk.date() - _td(days=600)).strftime('%Y-%m-%d')  # 600 วัน → ~430 trading days, EMA200 warm-up มีพอ
-                set_start_str  = (_now_bkk.date() - _td(days=185)).strftime('%Y-%m-%d')
+                set_start_str  = (_now_bkk.date() - _td(days=400)).strftime('%Y-%m-%d')
 
                 prev_run = (
                     PrecisionScanCandidate.objects
@@ -6138,7 +6138,7 @@ def us_momentum_scanner(request):
                     _end_date   = _now_ny.date()
                     _end_str    = (_end_date + _td(days=1)).strftime('%Y-%m-%d')
                     _start_str  = (_end_date - _td(days=600)).strftime('%Y-%m-%d')
-                    _spy_start  = (_end_date - _td(days=185)).strftime('%Y-%m-%d')
+                    _spy_start  = (_end_date - _td(days=400)).strftime('%Y-%m-%d')
 
                     total = len(sym_list)
 
@@ -6875,7 +6875,7 @@ def us_precision_scanner(request):
                 scan_end_date  = _now_ny.date()
                 scan_end_str   = (scan_end_date + _td(days=1)).strftime('%Y-%m-%d')
                 scan_start_str = (scan_end_date - _td(days=600)).strftime('%Y-%m-%d')
-                spy_start_str  = (scan_end_date - _td(days=185)).strftime('%Y-%m-%d')
+                spy_start_str  = (scan_end_date - _td(days=400)).strftime('%Y-%m-%d')
 
                 _cache_inner.set(ckey, {'state': 'running', 'progress': 0, 'total': len(sym_list), 'phase': 'Benchmarks…'}, timeout=1200)
 
@@ -8825,7 +8825,7 @@ def turtle_scanner_run_ajax(request):
             
             try:
                 # Use yfinance with THREADS=True for performance
-                data = _yf.download(chunk_bk, period="6mo", interval="1d", progress=False, group_by='ticker', threads=True, timeout=30)
+                data = _yf.download(chunk_bk, period="1y", interval="1d", progress=False, group_by='ticker', threads=True, timeout=30)
                 
                 for symbol in chunk_syms:
                     try:
