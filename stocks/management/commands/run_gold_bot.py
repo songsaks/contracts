@@ -117,29 +117,67 @@ class Command(BaseCommand):
                                 balance = float(acc.balance) if acc.balance > 0 else 1000.0
                                 risk_money = balance * self.RISK_PER_TRADE
                                 
-                                # กำหนดระยะ Stop Loss ตามความเร็วของกลยุทธ์
-                                if signal_type == "SNIPER_EMA9": sl_mult = 0.5  # แคบมาก
-                                elif signal_type == "SCALPER_10D": sl_mult = 1.0 # ปานกลาง
-                                else: sl_mult = 1.5                             # กว้างหน่อย
+                                # กำหนดระยะ Stop Loss และ Take Profit ตามความเร็วของกลยุทธ์
+                                if signal_type == "SNIPER_EMA9": 
+                                    sl_mult = 0.5   # Stop Loss แคบมาก
+                                    tp_mult = 1.5   # เป้ากำไรระยะสั้น
+                                elif signal_type == "SCALPER_10D": 
+                                    sl_mult = 1.0   # Stop Loss ปานกลาง
+                                    tp_mult = 2.0   # เป้ากำไรปานกลาง
+                                else: 
+                                    sl_mult = 1.5   # Stop Loss กว้างหน่อย
+                                    tp_mult = 3.5   # เป้ากำไรระยะยาว (Swing)
                                 
                                 sl_dist = sl_mult * atr
+                                tp_dist = tp_mult * atr
+                                
                                 # คำนวณ Lot Size อัตโนมัติ (ความเสี่ยงคงที่ 2%)
                                 lots = round(max(self.MIN_LOT, risk_money / sl_dist if sl_dist > 0 else self.MIN_LOT), 2)
                                 sl_price = curr_price - sl_dist
+                                tp_price = curr_price + tp_dist
                                 
-                                self.stdout.write(self.style.SUCCESS(f"สั่งซื้อ {signal_type} สำหรับพอร์ต {acc.account_name}"))
+                                self.stdout.write(self.style.SUCCESS(f"สั่งซื้อ {signal_type} สำหรับพอร์ต {acc.account_name} | TP: {tp_price:.2f} | SL: {sl_price:.2f}"))
                                 
-                                # ส่งคำสั่งซื้อจริงไปยังโบรกเกอร์
+                                # ส่งคำสั่งซื้อจริงไปยังโบรกเกอร์ (พร้อม TP และ SL)
+                                # หมายเหตุ: Scalper และ Swing จะไม่มี TP เพื่อรันเทรนด์ยาว (ใช้ Trailing Stop แทน)
+                                current_tp = tp_price if signal_type == "SNIPER_EMA9" else None
+                                
                                 res = bridge.execute_trade(
                                     symbol=self.BROKER_SYMBOL, side="BUY", volume=lots,
-                                    strategy=signal_type, stop_loss=sl_price
+                                    strategy=signal_type, stop_loss=sl_price, take_profit=current_tp
                                 )
                                 
                                 # บันทึก Log การเทรดลงหน้า Dashboard
-                                self.update_heartbeat(status="ACTIVE", message=f"เข้าซื้อ: {signal_type} {lots} Lots @ {curr_price}")
-                    else:
-                        # ถ้ายังไม่มีสัญญาณ ให้รายงานสถานะราคาปัจจุบันเฉยๆ
-                        self.update_heartbeat(status="ACTIVE", message=f"เฝ้าระวัง... ราคา: {curr_price:.2f} | เส้น EMA9: {ema9:.2f}")
+                                log_msg = f"เข้าซื้อ: {signal_type} {lots} Lots @ {curr_price}"
+                                if current_tp: log_msg += f" (TP: {current_tp:.2f})"
+                                self.update_heartbeat(status="ACTIVE", message=log_msg)
+                    
+                    # --- ส่วนใหม่: ระบบ SMART TRAILING STOP (เฝ้าดูแลออเดอร์ที่เปิดอยู่) ---
+                    active_accounts = TradingAccount.objects.filter(is_active=True)
+                    for acc in active_accounts:
+                        bridge = RobotBridge(user=acc.user)
+                        positions = bridge.get_open_positions() # ดึงจากโบรกเกอร์จริง
+                        
+                        for pos in positions:
+                            if pos.get('symbol') == self.BROKER_SYMBOL:
+                                pos_id = pos.get('id')
+                                current_sl = float(pos.get('stopLoss', 0))
+                                entry_price = float(pos.get('comment', 0)) # อาจจะใช้เก็บราคาเข้า
+                                
+                                # คำนวณจุด Trailing Stop (ใช้ 2.5N จากราคาปัจจุบัน)
+                                # ถ้าราคาขึ้น จุด SL ต้องเลื่อนตามขึ้นไป
+                                new_sl = curr_price - (2.0 * atr)
+                                
+                                # เงื่อนไขการเลื่อน: 1. ต้องเป็นบวก 2. ต้องสูงกว่า SL เดิม (เลื่อนขึ้นเท่านั้น)
+                                if new_sl > current_sl:
+                                    success = bridge.modify_position(pos_id, sl=new_sl)
+                                    if success:
+                                        self.stdout.write(self.style.SUCCESS(f"Trailing SL Updated: {new_sl:.2f} for {acc.account_name}"))
+                                        self.update_heartbeat(status="ACTIVE", message=f"🛡️ ยกจุดป้องกัน (Trailing SL) ไปที่ {new_sl:.2f}")
+
+                    if not signal_type:
+                        # ถ้ายังไม่มีสัญญาณใหม่ ให้รายงานสถานะราคาปัจจุบัน
+                        self.update_heartbeat(status="ACTIVE", message=f"เฝ้าระวัง... ราคา: {curr_price:.2f} | RSI: {rsi:.1f}")
 
                 except Exception as e:
                     # จัดการข้อผิดพลาดที่อาจเกิดขึ้นระหว่างลูป (เช่น เน็ตหลุด)

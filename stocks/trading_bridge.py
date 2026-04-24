@@ -80,6 +80,39 @@ class RobotBridge:
             logger.error(f"RobotBridge Error: {str(e)}")
             raise e
 
+    def modify_position(self, position_id, sl=None, tp=None):
+        """
+        แก้ไขค่า Stop Loss หรือ Take Profit ของออเดอร์ที่เปิดอยู่
+        """
+        token = self.account.api_key.strip()
+        account_id = self.account.account_id
+        
+        # ค้นหา Region
+        try:
+            info_url = f"https://mt-provisioning-api-v1.agiliumtrade.ai/users/current/accounts/{account_id}"
+            info_res = requests.get(info_url, headers={"auth-token": token}, timeout=5)
+            region = info_res.json().get('region', 'new-york') if info_res.status_code == 200 else 'new-york'
+        except:
+            region = "new-york"
+
+        url = f"https://mt-client-api-v1.{region}.agiliumtrade.ai/users/current/accounts/{account_id}/trade"
+        headers = {"auth-token": token, "Content-Type": "application/json"}
+        
+        payload = {
+            "actionType": "POSITION_MODIFY_ID",
+            "positionId": position_id
+        }
+        if sl: payload["stopLoss"] = float(sl)
+        if tp: payload["takeProfit"] = float(tp)
+
+        try:
+            logger.info(f"MetaApi Modify Request: {url} | Payload: {payload}")
+            response = requests.post(url, headers=headers, json=payload, timeout=10)
+            return response.status_code == 200
+        except Exception as e:
+            logger.error(f"MetaApi Modify Error: {str(e)}")
+            return False
+
     def _trade_via_meta_api(self, symbol, side, volume, price, sl, tp):
         """
         ส่งคำสั่งผ่าน MetaApi (MT4/MT5 Cloud API) 
