@@ -1,0 +1,49 @@
+{% extends 'ops/base_ops.html' %}
+
+{% block content %}
+<div class="container-fluid px-4 py-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-6">
+            <div class="card border-0 shadow-lg rounded-4 overflow-hidden">
+                <div class="card-header bg-primary py-5 text-center">
+                    <div class="bg-white d-inline-block rounded-circle p-4 mb-3 shadow-lg">
+                        <i class="fas fa-check-double fa-3x text-primary"></i>
+                    </div>
+                    <h2 class="text-white fw-bold mb-0">ยืนยันการอนุมัติไอเดีย</h2>
+                </div>
+                <div class="card-body p-5 text-center">
+                    <h4 class="fw-bold mb-4">"{{ idea.title }}"</h4>
+                    <div class="bg-light p-4 rounded-4 mb-4 text-start">
+                        <div class="row">
+                            <div class="col-6 mb-3">
+                                <small class="text-muted d-block">ผู้เสนอ</small>
+                                <span class="fw-bold">{{ idea.proposer.get_full_name|default:idea.proposer.username }}</span>
+                            </div>
+                            <div class="col-6 mb-3 text-end">
+                                <small class="text-muted d-block">คะแนนรวม</small>
+                                <span class="badge bg-success fs-6 rounded-pill px-3">{{ idea.total_score }} / 20</span>
+                            </div>
+                            <div class="col-12">
+                                <small class="text-muted d-block">รายละเอียด</small>
+                                <p class="small mb-0">{{ idea.description }}</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="alert alert-warning border-0 rounded-4 mb-5 small">
+                        <i class="fas fa-info-circle me-2"></i> เมื่ออนุมัติแล้ว ระบบจะสร้าง **ActionTask** และ **Kanban Card** ให้อัตโนมัติ โดยมอบหมายให้เจ้าของไอเดียเป็นผู้รับผิดชอบหลัก
+                    </div>
+
+                    <form method="POST">
+                        {% csrf_token %}
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary btn-lg rounded-pill shadow">ยืนยันอนุมัติและสร้างงาน</button>
+                            <a href="{% url 'ops:meeting_detail' idea.meeting.id %}" class="btn btn-link text-muted">ยกเลิก</a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

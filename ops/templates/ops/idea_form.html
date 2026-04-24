@@ -1,0 +1,36 @@
+{% extends 'ops/base_ops.html' %}
+
+{% block content %}
+<div class="container-fluid px-4 py-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-6">
+            <div class="card border-0 shadow-lg rounded-4 overflow-hidden">
+                <div class="card-header bg-success py-4 px-4 text-center">
+                    <div class="bg-white d-inline-block rounded-circle p-3 mb-3 shadow-sm">
+                        <i class="fas fa-lightbulb fa-2x text-success"></i>
+                    </div>
+                    <h4 class="text-white fw-bold mb-0">เสนอไอเดียใหม่</h4>
+                    <p class="text-white opacity-75 small mb-0">สำหรับการประชุม: {{ meeting.title }}</p>
+                </div>
+                <div class="card-body p-4">
+                    <form method="POST">
+                        {% csrf_token %}
+                        <div class="mb-4">
+                            <label class="form-label fw-bold text-dark">หัวข้อไอเดีย</label>
+                            <input type="text" name="title" class="form-control form-control-lg rounded-3 border-2" placeholder="ไอเดียของคุณคืออะไร?" required>
+                        </div>
+                        <div class="mb-4">
+                            <label class="form-label fw-bold text-dark">รายละเอียดไอเดีย</label>
+                            <textarea name="description" class="form-control rounded-3 border-2" rows="6" placeholder="อธิบายแผนงาน ประโยชน์ที่คาดว่าจะได้รับ และวิธีการดำเนินการเบื้องต้น..." required></textarea>
+                        </div>
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-success btn-lg rounded-pill shadow">เสนอไอเดียเข้าที่ประชุม</button>
+                            <a href="{% url 'ops:meeting_detail' meeting.id %}" class="btn btn-light rounded-pill">กลับไปที่การประชุม</a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

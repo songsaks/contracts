@@ -3,7 +3,10 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 from django.http import JsonResponse
-from .models import WeeklyGoal, DailyProgress, Department, Employee
+from .models import (
+    WeeklyGoal, DailyProgress, Department, Employee,
+    Meeting, MeetingParticipant, MeetingIdea, ActionTask
+)
 from django.utils import timezone
 from django.db.models import Sum
 import json
@@ -314,3 +317,151 @@ def update_goal_status(request):
         except Exception as e:
             return JsonResponse({'status': 'error', 'message': str(e)}, status=400)
     return JsonResponse({'status': 'error', 'message': 'Method not allowed'}, status=405)
+
+# --- Meeting & Idea Management Views ---
+
+@login_required
+def meeting_list(request):
+    meetings = Meeting.objects.all().order_by('-date', '-start_time')
+    return render(request, 'ops/meeting_list.html', {'meetings': meetings})
+
+@login_required
+def meeting_create(request):
+    if request.method == 'POST':
+        title = request.POST.get('title')
+        agenda = request.POST.get('agenda')
+        date = request.POST.get('date')
+        start_time = request.POST.get('start_time')
+        location = request.POST.get('location')
+        participant_ids = request.POST.getlist('participants')
+        
+        meeting = Meeting.objects.create(
+            title=title,
+            agenda=agenda,
+            date=date,
+            start_time=start_time,
+            location=location,
+            organizer=request.user
+        )
+        
+        for p_id in participant_ids:
+            user = User.objects.get(id=p_id)
+            MeetingParticipant.objects.create(meeting=meeting, user=user)
+            
+        messages.success(request, f"นัดหมายการประชุม {title} สำเร็จ")
+        return redirect('ops:meeting_list')
+        
+    users = User.objects.all().order_by('username')
+    return render(request, 'ops/meeting_form.html', {'users': users})
+
+@login_required
+def meeting_detail(request, meeting_id):
+    meeting = get_object_or_404(Meeting, id=meeting_id)
+    ideas = meeting.ideas.all().order_by('-total_score')
+    return render(request, 'ops/meeting_detail.html', {
+        'meeting': meeting,
+        'ideas': ideas
+    })
+
+@login_required
+def meeting_record(request, meeting_id):
+    """บันทึกมติที่ประชุมแบบ Real-time (AJAX/POST)"""
+    meeting = get_object_or_404(Meeting, id=meeting_id)
+    if request.method == 'POST':
+        minutes = request.POST.get('minutes')
+        status = request.POST.get('status')
+        if minutes is not None:
+            meeting.minutes = minutes
+        if status:
+            meeting.status = status
+        meeting.save()
+        return JsonResponse({'status': 'success'})
+    return JsonResponse({'status': 'error'}, status=400)
+
+@login_required
+def idea_add(request, meeting_id):
+    """พนักงานเสนอไอเดียในที่ประชุม"""
+    meeting = get_object_or_404(Meeting, id=meeting_id)
+    if request.method == 'POST':
+        title = request.POST.get('title')
+        desc = request.POST.get('description')
+        MeetingIdea.objects.create(
+            meeting=meeting,
+            proposer=request.user,
+            title=title,
+            description=desc
+        )
+        messages.success(request, "เสนอไอเดียเรียบร้อยแล้ว")
+        return redirect('ops:meeting_detail', meeting_id=meeting_id)
+    return render(request, 'ops/idea_form.html', {'meeting': meeting})
+
+@login_required
+def idea_list(request):
+    ideas = MeetingIdea.objects.all().order_by('-created_at')
+    return render(request, 'ops/idea_list.html', {'ideas': ideas})
+
+@login_required
+def idea_score(request, idea_id):
+    """ระบบ Scoring ไอเดีย"""
+    idea = get_object_or_404(MeetingIdea, id=idea_id)
+    if request.method == 'POST':
+        idea.impact_score = int(request.POST.get('impact_score', 0))
+        idea.feasibility_score = int(request.POST.get('feasibility_score', 0))
+        idea.status = 'under_review'
+        idea.save()
+        messages.success(request, f"บันทึกคะแนนไอเดีย {idea.title} เรียบร้อย")
+        return redirect('ops:meeting_detail', meeting_id=idea.meeting.id)
+    return render(request, 'ops/idea_score_form.html', {'idea': idea})
+
+@login_required
+def idea_approve(request, idea_id):
+    """อนุมัติไอเดียและสร้าง ActionTask อัตโนมัติ"""
+    idea = get_object_or_404(MeetingIdea, id=idea_id)
+    if not request.user.is_superuser:
+        return redirect('ops:dashboard')
+        
+    if request.method == 'POST':
+        idea.status = 'approved'
+        idea.approved_by = request.user
+        idea.save()
+        
+        # สร้าง ActionTask อัตโนมัติ
+        ActionTask.objects.get_or_create(
+            idea=idea,
+            defaults={
+                'title': f"[Project] {idea.title}",
+                'assigned_to': idea.proposer,
+                'start_date': timezone.now().date(),
+                'due_date': timezone.now().date() + timezone.timedelta(days=30),
+                'status': 'todo'
+            }
+        )
+        messages.success(request, f"อนุมัติไอเดียและสร้างโครงการเรียบร้อยแล้ว")
+        return redirect('ops:task_list')
+    return render(request, 'ops/idea_approve_confirm.html', {'idea': idea})
+
+@login_required
+def task_list(request):
+    tasks = ActionTask.objects.all().order_by('-created_at')
+    return render(request, 'ops/task_list.html', {'tasks': tasks})
+
+@login_required
+def task_gantt(request):
+    """Gantt Chart สำหรับติดตามงาน"""
+    tasks = ActionTask.objects.all()
+    return render(request, 'ops/task_gantt.html', {'tasks': tasks})
+
+@login_required
+def task_kanban(request):
+    """Kanban Board สำหรับจัดการงานจากไอเดีย"""
+    tasks = ActionTask.objects.all()
+    todo = tasks.filter(status='todo')
+    doing = tasks.filter(status='doing')
+    done = tasks.filter(status='done')
+    blocked = tasks.filter(status='blocked')
+    return render(request, 'ops/task_kanban.html', {
+        'todo': todo,
+        'doing': doing,
+        'done': done,
+        'blocked': blocked
+    })

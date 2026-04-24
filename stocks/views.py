@@ -9071,6 +9071,10 @@ def stock_chart_data(request, symbol):
             'rsi': round(float(last_row['rsi']), 2),
             'ema9': round(float(last_row['ema9']), 2),
             'ema200': round(float(last_row['ema200']), 2),
+            # Added missing fields for Tactical Command Center
+            'exit_10d_low': round(float(last_row['dc10_lower']), 2),
+            'exit_20d_low': round(float(last_row['dc20_lower']), 2),
+            'next_unit': round(curr_price + (0.5 * n_val), 2),
         }
 
         # Turtle breakout signals (compare close vs previous day's channel)

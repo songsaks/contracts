@@ -1,0 +1,219 @@
+{% extends 'ops/base_ops.html' %}
+
+{% block content %}
+<div class="container-fluid px-4 py-4">
+    <!-- Header: Meeting Info -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'ops:meeting_list' %}">Meetings</a></li>
+                    <li class="breadcrumb-item active">{{ meeting.title }}</li>
+                </ol>
+            </nav>
+            <div class="d-flex justify-content-between align-items-end">
+                <div>
+                    <span class="badge {% if meeting.status == 'scheduled' %}bg-info{% elif meeting.status == 'in_progress' %}bg-warning{% elif meeting.status == 'completed' %}bg-success{% else %}bg-secondary{% endif %} mb-2">
+                        {{ meeting.get_status_display }}
+                    </span>
+                    <h1 class="fw-bold text-dark mb-0">{{ meeting.title }}</h1>
+                    <p class="text-muted mb-0">
+                        <i class="far fa-calendar-alt me-1"></i> {{ meeting.date|date:"l, d M Y" }} | 
+                        <i class="far fa-clock me-1"></i> {{ meeting.start_time|time:"H:i" }} |
+                        <i class="fas fa-map-marker-alt me-1"></i> {{ meeting.location|default:"ไม่ระบุสถานที่" }}
+                    </p>
+                </div>
+                <div class="d-flex gap-2">
+                    {% if meeting.status != 'completed' %}
+                    <button class="btn btn-warning rounded-pill px-4 shadow-sm" onclick="updateMeetingStatus('in_progress')">
+                        <i class="fas fa-play me-2"></i>เริ่มการประชุม
+                    </button>
+                    <button class="btn btn-success rounded-pill px-4 shadow-sm" onclick="updateMeetingStatus('completed')">
+                        <i class="fas fa-check-double me-2"></i>ปิดการประชุม
+                    </button>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <!-- Left Column: Minutes & Agenda -->
+        <div class="col-lg-7">
+            <!-- Agenda -->
+            <div class="card border-0 shadow-sm rounded-4 mb-4 overflow-hidden">
+                <div class="card-header bg-white py-3 px-4 border-bottom">
+                    <h5 class="fw-bold mb-0 text-primary"><i class="fas fa-list-ul me-2"></i>วาระการประชุม</h5>
+                </div>
+                <div class="card-body p-4 bg-light">
+                    <div class="bg-white p-3 rounded-3 shadow-sm border-start border-primary border-4">
+                        {{ meeting.agenda|linebreaks }}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Real-time Minutes -->
+            <div class="card border-0 shadow-sm rounded-4 mb-4">
+                <div class="card-header bg-white py-3 px-4 border-bottom d-flex justify-content-between align-items-center">
+                    <h5 class="fw-bold mb-0 text-danger"><i class="fas fa-edit me-2"></i>บันทึกมติที่ประชุม (Real-time)</h5>
+                    <span id="saveStatus" class="badge bg-light text-muted fw-normal rounded-pill">
+                        <i class="fas fa-cloud-upload-alt me-1"></i>พร้อมบันทึก
+                    </span>
+                </div>
+                <div class="card-body p-4">
+                    <textarea id="meetingMinutes" class="form-control border-0 bg-light rounded-4 p-4" rows="15" placeholder="จดบันทึกมติที่นี่... ทุกอย่างที่พิมพ์จะถูกบันทึกอัตโนมัติ" style="font-size: 1.1rem; line-height: 1.8; resize: none;">{{ meeting.minutes }}</textarea>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Column: Ideas & Participants -->
+        <div class="col-lg-5">
+            <!-- Propose Idea Button -->
+            <div class="card border-0 shadow-sm rounded-4 mb-4 bg-gradient-primary text-white overflow-hidden">
+                <div class="card-body p-4 text-center">
+                    <h4 class="fw-bold mb-3">มีไอเดียใหม่ๆ ไหม?</h4>
+                    <p class="small opacity-75 mb-4">เสนอไอเดียในที่ประชุมเพื่อรับการโหวตและ Scoring หากผ่านจะถูกสร้างเป็นโครงการทันที!</p>
+                    <a href="{% url 'ops:idea_add' meeting.id %}" class="btn btn-white text-primary fw-bold rounded-pill px-5 shadow-lg">
+                        <i class="fas fa-lightbulb me-2"></i>เสนอไอเดียเลย
+                    </a>
+                </div>
+            </div>
+
+            <!-- Ideas List -->
+            <div class="card border-0 shadow-sm rounded-4 mb-4 overflow-hidden">
+                <div class="card-header bg-white py-3 px-4 border-bottom d-flex justify-content-between align-items-center">
+                    <h5 class="fw-bold mb-0 text-success"><i class="fas fa-brain me-2"></i>ไอเดียที่ถูกเสนอ ({{ ideas.count }})</h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="list-group list-group-flush">
+                        {% for idea in ideas %}
+                        <div class="list-group-item p-4 border-bottom bg-hover-light">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <h6 class="fw-bold text-dark mb-0">{{ idea.title }}</h6>
+                                <span class="badge bg-success rounded-pill px-3 shadow-sm">Score: {{ idea.total_score }}</span>
+                            </div>
+                            <p class="small text-muted mb-3">{{ idea.description|truncatewords:20 }}</p>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div class="d-flex align-items-center">
+                                    <div class="avatar-xs rounded-circle bg-light text-primary text-center fw-bold me-2" style="width:25px; height:25px; line-height:25px; font-size: 0.7rem;">
+                                        {{ idea.proposer.username|make_list|first|upper }}
+                                    </div>
+                                    <span class="small text-muted">{{ idea.proposer.get_full_name|default:idea.proposer.username }}</span>
+                                </div>
+                                <div class="d-flex gap-1">
+                                    <a href="{% url 'ops:idea_score' idea.id %}" class="btn btn-outline-success btn-xs rounded-pill px-3 py-1" style="font-size: 0.7rem;">Scoring</a>
+                                    {% if user.is_superuser and idea.status != 'approved' %}
+                                    <a href="{% url 'ops:idea_approve' idea.id %}" class="btn btn-primary btn-xs rounded-pill px-3 py-1" style="font-size: 0.7rem;">อนุมัติ</a>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            {% if idea.status == 'approved' %}
+                            <div class="mt-2 text-center">
+                                <span class="badge bg-primary w-100 rounded-pill py-2">
+                                    <i class="fas fa-check-circle me-1"></i> อนุมัติเป็นงานแล้ว
+                                </span>
+                            </div>
+                            {% endif %}
+                        </div>
+                        {% empty %}
+                        <div class="p-5 text-center text-muted">
+                            <i class="fas fa-lightbulb fa-2x mb-2 opacity-25"></i>
+                            <p class="small">ยังไม่มีไอเดียถูกเสนอ</p>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Participants -->
+            <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
+                <div class="card-header bg-white py-3 px-4 border-bottom">
+                    <h5 class="fw-bold mb-0 text-dark"><i class="fas fa-users me-2"></i>ผู้เข้าร่วม</h5>
+                </div>
+                <div class="card-body p-4">
+                    <div class="row g-3">
+                        {% for p in meeting.participants.all %}
+                        <div class="col-6">
+                            <div class="d-flex align-items-center p-2 rounded-3 bg-light border">
+                                <div class="avatar-sm rounded-circle bg-primary text-white text-center fw-bold me-2" style="width:30px; height:30px; line-height:30px; font-size: 0.8rem;">
+                                    {{ p.user.username|make_list|first|upper }}
+                                </div>
+                                <div class="overflow-hidden">
+                                    <div class="small fw-bold text-dark text-truncate">{{ p.user.get_full_name|default:p.user.username }}</div>
+                                    <div class="text-xs text-muted">Participant</div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .bg-gradient-primary { background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); }
+    .btn-white { background: white; color: #4f46e5; border: none; }
+    .btn-white:hover { background: #f8fafc; color: #4338ca; }
+    .btn-xs { padding: 0.2rem 0.5rem; font-size: 0.75rem; }
+    .text-xs { font-size: 0.7rem; }
+    .bg-hover-light:hover { background-color: #f8fafc; }
+</style>
+
+<script>
+    // Auto-save Minutes logic
+    let timeout = null;
+    const minutesArea = document.getElementById('meetingMinutes');
+    const saveStatus = document.getElementById('saveStatus');
+
+    minutesArea.addEventListener('input', function() {
+        saveStatus.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>กำลังพิมพ์...';
+        clearTimeout(timeout);
+        timeout = setTimeout(saveMinutes, 2000); // Save 2 seconds after typing stops
+    });
+
+    function saveMinutes() {
+        saveStatus.innerHTML = '<i class="fas fa-sync fa-spin me-1"></i>กำลังบันทึก...';
+        
+        const data = new FormData();
+        data.append('minutes', minutesArea.value);
+        data.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+
+        fetch("{% url 'ops:meeting_record' meeting.id %}", {
+            method: 'POST',
+            body: data
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                saveStatus.innerHTML = '<i class="fas fa-check-circle me-1 text-success"></i>บันทึกแล้ว';
+                saveStatus.className = 'badge bg-light text-success fw-normal rounded-pill';
+            } else {
+                saveStatus.innerHTML = '<i class="fas fa-exclamation-circle me-1 text-danger"></i>ผิดพลาด';
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            saveStatus.innerHTML = '<i class="fas fa-exclamation-circle me-1 text-danger"></i>ผิดพลาด';
+        });
+    }
+
+    function updateMeetingStatus(status) {
+        const data = new FormData();
+        data.append('status', status);
+        data.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+
+        fetch("{% url 'ops:meeting_record' meeting.id %}", {
+            method: 'POST',
+            body: data
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                window.location.reload();
+            }
+        });
+    }
+</script>
+{% endblock %}

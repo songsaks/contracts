@@ -1,0 +1,99 @@
+{% extends 'ops/base_ops.html' %}
+
+{% block content %}
+<div class="container-fluid px-4 py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="fw-bold text-dark mb-1"><i class="fas fa-tasks me-2 text-indigo"></i>Actionable Tasks</h2>
+            <p class="text-muted small mb-0">รายการงานที่ได้รับอนุมัติจากมติที่ประชุม</p>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="{% url 'ops:task_gantt' %}" class="btn btn-outline-indigo rounded-pill px-4">
+                <i class="fas fa-chart-gantt me-2"></i>Gantt Chart
+            </a>
+            <a href="{% url 'ops:task_kanban' %}" class="btn btn-indigo rounded-pill px-4 shadow-sm">
+                <i class="fas fa-columns me-2"></i>Kanban Board
+            </a>
+        </div>
+    </div>
+
+    <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="bg-light">
+                    <tr>
+                        <th class="ps-4 py-3">ชื่องาน</th>
+                        <th class="py-3">ผู้รับผิดชอบ</th>
+                        <th class="py-3">ความสำคัญ</th>
+                        <th class="py-3">วันครบกำหนด</th>
+                        <th class="py-3" style="width: 200px;">ความคืบหน้า</th>
+                        <th class="py-3">สถานะ</th>
+                        <th class="py-3 pe-4"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for task in tasks %}
+                    <tr>
+                        <td class="ps-4">
+                            <div class="fw-bold text-dark">{{ task.title }}</div>
+                            <small class="text-muted">จากไอเดีย: {{ task.idea.title }}</small>
+                        </td>
+                        <td>
+                            <div class="d-flex align-items-center">
+                                <div class="avatar-xs rounded-circle bg-light text-primary text-center fw-bold me-2" style="width:25px; height:25px; line-height:25px; font-size: 0.7rem;">
+                                    {{ task.assigned_to.username|make_list|first|upper }}
+                                </div>
+                                <span class="small">{{ task.assigned_to.get_full_name|default:task.assigned_to.username }}</span>
+                            </div>
+                        </td>
+                        <td>
+                            <span class="badge {% if task.priority == 'critical' %}bg-danger{% elif task.priority == 'high' %}bg-warning{% else %}bg-info{% endif %} rounded-pill px-3">
+                                {{ task.get_priority_display }}
+                            </span>
+                        </td>
+                        <td>
+                            <div class="small {% if task.due_date < today %}text-danger fw-bold{% endif %}">
+                                <i class="far fa-calendar-alt me-1"></i> {{ task.due_date|date:"d M Y" }}
+                            </div>
+                        </td>
+                        <td>
+                            <div class="d-flex align-items-center">
+                                <div class="progress flex-grow-1 rounded-pill me-2" style="height: 6px;">
+                                    <div class="progress-bar rounded-pill bg-primary" style="width: {{ task.progress_pct }}%"></div>
+                                </div>
+                                <small class="text-muted fw-bold">{{ task.progress_pct }}%</small>
+                            </div>
+                        </td>
+                        <td>
+                            <span class="badge {% if task.status == 'done' %}bg-success{% elif task.status == 'doing' %}bg-primary{% elif task.status == 'blocked' %}bg-danger{% else %}bg-secondary{% endif %} rounded-pill px-3">
+                                {{ task.get_status_display }}
+                            </span>
+                        </td>
+                        <td class="pe-4 text-end">
+                            <button class="btn btn-light btn-sm rounded-circle"><i class="fas fa-ellipsis-v"></i></button>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="7" class="text-center py-5">
+                            <div class="py-4 opacity-50">
+                                <i class="fas fa-clipboard-list fa-3x mb-3"></i>
+                                <h5>ยังไม่มีงานที่ได้รับอนุมัติ</h5>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<style>
+    .text-indigo { color: #4f46e5; }
+    .btn-indigo { background: #4f46e5; color: white; border: none; }
+    .btn-indigo:hover { background: #4338ca; color: white; }
+    .btn-outline-indigo { border-color: #4f46e5; color: #4f46e5; }
+    .btn-outline-indigo:hover { background: #4f46e5; color: white; }
+</style>
+{% endblock %}

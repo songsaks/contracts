@@ -1,0 +1,60 @@
+{% extends 'ops/base_ops.html' %}
+
+{% block content %}
+<div class="container-fluid px-4 py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="fw-bold text-dark mb-1"><i class="fas fa-chart-gantt me-2 text-indigo"></i>Gantt Chart</h2>
+            <p class="text-muted small mb-0">ตารางเวลาโครงการจากไอเดียที่ได้รับอนุมัติ</p>
+        </div>
+        <a href="{% url 'ops:task_list' %}" class="btn btn-light rounded-pill px-4 border shadow-sm">
+            <i class="fas fa-list me-2"></i>กลับหน้าแบบตาราง
+        </a>
+    </div>
+
+    <div class="card border-0 shadow-sm rounded-4 p-4 overflow-auto">
+        <div class="gantt-container" style="min-width: 1000px;">
+            <!-- Gantt Header (Months/Days) -->
+            <div class="d-flex border-bottom pb-3 mb-4 sticky-top bg-white">
+                <div style="width: 250px;" class="fw-bold text-muted ps-2">TASK / PROJECT</div>
+                <div class="flex-grow-1 d-flex">
+                    {% for day in "123456789012345678901234567890"|make_list %}
+                    <div class="text-center small text-muted" style="width: 3.33%;">{{ forloop.counter }}</div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Gantt Rows -->
+            {% for task in tasks %}
+            <div class="d-flex align-items-center mb-4">
+                <div style="width: 250px;" class="pe-3">
+                    <div class="fw-bold text-dark small text-truncate" title="{{ task.title }}">{{ task.title }}</div>
+                    <div class="progress rounded-pill mt-1" style="height: 4px;">
+                        <div class="progress-bar bg-success" style="width: {{ task.progress_pct }}%"></div>
+                    </div>
+                </div>
+                <div class="flex-grow-1 position-relative" style="height: 30px; background: #f8fafc; border-radius: 8px;">
+                    <!-- Simple Bar Logic based on start/due dates -->
+                    <div class="position-absolute rounded-pill shadow-sm d-flex align-items-center px-3" 
+                         style="left: 10%; width: 60%; height: 20px; top: 5px; background: linear-gradient(90deg, #4f46e5, #818cf8); color: white; font-size: 0.6rem; font-weight: bold;">
+                        {{ task.progress_pct }}%
+                    </div>
+                </div>
+            </div>
+            {% empty %}
+            <div class="text-center py-5 text-muted">ยังไม่มีข้อมูลงานสำหรับแสดงผล</div>
+            {% endfor %}
+        </div>
+    </div>
+    
+    <div class="alert alert-info border-0 rounded-4 mt-4 small">
+        <i class="fas fa-info-circle me-2"></i> <b>Tip:</b> ระบบ Gantt Chart อัตโนมัติกำลังคำนวณจาก Start Date และ Due Date ของแต่ละโครงการเพื่อจัดวาง Timeline
+    </div>
+</div>
+
+<style>
+    .text-indigo { color: #4f46e5; }
+    .gantt-container::-webkit-scrollbar { height: 8px; }
+    .gantt-container::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 4px; }
+</style>
+{% endblock %}

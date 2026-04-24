@@ -109,6 +109,16 @@
                         </a>
                     </li>
                     <li class="nav-item">
+                        <a class="nav-link px-3 {% if 'meeting' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'ops:meeting_list' %}">
+                            <i class="fas fa-handshake me-1"></i>การประชุม
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link px-3 {% if 'task' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'ops:task_list' %}">
+                            <i class="fas fa-clipboard-check me-1"></i>งานโครงการ
+                        </a>
+                    </li>
+                    <li class="nav-item">
                         <a class="nav-link px-3 {% if request.resolver_match.url_name == 'ai_analysis' %}active{% endif %}" href="{% url 'ops:ai_analysis' %}">
                             <i class="fas fa-robot me-1"></i>วิเคราะห์ AI
                         </a>

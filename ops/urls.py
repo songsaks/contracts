@@ -20,4 +20,17 @@ urlpatterns = [
     path('scheduler/data/', views.scheduler_data, name='scheduler_data'),
     path('kanban/', views.kanban_view, name='kanban'),
     path('goal/update-status/', views.update_goal_status, name='update_goal_status'),
+
+    # --- Meeting & Idea Management ---
+    path('meetings/', views.meeting_list, name='meeting_list'),
+    path('meetings/create/', views.meeting_create, name='meeting_create'),
+    path('meetings/<int:meeting_id>/', views.meeting_detail, name='meeting_detail'),
+    path('meetings/<int:meeting_id>/record/', views.meeting_record, name='meeting_record'),
+    path('meetings/<int:meeting_id>/idea/add/', views.idea_add, name='idea_add'),
+    path('ideas/', views.idea_list, name='idea_list'),
+    path('ideas/<int:idea_id>/score/', views.idea_score, name='idea_score'),
+    path('ideas/<int:idea_id>/approve/', views.idea_approve, name='idea_approve'),
+    path('tasks/', views.task_list, name='task_list'),
+    path('tasks/gantt/', views.task_gantt, name='task_gantt'),
+    path('tasks/kanban/', views.task_kanban, name='task_kanban'),
 ]

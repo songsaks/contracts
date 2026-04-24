@@ -1,0 +1,61 @@
+{% extends 'ops/base_ops.html' %}
+
+{% block content %}
+<div class="container-fluid px-4 py-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card border-0 shadow-lg rounded-4 overflow-hidden">
+                <div class="card-header bg-primary py-4 px-4">
+                    <h4 class="text-white fw-bold mb-0"><i class="fas fa-calendar-plus me-2"></i>นัดหมายการประชุมใหม่</h4>
+                </div>
+                <div class="card-body p-4">
+                    <form method="POST">
+                        {% csrf_token %}
+                        <div class="row g-3">
+                            <div class="col-12">
+                                <label class="form-label fw-bold text-dark">หัวข้อการประชุม</label>
+                                <input type="text" name="title" class="form-control form-control-lg rounded-3" placeholder="ระบุหัวข้อประชุม..." required>
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label fw-bold text-dark">วาระการประชุม (Agenda)</label>
+                                <textarea name="agenda" class="form-control rounded-3" rows="4" placeholder="ระบุสิ่งที่ต้องการพูดคุยในที่ประชุม..." required></textarea>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold text-dark">วันที่</label>
+                                <input type="date" name="date" class="form-control rounded-3" value="{{ today|date:'Y-m-d' }}" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold text-dark">เวลาเริ่ม</label>
+                                <input type="time" name="start_time" class="form-control rounded-3" required>
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label fw-bold text-dark">สถานที่ / ห้องประชุม</label>
+                                <input type="text" name="location" class="form-control rounded-3" placeholder="เช่น ห้องประชุมใหญ่, Zoom Link...">
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label fw-bold text-dark">เชิญผู้เข้าร่วม</label>
+                                <div class="row g-2 overflow-auto" style="max-height: 200px; background: #f8fafc; padding: 15px; border-radius: 10px;">
+                                    {% for user in users %}
+                                    <div class="col-md-4">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" name="participants" value="{{ user.id }}" id="user-{{ user.id }}">
+                                            <label class="form-check-label small" for="user-{{ user.id }}">
+                                                {{ user.get_full_name|default:user.username }}
+                                            </label>
+                                        </div>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="d-flex justify-content-end gap-2 mt-5">
+                            <a href="{% url 'ops:meeting_list' %}" class="btn btn-light rounded-pill px-4">ยกเลิก</a>
+                            <button type="submit" class="btn btn-primary rounded-pill px-5 shadow">บันทึกและส่งคำเชิญ</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -68,3 +68,85 @@ class DailyProgress(models.Model):
 
     def __str__(self):
         return f"{self.date} - {self.goal.title}: {self.actual_value}"
+
+class Meeting(models.Model):
+    STATUS_CHOICES = (
+        ('scheduled', 'นัดหมายแล้ว'),
+        ('in_progress', 'กำลังประชุม'),
+        ('completed', 'เสร็จสิ้น'),
+        ('cancelled', 'ยกเลิก'),
+    )
+    title = models.CharField(max_length=200, verbose_name="หัวข้อการประชุม")
+    agenda = models.TextField(verbose_name="วาระการประชุม")
+    date = models.DateField(verbose_name="วันที่ประชุม")
+    start_time = models.TimeField(verbose_name="เวลาเริ่ม")
+    end_time = models.TimeField(verbose_name="เวลาสิ้นสุด", blank=True, null=True)
+    location = models.CharField(max_length=200, blank=True, verbose_name="สถานที่/ห้องประชุม")
+    organizer = models.ForeignKey(User, on_delete=models.CASCADE, related_name='organized_meetings', verbose_name="ผู้จัดประชุม")
+    minutes = models.TextField(blank=True, verbose_name="บันทึกมติที่ประชุม (Real-time Minutes)")
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='scheduled', verbose_name="สถานะ")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.title} ({self.date})"
+
+class MeetingParticipant(models.Model):
+    meeting = models.ForeignKey(Meeting, on_delete=models.CASCADE, related_name='participants')
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    is_attended = models.BooleanField(default=False, verbose_name="เข้าประชุม")
+
+class MeetingIdea(models.Model):
+    STATUS_CHOICES = (
+        ('proposed', 'เสนอไอเดีย'),
+        ('under_review', 'กำลังพิจารณา'),
+        ('approved', 'อนุมัติ (เป็นงาน)'),
+        ('rejected', 'ปฏิเสธ'),
+    )
+    meeting = models.ForeignKey(Meeting, on_delete=models.CASCADE, related_name='ideas', verbose_name="การประชุม")
+    proposer = models.ForeignKey(User, on_delete=models.CASCADE, verbose_name="ผู้เสนอไอเดีย")
+    title = models.CharField(max_length=200, verbose_name="หัวข้อไอเดีย")
+    description = models.TextField(verbose_name="รายละเอียดไอเดีย")
+    
+    # Scoring
+    impact_score = models.IntegerField(default=0, verbose_name="คะแนนผลกระทบ (1-10)")
+    feasibility_score = models.IntegerField(default=0, verbose_name="คะแนนความเป็นไปได้ (1-10)")
+    total_score = models.IntegerField(default=0, verbose_name="คะแนนรวม")
+    
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='proposed', verbose_name="สถานะ")
+    approved_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='approved_ideas')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def save(self, *args, **kwargs):
+        self.total_score = self.impact_score + self.feasibility_score
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return self.title
+
+class ActionTask(models.Model):
+    STATUS_CHOICES = (
+        ('todo', 'To Do'),
+        ('doing', 'In Progress'),
+        ('done', 'Done'),
+        ('blocked', 'Blocked'),
+    )
+    PRIORITY_CHOICES = (
+        ('low', 'Low'),
+        ('medium', 'Medium'),
+        ('high', 'High'),
+        ('critical', 'Critical'),
+    )
+    idea = models.OneToOneField(MeetingIdea, on_delete=models.CASCADE, related_name='action_task', verbose_name="ไอเดียต้นฉบับ")
+    title = models.CharField(max_length=200, verbose_name="ชื่องาน")
+    assigned_to = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='action_tasks', verbose_name="ผู้รับผิดชอบ")
+    department = models.ForeignKey(Department, on_delete=models.SET_NULL, null=True, verbose_name="ฝ่าย")
+    start_date = models.DateField(verbose_name="วันที่เริ่ม")
+    due_date = models.DateField(verbose_name="วันครบกำหนด")
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='todo', verbose_name="สถานะ")
+    priority = models.CharField(max_length=10, choices=PRIORITY_CHOICES, default='medium', verbose_name="ความสำคัญ")
+    dependencies = models.ManyToManyField('self', symmetrical=False, blank=True, related_name='dependents', verbose_name="งานที่ต้องทำก่อน")
+    progress_pct = models.IntegerField(default=0, verbose_name="ความคืบหน้า (%)")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return self.title
