@@ -33,9 +33,20 @@ def _get_access(user):
         return None
     if user.is_superuser:
         return _FakeAccess()
+    
+    # Check global access flag from profile
+    try:
+        if not getattr(user.profile, 'access_board', False):
+            return None
+    except Exception:
+        return None
+
     try:
         return user.board_access
     except BoardAccess.DoesNotExist:
+        # If user has global access but no granular access record, 
+        # we might want to return a default Viewer access or None.
+        # Based on the existing logic, it returns None.
         return None
 
 

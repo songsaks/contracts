@@ -1117,7 +1117,7 @@
                 {% endif %}
 
                 <!-- ====== การ์ด: Ops Management (Weekly Operations) ====== -->
-                {% if user.is_authenticated %}
+                {% if user.is_superuser or user.profile.access_ops %}
                 <a href="{% url 'ops:dashboard' %}" class="card card--purple" id="card-ops">
                     <div class="card__icon">
                         <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
@@ -1139,7 +1139,7 @@
                 {% endif %}
 
                 <!-- ====== การ์ด: ระบบกระดานข่าว (Knowledge Board) ====== -->
-                {% if user.is_authenticated %}
+                {% if user.is_superuser or user.profile.access_board %}
                 <a href="{% url 'board:list' %}" class="card card--indigo" id="card-board">
                     <div class="card__icon">
                         <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">

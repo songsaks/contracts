@@ -14,6 +14,8 @@ _APP_ACCESS_MAP = {
     # ใช้ prefix เฉพาะส่วน management — ไม่รวม /accounts/login/, /accounts/logout/
     '/accounts/users/': 'access_accounts',
     '/accounts/roles/': 'access_accounts',
+    '/board/': 'access_board',
+    '/ops/':   'access_ops',
 }
 
 # ชื่อแสดงผลสำหรับแต่ละ app
@@ -26,6 +28,8 @@ _APP_NAMES = {
     'access_stocks':   'ระบบวิเคราะห์หุ้น AI',
     'access_chat':     'ศูนย์แชทกลาง',
     'access_accounts': 'ระบบจัดการพนักงาน',
+    'access_board':    'ระบบ Dashboard (Board)',
+    'access_ops':      'ระบบวางแผน (Ops App)',
 }
 
 
