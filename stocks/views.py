@@ -8937,6 +8937,15 @@ def stock_chart_data(request, symbol):
     # Padding: ดึงข้อมูลเผื่อล่วงหน้าเพื่อให้เส้น Donchian 55 และ RSI มีค่าเพียงพอ
     download_period = '2y' if period in ('1y', '2y') else '1y' 
 
+    def _safe_val(val, default=0.0):
+        try:
+            v = float(val)
+            if _np.isnan(v) or _np.isinf(v):
+                return default
+            return v
+        except:
+            return default
+
     try:
         df = _yf.download(yf_symbol, period=download_period, auto_adjust=True,
                           progress=False, group_by='column')
@@ -9056,25 +9065,25 @@ def stock_chart_data(request, symbol):
         long_sell = curr_price <= float(last_row['dc20_lower'])
 
         tactical = {
-            'price': round(curr_price, 2),
-            'n': n_val,
+            'price': round(_safe_val(curr_price), 2),
+            'n': _safe_val(n_val),
             'signals': {
                 'short': get_signal(short_buy, short_sell),
                 'medium': get_signal(med_buy, med_sell),
                 'long': get_signal(long_buy, long_sell)
             },
             'breakout_age': breakout_age,
-            'breakout_dist': dist_from_breakout,
-            'short_term_high': round(float(last_row['dc10_upper']), 2),
-            'high_20d': round(float(last_row['dc20_upper']), 2),
-            'high_55d': round(float(last_row['dc55_upper']), 2),
-            'rsi': round(float(last_row['rsi']), 2),
-            'ema9': round(float(last_row['ema9']), 2),
-            'ema200': round(float(last_row['ema200']), 2),
+            'breakout_dist': _safe_val(dist_from_breakout),
+            'short_term_high': round(_safe_val(last_row['dc10_upper']), 2),
+            'high_20d': round(_safe_val(last_row['dc20_upper']), 2),
+            'high_55d': round(_safe_val(last_row['dc55_upper']), 2),
+            'rsi': round(_safe_val(last_row['rsi']), 2),
+            'ema9': round(_safe_val(last_row['ema9']), 2),
+            'ema200': round(_safe_val(last_row['ema200']), 2),
             # Added missing fields for Tactical Command Center
-            'exit_10d_low': round(float(last_row['dc10_lower']), 2),
-            'exit_20d_low': round(float(last_row['dc20_lower']), 2),
-            'next_unit': round(curr_price + (0.5 * n_val), 2),
+            'exit_10d_low': round(_safe_val(last_row['dc10_lower']), 2),
+            'exit_20d_low': round(_safe_val(last_row['dc20_lower']), 2),
+            'next_unit': round(_safe_val(curr_price + (0.5 * n_val)), 2),
         }
 
         # Turtle breakout signals (compare close vs previous day's channel)
@@ -9094,11 +9103,13 @@ def stock_chart_data(request, symbol):
 
         for dt, row in df.iterrows():
             t = datestr(dt)
-            o = float(row['Open']); h = float(row['High'])
-            l = float(row['Low']);  c = float(row['Close'])
+            o = _safe_val(row['Open'])
+            h = _safe_val(row['High'])
+            l = _safe_val(row['Low'])
+            c = _safe_val(row['Close'])
             candles.append({'time': t, 'open': round(o, 2), 'high': round(h, 2),
                             'low': round(l, 2), 'close': round(c, 2)})
-            vol.append({'time': t, 'value': int(row['Volume']),
+            vol.append({'time': t, 'value': int(_safe_val(row['Volume'])),
                         'color': '#26a69a' if c >= o else '#ef5350'})
 
             if _pd.notna(row['dc20_upper']):
