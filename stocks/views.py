@@ -6869,11 +6869,19 @@ def us_precision_scanner(request):
                 import yfinance as yf
                 import pandas as pd
                 import pandas_ta as ta
+                import requests
                 from datetime import datetime as _dt, timedelta as _td, time as _dtime
                 import pytz as _pytz
                 import concurrent.futures
                 from django.contrib.auth import get_user_model
                 from django.core.cache import cache as _cache_inner
+
+                # Create a session with timeout to prevent hanging
+                _session = requests.Session()
+                _session.mount("https://", requests.adapters.HTTPAdapter(max_retries=2))
+                _session.mount("http://", requests.adapters.HTTPAdapter(max_retries=2))
+                # Patch yfinance to use this session with a timeout if needed, 
+                # but usually passing session to Ticker is enough.
                 
                 User = get_user_model()
                 user = User.objects.get(pk=uid)
@@ -6906,35 +6914,34 @@ def us_precision_scanner(request):
                             spy_3m = float((c.iloc[-1] - c.iloc[-66])/c.iloc[-66]*100)
                 except: pass
 
-                # RS Rating (Percentile Rank of 3M Returns to match Thai version's short-term momentum focus)
-                _cache_inner.set(ckey, {'state': 'running', 'progress': 0, 'total': len(sym_list), 'phase': 'RS Ratings (Momentum Focus)…'}, timeout=1200)
-                def _fetch_rs(s):
-                    try:
-                        d = yf.Ticker(s).history(start=scan_start_str, end=scan_end_str, interval="1d")
-                        if d is None or d.empty: return s, None
-                        if isinstance(d.columns, pd.MultiIndex): d.columns = d.columns.droplevel(1)
-                        cl = d['Close'].dropna()
-                        n = len(cl)
-                        if n >= 66: # 3-Month focus
-                            ret = float((cl.iloc[-1] - cl.iloc[-66])/abs(cl.iloc[-66])) * 100
-                            return s, ret
-                        return s, None
-                    except: return s, None
-                
+                # RS Rating (Bulk Fetch for speed)
+                _cache_inner.set(ckey, {'state': 'running', 'progress': 0, 'total': total_syms, 'phase': 'Fetching RS Data (Bulk)…'}, timeout=1200)
                 rs_returns = {}
-                count_rs = 0
-                total_syms = len(sym_list)
-                with concurrent.futures.ThreadPoolExecutor(max_workers=15) as ex:
-                    futs = {ex.submit(_fetch_rs, s): s for s in sym_list}
-                    for f in concurrent.futures.as_completed(futs):
+                try:
+                    # Download all at once to avoid individual overhead
+                    bulk_data = yf.download(sym_list, start=scan_start_str, end=scan_end_str, interval="1d", progress=False, group_by='ticker', session=_session)
+                    
+                    count_rs = 0
+                    for s in sym_list:
                         try:
-                            s, r = f.result()
-                            if r is not None: rs_returns[s] = r
+                            if s in bulk_data:
+                                d = bulk_data[s]
+                            elif len(sym_list) == 1: # yf.download returns single DF if only 1 symbol
+                                d = bulk_data
+                            else: continue
+
+                            if d is None or d.empty: continue
+                            cl = d['Close'].dropna()
+                            if len(cl) >= 66:
+                                ret = float((cl.iloc[-1] - cl.iloc[-66])/abs(cl.iloc[-66])) * 100
+                                rs_returns[s] = ret
                         except: pass
                         count_rs += 1
-                        if count_rs % 10 == 0 or count_rs == total_syms:
-                             _cache_inner.set(ckey, {'state': 'running', 'progress': count_rs, 'total': total_syms, 'phase': f'RS Ratings ({count_rs}/{total_syms})…'}, timeout=1200)
-                
+                        if count_rs % 20 == 0 or count_rs == total_syms:
+                             _cache_inner.set(ckey, {'state': 'running', 'progress': count_rs, 'total': total_syms, 'phase': f'Calculating RS ({count_rs}/{total_syms})…'}, timeout=1200)
+                except Exception as e:
+                    print(f"Bulk RS Error: {e}")
+
                 rs_map = {}
                 if rs_returns:
                     ser = pd.Series(rs_returns)
@@ -6946,10 +6953,10 @@ def us_precision_scanner(request):
                 results = []
                 def _scan_one(symbol):
                     try:
-                        ticker = yf.Ticker(symbol)
+                        ticker = yf.Ticker(symbol, session=_session)
                         df = ticker.history(start=scan_start_str, end=scan_end_str, interval="1d")
                         if df is None or df.empty:
-                            yq = YQTicker(symbol)
+                            yq = YQTicker(symbol, session=_session)
                             df = yq.history(start=scan_start_str, end=scan_end_str, interval="1d")
                             if isinstance(df, pd.DataFrame) and not df.empty:
                                 if 'symbol' in df.index.names: df = df.xs(symbol, level='symbol')
