@@ -5181,54 +5181,64 @@ def work_summary_ai_analysis(request):
 def installation_report(request):
     """
     รายงานสรุปมูลค่าโครงการและเวลาการทำงานสำหรับงานติดตั้ง (Installation Report)
+    รองรับการกรองช่วงเวลา, สถานะงาน, และการส่งออกเป็น Excel
     """
-    from .models import ServiceQueueItem
+    from .models import ServiceQueueItem, ServiceTeam, Project, ProjectOwner
     from django.utils import timezone
+    from django.db.models import Q
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
+    from django.http import HttpResponse
     import json as json_lib
 
-    # กรองเฉพาะงานติดตั้งที่เสร็จสิ้นแล้ว
-    qs = ServiceQueueItem.objects.select_related('project')\
-        .prefetch_related('assigned_teams__members')\
-        .filter(task_type='INSTALLATION', status='COMPLETED')
-        
+    # --- Filters ---
     date_from_str = request.GET.get('date_from', '')
     date_to_str = request.GET.get('date_to', '')
+    status_filter = request.GET.get('status', 'COMPLETED') # Default to COMPLETED
+    show_all = request.GET.get('show_all') == 'on'
     
+    # Base Query
+    qs = ServiceQueueItem.objects.select_related('project', 'project__owner')\
+        .prefetch_related('assigned_teams__members')\
+        .filter(task_type='INSTALLATION')
+
+    # Apply Status Filter
+    if not show_all:
+        if status_filter == 'COMPLETED':
+            qs = qs.filter(status='COMPLETED')
+        elif status_filter:
+            qs = qs.filter(status=status_filter)
+    
+    # Date Filter
     if date_from_str:
-        qs = qs.filter(completed_at__date__gte=date_from_str)
+        qs = qs.filter(Q(completed_at__date__gte=date_from_str) | Q(created_at__date__gte=date_from_str))
     if date_to_str:
-        qs = qs.filter(completed_at__date__lte=date_to_str)
+        qs = qs.filter(Q(completed_at__date__lte=date_to_str) | Q(created_at__date__lte=date_to_str))
         
     reports = []
     tech_data = {}
     total_value_all = 0
     total_days_all = 0
 
-    for item in qs.order_by('-completed_at'):
+    for item in qs.order_by('-completed_at', '-created_at'):
         project = item.project
-        # มูลค่าโครงการ (คำนวณผ่าน property total_value ของ Project)
         value = float(project.total_value) if project else 0
         
-        # วันที่เริ่ม (วันเริ่มโปรเจค หรือวันที่สร้างคิว) ไปจนถึงวันที่เสร็จ
-        # ถ้าโครงการมี start_date ก็ใช้ start_date ไม่เช่นนั้นใช้ วันที่สร้างงาน
-        start_d = None
-        end_d = None
-        days = 0
+        start_d = project.start_date if project and project.start_date else item.created_at.date()
+        end_d = item.completed_at.date() if item.completed_at else None
         
-        if item.completed_at:
-            end_d = item.completed_at.date()
-            if project and project.start_date:
-                start_d = project.start_date
-            else:
-                start_d = item.created_at.date()
-                
+        if end_d:
             days = (end_d - start_d).days
-            if days < 0: days = 0
-            days += 1 # ใช้อย่างน้อย 1 วัน สำหรับงานที่เสร็จในวันเดียวกัน
-            
-        # หาชื่อช่างทั้งหมดที่ทำงานนี้
+        else:
+            days = (timezone.now().date() - start_d).days
+        
+        days = max(0, days) + 1 # At least 1 day
+
+        assigned_teams_list = list(item.assigned_teams.all())
+        team_names = ", ".join([t.name for t in assigned_teams_list]) or "-"
+        
         tech_names = []
-        for team in item.assigned_teams.all():
+        for team in assigned_teams_list:
             for user in team.members.all():
                 fullname = user.get_full_name() or user.username
                 if fullname not in tech_names:
@@ -5248,30 +5258,45 @@ def installation_report(request):
         reports.append({
             'job_id': item.id,
             'project_name': project.name if project else item.title,
+            'owner_name': project.owner.name if project and project.owner else "-",
             'title': item.title,
+            'status': item.get_status_display(),
+            'status_key': item.status,
             'value': value,
             'days': days,
             'start_date': start_d.strftime('%d/%m/%Y') if start_d else '-',
-            'completed_date': end_d.strftime('%d/%m/%Y') if end_d else '-',
+            'completed_date': end_d.strftime('%d/%m/%Y') if end_d else 'ยังไม่เสร็จ',
+            'team_names': team_names,
             'technicians': ", ".join(tech_names) if tech_names else "-",
         })
         total_value_all += value
         total_days_all += days
 
-    # สร้าง tech_reports
+    # Excel Export
+    if request.GET.get('export') == 'excel':
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Installation Report"
+        h_font = Font(bold=True, color="FFFFFF"); h_fill = PatternFill(start_color="4F46E5", end_color="4F46E5", fill_type="solid")
+        ws.append(["#", "ชื่องาน", "เจ้าของงาน", "สถานะ", "ทีมที่ทำงาน", "ระยะเวลา (วัน)", "มูลค่างาน (บาท)", "วันที่เริ่ม", "วันที่จบ"])
+        for cell in ws[1]: cell.font = h_font; cell.fill = h_fill
+        for idx, r in enumerate(reports, 1):
+            ws.append([idx, r['project_name'], r['owner_name'], r['status'], r['team_names'], r['days'], r['value'], r['start_date'], r['completed_date']])
+        response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+        response['Content-Disposition'] = f'attachment; filename=Installation_Report_{timezone.now().strftime("%Y%m%d")}.xlsx'
+        wb.save(response); return response
+
     tech_reports = []
     for uname, data in tech_data.items():
         if data['job_count'] > 0:
             data['avg_days'] = round(data['total_days'] / data['job_count'], 1)
             tech_reports.append(data)
-    # เรียงลำดับช่างตามมูลค่างานและจำนวนงาน
     tech_reports.sort(key=lambda x: (x['total_value'], x['job_count']), reverse=True)
 
-    # ข้อมูลกราฟ (เตรียมสำหรับ Chart.js หรือ ApexCharts)
     chart_data = {
-        'labels': [r['project_name'][:15] + '...' if len(r['project_name']) > 15 else r['project_name'] for r in reports],
-        'values': [r['value'] for r in reports],
-        'days': [r['days'] for r in reports],
+        'labels': [r['project_name'][:15] + '...' if len(r['project_name']) > 15 else r['project_name'] for r in reports[:20]],
+        'values': [r['value'] for r in reports[:20]],
+        'days': [r['days'] for r in reports[:20]],
     }
 
     return render(request, 'pms/installation_report.html', {
@@ -5283,6 +5308,9 @@ def installation_report(request):
         'chart_data_json': json_lib.dumps(chart_data, ensure_ascii=False),
         'date_from': date_from_str,
         'date_to': date_to_str,
+        'status_filter': status_filter,
+        'show_all': show_all,
+        'status_choices': ServiceQueueItem.Status.choices,
     })
 
 

@@ -1,7 +1,7 @@
 {% extends 'pms/base_pms.html' %}
 {% load humanize %}
 
-{% block title %}Installation Performance Report - PMS{% endblock %}
+{% block title %}รายงานการติดตั้ง (Installation Report) - PMS{% endblock %}
 
 {% block content %}
 <!-- Include ApexCharts for elegant graphs -->
@@ -10,7 +10,7 @@
 <div class="container-fluid px-4 py-4">
 
     <!-- Header UI -->
-    <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-3 bg-white p-4 rounded-4 shadow-sm">
+    <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-3 bg-white p-4 rounded-4 shadow-sm border-start border-primary border-5 no-print">
         <div class="d-flex align-items-center gap-3">
             <div class="bg-primary bg-opacity-10 p-3 rounded-4 shadow-sm" style="width: 60px; height: 60px; display: flex; align-items: center; justify-content: center;">
                 <i class="fas fa-tools fa-2x text-primary"></i>
@@ -22,10 +22,32 @@
         </div>
         
         <div class="d-flex gap-2 align-items-center">
-            <form method="get" class="d-flex gap-2 align-items-center bg-light p-2 rounded-4 shadow-sm">
-                <input type="date" name="date_from" value="{{ date_from }}" class="form-control form-control-sm border-0 bg-transparent">
+            <div class="btn-group me-2">
+                <button type="button" class="btn btn-outline-success btn-sm rounded-pill px-3 fw-bold" onclick="exportToExcel()">
+                    <i class="fas fa-file-excel me-1"></i> Excel
+                </button>
+                <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill px-3 fw-bold ms-2" onclick="window.print()">
+                    <i class="fas fa-print me-1"></i> พิมพ์
+                </button>
+            </div>
+            
+            <form method="get" id="filterForm" class="d-flex flex-wrap gap-2 align-items-center bg-light p-2 rounded-4 shadow-sm border">
+                <input type="date" name="date_from" value="{{ date_from }}" class="form-control form-control-sm border-0 bg-transparent" title="ตั้งแต่วันที่">
                 <span class="text-muted small fw-bold">ถึง</span>
-                <input type="date" name="date_to" value="{{ date_to }}" class="form-control form-control-sm border-0 bg-transparent">
+                <input type="date" name="date_to" value="{{ date_to }}" class="form-control form-control-sm border-0 bg-transparent" title="ถึงวันที่">
+                
+                <select name="status" class="form-select form-select-sm border-0 bg-white rounded-3 shadow-xs" style="width: 140px;">
+                    <option value="ALL" {% if status_filter == 'ALL' %}selected{% endif %}>ทุกสถานะ</option>
+                    {% for val, label in status_choices %}
+                    <option value="{{ val }}" {% if status_filter == val %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+
+                <div class="form-check form-switch ms-2">
+                    <input class="form-check-input" type="checkbox" name="show_all" id="showAll" {% if show_all %}checked{% endif %}>
+                    <label class="form-check-label small fw-bold text-muted" for="showAll">ดูทั้งหมด</label>
+                </div>
+
                 <button type="submit" class="btn btn-primary btn-sm rounded-pill px-4 fw-bold shadow-sm">
                     <i class="fas fa-search me-1"></i> ค้นหา
                 </button>
@@ -36,46 +58,44 @@
 
     <!-- Summary Metrics -->
     <div class="row g-4 mb-4">
-        <!-- Total Value -->
         <div class="col-md-4">
             <div class="card border-0 shadow-sm rounded-4 h-100 card-gradient-primary text-white position-relative overflow-hidden">
                 <div class="card-body p-4 position-relative z-1">
-                    <h6 class="text-white-50 fw-bold mb-3 text-uppercase letter-spacing-1">มูลค่าโครงการรวม (Total Value)</h6>
+                    <h6 class="text-white-50 fw-bold mb-3 text-uppercase letter-spacing-1 small">มูลค่าโครงการรวม</h6>
                     <h2 class="fw-bold mb-0">฿ {{ total_value_all|floatformat:2|intcomma }}</h2>
+                    <div class="mt-2 small text-white-50"><i class="fas fa-info-circle me-1"></i>คำนวณจากทุกโครงการในรายการ</div>
                 </div>
                 <i class="fas fa-hand-holding-usd position-absolute opacity-25" style="font-size: 8rem; right: -20px; bottom: -20px; z-index: 0;"></i>
             </div>
         </div>
-        
-        <!-- Total Jobs -->
         <div class="col-md-4">
             <div class="card border-0 shadow-sm rounded-4 h-100 card-gradient-success text-white position-relative overflow-hidden">
                 <div class="card-body p-4 position-relative z-1">
-                    <h6 class="text-white-50 fw-bold mb-3 text-uppercase letter-spacing-1">จำนวนงานที่เสร็จสิ้น</h6>
-                    <h2 class="fw-bold mb-0"><i class="fas fa-check-circle me-2 text-warning"></i>{{ total_jobs }} งาน</h2>
+                    <h6 class="text-white-50 fw-bold mb-3 text-uppercase letter-spacing-1 small">จำนวนงานทั้งหมด</h6>
+                    <h2 class="fw-bold mb-0"><i class="fas fa-tasks me-2 text-warning"></i>{{ total_jobs }} งาน</h2>
+                    <div class="mt-2 small text-white-50"><i class="fas fa-filter me-1"></i>ตามการกรองปัจจุบัน</div>
                 </div>
                 <i class="fas fa-clipboard-check position-absolute opacity-25" style="font-size: 8rem; right: -20px; bottom: -20px; z-index: 0;"></i>
             </div>
         </div>
-        
-        <!-- Avg Days -->
         <div class="col-md-4">
             <div class="card border-0 shadow-sm rounded-4 h-100 card-gradient-purple text-white position-relative overflow-hidden">
                 <div class="card-body p-4 position-relative z-1">
-                    <h6 class="text-white-50 fw-bold mb-3 text-uppercase letter-spacing-1">ระยะเวลาทำงานเฉลี่ย (Avg Days)</h6>
+                    <h6 class="text-white-50 fw-bold mb-3 text-uppercase letter-spacing-1 small">ระยะเวลาทำงานเฉลี่ย</h6>
                     <h2 class="fw-bold mb-0"><i class="fas fa-clock me-2 text-info"></i>{{ avg_days }} วัน</h2>
+                    <div class="mt-2 small text-white-50"><i class="fas fa-calendar-alt me-1"></i>จากเริ่มจนถึงจบ (หรือถึงวันนี้)</div>
                 </div>
                 <i class="fas fa-hourglass-half position-absolute opacity-25" style="font-size: 8rem; right: -20px; bottom: -20px; z-index: 0;"></i>
             </div>
         </div>
     </div>
 
-    <!-- Chart Section -->
-    <div class="row g-4 mb-4">
+    <!-- Chart Section (No print) -->
+    <div class="row g-4 mb-4 no-print">
         <div class="col-12">
-            <div class="card border-0 shadow-sm rounded-4 h-100 p-0">
-                <div class="card-header bg-transparent border-0 pt-4 px-4 d-flex justify-content-between align-items-center">
-                    <h5 class="fw-bold text-dark mb-0"><i class="fas fa-chart-bar text-primary me-2"></i>กราฟมูลค่า และ เวลาที่ใช้ในการทำงาน</h5>
+            <div class="card border-0 shadow-sm rounded-4 h-100 p-0 overflow-hidden">
+                <div class="card-header bg-white border-bottom-0 pt-4 px-4 d-flex justify-content-between align-items-center">
+                    <h5 class="fw-bold text-dark mb-0"><i class="fas fa-chart-bar text-primary me-2"></i>วิเคราะห์มูลค่าและระยะเวลา</h5>
                 </div>
                 <div class="card-body px-4 pb-4">
                     {% if total_jobs > 0 %}
@@ -83,7 +103,7 @@
                     {% else %}
                     <div class="text-center py-5 text-muted">
                         <i class="fas fa-chart-line fa-3x mb-3 opacity-25"></i>
-                        <p>ไม่มีข้อมูลการติดตั้งในช่วงเวลานี้</p>
+                        <p>ไม่มีข้อมูลแสดงในกราฟ</p>
                     </div>
                     {% endif %}
                 </div>
@@ -91,23 +111,23 @@
         </div>
     </div>
 
-    <!-- Technician Stats Section -->
+    <!-- Technician Stats -->
     <div class="row g-4 mb-4">
         <div class="col-12">
             <div class="card border-0 shadow-sm rounded-4">
-                <div class="card-header bg-transparent border-0 pt-4 px-4">
-                    <h5 class="fw-bold text-dark mb-0"><i class="fas fa-users-cog text-warning me-2"></i>สรุปผลงานรายบุคคล (แยกตามทีมช่าง)</h5>
+                <div class="card-header bg-white border-bottom-0 pt-4 px-4">
+                    <h5 class="fw-bold text-dark mb-0"><i class="fas fa-users-cog text-warning me-2"></i>สรุปผลงานรายบุคคล</h5>
                 </div>
                 <div class="card-body px-4 pb-4">
                     <div class="table-responsive rounded-3 border">
                         <table class="table table-hover table-borderless table-striped align-middle mb-0">
                             <thead class="table-light text-dark">
                                 <tr>
-                                    <th class="py-3 px-3 rounded-top-start" style="width: 50px;">#</th>
-                                    <th class="py-3 px-3">ชื่อพนักงาน / ช่างเทคนิค</th>
-                                    <th class="py-3 px-3 text-center">จำนวนงานที่ทำ</th>
+                                    <th class="py-3 px-3" style="width: 50px;">#</th>
+                                    <th class="py-3 px-3">ชื่อช่างเทคนิค</th>
+                                    <th class="py-3 px-3 text-center">จำนวนงาน</th>
                                     <th class="py-3 px-3 text-center">ใช้เวลาเฉลี่ย/งาน</th>
-                                    <th class="py-3 px-3 text-right rounded-top-end" style="text-align: right;">มูลค่างานรวม (บาท)</th>
+                                    <th class="py-3 px-3 text-end">มูลค่างานรวม (บาท)</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -116,20 +136,18 @@
                                     <td class="px-3 text-muted fw-bold">{{ forloop.counter }}</td>
                                     <td class="px-3">
                                         <div class="d-flex align-items-center gap-2">
-                                            <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center fw-bold" style="width: 35px; height: 35px; flex-shrink: 0;">
+                                            <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center fw-bold" style="width: 32px; height: 32px; font-size: 0.85rem;">
                                                 {{ tech.full_name|slice:":1" }}
                                             </div>
                                             <span class="fw-bold">{{ tech.full_name }}</span>
                                         </div>
                                     </td>
                                     <td class="px-3 text-center fw-bold text-primary">{{ tech.job_count }} งาน</td>
-                                    <td class="px-3 text-center text-muted"><i class="fas fa-clock me-1 text-info"></i> {{ tech.avg_days }} วัน</td>
-                                    <td class="px-3 fw-bold text-success" style="text-align: right; font-size: 1.05rem;">฿ {{ tech.total_value|floatformat:2|intcomma }}</td>
+                                    <td class="px-3 text-center text-muted">{{ tech.avg_days }} วัน</td>
+                                    <td class="px-3 fw-bold text-success text-end">฿ {{ tech.total_value|floatformat:2|intcomma }}</td>
                                 </tr>
                                 {% empty %}
-                                <tr>
-                                    <td colspan="5" class="text-center py-4 text-muted">ไม่มีข้อมูลช่างเทคนิค</td>
-                                </tr>
+                                <tr><td colspan="5" class="text-center py-4 text-muted">ไม่พบข้อมูล</td></tr>
                                 {% endfor %}
                             </tbody>
                         </table>
@@ -143,45 +161,54 @@
     <div class="row g-4 mb-4">
         <div class="col-12">
             <div class="card border-0 shadow-sm rounded-4">
-                <div class="card-header bg-transparent border-0 pt-4 px-4 d-flex justify-content-between align-items-center">
-                    <h5 class="fw-bold text-dark mb-0"><i class="fas fa-list-alt text-primary me-2"></i>ข้อมูลงานติดตั้งรายโครงการ</h5>
-                    <button class="btn btn-success btn-sm rounded-pill px-4 fw-bold shadow-sm" onclick="sendToChat()"><i class="fas fa-comment-dots me-2"></i>ส่งเข้าห้องแชท (Chatroom)</button>
+                <div class="card-header bg-white border-bottom-0 pt-4 px-4 d-flex justify-content-between align-items-center">
+                    <h5 class="fw-bold text-dark mb-0"><i class="fas fa-list-alt text-primary me-2"></i>รายละเอียดงานติดตั้ง</h5>
+                    <button class="btn btn-success btn-sm rounded-pill px-4 fw-bold shadow-sm no-print" onclick="sendToChat()">
+                        <i class="fas fa-comment-dots me-2"></i>ส่งเข้าห้องแชท
+                    </button>
                 </div>
                 <div class="card-body px-4 pb-4">
                     <div class="table-responsive rounded-3 border">
                         <table class="table table-hover table-borderless table-striped align-middle mb-0">
                             <thead class="table-primary text-dark">
                                 <tr>
-                                    <th class="py-3 px-3 rounded-top-start">#</th>
-                                    <th class="py-3 px-3">ชื่อโครงการ / งาน</th>
-                                    <th class="py-3 px-3 text-center">วันที่เริ่มต้น</th>
-                                    <th class="py-3 px-3 text-center">วันที่เสร็จสิ้น</th>
-                                    <th class="py-3 px-3 text-right" style="text-align: right;">ระยะเวลา (วัน)</th>
-                                    <th class="py-3 px-3 text-right rounded-top-end" style="text-align: right;">มูลค่า (บาท)</th>
+                                    <th class="py-3 px-3">#</th>
+                                    <th class="py-3 px-3">โครงการ / งาน</th>
+                                    <th class="py-3 px-3">เจ้าของงาน</th>
+                                    <th class="py-3 px-3 text-center">สถานะ</th>
+                                    <th class="py-3 px-3 text-center">เริ่ม - จบ</th>
+                                    <th class="py-3 px-3 text-end">ระยะเวลา</th>
+                                    <th class="py-3 px-3 text-end">มูลค่า (บาท)</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {% for r in reports %}
                                 <tr>
-                                    <td class="px-3 text-muted fw-bold">{{ forloop.counter }}</td>
+                                    <td class="px-3 text-muted small fw-bold">{{ forloop.counter }}</td>
                                     <td class="px-3">
-                                        <div class="fw-bold">{{ r.project_name }}</div>
+                                        <div class="fw-bold text-dark">{{ r.project_name }}</div>
                                         <div class="small text-muted mb-1">{{ r.title }}</div>
-                                        <div class="small text-primary"><i class="fas fa-user-cog me-1"></i>ทีมช่าง: {{ r.technicians }}</div>
+                                        <div class="small text-primary fw-bold"><i class="fas fa-users me-1"></i>ทีม: {{ r.team_names }}</div>
                                     </td>
-                                    <td class="px-3 text-center text-muted"><i class="fas fa-calendar px-1"></i>{{ r.start_date }}</td>
-                                    <td class="px-3 text-center fw-bold text-success"><i class="fas fa-flag-checkered px-1"></i>{{ r.completed_date }}</td>
-                                    <td class="px-3" style="text-align: right;">
-                                        <span class="badge {% if r.days > 7 %}bg-danger{% elif r.days > 3 %}bg-warning text-dark{% else %}bg-success{% endif %} rounded-pill px-3 py-2 fs-6">
-                                            {{ r.days }}
+                                    <td class="px-3 text-muted small">{{ r.owner_name }}</td>
+                                    <td class="px-3 text-center">
+                                        <span class="badge {% if r.status_key == 'COMPLETED' %}bg-success{% elif r.status_key == 'CANCELLED' %}bg-danger{% else %}bg-info{% endif %} rounded-pill px-2">
+                                            {{ r.status }}
                                         </span>
                                     </td>
-                                    <td class="px-3 fw-bold text-primary" style="text-align: right; font-size: 1.1rem;">฿ {{ r.value|floatformat:2|intcomma }}</td>
+                                    <td class="px-3 text-center small text-muted">
+                                        <div>{{ r.start_date }}</div>
+                                        <div class="fw-bold {% if r.completed_date != 'ยังไม่เสร็จ' %}text-success{% endif %}">{{ r.completed_date }}</div>
+                                    </td>
+                                    <td class="px-3 text-end">
+                                        <span class="badge {% if r.days > 7 %}bg-soft-danger text-danger{% elif r.days > 3 %}bg-soft-warning text-dark{% else %}bg-soft-success text-success{% endif %} rounded-pill px-3 py-1">
+                                            {{ r.days }} วัน
+                                        </span>
+                                    </td>
+                                    <td class="px-3 fw-bold text-primary text-end">฿ {{ r.value|floatformat:2|intcomma }}</td>
                                 </tr>
                                 {% empty %}
-                                <tr>
-                                    <td colspan="6" class="text-center py-5 text-muted">ไม่พบข้อมูลงานติดตั้งที่เสร็จสิ้นแล้ว</td>
-                                </tr>
+                                <tr><td colspan="7" class="text-center py-5 text-muted">ไม่พบข้อมูลตามเงื่อนไขที่เลือก</td></tr>
                                 {% endfor %}
                             </tbody>
                         </table>
@@ -201,6 +228,12 @@
 <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
+    function exportToExcel() {
+        const url = new URL(window.location.href);
+        url.searchParams.set('export', 'excel');
+        window.location.href = url.toString();
+    }
+
     document.addEventListener("DOMContentLoaded", function() {
         // ดึงข้อมูลสำหรับกราฟ
         let rawChartData = document.getElementById('chartData');
@@ -209,7 +242,6 @@
         if (rawChartData) {
             try {
                 chartData = JSON.parse(rawChartData.textContent);
-                console.log("Chart Data Loaded:", chartData);
                 
                 if (chartData.labels && chartData.labels.length > 0 && typeof ApexCharts !== 'undefined') {
                     var options = {
@@ -226,153 +258,69 @@
                             height: 400,
                             type: 'line',
                             fontFamily: 'Inter, Noto Sans Thai, sans-serif',
-                            toolbar: { show: true }
+                            toolbar: { show: false }
                         },
-                        stroke: {
-                            width: [0, 4],
-                            curve: 'smooth'
-                        },
-                        title: {
-                            text: 'ความสัมพันธ์ระหว่าง มูลค่าโครงการ และ ระยะเวลาการทำงาน',
-                            style: { fontWeight: 600, fontSize: '14px' }
-                        },
-                        dataLabels: {
-                            enabled: true,
-                            enabledOnSeries: [1]
-                        },
+                        stroke: { width: [0, 4], curve: 'smooth' },
+                        colors: ['#4F46E5', '#F59E0B'],
                         labels: chartData.labels,
-                        colors: ['#0d6efd', '#ffc107'],
-                        xaxis: {
-                            type: 'category'
-                        },
-                        yaxis: [{
-                            title: {
-                                text: 'มูลค่า (บาท)',
-                            },
-                            labels: {
-                                formatter: function (value) {
-                                    return "฿ " + value.toLocaleString();
-                                }
-                            }
-                        }, {
-                            opposite: true,
-                            title: {
-                                text: 'เวลาที่ใช้ (วัน)'
-                            }
-                        }]
+                        yaxis: [
+                            { title: { text: 'มูลค่า (บาท)' }, labels: { formatter: (v) => "฿ " + v.toLocaleString() } },
+                            { opposite: true, title: { text: 'เวลาที่ใช้ (วัน)' } }
+                        ]
                     };
-
-                    setTimeout(() => {
-                        var chartElement = document.querySelector("#installationChart");
-                        if (chartElement) {
-                            var chart = new ApexCharts(chartElement, options);
-                            chart.render();
-                        }
-                    }, 300);
+                    new ApexCharts(document.querySelector("#installationChart"), options).render();
                 }
-            } catch(e) {
-                console.error("Error parsing or rendering chart:", e);
-            }
+            } catch(e) { console.error("Chart error:", e); }
         }
     });
 
     // ส่งข้อความไปที่ Google Chat
     function sendToChat() {
-        let rawChartData = document.getElementById('chartData');
-        let labelsLength = 0;
-        if (rawChartData) {
-            try {
-                let d = JSON.parse(rawChartData.textContent);
-                labelsLength = d.labels ? d.labels.length : 0;
-            } catch(e) {}
-        }
-        
-        if (labelsLength === 0) {
-            if(typeof Swal !== 'undefined') Swal.fire('ข้อผิดพลาด', 'ไม่มีข้อมูลให้ส่ง', 'error');
-            else alert('ไม่มีข้อมูลให้ส่ง');
-            return;
-        }
-
-        // Generate text summary
         let summaryText = `*รายงานมูลค่าและระยะเวลาติดตั้ง*\n`;
         summaryText += `---------------------------------\n`;
-        summaryText += `🔹 *จำนวนงานทั้งหมด:* {{ total_jobs }} งาน\n`;
+        summaryText += `🔹 *จำนวนงาน:* {{ total_jobs }} งาน\n`;
         summaryText += `💰 *มูลค่ารวม:* ฿ {{ total_value_all|floatformat:2|intcomma }}\n`;
         summaryText += `⏱ *เฉลี่ย:* {{ avg_days }} วัน/งาน\n`;
         summaryText += `---------------------------------\n`;
         
-        let count = 0;
-        {% for r in reports %}
-        if (count < 5) {
-            summaryText += `> *{{ r.project_name }}*\n`;
-            summaryText += `> 📅 {{ r.completed_date }} | ⏱ {{ r.days }} วัน | 💰 ฿{{ r.value|floatformat:2|intcomma }}\n\n`;
-        }
-        count++;
+        {% for r in reports|slice:":5" %}
+        summaryText += `> *{{ r.project_name }}*\n`;
+        summaryText += `> 📅 {{ r.completed_date }} | ⏱ {{ r.days }} วัน | 💰 ฿{{ r.value|floatformat:2|intcomma }}\n\n`;
         {% endfor %}
 
-        if (count >= 5) {
-            summaryText += `_(ดูรายการเพิ่มเติมต่อในระบบ)_ ...`;
-        }
+        if ({{ total_jobs }} > 5) summaryText += `_(ดูรายการเพิ่มเติมต่อในระบบ)_ ...`;
 
-        if(typeof Swal !== 'undefined') {
-            Swal.fire({
-                title: 'ส่งเข้าห้องแชท',
-                text: 'ต้องการส่งข้อมูลสรุปงานติดตั้งในรอบนี้ไปยัง Chatroom หรือไม่?',
-                icon: 'question',
-                showCancelButton: true,
-                confirmButtonText: 'ส่งรายงาน',
-                cancelButtonText: 'ยกเลิก',
-                showLoaderOnConfirm: true,
-                preConfirm: () => {
-                    return fetch('{% url "pms:installation_report_send_to_chat" %}', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'X-CSRFToken': '{{ csrf_token }}'
-                        },
-                        body: JSON.stringify({ summary: summaryText })
-                    }).then(response => {
-                        if (!response.ok) {
-                            throw new Error('เกิดข้อผิดพลาดในการส่งข้อมูล');
-                        }
-                        return response.json();
-                    }).catch(error => {
-                        Swal.showValidationMessage(`การส่งล้มเหลว: ${error}`);
-                    });
-                },
-                allowOutsideClick: () => !Swal.isLoading()
-            }).then((result) => {
-                if (result.isConfirmed) {
-                    Swal.fire('สำเร็จ!', 'ส่งรายงานเข้าห้องแชทเรียบร้อยแล้ว', 'success');
-                }
-            });
-        }
+        Swal.fire({
+            title: 'ส่งเข้าห้องแชท',
+            text: 'ต้องการส่งข้อมูลสรุปนี้ไปยัง Chatroom หรือไม่?',
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonText: 'ส่งรายงาน',
+            preConfirm: () => {
+                return fetch('{% url "pms:installation_report_send_to_chat" %}', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}' },
+                    body: JSON.stringify({ summary: summaryText })
+                }).then(r => r.json());
+            }
+        }).then((res) => { if (res.isConfirmed) Swal.fire('สำเร็จ!', '', 'success'); });
     }
 </script>
 
 <style>
-.card-gradient-primary {
-    background-image: linear-gradient(135deg, #0d6efd 0%, #0a58ca 100%) !important;
-    background-color: #0d6efd !important;
-    border: none;
-}
-.card-gradient-success {
-    background-image: linear-gradient(135deg, #198754 0%, #146c43 100%) !important;
-    background-color: #198754 !important;
-    border: none;
-}
-.card-gradient-purple {
-    background-image: linear-gradient(135deg, #6f42c1 0%, #59359a 100%) !important;
-    background-color: #6f42c1 !important;
-    border: none;
-}
-.card-gradient-primary:hover, .card-gradient-success:hover, .card-gradient-purple:hover {
-    background-position: right center;
-    background-size: 200% auto;
-    transition: 0.5s;
-}
-.letter-spacing-1 {
-    letter-spacing: 1px;
+.card-gradient-primary { background: linear-gradient(135deg, #4f46e5 0%, #3730a3 100%); }
+.card-gradient-success { background: linear-gradient(135deg, #10b981 0%, #065f46 100%); }
+.card-gradient-purple { background: linear-gradient(135deg, #8b5cf6 0%, #5b21b6 100%); }
+.bg-soft-success { background-color: #ecfdf5; }
+.bg-soft-warning { background-color: #fffbeb; }
+.bg-soft-danger { background-color: #fef2f2; }
+.letter-spacing-1 { letter-spacing: 1px; }
+
+@media print {
+    .no-print, .btn-group, #filterForm, .card-header button { display: none !important; }
+    .container-fluid { padding: 0 !important; }
+    .card { border: 1px solid #eee !important; box-shadow: none !important; }
+    body { background: white !important; }
 }
 </style>
 {% endblock %}
