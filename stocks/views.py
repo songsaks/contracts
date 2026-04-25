@@ -6920,7 +6920,7 @@ def us_precision_scanner(request):
                 rs_returns = {}
                 try:
                     # Download all at once to avoid individual overhead
-                    bulk_data = yf.download(sym_list, start=scan_start_str, end=scan_end_str, interval="1d", progress=False, group_by='ticker', session=_session)
+                    bulk_data = yf.download(sym_list, start=scan_start_str, end=scan_end_str, interval="1d", progress=False, group_by='ticker')
                     
                     count_rs = 0
                     for s in sym_list:
@@ -6968,7 +6968,7 @@ def us_precision_scanner(request):
 
                         if df is None or df.empty:
                             try:
-                                ticker = yf.Ticker(symbol, session=_session)
+                                ticker = yf.Ticker(symbol)
                                 df = ticker.history(start=scan_start_str, end=scan_end_str, interval="1d")
                                 if df is None or df.empty:
                                     yq = YQTicker(symbol, session=_session)
@@ -7243,6 +7243,9 @@ def us_precision_scanner(request):
 
                 _cache_inner.set(ckey, {'state': 'done'}, timeout=300)
             except Exception as e:
+                import traceback
+                with open('us_scan_error.txt', 'w') as err_file:
+                    err_file.write(traceback.format_exc())
                 _cache_inner.set(ckey, {'state': 'done', 'error': str(e)}, timeout=300)
 
         t = threading.Thread(target=_run_us_scan_bg, args=(user_id, cache_key, scan_symbols), daemon=True)
