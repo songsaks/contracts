@@ -6,20 +6,20 @@
 {% block content %}
 <div class="container-fluid px-2 px-md-4 py-3 py-md-4">
 
-    <!-- Header UI -->
+    <!-- Header UI (Responsive Flex) -->
     <div class="d-flex flex-column flex-lg-row justify-content-between align-items-start align-items-lg-center mb-4 gap-3 bg-white p-3 p-md-4 rounded-4 shadow-sm border-start border-primary border-5 no-print">
         <div class="d-flex align-items-center gap-3">
             <div class="bg-primary bg-opacity-10 p-2 p-md-3 rounded-4 shadow-sm d-flex align-items-center justify-content-center" style="width: 50px; height: 50px; min-width: 50px; min-height: 50px;">
                 <i class="fas fa-tools fa-lg text-primary"></i>
             </div>
             <div>
-                <h4 class="fw-bold mb-0 text-dark responsive-title">Installation Performance Report</h4>
-                <p class="text-muted mb-0 small d-none d-sm-block">รายงานสรุปมูลค่าโครงการและเวลาการทำงานสำหรับงานติดตั้ง</p>
+                <h4 class="fw-bold mb-0 text-dark responsive-title">Installation Report</h4>
+                <p class="text-muted mb-0 small d-none d-sm-block">สรุปข้อมูลงานติดตั้ง มูลค่าโครงการ และเวลาการทำงาน</p>
             </div>
         </div>
         
         <div class="d-flex flex-column flex-sm-row gap-2 align-items-stretch align-items-sm-center w-100 w-lg-auto">
-            <div class="btn-group w-100 w-sm-auto mb-2 mb-sm-0">
+            <div class="btn-group w-100 w-sm-auto">
                 <button type="button" class="btn btn-outline-success btn-sm rounded-start-pill px-3 fw-bold flex-fill" onclick="exportToExcel()">
                     <i class="fas fa-file-excel me-1"></i> Excel
                 </button>
@@ -36,24 +36,23 @@
                 </div>
                 
                 <div class="d-flex gap-2 align-items-center flex-fill">
-                    <select name="status" class="form-select form-select-sm border-0 bg-white rounded-3 shadow-xs flex-fill" style="min-width: 120px;">
+                    <select name="status" class="form-select form-select-sm border-0 bg-white rounded-3 shadow-xs flex-fill">
                         <option value="ALL" {% if status_filter == 'ALL' %}selected{% endif %}>ทุกสถานะ</option>
                         {% for val, label in status_choices %}
                         <option value="{{ val }}" {% if status_filter == val %}selected{% endif %}>{{ label }}</option>
                         {% endfor %}
                     </select>
 
-                    <div class="form-check form-switch ms-2 d-flex align-items-center">
+                    <div class="form-check form-switch ms-1 d-flex align-items-center">
                         <input class="form-check-input" type="checkbox" name="show_all" id="showAll" {% if show_all %}checked{% endif %}>
                         <label class="form-check-label small fw-bold text-muted ms-2" for="showAll">ทั้งหมด</label>
                     </div>
                 </div>
 
-                <div class="d-flex gap-2 mt-1 mt-sm-0">
+                <div class="d-flex gap-2">
                     <button type="submit" class="btn btn-primary btn-sm rounded-pill px-4 fw-bold shadow-sm flex-fill">
                         <i class="fas fa-search me-1"></i> ค้นหา
                     </button>
-                    <a href="{% url 'pms:installation_report' %}" class="btn btn-light btn-sm rounded-pill px-3 fw-bold text-muted border">รีเซ็ต</a>
                 </div>
             </form>
         </div>
@@ -64,9 +63,8 @@
         <div class="col-12 col-md-4">
             <div class="card border-0 shadow-sm rounded-4 h-100 card-gradient-primary text-white position-relative overflow-hidden">
                 <div class="card-body p-3 p-md-4 position-relative z-1">
-                    <h6 class="text-white-50 fw-bold mb-2 mb-md-3 text-uppercase letter-spacing-1 small">มูลค่าโครงการรวม</h6>
-                    <h3 class="fw-bold mb-0">฿ {{ total_value_all|floatformat:2|intcomma }}</h3>
-                    <div class="mt-2 small text-white-50 d-none d-sm-block"><i class="fas fa-info-circle me-1"></i>คำนวณจากทุกงานในตาราง</div>
+                    <h6 class="text-white-50 fw-bold mb-2 mb-md-3 text-uppercase letter-spacing-1 small">มูลค่ารวม</h6>
+                    <h3 class="fw-bold mb-0">฿ {{ total_value_all|floatformat:0|intcomma }}</h3>
                 </div>
                 <i class="fas fa-hand-holding-usd position-absolute opacity-25 metric-bg-icon"></i>
             </div>
@@ -76,7 +74,6 @@
                 <div class="card-body p-3 p-md-4 position-relative z-1">
                     <h6 class="text-white-50 fw-bold mb-2 mb-md-3 text-uppercase letter-spacing-1 small">จำนวนงาน</h6>
                     <h3 class="fw-bold mb-0">{{ total_jobs }} งาน</h3>
-                    <div class="mt-2 small text-white-50 d-none d-sm-block"><i class="fas fa-filter me-1"></i>ตามการกรอง</div>
                 </div>
                 <i class="fas fa-clipboard-check position-absolute opacity-25 metric-bg-icon"></i>
             </div>
@@ -86,112 +83,69 @@
                 <div class="card-body p-3 p-md-4 position-relative z-1">
                     <h6 class="text-white-50 fw-bold mb-2 mb-md-3 text-uppercase letter-spacing-1 small">เวลาเฉลี่ย</h6>
                     <h3 class="fw-bold mb-0">{{ avg_days }} วัน</h3>
-                    <div class="mt-2 small text-white-50 d-none d-sm-block"><i class="fas fa-clock me-1"></i>เฉลี่ยต่อหนึ่งงาน</div>
                 </div>
-                <i class="fas fa-hourglass-half position-absolute opacity-25 metric-bg-icon"></i>
+                <i class="fas fa-clock position-absolute opacity-25 metric-bg-icon"></i>
             </div>
         </div>
     </div>
 
-    <!-- Technician Stats -->
+    <!-- Details Section -->
     <div class="row g-4 mb-4">
         <div class="col-12">
-            <div class="card border-0 shadow-sm rounded-4">
-                <div class="card-header bg-white border-bottom-0 pt-4 px-4">
-                    <h5 class="fw-bold text-dark mb-0"><i class="fas fa-users-cog text-warning me-2"></i>สรุปผลงานรายบุคคล</h5>
-                </div>
-                <div class="card-body px-0 px-md-4 pb-4">
-                    <div class="table-responsive">
-                        <table class="table table-hover table-borderless table-striped align-middle mb-0 custom-table">
-                            <thead class="table-light text-dark">
-                                <tr>
-                                    <th class="py-3 px-3">#</th>
-                                    <th class="py-3 px-3">ชื่อช่างเทคนิค</th>
-                                    <th class="py-3 px-3 text-center">จำนวนงาน</th>
-                                    <th class="py-3 px-3 text-center d-none d-sm-table-cell">เฉลี่ย</th>
-                                    <th class="py-3 px-3 text-end">รวมมูลค่า</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for tech in tech_reports %}
-                                <tr>
-                                    <td class="px-3 text-muted fw-bold">{{ forloop.counter }}</td>
-                                    <td class="px-3">
-                                        <div class="d-flex align-items-center gap-2">
-                                            <div class="bg-primary text-white rounded-circle d-none d-sm-flex align-items-center justify-content-center fw-bold" style="width: 32px; height: 32px; font-size: 0.85rem; min-width: 32px;">
-                                                {{ tech.full_name|slice:":1" }}
-                                            </div>
-                                            <span class="fw-bold text-truncate" style="max-width: 150px;">{{ tech.full_name }}</span>
-                                        </div>
-                                    </td>
-                                    <td class="px-3 text-center fw-bold text-primary">{{ tech.job_count }}</td>
-                                    <td class="px-3 text-center text-muted d-none d-sm-table-cell">{{ tech.avg_days }} ว.</td>
-                                    <td class="px-3 fw-bold text-success text-end">฿{{ tech.total_value|floatformat:0|intcomma }}</td>
-                                </tr>
-                                {% empty %}
-                                <tr><td colspan="5" class="text-center py-4 text-muted">ไม่พบข้อมูล</td></tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Table Section -->
-    <div class="row g-4 mb-4">
-        <div class="col-12">
-            <div class="card border-0 shadow-sm rounded-4">
-                <div class="card-header bg-white border-bottom-0 pt-4 px-3 px-md-4 d-flex justify-content-between align-items-center">
+            <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
+                <div class="card-header bg-white border-bottom pt-4 px-3 px-md-4 d-flex justify-content-between align-items-center">
                     <h5 class="fw-bold text-dark mb-0"><i class="fas fa-list-alt text-primary me-2"></i>รายละเอียดงานติดตั้ง</h5>
-                    <button class="btn btn-success btn-sm rounded-pill px-3 px-md-4 fw-bold shadow-sm no-print" onclick="sendToChat()">
-                        <i class="fas fa-comment-dots me-1 me-md-2"></i><span class="d-none d-sm-inline">ส่งเข้าห้องแชท</span>
+                    <button class="btn btn-success btn-sm rounded-pill px-3 fw-bold no-print" onclick="sendToChat()">
+                        <i class="fas fa-comment-dots me-1"></i><span class="d-none d-sm-inline">ส่งเข้าห้องแชท</span>
                     </button>
                 </div>
-                <div class="card-body px-0 px-md-4 pb-4">
-                    <div class="table-responsive">
-                        <table class="table table-hover table-borderless table-striped align-middle mb-0 custom-table">
-                            <thead class="table-primary text-dark">
+                <div class="card-body p-0">
+                    <div class="responsive-table-container">
+                        <table class="table table-hover align-middle mb-0 custom-responsive-table">
+                            <thead class="table-primary text-dark d-none d-md-table-header-group">
                                 <tr>
-                                    <th class="py-3 px-2 px-md-3">#</th>
-                                    <th class="py-3 px-2 px-md-3">โครงการ / ทีม</th>
-                                    <th class="py-3 px-2 px-md-3 d-none d-lg-table-cell">เจ้าของงาน</th>
-                                    <th class="py-3 px-2 px-md-3 text-center">สถานะ</th>
-                                    <th class="py-3 px-2 px-md-3 text-center d-none d-md-table-cell">เริ่ม-จบ</th>
-                                    <th class="py-3 px-2 px-md-3 text-end">เวลา</th>
-                                    <th class="py-3 px-2 px-md-3 text-end">มูลค่า</th>
+                                    <th class="ps-4">#</th>
+                                    <th>ข้อมูลโครงการ / ลูกค้า / ทีม</th>
+                                    <th>เจ้าของงาน</th>
+                                    <th class="text-center">สถานะ / วันที่</th>
+                                    <th class="text-end pe-4">ระยะเวลา / มูลค่า</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {% for r in reports %}
-                                <tr>
-                                    <td class="px-2 px-md-3 text-muted small fw-bold">{{ forloop.counter }}</td>
-                                    <td class="px-2 px-md-3">
-                                        <div class="fw-bold text-dark text-truncate" style="max-width: 180px;">{{ r.project_name }}</div>
+                                <tr class="responsive-tr">
+                                    <td class="ps-4 d-none d-md-table-cell text-muted fw-bold">{{ forloop.counter }}</td>
+                                    <td class="main-info-cell">
+                                        <div class="mobile-rank d-md-none">#{{ forloop.counter }}</div>
+                                        <div class="fw-bold text-dark fs-6">{{ r.project_name }}</div>
                                         <div class="small text-muted mb-1"><i class="fas fa-building me-1"></i>{{ r.customer_name }}</div>
-                                        <div class="small text-primary fw-bold d-block d-md-none mt-1">ทีม: {{ r.team_names }}</div>
-                                        <div class="small text-primary fw-bold d-none d-md-block mt-1"><i class="fas fa-users me-1"></i>{{ r.team_names }}</div>
+                                        <div class="small text-primary fw-bold"><i class="fas fa-users me-1"></i>{{ r.team_names }}</div>
                                     </td>
-                                    <td class="px-2 px-md-3 text-muted small d-none d-lg-table-cell">{{ r.owner_name }}</td>
-                                    <td class="px-2 px-md-3 text-center">
-                                        <span class="badge {% if r.status_key == 'COMPLETED' %}bg-success{% elif r.status_key == 'CANCELLED' %}bg-danger{% else %}bg-info{% endif %} rounded-pill px-2" style="font-size: 0.7rem;">
-                                            {{ r.status }}
-                                        </span>
+                                    <td class="owner-cell" data-label="เจ้าของงาน">
+                                        <span class="d-md-none text-muted small me-2">เจ้าของงาน:</span>
+                                        <span class="fw-semibold text-dark">{{ r.owner_name }}</span>
                                     </td>
-                                    <td class="px-2 px-md-3 text-center small text-muted d-none d-md-table-cell">
-                                        <div>{{ r.start_date }}</div>
-                                        <div class="fw-bold {% if r.completed_date != 'ยังไม่เสร็จ' %}text-success{% endif %}">{{ r.completed_date }}</div>
+                                    <td class="status-date-cell text-md-center">
+                                        <div class="mb-1">
+                                            <span class="badge {% if r.status_key == 'COMPLETED' %}bg-success{% elif r.status_key == 'CANCELLED' %}bg-danger{% else %}bg-info{% endif %} rounded-pill">
+                                                {{ r.status }}
+                                            </span>
+                                        </div>
+                                        <div class="small text-muted">
+                                            <span class="d-md-none">วันที่: </span>{{ r.start_date }} - {{ r.completed_date }}
+                                        </div>
                                     </td>
-                                    <td class="px-2 px-md-3 text-end">
-                                        <span class="badge {% if r.days > 7 %}bg-soft-danger text-danger{% elif r.days > 3 %}bg-soft-warning text-dark{% else %}bg-soft-success text-success{% endif %} rounded-pill px-2 py-1" style="font-size: 0.75rem;">
-                                            {{ r.days }}ว.
-                                        </span>
+                                    <td class="value-cell text-md-end pe-md-4">
+                                        <div class="mb-1">
+                                            <span class="badge {% if r.days > 7 %}bg-soft-danger text-danger{% elif r.days > 3 %}bg-soft-warning text-dark{% else %}bg-soft-success text-success{% endif %} rounded-pill px-3">
+                                                {{ r.days }} วัน
+                                            </span>
+                                        </div>
+                                        <div class="fw-bold text-primary fs-5">฿{{ r.value|floatformat:0|intcomma }}</div>
                                     </td>
-                                    <td class="px-2 px-md-3 fw-bold text-primary text-end">฿{{ r.value|floatformat:0|intcomma }}</td>
                                 </tr>
                                 {% empty %}
-                                <tr><td colspan="7" class="text-center py-5 text-muted">ไม่พบข้อมูลตามเงื่อนไขที่เลือก</td></tr>
+                                <tr><td colspan="5" class="text-center py-5 text-muted">ไม่พบข้อมูลตามเงื่อนไขที่เลือก</td></tr>
                                 {% endfor %}
                             </tbody>
                         </table>
@@ -202,7 +156,6 @@
     </div>
 
 </div>
-
 {% endblock %}
 
 {% block extra_js %}
@@ -214,18 +167,17 @@
         window.location.href = url.toString();
     }
 
-    // ส่งข้อความไปที่ Google Chat
     function sendToChat() {
         let summaryText = `*รายงานมูลค่าและระยะเวลาติดตั้ง*\n`;
         summaryText += `---------------------------------\n`;
         summaryText += `🔹 *จำนวนงาน:* {{ total_jobs }} งาน\n`;
-        summaryText += `💰 *มูลค่ารวม:* ฿ {{ total_value_all|floatformat:2|intcomma }}\n`;
+        summaryText += `💰 *มูลค่ารวม:* ฿ {{ total_value_all|floatformat:0|intcomma }}\n`;
         summaryText += `⏱ *เฉลี่ย:* {{ avg_days }} วัน/งาน\n`;
         summaryText += `---------------------------------\n`;
         
         {% for r in reports|slice:":5" %}
         summaryText += `> *{{ r.project_name }}*\n`;
-        summaryText += `> 📅 {{ r.completed_date }} | ⏱ {{ r.days }} วัน | 💰 ฿{{ r.value|floatformat:2|intcomma }}\n\n`;
+        summaryText += `> 📅 {{ r.completed_date }} | ⏱ {{ r.days }} วัน | 💰 ฿{{ r.value|floatformat:0|intcomma }}\n\n`;
         {% endfor %}
 
         if ({{ total_jobs }} > 5) summaryText += `_(ดูรายการเพิ่มเติมต่อในระบบ)_ ...`;
@@ -248,48 +200,75 @@
 </script>
 
 <style>
-/* CSS Reset for Responsive */
+/* --- Premium Responsive Layout --- */
 .responsive-title { font-size: 1.25rem; }
 @media (min-width: 768px) { .responsive-title { font-size: 1.75rem; } }
 
 .metric-bg-icon { font-size: 5rem; right: -10px; bottom: -10px; z-index: 0; }
 @media (min-width: 768px) { .metric-bg-icon { font-size: 8rem; right: -20px; bottom: -20px; } }
 
-/* Cards Gradient */
 .card-gradient-primary { background: linear-gradient(135deg, #4f46e5 0%, #3730a3 100%); }
 .card-gradient-success { background: linear-gradient(135deg, #10b981 0%, #065f46 100%); }
 .card-gradient-purple { background: linear-gradient(135deg, #8b5cf6 0%, #5b21b6 100%); }
 
-/* Soft Colors */
 .bg-soft-success { background-color: #ecfdf5; }
 .bg-soft-warning { background-color: #fffbeb; }
 .bg-soft-danger { background-color: #fef2f2; }
 
-/* Table Styles */
-.custom-table { font-size: 0.85rem; }
-@media (min-width: 768px) { .custom-table { font-size: 0.95rem; } }
-.custom-table th, .custom-table td { padding-top: 1rem; padding-bottom: 1rem; }
+/* --- Table to Card Transformation (Crucial for No-Scroll) --- */
+@media (max-width: 767.98px) {
+    .custom-responsive-table { display: block; width: 100%; border: 0; }
+    .custom-responsive-table thead { display: none; }
+    .custom-responsive-table tbody { display: block; width: 100%; }
+    .responsive-tr { 
+        display: block; 
+        width: 100%; 
+        border-bottom: 8px solid #f1f5f9; 
+        padding: 1.25rem 1rem;
+        position: relative;
+    }
+    .responsive-tr td { 
+        display: block; 
+        width: 100%; 
+        padding: 0.25rem 0 !important; 
+        border: 0 !important;
+    }
+    
+    .mobile-rank {
+        position: absolute;
+        top: 1rem;
+        right: 1rem;
+        font-size: 0.8rem;
+        font-weight: 800;
+        color: #e2e8f0;
+    }
+    
+    .main-info-cell { margin-bottom: 0.75rem; border-bottom: 1px dashed #e2e8f0 !important; padding-bottom: 0.75rem !important; }
+    .owner-cell { margin-bottom: 0.5rem; }
+    .status-date-cell { display: flex !important; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 0.75rem; }
+    .value-cell { 
+        display: flex !important; 
+        align-items: center; 
+        justify-content: space-between; 
+        background: rgba(79, 70, 229, 0.03); 
+        padding: 0.75rem !important;
+        border-radius: 12px;
+    }
+    .value-cell .fw-bold { font-size: 1.25rem !important; }
+}
 
-/* Letter Spacing */
-.letter-spacing-1 { letter-spacing: 1px; }
+/* --- Table Styles (Desktop) --- */
+.custom-responsive-table th { font-weight: 700; padding-top: 1rem; padding-bottom: 1rem; border: 0; }
+.custom-responsive-table td { padding-top: 1.25rem; padding-bottom: 1.25rem; }
 
-/* Print Mode */
+/* --- Print Mode --- */
 @media print {
     .no-print, .btn-group, #filterForm, .card-header button { display: none !important; }
     .container-fluid { padding: 0 !important; }
-    .card { border: 1px solid #eee !important; box-shadow: none !important; border-radius: 0 !important; }
+    .card { border: 1px solid #eee !important; box-shadow: none !important; }
     body { background: white !important; }
-    .table-responsive { overflow: visible !important; }
 }
 
-/* Scrollbar Style */
-.table-responsive::-webkit-scrollbar { height: 6px; }
-.table-responsive::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
-
-/* Fix Flex for Mobile */
-@media (max-width: 575.98px) {
-    .card-body h3 { font-size: 1.5rem; }
-    .form-switch { margin-top: 5px; }
-}
+.letter-spacing-1 { letter-spacing: 1px; }
 </style>
 {% endblock %}
