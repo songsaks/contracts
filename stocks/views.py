@@ -6915,6 +6915,7 @@ def us_precision_scanner(request):
                 except: pass
 
                 # RS Rating (Bulk Fetch for speed)
+                total_syms = len(sym_list)
                 _cache_inner.set(ckey, {'state': 'running', 'progress': 0, 'total': total_syms, 'phase': 'Fetching RS Data (Bulk)…'}, timeout=1200)
                 rs_returns = {}
                 try:
