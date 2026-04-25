@@ -90,26 +90,6 @@
         </div>
     </div>
 
-    <!-- Chart Section (No print) -->
-    <div class="row g-4 mb-4 no-print">
-        <div class="col-12">
-            <div class="card border-0 shadow-sm rounded-4 h-100 p-0 overflow-hidden">
-                <div class="card-header bg-white border-bottom-0 pt-4 px-4 d-flex justify-content-between align-items-center">
-                    <h5 class="fw-bold text-dark mb-0"><i class="fas fa-chart-bar text-primary me-2"></i>วิเคราะห์มูลค่าและระยะเวลา</h5>
-                </div>
-                <div class="card-body px-4 pb-4">
-                    {% if total_jobs > 0 %}
-                    <div id="installationChart" style="min-height: 400px; width: 100%;"></div>
-                    {% else %}
-                    <div class="text-center py-5 text-muted">
-                        <i class="fas fa-chart-line fa-3x mb-3 opacity-25"></i>
-                        <p>ไม่มีข้อมูลแสดงในกราฟ</p>
-                    </div>
-                    {% endif %}
-                </div>
-            </div>
-        </div>
-    </div>
 
     <!-- Technician Stats -->
     <div class="row g-4 mb-4">
@@ -243,33 +223,6 @@
             try {
                 chartData = JSON.parse(rawChartData.textContent);
                 
-                if (chartData.labels && chartData.labels.length > 0 && typeof ApexCharts !== 'undefined') {
-                    var options = {
-                        series: [{
-                            name: 'มูลค่า (บาท)',
-                            type: 'column',
-                            data: chartData.values
-                        }, {
-                            name: 'เวลาที่ใช้ (วัน)',
-                            type: 'line',
-                            data: chartData.days
-                        }],
-                        chart: {
-                            height: 400,
-                            type: 'line',
-                            fontFamily: 'Inter, Noto Sans Thai, sans-serif',
-                            toolbar: { show: false }
-                        },
-                        stroke: { width: [0, 4], curve: 'smooth' },
-                        colors: ['#4F46E5', '#F59E0B'],
-                        labels: chartData.labels,
-                        yaxis: [
-                            { title: { text: 'มูลค่า (บาท)' }, labels: { formatter: (v) => "฿ " + v.toLocaleString() } },
-                            { opposite: true, title: { text: 'เวลาที่ใช้ (วัน)' } }
-                        ]
-                    };
-                    new ApexCharts(document.querySelector("#installationChart"), options).render();
-                }
             } catch(e) { console.error("Chart error:", e); }
         }
     });
