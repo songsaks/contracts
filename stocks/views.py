@@ -6189,6 +6189,7 @@ def us_momentum_scanner(request):
                         return sym, None
 
                     rs_raw = {}
+                    _rs_done = 0
                     with _cf.ThreadPoolExecutor(max_workers=6) as ex:
                         futs = {ex.submit(_fetch_rs, s): s for s in sym_list}
                         for f in _cf.as_completed(futs, timeout=180):
@@ -6198,6 +6199,14 @@ def us_momentum_scanner(request):
                                     rs_raw[s] = r
                             except Exception:
                                 pass
+                            _rs_done += 1
+                            if _rs_done % 5 == 0 or _rs_done == total:
+                                _c.set(ckey, {
+                                    'state': 'running',
+                                    'progress': _rs_done,
+                                    'total': total,
+                                    'phase': f'RS Ratings ({_rs_done}/{total})…',
+                                }, timeout=900)
 
                     rs_map = {}
                     if rs_raw:
