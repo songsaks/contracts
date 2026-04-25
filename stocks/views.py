@@ -6822,160 +6822,278 @@ def _seed_us_symbols():
 def us_precision_scanner(request):
     """
     US Precision Momentum Scanner - Nasdaq & S&P 500
-    - Logic aligned with Thai Precision Scanner (Pocket Pivot, VDU, Stage 2, Ichimoku)
-    - Standardized Institutional Liquidity Filter ($1,000,000 USD Turnover)
-    - Background execution with session timeout to prevent hanging.
+    - market='US' filter on all DB queries
+    - Background scanning to prevent timeouts
     """
     from .models import PrecisionScanCandidate
+    from .utils import analyze_momentum_technical_v2
     from django.utils import timezone as tz
-    from django.shortcuts import redirect, render
-    from django.core.cache import cache as _cache_poll
-
-    user_id = request.user.id
-    cache_key = f'us_precision_scan_{user_id}'
+    from yahooquery import Ticker as YQTicker
 
     # AJAX status polling
     if request.GET.get('scan_status') == '1':
-        st = _cache_poll.get(cache_key, {'state': 'idle'})
-        if st.get('state') == 'done':
-            _cache_poll.delete(cache_key)
-        return JsonResponse(st)
+        from django.core.cache import cache as _cp
+        from django.http import JsonResponse as _JR
+        _key = f'us_precision_scan_{request.user.id}'
+        _st = _cp.get(_key, {'state': 'idle'})
+        if _st.get('state') == 'done':
+            _cp.delete(_key)
+        return _JR(_st)
 
-    # Seed symbols if missing
-    scan_symbols = list(ScannableSymbol.objects.filter(is_active=True, market='US').values_list('symbol', flat=True))
-    if len(scan_symbols) < 50:
+    scan_symbols = list(
+        ScannableSymbol.objects.filter(is_active=True, market='US').values_list('symbol', flat=True)
+    )
+    # If symbols are missing or deactivated (e.g. by Thai refresh bug), re-seed them
+    if len(scan_symbols) < 100:
         _seed_us_symbols()
-        scan_symbols = list(ScannableSymbol.objects.filter(is_active=True, market='US').values_list('symbol', flat=True))
+        scan_symbols = list(
+            ScannableSymbol.objects.filter(is_active=True, market='US').values_list('symbol', flat=True)
+        )
 
     if request.method == "POST" or request.GET.get('scan') == 'true':
-        cur = _cache_poll.get(cache_key, {})
-        if cur.get('state') == 'running':
+        from django.core.cache import cache as _cache_bg
+        import threading
+        user_id = request.user.id
+        cache_key = f'us_precision_scan_{user_id}'
+
+        _cur = _cache_bg.get(cache_key, {})
+        if _cur.get('state') == 'running':
             return redirect('stocks:us_precision_scanner')
 
-        _cache_poll.set(cache_key, {'state': 'running', 'progress': 0, 'total': len(scan_symbols), 'phase': 'เริ่มต้นเตรียมข้อมูล…'}, timeout=1200)
+        _cache_bg.set(cache_key, {'state': 'running', 'progress': 0, 'total': 0, 'phase': 'เตรียมข้อมูล…'}, timeout=1200)
 
-        import threading
-        def _run_us_precision_bg(uid, ckey, sym_list):
+        def _run_us_scan_bg(uid, ckey, sym_list):
             try:
-                import django; django.setup()
+                import django
+                django.setup()
                 import yfinance as yf
                 import pandas as pd
                 import pandas_ta as ta
                 import requests
+                from datetime import datetime as _dt, timedelta as _td, time as _dtime
+                import pytz as _pytz
                 import concurrent.futures
-                import pytz
-                from datetime import datetime as dt, timedelta as td
                 from django.contrib.auth import get_user_model
-                from django.core.cache import cache as _c
-                from .utils import analyze_momentum_technical_v2, detect_price_pattern, detect_vcp_pattern
-                from yahooquery import Ticker as YQTicker
+                from django.core.cache import cache as _cache_inner
 
+                # Create a session with timeout to prevent hanging
+                _session = requests.Session()
+                _session.mount("https://", requests.adapters.HTTPAdapter(max_retries=2))
+                _session.mount("http://", requests.adapters.HTTPAdapter(max_retries=2))
+                # Patch yfinance to use this session with a timeout if needed, 
+                # but usually passing session to Ticker is enough.
+                
                 User = get_user_model()
                 user = User.objects.get(pk=uid)
                 scan_run_time = tz.now()
 
-                # Session with 10s timeout to prevent hanging
-                _session = requests.Session()
-                _session.mount("https://", requests.adapters.HTTPAdapter(max_retries=2))
-                _session.mount("http://", requests.adapters.HTTPAdapter(max_retries=2))
+                _ny_tz = _pytz.timezone('America/New_York')
+                _now_ny = _dt.now(_ny_tz)
+                
+                # yfinance end date is exclusive. To include today's data, we must set end to tomorrow.
+                scan_end_date  = _now_ny.date()
+                scan_end_str   = (scan_end_date + _td(days=1)).strftime('%Y-%m-%d')
+                scan_start_str = (scan_end_date - _td(days=600)).strftime('%Y-%m-%d')
+                spy_start_str  = (scan_end_date - _td(days=400)).strftime('%Y-%m-%d')
 
-                ny_tz = pytz.timezone('America/New_York')
-                now_ny = dt.now(ny_tz)
-                end_str = (now_ny.date() + td(days=1)).strftime('%Y-%m-%d')
-                start_str = (now_ny.date() - td(days=600)).strftime('%Y-%m-%d')
-                spy_start = (now_ny.date() - td(days=400)).strftime('%Y-%m-%d')
+                _cache_inner.set(ckey, {'state': 'running', 'progress': 0, 'total': len(sym_list), 'phase': 'Benchmarks…'}, timeout=1200)
 
-                _c.set(ckey, {'state': 'running', 'progress': 0, 'total': len(sym_list), 'phase': 'Benchmarks…'}, timeout=1200)
-
-                # Previous run for "New Entry" flag
+                # Previous symbols
                 prev_run = PrecisionScanCandidate.objects.filter(user=user, market='US').order_by('-scan_run').values_list('scan_run', flat=True).distinct().first()
-                prev_syms = set(PrecisionScanCandidate.objects.filter(user=user, market='US', scan_run=prev_run).values_list('symbol', flat=True)) if prev_run else set()
+                prev_symbols = set(PrecisionScanCandidate.objects.filter(user=user, market='US', scan_run=prev_run).values_list('symbol', flat=True)) if prev_run else set()
 
-                # SPY Rel Momentum Benchmarks
+                # SPY
                 spy_1m = spy_3m = 0.0
                 try:
-                    spy_df = yf.download("SPY", start=spy_start, end=end_str, interval="1d", progress=False, session=_session)
-                    if not spy_df.empty:
+                    spy_df = yf.download("SPY", start=spy_start_str, end=scan_end_str, interval="1d", progress=False)
+                    if spy_df is not None and not spy_df.empty:
                         if isinstance(spy_df.columns, pd.MultiIndex): spy_df.columns = spy_df.columns.droplevel(1)
-                        sc = spy_df['Close'].dropna()
-                        if len(sc) >= 66:
-                            spy_1m = float((sc.iloc[-1] - sc.iloc[-22])/sc.iloc[-22]*100)
-                            spy_3m = float((sc.iloc[-1] - sc.iloc[-66])/sc.iloc[-66]*100)
+                        c = spy_df['Close'].dropna()
+                        if len(c) >= 66:
+                            spy_1m = float((c.iloc[-1] - c.iloc[-22])/c.iloc[-22]*100)
+                            spy_3m = float((c.iloc[-1] - c.iloc[-66])/c.iloc[-66]*100)
                 except: pass
 
-                # RS Rating Phase (Bulk Fetch)
-                _c.set(ckey, {'state': 'running', 'progress': 0, 'total': len(sym_list), 'phase': 'คำนวณ RS Rating (Bulk)…'}, timeout=1200)
-                rs_raw = {}
+                # RS Rating (Bulk Fetch for speed)
+                _cache_inner.set(ckey, {'state': 'running', 'progress': 0, 'total': total_syms, 'phase': 'Fetching RS Data (Bulk)…'}, timeout=1200)
+                rs_returns = {}
                 try:
-                    # US uses a slightly faster bulk RS check (120d return)
-                    bulk_rs = yf.download(sym_list, start=(now_ny.date()-td(days=180)).strftime('%Y-%m-%d'), end=end_str, interval="1d", progress=False, group_by='ticker', session=_session)
+                    # Download all at once to avoid individual overhead
+                    bulk_data = yf.download(sym_list, start=scan_start_str, end=scan_end_str, interval="1d", progress=False, group_by='ticker', session=_session)
+                    
+                    count_rs = 0
                     for s in sym_list:
                         try:
-                            df_s = bulk_rs[s] if s in bulk_rs else (bulk_rs if len(sym_list)==1 else None)
-                            if df_s is not None and not df_s.empty:
-                                cl = df_s['Close'].dropna()
-                                if len(cl) >= 64:
-                                    r = float((cl.iloc[-1] - cl.iloc[-64])/abs(cl.iloc[-64])) * 100
-                                    rs_raw[s] = r
+                            if s in bulk_data:
+                                d = bulk_data[s]
+                            elif len(sym_list) == 1: # yf.download returns single DF if only 1 symbol
+                                d = bulk_data
+                            else: continue
+
+                            if d is None or d.empty: continue
+                            cl = d['Close'].dropna()
+                            if len(cl) >= 66:
+                                ret = float((cl.iloc[-1] - cl.iloc[-66])/abs(cl.iloc[-66])) * 100
+                                rs_returns[s] = ret
                         except: pass
-                except: pass
+                        count_rs += 1
+                        if count_rs % 20 == 0 or count_rs == total_syms:
+                             _cache_inner.set(ckey, {'state': 'running', 'progress': count_rs, 'total': total_syms, 'phase': f'Calculating RS ({count_rs}/{total_syms})…'}, timeout=1200)
+                except Exception as e:
+                    print(f"Bulk RS Error: {e}")
 
                 rs_map = {}
-                if rs_raw:
-                    ser = pd.Series(rs_raw)
+                if rs_returns:
+                    ser = pd.Series(rs_returns)
                     rs_map = (ser.rank(pct=True)*99).clip(0,99).astype(int).to_dict()
 
-                # Technical Scan Phase
-                _c.set(ckey, {'state': 'running', 'progress': 0, 'total': len(sym_list), 'phase': 'Technical Scan…'}, timeout=1200)
+                # Main Scan
+                results_to_process = [s for s in sym_list if rs_map.get(s, 0) >= 60]
+                _cache_inner.set(ckey, {'state': 'running', 'progress': 0, 'total': len(results_to_process), 'phase': 'Technical Scan…'}, timeout=1200)
+                
                 results = []
-                lock = threading.Lock()
-                done = [0]
-
                 def _scan_one(symbol):
                     try:
-                        ticker = yf.Ticker(symbol, session=_session)
-                        df = ticker.history(start=start_str, end=end_str, interval="1d")
+                        rs_v = rs_map.get(symbol, 0)
+                        if rs_v < 60: return None
+
+                        df = None
+                        try:
+                            if symbol in bulk_data:
+                                df = bulk_data[symbol].copy()
+                            elif len(sym_list) == 1:
+                                df = bulk_data.copy()
+                        except: pass
+
                         if df is None or df.empty:
-                            yq = YQTicker(symbol, session=_session)
-                            df = yq.history(start=start_str, end=end_str, interval="1d")
-                            if isinstance(df, pd.DataFrame) and not df.empty:
-                                if 'symbol' in df.index.names: df = df.xs(symbol, level='symbol')
-                                df.rename(columns={'open':'Open','high':'High','low':'Low','close':'Close','volume':'Volume'}, inplace=True)
-                        
+                            try:
+                                ticker = yf.Ticker(symbol, session=_session)
+                                df = ticker.history(start=scan_start_str, end=scan_end_str, interval="1d")
+                                if df is None or df.empty:
+                                    yq = YQTicker(symbol, session=_session)
+                                    df = yq.history(start=scan_start_str, end=scan_end_str, interval="1d")
+                                    if isinstance(df, pd.DataFrame) and not df.empty:
+                                        if 'symbol' in df.index.names: df = df.xs(symbol, level='symbol')
+                                        df.rename(columns={'open':'Open','high':'High','low':'Low','close':'Close','volume':'Volume'}, inplace=True)
+                            except: pass
+
                         if df is None or df.empty: return None
                         if isinstance(df.columns, pd.MultiIndex): df.columns = df.columns.droplevel(1)
                         df = df.dropna(subset=['Close','High'])
                         if len(df) < 200: return None
-
-                        # ====== Institutional Liquidity & Quality Filters ======
-                        current_p = float(df['Close'].iloc[-1])
-                        avg_vol_20 = float(df['Volume'].tail(20).mean())
-                        avg_turnover_20 = avg_vol_20 * current_p
                         
-                        # Filter: Turnover >= $1,000,000 USD (Institutional Standard)
-                        if avg_turnover_20 < 1_000_000: return None
+                        av20 = float(df['Volume'].tail(20).mean())
+                        if av20 < 1_000_000: return None
                         
-                        # Filter: RS Rating >= 60
                         rs_v = rs_map.get(symbol, 0)
                         if rs_v < 60: return None
-
-                        # Filter: Near 52-week High (Trend Template)
-                        year_h = float(df['High'].tail(252).max())
-                        if current_p < year_h * 0.65: return None
-
-                        # ====== Indicators ======
+                        
+                        # Indicators
                         df['EMA200'] = ta.ema(df['Close'], length=200)
                         df['EMA50']  = ta.ema(df['Close'], length=50)
                         df['RSI']    = ta.rsi(df['Close'], length=14)
-                        adx_df = ta.adx(df['High'], df['Low'], df['Close'], length=14)
-                        if adx_df is not None: df = pd.concat([df, adx_df], axis=1)
+                        adx_d = ta.adx(df['High'], df['Low'], df['Close'], length=14)
+                        if adx_d is not None and not adx_d.empty: df = pd.concat([df, adx_d], axis=1)
                         df['MFI'] = ta.mfi(df['High'], df['Low'], df['Close'], df['Volume'], length=14)
+                        
+                        current_p = float(df['Close'].iloc[-1])
+                        year_h = float(df['High'].tail(252).max())
+                        
+                        if current_p < year_h * 0.65: return None
+                        adx_v = float(df['ADX_14'].iloc[-1]) if 'ADX_14' in df.columns and pd.notna(df['ADX_14'].iloc[-1]) else 0
+                        if adx_v < 15: return None
 
-                        # Technical Scoring v2
                         tech = analyze_momentum_technical_v2(df)
 
-                        # ====== Ichimoku Detailed Score ======
+                        mfi_val = float(df['MFI'].iloc[-1]) if 'MFI' in df.columns and pd.notna(df['MFI'].iloc[-1]) else 0
+
+                        # MACD (12,26,9)
+                        macd_hist_val = None
+                        macd_cross_val = False
+                        try:
+                            macd_df = ta.macd(df['Close'], fast=12, slow=26, signal=9)
+                            if macd_df is not None and not macd_df.empty:
+                                hist_col = [c for c in macd_df.columns if 'h' in c.lower() or 'hist' in c.lower()]
+                                macd_col = [c for c in macd_df.columns if c.lower().startswith('macd_')]
+                                sig_col  = [c for c in macd_df.columns if 'macds' in c.lower() or 'signal' in c.lower()]
+                                if hist_col: macd_hist_val = float(macd_df[hist_col[0]].iloc[-1]) if pd.notna(macd_df[hist_col[0]].iloc[-1]) else None
+                                if macd_col and sig_col:
+                                    m_ser = macd_df[macd_col[0]].dropna()
+                                    s_ser = macd_df[sig_col[0]].dropna()
+                                    if len(m_ser) >= 4 and len(s_ser) >= 4:
+                                        for i in range(-3, 0):
+                                            if m_ser.iloc[i-1] <= s_ser.iloc[i-1] and m_ser.iloc[i] > s_ser.iloc[i]:
+                                                macd_cross_val = True; break
+                        except: pass
+
+                        # Bollinger Bands Squeeze
+                        bb_squeeze_flag = False
+                        try:
+                            bb_df = ta.bbands(df['Close'], length=20, std=2)
+                            if bb_df is not None and not bb_df.empty:
+                                upper_col = [c for c in bb_df.columns if 'BBU' in c or 'upper' in c.lower()]
+                                lower_col = [c for c in bb_df.columns if 'BBL' in c or 'lower' in c.lower()]
+                                mid_col   = [c for c in bb_df.columns if 'BBM' in c or 'mid' in c.lower()]
+                                if upper_col and lower_col and mid_col:
+                                    bbu = bb_df[upper_col[0]].dropna()
+                                    bbl = bb_df[lower_col[0]].dropna()
+                                    bbm = bb_df[mid_col[0]].dropna()
+                                    if len(bbu) >= 20:
+                                        bw = (bbu - bbl) / bbm
+                                        pct20 = bw.quantile(0.20)
+                                        if float(bw.iloc[-1]) <= float(pct20): bb_squeeze_flag = True
+                        except: pass
+
+                        # Stage 2 (Weinstein)
+                        stage2_flag = False
+                        try:
+                            sma150 = ta.sma(df['Close'], length=150)
+                            if sma150 is not None:
+                                sma150_clean = sma150.dropna()
+                                if len(sma150_clean) >= 20:
+                                    sma150_cur = float(sma150_clean.iloc[-1])
+                                    sma150_4w  = float(sma150_clean.iloc[-20])
+                                    stage2_flag = (current_p > sma150_cur) and (sma150_cur > sma150_4w)
+                        except: pass
+
+                        # Pocket Pivot
+                        pocket_pivot_flag = False
+                        try:
+                            if len(df) >= 14:
+                                closes = df['Close'].values
+                                volumes = df['Volume'].values
+                                for _i in [-1, -2]:
+                                    if float(closes[_i]) <= float(closes[_i - 1]): continue
+                                    _start = len(volumes) + _i - 10
+                                    _end   = len(volumes) + _i
+                                    if _start < 1: continue
+                                    _prior_c = closes[_start:_end]
+                                    _prior_v = volumes[_start:_end]
+                                    _prior_prev_c = closes[_start - 1:_end - 1]
+                                    _down_mask = _prior_c < _prior_prev_c
+                                    if not _down_mask.any(): continue
+                                    _max_down_vol = float(_prior_v[_down_mask].max())
+                                    if float(volumes[_i]) > _max_down_vol and _max_down_vol > 0:
+                                        pocket_pivot_flag = True; break
+                        except: pass
+
+                        # Volume Dry-Up (VDU)
+                        vdu_flag = False
+                        try:
+                            if len(df) >= 4:
+                                _vols = df['Volume'].tail(4).values.astype(float)
+                                _avg20 = float(df['Volume'].tail(20).mean())
+                                _declining = (_vols[-1] < _vols[-2]) and (_vols[-2] < _vols[-3])
+                                _quiet     = _vols[-1] < _avg20 * 0.7
+                                vdu_flag   = _declining and _quiet
+                        except: pass
+
+                        # Ichimoku Score
                         ichimoku_score_val = 0
+                        ichimoku_above_kumo = False
+                        ichimoku_tk_cross = False
+                        ichimoku_kumo_green = False
+                        ichimoku_chikou_ok = False
                         try:
                             if len(df) >= 52:
                                 _h9 = df['High'].rolling(9).max(); _l9 = df['Low'].rolling(9).min()
@@ -6984,45 +7102,29 @@ def us_precision_scanner(request):
                                 _tenkan = (_h9 + _l9) / 2; _kijun = (_h26 + _l26) / 2
                                 _span_a = ((_tenkan + _kijun) / 2).shift(26); _span_b = ((_h52 + _l52) / 2).shift(26)
                                 _sa_cur = float(_span_a.iloc[-1]); _sb_cur = float(_span_b.iloc[-1])
-                                i_above = current_p > max(_sa_cur, _sb_cur) > 0
-                                i_tk = False
+                                ichimoku_above_kumo = current_p > max(_sa_cur, _sb_cur) > 0
                                 for _i in range(-5, 0):
                                     if _tenkan.iloc[_i-1] <= _kijun.iloc[_i-1] and _tenkan.iloc[_i] > _kijun.iloc[_i]:
-                                        i_tk = True; break
-                                i_kumo = _sa_cur > _sb_cur > 0
-                                i_chikou = current_p > float(df['Close'].iloc[-27]) if len(df) >= 27 else False
-                                ichimoku_score_val = sum([i_above, i_tk, i_kumo, i_chikou])
+                                        ichimoku_tk_cross = True; break
+                                ichimoku_kumo_green = _sa_cur > _sb_cur > 0
+                                ichimoku_chikou_ok = current_p > float(df['Close'].iloc[-27]) if len(df) >= 27 else False
+                                ichimoku_score_val = sum([ichimoku_above_kumo, ichimoku_tk_cross, ichimoku_kumo_green, ichimoku_chikou_ok])
                         except: pass
 
-                        # ====== Institutional Footprint (Pocket Pivot & VDU) ======
-                        pp = False
+                        # Price Pattern detection
                         try:
-                            if len(df) >= 14:
-                                cls = df['Close'].values; vls = df['Volume'].values
-                                for _i in [-1, -2]:
-                                    if float(cls[_i]) > float(cls[_i-1]):
-                                        _start = len(vls) + _i - 10
-                                        _end = len(vls) + _i
-                                        _down_mask = cls[_start:_end] < cls[_start-1:_end-1]
-                                        if _down_mask.any():
-                                            mx_dv = float(vls[_start:_end][_down_mask].max())
-                                            if float(vls[_i]) > mx_dv: pp = True; break
-                        except: pass
+                            pattern_result = detect_price_pattern(df)
+                            pattern_name = pattern_result['name']
+                            pattern_score = pattern_result['score']
+                        except:
+                            pattern_name = "None"
+                            pattern_score = 0
 
-                        vdu = False
-                        try:
-                            vls4 = df['Volume'].tail(4).values.astype(float)
-                            vdu = (vls4[-1] < vls4[-2] < vls4[-3]) and (vls4[-1] < avg_vol_20 * 0.7)
-                        except: pass
-
-                        pattern_res = detect_price_pattern(df)
-
-                        res = {
+                        return {
                             'symbol': symbol, 'price': round(current_p, 2),
-                            'rsi': round(tech['rsi'], 2), 'adx': round(float(df['ADX_14'].iloc[-1] if 'ADX_14' in df.columns else 0), 2),
-                            'mfi': round(float(df['MFI'].iloc[-1] if 'MFI' in df.columns else 0), 2),
+                            'rsi': round(tech['rsi'], 2), 'adx': round(adx_v, 2), 'mfi': round(mfi_val, 2),
                             'rvol': round(tech['rvol'], 2), 'technical_score': int(tech['score']),
-                            'avg_volume_20d': round(avg_vol_20, 0), 'rvol_bullish': tech['rvol_bullish'],
+                            'avg_volume_20d': round(av20, 0), 'rvol_bullish': tech['rvol_bullish'],
                             'erc_volume_confirmed': tech.get('erc_volume_confirmed', False),
                             'zone_target_src': tech.get('zone_target_source', '52w'),
                             'entry_strat': tech['sd_zone']['type'] if tech['sd_zone'] else '',
@@ -7036,173 +7138,104 @@ def us_precision_scanner(request):
                             'prox_val': round(0.0 if current_p <= (tech['sd_zone']['start'] or 0) else ((current_p - tech['sd_zone']['start']) / tech['sd_zone']['start']) * 100, 2) if tech['sd_zone'] else 999,
                             'rel_1m': round(float((df['Close'].iloc[-1]-df['Close'].iloc[-22])/df['Close'].iloc[-22]*100) - spy_1m, 2) if len(df)>=22 else 0,
                             'rel_3m': round(float((df['Close'].iloc[-1]-df['Close'].iloc[-66])/df['Close'].iloc[-66]*100) - spy_3m, 2) if len(df)>=66 else 0,
-                            'macd_crossover': tech.get('macd_crossover', False),
-                            'bb_squeeze': tech.get('bb_squeeze', False),
-                            'stage2': tech.get('stage2', False),
-                            'rs_rating': rs_v,
-                            'pocket_pivot': pp, 'vdu': vdu,
+                            'macd_histogram': round(macd_hist_val, 4) if macd_hist_val is not None else None,
+                            'macd_crossover': macd_cross_val, 'bb_squeeze': bb_squeeze_flag, 'stage2': stage2_flag, 'rs_rating': rs_v,
                             'ema20_aligned': tech.get('ema20_aligned', False), 'ema20_rising': tech.get('ema20_rising', False),
+                            'ema20_slope': tech.get('ema20_slope', 0.0),
                             'hh_hl_structure': tech.get('hh_hl_structure', False),
+                            'pocket_pivot': pocket_pivot_flag,
+                            'vdu_near_zone': vdu_flag,
+                            'cmf': tech.get('cmf', 0.0),
+                            'is_52w_breakout': tech.get('is_52w_breakout', False),
+                            'volume_surge': tech.get('volume_surge', 1.0),
+                            'is_volume_surge': tech.get('is_volume_surge', False),
+                            'ichimoku_above_kumo': ichimoku_above_kumo, 'ichimoku_tk_cross': ichimoku_tk_cross,
+                            'ichimoku_kumo_green': ichimoku_kumo_green, 'ichimoku_chikou_ok': ichimoku_chikou_ok,
                             'ichimoku_score': ichimoku_score_val,
-                            'price_pattern_name': pattern_res['name'],
-                            'price_pattern_score': pattern_res['score'],
+                            'price_pattern': pattern_name, 'price_pattern_score': pattern_score,
                             'vcp': detect_vcp_pattern(df),
                             'launcher_score': tech.get('launcher_score', 0),
                             'turtle_dist_pct': tech.get('turtle_dist_pct', 99.0),
                             'is_explosive': tech.get('is_explosive', False),
                             'tightness_idx': tech.get('tightness_idx', 99.0),
                         }
-                        with lock: results.append(res)
-                    except: pass
-                    with lock:
-                        done[0] += 1
-                        if done[0] % 10 == 0:
-                            _c.set(ckey, {'state': 'running', 'progress': done[0], 'total': len(sym_list), 'phase': f'Technical Scan ({done[0]}/{len(sym_list)})…'}, timeout=1200)
+                    except Exception as e:
+                        import logging
+                        logging.getLogger('stocks').exception(f"[US Precision] Error scanning {symbol}: {e}")
+                        return None
 
+                count = 0
                 with concurrent.futures.ThreadPoolExecutor(max_workers=10) as ex:
-                    list(ex.map(_scan_one, sym_list))
+                    futs = {ex.submit(_scan_one, s): s for s in results_to_process}
+                    for f in concurrent.futures.as_completed(futs):
+                        try:
+                            r = f.result()
+                            if r: results.append(r)
+                        except: pass
+                        count += 1
+                        if count % 10 == 0 or count == len(results_to_process):
+                            _cache_inner.set(ckey, {'state': 'running', 'progress': count, 'total': len(results_to_process), 'phase': f'Technical Scan ({count}/{len(results_to_process)})…'}, timeout=1200)
 
-                # Enriching & Saving Phase
                 if results:
-                    _c.set(ckey, {'state': 'running', 'progress': done[0], 'total': len(sym_list), 'phase': 'Enriching Fundamentals…'}, timeout=1200)
+                    _cache_inner.set(ckey, {'state': 'running', 'progress': count, 'total': len(results_to_process), 'phase': f'Enriching Fundamentals ({len(results)} matches)…'}, timeout=1200)
+                    matched = [r['symbol'] for r in results]
                     fund = {}
                     try:
-                        yq_bulk = YQTicker([r['symbol'] for r in results], session=_session)
-                        mods = yq_bulk.get_modules('financialData summaryProfile')
+                        yqa = YQTicker(matched)
+                        mods = yqa.get_modules('financialData summaryProfile')
                         for k, d in mods.items():
                             if isinstance(d, dict):
-                                f_data = d.get('financialData', {})
-                                p_data = d.get('summaryProfile', {})
+                                p = d.get('summaryProfile', {}); fd = d.get('financialData', {})
                                 fund[k.upper()] = {
-                                    'sector': p_data.get('sector', 'Unknown'),
-                                    'eps': float(f_data.get('earningsQuarterlyGrowth', 0) or 0) * 100,
-                                    'rev': float(f_data.get('revenueGrowth', 0) or 0) * 100
+                                    'sector': p.get('sector') or 'Unknown',
+                                    'eps': float(fd.get('earningsQuarterlyGrowth',0) or 0)*100,
+                                    'rev': float(fd.get('revenueGrowth',0) or 0)*100
                                 }
                     except: pass
-
-                    # Bulk create candidates
-                    bulk_objs = []
+                    
+                    bulk = []
                     for r in results:
-                        f = fund.get(r['symbol'].upper(), {'sector': 'N/A', 'eps': 0, 'rev': 0})
-                        bulk_objs.append(PrecisionScanCandidate(
+                        f = fund.get(r['symbol'].upper(), {'sector':'N/A','eps':0,'rev':0})
+                        bulk.append(PrecisionScanCandidate(
                             user=user, market='US', scan_run=scan_run_time, symbol=r['symbol'], symbol_bk=r['symbol'],
                             sector=f['sector'], price=r['price'], rsi=r['rsi'], adx=r['adx'], mfi=r['mfi'], rvol=r['rvol'],
                             eps_growth=round(f['eps'], 2), rev_growth=round(f['rev'], 2),
                             technical_score=r['technical_score'], rs_rating=r['rs_rating'],
                             avg_volume_20d=r['avg_volume_20d'], rvol_bullish=r['rvol_bullish'],
                             erc_volume_confirmed=r['erc_volume_confirmed'], zone_target_source=r['zone_target_src'],
-                            is_new_entry=(r['symbol'] not in prev_syms), entry_strategy=r['entry_strat'],
+                            is_new_entry=(r['symbol'] not in prev_symbols), entry_strategy=r['entry_strat'],
                             demand_zone_start=r['dz_start'], demand_zone_end=r['dz_end'],
                             supply_zone_start=r['sz_start'], supply_zone_end=r['sz_end'],
                             stop_loss=r['sl_price'], risk_reward_ratio=r['rr_val'],
                             year_high=r['year_high'], upside_to_high=r['upside_to_high'],
                             zone_proximity=r['prox_val'], rel_momentum_1m=r['rel_1m'], rel_momentum_3m=r['rel_3m'],
+                            price_pattern=r.get('price_pattern', 'None'),
+                            price_pattern_score=r.get('price_pattern_score', 0),
+                            macd_histogram=r.get('macd_histogram'),
                             macd_crossover=r['macd_crossover'], bb_squeeze=r['bb_squeeze'],
-                            ema20_aligned=r['ema20_aligned'], ema20_rising=r['ema20_rising'],
+                            ema20_aligned=r['ema20_aligned'], ema20_slope=r.get('ema20_slope', 0.0), ema20_rising=r['ema20_rising'],
                             hh_hl_structure=r['hh_hl_structure'], stage2=r['stage2'],
-                            ichimoku_score=r['ichimoku_score'],
-                            pocket_pivot=r['pocket_pivot'], vdu_near_zone=r['vdu'],
-                            price_pattern=r['price_pattern_name'], price_pattern_score=r['price_pattern_score'],
-                            vcp_setup=r['vcp']['setup'], vcp_contractions=r['vcp']['contractions'],
-                            vcp_tightness=r['vcp']['tightness'], vcp_vdu=r['vcp']['vdu_confirmed'],
-                            launcher_score=r['launcher_score'], turtle_dist_pct=r['turtle_dist_pct'],
-                            is_explosive=r['is_explosive'], tightness_idx=r['tightness_idx']
+                            pocket_pivot=r.get('pocket_pivot', False),
+                            vdu_near_zone=r.get('vdu_near_zone', False),
+                            cmf=r.get('cmf', None),
+                            is_52w_breakout=r.get('is_52w_breakout', False),
+                            volume_surge=r.get('volume_surge', 1.0),
+                            is_volume_surge=r.get('is_volume_surge', False),
+                            ichimoku_above_kumo=r.get('ichimoku_above_kumo', False),
+                            ichimoku_tk_cross=r.get('ichimoku_tk_cross', False),
+                            ichimoku_kumo_green=r.get('ichimoku_kumo_green', False),
+                            ichimoku_chikou_ok=r.get('ichimoku_chikou_ok', False),
+                            ichimoku_score=r.get('ichimoku_score', 0),
+                            vcp_setup=r.get('vcp', {}).get('setup', False),
+                            vcp_contractions=r.get('vcp', {}).get('contractions', 0),
+                            vcp_tightness=r.get('vcp', {}).get('tightness', 0.0),
+                            vcp_vdu=r.get('vcp', {}).get('vdu_confirmed', False),
+                            launcher_score=r.get('launcher_score', 0),
+                            turtle_dist_pct=r.get('turtle_dist_pct', 99.0),
+                            is_explosive=r.get('is_explosive', False),
+                            tightness_idx=r.get('tightness_idx', 99.0),
                         ))
-                    
-                    if bulk_objs:
-                        PrecisionScanCandidate.objects.bulk_create(bulk_objs)
-                    
-                    # Keep only 3 latest runs
-                    distinct_runs = list(PrecisionScanCandidate.objects.filter(user=user, market='US').values_list('scan_run', flat=True).order_by('-scan_run').distinct())
-                    if len(distinct_runs) > 3:
-                        old_runs = distinct_runs[3:]
-                        PrecisionScanCandidate.objects.filter(user=user, market='US', scan_run__in=old_runs).delete()
-
-                _c.set(ckey, {'state': 'done', 'progress': len(sym_list), 'total': len(sym_list), 'phase': 'เสร็จสมบูรณ์'}, timeout=60)
-            except Exception as e:
-                import traceback
-                _c.set(ckey, {'state': 'error', 'error': f"{str(e)}\n{traceback.format_exc()}"}, timeout=60)
-
-        threading.Thread(target=_run_us_precision_bg, args=(user_id, cache_key, scan_symbols)).start()
-        return redirect('stocks:us_precision_scanner')
-
-    # Query latest results for display
-    all_runs = list(
-        PrecisionScanCandidate.objects
-        .filter(user=request.user, market='US')
-        .values_list('scan_run', flat=True)
-        .order_by('-scan_run')
-        .distinct()
-    )
-
-    try:
-        run_idx = int(request.GET.get('run_idx', 0))
-    except:
-        run_idx = 0
-    run_idx = max(0, min(run_idx, len(all_runs)-1)) if all_runs else 0
-
-    candidates = []
-    latest_run = None
-    if all_runs:
-        latest_run = all_runs[run_idx]
-        candidates = list(PrecisionScanCandidate.objects.filter(user=request.user, market='US', scan_run=latest_run))
-
-    # Apply Scores & Insights
-    for c in candidates:
-        sigs = _compute_signals(c)
-        c.buy_score = sigs['buy_score']
-        c.sell_score = sigs['sell_score']
-        c.exit_signal = sigs['exit_signal']
-
-    # Sorting
-    sort_by = request.GET.get('sort', 'score')
-    if sort_by == 'buy' or sort_by == 'score':
-        candidates.sort(key=lambda x: x.buy_score, reverse=True)
-    elif sort_by == 'rs':
-        candidates.sort(key=lambda x: x.rs_rating, reverse=True)
-    elif sort_by == 'symbol':
-        candidates.sort(key=lambda x: x.symbol)
-
-    # Top 5 Qualified (Same logic as Thai)
-    def _is_fully_qualified_us(c):
-        return (
-            c.buy_score >= 65
-            and (c.risk_reward_ratio or 0) >= 1.5
-            and c.rs_rating >= 80
-            and c.rvol_bullish
-            and c.zone_proximity <= 25
-            and c.adx >= 15
-        )
-    
-    top5_qualified = [c for c in candidates if _is_fully_qualified_us(c)][:5]
-    top5_buy = sorted([c for c in candidates if c.buy_score >= 50], key=lambda x: x.buy_score, reverse=True)[:5]
-
-    # Automated Insights
-    scan_insights = []
-    if candidates:
-        avg_rs = sum(c.rs_rating for c in candidates) / len(candidates)
-        if avg_rs > 80:
-            scan_insights.append({'icon': '🔥', 'title': 'Market Leadership', 'desc': 'US Market shows extreme leadership with very high RS ratings.'})
-        elif avg_rs > 70:
-            scan_insights.append({'icon': '✅', 'title': 'Healthy Momentum', 'desc': 'Strong relative strength across selected Nasdaq/S&P 500 stocks.'})
-        
-        vcp_count = sum(1 for c in candidates if c.vcp_setup)
-        if vcp_count > 5:
-            scan_insights.append({'icon': '🎯', 'title': 'VCP Clusters', 'desc': f'Found {vcp_count} stocks forming Volatility Contraction Patterns.'})
-
-    context = {
-        'candidates': candidates,
-        'scan_date': latest_run,
-        'all_runs': all_runs,
-        'selected_run_idx': run_idx,
-        'has_scanned': len(all_runs) > 0,
-        'top5_qualified': top5_qualified,
-        'top5_buy': top5_buy,
-        'scan_insights': scan_insights,
-        'ai_scan_json': json.dumps([{'s': c.symbol, 'p': c.price, 'rs': c.rs_rating, 'score': c.buy_score} for c in candidates[:15]]),
-        'current_sort': sort_by,
-    }
-    return render(request, 'stocks/us_precision_scan.html', context)
+                    PrecisionScanCandidate.objects.bulk_create(bulk)
                     
                     runs = list(PrecisionScanCandidate.objects.filter(user=user, market='US').values_list('scan_run', flat=True).order_by('-scan_run').distinct())
                     if len(runs) > 3: PrecisionScanCandidate.objects.filter(user=user, market='US', scan_run__in=runs[3:]).delete()

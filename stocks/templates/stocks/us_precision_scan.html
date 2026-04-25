@@ -34,48 +34,6 @@
         from { transform: translateY(0) scale(1); filter: drop-shadow(0 0 2px #f59e0b); }
         to { transform: translateY(-3px) scale(1.2); filter: drop-shadow(0 0 8px #ef4444); }
     }
-
-    /* Mobile-Specific Card View (No Horizontal Scroll) */
-    @media (max-width: 767.98px) {
-        #usPrecisionTable thead { display: none; }
-        #usPrecisionTable, #usPrecisionTable tbody, #usPrecisionTable tr, #usPrecisionTable td {
-            display: block; width: 100%;
-        }
-        #usPrecisionTable tr {
-            margin-bottom: 1rem;
-            border: 1px solid #e2e8f0;
-            border-radius: 1rem;
-            padding: 1rem;
-            background: white;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.02);
-        }
-        #usPrecisionTable td {
-            border: none;
-            padding: 0.5rem 0;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            text-align: right;
-            border-bottom: 1px dashed #f1f5f9;
-        }
-        #usPrecisionTable td:last-child { border-bottom: none; }
-        #usPrecisionTable td::before {
-            content: attr(data-label);
-            font-weight: 700;
-            text-transform: uppercase;
-            font-size: 0.7rem;
-            color: #64748b;
-            margin-right: 1rem;
-            text-align: left;
-        }
-        #usPrecisionTable td:first-child { 
-            justify-content: center; 
-            background: #f8faff; 
-            border-radius: 0.5rem;
-            margin-bottom: 0.5rem;
-        }
-        #usPrecisionTable td:first-child::before { display: none; }
-    }
 </style>
 
 <div>
@@ -353,12 +311,12 @@
                             data-vcp="{{ c.vcp_setup|yesno:'1,0' }}"
                             data-stage2="{{ c.stage2|yesno:'1,0' }}"
                             data-rs="{{ c.rs_rating }}">
-                            <td class="ps-3" data-label="Symbol">
+                            <td class="ps-3">
                                 <div class="fw-bold fs-6 text-primary">{{ c.symbol }}</div>
                                 <div class="text-muted" style="font-size:0.65rem;">{{ c.sector|truncatechars:18 }}</div>
                             </td>
-                            <td data-label="RS / Score">
-                                <div class="d-flex align-items-center justify-content-end justify-content-md-start gap-2">
+                            <td>
+                                <div class="d-flex align-items-center gap-2">
                                     <div class="text-center">
                                         <div class="fw-bold text-dark" style="font-size:0.9rem;">{{ c.rs_rating }}</div>
                                         <div class="text-muted" style="font-size:0.6rem;">RS</div>
@@ -370,7 +328,7 @@
                                     </div>
                                 </div>
                             </td>
-                            <td data-label="Current Price">
+                            <td>
                                 <div class="fw-bold">${{ c.live_price|default:c.price|floatformat:2 }}</div>
                                 {% if c.live_change_pct is not None %}
                                 <div class="small fw-bold {% if c.live_change_pct >= 0 %}text-success{% else %}text-danger{% endif %}">
@@ -378,14 +336,8 @@
                                 </div>
                                 {% endif %}
                             </td>
-                            <td data-label="Setup Details">
-                                <div class="d-flex flex-wrap gap-1 justify-content-end justify-content-md-start">
-                                    {% if c.pocket_pivot %}
-                                    <span class="badge bg-danger rounded-pill" title="Pocket Pivot (Institutional Buying)"><i class="fas fa-p"></i> PP</span>
-                                    {% endif %}
-                                    {% if c.vdu_near_zone %}
-                                    <span class="badge bg-secondary rounded-pill" title="Volume Dry-Up (Quiet Accumulation)"><i class="fas fa-droplet-slash"></i> VDU</span>
-                                    {% endif %}
+                            <td>
+                                <div class="d-flex flex-wrap gap-1">
                                     {% if c.launcher_score >= 5 %}
                                     <span class="badge bg-danger rounded-pill" title="Launcher Score {{ c.launcher_score }}">🚀 L{{ c.launcher_score }}</span>
                                     {% endif %}
@@ -398,18 +350,18 @@
                                     {% if c.bb_squeeze %}
                                     <span class="badge bg-warning text-dark rounded-pill">⚡ SQZ</span>
                                     {% endif %}
-                                    {% if c.ichimoku_score >= 3 %}
-                                    <span class="badge rounded-pill text-white" style="background:#4338ca;" title="Ichimoku Score {{ c.ichimoku_score }}"><i class="fas fa-cloud"></i> Ichi {{ c.ichimoku_score }}</span>
+                                    {% if c.is_52w_breakout %}
+                                    <span class="badge bg-info text-white rounded-pill">🏔 52W</span>
                                     {% endif %}
                                 </div>
                             </td>
-                            <td data-label="Trend Signals">
+                            <td>
                                 <div class="small text-muted" style="line-height:1.4;">
                                     RSI: {{ c.rsi|floatformat:0 }} | ADX: {{ c.adx|floatformat:0 }}<br>
                                     RVOL: {{ c.rvol|floatformat:1 }}x {% if c.rvol_bullish %}<i class="fas fa-arrow-up text-success"></i>{% else %}<i class="fas fa-arrow-down text-danger"></i>{% endif %}
                                 </div>
                             </td>
-                            <td data-label="Entry Zone">
+                            <td>
                                 {% if c.demand_zone_start %}
                                 <div class="small fw-bold text-dark">Zone: {{ c.demand_zone_start }} - {{ c.demand_zone_end }}</div>
                                 <div class="small {% if c.zone_proximity <= 5 %}text-success fw-bold{% else %}text-muted{% endif %}">Prox: {{ c.zone_proximity|floatformat:1 }}%</div>
@@ -417,8 +369,8 @@
                                 <span class="text-muted small">No Zone</span>
                                 {% endif %}
                             </td>
-                            <td class="text-center" data-label="Action">
-                                <a href="{% url 'stocks:entry_finder' c.symbol %}" class="btn btn-sm btn-primary rounded-pill px-3 w-100 w-md-auto">Sniper View</a>
+                            <td class="text-center">
+                                <a href="{% url 'stocks:entry_finder' c.symbol %}" class="btn btn-sm btn-primary rounded-pill px-3">Sniper View</a>
                             </td>
                         </tr>
                         {% endfor %}
