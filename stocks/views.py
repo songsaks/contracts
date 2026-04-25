@@ -6866,6 +6866,8 @@ def us_precision_scanner(request):
             try:
                 import django
                 django.setup()
+                import yfinance as yf
+                import pandas as pd
                 import pandas_ta as ta
                 from datetime import datetime as _dt, timedelta as _td, time as _dtime
                 import pytz as _pytz
@@ -6920,11 +6922,18 @@ def us_precision_scanner(request):
                     except: return s, None
                 
                 rs_returns = {}
+                count_rs = 0
+                total_syms = len(sym_list)
                 with concurrent.futures.ThreadPoolExecutor(max_workers=15) as ex:
                     futs = {ex.submit(_fetch_rs, s): s for s in sym_list}
                     for f in concurrent.futures.as_completed(futs):
-                        s, r = f.result()
-                        if r is not None: rs_returns[s] = r
+                        try:
+                            s, r = f.result()
+                            if r is not None: rs_returns[s] = r
+                        except: pass
+                        count_rs += 1
+                        if count_rs % 10 == 0 or count_rs == total_syms:
+                             _cache_inner.set(ckey, {'state': 'running', 'progress': count_rs, 'total': total_syms, 'phase': f'RS Ratings ({count_rs}/{total_syms})…'}, timeout=1200)
                 
                 rs_map = {}
                 if rs_returns:
@@ -7026,14 +7035,16 @@ def us_precision_scanner(request):
                 with concurrent.futures.ThreadPoolExecutor(max_workers=10) as ex:
                     futs = {ex.submit(_scan_one, s): s for s in sym_list}
                     for f in concurrent.futures.as_completed(futs):
-                        r = f.result()
-                        if r: results.append(r)
+                        try:
+                            r = f.result()
+                            if r: results.append(r)
+                        except: pass
                         count += 1
-                        if count % 10 == 0:
-                            _cache_inner.set(ckey, {'state': 'running', 'progress': count, 'total': len(sym_list), 'phase': 'Scanning Stocks…'}, timeout=1200)
+                        if count % 10 == 0 or count == total_syms:
+                            _cache_inner.set(ckey, {'state': 'running', 'progress': count, 'total': total_syms, 'phase': f'Technical Scan ({count}/{total_syms})…'}, timeout=1200)
 
                 if results:
-                    _cache_inner.set(ckey, {'state': 'running', 'progress': count, 'total': len(sym_list), 'phase': 'Enriching Fundamentals…'}, timeout=1200)
+                    _cache_inner.set(ckey, {'state': 'running', 'progress': count, 'total': total_syms, 'phase': f'Enriching Fundamentals ({len(results)} matches)…'}, timeout=1200)
                     matched = [r['symbol'] for r in results]
                     fund = {}
                     try:
