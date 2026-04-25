@@ -5198,7 +5198,7 @@ def installation_report(request):
     show_all = request.GET.get('show_all') == 'on'
     
     # Base Query
-    qs = ServiceQueueItem.objects.select_related('project', 'project__owner')\
+    qs = ServiceQueueItem.objects.select_related('project', 'project__owner', 'project__customer')\
         .prefetch_related('assigned_teams__members')\
         .filter(task_type='INSTALLATION')
 
@@ -5259,6 +5259,7 @@ def installation_report(request):
             'job_id': item.id,
             'project_name': project.name if project else item.title,
             'owner_name': project.owner.name if project and project.owner else "-",
+            'customer_name': project.customer.name if project and project.customer else "-",
             'title': item.title,
             'status': item.get_status_display(),
             'status_key': item.status,
@@ -5278,10 +5279,10 @@ def installation_report(request):
         ws = wb.active
         ws.title = "Installation Report"
         h_font = Font(bold=True, color="FFFFFF"); h_fill = PatternFill(start_color="4F46E5", end_color="4F46E5", fill_type="solid")
-        ws.append(["#", "ชื่องาน", "เจ้าของงาน", "สถานะ", "ทีมที่ทำงาน", "ระยะเวลา (วัน)", "มูลค่างาน (บาท)", "วันที่เริ่ม", "วันที่จบ"])
+        ws.append(["#", "ชื่องาน", "หน่วยงาน/ลูกค้า", "เจ้าของงาน", "สถานะ", "ทีมที่ทำงาน", "ระยะเวลา (วัน)", "มูลค่างาน (บาท)", "วันที่เริ่ม", "วันที่จบ"])
         for cell in ws[1]: cell.font = h_font; cell.fill = h_fill
         for idx, r in enumerate(reports, 1):
-            ws.append([idx, r['project_name'], r['owner_name'], r['status'], r['team_names'], r['days'], r['value'], r['start_date'], r['completed_date']])
+            ws.append([idx, r['project_name'], r['customer_name'], r['owner_name'], r['status'], r['team_names'], r['days'], r['value'], r['start_date'], r['completed_date']])
         response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
         response['Content-Disposition'] = f'attachment; filename=Installation_Report_{timezone.now().strftime("%Y%m%d")}.xlsx'
         wb.save(response); return response
