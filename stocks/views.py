@@ -6919,8 +6919,8 @@ def us_precision_scanner(request):
                 _cache_inner.set(ckey, {'state': 'running', 'progress': 0, 'total': total_syms, 'phase': 'Fetching RS Data (Bulk)…'}, timeout=1200)
                 rs_returns = {}
                 try:
-                    # Download all at once to avoid individual overhead
-                    bulk_data = yf.download(sym_list, start=scan_start_str, end=scan_end_str, interval="1d", progress=False, group_by='ticker')
+                    # Download all at once to avoid individual overhead. Disable internal threads to prevent deadlocks in daemon thread.
+                    bulk_data = yf.download(sym_list, start=scan_start_str, end=scan_end_str, interval="1d", progress=False, group_by='ticker', threads=False)
                     
                     count_rs = 0
                     for s in sym_list:
