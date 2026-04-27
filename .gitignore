@@ -6,3 +6,6 @@ db.sqlite3
 .DS_Store
 *.pid
 gold_bot.pid
+*.log
+bot_stdout.log
+bot_stderr.log
