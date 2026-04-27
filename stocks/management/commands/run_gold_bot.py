@@ -118,37 +118,35 @@ class Command(BaseCommand):
                             if not already_traded:
                                 # ใช้ระบบ Bridge เพื่อคุยกับโบรกเกอร์
                                 bridge = RobotBridge(user=acc.user)
-                                balance = float(acc.balance) if acc.balance > 0 else 1000.0
+                                balance = float(acc.equity or acc.balance) if (acc.equity or acc.balance) > 0 else 1000.0
                                 risk_money = balance * self.RISK_PER_TRADE
-                                
+
                                 # กำหนดระยะ Stop Loss และ Take Profit ตามความเร็วของกลยุทธ์
-                                if signal_type == "SNIPER_EMA9": 
-                                    sl_mult = 0.5   # Stop Loss แคบมาก
-                                    tp_mult = 1.5   # เป้ากำไรระยะสั้น
-                                elif signal_type == "SCALPER_10D": 
-                                    sl_mult = 1.0   # Stop Loss ปานกลาง
-                                    tp_mult = 2.0   # เป้ากำไรปานกลาง
-                                else: 
-                                    sl_mult = 1.5   # Stop Loss กว้างหน่อย
-                                    tp_mult = 3.5   # เป้ากำไรระยะยาว (Swing)
-                                
+                                if signal_type == "SNIPER_EMA9":
+                                    sl_mult = 0.5
+                                    tp_mult = 1.5
+                                elif signal_type == "SCALPER_10D":
+                                    sl_mult = 1.0
+                                    tp_mult = 2.0
+                                else:
+                                    sl_mult = 1.5
+                                    tp_mult = 3.5
+
                                 sl_dist = sl_mult * atr
                                 tp_dist = tp_mult * atr
-                                
+
                                 # คำนวณ Lot Size อัตโนมัติ (ความเสี่ยงคงที่ 2%)
                                 lots = round(max(self.MIN_LOT, risk_money / sl_dist if sl_dist > 0 else self.MIN_LOT), 2)
                                 sl_price = curr_price - sl_dist
                                 tp_price = curr_price + tp_dist
-                                
-                                self.stdout.write(self.style.SUCCESS(f"สั่งซื้อ {signal_type} สำหรับพอร์ต {acc.account_name} | TP: {tp_price:.2f} | SL: {sl_price:.2f}"))
-                                
-                                # ส่งคำสั่งซื้อจริงไปยังโบรกเกอร์ (พร้อม TP และ SL)
-                                # หมายเหตุ: Scalper และ Swing จะไม่มี TP เพื่อรันเทรนด์ยาว (ใช้ Trailing Stop แทน)
+
+                                self.stdout.write(self.style.SUCCESS(f"สั่งซื้อ {signal_type} สำหรับพอร์ต {acc.account_id} | TP: {tp_price:.2f} | SL: {sl_price:.2f}"))
+
                                 current_tp = tp_price if signal_type == "SNIPER_EMA9" else None
-                                
+
                                 res = bridge.execute_trade(
                                     symbol=self.BROKER_SYMBOL, side="BUY", volume=lots,
-                                    strategy=signal_type, stop_loss=sl_price, take_profit=current_tp
+                                    strategy=signal_type, sl=sl_price, tp=current_tp
                                 )
                                 
                                 # บันทึก Log การเทรดลงหน้า Dashboard
@@ -176,7 +174,7 @@ class Command(BaseCommand):
                                 if new_sl > current_sl:
                                     success = bridge.modify_position(pos_id, sl=new_sl)
                                     if success:
-                                        self.stdout.write(self.style.SUCCESS(f"Trailing SL Updated: {new_sl:.2f} for {acc.account_name}"))
+                                        self.stdout.write(self.style.SUCCESS(f"Trailing SL Updated: {new_sl:.2f} for {acc.account_id}"))
                                         self.update_heartbeat(status="ACTIVE", message=f"🛡️ ยกจุดป้องกัน (Trailing SL) ไปที่ {new_sl:.2f}")
 
                     if not signal_type:
