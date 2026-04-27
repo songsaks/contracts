@@ -49,8 +49,12 @@ class Command(BaseCommand):
                         continue
                     
                     # จัดการรูปแบบ Column ของข้อมูล
-                    if isinstance(df.columns, pd.MultiIndex): 
-                        df.columns = df.columns.get_level_values(0)
+                    if isinstance(df.columns, pd.MultiIndex):
+                        _pf = {'Open', 'High', 'Low', 'Close', 'Volume', 'Adj Close'}
+                        if any(v in _pf for v in df.columns.get_level_values(0)):
+                            df.columns = df.columns.get_level_values(0)
+                        else:
+                            df.columns = df.columns.get_level_values(1)
 
                     # 2. คำนวณตัวชี้วัดทางเทคนิค (Technical Indicators)
                     # Donchian Channels (จุดสูงสุดย้อนหลัง 10 และ 20 วัน)

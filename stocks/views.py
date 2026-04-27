@@ -9219,12 +9219,13 @@ def stock_chart_data(request, symbol):
         if df is None or df.empty:
             return _JR({'error': f'ไม่พบข้อมูลสำหรับ {yf_symbol} (yfinance returned empty)'}, status=404)
 
-        # 1. จัดการ MultiIndex (yfinance 0.2.x มักจะคืน (Field, Symbol) หรือ (Symbol, Field))
+        # 1. จัดการ MultiIndex (yfinance 0.2.x คืน (Price,Ticker) หรือ (Ticker,Price))
         if isinstance(df.columns, _pd.MultiIndex):
-            if yf_symbol in df.columns.get_level_values(0): # Case (Symbol, Field)
-                df.columns = df.columns.get_level_values(1)
-            else: # Case (Field, Symbol)
+            _pf = {'Open', 'High', 'Low', 'Close', 'Volume', 'Adj Close'}
+            if any(v in _pf for v in df.columns.get_level_values(0)):
                 df.columns = df.columns.get_level_values(0)
+            else:
+                df.columns = df.columns.get_level_values(1)
 
         # 2. ปรับชื่อคอลัมน์ให้เป็นมาตรฐาน (Standardize Capitalization)
         df.columns = [str(c).capitalize() for c in df.columns]
@@ -9592,11 +9593,15 @@ def gold_trading(request):
     """
     Gold Trading & Robot Command Center (XAU/USD).
     """
+    from .models import TradingAccount
+    account = TradingAccount.objects.filter(user=request.user, is_active=True).first()
+    capital = float(account.equity or account.balance) if account else 100.0
     symbol = "GC=F"
     return render(request, 'stocks/gold_trading.html', {
         'symbol': symbol,
         'title': 'Gold Robot Command Center',
         'market': 'US',
+        'capital': capital,
     })
 
 
