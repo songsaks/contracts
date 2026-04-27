@@ -1726,6 +1726,22 @@ def portfolio_exit_plan(request):
                 prev = float(hist['Close'].iloc[-2])
                 day_change = ((current_price - prev) / prev * 100) if prev else 0
 
+            # ====== Turtle Exit Logic (S1: 10D Low, S2: 20D Low) ======
+            turtle_s1_exit = 0
+            turtle_s2_exit = 0
+            s1_hit = s2_hit = False
+            
+            if not hist.empty:
+                # Use daily Low for Turtle exits
+                hist_lows = hist['Low']
+                if len(hist_lows) >= 10:
+                    turtle_s1_exit = float(hist_lows.tail(10).min())
+                if len(hist_lows) >= 20:
+                    turtle_s2_exit = float(hist_lows.tail(20).min())
+                
+                s1_hit = current_price <= turtle_s1_exit if turtle_s1_exit > 0 else False
+                s2_hit = current_price <= turtle_s2_exit if turtle_s2_exit > 0 else False
+
             entry_price  = float(item.entry_price or 0)
             quantity     = float(item.quantity or 0)
             gain_loss_pct = ((current_price - entry_price) / entry_price * 100) if entry_price else 0
@@ -1768,6 +1784,14 @@ def portfolio_exit_plan(request):
             signals = _compute_signals(prec_data, current_price) if prec_data else {'buy_score': 0, 'sell_score': 0, 'exit_signal': ''}
             sell_score   = signals['sell_score']
             exit_signal  = signals['exit_signal']
+
+            # Boost sell score if Turtle exits are hit
+            if s1_hit: sell_score = max(sell_score, 75)
+            if s2_hit: sell_score = max(sell_score, 90)
+            
+            if sell_score >= 70: exit_signal = 'STRONG EXIT'
+            elif sell_score >= 50: exit_signal = 'EXIT'
+            elif sell_score >= 30: exit_signal = 'WATCH'
 
             # ====== Progress Bar: SL → Entry → Current → TP ======
             progress_pct   = None
@@ -1871,6 +1895,17 @@ def portfolio_exit_plan(request):
                     triggers.append({'label': f'CMF {cmf_val:.2f} - เริ่มมีแรงขายสุทธิ', 'level': 'warning'})
             if not triggers and exit_signal == '':
                 triggers.append({'label': 'ไม่มีสัญญาณออก - ถือต่อได้', 'level': 'success'})
+            
+            # Turtle-specific signals (always show if near or hit)
+            if s1_hit:
+                triggers.append({'label': f'TURTLE S1 EXIT - หลุด 10D Low ({turtle_s1_exit:.2f})', 'level': 'danger'})
+            elif turtle_s1_exit > 0 and current_price <= turtle_s1_exit * 1.02:
+                triggers.append({'label': f'TURTLE S1 NEAR - ใกล้ 10D Low ({turtle_s1_exit:.2f})', 'level': 'warning'})
+
+            if s2_hit:
+                triggers.append({'label': f'TURTLE S2 EXIT - หลุด 20D Low ({turtle_s2_exit:.2f})', 'level': 'danger'})
+            elif turtle_s2_exit > 0 and current_price <= turtle_s2_exit * 1.02:
+                triggers.append({'label': f'TURTLE S2 NEAR - ใกล้ 20D Low ({turtle_s2_exit:.2f})', 'level': 'warning'})
 
             items.append({
                 'obj':          item,
@@ -1882,6 +1917,10 @@ def portfolio_exit_plan(request):
                 'days_held':    days_held,
                 'sl_price':     sl_price,
                 'tp_price':     tp_price,
+                'turtle_s1':    turtle_s1_exit,
+                'turtle_s2':    turtle_s2_exit,
+                's1_hit':       s1_hit,
+                's2_hit':       s2_hit,
                 'rsi':          rsi_val,
                 'adx':          adx_val,
                 'price_pattern': price_pattern,
