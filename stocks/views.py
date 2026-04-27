@@ -6917,35 +6917,38 @@ def us_precision_scanner(request):
                 # RS Rating (Bulk Fetch for speed)
                 total_syms = len(sym_list)
                 _cache_inner.set(ckey, {'state': 'running', 'progress': 0, 'total': total_syms, 'phase': 'Fetching RS Data (Bulk)…'}, timeout=1200)
-                rs_returns = {}
+                rs_returns_all = {}
                 try:
-                    # Download all at once to avoid individual overhead. Disable internal threads to prevent deadlocks in daemon thread.
-                    bulk_data = yf.download(sym_list, start=scan_start_str, end=scan_end_str, interval="1d", progress=False, group_by='ticker', threads=False)
-                    
-                    count_rs = 0
-                    for s in sym_list:
+                    from yahooquery import Ticker as _TQ
+                    chunk_size = 80
+                    for i in range(0, len(sym_list), chunk_size):
+                        chunk = sym_list[i : i + chunk_size]
+                        _cache_inner.set(ckey, {'state': 'running', 'progress': 5 + int((i/total_syms)*15), 'total': total_syms, 'phase': f'Fetching RS Data ({i//chunk_size + 1})…'}, timeout=900)
                         try:
-                            if s in bulk_data:
-                                d = bulk_data[s]
-                            elif len(sym_list) == 1: # yf.download returns single DF if only 1 symbol
-                                d = bulk_data
-                            else: continue
-
-                            if d is None or d.empty: continue
-                            cl = d['Close'].dropna()
-                            if len(cl) >= 66:
-                                ret = float((cl.iloc[-1] - cl.iloc[-66])/abs(cl.iloc[-66])) * 100
-                                rs_returns[s] = ret
-                        except: pass
-                        count_rs += 1
-                        if count_rs % 20 == 0 or count_rs == total_syms:
-                             _cache_inner.set(ckey, {'state': 'running', 'progress': count_rs, 'total': total_syms, 'phase': f'Calculating RS ({count_rs}/{total_syms})…'}, timeout=1200)
+                            tq = _TQ(chunk)
+                            tq_hist = tq.history(start=scan_start_str, end=scan_end_str, interval="1d")
+                            if tq_hist is not None and not tq_hist.empty:
+                                if isinstance(tq_hist.index, pd.MultiIndex):
+                                    for symbol in chunk:
+                                        try:
+                                            if symbol in tq_hist.index.get_level_values(0):
+                                                _close = tq_hist.loc[symbol]['adjclose'].dropna()
+                                                if len(_close) >= 66:
+                                                    ret = float((_close.iloc[-1] - _close.iloc[-66]) / abs(_close.iloc[-66]) * 100)
+                                                    rs_returns_all[symbol] = ret
+                                        except Exception: continue
+                        except Exception: pass
                 except Exception as e:
                     print(f"Bulk RS Error: {e}")
 
+                # FAILSAFE: If results are empty or too small, force evaluation of a subset
+                if len(rs_returns_all) < 10:
+                    for s in sym_list[:100]:
+                        if s not in rs_returns_all: rs_returns_all[s] = 0.0
+
                 rs_map = {}
-                if rs_returns:
-                    ser = pd.Series(rs_returns)
+                if rs_returns_all:
+                    ser = pd.Series(rs_returns_all)
                     rs_map = (ser.rank(pct=True)*99).clip(0,99).astype(int).to_dict()
 
                 # Main Scan
@@ -6958,25 +6961,26 @@ def us_precision_scanner(request):
                         rs_v = rs_map.get(symbol, 0)
                         if rs_v < 60: return None
 
-                        df = None
                         try:
-                            if symbol in bulk_data:
-                                df = bulk_data[symbol].copy()
-                            elif len(sym_list) == 1:
-                                df = bulk_data.copy()
-                        except: pass
+                            ticker_obj = yf.Ticker(symbol)
+                            df = ticker_obj.history(start=scan_start_str, end=scan_end_str, interval="1d")
 
-                        if df is None or df.empty:
-                            try:
-                                ticker = yf.Ticker(symbol)
-                                df = ticker.history(start=scan_start_str, end=scan_end_str, interval="1d")
-                                if df is None or df.empty:
-                                    yq = YQTicker(symbol, session=_session)
+                            if df is None or df.empty:
+                                try:
+                                    yq = YQTicker(symbol)
                                     df = yq.history(start=scan_start_str, end=scan_end_str, interval="1d")
                                     if isinstance(df, pd.DataFrame) and not df.empty:
-                                        if 'symbol' in df.index.names: df = df.xs(symbol, level='symbol')
-                                        df.rename(columns={'open':'Open','high':'High','low':'Low','close':'Close','volume':'Volume'}, inplace=True)
-                            except: pass
+                                        df = df.reset_index()
+                                        if 'date' in df.columns:
+                                            df.set_index('date', inplace=True)
+                                        if 'symbol' in df.columns:
+                                            df.drop(columns=['symbol'], inplace=True)
+                                        df.rename(columns={'open': 'Open', 'high': 'High', 'low': 'Low',
+                                                           'close': 'Close', 'volume': 'Volume'}, inplace=True)
+                                except Exception:
+                                    pass
+                        except Exception:
+                            df = None
 
                         if df is None or df.empty: return None
                         if isinstance(df.columns, pd.MultiIndex): df.columns = df.columns.droplevel(1)
