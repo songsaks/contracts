@@ -1,200 +1,252 @@
 {% extends 'stocks/base_stocks.html' %}
 {% load static %}
 
-{% block title %}Institutional Workflow Guide — AI Analyst{% endblock %}
+{% block title %}Scanner Guide — AI Analyst Mastery{% endblock %}
 
 {% block content %}
-<div class="row mb-5 animate-in">
-    <div class="col-lg-12">
-        <nav aria-label="breadcrumb" class="mb-4">
-            <ol class="breadcrumb">
-                <li class="breadcrumb-item"><a href="{% url 'stocks:dashboard' %}" class="text-decoration-none">Dashboard</a></li>
-                <li class="breadcrumb-item active">Trading Workflow Guide</li>
-            </ol>
-        </nav>
-        
-        <div class="text-center mb-5">
-            <h1 class="display-5 fw-bold text-slate-900 mb-3">The 4-Step Mastery Workflow</h1>
-            <p class="lead text-muted mx-auto" style="max-width: 700px;">เปลี่ยนกระบวนการสแกนหุ้นธรรมดา ให้เป็นระบบการลงทุนระดับสถาบันด้วยกระบวนการคัดกรอง 4 ชั้นที่แม่นยำที่สุด</p>
+<div class="container-fluid py-4 animate-in">
+    <!-- Breadcrumb -->
+    <nav aria-label="breadcrumb" class="mb-4">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{% url 'stocks:dashboard' %}" class="text-decoration-none text-muted">Dashboard</a></li>
+            <li class="breadcrumb-item active fw-bold text-primary">Scanner Guide</li>
+        </ol>
+    </nav>
+
+    <!-- Header Section -->
+    <div class="row mb-5">
+        <div class="col-lg-8">
+            <h1 class="display-4 fw-bold text-slate-900 mb-3">คู่มือการใช้งานระบบสแกนหุ้น</h1>
+            <p class="lead text-muted">เปลี่ยนกระบวนการสแกนหุ้นให้เป็นระบบด้วย "สูตร 3 ขั้นตอนสู่หุ้นระเบิด" และจังหวะเข้าทำระดับสถาบัน</p>
+        </div>
+        <div class="col-lg-4 text-lg-end d-none d-lg-block">
+            <i class="fas fa-book-open text-primary opacity-10" style="font-size: 8rem;"></i>
         </div>
     </div>
-</div>
 
-<!-- Step 1: Broad Screening -->
-<div class="row g-4 mb-5 align-items-center animate-in">
-    <div class="col-lg-1 d-none d-lg-block text-center">
-        <div class="step-number text-indigo-100 fw-bold" style="font-size: 8rem; opacity: 0.1; line-height: 1;">01</div>
-    </div>
-    <div class="col-lg-5">
-        <div class="card-premium p-4 p-md-5 border-start border-4 border-indigo-500">
-            <div class="d-flex align-items-center gap-3 mb-4">
-                <div class="step-icon bg-indigo-100 text-indigo-600 rounded-circle d-flex align-items-center justify-content-center" style="width: 50px; height: 50px;">
-                    <i class="fas fa-satellite-dish fs-4"></i>
+    <!-- Section 1: The 3-Step Formula -->
+    <div class="row g-4 mb-5">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm rounded-5 overflow-hidden">
+                <div class="card-header bg-dark text-white p-4 border-0">
+                    <h3 class="fw-bold mb-0"><i class="fas fa-rocket me-2 text-warning"></i>สูตร 3 ขั้นตอนสู่หุ้นระเบิด (The 3-Step Formula)</h3>
                 </div>
-                <h2 class="h3 fw-bold mb-0">Stage 1: The Radar</h2>
-            </div>
-            <h5 class="text-indigo-600 fw-bold mb-3 small text-uppercase italic">Broad Screening (ค้นหาโอกาส)</h5>
-            <p class="text-slate-600 mb-4">เริ่มต้นด้วยการกวาดตาจากหุ้นทั้งตลาดมากกว่า 800+ ตัว เพื่อค้นหา "โมเมนตัมเบื้องต้น" หรือหุ้นที่กำลังเริ่มสะสมพลัง</p>
-            <ul class="list-unstyled space-y-3">
-                <li class="d-flex gap-2">
-                    <i class="fas fa-check-circle text-success mt-1"></i>
-                    <span>ใช้ <strong>Momentum Scanner</strong> เพื่อหาหุ้นที่ Bullish ฝืนตลาด (Strong RS)</span>
-                </li>
-                <li class="d-flex gap-2">
-                    <i class="fas fa-check-circle text-success mt-1"></i>
-                    <span>ใช้ <strong>Turtle Scanner</strong> เพื่อหาจุดเบรคจุดสูงสุด (Initial Breakout)</span>
-                </li>
-            </ul>
-        </div>
-    </div>
-    <div class="col-lg-6 text-center">
-        <div class="rounded-4 p-4 p-md-5" style="background: rgba(99, 102, 241, 0.03); border: 2px dashed rgba(99, 102, 241, 0.1);">
-             <i class="fas fa-search-dollar text-indigo-200" style="font-size: 15rem;"></i>
-        </div>
-    </div>
-</div>
-
-<!-- Step 2: Quality Filtering -->
-<div class="row g-4 mb-5 align-items-center flex-lg-row-reverse animate-in">
-    <div class="col-lg-1 d-none d-lg-block text-center">
-        <div class="step-number text-emerald-100 fw-bold" style="font-size: 8rem; opacity: 0.1; line-height: 1;">02</div>
-    </div>
-    <div class="col-lg-5">
-        <div class="card-premium p-4 p-md-5 border-start border-4 border-emerald-500">
-            <div class="d-flex align-items-center gap-3 mb-4">
-                <div class="step-icon bg-emerald-100 text-emerald-600 rounded-circle d-flex align-items-center justify-content-center" style="width: 50px; height: 50px;">
-                    <i class="fas fa-filter fs-4"></i>
+                <div class="card-body p-0">
+                    <div class="row g-0">
+                        <!-- Step 1 -->
+                        <div class="col-md-4 border-end border-light">
+                            <div class="p-5 h-100 step-card">
+                                <div class="step-badge bg-primary-soft text-primary mb-4">Step 1</div>
+                                <h4 class="fw-bold mb-3">หาเป้าหมาย (The Radar)</h4>
+                                <p class="text-muted mb-4"><strong>จุดเริ่มต้น:</strong> ดูที่ <strong>Cup & Handle Scanner</strong></p>
+                                <div class="bg-light rounded-4 p-4 mb-4">
+                                    <h6 class="fw-bold text-dark mb-2"><i class="fas fa-search me-2 text-primary"></i>ทำไมต้องดูที่นี่?</h6>
+                                    <p class="small text-muted mb-0">หน้านี้ออกแบบมาเพื่อหาหุ้นที่ <strong>"หยุดลงแล้วและกำลังสร้างฐาน"</strong> โดยเฉพาะ เพื่อหาจังหวะต้นเทรนด์</p>
+                                </div>
+                                <div class="alert alert-info border-0 rounded-4">
+                                    <h6 class="fw-bold mb-1 small text-uppercase">สิ่งที่ต้องมองหา:</h6>
+                                    <p class="small mb-0">โฟกัสสถานะ <strong>"Ready to Break"</strong> หรือ <strong>"Handle Forming"</strong> เพราะนี่คืออาการของหุ้นที่รวบรวมพลังเสร็จแล้ว</p>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- Step 2 -->
+                        <div class="col-md-4 border-end border-light">
+                            <div class="p-5 h-100 step-card">
+                                <div class="step-badge bg-success-soft text-success mb-4">Step 2</div>
+                                <h4 class="fw-bold mb-3">เช็คพลัง (The Power)</h4>
+                                <p class="text-muted mb-4"><strong>คัดกรองคุณภาพ:</strong> ดูที่ <strong>Momentum / Precision</strong></p>
+                                <div class="bg-light rounded-4 p-4 mb-4">
+                                    <h6 class="fw-bold text-dark mb-2"><i class="fas fa-bolt me-2 text-warning"></i>ทำไมต้องดูที่นี่?</h6>
+                                    <p class="small text-muted mb-0">เพื่อเช็คว่าหุ้นที่สะสมกำลังใน Step 1 มี <strong>"พลังจริง"</strong> หรือเปล่า ไม่ใช่แค่การเด้งสั้นๆ</p>
+                                </div>
+                                <div class="alert alert-success border-0 rounded-4">
+                                    <h6 class="fw-bold mb-1 small text-uppercase">วิธีใช้:</h6>
+                                    <p class="small mb-0">ดูหุ้นที่มี <strong>Score สูงๆ</strong> หรือ <strong>RS > 80</strong> (โซนสีเขียว) หากติดทั้งสองหน้าพร้อมกัน ตัวนั้นคือ <strong>Super Performance</strong></p>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- Step 3 -->
+                        <div class="col-md-4">
+                            <div class="p-5 h-100 step-card">
+                                <div class="step-badge bg-purple-soft text-purple mb-4">Step 3</div>
+                                <h4 class="fw-bold mb-3">คัดหุ้นตัวท็อป (The Quality)</h4>
+                                <p class="text-muted mb-4"><strong>เกรดสถาบัน:</strong> ดูที่ <strong>Momentum / SEPA</strong></p>
+                                <div class="bg-light rounded-4 p-4 mb-4">
+                                    <h6 class="fw-bold text-dark mb-2"><i class="fas fa-shield-alt me-2 text-purple"></i>ทำไมต้องดูที่นี่?</h6>
+                                    <p class="small text-muted mb-0">เพื่อความปลอดภัย หุ้นที่ติด SEPA คือหุ้นที่ยืนยันแล้วว่าเป็น <strong>ขาขึ้นรอบใหญ่ (Stage 2)</strong> เท่านั้น</p>
+                                </div>
+                                <div class="alert alert-primary border-0 rounded-4" style="background-color: #eef2ff;">
+                                    <h6 class="fw-bold mb-1 small text-uppercase">วิธีใช้:</h6>
+                                    <p class="small mb-0">ถ้าติด SEPA ด้วย แสดงว่าการสะสมกำลังครั้งนี้เป็นการเตรียมวิ่งรอบใหญ่ ไม่ใช่แค่การรีบาวน์ทั่วไป</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-                <h2 class="h3 fw-bold mb-0">Stage 2: The Filter</h2>
             </div>
-            <h5 class="text-emerald-600 fw-bold mb-3 small text-uppercase italic">Quality Filtering (คัดเกรดหุ้น)</h5>
-            <p class="text-slate-600 mb-4">ไม่ใช่หุ้นทุกตัวที่ขึ้นจะดีจริง เราใช้ระบบคำนวณคะแนนขั้นสูงเพื่อคัดเฉพาะ "หัวกะทิ" เท่านั้น</p>
-            <ul class="list-unstyled space-y-3">
-                <li class="d-flex gap-2">
-                    <i class="fas fa-check-circle text-success mt-1"></i>
-                    <span>ใช้ <strong>SET Precision Scanner</strong> คัดกรองผ่าน Super Score (0-100)</span>
-                </li>
-                <li class="d-flex gap-2">
-                    <i class="fas fa-check-circle text-success mt-1"></i>
-                    <span>ตรวจสอบ <strong>Demand Zone & RVOL</strong> เพื่อหาจุดเข้าที่ได้เปรียบรายใหญ่</span>
-                </li>
-            </ul>
         </div>
     </div>
-    <div class="col-lg-6 text-center">
-        <div class="rounded-4 p-4 p-md-5" style="background: rgba(16, 185, 129, 0.03); border: 2px dashed rgba(16, 185, 129, 0.1);">
-             <i class="fas fa-vial text-emerald-200" style="font-size: 15rem;"></i>
-        </div>
-    </div>
-</div>
 
-<!-- Stage 3: Institutional Deep Analysis -->
-<div class="row g-4 mb-5 align-items-center animate-in">
-    <div class="col-lg-1 d-none d-lg-block text-center">
-        <div class="step-number text-indigo-100 fw-bold" style="font-size: 8rem; opacity: 0.1; line-height: 1;">03</div>
-    </div>
-    <div class="col-lg-5">
-        <div class="card-premium p-4 p-md-5 border-start border-4 mb-3" style="border-image: linear-gradient(to bottom, #6366f1, #a855f7) 1;">
-            <div class="d-flex align-items-center gap-3 mb-4">
-                <div class="step-icon text-white rounded-circle d-flex align-items-center justify-content-center" style="width: 50px; height: 50px; background: linear-gradient(135deg, #6366f1, #a855f7);">
-                    <i class="fas fa-robot fs-4"></i>
+    <!-- Section 2: Execution Guide -->
+    <div class="row g-4 mb-5">
+        <div class="col-lg-7">
+            <div class="card border-0 shadow-sm rounded-5 h-100 overflow-hidden">
+                <div class="card-body p-5">
+                    <div class="d-flex align-items-center mb-4">
+                        <div class="bg-warning text-dark rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 60px; height: 60px;">
+                            <i class="fas fa-flag-checkered fs-3"></i>
+                        </div>
+                        <div>
+                            <h3 class="fw-bold mb-0">จังหวะเข้าทำ: ระบบ Turtle</h3>
+                            <p class="text-muted mb-0">Trigger & Execution System</p>
+                        </div>
+                    </div>
+                    
+                    <p class="lead text-dark mb-4"><strong>Turtle Scanner</strong> ควรใช้ตอนไหน? นี่คือคำถามสำคัญสำหรับมืออาชีพ</p>
+                    
+                    <div class="space-y-4">
+                        <div class="d-flex gap-4 p-4 rounded-4 hover-bg-light transition">
+                            <div class="text-primary fs-3"><i class="fas fa-clock"></i></div>
+                            <div>
+                                <h5 class="fw-bold">1. ใช้ตอนตลาดเปิด (Real-time Trigger)</h5>
+                                <p class="text-muted mb-0 small">ใช้ดูระหว่างวันเพื่อเช็คว่าหุ้นเป้าหมาย <strong>"เริ่มระเบิดตัวหรือยัง"</strong> เมื่อขึ้นสถานะ <strong>Just Broke Today</strong> คือเวลาเปิดออเดอร์</p>
+                            </div>
+                        </div>
+                        <div class="d-flex gap-4 p-4 rounded-4 hover-bg-light transition">
+                            <div class="text-success fs-3"><i class="fas fa-check-double"></i></div>
+                            <div>
+                                <h5 class="fw-bold">2. ใช้ตอนต้องการความชัวร์ (Confirmation)</h5>
+                                <p class="text-muted mb-0 small">รอจนกว่าจะติดหน้า <strong>Turtle S1 (20-Day Breakout)</strong> เพื่อยืนยันว่าเป็นแนวโน้มขาขึ้นที่พิสูจน์แล้ว</p>
+                            </div>
+                        </div>
+                        <div class="d-flex gap-4 p-4 rounded-4 hover-bg-light transition">
+                            <div class="text-info fs-3"><i class="fas fa-layer-group"></i></div>
+                            <div>
+                                <h5 class="fw-bold">3. ใช้สำหรับการซื้อเพิ่ม (Pyramiding)</h5>
+                                <p class="text-muted mb-0 small">ใช้ดูว่าหุ้นในพอร์ตยังทำ New High อยู่ไหม ถ้ายังติดสแกนต่อเนื่อง สามารถ "เพิ่มไม้" ได้ตามระบบ</p>
+                            </div>
+                        </div>
+                        <div class="d-flex gap-4 p-4 rounded-4 hover-bg-light transition">
+                            <div class="text-danger fs-3"><i class="fas fa-horse-head"></i></div>
+                            <div>
+                                <h5 class="fw-bold">4. ใช้หาหุ้น "ม้าแรง" (Momentum Leaders)</h5>
+                                <p class="text-muted mb-0 small">หุ้นกลุ่มแรกๆ ที่ติดสแกน Turtle S2 (55-Day High) ในวันที่ตลาดเขียว มักจะเป็นหุ้นกลุ่มผู้นำตลาดของรอบนั้นครับ</p>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-                <h2 class="h3 fw-bold mb-0">Stage 3: The Validation</h2>
             </div>
-            <h5 class="text-indigo-600 fw-bold mb-3 small text-uppercase italic">The Core AI Analysis (ยืนยันผล)</h5>
-            <p class="text-slate-600 mb-4">การใช้พละกำลังของ AI วิเคราะห์รอบด้านแบบ 360 องศา เพื่ออุดจุดบอดของอารมณ์มนุษย์</p>
-            <div class="bg-indigo-50 p-3 rounded-4 mb-3">
-                <p class="small text-indigo-900 mb-0"><strong><i class="fas fa-star text-warning"></i> AI Action:</strong> ใช้โมเดลพื้นฐาน (WACC/ROE) ผสมกับสถิติย้อนหลัง (Backtest) สรุปความคุ้มค่าของการเข้าซื้อในวันนี้</p>
-            </div>
-            <ul class="list-unstyled space-y-3">
-                <li class="d-flex gap-2">
-                    <i class="fas fa-check-circle text-primary mt-1"></i>
-                    <span>กดปุ่ม <strong>"The Core" (สีม่วง)</strong> เพื่อรันทีมวิเคราะห์ 3 Agent</span>
-                </li>
-            </ul>
         </div>
-    </div>
-    <div class="col-lg-6 text-center">
-        <div class="rounded-4 p-4 p-md-5 bg-gradient-premium">
-             <div class="p-5 bg-white bg-opacity-10 rounded-circle d-inline-block animate-pulse">
-                <i class="fas fa-brain text-white" style="font-size: 10rem;"></i>
-             </div>
-        </div>
-    </div>
-</div>
+        <div class="col-lg-5">
+            <div class="card border-0 shadow-lg rounded-5 bg-gradient-primary text-white h-100 overflow-hidden position-relative">
+                <div class="card-body p-5 z-10 position-relative">
+                    <h3 class="fw-bold mb-4">สรุปการใช้งานแบบเปรียบเทียบ</h3>
+                    <div class="comparison-item mb-5">
+                        <div class="d-flex align-items-center mb-3">
+                            <div class="icon-box-white me-3"><i class="fas fa-pen-nib"></i></div>
+                            <h4 class="fw-bold mb-0">Cup & Handle</h4>
+                        </div>
+                        <p class="fs-5 mb-0 opacity-90">ใช้ตอน <strong>"ทำการบ้าน"</strong><br><span class="small opacity-75">(คัดหุ้นเข้า List เตรียมตัว)</span></p>
+                    </div>
+                    
+                    <div class="mb-5 text-center">
+                        <i class="fas fa-chevron-down fs-1 opacity-50 animate-bounce"></i>
+                    </div>
 
-<!-- Stage 4: Strategic Execution -->
-<div class="row g-4 mb-5 align-items-center flex-lg-row-reverse animate-in">
-    <div class="col-lg-1 d-none d-lg-block text-center">
-        <div class="step-number text-slate-100 fw-bold" style="font-size: 8rem; opacity: 0.1; line-height: 1;">04</div>
-    </div>
-    <div class="col-lg-5">
-        <div class="card-premium p-4 p-md-5 border-start border-4 border-dark">
-            <div class="d-flex align-items-center gap-3 mb-4">
-                <div class="step-icon bg-dark text-white rounded-circle d-flex align-items-center justify-content-center" style="width: 50px; height: 50px;">
-                    <i class="fas fa-flag-checkered fs-4"></i>
+                    <div class="comparison-item">
+                        <div class="d-flex align-items-center mb-3">
+                            <div class="icon-box-white me-3 text-primary"><i class="fas fa-mouse-pointer"></i></div>
+                            <h4 class="fw-bold mb-0">Turtle Scanner</h4>
+                        </div>
+                        <p class="fs-5 mb-0 opacity-90">ใช้ตอน <strong>"จะกดซื้อ"</strong><br><span class="small opacity-75">(ดูจังหวะกระชากตัวออกจาก List)</span></p>
+                    </div>
                 </div>
-                <h2 class="h3 fw-bold mb-0">Stage 4: The Execution</h2>
+                <!-- Abstract Background Circle -->
+                <div class="position-absolute" style="width: 300px; height: 300px; background: rgba(255,255,255,0.1); border-radius: 50%; right: -100px; bottom: -100px;"></div>
             </div>
-            <h5 class="text-slate-600 fw-bold mb-3 small text-uppercase italic">Strategic Trade Management (การบริหารจัดการ)</h5>
-            <p class="text-slate-600 mb-4">เมื่อ AI ฟันธงแล้ว เข้าสู่แผนการเทรดจริงด้วยระบบ Turtle Trading ในหน้ากราฟ</p>
-            <ul class="list-unstyled space-y-3">
-                <li class="d-flex gap-2">
-                    <i class="fas fa-check-circle text-dark mt-1"></i>
-                    <span><strong>หน้าเทรด:</strong> ดูเส้น Donchian (S1/S2) เพื่อหาจุดเข้าและคุม Trailing Stop</span>
-                </li>
-                <li class="d-flex gap-2">
-                    <i class="fas fa-check-circle text-dark mt-1"></i>
-                    <span><strong>การคุมเสี่ยง:</strong> ใช้ระบบ RSI (80+) เตือนเมื่อหุ้น Overbought เพื่อเตรียมตัว Exit</span>
-                </li>
-            </ul>
         </div>
     </div>
-    <div class="col-lg-6 text-center">
-        <div class="rounded-4 p-4 p-md-5" style="background: rgba(15, 23, 42, 0.03); border: 2px dashed rgba(15, 23, 42, 0.1);">
-             <i class="fas fa-chart-line text-dark" style="font-size: 15rem; opacity: 0.2;"></i>
-        </div>
-    </div>
-</div>
 
-<div class="row mt-5 mb-5 pb-5">
-    <div class="col-12">
-        <div class="card bg-dark text-white p-5 rounded-5 border-0 shadow-2xl overflow-hidden position-relative">
-            <div class="position-absolute opacity-10" style="right: -50px; top: -50px; font-size: 20rem;">
-                <i class="fas fa-quote-right"></i>
-            </div>
-            <div class="position-relative z-10">
-                <h2 class="fw-bold mb-4"><i class="fas fa-shield-alt text-indigo-400 me-2"></i>Antigravity's Promise</h2>
-                <p class="lead mb-0 text-white-50" style="line-height: 1.8;">
-                    "ระบบที่เราสร้างขึ้นไม่ได้มีไว้เพื่อหาที่จุดซื้อที่กำไรมากที่สุดเพียงอย่างเดียว แต่มีไว้เพื่อให้คุณ **เทรดได้อย่างยั่งยืน** 
-                    ด้วยการใช้สถิติและ AI เป็นเกราะป้องกันความผิดพลาด การทำตามขั้นตอนทั้ง 4 นี้ คือความแตกต่างระหว่างการเป็นนักพนันและการเป็นยอดนักลงทุนครับ"
-                </p>
+    <!-- Case Study: WHA -->
+    <div class="row mb-5">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm rounded-5 bg-white overflow-hidden">
+                <div class="row g-0 align-items-center">
+                    <div class="col-md-4 bg-light p-5 text-center">
+                        <div class="display-1 fw-bold text-primary mb-2">WHA</div>
+                        <div class="badge bg-primary-soft text-primary px-3 py-2 rounded-pill fs-6">Case Study</div>
+                    </div>
+                    <div class="col-md-8 p-5">
+                        <h3 class="fw-bold mb-4">กรณีศึกษาจริง: WHA</h3>
+                        <p class="text-muted">หากคุณเจอ WHA ในหน้า <strong>Cup & Handle</strong> พร้อมสถานะ <strong>Ready</strong> หมายความว่าหุ้นตัวนี้ "สะสมกำลังเสร็จแล้ว"</p>
+                        <ul class="list-unstyled space-y-2 mb-4">
+                            <li><i class="fas fa-arrow-right text-primary me-2"></i> <strong>แอคชั่น:</strong> นำไปเช็คใน Precision (RS 94) -> ผ่าน!</li>
+                            <li><i class="fas fa-arrow-right text-primary me-2"></i> <strong>แอคชั่น:</strong> นำไปเช็คใน SEPA (Stage 2) -> ผ่าน!</li>
+                            <li><i class="fas fa-arrow-right text-primary me-2"></i> <strong>จุดจบงาน:</strong> ตั้ง Alert ที่ 4.60 เมื่อติดหน้า <strong>Turtle</strong> คือจังหวะ <strong>"เข้าทำ"</strong> ครับ</li>
+                        </ul>
+                        <div class="bg-primary text-white p-3 rounded-4 d-inline-block">
+                            <i class="fas fa-lightbulb me-2"></i> นี่คือวิธีการใช้งานระบบที่ทรงพลังที่สุด
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
 </div>
 
 <style>
-    .animate-in {
-        animation: fadeInUp 0.8s ease-out forwards;
-        opacity: 0;
+    .animate-in { animation: fadeInUp 0.8s ease-out forwards; }
+    @keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+    
+    .bg-gradient-primary { background: linear-gradient(135deg, #4f46e5 0%, #3730a3 100%); }
+    .bg-primary-soft { background-color: #e0e7ff; }
+    .bg-success-soft { background-color: #dcfce7; }
+    .bg-purple-soft { background-color: #f3e8ff; }
+    
+    .text-purple { color: #8b5cf6; }
+    
+    .step-badge {
+        display: inline-block;
+        padding: 0.5rem 1.25rem;
+        border-radius: 50px;
+        font-weight: 800;
+        text-uppercase: uppercase;
+        font-size: 0.75rem;
+        letter-spacing: 1px;
     }
-    @keyframes fadeInUp {
-        from { opacity: 0; transform: translateY(30px); }
-        to { opacity: 1; transform: translateY(0); }
+    
+    .step-card {
+        transition: background-color 0.3s ease;
     }
-    .bg-gradient-premium {
-        background: linear-gradient(135deg, #4338ca, #6366f1, #a855f7);
+    .step-card:hover {
+        background-color: #fbfbfe;
     }
-    .space-y-3 > * + * { margin-top: 0.75rem; }
-    .card-premium {
+    
+    .icon-box-white {
+        width: 45px;
+        height: 45px;
         background: white;
-        border-radius: 20px;
-        box-shadow: 0 10px 30px rgba(0,0,0,0.04);
-        transition: transform 0.3s ease;
+        color: #4f46e5;
+        border-radius: 12px;
+        display: flex;
+        align-items-center;
+        justify-content: center;
+        font-size: 1.25rem;
     }
-    .card-premium:hover {
-        transform: translateY(-5px);
+    
+    .space-y-4 > * + * { margin-top: 1rem; }
+    .space-y-2 > * + * { margin-top: 0.5rem; }
+    
+    .hover-bg-light:hover { background-color: #f8fafc; }
+    .transition { transition: all 0.2s ease; }
+    
+    .animate-bounce {
+        animation: bounce 2s infinite;
+    }
+    @keyframes bounce {
+        0%, 20%, 50%, 80%, 100% {transform: translateY(0);}
+        40% {transform: translateY(-10px);}
+        60% {transform: translateY(-5px);}
     }
 </style>
 {% endblock %}
