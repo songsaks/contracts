@@ -9930,26 +9930,31 @@ def investment_dashboard_refresh(request):
             score  = 0
             badges = []
 
-            # C&H = Radar หลัก (+40)
+            # Step 1: The Radar (Cup & Handle) (+40)
             if ch:
                 score += 40
-                badges.append('C&H')
-            # Precision Momentum (+25, +5 bonus ถ้า >= 80)
+                if ch.stage in ['ready', 'handle']: score += 10 # Bonus for late-stage setup
+                badges.append('RADAR')
+
+            # Step 2: The Power (Precision Momentum) (+30)
             if prec:
-                score += 25 + (5 if prec.technical_score >= 80 else 0)
-                badges.append('PREC')
-            # SEPA/Stage2 quality (+20)
-            is_sepa = bool(sepa) if market == 'US' else bool(prec and prec.stage2)
-            if is_sepa:
+                score += 30
+                if prec.rs_rating >= 80: score += 15 # The Power bonus (RS > 80)
+                badges.append('POWER')
+
+            # Step 3: The Quality (SEPA / Stage 2) (+20)
+            is_quality = bool(sepa) if market == 'US' else bool(prec and prec.stage2)
+            if is_quality:
                 score += 20
-                badges.append('SEPA')
-            # Turtle Breakout (+20) / Near (+10)
+                badges.append('QUALITY')
+
+            # Step 4: The Trigger (Turtle Breakout) (+20)
             if turtle:
                 if turtle.sys1_breakout or turtle.sys2_breakout:
                     score += 20
-                    badges.append('TURTLE')
+                    badges.append('TRIGGER')
                 elif turtle.sys1_near or turtle.sys2_near:
-                    score += 10
+                    score += 5
                     badges.append('NEAR')
 
             if score < 25: continue
