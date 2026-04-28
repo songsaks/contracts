@@ -88,6 +88,36 @@
             </div>
         </div>
     </div>
+    
+    <!-- Charts Section (Visual Insights) -->
+    <div class="row g-4 mb-4 no-print">
+        <div class="col-12 col-lg-8">
+            <div class="card border-0 shadow-sm rounded-4 h-100 overflow-hidden">
+                <div class="card-header bg-white border-0 pt-4 px-4 d-flex align-items-center justify-content-between">
+                    <h5 class="fw-bold mb-0 text-dark"><i class="fas fa-chart-bar text-primary me-2"></i>มูลค่ารายโครงการ (Top 20)</h5>
+                    <div class="small text-muted fw-semibold">บาท (THB)</div>
+                </div>
+                <div class="card-body p-4 pt-2">
+                    <div style="height: 320px; width: 100%;">
+                        <canvas id="valueChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-lg-4">
+            <div class="card border-0 shadow-sm rounded-4 h-100 overflow-hidden">
+                <div class="card-header bg-white border-0 pt-4 px-4 d-flex align-items-center justify-content-between">
+                    <h5 class="fw-bold mb-0 text-dark"><i class="fas fa-stopwatch text-warning me-2"></i>ระยะเวลา</h5>
+                    <div class="small text-muted fw-semibold">วัน (Days)</div>
+                </div>
+                <div class="card-body p-4 pt-2">
+                    <div style="height: 320px; width: 100%;">
+                        <canvas id="daysChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <!-- Details Section -->
     <div class="row g-4 mb-4">
@@ -160,6 +190,7 @@
 
 {% block extra_js %}
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
     function exportToExcel() {
         const url = new URL(window.location.href);
@@ -197,6 +228,76 @@
             }
         }).then((res) => { if (res && res.isConfirmed) Swal.fire('สำเร็จ!', '', 'success'); });
     }
+
+    // --- Chart.js Implementation ---
+    document.addEventListener('DOMContentLoaded', function() {
+        const chartData = JSON.parse('{{ chart_data_json|safe }}');
+        
+        if (!chartData || !chartData.labels || chartData.labels.length === 0) return;
+
+        // 1. Project Value Chart
+        const ctxValue = document.getElementById('valueChart').getContext('2d');
+        new Chart(ctxValue, {
+            type: 'bar',
+            data: {
+                labels: chartData.labels,
+                datasets: [{
+                    label: 'มูลค่า (บาท)',
+                    data: chartData.values,
+                    backgroundColor: 'rgba(79, 70, 229, 0.7)',
+                    borderColor: '#4f46e5',
+                    borderWidth: 2,
+                    borderRadius: 8,
+                    hoverBackgroundColor: '#4f46e5'
+                }]
+            },
+            options: {
+                indexAxis: 'y',
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return ' ฿ ' + context.raw.toLocaleString();
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: { grid: { display: false }, ticks: { font: { size: 10 } } },
+                    y: { grid: { display: false }, ticks: { font: { size: 11, weight: 'bold' } } }
+                }
+            }
+        });
+
+        // 2. Duration Doughnut Chart
+        const ctxDays = document.getElementById('daysChart').getContext('2d');
+        new Chart(ctxDays, {
+            type: 'bar',
+            data: {
+                labels: chartData.labels,
+                datasets: [{
+                    label: 'วัน',
+                    data: chartData.days,
+                    backgroundColor: chartData.days.map(d => d > 7 ? 'rgba(239, 68, 68, 0.7)' : d > 3 ? 'rgba(245, 158, 11, 0.7)' : 'rgba(16, 185, 129, 0.7)'),
+                    borderRadius: 6
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false }
+                },
+                scales: {
+                    x: { display: false },
+                    y: { grid: { borderDash: [5, 5] }, ticks: { font: { size: 10 } } }
+                }
+            }
+        });
+    });
 </script>
 
 <style>
