@@ -163,11 +163,8 @@ class Command(BaseCommand):
                         for pos in positions:
                             if pos.get('symbol') == self.BROKER_SYMBOL:
                                 pos_id = pos.get('id')
-                                current_sl = float(pos.get('stopLoss', 0))
-                                entry_price = float(pos.get('comment', 0)) # อาจจะใช้เก็บราคาเข้า
-                                
-                                # คำนวณจุด Trailing Stop (ใช้ 2.5N จากราคาปัจจุบัน)
-                                # ถ้าราคาขึ้น จุด SL ต้องเลื่อนตามขึ้นไป
+                                current_sl = float(pos.get('stopLoss', 0) or 0)
+
                                 new_sl = curr_price - (2.0 * atr)
                                 
                                 # เงื่อนไขการเลื่อน: 1. ต้องเป็นบวก 2. ต้องสูงกว่า SL เดิม (เลื่อนขึ้นเท่านั้น)
