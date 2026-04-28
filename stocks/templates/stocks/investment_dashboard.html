@@ -17,13 +17,25 @@
                     <i class="fas fa-gem text-amber-500 me-2"></i>
                     Investment Insight Dashboard
                 </h2>
-                <p class="text-muted mb-0">สรุปหุ้น Momentum Top 5 และกลยุทธ์การลงทุนรายสัปดาห์ (AI Driven)</p>
+                <p class="text-muted mb-0">สรุปหุ้น Momentum Top 10 และกลยุทธ์การลงทุนรายสัปดาห์ (AI Driven)</p>
             </div>
             
             <div class="d-flex align-items-center gap-3">
+                {% if insights_history|length > 1 %}
+                <div class="btn-group shadow-sm rounded-pill overflow-hidden border border-light-subtle">
+                    {% for hist in insights_history %}
+                    <a href="?id={{ hist.id }}" 
+                       class="btn btn-sm px-3 py-2 {% if insight.id == hist.id %}btn-indigo-active{% else %}btn-history-inactive{% endif %}">
+                        <i class="fas fa-history small opacity-50 me-1"></i>
+                        {{ hist.created_at|date:"d/m H:i" }}
+                    </a>
+                    {% endfor %}
+                </div>
+                {% endif %}
+
                 {% if insight %}
                 <span class="badge bg-white border border-light-subtle text-dark px-3 py-2 rounded-pill shadow-sm">
-                    <i class="far fa-clock me-1 text-primary"></i> อัปเดตล่าสุด: {{ insight.created_at|naturaltime }}
+                    <i class="far fa-clock me-1 text-primary"></i> อัปเดตเมื่อ: {{ insight.created_at|naturaltime }}
                 </span>
                 {% endif %}
                 
@@ -46,7 +58,7 @@
                         <i class="fas fa-robot fa-5x text-primary opacity-25"></i>
                     </div>
                     <h3 class="fw-bold mb-3">ยินดีต้อนรับสู่ Premium Insight</h3>
-                    <p class="text-muted mb-4">ระบบพร้อมวิเคราะห์หุ้น Top 5 จากการสแกนด้วยระบบ Funnel Consensus ให้คุณแล้ว</p>
+                    <p class="text-muted mb-4">ระบบพร้อมวิเคราะห์หุ้น Top 10 จากการสแกนด้วยระบบ Funnel Consensus ให้คุณแล้ว</p>
                     <button class="btn btn-primary px-5 py-3 rounded-pill fw-bold" onclick="document.getElementById('refreshForm').submit(); showLoading();">
                         Generate Insights Now
                     </button>
@@ -80,7 +92,7 @@
                     <div class="col-12">
                         <div class="card card-premium-light border-0 shadow-sm h-100">
                             <div class="card-header bg-transparent border-0 px-4 pt-4 d-flex justify-content-between align-items-center">
-                                <h5 class="fw-bold mb-0 text-dark"><i class="fas fa-chart-line text-emerald-500 me-2"></i> Top 5 SET (Thailand)</h5>
+                                <h5 class="fw-bold mb-0 text-dark"><i class="fas fa-chart-line text-emerald-500 me-2"></i> Top 10 SET (Thailand)</h5>
                                 <span class="badge bg-emerald-50 text-emerald-700 border border-emerald-100 rounded-pill px-3">Momentum Funnel</span>
                             </div>
                             <div class="card-body p-4">
@@ -115,7 +127,7 @@
                     <div class="col-12">
                         <div class="card card-premium-light border-0 shadow-sm h-100">
                             <div class="card-header bg-transparent border-0 px-4 pt-4 d-flex justify-content-between align-items-center">
-                                <h5 class="fw-bold mb-0 text-dark"><i class="fas fa-flag-usa text-indigo-500 me-2"></i> Top 5 US Markets</h5>
+                                <h5 class="fw-bold mb-0 text-dark"><i class="fas fa-flag-usa text-indigo-500 me-2"></i> Top 10 US Markets</h5>
                                 <span class="badge bg-indigo-50 text-indigo-700 border border-indigo-100 rounded-pill px-3">Growth Leader</span>
                             </div>
                             <div class="card-body p-4">
@@ -213,6 +225,24 @@
         color: white !important;
         border: none;
         transition: all 0.3s ease;
+    }
+
+    /* History Selection */
+    .btn-indigo-active {
+        background: #4f46e5 !important;
+        color: white !important;
+        font-weight: 600;
+        border: none;
+    }
+    .btn-history-inactive {
+        background: #ffffff !important;
+        color: #64748b !important;
+        font-weight: 500;
+        border: none;
+    }
+    .btn-history-inactive:hover {
+        background: #f8fafc !important;
+        color: #4f46e5 !important;
     }
 
     /* Stock Items */

@@ -9870,20 +9870,17 @@ def investment_dashboard(request):
     หน้า Dashboard หลักสำหรับนักลงทุน Premium
     แสดง Top 5 SET และ US พร้อมบทวิเคราะห์ AI แบบถาวร
     """
-    latest_insight = InvestmentDashboardInsight.objects.filter(user=request.user, is_active=True).first()
+    insight_id = request.GET.get('id')
+    insights = InvestmentDashboardInsight.objects.filter(user=request.user).order_by('-created_at')[:3]
     
-    # หากยังไม่มีข้อมูลเลย ให้พยายามสร้างครั้งแรก (ถ้ามีข้อมูลสแกนอยู่แล้ว)
-    if not latest_insight:
-        # Check if there is any data to build from
-        has_set = PrecisionScanCandidate.objects.filter(market='SET').exists()
-        has_us = PrecisionScanCandidate.objects.filter(market='US').exists()
-        if has_set or has_us:
-            # We don't auto-refresh here to avoid long load times on GET, 
-            # but we show a placeholder or prompt to refresh.
-            pass
+    if insight_id:
+        latest_insight = InvestmentDashboardInsight.objects.filter(user=request.user, id=insight_id).first()
+    else:
+        latest_insight = insights[0] if insights else None
 
     return render(request, 'stocks/investment_dashboard.html', {
         'insight': latest_insight,
+        'insights_history': insights,
     })
 
 @login_required
@@ -9903,64 +9900,50 @@ def investment_dashboard_refresh(request):
     from django.contrib import messages
     from django.shortcuts import redirect
     
-    def get_consensus_top_5(market):
-        # 1. ค้นหารอบการสแกนล่าสุดของแต่ละระบบ
-        latest_prec = PrecisionScanCandidate.objects.filter(market=market).aggregate(Max('scan_run'))['scan_run__max']
-        latest_ch = CupHandleCandidate.objects.filter(market=market).aggregate(Max('scan_run'))['scan_run__max']
+    def get_consensus_top_10(market):
+        # 1. หา scan_run ล่าสุดของแต่ละระบบ
+        latest_prec   = PrecisionScanCandidate.objects.filter(market=market).aggregate(Max('scan_run'))['scan_run__max']
+        latest_ch     = CupHandleCandidate.objects.filter(market=market).aggregate(Max('scan_run'))['scan_run__max']
         latest_turtle = TurtleScanCandidate.objects.filter(market=market).aggregate(Max('scan_run'))['scan_run__max']
-        latest_sepa = None
-        if market == 'US':
-            latest_sepa = USSepaCandidate.objects.aggregate(Max('scan_run'))['scan_run__max']
+        latest_sepa   = USSepaCandidate.objects.aggregate(Max('scan_run'))['scan_run__max'] if market == 'US' else None
 
         if not latest_prec and not latest_ch: return []
 
-        # 2. รวบรวมสัญลักษณ์ — เริ่มจาก C&H ก่อน แล้วเติมจากระบบอื่น
-        ch_symbols = set()
-        if latest_ch:
-            ch_symbols.update(CupHandleCandidate.objects.filter(market=market, scan_run=latest_ch).values_list('symbol', flat=True))
+        # 2. Batch-fetch ข้อมูลทุกระบบพร้อมกัน (4 queries เท่านั้น แทน N*4)
+        prec_map   = {c.symbol: c for c in PrecisionScanCandidate.objects.filter(market=market, scan_run=latest_prec)} if latest_prec else {}
+        ch_map     = {c.symbol: c for c in CupHandleCandidate.objects.filter(market=market, scan_run=latest_ch)} if latest_ch else {}
+        turtle_map = {c.symbol: c for c in TurtleScanCandidate.objects.filter(market=market, scan_run=latest_turtle)} if latest_turtle else {}
+        sepa_map   = {c.symbol: c for c in USSepaCandidate.objects.filter(scan_run=latest_sepa)} if latest_sepa else {}
 
-        other_symbols = set()
-        if latest_prec:
-            other_symbols.update(PrecisionScanCandidate.objects.filter(market=market, scan_run=latest_prec).values_list('symbol', flat=True))
-        if latest_turtle:
-            other_symbols.update(TurtleScanCandidate.objects.filter(market=market, scan_run=latest_turtle).values_list('symbol', flat=True))
-        if latest_sepa:
-            other_symbols.update(USSepaCandidate.objects.filter(scan_run=latest_sepa).values_list('symbol', flat=True))
+        # 3. รวม universe แล้ว sort ตัวอักษร → iteration order คงที่ทุกครั้ง
+        all_symbols = sorted(set(prec_map) | set(ch_map) | set(turtle_map) | set(sepa_map))
 
-        all_symbols = ch_symbols | other_symbols
-
-        ch_lane = []    # หุ้นที่มี C&H ยืนยัน (priority lane)
-        other_lane = [] # หุ้นที่ผ่านระบบอื่นโดยไม่มี C&H
+        ch_lane    = []
+        other_lane = []
 
         for sym in all_symbols:
-            score = 0
+            prec   = prec_map.get(sym)
+            ch     = ch_map.get(sym)
+            turtle = turtle_map.get(sym)
+            sepa   = sepa_map.get(sym)
+
+            score  = 0
             badges = []
 
-            prec = PrecisionScanCandidate.objects.filter(market=market, symbol=sym, scan_run=latest_prec).first() if latest_prec else None
-            ch = CupHandleCandidate.objects.filter(market=market, symbol=sym, scan_run=latest_ch).first() if latest_ch else None
-            turtle = TurtleScanCandidate.objects.filter(market=market, symbol=sym, scan_run=latest_turtle).first() if latest_turtle else None
-            sepa = None
-            if market == 'US' and latest_sepa:
-                sepa = USSepaCandidate.objects.filter(symbol=sym, scan_run=latest_sepa).first()
-
-            # --- Scoring: C&H เป็น Radar หลัก ได้คะแนนสูงสุด ---
+            # C&H = Radar หลัก (+40)
             if ch:
-                score += 40  # C&H เป็น gate หลัก → weighted สูง
+                score += 40
                 badges.append('C&H')
+            # Precision Momentum (+25, +5 bonus ถ้า >= 80)
             if prec:
-                score += 25
-                if prec.technical_score >= 80: score += 5
+                score += 25 + (5 if prec.technical_score >= 80 else 0)
                 badges.append('PREC')
-
-            is_sepa = False
-            if market == 'US' and sepa:
-                is_sepa = True
-            elif market == 'SET' and prec and prec.stage2:
-                is_sepa = True
+            # SEPA/Stage2 quality (+20)
+            is_sepa = bool(sepa) if market == 'US' else bool(prec and prec.stage2)
             if is_sepa:
                 score += 20
                 badges.append('SEPA')
-
+            # Turtle Breakout (+20) / Near (+10)
             if turtle:
                 if turtle.sys1_breakout or turtle.sys2_breakout:
                     score += 20
@@ -9969,42 +9952,39 @@ def investment_dashboard_refresh(request):
                     score += 10
                     badges.append('NEAR')
 
-            # C&H lane: threshold ต่ำกว่า (C&H เพียงอย่างเดียวก็เข้าได้)
-            # Other lane: ต้องผ่านอย่างน้อย 2 ระบบ (score >= 45)
             if score < 25: continue
 
-            display_price = prec.price if prec else (ch.price if ch else (turtle.price if turtle else 0))
-            display_sector = prec.sector if prec else (ch.sector if ch else "Unknown")
-
             entry = {
-                'symbol': sym,
-                'price': float(display_price),
-                'total_score': score,
-                'badges': badges,
-                'sector': display_sector,
+                'symbol':         sym,
+                'price':          float((prec or ch or turtle).price),
+                'total_score':    score,
+                'badges':         badges,
+                'sector':         (prec.sector if prec else (ch.sector if ch else (getattr(turtle, 'sector', None) or 'Unknown'))),
                 'technical_score': prec.technical_score if prec else (ch.confidence_score if ch else 0),
-                'rs_rating': prec.rs_rating if prec else (ch.rs_rating if ch else 0),
-                'cup_stage': ch.stage if ch else "None",
+                'rs_rating':      prec.rs_rating if prec else (ch.rs_rating if ch else 0),
+                'cup_stage':      ch.stage if ch else "None",
                 'turtle_breakout': "YES" if (turtle and (turtle.sys1_breakout or turtle.sys2_breakout)) else "No",
-                'vdu': prec.vdu_near_zone if prec else False,
-                'vcp': (prec.vcp_setup if prec else False) or (ch.handle_vol_dry if ch else False),
-                'is_explosive': prec.is_explosive if prec else False,
+                'vdu':  prec.vdu_near_zone if prec else False,
+                'vcp':  bool((prec and prec.vcp_setup) or (ch and ch.handle_vol_dry)),
+                'is_explosive': bool(prec and prec.is_explosive),
             }
 
             if ch:
                 ch_lane.append(entry)
-            elif score >= 45:  # หุ้นที่ไม่มี C&H ต้องมี multi-system confirmation
+            elif score >= 45:
                 other_lane.append(entry)
 
-        ch_lane.sort(key=lambda x: (x['total_score'], x['technical_score']), reverse=True)
-        other_lane.sort(key=lambda x: (x['total_score'], x['technical_score']), reverse=True)
+        # 4. Sort deterministic: score ↓, technical_score ↓, rs_rating ↓, symbol ↑
+        def sort_key(x):
+            return (-x['total_score'], -x['technical_score'], -x['rs_rating'], x['symbol'])
 
-        # C&H stocks เติมก่อนเสมอ จากนั้นเติม non-C&H จนครบ 5
-        combined = ch_lane + other_lane
-        return combined[:5]
+        ch_lane.sort(key=sort_key)
+        other_lane.sort(key=sort_key)
 
-    set_top = get_consensus_top_5('SET')
-    us_top = get_consensus_top_5('US')
+        return (ch_lane + other_lane)[:10]
+
+    set_top = get_consensus_top_10('SET')
+    us_top = get_consensus_top_10('US')
     
     if not set_top and not us_top:
         messages.warning(request, "ไม่พบข้อมูลสแกนที่สอดคล้องกับ Funnel ในขณะนี้ กรุณารัน Scanner ให้ครบถ้วน")
@@ -10017,7 +9997,7 @@ def investment_dashboard_refresh(request):
 คุณคือ Senior Quantitative Strategist วิเคราะห์หุ้นด้วยระบบ Funnel หลายระบบ
 กฎการวิเคราะห์: Cup & Handle (Radar) -> Precision (Power) -> SEPA (Quality) -> Turtle (Trigger)
 
-ข้อมูลหุ้นที่ผ่านการคัดกรอง Confluence สูงสุด:
+ข้อมูลหุ้น TOP 10 ที่ผ่านการคัดกรอง Confluence สูงสุด:
 [SET]: {set_summary}
 [US]: {us_summary}
 
@@ -10061,10 +10041,16 @@ def investment_dashboard_refresh(request):
     except Exception as e:
         ai_strategy = f"เกิดข้อผิดพลาด: {str(e)}"
         
-    InvestmentDashboardInsight.objects.filter(user=request.user).update(is_active=False)
+    # เก็บเฉพาะ 3 ครั้งล่าสุดเพื่อประหยัดพื้นที่
     InvestmentDashboardInsight.objects.create(
         user=request.user, set_top_stocks=set_top, us_top_stocks=us_top,
         ai_strategy=ai_strategy, market_outlook=market_outlook, is_active=True
     )
+    
+    # ลบตัวที่เก่ากว่า 3 อันดับแรก
+    all_ids = list(InvestmentDashboardInsight.objects.filter(user=request.user).order_by('-created_at').values_list('id', flat=True))
+    if len(all_ids) > 3:
+        InvestmentDashboardInsight.objects.filter(id__in=all_ids[3:]).delete()
+
     messages.success(request, "วิเคราะห์ข้อมูลแบบ Multi-System Funnel เรียบร้อยแล้ว")
     return redirect('stocks:investment_dashboard')
