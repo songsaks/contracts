@@ -1707,8 +1707,9 @@ def _test_cup_from_pivot(df, pivot_high_abs, pivot_high_val, dates, n):
     if len(recovery_segment) < 3:
         return None
 
-    # recovery threshold 78% — หุ้นต้องฟื้นมาได้ระดับนี้จึงถือว่า cup ใกล้สมบูรณ์
-    recovery_threshold = pivot_high_val * 0.78
+    # recovery threshold = ฟื้นมาได้ 85% ของระยะจาก cup_low กลับสู่ pivot_high
+    # ใช้ relative กับ cup depth แทน absolute 78% เพื่อรองรับทั้ง cup ตื้นและลึก
+    recovery_threshold = cup_low_val + (pivot_high_val - cup_low_val) * 0.85
     recovered_mask     = recovery_segment['Close'] >= recovery_threshold
 
     # ─── FORMING STAGE ───────────────────────────────────────────────────
