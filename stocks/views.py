@@ -8305,15 +8305,17 @@ def cup_handle_scanner(request):
                         chunk_bk = [f"{s}.BK" for s in chunk]
                         try:
                             tq = _TQ(chunk_bk, timeout=60)
-                            prices = tq.price
+                            # summary_detail has 'averageVolume' (3-month) which is more stable for screening
+                            details = tq.summary_detail
                             for symbol in chunk:
                                 s_bk = f"{symbol}.BK"
-                                if isinstance(prices, dict) and s_bk in prices:
-                                    p_data = prices[s_bk]
-                                    if isinstance(p_data, dict) and 'regularMarketPrice' in p_data:
-                                        vol_3m = p_data.get('averageDailyVolume3Month', 0)
-                                        price = p_data.get('regularMarketPrice', 0)
-                                        if (vol_3m * price) >= 1_000_000:
+                                if isinstance(details, dict) and s_bk in details:
+                                    d_data = details[s_bk]
+                                    if isinstance(d_data, dict):
+                                        vol_avg = d_data.get('averageVolume', 0) or 0
+                                        price   = d_data.get('previousClose', 0) or 0
+                                        # Liquidity filter: Value > 1,000,000 THB/day
+                                        if (vol_avg * price) >= 1_000_000:
                                             candidates.append(symbol)
                         except Exception:
                             candidates.extend(chunk)
