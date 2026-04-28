@@ -267,6 +267,138 @@
       </div>
     </div>
 
+    <!-- ═══ D2: METRIC EXPLANATION BOX ══════════════= -->
+    <div class="px-4 pb-3">
+      <div class="rounded-3 p-3" style="background:#f8fafc;border:1px solid #e2e8f0;font-size:0.78rem;color:#475569;line-height:1.7;">
+
+        <!-- Summary action line -->
+        <div class="fw-bold mb-2" style="font-size:0.82rem;color:
+          {% if item.sl_hit or item.s2_hit %}#dc2626
+          {% elif item.sell_score >= 50 %}#dc2626
+          {% elif item.sell_score >= 30 or item.tp_hit %}#d97706
+          {% else %}#16a34a{% endif %};">
+          {% if item.sl_hit %}
+            ⚠️ ราคาหลุด Stop Loss — ควรขายออกทันที
+          {% elif item.s2_hit %}
+            🚨 ราคาหลุด Turtle S2 (20 วัน) — สัญญาณออกตาม Turtle System
+          {% elif item.s1_hit %}
+            ⚡ ราคาหลุด Turtle S1 (10 วัน) — เริ่มระวัง พิจารณาลดพอร์ต
+          {% elif item.tp_hit %}
+            🎯 ราคาถึงเป้าหมายกำไรแล้ว — พิจารณาขายบางส่วนหรือทั้งหมด
+          {% elif item.sell_score >= 50 %}
+            🔴 Sell Score สูง — สัญญาณขายแรง ควรพิจารณาออก
+          {% elif item.sell_score >= 30 %}
+            🟡 Sell Score ปานกลาง — เริ่มระวัง ติดตามใกล้ชิด
+          {% else %}
+            🟢 ยังถือต่อได้ — ไม่มีสัญญาณออกที่ชัดเจน
+          {% endif %}
+        </div>
+
+        <div class="d-flex flex-wrap gap-x-4" style="column-gap:2rem;">
+
+          <!-- SL -->
+          {% if item.sl_price %}
+          <div>
+            <span class="fw-semibold" style="color:#dc2626;">Stop Loss {% if item.obj.market != 'SET' %}${% else %}฿{% endif %}{{ item.sl_price|floatformat:2 }}</span>
+            — จุดตัดขาดทุน
+            {% if item.sl_hit %}<span style="color:#dc2626;font-weight:700;"> ⚠ หลุดแล้ว! ต้องขายทันที</span>
+            {% else %} ราคายังอยู่เหนือจุดนี้ ยังปลอดภัย{% endif %}
+          </div>
+          {% endif %}
+
+          <!-- TP -->
+          {% if item.tp_price %}
+          <div>
+            <span class="fw-semibold" style="color:#2563eb;">Take Profit {% if item.obj.market != 'SET' %}${% else %}฿{% endif %}{{ item.tp_price|floatformat:2 }}</span>
+            — เป้าหมายกำไร
+            {% if item.tp_hit %}<span style="color:#2563eb;font-weight:700;"> 🎯 ถึงแล้ว! พิจารณาขาย</span>
+            {% else %}ยังไม่ถึง{% endif %}
+          </div>
+          {% endif %}
+
+          <!-- Turtle S1 -->
+          {% if item.turtle_s1 %}
+          <div>
+            <span class="fw-semibold">Turtle S1 {% if item.obj.market != 'SET' %}${% else %}฿{% endif %}{{ item.turtle_s1|floatformat:2 }}</span>
+            — ราคาต่ำสุด 10 วัน
+            {% if item.s1_hit %}<span style="color:#dc2626;font-weight:700;"> หลุดแล้ว — สัญญาณออกเบื้องต้น</span>
+            {% else %}ถ้าราคาหลุดต่ำกว่านี้ให้เริ่มระวัง{% endif %}
+          </div>
+          {% endif %}
+
+          <!-- Turtle S2 -->
+          {% if item.turtle_s2 %}
+          <div>
+            <span class="fw-semibold">Turtle S2 {% if item.obj.market != 'SET' %}${% else %}฿{% endif %}{{ item.turtle_s2|floatformat:2 }}</span>
+            — ราคาต่ำสุด 20 วัน
+            {% if item.s2_hit %}<span style="color:#dc2626;font-weight:700;"> หลุดแล้ว — ต้องออกตาม Turtle System</span>
+            {% else %}เส้นป้องกันหลัก ถ้าหลุดให้ขายทันที{% endif %}
+          </div>
+          {% endif %}
+
+          <!-- RSI -->
+          {% if item.rsi %}
+          <div>
+            <span class="fw-semibold">RSI {{ item.rsi|floatformat:0 }}</span>
+            —
+            {% if item.rsi > 75 %}ร้อนแรงมาก (Overbought) เสี่ยงพักตัว ระวังการถือต่อ
+            {% elif item.rsi > 65 %}เริ่ม Overbought ติดตามใกล้ชิด
+            {% elif item.rsi >= 50 %}แข็งแรงดี อยู่ในโซนขาขึ้น
+            {% elif item.rsi >= 40 %}กลางๆ ยังไม่ชัดเจน
+            {% else %}อ่อนแอ (Oversold) ระวังแนวโน้มขาลง{% endif %}
+          </div>
+          {% endif %}
+
+          <!-- ADX -->
+          {% if item.adx %}
+          <div>
+            <span class="fw-semibold">ADX {{ item.adx|floatformat:0 }}</span>
+            —
+            {% if item.adx >= 25 %}เทรนด์แข็งแกร่ง ราคามีทิศทางชัดเจน
+            {% elif item.adx >= 18 %}เทรนด์ปานกลาง
+            {% else %}เทรนด์อ่อน ราคาอาจเดินหน้า-ถอยหลังไม่มีทิศทาง{% endif %}
+          </div>
+          {% endif %}
+
+          <!-- REL 3M -->
+          {% if item.rel_3m %}
+          <div>
+            <span class="fw-semibold">REL 3M {% if item.rel_3m > 0 %}+{% endif %}{{ item.rel_3m|floatformat:1 }}%</span>
+            —
+            {% if item.rel_3m >= 10 %}แข็งแกร่งกว่าตลาดมากในช่วง 3 เดือน (Leader)
+            {% elif item.rel_3m >= 3 %}ดีกว่าตลาด ถือต่อได้
+            {% elif item.rel_3m >= 0 %}พอๆ กับตลาด
+            {% else %}แพ้ตลาด ควรพิจารณาเปลี่ยนหุ้น{% endif %}
+          </div>
+          {% endif %}
+
+          <!-- CMF -->
+          {% if item.cmf is not None %}
+          <div>
+            <span class="fw-semibold">CMF {{ item.cmf|floatformat:2 }}</span>
+            —
+            {% if item.cmf >= 0.1 %}เงินไหลเข้าแข็งแกร่ง นักลงทุนรายใหญ่ยังซื้ออยู่
+            {% elif item.cmf >= 0.05 %}เงินไหลเข้าเล็กน้อย ยังบวก
+            {% elif item.cmf >= -0.05 %}เงินไหลเข้า-ออกสมดุล
+            {% else %}เงินไหลออก นักลงทุนรายใหญ่กำลังขาย{% endif %}
+          </div>
+          {% endif %}
+
+          <!-- Sell Score -->
+          <div>
+            <span class="fw-semibold" style="color:{% if item.sell_score >= 50 %}#dc2626{% elif item.sell_score >= 30 %}#d97706{% else %}#16a34a{% endif %};">
+              Sell Score {{ item.sell_score }}
+            </span>
+            —
+            {% if item.sell_score >= 50 %}คะแนนขายสูงมาก สัญญาณหลายตัวบอกให้ออก
+            {% elif item.sell_score >= 30 %}คะแนนขายปานกลาง เริ่มมีสัญญาณเตือน
+            {% else %}คะแนนขายต่ำ ยังไม่มีเหตุผลพอที่จะขาย{% endif %}
+          </div>
+
+        </div>
+      </div>
+    </div>
+
     <!-- ═══ E: TRIGGERS + ACTIONS ═══════════════════= -->
     <div class="px-4 py-2 d-flex flex-wrap align-items-center gap-2">
       <span style="font-size:0.62rem;color:#94a3b8;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;white-space:nowrap;">สัญญาณ</span>
