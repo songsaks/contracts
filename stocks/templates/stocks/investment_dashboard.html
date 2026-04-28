@@ -98,20 +98,20 @@
                             <div class="card-body p-4">
                                 <div class="stock-list">
                                     {% for stock in insight.set_top_stocks %}
-                                    <div class="stock-item-light d-flex align-items-center justify-content-between p-3 rounded-4 mb-3 {% if 'C&H' in stock.badges %}stock-ch-highlight{% endif %}">
-                                            <div class="d-flex align-items-center gap-2">
-                                                <div class="stock-rank-light {% if 'RADAR' in stock.badges %}rank-ch-light{% endif %}">{{ forloop.counter }}</div>
-                                                <div>
-                                                    <div class="fw-bold text-dark fs-5">{{ stock.symbol }}</div>
-                                                    <div class="small text-muted">{{ stock.sector }}</div>
-                                                </div>
-                                                <button class="btn btn-sm btn-watchlist-toggle ms-1" 
-                                                        onclick="toggleWatchlist(this, '{{ stock.symbol }}', '{{ stock.sector }}', 'SET', '{{ stock.badges|join:"," }}')"
-                                                        title="Add to Watchlist">
-                                                    <i class="{% if stock.symbol in watchlist_set %}fas fa-star text-warning{% else %}far fa-star text-muted{% endif %}"></i>
-                                                </button>
+                                    <div class="stock-item-light d-flex align-items-center justify-content-between p-3 rounded-4 mb-3 {% if 'RADAR' in stock.badges %}stock-ch-highlight{% endif %}">
+                                        <div class="d-flex align-items-center gap-2">
+                                            <div class="stock-rank-light {% if 'RADAR' in stock.badges %}rank-ch-light{% endif %}">{{ forloop.counter }}</div>
+                                            <div>
+                                                <div class="fw-bold text-dark fs-5">{{ stock.symbol }}</div>
+                                                <div class="small text-muted">{{ stock.sector }}</div>
                                             </div>
-                                        <div class="text-end">
+                                            <button class="btn btn-sm btn-watchlist-toggle ms-1" 
+                                                    onclick="toggleWatchlist(this, '{{ stock.symbol }}', '{{ stock.sector }}', 'SET', '{{ stock.badges|join:"," }}')"
+                                                    title="Add to Watchlist">
+                                                <i class="{% if stock.symbol in watchlist_set %}fas fa-star text-warning{% else %}far fa-star text-muted{% endif %}"></i>
+                                            </button>
+                                        </div>
+                                        <div class="text-end ms-auto">
                                             <div class="fw-bold text-primary fs-5">{{ stock.total_score }}<span class="small text-muted fw-normal">/{{ stock.badges|length }} sys</span></div>
                                             <div class="small text-muted" style="font-size: 0.7rem;">FUNNEL SCORE</div>
                                         </div>
@@ -129,7 +129,7 @@
                         </div>
                     </div>
 
-                    <!-- US TOP 5 -->
+                    <!-- US TOP 10 -->
                     <div class="col-12">
                         <div class="card card-premium-light border-0 shadow-sm h-100">
                             <div class="card-header bg-transparent border-0 px-4 pt-4 d-flex justify-content-between align-items-center">
@@ -139,21 +139,20 @@
                             <div class="card-body p-4">
                                 <div class="stock-list">
                                     {% for stock in insight.us_top_stocks %}
-                                    <div class="stock-item-light d-flex align-items-center justify-content-between p-3 rounded-4 mb-3 {% if 'C&H' in stock.badges %}stock-ch-highlight{% endif %}">
-                                            <div class="d-flex align-items-center gap-2">
-                                                <div class="stock-rank-light rank-us-light {% if 'RADAR' in stock.badges %}rank-ch-light{% endif %}">{{ forloop.counter }}</div>
-                                                <div>
-                                                    <div class="fw-bold text-dark fs-5">{{ stock.symbol }}</div>
-                                                    <div class="small text-muted">{{ stock.sector }}</div>
-                                                </div>
-                                                <button class="btn btn-sm btn-watchlist-toggle ms-1" 
-                                                        onclick="toggleWatchlist(this, '{{ stock.symbol }}', '{{ stock.sector }}', 'US', '{{ stock.badges|join:"," }}')"
-                                                        title="Add to Watchlist">
-                                                    <i class="{% if stock.symbol in watchlist_set %}fas fa-star text-warning{% else %}far fa-star text-muted{% endif %}"></i>
-                                                </button>
+                                    <div class="stock-item-light d-flex align-items-center justify-content-between p-3 rounded-4 mb-3 {% if 'RADAR' in stock.badges %}stock-ch-highlight{% endif %}">
+                                        <div class="d-flex align-items-center gap-2">
+                                            <div class="stock-rank-light rank-us-light {% if 'RADAR' in stock.badges %}rank-ch-light{% endif %}">{{ forloop.counter }}</div>
+                                            <div>
+                                                <div class="fw-bold text-dark fs-5">{{ stock.symbol }}</div>
+                                                <div class="small text-muted">{{ stock.sector }}</div>
                                             </div>
+                                            <button class="btn btn-sm btn-watchlist-toggle ms-1" 
+                                                    onclick="toggleWatchlist(this, '{{ stock.symbol }}', '{{ stock.sector }}', 'US', '{{ stock.badges|join:"," }}')"
+                                                    title="Add to Watchlist">
+                                                <i class="{% if stock.symbol in watchlist_set %}fas fa-star text-warning{% else %}far fa-star text-muted{% endif %}"></i>
+                                            </button>
                                         </div>
-                                        <div class="text-end">
+                                        <div class="text-end ms-auto">
                                             <div class="fw-bold text-primary fs-5">{{ stock.total_score }}<span class="small text-muted fw-normal">/{{ stock.badges|length }} sys</span></div>
                                             <div class="small text-muted" style="font-size: 0.7rem;">FUNNEL SCORE</div>
                                         </div>
