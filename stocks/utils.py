@@ -662,7 +662,7 @@ Format in Markdown for a professional web report. Output ONLY raw markdown."""
 
     try:
         client = genai.Client(api_key=settings.GEMINI_API_KEY)
-        response = client.models.generate_content(model='gemini-3-flash-preview', contents=prompt)
+        response = client.models.generate_content(model='gemini-2.5-flash', contents=prompt)
         clean_text = response.text
         if clean_text.startswith("```markdown"):
             clean_text = clean_text[len("```markdown"):].strip()
@@ -836,7 +836,7 @@ def analyze_with_ai(symbol, data, extra_context=None, macro_signal=None):
     # ส่ง prompt ไปยัง Gemini API และทำความสะอาด Markdown ที่ได้กลับมา
     try:
         client = genai.Client(api_key=settings.GEMINI_API_KEY)
-        response = client.models.generate_content(model='gemini-3-flash-preview', contents=prompt)
+        response = client.models.generate_content(model='gemini-2.5-flash', contents=prompt)
         clean_text = response.text
         # ลบ code fence ที่ AI บางครั้งใส่มาโดยไม่จำเป็น
         if clean_text.startswith("```markdown"):

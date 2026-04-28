@@ -16,6 +16,7 @@ from .models import (
     Watchlist, AnalysisCache, AssetCategory, MarketType, Portfolio,
     MomentumCandidate, ScannableSymbol, MultiFactorCandidate, SoldStock,
     TitheRecord, ValueScanCandidate, PrecisionScanCandidate,
+    InvestmentDashboardInsight,
 )
 from .forms import AddPortfolioForm, SellStockForm, AddWatchlistForm
 from .utils import (
@@ -2335,7 +2336,7 @@ def recommendations(request):
         {data_str}
         โปรดวิเคราะห์หุ้นที่น่าเข้าซื้อที่สุดสำหรับปี 2026 ภายใต้ธีม AI และ พลังงานสะอาด เขียนรายงานภาษาไทยแบบมืออาชีพ เจาะลึกรายตัวท็อป 10"""
         try:
-            response = client.models.generate_content(model='gemini-3-flash-preview', contents=prompt)
+            response = client.models.generate_content(model='gemini-2.5-flash', contents=prompt)
             report_text = response.text
             if report_text.startswith("```markdown"): report_text = report_text[11:].strip()
             if report_text.endswith("```"): report_text = report_text[:-3].strip()
@@ -2524,7 +2525,7 @@ def us_recommendations(request):
         data_str = "\n".join([f"{s['symbol']} Price:{s['price']} Score:{s['value_score']} PEG:{s['peg']}" for s in stock_previews[:20]])
         prompt = f"คุณคือนักวิเคราะห์หุ้นอเมริกัน เน้น Maximum Returns ปี 2026 โดยใช้ Lynch และ Greenblatt สแกนหุ้น {data_str} โปรดสรุปตัวท็อปในธีม AI/Semiconductor/Energy ภาษาไทย"
         try:
-            response = client.models.generate_content(model='gemini-3-flash-preview', contents=prompt)
+            response = client.models.generate_content(model='gemini-2.5-flash', contents=prompt)
             report_text = response.text
         except: report_text = "Analysis service unavailable."
 
@@ -2731,7 +2732,7 @@ Macro risks, Earnings, การเมือง หรือสัญญาณ�
 
                 client = _genai.Client(api_key=_s.GEMINI_API_KEY)
                 resp = client.models.generate_content(
-                    model='gemini-2.0-flash',
+                    model='gemini-2.5-flash',
                     contents=prompt,
                 )
                 report_text = resp.text or '## ไม่สามารถสร้างรายงานได้'
@@ -9043,7 +9044,7 @@ def turtle_scanner_run_ajax(request):
             
             try:
                 # Use yfinance with THREADS=True for performance
-                data = _yf.download(chunk_bk, period="1y", interval="1d", progress=False, group_by='ticker', threads=True, timeout=30)
+                data = yf.download(chunk_bk, period="1y", interval="1d", progress=False, group_by='ticker', threads=True, timeout=30)
                 
                 for symbol in chunk_syms:
                     try:
@@ -9055,7 +9056,6 @@ def turtle_scanner_run_ajax(request):
                         avg_vol = float(df['Volume'].tail(20).mean())
                         
                         # Liquidity filter (SET Only)
-                        avg_vol = float(df['Volume'].tail(20).mean())
                         avg_val = (df['Close'] * df['Volume']).tail(20).mean()
                         if market == 'SET' and avg_val < 3_000_000: continue # Min 3M Value
                         
@@ -9069,31 +9069,16 @@ def turtle_scanner_run_ajax(request):
                         df['SMA150'] = df['Close'].rolling(150).mean()
                         df['SMA200'] = df['Close'].rolling(200).mean()
                         
-                        # -- ADX Calculation (v2) --
+                        # -- ADX Calculation --
                         df['H_L'] = df['High'] - df['Low']
                         df['H_PC'] = abs(df['High'] - df['Close'].shift(1))
                         df['L_PC'] = abs(df['Low'] - df['Close'].shift(1))
                         df['TR'] = df[['H_L', 'H_PC', 'L_PC']].max(axis=1)
-                        
-                        # +DI / -DI
-                        df['up_move'] = df['High'] - df['High'].shift(1)
-                        df['down_move'] = df['Low'].shift(1) - df['Low']
-                        df['plus_dm'] = _pd.Series([m if m > 0 and m > n else 0 for m, n in zip(df['up_move'], df['down_move'])], index=df.index)
-                        df['minus_dm'] = _pd.Series([n if n > 0 and n > m else 0 for m, n in zip(df['down_move'], df['up_move'])], index=df.index)
-                        
-                        df['ATR_14'] = df['TR'].rolling(14).mean() # simplified for speed
-                        df['plus_di'] = 100 * (df['plus_dm'].rolling(14).mean() / df['ATR_14'])
-                        df['minus_di'] = 100 * (df['minus_dm'].rolling(14).mean() / df['ATR_14'])
-                        df['dx'] = 100 * (abs(df['plus_di'] - df['minus_di']) / (df['plus_di'] + df['minus_di']))
-                        df['adx_val'] = df['dx'].rolling(14).mean()
                         
                         # ATR
-                        df['H_L'] = df['High'] - df['Low']
-                        df['H_PC'] = abs(df['High'] - df['Close'].shift(1))
-                        df['L_PC'] = abs(df['Low'] - df['Close'].shift(1))
-                        df['TR'] = df[['H_L', 'H_PC', 'L_PC']].max(axis=1)
                         df['ATR_20'] = df['TR'].ewm(span=20, adjust=False).mean()
 
+                        # Weinsteins Stage 2
                         last_row = df.iloc[-1]
                         current_close = float(last_row['Close'])
                         h20 = float(last_row.get('High_20', 0) or 0)
@@ -9101,16 +9086,11 @@ def turtle_scanner_run_ajax(request):
                         atr = float(last_row.get('ATR_20', 0) or 0)
                         l10 = float(last_row.get('Low_10', 0) or 0)
                         l20 = float(last_row.get('Low_20', 0) or 0)
-                        
-                        # v2 Metrics
-                        adx_curr = float(last_row.get('adx_val', 0) or 0)
                         sma150 = float(last_row.get('SMA150', 0) or 0)
                         sma200 = float(last_row.get('SMA200', 0) or 0)
-                        
-                        # Weinsteins Stage 2: Price > SMA150 AND SMA150 > SMA200 (approx)
-                        is_stage2 = current_close > sma150 and sma150 > sma200 and current_close > sma200
+                        is_stage2 = current_close > sma150 and sma150 > sma200
 
-                        # --- Just Broke: breakout in last 5 trading days ---
+                        # --- Just Broke ---
                         window = df.tail(5)
                         sys1_days_ago = None
                         sys2_days_ago = None
@@ -9125,8 +9105,6 @@ def turtle_scanner_run_ajax(request):
 
                         sys1 = sys1_days_ago is not None
                         sys2 = sys2_days_ago is not None
-
-                        # --- Near Break: within 3% of channel high ---
                         sys1_near = (not sys1) and h20 > 0 and current_close >= h20 * 0.97
                         sys2_near = (not sys2) and h55 > 0 and current_close >= h55 * 0.97
 
@@ -9134,17 +9112,14 @@ def turtle_scanner_run_ajax(request):
                         pct_to_55d = round((current_close - h55) / h55 * 100, 2) if h55 > 0 else None
 
                         if sys1 or sys2 or sys1_near or sys2_near:
-                            # Sync with Precision Score if available
                             p_score = None
                             rs_rat = None
-                            from .models import PrecisionScanCandidate
                             p_match = PrecisionScanCandidate.objects.filter(user=user, symbol=symbol, market=market).order_by('-scan_run').first()
                             if p_match:
                                 p_score = p_match.technical_score
                                 rs_rat = p_match.rs_rating
                             
-                            # Elite Setup logic: Stage 2 + Strong ADX + Good RS
-                            is_elite = is_stage2 and adx_curr >= 20 and (rs_rat is None or rs_rat >= 70)
+                            is_elite = is_stage2 and (rs_rat is None or rs_rat >= 70)
 
                             results.append(TurtleScanCandidate(
                                 user=user, scan_run=scan_time, symbol=symbol, market=market,
@@ -9156,7 +9131,8 @@ def turtle_scanner_run_ajax(request):
                                 sys1_near=sys1_near, sys2_near=sys2_near,
                                 pct_to_20d=pct_to_20d, pct_to_55d=pct_to_55d,
                                 avg_vol_20d=avg_vol, atr_20d=round(atr, 4),
-                                adx=round(adx_curr, 2), stage2=is_stage2,
+                                adx=0.0, # Simplified
+                                stage2=is_stage2,
                                 technical_score=p_score, rs_rating=rs_rat,
                                 is_elite=is_elite
                             ))
@@ -9886,3 +9862,191 @@ def stop_gold_bot_ajax(request):
         if os.path.exists(PID_FILE): os.remove(PID_FILE)
         return JsonResponse({'success': False, 'error': str(e)})
 
+# ====== Investment Dashboard (Premium Insights) ======
+
+@login_required
+def investment_dashboard(request):
+    """
+    หน้า Dashboard หลักสำหรับนักลงทุน Premium
+    แสดง Top 5 SET และ US พร้อมบทวิเคราะห์ AI แบบถาวร
+    """
+    latest_insight = InvestmentDashboardInsight.objects.filter(user=request.user, is_active=True).first()
+    
+    # หากยังไม่มีข้อมูลเลย ให้พยายามสร้างครั้งแรก (ถ้ามีข้อมูลสแกนอยู่แล้ว)
+    if not latest_insight:
+        # Check if there is any data to build from
+        has_set = PrecisionScanCandidate.objects.filter(market='SET').exists()
+        has_us = PrecisionScanCandidate.objects.filter(market='US').exists()
+        if has_set or has_us:
+            # We don't auto-refresh here to avoid long load times on GET, 
+            # but we show a placeholder or prompt to refresh.
+            pass
+
+    return render(request, 'stocks/investment_dashboard.html', {
+        'insight': latest_insight,
+    })
+
+@login_required
+@require_POST
+def investment_dashboard_refresh(request):
+    """
+    ระบบคัดกรองหุ้นแบบ Multi-Scanner Funnel:
+    Cup & Handle (Setup) -> Precision Momentum (Power) -> Minervini SEPA (Quality) -> Turtle Breakout (Trigger)
+    """
+    import json
+    from django.db.models import Max
+    from .models import (
+        CupHandleCandidate, PrecisionScanCandidate, USSepaCandidate, TurtleScanCandidate, InvestmentDashboardInsight
+    )
+    from google import genai
+    from django.conf import settings
+    from django.contrib import messages
+    from django.shortcuts import redirect
+    
+    def get_consensus_top_5(market):
+        # 1. ค้นหารอบการสแกนล่าสุดของแต่ละระบบ
+        latest_prec = PrecisionScanCandidate.objects.filter(market=market).aggregate(Max('scan_run'))['scan_run__max']
+        latest_ch = CupHandleCandidate.objects.filter(market=market).aggregate(Max('scan_run'))['scan_run__max']
+        latest_turtle = TurtleScanCandidate.objects.filter(market=market).aggregate(Max('scan_run'))['scan_run__max']
+        latest_sepa = None
+        if market == 'US':
+            latest_sepa = USSepaCandidate.objects.aggregate(Max('scan_run'))['scan_run__max']
+
+        if not latest_prec and not latest_ch: return []
+
+        # 2. รวบรวมสัญลักษณ์จากทุกระบบที่รันล่าสุด
+        all_symbols = set()
+        if latest_prec:
+            all_symbols.update(PrecisionScanCandidate.objects.filter(market=market, scan_run=latest_prec).values_list('symbol', flat=True))
+        if latest_ch:
+            all_symbols.update(CupHandleCandidate.objects.filter(market=market, scan_run=latest_ch).values_list('symbol', flat=True))
+        if latest_turtle:
+            all_symbols.update(TurtleScanCandidate.objects.filter(market=market, scan_run=latest_turtle).values_list('symbol', flat=True))
+        if latest_sepa:
+            all_symbols.update(USSepaCandidate.objects.filter(scan_run=latest_sepa).values_list('symbol', flat=True))
+
+        scored_results = []
+        for sym in all_symbols:
+            score = 0
+            badges = []
+            
+            prec = PrecisionScanCandidate.objects.filter(market=market, symbol=sym, scan_run=latest_prec).first() if latest_prec else None
+            ch = CupHandleCandidate.objects.filter(market=market, symbol=sym, scan_run=latest_ch).first() if latest_ch else None
+            turtle = TurtleScanCandidate.objects.filter(market=market, symbol=sym, scan_run=latest_turtle).first() if latest_turtle else None
+            sepa = None
+            if market == 'US' and latest_sepa:
+                sepa = USSepaCandidate.objects.filter(symbol=sym, scan_run=latest_sepa).first()
+
+            # --- Scoring Logic ตาม Scanner Guide ---
+            if ch:
+                score += 25
+                badges.append('C&H')
+            if prec:
+                score += 25
+                if prec.technical_score >= 80: score += 5
+                badges.append('PREC')
+            
+            is_sepa = False
+            if market == 'US' and sepa:
+                is_sepa = True
+            elif market == 'SET' and prec and prec.stage2:
+                is_sepa = True
+            
+            if is_sepa:
+                score += 25
+                badges.append('SEPA')
+            
+            if turtle:
+                if turtle.sys1_breakout or turtle.sys2_breakout:
+                    score += 25
+                    badges.append('TURTLE')
+                elif turtle.sys1_near or turtle.sys2_near:
+                    score += 15
+                    badges.append('NEAR')
+
+            if score >= 40:
+                display_price = prec.price if prec else (ch.price if ch else (turtle.price if turtle else 0))
+                display_sector = prec.sector if prec else (ch.sector if ch else "Unknown")
+                
+                scored_results.append({
+                    'symbol': sym,
+                    'price': float(display_price),
+                    'total_score': score,
+                    'badges': badges,
+                    'sector': display_sector,
+                    'technical_score': prec.technical_score if prec else (ch.confidence_score if ch else 0),
+                    'rs_rating': prec.rs_rating if prec else (ch.rs_rating if ch else 0),
+                    'cup_stage': ch.stage if ch else "None",
+                    'turtle_status': "Broke" if (turtle and (turtle.sys1_breakout or turtle.sys2_breakout)) else ("Near" if (turtle and (turtle.sys1_near or turtle.sys2_near)) else "No"),
+                    'is_explosive': prec.is_explosive if prec else False,
+                    'vdu': prec.vdu_near_zone if prec else False,
+                })
+
+        scored_results.sort(key=lambda x: (x['total_score'], x['technical_score']), reverse=True)
+        return scored_results[:5]
+
+    set_top = get_consensus_top_5('SET')
+    us_top = get_consensus_top_5('US')
+    
+    if not set_top and not us_top:
+        messages.warning(request, "ไม่พบข้อมูลสแกนที่สอดคล้องกับ Funnel ในขณะนี้ กรุณารัน Scanner ให้ครบถ้วน")
+        return redirect('stocks:investment_dashboard')
+
+    set_summary = json.dumps(set_top, indent=2)
+    us_summary = json.dumps(us_top, indent=2)
+
+    prompt = f"""
+คุณคือ Senior Quantitative Strategist วิเคราะห์หุ้นด้วยระบบ Funnel หลายระบบ
+กฎการวิเคราะห์: Cup & Handle (Radar) -> Precision (Power) -> SEPA (Quality) -> Turtle (Trigger)
+
+ข้อมูลหุ้นที่ผ่านการคัดกรอง Confluence สูงสุด:
+[SET]: {set_summary}
+[US]: {us_summary}
+
+เขียนรายงานวิเคราะห์เป็นภาษาไทย โดยใช้โครงสร้าง Markdown ดังนี้:
+
+## 🔍 Funnel Consensus
+สรุปว่ารอบนี้หุ้นส่วนใหญ่ติดสแกนในขั้นตอนไหนมากที่สุด และ Confluence ของตลาดเป็นอย่างไร
+
+---
+
+## 💎 High Conviction Picks
+| ตลาด | หุ้น | เหตุผล (ระบุระบบที่ติด) | ความเชื่อมั่น |
+|------|------|-----------------------|------------|
+| SET | ... | ... | สูง/ปานกลาง |
+| US | ... | ... | สูง/ปานกลาง |
+
+---
+
+## 🎯 Risk Management
+- **Stop Loss:** ระบุแนวทางตาม ATR/Low ของฐาน
+- **Trailing Stop:** ใช้ระบบ Turtle (10D/20D Low) หรือ Minervini
+
+---
+
+## 💡 Strategist's View
+มุมมองรวมของตลาด ควรรุกหรือรับ (2-3 ประโยค)
+"""
+    
+    ai_strategy = "ระบบ AI ไม่สามารถประมวลผลได้ในขณะนี้"
+    market_outlook = "Neutral"
+    try:
+        api_key = getattr(settings, "GEMINI_API_KEY", None)
+        if api_key:
+            client = genai.Client(api_key=api_key)
+            response = client.models.generate_content(model='gemini-2.5-flash', contents=prompt)
+            ai_strategy = response.text or ai_strategy
+            _txt = ai_strategy.lower()
+            if any(w in _txt for w in ["bullish", "ขาขึ้น", "รุก", "ซื้อ"]): market_outlook = "Bullish"
+            elif any(w in _txt for w in ["bearish", "ขาลง", "ระวัง", "ขาย"]): market_outlook = "Bearish"
+            else: market_outlook = "Sideways/Neutral"
+    except Exception as e:
+        ai_strategy = f"เกิดข้อผิดพลาด: {str(e)}"
+        
+    InvestmentDashboardInsight.objects.filter(user=request.user).update(is_active=False)
+    InvestmentDashboardInsight.objects.create(
+        user=request.user, set_top_stocks=set_top, us_top_stocks=us_top,
+        ai_strategy=ai_strategy, market_outlook=market_outlook, is_active=True
+    )
+    messages.success(request, "วิเคราะห์ข้อมูลแบบ Multi-System Funnel เรียบร้อยแล้ว")
+    return redirect('stocks:investment_dashboard')

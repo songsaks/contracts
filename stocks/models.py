@@ -832,3 +832,31 @@ class BotActivity(models.Model):
 
     def __str__(self):
         return f"{self.bot_name} - {self.status} ({self.last_heartbeat})"
+
+class InvestmentDashboardInsight(models.Model):
+    """
+    ข้อมูลสำหรับหน้า Investment Dashboard แยกตามผู้ใช้
+    เก็บ Top 5 หุ้นแนะนำ (SET/US) พร้อมบทวิเคราะห์ AI แบบถาวร
+    """
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='investment_insights')
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    
+    # ข้อมูลหุ้น Top 5 (เก็บเป็น List of Dicts)
+    set_top_stocks = models.JSONField(default=list, help_text="Top 5 SET stocks metadata")
+    us_top_stocks = models.JSONField(default=list, help_text="Top 5 US stocks metadata")
+    
+    # บทวิเคราะห์และกลยุทธ์จาก AI
+    ai_strategy = models.TextField(help_text="AI Analysis and Strategy Summary")
+    
+    # สรุปภาพรวมตลาด (Market Sentiment)
+    market_outlook = models.CharField(max_length=100, blank=True, help_text="e.g. Bullish, Sideways, Caution")
+    
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'Investment Dashboard Insight'
+        verbose_name_plural = 'Investment Dashboard Insights'
+
+    def __str__(self):
+        return f"Insight {self.created_at.strftime('%Y-%m-%d')} for {self.user.username}"
