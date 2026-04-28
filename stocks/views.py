@@ -9914,22 +9914,28 @@ def investment_dashboard_refresh(request):
 
         if not latest_prec and not latest_ch: return []
 
-        # 2. รวบรวมสัญลักษณ์จากทุกระบบที่รันล่าสุด
-        all_symbols = set()
-        if latest_prec:
-            all_symbols.update(PrecisionScanCandidate.objects.filter(market=market, scan_run=latest_prec).values_list('symbol', flat=True))
+        # 2. รวบรวมสัญลักษณ์ — เริ่มจาก C&H ก่อน แล้วเติมจากระบบอื่น
+        ch_symbols = set()
         if latest_ch:
-            all_symbols.update(CupHandleCandidate.objects.filter(market=market, scan_run=latest_ch).values_list('symbol', flat=True))
-        if latest_turtle:
-            all_symbols.update(TurtleScanCandidate.objects.filter(market=market, scan_run=latest_turtle).values_list('symbol', flat=True))
-        if latest_sepa:
-            all_symbols.update(USSepaCandidate.objects.filter(scan_run=latest_sepa).values_list('symbol', flat=True))
+            ch_symbols.update(CupHandleCandidate.objects.filter(market=market, scan_run=latest_ch).values_list('symbol', flat=True))
 
-        scored_results = []
+        other_symbols = set()
+        if latest_prec:
+            other_symbols.update(PrecisionScanCandidate.objects.filter(market=market, scan_run=latest_prec).values_list('symbol', flat=True))
+        if latest_turtle:
+            other_symbols.update(TurtleScanCandidate.objects.filter(market=market, scan_run=latest_turtle).values_list('symbol', flat=True))
+        if latest_sepa:
+            other_symbols.update(USSepaCandidate.objects.filter(scan_run=latest_sepa).values_list('symbol', flat=True))
+
+        all_symbols = ch_symbols | other_symbols
+
+        ch_lane = []    # หุ้นที่มี C&H ยืนยัน (priority lane)
+        other_lane = [] # หุ้นที่ผ่านระบบอื่นโดยไม่มี C&H
+
         for sym in all_symbols:
             score = 0
             badges = []
-            
+
             prec = PrecisionScanCandidate.objects.filter(market=market, symbol=sym, scan_run=latest_prec).first() if latest_prec else None
             ch = CupHandleCandidate.objects.filter(market=market, symbol=sym, scan_run=latest_ch).first() if latest_ch else None
             turtle = TurtleScanCandidate.objects.filter(market=market, symbol=sym, scan_run=latest_turtle).first() if latest_turtle else None
@@ -9937,53 +9943,65 @@ def investment_dashboard_refresh(request):
             if market == 'US' and latest_sepa:
                 sepa = USSepaCandidate.objects.filter(symbol=sym, scan_run=latest_sepa).first()
 
-            # --- Scoring Logic ตาม Scanner Guide ---
+            # --- Scoring: C&H เป็น Radar หลัก ได้คะแนนสูงสุด ---
             if ch:
-                score += 25
+                score += 40  # C&H เป็น gate หลัก → weighted สูง
                 badges.append('C&H')
             if prec:
                 score += 25
                 if prec.technical_score >= 80: score += 5
                 badges.append('PREC')
-            
+
             is_sepa = False
             if market == 'US' and sepa:
                 is_sepa = True
             elif market == 'SET' and prec and prec.stage2:
                 is_sepa = True
-            
             if is_sepa:
-                score += 25
+                score += 20
                 badges.append('SEPA')
-            
+
             if turtle:
                 if turtle.sys1_breakout or turtle.sys2_breakout:
-                    score += 25
+                    score += 20
                     badges.append('TURTLE')
                 elif turtle.sys1_near or turtle.sys2_near:
-                    score += 15
+                    score += 10
                     badges.append('NEAR')
 
-            if score >= 40:
-                display_price = prec.price if prec else (ch.price if ch else (turtle.price if turtle else 0))
-                display_sector = prec.sector if prec else (ch.sector if ch else "Unknown")
-                
-                scored_results.append({
-                    'symbol': sym,
-                    'price': float(display_price),
-                    'total_score': score,
-                    'badges': badges,
-                    'sector': display_sector,
-                    'technical_score': prec.technical_score if prec else (ch.confidence_score if ch else 0),
-                    'rs_rating': prec.rs_rating if prec else (ch.rs_rating if ch else 0),
-                    'cup_stage': ch.stage if ch else "None",
-                    'turtle_status': "Broke" if (turtle and (turtle.sys1_breakout or turtle.sys2_breakout)) else ("Near" if (turtle and (turtle.sys1_near or turtle.sys2_near)) else "No"),
-                    'is_explosive': prec.is_explosive if prec else False,
-                    'vdu': prec.vdu_near_zone if prec else False,
-                })
+            # C&H lane: threshold ต่ำกว่า (C&H เพียงอย่างเดียวก็เข้าได้)
+            # Other lane: ต้องผ่านอย่างน้อย 2 ระบบ (score >= 45)
+            if score < 25: continue
 
-        scored_results.sort(key=lambda x: (x['total_score'], x['technical_score']), reverse=True)
-        return scored_results[:5]
+            display_price = prec.price if prec else (ch.price if ch else (turtle.price if turtle else 0))
+            display_sector = prec.sector if prec else (ch.sector if ch else "Unknown")
+
+            entry = {
+                'symbol': sym,
+                'price': float(display_price),
+                'total_score': score,
+                'badges': badges,
+                'sector': display_sector,
+                'technical_score': prec.technical_score if prec else (ch.confidence_score if ch else 0),
+                'rs_rating': prec.rs_rating if prec else (ch.rs_rating if ch else 0),
+                'cup_stage': ch.stage if ch else "None",
+                'turtle_breakout': "YES" if (turtle and (turtle.sys1_breakout or turtle.sys2_breakout)) else "No",
+                'vdu': prec.vdu_near_zone if prec else False,
+                'vcp': (prec.vcp_setup if prec else False) or (ch.handle_vol_dry if ch else False),
+                'is_explosive': prec.is_explosive if prec else False,
+            }
+
+            if ch:
+                ch_lane.append(entry)
+            elif score >= 45:  # หุ้นที่ไม่มี C&H ต้องมี multi-system confirmation
+                other_lane.append(entry)
+
+        ch_lane.sort(key=lambda x: (x['total_score'], x['technical_score']), reverse=True)
+        other_lane.sort(key=lambda x: (x['total_score'], x['technical_score']), reverse=True)
+
+        # C&H stocks เติมก่อนเสมอ จากนั้นเติม non-C&H จนครบ 5
+        combined = ch_lane + other_lane
+        return combined[:5]
 
     set_top = get_consensus_top_5('SET')
     us_top = get_consensus_top_5('US')

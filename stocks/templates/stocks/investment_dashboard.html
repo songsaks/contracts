@@ -86,19 +86,19 @@
                             <div class="card-body p-4">
                                 <div class="stock-list">
                                     {% for stock in insight.set_top_stocks %}
-                                    <div class="stock-item-light d-flex align-items-center justify-content-between p-3 rounded-4 mb-3">
+                                    <div class="stock-item-light d-flex align-items-center justify-content-between p-3 rounded-4 mb-3 {% if 'C&H' in stock.badges %}stock-ch-highlight{% endif %}">
                                         <div class="d-flex align-items-center gap-3">
-                                            <div class="stock-rank-light">{{ forloop.counter }}</div>
+                                            <div class="stock-rank-light {% if 'C&H' in stock.badges %}rank-ch-light{% endif %}">{{ forloop.counter }}</div>
                                             <div>
                                                 <div class="fw-bold text-dark fs-5">{{ stock.symbol }}</div>
                                                 <div class="small text-muted">{{ stock.sector }}</div>
                                             </div>
                                         </div>
                                         <div class="text-end">
-                                            <div class="fw-bold text-primary fs-5">{{ stock.technical_score }}%</div>
-                                            <div class="small text-muted" style="font-size: 0.7rem;">TECH SCORE</div>
+                                            <div class="fw-bold text-primary fs-5">{{ stock.total_score }}<span class="small text-muted fw-normal">/{{ stock.badges|length }} sys</span></div>
+                                            <div class="small text-muted" style="font-size: 0.7rem;">FUNNEL SCORE</div>
                                         </div>
-                                        <div class="d-none d-sm-flex flex-wrap gap-1 ms-3 justify-content-end" style="max-width: 120px;">
+                                        <div class="d-none d-sm-flex flex-wrap gap-1 ms-3 justify-content-end" style="max-width: 130px;">
                                             {% if stock.cup_stage != "None" %}<span class="badge-cup-light">C&H: {{ stock.cup_stage }}</span>{% endif %}
                                             {% if stock.turtle_breakout == "YES" %}<span class="badge-turtle-light">TURTLE</span>{% endif %}
                                             {% if stock.vdu %}<span class="badge-vdu-light">VDU</span>{% endif %}
@@ -121,20 +121,20 @@
                             <div class="card-body p-4">
                                 <div class="stock-list">
                                     {% for stock in insight.us_top_stocks %}
-                                    <div class="stock-item-light d-flex align-items-center justify-content-between p-3 rounded-4 mb-3">
+                                    <div class="stock-item-light d-flex align-items-center justify-content-between p-3 rounded-4 mb-3 {% if 'C&H' in stock.badges %}stock-ch-highlight{% endif %}">
                                         <div class="d-flex align-items-center gap-3">
-                                            <div class="stock-rank-light rank-us-light">{{ forloop.counter }}</div>
+                                            <div class="stock-rank-light rank-us-light {% if 'C&H' in stock.badges %}rank-ch-light{% endif %}">{{ forloop.counter }}</div>
                                             <div>
                                                 <div class="fw-bold text-dark fs-5">{{ stock.symbol }}</div>
                                                 <div class="small text-muted">{{ stock.sector }}</div>
                                             </div>
                                         </div>
                                         <div class="text-end">
-                                            <div class="fw-bold text-primary fs-5">{{ stock.technical_score }}%</div>
-                                            <div class="small text-muted" style="font-size: 0.7rem;">TECH SCORE</div>
+                                            <div class="fw-bold text-primary fs-5">{{ stock.total_score }}<span class="small text-muted fw-normal">/{{ stock.badges|length }} sys</span></div>
+                                            <div class="small text-muted" style="font-size: 0.7rem;">FUNNEL SCORE</div>
                                         </div>
-                                        <div class="d-none d-sm-flex flex-wrap gap-1 ms-3 justify-content-end" style="max-width: 120px;">
-                                            {% if stock.cup_stage != "None" %}<span class="badge-cup-light">C&H</span>{% endif %}
+                                        <div class="d-none d-sm-flex flex-wrap gap-1 ms-3 justify-content-end" style="max-width: 130px;">
+                                            {% if stock.cup_stage != "None" %}<span class="badge-cup-light">C&H: {{ stock.cup_stage }}</span>{% endif %}
                                             {% if stock.turtle_breakout == "YES" %}<span class="badge-turtle-light">TURTLE</span>{% endif %}
                                             {% if stock.vdu %}<span class="badge-vdu-light">VDU</span>{% endif %}
                                             {% if stock.vcp %}<span class="badge-vcp-light">VCP</span>{% endif %}
@@ -238,8 +238,11 @@
         justify-content: center;
         font-weight: 700;
         font-size: 0.9rem;
+        flex-shrink: 0;
     }
     .rank-us-light { background: #eef2ff; color: #4f46e5; }
+    .rank-ch-light { background: #fdf4ff !important; color: #701a75 !important; ring: 2px solid #e879f9; }
+    .stock-ch-highlight { border-left: 3px solid #a855f7 !important; background: #fdf4ff !important; }
 
     /* Badges */
     .badge-vdu-light { background: #f0f9ff; color: #0369a1; font-size: 0.65rem; padding: 2px 6px; border-radius: 4px; font-weight: 700; border: 1px solid #e0f2fe; white-space: nowrap; }
@@ -249,31 +252,45 @@
 
     /* Markdown styling */
     .markdown-body-light {
-        line-height: 1.9;
+        line-height: 2.0;
         color: #334155;
-        font-size: 1.05rem;
+        font-size: 1.1rem;
         font-weight: 400;
         word-break: break-word;
         font-family: 'Sarabun', 'Inter', sans-serif;
     }
     .markdown-body-light h1, .markdown-body-light h2, .markdown-body-light h3 {
         color: #0f172a;
-        margin-top: 2.5rem;
-        margin-bottom: 1.25rem;
+        margin-top: 3rem;
+        margin-bottom: 1.5rem;
         font-weight: 700;
         font-family: 'Prompt', sans-serif;
-        border-bottom: 2px solid #f1f5f9;
-        padding-bottom: 0.6rem;
+        border-bottom: 3px solid #f1f5f9;
+        padding-bottom: 0.8rem;
         letter-spacing: -0.01em;
+        display: block;
     }
     .markdown-body-light p { 
-        margin-bottom: 1.8rem; 
+        margin-bottom: 2rem; 
         text-align: justify;
+        text-justify: inter-word;
     }
-    .markdown-body-light strong { color: #4f46e5; font-weight: 600; }
-    .markdown-body-light ul, .markdown-body-light ol { margin-bottom: 1.8rem; padding-left: 1.5rem; }
-    .markdown-body-light li { margin-bottom: 0.9rem; }
-    .markdown-body-light hr { border: none; border-top: 2px solid #f1f5f9; margin: 2.5rem 0; }
+    .markdown-body-light strong { 
+        color: #4f46e5; 
+        font-weight: 700;
+        background: rgba(79, 70, 229, 0.05);
+        padding: 0 4px;
+        border-radius: 4px;
+    }
+    .markdown-body-light ul, .markdown-body-light ol { 
+        margin-bottom: 2rem; 
+        padding-left: 2rem; 
+    }
+    .markdown-body-light li { 
+        margin-bottom: 1.2rem; 
+        position: relative;
+    }
+    .markdown-body-light hr { border: none; border-top: 3px solid #f1f5f9; margin: 3rem 0; }
     
     .markdown-body-light table { 
         width: 100%; 
