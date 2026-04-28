@@ -8404,7 +8404,7 @@ def cup_handle_scanner(request):
     from .models import CupHandleCandidate as _CHC, ScanWatchlistItem as _SWI
 
     all_runs = list(
-        _CHC.objects.filter(user=request.user)
+        _CHC.objects.filter(user=request.user, market='SET')
         .values_list('scan_run', flat=True)
         .distinct().order_by('-scan_run')
     )
@@ -8419,7 +8419,7 @@ def cup_handle_scanner(request):
     scanned_at = None
     if all_runs:
         selected_run = all_runs[run_idx]
-        candidates   = list(_CHC.objects.filter(user=request.user, scan_run=selected_run))
+        candidates   = list(_CHC.objects.filter(user=request.user, scan_run=selected_run, market='SET'))
         scanned_at   = selected_run
 
     # เรียงตาม Stage Priority → Confidence เสมอ
