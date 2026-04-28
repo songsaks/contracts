@@ -8380,12 +8380,15 @@ def cup_handle_scanner(request):
                     # Save to DB
                     objs = []
                     for r in results:
+                        pat = dict(r['pat'])
+                        price_val = pat.pop('current_price', 0.0)
                         objs.append(_CHC(
-                            user=user, scan_run=_scan_run, symbol=r['symbol'], 
-                            symbol_bk=f"{r['symbol']}.BK",
+                            user=user, scan_run=_scan_run, symbol=r['symbol'],
+                            price=price_val,
+                            market='SET',
                             rs_rating=rs_map.get(r['symbol'], 0),
                             adx=r['adx'], rsi=r['rsi'], avg_vol_20d=r['avg_vol'],
-                            **r['pat']
+                            **pat
                         ))
                     _CHC.objects.bulk_create(objs)
                     _c.set(ckey, {'state': 'done', 'progress': 100}, timeout=300)
