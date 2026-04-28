@@ -99,13 +99,18 @@
                                 <div class="stock-list">
                                     {% for stock in insight.set_top_stocks %}
                                     <div class="stock-item-light d-flex align-items-center justify-content-between p-3 rounded-4 mb-3 {% if 'C&H' in stock.badges %}stock-ch-highlight{% endif %}">
-                                        <div class="d-flex align-items-center gap-3">
-                                            <div class="stock-rank-light {% if 'C&H' in stock.badges %}rank-ch-light{% endif %}">{{ forloop.counter }}</div>
-                                            <div>
-                                                <div class="fw-bold text-dark fs-5">{{ stock.symbol }}</div>
-                                                <div class="small text-muted">{{ stock.sector }}</div>
+                                            <div class="d-flex align-items-center gap-2">
+                                                <div class="stock-rank-light {% if 'RADAR' in stock.badges %}rank-ch-light{% endif %}">{{ forloop.counter }}</div>
+                                                <div>
+                                                    <div class="fw-bold text-dark fs-5">{{ stock.symbol }}</div>
+                                                    <div class="small text-muted">{{ stock.sector }}</div>
+                                                </div>
+                                                <button class="btn btn-sm btn-watchlist-toggle ms-1" 
+                                                        onclick="toggleWatchlist(this, '{{ stock.symbol }}', '{{ stock.sector }}', 'SET', '{{ stock.badges|join:"," }}')"
+                                                        title="Add to Watchlist">
+                                                    <i class="{% if stock.symbol in watchlist_set %}fas fa-star text-warning{% else %}far fa-star text-muted{% endif %}"></i>
+                                                </button>
                                             </div>
-                                        </div>
                                         <div class="text-end">
                                             <div class="fw-bold text-primary fs-5">{{ stock.total_score }}<span class="small text-muted fw-normal">/{{ stock.badges|length }} sys</span></div>
                                             <div class="small text-muted" style="font-size: 0.7rem;">FUNNEL SCORE</div>
@@ -135,11 +140,17 @@
                                 <div class="stock-list">
                                     {% for stock in insight.us_top_stocks %}
                                     <div class="stock-item-light d-flex align-items-center justify-content-between p-3 rounded-4 mb-3 {% if 'C&H' in stock.badges %}stock-ch-highlight{% endif %}">
-                                        <div class="d-flex align-items-center gap-3">
-                                            <div class="stock-rank-light rank-us-light {% if 'C&H' in stock.badges %}rank-ch-light{% endif %}">{{ forloop.counter }}</div>
-                                            <div>
-                                                <div class="fw-bold text-dark fs-5">{{ stock.symbol }}</div>
-                                                <div class="small text-muted">{{ stock.sector }}</div>
+                                            <div class="d-flex align-items-center gap-2">
+                                                <div class="stock-rank-light rank-us-light {% if 'RADAR' in stock.badges %}rank-ch-light{% endif %}">{{ forloop.counter }}</div>
+                                                <div>
+                                                    <div class="fw-bold text-dark fs-5">{{ stock.symbol }}</div>
+                                                    <div class="small text-muted">{{ stock.sector }}</div>
+                                                </div>
+                                                <button class="btn btn-sm btn-watchlist-toggle ms-1" 
+                                                        onclick="toggleWatchlist(this, '{{ stock.symbol }}', '{{ stock.sector }}', 'US', '{{ stock.badges|join:"," }}')"
+                                                        title="Add to Watchlist">
+                                                    <i class="{% if stock.symbol in watchlist_set %}fas fa-star text-warning{% else %}far fa-star text-muted{% endif %}"></i>
+                                                </button>
                                             </div>
                                         </div>
                                         <div class="text-end">
@@ -147,10 +158,11 @@
                                             <div class="small text-muted" style="font-size: 0.7rem;">FUNNEL SCORE</div>
                                         </div>
                                         <div class="d-none d-sm-flex flex-wrap gap-1 ms-3 justify-content-end" style="max-width: 130px;">
-                                            {% if stock.cup_stage != "None" %}<span class="badge-cup-light">C&H: {{ stock.cup_stage }}</span>{% endif %}
-                                            {% if stock.turtle_breakout == "YES" %}<span class="badge-turtle-light">TURTLE</span>{% endif %}
-                                            {% if stock.vdu %}<span class="badge-vdu-light">VDU</span>{% endif %}
-                                            {% if stock.vcp %}<span class="badge-vcp-light">VCP</span>{% endif %}
+                                            {% if 'RADAR' in stock.badges %}<span class="badge-radar-light">RADAR</span>{% endif %}
+                                            {% if 'POWER' in stock.badges %}<span class="badge-power-light">POWER</span>{% endif %}
+                                            {% if 'QUALITY' in stock.badges %}<span class="badge-quality-light">QUALITY</span>{% endif %}
+                                            {% if 'TRIGGER' in stock.badges %}<span class="badge-trigger-light">TRIGGER</span>{% endif %}
+                                            {% if 'NEAR' in stock.badges %}<span class="badge-near-light">NEAR</span>{% endif %}
                                         </div>
                                     </div>
                                     {% endfor %}
@@ -285,6 +297,15 @@
     .rank-ch-light { background: #0369a1; color: white; }
     .stock-ch-highlight { border-left: 4px solid #0369a1 !important; background: #f0f9ff !important; }
 
+    .btn-watchlist-toggle {
+        padding: 4px 8px;
+        border-radius: 8px;
+        transition: all 0.2s;
+    }
+    .btn-watchlist-toggle:hover {
+        background: #f1f5f9;
+    }
+
     /* Markdown styling */
     .markdown-body-light {
         line-height: 2.0;
@@ -378,6 +399,45 @@
         if(icon) icon.classList.add('fa-spin');
         const text = document.getElementById('btnText');
         if(text) text.innerText = 'Generating Insights...';
+    }
+
+    function toggleWatchlist(btn, symbol, sector, market, strategy) {
+        const icon = btn.querySelector('i');
+        const originalClass = icon.className;
+        
+        // UI Feedback
+        icon.className = 'fas fa-spinner fa-spin text-primary';
+        
+        fetch('{% url "stocks:watchlist_item_toggle" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify({
+                symbol: symbol,
+                sector: sector,
+                market: market,
+                strategy: strategy
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'added') {
+                icon.className = 'fas fa-star text-warning animate-pop';
+                btn.title = 'Remove from Watchlist';
+            } else if (data.status === 'removed') {
+                icon.className = 'far fa-star text-muted';
+                btn.title = 'Add to Watchlist';
+            } else {
+                icon.className = originalClass;
+                alert('Error: ' + (data.error || 'Unknown error'));
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            icon.className = originalClass;
+        });
     }
 
     document.addEventListener('DOMContentLoaded', function() {

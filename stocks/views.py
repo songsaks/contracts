@@ -9878,9 +9878,14 @@ def investment_dashboard(request):
     else:
         latest_insight = insights[0] if insights else None
 
+    # Fetch user's watchlist for toggle state
+    from .models import ScanWatchlistItem
+    watchlist_set = set(ScanWatchlistItem.objects.filter(user=request.user).values_list('symbol', flat=True))
+
     return render(request, 'stocks/investment_dashboard.html', {
         'insight': latest_insight,
         'insights_history': insights,
+        'watchlist_set': watchlist_set,
     })
 
 @login_required
