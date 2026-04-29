@@ -8983,15 +8983,18 @@ def turtle_scanner_run_ajax(request):
 
     def _bg_task(syms, market):
         from django.contrib.auth import get_user_model as _GUM
+        from .models import PrecisionScanCandidate # ย้ายมาไว้ตรงนี้เพื่อให้ใน Thread มองเห็น
         user = _GUM().objects.get(pk=user_id)
 
         # Auto-refresh market cap rankings daily (SET only)
         if market == 'SET':
             try:
                 from .utils import get_top_ranked_symbols as _GTRS
-                syms = _GTRS(market='SET', limit=200, auto_refresh=True)
+                new_syms = _GTRS(market='SET', limit=200, auto_refresh=True)
+                if new_syms: # ป้องกันกรณี refresh แล้วได้ค่าว่าง
+                    syms = new_syms
             except Exception:
-                pass  # ใช้รายชื่อเดิมที่ได้จาก Main Thread ถ้า refresh ล้มเหลว
+                pass 
 
         scan_time = _tz.now()
         total_syms = len(syms)
@@ -9000,64 +9003,50 @@ def turtle_scanner_run_ajax(request):
         results = []
         processed = 0
 
-        # --- STAGE 1: Fast Screening with YahooQuery (Radar Mode) ---
-        _cp.set(ckey, {'state': 'running', 'progress': 0, 'total': 0, 'phase': f'Stage 1: 🔎 คัดกรองหุ้นทั้งตลาด {total_syms} ตัว (Turbo)...'}, timeout=3600)
-        
-        from yahooquery import Ticker as _TQ
-        symbols_bk = [f"{s}.BK" if market == 'SET' and '.' not in s else s for s in syms]
-        
-        candidates = []
-        try:
-            tq = _TQ(symbols_bk)
-            prices = tq.price
-            for symbol in syms:
-                try:
-                    s_bk = f"{symbol}.BK" if market == 'SET' and '.' not in symbol else symbol
-                    p_data = prices.get(s_bk)
-                    if not isinstance(p_data, dict) or 'regularMarketPrice' not in p_data: continue
-                    
-                    # Basic Liquidity for Turtle (Min 200k Value)
-                    avg_vol = p_data.get('averageDailyVolume3Month', 0)
-                    curr_p = p_data.get('regularMarketPrice')
-                    if (curr_p * avg_vol) < 200000: continue
-                    
-                    candidates.append({'symbol': symbol})
-                except Exception: continue
-        except Exception as e:
-            import logging; logging.getLogger('stocks').error(f"[Turtle] YahooQuery Error: {e}")
-
-        # Fallback: ถ้า Stage 1 fail หรือได้ candidates น้อยกว่า 10% ให้ใช้ sym_list ทั้งหมด
-        if len(candidates) < max(1, len(syms) * 0.10):
-            candidates = [{'symbol': s} for s in syms]
-
-        # --- STAGE 2: Systematic Analysis (Detailed Scan) ---
+        # --- STAGE 1: Systematic Analysis (Detailed Scan) ---
+        # ข้าม Stage 1 (YahooQuery) เพื่อความเร็วและป้องกันการค้าง
+        candidates = [{'symbol': s} for s in syms]
         total_cand = len(candidates)
-        _cp.set(ckey, {'state': 'running', 'progress': 0, 'total': total_cand, 'phase': f'Stage 2: 🐢 วิเคราะห์ Turtle Breakout {total_cand} ตัว...'}, timeout=3600)
-        
-        chunk_size = 50
-        for i in range(0, len(candidates), chunk_size):
-            chunk = candidates[i : i + chunk_size]
+        _cp.set(ckey, {'state': 'running', 'progress': 0, 'total': total_cand, 'phase': f'🐢 กำลังเริ่มวิเคราะห์หุ้น {total_cand} ตัว...'}, timeout=3600)
+        # กำหนดขนาดกลุ่มข้อมูลตามตลาด
+        c_size = 20 if market == 'US' else 50
+        for i in range(0, len(candidates), c_size):
+            chunk = candidates[i : i + c_size]
             chunk_syms = [c['symbol'] for c in chunk]
             chunk_bk = [f"{s}.BK" if market == 'SET' and '.' not in s else s for s in chunk_syms]
             
-            _cp.set(ckey, {'state': 'running', 'progress': i, 'total': total_cand, 'phase': f'กำลังวิเคราะห์กลุ่มที่ {i//chunk_size + 1}...'}, timeout=3600)
+            _cp.set(ckey, {'state': 'running', 'progress': i, 'total': total_cand, 'phase': f'กำลังวิเคราะห์กลุ่มที่ {i//c_size + 1}...'}, timeout=3600)
             
             try:
-                # Use yfinance with THREADS=True for performance
-                data = yf.download(chunk_bk, period="1y", interval="1d", progress=False, group_by='ticker', threads=True, timeout=30)
+                # Use yfinance with auto_adjust
+                data = yf.download(chunk_bk, period="1y", interval="1d", progress=False, group_by='ticker', threads=True, timeout=30, auto_adjust=True)
                 
                 for symbol in chunk_syms:
                     try:
                         s_bk = f"{symbol}.BK" if market == 'SET' and '.' not in symbol else symbol
-                        if s_bk not in data or data[s_bk].empty: continue
-                        df = data[s_bk].dropna(subset=['Close'])
-                        if len(df) < 55: continue
+                        df = None
+                        if s_bk in data and not data[s_bk].empty:
+                            df = data[s_bk].dropna(subset=['Close'])
+                        
+                        # Fallback: ถ้าดึงแบบกลุ่มไม่ได้ ให้ดึงรายตัว (สำหรับ US ที่มักโดนบล็อก)
+                        if df is None or df.empty:
+                            try:
+                                t_obj = yf.Ticker(s_bk)
+                                df = t_obj.history(period="1y", interval="1d")
+                                if df is not None and not df.empty:
+                                    df = df.dropna(subset=['Close'])
+                            except Exception: pass
+
+                        if df is None or df.empty or len(df) < 55: continue
+                        
+                        # Debug: เห็นกันชัดๆ ว่าหุ้นตัวไหนกำลังถูกตรวจ
+                        # print(f"--- Analyzing {symbol} ---")
                         
                         avg_vol = float(df['Volume'].tail(20).mean())
-                        
-                        # Liquidity filter (SET Only) - Relaxed to 500k to capture more breakouts
                         avg_val = (df['Close'] * df['Volume']).tail(20).mean()
-                        if market == 'SET' and avg_val < 500_000: continue 
+                        
+                        # ยกเลิก Liquidity filter ชั่วคราว หรือปรับให้ต่ำสุดๆ เพื่อเช็คผล
+                        if market == 'SET' and avg_val < 100_000: continue 
                         
                         # Calculate Turtle
                         df['High_20'] = df['High'].rolling(20).max().shift(1)
@@ -9119,7 +9108,16 @@ def turtle_scanner_run_ajax(request):
                                 p_score = p_match.technical_score
                                 rs_rat = p_match.rs_rating
                             
-                            is_elite = is_stage2 and (rs_rat is None or rs_rat >= 70)
+                            # -- ปรับเกณฑ์ Elite ให้เข้มงวดขึ้น (โดยเฉพาะ US) --
+                            ps_val = p_score if p_score is not None else 0
+                            rs_val = rs_rat if rs_rat is not None else 0
+                            
+                            if market == 'US':
+                                # US: ต้องผ่านเกณฑ์ทั้ง RS >= 85 และ Score >= 80 (AND)
+                                is_elite = is_stage2 and (rs_val >= 85 and ps_val >= 80)
+                            else:
+                                # SET: ต้องผ่านเกณฑ์ทั้ง RS >= 80 และ Score >= 75 (AND)
+                                is_elite = is_stage2 and (rs_val >= 80 and ps_val >= 75)
 
                             results.append(TurtleScanCandidate(
                                 user=user, scan_run=scan_time, symbol=symbol, market=market,
@@ -9136,8 +9134,12 @@ def turtle_scanner_run_ajax(request):
                                 technical_score=p_score, rs_rating=rs_rat,
                                 is_elite=is_elite
                             ))
-                    except Exception: continue
-            except Exception: continue
+                    except Exception as e: 
+                        print(f"Error analyzing {symbol}: {e}")
+                        continue
+            except Exception as e: 
+                print(f"Chunk Error: {e}")
+                continue
 
         # Save to DB — always delete old + save new so scan_run timestamp always updates
         TurtleScanCandidate.objects.filter(user=user, market=market).delete()
