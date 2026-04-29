@@ -9058,15 +9058,24 @@ def turtle_scanner_run_ajax(request):
                         df['SMA150'] = df['Close'].rolling(150).mean()
                         df['SMA200'] = df['Close'].rolling(200).mean()
                         
-                        # -- ADX Calculation (Real) --
+                        # -- ADX & ATR Calculation (Real) --
                         try:
+                            # คำนวณ ADX
                             adx_data = df.ta.adx(length=14)
                             if adx_data is not None and not adx_data.empty:
                                 df['ADX_14'] = adx_data['ADX_14']
                             else:
                                 df['ADX_14'] = 0.0
+                            
+                            # คำนวณ ATR (ค่า N ของ Turtle)
+                            atr_data = df.ta.atr(length=20)
+                            if atr_data is not None:
+                                df['ATR_20'] = atr_data
+                            else:
+                                df['ATR_20'] = 0.0
                         except Exception:
                             df['ADX_14'] = 0.0
+                            df['ATR_20'] = 0.0
 
                         # Weinsteins Stage 2
                         last_row = df.iloc[-1]
