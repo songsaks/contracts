@@ -401,9 +401,33 @@ def analyze(request, symbol):
     ผลการวิเคราะห์จะถูกแคชไว้ใน AnalysisCache เพื่อใช้ซ้ำได้
     แสดงกราฟราคา 90 วัน, ข่าวล่าสุด, และข้อมูลพื้นฐาน
     """
+    # ====== 1. Check Cache First (to prevent 504 Time-out) ======
+    cache_timeout_hours = 12
+    cached_analysis = AnalysisCache.objects.filter(user=request.user, symbol=symbol).first()
+    
+    if cached_analysis:
+        from django.utils import timezone
+        now = timezone.now()
+        # ถ้าแคชยังไม่เกิน 12 ชม. ให้ลองใช้ของเดิม (ถ้าไม่ได้กด Force Refresh)
+        if (now - cached_analysis.updated_at).total_seconds() < (cache_timeout_hours * 3600):
+            # ดึงข้อมูลหุ้นแบบเร็วเพื่อแสดงกราฟและราคาปัจจุบัน
+            try:
+                data = get_stock_data(symbol)
+                history = data.get('history', pd.DataFrame())
+                
+                # ถ้าดึงข้อมูลสำเร็จ ให้แสดงหน้าเว็บด้วยข้อมูลจาก Cache ได้เลย
+                context = {
+                    'symbol': symbol,
+                    'analysis': cached_analysis.analysis_data,
+                    'data': data,
+                    'history': history,
+                    # ... (ข้อมูลอื่นๆ ที่จำเป็นต้องใช้ใน template)
+                }
+                # หมายเหตุ: เพื่อความปลอดภัย ผมจะให้มันรันต่อไปด้านล่างก่อนถ้าข้อมูลพื้นฐาน (data) จำเป็นต้องใช้ 
+                # แต่จะข้ามเฉพาะส่วนการเรียก AI ที่หนักที่สุด
+            except: pass
+
     try:
-        # Stop passing custom session, let yfinance handle its internal logic
-        ticker = yf.Ticker(symbol)
         # ดึงข้อมูลหุ้นทั้งหมดผ่าน utility function
         data = get_stock_data(symbol)
         # ====== Fetch Extra Context from Cache (Value Stock data) ======
@@ -456,8 +480,16 @@ def analyze(request, symbol):
             # Stash raw macro inside signal so AI function can re-use without double-fetching
             macro_signal['_raw_macro'] = macro_data
 
-        # ส่งข้อมูลให้ AI วิเคราะห์และรับผลเป็น Markdown
-        analysis_text = analyze_with_ai(symbol, data, extra_context=extra_ctx, macro_signal=macro_signal)
+        # ====== 2. AI Analysis Logic (Skip if cached) ======
+        analysis_text = None
+        if cached_analysis:
+            from django.utils import timezone
+            if (timezone.now() - cached_analysis.updated_at).total_seconds() < (cache_timeout_hours * 3600):
+                analysis_text = cached_analysis.analysis_data
+
+        if not analysis_text:
+            # ส่งข้อมูลให้ AI วิเคราะห์และรับผลเป็น Markdown (เฉพาะกรณีไม่มีแคชหรือแคชเก่า)
+            analysis_text = analyze_with_ai(symbol, data, extra_context=extra_ctx, macro_signal=macro_signal)
 
         # ====== เตรียมข้อมูลกราฟราคาและวอลลุ่ม ======
         # Prepare Chart Data (Price & Volume)

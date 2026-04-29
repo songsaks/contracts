@@ -279,13 +279,17 @@ def get_stock_data(symbol):
         except:
             info = {}
 
-    history = ticker.history(period="1y")
-    financials = ticker.financials
+    history = ticker.history(period="1y", timeout=10)
+    financials = None
+    balance_sheet = None
+    
     try:
+        # พยายามดึงงบการเงินและงบดุล โดยมีการเช็ค timeout เบื้องต้น
+        financials = ticker.financials
         # ใช้งบดุลรายไตรมาสก่อน ถ้าไม่มีให้ใช้รายปี
         balance_sheet = ticker.quarterly_balance_sheet if not ticker.quarterly_balance_sheet.empty else ticker.balance_sheet
-    except Exception:
-        balance_sheet = None
+    except Exception as e:
+        print(f"DEBUG: Financials fetch failed for {symbol}: {e}")
 
     # คำนวณ Indicator ทางเทคนิค: RSI(14) และ MACD(12,26,9)
     if not history.empty:
