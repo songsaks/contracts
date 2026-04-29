@@ -9055,9 +9055,9 @@ def turtle_scanner_run_ajax(request):
                         
                         avg_vol = float(df['Volume'].tail(20).mean())
                         
-                        # Liquidity filter (SET Only)
+                        # Liquidity filter (SET Only) - Relaxed to 500k to capture more breakouts
                         avg_val = (df['Close'] * df['Volume']).tail(20).mean()
-                        if market == 'SET' and avg_val < 3_000_000: continue # Min 3M Value
+                        if market == 'SET' and avg_val < 500_000: continue 
                         
                         # Calculate Turtle
                         df['High_20'] = df['High'].rolling(20).max().shift(1)
@@ -9090,8 +9090,8 @@ def turtle_scanner_run_ajax(request):
                         sma200 = float(last_row.get('SMA200', 0) or 0)
                         is_stage2 = current_close > sma150 and sma150 > sma200
 
-                        # --- Just Broke ---
-                        window = df.tail(5)
+                        # --- Just Broke (Expanded window to 10 days) ---
+                        window = df.tail(10)
                         sys1_days_ago = None
                         sys2_days_ago = None
                         for d_ago, (_, row) in enumerate(window.iloc[::-1].iterrows()):
