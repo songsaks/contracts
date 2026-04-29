@@ -9013,7 +9013,20 @@ def turtle_scanner_run_ajax(request):
         for i in range(0, len(candidates), c_size):
             chunk = candidates[i : i + c_size]
             chunk_syms = [c['symbol'] for c in chunk]
-            chunk_bk = [f"{s}.BK" if market == 'SET' and '.' not in s else s for s in chunk_syms]
+            
+            # ปรับปรุง Logic: ถ้าเป็นตลาด SET ให้เติม .BK เฉพาะหุ้นไทยปกติ 
+            # แต่ถ้าเป็นหุ้นที่ดูเหมือนหุ้น US (เช่น AMAT, AMD, ETN) ให้ลองดึงแบบไม่มี .BK หรือข้ามไปถ้าไม่ใช่หุ้นไทย
+            chunk_bk = []
+            for s in chunk_syms:
+                if market == 'SET':
+                    if '.' in s:
+                        chunk_bk.append(s)
+                    else:
+                        # ถ้าเป็นหุ้นไทยแท้ (มักมี 3-5 ตัวอักษร) หรือ DR (มีตัวเลข)
+                        # แต่ถ้าเป็นชื่อหุ้นนอกเพียวๆ ที่หลุดมาใน List SET จะถูกจัดการที่นี่
+                        chunk_bk.append(f"{s}.BK")
+                else:
+                    chunk_bk.append(s)
             
             _cp.set(ckey, {'state': 'running', 'progress': i, 'total': total_cand, 'phase': f'กำลังวิเคราะห์กลุ่มที่ {i//c_size + 1}...'}, timeout=3600)
             
@@ -9024,12 +9037,20 @@ def turtle_scanner_run_ajax(request):
                 for symbol in chunk_syms:
                     try:
                         s_bk = f"{symbol}.BK" if market == 'SET' and '.' not in symbol else symbol
+                        
+                        # เพิ่มการตรวจสอบพิเศษ: ถ้าเป็นตลาด SET แต่สัญลักษณ์ดูเหมือนหุ้น US (เช่น AMAT, AMD) 
+                        # ให้ข้ามไปเลยถ้า Yahoo หา .BK ไม่เจอ เพราะมักจะเป็นการปนกันของรายชื่อ
                         df = None
                         if s_bk in data and not data[s_bk].empty:
                             df = data[s_bk].dropna(subset=['Close'])
                         
-                        # Fallback: ถ้าดึงแบบกลุ่มไม่ได้ ให้ดึงรายตัว (สำหรับ US ที่มักโดนบล็อก)
+                        # Fallback & Sanitization
                         if df is None or df.empty:
+                            # ถ้าเป็นหุ้นไทย (.BK) แล้วหาไม่พบ ให้ลองเช็คว่าเป็นหุ้น US ที่หลงมาหรือไม่
+                            if market == 'SET' and symbol.isupper() and len(symbol) <= 5:
+                                # อาจจะเป็นหุ้น US ที่หลงมาใน List SET -> ข้ามไปเลยเพื่อลด Error
+                                continue
+
                             try:
                                 t_obj = yf.Ticker(s_bk)
                                 df = t_obj.history(period="1y", interval="1d")
@@ -9037,7 +9058,8 @@ def turtle_scanner_run_ajax(request):
                                     df = df.dropna(subset=['Close'])
                             except Exception: pass
 
-                        if df is None or df.empty or len(df) < 55: continue
+                        if df is None or df.empty or len(df) < 55: 
+                            continue
                         
                         # Debug: เห็นกันชัดๆ ว่าหุ้นตัวไหนกำลังถูกตรวจ
                         # print(f"--- Analyzing {symbol} ---")
