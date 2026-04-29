@@ -9058,14 +9058,15 @@ def turtle_scanner_run_ajax(request):
                         df['SMA150'] = df['Close'].rolling(150).mean()
                         df['SMA200'] = df['Close'].rolling(200).mean()
                         
-                        # -- ADX Calculation --
-                        df['H_L'] = df['High'] - df['Low']
-                        df['H_PC'] = abs(df['High'] - df['Close'].shift(1))
-                        df['L_PC'] = abs(df['Low'] - df['Close'].shift(1))
-                        df['TR'] = df[['H_L', 'H_PC', 'L_PC']].max(axis=1)
-                        
-                        # ATR
-                        df['ATR_20'] = df['TR'].ewm(span=20, adjust=False).mean()
+                        # -- ADX Calculation (Real) --
+                        try:
+                            adx_data = df.ta.adx(length=14)
+                            if adx_data is not None and not adx_data.empty:
+                                df['ADX_14'] = adx_data['ADX_14']
+                            else:
+                                df['ADX_14'] = 0.0
+                        except Exception:
+                            df['ADX_14'] = 0.0
 
                         # Weinsteins Stage 2
                         last_row = df.iloc[-1]
@@ -9077,6 +9078,8 @@ def turtle_scanner_run_ajax(request):
                         l20 = float(last_row.get('Low_20', 0) or 0)
                         sma150 = float(last_row.get('SMA150', 0) or 0)
                         sma200 = float(last_row.get('SMA200', 0) or 0)
+                        adx_val = float(last_row.get('ADX_14', 0) or 0)
+                        
                         is_stage2 = current_close > sma150 and sma150 > sma200
 
                         # --- Just Broke (Expanded window to 10 days) ---
@@ -9129,7 +9132,7 @@ def turtle_scanner_run_ajax(request):
                                 sys1_near=sys1_near, sys2_near=sys2_near,
                                 pct_to_20d=pct_to_20d, pct_to_55d=pct_to_55d,
                                 avg_vol_20d=avg_vol, atr_20d=round(atr, 4),
-                                adx=0.0, # Simplified
+                                adx=round(adx_val, 2),
                                 stage2=is_stage2,
                                 technical_score=p_score, rs_rating=rs_rat,
                                 is_elite=is_elite
