@@ -43,6 +43,12 @@
                         {% endfor %}
                     </select>
 
+                    {% if status_filter == 'COMPLETED' %}
+                    <div class="ms-2 small text-success fw-bold d-none d-lg-block animate__animated animate__fadeIn" style="min-width: 180px;">
+                        <i class="fas fa-check-double me-1"></i> เฉพาะงานที่ปิดจบ (Closed) แล้ว
+                    </div>
+                    {% endif %}
+
                     <div class="form-check form-switch ms-1 d-flex align-items-center">
                         <input class="form-check-input" type="checkbox" name="show_all" id="showAll" {% if show_all %}checked{% endif %}>
                         <label class="form-check-label small fw-bold text-muted ms-2" for="showAll">ทั้งหมด</label>

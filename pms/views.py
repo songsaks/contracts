@@ -5205,7 +5205,8 @@ def installation_report(request):
     # Apply Status Filter
     if not show_all:
         if status_filter == 'COMPLETED':
-            qs = qs.filter(status='COMPLETED')
+            # กรองเฉพาะงานที่เสร็จสิ้น (Queue Item) และโครงการต้องปิดแล้ว (Project Status = CLOSED)
+            qs = qs.filter(status='COMPLETED', project__status='CLOSED')
         elif status_filter:
             qs = qs.filter(status=status_filter)
     
