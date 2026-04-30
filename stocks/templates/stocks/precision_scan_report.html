@@ -139,6 +139,9 @@
         .btn-export-pdf, .loading-area {
             display: none !important;
         }
+        .ai-content p, .ai-content li, .ai-content h1, .ai-content h2, .ai-content h3 {
+            page-break-inside: avoid;
+        }
     }
 </style>
 {% endblock %}
@@ -272,9 +275,10 @@
         // Fix for Thai text overlapping and line height in PDF
         const contentDiv = clone.querySelector('.ai-content');
         if (contentDiv) {
-            contentDiv.style.lineHeight = '2.2';
+            contentDiv.style.lineHeight = '2.5'; // Even more space for Thai tone marks
             contentDiv.style.fontFamily = "'Sarabun', 'Prompt', sans-serif";
-            contentDiv.style.fontSize = "14pt";
+            contentDiv.style.fontSize = "13pt";
+            contentDiv.style.color = "#1e293b";
         }
 
         // Apply style to all headings in clone
