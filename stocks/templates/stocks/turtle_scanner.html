@@ -51,15 +51,15 @@
         
         <div class="d-flex flex-wrap align-items-center gap-2 gap-md-3">
             <div class="form-check form-switch text-white">
-                <input class="form-check-input" type="checkbox" role="switch" id="filterEliteToggle" onclick="toggleEliteFilter()">
+                <input class="form-check-input" type="checkbox" role="switch" id="filterEliteToggle" onclick="applyFilters()">
                 <label class="form-check-label fw-bold small" for="filterEliteToggle">🏆 Elite Only</label>
             </div>
             <div class="form-check form-switch text-white">
-                <input class="form-check-input" type="checkbox" role="switch" id="filterQualityToggle" onclick="toggleQualityFilter()">
+                <input class="form-check-input" type="checkbox" role="switch" id="filterQualityToggle" onclick="applyFilters()">
                 <label class="form-check-label fw-bold small" for="filterQualityToggle">🟢 Prec>75</label>
             </div>
             <div class="form-check form-switch text-white">
-                <input class="form-check-input" type="checkbox" role="switch" id="filterLauncherToggle" onclick="toggleLauncherFilter()">
+                <input class="form-check-input" type="checkbox" role="switch" id="filterLauncherToggle" onclick="applyFilters()">
                 <label class="form-check-label fw-bold small" for="filterLauncherToggle">🚀 L>70</label>
             </div>
             <select id="marketSelect" class="form-select bg-white bg-opacity-25 text-white border-0 fw-bold rounded-pill px-3" style="width: auto;">
@@ -333,32 +333,7 @@
         document.getElementById('runScanBtn').disabled = false;
         clearInterval(pollInterval);
     }
-    function toggleEliteFilter() {
-        const isChecked = document.getElementById('filterEliteToggle').checked;
-        if (isChecked) {
-            document.getElementById('filterQualityToggle').checked = false;
-            document.getElementById('filterLauncherToggle').checked = false;
-        }
-        applyFilters();
-    }
-
-    function toggleQualityFilter() {
-        const isChecked = document.getElementById('filterQualityToggle').checked;
-        if (isChecked) {
-            document.getElementById('filterEliteToggle').checked = false;
-            document.getElementById('filterLauncherToggle').checked = false;
-        }
-        applyFilters();
-    }
-
-    function toggleLauncherFilter() {
-        const isChecked = document.getElementById('filterLauncherToggle').checked;
-        if (isChecked) {
-            document.getElementById('filterEliteToggle').checked = false;
-            document.getElementById('filterQualityToggle').checked = false;
-        }
-        applyFilters();
-    }
+    // Filters now call applyFilters() directly to allow combinations
 
     function applyFilters() {
         const showElite = document.getElementById('filterEliteToggle').checked;
