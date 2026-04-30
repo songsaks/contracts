@@ -287,7 +287,7 @@
 
         const opt = {
             margin:       [10, 10, 10, 10],
-            filename:     'Precision_Research_{{ symbol }}_{{ scan_data.scan_date|slice:":10" }}.pdf',
+            filename:     'Precision_Research_{{ market }}_{{ scan_data.scan_date|slice:":10" }}.pdf',
             image:        { type: 'jpeg', quality: 0.98 },
             html2canvas:  { 
                 scale: 2, 
