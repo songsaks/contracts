@@ -9021,10 +9021,18 @@ def turtle_scanner(request):
                     c.technical_score = p_match.technical_score
                     c.rs_rating = p_match.rs_rating
                     c.launcher_score = p_match.launcher_score
+                    # Re-verify elite status with latest data
+                    ps_val = c.technical_score or 0
+                    rs_val = c.rs_rating or 0
+                    if market == 'US':
+                        c.is_elite = c.stage2 and (rs_val >= 85 and ps_val >= 80)
+                    else:
+                        c.is_elite = c.stage2 and (rs_val >= 80 and ps_val >= 75)
                 else:
                     c.technical_score = None
                     c.rs_rating = None
                     c.launcher_score = None
+                    c.is_elite = False # No precision data, no elite status
     else:
         last_updated = None
 
