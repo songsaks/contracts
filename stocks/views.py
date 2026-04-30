@@ -1312,20 +1312,29 @@ def portfolio_list(request):
                 nday_low = float(hist['Low'].tail(periods).min())
                 initial_stop = float(item.entry_price or 0) - (2.0 * atr_ts['atr'])
                 current_stop = max(initial_stop, nday_low) if float(item.entry_price or 0) > 0 else nday_low
-                pyramid_price = current_price + (atr_ts['atr'] * 0.5) if current_price > 0 else 0
+                # --- Improved Pyramiding Logic (Turtle Style) ---
+                # Calculate how many units we likely have: quantity / suggested_unit_size
+                # We'll use the risk-adjusted unit size (0.5% risk) calculated later or a temporary one here.
+                temp_risk_pct = 0.005
+                temp_m_total = total_set_value if item.market == MarketType.SET else (total_us_value if item.market == MarketType.US else total_crypto_value)
+                # Fallback to current market value of this item if total is not yet ready (first pass)
+                if temp_m_total <= 0: temp_m_total = market_value
                 
-                dist_pct = ((current_price - current_stop) / current_price * 100) if current_price > 0 else 0
+                unit_size = (temp_risk_pct * float(temp_m_total)) / float(atr_ts['atr']) if atr_ts['atr'] > 0 else 1
+                num_units = max(1, round(float(item.quantity) / unit_size)) if unit_size > 0 else 1
                 
-                if current_price <= current_stop:
-                    status = 'EXIT HIT'
-                    color = 'danger'
-                elif dist_pct <= 3.0:
-                    status = 'NEAR EXIT'
-                    color = 'warning'
+                # Next pyramid price = entry_price + (0.5 * ATR * num_units)
+                # This assumes we want to add the NEXT unit above our current estimated unit count.
+                pyramid_price = float(item.entry_price or current_price) + (atr_ts['atr'] * 0.5 * num_units)
+                
+                p_dist = ((current_price - pyramid_price) / pyramid_price * 100) if pyramid_price > 0 else 0
+                if current_price >= pyramid_price:
+                    p_status, p_color = 'PYRAMID NOW! 🚀', 'primary'
+                elif p_dist >= -1.0: # Within 1% of target
+                    p_status, p_color = 'APPROACHING... ⏳', 'info'
                 else:
-                    status = 'RIDE TREND 🚀'
-                    color = 'success'
-                    
+                    p_status, p_color = 'WAITING ⏱️', 'secondary'
+
                 atr_ts.update({
                     'trailing_stop': current_stop,
                     'color': color,
@@ -1335,7 +1344,9 @@ def portfolio_list(request):
                     'turtle_sys': 'S2 (20D Low)' if is_s2 else 'S1 (10D Low)',
                     'nday_low': nday_low,
                     'initial_stop': initial_stop,
-                    'pyramid_price': pyramid_price
+                    'pyramid_price': pyramid_price,
+                    'pyramid_status': p_status,
+                    'pyramid_color': p_color
                 })
 
             ts_data = atr_ts  # ยังคง key เดิมใน template
