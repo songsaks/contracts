@@ -1309,7 +1309,8 @@ def portfolio_list(request):
             if is_turtle and atr_ts and hist is not None and not hist.empty:
                 is_s2 = 'S2' in item.strategy.upper() or '20' in item.strategy
                 periods = 20 if is_s2 else 10
-                nday_low = float(hist['Low'].tail(periods).min())
+                # Turtle Exit: use the low of the PRECEDING N days (excluding today)
+                nday_low = float(hist['Low'].iloc[:-1].tail(periods).min()) if len(hist) > periods else float(hist['Low'].min())
                 initial_stop = float(item.entry_price or 0) - (2.0 * atr_ts['atr'])
                 current_stop = max(initial_stop, nday_low) if float(item.entry_price or 0) > 0 else nday_low
                 pyramid_price = current_price + (atr_ts['atr'] * 0.5) if current_price > 0 else 0
