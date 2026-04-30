@@ -239,28 +239,42 @@
     function exportToPDF() {
         const element = document.getElementById('report-content');
         const opt = {
-            margin:       [1, 1, 1, 1],
+            margin:       [1.2, 1.2, 1.2, 1.2],
             filename:     'Macro_Playbook_' + new Date().toISOString().slice(0,10) + '.pdf',
             image:        { type: 'jpeg', quality: 0.98 },
-            html2canvas:  { scale: 2, useCORS: true },
+            html2canvas:  { 
+                scale: 2, 
+                useCORS: true, 
+                letterRendering: false, // Turn off for better Thai rendering
+                scrollX: 0,
+                scrollY: 0
+            },
             jsPDF:        { unit: 'cm', format: 'a4', orientation: 'portrait' }
         };
         
-        // Add a title header for the PDF
+        // Create a dedicated container for PDF with optimized styles
+        const container = document.createElement('div');
+        container.style.padding = "20px";
+        container.style.backgroundColor = "white";
+        container.style.color = "#1e293b";
+        container.style.fontFamily = "'Prompt', 'Sarabun', sans-serif";
+        container.style.lineHeight = "1.8"; // Increase line height for Thai text
+        
+        // Add PDF Header
         const header = document.createElement('div');
-        header.style.fontFamily = "'Inter', sans-serif";
         header.innerHTML = `
-            <div style="text-align: center; margin-bottom: 20px; border-bottom: 2px solid #6366f1; padding-bottom: 10px;">
-                <h1 style="color: #4338ca; margin-bottom: 5px;">Daily Mastermind Playbook</h1>
-                <p style="color: #64748b; font-size: 12px;">Generated on: ${new Date().toLocaleString('th-TH')}</p>
+            <div style="text-align: center; margin-bottom: 30px; border-bottom: 3px solid #6366f1; padding-bottom: 15px;">
+                <h1 style="color: #4338ca; margin-bottom: 5px; font-size: 24px;">Daily Mastermind Playbook</h1>
+                <p style="color: #64748b; font-size: 14px;">Generated on: ${new Date().toLocaleString('th-TH')}</p>
             </div>
         `;
         
-        // Temporarily wrap content
-        const container = document.createElement('div');
-        container.style.padding = "20px";
         container.appendChild(header);
-        container.appendChild(element.cloneNode(true));
+        
+        // Clone and clean the content
+        const clonedContent = element.cloneNode(true);
+        clonedContent.style.fontSize = "14px";
+        container.appendChild(clonedContent);
         
         html2pdf().set(opt).from(container).save();
     }

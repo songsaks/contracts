@@ -397,18 +397,29 @@ function exportPDF() {
     function exportReportToPDF() {
         const element = document.getElementById('report-main-container');
         const header = document.getElementById('pdf-header-inject');
+        
+        // Optimize for PDF
         header.style.display = 'block';
+        element.style.lineHeight = '1.8';
+        element.style.fontFamily = "'Sarabun', 'Prompt', sans-serif";
 
         const opt = {
             margin:       [1.5, 1.5, 1.5, 1.5],
             filename:     'AI_Report_{{ symbol }}_' + new Date().toISOString().slice(0,10) + '.pdf',
             image:        { type: 'jpeg', quality: 0.98 },
-            html2canvas:  { scale: 2, useCORS: true, letterRendering: true },
+            html2canvas:  { 
+                scale: 2, 
+                useCORS: true, 
+                letterRendering: false,
+                scrollX: 0,
+                scrollY: 0
+            },
             jsPDF:        { unit: 'cm', format: 'a4', orientation: 'portrait' }
         };
         
         html2pdf().set(opt).from(element).save().then(() => {
             header.style.display = 'none';
+            element.style.lineHeight = ''; // Reset
         });
     }
 </script>
