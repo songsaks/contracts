@@ -6,14 +6,11 @@
 {% block content %}
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
-<!-- ═══════════════════════════════════════════════════
-     HERO METRICS BAR
-═══════════════════════════════════════════════════ -->
-<div class="db-hero mb-4">
+<div class="db-hero mb-4 animate-in">
     <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2 mb-4">
         <div>
             <h2 class="db-page-title mb-1">System Dashboard</h2>
-            <p class="db-page-sub mb-0">ภาพรวมพอร์ตและการเฝ้าระวังสินทรัพย์ของคุณ</p>
+            <p class="db-page-sub mb-0">Command Center สรุปภาพรวมพอร์ตและทิศทางตลาด</p>
         </div>
         <div class="d-flex align-items-center gap-2">
             <span class="db-live-badge"><span class="db-live-dot"></span> LIVE</span>
@@ -21,9 +18,8 @@
         </div>
     </div>
 
-    <!-- METRIC CARDS ROW -->
-    <div class="row g-3">
-
+    <!-- 1. HERO METRIC CARDS -->
+    <div class="row g-3 mb-4">
         <!-- Portfolio Value -->
         <div class="col-6 col-lg-3">
             <div class="db-metric-card">
@@ -32,10 +28,9 @@
                 <div class="db-metric-label">มูลค่ารวม</div>
                 <div class="db-metric-value">฿{{ summary.total_value|floatformat:0|intcomma }}</div>
                 <div class="db-metric-sub">Equity + Crypto (THB)</div>
-                <div class="db-metric-bar"><div class="db-metric-bar-fill bar-indigo" style="width:75%"></div></div>
+                <div class="db-metric-bar"><div class="db-metric-bar-fill bar-indigo" style="width:100%"></div></div>
             </div>
         </div>
-
         <!-- P/L -->
         <div class="col-6 col-lg-3">
             <div class="db-metric-card {% if summary.total_pl > 0 %}card-profit{% elif summary.total_pl < 0 %}card-loss{% endif %}">
@@ -46,13 +41,11 @@
                     {% if summary.total_pl > 0 %}+{% endif %}฿{{ summary.total_pl|floatformat:0|intcomma }}
                 </div>
                 <div class="db-metric-sub fw-bold {% if summary.pl_pct > 0 %}text-emerald{% elif summary.pl_pct < 0 %}text-red{% endif %}">
-                    {% if summary.pl_pct > 0 %}▲{% elif summary.pl_pct < 0 %}▼{% endif %}
-                    {{ summary.pl_pct|floatformat:2 }}% overall
+                    {% if summary.pl_pct > 0 %}▲{% elif summary.pl_pct < 0 %}▼{% endif %} {{ summary.pl_pct|floatformat:2 }}%
                 </div>
                 <div class="db-metric-bar"><div class="db-metric-bar-fill {% if summary.total_pl >= 0 %}bar-emerald{% else %}bar-red{% endif %}" style="width:{{ summary.pl_pct|floatformat:0|default:0|add:50 }}%"></div></div>
             </div>
         </div>
-
         <!-- Portfolio Safety -->
         <div class="col-6 col-lg-3">
             <div class="db-metric-card">
@@ -64,7 +57,6 @@
                 <div class="db-metric-bar"><div class="db-metric-bar-fill bar-emerald" style="width:94.8%"></div></div>
             </div>
         </div>
-
         <!-- FX Rate -->
         <div class="col-6 col-lg-3">
             <div class="db-metric-card card-dark">
@@ -76,73 +68,64 @@
                 <div class="db-metric-bar"><div class="db-metric-bar-fill bar-white" style="width:60%"></div></div>
             </div>
         </div>
-
     </div>
-</div>
 
-<!-- ═══════════════════════════════════════════════════
-     ALLOCATION + TOP MOVERS
-═══════════════════════════════════════════════════ -->
-<div class="row g-3 mb-4">
-
-    <!-- Asset Allocation -->
-    <div class="col-xl-7">
-        <div class="db-panel h-100">
-            <div class="db-panel-header">
-                <span class="db-panel-title"><i class="fas fa-chart-pie me-2 text-indigo"></i>Asset Allocation</span>
-                <a href="{% url 'stocks:portfolio_list' %}" class="db-panel-link">ดูทั้งหมด <i class="fas fa-arrow-right ms-1"></i></a>
-            </div>
-            <div class="row align-items-center g-0 p-4">
-                <!-- Donut Chart -->
-                <div class="col-5 d-flex justify-content-center">
-                    <div style="position:relative; width:170px; height:170px;">
-                        <canvas id="allocChart"></canvas>
-                        <div class="alloc-center-label">
-                            <div class="alloc-center-num">{{ total_items }}</div>
-                            <div class="alloc-center-sub">Assets</div>
+    <!-- 2. ALLOCATION & TOP MOVERS -->
+    <div class="row g-4 mb-4">
+        <!-- Asset Allocation -->
+        <div class="col-xl-7">
+            <div class="db-panel h-100 p-4">
+                <div class="db-panel-header border-0 mb-3 p-0">
+                    <span class="db-panel-title"><i class="fas fa-chart-pie me-2 text-indigo"></i>Asset Allocation</span>
+                    <a href="{% url 'stocks:portfolio_list' %}" class="db-panel-link">ดูทั้งหมด <i class="fas fa-arrow-right ms-1"></i></a>
+                </div>
+                <div class="row align-items-center g-0">
+                    <div class="col-5 d-flex justify-content-center">
+                        <div style="position:relative; width:170px; height:170px;">
+                            <canvas id="allocChart"></canvas>
+                            <div class="alloc-center-label">
+                                <div class="alloc-center-num">{{ summary.asset_alloc.total_count|default:"0" }}</div>
+                                <div class="alloc-center-sub">Assets</div>
+                            </div>
                         </div>
                     </div>
-                </div>
-                <!-- Bars -->
-                <div class="col-7 ps-3">
-                    <div class="alloc-list">
-                        <div class="alloc-item">
-                            <div class="d-flex justify-content-between mb-1">
-                                <span class="alloc-label"><span class="alloc-dot dot-indigo"></span>🇹🇭 หุ้นไทย</span>
-                                <span class="alloc-val">฿{{ summary.asset_alloc.SET|floatformat:0|intcomma }}</span>
+                    <div class="col-7 ps-3">
+                        <div class="alloc-list">
+                            <div class="alloc-item mb-3">
+                                <div class="d-flex justify-content-between mb-1">
+                                    <span class="alloc-label"><span class="alloc-dot dot-indigo"></span>🇹🇭 หุ้นไทย</span>
+                                    <span class="alloc-val">฿{{ summary.asset_alloc.SET|floatformat:0|intcomma }}</span>
+                                </div>
+                                <div class="alloc-track"><div class="alloc-fill fill-indigo" id="barSet" style="width:0%"></div></div>
                             </div>
-                            <div class="alloc-track"><div class="alloc-fill fill-indigo" id="barSet" style="width:0%"></div></div>
-                        </div>
-                        <div class="alloc-item">
-                            <div class="d-flex justify-content-between mb-1">
-                                <span class="alloc-label"><span class="alloc-dot dot-emerald"></span>🇺🇸 หุ้น US</span>
-                                <span class="alloc-val">฿{{ summary.asset_alloc.US|floatformat:0|intcomma }}</span>
+                            <div class="alloc-item mb-3">
+                                <div class="d-flex justify-content-between mb-1">
+                                    <span class="alloc-label"><span class="alloc-dot dot-emerald"></span>🇺🇸 หุ้น US</span>
+                                    <span class="alloc-val">฿{{ summary.asset_alloc.US|floatformat:0|intcomma }}</span>
+                                </div>
+                                <div class="alloc-track"><div class="alloc-fill fill-emerald" id="barUs" style="width:0%"></div></div>
                             </div>
-                            <div class="alloc-track"><div class="alloc-fill fill-emerald" id="barUs" style="width:0%"></div></div>
-                        </div>
-                        <div class="alloc-item">
-                            <div class="d-flex justify-content-between mb-1">
-                                <span class="alloc-label"><span class="alloc-dot dot-amber"></span>₿ Crypto</span>
-                                <span class="alloc-val">฿{{ summary.asset_alloc.CRYPTO|floatformat:0|intcomma }}</span>
+                            <div class="alloc-item">
+                                <div class="d-flex justify-content-between mb-1">
+                                    <span class="alloc-label"><span class="alloc-dot dot-amber"></span>₿ Crypto</span>
+                                    <span class="alloc-val">฿{{ summary.asset_alloc.CRYPTO|floatformat:0|intcomma }}</span>
+                                </div>
+                                <div class="alloc-track"><div class="alloc-fill fill-amber" id="barCrypto" style="width:0%"></div></div>
                             </div>
-                            <div class="alloc-track"><div class="alloc-fill fill-amber" id="barCrypto" style="width:0%"></div></div>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
-    </div>
-
-    <!-- Top Movers -->
-    <div class="col-xl-5">
-        <div class="db-panel h-100">
-            <div class="db-panel-header">
-                <span class="db-panel-title"><i class="fas fa-bolt me-2 text-amber"></i>Top Movers</span>
-            </div>
-            <div class="p-3">
+        <!-- Top Movers -->
+        <div class="col-xl-5">
+            <div class="db-panel h-100 p-4">
+                <div class="db-panel-header border-0 mb-3 p-0">
+                    <span class="db-panel-title"><i class="fas fa-bolt me-2 text-amber"></i>Top Movers</span>
+                </div>
                 <div class="movers-section-label">TOP GAINERS</div>
                 {% for g in top_gainers %}
-                <a href="{% url 'stocks:analyze' g.obj.symbol %}" class="mover-row mover-gain">
+                <a href="{% url 'stocks:analyze' g.obj.symbol %}" class="mover-row mover-gain mb-1">
                     <div class="mover-avatar av-gain">{{ g.obj.symbol|slice:":2" }}</div>
                     <div class="mover-info">
                         <div class="mover-sym">{{ g.obj.symbol }}</div>
@@ -150,11 +133,11 @@
                     </div>
                     <div class="mover-chg text-emerald">+{{ g.change|floatformat:2 }}%</div>
                 </a>
-                {% empty %}<div class="mover-empty">ไม่มีข้อมูล</div>{% endfor %}
+                {% empty %}<div class="mover-empty text-muted small py-2">ไม่มีข้อมูล</div>{% endfor %}
 
-                <div class="movers-section-label mt-3">TOP LOSERS</div>
+                <div class="movers-section-label mt-4">TOP LOSERS</div>
                 {% for l in top_losers %}
-                <a href="{% url 'stocks:analyze' l.obj.symbol %}" class="mover-row mover-loss">
+                <a href="{% url 'stocks:analyze' l.obj.symbol %}" class="mover-row mover-loss mb-1">
                     <div class="mover-avatar av-loss">{{ l.obj.symbol|slice:":2" }}</div>
                     <div class="mover-info">
                         <div class="mover-sym">{{ l.obj.symbol }}</div>
@@ -162,111 +145,101 @@
                     </div>
                     <div class="mover-chg text-red">{{ l.change|floatformat:2 }}%</div>
                 </a>
-                {% empty %}<div class="mover-empty">ไม่มีข้อมูล</div>{% endfor %}
+                {% empty %}<div class="mover-empty text-muted small py-2">ไม่มีข้อมูล</div>{% endfor %}
             </div>
         </div>
     </div>
-</div>
 
-<!-- ═══════════════════════════════════════════════════
-     WATCHLIST QUICK VIEW
-═══════════════════════════════════════════════════ -->
-<div class="db-panel">
-    <div class="db-panel-header">
-        <span class="db-panel-title"><i class="fas fa-eye me-2 text-indigo"></i>Watchlist Quick View</span>
-        <div class="d-flex gap-2">
-            <span class="db-count-badge">{{ total_items }} สินทรัพย์</span>
-            <button class="db-btn-add" data-bs-toggle="modal" data-bs-target="#addSymbolModal">
-                <i class="fas fa-plus me-1"></i> Add Symbol
-            </button>
-        </div>
-    </div>
-
-    <div class="p-3">
-        <div class="row g-3">
-            {% for item in items %}
-            <div class="col-12 col-sm-6 col-xl-4">
-                <a href="{% url 'stocks:analyze' item.obj.symbol %}" class="wq-card">
-                    <div class="wq-card-left">
-                        <div class="wq-icon {% if item.obj.category == 'CRYPTO' %}wq-icon-crypto{% elif item.change > 0 %}wq-icon-up{% elif item.change < 0 %}wq-icon-down{% else %}wq-icon-neu{% endif %}">
-                            {% if item.obj.category == 'CRYPTO' %}<i class="fab fa-bitcoin"></i>
-                            {% elif item.obj.category == 'STOCK' %}<i class="fas fa-building-columns"></i>
-                            {% else %}<i class="fas fa-coins"></i>{% endif %}
-                        </div>
-                        <div>
-                            <div class="wq-sym">{{ item.obj.symbol }}</div>
-                            <div class="wq-name">{{ item.obj.name|default:item.obj.symbol|truncatechars:14 }}</div>
+    <!-- 3. STRATEGY & MARKET SENTIMENT (REPLACED WATCHLIST) -->
+    <div class="row g-4">
+        <div class="col-lg-7">
+            <div class="db-panel h-100 p-4">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h5 class="fw-black mb-0"><i class="fas fa-chess-knight me-2 text-indigo"></i>Strategy Distribution</h5>
+                    <span class="db-count-badge">Active Strategies</span>
+                </div>
+                <div class="row align-items-center">
+                    <div class="col-md-5 text-center mb-3 mb-md-0">
+                        <div style="position:relative; width:160px; height:160px; margin: 0 auto;">
+                            <canvas id="strategyChart"></canvas>
+                            <div class="alloc-center-label">
+                                <div class="alloc-center-num">Active</div>
+                                <div class="alloc-center-sub">Strategies</div>
+                            </div>
                         </div>
                     </div>
-                    <div class="wq-card-right">
-                        <div class="wq-price {% if item.change > 0 %}text-emerald{% elif item.change < 0 %}text-red{% endif %}">
-                            ฿{{ item.price|floatformat:2 }}
-                        </div>
-                        <div class="wq-chg {% if item.change > 0 %}chg-up{% elif item.change < 0 %}chg-down{% else %}chg-neu{% endif %}">
-                            {% if item.change > 0 %}▲{% elif item.change < 0 %}▼{% endif %}{{ item.change|floatformat:2 }}%
-                        </div>
-                        <div class="wq-badges">
-                            {% if item.rsi %}<span class="wq-badge {% if item.rsi < 30 %}b-danger{% elif item.rsi > 70 %}b-warn{% else %}b-neu{% endif %}">RSI {{ item.rsi|floatformat:0 }}</span>{% endif %}
-                            {% if item.mom_data %}<span class="wq-badge b-indigo">S{{ item.mom_data.technical_score }}</span>{% endif %}
-                        </div>
-                    </div>
-                </a>
-            </div>
-            {% endfor %}
-        </div>
-        {% if items %}
-        <div class="text-center mt-3 pb-1">
-            <span class="db-showing-text">Showing {{ items|length }} of {{ total_items }} items</span>
-        </div>
-        {% else %}
-        <div class="db-empty-wl">
-            <i class="fas fa-inbox fa-2x text-muted opacity-25 mb-3 d-block"></i>
-            <p class="text-muted small mb-2">ยังไม่มีสินทรัพย์ใน Watchlist</p>
-            <button class="db-btn-add" data-bs-toggle="modal" data-bs-target="#addSymbolModal">+ เพิ่มสินทรัพย์แรก</button>
-        </div>
-        {% endif %}
-    </div>
-</div>
-
-<!-- ═══════ ADD SYMBOL MODAL ═══════ -->
-<div class="modal fade" id="addSymbolModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content rounded-4 border-0 shadow-lg p-2">
-            <div class="modal-header border-0 pb-0">
-                <h5 class="modal-title fw-bold">เพิ่ม Symbol ใหม่</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <form action="{% url 'stocks:add_to_watchlist' %}" method="POST">
-                {% csrf_token %}
-                <div class="modal-body pt-3">
-                    <div class="mb-3">
-                        <label class="form-label small fw-bold text-muted">Symbol (Ticker)</label>
-                        <input type="text" name="symbol" class="form-control rounded-3" style="background:#f8fafc;" placeholder="เช่น AAPL, PTT.BK, BTC-USD" required>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label small fw-bold text-muted">ชื่อ (ไม่บังคับ)</label>
-                        <input type="text" name="name" class="form-control rounded-3" style="background:#f8fafc;">
-                    </div>
-                    <div class="row g-2">
-                        <div class="col-6">
-                            <label class="form-label small fw-bold text-muted">ตลาด</label>
-                            <select name="market" class="form-select rounded-3" style="background:#f8fafc;">
-                                {% for code, label in market_types %}<option value="{{ code }}">{{ label }}</option>{% endfor %}
-                            </select>
-                        </div>
-                        <div class="col-6">
-                            <label class="form-label small fw-bold text-muted">ประเภท</label>
-                            <select name="category" class="form-select rounded-3" style="background:#f8fafc;">
-                                {% for code, label in categories %}<option value="{{ code }}">{{ label }}</option>{% endfor %}
-                            </select>
+                    <div class="col-md-7">
+                        <div class="d-flex flex-column gap-3">
+                            <div class="p-3 rounded-4 bg-light border-start border-primary border-4 shadow-sm">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <span class="fw-bold"><i class="fas fa-turtle me-2 text-primary"></i>Turtle Trading</span>
+                                    <span class="fw-black text-primary">72%</span>
+                                </div>
+                                <div class="progress mt-2" style="height: 6px;"><div class="progress-bar bg-primary" style="width: 72%;"></div></div>
+                            </div>
+                            <div class="p-3 rounded-4 bg-light border-start border-info border-4 shadow-sm">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <span class="fw-bold"><i class="fas fa-crosshairs me-2 text-info"></i>Precision Momentum</span>
+                                    <span class="fw-black text-info">28%</span>
+                                </div>
+                                <div class="progress mt-2" style="height: 6px;"><div class="progress-bar bg-info" style="width: 28%;"></div></div>
+                            </div>
                         </div>
                     </div>
                 </div>
-                <div class="modal-footer border-0 pt-0">
-                    <button type="button" class="btn btn-link text-muted text-decoration-none" data-bs-dismiss="modal">ยกเลิก</button>
-                    <button type="submit" class="db-btn-add px-4 py-2">เพิ่มใน Watchlist</button>
+            </div>
+        </div>
+        <div class="col-lg-5">
+            <div class="db-panel h-100 p-4" style="background:linear-gradient(135deg, #1e293b, #0f172a); border:none; color:white;">
+                <h5 class="fw-black mb-4"><i class="fas fa-heartbeat me-2 text-red"></i>Market Sentiment</h5>
+                <div class="d-flex flex-column gap-4">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div class="d-flex align-items-center gap-3">
+                            <div class="rounded-circle bg-white bg-opacity-10 p-2" style="width:42px; height:42px; display:flex; align-items:center; justify-content:center; border:1px solid rgba(255,255,255,0.1);">
+                                <span class="fw-bold" style="font-size:0.75rem;">SET</span>
+                            </div>
+                            <div>
+                                <div class="fw-bold small">SET Index</div>
+                                <div class="text-emerald small" style="font-size:0.65rem;"><i class="fas fa-arrow-up me-1"></i>Bullish Phase</div>
+                            </div>
+                        </div>
+                        <div class="text-end">
+                            <div class="fw-black h6 mb-0">1,385.20</div>
+                            <div class="text-emerald small">+0.42%</div>
+                        </div>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div class="d-flex align-items-center gap-3">
+                            <div class="rounded-circle bg-white bg-opacity-10 p-2" style="width:42px; height:42px; display:flex; align-items:center; justify-content:center; border:1px solid rgba(255,255,255,0.1);">
+                                <span class="fw-bold" style="font-size:0.75rem;">US</span>
+                            </div>
+                            <div>
+                                <div class="fw-bold small">S&P 500</div>
+                                <div class="text-amber small" style="font-size:0.65rem;"><i class="fas fa-minus me-1"></i>Correction Zone</div>
+                            </div>
+                        </div>
+                        <div class="text-end">
+                            <div class="fw-black h6 mb-0">5,120.40</div>
+                            <div class="text-red small">-1.20%</div>
+                        </div>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div class="d-flex align-items-center gap-3">
+                            <div class="rounded-circle bg-white bg-opacity-10 p-2" style="width:42px; height:42px; display:flex; align-items:center; justify-content:center; border:1px solid rgba(255,255,255,0.1);">
+                                <i class="fab fa-bitcoin text-amber"></i>
+                            </div>
+                            <div>
+                                <div class="fw-bold small">Bitcoin</div>
+                                <div class="text-emerald small" style="font-size:0.65rem;"><i class="fas fa-rocket me-1"></i>Hyper-Growth</div>
+                            </div>
+                        </div>
+                        <div class="text-end">
+                            <div class="fw-black h6 mb-0">$64,200</div>
+                            <div class="text-emerald small">+4.80%</div>
+                        </div>
+                    </div>
                 </div>
-            </form>
+            </div>
         </div>
     </div>
 </div>
@@ -282,261 +255,110 @@
     --slate-50: #f8fafc; --slate-100: #f1f5f9;
     --slate-200: #e2e8f0; --slate-700: #334155; --slate-900: #0f172a;
 }
-
-/* ── PAGE ── */
-.db-page-title { font-family:'Prompt',sans-serif; font-weight:700; font-size:1.55rem; color:var(--slate-900); letter-spacing:-0.02em; }
-.db-page-sub   { color:#64748b; font-size:0.85rem; }
-.db-live-badge { background:#ecfdf5; color:#059669; border:1px solid #a7f3d0; border-radius:999px; padding:5px 14px; font-size:0.72rem; font-weight:700; letter-spacing:0.06em; display:flex; align-items:center; gap:6px; }
-.db-live-dot   { width:7px; height:7px; background:#10b981; border-radius:50%; animation:livePulse 1.5s infinite; }
-@keyframes livePulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
-.db-time-badge { background:var(--slate-100); color:#64748b; border-radius:999px; padding:5px 14px; font-size:0.72rem; font-weight:600; font-family:'Inter',monospace; }
-
-/* ── METRIC CARDS ── */
-.db-metric-card { background:#fff; border:1px solid var(--slate-200); border-radius:1.1rem; padding:18px 18px 14px; position:relative; transition:transform 0.25s,box-shadow 0.25s; overflow:hidden; height:100%; }
-.db-metric-card:hover { transform:translateY(-4px); box-shadow:0 12px 30px rgba(0,0,0,0.07); }
-.card-dark  { background:linear-gradient(135deg,#1e293b,#0f172a) !important; border-color:#334155 !important; }
-.card-profit{ border-left:3px solid #059669 !important; }
-.card-loss  { border-left:3px solid #dc2626 !important; }
-.db-metric-icon { width:38px; height:38px; border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:0.9rem; margin-bottom:10px; }
+body { font-family: var(--font); background-color: var(--slate-50); }
+.fw-black { font-weight: 900; }
+.db-page-title { font-weight:700; font-size:1.6rem; color:var(--slate-900); }
+.db-page-sub { color:#64748b; font-size:0.85rem; }
+.db-live-badge { background:#ecfdf5; color:#059669; border:1px solid #a7f3d0; border-radius:99px; padding:5px 14px; font-size:0.7rem; font-weight:700; display:flex; align-items:center; gap:6px; }
+.db-live-dot { width:7px; height:7px; background:#10b981; border-radius:50%; animation:pulse 1.5s infinite; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+.db-time-badge { background:var(--slate-100); color:#64748b; border-radius:99px; padding:5px 14px; font-size:0.7rem; font-weight:600; }
+.db-metric-card { background:#fff; border:1px solid var(--slate-200); border-radius:1.25rem; padding:20px; position:relative; transition:all 0.3s; }
+.db-metric-card:hover { transform:translateY(-5px); box-shadow:0 12px 30px rgba(0,0,0,0.08); }
+.card-dark { background:linear-gradient(135deg,#1e293b,#0f172a) !important; color:white; }
+.db-metric-icon { width:40px; height:40px; border-radius:12px; display:flex; align-items:center; justify-content:center; margin-bottom:12px; }
 .icon-indigo { background:var(--indigo-light); color:var(--indigo); }
-.icon-emerald{ background:var(--emerald-light); color:var(--emerald); }
-.icon-amber  { background:var(--amber-light); color:var(--amber); }
-.icon-red    { background:var(--red-light); color:var(--red); }
-.icon-white  { background:rgba(255,255,255,0.1); color:rgba(255,255,255,0.9); }
-.db-metric-tag { position:absolute; top:14px; right:14px; font-size:0.6rem; font-weight:800; letter-spacing:0.07em; padding:3px 8px; border-radius:999px; }
-.tag-indigo  { background:var(--indigo-light); color:var(--indigo); }
+.icon-emerald { background:var(--emerald-light); color:var(--emerald); }
+.icon-amber { background:var(--amber-light); color:var(--amber); }
+.icon-white { background:rgba(255,255,255,0.1); color:white; }
+.db-metric-tag { position:absolute; top:20px; right:20px; font-size:0.6rem; font-weight:800; padding:3px 8px; border-radius:99px; text-transform:uppercase; }
+.tag-indigo { background:var(--indigo-light); color:var(--indigo); }
 .tag-emerald { background:var(--emerald-light); color:var(--emerald); }
-.tag-amber   { background:var(--amber-light); color:var(--amber); }
-.tag-red     { background:var(--red-light); color:var(--red); }
-.tag-white   { background:rgba(255,255,255,0.1); color:rgba(255,255,255,0.7); }
-.db-metric-label { font-size:0.65rem; font-weight:700; text-transform:uppercase; letter-spacing:0.07em; color:#94a3b8; margin-bottom:3px; }
-.db-metric-value { font-size:1.45rem; font-weight:900; color:var(--slate-900); letter-spacing:-0.02em; line-height:1.1; }
-.db-metric-sub   { font-size:0.68rem; color:#94a3b8; margin-top:3px; }
-.db-metric-bar   { height:3px; background:rgba(0,0,0,0.05); border-radius:999px; margin-top:12px; overflow:hidden; }
-.db-metric-bar-fill { height:100%; border-radius:999px; transition:width 1s ease; }
-.bar-indigo  { background:linear-gradient(90deg,#4f46e5,#818cf8); }
-.bar-emerald { background:linear-gradient(90deg,#059669,#34d399); }
-.bar-amber   { background:linear-gradient(90deg,#d97706,#fbbf24); }
-.bar-red     { background:linear-gradient(90deg,#dc2626,#f87171); }
-.bar-white   { background:rgba(255,255,255,0.3); }
-.text-emerald{ color:var(--emerald) !important; }
-.text-red    { color:var(--red) !important; }
-.text-indigo { color:var(--indigo); }
-.text-amber  { color:var(--amber); }
-
-/* ── PANEL ── */
-.db-panel { background:#fff; border:1px solid var(--slate-200); border-radius:1.1rem; overflow:hidden; }
-.db-panel-header { display:flex; justify-content:space-between; align-items:center; padding:16px 20px; border-bottom:1px solid var(--slate-100); }
-.db-panel-title  { font-weight:700; font-size:0.9rem; color:var(--slate-900); }
-.db-panel-link   { font-size:0.75rem; color:var(--indigo); text-decoration:none; font-weight:600; }
-.db-panel-link:hover { text-decoration:underline; }
-
-/* ── ALLOCATION ── */
+.tag-red { background:var(--red-light); color:var(--red); }
+.tag-white { background:rgba(255,255,255,0.1); color:white; }
+.db-metric-label { font-size:0.65rem; font-weight:700; text-transform:uppercase; color:#94a3b8; margin-bottom:4px; }
+.db-metric-value { font-size:1.5rem; font-weight:900; color:inherit; }
+.db-metric-sub { font-size:0.7rem; color:#94a3b8; }
+.db-metric-bar { height:4px; background:rgba(0,0,0,0.05); border-radius:99px; margin-top:15px; overflow:hidden; }
+.db-metric-bar-fill { height:100%; border-radius:99px; }
+.bar-indigo { background:var(--indigo); }
+.bar-emerald { background:var(--emerald); }
+.bar-white { background:white; }
+.db-panel { background:#fff; border:1px solid var(--slate-200); border-radius:1.25rem; }
+.db-panel-title { font-weight:700; font-size:0.95rem; color:var(--slate-900); }
+.db-panel-link { font-size:0.75rem; color:var(--indigo); text-decoration:none; font-weight:600; }
 .alloc-center-label { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; }
-.alloc-center-num { font-size:1.6rem; font-weight:900; color:var(--slate-900); line-height:1; }
-.alloc-center-sub { font-size:0.6rem; font-weight:700; text-transform:uppercase; letter-spacing:0.08em; color:#94a3b8; }
-.alloc-list  { display:flex; flex-direction:column; gap:14px; }
-.alloc-item  {}
-.alloc-label { font-size:0.78rem; font-weight:600; color:var(--slate-700); display:flex; align-items:center; gap:7px; }
-.alloc-dot   { width:9px; height:9px; border-radius:50%; flex-shrink:0; }
-.dot-indigo  { background:var(--indigo); }
+.alloc-center-num { font-size:1.6rem; font-weight:900; color:var(--slate-900); }
+.alloc-center-sub { font-size:0.6rem; font-weight:700; text-transform:uppercase; color:#94a3b8; }
+.alloc-label { font-size:0.8rem; font-weight:600; color:var(--slate-700); display:flex; align-items:center; gap:8px; }
+.alloc-dot { width:10px; height:10px; border-radius:50%; }
+.dot-indigo { background:var(--indigo); }
 .dot-emerald { background:var(--emerald); }
-.dot-amber   { background:#f59e0b; }
-.alloc-val   { font-size:0.82rem; font-weight:800; color:var(--slate-900); }
-.alloc-track { height:6px; background:var(--slate-100); border-radius:999px; margin-top:5px; overflow:hidden; }
-.alloc-fill  { height:100%; border-radius:999px; transition:width 1.2s cubic-bezier(.34,1.56,.64,1); }
-.fill-indigo  { background:linear-gradient(90deg,var(--indigo),#818cf8); }
-.fill-emerald { background:linear-gradient(90deg,var(--emerald),#34d399); }
-.fill-amber   { background:linear-gradient(90deg,#d97706,#fbbf24); }
-
-/* ── TOP MOVERS ── */
-.movers-section-label { font-size:0.6rem; font-weight:800; letter-spacing:0.1em; color:#94a3b8; text-transform:uppercase; padding:0 4px 8px; }
-.mover-row { display:flex; align-items:center; gap:10px; padding:9px 8px; border-radius:10px; text-decoration:none; transition:background 0.15s; }
+.dot-amber { background:#f59e0b; }
+.alloc-val { font-size:0.85rem; font-weight:800; color:var(--slate-900); }
+.alloc-track { height:6px; background:var(--slate-100); border-radius:99px; overflow:hidden; }
+.alloc-fill { height:100%; border-radius:99px; transition:width 1s; }
+.fill-indigo { background:var(--indigo); }
+.fill-emerald { background:var(--emerald); }
+.fill-amber { background:#f59e0b; }
+.movers-section-label { font-size:0.6rem; font-weight:800; color:#94a3b8; text-transform:uppercase; letter-spacing:0.05em; }
+.mover-row { display:flex; align-items:center; gap:12px; padding:10px; border-radius:12px; text-decoration:none; transition:background 0.2s; }
 .mover-row:hover { background:var(--slate-50); }
-.mover-avatar { width:34px; height:34px; border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:0.62rem; font-weight:900; flex-shrink:0; }
+.mover-avatar { width:36px; height:36px; border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:0.65rem; font-weight:900; }
 .av-gain { background:var(--emerald-light); color:var(--emerald); }
 .av-loss { background:var(--red-light); color:var(--red); }
-.mover-info { flex:1; min-width:0; }
-.mover-sym  { font-size:0.82rem; font-weight:800; color:var(--slate-900); }
+.mover-sym { font-size:0.85rem; font-weight:800; color:var(--slate-900); }
 .mover-name { font-size:0.65rem; color:#94a3b8; }
-.mover-chg  { font-size:0.82rem; font-weight:800; flex-shrink:0; }
-.mover-empty{ font-size:0.75rem; color:#94a3b8; padding:8px 8px; }
-
-/* ── WATCHLIST CARDS ── */
-.wq-card { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:12px 14px; border:1px solid var(--slate-200); border-radius:12px; text-decoration:none; transition:all 0.2s; background:#fff; }
-.wq-card:hover { border-color:#c7d2fe; box-shadow:0 4px 14px rgba(79,70,229,0.08); transform:translateY(-2px); }
-.wq-card-left  { display:flex; align-items:center; gap:10px; min-width:0; }
-.wq-card-right { text-align:right; flex-shrink:0; }
-.wq-icon { width:36px; height:36px; border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:0.85rem; flex-shrink:0; }
-.wq-icon-up     { background:var(--emerald-light); color:var(--emerald); }
-.wq-icon-down   { background:var(--red-light); color:var(--red); }
-.wq-icon-neu    { background:var(--slate-100); color:#64748b; }
-.wq-icon-crypto { background:#fffbeb; color:#d97706; }
-.wq-sym  { font-size:0.85rem; font-weight:800; color:var(--slate-900); }
-.wq-name { font-size:0.65rem; color:#94a3b8; }
-.wq-price{ font-size:0.85rem; font-weight:700; color:var(--slate-900); }
-.wq-chg  { font-size:0.7rem; font-weight:700; border-radius:999px; padding:2px 8px; display:inline-block; margin-top:2px; }
-.chg-up  { background:var(--emerald-light); color:var(--emerald); }
-.chg-down{ background:var(--red-light); color:var(--red); }
-.chg-neu { background:var(--slate-100); color:#64748b; }
-.wq-badges { display:flex; gap:4px; justify-content:flex-end; margin-top:4px; flex-wrap:wrap; }
-.wq-badge { font-size:0.58rem; font-weight:700; padding:2px 6px; border-radius:4px; }
-.b-indigo { background:var(--indigo-light); color:var(--indigo); }
-.b-warn   { background:#fffbeb; color:#92400e; }
-.b-danger { background:var(--red-light); color:var(--red); }
-.b-neu    { background:var(--slate-100); color:#64748b; }
-
-/* ── MISC ── */
-.db-btn-add { background:linear-gradient(135deg,#4f46e5,#7c3aed); color:white; border:none; border-radius:999px; padding:7px 18px; font-size:0.75rem; font-weight:700; cursor:pointer; transition:all 0.2s; text-decoration:none; display:inline-flex; align-items:center; }
-.db-btn-add:hover { transform:translateY(-2px); box-shadow:0 8px 20px rgba(79,70,229,0.35); color:white; }
-.db-count-badge { background:var(--slate-100); color:#64748b; border-radius:999px; padding:5px 12px; font-size:0.72rem; font-weight:600; }
-.db-showing-text{ font-size:0.72rem; color:#94a3b8; }
-.db-empty-wl { text-align:center; padding:40px 20px; }
+.mover-chg { font-size:0.85rem; font-weight:800; }
+.db-count-badge { background:var(--slate-100); color:#64748b; border-radius:99px; padding:4px 12px; font-size:0.7rem; font-weight:600; }
+.text-emerald { color: var(--emerald) !important; }
+.text-red { color: var(--red) !important; }
 </style>
-
-<!-- BOTTOM SECTION: RISK & STRATEGY (REPLACED WATCHLIST) -->
-<div class="row g-4 mt-2">
-    <!-- Strategy Distribution -->
-    <div class="col-lg-7">
-        <div class="card-premium border-0 shadow-sm rounded-5 p-4 h-100" style="background:white;">
-            <div class="d-flex justify-content-between align-items-center mb-4">
-                <h5 class="fw-black mb-0"><i class="fas fa-chess-knight me-2 text-primary"></i>Strategy Distribution</h5>
-                <span class="badge bg-light text-dark rounded-pill" style="font-size:0.7rem;">Active Strategies</span>
-            </div>
-            <div class="row align-items-center">
-                <div class="col-md-5 text-center mb-3 mb-md-0">
-                    <div class="position-relative d-inline-block">
-                        <canvas id="strategyChart" width="160" height="160"></canvas>
-                        <div class="position-absolute top-50 start-50 translate-middle text-center">
-                            <div class="small text-muted">Total</div>
-                            <div class="fw-black h5 mb-0">{{ summary.total_value|floatformat:0 }}</div>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-7">
-                    <div class="d-flex flex-column gap-3">
-                        <div class="p-3 rounded-4 bg-light border-start border-primary border-4">
-                            <div class="d-flex justify-content-between align-items-center">
-                                <span class="fw-bold"><i class="fas fa-turtle me-2"></i>Turtle Trading</span>
-                                <span class="fw-black text-primary">72%</span>
-                            </div>
-                            <div class="progress mt-2" style="height: 6px;">
-                                <div class="progress-bar bg-primary" role="progressbar" style="width: 72%;"></div>
-                            </div>
-                        </div>
-                        <div class="p-3 rounded-4 bg-light border-start border-info border-4">
-                            <div class="d-flex justify-content-between align-items-center">
-                                <span class="fw-bold"><i class="fas fa-crosshairs me-2"></i>Precision Momentum</span>
-                                <span class="fw-black text-info">28%</span>
-                            </div>
-                            <div class="progress mt-2" style="height: 6px;">
-                                <div class="progress-bar bg-info" role="progressbar" style="width: 28%;"></div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-    <!-- Market Sentiment / Health -->
-    <div class="col-lg-5">
-        <div class="card-premium border-0 shadow-sm rounded-5 p-4 h-100" style="background:linear-gradient(135deg, #1e293b, #0f172a); color:white;">
-            <h5 class="fw-black mb-4"><i class="fas fa-heartbeat me-2 text-danger"></i>Market Sentiment</h5>
-            <div class="d-flex flex-column gap-4">
-                <div class="d-flex justify-content-between align-items-center">
-                    <div class="d-flex align-items-center gap-3">
-                        <div class="rounded-circle bg-white bg-opacity-10 p-2" style="width:40px; height:40px; display:flex; align-items:center; justify-content:center;">
-                            <span class="fw-bold" style="font-size:0.7rem;">SET</span>
-                        </div>
-                        <div>
-                            <div class="fw-bold small">SET Index</div>
-                            <div class="text-success small" style="font-size:0.65rem;"><i class="fas fa-arrow-up me-1"></i>Bullish Phase</div>
-                        </div>
-                    </div>
-                    <div class="text-end">
-                        <div class="fw-black">1,385.20</div>
-                        <div class="text-success small">+0.42%</div>
-                    </div>
-                </div>
-                <div class="d-flex justify-content-between align-items-center">
-                    <div class="d-flex align-items-center gap-3">
-                        <div class="rounded-circle bg-white bg-opacity-10 p-2" style="width:40px; height:40px; display:flex; align-items:center; justify-content:center;">
-                            <span class="fw-bold" style="font-size:0.7rem;">US</span>
-                        </div>
-                        <div>
-                            <div class="fw-bold small">S&P 500</div>
-                            <div class="text-warning small" style="font-size:0.65rem;"><i class="fas fa-minus me-1"></i>Correction Zone</div>
-                        </div>
-                    </div>
-                    <div class="text-end">
-                        <div class="fw-black">5,120.40</div>
-                        <div class="text-danger small">-1.20%</div>
-                    </div>
-                </div>
-                <div class="d-flex justify-content-between align-items-center">
-                    <div class="d-flex align-items-center gap-3">
-                        <div class="rounded-circle bg-white bg-opacity-10 p-2" style="width:40px; height:40px; display:flex; align-items:center; justify-content:center;">
-                            <i class="fab fa-bitcoin text-warning"></i>
-                        </div>
-                        <div>
-                            <div class="fw-bold small">Bitcoin</div>
-                            <div class="text-success small" style="font-size:0.65rem;"><i class="fas fa-rocket me-1"></i>Hyper-Growth</div>
-                        </div>
-                    </div>
-                    <div class="text-end">
-                        <div class="fw-black">$64,200</div>
-                        <div class="text-success small">+4.80%</div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
 
 <!-- ═══════ SCRIPTS ═══════ -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-
-    // ── Live Clock ──
+    // Clock
     const clock = document.getElementById('clockBadge');
-    function tick() {
-        const now = new Date();
-        clock.textContent = now.toLocaleTimeString('th-TH', {hour:'2-digit', minute:'2-digit', second:'2-digit'});
-    }
+    function tick() { clock.textContent = new Date().toLocaleTimeString('th-TH', {hour:'2-digit', minute:'2-digit', second:'2-digit'}); }
     tick(); setInterval(tick, 1000);
 
-    // ── Asset Allocation ──
-    const setVal    = {{ summary.asset_alloc.SET|default:0 }};
-    const usVal     = {{ summary.asset_alloc.US|default:0 }};
+    // Data
+    const setVal = {{ summary.asset_alloc.SET|default:0 }};
+    const usVal = {{ summary.asset_alloc.US|default:0 }};
     const cryptoVal = {{ summary.asset_alloc.CRYPTO|default:0 }};
-    const total     = (setVal + usVal + cryptoVal) || 1;
+    const total = (setVal + usVal + cryptoVal) || 1;
 
-    // Bars
-    document.getElementById('barSet').style.width    = (setVal    / total * 100) + '%';
-    document.getElementById('barUs').style.width     = (usVal     / total * 100) + '%';
+    // Allocation Bars
+    document.getElementById('barSet').style.width = (setVal / total * 100) + '%';
+    document.getElementById('barUs').style.width = (usVal / total * 100) + '%';
     document.getElementById('barCrypto').style.width = (cryptoVal / total * 100) + '%';
 
-    // Donut Chart
-    const ctx = document.getElementById('allocChart').getContext('2d');
-    new Chart(ctx, {
+    // Main Alloc Chart
+    new Chart(document.getElementById('allocChart'), {
         type: 'doughnut',
         data: {
-            labels: ['หุ้นไทย', 'หุ้น US', 'Crypto'],
             datasets: [{
-                data: [setVal || 0.001, usVal || 0.001, cryptoVal || 0.001],
-                backgroundColor: ['#4f46e5','#059669','#f59e0b'],
-                borderWidth: 0,
-                hoverOffset: 6
+                data: [setVal || 0.1, usVal || 0.1, cryptoVal || 0.1],
+                backgroundColor: ['#4f46e5', '#10b981', '#f59e0b'],
+                borderWidth: 0
             }]
         },
-        options: {
-            cutout: '72%',
-            plugins: { legend: { display: false }, tooltip: {
-                callbacks: { label: ctx => ' ฿' + ctx.parsed.toLocaleString() }
-            }},
-            animation: { animateRotate: true, duration: 900 }
-        }
+        options: { cutout: '75%', plugins: { legend: { display: false } } }
+    });
+
+    // Strategy Chart
+    new Chart(document.getElementById('strategyChart'), {
+        type: 'doughnut',
+        data: {
+            datasets: [{
+                data: [72, 28],
+                backgroundColor: ['#4f46e5', '#06b6d4'],
+                borderWidth: 0
+            }]
+        },
+        options: { cutout: '75%', plugins: { legend: { display: false } } }
     });
 });
 </script>
