@@ -1474,9 +1474,19 @@ def portfolio_list(request):
             
             atr = ts.get('atr', 0)
             if atr > 0 and market_total > 0:
-                # Turtle Rule: Unit = (1% of Total Equity) / N
-                suggested = (0.01 * float(market_total)) / float(atr)
-                # For SET, round to nearest 100 shares for practicality
+                # Conservative Turtle Rule for Stocks: 0.5% Risk (instead of 1%)
+                # This prevents position sizes from being too large for low-volatility stocks.
+                risk_pct = 0.005 
+                suggested = (risk_pct * float(market_total)) / float(atr)
+                
+                # Safety Cap: 1 Unit should not exceed 15% of the total market portfolio
+                max_unit_value = float(market_total) * 0.15
+                current_price = it.get('current_price', 0)
+                if current_price > 0:
+                    max_shares_by_cap = max_unit_value / float(current_price)
+                    suggested = min(suggested, max_shares_by_cap)
+
+                # For SET, round to nearest 100 shares
                 if m_type == MarketType.SET:
                     ts['pyramid_units'] = round(suggested / 100) * 100
                 else:
