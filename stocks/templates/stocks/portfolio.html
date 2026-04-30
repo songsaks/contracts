@@ -285,8 +285,14 @@
                                 <div class="fw-bold {% if item.trailing_stop_data.color == 'danger' %}text-danger{% elif item.trailing_stop_data.color == 'warning' %}text-warning{% else %}text-success{% endif %}" style="font-size:1rem;">
                                     {% if item.market != 'SET' %}${% else %}฿{% endif %}{{ item.trailing_stop_data.trailing_stop|floatformat:2 }}
                                 </div>
-                                <div class="mt-1" style="font-size:0.62rem;font-weight:600;">
-                                    {% if item.trailing_stop_data.color == 'danger' %}
+                                <div class="mt-1" style="font-size:0.62rem;font-weight:700;">
+                                    {% if item.trailing_stop_data.is_turtle %}
+                                        {% if item.trailing_stop_data.trailing_stop == item.trailing_stop_data.initial_stop %}
+                                            <span class="text-danger"><i class="fas fa-shield-alt me-1"></i>2N RISK STOP</span>
+                                        {% else %}
+                                            <span class="text-danger"><i class="fas fa-chart-line me-1"></i>TECH LOW STOP</span>
+                                        {% endif %}
+                                    {% elif item.trailing_stop_data.color == 'danger' %}
                                         <span class="text-danger"><i class="fas fa-times-circle me-1"></i>STOP HIT — ขาย!</span>
                                     {% elif item.trailing_stop_data.color == 'warning' %}
                                         <span class="text-warning"><i class="fas fa-exclamation-triangle me-1"></i>ใกล้ Stop</span>
@@ -296,14 +302,13 @@
                                         <span class="text-success"><i class="fas fa-check-circle me-1"></i>Hold</span>
                                     {% endif %}
                                 </div>
-                                <div class="mt-1 text-muted" style="font-size:0.58rem;">
+                                <div class="mt-1 text-muted" style="font-size:0.55rem; line-height: 1.2;">
                                     {% if item.trailing_stop_data.is_turtle %}
-                                        Low: {% if item.market != 'SET' %}${% else %}฿{% endif %}{{ item.trailing_stop_data.nday_low|floatformat:2 }} · ห่าง {{ item.trailing_stop_data.distance_pct|floatformat:1 }}%
+                                        Tech Low: ฿{{ item.trailing_stop_data.nday_low|floatformat:2 }} | 2N: ฿{{ item.trailing_stop_data.initial_stop|floatformat:2 }}
+                                        <br>ห่าง {{ item.trailing_stop_data.distance_pct|floatformat:1 }}% · จากทุน {% if item.trailing_stop_data.gain_from_entry > 0 %}+{% endif %}{{ item.trailing_stop_data.gain_from_entry|floatformat:1 }}%
                                     {% else %}
                                         High: {% if item.market != 'SET' %}${% else %}฿{% endif %}{{ item.trailing_stop_data.highest|floatformat:2 }} · ห่าง {{ item.trailing_stop_data.distance_pct|floatformat:1 }}%
-                                    {% endif %}
-                                    {% if item.trailing_stop_data.gain_from_entry != 0 %}
-                                    · จากทุน {% if item.trailing_stop_data.gain_from_entry > 0 %}+{% endif %}{{ item.trailing_stop_data.gain_from_entry|floatformat:1 }}%
+                                        · จากทุน {% if item.trailing_stop_data.gain_from_entry > 0 %}+{% endif %}{{ item.trailing_stop_data.gain_from_entry|floatformat:1 }}%
                                     {% endif %}
                                 </div>
                             </div>
