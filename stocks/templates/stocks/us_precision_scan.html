@@ -67,10 +67,10 @@
             </button>
             {% endif %}
         </form>
-        <button id="btn-ai-analyze" class="btn d-inline-flex align-items-center gap-2"
+        <a id="btn-ai-analyze" href="{% url 'stocks:us_precision_scan_report' %}" target="_blank" class="btn d-inline-flex align-items-center gap-2"
                 style="background:linear-gradient(135deg,#0891b2,#0e7490);color:white;border:none;">
             <i class="fas fa-robot"></i> AI Market Analysis
-        </button>
+        </a>
     </div>
 </div>
 
@@ -1474,24 +1474,6 @@
   </div>
 </div>
 
-<!-- Modal AI Analysis -->
-<div class="modal fade" id="aiAnalysisModal" tabindex="-1">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content border-0 shadow-lg" style="border-radius:1.5rem;">
-            <div class="modal-header border-0 pb-0" style="background:linear-gradient(135deg,#0f172a,#1e3a5f);color:white;border-radius:1.5rem 1.5rem 0 0;">
-                <h5 class="modal-title fw-bold py-2"><i class="fas fa-robot me-2"></i> AI Senior Strategy Analyst</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body p-4" id="aiAnalysisBody" style="min-height:300px;font-size:0.95rem;line-height:1.7;">
-                <div class="text-center py-5" id="aiLoading">
-                    <div class="spinner-border text-primary mb-3"></div>
-                    <p class="text-muted">Analyzing US market data and setups...</p>
-                </div>
-                <div id="aiAnalysisContent" style="display:none;"></div>
-            </div>
-        </div>
-    </div>
-</div>
 
 <script>
     function confirmRescanPrecision() {
@@ -1790,29 +1772,5 @@ function exportScanCSV(tableId, filename) {
         </div>
     </div>
 </div>
-<script>
-    // AI Analyze
-    document.getElementById('btn-ai-analyze')?.addEventListener('click', function() {
-        const modal = new bootstrap.Modal(document.getElementById('aiAnalysisModal'));
-        modal.show();
-        
-        fetch("{% url 'stocks:us_precision_scan_ai_analysis' %}", {
-            method: 'POST',
-            headers: { 'X-CSRFToken': '{{ csrf_token }}', 'Content-Type': 'application/json' },
-            body: JSON.stringify({ scan_data: {{ ai_scan_json|safe }} })
-        })
-        .then(r => r.json())
-        .then(data => {
-            document.getElementById('aiLoading').style.display = 'none';
-            const content = document.getElementById('aiAnalysisContent');
-            content.style.display = 'block';
-            if(data.status === 'success') {
-                content.innerHTML = '<div class="markdown-body">' + data.analysis.replace(/\n/g, '<br>') + '</div>';
-            } else {
-                content.innerHTML = '<div class="alert alert-danger">' + data.error + '</div>';
-            }
-        });
-    });
-</script>
 
 {% endblock %}

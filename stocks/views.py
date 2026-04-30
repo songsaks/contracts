@@ -5838,6 +5838,83 @@ def realized_pl_report(request):
 # PRECISION SCAN AI ANALYSIS
 # ======================================================================
 
+
+def _get_precision_scan_data(user, market='SET'):
+    """Helper to build the scan_data JSON from the latest database records."""
+    from .models import PrecisionScanCandidate
+    latest_run = PrecisionScanCandidate.objects.filter(user=user, market=market).order_by('-scan_run').values_list('scan_run', flat=True).first()
+    
+    if not latest_run:
+        return None
+
+    candidates = PrecisionScanCandidate.objects.filter(user=user, market=market, scan_run=latest_run)
+    
+    # Fully Qualified (BUY >= 65)
+    qualified = [c for c in candidates if c.buy_score >= 65]
+    top_buy = sorted(candidates, key=lambda x: x.buy_score, reverse=True)[:5]
+    
+    # Sector analysis
+    from collections import Counter
+    sectors = Counter([c.sector for c in qualified if c.sector])
+    top_sectors = [{"name": k, "count": v} for k, v in sectors.most_common(5)]
+    
+    def _to_dict(c):
+        return {
+            "symbol": c.symbol,
+            "price": float(c.price),
+            "buy_score": c.buy_score,
+            "rs_rating": c.rs_rating or 0,
+            "rsi": float(c.rsi or 0),
+            "adx": float(c.adx or 0),
+            "rvol": float(c.rvol or 0),
+            "rvol_bullish": c.rvol_bullish,
+            "risk_reward_ratio": float(c.risk_reward_ratio or 0),
+            "zone_proximity": float(c.zone_proximity or 0),
+            "sector": c.sector,
+            "macd_crossover": c.macd_crossover,
+            "ema20_rising": c.ema20_rising,
+            "hh_hl_structure": c.hh_hl_structure,
+            "bb_squeeze": c.bb_squeeze,
+            "ema20_aligned": c.ema20_aligned,
+            "top_reasons": c.top_reasons or []
+        }
+
+    return {
+        "qualified_stocks": [_to_dict(c) for c in qualified],
+        "top_buy_stocks": [_to_dict(c) for c in top_buy],
+        "scan_date": latest_run.strftime('%Y-%m-%d %H:%M'),
+        "total_passed": candidates.count(),
+        "top_sectors": top_sectors
+    }
+
+@login_required
+def precision_scan_report(request):
+    """View to display the standalone Precision Scan AI Report for SET."""
+    scan_data = _get_precision_scan_data(request.user, market='SET')
+    if not scan_data:
+        return redirect('stocks:precision_momentum_scanner')
+    
+    return render(request, 'stocks/precision_scan_report.html', {
+        'market': 'SET',
+        'symbol': 'SET Index',
+        'scan_data_json': json.dumps(scan_data),
+        'title': 'Precision Scan AI Report (TH)'
+    })
+
+@login_required
+def us_precision_scan_report(request):
+    """View to display the standalone Precision Scan AI Report for US."""
+    scan_data = _get_precision_scan_data(request.user, market='US')
+    if not scan_data:
+        return redirect('stocks:us_precision_scanner')
+    
+    return render(request, 'stocks/precision_scan_report.html', {
+        'market': 'US',
+        'symbol': 'US Market',
+        'scan_data_json': json.dumps(scan_data),
+        'title': 'Precision Scan AI Report (US)'
+    })
+
 @login_required
 def precision_scan_ai_analysis(request):
     import json as _json_lib

@@ -1,0 +1,312 @@
+{% extends 'stocks/base_stocks.html' %}
+{% load humanize %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    :root {
+        --primary-gradient: linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%);
+        --accent-color: #3b82f6;
+        --text-main: #1e293b;
+        --text-muted: #64748b;
+        --bg-report: #ffffff;
+    }
+
+    body {
+        background-color: #f1f5f9;
+        color: var(--text-main);
+        font-family: 'Inter', 'Prompt', sans-serif;
+    }
+
+    .report-container {
+        max-width: 1000px;
+        margin: 2rem auto;
+        background: var(--bg-report);
+        border-radius: 1.5rem;
+        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+        overflow: hidden;
+    }
+
+    .report-header {
+        background: var(--primary-gradient);
+        padding: 3rem 2.5rem;
+        color: white;
+        position: relative;
+    }
+
+    .report-header::after {
+        content: '';
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        height: 4px;
+        background: var(--accent-color);
+    }
+
+    .report-body {
+        padding: 3rem 4rem;
+        line-height: 1.8;
+    }
+
+    .report-meta {
+        display: flex;
+        gap: 2rem;
+        margin-top: 1.5rem;
+        font-size: 0.9rem;
+        opacity: 0.8;
+    }
+
+    .report-meta div {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .ai-content {
+        font-size: 1.1rem;
+        color: #334155;
+    }
+
+    .ai-content h1, .ai-content h2, .ai-content h3 {
+        color: #0f172a;
+        font-weight: 800;
+        margin-top: 2.5rem;
+        margin-bottom: 1.25rem;
+        border-left: 5px solid var(--accent-color);
+        padding-left: 1rem;
+    }
+
+    .ai-content p {
+        margin-bottom: 1.25rem;
+    }
+
+    .ai-content ul, .ai-content ol {
+        margin-bottom: 1.5rem;
+        padding-left: 1.5rem;
+    }
+
+    .ai-content li {
+        margin-bottom: 0.5rem;
+    }
+
+    /* Floating Action Button for PDF */
+    .btn-export-pdf {
+        position: fixed;
+        bottom: 2rem;
+        right: 2rem;
+        z-index: 1000;
+        background: #ef4444;
+        color: white;
+        border: none;
+        padding: 1rem 1.5rem;
+        border-radius: 9999px;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        box-shadow: 0 10px 15px -3px rgba(239, 68, 68, 0.4);
+        transition: all 0.3s ease;
+    }
+
+    .btn-export-pdf:hover {
+        transform: translateY(-3px) scale(1.05);
+        background: #dc2626;
+        color: white;
+    }
+
+    /* Skeleton Loading */
+    .skeleton {
+        background: #e2e8f0;
+        background: linear-gradient(90deg, #e2e8f0 25%, #f1f5f9 50%, #e2e8f0 75%);
+        background-size: 200% 100%;
+        animation: loading 1.5s infinite;
+        border-radius: 0.5rem;
+        margin-bottom: 1rem;
+    }
+
+    @keyframes loading {
+        0% { background-position: 200% 0; }
+        100% { background-position: -200% 0; }
+    }
+
+    .skeleton-text { height: 1.2rem; width: 100%; }
+    .skeleton-title { height: 2.5rem; width: 60%; margin-bottom: 2rem; }
+
+    /* PDF Specific adjustments */
+    @media print {
+        .btn-export-pdf, .loading-area {
+            display: none !important;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="report-container" id="reportContent">
+        <!-- Header -->
+        <header class="report-header">
+            <div class="d-flex justify-content-between align-items-start mb-2">
+                <span class="badge rounded-pill bg-primary px-3 py-2" style="font-size:0.75rem; background: rgba(255,255,255,0.2) !important; backdrop-filter: blur(5px);">
+                    <i class="fas fa-robot me-1"></i> INSTITUTIONAL AI RESEARCH
+                </span>
+                <img src="/static/images/logo_white.png" alt="9Com" style="height: 30px; opacity: 0.9;" onerror="this.style.display='none'">
+            </div>
+            
+            <h1 class="display-5 fw-bold mb-0 mt-3">Precision Momentum Research</h1>
+            <p class="lead mb-0 mt-2 opacity-75">Analysis for {{ market }} Market — Sniper Strategy</p>
+            
+            <div class="report-meta">
+                <div><i class="far fa-calendar-alt"></i> Date: {{ scan_data.scan_date }}</div>
+                <div><i class="fas fa-microchip"></i> Model: Gemini 2.5 Flash</div>
+                <div><i class="fas fa-file-invoice-dollar"></i> Status: Confirmed</div>
+            </div>
+        </header>
+
+        <!-- Body -->
+        <div class="report-body">
+            <!-- Loading State -->
+            <div id="ai-loading" class="loading-area py-5">
+                <div class="text-center mb-5">
+                    <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem;">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <h4 class="mt-4 fw-bold">Generating Institutional Insights...</h4>
+                    <p class="text-muted">กำลังรวบรวมข้อมูลดิบและวิเคราะห์โครงสร้างตลาดด้วยระบบ AI</p>
+                </div>
+                
+                <div class="skeleton-title skeleton"></div>
+                <div class="skeleton-text skeleton"></div>
+                <div class="skeleton-text skeleton"></div>
+                <div class="skeleton-text skeleton" style="width: 80%;"></div>
+                <br>
+                <div class="skeleton-text skeleton"></div>
+                <div class="skeleton-text skeleton"></div>
+                <div class="skeleton-text skeleton" style="width: 60%;"></div>
+            </div>
+
+            <!-- Error State -->
+            <div id="ai-error" class="alert alert-danger d-none py-4 text-center rounded-4">
+                <i class="fas fa-exclamation-triangle fa-2x mb-3"></i>
+                <h5 class="fw-bold">Analysis Failed</h5>
+                <p id="error-message" class="mb-0"></p>
+                <button onclick="window.location.reload()" class="btn btn-outline-danger btn-sm mt-3 px-4">Try Again</button>
+            </div>
+
+            <!-- Result Area -->
+            <div id="ai-result" class="ai-content d-none">
+                <!-- AI Markdown content will be injected here -->
+            </div>
+
+            <!-- Report Footer -->
+            <hr class="my-5 opacity-10">
+            <div class="report-footer text-muted small">
+                <div class="row align-items-center">
+                    <div class="col-md-8">
+                        <p class="mb-1"><strong>Disclaimer:</strong> ข้อมูลนี้จัดทำขึ้นเพื่อเป็นข้อมูลประกอบการตัดสินใจเบื้องต้นโดยใช้ AI ไม่ใช่คำแนะนำในการลงทุนโดยตรง ผู้ลงทุนควรศึกษาข้อมูลเพิ่มเติมและใช้วิจารณญาณในการตัดสินใจ</p>
+                        <p class="mb-0">&copy; 2026 Precision Momentum Analysis Platform — Institutional Grade</p>
+                    </div>
+                    <div class="col-md-4 text-md-end mt-3 mt-md-0">
+                        <span class="fw-bold text-dark">CONFIDENTIAL DOCUMENT</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Floating PDF Export Button -->
+<button onclick="exportReportToPDF()" class="btn-export-pdf" id="btnExportPDF">
+    <i class="fas fa-file-pdf"></i>
+    <span>EXPORT TO PDF</span>
+</button>
+
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const scanData = JSON.parse('{{ scan_data_json|safe }}');
+        const aiUrl = "{% if market == 'SET' %}{% url 'stocks:precision_scan_ai_analysis' %}{% else %}{% url 'stocks:us_precision_scan_ai_analysis' %}{% endif %}";
+        const csrfToken = "{{ csrf_token }}";
+
+        fetch(aiUrl, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "X-CSRFToken": csrfToken
+            },
+            body: JSON.stringify({ scan_data: scanData })
+        })
+        .then(r => r.json())
+        .then(data => {
+            document.getElementById('ai-loading').classList.add('d-none');
+            if (data.status === 'success') {
+                const el = document.getElementById('ai-result');
+                el.innerHTML = marked.parse(data.analysis);
+                el.classList.remove('d-none');
+            } else {
+                document.getElementById('ai-error').classList.remove('d-none');
+                document.getElementById('error-message').textContent = data.error || 'Unknown AI error';
+            }
+        })
+        .catch(err => {
+            document.getElementById('ai-loading').classList.add('d-none');
+            document.getElementById('ai-error').classList.remove('d-none');
+            document.getElementById('error-message').textContent = 'Connection error: ' + err.message;
+        });
+    });
+
+    async function exportReportToPDF() {
+        const element = document.getElementById('reportContent');
+        const btn = document.getElementById('btnExportPDF');
+        
+        // Hide button during capture
+        btn.style.visibility = 'hidden';
+
+        // Clone element to apply styles for PDF without affecting UI
+        const clone = element.cloneNode(true);
+        
+        // Fix for Thai text overlapping and line height in PDF
+        const contentDiv = clone.querySelector('.ai-content');
+        if (contentDiv) {
+            contentDiv.style.lineHeight = '2.2';
+            contentDiv.style.fontFamily = "'Sarabun', 'Prompt', sans-serif";
+            contentDiv.style.fontSize = "14pt";
+        }
+
+        // Apply style to all headings in clone
+        clone.querySelectorAll('h1, h2, h3, h4').forEach(h => {
+            h.style.color = '#0f172a';
+            h.style.borderLeft = '5px solid #3b82f6';
+            h.style.paddingLeft = '15px';
+            h.style.marginTop = '30px';
+        });
+
+        const opt = {
+            margin:       [10, 10, 10, 10],
+            filename:     'Precision_Research_{{ symbol }}_{{ scan_data.scan_date|slice:":10" }}.pdf',
+            image:        { type: 'jpeg', quality: 0.98 },
+            html2canvas:  { 
+                scale: 2, 
+                useCORS: true, 
+                letterRendering: false,
+                logging: false
+            },
+            jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' },
+            pagebreak:    { mode: ['avoid-all', 'css', 'legacy'] }
+        };
+
+        try {
+            await html2pdf().set(opt).from(clone).save();
+        } catch (error) {
+            console.error('PDF Export failed:', error);
+            alert('Failed to export PDF. Please try again.');
+        } finally {
+            btn.style.visibility = 'visible';
+        }
+    }
+</script>
+{% endblock %}
