@@ -5849,9 +5849,9 @@ def _get_precision_scan_data(user, market='SET'):
 
     candidates = PrecisionScanCandidate.objects.filter(user=user, market=market, scan_run=latest_run)
     
-    # Fully Qualified (BUY >= 65)
-    qualified = [c for c in candidates if c.buy_score >= 65]
-    top_buy = sorted(candidates, key=lambda x: x.buy_score, reverse=True)[:5]
+    # Fully Qualified (Technical Score >= 65)
+    qualified = [c for c in candidates if c.technical_score >= 65]
+    top_buy = sorted(candidates, key=lambda x: x.technical_score, reverse=True)[:5]
     
     # Sector analysis
     from collections import Counter
@@ -5862,7 +5862,7 @@ def _get_precision_scan_data(user, market='SET'):
         return {
             "symbol": c.symbol,
             "price": float(c.price),
-            "buy_score": c.buy_score,
+            "buy_score": c.technical_score,
             "rs_rating": c.rs_rating or 0,
             "rsi": float(c.rsi or 0),
             "adx": float(c.adx or 0),
@@ -5876,7 +5876,7 @@ def _get_precision_scan_data(user, market='SET'):
             "hh_hl_structure": c.hh_hl_structure,
             "bb_squeeze": c.bb_squeeze,
             "ema20_aligned": c.ema20_aligned,
-            "top_reasons": c.top_reasons or []
+            "is_new_entry": c.is_new_entry,
         }
 
     return {
