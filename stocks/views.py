@@ -409,7 +409,7 @@ def analyze(request, symbol):
         from django.utils import timezone
         now = timezone.now()
         # ถ้าแคชยังไม่เกิน 12 ชม. ให้ลองใช้ของเดิม (ถ้าไม่ได้กด Force Refresh)
-        if (now - cached_analysis.updated_at).total_seconds() < (cache_timeout_hours * 3600):
+        if (now - cached_analysis.last_updated).total_seconds() < (cache_timeout_hours * 3600):
             # ดึงข้อมูลหุ้นแบบเร็วเพื่อแสดงกราฟและราคาปัจจุบัน
             try:
                 data = get_stock_data(symbol)
@@ -484,7 +484,7 @@ def analyze(request, symbol):
         analysis_text = None
         if cached_analysis:
             from django.utils import timezone
-            if (timezone.now() - cached_analysis.updated_at).total_seconds() < (cache_timeout_hours * 3600):
+            if (timezone.now() - cached_analysis.last_updated).total_seconds() < (cache_timeout_hours * 3600):
                 analysis_text = cached_analysis.analysis_data
 
         if not analysis_text:

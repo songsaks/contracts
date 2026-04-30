@@ -6,6 +6,8 @@
 {% block content %}
 <!-- Import Fonts Directly -->
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Prompt:wght@200;300;400;500;600;700&display=swap" rel="stylesheet">
+<!-- Include html2pdf.js -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 
 <div class="dashboard-wrapper-light">
     <div class="container-fluid px-4 py-4">
@@ -39,13 +41,18 @@
                 </span>
                 {% endif %}
                 
-                <form action="{% url 'stocks:investment_dashboard_refresh' %}" method="post" id="refreshForm">
-                    {% csrf_token %}
-                    <button type="submit" class="btn btn-primary-premium shadow-sm px-4 py-2 rounded-pill fw-bold" onclick="showLoading()">
-                        <i class="fas fa-sync-alt me-2" id="refreshIcon"></i> 
-                        <span id="btnText">Refresh Insights</span>
+                <div class="d-flex gap-2">
+                    <button type="button" class="btn btn-outline-danger shadow-sm px-3 py-2 rounded-pill fw-bold" onclick="exportDashboardToPDF()">
+                        <i class="fas fa-file-pdf me-2"></i> PDF
                     </button>
-                </form>
+                    <form action="{% url 'stocks:investment_dashboard_refresh' %}" method="post" id="refreshForm">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-primary-premium shadow-sm px-4 py-2 rounded-pill fw-bold" onclick="showLoading()">
+                            <i class="fas fa-sync-alt me-2" id="refreshIcon"></i> 
+                            <span id="btnText">Refresh Insights</span>
+                        </button>
+                    </form>
+                </div>
             </div>
         </div>
 
@@ -459,6 +466,23 @@
                 contentDiv.style.opacity = '1';
             }
         }
-    });
+    function exportDashboardToPDF() {
+        const element = document.querySelector('.container-fluid');
+        const opt = {
+            margin:       [0.5, 0.5, 0.5, 0.5],
+            filename:     'Investment_Dashboard_' + new Date().toISOString().slice(0,10) + '.pdf',
+            image:        { type: 'jpeg', quality: 0.98 },
+            html2canvas:  { scale: 1.5, useCORS: true, letterRendering: true },
+            jsPDF:        { unit: 'cm', format: 'a4', orientation: 'landscape' }
+        };
+        
+        // Hide buttons during export
+        const buttons = document.querySelectorAll('button, form');
+        buttons.forEach(b => b.style.visibility = 'hidden');
+        
+        html2pdf().set(opt).from(element).save().then(() => {
+            buttons.forEach(b => b.style.visibility = 'visible');
+        });
+    }
 </script>
 {% endblock %}

@@ -6,6 +6,8 @@
 {% block extra_css %}
 <!-- Include marked.js for rendering markdown -->
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<!-- Include html2pdf.js for PDF export -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 
 <style>
     .playbook-container {
@@ -155,9 +157,14 @@
                 <span class="badge bg-success-subtle text-success px-3 py-2 rounded-pill fw-bold">
                     <i class="fas fa-check-circle me-1"></i> Analysis Complete
                 </span>
-                <button class="btn btn-sm btn-outline-secondary" onclick="generatePlaybook(true)">
-                    <i class="fas fa-sync-alt me-1"></i> Re-Run
-                </button>
+                <div class="d-flex gap-2">
+                    <button class="btn btn-sm btn-outline-danger" onclick="exportToPDF()">
+                        <i class="fas fa-file-pdf me-1"></i> Export to PDF
+                    </button>
+                    <button class="btn btn-sm btn-outline-secondary" onclick="generatePlaybook(true)">
+                        <i class="fas fa-sync-alt me-1"></i> Re-Run
+                    </button>
+                </div>
             </div>
             
             <div class="markdown-content" id="report-content">
@@ -227,6 +234,33 @@
                 }
             })
             .catch(err => console.error("Poll error:", err));
+    function exportToPDF() {
+        const element = document.getElementById('report-content');
+        const opt = {
+            margin:       [1, 1, 1, 1],
+            filename:     'Macro_Playbook_' + new Date().toISOString().slice(0,10) + '.pdf',
+            image:        { type: 'jpeg', quality: 0.98 },
+            html2canvas:  { scale: 2, useCORS: true },
+            jsPDF:        { unit: 'cm', format: 'a4', orientation: 'portrait' }
+        };
+        
+        // Add a title header for the PDF
+        const header = document.createElement('div');
+        header.style.fontFamily = "'Inter', sans-serif";
+        header.innerHTML = `
+            <div style="text-align: center; margin-bottom: 20px; border-bottom: 2px solid #6366f1; padding-bottom: 10px;">
+                <h1 style="color: #4338ca; margin-bottom: 5px;">Daily Mastermind Playbook</h1>
+                <p style="color: #64748b; font-size: 12px;">Generated on: ${new Date().toLocaleString('th-TH')}</p>
+            </div>
+        `;
+        
+        // Temporarily wrap content
+        const container = document.createElement('div');
+        container.style.padding = "20px";
+        container.appendChild(header);
+        container.appendChild(element.cloneNode(true));
+        
+        html2pdf().set(opt).from(container).save();
     }
 </script>
 {% endblock %}
