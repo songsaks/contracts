@@ -384,6 +384,9 @@
                     <div class="p-4 mt-auto border-top border-light bg-light bg-opacity-10 position-relative" style="z-index: 2;">
                         <div class="d-flex justify-content-between align-items-center">
                             <div class="d-flex align-items-center gap-2 flex-wrap">
+                                <a href="{% url 'stocks:stock_chart' item.obj.symbol %}" class="btn btn-outline-primary btn-sm rounded-pill px-3 fw-bold" style="font-size: 0.8rem;">
+                                    <i class="fas fa-chart-line me-1"></i> Chart
+                                </a>
                                 <a href="{% url 'stocks:entry_finder' item.obj.symbol %}" class="btn btn-premium-danger btn-sm rounded-pill px-3 fw-bold" style="font-size: 0.8rem;">
                                     <i class="fas fa-crosshairs me-1"></i> Sniper
                                 </a>
@@ -559,6 +562,7 @@
                             <!-- Actions -->
                             <td class="text-end">
                                 <div class="d-flex gap-1 justify-content-end">
+                                    <a href="{% url 'stocks:stock_chart' item.obj.symbol %}" class="btn btn-primary btn-xs rounded-pill px-2 py-1" title="Main Chart" style="font-size:0.65rem;"><i class="fas fa-chart-line"></i></a>
                                     <a href="{% url 'stocks:entry_finder' item.obj.symbol %}" class="btn btn-danger btn-xs rounded-pill px-2 py-1" title="Sniper Chart" style="font-size:0.65rem;"><i class="fas fa-crosshairs"></i></a>
                                     <button class="btn btn-light btn-xs rounded-circle border text-success" style="width:28px;height:28px;padding:0;"
                                         onclick="openSellModal('{% url 'stocks:sell_stock' item.obj.pk %}','{{ item.obj.symbol }}','{{ item.obj.quantity }}','{{ item.current_price }}','{{ item.obj.entry_price }}','{{ item.obj.market }}')"
