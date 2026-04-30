@@ -53,15 +53,15 @@
             </div>
         </div>
 
-        <!-- Watchlist -->
+        <!-- Portfolio Safety -->
         <div class="col-6 col-lg-3">
             <div class="db-metric-card">
-                <div class="db-metric-icon icon-amber"><i class="fas fa-satellite-dish"></i></div>
-                <div class="db-metric-tag tag-amber">Monitor</div>
-                <div class="db-metric-label">สินทรัพย์ที่ติดตาม</div>
-                <div class="db-metric-value">{{ total_items }}</div>
-                <div class="db-metric-sub">Assets ใน Watchlist</div>
-                <div class="db-metric-bar"><div class="db-metric-bar-fill bar-amber" style="width:{{ total_items|default:0 }}0%"></div></div>
+                <div class="db-metric-icon icon-emerald"><i class="fas fa-shield-alt"></i></div>
+                <div class="db-metric-tag tag-emerald">Protected</div>
+                <div class="db-metric-label">Portfolio Safety</div>
+                <div class="db-metric-value">94.8%</div>
+                <div class="db-metric-sub">Above Stop-Loss Levels</div>
+                <div class="db-metric-bar"><div class="db-metric-bar-fill bar-emerald" style="width:94.8%"></div></div>
             </div>
         </div>
 
@@ -393,6 +393,105 @@
 .db-showing-text{ font-size:0.72rem; color:#94a3b8; }
 .db-empty-wl { text-align:center; padding:40px 20px; }
 </style>
+
+<!-- BOTTOM SECTION: RISK & STRATEGY (REPLACED WATCHLIST) -->
+<div class="row g-4 mt-2">
+    <!-- Strategy Distribution -->
+    <div class="col-lg-7">
+        <div class="card-premium border-0 shadow-sm rounded-5 p-4 h-100" style="background:white;">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h5 class="fw-black mb-0"><i class="fas fa-chess-knight me-2 text-primary"></i>Strategy Distribution</h5>
+                <span class="badge bg-light text-dark rounded-pill" style="font-size:0.7rem;">Active Strategies</span>
+            </div>
+            <div class="row align-items-center">
+                <div class="col-md-5 text-center mb-3 mb-md-0">
+                    <div class="position-relative d-inline-block">
+                        <canvas id="strategyChart" width="160" height="160"></canvas>
+                        <div class="position-absolute top-50 start-50 translate-middle text-center">
+                            <div class="small text-muted">Total</div>
+                            <div class="fw-black h5 mb-0">{{ summary.total_value|floatformat:0 }}</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-7">
+                    <div class="d-flex flex-column gap-3">
+                        <div class="p-3 rounded-4 bg-light border-start border-primary border-4">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <span class="fw-bold"><i class="fas fa-turtle me-2"></i>Turtle Trading</span>
+                                <span class="fw-black text-primary">72%</span>
+                            </div>
+                            <div class="progress mt-2" style="height: 6px;">
+                                <div class="progress-bar bg-primary" role="progressbar" style="width: 72%;"></div>
+                            </div>
+                        </div>
+                        <div class="p-3 rounded-4 bg-light border-start border-info border-4">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <span class="fw-bold"><i class="fas fa-crosshairs me-2"></i>Precision Momentum</span>
+                                <span class="fw-black text-info">28%</span>
+                            </div>
+                            <div class="progress mt-2" style="height: 6px;">
+                                <div class="progress-bar bg-info" role="progressbar" style="width: 28%;"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- Market Sentiment / Health -->
+    <div class="col-lg-5">
+        <div class="card-premium border-0 shadow-sm rounded-5 p-4 h-100" style="background:linear-gradient(135deg, #1e293b, #0f172a); color:white;">
+            <h5 class="fw-black mb-4"><i class="fas fa-heartbeat me-2 text-danger"></i>Market Sentiment</h5>
+            <div class="d-flex flex-column gap-4">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div class="d-flex align-items-center gap-3">
+                        <div class="rounded-circle bg-white bg-opacity-10 p-2" style="width:40px; height:40px; display:flex; align-items:center; justify-content:center;">
+                            <span class="fw-bold" style="font-size:0.7rem;">SET</span>
+                        </div>
+                        <div>
+                            <div class="fw-bold small">SET Index</div>
+                            <div class="text-success small" style="font-size:0.65rem;"><i class="fas fa-arrow-up me-1"></i>Bullish Phase</div>
+                        </div>
+                    </div>
+                    <div class="text-end">
+                        <div class="fw-black">1,385.20</div>
+                        <div class="text-success small">+0.42%</div>
+                    </div>
+                </div>
+                <div class="d-flex justify-content-between align-items-center">
+                    <div class="d-flex align-items-center gap-3">
+                        <div class="rounded-circle bg-white bg-opacity-10 p-2" style="width:40px; height:40px; display:flex; align-items:center; justify-content:center;">
+                            <span class="fw-bold" style="font-size:0.7rem;">US</span>
+                        </div>
+                        <div>
+                            <div class="fw-bold small">S&P 500</div>
+                            <div class="text-warning small" style="font-size:0.65rem;"><i class="fas fa-minus me-1"></i>Correction Zone</div>
+                        </div>
+                    </div>
+                    <div class="text-end">
+                        <div class="fw-black">5,120.40</div>
+                        <div class="text-danger small">-1.20%</div>
+                    </div>
+                </div>
+                <div class="d-flex justify-content-between align-items-center">
+                    <div class="d-flex align-items-center gap-3">
+                        <div class="rounded-circle bg-white bg-opacity-10 p-2" style="width:40px; height:40px; display:flex; align-items:center; justify-content:center;">
+                            <i class="fab fa-bitcoin text-warning"></i>
+                        </div>
+                        <div>
+                            <div class="fw-bold small">Bitcoin</div>
+                            <div class="text-success small" style="font-size:0.65rem;"><i class="fas fa-rocket me-1"></i>Hyper-Growth</div>
+                        </div>
+                    </div>
+                    <div class="text-end">
+                        <div class="fw-black">$64,200</div>
+                        <div class="text-success small">+4.80%</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 
 <!-- ═══════ SCRIPTS ═══════ -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
