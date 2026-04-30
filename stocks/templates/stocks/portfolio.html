@@ -248,9 +248,9 @@
                             
                             <!-- NEXT UNIT / TAKE PROFIT BOX -->
                             <div class="col-6">
-                                <div class="p-3 rounded-4 border h-100
-                                    {% if item.trailing_stop_data.pyramid_color == 'primary' %}border-primary shadow-sm bg-primary bg-opacity-10{% else %}border-primary border-opacity-20 bg-primary bg-opacity-05{% endif %}"
-                                    style="{% if item.trailing_stop_data.pyramid_color == 'primary' %}animation: pulse-blue-subtle 2s infinite;{% endif %} transition: all 0.3s ease;">
+                                <div class="p-3 rounded-4 border h-100 border-primary"
+                                    style="background: rgba(37, 99, 235, 0.08); border-color: rgba(37, 99, 235, 0.2) !important; transition: all 0.3s ease; 
+                                    {% if item.trailing_stop_data.pyramid_status == 'PYRAMID NOW! 🚀' %}box-shadow: 0 0 15px rgba(37, 99, 235, 0.1); animation: pulse-blue-subtle 2s infinite;{% endif %}">
                                     <div class="d-flex justify-content-between align-items-center mb-1">
                                         <span class="text-primary fw-bold text-uppercase" style="font-size: 0.65rem;">
                                             {% if item.trailing_stop_data.is_turtle %}<i class="fas fa-plus-circle me-1"></i>Next Step (ซื้อเพิ่ม){% else %}<i class="fas fa-bullseye me-1"></i>Target{% endif %}
@@ -263,12 +263,12 @@
                                             {% if item.market != 'SET' %}${% else %}฿{% endif %}{{ item.mom_data.supply_zone_start|floatformat:2|default:"-" }}
                                         {% endif %}
                                     </div>
-                                    <div class="small mt-1" style="font-size: 0.62rem; line-height: 1.2;">
+                                    <div class="small mt-1" style="font-size: 0.62rem; line-height: 1.2; color: #1e40af;">
                                         {% if item.trailing_stop_data.is_turtle %}
-                                            <span class="text-primary fw-bold">{{ item.trailing_stop_data.pyramid_status }}</span><br>
-                                            <div class="mt-1 text-muted opacity-75">
+                                            <span class="fw-bold">{{ item.trailing_stop_data.pyramid_status|default:"รอสัญญาณ" }}</span><br>
+                                            <div class="mt-1 opacity-75">
                                                 ซื้อที่ราคานี้เพื่อเพิ่มสถานะ<br>
-                                                Size: +{{ item.trailing_stop_data.pyramid_units|intcomma }} หุ้น
+                                                Size: +{{ item.trailing_stop_data.pyramid_units|default:"0"|intcomma }} หุ้น
                                             </div>
                                         {% else %}
                                             <span class="text-muted">เป้าหมาย Supply Zone</span><br>
