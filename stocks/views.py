@@ -1312,29 +1312,20 @@ def portfolio_list(request):
                 nday_low = float(hist['Low'].tail(periods).min())
                 initial_stop = float(item.entry_price or 0) - (2.0 * atr_ts['atr'])
                 current_stop = max(initial_stop, nday_low) if float(item.entry_price or 0) > 0 else nday_low
-                # --- Improved Pyramiding Logic (Turtle Style) ---
-                # Calculate how many units we likely have: quantity / suggested_unit_size
-                # We'll use the risk-adjusted unit size (0.5% risk) calculated later or a temporary one here.
-                temp_risk_pct = 0.005
-                temp_m_total = total_set_value if item.market == MarketType.SET else (total_us_value if item.market == MarketType.US else total_crypto_value)
-                # Fallback to current market value of this item if total is not yet ready (first pass)
-                if temp_m_total <= 0: temp_m_total = market_value
+                pyramid_price = current_price + (atr_ts['atr'] * 0.5) if current_price > 0 else 0
                 
-                unit_size = (temp_risk_pct * float(temp_m_total)) / float(atr_ts['atr']) if atr_ts['atr'] > 0 else 1
-                num_units = max(1, round(float(item.quantity) / unit_size)) if unit_size > 0 else 1
+                dist_pct = ((current_price - current_stop) / current_price * 100) if current_price > 0 else 0
                 
-                # Next pyramid price = entry_price + (0.5 * ATR * num_units)
-                # This assumes we want to add the NEXT unit above our current estimated unit count.
-                pyramid_price = float(item.entry_price or current_price) + (atr_ts['atr'] * 0.5 * num_units)
-                
-                p_dist = ((current_price - pyramid_price) / pyramid_price * 100) if pyramid_price > 0 else 0
-                if current_price >= pyramid_price:
-                    p_status, p_color = 'PYRAMID NOW! 🚀', 'primary'
-                elif p_dist >= -1.0: # Within 1% of target
-                    p_status, p_color = 'APPROACHING... ⏳', 'info'
+                if current_price <= current_stop:
+                    status = 'EXIT HIT'
+                    color = 'danger'
+                elif dist_pct <= 3.0:
+                    status = 'NEAR EXIT'
+                    color = 'warning'
                 else:
-                    p_status, p_color = 'WAITING ⏱️', 'secondary'
-
+                    status = 'RIDE TREND 🚀'
+                    color = 'success'
+                    
                 atr_ts.update({
                     'trailing_stop': current_stop,
                     'color': color,
@@ -1344,9 +1335,7 @@ def portfolio_list(request):
                     'turtle_sys': 'S2 (20D Low)' if is_s2 else 'S1 (10D Low)',
                     'nday_low': nday_low,
                     'initial_stop': initial_stop,
-                    'pyramid_price': pyramid_price,
-                    'pyramid_status': p_status,
-                    'pyramid_color': p_color
+                    'pyramid_price': pyramid_price
                 })
 
             ts_data = atr_ts  # ยังคง key เดิมใน template
@@ -1473,7 +1462,7 @@ def portfolio_list(request):
                 'market': item.market,
             })
 
-    # ── Calculate Suggested Pyramid Units for Turtle Strategy ──
+    # ── Calculate Suggested Pyramid Units & Alerts for Turtle Strategy ──
     for it in items:
         ts = it.get('trailing_stop_data')
         if ts and ts.get('is_turtle'):
@@ -1484,24 +1473,43 @@ def portfolio_list(request):
             elif m_type == MarketType.CRYPTO: market_total = total_crypto_value
             
             atr = ts.get('atr', 0)
-            if atr > 0 and market_total > 0:
-                # Conservative Turtle Rule for Stocks: 0.5% Risk (instead of 1%)
-                # This prevents position sizes from being too large for low-volatility stocks.
+            cur_p = it.get('current_price', 0)
+            
+            if atr > 0 and market_total > 0 and cur_p > 0:
+                # Conservative Turtle Rule for Stocks: 0.5% Risk
                 risk_pct = 0.005 
-                suggested = (risk_pct * float(market_total)) / float(atr)
+                unit_size = (risk_pct * float(market_total)) / float(atr)
                 
                 # Safety Cap: 1 Unit should not exceed 15% of the total market portfolio
                 max_unit_value = float(market_total) * 0.15
-                current_price = it.get('current_price', 0)
-                if current_price > 0:
-                    max_shares_by_cap = max_unit_value / float(current_price)
-                    suggested = min(suggested, max_shares_by_cap)
+                max_shares_by_cap = max_unit_value / float(cur_p)
+                unit_size = min(unit_size, max_shares_by_cap)
 
-                # For SET, round to nearest 100 shares
+                # Store Unit Size
                 if m_type == MarketType.SET:
-                    ts['pyramid_units'] = round(suggested / 100) * 100
+                    ts['pyramid_units'] = round(unit_size / 100) * 100
                 else:
-                    ts['pyramid_units'] = round(suggested)
+                    ts['pyramid_units'] = round(unit_size)
+                    
+                # --- Advanced Target Calculation ---
+                qty = float(it['obj'].quantity)
+                # Estimate how many units currently held
+                num_units = max(1, round(qty / unit_size)) if unit_size > 0 else 1
+                entry_p = float(it['obj'].entry_price or cur_p)
+                
+                # Next pyramid price = entry_price + (0.5 * ATR * num_units)
+                p_price = entry_p + (atr * 0.5 * num_units)
+                ts['pyramid_price'] = p_price
+                
+                p_dist = ((cur_p - p_price) / p_price * 100) if p_price > 0 else 0
+                if cur_p >= p_price:
+                    ts['pyramid_status'], ts['pyramid_color'] = 'PYRAMID NOW! 🚀', 'primary'
+                elif p_dist >= -1.5: # Within 1.5% of target
+                    ts['pyramid_status'], ts['pyramid_color'] = 'APPROACHING... ⏳', 'info'
+                else:
+                    ts['pyramid_status'], ts['pyramid_color'] = 'WAITING ⏱️', 'secondary'
+            else:
+                ts['pyramid_status'], ts['pyramid_color'] = 'WAITING ⏱️', 'secondary'
 
     # ── USD/THB rate for combined totals ──
     usd_thb = _get_usd_thb() if any(it.get('market') in (MarketType.US, MarketType.CRYPTO) for it in items) else 1.0
