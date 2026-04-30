@@ -1462,6 +1462,26 @@ def portfolio_list(request):
                 'market': item.market,
             })
 
+    # ── Calculate Suggested Pyramid Units for Turtle Strategy ──
+    for it in items:
+        ts = it.get('trailing_stop_data')
+        if ts and ts.get('is_turtle'):
+            m_type = it.get('market')
+            market_total = 0
+            if m_type == MarketType.SET: market_total = total_set_value
+            elif m_type == MarketType.US: market_total = total_us_value
+            elif m_type == MarketType.CRYPTO: market_total = total_crypto_value
+            
+            atr = ts.get('atr', 0)
+            if atr > 0 and market_total > 0:
+                # Turtle Rule: Unit = (1% of Total Equity) / N
+                suggested = (0.01 * float(market_total)) / float(atr)
+                # For SET, round to nearest 100 shares for practicality
+                if m_type == MarketType.SET:
+                    ts['pyramid_units'] = round(suggested / 100) * 100
+                else:
+                    ts['pyramid_units'] = round(suggested)
+
     # ── USD/THB rate for combined totals ──
     usd_thb = _get_usd_thb() if any(it.get('market') in (MarketType.US, MarketType.CRYPTO) for it in items) else 1.0
 

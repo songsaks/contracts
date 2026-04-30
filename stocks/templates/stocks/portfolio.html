@@ -331,6 +331,9 @@
                                 </div>
                                 <div class="mt-1 text-primary" style="font-size: 0.62rem; font-weight: 600; opacity: 0.75;">
                                     <i class="fas fa-arrow-up me-1"></i>NEXT UNIT
+                                    {% if item.trailing_stop_data.pyramid_units %}
+                                    <span class="ms-1 badge bg-primary text-white" style="font-size: 0.6rem;">{{ item.trailing_stop_data.pyramid_units|intcomma }} หุ้น</span>
+                                    {% endif %}
                                 </div>
                                 {% elif item.mom_data.supply_zone_start %}
                                 <div class="fw-bold text-primary" style="font-size: 1rem;">
@@ -583,6 +586,9 @@
                             <td class="text-end col-hide-lg" style="font-size:0.8rem;">
                                 {% if item.mom_data and item.mom_data.supply_zone_start %}
                                 <span class="fw-bold text-primary">{% if item.market != 'SET' %}${% else %}฿{% endif %}{{ item.mom_data.supply_zone_start|floatformat:2 }}</span>
+                                {% if item.trailing_stop_data.pyramid_units %}
+                                <div class="text-primary fw-bold" style="font-size:0.6rem;">{{ item.trailing_stop_data.pyramid_units|intcomma }} หุ้น</div>
+                                {% endif %}
                                 {% else %}<span class="text-muted">-</span>{% endif %}
                             </td>
                             <!-- Score/Signals -->
