@@ -134,14 +134,40 @@
     .skeleton-text { height: 1.2rem; width: 100%; }
     .skeleton-title { height: 2.5rem; width: 60%; margin-bottom: 2rem; }
 
+    /* Thai font for PDF */
+    @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700;800&display=swap');
+
     /* PDF Specific adjustments */
     @media print {
-        .btn-export-pdf, .loading-area {
+        .btn-export-pdf, .loading-area, nav, .navbar {
             display: none !important;
+        }
+        .ai-content {
+            font-family: 'Sarabun', sans-serif !important;
+            line-height: 2.8 !important;
         }
         .ai-content p, .ai-content li, .ai-content h1, .ai-content h2, .ai-content h3 {
             page-break-inside: avoid;
         }
+    }
+
+    /* PDF capture helper */
+    .pdf-capture-mode .ai-content {
+        font-family: 'Sarabun', 'Prompt', sans-serif !important;
+        font-size: 13pt !important;
+        line-height: 2.8 !important;
+        color: #1e293b !important;
+        letter-spacing: 0.01em !important;
+    }
+    .pdf-capture-mode .ai-content h1,
+    .pdf-capture-mode .ai-content h2,
+    .pdf-capture-mode .ai-content h3 {
+        line-height: 2.2 !important;
+        margin-top: 2rem !important;
+        page-break-after: avoid;
+    }
+    .pdf-capture-mode .ai-content li {
+        margin-bottom: 0.75rem !important;
     }
 </style>
 {% endblock %}
@@ -265,51 +291,48 @@
     async function exportReportToPDF() {
         const element = document.getElementById('reportContent');
         const btn = document.getElementById('btnExportPDF');
-        
-        // Hide button during capture
-        btn.style.visibility = 'hidden';
 
-        // Clone element to apply styles for PDF without affecting UI
-        const clone = element.cloneNode(true);
-        
-        // Fix for Thai text overlapping and line height in PDF
-        const contentDiv = clone.querySelector('.ai-content');
-        if (contentDiv) {
-            contentDiv.style.lineHeight = '2.5'; // Even more space for Thai tone marks
-            contentDiv.style.fontFamily = "'Sarabun', 'Prompt', sans-serif";
-            contentDiv.style.fontSize = "13pt";
-            contentDiv.style.color = "#1e293b";
-        }
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i><span>Generating...</span>';
+        btn.disabled = true;
 
-        // Apply style to all headings in clone
-        clone.querySelectorAll('h1, h2, h3, h4').forEach(h => {
-            h.style.color = '#0f172a';
-            h.style.borderLeft = '5px solid #3b82f6';
-            h.style.paddingLeft = '15px';
-            h.style.marginTop = '30px';
-        });
+        // Apply PDF capture mode class directly on source (avoids clone CSS miss)
+        element.classList.add('pdf-capture-mode');
+
+        // Wait for fonts to repaint
+        await document.fonts.ready;
+        await new Promise(r => setTimeout(r, 300));
 
         const opt = {
-            margin:       [10, 10, 10, 10],
-            filename:     'Precision_Research_{{ market }}_{{ scan_data.scan_date|slice:":10" }}.pdf',
-            image:        { type: 'jpeg', quality: 0.98 },
-            html2canvas:  { 
-                scale: 2, 
-                useCORS: true, 
-                letterRendering: false,
-                logging: false
+            margin:      [12, 10, 12, 10],
+            filename:    'Precision_Research_{{ market }}_{{ scan_data.scan_date|slice:":10" }}.pdf',
+            image:       { type: 'jpeg', quality: 0.95 },
+            html2canvas: {
+                scale:           2,
+                useCORS:         true,
+                allowTaint:      true,
+                letterRendering: true,   // critical for Thai character positioning
+                windowWidth:     1100,   // force desktop-width render
+                logging:         false,
+                onclone: (doc) => {
+                    // Hide nav/header/footer in captured clone
+                    doc.querySelectorAll('nav, .navbar, .btn-export-pdf').forEach(el => {
+                        el.style.display = 'none';
+                    });
+                }
             },
-            jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' },
-            pagebreak:    { mode: ['avoid-all', 'css', 'legacy'] }
+            jsPDF:     { unit: 'mm', format: 'a4', orientation: 'portrait' },
+            pagebreak: { mode: ['css'], before: '.report-header' }
         };
 
         try {
-            await html2pdf().set(opt).from(clone).save();
+            await html2pdf().set(opt).from(element).save();
         } catch (error) {
             console.error('PDF Export failed:', error);
-            alert('Failed to export PDF. Please try again.');
+            alert('Export ไม่สำเร็จ กรุณาลองใหม่');
         } finally {
-            btn.style.visibility = 'visible';
+            element.classList.remove('pdf-capture-mode');
+            btn.innerHTML = '<i class="fas fa-file-pdf"></i><span>EXPORT TO PDF</span>';
+            btn.disabled = false;
         }
     }
 </script>
