@@ -395,8 +395,17 @@ def dashboard(request):
     total_val_thb = 0
     total_cost_thb = 0
     
-    # คำนวณ Realized P/L (กำไรที่ขายไปแล้ว)
-    total_realized_pl = sum([float(s.profit_loss_thb or 0) for s in sold_assets])
+    # คำนวณ Realized P/L (กำไรที่ขายไปแล้ว) ตาม Logic เดียวกับหน้า Report
+    us_set = _build_us_symbol_set(request.user)
+    total_realized_pl = 0
+    for s in sold_assets:
+        is_us = (s.market == MarketType.US) if s.market else _is_us_symbol(s.symbol, us_set)
+        
+        if hasattr(s, 'profit_loss_thb') and s.profit_loss_thb != 0:
+            pl_thb = float(s.profit_loss_thb)
+        else:
+            pl_thb = float(s.profit_loss) * usd_thb if is_us else float(s.profit_loss)
+        total_realized_pl += pl_thb
     
     set_val = 0
     us_val = 0
