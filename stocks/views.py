@@ -380,6 +380,7 @@ def dashboard(request):
                 'buy_score': signals['buy_score'],
                 'sell_score': signals['sell_score'],
                 'exit_signal': signals['exit_signal'],
+                'symbol_base': item.symbol.split('.')[0],
                 'market': mkt,
             })
 
@@ -1528,6 +1529,7 @@ def portfolio_list(request):
                 'in_scan': prec_data is not None,
                 'scan_score': prec_data.technical_score if prec_data else None,
                 'is_us': is_us,
+                'symbol_base': item.symbol.split('.')[0],
                 'market': item.market,
             })
         except Exception as e:
@@ -1539,6 +1541,7 @@ def portfolio_list(request):
                 'gain_loss': 0, 'gain_loss_pct': 0, 'rsi': None,
                 'trailing_stop_data': None, 'mom_data': None,
                 'is_us': item.market == MarketType.US,
+                'symbol_base': item.symbol.split('.')[0],
                 'market': item.market,
             })
 
