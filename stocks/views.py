@@ -387,12 +387,16 @@ def dashboard(request):
             items.append({'obj': item, 'price': 'Error', 'change': 0, 'rsi': None, 'rsi_status': 'Error', 'mom_data': None})
 
     # --- สรุปข้อมูลสำหรับ Real Dashboard ---
-    from .models import Portfolio
+    from .models import Portfolio, SoldStock
     owned_assets = Portfolio.objects.filter(user=request.user)
+    sold_assets = SoldStock.objects.filter(user=request.user)
     
     usd_thb = _get_usd_thb()
     total_val_thb = 0
     total_cost_thb = 0
+    
+    # คำนวณ Realized P/L (กำไรที่ขายไปแล้ว)
+    total_realized_pl = sum([float(s.profit_loss_thb or 0) for s in sold_assets])
     
     set_val = 0
     us_val = 0
@@ -402,16 +406,13 @@ def dashboard(request):
     price_map = {x['obj'].symbol: x['price'] for x in items if isinstance(x.get('price'), (int, float))}
     
     for p in owned_assets:
-        # พยายามใช้ราคาจาก watchlist ก่อน ถ้าไม่มีให้ใช้ราคา 0 (หรือดึงใหม่ถ้าจำเป็น แต่นี่คือ Dashboard สรุป)
         curr_p = price_map.get(p.symbol, 0)
-        
-        # ถ้าไม่มีใน watchlist เลย อาจจะต้องดึงราคาเดียวสั้นๆ หรือข้ามไปก่อนเพื่อความเร็ว
         if curr_p == 0:
             try:
                 import yfinance as yf
                 t = yf.Ticker(p.symbol)
                 curr_p = t.fast_info['lastPrice']
-            except: curr_p = float(p.entry_price or 0) # Fallback to cost if fail
+            except: curr_p = float(p.entry_price or 0)
             
         val = float(p.quantity) * float(curr_p)
         cost = float(p.quantity) * float(p.entry_price or 0)
@@ -426,8 +427,11 @@ def dashboard(request):
             total_cost_thb += cost
             set_val += val
             
-    total_pl_thb = total_val_thb - total_cost_thb
-    pl_pct = (total_pl_thb / total_cost_thb * 100) if total_cost_thb else 0
+    total_unrealized_pl = total_val_thb - total_cost_thb
+    unrealized_pl_pct = (total_unrealized_pl / total_cost_thb * 100) if total_cost_thb else 0
+    
+    # ข้อมูลสำหรับกราฟ Performance (Realized P/L สะสม)
+    recent_transactions = sold_assets.order_by('-sold_at')[:5]
     
     sorted_items = sorted([x for x in items if isinstance(x['change'], (int, float))], key=lambda x: x['change'], reverse=True)
     top_gainers = sorted_items[:3]
@@ -440,14 +444,18 @@ def dashboard(request):
         'market_types': MarketType.choices,
         'summary': {
             'total_value': total_val_thb,
-            'total_pl': total_pl_thb,
-            'pl_pct': pl_pct,
+            'unrealized_pl': total_unrealized_pl,
+            'realized_pl': total_realized_pl,
+            'total_net_pl': total_unrealized_pl + total_realized_pl,
+            'pl_pct': unrealized_pl_pct,
             'asset_alloc': {
                 'SET': set_val,
                 'US': us_val,
-                'CRYPTO': crypto_val
+                'CRYPTO': crypto_val,
+                'total_count': owned_assets.count()
             }
         },
+        'recent_transactions': recent_transactions,
         'top_gainers': top_gainers,
         'top_losers': top_losers,
         'usd_thb': usd_thb

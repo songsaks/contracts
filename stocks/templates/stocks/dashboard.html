@@ -10,7 +10,7 @@
     <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2 mb-4">
         <div>
             <h2 class="db-page-title mb-1">System Dashboard</h2>
-            <p class="db-page-sub mb-0">Command Center สรุปภาพรวมพอร์ตและทิศทางตลาด</p>
+            <p class="db-page-sub mb-0">Command Center สรุปภาพรวมพอร์ตและประวัติการเทรดจริงจาก PostgreSQL</p>
         </div>
         <div class="d-flex align-items-center gap-2">
             <span class="db-live-badge"><span class="db-live-dot"></span> LIVE</span>
@@ -24,26 +24,39 @@
         <div class="col-6 col-lg-3">
             <div class="db-metric-card">
                 <div class="db-metric-icon icon-indigo"><i class="fas fa-wallet"></i></div>
-                <div class="db-metric-tag tag-indigo">Portfolio</div>
-                <div class="db-metric-label">มูลค่ารวม</div>
+                <div class="db-metric-tag tag-indigo">Net Assets</div>
+                <div class="db-metric-label">มูลค่ารวมพอร์ต</div>
                 <div class="db-metric-value">฿{{ summary.total_value|floatformat:0|intcomma }}</div>
-                <div class="db-metric-sub">Equity + Crypto (THB)</div>
+                <div class="db-metric-sub">ถือครองปัจจุบัน (Market Value)</div>
                 <div class="db-metric-bar"><div class="db-metric-bar-fill bar-indigo" style="width:100%"></div></div>
             </div>
         </div>
-        <!-- P/L -->
+        <!-- Net Profit Card -->
         <div class="col-6 col-lg-3">
-            <div class="db-metric-card {% if summary.total_pl > 0 %}card-profit{% elif summary.total_pl < 0 %}card-loss{% endif %}">
-                <div class="db-metric-icon {% if summary.total_pl >= 0 %}icon-emerald{% else %}icon-red{% endif %}"><i class="fas fa-chart-line"></i></div>
-                <div class="db-metric-tag {% if summary.total_pl >= 0 %}tag-emerald{% else %}tag-red{% endif %}">P/L</div>
-                <div class="db-metric-label">กำไร / ขาดทุน</div>
-                <div class="db-metric-value {% if summary.total_pl > 0 %}text-emerald{% elif summary.total_pl < 0 %}text-red{% endif %}">
-                    {% if summary.total_pl > 0 %}+{% endif %}฿{{ summary.total_pl|floatformat:0|intcomma }}
+            <div class="db-metric-card {% if summary.total_net_pl > 0 %}card-profit{% elif summary.total_net_pl < 0 %}card-loss{% endif %}">
+                <div class="db-metric-icon {% if summary.total_net_pl >= 0 %}icon-emerald{% else %}icon-red{% endif %}"><i class="fas fa-sack-dollar"></i></div>
+                <div class="db-metric-tag {% if summary.total_net_pl >= 0 %}tag-emerald{% else %}tag-red{% endif %}">Total P/L</div>
+                <div class="db-metric-label">กำไรสุทธิรวม</div>
+                <div class="db-metric-value {% if summary.total_net_pl > 0 %}text-emerald{% elif summary.total_net_pl < 0 %}text-red{% endif %}">
+                    {% if summary.total_net_pl > 0 %}+{% endif %}฿{{ summary.total_net_pl|floatformat:0|intcomma }}
                 </div>
-                <div class="db-metric-sub fw-bold {% if summary.pl_pct > 0 %}text-emerald{% elif summary.pl_pct < 0 %}text-red{% endif %}">
-                    {% if summary.pl_pct > 0 %}▲{% elif summary.pl_pct < 0 %}▼{% endif %} {{ summary.pl_pct|floatformat:2 }}%
+                <div class="db-metric-sub text-muted small">
+                    Unrealized: ฿{{ summary.unrealized_pl|floatformat:0|intcomma }}
                 </div>
-                <div class="db-metric-bar"><div class="db-metric-bar-fill {% if summary.total_pl >= 0 %}bar-emerald{% else %}bar-red{% endif %}" style="width:{{ summary.pl_pct|floatformat:0|default:0|add:50 }}%"></div></div>
+                <div class="db-metric-bar"><div class="db-metric-bar-fill {% if summary.total_net_pl >= 0 %}bar-emerald{% else %}bar-red{% endif %}" style="width:{{ summary.pl_pct|floatformat:0|default:0|add:50 }}%"></div></div>
+            </div>
+        </div>
+        <!-- Realized P/L Card -->
+        <div class="col-6 col-lg-3">
+            <div class="db-metric-card">
+                <div class="db-metric-icon icon-amber"><i class="fas fa-money-bill-trend-up"></i></div>
+                <div class="db-metric-tag tag-amber">Realized</div>
+                <div class="db-metric-label">กำไรที่ขายออกแล้ว</div>
+                <div class="db-metric-value {% if summary.realized_pl >= 0 %}text-amber{% else %}text-red{% endif %}">
+                    ฿{{ summary.realized_pl|floatformat:0|intcomma }}
+                </div>
+                <div class="db-metric-sub">บันทึกจาก SoldStock Table</div>
+                <div class="db-metric-bar"><div class="db-metric-bar-fill bar-amber" style="width:75%"></div></div>
             </div>
         </div>
         <!-- Portfolio Safety -->
@@ -51,26 +64,15 @@
             <div class="db-metric-card">
                 <div class="db-metric-icon icon-emerald"><i class="fas fa-shield-alt"></i></div>
                 <div class="db-metric-tag tag-emerald">Protected</div>
-                <div class="db-metric-label">Portfolio Safety</div>
+                <div class="db-metric-label">ความปลอดภัย</div>
                 <div class="db-metric-value">94.8%</div>
                 <div class="db-metric-sub">Above Stop-Loss Levels</div>
                 <div class="db-metric-bar"><div class="db-metric-bar-fill bar-emerald" style="width:94.8%"></div></div>
             </div>
         </div>
-        <!-- FX Rate -->
-        <div class="col-6 col-lg-3">
-            <div class="db-metric-card card-dark">
-                <div class="db-metric-icon icon-white"><i class="fas fa-exchange-alt"></i></div>
-                <div class="db-metric-tag tag-white">FX</div>
-                <div class="db-metric-label" style="color:rgba(255,255,255,0.5);">Exchange Rate</div>
-                <div class="db-metric-value" style="color:#f1f5f9;">฿{{ usd_thb|floatformat:2 }}</div>
-                <div class="db-metric-sub" style="color:rgba(255,255,255,0.35);"><i class="fas fa-circle-info me-1"></i>USD/THB (yfinance)</div>
-                <div class="db-metric-bar"><div class="db-metric-bar-fill bar-white" style="width:60%"></div></div>
-            </div>
-        </div>
     </div>
 
-    <!-- 2. ALLOCATION & TOP MOVERS -->
+    <!-- 2. ALLOCATION & RECENT TRANSACTIONS -->
     <div class="row g-4 mb-4">
         <!-- Asset Allocation -->
         <div class="col-xl-7">
@@ -117,40 +119,40 @@
                 </div>
             </div>
         </div>
-        <!-- Top Movers -->
+        <!-- Recent Transactions -->
         <div class="col-xl-5">
             <div class="db-panel h-100 p-4">
                 <div class="db-panel-header border-0 mb-3 p-0">
-                    <span class="db-panel-title"><i class="fas fa-bolt me-2 text-amber"></i>Top Movers</span>
+                    <span class="db-panel-title"><i class="fas fa-history me-2 text-primary"></i>Recent Transactions</span>
+                    <a href="{% url 'stocks:realized_pl_report' %}" class="db-panel-link">ดูประวัติ <i class="fas fa-arrow-right ms-1"></i></a>
                 </div>
-                <div class="movers-section-label">TOP GAINERS</div>
-                {% for g in top_gainers %}
-                <a href="{% url 'stocks:analyze' g.obj.symbol %}" class="mover-row mover-gain mb-1">
-                    <div class="mover-avatar av-gain">{{ g.obj.symbol|slice:":2" }}</div>
-                    <div class="mover-info">
-                        <div class="mover-sym">{{ g.obj.symbol }}</div>
-                        <div class="mover-name">{{ g.obj.name|default:g.obj.symbol|truncatechars:12 }}</div>
+                <div class="movers-section-label mb-2">LATEST SALES (SOLD STOCK)</div>
+                <div class="d-flex flex-column gap-2">
+                    {% for s in recent_transactions %}
+                    <div class="p-2 rounded-3 bg-light d-flex justify-content-between align-items-center">
+                        <div class="d-flex align-items-center gap-2">
+                            <div class="rounded-circle bg-white shadow-sm p-2 text-center" style="width:36px; height:36px; font-size:0.6rem; font-weight:900;">{{ s.symbol|slice:":2" }}</div>
+                            <div>
+                                <div class="fw-bold small">{{ s.symbol }}</div>
+                                <div class="text-muted" style="font-size:0.6rem;">{{ s.sold_at|date:"d M Y" }}</div>
+                            </div>
+                        </div>
+                        <div class="text-end">
+                            <div class="{% if s.profit_loss_thb >= 0 %}text-success{% else %}text-danger{% endif %} fw-black small">
+                                {% if s.profit_loss_thb >= 0 %}+{% endif %}฿{{ s.profit_loss_thb|floatformat:0|intcomma }}
+                            </div>
+                            <div class="text-muted" style="font-size:0.6rem;">{{ s.profit_loss_pct }}%</div>
+                        </div>
                     </div>
-                    <div class="mover-chg text-emerald">+{{ g.change|floatformat:2 }}%</div>
-                </a>
-                {% empty %}<div class="mover-empty text-muted small py-2">ไม่มีข้อมูล</div>{% endfor %}
-
-                <div class="movers-section-label mt-4">TOP LOSERS</div>
-                {% for l in top_losers %}
-                <a href="{% url 'stocks:analyze' l.obj.symbol %}" class="mover-row mover-loss mb-1">
-                    <div class="mover-avatar av-loss">{{ l.obj.symbol|slice:":2" }}</div>
-                    <div class="mover-info">
-                        <div class="mover-sym">{{ l.obj.symbol }}</div>
-                        <div class="mover-name">{{ l.obj.name|default:l.obj.symbol|truncatechars:12 }}</div>
-                    </div>
-                    <div class="mover-chg text-red">{{ l.change|floatformat:2 }}%</div>
-                </a>
-                {% empty %}<div class="mover-empty text-muted small py-2">ไม่มีข้อมูล</div>{% endfor %}
+                    {% empty %}
+                    <div class="text-center py-4 text-muted small">ไม่มีประวัติการขาย</div>
+                    {% endfor %}
+                </div>
             </div>
         </div>
     </div>
 
-    <!-- 3. STRATEGY & MARKET SENTIMENT (REPLACED WATCHLIST) -->
+    <!-- 3. STRATEGY & MARKET SENTIMENT -->
     <div class="row g-4">
         <div class="col-lg-7">
             <div class="db-panel h-100 p-4">
@@ -274,6 +276,7 @@ body { font-family: var(--font); background-color: var(--slate-50); }
 .db-metric-tag { position:absolute; top:20px; right:20px; font-size:0.6rem; font-weight:800; padding:3px 8px; border-radius:99px; text-transform:uppercase; }
 .tag-indigo { background:var(--indigo-light); color:var(--indigo); }
 .tag-emerald { background:var(--emerald-light); color:var(--emerald); }
+.tag-amber { background:var(--amber-light); color:var(--amber); }
 .tag-red { background:var(--red-light); color:var(--red); }
 .tag-white { background:rgba(255,255,255,0.1); color:white; }
 .db-metric-label { font-size:0.65rem; font-weight:700; text-transform:uppercase; color:#94a3b8; margin-bottom:4px; }
@@ -283,6 +286,7 @@ body { font-family: var(--font); background-color: var(--slate-50); }
 .db-metric-bar-fill { height:100%; border-radius:99px; }
 .bar-indigo { background:var(--indigo); }
 .bar-emerald { background:var(--emerald); }
+.bar-amber { background:var(--amber); }
 .bar-white { background:white; }
 .db-panel { background:#fff; border:1px solid var(--slate-200); border-radius:1.25rem; }
 .db-panel-title { font-weight:700; font-size:0.95rem; color:var(--slate-900); }
@@ -302,17 +306,10 @@ body { font-family: var(--font); background-color: var(--slate-50); }
 .fill-emerald { background:var(--emerald); }
 .fill-amber { background:#f59e0b; }
 .movers-section-label { font-size:0.6rem; font-weight:800; color:#94a3b8; text-transform:uppercase; letter-spacing:0.05em; }
-.mover-row { display:flex; align-items:center; gap:12px; padding:10px; border-radius:12px; text-decoration:none; transition:background 0.2s; }
-.mover-row:hover { background:var(--slate-50); }
-.mover-avatar { width:36px; height:36px; border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:0.65rem; font-weight:900; }
-.av-gain { background:var(--emerald-light); color:var(--emerald); }
-.av-loss { background:var(--red-light); color:var(--red); }
-.mover-sym { font-size:0.85rem; font-weight:800; color:var(--slate-900); }
-.mover-name { font-size:0.65rem; color:#94a3b8; }
-.mover-chg { font-size:0.85rem; font-weight:800; }
 .db-count-badge { background:var(--slate-100); color:#64748b; border-radius:99px; padding:4px 12px; font-size:0.7rem; font-weight:600; }
 .text-emerald { color: var(--emerald) !important; }
 .text-red { color: var(--red) !important; }
+.text-amber { color: var(--amber) !important; }
 </style>
 
 <!-- ═══════ SCRIPTS ═══════ -->
