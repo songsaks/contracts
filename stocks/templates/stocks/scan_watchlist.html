@@ -1,178 +1,377 @@
 {% extends 'stocks/base_stocks.html' %}
 {% load humanize %}
 
-{% block title %}Scan Watchlist / Alert — 9Com{% endblock %}
-
-{% block container_class %}container-fluid px-2 px-md-3{% endblock %}
+{% block title %}Watchlist — Precision Monitor{% endblock %}
+{% block container_class %}container-fluid px-0{% endblock %}
 
 {% block content %}
-<div>
-<div class="row align-items-end mb-4">
-    <div class="col-md-8">
-        <h1 class="fw-bold mb-1" style="color:#b45309;"><i class="fas fa-bell me-2"></i> {% if market == 'US' %}US{% else %}Thai{% endif %} Scan Watchlist / Alert</h1>
-        <p class="text-muted mb-0">
-            หุ้นที่คุณติดตามจาก {% if market == 'US' %}US{% endif %} Precision Scanner — แจ้งเตือนเมื่อคะแนนถึง Threshold<br>
-            <small>คลิก <i class="far fa-bell"></i> ใน Scanner เพื่อเพิ่ม/ลบ</small>
-        </p>
-    </div>
-    <div class="col-md-4 text-md-end mt-3 mt-md-0">
-        <div class="btn-group rounded-pill overflow-hidden border" style="background:white;">
-            <a href="?market=SET" class="btn btn-sm px-3 {% if market == 'SET' %}btn-primary{% else %}btn-light{% endif %}" style="font-size:0.75rem;">Thai Market</a>
-            <a href="?market=US" class="btn btn-sm px-3 {% if market == 'US' %}btn-primary{% else %}btn-light{% endif %}" style="font-size:0.75rem;">US Market</a>
-        </div>
-        <a href="{% if market == 'US' %}{% url 'stocks:us_precision_scanner' %}{% else %}{% url 'stocks:precision_momentum_scanner' %}{% endif %}" class="btn btn-outline-secondary btn-sm rounded-pill px-3 ms-2">
-            <i class="fas fa-crosshairs me-1"></i> กลับไป Scanner
-        </a>
-    </div>
-</div>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
-{% if items %}
-<div class="card border-0 shadow-sm rounded-4 overflow-hidden">
-    <div class="px-4 py-3" style="background:linear-gradient(135deg,#0f172a,#1c1917);color:white;">
-        <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+<!-- ===== HERO HEADER ===== -->
+<div class="wl-hero">
+    <div class="wl-hero-bg"></div>
+    <div class="container-fluid px-4 px-md-5 py-4 position-relative">
+        <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
             <div>
-                <h6 class="mb-0 fw-bold"><i class="fas fa-list me-2" style="color:#fbbf24;"></i>รายการ Watchlist ({% if market == 'US' %}US{% else %}SET{% endif %})</h6>
-                <div class="small mt-1" style="opacity:0.65;">{{ items|length }} รายการ — อัปเดตจาก Precision Scan ล่าสุด</div>
+                <div class="d-flex align-items-center gap-3 mb-2">
+                    <div class="wl-icon-pulse">
+                        <i class="fas fa-satellite-dish"></i>
+                    </div>
+                    <div>
+                        <h1 class="wl-title mb-0">Precision Watchlist</h1>
+                        <p class="wl-subtitle mb-0">
+                            <span class="wl-dot {% if market == 'SET' %}dot-emerald{% else %}dot-blue{% endif %}"></span>
+                            {% if market == 'SET' %}SET Market — Thailand{% else %}US Market — NYSE/NASDAQ{% endif %}
+                            {% if latest_run %}&nbsp;·&nbsp;Scanned {{ latest_run|naturaltime }}{% endif %}
+                        </p>
+                    </div>
+                </div>
+            </div>
+            <div class="d-flex align-items-center gap-2 flex-wrap">
+                <!-- Market Toggle -->
+                <div class="wl-toggle-group">
+                    <a href="?market=SET" class="wl-toggle {% if market == 'SET' %}active{% endif %}">
+                        <i class="fas fa-chart-bar me-1"></i> Thai
+                    </a>
+                    <a href="?market=US" class="wl-toggle {% if market == 'US' %}active{% endif %}">
+                        <i class="fas fa-flag-usa me-1"></i> US
+                    </a>
+                </div>
+                <!-- Summary Chips -->
+                {% if items %}
+                <div class="wl-chip chip-total">
+                    <i class="fas fa-layer-group me-1"></i> {{ items|length }} หุ้น
+                </div>
+                {% with triggered_count=items|length %}
+                <div class="wl-chip chip-alert" id="alertChip" style="display:none;">
+                    <i class="fas fa-bolt me-1"></i> <span id="alertCount">0</span> สัญญาณ
+                </div>
+                {% endwith %}
+                {% endif %}
+                <a href="{% if market == 'US' %}{% url 'stocks:us_precision_scanner' %}{% else %}{% url 'stocks:precision_momentum_scanner' %}{% endif %}"
+                   class="btn wl-btn-add">
+                    <i class="fas fa-plus me-1"></i> เพิ่มหุ้น
+                </a>
             </div>
         </div>
     </div>
-    <div class="table-responsive">
-        <table class="table table-hover mb-0" style="font-size:0.82rem;">
-            <thead>
-                <tr style="background:#f8fafc;font-size:0.72rem;color:#64748b;letter-spacing:0.03em;">
-                    <th class="ps-3">SYMBOL</th>
-                    <th>SECTOR</th>
-                    <th class="text-center">PRICE</th>
-                    <th class="text-center">SCORE</th>
-                    <th class="text-center">ALERT AT</th>
-                    <th class="text-center">STATUS</th>
-                    <th class="text-center">LAST SCAN</th>
-                    <th class="text-end pe-3">ACTION</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for entry in items %}
-                <tr class="{% if entry.triggered %}table-warning{% endif %}">
-                    <td class="ps-3">
-                        <div class="d-flex align-items-center gap-2">
-                            <div class="rounded-circle d-flex align-items-center justify-content-center fw-bold"
-                                 style="width:30px;height:30px;background:rgba(180,83,9,0.1);color:#b45309;font-size:0.6rem;flex-shrink:0;">
-                                {{ entry.watchlist.symbol|slice:":3" }}
-                            </div>
-                            <div>
-                                <div class="fw-bold">{{ entry.watchlist.symbol }}</div>
-                                <div class="text-muted" style="font-size:0.68rem;">เพิ่ม {{ entry.watchlist.added_date|date:"d M Y" }}</div>
-                            </div>
-                        </div>
-                    </td>
-                    <td>
-                        <span class="badge rounded-pill px-2" style="background:#f1f5f9;color:#475569;font-size:0.65rem;">{{ entry.watchlist.sector|default:"Unknown" }}</span>
-                    </td>
-                    <td class="text-center">
-                        {% if entry.scan_data %}
-                        <span class="fw-bold">{% if market == 'US' %}${% else %}฿{% endif %}{{ entry.scan_data.price|floatformat:2 }}</span>
-                        {% else %}
-                        <span class="text-muted">-</span>
-                        {% endif %}
-                    </td>
-                    <td class="text-center">
-                        {% if entry.scan_data %}
-                        <span class="fw-bold {% if entry.scan_data.technical_score >= 80 %}text-success{% elif entry.scan_data.technical_score >= 60 %}text-primary{% else %}text-secondary{% endif %}">
-                            {{ entry.scan_data.technical_score }}
-                        </span>
+</div>
+
+<!-- ===== CONTENT ===== -->
+<div class="container-fluid px-3 px-md-5 py-4">
+
+{% if items %}
+<div class="row g-3" id="watchlistGrid">
+    {% for entry in items %}
+    {% with s=entry.scan_data w=entry.watchlist %}
+    <div class="col-12 col-sm-6 col-lg-4 col-xl-3 wl-card-col {% if entry.triggered %}is-triggered{% endif %}"
+         data-triggered="{{ entry.triggered|yesno:'1,0' }}">
+        <div class="wl-card h-100 position-relative">
+
+            {% if entry.triggered %}
+            <div class="wl-glow-ring"></div>
+            <div class="wl-signal-badge">
+                <i class="fas fa-bolt"></i> BUY SIGNAL
+            </div>
+            {% endif %}
+
+            <!-- CARD HEADER -->
+            <div class="wl-card-header">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="wl-avatar {% if s and s.technical_score >= 80 %}avatar-hot{% elif s and s.technical_score >= 60 %}avatar-warm{% else %}avatar-cool{% endif %}">
+                        {{ w.symbol|slice:":3" }}
+                    </div>
+                    <div class="min-w-0">
+                        <div class="wl-symbol">{{ w.symbol }}</div>
+                        <div class="wl-sector">{{ w.sector|default:"—" }}</div>
+                    </div>
+                </div>
+                <button class="wl-remove-btn" onclick="removeFromWatchlist(this,'{{ w.symbol }}')" title="ลบ">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+
+            <!-- SCORE ROW -->
+            <div class="wl-score-row">
+                <div class="wl-score-block">
+                    <div class="wl-score-label">TECH SCORE</div>
+                    <div class="wl-score-value {% if s and s.technical_score >= 80 %}score-hot{% elif s and s.technical_score >= 60 %}score-warm{% else %}score-cool{% endif %}">
+                        {{ s.technical_score|default:"—" }}
                         {% if entry.delta is not None %}
-                        <span class="small {% if entry.delta > 0 %}text-success{% elif entry.delta < 0 %}text-danger{% else %}text-muted{% endif %}">
-                            {% if entry.delta > 0 %}+{% endif %}{{ entry.delta }}
+                        <span class="wl-delta {% if entry.delta > 0 %}delta-up{% elif entry.delta < 0 %}delta-down{% else %}delta-flat{% endif %}">
+                            {% if entry.delta > 0 %}▲{{ entry.delta }}{% elif entry.delta < 0 %}▼{{ entry.delta|stringformat:"d"|slice:"1:" }}{% else %}—{% endif %}
                         </span>
                         {% endif %}
-                        {% else %}
-                        <span class="badge bg-secondary bg-opacity-10 text-secondary rounded-pill" style="font-size:0.65rem;">ยังไม่สแกน</span>
+                    </div>
+                    {% if s and s.technical_score %}
+                    <div class="wl-score-bar-track">
+                        <div class="wl-score-bar-fill {% if s.technical_score >= 80 %}fill-hot{% elif s.technical_score >= 60 %}fill-warm{% else %}fill-cool{% endif %}"
+                             style="width:{{ s.technical_score }}%"></div>
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="wl-divider-v"></div>
+                <div class="wl-score-block text-end">
+                    <div class="wl-score-label">RS RATING</div>
+                    <div class="wl-score-value {% if s and s.rs_rating >= 80 %}score-hot{% elif s and s.rs_rating >= 60 %}score-warm{% else %}score-cool{% endif %}">
+                        {{ s.rs_rating|default:"—" }}
+                    </div>
+                    <div class="wl-rs-bar-track">
+                        {% if s and s.rs_rating %}
+                        <div class="wl-rs-bar-fill" style="width:{{ s.rs_rating }}%"></div>
                         {% endif %}
-                    </td>
-                    <td class="text-center">
-                        <span class="badge rounded-pill px-2" style="background:#fef9c3;color:#b45309;font-size:0.72rem;border:1px solid #fde68a;">
-                            ≥ {{ entry.watchlist.alert_threshold }}
-                        </span>
-                    </td>
-                    <td class="text-center">
-                        {% if entry.triggered %}
-                        <span class="badge bg-warning text-dark rounded-pill px-2" style="font-size:0.7rem;">
-                            <i class="fas fa-bell me-1"></i>แจ้งเตือน!
-                        </span>
-                        {% elif entry.scan_data %}
-                        <span class="text-muted small">ปกติ</span>
-                        {% else %}
-                        <span class="text-muted small">-</span>
-                        {% endif %}
-                    </td>
-                    <td class="text-center">
-                        {% if entry.scan_data %}
-                        <span class="small text-muted">{{ entry.scan_data.scan_run|date:"d M H:i" }}</span>
-                        {% else %}
-                        <span class="text-muted">-</span>
-                        {% endif %}
-                    </td>
-                    <td class="text-end pe-3">
-                        <div class="d-flex justify-content-end gap-1">
-                            {% if entry.scan_data %}
-                            <a href="{% url 'stocks:entry_finder' entry.watchlist.symbol %}" class="btn btn-sm px-2 py-1" style="font-size:0.65rem;background:#7c3aed;color:white;" target="_blank" title="Sniper Chart"><i class="fas fa-crosshairs"></i></a>
-                            <a href="{% url 'stocks:analyze' entry.watchlist.symbol %}" class="btn btn-outline-primary btn-sm px-2 py-1" style="font-size:0.65rem;" target="_blank" title="Analyze"><i class="fas fa-microscope"></i></a>
-                            {% endif %}
-                            <button class="btn btn-sm px-2 py-1 watchlist-toggle-btn"
-                                    data-symbol="{{ entry.watchlist.symbol }}"
-                                    data-sector="{{ entry.watchlist.sector }}"
-                                    data-market="{{ market }}"
-                                    data-in-watchlist="true"
-                                    onclick="removeFromWatchlist(this)"
-                                    style="font-size:0.65rem;background:#fef2f2;color:#dc2626;border:1px solid #fca5a5;"
-                                    title="ลบออกจาก Watchlist">
-                                <i class="fas fa-trash-alt"></i>
-                            </button>
-                        </div>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- METRICS GRID -->
+            <div class="wl-metrics">
+                <div class="wl-metric">
+                    <span class="wl-metric-label">ราคา</span>
+                    <span class="wl-metric-value">{% if market == 'US' %}${% else %}฿{% endif %}{{ s.price|floatformat:2|default:"—" }}</span>
+                </div>
+                <div class="wl-metric">
+                    <span class="wl-metric-label">Zone Prox</span>
+                    <span class="wl-metric-value {% if s and s.zone_proximity <= 5 %}text-success fw-bold{% elif s and s.zone_proximity <= 10 %}text-warning{% endif %}">
+                        {{ s.zone_proximity|floatformat:1|default:"—" }}%
+                    </span>
+                </div>
+                <div class="wl-metric">
+                    <span class="wl-metric-label">Alert ≥</span>
+                    <span class="wl-metric-value">{{ w.alert_threshold }}</span>
+                </div>
+                <div class="wl-metric">
+                    <span class="wl-metric-label">Strategy</span>
+                    <span class="wl-metric-value text-truncate" title="{{ s.entry_strategy|default:'—' }}" style="max-width:70px;">{{ s.entry_strategy|default:"—"|truncatechars:10 }}</span>
+                </div>
+            </div>
+
+            <!-- BADGES -->
+            <div class="wl-badges">
+                {% if s and s.stage2 %}<span class="wl-badge badge-stage2">Stage 2</span>{% endif %}
+                {% if s and s.vdu_near_zone %}<span class="wl-badge badge-vdu">VDU</span>{% endif %}
+                {% if s and s.vcp_setup %}<span class="wl-badge badge-vcp">VCP</span>{% endif %}
+                {% if s and s.is_explosive %}<span class="wl-badge badge-explosive">🔥 Explosive</span>{% endif %}
+            </div>
+
+            <!-- ACTIONS -->
+            <div class="wl-actions">
+                <a href="{% url 'stocks:analyze' w.symbol %}" class="wl-btn-analyze">
+                    <i class="fas fa-microscope"></i> วิเคราะห์ AI
+                </a>
+                <a href="{% url 'stocks:entry_finder' w.symbol %}" class="wl-btn-entry" target="_blank" title="Entry Finder">
+                    <i class="fas fa-crosshairs"></i>
+                </a>
+            </div>
+
+            <!-- FOOTER -->
+            <div class="wl-card-footer">
+                <span><i class="far fa-clock me-1 opacity-50"></i>{{ s.scan_run|date:"d M H:i"|default:"—" }}</span>
+                {% if entry.triggered %}
+                <span class="text-success fw-bold"><i class="fas fa-check-circle me-1"></i>Triggered</span>
+                {% else %}
+                <span class="text-muted">Watching...</span>
+                {% endif %}
+            </div>
+
+        </div>
     </div>
+    {% endwith %}
+    {% endfor %}
 </div>
 
 {% else %}
-<div class="card border-0 shadow-sm rounded-4 text-center py-5">
-    <div class="card-body">
-        <i class="fas fa-bell-slash fa-3x mb-3" style="color:#e2e8f0;"></i>
-        <h5 class="fw-bold text-muted mb-2">ยังไม่มีหุ้นใน Watchlist</h5>
-        <p class="text-muted mb-4">ไปที่ Precision Scanner แล้วกดปุ่ม <i class="far fa-bell"></i> เพื่อติดตามหุ้น</p>
-        <a href="{% url 'stocks:precision_momentum_scanner' %}" class="btn btn-sm rounded-pill px-4" style="background:#7c3aed;color:white;">
-            <i class="fas fa-crosshairs me-1"></i> ไป Precision Scanner
-        </a>
+<!-- EMPTY STATE -->
+<div class="wl-empty">
+    <div class="wl-empty-icon">
+        <i class="fas fa-satellite-dish"></i>
     </div>
+    <h3 class="wl-empty-title">ยังไม่มีหุ้นใน Watchlist</h3>
+    <p class="wl-empty-desc">เพิ่มหุ้นจากหน้า Scanner เพื่อติดตามสัญญาณและรับการแจ้งเตือนแบบ Real-time</p>
+    <a href="{% url 'stocks:precision_momentum_scanner' %}" class="wl-btn-add px-5 py-2">
+        <i class="fas fa-plus me-2"></i> ไปหน้าสแกนหุ้น
+    </a>
 </div>
 {% endif %}
 
 </div>
 
+<!-- ===== STYLES ===== -->
+<style>
+    :root {
+        --hero-bg: #0f172a;
+        --card-bg: #ffffff;
+        --card-border: #e2e8f0;
+        --card-hover-shadow: 0 20px 40px rgba(0,0,0,0.1);
+        --hot: #10b981;
+        --warm: #3b82f6;
+        --cool: #94a3b8;
+        --font-main: 'Inter', 'Prompt', sans-serif;
+    }
+
+    /* HERO */
+    .wl-hero { background: var(--hero-bg); position: relative; overflow: hidden; }
+    .wl-hero-bg {
+        position: absolute; inset: 0;
+        background: radial-gradient(ellipse at 20% 50%, rgba(99,102,241,0.15) 0%, transparent 60%),
+                    radial-gradient(ellipse at 80% 50%, rgba(16,185,129,0.08) 0%, transparent 60%);
+    }
+    .wl-icon-pulse {
+        width: 48px; height: 48px; border-radius: 14px;
+        background: linear-gradient(135deg, #4f46e5, #7c3aed);
+        display: flex; align-items: center; justify-content: center;
+        color: white; font-size: 1.2rem; flex-shrink: 0;
+        box-shadow: 0 0 20px rgba(79,70,229,0.5);
+        animation: iconGlow 3s ease-in-out infinite;
+    }
+    @keyframes iconGlow {
+        0%,100% { box-shadow: 0 0 20px rgba(79,70,229,0.4); }
+        50%      { box-shadow: 0 0 35px rgba(79,70,229,0.8); }
+    }
+    .wl-title { font-family: 'Prompt', sans-serif; font-size: 1.6rem; font-weight: 700; color: #f1f5f9; letter-spacing: -0.02em; }
+    .wl-subtitle { font-size: 0.82rem; color: #94a3b8; display: flex; align-items: center; gap: 6px; }
+    .wl-dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
+    .dot-emerald { background: #10b981; box-shadow: 0 0 6px #10b981; animation: dotPulse 2s infinite; }
+    .dot-blue    { background: #3b82f6; box-shadow: 0 0 6px #3b82f6; animation: dotPulse 2s infinite; }
+    @keyframes dotPulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+    /* TOGGLE */
+    .wl-toggle-group { display: flex; background: rgba(255,255,255,0.08); border-radius: 999px; padding: 3px; gap: 2px; border: 1px solid rgba(255,255,255,0.1); }
+    .wl-toggle { padding: 6px 18px; border-radius: 999px; font-size: 0.78rem; font-weight: 600; color: #94a3b8; text-decoration: none; transition: all 0.2s; white-space: nowrap; }
+    .wl-toggle.active { background: #4f46e5; color: white; box-shadow: 0 0 12px rgba(79,70,229,0.5); }
+    .wl-toggle:hover:not(.active) { color: #e2e8f0; background: rgba(255,255,255,0.06); }
+
+    /* CHIPS */
+    .wl-chip { font-size: 0.75rem; font-weight: 700; padding: 6px 14px; border-radius: 999px; border: 1px solid; white-space: nowrap; }
+    .chip-total { background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.12); color: #94a3b8; }
+    .chip-alert { background: rgba(251,191,36,0.12); border-color: rgba(251,191,36,0.3); color: #fbbf24; }
+
+    /* ADD BUTTON */
+    .wl-btn-add { background: linear-gradient(135deg, #4f46e5, #7c3aed); color: white !important; border: none; border-radius: 999px; padding: 8px 20px; font-size: 0.8rem; font-weight: 700; text-decoration: none; display: inline-flex; align-items: center; transition: all 0.2s; }
+    .wl-btn-add:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(79,70,229,0.4); }
+
+    /* CARD */
+    .wl-card {
+        background: #fff; border: 1px solid var(--card-border);
+        border-radius: 1.25rem; overflow: hidden; font-family: var(--font-main);
+        transition: transform 0.25s cubic-bezier(.34,1.56,.64,1), box-shadow 0.25s;
+        display: flex; flex-direction: column;
+    }
+    .wl-card:hover { transform: translateY(-6px); box-shadow: var(--card-hover-shadow); }
+    .is-triggered .wl-card { border-color: rgba(16,185,129,0.35); background: linear-gradient(180deg, #f0fdf4 0%, #fff 60%); }
+    .wl-glow-ring {
+        position: absolute; inset: 0; border-radius: 1.25rem; pointer-events: none;
+        box-shadow: inset 0 0 0 2px rgba(16,185,129,0.5), 0 0 20px rgba(16,185,129,0.15);
+        animation: glowPulse 2s ease-in-out infinite;
+    }
+    @keyframes glowPulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
+
+    /* SIGNAL BADGE */
+    .wl-signal-badge {
+        position: absolute; top: 12px; right: 12px; z-index: 2;
+        background: linear-gradient(135deg, #10b981, #059669);
+        color: white; font-size: 0.62rem; font-weight: 800;
+        padding: 4px 10px; border-radius: 999px; letter-spacing: 0.06em;
+        box-shadow: 0 4px 12px rgba(16,185,129,0.4);
+        animation: signalBlink 1.5s ease-in-out infinite;
+    }
+    @keyframes signalBlink { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.8;transform:scale(0.97)} }
+
+    /* CARD HEADER */
+    .wl-card-header { padding: 16px 16px 12px; display: flex; align-items: center; justify-content: space-between; }
+    .wl-avatar {
+        width: 46px; height: 46px; border-radius: 12px; flex-shrink: 0;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 0.75rem; font-weight: 900; color: white; letter-spacing: 0.02em;
+    }
+    .avatar-hot  { background: linear-gradient(135deg, #059669, #10b981); box-shadow: 0 4px 12px rgba(16,185,129,0.35); }
+    .avatar-warm { background: linear-gradient(135deg, #1d4ed8, #3b82f6); box-shadow: 0 4px 12px rgba(59,130,246,0.35); }
+    .avatar-cool { background: linear-gradient(135deg, #475569, #64748b); }
+    .wl-symbol { font-size: 1.05rem; font-weight: 800; color: #0f172a; letter-spacing: -0.01em; }
+    .wl-sector { font-size: 0.65rem; color: #94a3b8; font-weight: 500; margin-top: 1px; }
+    .wl-remove-btn { background: none; border: none; color: #cbd5e1; font-size: 0.85rem; cursor: pointer; padding: 4px 8px; border-radius: 8px; transition: all 0.15s; line-height: 1; }
+    .wl-remove-btn:hover { color: #ef4444; background: #fff0f0; }
+
+    /* SCORE ROW */
+    .wl-score-row { display: flex; align-items: center; padding: 10px 16px; background: #f8fafc; border-top: 1px solid #f1f5f9; border-bottom: 1px solid #f1f5f9; gap: 12px; }
+    .wl-score-block { flex: 1; }
+    .wl-score-label { font-size: 0.58rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #94a3b8; margin-bottom: 2px; }
+    .wl-score-value { font-size: 1.35rem; font-weight: 900; line-height: 1; display: flex; align-items: baseline; gap: 5px; }
+    .score-hot  { color: #059669; }
+    .score-warm { color: #2563eb; }
+    .score-cool { color: #64748b; }
+    .wl-delta { font-size: 0.65rem; font-weight: 700; }
+    .delta-up   { color: #10b981; }
+    .delta-down { color: #ef4444; }
+    .delta-flat { color: #94a3b8; }
+    .wl-score-bar-track, .wl-rs-bar-track { height: 3px; background: #e2e8f0; border-radius: 999px; margin-top: 5px; overflow: hidden; }
+    .wl-score-bar-fill, .wl-rs-bar-fill { height: 100%; border-radius: 999px; transition: width 0.8s ease; }
+    .fill-hot  { background: linear-gradient(90deg, #059669, #10b981); }
+    .fill-warm { background: linear-gradient(90deg, #1d4ed8, #3b82f6); }
+    .fill-cool { background: #94a3b8; }
+    .wl-rs-bar-fill { background: linear-gradient(90deg, #7c3aed, #a855f7); }
+    .wl-divider-v { width: 1px; height: 40px; background: #e2e8f0; flex-shrink: 0; }
+
+    /* METRICS */
+    .wl-metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: #f1f5f9; border-top: 1px solid #f1f5f9; }
+    .wl-metric { background: #fff; padding: 8px 14px; display: flex; flex-direction: column; gap: 2px; }
+    .wl-metric-label { font-size: 0.6rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #94a3b8; }
+    .wl-metric-value { font-size: 0.82rem; font-weight: 700; color: #1e293b; }
+
+    /* BADGES */
+    .wl-badges { padding: 10px 14px; display: flex; flex-wrap: wrap; gap: 5px; border-top: 1px solid #f1f5f9; min-height: 40px; }
+    .wl-badge { font-size: 0.6rem; font-weight: 700; padding: 3px 8px; border-radius: 6px; letter-spacing: 0.04em; white-space: nowrap; }
+    .badge-stage2   { background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; }
+    .badge-vdu      { background: #f0f9ff; color: #0369a1; border: 1px solid #bae6fd; }
+    .badge-vcp      { background: #fff7ed; color: #c2410c; border: 1px solid #fed7aa; }
+    .badge-explosive{ background: #fef3c7; color: #92400e; border: 1px solid #fde68a; }
+
+    /* ACTIONS */
+    .wl-actions { display: flex; gap: 8px; padding: 10px 14px; border-top: 1px solid #f1f5f9; margin-top: auto; }
+    .wl-btn-analyze { flex: 1; background: #f8fafc; color: #334155; border: 1px solid #e2e8f0; border-radius: 999px; padding: 8px 12px; font-size: 0.72rem; font-weight: 700; text-decoration: none; display: flex; align-items: center; justify-content: center; gap: 5px; transition: all 0.2s; }
+    .wl-btn-analyze:hover { background: #0f172a; color: white; border-color: #0f172a; }
+    .wl-btn-entry { background: #4f46e5; color: white; border: none; border-radius: 999px; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; text-decoration: none; font-size: 0.85rem; transition: all 0.2s; flex-shrink: 0; }
+    .wl-btn-entry:hover { background: #4338ca; color: white; transform: scale(1.1); }
+
+    /* CARD FOOTER */
+    .wl-card-footer { padding: 8px 14px; background: #f8fafc; border-top: 1px solid #f1f5f9; display: flex; justify-content: space-between; align-items: center; font-size: 0.62rem; color: #94a3b8; }
+
+    /* EMPTY STATE */
+    .wl-empty { max-width: 480px; margin: 80px auto; text-align: center; padding: 0 20px; }
+    .wl-empty-icon { width: 90px; height: 90px; border-radius: 50%; background: linear-gradient(135deg, #1e293b, #334155); display: flex; align-items: center; justify-content: center; margin: 0 auto 24px; font-size: 2rem; color: #475569; }
+    .wl-empty-title { font-family: 'Prompt', sans-serif; font-size: 1.3rem; font-weight: 700; color: #0f172a; margin-bottom: 10px; }
+    .wl-empty-desc  { color: #64748b; font-size: 0.9rem; margin-bottom: 24px; }
+</style>
+
 <script>
-function removeFromWatchlist(btn) {
-    var symbol = btn.dataset.symbol;
-    var sector = btn.dataset.sector;
-    var market = btn.dataset.market || 'SET';
+// Count triggered signals and show chip
+document.addEventListener('DOMContentLoaded', function() {
+    const triggered = document.querySelectorAll('.wl-card-col[data-triggered="1"]');
+    if (triggered.length > 0) {
+        const chip = document.getElementById('alertChip');
+        const cnt  = document.getElementById('alertCount');
+        if (chip) { chip.style.display = ''; cnt.textContent = triggered.length; }
+    }
+});
+
+function removeFromWatchlist(btn, symbol) {
     if (!confirm('ลบ ' + symbol + ' ออกจาก Watchlist?')) return;
     fetch("{% url 'stocks:watchlist_item_toggle' %}", {
         method: 'POST',
         headers: {'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}'},
-        body: JSON.stringify({symbol: symbol, sector: sector, market: market})
+        body: JSON.stringify({symbol: symbol, market: '{{ market }}'})
     })
     .then(r => r.json())
     .then(data => {
         if (data.status === 'removed') {
-            var row = btn.closest('tr');
-            row.style.transition = 'opacity 0.3s';
-            row.style.opacity = '0';
-            setTimeout(() => row.remove(), 300);
+            const col = btn.closest('.wl-card-col');
+            col.style.transition = 'all 0.35s ease';
+            col.style.opacity = '0';
+            col.style.transform = 'scale(0.85)';
+            setTimeout(() => col.remove(), 350);
         }
     })
-    .catch(e => console.error('Error:', e));
+    .catch(e => console.error(e));
 }
 </script>
 {% endblock %}

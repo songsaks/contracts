@@ -386,11 +386,73 @@ def dashboard(request):
         except:
             items.append({'obj': item, 'price': 'Error', 'change': 0, 'rsi': None, 'rsi_status': 'Error', 'mom_data': None})
 
-    return render(request, 'stocks/dashboard.html', {
-        'items': items,
+    # --- สรุปข้อมูลสำหรับ Real Dashboard ---
+    from .models import Portfolio
+    owned_assets = Portfolio.objects.filter(user=request.user)
+    
+    usd_thb = _get_usd_thb()
+    total_val_thb = 0
+    total_cost_thb = 0
+    
+    set_val = 0
+    us_val = 0
+    crypto_val = 0
+    
+    # สร้าง map ของราคาเพื่อความรวดเร็ว
+    price_map = {x['obj'].symbol: x['price'] for x in items if isinstance(x.get('price'), (int, float))}
+    
+    for p in owned_assets:
+        # พยายามใช้ราคาจาก watchlist ก่อน ถ้าไม่มีให้ใช้ราคา 0 (หรือดึงใหม่ถ้าจำเป็น แต่นี่คือ Dashboard สรุป)
+        curr_p = price_map.get(p.symbol, 0)
+        
+        # ถ้าไม่มีใน watchlist เลย อาจจะต้องดึงราคาเดียวสั้นๆ หรือข้ามไปก่อนเพื่อความเร็ว
+        if curr_p == 0:
+            try:
+                import yfinance as yf
+                t = yf.Ticker(p.symbol)
+                curr_p = t.fast_info['lastPrice']
+            except: curr_p = float(p.entry_price or 0) # Fallback to cost if fail
+            
+        val = float(p.quantity) * float(curr_p)
+        cost = float(p.quantity) * float(p.entry_price or 0)
+        
+        if p.market == 'US' or p.market == 'CRYPTO':
+            total_val_thb += val * usd_thb
+            total_cost_thb += cost * usd_thb
+            if p.market == 'US': us_val += val * usd_thb
+            else: crypto_val += val * usd_thb
+        else:
+            total_val_thb += val
+            total_cost_thb += cost
+            set_val += val
+            
+    total_pl_thb = total_val_thb - total_cost_thb
+    pl_pct = (total_pl_thb / total_cost_thb * 100) if total_cost_thb else 0
+    
+    sorted_items = sorted([x for x in items if isinstance(x['change'], (int, float))], key=lambda x: x['change'], reverse=True)
+    top_gainers = sorted_items[:3]
+    top_losers = sorted_items[-3:][::-1] if len(sorted_items) > 3 else []
+
+    context = {
+        'items': items[:6], 
+        'total_items': len(items),
         'categories': AssetCategory.choices,
         'market_types': MarketType.choices,
-    })
+        'summary': {
+            'total_value': total_val_thb,
+            'total_pl': total_pl_thb,
+            'pl_pct': pl_pct,
+            'asset_alloc': {
+                'SET': set_val,
+                'US': us_val,
+                'CRYPTO': crypto_val
+            }
+        },
+        'top_gainers': top_gainers,
+        'top_losers': top_losers,
+        'usd_thb': usd_thb
+    }
+    return render(request, 'stocks/dashboard.html', context)
 
 # ====== Analyze - วิเคราะห์หุ้นรายตัวด้วย AI (Gemini) ======
 

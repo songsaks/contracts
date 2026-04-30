@@ -317,7 +317,7 @@
                 <ul class="navbar-nav me-auto mb-2 mb-lg-0 ms-lg-4 gap-0 gap-lg-1">
                     <!-- Portfolio Dropdown (Frontmost) -->
                     <li class="nav-item dropdown">
-                        <a class="nav-link px-3 py-2 rounded-xl dropdown-toggle {% if request.resolver_match.url_name == 'portfolio_list' or request.resolver_match.url_name == 'dashboard' %}active{% endif %}" 
+                        <a class="nav-link px-3 py-2 rounded-xl dropdown-toggle {% if request.resolver_match.url_name in 'portfolio_list,dashboard,scan_watchlist_view' %}active{% endif %}" 
                            href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                             <i class="fas fa-wallet"></i> Portfolio
                         </a>
@@ -325,13 +325,26 @@
                             <li>
                                 <a class="dropdown-item rounded-3 py-2 {% if request.resolver_match.url_name == 'portfolio_list' %}active{% endif %}" 
                                    href="{% url 'stocks:portfolio_list' %}">
-                                    <i class="fas fa-wallet me-2"></i> My Portfolio
+                                    <i class="fas fa-wallet me-2"></i> My Portfolio (พอร์ตฉัน)
                                 </a>
                             </li>
                             <li>
                                 <a class="dropdown-item rounded-3 py-2 {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}" 
                                    href="{% url 'stocks:dashboard' %}">
                                     <i class="fas fa-th-large me-2"></i> System Dashboard
+                                </a>
+                            </li>
+                            <li><hr class="dropdown-divider opacity-25 my-1"></li>
+                            <li>
+                                <a class="dropdown-item rounded-3 py-2 {% if request.resolver_match.url_name == 'scan_watchlist_view' and market == 'SET' %}active{% endif %}"
+                                   href="{% url 'stocks:scan_watchlist_view' %}?market=SET">
+                                    <i class="fas fa-bell me-2 text-warning"></i> Watchlist (SET)
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item rounded-3 py-2 {% if request.resolver_match.url_name == 'scan_watchlist_view' and market == 'US' %}active{% endif %}"
+                                   href="{% url 'stocks:scan_watchlist_view' %}?market=US">
+                                    <i class="fas fa-bell me-2 text-warning"></i> Watchlist (US)
                                 </a>
                             </li>
                         </ul>
@@ -398,19 +411,6 @@
                                 <a class="dropdown-item rounded-3 py-2 {% if request.resolver_match.url_name == 'turtle_scanner' and request.GET.market == 'US' %}active{% endif %}"
                                    href="{% url 'stocks:turtle_scanner' %}?market=US">
                                     <i class="fas fa-turtle me-2 text-primary"></i> 🇺🇸 Turtle Breakout (US)
-                                </a>
-                            </li>
-                            <li><hr class="dropdown-divider opacity-25 my-1"></li>
-                            <li>
-                                <a class="dropdown-item rounded-3 py-2 {% if request.resolver_match.url_name == 'scan_watchlist_view' and market == 'SET' %}active{% endif %}"
-                                   href="{% url 'stocks:scan_watchlist_view' %}?market=SET">
-                                    <i class="fas fa-bell me-2 text-warning"></i> Watchlist (SET)
-                                </a>
-                            </li>
-                            <li>
-                                <a class="dropdown-item rounded-3 py-2 {% if request.resolver_match.url_name == 'scan_watchlist_view' and market == 'US' %}active{% endif %}"
-                                   href="{% url 'stocks:scan_watchlist_view' %}?market=US">
-                                    <i class="fas fa-bell me-2 text-warning"></i> Watchlist (US)
                                 </a>
                             </li>
                             <li><hr class="dropdown-divider opacity-25 my-1"></li>

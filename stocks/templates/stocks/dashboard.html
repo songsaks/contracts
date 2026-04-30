@@ -1,371 +1,444 @@
 {% extends 'stocks/base_stocks.html' %}
+{% load humanize %}
+
+{% block title %}Dashboard — 9Com Stock Analyst{% endblock %}
 
 {% block content %}
-<div class="row g-4">
-    <!-- Watchlist Header -->
-    <div class="col-12">
-        <div class="d-flex flex-wrap justify-content-between align-items-center mb-2 gap-3">
-            <div>
-                <h3 class="fw-bold mb-1">Market Watchlist</h3>
-                <p class="text-muted small mb-0">ติดตามสภาวะตลาดและ momentum ของสินทรัพย์ที่น่าสนใจ</p>
-            </div>
-            <button class="btn btn-premium btn-sm rounded-pill px-3 px-md-4" data-bs-toggle="modal" data-bs-target="#addSymbolModal">
-                <i class="fas fa-plus"></i><span class="d-none d-sm-inline ms-1">Add Symbol</span>
-            </button>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+<!-- ═══════════════════════════════════════════════════
+     HERO METRICS BAR
+═══════════════════════════════════════════════════ -->
+<div class="db-hero mb-4">
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2 mb-4">
+        <div>
+            <h2 class="db-page-title mb-1">System Dashboard</h2>
+            <p class="db-page-sub mb-0">ภาพรวมพอร์ตและการเฝ้าระวังสินทรัพย์ของคุณ</p>
         </div>
-        <hr class="opacity-10 mb-4">
+        <div class="d-flex align-items-center gap-2">
+            <span class="db-live-badge"><span class="db-live-dot"></span> LIVE</span>
+            <span class="db-time-badge" id="clockBadge"></span>
+        </div>
     </div>
 
-    <!-- Responsive Grid: 3 columns -->
-    <div class="col-12">
-        <div class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-3">
-            {% for item in items %}
-            <div class="col">
-                <div class="card-premium h-100 border-light border-opacity-50 position-relative overflow-hidden shadow-sm d-flex flex-column">
-                    <!-- Background Score Watermark -->
-                    {% if item.mom_data %}
-                    <div class="position-absolute" style="top: -10px; right: -10px; opacity: 0.08; line-height: 0.8; transform: rotate(10deg); pointer-events: none; z-index: 0;">
-                        <div class="fw-bold text-uppercase text-end" style="font-size: 0.6rem; letter-spacing: 1px; margin-right: 20px; margin-top: 20px;">SUPER SCORE</div>
-                        <div style="font-size: 7rem; font-weight: 900;">{{ item.mom_data.technical_score }}</div>
-                    </div>
-                    {% endif %}
+    <!-- METRIC CARDS ROW -->
+    <div class="row g-3">
 
-                    <div class="p-4 flex-grow-1 position-relative" style="z-index: 1;">
-                        <!-- Header -->
-                        <div class="d-flex justify-content-between align-items-start mb-4 card-item-header">
-                            <div class="d-flex align-items-center gap-3">
-                                <div class="position-relative">
-                                    <div class="bg-primary bg-opacity-10 p-3 rounded-4 text-primary shadow-sm" style="width: 56px; height: 56px; display: flex; align-items: center; justify-content: center;">
-                                        {% if item.obj.category == 'STOCK' %}<i class="fas fa-building fa-lg"></i>
-                                        {% elif item.obj.category == 'CRYPTO' %}<i class="fab fa-bitcoin fa-lg"></i>
-                                        {% else %}<i class="fas fa-coins fa-lg"></i>{% endif %}
-                                    </div>
-                                    {% if item.mom_data %}
-                                        {% if item.mom_data.demand_zone_start and item.price <= item.mom_data.demand_zone_start and item.price >= item.mom_data.demand_zone_end %}
-                                        <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-success border border-white"
-                                              style="padding: 0.5em !important; animation: pulse-green 1.5s infinite;" title="BUY ZONE"></span>
-                                        {% elif item.mom_data.supply_zone_start and item.price >= item.mom_data.supply_zone_start %}
-                                        <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger border border-white"
-                                              style="padding: 0.5em !important; animation: pulse-red 1.5s infinite;" title="TAKE PROFIT"></span>
-                                        {% endif %}
-                                    {% endif %}
-                                </div>
-                                <div>
-                                    <h4 class="fw-bold mb-0 text-dark">
-                                        <a href="{% url 'stocks:analyze' item.obj.symbol %}" class="text-dark text-decoration-none">{{ item.obj.symbol }}</a>
-                                    </h4>
-                                    <div class="text-muted d-flex align-items-center gap-2 mt-1" style="font-size: 0.85rem;">
-                                        {{ item.obj.name|default:item.obj.symbol }}
-                                        {% if item.mom_data %}
-                                        <span class="badge bg-dark rounded-pill px-2" style="font-size: 0.7rem;">Score: {{ item.mom_data.technical_score }}</span>
-                                        {% endif %}
-                                    </div>
-                                </div>
-                            </div>
-                            <!-- Price + badges -->
-                            <div class="text-end position-relative" style="z-index: 2;">
-                                <div class="h4 fw-bold mb-1 {% if item.change > 0 %}text-success{% elif item.change < 0 %}text-danger{% else %}text-dark{% endif %}">
-                                    ฿{{ item.price|floatformat:2|default:"N/A" }}
-                                </div>
-                                <div class="d-flex flex-column align-items-end gap-1">
-                                    <span class="badge {% if item.change > 0 %}bg-success{% elif item.change < 0 %}bg-danger{% else %}bg-secondary{% endif %} bg-opacity-10 {% if item.change > 0 %}text-success{% elif item.change < 0 %}text-danger{% else %}text-secondary{% endif %} rounded-pill" style="font-size: 0.7rem; font-weight: 700;">
-                                        {% if item.change > 0 %}+{% endif %}{{ item.change|floatformat:2 }}%
-                                    </span>
-                                    {% if item.rsi %}
-                                    <span class="badge {% if item.rsi < 30 %}bg-danger{% elif item.rsi > 70 %}bg-warning{% else %}bg-secondary{% endif %} bg-opacity-10 {% if item.rsi < 30 %}text-danger{% elif item.rsi > 70 %}text-warning text-dark{% else %}text-secondary{% endif %} rounded-pill" style="font-size: 0.7rem; font-weight: 700;">
-                                        RSI: {{ item.rsi|floatformat:1 }}
-                                    </span>
-                                    {% endif %}
-                                    {% if item.mom_data %}
-                                    <span class="badge bg-white text-dark border border-light shadow-sm rounded-pill" style="font-size: 0.7rem; font-weight: 600;">
-                                        RVOL: {{ item.mom_data.rvol|floatformat:1 }}x
-                                    </span>
-                                    {% endif %}
-                                </div>
-                            </div>
-                        </div>
+        <!-- Portfolio Value -->
+        <div class="col-6 col-lg-3">
+            <div class="db-metric-card">
+                <div class="db-metric-icon icon-indigo"><i class="fas fa-wallet"></i></div>
+                <div class="db-metric-tag tag-indigo">Portfolio</div>
+                <div class="db-metric-label">มูลค่ารวม</div>
+                <div class="db-metric-value">฿{{ summary.total_value|floatformat:0|intcomma }}</div>
+                <div class="db-metric-sub">Equity + Crypto (THB)</div>
+                <div class="db-metric-bar"><div class="db-metric-bar-fill bar-indigo" style="width:75%"></div></div>
+            </div>
+        </div>
 
-                        <!-- Metrics Grid -->
-                        <div class="bg-light bg-opacity-40 p-3 p-sm-4 rounded-4 mb-4 border border-light shadow-none metrics-grid">
-                            <div class="row g-2 text-center mb-3">
-                                <div class="col-4 border-end border-light">
-                                    <div class="text-muted small mb-1" style="font-size: 0.7rem; letter-spacing: 0.5px;">CATEGORY</div>
-                                    <div class="fw-bold fs-6" style="font-size: 0.8rem !important;">{{ item.obj.get_category_display }}</div>
-                                </div>
-                                <div class="col-4 border-end border-light">
-                                    <div class="text-muted small mb-1" style="font-size: 0.7rem; letter-spacing: 0.5px;">CHANGE</div>
-                                    <div class="fw-bold fs-6 {% if item.change > 0 %}text-success{% elif item.change < 0 %}text-danger{% endif %}">
-                                        {% if item.change > 0 %}+{% endif %}{{ item.change|floatformat:2 }}%
-                                    </div>
-                                </div>
-                                <div class="col-4">
-                                    <div class="text-muted small mb-1" style="font-size: 0.7rem; letter-spacing: 0.5px;">RSI</div>
-                                    <div class="fw-bold fs-6 {% if item.rsi < 30 %}text-danger{% elif item.rsi > 70 %}text-warning{% else %}text-muted{% endif %}">
-                                        {{ item.rsi|floatformat:1|default:"-" }}
-                                    </div>
-                                </div>
-                            </div>
+        <!-- P/L -->
+        <div class="col-6 col-lg-3">
+            <div class="db-metric-card {% if summary.total_pl > 0 %}card-profit{% elif summary.total_pl < 0 %}card-loss{% endif %}">
+                <div class="db-metric-icon {% if summary.total_pl >= 0 %}icon-emerald{% else %}icon-red{% endif %}"><i class="fas fa-chart-line"></i></div>
+                <div class="db-metric-tag {% if summary.total_pl >= 0 %}tag-emerald{% else %}tag-red{% endif %}">P/L</div>
+                <div class="db-metric-label">กำไร / ขาดทุน</div>
+                <div class="db-metric-value {% if summary.total_pl > 0 %}text-emerald{% elif summary.total_pl < 0 %}text-red{% endif %}">
+                    {% if summary.total_pl > 0 %}+{% endif %}฿{{ summary.total_pl|floatformat:0|intcomma }}
+                </div>
+                <div class="db-metric-sub fw-bold {% if summary.pl_pct > 0 %}text-emerald{% elif summary.pl_pct < 0 %}text-red{% endif %}">
+                    {% if summary.pl_pct > 0 %}▲{% elif summary.pl_pct < 0 %}▼{% endif %}
+                    {{ summary.pl_pct|floatformat:2 }}% overall
+                </div>
+                <div class="db-metric-bar"><div class="db-metric-bar-fill {% if summary.total_pl >= 0 %}bar-emerald{% else %}bar-red{% endif %}" style="width:{{ summary.pl_pct|floatformat:0|default:0|add:50 }}%"></div></div>
+            </div>
+        </div>
 
-                            {% if item.mom_data %}
-                            <div class="row g-2 text-center pt-3 border-top border-white">
-                                <div class="col-4 border-end border-light">
-                                    <div class="text-muted small mb-1" style="font-size: 0.7rem; letter-spacing: 0.5px;">ZONE STATUS</div>
-                                    <div class="fw-bold" style="font-size: 0.8rem;">
-                                        {% if item.mom_data.zone_proximity == 0 %}
-                                            <span class="text-success blink-soft"><i class="fas fa-bullseye me-1"></i>IN ZONE</span>
-                                        {% elif item.mom_data.zone_proximity <= 15 %}
-                                            <span class="text-warning"><i class="fas fa-circle me-1" style="font-size:0.5rem;"></i>NEAR ZONE</span>
-                                        {% elif item.mom_data.zone_proximity >= 999 %}
-                                            <span class="text-muted small fw-normal">-</span>
-                                        {% else %}
-                                            <span class="text-muted">{{ item.mom_data.zone_proximity|floatformat:0 }}% dist</span>
-                                        {% endif %}
-                                    </div>
-                                </div>
-                                <div class="col-4 border-end border-light">
-                                    <div class="text-muted small mb-1" style="font-size: 0.7rem; letter-spacing: 0.5px;">RR RATIO</div>
-                                    <div class="fw-bold" style="font-size: 0.8rem;">1:{{ item.mom_data.risk_reward_ratio|floatformat:1|default:"-" }}</div>
-                                </div>
-                                <div class="col-4">
-                                    <div class="text-muted small mb-1" style="font-size: 0.7rem; letter-spacing: 0.5px;">ENTRY ZONE</div>
-                                    <div class="fw-bold text-success" style="font-size: 0.8rem;">฿{{ item.mom_data.demand_zone_start|floatformat:2|default:"-" }}</div>
-                                </div>
-                            </div>
-                            {% endif %}
-                        </div>
+        <!-- Watchlist -->
+        <div class="col-6 col-lg-3">
+            <div class="db-metric-card">
+                <div class="db-metric-icon icon-amber"><i class="fas fa-satellite-dish"></i></div>
+                <div class="db-metric-tag tag-amber">Monitor</div>
+                <div class="db-metric-label">สินทรัพย์ที่ติดตาม</div>
+                <div class="db-metric-value">{{ total_items }}</div>
+                <div class="db-metric-sub">Assets ใน Watchlist</div>
+                <div class="db-metric-bar"><div class="db-metric-bar-fill bar-amber" style="width:{{ total_items|default:0 }}0%"></div></div>
+            </div>
+        </div>
 
-                        <!-- Stop Loss / Take Profit -->
-                        {% if item.mom_data %}
-                        <div class="d-flex gap-2 mb-4">
-                            <div class="flex-fill p-3 rounded-4 text-center border border-danger border-opacity-25" style="background: rgba(239,68,68,0.06);">
-                                <div class="text-muted mb-1" style="font-size: 0.62rem; font-weight: 700; letter-spacing: 0.8px; text-transform: uppercase;">
-                                    <i class="fas fa-shield-alt me-1"></i>Stop Loss
-                                </div>
-                                {% if item.mom_data.stop_loss %}
-                                <div class="fw-bold text-danger" style="font-size: 1rem;">฿{{ item.mom_data.stop_loss|floatformat:2 }}</div>
-                                {% else %}
-                                <div class="fw-bold text-muted" style="font-size: 1rem;">-</div>
-                                {% endif %}
-                            </div>
-                            <div class="flex-fill p-3 rounded-4 text-center border border-primary border-opacity-25" style="background: rgba(13,110,253,0.07);">
-                                <div class="text-muted mb-1" style="font-size: 0.62rem; font-weight: 700; letter-spacing: 0.8px; text-transform: uppercase;">
-                                    <i class="fas fa-bullseye me-1"></i>Take Profit
-                                </div>
-                                {% if item.mom_data.supply_zone_start %}
-                                <div class="fw-bold text-primary" style="font-size: 1rem;">฿{{ item.mom_data.supply_zone_start|floatformat:2 }}</div>
-                                {% else %}
-                                <div class="fw-bold text-muted" style="font-size: 1rem;">-</div>
-                                {% endif %}
-                            </div>
-                        </div>
-                        {% endif %}
-                    </div>
+        <!-- FX Rate -->
+        <div class="col-6 col-lg-3">
+            <div class="db-metric-card card-dark">
+                <div class="db-metric-icon icon-white"><i class="fas fa-exchange-alt"></i></div>
+                <div class="db-metric-tag tag-white">FX</div>
+                <div class="db-metric-label" style="color:rgba(255,255,255,0.5);">Exchange Rate</div>
+                <div class="db-metric-value" style="color:#f1f5f9;">฿{{ usd_thb|floatformat:2 }}</div>
+                <div class="db-metric-sub" style="color:rgba(255,255,255,0.35);"><i class="fas fa-circle-info me-1"></i>USD/THB (yfinance)</div>
+                <div class="db-metric-bar"><div class="db-metric-bar-fill bar-white" style="width:60%"></div></div>
+            </div>
+        </div>
 
-                    <!-- SIGNAL ROW: Pattern | REL MOM | Exit Signal -->
-                    {% if item.mom_data %}
-                    <div class="px-4 pb-3 position-relative" style="z-index:2;">
-                        <div class="rounded-3 p-2" style="background:#f8fafc; border:1px solid #e2e8f0;">
-                            <div class="d-flex flex-wrap align-items-center gap-2 justify-content-between">
-                                <!-- BUY / SELL Score -->
-                                <div class="d-flex gap-2 align-items-center">
-                                    <span class="badge rounded-pill px-2" style="background:rgba(22,163,74,0.12);color:#15803d;border:1px solid rgba(22,163,74,0.3);font-size:0.65rem;">
-                                        BUY {{ item.buy_score }}
-                                    </span>
-                                    <span class="badge rounded-pill px-2" style="background:rgba(220,38,38,0.10);color:#dc2626;border:1px solid rgba(220,38,38,0.25);font-size:0.65rem;">
-                                        SELL {{ item.sell_score }}
-                                    </span>
-                                </div>
-                                <!-- Pattern -->
-                                {% if item.mom_data.price_pattern %}
-                                    {% if item.mom_data.price_pattern_score > 0 %}
-                                    <span class="badge px-2" style="background:rgba(22,163,74,0.12);color:#16a34a;border:1px solid rgba(22,163,74,0.3);font-size:0.62rem;">
-                                        ▲ {{ item.mom_data.price_pattern }}
-                                    </span>
-                                    {% else %}
-                                    <span class="badge px-2" style="background:rgba(220,38,38,0.10);color:#dc2626;border:1px solid rgba(220,38,38,0.25);font-size:0.62rem;">
-                                        ▼ {{ item.mom_data.price_pattern }}
-                                    </span>
-                                    {% endif %}
-                                {% endif %}
-                                <!-- REL MOM -->
-                                {% if item.mom_data.rel_momentum_3m %}
-                                    {% if item.mom_data.rel_momentum_3m >= 3 %}
-                                    <span class="badge px-2" style="background:rgba(22,163,74,0.10);color:#15803d;font-size:0.62rem;">
-                                        SET +{{ item.mom_data.rel_momentum_3m|floatformat:1 }}% (3m)
-                                    </span>
-                                    {% elif item.mom_data.rel_momentum_3m < 0 %}
-                                    <span class="badge px-2" style="background:rgba(220,38,38,0.08);color:#dc2626;font-size:0.62rem;">
-                                        SET {{ item.mom_data.rel_momentum_3m|floatformat:1 }}% (3m)
-                                    </span>
-                                    {% endif %}
-                                {% endif %}
-                                <!-- EXIT SIGNAL -->
-                                {% if item.exit_signal == 'STRONG EXIT' %}
-                                <span class="badge px-2 py-1" style="background:#dc2626;color:white;font-size:0.65rem;">🚨 ออกทันที</span>
-                                {% elif item.exit_signal == 'EXIT' %}
-                                <span class="badge px-2 py-1" style="background:rgba(220,38,38,0.15);color:#dc2626;border:1px solid #dc2626;font-size:0.65rem;">⚠️ ออกได้แล้ว</span>
-                                {% elif item.exit_signal == 'WATCH' %}
-                                <span class="badge px-2 py-1" style="background:rgba(245,158,11,0.15);color:#b45309;border:1px solid #f59e0b;font-size:0.65rem;">👁 เฝ้าระวัง</span>
-                                {% endif %}
-                            </div>
-                            <!-- Active exit triggers -->
-                            {% if item.sell_score >= 30 %}
-                            <div class="d-flex flex-wrap gap-1 mt-1">
-                                {% if item.mom_data.supply_zone_start and item.price >= item.mom_data.supply_zone_start %}
-                                <span style="font-size:0.6rem;color:#dc2626;">🚨ถึง TP</span>
-                                {% endif %}
-                                {% if item.mom_data.rsi > 72 %}
-                                <span style="font-size:0.6rem;color:#dc2626;">⚠️RSI {{ item.mom_data.rsi|floatformat:0 }}</span>
-                                {% endif %}
-                                {% if not item.mom_data.rvol_bullish %}
-                                <span style="font-size:0.6rem;color:#c2410c;">⚠️Bear Vol</span>
-                                {% endif %}
-                                {% if item.mom_data.rel_momentum_1m < 0 %}
-                                <span style="font-size:0.6rem;color:#c2410c;">👁Rel Mom {{ item.mom_data.rel_momentum_1m|floatformat:1 }}%</span>
-                                {% endif %}
-                                {% if item.mom_data.price_pattern_score < 0 %}
-                                <span style="font-size:0.6rem;color:#dc2626;">⚠️{{ item.mom_data.price_pattern }}</span>
-                                {% endif %}
-                            </div>
-                            {% endif %}
+    </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════
+     ALLOCATION + TOP MOVERS
+═══════════════════════════════════════════════════ -->
+<div class="row g-3 mb-4">
+
+    <!-- Asset Allocation -->
+    <div class="col-xl-7">
+        <div class="db-panel h-100">
+            <div class="db-panel-header">
+                <span class="db-panel-title"><i class="fas fa-chart-pie me-2 text-indigo"></i>Asset Allocation</span>
+                <a href="{% url 'stocks:portfolio_list' %}" class="db-panel-link">ดูทั้งหมด <i class="fas fa-arrow-right ms-1"></i></a>
+            </div>
+            <div class="row align-items-center g-0 p-4">
+                <!-- Donut Chart -->
+                <div class="col-5 d-flex justify-content-center">
+                    <div style="position:relative; width:170px; height:170px;">
+                        <canvas id="allocChart"></canvas>
+                        <div class="alloc-center-label">
+                            <div class="alloc-center-num">{{ total_items }}</div>
+                            <div class="alloc-center-sub">Assets</div>
                         </div>
                     </div>
-                    {% endif %}
-
-                    <!-- Footer -->
-                    <div class="p-4 mt-auto border-top border-light bg-light bg-opacity-10 position-relative" style="z-index: 2;">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <div class="d-flex align-items-center gap-2">
-                                <a href="{% url 'stocks:entry_finder' item.obj.symbol %}" class="btn btn-premium-danger btn-sm rounded-pill px-3 fw-bold" style="font-size: 0.8rem;">
-                                    <i class="fas fa-crosshairs me-1"></i> Sniper Chart
-                                </a>
-                                <a href="{% url 'stocks:analyze' item.obj.symbol %}" class="btn btn-outline-primary btn-sm rounded-pill px-3" style="font-size: 0.8rem;" title="AI Summary (Fast)">
-                                    <i class="fas fa-magic me-1"></i> AI
-                                </a>
-                                <a href="{% url 'stocks:crew_analyze' item.obj.symbol %}" class="btn btn-warning btn-sm rounded-pill px-2 fw-bold text-dark" style="font-size: 0.75rem;" title="CrewAI Agents (Deep)">
-                                    <i class="fas fa-robot"></i> Crew
-                                </a>
-                                <a href="{% url 'stocks:core_analyze' item.obj.symbol %}?market={{ item.market|default:'SET' }}" class="btn btn-sm rounded-pill px-2 fw-bold text-white shadow-sm" 
-                                   style="font-size: 0.75rem; background:linear-gradient(135deg,#6366f1 0%,#4338ca 100%); border:none;" title="The Core Analysis (Renaissance Style)">
-                                    <i class="fas fa-microchip"></i> Core
-                                </a>
+                </div>
+                <!-- Bars -->
+                <div class="col-7 ps-3">
+                    <div class="alloc-list">
+                        <div class="alloc-item">
+                            <div class="d-flex justify-content-between mb-1">
+                                <span class="alloc-label"><span class="alloc-dot dot-indigo"></span>🇹🇭 หุ้นไทย</span>
+                                <span class="alloc-val">฿{{ summary.asset_alloc.SET|floatformat:0|intcomma }}</span>
                             </div>
-                            <form action="{% url 'stocks:delete_from_watchlist' item.obj.pk %}" method="POST" class="d-inline" onsubmit="return confirm('ลบรายการนี้ใช่หรือไม่?')">
-                                {% csrf_token %}
-                                <button type="submit" class="btn btn-light btn-sm rounded-circle shadow-sm border text-danger" style="width: 36px; height: 36px;">
-                                    <i class="fas fa-trash-alt fa-xs"></i>
-                                </button>
-                            </form>
+                            <div class="alloc-track"><div class="alloc-fill fill-indigo" id="barSet" style="width:0%"></div></div>
+                        </div>
+                        <div class="alloc-item">
+                            <div class="d-flex justify-content-between mb-1">
+                                <span class="alloc-label"><span class="alloc-dot dot-emerald"></span>🇺🇸 หุ้น US</span>
+                                <span class="alloc-val">฿{{ summary.asset_alloc.US|floatformat:0|intcomma }}</span>
+                            </div>
+                            <div class="alloc-track"><div class="alloc-fill fill-emerald" id="barUs" style="width:0%"></div></div>
+                        </div>
+                        <div class="alloc-item">
+                            <div class="d-flex justify-content-between mb-1">
+                                <span class="alloc-label"><span class="alloc-dot dot-amber"></span>₿ Crypto</span>
+                                <span class="alloc-val">฿{{ summary.asset_alloc.CRYPTO|floatformat:0|intcomma }}</span>
+                            </div>
+                            <div class="alloc-track"><div class="alloc-fill fill-amber" id="barCrypto" style="width:0%"></div></div>
                         </div>
                     </div>
                 </div>
             </div>
-            {% empty %}
-            <div class="col-12 text-center py-5">
-                <div class="card-premium p-5 border-0 bg-light bg-opacity-50">
-                    <i class="fas fa-search fa-3x text-muted mb-3 opacity-25"></i>
-                    <h5 class="text-muted">ยังไม่มีรายการใน Watchlist</h5>
-                    <p class="small text-muted mb-4">เพิ่มชื่อหุ้นที่คุณต้องการเฝ้าติดตามเพื่อใช้ AI วิเคราะห์</p>
-                    <button class="btn btn-primary rounded-pill px-4" data-bs-toggle="modal" data-bs-target="#addSymbolModal">เริ่มเพิ่มหุ้นตัวแรก</button>
-                </div>
+        </div>
+    </div>
+
+    <!-- Top Movers -->
+    <div class="col-xl-5">
+        <div class="db-panel h-100">
+            <div class="db-panel-header">
+                <span class="db-panel-title"><i class="fas fa-bolt me-2 text-amber"></i>Top Movers</span>
             </div>
-            {% endfor %}
+            <div class="p-3">
+                <div class="movers-section-label">TOP GAINERS</div>
+                {% for g in top_gainers %}
+                <a href="{% url 'stocks:analyze' g.obj.symbol %}" class="mover-row mover-gain">
+                    <div class="mover-avatar av-gain">{{ g.obj.symbol|slice:":2" }}</div>
+                    <div class="mover-info">
+                        <div class="mover-sym">{{ g.obj.symbol }}</div>
+                        <div class="mover-name">{{ g.obj.name|default:g.obj.symbol|truncatechars:12 }}</div>
+                    </div>
+                    <div class="mover-chg text-emerald">+{{ g.change|floatformat:2 }}%</div>
+                </a>
+                {% empty %}<div class="mover-empty">ไม่มีข้อมูล</div>{% endfor %}
+
+                <div class="movers-section-label mt-3">TOP LOSERS</div>
+                {% for l in top_losers %}
+                <a href="{% url 'stocks:analyze' l.obj.symbol %}" class="mover-row mover-loss">
+                    <div class="mover-avatar av-loss">{{ l.obj.symbol|slice:":2" }}</div>
+                    <div class="mover-info">
+                        <div class="mover-sym">{{ l.obj.symbol }}</div>
+                        <div class="mover-name">{{ l.obj.name|default:l.obj.symbol|truncatechars:12 }}</div>
+                    </div>
+                    <div class="mover-chg text-red">{{ l.change|floatformat:2 }}%</div>
+                </a>
+                {% empty %}<div class="mover-empty">ไม่มีข้อมูล</div>{% endfor %}
+            </div>
         </div>
     </div>
 </div>
 
-<!-- Modal -->
+<!-- ═══════════════════════════════════════════════════
+     WATCHLIST QUICK VIEW
+═══════════════════════════════════════════════════ -->
+<div class="db-panel">
+    <div class="db-panel-header">
+        <span class="db-panel-title"><i class="fas fa-eye me-2 text-indigo"></i>Watchlist Quick View</span>
+        <div class="d-flex gap-2">
+            <span class="db-count-badge">{{ total_items }} สินทรัพย์</span>
+            <button class="db-btn-add" data-bs-toggle="modal" data-bs-target="#addSymbolModal">
+                <i class="fas fa-plus me-1"></i> Add Symbol
+            </button>
+        </div>
+    </div>
+
+    <div class="p-3">
+        <div class="row g-3">
+            {% for item in items %}
+            <div class="col-12 col-sm-6 col-xl-4">
+                <a href="{% url 'stocks:analyze' item.obj.symbol %}" class="wq-card">
+                    <div class="wq-card-left">
+                        <div class="wq-icon {% if item.obj.category == 'CRYPTO' %}wq-icon-crypto{% elif item.change > 0 %}wq-icon-up{% elif item.change < 0 %}wq-icon-down{% else %}wq-icon-neu{% endif %}">
+                            {% if item.obj.category == 'CRYPTO' %}<i class="fab fa-bitcoin"></i>
+                            {% elif item.obj.category == 'STOCK' %}<i class="fas fa-building-columns"></i>
+                            {% else %}<i class="fas fa-coins"></i>{% endif %}
+                        </div>
+                        <div>
+                            <div class="wq-sym">{{ item.obj.symbol }}</div>
+                            <div class="wq-name">{{ item.obj.name|default:item.obj.symbol|truncatechars:14 }}</div>
+                        </div>
+                    </div>
+                    <div class="wq-card-right">
+                        <div class="wq-price {% if item.change > 0 %}text-emerald{% elif item.change < 0 %}text-red{% endif %}">
+                            ฿{{ item.price|floatformat:2 }}
+                        </div>
+                        <div class="wq-chg {% if item.change > 0 %}chg-up{% elif item.change < 0 %}chg-down{% else %}chg-neu{% endif %}">
+                            {% if item.change > 0 %}▲{% elif item.change < 0 %}▼{% endif %}{{ item.change|floatformat:2 }}%
+                        </div>
+                        <div class="wq-badges">
+                            {% if item.rsi %}<span class="wq-badge {% if item.rsi < 30 %}b-danger{% elif item.rsi > 70 %}b-warn{% else %}b-neu{% endif %}">RSI {{ item.rsi|floatformat:0 }}</span>{% endif %}
+                            {% if item.mom_data %}<span class="wq-badge b-indigo">S{{ item.mom_data.technical_score }}</span>{% endif %}
+                        </div>
+                    </div>
+                </a>
+            </div>
+            {% endfor %}
+        </div>
+        {% if items %}
+        <div class="text-center mt-3 pb-1">
+            <span class="db-showing-text">Showing {{ items|length }} of {{ total_items }} items</span>
+        </div>
+        {% else %}
+        <div class="db-empty-wl">
+            <i class="fas fa-inbox fa-2x text-muted opacity-25 mb-3 d-block"></i>
+            <p class="text-muted small mb-2">ยังไม่มีสินทรัพย์ใน Watchlist</p>
+            <button class="db-btn-add" data-bs-toggle="modal" data-bs-target="#addSymbolModal">+ เพิ่มสินทรัพย์แรก</button>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- ═══════ ADD SYMBOL MODAL ═══════ -->
 <div class="modal fade" id="addSymbolModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content card-premium border-0">
+        <div class="modal-content rounded-4 border-0 shadow-lg p-2">
             <div class="modal-header border-0 pb-0">
-                <h5 class="modal-title fw-bold text-primary">Add New Symbol</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                <h5 class="modal-title fw-bold">เพิ่ม Symbol ใหม่</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <form action="{% url 'stocks:add_to_watchlist' %}" method="POST">
                 {% csrf_token %}
                 <div class="modal-body pt-3">
                     <div class="mb-3">
-                        <label class="form-label small text-muted">Symbol (Ticker)</label>
-                        <input type="text" name="symbol" class="form-control rounded-3" style="background:#f8fafc;" placeholder="e.g. AAPL, PTT.BK, BTC-USD" required>
+                        <label class="form-label small fw-bold text-muted">Symbol (Ticker)</label>
+                        <input type="text" name="symbol" class="form-control rounded-3" style="background:#f8fafc;" placeholder="เช่น AAPL, PTT.BK, BTC-USD" required>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label small text-muted">Asset Name (Optional)</label>
+                        <label class="form-label small fw-bold text-muted">ชื่อ (ไม่บังคับ)</label>
                         <input type="text" name="name" class="form-control rounded-3" style="background:#f8fafc;">
                     </div>
-                    <div class="mb-3">
-                        <label class="form-label small text-muted">ตลาด (Market)</label>
-                        <select name="market" class="form-select rounded-3" style="background:#f8fafc;">
-                            {% for code, label in market_types %}
-                            <option value="{{ code }}">{{ label }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label small text-muted">Category</label>
-                        <select name="category" class="form-select rounded-3" style="background:#f8fafc;">
-                            {% for code, label in categories %}
-                            <option value="{{ code }}">{{ label }}</option>
-                            {% endfor %}
-                        </select>
+                    <div class="row g-2">
+                        <div class="col-6">
+                            <label class="form-label small fw-bold text-muted">ตลาด</label>
+                            <select name="market" class="form-select rounded-3" style="background:#f8fafc;">
+                                {% for code, label in market_types %}<option value="{{ code }}">{{ label }}</option>{% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small fw-bold text-muted">ประเภท</label>
+                            <select name="category" class="form-select rounded-3" style="background:#f8fafc;">
+                                {% for code, label in categories %}<option value="{{ code }}">{{ label }}</option>{% endfor %}
+                            </select>
+                        </div>
                     </div>
                 </div>
-                <div class="modal-footer border-0">
-                    <button type="button" class="btn btn-link text-muted" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-premium px-4">Add to Watchlist</button>
+                <div class="modal-footer border-0 pt-0">
+                    <button type="button" class="btn btn-link text-muted text-decoration-none" data-bs-dismiss="modal">ยกเลิก</button>
+                    <button type="submit" class="db-btn-add px-4 py-2">เพิ่มใน Watchlist</button>
                 </div>
             </form>
         </div>
     </div>
 </div>
 
+<!-- ═══════ STYLES ═══════ -->
 <style>
-    .btn-xs { padding: 0.25rem 0.5rem; font-size: 0.75rem; }
-    .truncate-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+:root {
+    --font: 'Inter','Prompt',sans-serif;
+    --indigo: #4f46e5; --indigo-light: #eef2ff;
+    --emerald: #059669; --emerald-light: #ecfdf5;
+    --amber: #d97706; --amber-light: #fffbeb;
+    --red: #dc2626; --red-light: #fff1f2;
+    --slate-50: #f8fafc; --slate-100: #f1f5f9;
+    --slate-200: #e2e8f0; --slate-700: #334155; --slate-900: #0f172a;
+}
 
-    /* ── Responsive card fixes ─────────────────────── */
-    @media (max-width: 575px) {
-        /* ลด padding ใน card บนมือถือ */
-        .card-premium .p-4 { padding: 1rem !important; }
-        /* ป้องกัน symbol + price ล้น */
-        .card-item-header { gap: 0.5rem !important; margin-bottom: 1.25rem !important; }
-        .card-item-header .h4 { font-size: 1.1rem !important; }
-        .card-item-header .text-muted { font-size: 0.78rem !important; }
-        .card-item-price   { font-size: 1.1rem !important; }
-        /* metrics grid: ลด font และ padding */
-        .metrics-grid { padding: 0.75rem !important; margin-bottom: 1rem !important; }
-        .metrics-grid .text-muted { font-size: 0.58rem !important; letter-spacing: 0.2px !important; }
-        .metrics-grid .fw-bold    { font-size: 0.78rem !important; }
-        .metrics-grid .fs-6       { font-size: 0.78rem !important; }
-        /* SL/TP boxes */
-        .card-premium .d-flex.gap-2.mb-4 { margin-bottom: 1rem !important; gap: 0.5rem !important; }
-        .card-premium .p-3.rounded-4.text-center { padding: 0.75rem 0.5rem !important; }
-        .card-premium .p-3.rounded-4.text-center .fw-bold { font-size: 0.88rem !important; }
-        /* signal info */
-        .card-premium .px-4.pb-3 { padding-left: 1rem !important; padding-right: 1rem !important; }
-        /* footer buttons */
-        .card-premium .p-4.mt-auto { padding: 1rem !important; }
-        .card-premium .btn-sm { padding: 0.4rem 0.75rem !important; font-size: 0.72rem !important; }
-    }
-    .btn-premium-danger {
-        background: linear-gradient(135deg, #ff4d4d 0%, #cc0000 100%);
-        color: white; border: none;
-        box-shadow: 0 4px 15px rgba(204,0,0,0.2); transition: all 0.3s ease;
-    }
-    .btn-premium-danger:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(204,0,0,0.3); color: white; }
-    .blink-soft { animation: pulse-white 2s infinite; }
-    @keyframes pulse-green {
-        0% { transform: scale(0.9) translate(-50%,-50%); box-shadow: 0 0 0 0 rgba(34,197,94,0.7); }
-        70% { transform: scale(1.1) translate(-50%,-50%); box-shadow: 0 0 0 10px rgba(34,197,94,0); }
-        100% { transform: scale(0.9) translate(-50%,-50%); box-shadow: 0 0 0 0 rgba(34,197,94,0); }
-    }
-    @keyframes pulse-red {
-        0% { transform: scale(0.9) translate(-50%,-50%); box-shadow: 0 0 0 0 rgba(239,68,68,0.8); }
-        70% { transform: scale(1.1) translate(-50%,-50%); box-shadow: 0 0 0 10px rgba(239,68,68,0); }
-        100% { transform: scale(0.9) translate(-50%,-50%); box-shadow: 0 0 0 0 rgba(239,68,68,0); }
-    }
-    @keyframes pulse-white {
-        0% { opacity: 1; } 50% { opacity: 0.6; } 100% { opacity: 1; }
-    }
+/* ── PAGE ── */
+.db-page-title { font-family:'Prompt',sans-serif; font-weight:700; font-size:1.55rem; color:var(--slate-900); letter-spacing:-0.02em; }
+.db-page-sub   { color:#64748b; font-size:0.85rem; }
+.db-live-badge { background:#ecfdf5; color:#059669; border:1px solid #a7f3d0; border-radius:999px; padding:5px 14px; font-size:0.72rem; font-weight:700; letter-spacing:0.06em; display:flex; align-items:center; gap:6px; }
+.db-live-dot   { width:7px; height:7px; background:#10b981; border-radius:50%; animation:livePulse 1.5s infinite; }
+@keyframes livePulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+.db-time-badge { background:var(--slate-100); color:#64748b; border-radius:999px; padding:5px 14px; font-size:0.72rem; font-weight:600; font-family:'Inter',monospace; }
+
+/* ── METRIC CARDS ── */
+.db-metric-card { background:#fff; border:1px solid var(--slate-200); border-radius:1.1rem; padding:18px 18px 14px; position:relative; transition:transform 0.25s,box-shadow 0.25s; overflow:hidden; height:100%; }
+.db-metric-card:hover { transform:translateY(-4px); box-shadow:0 12px 30px rgba(0,0,0,0.07); }
+.card-dark  { background:linear-gradient(135deg,#1e293b,#0f172a) !important; border-color:#334155 !important; }
+.card-profit{ border-left:3px solid #059669 !important; }
+.card-loss  { border-left:3px solid #dc2626 !important; }
+.db-metric-icon { width:38px; height:38px; border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:0.9rem; margin-bottom:10px; }
+.icon-indigo { background:var(--indigo-light); color:var(--indigo); }
+.icon-emerald{ background:var(--emerald-light); color:var(--emerald); }
+.icon-amber  { background:var(--amber-light); color:var(--amber); }
+.icon-red    { background:var(--red-light); color:var(--red); }
+.icon-white  { background:rgba(255,255,255,0.1); color:rgba(255,255,255,0.9); }
+.db-metric-tag { position:absolute; top:14px; right:14px; font-size:0.6rem; font-weight:800; letter-spacing:0.07em; padding:3px 8px; border-radius:999px; }
+.tag-indigo  { background:var(--indigo-light); color:var(--indigo); }
+.tag-emerald { background:var(--emerald-light); color:var(--emerald); }
+.tag-amber   { background:var(--amber-light); color:var(--amber); }
+.tag-red     { background:var(--red-light); color:var(--red); }
+.tag-white   { background:rgba(255,255,255,0.1); color:rgba(255,255,255,0.7); }
+.db-metric-label { font-size:0.65rem; font-weight:700; text-transform:uppercase; letter-spacing:0.07em; color:#94a3b8; margin-bottom:3px; }
+.db-metric-value { font-size:1.45rem; font-weight:900; color:var(--slate-900); letter-spacing:-0.02em; line-height:1.1; }
+.db-metric-sub   { font-size:0.68rem; color:#94a3b8; margin-top:3px; }
+.db-metric-bar   { height:3px; background:rgba(0,0,0,0.05); border-radius:999px; margin-top:12px; overflow:hidden; }
+.db-metric-bar-fill { height:100%; border-radius:999px; transition:width 1s ease; }
+.bar-indigo  { background:linear-gradient(90deg,#4f46e5,#818cf8); }
+.bar-emerald { background:linear-gradient(90deg,#059669,#34d399); }
+.bar-amber   { background:linear-gradient(90deg,#d97706,#fbbf24); }
+.bar-red     { background:linear-gradient(90deg,#dc2626,#f87171); }
+.bar-white   { background:rgba(255,255,255,0.3); }
+.text-emerald{ color:var(--emerald) !important; }
+.text-red    { color:var(--red) !important; }
+.text-indigo { color:var(--indigo); }
+.text-amber  { color:var(--amber); }
+
+/* ── PANEL ── */
+.db-panel { background:#fff; border:1px solid var(--slate-200); border-radius:1.1rem; overflow:hidden; }
+.db-panel-header { display:flex; justify-content:space-between; align-items:center; padding:16px 20px; border-bottom:1px solid var(--slate-100); }
+.db-panel-title  { font-weight:700; font-size:0.9rem; color:var(--slate-900); }
+.db-panel-link   { font-size:0.75rem; color:var(--indigo); text-decoration:none; font-weight:600; }
+.db-panel-link:hover { text-decoration:underline; }
+
+/* ── ALLOCATION ── */
+.alloc-center-label { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; }
+.alloc-center-num { font-size:1.6rem; font-weight:900; color:var(--slate-900); line-height:1; }
+.alloc-center-sub { font-size:0.6rem; font-weight:700; text-transform:uppercase; letter-spacing:0.08em; color:#94a3b8; }
+.alloc-list  { display:flex; flex-direction:column; gap:14px; }
+.alloc-item  {}
+.alloc-label { font-size:0.78rem; font-weight:600; color:var(--slate-700); display:flex; align-items:center; gap:7px; }
+.alloc-dot   { width:9px; height:9px; border-radius:50%; flex-shrink:0; }
+.dot-indigo  { background:var(--indigo); }
+.dot-emerald { background:var(--emerald); }
+.dot-amber   { background:#f59e0b; }
+.alloc-val   { font-size:0.82rem; font-weight:800; color:var(--slate-900); }
+.alloc-track { height:6px; background:var(--slate-100); border-radius:999px; margin-top:5px; overflow:hidden; }
+.alloc-fill  { height:100%; border-radius:999px; transition:width 1.2s cubic-bezier(.34,1.56,.64,1); }
+.fill-indigo  { background:linear-gradient(90deg,var(--indigo),#818cf8); }
+.fill-emerald { background:linear-gradient(90deg,var(--emerald),#34d399); }
+.fill-amber   { background:linear-gradient(90deg,#d97706,#fbbf24); }
+
+/* ── TOP MOVERS ── */
+.movers-section-label { font-size:0.6rem; font-weight:800; letter-spacing:0.1em; color:#94a3b8; text-transform:uppercase; padding:0 4px 8px; }
+.mover-row { display:flex; align-items:center; gap:10px; padding:9px 8px; border-radius:10px; text-decoration:none; transition:background 0.15s; }
+.mover-row:hover { background:var(--slate-50); }
+.mover-avatar { width:34px; height:34px; border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:0.62rem; font-weight:900; flex-shrink:0; }
+.av-gain { background:var(--emerald-light); color:var(--emerald); }
+.av-loss { background:var(--red-light); color:var(--red); }
+.mover-info { flex:1; min-width:0; }
+.mover-sym  { font-size:0.82rem; font-weight:800; color:var(--slate-900); }
+.mover-name { font-size:0.65rem; color:#94a3b8; }
+.mover-chg  { font-size:0.82rem; font-weight:800; flex-shrink:0; }
+.mover-empty{ font-size:0.75rem; color:#94a3b8; padding:8px 8px; }
+
+/* ── WATCHLIST CARDS ── */
+.wq-card { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:12px 14px; border:1px solid var(--slate-200); border-radius:12px; text-decoration:none; transition:all 0.2s; background:#fff; }
+.wq-card:hover { border-color:#c7d2fe; box-shadow:0 4px 14px rgba(79,70,229,0.08); transform:translateY(-2px); }
+.wq-card-left  { display:flex; align-items:center; gap:10px; min-width:0; }
+.wq-card-right { text-align:right; flex-shrink:0; }
+.wq-icon { width:36px; height:36px; border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:0.85rem; flex-shrink:0; }
+.wq-icon-up     { background:var(--emerald-light); color:var(--emerald); }
+.wq-icon-down   { background:var(--red-light); color:var(--red); }
+.wq-icon-neu    { background:var(--slate-100); color:#64748b; }
+.wq-icon-crypto { background:#fffbeb; color:#d97706; }
+.wq-sym  { font-size:0.85rem; font-weight:800; color:var(--slate-900); }
+.wq-name { font-size:0.65rem; color:#94a3b8; }
+.wq-price{ font-size:0.85rem; font-weight:700; color:var(--slate-900); }
+.wq-chg  { font-size:0.7rem; font-weight:700; border-radius:999px; padding:2px 8px; display:inline-block; margin-top:2px; }
+.chg-up  { background:var(--emerald-light); color:var(--emerald); }
+.chg-down{ background:var(--red-light); color:var(--red); }
+.chg-neu { background:var(--slate-100); color:#64748b; }
+.wq-badges { display:flex; gap:4px; justify-content:flex-end; margin-top:4px; flex-wrap:wrap; }
+.wq-badge { font-size:0.58rem; font-weight:700; padding:2px 6px; border-radius:4px; }
+.b-indigo { background:var(--indigo-light); color:var(--indigo); }
+.b-warn   { background:#fffbeb; color:#92400e; }
+.b-danger { background:var(--red-light); color:var(--red); }
+.b-neu    { background:var(--slate-100); color:#64748b; }
+
+/* ── MISC ── */
+.db-btn-add { background:linear-gradient(135deg,#4f46e5,#7c3aed); color:white; border:none; border-radius:999px; padding:7px 18px; font-size:0.75rem; font-weight:700; cursor:pointer; transition:all 0.2s; text-decoration:none; display:inline-flex; align-items:center; }
+.db-btn-add:hover { transform:translateY(-2px); box-shadow:0 8px 20px rgba(79,70,229,0.35); color:white; }
+.db-count-badge { background:var(--slate-100); color:#64748b; border-radius:999px; padding:5px 12px; font-size:0.72rem; font-weight:600; }
+.db-showing-text{ font-size:0.72rem; color:#94a3b8; }
+.db-empty-wl { text-align:center; padding:40px 20px; }
 </style>
+
+<!-- ═══════ SCRIPTS ═══════ -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+
+    // ── Live Clock ──
+    const clock = document.getElementById('clockBadge');
+    function tick() {
+        const now = new Date();
+        clock.textContent = now.toLocaleTimeString('th-TH', {hour:'2-digit', minute:'2-digit', second:'2-digit'});
+    }
+    tick(); setInterval(tick, 1000);
+
+    // ── Asset Allocation ──
+    const setVal    = {{ summary.asset_alloc.SET|default:0 }};
+    const usVal     = {{ summary.asset_alloc.US|default:0 }};
+    const cryptoVal = {{ summary.asset_alloc.CRYPTO|default:0 }};
+    const total     = (setVal + usVal + cryptoVal) || 1;
+
+    // Bars
+    document.getElementById('barSet').style.width    = (setVal    / total * 100) + '%';
+    document.getElementById('barUs').style.width     = (usVal     / total * 100) + '%';
+    document.getElementById('barCrypto').style.width = (cryptoVal / total * 100) + '%';
+
+    // Donut Chart
+    const ctx = document.getElementById('allocChart').getContext('2d');
+    new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: ['หุ้นไทย', 'หุ้น US', 'Crypto'],
+            datasets: [{
+                data: [setVal || 0.001, usVal || 0.001, cryptoVal || 0.001],
+                backgroundColor: ['#4f46e5','#059669','#f59e0b'],
+                borderWidth: 0,
+                hoverOffset: 6
+            }]
+        },
+        options: {
+            cutout: '72%',
+            plugins: { legend: { display: false }, tooltip: {
+                callbacks: { label: ctx => ' ฿' + ctx.parsed.toLocaleString() }
+            }},
+            animation: { animateRotate: true, duration: 900 }
+        }
+    });
+});
+</script>
 {% endblock %}

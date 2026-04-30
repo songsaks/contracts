@@ -169,196 +169,140 @@
                                             {{ item.obj.symbol }}
                                         </a>
                                         {% if item.obj.strategy == 'Turtle S1' %}
-                                        <span class="badge bg-success bg-opacity-10 text-success rounded-pill ms-1" style="font-size:0.65rem;border:1px solid #22c55e;">🐢 S1</span>
+                                        <span class="badge bg-success text-white rounded-pill ms-1" style="font-size:0.65rem; padding: 2px 8px;">🐢 S1</span>
                                         {% elif item.obj.strategy == 'Turtle S2' %}
-                                        <span class="badge bg-danger bg-opacity-10 text-danger rounded-pill ms-1" style="font-size:0.65rem;border:1px solid #ef4444;">🐢 S2</span>
+                                        <span class="badge bg-danger text-white rounded-pill ms-1" style="font-size:0.65rem; padding: 2px 8px;">🐢 S2</span>
                                         {% endif %}
                                     </h4>
                                     <div class="text-muted d-flex align-items-center gap-2 mt-1" style="font-size: 0.85rem;">
-                                        {{ item.obj.name|default:item.obj.symbol }}
-                                        {% if item.mom_data %}
-                                        <span class="badge bg-dark rounded-pill px-2" style="font-size: 0.7rem;">Score: {{ item.mom_data.technical_score }}</span>
-                                        {% endif %}
+                                        {{ item.obj.name|default:item.obj.symbol|truncatechars:20 }}
                                         {% if item.in_scan %}
-                                        <a href="{% url 'stocks:precision_momentum_scanner' %}#row-{{ item.obj.symbol }}" class="badge text-decoration-none rounded-pill px-2" style="background:#7c3aed;color:white;font-size:0.65rem;" title="อยู่ใน Precision Scan ล่าสุด — คลิกเพื่อดู">📊 Scan{% if item.scan_score %} {{ item.scan_score }}{% endif %}</a>
+                                        <span class="badge rounded-pill px-2" style="background:rgba(124,58,237,0.1);color:#7c3aed;border:1px solid rgba(124,58,237,0.2);font-size:0.65rem;">📊 PMS {{ item.scan_score|default:"" }}</span>
                                         {% endif %}
                                     </div>
                                 </div>
                             </div>
 
-                            <!-- Right: Price and Quick Badges -->
+                            <!-- Right: Current Price -->
                             <div class="text-end position-relative" style="z-index: 2;">
-                                <div class="h4 fw-bold mb-1 {% if item.day_change > 0 %}text-success{% elif item.day_change < 0 %}text-danger{% else %}text-dark{% endif %}">{% if item.market != 'SET' %}${% else %}฿{% endif %}{{ item.current_price|floatformat:2|intcomma }}</div>
+                                <div class="h3 fw-black mb-1 {% if item.day_change > 0 %}text-success{% elif item.day_change < 0 %}text-danger{% else %}text-dark{% endif %}">
+                                    {% if item.market != 'SET' %}${% else %}฿{% endif %}{{ item.current_price|floatformat:2|intcomma }}
+                                </div>
                                 <div class="d-flex flex-column align-items-end gap-1">
-                                    <span class="badge {% if item.day_change > 0 %}bg-success{% elif item.day_change < 0 %}bg-danger{% else %}bg-secondary{% endif %} bg-opacity-10 {% if item.day_change > 0 %}text-success{% elif item.day_change < 0 %}text-danger{% else %}text-secondary{% endif %} rounded-pill" style="font-size: 0.7rem; font-weight: 700;">
+                                    <span class="badge {% if item.day_change > 0 %}bg-success{% elif item.day_change < 0 %}bg-danger{% else %}bg-secondary{% endif %} bg-opacity-10 {% if item.day_change > 0 %}text-success{% elif item.day_change < 0 %}text-danger{% else %}text-secondary{% endif %} rounded-pill" style="font-size: 0.75rem; font-weight: 800;">
                                         {% if item.day_change > 0 %}+{% endif %}{{ item.day_change|floatformat:2 }}%
                                     </span>
-                                    {% if item.rsi %}
-                                    <span class="badge {% if item.rsi < 30 %}bg-danger{% elif item.rsi > 70 %}bg-warning{% else %}bg-secondary{% endif %} bg-opacity-10 {% if item.rsi < 30 %}text-danger{% elif item.rsi > 70 %}text-warning text-dark{% else %}text-secondary{% endif %} rounded-pill" style="font-size: 0.7rem; font-weight: 700;">
-                                        RSI: {{ item.rsi|floatformat:1 }}
-                                    </span>
-                                    {% endif %}
-                                    {% if item.mom_data %}
-                                    <span class="badge bg-white text-dark border border-light shadow-sm rounded-pill" style="font-size: 0.7rem; font-weight: 600;">
-                                        RVOL: {{ item.mom_data.rvol|floatformat:1 }}x
-                                    </span>
-                                    {% endif %}
                                 </div>
                             </div>
                         </div>
 
-                        <!-- Trading Metrics Grid -->
-                        <div class="bg-light bg-opacity-40 p-4 rounded-4 mb-4 border border-light shadow-none">
-                            <div class="row g-2 text-center mb-3">
-                                <div class="col-4 border-end border-light">
-                                    <div class="text-muted small mb-1" style="font-size: 0.7rem; letter-spacing: 0.5px;">QUANTITY</div>
-                                    <div class="fw-bold fs-6">{% if item.market == 'CRYPTO' %}{{ item.obj.quantity|floatformat:7 }}{% else %}{{ item.obj.quantity|floatformat:2|intcomma }}{% endif %}</div>
-                                </div>
-                                <div class="col-4 border-end border-light">
-                                    <div class="text-muted small mb-1" style="font-size: 0.7rem; letter-spacing: 0.5px;">AVG COST</div>
-                                    <div class="fw-bold fs-6">
-                                        {% if item.obj.entry_price > 0 %}
-                                            {% if item.market != 'SET' %}${% else %}฿{% endif %}{{ item.obj.entry_price|floatformat:2|intcomma }}
+                        <!-- HOLDING INFO - Clean Grid -->
+                        <div class="d-flex justify-content-between mb-4 p-3 rounded-4 bg-light bg-opacity-50 border border-white">
+                            <div class="text-center px-2">
+                                <div class="text-muted small text-uppercase mb-1" style="font-size: 0.6rem; letter-spacing: 0.5px;">Quantity</div>
+                                <div class="fw-bold">{% if item.market == 'CRYPTO' %}{{ item.obj.quantity|floatformat:7 }}{% else %}{{ item.obj.quantity|floatformat:0|intcomma }}{% endif %}</div>
+                            </div>
+                            <div class="text-center px-2 border-start border-end border-white">
+                                <div class="text-muted small text-uppercase mb-1" style="font-size: 0.6rem; letter-spacing: 0.5px;">Avg Cost</div>
+                                <div class="fw-bold">{% if item.market != 'SET' %}${% else %}฿{% endif %}{{ item.obj.entry_price|floatformat:2 }}</div>
+                            </div>
+                            <div class="text-center px-2">
+                                <div class="text-muted small text-uppercase mb-1" style="font-size: 0.6rem; letter-spacing: 0.5px;">Market Value</div>
+                                <div class="fw-bold">{% if item.market != 'SET' %}${% else %}฿{% endif %}{{ item.market_value|floatformat:0|intcomma }}</div>
+                            </div>
+                        </div>
+
+                        <!-- CRITICAL ALERTS: Stop Loss & Next Unit -->
+                        <div class="row g-2 mb-4">
+                            <!-- STOP LOSS BOX -->
+                            <div class="col-6">
+                                <div class="p-3 rounded-4 border h-100
+                                    {% if item.trailing_stop_data.color == 'danger' %}border-danger shadow-sm{% else %}border-danger border-opacity-20{% endif %}"
+                                    style="background:rgba(239,68,68,{% if item.trailing_stop_data.color == 'danger' %}0.12{% else %}0.05{% endif %}); transition: all 0.3s ease;">
+                                    <div class="d-flex justify-content-between align-items-center mb-1">
+                                        <span class="text-danger fw-bold text-uppercase" style="font-size: 0.65rem;">
+                                            <i class="fas fa-shield-alt me-1"></i>Stop Loss (คัท)
+                                        </span>
+                                    </div>
+                                    <div class="h4 fw-black text-danger mb-0">
+                                        {% if item.market != 'SET' %}${% else %}฿{% endif %}{{ item.trailing_stop_data.trailing_stop|floatformat:2 }}
+                                    </div>
+                                    <div class="small text-muted mt-1" style="font-size: 0.62rem; line-height: 1.2;">
+                                        {% if item.trailing_stop_data.is_turtle %}
+                                            {% if item.trailing_stop_data.trailing_stop == item.trailing_stop_data.initial_stop %}
+                                                <span class="text-danger fw-bold">2N Risk Stop</span><br>
+                                            {% else %}
+                                                <span class="text-primary fw-bold">Tech Low Stop</span><br>
+                                            {% endif %}
+                                            <div class="mt-1 d-flex flex-column opacity-75">
+                                                <span>Tech Low: {{ item.trailing_stop_data.nday_low|floatformat:2 }}</span>
+                                                <span>2N Initial: {{ item.trailing_stop_data.initial_stop|floatformat:2 }}</span>
+                                            </div>
                                         {% else %}
-                                            <span class="text-muted small fw-normal">Not Set</span>
+                                            ATR Multi: {{ item.obj.trail_multiplier }}x<br>
+                                            <span class="opacity-75">High: {{ item.trailing_stop_data.highest|floatformat:2 }}</span>
                                         {% endif %}
                                     </div>
-                                </div>
-                                <div class="col-4">
-                                    <div class="text-muted small mb-1" style="font-size: 0.7rem; letter-spacing: 0.5px;">P/L</div>
-                                    {% if item.obj.entry_price > 0 %}
-                                    <div class="fw-bold fs-6 {% if item.gain_loss > 0 %}text-success{% elif item.gain_loss < 0 %}text-danger{% endif %}">
-                                        {% if item.gain_loss > 0 %}+{% endif %}{{ item.gain_loss_pct|floatformat:1 }}%
-                                    </div>
-                                    <div class="{% if item.gain_loss > 0 %}text-success{% elif item.gain_loss < 0 %}text-danger{% else %}text-muted{% endif %}" style="font-size: 0.72rem; font-weight: 600;">
-                                        {% if item.gain_loss > 0 %}+{% endif %}{% if item.market != 'SET' %}${% else %}฿{% endif %}{{ item.gain_loss|floatformat:0|intcomma }}
-                                    </div>
-                                    {% else %}
-                                    <div class="fw-bold fs-6 text-muted">-</div>
-                                    {% endif %}
                                 </div>
                             </div>
                             
-                            {% if item.mom_data %}
-                            <div class="row g-2 text-center pt-3 border-top border-white">
-                                <div class="col-4 border-end border-light">
-                                    <div class="text-muted small mb-1" style="font-size: 0.7rem; letter-spacing: 0.5px;">ZONE STATUS</div>
-                                    <div class="fw-bold" style="font-size: 0.8rem;">
-                                        {% if item.mom_data.zone_proximity == 0 %}
-                                            <span class="text-success blink-soft"><i class="fas fa-bullseye me-1"></i>IN ZONE</span>
-                                        {% elif item.mom_data.zone_proximity <= 15 %}
-                                            <span class="text-warning"><i class="fas fa-circle me-1" style="font-size:0.5rem;"></i>NEAR ZONE</span>
-                                        {% elif item.mom_data.zone_proximity >= 999 %}
-                                            <span class="text-muted small fw-normal">-</span>
+                            <!-- NEXT UNIT / TAKE PROFIT BOX -->
+                            <div class="col-6">
+                                <div class="p-3 rounded-4 border h-100
+                                    {% if item.trailing_stop_data.pyramid_color == 'primary' %}border-primary shadow-sm bg-primary bg-opacity-10{% else %}border-primary border-opacity-20 bg-primary bg-opacity-05{% endif %}"
+                                    style="{% if item.trailing_stop_data.pyramid_color == 'primary' %}animation: pulse-blue-subtle 2s infinite;{% endif %} transition: all 0.3s ease;">
+                                    <div class="d-flex justify-content-between align-items-center mb-1">
+                                        <span class="text-primary fw-bold text-uppercase" style="font-size: 0.65rem;">
+                                            {% if item.trailing_stop_data.is_turtle %}<i class="fas fa-plus-circle me-1"></i>Next Step (ซื้อเพิ่ม){% else %}<i class="fas fa-bullseye me-1"></i>Target{% endif %}
+                                        </span>
+                                    </div>
+                                    <div class="h4 fw-black text-primary mb-0">
+                                        {% if item.trailing_stop_data.is_turtle %}
+                                            {% if item.market != 'SET' %}${% else %}฿{% endif %}{{ item.trailing_stop_data.pyramid_price|floatformat:2 }}
                                         {% else %}
-                                            <span class="text-muted">{{ item.mom_data.zone_proximity|floatformat:0 }}% dist</span>
+                                            {% if item.market != 'SET' %}${% else %}฿{% endif %}{{ item.mom_data.supply_zone_start|floatformat:2|default:"-" }}
+                                        {% endif %}
+                                    </div>
+                                    <div class="small mt-1" style="font-size: 0.62rem; line-height: 1.2;">
+                                        {% if item.trailing_stop_data.is_turtle %}
+                                            <span class="text-primary fw-bold">{{ item.trailing_stop_data.pyramid_status }}</span><br>
+                                            <div class="mt-1 text-muted opacity-75">
+                                                ซื้อที่ราคานี้เพื่อเพิ่มสถานะ<br>
+                                                Size: +{{ item.trailing_stop_data.pyramid_units|intcomma }} หุ้น
+                                            </div>
+                                        {% else %}
+                                            <span class="text-muted">เป้าหมาย Supply Zone</span><br>
+                                            <span class="text-muted opacity-75">RR: 1:{{ item.mom_data.risk_reward_ratio|floatformat:1 }}</span>
                                         {% endif %}
                                     </div>
                                 </div>
-                                <div class="col-4 border-end border-light">
-                                    <div class="text-muted small mb-1" style="font-size: 0.7rem; letter-spacing: 0.5px;">RR RATIO</div>
-                                    <div class="fw-bold" style="font-size: 0.8rem;">1:{{ item.mom_data.risk_reward_ratio|floatformat:1|default:"-" }}</div>
-                                </div>
-                                <div class="col-4">
-                                    <div class="text-muted small mb-1" style="font-size: 0.7rem; letter-spacing: 0.5px;">ENTRY ZONE</div>
-                                    <div class="fw-bold text-success" style="font-size: 0.8rem;">{% if item.market != 'SET' %}${% else %}฿{% endif %}{{ item.mom_data.demand_zone_start|floatformat:2|default:"-" }}</div>
-                                </div>
                             </div>
-                            {% endif %}
                         </div>
-                        
-                        <!-- Trailing Stop / Take Profit Row -->
-                        {% if item.mom_data %}
-                        <div class="d-flex gap-2 mb-4">
-                            <!-- ATR Trailing Stop Box -->
-                            {% if item.trailing_stop_data %}
-                            <div class="flex-fill p-3 rounded-4 text-center border
-                                {% if item.trailing_stop_data.color == 'danger' %}border-danger{% elif item.trailing_stop_data.color == 'warning' %}border-warning{% else %}border-success border-opacity-50{% endif %}"
-                                style="{% if item.trailing_stop_data.color == 'danger' %}background:rgba(239,68,68,0.10);{% elif item.trailing_stop_data.color == 'warning' %}background:rgba(255,193,7,0.12);{% else %}background:rgba(34,197,94,0.07);{% endif %}">
-                                <div class="text-muted mb-1" style="font-size:0.62rem;font-weight:700;letter-spacing:0.8px;text-transform:uppercase;">
-                                    {% if item.trailing_stop_data.is_turtle %}
-                                        <i class="fas fa-turtle me-1"></i>Turtle Stop ({{ item.trailing_stop_data.turtle_sys }})
-                                    {% else %}
-                                        <i class="fas fa-chart-line me-1"></i>Trailing Stop (ATR×{{ item.obj.trail_multiplier }})
-                                    {% endif %}
-                                </div>
-                                <div class="fw-bold {% if item.trailing_stop_data.color == 'danger' %}text-danger{% elif item.trailing_stop_data.color == 'warning' %}text-warning{% else %}text-success{% endif %}" style="font-size:1rem;">
-                                    {% if item.market != 'SET' %}${% else %}฿{% endif %}{{ item.trailing_stop_data.trailing_stop|floatformat:2 }}
-                                </div>
-                                <div class="mt-1" style="font-size:0.62rem;font-weight:700;">
-                                    {% if item.trailing_stop_data.is_turtle %}
-                                        {% if item.trailing_stop_data.trailing_stop == item.trailing_stop_data.initial_stop %}
-                                            <span class="text-danger"><i class="fas fa-shield-alt me-1"></i>2N RISK STOP</span>
-                                        {% else %}
-                                            <span class="text-danger"><i class="fas fa-chart-line me-1"></i>TECH LOW STOP</span>
-                                        {% endif %}
-                                    {% elif item.trailing_stop_data.color == 'danger' %}
-                                        <span class="text-danger"><i class="fas fa-times-circle me-1"></i>STOP HIT — ขาย!</span>
-                                    {% elif item.trailing_stop_data.color == 'warning' %}
-                                        <span class="text-warning"><i class="fas fa-exclamation-triangle me-1"></i>ใกล้ Stop</span>
-                                    {% elif item.trailing_stop_data.status == 'RIDE TREND 🚀' %}
-                                        <span class="text-success"><i class="fas fa-rocket me-1"></i>Ride Trend 🚀</span>
-                                    {% else %}
-                                        <span class="text-success"><i class="fas fa-check-circle me-1"></i>Hold</span>
-                                    {% endif %}
-                                </div>
-                                <div class="mt-1 text-muted" style="font-size:0.55rem; line-height: 1.2;">
-                                    {% if item.trailing_stop_data.is_turtle %}
-                                        Tech Low: ฿{{ item.trailing_stop_data.nday_low|floatformat:2 }} | 2N: ฿{{ item.trailing_stop_data.initial_stop|floatformat:2 }}
-                                        <br>ห่าง {{ item.trailing_stop_data.distance_pct|floatformat:1 }}% · จากทุน {% if item.trailing_stop_data.gain_from_entry > 0 %}+{% endif %}{{ item.trailing_stop_data.gain_from_entry|floatformat:1 }}%
-                                    {% else %}
-                                        High: {% if item.market != 'SET' %}${% else %}฿{% endif %}{{ item.trailing_stop_data.highest|floatformat:2 }} · ห่าง {{ item.trailing_stop_data.distance_pct|floatformat:1 }}%
-                                        · จากทุน {% if item.trailing_stop_data.gain_from_entry > 0 %}+{% endif %}{{ item.trailing_stop_data.gain_from_entry|floatformat:1 }}%
-                                    {% endif %}
-                                </div>
-                            </div>
-                            {% else %}
-                            <div class="flex-fill p-3 rounded-4 text-center border border-secondary border-opacity-25" style="background:rgba(100,116,139,0.05);">
-                                <div class="text-muted mb-1" style="font-size:0.62rem;font-weight:700;letter-spacing:0.8px;">TRAILING STOP</div>
-                                <div class="fw-bold text-muted" style="font-size:1rem;">-</div>
-                                <div class="mt-1 text-muted" style="font-size:0.62rem;">ไม่มีข้อมูล</div>
-                            </div>
-                            {% endif %}
 
-                            <!-- Take Profit Box -->
-                            <div class="flex-fill p-3 rounded-4 text-center border
-                                {% if item.trailing_stop_data.is_turtle %}
-                                    {% if item.trailing_stop_data.pyramid_color == 'primary' %}border-primary border-opacity-75 shadow-sm{% elif item.trailing_stop_data.pyramid_color == 'info' %}border-info{% else %}border-primary border-opacity-25{% endif %}
-                                {% else %}border-primary border-opacity-25{% endif %}"
-                                style="{% if item.trailing_stop_data.is_turtle %}
-                                    {% if item.trailing_stop_data.pyramid_color == 'primary' %}background:rgba(13,110,253,0.15); animation: pulse-blue 2s infinite;{% elif item.trailing_stop_data.pyramid_color == 'info' %}background:rgba(13,202,240,0.1);{% else %}background:rgba(13,110,253,0.07);{% endif %}
-                                {% else %}background: rgba(13,110,253,0.07);{% endif %}">
-                                <div class="text-muted mb-1" style="font-size: 0.62rem; font-weight: 700; letter-spacing: 0.8px; text-transform: uppercase;">
-                                    {% if item.trailing_stop_data.is_turtle %}
-                                        <i class="fas fa-layer-group me-1"></i>Pyramiding
-                                    {% else %}
-                                        <i class="fas fa-bullseye me-1"></i>Take Profit
-                                    {% endif %}
-                                </div>
-                                {% if item.trailing_stop_data.is_turtle %}
-                                <div class="fw-bold {% if item.trailing_stop_data.pyramid_color == 'primary' %}text-primary{% elif item.trailing_stop_data.pyramid_color == 'info' %}text-info{% else %}text-primary{% endif %}" style="font-size: 1rem;">
-                                    {% if item.market != 'SET' %}${% else %}฿{% endif %}{{ item.trailing_stop_data.pyramid_price|floatformat:2 }}
-                                </div>
-                                <div class="mt-1 {% if item.trailing_stop_data.pyramid_color == 'primary' %}text-primary{% elif item.trailing_stop_data.pyramid_color == 'info' %}text-info{% else %}text-primary{% endif %}" style="font-size: 0.62rem; font-weight: 700; opacity: 0.9;">
-                                    <i class="fas fa-arrow-up me-1"></i>{{ item.trailing_stop_data.pyramid_status }}
-                                    {% if item.trailing_stop_data.pyramid_units %}
-                                    <br><span class="badge bg-{{ item.trailing_stop_data.pyramid_color }} text-white mt-1" style="font-size: 0.58rem;">+ {{ item.trailing_stop_data.pyramid_units|intcomma }} หุ้น</span>
-                                    {% endif %}
-                                </div>
-                                {% elif item.mom_data.supply_zone_start %}
-                                <div class="fw-bold text-primary" style="font-size: 1rem;">
-                                    {% if item.market != 'SET' %}${% else %}฿{% endif %}{{ item.mom_data.supply_zone_start|floatformat:2 }}
-                                </div>
-                                <div class="mt-1 text-primary" style="font-size: 0.62rem; font-weight: 600; opacity: 0.75;">
-                                    <i class="fas fa-arrow-up me-1"></i>TARGET
-                                </div>
-                                {% else %}
-                                <div class="fw-bold text-muted" style="font-size: 1rem;">-</div>
-                                <div class="mt-1 text-muted" style="font-size: 0.62rem;">ยังไม่มีข้อมูล</div>
-                                {% endif %}
-                            </div>
+                        <!-- BUY ZONE ALERT (NEW) -->
+                        {% if item.mom_data.zone_proximity == 0 %}
+                        <div class="rounded-4 p-2 mb-4 text-center border border-success bg-success bg-opacity-10 animate-pulse-green">
+                            <span class="fw-bold text-success" style="font-size: 0.8rem;">
+                                <i class="fas fa-shopping-cart me-2"></i>IN BUY ZONE — พิจารณาซื้อเพิ่มได้!
+                            </span>
                         </div>
                         {% endif %}
+
+                        <!-- PROFIT/LOSS BANNER -->
+                        <div class="rounded-4 p-3 d-flex justify-content-between align-items-center mb-0" 
+                             style="{% if item.gain_loss > 0 %}background:linear-gradient(90deg, rgba(34,197,94,0.1) 0%, rgba(34,197,94,0.02) 100%);{% else %}background:linear-gradient(90deg, rgba(239,68,68,0.1) 0%, rgba(239,68,68,0.02) 100%);{% endif %}">
+                            <div>
+                                <div class="text-muted small text-uppercase" style="font-size:0.6rem; font-weight:700;">Net Profit / Loss</div>
+                                <div class="h5 fw-black mb-0 {% if item.gain_loss > 0 %}text-success{% elif item.gain_loss < 0 %}text-danger{% endif %}">
+                                    {% if item.gain_loss > 0 %}+{% endif %}{% if item.market != 'SET' %}${% else %}฿{% endif %}{{ item.gain_loss|floatformat:0|intcomma }}
+                                </div>
+                            </div>
+                            <div class="text-end">
+                                <div class="badge {% if item.gain_loss > 0 %}bg-success{% else %}bg-danger{% endif %} rounded-pill px-3 py-2" style="font-size: 0.85rem; font-weight: 900;">
+                                    {% if item.gain_loss > 0 %}+{% endif %}{{ item.gain_loss_pct|floatformat:2 }}%
+                                </div>
+                            </div>
+                        </div>
                     </div>
                     
                     <!-- SIGNAL ROW: Pattern | REL MOM | Exit Signal | BUY/SELL Score -->
