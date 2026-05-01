@@ -11,6 +11,7 @@ class AddPortfolioForm(forms.Form):
     category = forms.ChoiceField(choices=AssetCategory.choices)
     market = forms.ChoiceField(choices=MarketType.choices)
     strategy = forms.CharField(max_length=50, required=False, strip=True)
+    trail_multiplier = forms.FloatField(required=False, initial=2.5)
 
     def clean_symbol(self):
         symbol = self.cleaned_data['symbol'].strip().upper()

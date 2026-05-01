@@ -1384,12 +1384,15 @@ def portfolio_list(request):
                 if update_fields:
                     item.save(update_fields=update_fields)
 
-            # ====== Override Trailing Stop with Turtle Logic ======
+            # ====== Strategy Management Logic ======
             is_turtle = item.strategy and ('turtle' in item.strategy.lower() or '🐢' in item.strategy)
+            is_pms = item.strategy in ['Precision', 'Precision Momentum']
+            is_dividend = item.strategy == 'Dividend'
+            is_value = item.strategy == 'Value'
+            
             if is_turtle and atr_ts and hist is not None and not hist.empty:
                 is_s2 = 'S2' in item.strategy.upper() or '20' in item.strategy
                 periods = 20 if is_s2 else 10
-                # Turtle Exit: use the low of the PRECEDING N days (excluding today)
                 nday_low = float(hist['Low'].iloc[:-1].tail(periods).min()) if len(hist) > periods else float(hist['Low'].min())
                 initial_stop = float(item.entry_price or 0) - (2.0 * atr_ts['atr'])
                 current_stop = max(initial_stop, nday_low) if float(item.entry_price or 0) > 0 else nday_low
@@ -1397,29 +1400,70 @@ def portfolio_list(request):
                 
                 dist_pct = ((current_price - current_stop) / current_price * 100) if current_price > 0 else 0
                 
+                status = 'RIDE TREND 🚀'
+                color = 'success'
                 if current_price <= current_stop:
                     status = 'EXIT HIT'
                     color = 'danger'
                 elif dist_pct <= 3.0:
                     status = 'NEAR EXIT'
                     color = 'warning'
-                else:
-                    status = 'RIDE TREND 🚀'
-                    color = 'success'
                     
                 atr_ts.update({
                     'trailing_stop': current_stop,
                     'color': color,
                     'status': status,
-                    'distance_pct': dist_pct,
                     'is_turtle': True,
-                    'turtle_sys': 'S2 (20D Low)' if is_s2 else 'S1 (10D Low)',
-                    'nday_low': nday_low,
-                    'initial_stop': initial_stop,
-                    'pyramid_price': pyramid_price
+                    'pyramid_price': pyramid_price,
+                    'pyramid_status': 'PYRAMID NOW! 🚀' if current_price >= pyramid_price else 'WAITING ⏳'
+                })
+            elif is_pms and atr_ts:
+                pms_stop = float(atr_ts['highest']) - (2.0 * float(item.atr or 0))
+                atr_ts.update({
+                    'trailing_stop': pms_stop,
+                    'is_pms': True,
+                    'status': 'MOMENTUM RIDE' if current_price > pms_stop else 'TREND BROKEN',
+                    'color': 'danger' if current_price <= pms_stop else 'success'
+                })
+            elif is_dividend and atr_ts:
+                # Dividend: Safety first, 15% Max drawdown from cost or custom multiplier
+                multiplier = float(item.trail_multiplier or 2.5)
+                div_stop = float(item.entry_price or 0) - (multiplier * float(item.atr or 0))
+                atr_ts.update({
+                    'trailing_stop': div_stop,
+                    'is_dividend': True,
+                    'status': 'YIELD HARVESTING 💸',
+                    'color': 'success'
+                })
+            elif is_value and atr_ts:
+                # Value: Deep value holding
+                multiplier = float(item.trail_multiplier or 3.0)
+                val_stop = float(atr_ts['highest']) - (multiplier * float(item.atr or 0))
+                atr_ts.update({
+                    'trailing_stop': val_stop,
+                    'is_value': True,
+                    'status': 'VALUE HOLDING 💎',
+                    'color': 'success' if current_price > val_stop else 'danger'
                 })
 
-            ts_data = atr_ts  # ยังคง key เดิมใน template
+            # ====== Volatility Gauge Logic ======
+            if atr_ts and current_price > 0:
+                vol_pct = (atr_ts['atr'] / current_price) * 100
+                if vol_pct < 2.0:
+                    vol_label, vol_color = "Low (นิ่ง/พื้นฐาน)", "success"
+                elif vol_pct < 4.0:
+                    vol_label, vol_color = "Mid (ปกติ)", "warning"
+                else:
+                    vol_label, vol_color = "High (ซิ่ง/ผันผวน)", "danger"
+                
+                atr_ts.update({
+                    'vol_pct': vol_pct,
+                    'vol_label': vol_label,
+                    'vol_color': vol_color,
+                    'vol_bar_width': min(vol_pct * 10, 100)  # คูณ 10 เพื่อความสวยงามและคุมไม่ให้เกิน 100%
+                })
+
+            ts_data = atr_ts
 
             # ====== ดึง/คำนวณ Zone Data - ใช้ PrecisionScanCandidate (v2) เสมอ ======
             clean_symbol = item.symbol.split('.')[0].upper()
@@ -2186,6 +2230,7 @@ def add_to_portfolio(request):
                     'category': form.cleaned_data['category'],
                     'market': market,
                     'strategy': form.cleaned_data.get('strategy', ''),
+                    'trail_multiplier': form.cleaned_data.get('trail_multiplier', 2.5),
                 }
             )
             messages.success(request, f"เพิ่ม {symbol} เข้าพอร์ตเรียบร้อยแล้ว")

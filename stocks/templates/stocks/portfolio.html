@@ -150,15 +150,23 @@
                                         {% elif item.obj.category == 'CRYPTO' %}<i class="fab fa-bitcoin fa-lg"></i>
                                         {% else %}<i class="fas fa-coins fa-lg"></i>{% endif %}
                                     </div>
+                                    <!-- Status Dot (Top Left) -->
+                                    <div class="position-absolute top-0 start-0 translate-middle p-1">
+                                        <div class="rounded-circle {% if item.trailing_stop_data.color == 'danger' %}bg-danger{% else %}bg-success{% endif %}" 
+                                             style="width: 12px; height: 12px; border: 2px solid white; box-shadow: 0 0 5px rgba(0,0,0,0.1);"
+                                             title="{% if item.trailing_stop_data.color == 'danger' %}SELL NOW! (หลุดจุดคัท){% else %}{% if item.obj.strategy == 'Turtle S1' or item.obj.strategy == 'Turtle S2' %}RIDE TREND (รันเทรนด์){% else %}HOLDING (ถือครอง){% endif %}{% endif %}"></div>
+                                    </div>
                                     <!-- Shining Spots -->
                                     {% if item.mom_data %}
                                         {% if item.mom_data.demand_zone_start and item.current_price <= item.mom_data.demand_zone_start and item.current_price >= item.mom_data.demand_zone_end %}
                                         <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-success border border-white" 
-                                              style="padding: 0.5em !important; animation: pulse-green 1.5s infinite; box-shadow: 0 0 10px rgba(34, 197, 94, 0.5);" title="BUY ZONE">
+                                              style="padding: 0.5em !important; animation: pulse-green 1.5s infinite; box-shadow: 0 0 10px rgba(34, 197, 94, 0.5);" 
+                                              title="{% if item.obj.strategy == 'Precision' %}BUY ZONE{% else %}DEMAND ZONE (โซนซื้อ){% endif %}">
                                         </span>
                                         {% elif item.mom_data.supply_zone_start and item.current_price >= item.mom_data.supply_zone_start %}
                                         <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger border border-white" 
-                                              style="padding: 0.5em !important; animation: pulse-red 1.5s infinite; box-shadow: 0 0 10px rgba(239, 68, 68, 0.5);" title="TAKE PROFIT">
+                                              style="padding: 0.5em !important; animation: pulse-red 1.5s infinite; box-shadow: 0 0 10px rgba(239, 68, 68, 0.5);" 
+                                              title="{% if item.obj.strategy == 'Precision' %}TAKE PROFIT (ถึงเป้าหมาย){% else %}SUPPLY ZONE (โซนขาย){% endif %}">
                                         </span>
                                         {% endif %}
                                     {% endif %}
@@ -169,9 +177,15 @@
                                             {{ item.obj.symbol }}
                                         </a>
                                         {% if item.obj.strategy == 'Turtle S1' %}
-                                        <span class="badge bg-success text-white rounded-pill ms-1" style="font-size:0.65rem; padding: 2px 8px;">🐢 S1</span>
+                                        <span class="badge bg-success text-white rounded-pill ms-1" style="font-size:0.65rem; padding: 2px 8px; vertical-align: middle;"><i class="fas fa-turtle me-1"></i> S1</span>
                                         {% elif item.obj.strategy == 'Turtle S2' %}
-                                        <span class="badge bg-danger text-white rounded-pill ms-1" style="font-size:0.65rem; padding: 2px 8px;">🐢 S2</span>
+                                        <span class="badge bg-danger text-white rounded-pill ms-1" style="font-size:0.65rem; padding: 2px 8px; vertical-align: middle;"><i class="fas fa-turtle me-1"></i> S2</span>
+                                        {% elif item.obj.strategy == 'Precision' %}
+                                        <span class="badge bg-info text-white rounded-pill ms-1" style="font-size:0.65rem; padding: 2px 8px; vertical-align: middle;"><i class="fas fa-crosshairs me-1"></i> PMS</span>
+                                        {% elif item.obj.strategy == 'Value' %}
+                                        <span class="badge bg-primary text-white rounded-pill ms-1" style="font-size:0.65rem; padding: 2px 8px; vertical-align: middle;"><i class="fas fa-gem me-1"></i> Value</span>
+                                        {% elif item.obj.strategy == 'Dividend' %}
+                                        <span class="badge bg-warning text-dark rounded-pill ms-1" style="font-size:0.65rem; padding: 2px 8px; vertical-align: middle;"><i class="fas fa-coins me-1"></i> Dividend</span>
                                         {% endif %}
                                     </h4>
                                     <div class="text-muted d-flex align-items-center gap-2 mt-1" style="font-size: 0.85rem;">
@@ -213,6 +227,20 @@
                         </div>
 
                         <!-- CRITICAL ALERTS: Stop Loss & Next Unit -->
+                        <!-- Volatility Gauge -->
+                        <div class="mb-3 px-1">
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <span class="text-muted small" style="font-size: 0.65rem;">Volatility Gauge (ความเหวี่ยง)</span>
+                                <span class="badge bg-{{ item.trailing_stop_data.vol_color|default:'secondary' }} rounded-pill" style="font-size: 0.6rem; padding: 3px 10px;">
+                                    {{ item.trailing_stop_data.vol_label|default:'N/A' }}
+                                </span>
+                            </div>
+                            <div class="progress" style="height: 4px; background: rgba(0,0,0,0.05);">
+                                <div class="progress-bar bg-{{ item.trailing_stop_data.vol_color|default:'secondary' }}" role="progressbar" 
+                                     style="width: {{ item.trailing_stop_data.vol_bar_width|default:0 }}%; opacity: 0.6;"></div>
+                            </div>
+                        </div>
+
                         <div class="row g-2 mb-4">
                             <!-- STOP LOSS BOX -->
                             <div class="col-6">
@@ -220,7 +248,10 @@
                                     style="border-color: rgba(0,0,0,0.05) !important; background:rgba(239,68,68,0.03); transition: all 0.3s ease;">
                                     <div class="d-flex justify-content-between align-items-center mb-1">
                                         <span class="text-danger fw-bold text-uppercase" style="font-size: 0.65rem;">
-                                            <i class="fas fa-shield-alt me-1"></i>Stop Loss (คัท)
+                                            <i class="fas fa-shield-alt me-1"></i>
+                                            {% if item.trailing_stop_data.is_dividend %}Yield Floor (รับปันผล)
+                                            {% elif item.trailing_stop_data.is_value %}Value Floor (แนวรับ)
+                                            {% else %}Stop Loss (คัท){% endif %}
                                         </span>
                                     </div>
                                     <div class="h4 fw-black text-danger mb-0">
@@ -252,7 +283,15 @@
                                     {% if item.trailing_stop_data.pyramid_status == 'PYRAMID NOW! 🚀' %}box-shadow: 0 0 15px rgba(37, 99, 235, 0.1); animation: pulse-blue-subtle 2s infinite;{% endif %}">
                                     <div class="d-flex justify-content-between align-items-center mb-1">
                                         <span class="text-primary fw-bold text-uppercase" style="font-size: 0.65rem;">
-                                            {% if item.trailing_stop_data.is_turtle %}<i class="fas fa-plus-circle me-1"></i>Next Step (ซื้อเพิ่ม){% else %}<i class="fas fa-bullseye me-1"></i>Target{% endif %}
+                                            {% if item.trailing_stop_data.is_turtle %}
+                                                <i class="fas fa-plus-circle me-1"></i>Next Step (ซื้อเพิ่ม)
+                                            {% elif item.trailing_stop_data.is_dividend %}
+                                                <i class="fas fa-umbrella me-1"></i>Safety Margin
+                                            {% elif item.trailing_stop_data.is_value %}
+                                                <i class="fas fa-gem me-1"></i>Intrinsic Value
+                                            {% else %}
+                                                <i class="fas fa-bullseye me-1"></i>Target
+                                            {% endif %}
                                         </span>
                                     </div>
                                     <div class="h4 fw-black text-primary mb-0">
@@ -280,12 +319,22 @@
 
                         <!-- BUY ZONE ALERT (NEW) -->
                         {% if item.mom_data.zone_proximity == 0 %}
-                        <div class="rounded-4 p-2 mb-4 text-center border border-success bg-success bg-opacity-10 animate-pulse-green">
+                        <div class="rounded-4 p-2 mb-2 text-center border border-success bg-success bg-opacity-10 animate-pulse-green">
                             <span class="fw-bold text-success" style="font-size: 0.8rem;">
                                 <i class="fas fa-shopping-cart me-2"></i>IN BUY ZONE — พิจารณาซื้อเพิ่มได้!
                             </span>
                         </div>
                         {% endif %}
+
+                        <!-- Strategy Guidance Banner -->
+                        <div class="rounded-4 p-2 mb-4 text-center border
+                            {% if item.trailing_stop_data.color == 'danger' %}border-danger bg-danger bg-opacity-10 text-danger
+                            {% elif item.trailing_stop_data.color == 'warning' %}border-warning bg-warning bg-opacity-10 text-warning
+                            {% else %}border-primary bg-primary bg-opacity-5 text-primary{% endif %}"
+                            style="font-size: 0.75rem; font-weight: 700; border-style: dashed !important;">
+                            <i class="fas fa-info-circle me-1"></i>
+                            {{ item.trailing_stop_data.status|default:"MONITORING — กำลังติดตามสถานะ" }}
+                        </div>
 
                         <!-- PROFIT/LOSS BANNER -->
                         <div class="rounded-4 p-3 d-flex justify-content-between align-items-center mb-0" 
@@ -411,7 +460,7 @@
                                     <i class="fas fa-hand-holding-usd fa-xs"></i>
                                 </button>
                                 <button type="button" class="btn btn-light btn-sm rounded-circle shadow-sm border" style="width: 36px; height: 36px;"
-                                    onclick="editPortfolio('{{ item.obj.symbol }}', '{{ item.obj.name|default:""|escapejs }}', '{{ item.obj.quantity }}', '{{ item.obj.entry_price }}', '{{ item.obj.category }}', '{{ item.obj.market }}', '{{ item.obj.strategy|default_if_none:""|escapejs }}')" 
+                                    onclick="editPortfolio('{{ item.obj.symbol }}', '{{ item.obj.name|default:""|escapejs }}', '{{ item.obj.quantity }}', '{{ item.obj.entry_price }}', '{{ item.obj.category }}', '{{ item.obj.market }}', '{{ item.obj.strategy|default_if_none:""|escapejs }}', '{{ item.obj.trail_multiplier }}')" 
                                     data-bs-toggle="modal" data-bs-target="#addPortfolioModal">
                                     <i class="fas fa-edit fa-xs"></i>
                                 </button>
@@ -481,6 +530,12 @@
                                     <span class="badge bg-success bg-opacity-10 text-success rounded-pill" style="font-size:0.6rem;border:1px solid #22c55e;">🐢 S1</span>
                                     {% elif item.obj.strategy == 'Turtle S2' %}
                                     <span class="badge bg-danger bg-opacity-10 text-danger rounded-pill" style="font-size:0.6rem;border:1px solid #ef4444;">🐢 S2</span>
+                                    {% elif item.obj.strategy == 'Precision' %}
+                                    <span class="badge bg-info bg-opacity-10 text-info rounded-pill" style="font-size:0.6rem;border:1px solid #0ea5e9;">🎯 PMS</span>
+                                    {% elif item.obj.strategy == 'Value' %}
+                                    <span class="badge bg-primary bg-opacity-10 text-primary rounded-pill" style="font-size:0.6rem;border:1px solid #6366f1;">💎 Value</span>
+                                    {% elif item.obj.strategy == 'Dividend' %}
+                                    <span class="badge bg-warning bg-opacity-10 text-warning rounded-pill" style="font-size:0.6rem;border:1px solid #f59e0b;">💸 Div</span>
                                     {% endif %}
                                     {% if item.mom_data %}
                                         {% if item.mom_data.demand_zone_start and item.current_price <= item.mom_data.demand_zone_start and item.current_price >= item.mom_data.demand_zone_end %}
@@ -533,7 +588,7 @@
                             <!-- SL -->
                             <td class="text-end col-hide-md" style="font-size:0.8rem;">
                                 {% if item.mom_data and item.mom_data.stop_loss %}
-                                <span class="fw-bold {% if item.trailing_stop_data.color == 'danger' %}text-danger{% elif item.trailing_stop_data.color == 'warning' %}text-warning{% else %}text-muted{% endif %}">
+                                <span title="{% if item.trailing_stop_data.color == 'danger' %}SELL NOW! (หลุดจุดคัท){% else %}{% if item.obj.strategy == 'Turtle S1' or item.obj.strategy == 'Turtle S2' %}RIDE TREND (รันเทรนด์){% else %}HOLDING (ถือครอง){% endif %}{% endif %}" class="fw-bold {% if item.trailing_stop_data.color == 'danger' %}text-danger{% elif item.trailing_stop_data.color == 'warning' %}text-warning{% else %}text-muted{% endif %}">
                                     {% if item.market != 'SET' %}${% else %}฿{% endif %}{{ item.mom_data.stop_loss|floatformat:2 }}
                                 </span>
                                 {% else %}<span class="text-muted">-</span>{% endif %}
@@ -569,7 +624,7 @@
                                         <i class="fas fa-hand-holding-usd" style="font-size:0.6rem;"></i>
                                     </button>
                                     <button class="btn btn-light btn-xs rounded-circle border" style="width:28px;height:28px;padding:0;"
-                                        onclick="editPortfolio('{{ item.obj.symbol }}','{{ item.obj.name|default:""|escapejs }}','{{ item.obj.quantity }}','{{ item.obj.entry_price }}','{{ item.obj.category }}','{{ item.obj.market }}','{{ item.obj.strategy|default_if_none:""|escapejs }}')"
+                                        onclick="editPortfolio('{{ item.obj.symbol }}','{{ item.obj.name|default:""|escapejs }}','{{ item.obj.quantity }}','{{ item.obj.entry_price }}','{{ item.obj.category }}','{{ item.obj.market }}','{{ item.obj.strategy|default_if_none:""|escapejs }}', '{{ item.obj.trail_multiplier }}')"
                                         data-bs-toggle="modal" data-bs-target="#addPortfolioModal" title="Edit">
                                         <i class="fas fa-edit" style="font-size:0.6rem;"></i>
                                     </button>
@@ -899,6 +954,10 @@
                             <label class="form-label small text-muted">Entry Price (ราคาทุน)</label>
                             <input type="number" id="port-price" step="0.01" name="entry_price" class="form-control rounded-3" value="0.00" style="background:#f8fafc;">
                         </div>
+                        <div class="col-md-6">
+                            <label class="form-label small text-muted">ATR Multiplier (ตัวคูณจุดคัท)</label>
+                            <input type="number" id="port-trail-multiplier" step="0.1" name="trail_multiplier" class="form-control rounded-3" value="2.5" style="background:#f8fafc;" title="ระยะ Stop Loss กี่เท่าของ ATR (มาตรฐาน 2.5)">
+                        </div>
                     </div>
                 </div>
                 <div class="modal-footer border-0">
@@ -961,18 +1020,20 @@
         document.getElementById('port-name').value = '';
         document.getElementById('port-quantity').value = '0';
         document.getElementById('port-price').value = '0';
+        document.getElementById('port-trail-multiplier').value = '2.5';
         document.getElementById('port-category').value = 'STOCK';
         document.getElementById('port-market').value = 'SET';
         document.getElementById('port-modal-title').innerText = 'Add Position to Portfolio';
     }
 
-    function editPortfolio(symbol, name, qty, price, category, market, strategy) {
+    function editPortfolio(symbol, name, qty, price, category, market, strategy, multiplier) {
         document.getElementById('port-symbol').value = symbol;
         document.getElementById('port-symbol').readOnly = true;
         document.getElementById('port-name').value = name;
         document.getElementById('port-quantity').step = market === 'CRYPTO' ? '0.0000001' : '0.01';
         document.getElementById('port-quantity').value = market === 'CRYPTO' ? parseFloat(qty || 0).toFixed(7) : parseFloat(qty || 0).toFixed(2);
         document.getElementById('port-price').value = parseFloat(price || 0).toFixed(2);
+        document.getElementById('port-trail-multiplier').value = multiplier || '2.5';
         document.getElementById('port-category').value = category;
         document.getElementById('port-market').value = market || 'SET';
         document.getElementById('port-strategy').value = strategy || '';
