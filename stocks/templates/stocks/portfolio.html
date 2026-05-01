@@ -326,14 +326,11 @@
                         </div>
                         {% endif %}
 
-                        <!-- Strategy Guidance Banner -->
-                        <div class="rounded-4 p-2 mb-4 text-center border
-                            {% if item.trailing_stop_data.color == 'danger' %}border-danger bg-danger bg-opacity-10 text-danger
-                            {% elif item.trailing_stop_data.color == 'warning' %}border-warning bg-warning bg-opacity-10 text-warning
-                            {% else %}border-primary bg-primary bg-opacity-5 text-primary{% endif %}"
-                            style="font-size: 0.75rem; font-weight: 700; border-style: dashed !important;">
-                            <i class="fas fa-info-circle me-1"></i>
-                            {{ item.trailing_stop_data.status|default:"MONITORING — กำลังติดตามสถานะ" }}
+                        <!-- Strategy Guidance Banner (Simplified) -->
+                        <div class="mb-4 text-center py-1 border-top border-bottom border-light" style="font-size: 0.75rem; font-weight: 700; letter-spacing: 0.5px;">
+                            <span class="{% if item.trailing_stop_data.color == 'danger' %}text-danger{% elif item.trailing_stop_data.color == 'warning' %}text-warning{% else %}text-primary{% endif %}">
+                                {{ item.trailing_stop_data.status|default:"MONITORING — กำลังติดตามสถานะ" }}
+                            </span>
                         </div>
 
                         <!-- PROFIT/LOSS BANNER -->
