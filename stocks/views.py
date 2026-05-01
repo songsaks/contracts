@@ -1393,7 +1393,7 @@ def portfolio_list(request):
                 nday_low = float(hist['Low'].iloc[:-1].tail(periods).min()) if len(hist) > periods else float(hist['Low'].min())
                 initial_stop = float(item.entry_price or 0) - (2.0 * atr_ts['atr'])
                 current_stop = max(initial_stop, nday_low) if float(item.entry_price or 0) > 0 else nday_low
-                pyramid_price = current_price + (atr_ts['atr'] * 0.5) if current_price > 0 else 0
+                pyramid_price = float(item.entry_price or 0) + (atr_ts['atr'] * 0.5) if float(item.entry_price or 0) > 0 else 0
                 
                 dist_pct = ((current_price - current_stop) / current_price * 100) if current_price > 0 else 0
                 
