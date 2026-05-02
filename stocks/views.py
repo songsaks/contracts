@@ -10428,23 +10428,47 @@ def api_stock_analysis(request, symbol):
             "instruction": "กรุณารัน Scanner ในหน้าเว็บก่อนเพื่อให้มีข้อมูลใน Database"
         }, status=404)
 
-    # 3. Prepare JSON Response (Flat Structure for easy AI parsing)
+    # 3. Prepare JSON Response (Verbose Flat Structure for maximum AI compatibility)
     response_data = {
         "status": "success",
         "symbol": stock.symbol,
         "price": stock.price,
+        
+        # RSI (ส่งทั้ง 2 แบบ)
+        "rsi": round(stock.rsi, 2),
         "RSI": round(stock.rsi, 2),
+        
+        # Momentum / Score
+        "momentum_score": stock.technical_score,
         "Momentum Score": stock.technical_score,
-        "Zone": getattr(stock, 'entry_strategy', 'N/A'),
+        "technical_score": stock.technical_score,
+        
+        # ADX
         "adx": round(stock.adx, 2),
+        "ADX": round(stock.adx, 2),
+        
+        # RVOL (ดึงจาก rvol field)
+        "rvol": round(stock.rvol, 2),
+        "RVOL": round(stock.rvol, 2),
+        "Relative Volume": round(stock.rvol, 2),
+        
+        # RS Rating
         "rs_rating": getattr(stock, 'rs_rating', 0),
+        "RS Rating": getattr(stock, 'rs_rating', 0),
+        
+        # Zone / Strategy
+        "zone": getattr(stock, 'entry_strategy', 'N/A'),
+        "Zone": getattr(stock, 'entry_strategy', 'N/A'),
+        "strategy": getattr(stock, 'entry_strategy', 'N/A'),
+        
+        # Zones & Risk
         "demand_start": stock.demand_zone_start,
         "demand_end": stock.demand_zone_end,
         "stop_loss": stock.stop_loss,
         "target": stock.supply_zone_start,
         "is_explosive": getattr(stock, 'is_explosive', False),
+        
         "last_scan": localtime(getattr(stock, 'scan_run', None) or getattr(stock, 'scanned_at', None)).strftime('%Y-%m-%d %H:%M:%S'),
-        "bot_hint": ""
     }
     
     # เพิ่มข้อความแนะนำเบื้องต้นให้ Bot
