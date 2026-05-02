@@ -10456,6 +10456,12 @@ def api_stock_analysis(request, symbol):
         "rs_rating": getattr(stock, 'rs_rating', 0),
         "RS Rating": getattr(stock, 'rs_rating', 0),
         
+        # Fundamentals (ส่งเพิ่มเพื่อให้บอทวิเคราะห์ได้ลึกขึ้น)
+        "EPS Growth": f"{stock.eps_growth}%",
+        "Revenue Growth": f"{stock.rev_growth}%",
+        "Sector": stock.sector,
+        "Pattern": getattr(stock, 'price_pattern', 'N/A'),
+        
         # Zone / Strategy (ส่งหลายแบบ)
         "zone": getattr(stock, 'entry_strategy', 'N/A'),
         "Zone": getattr(stock, 'entry_strategy', 'N/A'),
