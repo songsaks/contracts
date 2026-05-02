@@ -10428,36 +10428,23 @@ def api_stock_analysis(request, symbol):
             "instruction": "กรุณารัน Scanner ในหน้าเว็บก่อนเพื่อให้มีข้อมูลใน Database"
         }, status=404)
 
-    # 3. Prepare JSON Response
-    # รวบรวมข้อมูลสำคัญที่ Hermes ต้องใช้ในการ "พูด"
+    # 3. Prepare JSON Response (Flat Structure for easy AI parsing)
     response_data = {
         "status": "success",
         "symbol": stock.symbol,
-        "market": getattr(stock, 'market', 'SET'),
         "price": stock.price,
-        "technical": {
-            "score": stock.technical_score,
-            "rsi": round(stock.rsi, 2),
-            "adx": round(stock.adx, 2),
-            "rvol": round(stock.rvol, 2),
-            "rs_rating": getattr(stock, 'rs_rating', 0),
-        },
-        "strategy": {
-            "name": getattr(stock, 'entry_strategy', 'N/A'),
-            "is_explosive": getattr(stock, 'is_explosive', False),
-            "vcp_setup": getattr(stock, 'vcp_setup', False),
-        },
-        "zones": {
-            "demand_start": stock.demand_zone_start,
-            "demand_end": stock.demand_zone_end,
-            "stop_loss": stock.stop_loss,
-            "target": stock.supply_zone_start,
-            "upside_pct": stock.upside_to_high if hasattr(stock, 'upside_to_high') else None,
-        },
-        "analysis_meta": {
-            "type": "Precision Scanner" if is_precision else "Momentum Scanner",
-            "last_scan": localtime(getattr(stock, 'scan_run', None) or getattr(stock, 'scanned_at', None)).strftime('%Y-%m-%d %H:%M:%S'),
-        }
+        "rsi": round(stock.rsi, 2),
+        "adx": round(stock.adx, 2),
+        "momentum_score": stock.technical_score,
+        "rs_rating": getattr(stock, 'rs_rating', 0),
+        "zone": getattr(stock, 'entry_strategy', 'N/A'),
+        "demand_start": stock.demand_zone_start,
+        "demand_end": stock.demand_zone_end,
+        "stop_loss": stock.stop_loss,
+        "target": stock.supply_zone_start,
+        "is_explosive": getattr(stock, 'is_explosive', False),
+        "last_scan": localtime(getattr(stock, 'scan_run', None) or getattr(stock, 'scanned_at', None)).strftime('%Y-%m-%d %H:%M:%S'),
+        "bot_hint": ""
     }
     
     # เพิ่มข้อความแนะนำเบื้องต้นให้ Bot
