@@ -10387,3 +10387,83 @@ def investment_dashboard_refresh(request):
 
     messages.success(request, "วิเคราะห์ข้อมูลแบบ Multi-System Funnel เรียบร้อยแล้ว")
     return redirect('stocks:investment_dashboard')
+
+
+# ====== API for External Integration (Hermes Bot) ======
+
+def api_stock_analysis(request, symbol):
+    """
+    API Endpoint สำหรับให้ Hermes (Telegram Bot) เรียกใช้ข้อมูลการวิเคราะห์ล่าสุด
+    URL: http://app.9com.cloud/stocks/api/analysis/<symbol>/?token=YOUR_TOKEN
+    """
+    from django.http import JsonResponse
+    from django.utils.timezone import localtime
+    from .models import PrecisionScanCandidate, MomentumCandidate
+    
+    # 1. Security Check
+    # แนะนำให้กำหนด API_TOKEN ใน settings.py หรือ .env
+    valid_token = getattr(settings, "HERMES_API_TOKEN", "song_secret_hermes_2024")
+    provided_token = request.GET.get('token')
+    
+    if provided_token != valid_token:
+        return JsonResponse({"error": "Unauthorized. Invalid or missing token."}, status=401)
+    
+    symbol = symbol.upper().strip()
+    
+    # 2. Fetch Latest Data
+    # ลำดับการหา: Precision Scan -> Momentum Scan
+    stock = PrecisionScanCandidate.objects.filter(symbol=symbol).order_by('-scan_run').first()
+    
+    if not stock:
+        # ลองหาใน MomentumCandidate (แบบเก่า)
+        stock = MomentumCandidate.objects.filter(symbol=symbol).order_by('-scanned_at').first()
+        is_precision = False
+    else:
+        is_precision = True
+        
+    if not stock:
+        return JsonResponse({
+            "symbol": symbol,
+            "error": f"ไม่พบข้อมูลการสแกนล่าสุดของหุ้น {symbol} ในระบบ",
+            "instruction": "กรุณารัน Scanner ในหน้าเว็บก่อนเพื่อให้มีข้อมูลใน Database"
+        }, status=404)
+
+    # 3. Prepare JSON Response
+    # รวบรวมข้อมูลสำคัญที่ Hermes ต้องใช้ในการ "พูด"
+    response_data = {
+        "status": "success",
+        "symbol": stock.symbol,
+        "market": getattr(stock, 'market', 'SET'),
+        "price": stock.price,
+        "technical": {
+            "score": stock.technical_score,
+            "rsi": round(stock.rsi, 2),
+            "adx": round(stock.adx, 2),
+            "rvol": round(stock.rvol, 2),
+            "rs_rating": getattr(stock, 'rs_rating', 0),
+        },
+        "strategy": {
+            "name": getattr(stock, 'entry_strategy', 'N/A'),
+            "is_explosive": getattr(stock, 'is_explosive', False),
+            "vcp_setup": getattr(stock, 'vcp_setup', False),
+        },
+        "zones": {
+            "demand_start": stock.demand_zone_start,
+            "demand_end": stock.demand_zone_end,
+            "stop_loss": stock.stop_loss,
+            "target": stock.supply_zone_start,
+            "upside_pct": stock.upside_to_high if hasattr(stock, 'upside_to_high') else None,
+        },
+        "analysis_meta": {
+            "type": "Precision Scanner" if is_precision else "Momentum Scanner",
+            "last_scan": localtime(getattr(stock, 'scan_run', stock.scanned_at)).strftime('%Y-%m-%d %H:%M:%S'),
+        }
+    }
+    
+    # เพิ่มข้อความแนะนำเบื้องต้นให้ Bot
+    if stock.technical_score >= 80:
+        response_data["bot_hint"] = "หุ้นตัวนี้มีคะแนนเทคนิคสูงมาก มีความแข็งแกร่งเชิงโมเมนตัมสูง"
+    elif stock.technical_score < 50:
+        response_data["bot_hint"] = "หุ้นตัวนี้คะแนนเทคนิคต่ำกว่าเกณฑ์ ควรระมัดระวัง"
+        
+    return JsonResponse(response_data, safe=False, json_dumps_params={'ensure_ascii': False})
