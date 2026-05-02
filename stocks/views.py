@@ -10456,17 +10456,28 @@ def api_stock_analysis(request, symbol):
         "rs_rating": getattr(stock, 'rs_rating', 0),
         "RS Rating": getattr(stock, 'rs_rating', 0),
         
-        # Zone / Strategy
+        # Zone / Strategy (ส่งหลายแบบ)
         "zone": getattr(stock, 'entry_strategy', 'N/A'),
         "Zone": getattr(stock, 'entry_strategy', 'N/A'),
-        "strategy": getattr(stock, 'entry_strategy', 'N/A'),
+        "Buy Zone": f"{stock.demand_zone_end} - {stock.demand_zone_start}" if stock.demand_zone_start else "N/A",
+        "Sell Zone": f"{stock.supply_zone_start}" if stock.supply_zone_start else "N/A",
+        "Target Price": stock.supply_zone_start,
+        "Demand Zone": f"{stock.demand_zone_start} - {stock.demand_zone_end}",
         
-        # Zones & Risk
+        # Zones & Risk (Flat)
         "demand_start": stock.demand_zone_start,
         "demand_end": stock.demand_zone_end,
         "stop_loss": stock.stop_loss,
         "target": stock.supply_zone_start,
         "is_explosive": getattr(stock, 'is_explosive', False),
+        
+        # สำหรับบอทที่ชอบอ่านแบบ Nested (ส่งเผื่อไว้)
+        "zones": {
+            "demand_start": stock.demand_zone_start,
+            "demand_end": stock.demand_zone_end,
+            "stop_loss": stock.stop_loss,
+            "target": stock.supply_zone_start,
+        },
         
         "last_scan": localtime(getattr(stock, 'scan_run', None) or getattr(stock, 'scanned_at', None)).strftime('%Y-%m-%d %H:%M:%S'),
     }
