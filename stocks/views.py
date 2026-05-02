@@ -10456,7 +10456,7 @@ def api_stock_analysis(request, symbol):
         },
         "analysis_meta": {
             "type": "Precision Scanner" if is_precision else "Momentum Scanner",
-            "last_scan": localtime(getattr(stock, 'scan_run', stock.scanned_at)).strftime('%Y-%m-%d %H:%M:%S'),
+            "last_scan": localtime(getattr(stock, 'scan_run', None) or getattr(stock, 'scanned_at', None)).strftime('%Y-%m-%d %H:%M:%S'),
         }
     }
     
