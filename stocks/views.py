@@ -727,7 +727,16 @@ def crew_analyze(request, symbol):
         return _JR(st)
 
     strategy_param = request.GET.get('strategy')
-    market_param = request.GET.get('market', 'SET')
+    market_param = request.GET.get('market')
+    
+    # ── Auto-Detect Market if not provided ──────────────────────────
+    if not market_param:
+        # รายชื่อหุ้น US ยอดนิยมที่มักจะถูกถามถึง
+        common_us = ['AAPL','TSLA','NVDA','MSFT','GOOG','META','AMZN','TSM','MO','COIN','BTC','GOLD']
+        if symbol.upper() in common_us or len(symbol) <= 3:
+            market_param = 'US'
+        else:
+            market_param = 'SET'
 
     # ── Result ready (page reload after done) ────────────────────────
     cached = _cp.get(cache_key)
