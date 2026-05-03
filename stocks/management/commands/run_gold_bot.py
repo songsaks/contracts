@@ -136,11 +136,21 @@ class Command(BaseCommand):
                                 tp_dist = tp_mult * atr
 
                                 # คำนวณ Lot Size อัตโนมัติ (ความเสี่ยงคงที่ 2%)
-                                lots = round(max(self.MIN_LOT, risk_money / sl_dist if sl_dist > 0 else self.MIN_LOT), 2)
+                                # อัปเดต: ต้องหารด้วย Contract Size (100 สำหรับ XAUUSD) เพื่อไม่ให้ Lot ใหญ่เกินจริง 100 เท่า!
+                                contract_size = 100.0
+                                raw_lots = risk_money / (sl_dist * contract_size) if sl_dist > 0 else self.MIN_LOT
+                                lots = round(max(self.MIN_LOT, raw_lots), 2)
+                                
+                                # 🚨 BOT CIRCUIT BREAKER
+                                if lots > 0.05:
+                                    self.stdout.write(self.style.ERROR(f"🚨 CIRCUIT BREAKER: ระบบระงับคำสั่ง! คำนวณได้ {lots} Lots ซึ่งเกินขีดจำกัดความปลอดภัย (0.05 Lots)"))
+                                    self.update_heartbeat(status="ACTIVE", message=f"🚨 ป้องกันพอร์ตระเบิด: ระงับการเปิดออเดอร์ {lots} Lots")
+                                    continue
+
                                 sl_price = curr_price - sl_dist
                                 tp_price = curr_price + tp_dist
 
-                                self.stdout.write(self.style.SUCCESS(f"สั่งซื้อ {signal_type} สำหรับพอร์ต {acc.account_id} | TP: {tp_price:.2f} | SL: {sl_price:.2f}"))
+                                self.stdout.write(self.style.SUCCESS(f"สั่งซื้อ {signal_type} สำหรับพอร์ต {acc.account_id} | Lot: {lots} | TP: {tp_price:.2f} | SL: {sl_price:.2f}"))
 
                                 current_tp = tp_price if signal_type == "SNIPER_EMA9" else None
 

@@ -10208,8 +10208,12 @@ def start_gold_bot_ajax(request):
 @login_required
 def stop_gold_bot_ajax(request):
     """สั่งหยุดบอทโดยอ้างอิงจาก PID"""
+    from .models import BotActivity
+    
     if not os.path.exists(PID_FILE):
-        return JsonResponse({'success': False, 'error': 'No running bot found'})
+        # Force update DB even if PID is missing, to prevent UI getting stuck
+        BotActivity.objects.filter(bot_name="Gold Server Bot").update(status="STOPPED", message="Bot stopped (PID not found)")
+        return JsonResponse({'success': False, 'error': 'No running bot found, but status was reset'})
     
     try:
         with open(PID_FILE, 'r') as f:
