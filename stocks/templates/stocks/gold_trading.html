@@ -468,7 +468,36 @@
         <div class="g-card d-lg-none">
             <div class="g-card-header"><i class="fas fa-terminal me-1"></i> Activity Log</div>
             <div class="log-box" id="bot-logs-mobile" style="height:120px;border-radius:0 0 var(--panel-radius) var(--panel-radius);"></div>
-        </div><script>
+        <!-- TRADE HISTORY -->
+        <div class="g-card mt-3">
+            <div class="g-card-header d-flex justify-content-between align-items-center">
+                <span><i class="fas fa-history text-muted me-1"></i> TRADE HISTORY (LAST 20)</span>
+                <button class="btn btn-sm btn-link text-decoration-none p-0 text-muted" onclick="updateTradeHistory()"><i class="fas fa-sync-alt"></i></button>
+            </div>
+            <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+                <table class="table table-sm table-hover mb-0" style="font-size: 0.8rem;">
+                    <thead class="bg-light text-muted" style="font-size: 0.65rem;">
+                        <tr>
+                            <th class="ps-3 py-2">DATE/TIME</th>
+                            <th class="py-2">STRATEGY</th>
+                            <th class="py-2">TYPE</th>
+                            <th class="py-2">LOTS</th>
+                            <th class="py-2">ENTRY</th>
+                            <th class="py-2">EXIT</th>
+                            <th class="text-end pe-3 py-2">P/L</th>
+                        </tr>
+                    </thead>
+                    <tbody id="trade-history-body">
+                        <tr><td colspan="7" class="text-center py-3 text-muted">No history data available</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </div><!-- /RIGHT COL -->
+</div><!-- /ROW -->
+
+<script>
     let currentSymbol = "{{ symbol }}";
     let currentMarket = "US";
     let currentPeriod = "3mo";
@@ -905,12 +934,40 @@
         renderCharts(window.lastChartData);
     }
 
+    async function updateTradeHistory() {
+        try {
+            const data = await fetch('{% url "stocks:get_gold_trade_history" %}').then(r => r.json());
+            const body = document.getElementById('trade-history-body');
+            if (data.success && data.history?.length > 0) {
+                body.innerHTML = data.history.map(h => {
+                    const isProfit = h.pl >= 0;
+                    const isClosed = h.status === 'CLOSED';
+                    const dateStr = h.created_at.split(' ')[0].split('-').slice(1).join('/'); // MM/DD
+                    const timeStr = h.created_at.split(' ')[1].slice(0,5);
+                    return `<tr>
+                        <td class="ps-3 text-muted" style="font-size:0.7rem;">${dateStr} ${timeStr}</td>
+                        <td class="fw-bold text-info" style="font-size:0.7rem;">${h.strategy}</td>
+                        <td><span class="badge ${h.type==='BUY'?'bg-success':'bg-danger'}" style="font-size:0.6rem;">${h.type}</span></td>
+                        <td>${h.volume}</td>
+                        <td>${h.entry.toFixed(2)}</td>
+                        <td>${h.exit ? h.exit.toFixed(2) : '-'}</td>
+                        <td class="text-end pe-3 fw-bold ${isClosed ? (isProfit?'text-success':'text-danger') : 'text-muted'}">
+                            ${isClosed ? (isProfit?'+':'' ) + h.pl.toFixed(2) : h.status}
+                        </td>
+                    </tr>`;
+                }).join('');
+            }
+        } catch(e) {}
+    }
+
     window.onload = () => {
         setStrategy('SNIPER');
         loadData();
         fetchPositions();
+        updateTradeHistory();
         setInterval(loadData, 5000);
         setInterval(fetchPositions, 5000);
+        setInterval(updateTradeHistory, 10000);
         
         document.getElementById('btn-start-bot').onclick = () => {
             if (!globalTactical) {

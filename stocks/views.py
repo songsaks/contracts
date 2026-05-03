@@ -10550,3 +10550,30 @@ def api_stock_analysis(request, symbol):
         response_data["bot_hint"] = "หุ้นตัวนี้คะแนนเทคนิคต่ำกว่าเกณฑ์ ควรระมัดระวัง"
         
     return JsonResponse(response_data, safe=False, json_dumps_params={'ensure_ascii': False})
+
+@login_required
+def get_gold_trade_history_ajax(request):
+    """ดึงประวัติการเทรด 20 รายการล่าสุดสำหรับทองคำ"""
+    from .models import TradeOrder
+    orders = TradeOrder.objects.filter(
+        user=request.user, 
+        symbol__in=['GC=F', 'XAUUSD']
+    ).order_by('-created_at')[:20]
+    
+    data = []
+    for o in orders:
+        data.append({
+            'id': o.id,
+            'symbol': o.symbol,
+            'type': o.order_type,
+            'volume': float(o.volume),
+            'entry': float(o.entry_price) if o.entry_price else 0,
+            'exit': float(o.exit_price) if o.exit_price else 0,
+            'sl': float(o.stop_loss) if o.stop_loss else 0,
+            'tp': float(o.take_profit) if o.take_profit else 0,
+            'pl': float(o.profit_loss),
+            'status': o.status,
+            'created_at': o.created_at.strftime('%Y-%m-%d %H:%M:%S'),
+            'strategy': o.strategy or 'N/A'
+        })
+    return JsonResponse({'success': True, 'history': data})

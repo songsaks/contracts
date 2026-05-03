@@ -70,6 +70,7 @@ urlpatterns = [
     path('gold-trading/close-all/', views.close_all_gold_positions_ajax, name='close_all_gold_positions'),
     path('gold-trading/start-bot/', views.start_gold_bot_ajax, name='start_gold_bot'),
     path('gold-trading/stop-bot/', views.stop_gold_bot_ajax, name='stop_gold_bot'),
+    path('gold-trading/history/', views.get_gold_trade_history_ajax, name='get_gold_trade_history'),
     
     # Investment Dashboard
     path('investment-dashboard/', views.investment_dashboard, name='investment_dashboard'),
