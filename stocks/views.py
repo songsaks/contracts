@@ -9849,6 +9849,27 @@ def execute_gold_trade_ajax(request):
         volume = data.get('volume', 0.01)
         strategy = data.get('strategy', 'Manual')
 
+        # ==========================================
+        # 🚨 SERVER-SIDE CIRCUIT BREAKER (MT5 Safety)
+        # ==========================================
+        try:
+            vol_float = float(volume)
+            # Hard-Cap ที่ 0.05 Lots ป้องกันพอร์ตระเบิดจากการคำนวณผิดพลาด
+            if vol_float > 0.05:
+                return JsonResponse({
+                    'success': False, 
+                    'error': f'🚨 CIRCUIT BREAKER: ระบบระงับคำสั่งอัตโนมัติ! ขนาด {vol_float} Lots ใหญ่เกินขีดจำกัดความปลอดภัยที่ 0.05 Lots'
+                })
+            
+            # บังคับขั้นต่ำสำหรับ MT5 คือ 0.01
+            if vol_float < 0.01:
+                vol_float = 0.01
+                
+            volume = vol_float
+        except (ValueError, TypeError):
+            return JsonResponse({'success': False, 'error': 'Invalid volume format'})
+        # ==========================================
+
         # เรียกใช้ RobotBridge
         bridge = RobotBridge(user=request.user)
         order = bridge.execute_trade(
@@ -9900,6 +9921,23 @@ def refresh_market_caps_view(request):
     
     next_url = request.GET.get('next') or 'stocks:momentum_scanner'
     return redirect(next_url)
+
+@login_required
+def crypto_trading(request):
+    """
+    Crypto Trading Command Center (BTC/USD).
+    """
+    from .models import TradingAccount
+    account = TradingAccount.objects.filter(user=request.user, is_active=True).first()
+    capital = float(account.equity or account.balance) if account else 100.0
+    # Default to BTC, can be made dynamic later
+    symbol = "BTC-USD"
+    return render(request, 'stocks/crypto_trading.html', {
+        'symbol': symbol,
+        'title': 'Crypto Tactical Command Center',
+        'capital': capital,
+        'account_id': account.id if account else None
+    })
 
 @login_required
 def gold_trading(request):

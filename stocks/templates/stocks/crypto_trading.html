@@ -1,10 +1,7 @@
-{% extends 'stocks/base_stocks.html' %}
+{% extends "stocks/base_stocks.html" %}
 {% load static %}
-{% load humanize %}
 
-{% block title %}Gold Command Center · XAU/USD{% endblock %}
-
-{% block container_class %}container-fluid px-0{% endblock %}
+{% block title %}{{ title }} | Hermes AI{% endblock %}
 
 {% block extra_css %}
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -12,37 +9,33 @@
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Outfit:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700;800&display=swap');
 
+    /* Institutional Glassmorphism for Crypto */
     :root {
-        --gold: #fbbf24;
-        --gold-light: #fef3c7;
-        --gold-dark: #b45309;
-        --gold-bg: #fffbeb;
+        --bg-deep: #0B0E14; /* Slightly darker for crypto */
+        --panel-bg: rgba(20, 26, 38, 0.8);
+        --panel-border: rgba(255, 255, 255, 0.05);
         --panel-radius: 12px;
-        --bg-deep: #0f172a;
-        --bg-panel: #1e293b;
-        --border-color: rgba(255, 255, 255, 0.1);
-        --text-muted: #94a3b8;
+        --crypto: #f7931a; /* Bitcoin Orange */
+        --crypto-glow: rgba(247, 147, 26, 0.15);
     }
 
-    body { 
-        background: #f1f5f9; 
+    body {
+        background: var(--bg-deep);
+        color: #e2e8f0;
         font-family: 'Inter', sans-serif;
     }
 
-    /* ══ HEADER ══ */
-    .gcc-header {
-        background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
-        border-bottom: 3px solid var(--gold);
-        padding: 0.85rem 1.25rem;
+    /* Top Nav/Header Area */
+    .top-header {
+        background: var(--panel-bg);
+        border-bottom: 1px solid var(--panel-border);
+        padding: 15px 30px;
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
     }
-    .gcc-header h1 {
+    
+    .brand-title {
         font-family: 'Outfit', sans-serif;
-        font-size: clamp(1rem, 2.5vw, 1.4rem);
-        font-weight: 900;
-        letter-spacing: 1px;
-        color: var(--gold);
-        margin: 0;
-    }
     .gcc-subtitle {
         font-size: 0.78rem;
         color: var(--text-muted);
@@ -251,8 +244,8 @@
 <!-- ══════ HEADER ══════ -->
 <div class="gcc-header d-flex flex-wrap justify-content-between align-items-center gap-2">
     <div>
-        <h1><i class="fas fa-coins me-2"></i>GOLD COMMAND CENTER</h1>
-        <div class="gcc-subtitle d-none d-sm-block">XAU/USD · Turtle Breakout Strategy · Spot Gold</div>
+        <h1><i class="fab fa-bitcoin me-2"></i>CRYPTO COMMAND CENTER</h1>
+        <div class="gcc-subtitle d-none d-sm-block">BTC/USD · Momentum Strategy · Spot Crypto</div>
     </div>
     <div class="d-flex align-items-center gap-2">
         <span class="status-pill pill-standby" id="bot-status-indicator">● STANDBY</span>
@@ -304,7 +297,7 @@
         <!-- PRICE & BOT STATUS -->
         <div class="price-panel">
             <div class="d-flex justify-content-between align-items-center mb-1">
-                <span class="price-symbol">GOLD · XAU/USD</span>
+                <span class="price-symbol">CRYPTO · {{ symbol }}</span>
                 <span class="price-time" id="last-update-time">Updated: --:--:--</span>
             </div>
             <div class="d-flex align-items-baseline">
@@ -425,7 +418,7 @@
         <div class="chart-card" id="wrapper-to-fullscreen">
             <div class="chart-toolbar d-flex justify-content-between align-items-center flex-wrap gap-2">
                 <div class="d-flex align-items-center gap-3" style="font-size:.84rem;font-weight:700;">
-                    <span><i class="fas fa-chart-candlestick me-1 text-warning"></i> XAU/USD</span>
+                    <span><i class="fab fa-bitcoin me-1 text-warning"></i> {{ symbol }}</span>
                     <span class="d-none d-sm-inline">
                         <span style="background:#16a34a;display:inline-block;width:10px;height:3px;border-radius:2px;vertical-align:middle;"></span>
                         <span class="text-muted ms-1">DC20</span>
@@ -451,10 +444,10 @@
             <div class="g-card-header"><i class="fas fa-bolt me-1 text-warning"></i> Order Execution</div>
             <div class="p-3 d-flex flex-column gap-2">
                 <div class="d-flex gap-2">
-                    <button class="btn-execute-buy flex-grow-1" onclick="executeTrade('BUY')">
+                    <button class="btn-execute-buy flex-grow-1" onclick="alert('Phase 1: Crypto API integration pending.')">
                         <i class="fas fa-arrow-trend-up me-2"></i> EXECUTE BUY
                     </button>
-                    <button class="btn-execute-sell flex-grow-1" onclick="executeTrade('SELL')">
+                    <button class="btn-execute-sell flex-grow-1" onclick="alert('Phase 1: Crypto API integration pending.')">
                         <i class="fas fa-arrow-trend-down me-2"></i> EXECUTE SELL
                     </button>
                 </div>
@@ -807,23 +800,14 @@
         const risk = parseFloat(document.getElementById('risk-pct').value) || 0;
         const stop = globalTactical.n * 2;
         if (stop > 0) {
-            // คำนวณเป็นออนซ์ (Ounces) ก่อน: เงินที่ยอมเสียได้ / ระยะ Stop Loss
-            const rawOunces = (cap * risk / 100) / stop;
-            
-            // แปลงออนซ์เป็น MT4 Lots (1 Lot = 100 Ounces สำหรับทองคำมาตรฐาน)
-            let mt4Lots = rawOunces / 100;
-            
-            // บังคับขั้นต่ำที่ 0.01 Lot
-            if (mt4Lots > 0 && mt4Lots < 0.01) mt4Lots = 0.01;
-            
-            document.getElementById('tac-suggest-size').innerText = mt4Lots.toFixed(2) + ' Lots';
+            document.getElementById('tac-suggest-size').innerText = ((cap * risk / 100) / stop).toFixed(2) + ' Oz';
         }
     }
 
     function executeTrade(side, skipConfirm = false, volume = null) {
         const sizeText = document.getElementById('tac-suggest-size').innerText;
         const lotSize  = volume || parseFloat(sizeText) || 0.01;
-        if (!skipConfirm && !confirm(`[CRITICAL] Confirm ${side} order: ${lotSize} MT4 Lots?`)) return;
+        if (!skipConfirm && !confirm(`Confirm ${side} order: ${lotSize} Oz?`)) return;
         
         fetch("{% url 'stocks:execute_gold_trade' %}", {
             method: 'POST',

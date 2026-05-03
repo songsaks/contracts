@@ -538,6 +538,13 @@
                                     <i class="fas fa-chart-network me-1" style="color: #10b981;"></i> Crypto Hub
                                 </a>
                             </li>
+                            <li><hr class="dropdown-divider opacity-25 my-1"></li>
+                            <li>
+                                <a class="dropdown-item rounded-3 py-2 {% if request.resolver_match.url_name == 'crypto_trading' %}active{% endif %}"
+                                   href="{% url 'stocks:crypto_trading' %}">
+                                    <i class="fab fa-bitcoin me-1" style="color: #f7931a;"></i> Crypto Command Center
+                                </a>
+                            </li>
                         </ul>
                     </li>
                 </ul>
