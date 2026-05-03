@@ -161,8 +161,8 @@ class Command(BaseCommand):
                                         self.update_heartbeat(status="ACTIVE", message=f"🛡️ ยกจุดป้องกัน (Trailing SL) ไปที่ {new_sl:.2f}")
 
                     if not signal_type:
-                        # ถ้ายังไม่มีสัญญาณใหม่ ให้รายงานสถานะราคาปัจจุบัน
-                        self.update_heartbeat(status="ACTIVE", message=f"เฝ้าระวัง... ราคา: {curr_price:.2f} | RSI: {rsi:.1f}")
+                        # ถ้ายังไม่มีสัญญาณใหม่ ให้รายงานสถานะราคาปัจจุบัน โดยติดชื่อโหมดไว้ด้วย
+                        self.update_heartbeat(status="ACTIVE", message=f"เฝ้าระวัง ({target_strat})... ราคา: {curr_price:.2f} | RSI: {rsi:.1f}")
 
                 except Exception as e:
                     # จัดการข้อผิดพลาดที่อาจเกิดขึ้นระหว่างลูป (เช่น เน็ตหลุด)
