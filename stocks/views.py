@@ -10205,6 +10205,16 @@ def start_gold_bot_ajax(request):
         with open(PID_FILE, 'w') as f:
             f.write(str(process.pid))
             
+        # อัปเดตสถานะในฐานข้อมูล
+        from .models import BotActivity
+        BotActivity.objects.update_or_create(
+            bot_name="Gold Server Bot",
+            defaults={
+                'status': 'ACTIVE',
+                'message': f'Running ({strategy}) - One-Shot Mode'
+            }
+        )
+            
         return JsonResponse({'success': True, 'pid': process.pid})
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)})

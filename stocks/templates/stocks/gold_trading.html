@@ -812,9 +812,12 @@
                     const bInd = document.getElementById('bot-status-indicator');
                     if (b.status === 'ACTIVE') {
                         document.getElementById('bot-status-lamp').style.background = '#34d399';
-                        txt.innerText = 'SERVER BOT: ACTIVE';
+                        txt.innerText = 'SERVER BOT: ' + (b.message || 'ACTIVE');
                         txt.style.color = '#34d399';
-                        if (bInd) { bInd.innerText = '● ACTIVE'; bInd.className = 'status-pill pill-active'; }
+                        if (bInd) { 
+                            bInd.innerText = '● ' + (b.message || 'ACTIVE'); 
+                            bInd.className = 'status-pill pill-active'; 
+                        }
                         document.getElementById('btn-start-bot').classList.add('d-none');
                         document.getElementById('btn-stop-bot').classList.remove('d-none');
                     } else {
