@@ -10182,15 +10182,19 @@ def start_gold_bot_ajax(request):
         stdout_log = open(os.path.join(log_dir, 'bot_stdout.log'), 'a')
         stderr_log = open(os.path.join(log_dir, 'bot_stderr.log'), 'a')
         
+        # รัน management command ใน background
+        # เพิ่ม parameter --strategy เพื่อล็อคกลยุทธ์
+        # เพิ่ม parameter --once เพื่อให้บอทหยุดเมื่อจบ 1 รอบ
+        strategy = request.GET.get('strategy', 'SNIPER')
+        
         if os.name == 'nt':
             process = subprocess.Popen(
-                [python_exe, 'manage.py', 'run_gold_bot'],
+                [python_exe, 'manage.py', 'run_gold_bot', '--strategy', strategy, '--once'],
                 creationflags=subprocess.CREATE_NEW_CONSOLE
             )
         else:
-            # สำหรับ Linux (Ubuntu): บันทึก Log ลงไฟล์เพื่อตรวจสอบ
             process = subprocess.Popen(
-                [python_exe, 'manage.py', 'run_gold_bot'],
+                [python_exe, 'manage.py', 'run_gold_bot', '--strategy', strategy, '--once'],
                 stdout=stdout_log,
                 stderr=stderr_log,
                 start_new_session=True,

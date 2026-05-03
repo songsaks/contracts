@@ -950,9 +950,9 @@
         document.getElementById('btn-confirm-start-bot').onclick = () => {
             const m = bootstrap.Modal.getInstance(document.getElementById('botConfirmModal'));
             if(m) m.hide();
-            logMessage("Starting Bot...", "text-warning");
-            fetch("{% url 'stocks:start_gold_bot' %}").then(r=>r.json()).then(d => { 
-                if (d.success) logMessage("Bot Started (Waiting for initial tick...)", "text-success fw-bold"); 
+            logMessage(`Starting Bot (${activeStrategy})...`, "text-warning");
+            fetch(`{% url 'stocks:start_gold_bot' %}?strategy=${activeStrategy}`).then(r=>r.json()).then(d => { 
+                if (d.success) logMessage(`Bot Started (${activeStrategy}) - One-Shot Mode Active`, "text-success fw-bold"); 
                 else logMessage("Failed to start: " + d.error, "text-danger");
             });
         };

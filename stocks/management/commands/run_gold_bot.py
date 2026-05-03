@@ -12,6 +12,10 @@ from stocks.trading_bridge import RobotBridge
 class Command(BaseCommand):
     help = 'รันบอทเทรดทองคำอัตโนมัติ (Sniper / Scalper / Swing)'
 
+    def add_arguments(self, parser):
+        parser.add_argument('--strategy', type=str, default='ALL', help='ล็อคกลยุทธ์ที่จะรัน (SNIPER, SCALPER, SWING, ALL)')
+        parser.add_argument('--once', action='store_true', help='รันจนจบ 1 ออเดอร์แล้วหยุดทันที')
+
     # --- การตั้งค่าพื้นฐาน ---
     SYMBOL = "GC=F"           # สัญลักษณ์ราคาทองคำจาก Yahoo Finance
     BROKER_SYMBOL = "XAUUSD"  # สัญลักษณ์ทองคำฝั่งโบรกเกอร์ (MetaApi)
@@ -31,16 +35,19 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         """ จุดเริ่มต้นการทำงานของบอท (Main Entry Point) """
-        self.stdout.write(self.style.SUCCESS(f'--- บอททองคำเริ่มทำงาน (ความเสี่ยง: {self.RISK_PER_TRADE*100}%) ---'))
+        target_strat = options.get('strategy', 'ALL').upper()
+        run_once = options.get('once', False)
+        session_has_traded = False
+
+        self.stdout.write(self.style.SUCCESS(f'--- บอททองคำเริ่มทำงาน (กลยุทธ์: {target_strat}, โหมดรอบเดียว: {run_once}) ---'))
         
         try:
             # แจ้งหน้าจอว่าบอทกำลังเริ่มระบบ
-            self.update_heartbeat(status="ACTIVE", message="กำลังเริ่มระบบ...")
+            self.update_heartbeat(status="ACTIVE", message=f"เฝ้าระวัง {target_strat} (One-Shot: {run_once})")
             
             while True:
                 try:
                     # 1. ดึงข้อมูลราคาสดจาก Yahoo Finance
-                    # ดึงข้อมูลย้อนหลัง 1 ปี แบบรายวัน (Daily)
                     df = yf.download(self.SYMBOL, period='1y', interval='1d', progress=False, auto_adjust=True, timeout=15)
                     
                     if df.empty:
@@ -48,126 +55,95 @@ class Command(BaseCommand):
                         time.sleep(30)
                         continue
                     
-                    # จัดการรูปแบบ Column ของข้อมูล
+                    # Flatten columns (MultiIndex fix)
                     if isinstance(df.columns, pd.MultiIndex):
-                        _pf = {'Open', 'High', 'Low', 'Close', 'Volume', 'Adj Close'}
-                        if any(v in _pf for v in df.columns.get_level_values(0)):
-                            df.columns = df.columns.get_level_values(0)
-                        else:
-                            df.columns = df.columns.get_level_values(1)
-
-                    # 2. คำนวณตัวชี้วัดทางเทคนิค (Technical Indicators)
-                    # Donchian Channels (จุดสูงสุดย้อนหลัง 10 และ 20 วัน)
-                    df['dc10_upper'] = df['High'].rolling(10).max()
-                    df['dc20_upper'] = df['High'].rolling(20).max()
-                    # Exponential Moving Average (เส้นค่าเฉลี่ย 9 และ 200 วัน)
+                        df.columns = df.columns.get_level_values(0)
+                    
+                    # 2. คำนวณ Technical Indicators
                     df['ema9'] = ta.ema(df['Close'], length=9)
                     df['ema200'] = ta.ema(df['Close'], length=200)
-                    # Relative Strength Index (ดัชนีกำลังสัมพัทธ์)
                     df['rsi'] = ta.rsi(df['Close'], length=14)
-                    # Average True Range (ค่าเฉลี่ยความผันผวน)
                     df['atr'] = ta.atr(df['High'], df['Low'], df['Close'], length=20)
                     
-                    # ลบข้อมูลแถวที่คำนวณไม่ได้ (ช่วงแรกๆ ของข้อมูล)
-                    df = df.dropna()
-                    if df.empty:
-                        time.sleep(30)
-                        continue
+                    # ดึงค่าปัจจุบันและค่าก่อนหน้า
+                    curr_row = df.iloc[-1]
+                    prev_row = df.iloc[-2]
+                    curr_price = float(curr_row['Close'])
+                    ema9 = float(curr_row['ema9'])
+                    ema200 = float(curr_row['ema200'])
+                    rsi = float(curr_row['rsi'])
+                    atr = float(curr_row['atr'])
+                    
+                    # 3. ตรวจสอบสถานะพอร์ต (เช็คว่ามีออเดอร์ค้างอยู่หรือไม่)
+                    accounts = TradingAccount.objects.filter(is_active=True)
+                    has_open_position = False
+                    
+                    for acc in accounts:
+                        bridge = RobotBridge(user=acc.user)
+                        positions = bridge.get_open_positions()
+                        if any(pos.get('symbol') == self.BROKER_SYMBOL for pos in positions):
+                            has_open_position = True
+                            break
+                    
+                    # ถ้าใช้โหมด Once และเคยเทรดไปแล้ว และตอนนี้ไม่มีออเดอร์ค้าง = จบงาน
+                    if run_once and session_has_traded and not has_open_position:
+                        self.stdout.write(self.style.SUCCESS("--- จบงาน: ออเดอร์ปิดแล้ว หยุดบอทตามโหมด One-Shot ---"))
+                        self.update_heartbeat(status="STOPPED", message="ปิดงานเรียบร้อยแล้ว (รอคุณตัดสินใจรอบถัดไป)")
+                        # ลบ PID File ด้วยตัวเอง
+                        if os.path.exists("gold_bot.pid"): os.remove("gold_bot.pid")
+                        return
 
-                    # ดึงข้อมูลแถวล่าสุด (ปัจจุบัน) และแถวก่อนหน้า (เมื่อวาน)
-                    last_row, prev_row = df.iloc[-1], df.iloc[-2]
-                    
-                    curr_price = float(last_row['Close'])
-                    upper10 = float(prev_row['dc10_upper'])
-                    upper20 = float(prev_row['dc20_upper'])
-                    ema9 = float(last_row['ema9'])
-                    ema200 = float(last_row['ema200'])
-                    rsi = float(last_row['rsi'])
-                    atr = float(last_row['atr'])
-                    
-                    # 3. ตรวจสอบเงื่อนไขการเข้าซื้อ (Logic Check - ขาขึ้นเท่านั้น)
-                    
-                    # A: กลยุทธ์ SNIPER (ราคาตัดเส้น EMA 9 ขึ้นมา)
-                    sn_buy = curr_price >= ema9 and prev_row['Close'] < prev_row['ema9'] and curr_price > ema200
-                    
-                    # B: กลยุทธ์ SCALPER (ราคาทะลุ High เดิมของ 10 วัน)
-                    sc_buy = curr_price >= upper10 and rsi > 50 and curr_price > ema9
-                    
-                    # C: กลยุทธ์ SWING (ราคาทะลุ High เดิมของ 20 วัน)
-                    sw_buy = curr_price >= upper20 and rsi < 70 and curr_price > ema200
-
-                    # จัดลำดับความสำคัญของสัญญาณ
+                    # 4. ค้นหาสัญญาณการเทรด (เฉพาะเมื่อยังไม่มีออเดอร์ค้าง)
                     signal_type = None
-                    if sw_buy: signal_type = "SWING_20D"
-                    elif sc_buy: signal_type = "SCALPER_10D"
-                    elif sn_buy: signal_type = "SNIPER_EMA9"
-
-                    if signal_type:
-                        self.stdout.write(self.style.WARNING(f"ตรวจพบสัญญาณ: {signal_type} ที่ราคา {curr_price}"))
+                    if not has_open_position:
+                        # A: กลยุทธ์ SNIPER (ราคาตัดเส้น EMA 9 ขึ้นมา)
+                        sn_buy = curr_price >= ema9 and prev_row['Close'] < prev_row['ema9'] and curr_price > ema200
                         
-                        # วนลูปส่งออเดอร์สำหรับทุกบัญชีเทรดที่ Active อยู่
-                        accounts = TradingAccount.objects.filter(is_active=True)
-                        for acc in accounts:
-                            # ป้องกันการเปิดออเดอร์ซ้ำในวันเดียวกันสำหรับกลยุทธ์เดิม
-                            today = datetime.date.today()
-                            already_traded = TradeOrder.objects.filter(
-                                user=acc.user, symbol=self.BROKER_SYMBOL, 
-                                created_at__date=today, strategy__icontains=signal_type
-                            ).exists()
+                        # B: กลยุทธ์ SCALPER (ทะลุ High 20 วัน)
+                        high_20d = df['High'].rolling(window=20).max().iloc[-2]
+                        sc_buy = curr_price > high_20d and curr_price > ema200
+                        
+                        # C: กลยุทธ์ SWING (ทะลุ High 55 วัน)
+                        high_55d = df['High'].rolling(window=55).max().iloc[-2]
+                        sw_buy = curr_price > high_55d and curr_price > ema200
 
-                            if not already_traded:
-                                # ใช้ระบบ Bridge เพื่อคุยกับโบรกเกอร์
+                        # กรองตามที่ user เลือก
+                        if (target_strat == 'ALL' or target_strat == 'SNIPER') and sn_buy: signal_type = "SNIPER_EMA9"
+                        elif (target_strat == 'ALL' or target_strat == 'SCALPER') and sc_buy: signal_type = "SCALPER_H20"
+                        elif (target_strat == 'ALL' or target_strat == 'SWING') and sw_buy: signal_type = "SWING_H55"
+
+                        if signal_type:
+                            session_has_traded = True
+                            for acc in accounts:
                                 bridge = RobotBridge(user=acc.user)
-                                balance = float(acc.equity or acc.balance) if (acc.equity or acc.balance) > 0 else 1000.0
+                                
+                                # คำนวณความเสี่ยง
+                                balance = float(acc.balance)
                                 risk_money = balance * self.RISK_PER_TRADE
-
-                                # กำหนดระยะ Stop Loss และ Take Profit ตามความเร็วของกลยุทธ์
-                                if signal_type == "SNIPER_EMA9":
-                                    sl_mult = 0.5
-                                    tp_mult = 1.5
-                                elif signal_type == "SCALPER_10D":
-                                    sl_mult = 1.0
-                                    tp_mult = 2.0
-                                else:
-                                    sl_mult = 1.5
-                                    tp_mult = 3.5
-
+                                
+                                sl_mult = 2.0
+                                tp_mult = 1.5 if signal_type == "SNIPER_EMA9" else (2.0 if "SCALPER" in signal_type else 3.5)
+                                
                                 sl_dist = sl_mult * atr
                                 tp_dist = tp_mult * atr
 
-                                # คำนวณ Lot Size อัตโนมัติ (ความเสี่ยงคงที่ 2%)
-                                # อัปเดต: ต้องหารด้วย Contract Size (100 สำหรับ XAUUSD) เพื่อไม่ให้ Lot ใหญ่เกินจริง 100 เท่า!
+                                # คำนวณ Lot Size (Fix: หารด้วย 100 contract size)
                                 contract_size = 100.0
                                 raw_lots = risk_money / (sl_dist * contract_size) if sl_dist > 0 else self.MIN_LOT
                                 lots = round(max(self.MIN_LOT, raw_lots), 2)
                                 
-                                # 🚨 BOT CIRCUIT BREAKER
                                 if lots > 0.05:
-                                    self.stdout.write(self.style.ERROR(f"🚨 CIRCUIT BREAKER: ระบบระงับคำสั่ง! คำนวณได้ {lots} Lots ซึ่งเกินขีดจำกัดความปลอดภัย (0.05 Lots)"))
-                                    self.update_heartbeat(status="ACTIVE", message=f"🚨 ป้องกันพอร์ตระเบิด: ระงับการเปิดออเดอร์ {lots} Lots")
+                                    self.stdout.write(self.style.ERROR(f"🚨 CIRCUIT BREAKER: {lots} Lots"))
                                     continue
 
                                 sl_price = curr_price - sl_dist
                                 tp_price = curr_price + tp_dist
-
-                                self.stdout.write(self.style.SUCCESS(f"สั่งซื้อ {signal_type} สำหรับพอร์ต {acc.account_id} | Lot: {lots} | TP: {tp_price:.2f} | SL: {sl_price:.2f}"))
-
                                 current_tp = tp_price if signal_type == "SNIPER_EMA9" else None
 
                                 res = bridge.execute_trade(
                                     symbol=self.BROKER_SYMBOL, side="BUY", volume=lots,
                                     strategy=signal_type, sl=sl_price, tp=current_tp
                                 )
-                                
-                                # บันทึก Log การเทรดลงหน้า Dashboard
-                                log_msg = f"เข้าซื้อ: {signal_type} {lots} Lots @ {curr_price}"
-                                if current_tp: log_msg += f" (TP: {current_tp:.2f})"
-                                self.update_heartbeat(status="ACTIVE", message=log_msg)
-                    
-                    # --- ส่วนใหม่: ระบบ SMART TRAILING STOP (เฝ้าดูแลออเดอร์ที่เปิดอยู่) ---
-                    active_accounts = TradingAccount.objects.filter(is_active=True)
-                    for acc in active_accounts:
-                        bridge = RobotBridge(user=acc.user)
                         positions = bridge.get_open_positions() # ดึงจากโบรกเกอร์จริง
                         
                         for pos in positions:
