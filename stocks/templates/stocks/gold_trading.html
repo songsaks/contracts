@@ -958,7 +958,18 @@
         };
 
         document.getElementById('btn-stop-bot').onclick = () => {
-            fetch("{% url 'stocks:stop_gold_bot' %}").then(r=>r.json()).then(d => { if (d.success) logMessage("Bot Stopped", "text-warning"); });
+            if (!confirm("⚠️ ยืนยันการหยุดทำงานของบอท?")) return;
+            
+            logMessage("Stopping Bot...", "text-danger");
+            fetch("{% url 'stocks:stop_gold_bot' %}").then(r=>r.json()).then(d => { 
+                if (d.success) {
+                    alert("✅ ระบบหยุดทำงาน (OFFLINE) เรียบร้อยแล้วครับ");
+                    logMessage("Bot Stopped Successfully", "text-warning fw-bold"); 
+                } else {
+                    alert("❌ ไม่สามารถหยุดบอทได้: " + d.error);
+                    logMessage("Stop Failed: " + d.error, "text-danger");
+                }
+            });
         };
         
         document.addEventListener('fullscreenchange', () => setTimeout(resizeCharts, 100));
