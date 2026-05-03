@@ -251,7 +251,7 @@
 <!-- ══════ HEADER ══════ -->
 <div class="gcc-header d-flex flex-wrap justify-content-between align-items-center gap-2">
     <div>
-        <h1><i class="fas fa-coins me-2"></i>GOLD COMMAND CENTER</h1>
+        <h1><i class="fas fa-coins me-2"></i>GOLD COMMAND CENTER <span style="font-size: 0.5em; background: rgba(16, 185, 129, 0.2); color: #34d399; padding: 2px 8px; border-radius: 4px; vertical-align: middle;">v2.1 SafeMode</span></h1>
         <div class="gcc-subtitle d-none d-sm-block">XAU/USD · Turtle Breakout Strategy · Spot Gold</div>
     </div>
     <div class="d-flex align-items-center gap-2">
@@ -913,8 +913,50 @@
         setInterval(fetchPositions, 5000);
         
         document.getElementById('btn-start-bot').onclick = () => {
-            fetch("{% url 'stocks:start_gold_bot' %}").then(r=>r.json()).then(d => { if (d.success) logMessage("Bot Started", "text-success"); });
+            if (!globalTactical) {
+                alert("รอข้อมูลราคาสักครู่ก่อนเริ่มระบบครับ");
+                return;
+            }
+            
+            // Calculate Risk details
+            const cap = parseFloat(document.getElementById('capital-input').value) || 0;
+            const riskPct = parseFloat(document.getElementById('risk-pct').value) || 0;
+            const riskMoney = cap * riskPct / 100;
+            
+            const stopDist = globalTactical.n * 2; // Default 2N Stop
+            const contractSize = 100; // Gold XAUUSD
+            
+            let rawLots = (riskMoney / (stopDist * contractSize));
+            let lots = rawLots;
+            if (lots > 0 && lots < 0.01) lots = 0.01;
+            else if (lots > 0.05) lots = 0.05; // Circuit breaker max
+            
+            let tpMult = 1.5;
+            if(activeStrategy === 'SCALPER') tpMult = 2.0;
+            else if(activeStrategy === 'SWING') tpMult = 3.5;
+            
+            const tpMoney = lots * contractSize * (globalTactical.n * tpMult);
+            const slMoney = lots * contractSize * stopDist;
+            
+            document.getElementById('modal-strat').innerText = activeStrategy;
+            document.getElementById('modal-risk-money').innerText = '$' + riskMoney.toFixed(2) + ` (${riskPct}%)`;
+            document.getElementById('modal-lot').innerText = lots.toFixed(2) + ' Lots';
+            document.getElementById('modal-tp').innerText = '+$' + tpMoney.toFixed(2);
+            document.getElementById('modal-sl').innerText = '-$' + slMoney.toFixed(2);
+            
+            new bootstrap.Modal(document.getElementById('botConfirmModal')).show();
         };
+
+        document.getElementById('btn-confirm-start-bot').onclick = () => {
+            const m = bootstrap.Modal.getInstance(document.getElementById('botConfirmModal'));
+            if(m) m.hide();
+            logMessage("Starting Bot...", "text-warning");
+            fetch("{% url 'stocks:start_gold_bot' %}").then(r=>r.json()).then(d => { 
+                if (d.success) logMessage("Bot Started (Waiting for initial tick...)", "text-success fw-bold"); 
+                else logMessage("Failed to start: " + d.error, "text-danger");
+            });
+        };
+
         document.getElementById('btn-stop-bot').onclick = () => {
             fetch("{% url 'stocks:stop_gold_bot' %}").then(r=>r.json()).then(d => { if (d.success) logMessage("Bot Stopped", "text-warning"); });
         };
@@ -923,6 +965,54 @@
         window.addEventListener('resize', resizeCharts);
     };
 </script>
+
+<!-- Start Bot Confirmation Modal -->
+<div class="modal fade" id="botConfirmModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg" style="background:#0f172a;border-radius:20px; border: 1px solid #334155;">
+            <div class="modal-header border-bottom border-secondary">
+                <h5 class="modal-title text-warning fw-bold"><i class="fas fa-exclamation-triangle me-2"></i> ยืนยันการรันระบบ AUTO BOT <span class="badge bg-success ms-2" style="font-size: 0.6em;">v2.1 SafeMode</span></h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4 text-white">
+                <p class="mb-3 text-info" style="font-size:0.9rem;">
+                    <strong>วิธีการทำงาน:</strong> บอทจะทำการเฝ้ากราฟ 24 ชั่วโมง และจะ <strong class="text-success">"เปิดออเดอร์ BUY เท่านั้น"</strong> (ไม่เล่นฝั่ง Short) เมื่อสัญญาณเข้าเงื่อนไข เช่น ราคาตัดขึ้นเส้น EMA9 หรือทะลุแนวต้าน
+                </p>
+                <div class="p-3 mb-3 rounded" style="background:rgba(255,255,255,0.05);">
+                    <div class="d-flex justify-content-between mb-2">
+                        <span class="text-muted">กลยุทธ์อ้างอิง:</span>
+                        <strong class="text-warning" id="modal-strat">SNIPER</strong>
+                    </div>
+                    <div class="d-flex justify-content-between mb-2">
+                        <span class="text-muted">ความเสี่ยงที่ตั้งไว้:</span>
+                        <strong class="text-danger" id="modal-risk-money">$0.00</strong>
+                    </div>
+                    <div class="d-flex justify-content-between mb-2">
+                        <span class="text-muted">ขนาด Lot ที่จะเปิด:</span>
+                        <strong class="text-white" id="modal-lot">0.00 Lots</strong>
+                    </div>
+                    <hr class="border-secondary">
+                    <div class="d-flex justify-content-between mb-2">
+                        <span class="text-muted">หากชนเป้าหมาย (TP):</span>
+                        <strong class="text-success" id="modal-tp">+$0.00</strong>
+                    </div>
+                    <div class="d-flex justify-content-between">
+                        <span class="text-muted">หากตัดขาดทุน (SL):</span>
+                        <strong class="text-danger" id="modal-sl">-$0.00</strong>
+                    </div>
+                </div>
+                <p class="text-muted mb-0" style="font-size:0.8rem;">
+                    *การคำนวณข้างต้นเป็นค่าประมาณการอ้างอิงจากราคา ณ ปัจจุบัน <br> 
+                    *บอทมีระบบ <strong>Circuit Breaker</strong> บล็อกการเปิด Lot ที่ใหญ่กว่า 0.05 อัตโนมัติ
+                </p>
+            </div>
+            <div class="modal-footer border-0">
+                <button type="button" class="btn btn-outline-secondary rounded-pill px-4" data-bs-dismiss="modal">ยกเลิก</button>
+                <button type="button" class="btn btn-success rounded-pill px-4 fw-bold" id="btn-confirm-start-bot"><i class="fas fa-play me-1"></i> เริ่มการทำงานบอท</button>
+            </div>
+        </div>
+    </div>
+</div>
 
 <!-- AI Modal -->
 <div class="modal fade" id="aiBotModal" tabindex="-1" aria-hidden="true">
