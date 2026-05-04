@@ -555,24 +555,33 @@
         });
 
         const breakoutEl = document.getElementById('breakout-level-display');
+        const tpEl = document.getElementById('tactical-tp');
+        const slEl = document.getElementById('tactical-sl');
         let breakoutPrice = 0;
+        let tpMult = 1.5; // Default Sniper
         
         if (activeStrategy === 'SNIPER') {
             breakoutPrice = globalTactical.ema9;
-            breakoutEl.innerText = breakoutPrice.toFixed(2);
+            tpMult = 1.5;
             breakoutEl.className = 't-value text-danger fw-bold';
-            document.getElementById('tactical-tp').innerText = (globalTactical.price + globalTactical.n * 0.5).toFixed(2);
         } else if (activeStrategy === 'SCALPER') {
             breakoutPrice = globalTactical.short_term_high;
-            breakoutEl.innerText = breakoutPrice.toFixed(2);
+            tpMult = 2.0;
             breakoutEl.className = 't-value text-primary';
-            document.getElementById('tactical-tp').innerText = (globalTactical.price + globalTactical.n).toFixed(2);
         } else {
             breakoutPrice = globalTactical.high_20d;
-            breakoutEl.innerText = breakoutPrice.toFixed(2);
+            tpMult = 3.5;
             breakoutEl.className = 't-value text-info';
-            document.getElementById('tactical-tp').innerText = (globalTactical.price + globalTactical.n * 2).toFixed(2);
         }
+
+        breakoutEl.innerText = breakoutPrice.toFixed(2);
+        
+        // Calculate TP and SL relative to BREAKOUT price
+        const targetPrice = breakoutPrice + (globalTactical.n * tpMult);
+        const stopPrice = breakoutPrice - (globalTactical.n * 2.0);
+
+        tpEl.innerText = targetPrice.toFixed(2);
+        slEl.innerText = stopPrice.toFixed(2);
 
         const isBrk = lastPrice >= breakoutPrice;
         const sigBadge = document.getElementById('tactical-signal');
@@ -784,7 +793,7 @@
                 document.getElementById('m-chg').className = (chg >= 0 ? 'text-success' : 'text-danger');
 
                 document.getElementById('live-n-val').innerText = data.tactical.n.toFixed(2);
-                document.getElementById('tactical-sl').innerText = (lastPrice - data.tactical.n * 2).toFixed(2);
+                updateTacticalUI(); // Consolidated logic here
 
                 const tEl = document.getElementById('trend-status-display');
                 if (tEl) {
