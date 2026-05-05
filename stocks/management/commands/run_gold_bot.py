@@ -113,53 +113,11 @@ class Command(BaseCommand):
                         elif (target_strat == 'ALL' or target_strat == 'SWING') and sw_buy: signal_type = "SWING_H55"
 
                         if signal_type:
-                            session_has_traded = True
-                            for acc in accounts:
-                                bridge = RobotBridge(user=acc.user)
-                                
-                                # คำนวณความเสี่ยง
-                                balance = float(acc.balance)
-                                risk_money = balance * self.RISK_PER_TRADE
-                                
-                                sl_mult = 2.0
-                                tp_mult = 1.5 if signal_type == "SNIPER_EMA9" else (2.0 if "SCALPER" in signal_type else 3.5)
-                                
-                                sl_dist = sl_mult * atr
-                                tp_dist = tp_mult * atr
-
-                                # คำนวณ Lot Size (Fix: หารด้วย 100 contract size)
-                                contract_size = 100.0
-                                raw_lots = risk_money / (sl_dist * contract_size) if sl_dist > 0 else self.MIN_LOT
-                                lots = round(max(self.MIN_LOT, raw_lots), 2)
-                                
-                                if lots > 0.05:
-                                    self.stdout.write(self.style.ERROR(f"🚨 CIRCUIT BREAKER: {lots} Lots"))
-                                    continue
-
-                                sl_price = curr_price - sl_dist
-                                tp_price = curr_price + tp_dist
-                                current_tp = tp_price if signal_type == "SNIPER_EMA9" else None
-
-                                res = bridge.execute_trade(
-                                    symbol=self.BROKER_SYMBOL, side="BUY", volume=lots,
-                                    strategy=signal_type, sl=sl_price, tp=current_tp
-                                )
-                        positions = bridge.get_open_positions() # ดึงจากโบรกเกอร์จริง
-                        
-                        for pos in positions:
-                            if pos.get('symbol') == self.BROKER_SYMBOL:
-                                pos_id = pos.get('id')
-                                current_sl = float(pos.get('stopLoss', 0) or 0)
-
-                                new_sl = curr_price - (2.0 * atr)
-                                
-                                # เงื่อนไขการเลื่อน: 1. ต้องเป็นบวก 2. ต้องสูงกว่า SL เดิม (เลื่อนขึ้นเท่านั้น)
-                                if new_sl > current_sl:
-                                    success = bridge.modify_position(pos_id, sl=new_sl)
-                                    if success:
-                                        self.stdout.write(self.style.SUCCESS(f"Trailing SL Updated: {new_sl:.2f} for {acc.account_id}"))
-                                        self.update_heartbeat(status="ACTIVE", message=f"🛡️ ยกจุดป้องกัน (Trailing SL) ไปที่ {new_sl:.2f}")
-
+                            self.stdout.write(self.style.SUCCESS(f"🚀 SIGNAL DETECTED: {signal_type} at {curr_price}"))
+                            # ในโหมดแมนนวล: ส่งสัญญาณไปที่ UI แทนการเปิดออเดอร์
+                            self.update_heartbeat(status="SIGNAL", message=f"SIGNAL_BUY:{signal_type}:{curr_price:.2f}")
+                            session_has_traded = True 
+                    
                     if not signal_type:
                         # ถ้ายังไม่มีสัญญาณใหม่ ให้รายงานสถานะราคาปัจจุบัน โดยติดชื่อโหมดไว้ด้วย
                         self.update_heartbeat(status="ACTIVE", message=f"เฝ้าระวัง ({target_strat})... ราคา: {curr_price:.2f} | RSI: {rsi:.1f}")

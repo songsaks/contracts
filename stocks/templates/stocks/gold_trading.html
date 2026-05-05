@@ -104,6 +104,61 @@
         box-shadow: inset 0 1px 1px rgba(255,255,255,0.1);
         border: 1px solid rgba(0,0,0,0.2);
     }
+    
+    /* Tactical Decision Center */
+    .decision-panel {
+        background: rgba(15, 23, 42, 0.8);
+        border: 1px solid rgba(255,255,255,0.1);
+        border-radius: 15px;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+        transition: all 0.5s ease;
+        position: relative;
+        overflow: hidden;
+    }
+    .decision-panel.buy { border-color: #22c55e; background: rgba(34, 197, 94, 0.1); box-shadow: 0 0 20px rgba(34, 197, 94, 0.2); }
+    .decision-panel.sell { border-color: #ef4444; background: rgba(239, 68, 68, 0.1); box-shadow: 0 0 20px rgba(239, 68, 68, 0.2); }
+    .decision-panel.wait { border-color: #64748b; background: rgba(100, 116, 139, 0.1); }
+    
+    .signal-icon {
+        font-size: 3rem;
+        margin-right: 1.5rem;
+        filter: drop-shadow(0 0 10px currentColor);
+    }
+    .signal-status { font-size: 1.8rem; font-weight: 900; letter-spacing: 2px; }
+    .signal-message { color: #94a3b8; font-size: 0.95rem; margin-top: 0.5rem; }
+    
+    /* Message Feed */
+    .message-feed {
+        background: rgba(0,0,0,0.3);
+        border-radius: 10px;
+        height: 200px;
+        overflow-y: auto;
+        padding: 1rem;
+        font-family: 'Courier New', Courier, monospace;
+        font-size: 0.85rem;
+        border: 1px solid rgba(255,255,255,0.05);
+    }
+    .feed-entry { margin-bottom: 0.5rem; border-left: 2px solid #334155; padding-left: 10px; }
+    .feed-time { color: #64748b; margin-right: 8px; }
+    .feed-msg { color: #e2e8f0; }
+    .feed-signal { color: #22c55e; font-weight: bold; }
+
+    .pulse-ring {
+        position: absolute;
+        top: 50%; left: 10%;
+        transform: translate(-50%, -50%);
+        width: 100px; height: 100px;
+        border-radius: 50%;
+        border: 2px solid currentColor;
+        opacity: 0;
+        animation: pulse-ring 2s infinite;
+    }
+    @keyframes pulse-ring {
+        0% { transform: translate(-50%, -50%) scale(0.5); opacity: 0.8; }
+        100% { transform: translate(-50%, -50%) scale(1.5); opacity: 0; }
+    }
+
     .matrix-btn.wait { background: #475569; color: #cbd5e1; }
     .matrix-btn.buy { background: #16a34a; box-shadow: 0 0 10px rgba(22,163,74,0.4); }
     .matrix-btn.sell { background: #dc2626; box-shadow: 0 0 10px rgba(220,38,38,0.4); }
@@ -325,7 +380,7 @@
 
             <button class="btn w-100 mt-3" onclick="executeTrade('BUY', false, 0.01)"
                 style="border: 2px dashed #0ea5e9; color: #38bdf8; background: rgba(14, 165, 233, 0.05); font-weight: 800; border-radius: 10px; font-size: 0.85rem; padding: 0.6rem;">
-                <i class="fas fa-vial me-1"></i> TEST ORDER (0.01 Oz)
+                <i class="fas fa-vial me-1"></i> TEST ORDER (0.01 Lot)
             </button>
         </div>
 
@@ -356,6 +411,28 @@
                 <i class="fas fa-calculator text-muted"></i> POSITION SIZER
             </div>
             <div class="p-3">
+                <!-- Tactical Decision Center (Manual Trade Support) -->
+                <div id="decision-center" class="decision-panel wait d-flex align-items-center">
+                    <div class="pulse-ring" id="signal-pulse"></div>
+                    <div class="signal-icon" id="signal-main-icon">
+                        <i class="fas fa-satellite-dish"></i>
+                    </div>
+                    <div class="flex-grow-1">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <div class="text-uppercase small fw-bold text-muted mb-1">Tactical Decision Support</div>
+                                <div class="signal-status" id="signal-main-text">SCANNING...</div>
+                                <div class="signal-message" id="signal-main-subtext">Monitoring market volatility and breakout levels.</div>
+                            </div>
+                            <div class="text-end">
+                                <span class="badge bg-dark border border-secondary px-3 py-2" id="active-strategy-badge">
+                                    MODE: <span id="display-strategy">SNIPER</span>
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="row g-2">
                     <div class="col-6">
                         <label class="matrix-label d-block mb-1">CAPITAL ($)</label>
@@ -369,7 +446,7 @@
                 
                 <div class="sizer-suggested">
                     <div class="sizer-label">SUGGESTED SIZE</div>
-                    <div class="sizer-value" id="tac-suggest-size">0.00 Oz</div>
+                    <div class="sizer-value" id="tac-suggest-size">0.00 Lots</div>
                 </div>
 
                 <div class="d-flex justify-content-between mt-3 pt-3 border-top">
@@ -380,6 +457,13 @@
                     <div class="text-center flex-grow-1 border-start">
                         <div class="matrix-label" style="font-size:0.6rem;">RSI(14)</div>
                         <div id="rsi-display" class="fw-bold text-primary" style="font-size:0.85rem;">43.1</div>
+                    </div>
+                </div>
+
+                <div class="mt-4">
+                    <div class="text-uppercase small fw-bold text-muted mb-2"><i class="fas fa-comment-alt me-1"></i> AUTOMATED SIGNAL FEED</div>
+                    <div id="signal-feed" class="message-feed">
+                        <div class="feed-entry"><span class="feed-time">[SYSTEM]</span> <span class="feed-msg">Initializing Command Feed...</span></div>
                     </div>
                 </div>
             </div>
@@ -508,6 +592,47 @@
     let globalTactical = null;
     let activeStrategy = 'SNIPER';
 
+    function addFeedMessage(msg, isSignal = false) {
+        const feed = document.getElementById('signal-feed');
+        const time = new Date().toLocaleTimeString('en-GB', { hour12: false });
+        const entry = document.createElement('div');
+        entry.className = 'feed-entry';
+        if (isSignal) entry.style.borderColor = '#22c55e';
+        entry.innerHTML = `<span class="feed-time">[${time}]</span> <span class="${isSignal ? 'feed-signal' : 'feed-msg'}">${msg}</span>`;
+        feed.prepend(entry);
+        if (feed.childNodes.length > 50) feed.removeChild(feed.lastChild);
+    }
+
+    function updateBotStatus() {
+        fetch("{% url 'stocks:get_bot_status' %}")
+        .then(res => res.json())
+        .then(data => {
+            if (data.status === 'ACTIVE' || data.status === 'SIGNAL') {
+                if (data.message && data.message.startsWith('SIGNAL_BUY:')) {
+                    const parts = data.message.split(':');
+                    const strat = parts[1];
+                    const price = parts[2];
+                    
+                    const dc = document.getElementById('decision-center');
+                    dc.className = 'decision-panel buy d-flex align-items-center';
+                    document.getElementById('signal-main-icon').innerHTML = '<i class="fas fa-rocket text-success"></i>';
+                    document.getElementById('signal-main-text').innerText = 'ENTRY CONFIRMED!';
+                    document.getElementById('signal-main-subtext').innerText = `BOT DETECTED ${strat} AT ${price}. CLICK BUY TO EXECUTE.`;
+                    
+                    addFeedMessage(`🟢 SIGNAL DETECTED: ${strat} at ${price}`, true);
+                    
+                    if (!window.lastSignalTime || Date.now() - window.lastSignalTime > 60000) {
+                        const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
+                        audio.play();
+                        window.lastSignalTime = Date.now();
+                    }
+                } else {
+                    addFeedMessage(data.message || "Bot active.");
+                }
+            }
+        });
+    }
+
     /* ── Responsive chart heights ── */
     function chartH() {
         if (window.innerWidth < 576) return { main: 260, rsi: 80, vol: 55 };
@@ -531,6 +656,9 @@
         });
         
         const lbl = document.getElementById('strategy-label');
+        const dlbl = document.getElementById('display-strategy');
+        if (dlbl) dlbl.innerText = s;
+
         if (s === 'SNIPER') {
             lbl.innerText = 'ULTRA-SHORT (SNIPER)';
             lbl.style.background = '#ef4444'; lbl.style.color = '#fff';
@@ -557,8 +685,14 @@
         const breakoutEl = document.getElementById('breakout-level-display');
         const tpEl = document.getElementById('tactical-tp');
         const slEl = document.getElementById('tactical-sl');
+        
+        const decisionCenter = document.getElementById('decision-center');
+        const signalIcon = document.getElementById('signal-main-icon');
+        const signalText = document.getElementById('signal-main-text');
+        const signalSubtext = document.getElementById('signal-main-subtext');
+        
         let breakoutPrice = 0;
-        let tpMult = 1.5; // Default Sniper
+        let tpMult = 1.5; 
         
         if (activeStrategy === 'SNIPER') {
             breakoutPrice = globalTactical.ema9;
@@ -576,26 +710,40 @@
 
         breakoutEl.innerText = breakoutPrice.toFixed(2);
         
-        // Calculate TP and SL relative to BREAKOUT price
         const targetPrice = breakoutPrice + (globalTactical.n * tpMult);
         const stopPrice = breakoutPrice - (globalTactical.n * 2.0);
 
         tpEl.innerText = targetPrice.toFixed(2);
         slEl.innerText = stopPrice.toFixed(2);
 
-        const isBrk = lastPrice >= breakoutPrice;
-        const sigBadge = document.getElementById('tactical-signal');
-        if (isBrk) {
-            sigBadge.innerText = `▲ ${activeStrategy} BREAKOUT`;
-            sigBadge.style.background = 'rgba(22, 163, 74, 0.1)';
-            sigBadge.style.borderColor = '#16a34a';
-            sigBadge.style.color = '#16a34a';
+        // Update Decision Center Visuals
+        const mainSignal = globalTactical.signals.short; 
+        if (mainSignal === 'BUY') {
+            decisionCenter.className = 'decision-panel buy d-flex align-items-center';
+            signalIcon.innerHTML = '<i class="fas fa-arrow-circle-up text-success"></i>';
+            signalText.innerText = 'BUY SIGNAL!';
+            signalText.className = 'signal-status text-success';
+            signalSubtext.innerText = `Price broke above ${breakoutPrice.toFixed(2)}. Consider entering LONG.`;
+            if (Notification.permission === "granted" && !window.lastNotified) {
+                new Notification("GOLD SIGNAL: BUY", { body: `Target: ${targetPrice.toFixed(2)}` });
+                window.lastNotified = true;
+            }
+        } else if (mainSignal === 'SELL') {
+            decisionCenter.className = 'decision-panel sell d-flex align-items-center';
+            signalIcon.innerHTML = '<i class="fas fa-arrow-circle-down text-danger"></i>';
+            signalText.innerText = 'SELL SIGNAL!';
+            signalText.className = 'signal-status text-danger';
+            signalSubtext.innerText = `Price dropped below ${breakoutPrice.toFixed(2)}. Consider entering SHORT.`;
         } else {
-            sigBadge.innerText = '── NEUTRAL ──';
-            sigBadge.style.background = 'rgba(56, 189, 248, 0.1)';
-            sigBadge.style.borderColor = '#38bdf8';
-            sigBadge.style.color = '#38bdf8';
+            decisionCenter.className = 'decision-panel wait d-flex align-items-center';
+            signalIcon.innerHTML = '<i class="fas fa-hourglass-half text-muted"></i>';
+            signalText.innerText = 'WAITING...';
+            signalText.className = 'signal-status text-muted';
+            signalSubtext.innerText = `Monitoring ${activeStrategy} breakout at ${breakoutPrice.toFixed(2)}.`;
+            window.lastNotified = false;
         }
+
+        const sigBadge = document.getElementById('tactical-signal');
         
         calculateSize();
     }
@@ -616,9 +764,9 @@
     function executeTrade(type, skipConfirm = false, customLot = null) {
         const sizeText = document.getElementById('tac-suggest-size').innerText;
         const lotSize  = customLot || parseFloat(sizeText) || 0.01;
-        if (!skipConfirm && !confirm(`Send LIVE ${type} order (${lotSize} Oz) at Market price?`)) return;
+        if (!skipConfirm && !confirm(`Send LIVE ${type} order (${lotSize} Lots) at Market price?`)) return;
         
-        logMessage(`REQUEST: ${type} ${lotSize} Oz`, 'text-warning');
+        logMessage(`REQUEST: ${type} ${lotSize} Lots`, 'text-warning');
         const slValue = globalTactical ? (type==='BUY' ? lastPrice-(globalTactical.n*2) : lastPrice+(globalTactical.n*2)) : null;
         
         fetch("{% url 'stocks:execute_gold_trade' %}", {
@@ -632,21 +780,6 @@
             else logMessage(`FAILED: ${d.error}`, 'text-danger');
         })
         .catch(() => logMessage('ERROR: Connection failure.', 'text-danger'));
-    }
-
-    function logMessage(msg, colorClass) {
-        const ts = new Date().toTimeString().slice(0,8);
-        const html = `<div class="${colorClass} mb-1" style="border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 3px;">
-                        <span style="color:#64748b; font-size: 0.7rem;">[${ts}]</span> 
-                        <span style="margin-left: 5px;">${msg}</span>
-                      </div>`;
-        ['bot-logs', 'bot-logs-mobile'].forEach(id => {
-            const el = document.getElementById(id);
-            if (el) {
-                el.insertAdjacentHTML('afterbegin', html);
-                if (el.children.length > 50) el.lastElementChild.remove();
-            }
-        });
     }
 
     function cleanData(arr) {
@@ -724,19 +857,6 @@
             if (data.candles && data.candles.length > 0) {
                 const cleanCandles = cleanData(data.candles);
                 
-                // --- DIAGNOSTICS ---
-                let debugDiv = document.getElementById('chart-debug');
-                if (!debugDiv) {
-                    debugDiv = document.createElement('div');
-                    debugDiv.id = 'chart-debug';
-                    debugDiv.style.color = 'red';
-                    debugDiv.style.fontSize = '12px';
-                    container.parentNode.insertBefore(debugDiv, container);
-                }
-                const canvas = container.querySelector('canvas');
-                debugDiv.innerText = `DEBUG: Candles=${cleanCandles.length} | FirstTime=${cleanCandles[0]?.time} | Close=${cleanCandles[0]?.close} | CanvasSize=${canvas ? canvas.width+'x'+canvas.height : 'No Canvas'} | WxH=${w}x${h.main}`;
-                // -------------------
-
                 try {
                     mainChart.candleSeries.setData(cleanCandles);
                     
@@ -757,7 +877,6 @@
                         window.chartHasData = true;
                     }
                 } catch (e) {
-                    debugDiv.innerText += ` | ERR: ${e.message}`;
                     logMessage('setData Error: ' + e.message, 'text-danger');
                 }
             } else {
@@ -779,7 +898,6 @@
                 globalTactical = data.tactical;
                 lastPrice = data.tactical.price;
 
-                // 1. Update Text UI First
                 document.getElementById('gold-price-display').innerText = lastPrice.toFixed(2);
                 document.getElementById('m-price').innerText = lastPrice.toFixed(2);
                 
@@ -793,8 +911,7 @@
                 document.getElementById('m-chg').className = (chg >= 0 ? 'text-success' : 'text-danger');
 
                 document.getElementById('live-n-val').innerText = data.tactical.n.toFixed(2);
-                updateTacticalUI(); // Consolidated logic here
-
+                
                 const tEl = document.getElementById('trend-status-display');
                 if (tEl) {
                     const isUp = lastPrice > data.tactical.ema200;
@@ -810,15 +927,12 @@
 
                 updateTacticalUI();
                 calculateSize();
-
-                // 2. Render Charts
-                window.lastChartData = data;
                 renderCharts(data);
+                updateBotStatus();
 
-                // 3. Update Bot Status
+                const txt = document.getElementById('bot-status-text');
+                const bInd = document.getElementById('bot-status-indicator');
                 fetch("{% url 'stocks:get_bot_status' %}").then(r=>r.json()).then(b => {
-                    const txt = document.getElementById('bot-status-text');
-                    const bInd = document.getElementById('bot-status-indicator');
                     if (b.status === 'ACTIVE') {
                         document.getElementById('bot-status-lamp').style.background = '#34d399';
                         txt.innerText = 'SERVER BOT: ' + (b.message || 'ACTIVE');
@@ -903,7 +1017,7 @@
                     const pl = parseFloat(pos.unrealizedProfit || 0);
                     return `<tr>
                         <td class="ps-3"><span class="badge ${isBuy?'bg-success':'bg-danger'}">${isBuy?'BUY':'SELL'}</span></td>
-                        <td>${pos.volume} Oz</td>
+                        <td>${pos.volume} Lots</td>
                         <td>${parseFloat(pos.openPrice).toFixed(2)}</td>
                         <td class="text-end pe-3 fw-bold ${pl>=0?'text-success':'text-danger'}">${pl>=0?'+':''}${pl.toFixed(2)}</td>
                     </tr>`;
