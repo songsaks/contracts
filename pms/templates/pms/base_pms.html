@@ -474,16 +474,40 @@
                             <i class="fas fa-history"></i> <span class="ms-1">ประวัติ</span>
                         </a>
                     </li>
-                    <li class="nav-item">
-                        <a class="nav-link {% if request.resolver_match.url_name == 'requirement_list' %}active{% endif %} d-flex align-items-center gap-1" href="{% url 'pms:requirement_list' %}" title="Leads">
-                            <i class="fas fa-microphone-alt"></i>
-                            <span class="ms-1">Leads</span>
-                            {% if unconverted_leads_count > 0 %}
-                            <span class="badge rounded-pill bg-danger lead-badge-pulse" style="font-size: 0.6rem; padding: 0.2em 0.5em;">
-                                {{ unconverted_leads_count }}
-                            </span>
-                            {% endif %}
+                    <!-- เมนูระบบ CRM และผู้มุ่งหวัง (Leads) -->
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle {% if 'leads' in request.path or 'requirements' in request.path %}active{% endif %}" href="#" id="leadsDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false" title="จัดการผู้มุ่งหวัง">
+                            <i class="fas fa-bullseye"></i> <span class="ms-1">CRM</span>
                         </a>
+                        <ul class="dropdown-menu border-0 shadow-lg" aria-labelledby="leadsDropdown">
+                            <li>
+                                <a class="dropdown-item {% if request.resolver_match.url_name == 'lead_dashboard' %}active{% endif %}" href="{% url 'pms:lead_dashboard' %}">
+                                    <i class="fas fa-chart-pie me-2 text-warning"></i>ภาพรวมการขาย (Dashboard)
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item {% if request.resolver_match.url_name == 'lead_list' %}active{% endif %}" href="{% url 'pms:lead_list' %}">
+                                    <i class="fas fa-user-friends me-2 text-primary"></i>รายชื่อผู้มุ่งหวัง (Leads)
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item {% if request.resolver_match.url_name == 'requirement_list' %}active{% endif %}" href="{% url 'pms:requirement_list' %}">
+                                    <i class="fas fa-microphone-alt me-2 text-info"></i>Request by Talk
+                                </a>
+                            </li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li>
+                                <a class="dropdown-item" href="{% url 'pms:lead_create' %}">
+                                    <i class="fas fa-plus-circle me-2 text-success"></i>สร้าง Lead ใหม่
+                                </a>
+                            </li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li>
+                                <a class="dropdown-item {% if request.resolver_match.url_name == 'lead_manual' %}active{% endif %}" href="{% url 'pms:lead_manual' %}">
+                                    <i class="fas fa-book me-2 text-muted"></i>คู่มือการใช้งาน
+                                </a>
+                            </li>
+                        </ul>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link {% if request.resolver_match.url_name == 'request_list' %}active{% endif %} d-flex align-items-center gap-1" href="{% url 'pms:request_list' %}" title="คำขอ">

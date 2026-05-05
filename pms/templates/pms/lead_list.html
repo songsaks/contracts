@@ -1,0 +1,148 @@
+{% extends "pms/base_pms.html" %}
+{% load static %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header Section -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="fw-bold mb-1"><i class="fas fa-bullseye text-primary me-2"></i>Leads Management</h2>
+            <p class="text-muted mb-0">ระบบจัดการผู้มุ่งหวังและโอกาสทางการขาย (CRM)</p>
+        </div>
+        <a href="{% url 'pms:lead_create' %}" class="btn btn-primary btn-lg shadow-sm">
+            <i class="fas fa-plus-circle me-2"></i>สร้าง Lead ใหม่
+        </a>
+    </div>
+
+    <!-- Filter Bar -->
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body">
+            <form method="GET" class="row g-3 align-items-center">
+                <div class="col-md-4">
+                    <div class="input-group">
+                        <span class="input-group-text bg-white border-end-0"><i class="fas fa-search text-muted"></i></span>
+                        <input type="text" name="q" class="form-control border-start-0" placeholder="ค้นชื่อลูกค้า หรือ ผู้ติดต่อ...">
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <select name="status" class="form-select" onchange="this.form.submit()">
+                        <option value="">-- ทุกสถานะ --</option>
+                        {% for code, label in status_choices %}
+                            <option value="{{ code }}" {% if request.GET.status == code %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <div class="form-check form-switch mt-2">
+                        <input class="form-check-input" type="checkbox" name="not_converted" id="notConvertedSwitch" {% if request.GET.not_converted %}checked{% endif %} onchange="this.form.submit()">
+                        <label class="form-check-label" for="notConvertedSwitch">แสดงเฉพาะที่ยังไม่ปิดการขาย</label>
+                    </div>
+                </div>
+                <div class="col-md-2 text-end">
+                    <a href="{% url 'pms:lead_list' %}" class="btn btn-outline-secondary w-100">ล้างตัวกรอง</a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Leads Table -->
+    <div class="card border-0 shadow-sm">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="bg-light">
+                        <tr>
+                            <th class="ps-4">ชื่อลูกค้า / บริษัท</th>
+                            <th>ระดับความสนใจ</th>
+                            <th>งบประมาณ (ประมาณการ)</th>
+                            <th>สถานะ</th>
+                            <th>ผู้รับผิดชอบ</th>
+                            <th>วันที่บันทึก</th>
+                            <th class="text-end pe-4">จัดการ</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for lead in leads %}
+                        <tr>
+                            <td class="ps-4">
+                                <div class="d-flex align-items-center">
+                                    <div class="avatar-sm bg-primary-soft text-primary rounded-circle me-3 d-flex align-items-center justify-content-center" style="width: 40px; height: 40px; background-color: rgba(13, 110, 253, 0.1);">
+                                        <i class="fas fa-building"></i>
+                                    </div>
+                                    <div>
+                                        <h6 class="mb-0 fw-bold text-dark">{{ lead.customer_name }}</h6>
+                                        <small class="text-muted"><i class="fas fa-user me-1"></i>{{ lead.contact_person|default:"-" }}</small>
+                                    </div>
+                                </div>
+                            </td>
+                            <td>
+                                <div class="text-warning">
+                                    {% for i in "12345" %}
+                                        <i class="{% if forloop.counter <= lead.interest_score %}fas{% else %}far{% endif %} fa-star"></i>
+                                    {% endfor %}
+                                </div>
+                            </td>
+                            <td>
+                                <span class="fw-bold text-dark">฿{{ lead.estimated_value|floatformat:2 }}</span>
+                            </td>
+                            <td>
+                                {% if lead.status == 'WON' %}
+                                    <span class="badge rounded-pill bg-success px-3">ปิดการขายได้</span>
+                                {% elif lead.status == 'LOST' %}
+                                    <span class="badge rounded-pill bg-danger px-3">เสียโอกาส</span>
+                                {% elif lead.status == 'NEGOTIATION' %}
+                                    <span class="badge rounded-pill bg-info px-3 text-white">เจรจาต่อรอง</span>
+                                {% else %}
+                                    <span class="badge rounded-pill bg-secondary px-3">{{ lead.get_status_display }}</span>
+                                {% endif %}
+                                
+                                {% if lead.is_converted %}
+                                    <br><small class="text-primary mt-1"><i class="fas fa-check-circle me-1"></i>Project Created</small>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <span class="badge bg-light text-dark border"><i class="fas fa-user-tie me-1"></i>{{ lead.assigned_to|default:"ไม่ระบุ" }}</span>
+                            </td>
+                            <td>
+                                <small class="text-muted">{{ lead.created_at|date:"d/m/Y H:i" }}</small>
+                            </td>
+                            <td class="text-end pe-4">
+                                <div class="btn-group">
+                                    {% if not lead.is_converted and lead.status != 'LOST' %}
+                                    <a href="{% url 'pms:lead_convert_to_project' lead.pk %}" class="btn btn-sm btn-success shadow-sm" title="สร้างโครงการ">
+                                        <i class="fas fa-rocket"></i> Convert
+                                    </a>
+                                    {% endif %}
+                                    <a href="{% url 'pms:lead_update' lead.pk %}" class="btn btn-sm btn-outline-primary ms-1">
+                                        <i class="fas fa-edit"></i>
+                                    </a>
+                                    <a href="{% url 'pms:lead_delete' lead.pk %}" class="btn btn-sm btn-outline-danger ms-1" onclick="return confirm('คุณต้องการลบข้อมูล Lead นี้ใช่หรือไม่?')">
+                                        <i class="fas fa-trash"></i>
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="7" class="text-center py-5">
+                                <div class="py-4">
+                                    <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
+                                    <p class="text-muted">ไม่พบข้อมูล Lead ในระบบ</p>
+                                    <a href="{% url 'pms:lead_create' %}" class="btn btn-primary">สร้าง Lead รายแรกของคุณ</a>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .avatar-sm { font-size: 0.8rem; }
+    .bg-primary-soft { background-color: rgba(13, 110, 253, 0.1); }
+    .table > :not(caption) > * > * { padding: 1rem 0.5rem; }
+</style>
+{% endblock %}

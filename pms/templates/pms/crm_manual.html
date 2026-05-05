@@ -1,0 +1,120 @@
+{% extends "pms/base_pms.html" %}
+{% load static %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-10">
+            <!-- Hero Header -->
+            <div class="text-center mb-5 p-5 bg-white rounded-4 shadow-sm">
+                <div class="display-1 text-primary mb-3"><i class="fas fa-book-open"></i></div>
+                <h1 class="fw-bold display-5">คู่มือการใช้งานระบบ CRM & PMS</h1>
+                <p class="lead text-muted">เรียนรู้การเพิ่มยอดขายและการบริหารโครงการอย่างมีประสิทธิภาพ</p>
+                <div class="mt-4">
+                    <span class="badge bg-primary-soft text-primary px-3 py-2 rounded-pill">Version 1.0 (2026)</span>
+                </div>
+            </div>
+
+            <!-- Comparison Section -->
+            <div class="card border-0 shadow-sm mb-5 rounded-4 overflow-hidden">
+                <div class="card-header bg-dark text-white p-4 border-0">
+                    <h4 class="mb-0 fw-bold"><i class="fas fa-balance-scale me-2"></i>ทำความเข้าใจ: CRM vs PMS</h4>
+                </div>
+                <div class="card-body p-4">
+                    <div class="row g-4">
+                        <div class="col-md-6 border-end">
+                            <div class="p-3">
+                                <h5 class="fw-bold text-primary mb-3">CRM (ระบบจัดการผู้มุ่งหวัง)</h5>
+                                <p class="text-muted">เปรียบเสมือน <strong>"เข็มทิศพนักงานขาย"</strong> เน้นการมองหาโอกาสและเงินในอนาคต</p>
+                                <ul class="list-unstyled">
+                                    <li class="mb-2"><i class="fas fa-check-circle text-success me-2"></i>หาลูกค้าใหม่ (Sales Prospecting)</li>
+                                    <li class="mb-2"><i class="fas fa-check-circle text-success me-2"></i>จัดอันดับความสนใจ (Lead Scoring)</li>
+                                    <li class="mb-2"><i class="fas fa-check-circle text-success me-2"></i>วิเคราะห์โอกาสปิดการขาย (Sales Pipeline)</li>
+                                </ul>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="p-3">
+                                <h5 class="fw-bold text-secondary mb-3">PMS (ระบบบริหารโครงการ)</h5>
+                                <p class="text-muted">เปรียบเสมือน <strong>"เครื่องยนต์บริษัท"</strong> เน้นการทำงานให้จบและเงินในปัจจุบัน</p>
+                                <ul class="list-unstyled">
+                                    <li class="mb-2"><i class="fas fa-check-circle text-success me-2"></i>คุมเวลาและ SLA (Delivery)</li>
+                                    <li class="mb-2"><i class="fas fa-check-circle text-success me-2"></i>จัดลำดับทีมงาน (Resource)</li>
+                                    <li class="mb-2"><i class="fas fa-check-circle text-success me-2"></i>สรุปผลงานจริง (Actual Sales)</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Workflow Section -->
+            <h3 class="fw-bold mb-4 ms-2">Workflow: จาก "คนแปลกหน้า" สู่ "โครงการจริง"</h3>
+            <div class="row g-4 mb-5">
+                <div class="col-md-3">
+                    <div class="card border-0 shadow-sm h-100 rounded-4 text-center p-4">
+                        <div class="display-6 text-warning mb-3">1</div>
+                        <h6 class="fw-bold">บันทึก Lead</h6>
+                        <p class="small text-muted">ใส่ข้อมูลลูกค้าด่วนเวลาออกไปหาลูกค้าข้างนอก</p>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card border-0 shadow-sm h-100 rounded-4 text-center p-4">
+                        <div class="display-6 text-info mb-3">2</div>
+                        <h6 class="fw-bold">ติดตามผล</h6>
+                        <p class="small text-muted">วิเคราะห์ความสนใจและอัปเดตสถานะใน Pipeline</p>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card border-0 shadow-sm h-100 rounded-4 text-center p-4">
+                        <div class="display-6 text-success mb-3">3</div>
+                        <h6 class="fw-bold">ปิดการขาย (WON)</h6>
+                        <p class="small text-muted">ไชโย! ลูกค้าตกลงซื้อ เตรียมเริ่มงานจริง</p>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card border-0 shadow-sm h-100 rounded-4 text-center p-4 bg-primary text-white">
+                        <div class="display-6 mb-3"><i class="fas fa-sync-alt"></i></div>
+                        <h6 class="fw-bold">CONVERT</h6>
+                        <p class="small opacity-75">กดปุ่มเดียวเพื่อสร้างโครงการใน PMS ทันที</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Dashboard Guide -->
+            <div class="card border-0 shadow-sm mb-5 rounded-4">
+                <div class="card-body p-5">
+                    <h4 class="fw-bold mb-4"><i class="fas fa-chart-pie me-2 text-warning"></i>การอ่านค่าใน CRM Dashboard</h4>
+                    <div class="row g-4">
+                        <div class="col-md-4">
+                            <h6 class="fw-bold">Pipeline Value คือ?</h6>
+                            <p class="small text-muted">ยอดเงินทั้งหมดที่ทีมขายกำลังเสนออยู่ คือเงินที่ "คาดว่าจะได้" ในอนาคต</p>
+                        </div>
+                        <div class="col-md-4">
+                            <h6 class="fw-bold">Win Rate คือ?</h6>
+                            <p class="small text-muted">เปอร์เซ็นต์ความสำเร็จในการขาย วัดว่าเสนอไปกี่รายและได้งานมากี่ราย</p>
+                        </div>
+                        <div class="col-md-4">
+                            <h6 class="fw-bold">Lead Source คือ?</h6>
+                            <p class="small text-muted">สถิติที่บอกว่าลูกค้าส่วนใหญ่มาจากไหน จะได้วางแผนหาลูกค้าได้ถูกทาง</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Footer Action -->
+            <div class="text-center py-4">
+                <a href="{% url 'pms:lead_dashboard' %}" class="btn btn-primary btn-lg px-5 shadow rounded-pill">
+                    เข้าสู่ระบบ CRM <i class="fas fa-arrow-right ms-2"></i>
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .bg-primary-soft { background-color: rgba(79, 70, 229, 0.1); }
+    .card { transition: transform 0.3s; }
+    .card:hover { transform: translateY(-5px); }
+</style>
+{% endblock %}

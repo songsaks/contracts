@@ -17,12 +17,12 @@ from .models import (
     Project, ProductItem, Customer, Supplier, ProjectOwner, 
     CustomerRequirement, ProjectFile, CustomerRequest, 
     ServiceQueueItem, SLAPlan, JobStatus, ProjectStatusAssignment,
-    UserNotification
+    UserNotification, ProjectStatusLog, RequestStatusLog, Skill, Lead
 )
 from .forms import (
     ProjectForm, ProductItemForm, CustomerForm, SupplierForm, 
     ProjectOwnerForm, CustomerRequirementForm, SalesServiceJobForm, 
-    CustomerRequestForm, SLAPlanForm, JobStatusForm
+    CustomerRequestForm, SLAPlanForm, JobStatusForm, LeadForm
 )
 import io
 import pandas as pd
@@ -1593,6 +1593,212 @@ def create_project_from_requirement(request, pk):
         'title': title,
         'theme_color': theme_color if 'theme_color' in locals() else 'primary',
     })
+
+# ===== ระบบ CRM: Leads (ใหม่) =====
+
+@login_required
+def lead_list(request):
+    """
+    แสดงรายการผู้มุ่งหวัง (Leads) ทั้งหมด 
+    รองรับการกรองตามสถานะและระดับความสนใจ
+    """
+    leads = Lead.objects.all()
+    
+    # กรองตามสถานะ
+    status_filter = request.GET.get('status')
+    if status_filter:
+        leads = leads.filter(status=status_filter)
+        
+    # กรองเฉพาะที่ยังไม่ถูกแปลงเป็นโครงการ
+    if request.GET.get('not_converted'):
+        leads = leads.filter(is_converted=False)
+        
+    return render(request, 'pms/lead_list.html', {
+        'leads': leads,
+        'status_choices': Lead.Status.choices
+    })
+
+@login_required
+def lead_create(request):
+    """
+    สร้าง Lead ใหม่ (ใช้เวลาพนักงานขายออกไปหาลูกค้าข้างนอก)
+    """
+    if request.method == 'POST':
+        form = LeadForm(request.POST)
+        if form.is_valid():
+            lead = form.save()
+            messages.success(request, f'บันทึกข้อมูล Lead: {lead.customer_name} สำเร็จ')
+            return redirect('pms:lead_list')
+    else:
+        # กำหนดค่าพนักงานเบื้องต้นจาก User ที่ Login (ถ้ามีชื่อตรงกัน)
+        initial = {}
+        try:
+            owner = ProjectOwner.objects.filter(name__icontains=request.user.get_full_name()).first()
+            if owner:
+                initial['assigned_to'] = owner
+        except:
+            pass
+        form = LeadForm(initial=initial)
+        
+    return render(request, 'pms/lead_form.html', {
+        'form': form,
+        'title': 'เพิ่มข้อมูลผู้มุ่งหวัง (CRM Lead)'
+    })
+
+@login_required
+def lead_update(request, pk):
+    """
+    แก้ไขข้อมูล Lead
+    """
+    lead = get_object_or_404(Lead, pk=pk)
+    if request.method == 'POST':
+        form = LeadForm(request.POST, instance=lead)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'อัปเดตข้อมูลสำเร็จ')
+            return redirect('pms:lead_list')
+    else:
+        form = LeadForm(instance=lead)
+        
+    return render(request, 'pms/lead_form.html', {
+        'form': form,
+        'title': f'แก้ไข Lead: {lead.customer_name}',
+        'lead': lead
+    })
+
+@login_required
+def lead_delete(request, pk):
+    lead = get_object_or_404(Lead, pk=pk)
+    name = lead.customer_name
+    lead.delete()
+    messages.success(request, f'ลบข้อมูล {name} ออกจากระบบแล้ว')
+    return redirect('pms:lead_list')
+
+@login_required
+def lead_convert_to_project(request, pk):
+    """
+    หัวใจของ CRM: แปลง Lead ให้เป็น Project จริง
+    1. สร้าง Customer ใหม่ถ้ายังไม่มี
+    2. สร้าง Project ใหม่
+    3. ลิงก์ Lead เข้ากับ Project
+    """
+    lead = get_object_or_404(Lead, pk=pk)
+    
+    if lead.is_converted:
+        messages.warning(request, 'Lead นี้ถูกแปลงเป็นโครงการแล้ว')
+        return redirect('pms:project_detail', pk=lead.converted_project.pk)
+
+    if request.method == 'POST':
+        # 1. สร้าง/ค้นหา Customer
+        # พยายามหาลูกค้าที่มีชื่อตรงกันก่อน เพื่อไม่ให้ข้อมูลซ้ำซ้อน
+        customer, created = Customer.objects.get_or_create(
+            name=lead.customer_name,
+            defaults={
+                'phone': lead.phone,
+                'email': lead.email,
+                'source': f"CRM Lead ({lead.get_source_display()})",
+                'notes': f"สร้างอัตโนมัติจาก CRM Lead\nพิกัด: {lead.location}\nโน้ต: {lead.notes}"
+            }
+        )
+        
+        # 2. สร้าง Project
+        project = Project.objects.create(
+            customer=customer,
+            name=f"โครงการ: {lead.customer_name}",
+            owner=lead.assigned_to,
+            description=lead.notes,
+            status=Project.Status.DRAFT,
+            job_type=Project.JobType.PROJECT
+        )
+        
+        # เพิ่มยอดเงินประมาณการเป็นไอเทมแรก (ถ้ามี)
+        if lead.estimated_value > 0:
+            ProductItem.objects.create(
+                project=project,
+                name="งบประมาณประมาณการจาก Lead",
+                quantity=1,
+                unit_price=lead.estimated_value,
+                item_type=ProductItem.ItemType.SERVICE
+            )
+        
+        # 3. อัปเดตสถานะ Lead
+        lead.is_converted = True
+        lead.converted_project = project
+        lead.status = Lead.Status.WON
+        lead.save()
+        
+        messages.success(request, f'ยินดีด้วย! ปิดการขายสำเร็จ และสร้างโครงการ "{project.name}" เรียบร้อยแล้ว')
+        return redirect('pms:project_detail', pk=project.pk)
+        
+    return render(request, 'pms/lead_convert_confirm.html', {'lead': lead})
+
+@login_required
+def lead_dashboard(request):
+    """
+    CRM Dashboard: แสดงวิเคราะห์การขายและ Pipeline
+    """
+    from django.db.models import Sum, Count, Q
+    import json
+    
+    # 1. KPI Stats
+    all_leads = Lead.objects.all()
+    total_leads = all_leads.count()
+    active_leads = all_leads.filter(is_converted=False).exclude(status='LOST')
+    
+    # มูลค่ารวมใน Pipeline (เฉพาะที่ยังไม่ปิด)
+    pipeline_value = active_leads.aggregate(total=Sum('estimated_value'))['total'] or 0
+    
+    # อัตราการปิดการขาย (Win Rate)
+    won_count = all_leads.filter(status='WON').count()
+    lost_count = all_leads.filter(status='LOST').count()
+    total_closed = won_count + lost_count
+    win_rate = (won_count / total_closed * 100) if total_closed > 0 else 0
+    
+    # 2. Leads by Status (Sorted for Funnel)
+    stages = ['NEW', 'NEGOTIATION', 'WON']
+    status_dict = dict(Lead.Status.choices)
+    status_labels = []
+    status_data = []
+    
+    for stage in stages:
+        count = all_leads.filter(status=stage).count()
+        status_labels.append(status_dict.get(stage, stage))
+        status_data.append(count)
+        
+    # 3. Leads by Source
+    source_counts = all_leads.values('source').annotate(count=Count('id')).order_by('-count')
+    source_labels = []
+    source_data = []
+    source_dict = dict(Lead.Source.choices)
+    for entry in source_counts:
+        source_labels.append(source_dict.get(entry['source'], entry['source']))
+        source_data.append(entry['count'])
+
+    # 4. Top Sales Performers
+    top_sales = ProjectOwner.objects.annotate(
+        lead_count=Count('assigned_leads'),
+        total_value=Sum('assigned_leads__estimated_value', filter=Q(assigned_leads__is_converted=False))
+    ).filter(lead_count__gt=0).order_by('-total_value')[:5]
+
+    context = {
+        'total_leads': total_leads,
+        'pipeline_value': pipeline_value,
+        'win_rate': win_rate,
+        'won_count': won_count,
+        'status_labels': json.dumps(status_labels),
+        'status_data': json.dumps(status_data),
+        'source_labels': json.dumps(source_labels),
+        'source_data': json.dumps(source_data),
+        'top_sales': top_sales,
+    }
+    return render(request, 'pms/lead_dashboard.html', context)
+
+@login_required
+def crm_manual(request):
+    """
+    แสดงหน้าคู่มือการใช้งานระบบ CRM แบบละเอียด
+    """
+    return render(request, 'pms/crm_manual.html', {'title': 'คู่มือการใช้งานระบบ CRM'})
 
 
 # ===== AI Service Queue Views =====

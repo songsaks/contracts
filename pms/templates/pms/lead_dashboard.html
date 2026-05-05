@@ -1,0 +1,234 @@
+{% extends "pms/base_pms.html" %}
+{% load static %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="fw-bold mb-1"><i class="fas fa-chart-line text-primary me-2"></i>CRM Sales Dashboard</h2>
+            <p class="text-muted mb-0">สรุปภาพรวมโอกาสทางการขายและประสิทธิภาพทีมงาน</p>
+        </div>
+        <div class="btn-group">
+            <a href="{% url 'pms:lead_create' %}" class="btn btn-primary"><i class="fas fa-plus me-1"></i>เพิ่ม Lead ใหม่</a>
+            <a href="{% url 'pms:lead_list' %}" class="btn btn-outline-primary">ดูรายการทั้งหมด</a>
+        </div>
+    </div>
+
+    <!-- KPI Cards -->
+    <div class="row g-4 mb-4">
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm bg-primary text-white">
+                <div class="card-body p-4">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-white-50 small text-uppercase fw-bold mb-1">Total Pipeline</h6>
+                            <h3 class="fw-bold mb-0">฿{{ pipeline_value|floatformat:0 }}</h3>
+                        </div>
+                        <div class="fs-1 opacity-50"><i class="fas fa-wallet"></i></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm bg-success text-white">
+                <div class="card-body p-4">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-white-50 small text-uppercase fw-bold mb-1">Win Rate</h6>
+                            <h3 class="fw-bold mb-0">{{ win_rate|floatformat:1 }}%</h3>
+                        </div>
+                        <div class="fs-1 opacity-50"><i class="fas fa-trophy"></i></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm bg-info text-white">
+                <div class="card-body p-4">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-white-50 small text-uppercase fw-bold mb-1">Active Leads</h6>
+                            <h3 class="fw-bold mb-0">{{ total_leads }}</h3>
+                        </div>
+                        <div class="fs-1 opacity-50"><i class="fas fa-user-tag"></i></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm bg-warning text-white">
+                <div class="card-body p-4">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-white-50 small text-uppercase fw-bold mb-1">Closed Deals</h6>
+                            <h3 class="fw-bold mb-0">{{ won_count }}</h3>
+                        </div>
+                        <div class="fs-1 opacity-50"><i class="fas fa-check-double"></i></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <!-- Status Chart -->
+        <div class="col-md-6">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-white border-0 py-3">
+                    <h6 class="fw-bold mb-0"><i class="fas fa-funnel-dollar text-primary me-2"></i>Sales Funnel (by Status)</h6>
+                </div>
+                <div class="card-body">
+                    <canvas id="statusChart" height="250"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Source Chart -->
+        <div class="col-md-6">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-white border-0 py-3">
+                    <h6 class="fw-bold mb-0"><i class="fas fa-bullhorn text-success me-2"></i>Lead Sources</h6>
+                </div>
+                <div class="card-body">
+                    <canvas id="sourceChart" height="250"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Top Performers -->
+        <div class="col-md-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white border-0 py-3">
+                    <h6 class="fw-bold mb-0"><i class="fas fa-medal text-warning me-2"></i>Top Sales Performers (Active Pipeline)</h6>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="bg-light">
+                                <tr>
+                                    <th class="ps-4">พนักงานขาย</th>
+                                    <th>จำนวน Lead ในมือ</th>
+                                    <th>มูลค่ารวมที่คาดหวัง</th>
+                                    <th class="text-end pe-4">ประสิทธิภาพ</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for sale in top_sales %}
+                                <tr>
+                                    <td class="ps-4">
+                                        <div class="d-flex align-items-center">
+                                            <div class="user-avatar-sm me-2 bg-primary text-white rounded-circle d-flex align-items-center justify-content-center" style="width: 32px; height: 32px;">
+                                                {{ sale.name.0|upper }}
+                                            </div>
+                                            <span class="fw-bold">{{ sale.name }}</span>
+                                        </div>
+                                    </td>
+                                    <td>{{ sale.lead_count }} รายการ</td>
+                                    <td><span class="text-success fw-bold">฿{{ sale.total_value|floatformat:0 }}</span></td>
+                                    <td class="text-end pe-4">
+                                        <div class="progress" style="height: 6px; width: 100px; display: inline-flex;">
+                                            <div class="progress-bar bg-primary" style="width: 75%"></div>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="4" class="text-center py-4 text-muted">ยังไม่มีข้อมูลผลงานพนักงาน</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    // Funnel Chart Data Preparation
+    const rawData = {{ status_data|safe }};
+    const maxVal = Math.max(...rawData) || 10;
+    
+    // Calculate offsets to center the bars (to create funnel shape)
+    const offsets = rawData.map(v => (maxVal - v) / 2);
+
+    const ctxStatus = document.getElementById('statusChart').getContext('2d');
+    new Chart(ctxStatus, {
+        type: 'bar',
+        data: {
+            labels: {{ status_labels|safe }},
+            datasets: [
+                {
+                    label: 'Offset',
+                    data: offsets,
+                    backgroundColor: 'transparent',
+                    borderWidth: 0
+                },
+                {
+                    label: 'จำนวน Lead',
+                    data: rawData,
+                    backgroundColor: [
+                        'rgba(79, 70, 229, 0.85)', // New (Darker/Wider)
+                        'rgba(99, 102, 241, 0.7)',  // Negotiation
+                        'rgba(16, 185, 129, 0.9)'   // Won (Green/Narrower)
+                    ],
+                    borderColor: '#fff',
+                    borderWidth: 2,
+                    borderRadius: 4
+                }
+            ]
+        },
+        options: {
+            indexAxis: 'y',
+            responsive: true,
+            plugins: { 
+                legend: { display: false },
+                tooltip: {
+                    filter: function(tooltipItem) {
+                        return tooltipItem.datasetIndex === 1; // Only show tooltip for actual data
+                    }
+                }
+            },
+            scales: { 
+                x: { 
+                    stacked: true, 
+                    display: false,
+                    grid: { display: false }
+                }, 
+                y: { 
+                    stacked: true,
+                    grid: { display: false },
+                    ticks: {
+                        font: { weight: 'bold', size: 14 }
+                    }
+                } 
+            }
+        }
+    });
+
+    // Source Chart
+    const ctxSource = document.getElementById('sourceChart').getContext('2d');
+    new Chart(ctxSource, {
+        type: 'doughnut',
+        data: {
+            labels: {{ source_labels|safe }},
+            datasets: [{
+                data: {{ source_data|safe }},
+                backgroundColor: [
+                    '#4f46e5', '#10b981', '#f59e0b', '#ef4444', '#6366f1', '#ec4899'
+                ],
+                hoverOffset: 4
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: { position: 'bottom' }
+            }
+        }
+    });
+</script>
+{% endblock %}

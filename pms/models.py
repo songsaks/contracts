@@ -533,7 +533,7 @@ class ProductItem(models.Model):
     def margin(self):
         return self.total_price - self.total_cost
 
-# ====== ความต้องการลูกค้า / Lead ======
+# ====== ความต้องการลูกค้า / Lead (เดิม) ======
 class CustomerRequirement(models.Model):
     """
     บันทึกความต้องการเบื้องต้นของลูกค้า (Lead) ที่ยังไม่ได้สร้างเป็นโครงการ
@@ -553,12 +553,83 @@ class CustomerRequirement(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        verbose_name = "ความต้องการลูกค้า (Lead)"
-        verbose_name_plural = "ความต้องการลูกค้า (Leads)"
+        verbose_name = "ความต้องการลูกค้า (Lead เดิม)"
+        verbose_name_plural = "ความต้องการลูกค้า (Leads เดิม)"
 
-    # แสดงรหัสความต้องการและวันที่สร้าง
     def __str__(self):
         return f"Requirement {self.pk} - {self.created_at.strftime('%d/%m/%Y')}"
+
+# ====== ระบบ CRM: ผู้มุ่งหวัง (Lead) ======
+class Lead(models.Model):
+    """
+    โมเดลสำหรับระบบ CRM มืออาชีพ ใช้บันทึกข้อมูลผู้มุ่งหวัง (Prospects) 
+    ก่อนที่จะตัดสินใจสร้างเป็นโครงการจริง (Project)
+    """
+    class Status(models.TextChoices):
+        NEW         = 'NEW', 'รอนำเนินการ (New)'
+        CONTACTED   = 'CONTACTED', 'ติดต่อแล้ว (Contacted)'
+        QUALIFIED   = 'QUALIFIED', 'มีศักยภาพ (Qualified)'
+        PROPOSAL    = 'PROPOSAL', 'เสนอราคา (Proposal)'
+        NEGOTIATION = 'NEGOTIATION', 'เจรจาต่อรอง (Negotiation)'
+        WON         = 'WON', 'ปิดการขายได้ (Won)'
+        LOST        = 'LOST', 'เสียโอกาส (Lost)'
+
+    class Source(models.TextChoices):
+        EXHIBITION  = 'EXHIBITION', 'ออกบูธ / งานแสดงสินค้า'
+        REFERRAL    = 'REFERRAL', 'ลูกค้าแนะนำ (Referral)'
+        COLD_CALL   = 'COLD_CALL', 'โทรหาลูกค้า (Cold Call)'
+        WEBSITE     = 'WEBSITE', 'เว็บไซต์บริษัท'
+        SOCIAL      = 'SOCIAL', 'Social Media (FB/Line)'
+        OUTSIDE_VISIT = 'OUTSIDE_VISIT', 'ลงพื้นที่จริง (Field Visit)'
+        OTHER       = 'OTHER', 'อื่นๆ'
+
+    # ข้อมูลลูกค้า
+    customer_name = models.CharField(max_length=255, verbose_name="ชื่อบริษัท/ลูกค้า")
+    contact_person = models.CharField(max_length=255, blank=True, verbose_name="ผู้ติดต่อหลัก")
+    phone = models.CharField(max_length=50, blank=True, verbose_name="เบอร์โทรศัพท์")
+    email = models.EmailField(blank=True, verbose_name="อีเมล")
+    location = models.CharField(max_length=255, blank=True, verbose_name="พิกัด/สถานที่", help_text="ระบุพิกัดหรือชื่อสถานที่ที่พนักงานไปหา")
+    
+    # รายละเอียดการขาย
+    source = models.CharField(max_length=20, choices=Source.choices, default=Source.OUTSIDE_VISIT, verbose_name="ช่องทางที่มา")
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.NEW, verbose_name="สถานะ Lead")
+    interest_score = models.IntegerField(default=3, choices=[(i, f"{i} Stars") for i in range(1, 6)], verbose_name="ระดับความสนใจ")
+    estimated_value = models.DecimalField(max_digits=12, decimal_places=2, default=0.00, verbose_name="งบประมาณประมาณการ")
+    expected_close_date = models.DateField(null=True, blank=True, verbose_name="วันที่คาดว่าจะปิดการขาย")
+    
+    notes = models.TextField(blank=True, verbose_name="รายละเอียดการพูดคุย / ความต้องการ")
+    
+    # การเชื่อมโยง
+    assigned_to = models.ForeignKey(
+        'ProjectOwner', 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True, 
+        related_name='assigned_leads',
+        verbose_name="พนักงานผู้รับผิดชอบ"
+    )
+    
+    # สถานะการแปลงข้อมูล
+    is_converted = models.BooleanField(default=False, verbose_name="แปลงเป็นโครงการแล้ว")
+    converted_project = models.OneToOneField(
+        'Project', 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True, 
+        related_name='lead_origin',
+        verbose_name="โครงการที่เกี่ยวข้อง"
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "ผู้มุ่งหวัง (Lead)"
+        verbose_name_plural = "ผู้มุ่งหวัง (Leads)"
+        ordering = ['-interest_score', '-created_at']
+
+    def __str__(self):
+        return f"{self.customer_name} ({self.get_status_display()})"
 
 
 # ====== คำขอจากลูกค้า (CustomerRequest) ======

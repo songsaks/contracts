@@ -71,12 +71,21 @@ urlpatterns = [
     path('owners/create/', views.project_owner_create, name='project_owner_create'),
     path('owners/<int:pk>/edit/', views.project_owner_update, name='project_owner_update'),
 
-    # ===== ความต้องการลูกค้า / Leads =====
+    # ===== ความต้องการลูกค้า / Leads เดิม =====
     path('requirements/', views.requirement_list, name='requirement_list'),
     path('requirements/create/', views.requirement_create, name='requirement_create'),
     path('requirements/<int:pk>/edit/', views.requirement_update, name='requirement_update'),
     path('requirements/<int:pk>/delete/', views.requirement_delete, name='requirement_delete'),
     path('requirements/<int:pk>/create-project/', views.create_project_from_requirement, name='create_project_from_requirement'),  # แปลง Lead → Project
+
+    # ===== ระบบ CRM: Leads ใหม่ =====
+    path('leads/dashboard/', views.lead_dashboard, name='lead_dashboard'),
+    path('leads/manual/', views.crm_manual, name='lead_manual'),
+    path('leads/', views.lead_list, name='lead_list'),
+    path('leads/create/', views.lead_create, name='lead_create'),
+    path('leads/<int:pk>/edit/', views.lead_update, name='lead_update'),
+    path('leads/<int:pk>/delete/', views.lead_delete, name='lead_delete'),
+    path('leads/<int:pk>/convert/', views.lead_convert_to_project, name='lead_convert_to_project'),
 
     # ===== AI Service Queue (คิวงานอัตโนมัติ) =====
     path('queue/ai/', views.service_queue_dashboard, name='service_queue_dashboard'),          # หน้าหลักคิว

@@ -2,7 +2,7 @@ from django import forms
 from decimal import Decimal
 from .models import (
     Project, ProductItem, Customer, Supplier, ProjectOwner,
-    CustomerRequirement, SLAPlan, JobStatus, JobStatusAssignment, Skill
+    CustomerRequirement, SLAPlan, JobStatus, JobStatusAssignment, Skill, Lead
 )
 
 class CustomerForm(forms.ModelForm):
@@ -322,4 +322,34 @@ class JobStatusAssignmentForm(forms.ModelForm):
         fields = ['responsible_users']
         widgets = {
             'responsible_users': forms.SelectMultiple(attrs={'class': 'form-select', 'size': '5'}),
+        }
+
+class LeadForm(forms.ModelForm):
+    class Meta:
+        model = Lead
+        fields = [
+            'customer_name', 'contact_person', 'phone', 'email', 
+            'location', 'source', 'status', 'interest_score', 
+            'estimated_value', 'expected_close_date', 'notes', 'assigned_to'
+        ]
+        widgets = {
+            'customer_name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'ชื่อบริษัท หรือ ชื่อลูกค้า'}),
+            'contact_person': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'ชื่อผู้ติดต่อ'}),
+            'phone': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '08x-xxx-xxxx'}),
+            'email': forms.EmailInput(attrs={'class': 'form-control', 'placeholder': 'example@mail.com'}),
+            'location': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'พิกัด GPS หรือ ชื่อสถานที่'}),
+            'source': forms.Select(attrs={'class': 'form-select'}),
+            'status': forms.Select(attrs={'class': 'form-select'}),
+            'interest_score': forms.Select(attrs={'class': 'form-select'}),
+            'estimated_value': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
+            'expected_close_date': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
+            'notes': forms.Textarea(attrs={'class': 'form-control', 'rows': 4, 'placeholder': 'สรุปการพูดคุยและความต้องการ...'}),
+            'assigned_to': forms.Select(attrs={'class': 'form-select'}),
+        }
+        labels = {
+            'customer_name': 'ชื่อบริษัท/ลูกค้า',
+            'contact_person': 'ผู้ติดต่อหลัก',
+            'interest_score': 'ระดับความสนใจ',
+            'estimated_value': 'งบประมาณประมาณการ (บาท)',
+            'assigned_to': 'พนักงานที่ดูแล',
         }

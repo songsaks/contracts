@@ -1,0 +1,111 @@
+{% extends "pms/base_pms.html" %}
+{% load static %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <nav aria-label="breadcrumb" class="mb-4">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'pms:lead_list' %}">Leads</a></li>
+                    <li class="breadcrumb-item active">{{ title }}</li>
+                </ol>
+            </nav>
+
+            <div class="card border-0 shadow-lg">
+                <div class="card-header bg-primary text-white py-3">
+                    <h4 class="mb-0"><i class="fas fa-edit me-2"></i>{{ title }}</h4>
+                </div>
+                <div class="card-body p-4">
+                    <form method="POST" id="leadForm">
+                        {% csrf_token %}
+                        
+                        <!-- Customer Info Group -->
+                        <div class="section-title mb-3">
+                            <h5 class="text-primary fw-bold border-bottom pb-2">1. ข้อมูลลูกค้าเบื้องต้น</h5>
+                        </div>
+                        <div class="row g-3 mb-4">
+                            <div class="col-md-12">
+                                <label class="form-label fw-bold">{{ form.customer_name.label }}</label>
+                                {{ form.customer_name }}
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">{{ form.contact_person.label }}</label>
+                                {{ form.contact_person }}
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">{{ form.phone.label }}</label>
+                                {{ form.phone }}
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">{{ form.email.label }}</label>
+                                {{ form.email }}
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">{{ form.location.label }}</label>
+                                {{ form.location }}
+                            </div>
+                        </div>
+
+                        <!-- Sales Logic Group -->
+                        <div class="section-title mb-3">
+                            <h5 class="text-primary fw-bold border-bottom pb-2">2. รายละเอียดการวิเคราะห์การขาย</h5>
+                        </div>
+                        <div class="row g-3 mb-4">
+                            <div class="col-md-6">
+                                <label class="form-label">{{ form.source.label }}</label>
+                                {{ form.source }}
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">{{ form.status.label }}</label>
+                                {{ form.status }}
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">{{ form.interest_score.label }}</label>
+                                {{ form.interest_score }}
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">{{ form.estimated_value.label }}</label>
+                                {{ form.estimated_value }}
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">วันที่คาดว่าจะปิดการขาย</label>
+                                {{ form.expected_close_date }}
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">พนักงานผู้ดูแล</label>
+                                {{ form.assigned_to }}
+                            </div>
+                        </div>
+
+                        <!-- Notes Group -->
+                        <div class="section-title mb-3">
+                            <h5 class="text-primary fw-bold border-bottom pb-2">3. บันทึกเพิ่มเติม</h5>
+                        </div>
+                        <div class="mb-4">
+                            {{ form.notes }}
+                        </div>
+
+                        <hr>
+
+                        <div class="d-flex justify-content-between mt-4">
+                            <a href="{% url 'pms:lead_list' %}" class="btn btn-light btn-lg px-4">ยกเลิก</a>
+                            <button type="submit" class="btn btn-primary btn-lg px-5 shadow">
+                                <i class="fas fa-save me-2"></i>บันทึกข้อมูล Lead
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .section-title h5 { font-size: 1.1rem; }
+    .form-control:focus, .form-select:focus {
+        border-color: #0d6efd;
+        box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.15);
+    }
+</style>
+{% endblock %}
