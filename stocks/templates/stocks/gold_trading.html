@@ -262,8 +262,8 @@
         transition: transform 0.1s;
     }
     .btn-execute:active { transform: scale(0.98); }
-    .btn-buy { background: #16a34a; color: #fff; box-shadow: 0 4px 12px rgba(22,163,74,0.3); }
-    .btn-sell { background: #dc2626; color: #fff; box-shadow: 0 4px 12px rgba(220,38,38,0.3); }
+    .btn-execute-buy { background: #16a34a; color: #fff; border: none; border-radius: 10px; padding: 12px; font-weight: 800; box-shadow: 0 4px 12px rgba(22,163,74,0.3); }
+    .btn-execute-sell { background: #dc2626; color: #fff; border: none; border-radius: 10px; padding: 12px; font-weight: 800; box-shadow: 0 4px 12px rgba(220,38,38,0.3); }
 
     /* ══ Ticker / Signal ══ */
     .tactical-signal-badge {
@@ -764,7 +764,7 @@
     function executeTrade(type, skipConfirm = false, customLot = null) {
         const sizeText = document.getElementById('tac-suggest-size').innerText;
         const lotSize  = customLot || parseFloat(sizeText) || 0.01;
-        if (!skipConfirm && !confirm(`Send LIVE ${type} order (${lotSize} Lots) at Market price?`)) return;
+        if (!skipConfirm && !confirm(`Confirm LIVE ${type} order (${lotSize} Lots) at Market price?`)) return;
         
         logMessage(`REQUEST: ${type} ${lotSize} Lots`, 'text-warning');
         const slValue = globalTactical ? (type==='BUY' ? lastPrice-(globalTactical.n*2) : lastPrice+(globalTactical.n*2)) : null;
@@ -776,7 +776,13 @@
         })
         .then(r => r.json())
         .then(d => {
-            if (d.success) logMessage(`SUCCESS: Order ${d.order_id}`, 'text-info fw-bold');
+            if (d.success) {
+                logMessage(`SUCCESS: Order ${d.order_id}`, 'text-info fw-bold');
+                setTimeout(() => {
+                    updateTradeHistory();
+                    fetchPositions();
+                }, 1500);
+            }
             else logMessage(`FAILED: ${d.error}`, 'text-danger');
         })
         .catch(() => logMessage('ERROR: Connection failure.', 'text-danger'));
@@ -976,23 +982,6 @@
         }
     }
 
-    function executeTrade(side, skipConfirm = false, volume = null) {
-        const sizeText = document.getElementById('tac-suggest-size').innerText;
-        const lotSize  = volume || parseFloat(sizeText) || 0.01;
-        if (!skipConfirm && !confirm(`[CRITICAL] Confirm ${side} order: ${lotSize} MT4 Lots?`)) return;
-        
-        fetch("{% url 'stocks:execute_gold_trade' %}", {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}' },
-            body: JSON.stringify({ symbol: currentSymbol, side: side, volume: lotSize })
-        })
-        .then(r => r.json())
-        .then(d => {
-            if (d.success) logMessage(`SUCCESS: ${side} Order ID ${d.order_id}`, 'text-info fw-bold');
-            else logMessage(`FAILED: ${d.error}`, 'text-danger');
-        })
-        .catch(() => logMessage('Connection Error', 'text-danger'));
-    }
 
     function loadPeriod(p) {
         currentPeriod = p;
