@@ -96,26 +96,39 @@ class Command(BaseCommand):
                     # 4. ค้นหาสัญญาณการเทรด (เฉพาะเมื่อยังไม่มีออเดอร์ค้าง)
                     signal_type = None
                     if not has_open_position:
-                        # A: กลยุทธ์ SNIPER (ราคาตัดเส้น EMA 9 ขึ้นมา)
+                        # A: กลยุทธ์ SNIPER (ราคาตัดเส้น EMA 9)
                         sn_buy = curr_price >= ema9 and prev_row['Close'] < prev_row['ema9'] and curr_price > ema200
+                        sn_sell = curr_price <= ema9 and prev_row['Close'] > prev_row['ema9'] and curr_price < ema200
                         
-                        # B: กลยุทธ์ SCALPER (ทะลุ High 20 วัน)
+                        # B: กลยุทธ์ SCALPER (ทะลุ High/Low 20 วัน)
                         high_20d = df['High'].rolling(window=20).max().iloc[-2]
+                        low_20d = df['Low'].rolling(window=20).min().iloc[-2]
                         sc_buy = curr_price > high_20d and curr_price > ema200
+                        sc_sell = curr_price < low_20d and curr_price < ema200
                         
-                        # C: กลยุทธ์ SWING (ทะลุ High 55 วัน)
+                        # C: กลยุทธ์ SWING (ทะลุ High/Low 55 วัน)
                         high_55d = df['High'].rolling(window=55).max().iloc[-2]
+                        low_55d = df['Low'].rolling(window=55).min().iloc[-2]
                         sw_buy = curr_price > high_55d and curr_price > ema200
+                        sw_sell = curr_price < low_55d and curr_price < ema200
 
                         # กรองตามที่ user เลือก
-                        if (target_strat == 'ALL' or target_strat == 'SNIPER') and sn_buy: signal_type = "SNIPER_EMA9"
-                        elif (target_strat == 'ALL' or target_strat == 'SCALPER') and sc_buy: signal_type = "SCALPER_H20"
-                        elif (target_strat == 'ALL' or target_strat == 'SWING') and sw_buy: signal_type = "SWING_H55"
+                        if (target_strat == 'ALL' or target_strat == 'SNIPER'):
+                            if sn_buy: signal_type, side = "SNIPER_EMA9", "BUY"
+                            elif sn_sell: signal_type, side = "SNIPER_EMA9", "SELL"
+                        
+                        if not signal_type and (target_strat == 'ALL' or target_strat == 'SCALPER'):
+                            if sc_buy: signal_type, side = "SCALPER_H20", "BUY"
+                            elif sc_sell: signal_type, side = "SCALPER_H20", "SELL"
+                            
+                        if not signal_type and (target_strat == 'ALL' or target_strat == 'SWING'):
+                            if sw_buy: signal_type, side = "SWING_H55", "BUY"
+                            elif sw_sell: signal_type, side = "SWING_H55", "SELL"
 
                         if signal_type:
-                            self.stdout.write(self.style.SUCCESS(f"🚀 SIGNAL DETECTED: {signal_type} at {curr_price}"))
+                            self.stdout.write(self.style.SUCCESS(f"🚀 SIGNAL DETECTED: {side} {signal_type} at {curr_price}"))
                             # ในโหมดแมนนวล: ส่งสัญญาณไปที่ UI แทนการเปิดออเดอร์
-                            self.update_heartbeat(status="SIGNAL", message=f"SIGNAL_BUY:{signal_type}:{curr_price:.2f}")
+                            self.update_heartbeat(status="SIGNAL", message=f"SIGNAL_{side}:{signal_type}:{curr_price:.2f}")
                             session_has_traded = True 
                     
                     if not signal_type:
