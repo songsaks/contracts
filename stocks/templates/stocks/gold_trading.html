@@ -502,11 +502,13 @@
                             <th class="ps-3 py-2">TYPE</th>
                             <th class="py-2">SIZE</th>
                             <th class="py-2">ENTRY</th>
+                            <th class="py-2">TP</th>
+                            <th class="py-2">SL</th>
                             <th class="text-end pe-3 py-2">P/L</th>
                         </tr>
                     </thead>
                     <tbody id="positions-list-body">
-                        <tr><td colspan="4" class="text-center py-3 text-muted">No open positions</td></tr>
+                        <tr><td colspan="6" class="text-center py-3 text-muted">No open positions</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -825,10 +827,17 @@
             let tpMult = 1.5;
             if (activeStrategy === 'SNIPER') { brk = globalTactical.ema9; tpMult = 1.5; }
             else if (activeStrategy === 'SCALPER') { brk = globalTactical.short_term_high; tpMult = 2.0; }
-            else { brk = globalTactical.high_20d; tpMult = 3.5; }
+            else if (activeStrategy === 'SWING') { brk = globalTactical.high_20d; tpMult = 3.5; }
+            else if (activeStrategy === 'TURTLE') { brk = globalTactical.high_55d; tpMult = 5.0; }
 
             tpValue = brk + (globalTactical.n * tpMult);
             slValue = brk - (globalTactical.n * 2.0);
+            
+            // ปัดทศนิยมให้เหลือ 2 ตำแหน่งตามมาตรฐานทองคำ
+            tpValue = parseFloat(tpValue.toFixed(2));
+            slValue = parseFloat(slValue.toFixed(2));
+        } else {
+            console.error("Missing globalTactical data for TP/SL calculation");
         }
         
         fetch("{% url 'stocks:execute_gold_trade' %}", {
@@ -1076,10 +1085,14 @@
                 body.innerHTML = data.positions.map(pos => {
                     const isBuy = pos.type === 'POSITION_TYPE_BUY';
                     const pl = parseFloat(pos.unrealizedProfit || 0);
+                    const tp = pos.takeProfit ? parseFloat(pos.takeProfit).toFixed(2) : '-';
+                    const sl = pos.stopLoss ? parseFloat(pos.stopLoss).toFixed(2) : '-';
                     return `<tr>
                         <td class="ps-3"><span class="badge ${isBuy?'bg-success':'bg-danger'}">${isBuy?'BUY':'SELL'}</span></td>
                         <td>${pos.volume} Lots</td>
                         <td>${parseFloat(pos.openPrice).toFixed(2)}</td>
+                        <td class="text-success small">${tp}</td>
+                        <td class="text-danger small">${sl}</td>
                         <td class="text-end pe-3 fw-bold ${pl>=0?'text-success':'text-danger'}">${pl>=0?'+':''}${pl.toFixed(2)}</td>
                     </tr>`;
                 }).join('');
