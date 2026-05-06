@@ -172,9 +172,45 @@
         100% { transform: translate(-50%, -50%) scale(1.5); opacity: 0; }
     }
 
-    .matrix-btn.wait { background: #1e293b; color: #64748b; border: 1px solid #334155; }
-    .matrix-btn.buy { background: #065f46; color: #34d399; border: 1px solid #059669; font-weight: bold; box-shadow: 0 0 10px rgba(52,211,153,0.3); }
-    .matrix-btn.sell { background: #991b1b; color: #f87171; border: 1px solid #b91c1c; font-weight: bold; box-shadow: 0 0 10px rgba(220,38,38,0.3); }
+    /* ══ Responsive Adjustments ══ */
+    @media (max-width: 991.98px) {
+        .chart-col { order: -1; } /* Move Chart/Positions to top on mobile */
+        .g-card { margin-bottom: 1rem; }
+    }
+
+    @media (max-width: 576px) {
+        .gcc-header h1 { font-size: 1.1rem; }
+        .price-value { font-size: 2.2rem; }
+        .g-card-header { padding: 0.5rem 0.75rem; font-size: 0.7rem; }
+        .decision-panel { padding: 1rem; }
+        .signal-status { font-size: 1.4rem; }
+        
+        /* Card-style positions for mobile */
+        #positions-list-body tr {
+            display: flex;
+            flex-direction: column;
+            padding: 1rem !important;
+            border-bottom: 2px solid #f1f5f9 !important;
+            position: relative;
+        }
+        #positions-list-body td {
+            border: none;
+            padding: 0.25rem 0 !important;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        #positions-list-body td:before {
+            content: attr(data-label);
+            font-weight: 700;
+            font-size: 0.75rem;
+            color: #64748b;
+            text-transform: uppercase;
+        }
+        .bg-dark.text-white-50 { display: none; } /* Hide table header on mobile */
+        
+        .fs-3.fw-900 { font-size: 1.8rem !important; } /* Scale down P/L font on mobile */
+    }
 
     /* ══ Price Display ══ */
     .price-panel {
@@ -489,30 +525,6 @@
             </div>
         </div>
 
-        <!-- LIVE POSITIONS -->
-        <div class="g-card">
-            <div class="g-card-header d-flex justify-content-between">
-                <span><i class="fas fa-briefcase text-muted"></i> LIVE POSITIONS</span>
-                <span id="pos-count-badge" class="badge bg-secondary rounded-pill">0</span>
-            </div>
-            <div class="table-responsive">
-                <table class="table table-sm table-hover mb-0" style="font-size: 0.8rem;">
-                    <thead class="bg-light text-muted" style="font-size: 0.65rem;">
-                        <tr>
-                            <th class="ps-3 py-2">TYPE</th>
-                            <th class="py-2">SIZE</th>
-                            <th class="py-2">ENTRY</th>
-                            <th class="py-2">TP</th>
-                            <th class="py-2">SL</th>
-                            <th class="text-end pe-3 py-2">P/L</th>
-                        </tr>
-                    </thead>
-                    <tbody id="positions-list-body">
-                        <tr><td colspan="6" class="text-center py-3 text-muted">No open positions</td></tr>
-                    </tbody>
-                </table>
-            </div>
-        </div>
 
         <!-- ACTIVITY LOG -->
         <div class="g-card d-none d-lg-block">
@@ -526,6 +538,35 @@
 
     <!-- ══════ RIGHT: Chart + Buttons ══════ -->
     <div class="col-12 col-lg-8 col-xl-9 chart-col d-flex flex-column gap-3">
+
+        <!-- 🚀 PROMINENT LIVE POSITIONS (Top of main view) -->
+        <div class="g-card border-warning shadow-lg" style="border-width: 2px;">
+            <div class="g-card-header d-flex justify-content-between align-items-center py-3" style="background: #0f172a; color: #fff; border-bottom: 2px solid #1e293b;">
+                <span class="fs-5 fw-900 text-warning"><i class="fas fa-satellite me-2"></i> LIVE ACTIVE POSITIONS</span>
+                <div class="d-flex align-items-center gap-3">
+                    <span id="pos-count-badge" class="badge bg-warning text-dark fs-6 rounded-pill">0</span>
+                    <span class="text-muted small">TOTAL P/L:</span>
+                    <span id="total-pl-display" class="fs-4 fw-900" style="font-family:'JetBrains Mono';">+0.00</span>
+                </div>
+            </div>
+            <div class="table-responsive" style="max-height: 250px; overflow-y: auto;">
+                <table class="table table-hover mb-0" style="font-size: 1rem; background: #fff;">
+                    <thead class="bg-dark text-white-50" style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px;">
+                        <tr>
+                            <th class="ps-4 py-3">TYPE</th>
+                            <th class="py-3">SIZE</th>
+                            <th class="py-3">ENTRY PRICE</th>
+                            <th class="py-3">TARGET (TP)</th>
+                            <th class="py-3">STOP (SL)</th>
+                            <th class="text-end pe-4 py-3">LIVE P/L ($)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="positions-list-body" class="fw-bold">
+                        <tr><td colspan="6" class="text-center py-5 text-muted fs-5">No open positions</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
 
         <!-- Chart Card -->
         <div class="chart-card" id="wrapper-to-fullscreen">
@@ -1080,25 +1121,35 @@
         try {
             const data = await fetch('{% url "stocks:get_gold_positions" %}').then(r => r.json());
             const body = document.getElementById('positions-list-body');
+            const totalPlEl = document.getElementById('total-pl-display');
             if (data.success && data.positions?.length > 0) {
                 document.getElementById('pos-count-badge').innerText = data.positions.length;
+                let totalPl = 0;
                 body.innerHTML = data.positions.map(pos => {
                     const isBuy = pos.type === 'POSITION_TYPE_BUY';
                     const pl = parseFloat(pos.unrealizedProfit || 0);
+                    totalPl += pl;
                     const tp = pos.takeProfit ? parseFloat(pos.takeProfit).toFixed(2) : '-';
                     const sl = pos.stopLoss ? parseFloat(pos.stopLoss).toFixed(2) : '-';
-                    return `<tr>
-                        <td class="ps-3"><span class="badge ${isBuy?'bg-success':'bg-danger'}">${isBuy?'BUY':'SELL'}</span></td>
-                        <td>${pos.volume} Lots</td>
-                        <td>${parseFloat(pos.openPrice).toFixed(2)}</td>
-                        <td class="text-success small">${tp}</td>
-                        <td class="text-danger small">${sl}</td>
-                        <td class="text-end pe-3 fw-bold ${pl>=0?'text-success':'text-danger'}">${pl>=0?'+':''}${pl.toFixed(2)}</td>
+                    return `<tr style="border-bottom: 1px solid #f1f5f9;">
+                        <td class="ps-4 py-3" data-label="TYPE"><span class="badge ${isBuy?'bg-success':'bg-danger'}" style="font-size: 0.9rem; padding: 6px 15px;">${isBuy?'BUY':'SELL'}</span></td>
+                        <td class="py-3" data-label="SIZE" style="font-size: 1.1rem; color: #334155;">${pos.volume} Lots</td>
+                        <td class="py-3" data-label="ENTRY" style="font-family: 'JetBrains Mono'; font-size: 1.1rem;">${parseFloat(pos.openPrice).toFixed(2)}</td>
+                        <td class="py-3 text-success small" data-label="TARGET (TP)">${tp}</td>
+                        <td class="py-3 text-danger small" data-label="STOP (SL)">${sl}</td>
+                        <td class="text-end pe-4 py-3 fs-3 fw-900 ${pl>=0?'text-success':'text-danger'}" data-label="P/L" style="font-family: 'JetBrains Mono'; text-shadow: 0 0 1px rgba(0,0,0,0.1);">
+                            ${pl>=0?'+':''}${pl.toFixed(2)}
+                        </td>
                     </tr>`;
                 }).join('');
+                
+                totalPlEl.innerText = (totalPl >= 0 ? '+' : '') + totalPl.toFixed(2);
+                totalPlEl.className = 'fs-4 fw-900 ' + (totalPl >= 0 ? 'text-success' : 'text-danger');
             } else {
                 document.getElementById('pos-count-badge').innerText = '0';
-                body.innerHTML = '<tr><td colspan="4" class="text-center py-3 text-muted">No open positions</td></tr>';
+                totalPlEl.innerText = '+0.00';
+                totalPlEl.className = 'fs-4 fw-900 text-muted';
+                body.innerHTML = '<tr><td colspan="6" class="text-center py-5 text-muted fs-5"><i class="fas fa-inbox d-block mb-2 fs-1"></i>No open positions</td></tr>';
             }
         } catch(e) {}
     }
