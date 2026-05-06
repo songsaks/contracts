@@ -63,6 +63,19 @@
         border-color: var(--border-color);
         color: #fff;
     }
+    .top-mini-bar {
+        background: #000000 !important;
+        border-bottom: 1px solid #334155 !important;
+        color: #ffffff !important;
+        z-index: 10001 !important;
+        position: relative;
+    }
+    .top-mini-bar span, .top-mini-bar div {
+        color: #ffffff !important;
+    }
+    #m-price {
+        color: #fbbf24 !important; /* Gold color for price */
+    }
     .g-card-header {
         background: #f8fafc;
         border-bottom: 1px solid #e2e8f0;
@@ -159,9 +172,9 @@
         100% { transform: translate(-50%, -50%) scale(1.5); opacity: 0; }
     }
 
-    .matrix-btn.wait { background: #475569; color: #cbd5e1; }
-    .matrix-btn.buy { background: #16a34a; box-shadow: 0 0 10px rgba(22,163,74,0.4); }
-    .matrix-btn.sell { background: #dc2626; box-shadow: 0 0 10px rgba(220,38,38,0.4); }
+    .matrix-btn.wait { background: #1e293b; color: #64748b; border: 1px solid #334155; }
+    .matrix-btn.buy { background: #065f46; color: #34d399; border: 1px solid #059669; font-weight: bold; box-shadow: 0 0 10px rgba(52,211,153,0.3); }
+    .matrix-btn.sell { background: #991b1b; color: #f87171; border: 1px solid #b91c1c; font-weight: bold; box-shadow: 0 0 10px rgba(220,38,38,0.3); }
 
     /* ══ Price Display ══ */
     .price-panel {
@@ -394,6 +407,7 @@
                     <button class="t-tab sniper" onclick="setStrategy('SNIPER')" id="btn-strat-sniper">SNIPER</button>
                     <button class="t-tab scalper active" onclick="setStrategy('SCALPER')" id="btn-strat-scalper">SCALPER</button>
                     <button class="t-tab swing" onclick="setStrategy('SWING')" id="btn-strat-swing">SWING</button>
+                    <button class="t-tab turtle" onclick="setStrategy('TURTLE')" id="btn-strat-turtle">TURTLE</button>
                 </div>
                 <div class="text-center mb-3">
                     <span id="strategy-label" class="badge" style="background:#fee2e2; color:#dc2626; font-weight: 800; font-size: 0.7rem; padding: 4px 12px; border-radius: 4px;">ULTRA-SHORT (SNIPER)</span>
@@ -656,7 +670,7 @@
 
     function setStrategy(s) {
         activeStrategy = s;
-        ['sniper', 'scalper', 'swing'].forEach(str => {
+        ['sniper', 'scalper', 'swing', 'turtle'].forEach(str => {
             const btn = document.getElementById(`btn-strat-${str}`);
             if (btn) btn.classList.toggle('active', str.toUpperCase() === s);
         });
@@ -697,6 +711,8 @@
         const signalText = document.getElementById('signal-main-text');
         const signalSubtext = document.getElementById('signal-main-subtext');
         
+        const stratBadge = document.getElementById('strategy-label');
+        
         let breakoutPrice = 0;
         let tpMult = 1.5; 
         
@@ -704,14 +720,26 @@
             breakoutPrice = globalTactical.ema9;
             tpMult = 1.5;
             breakoutEl.className = 't-value text-danger fw-bold';
+            stratBadge.innerText = 'ULTRA-SHORT (SNIPER)';
+            stratBadge.style.background = '#dc2626';
         } else if (activeStrategy === 'SCALPER') {
             breakoutPrice = globalTactical.short_term_high;
             tpMult = 2.0;
             breakoutEl.className = 't-value text-primary';
-        } else {
+            stratBadge.innerText = 'SHORT-TERM (SCALPER)';
+            stratBadge.style.background = '#2563eb';
+        } else if (activeStrategy === 'SWING') {
             breakoutPrice = globalTactical.high_20d;
             tpMult = 3.5;
             breakoutEl.className = 't-value text-info';
+            stratBadge.innerText = 'MEDIUM-TERM (SWING)';
+            stratBadge.style.background = '#0891b2';
+        } else {
+            breakoutPrice = globalTactical.high_55d;
+            tpMult = 5.0; // Turtle seeks big trends
+            breakoutEl.className = 't-value text-warning';
+            stratBadge.innerText = 'LONG-TERM (TURTLE)';
+            stratBadge.style.background = '#d97706';
         }
 
         breakoutEl.innerText = breakoutPrice.toFixed(2);
