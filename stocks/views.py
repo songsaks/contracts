@@ -9855,10 +9855,12 @@ def execute_gold_trade_ajax(request):
         try:
             vol_float = float(volume)
             # Hard-Cap ที่ 0.05 Lots ป้องกันพอร์ตระเบิดจากการคำนวณผิดพลาด
-            if vol_float > 0.05:
+            # หากต้องการเพิ่ม ให้แก้ไขค่านี้ (เช่น 0.1 หรือ 0.5) แต่ต้องมั่นใจในความเสี่ยง
+            MAX_ALLOWED_LOT = 0.05 
+            if vol_float > MAX_ALLOWED_LOT:
                 return JsonResponse({
                     'success': False, 
-                    'error': f'🚨 CIRCUIT BREAKER: ระบบระงับคำสั่งอัตโนมัติ! ขนาด {vol_float} Lots ใหญ่เกินขีดจำกัดความปลอดภัยที่ 0.05 Lots'
+                    'error': f'🚨 CIRCUIT BREAKER: ระบบระงับคำสั่งอัตโนมัติ! ขนาด {vol_float} Lots ใหญ่เกินขีดจำกัดความปลอดภัยที่ {MAX_ALLOWED_LOT} Lots'
                 })
             
             # บังคับขั้นต่ำสำหรับ MT5 คือ 0.01
@@ -10188,11 +10190,23 @@ def start_gold_bot_ajax(request):
         strategy = request.GET.get('strategy', 'SNIPER')
         
         if os.name == 'nt':
+            # 🚨 Pre-emptive Cleanup: Kill any existing bots before starting a new one
+            try:
+                subprocess.run(['powershell', '-Command', "Get-WmiObject Win32_Process -Filter \"CommandLine like '%run_gold_bot%'\" | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }"], capture_output=True)
+            except:
+                pass
+
             process = subprocess.Popen(
                 [python_exe, 'manage.py', 'run_gold_bot', '--strategy', strategy, '--once'],
                 creationflags=subprocess.CREATE_NEW_CONSOLE
             )
         else:
+            # 🚨 Pre-emptive Cleanup for Linux (Ubuntu)
+            try:
+                subprocess.run(['pkill', '-f', 'run_gold_bot'], capture_output=True)
+            except:
+                pass
+
             process = subprocess.Popen(
                 [python_exe, 'manage.py', 'run_gold_bot', '--strategy', strategy, '--once'],
                 stdout=stdout_log,
@@ -10233,19 +10247,32 @@ def stop_gold_bot_ajax(request):
         with open(PID_FILE, 'r') as f:
             pid = int(f.read())
         
-        if os.name == 'nt':
-            # Windows: ใช้ taskkill เพื่อปิดทั้ง process tree
-            subprocess.run(['taskkill', '/F', '/T', '/PID', str(pid)])
-        else:
-            os.kill(pid, signal.SIGTERM)
+        try:
+            if os.name == 'nt':
+                # Windows: ใช้ Taskkill เฉพาะ PID และตามด้วย PowerShell เพื่อกวาดล้าง Orphan ทั้งหมดที่อาจหลงเหลือ
+                subprocess.run(['taskkill', '/F', '/T', '/PID', str(pid)], capture_output=True)
+                subprocess.run(['powershell', '-Command', "Get-WmiObject Win32_Process -Filter \"CommandLine like '%run_gold_bot%'\" | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }"], capture_output=True)
+            else:
+                # Ubuntu/Linux cleanup
+                try:
+                    os.kill(pid, signal.SIGTERM)
+                except:
+                    pass
+                # กวาดล้าง Orphan ทั้งหมดที่อาจรันค้างอยู่
+                subprocess.run(['pkill', '-f', 'run_gold_bot'], capture_output=True)
+        except Exception as e:
+            logger.error(f"Error terminating gold bot: {e}")
+
+        # ลบไฟล์ PID และอัปเดตสถานะใน DB เสมอ
+        if os.path.exists(PID_FILE):
+            os.remove(PID_FILE)
             
-        os.remove(PID_FILE)
+        BotActivity.objects.filter(bot_name="Gold Server Bot").update(
+            status="STOPPED", 
+            message="Bot stopped by user via UI"
+        )
         
-        # อัปเดตสถานะใน DB ด้วย
-        from .models import BotActivity
-        BotActivity.objects.filter(bot_name="Gold Server Bot").update(status="STOPPED", message="Bot stopped by user via UI")
-        
-        return JsonResponse({'success': True})
+        return JsonResponse({'success': True, 'message': 'ส่งคำสั่งหยุดการทำงานแล้ว'})
     except Exception as e:
         if os.path.exists(PID_FILE): os.remove(PID_FILE)
         return JsonResponse({'success': False, 'error': str(e)})

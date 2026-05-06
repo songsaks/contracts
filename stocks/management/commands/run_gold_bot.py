@@ -46,6 +46,13 @@ class Command(BaseCommand):
             self.update_heartbeat(status="ACTIVE", message=f"เฝ้าระวัง {target_strat} (One-Shot: {run_once})")
             
             while True:
+                # ตรวจสอบสถานะจาก DB ว่าถูกสั่งหยุดหรือไม่ (Graceful Shutdown)
+                activity = BotActivity.objects.filter(bot_name="Gold Server Bot").first()
+                if activity and activity.status == "STOPPED":
+                    self.stdout.write(self.style.WARNING("--- ตรวจพบสถานะ STOPPED ในระบบ: กำลังหยุดการทำงาน... ---"))
+                    if os.path.exists("gold_bot.pid"): os.remove("gold_bot.pid")
+                    return
+
                 try:
                     # 1. ดึงข้อมูลราคาสดจาก Yahoo Finance
                     df = yf.download(self.SYMBOL, period='1y', interval='1d', progress=False, auto_adjust=True, timeout=15)
