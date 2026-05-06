@@ -788,12 +788,33 @@
         if (!skipConfirm && !confirm(`Confirm LIVE ${type} order (${lotSize} Lots) at Market price?`)) return;
         
         logMessage(`REQUEST: ${type} ${lotSize} Lots`, 'text-warning');
-        const slValue = globalTactical ? (type==='BUY' ? lastPrice-(globalTactical.n*2) : lastPrice+(globalTactical.n*2)) : null;
+        
+        // --- คำนวณ TP/SL ตามกลยุทธ์ที่เลือกอยู่ในขณะนั้น ---
+        let tpValue = null;
+        let slValue = null;
+        if (globalTactical) {
+            let brk = 0;
+            let tpMult = 1.5;
+            if (activeStrategy === 'SNIPER') { brk = globalTactical.ema9; tpMult = 1.5; }
+            else if (activeStrategy === 'SCALPER') { brk = globalTactical.short_term_high; tpMult = 2.0; }
+            else { brk = globalTactical.high_20d; tpMult = 3.5; }
+
+            tpValue = brk + (globalTactical.n * tpMult);
+            slValue = brk - (globalTactical.n * 2.0);
+        }
         
         fetch("{% url 'stocks:execute_gold_trade' %}", {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}' },
-            body: JSON.stringify({ symbol: currentSymbol, side: type, price: lastPrice, sl: slValue, volume: lotSize, strategy: customLot ? 'Test Order' : 'Manual' })
+            body: JSON.stringify({ 
+                symbol: currentSymbol, 
+                side: type, 
+                price: lastPrice, 
+                sl: slValue, 
+                tp: tpValue, 
+                volume: lotSize, 
+                strategy: (customLot ? 'Test Order' : 'Manual') + ` (${activeStrategy})`
+            })
         })
         .then(r => r.json())
         .then(d => {
