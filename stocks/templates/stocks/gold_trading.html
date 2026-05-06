@@ -895,11 +895,10 @@
                     if (data.rsi) rsiChart.series.setData(cleanData(data.rsi));
                     if (data.volume) volChart.series.setData(cleanData(data.volume));
 
-                    mainChart.timeScale().fitContent();
-                    rsiChart.timeScale().fitContent();
-                    volChart.timeScale().fitContent();
-                    
                     if (!window.chartHasData) {
+                        mainChart.timeScale().fitContent();
+                        rsiChart.timeScale().fitContent();
+                        volChart.timeScale().fitContent();
                         logMessage(`Rendered ${cleanCandles.length} candles.`, 'text-success');
                         window.chartHasData = true;
                     }
