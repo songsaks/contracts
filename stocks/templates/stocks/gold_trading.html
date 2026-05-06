@@ -611,37 +611,44 @@
             </div>
         </div>
 
-        <!-- Activity Log (mobile) -->
-        <div class="g-card d-lg-none">
-            <div class="g-card-header"><i class="fas fa-terminal me-1"></i> Activity Log</div>
-        <!-- TRADE HISTORY -->
-        <div class="g-card">
-            <div class="g-card-header d-flex justify-content-between align-items-center">
-                <span><i class="fas fa-history text-muted me-1"></i> TRADE HISTORY (RECENT 24H)</span>
-                <button class="btn btn-sm btn-link text-decoration-none p-0 text-muted" onclick="updateTradeHistory()"><i class="fas fa-sync-alt"></i></button>
-            </div>
-            <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
-                <table class="table table-sm table-hover mb-0" style="font-size: 0.8rem;">
-                    <thead class="bg-light text-muted" style="font-size: 0.65rem;">
-                        <tr>
-                            <th class="ps-3 py-2">DATE/TIME</th>
-                            <th class="py-2">STRATEGY</th>
-                            <th class="py-2">TYPE</th>
-                            <th class="py-2">LOTS</th>
-                            <th class="py-2">ENTRY</th>
-                            <th class="py-2">EXIT</th>
-                            <th class="text-end pe-3 py-2">P/L</th>
-                        </tr>
-                    </thead>
-                    <tbody id="trade-history-body">
-                        <tr><td colspan="7" class="text-center py-3 text-muted">No history data available</td></tr>
-                    </tbody>
-                </table>
+    </div><!-- /RIGHT COL (CHART/BUTTONS) -->
+</div><!-- /MAIN ROW -->
+
+<!-- ════════════════════════════════════════════════════════════════ -->
+<!-- 🚀 ABSOLUTE BOTTOM: TRADE HISTORY -->
+<!-- ════════════════════════════════════════════════════════════════ -->
+<div class="container-fluid px-3 mb-5">
+    <div class="row">
+        <div class="col-12">
+            <div class="g-card shadow-sm">
+                <div class="g-card-header d-flex justify-content-between align-items-center py-3">
+                    <span class="fw-bold"><i class="fas fa-history text-muted me-2"></i> TRADE HISTORY (RECENT 24H)</span>
+                    <button class="btn btn-sm btn-outline-secondary rounded-pill px-3" onclick="updateTradeHistory()">
+                        <i class="fas fa-sync-alt me-1"></i> Refresh History
+                    </button>
+                </div>
+                <div class="table-responsive" style="max-height: 500px; overflow-y: auto;">
+                    <table class="table table-sm table-hover mb-0" style="font-size: 0.85rem;">
+                        <thead class="bg-light text-muted" style="font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.5px;">
+                            <tr>
+                                <th class="ps-4 py-3">DATE/TIME</th>
+                                <th class="py-3">STRATEGY</th>
+                                <th class="py-3">TYPE</th>
+                                <th class="py-3">LOTS</th>
+                                <th class="py-3">ENTRY</th>
+                                <th class="py-3">EXIT</th>
+                                <th class="text-end pe-4 py-3">P/L</th>
+                            </tr>
+                        </thead>
+                        <tbody id="trade-history-body">
+                            <tr><td colspan="7" class="text-center py-5 text-muted">No history data available for the last 24h</td></tr>
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
-
-    </div><!-- /RIGHT COL -->
-</div><!-- /ROW -->
+    </div>
+</div>
 
 <script>
     let currentSymbol = "{{ symbol }}";
