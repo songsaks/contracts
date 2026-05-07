@@ -588,9 +588,21 @@
                     <button class="btn btn-outline-secondary btn-period" onclick="loadPeriod('1y')">1Y</button>
                 </div>
             </div>
-            <div id="chart-container"></div>
-            <div id="rsi-container" style="border-top:1px solid #f1f5f9;"></div>
-            <div id="vol-container" style="border-top:1px solid #f1f5f9;"></div>
+            <div class="position-relative">
+                <div style="position:absolute; top:10px; left:15px; font-size:11px; font-weight:900; color:#64748b; z-index:10; background:rgba(255,255,255,0.7); padding:2px 6px; border-radius:4px; pointer-events:none;">MAIN CHART (Turtle)</div>
+                <div id="chart-container"></div>
+            </div>
+            <div class="position-relative" style="border-top:1px solid #f1f5f9;">
+                <div style="position:absolute; top:8px; left:15px; font-size:11px; font-weight:900; color:#6366f1; z-index:10; background:rgba(255,255,255,0.7); padding:2px 6px; border-radius:4px; pointer-events:none;">RSI (14)</div>
+                <div id="rsi-container"></div>
+            </div>
+            <div class="position-relative" style="border-top:1px solid #f1f5f9;">
+                <div style="position:absolute; top:8px; left:15px; font-size:11px; font-weight:900; color:#8b5cf6; z-index:10; background:rgba(255,255,255,0.7); padding:2px 6px; border-radius:4px; pointer-events:none;">CCI (20)</div>
+                <div id="cci-container"></div>
+            </div>
+            <div class="position-relative" style="border-top:1px solid #f1f5f9;">
+                <div id="vol-container"></div>
+            </div>
         </div>
 
         <!-- Execute Buttons -->
@@ -654,7 +666,7 @@
     let currentSymbol = "{{ symbol }}";
     let currentMarket = "US";
     let currentPeriod = "3mo";
-    let mainChart, rsiChart, volChart;
+    let mainChart, rsiChart, cciChart, volChart;
     let botActive = false;
     let lastPrice = 0;
     let globalTactical = null;
@@ -703,16 +715,22 @@
 
     /* ── Responsive chart heights ── */
     function chartH() {
-        if (window.innerWidth < 576) return { main: 260, rsi: 80, vol: 55 };
-        if (window.innerWidth < 992) return { main: 320, rsi: 95, vol: 65 };
-        return { main: 400, rsi: 115, vol: 80 };
+        if (window.innerWidth < 576) return { main: 280, rsi: 90, cci: 120, vol: 60 };
+        if (window.innerWidth < 992) return { main: 340, rsi: 100, cci: 140, vol: 70 };
+        return { main: 450, rsi: 120, cci: 160, vol: 90 };
     }
 
     function resizeCharts() {
         const h = chartH();
-        const w = document.getElementById('chart-container').offsetWidth;
+        const wrapper = document.getElementById('chart-container');
+        if (!wrapper) return;
+        
+        // Add horizontal padding for mobile scrolling space
+        const w = wrapper.parentElement.offsetWidth - (window.innerWidth < 576 ? 60 : 40); 
+        
         if (mainChart) mainChart.resize(w, h.main);
         if (rsiChart)  rsiChart.resize(w, h.rsi);
+        if (cciChart)  cciChart.resize(w, h.cci);
         if (volChart)  volChart.resize(w, h.vol);
     }
 
@@ -925,6 +943,20 @@
             });
     }
 
+    function calculateCCI(data, period = 20) {
+        if (data.length < period) return [];
+        let results = [];
+        for (let i = period - 1; i < data.length; i++) {
+            let slice = data.slice(i - period + 1, i + 1);
+            let typicalPrices = slice.map(d => (d.high + d.low + d.close) / 3);
+            let sma = typicalPrices.reduce((a, b) => a + b, 0) / period;
+            let meanDev = typicalPrices.reduce((a, b) => a + Math.abs(b - sma), 0) / period;
+            let cci = meanDev === 0 ? 0 : (typicalPrices[typicalPrices.length - 1] - sma) / (0.015 * meanDev);
+            results.push({ time: data[i].time, value: cci });
+        }
+        return results;
+    }
+
     function renderCharts(data) {
         try {
             if (typeof LightweightCharts === 'undefined') {
@@ -968,6 +1000,24 @@
                     logMessage('RSI chart initialized.', 'text-success');
                 } catch(e) { logMessage('RSI Chart Error: ' + e.message, 'text-danger'); }
 
+                logMessage('Initializing CCI chart...', 'text-info');
+                try {
+                    cciChart = LightweightCharts.createChart(document.getElementById('cci-container'), {
+                        width: w, height: h.cci,
+                        layout: { textColor: '#1e293b' },
+                        grid: { vertLines: { color: '#f1f5f9' }, horzLines: { color: '#f1f5f9' } },
+                        timeScale: { visible: false },
+                    });
+                    cciChart.series = cciChart.addLineSeries({ color: '#8b5cf6', lineWidth: 2 });
+                    
+                    // Add zero, 100, -100 lines - make them bolder and more visible
+                    cciChart.series.createPriceLine({ price: 100, color: '#ef4444', lineWidth: 2, lineStyle: 0, axisLabelVisible: true, title: 'OVERBOUGHT' });
+                    cciChart.series.createPriceLine({ price: 0, color: '#94a3b8', lineWidth: 1, lineStyle: 1, axisLabelVisible: true, title: '0' });
+                    cciChart.series.createPriceLine({ price: -100, color: '#22c55e', lineWidth: 2, lineStyle: 0, axisLabelVisible: true, title: 'OVERSOLD' });
+                    
+                    logMessage('CCI chart initialized.', 'text-success');
+                } catch(e) { logMessage('CCI Chart Error: ' + e.message, 'text-danger'); }
+
                 logMessage('Initializing Volume chart...', 'text-info');
                 try {
                     volChart = LightweightCharts.createChart(document.getElementById('vol-container'), {
@@ -982,6 +1032,7 @@
             } else {
                 mainChart.resize(w, h.main);
                 rsiChart.resize(w, h.rsi);
+                cciChart.resize(w, h.cci);
                 volChart.resize(w, h.vol);
             }
 
@@ -997,11 +1048,16 @@
                     if (data.dc55_lower) mainChart.dc55l.setData(cleanData(data.dc55_lower));
                     
                     if (data.rsi) rsiChart.series.setData(cleanData(data.rsi));
+                    
+                    const cciData = calculateCCI(cleanCandles);
+                    if (cciData.length > 0) cciChart.series.setData(cciData);
+
                     if (data.volume) volChart.series.setData(cleanData(data.volume));
 
                     if (!window.chartHasData) {
                         mainChart.timeScale().fitContent();
                         rsiChart.timeScale().fitContent();
+                        cciChart.timeScale().fitContent();
                         volChart.timeScale().fitContent();
                         logMessage(`Rendered ${cleanCandles.length} candles.`, 'text-success');
                         window.chartHasData = true;
@@ -1187,8 +1243,29 @@
     }
 
     function resizeCharts() {
-        if (!mainChart || !window.lastChartData) return;
-        renderCharts(window.lastChartData);
+        if (!mainChart) return;
+        const h = chartH();
+        const wrapper = document.getElementById('chart-container');
+        if (!wrapper) return;
+        
+        // Ensure space on sides for mobile scrolling (30px each side)
+        const sidePadding = window.innerWidth < 576 ? 60 : 40;
+        const w = wrapper.parentElement.offsetWidth - sidePadding;
+        
+        mainChart.resize(w, h.main);
+        rsiChart.resize(w, h.rsi);
+        cciChart.resize(w, h.cci);
+        volChart.resize(w, h.vol);
+        
+        // Center the chart containers
+        const containers = ['chart-container', 'rsi-container', 'cci-container', 'vol-container'];
+        containers.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) {
+                el.style.display = 'flex';
+                el.style.justifyContent = 'center';
+            }
+        });
     }
 
     async function updateTradeHistory() {
