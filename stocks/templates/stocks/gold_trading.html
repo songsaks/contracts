@@ -392,6 +392,10 @@
                 <i class="fas fa-satellite-dish text-info"></i> STRATEGIC SIGNAL MATRIX
             </div>
             <div class="matrix-row">
+                <span class="matrix-label">ULTRA-SHORT (SNIPER)</span>
+                <span id="sig-sniper" class="matrix-btn wait">WAIT</span>
+            </div>
+            <div class="matrix-row">
                 <span class="matrix-label">SHORT (SCALPER)</span>
                 <span id="sig-short" class="matrix-btn wait">WAIT</span>
             </div>
@@ -760,10 +764,20 @@
 
     function updateTacticalUI() {
         if (!globalTactical) return;
-        ['short','medium','long'].forEach(h => {
+        ['sniper', 'short','medium','long'].forEach(h => {
             const el = document.getElementById(`sig-${h}`);
             if (!el) return;
-            const sig = globalTactical.signals[h];
+            
+            let sig = 'WAIT';
+            if (h === 'sniper') {
+                // Sniper Logic: Price vs EMA9 + RSI trend
+                if (lastPrice > globalTactical.ema9 && globalTactical.rsi > 50) sig = 'BUY';
+                else if (lastPrice < globalTactical.ema9 && globalTactical.rsi < 50) sig = 'SELL';
+                else sig = 'WAIT';
+            } else {
+                sig = globalTactical.signals[h];
+            }
+            
             el.innerText = sig;
             el.className = 'matrix-btn ' + (sig === 'BUY' ? 'buy animate-pulse' : sig === 'SELL' ? 'sell' : 'wait');
         });
