@@ -192,6 +192,9 @@
                 {% endif %}
 
                 {% if active_queue_item %}
+                <a href="{% url 'pms:project_estimation' project.pk %}" class="btn-action" title="ใบประเมินงาน" style="background:#fef9c3;border-color:#eab308;">
+                    <i class="fas fa-calculator" style="color:#92400e;"></i>
+                </a>
                 <a href="{% url 'pms:project_quotation' project.pk %}" class="btn-action" target="_blank" title="พิมพ์ใบเสนอราคา">
                     <i class="fas fa-print text-muted"></i>
                 </a>
@@ -199,6 +202,9 @@
                     <i class="fas fa-lock text-muted"></i>
                 </button>
                 {% elif project.status == 'CLOSED' or project.status == 'CANCELLED' %}
+                <a href="{% url 'pms:project_estimation' project.pk %}" class="btn-action" title="ใบประเมินงาน" style="background:#fef9c3;border-color:#eab308;">
+                    <i class="fas fa-calculator" style="color:#92400e;"></i>
+                </a>
                 <a href="{% url 'pms:project_quotation' project.pk %}" class="btn-action" target="_blank" title="พิมพ์ใบเสนอราคา">
                     <i class="fas fa-print text-muted"></i>
                 </a>
@@ -215,6 +221,9 @@
                 {% else %}
                 <a href="{% url 'pms:project_update' project.pk %}" class="btn-action btn-action-primary" title="แก้ไข">
                     <i class="fas fa-pen"></i>
+                </a>
+                <a href="{% url 'pms:project_estimation' project.pk %}" class="btn-action" title="ใบประเมินงาน" style="background:#fef9c3;border-color:#eab308;">
+                    <i class="fas fa-calculator" style="color:#92400e;"></i>
                 </a>
                 <a href="{% url 'pms:project_quotation' project.pk %}" class="btn-action" target="_blank" title="พิมพ์ใบเสนอราคา">
                     <i class="fas fa-print text-muted"></i>

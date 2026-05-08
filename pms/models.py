@@ -533,6 +533,165 @@ class ProductItem(models.Model):
     def margin(self):
         return self.total_price - self.total_cost
 
+# ====== ใบประเมินงาน (Project Estimation) ======
+class ProjectEstimation(models.Model):
+    """
+    ใบประเมินต้นทุนและราคาขายก่อนสร้างใบเสนอราคา
+    ส่วนที่ 1: ช่างระบบ (Installation/Labor)
+    ส่วนที่ 2: การตลาด (Products/Marketing)
+    """
+    class Status(models.TextChoices):
+        DRAFT    = 'DRAFT',    'แบบร่าง'
+        PENDING  = 'PENDING',  'รออนุมัติ'
+        APPROVED = 'APPROVED', 'อนุมัติแล้ว'
+        REJECTED = 'REJECTED', 'ไม่อนุมัติ'
+
+    project    = models.OneToOneField(Project, on_delete=models.CASCADE, related_name='estimation')
+    status     = models.CharField(max_length=10, choices=Status.choices, default=Status.DRAFT, verbose_name='สถานะ')
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, verbose_name='ผู้ประเมิน')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    # ===== ส่วนที่ 1: ช่างระบบ — ต้นทุน =====
+    tech_equip_cost   = models.DecimalField(max_digits=12, decimal_places=2, default=0, verbose_name='ต้นทุนอุปกรณ์ติดตั้ง')
+    tech_risk         = models.DecimalField(max_digits=12, decimal_places=2, default=0, verbose_name='ค่าความเสี่ยง/ค่ายขนนำไฟ')
+    tech_fuel         = models.DecimalField(max_digits=12, decimal_places=2, default=0, verbose_name='ค่าน้ำมันรถบริการ')
+    tech_depreciation = models.DecimalField(max_digits=12, decimal_places=2, default=0, verbose_name='ค่าเสื่อมรถบริการ')
+    tech_travel       = models.DecimalField(max_digits=12, decimal_places=2, default=0, verbose_name='ที่พัก/ค่าคอมช่าง')
+    tech_misc         = models.DecimalField(max_digits=12, decimal_places=2, default=0, verbose_name='ค่าใช้จ่ายอื่นๆ')
+    tech_hidden_labor    = models.DecimalField(max_digits=12, decimal_places=2, default=0, verbose_name='ค่าแรงแฝง')
+    tech_hidden_rate     = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name='อัตราค่าแรงแฝง/วัน/คน')
+    tech_insurance       = models.DecimalField(max_digits=12, decimal_places=2, default=0, verbose_name='ค่าประกันสัญญา')
+    tech_bank_rate       = models.DecimalField(max_digits=5,  decimal_places=2, default=Decimal('12.00'), verbose_name='อัตราดอกเบี้ยธนาคาร (%/ปี)')
+    tech_contract_years  = models.DecimalField(max_digits=4,  decimal_places=1, default=Decimal('1.0'),  verbose_name='จำนวนปีสัญญา')
+
+    # ===== ส่วนที่ 1: ช่างระบบ — ราคาขาย =====
+    tech_days       = models.PositiveSmallIntegerField(default=1, verbose_name='จำนวนวัน')
+    tech_people     = models.PositiveSmallIntegerField(default=1, verbose_name='จำนวนคน')
+    tech_labor_rate = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name='ค่าแรงต่อคนต่อวัน')
+    tech_splice     = models.DecimalField(max_digits=12, decimal_places=2, default=0, verbose_name='ค่า Splice สาย F.O')
+
+    # ===== ส่วนที่ 2: การตลาด — ต้นทุน =====
+    mkt_product_cost  = models.DecimalField(max_digits=12, decimal_places=2, default=0, verbose_name='ต้นทุนสินค้าขาย')
+    mkt_interest_rate = models.DecimalField(max_digits=5,  decimal_places=2, default=Decimal('1.85'), verbose_name='อัตราดอกเบี้ย/เดือน (%)')
+    mkt_rebate_cost   = models.DecimalField(max_digits=12, decimal_places=2, default=0, verbose_name='ส่วนคืนหน่วยงาน (ต้นทุน)')
+
+    # ===== ส่วนที่ 2: การตลาด — ราคาขาย =====
+    mkt_price_adjust = models.DecimalField(max_digits=12, decimal_places=2, default=0, verbose_name='ปรับเพิ่มอุปกรณ์ราคาแนะนำ')
+    mkt_checkup      = models.DecimalField(max_digits=12, decimal_places=2, default=0, verbose_name='งานเช็คอีฟระบบ')
+    mkt_variable     = models.DecimalField(max_digits=12, decimal_places=2, default=0, verbose_name='อื่นๆ (ส่วนแปรผัน)')
+    mkt_service      = models.DecimalField(max_digits=12, decimal_places=2, default=0, verbose_name='งานบริการ')
+    mkt_discount     = models.DecimalField(max_digits=12, decimal_places=2, default=0, verbose_name='ส่วนลด')
+    mkt_rebate_sell  = models.DecimalField(max_digits=12, decimal_places=2, default=0, verbose_name='เพิ่มคืนส่วนหน่วยงาน')
+
+    # ===== ราคาเสนอ & หมายเหตุ =====
+    proposal_price = models.DecimalField(max_digits=12, decimal_places=2, default=0, verbose_name='ราคาเสนอ')
+    notes          = models.TextField(blank=True, verbose_name='หมายเหตุ')
+
+    class Meta:
+        verbose_name = 'ใบประเมินงาน'
+        verbose_name_plural = 'ใบประเมินงาน'
+
+    def __str__(self):
+        return f'ประเมิน #{self.pk} — {self.project.name}'
+
+    # ── ส่วนที่ 1: ช่างระบบ ──────────────────────────────────
+    @property
+    def tech_total_cost(self):
+        return (self.tech_equip_cost + self.tech_risk + self.tech_fuel +
+                self.tech_depreciation + self.tech_travel + self.tech_misc +
+                self.tech_hidden_labor + self.tech_insurance)
+
+    @property
+    def tech_equip_sell(self):
+        return self.tech_equip_cost * Decimal('1.30')
+
+    @property
+    def tech_labor_sell(self):
+        return self.tech_labor_rate * self.tech_days * self.tech_people
+
+    @property
+    def tech_total_sell(self):
+        return self.tech_equip_sell + self.tech_labor_sell + self.tech_splice
+
+    @property
+    def tech_profit(self):
+        return self.tech_total_sell - self.tech_total_cost
+
+    @property
+    def tech_margin_pct(self):
+        if self.tech_total_sell:
+            return (self.tech_profit / self.tech_total_sell * 100).quantize(Decimal('0.01'))
+        return Decimal('0')
+
+    # ── ส่วนที่ 2: การตลาด ───────────────────────────────────
+    @property
+    def mkt_interest(self):
+        return (self.mkt_product_cost * self.mkt_interest_rate / 100).quantize(Decimal('0.01'))
+
+    @property
+    def mkt_equip_add(self):
+        return (self.tech_equip_cost * Decimal('0.15')).quantize(Decimal('0.01'))
+
+    @property
+    def mkt_total_sell(self):
+        return (self.mkt_equip_add + self.mkt_price_adjust + self.mkt_checkup +
+                self.mkt_variable + self.mkt_service - self.mkt_discount + self.mkt_rebate_sell)
+
+    @property
+    def mkt_vat_diff(self):
+        return (self.mkt_total_sell * Decimal('0.07') - self.mkt_product_cost * Decimal('0.07')).quantize(Decimal('0.01'))
+
+    @property
+    def mkt_tax(self):
+        pre_tax = self.mkt_total_sell - self.mkt_product_cost - self.mkt_interest - max(self.mkt_vat_diff, Decimal('0')) - self.mkt_rebate_cost
+        return max(pre_tax * Decimal('0.20'), Decimal('0')).quantize(Decimal('0.01'))
+
+    @property
+    def mkt_total_cost(self):
+        return (self.mkt_product_cost + self.mkt_interest +
+                max(self.mkt_vat_diff, Decimal('0')) + self.mkt_tax + self.mkt_rebate_cost)
+
+    @property
+    def mkt_profit(self):
+        return self.mkt_total_sell - self.mkt_total_cost
+
+    @property
+    def mkt_margin_pct(self):
+        if self.mkt_total_sell:
+            return (self.mkt_profit / self.mkt_total_sell * 100).quantize(Decimal('0.01'))
+        return Decimal('0')
+
+    # ── สรุปรวม ───────────────────────────────────────────────
+    @property
+    def total_cost(self):
+        return self.tech_total_cost + self.mkt_total_cost
+
+    @property
+    def total_sell(self):
+        return self.tech_total_sell + self.mkt_total_sell
+
+    @property
+    def total_profit(self):
+        return self.total_sell - self.total_cost
+
+    @property
+    def total_margin_pct(self):
+        if self.total_sell:
+            return (self.total_profit / self.total_sell * 100).quantize(Decimal('0.01'))
+        return Decimal('0')
+
+    @property
+    def proposal_profit(self):
+        return self.proposal_price - self.total_cost
+
+    @property
+    def proposal_margin_pct(self):
+        if self.proposal_price:
+            return (self.proposal_profit / self.proposal_price * 100).quantize(Decimal('0.01'))
+        return Decimal('0')
+
+
 # ====== ความต้องการลูกค้า / Lead (เดิม) ======
 class CustomerRequirement(models.Model):
     """

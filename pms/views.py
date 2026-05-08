@@ -14,10 +14,11 @@ import requests
 import json
 from django.views.decorators.csrf import csrf_exempt
 from .models import (
-    Project, ProductItem, Customer, Supplier, ProjectOwner, 
-    CustomerRequirement, ProjectFile, CustomerRequest, 
+    Project, ProductItem, Customer, Supplier, ProjectOwner,
+    CustomerRequirement, ProjectFile, CustomerRequest,
     ServiceQueueItem, SLAPlan, JobStatus, ProjectStatusAssignment,
-    UserNotification, ProjectStatusLog, RequestStatusLog, Skill, Lead
+    UserNotification, ProjectStatusLog, RequestStatusLog, Skill, Lead,
+    ProjectEstimation
 )
 from .forms import (
     ProjectForm, ProductItemForm, CustomerForm, SupplierForm, 
@@ -1025,22 +1026,100 @@ def project_owner_update(request, pk):
 @login_required
 def project_quotation(request, pk):
     project = get_object_or_404(Project, pk=pk)
-    # Calculate totals
-    subtotal = project.total_value
-    # Assuming 7% VAT for now as common practice in Thailand, or just show total if no VAT logic yet
-    # Since model doesn't have vat logic yet, we'll keep it simple or calculate on fly
-    vat = subtotal * Decimal('0.07')
-    grand_total = subtotal + vat
-    
+    est = getattr(project, 'estimation', None)
+
+    if est:
+        class _Item:
+            def __init__(self, name, desc, qty, unit_price):
+                self.name        = name
+                self.description = desc
+                self.quantity    = qty
+                self.unit_price  = Decimal(str(round(unit_price, 2)))
+                self.total_price = self.quantity * self.unit_price
+
+        items = []
+        t_equip_cost  = float(est.tech_equip_cost)
+        t_equip_sell  = t_equip_cost * 1.30
+        t_labor       = float(est.tech_days) * float(est.tech_people) * float(est.tech_labor_rate)
+        t_splice      = float(est.tech_splice)
+        m_equip_add   = t_equip_cost * 0.15
+        m_total_sell  = (m_equip_add + float(est.mkt_price_adjust) + float(est.mkt_checkup)
+                         + float(est.mkt_variable) + float(est.mkt_service)
+                         - float(est.mkt_discount) + float(est.mkt_rebate_sell))
+
+        if t_equip_sell > 0:
+            items.append(_Item('ค่าอุปกรณ์การติดตั้ง', '', 1, t_equip_sell))
+        if t_labor > 0:
+            items.append(_Item(
+                'ค่าติดตั้ง',
+                f'{est.tech_days} วัน × {est.tech_people} คน × {est.tech_labor_rate} ฿/วัน/คน',
+                1, t_labor
+            ))
+        if t_splice > 0:
+            items.append(_Item('ค่า Splice สาย Fiber Optic', '', 1, t_splice))
+        if m_total_sell > 0:
+            items.append(_Item('สินค้าและอุปกรณ์หลัก', '', 1, m_total_sell))
+
+        # proposal_price = ราคาถึงลูกค้า (รวม VAT แล้ว)
+        grand_total = Decimal(str(float(est.proposal_price)))
+        subtotal    = (grand_total / Decimal('1.07')).quantize(Decimal('0.01'))
+        vat         = grand_total - subtotal
+    else:
+        items       = project.items.all()
+        subtotal    = project.total_value
+        vat         = subtotal * Decimal('0.07')
+        grand_total = subtotal + vat
+
     context = {
         'project': project,
-        'items': project.items.all(),
+        'items': items,
         'subtotal': subtotal,
         'vat': vat,
         'grand_total': grand_total,
         'today': timezone.now()
     }
     return render(request, 'pms/project_quotation.html', context)
+
+# ===== ใบประเมินงาน (Project Estimation) =====
+@login_required
+def project_estimation(request, pk):
+    project = get_object_or_404(Project, pk=pk)
+    estimation, _ = ProjectEstimation.objects.get_or_create(
+        project=project,
+        defaults={'created_by': request.user}
+    )
+
+    if request.method == 'POST':
+        fields = [
+            'tech_equip_cost', 'tech_risk', 'tech_fuel', 'tech_depreciation',
+            'tech_travel', 'tech_misc', 'tech_hidden_labor', 'tech_hidden_rate',
+            'tech_insurance', 'tech_bank_rate', 'tech_contract_years',
+            'tech_days', 'tech_people', 'tech_labor_rate', 'tech_splice',
+            'mkt_product_cost', 'mkt_interest_rate', 'mkt_rebate_cost',
+            'mkt_price_adjust', 'mkt_checkup', 'mkt_variable',
+            'mkt_service', 'mkt_discount', 'mkt_rebate_sell',
+            'proposal_price', 'notes',
+        ]
+        for f in fields:
+            val = request.POST.get(f, '0') or '0'
+            setattr(estimation, f, val)
+
+        new_status = request.POST.get('status', estimation.status)
+        if new_status in ProjectEstimation.Status.values:
+            estimation.status = new_status
+
+        estimation.save()
+        messages.success(request, 'บันทึกใบประเมินงานเรียบร้อยแล้ว')
+
+        if request.POST.get('action') == 'quotation':
+            return redirect('pms:project_quotation', pk=pk)
+        return redirect('pms:project_estimation', pk=pk)
+
+    return render(request, 'pms/project_estimation.html', {
+        'project': project,
+        'est': estimation,
+    })
+
 
 # Dashboard
 # หน้าแดชบอร์ดหลักของระบบ PMS แสดงสรุปสถิติ มูลค่าโครงการ และงานที่เกินกำหนด (SLA Alerts)

@@ -31,6 +31,7 @@ urlpatterns = [
     path('<int:pk>/advance/', views.project_advance, name='project_advance'),            # เลื่อนสถานะถัดไป
     path('<int:pk>/delete/', views.project_delete, name='project_delete'),               # ลบโครงการ (ต้องมีรหัส)
     path('<int:pk>/quotation/', views.project_quotation, name='project_quotation'),      # ใบเสนอราคา
+    path('<int:pk>/estimation/', views.project_estimation, name='project_estimation'),  # ใบประเมินงาน
     path('<int:pk>/respond/', views.mark_as_responded, name='mark_as_responded'),        # บันทึกการตอบกลับ SLA
 
     # ===== รายการสินค้า/บริการในโครงการ (Product Items) =====

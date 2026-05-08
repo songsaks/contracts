@@ -1,0 +1,613 @@
+{% extends 'pms/base_pms.html' %}
+{% load humanize %}
+
+{% block extra_css %}
+<style>
+:root {
+  --tech-accent: #f43f5e;
+  --mkt-accent:  #eab308;
+  --sum-accent:  #22c55e;
+  --border: #e2e8f0;
+  --input-focus-bg: #eff6ff;
+}
+
+/* ── Header bar ── */
+.est-header {
+  background: #1e293b;
+  color: #fff;
+  padding: 14px 20px;
+  border-bottom: 3px solid #1a56db;
+  border-radius: 8px 8px 0 0;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.est-header h5 { margin: 0; font-weight: 700; font-size: 16px; }
+
+/* ── Project info row ── */
+.proj-info-bar {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-top: none;
+  padding: 10px 20px;
+  display: flex; flex-wrap: wrap; gap: 24px;
+  margin-bottom: 16px;
+}
+.proj-info-bar .info-item label { font-size: 11px; color: #64748b; text-transform: uppercase; letter-spacing: .4px; display: block; }
+.proj-info-bar .info-item span  { font-weight: 600; color: #1e293b; font-size: 13px; }
+
+/* ── Section cards ── */
+.est-card { background: #fff; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; margin-bottom: 14px; box-shadow: 0 1px 3px rgba(0,0,0,.06); }
+.est-card-header { padding: 9px 18px; font-weight: 700; font-size: 12px; letter-spacing: .5px; display: flex; align-items: center; gap: 8px; }
+.est-card-header.tech   { background: #fecdd3; color: #881337; border-bottom: 2px solid #f43f5e; }
+.est-card-header.market { background: #fef08a; color: #713f12; border-bottom: 2px solid #eab308; }
+.est-card-header.summary{ background: #bbf7d0; color: #14532d; border-bottom: 2px solid #22c55e; }
+
+/* ── Two-column grid ── */
+.est-grid { display: grid; grid-template-columns: 1fr 1fr; }
+@media(max-width:768px){ .est-grid{ grid-template-columns:1fr; } }
+.est-col { padding: 14px 18px; }
+.est-col.left { border-right: 2px dashed #e2e8f0; }
+.col-title { font-size: 11px; text-transform: uppercase; letter-spacing: .8px; color: #94a3b8; font-weight: 600; margin-bottom: 10px; padding-bottom: 5px; border-bottom: 1px solid #f1f5f9; }
+
+/* ── Input rows ── */
+.input-row { display: flex; align-items: center; padding: 4px 0; border-bottom: 1px solid #f8fafc; gap: 6px; }
+.input-row:last-child { border-bottom: none; }
+.input-row label { flex: 1; color: #475569; font-size: 13px; }
+.input-row .badge-pct { font-size: 10px; background: #e0f2fe; color: #0369a1; padding: 1px 5px; border-radius: 3px; }
+.form-num {
+  width: 130px; text-align: right;
+  font-size: 13px; padding: 3px 8px; height: 28px;
+  border: 1px solid #cbd5e1; border-radius: 5px; background: #fff;
+}
+.form-num:focus { background: var(--input-focus-bg); border-color: #1a56db; box-shadow: 0 0 0 2px rgba(26,86,219,.1); outline: none; }
+.form-num.readonly-calc { background: #f1f5f9; color: #64748b; pointer-events: none; }
+.unit { width: 36px; font-size: 11px; color: #94a3b8; text-align: center; }
+
+/* ── Sub-group (labor calc) ── */
+.sub-group { background: #f8fafc; border-radius: 6px; padding: 8px 12px; margin: 6px 0; border: 1px solid #e2e8f0; }
+.sub-group .sub-title { font-size: 11px; color: #64748b; margin-bottom: 6px; font-weight: 600; }
+.sub-row { display: flex; align-items: center; gap: 6px; margin-bottom: 3px; }
+.sub-row label { flex: 1; font-size: 12px; color: #64748b; }
+.sub-row .form-num { width: 90px; height: 25px; font-size: 12px; }
+.sub-row .unit { font-size: 10px; }
+
+/* ── Total rows ── */
+.total-row { display: flex; align-items: center; padding: 7px 10px; margin-top: 8px; border-radius: 6px; font-weight: 700; }
+.total-row.cost { background: #fef2f2; }
+.total-row.sell { background: #f0fdf4; }
+.total-row label { flex: 1; font-size: 13px; }
+.total-row.cost label, .total-row.cost .amount { color: #dc2626; }
+.total-row.sell label, .total-row.sell .amount { color: #16a34a; }
+.total-row .amount { font-size: 14px; min-width: 110px; text-align: right; font-weight: 700; }
+
+/* ── Profit bar ── */
+.profit-bar { display: flex; align-items: center; justify-content: space-around; padding: 10px 16px; border-top: 2px solid var(--border); background: #fafafa; flex-wrap: wrap; gap: 8px; }
+.profit-item { text-align: center; }
+.profit-item label { font-size: 10px; color: #64748b; display: block; margin-bottom: 2px; }
+.profit-item .val { font-size: 15px; font-weight: 700; }
+.val.pos { color: #16a34a; }
+.val.neg { color: #dc2626; }
+
+/* ── Summary cards ── */
+.summary-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; padding: 16px; }
+@media(max-width:576px){ .summary-grid{ grid-template-columns:1fr; } }
+.sum-card { border-radius: 8px; padding: 14px; text-align: center; border: 1px solid var(--border); }
+.sum-card label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .5px; display: block; margin-bottom: 6px; }
+.sum-card .big-val { font-size: 22px; font-weight: 700; }
+.sum-card .sub-val { font-size: 11px; color: #94a3b8; margin-top: 3px; }
+.sum-card.cost-card  { background: #fef2f2; border-color: #fecaca; }
+.sum-card.sell-card  { background: #eff6ff; border-color: #bfdbfe; }
+.sum-card.profit-card{ background: #f0fdf4; border-color: #bbf7d0; }
+.sum-card.cost-card  label, .sum-card.cost-card  .big-val { color: #dc2626; }
+.sum-card.sell-card  label, .sum-card.sell-card  .big-val { color: #2563eb; }
+.sum-card.profit-card label, .sum-card.profit-card .big-val { color: #16a34a; }
+
+/* ── Proposal row ── */
+.proposal-row { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; padding: 14px 18px; border-top: 1px solid var(--border); }
+.proposal-label { font-size: 14px; font-weight: 700; color: #1e293b; }
+.proposal-label small { display: block; font-size: 11px; color: #64748b; font-weight: 400; margin-top: 2px; }
+.proposal-input { width: 190px; text-align: right; font-size: 18px; font-weight: 700; color: #1a56db; border: 2px solid #1a56db; border-radius: 8px; padding: 6px 12px; }
+.vat-note { padding: 7px 18px; background: #fffbeb; border-top: 1px solid #fef3c7; font-size: 12px; color: #92400e; }
+
+/* ── Action bar ── */
+.action-bar { padding: 14px 18px; background: #fff; border-top: 1px solid var(--border); display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
+
+/* ── Status badge ── */
+.status-badge { padding: 3px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; }
+.status-DRAFT    { background: #f1f5f9; color: #64748b; }
+.status-PENDING  { background: #fef9c3; color: #854d0e; }
+.status-APPROVED { background: #dcfce7; color: #166534; }
+.status-REJECTED { background: #fee2e2; color: #991b1b; }
+</style>
+{% endblock %}
+
+{% block content %}
+<form method="post">
+{% csrf_token %}
+
+<!-- ── Header ── -->
+<div class="est-header">
+  <div>
+    <h5>📋 ใบประเมินงาน</h5>
+    <div style="font-size:11px;opacity:.6;margin-top:2px">{{ project.name }}</div>
+  </div>
+  <span class="status-badge status-{{ est.status }}">
+    {{ est.get_status_display }}
+  </span>
+</div>
+
+<!-- ── Project info bar ── -->
+<div class="proj-info-bar">
+  <div class="info-item">
+    <label>โครงการ</label>
+    <span>{{ project.name }}</span>
+  </div>
+  <div class="info-item">
+    <label>ลูกค้า</label>
+    <span>{{ project.customer }}</span>
+  </div>
+  <div class="info-item">
+    <label>วันที่ประเมิน</label>
+    <span>{{ est.updated_at|date:"d/m/Y" }}</span>
+  </div>
+  <div class="info-item">
+    <label>ผู้ประเมิน</label>
+    <span>{{ est.created_by.get_full_name|default:est.created_by }}</span>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════
+     ส่วนที่ 1 — ช่างระบบ
+══════════════════════════════════════════════════ -->
+<div class="est-card">
+  <div class="est-card-header tech">🔧 ส่วนที่ 1 — ช่างระบบ / Installation &amp; Labor</div>
+  <div class="est-grid">
+
+    <!-- LEFT: ต้นทุน -->
+    <div class="est-col left">
+      <div class="col-title">💰 ต้นทุนช่างระบบ</div>
+
+      <div class="input-row">
+        <label>ต้นทุนอุปกรณ์การติดตั้ง</label>
+        <input class="form-num" type="number" name="tech_equip_cost" id="t_equip_cost" value="{{ est.tech_equip_cost }}" step="0.01" oninput="calc()">
+        <span class="unit">฿</span>
+      </div>
+      <div class="input-row">
+        <label>ค่าความเสี่ยง / ค่ายขนนำไฟ</label>
+        <input class="form-num" type="number" name="tech_risk" id="t_risk" value="{{ est.tech_risk }}" step="0.01" oninput="calc()">
+        <span class="unit">฿</span>
+      </div>
+      <div class="input-row">
+        <label>ค่าน้ำมันรถบริการ</label>
+        <input class="form-num" type="number" name="tech_fuel" id="t_fuel" value="{{ est.tech_fuel }}" step="0.01" oninput="calc()">
+        <span class="unit">฿</span>
+      </div>
+      <div class="input-row">
+        <label>ค่าเสื่อมรถบริการ <span class="badge-pct">ต่องาน</span></label>
+        <input class="form-num" type="number" name="tech_depreciation" id="t_depr" value="{{ est.tech_depreciation }}" step="0.01" oninput="calc()">
+        <span class="unit">฿</span>
+      </div>
+      <div class="input-row">
+        <label>ที่พัก / ค่าคอมช่าง</label>
+        <input class="form-num" type="number" name="tech_travel" id="t_travel" value="{{ est.tech_travel }}" step="0.01" oninput="calc()">
+        <span class="unit">฿</span>
+      </div>
+      <div class="input-row">
+        <label>ค่าใช้จ่ายอื่นๆ</label>
+        <input class="form-num" type="number" name="tech_misc" id="t_misc" value="{{ est.tech_misc }}" step="0.01" oninput="calc()">
+        <span class="unit">฿</span>
+      </div>
+      <!-- ค่าแรงแฝง = อัตรา × จำนวนวัน × จำนวนคน (reuse จากฝั่งขวา) -->
+      <div class="sub-group" style="background:#fafafa;border:1px solid #e2e8f0;border-radius:6px;padding:8px 12px;margin:6px 0;">
+        <div class="sub-title" style="font-size:11px;color:#64748b;font-weight:600;margin-bottom:6px;">👷 ค่าแรงแฝง (อัตรา × วัน × คน)</div>
+        <div class="sub-row" style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
+          <label style="flex:1;font-size:12px;color:#64748b;">อัตราค่าแรงแฝง / วัน / คน</label>
+          <input class="form-num" type="number" name="tech_hidden_rate" id="t_hidden_rate"
+                 value="{{ est.tech_hidden_rate }}" step="0.01" oninput="calc()"
+                 style="width:80px;text-align:right;font-size:12px;padding:2px 6px;height:26px;border:1px solid #cbd5e1;border-radius:4px;">
+          <span style="width:24px;font-size:10px;color:#94a3b8;">฿</span>
+        </div>
+        <div style="font-size:10px;color:#94a3b8;margin-bottom:4px;padding-left:2px;">
+          จำนวนวัน / คน ใช้ค่าจากส่วนคำนวณค่าแรงด้านขวา
+        </div>
+        <div style="background:#f0fdf4;border-radius:4px;padding:4px 8px;display:flex;align-items:center;gap:6px;">
+          <label style="flex:1;font-size:12px;font-weight:600;color:#166534;">ค่าแรงแฝง (คำนวณ)</label>
+          <input class="form-num readonly-calc" type="number" name="tech_hidden_labor" id="t_hidden"
+                 value="{{ est.tech_hidden_labor }}" readonly
+                 style="width:100px;text-align:right;font-size:13px;font-weight:700;background:#dcfce7;border:1px solid #bbf7d0;border-radius:4px;padding:3px 7px;height:28px;">
+          <span style="width:24px;font-size:10px;color:#94a3b8;">฿</span>
+        </div>
+      </div>
+      <!-- ค่าประกันสัญญา — คำนวณอัตโนมัติ: ราคาขาย × 5% × อัตราธนาคาร × ปี -->
+      <div class="sub-group" style="background:#fafafa;border:1px solid #e2e8f0;border-radius:6px;padding:8px 12px;margin:6px 0;">
+        <div class="sub-title" style="font-size:11px;color:#64748b;font-weight:600;margin-bottom:6px;">🔒 ค่าประกันสัญญา (ราคาขาย × 5% × ดอกเบี้ยธนาคาร × ปี)</div>
+        <div class="sub-row" style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
+          <label style="flex:1;font-size:12px;color:#64748b;">อัตราดอกเบี้ยธนาคาร / ปี</label>
+          <input class="form-num" type="number" name="tech_bank_rate" id="t_bank_rate"
+                 value="{{ est.tech_bank_rate }}" step="0.1" oninput="calc()"
+                 style="width:80px;text-align:right;font-size:12px;padding:2px 6px;height:26px;border:1px solid #cbd5e1;border-radius:4px;">
+          <span style="width:24px;font-size:10px;color:#94a3b8;">%</span>
+        </div>
+        <div class="sub-row" style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
+          <label style="flex:1;font-size:12px;color:#64748b;">จำนวนปีสัญญา</label>
+          <input class="form-num" type="number" name="tech_contract_years" id="t_contract_years"
+                 value="{{ est.tech_contract_years }}" step="0.5" min="0.5" oninput="calc()"
+                 style="width:80px;text-align:right;font-size:12px;padding:2px 6px;height:26px;border:1px solid #cbd5e1;border-radius:4px;">
+          <span style="width:24px;font-size:10px;color:#94a3b8;">ปี</span>
+        </div>
+        <div style="background:#fff7ed;border-radius:4px;padding:4px 8px;margin-top:6px;display:flex;align-items:center;gap:6px;">
+          <label style="flex:1;font-size:12px;font-weight:600;color:#9a3412;">ค่าประกันสัญญา (คำนวณ)</label>
+          <input class="form-num readonly-calc" type="number" name="tech_insurance" id="t_insurance"
+                 value="{{ est.tech_insurance }}" readonly
+                 style="width:100px;text-align:right;font-size:13px;font-weight:700;background:#ffedd5;border:1px solid #fed7aa;border-radius:4px;padding:3px 7px;height:28px;">
+          <span style="width:24px;font-size:10px;color:#94a3b8;">฿</span>
+        </div>
+      </div>
+
+      <div class="total-row cost">
+        <label>รวมต้นทุน (ช่าง)</label>
+        <span class="amount" id="t_total_cost">{{ est.tech_total_cost|floatformat:2 }}</span>
+        <span class="unit">฿</span>
+      </div>
+    </div>
+
+    <!-- RIGHT: ราคาขาย -->
+    <div class="est-col">
+      <div class="col-title">🏷️ ราคาขายช่างระบบ</div>
+
+      <div class="input-row">
+        <label>ราคาขายอุปกรณ์ติดตั้ง <span class="badge-pct">+30%</span></label>
+        <input class="form-num readonly-calc" type="number" id="t_equip_sell" value="{{ est.tech_equip_sell|floatformat:2 }}" readonly>
+        <span class="unit">฿</span>
+      </div>
+
+      <!-- กล่องคำนวณค่าแรง -->
+      <div class="sub-group">
+        <div class="sub-title">🧑‍🔧 คำนวณค่าแรงช่าง</div>
+        <div class="sub-row">
+          <label>จำนวนวัน</label>
+          <input class="form-num" type="number" name="tech_days" id="t_days" value="{{ est.tech_days }}" oninput="calc()">
+          <span class="unit">วัน</span>
+        </div>
+        <div class="sub-row">
+          <label>จำนวนคน</label>
+          <input class="form-num" type="number" name="tech_people" id="t_ppl" value="{{ est.tech_people }}" oninput="calc()">
+          <span class="unit">คน</span>
+        </div>
+        <div class="sub-row">
+          <label>ค่าแรงต่อคนต่อวัน</label>
+          <input class="form-num" type="number" name="tech_labor_rate" id="t_rate" value="{{ est.tech_labor_rate }}" step="0.01" oninput="calc()">
+          <span class="unit">฿</span>
+        </div>
+        <div class="sub-row" style="margin-top:5px;background:#f0fdf4;border-radius:4px;padding:3px 6px;">
+          <label style="font-weight:700;color:#166534;">รวมค่าแรง</label>
+          <input class="form-num readonly-calc" type="number" id="t_labor" value="{{ est.tech_labor_sell|floatformat:2 }}" readonly style="background:#dcfce7;font-weight:700;">
+          <span class="unit">฿</span>
+        </div>
+      </div>
+
+      <div class="input-row">
+        <label>ค่า Splice สาย F.O <span class="badge-pct">อ×300฿</span></label>
+        <input class="form-num" type="number" name="tech_splice" id="t_splice" value="{{ est.tech_splice }}" step="0.01" oninput="calc()">
+        <span class="unit">฿</span>
+      </div>
+
+      <div class="total-row sell">
+        <label>รวมราคาขายช่างระบบ</label>
+        <span class="amount" id="t_total_sell">{{ est.tech_total_sell|floatformat:2 }}</span>
+        <span class="unit">฿</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Profit bar: ช่าง -->
+  <div class="profit-bar">
+    <div class="profit-item"><label>ต้นทุน (ช่าง)</label><div class="val neg" id="t_cost_s">{{ est.tech_total_cost|floatformat:0 }}</div></div>
+    <div style="color:#cbd5e1;font-size:18px">→</div>
+    <div class="profit-item"><label>ราคาขาย (ช่าง)</label><div class="val" style="color:#2563eb" id="t_sell_s">{{ est.tech_total_sell|floatformat:0 }}</div></div>
+    <div style="color:#cbd5e1;font-size:18px">＝</div>
+    <div class="profit-item"><label>กำไรขั้นต้น</label><div class="val {% if est.tech_profit >= 0 %}pos{% else %}neg{% endif %}" id="t_profit_s">{{ est.tech_profit|floatformat:0 }}</div></div>
+    <div class="profit-item"><label>อัตรากำไร</label><div class="val {% if est.tech_margin_pct >= 0 %}pos{% else %}neg{% endif %}" id="t_margin_s">{{ est.tech_margin_pct }}%</div></div>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════
+     ส่วนที่ 2 — การตลาด / สินค้าหลัก
+══════════════════════════════════════════════════ -->
+<div class="est-card">
+  <div class="est-card-header market">📦 ส่วนที่ 2 — การตลาด / สินค้าหลัก</div>
+  <div class="est-grid">
+
+    <!-- LEFT: ต้นทุน -->
+    <div class="est-col left">
+      <div class="col-title">💰 ต้นทุนส่วนการตลาด</div>
+
+      <div class="input-row">
+        <label>ต้นทุนสินค้าขาย (ราคาทุน)</label>
+        <input class="form-num" type="number" name="mkt_product_cost" id="m_cost" value="{{ est.mkt_product_cost }}" step="0.01" oninput="calc()">
+        <span class="unit">฿</span>
+      </div>
+      <div class="input-row">
+        <label>อัตราดอกเบี้ย / เดือน</label>
+        <input class="form-num" type="number" name="mkt_interest_rate" id="m_int_rate" value="{{ est.mkt_interest_rate }}" step="0.01" oninput="calc()">
+        <span class="unit">%</span>
+      </div>
+      <div class="input-row">
+        <label>ดอกเบี้ยเงินกู้ <span class="badge-pct">คำนวณอัตโนมัติ</span></label>
+        <input class="form-num readonly-calc" type="number" id="m_interest" value="{{ est.mkt_interest|floatformat:2 }}" readonly>
+        <span class="unit">฿</span>
+      </div>
+      <div class="input-row">
+        <label>ผลต่างภาษี VAT <span class="badge-pct">7%</span></label>
+        <input class="form-num readonly-calc" type="number" id="m_vat" value="{{ est.mkt_vat_diff|floatformat:2 }}" readonly>
+        <span class="unit">฿</span>
+      </div>
+      <div class="input-row">
+        <label>ภาษี (กำไรสุทธิ 20%)</label>
+        <input class="form-num readonly-calc" type="number" id="m_tax" value="{{ est.mkt_tax|floatformat:2 }}" readonly>
+        <span class="unit">฿</span>
+      </div>
+      <div class="input-row">
+        <label>ส่วนคืนหน่วยงาน (ต้นทุน)</label>
+        <input class="form-num readonly-calc" type="number" name="mkt_rebate_cost" id="m_rebate_c" value="{{ est.mkt_rebate_cost }}" readonly>
+        <span class="unit">฿</span>
+      </div>
+
+      <div class="total-row cost">
+        <label>ต้นทุนส่วนการตลาด</label>
+        <span class="amount" id="m_total_cost">{{ est.mkt_total_cost|floatformat:2 }}</span>
+        <span class="unit">฿</span>
+      </div>
+    </div>
+
+    <!-- RIGHT: ราคาขาย -->
+    <div class="est-col">
+      <div class="col-title">🏷️ ราคาขายส่วนการตลาด</div>
+
+      <div class="input-row">
+        <label>ส่วนเพิ่มอุปกรณ์ติดตั้ง <span class="badge-pct">+15%</span></label>
+        <input class="form-num readonly-calc" type="number" id="m_equip_add" value="{{ est.mkt_equip_add|floatformat:2 }}" readonly>
+        <span class="unit">฿</span>
+      </div>
+      <div class="input-row">
+        <label>ปรับเพิ่มอุปกรณ์ราคาแนะนำ</label>
+        <input class="form-num" type="number" name="mkt_price_adjust" id="m_adjust" value="{{ est.mkt_price_adjust }}" step="0.01" oninput="calc()">
+        <span class="unit">฿</span>
+      </div>
+      <div class="input-row">
+        <label>งานเช็คอีฟระบบ</label>
+        <input class="form-num" type="number" name="mkt_checkup" id="m_checkup" value="{{ est.mkt_checkup }}" step="0.01" oninput="calc()">
+        <span class="unit">฿</span>
+      </div>
+      <div class="input-row">
+        <label>อื่นๆ (ส่วนแปรผัน)</label>
+        <input class="form-num" type="number" name="mkt_variable" id="m_var" value="{{ est.mkt_variable }}" step="0.01" oninput="calc()">
+        <span class="unit">฿</span>
+      </div>
+      <div class="input-row">
+        <label>งานบริการ</label>
+        <input class="form-num" type="number" name="mkt_service" id="m_service" value="{{ est.mkt_service }}" step="0.01" oninput="calc()">
+        <span class="unit">฿</span>
+      </div>
+      <div class="input-row">
+        <label>ส่วนลด</label>
+        <input class="form-num" type="number" name="mkt_discount" id="m_discount" value="{{ est.mkt_discount }}" step="0.01" oninput="calc()">
+        <span class="unit">฿</span>
+      </div>
+      <div class="input-row">
+        <label>เพิ่มคืนส่วนหน่วยงาน</label>
+        <input class="form-num" type="number" name="mkt_rebate_sell" id="m_rebate_s" value="{{ est.mkt_rebate_sell }}" step="0.01" oninput="calc()">
+        <span class="unit">฿</span>
+      </div>
+
+      <div class="total-row sell">
+        <label>รวมราคาขายส่วนการตลาด</label>
+        <span class="amount" id="m_total_sell">{{ est.mkt_total_sell|floatformat:2 }}</span>
+        <span class="unit">฿</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Profit bar: การตลาด -->
+  <div class="profit-bar">
+    <div class="profit-item"><label>ต้นทุน (การตลาด)</label><div class="val neg" id="m_cost_s">{{ est.mkt_total_cost|floatformat:0 }}</div></div>
+    <div style="color:#cbd5e1;font-size:18px">→</div>
+    <div class="profit-item"><label>ราคาขาย (การตลาด)</label><div class="val" style="color:#2563eb" id="m_sell_s">{{ est.mkt_total_sell|floatformat:0 }}</div></div>
+    <div style="color:#cbd5e1;font-size:18px">＝</div>
+    <div class="profit-item"><label>กำไรขั้นต้น</label><div class="val {% if est.mkt_profit >= 0 %}pos{% else %}neg{% endif %}" id="m_profit_s">{{ est.mkt_profit|floatformat:0 }}</div></div>
+    <div class="profit-item"><label>อัตรากำไร</label><div class="val {% if est.mkt_margin_pct >= 0 %}pos{% else %}neg{% endif %}" id="m_margin_s">{{ est.mkt_margin_pct }}%</div></div>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════
+     ส่วนที่ 3 — สรุปรวม
+══════════════════════════════════════════════════ -->
+<div class="est-card">
+  <div class="est-card-header summary">📊 สรุปรวม — ต้นทุนและกำไรโครงการ</div>
+
+  <div class="summary-grid">
+    <div class="sum-card cost-card">
+      <label>รวมต้นทุนทั้งหมด</label>
+      <div class="big-val" id="sum_cost">{{ est.total_cost|floatformat:0 }}</div>
+      <div class="sub-val">฿</div>
+    </div>
+    <div class="sum-card sell-card">
+      <label>ราคาขายรวม</label>
+      <div class="big-val" id="sum_sell">{{ est.total_sell|floatformat:0 }}</div>
+      <div class="sub-val">฿</div>
+    </div>
+    <div class="sum-card profit-card">
+      <label>กำไรรวม</label>
+      <div class="big-val" id="sum_profit">{{ est.total_profit|floatformat:0 }}</div>
+      <div class="sub-val" id="sum_margin">อัตรากำไร: {{ est.total_margin_pct }}%</div>
+    </div>
+  </div>
+
+  <!-- Proposal price -->
+  <div class="proposal-row">
+    <div class="proposal-label">
+      💼 ราคาเสนอ (Quotation Price)
+      <small>ปรับได้อิสระ — กำไรจะคำนวณใหม่อัตโนมัติ</small>
+    </div>
+    <div class="d-flex align-items-center gap-3">
+      <div style="text-align:right">
+        <div style="font-size:10px;color:#94a3b8">กำไรจากราคาเสนอ</div>
+        <div style="font-size:13px;font-weight:600" id="proposal_profit_show">{{ est.proposal_profit|floatformat:0 }} ฿ ({{ est.proposal_margin_pct }}%)</div>
+      </div>
+      <input class="proposal-input" type="number" name="proposal_price" id="proposal_price" value="{{ est.proposal_price }}" step="0.01" oninput="calcProposal()">
+      <span style="font-size:15px;color:#64748b">฿</span>
+    </div>
+  </div>
+
+  <div class="vat-note">
+    ⚠️ ราคาเสนอ<strong>ยังไม่รวม VAT 7%</strong> — ราคารวม VAT: <strong id="vat_price">0</strong> ฿
+  </div>
+
+  <!-- หมายเหตุ -->
+  <div style="padding:12px 18px;border-top:1px solid var(--border);">
+    <label style="font-size:12px;font-weight:600;color:#64748b;display:block;margin-bottom:4px">หมายเหตุ</label>
+    <textarea name="notes" rows="2" class="form-control form-control-sm" style="font-size:13px;">{{ est.notes }}</textarea>
+  </div>
+</div>
+
+<!-- ── Action bar ── -->
+<div class="action-bar">
+  <!-- สถานะ -->
+  <select name="status" class="form-select form-select-sm" style="width:auto;font-size:13px;">
+    {% for val, label in est.Status.choices %}
+      <option value="{{ val }}" {% if est.status == val %}selected{% endif %}>{{ label }}</option>
+    {% endfor %}
+  </select>
+
+  <a href="{% url 'pms:project_detail' project.pk %}" class="btn btn-sm btn-outline-secondary">↩ กลับ</a>
+  <button type="submit" name="action" value="save" class="btn btn-sm btn-primary">💾 บันทึก</button>
+  <button type="submit" name="action" value="quotation" class="btn btn-sm btn-success">📄 บันทึก &amp; สร้างใบเสนอราคา</button>
+</div>
+
+</form>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const D = (id) => parseFloat(document.getElementById(id)?.value) || 0;
+const setText = (id, val) => { const el = document.getElementById(id); if(el) el.textContent = val; };
+const setVal  = (id, val) => { const el = document.getElementById(id); if(el) el.value = val.toFixed(2); };
+const fmt  = (n) => n.toLocaleString('th-TH', {minimumFractionDigits:2, maximumFractionDigits:2});
+const fmtI = (n) => n.toLocaleString('th-TH', {minimumFractionDigits:2, maximumFractionDigits:2});
+const colorEl = (id, n) => {
+  const el = document.getElementById(id);
+  if(!el) return;
+  el.className = 'val ' + (n >= 0 ? 'pos' : 'neg');
+};
+
+function calc() {
+  // ── Step 1: ราคาขายช่าง (ไม่มี insurance ก่อน) ──
+  const tEquipCost = D('t_equip_cost');
+  const tEquipSell = tEquipCost * 1.30;
+  const tDays      = D('t_days');
+  const tPpl       = D('t_ppl');
+  const tLabor     = tDays * tPpl * D('t_rate');
+  const tTotalSell = tEquipSell + tLabor + D('t_splice');
+
+  // ── Step 2: ราคาขายตลาด (คำนวณก่อน เพื่อใช้เป็นฐานประกัน) ──
+  const mCost      = D('m_cost');
+  const mEquipAdd  = tEquipCost * 0.15;
+  const mTotalSell = mEquipAdd + D('m_adjust') + D('m_checkup') + D('m_var') +
+                     D('m_service') - D('m_discount') + D('m_rebate_s');
+
+  // ── Step 3: ค่าแรงแฝง = อัตรา × วัน × คน ──
+  const tHidden    = D('t_hidden_rate') * tDays * tPpl;
+  setVal('t_hidden', tHidden);
+
+  // ── Step 4: ค่าประกันสัญญา = ราคาขายรวม × 5% × ธนาคาร% × ปี ──
+  const sumSell        = tTotalSell + mTotalSell;
+  const tBankRate      = D('t_bank_rate');
+  const tContractYears = D('t_contract_years');
+  const tInsurance     = sumSell * 0.05 * (tBankRate / 100) * tContractYears;
+  setVal('t_insurance', tInsurance);
+
+  // ── Step 5: รวมต้นทุนช่าง ──
+  const tTotalCost = tEquipCost + D('t_risk') + D('t_fuel') + D('t_depr') +
+                     D('t_travel') + D('t_misc') + tHidden + tInsurance;
+  const tProfit    = tTotalSell - tTotalCost;
+  const tMargin    = tTotalSell ? (tProfit / tTotalSell * 100) : 0;
+
+  setVal('t_equip_sell', tEquipSell);
+  setVal('t_labor', tLabor);
+  setText('t_total_cost', fmt(tTotalCost));
+  setText('t_total_sell', fmt(tTotalSell));
+  setText('t_cost_s', fmtI(tTotalCost));
+  setText('t_sell_s', fmtI(tTotalSell));
+  setText('t_profit_s', (tProfit >= 0 ? '+' : '') + fmtI(tProfit));
+  setText('t_margin_s', tMargin.toFixed(2) + '%');
+  colorEl('t_profit_s', tProfit);
+  colorEl('t_margin_s', tMargin);
+
+  // ── Step 6: ต้นทุนตลาด ──
+  const mIntRate   = D('m_int_rate');
+  const mInterest  = (tEquipCost + mCost) * mIntRate / 100;
+  // VAT diff = (ราคาขายอุปกรณ์ + ราคาแนะนำ - ต้นทุนอุปกรณ์ - ต้นทุนสินค้า) × 7%
+  const mVatDiff   = ((tEquipSell + D('m_adjust')) - (tEquipCost + mCost)) * 0.07;
+  // เพิ่มคืนส่วนหน่วยงาน (sell side) → mirror ไป cost side อัตโนมัติ
+  const mRebate    = D('m_rebate_s');
+  setVal('m_rebate_c', mRebate);
+  // ภาษี 20% คิดจากกำไรรวมทั้งโครงการ (sumSell − ต้นทุนทั้งหมด ก่อนหักภาษี)
+  const preTaxSum  = sumSell - tTotalCost - mCost - mInterest - Math.max(mVatDiff, 0) - mRebate;
+  const mTax       = Math.max(preTaxSum * 0.20, 0);
+  const mTotalCost = mCost + mInterest + Math.max(mVatDiff, 0) + mTax + mRebate;
+  const mProfit    = mTotalSell - mTotalCost;
+  const mMargin    = mTotalSell ? (mProfit / mTotalSell * 100) : 0;
+
+  setVal('m_interest',  mInterest);
+  setVal('m_vat',       Math.max(mVatDiff, 0));
+  setVal('m_tax',       mTax);
+  setVal('m_equip_add', mEquipAdd);
+  setText('m_total_cost', fmt(mTotalCost));
+  setText('m_total_sell', fmt(mTotalSell));
+  setText('m_cost_s', fmtI(mTotalCost));
+  setText('m_sell_s', fmtI(mTotalSell));
+  setText('m_profit_s', (mProfit >= 0 ? '+' : '') + fmtI(mProfit));
+  setText('m_margin_s', mMargin.toFixed(2) + '%');
+  colorEl('m_profit_s', mProfit);
+  colorEl('m_margin_s', mMargin);
+
+  // ── สรุปรวม ──
+  const sumCost   = tTotalCost + mTotalCost;
+  const sumProfit = sumSell - sumCost;
+  const sumMargin = sumSell ? (sumProfit / sumSell * 100) : 0;
+
+  setText('sum_cost',   fmtI(sumCost));
+  setText('sum_sell',   fmtI(sumSell));
+  setText('sum_profit', fmtI(sumProfit));
+  setText('sum_margin', 'อัตรากำไร: ' + sumMargin.toFixed(2) + '%');
+
+  // proposal price ตาม sumSell เสมอ (ปรับได้ที่ฟิลด์โดยตรง)
+  const propEl = document.getElementById('proposal_price');
+  if(propEl) propEl.value = sumSell.toFixed(2);
+  calcProposal(sumCost);
+}
+
+function calcProposal(overrideCost) {
+  const costText = document.getElementById('sum_cost')?.textContent.replace(/,/g,'') || '0';
+  const sumCost  = overrideCost !== undefined ? overrideCost : parseFloat(costText) || 0;
+  const proposal = D('proposal_price');
+  const pProfit  = proposal - sumCost;
+  const pMargin  = proposal ? (pProfit / proposal * 100) : 0;
+  const vatPrice = Math.round(proposal * 1.07);
+
+  const ppEl = document.getElementById('proposal_profit_show');
+  if(ppEl) {
+    ppEl.textContent = fmtI(pProfit) + ' ฿ (' + pMargin.toFixed(2) + '%)';
+    ppEl.style.color = pProfit >= 0 ? '#16a34a' : '#dc2626';
+  }
+  setText('vat_price', vatPrice.toLocaleString('th-TH'));
+}
+
+// คำนวณครั้งแรกตอน load
+document.addEventListener('DOMContentLoaded', () => {
+  calc();
+  calcProposal();
+});
+</script>
+{% endblock %}
