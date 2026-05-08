@@ -342,6 +342,48 @@
     .animate-pulse { animation: pulse 2s infinite ease-in-out; }
     @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
 
+    /* ══ Price Alerts ══ */
+    .alert-panel {
+        background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+        border: 1px solid rgba(56, 189, 248, 0.3);
+        border-radius: var(--panel-radius);
+        padding: 1rem;
+        position: relative;
+        overflow: hidden;
+    }
+    .alert-active-bg {
+        position: absolute;
+        top: 0; left: 0; right: 0; bottom: 0;
+        background: rgba(239, 68, 68, 0.1);
+        display: none;
+        animation: pulse-bg 1s infinite;
+    }
+    @keyframes pulse-bg {
+        0% { opacity: 0.3; }
+        50% { opacity: 0.7; }
+        100% { opacity: 0.3; }
+    }
+    .alert-input {
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        color: var(--gold);
+        font-family: 'JetBrains Mono', monospace;
+        font-weight: 800;
+        text-align: center;
+    }
+    .alert-input:focus {
+        background: rgba(255, 255, 255, 0.1);
+        border-color: var(--gold);
+        color: #fff;
+        box-shadow: none;
+    }
+    .btn-test-sound {
+        font-size: 0.65rem;
+        padding: 2px 8px;
+        color: #94a3b8;
+        border-color: rgba(255, 255, 255, 0.2);
+    }
+
     /* ══ Responsive ══ */
     @media (max-width: 991px) {
         .sidebar-col { order: 2; }
@@ -435,6 +477,58 @@
                 style="border: 2px dashed #0ea5e9; color: #38bdf8; background: rgba(14, 165, 233, 0.05); font-weight: 800; border-radius: 10px; font-size: 0.85rem; padding: 0.6rem;">
                 <i class="fas fa-vial me-1"></i> TEST ORDER (0.01 Lot)
             </button>
+        </div>
+
+        <!-- SMART PRICE ALERTS -->
+        <div class="alert-panel" id="alert-master-panel">
+            <div class="alert-active-bg" id="alert-visual-signal"></div>
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <span class="matrix-label"><i class="fas fa-bell me-1"></i> SMART ALERTS</span>
+                <div class="form-check form-switch m-0">
+                    <input class="form-check-input" type="checkbox" id="alert-master-toggle" style="cursor:pointer;" onchange="handleToggleChange()">
+                </div>
+            </div>
+            
+            <!-- Adjust High Target -->
+            <div class="mb-3">
+                <label class="matrix-label d-block mb-1 text-center" style="font-size: 0.6rem;">HIGH TARGET (TP)</label>
+                <div class="d-flex gap-1 align-items-center">
+                    <button class="btn btn-sm btn-dark flex-grow-0 px-2" onclick="adjustAlert('high', -10)">-10</button>
+                    <input type="number" id="alert-high" class="form-control form-control-sm alert-input flex-grow-1" placeholder="----.--" step="0.1">
+                    <button class="btn btn-sm btn-dark flex-grow-0 px-2" onclick="adjustAlert('high', 10)">+10</button>
+                </div>
+            </div>
+
+            <!-- Adjust Low Target -->
+            <div class="mb-3">
+                <label class="matrix-label d-block mb-1 text-center" style="font-size: 0.6rem;">LOW TARGET (SL)</label>
+                <div class="d-flex gap-1 align-items-center">
+                    <button class="btn btn-sm btn-dark flex-grow-0 px-2" onclick="adjustAlert('low', -10)">-10</button>
+                    <input type="number" id="alert-low" class="form-control form-control-sm alert-input flex-grow-1" placeholder="----.--" step="0.1">
+                    <button class="btn btn-sm btn-dark flex-grow-0 px-2" onclick="adjustAlert('low', 10)">+10</button>
+                </div>
+            </div>
+
+            <div class="d-flex justify-content-between align-items-center mt-2">
+                <div>
+                    <button class="btn btn-sm btn-outline-secondary btn-test-sound rounded-pill me-1" onclick="testAlertSound()">
+                        <i class="fas fa-volume-up me-1"></i> Test
+                    </button>
+                    <button class="btn btn-sm btn-outline-info btn-test-sound rounded-pill" onclick="syncAlertsToEntry()">
+                        <i class="fas fa-sync-alt me-1"></i> Sync ±20
+                    </button>
+                </div>
+                <span id="alert-status-text" class="text-muted" style="font-size: 0.65rem;">OFF</span>
+            </div>
+            
+            <div id="alert-trigger-msg" class="mt-3 d-none">
+                <div class="text-danger fw-bold text-center mb-2" style="font-size: 0.8rem; animation: blink 0.5s infinite;">
+                    <i class="fas fa-exclamation-triangle"></i> PRICE REACHED!
+                </div>
+                <button class="btn btn-danger w-100 fw-bold py-3 shadow-lg" onclick="silenceAlarm()" style="z-index: 9999; position: relative;">
+                    <i class="fas fa-volume-mute me-2"></i> STOP ALARM
+                </button>
+            </div>
         </div>
 
         <!-- TACTICAL LEVELS -->
@@ -682,6 +776,9 @@
     let lastPrice = 0;
     let globalTactical = null;
     let activeStrategy = 'SNIPER';
+    let alertSound = new Audio('https://assets.mixkit.co/active_storage/sfx/951/951-preview.mp3');
+    alertSound.loop = true;
+    let isAlertRinging = false;
 
     function addFeedMessage(msg, isSignal = false) {
         const feed = document.getElementById('signal-feed');
@@ -1161,7 +1258,117 @@
                 });
                 
                 document.getElementById('last-update-time').innerText = 'Updated: ' + new Date().toTimeString().slice(0,8);
+                
+                checkPriceAlerts(lastPrice);
             });
+    }
+
+    function checkPriceAlerts(price) {
+        const isEnabled = document.getElementById('alert-master-toggle').checked;
+        const highTarget = parseFloat(document.getElementById('alert-high').value);
+        const lowTarget = parseFloat(document.getElementById('alert-low').value);
+        const statusText = document.getElementById('alert-status-text');
+        const triggerMsg = document.getElementById('alert-trigger-msg');
+        const visualSignal = document.getElementById('alert-visual-signal');
+
+        if (!isEnabled) {
+            statusText.innerText = "OFF";
+            statusText.className = "text-muted";
+            stopAlertSound();
+            triggerMsg.classList.add('d-none');
+            visualSignal.style.display = 'none';
+            return;
+        }
+
+        statusText.innerText = "ON";
+        statusText.className = "text-info fw-bold";
+
+        let triggered = false;
+        if (highTarget && price >= highTarget) triggered = true;
+        if (lowTarget && price <= lowTarget) triggered = true;
+
+        if (triggered) {
+            if (!isAlertRinging) {
+                startAlertSound();
+                addFeedMessage(`⚠️ ALERT: Price hit target at ${price.toFixed(2)}`, true);
+            }
+            triggerMsg.classList.remove('d-none');
+            visualSignal.style.display = 'block';
+        } else {
+            // Only stop if it's no longer triggered (prevents auto-restart if user adjusted target)
+            if (isAlertRinging) stopAlertSound();
+            triggerMsg.classList.add('d-none');
+            visualSignal.style.display = 'none';
+        }
+    }
+
+    function adjustAlert(type, amount) {
+        const el = document.getElementById(`alert-${type}`);
+        const current = parseFloat(el.value) || lastPrice || 0;
+        el.value = (current + amount).toFixed(2);
+        checkPriceAlerts(lastPrice); // Immediately check new level
+    }
+
+    function silenceAlarm() {
+        console.log("Silencing alarm...");
+        // 1. Turn off the master switch
+        const toggle = document.getElementById('alert-master-toggle');
+        if (toggle) toggle.checked = false;
+        
+        // 2. Stop the sound forcefully
+        stopAlertSound();
+        
+        // 3. Force hide all alert UI
+        const triggerMsg = document.getElementById('alert-trigger-msg');
+        const visualSignal = document.getElementById('alert-visual-signal');
+        if (triggerMsg) triggerMsg.classList.add('d-none');
+        if (visualSignal) visualSignal.style.display = 'none';
+        
+        const statusText = document.getElementById('alert-status-text');
+        if (statusText) {
+            statusText.innerText = "OFF";
+            statusText.className = "text-muted";
+        }
+        
+        addFeedMessage("Alarm Silenced & Monitoring Disabled.");
+    }
+
+    function handleToggleChange() {
+        checkPriceAlerts(lastPrice);
+    }
+
+    function startAlertSound() {
+        if (!alertSound) return;
+        alertSound.muted = false;
+        alertSound.play().catch(e => {
+            console.log("Audio play blocked: ", e);
+            addFeedMessage("⚠️ Sound blocked by browser. Click anywhere to enable.");
+        });
+        isAlertRinging = true;
+    }
+
+    function stopAlertSound() {
+        if (alertSound) {
+            alertSound.pause();
+            alertSound.muted = true;
+            alertSound.currentTime = 0;
+        }
+        isAlertRinging = false;
+    }
+
+    function testAlertSound() {
+        if (!alertSound) return;
+        alertSound.muted = false;
+        alertSound.loop = false;
+        alertSound.play().then(() => {
+            setTimeout(() => {
+                if (!isAlertRinging) {
+                    alertSound.pause();
+                    alertSound.currentTime = 0;
+                    alertSound.loop = true;
+                }
+            }, 2000);
+        }).catch(e => alert("Please interact with the page first to enable sound."));
     }
 
     function calculateSize() {
@@ -1207,16 +1414,25 @@
             if (data.success && data.positions?.length > 0) {
                 document.getElementById('pos-count-badge').innerText = data.positions.length;
                 let totalPl = 0;
+                let totalEntry = 0;
+                let totalVolume = 0;
+
                 body.innerHTML = data.positions.map(pos => {
                     const isBuy = pos.type === 'POSITION_TYPE_BUY';
                     const pl = parseFloat(pos.unrealizedProfit || 0);
+                    const vol = parseFloat(pos.volume || 0);
+                    const openP = parseFloat(pos.openPrice || 0);
+                    
                     totalPl += pl;
+                    totalEntry += openP * vol;
+                    totalVolume += vol;
+
                     const tp = pos.takeProfit ? parseFloat(pos.takeProfit).toFixed(2) : '-';
                     const sl = pos.stopLoss ? parseFloat(pos.stopLoss).toFixed(2) : '-';
                     return `<tr style="border-bottom: 1px solid #f1f5f9;">
                         <td class="ps-4 py-3" data-label="TYPE"><span class="badge ${isBuy?'bg-success':'bg-danger'}" style="font-size: 0.9rem; padding: 6px 15px;">${isBuy?'BUY':'SELL'}</span></td>
                         <td class="py-3" data-label="SIZE" style="font-size: 1.1rem; color: #334155;">${pos.volume} Lots</td>
-                        <td class="py-3" data-label="ENTRY" style="font-family: 'JetBrains Mono'; font-size: 1.1rem;">${parseFloat(pos.openPrice).toFixed(2)}</td>
+                        <td class="py-3" data-label="ENTRY" style="font-family: 'JetBrains Mono'; font-size: 1.1rem;">${openP.toFixed(2)}</td>
                         <td class="py-3 text-success small" data-label="TARGET (TP)">${tp}</td>
                         <td class="py-3 text-danger small" data-label="STOP (SL)">${sl}</td>
                         <td class="text-end pe-4 py-3 fs-3 fw-900 ${pl>=0?'text-success':'text-danger'}" data-label="P/L" style="font-family: 'JetBrains Mono'; text-shadow: 0 0 1px rgba(0,0,0,0.1);">
@@ -1227,6 +1443,19 @@
                 
                 totalPlEl.innerText = (totalPl >= 0 ? '+' : '') + totalPl.toFixed(2);
                 totalPlEl.className = 'fs-4 fw-900 ' + (totalPl >= 0 ? 'text-success' : 'text-danger');
+
+                // --- AUTO POPULATE ALERTS ---
+                if (totalVolume > 0) {
+                    const avgEntry = totalEntry / totalVolume;
+                    const highInput = document.getElementById('alert-high');
+                    const lowInput = document.getElementById('alert-low');
+                    
+                    // Populate if empty
+                    if (!highInput.value) highInput.value = (avgEntry + 20).toFixed(2);
+                    if (!lowInput.value) lowInput.value = (avgEntry - 20).toFixed(2);
+                    
+                    window.lastAvgEntry = avgEntry; // Store for manual sync button
+                }
             } else {
                 document.getElementById('pos-count-badge').innerText = '0';
                 totalPlEl.innerText = '+0.00';
@@ -1234,6 +1463,16 @@
                 body.innerHTML = '<tr><td colspan="6" class="text-center py-5 text-muted fs-5"><i class="fas fa-inbox d-block mb-2 fs-1"></i>No open positions</td></tr>';
             }
         } catch(e) {}
+    }
+
+    function syncAlertsToEntry() {
+        if (window.lastAvgEntry) {
+            document.getElementById('alert-high').value = (window.lastAvgEntry + 20).toFixed(2);
+            document.getElementById('alert-low').value = (window.lastAvgEntry - 20).toFixed(2);
+            addFeedMessage("Alerts synced to Entry ±$20");
+        } else {
+            alert("No active positions found to sync with.");
+        }
     }
 
     async function closeAllPositions() {
