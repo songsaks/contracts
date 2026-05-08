@@ -543,36 +543,61 @@
     <!-- ══════ RIGHT: Chart + Buttons ══════ -->
     <div class="col-12 col-lg-8 col-xl-9 chart-col d-flex flex-column gap-3">
 
-        <!-- 🚀 PROMINENT LIVE POSITIONS (Top of main view) -->
-        <div class="g-card border-warning shadow-lg" style="border-width: 2px;">
-            <div class="g-card-header d-flex justify-content-between align-items-center py-3" style="background: #0f172a; color: #fff; border-bottom: 2px solid #1e293b;">
-                <span class="fs-5 fw-900 text-warning"><i class="fas fa-satellite me-2"></i> LIVE ACTIVE POSITIONS</span>
-                <div class="d-flex align-items-center gap-3">
-                    <span id="pos-count-badge" class="badge bg-warning text-dark fs-6 rounded-pill">0</span>
-                    <span class="text-muted small">TOTAL P/L:</span>
-                    <span id="total-pl-display" class="fs-4 fw-900" style="font-family:'JetBrains Mono';">+0.00</span>
+        <!-- 🚀 CONTROL CENTER: Positions + Execution (Grouped) -->
+        <div class="row g-3">
+            <!-- LIVE ACTIVE POSITIONS -->
+            <div class="col-12 col-xl-8">
+                <div class="g-card border-warning shadow-lg h-100" style="border-width: 2px;">
+                    <div class="g-card-header d-flex justify-content-between align-items-center py-3" style="background: #0f172a; color: #fff; border-bottom: 2px solid #1e293b;">
+                        <span class="fs-5 fw-900 text-warning"><i class="fas fa-satellite me-2"></i> LIVE ACTIVE POSITIONS</span>
+                        <div class="d-flex align-items-center gap-3">
+                            <span id="pos-count-badge" class="badge bg-warning text-dark fs-6 rounded-pill">0</span>
+                            <span class="text-muted small">TOTAL P/L:</span>
+                            <span id="total-pl-display" class="fs-4 fw-900" style="font-family:'JetBrains Mono';">+0.00</span>
+                        </div>
+                    </div>
+                    <div class="table-responsive" style="max-height: 250px; overflow-y: auto;">
+                        <table class="table table-hover mb-0" style="font-size: 1rem; background: #fff;">
+                            <thead class="bg-dark text-white-50" style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px;">
+                                <tr>
+                                    <th class="ps-4 py-3">TYPE</th>
+                                    <th class="py-3">SIZE</th>
+                                    <th class="py-3">ENTRY PRICE</th>
+                                    <th class="py-3">TARGET (TP)</th>
+                                    <th class="py-3">STOP (SL)</th>
+                                    <th class="text-end pe-4 py-3">LIVE P/L ($)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="positions-list-body" class="fw-bold">
+                                <tr><td colspan="6" class="text-center py-5 text-muted fs-5">No open positions</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
-            <div class="table-responsive" style="max-height: 250px; overflow-y: auto;">
-                <table class="table table-hover mb-0" style="font-size: 1rem; background: #fff;">
-                    <thead class="bg-dark text-white-50" style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px;">
-                        <tr>
-                            <th class="ps-4 py-3">TYPE</th>
-                            <th class="py-3">SIZE</th>
-                            <th class="py-3">ENTRY PRICE</th>
-                            <th class="py-3">TARGET (TP)</th>
-                            <th class="py-3">STOP (SL)</th>
-                            <th class="text-end pe-4 py-3">LIVE P/L ($)</th>
-                        </tr>
-                    </thead>
-                    <tbody id="positions-list-body" class="fw-bold">
-                        <tr><td colspan="6" class="text-center py-5 text-muted fs-5">No open positions</td></tr>
-                    </tbody>
-                </table>
+
+            <!-- Order Execution -->
+            <div class="col-12 col-xl-4">
+                <div class="g-card h-100">
+                    <div class="g-card-header"><i class="fas fa-bolt me-1 text-warning"></i> Order Execution</div>
+                    <div class="p-3 d-flex flex-column justify-content-center gap-3 h-100" style="min-height: 200px;">
+                        <div class="d-flex gap-2">
+                            <button class="btn-execute-buy flex-grow-1 py-3" onclick="executeTrade('BUY')">
+                                <i class="fas fa-arrow-trend-up me-2"></i> EXECUTE BUY
+                            </button>
+                            <button class="btn-execute-sell flex-grow-1 py-3" onclick="executeTrade('SELL')">
+                                <i class="fas fa-arrow-trend-down me-2"></i> EXECUTE SELL
+                            </button>
+                        </div>
+                        <button class="btn btn-outline-danger fw-bold rounded-pill w-100 py-3" onclick="closeAllPositions()" style="font-size:1rem;">
+                            <i class="fas fa-times-circle me-2"></i> CLOSE ALL POSITIONS
+                        </button>
+                    </div>
+                </div>
             </div>
         </div>
 
-        <!-- Chart Card -->
+        <!-- Chart Card (Below Controls) -->
         <div class="chart-card" id="wrapper-to-fullscreen">
             <div class="chart-toolbar d-flex justify-content-between align-items-center flex-wrap gap-2">
                 <div class="d-flex align-items-center gap-3" style="font-size:.84rem;font-weight:700;">
@@ -606,24 +631,6 @@
             </div>
             <div class="position-relative" style="border-top:1px solid #f1f5f9;">
                 <div id="vol-container"></div>
-            </div>
-        </div>
-
-        <!-- Execute Buttons -->
-        <div class="g-card">
-            <div class="g-card-header"><i class="fas fa-bolt me-1 text-warning"></i> Order Execution</div>
-            <div class="p-3 d-flex flex-column gap-2">
-                <div class="d-flex gap-2">
-                    <button class="btn-execute-buy flex-grow-1" onclick="executeTrade('BUY')">
-                        <i class="fas fa-arrow-trend-up me-2"></i> EXECUTE BUY
-                    </button>
-                    <button class="btn-execute-sell flex-grow-1" onclick="executeTrade('SELL')">
-                        <i class="fas fa-arrow-trend-down me-2"></i> EXECUTE SELL
-                    </button>
-                </div>
-                <button class="btn btn-outline-danger fw-bold rounded-pill w-100 py-2" onclick="closeAllPositions()" style="font-size:0.9rem;">
-                    <i class="fas fa-times-circle me-1"></i> CLOSE ALL POSITIONS
-                </button>
             </div>
         </div>
 
