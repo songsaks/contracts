@@ -9868,6 +9868,16 @@ def sync_trading_account_ajax(request, pk):
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)}, status=500)
 
+def _check_rate_limit(user_id, key, limit, window):
+    """Returns True if rate limit is exceeded (limit calls per window seconds)."""
+    from django.core.cache import cache
+    cache_key = f"rl:{key}:{user_id}"
+    count = cache.get(cache_key, 0)
+    if count >= limit:
+        return True
+    cache.set(cache_key, count + 1, window)
+    return False
+
 @login_required
 def get_gold_positions_ajax(request):
     """
@@ -9897,13 +9907,42 @@ def close_all_gold_positions_ajax(request):
 
 @csrf_exempt
 @login_required
+def modify_gold_position_ajax(request):
+    """แก้ไข SL/TP ของ position ที่เปิดอยู่"""
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST required'}, status=400)
+    import json
+    from .trading_bridge import RobotBridge
+    try:
+        data = json.loads(request.body)
+        position_id = data.get('position_id')
+        sl = data.get('sl')
+        tp = data.get('tp')
+        if not position_id:
+            return JsonResponse({'success': False, 'error': 'position_id required'})
+        # Basic sanity: SL and TP must be positive numbers
+        if sl is not None and float(sl) <= 0:
+            return JsonResponse({'success': False, 'error': 'SL must be > 0'})
+        if tp is not None and float(tp) <= 0:
+            return JsonResponse({'success': False, 'error': 'TP must be > 0'})
+        bridge = RobotBridge(user=request.user)
+        success, err = bridge.modify_position(position_id=str(position_id), sl=sl, tp=tp)
+        if success:
+            return JsonResponse({'success': True})
+        return JsonResponse({'success': False, 'error': err or 'MetaApi rejected the request'})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+@csrf_exempt
+@login_required
 def execute_gold_trade_ajax(request):
     """
     รับคำสั่งจากปุ่มเทรดในหน้า Gold Command Center
     """
     if request.method != 'POST':
         return JsonResponse({'error': 'Post required'}, status=400)
-    
+    if _check_rate_limit(request.user.id, 'gold_execute', limit=10, window=60):
+        return JsonResponse({'success': False, 'error': 'Rate limit: max 10 trades/minute'}, status=429)
     import json
     from .trading_bridge import RobotBridge
     
@@ -10223,6 +10262,8 @@ PID_FILE = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'gold_bot.pi
 @login_required
 def start_gold_bot_ajax(request):
     """สั่งเริ่มการทำงานของบอทใน Background"""
+    if _check_rate_limit(request.user.id, 'gold_bot_start', limit=3, window=60):
+        return JsonResponse({'success': False, 'error': 'Rate limit: max 3 bot starts/minute'})
     if os.path.exists(PID_FILE):
         try:
             with open(PID_FILE, 'r') as f:

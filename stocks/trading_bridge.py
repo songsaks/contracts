@@ -83,11 +83,11 @@ class RobotBridge:
     def modify_position(self, position_id, sl=None, tp=None):
         """
         แก้ไขค่า Stop Loss หรือ Take Profit ของออเดอร์ที่เปิดอยู่
+        Returns (success: bool, error: str|None)
         """
         token = self.account.api_key.strip()
         account_id = self.account.account_id
-        
-        # ค้นหา Region
+
         try:
             info_url = f"https://mt-provisioning-api-v1.agiliumtrade.ai/users/current/accounts/{account_id}"
             info_res = requests.get(info_url, headers={"auth-token": token}, timeout=5)
@@ -97,21 +97,35 @@ class RobotBridge:
 
         url = f"https://mt-client-api-v1.{region}.agiliumtrade.ai/users/current/accounts/{account_id}/trade"
         headers = {"auth-token": token, "Content-Type": "application/json"}
-        
-        payload = {
-            "actionType": "POSITION_MODIFY_ID",
-            "positionId": position_id
-        }
-        if sl: payload["stopLoss"] = float(sl)
-        if tp: payload["takeProfit"] = float(tp)
+
+        payload = {"actionType": "POSITION_MODIFY", "positionId": str(position_id)}
+        if sl is not None: payload["stopLoss"]   = float(sl)
+        if tp is not None: payload["takeProfit"] = float(tp)
 
         try:
-            logger.info(f"MetaApi Modify Request: {url} | Payload: {payload}")
+            logger.info(f"MetaApi Modify | payload={payload}")
             response = requests.post(url, headers=headers, json=payload, timeout=10)
-            return response.status_code == 200
+            logger.info(f"MetaApi Modify | status={response.status_code} body={response.text[:300]}")
+
+            # MetaApi returns 200 (sync) or 202 (async/queued) for successful trades
+            if response.status_code in (200, 202):
+                body = response.json() if response.text else {}
+                # Check for MT-level error inside the response
+                num_code = body.get('numericCode', 0)
+                if num_code and num_code != 0 and num_code != 10009:
+                    err = body.get('message') or body.get('error') or f'MT error code {num_code}'
+                    return False, err
+                return True, None
+            else:
+                try:
+                    body = response.json()
+                    err = body.get('message') or body.get('error') or f'HTTP {response.status_code}'
+                except Exception:
+                    err = f'HTTP {response.status_code}: {response.text[:200]}'
+                return False, err
         except Exception as e:
             logger.error(f"MetaApi Modify Error: {str(e)}")
-            return False
+            return False, str(e)
 
     def _trade_via_meta_api(self, symbol, side, volume, price, sl, tp):
         """

@@ -328,6 +328,11 @@
     .animate-pulse { animation: pulse 2s infinite ease-in-out; }
     @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
 
+    #chart-container, #rsi-container, #cci-container, #vol-container {
+        overflow: hidden;
+        width: 100%;
+    }
+
     /* ══ Price Alerts ══ */
     .alert-panel {
         background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
@@ -370,6 +375,41 @@
         border-color: rgba(255, 255, 255, 0.2);
     }
 
+    /* ══ FLASH NEWS (MAX VISIBILITY) ══ */
+    .news-ticker-container {
+        background: #000;
+        height: 45px;
+        display: flex;
+        align-items: center;
+        border-bottom: 2px solid #b45309;
+        position: sticky;
+        top: 0;
+        z-index: 10000;
+    }
+    .news-label {
+        background: #f97316; /* Brighter Orange */
+        color: #fff;
+        font-size: 0.85rem;
+        font-weight: 900;
+        padding: 0 15px;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        white-space: nowrap;
+        letter-spacing: 1px;
+    }
+    #news-flash-box {
+        flex-grow: 1;
+        color: #ffffff; /* Pure White */
+        font-size: 1.1rem;
+        font-weight: 800;
+        padding-left: 20px;
+        transition: opacity 0.5s ease-in-out;
+        font-family: 'Outfit', sans-serif;
+    }
+    .news-fade-out { opacity: 0; }
+    .news-fade-in { opacity: 1; }
+
     /* ══ Responsive ══ */
     @media (max-width: 991px) {
         .sidebar-col { order: 2; }
@@ -379,6 +419,12 @@
 {% endblock %}
 
 {% block content %}
+
+<!-- ══ FLASH NEWS ══ -->
+<div class="news-ticker-container">
+    <div class="news-label"><i class="fas fa-broadcast-tower me-1"></i> LIVE NEWS</div>
+    <div id="news-flash-box" class="news-fade-in">Loading market news...</div>
+</div>
 
 <!-- ══════ HEADER ══════ -->
 <div class="gcc-header d-flex flex-wrap justify-content-between align-items-center gap-2">
@@ -507,6 +553,12 @@
                 <span id="alert-status-text" class="text-muted" style="font-size: 0.65rem;">OFF</span>
             </div>
             
+            <div id="alert-sound-blocked" class="d-none mt-2 text-center">
+                <span class="badge bg-warning text-dark" style="font-size:0.65rem; padding: 4px 8px; cursor:pointer;" onclick="alertSound.play()">
+                    <i class="fas fa-volume-mute me-1"></i> SOUND BLOCKED — คลิกเพื่อเปิดเสียง
+                </span>
+            </div>
+
             <div id="alert-trigger-msg" class="mt-3 d-none">
                 <div class="text-danger fw-bold text-center mb-2" style="font-size: 0.8rem; animation: blink 0.5s infinite;">
                     <i class="fas fa-exclamation-triangle"></i> PRICE REACHED!
@@ -683,6 +735,7 @@
                                     <th class="py-2">ENTRY</th>
                                     <th class="py-2">TARGET</th>
                                     <th class="py-2">STOP</th>
+                                    <th class="py-2">EDIT</th>
                                     <th class="text-end pe-3 py-2">P/L ($)</th>
                                 </tr>
                             </thead>
@@ -850,20 +903,6 @@
         if (window.innerWidth < 576) return { main: 280, rsi: 90, cci: 120, vol: 60 };
         if (window.innerWidth < 992) return { main: 340, rsi: 100, cci: 140, vol: 70 };
         return { main: 450, rsi: 120, cci: 160, vol: 90 };
-    }
-
-    function resizeCharts() {
-        const h = chartH();
-        const wrapper = document.getElementById('chart-container');
-        if (!wrapper) return;
-        
-        // Add horizontal padding for mobile scrolling space
-        const w = wrapper.parentElement.offsetWidth - (window.innerWidth < 576 ? 60 : 40); 
-        
-        if (mainChart) mainChart.resize(w, h.main);
-        if (rsiChart)  rsiChart.resize(w, h.rsi);
-        if (cciChart)  cciChart.resize(w, h.cci);
-        if (volChart)  volChart.resize(w, h.vol);
     }
 
     function setStrategy(s) {
@@ -1058,6 +1097,10 @@
             lotSize = customLot;
         } else if (manualLot) {
             lotSize = parseFloat(manualLot);
+            if (isNaN(lotSize) || lotSize <= 0) {
+                alert('⚠️ Manual lot size ต้องมากกว่า 0');
+                return;
+            }
         } else {
             lotSize = parseFloat(sizeText) || 0.01;
         }
@@ -1077,7 +1120,6 @@
         
         if (!tpValue || !slValue || isNaN(tpValue) || isNaN(slValue)) {
             console.error("Tactical levels not ready. Using defaults.");
-            // Fallback safety (if UI is somehow empty)
             if (globalTactical) {
                 const n = parseFloat(globalTactical.n) || 0;
                 if (type === 'BUY') {
@@ -1087,6 +1129,22 @@
                     tpValue = lastPrice - (n * 0.5);
                     slValue = lastPrice + (n * 0.2);
                 }
+            }
+        }
+
+        // Validate TP/SL direction and positivity
+        if (tpValue <= 0 || slValue <= 0) {
+            alert(`⚠️ TP/SL ต้องมีค่ามากกว่า 0`);
+            return;
+        }
+        if (lastPrice > 0) {
+            if (type === 'BUY' && (tpValue <= lastPrice || slValue >= lastPrice)) {
+                alert(`⚠️ BUY: TP (${tpValue.toFixed(2)}) ต้องสูงกว่าราคา และ SL (${slValue.toFixed(2)}) ต้องต่ำกว่าราคา (${lastPrice.toFixed(2)})`);
+                return;
+            }
+            if (type === 'SELL' && (tpValue >= lastPrice || slValue <= lastPrice)) {
+                alert(`⚠️ SELL: TP (${tpValue.toFixed(2)}) ต้องต่ำกว่าราคา และ SL (${slValue.toFixed(2)}) ต้องสูงกว่าราคา (${lastPrice.toFixed(2)})`);
+                return;
             }
         }
         
@@ -1409,8 +1467,8 @@
     function adjustAlert(type, amount) {
         const el = document.getElementById(`alert-${type}`);
         const current = parseFloat(el.value) || lastPrice || 0;
-        el.value = (current + amount).toFixed(2);
-        checkPriceAlerts(lastPrice); // Immediately check new level
+        el.value = Math.max(0.01, current + amount).toFixed(2);
+        checkPriceAlerts(lastPrice);
     }
 
     function silenceAlarm() {
@@ -1446,12 +1504,25 @@
         alertSound.muted = false;
         alertSound.play().catch(e => {
             console.log("Audio play blocked: ", e);
-            addFeedMessage("⚠️ Sound blocked by browser. Click anywhere to enable.");
+            addFeedMessage("⚠️ Sound blocked by browser. Click anywhere to enable.", true);
+            // Visual fallback: blink page title and show badge
+            if (!window._titleBlink) {
+                const origTitle = document.title;
+                window._titleBlink = setInterval(() => {
+                    document.title = document.title.startsWith('🔔') ? origTitle : '🔔 ALERT! ' + origTitle;
+                }, 800);
+            }
+            const badge = document.getElementById('alert-sound-blocked');
+            if (badge) badge.classList.remove('d-none');
         });
         isAlertRinging = true;
     }
 
     function stopAlertSound() {
+        // Clear title blink
+        if (window._titleBlink) { clearInterval(window._titleBlink); window._titleBlink = null; document.title = document.title.replace(/^🔔 ALERT! /, ''); }
+        const badge = document.getElementById('alert-sound-blocked');
+        if (badge) badge.classList.add('d-none');
         if (alertSound) {
             alertSound.pause();
             alertSound.muted = true;
@@ -1526,39 +1597,49 @@
                     const pl = parseFloat(pos.unrealizedProfit || 0);
                     const vol = parseFloat(pos.volume || 0);
                     const openP = parseFloat(pos.openPrice || 0);
-                    
+
                     totalPl += pl;
                     totalEntry += openP * vol;
                     totalVolume += vol;
 
                     const tp = pos.takeProfit ? parseFloat(pos.takeProfit).toFixed(2) : '-';
                     const sl = pos.stopLoss ? parseFloat(pos.stopLoss).toFixed(2) : '-';
+                    const posId = pos.id || pos.positionId || '';
+                    const tpNum = pos.takeProfit ? parseFloat(pos.takeProfit) : null;
+                    const slNum = pos.stopLoss  ? parseFloat(pos.stopLoss)  : null;
                     return `<tr style="border-bottom: 1px solid #f1f5f9;">
                         <td class="ps-4 py-3" data-label="TYPE"><span class="badge ${isBuy?'bg-success':'bg-danger'}" style="font-size: 0.9rem; padding: 6px 15px;">${isBuy?'BUY':'SELL'}</span></td>
                         <td class="py-3" data-label="SIZE" style="font-size: 1.1rem; color: #334155;">${pos.volume} Lots</td>
                         <td class="py-3" data-label="ENTRY" style="font-family: 'JetBrains Mono'; font-size: 1.1rem;">${openP.toFixed(2)}</td>
                         <td class="py-3 text-success small" data-label="TARGET (TP)">${tp}</td>
                         <td class="py-3 text-danger small" data-label="STOP (SL)">${sl}</td>
+                        <td class="py-3" data-label="EDIT">
+                            <button class="btn btn-sm btn-outline-warning py-1 px-2" onclick="openEditPosition('${posId}', ${tpNum}, ${slNum})" title="Edit SL/TP" ${posId ? '' : 'disabled'}>
+                                <i class="fas fa-edit"></i>
+                            </button>
+                        </td>
                         <td class="text-end pe-4 py-3 fs-3 fw-900 ${pl>=0?'text-success':'text-danger'}" data-label="P/L" style="font-family: 'JetBrains Mono'; text-shadow: 0 0 1px rgba(0,0,0,0.1);">
                             ${pl>=0?'+':''}${pl.toFixed(2)}
                         </td>
                     </tr>`;
                 }).join('');
-                
+
                 totalPlEl.innerText = (totalPl >= 0 ? '+' : '') + totalPl.toFixed(2);
                 totalPlEl.className = 'fs-4 fw-900 ' + (totalPl >= 0 ? 'text-success' : 'text-danger');
 
-                // --- AUTO POPULATE ALERTS ---
+                // --- AUTO POPULATE ALERTS (re-populate whenever position set changes) ---
                 if (totalVolume > 0) {
                     const avgEntry = totalEntry / totalVolume;
                     const highInput = document.getElementById('alert-high');
                     const lowInput = document.getElementById('alert-low');
-                    
-                    // Populate if empty
-                    if (!highInput.value) highInput.value = (avgEntry + 20).toFixed(2);
-                    if (!lowInput.value) lowInput.value = (avgEntry - 20).toFixed(2);
-                    
-                    window.lastAvgEntry = avgEntry; // Store for manual sync button
+                    // Use position signature: count + rounded avg entry
+                    const posSignature = `${data.positions.length}:${avgEntry.toFixed(0)}`;
+                    if (window._lastPosSignature !== posSignature) {
+                        window._lastPosSignature = posSignature;
+                        highInput.value = (avgEntry + 20).toFixed(2);
+                        lowInput.value  = (avgEntry - 20).toFixed(2);
+                    }
+                    window.lastAvgEntry = avgEntry;
                 }
             } else {
                 document.getElementById('pos-count-badge').innerText = '0';
@@ -1611,25 +1692,11 @@
         const h = chartH();
         const wrapper = document.getElementById('chart-container');
         if (!wrapper) return;
-        
-        // Ensure space on sides for mobile scrolling (30px each side)
-        const sidePadding = window.innerWidth < 576 ? 60 : 40;
-        const w = wrapper.parentElement.offsetWidth - sidePadding;
-        
+        const w = Math.max(100, wrapper.clientWidth);
         mainChart.resize(w, h.main);
-        rsiChart.resize(w, h.rsi);
-        cciChart.resize(w, h.cci);
-        volChart.resize(w, h.vol);
-        
-        // Center the chart containers
-        const containers = ['chart-container', 'rsi-container', 'cci-container', 'vol-container'];
-        containers.forEach(id => {
-            const el = document.getElementById(id);
-            if (el) {
-                el.style.display = 'flex';
-                el.style.justifyContent = 'center';
-            }
-        });
+        if (rsiChart) rsiChart.resize(w, h.rsi);
+        if (cciChart) cciChart.resize(w, h.cci);
+        if (volChart) volChart.resize(w, h.vol);
     }
 
     async function updateTradeHistory() {
@@ -1658,14 +1725,129 @@
         } catch(e) {}
     }
 
+    function buildDynamicHeadlines() {
+        if (!globalTactical || !lastPrice) return null;
+        const now = new Date().toLocaleTimeString('th-TH', {hour:'2-digit', minute:'2-digit'});
+        const rsi = parseFloat(globalTactical.rsi) || 50;
+        const ema200 = parseFloat(globalTactical.ema200) || 0;
+        const n = parseFloat(globalTactical.n) || 0;
+        const dxy = globalTactical.dxy;
+        const lines = [];
+
+        if (ema200 > 0) {
+            const trend = lastPrice > ema200 ? 'เหนือ EMA200 — แนวโน้มขาขึ้น' : 'ใต้ EMA200 — แนวโน้มขาลง ระวังความเสี่ยง';
+            lines.push(`· [TREND ${now}] XAU/USD ${trend} | ราคา: $${lastPrice.toFixed(2)}`);
+        }
+        if (rsi > 70) {
+            lines.push(`· [RSI ${now}] RSI(14) = ${rsi.toFixed(1)} — Overbought โซน เฝ้าระวัง Divergence หรือการพักฐาน`);
+        } else if (rsi < 30) {
+            lines.push(`· [RSI ${now}] RSI(14) = ${rsi.toFixed(1)} — Oversold โซน อาจมีแรง Bounce ระยะสั้น`);
+        } else {
+            lines.push(`· [RSI ${now}] RSI(14) = ${rsi.toFixed(1)} — Neutral Zone | ATR(20) = ${n.toFixed(2)} | ระวัง Breakout`);
+        }
+        if (dxy && dxy.price) {
+            const dxyChg = dxy.change || 0;
+            const sentiment = dxyChg > 0.1 ? 'ดอลลาร์แข็งค่า กดดันราคาทอง' : (dxyChg < -0.1 ? 'ดอลลาร์อ่อนค่า หนุนราคาทอง' : 'ดอลลาร์ทรงตัว');
+            lines.push(`· [DXY ${now}] ${dxy.price.toFixed(1)} (${dxyChg >= 0 ? '+' : ''}${dxyChg.toFixed(2)}%) — ${sentiment}`);
+        }
+        const sig = (globalTactical.signals && globalTactical.signals.short) || 'WAIT';
+        lines.push(`· [SIGNAL ${now}] Donchian Channel (20D): ${sig} | Strategy: ${activeStrategy}`);
+        return lines;
+    }
+
+    function initFlashNews() {
+        const fallbackHeadlines = [
+            "· [MARKET] Gold Command Center เชื่อมต่อข้อมูลตลาดแบบ Real-time...",
+            "· [INFO] ใช้ Donchian Channel Strategy (SNIPER/SCALPER/SWING/TURTLE)",
+            "· [RISK] กรุณาตรวจสอบ Risk/Reward ก่อนทุกคำสั่งซื้อขาย",
+        ];
+        let index = 0;
+        let headlines = fallbackHeadlines;
+        const box = document.getElementById('news-flash-box');
+
+        function rotate() {
+            const dynamic = buildDynamicHeadlines();
+            if (dynamic && dynamic.length > 0) headlines = dynamic;
+            box.classList.remove('news-fade-in');
+            box.classList.add('news-fade-out');
+            setTimeout(() => {
+                index = (index + 1) % headlines.length;
+                box.innerText = headlines[index];
+                box.classList.remove('news-fade-out');
+                box.classList.add('news-fade-in');
+            }, 500);
+        }
+
+        box.innerText = fallbackHeadlines[0];
+        setInterval(rotate, 8000);
+    }
+
+    function openEditPosition(posId, currentTp, currentSl) {
+        document.getElementById('edit-pos-id').value = posId;
+        document.getElementById('edit-pos-tp').value = currentTp !== null ? currentTp : '';
+        document.getElementById('edit-pos-sl').value = currentSl !== null ? currentSl : '';
+        document.getElementById('edit-pos-result').innerHTML = '';
+        new bootstrap.Modal(document.getElementById('editPositionModal')).show();
+    }
+
+    function saveEditPosition() {
+        const posId = document.getElementById('edit-pos-id').value;
+        const tp = parseFloat(document.getElementById('edit-pos-tp').value) || null;
+        const sl = parseFloat(document.getElementById('edit-pos-sl').value) || null;
+        const resultEl = document.getElementById('edit-pos-result');
+
+        if (!tp && !sl) {
+            resultEl.innerHTML = '<span class="text-warning">กรุณาใส่ TP หรือ SL อย่างน้อยหนึ่งค่า</span>';
+            return;
+        }
+        if ((tp && tp <= 0) || (sl && sl <= 0)) {
+            resultEl.innerHTML = '<span class="text-danger">TP/SL ต้องมีค่ามากกว่า 0</span>';
+            return;
+        }
+
+        resultEl.innerHTML = '<span class="text-muted"><i class="fas fa-spinner fa-spin me-1"></i> กำลังส่งคำสั่ง...</span>';
+        console.log('Modify position:', posId, 'TP:', tp, 'SL:', sl);
+
+        fetch("{% url 'stocks:modify_gold_position' %}", {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}' },
+            body: JSON.stringify({ position_id: posId, tp: tp, sl: sl })
+        })
+        .then(r => r.json())
+        .then(d => {
+            if (d.success) {
+                resultEl.innerHTML = '<span class="text-success"><i class="fas fa-check me-1"></i> แก้ไขสำเร็จ</span>';
+                logMessage(`MODIFY OK: Position ${posId} TP=${tp} SL=${sl}`, 'text-success');
+                setTimeout(() => {
+                    bootstrap.Modal.getInstance(document.getElementById('editPositionModal')).hide();
+                    fetchPositions();
+                }, 1000);
+            } else {
+                const msg = d.error || 'Unknown error from server';
+                resultEl.innerHTML = `<span class="text-danger"><i class="fas fa-times me-1"></i>${msg}</span>`;
+                logMessage(`MODIFY FAIL: ${msg}`, 'text-danger');
+            }
+        })
+        .catch(err => {
+            resultEl.innerHTML = '<span class="text-danger">Connection error — ตรวจสอบ network</span>';
+            logMessage('MODIFY ERROR: ' + err.message, 'text-danger');
+        });
+    }
+
     window.onload = () => {
         setStrategy('SNIPER');
         loadData();
         fetchPositions();
         updateTradeHistory();
-        setInterval(loadData, 5000);
-        setInterval(fetchPositions, 5000);
-        setInterval(updateTradeHistory, 10000);
+        initFlashNews();
+        const _ivData = setInterval(loadData, 5000);
+        const _ivPos  = setInterval(fetchPositions, 5000);
+        const _ivHist = setInterval(updateTradeHistory, 10000);
+        window.addEventListener('beforeunload', () => {
+            clearInterval(_ivData);
+            clearInterval(_ivPos);
+            clearInterval(_ivHist);
+        });
         
         document.getElementById('btn-start-bot').onclick = () => {
             if (!globalTactical) {
@@ -1775,6 +1957,40 @@
             <div class="modal-footer border-0">
                 <button type="button" class="btn btn-outline-secondary rounded-pill px-4" data-bs-dismiss="modal">ยกเลิก</button>
                 <button type="button" class="btn btn-success rounded-pill px-4 fw-bold" id="btn-confirm-start-bot"><i class="fas fa-play me-1"></i> เริ่มการทำงานบอท</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Position SL/TP Modal -->
+<div class="modal fade" id="editPositionModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" style="max-width: 360px;">
+        <div class="modal-content border-0 shadow-lg" style="background:#1e293b; border-radius:16px; border: 1px solid #334155;">
+            <div class="modal-header border-bottom border-secondary pb-2">
+                <h6 class="modal-title text-warning fw-bold mb-0"><i class="fas fa-edit me-2"></i> แก้ไข SL / TP</h6>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4">
+                <input type="hidden" id="edit-pos-id">
+                <div class="mb-3">
+                    <label class="form-label text-success fw-bold" style="font-size:0.75rem;">TARGET (TP)</label>
+                    <input type="number" id="edit-pos-tp" class="form-control text-center fw-bold"
+                        style="background:#0f172a; color:#22c55e; border-color:#334155; font-family:'JetBrains Mono';"
+                        step="0.1" placeholder="ราคา Take Profit">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label text-danger fw-bold" style="font-size:0.75rem;">STOP LOSS (SL)</label>
+                    <input type="number" id="edit-pos-sl" class="form-control text-center fw-bold"
+                        style="background:#0f172a; color:#ef4444; border-color:#334155; font-family:'JetBrains Mono';"
+                        step="0.1" placeholder="ราคา Stop Loss">
+                </div>
+                <div id="edit-pos-result" class="text-center mt-2" style="font-size:0.8rem; min-height:20px;"></div>
+            </div>
+            <div class="modal-footer border-0 pt-0">
+                <button type="button" class="btn btn-outline-secondary rounded-pill px-3" data-bs-dismiss="modal">ยกเลิก</button>
+                <button type="button" class="btn btn-warning rounded-pill px-4 fw-bold" onclick="saveEditPosition()">
+                    <i class="fas fa-save me-1"></i> บันทึก
+                </button>
             </div>
         </div>
     </div>
