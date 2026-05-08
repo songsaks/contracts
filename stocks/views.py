@@ -402,10 +402,10 @@ def dashboard(request):
     for s in sold_assets:
         is_us = (s.market == MarketType.US) if s.market else _is_us_symbol(s.symbol, us_set)
         
-        if hasattr(s, 'profit_loss_thb') and s.profit_loss_thb != 0:
+        if hasattr(s, 'profit_loss_thb') and s.profit_loss_thb is not None:
             pl_thb = float(s.profit_loss_thb)
         else:
-            pl_thb = float(s.profit_loss) * usd_thb if is_us else float(s.profit_loss)
+            pl_thb = float(s.profit_loss or 0) * usd_thb if is_us else float(s.profit_loss or 0)
         total_realized_pl += pl_thb
     
     set_val = 0
@@ -413,7 +413,7 @@ def dashboard(request):
     crypto_val = 0
     
     # สร้าง map ของราคาเพื่อความรวดเร็ว
-    price_map = {x['obj'].symbol: x['price'] for x in items if isinstance(x.get('price'), (int, float))}
+    price_map = {x['obj'].symbol: x['price'] for x in items if x.get('price') is not None and isinstance(x.get('price'), (int, float))}
     
     for p in owned_assets:
         curr_p = price_map.get(p.symbol, 0)
@@ -424,8 +424,12 @@ def dashboard(request):
                 curr_p = t.fast_info['lastPrice']
             except: curr_p = float(p.entry_price or 0)
             
-        val = float(p.quantity) * float(curr_p)
-        cost = float(p.quantity) * float(p.entry_price or 0)
+        # Ensure values are not None before conversion
+        q_val = float(p.quantity or 0)
+        p_val = float(curr_p or 0)
+        
+        val = q_val * p_val
+        cost = q_val * float(p.entry_price or 0)
         
         if p.market == 'US' or p.market == 'CRYPTO':
             total_val_thb += val * usd_thb
