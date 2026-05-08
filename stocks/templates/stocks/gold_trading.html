@@ -29,34 +29,35 @@
         font-family: 'Inter', sans-serif;
     }
 
-    /* ══ HEADER ══ */
+    /* ══ HEADER (Compact) ══ */
     .gcc-header {
         background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
         border-bottom: 3px solid var(--gold);
-        padding: 0.85rem 1.25rem;
+        padding: 0.5rem 1.25rem;
     }
     .gcc-header h1 {
         font-family: 'Outfit', sans-serif;
-        font-size: clamp(1rem, 2.5vw, 1.4rem);
+        font-size: 1.2rem;
         font-weight: 900;
         letter-spacing: 1px;
         color: var(--gold);
         margin: 0;
     }
     .gcc-subtitle {
-        font-size: 0.78rem;
+        font-size: 0.7rem;
         color: var(--text-muted);
         letter-spacing: 0.5px;
-        margin-top: 2px;
+        margin-top: 0px;
     }
 
     /* ══ Cards ══ */
     .g-card {
         background: #fff;
-        border-radius: var(--panel-radius);
-        box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
         border: 1px solid #e2e8f0;
         overflow: hidden;
+        margin-bottom: 0.5rem;
     }
     .g-card-dark {
         background: var(--bg-deep);
@@ -79,15 +80,14 @@
     .g-card-header {
         background: #f8fafc;
         border-bottom: 1px solid #e2e8f0;
-        padding: 0.75rem 1rem;
-        font-size: 0.75rem;
+        padding: 0.4rem 0.8rem;
+        font-size: 0.7rem;
         font-weight: 800;
-        letter-spacing: 0.05em;
         text-transform: uppercase;
         color: #475569;
         display: flex;
         align-items: center;
-        gap: 8px;
+        gap: 6px;
     }
     .g-card-dark .g-card-header {
         background: var(--bg-panel);
@@ -95,51 +95,37 @@
         color: #7dd3fc;
     }
 
-    /* ══ Signal Matrix ══ */
+    /* ══ Signal Matrix (Compact) ══ */
     .matrix-row {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        padding: 0.75rem 1rem;
+        padding: 0.4rem 0.8rem;
         border-bottom: 1px solid var(--border-color);
     }
-    .matrix-row:last-child { border-bottom: none; }
-    .matrix-label { font-size: 0.75rem; font-weight: 700; color: #94a3b8; }
+    .matrix-label { font-size: 0.65rem; font-weight: 700; color: #94a3b8; }
     .matrix-btn {
-        background: #475569;
-        color: #fff;
-        font-size: 0.7rem;
+        font-size: 0.65rem;
         font-weight: 800;
-        padding: 4px 16px;
-        border-radius: 50px;
-        min-width: 75px;
-        text-align: center;
-        box-shadow: inset 0 1px 1px rgba(255,255,255,0.1);
-        border: 1px solid rgba(0,0,0,0.2);
+        padding: 2px 12px;
+        border-radius: 4px;
+        min-width: 60px;
     }
     
-    /* Tactical Decision Center */
+    /* Tactical Decision Center (Compact) */
     .decision-panel {
         background: rgba(15, 23, 42, 0.8);
         border: 1px solid rgba(255,255,255,0.1);
-        border-radius: 15px;
-        padding: 1.5rem;
-        margin-bottom: 1.5rem;
-        transition: all 0.5s ease;
-        position: relative;
-        overflow: hidden;
+        border-radius: 10px;
+        padding: 0.75rem 1rem;
+        margin-bottom: 0.75rem;
     }
-    .decision-panel.buy { border-color: #22c55e; background: rgba(34, 197, 94, 0.1); box-shadow: 0 0 20px rgba(34, 197, 94, 0.2); }
-    .decision-panel.sell { border-color: #ef4444; background: rgba(239, 68, 68, 0.1); box-shadow: 0 0 20px rgba(239, 68, 68, 0.2); }
-    .decision-panel.wait { border-color: #64748b; background: rgba(100, 116, 139, 0.1); }
-    
     .signal-icon {
-        font-size: 3rem;
-        margin-right: 1.5rem;
-        filter: drop-shadow(0 0 10px currentColor);
+        font-size: 2rem;
+        margin-right: 1rem;
     }
-    .signal-status { font-size: 1.8rem; font-weight: 900; letter-spacing: 2px; }
-    .signal-message { color: #94a3b8; font-size: 0.95rem; margin-top: 0.5rem; }
+    .signal-status { font-size: 1.2rem; font-weight: 900; }
+    .signal-message { color: #94a3b8; font-size: 0.75rem; margin-top: 0.2rem; }
     
     /* Message Feed */
     .message-feed {
@@ -531,6 +517,41 @@
             </div>
         </div>
 
+        <!-- MARKET SENTIMENT HUB -->
+        <div class="g-card">
+            <div class="g-card-header">
+                <i class="fas fa-globe-americas me-1 text-primary"></i> MARKET SENTIMENT
+            </div>
+            <div class="p-0">
+                <div class="matrix-row">
+                    <span class="matrix-label">DXY INDEX</span>
+                    <span id="dxy-status" class="status-pill pill-standby">WAIT</span>
+                </div>
+                
+                <!-- CONSOLIDATED MTF ROW -->
+                <div class="matrix-row">
+                    <span class="matrix-label">MTF ALIGNMENT</span>
+                    <div class="d-flex gap-1">
+                        <span id="pill-m15" class="badge rounded-1" style="width: 35px; font-size: 0.6rem; background: #334155;">M15</span>
+                        <span id="pill-h1"  class="badge rounded-1" style="width: 35px; font-size: 0.6rem; background: #334155;">H1</span>
+                        <span id="pill-h4"  class="badge rounded-1" style="width: 35px; font-size: 0.6rem; background: #334155;">H4</span>
+                        <span id="pill-d1"  class="badge rounded-1" style="width: 35px; font-size: 0.6rem; background: #334155;">D1</span>
+                    </div>
+                </div>
+                
+                <!-- AI ADVICE SECTION -->
+                <div class="p-3 mt-1" style="background: #0f172a; border-radius: 0 0 12px 12px; border-top: 2px solid rgba(56, 189, 248, 0.2);">
+                    <div class="d-flex align-items-center mb-2">
+                        <i class="fas fa-robot text-info me-2"></i>
+                        <div class="text-uppercase fw-bold text-info" style="font-size: 0.7rem; letter-spacing: 1.5px;">AI MARKET STRATEGIST</div>
+                    </div>
+                    <div id="ai-sentiment-advice" class="text-white fw-bold" style="font-size: 0.85rem; line-height: 1.5; font-family: 'Outfit', sans-serif;">
+                        กำลังประมวลผลข้อมูล...
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- TACTICAL LEVELS -->
         <div class="g-card">
             <div class="g-card-header">
@@ -547,10 +568,13 @@
                     <span id="strategy-label" class="badge" style="background:#fee2e2; color:#dc2626; font-weight: 800; font-size: 0.7rem; padding: 4px 12px; border-radius: 4px;">ULTRA-SHORT (SNIPER)</span>
                 </div>
             </div>
-            <div class="t-row"><span class="t-label">Breakout</span><span class="t-value text-danger" id="breakout-level-display">----.--</span></div>
-            <div class="t-row"><span class="t-label">Target (1N)</span><span class="t-value text-success" id="tactical-tp">----.--</span></div>
-            <div class="t-row"><span class="t-label">Stop (2N)</span><span class="t-value text-danger" id="tactical-sl">----.--</span></div>
-            <div class="t-row"><span class="t-label">ATR(20)</span><span class="t-value" style="color:#b45309" id="live-n-val">-.--</span></div>
+            <div class="t-row"><span class="t-label">Breakout (Trigger)</span><span class="t-value text-danger" id="breakout-level-display">----.--</span></div>
+            <div class="t-row"><span class="t-label" id="label-tactical-tp">Target</span><span class="t-value text-success" id="tactical-tp">----.--</span></div>
+            <div class="t-row"><span class="t-label" id="label-tactical-sl">Stop Loss</span><span class="t-value text-danger" id="tactical-sl">----.--</span></div>
+            <div class="t-row"><span class="t-label">Volatility (ATR 20)</span><span class="t-value" style="color:#b45309" id="live-n-val">-.--</span></div>
+            <div id="tactical-exit-advice" style="font-size: 0.7rem; color: #64748b; font-style: italic; margin-top: 10px; padding-top: 8px; border-top: 1px dashed rgba(0,0,0,0.05); text-align: center;">
+                Loading strategy advice...
+            </div>
         </div>
 
         <!-- POSITION SIZER -->
@@ -652,14 +676,14 @@
                     </div>
                     <div class="table-responsive" style="max-height: 250px; overflow-y: auto;">
                         <table class="table table-hover mb-0" style="font-size: 1rem; background: #fff;">
-                            <thead class="bg-dark text-white-50" style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px;">
+                            <thead class="bg-dark text-white-50" style="font-size: 0.65rem; text-transform: uppercase; letter-spacing: 1px;">
                                 <tr>
-                                    <th class="ps-4 py-3">TYPE</th>
-                                    <th class="py-3">SIZE</th>
-                                    <th class="py-3">ENTRY PRICE</th>
-                                    <th class="py-3">TARGET (TP)</th>
-                                    <th class="py-3">STOP (SL)</th>
-                                    <th class="text-end pe-4 py-3">LIVE P/L ($)</th>
+                                    <th class="ps-3 py-2">TYPE</th>
+                                    <th class="py-2">SIZE</th>
+                                    <th class="py-2">ENTRY</th>
+                                    <th class="py-2">TARGET</th>
+                                    <th class="py-2">STOP</th>
+                                    <th class="text-end pe-3 py-2">P/L ($)</th>
                                 </tr>
                             </thead>
                             <tbody id="positions-list-body" class="fw-bold">
@@ -868,97 +892,143 @@
 
     function updateTacticalUI() {
         if (!globalTactical) return;
-        ['sniper', 'short','medium','long'].forEach(h => {
-            const el = document.getElementById(`sig-${h}`);
-            if (!el) return;
-            
-            let sig = 'WAIT';
-            if (h === 'sniper') {
-                // Sniper Logic: Price vs EMA9 + RSI trend
-                if (lastPrice > globalTactical.ema9 && globalTactical.rsi > 50) sig = 'BUY';
-                else if (lastPrice < globalTactical.ema9 && globalTactical.rsi < 50) sig = 'SELL';
-                else sig = 'WAIT';
-            } else {
-                sig = globalTactical.signals[h];
-            }
-            
-            el.innerText = sig;
-            el.className = 'matrix-btn ' + (sig === 'BUY' ? 'buy animate-pulse' : sig === 'SELL' ? 'sell' : 'wait');
-        });
+        try {
+            ['sniper', 'short','medium','long'].forEach(h => {
+                const el = document.getElementById(`sig-${h}`);
+                if (!el) return;
+                let sig = 'WAIT';
+                if (h === 'sniper') {
+                    const rsi = parseFloat(globalTactical.rsi) || 0;
+                    const ema9 = parseFloat(globalTactical.ema9) || 0;
+                    const price = parseFloat(lastPrice) || 0;
+                    if (price > ema9 && rsi > 50) sig = 'BUY';
+                    else if (price < ema9 && rsi < 50) sig = 'SELL';
+                } else if (globalTactical.signals) {
+                    sig = globalTactical.signals[h] || 'WAIT';
+                }
+                el.innerText = sig;
+                el.className = 'matrix-btn ' + (sig === 'BUY' ? 'buy animate-pulse' : sig === 'SELL' ? 'sell' : 'wait');
+            });
+
+        const n = parseFloat(globalTactical.n) || 0;
+        const mainSignal = (globalTactical.signals && globalTactical.signals.short) || 'WAIT'; 
+        
+        // Context-Aware Base Price Selection
+        // If price has already crossed the breakout, we anchor to the Current Market Price for immediate action.
+        let isTradeActive = (mainSignal === 'BUY' || mainSignal === 'SELL');
+        
+        let breakoutPrice = 0, targetPrice = 0, stopPrice = 0;
+        let basePrice = 0;
+        let priceLabel = "(Trigger)";
 
         const breakoutEl = document.getElementById('breakout-level-display');
         const tpEl = document.getElementById('tactical-tp');
         const slEl = document.getElementById('tactical-sl');
-        
-        const decisionCenter = document.getElementById('decision-center');
-        const signalIcon = document.getElementById('signal-main-icon');
-        const signalText = document.getElementById('signal-main-text');
-        const signalSubtext = document.getElementById('signal-main-subtext');
-        
+        const lblTP = document.getElementById('label-tactical-tp');
+        const lblSL = document.getElementById('label-tactical-sl');
         const stratBadge = document.getElementById('strategy-label');
-        
-        let breakoutPrice = 0;
-        let tpMult = 1.5; 
-        
+
+        const exitAdviceEl = document.getElementById('tactical-exit-advice');
+        let exitMsg = "";
+
         if (activeStrategy === 'SNIPER') {
-            breakoutPrice = globalTactical.ema9;
-            tpMult = 1.5;
-            breakoutEl.className = 't-value text-danger fw-bold';
-            stratBadge.innerText = 'ULTRA-SHORT (SNIPER)';
-            stratBadge.style.background = '#dc2626';
+            breakoutPrice = parseFloat(globalTactical.ema9) || 0;
+            const inZone = lastPrice > breakoutPrice;
+            basePrice = inZone ? lastPrice : breakoutPrice;
+            priceLabel = inZone ? "(Market)" : "(Trigger)";
+            
+            targetPrice = basePrice + (n * 0.5);
+            stopPrice   = basePrice - (n * 0.2);
+            
+            if (lblTP) lblTP.innerText = `Target ${priceLabel}`;
+            if (lblSL) lblSL.innerText = `Stop Loss ${priceLabel}`;
+            
+            if (breakoutEl) breakoutEl.className = 't-value text-danger fw-bold';
+            if (stratBadge) {
+                stratBadge.innerText = 'LEVERAGE 1:200 (SNIPER)';
+                stratBadge.style.background = '#0ea5e9'; 
+            }
+            exitMsg = "Sniper: เก็บกำไรที่ Target | ถ้าบวก +0.2N ให้เลื่อน SL มาที่ทุน (BE) ทันที";
         } else if (activeStrategy === 'SCALPER') {
-            breakoutPrice = globalTactical.short_term_high;
-            tpMult = 2.0;
-            breakoutEl.className = 't-value text-primary';
-            stratBadge.innerText = 'SHORT-TERM (SCALPER)';
-            stratBadge.style.background = '#2563eb';
+            breakoutPrice = parseFloat(globalTactical.short_term_high) || 0;
+            const inZone = lastPrice > breakoutPrice;
+            basePrice = inZone ? lastPrice : breakoutPrice;
+            priceLabel = inZone ? "(Market)" : "(Trigger)";
+
+            targetPrice = basePrice + (n * 0.3);
+            stopPrice   = basePrice - (n * 0.1);
+            
+            if (lblTP) lblTP.innerText = `Target ${priceLabel}`;
+            if (lblSL) lblSL.innerText = `Stop Loss ${priceLabel}`;
+
+            if (breakoutEl) breakoutEl.className = 't-value text-primary';
+            if (stratBadge) {
+                stratBadge.innerText = 'ULTRA-PRECISION (SCALPER)';
+                stratBadge.style.background = '#22c55e';
+            }
+            exitMsg = "Scalper: เน้นจบไว ไม่รอรอบ | เข้าเป้าแล้วออก 100% ห้ามถือลาก";
         } else if (activeStrategy === 'SWING') {
-            breakoutPrice = globalTactical.high_20d;
-            tpMult = 3.5;
-            breakoutEl.className = 't-value text-info';
-            stratBadge.innerText = 'MEDIUM-TERM (SWING)';
-            stratBadge.style.background = '#0891b2';
+            breakoutPrice = parseFloat(globalTactical.high_20d) || 0;
+            targetPrice = breakoutPrice + (n * 3.5);
+            stopPrice   = breakoutPrice - (n * 2.0);
+            if (lblTP) lblTP.innerText = "Target (+3.5N)";
+            if (lblSL) lblSL.innerText = "Stop (-2.0N)";
+            if (breakoutEl) breakoutEl.className = 't-value text-info';
+            if (stratBadge) {
+                stratBadge.innerText = 'MEDIUM-TERM (SWING)';
+                stratBadge.style.background = '#0891b2';
+            }
+            exitMsg = "Swing: ถือรอกินรอบใหญ่ | ใช้ 10D Low เป็นจุด Trailing Stop";
         } else {
-            breakoutPrice = globalTactical.high_55d;
-            tpMult = 5.0; // Turtle seeks big trends
-            breakoutEl.className = 't-value text-warning';
-            stratBadge.innerText = 'LONG-TERM (TURTLE)';
-            stratBadge.style.background = '#d97706';
+            breakoutPrice = parseFloat(globalTactical.high_55d) || 0;
+            targetPrice = breakoutPrice + (n * 5.0);
+            stopPrice   = breakoutPrice - (n * 2.0);
+            if (lblTP) lblTP.innerText = "Target (+5.0N)";
+            if (lblSL) lblSL.innerText = "Stop (-2.0N)";
+            if (breakoutEl) breakoutEl.className = 't-value text-warning';
+            if (stratBadge) {
+                stratBadge.innerText = 'LONG-TERM (TURTLE)';
+                stratBadge.style.background = '#d97706';
+            }
+            exitMsg = "Turtle: รันเทรนด์ยาว | ออกเมื่อหลุด 20D Low หรือถึงเป้าใหญ่";
         }
 
-        breakoutEl.innerText = breakoutPrice.toFixed(2);
-        
-        const targetPrice = breakoutPrice + (globalTactical.n * tpMult);
-        const stopPrice = breakoutPrice - (globalTactical.n * 2.0);
+        if (exitAdviceEl) exitAdviceEl.innerText = exitMsg;
 
-        tpEl.innerText = targetPrice.toFixed(2);
-        slEl.innerText = stopPrice.toFixed(2);
+            if (breakoutEl) breakoutEl.innerText = isNaN(breakoutPrice) ? "----.--" : breakoutPrice.toFixed(2);
+            if (tpEl) tpEl.innerText = isNaN(targetPrice) ? "----.--" : targetPrice.toFixed(2);
+            if (slEl) slEl.innerText = isNaN(stopPrice) ? "----.--" : stopPrice.toFixed(2);
 
-        // Update Decision Center Visuals
-        const mainSignal = globalTactical.signals.short; 
-        if (mainSignal === 'BUY') {
-            decisionCenter.className = 'decision-panel buy d-flex align-items-center';
-            signalIcon.innerHTML = '<i class="fas fa-arrow-circle-up text-success"></i>';
-            signalText.innerText = 'BUY SIGNAL!';
-            signalText.className = 'signal-status text-success';
-            signalSubtext.innerText = `Price broke above ${breakoutPrice.toFixed(2)}. Consider entering LONG.`;
-            if (Notification.permission === "granted" && !window.lastNotified) {
-                new Notification("GOLD SIGNAL: BUY", { body: `Target: ${targetPrice.toFixed(2)}` });
-                window.lastNotified = true;
+            // Decision Center Safety
+            const decisionCenter = document.getElementById('decision-center');
+            const signalIcon = document.getElementById('signal-main-icon');
+            const signalText = document.getElementById('signal-main-text');
+            const signalSubtext = document.getElementById('signal-main-subtext');
+
+            if (decisionCenter && signalIcon && signalText && signalSubtext) {
+                if (mainSignal === 'BUY') {
+                    decisionCenter.className = 'decision-panel buy d-flex align-items-center';
+                    signalIcon.innerHTML = '<i class="fas fa-arrow-circle-up text-success"></i>';
+                    signalText.innerText = 'BUY SIGNAL!';
+                    signalText.className = 'signal-status text-success';
+                    signalSubtext.innerText = `Price above ${breakoutPrice.toFixed(2)}. Consider LONG.`;
+                } else if (mainSignal === 'SELL') {
+                    decisionCenter.className = 'decision-panel sell d-flex align-items-center';
+                    signalIcon.innerHTML = '<i class="fas fa-arrow-circle-down text-danger"></i>';
+                    signalText.innerText = 'SELL SIGNAL!';
+                    signalText.className = 'signal-status text-danger';
+                    signalSubtext.innerText = `Price below ${breakoutPrice.toFixed(2)}. Consider SHORT.`;
+                } else {
+                    decisionCenter.className = 'decision-panel wait d-flex align-items-center';
+                    signalIcon.innerHTML = '<i class="fas fa-hourglass-half text-muted"></i>';
+                    signalText.innerText = 'WAITING...';
+                    signalText.className = 'signal-status text-muted';
+                    signalSubtext.innerText = `Monitoring ${activeStrategy} at ${breakoutPrice.toFixed(2)}.`;
+                }
             }
-        } else if (mainSignal === 'SELL') {
-            decisionCenter.className = 'decision-panel sell d-flex align-items-center';
-            signalIcon.innerHTML = '<i class="fas fa-arrow-circle-down text-danger"></i>';
-            signalText.innerText = 'SELL SIGNAL!';
-            signalText.className = 'signal-status text-danger';
-            signalSubtext.innerText = `Price dropped below ${breakoutPrice.toFixed(2)}. Consider entering SHORT.`;
-        } else {
-            decisionCenter.className = 'decision-panel wait d-flex align-items-center';
-            signalIcon.innerHTML = '<i class="fas fa-hourglass-half text-muted"></i>';
-            signalText.innerText = 'WAITING...';
-            signalText.className = 'signal-status text-muted';
-            signalSubtext.innerText = `Monitoring ${activeStrategy} breakout at ${breakoutPrice.toFixed(2)}.`;
-            window.lastNotified = false;
+        } catch (e) {
+            console.error('Tactical UI Error:', e);
+            logMessage('Tactical UI Error: ' + e.message, 'text-danger');
         }
 
         const sigBadge = document.getElementById('tactical-signal');
@@ -1001,25 +1071,23 @@
         
         logMessage(`REQUEST: ${type} ${lotSize} Lots`, 'text-warning');
         
-        // --- คำนวณ TP/SL ตามกลยุทธ์ที่เลือกอยู่ในขณะนั้น ---
-        let tpValue = null;
-        let slValue = null;
-        if (globalTactical) {
-            let brk = 0;
-            let tpMult = 1.5;
-            if (activeStrategy === 'SNIPER') { brk = globalTactical.ema9; tpMult = 1.5; }
-            else if (activeStrategy === 'SCALPER') { brk = globalTactical.short_term_high; tpMult = 2.0; }
-            else if (activeStrategy === 'SWING') { brk = globalTactical.high_20d; tpMult = 3.5; }
-            else if (activeStrategy === 'TURTLE') { brk = globalTactical.high_55d; tpMult = 5.0; }
-
-            tpValue = brk + (globalTactical.n * tpMult);
-            slValue = brk - (globalTactical.n * 2.0);
-            
-            // ปัดทศนิยมให้เหลือ 2 ตำแหน่งตามมาตรฐานทองคำ
-            tpValue = parseFloat(tpValue.toFixed(2));
-            slValue = parseFloat(slValue.toFixed(2));
-        } else {
-            console.error("Missing globalTactical data for TP/SL calculation");
+        // --- ดึงค่า TP/SL จากหน้าจอโดยตรง (WYSIWYG) ---
+        let tpValue = parseFloat(document.getElementById('tactical-tp').innerText) || null;
+        let slValue = parseFloat(document.getElementById('tactical-sl').innerText) || null;
+        
+        if (!tpValue || !slValue || isNaN(tpValue) || isNaN(slValue)) {
+            console.error("Tactical levels not ready. Using defaults.");
+            // Fallback safety (if UI is somehow empty)
+            if (globalTactical) {
+                const n = parseFloat(globalTactical.n) || 0;
+                if (type === 'BUY') {
+                    tpValue = lastPrice + (n * 0.5);
+                    slValue = lastPrice - (n * 0.2);
+                } else {
+                    tpValue = lastPrice - (n * 0.5);
+                    slValue = lastPrice + (n * 0.2);
+                }
+            }
         }
         
         fetch("{% url 'stocks:execute_gold_trade' %}", {
@@ -1205,16 +1273,52 @@
                 document.getElementById('gold-price-display').innerText = lastPrice.toFixed(2);
                 document.getElementById('m-price').innerText = lastPrice.toFixed(2);
                 
-                const prev = data.candles[data.candles.length - 2].close;
-                const chg  = ((lastPrice - prev) / prev) * 100;
-                const chgStr = (chg >= 0 ? '+' : '') + chg.toFixed(2) + '%';
+                let chgStr = "0.00%";
+                if (data.candles && data.candles.length >= 2) {
+                    const prev = data.candles[data.candles.length - 2].close;
+                    const chg  = ((lastPrice - prev) / prev) * 100;
+                    chgStr = (chg >= 0 ? '+' : '') + chg.toFixed(2) + '%';
+                }
                 
                 document.getElementById('gold-change-display').innerText = chgStr;
-                document.getElementById('gold-change-display').className = 'price-chg ' + (chg >= 0 ? 'text-success' : 'text-danger');
-                document.getElementById('m-chg').innerText = chgStr;
-                document.getElementById('m-chg').className = (chg >= 0 ? 'text-success' : 'text-danger');
+                
+                if (data.tactical.dxy) {
+                    const dxyStatus = document.getElementById('dxy-status');
+                    const chg = data.tactical.dxy.change;
+                    const price = data.tactical.dxy.price;
+                    dxyStatus.innerText = `${price.toFixed(1)} (${chg >= 0 ? '+' : ''}${chg.toFixed(1)}%)`;
+                    dxyStatus.className = 'status-pill ' + (chg > 0.1 ? 'pill-sell' : (chg < -0.1 ? 'pill-buy' : 'pill-standby'));
+                }
 
-                document.getElementById('live-n-val').innerText = data.tactical.n.toFixed(2);
+                if (data.tactical.mtf) {
+                    const setPill = (id, trend) => {
+                        const el = document.getElementById(id);
+                        if (!el) return;
+                        el.style.background = trend === 'BULLISH' ? '#10b981' : '#ef4444';
+                        el.style.color = '#fff';
+                    };
+                    setPill('pill-m15', data.tactical.mtf.m15);
+                    setPill('pill-h1',  data.tactical.mtf.h1);
+                    setPill('pill-h4',  data.tactical.mtf.h4);
+                    setPill('pill-d1',  data.tactical.mtf.d1);
+                }
+
+                if (data.tactical.sentiment_advice) {
+                    document.getElementById('ai-sentiment-advice').innerText = data.tactical.sentiment_advice;
+                }
+
+                const mChgEl = document.getElementById('m-chg');
+                if (mChgEl && data.candles && data.candles.length >= 2) {
+                    const prev = data.candles[data.candles.length - 2].close;
+                    const chg  = ((lastPrice - prev) / prev) * 100;
+                    mChgEl.innerText = (chg >= 0 ? '+' : '') + chg.toFixed(2) + '%';
+                    mChgEl.className = (chg >= 0 ? 'text-success' : 'text-danger');
+                }
+
+                const nValEl = document.getElementById('live-n-val');
+                if (nValEl && data.tactical.n !== undefined) {
+                    nValEl.innerText = data.tactical.n.toFixed(2);
+                }
                 
                 const tEl = document.getElementById('trend-status-display');
                 if (tEl) {

@@ -9668,7 +9668,71 @@ def stock_chart_data(request, symbol):
             'exit_10d_low': round(_safe_val(last_row['dc10_lower']), 2),
             'exit_20d_low': round(_safe_val(last_row['dc20_lower']), 2),
             'next_unit': round(_safe_val(curr_price + (0.5 * n_val)), 2),
+            
+            # --- Extreme Precision CFD Levels (Optimized for 1:200 Leverage) ---
+            'levels': {
+                'sniper': {
+                    'target': round(curr_price + (0.5 * n_val), 2),
+                    'stop': round(curr_price - (0.2 * n_val), 2),
+                    'label': 'LEVERAGE 1:200 (0.2N SL)'
+                },
+                'scalper': {
+                    'target': round(curr_price + (0.3 * n_val), 2),
+                    'stop': round(curr_price - (0.1 * n_val), 2),
+                    'label': 'ULTRA-PRECISION (0.1N SL)'
+                }
+            }
         }
+
+        # --- Enhanced Intermarket Analysis (DXY & MTF) ---
+        if symbol == 'GC=F':
+            try:
+                # 1. DXY Data
+                dxy_ticker = _yf.Ticker('DX-Y.NYB')
+                dxy_hist = dxy_ticker.history(period='2d')
+                dxy_price, dxy_change = 0, 0
+                if not dxy_hist.empty:
+                    dxy_price = float(dxy_hist['Close'].iloc[-1])
+                    dxy_prev = float(dxy_hist['Close'].iloc[-2]) if len(dxy_hist) > 1 else dxy_price
+                    dxy_change = ((dxy_price - dxy_prev) / dxy_prev * 100) if dxy_prev else 0
+                    tactical['dxy'] = {'price': round(dxy_price, 2), 'change': round(dxy_change, 2)}
+                
+                # 2. Multi-Timeframe Analysis (M15, H1, H4)
+                # Helper to check trend
+                def _get_trend(sym, interval, period='5d'):
+                    tmp = _yf.download(sym, period=period, interval=interval, progress=False)
+                    if tmp.empty: return 'NEUTRAL'
+                    if isinstance(tmp.columns, _pd.MultiIndex): tmp.columns = tmp.columns.get_level_values(0)
+                    tmp.columns = [str(c).capitalize() for c in tmp.columns]
+                    ma = tmp['Close'].ewm(span=20, adjust=False).mean().iloc[-1]
+                    price = float(tmp['Close'].iloc[-1])
+                    return 'BULLISH' if price > ma else 'BEARISH'
+
+                tactical['mtf'] = {
+                    'm15': _get_trend(yf_symbol, '15m', '2d'),
+                    'h1':  _get_trend(yf_symbol, '1h', '5d'),
+                    'h4':  _get_trend(yf_symbol, '4h', '1mo'),
+                    'd1':  'BULLISH' if curr_price > float(last_row['ema200']) else 'BEARISH'
+                }
+
+                # 3. AI Sentiment Advice
+                advice = "สถานะตลาดเป็นกลาง รอสัญญาณที่ชัดเจน"
+                bull_count = list(tactical['mtf'].values()).count('BULLISH')
+                if dxy_change < -0.1 and bull_count >= 3:
+                    advice = "ขาขึ้นแข็งแกร่ง: ดอลลาร์อ่อนค่าและเทรนด์ทุก Timeframe สอดคล้องเป็นขาขึ้น มีโอกาสสูงในการเข้า BUY"
+                elif dxy_change > 0.1 and bull_count <= 1:
+                    advice = "ขาลงรุนแรง: ดอลลาร์กำลังแข็งค่าและเทรนด์ส่วนใหญ่เป็นขาลง ระวังการปรับตัวลงต่อ"
+                elif bull_count >= 3:
+                    advice = "โน้มเอียงขาขึ้น: โมเมนตัมเป็นบวก แต่ควรจับตาดูกำลังของดอลลาร์ประกอบ"
+                elif bull_count <= 1:
+                    advice = "โน้มเอียงขาลง: หลาย Timeframe แสดงสัญญาณอ่อนแรง ควรระมัดระวังการถือสถานะ Buy"
+                else:
+                    advice = "ช่วงสะสมตัว: ตลาดมีสัญญาณผสมผสาน แนะนำให้รอจนกว่าเทรนด์ในหลาย Timeframe จะเริ่มสอดคล้องกัน"
+                
+                tactical['sentiment_advice'] = advice
+
+            except Exception as e:
+                print(f"Error fetching enhanced gold data: {e}")
 
         # Turtle breakout signals (compare close vs previous day's channel)
         df['sys1_signal'] = df['Close'] >= df['dc20_upper'].shift(1)
