@@ -860,3 +860,24 @@ class InvestmentDashboardInsight(models.Model):
 
     def __str__(self):
         return f"Insight {self.created_at.strftime('%Y-%m-%d')} for {self.user.username}"
+
+class UserTradingConfig(models.Model):
+    """
+    เก็บการตั้งค่า UI และการเทรดส่วนตัวของผู้ใช้ (Persistent UI State)
+    เพื่อให้การตั้งค่าไม่หายไปเมื่อ Refresh หน้าจอ หรือสลับเครื่อง (Sync across devices)
+    """
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='trading_config')
+    
+    # --- Smart Alerts Config ---
+    alert_enabled = models.BooleanField(default=False)
+    alert_high_target = models.FloatField(null=True, blank=True)
+    alert_low_target = models.FloatField(null=True, blank=True)
+    
+    # --- Risk Management Config ---
+    default_capital = models.FloatField(default=1000.0)
+    default_risk_pct = models.FloatField(default=1.0)
+    
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Config: {self.user.username}"

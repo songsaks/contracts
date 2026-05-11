@@ -1619,6 +1619,23 @@
             .catch(err => logMessage('FETCH ERROR: ' + err.message, 'text-danger'));
     }
 
+    function saveConfig() {
+        const payload = {
+            alert_enabled: document.getElementById('alert-master-toggle').checked,
+            alert_high: document.getElementById('alert-high').value,
+            alert_low: document.getElementById('alert-low').value,
+            capital: document.getElementById('capital-input').value,
+            risk_pct: document.getElementById('risk-pct').value
+        };
+        fetch("{% url 'stocks:save_gold_config' %}", {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}' },
+            body: JSON.stringify(payload)
+        })
+        .then(r => r.json())
+        .then(d => { if (!d.success) console.error("Save config failed:", d.error); });
+    }
+
     function checkPriceAlerts(price) {
         const isEnabled = document.getElementById('alert-master-toggle').checked;
         const highTarget = parseFloat(document.getElementById('alert-high').value);
@@ -1671,10 +1688,13 @@
         const toggle = document.getElementById('alert-master-toggle');
         if (toggle) toggle.checked = false;
         
-        // 2. Stop the sound forcefully
+        // 2. Save config to server to sync with other devices
+        saveConfig();
+        
+        // 3. Stop the sound forcefully
         stopAlertSound();
         
-        // 3. Force hide all alert UI
+        // 4. Force hide all alert UI
         const triggerMsg = document.getElementById('alert-trigger-msg');
         const visualSignal = document.getElementById('alert-visual-signal');
         if (triggerMsg) triggerMsg.classList.add('d-none');
@@ -2029,6 +2049,15 @@
     }
 
     window.onload = () => {
+        // Initialize from persistent config
+        {% if config %}
+            document.getElementById('alert-master-toggle').checked = {% if config.alert_enabled %}true{% else %}false{% endif %};
+            document.getElementById('alert-high').value = "{{ config.alert_high_target|default:'' }}";
+            document.getElementById('alert-low').value = "{{ config.alert_low_target|default:'' }}";
+            document.getElementById('capital-input').value = "{{ config.default_capital }}";
+            document.getElementById('risk-pct').value = "{{ config.default_risk_pct }}";
+        {% endif %}
+
         setStrategy('SNIPER');
         loadData();
         fetchPositions();
@@ -2041,6 +2070,18 @@
             clearInterval(_ivData);
             clearInterval(_ivPos);
             clearInterval(_ivHist);
+        });
+
+        // Attach auto-save listeners
+        ['alert-master-toggle', 'alert-high', 'alert-low', 'capital-input', 'risk-pct'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) {
+                const event = el.type === 'checkbox' ? 'change' : 'input';
+                el.addEventListener(event, () => {
+                    saveConfig();
+                    if (id === 'alert-master-toggle') handleToggleChange(); // UI logic
+                });
+            }
         });
         
         document.getElementById('btn-start-bot').onclick = () => {

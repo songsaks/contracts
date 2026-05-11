@@ -10083,15 +10083,20 @@ def gold_trading(request):
     """
     Gold Trading & Robot Command Center (XAU/USD).
     """
-    from .models import TradingAccount
+    from .models import TradingAccount, UserTradingConfig
     account = TradingAccount.objects.filter(user=request.user, is_active=True).first()
     capital = float(account.equity or account.balance) if account else 100.0
     symbol = "GC=F"
+    
+    # ดึงค่าการตั้งค่าล่าสุดของผู้ใช้ (เพื่อ Sync ระหว่างอุปกรณ์)
+    config, created = UserTradingConfig.objects.get_or_create(user=request.user)
+    
     return render(request, 'stocks/gold_trading.html', {
         'symbol': symbol,
         'title': 'Gold Robot Command Center',
         'market': 'US',
         'capital': capital,
+        'config': config,
     })
 
 
@@ -10341,6 +10346,30 @@ def start_gold_bot_ajax(request):
         )
             
         return JsonResponse({'success': True, 'pid': process.pid})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
+
+@login_required
+@require_POST
+def save_gold_config_ajax(request):
+    """บันทึกการตั้งค่า UI (Alerts, Targets, Risk) ลงฐานข้อมูลเพื่อ Sync ข้ามเครื่อง"""
+    from .models import UserTradingConfig
+    import json
+    try:
+        data = json.loads(request.body)
+        config, created = UserTradingConfig.objects.get_or_create(user=request.user)
+        
+        # Smart Alerts
+        if 'alert_enabled' in data: config.alert_enabled = bool(data['alert_enabled'])
+        if 'alert_high' in data: config.alert_high_target = float(data['alert_high']) if data['alert_high'] else None
+        if 'alert_low' in data: config.alert_low_target = float(data['alert_low']) if data['alert_low'] else None
+        
+        # Risk Management
+        if 'capital' in data: config.default_capital = float(data['capital'])
+        if 'risk_pct' in data: config.default_risk_pct = float(data['risk_pct'])
+        
+        config.save()
+        return JsonResponse({'success': True})
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)})
 

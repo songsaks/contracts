@@ -3,7 +3,12 @@
     "allow": [
       "Bash(.venv/Scripts/python manage.py:*)",
       "Bash(python:*)",
-      "Bash(grep -n \"profit_loss\\\\|total_pl\\\\|tithe\\\\|฿\\\\|\\\\$\" d:/DjangoProjects/contracts/stocks/templates/stocks/tithe_report.html)"
+      "Bash(grep -n \"profit_loss\\\\|total_pl\\\\|tithe\\\\|฿\\\\|\\\\$\" d:/DjangoProjects/contracts/stocks/templates/stocks/tithe_report.html)",
+      "Bash(grep -E \"\\\\.py$|^d\")",
+      "Bash(grep -n \"def project_quotation\\\\|def.*estimation\\\\|def.*estimate\" \"d:\\\\\\\\DjangoProjects\\\\\\\\contracts\\\\\\\\pms\\\\\\\\views.py\")",
+      "Bash(grep -n \"quotation\\\\|estimation\" \"d:\\\\\\\\DjangoProjects\\\\\\\\contracts\\\\\\\\pms\\\\\\\\templates\\\\\\\\pms\\\\\\\\project_detail.html\")",
+      "Bash(.venv/Scripts/python.exe -c ' *)",
+      "Bash(.venv/Scripts/python.exe manage.py shell -c ' *)"
     ],
     "additionalDirectories": [
       "\\tmp",

@@ -15,17 +15,27 @@ class Command(BaseCommand):
     def add_arguments(self, parser):
         parser.add_argument('--strategy', type=str, default='ALL', help='ล็อคกลยุทธ์ที่จะรัน (SNIPER, SCALPER, SWING, ALL)')
         parser.add_argument('--once', action='store_true', help='รันจนจบ 1 ออเดอร์แล้วหยุดทันที')
+        parser.add_argument('--user_id', type=int, required=True, help='ID ของผู้ใช้ที่เป็นเจ้าของบอทตัวนี้')
 
     # --- การตั้งค่าพื้นฐาน ---
     SYMBOL = "GC=F"           # สัญลักษณ์ราคาทองคำจาก Yahoo Finance
     BROKER_SYMBOL = "XAUUSD"  # สัญลักษณ์ทองคำฝั่งโบรกเกอร์ (MetaApi)
     RISK_PER_TRADE = 0.02     # ความเสี่ยงต่อไม้ (2% ของเงินทุน)
     MIN_LOT = 0.01            # ขนาด Lot ต่ำสุดที่อนุญาต
+    
+    def get_bot_identity(self, user_id):
+        from django.contrib.auth.models import User
+        try:
+            u = User.objects.get(id=user_id)
+            return f"Gold Bot (User: {u.username})"
+        except:
+            return f"Gold Bot (User: ID {user_id})"
 
-    def update_heartbeat(self, status="ACTIVE", message=""):
-        """ อัปเดตสถานะการทำงานของบอทลงฐานข้อมูล เพื่อแสดงผลที่หน้า Dashboard """
+    def update_heartbeat(self, user_id, status="ACTIVE", message=""):
+        """ อัปเดตสถานะการทำงานของบอทลงฐานข้อมูล แยกราย User """
+        bot_name = self.get_bot_identity(user_id)
         BotActivity.objects.update_or_create(
-            bot_name="Gold Server Bot",
+            bot_name=bot_name,
             defaults={
                 'status': status,
                 'last_heartbeat': timezone.now(),
@@ -37,20 +47,25 @@ class Command(BaseCommand):
         """ จุดเริ่มต้นการทำงานของบอท (Main Entry Point) """
         target_strat = options.get('strategy', 'ALL').upper()
         run_once = options.get('once', False)
+        user_id = options.get('user_id')
         session_has_traded = False
+        
+        bot_name = self.get_bot_identity(user_id)
+        # PID File should be in project root (same as views.py)
+        user_pid_file = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))), f'gold_bot_{user_id}.pid')
 
-        self.stdout.write(self.style.SUCCESS(f'--- บอททองคำเริ่มทำงาน (กลยุทธ์: {target_strat}, โหมดรอบเดียว: {run_once}) ---'))
+        self.stdout.write(self.style.SUCCESS(f'--- {bot_name} เริ่มทำงาน (กลยุทธ์: {target_strat}, โหมดรอบเดียว: {run_once}) ---'))
         
         try:
             # แจ้งหน้าจอว่าบอทกำลังเริ่มระบบ
-            self.update_heartbeat(status="ACTIVE", message=f"เฝ้าระวัง {target_strat} (One-Shot: {run_once})")
+            self.update_heartbeat(user_id, status="ACTIVE", message=f"เฝ้าระวัง {target_strat} (One-Shot: {run_once})")
             
             while True:
-                # ตรวจสอบสถานะจาก DB ว่าถูกสั่งหยุดหรือไม่ (Graceful Shutdown)
-                activity = BotActivity.objects.filter(bot_name="Gold Server Bot").first()
+                # ตรวจสอบสถานะจาก DB ว่าถูกสั่งหยุดหรือไม่ (Graceful Shutdown เฉพาะราย User)
+                activity = BotActivity.objects.filter(bot_name=bot_name).first()
                 if activity and activity.status == "STOPPED":
-                    self.stdout.write(self.style.WARNING("--- ตรวจพบสถานะ STOPPED ในระบบ: กำลังหยุดการทำงาน... ---"))
-                    if os.path.exists("gold_bot.pid"): os.remove("gold_bot.pid")
+                    self.stdout.write(self.style.WARNING(f"--- {bot_name} ตรวจพบสถานะ STOPPED: กำลังหยุดการทำงาน... ---"))
+                    if os.path.exists(user_pid_file): os.remove(user_pid_file)
                     return
 
                 try:
@@ -81,8 +96,8 @@ class Command(BaseCommand):
                     rsi = float(curr_row['rsi'])
                     atr = float(curr_row['atr'])
                     
-                    # 3. ตรวจสอบสถานะพอร์ต (เช็คว่ามีออเดอร์ค้างอยู่หรือไม่)
-                    accounts = TradingAccount.objects.filter(is_active=True)
+                    # 3. ตรวจสอบสถานะพอร์ต (กรองเฉพาะ User ที่รันบอท)
+                    accounts = TradingAccount.objects.filter(is_active=True, user_id=user_id)
                     has_open_position = False
                     
                     for acc in accounts:
@@ -95,9 +110,9 @@ class Command(BaseCommand):
                     # ถ้าใช้โหมด Once และเคยเทรดไปแล้ว และตอนนี้ไม่มีออเดอร์ค้าง = จบงาน
                     if run_once and session_has_traded and not has_open_position:
                         self.stdout.write(self.style.SUCCESS("--- จบงาน: ออเดอร์ปิดแล้ว หยุดบอทตามโหมด One-Shot ---"))
-                        self.update_heartbeat(status="STOPPED", message="ปิดงานเรียบร้อยแล้ว (รอคุณตัดสินใจรอบถัดไป)")
+                        self.update_heartbeat(user_id, status="STOPPED", message="ปิดงานเรียบร้อยแล้ว (รอคุณตัดสินใจรอบถัดไป)")
                         # ลบ PID File ด้วยตัวเอง
-                        if os.path.exists("gold_bot.pid"): os.remove("gold_bot.pid")
+                        if os.path.exists(user_pid_file): os.remove(user_pid_file)
                         return
 
                     # 4. ค้นหาสัญญาณการเทรด (เฉพาะเมื่อยังไม่มีออเดอร์ค้าง)
@@ -135,25 +150,25 @@ class Command(BaseCommand):
                         if signal_type:
                             self.stdout.write(self.style.SUCCESS(f"🚀 SIGNAL DETECTED: {side} {signal_type} at {curr_price}"))
                             # ในโหมดแมนนวล: ส่งสัญญาณไปที่ UI แทนการเปิดออเดอร์
-                            self.update_heartbeat(status="SIGNAL", message=f"SIGNAL_{side}:{signal_type}:{curr_price:.2f}")
+                            self.update_heartbeat(user_id, status="SIGNAL", message=f"SIGNAL_{side}:{signal_type}:{curr_price:.2f}")
                             session_has_traded = True 
                     
                     if not signal_type:
                         # ถ้ายังไม่มีสัญญาณใหม่ ให้รายงานสถานะราคาปัจจุบัน โดยติดชื่อโหมดไว้ด้วย
-                        self.update_heartbeat(status="ACTIVE", message=f"เฝ้าระวัง ({target_strat})... ราคา: {curr_price:.2f} | RSI: {rsi:.1f}")
+                        self.update_heartbeat(user_id, status="ACTIVE", message=f"เฝ้าระวัง ({target_strat})... ราคา: {curr_price:.2f} | RSI: {rsi:.1f}")
 
                 except Exception as e:
                     # จัดการข้อผิดพลาดที่อาจเกิดขึ้นระหว่างลูป (เช่น เน็ตหลุด)
                     import traceback
                     error_msg = f"เกิดข้อผิดพลาด: {str(e)}\n{traceback.format_exc()}"
                     self.stdout.write(self.style.ERROR(error_msg))
-                    self.update_heartbeat(status="ERROR", message=str(e)[:200])
+                    self.update_heartbeat(user_id, status="ERROR", message=str(e)[:200])
                     time.sleep(30) # รอสักพักเผื่อเน็ตกลับมา
 
-                # พักการทำงาน 1 นาทีก่อนเช็ครอบถัดไป
+                # พักการทำงาน 1 นาทีก่อนเช็คดรอบถัดไป
                 time.sleep(60)
                 
         except Exception as e:
             # จัดการข้อผิดพลาดร้ายแรงที่ทำให้บอทหยุดรัน
             self.stdout.write(self.style.ERROR(f"บอทหยุดการทำงานถาวร: {str(e)}"))
-            self.update_heartbeat(status="ERROR", message=f"FATAL: {str(e)}")
+            self.update_heartbeat(user_id, status="ERROR", message=f"FATAL: {str(e)}")
