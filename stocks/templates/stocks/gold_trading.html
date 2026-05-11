@@ -676,6 +676,22 @@
                         <div id="prox-radar-bar" class="progress-bar progress-bar-striped progress-bar-animated" 
                              style="width: 0%; border-radius: 10px; background: #fbbf24; box-shadow: 0 0 15px rgba(251, 191, 36, 0.4);"></div>
                     </div>
+                <!-- WAIT CONDITION CHECKLIST -->
+                <div id="wait-checklist" class="mt-3 text-start" style="display:none; font-size: 0.9rem; background: #f8fafc; padding: 14px; border-radius: 8px; border: 1px solid #e2e8f0; color: #1e293b; box-shadow: inset 0 1px 2px rgba(0,0,0,0.05);">
+                    <div style="font-size: 0.65rem; color: #64748b; text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 10px; border-bottom: 1px solid #e2e8f0; padding-bottom: 6px; font-weight: 800;">Entry Conditions</div>
+                    <div class="mb-2 d-flex justify-content-between align-items-center">
+                        <span style="color: #475569;"><i id="cond-price-icon" class="fas fa-circle-notch fa-spin me-2 text-muted"></i> Price Trigger</span>
+                        <span id="cond-price-val" class="fw-bold" style="font-size: 1rem;">...</span>
+                    </div>
+                    <div class="mb-2 d-flex justify-content-between align-items-center">
+                        <span style="color: #475569;"><i id="cond-trend-icon" class="fas fa-circle-notch fa-spin me-2 text-muted"></i> Trend Filter</span>
+                        <span id="cond-trend-val" class="fw-bold" style="font-size: 1rem;">...</span>
+                    </div>
+
+                    <div class="mb-0 d-flex justify-content-between align-items-center">
+                        <span style="color: #475569;"><i id="cond-mom-icon" class="fas fa-circle-notch fa-spin me-2 text-muted"></i> Momentum (RSI)</span>
+                        <span id="cond-mom-val" class="fw-bold" style="font-size: 1rem;">...</span>
+                    </div>
                 </div>
             </div>
             
@@ -1111,35 +1127,45 @@
                 const rr = tpDist / (slDist || 1);
 
                 if (isRiskZone) {
-                    advisorBox.style.background = 'rgba(220, 38, 38, 0.2)';
-                    advisorBox.style.borderColor = '#dc2626';
+                    advisorBox.style.background = '#fee2e2'; // Light Red
+                    advisorBox.style.borderColor = '#ef4444';
                     advisorText.innerText = 'AVOID: SUICIDE ZONE';
-                    advisorText.style.color = '#f87171';
+                    advisorText.style.color = '#991b1b'; // Dark Red
+                    advisorText.style.fontSize = '1.25rem';
                     advisorSub.innerText = 'Price is beyond Safety Stop';
+                    advisorSub.style.color = '#7f1d1d';
                 } else if (slDist < 5) {
-                    advisorBox.style.background = 'rgba(234, 179, 8, 0.2)';
-                    advisorBox.style.borderColor = '#eab308';
+                    advisorBox.style.background = '#fef3c7'; // Light Amber
+                    advisorBox.style.borderColor = '#f59e0b';
                     advisorText.innerText = 'DANGEROUS: TIGHT SL';
-                    advisorText.style.color = '#fde047';
+                    advisorText.style.color = '#92400e'; // Dark Amber
+                    advisorText.style.fontSize = '1.25rem';
                     advisorSub.innerText = 'High risk of immediate stop-out';
+                    advisorSub.style.color = '#451a03';
                 } else if (slDist > 100) {
-                    advisorBox.style.background = 'rgba(234, 179, 8, 0.2)';
-                    advisorBox.style.borderColor = '#eab308';
+                    advisorBox.style.background = '#fffbeb'; 
+                    advisorBox.style.borderColor = '#f59e0b';
                     advisorText.innerText = 'CAUTION: WIDE SL';
-                    advisorText.style.color = '#fde047';
+                    advisorText.style.color = '#92400e'; 
+                    advisorText.style.fontSize = '1.25rem';
                     advisorSub.innerText = 'Capital at risk due to distance';
+                    advisorSub.style.color = '#78350f';
                 } else if (rr >= 1.5) {
-                    advisorBox.style.background = 'rgba(16, 185, 129, 0.2)';
+                    advisorBox.style.background = '#d1fae5'; // Light Green
                     advisorBox.style.borderColor = '#10b981';
                     advisorText.innerText = 'EXCELLENT SETUP';
-                    advisorText.style.color = '#34d399';
+                    advisorText.style.color = '#065f46'; // Dark Green
+                    advisorText.style.fontSize = '1.25rem';
                     advisorSub.innerText = `R:R is ${rr.toFixed(1)}x — Surgical Entry`;
+                    advisorSub.style.color = '#064e3b';
                 } else {
-                    advisorBox.style.background = 'rgba(15, 23, 42, 0.5)';
-                    advisorBox.style.borderColor = 'rgba(255,255,255,0.1)';
+                    advisorBox.style.background = '#f1f5f9'; // Light Slate
+                    advisorBox.style.borderColor = '#cbd5e1';
                     advisorText.innerText = 'STANDARD SETUP';
-                    advisorText.style.color = '#fff';
+                    advisorText.style.color = '#0f172a'; // Dark Slate
+                    advisorText.style.fontSize = '1.25rem';
                     advisorSub.innerText = 'Balanced risk profile';
+                    advisorSub.style.color = '#475569';
                 }
 
                 // --- Proximity Radar Engine ---
@@ -1157,24 +1183,54 @@
                         proxPts.innerText = `${distToEntry.toFixed(2)} PTS REMAINING`;
                         proxBar.style.width = `${proxPct}%`;
                         
-                        // Critical Alert State (High Visibility)
-                        if (distToEntry < 5) {
-                            proxPts.style.color = "#ef4444";
-                            proxPts.style.fontWeight = "900";
-                            proxPts.classList.add("animate-pulse");
-                            proxPts.innerText = `READY TO FIRE: ${distToEntry.toFixed(2)} PTS`;
-                            proxBar.style.background = "#ef4444";
-                            proxBar.style.boxShadow = "0 0 20px rgba(239, 68, 68, 0.8)";
-                        } else {
-                            proxPts.style.color = "#fbbf24";
-                            proxPts.style.fontWeight = "900";
-                            proxPts.classList.remove("animate-pulse");
-                            proxPts.innerText = `${distToEntry.toFixed(2)} PTS REMAINING`;
-                            proxBar.style.background = "#fbbf24";
-                            proxBar.style.boxShadow = "0 0 15px rgba(251, 191, 36, 0.4)";
-                        }
+                        // Update Bar Color based on proximity
+                        if (proxPct > 90) proxBar.style.background = '#22c55e'; // Almost there!
+                        else if (proxPct > 50) proxBar.style.background = '#fbbf24'; 
+                        else proxBar.style.background = '#ef4444';
                     } else {
                         proxContainer.style.display = 'none';
+                    }
+
+                    // --- Update Wait Checklist (Logic proof for user) ---
+                    const checklist = document.getElementById('wait-checklist');
+                    if (checklist) {
+                        const isWaiting = (mainSignal === 'WAIT');
+                        checklist.style.display = isWaiting ? 'block' : 'none';
+                        
+                        if (isWaiting) {
+                            const rsi = parseFloat(globalTactical.rsi) || 0;
+                            const ema200 = parseFloat(globalTactical.ema200) || 0;
+                            
+                            // 1. Price Trigger
+                            const priceOk = (lastPrice > breakoutPrice);
+                            const pIcon = document.getElementById('cond-price-icon');
+                            const pVal = document.getElementById('cond-price-val');
+                            if (pIcon) pIcon.className = priceOk ? 'fas fa-check-circle me-2 text-success' : 'fas fa-circle-notch fa-spin me-2 text-warning';
+                            if (pVal) {
+                                pVal.innerText = priceOk ? 'READY' : (lastPrice < breakoutPrice ? 'BELOW' : 'READY');
+                                pVal.className = priceOk ? 'text-success' : 'text-warning';
+                            }
+
+                            // 2. Trend Filter
+                            const trendOk = (lastPrice > ema200);
+                            const tIcon = document.getElementById('cond-trend-icon');
+                            const tVal = document.getElementById('cond-trend-val');
+                            if (tIcon) tIcon.className = trendOk ? 'fas fa-check-circle me-2 text-success' : 'fas fa-circle-notch fa-spin me-2 text-danger';
+                            if (tVal) {
+                                tVal.innerText = trendOk ? 'BULLISH' : 'BEARISH';
+                                tVal.className = trendOk ? 'text-success' : 'text-danger';
+                            }
+
+                            // 3. Momentum (RSI)
+                            const momOk = (rsi > 55); 
+                            const mIcon = document.getElementById('cond-mom-icon');
+                            const mVal = document.getElementById('cond-mom-val');
+                            if (mIcon) mIcon.className = momOk ? 'fas fa-check-circle me-2 text-success' : 'fas fa-circle-notch fa-spin me-2 text-muted';
+                            if (mVal) {
+                                mVal.innerText = rsi.toFixed(1);
+                                mVal.className = momOk ? 'text-success' : 'text-muted';
+                            }
+                        }
                     }
                 }
             }
