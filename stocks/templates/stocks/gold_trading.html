@@ -821,53 +821,49 @@
                     </div>
                 </div>
             </div>
+        </div><!-- /CONTROL CENTER ROW -->
+
+        <!-- 🚀 CHART SECTION (Inside Right Col) -->
+        <div class="chart-card shadow-sm mt-3" id="wrapper-to-fullscreen">
+            <div class="chart-toolbar d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <div class="d-flex align-items-center gap-3" style="font-size:.84rem;font-weight:700;">
+                    <span><i class="fas fa-chart-candlestick me-1 text-warning"></i> XAU/USD</span>
+                    <span class="d-none d-sm-inline">
+                        <span style="background:#16a34a;display:inline-block;width:10px;height:3px;border-radius:2px;vertical-align:middle;"></span>
+                        <span class="text-muted ms-1">DC20</span>
+                    </span>
+                    <span class="d-none d-sm-inline">
+                        <span style="background:#d97706;display:inline-block;width:10px;height:3px;border-radius:2px;vertical-align:middle;"></span>
+                        <span class="text-muted ms-1">DC55</span>
+                    </span>
+                </div>
+                <div class="btn-group btn-group-sm">
+                    <button class="btn btn-outline-secondary btn-period active" onclick="loadPeriod('3mo')">3M</button>
+                    <button class="btn btn-outline-secondary btn-period" onclick="loadPeriod('6mo')">6M</button>
+                    <button class="btn btn-outline-secondary btn-period" onclick="loadPeriod('1y')">1Y</button>
+                </div>
+            </div>
+            <div class="position-relative">
+                <div style="position:absolute; top:10px; left:15px; font-size:11px; font-weight:900; color:#64748b; z-index:10; background:rgba(255,255,255,0.7); padding:2px 6px; border-radius:4px; pointer-events:none;">MAIN CHART (Turtle)</div>
+                <div id="chart-container"></div>
+            </div>
+            <div class="position-relative" style="border-top:1px solid #f1f5f9;">
+                <div style="position:absolute; top:8px; left:15px; font-size:11px; font-weight:900; color:#6366f1; z-index:10; background:rgba(255,255,255,0.7); padding:2px 6px; border-radius:4px; pointer-events:none;">RSI (14)</div>
+                <div id="rsi-container"></div>
+            </div>
+            <div class="position-relative" style="border-top:1px solid #f1f5f9;">
+                <div style="position:absolute; top:8px; left:15px; font-size:11px; font-weight:900; color:#8b5cf6; z-index:10; background:rgba(255,255,255,0.7); padding:2px 6px; border-radius:4px; pointer-events:none;">CCI (20)</div>
+                <div id="cci-container"></div>
+            </div>
+            <div class="position-relative" style="border-top:1px solid #f1f5f9;">
+                <div id="vol-container"></div>
+            </div>
         </div>
 
     </div><!-- /RIGHT COL (BUTTONS/POSITIONS) -->
 </div><!-- /MAIN ROW -->
 
-<!-- ══════ FULL WIDTH CHART SECTION (Optimized for Mobile/Tablet) ══════ -->
-<div class="container-fluid px-3 mb-3">
-    <div class="row">
-        <div class="col-12">
-            <div class="chart-card shadow-sm" id="wrapper-to-fullscreen">
-                <div class="chart-toolbar d-flex justify-content-between align-items-center flex-wrap gap-2">
-                    <div class="d-flex align-items-center gap-3" style="font-size:.84rem;font-weight:700;">
-                        <span><i class="fas fa-chart-candlestick me-1 text-warning"></i> XAU/USD</span>
-                        <span class="d-none d-sm-inline">
-                            <span style="background:#16a34a;display:inline-block;width:10px;height:3px;border-radius:2px;vertical-align:middle;"></span>
-                            <span class="text-muted ms-1">DC20</span>
-                        </span>
-                        <span class="d-none d-sm-inline">
-                            <span style="background:#d97706;display:inline-block;width:10px;height:3px;border-radius:2px;vertical-align:middle;"></span>
-                            <span class="text-muted ms-1">DC55</span>
-                        </span>
-                    </div>
-                    <div class="btn-group btn-group-sm">
-                        <button class="btn btn-outline-secondary btn-period active" onclick="loadPeriod('3mo')">3M</button>
-                        <button class="btn btn-outline-secondary btn-period" onclick="loadPeriod('6mo')">6M</button>
-                        <button class="btn btn-outline-secondary btn-period" onclick="loadPeriod('1y')">1Y</button>
-                    </div>
-                </div>
-                <div class="position-relative">
-                    <div style="position:absolute; top:10px; left:15px; font-size:11px; font-weight:900; color:#64748b; z-index:10; background:rgba(255,255,255,0.7); padding:2px 6px; border-radius:4px; pointer-events:none;">MAIN CHART (Turtle)</div>
-                    <div id="chart-container"></div>
-                </div>
-                <div class="position-relative" style="border-top:1px solid #f1f5f9;">
-                    <div style="position:absolute; top:8px; left:15px; font-size:11px; font-weight:900; color:#6366f1; z-index:10; background:rgba(255,255,255,0.7); padding:2px 6px; border-radius:4px; pointer-events:none;">RSI (14)</div>
-                    <div id="rsi-container"></div>
-                </div>
-                <div class="position-relative" style="border-top:1px solid #f1f5f9;">
-                    <div style="position:absolute; top:8px; left:15px; font-size:11px; font-weight:900; color:#8b5cf6; z-index:10; background:rgba(255,255,255,0.7); padding:2px 6px; border-radius:4px; pointer-events:none;">CCI (20)</div>
-                    <div id="cci-container"></div>
-                </div>
-                <div class="position-relative" style="border-top:1px solid #f1f5f9;">
-                    <div id="vol-container"></div>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
+
 
 <!-- ════════════════════════════════════════════════════════════════ -->
 <!-- 🚀 ABSOLUTE BOTTOM: TRADE HISTORY -->
@@ -961,8 +957,8 @@
 
     /* ── Responsive chart heights ── */
     function chartH() {
-        if (window.innerWidth < 576) return { main: 280, rsi: 90, cci: 120, vol: 60 };
-        if (window.innerWidth < 992) return { main: 340, rsi: 100, cci: 140, vol: 70 };
+        if (window.innerWidth < 576) return { main: 220, rsi: 70, cci: 90, vol: 40 };
+        if (window.innerWidth < 992) return { main: 300, rsi: 90, cci: 120, vol: 60 };
         return { main: 450, rsi: 120, cci: 160, vol: 90 };
     }
 
