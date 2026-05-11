@@ -1995,22 +1995,30 @@
                 return;
             }
             
-            // Calculate Risk details
+            // Calculate Risk details (Safeguarded for 1:200 Leverage)
             const cap = parseFloat(document.getElementById('capital-input').value) || 0;
             const riskPct = parseFloat(document.getElementById('risk-pct').value) || 0;
             const riskMoney = cap * riskPct / 100;
             
-            const stopDist = globalTactical.n * 2; // Default 2N Stop
+            // Use Precision Multipliers instead of wide 2N
+            let stopMult = 0.5; // Default Sniper
+            let tpMult = 1.0;    // Target R:R 2.0x
+            
+            if (activeStrategy === 'SCALPER') {
+                stopMult = 0.3;
+                tpMult = 0.6; // R:R 2.0x
+            } else if (activeStrategy === 'SWING') {
+                stopMult = 1.0;
+                tpMult = 2.5; // R:R 2.5x
+            }
+
+            const stopDist = globalTactical.n * stopMult;
             const contractSize = 100; // Gold XAUUSD
             
             let rawLots = (riskMoney / (stopDist * contractSize));
             let lots = rawLots;
             if (lots > 0 && lots < 0.01) lots = 0.01;
             else if (lots > 0.05) lots = 0.05; // Circuit breaker max
-            
-            let tpMult = 1.5;
-            if(activeStrategy === 'SCALPER') tpMult = 2.0;
-            else if(activeStrategy === 'SWING') tpMult = 3.5;
             
             const tpMoney = lots * contractSize * (globalTactical.n * tpMult);
             const slMoney = lots * contractSize * stopDist;

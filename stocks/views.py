@@ -10233,21 +10233,27 @@ def portfolio_refresh_prices(request):
 
     return JsonResponse({'updated': updated, 'skipped': skipped, 'errors': errors})
 
+def get_user_pid_file(user_id):
+    """สร้างชื่อไฟล์ PID ที่แยกตาม User ID"""
+    return os.path.join(os.path.dirname(os.path.dirname(__file__)), f'gold_bot_{user_id}.pid')
+
 @login_required
 def get_bot_status_ajax(request):
     """
-    ดึงสถานะล่าสุดของบอทที่รันบน Server มาโชว์ที่หน้าจอ UI
-    โดยเช็คทั้งจาก Database และเช็ค Process จริงในระบบ
+    ดึงสถานะล่าสุดของบอทที่แยกตาม User
     """
-    from .models import BotActivity
+    from .models import BotActivity, TradingAccount
     from django.utils import timezone
-    import datetime
+    from django.contrib.auth.models import User
     
-    # 1. เช็คว่ามีไฟล์ PID และ Process ยังรันอยู่ไหม
+    user_pid_file = get_user_pid_file(request.user.id)
+    bot_display_name = f"Gold Bot (User: {request.user.username})"
+    
+    # 1. เช็ค Process จริงในเครื่อง (แยกตาม PID ของ User)
     is_process_alive = False
-    if os.path.exists(PID_FILE):
+    if os.path.exists(user_pid_file):
         try:
-            with open(PID_FILE, 'r') as f:
+            with open(user_pid_file, 'r') as f:
                 pid = int(f.read().strip())
             if os.name == 'nt':
                 import ctypes
@@ -10261,11 +10267,10 @@ def get_bot_status_ajax(request):
         except:
             is_process_alive = False
 
-    # 2. ดึงข้อมูลจากฐานข้อมูล
+    # 2. ดึงข้อมูลจากฐานข้อมูล (BotActivity)
     try:
-        activity = BotActivity.objects.get(bot_name="Gold Server Bot")
+        activity = BotActivity.objects.get(bot_name=bot_display_name)
         diff = timezone.now() - activity.last_heartbeat
-        # ถ้า DB บอกว่า Active และเวลาไม่เก่าเกินไป หรือ Process ในเครื่องยังรันอยู่
         is_active = (activity.status == "ACTIVE" and diff.total_seconds() < 300) or is_process_alive
         
         return JsonResponse({
@@ -10273,8 +10278,7 @@ def get_bot_status_ajax(request):
             'last_heartbeat': activity.last_heartbeat.strftime('%H:%M:%S'),
             'message': activity.message,
             'is_alive': is_active,
-            'process_running': is_process_alive,
-            'debug_diff': diff.total_seconds()
+            'process_running': is_process_alive
         })
     except BotActivity.DoesNotExist:
         return JsonResponse({
@@ -10283,89 +10287,57 @@ def get_bot_status_ajax(request):
             'process_running': is_process_alive
         })
 
-import subprocess
-import os
-import signal
-
-PID_FILE = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'gold_bot.pid')
-
 @login_required
 def start_gold_bot_ajax(request):
-    """สั่งเริ่มการทำงานของบอทใน Background"""
+    """สั่งเริ่มการทำงานของบอท (Isolated by User)"""
+    user_pid_file = get_user_pid_file(request.user.id)
+    bot_display_name = f"Gold Bot (User: {request.user.username})"
+
     if _check_rate_limit(request.user.id, 'gold_bot_start', limit=3, window=60):
-        return JsonResponse({'success': False, 'error': 'Rate limit: max 3 bot starts/minute'})
-    if os.path.exists(PID_FILE):
+        return JsonResponse({'success': False, 'error': 'Rate limit exceeded'})
+
+    if os.path.exists(user_pid_file):
+        # Cleanup old PID if it's dead
         try:
-            with open(PID_FILE, 'r') as f:
+            with open(user_pid_file, 'r') as f:
                 pid = int(f.read().strip())
-            
-            # เช็คว่า Process ยังอยู่จริงไหม
             if os.name == 'nt':
                 import ctypes
-                PROCESS_QUERY_INFORMATION = 0x0400
-                handle = ctypes.windll.kernel32.OpenProcess(PROCESS_QUERY_INFORMATION, False, pid)
+                handle = ctypes.windll.kernel32.OpenProcess(0x0400, False, pid)
                 if handle:
                     ctypes.windll.kernel32.CloseHandle(handle)
-                    return JsonResponse({'success': False, 'error': 'Bot is already running (Live Process)'})
+                    return JsonResponse({'success': False, 'error': 'Bot is already running'})
             else:
-                os.kill(pid, 0) # ส่งสัญญาณ 0 เพื่อเช็คว่า Process มีอยู่จริงไหม
-                return JsonResponse({'success': False, 'error': 'Bot is already running (Live Process)'})
-        except (ValueError, ProcessLookupError, OSError):
-            # ถ้ามาถึงตรงนี้แปลว่า PID เก่าตายไปแล้ว ให้ลบไฟล์ทิ้งและรันใหม่
-            if os.path.exists(PID_FILE):
-                os.remove(PID_FILE)
-    
+                os.kill(pid, 0)
+                return JsonResponse({'success': False, 'error': 'Bot is already running'})
+        except:
+            if os.path.exists(user_pid_file): os.remove(user_pid_file)
+
     try:
-        # สั่งรันบอทใน Background
         import sys
         python_exe = sys.executable
         log_dir = os.path.dirname(os.path.dirname(__file__))
-        stdout_log = open(os.path.join(log_dir, 'bot_stdout.log'), 'a')
-        stderr_log = open(os.path.join(log_dir, 'bot_stderr.log'), 'a')
-        
-        # รัน management command ใน background
-        # เพิ่ม parameter --strategy เพื่อล็อคกลยุทธ์
-        # เพิ่ม parameter --once เพื่อให้บอทหยุดเมื่อจบ 1 รอบ
         strategy = request.GET.get('strategy', 'SNIPER')
         
-        if os.name == 'nt':
-            # 🚨 Pre-emptive Cleanup: Kill any existing bots before starting a new one
-            try:
-                subprocess.run(['powershell', '-Command', "Get-WmiObject Win32_Process -Filter \"CommandLine like '%run_gold_bot%'\" | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }"], capture_output=True)
-            except:
-                pass
-
-            process = subprocess.Popen(
-                [python_exe, 'manage.py', 'run_gold_bot', '--strategy', strategy, '--once'],
-                creationflags=subprocess.CREATE_NEW_CONSOLE
-            )
-        else:
-            # 🚨 Pre-emptive Cleanup for Linux (Ubuntu)
-            try:
-                subprocess.run(['pkill', '-f', 'run_gold_bot'], capture_output=True)
-            except:
-                pass
-
-            process = subprocess.Popen(
-                [python_exe, 'manage.py', 'run_gold_bot', '--strategy', strategy, '--once'],
-                stdout=stdout_log,
-                stderr=stderr_log,
-                start_new_session=True,
-                env=os.environ.copy()
-            )
+        # รัน management command พร้อมส่ง --user_id
+        cmd_args = [python_exe, 'manage.py', 'run_gold_bot', 
+                    '--strategy', strategy, 
+                    '--user_id', str(request.user.id), 
+                    '--once']
         
-        # บันทึก PID ไว้สำหรับสั่งปิด
-        with open(PID_FILE, 'w') as f:
+        if os.name == 'nt':
+            process = subprocess.Popen(cmd_args, creationflags=subprocess.CREATE_NEW_CONSOLE)
+        else:
+            stdout_log = open(os.path.join(log_dir, f'bot_user_{request.user.id}.log'), 'a')
+            process = subprocess.Popen(cmd_args, stdout=stdout_log, stderr=stdout_log, start_new_session=True)
+        
+        with open(user_pid_file, 'w') as f:
             f.write(str(process.pid))
             
-        # อัปเดตสถานะในฐานข้อมูล
         from .models import BotActivity
         BotActivity.objects.update_or_create(
-            bot_name="Gold Server Bot",
-            defaults={
-                'status': 'ACTIVE',
-                'message': f'Running ({strategy}) - One-Shot Mode'
-            }
+            bot_name=bot_display_name,
+            defaults={'status': 'ACTIVE', 'message': f'Running ({strategy})'}
         )
             
         return JsonResponse({'success': True, 'pid': process.pid})
@@ -10374,46 +10346,32 @@ def start_gold_bot_ajax(request):
 
 @login_required
 def stop_gold_bot_ajax(request):
-    """สั่งหยุดบอทโดยอ้างอิงจาก PID"""
+    """สั่งหยุดบอท (Isolated by User)"""
     from .models import BotActivity
+    user_pid_file = get_user_pid_file(request.user.id)
+    bot_display_name = f"Gold Bot (User: {request.user.username})"
     
-    if not os.path.exists(PID_FILE):
-        # Force update DB even if PID is missing, to prevent UI getting stuck
-        BotActivity.objects.filter(bot_name="Gold Server Bot").update(status="STOPPED", message="Bot stopped (PID not found)")
-        return JsonResponse({'success': False, 'error': 'No running bot found, but status was reset'})
+    if not os.path.exists(user_pid_file):
+        BotActivity.objects.filter(bot_name=bot_display_name).update(status="STOPPED", message="Bot stopped (PID not found)")
+        return JsonResponse({'success': False, 'error': 'No running bot found'})
     
     try:
-        with open(PID_FILE, 'r') as f:
+        with open(user_pid_file, 'r') as f:
             pid = int(f.read())
         
-        try:
-            if os.name == 'nt':
-                # Windows: ใช้ Taskkill เฉพาะ PID และตามด้วย PowerShell เพื่อกวาดล้าง Orphan ทั้งหมดที่อาจหลงเหลือ
-                subprocess.run(['taskkill', '/F', '/T', '/PID', str(pid)], capture_output=True)
-                subprocess.run(['powershell', '-Command', "Get-WmiObject Win32_Process -Filter \"CommandLine like '%run_gold_bot%'\" | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }"], capture_output=True)
-            else:
-                # Ubuntu/Linux cleanup
-                try:
-                    os.kill(pid, signal.SIGTERM)
-                except:
-                    pass
-                # กวาดล้าง Orphan ทั้งหมดที่อาจรันค้างอยู่
-                subprocess.run(['pkill', '-f', 'run_gold_bot'], capture_output=True)
-        except Exception as e:
-            logger.error(f"Error terminating gold bot: {e}")
+        if os.name == 'nt':
+            subprocess.run(['taskkill', '/F', '/T', '/PID', str(pid)], capture_output=True)
+        else:
+            try: os.kill(pid, signal.SIGTERM)
+            except: pass
+            # กวาดล้างเฉพาะ process ที่รันด้วย user_id นี้
+            subprocess.run(['pkill', '-f', f'--user_id {request.user.id}'], capture_output=True)
 
-        # ลบไฟล์ PID และอัปเดตสถานะใน DB เสมอ
-        if os.path.exists(PID_FILE):
-            os.remove(PID_FILE)
-            
-        BotActivity.objects.filter(bot_name="Gold Server Bot").update(
-            status="STOPPED", 
-            message="Bot stopped by user via UI"
-        )
-        
-        return JsonResponse({'success': True, 'message': 'ส่งคำสั่งหยุดการทำงานแล้ว'})
+        if os.path.exists(user_pid_file): os.remove(user_pid_file)
+        BotActivity.objects.filter(bot_name=bot_display_name).update(status="STOPPED", message="Stopped by user")
+        return JsonResponse({'success': True})
     except Exception as e:
-        if os.path.exists(PID_FILE): os.remove(PID_FILE)
+        if os.path.exists(user_pid_file): os.remove(user_pid_file)
         return JsonResponse({'success': False, 'error': str(e)})
 
 # ====== Investment Dashboard (Premium Insights) ======
