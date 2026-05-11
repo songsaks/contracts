@@ -12,6 +12,9 @@ from django.contrib.auth import login
 from django.contrib import messages
 from django.conf import settings
 from google import genai
+import subprocess
+import os
+
 from .models import (
     Watchlist, AnalysisCache, AssetCategory, MarketType, Portfolio,
     MomentumCandidate, ScannableSymbol, MultiFactorCandidate, SoldStock,
