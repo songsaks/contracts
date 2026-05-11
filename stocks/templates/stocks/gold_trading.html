@@ -113,6 +113,16 @@
     }
     
     /* Tactical Decision Center (Compact) */
+    .decision-panel.sell { background: rgba(239, 68, 68, 0.1); border-color: #ef4444; }
+    .decision-panel.risk-warn { 
+        background: rgba(220, 38, 38, 0.2); 
+        border: 2px solid #dc2626; 
+        animation: risk-blink 1s infinite alternate;
+    }
+    @keyframes risk-blink {
+        from { box-shadow: 0 0 5px #dc2626; border-color: #dc2626; }
+        to { box-shadow: 0 0 20px #dc2626; border-color: #f87171; }
+    }
     .decision-panel {
         background: rgba(15, 23, 42, 0.8);
         border: 1px solid rgba(255,255,255,0.1);
@@ -374,7 +384,33 @@
         color: #94a3b8;
         border-color: rgba(255, 255, 255, 0.2);
     }
-
+    /* ══ Premium Trade Modal ══ */
+    .trade-modal-overlay {
+        position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+        background: rgba(0, 0, 0, 0.85); backdrop-filter: blur(8px);
+        display: none; align-items: center; justify-content: center; z-index: 10000;
+    }
+    .trade-modal {
+        background: linear-gradient(145deg, #1e293b 0%, #0f172a 100%);
+        border: 1px solid rgba(255, 215, 0, 0.3); border-radius: 20px;
+        width: 100%; max-width: 450px; padding: 2rem;
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5), 0 0 30px rgba(217, 119, 6, 0.2);
+        animation: modalSlide 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+    @keyframes modalSlide { from { transform: translateY(30px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+    .tm-header { border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 1rem; margin-bottom: 1.5rem; text-align: center; }
+    .tm-title { font-size: 1.25rem; font-weight: 900; color: var(--gold); letter-spacing: 2px; }
+    .tm-body { display: flex; flex-direction: column; gap: 0.75rem; margin-bottom: 2rem; }
+    .tm-row { display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 0; }
+    .tm-label { color: #94a3b8; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px; }
+    .tm-value { color: #f8fafc; font-family: 'JetBrains Mono'; font-weight: 700; font-size: 1rem; }
+    .tm-risk-box { background: rgba(239, 68, 68, 0.1); border-left: 4px solid #ef4444; padding: 1rem; border-radius: 8px; margin-top: 1rem; display: none; }
+    .tm-risk-text { color: #fca5a5; font-size: 0.75rem; font-weight: 600; line-height: 1.4; }
+    .tm-footer { display: flex; gap: 1rem; }
+    .btn-tm-confirm { flex: 2; background: var(--gold); color: #000; border: none; padding: 1rem; border-radius: 12px; font-weight: 900; transition: all 0.2s; }
+    .btn-tm-confirm:hover { background: var(--gold-light); transform: translateY(-2px); box-shadow: 0 5px 15px rgba(217,119,6,0.4); }
+    .btn-tm-cancel { flex: 1; background: rgba(255,255,255,0.05); color: #94a3b8; border: 1px solid rgba(255,255,255,0.1); padding: 1rem; border-radius: 12px; font-weight: 600; }
+    .tm-badge { padding: 4px 12px; border-radius: 6px; font-size: 0.7rem; font-weight: 900; }
     /* ══ FLASH NEWS (MAX VISIBILITY) ══ */
     .news-ticker-container {
         background: #000;
@@ -382,9 +418,6 @@
         display: flex;
         align-items: center;
         border-bottom: 2px solid #b45309;
-        position: sticky;
-        top: 0;
-        z-index: 10000;
     }
     .news-label {
         background: #f97316; /* Brighter Orange */
@@ -482,6 +515,8 @@
                 <span id="sig-long" class="matrix-btn wait">WAIT</span>
             </div>
         </div>
+
+
 
         <!-- PRICE & BOT STATUS -->
         <div class="price-panel">
@@ -624,6 +659,14 @@
             <div class="t-row"><span class="t-label" id="label-tactical-tp">Target</span><span class="t-value text-success" id="tactical-tp">----.--</span></div>
             <div class="t-row"><span class="t-label" id="label-tactical-sl">Stop Loss</span><span class="t-value text-danger" id="tactical-sl">----.--</span></div>
             <div class="t-row"><span class="t-label">Volatility (ATR 20)</span><span class="t-value" style="color:#b45309" id="live-n-val">-.--</span></div>
+
+            <!-- TACTICAL ADVISOR BOX -->
+            <div id="tactical-advisor-box" class="mt-3 p-2 rounded text-center" style="background: rgba(15, 23, 42, 0.5); border: 1px solid rgba(255,255,255,0.05); transition: all 0.3s;">
+                <div style="font-size: 0.6rem; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 3px;">Tactical Advisor</div>
+                <div id="tactical-advisor-text" class="fw-bold" style="font-size: 0.85rem; color: #fff;">Analyzing...</div>
+                <div id="tactical-advisor-sub" style="font-size: 0.6rem; color: #64748b;">Ready for execution</div>
+            </div>
+            
             <div id="tactical-exit-advice" style="font-size: 0.7rem; color: #64748b; font-style: italic; margin-top: 10px; padding-top: 8px; border-top: 1px dashed rgba(0,0,0,0.05); text-align: center;">
                 Loading strategy advice...
             </div>
@@ -977,17 +1020,17 @@
             priceLabel = inZone ? "(Market)" : "(Trigger)";
             
             targetPrice = basePrice + (n * 0.5);
-            stopPrice   = basePrice - (n * 0.2);
+            stopPrice   = breakoutPrice - (n * 0.5); // Fixed Anchor + Wider Buffer
             
             if (lblTP) lblTP.innerText = `Target ${priceLabel}`;
-            if (lblSL) lblSL.innerText = `Stop Loss ${priceLabel}`;
+            if (lblSL) lblSL.innerText = `Stop Loss (Trigger)`;
             
             if (breakoutEl) breakoutEl.className = 't-value text-danger fw-bold';
             if (stratBadge) {
                 stratBadge.innerText = 'LEVERAGE 1:200 (SNIPER)';
                 stratBadge.style.background = '#0ea5e9'; 
             }
-            exitMsg = "Sniper: เก็บกำไรที่ Target | ถ้าบวก +0.2N ให้เลื่อน SL มาที่ทุน (BE) ทันที";
+            exitMsg = "Sniper: เก็บกำไรที่ Target | SL ยึดฐาน Trigger (0.5N) เพื่อกันสะบัด";
         } else if (activeStrategy === 'SCALPER') {
             breakoutPrice = parseFloat(globalTactical.short_term_high) || 0;
             const inZone = lastPrice > breakoutPrice;
@@ -995,17 +1038,17 @@
             priceLabel = inZone ? "(Market)" : "(Trigger)";
 
             targetPrice = basePrice + (n * 0.3);
-            stopPrice   = basePrice - (n * 0.1);
+            stopPrice   = breakoutPrice - (n * 0.3); // Fixed Anchor + Wider Buffer
             
             if (lblTP) lblTP.innerText = `Target ${priceLabel}`;
-            if (lblSL) lblSL.innerText = `Stop Loss ${priceLabel}`;
+            if (lblSL) lblSL.innerText = `Stop Loss (Trigger)`;
 
             if (breakoutEl) breakoutEl.className = 't-value text-primary';
             if (stratBadge) {
                 stratBadge.innerText = 'ULTRA-PRECISION (SCALPER)';
                 stratBadge.style.background = '#22c55e';
             }
-            exitMsg = "Scalper: เน้นจบไว ไม่รอรอบ | เข้าเป้าแล้วออก 100% ห้ามถือลาก";
+            exitMsg = "Scalper: เน้นจบไว ไม่รอรอบ | SL ยึดฐาน Trigger (0.3N) กันโดนสะบัดกิน";
         } else if (activeStrategy === 'SWING') {
             breakoutPrice = parseFloat(globalTactical.high_20d) || 0;
             targetPrice = breakoutPrice + (n * 3.5);
@@ -1038,6 +1081,54 @@
             if (tpEl) tpEl.innerText = isNaN(targetPrice) ? "----.--" : targetPrice.toFixed(2);
             if (slEl) slEl.innerText = isNaN(stopPrice) ? "----.--" : stopPrice.toFixed(2);
 
+            // Suicide Zone Detection (Price vs SL Safety)
+            let isRiskZone = false;
+            if (mainSignal === 'BUY' && lastPrice <= stopPrice) isRiskZone = true;
+            if (mainSignal === 'SELL' && lastPrice >= stopPrice) isRiskZone = true;
+
+            // AI Tactical Advisor Logic
+            const advisorBox = document.getElementById('tactical-advisor-box');
+            const advisorText = document.getElementById('tactical-advisor-text');
+            const advisorSub = document.getElementById('tactical-advisor-sub');
+            
+            if (advisorBox && advisorText && advisorSub) {
+                const slDist = Math.abs(lastPrice - stopPrice);
+                const tpDist = Math.abs(lastPrice - targetPrice);
+                const rr = tpDist / (slDist || 1);
+
+                if (isRiskZone) {
+                    advisorBox.style.background = 'rgba(220, 38, 38, 0.2)';
+                    advisorBox.style.borderColor = '#dc2626';
+                    advisorText.innerText = 'AVOID: SUICIDE ZONE';
+                    advisorText.style.color = '#f87171';
+                    advisorSub.innerText = 'Price is beyond Safety Stop';
+                } else if (slDist < 5) {
+                    advisorBox.style.background = 'rgba(234, 179, 8, 0.2)';
+                    advisorBox.style.borderColor = '#eab308';
+                    advisorText.innerText = 'DANGEROUS: TIGHT SL';
+                    advisorText.style.color = '#fde047';
+                    advisorSub.innerText = 'High risk of immediate stop-out';
+                } else if (slDist > 100) {
+                    advisorBox.style.background = 'rgba(234, 179, 8, 0.2)';
+                    advisorBox.style.borderColor = '#eab308';
+                    advisorText.innerText = 'CAUTION: WIDE SL';
+                    advisorText.style.color = '#fde047';
+                    advisorSub.innerText = 'Capital at risk due to distance';
+                } else if (rr >= 1.5) {
+                    advisorBox.style.background = 'rgba(16, 185, 129, 0.2)';
+                    advisorBox.style.borderColor = '#10b981';
+                    advisorText.innerText = 'EXCELLENT SETUP';
+                    advisorText.style.color = '#34d399';
+                    advisorSub.innerText = `R:R is ${rr.toFixed(1)}x — Surgical Entry`;
+                } else {
+                    advisorBox.style.background = 'rgba(15, 23, 42, 0.5)';
+                    advisorBox.style.borderColor = 'rgba(255,255,255,0.1)';
+                    advisorText.innerText = 'STANDARD SETUP';
+                    advisorText.style.color = '#fff';
+                    advisorSub.innerText = 'Balanced risk profile';
+                }
+            }
+
             // Decision Center Safety
             const decisionCenter = document.getElementById('decision-center');
             const signalIcon = document.getElementById('signal-main-icon');
@@ -1045,7 +1136,13 @@
             const signalSubtext = document.getElementById('signal-main-subtext');
 
             if (decisionCenter && signalIcon && signalText && signalSubtext) {
-                if (mainSignal === 'BUY') {
+                if (isRiskZone) {
+                    decisionCenter.className = 'decision-panel wait d-flex align-items-center risk-warn';
+                    signalIcon.innerHTML = '<i class="fas fa-biohazard text-danger animate-pulse"></i>';
+                    signalText.innerText = 'CRITICAL RISK!';
+                    signalText.className = 'signal-status text-danger';
+                    signalSubtext.innerText = `Price in STOP ZONE ($${stopPrice.toFixed(2)}). DO NOT ENTRY.`;
+                } else if (mainSignal === 'BUY') {
                     decisionCenter.className = 'decision-panel buy d-flex align-items-center';
                     signalIcon.innerHTML = '<i class="fas fa-arrow-circle-up text-success"></i>';
                     signalText.innerText = 'BUY SIGNAL!';
@@ -1088,7 +1185,7 @@
         }
     }
 
-    function executeTrade(type, skipConfirm = false, customLot = null) {
+    async function executeTrade(type, skipConfirm = false, customLot = null) {
         const manualLot = document.getElementById('manual-lot-input').value;
         const sizeText = document.getElementById('tac-suggest-size').innerText;
         
@@ -1110,13 +1207,52 @@
             lotSize = 0.05;
         }
 
-        if (!skipConfirm && !confirm(`Confirm LIVE ${type} order (${lotSize} Lots) at Market price?`)) return;
+        const tpEl = document.getElementById('tactical-tp');
+        const slEl = document.getElementById('tactical-sl');
+        let tpValue = tpEl ? (parseFloat(tpEl.innerText) || 0) : 0;
+        let slValue = slEl ? (parseFloat(slEl.innerText) || 0) : 0;
+        const slDist = Math.abs(lastPrice - slValue);
+
+        if (!skipConfirm) {
+            document.getElementById('tm-mode').innerText = activeStrategy;
+            document.getElementById('tm-type').innerText = type;
+            document.getElementById('tm-type').className = `tm-badge bg-${type === 'BUY' ? 'success' : 'danger'}`;
+            document.getElementById('tm-price').innerText = `$${lastPrice.toFixed(2)}`;
+            document.getElementById('tm-lots').innerText = `${lotSize} Lots`;
+            document.getElementById('tm-tp').innerText = `$${tpValue.toFixed(2)}`;
+            document.getElementById('tm-sl').innerText = `$${slValue.toFixed(2)}`;
+
+            const riskBox = document.getElementById('tm-risk-box');
+            const riskText = document.getElementById('tm-risk-text');
+            riskBox.style.display = 'none';
+
+            if (slValue > 0) {
+                if (slDist < 5) {
+                    riskBox.style.display = 'block';
+                    riskText.innerText = `⚠️ WARNING: Stop Loss is extremely close (${slDist.toFixed(2)} pts). High risk of immediate exit.`;
+                } else if ((type === 'BUY' && lastPrice <= slValue) || (type === 'SELL' && lastPrice >= slValue)) {
+                    riskBox.style.display = 'block';
+                    riskText.innerText = `❌ CRITICAL: Current price is already in the STOP ZONE. Execution will fail or close instantly.`;
+                }
+            }
+
+            const modal = document.getElementById('trade-confirm-modal');
+            modal.style.display = 'flex';
+
+            const confirmed = await new Promise((resolve) => {
+                document.getElementById('btn-tm-cancel').onclick = () => {
+                    modal.style.display = 'none';
+                    resolve(false);
+                };
+                document.getElementById('btn-tm-confirm').onclick = () => {
+                    modal.style.display = 'none';
+                    resolve(true);
+                };
+            });
+            if (!confirmed) return;
+        }
         
         logMessage(`REQUEST: ${type} ${lotSize} Lots`, 'text-warning');
-        
-        // --- ดึงค่า TP/SL จากหน้าจอโดยตรง (WYSIWYG) ---
-        let tpValue = parseFloat(document.getElementById('tactical-tp').innerText) || null;
-        let slValue = parseFloat(document.getElementById('tactical-sl').innerText) || null;
         
         if (!tpValue || !slValue || isNaN(tpValue) || isNaN(slValue)) {
             console.error("Tactical levels not ready. Using defaults.");
@@ -1323,7 +1459,10 @@
         fetch(`/stocks/chart/${currentSymbol}/data/?market=${currentMarket}&period=${currentPeriod}`)
             .then(r => r.json())
             .then(data => {
-                if (data.error) return;
+                if (data.error) {
+                    logMessage('DATA ERROR: ' + data.error, 'text-danger');
+                    return;
+                }
 
                 globalTactical = data.tactical;
                 lastPrice = data.tactical.price;
@@ -1420,9 +1559,10 @@
                 });
                 
                 document.getElementById('last-update-time').innerText = 'Updated: ' + new Date().toTimeString().slice(0,8);
-                
+
                 checkPriceAlerts(lastPrice);
-            });
+            })
+            .catch(err => logMessage('FETCH ERROR: ' + err.message, 'text-danger'));
     }
 
     function checkPriceAlerts(price) {
@@ -2013,4 +2153,49 @@
         </div>
     </div>
 </div>
+<!-- ══════ CUSTOM TRADE MODAL ══════ -->
+<div class="trade-modal-overlay" id="trade-confirm-modal">
+    <div class="trade-modal">
+        <div class="tm-header">
+            <div class="tm-title"><i class="fas fa-shield-alt me-2"></i>CONFIRM ORDER</div>
+            <div style="font-size: 0.7rem; color: #64748b; text-transform: uppercase; margin-top: 5px;">Institutional Grade Execution</div>
+        </div>
+        <div class="tm-body">
+            <div class="tm-row">
+                <span class="tm-label">Strategy Mode</span>
+                <span class="tm-value" id="tm-mode">SNIPER</span>
+            </div>
+            <div class="tm-row">
+                <span class="tm-label">Order Type</span>
+                <span id="tm-type" class="tm-badge">BUY</span>
+            </div>
+            <div class="tm-row">
+                <span class="tm-label">Market Price</span>
+                <span class="tm-value" id="tm-price" style="color:var(--gold);">$0.00</span>
+            </div>
+            <div class="tm-row">
+                <span class="tm-label">Position Size</span>
+                <span class="tm-value" id="tm-lots">0.01 Lots</span>
+            </div>
+            <div class="tm-row" style="border-top: 1px dashed rgba(255,255,255,0.1); padding-top: 10px;">
+                <span class="tm-label">Take Profit</span>
+                <span class="tm-value text-success" id="tm-tp">$0.00</span>
+            </div>
+            <div class="tm-row">
+                <span class="tm-label">Stop Loss</span>
+                <span class="tm-value text-danger" id="tm-sl">$0.00</span>
+            </div>
+
+            <!-- Risk Auditor -->
+            <div class="tm-risk-box" id="tm-risk-box">
+                <div class="tm-risk-text" id="tm-risk-text">Warning message goes here...</div>
+            </div>
+        </div>
+        <div class="tm-footer">
+            <button class="btn-tm-cancel" id="btn-tm-cancel">CANCEL</button>
+            <button class="btn-tm-confirm" id="btn-tm-confirm">CONFIRM LIVE ORDER</button>
+        </div>
+    </div>
+</div>
+
 {% endblock %}

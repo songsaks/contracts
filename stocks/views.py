@@ -9643,18 +9643,48 @@ def stock_chart_data(request, symbol):
         # Medium: DC20 + EMA200
         med_buy = curr_price >= float(last_row['dc20_upper']) and curr_price > float(last_row['ema200'])
         med_sell = curr_price <= float(last_row['dc10_lower'])
-        
+
         # Long: DC55
         long_buy = curr_price >= float(last_row['dc55_upper'])
         long_sell = curr_price <= float(last_row['dc20_lower'])
+
+        # Volume Confirmation — เปรียบเทียบ 5 วันล่าสุด (ทน Contract Roll)
+        # yfinance GC=F volume มีปัญหา: ช่วง roll ค่าเก่าต่ำมาก (20-2000) แต่วันปัจจุบัน ~90k
+        # ถ้า median ย้อนหลัง < 1000 = ข้อมูลเก่าเป็น off-period → ไม่ reliable
+        try:
+            _raw_cur    = last_row['Volume'] if 'Volume' in last_row.index else 0
+            vol_current = float(_raw_cur) if _pd.notna(_raw_cur) and _raw_cur == _raw_cur else 0.0
+
+            vol_hist    = df['Volume'].iloc[:-1]
+            # ใช้ median ของ 20 วันที่ผ่านมา (ไม่รวมวันนี้)
+            vol_nonzero = vol_hist.tail(20).replace(0, _pd.NA).dropna()
+            vol_avg_10  = float(vol_nonzero.median()) if len(vol_nonzero) >= 5 else 0.0
+
+            # reliable เฉพาะเมื่อ median > 1000 (แสดงว่าข้อมูลเป็น active contract จริง)
+            vol_reliable = bool(vol_avg_10 >= 1_000)
+            vol_ratio    = round(vol_current / vol_avg_10, 2) if (vol_avg_10 > 0 and vol_reliable) else 0.0
+        except Exception:
+            vol_current, vol_avg_10, vol_ratio, vol_reliable = 0.0, 0.0, 0.0, False
 
         tactical = {
             'price': round(_safe_val(curr_price), 2),
             'n': _safe_val(n_val),
             'signals': {
-                'short': get_signal(short_buy, short_sell),
-                'medium': get_signal(med_buy, med_sell),
-                'long': get_signal(long_buy, long_sell)
+                'short':  get_signal(short_buy,  short_sell),
+                'medium': get_signal(med_buy,     med_sell),
+                'long':   get_signal(long_buy,    long_sell),
+                'short_vol_ok':  bool(short_buy  and vol_ratio >= 1.5),
+                'medium_vol_ok': bool(med_buy    and vol_ratio >= 1.5),
+                'long_vol_ok':   bool(long_buy   and vol_ratio >= 1.5),
+            },
+            'volume': {
+                'current':   int(vol_current) if vol_current and vol_current == vol_current else 0,
+                'avg_10':    int(vol_avg_10)  if vol_avg_10  and vol_avg_10  == vol_avg_10  else 0,
+                'ratio':     vol_ratio,
+                'reliable':  vol_reliable,
+                'confirmed': bool(vol_reliable and vol_ratio >= 1.5),
+                'weak':      bool(vol_reliable and 0.8 <= vol_ratio < 1.5),
+                'low':       bool(not vol_reliable or vol_ratio < 0.8),
             },
             'breakout_age': breakout_age,
             'breakout_dist': _safe_val(dist_from_breakout),
@@ -9669,17 +9699,17 @@ def stock_chart_data(request, symbol):
             'exit_20d_low': round(_safe_val(last_row['dc20_lower']), 2),
             'next_unit': round(_safe_val(curr_price + (0.5 * n_val)), 2),
             
-            # --- Extreme Precision CFD Levels (Optimized for 1:200 Leverage) ---
+            # --- Extreme Precision CFD Levels (Stabilized for 1:200 Leverage) ---
             'levels': {
                 'sniper': {
                     'target': round(curr_price + (0.5 * n_val), 2),
-                    'stop': round(curr_price - (0.2 * n_val), 2),
-                    'label': 'LEVERAGE 1:200 (0.2N SL)'
+                    'stop': round(float(last_row['ema9']) - (0.5 * n_val), 2),  # Anchored to EMA9
+                    'label': 'SNIPER (0.5N SL)'
                 },
                 'scalper': {
                     'target': round(curr_price + (0.3 * n_val), 2),
-                    'stop': round(curr_price - (0.1 * n_val), 2),
-                    'label': 'ULTRA-PRECISION (0.1N SL)'
+                    'stop': round(float(last_row['dc10_upper']) - (0.3 * n_val), 2), # Anchored to DC10 High
+                    'label': 'SCALPER (0.3N SL)'
                 }
             }
         }
