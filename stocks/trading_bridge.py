@@ -318,39 +318,43 @@ class RobotBridge:
             # 3. ถ้าปิดแล้ว (หรือกำลังมาซ่อมข้อมูล) ให้ดึงข้อมูลจาก History Deals API
             if is_closed and order.order_id:
                 try:
-                    # ลอง by-position ก่อน (ใช้ทั้ง order_id และ positionId ซึ่งอาจต่างกัน)
                     exit_deal = None
-                    for pos_id in set([str(order.order_id), str(order.order_id).lstrip('0')]):
-                        history_url = f"https://mt-client-api-v1.{region}.agiliumtrade.ai/users/current/accounts/{account_id}/history-deals/by-position/{pos_id}"
-                        h_res = requests.get(history_url, headers={"auth-token": token}, timeout=5)
-                        if h_res.status_code == 200:
-                            deals = h_res.json()
-                            if deals:
-                                exit_deal = next((d for d in deals if d.get('entry') == 'out' or d.get('type') in ['deal-sell-out', 'deal-buy-out']), None)
-                                if not exit_deal and len(deals) > 1:
-                                    exit_deal = deals[-1]
-                                if exit_deal:
-                                    break
+                    debug_info = []
 
-                    # Fallback: ค้นหาจาก time range (±1 ชั่วโมงรอบ closed_at)
-                    if not exit_deal and order.closed_at:
-                        try:
-                            t_from = (order.closed_at - timezone.timedelta(hours=1)).strftime('%Y-%m-%dT%H:%M:%S.000Z')
-                            t_to   = (order.closed_at + timezone.timedelta(hours=1)).strftime('%Y-%m-%dT%H:%M:%S.000Z')
-                            range_url = f"https://mt-client-api-v1.{region}.agiliumtrade.ai/users/current/accounts/{account_id}/history-deals/by-time/{t_from}/{t_to}"
-                            r_res = requests.get(range_url, headers={"auth-token": token}, timeout=5)
-                            if r_res.status_code == 200:
-                                all_deals = r_res.json()
-                                # จับคู่ด้วย entry_price และ volume
-                                ep = float(order.entry_price) if order.entry_price else 0
-                                vol = float(order.volume) if order.volume else 0
-                                for d in all_deals:
-                                    if (d.get('entry') == 'out' or 'out' in d.get('type','').lower()):
-                                        if abs(float(d.get('volume', 0)) - vol) < 0.001:
-                                            exit_deal = d
-                                            break
-                        except Exception as fe:
-                            logger.warning(f"Fallback deal search failed: {fe}")
+                    # ลอง by-position
+                    pos_id = str(order.order_id)
+                    history_url = f"https://mt-client-api-v1.{region}.agiliumtrade.ai/users/current/accounts/{account_id}/history-deals/by-position/{pos_id}"
+                    h_res = requests.get(history_url, headers={"auth-token": token}, timeout=8)
+                    debug_info.append(f"by-position/{pos_id} → {h_res.status_code} body={h_res.text[:200]}")
+                    logger.info(f"[SyncDeal] {debug_info[-1]}")
+
+                    if h_res.status_code == 200:
+                        deals = h_res.json() if isinstance(h_res.json(), list) else []
+                        exit_deal = next((d for d in deals if d.get('entry') == 'out' or 'out' in d.get('type','').lower()), None)
+                        if not exit_deal and len(deals) > 1:
+                            exit_deal = deals[-1]
+
+                    # Fallback: by-time range (±2 ชั่วโมงรอบ closed_at)
+                    if not exit_deal:
+                        ref_time = order.closed_at or timezone.now()
+                        t_from = (ref_time - timezone.timedelta(hours=2)).strftime('%Y-%m-%dT%H:%M:%S.000Z')
+                        t_to   = (ref_time + timezone.timedelta(hours=2)).strftime('%Y-%m-%dT%H:%M:%S.000Z')
+                        range_url = f"https://mt-client-api-v1.{region}.agiliumtrade.ai/users/current/accounts/{account_id}/history-deals/by-time/{t_from}/{t_to}"
+                        r_res = requests.get(range_url, headers={"auth-token": token}, timeout=8)
+                        debug_info.append(f"by-time → {r_res.status_code} count={len(r_res.json()) if r_res.status_code==200 else '?'}")
+                        logger.info(f"[SyncDeal] {debug_info[-1]}")
+
+                        if r_res.status_code == 200:
+                            all_deals = r_res.json() if isinstance(r_res.json(), list) else []
+                            vol = float(order.volume) if order.volume else 0
+                            for d in all_deals:
+                                if 'out' in d.get('entry','').lower() or 'out' in d.get('type','').lower():
+                                    if vol == 0 or abs(float(d.get('volume', 0)) - vol) < 0.001:
+                                        exit_deal = d
+                                        break
+
+                    if not exit_deal:
+                        sync_errors.append(f"ไม่พบ deal สำหรับ order {pos_id} | " + " | ".join(debug_info))
 
                     if exit_deal:
                         from decimal import Decimal as _Dec
