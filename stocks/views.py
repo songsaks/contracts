@@ -10863,8 +10863,8 @@ def get_gold_trade_history_ajax(request):
             'signal_source':o.signal_source or '',
             'exit_reason':  o.exit_reason or '',
             'comment':      o.comment or '',
-            'opened_at':    opened.strftime('%Y-%m-%d %H:%M') if opened else '-',
-            'closed_at':    closed.strftime('%Y-%m-%d %H:%M') if closed else '-',
+            'opened_at':    timezone.localtime(opened).strftime('%Y-%m-%d %H:%M') if opened else '-',
+            'closed_at':    timezone.localtime(closed).strftime('%Y-%m-%d %H:%M') if closed else '-',
         })
 
     return JsonResponse({'success': True, 'history': data, 'stats': stats})

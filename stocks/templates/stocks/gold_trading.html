@@ -1775,7 +1775,15 @@
                     rEl.className = 'fw-bold ' + (data.tactical.rsi>70?'text-danger':data.tactical.rsi<30?'text-success':'text-primary');
                 }
 
-                if (data.tactical.volume) updateVolumeUI(data.tactical.volume);
+                if (data.tactical.volume) {
+                    const _c = data.candles;
+                    const _cur = _c && _c.length >= 1 ? _c[_c.length - 1] : null;
+                    const _prv = _c && _c.length >= 2 ? _c[_c.length - 2] : null;
+                    const _volDir = !_cur ? 'flat'
+                        : (_cur.close > (_prv ? _prv.close : _cur.open)) ? 'up'
+                        : (_cur.close < (_prv ? _prv.close : _cur.open)) ? 'down' : 'flat';
+                    updateVolumeUI(data.tactical.volume, _volDir);
+                }
                 updateTacticalUI();
                 calculateSize();
                 renderCharts(data);
@@ -1940,7 +1948,7 @@
         checkPriceAlerts(lastPrice);
     }
 
-    function updateVolumeUI(vol) {
+    function updateVolumeUI(vol, dir = 'flat') {
         const badge   = document.getElementById('vol-status-badge');
         const ratioLbl= document.getElementById('vol-ratio-label');
         const bar     = document.getElementById('vol-bar');
@@ -1967,21 +1975,37 @@
         const ratio = vol.ratio || 0;
         if (ratioLbl) ratioLbl.innerText = ratio.toFixed(2) + 'x เฉลี่ย';
         const barPct = Math.min((ratio / 3) * 100, 100);
+
+        const isUp   = dir === 'up';
+        const isDown = dir === 'down';
+
         if (bar) {
             bar.style.width = barPct + '%';
-            bar.style.background = vol.confirmed ? '#3fb950' : vol.weak ? '#f0b72f' : '#f85149';
+            bar.style.background = vol.confirmed
+                ? (isDown ? '#f85149' : isUp ? '#3fb950' : '#f0b72f')
+                : vol.weak ? '#f0b72f' : '#f85149';
         }
 
         if (vol.confirmed) {
-            if (badge) { badge.innerText = '✅ Volume พุ่ง! ยืนยันแนวโน้ม'; badge.style.cssText = 'background:rgba(63,185,80,0.15);color:#3fb950;border:1px solid rgba(63,185,80,0.4);font-size:0.75rem;padding:5px 14px;border-radius:8px;'; }
-            if (explain) explain.innerHTML = `<span style="color:#3fb950">Volume <strong>${ratio.toFixed(2)}x</strong> สูงกว่าเฉลี่ย — สัญญาณแข็งแกร่ง</span>`;
-            if (warn) { warn.classList.remove('d-none'); warn.innerText = '✅ Volume ยืนยัน — เข้า Position ได้'; warn.style.color = '#3fb950'; }
+            if (isUp) {
+                if (badge)   { badge.innerText = '✅ Volume ยืนยัน BUY'; badge.style.cssText = 'background:rgba(63,185,80,0.15);color:#3fb950;border:1px solid rgba(63,185,80,0.4);font-size:0.75rem;padding:5px 14px;border-radius:8px;'; }
+                if (explain) explain.innerHTML = `<span style="color:#3fb950">Volume <strong>${ratio.toFixed(2)}x</strong> + ราคาขึ้น — สัญญาณ <strong>BUY</strong> แข็งแกร่ง</span>`;
+                if (warn)    { warn.classList.remove('d-none'); warn.innerHTML = '✅ Volume ยืนยัน BUY — เข้า <strong>LONG</strong> ได้'; warn.style.color = '#3fb950'; }
+            } else if (isDown) {
+                if (badge)   { badge.innerText = '⚠️ Volume ยืนยัน SELL'; badge.style.cssText = 'background:rgba(248,81,73,0.12);color:#f85149;border:1px solid rgba(248,81,73,0.45);font-size:0.75rem;padding:5px 14px;border-radius:8px;'; }
+                if (explain) explain.innerHTML = `<span style="color:#f85149">Volume <strong>${ratio.toFixed(2)}x</strong> + ราคาลง — สัญญาณ <strong>SELL</strong> ❌ อย่าเข้า BUY</span>`;
+                if (warn)    { warn.classList.remove('d-none'); warn.innerHTML = '⚠️ Volume ยืนยัน SELL — ระวัง อย่าเข้า <strong>LONG</strong>'; warn.style.color = '#f85149'; }
+            } else {
+                if (badge)   { badge.innerText = '⚡ Volume พุ่ง! รอทิศทาง'; badge.style.cssText = 'background:rgba(240,183,47,0.15);color:#f0b72f;border:1px solid rgba(240,183,47,0.4);font-size:0.75rem;padding:5px 14px;border-radius:8px;'; }
+                if (explain) explain.innerHTML = `<span style="color:#f0b72f">Volume <strong>${ratio.toFixed(2)}x</strong> สูงกว่าเฉลี่ย — รอยืนยันทิศทางก่อนเข้า</span>`;
+                if (warn)    { warn.classList.remove('d-none'); warn.innerHTML = '⚡ Volume สูง — รอทิศทางที่ชัดเจนก่อน'; warn.style.color = '#f0b72f'; }
+            }
         } else if (vol.weak) {
-            if (badge) { badge.innerText = '⚠️ Volume ปานกลาง'; badge.style.cssText = 'background:rgba(240,183,47,0.15);color:#f0b72f;border:1px solid rgba(240,183,47,0.4);font-size:0.75rem;padding:5px 14px;border-radius:8px;'; }
+            if (badge)   { badge.innerText = '⚠️ Volume ปานกลาง'; badge.style.cssText = 'background:rgba(240,183,47,0.15);color:#f0b72f;border:1px solid rgba(240,183,47,0.4);font-size:0.75rem;padding:5px 14px;border-radius:8px;'; }
             if (explain) explain.innerHTML = `<span style="color:#f0b72f">Volume <strong>${ratio.toFixed(2)}x</strong> — ปานกลาง รอยืนยันเพิ่ม</span>`;
             if (warn) warn.classList.add('d-none');
         } else {
-            if (badge) { badge.innerText = '❌ Volume ต่ำ'; badge.style.cssText = 'background:rgba(248,81,73,0.12);color:#f85149;border:1px solid rgba(248,81,73,0.35);font-size:0.75rem;padding:5px 14px;border-radius:8px;'; }
+            if (badge)   { badge.innerText = '❌ Volume ต่ำ'; badge.style.cssText = 'background:rgba(248,81,73,0.12);color:#f85149;border:1px solid rgba(248,81,73,0.35);font-size:0.75rem;padding:5px 14px;border-radius:8px;'; }
             if (explain) explain.innerHTML = `<span style="color:#f85149">Volume <strong>${ratio.toFixed(2)}x</strong> — ต่ำกว่าเฉลี่ย หลีกเลี่ยงการเข้า Position</span>`;
             if (warn) warn.classList.add('d-none');
         }

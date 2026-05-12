@@ -317,63 +317,78 @@ class RobotBridge:
             # 3. ถ้าปิดแล้ว (หรือกำลังมาซ่อมข้อมูล) ให้ดึงข้อมูลจาก History Deals API
             if is_closed and order.order_id:
                 try:
-                    history_url = f"https://mt-client-api-v1.{region}.agiliumtrade.ai/users/current/accounts/{account_id}/history-deals/by-position/{order.order_id}"
-                    h_res = requests.get(history_url, headers={"auth-token": token}, timeout=5)
-                    
-                    if h_res.status_code == 200:
-                        deals = h_res.json()
-                        # กรองเอาเฉพาะ deal ที่เป็นขาออก (out)
-                        exit_deal = next((d for d in deals if d.get('entry') == 'out' or d.get('type') in ['deal-sell-out', 'deal-buy-out']), None)
-                        
-                        if not exit_deal and len(deals) > 1:
-                            exit_deal = deals[-1]
-                            
-                        if exit_deal:
-                            from decimal import Decimal as _Dec
-                            exit_p    = exit_deal.get('price', 0)
-                            gross_p   = float(exit_deal.get('profit', 0))
-                            order.exit_price = exit_deal.get('price')
-                            comm_val = float(exit_deal.get('commission', 0))
-                            swap_val = float(exit_deal.get('swap', 0))
-                            
-                            order.commission = abs(comm_val)
-                            order.swap = swap_val
-                            order.gross_pl = float(exit_deal.get('profit', 0))
-                            
-                            # Net P/L = Gross - Commission + Swap (บวกตามเครื่องหมายจริง: ลบคือจ่าย, บวกคือได้กำไร)
-                            order.profit_loss = order.gross_pl - order.commission + swap_val
-                            
-                            # คำนวณ Pips (Gold: 1 point = 0.01)
-                            if order.entry_price and order.exit_price:
-                                diff = float(order.exit_price) - float(order.entry_price)
-                                if order.order_type == 'SELL': diff = -diff
-                                order.pips = round(diff, 2)
+                    # ลอง by-position ก่อน (ใช้ทั้ง order_id และ positionId ซึ่งอาจต่างกัน)
+                    exit_deal = None
+                    for pos_id in set([str(order.order_id), str(order.order_id).lstrip('0')]):
+                        history_url = f"https://mt-client-api-v1.{region}.agiliumtrade.ai/users/current/accounts/{account_id}/history-deals/by-position/{pos_id}"
+                        h_res = requests.get(history_url, headers={"auth-token": token}, timeout=5)
+                        if h_res.status_code == 200:
+                            deals = h_res.json()
+                            if deals:
+                                exit_deal = next((d for d in deals if d.get('entry') == 'out' or d.get('type') in ['deal-sell-out', 'deal-buy-out']), None)
+                                if not exit_deal and len(deals) > 1:
+                                    exit_deal = deals[-1]
+                                if exit_deal:
+                                    break
 
-                            # บันทึกเวลาปิด
-                            close_time = exit_deal.get('time') or exit_deal.get('brokerTime', '')
-                            if close_time:
-                                try:
-                                    order.closed_at = _dt.fromisoformat(close_time.replace('Z', '+00:00'))
-                                except:
-                                    order.closed_at = timezone.now()
-                            else:
+                    # Fallback: ค้นหาจาก time range (±1 ชั่วโมงรอบ closed_at)
+                    if not exit_deal and order.closed_at:
+                        try:
+                            t_from = (order.closed_at - timezone.timedelta(hours=1)).strftime('%Y-%m-%dT%H:%M:%S.000Z')
+                            t_to   = (order.closed_at + timezone.timedelta(hours=1)).strftime('%Y-%m-%dT%H:%M:%S.000Z')
+                            range_url = f"https://mt-client-api-v1.{region}.agiliumtrade.ai/users/current/accounts/{account_id}/history-deals/by-time/{t_from}/{t_to}"
+                            r_res = requests.get(range_url, headers={"auth-token": token}, timeout=5)
+                            if r_res.status_code == 200:
+                                all_deals = r_res.json()
+                                # จับคู่ด้วย entry_price และ volume
+                                ep = float(order.entry_price) if order.entry_price else 0
+                                vol = float(order.volume) if order.volume else 0
+                                for d in all_deals:
+                                    if (d.get('entry') == 'out' or 'out' in d.get('type','').lower()):
+                                        if abs(float(d.get('volume', 0)) - vol) < 0.001:
+                                            exit_deal = d
+                                            break
+                        except Exception as fe:
+                            logger.warning(f"Fallback deal search failed: {fe}")
+
+                    if exit_deal:
+                        from decimal import Decimal as _Dec
+                        order.exit_price = exit_deal.get('price')
+                        comm_val = float(exit_deal.get('commission', 0))
+                        swap_val = float(exit_deal.get('swap', 0))
+                        order.commission = abs(comm_val)
+                        order.swap = swap_val
+                        order.gross_pl = float(exit_deal.get('profit', 0))
+                        order.profit_loss = order.gross_pl - order.commission + swap_val
+
+                        if order.entry_price and order.exit_price:
+                            diff = float(order.exit_price) - float(order.entry_price)
+                            if order.order_type == 'SELL': diff = -diff
+                            order.pips = round(diff, 2)
+
+                        close_time = exit_deal.get('time') or exit_deal.get('brokerTime', '')
+                        if close_time:
+                            try:
+                                order.closed_at = _dt.fromisoformat(close_time.replace('Z', '+00:00'))
+                            except:
                                 order.closed_at = timezone.now()
+                        else:
+                            order.closed_at = timezone.now()
 
-                            if order.opened_at and order.closed_at:
-                                order.duration_sec = int((order.closed_at - order.opened_at).total_seconds())
+                        if order.opened_at and order.closed_at:
+                            order.duration_sec = int((order.closed_at - order.opened_at).total_seconds())
 
-                            # Exit reason
-                            reason_code = exit_deal.get('reason', '').lower()
-                            if 'sl' in reason_code:
-                                order.exit_reason = 'STOP LOSS'
-                            elif 'tp' in reason_code:
-                                order.exit_reason = 'TAKE PROFIT'
-                            elif 'expert' in reason_code:
-                                order.exit_reason = 'ROBOT'
-                            elif 'client' in reason_code:
-                                order.exit_reason = 'MANUAL'
-                            else:
-                                order.exit_reason = reason_code.upper() or 'CLOSED'
+                        reason_code = exit_deal.get('reason', '').lower()
+                        if 'sl' in reason_code:
+                            order.exit_reason = 'STOP LOSS'
+                        elif 'tp' in reason_code:
+                            order.exit_reason = 'TAKE PROFIT'
+                        elif 'expert' in reason_code:
+                            order.exit_reason = 'ROBOT'
+                        elif 'client' in reason_code:
+                            order.exit_reason = 'MANUAL'
+                        else:
+                            order.exit_reason = reason_code.upper() or 'CLOSED'
 
                 except Exception as e:
                     logger.error(f"Sync History Error for {order.order_id}: {e}")
