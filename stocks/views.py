@@ -9519,9 +9519,20 @@ def stock_chart_data(request, symbol):
 
     # Append .BK for SET stocks
     yf_symbol = symbol + '.BK' if market == 'SET' else symbol
-    
-    # Padding: ดึงข้อมูลเผื่อล่วงหน้าเพื่อให้เส้น Donchian 55 และ RSI มีค่าเพียงพอ
-    download_period = '2y' if period in ('1y', '2y') else '1y' 
+
+    # ── Intraday detection ──────────────────────────────────────────
+    # period='1d' → 5m candles, '5d' → 15m, '1mo_h' → 1h
+    INTRADAY_MAP = {'1d': '5m', '5d': '15m', '1mo_h': '1h'}
+    intraday_interval = INTRADAY_MAP.get(period)
+    is_intraday = intraday_interval is not None
+
+    if is_intraday:
+        download_period  = period if period != '1mo_h' else '1mo'
+        download_interval = intraday_interval
+    else:
+        # Padding: ดึงข้อมูลเผื่อล่วงหน้าเพื่อให้เส้น Donchian 55 และ RSI มีค่าเพียงพอ
+        download_period  = '2y' if period in ('1y', '2y') else '1y'
+        download_interval = '1d'
 
     def _safe_val(val, default=0.0):
         try:
@@ -9533,8 +9544,8 @@ def stock_chart_data(request, symbol):
             return default
 
     try:
-        df = _yf.download(yf_symbol, period=download_period, auto_adjust=True,
-                          progress=False, group_by='column')
+        df = _yf.download(yf_symbol, period=download_period, interval=download_interval,
+                          auto_adjust=True, progress=False, group_by='column')
         
         if df is None or df.empty:
             return _JR({'error': f'ไม่พบข้อมูลสำหรับ {yf_symbol} (yfinance returned empty)'}, status=404)
@@ -9773,7 +9784,11 @@ def stock_chart_data(request, symbol):
         df['sys1_exit']   = df['Close'] <= df['dc10_lower'].shift(1)
 
         def datestr(dt):
-            return _pd.Timestamp(dt).strftime('%Y-%m-%d')
+            ts = _pd.Timestamp(dt)
+            if is_intraday:
+                # LightweightCharts requires Unix seconds for intraday
+                return int(ts.timestamp())
+            return ts.strftime('%Y-%m-%d')
 
         candles, vol, rsi_data = [], [], []
         dc20u, dc20l, dc55u, dc55l = [], [], [], []
@@ -9834,7 +9849,9 @@ def stock_chart_data(request, symbol):
             'ema20': ema20, 'ema50': ema50, 'ema200': ema200,
             'bb_upper': bbu, 'bb_lower': bbl,
             'macd': macd, 'macd_sig': macd_sig, 'macd_hist': macd_hist,
-            'signals': signals
+            'signals': signals,
+            'is_intraday': is_intraday,
+            'interval': download_interval,
         })
 
     except Exception as e:
@@ -10080,6 +10097,31 @@ def crypto_trading(request):
         'capital': capital,
         'account_id': account.id if account else None
     })
+
+@login_required
+def gold_price_tick_ajax(request):
+    """
+    Lightweight endpoint — returns only the current gold price tick.
+    Used by the frontend for fast 2-second price updates without reloading chart data.
+    """
+    import yfinance as _yf
+    from django.http import JsonResponse as _JR
+    try:
+        ticker = _yf.Ticker('GC=F')
+        fi = ticker.fast_info
+        price = float(fi.get('last_price') or fi.get('regularMarketPrice') or 0)
+        prev  = float(fi.get('previous_close') or fi.get('regularMarketPreviousClose') or price)
+        if price == 0:
+            hist = ticker.history(period='1d', interval='1m')
+            if not hist.empty:
+                price = float(hist['Close'].iloc[-1])
+                prev  = float(hist['Close'].iloc[0])
+        change     = round(price - prev, 2)
+        change_pct = round((change / prev) * 100, 3) if prev else 0.0
+        return _JR({'price': round(price, 2), 'change': change, 'change_pct': change_pct, 'ok': True})
+    except Exception as e:
+        return _JR({'ok': False, 'error': str(e)}, status=500)
+
 
 @login_required
 def gold_trading(request):
@@ -10719,8 +10761,20 @@ def api_stock_analysis(request, symbol):
 
 @login_required
 def get_gold_trade_history_ajax(request):
-    """ดึงประวัติการเทรด 20 รายการล่าสุดสำหรับทองคำ"""
-    from .models import TradeOrder
+    """ดึงประวัติการเทรด 20 รายการล่าสุดสำหรับทองคำ (พร้อม Auto-Sync)"""
+    from .models import TradeOrder, TradingAccount
+    from .trading_bridge import RobotBridge
+    
+    # 1. Auto-Sync สถานะออเดอร์ก่อนแสดงผล
+    acc = TradingAccount.objects.filter(user=request.user, is_active=True).first()
+    if acc:
+        try:
+            bridge = RobotBridge(account=acc)
+            bridge.sync_trade_status()
+        except Exception as e:
+            print(f"History Sync Error: {e}")
+
+    # 2. ดึงข้อมูลประวัติ
     orders = TradeOrder.objects.filter(
         user=request.user, 
         symbol__in=['GC=F', 'XAUUSD']
@@ -10739,6 +10793,7 @@ def get_gold_trade_history_ajax(request):
             'tp': float(o.take_profit) if o.take_profit else 0,
             'pl': float(o.profit_loss),
             'status': o.status,
+            'reason': o.exit_reason or '',
             'created_at': o.created_at.strftime('%Y-%m-%d %H:%M:%S'),
             'strategy': o.strategy or 'N/A'
         })

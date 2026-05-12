@@ -11,443 +11,429 @@
 <script src="https://unpkg.com/lightweight-charts@4.1.1/dist/lightweight-charts.standalone.production.js"></script>
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Outfit:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700;800&display=swap');
+    /* ════════════════════════════════════════
+       GOLD COMMAND CENTER — Design System v3
+    ════════════════════════════════════════ */
 
     :root {
-        --gold: #fbbf24;
-        --gold-light: #fef3c7;
-        --gold-dark: #b45309;
-        --gold-bg: #fffbeb;
-        --panel-radius: 12px;
-        --bg-deep: #0f172a;
-        --bg-panel: #1e293b;
-        --border-color: rgba(255, 255, 255, 0.1);
-        --text-muted: #94a3b8;
+        /* Design Tokens */
+        --gold:        #f0b72f;
+        --gold-dim:    rgba(240,183,47,0.15);
+        --gold-glow:   rgba(240,183,47,0.25);
+        --gold-light:  #fbbf24;
+        --green:       #3fb950;
+        --red:         #f85149;
+        --blue:        #58a6ff;
+        --purple:      #bc8cff;
+        /* Backgrounds */
+        --bg-app:      #0d1117;
+        --bg-panel:    #161b22;
+        --bg-card:     #1c2333;
+        --bg-input:    #0d1117;
+        /* Borders & Text */
+        --border:      #30363d;
+        --text-hi:     #e6edf3;
+        --text-lo:     #8b949e;
+        /* Aliases kept for JS compat */
+        --primary: #58a6ff;
+        --success: #3fb950;
+        --danger:  #f85149;
+        --warning: #f0b72f;
+        --bg-deep: #0d1117;
+        --glass-bg: rgba(28,35,51,0.7);
+        --glass-border: rgba(255,255,255,0.08);
+        --text-main: #e6edf3;
+        --text-muted: #8b949e;
+        --panel-radius: 10px;
+        --border-color: #30363d;
     }
 
-    body { 
-        background: #f1f5f9; 
+    body {
+        background: var(--bg-app);
+        color: var(--text-hi);
         font-family: 'Inter', sans-serif;
+        overflow-x: hidden;
     }
 
-    /* ══ HEADER (Compact) ══ */
+    /* ══ HEADER ══ */
     .gcc-header {
-        background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
-        border-bottom: 3px solid var(--gold);
-        padding: 0.5rem 1.25rem;
+        background: linear-gradient(135deg, #161b22 0%, #0d1117 100%);
+        border-bottom: 2px solid var(--gold);
+        padding: 0.55rem 1.25rem;
     }
     .gcc-header h1 {
         font-family: 'Outfit', sans-serif;
-        font-size: 1.2rem;
+        font-size: 1.1rem;
         font-weight: 900;
         letter-spacing: 1px;
         color: var(--gold);
         margin: 0;
     }
     .gcc-subtitle {
-        font-size: 0.7rem;
-        color: var(--text-muted);
+        font-size: 0.65rem;
+        color: var(--text-lo);
         letter-spacing: 0.5px;
-        margin-top: 0px;
     }
+
+    /* ══ 3-COLUMN GRID LAYOUT ══ */
+    .gcc-grid {
+        display: grid;
+        grid-template-columns: 1fr 3fr 1fr;
+        grid-template-areas: "left center right";
+        gap: 12px;
+        padding: 12px 14px 28px;
+        align-items: start;
+    }
+    .gcc-left   { grid-area: left;   display: flex; flex-direction: column; gap: 10px; }
+    .gcc-center { grid-area: center; display: flex; flex-direction: column; gap: 10px; }
+    .gcc-right  { grid-area: right;  display: flex; flex-direction: column; gap: 10px; }
+
+    /* Tablet ≤1199px: 2-col, chart spans full */
+    @media (max-width: 1199px) {
+        .gcc-grid {
+            grid-template-columns: 1fr 1fr;
+            grid-template-areas: "center center" "left right";
+        }
+    }
+    /* Mobile ≤767px: single column */
+    @media (max-width: 767px) {
+        .gcc-grid {
+            grid-template-columns: 1fr;
+            grid-template-areas: "center" "right" "left";
+            padding: 8px 8px 20px;
+            gap: 8px;
+        }
+    }
+    /* Keep old Bootstrap aliases for non-layout items */
+    .sidebar-col { }
+    .chart-col   { }
+    .main-wrapper { }
 
     /* ══ Cards ══ */
     .g-card {
-        background: #fff;
-        border-radius: 8px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-        border: 1px solid #e2e8f0;
+        background: var(--bg-card);
+        border-radius: var(--panel-radius);
+        border: 1px solid var(--border);
         overflow: hidden;
         margin-bottom: 0.5rem;
     }
     .g-card-dark {
-        background: var(--bg-deep);
-        border-color: var(--border-color);
-        color: #fff;
-    }
-    .top-mini-bar {
-        background: #000000 !important;
-        border-bottom: 1px solid #334155 !important;
-        color: #ffffff !important;
-        z-index: 10001 !important;
-        position: relative;
-    }
-    .top-mini-bar span, .top-mini-bar div {
-        color: #ffffff !important;
-    }
-    #m-price {
-        color: #fbbf24 !important; /* Gold color for price */
+        background: var(--bg-panel);
+        border-color: var(--border);
+        color: var(--text-hi);
     }
     .g-card-header {
-        background: #f8fafc;
-        border-bottom: 1px solid #e2e8f0;
-        padding: 0.4rem 0.8rem;
-        font-size: 0.7rem;
+        background: rgba(255,255,255,0.03);
+        border-bottom: 1px solid var(--border);
+        padding: 0.42rem 0.85rem;
+        font-size: 0.65rem;
         font-weight: 800;
         text-transform: uppercase;
-        color: #475569;
+        letter-spacing: 0.6px;
+        color: var(--text-lo);
         display: flex;
         align-items: center;
         gap: 6px;
     }
     .g-card-dark .g-card-header {
-        background: var(--bg-panel);
-        border-bottom: 1px solid var(--border-color);
-        color: #7dd3fc;
+        background: rgba(255,255,255,0.03);
+        color: var(--blue);
     }
+    #m-price { color: var(--gold) !important; }
 
-    /* ══ Signal Matrix (Compact) ══ */
+    /* ══ Signal Matrix ══ */
     .matrix-row {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        padding: 0.4rem 0.8rem;
-        border-bottom: 1px solid var(--border-color);
+        padding: 0.55rem 0.85rem;
+        border-bottom: 1px solid var(--border);
     }
-    .matrix-label { font-size: 0.65rem; font-weight: 700; color: #94a3b8; }
+    .matrix-row:last-child { border-bottom: none; }
+    .matrix-label { font-size: 0.62rem; font-weight: 700; color: var(--text-lo); text-transform: uppercase; letter-spacing: 0.4px; }
     .matrix-btn {
-        font-size: 0.65rem;
-        font-weight: 800;
-        padding: 2px 12px;
-        border-radius: 4px;
-        min-width: 60px;
+        font-size: 0.62rem;
+        font-weight: 900;
+        padding: 3px 14px;
+        border-radius: 5px;
+        min-width: 62px;
+        text-align: center;
+        letter-spacing: 0.3px;
     }
     
-    /* Tactical Decision Center (Compact) */
-    .decision-panel.sell { background: rgba(239, 68, 68, 0.1); border-color: #ef4444; }
-    .decision-panel.risk-warn { 
-        background: rgba(220, 38, 38, 0.2); 
-        border: 2px solid #dc2626; 
+    /* ══ Tactical Decision Center ══ */
+    .decision-panel {
+        background: rgba(255,255,255,0.03);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 0.7rem 0.9rem;
+        margin-bottom: 0.6rem;
+        position: relative;
+        overflow: hidden;
+    }
+    .decision-panel.sell { background: rgba(248,81,73,0.07); border-color: rgba(248,81,73,0.4); }
+    .decision-panel.risk-warn {
+        background: rgba(220,38,38,0.12);
+        border: 2px solid #dc2626;
         animation: risk-blink 1s infinite alternate;
     }
     @keyframes risk-blink {
-        from { box-shadow: 0 0 5px #dc2626; border-color: #dc2626; }
-        to { box-shadow: 0 0 20px #dc2626; border-color: #f87171; }
+        from { box-shadow: 0 0 5px #dc2626; }
+        to   { box-shadow: 0 0 20px #dc2626; border-color: #f87171; }
     }
-    .decision-panel {
-        background: rgba(15, 23, 42, 0.8);
-        border: 1px solid rgba(255,255,255,0.1);
-        border-radius: 10px;
-        padding: 0.75rem 1rem;
-        margin-bottom: 0.75rem;
-    }
-    .signal-icon {
-        font-size: 2rem;
-        margin-right: 1rem;
-    }
-    .signal-status { font-size: 1.2rem; font-weight: 900; }
-    .signal-message { color: #94a3b8; font-size: 0.75rem; margin-top: 0.2rem; }
-    
-    /* Message Feed */
-    .message-feed {
-        background: rgba(0,0,0,0.3);
-        border-radius: 10px;
-        height: 200px;
-        overflow-y: auto;
-        padding: 1rem;
-        font-family: 'Courier New', Courier, monospace;
-        font-size: 0.85rem;
-        border: 1px solid rgba(255,255,255,0.05);
-    }
-    .feed-entry { margin-bottom: 0.5rem; border-left: 2px solid #334155; padding-left: 10px; }
-    .feed-time { color: #64748b; margin-right: 8px; }
-    .feed-msg { color: #e2e8f0; }
-    .feed-signal { color: #22c55e; font-weight: bold; }
-
+    .signal-icon { font-size: 1.6rem; margin-right: 0.8rem; }
+    .signal-status { font-size: 1rem; font-weight: 900; color: var(--text-hi); }
+    .signal-message { color: var(--text-lo); font-size: 0.7rem; margin-top: 0.15rem; }
     .pulse-ring {
-        position: absolute;
-        top: 50%; left: 10%;
-        transform: translate(-50%, -50%);
-        width: 100px; height: 100px;
-        border-radius: 50%;
-        border: 2px solid currentColor;
-        opacity: 0;
+        position: absolute; top: 50%; left: 8%;
+        transform: translate(-50%,-50%);
+        width: 80px; height: 80px; border-radius: 50%;
+        border: 2px solid currentColor; opacity: 0;
         animation: pulse-ring 2s infinite;
     }
     @keyframes pulse-ring {
-        0% { transform: translate(-50%, -50%) scale(0.5); opacity: 0.8; }
-        100% { transform: translate(-50%, -50%) scale(1.5); opacity: 0; }
-    }
-
-    /* ══ Responsive Adjustments ══ */
-    @media (max-width: 991.98px) {
-        .chart-col { order: -1; } /* Move Chart/Positions to top on mobile */
-        .g-card { margin-bottom: 1rem; }
-    }
-
-    @media (max-width: 576px) {
-        .gcc-header h1 { font-size: 1.1rem; }
-        .price-value { font-size: 2.2rem; }
-        .g-card-header { padding: 0.5rem 0.75rem; font-size: 0.7rem; }
-        .decision-panel { padding: 1rem; }
-        .signal-status { font-size: 1.4rem; }
-        
-        /* Card-style positions for mobile */
-        #positions-list-body tr {
-            display: flex;
-            flex-direction: column;
-            padding: 1rem !important;
-            border-bottom: 2px solid #f1f5f9 !important;
-            position: relative;
-        }
-        #positions-list-body td {
-            border: none;
-            padding: 0.25rem 0 !important;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        #positions-list-body td:before {
-            content: attr(data-label);
-            font-weight: 700;
-            font-size: 0.75rem;
-            color: #64748b;
-            text-transform: uppercase;
-        }
-        .bg-dark.text-white-50 { display: none; } /* Hide table header on mobile */
-        
-        .fs-3.fw-900 { font-size: 1.8rem !important; } /* Scale down P/L font on mobile */
+        0%   { transform: translate(-50%,-50%) scale(0.5); opacity: 0.8; }
+        100% { transform: translate(-50%,-50%) scale(1.5); opacity: 0; }
     }
 
     /* ══ Price Display ══ */
     .price-panel {
-        background: var(--bg-deep);
-        padding: 1.25rem;
+        background: linear-gradient(135deg, #161b22, #0d1117);
+        border: 1px solid var(--gold);
         border-radius: var(--panel-radius);
-        border: 1px solid var(--border-color);
+        padding: 1rem 1.1rem;
     }
-    .price-symbol { font-size: 0.75rem; font-weight: 800; color: var(--text-muted); letter-spacing: 1px; }
-    .price-time { font-size: 0.7rem; color: var(--text-muted); font-family: 'JetBrains Mono', monospace; }
-    .price-value {
-        font-family: 'JetBrains Mono', monospace;
-        font-size: 2.8rem;
-        font-weight: 800;
-        color: var(--gold);
-        line-height: 1;
-    }
-    .price-chg { font-size: 1.1rem; font-weight: 700; margin-left: 10px; }
-
-    /* ══ Bot Status ══ */
+    .price-symbol { font-size: 0.62rem; font-weight: 800; color: var(--text-lo); letter-spacing: 1.5px; text-transform: uppercase; }
+    .price-time   { font-size: 0.6rem;  color: var(--text-lo); font-family: 'JetBrains Mono', monospace; }
+    .price-value  { font-family: 'JetBrains Mono', monospace; font-size: 2.5rem; font-weight: 800; color: var(--gold); line-height: 1.1; }
+    .price-chg    { font-size: 0.95rem; font-weight: 700; margin-left: 8px; }
     .bot-status-bar {
-        background: rgba(255,255,255,0.03);
-        border: 1px solid var(--border-color);
-        border-radius: 8px;
-        padding: 0.5rem 0.75rem;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-top: 1rem;
+        display: flex; justify-content: space-between; align-items: center;
+        background: rgba(255,255,255,0.04); border: 1px solid var(--border);
+        border-radius: 8px; padding: 0.4rem 0.7rem; margin-top: 0.8rem;
     }
-    .bot-indicator { display: flex; align-items: center; gap: 8px; font-size: 0.75rem; font-weight: 700; color: #34d399; }
-    .bot-dot { width: 8px; height: 8px; background: #34d399; border-radius: 50%; box-shadow: 0 0 8px #34d399; }
+    .bot-indicator { display: flex; align-items: center; gap: 8px; font-size: 0.72rem; font-weight: 700; color: var(--green); }
+    .bot-dot {
+        width: 8px; height: 8px; border-radius: 50%; background: #ef4444;
+        box-shadow: 0 0 6px #ef4444;
+    }
+    .tactical-signal-badge {
+        margin-top: 0.6rem; padding: 0.4rem; border-radius: 8px; text-align: center;
+        font-size: 0.78rem; font-weight: 800; letter-spacing: 0.5px;
+        background: rgba(88,166,255,0.08); border: 1px solid rgba(88,166,255,0.3); color: var(--blue);
+    }
     .btn-stop-bot {
-        background: transparent;
-        border: 1px solid #ef4444;
-        color: #ef4444;
-        font-size: 0.65rem;
-        font-weight: 800;
-        padding: 2px 10px;
-        border-radius: 4px;
-        transition: all 0.2s;
+        background: transparent; border: 1px solid var(--red); color: var(--red);
+        font-size: 0.62rem; font-weight: 900; padding: 2px 10px; border-radius: 4px;
+        cursor: pointer; transition: all 0.15s;
     }
-    .btn-stop-bot:hover { background: #ef4444; color: #fff; }
+    .btn-stop-bot:hover { background: var(--red); color: #fff; }
 
     /* ══ Tactical Tabs ══ */
-    .tactical-tabs {
-        display: flex;
-        border: 1px solid #e2e8f0;
-        border-radius: 8px;
-        overflow: hidden;
-    }
+    .tactical-tabs { display: flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
     .t-tab {
-        flex: 1;
-        text-align: center;
-        padding: 6px;
-        font-size: 0.7rem;
-        font-weight: 800;
-        color: #64748b;
-        background: #fff;
-        border: none;
-        cursor: pointer;
+        flex: 1; text-align: center; padding: 7px 4px; font-size: 0.62rem;
+        font-weight: 800; color: var(--text-lo); background: var(--bg-panel);
+        border: none; cursor: pointer; transition: all 0.15s; letter-spacing: 0.4px;
     }
-    .t-tab:not(:last-child) { border-right: 1px solid #e2e8f0; }
-    .t-tab.active.sniper { background: #fee2e2; color: #dc2626; border-bottom: 2px solid #dc2626; }
-    .t-tab.active.scalper { background: #e0f2fe; color: #0284c7; border-bottom: 2px solid #0284c7; }
-    .t-tab.active.swing { background: #fef3c7; color: #b45309; border-bottom: 2px solid #b45309; }
+    .t-tab:not(:last-child) { border-right: 1px solid var(--border); }
+    .t-tab.active.sniper  { background: rgba(248,81,73,0.12);  color: #f85149; border-bottom: 2px solid #f85149; }
+    .t-tab.active.scalper { background: rgba(88,166,255,0.12); color: var(--blue); border-bottom: 2px solid var(--blue); }
+    .t-tab.active.swing   { background: rgba(240,183,47,0.12); color: var(--gold); border-bottom: 2px solid var(--gold); }
+    .t-tab.active.turtle  { background: rgba(188,140,255,0.12);color: var(--purple); border-bottom: 2px solid var(--purple); }
 
     /* ══ Tactical Table ══ */
-    .t-row {
-        display: flex;
-        justify-content: space-between;
-        padding: 0.6rem 1rem;
-        border-bottom: 1px solid #f1f5f9;
-        font-size: 0.85rem;
-    }
-    .t-label { font-weight: 600; color: #475569; }
-    .t-value { font-family: 'JetBrains Mono', monospace; font-weight: 700; }
+    .t-row { display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 0.85rem; border-bottom: 1px solid var(--border); font-size: 0.8rem; }
+    .t-row:last-child { border-bottom: none; }
+    .t-label { font-weight: 600; color: var(--text-lo); font-size: 0.73rem; }
+    .t-value { font-family: 'JetBrains Mono', monospace; font-weight: 700; color: var(--text-hi); }
 
     /* ══ Position Sizer ══ */
     .sizer-suggested {
-        background: #fffbeb;
-        border: 1px solid #fef3c7;
-        border-radius: 10px;
-        padding: 1rem;
-        text-align: center;
-        margin-top: 1rem;
+        background: rgba(240,183,47,0.07); border: 1px solid rgba(240,183,47,0.25);
+        border-radius: 10px; padding: 0.8rem; text-align: center; margin-top: 0.8rem;
     }
-    .sizer-label { font-size: 0.7rem; font-weight: 800; color: #92400e; letter-spacing: 1px; margin-bottom: 4px; }
-    .sizer-value { font-family: 'JetBrains Mono', monospace; font-size: 1.8rem; font-weight: 900; color: #78350f; }
+    .sizer-label { font-size: 0.62rem; font-weight: 800; color: var(--gold); letter-spacing: 1.2px; text-transform: uppercase; margin-bottom: 4px; }
+    .sizer-value { font-family: 'JetBrains Mono', monospace; font-size: 1.7rem; font-weight: 900; color: var(--gold); }
 
     /* ══ Execute Buttons ══ */
-    .btn-execute {
-        padding: 0.75rem;
-        border-radius: 10px;
-        font-weight: 800;
-        letter-spacing: 0.5px;
-        border: none;
-        transition: transform 0.1s;
+    .btn-execute-buy {
+        background: linear-gradient(135deg, #145a32, #1a6b3b);
+        color: #3fb950; border: 1px solid #3fb950; border-radius: 10px;
+        padding: 14px; font-weight: 900; font-size: 0.9rem;
+        letter-spacing: 0.5px; cursor: pointer; transition: all 0.15s;
+        box-shadow: 0 2px 12px rgba(63,185,80,0.2);
     }
-    .btn-execute:active { transform: scale(0.98); }
-    .btn-execute-buy { background: #16a34a; color: #fff; border: none; border-radius: 10px; padding: 12px; font-weight: 800; box-shadow: 0 4px 12px rgba(22,163,74,0.3); }
-    .btn-execute-sell { background: #dc2626; color: #fff; border: none; border-radius: 10px; padding: 12px; font-weight: 800; box-shadow: 0 4px 12px rgba(220,38,38,0.3); }
-
-    /* ══ Ticker / Signal ══ */
-    .tactical-signal-badge {
-        background: rgba(56, 189, 248, 0.1);
-        border: 1px solid #38bdf8;
-        color: #38bdf8;
-        text-align: center;
-        padding: 0.75rem;
-        border-radius: 10px;
-        font-weight: 800;
-        letter-spacing: 1px;
-        margin-top: 1rem;
+    .btn-execute-buy:hover { background: linear-gradient(135deg, #1a6b3b,#206b44); transform: translateY(-1px); }
+    .btn-execute-sell {
+        background: linear-gradient(135deg, #5a1414, #6e2121);
+        color: #f85149; border: 1px solid #f85149; border-radius: 10px;
+        padding: 14px; font-weight: 900; font-size: 0.9rem;
+        letter-spacing: 0.5px; cursor: pointer; transition: all 0.15s;
+        box-shadow: 0 2px 12px rgba(248,81,73,0.2);
     }
+    .btn-execute-sell:hover { background: linear-gradient(135deg,#6e2121,#7a2525); transform: translateY(-1px); }
 
-    /* ══ Log ══ */
-    .log-box {
-        font-family: 'JetBrains Mono', monospace;
-        font-size: 0.85rem;
-        background: #0f172a;
-        color: #cbd5e1;
-        padding: 1rem;
-        height: 300px;
-        overflow-y: auto;
-        line-height: 1.6;
-    }
-
-    .animate-pulse { animation: pulse 2s infinite ease-in-out; }
-    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
-
-    #chart-container, #rsi-container, #cci-container, #vol-container {
-        overflow: hidden;
-        width: 100%;
-    }
-
-    /* ══ Price Alerts ══ */
+    /* ══ Alerts ══ */
     .alert-panel {
-        background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
-        border: 1px solid rgba(56, 189, 248, 0.3);
-        border-radius: var(--panel-radius);
-        padding: 1rem;
-        position: relative;
-        overflow: hidden;
+        background: var(--bg-card); border: 1px solid rgba(88,166,255,0.25);
+        border-radius: var(--panel-radius); padding: 0.85rem; position: relative; overflow: hidden;
     }
     .alert-active-bg {
-        position: absolute;
-        top: 0; left: 0; right: 0; bottom: 0;
-        background: rgba(239, 68, 68, 0.1);
-        display: none;
-        animation: pulse-bg 1s infinite;
+        position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+        background: rgba(248,81,73,0.08); display: none; animation: pulse-bg 1s infinite;
     }
-    @keyframes pulse-bg {
-        0% { opacity: 0.3; }
-        50% { opacity: 0.7; }
-        100% { opacity: 0.3; }
-    }
+    @keyframes pulse-bg { 0%,100% { opacity: 0.3; } 50% { opacity: 0.7; } }
     .alert-input {
-        background: rgba(255, 255, 255, 0.05);
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        color: var(--gold);
-        font-family: 'JetBrains Mono', monospace;
-        font-weight: 800;
-        text-align: center;
+        background: rgba(255,255,255,0.05); border: 1px solid var(--border);
+        color: var(--gold); font-family: 'JetBrains Mono', monospace; font-weight: 800;
+        text-align: center; border-radius: 6px; padding: 0.35rem;
     }
-    .alert-input:focus {
-        background: rgba(255, 255, 255, 0.1);
-        border-color: var(--gold);
-        color: #fff;
-        box-shadow: none;
+    .alert-input:focus { border-color: var(--gold); box-shadow: 0 0 0 2px rgba(240,183,47,0.2); outline: none; }
+    .btn-test-sound { font-size: 0.62rem; padding: 2px 8px; color: var(--text-lo); border-color: rgba(255,255,255,0.15); }
+
+    /* ══ Chart ══ */
+    .chart-card { background: #fff; border: 1px solid var(--border); border-radius: var(--panel-radius); overflow: hidden; }
+    .chart-toolbar { padding: 0.5rem 0.85rem; background: var(--bg-card); border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+    #chart-container, #rsi-container, #cci-container, #vol-container { overflow: hidden; width: 100%; }
+
+    /* ══ Positions Table ══ */
+    .pos-table { width: 100%; font-size: 0.88rem; border-collapse: collapse; }
+    .pos-table thead th { background: #0d1117; color: #c9d1d9; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.8px; padding: 0.55rem 0.7rem; border-bottom: 2px solid var(--border); font-weight: 800; }
+    .pos-table tbody td { padding: 0.55rem 0.7rem; border-bottom: 1px solid var(--border); background: var(--bg-card); color: #e6edf3; font-size: 0.88rem; }
+    .pos-table tbody tr:hover td { background: rgba(255,255,255,0.04); }
+    .pos-table tbody tr:last-child td { border-bottom: none; }
+
+    /* ══ Message Feeds ══ */
+    .message-feed {
+        background: rgba(0,0,0,0.25); border-radius: 8px; height: 150px; overflow-y: auto;
+        padding: 0.7rem; font-family: 'JetBrains Mono', monospace; font-size: 0.72rem;
+        border: 1px solid var(--border); scrollbar-width: thin;
     }
-    .btn-test-sound {
-        font-size: 0.65rem;
-        padding: 2px 8px;
-        color: #94a3b8;
-        border-color: rgba(255, 255, 255, 0.2);
+    .log-box {
+        background: #080c10; font-family: 'JetBrains Mono', monospace; font-size: 0.68rem;
+        color: var(--text-lo); padding: 0.7rem; height: 120px; overflow-y: auto;
+        line-height: 1.5; scrollbar-width: thin; border-top: 1px solid var(--border);
     }
-    /* ══ Premium Trade Modal ══ */
+    .feed-entry { margin-bottom: 0.35rem; border-left: 2px solid var(--border); padding-left: 8px; }
+    .feed-time   { color: var(--text-lo); margin-right: 6px; }
+    .feed-msg    { color: var(--text-hi); }
+    .feed-signal { color: var(--green); font-weight: bold; }
+
+    /* ══ Status Pills ══ */
+    .status-pill, .s-pill {
+        font-size: 0.6rem; font-weight: 800; padding: 3px 10px; border-radius: 20px;
+        text-transform: uppercase; letter-spacing: 0.5px;
+    }
+    .pill-standby, .s-pill.wait { background: rgba(139,148,158,0.1); color: var(--text-lo); border: 1px solid var(--border); }
+    .pill-buy,  .s-pill.bull  { background: rgba(63,185,80,0.12);  color: var(--green);  border: 1px solid rgba(63,185,80,0.35); }
+    .pill-sell, .s-pill.bear  { background: rgba(248,81,73,0.12);  color: var(--red);    border: 1px solid rgba(248,81,73,0.35); }
+    .pill-active { background: rgba(63,185,80,0.12); color: var(--green); border: 1px solid rgba(63,185,80,0.35); }
+
+    /* ══ Mobile price bar ══ */
+    .mobile-price-bar {
+        background: #0a0e17; border-bottom: 1px solid var(--border);
+        padding: 8px 14px; display: none;
+    }
+    @media (max-width: 991px) { .mobile-price-bar { display: flex; } }
+
+    /* ══ News Ticker ══ */
+    .news-ticker-container {
+        background: #0a0e17; height: 40px; display: flex; align-items: center;
+        border-bottom: 2px solid #92400e;
+    }
+    .news-label {
+        background: #b45309; color: #fff; font-size: 0.75rem; font-weight: 900;
+        padding: 0 14px; height: 100%; display: flex; align-items: center;
+        white-space: nowrap; letter-spacing: 1px;
+    }
+    #news-flash-box {
+        flex: 1; color: #fef3c7; font-size: 0.95rem; font-weight: 700;
+        padding-left: 16px; transition: opacity 0.5s; font-family: 'Outfit', sans-serif;
+    }
+    .news-fade-out { opacity: 0; }
+    .news-fade-in  { opacity: 1; }
+
+    /* ══ Trade Modal ══ */
     .trade-modal-overlay {
         position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-        background: rgba(0, 0, 0, 0.85); backdrop-filter: blur(8px);
+        background: rgba(0,0,0,0.85); backdrop-filter: blur(8px);
         display: none; align-items: center; justify-content: center; z-index: 10000;
     }
     .trade-modal {
-        background: linear-gradient(145deg, #1e293b 0%, #0f172a 100%);
-        border: 1px solid rgba(255, 215, 0, 0.3); border-radius: 20px;
-        width: 100%; max-width: 450px; padding: 2rem;
-        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5), 0 0 30px rgba(217, 119, 6, 0.2);
-        animation: modalSlide 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+        background: linear-gradient(145deg,#1c2333,#0d1117); border: 1px solid rgba(240,183,47,0.3);
+        border-radius: 20px; width: 100%; max-width: 440px; padding: 2rem;
+        box-shadow: 0 25px 50px rgba(0,0,0,0.5); animation: modalSlide 0.3s ease;
     }
     @keyframes modalSlide { from { transform: translateY(30px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-    .tm-header { border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 1rem; margin-bottom: 1.5rem; text-align: center; }
-    .tm-title { font-size: 1.25rem; font-weight: 900; color: var(--gold); letter-spacing: 2px; }
-    .tm-body { display: flex; flex-direction: column; gap: 0.75rem; margin-bottom: 2rem; }
-    .tm-row { display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 0; }
-    .tm-label { color: #94a3b8; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px; }
-    .tm-value { color: #f8fafc; font-family: 'JetBrains Mono'; font-weight: 700; font-size: 1rem; }
-    .tm-risk-box { background: rgba(239, 68, 68, 0.1); border-left: 4px solid #ef4444; padding: 1rem; border-radius: 8px; margin-top: 1rem; display: none; }
-    .tm-risk-text { color: #fca5a5; font-size: 0.75rem; font-weight: 600; line-height: 1.4; }
+    .tm-header { border-bottom: 1px solid var(--border); padding-bottom: 1rem; margin-bottom: 1.5rem; text-align: center; }
+    .tm-title  { font-size: 1.2rem; font-weight: 900; color: var(--gold); letter-spacing: 2px; }
+    .tm-body   { display: flex; flex-direction: column; gap: 0.7rem; margin-bottom: 2rem; }
+    .tm-row    { display: flex; justify-content: space-between; align-items: center; padding: 0.45rem 0; }
+    .tm-label  { color: var(--text-lo); font-size: 0.78rem; text-transform: uppercase; letter-spacing: 1px; }
+    .tm-value  { color: var(--text-hi); font-family: 'JetBrains Mono'; font-weight: 700; }
+    .tm-risk-box { background: rgba(248,81,73,0.08); border-left: 4px solid var(--red); padding: 0.9rem; border-radius: 8px; margin-top: 1rem; display: none; }
+    .tm-risk-text { color: #fca5a5; font-size: 0.72rem; font-weight: 600; line-height: 1.4; }
     .tm-footer { display: flex; gap: 1rem; }
-    .btn-tm-confirm { flex: 2; background: var(--gold); color: #000; border: none; padding: 1rem; border-radius: 12px; font-weight: 900; transition: all 0.2s; }
-    .btn-tm-confirm:hover { background: var(--gold-light); transform: translateY(-2px); box-shadow: 0 5px 15px rgba(217,119,6,0.4); }
-    .btn-tm-cancel { flex: 1; background: rgba(255,255,255,0.05); color: #94a3b8; border: 1px solid rgba(255,255,255,0.1); padding: 1rem; border-radius: 12px; font-weight: 600; }
-    .tm-badge { padding: 4px 12px; border-radius: 6px; font-size: 0.7rem; font-weight: 900; }
-    /* ══ FLASH NEWS (MAX VISIBILITY) ══ */
-    .news-ticker-container {
-        background: #000;
-        height: 45px;
-        display: flex;
-        align-items: center;
-        border-bottom: 2px solid #b45309;
-    }
-    .news-label {
-        background: #f97316; /* Brighter Orange */
-        color: #fff;
-        font-size: 0.85rem;
-        font-weight: 900;
-        padding: 0 15px;
-        height: 100%;
-        display: flex;
-        align-items: center;
-        white-space: nowrap;
-        letter-spacing: 1px;
-    }
-    #news-flash-box {
-        flex-grow: 1;
-        color: #ffffff; /* Pure White */
-        font-size: 1.1rem;
-        font-weight: 800;
-        padding-left: 20px;
-        transition: opacity 0.5s ease-in-out;
-        font-family: 'Outfit', sans-serif;
-    }
-    .news-fade-out { opacity: 0; }
-    .news-fade-in { opacity: 1; }
+    .btn-tm-confirm { flex: 2; background: var(--gold); color: #000; border: none; padding: 0.9rem; border-radius: 12px; font-weight: 900; cursor: pointer; transition: all 0.2s; }
+    .btn-tm-confirm:hover { background: var(--gold-light); transform: translateY(-1px); }
+    .btn-tm-cancel { flex: 1; background: rgba(255,255,255,0.05); color: var(--text-lo); border: 1px solid var(--border); padding: 0.9rem; border-radius: 12px; font-weight: 600; cursor: pointer; }
+    .tm-badge { padding: 4px 12px; border-radius: 6px; font-size: 0.68rem; font-weight: 900; }
+
+    /* ══ Animations ══ */
+    .animate-pulse { animation: pulse 2s infinite ease-in-out; }
+    @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.6; } }
+    @keyframes blink { 0%,100% { opacity:1; } 50% { opacity:0.3; } }
+
+    /* ══ Misc ══ */
+    .signal-badge { font-size: 0.72rem; font-weight: 800; padding: 4px 12px; border-radius: 6px; }
 
     /* ══ Responsive ══ */
-    @media (max-width: 991px) {
-        .sidebar-col { order: 2; }
-        .chart-col { order: 1; }
+    @media (max-width: 767px) {
+        .gcc-header h1 { font-size: 1.1rem; }
+        .price-value { font-size: 2.2rem; }
+        #positions-list-body tr {
+            display: flex; flex-direction: column;
+            border-bottom: 2px solid var(--border) !important; padding: 10px !important;
+        }
+        #positions-list-body td {
+            border: none; padding: 4px 0 !important;
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        #positions-list-body td:before { content: attr(data-label); font-weight: 700; font-size: 0.78rem; color: var(--text-lo); text-transform: uppercase; }
+        .bg-dark.text-white-50 { display: none; }
     }
+
+    /* ══ FONT SCALE — ขนาดตัวอักษรที่อ่านง่ายขึ้น ══ */
+    .gcc-header h1                          { font-size: 1.3rem; }
+    .gcc-subtitle                           { font-size: 0.82rem; }
+    .g-card-header                          { font-size: 0.82rem; padding: 0.5rem 0.9rem; }
+    .matrix-label                           { font-size: 0.8rem; }
+    .matrix-btn                             { font-size: 0.8rem; padding: 4px 16px; }
+    .t-tab                                  { font-size: 0.8rem; padding: 8px 4px; }
+    .t-row                                  { font-size: 0.92rem; }
+    .t-label                                { font-size: 0.85rem; }
+    .t-value                                { font-size: 0.9rem; }
+    .sizer-label                            { font-size: 0.8rem; }
+    .sizer-value                            { font-size: 2rem; }
+    .signal-status                          { font-size: 1.1rem; }
+    .signal-message                         { font-size: 0.84rem; }
+    .status-pill, .s-pill                   { font-size: 0.76rem; padding: 4px 12px; }
+    .btn-execute-buy, .btn-execute-sell     { font-size: 1.05rem; padding: 16px; }
+    .message-feed                           { font-size: 0.84rem; }
+    .log-box                                { font-size: 0.82rem; }
+    .pos-table                              { font-size: 0.88rem; }
+    .pos-table thead th                     { font-size: 0.74rem; }
+    .signal-badge                           { font-size: 0.84rem; }
+    .tactical-signal-badge                  { font-size: 0.88rem; }
+    .bot-indicator                          { font-size: 0.84rem; }
+    .btn-stop-bot                           { font-size: 0.76rem; }
+    .price-symbol                           { font-size: 0.8rem; }
+    .price-time                             { font-size: 0.76rem; }
+    .price-value                            { font-size: 2.8rem; }
+    .price-chg                              { font-size: 1.05rem; }
+    .news-label                             { font-size: 0.85rem; }
+    #news-flash-box                         { font-size: 1.05rem; }
 </style>
 {% endblock %}
 
@@ -455,7 +441,7 @@
 
 <!-- ══ FLASH NEWS ══ -->
 <div class="news-ticker-container">
-    <div class="news-label"><i class="fas fa-broadcast-tower me-1"></i> LIVE NEWS</div>
+    <div class="news-label"><i class="fas fa-broadcast-tower me-1"></i> LIVE</div>
     <div id="news-flash-box" class="news-fade-in">Loading market news...</div>
 </div>
 
@@ -487,36 +473,279 @@
     </div>
 </div>
 
-<div class="container-fluid px-3 py-3">
-<div class="row g-3">
+<!-- ══════ MAIN 3-COLUMN GRID ══════ -->
+<div class="gcc-grid">
 
-    <!-- ══════ LEFT SIDEBAR ══════ -->
-    <div class="col-12 col-lg-4 col-xl-3 sidebar-col d-flex flex-column gap-3">
+    <!-- ════ LEFT PANEL: Signals & Sentiment ════ -->
+    <div class="gcc-left">
 
-        <!-- STRATEGIC SIGNAL MATRIX -->
+        <!-- ORDER EXECUTION -->
         <div class="g-card g-card-dark">
             <div class="g-card-header">
-                <i class="fas fa-satellite-dish text-info"></i> STRATEGIC SIGNAL MATRIX
+                <i class="fas fa-bolt" style="color:var(--gold)"></i> ORDER EXECUTION
+            </div>
+            <div class="p-3 d-flex flex-column gap-2">
+                <div class="d-flex gap-2">
+                    <button class="btn-execute-buy flex-grow-1" onclick="executeTrade('BUY')">
+                        <i class="fas fa-arrow-trend-up me-2"></i> BUY
+                    </button>
+                    <button class="btn-execute-sell flex-grow-1" onclick="executeTrade('SELL')">
+                        <i class="fas fa-arrow-trend-down me-2"></i> SELL
+                    </button>
+                </div>
+                <button class="btn btn-sm w-100 fw-bold" onclick="closeAllPositions()"
+                    style="background:transparent;border:1px solid rgba(248,81,73,0.35);color:rgba(248,81,73,0.8);border-radius:8px;padding:8px;font-size:0.78rem;cursor:pointer;">
+                    <i class="fas fa-times-circle me-1"></i> CLOSE ALL POSITIONS
+                </button>
+            </div>
+        </div>
+
+        <!-- POSITION SIZER -->
+        <div class="g-card g-card-dark">
+            <div class="g-card-header">
+                <i class="fas fa-calculator" style="color:var(--text-lo)"></i> POSITION SIZER
+            </div>
+            <div class="p-3">
+                <!-- Tactical Decision Center -->
+                <div id="decision-center" class="decision-panel wait d-flex align-items-center">
+                    <div class="pulse-ring" id="signal-pulse"></div>
+                    <div class="signal-icon" id="signal-main-icon"><i class="fas fa-satellite-dish" style="color:var(--text-lo)"></i></div>
+                    <div class="flex-grow-1">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <div style="font-size:0.58rem;color:var(--text-lo);text-transform:uppercase;letter-spacing:1px;margin-bottom:2px;">Decision Support</div>
+                                <div class="signal-status" id="signal-main-text">SCANNING...</div>
+                                <div class="signal-message" id="signal-main-subtext">Monitoring breakout levels.</div>
+                            </div>
+                            <span class="badge" id="active-strategy-badge" style="background:rgba(255,255,255,0.05);border:1px solid var(--border);font-size:0.58rem;padding:3px 8px;">
+                                MODE: <span id="display-strategy">SNIPER</span>
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row g-2 mt-1">
+                    <div class="col-6">
+                        <label class="matrix-label d-block mb-1">CAPITAL ($)</label>
+                        <input type="number" id="capital-input" class="form-control form-control-sm fw-bold text-center" value="{{ capital|floatformat:2 }}"
+                            style="background:var(--bg-input);color:var(--text-hi);border-color:var(--border);">
+                    </div>
+                    <div class="col-6">
+                        <label class="matrix-label d-block mb-1">RISK (%)</label>
+                        <input type="number" id="risk-pct" class="form-control form-control-sm fw-bold text-center" value="1"
+                            style="background:var(--bg-input);color:var(--text-hi);border-color:var(--border);">
+                    </div>
+                </div>
+
+                <div class="sizer-suggested">
+                    <div class="sizer-label">SUGGESTED SIZE</div>
+                    <div class="sizer-value" id="tac-suggest-size">0.00 Lots</div>
+                </div>
+
+                <div class="mt-2">
+                    <label class="matrix-label d-block mb-1">MANUAL OVERRIDE (LOTS)</label>
+                    <input type="number" id="manual-lot-input" class="form-control form-control-sm fw-bold text-center"
+                        placeholder="Leave empty for suggested" step="0.01"
+                        style="background:rgba(240,183,47,0.05);color:var(--gold);border-color:rgba(240,183,47,0.3);">
+                    <div class="text-center mt-1" style="font-size:0.6rem;color:var(--text-lo);">*Max safety cap: 0.05 (Default)</div>
+                </div>
+
+                <div class="d-flex justify-content-between mt-2 pt-2" style="border-top:1px solid var(--border);">
+                    <div class="text-center flex-grow-1">
+                        <div class="matrix-label" style="font-size:0.58rem;">TREND (EMA200)</div>
+                        <div id="trend-status-display" class="fw-bold" style="font-size:0.8rem;color:var(--green);">BULLISH</div>
+                    </div>
+                    <div class="text-center flex-grow-1" style="border-left:1px solid var(--border);">
+                        <div class="matrix-label" style="font-size:0.58rem;">RSI (14)</div>
+                        <div id="rsi-display" class="fw-bold" style="font-size:0.8rem;color:var(--blue);">--</div>
+                    </div>
+                </div>
+
+                <div class="mt-3">
+                    <div style="font-size:0.6rem;font-weight:800;color:var(--text-lo);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">
+                        <i class="fas fa-comment-alt me-1"></i> SIGNAL FEED
+                    </div>
+                    <div id="signal-feed" class="message-feed">
+                        <div class="feed-entry"><span class="feed-time">[SYSTEM]</span> <span class="feed-msg">Initializing...</span></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- SIGNAL MATRIX -->
+        <div class="g-card g-card-dark" id="strategic-matrix-box">
+            <div class="g-card-header">
+                <i class="fas fa-satellite-dish" style="color:var(--blue)"></i> SIGNAL MATRIX
             </div>
             <div class="matrix-row">
-                <span class="matrix-label">ULTRA-SHORT (SNIPER)</span>
+                <span class="matrix-label">SNIPER (DC10)</span>
                 <span id="sig-sniper" class="matrix-btn wait">WAIT</span>
             </div>
             <div class="matrix-row">
-                <span class="matrix-label">SHORT (SCALPER)</span>
+                <span class="matrix-label">SCALPER (DC10)</span>
                 <span id="sig-short" class="matrix-btn wait">WAIT</span>
             </div>
             <div class="matrix-row">
-                <span class="matrix-label">MEDIUM (SWING)</span>
+                <span class="matrix-label">SWING (DC20)</span>
                 <span id="sig-medium" class="matrix-btn wait">WAIT</span>
             </div>
             <div class="matrix-row">
-                <span class="matrix-label">LONG (TURTLE)</span>
+                <span class="matrix-label">TURTLE (DC55)</span>
                 <span id="sig-long" class="matrix-btn wait">WAIT</span>
             </div>
         </div>
 
+        <!-- VOLUME CONFIRMATION -->
+        <div class="g-card g-card-dark" id="vol-confirm-card">
+            <div class="g-card-header">
+                <i class="fas fa-chart-bar" style="color:var(--gold)"></i> VOLUME BREAKOUT
+            </div>
+            <div class="p-3">
+                <div class="text-center mb-2">
+                    <span id="vol-status-badge" class="badge" style="font-size:0.75rem;padding:5px 14px;border-radius:8px;background:#1c2333;color:var(--text-lo);">กำลังโหลด...</span>
+                </div>
+                <div class="mb-2">
+                    <div class="d-flex justify-content-between mb-1" style="font-size:0.6rem;color:var(--text-lo);">
+                        <span>Volume ปัจจุบัน</span>
+                        <span id="vol-ratio-label">-- x เฉลี่ย</span>
+                    </div>
+                    <div style="background:#1c2333;border-radius:6px;height:8px;overflow:hidden;">
+                        <div id="vol-bar" style="height:100%;width:0%;border-radius:6px;background:#30363d;transition:width 0.6s,background 0.4s;"></div>
+                    </div>
+                    <div style="position:relative;height:6px;">
+                        <div style="position:absolute;left:66.6%;top:0;width:2px;height:6px;background:var(--gold);" title="1.5x threshold"></div>
+                        <span style="position:absolute;left:67%;top:-1px;font-size:0.5rem;color:var(--gold);">1.5x</span>
+                    </div>
+                </div>
+                <div class="d-flex justify-content-between" style="font-size:0.6rem;color:var(--text-lo);">
+                    <span>ปัจจุบัน: <span id="vol-current-num" style="color:var(--text-hi);font-weight:700;">-</span></span>
+                    <span>เฉลี่ย: <span id="vol-avg-num" style="color:var(--text-hi);font-weight:700;">-</span></span>
+                </div>
+                <div id="vol-explain" class="mt-2 p-2 rounded" style="background:rgba(255,255,255,0.03);font-size:0.67rem;color:var(--text-lo);line-height:1.5;border:1px solid var(--border);">รอข้อมูล...</div>
+                <div id="vol-signal-warn" class="d-none mt-2 p-2 rounded text-center" style="background:rgba(240,183,47,0.08);border:1px solid var(--gold);font-size:0.67rem;color:var(--gold);"></div>
+            </div>
+        </div>
 
+        <!-- MARKET SENTIMENT -->
+        <div class="g-card g-card-dark">
+            <div class="g-card-header">
+                <i class="fas fa-globe-americas" style="color:var(--blue)"></i> MARKET SENTIMENT
+            </div>
+            <div class="matrix-row">
+                <span class="matrix-label">DXY INDEX</span>
+                <span id="dxy-status" class="status-pill pill-standby">WAIT</span>
+            </div>
+            <div class="matrix-row">
+                <span class="matrix-label">MTF ALIGNMENT</span>
+                <div class="d-flex gap-1">
+                    <span id="pill-m15" class="badge rounded-1" style="width:32px;font-size:0.58rem;background:#1c2333;">M15</span>
+                    <span id="pill-h1"  class="badge rounded-1" style="width:32px;font-size:0.58rem;background:#1c2333;">H1</span>
+                    <span id="pill-h4"  class="badge rounded-1" style="width:32px;font-size:0.58rem;background:#1c2333;">H4</span>
+                    <span id="pill-d1"  class="badge rounded-1" style="width:32px;font-size:0.58rem;background:#1c2333;">D1</span>
+                </div>
+            </div>
+            <div class="p-3" style="background:rgba(0,0,0,0.2);border-top:1px solid var(--border);">
+                <div class="d-flex align-items-center mb-2">
+                    <i class="fas fa-robot me-2" style="color:var(--blue);font-size:0.75rem;"></i>
+                    <span style="font-size:0.62rem;font-weight:800;color:var(--blue);letter-spacing:1px;text-transform:uppercase;">AI STRATEGIST</span>
+                </div>
+                <div id="ai-sentiment-advice" style="font-size:0.78rem;color:var(--text-hi);line-height:1.55;font-family:'Outfit',sans-serif;">กำลังประมวลผล...</div>
+            </div>
+        </div>
+
+        <!-- ACTIVITY LOG -->
+        <div class="g-card g-card-dark">
+            <div class="g-card-header"><i class="fas fa-terminal" style="color:var(--text-lo)"></i> ACTIVITY LOG</div>
+            <div class="log-box" id="bot-logs"></div>
+        </div>
+
+    </div><!-- /LEFT PANEL -->
+
+    <!-- ════ CENTER PANEL: Charts + Positions ════ -->
+    <div class="gcc-center">
+
+        <!-- CHART CARD -->
+        <div class="chart-card" id="wrapper-to-fullscreen">
+            <div class="chart-toolbar">
+                <div class="d-flex align-items-center gap-3" style="font-size:0.8rem;font-weight:700;color:var(--text-hi);">
+                    <span style="color:var(--gold);font-weight:900;"><i class="fas fa-coins me-1"></i> XAU/USD</span>
+                    <span class="d-none d-sm-flex align-items-center gap-1">
+                        <span style="background:#3fb950;display:inline-block;width:10px;height:3px;border-radius:2px;"></span>
+                        <span style="color:var(--text-lo);font-size:0.7rem;">DC20</span>
+                    </span>
+                    <span class="d-none d-sm-flex align-items-center gap-1">
+                        <span style="background:#d97706;display:inline-block;width:10px;height:3px;border-radius:2px;"></span>
+                        <span style="color:var(--text-lo);font-size:0.7rem;">DC55</span>
+                    </span>
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                    <!-- Realtime refresh dot -->
+                    <span id="rt-dot" style="display:inline-flex;align-items:center;gap:4px;font-size:0.72rem;color:var(--green);">
+                        <span id="rt-blink" style="width:7px;height:7px;border-radius:50%;background:var(--green);display:inline-block;animation:pulse 1.5s infinite;"></span>
+                        <span id="rt-label">LIVE</span>
+                    </span>
+                    <div class="btn-group btn-group-sm">
+                        <button class="btn btn-outline-secondary btn-period" onclick="loadPeriod('1d')"    style="font-size:0.72rem;border-color:#f0b72f;color:#f0b72f;" title="Today — 5min candles">1D</button>
+                        <button class="btn btn-outline-secondary btn-period" onclick="loadPeriod('5d')"    style="font-size:0.72rem;border-color:var(--border);color:var(--text-lo);" title="5 Days — 15min candles">5D</button>
+                        <button class="btn btn-outline-secondary btn-period" onclick="loadPeriod('1mo_h')" style="font-size:0.72rem;border-color:var(--border);color:var(--text-lo);" title="1 Month — 1hr candles">1M</button>
+                        <button class="btn btn-outline-secondary btn-period active" onclick="loadPeriod('3mo')" style="font-size:0.72rem;border-color:var(--border);color:var(--text-lo);">3M</button>
+                        <button class="btn btn-outline-secondary btn-period" onclick="loadPeriod('6mo')" style="font-size:0.72rem;border-color:var(--border);color:var(--text-lo);">6M</button>
+                        <button class="btn btn-outline-secondary btn-period" onclick="loadPeriod('1y')"  style="font-size:0.72rem;border-color:var(--border);color:var(--text-lo);">1Y</button>
+                    </div>
+                </div>
+            </div>
+            <div class="position-relative">
+                <div style="position:absolute;top:8px;left:12px;font-size:10px;font-weight:900;color:#64748b;z-index:10;background:rgba(255,255,255,0.85);padding:2px 6px;border-radius:4px;pointer-events:none;">MAIN CHART</div>
+                <div id="chart-container"></div>
+            </div>
+            <div class="position-relative" style="border-top:1px solid #e8edf2;">
+                <div style="position:absolute;top:6px;left:12px;font-size:10px;font-weight:900;color:#6366f1;z-index:10;background:rgba(255,255,255,0.85);padding:2px 6px;border-radius:4px;pointer-events:none;">RSI (14)</div>
+                <div id="rsi-container"></div>
+            </div>
+            <div class="position-relative" style="border-top:1px solid #e8edf2;">
+                <div style="position:absolute;top:6px;left:12px;font-size:10px;font-weight:900;color:#8b5cf6;z-index:10;background:rgba(255,255,255,0.85);padding:2px 6px;border-radius:4px;pointer-events:none;">CCI (20)</div>
+                <div id="cci-container"></div>
+            </div>
+            <div class="position-relative" style="border-top:1px solid #e8edf2;">
+                <div style="position:absolute;top:6px;left:12px;font-size:10px;font-weight:900;color:var(--text-lo);z-index:10;background:rgba(255,255,255,0.85);padding:2px 6px;border-radius:4px;pointer-events:none;">VOLUME</div>
+                <div id="vol-container"></div>
+            </div>
+        </div>
+
+        <!-- LIVE POSITIONS (center panel, full width) -->
+        <div class="g-card g-card-dark" style="border-color:rgba(240,183,47,0.35);">
+            <div class="g-card-header d-flex justify-content-between align-items-center" style="padding:0.55rem 0.85rem;">
+                <span style="color:var(--gold);font-weight:900;font-size:0.68rem;text-transform:uppercase;letter-spacing:0.5px;">
+                    <i class="fas fa-satellite me-1"></i> LIVE POSITIONS
+                </span>
+                <div class="d-flex align-items-center gap-2">
+                    <span id="pos-count-badge" class="badge rounded-pill" style="background:rgba(240,183,47,0.15);color:var(--gold);border:1px solid rgba(240,183,47,0.3);font-size:0.62rem;">0</span>
+                    <span id="total-pl-display" style="font-family:'JetBrains Mono';font-size:1rem;font-weight:900;color:var(--green);">+0.00</span>
+                </div>
+            </div>
+            <div class="table-responsive" style="max-height:260px;overflow-y:auto;">
+                <table class="pos-table">
+                    <thead>
+                        <tr>
+                            <th class="ps-3">TYPE</th>
+                            <th>SIZE</th>
+                            <th>ENTRY</th>
+                            <th>TARGET</th>
+                            <th>STOP</th>
+                            <th class="text-end pe-3">P/L ($)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="positions-list-body">
+                        <tr><td colspan="6" class="text-center py-4" style="color:var(--text-lo);">No open positions</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </div><!-- /CENTER PANEL -->
+
+    <!-- ════ RIGHT PANEL: Controls & Trading ════ -->
+    <div class="gcc-right">
 
         <!-- PRICE & BOT STATUS -->
         <div class="price-panel">
@@ -526,389 +755,167 @@
             </div>
             <div class="d-flex align-items-baseline">
                 <span class="price-value" id="gold-price-display">----.-</span>
-                <span class="price-chg" id="gold-change-display" style="color:var(--text-muted);">+0.00%</span>
+                <span class="price-chg" id="gold-change-display" style="color:var(--text-lo);">+0.00%</span>
             </div>
-            
             <div class="bot-status-bar">
                 <div class="bot-indicator">
                     <div class="bot-dot" id="bot-status-lamp"></div>
-                    <span id="bot-status-text">SERVER BOT: ACTIVE</span>
+                    <span id="bot-status-text" style="font-size:0.7rem;">SERVER BOT: OFFLINE</span>
                 </div>
                 <button id="btn-stop-bot" class="btn-stop-bot">STOP</button>
-                <button id="btn-start-bot" class="btn-stop-bot d-none" style="border-color:#34d399;color:#34d399;">START</button>
+                <button id="btn-start-bot" class="btn-stop-bot d-none" style="border-color:var(--green);color:var(--green);">START</button>
             </div>
-
             <div id="tactical-signal" class="tactical-signal-badge">── NEUTRAL ──</div>
-
-            <button class="btn w-100 mt-3" onclick="executeTrade('BUY', false, 0.01)"
-                style="border: 2px dashed #0ea5e9; color: #38bdf8; background: rgba(14, 165, 233, 0.05); font-weight: 800; border-radius: 10px; font-size: 0.85rem; padding: 0.6rem;">
+            <button class="btn w-100 mt-2" onclick="executeTrade('BUY', false, 0.01)"
+                style="border:1px dashed rgba(88,166,255,0.4);color:var(--blue);background:rgba(88,166,255,0.04);font-weight:800;border-radius:8px;font-size:0.78rem;padding:0.5rem;">
                 <i class="fas fa-vial me-1"></i> TEST ORDER (0.01 Lot)
             </button>
         </div>
 
-        <!-- SMART PRICE ALERTS -->
-        <div class="alert-panel" id="alert-master-panel">
-            <div class="alert-active-bg" id="alert-visual-signal"></div>
-            <div class="d-flex justify-content-between align-items-center mb-3">
-                <span class="matrix-label"><i class="fas fa-bell me-1"></i> SMART ALERTS</span>
-                <div class="form-check form-switch m-0">
-                    <input class="form-check-input" type="checkbox" id="alert-master-toggle" style="cursor:pointer;" onchange="handleToggleChange()">
-                </div>
-            </div>
-            
-            <!-- Adjust High Target -->
-            <div class="mb-3">
-                <label class="matrix-label d-block mb-1 text-center" style="font-size: 0.6rem;">HIGH TARGET (TP)</label>
-                <div class="d-flex gap-1 align-items-center">
-                    <button class="btn btn-sm btn-dark flex-grow-0 px-2" onclick="adjustAlert('high', -10)">-10</button>
-                    <input type="number" id="alert-high" class="form-control form-control-sm alert-input flex-grow-1" placeholder="----.--" step="0.1">
-                    <button class="btn btn-sm btn-dark flex-grow-0 px-2" onclick="adjustAlert('high', 10)">+10</button>
-                </div>
-            </div>
-
-            <!-- Adjust Low Target -->
-            <div class="mb-3">
-                <label class="matrix-label d-block mb-1 text-center" style="font-size: 0.6rem;">LOW TARGET (SL)</label>
-                <div class="d-flex gap-1 align-items-center">
-                    <button class="btn btn-sm btn-dark flex-grow-0 px-2" onclick="adjustAlert('low', -10)">-10</button>
-                    <input type="number" id="alert-low" class="form-control form-control-sm alert-input flex-grow-1" placeholder="----.--" step="0.1">
-                    <button class="btn btn-sm btn-dark flex-grow-0 px-2" onclick="adjustAlert('low', 10)">+10</button>
-                </div>
-            </div>
-
-            <div class="d-flex justify-content-between align-items-center mt-2">
-                <div>
-                    <button class="btn btn-sm btn-outline-secondary btn-test-sound rounded-pill me-1" onclick="testAlertSound()">
-                        <i class="fas fa-volume-up me-1"></i> Test
-                    </button>
-                    <button class="btn btn-sm btn-outline-info btn-test-sound rounded-pill" onclick="syncAlertsToEntry()">
-                        <i class="fas fa-sync-alt me-1"></i> Sync ±20
-                    </button>
-                </div>
-                <span id="alert-status-text" class="text-muted" style="font-size: 0.65rem;">OFF</span>
-            </div>
-            
-            <div id="alert-sound-blocked" class="d-none mt-2 text-center">
-                <span class="badge bg-warning text-dark" style="font-size:0.65rem; padding: 4px 8px; cursor:pointer;" onclick="alertSound.play()">
-                    <i class="fas fa-volume-mute me-1"></i> SOUND BLOCKED — คลิกเพื่อเปิดเสียง
-                </span>
-            </div>
-
-            <div id="alert-trigger-msg" class="mt-3 d-none">
-                <div class="text-danger fw-bold text-center mb-2" style="font-size: 0.8rem; animation: blink 0.5s infinite;">
-                    <i class="fas fa-exclamation-triangle"></i> PRICE REACHED!
-                </div>
-                <button class="btn btn-danger w-100 fw-bold py-3 shadow-lg" onclick="silenceAlarm()" style="z-index: 9999; position: relative;">
-                    <i class="fas fa-volume-mute me-2"></i> STOP ALARM
-                </button>
-            </div>
-        </div>
-
-        <!-- MARKET SENTIMENT HUB -->
-        <div class="g-card">
-            <div class="g-card-header">
-                <i class="fas fa-globe-americas me-1 text-primary"></i> MARKET SENTIMENT
-            </div>
-            <div class="p-0">
-                <div class="matrix-row">
-                    <span class="matrix-label">DXY INDEX</span>
-                    <span id="dxy-status" class="status-pill pill-standby">WAIT</span>
-                </div>
-                
-                <!-- CONSOLIDATED MTF ROW -->
-                <div class="matrix-row">
-                    <span class="matrix-label">MTF ALIGNMENT</span>
-                    <div class="d-flex gap-1">
-                        <span id="pill-m15" class="badge rounded-1" style="width: 35px; font-size: 0.6rem; background: #334155;">M15</span>
-                        <span id="pill-h1"  class="badge rounded-1" style="width: 35px; font-size: 0.6rem; background: #334155;">H1</span>
-                        <span id="pill-h4"  class="badge rounded-1" style="width: 35px; font-size: 0.6rem; background: #334155;">H4</span>
-                        <span id="pill-d1"  class="badge rounded-1" style="width: 35px; font-size: 0.6rem; background: #334155;">D1</span>
-                    </div>
-                </div>
-                
-                <!-- AI ADVICE SECTION -->
-                <div class="p-3 mt-1" style="background: #0f172a; border-radius: 0 0 12px 12px; border-top: 2px solid rgba(56, 189, 248, 0.2);">
-                    <div class="d-flex align-items-center mb-2">
-                        <i class="fas fa-robot text-info me-2"></i>
-                        <div class="text-uppercase fw-bold text-info" style="font-size: 0.7rem; letter-spacing: 1.5px;">AI MARKET STRATEGIST</div>
-                    </div>
-                    <div id="ai-sentiment-advice" class="text-white fw-bold" style="font-size: 0.85rem; line-height: 1.5; font-family: 'Outfit', sans-serif;">
-                        กำลังประมวลผลข้อมูล...
-                    </div>
-                </div>
-            </div>
-        </div>
-
         <!-- TACTICAL LEVELS -->
-        <div class="g-card">
+        <div class="g-card g-card-dark">
             <div class="g-card-header">
-                <i class="fas fa-crosshairs text-danger"></i> TACTICAL LEVELS
+                <i class="fas fa-crosshairs" style="color:var(--red)"></i> TACTICAL LEVELS
             </div>
-            <div class="p-3 pb-0">
-                <div class="tactical-tabs mb-3">
+            <div class="p-2 pb-0">
+                <div class="tactical-tabs mb-2">
                     <button class="t-tab sniper" onclick="setStrategy('SNIPER')" id="btn-strat-sniper">SNIPER</button>
                     <button class="t-tab scalper active" onclick="setStrategy('SCALPER')" id="btn-strat-scalper">SCALPER</button>
                     <button class="t-tab swing" onclick="setStrategy('SWING')" id="btn-strat-swing">SWING</button>
                     <button class="t-tab turtle" onclick="setStrategy('TURTLE')" id="btn-strat-turtle">TURTLE</button>
                 </div>
-                <div class="text-center mb-3">
-                    <span id="strategy-label" class="badge" style="background:#fee2e2; color:#dc2626; font-weight: 800; font-size: 0.7rem; padding: 4px 12px; border-radius: 4px;">ULTRA-SHORT (SNIPER)</span>
+                <div class="text-center mb-2">
+                    <span id="strategy-label" class="badge" style="background:rgba(248,81,73,0.12);color:#f85149;font-weight:800;font-size:0.65rem;padding:3px 12px;border-radius:4px;border:1px solid rgba(248,81,73,0.3);">LEVERAGE 1:200 (SNIPER)</span>
                 </div>
             </div>
-            <div class="t-row"><span class="t-label">Breakout (Trigger)</span><span class="t-value text-danger" id="breakout-level-display">----.--</span></div>
-            <div class="t-row"><span class="t-label" id="label-tactical-tp">Target</span><span class="t-value text-success" id="tactical-tp">----.--</span></div>
-            <div class="t-row"><span class="t-label" id="label-tactical-sl">Stop Loss</span><span class="t-value text-danger" id="tactical-sl">----.--</span></div>
-            <div class="t-row"><span class="t-label">Volatility (ATR 20)</span><span class="t-value" style="color:#b45309" id="live-n-val">-.--</span></div>
+            <div class="t-row"><span class="t-label">Breakout (Trigger)</span><span class="t-value" style="color:var(--red)" id="breakout-level-display">----.-</span></div>
+            <div class="t-row"><span class="t-label" id="label-tactical-tp">Target (TP)</span><span class="t-value" style="color:var(--green)" id="tactical-tp">----.-</span></div>
+            <div class="t-row"><span class="t-label" id="label-tactical-sl">Stop Loss (SL)</span><span class="t-value" style="color:var(--red)" id="tactical-sl">----.-</span></div>
+            <div class="t-row"><span class="t-label">Volatility ATR(20)</span><span class="t-value" style="color:var(--gold)" id="live-n-val">-.--</span></div>
 
-            <!-- TACTICAL ADVISOR BOX (ENHANCED WITH PROXIMITY RADAR) -->
-            <div id="tactical-advisor-box" class="mt-3 p-3 rounded text-center" style="background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(255,255,255,0.1); transition: all 0.3s; position: relative; overflow: hidden;">
-                <div style="font-size: 0.6rem; color: #94a3b8; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 5px;">Tactical Advisor</div>
-                <div id="tactical-advisor-text" class="fw-bold" style="font-size: 1rem; color: #fff; letter-spacing: 1px;">Analyzing...</div>
-                <div id="tactical-advisor-sub" style="font-size: 0.65rem; color: #64748b; margin-bottom: 12px;">Ready for execution</div>
-                
-                <!-- PROXIMITY RADAR (ENHANCED CONTRAST) -->
-                <div id="prox-radar-container" class="mt-3 p-2" style="display:none; background: rgba(0,0,0,0.4); border-radius: 12px; border: 1px solid rgba(255,255,255,0.05);">
-                    <div class="d-flex justify-content-between mb-2" style="font-size: 0.75rem; font-weight: 900; letter-spacing: 0.5px;">
-                        <span style="color: #38bdf8;">DISTANCE TO BREAKOUT</span>
-                        <span id="prox-radar-pts" style="color: #fbbf24; text-shadow: 0 0 5px rgba(251, 191, 36, 0.4);">0.00 PTS</span>
+            <!-- TACTICAL ADVISOR -->
+            <div id="tactical-advisor-box" class="m-2 p-3 rounded text-center" style="transition:all 0.3s;position:relative;overflow:hidden;">
+                <div style="font-size:0.55rem;color:var(--text-lo);text-transform:uppercase;letter-spacing:2px;margin-bottom:4px;">Tactical Advisor</div>
+                <div id="tactical-advisor-text" class="fw-bold" style="font-size:0.95rem;color:var(--text-hi);letter-spacing:0.5px;">Analyzing...</div>
+                <div id="tactical-advisor-sub" style="font-size:0.62rem;color:var(--text-lo);margin-bottom:10px;">Ready for execution</div>
+                <div id="prox-radar-container" class="mt-2 p-2" style="display:none;background:rgba(0,0,0,0.3);border-radius:10px;border:1px solid var(--border);">
+                    <div class="d-flex justify-content-between mb-2" style="font-size:0.68rem;font-weight:900;">
+                        <span style="color:var(--blue);">DISTANCE TO BREAKOUT</span>
+                        <span id="prox-radar-pts" style="color:var(--gold);">0.00 PTS</span>
                     </div>
-                    <div class="progress" style="height: 10px; background: rgba(255,255,255,0.1); border-radius: 10px; overflow: visible;">
-                        <div id="prox-radar-bar" class="progress-bar progress-bar-striped progress-bar-animated" 
-                             style="width: 0%; border-radius: 10px; background: #fbbf24; box-shadow: 0 0 15px rgba(251, 191, 36, 0.4);"></div>
+                    <div class="progress" style="height:8px;background:rgba(255,255,255,0.08);border-radius:8px;overflow:visible;">
+                        <div id="prox-radar-bar" class="progress-bar progress-bar-striped progress-bar-animated"
+                             style="width:0%;border-radius:8px;background:var(--gold);"></div>
                     </div>
-                <!-- WAIT CONDITION CHECKLIST -->
-                <div id="wait-checklist" class="mt-3 text-start" style="display:none; font-size: 0.9rem; background: #f8fafc; padding: 14px; border-radius: 8px; border: 1px solid #e2e8f0; color: #1e293b; box-shadow: inset 0 1px 2px rgba(0,0,0,0.05);">
-                    <div style="font-size: 0.65rem; color: #64748b; text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 10px; border-bottom: 1px solid #e2e8f0; padding-bottom: 6px; font-weight: 800;">Entry Conditions</div>
-                    <div class="mb-2 d-flex justify-content-between align-items-center">
-                        <span style="color: #475569;"><i id="cond-price-icon" class="fas fa-circle-notch fa-spin me-2 text-muted"></i> Price Trigger</span>
-                        <span id="cond-price-val" class="fw-bold" style="font-size: 1rem;">...</span>
-                    </div>
-                    <div class="mb-2 d-flex justify-content-between align-items-center">
-                        <span style="color: #475569;"><i id="cond-trend-icon" class="fas fa-circle-notch fa-spin me-2 text-muted"></i> Trend Filter</span>
-                        <span id="cond-trend-val" class="fw-bold" style="font-size: 1rem;">...</span>
-                    </div>
-
-                    <div class="mb-0 d-flex justify-content-between align-items-center">
-                        <span style="color: #475569;"><i id="cond-mom-icon" class="fas fa-circle-notch fa-spin me-2 text-muted"></i> Momentum (RSI)</span>
-                        <span id="cond-mom-val" class="fw-bold" style="font-size: 1rem;">...</span>
+                    <div id="wait-checklist" class="mt-2 text-start" style="display:none;font-size:0.8rem;background:#f8fafc;padding:12px;border-radius:8px;border:1px solid #e2e8f0;color:#1e293b;">
+                        <div style="font-size:0.6rem;color:#64748b;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;border-bottom:1px solid #e2e8f0;padding-bottom:4px;font-weight:800;">Entry Conditions</div>
+                        <div class="mb-2 d-flex justify-content-between align-items-center">
+                            <span><i id="cond-price-icon" class="fas fa-circle-notch fa-spin me-2 text-muted"></i> Price Trigger</span>
+                            <span id="cond-price-val" class="fw-bold">...</span>
+                        </div>
+                        <div class="mb-2 d-flex justify-content-between align-items-center">
+                            <span><i id="cond-trend-icon" class="fas fa-circle-notch fa-spin me-2 text-muted"></i> Trend Filter</span>
+                            <span id="cond-trend-val" class="fw-bold">...</span>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span><i id="cond-mom-icon" class="fas fa-circle-notch fa-spin me-2 text-muted"></i> Momentum (RSI)</span>
+                            <span id="cond-mom-val" class="fw-bold">...</span>
+                        </div>
                     </div>
                 </div>
             </div>
-            
-            <div id="tactical-exit-advice" style="font-size: 0.7rem; color: #64748b; font-style: italic; margin-top: 10px; padding-top: 8px; border-top: 1px dashed rgba(0,0,0,0.05); text-align: center;">
+            <div id="tactical-exit-advice" style="font-size:0.65rem;color:var(--text-lo);font-style:italic;padding:8px 12px;border-top:1px dashed var(--border);text-align:center;">
                 Loading strategy advice...
             </div>
         </div>
 
-        <!-- POSITION SIZER -->
-        <div class="g-card">
-            <div class="g-card-header">
-                <i class="fas fa-calculator text-muted"></i> POSITION SIZER
+        <!-- SMART ALERTS -->
+        <div class="alert-panel" id="alert-master-panel">
+            <div class="alert-active-bg" id="alert-visual-signal"></div>
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <span class="matrix-label"><i class="fas fa-bell me-1" style="color:var(--gold)"></i> SMART ALERTS</span>
+                <div class="d-flex align-items-center gap-2">
+                    <span id="alert-status-text" style="font-size:0.6rem;color:var(--text-lo);">OFF</span>
+                    <div class="form-check form-switch m-0">
+                        <input class="form-check-input" type="checkbox" id="alert-master-toggle" style="cursor:pointer;" onchange="handleToggleChange()">
+                    </div>
+                </div>
             </div>
-            <div class="p-3">
-                <!-- Tactical Decision Center (Manual Trade Support) -->
-                <div id="decision-center" class="decision-panel wait d-flex align-items-center">
-                    <div class="pulse-ring" id="signal-pulse"></div>
-                    <div class="signal-icon" id="signal-main-icon">
-                        <i class="fas fa-satellite-dish"></i>
-                    </div>
-                    <div class="flex-grow-1">
-                        <div class="d-flex justify-content-between align-items-start">
-                            <div>
-                                <div class="text-uppercase small fw-bold text-muted mb-1">Tactical Decision Support</div>
-                                <div class="signal-status" id="signal-main-text">SCANNING...</div>
-                                <div class="signal-message" id="signal-main-subtext">Monitoring market volatility and breakout levels.</div>
-                            </div>
-                            <div class="text-end">
-                                <span class="badge bg-dark border border-secondary px-3 py-2" id="active-strategy-badge">
-                                    MODE: <span id="display-strategy">SNIPER</span>
-                                </span>
-                            </div>
-                        </div>
-                    </div>
+            <div class="mb-2">
+                <label class="matrix-label d-block mb-1" style="font-size:0.58rem;text-align:center;">HIGH TARGET (TP)</label>
+                <div class="d-flex gap-1 align-items-center">
+                    <button class="btn btn-sm px-2" onclick="adjustAlert('high',-10)" style="background:rgba(255,255,255,0.05);color:var(--text-lo);border:1px solid var(--border);border-radius:6px;font-size:0.7rem;">-10</button>
+                    <input type="number" id="alert-high" class="alert-input flex-grow-1" placeholder="----.--" step="0.1">
+                    <button class="btn btn-sm px-2" onclick="adjustAlert('high',10)" style="background:rgba(255,255,255,0.05);color:var(--text-lo);border:1px solid var(--border);border-radius:6px;font-size:0.7rem;">+10</button>
                 </div>
-
-                <div class="row g-2">
-                    <div class="col-6">
-                        <label class="matrix-label d-block mb-1">CAPITAL ($)</label>
-                        <input type="number" id="capital-input" class="form-control fw-bold text-center" value="{{ capital|floatformat:2 }}" style="font-size:0.9rem;">
-                    </div>
-                    <div class="col-6">
-                        <label class="matrix-label d-block mb-1">RISK (%)</label>
-                        <input type="number" id="risk-pct" class="form-control fw-bold text-center" value="1" style="font-size:0.9rem;">
-                    </div>
+            </div>
+            <div class="mb-2">
+                <label class="matrix-label d-block mb-1" style="font-size:0.58rem;text-align:center;">LOW TARGET (SL)</label>
+                <div class="d-flex gap-1 align-items-center">
+                    <button class="btn btn-sm px-2" onclick="adjustAlert('low',-10)" style="background:rgba(255,255,255,0.05);color:var(--text-lo);border:1px solid var(--border);border-radius:6px;font-size:0.7rem;">-10</button>
+                    <input type="number" id="alert-low" class="alert-input flex-grow-1" placeholder="----.--" step="0.1">
+                    <button class="btn btn-sm px-2" onclick="adjustAlert('low',10)" style="background:rgba(255,255,255,0.05);color:var(--text-lo);border:1px solid var(--border);border-radius:6px;font-size:0.7rem;">+10</button>
                 </div>
-                
-                <div class="sizer-suggested">
-                    <div class="sizer-label">SUGGESTED SIZE</div>
-                    <div class="sizer-value" id="tac-suggest-size">0.00 Lots</div>
+            </div>
+            <div class="d-flex gap-2">
+                <button class="btn btn-sm rounded-pill flex-grow-1 btn-test-sound" onclick="testAlertSound()" style="border:1px solid var(--border);font-size:0.62rem;">
+                    <i class="fas fa-volume-up me-1"></i> Test
+                </button>
+                <button class="btn btn-sm rounded-pill flex-grow-1 btn-test-sound" onclick="syncAlertsToEntry()" style="border:1px solid rgba(88,166,255,0.3);color:var(--blue);font-size:0.62rem;">
+                    <i class="fas fa-sync-alt me-1"></i> Sync ±20
+                </button>
+            </div>
+            <div id="alert-sound-blocked" class="d-none mt-2 text-center">
+                <span class="badge" style="background:rgba(240,183,47,0.15);color:var(--gold);border:1px solid rgba(240,183,47,0.3);font-size:0.62rem;padding:4px 8px;cursor:pointer;" onclick="alertSound.play()">
+                    <i class="fas fa-volume-mute me-1"></i> SOUND BLOCKED — คลิกเพื่อเปิดเสียง
+                </span>
+            </div>
+            <div id="alert-trigger-msg" class="mt-2 d-none">
+                <div class="text-danger fw-bold text-center mb-2" style="font-size:0.78rem;animation:blink 0.5s infinite;">
+                    <i class="fas fa-exclamation-triangle"></i> PRICE REACHED!
                 </div>
-
-                <div class="mt-3">
-                    <label class="matrix-label d-block mb-1">MANUAL OVERRIDE (LOTS)</label>
-                    <input type="number" id="manual-lot-input" class="form-control fw-bold text-center border-warning" placeholder="Leave empty for suggested" step="0.01" style="font-size:0.9rem; background: #fffbeb;">
-                    <div class="text-muted text-center mt-1" style="font-size:0.65rem;">*Max safety cap: 0.05 (Default)</div>
-                </div>
-
-                <div class="d-flex justify-content-between mt-3 pt-3 border-top">
-                    <div class="text-center flex-grow-1">
-                        <div class="matrix-label" style="font-size:0.6rem;">TREND (EMA200)</div>
-                        <div id="trend-status-display" class="fw-bold text-success" style="font-size:0.85rem;">BULLISH</div>
-                    </div>
-                    <div class="text-center flex-grow-1 border-start">
-                        <div class="matrix-label" style="font-size:0.6rem;">RSI(14)</div>
-                        <div id="rsi-display" class="fw-bold text-primary" style="font-size:0.85rem;">43.1</div>
-                    </div>
-                </div>
-
-                <div class="mt-4">
-                    <div class="text-uppercase small fw-bold text-muted mb-2"><i class="fas fa-comment-alt me-1"></i> AUTOMATED SIGNAL FEED</div>
-                    <div id="signal-feed" class="message-feed">
-                        <div class="feed-entry"><span class="feed-time">[SYSTEM]</span> <span class="feed-msg">Initializing Command Feed...</span></div>
-                    </div>
-                </div>
+                <button class="btn btn-danger w-100 fw-bold" onclick="silenceAlarm()" style="border-radius:8px;font-size:0.85rem;position:relative;z-index:9999;">
+                    <i class="fas fa-volume-mute me-2"></i> STOP ALARM
+                </button>
             </div>
         </div>
 
+    </div><!-- /RIGHT PANEL -->
 
-        <!-- ACTIVITY LOG -->
-        <div class="g-card">
-            <div class="g-card-header">
-                <i class="fas fa-terminal text-muted"></i> ACTIVITY LOG
-            </div>
-            <div class="log-box" id="bot-logs"></div>
-        </div>
-
-    </div><!-- /SIDEBAR -->
-
-    <!-- ══════ RIGHT: Chart + Buttons ══════ -->
-    <div class="col-12 col-lg-8 col-xl-9 chart-col d-flex flex-column gap-3">
-
-        <!-- 🚀 CONTROL CENTER: Positions + Execution (Grouped) -->
-        <div class="row g-3">
-            <!-- LIVE ACTIVE POSITIONS -->
-            <div class="col-12 col-xl-8">
-                <div class="g-card border-warning shadow-lg h-100" style="border-width: 2px;">
-                    <div class="g-card-header d-flex justify-content-between align-items-center py-3" style="background: #0f172a; color: #fff; border-bottom: 2px solid #1e293b;">
-                        <span class="fs-5 fw-900 text-warning"><i class="fas fa-satellite me-2"></i> LIVE ACTIVE POSITIONS</span>
-                        <div class="d-flex align-items-center gap-3">
-                            <span id="pos-count-badge" class="badge bg-warning text-dark fs-6 rounded-pill">0</span>
-                            <span class="text-muted small">TOTAL P/L:</span>
-                            <span id="total-pl-display" class="fs-4 fw-900" style="font-family:'JetBrains Mono';">+0.00</span>
-                        </div>
-                    </div>
-                    <div class="table-responsive" style="max-height: 250px; overflow-y: auto;">
-                        <table class="table table-hover mb-0" style="font-size: 1rem; background: #fff;">
-                            <thead class="bg-dark text-white-50" style="font-size: 0.65rem; text-transform: uppercase; letter-spacing: 1px;">
-                                <tr>
-                                    <th class="ps-3 py-2">TYPE</th>
-                                    <th class="py-2">SIZE</th>
-                                    <th class="py-2">ENTRY</th>
-                                    <th class="py-2">TARGET</th>
-                                    <th class="py-2">STOP</th>
-                                    <th class="py-2">EDIT</th>
-                                    <th class="text-end pe-3 py-2">P/L ($)</th>
-                                </tr>
-                            </thead>
-                            <tbody id="positions-list-body" class="fw-bold">
-                                <tr><td colspan="6" class="text-center py-5 text-muted fs-5">No open positions</td></tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Order Execution -->
-            <div class="col-12 col-xl-4">
-                <div class="g-card h-100">
-                    <div class="g-card-header"><i class="fas fa-bolt me-1 text-warning"></i> Order Execution</div>
-                    <div class="p-3 d-flex flex-column justify-content-center gap-3 h-100" style="min-height: 200px;">
-                        <div class="d-flex gap-2">
-                            <button class="btn-execute-buy flex-grow-1 py-3" onclick="executeTrade('BUY')">
-                                <i class="fas fa-arrow-trend-up me-2"></i> EXECUTE BUY
-                            </button>
-                            <button class="btn-execute-sell flex-grow-1 py-3" onclick="executeTrade('SELL')">
-                                <i class="fas fa-arrow-trend-down me-2"></i> EXECUTE SELL
-                            </button>
-                        </div>
-                        <button class="btn btn-outline-danger fw-bold rounded-pill w-100 py-3" onclick="closeAllPositions()" style="font-size:1rem;">
-                            <i class="fas fa-times-circle me-2"></i> CLOSE ALL POSITIONS
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div><!-- /CONTROL CENTER ROW -->
-
-        <!-- 🚀 CHART SECTION (Inside Right Col) -->
-        <div class="chart-card shadow-sm mt-3" id="wrapper-to-fullscreen">
-            <div class="chart-toolbar d-flex justify-content-between align-items-center flex-wrap gap-2">
-                <div class="d-flex align-items-center gap-3" style="font-size:.84rem;font-weight:700;">
-                    <span><i class="fas fa-chart-candlestick me-1 text-warning"></i> XAU/USD</span>
-                    <span class="d-none d-sm-inline">
-                        <span style="background:#16a34a;display:inline-block;width:10px;height:3px;border-radius:2px;vertical-align:middle;"></span>
-                        <span class="text-muted ms-1">DC20</span>
-                    </span>
-                    <span class="d-none d-sm-inline">
-                        <span style="background:#d97706;display:inline-block;width:10px;height:3px;border-radius:2px;vertical-align:middle;"></span>
-                        <span class="text-muted ms-1">DC55</span>
-                    </span>
-                </div>
-                <div class="btn-group btn-group-sm">
-                    <button class="btn btn-outline-secondary btn-period active" onclick="loadPeriod('3mo')">3M</button>
-                    <button class="btn btn-outline-secondary btn-period" onclick="loadPeriod('6mo')">6M</button>
-                    <button class="btn btn-outline-secondary btn-period" onclick="loadPeriod('1y')">1Y</button>
-                </div>
-            </div>
-            <div class="position-relative">
-                <div style="position:absolute; top:10px; left:15px; font-size:11px; font-weight:900; color:#64748b; z-index:10; background:rgba(255,255,255,0.7); padding:2px 6px; border-radius:4px; pointer-events:none;">MAIN CHART (Turtle)</div>
-                <div id="chart-container"></div>
-            </div>
-            <div class="position-relative" style="border-top:1px solid #f1f5f9;">
-                <div style="position:absolute; top:8px; left:15px; font-size:11px; font-weight:900; color:#6366f1; z-index:10; background:rgba(255,255,255,0.7); padding:2px 6px; border-radius:4px; pointer-events:none;">RSI (14)</div>
-                <div id="rsi-container"></div>
-            </div>
-            <div class="position-relative" style="border-top:1px solid #f1f5f9;">
-                <div style="position:absolute; top:8px; left:15px; font-size:11px; font-weight:900; color:#8b5cf6; z-index:10; background:rgba(255,255,255,0.7); padding:2px 6px; border-radius:4px; pointer-events:none;">CCI (20)</div>
-                <div id="cci-container"></div>
-            </div>
-            <div class="position-relative" style="border-top:1px solid #f1f5f9;">
-                <div id="vol-container"></div>
-            </div>
-        </div>
-
-    </div><!-- /RIGHT COL (BUTTONS/POSITIONS) -->
-</div><!-- /MAIN ROW -->
+</div><!-- /MAIN GRID -->
 
 
 
 <!-- ════════════════════════════════════════════════════════════════ -->
 <!-- 🚀 ABSOLUTE BOTTOM: TRADE HISTORY -->
 <!-- ════════════════════════════════════════════════════════════════ -->
-<div class="container-fluid px-3 mb-5">
+<div class="main-wrapper mt-4">
     <div class="row">
         <div class="col-12">
-            <div class="g-card shadow-sm">
-                <div class="g-card-header d-flex justify-content-between align-items-center py-3">
-                    <span class="fw-bold"><i class="fas fa-history text-muted me-2"></i> TRADE HISTORY (RECENT 24H)</span>
-                    <button class="btn btn-sm btn-outline-secondary rounded-pill px-3" onclick="updateTradeHistory()">
+            <div class="g-card">
+                <div class="g-card-header d-flex justify-content-between align-items-center" style="padding: 0.7rem 1rem;">
+                    <span style="color:var(--text-hi); font-weight: 800; font-size: 0.85rem;">
+                        <i class="fas fa-history me-2" style="color:var(--gold)"></i> TRADE HISTORY (RECENT 24H)
+                    </span>
+                    <button class="btn btn-sm rounded-pill px-3" onclick="updateTradeHistory()" style="font-size: 0.78rem; border: 1px solid var(--border); color: var(--text-hi); background: rgba(255,255,255,0.05);">
                         <i class="fas fa-sync-alt me-1"></i> Refresh History
                     </button>
                 </div>
                 <div class="table-responsive" style="max-height: 500px; overflow-y: auto;">
-                    <table class="table table-sm table-hover mb-0" style="font-size: 0.85rem;">
-                        <thead class="bg-light text-muted" style="font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.5px;">
+                    <table class="pos-table">
+                        <thead>
                             <tr>
-                                <th class="ps-4 py-3">DATE/TIME</th>
-                                <th class="py-3">STRATEGY</th>
-                                <th class="py-3">TYPE</th>
-                                <th class="py-3">LOTS</th>
-                                <th class="py-3">ENTRY</th>
-                                <th class="py-3">EXIT</th>
-                                <th class="text-end pe-4 py-3">P/L</th>
+                                <th class="ps-3">DATE/TIME</th>
+                                <th>STRATEGY</th>
+                                <th>TYPE</th>
+                                <th>LOTS</th>
+                                <th>ENTRY</th>
+                                <th>EXIT</th>
+                                <th class="text-end pe-3">STATUS / P/L</th>
                             </tr>
                         </thead>
                         <tbody id="trade-history-body">
-                            <tr><td colspan="7" class="text-center py-5 text-muted">No history data available for the last 24h</td></tr>
+                            <tr><td colspan="7" class="text-center py-5" style="background:var(--bg-card);color:var(--text-lo);">No history data available for the last 24h</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -1201,6 +1208,38 @@
                             const rsi = parseFloat(globalTactical.rsi) || 0;
                             const ema200 = parseFloat(globalTactical.ema200) || 0;
                             
+                            // ══ PROXIMITY RADAR LOGIC ══
+                            const radarCont = document.getElementById('prox-radar-container');
+                            const radarPts = document.getElementById('prox-radar-pts');
+                            const radarBar = document.getElementById('prox-radar-bar');
+                            const checklist = document.getElementById('wait-checklist');
+
+                            if (radarCont && radarPts && radarBar) {
+                                radarCont.style.display = 'block';
+                                const dist = Math.abs(breakoutPrice - lastPrice);
+                                radarPts.innerText = dist.toFixed(2) + ' PTS';
+                                
+                                // คำนวณความใกล้ (ใช้ 5.0 pts หรือ 2N เป็นเกณฑ์ 100%)
+                                const threshold = Math.max(5.0, n * 2);
+                                let proxPct = Math.max(0, 100 - (dist / threshold * 100));
+                                if (lastPrice > breakoutPrice) proxPct = 100; // ทะลุแล้ว
+
+                                radarBar.style.width = proxPct + '%';
+                                radarBar.style.background = proxPct > 85 ? 'var(--green)' : (proxPct > 50 ? 'var(--gold)' : 'var(--blue)');
+
+                                // ถ้าใกล้มาก (Strike Zone) ให้โชว์ Checklist
+                                if (proxPct > 60 || lastPrice > breakoutPrice) {
+                                    checklist.style.display = 'block';
+                                    if (proxPct > 85 && !priceOk) {
+                                        advisorText.innerText = 'STRIKE ZONE!';
+                                        advisorText.style.color = 'var(--gold)';
+                                        advisorSub.innerText = 'Price is approaching trigger level.';
+                                    }
+                                } else {
+                                    checklist.style.display = 'none';
+                                }
+                            }
+
                             // 1. Price Trigger
                             const priceOk = (lastPrice > breakoutPrice);
                             const pIcon = document.getElementById('cond-price-icon');
@@ -1636,6 +1675,7 @@
                     rEl.className = 'fw-bold ' + (data.tactical.rsi>70?'text-danger':data.tactical.rsi<30?'text-success':'text-primary');
                 }
 
+                if (data.tactical.volume) updateVolumeUI(data.tactical.volume);
                 updateTacticalUI();
                 calculateSize();
                 renderCharts(data);
@@ -1765,6 +1805,53 @@
         checkPriceAlerts(lastPrice);
     }
 
+    function updateVolumeUI(vol) {
+        const badge   = document.getElementById('vol-status-badge');
+        const ratioLbl= document.getElementById('vol-ratio-label');
+        const bar     = document.getElementById('vol-bar');
+        const curNum  = document.getElementById('vol-current-num');
+        const avgNum  = document.getElementById('vol-avg-num');
+        const explain = document.getElementById('vol-explain');
+        const warn    = document.getElementById('vol-signal-warn');
+
+        const fmtV = n => n >= 1000 ? (n/1000).toFixed(1)+'K' : (n||0).toString();
+        const avg = vol.avg_10 || 0;
+
+        if (curNum) curNum.innerText = fmtV(vol.current);
+        if (avgNum) avgNum.innerText = fmtV(avg);
+
+        if (!vol.reliable) {
+            if (badge)  { badge.innerText = '⚙️ Contract Roll'; badge.style.cssText = 'background:#1e293b;color:#64748b;border:1px solid #334155;font-size:0.75rem;padding:5px 14px;border-radius:8px;'; }
+            if (ratioLbl) ratioLbl.innerText = '-- x เฉลี่ย';
+            if (bar) { bar.style.width = '0%'; bar.style.background = '#30363d'; }
+            if (explain) explain.innerHTML = `<span style="color:#94a3b8">⚙️ <strong>Contract Roll</strong> — yfinance GC=F แสดง Volume Front Month เท่านั้น<br>ข้อมูลเก่ากว่า 30 วันมี Volume ต่ำมาก ทำให้เปรียบเทียบไม่ได้<br>Volume ปัจจุบัน (raw): <strong style="color:#fbbf24">${fmtV(vol.current)} contracts</strong><br>ยืนยัน Volume จริงที่ TradingView หรือ CME Group</span>`;
+            if (warn) warn.classList.add('d-none');
+            return;
+        }
+
+        const ratio = vol.ratio || 0;
+        if (ratioLbl) ratioLbl.innerText = ratio.toFixed(2) + 'x เฉลี่ย';
+        const barPct = Math.min((ratio / 3) * 100, 100);
+        if (bar) {
+            bar.style.width = barPct + '%';
+            bar.style.background = vol.confirmed ? '#3fb950' : vol.weak ? '#f0b72f' : '#f85149';
+        }
+
+        if (vol.confirmed) {
+            if (badge) { badge.innerText = '✅ Volume พุ่ง! ยืนยันแนวโน้ม'; badge.style.cssText = 'background:rgba(63,185,80,0.15);color:#3fb950;border:1px solid rgba(63,185,80,0.4);font-size:0.75rem;padding:5px 14px;border-radius:8px;'; }
+            if (explain) explain.innerHTML = `<span style="color:#3fb950">Volume <strong>${ratio.toFixed(2)}x</strong> สูงกว่าเฉลี่ย — สัญญาณแข็งแกร่ง</span>`;
+            if (warn) { warn.classList.remove('d-none'); warn.innerText = '✅ Volume ยืนยัน — เข้า Position ได้'; warn.style.color = '#3fb950'; }
+        } else if (vol.weak) {
+            if (badge) { badge.innerText = '⚠️ Volume ปานกลาง'; badge.style.cssText = 'background:rgba(240,183,47,0.15);color:#f0b72f;border:1px solid rgba(240,183,47,0.4);font-size:0.75rem;padding:5px 14px;border-radius:8px;'; }
+            if (explain) explain.innerHTML = `<span style="color:#f0b72f">Volume <strong>${ratio.toFixed(2)}x</strong> — ปานกลาง รอยืนยันเพิ่ม</span>`;
+            if (warn) warn.classList.add('d-none');
+        } else {
+            if (badge) { badge.innerText = '❌ Volume ต่ำ'; badge.style.cssText = 'background:rgba(248,81,73,0.12);color:#f85149;border:1px solid rgba(248,81,73,0.35);font-size:0.75rem;padding:5px 14px;border-radius:8px;'; }
+            if (explain) explain.innerHTML = `<span style="color:#f85149">Volume <strong>${ratio.toFixed(2)}x</strong> — ต่ำกว่าเฉลี่ย หลีกเลี่ยงการเข้า Position</span>`;
+            if (warn) warn.classList.add('d-none');
+        }
+    }
+
     function startAlertSound() {
         if (!alertSound) return;
         alertSound.muted = false;
@@ -1835,10 +1922,95 @@
     }
 
 
+    function destroyCharts() {
+        try { if (mainChart) { mainChart.remove(); } } catch(e) {}
+        try { if (rsiChart)  { rsiChart.remove();  } } catch(e) {}
+        try { if (cciChart)  { cciChart.remove();  } } catch(e) {}
+        try { if (volChart)  { volChart.remove();  } } catch(e) {}
+        // Clear container innerHTML so LightweightCharts starts clean
+        ['chart-container','rsi-container','cci-container','vol-container'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.innerHTML = '';
+        });
+        mainChart = rsiChart = cciChart = volChart = null;
+    }
+
     function loadPeriod(p) {
         currentPeriod = p;
-        document.querySelectorAll('.btn-period').forEach(b => b.classList.toggle('active', b.innerText.toLowerCase() === p));
+        // Properly destroy old charts before switching timeframe
+        destroyCharts();
+
+        // Highlight active button
+        const labelMap = {'1d':'1D','5d':'5D','1mo_h':'1M','3mo':'3M','6mo':'6M','1y':'1Y'};
+        document.querySelectorAll('.btn-period').forEach(b => {
+            b.classList.toggle('active', b.innerText.trim() === (labelMap[p] || p.toUpperCase()));
+        });
+
+        // Reset interval: intraday → 10s, daily → 20s
+        if (typeof _ivData !== 'undefined') clearInterval(_ivData);
+        _ivData = setInterval(loadData, ['1d','5d','1mo_h'].includes(p) ? 10000 : 20000);
+
+        // Update LIVE label
+        const rtLabel = document.getElementById('rt-label');
+        if (rtLabel) rtLabel.innerText = ['1d','5d','1mo_h'].includes(p) ? 'LIVE 10s' : 'LIVE 20s';
+
         loadData();
+    }
+
+    // ── Fast price tick (2s) — updates price display + last candle ──
+    function fetchPriceTick() {
+        fetch("{% url 'stocks:gold_price_tick' %}")
+            .then(r => r.json())
+            .then(d => {
+                if (!d.ok || !d.price) return;
+                const p = d.price;
+                lastPrice = p;
+
+                // Update price displays
+                const priceEl = document.getElementById('gold-price-display');
+                const mPriceEl = document.getElementById('m-price');
+                if (priceEl) priceEl.innerText = p.toFixed(2);
+                if (mPriceEl) mPriceEl.innerText = p.toFixed(2);
+
+                const chgPct = d.change_pct || 0;
+                const chgStr = (chgPct >= 0 ? '+' : '') + chgPct.toFixed(2) + '%';
+                const chgColor = chgPct >= 0 ? 'var(--green)' : 'var(--red)';
+                const chgEl = document.getElementById('gold-change-display');
+                if (chgEl) { chgEl.innerText = chgStr; chgEl.style.color = chgColor; }
+                const mChgEl = document.getElementById('m-chg');
+                if (mChgEl) { mChgEl.innerText = chgStr; mChgEl.className = chgPct >= 0 ? 'text-success' : 'text-danger'; }
+
+                // Update last candle on chart in real-time
+                if (mainChart && mainChart.candleSeries) {
+                    const now = new Date();
+                    // Intraday: round down to current bar's minute
+                    let barTime;
+                    if (['1d','5d','1mo_h'].includes(currentPeriod)) {
+                        const intervalMin = currentPeriod === '1d' ? 5 : currentPeriod === '5d' ? 15 : 60;
+                        const ms = Math.floor(now.getTime() / (intervalMin * 60000)) * (intervalMin * 60000);
+                        barTime = Math.floor(ms / 1000);
+                    } else {
+                        barTime = now.toISOString().slice(0, 10);
+                    }
+                    try {
+                        mainChart.candleSeries.update({
+                            time: barTime,
+                            open:  p,
+                            high:  p,
+                            low:   p,
+                            close: p
+                        });
+                    } catch(e) { /* safe ignore — chart may not be ready */ }
+                }
+
+                // Blink indicator
+                const dot = document.getElementById('rt-blink');
+                if (dot) { dot.style.background = '#fff'; setTimeout(() => { dot.style.background = 'var(--green)'; }, 200); }
+
+                document.getElementById('last-update-time').innerText = 'Updated: ' + now.toTimeString().slice(0,8);
+                checkPriceAlerts(p);
+            })
+            .catch(() => {});
     }
 
     function toggleFullscreen() {
@@ -1973,22 +2145,28 @@
                 body.innerHTML = data.history.map(h => {
                     const isProfit = h.pl >= 0;
                     const isClosed = h.status === 'CLOSED';
-                    const dateStr = h.created_at.split(' ')[0].split('-').slice(1).join('/'); // MM/DD
+                    const dateStr = h.created_at.split(' ')[0].split('-').slice(1).join('/'); 
                     const timeStr = h.created_at.split(' ')[1].slice(0,5);
-                    return `<tr>
-                        <td class="ps-3 text-muted" style="font-size:0.7rem;">${dateStr} ${timeStr}</td>
-                        <td class="fw-bold text-info" style="font-size:0.7rem;">${h.strategy}</td>
-                        <td><span class="badge ${h.type==='BUY'?'bg-success':'bg-danger'}" style="font-size:0.6rem;">${h.type}</span></td>
-                        <td>${h.volume}</td>
-                        <td>${h.entry.toFixed(2)}</td>
-                        <td>${h.exit ? h.exit.toFixed(2) : '-'}</td>
-                        <td class="text-end pe-3 fw-bold ${isClosed ? (isProfit?'text-success':'text-danger') : 'text-muted'}">
-                            ${isClosed ? (isProfit?'+':'' ) + h.pl.toFixed(2) : h.status}
+                    const statusText = isClosed ? (h.reason ? `DONE (${h.reason})` : 'DONE') : 'LIVE';
+                    const statusClass = isClosed ? 'wait' : 'bull'; // wait=gray, bull=green
+
+                    return `<tr style="border-bottom: 1px solid var(--border);">
+                        <td class="ps-3" style="font-size:0.65rem; color: var(--text-lo);">${dateStr} ${timeStr}</td>
+                        <td class="fw-bold" style="font-size:0.65rem; color: var(--blue);">${h.strategy}</td>
+                        <td><span class="badge ${h.type==='BUY'?'bg-success':'bg-danger'}" style="font-size:0.55rem; padding: 2px 6px;">${h.type}</span></td>
+                        <td style="font-family: 'JetBrains Mono'; font-size: 0.75rem;">${h.volume}</td>
+                        <td style="font-family: 'JetBrains Mono'; font-size: 0.75rem;">${h.entry.toFixed(2)}</td>
+                        <td style="font-family: 'JetBrains Mono'; font-size: 0.75rem; color: var(--text-lo);">${h.exit ? h.exit.toFixed(2) : '-'}</td>
+                        <td class="text-end pe-3">
+                            <span class="s-pill ${statusClass}" style="font-size: 0.55rem;">${statusText}</span>
+                            <span class="ms-2 fw-bold ${isClosed ? (isProfit?'text-success':'text-danger') : 'text-muted'}" style="font-family: 'JetBrains Mono'; font-size: 0.75rem;">
+                                ${isClosed ? (isProfit?'+':'' ) + h.pl.toFixed(2) : ''}
+                            </span>
                         </td>
                     </tr>`;
                 }).join('');
             }
-        } catch(e) {}
+        } catch(e) { console.error("History Error:", e); }
     }
 
     function buildDynamicHeadlines() {
@@ -2115,10 +2293,15 @@
         fetchPositions();
         updateTradeHistory();
         initFlashNews();
-        const _ivData = setInterval(loadData, 5000);
+        // Fast price tick every 2s — lightweight, no chart reload
+        const _ivTick = setInterval(fetchPriceTick, 2000);
+        // Full chart data: 10s for intraday, 20s for daily
+        const _getDataInterval = () => (['1d','5d','1mo_h'].includes(currentPeriod) ? 10000 : 20000);
+        let _ivData = setInterval(loadData, _getDataInterval());
         const _ivPos  = setInterval(fetchPositions, 5000);
-        const _ivHist = setInterval(updateTradeHistory, 10000);
+        const _ivHist = setInterval(updateTradeHistory, 15000);
         window.addEventListener('beforeunload', () => {
+            clearInterval(_ivTick);
             clearInterval(_ivData);
             clearInterval(_ivPos);
             clearInterval(_ivHist);

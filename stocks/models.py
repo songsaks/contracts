@@ -809,6 +809,7 @@ class TradeOrder(models.Model):
     
     # เชื่อมโยงกับกลยุทธ์
     strategy    = models.CharField(max_length=50, blank=True, help_text="e.g. Turtle S1, Precision DZ")
+    exit_reason = models.CharField(max_length=100, blank=True, null=True, help_text="TP, SL, Manual, etc.")
     comment     = models.TextField(blank=True, help_text="บันทึกเพิ่มเติมจาก Robot หรือ AI")
     created_at  = models.DateTimeField(auto_now_add=True)
 

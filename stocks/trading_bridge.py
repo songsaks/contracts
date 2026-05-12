@@ -263,6 +263,97 @@ class RobotBridge:
         except:
             return []
 
+    def sync_trade_status(self):
+        """
+        ตรวจสอบและอัปเดตสถานะ TradeOrder ใน DB ให้ตรงกับ Broker
+        และดึงค่า Exit Price / P/L จริงมาจากประวัติการเทรด (Deals)
+        """
+        if self.broker_type != BrokerType.META_API:
+            return 0
+            
+        # 1. ดึงออเดอร์ที่ยัง OPEN หรือ CLOSED แต่ยังไม่มีข้อมูล Exit
+        orders_to_sync = TradeOrder.objects.filter(
+            user=self.user, 
+            account=self.account
+        ).filter(
+            models.Q(status=TradeOrder.OrderStatus.OPEN) | 
+            models.Q(status=TradeOrder.OrderStatus.CLOSED, exit_price__isnull=True) |
+            models.Q(status=TradeOrder.OrderStatus.CLOSED, exit_price=0)
+        )[:50] # จำกัดจำนวนเพื่อไม่ให้กระทบ Performance
+        
+        if not orders_to_sync.exists():
+            return 0
+            
+        # ดึงรายการ Position ที่ยังเปิดอยู่จริง
+        live_positions = self.get_open_positions()
+        live_ids = [str(p.get('id')) for p in live_positions]
+        
+        token = self.account.api_key.strip()
+        account_id = self.account.account_id
+        
+        # ค้นหา Region สำหรับดึงประวัติ
+        try:
+            info_url = f"https://mt-provisioning-api-v1.agiliumtrade.ai/users/current/accounts/{account_id}"
+            info_res = requests.get(info_url, headers={"auth-token": token}, timeout=5)
+            region = info_res.json().get('region', 'new-york') if info_res.status_code == 200 else 'new-york'
+        except:
+            region = "new-york"
+
+        updated_count = 0
+        for order in orders_to_sync:
+            is_closed = False
+            
+            # 2. ตรวจสอบสถานะ: ถ้าเคย OPEN แต่ไม่อยู่ใน Live List แล้ว แสดงว่าปิดไปแล้ว
+            if order.status == TradeOrder.OrderStatus.OPEN:
+                if order.order_id and str(order.order_id) not in live_ids:
+                    order.status = TradeOrder.OrderStatus.CLOSED
+                    order.closed_at = timezone.now()
+                    is_closed = True
+            else:
+                # ถ้าเป็น CLOSED อยู่แล้ว แต่มาหาข้อมูลเพิ่ม
+                is_closed = True
+            
+            # 3. ถ้าปิดแล้ว (หรือกำลังมาซ่อมข้อมูล) ให้ดึงข้อมูลจาก History Deals API
+            if is_closed and order.order_id:
+                try:
+                    history_url = f"https://mt-client-api-v1.{region}.agiliumtrade.ai/users/current/accounts/{account_id}/history-deals/by-position/{order.order_id}"
+                    h_res = requests.get(history_url, headers={"auth-token": token}, timeout=5)
+                    
+                    if h_res.status_code == 200:
+                        deals = h_res.json()
+                        # กรองเอาเฉพาะ deal ที่เป็นขาออก (out)
+                        exit_deal = next((d for d in deals if d.get('entry') == 'out' or d.get('type') in ['deal-sell-out', 'deal-buy-out']), None)
+                        
+                        if not exit_deal and len(deals) > 1:
+                            exit_deal = deals[-1]
+                            
+                        if exit_deal:
+                            order.exit_price = exit_deal.get('price')
+                            order.profit_loss = exit_deal.get('profit', 0) + exit_deal.get('commission', 0) + exit_deal.get('swap', 0)
+                            
+                            # 4. ระบุเหตุผลการปิด (TP, SL, Manual)
+                            reason_code = exit_deal.get('reason', '').lower()
+                            if 'sl' in reason_code:
+                                order.exit_reason = 'STOP LOSS'
+                            elif 'tp' in reason_code:
+                                order.exit_reason = 'TAKE PROFIT'
+                            elif 'expert' in reason_code:
+                                order.exit_reason = 'ROBOT'
+                            elif 'client' in reason_code:
+                                order.exit_reason = 'MANUAL'
+                            else:
+                                order.exit_reason = reason_code.upper() or 'CLOSED'
+                                
+                            if not order.closed_at:
+                                order.closed_at = timezone.now()
+                except Exception as e:
+                    print(f"Sync History Error for {order.order_id}: {e}")
+
+            order.save()
+            updated_count += 1
+                
+        return updated_count
+
     def close_all_positions(self):
         """
         สั่งปิดออเดอร์ทั้งหมดในพอร์ตทันที (Panic Button)
