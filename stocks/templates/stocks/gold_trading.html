@@ -729,6 +729,10 @@
                         <button class="btn btn-outline-secondary btn-period" onclick="loadPeriod('6mo')" style="font-size:0.72rem;border-color:var(--border);color:var(--text-lo);">6M</button>
                         <button class="btn btn-outline-secondary btn-period" onclick="loadPeriod('1y')"  style="font-size:0.72rem;border-color:var(--border);color:var(--text-lo);">1Y</button>
                     </div>
+                    <button id="btn-fib" onclick="toggleFib()" title="Fibonacci Retracement"
+                        style="font-size:0.72rem;font-weight:800;padding:2px 10px;border-radius:5px;border:1px solid rgba(212,175,55,0.4);color:#b8860b;background:transparent;transition:all 0.2s;letter-spacing:0.5px;">
+                        φ FIB
+                    </button>
                 </div>
             </div>
             <div class="position-relative">
@@ -1027,6 +1031,9 @@
     let _histRange = '7d';
     let _globalBreakout = 0;
     let _pullbackFired = false;
+    let _fibEnabled = localStorage.getItem('fib_on') === '1';
+    let _fibLines = [];       // active priceLine refs
+    let _fibCandles = [];     // last candle set for recalc
 
     function addFeedMessage(msg, isSignal = false) {
         const feed = document.getElementById('signal-feed');
@@ -1213,6 +1220,8 @@
             _pullbackFired = false;
             const pbDisp = document.getElementById('pb-breakout-disp');
             if (pbDisp && _globalBreakout) pbDisp.textContent = _globalBreakout.toFixed(2);
+            // Redraw Fib when strategy levels update
+            if (_fibEnabled && _fibCandles.length > 0) drawFib(_fibCandles);
 
             // Suicide Zone Detection (Price vs SL Safety)
             let isRiskZone = false;
@@ -1648,7 +1657,9 @@
                 
                 try {
                     mainChart.candleSeries.setData(cleanCandles);
-                    
+                    _fibCandles = cleanCandles;
+                    if (_fibEnabled) drawFib(cleanCandles);
+
                     if (data.dc20_upper) mainChart.dc20u.setData(cleanData(data.dc20_upper));
                     if (data.dc20_lower) mainChart.dc20l.setData(cleanData(data.dc20_lower));
                     if (data.dc55_upper) mainChart.dc55u.setData(cleanData(data.dc55_upper));
@@ -2403,6 +2414,124 @@
         row.style.display = row.style.display === 'none' ? 'table-row' : 'none';
     }
 
+    // ══════════════════════════════════════════════════════
+    // FIBONACCI RETRACEMENT ENGINE
+    // ══════════════════════════════════════════════════════
+    const FIB_LEVELS = [
+        { ratio: 0,     label: '0%',     color: '#94a3b8', width: 1, style: 2 },
+        { ratio: 0.236, label: '23.6%',  color: '#64748b', width: 1, style: 2 },
+        { ratio: 0.382, label: '38.2%',  color: '#3b82f6', width: 1, style: 1 },
+        { ratio: 0.5,   label: '50.0%',  color: '#f59e0b', width: 2, style: 1 },
+        { ratio: 0.618, label: '61.8% ★',color: '#f0b72f', width: 2, style: 0 }, // Golden Ratio
+        { ratio: 0.786, label: '78.6%',  color: '#ef4444', width: 1, style: 1 },
+        { ratio: 1,     label: '100%',   color: '#94a3b8', width: 1, style: 2 },
+    ];
+
+    function _findSwing(candles, lookback) {
+        const slice = candles.slice(-lookback);
+        let swingHigh = -Infinity, swingLow = Infinity;
+        slice.forEach(c => {
+            if (c.high > swingHigh) swingHigh = c.high;
+            if (c.low  < swingLow)  swingLow  = c.low;
+        });
+        return { swingHigh, swingLow };
+    }
+
+    function drawFib(candles) {
+        if (!mainChart || !mainChart.candleSeries || !candles || candles.length < 10) return;
+
+        _fibLines.forEach(l => { try { mainChart.candleSeries.removePriceLine(l); } catch(e) {} });
+        _fibLines = [];
+
+        // ── Priority 1: Use SNIPER/tactical SL & Target as anchors (most relevant) ──
+        const tacSL  = parseFloat(document.getElementById('tactical-sl')?.innerText) || 0;
+        const tacTP  = parseFloat(document.getElementById('tactical-tp')?.innerText) || 0;
+        const brkout = _globalBreakout || 0;
+        const lastClose = candles[candles.length - 1].close;
+
+        let swingLow, swingHigh, mode;
+
+        if (tacSL > 0 && tacTP > 0 && Math.abs(tacTP - tacSL) > 10) {
+            // Trade-specific Fib: SL → Target
+            // Align so Fib 38.2% ≈ Breakout level (entry confirmation zone)
+            swingLow  = tacSL;
+            swingHigh = tacTP;
+            mode = 'TRADE';
+        } else {
+            // Fallback: auto swing from chart data
+            const lookback = Math.min(candles.length, currentPeriod === '1d' ? 40 : currentPeriod === '5d' ? 60 : 80);
+            ({ swingHigh, swingLow } = _findSwing(candles, lookback));
+            mode = 'AUTO';
+        }
+
+        const range = swingHigh - swingLow;
+        if (range <= 0) return;
+
+        // In TRADE mode: always draw retracement from High→Low (pullback levels)
+        // In AUTO mode: detect trend direction
+        const isRetracement = mode === 'TRADE' || lastClose < swingHigh - (range * 0.1);
+
+        FIB_LEVELS.forEach(fib => {
+            const price = isRetracement
+                ? swingHigh - (range * fib.ratio)
+                : swingLow  + (range * fib.ratio);
+            const isGolden  = fib.ratio === 0.618;
+            const isHalf    = fib.ratio === 0.5;
+            const isBrkout  = brkout > 0 && Math.abs(price - brkout) < (range * 0.03);
+
+            const line = mainChart.candleSeries.createPriceLine({
+                price,
+                color:            isBrkout ? '#22c55e' : fib.color,
+                lineWidth:        isBrkout ? 2 : fib.width,
+                lineStyle:        fib.style,
+                axisLabelVisible: true,
+                title: `Fib ${fib.label}  ${price.toFixed(2)}${isBrkout ? ' ← Breakout' : isGolden ? ' ★' : ''}`,
+            });
+            _fibLines.push(line);
+        });
+
+        const g618 = swingHigh - (range * 0.618);
+        const g382 = swingHigh - (range * 0.382);
+        addFeedMessage(
+            `φ FIB [${mode}]: ${swingLow.toFixed(2)} → ${swingHigh.toFixed(2)} | 38.2%=${g382.toFixed(2)} | 61.8%=${g618.toFixed(2)}`
+        );
+
+        // Alert if price is near a key Fib level (±0.5% of range)
+        const alertLevels = [
+            { r: 0.382, name: '38.2%' },
+            { r: 0.5,   name: '50.0%' },
+            { r: 0.618, name: '61.8% ★' },
+        ];
+        alertLevels.forEach(({ r, name }) => {
+            const lvl = swingHigh - (range * r);
+            if (Math.abs(lastClose - lvl) < (range * 0.005)) {
+                addFeedMessage(`🔔 ราคาแตะ Fib ${name} ที่ ${lvl.toFixed(2)} — จุดสำคัญ!`, true);
+            }
+        });
+    }
+
+    function clearFib() {
+        _fibLines.forEach(l => { try { mainChart.candleSeries.removePriceLine(l); } catch(e) {} });
+        _fibLines = [];
+    }
+
+    function toggleFib() {
+        _fibEnabled = !_fibEnabled;
+        localStorage.setItem('fib_on', _fibEnabled ? '1' : '0');
+        const btn = document.getElementById('btn-fib');
+        if (_fibEnabled) {
+            btn.style.background = 'rgba(212,175,55,0.2)';
+            btn.style.borderColor = '#d4af37';
+            btn.style.color = '#d4af37';
+            drawFib(_fibCandles);
+        } else {
+            btn.style.background = 'transparent';
+            btn.style.borderColor = 'rgba(212,175,55,0.4)';
+            btn.style.color = '#b8860b';
+            clearFib();
+        }
+    }
+
     function buildDynamicHeadlines() {
         if (!globalTactical || !lastPrice) return null;
         const now = new Date().toLocaleTimeString('th-TH', {hour:'2-digit', minute:'2-digit'});
@@ -2527,6 +2656,12 @@
         const pbThresh = document.getElementById('pullback-threshold');
         if (pbToggle) pbToggle.checked = localStorage.getItem('pb_alert_on') === '1';
         if (pbThresh && localStorage.getItem('pb_threshold')) pbThresh.value = localStorage.getItem('pb_threshold');
+
+        // Restore Fibonacci button state
+        if (_fibEnabled) {
+            const btn = document.getElementById('btn-fib');
+            if (btn) { btn.style.background='rgba(212,175,55,0.2)'; btn.style.borderColor='#d4af37'; btn.style.color='#d4af37'; }
+        }
 
         setStrategy('SNIPER');
         loadData();
