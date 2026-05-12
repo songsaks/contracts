@@ -333,10 +333,15 @@ class RobotBridge:
                             exit_p    = exit_deal.get('price', 0)
                             gross_p   = float(exit_deal.get('profit', 0))
                             order.exit_price = exit_deal.get('price')
-                            order.commission = abs(float(exit_deal.get('commission', 0)))
-                            order.swap = abs(float(exit_deal.get('swap', 0)))
+                            comm_val = float(exit_deal.get('commission', 0))
+                            swap_val = float(exit_deal.get('swap', 0))
+                            
+                            order.commission = abs(comm_val)
+                            order.swap = swap_val
                             order.gross_pl = float(exit_deal.get('profit', 0))
-                            order.profit_loss = order.gross_pl - order.commission - order.swap
+                            
+                            # Net P/L = Gross - Commission + Swap (บวกตามเครื่องหมายจริง: ลบคือจ่าย, บวกคือได้กำไร)
+                            order.profit_loss = order.gross_pl - order.commission + swap_val
                             
                             # คำนวณ Pips (Gold: 1 point = 0.01)
                             if order.entry_price and order.exit_price:
