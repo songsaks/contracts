@@ -733,6 +733,10 @@
                         style="font-size:0.72rem;font-weight:800;padding:2px 10px;border-radius:5px;border:1px solid rgba(212,175,55,0.4);color:#b8860b;background:transparent;transition:all 0.2s;letter-spacing:0.5px;">
                         φ FIB
                     </button>
+                    <button id="btn-smc" onclick="toggleSMC()" title="Smart Money Concepts — Order Blocks &amp; FVG"
+                        style="font-size:0.72rem;font-weight:800;padding:2px 10px;border-radius:5px;border:1px solid rgba(99,102,241,0.4);color:#6366f1;background:transparent;transition:all 0.2s;letter-spacing:0.5px;">
+                        ⚡ SMC
+                    </button>
                 </div>
             </div>
             <div class="position-relative">
@@ -1034,6 +1038,8 @@
     let _fibEnabled = localStorage.getItem('fib_on') === '1';
     let _fibLines = [];       // active priceLine refs
     let _fibCandles = [];     // last candle set for recalc
+    let _smcEnabled = localStorage.getItem('smc_on') === '1';
+    let _smcLines = [];       // active SMC priceLine refs
 
     function addFeedMessage(msg, isSignal = false) {
         const feed = document.getElementById('signal-feed');
@@ -1659,6 +1665,7 @@
                     mainChart.candleSeries.setData(cleanCandles);
                     _fibCandles = cleanCandles;
                     if (_fibEnabled) drawFib(cleanCandles);
+                    if (_smcEnabled) drawSMC(cleanCandles);
 
                     if (data.dc20_upper) mainChart.dc20u.setData(cleanData(data.dc20_upper));
                     if (data.dc20_lower) mainChart.dc20l.setData(cleanData(data.dc20_lower));
@@ -2532,6 +2539,126 @@
         }
     }
 
+    // ══════════════════════════════════════════════════════════
+    //  SMC — Smart Money Concepts: Order Blocks + Fair Value Gap
+    // ══════════════════════════════════════════════════════════
+
+    function _calcATR(candles, len = 14) {
+        const trs = [];
+        for (let i = 1; i < candles.length; i++) {
+            trs.push(Math.max(
+                candles[i].high - candles[i].low,
+                Math.abs(candles[i].high - candles[i-1].close),
+                Math.abs(candles[i].low  - candles[i-1].close)
+            ));
+        }
+        const slice = trs.slice(-len);
+        return slice.reduce((a, b) => a + b, 0) / slice.length;
+    }
+
+    function detectOrderBlocks(candles) {
+        if (!candles || candles.length < 20) return [];
+        const atr = _calcATR(candles);
+        const minImpulse = atr * 1.5;
+        const obs = [];
+        for (let i = 2; i < candles.length - 4; i++) {
+            const c = candles[i];
+            const fwd = candles[i + 3].close - c.close;
+            if (Math.abs(fwd) < minImpulse) continue;
+            const isBearishCandle = c.close < c.open;
+            const isBullishCandle = c.close > c.open;
+            if (fwd > 0 && isBearishCandle) {
+                obs.push({ type: 'bull', high: c.high, low: c.low });
+            } else if (fwd < 0 && isBullishCandle) {
+                obs.push({ type: 'bear', high: c.high, low: c.low });
+            }
+        }
+        const last = candles[candles.length - 1].close;
+        const valid = obs.filter(ob =>
+            ob.type === 'bull' ? last > ob.low * 0.994 : last < ob.high * 1.006
+        );
+        const bulls = valid.filter(o => o.type === 'bull').slice(-3);
+        const bears = valid.filter(o => o.type === 'bear').slice(-3);
+        return [...bulls, ...bears];
+    }
+
+    function detectFVG(candles) {
+        if (!candles || candles.length < 5) return [];
+        const last = candles[candles.length - 1].close;
+        const fvgs = [];
+        for (let i = 0; i < candles.length - 2; i++) {
+            const c1 = candles[i], c3 = candles[i + 2];
+            if (c3.low > c1.high && last > c1.high * 0.997) {
+                fvgs.push({ type: 'bull', high: c3.low, low: c1.high });
+            } else if (c3.high < c1.low && last < c1.low * 1.003) {
+                fvgs.push({ type: 'bear', high: c1.low, low: c3.high });
+            }
+        }
+        return fvgs.slice(-6);
+    }
+
+    function drawSMC(candles) {
+        if (!mainChart || !mainChart.candleSeries || !candles || candles.length < 20) return;
+        clearSMC();
+
+        const obs  = detectOrderBlocks(candles);
+        const fvgs = detectFVG(candles);
+
+        obs.forEach(ob => {
+            const col   = ob.type === 'bull' ? '#22c55e' : '#ef4444';
+            const label = ob.type === 'bull' ? 'OB ▲' : 'OB ▼';
+            _smcLines.push(mainChart.candleSeries.createPriceLine({
+                price: ob.high, color: col, lineWidth: 2, lineStyle: 0,
+                axisLabelVisible: true, title: `${label} ${ob.high.toFixed(2)}`
+            }));
+            _smcLines.push(mainChart.candleSeries.createPriceLine({
+                price: ob.low, color: col, lineWidth: 1, lineStyle: 2,
+                axisLabelVisible: false, title: `${label} ${ob.low.toFixed(2)}`
+            }));
+        });
+
+        fvgs.forEach(fvg => {
+            const col   = fvg.type === 'bull' ? '#3b82f6' : '#f97316';
+            const label = fvg.type === 'bull' ? 'FVG ▲' : 'FVG ▼';
+            _smcLines.push(mainChart.candleSeries.createPriceLine({
+                price: fvg.high, color: col, lineWidth: 1, lineStyle: 1,
+                axisLabelVisible: true, title: `${label} ${fvg.high.toFixed(2)}`
+            }));
+            _smcLines.push(mainChart.candleSeries.createPriceLine({
+                price: fvg.low, color: col, lineWidth: 1, lineStyle: 1,
+                axisLabelVisible: false, title: `${label} ${fvg.low.toFixed(2)}`
+            }));
+        });
+
+        const obB = obs.filter(o => o.type==='bull').length;
+        const obBr= obs.filter(o => o.type==='bear').length;
+        const fvB = fvgs.filter(f => f.type==='bull').length;
+        const fvBr= fvgs.filter(f => f.type==='bear').length;
+        addFeedMessage(`⚡ SMC: OB ${obB}↑ ${obBr}↓  |  FVG ${fvB}↑ ${fvBr}↓`);
+    }
+
+    function clearSMC() {
+        _smcLines.forEach(l => { try { mainChart.candleSeries.removePriceLine(l); } catch(e) {} });
+        _smcLines = [];
+    }
+
+    function toggleSMC() {
+        _smcEnabled = !_smcEnabled;
+        localStorage.setItem('smc_on', _smcEnabled ? '1' : '0');
+        const btn = document.getElementById('btn-smc');
+        if (_smcEnabled) {
+            btn.style.background    = 'rgba(99,102,241,0.15)';
+            btn.style.borderColor   = '#6366f1';
+            btn.style.color         = '#6366f1';
+            drawSMC(_fibCandles);
+        } else {
+            btn.style.background    = 'transparent';
+            btn.style.borderColor   = 'rgba(99,102,241,0.4)';
+            btn.style.color         = '#6366f1';
+            clearSMC();
+        }
+    }
+
     function buildDynamicHeadlines() {
         if (!globalTactical || !lastPrice) return null;
         const now = new Date().toLocaleTimeString('th-TH', {hour:'2-digit', minute:'2-digit'});
@@ -2661,6 +2788,11 @@
         if (_fibEnabled) {
             const btn = document.getElementById('btn-fib');
             if (btn) { btn.style.background='rgba(212,175,55,0.2)'; btn.style.borderColor='#d4af37'; btn.style.color='#d4af37'; }
+        }
+        // Restore SMC button state
+        if (_smcEnabled) {
+            const btn = document.getElementById('btn-smc');
+            if (btn) { btn.style.background='rgba(99,102,241,0.15)'; btn.style.borderColor='#6366f1'; btn.style.color='#6366f1'; }
         }
 
         setStrategy('SNIPER');
