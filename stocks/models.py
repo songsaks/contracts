@@ -805,16 +805,16 @@ class TradeOrder(models.Model):
 
     # ── ผลลัพธ์ทางการเงิน ──────────────────────────────────────────
     exit_price    = models.DecimalField(max_digits=12, decimal_places=4, null=True, blank=True)
+    pips          = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     profit_loss   = models.DecimalField(max_digits=14, decimal_places=2, default=0, help_text="Net P/L หลังหักค่าธรรมเนียม")
     gross_pl      = models.DecimalField(max_digits=14, decimal_places=2, default=0, help_text="Gross P/L ก่อนหักค่าธรรมเนียม")
     commission    = models.DecimalField(max_digits=10, decimal_places=4, default=0, help_text="ค่านายหน้า Broker")
     swap          = models.DecimalField(max_digits=10, decimal_places=4, default=0, help_text="ค่า Swap / ดอกเบี้ยค้างคืน")
+    actual_rr     = models.DecimalField(max_digits=8,  decimal_places=3, default=0, help_text="R:R จริงที่ได้รับ")
 
     # ── สถิติการเทรด ────────────────────────────────────────────────
-    pips          = models.DecimalField(max_digits=10, decimal_places=2, default=0, help_text="จำนวน Pips/Points ที่ได้/เสีย")
     risk_usd      = models.DecimalField(max_digits=12, decimal_places=2, default=0, help_text="ความเสี่ยงเป็น USD ($)")
     risk_pct      = models.DecimalField(max_digits=6,  decimal_places=3, default=0, help_text="ความเสี่ยงเป็น % ของบัญชี")
-    actual_rr     = models.DecimalField(max_digits=8,  decimal_places=3, default=0, help_text="R:R จริงที่ได้รับ")
     duration_sec  = models.IntegerField(default=0, help_text="ระยะเวลา Hold (วินาที)")
 
     # ── กลยุทธ์และบันทึก ────────────────────────────────────────────

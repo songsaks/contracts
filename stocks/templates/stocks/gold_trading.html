@@ -878,6 +878,31 @@
                     <i class="fas fa-volume-mute me-2"></i> STOP ALARM
                 </button>
             </div>
+
+            <!-- Pullback Alert -->
+            <div style="margin-top:0.7rem; border-top:1px solid var(--border); padding-top:0.6rem;">
+                <div class="d-flex justify-content-between align-items-center mb-1">
+                    <span style="font-size:0.72rem; color:var(--text-hi); font-weight:700;">
+                        <i class="fas fa-arrow-down me-1" style="color:var(--gold);"></i> PULLBACK ALERT
+                    </span>
+                    <div class="d-flex align-items-center gap-2">
+                        <span id="pb-status" style="font-size:0.65rem; color:#94a3b8;">WATCHING</span>
+                        <div class="form-check form-switch mb-0" style="transform:scale(0.8); transform-origin:right;">
+                            <input class="form-check-input" type="checkbox" id="pullback-alert-toggle" style="cursor:pointer;">
+                        </div>
+                    </div>
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                    <span style="font-size:0.65rem; color:var(--text-lo); white-space:nowrap;">เตือนเมื่อห่าง ≤</span>
+                    <input type="number" id="pullback-threshold" value="15" min="1" max="100" step="1"
+                        style="width:55px; background:var(--bg-input); border:1px solid var(--border); border-radius:6px; color:var(--text-hi); font-size:0.75rem; padding:2px 6px; text-align:center;">
+                    <span style="font-size:0.65rem; color:var(--text-lo);">pts จาก Breakout</span>
+                </div>
+                <div style="font-size:0.65rem; color:var(--text-lo); margin-top:0.3rem;">
+                    Breakout: <span style="color:var(--gold); font-family:'JetBrains Mono';" id="pb-breakout-disp">—</span>
+                    &nbsp;|&nbsp; ห่าง: <span style="font-family:'JetBrains Mono';" id="pb-dist">—</span>
+                </div>
+            </div>
         </div>
 
     </div><!-- /RIGHT PANEL -->
@@ -918,23 +943,23 @@
                     <span style="color:var(--text-lo);">Wins: <strong id="hs-wins" style="color:#22c55e;">—</strong></span>
                     <span style="color:var(--text-lo);">Losses: <strong id="hs-loss" style="color:#ef4444;">—</strong></span>
                 </div>
-                <div class="table-responsive" style="max-height: 500px; overflow-y: auto;">
-                    <table class="pos-table" style="font-size:0.78rem; min-width:900px;">
+                <div class="table-responsive" style="max-height: 520px; overflow-y: auto;">
+                    <table class="pos-table" style="font-size:0.78rem; min-width:960px;">
                         <thead>
                             <tr>
                                 <th class="ps-3" style="white-space:nowrap;">OPENED</th>
-                                <th style="white-space:nowrap;">CLOSED</th>
-                                <th>STRATEGY</th>
+                                <th style="white-space:nowrap;">EXIT REASON</th>
                                 <th>TYPE</th>
                                 <th>LOTS</th>
                                 <th>ENTRY</th>
                                 <th>EXIT</th>
+                                <th style="color:#ef4444;">SL SET</th>
+                                <th title="Distance: exit price vs SL at close">DIST↔SL</th>
                                 <th>PIPS</th>
-                                <th>GROSS P/L</th>
                                 <th>COMM+SWAP</th>
                                 <th>NET P/L</th>
                                 <th>R:R</th>
-                                <th class="pe-3" style="white-space:nowrap;">DURATION</th>
+                                <th class="pe-3" style="white-space:nowrap;">CLOSED AT ▼</th>
                             </tr>
                         </thead>
                         <tbody id="trade-history-body">
@@ -960,6 +985,8 @@
     alertSound.loop = true;
     let isAlertRinging = false;
     let _histRange = '7d';
+    let _globalBreakout = 0;
+    let _pullbackFired = false;
 
     function addFeedMessage(msg, isSignal = false) {
         const feed = document.getElementById('signal-feed');
@@ -1141,6 +1168,11 @@
             if (breakoutEl) breakoutEl.innerText = isNaN(breakoutPrice) ? "----.--" : breakoutPrice.toFixed(2);
             if (tpEl) tpEl.innerText = isNaN(targetPrice) ? "----.--" : targetPrice.toFixed(2);
             if (slEl) slEl.innerText = isNaN(stopPrice) ? "----.--" : stopPrice.toFixed(2);
+            // Save globally for pullback alert
+            _globalBreakout = breakoutPrice || 0;
+            _pullbackFired = false;
+            const pbDisp = document.getElementById('pb-breakout-disp');
+            if (pbDisp && _globalBreakout) pbDisp.textContent = _globalBreakout.toFixed(2);
 
             // Suicide Zone Detection (Price vs SL Safety)
             let isRiskZone = false;
@@ -1784,10 +1816,45 @@
             triggerMsg.classList.remove('d-none');
             visualSignal.style.display = 'block';
         } else {
-            // Only stop if it's no longer triggered (prevents auto-restart if user adjusted target)
             if (isAlertRinging) stopAlertSound();
             triggerMsg.classList.add('d-none');
             visualSignal.style.display = 'none';
+        }
+
+        // ─── Pullback-to-Breakout Alert ───────────────────────────────
+        const pbToggle = document.getElementById('pullback-alert-toggle');
+        if (pbToggle && pbToggle.checked && _globalBreakout > 0) {
+            const threshold = parseFloat(document.getElementById('pullback-threshold').value) || 15;
+            const dist = price - _globalBreakout;   // positive = above breakout
+            const pbStatus = document.getElementById('pb-status');
+            const pbDist   = document.getElementById('pb-dist');
+
+            if (dist > 0 && dist <= threshold) {
+                // Price is above breakout but within alert zone
+                if (pbDist) pbDist.textContent = dist.toFixed(1) + ' pts';
+                if (pbStatus) { pbStatus.textContent = '🔔 NEAR'; pbStatus.style.color = '#f59e0b'; }
+                if (!_pullbackFired) {
+                    _pullbackFired = true;
+                    startAlertSound();
+                    addFeedMessage(`🔔 PULLBACK ALERT: ราคา ${price.toFixed(2)} ใกล้ Breakout ${_globalBreakout.toFixed(2)} — ห่างแค่ ${dist.toFixed(1)} pts!`, true);
+                    setTimeout(stopAlertSound, 4000); // เตือน 4 วิ แล้วหยุด
+                }
+            } else if (dist <= 0) {
+                // Price dropped below breakout
+                if (pbDist) pbDist.textContent = Math.abs(dist).toFixed(1) + ' pts BELOW';
+                if (pbStatus) { pbStatus.textContent = '⚠️ BELOW'; pbStatus.style.color = '#ef4444'; }
+                if (!_pullbackFired) {
+                    _pullbackFired = true;
+                    startAlertSound();
+                    addFeedMessage(`🚨 BREAKOUT LOST: ราคา ${price.toFixed(2)} หลุดต่ำกว่า Breakout ${_globalBreakout.toFixed(2)}!`, true);
+                    setTimeout(stopAlertSound, 4000);
+                }
+            } else {
+                // Far from breakout — reset
+                if (dist > threshold + 10) _pullbackFired = false;
+                if (pbDist) pbDist.textContent = dist.toFixed(1) + ' pts';
+                if (pbStatus) { pbStatus.textContent = 'WATCHING'; pbStatus.style.color = '#94a3b8'; }
+            }
         }
     }
 
@@ -2179,6 +2246,26 @@
         updateTradeHistory();
     }
 
+    function _exitReasonBadge(reason, exit, sl, type) {
+        // Detect close reason and return colored badge + distance-from-SL warning
+        const r = (reason || '').toUpperCase();
+        let label, color, bg;
+        if (r.includes('TP') || r.includes('TARGET') || r.includes('PROFIT'))    { label='TARGET HIT';  color='#22c55e'; bg='rgba(34,197,94,0.15)'; }
+        else if (r.includes('SL') || r.includes('STOP'))                          { label='STOP LOSS';   color='#ef4444'; bg='rgba(239,68,68,0.15)'; }
+        else if (r.includes('MARGIN') || r.includes('SO') || r.includes('OUT'))   { label='STOP-OUT';    color='#dc2626'; bg='rgba(220,38,38,0.25)'; }
+        else if (r.includes('MANUAL') || r.includes('CLIENT'))                    { label='MANUAL';      color='#f59e0b'; bg='rgba(245,158,11,0.15)'; }
+        else if (r === '' || r === '-')                                            { label='UNKNOWN';     color='#94a3b8'; bg='rgba(148,163,184,0.1)'; }
+        else                                                                       { label=reason;        color='#94a3b8'; bg='rgba(148,163,184,0.1)'; }
+
+        // Distance from SL at close (only meaningful for non-SL closes)
+        let distWarn = '';
+        if (exit && sl && !r.includes('SL') && !r.includes('STOP')) {
+            const dist = type === 'BUY' ? (exit - sl) : (sl - exit);
+            if (dist > 0) distWarn = `<span style="font-size:0.62rem; color:#f59e0b; margin-left:4px;">SL±${dist.toFixed(1)}</span>`;
+        }
+        return `<span style="font-size:0.65rem; font-weight:700; padding:2px 7px; border-radius:4px; color:${color}; background:${bg};">${label}</span>${distWarn}`;
+    }
+
     async function updateTradeHistory() {
         const body = document.getElementById('trade-history-body');
         try {
@@ -2202,41 +2289,89 @@
                 return;
             }
 
-            body.innerHTML = data.history.map(h => {
+            body.innerHTML = data.history.map((h, idx) => {
                 const isProfit = h.pl >= 0;
                 const isClosed = h.status === 'CLOSED';
                 const typeColor = h.type === 'BUY' ? '#22c55e' : '#ef4444';
-                const plColor   = isClosed ? (isProfit ? '#22c55e' : '#ef4444') : 'var(--text-lo)';
+                const plColor   = isClosed ? (isProfit ? '#22c55e' : '#ef4444') : '#94a3b8';
                 const grossDisp = h.gross_pl !== 0 ? ((h.gross_pl >= 0 ? '+' : '') + h.gross_pl.toFixed(2)) : '—';
                 const feeDisp   = (h.commission + h.swap) !== 0 ? ('-' + Math.abs(h.commission + h.swap).toFixed(2)) : '—';
                 const plDisp    = isClosed ? ((isProfit ? '+' : '') + h.pl.toFixed(2)) : '—';
                 const rrDisp    = h.actual_rr ? h.actual_rr.toFixed(2) + 'R' : '—';
                 const pipsDisp  = h.pips ? (h.pips >= 0 ? '+' : '') + h.pips.toFixed(1) : '—';
                 const exitDisp  = h.exit ? h.exit.toFixed(2) : '—';
-                const statusPill = isClosed
-                    ? `<span class="s-pill wait" style="font-size:0.65rem;">${h.exit_reason || 'DONE'}</span>`
-                    : `<span class="s-pill bull" style="font-size:0.65rem;">LIVE</span>`;
+                const slDisp    = h.sl  ? h.sl.toFixed(2)   : '—';
+                const tpDisp    = h.tp  ? h.tp.toFixed(2)   : '—';
+                const reasonBadge = isClosed ? _exitReasonBadge(h.exit_reason, h.exit, h.sl, h.type) : `<span style="font-size:0.65rem;padding:2px 7px;border-radius:4px;color:#22c55e;background:rgba(34,197,94,0.15);">OPEN</span>`;
 
-                return `<tr style="border-bottom:1px solid var(--border);">
-                    <td class="ps-3" style="color:var(--text-lo); white-space:nowrap;">${h.opened_at}</td>
-                    <td style="color:var(--text-lo); white-space:nowrap;">${isClosed ? h.closed_at : statusPill}</td>
-                    <td style="color:var(--blue); font-weight:600;">${h.strategy}</td>
+                // Spread/anomaly alert: closed far from SL but NOT a TP/Manual close
+                const r = (h.exit_reason||'').toUpperCase();
+                const isSlClose = r.includes('SL')||r.includes('STOP');
+                const dist = h.exit && h.sl ? (h.type==='BUY' ? h.exit - h.sl : h.sl - h.exit) : null;
+                const anomaly = isClosed && isSlClose && dist !== null && dist > 5
+                    ? `<tr id="warn-${idx}" style="background:rgba(239,68,68,0.07); border-bottom:1px solid rgba(239,68,68,0.2);">
+                        <td colspan="13" style="padding:0.3rem 1rem; font-size:0.72rem; color:#f87171;">
+                          ⚠️ <strong>Premature Close Alert:</strong> ปิดที่ ${h.exit?.toFixed(2)} แต่ SL ตั้งไว้ที่ ${slDisp} (ห่าง ${dist.toFixed(1)} pts) — อาจเกิดจาก <strong>spread กว้าง, margin call หรือ broker intervention</strong>
+                          ${h.comment ? ` | Broker: <em style="color:#fbbf24">${h.comment}</em>` : ''}
+                        </td>
+                       </tr>`
+                    : '';
+
+                // Expandable detail row
+                const detailRow = `<tr id="detail-${idx}" style="display:none; background:rgba(255,255,255,0.02); border-bottom:1px solid var(--border);">
+                    <td colspan="13" style="padding:0.6rem 1.2rem;">
+                        <div style="display:grid; grid-template-columns:repeat(auto-fill,minmax(160px,1fr)); gap:0.5rem 1.5rem; font-size:0.73rem;">
+                            <div><span style="color:var(--text-lo);">Strategy:</span> <strong style="color:var(--blue);">${h.strategy}</strong></div>
+                            <div><span style="color:var(--text-lo);">Order ID:</span> <strong style="color:var(--text-hi); font-family:'JetBrains Mono';">${h.order_id || '—'}</strong></div>
+                            <div><span style="color:var(--text-lo);">SL Set:</span> <strong style="color:#ef4444; font-family:'JetBrains Mono';">${slDisp}</strong></div>
+                            <div><span style="color:var(--text-lo);">TP Set:</span> <strong style="color:#22c55e; font-family:'JetBrains Mono';">${tpDisp}</strong></div>
+                            <div><span style="color:var(--text-lo);">Exit Price:</span> <strong style="font-family:'JetBrains Mono';">${exitDisp}</strong></div>
+                            <div><span style="color:var(--text-lo);">Dist to SL:</span> <strong style="color:${dist!==null&&dist<5?'#ef4444':'#94a3b8'}; font-family:'JetBrains Mono';">${dist!==null ? dist.toFixed(1)+' pts' : '—'}</strong></div>
+                            <div><span style="color:var(--text-lo);">Gross P/L:</span> <strong style="color:${h.gross_pl>=0?'#22c55e':'#ef4444'}; font-family:'JetBrains Mono';">${grossDisp}</strong></div>
+                            <div><span style="color:var(--text-lo);">Commission:</span> <strong style="color:#f59e0b; font-family:'JetBrains Mono';">${h.commission ? '-'+Math.abs(h.commission).toFixed(4) : '—'}</strong></div>
+                            <div><span style="color:var(--text-lo);">Swap:</span> <strong style="color:#f59e0b; font-family:'JetBrains Mono';">${h.swap ? (h.swap>=0?'+':'')+h.swap.toFixed(4) : '—'}</strong></div>
+                            <div><span style="color:var(--text-lo);">Risk USD:</span> <strong style="font-family:'JetBrains Mono';">${h.risk_usd ? '$'+h.risk_usd.toFixed(2) : '—'}</strong></div>
+                            <div><span style="color:var(--text-lo);">Risk %:</span> <strong style="font-family:'JetBrains Mono';">${h.risk_pct ? h.risk_pct.toFixed(2)+'%' : '—'}</strong></div>
+                            <div><span style="color:var(--text-lo);">Opened:</span> <strong>${h.opened_at}</strong></div>
+                            <div><span style="color:var(--text-lo);">Closed:</span> <strong>${h.closed_at || '—'}</strong></div>
+                            <div><span style="color:var(--text-lo);">Duration:</span> <strong>${h.duration}</strong></div>
+                            ${h.comment ? `<div style="grid-column:1/-1;"><span style="color:var(--text-lo);">Broker Comment:</span> <strong style="color:#fbbf24;">"${h.comment}"</strong></div>` : ''}
+                            ${h.signal_source ? `<div><span style="color:var(--text-lo);">Signal:</span> <strong>${h.signal_source}</strong></div>` : ''}
+                        </div>
+                    </td>
+                </tr>`;
+
+                const mainRow = `<tr onclick="toggleHistDetail(${idx})" style="border-bottom:1px solid var(--border); cursor:pointer;" onmouseover="this.style.background='rgba(255,255,255,0.04)'" onmouseout="this.style.background=''">
+                    <td class="ps-3" style="color:var(--text-lo); white-space:nowrap; font-size:0.75rem;">${h.opened_at}</td>
+                    <td style="white-space:nowrap;">${reasonBadge}</td>
                     <td><span style="color:${typeColor}; font-weight:700;">${h.type}</span></td>
                     <td style="font-family:'JetBrains Mono';">${h.volume.toFixed(2)}</td>
                     <td style="font-family:'JetBrains Mono';">${h.entry.toFixed(2)}</td>
                     <td style="font-family:'JetBrains Mono'; color:var(--text-lo);">${exitDisp}</td>
+                    <td style="font-family:'JetBrains Mono'; color:#ef4444;">${slDisp}</td>
+                    <td style="font-family:'JetBrains Mono'; color:${dist!==null&&dist<5&&isSlClose?'#ef4444':'var(--text-lo)'}; font-weight:${dist!==null&&dist<5&&isSlClose?'700':'400'};">${dist !== null ? dist.toFixed(1) : '—'}</td>
                     <td style="font-family:'JetBrains Mono'; color:${h.pips >= 0 ? '#22c55e':'#ef4444'};">${pipsDisp}</td>
-                    <td style="font-family:'JetBrains Mono'; color:${h.gross_pl >= 0 ? '#22c55e':'#ef4444'};">${grossDisp}</td>
                     <td style="font-family:'JetBrains Mono'; color:#f59e0b;">${feeDisp}</td>
                     <td style="font-family:'JetBrains Mono'; color:${plColor}; font-weight:700;">${plDisp}</td>
                     <td style="font-family:'JetBrains Mono'; color:var(--text-lo);">${rrDisp}</td>
-                    <td class="pe-3" style="color:var(--text-lo); white-space:nowrap;">${h.duration}</td>
+                    <td class="pe-3" style="color:var(--text-lo); font-size:0.72rem;">
+                        ${isClosed ? h.closed_at : '<span style="color:#22c55e;">LIVE</span>'}
+                        <span style="color:var(--text-lo); opacity:0.4; margin-left:4px;">▼</span>
+                    </td>
                 </tr>`;
+
+                return mainRow + anomaly + detailRow;
             }).join('');
         } catch(e) {
             console.error("History Error:", e);
             body.innerHTML = `<tr><td colspan="13" class="text-center py-4" style="color:#ef4444;">Error loading history</td></tr>`;
         }
+    }
+
+    function toggleHistDetail(idx) {
+        const row = document.getElementById('detail-' + idx);
+        if (!row) return;
+        row.style.display = row.style.display === 'none' ? 'table-row' : 'none';
     }
 
     function buildDynamicHeadlines() {

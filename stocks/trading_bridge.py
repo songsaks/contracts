@@ -331,31 +331,16 @@ class RobotBridge:
                             from decimal import Decimal as _Dec
                             exit_p    = exit_deal.get('price', 0)
                             gross_p   = float(exit_deal.get('profit', 0))
-                            comm      = float(exit_deal.get('commission', 0))
-                            swp       = float(exit_deal.get('swap', 0))
-                            net_pl    = gross_p + comm + swp
-
-                            order.exit_price  = exit_p
-                            order.gross_pl    = _Dec(str(round(gross_p, 2)))
-                            order.commission  = _Dec(str(round(comm, 4)))
-                            order.swap        = _Dec(str(round(swp, 4)))
-                            order.profit_loss = _Dec(str(round(net_pl, 2)))
-
-                            # Pips (XAUUSD: 1 pip = $0.01)
-                            if exit_p and order.entry_price:
-                                diff = float(exit_p) - float(order.entry_price)
+                            order.exit_price = exit_deal.get('price')
+                            order.commission = abs(float(exit_deal.get('commission', 0)))
+                            order.swap = abs(float(exit_deal.get('swap', 0)))
+                            order.gross_pl = float(exit_deal.get('profit', 0))
+                            order.profit_loss = order.gross_pl - order.commission - order.swap
+                            
+                            # คำนวณ Pips (Gold: 1 point = 0.01)
+                            if order.entry_price and order.exit_price:
+                                diff = float(order.exit_price) - float(order.entry_price)
                                 if order.order_type == 'SELL': diff = -diff
-                                order.pips = _Dec(str(round(diff, 2)))
-
-                            # Actual R:R
-                            if order.risk_usd and float(order.risk_usd) > 0:
-                                order.actual_rr = _Dec(str(round(gross_p / float(order.risk_usd), 3)))
-
-                            # Duration
-                            if not order.closed_at:
-                                close_time = exit_deal.get('time')
-                                if close_time:
-                                    from datetime import datetime as _dt
                                     try:
                                         order.closed_at = _dt.fromisoformat(close_time.replace('Z','+00:00'))
                                     except:
