@@ -301,6 +301,7 @@ class RobotBridge:
             region = "new-york"
 
         updated_count = 0
+        sync_errors = []
         for order in orders_to_sync:
             is_closed = False
             
@@ -391,12 +392,23 @@ class RobotBridge:
                             order.exit_reason = reason_code.upper() or 'CLOSED'
 
                 except Exception as e:
-                    logger.error(f"Sync History Error for {order.order_id}: {e}")
+                    err_msg = f"Order {order.order_id}: {e}"
+                    logger.error(f"Sync History Error: {err_msg}")
+                    sync_errors.append(err_msg)
+            else:
+                # OPEN order ที่ยังอยู่ใน live list — อัปเดต floating P/L จาก live data
+                live_pos = next((p for p in live_positions if str(p.get('id')) == str(order.order_id)), None)
+                if live_pos:
+                    try:
+                        from decimal import Decimal as _Dec
+                        order.profit_loss = _Dec(str(live_pos.get('profit', 0)))
+                    except Exception:
+                        pass
 
             order.save()
             updated_count += 1
-                
-        return updated_count
+
+        return {'updated': updated_count, 'errors': sync_errors}
 
     def close_all_positions(self):
         """

@@ -2342,6 +2342,11 @@
         try {
             const data = await fetch(`{% url "stocks:get_gold_trade_history" %}?range=${_histRange}`).then(r => r.json());
 
+            // แสดง sync errors ถ้ามี
+            if (data.sync_errors && data.sync_errors.length > 0) {
+                data.sync_errors.forEach(e => addFeedMessage(`⚠️ Sync: ${e}`, false));
+            }
+
             // Update stats bar
             if (data.stats) {
                 const s = data.stats;

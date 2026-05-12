@@ -10794,12 +10794,16 @@ def get_gold_trade_history_ajax(request):
     from django.utils import timezone
 
     # 1. Auto-Sync สถานะออเดอร์ก่อนแสดงผล
+    sync_errors = []
     acc = TradingAccount.objects.filter(user=request.user, is_active=True).first()
     if acc:
         try:
             bridge = RobotBridge(account=acc)
-            bridge.sync_trade_status()
+            sync_result = bridge.sync_trade_status()
+            if isinstance(sync_result, dict) and sync_result.get('errors'):
+                sync_errors = sync_result['errors']
         except Exception as e:
+            sync_errors.append(str(e))
             print(f"History Sync Error: {e}")
 
     # 2. รองรับ filter ตามช่วงเวลา
@@ -10867,4 +10871,4 @@ def get_gold_trade_history_ajax(request):
             'closed_at':    timezone.localtime(closed).strftime('%Y-%m-%d %H:%M') if closed else '-',
         })
 
-    return JsonResponse({'success': True, 'history': data, 'stats': stats})
+    return JsonResponse({'success': True, 'history': data, 'stats': stats, 'sync_errors': sync_errors})
