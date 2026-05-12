@@ -99,10 +99,53 @@
     @media (max-width: 767px) {
         .gcc-grid {
             grid-template-columns: 1fr;
-            grid-template-areas: "center" "right" "left";
-            padding: 8px 8px 20px;
+            grid-template-areas: "right" "left" "center";
+            padding: 6px 6px 20px;
             gap: 8px;
         }
+
+        /* Price panel: compact horizontal on mobile */
+        .price-panel {
+            padding: 10px 12px !important;
+        }
+        .price-value { font-size: 2.2rem !important; }
+        .price-symbol { font-size: 0.7rem !important; }
+        .price-time   { font-size: 0.6rem !important; }
+
+        /* ORDER EXECUTION: bigger BUY/SELL buttons on mobile */
+        .btn-execute-buy, .btn-execute-sell {
+            font-size: 1rem !important;
+            padding: 0.65rem 0 !important;
+        }
+
+        /* Live positions: horizontal scroll + compact rows */
+        .pos-table { font-size: 0.75rem !important; min-width: 480px; }
+        .pos-table thead th { padding: 6px 8px !important; font-size: 0.62rem !important; }
+        .pos-table tbody td { padding: 6px 8px !important; }
+        #positions-list-body .edit-btn { padding: 2px 6px !important; font-size: 0.6rem !important; }
+
+        /* Tactical levels: compact */
+        .t-row { padding: 6px 10px !important; }
+        .t-label, .t-value { font-size: 0.75rem !important; }
+
+        /* Chart: shorter on mobile */
+        #chart-container   { height: 260px !important; }
+        #rsi-container     { height: 70px  !important; }
+        #cci-container     { height: 70px  !important; }
+        #vol-container     { height: 60px  !important; }
+
+        /* Trade history table: scroll */
+        #trade-history-body td, #trade-history-body th { font-size: 0.65rem !important; }
+
+        /* Hide non-essential on mobile */
+        .gcc-right .g-card-header .badge { display: none; }
+    }
+
+    /* Tablet ≤575px: extra small */
+    @media (max-width: 575px) {
+        .gcc-grid { padding: 4px 4px 16px; gap: 6px; }
+        .price-value { font-size: 1.9rem !important; }
+        #chart-container { height: 220px !important; }
     }
     /* Keep old Bootstrap aliases for non-layout items */
     .sidebar-col { }
@@ -391,16 +434,10 @@
     /* ══ Responsive ══ */
     @media (max-width: 767px) {
         .gcc-header h1 { font-size: 1.1rem; }
-        .price-value { font-size: 2.2rem; }
-        #positions-list-body tr {
-            display: flex; flex-direction: column;
-            border-bottom: 2px solid var(--border) !important; padding: 10px !important;
-        }
-        #positions-list-body td {
-            border: none; padding: 4px 0 !important;
-            display: flex; justify-content: space-between; align-items: center;
-        }
-        #positions-list-body td:before { content: attr(data-label); font-weight: 700; font-size: 0.78rem; color: var(--text-lo); text-transform: uppercase; }
+        /* positions: normal table rows (horizontal scroll handles overflow) */
+        #positions-list-body tr  { display: table-row !important; }
+        #positions-list-body td  { display: table-cell !important; padding: 6px 8px !important; }
+        #positions-list-body td:before { display: none; }
         .bg-dark.text-white-50 { display: none; }
     }
 
@@ -723,20 +760,22 @@
                     <span id="total-pl-display" style="font-family:'JetBrains Mono';font-size:1rem;font-weight:900;color:var(--green);">+0.00</span>
                 </div>
             </div>
-            <div class="table-responsive" style="max-height:260px;overflow-y:auto;">
-                <table class="pos-table">
+            <div style="overflow-x:auto; overflow-y:auto; max-height:260px; -webkit-overflow-scrolling:touch;">
+                <table class="pos-table" style="min-width:460px;">
                     <thead>
                         <tr>
-                            <th class="ps-3">TYPE</th>
+                            <th class="ps-2">TYPE</th>
                             <th>SIZE</th>
                             <th>ENTRY</th>
                             <th>TARGET</th>
                             <th>STOP</th>
-                            <th class="text-end pe-3">P/L ($)</th>
+                            <th>P/L ($)</th>
+                            <th class="pe-2">EDIT</th>
                         </tr>
                     </thead>
                     <tbody id="positions-list-body">
-                        <tr><td colspan="6" class="text-center py-4" style="color:var(--text-lo);">No open positions</td></tr>
+                        <tr><td colspan="7" class="text-center py-4" style="color:var(--text-lo);">No open positions</td></tr>
+
                     </tbody>
                 </table>
             </div>
@@ -2124,19 +2163,22 @@
                     const posId = pos.id || pos.positionId || '';
                     const tpNum = pos.takeProfit ? parseFloat(pos.takeProfit) : null;
                     const slNum = pos.stopLoss  ? parseFloat(pos.stopLoss)  : null;
-                    return `<tr style="border-bottom: 1px solid #f1f5f9;">
-                        <td class="ps-4 py-3" data-label="TYPE"><span class="badge ${isBuy?'bg-success':'bg-danger'}" style="font-size: 0.9rem; padding: 6px 15px;">${isBuy?'BUY':'SELL'}</span></td>
-                        <td class="py-3" data-label="SIZE" style="font-size: 1.1rem; color: #334155;">${pos.volume} Lots</td>
-                        <td class="py-3" data-label="ENTRY" style="font-family: 'JetBrains Mono'; font-size: 1.1rem;">${openP.toFixed(2)}</td>
-                        <td class="py-3 text-success small" data-label="TARGET (TP)">${tp}</td>
-                        <td class="py-3 text-danger small" data-label="STOP (SL)">${sl}</td>
-                        <td class="py-3" data-label="EDIT">
-                            <button class="btn btn-sm btn-outline-warning py-1 px-2" onclick="openEditPosition('${posId}', ${tpNum}, ${slNum})" title="Edit SL/TP" ${posId ? '' : 'disabled'}>
+                    return `<tr style="border-bottom:1px solid var(--border);">
+                        <td class="ps-2" style="white-space:nowrap;">
+                            <span class="badge ${isBuy?'bg-success':'bg-danger'}" style="font-size:0.8rem;padding:4px 10px;">${isBuy?'BUY':'SELL'}</span>
+                        </td>
+                        <td style="font-family:'JetBrains Mono';font-size:0.88rem;color:var(--text-hi);">${pos.volume}</td>
+                        <td style="font-family:'JetBrains Mono';font-size:0.88rem;">${openP.toFixed(2)}</td>
+                        <td style="font-family:'JetBrains Mono';font-size:0.85rem;color:#22c55e;">${tp}</td>
+                        <td style="font-family:'JetBrains Mono';font-size:0.85rem;color:#ef4444;">${sl}</td>
+                        <td style="font-family:'JetBrains Mono';font-size:0.95rem;font-weight:800;" class="${pl>=0?'text-success':'text-danger'}">
+                            ${pl>=0?'+':''}${pl.toFixed(2)}
+                        </td>
+                        <td class="pe-2">
+                            <button class="btn btn-sm edit-btn" onclick="openEditPosition('${posId}', ${tpNum}, ${slNum})" title="Edit SL/TP" ${posId?'':'disabled'}
+                                style="border:1px solid rgba(245,158,11,0.5);color:#f59e0b;background:rgba(245,158,11,0.08);padding:3px 8px;font-size:0.7rem;border-radius:5px;">
                                 <i class="fas fa-edit"></i>
                             </button>
-                        </td>
-                        <td class="text-end pe-4 py-3 fs-3 fw-900 ${pl>=0?'text-success':'text-danger'}" data-label="P/L" style="font-family: 'JetBrains Mono'; text-shadow: 0 0 1px rgba(0,0,0,0.1);">
-                            ${pl>=0?'+':''}${pl.toFixed(2)}
                         </td>
                     </tr>`;
                 }).join('');
@@ -2162,7 +2204,7 @@
                 document.getElementById('pos-count-badge').innerText = '0';
                 totalPlEl.innerText = '+0.00';
                 totalPlEl.className = 'fs-4 fw-900 text-muted';
-                body.innerHTML = '<tr><td colspan="6" class="text-center py-5 text-muted fs-5"><i class="fas fa-inbox d-block mb-2 fs-1"></i>No open positions</td></tr>';
+                body.innerHTML = '<tr><td colspan="7" class="text-center py-4" style="color:var(--text-lo);"><i class="fas fa-inbox d-block mb-2" style="font-size:1.5rem;"></i>No open positions</td></tr>';
             }
         } catch(e) {}
     }
