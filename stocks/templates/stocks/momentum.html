@@ -60,14 +60,25 @@
             <i class="fas fa-list-ol"></i> อัปเดตอันดับ (Top 200)
         </a>
         <a href="?scan=true" onclick="showMomentumLoading()" class="btn btn-premium d-inline-flex align-items-center gap-2" style="background: linear-gradient(135deg, #ef4444, #f97316);">
-            <i class="fas fa-search-dollar"></i> สแกนหุ้น (Top 200)
+            <i class="fas fa-search-dollar"></i> สแกนหุ้น (SET 200)
+        </a>
+        <a href="{% url 'stocks:us_momentum_scanner' %}?scan=true" onclick="showMomentumLoading()" class="btn btn-primary d-inline-flex align-items-center gap-2" style="background: linear-gradient(135deg, #3b82f6, #1d4ed8);">
+            <i class="fas fa-flag-usa"></i> สแกนหุ้น (US 200)
         </a>
         <form method="post" action="{% url 'stocks:clear_scan_data' %}" class="d-inline" onsubmit="return confirm('ลบข้อมูลสแกน SET Momentum ทั้งหมด?')">
             {% csrf_token %}
             <input type="hidden" name="scanner" value="momentum_set">
             <input type="hidden" name="next" value="{% url 'stocks:momentum_scanner' %}">
             <button type="submit" class="btn btn-outline-secondary d-inline-flex align-items-center gap-2" style="font-size:0.82rem;">
-                <i class="fas fa-trash-alt"></i> ล้างข้อมูล
+                <i class="fas fa-trash-alt"></i> ล้าง SET
+            </button>
+        </form>
+        <form method="post" action="{% url 'stocks:clear_scan_data' %}" class="d-inline" onsubmit="return confirm('ลบข้อมูลสแกน US Momentum ทั้งหมด?')">
+            {% csrf_token %}
+            <input type="hidden" name="scanner" value="momentum_us">
+            <input type="hidden" name="next" value="{% url 'stocks:momentum_scanner' %}">
+            <button type="submit" class="btn btn-outline-secondary d-inline-flex align-items-center gap-2" style="font-size:0.82rem;">
+                <i class="fas fa-trash-alt"></i> ล้าง US
             </button>
         </form>
     </div>
@@ -185,7 +196,14 @@
                                             {% endif %}
                                         </div>
                                         <div class="d-flex flex-column">
-                                            <h6 class="mb-0 fw-bold">{{ item.symbol }}</h6>
+                                            <div class="d-flex align-items-center gap-1">
+                                                <h6 class="mb-0 fw-bold">{{ item.symbol }}</h6>
+                                                {% if item.market == 'SET' %}
+                                                <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-10" style="font-size:0.55rem; padding: 1px 3px;">SET</span>
+                                                {% else %}
+                                                <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-10" style="font-size:0.55rem; padding: 1px 3px;">US</span>
+                                                {% endif %}
+                                            </div>
                                             {% if item.live_in_zone %}
                                             <span class="extra-extra-small text-success fw-bold">ENTRY ZONE</span>
                                             {% elif item.live_above_tp %}
@@ -244,21 +262,25 @@
                                 </td>
                                 <td class="col-hide-md">
                                     {% if item.live_price %}
-                                    <span class="fw-bold" style="font-size:0.8rem;">฿{{ item.live_price|floatformat:2 }}</span>
+                                    <span class="fw-bold" style="font-size:0.8rem;">{% if item.market == 'SET' %}฿{% else %}${% endif %}{{ item.live_price|floatformat:2 }}</span>
                                     {% if item.live_change_pct is not None %}
                                     <div style="font-size:0.65rem;color:{% if item.live_change_pct >= 0 %}#16a34a{% else %}#dc2626{% endif %};">
                                         {% if item.live_change_pct >= 0 %}+{% endif %}{{ item.live_change_pct|floatformat:1 }}%
                                     </div>
                                     {% endif %}
+                                    <div class="text-muted" style="font-size:0.6rem; opacity:0.7;">close: {% if item.market == 'SET' %}฿{% else %}${% endif %}{{ item.price|floatformat:2 }}</div>
                                     {% else %}
-                                    <span class="fw-bold" style="font-size:0.8rem;">฿{{ item.price|floatformat:2 }}</span>
+                                    <span class="fw-bold" style="font-size:0.8rem;">{% if item.market == 'SET' %}฿{% else %}${% endif %}{{ item.price|floatformat:2 }}</span>
                                     {% endif %}
                                 </td>
                                 <td class="col-hide-lg" {% if item.live_in_zone %}style="background: rgba(34, 197, 94, 0.05);"{% endif %}>
                                     {% if item.demand_zone_start %}
                                     <div class="d-flex flex-column" style="font-size: 0.7rem;">
-                                        <span class="fw-bold text-success">{{ item.demand_zone_start|floatformat:2 }}</span>
-                                        <span class="text-muted">{{ item.demand_zone_end|floatformat:2 }}</span>
+                                        <span class="fw-bold text-success">{{ item.demand_zone_start|floatformat:2 }} / {{ item.demand_zone_end|floatformat:2 }}</span>
+                                        <div class="d-flex gap-2">
+                                            <span class="text-danger" style="font-size:0.62rem;">SL:{{ item.stop_loss|floatformat:2 }}</span>
+                                            <span class="text-primary" style="font-size:0.62rem;">TP:{{ item.supply_zone_start|floatformat:2 }}</span>
+                                        </div>
                                     </div>
                                     {% else %}-{% endif %}
                                 </td>
@@ -282,17 +304,11 @@
                                     </span>
                                 </td>
                                 <td class="col-hide-lg">
-                                    <span class="badge bg-light text-muted fw-normal border" style="font-size:0.62rem;">
-                                        {% if 'Financial' in item.sector %}FIN
-                                        {% elif 'Industrial' in item.sector %}IND
-                                        {% elif 'Consumer' in item.sector %}CONS
-                                        {% elif 'Healthcare' in item.sector %}HEA
-                                        {% elif 'Technology' in item.sector %}TECH
-                                        {% elif 'Energy' in item.sector %}ENR
-                                        {% elif 'Real Estate' in item.sector %}PROP
-                                        {% elif 'Materials' in item.sector %}MAT
-                                        {% else %}{{ item.sector|slice:":3"|upper }}{% endif %}
-                                    </span>
+                                    <div class="d-flex flex-column gap-1">
+                                        {% if item.stage2 %}<span class="badge bg-indigo-100 text-indigo-700" style="font-size:0.55rem; background:#e0e7ff; color:#4338ca;">STAGE 2</span>{% endif %}
+                                        {% if item.macd_crossover %}<span class="badge bg-green-100 text-green-700" style="font-size:0.55rem; background:#dcfce7; color:#15803d;">MACD ✕</span>{% endif %}
+                                        {% if item.bb_squeeze %}<span class="badge bg-yellow-100 text-yellow-700" style="font-size:0.55rem; background:#fef9c3; color:#a16207;">BB SQZ</span>{% endif %}
+                                    </div>
                                 </td>
                                 <td class="text-end pe-2">
                                     <div class="d-flex justify-content-end gap-1">
@@ -302,14 +318,14 @@
                                                 title="CrewAI Expert Analysis (3 Agents: Technical + Risk + Smart Money)">
                                             <i class="fas fa-bolt"></i>
                                         </button>
-                                        <a href="{% url 'stocks:core_analyze' item.symbol %}?market=SET" 
+                                        <a href="{% url 'stocks:core_analyze' item.symbol %}?market={{ item.market }}" 
                                            class="btn btn-sm px-2 text-white" 
                                            style="font-size:0.65rem;background:linear-gradient(135deg,#7c3aed,#4f46e5);border:none;"
                                            target="_blank" title="The Core Project: วิเคราะห์เจาะลึก 3 มิติ (Anomaly, Backtest, Execution)">
                                             <i class="fas fa-microchip"></i>
                                         </a>
-                                        <a href="{% url 'stocks:analyze' item.symbol_bk|default:item.symbol|add:'.BK' %}" class="btn btn-outline-primary btn-sm px-2" style="font-size:0.65rem;" target="_blank"><i class="fas fa-microscope"></i></a>
-                                        <a href="{% url 'stocks:entry_finder' item.symbol %}" class="btn btn-danger btn-sm px-2" style="font-size:0.65rem;" target="_blank"><i class="fas fa-crosshairs"></i></a>
+                                        <a href="/stocks/analyze/{% if item.market == 'SET' %}{{ item.symbol_bk|default:item.symbol|add:'.BK' }}{% else %}{{ item.symbol }}{% endif %}/" class="btn btn-outline-primary btn-sm px-2" style="font-size:0.65rem;" target="_blank"><i class="fas fa-microscope"></i></a>
+                                        <a href="{% url 'stocks:entry_finder' item.symbol %}?market={{ item.market }}" class="btn btn-danger btn-sm px-2" style="font-size:0.65rem;" target="_blank"><i class="fas fa-crosshairs"></i></a>
                                     </div>
                                 </td>
                             </tr>

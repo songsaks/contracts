@@ -3193,7 +3193,7 @@ def momentum_scanner(request):
                     user = User.objects.get(pk=uid)
                     
                     sym_list = _GTRS(market='SET', limit=200, auto_refresh=True)
-                    _MC.objects.filter(user=user).delete()
+                    _MC.objects.filter(user=user, market='SET').delete()
                     
                     # --- STAGE 1: Fast Screening (The Radar) ---
                     # Scan all 800+ symbols for basic liquidity and trend
@@ -3453,9 +3453,10 @@ def momentum_scanner(request):
             _mend_str   = _mend_date.strftime('%Y-%m-%d')
             _mstart_str = (_mend_date - _mtd(days=600)).strftime('%Y-%m-%d')
 
-            def _mom_live(sym):
+            def _mom_live(arg):
+                sym, mkt = arg
                 try:
-                    full_sym = f"{sym}.BK"
+                    full_sym = f"{sym}.BK" if mkt == 'SET' else sym
                     fi = yf.Ticker(full_sym).fast_info
                     p = getattr(fi, 'last_price', None)
                     live_price = float(p) if p else None
@@ -3475,7 +3476,7 @@ def momentum_scanner(request):
             live_map = {}
             zone_map = {}   # fresh zones - keyed by symbol
             with _mcf.ThreadPoolExecutor(max_workers=6) as _mex:
-                for _s, _p, _z in _mex.map(_mom_live, [c.symbol for c in candidate_list]):
+                for _s, _p, _z in _mex.map(_mom_live, [(c.symbol, c.market) for c in candidate_list]):
                     if _p: live_map[_s] = _p
                     if _z: zone_map[_s] = _z
         except Exception:

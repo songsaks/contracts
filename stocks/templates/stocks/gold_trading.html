@@ -795,31 +795,31 @@
 
             <!-- TACTICAL ADVISOR -->
             <div id="tactical-advisor-box" class="m-2 p-3 rounded text-center" style="transition:all 0.3s;position:relative;overflow:hidden;">
-                <div style="font-size:0.55rem;color:var(--text-lo);text-transform:uppercase;letter-spacing:2px;margin-bottom:4px;">Tactical Advisor</div>
-                <div id="tactical-advisor-text" class="fw-bold" style="font-size:0.95rem;color:var(--text-hi);letter-spacing:0.5px;">Analyzing...</div>
-                <div id="tactical-advisor-sub" style="font-size:0.62rem;color:var(--text-lo);margin-bottom:10px;">Ready for execution</div>
+                <div style="font-size:0.6rem;color:#475569;text-transform:uppercase;letter-spacing:2px;margin-bottom:4px;font-weight:800;">Tactical Advisor</div>
+                <div id="tactical-advisor-text" class="fw-bold" style="font-size:1.05rem;color:var(--text-hi);letter-spacing:0.5px;font-weight:900;">Analyzing...</div>
+                <div id="tactical-advisor-sub" style="font-size:0.68rem;color:#475569;margin-bottom:10px;font-weight:600;">Ready for execution</div>
                 <div id="prox-radar-container" class="mt-2 p-2" style="display:none;background:rgba(0,0,0,0.3);border-radius:10px;border:1px solid var(--border);">
-                    <div class="d-flex justify-content-between mb-2" style="font-size:0.68rem;font-weight:900;">
-                        <span style="color:var(--blue);">DISTANCE TO BREAKOUT</span>
-                        <span id="prox-radar-pts" style="color:var(--gold);">0.00 PTS</span>
+                    <div class="d-flex justify-content-between mb-2" style="font-size:0.72rem;font-weight:900;">
+                        <span style="color:#1e40af;letter-spacing:0.5px;">DISTANCE TO BREAKOUT</span>
+                        <span id="prox-radar-pts" style="color:#b45309;font-weight:900;">0.00 PTS</span>
                     </div>
                     <div class="progress" style="height:8px;background:rgba(255,255,255,0.08);border-radius:8px;overflow:visible;">
                         <div id="prox-radar-bar" class="progress-bar progress-bar-striped progress-bar-animated"
                              style="width:0%;border-radius:8px;background:var(--gold);"></div>
                     </div>
-                    <div id="wait-checklist" class="mt-2 text-start" style="display:none;font-size:0.8rem;background:#f8fafc;padding:12px;border-radius:8px;border:1px solid #e2e8f0;color:#1e293b;">
-                        <div style="font-size:0.6rem;color:#64748b;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;border-bottom:1px solid #e2e8f0;padding-bottom:4px;font-weight:800;">Entry Conditions</div>
+                    <div id="wait-checklist" class="mt-2 text-start" style="display:none;font-size:0.82rem;background:#f1f5f9;padding:12px;border-radius:8px;border:1px solid #cbd5e1;color:#0f172a;">
+                        <div style="font-size:0.62rem;color:#334155;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;border-bottom:1px solid #cbd5e1;padding-bottom:4px;font-weight:900;">Entry Conditions</div>
                         <div class="mb-2 d-flex justify-content-between align-items-center">
-                            <span><i id="cond-price-icon" class="fas fa-circle-notch fa-spin me-2 text-muted"></i> Price Trigger</span>
-                            <span id="cond-price-val" class="fw-bold">...</span>
+                            <span style="color:#1e293b;font-weight:600;"><i id="cond-price-icon" class="fas fa-circle-notch fa-spin me-2" style="color:#64748b;"></i> Price Trigger</span>
+                            <span id="cond-price-val" style="font-weight:800;color:#0f172a;">...</span>
                         </div>
                         <div class="mb-2 d-flex justify-content-between align-items-center">
-                            <span><i id="cond-trend-icon" class="fas fa-circle-notch fa-spin me-2 text-muted"></i> Trend Filter</span>
-                            <span id="cond-trend-val" class="fw-bold">...</span>
+                            <span style="color:#1e293b;font-weight:600;"><i id="cond-trend-icon" class="fas fa-circle-notch fa-spin me-2" style="color:#64748b;"></i> Trend Filter</span>
+                            <span id="cond-trend-val" style="font-weight:800;color:#0f172a;">...</span>
                         </div>
                         <div class="d-flex justify-content-between align-items-center">
-                            <span><i id="cond-mom-icon" class="fas fa-circle-notch fa-spin me-2 text-muted"></i> Momentum (RSI)</span>
-                            <span id="cond-mom-val" class="fw-bold">...</span>
+                            <span style="color:#1e293b;font-weight:600;"><i id="cond-mom-icon" class="fas fa-circle-notch fa-spin me-2" style="color:#64748b;"></i> Momentum (RSI)</span>
+                            <span id="cond-mom-val" style="font-weight:800;color:#0f172a;">...</span>
                         </div>
                     </div>
                 </div>
@@ -1189,46 +1189,32 @@
                 const tpDist = Math.abs(lastPrice - targetPrice);
                 const rr = tpDist / (slDist || 1);
 
+                const _adStyle = (box, text, sub, bg, border, label, labelColor, subText, subColor) => {
+                    box.style.background = bg; box.style.borderColor = border;
+                    text.innerText = label; text.style.color = labelColor;
+                    text.style.fontSize = '1.25rem'; text.style.fontWeight = '900';
+                    sub.innerText = subText; sub.style.color = subColor; sub.style.fontWeight = '700';
+                };
                 if (isRiskZone) {
-                    advisorBox.style.background = '#fee2e2'; // Light Red
-                    advisorBox.style.borderColor = '#ef4444';
-                    advisorText.innerText = 'AVOID: SUICIDE ZONE';
-                    advisorText.style.color = '#991b1b'; // Dark Red
-                    advisorText.style.fontSize = '1.25rem';
-                    advisorSub.innerText = 'Price is beyond Safety Stop';
-                    advisorSub.style.color = '#7f1d1d';
+                    _adStyle(advisorBox, advisorText, advisorSub,
+                        '#fee2e2','#ef4444','AVOID: SUICIDE ZONE','#7f1d1d',
+                        'Price is beyond Safety Stop','#991b1b');
                 } else if (slDist < 5) {
-                    advisorBox.style.background = '#fef3c7'; // Light Amber
-                    advisorBox.style.borderColor = '#f59e0b';
-                    advisorText.innerText = 'DANGEROUS: TIGHT SL';
-                    advisorText.style.color = '#92400e'; // Dark Amber
-                    advisorText.style.fontSize = '1.25rem';
-                    advisorSub.innerText = 'High risk of immediate stop-out';
-                    advisorSub.style.color = '#451a03';
+                    _adStyle(advisorBox, advisorText, advisorSub,
+                        '#fef3c7','#f59e0b','DANGEROUS: TIGHT SL','#78350f',
+                        'High risk of immediate stop-out','#92400e');
                 } else if (slDist > 100) {
-                    advisorBox.style.background = '#fffbeb'; 
-                    advisorBox.style.borderColor = '#f59e0b';
-                    advisorText.innerText = 'CAUTION: WIDE SL';
-                    advisorText.style.color = '#92400e'; 
-                    advisorText.style.fontSize = '1.25rem';
-                    advisorSub.innerText = 'Capital at risk due to distance';
-                    advisorSub.style.color = '#78350f';
+                    _adStyle(advisorBox, advisorText, advisorSub,
+                        '#fffbeb','#f59e0b','CAUTION: WIDE SL','#78350f',
+                        'Capital at risk due to distance','#92400e');
                 } else if (rr >= 1.5) {
-                    advisorBox.style.background = '#d1fae5'; // Light Green
-                    advisorBox.style.borderColor = '#10b981';
-                    advisorText.innerText = 'EXCELLENT SETUP';
-                    advisorText.style.color = '#065f46'; // Dark Green
-                    advisorText.style.fontSize = '1.25rem';
-                    advisorSub.innerText = `R:R is ${rr.toFixed(1)}x — Surgical Entry`;
-                    advisorSub.style.color = '#064e3b';
+                    _adStyle(advisorBox, advisorText, advisorSub,
+                        '#d1fae5','#10b981','EXCELLENT SETUP','#064e3b',
+                        `R:R is ${rr.toFixed(1)}x — Surgical Entry`,'#065f46');
                 } else {
-                    advisorBox.style.background = '#f1f5f9'; // Light Slate
-                    advisorBox.style.borderColor = '#cbd5e1';
-                    advisorText.innerText = 'STANDARD SETUP';
-                    advisorText.style.color = '#0f172a'; // Dark Slate
-                    advisorText.style.fontSize = '1.25rem';
-                    advisorSub.innerText = 'Balanced risk profile';
-                    advisorSub.style.color = '#475569';
+                    _adStyle(advisorBox, advisorText, advisorSub,
+                        '#f1f5f9','#94a3b8','STANDARD SETUP','#0f172a',
+                        'Balanced risk profile','#334155');
                 }
 
                 // --- Proximity Radar Engine ---

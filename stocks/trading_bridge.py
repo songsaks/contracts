@@ -2,6 +2,7 @@ import logging
 import requests
 from decimal import Decimal
 from django.utils import timezone
+from django.db.models import Q
 from .models import TradingAccount, TradeOrder, BrokerType
 
 logger = logging.getLogger(__name__)
@@ -276,9 +277,9 @@ class RobotBridge:
             user=self.user, 
             account=self.account
         ).filter(
-            models.Q(status=TradeOrder.OrderStatus.OPEN) | 
-            models.Q(status=TradeOrder.OrderStatus.CLOSED, exit_price__isnull=True) |
-            models.Q(status=TradeOrder.OrderStatus.CLOSED, exit_price=0)
+            Q(status=TradeOrder.OrderStatus.OPEN) |
+            Q(status=TradeOrder.OrderStatus.CLOSED, exit_price__isnull=True) |
+            Q(status=TradeOrder.OrderStatus.CLOSED, exit_price=0)
         )[:50] # จำกัดจำนวนเพื่อไม่ให้กระทบ Performance
         
         if not orders_to_sync.exists():
@@ -341,12 +342,17 @@ class RobotBridge:
                             if order.entry_price and order.exit_price:
                                 diff = float(order.exit_price) - float(order.entry_price)
                                 if order.order_type == 'SELL': diff = -diff
-                                    try:
-                                        order.closed_at = _dt.fromisoformat(close_time.replace('Z','+00:00'))
-                                    except:
-                                        order.closed_at = timezone.now()
-                                else:
+                                order.pips = round(diff, 2)
+
+                            # บันทึกเวลาปิด
+                            close_time = exit_deal.get('time') or exit_deal.get('brokerTime', '')
+                            if close_time:
+                                try:
+                                    order.closed_at = _dt.fromisoformat(close_time.replace('Z', '+00:00'))
+                                except:
                                     order.closed_at = timezone.now()
+                            else:
+                                order.closed_at = timezone.now()
 
                             if order.opened_at and order.closed_at:
                                 order.duration_sec = int((order.closed_at - order.opened_at).total_seconds())
