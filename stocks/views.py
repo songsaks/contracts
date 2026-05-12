@@ -10041,6 +10041,31 @@ def execute_gold_trade_ajax(request):
             strategy=strategy
         )
 
+        # บันทึกรายละเอียดเพิ่มเติมที่ execute_trade ยังไม่ได้บันทึก
+        try:
+            from decimal import Decimal
+            signal_source = data.get('signal_source', strategy)
+            capital       = data.get('capital', 0)
+            risk_pct_val  = data.get('risk_pct', 1)
+
+            if sl and price:
+                risk_pts = abs(float(price) - float(sl))
+                risk_usd = round(risk_pts * float(volume) * 100, 2)
+            else:
+                risk_usd = 0
+
+            update_fields = ['signal_source', 'risk_usd']
+            order.signal_source = signal_source
+            order.risk_usd      = Decimal(str(risk_usd))
+
+            if capital and float(capital) > 0:
+                order.risk_pct = Decimal(str(round(risk_usd / float(capital) * 100, 3)))
+                update_fields.append('risk_pct')
+
+            order.save(update_fields=update_fields)
+        except Exception as ex:
+            print(f"Extra detail save error: {ex}")
+
         return JsonResponse({
             'success': True,
             'order_id': order.order_id,
@@ -10761,10 +10786,12 @@ def api_stock_analysis(request, symbol):
 
 @login_required
 def get_gold_trade_history_ajax(request):
-    """ดึงประวัติการเทรด 20 รายการล่าสุดสำหรับทองคำ (พร้อม Auto-Sync)"""
+    """ดึงประวัติการเทรด พร้อมรายละเอียดครบ + สถิติสรุป"""
     from .models import TradeOrder, TradingAccount
     from .trading_bridge import RobotBridge
-    
+    from django.db.models import Sum, Count, Q
+    from django.utils import timezone
+
     # 1. Auto-Sync สถานะออเดอร์ก่อนแสดงผล
     acc = TradingAccount.objects.filter(user=request.user, is_active=True).first()
     if acc:
@@ -10774,27 +10801,69 @@ def get_gold_trade_history_ajax(request):
         except Exception as e:
             print(f"History Sync Error: {e}")
 
-    # 2. ดึงข้อมูลประวัติ
-    orders = TradeOrder.objects.filter(
-        user=request.user, 
-        symbol__in=['GC=F', 'XAUUSD']
-    ).order_by('-created_at')[:20]
-    
+    # 2. รองรับ filter ตามช่วงเวลา
+    date_filter = request.GET.get('range', '7d')
+    now = timezone.now()
+    if date_filter == '1d':
+        since = now - timezone.timedelta(days=1)
+    elif date_filter == '30d':
+        since = now - timezone.timedelta(days=30)
+    elif date_filter == 'all':
+        since = None
+    else:  # default 7d
+        since = now - timezone.timedelta(days=7)
+
+    qs = TradeOrder.objects.filter(user=request.user, symbol__in=['GC=F', 'XAUUSD'])
+    if since:
+        qs = qs.filter(created_at__gte=since)
+    orders = qs.order_by('-opened_at', '-created_at')[:100]
+
+    # 3. สถิติสรุป
+    closed_qs = qs.filter(status='CLOSED')
+    stats = {
+        'total':     qs.count(),
+        'closed':    closed_qs.count(),
+        'open':      qs.filter(status='OPEN').count(),
+        'wins':      closed_qs.filter(profit_loss__gt=0).count(),
+        'losses':    closed_qs.filter(profit_loss__lt=0).count(),
+        'total_pl':  float(closed_qs.aggregate(s=Sum('profit_loss'))['s'] or 0),
+        'total_comm':float(closed_qs.aggregate(s=Sum('commission'))['s'] or 0),
+        'total_swap':float(closed_qs.aggregate(s=Sum('swap'))['s'] or 0),
+    }
+    stats['win_rate'] = round(stats['wins'] / stats['closed'] * 100, 1) if stats['closed'] else 0
+
+    def _f(v): return float(v) if v is not None else 0
+
     data = []
     for o in orders:
+        opened = o.opened_at or o.created_at
+        closed = o.closed_at
         data.append({
-            'id': o.id,
-            'symbol': o.symbol,
-            'type': o.order_type,
-            'volume': float(o.volume),
-            'entry': float(o.entry_price) if o.entry_price else 0,
-            'exit': float(o.exit_price) if o.exit_price else 0,
-            'sl': float(o.stop_loss) if o.stop_loss else 0,
-            'tp': float(o.take_profit) if o.take_profit else 0,
-            'pl': float(o.profit_loss),
-            'status': o.status,
-            'reason': o.exit_reason or '',
-            'created_at': o.created_at.strftime('%Y-%m-%d %H:%M:%S'),
-            'strategy': o.strategy or 'N/A'
+            'id':           o.id,
+            'order_id':     o.order_id or '-',
+            'symbol':       o.symbol,
+            'type':         o.order_type,
+            'volume':       _f(o.volume),
+            'entry':        _f(o.entry_price),
+            'exit':         _f(o.exit_price),
+            'sl':           _f(o.stop_loss),
+            'tp':           _f(o.take_profit),
+            'pl':           _f(o.profit_loss),
+            'gross_pl':     _f(o.gross_pl),
+            'commission':   _f(o.commission),
+            'swap':         _f(o.swap),
+            'pips':         _f(o.pips),
+            'risk_usd':     _f(o.risk_usd),
+            'risk_pct':     _f(o.risk_pct),
+            'actual_rr':    _f(o.actual_rr),
+            'duration':     o.duration_display,
+            'status':       o.status,
+            'strategy':     o.strategy or 'Manual',
+            'signal_source':o.signal_source or '',
+            'exit_reason':  o.exit_reason or '',
+            'comment':      o.comment or '',
+            'opened_at':    opened.strftime('%Y-%m-%d %H:%M') if opened else '-',
+            'closed_at':    closed.strftime('%Y-%m-%d %H:%M') if closed else '-',
         })
-    return JsonResponse({'success': True, 'history': data})
+
+    return JsonResponse({'success': True, 'history': data, 'stats': stats})

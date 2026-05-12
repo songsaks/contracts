@@ -328,10 +328,45 @@ class RobotBridge:
                             exit_deal = deals[-1]
                             
                         if exit_deal:
-                            order.exit_price = exit_deal.get('price')
-                            order.profit_loss = exit_deal.get('profit', 0) + exit_deal.get('commission', 0) + exit_deal.get('swap', 0)
-                            
-                            # 4. ระบุเหตุผลการปิด (TP, SL, Manual)
+                            from decimal import Decimal as _Dec
+                            exit_p    = exit_deal.get('price', 0)
+                            gross_p   = float(exit_deal.get('profit', 0))
+                            comm      = float(exit_deal.get('commission', 0))
+                            swp       = float(exit_deal.get('swap', 0))
+                            net_pl    = gross_p + comm + swp
+
+                            order.exit_price  = exit_p
+                            order.gross_pl    = _Dec(str(round(gross_p, 2)))
+                            order.commission  = _Dec(str(round(comm, 4)))
+                            order.swap        = _Dec(str(round(swp, 4)))
+                            order.profit_loss = _Dec(str(round(net_pl, 2)))
+
+                            # Pips (XAUUSD: 1 pip = $0.01)
+                            if exit_p and order.entry_price:
+                                diff = float(exit_p) - float(order.entry_price)
+                                if order.order_type == 'SELL': diff = -diff
+                                order.pips = _Dec(str(round(diff, 2)))
+
+                            # Actual R:R
+                            if order.risk_usd and float(order.risk_usd) > 0:
+                                order.actual_rr = _Dec(str(round(gross_p / float(order.risk_usd), 3)))
+
+                            # Duration
+                            if not order.closed_at:
+                                close_time = exit_deal.get('time')
+                                if close_time:
+                                    from datetime import datetime as _dt
+                                    try:
+                                        order.closed_at = _dt.fromisoformat(close_time.replace('Z','+00:00'))
+                                    except:
+                                        order.closed_at = timezone.now()
+                                else:
+                                    order.closed_at = timezone.now()
+
+                            if order.opened_at and order.closed_at:
+                                order.duration_sec = int((order.closed_at - order.opened_at).total_seconds())
+
+                            # Exit reason
                             reason_code = exit_deal.get('reason', '').lower()
                             if 'sl' in reason_code:
                                 order.exit_reason = 'STOP LOSS'
@@ -343,11 +378,9 @@ class RobotBridge:
                                 order.exit_reason = 'MANUAL'
                             else:
                                 order.exit_reason = reason_code.upper() or 'CLOSED'
-                                
-                            if not order.closed_at:
-                                order.closed_at = timezone.now()
+
                 except Exception as e:
-                    print(f"Sync History Error for {order.order_id}: {e}")
+                    logger.error(f"Sync History Error for {order.order_id}: {e}")
 
             order.save()
             updated_count += 1

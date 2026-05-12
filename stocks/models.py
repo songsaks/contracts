@@ -777,45 +777,106 @@ class TradingAccount(models.Model):
 class TradeOrder(models.Model):
     """
     บันทึกรายการคำสั่งซื้อขายจริงที่ส่งไปยัง Broker
-    ใช้ติดตามสถานะตั้งแต่เริ่มเปิด จนถึงปิดออเดอร์
+    ใช้ติดตามสถานะตั้งแต่เริ่มเปิด จนถึงปิดออเดอร์ พร้อมรายละเอียดครบถ้วน
     """
     class OrderStatus(models.TextChoices):
-        PENDING = 'PENDING', 'รอเข้าซื้อ (Pending)'
-        OPEN    = 'OPEN', 'เปิดสถานะแล้ว (Live)'
-        CLOSED  = 'CLOSED', 'ปิดสถานะแล้ว (Closed)'
+        PENDING   = 'PENDING',   'รอเข้าซื้อ (Pending)'
+        OPEN      = 'OPEN',      'เปิดสถานะแล้ว (Live)'
+        CLOSED    = 'CLOSED',    'ปิดสถานะแล้ว (Closed)'
         CANCELLED = 'CANCELLED', 'ยกเลิก (Cancelled)'
 
-    user        = models.ForeignKey(User, on_delete=models.CASCADE)
-    account     = models.ForeignKey(TradingAccount, on_delete=models.CASCADE, related_name='orders')
-    
-    symbol      = models.CharField(max_length=20, help_text="e.g. XAUUSD, GC=F, PTT")
-    order_id    = models.CharField(max_length=100, blank=True, help_text="Ticket ID จาก Broker")
-    
-    # รายละเอียดการเทรด
-    order_type  = models.CharField(max_length=10, choices=[('BUY', 'Buy'), ('SELL', 'Sell')])
-    volume      = models.DecimalField(max_digits=12, decimal_places=4, help_text="จำนวน Lots / Units")
-    
+    user    = models.ForeignKey(User, on_delete=models.CASCADE)
+    account = models.ForeignKey(TradingAccount, on_delete=models.CASCADE, related_name='orders')
+
+    symbol   = models.CharField(max_length=20,  help_text="e.g. XAUUSD, GC=F")
+    order_id = models.CharField(max_length=100, blank=True, help_text="Ticket ID จาก Broker")
+
+    # ── รายละเอียดการเทรด ──────────────────────────────────────────
+    order_type  = models.CharField(max_length=10, choices=[('BUY','Buy'),('SELL','Sell')])
+    volume      = models.DecimalField(max_digits=12, decimal_places=4, help_text="Lots")
     entry_price = models.DecimalField(max_digits=12, decimal_places=4, null=True, blank=True)
     stop_loss   = models.DecimalField(max_digits=12, decimal_places=4, null=True, blank=True)
     take_profit = models.DecimalField(max_digits=12, decimal_places=4, null=True, blank=True)
-    
-    # สถานะและผลลัพธ์
-    status      = models.CharField(max_length=20, choices=OrderStatus.choices, default=OrderStatus.PENDING)
-    opened_at   = models.DateTimeField(null=True, blank=True)
-    closed_at   = models.DateTimeField(null=True, blank=True)
-    
-    exit_price  = models.DecimalField(max_digits=12, decimal_places=4, null=True, blank=True)
-    profit_loss = models.DecimalField(max_digits=14, decimal_places=2, default=0.0, help_text="กำไร/ขาดทุนสุทธิ (Net P/L)")
-    
-    # เชื่อมโยงกับกลยุทธ์
-    strategy    = models.CharField(max_length=50, blank=True, help_text="e.g. Turtle S1, Precision DZ")
-    exit_reason = models.CharField(max_length=100, blank=True, null=True, help_text="TP, SL, Manual, etc.")
-    comment     = models.TextField(blank=True, help_text="บันทึกเพิ่มเติมจาก Robot หรือ AI")
-    created_at  = models.DateTimeField(auto_now_add=True)
+
+    # ── สถานะและเวลา ───────────────────────────────────────────────
+    status    = models.CharField(max_length=20, choices=OrderStatus.choices, default=OrderStatus.PENDING)
+    opened_at = models.DateTimeField(null=True, blank=True)
+    closed_at = models.DateTimeField(null=True, blank=True)
+
+    # ── ผลลัพธ์ทางการเงิน ──────────────────────────────────────────
+    exit_price    = models.DecimalField(max_digits=12, decimal_places=4, null=True, blank=True)
+    profit_loss   = models.DecimalField(max_digits=14, decimal_places=2, default=0, help_text="Net P/L หลังหักค่าธรรมเนียม")
+    gross_pl      = models.DecimalField(max_digits=14, decimal_places=2, default=0, help_text="Gross P/L ก่อนหักค่าธรรมเนียม")
+    commission    = models.DecimalField(max_digits=10, decimal_places=4, default=0, help_text="ค่านายหน้า Broker")
+    swap          = models.DecimalField(max_digits=10, decimal_places=4, default=0, help_text="ค่า Swap / ดอกเบี้ยค้างคืน")
+
+    # ── สถิติการเทรด ────────────────────────────────────────────────
+    pips          = models.DecimalField(max_digits=10, decimal_places=2, default=0, help_text="จำนวน Pips/Points ที่ได้/เสีย")
+    risk_usd      = models.DecimalField(max_digits=12, decimal_places=2, default=0, help_text="ความเสี่ยงเป็น USD ($)")
+    risk_pct      = models.DecimalField(max_digits=6,  decimal_places=3, default=0, help_text="ความเสี่ยงเป็น % ของบัญชี")
+    actual_rr     = models.DecimalField(max_digits=8,  decimal_places=3, default=0, help_text="R:R จริงที่ได้รับ")
+    duration_sec  = models.IntegerField(default=0, help_text="ระยะเวลา Hold (วินาที)")
+
+    # ── กลยุทธ์และบันทึก ────────────────────────────────────────────
+    strategy      = models.CharField(max_length=50,  blank=True, help_text="e.g. SNIPER, TURTLE")
+    signal_source = models.CharField(max_length=100, blank=True, help_text="สัญญาณที่ trigger: DC10, DC20, DC55, Manual")
+    exit_reason   = models.CharField(max_length=100, blank=True, null=True, help_text="TP / SL / Manual / Panic")
+    comment       = models.TextField(blank=True, help_text="บันทึกเพิ่มเติมจาก Robot หรือ AI")
+
+    created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         ordering = ['-opened_at', '-created_at']
         verbose_name = "Trade Order"
+        indexes = [
+            models.Index(fields=['user', 'symbol', 'status']),
+            models.Index(fields=['user', 'opened_at']),
+        ]
+
+    @property
+    def duration_display(self):
+        """แปลง duration_sec เป็นข้อความที่อ่านง่าย"""
+        s = int(self.duration_sec or 0)
+        if s < 60:    return f"{s}s"
+        if s < 3600:  return f"{s//60}m {s%60}s"
+        if s < 86400: return f"{s//3600}h {(s%3600)//60}m"
+        return f"{s//86400}d {(s%86400)//3600}h"
+
+    def calculate_and_save_pl(self, exit_p, commission=0, swap=0):
+        """
+        คำนวณ P/L ครบถ้วนและบันทึกลง DB
+        XAUUSD: 1 Lot = 100 oz, pip value ≈ $1/pip
+        """
+        from decimal import Decimal
+        ep = Decimal(str(entry_p := float(self.entry_price or 0)))
+        xp = Decimal(str(float(exit_p)))
+        vol = Decimal(str(float(self.volume)))
+
+        # XAUUSD: price diff * 100 oz * lots
+        price_diff = (xp - ep) if self.order_type == 'BUY' else (ep - xp)
+        gross = price_diff * vol * Decimal('100')
+        net   = gross - Decimal(str(commission)) - Decimal(str(swap))
+
+        self.exit_price   = xp
+        self.gross_pl     = round(gross, 2)
+        self.commission   = round(Decimal(str(commission)), 4)
+        self.swap         = round(Decimal(str(swap)), 4)
+        self.profit_loss  = round(net, 2)
+        self.pips         = round(price_diff, 2)
+
+        if self.stop_loss and self.entry_price:
+            risk_pts = abs(float(self.entry_price) - float(self.stop_loss))
+            self.risk_usd = round(float(risk_pts) * float(self.volume) * 100, 2)
+
+        if self.risk_usd and float(self.risk_usd) != 0:
+            self.actual_rr = round(float(self.gross_pl) / float(self.risk_usd), 3)
+
+        if self.opened_at and self.closed_at:
+            self.duration_sec = int((self.closed_at - self.opened_at).total_seconds())
+
+        self.status    = TradeOrder.OrderStatus.CLOSED
+        self.save()
+        return self
 
 class BotActivity(models.Model):
     """

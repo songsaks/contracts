@@ -893,29 +893,52 @@
     <div class="row">
         <div class="col-12">
             <div class="g-card">
-                <div class="g-card-header d-flex justify-content-between align-items-center" style="padding: 0.7rem 1rem;">
+                <div class="g-card-header d-flex justify-content-between align-items-center flex-wrap gap-2" style="padding: 0.7rem 1rem;">
                     <span style="color:var(--text-hi); font-weight: 800; font-size: 0.85rem;">
-                        <i class="fas fa-history me-2" style="color:var(--gold)"></i> TRADE HISTORY (RECENT 24H)
+                        <i class="fas fa-history me-2" style="color:var(--gold)"></i> TRADE HISTORY
                     </span>
-                    <button class="btn btn-sm rounded-pill px-3" onclick="updateTradeHistory()" style="font-size: 0.78rem; border: 1px solid var(--border); color: var(--text-hi); background: rgba(255,255,255,0.05);">
-                        <i class="fas fa-sync-alt me-1"></i> Refresh History
-                    </button>
+                    <div class="d-flex align-items-center gap-2">
+                        <div class="btn-group btn-group-sm" role="group">
+                            <button id="hist-btn-1d"  type="button" class="btn"  onclick="setHistRange('1d')"  style="font-size:0.72rem; border:1px solid var(--border); color:var(--text-hi); background:rgba(255,255,255,0.05);">1D</button>
+                            <button id="hist-btn-7d"  type="button" class="btn"  onclick="setHistRange('7d')"  style="font-size:0.72rem; border:1px solid var(--border); color:var(--gold);   background:rgba(212,175,55,0.15);">7D</button>
+                            <button id="hist-btn-30d" type="button" class="btn"  onclick="setHistRange('30d')" style="font-size:0.72rem; border:1px solid var(--border); color:var(--text-hi); background:rgba(255,255,255,0.05);">30D</button>
+                            <button id="hist-btn-all" type="button" class="btn"  onclick="setHistRange('all')" style="font-size:0.72rem; border:1px solid var(--border); color:var(--text-hi); background:rgba(255,255,255,0.05);">ALL</button>
+                        </div>
+                        <button class="btn btn-sm rounded-pill px-3" onclick="updateTradeHistory()" style="font-size: 0.72rem; border: 1px solid var(--border); color: var(--text-hi); background: rgba(255,255,255,0.05);">
+                            <i class="fas fa-sync-alt me-1"></i> Refresh
+                        </button>
+                    </div>
+                </div>
+                <!-- Stats Bar -->
+                <div id="hist-stats-bar" style="display:flex; gap:1.5rem; padding:0.45rem 1rem; background:rgba(255,255,255,0.03); border-bottom:1px solid var(--border); font-size:0.75rem; flex-wrap:wrap;">
+                    <span style="color:var(--text-lo);">Trades: <strong id="hs-total" style="color:var(--text-hi);">—</strong></span>
+                    <span style="color:var(--text-lo);">Win Rate: <strong id="hs-wr" style="color:#22c55e;">—</strong></span>
+                    <span style="color:var(--text-lo);">Net P/L: <strong id="hs-pl" style="color:var(--text-hi);">—</strong></span>
+                    <span style="color:var(--text-lo);">Comm+Swap: <strong id="hs-fee" style="color:#f59e0b;">—</strong></span>
+                    <span style="color:var(--text-lo);">Wins: <strong id="hs-wins" style="color:#22c55e;">—</strong></span>
+                    <span style="color:var(--text-lo);">Losses: <strong id="hs-loss" style="color:#ef4444;">—</strong></span>
                 </div>
                 <div class="table-responsive" style="max-height: 500px; overflow-y: auto;">
-                    <table class="pos-table">
+                    <table class="pos-table" style="font-size:0.78rem; min-width:900px;">
                         <thead>
                             <tr>
-                                <th class="ps-3">DATE/TIME</th>
+                                <th class="ps-3" style="white-space:nowrap;">OPENED</th>
+                                <th style="white-space:nowrap;">CLOSED</th>
                                 <th>STRATEGY</th>
                                 <th>TYPE</th>
                                 <th>LOTS</th>
                                 <th>ENTRY</th>
                                 <th>EXIT</th>
-                                <th class="text-end pe-3">STATUS / P/L</th>
+                                <th>PIPS</th>
+                                <th>GROSS P/L</th>
+                                <th>COMM+SWAP</th>
+                                <th>NET P/L</th>
+                                <th>R:R</th>
+                                <th class="pe-3" style="white-space:nowrap;">DURATION</th>
                             </tr>
                         </thead>
                         <tbody id="trade-history-body">
-                            <tr><td colspan="7" class="text-center py-5" style="background:var(--bg-card);color:var(--text-lo);">No history data available for the last 24h</td></tr>
+                            <tr><td colspan="13" class="text-center py-5" style="color:var(--text-lo);">Loading trade history...</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -936,6 +959,7 @@
     let alertSound = new Audio('https://assets.mixkit.co/active_storage/sfx/951/951-preview.mp3');
     alertSound.loop = true;
     let isAlertRinging = false;
+    let _histRange = '7d';
 
     function addFeedMessage(msg, isSignal = false) {
         const feed = document.getElementById('signal-feed');
@@ -1230,7 +1254,7 @@
                                 // ถ้าใกล้มาก (Strike Zone) ให้โชว์ Checklist
                                 if (proxPct > 60 || lastPrice > breakoutPrice) {
                                     checklist.style.display = 'block';
-                                    if (proxPct > 85 && !priceOk) {
+                                    if (proxPct > 85 && !(lastPrice > breakoutPrice)) {
                                         advisorText.innerText = 'STRIKE ZONE!';
                                         advisorText.style.color = 'var(--gold)';
                                         advisorSub.innerText = 'Price is approaching trigger level.';
@@ -2137,36 +2161,82 @@
         if (volChart) volChart.resize(w, h.vol);
     }
 
-    async function updateTradeHistory() {
-        try {
-            const data = await fetch('{% url "stocks:get_gold_trade_history" %}').then(r => r.json());
-            const body = document.getElementById('trade-history-body');
-            if (data.success && data.history?.length > 0) {
-                body.innerHTML = data.history.map(h => {
-                    const isProfit = h.pl >= 0;
-                    const isClosed = h.status === 'CLOSED';
-                    const dateStr = h.created_at.split(' ')[0].split('-').slice(1).join('/'); 
-                    const timeStr = h.created_at.split(' ')[1].slice(0,5);
-                    const statusText = isClosed ? (h.reason ? `DONE (${h.reason})` : 'DONE') : 'LIVE';
-                    const statusClass = isClosed ? 'wait' : 'bull'; // wait=gray, bull=green
-
-                    return `<tr style="border-bottom: 1px solid var(--border);">
-                        <td class="ps-3" style="font-size:0.65rem; color: var(--text-lo);">${dateStr} ${timeStr}</td>
-                        <td class="fw-bold" style="font-size:0.65rem; color: var(--blue);">${h.strategy}</td>
-                        <td><span class="badge ${h.type==='BUY'?'bg-success':'bg-danger'}" style="font-size:0.55rem; padding: 2px 6px;">${h.type}</span></td>
-                        <td style="font-family: 'JetBrains Mono'; font-size: 0.75rem;">${h.volume}</td>
-                        <td style="font-family: 'JetBrains Mono'; font-size: 0.75rem;">${h.entry.toFixed(2)}</td>
-                        <td style="font-family: 'JetBrains Mono'; font-size: 0.75rem; color: var(--text-lo);">${h.exit ? h.exit.toFixed(2) : '-'}</td>
-                        <td class="text-end pe-3">
-                            <span class="s-pill ${statusClass}" style="font-size: 0.55rem;">${statusText}</span>
-                            <span class="ms-2 fw-bold ${isClosed ? (isProfit?'text-success':'text-danger') : 'text-muted'}" style="font-family: 'JetBrains Mono'; font-size: 0.75rem;">
-                                ${isClosed ? (isProfit?'+':'' ) + h.pl.toFixed(2) : ''}
-                            </span>
-                        </td>
-                    </tr>`;
-                }).join('');
+    function setHistRange(r) {
+        _histRange = r;
+        ['1d','7d','30d','all'].forEach(k => {
+            const btn = document.getElementById('hist-btn-' + k);
+            if (!btn) return;
+            if (k === r) {
+                btn.style.color = 'var(--gold)';
+                btn.style.background = 'rgba(212,175,55,0.15)';
+                btn.style.borderColor = 'var(--gold)';
+            } else {
+                btn.style.color = 'var(--text-hi)';
+                btn.style.background = 'rgba(255,255,255,0.05)';
+                btn.style.borderColor = 'var(--border)';
             }
-        } catch(e) { console.error("History Error:", e); }
+        });
+        updateTradeHistory();
+    }
+
+    async function updateTradeHistory() {
+        const body = document.getElementById('trade-history-body');
+        try {
+            const data = await fetch(`{% url "stocks:get_gold_trade_history" %}?range=${_histRange}`).then(r => r.json());
+
+            // Update stats bar
+            if (data.stats) {
+                const s = data.stats;
+                const plColor = s.total_pl >= 0 ? '#22c55e' : '#ef4444';
+                document.getElementById('hs-total').textContent = s.total || 0;
+                document.getElementById('hs-wr').textContent    = s.closed ? s.win_rate + '%' : '—';
+                document.getElementById('hs-pl').style.color    = plColor;
+                document.getElementById('hs-pl').textContent    = (s.total_pl >= 0 ? '+' : '') + s.total_pl.toFixed(2);
+                document.getElementById('hs-fee').textContent   = '-' + Math.abs(s.total_comm + s.total_swap).toFixed(2);
+                document.getElementById('hs-wins').textContent  = s.wins || 0;
+                document.getElementById('hs-loss').textContent  = s.losses || 0;
+            }
+
+            if (!data.success || !data.history || data.history.length === 0) {
+                body.innerHTML = `<tr><td colspan="13" class="text-center py-4" style="color:var(--text-lo);">No trades found for this period</td></tr>`;
+                return;
+            }
+
+            body.innerHTML = data.history.map(h => {
+                const isProfit = h.pl >= 0;
+                const isClosed = h.status === 'CLOSED';
+                const typeColor = h.type === 'BUY' ? '#22c55e' : '#ef4444';
+                const plColor   = isClosed ? (isProfit ? '#22c55e' : '#ef4444') : 'var(--text-lo)';
+                const grossDisp = h.gross_pl !== 0 ? ((h.gross_pl >= 0 ? '+' : '') + h.gross_pl.toFixed(2)) : '—';
+                const feeDisp   = (h.commission + h.swap) !== 0 ? ('-' + Math.abs(h.commission + h.swap).toFixed(2)) : '—';
+                const plDisp    = isClosed ? ((isProfit ? '+' : '') + h.pl.toFixed(2)) : '—';
+                const rrDisp    = h.actual_rr ? h.actual_rr.toFixed(2) + 'R' : '—';
+                const pipsDisp  = h.pips ? (h.pips >= 0 ? '+' : '') + h.pips.toFixed(1) : '—';
+                const exitDisp  = h.exit ? h.exit.toFixed(2) : '—';
+                const statusPill = isClosed
+                    ? `<span class="s-pill wait" style="font-size:0.65rem;">${h.exit_reason || 'DONE'}</span>`
+                    : `<span class="s-pill bull" style="font-size:0.65rem;">LIVE</span>`;
+
+                return `<tr style="border-bottom:1px solid var(--border);">
+                    <td class="ps-3" style="color:var(--text-lo); white-space:nowrap;">${h.opened_at}</td>
+                    <td style="color:var(--text-lo); white-space:nowrap;">${isClosed ? h.closed_at : statusPill}</td>
+                    <td style="color:var(--blue); font-weight:600;">${h.strategy}</td>
+                    <td><span style="color:${typeColor}; font-weight:700;">${h.type}</span></td>
+                    <td style="font-family:'JetBrains Mono';">${h.volume.toFixed(2)}</td>
+                    <td style="font-family:'JetBrains Mono';">${h.entry.toFixed(2)}</td>
+                    <td style="font-family:'JetBrains Mono'; color:var(--text-lo);">${exitDisp}</td>
+                    <td style="font-family:'JetBrains Mono'; color:${h.pips >= 0 ? '#22c55e':'#ef4444'};">${pipsDisp}</td>
+                    <td style="font-family:'JetBrains Mono'; color:${h.gross_pl >= 0 ? '#22c55e':'#ef4444'};">${grossDisp}</td>
+                    <td style="font-family:'JetBrains Mono'; color:#f59e0b;">${feeDisp}</td>
+                    <td style="font-family:'JetBrains Mono'; color:${plColor}; font-weight:700;">${plDisp}</td>
+                    <td style="font-family:'JetBrains Mono'; color:var(--text-lo);">${rrDisp}</td>
+                    <td class="pe-3" style="color:var(--text-lo); white-space:nowrap;">${h.duration}</td>
+                </tr>`;
+            }).join('');
+        } catch(e) {
+            console.error("History Error:", e);
+            body.innerHTML = `<tr><td colspan="13" class="text-center py-4" style="color:#ef4444;">Error loading history</td></tr>`;
+        }
     }
 
     function buildDynamicHeadlines() {
