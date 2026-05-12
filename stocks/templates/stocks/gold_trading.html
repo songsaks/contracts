@@ -749,38 +749,6 @@
             </div>
         </div>
 
-        <!-- LIVE POSITIONS (center panel, full width) -->
-        <div class="g-card g-card-dark" style="border-color:rgba(240,183,47,0.35);">
-            <div class="g-card-header d-flex justify-content-between align-items-center" style="padding:0.55rem 0.85rem;">
-                <span style="color:var(--gold);font-weight:900;font-size:0.68rem;text-transform:uppercase;letter-spacing:0.5px;">
-                    <i class="fas fa-satellite me-1"></i> LIVE POSITIONS
-                </span>
-                <div class="d-flex align-items-center gap-2">
-                    <span id="pos-count-badge" class="badge rounded-pill" style="background:rgba(240,183,47,0.15);color:var(--gold);border:1px solid rgba(240,183,47,0.3);font-size:0.62rem;">0</span>
-                    <span id="total-pl-display" style="font-family:'JetBrains Mono';font-size:1rem;font-weight:900;color:var(--green);">+0.00</span>
-                </div>
-            </div>
-            <div style="overflow-x:auto; overflow-y:auto; max-height:260px; -webkit-overflow-scrolling:touch;">
-                <table class="pos-table" style="min-width:460px;">
-                    <thead>
-                        <tr>
-                            <th class="ps-2">TYPE</th>
-                            <th>SIZE</th>
-                            <th>ENTRY</th>
-                            <th>TARGET</th>
-                            <th>STOP</th>
-                            <th>P/L ($)</th>
-                            <th class="pe-2">EDIT</th>
-                        </tr>
-                    </thead>
-                    <tbody id="positions-list-body">
-                        <tr><td colspan="7" class="text-center py-4" style="color:var(--text-lo);">No open positions</td></tr>
-
-                    </tbody>
-                </table>
-            </div>
-        </div>
-
     </div><!-- /CENTER PANEL -->
 
     <!-- ════ RIGHT PANEL: Controls & Trading ════ -->
@@ -809,6 +777,37 @@
                 style="border:1px dashed rgba(88,166,255,0.4);color:var(--blue);background:rgba(88,166,255,0.04);font-weight:800;border-radius:8px;font-size:0.78rem;padding:0.5rem;">
                 <i class="fas fa-vial me-1"></i> TEST ORDER (0.01 Lot)
             </button>
+        </div>
+
+        <!-- LIVE POSITIONS -->
+        <div class="g-card g-card-dark" style="border-color:rgba(240,183,47,0.35);">
+            <div class="g-card-header d-flex justify-content-between align-items-center" style="padding:0.55rem 0.85rem;">
+                <span style="color:var(--gold);font-weight:900;font-size:0.68rem;text-transform:uppercase;letter-spacing:0.5px;">
+                    <i class="fas fa-satellite me-1"></i> LIVE POSITIONS
+                </span>
+                <div class="d-flex align-items-center gap-2">
+                    <span id="pos-count-badge" class="badge rounded-pill" style="background:rgba(240,183,47,0.15);color:var(--gold);border:1px solid rgba(240,183,47,0.3);font-size:0.62rem;">0</span>
+                    <span id="total-pl-display" style="font-family:'JetBrains Mono';font-size:1rem;font-weight:900;color:var(--green);">+0.00</span>
+                </div>
+            </div>
+            <div style="overflow-x:auto;overflow-y:auto;max-height:260px;-webkit-overflow-scrolling:touch;">
+                <table class="pos-table" style="min-width:460px;">
+                    <thead>
+                        <tr>
+                            <th class="ps-2">TYPE</th>
+                            <th>SIZE</th>
+                            <th>ENTRY</th>
+                            <th>TARGET</th>
+                            <th>STOP</th>
+                            <th>P/L ($)</th>
+                            <th class="pe-2">EDIT</th>
+                        </tr>
+                    </thead>
+                    <tbody id="positions-list-body">
+                        <tr><td colspan="7" class="text-center py-4" style="color:var(--text-lo);">No open positions</td></tr>
+                    </tbody>
+                </table>
+            </div>
         </div>
 
         <!-- TACTICAL LEVELS -->
