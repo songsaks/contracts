@@ -10872,3 +10872,49 @@ def get_gold_trade_history_ajax(request):
         })
 
     return JsonResponse({'success': True, 'history': data, 'stats': stats, 'sync_errors': sync_errors})
+
+
+@csrf_exempt
+@login_required
+def manual_update_trade_exit(request):
+    """อนุญาตให้ user กรอก exit price ด้วยตนเอง สำหรับ trade ที่ API ไม่ส่งข้อมูลกลับมา"""
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST required'}, status=400)
+    import json
+    from decimal import Decimal, InvalidOperation
+    from .models import TradeOrder
+
+    try:
+        data       = json.loads(request.body)
+        order_id   = data.get('order_id')
+        exit_price = data.get('exit_price')
+
+        if not order_id or exit_price is None:
+            return JsonResponse({'success': False, 'error': 'order_id and exit_price required'})
+
+        order = TradeOrder.objects.get(id=order_id, user=request.user)
+        ep    = Decimal(str(exit_price))
+        order.exit_price = ep
+
+        if order.entry_price:
+            diff = float(ep) - float(order.entry_price)
+            if order.order_type == 'SELL':
+                diff = -diff
+            order.pips = round(diff, 2)
+            lot = float(order.volume) if order.volume else 0.01
+            order.gross_pl    = round(diff * lot * 100, 2)
+            order.profit_loss = Decimal(str(order.gross_pl))
+
+        if not order.exit_reason:
+            order.exit_reason = 'MANUAL'
+        if not order.closed_at:
+            from django.utils import timezone
+            order.closed_at = timezone.now()
+
+        order.save()
+        return JsonResponse({'success': True, 'pl': float(order.profit_loss)})
+
+    except TradeOrder.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Order not found'})
+    except (InvalidOperation, ValueError) as e:
+        return JsonResponse({'success': False, 'error': f'Invalid price: {e}'})

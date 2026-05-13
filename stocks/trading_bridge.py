@@ -272,18 +272,15 @@ class RobotBridge:
         if self.broker_type != BrokerType.META_API:
             return 0
             
-        # 1. ดึงออเดอร์ที่ยัง OPEN หรือ CLOSED แต่ยังไม่มีข้อมูล Exit
+        # sync เฉพาะ OPEN orders — CLOSED ที่ขาดข้อมูลให้ user กรอกเองผ่านปุ่ม ✏️
         orders_to_sync = TradeOrder.objects.filter(
-            user=self.user, 
-            account=self.account
-        ).filter(
-            Q(status=TradeOrder.OrderStatus.OPEN) |
-            Q(status=TradeOrder.OrderStatus.CLOSED, exit_price__isnull=True) |
-            Q(status=TradeOrder.OrderStatus.CLOSED, exit_price=0)
-        )[:50] # จำกัดจำนวนเพื่อไม่ให้กระทบ Performance
-        
+            user=self.user,
+            account=self.account,
+            status=TradeOrder.OrderStatus.OPEN,
+        )[:50]
+
         if not orders_to_sync.exists():
-            return 0
+            return {'updated': 0, 'errors': []}
             
         # ดึงรายการ Position ที่ยังเปิดอยู่จริง
         live_positions = self.get_open_positions()
@@ -302,112 +299,66 @@ class RobotBridge:
 
         updated_count = 0
         sync_errors = []
+
+        # build live lookup dict: order_id → position data
+        live_map = {str(p.get('id')): p for p in live_positions}
+
         for order in orders_to_sync:
             is_closed = False
-            
-            # 2. ตรวจสอบสถานะ: ถ้าเคย OPEN แต่ไม่อยู่ใน Live List แล้ว แสดงว่าปิดไปแล้ว
+
+            # 2. OPEN order — อัปเดต floating P/L + บันทึก snapshot สำหรับใช้ตอนปิด
             if order.status == TradeOrder.OrderStatus.OPEN:
-                if order.order_id and str(order.order_id) not in live_ids:
-                    order.status = TradeOrder.OrderStatus.CLOSED
-                    order.closed_at = timezone.now()
-                    is_closed = True
-            else:
-                # ถ้าเป็น CLOSED อยู่แล้ว แต่มาหาข้อมูลเพิ่ม
-                is_closed = True
-            
-            # 3. ถ้าปิดแล้ว (หรือกำลังมาซ่อมข้อมูล) ให้ดึงข้อมูลจาก History Deals API
-            if is_closed and order.order_id:
-                try:
-                    exit_deal = None
-                    debug_info = []
-
-                    # ลอง by-position
-                    pos_id = str(order.order_id)
-                    history_url = f"https://mt-client-api-v1.{region}.agiliumtrade.ai/users/current/accounts/{account_id}/history-deals/by-position/{pos_id}"
-                    h_res = requests.get(history_url, headers={"auth-token": token}, timeout=8)
-                    debug_info.append(f"by-position/{pos_id} → {h_res.status_code} body={h_res.text[:200]}")
-                    logger.info(f"[SyncDeal] {debug_info[-1]}")
-
-                    if h_res.status_code == 200:
-                        deals = h_res.json() if isinstance(h_res.json(), list) else []
-                        exit_deal = next((d for d in deals if d.get('entry') == 'out' or 'out' in d.get('type','').lower()), None)
-                        if not exit_deal and len(deals) > 1:
-                            exit_deal = deals[-1]
-
-                    # Fallback: by-time range (±2 ชั่วโมงรอบ closed_at)
-                    if not exit_deal:
-                        ref_time = order.closed_at or timezone.now()
-                        t_from = (ref_time - timezone.timedelta(hours=2)).strftime('%Y-%m-%dT%H:%M:%S.000Z')
-                        t_to   = (ref_time + timezone.timedelta(hours=2)).strftime('%Y-%m-%dT%H:%M:%S.000Z')
-                        range_url = f"https://mt-client-api-v1.{region}.agiliumtrade.ai/users/current/accounts/{account_id}/history-deals/by-time/{t_from}/{t_to}"
-                        r_res = requests.get(range_url, headers={"auth-token": token}, timeout=8)
-                        debug_info.append(f"by-time → {r_res.status_code} count={len(r_res.json()) if r_res.status_code==200 else '?'}")
-                        logger.info(f"[SyncDeal] {debug_info[-1]}")
-
-                        if r_res.status_code == 200:
-                            all_deals = r_res.json() if isinstance(r_res.json(), list) else []
-                            vol = float(order.volume) if order.volume else 0
-                            for d in all_deals:
-                                if 'out' in d.get('entry','').lower() or 'out' in d.get('type','').lower():
-                                    if vol == 0 or abs(float(d.get('volume', 0)) - vol) < 0.001:
-                                        exit_deal = d
-                                        break
-
-                    if not exit_deal:
-                        sync_errors.append(f"ไม่พบ deal สำหรับ order {pos_id} | " + " | ".join(debug_info))
-
-                    if exit_deal:
-                        from decimal import Decimal as _Dec
-                        order.exit_price = exit_deal.get('price')
-                        comm_val = float(exit_deal.get('commission', 0))
-                        swap_val = float(exit_deal.get('swap', 0))
-                        order.commission = abs(comm_val)
-                        order.swap = swap_val
-                        order.gross_pl = float(exit_deal.get('profit', 0))
-                        order.profit_loss = order.gross_pl - order.commission + swap_val
-
-                        if order.entry_price and order.exit_price:
-                            diff = float(order.exit_price) - float(order.entry_price)
-                            if order.order_type == 'SELL': diff = -diff
-                            order.pips = round(diff, 2)
-
-                        close_time = exit_deal.get('time') or exit_deal.get('brokerTime', '')
-                        if close_time:
-                            try:
-                                order.closed_at = _dt.fromisoformat(close_time.replace('Z', '+00:00'))
-                            except:
-                                order.closed_at = timezone.now()
-                        else:
-                            order.closed_at = timezone.now()
-
-                        if order.opened_at and order.closed_at:
-                            order.duration_sec = int((order.closed_at - order.opened_at).total_seconds())
-
-                        reason_code = exit_deal.get('reason', '').lower()
-                        if 'sl' in reason_code:
-                            order.exit_reason = 'STOP LOSS'
-                        elif 'tp' in reason_code:
-                            order.exit_reason = 'TAKE PROFIT'
-                        elif 'expert' in reason_code:
-                            order.exit_reason = 'ROBOT'
-                        elif 'client' in reason_code:
-                            order.exit_reason = 'MANUAL'
-                        else:
-                            order.exit_reason = reason_code.upper() or 'CLOSED'
-
-                except Exception as e:
-                    err_msg = f"Order {order.order_id}: {e}"
-                    logger.error(f"Sync History Error: {err_msg}")
-                    sync_errors.append(err_msg)
-            else:
-                # OPEN order ที่ยังอยู่ใน live list — อัปเดต floating P/L จาก live data
-                live_pos = next((p for p in live_positions if str(p.get('id')) == str(order.order_id)), None)
+                live_pos = live_map.get(str(order.order_id))
                 if live_pos:
+                    # อัปเดต floating P/L และ current price ทุก sync
                     try:
                         from decimal import Decimal as _Dec
-                        order.profit_loss = _Dec(str(live_pos.get('profit', 0)))
+                        order.profit_loss   = _Dec(str(live_pos.get('profit', 0)))
+                        # บันทึก current price ไว้ใช้เป็น exit price หาก position ปิด
+                        cur_price = live_pos.get('currentPrice') or live_pos.get('price')
+                        if cur_price:
+                            order.exit_price = _Dec(str(cur_price))
+                        order.save(update_fields=['profit_loss', 'exit_price'])
                     except Exception:
                         pass
+                    continue  # ยังไม่ปิด ข้ามไป
+
+                # ไม่อยู่ใน live list → ปิดแล้ว
+                order.status   = TradeOrder.OrderStatus.CLOSED
+                order.closed_at = timezone.now()
+                is_closed = True
+            else:
+                # CLOSED อยู่แล้ว แต่มาหาข้อมูลเพิ่ม
+                is_closed = True
+            
+            # 3. ถ้าปิดแล้ว — ใช้ exit_price/profit_loss ที่ snapshot ไว้ระหว่าง OPEN
+            #    (history-deals API ไม่พร้อมใช้งานสำหรับ account นี้)
+            if is_closed:
+                try:
+                    from decimal import Decimal as _Dec
+
+                    # คำนวณ pips จาก exit_price ที่บันทึกไว้ตอน live
+                    if order.entry_price and order.exit_price and float(order.exit_price) > 0:
+                        diff = float(order.exit_price) - float(order.entry_price)
+                        if order.order_type == 'SELL': diff = -diff
+                        order.pips = round(diff, 2)
+                        # คำนวณ gross_pl = pips × volume × 100 (gold: $1/pip per 0.01 lot)
+                        if order.profit_loss == 0 or order.profit_loss is None:
+                            lot = float(order.volume) if order.volume else 0.01
+                            order.gross_pl  = round(diff * lot * 100, 2)
+                            order.profit_loss = _Dec(str(order.gross_pl))
+
+                    if not order.exit_reason:
+                        order.exit_reason = 'MANUAL'
+
+                    if order.opened_at and order.closed_at:
+                        order.duration_sec = int((order.closed_at - order.opened_at).total_seconds())
+
+                except Exception as e:
+                    sync_errors.append(f"Calc error for {order.order_id}: {e}")
+
+                if not order.exit_price or float(order.exit_price or 0) == 0:
+                    sync_errors.append(f"order {order.order_id}: ไม่มี exit_price — เปิด position ก่อนปิดหน้าเว็บ snapshot ยังไม่บันทึก")
 
             order.save()
             updated_count += 1

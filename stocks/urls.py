@@ -79,6 +79,8 @@ urlpatterns = [
     path('investment-dashboard/', views.investment_dashboard, name='investment_dashboard'),
     path('investment-dashboard/refresh/', views.investment_dashboard_refresh, name='investment_dashboard_refresh'),
 
+    path('gold-trading/manual-exit/', views.manual_update_trade_exit, name='manual_update_trade_exit'),
+
     # API for External Integration (Hermes Bot)
     path('api/analysis/<str:symbol>/', views.api_stock_analysis, name='api_stock_analysis'),
 ]

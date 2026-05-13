@@ -2417,13 +2417,20 @@
                     </td>
                 </tr>`;
 
+                const missingExit = isClosed && !h.exit;
+                const editBtn = missingExit
+                    ? `<button onclick="event.stopPropagation(); manualEditExit(${h.id}, '${h.type}', ${h.entry}, ${h.volume})"
+                        style="margin-left:6px; padding:1px 7px; font-size:0.65rem; border-radius:4px;
+                               border:1px solid rgba(251,191,36,0.5); color:#fbbf24; background:rgba(251,191,36,0.08); cursor:pointer;"
+                        title="กรอก Exit Price ด้วยตนเอง">✏️ กรอก</button>` : '';
+
                 const mainRow = `<tr onclick="toggleHistDetail(${idx})" style="border-bottom:1px solid var(--border); cursor:pointer;" onmouseover="this.style.background='rgba(255,255,255,0.04)'" onmouseout="this.style.background=''">
                     <td class="ps-3" style="color:var(--text-lo); white-space:nowrap; font-size:0.75rem;">${h.opened_at}</td>
                     <td style="white-space:nowrap;">${reasonBadge}</td>
                     <td><span style="color:${typeColor}; font-weight:700;">${h.type}</span></td>
                     <td style="font-family:'JetBrains Mono';">${h.volume.toFixed(2)}</td>
                     <td style="font-family:'JetBrains Mono';">${h.entry.toFixed(2)}</td>
-                    <td style="font-family:'JetBrains Mono'; color:var(--text-lo);">${exitDisp}</td>
+                    <td style="font-family:'JetBrains Mono'; color:var(--text-lo);">${exitDisp}${editBtn}</td>
                     <td style="font-family:'JetBrains Mono'; color:#ef4444;">${slDisp}</td>
                     <td style="font-family:'JetBrains Mono'; color:${dist!==null&&dist<5&&isSlClose?'#ef4444':'var(--text-lo)'}; font-weight:${dist!==null&&dist<5&&isSlClose?'700':'400'};">${dist !== null ? dist.toFixed(1) : '—'}</td>
                     <td style="font-family:'JetBrains Mono'; color:${h.pips >= 0 ? '#22c55e':'#ef4444'};">${pipsDisp}</td>
@@ -2448,6 +2455,39 @@
         const row = document.getElementById('detail-' + idx);
         if (!row) return;
         row.style.display = row.style.display === 'none' ? 'table-row' : 'none';
+    }
+
+    async function manualEditExit(orderId, orderType, entryPrice, volume) {
+        const exitStr = prompt(
+            `📝 กรอก Exit Price สำหรับ ${orderType} @ ${entryPrice}\n` +
+            `(ราคาที่ปิด Order จริง เช่น 4672.50)`,
+            ''
+        );
+        if (!exitStr || isNaN(parseFloat(exitStr))) return;
+        const exitPrice = parseFloat(exitStr);
+
+        // คำนวณ P/L เบื้องต้น
+        const diff = orderType === 'BUY' ? exitPrice - entryPrice : entryPrice - exitPrice;
+        const pl   = (diff * volume * 100).toFixed(2);
+        const confirmMsg = `ยืนยัน?\n\nExit Price: ${exitPrice}\nP/L ≈ $${pl}\n\n(ระบบจะบันทึกข้อมูลนี้)`;
+        if (!confirm(confirmMsg)) return;
+
+        try {
+            const res = await fetch("{% url 'stocks:manual_update_trade_exit' %}", {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}' },
+                body: JSON.stringify({ order_id: orderId, exit_price: exitPrice })
+            }).then(r => r.json());
+
+            if (res.success) {
+                addFeedMessage(`✅ อัปเดต Order ${orderId}: Exit=${exitPrice}, P/L=$${res.pl}`);
+                updateTradeHistory();
+            } else {
+                alert('Error: ' + (res.error || 'Unknown'));
+            }
+        } catch(e) {
+            alert('Network error: ' + e.message);
+        }
     }
 
     // ══════════════════════════════════════════════════════
