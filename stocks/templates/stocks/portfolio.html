@@ -535,6 +535,7 @@
                         <tr class="small text-muted text-uppercase" style="font-size:0.72rem;letter-spacing:0.4px;">
                             <th>Symbol</th>
                             <th class="text-end">Price</th>
+                            <th class="text-end">Qty</th>
                             <th class="text-end col-hide-sm">Day%</th>
                             <th class="text-end">P/L%</th>
                             <th class="text-end col-hide-md">P/L</th>
@@ -593,6 +594,10 @@
                             <!-- Price -->
                             <td class="text-end fw-bold {% if item.day_change > 0 %}text-success{% elif item.day_change < 0 %}text-danger{% else %}text-dark{% endif %}" style="font-size:0.9rem;">
                                 {% if item.market != 'SET' %}${% else %}฿{% endif %}{{ item.current_price|floatformat:2 }}
+                            </td>
+                            <!-- Qty -->
+                            <td class="text-end text-muted" style="font-size:0.8rem;">
+                                {% if item.market == 'CRYPTO' %}{{ item.obj.quantity|floatformat:7 }}{% else %}{{ item.obj.quantity|floatformat:2|intcomma }}{% endif %}
                             </td>
                             <!-- Day% -->
                             <td class="text-end col-hide-sm">
