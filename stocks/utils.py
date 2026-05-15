@@ -2025,3 +2025,86 @@ def get_top_ranked_symbols(market='SET', limit=200, auto_refresh=False):
                     .values_list('symbol', flat=True))
                     
     return top_stocks
+
+# ----------------------------------------------------------------------
+# calculate_markov_regime — วิเคราะห์สภาวะตลาดด้วย Markov Chain
+# ----------------------------------------------------------------------
+def calculate_markov_regime(symbol="^SET", window=60):
+    """
+    วิเคราะห์ Market Regime โดยใช้โมเดลความน่าจะเป็นในการเปลี่ยนสถานะ (Markov Chain Transition)
+    States: 0 (Bearish), 1 (Choppy/Neutral), 2 (Bullish/Trending)
+    """
+    try:
+        # yfinance often lacks history for ^SET, use TDEX.BK (SET50 ETF) as proxy for Thai Market
+        target_symbol = symbol
+        if symbol == "^SET":
+            target_symbol = "TDEX.BK"
+            
+        df = yf.download(target_symbol, period="150d", interval="1d", progress=False)
+        if df is None or df.empty or len(df) < 30:
+            # Fallback to ^GSPC if even proxy fails (global sentiment)
+            df = yf.download("^GSPC", period="150d", interval="1d", progress=False)
+            if df is None or df.empty:
+                return {"state": "UNKNOWN", "label": "No Data", "color": "secondary", "prob": 0}
+        
+        if isinstance(df.columns, pd.MultiIndex):
+            df.columns = df.columns.get_level_values(0)
+
+        # 1. คำนวณ Daily Returns
+        df['returns'] = df['Close'].pct_change()
+        df = df.dropna().copy()
+        
+        # 2. กำหนดเกณฑ์ในการแบ่ง State (Threshold +/- 0.15% คือสถานะนิ่ง)
+        threshold = 0.0015 
+        
+        def get_state(ret):
+            if ret > threshold: return 2   # Up
+            if ret < -threshold: return 0  # Down
+            return 1                       # Flat
+            
+        df['state'] = df['returns'].apply(get_state)
+        
+        # 3. คำนวณ Transition Matrix
+        states = df['state'].tail(window).values
+        transitions = np.zeros((3, 3))
+        for i in range(len(states)-1):
+            transitions[states[i], states[i+1]] += 1
+            
+        row_sums = transitions.sum(axis=1)
+        prob_matrix = np.divide(transitions, row_sums[:, None], out=np.zeros_like(transitions), where=row_sums[:, None]!=0)
+        
+        current_state = states[-1]
+        prob_up = prob_matrix[current_state, 2]
+        prob_down = prob_matrix[current_state, 0]
+        prob_flat = prob_matrix[current_state, 1]
+        
+        # 4. วิเคราะห์ Regime ร่วมกับ Trend (SMA 20/50)
+        ma_20 = df['Close'].rolling(20).mean().iloc[-1]
+        ma_50 = df['Close'].rolling(50).mean().iloc[-1]
+        curr_price = df['Close'].iloc[-1]
+        
+        # Determine labels based on probabilities and MA structure
+        if curr_price > ma_20 and prob_up > 0.38:
+            # Strong momentum up
+            regime = {"state": "TRENDING", "label": "🟢 TRENDING", "color": "success", "prob": round(prob_up*100)}
+        elif curr_price < ma_20 and prob_down > 0.38:
+            # Strong momentum down
+            regime = {"state": "BEARISH", "label": "🔴 BEARISH", "color": "danger", "prob": round(prob_down*100)}
+        else:
+            # Low conviction or price mean reverting
+            label = "🟡 CHOPPY"
+            color = "warning"
+            # Use the highest probability state for the "confidence" meter
+            max_p = max(prob_up, prob_down, prob_flat)
+            if curr_price > ma_50:
+                label = "🟡 ACCUMULATING"
+            elif curr_price < ma_50:
+                label = "🟡 DISTRIBUTING"
+                
+            regime = {"state": "CHOPPY", "label": label, "color": color, "prob": round(max_p*100)}
+            
+        return regime
+    except Exception as e:
+        import logging
+        logging.getLogger('stocks').error(f"Markov Regime Error: {e}")
+        return {"state": "ERROR", "label": "Calculation Error", "color": "secondary", "prob": 0}

@@ -84,6 +84,44 @@
     </div>
 </div>
 
+<!-- Market Regime Pulse -->
+{% if market_regime %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card shadow-sm border-0" style="border-radius: 12px; background: rgba(255, 255, 255, 0.95); border: 1px solid rgba(239, 68, 68, 0.15) !important;">
+            <div class="card-body py-3 px-4 d-flex align-items-center justify-content-between flex-wrap gap-3">
+                <div class="d-flex align-items-center">
+                    <div class="bg-{{ market_regime.color }} bg-opacity-10 p-3 me-3 rounded-circle d-flex align-items-center justify-content-center" style="width: 48px; height: 48px;">
+                        <i class="fas fa-microchip fa-lg text-{{ market_regime.color }}"></i>
+                    </div>
+                    <div>
+                        <div class="text-muted small fw-bold text-uppercase" style="font-size: 0.62rem; letter-spacing: 0.5px;">Markov Market Regime Pulse</div>
+                        <div class="d-flex align-items-center flex-wrap gap-2">
+                            <h5 class="fw-bold mb-0 text-{{ market_regime.color }}">{{ market_regime.label }}</h5>
+                            <span class="badge bg-{{ market_regime.color }} bg-opacity-10 text-{{ market_regime.color }} rounded-pill border border-{{ market_regime.color }} border-opacity-25" style="font-size: 0.7rem;">
+                                Momentum Health: {{ market_regime.prob }}%
+                            </span>
+                        </div>
+                    </div>
+                </div>
+                <div class="flex-grow-1 text-md-end ps-md-4 ms-md-2" style="border-left: 2px solid rgba(0,0,0,0.05);">
+                    <p class="mb-0 fw-bold text-secondary" style="font-size: 0.88rem;">
+                        <i class="fas fa-bolt me-1 text-warning"></i>
+                        {% if market_regime.state == 'TRENDING' %}
+                            สภาวะตลาดเป็นใจ (Momentum Surge) โอกาสชนะในหุ้นขาขึ้นสูงมาก เน้นหุ้น Score > 80
+                        {% elif market_regime.state == 'CHOPPY' %}
+                            ตลาดแกว่งตัว (Choppy) ระวังการไล่ราคา แนะนำให้เข้าซื้อเฉพาะจังหวะย่อตัวใน Demand Zone
+                        {% elif market_regime.state == 'BEARISH' %}
+                            ตลาดอ่อนแอ (Risk-off) หุ้น Momentum มักจะยืนไม่อยู่ เน้นถือเงินสดและรอสัญญาณฟื้นตัว
+                        {% endif %}
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
 <!-- TRADING PLAYBOOK (Click to Read) -->
 <div class="row mb-4">
     <div class="col-12">

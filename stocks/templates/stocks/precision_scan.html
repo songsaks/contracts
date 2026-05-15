@@ -262,6 +262,61 @@
 </div>
 {% endif %}
 
+<!-- ===== Markov Market Regime Pulse (v11) ===== -->
+{% if markov_regime %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card border-0 shadow-sm rounded-4 overflow-hidden" style="background: white; border: 1px solid #e2e8f0 !important;">
+            <div class="card-body p-0">
+                <div class="d-flex align-items-center">
+                    <!-- Status Icon Area -->
+                    <div class="px-4 py-3 d-flex align-items-center justify-content-center" 
+                         style="background: {% if markov_regime.color == 'success' %}#dcfce7{% elif markov_regime.color == 'warning' %}#fef3c7{% else %}#fee2e2{% endif %}; min-width: 120px; align-self: stretch;">
+                        <div class="text-center">
+                            <i class="fas {% if markov_regime.color == 'success' %}fa-bolt-lightning text-success{% elif markov_regime.color == 'warning' %}fa-wave-square text-warning{% else %}fa-cloud-showers-heavy text-danger{% endif %} fa-2x"></i>
+                        </div>
+                    </div>
+                    
+                    <!-- Content Area -->
+                    <div class="p-3 flex-grow-1">
+                        <div class="d-flex align-items-center justify-content-between mb-1">
+                            <h6 class="mb-0 fw-bold d-flex align-items-center gap-2">
+                                <span class="text-muted small fw-normal">MARKOV REGIME PULSE:</span>
+                                <span class="badge rounded-pill bg-{{ markov_regime.color }} px-3">{{ markov_regime.label }}</span>
+                            </h6>
+                            <div class="small fw-bold text-{{ markov_regime.color }}">
+                                Continuation Probability: {{ markov_regime.prob }}%
+                            </div>
+                        </div>
+                        <p class="mb-0 small text-muted">
+                            {% if markov_regime.state == 'TRENDING' %}
+                                <i class="fas fa-check-circle text-success me-1"></i> ตลาดมีแนวโน้มชัดเจน: <strong>เหมาะสำหรับการไล่ราคา (Follow-through)</strong> และใช้ Leverage ได้
+                            {% elif markov_regime.state == 'CHOPPY' %}
+                                <i class="fas fa-exclamation-triangle text-warning me-1"></i> ตลาดผันผวนไร้ทิศทาง: <strong>ควรเน้นซื้อในโซน (Buy in Zone)</strong> และลดขนาดไม้ลง 50%
+                            {% else %}
+                                <i class="fas fa-shield-halved text-danger me-1"></i> ตลาดเป็นขาลง: <strong>ควรระมัดระวังสูงสุด</strong> เน้นถือเงินสด หรือเล่นเฉพาะหุ้นที่มี RS สูงมากเท่านั้น
+                            {% endif %}
+                        </p>
+                    </div>
+                    
+                    <!-- Prob Meter -->
+                    <div class="px-4 py-2 border-start d-none d-md-block" style="min-width: 200px;">
+                        <div class="d-flex justify-content-between small mb-1">
+                            <span class="text-muted">Stability Index</span>
+                            <span class="fw-bold text-{{ markov_regime.color }}">{{ markov_regime.prob }}%</span>
+                        </div>
+                        <div class="progress" style="height: 6px; background: #f1f5f9;">
+                            <div class="progress-bar bg-{{ markov_regime.color }}" role="progressbar" style="width: {{ markov_regime.prob }}%"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+
 <!-- ===== คู่มือการอ่านสัญญาณ ===== -->
 <div class="row mb-4">
     <div class="col-12">
@@ -560,6 +615,7 @@
                             <div><span style="color:#16a34a;font-weight:700;">✓</span> RR 1:{{ item.risk_reward_ratio|floatformat:1 }}</div>
                             <div><span style="color:#16a34a;font-weight:700;">✓</span> RS Rating {{ item.rs_rating }} · ADX {{ item.adx|floatformat:0 }}</div>
                             <div><span style="color:#16a34a;font-weight:700;">✓</span> RVOL {{ item.rvol|floatformat:1 }}x ▲</div>
+                            <div><span style="color:#16a34a;font-weight:700;">✓</span> Win Prob: <strong class="text-primary">{{ item.win_probability }}%</strong></div>
                             {% if item.macd_crossover %}<div><span style="color:#16a34a;font-weight:700;">✓</span> MACD ✕ crossover</div>{% endif %}
                             {% if item.ema20_aligned %}<div><span style="color:#4f46e5;font-weight:700;">✓</span> EMA20 aligned</div>{% endif %}
                             {% if item.bb_squeeze %}<div><span style="color:#b45309;font-weight:700;">✓</span> BB Squeeze ⚡</div>{% endif %}
@@ -679,6 +735,7 @@
                             {% endif %}
                             <span class="fw-bold" title="RS Rating 0-99" style="color:#0891b2;">RS {{ item.rs_rating }}</span>
                             <span style="color:{% if item.rvol >= 1.5 %}#16a34a{% elif item.rvol >= 1.0 %}#2563eb{% else %}#94a3b8{% endif %}; font-weight:600;">{{ item.rvol|floatformat:1 }}x {% if item.rvol_bullish %}▲{% else %}▼{% endif %}</span>
+                            <span class="fw-bold" style="color:#059669;">Win {{ item.win_probability }}%</span>
                             <span style="color:#64748b;">ADX {{ item.adx|floatformat:0 }}</span>
                             <span style="color:#64748b;">RSI {{ item.rsi|floatformat:0 }}</span>
                         </div>
@@ -816,6 +873,12 @@
                             <th class="ps-2"><a href="?sort=symbol&run_idx={{ selected_run_idx }}" class="text-decoration-none text-muted">SYMBOL</a></th>
                             <th><a href="?sort=prox&run_idx={{ selected_run_idx }}" class="text-decoration-none text-muted">ZONE</a></th>
                             <th class="col-hide-md"><a href="?sort=score&run_idx={{ selected_run_idx }}" class="text-decoration-none text-muted">SCORE</a></th>
+                            <th>
+                                <a href="?sort=win&run_idx={{ selected_run_idx }}" class="text-decoration-none {% if current_sort == 'win' %}fw-bold{% else %}text-muted{% endif %}" style="{% if current_sort == 'win' %}color:#059669;{% endif %}" title="Win Probability (Statistical Edge)">WIN PROB</a>
+                                <span onclick="document.getElementById('winProbModal').style.display='flex'"
+                                      style="cursor:pointer;display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;background:#ecfdf5;color:#059669;border-radius:50%;font-size:0.55rem;font-weight:700;margin-left:2px;vertical-align:middle;"
+                                      title="วิธีใช้ Win Probability">?</span>
+                            </th>
                             <th><a href="?sort=buy&run_idx={{ selected_run_idx }}" class="text-decoration-none {% if current_sort == 'buy' %}fw-bold{% else %}text-muted{% endif %}" style="{% if current_sort == 'buy' %}color:#16a34a;{% endif %}">BUY</a></th>
                             <th class="col-hide-md"><a href="?sort=sell&run_idx={{ selected_run_idx }}" class="text-decoration-none {% if current_sort == 'sell' %}fw-bold{% else %}text-muted{% endif %}" style="{% if current_sort == 'sell' %}color:#dc2626;{% endif %}">SELL</a></th>
                             <th><a href="?sort=rs&run_idx={{ selected_run_idx }}" class="text-decoration-none {% if current_sort == 'rs' %}fw-bold{% else %}text-muted{% endif %}" style="{% if current_sort == 'rs' %}color:#0891b2;{% endif %}" title="RS Rating">RS</a></th>
@@ -848,7 +911,7 @@
                             </th>
                             <th class="col-hide-md">REL MOM</th>
                             <th class="col-hide-lg">SEC</th>
-                            <th class="col-hide-lg">MCAP</th>
+                            <th class="col-hide-lg"><a href="?sort=win&run_idx={{ selected_run_idx }}" class="text-decoration-none {% if current_sort == 'win' %}fw-bold{% else %}text-muted{% endif %}" style="{% if current_sort == 'win' %}color:#059669;{% endif %}" title="Win Probability (Statistical Edge)">WIN PROB</a></th>
                             <th class="text-center col-hide-sm" style="min-width:140px;">REC</th>
                             <th class="text-end pe-2">ACTION</th>
                         </tr>
@@ -970,6 +1033,19 @@
                                     <span class="fw-bold {% if item.technical_score >= 80 %}text-success{% elif item.technical_score >= 50 %}text-primary{% else %}text-warning{% endif %}">
                                         {{ item.technical_score }}
                                     </span>
+                                </div>
+                            </td>
+
+                            <!-- WIN PROBABILITY -->
+                            <td class="text-center" style="background: rgba(5,150,105,0.02);">
+                                <div class="d-flex flex-column align-items-center">
+                                    <span class="fw-bold {% if item.win_probability >= 85 %}text-success{% elif item.win_probability >= 65 %}text-primary{% else %}text-warning{% endif %}" style="font-size:0.85rem;">
+                                        {{ item.win_probability }}%
+                                    </span>
+                                    <div class="progress" style="width:40px;height:4px;border-radius:10px;background:rgba(0,0,0,0.05);">
+                                        <div class="progress-bar {% if item.win_probability >= 85 %}bg-success{% elif item.win_probability >= 65 %}bg-primary{% else %}bg-warning{% endif %}" 
+                                             role="progressbar" style="width:{{ item.win_probability }}%"></div>
+                                    </div>
                                 </div>
                             </td>
 
@@ -1237,14 +1313,18 @@
                                 </span>
                             </td>
 
-                            <!-- MARKET CAP -->
+                            <!-- WIN PROBABILITY -->
                             <td class="col-hide-lg">
-                                {% if item.live_market_cap %}
-                                <span class="text-muted" style="font-size:0.68rem;">
-                                    {% if item.live_market_cap >= 1000 %}{{ item.live_market_cap|floatformat:0 }}B
-                                    {% elif item.live_market_cap >= 1 %}{{ item.live_market_cap|floatformat:1 }}B
-                                    {% else %}{{ item.live_market_cap|floatformat:2 }}B{% endif %}
-                                </span>
+                                {% if item.win_probability %}
+                                <div class="d-flex flex-column align-items-center">
+                                    <span class="fw-bold" style="color:{% if item.win_probability >= 80 %}#16a34a{% elif item.win_probability >= 65 %}#2563eb{% elif item.win_probability >= 50 %}#ca8a04{% else %}#dc2626{% endif %}; font-size:0.8rem;">
+                                        {{ item.win_probability }}%
+                                    </span>
+                                    <div class="progress w-100" style="height: 3px; background: #f1f5f9; margin-top: 2px;">
+                                        <div class="progress-bar bg-{% if item.win_probability >= 80 %}success{% elif item.win_probability >= 65 %}primary{% elif item.win_probability >= 50 %}warning{% else %}danger{% endif %}" 
+                                             role="progressbar" style="width: {{ item.win_probability }}%"></div>
+                                    </div>
+                                </div>
                                 {% else %}<span class="text-muted">-</span>{% endif %}
                             </td>
 
@@ -1914,6 +1994,66 @@
           <span style="background:#f8fafc;color:#9ca3af;border:1px solid #e2e8f0;border-radius:0.3rem;padding:0.15rem 0.5rem;">- (ไม่มี)</span>
         </div>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- ====== Win Probability Guide Modal ====== -->
+<div id="winProbModal" 
+     onclick="if(event.target===this)this.style.display='none'"
+     style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.55);align-items:center;justify-content:center;padding:1rem;">
+  <div style="background:white;border-radius:1rem;max-width:500px;width:100%;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+    <div style="background:linear-gradient(135deg,#065f46,#10b981);padding:1.2rem 1.5rem;border-radius:1rem 1rem 0 0;display:flex;align-items:center;justify-content:space-between;">
+      <div>
+        <div style="color:white;font-size:1.05rem;font-weight:700;">🎯 Win Probability คืออะไร?</div>
+        <div style="color:#d1fae5;font-size:0.72rem;margin-top:2px;">ค่าสถิติที่ช่วยบ่งบอก "ความได้เปรียบ" (Edge) ในการเข้าเทรด</div>
+      </div>
+      <span onclick="document.getElementById('winProbModal').style.display='none'"
+            style="cursor:pointer;color:#d1fae5;font-size:1.4rem;line-height:1;">&times;</span>
+    </div>
+    
+    <div style="padding:1.5rem;font-size:0.85rem;color:#374151;line-height:1.6;">
+      <h6 class="fw-bold text-dark border-bottom pb-2 mb-3">ปัจจัยที่ใช้คำนวณ (Weighted Score)</h6>
+      <div style="display:flex;flex-direction:column;gap:1rem;margin-bottom:1.5rem;">
+        <div style="display:flex;gap:0.75rem;align-items:flex-start;">
+            <span class="badge px-2 py-1" style="background:rgba(5,150,105,0.1);color:#059669;border:1px solid rgba(5,150,105,0.2);min-width:45px;">40%</span>
+            <div>
+                <div style="font-weight:700;color:#111827;">Relative Strength (RS Rating)</div>
+                <div style="color:#6b7280;font-size:0.75rem;">ความแข็งแกร่งของราคาหุ้นเมื่อเทียบกับตลาด (ผู้นำกลุ่มจะได้คะแนนสูง)</div>
+            </div>
+        </div>
+        <div style="display:flex;gap:0.75rem;align-items:flex-start;">
+            <span class="badge px-2 py-1" style="background:rgba(59,130,246,0.1);color:#2563eb;border:1px solid rgba(59,130,246,0.2);min-width:45px;">30%</span>
+            <div>
+                <div style="font-weight:700;color:#111827;">Technical Quality (Score)</div>
+                <div style="color:#6b7280;font-size:0.75rem;">คะแนนความสวยงามของโครงสร้างราคาและอินดิเคเตอร์</div>
+            </div>
+        </div>
+        <div style="display:flex;gap:0.75rem;align-items:flex-start;">
+            <span class="badge px-2 py-1" style="background:rgba(245,158,11,0.1);color:#d97706;border:1px solid rgba(245,158,11,0.2);min-width:45px;">15%</span>
+            <div>
+                <div style="font-weight:700;color:#111827;">Institutional Activity (CMF/Vol)</div>
+                <div style="color:#6b7280;font-size:0.75rem;">แรงซื้อสะสมจากรายใหญ่ และ Volume Surge ที่ยืนยันการเข้าซื้อ</div>
+            </div>
+        </div>
+        <div style="display:flex;gap:0.75rem;align-items:flex-start;">
+            <span class="badge px-2 py-1" style="background:rgba(107,114,128,0.1);color:#4b5563;border:1px solid rgba(107,114,128,0.2);min-width:45px;">15%</span>
+            <div>
+                <div style="font-weight:700;color:#111827;">Market Alignment (Markov)</div>
+                <div style="color:#6b7280;font-size:0.75rem;">ความสอดคล้องกับสภาวะตลาดปัจจุบัน (Trend/Choppy)</div>
+            </div>
+        </div>
+      </div>
+
+      <div style="background:#fef2f2;border:1px solid #fee2e2;border-radius:0.6rem;padding:0.8rem 1rem;">
+        <div style="font-weight:700;color:#991b1b;font-size:0.8rem;margin-bottom:0.4rem;"><i class="fas fa-exclamation-triangle me-1"></i> Proximity Penalty (สำคัญ)</div>
+        <div style="color:#b91c1c;font-size:0.75rem;line-height:1.6;">
+          ระบบจะ <b>หักคะแนนลงอย่างหนัก</b> หากราคาอยู่ห่างจากจุดซื้อ (Entry Zone) เกิน 10% เพื่อเตือนว่าความน่าจะเป็นในการชนะลดลงจากการ "ไล่ราคา"
+        </div>
+      </div>
+
+      <button onclick="document.getElementById('winProbModal').style.display='none'" 
+              class="btn btn-dark w-100 py-2 fw-bold mt-4" style="border-radius:0.75rem;">เข้าใจแล้ว</button>
     </div>
   </div>
 </div>

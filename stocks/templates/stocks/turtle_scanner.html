@@ -73,6 +73,44 @@
         </div>
     </div>
     
+    <!-- Market Regime Pulse -->
+    {% if market_regime %}
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card shadow-sm border-0" style="border-radius: 15px; background: rgba(248, 250, 252, 0.8); backdrop-filter: blur(10px); border: 1px solid rgba(226, 232, 240, 0.6) !important;">
+                <div class="card-body py-3 px-4 d-flex align-items-center justify-content-between flex-wrap gap-3">
+                    <div class="d-flex align-items-center">
+                        <div class="bg-{{ market_regime.color }} bg-opacity-10 p-3 me-3 rounded-circle d-flex align-items-center justify-content-center" style="width: 50px; height: 50px;">
+                            <i class="fas fa-brain fa-lg text-{{ market_regime.color }}"></i>
+                        </div>
+                        <div>
+                            <div class="text-muted small fw-bold text-uppercase ls-1" style="font-size: 0.65rem;">Markov Market Regime Pulse</div>
+                            <div class="d-flex align-items-center flex-wrap gap-2">
+                                <h5 class="fw-bold mb-0 text-{{ market_regime.color }}" style="letter-spacing: -0.5px;">{{ market_regime.label }}</h5>
+                                <span class="badge bg-{{ market_regime.color }} bg-opacity-10 text-{{ market_regime.color }} rounded-pill border border-{{ market_regime.color }} border-opacity-25" style="font-size: 0.7rem;">
+                                    Stability: {{ market_regime.prob }}%
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="flex-grow-1 text-md-end border-md-start ps-md-4 ms-md-2" style="border-left: 2px solid #e2e8f0;">
+                        <p class="mb-0 fw-medium text-secondary" style="font-size: 0.9rem;">
+                            <i class="fas fa-info-circle me-1 opacity-50"></i>
+                            {% if market_regime.state == 'TRENDING' %}
+                                ระบบ Turtle มีประสิทธิภาพสูงสุดในสภาวะนี้ เน้นถือรันเทรนด์ (Ride the Trend) จนกว่าจะหลุด Exit Low
+                            {% elif market_regime.state == 'CHOPPY' %}
+                                ตลาดผันผวนสูง ระวังเบรคหลอก (Whipsaw) แนะนำให้ลด Position Size (ไม้) ลงครึ่งหนึ่ง
+                            {% elif market_regime.state == 'BEARISH' %}
+                                ตลาดขาลงรุนแรง โอกาสล้มเหลวสูงมาก แนะนำให้ถือเงินสดเป็นหลักเพื่อรอรอบใหม่
+                            {% endif %}
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
     <!-- Loading State -->
     <div id="scanProgress" class="card-premium d-none mb-4 p-4 text-center">
         <div class="spinner-border text-success mb-3" role="status"></div>

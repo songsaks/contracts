@@ -3157,6 +3157,15 @@ def momentum_scanner(request):
     user_id   = request.user.id
     cache_key = f'momentum_scan_{user_id}'
 
+    # --- Markov Market Regime Pulse ---
+    from django.core.cache import cache
+    from .utils import calculate_markov_regime
+    regime_cache_key = 'markov_regime_SET' # Momentum mainly for SET
+    regime = cache.get(regime_cache_key)
+    if not regime:
+        regime = calculate_markov_regime('^SET')
+        cache.set(regime_cache_key, regime, timeout=1800)
+
     # ── AJAX status poll ──────────────────────────────────────────────
     if request.GET.get('scan_status') == '1':
         st = _cp.get(cache_key, {'state': 'idle'})
@@ -3522,6 +3531,7 @@ def momentum_scanner(request):
         'current_sort': sort_by,
         'is_scanning': is_scanning,
         'has_scanned': bool(candidate_list) or (candidates.exists() and not is_scanning),
+        'market_regime': regime,
     }
     return render(request, 'stocks/momentum.html', context)
 
@@ -4648,6 +4658,43 @@ def precision_momentum_scanner(request):
             _prev = prev_buy_scores.get(c.symbol)
             c.buy_score_delta = (c.buy_score - _prev) if _prev is not None else None
 
+    # ====== Markov Market Regime (v11) ======
+    from .utils import calculate_markov_regime
+    from django.core.cache import cache as _regime_cache
+    
+    _regime_key = 'markov_regime_set'
+    markov_regime = _regime_cache.get(_regime_key)
+    
+    if not markov_regime:
+        markov_regime = calculate_markov_regime("^SET", window=60)
+        _regime_cache.set(_regime_key, markov_regime, 1800) # 30 min cache
+
+    # ====== Win Probability Calculation (v11.1) ======
+    if candidates:
+        m_state = markov_regime.get('state', 'UNKNOWN')
+        m_prob = markov_regime.get('prob', 0) / 100.0
+        for c in candidates:
+            score = 35.0
+            rs_val = getattr(c, 'rs_rating', 0) or 0
+            score += (rs_val / 99.0) * 25.0
+            tech_val = getattr(c, 'technical_score', 0) or 0
+            score += (min(tech_val, 100) / 100.0) * 15.0
+            adx_val = getattr(c, 'adx', 0) or 0
+            score += (min(adx_val, 50) / 50.0) * 10.0
+            cmf_val = getattr(c, 'cmf', 0) or 0
+            vol_surge = getattr(c, 'volume_surge', 1.0) or 1.0
+            if cmf_val > 0.15: score += 10.0
+            elif cmf_val > 0: score += 5.0
+            if vol_surge >= 1.5: score += 5.0
+            elif vol_surge >= 1.2: score += 2.0
+            if m_state == 'TRENDING': score += 10.0 * (0.5 + 0.5 * m_prob)
+            elif m_state == 'CHOPPY': score += 4.0
+            elif m_state == 'UNKNOWN' and m_prob == 0: score += 5.0
+            prox = getattr(c, 'live_zone_prox', getattr(c, 'zone_proximity', 99))
+            if prox > 15 and prox < 100: score -= 10.0
+            elif prox > 10 and prox < 100: score -= 5.0
+            c.win_probability = round(max(min(score, 98.2), 30.0), 1)
+
         # เรียงตาม BUY/SELL/RS score ด้วย Python (fallback ถ้าไม่ใช่ DB sort)
         if sort_by == 'buy':
             candidates.sort(key=lambda x: x.buy_score, reverse=True)
@@ -4655,6 +4702,8 @@ def precision_momentum_scanner(request):
             candidates.sort(key=lambda x: x.sell_score, reverse=True)
         elif sort_by == 'rs':
             candidates.sort(key=lambda x: getattr(x, 'rs_rating', 0), reverse=True)
+        elif sort_by == 'win':
+            candidates.sort(key=lambda x: getattr(x, 'win_probability', 0), reverse=True)
 
         # ====== Top 5 หุ้นแนะนำซื้อ (BUY score สูง) ======
         # เงื่อนไข: RVOL Bull ≥ 1.0x (มีแรงซื้อจริง) + RSI ไม่ overbought
@@ -4894,6 +4943,7 @@ def precision_momentum_scanner(request):
         'scan_insights': scan_insights,
         'scan_data_date': None,  # คำนวณด้านล่าง
         'market_condition': market_condition,
+        'markov_regime': markov_regime,
     }
     # คำนวณ scan_data_date จาก scanned_at - ถ้า scan ทำหลัง 16:30 BKK ข้อมูลคือวันเดียวกัน
     # ถ้า scan ทำระหว่าง 10:00-16:30 (ตลาดเปิด) ข้อมูลจะเป็นวันก่อนหน้า
@@ -9219,13 +9269,23 @@ def turtle_scanner(request):
                     c.technical_score = None
                     c.rs_rating = None
                     c.launcher_score = None
-    else:
         last_updated = None
+
+    # --- Markov Market Regime Pulse ---
+    from django.core.cache import cache
+    from .utils import calculate_markov_regime
+    regime_cache_key = f'markov_regime_{market}'
+    regime = cache.get(regime_cache_key)
+    if not regime:
+        index_sym = '^SET' if market == 'SET' else '^GSPC'
+        regime = calculate_markov_regime(index_sym)
+        cache.set(regime_cache_key, regime, timeout=1800) # 30 mins
 
     context = {
         'candidates': candidates,
         'last_updated': last_updated,
         'selected_market': market,
+        'market_regime': regime,
         'title': "Turtle Trader Scanner"
     }
     return render(request, 'stocks/turtle_scanner.html', context)
