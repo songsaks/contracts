@@ -1453,6 +1453,20 @@
         const slEl = document.getElementById('tactical-sl');
         let tpValue = tpEl ? (parseFloat(tpEl.innerText) || 0) : 0;
         let slValue = slEl ? (parseFloat(slEl.innerText) || 0) : 0;
+
+        // ── แก้ TP/SL อัตโนมัติถ้าทิศทางผิดสำหรับ order type ──
+        if (lastPrice > 0) {
+            const n = parseFloat(globalTactical?.n) || 50;
+            if (type === 'BUY') {
+                if (tpValue <= lastPrice) tpValue = lastPrice + (n * 3.0);
+                if (slValue >= lastPrice) slValue = lastPrice - (n * 0.5);
+            } else {
+                // SELL: TP ต้องต่ำกว่าราคา, SL ต้องสูงกว่าราคา
+                if (tpValue >= lastPrice) tpValue = lastPrice - (n * 3.0);
+                if (slValue <= lastPrice) slValue = lastPrice + (n * 0.5);
+            }
+        }
+
         const slDist = Math.abs(lastPrice - slValue);
 
         if (!skipConfirm) {
@@ -1464,17 +1478,31 @@
             document.getElementById('tm-tp').innerText = `$${tpValue.toFixed(2)}`;
             document.getElementById('tm-sl').innerText = `$${slValue.toFixed(2)}`;
 
-            const riskBox = document.getElementById('tm-risk-box');
+            const riskBox  = document.getElementById('tm-risk-box');
             const riskText = document.getElementById('tm-risk-text');
             riskBox.style.display = 'none';
 
             if (slValue > 0) {
                 if (slDist < 5) {
                     riskBox.style.display = 'block';
-                    riskText.innerText = `⚠️ WARNING: Stop Loss is extremely close (${slDist.toFixed(2)} pts). High risk of immediate exit.`;
-                } else if ((type === 'BUY' && lastPrice <= slValue) || (type === 'SELL' && lastPrice >= slValue)) {
+                    riskBox.style.borderColor = '#f59e0b';
+                    riskText.innerText = `⚠️ คำเตือน: Stop Loss ใกล้ราคามากเกินไป (ห่างแค่ ${slDist.toFixed(2)} pts) — มีความเสี่ยงสูงที่จะถูกปิดทันที`;
+                } else if (type === 'BUY' && lastPrice <= slValue) {
                     riskBox.style.display = 'block';
-                    riskText.innerText = `❌ CRITICAL: Current price is already in the STOP ZONE. Execution will fail or close instantly.`;
+                    riskBox.style.borderColor = '#ef4444';
+                    riskText.innerText = `❌ วิกฤต: ราคาปัจจุบัน (${lastPrice.toFixed(2)}) ต่ำกว่า Stop Loss (${slValue.toFixed(2)}) แล้ว — คำสั่ง BUY จะถูกปิดทันทีที่เปิด`;
+                } else if (type === 'SELL' && lastPrice >= slValue) {
+                    riskBox.style.display = 'block';
+                    riskBox.style.borderColor = '#ef4444';
+                    riskText.innerText = `❌ วิกฤต: ราคาปัจจุบัน (${lastPrice.toFixed(2)}) สูงกว่า Stop Loss (${slValue.toFixed(2)}) แล้ว — คำสั่ง SELL จะถูกปิดทันทีที่เปิด`;
+                } else if (type === 'BUY' && tpValue <= lastPrice) {
+                    riskBox.style.display = 'block';
+                    riskBox.style.borderColor = '#f59e0b';
+                    riskText.innerText = `⚠️ คำเตือน: Take Profit (${tpValue.toFixed(2)}) ต่ำกว่าราคาปัจจุบัน — ระบบปรับ TP ให้อัตโนมัติแล้ว`;
+                } else if (type === 'SELL' && tpValue >= lastPrice) {
+                    riskBox.style.display = 'block';
+                    riskBox.style.borderColor = '#f59e0b';
+                    riskText.innerText = `⚠️ คำเตือน: Take Profit (${tpValue.toFixed(2)}) สูงกว่าราคาปัจจุบัน — ระบบปรับ TP ให้อัตโนมัติแล้ว`;
                 }
             }
 
@@ -1510,19 +1538,31 @@
             }
         }
 
-        // Validate TP/SL direction and positivity
+        // ── ตรวจสอบทิศทาง TP/SL ก่อนส่งคำสั่ง ──
         if (tpValue <= 0 || slValue <= 0) {
-            alert(`⚠️ TP/SL ต้องมีค่ามากกว่า 0`);
+            alert(`⚠️ TP/SL ต้องมีค่ามากกว่า 0 — กรุณา refresh หน้าเว็บแล้วลองใหม่`);
             return;
         }
         if (lastPrice > 0) {
-            if (type === 'BUY' && (tpValue <= lastPrice || slValue >= lastPrice)) {
-                alert(`⚠️ BUY: TP (${tpValue.toFixed(2)}) ต้องสูงกว่าราคา และ SL (${slValue.toFixed(2)}) ต้องต่ำกว่าราคา (${lastPrice.toFixed(2)})`);
-                return;
+            if (type === 'BUY') {
+                if (tpValue <= lastPrice) {
+                    alert(`❌ BUY ไม่ถูกต้อง\n\nTake Profit (${tpValue.toFixed(2)}) ต้องอยู่สูงกว่าราคาปัจจุบัน (${lastPrice.toFixed(2)})\nเพราะ BUY กำไรเมื่อราคาขึ้น`);
+                    return;
+                }
+                if (slValue >= lastPrice) {
+                    alert(`❌ BUY ไม่ถูกต้อง\n\nStop Loss (${slValue.toFixed(2)}) ต้องอยู่ต่ำกว่าราคาปัจจุบัน (${lastPrice.toFixed(2)})\nราคาอยู่ใน Stop Zone แล้ว — คำสั่งจะถูกปิดทันที`);
+                    return;
+                }
             }
-            if (type === 'SELL' && (tpValue >= lastPrice || slValue <= lastPrice)) {
-                alert(`⚠️ SELL: TP (${tpValue.toFixed(2)}) ต้องต่ำกว่าราคา และ SL (${slValue.toFixed(2)}) ต้องสูงกว่าราคา (${lastPrice.toFixed(2)})`);
-                return;
+            if (type === 'SELL') {
+                if (tpValue >= lastPrice) {
+                    alert(`❌ SELL ไม่ถูกต้อง\n\nTake Profit (${tpValue.toFixed(2)}) ต้องอยู่ต่ำกว่าราคาปัจจุบัน (${lastPrice.toFixed(2)})\nเพราะ SELL กำไรเมื่อราคาลง`);
+                    return;
+                }
+                if (slValue <= lastPrice) {
+                    alert(`❌ SELL ไม่ถูกต้อง\n\nStop Loss (${slValue.toFixed(2)}) ต้องอยู่สูงกว่าราคาปัจจุบัน (${lastPrice.toFixed(2)})\nราคาอยู่ใน Stop Zone แล้ว — คำสั่งจะถูกปิดทันที`);
+                    return;
+                }
             }
         }
         

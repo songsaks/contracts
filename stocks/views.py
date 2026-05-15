@@ -6516,12 +6516,9 @@ def us_momentum_scanner(request):
     US Momentum Scanner - scans ~200 Nasdaq/S&P 500 stocks using Minervini Trend Template.
     Results saved to MomentumCandidate (market='US') - same as SET scanner.
     """
+    return us_precision_scanner(request)
+    
     import threading as _th
-    from django.core.cache import cache as _cp
-    from django.http import JsonResponse as _JR
-
-    user_id   = request.user.id
-    cache_key = f'us_momentum_scan_{user_id}'
 
     # ── AJAX scan progress poll ───────────────────────────────────────
     if request.GET.get('scan_status') == '1':
@@ -7413,8 +7410,38 @@ def us_precision_scanner(request):
                         av20 = float(df['Volume'].tail(20).mean())
                         if av20 < 1_000_000: return None
                         
+                        current_p = float(df['Close'].iloc[-1])
+
+                        # ====== Early Accumulation (Pre-Breakout Volume Surge & Tightness) ======
+                        early_accumulation = False
+                        try:
+                            if len(df) >= 20:
+                                # 1. Check Volume Surge (2.5x)
+                                for i in range(-5, 0):
+                                    vol_i = float(df['Volume'].iloc[i])
+                                    close_i = float(df['Close'].iloc[i])
+                                    open_i = float(df['Open'].iloc[i])
+                                    if close_i > open_i and vol_i >= (av20 * 2.5):
+                                        early_accumulation = True
+                                        break
+                                
+                                # 2. Check Price Tightness (SD < 2.5%) -> VCP / Coiling
+                                if not early_accumulation:
+                                    std_5 = float(df['Close'].tail(5).std())
+                                    tightness = (std_5 / current_p * 100) if current_p > 0 else 99
+                                    if tightness <= 2.5:
+                                        early_accumulation = True
+                                        
+                                # 3. Check Volume Dry Up (VDU)
+                                if not early_accumulation:
+                                    vol_3d_avg = float(df['Volume'].tail(3).mean())
+                                    if vol_3d_avg < av20 * 0.5:
+                                        early_accumulation = True
+                        except Exception:
+                            pass
+
                         rs_v = rs_map.get(symbol, 0)
-                        if rs_v < 60: return None
+                        if rs_v < 60 and not early_accumulation: return None
                         
                         # Indicators
                         df['EMA200'] = ta.ema(df['Close'], length=200)
@@ -7424,12 +7451,11 @@ def us_precision_scanner(request):
                         if adx_d is not None and not adx_d.empty: df = pd.concat([df, adx_d], axis=1)
                         df['MFI'] = ta.mfi(df['High'], df['Low'], df['Close'], df['Volume'], length=14)
                         
-                        current_p = float(df['Close'].iloc[-1])
                         year_h = float(df['High'].tail(252).max())
                         
-                        if current_p < year_h * 0.65: return None
+                        if current_p < year_h * 0.65 and not early_accumulation: return None
                         adx_v = float(df['ADX_14'].iloc[-1]) if 'ADX_14' in df.columns and pd.notna(df['ADX_14'].iloc[-1]) else 0
-                        if adx_v < 15: return None
+                        if adx_v < 15 and not early_accumulation: return None
 
                         tech = analyze_momentum_technical_v2(df)
 
