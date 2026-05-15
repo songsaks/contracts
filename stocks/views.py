@@ -1952,21 +1952,9 @@ def add_cash_transaction(request):
         cash_obj, created = PortfolioCash.objects.get_or_create(user=request.user, currency=currency)
         
         if is_absolute:
-            # ถ้าเป็นแบบระบุยอดคงเหลือตรงๆ (Absolute)
-            old_balance = Decimal(str(cash_obj.balance))
-            diff = amount - old_balance
             cash_obj.balance = amount
             cash_obj.save()
-            
-            # บันทึก Transaction เป็นการปรับปรุงยอด (Adjustment)
-            CashTransaction.objects.create(
-                user=request.user,
-                amount=diff,
-                currency=currency,
-                transaction_type='ADJUSTMENT',
-                note=f"ปรับปรุงยอดคงเหลือ (จาก {old_balance} เป็น {amount}) " + note
-            )
-            messages.success(request, f"อัปเดตยอดคงเหลือ {currency} เป็น {amount} เรียบร้อยแล้ว")
+            messages.success(request, f"อัปเดตยอดคงเหลือ {currency} เรียบร้อยแล้ว")
         else:
             # แบบ Transaction เดิม (Deposit/Withdrawal)
             if tx_type in ['WITHDRAWAL', 'BUY', 'FEE']:
@@ -1990,34 +1978,34 @@ def add_cash_transaction(request):
 @login_required
 def update_portfolio_fund(request):
     """
-    เพิ่มหรือแก้ไขข้อมูลกองทุนรวมแบบบันทึกด้วยมือ (Manual)
+    แก้ไขข้อมูลกองทุนรวมแบบบันทึกด้วยมือ (Enforce single record)
     """
     if request.method == 'POST':
         from .models import PortfolioFund
         from decimal import Decimal
         
-        fund_id = request.POST.get('fund_id')
-        name = request.POST.get('name')
+        name = request.POST.get('name', 'Total Mutual Funds')
         cost = Decimal(request.POST.get('cost', '0'))
         market_value = Decimal(request.POST.get('market_value', '0'))
         
-        if fund_id:
-            fund = PortfolioFund.objects.get(id=fund_id, user=request.user)
-            fund.name = name
-            fund.cost = cost
-            fund.market_value = market_value
-            fund.save()
-            messages.success(request, f"อัปเดตข้อมูลกองทุน {name} เรียบร้อยแล้ว")
+        # ป้องกันกรณีมีข้อมูลเก่าหลายตัว (MultipleObjectsReturned fix)
+        funds = PortfolioFund.objects.filter(user=request.user)
+        if funds.exists():
+            fund = funds.first()
+            # ลบตัวอื่นๆ ทิ้งเพื่อให้เหลือตัวเดียวตามนโยบายใหม่
+            funds.exclude(id=fund.id).delete()
         else:
-            PortfolioFund.objects.create(
-                user=request.user,
-                name=name,
-                cost=cost,
-                market_value=market_value
-            )
-            messages.success(request, f"เพิ่มกองทุน {name} เรียบร้อยแล้ว")
-            
+            fund = PortfolioFund.objects.create(user=request.user, name=name, cost=0, market_value=0)
+        
+        fund.name = name
+        fund.cost = cost
+        fund.market_value = market_value
+        fund.save()
+        
+        messages.success(request, f"อัปเดตยอดเงินลงทุนกองทุนเรียบร้อยแล้ว")
         return redirect('stocks:portfolio_list')
+    
+    return redirect('stocks:portfolio_list')
     
     return redirect('stocks:portfolio_list')
 
