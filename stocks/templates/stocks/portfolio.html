@@ -28,6 +28,10 @@
                            style="background:rgba(124,58,237,0.12);color:#7c3aed;border:1px solid rgba(124,58,237,0.2);">
                             <i class="fas fa-hand-holding-heart me-1"></i> ทศางค์
                         </a>
+                        <button class="btn btn-sm rounded-pill px-3 fw-bold" data-bs-toggle="modal" data-bs-target="#addCashModal"
+                                style="background:rgba(5,150,105,0.1);color:#059669;border:1px solid rgba(5,150,105,0.2);">
+                            <i class="fas fa-plus-circle me-1"></i> เติมเงิน/ถอน
+                        </button>
                     </div>
                     <div class="summary-metrics-container">
                         <div class="metrics-header-row d-none d-md-flex gap-2">
@@ -66,6 +70,15 @@
                             </span>
                         </div>
                         {% endif %}
+                        <div class="metrics-data-row d-flex flex-wrap flex-md-nowrap align-items-center gap-2">
+                            <div class="position-relative">
+                                <span class="badge rounded-pill px-2 py-1 bg-success bg-opacity-10 text-success flex-label" style="border:1px solid rgba(25,135,84,0.2);">💵 เงินสด</span>
+                                <span class="position-absolute top-0 start-100 translate-middle p-1 bg-success border border-white rounded-circle blink-soft" style="width: 8px; height: 8px; margin-left: -2px; margin-top: 2px;"></span>
+                            </div>
+                            <span class="fw-bold text-dark flex-value">฿{{ total_cash_combined_thb|floatformat:2|intcomma }} <small class="text-muted fw-normal" style="font-size:0.6rem;">(${{ total_cash_usd|floatformat:1 }})</small></span>
+                            <span class="fw-semibold text-secondary flex-value">-</span>
+                            <span class="fw-bold text-muted flex-value">-</span>
+                        </div>
                         <!-- รวม row -->
                         {% if has_set and has_us or has_set and has_crypto or has_us and has_crypto %}
                         <div class="metrics-data-row total-combined-row d-flex flex-wrap flex-md-nowrap align-items-center gap-2 mt-1">
@@ -107,6 +120,12 @@
                     <i class="fas fa-crosshairs"></i> <span class="d-none d-sm-inline ms-1">Precision Scan</span>
                 </a>
                 {% endif %}
+                <button class="btn btn-outline-primary btn-sm rounded-pill px-3 px-md-4 position-relative" data-bs-toggle="modal" data-bs-target="#addCashModal">
+                    <i class="fas fa-wallet"></i> <span class="d-none d-sm-inline ms-1">Cash</span>
+                    <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger border border-white" style="padding: 3px !important; animation: pulse-red-subtle 2s infinite;">
+                        <span class="visually-hidden">New feature</span>
+                    </span>
+                </button>
                 <button class="btn btn-premium btn-sm rounded-pill px-3 px-md-4" data-bs-toggle="modal" data-bs-target="#addPortfolioModal">
                     <i class="fas fa-plus"></i> <span class="d-none d-sm-inline ms-1">Add</span>
                 </button>
@@ -768,6 +787,45 @@
                         {% endfor %}
                     </tbody>
                 </table>
+                </div>
+
+    <!-- Cash Flow History -->
+    <div class="col-12 mt-2">
+        <div class="card-premium p-4 border-0 mb-4 bg-white shadow-sm">
+            <h5 class="fw-bold mb-4 text-dark"><i class="fas fa-exchange-alt me-2 text-success"></i> ประวัติการเงินเข้า-ออก (Cash Flow)</h5>
+            <div class="table-responsive">
+                <table class="table table-sm table-hover align-middle">
+                    <thead class="bg-light bg-opacity-50">
+                        <tr class="small text-muted text-uppercase" style="font-size:0.7rem;">
+                            <th>วันที่</th>
+                            <th>ประเภท</th>
+                            <th class="text-end">จำนวน</th>
+                            <th>สกุลเงิน</th>
+                            <th>หมายเหตุ</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for tx in cash_transactions %}
+                        <tr>
+                            <td class="small">{{ tx.created_at|date:"d/m/Y H:i" }}</td>
+                            <td>
+                                <span class="badge rounded-pill px-2 py-1" style="font-size:0.65rem; 
+                                    {% if tx.transaction_type == 'DEPOSIT' or tx.transaction_type == 'SELL' or tx.transaction_type == 'DIVIDEND' %}background:#dcfce7;color:#166534;
+                                    {% else %}background:#fee2e2;color:#991b1b;{% endif %}">
+                                    {{ tx.get_transaction_type_display }}
+                                </span>
+                            </td>
+                            <td class="fw-bold text-end {% if tx.amount > 0 %}text-success{% else %}text-danger{% endif %}">
+                                {% if tx.amount > 0 %}+{% endif %}{{ tx.amount|floatformat:2|intcomma }}
+                            </td>
+                            <td class="small text-muted">{{ tx.currency }}</td>
+                            <td class="small text-muted">{{ tx.note }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="5" class="text-center py-4 text-muted small">ไม่พบประวัติการเงินเข้า-ออก</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
             </div>
         </div>
     </div>
@@ -830,6 +888,11 @@
         background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%) !important;
         animation: alert-glow-red 2s infinite;
         border: none !important;
+    }
+    @keyframes pulse-red-subtle {
+        0% { transform: scale(1); opacity: 1; box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
+        70% { transform: scale(1.2); opacity: 0.7; box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
+        100% { transform: scale(1); opacity: 1; box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
     }
     .blink-soft {
         animation: pulse-white 2s infinite;
@@ -1002,6 +1065,55 @@
                 <button type="button" class="btn btn-link text-muted" data-bs-dismiss="modal">Cancel</button>
                 <button type="button" id="sell-confirm-btn" class="btn btn-success px-4 rounded-pill" onclick="submitSell()">ยืนยันการขาย</button>
             </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal สำหรับจัดการเงินสด -->
+<div class="modal fade" id="addCashModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 1.5rem;">
+            <div class="modal-header border-0 p-4 pb-0">
+                <h5 class="fw-bold"><i class="fas fa-wallet me-2 text-success"></i> Cash Management</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form action="{% url 'stocks:add_cash_transaction' %}" method="POST">
+                {% csrf_token %}
+                <div class="modal-body p-4">
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold">ประเภทรายการ</label>
+                        <select name="transaction_type" class="form-select rounded-pill px-3" required style="background:#f8fafc;">
+                            <option value="DEPOSIT">เงินเข้า (Deposit)</option>
+                            <option value="WITHDRAWAL">เงินออก (Withdrawal)</option>
+                            <option value="DIVIDEND">ปันผล (Dividend)</option>
+                            <option value="FEE">ค่าธรรมเนียม/อื่นๆ (Fee)</option>
+                            <option value="BUY">ซื้อหุ้น (Buy)</option>
+                            <option value="SELL">ขายหุ้น (Sell)</option>
+                        </select>
+                    </div>
+                    <div class="row g-3 mb-3">
+                        <div class="col-8">
+                            <label class="form-label small fw-bold">จำนวนเงิน</label>
+                            <input type="number" name="amount" class="form-control rounded-pill px-3" step="0.01" required placeholder="0.00" style="background:#f8fafc;">
+                        </div>
+                        <div class="col-4">
+                            <label class="form-label small fw-bold">สกุลเงิน</label>
+                            <select name="currency" class="form-select rounded-pill px-3" style="background:#f8fafc;">
+                                <option value="THB">THB</option>
+                                <option value="USD">USD</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold">หมายเหตุ</label>
+                        <input type="text" name="note" class="form-control rounded-pill px-3" placeholder="ระบุรายละเอียด เช่น โอนเข้าพอร์ต" style="background:#f8fafc;">
+                    </div>
+                </div>
+                <div class="modal-footer border-0 p-4 pt-0">
+                    <button type="button" class="btn btn-light rounded-pill px-4" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-success rounded-pill px-4 fw-bold shadow-sm">บันทึกรายการ</button>
+                </div>
+            </form>
         </div>
     </div>
 </div>

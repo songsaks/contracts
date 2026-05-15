@@ -1873,6 +1873,15 @@ def portfolio_list(request):
             'items': monthly_summary_dict[m_name]['items'],
             'total_pl': monthly_summary_dict[m_name]['total_pl']
         })
+    
+    # ── Portfolio Cash Summary ──
+    from .models import PortfolioCash, CashTransaction
+    cash_thb_obj = PortfolioCash.objects.filter(user=request.user, currency='THB').first()
+    cash_usd_obj = PortfolioCash.objects.filter(user=request.user, currency='USD').first()
+    total_cash_thb = float(cash_thb_obj.balance) if cash_thb_obj else 0.0
+    total_cash_usd = float(cash_usd_obj.balance) if cash_usd_obj else 0.0
+    
+    cash_transactions = CashTransaction.objects.filter(user=request.user).order_by('-created_at')[:20]
 
     context = {
         'items': items,
@@ -1891,9 +1900,13 @@ def portfolio_list(request):
         'has_us': any(it.get('market') == MarketType.US for it in items),
         'has_crypto': any(it.get('market') == MarketType.CRYPTO for it in items),
         'usd_thb': round(usd_thb, 2),
-        'total_combined_value': total_set_value + (total_us_value + total_crypto_value) * usd_thb,
+        'total_combined_value': total_set_value + (total_us_value + total_crypto_value + total_cash_usd) * usd_thb + total_cash_thb,
         'total_combined_cost': total_set_cost + (total_us_cost + total_crypto_cost) * usd_thb,
         'total_combined_pl': total_set_pl + (total_us_pl + total_crypto_pl) * usd_thb,
+        'total_cash_thb': total_cash_thb,
+        'total_cash_usd': total_cash_usd,
+        'total_cash_combined_thb': total_cash_thb + (total_cash_usd * usd_thb),
+        'cash_transactions': cash_transactions,
         'categories': AssetCategory.choices,
         'market_types': MarketType.choices,
         'title': 'My Portfolio',
@@ -1906,6 +1919,43 @@ def portfolio_list(request):
         'chart_data': json.dumps(chart_data),
     }
     return render(request, 'stocks/portfolio.html', context)
+
+@login_required
+def add_cash_transaction(request):
+    """
+    บันทึกรายการเงินเข้า/ออก และอัปเดตยอดคงเหลือใน PortfolioCash
+    """
+    if request.method == 'POST':
+        from .models import PortfolioCash, CashTransaction
+        from decimal import Decimal
+        
+        amount = Decimal(request.POST.get('amount', '0'))
+        currency = request.POST.get('currency', 'THB')
+        tx_type = request.POST.get('transaction_type')
+        note = request.POST.get('note', '')
+        
+        # ปรับเครื่องหมายตามประเภทรายการ (ถ้าเป็นถอน/ซื้อหุ้น ให้เป็นลบ)
+        if tx_type in ['WITHDRAWAL', 'BUY', 'FEE']:
+            if amount > 0: amount = -amount
+        
+        # บันทึก Transaction
+        CashTransaction.objects.create(
+            user=request.user,
+            amount=amount,
+            currency=currency,
+            transaction_type=tx_type,
+            note=note
+        )
+        
+        # อัปเดต Balance
+        cash_obj, created = PortfolioCash.objects.get_or_create(user=request.user, currency=currency)
+        cash_obj.balance = Decimal(str(cash_obj.balance)) + amount
+        cash_obj.save()
+        
+        messages.success(request, f"บันทึกรายการ {tx_type} เรียบร้อยแล้ว")
+        return redirect('stocks:portfolio_list')
+    
+    return redirect('stocks:portfolio_list')
 
 
 # ====== Portfolio Exit Plan - แผนออกหุ้นแต่ละตัว เรียงตามความเร่งด่วน ======

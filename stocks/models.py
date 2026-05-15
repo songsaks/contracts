@@ -16,12 +16,14 @@ class AssetCategory(models.TextChoices):
     CRYPTO = 'CRYPTO', 'Cryptocurrency'
     COMMODITY = 'COMMODITY', 'Commodity (ทอง/น้ำมัน)'
     FOREX = 'FOREX', 'Forex'
+    CASH = 'CASH', 'Cash (เงินสด)'
 
 class MarketType(models.TextChoices):
     """ตลาด/ประเภทสินทรัพย์ที่ชัดเจน — ใช้แยก หุ้นไทย / หุ้น US / Crypto"""
     SET = 'SET', 'หุ้นไทย (SET)'
     US = 'US', 'หุ้น US'
     CRYPTO = 'CRYPTO', 'Cryptocurrency'
+    CASH = 'CASH', 'เงินสด (Cash)'
     OTHER = 'OTHER', 'อื่นๆ'
 # ====== Telegram Integration ======
 class StrategyPattern(models.TextChoices):
@@ -943,3 +945,50 @@ class UserTradingConfig(models.Model):
 
     def __str__(self):
         return f"Config: {self.user.username}"
+
+# ====== Portfolio Cash — จัดการเงินสดและกระแสเงินเข้า/ออก ======
+
+class PortfolioCash(models.Model):
+    """
+    เก็บยอดเงินสดคงเหลือแยกตามสกุลเงิน (THB, USD)
+    """
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='portfolio_cash')
+    currency = models.CharField(max_length=10, default='THB', help_text="e.g. THB, USD")
+    balance = models.DecimalField(max_digits=16, decimal_places=2, default=0)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Portfolio Cash"
+        verbose_name_plural = "Portfolio Cash"
+        unique_together = ('user', 'currency')
+
+    def __str__(self):
+        return f"{self.user.username} - {self.balance} {self.currency}"
+
+class CashTransaction(models.Model):
+    """
+    บันทึกรายการเงินเข้า/ออก (Deposit, Withdrawal, Dividend, Fee)
+    ช่วยให้ผู้ใช้ monitor กระแสเงินสดในพอร์ตได้
+    """
+    class TransactionType(models.TextChoices):
+        DEPOSIT = 'DEPOSIT', 'เงินเข้า (Deposit)'
+        WITHDRAWAL = 'WITHDRAWAL', 'เงินออก (Withdrawal)'
+        DIVIDEND = 'DIVIDEND', 'ปันผล (Dividend)'
+        FEE = 'FEE', 'ค่าธรรมเนียม/อื่นๆ (Fee)'
+        BUY = 'BUY', 'ซื้อหุ้น (Buy)'
+        SELL = 'SELL', 'ขายหุ้น (Sell)'
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='cash_transactions')
+    amount = models.DecimalField(max_digits=16, decimal_places=2, help_text="ยอดเงิน (บวก=เข้า, ลบ=ออก)")
+    currency = models.CharField(max_length=10, default='THB')
+    transaction_type = models.CharField(max_length=20, choices=TransactionType.choices, default=TransactionType.DEPOSIT)
+    note = models.CharField(max_length=255, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Cash Transaction"
+        verbose_name_plural = "Cash Transactions"
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.transaction_type} {self.amount} {self.currency} ({self.user.username})"

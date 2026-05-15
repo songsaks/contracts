@@ -4,7 +4,8 @@ from .models import (
     MomentumCandidate, MultiFactorCandidate, PrecisionScanCandidate,
     ValueScanCandidate, CupHandleCandidate, USSepaCandidate, MorningBriefing,
     TradingAccount, TradeOrder, BotActivity, 
-    TitheRecord, ScannableSymbol, TurtleScanCandidate
+    TitheRecord, ScannableSymbol, TurtleScanCandidate,
+    PortfolioCash, CashTransaction
 )
 
 @admin.register(Watchlist)
@@ -126,3 +127,14 @@ class TradeOrderAdmin(admin.ModelAdmin):
 class BotActivityAdmin(admin.ModelAdmin):
     list_display = ('bot_name', 'status', 'last_heartbeat', 'message')
     ordering = ('-last_heartbeat',)
+
+@admin.register(PortfolioCash)
+class PortfolioCashAdmin(admin.ModelAdmin):
+    list_display = ('user', 'balance', 'currency', 'updated_at')
+    list_filter = ('currency',)
+
+@admin.register(CashTransaction)
+class CashTransactionAdmin(admin.ModelAdmin):
+    list_display = ('user', 'transaction_type', 'amount', 'currency', 'created_at')
+    list_filter = ('transaction_type', 'currency')
+    search_fields = ('note',)
