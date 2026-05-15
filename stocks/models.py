@@ -977,6 +977,7 @@ class CashTransaction(models.Model):
         FEE = 'FEE', 'ค่าธรรมเนียม/อื่นๆ (Fee)'
         BUY = 'BUY', 'ซื้อหุ้น (Buy)'
         SELL = 'SELL', 'ขายหุ้น (Sell)'
+        ADJUSTMENT = 'ADJUSTMENT', 'ปรับปรุงยอด (Adjustment)'
 
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='cash_transactions')
     amount = models.DecimalField(max_digits=16, decimal_places=2, help_text="ยอดเงิน (บวก=เข้า, ลบ=ออก)")

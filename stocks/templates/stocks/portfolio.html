@@ -72,11 +72,14 @@
                         {% endif %}
                         <div class="metrics-data-row d-flex flex-wrap flex-md-nowrap align-items-center gap-2">
                             <div class="position-relative">
-                                <span class="badge rounded-pill px-2 py-1 bg-success bg-opacity-10 text-success flex-label" style="border:1px solid rgba(25,135,84,0.2);">💵 เงินสด</span>
+                                <span class="badge rounded-pill px-2 py-1 bg-success bg-opacity-10 text-success flex-label" style="border:1px solid rgba(25,135,84,0.2); cursor:pointer;" 
+                                      data-bs-toggle="modal" data-bs-target="#addCashModal" onclick="setCashMode('absolute')">💵 เงินสด</span>
                                 <span class="position-absolute top-0 start-100 translate-middle p-1 bg-success border border-white rounded-circle blink-soft" style="width: 8px; height: 8px; margin-left: -2px; margin-top: 2px;"></span>
                             </div>
                             <span class="fw-bold text-dark flex-value">฿{{ total_cash_combined_thb|floatformat:2|intcomma }} <small class="text-muted fw-normal" style="font-size:0.6rem;">(${{ total_cash_usd|floatformat:1 }})</small></span>
-                            <span class="fw-semibold text-secondary flex-value">-</span>
+                            <span class="fw-semibold text-secondary flex-value">
+                                <i class="fas fa-edit ms-1 text-muted cursor-pointer" style="font-size: 0.75rem;" data-bs-toggle="modal" data-bs-target="#addCashModal" onclick="setCashMode('absolute')"></i>
+                            </span>
                             <span class="fw-bold text-muted flex-value">-</span>
                         </div>
                         <!-- รวม row -->
@@ -1080,9 +1083,18 @@
             <form action="{% url 'stocks:add_cash_transaction' %}" method="POST">
                 {% csrf_token %}
                 <div class="modal-body p-4">
-                    <div class="mb-3">
+                    <!-- Toggle Mode -->
+                    <div class="btn-group w-100 mb-4 rounded-pill overflow-hidden" role="group" style="border: 1px solid #e2e8f0; padding: 2px;">
+                        <input type="radio" class="btn-check" name="is_absolute" id="mode_tx" value="false" checked onchange="toggleCashFields()">
+                        <label class="btn btn-sm btn-outline-light text-dark border-0 rounded-pill py-2" for="mode_tx">Transaction</label>
+                        
+                        <input type="radio" class="btn-check" name="is_absolute" id="mode_abs" value="true" onchange="toggleCashFields()">
+                        <label class="btn btn-sm btn-outline-light text-dark border-0 rounded-pill py-2" for="mode_abs">Update Balance (ระบุยอด)</label>
+                    </div>
+
+                    <div id="tx_type_div" class="mb-3">
                         <label class="form-label small fw-bold">ประเภทรายการ</label>
-                        <select name="transaction_type" class="form-select rounded-pill px-3" required style="background:#f8fafc;">
+                        <select name="transaction_type" class="form-select rounded-pill px-3" style="background:#f8fafc;">
                             <option value="DEPOSIT">เงินเข้า (Deposit)</option>
                             <option value="WITHDRAWAL">เงินออก (Withdrawal)</option>
                             <option value="DIVIDEND">ปันผล (Dividend)</option>
@@ -1093,7 +1105,7 @@
                     </div>
                     <div class="row g-3 mb-3">
                         <div class="col-8">
-                            <label class="form-label small fw-bold">จำนวนเงิน</label>
+                            <label id="amount_label" class="form-label small fw-bold">จำนวนเงิน</label>
                             <input type="number" name="amount" class="form-control rounded-pill px-3" step="0.01" required placeholder="0.00" style="background:#f8fafc;">
                         </div>
                         <div class="col-4">
@@ -1106,7 +1118,7 @@
                     </div>
                     <div class="mb-3">
                         <label class="form-label small fw-bold">หมายเหตุ</label>
-                        <input type="text" name="note" class="form-control rounded-pill px-3" placeholder="ระบุรายละเอียด เช่น โอนเข้าพอร์ต" style="background:#f8fafc;">
+                        <input type="text" name="note" class="form-control rounded-pill px-3" placeholder="ระบุรายละเอียด เช่น ยอดปิดสิ้นวัน" style="background:#f8fafc;">
                     </div>
                 </div>
                 <div class="modal-footer border-0 p-4 pt-0">
@@ -1388,6 +1400,21 @@
         t.innerHTML = `${msg}<button type="button" class="btn-close" data-bs-dismiss="alert"></button>`;
         document.body.appendChild(t);
         setTimeout(() => t.remove(), 5000);
+    }
+
+    function setCashMode(mode) {
+        if (mode === 'absolute') {
+            document.getElementById('mode_abs').checked = true;
+        } else {
+            document.getElementById('mode_tx').checked = true;
+        }
+        toggleCashFields();
+    }
+
+    function toggleCashFields() {
+        const isAbs = document.getElementById('mode_abs').checked;
+        document.getElementById('tx_type_div').style.display = isAbs ? 'none' : 'block';
+        document.getElementById('amount_label').textContent = isAbs ? 'ยอดเงินคงเหลือปัจจุบัน (Total Balance)' : 'จำนวนเงิน (Amount)';
     }
 </script>
 {% endblock %}

@@ -1932,27 +1932,44 @@ def add_cash_transaction(request):
         amount = Decimal(request.POST.get('amount', '0'))
         currency = request.POST.get('currency', 'THB')
         tx_type = request.POST.get('transaction_type')
+        is_absolute = request.POST.get('is_absolute') == 'true'
         note = request.POST.get('note', '')
         
-        # ปรับเครื่องหมายตามประเภทรายการ (ถ้าเป็นถอน/ซื้อหุ้น ให้เป็นลบ)
-        if tx_type in ['WITHDRAWAL', 'BUY', 'FEE']:
-            if amount > 0: amount = -amount
-        
-        # บันทึก Transaction
-        CashTransaction.objects.create(
-            user=request.user,
-            amount=amount,
-            currency=currency,
-            transaction_type=tx_type,
-            note=note
-        )
-        
-        # อัปเดต Balance
+        # ค้นหาหรือสร้าง Cash Object
         cash_obj, created = PortfolioCash.objects.get_or_create(user=request.user, currency=currency)
-        cash_obj.balance = Decimal(str(cash_obj.balance)) + amount
-        cash_obj.save()
         
-        messages.success(request, f"บันทึกรายการ {tx_type} เรียบร้อยแล้ว")
+        if is_absolute:
+            # ถ้าเป็นแบบระบุยอดคงเหลือตรงๆ (Absolute)
+            old_balance = Decimal(str(cash_obj.balance))
+            diff = amount - old_balance
+            cash_obj.balance = amount
+            cash_obj.save()
+            
+            # บันทึก Transaction เป็นการปรับปรุงยอด (Adjustment)
+            CashTransaction.objects.create(
+                user=request.user,
+                amount=diff,
+                currency=currency,
+                transaction_type='ADJUSTMENT',
+                note=f"ปรับปรุงยอดคงเหลือ (จาก {old_balance} เป็น {amount}) " + note
+            )
+            messages.success(request, f"อัปเดตยอดคงเหลือ {currency} เป็น {amount} เรียบร้อยแล้ว")
+        else:
+            # แบบ Transaction เดิม (Deposit/Withdrawal)
+            if tx_type in ['WITHDRAWAL', 'BUY', 'FEE']:
+                if amount > 0: amount = -amount
+            
+            CashTransaction.objects.create(
+                user=request.user,
+                amount=amount,
+                currency=currency,
+                transaction_type=tx_type,
+                note=note
+            )
+            cash_obj.balance = Decimal(str(cash_obj.balance)) + amount
+            cash_obj.save()
+            messages.success(request, f"บันทึกรายการ {tx_type} เรียบร้อยแล้ว")
+        
         return redirect('stocks:portfolio_list')
     
     return redirect('stocks:portfolio_list')
