@@ -9778,20 +9778,28 @@ def stock_chart_data(request, symbol):
         long_buy = curr_price >= float(last_row['dc55_upper'])
         long_sell = curr_price <= float(last_row['dc20_lower'])
 
-        # Volume Confirmation — เปรียบเทียบ 5 วันล่าสุด (ทน Contract Roll)
-        # yfinance GC=F volume มีปัญหา: ช่วง roll ค่าเก่าต่ำมาก (20-2000) แต่วันปัจจุบัน ~90k
-        # ถ้า median ย้อนหลัง < 1000 = ข้อมูลเก่าเป็น off-period → ไม่ reliable
+        # Volume Confirmation — ใช้ 20 bars ล่าสุด, รองรับทั้ง daily และ intraday
+        # Contract Roll จริง = หลาย bars ปริมาณต่ำมาก (< 50), ไม่ต่อเนื่อง
+        # ข้อมูล intraday ปกติ = consistent แม้ค่าสัมบูรณ์จะ < 1000 contracts/bar
         try:
             _raw_cur    = last_row['Volume'] if 'Volume' in last_row.index else 0
             vol_current = float(_raw_cur) if _pd.notna(_raw_cur) and _raw_cur == _raw_cur else 0.0
 
             vol_hist    = df['Volume'].iloc[:-1]
-            # ใช้ median ของ 20 วันที่ผ่านมา (ไม่รวมวันนี้)
-            vol_nonzero = vol_hist.tail(20).replace(0, _pd.NA).dropna()
+            _tail20     = vol_hist.tail(20)
+            vol_nonzero = _tail20.replace(0, _pd.NA).dropna()
             vol_avg_10  = float(vol_nonzero.median()) if len(vol_nonzero) >= 5 else 0.0
 
-            # reliable เฉพาะเมื่อ median > 1000 (แสดงว่าข้อมูลเป็น active contract จริง)
-            vol_reliable = bool(vol_avg_10 >= 1_000)
+            # coverage = สัดส่วน bars ที่มี volume จริง (contract roll มี gap เยอะ)
+            _coverage  = len(vol_nonzero) / max(1, len(_tail20))
+            _vol_min20 = float(vol_nonzero.min()) if len(vol_nonzero) >= 5 else 0.0
+
+            # reliable ถ้า:
+            # A) daily scale: median >= 1000 (gold daily trades 100K+ contracts)
+            # B) intraday scale: median >= 200 AND coverage >= 80% AND min >= 50
+            _is_daily    = bool(vol_avg_10 >= 1_000)
+            _is_intraday = bool(vol_avg_10 >= 200 and _coverage >= 0.80 and _vol_min20 >= 50)
+            vol_reliable = _is_daily or _is_intraday
             vol_ratio    = round(vol_current / vol_avg_10, 2) if (vol_avg_10 > 0 and vol_reliable) else 0.0
         except Exception:
             vol_current, vol_avg_10, vol_ratio, vol_reliable = 0.0, 0.0, 0.0, False

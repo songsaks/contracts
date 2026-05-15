@@ -2004,10 +2004,10 @@
         if (avgNum) avgNum.innerText = fmtV(avg);
 
         if (!vol.reliable) {
-            if (badge)  { badge.innerText = '⚙️ Contract Roll'; badge.style.cssText = 'background:#1e293b;color:#64748b;border:1px solid #334155;font-size:0.75rem;padding:5px 14px;border-radius:8px;'; }
+            if (badge)  { badge.innerText = '⚙️ Volume ไม่น่าเชื่อถือ'; badge.style.cssText = 'background:#1e293b;color:#64748b;border:1px solid #334155;font-size:0.75rem;padding:5px 14px;border-radius:8px;'; }
             if (ratioLbl) ratioLbl.innerText = '-- x เฉลี่ย';
             if (bar) { bar.style.width = '0%'; bar.style.background = '#30363d'; }
-            if (explain) explain.innerHTML = `<span style="color:#94a3b8">⚙️ <strong>Contract Roll</strong> — yfinance GC=F แสดง Volume Front Month เท่านั้น<br>ข้อมูลเก่ากว่า 30 วันมี Volume ต่ำมาก ทำให้เปรียบเทียบไม่ได้<br>Volume ปัจจุบัน (raw): <strong style="color:#fbbf24">${fmtV(vol.current)} contracts</strong><br>ยืนยัน Volume จริงที่ TradingView หรือ CME Group</span>`;
+            if (explain) explain.innerHTML = `<span style="color:#94a3b8">⚙️ <strong>Contract Roll</strong> — ข้อมูล Volume ไม่สม่ำเสมอ (อาจเกิด Contract Rollover)<br>Volume ปัจจุบัน (raw): <strong style="color:#fbbf24">${fmtV(vol.current)} contracts</strong> | เฉลี่ย: ${fmtV(avg)}<br>ลองเปลี่ยน Period หรือยืนยัน Volume จริงที่ TradingView / CME Group</span>`;
             if (warn) warn.classList.add('d-none');
             return;
         }
