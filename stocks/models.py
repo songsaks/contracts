@@ -120,10 +120,10 @@ class Portfolio(models.Model):
     symbol = models.CharField(max_length=20)
     # ชื่อสินทรัพย์ (ไม่บังคับ)
     name = models.CharField(max_length=100, blank=True)
-    # จำนวนหน่วยที่ถือครอง (รองรับทศนิยม สำหรับ Crypto)
-    quantity = models.DecimalField(max_digits=12, decimal_places=4, default=0)
+    # จำนวนหน่วยที่ถือครอง (รองรับทศนิยม สำหรับ Crypto เช่น 0.0000001 BTC)
+    quantity = models.DecimalField(max_digits=15, decimal_places=7, default=0)
     # ราคาทุนเฉลี่ย (Average Cost Basis)
-    entry_price = models.DecimalField(max_digits=12, decimal_places=4, default=0)
+    entry_price = models.DecimalField(max_digits=15, decimal_places=7, default=0)
     # ประเภทสินทรัพย์
     category = models.CharField(max_length=20, choices=AssetCategory.choices, default=AssetCategory.STOCK)
     # กลยุทธ์การเข้าซื้อ

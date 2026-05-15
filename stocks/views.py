@@ -2336,21 +2336,16 @@ def portfolio_exit_plan(request):
 def add_to_portfolio(request):
     """
     รับ POST form เพิ่มหรืออัปเดต position ในพอร์ต
-    ใช้ update_or_create เพื่อรองรับการแก้ไขข้อมูล (เช่น เพิ่ม quantity)
+    รองรับทั้ง AJAX (JSON) และ form submit ปกติ
     """
-    if request.method == 'POST':
-        symbol = request.POST.get('symbol').upper()
-        name = request.POST.get('name', '')
-        quantity = request.POST.get('quantity', 0)
-        entry_price = request.POST.get('entry_price', 0)
-        category = request.POST.get('category', AssetCategory.STOCK)
+    is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
 
+    if request.method == 'POST':
         form = AddPortfolioForm(request.POST)
         if form.is_valid():
             symbol = form.cleaned_data['symbol']
             market = form.cleaned_data['market']
-            
-            # Standardize SET symbols to have .BK suffix
+
             if market == MarketType.SET and not symbol.endswith('.BK'):
                 symbol = f"{symbol}.BK"
 
@@ -2367,11 +2362,25 @@ def add_to_portfolio(request):
                     'trail_multiplier': form.cleaned_data.get('trail_multiplier', 2.5),
                 }
             )
-            messages.success(request, f"เพิ่ม {symbol} เข้าพอร์ตเรียบร้อยแล้ว")
+            if is_ajax:
+                return JsonResponse({'success': True, 'symbol': symbol})
+            messages.success(request, f"บันทึก {symbol} เข้าพอร์ตเรียบร้อยแล้ว")
         else:
-            for field, errors in form.errors.items():
-                for error in errors:
-                    messages.error(request, f"{error}")
+            # รวม errors ทุก field พร้อม label ที่อ่านเข้าใจง่าย
+            field_labels = {
+                'symbol': 'Symbol', 'quantity': 'จำนวน', 'entry_price': 'ราคาทุน',
+                'market': 'ตลาด', 'category': 'Category', 'trail_multiplier': 'ATR Multiplier',
+            }
+            error_list = []
+            for field, errs in form.errors.items():
+                label = field_labels.get(field, field)
+                for err in errs:
+                    error_list.append(f"{label}: {err}")
+            if is_ajax:
+                return JsonResponse({'success': False, 'errors': error_list}, status=400)
+            for msg in error_list:
+                messages.error(request, msg)
+
     return redirect('stocks:portfolio_list')
 
 @login_required

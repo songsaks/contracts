@@ -6,8 +6,8 @@ from .models import AssetCategory, MarketType
 class AddPortfolioForm(forms.Form):
     symbol = forms.CharField(max_length=20, required=True, strip=True)
     name = forms.CharField(max_length=100, required=False, strip=True)
-    quantity = forms.DecimalField(max_digits=12, decimal_places=4)
-    entry_price = forms.DecimalField(max_digits=12, decimal_places=4)
+    quantity = forms.DecimalField(max_digits=15, decimal_places=7)
+    entry_price = forms.DecimalField(max_digits=15, decimal_places=7)
     category = forms.ChoiceField(choices=AssetCategory.choices)
     market = forms.ChoiceField(choices=MarketType.choices)
     strategy = forms.CharField(max_length=50, required=False, strip=True)
@@ -37,8 +37,8 @@ class AddPortfolioForm(forms.Form):
 
 
 class SellStockForm(forms.Form):
-    quantity = forms.DecimalField(max_digits=12, decimal_places=4)
-    sell_price = forms.DecimalField(max_digits=12, decimal_places=4)
+    quantity = forms.DecimalField(max_digits=15, decimal_places=7)
+    sell_price = forms.DecimalField(max_digits=15, decimal_places=7)
 
     def clean_quantity(self):
         qty = self.cleaned_data.get('quantity')

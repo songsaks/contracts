@@ -998,9 +998,14 @@
                 <h5 class="modal-title fw-bold text-primary" id="port-modal-title">Add Position to Portfolio</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" onclick="resetPortfolioModal()"></button>
             </div>
-            <form action="{% url 'stocks:add_to_portfolio' %}" method="POST">
+            <form id="addPortfolioForm" action="{% url 'stocks:add_to_portfolio' %}" method="POST">
                 {% csrf_token %}
                 <div class="modal-body pt-3">
+                    <!-- Error display -->
+                    <div id="port-error-box" class="d-none mb-3 p-3 rounded-3" style="background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.35);">
+                        <div class="fw-bold text-danger mb-1" style="font-size:0.82rem;">❌ ไม่สามารถบันทึกได้ — กรุณาตรวจสอบข้อมูล</div>
+                        <ul id="port-error-list" class="mb-0 ps-3" style="font-size:0.82rem;color:#ef4444;"></ul>
+                    </div>
                     <div class="row g-3">
                         <div class="col-md-6">
                             <label class="form-label small text-muted">Symbol (e.g. PTT.BK)</label>
@@ -1054,7 +1059,7 @@
                 </div>
                 <div class="modal-footer border-0">
                     <button type="button" class="btn btn-link text-muted" data-bs-dismiss="modal" onclick="resetPortfolioModal()">Cancel</button>
-                    <button type="submit" class="btn btn-premium px-4">Save</button>
+                    <button type="button" id="port-save-btn" onclick="submitPortfolioForm()" class="btn btn-premium px-4">Save</button>
                 </div>
             </form>
         </div>
@@ -1187,6 +1192,50 @@
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
+    function submitPortfolioForm() {
+        const form = document.getElementById('addPortfolioForm');
+        const btn  = document.getElementById('port-save-btn');
+        const errorBox  = document.getElementById('port-error-box');
+        const errorList = document.getElementById('port-error-list');
+
+        // clear previous errors
+        errorBox.classList.add('d-none');
+        errorList.innerHTML = '';
+        btn.disabled = true;
+        btn.textContent = 'กำลังบันทึก...';
+
+        const data = new FormData(form);
+        fetch(form.action, {
+            method: 'POST',
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+            body: data,
+        })
+        .then(r => r.json().then(json => ({ ok: r.ok, json })))
+        .then(({ ok, json }) => {
+            if (ok && json.success) {
+                bootstrap.Modal.getInstance(document.getElementById('addPortfolioModal')).hide();
+                resetPortfolioModal();
+                location.reload();
+            } else {
+                const errs = json.errors || ['เกิดข้อผิดพลาด กรุณาลองใหม่'];
+                errs.forEach(e => {
+                    const li = document.createElement('li');
+                    li.textContent = e;
+                    errorList.appendChild(li);
+                });
+                errorBox.classList.remove('d-none');
+            }
+        })
+        .catch(() => {
+            errorList.innerHTML = '<li>เกิดข้อผิดพลาดในการเชื่อมต่อ กรุณาลองใหม่</li>';
+            errorBox.classList.remove('d-none');
+        })
+        .finally(() => {
+            btn.disabled = false;
+            btn.textContent = 'Save';
+        });
+    }
+
     function resetPortfolioModal() {
         document.getElementById('port-symbol').value = '';
         document.getElementById('port-symbol').readOnly = false;
@@ -1197,6 +1246,8 @@
         document.getElementById('port-category').value = 'STOCK';
         document.getElementById('port-market').value = 'SET';
         document.getElementById('port-modal-title').innerText = 'Add Position to Portfolio';
+        const eb = document.getElementById('port-error-box');
+        if (eb) { eb.classList.add('d-none'); document.getElementById('port-error-list').innerHTML = ''; }
     }
 
     function editPortfolio(symbol, name, qty, price, category, market, strategy, multiplier) {
