@@ -53,20 +53,20 @@
                         {% if has_us %}
                         <div class="metrics-data-row d-flex flex-wrap flex-md-nowrap align-items-center gap-2">
                             <span class="badge rounded-pill px-2 py-1 badge-us flex-label">🇺🇸 หุ้น US</span>
-                            <span class="fw-bold text-dark flex-value">${{ total_us_value|floatformat:2|intcomma }}</span>
-                            <span class="fw-semibold text-secondary flex-value">${{ total_us_cost|floatformat:2|intcomma }}</span>
+                            <span class="fw-bold text-dark flex-value">฿{{ total_us_value_thb|floatformat:0|intcomma }} <small class="text-muted fw-normal" style="font-size:0.6rem;">(${{ total_us_value|floatformat:0|intcomma }})</small></span>
+                            <span class="fw-semibold text-secondary flex-value">฿{{ total_us_cost_thb|floatformat:0|intcomma }}</span>
                             <span class="fw-bold {% if total_us_pl > 0 %}text-success{% elif total_us_pl < 0 %}text-danger{% else %}text-dark{% endif %} flex-value">
-                                {% if total_us_pl > 0 %}+{% endif %}${{ total_us_pl|floatformat:2|intcomma }}
+                                {% if total_us_pl > 0 %}+{% endif %}฿{{ total_us_pl_thb|floatformat:0|intcomma }}
                             </span>
                         </div>
                         {% endif %}
                         {% if has_crypto %}
                         <div class="metrics-data-row d-flex flex-wrap flex-md-nowrap align-items-center gap-2">
                             <span class="badge rounded-pill px-2 py-1 badge-crypto flex-label">₿ Crypto</span>
-                            <span class="fw-bold text-dark flex-value">${{ total_crypto_value|floatformat:2|intcomma }}</span>
-                            <span class="fw-semibold text-secondary flex-value">${{ total_crypto_cost|floatformat:2|intcomma }}</span>
+                            <span class="fw-bold text-dark flex-value">฿{{ total_crypto_value_thb|floatformat:0|intcomma }} <small class="text-muted fw-normal" style="font-size:0.6rem;">(${{ total_crypto_value|floatformat:0|intcomma }})</small></span>
+                            <span class="fw-semibold text-secondary flex-value">฿{{ total_crypto_cost_thb|floatformat:0|intcomma }}</span>
                             <span class="fw-bold {% if total_crypto_pl > 0 %}text-success{% elif total_crypto_pl < 0 %}text-danger{% else %}text-dark{% endif %} flex-value">
-                                {% if total_crypto_pl > 0 %}+{% endif %}${{ total_crypto_pl|floatformat:2|intcomma }}
+                                {% if total_crypto_pl > 0 %}+{% endif %}฿{{ total_crypto_pl_thb|floatformat:0|intcomma }}
                             </span>
                         </div>
                         {% endif %}
