@@ -85,12 +85,12 @@
                                     <span class="badge rounded-pill px-2 py-1 badge-us" style="font-size:0.68rem;">🇺🇸 หุ้น US</span>
                                 </td>
                                 <td class="text-end fw-bold py-2" style="font-size:0.88rem;">
-                                    ฿{{ total_us_value_thb|floatformat:0|intcomma }}
-                                    <div class="text-muted fw-normal" style="font-size:0.62rem;">${{ total_us_value|floatformat:0|intcomma }}</div>
+                                    ฿{{ total_us_value_thb|floatformat:2|intcomma }}
+                                    <div class="text-muted fw-normal" style="font-size:0.62rem;">${{ total_us_value|floatformat:2|intcomma }}</div>
                                 </td>
-                                <td class="text-end text-secondary py-2 d-none d-sm-table-cell" style="font-size:0.82rem;">฿{{ total_us_cost_thb|floatformat:0|intcomma }}</td>
+                                <td class="text-end text-secondary py-2 d-none d-sm-table-cell" style="font-size:0.82rem;">฿{{ total_us_cost_thb|floatformat:2|intcomma }}</td>
                                 <td class="text-end pe-3 py-2 fw-bold {% if total_us_pl > 0 %}text-success{% elif total_us_pl < 0 %}text-danger{% endif %}" style="font-size:0.88rem;">
-                                    {% if total_us_pl > 0 %}+{% endif %}฿{{ total_us_pl_thb|floatformat:0|intcomma }}
+                                    {% if total_us_pl > 0 %}+{% endif %}฿{{ total_us_pl_thb|floatformat:2|intcomma }}
                                 </td>
                             </tr>
                             {% endif %}
@@ -100,12 +100,12 @@
                                     <span class="badge rounded-pill px-2 py-1 badge-crypto" style="font-size:0.68rem;">₿ Crypto</span>
                                 </td>
                                 <td class="text-end fw-bold py-2" style="font-size:0.88rem;">
-                                    ฿{{ total_crypto_value_thb|floatformat:0|intcomma }}
-                                    <div class="text-muted fw-normal" style="font-size:0.62rem;">${{ total_crypto_value|floatformat:0|intcomma }}</div>
+                                    ฿{{ total_crypto_value_thb|floatformat:2|intcomma }}
+                                    <div class="text-muted fw-normal" style="font-size:0.62rem;">${{ total_crypto_value|floatformat:2|intcomma }}</div>
                                 </td>
-                                <td class="text-end text-secondary py-2 d-none d-sm-table-cell" style="font-size:0.82rem;">฿{{ total_crypto_cost_thb|floatformat:0|intcomma }}</td>
+                                <td class="text-end text-secondary py-2 d-none d-sm-table-cell" style="font-size:0.82rem;">฿{{ total_crypto_cost_thb|floatformat:2|intcomma }}</td>
                                 <td class="text-end pe-3 py-2 fw-bold {% if total_crypto_pl > 0 %}text-success{% elif total_crypto_pl < 0 %}text-danger{% endif %}" style="font-size:0.88rem;">
-                                    {% if total_crypto_pl > 0 %}+{% endif %}฿{{ total_crypto_pl_thb|floatformat:0|intcomma }}
+                                    {% if total_crypto_pl > 0 %}+{% endif %}฿{{ total_crypto_pl_thb|floatformat:2|intcomma }}
                                 </td>
                             </tr>
                             {% endif %}
@@ -121,7 +121,7 @@
                                 </td>
                                 <td class="text-end fw-bold py-2" style="font-size:0.88rem;">
                                     ฿{{ total_cash_combined_thb|floatformat:2|intcomma }}
-                                    {% if total_cash_usd > 0 %}<div class="text-muted fw-normal" style="font-size:0.62rem;">${{ total_cash_usd|floatformat:1 }}</div>{% endif %}
+                                    {% if total_cash_usd > 0 %}<div class="text-muted fw-normal" style="font-size:0.62rem;">${{ total_cash_usd|floatformat:2|intcomma }}</div>{% endif %}
                                 </td>
                                 <td class="text-end text-secondary py-2 d-none d-sm-table-cell">
                                     <i class="fas fa-edit text-muted" style="font-size:0.75rem;cursor:pointer;"
