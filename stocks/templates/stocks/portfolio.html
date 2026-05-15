@@ -1209,11 +1209,17 @@
                     </div>
                     <div class="row g-3 mb-3">
                         <div class="col-md-6">
-                            <label class="form-label small fw-bold">ต้นทุนทั้งหมด (Total Cost)</label>
+                            <label class="form-label small fw-bold d-flex justify-content-between">
+                                <span>ต้นทุนทั้งหมด</span>
+                                <span id="old_cost_label" class="text-muted extra-extra-small"></span>
+                            </label>
                             <input type="number" name="cost" id="fund_cost" class="form-control rounded-pill px-3" step="0.01" required placeholder="0.00" style="background:#f8fafc;">
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label small fw-bold">มูลค่าตลาดปัจจุบัน (Market Value)</label>
+                            <label class="form-label small fw-bold d-flex justify-content-between">
+                                <span>มูลค่าตลาดปัจจุบัน</span>
+                                <span id="old_value_label" class="text-muted extra-extra-small"></span>
+                            </label>
                             <input type="number" name="market_value" id="fund_market_value" class="form-control rounded-pill px-3" step="0.01" required placeholder="0.00" style="background:#f8fafc;">
                         </div>
                     </div>
@@ -1519,6 +1525,8 @@
         document.getElementById('fund_name').value = '';
         document.getElementById('fund_cost').value = '';
         document.getElementById('fund_market_value').value = '';
+        document.getElementById('old_cost_label').textContent = '';
+        document.getElementById('old_value_label').textContent = '';
         document.getElementById('fundModalTitle').innerHTML = '<i class="fas fa-chart-pie me-2 text-primary"></i> Add Mutual Fund';
     }
 
@@ -1527,6 +1535,11 @@
         document.getElementById('fund_name').value = name;
         document.getElementById('fund_cost').value = cost;
         document.getElementById('fund_market_value').value = value;
+        
+        // แสดงค่าเดิมให้เห็นด้วย
+        document.getElementById('old_cost_label').textContent = '(เดิม: ฿' + parseFloat(cost).toLocaleString() + ')';
+        document.getElementById('old_value_label').textContent = '(เดิม: ฿' + parseFloat(value).toLocaleString() + ')';
+        
         document.getElementById('fundModalTitle').innerHTML = '<i class="fas fa-edit me-2 text-primary"></i> Edit Mutual Fund';
         new bootstrap.Modal(document.getElementById('addFundModal')).show();
     }
