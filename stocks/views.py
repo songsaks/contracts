@@ -4051,9 +4051,38 @@ def precision_momentum_scanner(request):
                             _scan_log.info(f"[SCAN SKIP] {symbol}: Price ฿{current_price} < 1.00")
                             return None
 
-                        # 3. RS Rating >= 60 (None = ข้อมูลไม่พอ → ไม่ตัดออก)
+                        # ====== Early Accumulation (Pre-Breakout Volume Surge & Tightness) ======
+                        # เช็คว่ามี Volume พุ่งสูง หรือ ราคากำลังบีบตัว (VCP) หรือ ปริมาณการซื้อขายแห้ง (VDU)
+                        early_accumulation = False
+                        try:
+                            if len(df) >= 20:
+                                # 1. Check Volume Surge (2.5x)
+                                for i in range(-5, 0):
+                                    vol_i = float(df['Volume'].iloc[i])
+                                    close_i = float(df['Close'].iloc[i])
+                                    open_i = float(df['Open'].iloc[i])
+                                    if close_i > open_i and vol_i >= (avg_vol_20 * 2.5):
+                                        early_accumulation = True
+                                        break
+                                
+                                # 2. Check Price Tightness (SD < 2.5%) -> VCP / Coiling
+                                if not early_accumulation:
+                                    std_5 = float(df['Close'].tail(5).std())
+                                    tightness = (std_5 / current_price * 100) if current_price > 0 else 99
+                                    if tightness <= 2.5:
+                                        early_accumulation = True
+                                        
+                                # 3. Check Volume Dry Up (VDU) -> แรงขายหมด
+                                if not early_accumulation:
+                                    vol_3d_avg = float(df['Volume'].tail(3).mean())
+                                    if vol_3d_avg < avg_vol_20 * 0.5:
+                                        early_accumulation = True
+                        except Exception:
+                            pass
+
+                        # 3. RS Rating >= 60 (อนุโลมถ้ามี Early Accumulation)
                         rs_val = rs_ratings_map.get(symbol, None)
-                        if rs_val is not None and rs_val < 60:
+                        if rs_val is not None and rs_val < 60 and not early_accumulation:
                             _scan_log.info(f"[SCAN SKIP] {symbol}: RS {rs_val} < 60")
                             return None
 
@@ -4074,13 +4103,13 @@ def precision_momentum_scanner(request):
 
                         # ====== ADX Filter ======
                         adx_val = float(df['ADX_14'].iloc[-1]) if 'ADX_14' in df.columns and pd.notna(df['ADX_14'].iloc[-1]) else 0
-                        if adx_val < 15:
+                        if adx_val < 15 and not early_accumulation:
                             _scan_log.info(f"[SCAN SKIP] {symbol}: ADX {adx_val:.1f} < 15")
                             return None
 
                         # ====== Trend Template Filter ======
                         near_high  = current_price >= year_high * 0.65
-                        if not near_high:
+                        if not near_high and not early_accumulation:
                             _scan_log.info(f"[SCAN SKIP] {symbol}: Price ฿{current_price} < 65% of 52wH ฿{year_high} ({current_price/year_high*100:.0f}%)")
                             return None
 

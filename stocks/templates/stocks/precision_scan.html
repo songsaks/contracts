@@ -911,7 +911,7 @@
                             </th>
                             <th class="col-hide-md">REL MOM</th>
                             <th class="col-hide-lg">SEC</th>
-                            <th class="col-hide-lg"><a href="?sort=win&run_idx={{ selected_run_idx }}" class="text-decoration-none {% if current_sort == 'win' %}fw-bold{% else %}text-muted{% endif %}" style="{% if current_sort == 'win' %}color:#059669;{% endif %}" title="Win Probability (Statistical Edge)">WIN PROB</a></th>
+
                             <th class="text-center col-hide-sm" style="min-width:140px;">REC</th>
                             <th class="text-end pe-2">ACTION</th>
                         </tr>
@@ -1313,20 +1313,7 @@
                                 </span>
                             </td>
 
-                            <!-- WIN PROBABILITY -->
-                            <td class="col-hide-lg">
-                                {% if item.win_probability %}
-                                <div class="d-flex flex-column align-items-center">
-                                    <span class="fw-bold" style="color:{% if item.win_probability >= 80 %}#16a34a{% elif item.win_probability >= 65 %}#2563eb{% elif item.win_probability >= 50 %}#ca8a04{% else %}#dc2626{% endif %}; font-size:0.8rem;">
-                                        {{ item.win_probability }}%
-                                    </span>
-                                    <div class="progress w-100" style="height: 3px; background: #f1f5f9; margin-top: 2px;">
-                                        <div class="progress-bar bg-{% if item.win_probability >= 80 %}success{% elif item.win_probability >= 65 %}primary{% elif item.win_probability >= 50 %}warning{% else %}danger{% endif %}" 
-                                             role="progressbar" style="width: {{ item.win_probability }}%"></div>
-                                    </div>
-                                </div>
-                                {% else %}<span class="text-muted">-</span>{% endif %}
-                            </td>
+
 
                             <!-- RECOMMENDATION -->
                             <td class="small" style="font-size:0.65rem;line-height:1.2;min-width:150px;background:rgba(248,250,252,0.5);">
