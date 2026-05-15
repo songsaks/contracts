@@ -1881,7 +1881,7 @@ def portfolio_list(request):
     total_cash_thb = float(cash_thb_obj.balance) if cash_thb_obj else 0.0
     total_cash_usd = float(cash_usd_obj.balance) if cash_usd_obj else 0.0
     
-    cash_transactions = CashTransaction.objects.filter(user=request.user).order_by('-created_at')[:20]
+    cash_transactions = CashTransaction.objects.filter(user=request.user).order_by('-created_at')[:500]
     
     # ── Portfolio Fund Summary ──
     from .models import PortfolioFund

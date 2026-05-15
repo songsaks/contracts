@@ -5,112 +5,162 @@
 <div class="row g-4">
     <!-- Summary Header -->
     <div class="col-12">
-        <div class="card-premium p-4 border-0 mb-4 bg-primary bg-opacity-10">
-            <div class="row align-items-center">
-                <div class="col-md-6">
-                    <h3 class="fw-bold mb-1 text-primary"><i class="fas fa-wallet me-2"></i> My Portfolio</h3>
-                    <p class="text-muted mb-0">ติดตามสินทรัพย์ที่คุณครอบครอง (Owned Assets)</p>
+        <div class="border-0 mb-2 rounded-4 overflow-hidden" style="background:linear-gradient(135deg,#eef2ff 0%,#f0fdf4 100%);box-shadow:0 4px 24px rgba(79,70,229,0.08);">
+
+            <!-- Top bar: title + rate -->
+            <div class="d-flex align-items-center justify-content-between px-4 pt-4 pb-2 flex-wrap gap-2">
+                <div>
+                    <h4 class="fw-black mb-0 text-primary" style="letter-spacing:-0.5px;">
+                        <i class="fas fa-wallet me-2"></i>My Portfolio
+                    </h4>
+                    <p class="text-muted mb-0" style="font-size:0.78rem;">ติดตามสินทรัพย์ที่คุณครอบครอง</p>
                 </div>
-                <div class="col-md-6 text-md-end mt-3 mt-md-0 d-flex flex-column align-items-md-end gap-2">
-                    <div class="d-flex gap-2 flex-wrap justify-content-md-end">
-                        <button id="refreshPricesBtn" onclick="refreshPortfolioPrices()" class="btn btn-sm rounded-pill px-3 fw-bold"
-                                style="background:linear-gradient(135deg,#059669,#047857);color:white;border:none;">
-                            <i class="fas fa-sync-alt me-1"></i> <span id="refreshBtnText">อัปเดตราคา</span>
-                        </button>
-                        <a href="{% url 'stocks:portfolio_exit_plan' %}" class="btn btn-sm rounded-pill px-3 fw-bold"
-                           style="background:linear-gradient(135deg,#dc2626,#b91c1c);color:white;border:none;">
-                            <i class="fas fa-sign-out-alt me-1"></i> แผนออกหุ้น
-                        </a>
-                        <a href="{% url 'stocks:realized_pl_report' %}" class="btn btn-outline-primary btn-sm rounded-pill px-3">
-                            <i class="fas fa-file-invoice-dollar me-1"></i> รายงานการขาย
-                        </a>
-                        <a href="{% url 'stocks:tithe_report' %}" class="btn btn-sm rounded-pill px-3"
-                           style="background:rgba(124,58,237,0.12);color:#7c3aed;border:1px solid rgba(124,58,237,0.2);">
-                            <i class="fas fa-hand-holding-heart me-1"></i> ทศางค์
-                        </a>
-                        <button class="btn btn-sm rounded-pill px-3 fw-bold" data-bs-toggle="modal" data-bs-target="#addCashModal"
-                                style="background:rgba(5,150,105,0.1);color:#059669;border:1px solid rgba(5,150,105,0.2);">
-                            <i class="fas fa-plus-circle me-1"></i> เติมเงิน/ถอน
-                        </button>
-                    </div>
-                    <div class="summary-metrics-container">
-                        <div class="metrics-header-row d-none d-md-flex gap-2">
-                            <span class="flex-label"></span>
-                            <span class="flex-value">MARKET VALUE</span>
-                            <span class="flex-value">TOTAL COST</span>
-                            <span class="flex-value">TOTAL P/L</span>
-                        </div>
-                        {% if has_set %}
-                        <div class="metrics-data-row d-flex flex-wrap flex-md-nowrap align-items-center gap-2">
-                            <span class="badge rounded-pill px-2 py-1 badge-set flex-label">🇹🇭 หุ้นไทย</span>
-                            <span class="fw-bold text-dark flex-value">฿{{ total_set_value|floatformat:2|intcomma }}</span>
-                            <span class="fw-semibold text-secondary flex-value">฿{{ total_set_cost|floatformat:2|intcomma }}</span>
-                            <span class="fw-bold {% if total_set_pl > 0 %}text-success{% elif total_set_pl < 0 %}text-danger{% else %}text-dark{% endif %} flex-value">
-                                {% if total_set_pl > 0 %}+{% endif %}฿{{ total_set_pl|floatformat:2|intcomma }}
-                            </span>
-                        </div>
-                        {% endif %}
-                        {% if has_us %}
-                        <div class="metrics-data-row d-flex flex-wrap flex-md-nowrap align-items-center gap-2">
-                            <span class="badge rounded-pill px-2 py-1 badge-us flex-label">🇺🇸 หุ้น US</span>
-                            <span class="fw-bold text-dark flex-value">฿{{ total_us_value_thb|floatformat:0|intcomma }} <small class="text-muted fw-normal" style="font-size:0.6rem;">(${{ total_us_value|floatformat:0|intcomma }})</small></span>
-                            <span class="fw-semibold text-secondary flex-value">฿{{ total_us_cost_thb|floatformat:0|intcomma }}</span>
-                            <span class="fw-bold {% if total_us_pl > 0 %}text-success{% elif total_us_pl < 0 %}text-danger{% else %}text-dark{% endif %} flex-value">
-                                {% if total_us_pl > 0 %}+{% endif %}฿{{ total_us_pl_thb|floatformat:0|intcomma }}
-                            </span>
-                        </div>
-                        {% endif %}
-                        {% if has_crypto %}
-                        <div class="metrics-data-row d-flex flex-wrap flex-md-nowrap align-items-center gap-2">
-                            <span class="badge rounded-pill px-2 py-1 badge-crypto flex-label">₿ Crypto</span>
-                            <span class="fw-bold text-dark flex-value">฿{{ total_crypto_value_thb|floatformat:0|intcomma }} <small class="text-muted fw-normal" style="font-size:0.6rem;">(${{ total_crypto_value|floatformat:0|intcomma }})</small></span>
-                            <span class="fw-semibold text-secondary flex-value">฿{{ total_crypto_cost_thb|floatformat:0|intcomma }}</span>
-                            <span class="fw-bold {% if total_crypto_pl > 0 %}text-success{% elif total_crypto_pl < 0 %}text-danger{% else %}text-dark{% endif %} flex-value">
-                                {% if total_crypto_pl > 0 %}+{% endif %}฿{{ total_crypto_pl_thb|floatformat:0|intcomma }}
-                            </span>
-                        </div>
-                        {% endif %}
-                        <div class="metrics-data-row d-flex flex-wrap flex-md-nowrap align-items-center gap-2">
-                            <div class="position-relative">
-                                <span class="badge rounded-pill px-2 py-1 bg-success bg-opacity-10 text-success flex-label" style="border:1px solid rgba(25,135,84,0.2); cursor:pointer;" 
-                                      data-bs-toggle="modal" data-bs-target="#addCashModal" onclick="setCashMode('absolute')">💵 เงินสด</span>
-                                <span class="position-absolute top-0 start-100 translate-middle p-1 bg-success border border-white rounded-circle blink-soft" style="width: 8px; height: 8px; margin-left: -2px; margin-top: 2px;"></span>
-                            </div>
-                            <span class="fw-bold text-dark flex-value">฿{{ total_cash_combined_thb|floatformat:2|intcomma }} <small class="text-muted fw-normal" style="font-size:0.6rem;">(${{ total_cash_usd|floatformat:1 }})</small></span>
-                            <span class="fw-semibold text-secondary flex-value">
-                                <i class="fas fa-edit ms-1 text-muted cursor-pointer" style="font-size: 0.75rem;" data-bs-toggle="modal" data-bs-target="#addCashModal" onclick="setCashMode('absolute')"></i>
-                            </span>
-                            <span class="fw-bold text-muted flex-value">-</span>
-                        </div>
-                        <div class="metrics-data-row d-flex flex-wrap flex-md-nowrap align-items-center gap-2">
-                            <div class="position-relative">
-                                <span class="badge rounded-pill px-2 py-1 bg-primary bg-opacity-10 text-primary flex-label" 
-                                      style="border:1px solid rgba(13,110,253,0.2); cursor:pointer;"
-                                      data-fund-id="{{ funds.0.id }}" 
-                                      data-fund-name="{{ funds.0.name }}" 
-                                      data-fund-cost="{{ funds.0.cost }}" 
-                                      data-fund-value="{{ funds.0.market_value }}"
-                                      onclick="quickUpdateFund(this)">📈 กองทุน</span>
-                            </div>
-                            <span class="fw-bold text-dark flex-value">฿{{ total_fund_value|floatformat:2|intcomma }}</span>
-                            <span class="fw-semibold text-secondary flex-value">฿{{ total_fund_cost|floatformat:2|intcomma }}</span>
-                            <span class="fw-bold {% if total_fund_pl > 0 %}text-success{% elif total_fund_pl < 0 %}text-danger{% else %}text-dark{% endif %} flex-value">
-                                {% if total_fund_pl > 0 %}+{% endif %}฿{{ total_fund_pl|floatformat:2|intcomma }}
-                            </span>
-                        </div>
-                        <!-- รวม row -->
-                        {% if has_set and has_us or has_set and has_crypto or has_us and has_crypto %}
-                        <div class="metrics-data-row total-combined-row d-flex flex-wrap flex-md-nowrap align-items-center gap-2 mt-1">
-                            <span class="badge rounded-pill px-2 py-1 flex-label bg-dark text-white">รวม (฿)</span>
-                            <span class="fw-black text-dark flex-value">฿{{ total_combined_value|floatformat:2|intcomma }}</span>
-                            <span class="fw-semibold text-secondary flex-value">฿{{ total_combined_cost|floatformat:2|intcomma }}</span>
-                            <span class="fw-black {% if total_combined_pl > 0 %}text-success{% elif total_combined_pl < 0 %}text-danger{% else %}text-dark{% endif %} flex-value">
-                                {% if total_combined_pl > 0 %}+{% endif %}฿{{ total_combined_pl|floatformat:2|intcomma }}
-                            </span>
-                        </div>
-                        <div class="exchange-rate-text">USD/THB = {{ usd_thb }}</div>
-                        {% endif %}
-                    </div>
+                <span class="badge rounded-pill px-3 py-2" style="background:rgba(79,70,229,0.1);color:#4f46e5;font-size:0.72rem;font-weight:700;">
+                    USD/THB = {{ usd_thb }}
+                </span>
+            </div>
+
+            <!-- Action buttons: horizontal scroll on mobile -->
+            <div class="px-4 pb-3">
+                <div class="d-flex gap-2 flex-nowrap overflow-auto pb-1" style="scrollbar-width:none;">
+                    <button id="refreshPricesBtn" onclick="refreshPortfolioPrices()"
+                            class="btn btn-sm rounded-pill px-3 fw-bold flex-shrink-0"
+                            style="background:linear-gradient(135deg,#059669,#047857);color:#fff;border:none;white-space:nowrap;">
+                        <i class="fas fa-sync-alt me-1"></i><span id="refreshBtnText">อัปเดตราคา</span>
+                    </button>
+                    <a href="{% url 'stocks:portfolio_exit_plan' %}"
+                       class="btn btn-sm rounded-pill px-3 fw-bold flex-shrink-0"
+                       style="background:linear-gradient(135deg,#dc2626,#b91c1c);color:#fff;border:none;white-space:nowrap;">
+                        <i class="fas fa-sign-out-alt me-1"></i>แผนออกหุ้น
+                    </a>
+                    <a href="{% url 'stocks:realized_pl_report' %}"
+                       class="btn btn-outline-primary btn-sm rounded-pill px-3 flex-shrink-0" style="white-space:nowrap;">
+                        <i class="fas fa-file-invoice-dollar me-1"></i>รายงานการขาย
+                    </a>
+                    <a href="{% url 'stocks:tithe_report' %}"
+                       class="btn btn-sm rounded-pill px-3 flex-shrink-0"
+                       style="background:rgba(124,58,237,0.1);color:#7c3aed;border:1px solid rgba(124,58,237,0.2);white-space:nowrap;">
+                        <i class="fas fa-hand-holding-heart me-1"></i>ทศางค์
+                    </a>
+                    <button class="btn btn-sm rounded-pill px-3 fw-semibold flex-shrink-0"
+                            data-bs-toggle="modal" data-bs-target="#addCashModal"
+                            style="background:rgba(5,150,105,0.1);color:#059669;border:1px solid rgba(5,150,105,0.25);white-space:nowrap;">
+                        <i class="fas fa-plus-circle me-1"></i>เติมเงิน/ถอน
+                    </button>
+                    <button class="btn btn-premium btn-sm rounded-pill px-3 flex-shrink-0"
+                            data-bs-toggle="modal" data-bs-target="#addPortfolioModal" style="white-space:nowrap;">
+                        <i class="fas fa-plus me-1"></i>Add
+                    </button>
+                </div>
+            </div>
+
+            <!-- Summary table -->
+            <div class="px-3 px-md-4 pb-4">
+                <div class="rounded-3 overflow-hidden" style="border:1px solid rgba(0,0,0,0.07);">
+                    <table class="table table-sm mb-0 align-middle" id="summary-table" style="background:#fff;">
+                        <thead style="background:rgba(79,70,229,0.06);">
+                            <tr style="font-size:0.66rem;font-weight:700;color:#94a3b8;letter-spacing:0.6px;text-transform:uppercase;">
+                                <th class="ps-3 py-2">สินทรัพย์</th>
+                                <th class="text-end py-2">Market Value</th>
+                                <th class="text-end py-2 d-none d-sm-table-cell">ทุน</th>
+                                <th class="text-end pe-3 py-2">P/L</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% if has_set %}
+                            <tr class="summary-row" style="border-top:1px solid rgba(0,0,0,0.05);">
+                                <td class="ps-3 py-2">
+                                    <span class="badge rounded-pill px-2 py-1 badge-set" style="font-size:0.68rem;">🇹🇭 หุ้นไทย</span>
+                                </td>
+                                <td class="text-end fw-bold py-2" style="font-size:0.88rem;">฿{{ total_set_value|floatformat:2|intcomma }}</td>
+                                <td class="text-end text-secondary py-2 d-none d-sm-table-cell" style="font-size:0.82rem;">฿{{ total_set_cost|floatformat:2|intcomma }}</td>
+                                <td class="text-end pe-3 py-2 fw-bold {% if total_set_pl > 0 %}text-success{% elif total_set_pl < 0 %}text-danger{% endif %}" style="font-size:0.88rem;">
+                                    {% if total_set_pl > 0 %}+{% endif %}฿{{ total_set_pl|floatformat:2|intcomma }}
+                                </td>
+                            </tr>
+                            {% endif %}
+                            {% if has_us %}
+                            <tr class="summary-row" style="border-top:1px solid rgba(0,0,0,0.05);">
+                                <td class="ps-3 py-2">
+                                    <span class="badge rounded-pill px-2 py-1 badge-us" style="font-size:0.68rem;">🇺🇸 หุ้น US</span>
+                                </td>
+                                <td class="text-end fw-bold py-2" style="font-size:0.88rem;">
+                                    ฿{{ total_us_value_thb|floatformat:0|intcomma }}
+                                    <div class="text-muted fw-normal" style="font-size:0.62rem;">${{ total_us_value|floatformat:0|intcomma }}</div>
+                                </td>
+                                <td class="text-end text-secondary py-2 d-none d-sm-table-cell" style="font-size:0.82rem;">฿{{ total_us_cost_thb|floatformat:0|intcomma }}</td>
+                                <td class="text-end pe-3 py-2 fw-bold {% if total_us_pl > 0 %}text-success{% elif total_us_pl < 0 %}text-danger{% endif %}" style="font-size:0.88rem;">
+                                    {% if total_us_pl > 0 %}+{% endif %}฿{{ total_us_pl_thb|floatformat:0|intcomma }}
+                                </td>
+                            </tr>
+                            {% endif %}
+                            {% if has_crypto %}
+                            <tr class="summary-row" style="border-top:1px solid rgba(0,0,0,0.05);">
+                                <td class="ps-3 py-2">
+                                    <span class="badge rounded-pill px-2 py-1 badge-crypto" style="font-size:0.68rem;">₿ Crypto</span>
+                                </td>
+                                <td class="text-end fw-bold py-2" style="font-size:0.88rem;">
+                                    ฿{{ total_crypto_value_thb|floatformat:0|intcomma }}
+                                    <div class="text-muted fw-normal" style="font-size:0.62rem;">${{ total_crypto_value|floatformat:0|intcomma }}</div>
+                                </td>
+                                <td class="text-end text-secondary py-2 d-none d-sm-table-cell" style="font-size:0.82rem;">฿{{ total_crypto_cost_thb|floatformat:0|intcomma }}</td>
+                                <td class="text-end pe-3 py-2 fw-bold {% if total_crypto_pl > 0 %}text-success{% elif total_crypto_pl < 0 %}text-danger{% endif %}" style="font-size:0.88rem;">
+                                    {% if total_crypto_pl > 0 %}+{% endif %}฿{{ total_crypto_pl_thb|floatformat:0|intcomma }}
+                                </td>
+                            </tr>
+                            {% endif %}
+                            <!-- เงินสด -->
+                            <tr class="summary-row" style="border-top:1px solid rgba(0,0,0,0.05);">
+                                <td class="ps-3 py-2">
+                                    <span class="badge rounded-pill px-2 py-1 position-relative"
+                                          style="background:#dcfce7;color:#166534;font-size:0.68rem;cursor:pointer;border:1px solid rgba(22,163,74,0.2);"
+                                          data-bs-toggle="modal" data-bs-target="#addCashModal" onclick="setCashMode('absolute')">
+                                        💵 เงินสด
+                                        <span class="position-absolute top-0 start-100 translate-middle p-1 bg-success border border-white rounded-circle" style="width:7px;height:7px;margin:-1px;"></span>
+                                    </span>
+                                </td>
+                                <td class="text-end fw-bold py-2" style="font-size:0.88rem;">
+                                    ฿{{ total_cash_combined_thb|floatformat:2|intcomma }}
+                                    {% if total_cash_usd > 0 %}<div class="text-muted fw-normal" style="font-size:0.62rem;">${{ total_cash_usd|floatformat:1 }}</div>{% endif %}
+                                </td>
+                                <td class="text-end text-secondary py-2 d-none d-sm-table-cell">
+                                    <i class="fas fa-edit text-muted" style="font-size:0.75rem;cursor:pointer;"
+                                       data-bs-toggle="modal" data-bs-target="#addCashModal" onclick="setCashMode('absolute')"></i>
+                                </td>
+                                <td class="text-end pe-3 py-2 text-muted fw-bold">—</td>
+                            </tr>
+                            <!-- กองทุน -->
+                            <tr class="summary-row" style="border-top:1px solid rgba(0,0,0,0.05);">
+                                <td class="ps-3 py-2">
+                                    <span class="badge rounded-pill px-2 py-1"
+                                          style="background:#dbeafe;color:#1e40af;font-size:0.68rem;cursor:pointer;border:1px solid rgba(30,64,175,0.15);"
+                                          data-fund-id="{{ funds.0.id }}" data-fund-name="{{ funds.0.name }}"
+                                          data-fund-cost="{{ funds.0.cost }}" data-fund-value="{{ funds.0.market_value }}"
+                                          onclick="quickUpdateFund(this)">
+                                        📈 กองทุน
+                                    </span>
+                                </td>
+                                <td class="text-end fw-bold py-2" style="font-size:0.88rem;">฿{{ total_fund_value|floatformat:2|intcomma }}</td>
+                                <td class="text-end text-secondary py-2 d-none d-sm-table-cell" style="font-size:0.82rem;">฿{{ total_fund_cost|floatformat:2|intcomma }}</td>
+                                <td class="text-end pe-3 py-2 fw-bold {% if total_fund_pl > 0 %}text-success{% elif total_fund_pl < 0 %}text-danger{% endif %}" style="font-size:0.88rem;">
+                                    {% if total_fund_pl > 0 %}+{% endif %}฿{{ total_fund_pl|floatformat:2|intcomma }}
+                                </td>
+                            </tr>
+                            <!-- รวม -->
+                            <tr style="border-top:2px solid rgba(79,70,229,0.2);background:rgba(79,70,229,0.04);">
+                                <td class="ps-3 py-2">
+                                    <span class="badge rounded-pill px-2 py-1" style="background:#1e293b;color:#fff;font-size:0.68rem;">
+                                        รวม ({{ items|length }})
+                                    </span>
+                                </td>
+                                <td class="text-end fw-black py-2" style="font-size:0.95rem;color:#1e293b;">฿{{ total_combined_value|floatformat:2|intcomma }}</td>
+                                <td class="text-end text-secondary py-2 d-none d-sm-table-cell" style="font-size:0.82rem;">฿{{ total_combined_cost|floatformat:2|intcomma }}</td>
+                                <td class="text-end pe-3 py-2 fw-black {% if total_combined_pl > 0 %}text-success{% elif total_combined_pl < 0 %}text-danger{% else %}text-dark{% endif %}" style="font-size:0.95rem;">
+                                    {% if total_combined_pl > 0 %}+{% endif %}฿{{ total_combined_pl|floatformat:2|intcomma }}
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </div>
@@ -824,9 +874,18 @@
     <!-- Cash Flow History -->
     <div class="col-12 mt-2">
         <div class="card-premium p-4 border-0 mb-4 bg-white shadow-sm">
-            <h5 class="fw-bold mb-4 text-dark"><i class="fas fa-exchange-alt me-2 text-success"></i> ประวัติการเงินเข้า-ออก (Cash Flow)</h5>
+            <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+                <h5 class="fw-bold mb-0 text-dark"><i class="fas fa-exchange-alt me-2 text-success"></i> ประวัติการเงินเข้า-ออก (Cash Flow)</h5>
+                <div class="d-flex align-items-center gap-2">
+                    <label class="small text-muted mb-0">เดือน:</label>
+                    <select id="cf-month-filter" onchange="filterCashFlow()" class="form-select form-select-sm rounded-3" style="width:auto;min-width:140px;font-size:0.82rem;">
+                        <option value="all">ทั้งหมด</option>
+                    </select>
+                    <div class="small text-muted" id="cf-summary" style="white-space:nowrap;"></div>
+                </div>
+            </div>
             <div class="table-responsive">
-                <table class="table table-sm table-hover align-middle">
+                <table class="table table-sm table-hover align-middle" id="cf-table">
                     <thead class="bg-light bg-opacity-50">
                         <tr class="small text-muted text-uppercase" style="font-size:0.7rem;">
                             <th>วันที่</th>
@@ -836,12 +895,12 @@
                             <th>หมายเหตุ</th>
                         </tr>
                     </thead>
-                    <tbody>
+                    <tbody id="cf-tbody">
                         {% for tx in cash_transactions %}
-                        <tr>
+                        <tr class="cf-row" data-month="{{ tx.created_at|date:'Y-m' }}" data-amount="{{ tx.amount }}">
                             <td class="small">{{ tx.created_at|date:"d/m/Y H:i" }}</td>
                             <td>
-                                <span class="badge rounded-pill px-2 py-1" style="font-size:0.65rem; 
+                                <span class="badge rounded-pill px-2 py-1" style="font-size:0.65rem;
                                     {% if tx.transaction_type == 'DEPOSIT' or tx.transaction_type == 'SELL' or tx.transaction_type == 'DIVIDEND' %}background:#dcfce7;color:#166534;
                                     {% else %}background:#fee2e2;color:#991b1b;{% endif %}">
                                     {{ tx.get_transaction_type_display }}
@@ -1249,6 +1308,49 @@
         const eb = document.getElementById('port-error-box');
         if (eb) { eb.classList.add('d-none'); document.getElementById('port-error-list').innerHTML = ''; }
     }
+
+    // ── Cash Flow Month Filter ──────────────────────────────────────
+    (function initCashFlowFilter() {
+        const rows = document.querySelectorAll('.cf-row');
+        if (!rows.length) return;
+        const sel = document.getElementById('cf-month-filter');
+        const seen = new Set();
+        rows.forEach(r => {
+            const m = r.dataset.month;
+            if (m && !seen.has(m)) {
+                seen.add(m);
+                const [y, mo] = m.split('-');
+                const label = new Date(y, mo - 1, 1).toLocaleDateString('th-TH', { year: 'numeric', month: 'long' });
+                const opt = document.createElement('option');
+                opt.value = m; opt.textContent = label;
+                sel.appendChild(opt);
+            }
+        });
+    })();
+
+    function filterCashFlow() {
+        const val = document.getElementById('cf-month-filter').value;
+        const rows = document.querySelectorAll('.cf-row');
+        let totalIn = 0, totalOut = 0, count = 0;
+        rows.forEach(r => {
+            const show = val === 'all' || r.dataset.month === val;
+            r.style.display = show ? '' : 'none';
+            if (show) {
+                const amt = parseFloat(r.dataset.amount) || 0;
+                count++;
+                if (amt > 0) totalIn += amt; else totalOut += amt;
+            }
+        });
+        const fmt = n => Math.abs(n).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        const net = totalIn + totalOut;
+        const netColor = net >= 0 ? '#16a34a' : '#dc2626';
+        document.getElementById('cf-summary').innerHTML = count
+            ? `<span class="text-success">+${fmt(totalIn)}</span> / <span class="text-danger">-${fmt(Math.abs(totalOut))}</span> = <strong style="color:${netColor}">${net >= 0 ? '+' : ''}${fmt(Math.abs(net))}</strong> <span class="text-muted">(${count} รายการ)</span>`
+            : '<span class="text-muted">ไม่มีรายการ</span>';
+    }
+
+    filterCashFlow();
+    // ────────────────────────────────────────────────────────────────
 
     function editPortfolio(symbol, name, qty, price, category, market, strategy, multiplier) {
         document.getElementById('port-symbol').value = symbol;
