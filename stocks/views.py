@@ -1882,6 +1882,15 @@ def portfolio_list(request):
     total_cash_usd = float(cash_usd_obj.balance) if cash_usd_obj else 0.0
     
     cash_transactions = CashTransaction.objects.filter(user=request.user).order_by('-created_at')[:20]
+    
+    # ── Portfolio Fund Summary ──
+    from .models import PortfolioFund
+    funds = PortfolioFund.objects.filter(user=request.user)
+    for f in funds:
+        f.pl = float(f.market_value) - float(f.cost)
+    total_fund_cost = sum(float(f.cost) for f in funds)
+    total_fund_value = sum(float(f.market_value) for f in funds)
+    total_fund_pl = total_fund_value - total_fund_cost
 
     context = {
         'items': items,
@@ -1900,9 +1909,13 @@ def portfolio_list(request):
         'has_us': any(it.get('market') == MarketType.US for it in items),
         'has_crypto': any(it.get('market') == MarketType.CRYPTO for it in items),
         'usd_thb': round(usd_thb, 2),
-        'total_combined_value': total_set_value + (total_us_value + total_crypto_value + total_cash_usd) * usd_thb + total_cash_thb,
-        'total_combined_cost': total_set_cost + (total_us_cost + total_crypto_cost) * usd_thb,
-        'total_combined_pl': total_set_pl + (total_us_pl + total_crypto_pl) * usd_thb,
+        'total_combined_value': total_set_value + (total_us_value + total_crypto_value + total_cash_usd) * usd_thb + total_cash_thb + total_fund_value,
+        'total_combined_cost': total_set_cost + (total_us_cost + total_crypto_cost) * usd_thb + total_fund_cost,
+        'total_combined_pl': total_set_pl + (total_us_pl + total_crypto_pl) * usd_thb + total_fund_pl,
+        'total_fund_value': total_fund_value,
+        'total_fund_cost': total_fund_cost,
+        'total_fund_pl': total_fund_pl,
+        'funds': funds,
         'total_cash_thb': total_cash_thb,
         'total_cash_usd': total_cash_usd,
         'total_cash_combined_thb': total_cash_thb + (total_cash_usd * usd_thb),
@@ -1972,6 +1985,50 @@ def add_cash_transaction(request):
         
         return redirect('stocks:portfolio_list')
     
+    return redirect('stocks:portfolio_list')
+
+@login_required
+def update_portfolio_fund(request):
+    """
+    เพิ่มหรือแก้ไขข้อมูลกองทุนรวมแบบบันทึกด้วยมือ (Manual)
+    """
+    if request.method == 'POST':
+        from .models import PortfolioFund
+        from decimal import Decimal
+        
+        fund_id = request.POST.get('fund_id')
+        name = request.POST.get('name')
+        cost = Decimal(request.POST.get('cost', '0'))
+        market_value = Decimal(request.POST.get('market_value', '0'))
+        
+        if fund_id:
+            fund = PortfolioFund.objects.get(id=fund_id, user=request.user)
+            fund.name = name
+            fund.cost = cost
+            fund.market_value = market_value
+            fund.save()
+            messages.success(request, f"อัปเดตข้อมูลกองทุน {name} เรียบร้อยแล้ว")
+        else:
+            PortfolioFund.objects.create(
+                user=request.user,
+                name=name,
+                cost=cost,
+                market_value=market_value
+            )
+            messages.success(request, f"เพิ่มกองทุน {name} เรียบร้อยแล้ว")
+            
+        return redirect('stocks:portfolio_list')
+    
+    return redirect('stocks:portfolio_list')
+
+@login_required
+def delete_portfolio_fund(request, fund_id):
+    from .models import PortfolioFund
+    fund = PortfolioFund.objects.filter(id=fund_id, user=request.user).first()
+    if fund:
+        name = fund.name
+        fund.delete()
+        messages.success(request, f"ลบกองทุน {name} เรียบร้อยแล้ว")
     return redirect('stocks:portfolio_list')
 
 

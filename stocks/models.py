@@ -16,6 +16,7 @@ class AssetCategory(models.TextChoices):
     CRYPTO = 'CRYPTO', 'Cryptocurrency'
     COMMODITY = 'COMMODITY', 'Commodity (ทอง/น้ำมัน)'
     FOREX = 'FOREX', 'Forex'
+    FUND = 'FUND', 'Mutual Fund (กองทุน)'
     CASH = 'CASH', 'Cash (เงินสด)'
 
 class MarketType(models.TextChoices):
@@ -23,6 +24,7 @@ class MarketType(models.TextChoices):
     SET = 'SET', 'หุ้นไทย (SET)'
     US = 'US', 'หุ้น US'
     CRYPTO = 'CRYPTO', 'Cryptocurrency'
+    FUND = 'FUND', 'กองทุน (Fund)'
     CASH = 'CASH', 'เงินสด (Cash)'
     OTHER = 'OTHER', 'อื่นๆ'
 # ====== Telegram Integration ======
@@ -993,3 +995,21 @@ class CashTransaction(models.Model):
 
     def __str__(self):
         return f"{self.transaction_type} {self.amount} {self.currency} ({self.user.username})"
+
+class PortfolioFund(models.Model):
+    """
+    บันทึกเงินลงทุนในกองทุนรวม (Manual Entry)
+    """
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='portfolio_funds')
+    name = models.CharField(max_length=100, verbose_name="ชื่อกองทุน")
+    cost = models.DecimalField(max_digits=16, decimal_places=2, default=0, verbose_name="ต้นทุน (Cost)")
+    market_value = models.DecimalField(max_digits=16, decimal_places=2, default=0, verbose_name="มูลค่าตลาด (Market Value)")
+    currency = models.CharField(max_length=10, default='THB')
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Portfolio Fund"
+        verbose_name_plural = "Portfolio Funds"
+
+    def __str__(self):
+        return f"{self.name} ({self.user.username})"

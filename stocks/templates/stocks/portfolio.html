@@ -82,6 +82,17 @@
                             </span>
                             <span class="fw-bold text-muted flex-value">-</span>
                         </div>
+                        <div class="metrics-data-row d-flex flex-wrap flex-md-nowrap align-items-center gap-2">
+                            <div class="position-relative">
+                                <span class="badge rounded-pill px-2 py-1 bg-primary bg-opacity-10 text-primary flex-label" style="border:1px solid rgba(13,110,253,0.2); cursor:pointer;"
+                                      data-bs-toggle="modal" data-bs-target="#addFundModal" onclick="resetFundModal()">📈 กองทุน</span>
+                            </div>
+                            <span class="fw-bold text-dark flex-value">฿{{ total_fund_value|floatformat:2|intcomma }}</span>
+                            <span class="fw-semibold text-secondary flex-value">฿{{ total_fund_cost|floatformat:2|intcomma }}</span>
+                            <span class="fw-bold {% if total_fund_pl > 0 %}text-success{% elif total_fund_pl < 0 %}text-danger{% else %}text-dark{% endif %} flex-value">
+                                {% if total_fund_pl > 0 %}+{% endif %}฿{{ total_fund_pl|floatformat:2|intcomma }}
+                            </span>
+                        </div>
                         <!-- รวม row -->
                         {% if has_set and has_us or has_set and has_crypto or has_us and has_crypto %}
                         <div class="metrics-data-row total-combined-row d-flex flex-wrap flex-md-nowrap align-items-center gap-2 mt-1">
@@ -123,6 +134,9 @@
                     <i class="fas fa-crosshairs"></i> <span class="d-none d-sm-inline ms-1">Precision Scan</span>
                 </a>
                 {% endif %}
+                <button class="btn btn-outline-info btn-sm rounded-pill px-3 px-md-4" data-bs-toggle="modal" data-bs-target="#addFundModal" onclick="resetFundModal()">
+                    <i class="fas fa-chart-pie"></i> <span class="d-none d-sm-inline ms-1">Fund</span>
+                </button>
                 <button class="btn btn-outline-primary btn-sm rounded-pill px-3 px-md-4 position-relative" data-bs-toggle="modal" data-bs-target="#addCashModal">
                     <i class="fas fa-wallet"></i> <span class="d-none d-sm-inline ms-1">Cash</span>
                     <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger border border-white" style="padding: 3px !important; animation: pulse-red-subtle 2s infinite;">
@@ -832,6 +846,53 @@
             </div>
         </div>
     </div>
+
+    <!-- Mutual Funds Section -->
+    <div class="col-12 mt-2">
+        <div class="card-premium p-4 border-0 mb-4 bg-white shadow-sm">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h5 class="fw-bold mb-0 text-dark"><i class="fas fa-chart-area me-2 text-primary"></i> กองทุนรวม (Mutual Funds)</h5>
+                <button class="btn btn-sm btn-outline-primary rounded-pill px-3" data-bs-toggle="modal" data-bs-target="#addFundModal" onclick="resetFundModal()">
+                    <i class="fas fa-plus me-1"></i> เพิ่มกองทุน
+                </button>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-sm table-hover align-middle">
+                    <thead class="bg-light bg-opacity-50">
+                        <tr class="small text-muted text-uppercase" style="font-size:0.7rem;">
+                            <th>ชื่อกองทุน</th>
+                            <th class="text-end">ต้นทุน (Cost)</th>
+                            <th class="text-end">ราคาตลาด (Market)</th>
+                            <th class="text-end">กำไร/ขาดทุน</th>
+                            <th class="text-center">จัดการ</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for f in funds %}
+                        <tr>
+                            <td class="fw-bold">{{ f.name }}</td>
+                            <td class="text-end">฿{{ f.cost|floatformat:2|intcomma }}</td>
+                            <td class="text-end">฿{{ f.market_value|floatformat:2|intcomma }}</td>
+                            <td class="text-end fw-bold {% if f.pl > 0 %}text-success{% elif f.pl < 0 %}text-danger{% endif %}">
+                                ฿{{ f.pl|floatformat:2|intcomma }}
+                            </td>
+                            <td class="text-center">
+                                <button class="btn btn-xs btn-outline-primary" onclick="editFund('{{ f.id }}', '{{ f.name }}', '{{ f.cost }}', '{{ f.market_value }}')">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <a href="{% url 'stocks:delete_portfolio_fund' f.id %}" class="btn btn-xs btn-outline-danger" onclick="return confirm('ลบกองทุนนี้?')">
+                                    <i class="fas fa-trash"></i>
+                                </a>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="5" class="text-center py-4 text-muted small">ไม่พบข้อมูลกองทุน</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
 </div>
 
 <!-- Stylings for professional alerts and shining effect -->
@@ -1129,6 +1190,42 @@
         </div>
     </div>
 </div>
+
+<!-- Modal สำหรับจัดการกองทุน (Mutual Fund) -->
+<div class="modal fade" id="addFundModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 1.5rem;">
+            <div class="modal-header border-0 p-4 pb-0">
+                <h5 class="fw-bold" id="fundModalTitle"><i class="fas fa-chart-pie me-2 text-primary"></i> Fund Management</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form action="{% url 'stocks:update_portfolio_fund' %}" method="POST">
+                {% csrf_token %}
+                <input type="hidden" name="fund_id" id="fund_id">
+                <div class="modal-body p-4">
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold">ชื่อกองทุน</label>
+                        <input type="text" name="name" id="fund_name" class="form-control rounded-pill px-3" required placeholder="เช่น K-GA" style="background:#f8fafc;">
+                    </div>
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold">ต้นทุนทั้งหมด (Total Cost)</label>
+                            <input type="number" name="cost" id="fund_cost" class="form-control rounded-pill px-3" step="0.01" required placeholder="0.00" style="background:#f8fafc;">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold">มูลค่าตลาดปัจจุบัน (Market Value)</label>
+                            <input type="number" name="market_value" id="fund_market_value" class="form-control rounded-pill px-3" step="0.01" required placeholder="0.00" style="background:#f8fafc;">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer border-0 p-4 pt-0">
+                    <button type="button" class="btn btn-light rounded-pill px-4" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary rounded-pill px-4 fw-bold shadow-sm">บันทึกข้อมูล</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block scripts %}
@@ -1415,6 +1512,23 @@
         const isAbs = document.getElementById('mode_abs').checked;
         document.getElementById('tx_type_div').style.display = isAbs ? 'none' : 'block';
         document.getElementById('amount_label').textContent = isAbs ? 'ยอดเงินคงเหลือปัจจุบัน (Total Balance)' : 'จำนวนเงิน (Amount)';
+    }
+
+    function resetFundModal() {
+        document.getElementById('fund_id').value = '';
+        document.getElementById('fund_name').value = '';
+        document.getElementById('fund_cost').value = '';
+        document.getElementById('fund_market_value').value = '';
+        document.getElementById('fundModalTitle').innerHTML = '<i class="fas fa-chart-pie me-2 text-primary"></i> Add Mutual Fund';
+    }
+
+    function editFund(id, name, cost, value) {
+        document.getElementById('fund_id').value = id;
+        document.getElementById('fund_name').value = name;
+        document.getElementById('fund_cost').value = cost;
+        document.getElementById('fund_market_value').value = value;
+        document.getElementById('fundModalTitle').innerHTML = '<i class="fas fa-edit me-2 text-primary"></i> Edit Mutual Fund';
+        new bootstrap.Modal(document.getElementById('addFundModal')).show();
     }
 </script>
 {% endblock %}
