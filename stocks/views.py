@@ -8513,6 +8513,9 @@ def us_sepa_scanner(request):
                 # ── Step 1: Compute RS Rating ─────────────────────────────
                 _c.set(ckey, {'state': 'running', 'progress': 0, 'total': len(syms), 'phase': 'Computing RS Ratings…'}, timeout=1200)
 
+                import logging as _log
+                _sepa_log = _log.getLogger('stocks.us_sepa')
+
                 def _fetch_rs(s):
                     try:
                         d = yf.Ticker(s).history(start=start_str, end=end_str, interval='1d')
@@ -8527,10 +8530,12 @@ def us_sepa_scanner(request):
                             (cl.iloc[-190]-cl.iloc[-253])/abs(cl.iloc[-253])*0.2
                         ) * 100
                         return s, r
-                    except: return s, None
+                    except Exception as _e:
+                        _sepa_log.debug(f'[US SEPA] RS fetch {s}: {_e}')
+                        return s, None
 
                 rs_raw = {}
-                with concurrent.futures.ThreadPoolExecutor(max_workers=15) as ex:
+                with concurrent.futures.ThreadPoolExecutor(max_workers=5) as ex:
                     for s, r in ex.map(_fetch_rs, syms):
                         if r is not None: rs_raw[s] = r
                 rs_map = {}
@@ -8553,8 +8558,8 @@ def us_sepa_scanner(request):
                         df = df.dropna(subset=['Close', 'High', 'Low'])
                         if len(df) < 200: return None
 
-                        # Liquidity: avg daily volume ≥ 1M shares
-                        if float(df['Volume'].tail(20).mean()) < 1_000_000: return None
+                        # Liquidity: avg daily volume ≥ 500K shares
+                        if float(df['Volume'].tail(20).mean()) < 500_000: return None
 
                         curr = float(df['Close'].iloc[-1])
                         year_h = float(df['High'].tail(252).max())
@@ -8565,7 +8570,8 @@ def us_sepa_scanner(request):
                             s150 = ta.sma(df['Close'], 150)
                             if s150 is not None and pd.notna(s150.iloc[-1]) and pd.notna(s150.iloc[-20]):
                                 s2 = (curr > float(s150.iloc[-1])) and (float(s150.iloc[-1]) > float(s150.iloc[-20]))
-                        except: pass
+                        except Exception as _e:
+                            _sepa_log.debug(f'[US SEPA] SMA150 {symbol}: {_e}')
                         if not s2: return None
 
                         # ADX
@@ -8576,7 +8582,8 @@ def us_sepa_scanner(request):
                                 col = [c for c in adx_df.columns if c.startswith('ADX_')]
                                 if col and pd.notna(adx_df[col[0]].iloc[-1]):
                                     adx_v = float(adx_df[col[0]].iloc[-1])
-                        except: pass
+                        except Exception as _e:
+                            _sepa_log.debug(f'[US SEPA] ADX {symbol}: {_e}')
 
                         # RSI
                         rsi_v = 50.0
@@ -8584,7 +8591,8 @@ def us_sepa_scanner(request):
                             r = ta.rsi(df['Close'], 14)
                             if r is not None and pd.notna(r.iloc[-1]):
                                 rsi_v = float(r.iloc[-1])
-                        except: pass
+                        except Exception as _e:
+                            _sepa_log.debug(f'[US SEPA] RSI {symbol}: {_e}')
 
                         # RVOL
                         rvol_v = 1.0
@@ -8592,7 +8600,8 @@ def us_sepa_scanner(request):
                             avg20 = float(df['Volume'].tail(20).mean())
                             if avg20 > 0:
                                 rvol_v = round(float(df['Volume'].iloc[-1]) / avg20, 2)
-                        except: pass
+                        except Exception as _e:
+                            _sepa_log.debug(f'[US SEPA] RVOL {symbol}: {_e}')
 
                         # VCP
                         vcp = detect_vcp_pattern(df)
@@ -8603,7 +8612,8 @@ def us_sepa_scanner(request):
                             rv5 = float(df['Volume'].tail(5).mean())
                             rv50 = float(df['Volume'].tail(50).mean())
                             vdu_near = (rv5 < rv50 * 0.70) and (curr >= year_h * 0.88)
-                        except: pass
+                        except Exception as _e:
+                            _sepa_log.debug(f'[US SEPA] VDU {symbol}: {_e}')
 
                         # Pocket Pivot
                         pp = False
@@ -8616,7 +8626,8 @@ def us_sepa_scanner(request):
                                 dn_vols   = [vols[-(i+2)] for i in range(10) if closes[-(i+2)] < closes[-(i+3)]]
                                 if today_up and dn_vols and today_vol > max(dn_vols):
                                     pp = True
-                        except: pass
+                        except Exception as _e:
+                            _sepa_log.debug(f'[US SEPA] PocketPivot {symbol}: {_e}')
 
                         return {
                             'symbol': symbol,
@@ -8635,10 +8646,12 @@ def us_sepa_scanner(request):
                             'year_high': round(year_h, 2),
                             'upside_to_high': round((year_h - curr) / curr * 100, 2),
                         }
-                    except: return None
+                    except Exception as _e:
+                        _sepa_log.debug(f'[US SEPA] scan {symbol}: {_e}')
+                        return None
 
                 done = 0
-                with concurrent.futures.ThreadPoolExecutor(max_workers=12) as ex:
+                with concurrent.futures.ThreadPoolExecutor(max_workers=5) as ex:
                     futs = {ex.submit(_scan_one, s): s for s in syms}
                     for fut in concurrent.futures.as_completed(futs):
                         done += 1
@@ -8662,7 +8675,8 @@ def us_sepa_scanner(request):
                                 qt = d.get('quoteType', {})
                                 sector_map[k.upper()] = sp.get('sector', 'Unknown') or 'Unknown'
                                 name_map[k.upper()]   = qt.get('shortName', '') or ''
-                    except: pass
+                    except Exception as _e:
+                        _sepa_log.warning(f'[US SEPA] sector fetch error: {_e}')
 
                     bulk = [_USC(
                         user=user, scan_run=scan_run,
