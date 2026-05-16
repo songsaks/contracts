@@ -54,7 +54,7 @@
         </a>
         <a href="{% url 'stocks:refresh_market_caps' %}?next={{ request.path }}" class="btn btn-outline-warning d-inline-flex align-items-center gap-2" 
            style="background: linear-gradient(135deg, #fbbf24, #d97706); color: white; border: none; font-size:0.85rem;">
-            <i class="fas fa-list-ol"></i> อัปเดตอันดับ (Top 200)
+            <i class="fas fa-list-ol"></i> อัปเดตอันดับ (Top 400)
         </a>
         <form method="post" id="precisionScanForm" style="display:inline;">
             {% csrf_token %}
@@ -62,12 +62,12 @@
             {% if has_scanned %}
             <button type="button" onclick="confirmRescanPrecision()" class="btn btn-premium d-inline-flex align-items-center gap-2"
                     style="background: linear-gradient(135deg, #7c3aed, #4f46e5);">
-                <i class="fas fa-crosshairs"></i> Precision Scan ใหม่ (Top 200)
+                <i class="fas fa-crosshairs"></i> Precision Scan ใหม่ (Top 400)
             </button>
             {% else %}
             <button type="submit" class="btn btn-premium d-inline-flex align-items-center gap-2"
                     style="background: linear-gradient(135deg, #7c3aed, #4f46e5);">
-                <i class="fas fa-crosshairs"></i> Precision Scan (Top 200)
+                <i class="fas fa-crosshairs"></i> Precision Scan (Top 400)
             </button>
             {% endif %}
         </form>

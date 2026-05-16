@@ -3980,10 +3980,10 @@ def precision_momentum_scanner(request):
     from django.utils import timezone as tz
     from yahooquery import Ticker as YQTicker
 
-    scan_symbols = get_top_ranked_symbols(market='SET', limit=200, auto_refresh=True)
+    scan_symbols = get_top_ranked_symbols(market='SET', limit=400, auto_refresh=True)
     if not scan_symbols:
         refresh_all_thai_symbols()
-        scan_symbols = get_top_ranked_symbols(market='SET', limit=200, auto_refresh=True)
+        scan_symbols = get_top_ranked_symbols(market='SET', limit=400, auto_refresh=True)
 
     # ====== AJAX Status Poll ======
     if request.GET.get('scan_status') == '1':
@@ -4026,7 +4026,7 @@ def precision_momentum_scanner(request):
                 from yahooquery import Ticker as YQTicker
                 from .models import PrecisionScanCandidate
                 from .utils import analyze_momentum_technical_v2, get_top_ranked_symbols as _GTRS
-                sym_list = _GTRS(market='SET', limit=200, auto_refresh=True)
+                sym_list = _GTRS(market='SET', limit=400, auto_refresh=True)
 
                 User = get_user_model()
                 user = User.objects.get(pk=uid)
@@ -4045,7 +4045,7 @@ def precision_momentum_scanner(request):
                 scan_end_date  = _now_bkk.date() + _td(days=1)
                 scan_end_str   = scan_end_date.strftime('%Y-%m-%d')
                 scan_start_str = (_now_bkk.date() - _td(days=600)).strftime('%Y-%m-%d')  # 600 วัน → ~430 trading days, EMA200 warm-up มีพอ
-                set_start_str  = (_now_bkk.date() - _td(days=400)).strftime('%Y-%m-%d')
+                set_start_str  = (_now_bkk.date() - _td(days=600)).strftime('%Y-%m-%d')  # ใช้เท่ากับ stock เพื่อ RS เทียบกันถูกต้อง
 
                 prev_run = (
                     PrecisionScanCandidate.objects
@@ -7314,7 +7314,7 @@ def us_momentum_crew_page(request, symbol):
 # ======================================================================
 
 def _seed_us_symbols():
-    """Seed curated US stock universe (~220 symbols, Nasdaq & S&P 500) into ScannableSymbol."""
+    """Seed curated US stock universe (~300 symbols, Nasdaq & S&P 500 + Mid-cap Growth) into ScannableSymbol."""
     US_SYMBOLS = [
         # ── Mega-cap Tech ──────────────────────────────────────────────
         "AAPL", "MSFT", "NVDA", "GOOGL", "GOOG", "AMZN", "META", "TSLA", "AVGO", "ORCL",
@@ -7322,36 +7322,50 @@ def _seed_us_symbols():
         # ── Semiconductor ──────────────────────────────────────────────
         "TSM", "QCOM", "INTC", "MU", "AMAT", "LRCX", "KLAC", "MRVL", "ON", "TXN",
         "SMCI", "ASML", "NXPI", "MPWR", "WOLF",
+        "COHR", "ACLS", "AEHR", "CAMT", "ONTO", "AMBA", "SWKS", "SITM",
         # ── Cloud / Software ──────────────────────────────────────────
         "CRM", "NOW", "SNOW", "PLTR", "PANW", "CRWD", "ZS", "NET", "DDOG", "MDB",
         "ADBE", "INTU", "ANSS", "CDNS", "SNPS", "FTNT", "OKTA", "HUBS", "TWLO",
         "TTD", "BILL", "GTLB", "DOCN", "ZM",
+        "APP", "AXON", "DUOL", "SMAR", "BRZE", "ASAN", "MNDY", "WEX", "PCTY",
+        "CWAN", "TOST", "S", "ESTC", "CFLT",
+        # ── AI / Data ─────────────────────────────────────────────────
+        "AI", "PATH", "SOUN", "BBAI", "IONQ", "QUBT",
         # ── Financials ────────────────────────────────────────────────
         "JPM", "BAC", "WFC", "GS", "MS", "BLK", "SCHW", "AXP", "V", "MA",
         "COF", "DFS", "SYF", "USB", "TFC", "KEY", "RF", "FITB",
         "CB", "PGR", "ALL", "TRV", "MET", "PRU",
+        "HOOD", "SFM", "FI", "GPN", "AFRM",
         # ── Healthcare / Biotech ──────────────────────────────────────
         "UNH", "LLY", "JNJ", "ABBV", "MRK", "PFE", "ABT", "TMO", "AMGN", "ISRG",
         "DXCM", "IDXX", "ILMN", "MRNA", "REGN", "VRTX", "BIIB", "GILD", "BMY",
         "CVS", "CI", "HUM", "MDT", "SYK", "BSX", "EW",
+        "RXRX", "EXAS", "ARWR", "ROIV", "INVA", "RVMD", "KRYS",
         # ── Consumer Staples ──────────────────────────────────────────
         "COST", "WMT", "TGT", "KR", "PG", "KO", "PEP", "CL", "MDLZ", "MO",
-        # ── Consumer Discretionary ────────────────────────────────────
+        "CELH", "VITL",
+        # ── Consumer Discretionary / Restaurants / Leisure ────────────
         "HD", "LOW", "NKE", "LULU", "DECK", "ONON", "RH",
         "SBUX", "MCD", "YUM", "CMG", "DPZ",
         "NFLX", "ABNB", "UBER", "DASH", "LYFT", "ETSY", "EBAY",
         "BABA", "JD", "PDD",
+        "WING", "CAVA", "BROS", "ELF", "GSHD", "MODG",
         # ── Energy ────────────────────────────────────────────────────
         "XOM", "CVX", "COP", "EOG", "SLB", "PSX", "MPC", "VLO", "OXY", "HAL",
         "DVN", "FANG", "APA", "MRO", "WMB", "KMI",
-        # ── Industrials / Aerospace ───────────────────────────────────
+        "DINO", "TRGP",
+        # ── Industrials / Aerospace / Defense ─────────────────────────
         "CAT", "DE", "HON", "GE", "RTX", "LMT", "BA", "UPS", "FDX", "CSX",
         "ITW", "EMR", "ETN", "PH", "ROK", "AME", "TT", "DHR", "NOC", "GD",
-        # ── FinTech / Payments ────────────────────────────────────────
+        "ACHR", "JOBY", "SPCE", "RDW",
+        # ── FinTech / Payments / Crypto ───────────────────────────────
         "SPOT", "RBLX", "COIN", "SQ", "PYPL", "MSTR",
+        "CORZ", "RIOT", "MARA",
         # ── REIT / Utilities ──────────────────────────────────────────
         "AMT", "PLD", "CCI", "EQIX", "O", "WELL", "VICI", "PSA",
         "NEE", "DUK", "SO", "AEP", "EXC",
+        # ── Education / Other Growth ──────────────────────────────────
+        "LOPE", "PRDO", "STRA",
         # ── Conglomerate / Other ──────────────────────────────────────
         "BRK-B", "PINS", "SNAP",
         # ── Benchmarks ────────────────────────────────────────────────
@@ -7441,7 +7455,7 @@ def us_precision_scanner(request):
                 scan_end_date  = _now_ny.date()
                 scan_end_str   = (scan_end_date + _td(days=1)).strftime('%Y-%m-%d')
                 scan_start_str = (scan_end_date - _td(days=600)).strftime('%Y-%m-%d')
-                spy_start_str  = (scan_end_date - _td(days=400)).strftime('%Y-%m-%d')
+                spy_start_str  = (scan_end_date - _td(days=600)).strftime('%Y-%m-%d')  # ใช้เท่ากับ stock เพื่อ RS เทียบกันถูกต้อง
 
                 _cache_inner.set(ckey, {'state': 'running', 'progress': 0, 'total': len(sym_list), 'phase': 'Benchmarks…'}, timeout=1200)
 
@@ -7450,6 +7464,7 @@ def us_precision_scanner(request):
                 prev_symbols = set(PrecisionScanCandidate.objects.filter(user=user, market='US', scan_run=prev_run).values_list('symbol', flat=True)) if prev_run else set()
 
                 # SPY
+                import logging as _lg; _us_log = _lg.getLogger('stocks.us_scan')
                 spy_1m = spy_3m = 0.0
                 try:
                     spy_df = yf.download("SPY", start=spy_start_str, end=scan_end_str, interval="1d", progress=False)
@@ -7459,7 +7474,8 @@ def us_precision_scanner(request):
                         if len(c) >= 66:
                             spy_1m = float((c.iloc[-1] - c.iloc[-22])/c.iloc[-22]*100)
                             spy_3m = float((c.iloc[-1] - c.iloc[-66])/c.iloc[-66]*100)
-                except: pass
+                except Exception as e:
+                    _us_log.warning(f"[US Scan] SPY fetch failed: {e}")
 
                 # RS Rating (Bulk Fetch for speed)
                 total_syms = len(sym_list)
@@ -7484,9 +7500,10 @@ def us_precision_scanner(request):
                                                     ret = float((_close.iloc[-1] - _close.iloc[-66]) / abs(_close.iloc[-66]) * 100)
                                                     rs_returns_all[symbol] = ret
                                         except Exception: continue
-                        except Exception: pass
+                        except Exception as e:
+                            _us_log.warning(f"[US Scan] RS chunk error: {e}")
                 except Exception as e:
-                    print(f"Bulk RS Error: {e}")
+                    _us_log.error(f"[US Scan] Bulk RS fetch failed: {e}")
 
                 # FAILSAFE: If results are empty or too small, force evaluation of a subset
                 if len(rs_returns_all) < 10:
@@ -7535,7 +7552,7 @@ def us_precision_scanner(request):
                         if len(df) < 200: return None
                         
                         av20 = float(df['Volume'].tail(20).mean())
-                        if av20 < 1_000_000: return None
+                        if av20 < 500_000: return None  # ลด threshold จาก 1M → 500K รับ mid-cap growth
                         
                         current_p = float(df['Close'].iloc[-1])
 
@@ -7746,7 +7763,7 @@ def us_precision_scanner(request):
                         return None
 
                 count = 0
-                with concurrent.futures.ThreadPoolExecutor(max_workers=10) as ex:
+                with concurrent.futures.ThreadPoolExecutor(max_workers=5) as ex:  # ลดจาก 10→5 ป้องกัน rate limit
                     futs = {ex.submit(_scan_one, s): s for s in results_to_process}
                     for f in concurrent.futures.as_completed(futs):
                         try:

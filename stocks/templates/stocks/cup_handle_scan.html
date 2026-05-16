@@ -33,7 +33,7 @@
         <a href="?scan=true" onclick="document.getElementById('loadingOverlay').style.display='flex'"
            class="btn px-4 py-2 fw-semibold"
            style="background:linear-gradient(135deg,#d97706,#b45309);color:white;border:none;border-radius:0.75rem;">
-            <i class="fas fa-search me-2"></i> Scan (Top 200)
+            <i class="fas fa-search me-2"></i> Scan (Top 400)
         </a>
         {% if all_runs %}
         <form method="post" action="{% url 'stocks:clear_scan_data' %}" class="d-inline" onsubmit="return confirm('ลบข้อมูลสแกน Cup & Handle ทั้งหมด?')">
