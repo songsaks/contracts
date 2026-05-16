@@ -8819,12 +8819,11 @@ def cup_handle_scanner(request):
 
     if request.GET.get('scan') == 'true' or request.method == 'POST':
         from .utils import refresh_all_thai_symbols, get_top_ranked_symbols
-        # ใช้ Top 300 หุ้นใหญ่เท่านั้นเพื่อความเร็วและแม่นยำ (Cup & Handle ต้องการสภาพคล่อง)
-        scan_symbols = get_top_ranked_symbols(market='SET', limit=200, auto_refresh=True)
-        
+        scan_symbols = get_top_ranked_symbols(market='SET', limit=400, auto_refresh=True)
+
         if not scan_symbols:
             refresh_all_thai_symbols()
-            scan_symbols = get_top_ranked_symbols(market='SET', limit=200, auto_refresh=True)
+            scan_symbols = get_top_ranked_symbols(market='SET', limit=400, auto_refresh=True)
 
         already = _cp.get(cache_key, {})
         if already.get('state') != 'running':
@@ -8844,7 +8843,9 @@ def cup_handle_scanner(request):
                     from .models import CupHandleCandidate as _CHC
                     from .utils import detect_cup_and_handle, get_top_ranked_symbols as _GTRS
                     from yahooquery import Ticker as _TQ
-                    sym_list = _GTRS(market='SET', limit=200, auto_refresh=True)
+                    import logging as _log
+                    _ch_log = _log.getLogger('stocks.cup_handle')
+                    sym_list = _GTRS(market='SET', limit=400, auto_refresh=True)
 
                     User      = get_user_model()
                     user      = User.objects.get(pk=uid)
@@ -8885,7 +8886,8 @@ def cup_handle_scanner(request):
                                         # Liquidity filter: Value > 1,000,000 THB/day
                                         if (vol_avg * price) >= 1_000_000:
                                             candidates.append(symbol)
-                        except Exception:
+                        except Exception as _e:
+                            _ch_log.warning(f'[Cup&Handle SET] bulk screen chunk failed: {_e}, adding chunk as fallback')
                             candidates.extend(chunk)
 
                     # --- STAGE 2: Pattern Analysis (Threaded) ---
@@ -8921,13 +8923,16 @@ def cup_handle_scanner(request):
                                     if col: adx_val = float(adx_df[col[0]].iloc[-1])
                                 rsi_s = _ta.rsi(df['Close'], length=14)
                                 if rsi_s is not None: rsi_val = float(rsi_s.iloc[-1])
-                            except Exception: pass
+                            except Exception as _e:
+                                _ch_log.debug(f'[Cup&Handle SET] ADX/RSI {symbol}: {_e}')
 
                             return {'symbol': symbol, 'pat': pat, 'rs_return': rs_return,
                                     'adx': adx_val, 'rsi': rsi_val, 'avg_vol': float(df['Volume'].tail(20).mean())}
-                        except Exception: return None
+                        except Exception as _e:
+                            _ch_log.debug(f'[Cup&Handle SET] scan {symbol}: {_e}')
+                            return None
 
-                    with _cf.ThreadPoolExecutor(max_workers=15) as ex:
+                    with _cf.ThreadPoolExecutor(max_workers=5) as ex:
                         futs = {ex.submit(_scan_one, s): s for s in candidates}
                         done = 0
                         for fut in _cf.as_completed(futs):
@@ -8938,7 +8943,8 @@ def cup_handle_scanner(request):
                             try:
                                 res = fut.result()
                                 if res: results.append(res)
-                            except Exception: pass
+                            except Exception as _e:
+                                _ch_log.debug(f'[Cup&Handle SET] future error {futs[fut]}: {_e}')
                     
                     # RS Percentile
                     rs_map = {}
@@ -9095,7 +9101,12 @@ def us_cup_handle_scanner(request):
         return _JR(st)
 
     if request.GET.get('scan') == 'true' or request.method == 'POST':
-        scan_symbols = [s for s in _US_MOMENTUM_SYMBOLS if s not in ('SPY', 'QQQ', 'IWM')]
+        from .models import ScannableSymbol as _SS
+        scan_symbols = list(_SS.objects.filter(is_active=True, market='US').values_list('symbol', flat=True))
+        if len(scan_symbols) < 100:
+            _seed_us_symbols()
+            scan_symbols = list(_SS.objects.filter(is_active=True, market='US').values_list('symbol', flat=True))
+        scan_symbols = [s for s in scan_symbols if s not in ('SPY', 'QQQ', 'IWM')]
 
         already = _cp.get(cache_key, {})
         if already.get('state') != 'running':
@@ -9116,6 +9127,8 @@ def us_cup_handle_scanner(request):
                     import pytz as _pytz
                     from .models import CupHandleCandidate as _CHC
                     from .utils import detect_cup_and_handle
+                    import logging as _log
+                    _uch_log = _log.getLogger('stocks.us_cup_handle')
 
                     User      = get_user_model()
                     user      = User.objects.get(pk=uid)
@@ -9181,8 +9194,8 @@ def us_cup_handle_scanner(request):
                                 rsi_s = _ta.rsi(df['Close'], length=14)
                                 if rsi_s is not None and _pd.notna(rsi_s.iloc[-1]):
                                     rsi_val = float(rsi_s.iloc[-1])
-                            except Exception:
-                                pass
+                            except Exception as _e:
+                                _uch_log.debug(f'[US Cup&Handle] ADX/RSI {symbol}: {_e}')
 
                             return {
                                 'symbol': symbol, 'pat': pat,
@@ -9190,10 +9203,11 @@ def us_cup_handle_scanner(request):
                                 'rsi': rsi_val, 'avg_vol': avg_vol,
                                 'breakout_vol_ok': breakout_vol_ok,
                             }
-                        except Exception:
+                        except Exception as _e:
+                            _uch_log.debug(f'[US Cup&Handle] scan {symbol}: {_e}')
                             return None
 
-                    with _cf.ThreadPoolExecutor(max_workers=20) as ex:
+                    with _cf.ThreadPoolExecutor(max_workers=5) as ex:
                         futs = {ex.submit(_scan_one, s): s for s in sym_list}
                         done = 0
                         for fut in _cf.as_completed(futs):
@@ -9202,9 +9216,12 @@ def us_cup_handle_scanner(request):
                                 'state': 'running', 'progress': done,
                                 'total': total, 'phase': f'สแกน {done}/{total}...'
                             }, timeout=900)
-                            res = fut.result()
-                            if res:
-                                results.append(res)
+                            try:
+                                res = fut.result()
+                                if res:
+                                    results.append(res)
+                            except Exception as _e:
+                                _uch_log.debug(f'[US Cup&Handle] future error {futs[fut]}: {_e}')
 
                     # RS percentile rank
                     rs_vals = {r['symbol']: r['rs_return'] for r in results if r['rs_return'] is not None}
