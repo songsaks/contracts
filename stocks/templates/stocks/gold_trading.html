@@ -805,6 +805,7 @@
                             <th class="ps-2">TYPE</th>
                             <th>SIZE</th>
                             <th>ENTRY</th>
+                            <th>CURRENT</th>
                             <th>TARGET</th>
                             <th>STOP</th>
                             <th>P/L ($)</th>
@@ -812,7 +813,7 @@
                         </tr>
                     </thead>
                     <tbody id="positions-list-body">
-                        <tr><td colspan="7" class="text-center py-4" style="color:var(--text-lo);">No open positions</td></tr>
+                        <tr><td colspan="8" class="text-center py-4" style="color:var(--text-lo);">No open positions</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -2229,11 +2230,25 @@
                 let totalEntry = 0;
                 let totalVolume = 0;
 
+                // Sync top display instantly with the broker's real-time price if we have active positions
+                if (data.positions && data.positions.length > 0) {
+                    const firstPos = data.positions[0];
+                    const currentP = parseFloat(firstPos.currentPrice || firstPos.price || 0);
+                    if (currentP > 0) {
+                        const priceEl = document.getElementById('gold-price-display');
+                        const mPriceEl = document.getElementById('m-price');
+                        if (priceEl) priceEl.innerText = currentP.toFixed(2);
+                        if (mPriceEl) mPriceEl.innerText = currentP.toFixed(2);
+                        lastPrice = currentP;
+                    }
+                }
+
                 body.innerHTML = data.positions.map(pos => {
                     const isBuy = pos.type === 'POSITION_TYPE_BUY';
-                    const pl = parseFloat(pos.unrealizedProfit || 0);
+                    const pl = parseFloat(pos.unrealizedProfit || pos.profit || 0);
                     const vol = parseFloat(pos.volume || 0);
                     const openP = parseFloat(pos.openPrice || 0);
+                    const currentP = parseFloat(pos.currentPrice || pos.price || 0);
 
                     totalPl += pl;
                     totalEntry += openP * vol;
@@ -2250,6 +2265,7 @@
                         </td>
                         <td style="font-family:'JetBrains Mono';font-size:0.88rem;color:var(--text-hi);">${pos.volume}</td>
                         <td style="font-family:'JetBrains Mono';font-size:0.88rem;">${openP.toFixed(2)}</td>
+                        <td style="font-family:'JetBrains Mono';font-size:0.88rem;color:var(--text-hi);">${currentP > 0 ? currentP.toFixed(2) : '-'}</td>
                         <td style="font-family:'JetBrains Mono';font-size:0.85rem;color:#22c55e;">${tp}</td>
                         <td style="font-family:'JetBrains Mono';font-size:0.85rem;color:#ef4444;">${sl}</td>
                         <td style="font-family:'JetBrains Mono';font-size:0.95rem;font-weight:800;" class="${pl>=0?'text-success':'text-danger'}">
@@ -2285,7 +2301,7 @@
                 document.getElementById('pos-count-badge').innerText = '0';
                 totalPlEl.innerText = '+0.00';
                 totalPlEl.className = 'fs-4 fw-900 text-muted';
-                body.innerHTML = '<tr><td colspan="7" class="text-center py-4" style="color:var(--text-lo);"><i class="fas fa-inbox d-block mb-2" style="font-size:1.5rem;"></i>No open positions</td></tr>';
+                body.innerHTML = '<tr><td colspan="8" class="text-center py-4" style="color:var(--text-lo);"><i class="fas fa-inbox d-block mb-2" style="font-size:1.5rem;"></i>No open positions</td></tr>';
             }
         } catch(e) {}
     }

@@ -10983,24 +10983,47 @@ def crypto_trading(request):
 def gold_price_tick_ajax(request):
     """
     Lightweight endpoint — returns only the current gold price tick.
-    Used by the frontend for fast 2-second price updates without reloading chart data.
+    Used by the frontend for fast 2-second price updates.
+    Attempts to fetch the real-time Broker price from MetaApi first for perfect sync.
     """
+    from .models import TradingAccount
+    from .trading_bridge import RobotBridge
     import yfinance as _yf
     from django.http import JsonResponse as _JR
+    
+    price = 0
+    # 1. พยายามดึงราคาสปอตทองคำจริงจากโบรกเกอร์ผ่าน MetaApi เพื่อให้ตรงกัน 100%
+    try:
+        account = TradingAccount.objects.filter(user=request.user, is_active=True).first()
+        if account:
+            bridge = RobotBridge(user=request.user, account=account)
+            broker_price = bridge.get_symbol_price("XAUUSD")
+            if broker_price and broker_price > 0:
+                price = broker_price
+    except Exception as e:
+        print(f"MetaApi price tick error: {e}")
+
+    # 2. ตัวสำรอง: ถ้าดึงจากโบรกเกอร์ไม่สำเร็จ ให้ดึงราคาฟิวเจอร์สจาก yfinance แทน
     try:
         ticker = _yf.Ticker('GC=F')
         fi = ticker.fast_info
-        price = float(fi.get('last_price') or fi.get('regularMarketPrice') or 0)
-        prev  = float(fi.get('previous_close') or fi.get('regularMarketPreviousClose') or price)
+        
+        if price == 0:
+            price = float(fi.get('last_price') or fi.get('regularMarketPrice') or 0)
+            
+        prev = float(fi.get('previous_close') or fi.get('regularMarketPreviousClose') or price)
         if price == 0:
             hist = ticker.history(period='1d', interval='1m')
             if not hist.empty:
                 price = float(hist['Close'].iloc[-1])
                 prev  = float(hist['Close'].iloc[0])
+                
         change     = round(price - prev, 2)
         change_pct = round((change / prev) * 100, 3) if prev else 0.0
         return _JR({'price': round(price, 2), 'change': change, 'change_pct': change_pct, 'ok': True})
     except Exception as e:
+        if price > 0:
+            return _JR({'price': round(price, 2), 'change': 0.0, 'change_pct': 0.0, 'ok': True})
         return _JR({'ok': False, 'error': str(e)}, status=500)
 
 

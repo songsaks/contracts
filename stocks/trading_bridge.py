@@ -154,7 +154,7 @@ class RobotBridge:
         }
         
         # แมปชื่อ Symbol ให้เข้ากับ Broker (เช่น GC=F -> XAUUSD)
-        clean_symbol = symbol.replace("GC=F", "XAUUSD")
+        clean_symbol = symbol.replace("GC=F", "XAUUSD").replace("XAUUSD=X", "XAUUSD")
         
         payload = {
             "symbol": clean_symbol,
@@ -403,3 +403,43 @@ class RobotBridge:
                 continue
                 
         return success_count > 0
+
+    def get_symbol_price(self, symbol="XAUUSD"):
+        """
+        ดึงราคา Bid/Ask ล่าสุดของ symbol จาก MetaApi
+        """
+        if self.broker_type != BrokerType.META_API:
+            return None
+
+        token = self.account.api_key.strip()
+        account_id = self.account.account_id
+        try:
+            info_url = f"https://mt-provisioning-api-v1.agiliumtrade.ai/users/current/accounts/{account_id}"
+            info_res = requests.get(info_url, headers={"auth-token": token}, timeout=5)
+            region = info_res.json().get('region', 'new-york') if info_res.status_code == 200 else 'new-york'
+        except:
+            region = 'new-york'
+        
+        # ปรับชื่อสัญลักษณ์ให้ตรงกับ Broker
+        clean_symbol = symbol.replace("GC=F", "XAUUSD").replace("XAUUSD=X", "XAUUSD")
+        
+        url = f"https://mt-client-api-v1.{region}.agiliumtrade.ai/users/current/accounts/{account_id}/symbols/{clean_symbol}/current-price"
+        headers = {"auth-token": token}
+        
+        try:
+            res = requests.get(url, headers=headers, timeout=6)
+            if res.status_code == 200:
+                data = res.json()
+                # คืนค่าเฉลี่ยของ Bid และ Ask (Mid Price)
+                bid = float(data.get('bid') or 0)
+                ask = float(data.get('ask') or 0)
+                if bid > 0 and ask > 0:
+                    return (bid + ask) / 2
+                elif bid > 0:
+                    return bid
+                elif ask > 0:
+                    return ask
+            return None
+        except Exception as e:
+            logger.error(f"Error fetching symbol price from MetaApi: {e}")
+            return None
