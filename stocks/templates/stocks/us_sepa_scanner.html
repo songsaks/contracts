@@ -205,6 +205,7 @@
                                 color:{% if item.dist_from_pivot <= 5 %}#15803d{% elif item.dist_from_pivot <= 10 %}#2563eb{% else %}#64748b{% endif %};">
                                 {{ item.dist_from_pivot }}%
                             </div>
+                            <div class="val-hint">ห่างจุดเข้า</div>
                         </td>
                         <!-- Signals -->
                         <td class="py-3 text-center col-hide-md">
@@ -225,6 +226,7 @@
                             <div class="fw-bold" style="color:{% if item.rs_rating >= 80 %}#15803d{% elif item.rs_rating >= 70 %}#2563eb{% else %}#1e293b{% endif %};font-size:1rem;">
                                 {{ item.rs_rating }}
                             </div>
+                            <div class="val-hint">เทียบตลาด</div>
                         </td>
                         <!-- ADX / RSI -->
                         <td class="py-3 text-center col-hide-md">
@@ -233,6 +235,7 @@
                                 <span class="text-muted">|</span>
                                 <span class="{% if 40 <= item.rsi <= 70 %}text-success{% elif item.rsi > 80 %}text-danger{% else %}text-muted{% endif %}">R:{{ item.rsi|floatformat:0 }}</span>
                             </div>
+                            <div class="val-hint">แรงเทรนด์ | โมเมนตัม</div>
                         </td>
                         <!-- SEPA Score -->
                         <td class="py-3 text-center">
@@ -246,6 +249,7 @@
                                 {% elif item.sepa_score >= 60 %}Developing
                                 {% else %}Weak{% endif %}
                             </div>
+                            <div class="val-hint">คะแนน SEPA</div>
                         </td>
                         <!-- Action -->
                         <td class="pe-4 py-3 text-end">
@@ -339,5 +343,6 @@ function applyUsSepaFilters() {
 
 <style>
 .table-hover tbody tr:hover { background-color:#f8fafc; }
+.val-hint { font-size: 0.56rem; color: #94a3b8; line-height: 1.2; margin-top: 1px; letter-spacing: .01em; }
 </style>
 {% endblock %}

@@ -531,6 +531,7 @@
                         <span class="fw-semibold" style="color:{% if item.pct_to_breakout <= 5 %}#16a34a{% elif item.pct_to_breakout <= 10 %}#d97706{% else %}#94a3b8{% endif %};font-size:0.8rem;">
                             {{ item.pct_to_breakout|floatformat:1 }}%
                         </span>
+                        <div class="val-hint">ระยะ Breakout</div>
                     {% endif %}
                 </td>
                 <td class="text-end fw-semibold" style="color:#d97706;">฿{{ item.breakout_price|floatformat:2 }}</td>
@@ -544,22 +545,26 @@
                     {% else %}
                         <span class="text-muted">1:{{ item.risk_reward|floatformat:1 }}</span>
                     {% endif %}
+                    <div class="val-hint">กำไร:เสี่ยง</div>
                 </td>
                 <td class="text-end">
                     <span class="{% if 20 <= item.cup_depth_pct <= 30 %}fw-bold text-success{% elif item.cup_depth_pct > 35 %}text-danger{% else %}text-muted{% endif %}">
                         {{ item.cup_depth_pct|floatformat:1 }}%
                     </span>
+                    <div class="val-hint">ลึกถ้วย</div>
                 </td>
                 <td class="text-end">
                     <span class="{% if item.cup_length_days >= 35 %}text-success{% elif item.cup_length_days >= 25 %}text-warning{% else %}text-danger{% endif %}">
                         {{ item.cup_length_days }}d
                     </span>
+                    <div class="val-hint">ระยะเวลา</div>
                 </td>
                 <td class="text-end">
                     {% if item.handle_depth_pct > 0 %}
                         <span class="{% if item.handle_depth_pct <= 10 %}text-success{% elif item.handle_depth_pct <= 15 %}text-warning{% else %}text-danger{% endif %}">
                             {{ item.handle_depth_pct|floatformat:1 }}%
                         </span>
+                        <div class="val-hint">ลึกด้ามจับ</div>
                     {% else %}
                         <span class="text-muted">—</span>
                     {% endif %}
@@ -568,6 +573,7 @@
                     <span class="fw-bold {% if item.confidence_score >= 75 %}text-success{% elif item.confidence_score >= 55 %}text-warning{% else %}text-muted{% endif %}">
                         {{ item.confidence_score }}
                     </span>
+                    <div class="val-hint">ความมั่นใจ</div>
                 </td>
                 <td class="text-center">
                     <div class="d-flex gap-1 justify-content-center flex-wrap">
@@ -586,6 +592,7 @@
                     <span class="{% if item.adx >= 25 %}text-success{% elif item.adx >= 15 %}text-warning{% else %}text-danger{% endif %}">ADX {{ item.adx|floatformat:0 }}</span>
                     <span class="text-muted"> / </span>
                     <span class="{% if 40 <= item.rsi <= 70 %}text-success{% elif item.rsi > 80 %}text-danger{% else %}text-muted{% endif %}">RSI {{ item.rsi|floatformat:0 }}</span>
+                    <div class="val-hint">แรงเทรนด์ / โมเมนตัม</div>
                 </td>
                 <!-- Watchlist toggle -->
                 <td class="text-center pe-3">
@@ -688,6 +695,7 @@
 
 /* Tooltip header icons - ensure they appear above table */
 .tooltip { z-index:10001 !important; }
+.val-hint { font-size: 0.56rem; color: #94a3b8; line-height: 1.2; margin-top: 1px; letter-spacing: .01em; }
 </style>
 
 <script>

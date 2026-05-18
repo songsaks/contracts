@@ -540,7 +540,7 @@ def analyze(request, symbol):
             # ลองค้นหาด้วย symbol แบบไม่มี .BK
             clean_sym = symbol.replace('.BK', '')
             mom = MomentumCandidate.objects.filter(user=request.user, symbol=clean_sym).first()
-        
+
         if mom:
             extra_ctx += f"\n[Technical Momentum Analysis]:\n"
             extra_ctx += f"Momentum Score: {mom.technical_score}/100\n"
@@ -551,6 +551,32 @@ def analyze(request, symbol):
                 extra_ctx += f"Target (Supply): {mom.supply_zone_start}\n"
                 extra_ctx += f"Stop Loss: {mom.stop_loss}\n"
                 extra_ctx += f"RR Ratio: {mom.risk_reward_ratio}\n"
+
+        # ====== Fetch Mean Reversion context (when arriving from MR Scanner) ======
+        mr_context = None
+        from_mr = request.GET.get('from_mr') == '1'
+        if from_mr:
+            try:
+                from .models import MeanReversionCandidate as _MRC_A
+                _clean = symbol.replace('.BK', '')
+                _mr = _MRC_A.objects.filter(user=request.user, symbol=_clean).order_by('-scan_run').first()
+                if _mr:
+                    mr_context = {
+                        'direction':   _mr.direction,
+                        'rsi':         _mr.rsi,
+                        'adx':         _mr.adx,
+                        'rvol':        _mr.rvol,
+                        'pattern':     _mr.pattern,
+                        'support':     _mr.support_level,
+                        'resistance':  _mr.resistance_level,
+                        'mean_target': _mr.mean_target,
+                        'dist_sup':    _mr.dist_to_support_pct,
+                        'upside_pct':  _mr.upside_pct,
+                        'r_score':     _mr.r_score,
+                        'rs_rating':   _mr.rs_rating,
+                    }
+            except Exception:
+                pass
 
         # ====== Pre-fetch macro data & compute signal for commodities ======
         # Done BEFORE AI call so we can pass signal into the prompt
@@ -569,14 +595,17 @@ def analyze(request, symbol):
 
         # ====== 2. AI Analysis Logic (Skip if cached) ======
         analysis_text = None
-        if cached_analysis:
+        # ถ้ามาจาก MR Scanner และมี MR context ใหม่ → บังคับ regenerate เพื่อให้ AI วิเคราะห์ MR ด้วย
+        _force_regen = from_mr and mr_context is not None
+        if cached_analysis and not _force_regen:
             from django.utils import timezone
             if (timezone.now() - cached_analysis.last_updated).total_seconds() < (cache_timeout_hours * 3600):
                 analysis_text = cached_analysis.analysis_data
 
         if not analysis_text:
             # ส่งข้อมูลให้ AI วิเคราะห์และรับผลเป็น Markdown (เฉพาะกรณีไม่มีแคชหรือแคชเก่า)
-            analysis_text = analyze_with_ai(symbol, data, extra_context=extra_ctx, macro_signal=macro_signal)
+            analysis_text = analyze_with_ai(symbol, data, extra_context=extra_ctx,
+                                            macro_signal=macro_signal, mr_context=mr_context)
 
         # ====== เตรียมข้อมูลกราฟราคาและวอลลุ่ม ======
         # Prepare Chart Data (Price & Volume)
@@ -2126,6 +2155,135 @@ def mean_reversion_scanner(request):
     market    = request.GET.get('market', 'SET')
     user_id   = request.user.id
     cache_key = f'mr_scan_{user_id}_{market}'
+
+    # ── Refresh Only Current Candidates in Table (Lightweight Real-time Update) ──
+    if request.GET.get('refresh_only') == 'true' or request.GET.get('refresh_only') == '1':
+        from .models import MeanReversionCandidate as _MRC
+        from django.contrib import messages
+        all_runs = list(
+            _MRC.objects.filter(user=request.user, market=market)
+            .values_list('scan_run', flat=True).distinct().order_by('-scan_run')
+        )
+        if all_runs:
+            latest_run = all_runs[0]
+            candidates = list(_MRC.objects.filter(user=request.user, market=market, scan_run=latest_run))
+            sym_list = [c.symbol for c in candidates]
+            
+            if sym_list:
+                import yfinance as yf
+                import pandas as pd
+                import pandas_ta as ta
+                import concurrent.futures as cf
+                from datetime import datetime as _dt, timedelta as _td
+                import pytz
+                
+                _tz = pytz.timezone('Asia/Bangkok') if market == 'SET' else pytz.utc
+                now = _dt.now(_tz)
+                end = (now.date() + _td(days=1)).strftime('%Y-%m-%d')
+                start = (now.date() - _td(days=300)).strftime('%Y-%m-%d')
+                
+                def _refresh_one(c):
+                    try:
+                        sym = c.symbol
+                        fetch = f'{sym}.BK' if market == 'SET' else sym
+                        df = yf.Ticker(fetch).history(start=start, end=end, interval='1d')
+                        if df is None or df.empty or len(df) < 60:
+                            return None
+                        if isinstance(df.columns, pd.MultiIndex):
+                            df.columns = df.columns.droplevel(1)
+                        df = df.dropna(subset=['Close', 'High', 'Low', 'Open'])
+                        
+                        curr = float(df['Close'].iloc[-1])
+                        avg_vol = float(df['Volume'].tail(20).mean())
+                        if avg_vol == 0:
+                            return None
+                        
+                        adx_v = 30.0
+                        try:
+                            adf = ta.adx(df['High'], df['Low'], df['Close'], 14)
+                            ac = [col for col in adf.columns if col.startswith('ADX_')]
+                            if ac:
+                                adx_v = float(adf[ac[0]].iloc[-1])
+                        except Exception:
+                            pass
+                            
+                        rsi_v = 50.0
+                        try:
+                            rs = ta.rsi(df['Close'], 14)
+                            if rs is not None and pd.notna(rs.iloc[-1]):
+                                rsi_v = float(rs.iloc[-1])
+                        except Exception:
+                            pass
+                        
+                        direction = 'oversold' if rsi_v < 35 else 'overbought'
+                        pattern = _mr_detect_pattern(df)
+                        rvol = float(df['Volume'].iloc[-1]) / avg_vol if avg_vol > 0 else 1.0
+                        support = _mr_swing_support(df)
+                        resistance = _mr_swing_resistance(df)
+                        dist_sup = ((curr - support) / support * 100) if support else 999.0
+                        dist_res = ((resistance - curr) / curr * 100) if resistance else 999.0
+                        
+                        mean_tgt = None
+                        try:
+                            s20 = ta.sma(df['Close'], 20)
+                            if s20 is not None and pd.notna(s20.iloc[-1]):
+                                mean_tgt = float(s20.iloc[-1])
+                        except Exception:
+                            pass
+                            
+                        upside = ((mean_tgt - curr) / curr * 100) if mean_tgt and curr > 0 else 0.0
+                        
+                        rs_raw = 0.0
+                        if len(df) >= 66:
+                            c66 = float(df['Close'].iloc[-66])
+                            if c66 > 0:
+                                rs_raw = (curr - c66) / c66 * 100
+                                
+                        r_score = _mr_r_score(rsi_v, adx_v, rvol, pattern, direction, dist_sup)
+                        
+                        return {
+                            'id': c.id,
+                            'price': round(curr, 4),
+                            'direction': direction,
+                            'rsi': round(rsi_v, 1),
+                            'adx': round(adx_v, 1),
+                            'avg_vol': avg_vol,
+                            'rvol': round(rvol, 2),
+                            'pattern': pattern,
+                            'support': support,
+                            'resistance': resistance,
+                            'dist_sup': round(dist_sup, 2),
+                            'dist_res': round(dist_res, 2),
+                            'mean_tgt': mean_tgt,
+                            'upside': round(upside, 2),
+                            'r_score': r_score,
+                        }
+                    except Exception:
+                        return None
+                
+                with cf.ThreadPoolExecutor(max_workers=5) as ex:
+                    futures = {ex.submit(_refresh_one, c): c for c in candidates}
+                    for fut in cf.as_completed(futures):
+                        res = fut.result()
+                        if res:
+                            _MRC.objects.filter(id=res['id']).update(
+                                price=res['price'],
+                                direction=res['direction'],
+                                rsi=res['rsi'],
+                                adx=res['adx'],
+                                avg_vol_20d=res['avg_vol'],
+                                rvol=res['rvol'],
+                                pattern=res['pattern'],
+                                support_level=res['support'],
+                                resistance_level=res['resistance'],
+                                dist_to_support_pct=res['dist_sup'],
+                                dist_to_resistance_pct=res['dist_res'],
+                                mean_target=res['mean_tgt'],
+                                upside_pct=res['upside'],
+                                r_score=res['r_score']
+                            )
+                messages.success(request, f"อัปเดตราคาล่าสุดเฉพาะหุ้น {len(sym_list)} ตัวในตารางเรียบร้อยแล้ว!")
+        return redirect(f"{request.path}?market={market}&direction={request.GET.get('direction', 'all')}&min_score={request.GET.get('min_score', 60)}&run_idx={request.GET.get('run_idx', 0)}")
 
     if request.GET.get('scan_status') == '1':
         st = _cp.get(cache_key, {'state': 'idle'})

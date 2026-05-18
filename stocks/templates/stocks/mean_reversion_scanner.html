@@ -1,370 +1,581 @@
-{% extends 'base.html' %}
+{% extends 'stocks/base_stocks.html' %}
 {% load humanize %}
 {% load regime_tags %}
 
 {% block title %}Mean Reversion Scanner{% endblock %}
+{% block container_class %}container-fluid px-2 px-md-3{% endblock %}
 
 {% block content %}
-<div class="container-fluid px-3 px-md-4 py-4">
 
-  {# ── Header ── #}
-  <div class="d-flex align-items-center justify-content-between flex-wrap gap-3 mb-4">
-    <div>
-      <h2 class="fw-bold mb-1" style="font-size:1.6rem;">
-        <i class="fas fa-left-right me-2 text-warning"></i>Mean Reversion Scanner
-      </h2>
-      <p class="text-muted mb-0" style="font-size:.9rem;">
-        ADX &lt; 25 (Sideways) · RSI &lt; 35 Oversold / RSI &gt; 65 Overbought · ยืนยันด้วย Pattern + Volume
-      </p>
+{# ── Dark Loading Overlay ── #}
+<div id="mrLoadingOverlay" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.88);z-index:9999;flex-direction:column;align-items:center;justify-content:center;gap:1.2rem;">
+  <div style="width:56px;height:56px;border:4px solid rgba(251,191,36,.2);border-top-color:#fbbf24;border-radius:50%;animation:spin .8s linear infinite;"></div>
+  <div class="text-white fw-semibold fs-5">กำลังสแกน Mean Reversion…</div>
+  <div class="text-white-50 small">ระบบทำงานในพื้นหลัง — หน้านี้จะรีเฟรชอัตโนมัติเมื่อเสร็จ</div>
+  <div id="mrOverlayPhase" class="text-white-50 small fst-italic"></div>
+  <div style="width:320px;">
+    <div class="d-flex justify-content-between mb-1" style="font-size:.78rem;color:rgba(255,255,255,.5);">
+      <span>ความคืบหน้า</span><span id="mrProgressText">0 / 0</span>
     </div>
-    <div class="d-flex gap-2 flex-wrap">
-      {% if last_updated %}
-      <span class="text-muted small my-auto">
-        <i class="fas fa-clock me-1"></i>{{ last_updated|date:"d/m/Y H:i" }}
-      </span>
-      {% endif %}
-      <form method="GET" class="d-inline">
-        <input type="hidden" name="market" value="{{ market }}">
-        <input type="hidden" name="scan" value="true">
-        <button type="submit" class="btn btn-warning fw-bold px-4">
-          <i class="fas fa-magnifying-glass me-2"></i>สแกนใหม่
-        </button>
-      </form>
+    <div style="height:7px;border-radius:4px;background:rgba(255,255,255,.12);">
+      <div id="mrProgressBar" style="height:100%;border-radius:4px;background:linear-gradient(90deg,#f59e0b,#fbbf24);width:0%;transition:width .4s;"></div>
     </div>
   </div>
+</div>
 
-  {# ── Regime Bar (template tag — auto-fetches cached regime) ── #}
-  {% regime_bar market %}
+<style>
+@keyframes spin { to { transform:rotate(360deg); } }
+.mr-card { border-radius:14px; border:none; box-shadow:0 2px 12px rgba(0,0,0,.07); }
+.mr-stat-card { border-radius:14px; border:none; overflow:hidden; transition:transform .2s,box-shadow .2s; }
+.mr-stat-card:hover { transform:translateY(-3px); box-shadow:0 8px 24px rgba(0,0,0,.15); }
+.mr-table th { font-size:.72rem; font-weight:700; text-transform:uppercase; letter-spacing:.05em; white-space:nowrap; }
+.mr-table td { vertical-align:middle; font-size:.87rem; }
+.mr-table tbody tr { transition:background .15s; }
+.mr-table tbody tr:hover { background:rgba(245,158,11,.06); }
+.mr-table tbody tr.top-pick { background:rgba(16,185,129,.05); }
+.score-bar { height:7px; border-radius:4px; background:#e2e8f0; overflow:hidden; min-width:52px; }
+.score-fill { height:100%; border-radius:4px; }
+.badge-dir { font-size:.72rem; border-radius:7px; padding:.3rem .6rem; }
+.guide-step { border-radius:12px; padding:1.2rem; border:1px solid; }
+.filter-pill { border-radius:8px; font-size:.82rem; padding:.35rem .8rem; border:1.5px solid #e2e8f0; background:#fff; cursor:pointer; transition:all .15s; }
+.filter-pill:hover, .filter-pill.active { border-color:#f59e0b; background:#fef3c7; color:#92400e; }
+.val-hint { font-size: 0.56rem; color: #94a3b8; line-height: 1.2; margin-top: 1px; letter-spacing: .01em; }
+</style>
 
-  {# ── Loading Progress ── #}
-  <div id="scanProgress" class="card border-0 shadow-sm d-none mb-4 p-4 text-center" style="border-radius:14px;">
-    <div class="spinner-border text-warning mx-auto mb-3" role="status"></div>
-    <h5 class="fw-bold text-warning">กำลังสแกน Mean Reversion…</h5>
-    <div class="progress mt-3 mx-auto" style="height:10px;max-width:400px;border-radius:6px;">
-      <div id="progressBar" class="progress-bar bg-warning progress-bar-striped progress-bar-animated" style="width:0%"></div>
-    </div>
-    <p id="progressText" class="mt-2 text-muted small">เตรียมพร้อม…</p>
-  </div>
-
-  {# ── Summary Cards ── #}
-  <div class="row g-3 mb-4">
-    <div class="col-6 col-md-3">
-      <div class="card border-0 shadow-sm text-center py-3" style="border-radius:12px;background:linear-gradient(135deg,#065f46,#047857);">
-        <div class="text-white-50 small fw-bold text-uppercase mb-1" style="font-size:.65rem;">Oversold</div>
-        <div class="display-6 fw-bold text-white">{{ oversold_count }}</div>
-        <div class="text-white-50 small">RSI &lt; 35</div>
+{# ── Header ── #}
+<div class="row align-items-end mb-4">
+  <div class="col-md-7">
+    <div class="d-flex align-items-center gap-3 mb-2">
+      <div style="width:46px;height:46px;border-radius:12px;background:linear-gradient(135deg,#f59e0b,#d97706);display:flex;align-items:center;justify-content:center;">
+        <i class="fas fa-left-right text-white fs-5"></i>
       </div>
-    </div>
-    <div class="col-6 col-md-3">
-      <div class="card border-0 shadow-sm text-center py-3" style="border-radius:12px;background:linear-gradient(135deg,#7c2d12,#b45309);">
-        <div class="text-white-50 small fw-bold text-uppercase mb-1" style="font-size:.65rem;">Overbought</div>
-        <div class="display-6 fw-bold text-white">{{ overbought_count }}</div>
-        <div class="text-white-50 small">RSI &gt; 65</div>
-      </div>
-    </div>
-    <div class="col-6 col-md-3">
-      <div class="card border-0 shadow-sm text-center py-3" style="border-radius:12px;background:linear-gradient(135deg,#1e3a5f,#1e40af);">
-        <div class="text-white-50 small fw-bold text-uppercase mb-1" style="font-size:.65rem;">มี Pattern</div>
-        <div class="display-6 fw-bold text-white">{{ pattern_count }}</div>
-        <div class="text-white-50 small">ยืนยันการกลับตัว</div>
-      </div>
-    </div>
-    <div class="col-6 col-md-3">
-      <div class="card border-0 shadow-sm text-center py-3" style="border-radius:12px;background:linear-gradient(135deg,#581c87,#7c3aed);">
-        <div class="text-white-50 small fw-bold text-uppercase mb-1" style="font-size:.65rem;">Top R-Score</div>
-        <div class="display-6 fw-bold text-white">{{ top_score }}</div>
-        <div class="text-white-50 small">/ 100</div>
+      <div>
+        <h1 class="fw-bold mb-0" style="color:#92400e;font-size:1.65rem;">Mean Reversion Scanner</h1>
+        <p class="text-muted mb-0 small">ADX &lt; 25 (Sideways) · RSI &lt; 35 Oversold / RSI &gt; 65 Overbought · ยืนยันด้วย Pattern + Volume</p>
       </div>
     </div>
   </div>
-
-  {# ── Filters ── #}
-  <div class="card border-0 shadow-sm mb-4 p-3" style="border-radius:12px;">
-    <form method="GET" class="row g-2 align-items-end">
+  <div class="col-md-5 text-md-end mt-3 mt-md-0 d-flex flex-wrap justify-content-md-end gap-2">
+    {% if last_updated %}
+    <span class="text-muted small my-auto"><i class="fas fa-clock me-1"></i>{{ last_updated|date:"d/m/Y H:i" }}</span>
+    {% endif %}
+    <button type="button" class="btn btn-sm btn-outline-secondary"
+            data-bs-toggle="collapse" data-bs-target="#mrGuide" aria-expanded="false">
+      <i class="fas fa-book-open me-1"></i> คู่มือการใช้งาน
+    </button>
+    {% if candidates %}
+    <a href="?market={{ market }}&refresh_only=true&direction={{ direction_filter }}&min_score={{ min_score }}&run_idx={{ run_idx }}" 
+       class="btn btn-sm fw-bold px-3 btn-outline-warning d-inline-flex align-items-center gap-2"
+       style="border-radius:9px;"
+       onclick="document.getElementById('mrLoadingOverlay').style.display='flex'; document.querySelector('#mrLoadingOverlay div.text-white').textContent='กำลังอัปเดตราคาล่าสุดเฉพาะหุ้นในตาราง…';">
+      <i class="fas fa-arrows-rotate"></i> อัปเดตราคาด่วน
+    </a>
+    {% endif %}
+    <form method="GET" class="d-inline" id="mrScanForm">
       <input type="hidden" name="market" value="{{ market }}">
-      <div class="col-auto">
-        <label class="form-label small fw-bold mb-1">ตลาด</label>
-        <select name="market" class="form-select form-select-sm" onchange="this.form.submit()" style="min-width:90px;">
-          <option value="SET" {% if market == 'SET' %}selected{% endif %}>🇹🇭 SET</option>
-          <option value="US"  {% if market == 'US'  %}selected{% endif %}>🇺🇸 US</option>
-        </select>
+      <input type="hidden" name="scan" value="true">
+      <button type="submit" class="btn fw-bold px-4"
+              style="background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;border:none;border-radius:9px;"
+              onclick="document.getElementById('mrLoadingOverlay').style.display='flex';">
+        <i class="fas fa-magnifying-glass me-2"></i>สแกนใหม่
+      </button>
+    </form>
+    {% if candidates %}
+    <form method="post" action="{% url 'stocks:clear_scan_data' %}" class="d-inline"
+          onsubmit="return confirm('ลบข้อมูล Mean Reversion ทั้งหมด?')">
+      {% csrf_token %}
+      <input type="hidden" name="scanner" value="mean_reversion_{{ market|lower }}">
+      <input type="hidden" name="next" value="{{ request.path }}?market={{ market }}">
+      <button type="submit" class="btn btn-sm btn-outline-secondary">
+        <i class="fas fa-trash-alt"></i>
+      </button>
+    </form>
+    {% endif %}
+  </div>
+</div>
+
+{# ── Collapsible Guide ── #}
+<div class="collapse mb-4" id="mrGuide">
+  <div class="mr-card card overflow-hidden">
+    <div class="px-4 py-3" style="background:linear-gradient(135deg,#78350f,#92400e);color:#fff;">
+      <div class="d-flex align-items-center gap-3">
+        <i class="fas fa-book-open fa-lg" style="opacity:.8;"></i>
+        <div>
+          <div class="fw-bold fs-6">คู่มือ Mean Reversion Scanner</div>
+          <div class="small" style="opacity:.7;">ใช้เมื่อ Regime = CHOPPY / SIDEWAYS · ตรงข้ามกับ Momentum Scanner</div>
+        </div>
       </div>
-      <div class="col-auto">
-        <label class="form-label small fw-bold mb-1">ทิศทาง</label>
-        <select name="direction" class="form-select form-select-sm" style="min-width:130px;">
-          <option value="all"        {% if direction_filter == 'all'        %}selected{% endif %}>ทั้งหมด</option>
-          <option value="oversold"   {% if direction_filter == 'oversold'   %}selected{% endif %}>Oversold (RSI&lt;35)</option>
-          <option value="overbought" {% if direction_filter == 'overbought' %}selected{% endif %}>Overbought (RSI&gt;65)</option>
-        </select>
+    </div>
+    <div class="card-body p-4">
+      <div class="row g-4">
+
+        {# Step 1 #}
+        <div class="col-md-6 col-lg-3">
+          <div class="guide-step h-100" style="background:#fef9f0;border-color:#fde68a;">
+            <div class="d-flex align-items-center gap-2 mb-3">
+              <div style="width:32px;height:32px;border-radius:50%;background:#f59e0b;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.9rem;flex-shrink:0;">1</div>
+              <div class="fw-bold" style="color:#92400e;">ดู Regime ก่อน</div>
+            </div>
+            <ul class="list-unstyled small text-muted mb-0 ps-1">
+              <li class="mb-2"><i class="fas fa-check-circle text-success me-2"></i><strong>CHOPPY / SIDEWAYS</strong><br><span class="ms-4">→ ใช้ Scanner นี้ได้เต็มที่</span></li>
+              <li class="mb-2"><i class="fas fa-exclamation-triangle text-warning me-2"></i><strong>TRENDING &lt; 60%</strong><br><span class="ms-4">→ ใช้ได้บ้าง แต่ระวัง</span></li>
+              <li><i class="fas fa-times-circle text-danger me-2"></i><strong>TRENDING ≥ 60%</strong><br><span class="ms-4">→ ใช้ Momentum Scanner แทน</span></li>
+            </ul>
+          </div>
+        </div>
+
+        {# Step 2 #}
+        <div class="col-md-6 col-lg-3">
+          <div class="guide-step h-100" style="background:#f0fdf4;border-color:#bbf7d0;">
+            <div class="d-flex align-items-center gap-2 mb-3">
+              <div style="width:32px;height:32px;border-radius:50%;background:#059669;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.9rem;flex-shrink:0;">2</div>
+              <div class="fw-bold" style="color:#065f46;">เกณฑ์ที่ระบบกรอง</div>
+            </div>
+            <div class="small">
+              <div class="d-flex justify-content-between mb-2 p-2 rounded-3" style="background:rgba(5,150,105,.08);">
+                <span class="fw-bold text-success">ADX</span>
+                <span class="text-muted">&lt; 25 (Sideways)</span>
+              </div>
+              <div class="d-flex justify-content-between mb-2 p-2 rounded-3" style="background:rgba(5,150,105,.08);">
+                <span class="fw-bold text-success">RSI Oversold</span>
+                <span class="text-muted">&lt; 35</span>
+              </div>
+              <div class="d-flex justify-content-between mb-2 p-2 rounded-3" style="background:rgba(5,150,105,.08);">
+                <span class="fw-bold text-warning">RSI Overbought</span>
+                <span class="text-muted">&gt; 65</span>
+              </div>
+              <div class="d-flex justify-content-between p-2 rounded-3" style="background:rgba(5,150,105,.08);">
+                <span class="fw-bold" style="color:#0891b2;">Volume</span>
+                <span class="text-muted">RVOL คำนวณ</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {# Step 3 — R-Score #}
+        <div class="col-md-6 col-lg-3">
+          <div class="guide-step h-100" style="background:#eff6ff;border-color:#bfdbfe;">
+            <div class="d-flex align-items-center gap-2 mb-3">
+              <div style="width:32px;height:32px;border-radius:50%;background:#1d4ed8;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.9rem;flex-shrink:0;">3</div>
+              <div class="fw-bold" style="color:#1e3a5f;">R-Score คืออะไร</div>
+            </div>
+            <div class="small mb-3">
+              <div class="mb-2 text-muted">คะแนนโอกาสกลับตัว 0–100 คำนวณจาก:</div>
+              <div class="d-flex align-items-center gap-2 mb-1"><span class="badge" style="background:#1d4ed8;min-width:36px;">+15</span><span>ADX ต่ำ (Sideways)</span></div>
+              <div class="d-flex align-items-center gap-2 mb-1"><span class="badge" style="background:#059669;min-width:36px;">+20</span><span>RSI ห่างจาก 50 มาก</span></div>
+              <div class="d-flex align-items-center gap-2 mb-1"><span class="badge" style="background:#7c3aed;min-width:36px;">+20</span><span>Pattern ยืนยัน</span></div>
+              <div class="d-flex align-items-center gap-2 mb-1"><span class="badge" style="background:#0891b2;min-width:36px;">+15</span><span>Volume สูงกว่า avg</span></div>
+              <div class="d-flex align-items-center gap-2"><span class="badge" style="background:#d97706;min-width:36px;">+10</span><span>ใกล้ Support</span></div>
+            </div>
+            <div class="p-2 rounded-3 small" style="background:rgba(29,78,216,.08);">
+              <div class="mb-1"><span class="badge bg-success me-1">≥80</span>โอกาสดีมาก — เข้าได้</div>
+              <div class="mb-1"><span class="badge bg-warning text-dark me-1">65–79</span>ดี — รอยืนยันแท่งถัดไป</div>
+              <div><span class="badge bg-secondary me-1">&lt;65</span>รอข้อมูลเพิ่มก่อน</div>
+            </div>
+          </div>
+        </div>
+
+        {# Step 4 — Trade Plan #}
+        <div class="col-md-6 col-lg-3">
+          <div class="guide-step h-100" style="background:#faf5ff;border-color:#e9d5ff;">
+            <div class="d-flex align-items-center gap-2 mb-3">
+              <div style="width:32px;height:32px;border-radius:50%;background:#7c3aed;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.9rem;flex-shrink:0;">4</div>
+              <div class="fw-bold" style="color:#581c87;">วิธีเทรด Oversold</div>
+            </div>
+            <div class="small mb-3">
+              <div class="p-2 rounded-3 mb-2" style="background:rgba(124,58,237,.08);font-family:monospace;font-size:.78rem;">
+                Entry:  ราคาปิดวันเห็น Pattern<br>
+                Stop:   ต่ำกว่า Low ของ Pattern<br>
+                Target: Mean Target (SMA20)<br>
+                <span class="text-success">R/R ที่ดี ≥ 1:2</span>
+              </div>
+            </div>
+            <div class="small text-muted">
+              <div class="mb-1"><i class="fas fa-check text-success me-1"></i>R-Score ≥ 80 + มี Pattern</div>
+              <div class="mb-1"><i class="fas fa-check text-success me-1"></i>RVOL &gt; 1.2x วันที่เห็น Pattern</div>
+              <div class="mb-1"><i class="fas fa-check text-success me-1"></i>ADX &lt; 20 (Sideways ชัดเจน)</div>
+              <div><i class="fas fa-times text-danger me-1"></i>ADX เริ่มขึ้น → ออกก่อน</div>
+            </div>
+          </div>
+        </div>
+
+      </div>{# /row #}
+
+      {# Patterns legend #}
+      <div class="mt-4 pt-3 border-top">
+        <div class="fw-bold small mb-3" style="color:#92400e;"><i class="fas fa-shapes me-2"></i>Pattern ที่ระบบตรวจหา</div>
+        <div class="row g-3">
+          <div class="col-6 col-md-3">
+            <div class="p-3 rounded-3 small" style="background:#f0fdf4;border:1px solid #bbf7d0;">
+              <div class="fw-bold text-success mb-1">🔨 Hammer</div>
+              <div class="text-muted">ไส้ล่างยาว ≥ 2× ตัวแท่ง<br>ปิดบริเวณบน — Bullish</div>
+            </div>
+          </div>
+          <div class="col-6 col-md-3">
+            <div class="p-3 rounded-3 small" style="background:#f0fdf4;border:1px solid #bbf7d0;">
+              <div class="fw-bold text-success mb-1">📌 Pin Bar</div>
+              <div class="text-muted">ไส้ล่างยาวมาก ≥ 2.5× ไส้บน<br>ตัวแท่งเล็ก &lt; 35% range</div>
+            </div>
+          </div>
+          <div class="col-6 col-md-3">
+            <div class="p-3 rounded-3 small" style="background:#f0fdf4;border:1px solid #bbf7d0;">
+              <div class="fw-bold text-success mb-1">🕯 Bullish Engulf</div>
+              <div class="text-muted">แท่งเขียวกลืนแท่งแดงก่อนหน้า<br>สัญญาณแรงที่สุด</div>
+            </div>
+          </div>
+          <div class="col-6 col-md-3">
+            <div class="p-3 rounded-3 small" style="background:#f0fdf4;border:1px solid #bbf7d0;">
+              <div class="fw-bold text-success mb-1">⭐ Morning Star</div>
+              <div class="text-muted">3 แท่ง: แดง → doji/เล็ก → เขียว<br>กลับตัวจากก้น</div>
+            </div>
+          </div>
+        </div>
       </div>
-      <div class="col-auto">
-        <label class="form-label small fw-bold mb-1">R-Score ขั้นต่ำ</label>
-        <select name="min_score" class="form-select form-select-sm">
-          <option value="50" {% if min_score == 50 %}selected{% endif %}>≥ 50</option>
-          <option value="60" {% if min_score == 60 %}selected{% endif %}>≥ 60</option>
-          <option value="70" {% if min_score == 70 %}selected{% endif %}>≥ 70</option>
-          <option value="80" {% if min_score == 80 %}selected{% endif %}>≥ 80</option>
-        </select>
+
+    </div>{# /card-body #}
+  </div>
+</div>
+
+{# ── Regime Bar ── #}
+{% regime_bar market %}
+
+{# ── Summary Stats ── #}
+<div class="row g-3 mb-4">
+  <div class="col-6 col-sm-3">
+    <div class="mr-stat-card card text-center py-3 px-2"
+         style="background:linear-gradient(135deg,#065f46,#047857);">
+      <div class="text-white-50 fw-bold text-uppercase mb-1" style="font-size:.62rem;letter-spacing:.07em;">Oversold</div>
+      <div class="fw-bold text-white mb-1" style="font-size:2.2rem;line-height:1;">{{ oversold_count }}</div>
+      <div class="small" style="color:rgba(255,255,255,.6);">RSI &lt; 35</div>
+    </div>
+  </div>
+  <div class="col-6 col-sm-3">
+    <div class="mr-stat-card card text-center py-3 px-2"
+         style="background:linear-gradient(135deg,#7c2d12,#b45309);">
+      <div class="text-white-50 fw-bold text-uppercase mb-1" style="font-size:.62rem;letter-spacing:.07em;">Overbought</div>
+      <div class="fw-bold text-white mb-1" style="font-size:2.2rem;line-height:1;">{{ overbought_count }}</div>
+      <div class="small" style="color:rgba(255,255,255,.6);">RSI &gt; 65</div>
+    </div>
+  </div>
+  <div class="col-6 col-sm-3">
+    <div class="mr-stat-card card text-center py-3 px-2"
+         style="background:linear-gradient(135deg,#1e3a5f,#1d4ed8);">
+      <div class="text-white-50 fw-bold text-uppercase mb-1" style="font-size:.62rem;letter-spacing:.07em;">มี Pattern</div>
+      <div class="fw-bold text-white mb-1" style="font-size:2.2rem;line-height:1;">{{ pattern_count }}</div>
+      <div class="small" style="color:rgba(255,255,255,.6);">ยืนยันกลับตัว</div>
+    </div>
+  </div>
+  <div class="col-6 col-sm-3">
+    <div class="mr-stat-card card text-center py-3 px-2"
+         style="background:linear-gradient(135deg,#4c1d95,#7c3aed);">
+      <div class="text-white-50 fw-bold text-uppercase mb-1" style="font-size:.62rem;letter-spacing:.07em;">Top R-Score</div>
+      <div class="fw-bold text-white mb-1" style="font-size:2.2rem;line-height:1;">{{ top_score }}</div>
+      <div class="small" style="color:rgba(255,255,255,.6);">/ 100</div>
+    </div>
+  </div>
+</div>
+
+{# ── Filter Bar ── #}
+<div class="mr-card card mb-4">
+  <div class="card-body py-3 px-4">
+    <form method="GET" class="d-flex align-items-center flex-wrap gap-3">
+      <input type="hidden" name="market" value="{{ market }}">
+
+      {# Market toggle #}
+      <div class="d-flex gap-1">
+        <a href="?market=SET&direction={{ direction_filter }}&min_score={{ min_score }}"
+           class="filter-pill {% if market == 'SET' %}active{% endif %} text-decoration-none">
+          🇹🇭 SET
+        </a>
+        <a href="?market=US&direction={{ direction_filter }}&min_score={{ min_score }}"
+           class="filter-pill {% if market == 'US' %}active{% endif %} text-decoration-none">
+          🇺🇸 US
+        </a>
       </div>
+
+      <div class="vr d-none d-sm-block opacity-25"></div>
+
+      {# Direction #}
+      <div class="d-flex gap-1 flex-wrap">
+        <a href="?market={{ market }}&direction=all&min_score={{ min_score }}"
+           class="filter-pill {% if direction_filter == 'all' %}active{% endif %} text-decoration-none">ทั้งหมด</a>
+        <a href="?market={{ market }}&direction=oversold&min_score={{ min_score }}"
+           class="filter-pill {% if direction_filter == 'oversold' %}active{% endif %} text-decoration-none text-success fw-bold">
+          <i class="fas fa-arrow-down me-1"></i>Oversold
+        </a>
+        <a href="?market={{ market }}&direction=overbought&min_score={{ min_score }}"
+           class="filter-pill {% if direction_filter == 'overbought' %}active{% endif %} text-decoration-none text-danger fw-bold">
+          <i class="fas fa-arrow-up me-1"></i>Overbought
+        </a>
+      </div>
+
+      <div class="vr d-none d-sm-block opacity-25"></div>
+
+      {# R-Score #}
+      <div class="d-flex align-items-center gap-2">
+        <label class="text-muted small fw-bold mb-0 text-nowrap">R-Score ≥</label>
+        <div class="d-flex gap-1">
+          {% for s in "50,60,70,80"|split:"," %}
+          <a href="?market={{ market }}&direction={{ direction_filter }}&min_score={{ s }}"
+             class="filter-pill {% if min_score == s|add:0 %}active{% endif %} text-decoration-none">{{ s }}</a>
+          {% endfor %}
+        </div>
+      </div>
+
       {% if all_runs|length > 1 %}
-      <div class="col-auto">
-        <label class="form-label small fw-bold mb-1">รอบสแกน</label>
-        <select name="run_idx" class="form-select form-select-sm">
+      <div class="vr d-none d-sm-block opacity-25"></div>
+      <div class="d-flex align-items-center gap-2">
+        <label class="text-muted small fw-bold mb-0 text-nowrap">รอบสแกน</label>
+        <select name="run_idx" onchange="this.form.submit()" class="form-select form-select-sm" style="width:auto;">
           {% for run in all_runs %}
           <option value="{{ forloop.counter0 }}" {% if forloop.counter0 == run_idx %}selected{% endif %}>
             {{ run|date:"d/m H:i" }}
           </option>
           {% endfor %}
         </select>
+        <noscript><button type="submit" class="btn btn-sm btn-outline-secondary">ไป</button></noscript>
       </div>
       {% endif %}
-      <div class="col-auto">
-        <button type="submit" class="btn btn-sm btn-outline-secondary">
-          <i class="fas fa-filter me-1"></i>กรอง
-        </button>
-      </div>
+
     </form>
   </div>
-
-  {# ── Results Table ── #}
-  <div class="card border-0 shadow-sm" style="border-radius:14px;overflow:hidden;">
-    <div class="card-body p-0">
-      {% if candidates %}
-      <div class="table-responsive">
-        <table class="table table-hover align-middle mb-0" style="font-size:.88rem;">
-          <thead style="background:linear-gradient(135deg,#1e293b,#334155);color:#fff;">
-            <tr>
-              <th class="ps-3 py-3">Symbol</th>
-              <th>ทิศทาง</th>
-              <th>R-Score</th>
-              <th>ราคา</th>
-              <th>RSI</th>
-              <th>ADX</th>
-              <th>Pattern</th>
-              <th class="d-none d-md-table-cell">RVOL</th>
-              <th class="d-none d-lg-table-cell">Support</th>
-              <th class="d-none d-lg-table-cell">Resistance</th>
-              <th class="d-none d-md-table-cell">Mean Target</th>
-              <th class="d-none d-md-table-cell">% to Target</th>
-              <th>Quick AI</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for c in candidates %}
-            <tr class="{% if c.r_score >= 85 %}table-success bg-opacity-10{% elif c.r_score >= 70 %}{% endif %}">
-
-              {# Symbol #}
-              <td class="ps-3 fw-bold">
-                <a href="{% url 'stocks:analyze' c.symbol %}" class="text-decoration-none text-dark">
-                  {{ c.symbol }}
-                </a>
-              </td>
-
-              {# Direction #}
-              <td>
-                {% if c.direction == 'oversold' %}
-                  <span class="badge bg-success bg-opacity-15 text-success border border-success border-opacity-25 px-2 py-1" style="border-radius:6px;font-size:.75rem;">
-                    <i class="fas fa-arrow-down me-1"></i>OVERSOLD
-                  </span>
-                {% else %}
-                  <span class="badge bg-danger bg-opacity-15 text-danger border border-danger border-opacity-25 px-2 py-1" style="border-radius:6px;font-size:.75rem;">
-                    <i class="fas fa-arrow-up me-1"></i>OVERBOUGHT
-                  </span>
-                {% endif %}
-              </td>
-
-              {# R-Score bar #}
-              <td style="min-width:100px;">
-                <div class="d-flex align-items-center gap-2">
-                  <div class="progress flex-grow-1" style="height:6px;border-radius:4px;min-width:50px;">
-                    <div class="progress-bar {% if c.r_score >= 80 %}bg-success{% elif c.r_score >= 65 %}bg-warning{% else %}bg-secondary{% endif %}"
-                         style="width:{{ c.r_score }}%"></div>
-                  </div>
-                  <span class="fw-bold {% if c.r_score >= 80 %}text-success{% elif c.r_score >= 65 %}text-warning{% else %}text-muted{% endif %}"
-                        style="font-size:.8rem;min-width:26px;">{{ c.r_score }}</span>
-                </div>
-              </td>
-
-              {# Price #}
-              <td class="fw-bold">{{ c.price|floatformat:2|intcomma }}</td>
-
-              {# RSI #}
-              <td>
-                <span class="fw-bold {% if c.rsi < 25 %}text-success{% elif c.rsi < 35 %}text-success{% elif c.rsi > 75 %}text-danger{% elif c.rsi > 65 %}text-warning{% endif %}">
-                  {{ c.rsi }}
-                </span>
-              </td>
-
-              {# ADX #}
-              <td>
-                <span class="{% if c.adx < 15 %}text-success fw-bold{% elif c.adx < 20 %}text-success{% else %}text-muted{% endif %}">
-                  {{ c.adx }}
-                </span>
-              </td>
-
-              {# Pattern #}
-              <td>
-                {% if c.pattern %}
-                  <span class="badge bg-primary bg-opacity-15 text-primary border border-primary border-opacity-25 px-2"
-                        style="font-size:.75rem;border-radius:6px;">
-                    <i class="fas fa-star me-1"></i>{{ c.pattern }}
-                  </span>
-                {% else %}
-                  <span class="text-muted">—</span>
-                {% endif %}
-              </td>
-
-              {# RVOL #}
-              <td class="d-none d-md-table-cell">
-                <span class="{% if c.rvol >= 1.5 %}text-success fw-bold{% elif c.rvol >= 1.0 %}text-muted{% else %}text-danger{% endif %}">
-                  {{ c.rvol }}x
-                </span>
-              </td>
-
-              {# Support #}
-              <td class="d-none d-lg-table-cell text-muted">
-                {% if c.support_level %}{{ c.support_level|floatformat:2 }}{% else %}—{% endif %}
-                {% if c.dist_to_support_pct < 999 %}
-                  <small class="text-muted">(+{{ c.dist_to_support_pct|floatformat:1 }}%)</small>
-                {% endif %}
-              </td>
-
-              {# Resistance #}
-              <td class="d-none d-lg-table-cell text-muted">
-                {% if c.resistance_level %}{{ c.resistance_level|floatformat:2 }}{% else %}—{% endif %}
-              </td>
-
-              {# Mean Target (SMA20) #}
-              <td class="d-none d-md-table-cell">
-                {% if c.mean_target %}
-                  <span class="text-info fw-bold">{{ c.mean_target|floatformat:2 }}</span>
-                {% else %}—{% endif %}
-              </td>
-
-              {# % to Target #}
-              <td class="d-none d-md-table-cell">
-                {% if c.upside_pct %}
-                  <span class="fw-bold {% if c.upside_pct > 0 %}text-success{% else %}text-danger{% endif %}">
-                    {% if c.upside_pct > 0 %}+{% endif %}{{ c.upside_pct|floatformat:1 }}%
-                  </span>
-                {% else %}—{% endif %}
-              </td>
-
-              {# Quick AI #}
-              <td>
-                <a href="{% if market == 'US' %}{% url 'stocks:us_momentum_quick_analysis' c.symbol %}{% else %}{% url 'stocks:momentum_quick_analysis' c.symbol %}{% endif %}"
-                   class="btn btn-xs btn-outline-secondary px-2 py-1"
-                   style="font-size:.75rem;border-radius:6px;">
-                  <i class="fas fa-robot me-1"></i>AI
-                </a>
-              </td>
-
-            </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
-
-      {# Footer count #}
-      <div class="px-4 py-2 border-top d-flex justify-content-between align-items-center"
-           style="background:#f8fafc;font-size:.82rem;color:#64748b;">
-        <span>พบ <strong>{{ candidates|length }}</strong> หุ้น</span>
-        {% if last_updated %}
-        <span><i class="fas fa-clock me-1"></i>{{ last_updated|date:"d M Y H:i" }}</span>
-        {% endif %}
-      </div>
-
-      {% else %}
-      {# Empty state #}
-      <div class="text-center py-5">
-        <i class="fas fa-left-right fa-3x text-muted mb-3 opacity-30"></i>
-        <h5 class="text-muted">ยังไม่มีข้อมูลการสแกน</h5>
-        <p class="text-muted small">กดปุ่ม "สแกนใหม่" เพื่อเริ่มค้นหาหุ้น Mean Reversion</p>
-        <form method="GET">
-          <input type="hidden" name="market" value="{{ market }}">
-          <input type="hidden" name="scan" value="true">
-          <button type="submit" class="btn btn-warning fw-bold px-4 mt-2">
-            <i class="fas fa-magnifying-glass me-2"></i>เริ่มสแกน
-          </button>
-        </form>
-      </div>
-      {% endif %}
-    </div>
-  </div>
-
-  {# ── Guide Card ── #}
-  <div class="card border-0 shadow-sm mt-4 p-4" style="border-radius:14px;background:linear-gradient(135deg,#f0f9ff,#e0f2fe);">
-    <h6 class="fw-bold mb-3"><i class="fas fa-book-open me-2 text-info"></i>วิธีใช้ Mean Reversion Scanner</h6>
-    <div class="row g-3">
-      <div class="col-md-4">
-        <div class="fw-bold text-info mb-1" style="font-size:.85rem;">เกณฑ์หลัก</div>
-        <ul class="small text-muted mb-0 ps-3">
-          <li><strong>ADX &lt; 25</strong> — ไม่มี Trend ชัดเจน</li>
-          <li><strong>RSI &lt; 35</strong> — Oversold (เด้งขึ้น)</li>
-          <li><strong>RSI &gt; 65</strong> — Overbought (ร่วงลง)</li>
-          <li><strong>Volume &gt; Average</strong> — ยืนยันการ reverse</li>
-        </ul>
-      </div>
-      <div class="col-md-4">
-        <div class="fw-bold text-info mb-1" style="font-size:.85rem;">R-Score คืออะไร</div>
-        <ul class="small text-muted mb-0 ps-3">
-          <li>&ge;80: โอกาสกลับตัวสูง — เข้าได้</li>
-          <li>65–79: โอกาสดี — ระวังบริหาร SL</li>
-          <li>&lt;65: ต้องการยืนยันเพิ่มเติม</li>
-          <li>คะแนนรวม: ADX+RSI+Volume+Pattern+Support</li>
-        </ul>
-      </div>
-      <div class="col-md-4">
-        <div class="fw-bold text-info mb-1" style="font-size:.85rem;">Mean Target (SMA20)</div>
-        <ul class="small text-muted mb-0 ps-3">
-          <li>เป้าหมายกลับสู่ค่าเฉลี่ย (SMA20)</li>
-          <li>Oversold: คาดราคาเด้งกลับสู่ SMA20</li>
-          <li>Overbought: คาดราคาร่วงกลับสู่ SMA20</li>
-          <li>ใช้เป็น Take Profit เบื้องต้น</li>
-        </ul>
-      </div>
-    </div>
-  </div>
-
 </div>
 
-{# ── Scan Progress Polling ── #}
+{# ── Results Table ── #}
+<div class="mr-card card">
+  {% if candidates %}
+  <div class="table-responsive">
+    <table class="table mr-table align-middle mb-0">
+      <thead style="background:linear-gradient(135deg,#1e293b,#334155);color:#fff;">
+        <tr>
+          <th class="ps-4 py-3" style="width:110px;">Symbol</th>
+          <th style="width:130px;">ทิศทาง</th>
+          <th style="width:130px;">R-Score</th>
+          <th>ราคา</th>
+          <th>RSI</th>
+          <th>ADX</th>
+          <th style="width:140px;">Pattern</th>
+          <th class="d-none d-md-table-cell">RVOL</th>
+          <th class="d-none d-lg-table-cell">Support</th>
+          <th class="d-none d-lg-table-cell" style="width:110px;">Mean Target</th>
+          <th class="d-none d-md-table-cell">% to Target</th>
+          <th class="pe-3">AI</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for c in candidates %}
+        <tr class="{% if c.r_score >= 80 and c.pattern %}top-pick{% endif %}">
+
+          {# Symbol #}
+          <td class="ps-4">
+            {% if c.r_score >= 80 and c.pattern %}
+            <span class="me-1" title="Top Pick" style="color:#f59e0b;font-size:.8rem;">★</span>
+            {% endif %}
+            {% if market == 'SET' %}
+            <a href="{% url 'stocks:analyze' c.symbol|add:'.BK' %}?from_mr=1"
+               class="fw-bold text-decoration-none" style="color:#1e293b;">{{ c.symbol }}</a>
+            {% else %}
+            <a href="{% url 'stocks:analyze' c.symbol %}?from_mr=1"
+               class="fw-bold text-decoration-none" style="color:#1e293b;">{{ c.symbol }}</a>
+            {% endif %}
+          </td>
+
+          {# Direction badge #}
+          <td>
+            {% if c.direction == 'oversold' %}
+            <span class="badge-dir badge" style="background:rgba(5,150,105,.12);color:#047857;border:1px solid rgba(5,150,105,.3);">
+              <i class="fas fa-arrow-down me-1" style="font-size:.65rem;"></i>OVERSOLD
+            </span>
+            {% else %}
+            <span class="badge-dir badge" style="background:rgba(220,38,38,.1);color:#b91c1c;border:1px solid rgba(220,38,38,.3);">
+              <i class="fas fa-arrow-up me-1" style="font-size:.65rem;"></i>OVERBOUGHT
+            </span>
+            {% endif %}
+            <div class="val-hint">{% if c.direction == 'oversold' %}คาดกลับขึ้น{% else %}คาดกลับลง{% endif %}</div>
+          </td>
+
+          {# R-Score #}
+          <td>
+            <div class="d-flex align-items-center gap-2">
+              <div class="score-bar flex-grow-1">
+                <div class="score-fill
+                  {% if c.r_score >= 80 %}bg-success
+                  {% elif c.r_score >= 65 %}bg-warning
+                  {% else %}bg-secondary{% endif %}"
+                  style="width:{{ c.r_score }}%;"></div>
+              </div>
+              <div>
+                <span class="fw-bold"
+                      style="font-size:.85rem;min-width:24px;
+                             color:{% if c.r_score >= 80 %}#059669{% elif c.r_score >= 65 %}#d97706{% else %}#64748b{% endif %};">
+                  {{ c.r_score }}
+                </span>
+                <div class="val-hint">คะแนน MR</div>
+              </div>
+            </div>
+          </td>
+
+          {# Price #}
+          <td>
+            <span class="fw-bold text-dark">{{ c.price|floatformat:2|intcomma }}</span>
+            <div class="val-hint">ราคาล่าสุด</div>
+          </td>
+
+          {# RSI #}
+          <td>
+            <span class="fw-bold"
+                  style="color:{% if c.rsi < 25 %}#059669{% elif c.rsi < 35 %}#16a34a{% elif c.rsi > 75 %}#dc2626{% elif c.rsi > 65 %}#ea580c{% else %}#64748b{% endif %};">
+              {{ c.rsi }}
+            </span>
+            <div class="val-hint">{% if c.rsi < 35 %}Oversold{% elif c.rsi > 65 %}Overbought{% else %}โมเมนตัม{% endif %}</div>
+          </td>
+
+          {# ADX #}
+          <td>
+            <span style="color:{% if c.adx < 15 %}#059669{% elif c.adx < 20 %}#16a34a{% else %}#64748b{% endif %};"
+                  class="{% if c.adx < 20 %}fw-bold{% endif %}">
+              {{ c.adx }}
+            </span>
+            <div class="val-hint">Sideways&lt;25</div>
+          </td>
+
+          {# Pattern #}
+          <td>
+            {% if c.pattern %}
+            <span class="badge" style="font-size:.72rem;border-radius:6px;background:rgba(124,58,237,.12);color:#6d28d9;border:1px solid rgba(124,58,237,.3);padding:.3rem .6rem;">
+              <i class="fas fa-star me-1" style="font-size:.6rem;"></i>{{ c.pattern }}
+            </span>
+            <div class="val-hint">ยืนยันกลับตัว</div>
+            {% else %}
+            <span class="text-muted">—</span>
+            {% endif %}
+          </td>
+
+          {# RVOL #}
+          <td class="d-none d-md-table-cell">
+            <span style="color:{% if c.rvol >= 1.5 %}#059669{% elif c.rvol >= 1.0 %}#64748b{% else %}#dc2626{% endif %};"
+                  class="{% if c.rvol >= 1.5 %}fw-bold{% endif %}">
+              {{ c.rvol }}x
+            </span>
+            <div class="val-hint">Vol vs เฉลี่ย</div>
+          </td>
+
+          {# Support #}
+          <td class="d-none d-lg-table-cell text-muted small">
+            {% if c.support_level %}
+              {{ c.support_level|floatformat:2 }}
+              {% if c.dist_to_support_pct < 999 %}
+              <br><span style="font-size:.7rem;color:#94a3b8;">(+{{ c.dist_to_support_pct|floatformat:1 }}%)</span>
+              {% endif %}
+              <div class="val-hint">แนวรับ</div>
+            {% else %}—{% endif %}
+          </td>
+
+          {# Mean Target SMA20 #}
+          <td class="d-none d-lg-table-cell">
+            {% if c.mean_target %}
+            <span class="fw-bold" style="color:#0891b2;">{{ c.mean_target|floatformat:2 }}</span>
+            <div style="font-size:.68rem;color:#94a3b8;">SMA20</div>
+            <div class="val-hint">เป้ากลับตัว</div>
+            {% else %}—{% endif %}
+          </td>
+
+          {# % to Target #}
+          <td class="d-none d-md-table-cell">
+            {% if c.upside_pct %}
+            <span class="fw-bold"
+                  style="color:{% if c.upside_pct > 0 %}#059669{% else %}#dc2626{% endif %};">
+              {% if c.upside_pct > 0 %}+{% endif %}{{ c.upside_pct|floatformat:1 }}%
+            </span>
+            <div class="val-hint">% หา Mean</div>
+            {% else %}—{% endif %}
+          </td>
+
+          {# Quick AI #}
+          <td class="pe-3">
+            <a href="{% if market == 'SET' %}{% url 'stocks:analyze' c.symbol|add:'.BK' %}{% else %}{% url 'stocks:analyze' c.symbol %}{% endif %}?from_mr=1"
+               class="btn btn-sm" style="font-size:.75rem;border-radius:7px;border:1px solid #e2e8f0;color:#475569;padding:.25rem .6rem;"
+               target="_blank" title="AI Analysis + Mean Reversion">
+              <i class="fas fa-robot me-1"></i>AI
+            </a>
+          </td>
+
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  {# Table footer #}
+  <div class="d-flex justify-content-between align-items-center px-4 py-2 border-top"
+       style="background:#f8fafc;border-radius:0 0 14px 14px;">
+    <span class="text-muted small">
+      พบ <strong class="text-dark">{{ candidates|length }}</strong> หุ้น
+      {% if direction_filter != 'all' %}· กรองแล้วเฉพาะ {{ direction_filter }}{% endif %}
+      {% if min_score > 50 %}· R-Score ≥ {{ min_score }}{% endif %}
+    </span>
+    {% if last_updated %}
+    <span class="text-muted small"><i class="fas fa-clock me-1"></i>{{ last_updated|date:"d M Y H:i" }}</span>
+    {% endif %}
+  </div>
+
+  {% else %}
+  {# Empty state #}
+  <div class="text-center py-5 px-4">
+    <div style="width:72px;height:72px;border-radius:50%;background:linear-gradient(135deg,#fef3c7,#fde68a);display:flex;align-items:center;justify-content:center;margin:0 auto 1.2rem;">
+      <i class="fas fa-left-right fa-2x" style="color:#d97706;"></i>
+    </div>
+    <h5 class="fw-bold text-muted mb-2">ยังไม่มีข้อมูลการสแกน</h5>
+    <p class="text-muted small mb-4">กดปุ่ม "สแกนใหม่" เพื่อเริ่มค้นหาหุ้น Mean Reversion<br>
+    ระบบจะสแกน Universe Top 400 หุ้น และกรองเฉพาะที่มี ADX &lt; 25</p>
+    <form method="GET">
+      <input type="hidden" name="market" value="{{ market }}">
+      <input type="hidden" name="scan" value="true">
+      <button type="submit" class="btn fw-bold px-5 py-2"
+              style="background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;border:none;border-radius:10px;font-size:1rem;"
+              onclick="document.getElementById('mrLoadingOverlay').style.display='flex';">
+        <i class="fas fa-magnifying-glass me-2"></i>เริ่มสแกน {{ market }}
+      </button>
+    </form>
+  </div>
+  {% endif %}
+</div>
+
+{# ── Progress Polling Script ── #}
 <script>
 (function () {
-  const bar     = document.getElementById('scanProgress');
-  const pbEl    = document.getElementById('progressBar');
-  const txtEl   = document.getElementById('progressText');
-  const market  = '{{ market }}';
+  const overlay  = document.getElementById('mrLoadingOverlay');
+  const barEl    = document.getElementById('mrProgressBar');
+  const txtEl    = document.getElementById('mrProgressText');
+  const phaseEl  = document.getElementById('mrOverlayPhase');
+  const market   = '{{ market }}';
 
   function poll() {
-    fetch(`?scan_status=1&market=${market}`)
+    fetch('?scan_status=1&market=' + market)
       .then(r => r.json())
-      .then(data => {
-        if (data.state === 'running') {
-          bar.classList.remove('d-none');
-          const pct = data.total ? Math.round(data.progress / data.total * 100) : 0;
-          pbEl.style.width = pct + '%';
-          txtEl.textContent = data.phase || `${data.progress}/${data.total}`;
+      .then(d => {
+        if (d.state === 'running') {
+          overlay.style.display = 'flex';
+          const pct = d.total ? Math.round(d.progress / d.total * 100) : 5;
+          barEl.style.width = pct + '%';
+          txtEl.textContent = d.total ? d.progress + ' / ' + d.total : '…';
+          phaseEl.textContent = d.phase || '';
           setTimeout(poll, 1500);
-        } else if (data.state === 'done') {
-          bar.classList.add('d-none');
+        } else if (d.state === 'done') {
+          overlay.style.display = 'none';
           window.location.reload();
         } else {
-          bar.classList.add('d-none');
+          overlay.style.display = 'none';
         }
       })
       .catch(() => setTimeout(poll, 3000));
   }
 
-  // Auto-start polling if page was redirected from scan POST
-  if (window.location.search.includes('scan=true') || document.referrer.includes('scan=true')) {
-    bar.classList.remove('d-none');
-    setTimeout(poll, 800);
-  } else {
-    fetch(`?scan_status=1&market=${market}`)
-      .then(r => r.json())
-      .then(d => { if (d.state === 'running') { bar.classList.remove('d-none'); setTimeout(poll, 800); } });
-  }
+  // Auto-poll if scan is running
+  fetch('?scan_status=1&market=' + market)
+    .then(r => r.json())
+    .then(d => { if (d.state === 'running') { overlay.style.display = 'flex'; poll(); } });
 })();
 </script>
+
 {% endblock %}

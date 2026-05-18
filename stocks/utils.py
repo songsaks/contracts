@@ -681,7 +681,7 @@ Format in Markdown for a professional web report. Output ONLY raw markdown."""
 # analyze_with_ai — วิเคราะห์หุ้นด้วย Gemini AI
 # รวมข้อมูลพื้นฐาน + เทคนิค + ข่าว แล้วส่งให้ AI สรุปเป็นภาษาไทย
 # ----------------------------------------------------------------------
-def analyze_with_ai(symbol, data, extra_context=None, macro_signal=None):
+def analyze_with_ai(symbol, data, extra_context=None, macro_signal=None, mr_context=None):
     # Commodity / futures / crypto — use specialized analysis instead
     if _is_commodity(symbol):
         return _analyze_commodity_with_ai(symbol, data, macro_signal=macro_signal)
@@ -803,10 +803,48 @@ def analyze_with_ai(symbol, data, extra_context=None, macro_signal=None):
     if extra_context:
         valuation_context = f"\n[Specialized Analysis Context (Legendary Pillars & Valuation)]:\n{extra_context}\n"
 
+    # บริบท Mean Reversion จาก MR Scanner
+    mr_section = ""
+    mr_prompt_section = ""
+    if mr_context:
+        direction   = mr_context.get('direction', 'N/A')
+        mr_rsi      = mr_context.get('rsi', 'N/A')
+        mr_adx      = mr_context.get('adx', 'N/A')
+        mr_rvol     = mr_context.get('rvol', 'N/A')
+        pattern     = mr_context.get('pattern') or 'ไม่มี'
+        support     = mr_context.get('support', 'N/A')
+        resistance  = mr_context.get('resistance', 'N/A')
+        mean_target = mr_context.get('mean_target', 'N/A')
+        upside_pct  = mr_context.get('upside_pct', 'N/A')
+        r_score     = mr_context.get('r_score', 'N/A')
+        rs_rating   = mr_context.get('rs_rating', 'N/A')
+        dir_th      = 'OVERSOLD (RSI ต่ำเกินไป — คาดราคาจะกลับขึ้นหา Mean)' if direction == 'oversold' else 'OVERBOUGHT (RSI สูงเกินไป — คาดราคาจะปรับลงหา Mean)'
+        mr_section = f"""
+[Mean Reversion Scanner Data]:
+- Signal Direction: {dir_th}
+- RSI(14): {mr_rsi}  |  ADX(14): {mr_adx} (< 25 = ตลาด Sideways ยืนยัน)
+- RVOL: {mr_rvol}x  |  Pattern ยืนยัน: {pattern}
+- Support Level: {support}  (ห่าง {mr_context.get('dist_sup', 'N/A')}% จากราคาปัจจุบัน)
+- Resistance Level: {resistance}
+- Mean Target (SMA20): {mean_target}  (Upside to Mean: {upside_pct}%)
+- R-Score: {r_score}/100  |  RS Rating (3M): {rs_rating}/99
+"""
+        mr_prompt_section = """
+5. **Mean Reversion Analysis** (สำคัญ — หุ้นตัวนี้ถูกตรวจพบโดย Mean Reversion Scanner):
+   - ยืนยันสัญญาณ: ADX < 25 หมายความว่าตลาดอยู่ในสภาวะ Sideways จริงหรือไม่? เทียบกับ EMA alignment
+   - วิเคราะห์ว่า RSI ที่ระดับนี้เป็น Oversold/Overbought จริงหรือเป็นเพียงการลดลงในขาขึ้น/ขาลง (Trend Pullback)
+   - ระบุ Mean Target (SMA20) ว่าน่าเชื่อถือแค่ไหนเป็น Target สำหรับ Reversion
+   - วางแผน Mean Reversion Trade อย่างชัดเจน:
+     * **Entry**: เมื่อไหร่และที่ราคาเท่าไหร่ควรเข้า (รอ Confirmation Candle หรือเข้าทันที?)
+     * **Stop Loss**: ต่ำกว่า Support Level ที่ระบุ (หรือสูงกว่า Resistance สำหรับ Overbought)
+     * **Target**: SMA20 / Mean Target เป็น TP1, แนวต้านถัดไปเป็น TP2
+     * **Risk-Reward**: คำนวณ R:R จากข้อมูลที่มี
+   - เตือนความเสี่ยง: ถ้า ADX เริ่มสูงขึ้นหรือมี Momentum Breakout จะทำให้กลยุทธ์ MR ล้มเหลว
+"""
     # สร้าง prompt ส่งให้ AI วิเคราะห์เป็นภาษาไทยในรูปแบบ Markdown
     prompt = f"""
     Analyze the stock {symbol} for an investor using the following data:
-    {valuation_context}
+    {valuation_context}{mr_section}
     Financial Metrics:{fin_context}
     Analyst View: {rec_summary}
     PEG Ratio: {peg_ratio}
@@ -824,7 +862,7 @@ def analyze_with_ai(symbol, data, extra_context=None, macro_signal=None):
 
     {news_content}
 
-    Please provide a professional swing-trading and momentum-focused analysis in Thai language:
+    Please provide a professional {'swing-trading, momentum-focused, AND mean reversion' if mr_context else 'swing-trading and momentum-focused'} analysis in Thai language:
     1. Momentum & Trend Following Analysis: วิเคราะห์ความแข็งแกร่งของเทรนด์ เรียงลำดับความสวยงามของ EMA 20/50/200 พลังของ Volume และความชัดเจนของขาขึ้น
     2. Fundamental vs Valuation Check: สรุปความคุ้มค่าเทียบกับราคาปัจจุปันคร่าวๆ ว่าธุรกิจยังมีพื้นฐานหนุนตัวเทรนด์ราคาหรือไม่
     3. Sentiment & News Analysis: วิเคราะห์ทิศทางข่าวสารสำคัญที่มีผลกระทบกับราคาหุ้น
@@ -833,7 +871,7 @@ def analyze_with_ai(symbol, data, extra_context=None, macro_signal=None):
        - จุดเข้าซื้อ (Entry Zone) ที่ปลอดภัย
        - จุดตัดขาดทุน (Stop Loss) ทันทีถ้าราคาผิดทาง
        - เป้าหมายทำกำไร (Take Profit Target) ในช่วง 2-3 เดือนข้างหน้า
-
+    {mr_prompt_section}
     Format in Markdown for a professional web report. Ensure clear bullet points, bold key numbers, and output ONLY raw markdown.
     """
 

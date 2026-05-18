@@ -31,6 +31,7 @@
     .text-purple { color: #7c3aed !important; }
     .bg-purple-subtle { background-color: rgba(124, 58, 237, 0.1); border: 1px solid rgba(124, 58, 237, 0.2); }
     .launcher-tag { padding: 0.15rem 0.4rem; border-radius: 4px; font-size: 0.65rem; font-weight: 700; }
+    .val-hint { font-size: 0.56rem; color: #94a3b8; line-height: 1.2; margin-top: 1px; letter-spacing: .01em; }
 </style>
 {% endblock %}
 
@@ -187,14 +188,19 @@
                             <td>
                                 {% if c.technical_score %}
                                     <span class="badge {% if c.technical_score >= 75 %}bg-success{% else %}bg-secondary{% endif %} bg-opacity-25 text-dark border"><i class="fas fa-star text-warning"></i> {{ c.technical_score }}</span>
+                                    <div class="val-hint">เทคนิค</div>
                                     {% if c.launcher_score %}
                                         <div class="mt-1">
                                             <span class="launcher-tag bg-purple-subtle text-purple" title="Launcher Score: Explosive Potential">
                                                 🚀 {{ c.launcher_score }}
                                             </span>
+                                            <div class="val-hint">พร้อมระเบิด</div>
                                         </div>
                                     {% endif %}
-                                    {% if c.rs_rating %}<div class="small text-muted fw-bold mt-1">RS: {{ c.rs_rating }}</div>{% endif %}
+                                    {% if c.rs_rating %}
+                                        <div class="small text-muted fw-bold mt-1">RS: {{ c.rs_rating }}</div>
+                                        <div class="val-hint">เทียบตลาด</div>
+                                    {% endif %}
                                 {% else %}
                                     <span class="text-muted small">-</span>
                                 {% endif %}
@@ -207,14 +213,19 @@
                                         <span class="badge bg-light text-muted border" style="font-size:0.65rem;">STAGE 1/3 (Neutral)</span>
                                     {% endif %}
                                     <div class="small fw-bold {% if c.adx >= 20 %}text-primary{% else %}text-muted{% endif %}">
-                                        ADX: {{ c.adx|floatformat:1 }} 
+                                        ADX: {{ c.adx|floatformat:1 }}
                                         {% if c.adx >= 25 %}<i class="fas fa-bolt text-warning" title="Strong Trend"></i>{% endif %}
                                     </div>
+                                    <div class="val-hint">แรงเทรนด์</div>
                                 </div>
                             </td>
-                            <td class="col-hide-md">{{ c.avg_vol_20d|floatformat:0 }}</td>
+                            <td class="col-hide-md">
+                                {{ c.avg_vol_20d|floatformat:0 }}
+                                <div class="val-hint">เฉลี่ย 20 วัน</div>
+                            </td>
                             <td class="col-hide-sm">
                                 <div class="fw-bold text-dark">{{ c.atr_20d|floatformat:2 }} <span class="text-muted small fw-normal">(N)</span></div>
+                                <div class="val-hint">ความผันผวน</div>
                                 <div class="mt-1 position-calc-result d-none">
                                     <span class="badge bg-dark rounded-pill px-2 py-1 shadow-sm" style="font-size:0.65rem;">1 Unit: <span class="unit-shares text-warning fs-6">0</span> หุ้น</span><br>
                                     <small class="text-muted fst-italic" style="font-size:0.65rem;">(ใช้เงิน <span class="unit-cost fw-bold text-dark">0</span> {% if c.market == 'US' %}${% else %}฿{% endif %})</small>
@@ -258,9 +269,11 @@
                                 {% if c.sys1_breakout %}
                                     <span class="badge badge-sys1 py-1 px-2 fw-bold">20-D {% if c.sys1_days_ago == 0 %}Today{% else %}+{{ c.sys1_days_ago }}d{% endif %}</span>
                                     <br><small class="text-muted">H: {{ c.high_20d|floatformat:2 }} | <span class="text-danger">E: {{ c.low_10d|floatformat:2 }}</span></small>
+                                    <div class="val-hint">ออก 10-Day Low</div>
                                 {% elif c.sys1_near %}
                                     <span class="badge bg-warning bg-opacity-25 text-warning-emphasis border border-warning border-opacity-50 py-1 px-2">Near {{ c.pct_to_20d|floatformat:1 }}%</span>
                                     <br><small class="text-muted">High: {{ c.high_20d|floatformat:2 }}</small>
+                                    <div class="val-hint">ระยะ Breakout</div>
                                 {% else %}
                                     <span class="text-muted">-</span>
                                 {% endif %}
@@ -270,9 +283,11 @@
                                 {% if c.sys2_breakout %}
                                     <span class="badge badge-sys2 py-1 px-2 fw-bold">55-D {% if c.sys2_days_ago == 0 %}Today{% else %}+{{ c.sys2_days_ago }}d{% endif %}</span>
                                     <br><small class="text-muted">H: {{ c.high_55d|floatformat:2 }} | <span class="text-danger">E: {{ c.low_20d|floatformat:2 }}</span></small>
+                                    <div class="val-hint">ออก 20-Day Low</div>
                                 {% elif c.sys2_near %}
                                     <span class="badge bg-warning bg-opacity-25 text-warning-emphasis border border-warning border-opacity-50 py-1 px-2">Near {{ c.pct_to_55d|floatformat:1 }}%</span>
                                     <br><small class="text-muted">High: {{ c.high_55d|floatformat:2 }}</small>
+                                    <div class="val-hint">ระยะ Breakout</div>
                                 {% else %}
                                     <span class="text-muted">-</span>
                                 {% endif %}

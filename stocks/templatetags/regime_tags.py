@@ -25,6 +25,12 @@ def _get_strategy(regime):
     return _STRATEGY.get(key, {'label': '—', 'color': 'secondary', 'icon': 'fa-circle-question', 'link': None})
 
 
+@register.filter
+def split(value, arg):
+    """Split a string by delimiter — e.g. "50,60,70"|split:"," → ['50','60','70']"""
+    return str(value).split(arg)
+
+
 @register.inclusion_tag('stocks/includes/_regime_bar.html')
 def regime_bar(market='SET'):
     from stocks.utils import calculate_markov_regime

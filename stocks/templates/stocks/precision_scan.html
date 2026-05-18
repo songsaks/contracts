@@ -26,7 +26,7 @@
 
 <style>
     .launcher-rocket { font-size: 1.2rem; transition: transform 0.3s ease; }
-    .launcher-rocket.fire { 
+    .launcher-rocket.fire {
         animation: launcher-fire 1.5s infinite alternate;
         filter: drop-shadow(0 0 5px #ef4444);
     }
@@ -34,6 +34,8 @@
         from { transform: translateY(0) scale(1); filter: drop-shadow(0 0 2px #f59e0b); }
         to { transform: translateY(-3px) scale(1.2); filter: drop-shadow(0 0 8px #ef4444); }
     }
+    /* micro-label ใต้ตัวเลข */
+    .val-hint { font-size: 0.56rem; color: #94a3b8; line-height: 1.2; margin-top: 1px; letter-spacing: .01em; }
 </style>
 
 <div>
@@ -1034,9 +1036,12 @@
                                         <div class="progress-bar {% if item.technical_score >= 80 %}bg-success{% elif item.technical_score >= 50 %}bg-primary{% else %}bg-warning{% endif %}"
                                              role="progressbar" style="width:{{ item.technical_score }}%"></div>
                                     </div>
-                                    <span class="fw-bold {% if item.technical_score >= 80 %}text-success{% elif item.technical_score >= 50 %}text-primary{% else %}text-warning{% endif %}">
-                                        {{ item.technical_score }}
-                                    </span>
+                                    <div>
+                                        <span class="fw-bold {% if item.technical_score >= 80 %}text-success{% elif item.technical_score >= 50 %}text-primary{% else %}text-warning{% endif %}">
+                                            {{ item.technical_score }}
+                                        </span>
+                                        <div class="val-hint">เทคนิค</div>
+                                    </div>
                                 </div>
                             </td>
 
@@ -1047,9 +1052,10 @@
                                         {{ item.win_probability }}%
                                     </span>
                                     <div class="progress" style="width:40px;height:4px;border-radius:10px;background:rgba(0,0,0,0.05);">
-                                        <div class="progress-bar {% if item.win_probability >= 85 %}bg-success{% elif item.win_probability >= 65 %}bg-primary{% else %}bg-warning{% endif %}" 
+                                        <div class="progress-bar {% if item.win_probability >= 85 %}bg-success{% elif item.win_probability >= 65 %}bg-primary{% else %}bg-warning{% endif %}"
                                              role="progressbar" style="width:{{ item.win_probability }}%"></div>
                                     </div>
+                                    <div class="val-hint mt-1">โอกาสชนะ</div>
                                 </div>
                             </td>
 
@@ -1066,6 +1072,7 @@
                                 <div class="progress mt-1" style="width:28px;height:3px;border-radius:2px;margin:0 auto;">
                                     <div class="progress-bar {% if item.buy_score >= 80 %}bg-success{% elif item.buy_score >= 60 %}bg-primary{% elif item.buy_score >= 40 %}bg-warning{% else %}bg-secondary{% endif %}" role="progressbar" style="width:{{ item.buy_score }}%"></div>
                                 </div>
+                                <div class="val-hint">สัญญาณซื้อ</div>
                             </td>
 
                             <!-- SELL / EXIT SCORE -->
@@ -1085,6 +1092,7 @@
                                 {% elif item.exit_signal == 'WATCH' %}
                                 <div><span class="badge px-1 mt-1" style="background:rgba(245,158,11,0.15);color:#b45309;border:1px solid #f59e0b;font-size:0.5rem;">👁</span></div>
                                 {% endif %}
+                                <div class="val-hint">แรงขาย</div>
                             </td>
 
                             <!-- RS RATING -->
@@ -1098,6 +1106,7 @@
                                 {% else %}
                                     <span class="text-muted">—</span>
                                 {% endif %}
+                                <div class="val-hint">เทียบตลาด</div>
                             </td>
 
                             <!-- LAUNCHER v10 -->
@@ -1116,9 +1125,10 @@
                                     <div class="fw-bold" style="font-size:0.72rem; color:{% if item.launcher_score >= 70 %}#7c3aed{% elif item.launcher_score >= 45 %}#4f46e5{% else %}#94a3b8{% endif %};">
                                         {{ item.launcher_score }}
                                     </div>
-                                    
+                                    <div class="val-hint">พร้อมระเบิด</div>
+
                                     {% if item.launcher_score >= 40 %}
-                                    <div class="fw-bold {% if item.turtle_dist_pct <= 2 %}text-danger{% else %}text-muted{% endif %}" 
+                                    <div class="fw-bold {% if item.turtle_dist_pct <= 2 %}text-danger{% else %}text-muted{% endif %}"
                                          style="font-size:0.6rem; margin-top:-1px;" title="Distance to Turtle DC20 Breakout">
                                         🎯 {{ item.turtle_dist_pct|floatformat:1 }}%
                                     </div>
@@ -1132,6 +1142,7 @@
                                 <span class="fw-bold" style="color:{% if item.risk_reward_ratio >= 3 %}#16a34a{% elif item.risk_reward_ratio >= 2 %}#2563eb{% elif item.risk_reward_ratio >= 1.5 %}#92400e{% else %}#dc2626{% endif %};">
                                     1:{{ item.risk_reward_ratio|floatformat:1 }}{% if item.risk_reward_ratio < 1.5 %} ⚠{% endif %}
                                 </span>
+                                <div class="val-hint">กำไร:เสี่ยง</div>
                                 {% else %}-{% endif %}
                             </td>
 
@@ -1141,10 +1152,11 @@
                                     {{ item.rvol|floatformat:1 }}x
                                 </span>
                                 {% if item.rvol_bullish %}
-                                <span class="badge px-1 py-0 d-block mt-1" style="background:rgba(34,197,94,0.15);color:#16a34a;font-size:0.55rem;">▲</span>
+                                <span class="badge px-1 py-0 d-block mt-1" style="background:rgba(34,197,94,0.15);color:#16a34a;font-size:0.55rem;">▲ Bull</span>
                                 {% else %}
-                                <span class="badge px-1 py-0 d-block mt-1" style="background:rgba(239,68,68,0.1);color:#dc2626;font-size:0.55rem;">▼</span>
+                                <span class="badge px-1 py-0 d-block mt-1" style="background:rgba(239,68,68,0.1);color:#dc2626;font-size:0.55rem;">▼ Bear</span>
                                 {% endif %}
+                                <div class="val-hint">Vol vs เฉลี่ย</div>
                             </td>
 
                             <!-- ADX -->
@@ -1152,11 +1164,13 @@
                                 <span class="fw-semibold {% if item.adx >= 30 %}text-success{% elif item.adx >= 20 %}text-primary{% else %}text-muted{% endif %}">
                                     {{ item.adx|floatformat:1 }}
                                 </span>
+                                <div class="val-hint">แรงเทรนด์</div>
                             </td>
 
                             <!-- AVG VOL 20d -->
                             <td class="col-hide-lg">
                                 <span class="text-muted">{{ item.avg_volume_20d|floatformat:0|intcomma }}</span>
+                                <div class="val-hint">เฉลี่ย 20 วัน</div>
                             </td>
 
                             <!-- PRICE -->
@@ -1174,6 +1188,7 @@
                                 {% else %}
                                 <span class="fw-bold">{% if item.market == 'US' %}${% else %}฿{% endif %}{{ item.price|floatformat:2 }}</span>
                                 {% endif %}
+                                <div class="val-hint">ราคาล่าสุด</div>
                             </td>
 
                             <!-- ENTRY ZONE -->
@@ -1183,11 +1198,12 @@
                                     <span class="fw-bold text-success">{{ item.demand_zone_start|floatformat:2 }}</span>
                                     <span class="text-muted"> / {{ item.demand_zone_end|floatformat:2 }}</span>
                                     {% if item.stop_loss %}
-                                    <br><span class="text-danger">SL:{{ item.stop_loss|floatformat:2 }}</span>
+                                    <br><span class="text-danger" title="Stop Loss">SL:{{ item.stop_loss|floatformat:2 }}</span>
                                     {% endif %}
                                     {% if item.supply_zone_start %}
-                                    <br><span class="fw-bold" style="color:{% if item.price >= item.supply_zone_start %}#dc2626{% elif item.upside_to_high <= 5 %}#ea580c{% else %}#2563eb{% endif %};">TP:{{ item.supply_zone_start|floatformat:2 }}</span>
+                                    <br><span class="fw-bold" style="color:{% if item.price >= item.supply_zone_start %}#dc2626{% elif item.upside_to_high <= 5 %}#ea580c{% else %}#2563eb{% endif %};" title="Take Profit">TP:{{ item.supply_zone_start|floatformat:2 }}</span>
                                     {% endif %}
+                                    <div class="val-hint">โซนซื้อ / TP</div>
                                 </div>
                                 {% else %}-{% endif %}
                             </td>
@@ -1197,6 +1213,7 @@
                                 <span class="fw-bold {% if item.rsi > 70 %}text-danger{% elif item.rsi > 55 %}text-success{% else %}text-secondary{% endif %}">
                                     {{ item.rsi|floatformat:0 }}
                                 </span>
+                                <div class="val-hint">โมเมนตัม</div>
                             </td>
 
                             <!-- ERC CONFIRMED -->
@@ -1297,6 +1314,7 @@
                                         {% if rel >= 0 %}+{% endif %}{{ rel|floatformat:1 }}%
                                     </span>
                                     {% endwith %}
+                                    <div class="val-hint">ชนะตลาด 3M</div>
                                 {% else %}
                                     <span class="text-muted">-</span>
                                 {% endif %}

@@ -208,6 +208,7 @@
                                     color:{% if item.dist_from_pivot <= 5 %}#15803d{% elif item.dist_from_pivot <= 10 %}#2563eb{% else %}#64748b{% endif %};">
                                     {{ item.dist_from_pivot }}%
                                 </div>
+                                <div class="val-hint">ห่างจุดเข้า</div>
                             {% else %}
                                 <span class="text-muted">—</span>
                             {% endif %}
@@ -231,6 +232,7 @@
                             <div class="fw-bold" style="color: {% if item.rs_rating >= 80 %}#15803d{% elif item.rs_rating >= 70 %}#2563eb{% else %}#1e293b{% endif %}; font-size: 1rem;">
                                 {{ item.rs_rating }}
                             </div>
+                            <div class="val-hint">เทียบตลาด</div>
                         </td>
                         <!-- SEPA Score -->
                         <td class="py-3 text-center">
@@ -244,6 +246,7 @@
                                 {% elif item.sepa_score >= 60 %}Developing
                                 {% else %}Weak{% endif %}
                             </div>
+                            <div class="val-hint">คะแนน SEPA</div>
                         </td>
                         <!-- Action -->
                         <td class="pe-4 py-3 text-end">
@@ -279,9 +282,8 @@
 <style>
     .bg-purple { background-color: #7c3aed; }
     .text-purple { color: #7c3aed; }
-    .table-hover tbody tr:hover {
-        background-color: #f8fafc;
-    }
+    .table-hover tbody tr:hover { background-color: #f8fafc; }
+    .val-hint { font-size: 0.56rem; color: #94a3b8; line-height: 1.2; margin-top: 1px; letter-spacing: .01em; }
 </style>
 <script>
 function applyFilters() {
