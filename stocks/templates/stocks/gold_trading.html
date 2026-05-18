@@ -805,7 +805,7 @@
                             <th class="ps-2">TYPE</th>
                             <th>SIZE</th>
                             <th>ENTRY</th>
-                            <th>CURRENT</th>
+                            <th>CURRENT (BROKER)</th>
                             <th>TARGET</th>
                             <th>STOP</th>
                             <th>P/L ($)</th>
@@ -2230,18 +2230,6 @@
                 let totalEntry = 0;
                 let totalVolume = 0;
 
-                // Sync top display instantly with the broker's real-time price if we have active positions
-                if (data.positions && data.positions.length > 0) {
-                    const firstPos = data.positions[0];
-                    const currentP = parseFloat(firstPos.currentPrice || firstPos.price || 0);
-                    if (currentP > 0) {
-                        const priceEl = document.getElementById('gold-price-display');
-                        const mPriceEl = document.getElementById('m-price');
-                        if (priceEl) priceEl.innerText = currentP.toFixed(2);
-                        if (mPriceEl) mPriceEl.innerText = currentP.toFixed(2);
-                        lastPrice = currentP;
-                    }
-                }
 
                 body.innerHTML = data.positions.map(pos => {
                     const isBuy = pos.type === 'POSITION_TYPE_BUY';
