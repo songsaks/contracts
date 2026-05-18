@@ -12,9 +12,38 @@
       <h4 class="fw-bold mb-1" style="color:#0f172a;letter-spacing:-0.02em;">Portfolio Exit Plan</h4>
       <p class="text-muted mb-0" style="font-size:0.82rem;">เรียงตามความเร่งด่วน · ตัวที่ควรออกก่อนอยู่บนสุด</p>
     </div>
-    <a href="{% url 'stocks:portfolio_list' %}"
-       class="btn btn-sm rounded-pill px-4 fw-semibold"
-       style="background:#f1f5f9;color:#475569;border:none;">← กลับพอร์ต</a>
+    <div class="d-flex gap-2">
+      <button id="aiAnalyzeBtn" class="btn btn-sm rounded-pill px-3 fw-semibold text-white d-flex align-items-center gap-2" style="background: linear-gradient(135deg, #7c3aed, #4f46e5); border:none; box-shadow:0 2px 6px rgba(124, 58, 237, 0.3);">
+        <i class="fa-solid fa-brain"></i> AI Deep Analysis
+      </button>
+      <a href="{% url 'stocks:portfolio_list' %}"
+         class="btn btn-sm rounded-pill px-4 fw-semibold"
+         style="background:#f1f5f9;color:#475569;border:none;">← กลับพอร์ต</a>
+    </div>
+  </div>
+
+  <!-- AI Analysis Result Area -->
+  <div id="aiAnalysisContainer" class="mb-4" style="display:none;">
+    <div class="rounded-4 p-4 position-relative overflow-hidden" style="background:#fff; border:1px solid #e2e8f0; box-shadow:0 4px 15px rgba(0,0,0,0.05);">
+        <div class="position-absolute" style="top:-20px;right:-20px;font-size:8rem;opacity:0.03;pointer-events:none;">🧠</div>
+        <div class="d-flex align-items-center gap-3 mb-3 pb-3" style="border-bottom:1px dashed #e2e8f0;">
+            <div class="rounded-circle d-flex align-items-center justify-content-center" style="width:40px;height:40px;background:rgba(124,58,237,0.1);color:#7c3aed;">
+                <i class="fa-solid fa-brain fs-5"></i>
+            </div>
+            <div>
+                <h5 class="fw-bold mb-0" style="color:#1e293b;letter-spacing:-0.5px;">AI Exit Plan Analysis</h5>
+                <div class="text-muted" style="font-size:0.75rem;">Powered by Gemini Pro</div>
+            </div>
+            <button class="btn btn-sm ms-auto text-muted" onclick="document.getElementById('aiAnalysisContainer').style.display='none';"><i class="fa-solid fa-times"></i></button>
+        </div>
+        
+        <div id="aiLoadingIndicator" class="text-center py-4" style="display:none;">
+            <div class="spinner-border spinner-border-sm text-primary mb-2" role="status"></div>
+            <div class="text-muted small fw-semibold">กำลังวิเคราะห์ข้อมูลเชิงลึก...</div>
+        </div>
+
+        <div id="aiAnalysisResult" class="markdown-body" style="font-size:0.9rem; line-height:1.7; color:#334155;"></div>
+    </div>
   </div>
 
   {% if total_count %}
@@ -499,5 +528,40 @@ function calcPL() {
     + (pl >= 0 ? '+' : '') + label + pl.toLocaleString('th-TH', {minimumFractionDigits:2, maximumFractionDigits:2})
     + ' &nbsp;(' + (pct >= 0 ? '+' : '') + pct.toFixed(2) + '%)</span>';
 }
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script>
+document.getElementById('aiAnalyzeBtn').addEventListener('click', function() {
+    const container = document.getElementById('aiAnalysisContainer');
+    const loading = document.getElementById('aiLoadingIndicator');
+    const resultDiv = document.getElementById('aiAnalysisResult');
+    
+    container.style.display = 'block';
+    loading.style.display = 'block';
+    resultDiv.innerHTML = '';
+    resultDiv.style.display = 'none';
+    
+    fetch("{% url 'stocks:portfolio_exit_plan_ai_analysis' %}")
+        .then(response => response.json())
+        .then(data => {
+            loading.style.display = 'none';
+            resultDiv.style.display = 'block';
+            if(data.success) {
+                if (typeof marked !== 'undefined') {
+                    resultDiv.innerHTML = marked.parse(data.analysis);
+                } else {
+                    resultDiv.innerText = data.analysis;
+                }
+            } else {
+                resultDiv.innerHTML = '<div class="alert alert-danger">Error: ' + data.error + '</div>';
+            }
+        })
+        .catch(err => {
+            loading.style.display = 'none';
+            resultDiv.style.display = 'block';
+            resultDiv.innerHTML = '<div class="alert alert-danger">Network Error: ' + err + '</div>';
+        });
+});
 </script>
 {% endblock %}

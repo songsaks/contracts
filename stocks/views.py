@@ -2330,6 +2330,54 @@ def portfolio_exit_plan(request):
     })
 
 
+# ====== Portfolio Exit Plan AI Analysis ======
+@login_required
+def portfolio_exit_plan_ai_analysis(request):
+    """
+    สร้าง AI Analysis สำหรับ Portfolio Exit Plan ผ่าน AJAX
+    """
+    portfolio_items = Portfolio.objects.filter(user=request.user)
+    port_str = ""
+    for item in portfolio_items:
+        clean_symbol = item.symbol.split('.')[0].upper()
+        from .models import PrecisionScanCandidate
+        prec_data = PrecisionScanCandidate.objects.filter(user=request.user, symbol=clean_symbol).order_by('-scan_run').first()
+        port_str += f"- Symbol: {item.symbol}, Qty: {item.quantity}, Entry Price: {item.entry_price}\n"
+        if prec_data:
+            port_str += f"  RSI: {prec_data.rsi}, ADX: {prec_data.adx}, RVOL: {prec_data.rvol}, Rel Mom 3m: {prec_data.rel_momentum_3m}, Stop Loss: {prec_data.stop_loss}, Take Profit: {prec_data.supply_zone_start}\n"
+    
+    prompt = f"""
+    You are an expert Stock Portfolio Analyst specializing in "Precision Momentum Trading" and Exit Strategies.
+    The user has the following assets in their portfolio (with Entry Price, Stop Loss, Take Profit, and Momentum metrics):
+    {port_str}
+
+    Please provide a DEEP analysis of each asset's status and its current trend.
+    Include actionable insights and strategic recommendations for EACH stock.
+    Should they hold, trail stop, cut loss, or take profit? Use the metrics provided.
+
+    Format your response beautifully in Markdown using Thai Language (Sarabun professional tone).
+    IMPORTANT RULES:
+    1. Output ONLY the raw markdown text. Do not wrap in ```markdown blocks.
+    2. Analyze each stock one by one.
+    3. Do NOT include conversational preamble.
+    """
+    
+    try:
+        model_name_to_use = "gemini-2.0-pro-exp-02-05"
+        client = genai.Client(api_key=settings.GEMINI_API_KEY)
+        response = client.models.generate_content(
+            model=model_name_to_use,
+            contents=prompt
+        )
+        ai_analysis = response.text
+        if ai_analysis.startswith("```markdown"):
+            ai_analysis = ai_analysis[len("```markdown"):].strip()
+        if ai_analysis.endswith("```"):
+            ai_analysis = ai_analysis[:-3].strip()
+        return JsonResponse({'success': True, 'analysis': ai_analysis})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': f"AI Error: {str(e)}"})
+
 # ====== Portfolio Management - เพิ่ม/ลบ รายการพอร์ต ======
 
 @login_required

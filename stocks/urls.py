@@ -20,6 +20,7 @@ urlpatterns = [
     path('portfolio/tithe/', views.tithe_report, name='tithe_report'),
     path('portfolio/tithe/mark-paid/', views.tithe_mark_paid, name='tithe_mark_paid'),
     path('portfolio/exit-plan/', views.portfolio_exit_plan, name='portfolio_exit_plan'),
+    path('portfolio/exit-plan/ai/', views.portfolio_exit_plan_ai_analysis, name='portfolio_exit_plan_ai_analysis'),
     path('portfolio/cash/add/', views.add_cash_transaction, name='add_cash_transaction'),
     path('portfolio/fund/update/', views.update_portfolio_fund, name='update_portfolio_fund'),
     path('portfolio/fund/delete/<int:fund_id>/', views.delete_portfolio_fund, name='delete_portfolio_fund'),
