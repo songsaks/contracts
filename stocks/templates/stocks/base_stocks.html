@@ -359,7 +359,7 @@
 
                     <!-- Momentum Dropdown -->
                     <li class="nav-item dropdown">
-                        <a class="nav-link px-3 py-2 rounded-xl dropdown-toggle {% if request.resolver_match.url_name == 'momentum_scanner' or request.resolver_match.url_name == 'us_momentum_scanner' or request.resolver_match.url_name == 'precision_momentum_scanner' or request.resolver_match.url_name == 'us_precision_scanner' or request.resolver_match.url_name == 'scan_watchlist_view' or request.resolver_match.url_name == 'cup_handle_scanner' or request.resolver_match.url_name == 'us_cup_handle_scanner' %}active{% endif %}"
+                        <a class="nav-link px-3 py-2 rounded-xl dropdown-toggle {% if request.resolver_match.url_name == 'momentum_scanner' or request.resolver_match.url_name == 'us_momentum_scanner' or request.resolver_match.url_name == 'precision_momentum_scanner' or request.resolver_match.url_name == 'us_precision_scanner' or request.resolver_match.url_name == 'scan_watchlist_view' or request.resolver_match.url_name == 'cup_handle_scanner' or request.resolver_match.url_name == 'us_cup_handle_scanner' or request.resolver_match.url_name == 'mean_reversion_scanner' %}active{% endif %}"
                            href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                             <i class="fas fa-rocket"></i> Momentum
                         </a>
@@ -411,6 +411,13 @@
                                 <a class="dropdown-item rounded-3 py-2 {% if request.resolver_match.url_name == 'turtle_scanner' and request.GET.market == 'US' %}active{% endif %}"
                                    href="{% url 'stocks:turtle_scanner' %}?market=US">
                                     <i class="fas fa-turtle me-2 text-primary"></i> 🇺🇸 Turtle Breakout (US)
+                                </a>
+                            </li>
+                            <li><hr class="dropdown-divider opacity-25 my-1"></li>
+                            <li>
+                                <a class="dropdown-item rounded-3 py-2 {% if request.resolver_match.url_name == 'mean_reversion_scanner' %}active{% endif %}"
+                                   href="{% url 'stocks:mean_reversion_scanner' %}">
+                                    <i class="fas fa-left-right me-2 text-warning"></i> Mean Reversion (SET/US)
                                 </a>
                             </li>
                             <li><hr class="dropdown-divider opacity-25 my-1"></li>

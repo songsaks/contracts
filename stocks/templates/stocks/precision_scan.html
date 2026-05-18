@@ -290,11 +290,15 @@
                         </div>
                         <p class="mb-0 small text-muted">
                             {% if markov_regime.state == 'TRENDING' %}
-                                <i class="fas fa-check-circle text-success me-1"></i> ตลาดมีแนวโน้มชัดเจน: <strong>เหมาะสำหรับการไล่ราคา (Follow-through)</strong> และใช้ Leverage ได้
-                            {% elif markov_regime.state == 'CHOPPY' %}
-                                <i class="fas fa-exclamation-triangle text-warning me-1"></i> ตลาดผันผวนไร้ทิศทาง: <strong>ควรเน้นซื้อในโซน (Buy in Zone)</strong> และลดขนาดไม้ลง 50%
+                                {% if markov_regime.prob >= 60 %}
+                                    <i class="fas fa-check-circle text-success me-1"></i> Stability สูง ({{ markov_regime.prob }}%) — <strong>เหมาะสำหรับการไล่ราคา (Follow-through)</strong> และใช้ Leverage ได้
+                                {% else %}
+                                    <i class="fas fa-triangle-exclamation text-warning me-1"></i> <strong>Stability ต่ำ ({{ markov_regime.prob }}%) — ลด Position Size ลงครึ่งหนึ่ง</strong> ยังไม่ควรใช้ Leverage รอ Stability ≥ 60% ก่อน
+                                {% endif %}
+                            {% elif markov_regime.state == 'CHOPPY' or markov_regime.state == 'ACCUMULATING' or markov_regime.state == 'DISTRIBUTING' %}
+                                <i class="fas fa-exclamation-triangle text-warning me-1"></i> ตลาด Sideways — ซื้อเฉพาะ Demand Zone เท่านั้น หรือใช้ <a href="{% url 'stocks:mean_reversion_scanner' %}" class="text-warning fw-bold">Mean Reversion Scanner</a> แทน
                             {% else %}
-                                <i class="fas fa-shield-halved text-danger me-1"></i> ตลาดเป็นขาลง: <strong>ควรระมัดระวังสูงสุด</strong> เน้นถือเงินสด หรือเล่นเฉพาะหุ้นที่มี RS สูงมากเท่านั้น
+                                <i class="fas fa-shield-halved text-danger me-1"></i> ตลาดขาลง — <strong>ระมัดระวังสูงสุด</strong> เน้นถือเงินสด เล่นเฉพาะหุ้น RS สูงมาก
                             {% endif %}
                         </p>
                     </div>

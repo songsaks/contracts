@@ -108,11 +108,15 @@
                     <p class="mb-0 fw-bold text-secondary" style="font-size: 0.88rem;">
                         <i class="fas fa-bolt me-1 text-warning"></i>
                         {% if market_regime.state == 'TRENDING' %}
-                            สภาวะตลาดเป็นใจ (Momentum Surge) โอกาสชนะในหุ้นขาขึ้นสูงมาก เน้นหุ้น Score > 80
-                        {% elif market_regime.state == 'CHOPPY' %}
-                            ตลาดแกว่งตัว (Choppy) ระวังการไล่ราคา แนะนำให้เข้าซื้อเฉพาะจังหวะย่อตัวใน Demand Zone
+                            {% if market_regime.prob >= 60 %}
+                                <span class="text-success fw-bold">Stability {{ market_regime.prob }}%</span> — สภาวะตลาดเป็นใจเต็มที่ โอกาสชนะสูงมาก เน้นหุ้น Score &gt; 80 เข้าเต็ม Position
+                            {% else %}
+                                <span class="text-warning fw-bold">⚠️ Stability {{ market_regime.prob }}%</span> — เทรนด์ยังไม่แน่นอน เข้าเฉพาะหุ้น Score &gt; 85 และ<strong>ลด Size ลงครึ่งหนึ่ง</strong>
+                            {% endif %}
+                        {% elif market_regime.state == 'CHOPPY' or market_regime.state == 'ACCUMULATING' or market_regime.state == 'DISTRIBUTING' %}
+                            <span class="text-warning fw-bold">ตลาด Sideways</span> — ระวังการไล่ราคา แนะนำใช้ <a href="{% url 'stocks:mean_reversion_scanner' %}" class="text-warning fw-bold">Mean Reversion Scanner</a> แทน หรือเข้าเฉพาะ Demand Zone เท่านั้น
                         {% elif market_regime.state == 'BEARISH' %}
-                            ตลาดอ่อนแอ (Risk-off) หุ้น Momentum มักจะยืนไม่อยู่ เน้นถือเงินสดและรอสัญญาณฟื้นตัว
+                            <span class="text-danger fw-bold">ตลาดอ่อนแอ</span> — หุ้น Momentum มักยืนไม่อยู่ เน้นถือเงินสดและรอสัญญาณฟื้นตัว
                         {% endif %}
                     </p>
                 </div>

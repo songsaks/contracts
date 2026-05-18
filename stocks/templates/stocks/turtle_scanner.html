@@ -97,11 +97,15 @@
                         <p class="mb-0 fw-medium text-secondary" style="font-size: 0.9rem;">
                             <i class="fas fa-info-circle me-1 opacity-50"></i>
                             {% if market_regime.state == 'TRENDING' %}
-                                ระบบ Turtle มีประสิทธิภาพสูงสุดในสภาวะนี้ เน้นถือรันเทรนด์ (Ride the Trend) จนกว่าจะหลุด Exit Low
-                            {% elif market_regime.state == 'CHOPPY' %}
-                                ตลาดผันผวนสูง ระวังเบรคหลอก (Whipsaw) แนะนำให้ลด Position Size (ไม้) ลงครึ่งหนึ่ง
+                                {% if market_regime.prob >= 60 %}
+                                    <span class="text-success fw-bold">Stability สูง ({{ market_regime.prob }}%)</span> — ระบบ Turtle มีประสิทธิภาพสูงสุด ถือรันเทรนด์เต็มขนาด และใช้ Leverage ได้
+                                {% else %}
+                                    <span class="text-warning fw-bold">⚠️ Stability ต่ำ ({{ market_regime.prob }}%)</span> — เทรนด์ยังไม่แน่นอน <strong>ลด Position Size ลงครึ่งหนึ่ง</strong> และ<strong>ยังไม่ควรใช้ Leverage</strong> รอ Stability ≥ 60% ก่อน
+                                {% endif %}
+                            {% elif market_regime.state == 'CHOPPY' or market_regime.state == 'ACCUMULATING' or market_regime.state == 'DISTRIBUTING' %}
+                                <span class="text-warning fw-bold">ตลาด Sideways</span> — ระวังเบรคหลอก (Whipsaw) ลด Size ลงครึ่งหนึ่ง หรือเปลี่ยนไปใช้ <a href="{% url 'stocks:mean_reversion_scanner' %}" class="text-warning fw-bold">Mean Reversion Scanner</a> แทน
                             {% elif market_regime.state == 'BEARISH' %}
-                                ตลาดขาลงรุนแรง โอกาสล้มเหลวสูงมาก แนะนำให้ถือเงินสดเป็นหลักเพื่อรอรอบใหม่
+                                <span class="text-danger fw-bold">ตลาดขาลง</span> — โอกาสล้มเหลวสูงมาก แนะนำให้ถือเงินสดเป็นหลัก หยุดเปิด position ใหม่จนกว่า Regime จะเปลี่ยน
                             {% endif %}
                         </p>
                     </div>
