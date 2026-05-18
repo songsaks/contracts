@@ -40,6 +40,7 @@ urlpatterns = [
     path('momentum/cup-handle/', views.cup_handle_scanner, name='cup_handle_scanner'),
     path('momentum/us-cup-handle/', views.us_cup_handle_scanner, name='us_cup_handle_scanner'),
     path('momentum/sepa/', views.minervini_sepa_scanner, name='minervini_sepa_scanner'),
+    path('momentum/mean-reversion/', views.mean_reversion_scanner, name='mean_reversion_scanner'),
     path('momentum/quick-ai/<str:symbol>/', views.momentum_quick_analysis, name='momentum_quick_analysis'),
     path('momentum/us/', views.us_momentum_scanner, name='us_momentum_scanner'),
     path('momentum/us/quick-ai/<str:symbol>/', views.us_momentum_quick_analysis, name='us_momentum_quick_analysis'),

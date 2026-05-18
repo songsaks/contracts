@@ -742,6 +742,45 @@ class TurtleScanCandidate(models.Model):
         return f"{self.symbol} - S1:{self.sys1_breakout} S2:{self.sys2_breakout} (run: {self.scan_run})"
 
 
+class MeanReversionCandidate(models.Model):
+    """ผลลัพธ์การสแกน Mean Reversion — Oversold/Overbought ใน Range-Bound Market (ADX < 25)"""
+    DIRECTION_CHOICES = [('oversold', 'Oversold'), ('overbought', 'Overbought')]
+
+    user       = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
+    scan_run   = models.DateTimeField(db_index=True)
+    symbol     = models.CharField(max_length=20)
+    name       = models.CharField(max_length=100, blank=True, default='')
+    market     = models.CharField(max_length=10, default='SET', db_index=True)
+
+    price      = models.FloatField(default=0.0)
+    direction  = models.CharField(max_length=10, choices=DIRECTION_CHOICES, default='oversold')
+
+    rsi        = models.FloatField(default=50.0)
+    adx        = models.FloatField(default=0.0)
+    avg_vol_20d = models.FloatField(default=0.0)
+    rvol       = models.FloatField(default=1.0)
+
+    pattern    = models.CharField(max_length=30, blank=True, default='')
+
+    support_level      = models.FloatField(null=True, blank=True)
+    resistance_level   = models.FloatField(null=True, blank=True)
+    mean_target        = models.FloatField(null=True, blank=True)   # SMA20
+
+    dist_to_support_pct    = models.FloatField(default=0.0)
+    dist_to_resistance_pct = models.FloatField(default=0.0)
+    upside_pct             = models.FloatField(default=0.0)         # % to mean_target
+
+    r_score    = models.IntegerField(default=0)   # Reversion Score 0-100
+    rs_rating  = models.IntegerField(default=0)
+
+    class Meta:
+        ordering = ['-scan_run', '-r_score']
+        verbose_name = 'Mean Reversion Candidate'
+
+    def __str__(self):
+        return f"{self.symbol} [{self.direction}] r={self.r_score} (run: {self.scan_run})"
+
+
 # ====== Automated Trading Infrastructure (v2) ======
 
 class BrokerType(models.TextChoices):

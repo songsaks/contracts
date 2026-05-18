@@ -1,4 +1,5 @@
 {% extends "stocks/base_stocks.html" %}
+{% load regime_tags %}
 {% block content %}
 <div class="container-fluid py-4" style="background-color:#f8fafc;min-height:100vh;">
 
@@ -81,6 +82,8 @@
             </div>
         </div>
     </div>
+
+    {% regime_bar 'US' %}
 
     <!-- MAIN TABLE -->
     <div class="bg-white rounded-4 shadow-sm overflow-hidden">

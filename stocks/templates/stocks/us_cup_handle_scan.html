@@ -1,5 +1,6 @@
 {% extends 'stocks/base_stocks.html' %}
 {% load humanize %}
+{% load regime_tags %}
 
 {% block title %}US Cup & Handle Scanner{% endblock %}
 {% block container_class %}container-fluid px-2 px-md-3{% endblock %}
@@ -41,6 +42,8 @@
         {% endif %}
     </div>
 </div>
+
+{% regime_bar 'US' %}
 
 <!-- ===== Loading Overlay ===== -->
 <div id="loadingOverlay" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,0.85);z-index:9999;flex-direction:column;align-items:center;justify-content:center;gap:1rem;">

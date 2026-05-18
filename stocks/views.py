@@ -2026,6 +2026,357 @@ def delete_portfolio_fund(request, fund_id):
     return redirect('stocks:portfolio_list')
 
 
+# ====== Mean Reversion Scanner — helpers ======
+
+def _mr_detect_pattern(df):
+    """Detect bullish reversal patterns for MR Scanner."""
+    if len(df) < 3:
+        return ''
+    try:
+        o1, h1, l1, c1 = float(df['Open'].iloc[-2]), float(df['High'].iloc[-2]), float(df['Low'].iloc[-2]), float(df['Close'].iloc[-2])
+        o0, h0, l0, c0 = float(df['Open'].iloc[-1]), float(df['High'].iloc[-1]), float(df['Low'].iloc[-1]), float(df['Close'].iloc[-1])
+        body0   = abs(c0 - o0)
+        range0  = h0 - l0
+        if range0 == 0:
+            return ''
+        upper0 = h0 - max(c0, o0)
+        lower0 = min(c0, o0) - l0
+        # Hammer
+        if lower0 >= 2 * max(body0, 0.0001) and lower0 >= 2 * max(upper0, 0.0001) and c0 >= l0 + range0 * 0.5:
+            return 'Hammer'
+        # Pin Bar
+        if lower0 >= 2.5 * max(upper0, 0.0001) and body0 < range0 * 0.35:
+            return 'Pin Bar'
+        # Bullish Engulf
+        body1 = abs(c1 - o1)
+        if c1 < o1 and c0 > o0 and c0 > o1 and o0 <= c1 and body0 > body1 * 0.9:
+            return 'Bullish Engulf'
+        # Morning Star
+        if len(df) >= 3:
+            o2, c2 = float(df['Open'].iloc[-3]), float(df['Close'].iloc[-3])
+            body2 = abs(c2 - o2)
+            if c2 < o2 and body1 < max(body2, 0.0001) * 0.5 and c0 > o0 and c0 > (o2 + c2) / 2:
+                return 'Morning Star'
+    except Exception:
+        pass
+    return ''
+
+
+def _mr_swing_support(df, lookback=60):
+    """Nearest swing low below current price."""
+    try:
+        curr  = float(df['Close'].iloc[-1])
+        lows  = df['Low'].tail(lookback).values
+        swing = [lows[i] for i in range(2, len(lows) - 2) if lows[i] == min(lows[i-2:i+3])]
+        below = [s for s in swing if s < curr]
+        return max(below) if below else None
+    except Exception:
+        return None
+
+
+def _mr_swing_resistance(df, lookback=60):
+    """Nearest swing high above current price."""
+    try:
+        curr   = float(df['Close'].iloc[-1])
+        highs  = df['High'].tail(lookback).values
+        swing  = [highs[i] for i in range(2, len(highs) - 2) if highs[i] == max(highs[i-2:i+3])]
+        above  = [s for s in swing if s > curr]
+        return min(above) if above else None
+    except Exception:
+        return None
+
+
+def _mr_r_score(rsi, adx, rvol, pattern, direction, dist_support_pct):
+    score = 50
+    if adx < 15:   score += 15
+    elif adx < 20: score += 10
+    elif adx < 25: score += 5
+    if direction == 'oversold':
+        if rsi < 25:   score += 20
+        elif rsi < 30: score += 12
+        elif rsi < 35: score += 6
+    else:
+        if rsi > 75:   score += 20
+        elif rsi > 70: score += 12
+        elif rsi > 65: score += 6
+    if rvol > 1.5:   score += 15
+    elif rvol > 1.2: score += 8
+    elif rvol > 1.0: score += 3
+    bonus = {'Bullish Engulf': 20, 'Morning Star': 18, 'Hammer': 15, 'Pin Bar': 12}
+    score += bonus.get(pattern, 0)
+    if dist_support_pct < 2.0:   score += 10
+    elif dist_support_pct < 5.0: score += 5
+    return min(100, score)
+
+
+_mr_bg_cache = {}
+
+
+@login_required
+def mean_reversion_scanner(request):
+    """
+    Mean Reversion Scanner — หาหุ้น Oversold/Overbought ใน Range-Bound Market
+    เกณฑ์: ADX < 25 (ไม่มี Trend) + RSI < 35 หรือ > 65
+    เหมาะใช้เมื่อ Regime = CHOPPY / SIDEWAYS
+    """
+    import threading as _thr
+    from django.core.cache import cache as _cp
+    from django.http import JsonResponse as _JR
+
+    market    = request.GET.get('market', 'SET')
+    user_id   = request.user.id
+    cache_key = f'mr_scan_{user_id}_{market}'
+
+    if request.GET.get('scan_status') == '1':
+        st = _cp.get(cache_key, {'state': 'idle'})
+        if st.get('state') == 'done':
+            _cp.delete(cache_key)
+        return _JR(st)
+
+    if request.GET.get('scan') == 'true' or request.method == 'POST':
+        if _mr_bg_cache.get(cache_key, {}).get('state') == 'running':
+            return redirect('stocks:mean_reversion_scanner')
+
+        if market == 'SET':
+            from .utils import get_top_ranked_symbols
+            sym_list = get_top_ranked_symbols(market='SET', limit=400, auto_refresh=True)
+        else:
+            from .models import ScannableSymbol as _SS
+            sym_list = list(_SS.objects.filter(is_active=True, market='US').values_list('symbol', flat=True))
+            if len(sym_list) < 100:
+                _seed_us_symbols()
+                sym_list = list(_SS.objects.filter(is_active=True, market='US').values_list('symbol', flat=True))
+
+        _cp.set(cache_key, {'state': 'running', 'progress': 0, 'total': len(sym_list), 'phase': 'เริ่มสแกน Mean Reversion…'}, timeout=900)
+
+        def _run_mr(uid, ckey, syms, mkt):
+            try:
+                import django; django.setup()
+                import yfinance as yf
+                import pandas as pd
+                import pandas_ta as ta
+                import concurrent.futures as cf
+                from django.core.cache import cache as _c
+                from django.contrib.auth import get_user_model
+                from django.utils import timezone as tz
+                from datetime import datetime as _dt, timedelta as _td
+                import pytz, logging
+                _log = logging.getLogger('stocks.mean_reversion')
+
+                User = get_user_model()
+                user = User.objects.get(pk=uid)
+                _tz  = pytz.timezone('Asia/Bangkok') if mkt == 'SET' else pytz.utc
+                now  = _dt.now(_tz)
+                end  = (now.date() + _td(days=1)).strftime('%Y-%m-%d')
+                start= (now.date() - _td(days=300)).strftime('%Y-%m-%d')
+                scan_run = tz.now()
+
+                from .models import MeanReversionCandidate as _MRC
+                old = list(_MRC.objects.filter(user=user, market=mkt)
+                           .values_list('scan_run', flat=True).distinct().order_by('-scan_run')[2:])
+                if old:
+                    _MRC.objects.filter(user=user, market=mkt, scan_run__in=old).delete()
+
+                results = []
+
+                def _scan_one(sym):
+                    try:
+                        fetch = f'{sym}.BK' if mkt == 'SET' else sym
+                        df = yf.Ticker(fetch).history(start=start, end=end, interval='1d')
+                        if df is None or df.empty or len(df) < 60:
+                            return None
+                        if isinstance(df.columns, pd.MultiIndex):
+                            df.columns = df.columns.droplevel(1)
+                        df = df.dropna(subset=['Close', 'High', 'Low', 'Open'])
+
+                        curr    = float(df['Close'].iloc[-1])
+                        avg_vol = float(df['Volume'].tail(20).mean())
+                        if avg_vol == 0:
+                            return None
+
+                        # Liquidity filter
+                        if mkt == 'SET' and avg_vol * curr < 500_000:
+                            return None
+                        if mkt == 'US' and avg_vol < 200_000:
+                            return None
+
+                        # ADX filter — must be range-bound
+                        adx_v = 30.0
+                        try:
+                            adf = ta.adx(df['High'], df['Low'], df['Close'], 14)
+                            ac  = [c for c in adf.columns if c.startswith('ADX_')]
+                            if ac:
+                                adx_v = float(adf[ac[0]].iloc[-1])
+                        except Exception as e:
+                            _log.debug(f'MR ADX {sym}: {e}')
+                        if adx_v >= 25:
+                            return None
+
+                        # RSI filter
+                        rsi_v = 50.0
+                        try:
+                            rs = ta.rsi(df['Close'], 14)
+                            if rs is not None and pd.notna(rs.iloc[-1]):
+                                rsi_v = float(rs.iloc[-1])
+                        except Exception as e:
+                            _log.debug(f'MR RSI {sym}: {e}')
+
+                        if rsi_v >= 35 and rsi_v <= 65:
+                            return None   # neutral zone — skip
+
+                        direction = 'oversold' if rsi_v < 35 else 'overbought'
+
+                        # Pattern detection
+                        pattern = _mr_detect_pattern(df)
+
+                        # Volume confirmation: rvol
+                        rvol = float(df['Volume'].iloc[-1]) / avg_vol if avg_vol > 0 else 1.0
+
+                        # Support / Resistance
+                        support    = _mr_swing_support(df)
+                        resistance = _mr_swing_resistance(df)
+                        dist_sup   = ((curr - support) / support * 100) if support else 999.0
+                        dist_res   = ((resistance - curr) / curr * 100) if resistance else 999.0
+
+                        # Mean target: SMA20
+                        mean_tgt = None
+                        try:
+                            s20 = ta.sma(df['Close'], 20)
+                            if s20 is not None and pd.notna(s20.iloc[-1]):
+                                mean_tgt = float(s20.iloc[-1])
+                        except Exception:
+                            pass
+
+                        upside = ((mean_tgt - curr) / curr * 100) if mean_tgt and curr > 0 else 0.0
+
+                        # 3-month RS raw
+                        rs_raw = 0.0
+                        if len(df) >= 66:
+                            c66 = float(df['Close'].iloc[-66])
+                            if c66 > 0:
+                                rs_raw = (curr - c66) / c66 * 100
+
+                        r_score = _mr_r_score(rsi_v, adx_v, rvol, pattern, direction, dist_sup)
+
+                        return {
+                            'symbol': sym, 'price': round(curr, 4),
+                            'direction': direction, 'rsi': round(rsi_v, 1),
+                            'adx': round(adx_v, 1), 'avg_vol': avg_vol,
+                            'rvol': round(rvol, 2), 'pattern': pattern,
+                            'support': support, 'resistance': resistance,
+                            'dist_sup': round(dist_sup, 2), 'dist_res': round(dist_res, 2),
+                            'mean_tgt': mean_tgt, 'upside': round(upside, 2),
+                            'rs_raw': rs_raw, 'r_score': r_score,
+                        }
+                    except Exception as e:
+                        _log.debug(f'MR scan {sym}: {e}')
+                        return None
+
+                done = 0
+                total = len(syms)
+                with cf.ThreadPoolExecutor(max_workers=5) as ex:
+                    futs = {ex.submit(_scan_one, s): s for s in syms}
+                    for fut in cf.as_completed(futs):
+                        done += 1
+                        if done % 20 == 0:
+                            _c.set(ckey, {'state': 'running', 'progress': done, 'total': total,
+                                          'phase': f'สแกน {done}/{total}…'}, timeout=900)
+                        try:
+                            r = fut.result()
+                            if r:
+                                results.append(r)
+                        except Exception as e:
+                            _log.debug(f'MR future {futs[fut]}: {e}')
+
+                # RS percentile ranking
+                import pandas as _pd
+                rs_map = {}
+                rs_vals = {r['symbol']: r['rs_raw'] for r in results}
+                if rs_vals:
+                    ser = _pd.Series(rs_vals)
+                    rs_map = (ser.rank(pct=True) * 99).clip(0, 99).astype(int).to_dict()
+
+                bulk = [_MRC(
+                    user=user, scan_run=scan_run, symbol=r['symbol'],
+                    market=mkt, price=r['price'], direction=r['direction'],
+                    rsi=r['rsi'], adx=r['adx'],
+                    avg_vol_20d=r['avg_vol'], rvol=r['rvol'],
+                    pattern=r['pattern'],
+                    support_level=r['support'], resistance_level=r['resistance'],
+                    dist_to_support_pct=r['dist_sup'],
+                    dist_to_resistance_pct=r['dist_res'],
+                    mean_target=r['mean_tgt'], upside_pct=r['upside'],
+                    r_score=r['r_score'], rs_rating=rs_map.get(r['symbol'], 0),
+                ) for r in results]
+                _MRC.objects.bulk_create(bulk)
+                _c.set(ckey, {'state': 'done'}, timeout=300)
+
+            except Exception as exc:
+                import logging as _l
+                _l.getLogger('stocks').exception(f'[MR Scanner] bg error: {exc}')
+                from django.core.cache import cache as _c2
+                _c2.set(ckey, {'state': 'done'}, timeout=300)
+
+        _thr.Thread(target=_run_mr, args=(user_id, cache_key, sym_list, market), daemon=True).start()
+        return redirect(f'{request.path}?market={market}')
+
+    # ── Display ───────────────────────────────────────────────────────
+    from .models import MeanReversionCandidate as _MRC
+
+    all_runs = list(
+        _MRC.objects.filter(user=request.user, market=market)
+        .values_list('scan_run', flat=True).distinct().order_by('-scan_run')
+    )
+    try:
+        run_idx = max(0, min(int(request.GET.get('run_idx', 0)), len(all_runs) - 1)) if all_runs else 0
+    except (ValueError, TypeError):
+        run_idx = 0
+
+    candidates  = []
+    last_updated = None
+    if all_runs:
+        run_time    = all_runs[run_idx]
+        candidates  = list(_MRC.objects.filter(user=request.user, market=market, scan_run=run_time))
+        last_updated = run_time
+
+    direction_filter = request.GET.get('direction', 'all')
+    if direction_filter == 'oversold':
+        candidates = [c for c in candidates if c.direction == 'oversold']
+    elif direction_filter == 'overbought':
+        candidates = [c for c in candidates if c.direction == 'overbought']
+
+    min_score = int(request.GET.get('min_score', 60))
+    candidates = [c for c in candidates if c.r_score >= min_score]
+
+    oversold_count   = sum(1 for c in candidates if c.direction == 'oversold')
+    overbought_count = sum(1 for c in candidates if c.direction == 'overbought')
+    pattern_count    = sum(1 for c in candidates if c.pattern)
+    top_score        = max((c.r_score for c in candidates), default=0)
+
+    # Regime for recommendation banner
+    from .utils import calculate_markov_regime
+    _regime_key = f'markov_regime_global_{market}'
+    regime = _cp.get(_regime_key)
+    if not regime:
+        regime = calculate_markov_regime('^SET' if market == 'SET' else '^GSPC')
+        _cp.set(_regime_key, regime, 1800)
+
+    return render(request, 'stocks/mean_reversion_scanner.html', {
+        'candidates':       candidates,
+        'last_updated':     last_updated,
+        'all_runs':         all_runs,
+        'run_idx':          run_idx,
+        'market':           market,
+        'direction_filter': direction_filter,
+        'min_score':        min_score,
+        'oversold_count':   oversold_count,
+        'overbought_count': overbought_count,
+        'pattern_count':    pattern_count,
+        'top_score':        top_score,
+        'market_regime':    regime,
+    })
+
+
 # ====== Portfolio Exit Plan - แผนออกหุ้นแต่ละตัว เรียงตามความเร่งด่วน ======
 
 @login_required
@@ -4171,10 +4522,10 @@ def precision_momentum_scanner(request):
                     _rs_ser = pd.Series(rs_returns_all)
                     rs_ratings_map = (_rs_ser.rank(pct=True) * 99).clip(0, 99).astype(int).to_dict()
 
-                # Phase 2: เจาะลึกหุ้นที่เข้ารอบ
-                results_to_process = [s for s in sym_list if rs_ratings_map.get(s, 0) >= 60]
+                # Phase 2: เจาะลึกหุ้นที่เข้ารอบ (ผ่อนปรนให้หุ้นที่มี RS >= 45 หลุดเข้าประเมินเชิงลึก เพื่อความยืดหยุ่นของ Early Accumulation)
+                results_to_process = [s for s in sym_list if rs_ratings_map.get(s, 0) >= 45]
                 if not results_to_process:
-                    results_to_process = sym_list[:20] # Safety fallback
+                    results_to_process = sym_list[:30] # Safety fallback
 
                 def _process_precision_scan(symbol):
                     try:
