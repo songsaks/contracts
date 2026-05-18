@@ -2363,7 +2363,7 @@ def portfolio_exit_plan_ai_analysis(request):
     """
     
     try:
-        model_name_to_use = "gemini-2.0-pro-exp-02-05"
+        model_name_to_use = "gemini-2.5-flash"
         client = genai.Client(api_key=settings.GEMINI_API_KEY)
         response = client.models.generate_content(
             model=model_name_to_use,
