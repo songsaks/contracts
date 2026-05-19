@@ -348,6 +348,12 @@ class PrecisionScanCandidate(models.Model):
     ema20_aligned    = models.BooleanField(default=False)         # EMA20 > EMA50 > EMA200 full 3-layer alignment
     rs_rating        = models.IntegerField(default=0)             # Relative Strength Rating (0-99 percentile)
 
+    # ====== John Ehlers Indicators (v12) ======
+    ehlers_supersmoother = models.FloatField(null=True, blank=True)
+    ehlers_laguerre_rsi  = models.FloatField(null=True, blank=True)
+    ehlers_fisher        = models.FloatField(null=True, blank=True)
+    ehlers_fisher_trigger= models.FloatField(null=True, blank=True)
+
     # ====== Trend Following indicators (v4) ======
     ema20_slope      = models.FloatField(default=0.0)             # EMA20 slope % (5-day change) — >0.1% = rising
     ema20_rising     = models.BooleanField(default=False)         # EMA20 กำลังชี้ขึ้น (slope > 0.1%)

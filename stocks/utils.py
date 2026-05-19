@@ -1558,13 +1558,31 @@ def analyze_momentum_technical_v2(df):
     turtle_dist = ((high_20 - current_price) / current_price * 100) if current_price > 0 else 99
     if turtle_dist < 1.0:   launcher_score += 30  # จ่อเบรค (Ready to Shoot)
     elif turtle_dist < 3.0: launcher_score += 15
-    
     # C. Volume Dry-Up (VDU) - แรงขายหมดหรือยัง?
     vol_3d_avg = float(df['Volume'].tail(3).mean())
     if vol_3d_avg < avg_vol * 0.6:  # Volume 3 วันที่ผ่านมาเฉลี่ยต่ำกว่า 60% ของค่าเฉลี่ย
         launcher_score += 30
     elif vol_3d_avg < avg_vol * 0.8:
         launcher_score += 15
+
+    # ====== John Ehlers Indicators (v12) ======
+    ehlers_supersmoother_val = current_price
+    ehlers_laguerre_rsi_val = 0.5
+    ehlers_fisher_val = 0.0
+    ehlers_fisher_trigger_val = 0.0
+    try:
+        if len(df) >= 30:
+            supersmoother_series = calculate_ehlers_supersmoother(df['Close'].values, period=15)
+            ehlers_supersmoother_val = float(supersmoother_series[-1])
+            
+            laguerre_rsi_series = calculate_ehlers_laguerre_rsi(df['Close'].values, gamma=0.7)
+            ehlers_laguerre_rsi_val = float(laguerre_rsi_series[-1])
+            
+            fisher_series, trigger_series = calculate_ehlers_fisher_transform(df['High'].values, df['Low'].values, period=10)
+            ehlers_fisher_val = float(fisher_series[-1])
+            ehlers_fisher_trigger_val = float(trigger_series[-1])
+    except Exception:
+        pass
 
     return {
         'score': min(score, 110),
@@ -1591,6 +1609,11 @@ def analyze_momentum_technical_v2(df):
         'turtle_dist_pct': round(turtle_dist, 2),
         'is_explosive': launcher_score >= 70,
         'tightness_idx': round(tightness, 2),
+        # Ehlers DSP indicators
+        'ehlers_supersmoother': round(ehlers_supersmoother_val, 2),
+        'ehlers_laguerre_rsi': round(ehlers_laguerre_rsi_val, 2),
+        'ehlers_fisher': round(ehlers_fisher_val, 2),
+        'ehlers_fisher_trigger': round(ehlers_fisher_trigger_val, 2),
     }
 
 
@@ -2146,3 +2169,113 @@ def calculate_markov_regime(symbol="^SET", window=60):
         import logging
         logging.getLogger('stocks').error(f"Markov Regime Error: {e}")
         return {"state": "ERROR", "label": "Calculation Error", "color": "secondary", "prob": 0}
+
+
+# ======================================================================
+# John Ehlers Digital Signal Processing (DSP) Indicators
+# ======================================================================
+
+def calculate_ehlers_supersmoother(prices, period=15):
+    """
+    Ehlers 2-Pole SuperSmoother Filter
+    Grants superior noise filtering compared to standard EMA or SMA with minimal lag.
+    """
+    import math
+    import numpy as np
+    prices = np.asarray(prices, dtype=float)
+    n = len(prices)
+    filt = np.copy(prices)
+    if n < 3:
+        return filt
+    
+    # Calculate constant coefficients
+    a1 = math.exp(-1.414 * 3.14159 / period)
+    # Cosine expects radians. In Ehlers books, he sometimes writes degrees but 
+    # math.cos expects radians. The correct coefficient formula in radians is:
+    b1 = 2.0 * a1 * math.cos(1.414 * 3.14159 / period)
+    c2 = b1
+    c3 = -a1 * a1
+    c1 = 1.0 - c2 - c3
+    
+    for i in range(2, n):
+        filt[i] = c1 * (prices[i] + prices[i-1]) / 2.0 + c2 * filt[i-1] + c3 * filt[i-2]
+    return filt
+
+
+def calculate_ehlers_laguerre_rsi(prices, gamma=0.7):
+    """
+    Ehlers 4-Element Laguerre RSI
+    Offers low-lag, smooth momentum signals. gamma values between 0.7 and 0.8 are recommended.
+    """
+    import numpy as np
+    prices = np.asarray(prices, dtype=float)
+    n = len(prices)
+    l0 = np.zeros(n)
+    l1 = np.zeros(n)
+    l2 = np.zeros(n)
+    l3 = np.zeros(n)
+    lrsi = np.zeros(n)
+    if n < 2:
+        return lrsi
+        
+    for i in range(1, n):
+        l0[i] = (1.0 - gamma) * prices[i] + gamma * l0[i-1]
+        l1[i] = -gamma * l0[i] + l0[i-1] + gamma * l1[i-1]
+        l2[i] = -gamma * l1[i] + l1[i-1] + gamma * l2[i-1]
+        l3[i] = -gamma * l2[i] + l2[i-1] + gamma * l3[i-1]
+        
+        cu = 0.0
+        cd = 0.0
+        if l0[i] >= l1[i]: cu += l0[i] - l1[i]
+        else: cd += l1[i] - l0[i]
+        if l1[i] >= l2[i]: cu += l1[i] - l2[i]
+        else: cd += l2[i] - l1[i]
+        if l2[i] >= l3[i]: cu += l2[i] - l3[i]
+        else: cd += l3[i] - l2[i]
+        
+        if cu + cd > 0:
+            lrsi[i] = cu / (cu + cd)
+        else:
+            lrsi[i] = 0.0
+            
+    return lrsi
+
+
+def calculate_ehlers_fisher_transform(prices_high, prices_low, period=10):
+    """
+    Ehlers Fisher Transform
+    Converts price distribution to a Gaussian probability density function.
+    Helps locate turning points (mean reversion) with high accuracy.
+    Returns: (fisher, trigger)
+    """
+    import numpy as np
+    h = np.asarray(prices_high, dtype=float)
+    l = np.asarray(prices_low, dtype=float)
+    n = len(h)
+    value = np.zeros(n)
+    fish = np.zeros(n)
+    if n < period:
+        return fish, fish
+        
+    for i in range(period - 1, n):
+        sub_h = h[i - period + 1 : i + 1]
+        sub_l = l[i - period + 1 : i + 1]
+        maxh = np.max(sub_h)
+        minl = np.min(sub_l)
+        diff = maxh - minl
+        if diff == 0:
+            diff = 0.001
+            
+        curr_val = 0.66 * ((( (h[i] + l[i]) / 2.0 - minl) / diff - 0.5)) + 0.67 * value[i-1]
+        if curr_val > 0.9999:
+            curr_val = 0.9999
+        elif curr_val < -0.9999:
+            curr_val = -0.9999
+        value[i] = curr_val
+        
+        fish[i] = 0.5 * np.log((1.0 + value[i]) / (1.0 - value[i])) + 0.5 * fish[i-1]
+        
+    trigger = np.zeros(n)
+    trigger[1:] = fish[:-1]
+    return fish, trigger
+

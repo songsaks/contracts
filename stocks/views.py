@@ -5157,6 +5157,11 @@ def precision_momentum_scanner(request):
                             'turtle_dist_pct': tech.get('turtle_dist_pct', 99.0),
                             'is_explosive': tech.get('is_explosive', False),
                             'tightness_idx': tech.get('tightness_idx', 99.0),
+                            # ====== John Ehlers Indicators (v12) ======
+                            'ehlers_supersmoother': tech.get('ehlers_supersmoother', current_price),
+                            'ehlers_laguerre_rsi': tech.get('ehlers_laguerre_rsi', 0.5),
+                            'ehlers_fisher': tech.get('ehlers_fisher', 0.0),
+                            'ehlers_fisher_trigger': tech.get('ehlers_fisher_trigger', 0.0),
                         }
 
                     except Exception as e:
@@ -5280,6 +5285,11 @@ def precision_momentum_scanner(request):
                             turtle_dist_pct=r.get('turtle_dist_pct', 99.0),
                             is_explosive=r.get('is_explosive', False),
                             tightness_idx=r.get('tightness_idx', 99.0),
+                            # Ehlers v12
+                            ehlers_supersmoother=r.get('ehlers_supersmoother', None),
+                            ehlers_laguerre_rsi=r.get('ehlers_laguerre_rsi', None),
+                            ehlers_fisher=r.get('ehlers_fisher', None),
+                            ehlers_fisher_trigger=r.get('ehlers_fisher_trigger', None),
                         ))
 
                     if bulk_candidates:
@@ -8418,6 +8428,11 @@ def us_precision_scanner(request):
                             'turtle_dist_pct': tech.get('turtle_dist_pct', 99.0),
                             'is_explosive': tech.get('is_explosive', False),
                             'tightness_idx': tech.get('tightness_idx', 99.0),
+                            # ====== John Ehlers Indicators (v12) ======
+                            'ehlers_supersmoother': tech.get('ehlers_supersmoother', current_p),
+                            'ehlers_laguerre_rsi': tech.get('ehlers_laguerre_rsi', 0.5),
+                            'ehlers_fisher': tech.get('ehlers_fisher', 0.0),
+                            'ehlers_fisher_trigger': tech.get('ehlers_fisher_trigger', 0.0),
                         }
                     except Exception as e:
                         import logging
@@ -8494,6 +8509,11 @@ def us_precision_scanner(request):
                             turtle_dist_pct=r.get('turtle_dist_pct', 99.0),
                             is_explosive=r.get('is_explosive', False),
                             tightness_idx=r.get('tightness_idx', 99.0),
+                            # Ehlers v12
+                            ehlers_supersmoother=r.get('ehlers_supersmoother', None),
+                            ehlers_laguerre_rsi=r.get('ehlers_laguerre_rsi', None),
+                            ehlers_fisher=r.get('ehlers_fisher', None),
+                            ehlers_fisher_trigger=r.get('ehlers_fisher_trigger', None),
                         ))
                     PrecisionScanCandidate.objects.bulk_create(bulk)
                     
