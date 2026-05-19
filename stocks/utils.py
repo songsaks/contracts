@@ -2343,28 +2343,31 @@ def classify_ehlers_pattern(lrsi, fisher, trig, price, ss):
     if lrsi >= 0.80:
         return {
             'num': 1,
-            'label': "รูปแบบที่ 1: ขึ้นแรงติดลมบน",
+            'label': "E1: ขึ้นแรง",
+            'full_label': "รูปแบบที่ 1: ขึ้นแรงติดลมบน",
             'class': "badge-outline-success",
-            'style': "background:rgba(22,163,74,0.1);color:#16a34a;border:1px solid rgba(22,163,74,0.2);",
-            'desc': "โมเมนตัมขาขึ้นรุนแรงเป็นพิเศษ (Super Bullish)"
+            'style': "background:rgba(22,163,74,0.08);color:#15803d;border:1px solid rgba(22,163,74,0.25); font-weight: 600;",
+            'desc': "รูปแบบที่ 1: ขึ้นแรงติดลมบน - โมเมนตัมขาขึ้นรุนแรงเป็นพิเศษ (Super Bullish)"
         }
     # Check Type 2
     elif lrsi >= 0.15 and fisher is not None and trig is not None and fisher > trig:
         return {
             'num': 2,
-            'label': "รูปแบบที่ 2: เพิ่งกลับตัวขึ้น",
+            'label': "E2: กลับตัว",
+            'full_label': "รูปแบบที่ 2: เพิ่งกลับตัวขึ้น",
             'class': "badge-outline-info",
-            'style': "background:rgba(14,165,233,0.1);color:#0ea5e9;border:1px solid rgba(14,165,233,0.2);",
-            'desc': "เพิ่งพ้นจุดต่ำสุดและยืนยันการเริ่มฟื้นตัว"
+            'style': "background:rgba(14,165,233,0.08);color:#0369a1;border:1px solid rgba(14,165,233,0.25); font-weight: 600;",
+            'desc': "รูปแบบที่ 2: เพิ่งกลับตัวขึ้น - เพิ่งพ้นจุดต่ำสุดและยืนยันการเริ่มฟื้นตัว"
         }
     # Check Type 3
     elif lrsi >= 0.40 and (ss is None or price is None or price >= ss):
         return {
             'num': 3,
-            'label': "รูปแบบที่ 3: ย่อตัวเพื่อขึ้นต่อ",
+            'label': "E3: ย่อซื้อ",
+            'full_label': "รูปแบบที่ 3: ย่อตัวเพื่อขึ้นต่อ",
             'class': "badge-outline-warning",
-            'style': "background:rgba(245,158,11,0.1);color:#d97706;border:1px solid rgba(245,158,11,0.2);",
-            'desc': "ย่อตัวปรับฐานชั่วคราวในแนวโน้มขาขึ้นหลัก"
+            'style': "background:rgba(245,158,11,0.08);color:#b45309;border:1px solid rgba(245,158,11,0.25); font-weight: 600;",
+            'desc': "รูปแบบที่ 3: ย่อตัวเพื่อขึ้นต่อ - สภาวะพักตัวปรับฐานบนแนวโน้มขาขึ้น (Buy on Pullback)"
         }
     return None
 
