@@ -132,6 +132,7 @@
     <span><span class="legend-dot" style="background:#86efac;border:1px dashed #22c55e;"></span>DC20 Lower</span>
     <span><span class="legend-dot" style="background:#f59e0b;"></span>DC55 Upper</span>
     <span><span class="legend-dot" style="background:#fcd34d;border:1px dashed #f59e0b;"></span>DC55 Lower</span>
+    <span><span class="legend-dot" style="background:#f97316;"></span>ITL (Ehlers)</span>
     <span>▲ <span style="color:#22c55e;">Sys1 Buy</span></span>
     <span>▲ <span style="color:#f59e0b;">Sys2 Buy</span></span>
     <span>▼ <span style="color:#ef4444;">Exit</span></span>
@@ -149,6 +150,7 @@
       <label class="indicator-check"><input type="checkbox" id="check-ema20" onchange="toggleIndicators()"> EMA 20</label>
       <label class="indicator-check"><input type="checkbox" id="check-ema50" onchange="toggleIndicators()"> EMA 50</label>
       <label class="indicator-check"><input type="checkbox" id="check-ema200" onchange="toggleIndicators()"> EMA 200</label>
+      <label class="indicator-check"><input type="checkbox" id="check-itl" checked onchange="toggleIndicators()"> ITL (Ehlers)</label>
       <div class="vr mx-1 opacity-20"></div>
       <label class="indicator-check"><input type="checkbox" id="check-macd" onchange="toggleIndicators()"> MACD Panel</label>
       <label class="indicator-check"><input type="checkbox" id="check-rsi" checked onchange="toggleIndicators()"> RSI Panel</label>
@@ -282,6 +284,7 @@ let globalTacticalData = null;
 // Chart Series Storage
 let dcSeries = [], bbSeries = [], emaSeries = {e20:null, e50:null, e200:null};
 let macdSeries = {macd:null, signal:null, hist:null};
+let itlSeries = null;
 
 function updateTacticalWithCapital() {
     if (!globalTacticalData) return;
@@ -319,7 +322,7 @@ function mkChart(elId, height) {
 function destroyAll() {
   [mainChart, macdChart, rsiChart, volChart].forEach(c => { if (c) c.remove(); });
   mainChart = macdChart = rsiChart = volChart = null;
-  dcSeries = []; bbSeries = []; emaSeries = {e20:null, e50:null, e200:null};
+  dcSeries = []; bbSeries = []; emaSeries = {e20:null, e50:null, e200:null}; itlSeries = null;
 }
 
 function syncCharts() {
@@ -395,6 +398,12 @@ function renderCharts(data) {
   if (document.getElementById('check-ema200').checked) {
     emaSeries.e200 = mainChart.addLineSeries({ color: '#f43f5e', lineWidth: 2, priceLineVisible: false, lastValueVisible: true, title: 'EMA 200' });
     emaSeries.e200.setData(data.ema200);
+  }
+
+  // --- Ehlers ITL ---
+  if (document.getElementById('check-itl').checked && data.itl && data.itl.length) {
+    itlSeries = mainChart.addLineSeries({ color: '#f97316', lineWidth: 2, lineStyle: 0, priceLineVisible: false, lastValueVisible: true, title: 'ITL' });
+    itlSeries.setData(data.itl);
   }
 
   // --- Markers ---

@@ -10640,6 +10640,11 @@ def stock_chart_data(request, symbol):
         df['bb_upper'] = ma20 + (std20 * 2)
         df['bb_lower'] = ma20 - (std20 * 2)
 
+        # --- Ehlers Instantaneous Trendline (ITL) ---
+        from .utils import calculate_ehlers_itl as _calc_itl
+        _itl_arr = _calc_itl(df['Close'].values, alpha=0.07)
+        df['itl'] = _itl_arr
+
         # --- Tactical Analysis (N and Next Units) ---
         # Calculate ATR (Wilder's method)
         df['h_l'] = df['High'] - df['Low']
@@ -10824,6 +10829,7 @@ def stock_chart_data(request, symbol):
         ema20, ema50, ema200 = [], [], []
         bbu, bbl = [], []
         macd, macd_sig, macd_hist = [], [], []
+        itl_data = []
         signals = []
 
         for dt, row in df.iterrows():
@@ -10863,6 +10869,9 @@ def stock_chart_data(request, symbol):
                 macd_sig.append({'time': t, 'value': round(float(row['macd_sig']), 2)})
                 macd_hist.append({'time': t, 'value': round(float(row['macd_hist']), 2)})
 
+            if _pd.notna(row['itl']):
+                itl_data.append({'time': t, 'value': round(float(row['itl']), 2)})
+
             if row['sys1_signal']:
                 signals.append({'time': t, 'type': 'sys1_buy', 'price': round(float(row['Close']), 2)})
             if row['sys2_signal']:
@@ -10878,6 +10887,7 @@ def stock_chart_data(request, symbol):
             'ema20': ema20, 'ema50': ema50, 'ema200': ema200,
             'bb_upper': bbu, 'bb_lower': bbl,
             'macd': macd, 'macd_sig': macd_sig, 'macd_hist': macd_hist,
+            'itl': itl_data,
             'signals': signals,
             'is_intraday': is_intraday,
             'interval': download_interval,
