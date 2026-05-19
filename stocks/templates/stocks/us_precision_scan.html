@@ -1576,8 +1576,7 @@ function _applyFiltersUS() {
 
         var rsiOn     = document.getElementById('rsiFilter70US') && document.getElementById('rsiFilter70US').checked;
 
-        var show = (rs >= 60 || rs === 0) &&
-                   (!rsiOn || rsi < 70) &&
+        var show = (!rsiOn || rsi < 70) &&
                    (!s2On || s2) && 
                    (!ppOn || pp) && 
                    (!secVal || sec === secVal) && 
