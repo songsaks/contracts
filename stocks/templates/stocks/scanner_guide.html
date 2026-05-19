@@ -192,9 +192,84 @@
             </div>
         </div>
     </div>
+
+    <!-- Section 3: John Ehlers Advanced Indicators -->
+    <div class="row g-4 mb-5">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm rounded-5 overflow-hidden">
+                <div class="card-header text-white p-4 border-0" style="background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);">
+                    <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+                        <div>
+                            <h3 class="fw-bold mb-1"><i class="fas fa-brain text-info me-2"></i>ทฤษฎีวิศวกรรมการเงินขั้นสูงของ John Ehlers</h3>
+                            <p class="small opacity-75 mb-0">ระบบกรองสัญญาณรบกวน ดักจับแนวโน้ม และหาจุดกลับตัวความแม่นยำสูง</p>
+                        </div>
+                        <span class="badge bg-info text-dark rounded-pill px-3 py-2 small fw-bold">Ehlers Engineering</span>
+                    </div>
+                </div>
+                <div class="card-body p-5">
+                    <div class="row g-4">
+                        <!-- Card 1: ITL -->
+                        <div class="col-md-6 col-lg-3">
+                            <div class="p-4 rounded-4 bg-light bg-opacity-75 h-100 border border-white d-flex flex-column">
+                                <div class="fs-1 mb-3">📈</div>
+                                <h5 class="fw-bold text-slate-900 mb-2">Instantaneous Trendline (ITL)</h5>
+                                <p class="small text-muted mb-3 flex-grow-1"><strong>แนวคิด:</strong> ใช้การกรองเฟสสัญญาณเพื่อคำนวณหาแนวโน้มหลักของราคาที่เป็นเนื้อแท้ ไร้ความหน่วง (Zero Lag)</p>
+                                <hr class="my-3 text-muted opacity-25">
+                                <p class="small text-dark mb-0"><strong>วิธีดูในหน้าสแกน:</strong> ป้าย <span class="badge badge-outline-itl-bullish" style="font-size:0.55rem;">📈 ITL</span> จะปรากฏขึ้นเมื่อแนวโน้มขาขึ้นได้รับการคอนเฟิร์ม (ราคา > Daily ITL > Weekly ITL)</p>
+                            </div>
+                        </div>
+                        <!-- Card 2: SuperSmoother -->
+                        <div class="col-md-6 col-lg-3">
+                            <div class="p-4 rounded-4 bg-light bg-opacity-75 h-100 border border-white d-flex flex-column">
+                                <div class="fs-1 mb-3">🛡️</div>
+                                <h5 class="fw-bold text-slate-900 mb-2">SuperSmoother Filter</h5>
+                                <p class="small text-muted mb-3 flex-grow-1"><strong>แนวคิด:</strong> ตัวกรอง 2-Pole ตัดคลื่นรบกวนระยะสั้น (Noise) ของราคาปิด โดยรักษาความไวระดับสูงสุดเมื่อเทียบกับ Moving Average ทั่วไป</p>
+                                <hr class="my-3 text-muted opacity-25">
+                                <p class="small text-dark mb-0"><strong>วิธีดูในหน้าสแกน:</strong> นำเมาส์ไปชี้ที่ช่อง <strong>RSI ⓘ</strong> เพื่อเปรียบเทียบราคาปัจจุบันกับแนวรับไร้เสียงรบกวน (Noise-Free Support)</p>
+                            </div>
+                        </div>
+                        <!-- Card 3: Laguerre RSI -->
+                        <div class="col-md-6 col-lg-3">
+                            <div class="p-4 rounded-4 bg-light bg-opacity-75 h-100 border border-white d-flex flex-column">
+                                <div class="fs-1 mb-3">⚡</div>
+                                <h5 class="fw-bold text-slate-900 mb-2">Laguerre RSI (4-Element)</h5>
+                                <p class="small text-muted mb-3 flex-grow-1"><strong>แนวคิด:</strong> การใช้ตัวกรอง Laguerre Time-Warp ทำให้อัตราความเร็วในการคำนวณโมเมนตัมเร็วกว่า RSI-14 ทั่วไปและตอบสนองเร็วกว่า</p>
+                                <hr class="my-3 text-muted opacity-25">
+                                <p class="small text-dark mb-0"><strong>วิธีดูในหน้าสแกน:</strong> นำเมาส์ไปชี้ที่ช่อง <strong>RSI ⓘ</strong> หากค่าแช่อยู่โซน <strong>> 0.9</strong> แสดงว่ากำลังอยู่ในช่วง Super Bullish ของรอบโมเมนตัม</p>
+                            </div>
+                        </div>
+                        <!-- Card 4: Fisher Transform -->
+                        <div class="col-md-6 col-lg-3">
+                            <div class="p-4 rounded-4 bg-light bg-opacity-75 h-100 border border-white d-flex flex-column">
+                                <div class="fs-1 mb-3">🚀</div>
+                                <h5 class="fw-bold text-slate-900 mb-2">Fisher Transform</h5>
+                                <p class="small text-muted mb-3 flex-grow-1"><strong>แนวคิด:</strong> แปลงกราฟราคาปกติเข้าสู่การแจกแจงแบบปกติ (Gaussian Normal Distribution) เพื่อตีกรอบราคาแบบสถิติ หาจุดกลับตัวแบบเฉียบพลัน</p>
+                                <hr class="my-3 text-muted opacity-25">
+                                <p class="small text-dark mb-0"><strong>วิธีดูในหน้าสแกน:</strong> นำเมาส์ไปชี้ที่ช่อง <strong>RSI ⓘ</strong> เพื่อหาค่าตีกรอบบนล่าง หากตัดกันใต้ <strong>-1.5</strong> คือจุดสวนของถูกชั้นดี</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 
 <style>
+    .badge-outline-itl-bullish {
+        border: 1px solid var(--bs-success, #198754) !important;
+        background-color: rgba(25, 135, 84, 0.08) !important;
+        color: #198754 !important;
+        font-weight: 600;
+        box-shadow: 0 0 8px rgba(25, 135, 84, 0.2);
+        animation: itl-pulse 2.5s infinite ease-in-out;
+    }
+    @keyframes itl-pulse {
+        0% { box-shadow: 0 0 4px rgba(25, 135, 84, 0.2); }
+        50% { box-shadow: 0 0 12px rgba(25, 135, 84, 0.6); background-color: rgba(25, 135, 84, 0.15) !important; }
+        100% { box-shadow: 0 0 4px rgba(25, 135, 84, 0.2); }
+    }
+
     .animate-in { animation: fadeInUp 0.8s ease-out forwards; }
     @keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
     
