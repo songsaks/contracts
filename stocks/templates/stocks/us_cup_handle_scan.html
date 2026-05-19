@@ -259,6 +259,7 @@
                     <th class="text-end">Confidence</th>
                     <th class="text-center">Signals</th>
                     <th class="text-end pe-3">ADX / RSI</th>
+                    <th class="text-center pe-3">Chart</th>
                 </tr>
             </thead>
             <tbody>
@@ -379,6 +380,9 @@
                     <span class="{% if item.adx >= 25 %}text-success{% elif item.adx >= 15 %}text-warning{% else %}text-danger{% endif %}">ADX {{ item.adx|floatformat:0 }}</span>
                     <span class="text-muted"> / </span>
                     <span class="{% if 40 <= item.rsi <= 70 %}text-success{% elif item.rsi > 80 %}text-danger{% else %}text-muted{% endif %}">RSI {{ item.rsi|floatformat:0 }}</span>
+                </td>
+                <td class="text-center pe-3">
+                    <a href="{% url 'stocks:stock_chart' item.symbol %}?market=US" class="btn btn-sm rounded-pill px-2" style="font-size:0.7rem;background:#0ea5e9;color:white;" target="_blank" title="ดูกราฟ"><i class="fas fa-chart-line"></i></a>
                 </td>
             </tr>
             {% endfor %}
