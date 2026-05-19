@@ -712,7 +712,13 @@
                                 <div class="d-flex gap-1 justify-content-center flex-wrap">
                                     <span class="badge rounded-pill" style="background:rgba(22,163,74,0.12);color:#15803d;border:1px solid rgba(22,163,74,0.3);font-size:0.6rem;">B{{ item.buy_score }}</span>
                                     <span class="badge rounded-pill" style="background:rgba(220,38,38,0.10);color:#dc2626;border:1px solid rgba(220,38,38,0.25);font-size:0.6rem;">S{{ item.sell_score }}</span>
-                                    {% if item.rsi %}<span class="badge rounded-pill bg-secondary bg-opacity-10 text-secondary" style="font-size:0.6rem;">RSI{{ item.rsi|floatformat:0 }}</span>{% endif %}
+                                    {% if item.rsi %}
+                                    <span class="badge rounded-pill bg-secondary bg-opacity-10 text-secondary" 
+                                          style="font-size:0.6rem; cursor: help;"
+                                          title="RSI (โมเมนตัม 14 วัน)&#10;Ehlers Indicators:&#10;• SuperSmoother: {% if item.mom_data.ehlers_supersmoother %}{{ item.mom_data.ehlers_supersmoother|floatformat:2 }}{% else %}-{% endif %}&#10;• Laguerre RSI: {% if item.mom_data.ehlers_laguerre_rsi %}{{ item.mom_data.ehlers_laguerre_rsi|floatformat:2 }}{% else %}-{% endif %}&#10;• Fisher: {% if item.mom_data.ehlers_fisher %}{{ item.mom_data.ehlers_fisher|floatformat:2 }}{% else %}-{% endif %} (Trigger: {% if item.mom_data.ehlers_fisher_trigger %}{{ item.mom_data.ehlers_fisher_trigger|floatformat:2 }}{% else %}-{% endif %})">
+                                        RSI{{ item.rsi|floatformat:0 }} ⓘ
+                                    </span>
+                                    {% endif %}
                                     {% if item.mom_data.technical_score %}<span class="badge bg-dark bg-opacity-10 text-dark rounded-pill" style="font-size:0.6rem;">⭐{{ item.mom_data.technical_score }}</span>{% endif %}
                                 </div>
                                 {% else %}<span class="text-muted">-</span>{% endif %}

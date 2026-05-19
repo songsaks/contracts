@@ -1213,8 +1213,10 @@
 
                             <!-- RSI -->
                             <td>
-                                <span class="fw-bold {% if item.rsi > 70 %}text-danger{% elif item.rsi > 55 %}text-success{% else %}text-secondary{% endif %}">
-                                    {{ item.rsi|floatformat:0 }}
+                                <span class="fw-bold {% if item.rsi > 70 %}text-danger{% elif item.rsi > 55 %}text-success{% else %}text-secondary{% endif %}"
+                                      style="cursor: help;"
+                                      title="Ehlers Indicators:&#10;• SuperSmoother: {% if item.ehlers_supersmoother %}{{ item.ehlers_supersmoother|floatformat:2 }}{% else %}-{% endif %}&#10;• Laguerre RSI: {% if item.ehlers_laguerre_rsi %}{{ item.ehlers_laguerre_rsi|floatformat:2 }}{% else %}-{% endif %}&#10;• Fisher: {% if item.ehlers_fisher %}{{ item.ehlers_fisher|floatformat:2 }}{% else %}-{% endif %} (Trigger: {% if item.ehlers_fisher_trigger %}{{ item.ehlers_fisher_trigger|floatformat:2 }}{% else %}-{% endif %})">
+                                    {{ item.rsi|floatformat:0 }} ⓘ
                                 </span>
                                 <div class="val-hint">โมเมนตัม</div>
                             </td>
