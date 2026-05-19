@@ -359,6 +359,7 @@
           <th class="d-none d-lg-table-cell">Support</th>
           <th class="d-none d-lg-table-cell" style="width:110px;">Mean Target</th>
           <th class="d-none d-md-table-cell">% to Target</th>
+          <th>Chart</th>
           <th class="pe-3">AI</th>
         </tr>
       </thead>
@@ -489,6 +490,15 @@
             </span>
             <div class="val-hint">% หา Mean</div>
             {% else %}—{% endif %}
+          </td>
+
+          {# Chart #}
+          <td>
+            <a href="{% url 'stocks:stock_chart' c.symbol %}?market={{ market }}"
+               class="btn btn-sm" style="font-size:.75rem;border-radius:7px;background:#0ea5e9;color:white;padding:.25rem .6rem;"
+               target="_blank" title="ดูกราฟ">
+              <i class="fas fa-chart-line"></i>
+            </a>
           </td>
 
           {# Quick AI #}

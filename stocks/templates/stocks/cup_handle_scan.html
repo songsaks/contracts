@@ -474,6 +474,7 @@
                         <i class="fas fa-info-circle ms-1 text-muted" style="cursor:pointer;"
                            data-bs-toggle="tooltip" title="ADX = ความแข็งแกร่ง trend (≥15 พอใช้ ≥25 ดี) | RSI = momentum (40-70 = zone ที่ดี)"></i>
                     </th>
+                    <th class="text-center">Chart</th>
                     <th class="text-center pe-3">Watch</th>
                 </tr>
             </thead>
@@ -593,6 +594,10 @@
                     <span class="text-muted"> / </span>
                     <span class="{% if 40 <= item.rsi <= 70 %}text-success{% elif item.rsi > 80 %}text-danger{% else %}text-muted{% endif %}">RSI {{ item.rsi|floatformat:0 }}</span>
                     <div class="val-hint">แรงเทรนด์ / โมเมนตัม</div>
+                </td>
+                <!-- Chart link -->
+                <td class="text-center">
+                    <a href="{% url 'stocks:stock_chart' item.symbol %}?market=SET" class="btn btn-sm rounded-pill px-2" style="font-size:0.7rem;background:#0ea5e9;color:white;" target="_blank" title="ดูกราฟ"><i class="fas fa-chart-line"></i></a>
                 </td>
                 <!-- Watchlist toggle -->
                 <td class="text-center pe-3">

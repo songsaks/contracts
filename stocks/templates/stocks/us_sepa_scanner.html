@@ -253,10 +253,13 @@
                         </td>
                         <!-- Action -->
                         <td class="pe-4 py-3 text-end">
-                            <a href="https://finance.yahoo.com/quote/{{ item.symbol }}" target="_blank"
-                               class="btn btn-sm btn-light rounded-pill px-3" style="font-size:0.72rem;">
-                                <i class="fas fa-external-link-alt me-1 text-primary"></i> Yahoo
-                            </a>
+                            <div class="d-flex gap-1 justify-content-end">
+                                <a href="{% url 'stocks:stock_chart' item.symbol %}?market=US" class="btn btn-sm rounded-pill px-3" style="font-size:0.72rem;background:#0ea5e9;color:white;" target="_blank" title="ดูกราฟ"><i class="fas fa-chart-line me-1"></i>Chart</a>
+                                <a href="https://finance.yahoo.com/quote/{{ item.symbol }}" target="_blank"
+                                   class="btn btn-sm btn-light rounded-pill px-3" style="font-size:0.72rem;">
+                                    <i class="fas fa-external-link-alt me-1 text-primary"></i> Yahoo
+                                </a>
+                            </div>
                         </td>
                     </tr>
                     {% empty %}
