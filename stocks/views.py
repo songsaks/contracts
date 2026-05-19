@@ -1550,6 +1550,13 @@ def portfolio_list(request):
                 mom_data.hh_hl_structure   = prec_data.hh_hl_structure
                 mom_data.cmf               = prec_data.cmf
                 mom_data.is_52w_breakout   = prec_data.is_52w_breakout
+                mom_data.ehlers_supersmoother = prec_data.ehlers_supersmoother
+                mom_data.ehlers_laguerre_rsi  = prec_data.ehlers_laguerre_rsi
+                mom_data.ehlers_fisher        = prec_data.ehlers_fisher
+                mom_data.ehlers_fisher_trigger= prec_data.ehlers_fisher_trigger
+                mom_data.ehlers_itl_daily     = prec_data.ehlers_itl_daily
+                mom_data.ehlers_itl_weekly    = prec_data.ehlers_itl_weekly
+                mom_data.ehlers_itl_bullish   = prec_data.ehlers_itl_bullish
             else:
                 # 2. คำนวณ on-the-fly ด้วย v2 (ตรงกับ Precision Scanner)
                 tech_analysis = analyze_momentum_technical_v2(hist) if not hist.empty else None
@@ -1571,6 +1578,13 @@ def portfolio_list(request):
                         mom_data.demand_zone_start = 0
                         mom_data.stop_loss = None
                         mom_data.zone_proximity = 999
+                    mom_data.ehlers_supersmoother = tech_analysis.get('ehlers_supersmoother')
+                    mom_data.ehlers_laguerre_rsi  = tech_analysis.get('ehlers_laguerre_rsi')
+                    mom_data.ehlers_fisher        = tech_analysis.get('ehlers_fisher')
+                    mom_data.ehlers_fisher_trigger= tech_analysis.get('ehlers_fisher_trigger')
+                    mom_data.ehlers_itl_daily     = tech_analysis.get('ehlers_itl_daily')
+                    mom_data.ehlers_itl_weekly    = tech_analysis.get('ehlers_itl_weekly')
+                    mom_data.ehlers_itl_bullish   = tech_analysis.get('ehlers_itl_bullish', False)
                 else:
                     mom_data.technical_score = 0
                     mom_data.rvol = 0
@@ -1578,6 +1592,13 @@ def portfolio_list(request):
                     mom_data.demand_zone_start = 0
                     mom_data.stop_loss = None
                     mom_data.zone_proximity = 999
+                    mom_data.ehlers_supersmoother = None
+                    mom_data.ehlers_laguerre_rsi  = 0.5
+                    mom_data.ehlers_fisher        = 0.0
+                    mom_data.ehlers_fisher_trigger= 0.0
+                    mom_data.ehlers_itl_daily     = 0.0
+                    mom_data.ehlers_itl_weekly    = 0.0
+                    mom_data.ehlers_itl_bullish   = False
 
             total_market_value += market_value
             total_gain_loss += gain_loss

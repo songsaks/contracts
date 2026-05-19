@@ -289,6 +289,9 @@
                                         {% if item.in_scan %}
                                         <span class="badge rounded-pill px-2" style="background:rgba(124,58,237,0.1);color:#7c3aed;border:1px solid rgba(124,58,237,0.2);font-size:0.65rem;">📊 PMS {{ item.scan_score|default:"" }}</span>
                                         {% endif %}
+                                        {% if item.mom_data.ehlers_itl_bullish %}
+                                        <span class="badge badge-outline-itl-bullish rounded-pill px-2" style="font-size:0.65rem;" title="Ehlers ITL MTF Bullish: Price > Daily ITL ({{ item.mom_data.ehlers_itl_daily|floatformat:2 }}) > Weekly ITL ({{ item.mom_data.ehlers_itl_weekly|floatformat:2 }})">📈 ITL</span>
+                                        {% endif %}
                                     </div>
                                 </div>
                             </div>
@@ -631,6 +634,9 @@
                                     {% elif item.obj.strategy == 'Dividend' %}
                                     <span class="badge bg-warning bg-opacity-10 text-warning rounded-pill" style="font-size:0.6rem;border:1px solid #f59e0b;">💸 Div</span>
                                     {% endif %}
+                                    {% if item.mom_data.ehlers_itl_bullish %}
+                                    <span class="badge badge-outline-itl-bullish rounded-pill" style="font-size:0.6rem;" title="Ehlers ITL MTF Bullish: Price > Daily ITL ({{ item.mom_data.ehlers_itl_daily|floatformat:2 }}) > Weekly ITL ({{ item.mom_data.ehlers_itl_weekly|floatformat:2 }})">📈 ITL</span>
+                                    {% endif %}
                                     {% if item.mom_data %}
                                         {% if item.mom_data.demand_zone_start and item.current_price <= item.mom_data.demand_zone_start and item.current_price >= item.mom_data.demand_zone_end %}
                                         <span class="badge bg-success bg-opacity-15 text-success rounded-pill" style="font-size:0.6rem;">IN ZONE</span>
@@ -924,6 +930,20 @@
 
 <!-- Stylings for professional alerts and shining effect -->
 <style>
+    .badge-outline-itl-bullish {
+        border: 1px solid var(--bs-success, #198754) !important;
+        background-color: rgba(25, 135, 84, 0.08) !important;
+        color: #198754 !important;
+        font-weight: 600;
+        box-shadow: 0 0 8px rgba(25, 135, 84, 0.2);
+        animation: itl-pulse 2.5s infinite ease-in-out;
+    }
+    @keyframes itl-pulse {
+        0% { box-shadow: 0 0 4px rgba(25, 135, 84, 0.2); }
+        50% { box-shadow: 0 0 12px rgba(25, 135, 84, 0.6); background-color: rgba(25, 135, 84, 0.15) !important; }
+        100% { box-shadow: 0 0 4px rgba(25, 135, 84, 0.2); }
+    }
+
     .summary-metrics-container { display: flex; flex-direction: column; gap: 0.5rem; }
     .metrics-header-row span, .metrics-data-row span { display: inline-block; }
     .flex-label { min-width: 86px; text-align: center; font-size: 0.7rem; }
