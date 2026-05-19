@@ -353,6 +353,9 @@ class PrecisionScanCandidate(models.Model):
     ehlers_laguerre_rsi  = models.FloatField(null=True, blank=True)
     ehlers_fisher        = models.FloatField(null=True, blank=True)
     ehlers_fisher_trigger= models.FloatField(null=True, blank=True)
+    ehlers_itl_daily     = models.FloatField(null=True, blank=True)
+    ehlers_itl_weekly    = models.FloatField(null=True, blank=True)
+    ehlers_itl_bullish   = models.BooleanField(default=False)
 
     # ====== Trend Following indicators (v4) ======
     ema20_slope      = models.FloatField(default=0.0)             # EMA20 slope % (5-day change) — >0.1% = rising

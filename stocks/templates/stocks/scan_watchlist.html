@@ -8,6 +8,29 @@
 <!-- Google Fonts for elite fintech typography -->
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700;800&family=Prompt:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 
+<style>
+.badge-outline-itl-bullish {
+    border: 1px solid var(--bs-success, #198754) !important;
+    background-color: rgba(25, 135, 84, 0.08) !important;
+    color: #198754 !important;
+    font-weight: 600;
+    box-shadow: 0 0 8px rgba(25, 135, 84, 0.2);
+    animation: itl-pulse 2.5s infinite ease-in-out;
+}
+@keyframes itl-pulse {
+    0% {
+        box-shadow: 0 0 4px rgba(25, 135, 84, 0.2);
+    }
+    50% {
+        box-shadow: 0 0 12px rgba(25, 135, 84, 0.6);
+        background-color: rgba(25, 135, 84, 0.15) !important;
+    }
+    100% {
+        box-shadow: 0 0 4px rgba(25, 135, 84, 0.2);
+    }
+}
+</style>
+
 <!-- ===== HERO HEADER WITH GLASSMORPHISM AND NEON HIGHLIGHTS ===== -->
 <div class="wl-hero">
     <div class="wl-hero-bg"></div>
@@ -316,6 +339,9 @@
                     {% endif %}
                     {% if s.is_52w_breakout %}
                         <span class="badge badge-outline-danger" title="52W High Breakout: กำลังเบรกเอาต์สถิติเดิม">🏔 52W Breakout</span>
+                    {% endif %}
+                    {% if s.ehlers_itl_bullish %}
+                        <span class="badge badge-outline-itl-bullish" title="Ehlers ITL MTF Bullish: Price > Daily ITL ({{ s.ehlers_itl_daily|floatformat:2 }}) > Weekly ITL ({{ s.ehlers_itl_weekly|floatformat:2 }})">📈 Ehlers MTF ITL</span>
                     {% endif %}
                 </div>
             </div>

@@ -1423,6 +1423,7 @@ def analyze_momentum_technical_v2(df):
                 'rvol_bullish': True, 'avg_volume_20d': 0, 'sd_zone': None,
                 'ema20_aligned': False}
 
+    import pandas as pd
     import pandas_ta as ta
     df = df.copy()
 
@@ -1570,6 +1571,9 @@ def analyze_momentum_technical_v2(df):
     ehlers_laguerre_rsi_val = 0.5
     ehlers_fisher_val = 0.0
     ehlers_fisher_trigger_val = 0.0
+    ehlers_itl_daily_val = current_price
+    ehlers_itl_weekly_val = current_price
+    ehlers_itl_bullish_val = False
     try:
         if len(df) >= 30:
             supersmoother_series = calculate_ehlers_supersmoother(df['Close'].values, period=15)
@@ -1581,6 +1585,23 @@ def analyze_momentum_technical_v2(df):
             fisher_series, trigger_series = calculate_ehlers_fisher_transform(df['High'].values, df['Low'].values, period=10)
             ehlers_fisher_val = float(fisher_series[-1])
             ehlers_fisher_trigger_val = float(trigger_series[-1])
+
+            # Instantaneous Trendline (ITL) & Multi-Timeframe (MTF) ITL
+            itl_series = calculate_ehlers_itl(df['Close'].values, alpha=0.07)
+            ehlers_itl_daily_val = float(itl_series[-1])
+
+            df_temp = df.copy()
+            if not isinstance(df_temp.index, pd.DatetimeIndex):
+                df_temp.index = pd.to_datetime(df_temp.index)
+            
+            weekly_close = df_temp['Close'].resample('W').last().dropna()
+            if len(weekly_close) >= 5:
+                weekly_itl_series = calculate_ehlers_itl(weekly_close.values, alpha=0.07)
+                ehlers_itl_weekly_val = float(weekly_itl_series[-1])
+            else:
+                ehlers_itl_weekly_val = ehlers_itl_daily_val
+            
+            ehlers_itl_bullish_val = bool(current_price > ehlers_itl_daily_val > ehlers_itl_weekly_val)
     except Exception:
         pass
 
@@ -1614,6 +1635,9 @@ def analyze_momentum_technical_v2(df):
         'ehlers_laguerre_rsi': round(ehlers_laguerre_rsi_val, 2),
         'ehlers_fisher': round(ehlers_fisher_val, 2),
         'ehlers_fisher_trigger': round(ehlers_fisher_trigger_val, 2),
+        'ehlers_itl_daily': round(ehlers_itl_daily_val, 2),
+        'ehlers_itl_weekly': round(ehlers_itl_weekly_val, 2),
+        'ehlers_itl_bullish': ehlers_itl_bullish_val,
     }
 
 
@@ -2278,4 +2302,30 @@ def calculate_ehlers_fisher_transform(prices_high, prices_low, period=10):
     trigger = np.zeros(n)
     trigger[1:] = fish[:-1]
     return fish, trigger
+
+
+def calculate_ehlers_itl(prices, alpha=0.07):
+    """
+    Ehlers Instantaneous Trendline (ITL)
+    Uses a digital filter to reject cycle components, revealing the underlying trend.
+    Formula: ITL = (a - a^2 / 4)*Price + (a^2 / 2)*Price[1] - (a - 3*a^2 / 4)*Price[2] + 2*(1-a)*ITL[1] - (1-a)^2 * ITL[2]
+    """
+    import numpy as np
+    prices = np.asarray(prices, dtype=float)
+    n = len(prices)
+    itl = np.copy(prices)
+    if n < 3:
+        return itl
+        
+    aa = alpha * alpha
+    c1 = alpha - aa / 4.0
+    c2 = aa / 2.0
+    c3 = alpha - 3.0 * aa / 4.0
+    d1 = 2.0 * (1.0 - alpha)
+    d2 = - ((1.0 - alpha) ** 2)
+    
+    for i in range(2, n):
+        itl[i] = c1 * prices[i] + c2 * prices[i-1] - c3 * prices[i-2] + d1 * itl[i-1] + d2 * itl[i-2]
+    return itl
+
 

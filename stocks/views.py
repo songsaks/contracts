@@ -5162,6 +5162,9 @@ def precision_momentum_scanner(request):
                             'ehlers_laguerre_rsi': tech.get('ehlers_laguerre_rsi', 0.5),
                             'ehlers_fisher': tech.get('ehlers_fisher', 0.0),
                             'ehlers_fisher_trigger': tech.get('ehlers_fisher_trigger', 0.0),
+                            'ehlers_itl_daily': tech.get('ehlers_itl_daily', current_price),
+                            'ehlers_itl_weekly': tech.get('ehlers_itl_weekly', current_price),
+                            'ehlers_itl_bullish': tech.get('ehlers_itl_bullish', False),
                         }
 
                     except Exception as e:
@@ -5290,6 +5293,9 @@ def precision_momentum_scanner(request):
                             ehlers_laguerre_rsi=r.get('ehlers_laguerre_rsi', None),
                             ehlers_fisher=r.get('ehlers_fisher', None),
                             ehlers_fisher_trigger=r.get('ehlers_fisher_trigger', None),
+                            ehlers_itl_daily=r.get('ehlers_itl_daily', None),
+                            ehlers_itl_weekly=r.get('ehlers_itl_weekly', None),
+                            ehlers_itl_bullish=r.get('ehlers_itl_bullish', False),
                         ))
 
                     if bulk_candidates:
@@ -8433,6 +8439,9 @@ def us_precision_scanner(request):
                             'ehlers_laguerre_rsi': tech.get('ehlers_laguerre_rsi', 0.5),
                             'ehlers_fisher': tech.get('ehlers_fisher', 0.0),
                             'ehlers_fisher_trigger': tech.get('ehlers_fisher_trigger', 0.0),
+                            'ehlers_itl_daily': tech.get('ehlers_itl_daily', current_p),
+                            'ehlers_itl_weekly': tech.get('ehlers_itl_weekly', current_p),
+                            'ehlers_itl_bullish': tech.get('ehlers_itl_bullish', False),
                         }
                     except Exception as e:
                         import logging
@@ -8514,6 +8523,9 @@ def us_precision_scanner(request):
                             ehlers_laguerre_rsi=r.get('ehlers_laguerre_rsi', None),
                             ehlers_fisher=r.get('ehlers_fisher', None),
                             ehlers_fisher_trigger=r.get('ehlers_fisher_trigger', None),
+                            ehlers_itl_daily=r.get('ehlers_itl_daily', None),
+                            ehlers_itl_weekly=r.get('ehlers_itl_weekly', None),
+                            ehlers_itl_bullish=r.get('ehlers_itl_bullish', False),
                         ))
                     PrecisionScanCandidate.objects.bulk_create(bulk)
                     

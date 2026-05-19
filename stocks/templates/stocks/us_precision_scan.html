@@ -471,6 +471,9 @@
                                         {% if item.vcp_setup %}
                                         <span class="badge px-1 py-0" style="background:#dc2626;color:white;font-size:0.55rem;" title="VCP Setup: บีบตัว {{ item.vcp_contractions }} รอบ (Tightness: {{ item.vcp_tightness }}%){% if item.vcp_vdu %} + Volume Dry-Up ยืนยันแล้ว{% endif %}">VCP{% if item.vcp_vdu %} ✅{% endif %}</span>
                                         {% endif %}
+                                        {% if item.ehlers_itl_bullish %}
+                                        <span class="badge px-1 py-0" style="background:#15803d;color:white;font-size:0.55rem;" title="Ehlers ITL MTF Bullish: Price > Daily ITL ({{ item.ehlers_itl_daily|floatformat:2 }}) > Weekly ITL ({{ item.ehlers_itl_weekly|floatformat:2 }})">📈 ITL</span>
+                                        {% endif %}
                                     </div>
                                 </div>
                             </td>
