@@ -4562,6 +4562,11 @@ def vcp_manual(request):
     return render(request, 'stocks/vcp_manual.html')
 
 @login_required
+def ehlers_manual(request):
+    return render(request, 'stocks/ehlers_manual.html')
+
+
+@login_required
 def minervini_sepa_scanner(request):
     """
     Minervini SEPA Scanner - ระบบสแกนเจาะจงเฉพาะตามตำรา Mark Minervini

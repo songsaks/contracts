@@ -895,7 +895,12 @@
                             <th class="col-hide-lg">VOL</th>
                             <th class="col-hide-md"><a href="?sort=price&run_idx={{ selected_run_idx }}" class="text-decoration-none text-muted">PRICE</a></th>
                             <th class="col-hide-lg">ENTRY</th>
-                            <th class="col-hide-sm"><a href="?sort=rsi&run_idx={{ selected_run_idx }}" class="text-decoration-none text-muted">RSI</a></th>
+                            <th class="col-hide-sm">
+                                <a href="?sort=rsi&run_idx={{ selected_run_idx }}" class="text-decoration-none text-muted">RSI</a>
+                                <a href="{% url 'stocks:ehlers_manual' %}" target="_blank"
+                                   style="display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;background:#f0f9ff;color:#0284c7;border-radius:50%;font-size:0.55rem;font-weight:700;margin-left:2px;vertical-align:middle;text-decoration:none;"
+                                   title="คู่มือ Ehlers & Patterns">?</a>
+                            </th>
                             <th class="col-hide-lg">ERC</th>
                             <th class="col-hide-md">
                                 SIGNAL

@@ -1,0 +1,164 @@
+{% extends "stocks/base_stocks.html" %}
+{% block content %}
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-9">
+            <div class="card border-0 shadow-sm" style="border-radius: 1.25rem; overflow: hidden;">
+                <div class="card-header text-white p-4 border-0" style="background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);">
+                    <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+                        <div class="d-flex align-items-center gap-2">
+                            <span style="font-size: 1.5rem;">🧠</span>
+                            <h2 class="fw-bold mb-0 text-white" style="font-size: 1.6rem;">Ehlers Indicators & Patterns Manual</h2>
+                        </div>
+                        <span class="badge bg-info text-dark rounded-pill px-3 py-2 small fw-bold">Ehlers Theory</span>
+                    </div>
+                    <p class="text-white opacity-75 small mb-0 mt-2">คู่มือการอ่านค่าสัญญาณวิศวกรรมการเงินขั้นสูงของ John Ehlers เพื่อการเทรดแบบไร้เสียงรบกวน</p>
+                </div>
+                
+                <div class="card-body p-4 pt-4" style="font-family: 'Inter', 'Noto Sans Thai', sans-serif; line-height: 1.7; color: #334155;">
+                    
+                    <!-- Alert Intro -->
+                    <div class="alert alert-info border-0 shadow-sm mb-4" style="background: #f0f7ff; border-radius: 0.85rem; border-left: 4px solid #0284c7 !important;">
+                        <i class="fas fa-info-circle me-2 text-info"></i>
+                        ระบบนี้ดึงทฤษฎี **Digital Signal Processing (DSP)** ของ John Ehlers มาช่วยคัดกรองสัญญาณเทียม (Noise) ทำให้สามารถตรวจพบแนวโน้มที่แท้จริงและหาจุดกลับตัวที่รวดเร็วและแม่นยำกว่าอินดิเคเตอร์ทั่วไป
+                    </div>
+
+                    <!-- Section 1: Ehlers Patterns -->
+                    <h4 class="fw-bold mb-3 border-start border-4 border-primary ps-3" style="color: #0f172a;">1. การจัดกลุ่ม 3 รูปแบบการเคลื่อนไหว (Ehlers Trading Patterns)</h4>
+                    <p class="text-muted">ระบบจะแยกแยะสภาวะของราคาออกมาเป็น 3 รูปแบบหลัก แสดงผลเป็น Capsule สีต่าง ๆ ใต้ค่า RSI ดังนี้:</p>
+
+                    <div class="row g-3 mb-5">
+                        <!-- Pattern 1 -->
+                        <div class="col-12">
+                            <div class="p-3 rounded-4 border" style="background: rgba(22, 163, 74, 0.03); border-color: rgba(22, 163, 74, 0.1) !important;">
+                                <div class="d-flex align-items-center gap-2 mb-2">
+                                    <span class="badge rounded-pill" style="background:rgba(22,163,74,0.1);color:#16a34a;border:1px solid rgba(22,163,74,0.2); font-size: 0.75rem; padding: 4px 10px; font-weight: bold;">E1: ขึ้นแรง</span>
+                                    <strong class="text-success">รูปแบบที่ 1: ขึ้นแรงติดลมบน 🟢</strong>
+                                </div>
+                                <p class="small mb-1"><strong>เงื่อนไขหลัก:</strong> Laguerre RSI มีค่าตั้งเเต่ `0.80` ขึ้นไป</p>
+                                <p class="small text-muted mb-0"><strong>ความหมายและการเทรด:</strong> ราคาอยู่ในแนวโน้มขาขึ้นรอบหลักที่ทรงพลัง (Super Bullish) โดยมีเม็ดเงินหนุนนำชัดเจน เป็นจุดรันเทรนด์ ห้ามสวนหรือเปิด Short แนะนำให้ Let Profits Run</p>
+                            </div>
+                        </div>
+                        <!-- Pattern 2 -->
+                        <div class="col-12">
+                            <div class="p-3 rounded-4 border" style="background: rgba(14, 165, 233, 0.03); border-color: rgba(14, 165, 233, 0.1) !important;">
+                                <div class="d-flex align-items-center gap-2 mb-2">
+                                    <span class="badge rounded-pill" style="background:rgba(14,165,233,0.1);color:#0ea5e9;border:1px solid rgba(14,165,233,0.2); font-size: 0.75rem; padding: 4px 10px; font-weight: bold;">E2: กลับตัว</span>
+                                    <strong class="text-info">รูปแบบที่ 2: เพิ่งกลับตัวขึ้น 🔵</strong>
+                                </div>
+                                <p class="small mb-1"><strong>เงื่อนไขหลัก:</strong> Laguerre RSI ฟื้นตัวพ้น `0.15` และเส้น Fisher ตัดกลับมาอยู่เหนือ Trigger Line ในแดนต่ำ</p>
+                                <p class="small text-muted mb-0"><strong>ความหมายและการเทรด:</strong> ราคาสิ้นสุดแนวโน้มขาลงระยะสั้นและเริ่มฟื้นตัวจากฐานด้านล่าง เป็นสัญญาณต้นน้ำ (Early Reversal) อัตราความเสี่ยงต่อผลตอบแทนดีเยี่ยม</p>
+                            </div>
+                        </div>
+                        <!-- Pattern 3 -->
+                        <div class="col-12">
+                            <div class="p-3 rounded-4 border" style="background: rgba(245, 158, 11, 0.03); border-color: rgba(245, 158, 11, 0.1) !important;">
+                                <div class="d-flex align-items-center gap-2 mb-2">
+                                    <span class="badge rounded-pill" style="background:rgba(245,158,11,0.1);color:#d97706;border:1px solid rgba(245,158,11,0.2); font-size: 0.75rem; padding: 4px 10px; font-weight: bold;">E3: ย่อซื้อ</span>
+                                    <strong class="text-warning">รูปแบบที่ 3: ย่อตัวเพื่อขึ้นต่อ 🟡</strong>
+                                </div>
+                                <p class="small mb-1"><strong>เงื่อนไขหลัก:</strong> Laguerre RSI พักตัวอยู่ในช่วง `0.40 - 0.79` และราคายังประคองตัวยืนเหนือเส้นแนวรับปลอดภัย **SuperSmoother Filter**</p>
+                                <p class="small text-muted mb-0"><strong>ความหมายและการเทรด:</strong> เป็นการย่อตัวปรับฐานชั่วคราวบนขาขึ้นรอบใหญ่ (Buy on Pullback) ซึ่งเป็นจังหวะเก็บหุ้นราคาถูกที่มีโอกาสเด้งกลับและมีความปลอดภัยสูงสุด</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Section 2: How to read the numbers -->
+                    <h4 class="fw-bold mt-5 mb-3 border-start border-4 border-dark ps-3" style="color: #0f172a;">2. วิธีการอ่านค่าและตัวเลขของอินดิเคเตอร์</h4>
+                    <p class="mb-4">เมื่อนำเมาส์มาชี้ที่ค่า RSI ⓘ จะปรากฏหน้าต่างป๊อปอัปแสดงค่าตัวชี้วัด 3 ชนิด ดังนี้:</p>
+
+                    <div class="table-responsive mb-4">
+                        <table class="table table-bordered align-middle">
+                            <thead class="bg-light">
+                                <tr>
+                                    <th style="width: 25%;">ตัวชี้วัด</th>
+                                    <th style="width: 20%;">ช่วงค่าปกติ</th>
+                                    <th>วิธีตีความ & ความหมาย</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><strong>SuperSmoother</strong></td>
+                                    <td>ค่าราคาหุ้นจริง</td>
+                                    <td>เส้นแนวรับ/ต้านในอุดมคติที่ไร้สัญญาณรบกวน หากราคายังอยู่เหนือค่านี้ แปลว่าแนวโน้มหลักยังเป็นขาขึ้น</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Laguerre RSI</strong></td>
+                                    <td>`0.00` ถึง `1.00`</td>
+                                    <td>โมเมนตัมแบบเรียลไทม์:
+                                        <br>• <strong>> 0.80</strong>: ขึ้นรุนแรง (แข็งแกร่งมาก)
+                                        <br>• <strong>0.40 - 0.79</strong>: อยู่ในแดนขาขึ้นแต่มีการพักฐาน
+                                        <br>• <strong>< 0.15</strong>: อ่อนแรงหรือกำลังหาจุดต่ำสุด
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Fisher (Trigger)</strong></td>
+                                    <td>`-3.00` ถึง `+3.00`</td>
+                                    <td>ค่าทางสถิติเพื่อหาจุดกลับตัว:
+                                        <br>• **ค่าเป็นบวก (+)**: ราคาแพงกว่าเฉลี่ย (Overbought)
+                                        <br>• **ค่าเป็นลบ (-)**: ราคาถูกกว่าเฉลี่ย (Oversold)
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Section 3: Understanding Negative Fisher -->
+                    <h4 class="fw-bold mt-5 mb-3 border-start border-4 border-danger ps-3" style="color: #0f172a;">3. เจาะลึกการติดเครื่องหมายลบ (-) บนค่า Fisher</h4>
+                    <p>
+                        นักลงทุนหลายท่านอาจสงสัยเมื่อเห็นค่า **`Fisher: -1.36 (Trigger: -1.23)`** มีเครื่องหมายลบนำหน้า
+                    </p>
+                    <div class="p-4 rounded-4 bg-light mb-4 border-start border-4 border-warning">
+                        <h6 class="fw-bold mb-2"><i class="fas fa-minus-circle me-1 text-danger"></i> ความหมายของเครื่องหมายลบ (-)</h6>
+                        <p class="small text-muted mb-0">
+                            เนื่องจากสูตรของ Fisher Transform จะแปลงราคาให้อยู่ในรูปของ **Gaussian Normal Distribution (โค้งระฆังคว่ำ)** ซึ่งมีค่าศูนย์ (0.0) เป็นแกนกลางสมดุล:
+                        </p>
+                        <ul class="small mt-2 mb-0">
+                            <li><strong>ค่าติดลบ (< 0.0)</strong>: หมายความว่าราคาในปัจจุบันตกลงมาอยู่ในโซน **"ต่ำกว่าค่าเฉลี่ยปกติ"** หรือเรียกว่ามีส่วนลด (Oversold) ยิ่งค่าติดลบมากเท่าไหร่ ราคาหุ้นยิ่งถูกกดตัวลึกเชิงสถิติมากเท่านั้น</li>
+                            <li><strong>Fisher น้อยกว่า Trigger (เช่น -1.36 น้อยกว่า -1.23)</strong>: บ่งชี้ว่าการพักตัวยังไม่สิ้นสุด ราคายังคงมีแรงกดลงด้านล่างอยู่</li>
+                        </ul>
+                    </div>
+
+                    <!-- Section 4: Trading Tactics -->
+                    <h4 class="fw-bold mt-5 mb-3 border-start border-4 border-success ps-3" style="color: #0f172a;">4. กลยุทธ์การเทรดแบบสナイパー (Sniper Entry Guide)</h4>
+                    <p class="mb-4">นี่คือหนึ่งในชุดเทรดที่มีประสิทธิภาพและปลอดภัยที่สุดด้วยชุดข้อมูลนี้:</p>
+
+                    <div class="row g-4">
+                        <div class="col-md-6">
+                            <div class="card h-100 border-0 shadow-sm bg-white" style="border: 1px solid #e2e8f0 !important; border-radius: 1rem;">
+                                <div class="card-body">
+                                    <h6 class="fw-bold text-primary mb-3"><i class="fas fa-search-dollar me-2"></i>1. ค้นหาผู้เข้าชิง (Setup)</h6>
+                                    <ul class="small ps-3 mb-0" style="line-height: 1.8;">
+                                        <li>หาหุ้นที่แสดงป้าย <strong>E3: ย่อซื้อ</strong></li>
+                                        <li>ราคาต้องประคองตัวเหนือ <strong>SuperSmoother</strong> (ราคา > SuperSmoother)</li>
+                                        <li>ค่า Fisher ต้องติดลบลึก (เช่น ต่ำกว่า <strong>-1.00</strong> หรือ <strong>-1.50</strong>) แสดงถึงจุดย่อที่คุ้มค่า</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="card h-100 border-0 shadow-sm bg-white" style="border: 1px solid #e2e8f0 !important; border-radius: 1rem;">
+                                <div class="card-body">
+                                    <h6 class="fw-bold text-success mb-3"><i class="fas fa-check-circle me-2"></i>2. หาจุดสั่งซื้อ (Trigger)</h6>
+                                    <ul class="small ps-3 mb-0" style="line-height: 1.8;">
+                                        <li>เฝ้ารอจนกระทั่งเส้น <strong>Fisher ตัดขึ้นเหนือ Trigger Line ในแดนลบ</strong> (เช่น จาก -1.36 ตัดขึ้นไปยืนที่ -1.15)</li>
+                                        <li>จังหวะนี้คือการยืนยันการสิ้นสุดแรงเทขายรอบย่อตัว (Pullback Completed)</li>
+                                        <li>เข้าซื้อที่จังหวะจุดตัดนี้เพื่อเป้าหมายการเด้งกลับระยะสั้น/กลางขึ้นสู่ขอบระฆังคว่ำฝั่งบวก</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <hr class="my-5">
+                    <div class="text-center">
+                        <a href="{% url 'stocks:precision_momentum_scanner' %}" class="btn btn-primary px-4 py-2" style="border-radius: 10px;">
+                            กลับไปหน้าตัวสแกน <i class="fas fa-arrow-right ms-2"></i>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

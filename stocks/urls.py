@@ -50,6 +50,7 @@ urlpatterns = [
     path('value/us-value/', views.us_value_scanner, name='us_value_scanner'),
     path('entry-finder/<str:symbol>/', views.entry_finder, name='entry_finder'),
     path('vcp-manual/', views.vcp_manual, name='vcp_manual'),
+    path('ehlers-manual/', views.ehlers_manual, name='ehlers_manual'),
     path('scanner-guide/', views.scanner_guide, name='scanner_guide'),
     path('scan/turtle/', views.turtle_scanner, name='turtle_scanner'),
     path('scan/turtle/run/', views.turtle_scanner_run_ajax, name='turtle_scanner_run'),

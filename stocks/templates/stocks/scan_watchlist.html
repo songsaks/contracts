@@ -300,7 +300,10 @@
                 </div>
                 <div class="stat-box" 
                      title="RSI (โมเมนตัม 14 วัน)&#10;Ehlers Indicators:&#10;• SuperSmoother: {% if s.ehlers_supersmoother %}{{ s.ehlers_supersmoother|floatformat:2 }}{% else %}-{% endif %}&#10;• Laguerre RSI: {% if s.ehlers_laguerre_rsi %}{{ s.ehlers_laguerre_rsi|floatformat:2 }}{% else %}-{% endif %}&#10;• Fisher: {% if s.ehlers_fisher %}{{ s.ehlers_fisher|floatformat:2 }}{% else %}-{% endif %} (Trigger: {% if s.ehlers_fisher_trigger %}{{ s.ehlers_fisher_trigger|floatformat:2 }}{% else %}-{% endif %})">
-                    <span class="stat-label">RSI (แกว่งตัว)</span>
+                    <span class="stat-label">
+                        RSI (แกว่งตัว)
+                        <a href="{% url 'stocks:ehlers_manual' %}" target="_blank" class="text-decoration-none text-muted" title="ดูคู่มือ Ehlers"><i class="fas fa-question-circle" style="font-size:0.65rem;"></i></a>
+                    </span>
                     <span class="stat-val {% if s.rsi > 70 %}text-danger{% elif s.rsi > 50 %}text-success{% else %}text-secondary{% endif %}">
                         {{ s.rsi|floatformat:0|default:"—" }} ⓘ
                     </span>
