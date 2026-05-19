@@ -4410,11 +4410,60 @@ def scan_watchlist_view(request):
         in_buy_zone = False
         near_buy_zone = False
         at_tp = False
-        buy_score = latest.buy_score if latest else 0
-        win_prob = latest.win_probability if latest else 0
-        zone_prox = latest.zone_proximity if latest else 999.0
+        buy_score = 0
+        sell_score = 0
+        win_prob = 35.0
+        zone_prox = 999.0
         
-        if latest and latest.price:
+        if latest:
+            # 1. Compute dynamic Buy/Sell/Exit signals
+            sigs = _compute_signals(latest)
+            buy_score = sigs['buy_score']
+            sell_score = sigs['sell_score']
+            
+            # Attach dynamically so template and properties access work cleanly
+            latest.buy_score = buy_score
+            latest.sell_score = sell_score
+            
+            # 2. Get Markov Regime and calculate Win Probability
+            from .utils import calculate_markov_regime
+            from django.core.cache import cache as _regime_cache
+            
+            _regime_key = 'markov_regime_set' if market == 'SET' else 'markov_regime_us'
+            markov_regime = _regime_cache.get(_regime_key)
+            if not markov_regime:
+                index_symbol = '^SET' if market == 'SET' else '^GSPC'
+                markov_regime = calculate_markov_regime(index_symbol, window=60)
+                _regime_cache.set(_regime_key, markov_regime, 1800) # 30 min cache
+                
+            m_state = markov_regime.get('state', 'UNKNOWN')
+            m_prob = markov_regime.get('prob', 0) / 100.0
+            
+            score = 35.0
+            rs_val = getattr(latest, 'rs_rating', 0) or 0
+            score += (rs_val / 99.0) * 25.0
+            tech_val = getattr(latest, 'technical_score', 0) or 0
+            score += (min(tech_val, 100) / 100.0) * 15.0
+            adx_val = getattr(latest, 'adx', 0) or 0
+            score += (min(adx_val, 50) / 50.0) * 10.0
+            cmf_val = getattr(latest, 'cmf', 0) or 0
+            vol_surge = getattr(latest, 'volume_surge', 1.0) or 1.0
+            if cmf_val > 0.15: score += 10.0
+            elif cmf_val > 0: score += 5.0
+            if vol_surge >= 1.5: score += 5.0
+            elif vol_surge >= 1.2: score += 2.0
+            if m_state == 'TRENDING': score += 10.0 * (0.5 + 0.5 * m_prob)
+            elif m_state == 'CHOPPY': score += 4.0
+            elif m_state == 'UNKNOWN' and m_prob == 0: score += 5.0
+            
+            prox = getattr(latest, 'zone_proximity', 99)
+            if prox > 15 and prox < 100: score -= 10.0
+            elif prox > 10 and prox < 100: score -= 5.0
+            win_prob = round(max(min(score, 98.2), 30.0), 1)
+            
+            latest.win_probability = win_prob
+            zone_prox = latest.zone_proximity if latest.zone_proximity is not None else 999.0
+            
             price_val = latest.price
             if latest.demand_zone_start and latest.demand_zone_end:
                 in_buy_zone = (price_val <= latest.demand_zone_start) and (price_val >= latest.demand_zone_end)
