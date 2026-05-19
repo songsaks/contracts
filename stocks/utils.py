@@ -2329,3 +2329,44 @@ def calculate_ehlers_itl(prices, alpha=0.07):
     return itl
 
 
+def classify_ehlers_pattern(lrsi, fisher, trig, price, ss):
+    """
+    Classifies John Ehlers Laguerre RSI & Fisher indicators state:
+    - รูปแบบที่ 1: ขึ้นแรงติดลมบน (Laguerre RSI >= 0.8)
+    - รูปแบบที่ 2: เพิ่งกลับตัวขึ้น (Laguerre RSI >= 0.15 and < 0.80 and Fisher > Trigger)
+    - รูปแบบที่ 3: ย่อตัวเพื่อขึ้นต่อ (Laguerre RSI >= 0.40 and < 0.80 and Fisher <= Trigger, and Price > SuperSmoother)
+    """
+    if lrsi is None:
+        return None
+    
+    # Check Type 1
+    if lrsi >= 0.80:
+        return {
+            'num': 1,
+            'label': "รูปแบบที่ 1: ขึ้นแรงติดลมบน",
+            'class': "badge-outline-success",
+            'style': "background:rgba(22,163,74,0.1);color:#16a34a;border:1px solid rgba(22,163,74,0.2);",
+            'desc': "โมเมนตัมขาขึ้นรุนแรงเป็นพิเศษ (Super Bullish)"
+        }
+    # Check Type 2
+    elif lrsi >= 0.15 and fisher is not None and trig is not None and fisher > trig:
+        return {
+            'num': 2,
+            'label': "รูปแบบที่ 2: เพิ่งกลับตัวขึ้น",
+            'class': "badge-outline-info",
+            'style': "background:rgba(14,165,233,0.1);color:#0ea5e9;border:1px solid rgba(14,165,233,0.2);",
+            'desc': "เพิ่งพ้นจุดต่ำสุดและยืนยันการเริ่มฟื้นตัว"
+        }
+    # Check Type 3
+    elif lrsi >= 0.40 and (ss is None or price is None or price >= ss):
+        return {
+            'num': 3,
+            'label': "รูปแบบที่ 3: ย่อตัวเพื่อขึ้นต่อ",
+            'class': "badge-outline-warning",
+            'style': "background:rgba(245,158,11,0.1);color:#d97706;border:1px solid rgba(245,158,11,0.2);",
+            'desc': "ย่อตัวปรับฐานชั่วคราวในแนวโน้มขาขึ้นหลัก"
+        }
+    return None
+
+
+

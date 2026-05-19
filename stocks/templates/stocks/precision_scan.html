@@ -1218,7 +1218,17 @@
                                       title="Ehlers Indicators:&#10;• SuperSmoother: {% if item.ehlers_supersmoother %}{{ item.ehlers_supersmoother|floatformat:2 }}{% else %}-{% endif %}&#10;• Laguerre RSI: {% if item.ehlers_laguerre_rsi %}{{ item.ehlers_laguerre_rsi|floatformat:2 }}{% else %}-{% endif %}&#10;• Fisher: {% if item.ehlers_fisher %}{{ item.ehlers_fisher|floatformat:2 }}{% else %}-{% endif %} (Trigger: {% if item.ehlers_fisher_trigger %}{{ item.ehlers_fisher_trigger|floatformat:2 }}{% else %}-{% endif %})">
                                     {{ item.rsi|floatformat:0 }} ⓘ
                                 </span>
+                                {% if item.ehlers_pattern_data %}
+                                <div class="mt-1">
+                                    <span class="badge rounded-pill" 
+                                          style="{{ item.ehlers_pattern_data.style }} font-size:0.55rem; padding: 2px 6px;"
+                                          title="{{ item.ehlers_pattern_data.desc }}">
+                                        {{ item.ehlers_pattern_data.label }}
+                                    </span>
+                                </div>
+                                {% else %}
                                 <div class="val-hint">โมเมนตัม</div>
+                                {% endif %}
                             </td>
 
                             <!-- ERC CONFIRMED -->

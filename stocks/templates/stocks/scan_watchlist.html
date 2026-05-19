@@ -304,6 +304,13 @@
                     <span class="stat-val {% if s.rsi > 70 %}text-danger{% elif s.rsi > 50 %}text-success{% else %}text-secondary{% endif %}">
                         {{ s.rsi|floatformat:0|default:"—" }} ⓘ
                     </span>
+                    {% if s.ehlers_pattern_data %}
+                    <span class="badge rounded-pill mt-1" 
+                          style="{{ s.ehlers_pattern_data.style }} font-size:0.5rem; padding: 2px 4px; display: inline-block; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"
+                          title="{{ s.ehlers_pattern_data.desc }}">
+                        {{ s.ehlers_pattern_data.label }}
+                    </span>
+                    {% endif %}
                 </div>
                 <div class="stat-box" title="Chaikin Money Flow - Institutional Accumulation">
                     <span class="stat-label">CMF (เงินไหลเข้า)</span>

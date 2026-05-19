@@ -403,6 +403,18 @@ class PrecisionScanCandidate(models.Model):
     def __str__(self):
         return f"{self.symbol} - Score: {self.technical_score} (run: {self.scan_run})"
 
+    @property
+    def ehlers_pattern_data(self):
+        from .utils import classify_ehlers_pattern
+        return classify_ehlers_pattern(
+            self.ehlers_laguerre_rsi,
+            self.ehlers_fisher,
+            self.ehlers_fisher_trigger,
+            self.price,
+            self.ehlers_supersmoother
+        )
+
+
 
 # ====== ScanWatchlistItem — ติดตามหุ้นจาก Precision Scanner ======
 class ScanWatchlistItem(models.Model):

@@ -462,6 +462,13 @@
                                     <span class="badge rounded-pill px-2" style="background:rgba(220,38,38,0.10);color:#dc2626;border:1px solid rgba(220,38,38,0.25);font-size:0.65rem;">
                                         SELL {{ item.sell_score }}
                                     </span>
+                                    {% if item.mom_data.ehlers_pattern_data %}
+                                    <span class="badge rounded-pill px-2" 
+                                          style="{{ item.mom_data.ehlers_pattern_data.style }} font-size:0.62rem;"
+                                          title="{{ item.mom_data.ehlers_pattern_data.desc }}">
+                                        {{ item.mom_data.ehlers_pattern_data.label }}
+                                    </span>
+                                    {% endif %}
                                 </div>
                                 <!-- Pattern -->
                                 {% if item.mom_data.price_pattern %}
@@ -718,6 +725,13 @@
                                           title="RSI (โมเมนตัม 14 วัน)&#10;Ehlers Indicators:&#10;• SuperSmoother: {% if item.mom_data.ehlers_supersmoother %}{{ item.mom_data.ehlers_supersmoother|floatformat:2 }}{% else %}-{% endif %}&#10;• Laguerre RSI: {% if item.mom_data.ehlers_laguerre_rsi %}{{ item.mom_data.ehlers_laguerre_rsi|floatformat:2 }}{% else %}-{% endif %}&#10;• Fisher: {% if item.mom_data.ehlers_fisher %}{{ item.mom_data.ehlers_fisher|floatformat:2 }}{% else %}-{% endif %} (Trigger: {% if item.mom_data.ehlers_fisher_trigger %}{{ item.mom_data.ehlers_fisher_trigger|floatformat:2 }}{% else %}-{% endif %})">
                                         RSI{{ item.rsi|floatformat:0 }} ⓘ
                                     </span>
+                                    {% if item.mom_data.ehlers_pattern_data %}
+                                    <span class="badge rounded-pill" 
+                                          style="{{ item.mom_data.ehlers_pattern_data.style }} font-size:0.55rem; padding: 2px 6px;"
+                                          title="{{ item.mom_data.ehlers_pattern_data.desc }}">
+                                        {{ item.mom_data.ehlers_pattern_data.label }}
+                                    </span>
+                                    {% endif %}
                                     {% endif %}
                                     {% if item.mom_data.technical_score %}<span class="badge bg-dark bg-opacity-10 text-dark rounded-pill" style="font-size:0.6rem;">⭐{{ item.mom_data.technical_score }}</span>{% endif %}
                                 </div>

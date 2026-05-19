@@ -1557,6 +1557,7 @@ def portfolio_list(request):
                 mom_data.ehlers_itl_daily     = prec_data.ehlers_itl_daily
                 mom_data.ehlers_itl_weekly    = prec_data.ehlers_itl_weekly
                 mom_data.ehlers_itl_bullish   = prec_data.ehlers_itl_bullish
+                mom_data.ehlers_pattern_data  = prec_data.ehlers_pattern_data
             else:
                 # 2. คำนวณ on-the-fly ด้วย v2 (ตรงกับ Precision Scanner)
                 tech_analysis = analyze_momentum_technical_v2(hist) if not hist.empty else None
@@ -1585,7 +1586,16 @@ def portfolio_list(request):
                     mom_data.ehlers_itl_daily     = tech_analysis.get('ehlers_itl_daily')
                     mom_data.ehlers_itl_weekly    = tech_analysis.get('ehlers_itl_weekly')
                     mom_data.ehlers_itl_bullish   = tech_analysis.get('ehlers_itl_bullish', False)
+                    from .utils import classify_ehlers_pattern
+                    mom_data.ehlers_pattern_data  = classify_ehlers_pattern(
+                        mom_data.ehlers_laguerre_rsi,
+                        mom_data.ehlers_fisher,
+                        mom_data.ehlers_fisher_trigger,
+                        current_price,
+                        mom_data.ehlers_supersmoother
+                    )
                 else:
+                    mom_data.ehlers_pattern_data = None
                     mom_data.technical_score = 0
                     mom_data.rvol = 0
                     mom_data.risk_reward_ratio = 0
