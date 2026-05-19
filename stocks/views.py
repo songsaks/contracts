@@ -488,6 +488,13 @@ def analyze(request, symbol):
     ผลการวิเคราะห์จะถูกแคชไว้ใน AnalysisCache เพื่อใช้ซ้ำได้
     แสดงกราฟราคา 90 วัน, ข่าวล่าสุด, และข้อมูลพื้นฐาน
     """
+    # ── market=SET guard: redirect M → M.BK so yfinance fetches Thai stock ──
+    market_param = request.GET.get('market', '')
+    if market_param == 'SET' and not symbol.upper().endswith('.BK'):
+        from django.http import HttpResponseRedirect
+        qs = request.GET.urlencode()
+        return HttpResponseRedirect(f"/stocks/analyze/{symbol.upper()}.BK/?{qs}")
+
     # ====== 1. Check Cache First (to prevent 504 Time-out) ======
     cache_timeout_hours = 12
     cached_analysis = AnalysisCache.objects.filter(user=request.user, symbol=symbol).first()
