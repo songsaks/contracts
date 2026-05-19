@@ -4405,17 +4405,73 @@ def scan_watchlist_view(request):
         cur_score  = latest.technical_score if latest else None
         prev_score = prev.technical_score   if prev   else None
         delta = (cur_score - prev_score) if (cur_score is not None and prev_score is not None) else None
+        
+        # Calculate tactical action signals
+        in_buy_zone = False
+        near_buy_zone = False
+        at_tp = False
+        buy_score = latest.buy_score if latest else 0
+        win_prob = latest.win_probability if latest else 0
+        zone_prox = latest.zone_proximity if latest else 999.0
+        
+        if latest and latest.price:
+            price_val = latest.price
+            if latest.demand_zone_start and latest.demand_zone_end:
+                in_buy_zone = (price_val <= latest.demand_zone_start) and (price_val >= latest.demand_zone_end)
+                near_buy_zone = (not in_buy_zone) and (latest.zone_proximity is not None and latest.zone_proximity <= 5.0)
+            if latest.supply_zone_start:
+                at_tp = (price_val >= latest.supply_zone_start)
+
         enriched.append({
             'watchlist':   item,
             'scan_data':   latest,
             'delta':       delta,
             'triggered':   cur_score is not None and cur_score >= item.alert_threshold,
+            'in_buy_zone': in_buy_zone,
+            'near_buy_zone': near_buy_zone,
+            'at_tp': at_tp,
+            'buy_score': buy_score,
+            'win_probability': win_prob,
+            'zone_proximity': zone_prox,
         })
+
+    # Sort results
+    sort_by = request.GET.get('sort', 'actionable')
+    if sort_by == 'actionable':
+        # In Buy Zone first, then Near Zone, then highest Buy Score, then highest Win Probability
+        enriched.sort(key=lambda x: (
+            -int(x['in_buy_zone']),
+            -int(x['near_buy_zone']),
+            -(x['buy_score'] or 0),
+            -(x['win_probability'] or 0),
+            x['watchlist'].symbol
+        ))
+    elif sort_by == 'buy_score':
+        enriched.sort(key=lambda x: (
+            -(x['buy_score'] or 0),
+            -(x['win_probability'] or 0),
+            x['watchlist'].symbol
+        ))
+    elif sort_by == 'win_prob':
+        enriched.sort(key=lambda x: (
+            -(x['win_probability'] or 0),
+            -(x['buy_score'] or 0),
+            x['watchlist'].symbol
+        ))
+    elif sort_by == 'prox':
+        enriched.sort(key=lambda x: (
+            (x['zone_proximity'] if x['zone_proximity'] is not None else 999.0),
+            -(x['buy_score'] or 0),
+            x['watchlist'].symbol
+        ))
+    elif sort_by == 'symbol':
+        enriched.sort(key=lambda x: x['watchlist'].symbol)
 
     return render(request, 'stocks/scan_watchlist.html', {
         'items':       enriched,
         'latest_run':  latest_run,
         'market':      market,
+        'current_sort': sort_by,
     })
 
 

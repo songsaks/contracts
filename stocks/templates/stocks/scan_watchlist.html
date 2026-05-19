@@ -5,9 +5,10 @@
 {% block container_class %}container-fluid px-0{% endblock %}
 
 {% block content %}
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<!-- Google Fonts for elite fintech typography -->
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700;800&family=Prompt:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 
-<!-- ===== HERO HEADER ===== -->
+<!-- ===== HERO HEADER WITH GLASSMORPHISM AND NEON HIGHLIGHTS ===== -->
 <div class="wl-hero">
     <div class="wl-hero-bg"></div>
     <div class="container-fluid px-4 px-md-5 py-4 position-relative">
@@ -18,159 +19,340 @@
                         <i class="fas fa-satellite-dish"></i>
                     </div>
                     <div>
-                        <h1 class="wl-title mb-0">Precision Watchlist</h1>
+                        <h1 class="wl-title mb-0">Precision Smart Watchlist</h1>
                         <p class="wl-subtitle mb-0">
                             <span class="wl-dot {% if market == 'SET' %}dot-emerald{% else %}dot-blue{% endif %}"></span>
-                            {% if market == 'SET' %}SET Market — Thailand{% else %}US Market — NYSE/NASDAQ{% endif %}
-                            {% if latest_run %}&nbsp;·&nbsp;Scanned {{ latest_run|naturaltime }}{% endif %}
+                            {% if market == 'SET' %}ตลาดหุ้นไทย (SET Index){% else %}US Market (NYSE/NASDAQ){% endif %}
+                            {% if latest_run %}&nbsp;·&nbsp;ข้อมูลล่าสุด ณ {{ latest_run|naturaltime }}{% endif %}
                         </p>
                     </div>
                 </div>
             </div>
+            
             <div class="d-flex align-items-center gap-2 flex-wrap">
                 <!-- Market Toggle -->
                 <div class="wl-toggle-group">
-                    <a href="?market=SET" class="wl-toggle {% if market == 'SET' %}active{% endif %}">
-                        <i class="fas fa-chart-bar me-1"></i> Thai
+                    <a href="?market=SET&sort={{ current_sort }}" class="wl-toggle {% if market == 'SET' %}active{% endif %}">
+                        <i class="fas fa-chart-bar me-1"></i> Thai SET
                     </a>
-                    <a href="?market=US" class="wl-toggle {% if market == 'US' %}active{% endif %}">
-                        <i class="fas fa-flag-usa me-1"></i> US
+                    <a href="?market=US&sort={{ current_sort }}" class="wl-toggle {% if market == 'US' %}active{% endif %}">
+                        <i class="fas fa-flag-usa me-1"></i> US Market
                     </a>
                 </div>
                 <!-- Summary Chips -->
                 {% if items %}
                 <div class="wl-chip chip-total">
-                    <i class="fas fa-layer-group me-1"></i> {{ items|length }} หุ้น
+                    <i class="fas fa-layer-group me-1"></i> {{ items|length }} หุ้นติดตาม
                 </div>
-                {% with triggered_count=items|length %}
-                <div class="wl-chip chip-alert" id="alertChip" style="display:none;">
-                    <i class="fas fa-bolt me-1"></i> <span id="alertCount">0</span> สัญญาณ
+                <div class="wl-chip chip-buy-alert" id="buyAlertChip" style="display:none;">
+                    <i class="fas fa-fire me-1"></i> <span id="buyAlertCount">0</span> หุ้นถึงจุดซื้อ!
                 </div>
-                {% endwith %}
                 {% endif %}
+                
                 <a href="{% if market == 'US' %}{% url 'stocks:us_precision_scanner' %}{% else %}{% url 'stocks:precision_momentum_scanner' %}{% endif %}"
-                   class="btn wl-btn-add">
-                    <i class="fas fa-plus me-1"></i> เพิ่มหุ้น
+                   class="btn wl-btn-add ms-md-2">
+                    <i class="fas fa-plus me-1"></i> เพิ่มหุ้นติดตาม
                 </a>
             </div>
         </div>
     </div>
 </div>
 
-<!-- ===== CONTENT ===== -->
+<!-- ===== INTERACTIVE CONTROL BAR (SORTING & FILTERS) ===== -->
+<div class="wl-control-bar border-bottom bg-white sticky-top shadow-sm py-3 px-4 px-md-5">
+    <div class="d-flex flex-column flex-xl-row justify-content-between align-items-xl-center gap-3">
+        <!-- Backend Sorting Selector -->
+        <div class="d-flex align-items-center gap-2 flex-wrap">
+            <span class="text-muted small fw-bold text-uppercase"><i class="fas fa-sort me-1 text-primary"></i> เรียงตาม (Backend):</span>
+            <div class="btn-group btn-group-sm rounded-pill p-1 bg-light">
+                <a href="?market={{ market }}&sort=actionable" class="btn btn-sm rounded-pill px-3 py-1 {% if current_sort == 'actionable' %}btn-primary text-white shadow-sm{% else %}btn-link text-muted{% endif %}">
+                    🎯 จุดยิงแรก (Actionable)
+                </a>
+                <a href="?market={{ market }}&sort=buy_score" class="btn btn-sm rounded-pill px-3 py-1 {% if current_sort == 'buy_score' %}btn-primary text-white shadow-sm{% else %}btn-link text-muted{% endif %}">
+                    🟢 BUY Score
+                </a>
+                <a href="?market={{ market }}&sort=win_prob" class="btn btn-sm rounded-pill px-3 py-1 {% if current_sort == 'win_prob' %}btn-primary text-white shadow-sm{% else %}btn-link text-muted{% endif %}">
+                    🏆 โอกาสชนะ
+                </a>
+                <a href="?market={{ market }}&sort=prox" class="btn btn-sm rounded-pill px-3 py-1 {% if current_sort == 'prox' %}btn-primary text-white shadow-sm{% else %}btn-link text-muted{% endif %}">
+                    ⏳ ใกล้แนวรับ
+                </a>
+                <a href="?market={{ market }}&sort=symbol" class="btn btn-sm rounded-pill px-3 py-1 {% if current_sort == 'symbol' %}btn-primary text-white shadow-sm{% else %}btn-link text-muted{% endif %}">
+                    🔠 ชื่อหุ้น A-Z
+                </a>
+            </div>
+        </div>
+
+        <!-- Frontend Quick Filters (Instant responsive action) -->
+        <div class="d-flex align-items-center gap-2 flex-wrap">
+            <span class="text-muted small fw-bold text-uppercase"><i class="fas fa-filter me-1 text-success"></i> ตัวกรองด่วน (Instant):</span>
+            <button onclick="filterWatchlist('all')" id="filter-all" class="btn btn-xs rounded-pill px-3 py-1 btn-outline-secondary active">
+                ทั้งหมด
+            </button>
+            <button onclick="filterWatchlist('buy_zone')" id="filter-buy_zone" class="btn btn-xs rounded-pill px-3 py-1 btn-outline-success">
+                🟢 อยู่ในจุดซื้อ (In Buy Zone)
+            </button>
+            <button onclick="filterWatchlist('near_zone')" id="filter-near_zone" class="btn btn-xs rounded-pill px-3 py-1 btn-outline-warning">
+                ⏳ ใกล้โซน (<5%)
+            </button>
+            <button onclick="filterWatchlist('high_win')" id="filter-high_win" class="btn btn-xs rounded-pill px-3 py-1 btn-outline-info">
+                🏆 โอกาสชนะสูง (≥85%)
+            </button>
+            <button onclick="filterWatchlist('launcher')" id="filter-launcher" class="btn btn-xs rounded-pill px-3 py-1 btn-outline-primary">
+                🚀 พร้อมระเบิด (Launcher)
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- ===== MAIN CONTENT BODY ===== -->
 <div class="container-fluid px-3 px-md-5 py-4">
 
 {% if items %}
-<div class="row g-3" id="watchlistGrid">
+<div class="row g-4" id="watchlistGrid">
     {% for entry in items %}
     {% with s=entry.scan_data w=entry.watchlist %}
-    <div class="col-12 col-sm-6 col-lg-4 col-xl-3 wl-card-col {% if entry.triggered %}is-triggered{% endif %}"
-         data-triggered="{{ entry.triggered|yesno:'1,0' }}">
-        <div class="wl-card h-100 position-relative">
+    
+    <div class="col-12 col-sm-6 col-lg-4 col-xl-3 wl-card-col"
+         data-triggered="{{ entry.triggered|yesno:'1,0' }}"
+         data-in-buy-zone="{{ entry.in_buy_zone|yesno:'1,0' }}"
+         data-near-buy-zone="{{ entry.near_buy_zone|yesno:'1,0' }}"
+         data-at-tp="{{ entry.at_tp|yesno:'1,0' }}"
+         data-win-prob="{{ entry.win_probability }}"
+         data-buy-score="{{ entry.buy_score }}"
+         data-launcher-score="{{ s.launcher_score|default:0 }}">
+        
+        <!-- CARD CONTAINER -->
+        <div class="wl-card h-100 position-relative {% if entry.in_buy_zone %}status-in-buy-zone{% elif entry.near_buy_zone %}status-near-buy-zone{% elif entry.at_tp %}status-at-tp{% endif %}">
 
-            {% if entry.triggered %}
-            <div class="wl-glow-ring"></div>
-            <div class="wl-signal-badge">
-                <i class="fas fa-bolt"></i> BUY SIGNAL
-            </div>
+            <!-- NEON GLOW PULSE RINGS -->
+            {% if entry.in_buy_zone %}
+                <div class="wl-glow-ring ring-emerald"></div>
+                <div class="wl-alert-banner banner-emerald">
+                    <span class="pulse-dot bg-success"></span> 🚨 ถึงจุดยิง! (อยู่ในโซนซื้อ)
+                </div>
+            {% elif entry.near_buy_zone %}
+                <div class="wl-glow-ring ring-amber"></div>
+                <div class="wl-alert-banner banner-amber">
+                    <span class="pulse-dot bg-warning"></span> ⏳ เตรียมปืน! (ใกล้โซนซื้อ)
+                </div>
+            {% elif entry.at_tp %}
+                <div class="wl-glow-ring ring-rose"></div>
+                <div class="wl-alert-banner banner-rose">
+                    <span class="pulse-dot bg-danger"></span> 💰 ถึงเป้าขาย! (Take Profit)
+                </div>
             {% endif %}
 
-            <!-- CARD HEADER -->
+            <!-- CARD HEADER (Symbol and Info) -->
             <div class="wl-card-header">
                 <div class="d-flex align-items-center gap-3">
                     <div class="wl-avatar {% if s and s.technical_score >= 80 %}avatar-hot{% elif s and s.technical_score >= 60 %}avatar-warm{% else %}avatar-cool{% endif %}">
                         {{ w.symbol|slice:":3" }}
                     </div>
                     <div class="min-w-0">
-                        <div class="wl-symbol">{{ w.symbol }}</div>
-                        <div class="wl-sector">{{ w.sector|default:"—" }}</div>
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="wl-symbol">{{ w.symbol }}</span>
+                            {% if s and s.is_new_entry %}
+                            <span class="badge bg-purple-neon">NEW</span>
+                            {% endif %}
+                        </div>
+                        <div class="wl-sector text-truncate" style="max-width:130px;" title="{{ w.sector }}">{{ w.sector|default:"—" }}</div>
                     </div>
                 </div>
-                <button class="wl-remove-btn" onclick="removeFromWatchlist(this,'{{ w.symbol }}')" title="ลบ">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-
-            <!-- SCORE ROW -->
-            <div class="wl-score-row">
-                <div class="wl-score-block">
-                    <div class="wl-score-label">TECH SCORE</div>
-                    <div class="wl-score-value {% if s and s.technical_score >= 80 %}score-hot{% elif s and s.technical_score >= 60 %}score-warm{% else %}score-cool{% endif %}">
-                        {{ s.technical_score|default:"—" }}
-                        {% if entry.delta is not None %}
-                        <span class="wl-delta {% if entry.delta > 0 %}delta-up{% elif entry.delta < 0 %}delta-down{% else %}delta-flat{% endif %}">
-                            {% if entry.delta > 0 %}▲{{ entry.delta }}{% elif entry.delta < 0 %}▼{{ entry.delta|stringformat:"d"|slice:"1:" }}{% else %}—{% endif %}
-                        </span>
-                        {% endif %}
-                    </div>
-                    {% if s and s.technical_score %}
-                    <div class="wl-score-bar-track">
-                        <div class="wl-score-bar-fill {% if s.technical_score >= 80 %}fill-hot{% elif s.technical_score >= 60 %}fill-warm{% else %}fill-cool{% endif %}"
-                             style="width:{{ s.technical_score }}%"></div>
-                    </div>
-                    {% endif %}
-                </div>
-                <div class="wl-divider-v"></div>
-                <div class="wl-score-block text-end">
-                    <div class="wl-score-label">RS RATING</div>
-                    <div class="wl-score-value {% if s and s.rs_rating >= 80 %}score-hot{% elif s and s.rs_rating >= 60 %}score-warm{% else %}score-cool{% endif %}">
-                        {{ s.rs_rating|default:"—" }}
-                    </div>
-                    <div class="wl-rs-bar-track">
-                        {% if s and s.rs_rating %}
-                        <div class="wl-rs-bar-fill" style="width:{{ s.rs_rating }}%"></div>
-                        {% endif %}
-                    </div>
+                <div class="d-flex align-items-center gap-1">
+                    <button class="wl-remove-btn" onclick="removeFromWatchlist(this,'{{ w.symbol }}')" title="ลบออกจากระบบ">
+                        <i class="fas fa-trash-alt"></i>
+                    </button>
                 </div>
             </div>
 
-            <!-- METRICS GRID -->
-            <div class="wl-metrics">
-                <div class="wl-metric">
-                    <span class="wl-metric-label">ราคา</span>
-                    <span class="wl-metric-value">{% if market == 'US' %}${% else %}฿{% endif %}{{ s.price|floatformat:2|default:"—" }}</span>
-                </div>
-                <div class="wl-metric">
-                    <span class="wl-metric-label">Zone Prox</span>
-                    <span class="wl-metric-value {% if s and s.zone_proximity <= 5 %}text-success fw-bold{% elif s and s.zone_proximity <= 10 %}text-warning{% endif %}">
-                        {{ s.zone_proximity|floatformat:1|default:"—" }}%
+            <!-- PRICE TICKER AND TREND -->
+            <div class="wl-price-row px-3 py-2 bg-light d-flex align-items-center justify-content-between">
+                <div>
+                    <span class="price-label">ราคาปัจจุบัน:</span>
+                    <span class="price-val fw-extrabold {% if s.live_change_pct >= 0 %}text-success{% else %}text-danger{% endif %}">
+                        {% if market == 'US' %}${% else %}฿{% endif %}{{ s.price|floatformat:2|default:"—" }}
                     </span>
                 </div>
-                <div class="wl-metric">
-                    <span class="wl-metric-label">Alert ≥</span>
-                    <span class="wl-metric-value">{{ w.alert_threshold }}</span>
+                {% if s.rel_momentum_3m %}
+                <div class="text-end">
+                    <span class="badge {% if s.rel_momentum_3m >= 0 %}bg-light-success text-success{% else %}bg-light-danger text-danger{% endif %}" style="font-size:0.62rem; font-weight:700;">
+                        {% if s.rel_momentum_3m >= 0 %}+{% endif %}{{ s.rel_momentum_3m|floatformat:1 }}% vs SET (3M)
+                    </span>
                 </div>
-                <div class="wl-metric">
-                    <span class="wl-metric-label">Strategy</span>
-                    <span class="wl-metric-value text-truncate" title="{{ s.entry_strategy|default:'—' }}" style="max-width:70px;">{{ s.entry_strategy|default:"—"|truncatechars:10 }}</span>
+                {% endif %}
+            </div>
+
+            <!-- TECHNICAL CONVICTION GAUGES -->
+            <div class="wl-gauges-section px-3 py-3 border-top border-bottom bg-white">
+                <!-- Win Probability Gauge -->
+                <div class="gauge-item mb-2">
+                    <div class="d-flex justify-content-between align-items-center mb-1">
+                        <span class="gauge-label"><i class="fas fa-award text-success me-1"></i> โอกาสชนะ (Win Probability)</span>
+                        <span class="gauge-val text-success">{{ s.win_probability|default:"0" }}%</span>
+                    </div>
+                    <div class="progress" style="height:6px; border-radius:99px; background:#f1f5f9;">
+                        <div class="progress-bar bg-success rounded-pill" role="progressbar" style="width:{{ s.win_probability|default:0 }}%"></div>
+                    </div>
+                </div>
+
+                <!-- Buy vs Sell Score Meter -->
+                <div class="gauge-item">
+                    <div class="d-flex justify-content-between align-items-center mb-1">
+                        <span class="gauge-label"><i class="fas fa-crosshairs text-primary me-1"></i> สัญญาณซื้อ (BUY Score)</span>
+                        <span class="gauge-val text-primary fw-bold">{{ s.buy_score|default:"0" }} / 100</span>
+                    </div>
+                    <div class="progress" style="height:6px; border-radius:99px; background:#f1f5f9;">
+                        <div class="progress-bar bg-primary rounded-pill" role="progressbar" style="width:{{ s.buy_score|default:0 }}%"></div>
+                    </div>
                 </div>
             </div>
 
-            <!-- BADGES -->
-            <div class="wl-badges">
-                {% if s and s.stage2 %}<span class="wl-badge badge-stage2">Stage 2</span>{% endif %}
-                {% if s and s.vdu_near_zone %}<span class="wl-badge badge-vdu">VDU</span>{% endif %}
-                {% if s and s.vcp_setup %}<span class="wl-badge badge-vcp">VCP</span>{% endif %}
-                {% if s and s.is_explosive %}<span class="wl-badge badge-explosive">🔥 Explosive</span>{% endif %}
+            <!-- TACTICAL STRATEGY BLUEPRINT (แผนการเทรดจริง) -->
+            <div class="wl-blueprint px-3 py-3 bg-light">
+                <div class="blueprint-title text-muted mb-2"><i class="fas fa-drafting-compass me-1"></i> แผนกลยุทธ์ (Trading Blueprint)</div>
+                <div class="row g-2 text-center">
+                    <div class="col-4">
+                        <div class="blueprint-block block-buy">
+                            <span class="block-label">โซนซื้อ (Demand)</span>
+                            <span class="block-val text-success">
+                                {% if s.demand_zone_start and s.demand_zone_end %}
+                                    {{ s.demand_zone_end|floatformat:1 }}-{{ s.demand_zone_start|floatformat:1 }}
+                                {% else %}
+                                    —
+                                {% endif %}
+                            </span>
+                        </div>
+                    </div>
+                    <div class="col-4">
+                        <div class="blueprint-block block-sl">
+                            <span class="block-label">หนีที่ (Stop Loss)</span>
+                            <span class="block-val text-danger fw-semibold">
+                                {% if s.stop_loss %}
+                                    {{ s.stop_loss|floatformat:2 }}
+                                {% else %}
+                                    —
+                                {% endif %}
+                            </span>
+                        </div>
+                    </div>
+                    <div class="col-4">
+                        <div class="blueprint-block block-tp">
+                            <span class="block-label">เป้าขาย (Target)</span>
+                            <span class="block-val text-primary">
+                                {% if s.supply_zone_start %}
+                                    {{ s.supply_zone_start|floatformat:1 }}
+                                {% else %}
+                                    —
+                                {% endif %}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- RR and Proximity Row -->
+                <div class="d-flex justify-content-between align-items-center mt-2 pt-2 border-top border-light-dark">
+                    <span class="blueprint-meta-item">
+                        <i class="fas fa-balance-scale-left text-muted me-1"></i> R:R Ratio: 
+                        <strong class="text-dark">
+                            {% if s.risk_reward_ratio %}1:{{ s.risk_reward_ratio|floatformat:1 }}{% else %}—{% endif %}
+                        </strong>
+                    </span>
+                    <span class="blueprint-meta-item">
+                        <i class="fas fa-route text-muted me-1"></i> ใกล้โซน: 
+                        <strong class="{% if s.zone_proximity <= 5 %}text-success{% else %}text-warning{% endif %}">
+                            {{ s.zone_proximity|floatformat:1 }}%
+                        </strong>
+                    </span>
+                </div>
             </div>
 
-            <!-- ACTIONS -->
-            <div class="wl-actions">
-                <a href="{% url 'stocks:analyze' w.symbol %}" class="wl-btn-analyze">
-                    <i class="fas fa-microscope"></i> วิเคราะห์ AI
+            <!-- FOUR-COLUMN TECHNICAL HEALTH GRID -->
+            <div class="wl-stats-grid">
+                <div class="stat-box" title="ADX - Strength of Trend">
+                    <span class="stat-label">ADX (เทรนด์)</span>
+                    <span class="stat-val {% if s.adx >= 30 %}text-success{% elif s.adx >= 20 %}text-primary{% else %}text-muted{% endif %}">
+                        {{ s.adx|floatformat:1|default:"—" }}
+                    </span>
+                </div>
+                <div class="stat-box" title="RSI - Momentum">
+                    <span class="stat-label">RSI (แกว่งตัว)</span>
+                    <span class="stat-val {% if s.rsi > 70 %}text-danger{% elif s.rsi > 50 %}text-success{% else %}text-secondary{% endif %}">
+                        {{ s.rsi|floatformat:0|default:"—" }}
+                    </span>
+                </div>
+                <div class="stat-box" title="Chaikin Money Flow - Institutional Accumulation">
+                    <span class="stat-label">CMF (เงินไหลเข้า)</span>
+                    <span class="stat-val {% if s.cmf >= 0.1 %}text-success fw-bold{% elif s.cmf < -0.1 %}text-danger{% else %}text-muted{% endif %}">
+                        {% if s.cmf is not None %}{{ s.cmf|floatformat:2 }}{% else %}—{% endif %}
+                    </span>
+                </div>
+                <div class="stat-box" title="Relative Volume - Activity level">
+                    <span class="stat-label">RVOL (วอลุ่ม)</span>
+                    <span class="stat-val {% if s.rvol >= 1.5 %}text-success fw-bold{% else %}text-muted{% endif %}">
+                        {{ s.rvol|floatformat:1|default:"—" }}x
+                        {% if s.vdu_near_zone %}<span class="vdu-pill" title="Volume Dry-Up (แรงขายหมด)">VDU</span>{% endif %}
+                    </span>
+                </div>
+            </div>
+
+            <!-- TACTICAL SIGNAL BADGES -->
+            <div class="wl-badges px-3 py-2 border-top bg-white">
+                <div class="d-flex flex-wrap gap-1 align-items-center">
+                    {% if s.stage2 %}
+                        <span class="badge badge-outline-success" title="Weinstein Stage 2: ขาขึ้นรอบใหญ่">Stage 2</span>
+                    {% endif %}
+                    {% if s.pocket_pivot %}
+                        <span class="badge badge-outline-purple" title="Pocket Pivot: สัญญาณสถาบันเข้าดันราคา">Pocket Pivot</span>
+                    {% endif %}
+                    {% if s.vcp_setup %}
+                        <span class="badge badge-outline-warning" title="VCP Setup: ราคากำลังบีบอัดฐาน">VCP Setup</span>
+                    {% endif %}
+                    {% if s.ema20_aligned %}
+                        <span class="badge badge-outline-info" title="EMA Stack: แนวโน้มเรียงตัวเป็นระเบียบ">EMA Stack</span>
+                    {% endif %}
+                    {% if s.ichimoku_score >= 3 %}
+                        <span class="badge badge-outline-success" title="Ichimoku Cloud Confirm: ☁ {{ s.ichimoku_score }}/4">☁ Cloud</span>
+                    {% endif %}
+                    {% if s.is_52w_breakout %}
+                        <span class="badge badge-outline-danger" title="52W High Breakout: กำลังเบรกเอาต์สถิติเดิม">🏔 52W Breakout</span>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- EXPLOSIVE LAUNCHER ALERT WIDGET -->
+            {% if s.launcher_score >= 45 %}
+            <div class="wl-launcher-bar px-3 py-2 bg-gradient-purple text-white d-flex justify-content-between align-items-center">
+                <span>
+                    <i class="fas fa-rocket me-1"></i> <strong>Explosive Launcher Score:</strong> {{ s.launcher_score }}%
+                </span>
+                <span class="badge bg-white text-dark shadow-sm" style="font-size:0.62rem;">
+                    🎯 ห่างเบรก {{ s.turtle_dist_pct|floatformat:1 }}%
+                </span>
+            </div>
+            {% endif %}
+
+            <!-- BOTTOM QUICK ACTIONS -->
+            <div class="wl-actions px-3 py-3 border-top bg-white">
+                <a href="{% url 'stocks:analyze' w.symbol %}?market={{ market }}" class="wl-btn-analyze">
+                    <i class="fas fa-microchip me-1"></i> วิเคราะห์เจาะลึก AI
                 </a>
-                <a href="{% url 'stocks:entry_finder' w.symbol %}" class="wl-btn-entry" target="_blank" title="Entry Finder">
+                <a href="{% url 'stocks:entry_finder' w.symbol %}" class="wl-btn-entry" target="_blank" title="Sniper Chart - ค้นหาจุดยิง">
                     <i class="fas fa-crosshairs"></i>
                 </a>
             </div>
 
-            <!-- FOOTER -->
+            <!-- CARD FOOTER (Time & Status Summary) -->
             <div class="wl-card-footer">
-                <span><i class="far fa-clock me-1 opacity-50"></i>{{ s.scan_run|date:"d M H:i"|default:"—" }}</span>
-                {% if entry.triggered %}
-                <span class="text-success fw-bold"><i class="fas fa-check-circle me-1"></i>Triggered</span>
+                <span><i class="far fa-clock me-1 opacity-50"></i>สแกน: {{ s.scan_run|date:"d M H:i"|default:"—" }}</span>
+                {% if entry.in_buy_zone %}
+                <span class="text-success fw-bold"><i class="fas fa-check-circle me-1"></i>ซื้อได้แล้ว!</span>
+                {% elif entry.near_buy_zone %}
+                <span class="text-warning fw-bold"><i class="fas fa-hourglass-half me-1"></i>ใกล้โซนซื้อ</span>
+                {% elif entry.at_tp %}
+                <span class="text-danger fw-bold"><i class="fas fa-coins me-1"></i>เป้าหมายขาย</span>
                 {% else %}
-                <span class="text-muted">Watching...</span>
+                <span class="text-muted"><i class="fas fa-eye me-1"></i>เฝ้าติดตาม...</span>
                 {% endif %}
             </div>
 
@@ -182,180 +364,296 @@
 
 {% else %}
 <!-- EMPTY STATE -->
-<div class="wl-empty">
-    <div class="wl-empty-icon">
-        <i class="fas fa-satellite-dish"></i>
+<div class="wl-empty card shadow-sm border-0 py-5">
+    <div class="card-body text-center">
+        <div class="wl-empty-icon mb-4">
+            <i class="fas fa-satellite-dish"></i>
+        </div>
+        <h3 class="wl-empty-title">ยังไม่มีหุ้นที่ติดตามใน Watchlist</h3>
+        <p class="wl-empty-desc text-muted mx-auto" style="max-width: 400px;">
+            เพิ่มหุ้นที่คุณต้องการเฝ้าสังเกตการณ์ความเคลื่อนไหวจากหน้า **Precision Scanner** เพื่อติดตามความพร้อมและรับการแจ้งเตือนสัญญาณซื้อทันทีเมื่อย่อลงสู่จุดยิง!
+        </p>
+        <a href="{% url 'stocks:precision_momentum_scanner' %}" class="btn btn-primary rounded-pill px-5 py-2 mt-2 shadow-sm">
+            <i class="fas fa-plus me-2"></i> ไปหน้าสแกนและค้นหาหุ้น
+        </a>
     </div>
-    <h3 class="wl-empty-title">ยังไม่มีหุ้นใน Watchlist</h3>
-    <p class="wl-empty-desc">เพิ่มหุ้นจากหน้า Scanner เพื่อติดตามสัญญาณและรับการแจ้งเตือนแบบ Real-time</p>
-    <a href="{% url 'stocks:precision_momentum_scanner' %}" class="wl-btn-add px-5 py-2">
-        <i class="fas fa-plus me-2"></i> ไปหน้าสแกนหุ้น
-    </a>
 </div>
 {% endif %}
 
 </div>
 
-<!-- ===== STYLES ===== -->
+<!-- ===== PREMIUM STYLING SYSTEM (HSL tailored colors) ===== -->
 <style>
     :root {
-        --hero-bg: #0f172a;
+        --hero-bg-gradient: linear-gradient(135deg, #0b0f19 0%, #1e1b4b 100%);
+        --primary-neon: #6366f1;
+        --emerald-neon: #10b981;
+        --amber-neon: #f59e0b;
+        --rose-neon: #f43f5e;
+        --purple-neon: #8b5cf6;
         --card-bg: #ffffff;
-        --card-border: #e2e8f0;
-        --card-hover-shadow: 0 20px 40px rgba(0,0,0,0.1);
-        --hot: #10b981;
-        --warm: #3b82f6;
-        --cool: #94a3b8;
-        --font-main: 'Inter', 'Prompt', sans-serif;
+        --card-border: #f1f5f9;
+        --font-outfit: 'Outfit', 'Prompt', sans-serif;
     }
 
-    /* HERO */
-    .wl-hero { background: var(--hero-bg); position: relative; overflow: hidden; }
+    body {
+        background-color: #f8fafc;
+    }
+
+    /* HERO SECTION */
+    .wl-hero {
+        background: var(--hero-bg-gradient);
+        position: relative;
+        overflow: hidden;
+        border-radius: 0 0 2rem 2rem;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
+    }
     .wl-hero-bg {
         position: absolute; inset: 0;
-        background: radial-gradient(ellipse at 20% 50%, rgba(99,102,241,0.15) 0%, transparent 60%),
-                    radial-gradient(ellipse at 80% 50%, rgba(16,185,129,0.08) 0%, transparent 60%);
+        background: radial-gradient(circle at 10% 20%, rgba(99,102,241,0.2) 0%, transparent 50%),
+                    radial-gradient(circle at 90% 80%, rgba(16,185,129,0.1) 0%, transparent 50%);
     }
     .wl-icon-pulse {
-        width: 48px; height: 48px; border-radius: 14px;
-        background: linear-gradient(135deg, #4f46e5, #7c3aed);
+        width: 52px; height: 52px; border-radius: 16px;
+        background: linear-gradient(135deg, #4f46e5, #8b5cf6);
         display: flex; align-items: center; justify-content: center;
-        color: white; font-size: 1.2rem; flex-shrink: 0;
-        box-shadow: 0 0 20px rgba(79,70,229,0.5);
-        animation: iconGlow 3s ease-in-out infinite;
+        color: white; font-size: 1.3rem; flex-shrink: 0;
+        box-shadow: 0 0 25px rgba(79,70,229,0.5);
+        animation: iconGlow 4s ease-in-out infinite;
     }
     @keyframes iconGlow {
-        0%,100% { box-shadow: 0 0 20px rgba(79,70,229,0.4); }
-        50%      { box-shadow: 0 0 35px rgba(79,70,229,0.8); }
+        0%,100% { box-shadow: 0 0 20px rgba(79,70,229,0.4); transform: scale(1); }
+        50%      { box-shadow: 0 0 35px rgba(79,70,229,0.7); transform: scale(1.03); }
     }
-    .wl-title { font-family: 'Prompt', sans-serif; font-size: 1.6rem; font-weight: 700; color: #f1f5f9; letter-spacing: -0.02em; }
-    .wl-subtitle { font-size: 0.82rem; color: #94a3b8; display: flex; align-items: center; gap: 6px; }
-    .wl-dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
-    .dot-emerald { background: #10b981; box-shadow: 0 0 6px #10b981; animation: dotPulse 2s infinite; }
-    .dot-blue    { background: #3b82f6; box-shadow: 0 0 6px #3b82f6; animation: dotPulse 2s infinite; }
-    @keyframes dotPulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+    .wl-title {
+        font-family: var(--font-outfit);
+        font-size: 1.85rem; font-weight: 800; color: #f8fafc;
+        letter-spacing: -0.02em;
+    }
+    .wl-subtitle { font-size: 0.85rem; color: #94a3b8; display: flex; align-items: center; gap: 8px; font-family: var(--font-outfit); }
+    .wl-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
+    .dot-emerald { background: var(--emerald-neon); box-shadow: 0 0 8px var(--emerald-neon); animation: dotPulse 2s infinite; }
+    .dot-blue    { background: #3b82f6; box-shadow: 0 0 8px #3b82f6; animation: dotPulse 2s infinite; }
+    @keyframes dotPulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
 
-    /* TOGGLE */
-    .wl-toggle-group { display: flex; background: rgba(255,255,255,0.08); border-radius: 999px; padding: 3px; gap: 2px; border: 1px solid rgba(255,255,255,0.1); }
-    .wl-toggle { padding: 6px 18px; border-radius: 999px; font-size: 0.78rem; font-weight: 600; color: #94a3b8; text-decoration: none; transition: all 0.2s; white-space: nowrap; }
-    .wl-toggle.active { background: #4f46e5; color: white; box-shadow: 0 0 12px rgba(79,70,229,0.5); }
-    .wl-toggle:hover:not(.active) { color: #e2e8f0; background: rgba(255,255,255,0.06); }
+    /* TOGGLES */
+    .wl-toggle-group { display: flex; background: rgba(255,255,255,0.06); border-radius: 999px; padding: 4px; gap: 4px; border: 1px solid rgba(255,255,255,0.08); }
+    .wl-toggle { padding: 8px 20px; border-radius: 999px; font-size: 0.8rem; font-weight: 700; color: #94a3b8; text-decoration: none; transition: all 0.2s; white-space: nowrap; font-family: var(--font-outfit); }
+    .wl-toggle.active { background: #4f46e5; color: white; box-shadow: 0 4px 15px rgba(79,70,229,0.4); }
+    .wl-toggle:hover:not(.active) { color: #f1f5f9; background: rgba(255,255,255,0.04); }
 
     /* CHIPS */
-    .wl-chip { font-size: 0.75rem; font-weight: 700; padding: 6px 14px; border-radius: 999px; border: 1px solid; white-space: nowrap; }
-    .chip-total { background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.12); color: #94a3b8; }
-    .chip-alert { background: rgba(251,191,36,0.12); border-color: rgba(251,191,36,0.3); color: #fbbf24; }
+    .wl-chip { font-size: 0.75rem; font-weight: 700; padding: 8px 16px; border-radius: 999px; border: 1px solid; white-space: nowrap; font-family: var(--font-outfit); }
+    .chip-total { background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.1); color: #cbd5e1; }
+    .chip-buy-alert { background: rgba(16,185,129,0.12); border-color: rgba(16,185,129,0.25); color: #10b981; animation: blinkChip 2s infinite; }
+    @keyframes blinkChip { 0%,100% { opacity:1; } 50% { opacity:0.85; } }
 
     /* ADD BUTTON */
-    .wl-btn-add { background: linear-gradient(135deg, #4f46e5, #7c3aed); color: white !important; border: none; border-radius: 999px; padding: 8px 20px; font-size: 0.8rem; font-weight: 700; text-decoration: none; display: inline-flex; align-items: center; transition: all 0.2s; }
-    .wl-btn-add:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(79,70,229,0.4); }
+    .wl-btn-add { background: linear-gradient(135deg, #4f46e5, #7c3aed); color: white !important; border: none; border-radius: 999px; padding: 10px 22px; font-size: 0.82rem; font-weight: 700; text-decoration: none; display: inline-flex; align-items: center; transition: all 0.25s; font-family: var(--font-outfit); }
+    .wl-btn-add:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(79,70,229,0.45); }
 
-    /* CARD */
+    /* CONTROL PANEL BAR */
+    .wl-control-bar {
+        background: rgba(255, 255, 255, 0.9) !important;
+        backdrop-filter: blur(10px);
+        z-index: 100;
+    }
+    .btn-xs { font-size: 0.72rem; padding: 5px 12px; border-width: 1px; font-weight: 600; font-family: var(--font-outfit); }
+    .btn-outline-success.active { background-color: #10b981 !important; color: white !important; border-color: #10b981 !important; box-shadow: 0 4px 10px rgba(16,185,129,0.2); }
+    .btn-outline-warning.active { background-color: #f59e0b !important; color: white !important; border-color: #f59e0b !important; box-shadow: 0 4px 10px rgba(245,158,11,0.2); }
+    .btn-outline-info.active { background-color: #06b6d4 !important; color: white !important; border-color: #06b6d4 !important; box-shadow: 0 4px 10px rgba(6,182,212,0.2); }
+    .btn-outline-primary.active { background-color: #6366f1 !important; color: white !important; border-color: #6366f1 !important; box-shadow: 0 4px 10px rgba(99,102,241,0.2); }
+
+    /* ULTRA PREMIUM CARD */
     .wl-card {
-        background: #fff; border: 1px solid var(--card-border);
-        border-radius: 1.25rem; overflow: hidden; font-family: var(--font-main);
-        transition: transform 0.25s cubic-bezier(.34,1.56,.64,1), box-shadow 0.25s;
-        display: flex; flex-direction: column;
+        background: var(--card-bg);
+        border: 1.5px solid var(--card-border);
+        border-radius: 1.5rem;
+        overflow: hidden;
+        font-family: var(--font-outfit);
+        transition: transform 0.3s cubic-bezier(.25,.8,.25,1), box-shadow 0.3s, border-color 0.3s;
+        display: flex;
+        flex-direction: column;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.015);
     }
-    .wl-card:hover { transform: translateY(-6px); box-shadow: var(--card-hover-shadow); }
-    .is-triggered .wl-card { border-color: rgba(16,185,129,0.35); background: linear-gradient(180deg, #f0fdf4 0%, #fff 60%); }
+    .wl-card:hover {
+        transform: translateY(-8px);
+        box-shadow: 0 20px 35px rgba(15,23,42,0.06);
+        border-color: #cbd5e1;
+    }
+
+    /* GLOW RINGS & STATUSES */
     .wl-glow-ring {
-        position: absolute; inset: 0; border-radius: 1.25rem; pointer-events: none;
-        box-shadow: inset 0 0 0 2px rgba(16,185,129,0.5), 0 0 20px rgba(16,185,129,0.15);
-        animation: glowPulse 2s ease-in-out infinite;
+        position: absolute; inset: 0; border-radius: 1.5rem; pointer-events: none; z-index: 10;
     }
-    @keyframes glowPulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
+    .ring-emerald { box-shadow: inset 0 0 0 2px var(--emerald-neon), 0 0 15px rgba(16,185,129,0.15); animation: pulseGreen 2.5s infinite; }
+    .ring-amber   { box-shadow: inset 0 0 0 2px var(--amber-neon), 0 0 12px rgba(245,158,11,0.12); animation: pulseAmber 2.5s infinite; }
+    .ring-rose    { box-shadow: inset 0 0 0 2px var(--rose-neon), 0 0 12px rgba(244,63,94,0.12); }
+    
+    @keyframes pulseGreen { 0%,100%{opacity:1} 50%{opacity:0.6} }
+    @keyframes pulseAmber { 0%,100%{opacity:1} 50%{opacity:0.6} }
 
-    /* SIGNAL BADGE */
-    .wl-signal-badge {
-        position: absolute; top: 12px; right: 12px; z-index: 2;
-        background: linear-gradient(135deg, #10b981, #059669);
-        color: white; font-size: 0.62rem; font-weight: 800;
-        padding: 4px 10px; border-radius: 999px; letter-spacing: 0.06em;
-        box-shadow: 0 4px 12px rgba(16,185,129,0.4);
-        animation: signalBlink 1.5s ease-in-out infinite;
+    /* ALERT BANNER */
+    .wl-alert-banner {
+        padding: 6px 12px; font-size: 0.68rem; font-weight: 800; text-transform: uppercase;
+        letter-spacing: 0.05em; display: flex; align-items: center; gap: 6px; z-index: 11;
+        position: relative;
     }
-    @keyframes signalBlink { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.8;transform:scale(0.97)} }
+    .banner-emerald { background: rgba(16,185,129,0.1); color: #065f46; border-bottom: 1.5px solid rgba(16,185,129,0.2); }
+    .banner-amber   { background: rgba(245,158,11,0.1); color: #92400e; border-bottom: 1.5px solid rgba(245,158,11,0.2); }
+    .banner-rose    { background: rgba(244,63,94,0.1); color: #9f1239; border-bottom: 1.5px solid rgba(244,63,94,0.2); }
 
-    /* CARD HEADER */
-    .wl-card-header { padding: 16px 16px 12px; display: flex; align-items: center; justify-content: space-between; }
+    .pulse-dot { width: 6px; height: 6px; border-radius: 50%; display: inline-block; animation: dotBlink 1.5s infinite; }
+    @keyframes dotBlink { 0%,100% {transform:scale(1); opacity:1;} 50% {transform:scale(1.4); opacity:0.3;} }
+
+    /* HEADER */
+    .wl-card-header { padding: 18px 18px 12px; display: flex; align-items: center; justify-content: space-between; }
     .wl-avatar {
-        width: 46px; height: 46px; border-radius: 12px; flex-shrink: 0;
+        width: 44px; height: 44px; border-radius: 12px; flex-shrink: 0;
         display: flex; align-items: center; justify-content: center;
-        font-size: 0.75rem; font-weight: 900; color: white; letter-spacing: 0.02em;
+        font-size: 0.72rem; font-weight: 800; color: white;
     }
-    .avatar-hot  { background: linear-gradient(135deg, #059669, #10b981); box-shadow: 0 4px 12px rgba(16,185,129,0.35); }
-    .avatar-warm { background: linear-gradient(135deg, #1d4ed8, #3b82f6); box-shadow: 0 4px 12px rgba(59,130,246,0.35); }
-    .avatar-cool { background: linear-gradient(135deg, #475569, #64748b); }
-    .wl-symbol { font-size: 1.05rem; font-weight: 800; color: #0f172a; letter-spacing: -0.01em; }
-    .wl-sector { font-size: 0.65rem; color: #94a3b8; font-weight: 500; margin-top: 1px; }
-    .wl-remove-btn { background: none; border: none; color: #cbd5e1; font-size: 0.85rem; cursor: pointer; padding: 4px 8px; border-radius: 8px; transition: all 0.15s; line-height: 1; }
-    .wl-remove-btn:hover { color: #ef4444; background: #fff0f0; }
+    .avatar-hot  { background: linear-gradient(135deg, #10b981, #059669); }
+    .avatar-warm { background: linear-gradient(135deg, #3b82f6, #1d4ed8); }
+    .avatar-cool { background: linear-gradient(135deg, #64748b, #475569); }
 
-    /* SCORE ROW */
-    .wl-score-row { display: flex; align-items: center; padding: 10px 16px; background: #f8fafc; border-top: 1px solid #f1f5f9; border-bottom: 1px solid #f1f5f9; gap: 12px; }
-    .wl-score-block { flex: 1; }
-    .wl-score-label { font-size: 0.58rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #94a3b8; margin-bottom: 2px; }
-    .wl-score-value { font-size: 1.35rem; font-weight: 900; line-height: 1; display: flex; align-items: baseline; gap: 5px; }
-    .score-hot  { color: #059669; }
-    .score-warm { color: #2563eb; }
-    .score-cool { color: #64748b; }
-    .wl-delta { font-size: 0.65rem; font-weight: 700; }
-    .delta-up   { color: #10b981; }
-    .delta-down { color: #ef4444; }
-    .delta-flat { color: #94a3b8; }
-    .wl-score-bar-track, .wl-rs-bar-track { height: 3px; background: #e2e8f0; border-radius: 999px; margin-top: 5px; overflow: hidden; }
-    .wl-score-bar-fill, .wl-rs-bar-fill { height: 100%; border-radius: 999px; transition: width 0.8s ease; }
-    .fill-hot  { background: linear-gradient(90deg, #059669, #10b981); }
-    .fill-warm { background: linear-gradient(90deg, #1d4ed8, #3b82f6); }
-    .fill-cool { background: #94a3b8; }
-    .wl-rs-bar-fill { background: linear-gradient(90deg, #7c3aed, #a855f7); }
-    .wl-divider-v { width: 1px; height: 40px; background: #e2e8f0; flex-shrink: 0; }
+    .wl-symbol { font-size: 1.15rem; font-weight: 800; color: #0f172a; letter-spacing: -0.02em; }
+    .wl-sector { font-size: 0.65rem; color: #94a3b8; font-weight: 500; }
+    .bg-purple-neon { background: var(--purple-neon); color: white; font-size: 0.55rem; font-weight: 800; padding: 2px 6px; border-radius: 4px; }
+    
+    .wl-remove-btn { background: none; border: none; color: #94a3b8; font-size: 0.8rem; cursor: pointer; padding: 6px; border-radius: 6px; transition: all 0.15s; line-height: 1; }
+    .wl-remove-btn:hover { color: var(--rose-neon); background: #fef2f2; }
 
-    /* METRICS */
-    .wl-metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: #f1f5f9; border-top: 1px solid #f1f5f9; }
-    .wl-metric { background: #fff; padding: 8px 14px; display: flex; flex-direction: column; gap: 2px; }
-    .wl-metric-label { font-size: 0.6rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #94a3b8; }
-    .wl-metric-value { font-size: 0.82rem; font-weight: 700; color: #1e293b; }
+    /* PRICE */
+    .wl-price-row { border-top: 1px solid #f8fafc; border-bottom: 1px solid #f8fafc; }
+    .price-label { font-size: 0.62rem; color: #94a3b8; font-weight: 600; text-transform: uppercase; margin-right: 4px; }
+    .price-val { font-size: 1.15rem; font-weight: 800; letter-spacing: -0.01em; }
+    .bg-light-success { background-color: #dcfce7; }
+    .bg-light-danger  { background-color: #fee2e2; }
+
+    /* METRICS / GAUGES */
+    .gauge-label { font-size: 0.65rem; font-weight: 700; color: #475569; }
+    .gauge-val { font-size: 0.75rem; font-weight: 800; }
+
+    /* TRADING BLUEPRINT */
+    .wl-blueprint {
+        border-top: 1px solid #f1f5f9;
+        border-bottom: 1px solid #f1f5f9;
+    }
+    .blueprint-title { font-size: 0.6rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; }
+    .blueprint-block { background: white; padding: 6px 4px; border-radius: 8px; border: 1px solid #e2e8f0; display: flex; flex-direction: column; gap: 2px; }
+    .block-label { font-size: 0.52rem; color: #94a3b8; font-weight: 700; }
+    .block-val { font-size: 0.72rem; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    
+    .blueprint-meta-item { font-size: 0.62rem; color: #64748b; font-weight: 500; }
+
+    /* TECHNICAL HEALTH GRID (4-column) */
+    .wl-stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; background: #e2e8f0; border-top: 1px solid #f1f5f9; border-bottom: 1px solid #f1f5f9; }
+    .stat-box { background: white; padding: 8px 4px; text-align: center; display: flex; flex-direction: column; justify-content: center; }
+    .stat-label { font-size: 0.48rem; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.02em; margin-bottom: 3px; }
+    .stat-val { font-size: 0.75rem; font-weight: 700; }
+    .vdu-pill { display: inline-block; background: #eff6ff; color: #1d4ed8; font-size: 0.48rem; font-weight: 800; padding: 0px 3px; border-radius: 3px; margin-top: 2px; }
 
     /* BADGES */
-    .wl-badges { padding: 10px 14px; display: flex; flex-wrap: wrap; gap: 5px; border-top: 1px solid #f1f5f9; min-height: 40px; }
-    .wl-badge { font-size: 0.6rem; font-weight: 700; padding: 3px 8px; border-radius: 6px; letter-spacing: 0.04em; white-space: nowrap; }
-    .badge-stage2   { background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; }
-    .badge-vdu      { background: #f0f9ff; color: #0369a1; border: 1px solid #bae6fd; }
-    .badge-vcp      { background: #fff7ed; color: #c2410c; border: 1px solid #fed7aa; }
-    .badge-explosive{ background: #fef3c7; color: #92400e; border: 1px solid #fde68a; }
+    .wl-badges { min-height: 42px; display: flex; align-items: center; }
+    .badge-outline-success { border: 1px solid rgba(16,185,129,0.3); color: #059669; background: rgba(16,185,129,0.03); font-size: 0.58rem; font-weight: 700; }
+    .badge-outline-purple  { border: 1px solid rgba(139,92,246,0.3); color: #7c3aed; background: rgba(139,92,246,0.03); font-size: 0.58rem; font-weight: 700; }
+    .badge-outline-warning { border: 1px solid rgba(245,158,11,0.3); color: #d97706; background: rgba(245,158,11,0.03); font-size: 0.58rem; font-weight: 700; }
+    .badge-outline-info    { border: 1px solid rgba(59,130,246,0.3); color: #2563eb; background: rgba(59,130,246,0.03); font-size: 0.58rem; font-weight: 700; }
+    .badge-outline-danger  { border: 1px solid rgba(244,63,94,0.3); color: #e11d48; background: rgba(244,63,94,0.03); font-size: 0.58rem; font-weight: 700; }
+
+    /* LAUNCHER WIDGET */
+    .bg-gradient-purple { background: linear-gradient(90deg, #4f46e5 0%, #8b5cf6 100%); }
+    .wl-launcher-bar { font-size: 0.65rem; font-weight: 600; }
 
     /* ACTIONS */
-    .wl-actions { display: flex; gap: 8px; padding: 10px 14px; border-top: 1px solid #f1f5f9; margin-top: auto; }
-    .wl-btn-analyze { flex: 1; background: #f8fafc; color: #334155; border: 1px solid #e2e8f0; border-radius: 999px; padding: 8px 12px; font-size: 0.72rem; font-weight: 700; text-decoration: none; display: flex; align-items: center; justify-content: center; gap: 5px; transition: all 0.2s; }
-    .wl-btn-analyze:hover { background: #0f172a; color: white; border-color: #0f172a; }
-    .wl-btn-entry { background: #4f46e5; color: white; border: none; border-radius: 999px; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; text-decoration: none; font-size: 0.85rem; transition: all 0.2s; flex-shrink: 0; }
-    .wl-btn-entry:hover { background: #4338ca; color: white; transform: scale(1.1); }
+    .wl-actions { display: flex; gap: 8px; }
+    .wl-btn-analyze { flex: 1; background: linear-gradient(135deg, #4f46e5, #7c3aed); color: white !important; border: none; border-radius: 999px; padding: 10px 14px; font-size: 0.75rem; font-weight: 700; text-decoration: none; display: flex; align-items: center; justify-content: center; transition: all 0.2s; box-shadow: 0 4px 12px rgba(79,70,229,0.15); }
+    .wl-btn-analyze:hover { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(79,70,229,0.3); }
+    
+    .wl-btn-entry { background: #f1f5f9; color: #334155; border: 1px solid #e2e8f0; border-radius: 50%; width: 38px; height: 38px; display: flex; align-items: center; justify-content: center; text-decoration: none; font-size: 0.95rem; transition: all 0.2s; flex-shrink: 0; }
+    .wl-btn-entry:hover { background: #0f172a; color: white; border-color: #0f172a; transform: rotate(45deg); }
 
     /* CARD FOOTER */
-    .wl-card-footer { padding: 8px 14px; background: #f8fafc; border-top: 1px solid #f1f5f9; display: flex; justify-content: space-between; align-items: center; font-size: 0.62rem; color: #94a3b8; }
+    .wl-card-footer { padding: 10px 18px; background: #f8fafc; border-top: 1px solid #f1f5f9; display: flex; justify-content: space-between; align-items: center; font-size: 0.62rem; color: #94a3b8; font-weight: 500; }
 
     /* EMPTY STATE */
-    .wl-empty { max-width: 480px; margin: 80px auto; text-align: center; padding: 0 20px; }
-    .wl-empty-icon { width: 90px; height: 90px; border-radius: 50%; background: linear-gradient(135deg, #1e293b, #334155); display: flex; align-items: center; justify-content: center; margin: 0 auto 24px; font-size: 2rem; color: #475569; }
-    .wl-empty-title { font-family: 'Prompt', sans-serif; font-size: 1.3rem; font-weight: 700; color: #0f172a; margin-bottom: 10px; }
-    .wl-empty-desc  { color: #64748b; font-size: 0.9rem; margin-bottom: 24px; }
+    .wl-empty {
+        border-radius: 1.5rem;
+        background: white;
+    }
+    .wl-empty-icon {
+        width: 80px; height: 80px; border-radius: 50%;
+        background: #f1f5f9; display: flex; align-items: center; justify-content: center;
+        margin: 0 auto; font-size: 2.2rem; color: #94a3b8;
+    }
+    .wl-empty-title { font-family: var(--font-outfit); font-weight: 700; font-size: 1.25rem; color: #0f172a; }
 </style>
 
+<!-- ===== INTERACTIVE JAVASCRIPT LOGIC ===== -->
 <script>
-// Count triggered signals and show chip
 document.addEventListener('DOMContentLoaded', function() {
-    const triggered = document.querySelectorAll('.wl-card-col[data-triggered="1"]');
-    if (triggered.length > 0) {
-        const chip = document.getElementById('alertChip');
-        const cnt  = document.getElementById('alertCount');
-        if (chip) { chip.style.display = ''; cnt.textContent = triggered.length; }
+    // Count triggered signals (In Buy Zone)
+    const inBuyZone = document.querySelectorAll('.wl-card-col[data-in-buy-zone="1"]');
+    if (inBuyZone.length > 0) {
+        const chip = document.getElementById('buyAlertChip');
+        const cnt  = document.getElementById('buyAlertCount');
+        if (chip) { 
+            chip.style.display = ''; 
+            cnt.textContent = inBuyZone.length; 
+        }
     }
 });
 
+// INSTANT RESPONSIVE FILTERING (NO PAGE RELOAD)
+function filterWatchlist(criteria) {
+    const cards = document.querySelectorAll('.wl-card-col');
+    
+    // Reset all filter buttons active state
+    document.querySelectorAll('[id^="filter-"]').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    
+    // Set clicked button to active
+    document.getElementById('filter-' + criteria).classList.add('active');
+
+    // Filter logic
+    cards.forEach(card => {
+        const inBuyZone = card.getAttribute('data-in-buy-zone') === '1';
+        const nearZone  = card.getAttribute('data-near-buy-zone') === '1';
+        const winProb   = parseInt(card.getAttribute('data-win-prob') || '0', 10);
+        const launcher  = parseInt(card.getAttribute('data-launcher-score') || '0', 10);
+        
+        let show = false;
+        if (criteria === 'all') {
+            show = true;
+        } else if (criteria === 'buy_zone') {
+            show = inBuyZone;
+        } else if (criteria === 'near_zone') {
+            show = nearZone;
+        } else if (criteria === 'high_win') {
+            show = winProb >= 85;
+        } else if (criteria === 'launcher') {
+            show = launcher >= 70;
+        }
+
+        if (show) {
+            card.style.display = '';
+            card.style.opacity = '0';
+            card.style.transform = 'scale(0.95)';
+            card.style.transition = 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
+            setTimeout(() => {
+                card.style.opacity = '1';
+                card.style.transform = 'scale(1)';
+            }, 50);
+        } else {
+            card.style.display = 'none';
+        }
+    });
+}
+
 function removeFromWatchlist(btn, symbol) {
-    if (!confirm('ลบ ' + symbol + ' ออกจาก Watchlist?')) return;
+    if (!confirm('ลบหุ้น ' + symbol + ' ออกจาก Watchlist?')) return;
     fetch("{% url 'stocks:watchlist_item_toggle' %}", {
         method: 'POST',
         headers: {'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}'},
@@ -365,10 +663,23 @@ function removeFromWatchlist(btn, symbol) {
     .then(data => {
         if (data.status === 'removed') {
             const col = btn.closest('.wl-card-col');
-            col.style.transition = 'all 0.35s ease';
+            col.style.transition = 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)';
             col.style.opacity = '0';
-            col.style.transform = 'scale(0.85)';
-            setTimeout(() => col.remove(), 350);
+            col.style.transform = 'scale(0.8) translateY(20px)';
+            setTimeout(() => {
+                col.remove();
+                // Recount alert signals
+                const inBuyZoneRemaining = document.querySelectorAll('.wl-card-col[data-in-buy-zone="1"]');
+                const chip = document.getElementById('buyAlertChip');
+                const cnt  = document.getElementById('buyAlertCount');
+                if (chip && cnt) {
+                    if (inBuyZoneRemaining.length > 0) {
+                        cnt.textContent = inBuyZoneRemaining.length;
+                    } else {
+                        chip.style.display = 'none';
+                    }
+                }
+            }, 400);
         }
     })
     .catch(e => console.error(e));
