@@ -534,6 +534,65 @@
                         </div>
                     </div>
 
+                    <!-- STEP 6: Ehlers Indicators & Dynamic Patterns -->
+                    <div class="mb-4">
+                        <div class="d-flex align-items-center gap-2 mb-3">
+                            <span class="rounded-circle d-flex align-items-center justify-content-center fw-bold text-white"
+                                  style="width:28px;height:28px;background:#0284c7;font-size:0.8rem;flex-shrink:0;">6</span>
+                            <h6 class="mb-0 fw-bold" style="color:#1e293b;">Ehlers Indicators & Dynamic Patterns (กรองสัญญาณรวดเร็ว & แม่นยำ)</h6>
+                            <a href="{% url 'stocks:ehlers_manual' %}" target="_blank" class="ms-auto text-decoration-none small fw-bold" style="color:#0284c7;">
+                                <i class="fas fa-external-link-alt me-1"></i> คู่มือ Ehlers เพิ่มเติม
+                            </a>
+                        </div>
+                        <div class="row g-2">
+                            <div class="col-md-4">
+                                <div class="rounded-3 p-3 h-100" style="background:#f0f9ff; border:1px solid #bae6fd;">
+                                    <div class="d-flex align-items-start gap-2">
+                                        <span style="font-size:1.2rem;">📉</span>
+                                        <div>
+                                            <div class="fw-bold small" style="color:#0369a1;">Laguerre RSI (Momentum ไวพิเศษ)</div>
+                                            <div class="small mt-1" style="color:#374151; line-height:1.6;">
+                                                ดึงรอบความแรงของแนวโน้มด้วยตัวกรอง Laguerre ทำให้ได้ Momentum ที่ไวกว่า RSI ทั่วไปมาก มี 3 รูปแบบหลัก:<br>
+                                                🟢 <strong>E1: ขึ้นแรง</strong> (RSI &ge; 0.80) ถือรันเทรนด์<br>
+                                                🔵 <strong>E2: กลับตัว</strong> (RSI &ge; 0.15 + Fisher &gt; Trigger)<br>
+                                                🟡 <strong>E3: ย่อซื้อ</strong> (RSI 0.40 - 0.79 ยืนเหนือ SS)
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="rounded-3 p-3 h-100" style="background:#f0f9ff; border:1px solid #bae6fd;">
+                                    <div class="d-flex align-items-start gap-2">
+                                        <span style="font-size:1.2rem;">⚡</span>
+                                        <div>
+                                            <div class="fw-bold small" style="color:#0369a1;">Fisher Transform (Mean Reversion)</div>
+                                            <div class="small mt-1" style="color:#374151; line-height:1.6;">
+                                                แปลงราคากลับให้เป็นกราฟการแจกแจงแบบปกติ เพื่อตรวจจับจุดกลับตัวเฉียบพลัน<br>
+                                                📈 <strong>สัญญาณซื้อ (Buy Trigger):</strong> เมื่อ Fisher ตัดขึ้นเหนือ Trigger Line ในแดนลบ (ยิ่งติดลบเยอะยิ่งดี แปลว่าราคาถูก/Oversold)<br>
+                                                ⚠️ <strong>เครื่องหมายติดลบ (-):</strong> แสดงสภาวะจมแนวรับลึก
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="rounded-3 p-3 h-100" style="background:#f0f9ff; border:1px solid #bae6fd;">
+                                    <div class="d-flex align-items-start gap-2">
+                                        <span style="font-size:1.2rem;">🌊</span>
+                                        <div>
+                                            <div class="fw-bold small" style="color:#0369a1;">SuperSmoother (2-Pole Noise Filter)</div>
+                                            <div class="small mt-1" style="color:#374151; line-height:1.6;">
+                                                กรองคลื่นรบกวนของราคาปิด (Noise) ออกโดยลดความหน่วง (Lag) ให้เหลือน้อยที่สุดเมื่อเทียบกับ MA ทั่วไป<br>
+                                                ใช้ตรวจจับสภาวะราคาว่ายืนเหนือเส้นค่าเฉลี่ย Ehlers ที่ผ่านการลดคลื่นรบกวนแล้วได้อย่างสมบูรณ์
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                 </div><!-- /p-4 -->
             </div><!-- /card -->
         </div><!-- /collapse -->
