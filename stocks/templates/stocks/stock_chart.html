@@ -421,10 +421,19 @@
     </div>
 
     <div class="d-flex gap-2 flex-wrap align-items-center">
-      <button class="period-btn" onclick="loadPeriod('3mo')">3mo</button>
-      <button class="period-btn" onclick="loadPeriod('6mo')">6mo</button>
-      <button class="period-btn active" onclick="loadPeriod('1y')">1y</button>
-      <button class="period-btn" onclick="loadPeriod('2y')">2y</button>
+      <!-- Timeframe Buttons -->
+      <button class="period-btn active" id="tf-1d" onclick="changeInterval('1d')">วัน</button>
+      <button class="period-btn" id="tf-1wk" onclick="changeInterval('1wk')">สัปดาห์</button>
+      <button class="period-btn" id="tf-1mo" onclick="changeInterval('1mo')">เดือน</button>
+      
+      <div class="vr mx-1 opacity-20 text-white" id="timeframe-divider"></div>
+      
+      <!-- Period Buttons (Only relevant for Daily timeframe) -->
+      <button class="period-btn" id="p-3mo" onclick="loadPeriod('3mo')">3mo</button>
+      <button class="period-btn" id="p-6mo" onclick="loadPeriod('6mo')">6mo</button>
+      <button class="period-btn active" id="p-1y" onclick="loadPeriod('1y')">1y</button>
+      <button class="period-btn" id="p-2y" onclick="loadPeriod('2y')">2y</button>
+      
       <div class="vr mx-1 opacity-20 text-white"></div>
       <button class="btn btn-sm btn-outline-info rounded-pill px-3" onclick="toggleFullscreen()" title="ขยายเต็มหน้าจอ">
         <i class="fas fa-expand"></i> เต็มจอ
@@ -588,6 +597,7 @@
 let currentSymbol = "{{ symbol }}";
 let currentMarket = "{{ market }}";
 let currentPeriod = "1y";
+let currentInterval = "1d";
 let mainChart = null, macdChart = null, rsiChart = null, volChart = null;
 let candleSeries = null;
 let currentData = null;
@@ -849,7 +859,7 @@ function loadData(sym, mkt, period) {
   setStatus(`⏳ กำลังโหลด ${sym}…`);
   document.getElementById('signal-tbody').innerHTML = '<tr><td colspan="3" class="text-center text-muted">Loading…</td></tr>';
 
-  fetch(`/stocks/chart/${sym}/data/?market=${mkt}&period=${period}`)
+  fetch(`/stocks/chart/${sym}/data/?market=${mkt}&period=${period}&interval=${currentInterval}`)
     .then(r => r.json())
     .then(data => {
       if (data.error) { setStatus('❌ ' + data.error); return; }
@@ -882,9 +892,24 @@ function loadData(sym, mkt, period) {
     .catch(e => setStatus('❌ Error: ' + e.message));
 }
 
+function changeInterval(tf) {
+  currentInterval = tf;
+  document.getElementById('tf-1d').classList.toggle('active', tf === '1d');
+  document.getElementById('tf-1wk').classList.toggle('active', tf === '1wk');
+  document.getElementById('tf-1mo').classList.toggle('active', tf === '1mo');
+  
+  const isDaily = tf === '1d';
+  document.querySelectorAll('[id^="p-"]').forEach(btn => {
+    btn.style.display = isDaily ? 'inline-block' : 'none';
+  });
+  document.getElementById('timeframe-divider').style.display = isDaily ? 'block' : 'none';
+  
+  loadData(currentSymbol, currentMarket, currentPeriod);
+}
+
 function loadPeriod(p) {
   currentPeriod = p;
-  document.querySelectorAll('.period-btn').forEach(b => b.classList.toggle('active', b.textContent.trim() === p));
+  document.querySelectorAll('[id^="p-"]').forEach(b => b.classList.toggle('active', b.id === 'p-' + p));
   loadData(currentSymbol, currentMarket, currentPeriod);
 }
 

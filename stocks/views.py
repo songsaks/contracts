@@ -10547,23 +10547,36 @@ def stock_chart_data(request, symbol):
     symbol = symbol.upper()
     market = request.GET.get('market', 'SET')
     period = request.GET.get('period', '1y')
+    interval = request.GET.get('interval', '')
 
     # Append .BK for SET stocks
     yf_symbol = symbol + '.BK' if market == 'SET' else symbol
 
-    # ── Intraday detection ──────────────────────────────────────────
-    # period='1d' → 5m candles, '5d' → 15m, '1mo_h' → 1h
-    INTRADAY_MAP = {'1d': '5m', '5d': '15m', '1mo_h': '1h'}
-    intraday_interval = INTRADAY_MAP.get(period)
-    is_intraday = intraday_interval is not None
-
-    if is_intraday:
-        download_period  = period if period != '1mo_h' else '1mo'
-        download_interval = intraday_interval
-    else:
-        # Padding: ดึงข้อมูลเผื่อล่วงหน้าเพื่อให้เส้น Donchian 55 และ RSI มีค่าเพียงพอ
-        download_period  = '2y' if period in ('1y', '2y') else '1y'
+    # ── Intraday / Custom interval mapping ─────────────────────────
+    if interval == '1wk':
+        is_intraday = False
+        download_interval = '1wk'
+        download_period = '10y'
+    elif interval == '1mo':
+        is_intraday = False
+        download_interval = '1mo'
+        download_period = 'max'
+    elif interval == '1d':
+        is_intraday = False
         download_interval = '1d'
+        download_period = '2y' if period in ('1y', '2y') else '1y'
+    else:
+        # Fallback to existing logic based on period
+        INTRADAY_MAP = {'1d': '5m', '5d': '15m', '1mo_h': '1h'}
+        intraday_interval = INTRADAY_MAP.get(period)
+        is_intraday = intraday_interval is not None
+
+        if is_intraday:
+            download_period  = period if period != '1mo_h' else '1mo'
+            download_interval = intraday_interval
+        else:
+            download_period  = '2y' if period in ('1y', '2y') else '1y'
+            download_interval = '1d'
 
     def _safe_val(val, default=0.0):
         try:
