@@ -455,7 +455,7 @@
   <!-- Indicator Toggles -->
   <div class="indicator-panel">
     <div class="indicator-group">
-      <span class="text-muted small fw-bold me-2"><i class="fas fa-sliders-h"></i> INDICATORS:</span>
+      <span class="small fw-bold me-2" style="color: #cbd5e1;"><i class="fas fa-sliders-h"></i> INDICATORS:</span>
       <label class="indicator-pill"><input type="checkbox" id="check-dc" checked onchange="toggleIndicators()"> Donchian (S1/S2)</label>
       <label class="indicator-pill"><input type="checkbox" id="check-bb" onchange="toggleIndicators()"> Bollinger Bands</label>
       <label class="indicator-pill"><input type="checkbox" id="check-ema20" onchange="toggleIndicators()"> EMA 20</label>
@@ -712,19 +712,30 @@ function renderCharts(data) {
   if (showSmartCandles && data.signals) {
     const signalMap = {};
     data.signals.forEach(s => {
-      signalMap[s.time] = s.type;
+      if (!signalMap[s.time] || s.type === 'sys1_exit') {
+        signalMap[s.time] = s.type;
+      } else if (s.type === 'sys1_buy' || s.type === 'sys2_buy') {
+        signalMap[s.time] = s.type;
+      }
     });
     
+    let currentTrend = null;
     candleData = data.candles.map(c => {
       const sig = signalMap[c.time];
       if (sig === 'sys1_buy' || sig === 'sys2_buy') {
+        currentTrend = 'buy';
+      } else if (sig === 'sys1_exit') {
+        currentTrend = 'exit';
+      }
+      
+      if (currentTrend === 'buy') {
         return {
           ...c,
           color: '#00d2ff',
           borderColor: '#00a2d9',
           wickColor: '#00a2d9'
         };
-      } else if (sig === 'sys1_exit') {
+      } else if (currentTrend === 'exit') {
         return {
           ...c,
           color: '#ff007f',
