@@ -729,26 +729,16 @@ function renderCharts(data) {
   if (showSmartCandles && data.signals) {
     const signalMap = {};
     data.signals.forEach(s => {
-      if (!signalMap[s.time] || s.type === 'sys1_exit') {
-        signalMap[s.time] = s.type;
-      } else if (s.type === 'sys1_buy' || s.type === 'sys2_buy') {
-        signalMap[s.time] = s.type;
-      }
+      signalMap[s.time] = s.type;
     });
     
-    let currentTrend = null;
     let blueCount = 0;
     let pinkCount = 0;
     candleData = data.candles.map(c => {
       const sig = signalMap[c.time];
-      if (sig === 'sys1_buy' || sig === 'sig2_buy' || sig === 'sys2_buy') {
-        currentTrend = 'buy';
-      } else if (sig === 'sys1_exit') {
-        currentTrend = 'exit';
-      }
-      
       const isBullish = c.close >= c.open;
-      if (currentTrend === 'buy') {
+      
+      if (sig === 'sys1_buy' || sig === 'sig2_buy' || sig === 'sys2_buy') {
         blueCount++;
         return {
           ...c,
@@ -756,7 +746,7 @@ function renderCharts(data) {
           borderColor: '#00d2ff',
           wickColor: '#00d2ff'
         };
-      } else if (currentTrend === 'exit') {
+      } else if (sig === 'sys1_exit') {
         pinkCount++;
         return {
           ...c,
@@ -774,7 +764,7 @@ function renderCharts(data) {
         };
       }
     });
-    debugMsg = `Smart: Yes, Signals: ${data.signals.length}, Blue: ${blueCount}, Pink: ${pinkCount}`;
+    debugMsg = `Smart: Yes (Signal Mode), Signals: ${data.signals.length}, Blue: ${blueCount}, Pink: ${pinkCount}`;
   } else {
     // Standard color mapping when Smart Candles is disabled
     candleData = data.candles.map(c => {
