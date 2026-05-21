@@ -459,12 +459,12 @@
   </div>
 
   <!-- Status -->
-  <div id="chart-status" class="text-primary fw-bold mb-2 ps-4" style="min-height:24px;"></div>
+  <div id="chart-status" class="fw-bold mb-2 ps-4" style="min-height:24px; color: #60a5fa !important;"></div>
 
   <!-- Indicator Toggles -->
   <div class="indicator-panel">
     <div class="indicator-group">
-      <span class="small fw-bold me-2" style="color: #cbd5e1;"><i class="fas fa-sliders-h"></i> INDICATORS:</span>
+      <span class="small fw-bold me-2" style="color: #ffffff !important; opacity: 0.95;"><i class="fa-solid fa-sliders"></i> INDICATORS:</span>
       <label class="indicator-pill"><input type="checkbox" id="check-dc" checked onchange="toggleIndicators()"> Donchian (S1/S2)</label>
       <label class="indicator-pill"><input type="checkbox" id="check-bb" onchange="toggleIndicators()"> Bollinger Bands</label>
       <label class="indicator-pill"><input type="checkbox" id="check-ema20" onchange="toggleIndicators()"> EMA 20</label>
@@ -476,7 +476,7 @@
       <label class="indicator-pill"><input type="checkbox" id="check-rsi" checked onchange="toggleIndicators()"> RSI Panel</label>
       <label class="indicator-pill"><input type="checkbox" id="check-vol" checked onchange="toggleIndicators()"> Volume Panel</label>
       <label class="indicator-pill ms-auto"><input type="checkbox" id="check-markers" checked onchange="toggleIndicators()"> Show Signals</label>
-      <label class="indicator-pill indicator-pill-special text-primary fw-bold"><input type="checkbox" id="check-smart-candles" checked onchange="toggleIndicators()"> 💡 Smart Candles (Blue/Pink)</label>
+      <label class="indicator-pill indicator-pill-special fw-bold"><input type="checkbox" id="check-smart-candles" checked onchange="toggleIndicators()"> 💡 Smart Candles (Blue/Pink)</label>
     </div>
   </div>
 
@@ -711,14 +711,21 @@ function renderCharts(data) {
   if (showVol)  volChart  = mkChart('vol-container', hVol);
 
   // --- Main Panel: Candles ---
+  // We do not specify global colors here because we explicitly color every single bar object
+  // to avoid series-wide overrides from blocking custom point colors.
   candleSeries = mainChart.addCandlestickSeries({
-    upColor: '#00c076', downColor: '#ff3b30',
-    borderUpColor: '#00c076', borderDownColor: '#ff3b30',
-    wickUpColor: '#00c076', wickDownColor: '#ff3b30',
+    upColor: '#00c076',
+    downColor: '#ff3b30',
+    borderUpColor: '#00c076',
+    borderDownColor: '#ff3b30',
+    wickUpColor: '#00c076',
+    wickDownColor: '#ff3b30'
   });
   
   const showSmartCandles = document.getElementById('check-smart-candles') && document.getElementById('check-smart-candles').checked;
+  console.log("showSmartCandles:", showSmartCandles);
   let candleData = data.candles;
+  let debugMsg = "";
   if (showSmartCandles && data.signals) {
     const signalMap = {};
     data.signals.forEach(s => {
@@ -730,32 +737,59 @@ function renderCharts(data) {
     });
     
     let currentTrend = null;
+    let blueCount = 0;
+    let pinkCount = 0;
     candleData = data.candles.map(c => {
       const sig = signalMap[c.time];
-      if (sig === 'sys1_buy' || sig === 'sys2_buy') {
+      if (sig === 'sys1_buy' || sig === 'sig2_buy' || sig === 'sys2_buy') {
         currentTrend = 'buy';
       } else if (sig === 'sys1_exit') {
         currentTrend = 'exit';
       }
       
+      const isBullish = c.close >= c.open;
       if (currentTrend === 'buy') {
+        blueCount++;
         return {
           ...c,
           color: '#00d2ff',
-          borderColor: '#00a2d9',
-          wickColor: '#00a2d9'
+          borderColor: '#00d2ff',
+          wickColor: '#00d2ff'
         };
       } else if (currentTrend === 'exit') {
+        pinkCount++;
         return {
           ...c,
           color: '#ff007f',
-          borderColor: '#d9006c',
-          wickColor: '#d9006c'
+          borderColor: '#ff007f',
+          wickColor: '#ff007f'
+        };
+      } else {
+        const normalColor = isBullish ? '#00c076' : '#ff3b30';
+        return {
+          ...c,
+          color: normalColor,
+          borderColor: normalColor,
+          wickColor: normalColor
         };
       }
-      return c;
     });
+    debugMsg = `Smart: Yes, Signals: ${data.signals.length}, Blue: ${blueCount}, Pink: ${pinkCount}`;
+  } else {
+    // Standard color mapping when Smart Candles is disabled
+    candleData = data.candles.map(c => {
+      const isBullish = c.close >= c.open;
+      const normalColor = isBullish ? '#00c076' : '#ff3b30';
+      return {
+        ...c,
+        color: normalColor,
+        borderColor: normalColor,
+        wickColor: normalColor
+      };
+    });
+    debugMsg = `Smart: No, Checkbox: ${!!document.getElementById('check-smart-candles')}, Checked: ${document.getElementById('check-smart-candles') ? document.getElementById('check-smart-candles').checked : 'N/A'}`;
   }
+  document.getElementById('chart-status').innerHTML = debugMsg;
   candleSeries.setData(candleData);
 
   // --- Donchian Channels ---
