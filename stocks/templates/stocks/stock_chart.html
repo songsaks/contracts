@@ -5,83 +5,392 @@
 
 {% block extra_css %}
 <style>
+  /* Premium Page-level Dark Theme Overrides */
+  body {
+    background-color: #090d16 !important;
+    background-image: radial-gradient(at 50% 0%, #1e293b 0%, #0f172a 50%, #090d16 100%) !important;
+    color: #f1f5f9 !important;
+    font-family: 'Outfit', 'Sarabun', sans-serif;
+  }
+
+  /* Immersion for base navbar */
+  .navbar-stocks {
+    background: rgba(9, 13, 22, 0.85) !important;
+    backdrop-filter: blur(20px) !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
+  }
+  .navbar-stocks .navbar-brand,
+  .navbar-stocks .navbar-brand span {
+    color: #ffffff !important;
+    text-shadow: 0 0 10px rgba(96, 165, 250, 0.3);
+  }
+  .navbar-stocks .navbar-brand .text-muted {
+    color: #64748b !important;
+  }
+  .navbar-stocks .nav-link {
+    color: #94a3b8 !important;
+    border-radius: 12px;
+    padding: 0.5rem 1rem !important;
+    transition: all 0.25s ease;
+  }
+  .navbar-stocks .nav-link:hover {
+    color: #ffffff !important;
+    background: rgba(255, 255, 255, 0.05) !important;
+  }
+  .navbar-stocks .nav-link.active {
+    color: #3b82f6 !important;
+    background: rgba(59, 130, 246, 0.15) !important;
+    box-shadow: 0 0 12px rgba(59, 130, 246, 0.15);
+  }
+  .navbar-stocks .dropdown-menu {
+    background: rgba(15, 23, 42, 0.95) !important;
+    backdrop-filter: blur(20px) !important;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5) !important;
+  }
+  .navbar-stocks .dropdown-item {
+    color: #cbd5e1 !important;
+  }
+  .navbar-stocks .dropdown-item:hover,
+  .navbar-stocks .dropdown-item.active {
+    background: rgba(59, 130, 246, 0.15) !important;
+    color: #60a5fa !important;
+  }
+  .navbar-stocks .dropdown-divider {
+    border-color: rgba(255, 255, 255, 0.08) !important;
+  }
+  .navbar-stocks .navbar-toggler i {
+    color: #ffffff !important;
+  }
+  
+  /* Home button styling */
+  .home-btn {
+    background: rgba(255, 255, 255, 0.04) !important;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    color: #94a3b8 !important;
+  }
+  .home-btn:hover {
+    background: rgba(255, 255, 255, 0.1) !important;
+    color: #ffffff !important;
+    box-shadow: 0 0 10px rgba(255, 255, 255, 0.15);
+  }
+
+  /* Main Container */
+  .stock-chart-dark-theme {
+    background: transparent;
+    color: #f1f5f9;
+  }
+
+  /* Glassmorphic Chart Header */
   .chart-header {
-    background: linear-gradient(135deg, #0f172a, #1e3a5f);
-    color: white;
-    border-radius: 16px;
-    padding: 1.5rem 2rem;
+    background: rgba(15, 23, 42, 0.55);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(20px);
+    color: #ffffff;
+    border-radius: 20px;
+    padding: 1.25rem 1.75rem;
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
   }
+  .chart-header h4 {
+    text-shadow: 0 0 15px rgba(59, 130, 246, 0.4);
+    letter-spacing: 0.03em;
+  }
+
+  /* Glowing Period Buttons */
   .period-btn {
-    background: rgba(255,255,255,0.1);
-    color: white;
-    border: 1px solid rgba(255,255,255,0.2);
-    border-radius: 8px;
-    padding: 4px 14px;
+    background: rgba(255, 255, 255, 0.04);
+    color: #94a3b8;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 10px;
+    padding: 6px 16px;
     font-size: 0.85rem;
+    font-weight: 600;
     cursor: pointer;
-    transition: all 0.2s;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   }
-  .period-btn:hover, .period-btn.active {
+  .period-btn:hover {
+    background: rgba(255, 255, 255, 0.08);
+    color: #ffffff;
+    border-color: rgba(255, 255, 255, 0.15);
+  }
+  .period-btn.active {
     background: #3b82f6;
     border-color: #3b82f6;
+    color: #ffffff;
+    box-shadow: 0 0 15px rgba(59, 130, 246, 0.45);
+    transform: translateY(-1px);
   }
+
+  /* Legend Dot & HUD */
   .legend-dot {
     display: inline-block;
-    width: 12px; height: 12px;
+    width: 10px; height: 10px;
     border-radius: 50%;
-    margin-right: 5px;
-  }
-  .signal-badge {
-    font-size: 0.75rem;
-    padding: 2px 8px;
-    border-radius: 20px;
-  }
-  #chart-container { position: relative; width: 100%; height: 600px; border-radius: 12px; overflow: hidden; }
-  #macd-container  { position: relative; width: 100%; height: 160px; border-radius: 12px; overflow: hidden; }
-  #rsi-container   { position: relative; width: 100%; height: 160px; border-radius: 12px; overflow: hidden; }
-  #vol-container   { position: relative; width: 100%; height: 120px; border-radius: 12px; overflow: hidden; }
-  
-  .indicator-panel {
-    background: white; border-radius: 12px; padding: 15px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.05); margin-bottom: 15px;
-  }
-  .indicator-group { display: flex; flex-wrap: wrap; gap: 15px; align-items: center; }
-  .indicator-check { display: flex; align-items: center; gap: 6px; font-size: 0.85rem; font-weight: 600; cursor: pointer; color: #475569; }
-  .indicator-check input { width: 16px; height: 16px; cursor: pointer; }
-  
-  .panel-label {
-    position: absolute; top: 8px; left: 12px;
-    font-size: 0.72rem; font-weight: 700;
-    color: #475569; z-index: 10; pointer-events: none; opacity: 0.7;
+    margin-right: 6px;
   }
   #crosshair-info {
-    font-size: 0.8rem; color: #cbd5e1;
-    min-height: 24px;
+    background: rgba(15, 23, 42, 0.45);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(12px);
+    border-radius: 14px;
+    padding: 12px 24px;
+    margin-bottom: 1.25rem;
+    font-size: 0.82rem;
+    color: #94a3b8;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 18px;
+    align-items: center;
   }
-  .symbol-input-wrap { position: relative; }
+  #crosshair-info span {
+    display: inline-flex;
+    align-items: center;
+    font-weight: 500;
+  }
+
+  /* Custom Search Controls */
   .symbol-input-wrap input {
-    background: rgba(255,255,255,0.1);
-    border: 1px solid rgba(255,255,255,0.25);
-    color: white;
-    border-radius: 8px;
-    padding: 6px 14px;
+    background: rgba(255, 255, 255, 0.05) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    color: #ffffff !important;
+    border-radius: 10px;
+    padding: 8px 16px;
     font-weight: 700;
     text-transform: uppercase;
-    width: 120px;
+    width: 130px;
+    transition: all 0.25s ease;
   }
-  .symbol-input-wrap input::placeholder { color: rgba(255,255,255,0.4); }
-  .signal-table td, .signal-table th { font-size: 0.82rem; padding: 6px 10px; }
+  .symbol-input-wrap input:focus {
+    border-color: #3b82f6 !important;
+    box-shadow: 0 0 12px rgba(59, 130, 246, 0.35) !important;
+    outline: none;
+  }
+  .market-select-custom {
+    background: rgba(255, 255, 255, 0.05) !important;
+    color: #ffffff !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    border-radius: 10px;
+    padding: 8px 12px;
+    font-weight: 600;
+    transition: all 0.25s ease;
+    cursor: pointer;
+  }
+  .market-select-custom:focus {
+    border-color: #3b82f6 !important;
+    box-shadow: 0 0 12px rgba(59, 130, 246, 0.35) !important;
+    outline: none;
+  }
+  .market-select-custom option {
+    background: #0f172a;
+    color: #ffffff;
+  }
+
+  /* Interactive Pill Buttons for Indicators */
+  .indicator-panel {
+    background: rgba(15, 23, 42, 0.35);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    backdrop-filter: blur(12px);
+    border-radius: 16px;
+    padding: 14px 20px;
+    margin-bottom: 1.5rem;
+  }
+  .indicator-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+  }
+  .indicator-pill {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    color: #94a3b8;
+    border-radius: 20px;
+    padding: 6px 14px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    user-select: none;
+  }
+  .indicator-pill:hover {
+    background: rgba(255, 255, 255, 0.08);
+    color: #f8fafc;
+    border-color: rgba(255, 255, 255, 0.15);
+  }
+  .indicator-pill input[type="checkbox"] {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #475569;
+    margin: 0;
+    transition: all 0.25s;
+  }
+  .indicator-pill:has(input:checked) {
+    background: rgba(59, 130, 246, 0.15);
+    border-color: rgba(59, 130, 246, 0.5);
+    color: #60a5fa;
+    box-shadow: 0 0 10px rgba(59, 130, 246, 0.2);
+  }
+  .indicator-pill:has(input:checked) input[type="checkbox"] {
+    background: #3b82f6;
+    box-shadow: 0 0 8px #3b82f6;
+    transform: scale(1.2);
+  }
+  
+  /* Smart Candle Special Indicator Glow */
+  .indicator-pill-special {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+  }
+  .indicator-pill-special:has(input:checked) {
+    background: rgba(236, 72, 153, 0.15);
+    border-color: rgba(236, 72, 153, 0.5);
+    color: #f472b6;
+    box-shadow: 0 0 12px rgba(236, 72, 153, 0.25);
+  }
+  .indicator-pill-special:has(input:checked) input[type="checkbox"] {
+    background: #ec4899;
+    box-shadow: 0 0 8px #ec4899;
+    transform: scale(1.2);
+  }
+
+  /* Tactical Dashboard Cards */
+  .tactical-card {
+    background: rgba(15, 23, 42, 0.5) !important;
+    border: 1px solid rgba(255, 255, 255, 0.06) !important;
+    backdrop-filter: blur(20px);
+    border-radius: 18px !important;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    overflow: hidden;
+    color: #f1f5f9;
+  }
+  .tactical-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 15px 30px rgba(0, 0, 0, 0.45);
+  }
+  .tactical-card-volatility {
+    border-left: 5px solid #3b82f6 !important;
+    box-shadow: inset 5px 0 25px rgba(59, 130, 246, 0.04) !important;
+  }
+  .tactical-card-volatility:hover {
+    border-left-color: #60a5fa !important;
+  }
+  .tactical-card-pyramid {
+    border-left: 5px solid #f59e0b !important;
+    box-shadow: inset 5px 0 25px rgba(245, 158, 11, 0.04) !important;
+  }
+  .tactical-card-pyramid:hover {
+    border-left-color: #fbbf24 !important;
+  }
+  .tactical-card-exit {
+    border-left: 5px solid #ef4444 !important;
+    box-shadow: inset 5px 0 25px rgba(239, 68, 68, 0.04) !important;
+  }
+  .tactical-card-exit:hover {
+    border-left-color: #f87171 !important;
+  }
+  #tac-capital-input {
+    background: rgba(255, 255, 255, 0.06) !important;
+    color: #ffffff !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    border-radius: 8px;
+    padding: 3px 10px;
+    font-weight: 700;
+    transition: all 0.2s;
+  }
+  #tac-capital-input:focus {
+    border-color: #f59e0b !important;
+    box-shadow: 0 0 10px rgba(245, 158, 11, 0.35) !important;
+    outline: none;
+  }
+
+  /* Chart Containers & HUD Labels */
+  .chart-panel-wrapper {
+    background: rgba(9, 13, 22, 0.45);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 20px;
+    margin-bottom: 1.5rem;
+    overflow: hidden;
+    position: relative;
+    box-shadow: 0 12px 36px rgba(0, 0, 0, 0.35);
+  }
+  .panel-label {
+    position: absolute;
+    top: 14px;
+    left: 18px;
+    font-size: 0.72rem;
+    font-weight: 800;
+    color: #64748b;
+    z-index: 10;
+    pointer-events: none;
+    background: rgba(9, 13, 22, 0.8);
+    padding: 3px 10px;
+    border-radius: 6px;
+    border: 1px solid rgba(255, 255, 255, 0.04);
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+  }
+  #chart-container { position: relative; width: 100%; height: 600px; }
+  #macd-container  { position: relative; width: 100%; height: 160px; }
+  #rsi-container   { position: relative; width: 100%; height: 160px; }
+  #vol-container   { position: relative; width: 100%; height: 120px; }
+
+  /* Sleek Signal Table Widget */
+  .signal-card {
+    background: rgba(15, 23, 42, 0.45) !important;
+    border: 1px solid rgba(255, 255, 255, 0.06) !important;
+    border-radius: 20px !important;
+    overflow: hidden;
+    box-shadow: 0 12px 36px rgba(0, 0, 0, 0.3);
+  }
+  .signal-card .card-header {
+    background: rgba(15, 23, 42, 0.6) !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
+    color: #ffffff !important;
+    font-weight: 700;
+    padding: 16px 24px;
+    font-size: 0.98rem;
+  }
+  .signal-table {
+    background: transparent !important;
+    color: #cbd5e1 !important;
+  }
+  .signal-table thead th {
+    background: rgba(9, 13, 22, 0.5) !important;
+    color: #94a3b8 !important;
+    font-weight: 600;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+    padding: 12px 20px !important;
+    font-size: 0.85rem;
+  }
+  .signal-table tbody tr {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04) !important;
+    transition: all 0.2s ease;
+  }
+  .signal-table tbody tr:hover {
+    background: rgba(255, 255, 255, 0.02) !important;
+  }
+  .signal-table tbody td {
+    padding: 12px 20px !important;
+    border: none !important;
+    font-size: 0.9rem;
+  }
 
   /* Fullscreen Styles */
   #chart-fullscreen-wrapper:-webkit-full-screen {
     width: 100% !important; height: 100% !important;
-    background: #f8fafc !important;
+    background: #090d16 !important;
     padding: 20px !important;
     overflow-y: auto !important;
   }
   #chart-fullscreen-wrapper:fullscreen {
     width: 100% !important; height: 100% !important;
-    background: #f8fafc !important;
+    background: #090d16 !important;
     padding: 20px !important;
     overflow-y: auto !important;
   }
@@ -89,7 +398,7 @@
 {% endblock %}
 
 {% block content %}
-<div class="container-fluid px-4 py-4">
+<div class="container-fluid px-4 py-4 stock-chart-dark-theme">
 
   <!-- Header -->
   <div class="chart-header mb-3 d-flex flex-wrap align-items-center justify-content-between gap-3">
@@ -102,7 +411,7 @@
         <div class="symbol-input-wrap">
           <input type="text" id="symbol-input" placeholder="Symbol…" value="{{ symbol }}">
         </div>
-        <select id="market-select" class="form-select form-select-sm bg-transparent text-white border-secondary" style="width:auto;">
+        <select id="market-select" class="form-select form-select-sm market-select-custom" style="width:auto;">
           <option value="SET" {% if market == 'SET' %}selected{% endif %}>🇹🇭 SET</option>
           <option value="US"  {% if market == 'US'  %}selected{% endif %}>🇺🇸 US</option>
           <option value="CRYPTO" {% if market == 'CRYPTO' %}selected{% endif %}>🪙 Crypto</option>
@@ -124,18 +433,20 @@
   </div>
 
   <!-- Fullscreen Wrapper Starts Here -->
-  <div id="chart-fullscreen-wrapper" class="bg-light-subtle rounded-4 p-0">
+  <div id="chart-fullscreen-wrapper" class="rounded-4 p-0" style="background: transparent;">
 
   <!-- Legend -->
   <div class="d-flex gap-4 mb-2 flex-wrap px-4 pt-3" id="crosshair-info">
-    <span><span class="legend-dot" style="background:#22c55e;"></span>DC20 Upper</span>
-    <span><span class="legend-dot" style="background:#86efac;border:1px dashed #22c55e;"></span>DC20 Lower</span>
-    <span><span class="legend-dot" style="background:#f59e0b;"></span>DC55 Upper</span>
-    <span><span class="legend-dot" style="background:#fcd34d;border:1px dashed #f59e0b;"></span>DC55 Lower</span>
-    <span><span class="legend-dot" style="background:#f97316;"></span>ITL (Ehlers)</span>
-    <span>▲ <span style="color:#22c55e;">Sys1 Buy</span></span>
-    <span>▲ <span style="color:#f59e0b;">Sys2 Buy</span></span>
-    <span>▼ <span style="color:#ef4444;">Exit</span></span>
+    <span><span class="legend-dot" style="background:#00c076;"></span>DC20 Upper</span>
+    <span><span class="legend-dot" style="background:transparent;border:1px dashed #00c076;width:8px;height:8px;"></span>DC20 Lower</span>
+    <span><span class="legend-dot" style="background:#ff9500;"></span>DC55 Upper</span>
+    <span><span class="legend-dot" style="background:transparent;border:1px dashed #ff9500;width:8px;height:8px;"></span>DC55 Lower</span>
+    <span><span class="legend-dot" style="background:#fb923c;"></span>ITL (Ehlers)</span>
+    <span>▲ <span style="color:#00c076;">Sys1 Buy</span></span>
+    <span>▲ <span style="color:#ff9500;">Sys2 Buy</span></span>
+    <span>▼ <span style="color:#ff3b30;">Exit</span></span>
+    <span><span class="legend-dot" style="background:#00d2ff;"></span>Smart Buy (Blue)</span>
+    <span><span class="legend-dot" style="background:#ff007f;"></span>Smart Sell (Pink)</span>
   </div>
 
   <!-- Status -->
@@ -145,44 +456,45 @@
   <div class="indicator-panel">
     <div class="indicator-group">
       <span class="text-muted small fw-bold me-2"><i class="fas fa-sliders-h"></i> INDICATORS:</span>
-      <label class="indicator-check"><input type="checkbox" id="check-dc" checked onchange="toggleIndicators()"> Donchian (S1/S2)</label>
-      <label class="indicator-check"><input type="checkbox" id="check-bb" onchange="toggleIndicators()"> Bollinger Bands</label>
-      <label class="indicator-check"><input type="checkbox" id="check-ema20" onchange="toggleIndicators()"> EMA 20</label>
-      <label class="indicator-check"><input type="checkbox" id="check-ema50" onchange="toggleIndicators()"> EMA 50</label>
-      <label class="indicator-check"><input type="checkbox" id="check-ema200" onchange="toggleIndicators()"> EMA 200</label>
-      <label class="indicator-check"><input type="checkbox" id="check-itl" checked onchange="toggleIndicators()"> ITL (Ehlers)</label>
+      <label class="indicator-pill"><input type="checkbox" id="check-dc" checked onchange="toggleIndicators()"> Donchian (S1/S2)</label>
+      <label class="indicator-pill"><input type="checkbox" id="check-bb" onchange="toggleIndicators()"> Bollinger Bands</label>
+      <label class="indicator-pill"><input type="checkbox" id="check-ema20" onchange="toggleIndicators()"> EMA 20</label>
+      <label class="indicator-pill"><input type="checkbox" id="check-ema50" onchange="toggleIndicators()"> EMA 50</label>
+      <label class="indicator-pill"><input type="checkbox" id="check-ema200" onchange="toggleIndicators()"> EMA 200</label>
+      <label class="indicator-pill"><input type="checkbox" id="check-itl" checked onchange="toggleIndicators()"> ITL (Ehlers)</label>
       <div class="vr mx-1 opacity-20"></div>
-      <label class="indicator-check"><input type="checkbox" id="check-macd" onchange="toggleIndicators()"> MACD Panel</label>
-      <label class="indicator-check"><input type="checkbox" id="check-rsi" checked onchange="toggleIndicators()"> RSI Panel</label>
-      <label class="indicator-check"><input type="checkbox" id="check-vol" checked onchange="toggleIndicators()"> Volume Panel</label>
-      <label class="indicator-check ms-auto"><input type="checkbox" id="check-markers" checked onchange="toggleIndicators()"> Show Signals</label>
+      <label class="indicator-pill"><input type="checkbox" id="check-macd" onchange="toggleIndicators()"> MACD Panel</label>
+      <label class="indicator-pill"><input type="checkbox" id="check-rsi" checked onchange="toggleIndicators()"> RSI Panel</label>
+      <label class="indicator-pill"><input type="checkbox" id="check-vol" checked onchange="toggleIndicators()"> Volume Panel</label>
+      <label class="indicator-pill ms-auto"><input type="checkbox" id="check-markers" checked onchange="toggleIndicators()"> Show Signals</label>
+      <label class="indicator-pill indicator-pill-special text-primary fw-bold"><input type="checkbox" id="check-smart-candles" checked onchange="toggleIndicators()"> 💡 Smart Candles (Blue/Pink)</label>
     </div>
   </div>
 
   <!-- Tactical Command Center (NEW) -->
   <div class="row g-3 mb-3" id="tactical-panel" style="display: none;">
     <div class="col-md-3">
-      <div class="card border-0 shadow-sm h-100 bg-primary bg-opacity-10">
+      <div class="card h-100 tactical-card tactical-card-volatility border-0 shadow-sm">
         <div class="card-body py-3">
-          <small class="text-primary fw-bold text-uppercase d-block mb-1" title="Average True Range (20D): ค่าความผันผวนเฉลี่ย 20 วันล่าสุด ใช้คำนวณระยะ Stop Loss และขนาดไม้">
+          <small class="text-info fw-bold text-uppercase d-block mb-1" title="Average True Range (20D): ค่าความผันผวนเฉลี่ย 20 วันล่าสุด ใช้คำนวณระยะ Stop Loss และขนาดไม้">
             <i class="fas fa-wave-square"></i> Volatility (N) <i class="fas fa-info-circle ms-1 opacity-50"></i>
           </small>
           <div class="d-flex align-items-baseline gap-2">
-            <h3 class="fw-bold mb-0 text-primary" id="tac-n">0.00</h3>
+            <h3 class="fw-bold mb-0 text-info" id="tac-n">0.00</h3>
             <span class="text-muted small">ATR(20)</span>
           </div>
         </div>
       </div>
     </div>
     <div class="col-md-5">
-      <div class="card border-0 shadow-sm h-100 bg-warning bg-opacity-10 border-start border-warning border-4">
+      <div class="card h-100 tactical-card tactical-card-pyramid border-0 shadow-sm">
         <div class="card-body py-3">
           <div class="d-flex justify-content-between align-items-start">
             <div>
-              <small class="text-warning-800 fw-bold text-uppercase d-block mb-1" title="ราคาเป้าหมายที่จะซื้อเพิ่ม (Pyramiding) เมื่อราคาวิ่งขึ้นไปอีก 0.5N จากราคาทุนเดิม">
+              <small class="text-warning fw-bold text-uppercase d-block mb-1" title="ราคาเป้าหมายที่จะซื้อเพิ่ม (Pyramiding) เมื่อราคาวิ่งขึ้นไปอีก 0.5N จากราคาทุนเดิม">
                 <i class="fas fa-plus-circle"></i> Next Unit (+0.5N) <i class="fas fa-info-circle ms-1 opacity-50"></i>
               </small>
-              <h3 class="fw-bold mb-0 text-dark" id="tac-next-price">0.00</h3>
+              <h3 class="fw-bold mb-0 text-warning" id="tac-next-price">0.00</h3>
             </div>
             <div class="text-end">
               <small class="text-muted d-block" title="จำนวนหุ้นที่แนะนำให้ซื้อเพิ่มเพื่อให้ความเสี่ยงรวมไม่เกิน 1% ของพอร์ต โดยอิงจากระยะ 2N Stop Loss">Suggest Shares <i class="fas fa-question-circle opacity-50"></i></small>
@@ -191,27 +503,27 @@
           </div>
           <div class="mt-2 text-muted d-flex align-items-center gap-1" style="font-size: 0.75rem;">
             *อิงความเสี่ยง 1% จากทุน: 
-            <input type="number" id="tac-capital-input" class="form-control form-control-sm text-end border-0 bg-white shadow-sm fw-bold" style="width: 100px; font-size: 0.75rem;" value="1000000" onchange="updateTacticalWithCapital()">
+            <input type="number" id="tac-capital-input" class="form-control form-control-sm text-end border-0 fw-bold" style="width: 100px; font-size: 0.75rem;" value="1000000" onchange="updateTacticalWithCapital()">
             {% if market == 'SET' %}฿{% else %}${% endif %}
           </div>
         </div>
       </div>
     </div>
     <div class="col-md-4">
-      <div class="card border-0 shadow-sm h-100 bg-danger bg-opacity-10 border-start border-danger border-4">
+      <div class="card h-100 tactical-card tactical-card-exit border-0 shadow-sm">
         <div class="card-body py-3">
           <small class="text-danger fw-bold text-uppercase d-block mb-1" title="จุดขายตัดขาดทุนหรือขายทำกำไร (Trailing Stop) ซึ่งจะขยับขึ้นตามราคาที่ทำจุดสูงสุดใหม่">
             <i class="fas fa-shield-alt"></i> Dynamic Exit (Trailing) <i class="fas fa-info-circle ms-1 opacity-50"></i>
           </small>
           <div class="row g-2">
             <div class="col-6">
-              <div class="p-2 bg-white rounded-2 border" title="System 1 Exit: จุดขายเมื่อราคาหลุดจุดต่ำสุดในรอบ 10 วัน (เหมาะสำหรับรอบสั้น)">
+              <div class="p-2 rounded-2" style="background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.06);" title="System 1 Exit: จุดขายเมื่อราคาหลุดจุดต่ำสุดในรอบ 10 วัน (เหมาะสำหรับรอบสั้น)">
                 <small class="text-muted d-block" style="font-size:0.65rem;">S1 (10D Low)</small>
                 <span class="fw-bold text-danger" id="tac-exit-10">0.00</span>
               </div>
             </div>
             <div class="col-6">
-              <div class="p-2 bg-white rounded-2 border" title="System 2 Exit: จุดขายเมื่อราคาหลุดจุดต่ำสุดในรอบ 20 วัน (เหมาะสำหรับการรันเทรนด์ยาว)">
+              <div class="p-2 rounded-2" style="background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.06);" title="System 2 Exit: จุดขายเมื่อราคาหลุดจุดต่ำสุดในรอบ 20 วัน (เหมาะสำหรับการรันเทรนด์ยาว)">
                 <small class="text-muted d-block" style="font-size:0.65rem;">S2 (20D Low)</small>
                 <span class="fw-bold text-danger" id="tac-exit-20">0.00</span>
               </div>
@@ -223,25 +535,25 @@
   </div>
 
   <!-- Main chart -->
-  <div class="bg-white rounded-3 p-0 mb-3 border" style="position:relative;">
+  <div class="chart-panel-wrapper">
     <div class="panel-label" id="main-panel-label">OHLCV — PRICE CHART</div>
     <div id="chart-container"></div>
   </div>
 
   <!-- MACD panel -->
-  <div class="bg-white rounded-3 p-0 mb-3 border" id="macd-wrapper" style="position:relative; display:none;">
+  <div class="chart-panel-wrapper" id="macd-wrapper" style="position:relative; display:none;">
     <div class="panel-label">MACD (12, 26, 9)</div>
     <div id="macd-container"></div>
   </div>
 
   <!-- RSI panel -->
-  <div class="bg-white rounded-3 p-0 mb-3 border" id="rsi-wrapper" style="position:relative;">
+  <div class="chart-panel-wrapper" id="rsi-wrapper" style="position:relative;">
     <div class="panel-label">RSI (14)</div>
     <div id="rsi-container"></div>
   </div>
 
   <!-- Volume panel -->
-  <div class="bg-white rounded-3 p-0 border" id="vol-wrapper" style="position:relative;">
+  <div class="chart-panel-wrapper" id="vol-wrapper" style="position:relative;">
     <div class="panel-label">VOLUME</div>
     <div id="vol-container"></div>
   </div>
@@ -249,11 +561,11 @@
   </div> <!-- /#chart-fullscreen-wrapper -->
 
   <!-- Signal table -->
-  <div class="card border-0 shadow-sm">
+  <div class="card signal-card border-0">
     <div class="card-header fw-bold">🐢 Turtle Signals (Recent)</div>
     <div class="card-body p-0">
       <table class="table table-sm signal-table mb-0" id="signal-table">
-        <thead class="table-light">
+        <thead>
           <tr>
             <th>Date</th>
             <th>Type</th>
@@ -311,11 +623,41 @@ function mkChart(elId, height) {
   console.log(`Creating chart in ${elId} with width: ${w}`);
   return LightweightCharts.createChart(el, {
     width: w, height,
-    layout: { backgroundColor: '#ffffff', textColor: '#334155' },
-    grid: { vertLines: { color: '#f1f5f9' }, horzLines: { color: '#f1f5f9' } },
-    crosshair: { mode: 1 },
-    rightPriceScale: { borderColor: '#e2e8f0' },
-    timeScale: { borderColor: '#e2e8f0', timeVisible: true, secondsVisible: false },
+    layout: { 
+      backgroundColor: '#090d16', 
+      textColor: '#94a3b8',
+      fontSize: 11,
+      fontFamily: "'Outfit', 'Sarabun', sans-serif"
+    },
+    grid: { 
+      vertLines: { color: 'rgba(255, 255, 255, 0.03)' }, 
+      horzLines: { color: 'rgba(255, 255, 255, 0.03)' } 
+    },
+    crosshair: { 
+      mode: 1,
+      vertLine: {
+        color: 'rgba(255, 255, 255, 0.15)',
+        width: 1,
+        style: 1, // Dotted
+        visible: true,
+        labelVisible: true,
+      },
+      horzLine: {
+        color: 'rgba(255, 255, 255, 0.15)',
+        width: 1,
+        style: 1, // Dotted
+        visible: true,
+        labelVisible: true,
+      }
+    },
+    rightPriceScale: { 
+      borderColor: 'rgba(255, 255, 255, 0.08)' 
+    },
+    timeScale: { 
+      borderColor: 'rgba(255, 255, 255, 0.08)', 
+      timeVisible: true, 
+      secondsVisible: false 
+    },
   });
 }
 
@@ -360,18 +702,47 @@ function renderCharts(data) {
 
   // --- Main Panel: Candles ---
   candleSeries = mainChart.addCandlestickSeries({
-    upColor: '#10b981', downColor: '#ef4444',
-    borderUpColor: '#10b981', borderDownColor: '#ef4444',
-    wickUpColor: '#10b981', wickDownColor: '#ef4444',
+    upColor: '#00c076', downColor: '#ff3b30',
+    borderUpColor: '#00c076', borderDownColor: '#ff3b30',
+    wickUpColor: '#00c076', wickDownColor: '#ff3b30',
   });
-  candleSeries.setData(data.candles);
+  
+  const showSmartCandles = document.getElementById('check-smart-candles') && document.getElementById('check-smart-candles').checked;
+  let candleData = data.candles;
+  if (showSmartCandles && data.signals) {
+    const signalMap = {};
+    data.signals.forEach(s => {
+      signalMap[s.time] = s.type;
+    });
+    
+    candleData = data.candles.map(c => {
+      const sig = signalMap[c.time];
+      if (sig === 'sys1_buy' || sig === 'sys2_buy') {
+        return {
+          ...c,
+          color: '#00d2ff',
+          borderColor: '#00a2d9',
+          wickColor: '#00a2d9'
+        };
+      } else if (sig === 'sys1_exit') {
+        return {
+          ...c,
+          color: '#ff007f',
+          borderColor: '#d9006c',
+          wickColor: '#d9006c'
+        };
+      }
+      return c;
+    });
+  }
+  candleSeries.setData(candleData);
 
   // --- Donchian Channels ---
   if (document.getElementById('check-dc').checked) {
-    dcSeries.push(mainChart.addLineSeries({ color: '#10b981', lineWidth: 1, lineStyle: 0, priceLineVisible: false, lastValueVisible: false }));
-    dcSeries.push(mainChart.addLineSeries({ color: '#10b981', lineWidth: 1, lineStyle: 1, priceLineVisible: false, lastValueVisible: false }));
-    dcSeries.push(mainChart.addLineSeries({ color: '#f59e0b', lineWidth: 1, lineStyle: 0, priceLineVisible: false, lastValueVisible: false }));
-    dcSeries.push(mainChart.addLineSeries({ color: '#f59e0b', lineWidth: 1, lineStyle: 1, priceLineVisible: false, lastValueVisible: false }));
+    dcSeries.push(mainChart.addLineSeries({ color: '#00c076', lineWidth: 1, lineStyle: 0, priceLineVisible: false, lastValueVisible: false }));
+    dcSeries.push(mainChart.addLineSeries({ color: '#00c076', lineWidth: 1, lineStyle: 1, priceLineVisible: false, lastValueVisible: false }));
+    dcSeries.push(mainChart.addLineSeries({ color: '#ff9500', lineWidth: 1, lineStyle: 0, priceLineVisible: false, lastValueVisible: false }));
+    dcSeries.push(mainChart.addLineSeries({ color: '#ff9500', lineWidth: 1, lineStyle: 1, priceLineVisible: false, lastValueVisible: false }));
     dcSeries[0].setData(data.dc20_upper);
     dcSeries[1].setData(data.dc20_lower);
     dcSeries[2].setData(data.dc55_upper);
@@ -380,29 +751,29 @@ function renderCharts(data) {
 
   // --- Bollinger Bands ---
   if (document.getElementById('check-bb').checked) {
-    bbSeries.push(mainChart.addLineSeries({ color: 'rgba(99, 102, 241, 0.4)', lineWidth: 1, priceLineVisible: false, lastValueVisible: false }));
-    bbSeries.push(mainChart.addLineSeries({ color: 'rgba(99, 102, 241, 0.4)', lineWidth: 1, priceLineVisible: false, lastValueVisible: false }));
+    bbSeries.push(mainChart.addLineSeries({ color: 'rgba(96, 165, 250, 0.4)', lineWidth: 1, priceLineVisible: false, lastValueVisible: false }));
+    bbSeries.push(mainChart.addLineSeries({ color: 'rgba(96, 165, 250, 0.4)', lineWidth: 1, priceLineVisible: false, lastValueVisible: false }));
     bbSeries[0].setData(data.bb_upper);
     bbSeries[1].setData(data.bb_lower);
   }
 
   // --- EMAs ---
   if (document.getElementById('check-ema20').checked) {
-    emaSeries.e20 = mainChart.addLineSeries({ color: '#3b82f6', lineWidth: 1.5, priceLineVisible: false, lastValueVisible: true, title: 'EMA 20' });
+    emaSeries.e20 = mainChart.addLineSeries({ color: '#60a5fa', lineWidth: 1.5, priceLineVisible: false, lastValueVisible: true, title: 'EMA 20' });
     emaSeries.e20.setData(data.ema20);
   }
   if (document.getElementById('check-ema50').checked) {
-    emaSeries.e50 = mainChart.addLineSeries({ color: '#8b5cf6', lineWidth: 1.5, priceLineVisible: false, lastValueVisible: true, title: 'EMA 50' });
+    emaSeries.e50 = mainChart.addLineSeries({ color: '#a78bfa', lineWidth: 1.5, priceLineVisible: false, lastValueVisible: true, title: 'EMA 50' });
     emaSeries.e50.setData(data.ema50);
   }
   if (document.getElementById('check-ema200').checked) {
-    emaSeries.e200 = mainChart.addLineSeries({ color: '#f43f5e', lineWidth: 2, priceLineVisible: false, lastValueVisible: true, title: 'EMA 200' });
+    emaSeries.e200 = mainChart.addLineSeries({ color: '#f87171', lineWidth: 2, priceLineVisible: false, lastValueVisible: true, title: 'EMA 200' });
     emaSeries.e200.setData(data.ema200);
   }
 
   // --- Ehlers ITL ---
   if (document.getElementById('check-itl').checked && data.itl && data.itl.length) {
-    itlSeries = mainChart.addLineSeries({ color: '#f97316', lineWidth: 2, lineStyle: 0, priceLineVisible: false, lastValueVisible: true, title: 'ITL' });
+    itlSeries = mainChart.addLineSeries({ color: '#fb923c', lineWidth: 2, lineStyle: 0, priceLineVisible: false, lastValueVisible: true, title: 'ITL' });
     itlSeries.setData(data.itl);
   }
 
@@ -411,7 +782,7 @@ function renderCharts(data) {
     const markers = data.signals.map(s => ({
         time: s.time,
         position: s.type === 'sys1_exit' ? 'aboveBar' : 'belowBar',
-        color:  s.type === 'sys1_buy' ? '#10b981' : s.type === 'sys2_buy' ? '#f59e0b' : '#ef4444',
+        color:  s.type === 'sys1_buy' ? '#00c076' : s.type === 'sys2_buy' ? '#ff9500' : '#ff3b30',
         shape:  s.type === 'sys1_exit' ? 'arrowDown' : 'arrowUp',
         text:   s.type === 'sys1_buy' ? 'S1' : s.type === 'sys2_buy' ? 'S2' : 'Exit',
     })).sort((a, b) => a.time < b.time ? -1 : 1);
@@ -420,29 +791,39 @@ function renderCharts(data) {
 
   // --- MACD Panel ---
   if (showMACD && macdChart) {
-    macdSeries.macd   = macdChart.addLineSeries({ color: '#2563eb', lineWidth: 1, priceLineVisible: false });
-    macdSeries.signal = macdChart.addLineSeries({ color: '#f59e0b', lineWidth: 1, priceLineVisible: false });
+    macdSeries.macd   = macdChart.addLineSeries({ color: '#60a5fa', lineWidth: 1.5, priceLineVisible: false });
+    macdSeries.signal = macdChart.addLineSeries({ color: '#fb923c', lineWidth: 1.5, priceLineVisible: false });
     macdSeries.hist   = macdChart.addHistogramSeries({ priceLineVisible: false });
     
     macdSeries.macd.setData(data.macd);
     macdSeries.signal.setData(data.macd_sig);
     macdSeries.hist.setData(data.macd_hist.map(h => ({
-        time: h.time, value: h.value, color: h.value >= 0 ? 'rgba(16, 185, 129, 0.5)' : 'rgba(239, 68, 68, 0.5)'
+        time: h.time, value: h.value, color: h.value >= 0 ? 'rgba(0, 192, 118, 0.35)' : 'rgba(255, 59, 48, 0.35)'
     })));
   }
 
   // --- RSI Panel ---
   if (showRSI && rsiChart) {
-    const rsiS = rsiChart.addLineSeries({ color: '#6366f1', lineWidth: 2, priceLineVisible: false, lastValueVisible: true });
+    const rsiS = rsiChart.addLineSeries({ color: '#818cf8', lineWidth: 2, priceLineVisible: false, lastValueVisible: true });
     rsiS.setData(data.rsi);
     const t0 = data.rsi[0].time, t1 = data.rsi[data.rsi.length - 1].time;
-    rsiChart.addLineSeries({ color: '#ef4444', lineWidth: 1, lineStyle: 1, priceLineVisible: false }).setData([{ time: t0, value: 70 }, { time: t1, value: 70 }]);
-    rsiChart.addLineSeries({ color: '#10b981', lineWidth: 1, lineStyle: 1, priceLineVisible: false }).setData([{ time: t0, value: 30 }, { time: t1, value: 30 }]);
+    rsiChart.addLineSeries({ color: 'rgba(255, 59, 48, 0.4)', lineWidth: 1, lineStyle: 1, priceLineVisible: false }).setData([{ time: t0, value: 70 }, { time: t1, value: 70 }]);
+    rsiChart.addLineSeries({ color: 'rgba(0, 192, 118, 0.4)', lineWidth: 1, lineStyle: 1, priceLineVisible: false }).setData([{ time: t0, value: 30 }, { time: t1, value: 30 }]);
   }
 
   // --- Volume Panel ---
   if (showVol && volChart) {
-    volChart.addHistogramSeries({ priceFormat: { type: 'volume' }, priceScaleId: '' }).setData(data.volume);
+    const volData = data.volume.map((v, index) => {
+      const c = data.candles.find(cand => cand.time === v.time) || data.candles[index] || {};
+      const isBullish = c.close >= c.open;
+      return {
+        time: v.time,
+        value: v.value,
+        color: isBullish ? 'rgba(0, 192, 118, 0.35)' : 'rgba(255, 59, 48, 0.35)'
+      };
+    });
+    const volumeSeries = volChart.addHistogramSeries({ priceFormat: { type: 'volume' }, priceScaleId: '' });
+    volumeSeries.setData(volData);
   }
 
   syncCharts();
@@ -479,9 +860,9 @@ function loadData(sym, mkt, period) {
       // Signal table
       const recent = [...data.signals].reverse().slice(0, 20);
       const typeLabel = {
-        sys1_buy:  '<span class="badge bg-success">▲ Sys1 Buy</span>',
-        sys2_buy:  '<span class="badge bg-warning text-dark">▲ Sys2 Buy</span>',
-        sys1_exit: '<span class="badge bg-danger">▼ Exit</span>',
+        sys1_buy:  '<span class="badge" style="background: rgba(0, 192, 118, 0.15); border: 1px solid rgba(0, 192, 118, 0.4); color: #00c076; text-shadow: 0 0 8px rgba(0, 192, 118, 0.3);">▲ Sys1 Buy</span>',
+        sys2_buy:  '<span class="badge" style="background: rgba(255, 149, 0, 0.15); border: 1px solid rgba(255, 149, 0, 0.4); color: #ff9500; text-shadow: 0 0 8px rgba(255, 149, 0, 0.3);">▲ Sys2 Buy</span>',
+        sys1_exit: '<span class="badge" style="background: rgba(255, 59, 48, 0.15); border: 1px solid rgba(255, 59, 48, 0.4); color: #ff3b30; text-shadow: 0 0 8px rgba(255, 59, 48, 0.3);">▼ Exit</span>',
       };
       document.getElementById('signal-tbody').innerHTML = recent.length
         ? recent.map(s => `<tr><td>${s.time}</td><td>${typeLabel[s.type]||s.type}</td><td>${s.price.toFixed(2)}</td></tr>`).join('')
