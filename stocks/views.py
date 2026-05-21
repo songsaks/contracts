@@ -4123,7 +4123,7 @@ def momentum_scanner(request):
     if request.GET.get('analyze') == 'true':
         try:
             data_to_analyze = []
-            top_best = MomentumCandidate.objects.filter(user=request.user).order_by('-technical_score')[:15]
+            top_best = MomentumCandidate.objects.filter(user=request.user, market='SET').order_by('-technical_score')[:15]
             for t in top_best:
                 data_to_analyze.append({
                     'symbol': t.symbol, 'score': t.technical_score, 'rvol': t.rvol, 'rsi': t.rsi,
@@ -4153,7 +4153,7 @@ def momentum_scanner(request):
     sort_by    = _MOMENTUM_SORT_MAP.get(raw_sort, raw_sort if raw_sort.lstrip('-') in {
         'technical_score','price','rsi','rvol','rs_rating','symbol','adx','upside_to_high','mfi'
     } else '-technical_score')
-    candidates = MomentumCandidate.objects.filter(user=request.user).order_by(sort_by)
+    candidates = MomentumCandidate.objects.filter(user=request.user, market='SET').order_by(sort_by)
     scanned_at = candidates.first().scanned_at if candidates.exists() else None
 
     # ตรวจว่ากำลังสแกนอยู่ - ถ้าใช่ ซ่อน results เพื่อไม่ให้กระพริบ
@@ -7364,9 +7364,12 @@ def us_momentum_scanner(request):
     US Momentum Scanner - scans ~200 Nasdaq/S&P 500 stocks using Minervini Trend Template.
     Results saved to MomentumCandidate (market='US') - same as SET scanner.
     """
-    return us_precision_scanner(request)
-    
     import threading as _th
+    from django.core.cache import cache as _cp
+    from django.http import JsonResponse as _JR
+
+    user_id   = request.user.id
+    cache_key = f'us_momentum_scan_{user_id}'
 
     # ── AJAX scan progress poll ───────────────────────────────────────
     if request.GET.get('scan_status') == '1':
