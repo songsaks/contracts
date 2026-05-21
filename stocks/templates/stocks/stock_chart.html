@@ -187,76 +187,88 @@
 
   /* Interactive Pill Buttons for Indicators */
   .indicator-panel {
-    background: rgba(15, 23, 42, 0.35);
-    border: 1px solid rgba(255, 255, 255, 0.06);
+    background: rgba(15, 23, 42, 0.25);
+    border: 1px solid rgba(255, 255, 255, 0.04);
     backdrop-filter: blur(12px);
-    border-radius: 16px;
-    padding: 14px 20px;
-    margin-bottom: 1.5rem;
+    border-radius: 10px;
+    padding: 8px 16px;
+    margin-bottom: 0.75rem;
   }
   .indicator-group {
     display: flex;
     flex-wrap: wrap;
-    gap: 10px;
+    gap: 8px;
     align-items: center;
   }
-  .indicator-pill {
-    background: rgba(255, 255, 255, 0.04);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    color: #94a3b8;
-    border-radius: 20px;
-    padding: 6px 14px;
-    font-size: 0.8rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  .indicator-section-title {
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
     display: inline-flex;
     align-items: center;
-    gap: 8px;
+    gap: 4px;
+  }
+  .indicator-divider {
+    width: 1px;
+    height: 14px;
+    background: rgba(255, 255, 255, 0.08);
+    margin: 0 6px;
+  }
+  .indicator-pill {
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    color: #64748b;
+    border-radius: 6px;
+    padding: 4px 10px;
+    font-size: 0.72rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
     user-select: none;
   }
   .indicator-pill:hover {
-    background: rgba(255, 255, 255, 0.08);
-    color: #f8fafc;
-    border-color: rgba(255, 255, 255, 0.15);
+    background: rgba(255, 255, 255, 0.05);
+    color: #94a3b8;
+    border-color: rgba(255, 255, 255, 0.1);
   }
   .indicator-pill input[type="checkbox"] {
     appearance: none;
     -webkit-appearance: none;
-    width: 8px;
-    height: 8px;
+    width: 6px;
+    height: 6px;
     border-radius: 50%;
     background: #475569;
     margin: 0;
-    transition: all 0.25s;
+    transition: all 0.2s;
   }
   .indicator-pill:has(input:checked) {
-    background: rgba(59, 130, 246, 0.15);
-    border-color: rgba(59, 130, 246, 0.5);
+    background: rgba(59, 130, 246, 0.08);
+    border-color: rgba(59, 130, 246, 0.25);
     color: #60a5fa;
-    box-shadow: 0 0 10px rgba(59, 130, 246, 0.2);
   }
   .indicator-pill:has(input:checked) input[type="checkbox"] {
     background: #3b82f6;
-    box-shadow: 0 0 8px #3b82f6;
-    transform: scale(1.2);
+    box-shadow: 0 0 6px rgba(59, 130, 246, 0.6);
   }
   
   /* Smart Candle Special Indicator Glow */
   .indicator-pill-special {
-    background: rgba(255, 255, 255, 0.04);
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.06);
   }
   .indicator-pill-special:has(input:checked) {
-    background: rgba(236, 72, 153, 0.15);
-    border-color: rgba(236, 72, 153, 0.5);
+    background: rgba(236, 72, 153, 0.08);
+    border-color: rgba(236, 72, 153, 0.25);
     color: #f472b6;
-    box-shadow: 0 0 12px rgba(236, 72, 153, 0.25);
   }
   .indicator-pill-special:has(input:checked) input[type="checkbox"] {
     background: #ec4899;
-    box-shadow: 0 0 8px #ec4899;
-    transform: scale(1.2);
+    box-shadow: 0 0 6px rgba(236, 72, 153, 0.6);
   }
 
   /* Tactical Dashboard Cards */
@@ -470,19 +482,26 @@
   <!-- Indicator Toggles -->
   <div class="indicator-panel">
     <div class="indicator-group">
-      <span class="small fw-bold me-2" style="color: #ffffff !important; opacity: 0.95;"><i class="fa-solid fa-sliders"></i> INDICATORS:</span>
-      <label class="indicator-pill"><input type="checkbox" id="check-dc" checked onchange="toggleIndicators()"> Donchian (S1/S2)</label>
+      <span class="indicator-section-title"><i class="fa-solid fa-layer-group"></i> Overlays:</span>
+      <label class="indicator-pill"><input type="checkbox" id="check-dc" checked onchange="toggleIndicators()"> Donchian</label>
       <label class="indicator-pill"><input type="checkbox" id="check-bb" onchange="toggleIndicators()"> Bollinger Bands</label>
       <label class="indicator-pill"><input type="checkbox" id="check-ema20" onchange="toggleIndicators()"> EMA 20</label>
       <label class="indicator-pill"><input type="checkbox" id="check-ema50" onchange="toggleIndicators()"> EMA 50</label>
       <label class="indicator-pill"><input type="checkbox" id="check-ema200" onchange="toggleIndicators()"> EMA 200</label>
-      <label class="indicator-pill"><input type="checkbox" id="check-itl" checked onchange="toggleIndicators()"> ITL (Ehlers)</label>
-      <div class="vr mx-1 opacity-20"></div>
-      <label class="indicator-pill"><input type="checkbox" id="check-macd" onchange="toggleIndicators()"> MACD Panel</label>
-      <label class="indicator-pill"><input type="checkbox" id="check-rsi" checked onchange="toggleIndicators()"> RSI Panel</label>
-      <label class="indicator-pill"><input type="checkbox" id="check-vol" checked onchange="toggleIndicators()"> Volume Panel</label>
-      <label class="indicator-pill ms-auto"><input type="checkbox" id="check-markers" checked onchange="toggleIndicators()"> Show Signals</label>
-      <label class="indicator-pill indicator-pill-special fw-bold"><input type="checkbox" id="check-smart-candles" checked onchange="toggleIndicators()"> 💡 Smart Candles (Blue/Pink)</label>
+      <label class="indicator-pill"><input type="checkbox" id="check-itl" checked onchange="toggleIndicators()"> ITL</label>
+      
+      <div class="indicator-divider"></div>
+      
+      <span class="indicator-section-title"><i class="fa-solid fa-chart-bar"></i> Panels:</span>
+      <label class="indicator-pill"><input type="checkbox" id="check-macd" onchange="toggleIndicators()"> MACD</label>
+      <label class="indicator-pill"><input type="checkbox" id="check-rsi" checked onchange="toggleIndicators()"> RSI</label>
+      <label class="indicator-pill"><input type="checkbox" id="check-vol" checked onchange="toggleIndicators()"> Volume</label>
+      
+      <div class="indicator-divider"></div>
+      
+      <span class="indicator-section-title"><i class="fa-solid fa-bolt"></i> Signals:</span>
+      <label class="indicator-pill"><input type="checkbox" id="check-markers" checked onchange="toggleIndicators()"> Show Signals</label>
+      <label class="indicator-pill indicator-pill-special"><input type="checkbox" id="check-smart-candles" checked onchange="toggleIndicators()"> Smart Candles</label>
     </div>
   </div>
 
