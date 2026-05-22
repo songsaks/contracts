@@ -1559,11 +1559,12 @@ def analyze_momentum_technical_v2(df):
     turtle_dist = ((high_20 - current_price) / current_price * 100) if current_price > 0 else 99
     if turtle_dist < 1.0:   launcher_score += 30  # จ่อเบรค (Ready to Shoot)
     elif turtle_dist < 3.0: launcher_score += 15
-    # C. Volume Dry-Up (VDU) - แรงขายหมดหรือยัง?
+    # C. Volume Dry-Up (VDU) - แรงขายหมดหรือยัง? (ใช้ Median เพื่อป้องกัน volume spike ทำค่าเฉลี่ยเพี้ยน)
+    median_vol_20 = float(df['Volume'].tail(20).median())
     vol_3d_avg = float(df['Volume'].tail(3).mean())
-    if vol_3d_avg < avg_vol * 0.6:  # Volume 3 วันที่ผ่านมาเฉลี่ยต่ำกว่า 60% ของค่าเฉลี่ย
+    if vol_3d_avg < median_vol_20 * 0.6:  # Volume 3 วันที่ผ่านมาเฉลี่ยต่ำกว่า 60% ของค่าเฉลี่ยปกติ
         launcher_score += 30
-    elif vol_3d_avg < avg_vol * 0.8:
+    elif vol_3d_avg < median_vol_20 * 0.8:
         launcher_score += 15
 
     # ====== John Ehlers Indicators (v12) ======

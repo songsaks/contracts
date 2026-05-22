@@ -920,6 +920,12 @@
                     <label class="form-check-label small fw-semibold" for="vcpFilterSET" style="cursor:pointer;color:#dc2626;">🎯 VCP Only</label>
                     <a href="{% url 'stocks:vcp_manual' %}" target="_blank" class="text-decoration-none" title="วิธีดู VCP" style="font-size:0.85rem; color:#94a3b8; margin-top:-2px;"><i class="fas fa-question-circle"></i></a>
                 </div>
+                <!-- ITL Filter -->
+                <div class="form-check form-switch mb-0 d-flex align-items-center gap-2">
+                    <input class="form-check-input" type="checkbox" id="itlFilterSET" onchange="_applyFiltersSET()" style="cursor:pointer;">
+                    <label class="form-check-label small fw-semibold" for="itlFilterSET" style="cursor:pointer;color:#f97316;">📈 ITL Bullish</label>
+                    <a href="{% url 'stocks:ehlers_manual' %}" target="_blank" class="text-decoration-none" title="Ehlers ITL: ราคา > ITL Daily > ITL Weekly" style="font-size:0.85rem; color:#94a3b8; margin-top:-2px;"><i class="fas fa-question-circle"></i></a>
+                </div>
                 <select id="sectorFilterSET" onchange="_applyFiltersSET()" class="form-select form-select-sm rounded-pill" style="width:auto;font-size:0.72rem;border:1px solid #e2e8f0;color:#374151;cursor:pointer;">
                     <option value="">All Sectors</option>
                     {% for item in candidates %}<option value="{{ item.sector }}">{{ item.sector }}</option>{% endfor %}
@@ -1022,6 +1028,7 @@
     data-vcp-tight="{{ item.vcp_tightness|default:0 }}"
     data-vcp-vdu="{{ item.vcp_vdu|yesno:'true,false' }}"
     data-sector="{{ item.sector }}"
+    data-itl="{{ item.ehlers_itl_bullish|yesno:'true,false' }}"
     id="row-{{ item.symbol }}">
                             <!-- SYMBOL -->
                             <td class="ps-2">
@@ -2173,6 +2180,7 @@ function _applyFiltersSET() {
     var ichiOn     = document.getElementById('ichiFilterSET')    && document.getElementById('ichiFilterSET').checked;
     var vcpOn      = document.getElementById('vcpFilterSET')     && document.getElementById('vcpFilterSET').checked;
     var launcherOn = document.getElementById('launcherFilterSET') && document.getElementById('launcherFilterSET').checked;
+    var itlOn      = document.getElementById('itlFilterSET')     && document.getElementById('itlFilterSET').checked;
     var secEl  = document.getElementById('sectorFilterSET');
     var secVal = secEl ? secEl.value : '';
     var visible = 0;
@@ -2186,6 +2194,7 @@ function _applyFiltersSET() {
         var ichi = parseInt(row.dataset.ichi || '0');
         var vcp  = row.dataset.vcp       === 'true';
         var launcher = parseInt(row.dataset.launcher || '0');
+        var itl  = row.dataset.itl       === 'true';
         var sec  = row.dataset.sector    || '';
 
         var rsiOn     = document.getElementById('rsiFilter70SET') && document.getElementById('rsiFilter70SET').checked;
@@ -2198,7 +2207,8 @@ function _applyFiltersSET() {
                    (!volSurgeOn || vsrg) && 
                    (!vcpOn || vcp) &&
                    (!launcherOn || launcher >= 70) &&
-                   (!ichiOn || ichi >= 3);
+                   (!ichiOn || ichi >= 3) &&
+                   (!itlOn || itl);
         row.style.display = show ? '' : 'none';
         if (show) visible++;
     });

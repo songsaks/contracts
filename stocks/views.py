@@ -5081,14 +5081,14 @@ def precision_momentum_scanner(request):
                         except Exception:
                             pass
 
-                        # ====== Volume Dry-Up (VDU): เงียบสะสม - volume ลด 3 วันติด + ต่ำกว่า avg 70% ======
+                        # ====== Volume Dry-Up (VDU): เงียบสะสม - volume ลด 3 วันติด + ต่ำกว่า median 70% (ป้องกัน volume spike) ======
                         vdu_flag = False
                         try:
                             if len(df) >= 4:
                                 _vols = df['Volume'].tail(4).values.astype(float)
-                                _avg20 = float(df['Volume'].tail(20).mean())
+                                _median20 = float(df['Volume'].tail(20).median())
                                 _declining = (_vols[-1] < _vols[-2]) and (_vols[-2] < _vols[-3])
-                                _quiet     = _vols[-1] < _avg20 * 0.7
+                                _quiet     = _vols[-1] < _median20 * 0.7
                                 vdu_flag   = _declining and _quiet
                         except Exception:
                             pass
