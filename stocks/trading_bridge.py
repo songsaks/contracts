@@ -153,8 +153,8 @@ class RobotBridge:
             "Content-Type": "application/json"
         }
         
-        # แมปชื่อ Symbol ให้เข้ากับ Broker (เช่น GC=F -> XAUUSD)
-        clean_symbol = symbol.replace("GC=F", "XAUUSD").replace("XAUUSD=X", "XAUUSD")
+        # แมปชื่อ Symbol ให้เข้ากับ Broker (เช่น GC=F -> XAUUSD, BTC-USD -> BTCUSD)
+        clean_symbol = symbol.replace("GC=F", "XAUUSD").replace("XAUUSD=X", "XAUUSD").replace("BTC-USD", "BTCUSD")
         
         payload = {
             "symbol": clean_symbol,
@@ -342,10 +342,13 @@ class RobotBridge:
                         diff = float(order.exit_price) - float(order.entry_price)
                         if order.order_type == 'SELL': diff = -diff
                         order.pips = round(diff, 2)
-                        # คำนวณ gross_pl = pips × volume × 100 (gold: $1/pip per 0.01 lot)
+                        # คำนวณ gross_pl = pips × volume × multiplier (gold: 100, crypto: 1)
                         if order.profit_loss == 0 or order.profit_loss is None:
+                            symbol_upper = str(order.symbol or "").upper()
+                            is_gold = any(x in symbol_upper for x in ['XAU', 'GC=F', 'GOLD'])
+                            mult = 100 if is_gold else 1
                             lot = float(order.volume) if order.volume else 0.01
-                            order.gross_pl  = round(diff * lot * 100, 2)
+                            order.gross_pl  = round(diff * lot * mult, 2)
                             order.profit_loss = _Dec(str(order.gross_pl))
 
                     if not order.exit_reason:
@@ -365,14 +368,21 @@ class RobotBridge:
 
         return {'updated': updated_count, 'errors': sync_errors}
 
-    def close_all_positions(self):
+    def close_all_positions(self, symbol=None):
         """
-        สั่งปิดออเดอร์ทั้งหมดในพอร์ตทันที (Panic Button)
+        สั่งปิดออเดอร์ทั้งหมดในพอร์ตทันที (Panic Button) หรือกรองตามสัญลักษณ์ที่ระบุ
         """
         positions = self.get_open_positions()
         success_count = 0
         
+        # ปรับรูปแบบสัญลักษณ์ให้ตรงกับ Broker
+        target_symbol = None
+        if symbol:
+            target_symbol = symbol.replace("GC=F", "XAUUSD").replace("XAUUSD=X", "XAUUSD").replace("BTC-USD", "BTCUSD")
+
         for pos in positions:
+            if target_symbol and pos.get('symbol') != target_symbol:
+                continue
             pos_id = pos.get('id')
             
             # ส่งคำสั่งปิดผ่าน Trade Endpoint
@@ -421,7 +431,7 @@ class RobotBridge:
             region = 'new-york'
         
         # ปรับชื่อสัญลักษณ์ให้ตรงกับ Broker
-        clean_symbol = symbol.replace("GC=F", "XAUUSD").replace("XAUUSD=X", "XAUUSD")
+        clean_symbol = symbol.replace("GC=F", "XAUUSD").replace("XAUUSD=X", "XAUUSD").replace("BTC-USD", "BTCUSD")
         
         url = f"https://mt-client-api-v1.{region}.agiliumtrade.ai/users/current/accounts/{account_id}/symbols/{clean_symbol}/current-price"
         headers = {"auth-token": token}

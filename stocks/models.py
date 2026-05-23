@@ -910,15 +910,20 @@ class TradeOrder(models.Model):
         """
         คำนวณ P/L ครบถ้วนและบันทึกลง DB
         XAUUSD: 1 Lot = 100 oz, pip value ≈ $1/pip
+        Spot Crypto / Forex: 1 Lot = 1 unit, multiplier = 1
         """
         from decimal import Decimal
         ep = Decimal(str(entry_p := float(self.entry_price or 0)))
         xp = Decimal(str(float(exit_p)))
         vol = Decimal(str(float(self.volume)))
 
-        # XAUUSD: price diff * 100 oz * lots
+        symbol_upper = str(self.symbol or "").upper()
+        is_gold = any(x in symbol_upper for x in ['XAU', 'GC=F', 'GOLD'])
+        multiplier = Decimal('100') if is_gold else Decimal('1')
+
+        # Price diff * multiplier * lots
         price_diff = (xp - ep) if self.order_type == 'BUY' else (ep - xp)
-        gross = price_diff * vol * Decimal('100')
+        gross = price_diff * vol * multiplier
         net   = gross - Decimal(str(commission)) - Decimal(str(swap))
 
         self.exit_price   = xp
@@ -930,7 +935,8 @@ class TradeOrder(models.Model):
 
         if self.stop_loss and self.entry_price:
             risk_pts = abs(float(self.entry_price) - float(self.stop_loss))
-            self.risk_usd = round(float(risk_pts) * float(self.volume) * 100, 2)
+            risk_mult = 100 if is_gold else 1
+            self.risk_usd = round(float(risk_pts) * float(self.volume) * risk_mult, 2)
 
         if self.risk_usd and float(self.risk_usd) != 0:
             self.actual_rr = round(float(self.gross_pl) / float(self.risk_usd), 3)
