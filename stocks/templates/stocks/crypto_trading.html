@@ -1865,7 +1865,7 @@
         { ratio: 0.236, label: '23.6%',  color: '#64748b', width: 1, style: 2 },
         { ratio: 0.382, label: '38.2%',  color: '#3b82f6', width: 1, style: 1 },
         { ratio: 0.5,   label: '50.0%',  color: '#f59e0b', width: 2, style: 1 },
-        { ratio: 0.618, label: '61.8% ★',color: 'var(--crypto-accent)', width: 2, style: 0 },
+        { ratio: 0.618, label: '61.8% ★',color: '#f7931a', width: 2, style: 0 },
         { ratio: 0.786, label: '78.6%',  color: '#ef4444', width: 1, style: 1 },
         { ratio: 1,     label: '100%',   color: '#94a3b8', width: 1, style: 2 },
     ];
@@ -1893,18 +1893,20 @@
 
         let swingLow, swingHigh, mode;
 
-        if (tacSL > 0 && tacTP > 0 && Math.abs(tacTP - tacSL) > 100) {
+        if (tacSL > 0 && tacTP > 0 && Math.abs(tacTP - tacSL) > 100 && !isNaN(tacSL) && !isNaN(tacTP)) {
             swingLow  = tacSL;
             swingHigh = tacTP;
             mode = 'TRADE';
         } else {
             const lookback = Math.min(candles.length, currentPeriod === '1d' ? 40 : currentPeriod === '5d' ? 60 : 80);
-            ({ swingHigh, swingLow } = _findSwing(candles, lookback));
+            const swing = _findSwing(candles, lookback);
+            swingLow = swing.swingLow;
+            swingHigh = swing.swingHigh;
             mode = 'AUTO';
         }
 
         const range = swingHigh - swingLow;
-        if (range <= 0) return;
+        if (range <= 0 || isNaN(range) || !isFinite(range)) return;
 
         const isRetracement = mode === 'TRADE' || lastClose < swingHigh - (range * 0.1);
 
@@ -1912,6 +1914,9 @@
             const price = isRetracement
                 ? swingHigh - (range * fib.ratio)
                 : swingLow  + (range * fib.ratio);
+
+            if (isNaN(price) || !isFinite(price) || price <= 0) return;
+
             const isGolden  = fib.ratio === 0.618;
             const isBrkout  = brkout > 0 && Math.abs(price - brkout) < (range * 0.03);
 
@@ -2035,27 +2040,35 @@
         obs.forEach(ob => {
             const col   = ob.type === 'bull' ? '#10b981' : '#ef4444';
             const label = ob.type === 'bull' ? 'OB ▲' : 'OB ▼';
-            _smcLines.push(mainChart.candleSeries.createPriceLine({
-                price: ob.high, color: col, lineWidth: 2, lineStyle: 0,
-                axisLabelVisible: true, title: `${label} ${ob.high.toFixed(2)}`
-            }));
-            _smcLines.push(mainChart.candleSeries.createPriceLine({
-                price: ob.low, color: col, lineWidth: 1, lineStyle: 2,
-                axisLabelVisible: false, title: `${label} ${ob.low.toFixed(2)}`
-            }));
+            if (ob.high && !isNaN(ob.high) && isFinite(ob.high) && ob.high > 0) {
+                _smcLines.push(mainChart.candleSeries.createPriceLine({
+                    price: ob.high, color: col, lineWidth: 2, lineStyle: 0,
+                    axisLabelVisible: true, title: `${label} ${ob.high.toFixed(2)}`
+                }));
+            }
+            if (ob.low && !isNaN(ob.low) && isFinite(ob.low) && ob.low > 0) {
+                _smcLines.push(mainChart.candleSeries.createPriceLine({
+                    price: ob.low, color: col, lineWidth: 1, lineStyle: 2,
+                    axisLabelVisible: false, title: `${label} ${ob.low.toFixed(2)}`
+                }));
+            }
         });
 
         fvgs.forEach(fvg => {
             const col   = fvg.type === 'bull' ? '#3b82f6' : '#f97316';
             const label = fvg.type === 'bull' ? 'FVG ▲' : 'FVG ▼';
-            _smcLines.push(mainChart.candleSeries.createPriceLine({
-                price: fvg.high, color: col, lineWidth: 1, lineStyle: 1,
-                axisLabelVisible: true, title: `${label} ${fvg.high.toFixed(2)}`
-            }));
-            _smcLines.push(mainChart.candleSeries.createPriceLine({
-                price: fvg.low, color: col, lineWidth: 1, lineStyle: 1,
-                axisLabelVisible: false, title: `${label} ${fvg.low.toFixed(2)}`
-            }));
+            if (fvg.high && !isNaN(fvg.high) && isFinite(fvg.high) && fvg.high > 0) {
+                _smcLines.push(mainChart.candleSeries.createPriceLine({
+                    price: fvg.high, color: col, lineWidth: 1, lineStyle: 1,
+                    axisLabelVisible: true, title: `${label} ${fvg.high.toFixed(2)}`
+                }));
+            }
+            if (fvg.low && !isNaN(fvg.low) && isFinite(fvg.low) && fvg.low > 0) {
+                _smcLines.push(mainChart.candleSeries.createPriceLine({
+                    price: fvg.low, color: col, lineWidth: 1, lineStyle: 1,
+                    axisLabelVisible: false, title: `${label} ${fvg.low.toFixed(2)}`
+                }));
+            }
         });
 
         const obB = obs.filter(o => o.type==='bull').length;

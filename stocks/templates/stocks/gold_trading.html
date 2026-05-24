@@ -336,7 +336,7 @@
     .btn-test-sound { font-size: 0.62rem; padding: 2px 8px; color: var(--text-lo); border-color: rgba(255,255,255,0.15); }
 
     /* ══ Chart ══ */
-    .chart-card { background: #fff; border: 1px solid var(--border); border-radius: var(--panel-radius); overflow: hidden; }
+    .chart-card { background: rgba(10,15,26,0.85); border: 1px solid var(--border); border-radius: var(--panel-radius); overflow: hidden; }
     .chart-toolbar { padding: 0.5rem 0.85rem; background: var(--bg-card); border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
     #chart-container, #rsi-container, #cci-container, #vol-container { overflow: hidden; width: 100%; }
 
@@ -1085,6 +1085,11 @@
 
     /* ── Responsive chart heights ── */
     function chartH() {
+        const wrapper = document.getElementById('wrapper-to-fullscreen');
+        const totalH = wrapper ? wrapper.clientHeight - 60 : 500; // minus header
+        if (document.fullscreenElement) {
+            return { main: totalH - 240, rsi: 80, cci: 80, vol: 60 };
+        }
         if (window.innerWidth < 576) return { main: 220, rsi: 70, cci: 90, vol: 40 };
         if (window.innerWidth < 992) return { main: 300, rsi: 90, cci: 120, vol: 60 };
         return { main: 450, rsi: 120, cci: 160, vol: 90 };
@@ -1637,9 +1642,9 @@
                 try {
                     mainChart = LightweightCharts.createChart(container, {
                         width: w, height: h.main,
-                        layout: { textColor: '#1e293b' },
-                        grid: { vertLines: { color: '#f1f5f9' }, horzLines: { color: '#f1f5f9' } },
-                        timeScale: { borderColor: '#e2e8f0', timeVisible: true },
+                        layout: { background: { type: 'solid', color: 'transparent' }, textColor: '#cbd5e1' },
+                        grid: { vertLines: { color: 'rgba(255,255,255,0.03)' }, horzLines: { color: 'rgba(255,255,255,0.03)' } },
+                        timeScale: { borderColor: 'rgba(255,255,255,0.1)', timeVisible: true },
                     });
                     mainChart.candleSeries = mainChart.addCandlestickSeries({ 
                         upColor: '#16a34a', downColor: '#dc2626', borderVisible: false, wickUpColor: '#16a34a', wickDownColor: '#dc2626' 
@@ -1655,8 +1660,8 @@
                 try {
                     rsiChart = LightweightCharts.createChart(document.getElementById('rsi-container'), {
                         width: w, height: h.rsi,
-                        layout: { textColor: '#1e293b' },
-                        grid: { vertLines: { color: '#f1f5f9' }, horzLines: { color: '#f1f5f9' } },
+                        layout: { background: { type: 'solid', color: 'transparent' }, textColor: '#cbd5e1' },
+                        grid: { vertLines: { color: 'rgba(255,255,255,0.03)' }, horzLines: { color: 'rgba(255,255,255,0.03)' } },
                         timeScale: { visible: false },
                     });
                     rsiChart.series = rsiChart.addLineSeries({ color: '#6366f1', lineWidth: 2 });
@@ -1667,8 +1672,8 @@
                 try {
                     cciChart = LightweightCharts.createChart(document.getElementById('cci-container'), {
                         width: w, height: h.cci,
-                        layout: { textColor: '#1e293b' },
-                        grid: { vertLines: { color: '#f1f5f9' }, horzLines: { color: '#f1f5f9' } },
+                        layout: { background: { type: 'solid', color: 'transparent' }, textColor: '#cbd5e1' },
+                        grid: { vertLines: { color: 'rgba(255,255,255,0.03)' }, horzLines: { color: 'rgba(255,255,255,0.03)' } },
                         timeScale: { visible: false },
                     });
                     cciChart.series = cciChart.addLineSeries({ color: '#8b5cf6', lineWidth: 2 });
@@ -1685,8 +1690,8 @@
                 try {
                     volChart = LightweightCharts.createChart(document.getElementById('vol-container'), {
                         width: w, height: h.vol,
-                        layout: { textColor: '#1e293b' },
-                        grid: { vertLines: { color: '#f1f5f9' }, horzLines: { color: '#f1f5f9' } },
+                        layout: { background: { type: 'solid', color: 'transparent' }, textColor: '#cbd5e1' },
+                        grid: { vertLines: { color: 'rgba(255,255,255,0.03)' }, horzLines: { color: 'rgba(255,255,255,0.03)' } },
                         timeScale: { visible: true },
                     });
                     volChart.series = volChart.addHistogramSeries({ priceFormat: { type: 'volume' } });
@@ -2571,7 +2576,7 @@
 
         let swingLow, swingHigh, mode;
 
-        if (tacSL > 0 && tacTP > 0 && Math.abs(tacTP - tacSL) > 10) {
+        if (tacSL > 0 && tacTP > 0 && Math.abs(tacTP - tacSL) > 10 && !isNaN(tacSL) && !isNaN(tacTP)) {
             // Trade-specific Fib: SL → Target
             // Align so Fib 38.2% ≈ Breakout level (entry confirmation zone)
             swingLow  = tacSL;
@@ -2580,12 +2585,14 @@
         } else {
             // Fallback: auto swing from chart data
             const lookback = Math.min(candles.length, currentPeriod === '1d' ? 40 : currentPeriod === '5d' ? 60 : 80);
-            ({ swingHigh, swingLow } = _findSwing(candles, lookback));
+            const swing = _findSwing(candles, lookback);
+            swingLow = swing.swingLow;
+            swingHigh = swing.swingHigh;
             mode = 'AUTO';
         }
 
         const range = swingHigh - swingLow;
-        if (range <= 0) return;
+        if (range <= 0 || isNaN(range) || !isFinite(range)) return;
 
         // In TRADE mode: always draw retracement from High→Low (pullback levels)
         // In AUTO mode: detect trend direction
@@ -2595,6 +2602,9 @@
             const price = isRetracement
                 ? swingHigh - (range * fib.ratio)
                 : swingLow  + (range * fib.ratio);
+
+            if (isNaN(price) || !isFinite(price) || price <= 0) return;
+
             const isGolden  = fib.ratio === 0.618;
             const isHalf    = fib.ratio === 0.5;
             const isBrkout  = brkout > 0 && Math.abs(price - brkout) < (range * 0.03);
@@ -2720,27 +2730,35 @@
         obs.forEach(ob => {
             const col   = ob.type === 'bull' ? '#22c55e' : '#ef4444';
             const label = ob.type === 'bull' ? 'OB ▲' : 'OB ▼';
-            _smcLines.push(mainChart.candleSeries.createPriceLine({
-                price: ob.high, color: col, lineWidth: 2, lineStyle: 0,
-                axisLabelVisible: true, title: `${label} ${ob.high.toFixed(2)}`
-            }));
-            _smcLines.push(mainChart.candleSeries.createPriceLine({
-                price: ob.low, color: col, lineWidth: 1, lineStyle: 2,
-                axisLabelVisible: false, title: `${label} ${ob.low.toFixed(2)}`
-            }));
+            if (ob.high && !isNaN(ob.high) && isFinite(ob.high) && ob.high > 0) {
+                _smcLines.push(mainChart.candleSeries.createPriceLine({
+                    price: ob.high, color: col, lineWidth: 2, lineStyle: 0,
+                    axisLabelVisible: true, title: `${label} ${ob.high.toFixed(2)}`
+                }));
+            }
+            if (ob.low && !isNaN(ob.low) && isFinite(ob.low) && ob.low > 0) {
+                _smcLines.push(mainChart.candleSeries.createPriceLine({
+                    price: ob.low, color: col, lineWidth: 1, lineStyle: 2,
+                    axisLabelVisible: false, title: `${label} ${ob.low.toFixed(2)}`
+                }));
+            }
         });
 
         fvgs.forEach(fvg => {
             const col   = fvg.type === 'bull' ? '#3b82f6' : '#f97316';
             const label = fvg.type === 'bull' ? 'FVG ▲' : 'FVG ▼';
-            _smcLines.push(mainChart.candleSeries.createPriceLine({
-                price: fvg.high, color: col, lineWidth: 1, lineStyle: 1,
-                axisLabelVisible: true, title: `${label} ${fvg.high.toFixed(2)}`
-            }));
-            _smcLines.push(mainChart.candleSeries.createPriceLine({
-                price: fvg.low, color: col, lineWidth: 1, lineStyle: 1,
-                axisLabelVisible: false, title: `${label} ${fvg.low.toFixed(2)}`
-            }));
+            if (fvg.high && !isNaN(fvg.high) && isFinite(fvg.high) && fvg.high > 0) {
+                _smcLines.push(mainChart.candleSeries.createPriceLine({
+                    price: fvg.high, color: col, lineWidth: 1, lineStyle: 1,
+                    axisLabelVisible: true, title: `${label} ${fvg.high.toFixed(2)}`
+                }));
+            }
+            if (fvg.low && !isNaN(fvg.low) && isFinite(fvg.low) && fvg.low > 0) {
+                _smcLines.push(mainChart.candleSeries.createPriceLine({
+                    price: fvg.low, color: col, lineWidth: 1, lineStyle: 1,
+                    axisLabelVisible: false, title: `${label} ${fvg.low.toFixed(2)}`
+                }));
+            }
         });
 
         const obB = obs.filter(o => o.type==='bull').length;
