@@ -1055,13 +1055,13 @@
     /* ── Responsive chart heights ── */
     function chartH() {
         const wrapper = document.getElementById('wrapper-to-fullscreen');
-        const totalH = wrapper.clientHeight - 60; // minus header
+        const totalH = wrapper ? wrapper.clientHeight - 60 : 500; // null-safe: fallback 500
         if (document.fullscreenElement) {
             return { main: totalH - 240, rsi: 80, cci: 80, vol: 60 };
         }
-        if (window.innerWidth < 576) return { main: 220, rsi: 60, cci: 60, vol: 40 };
-        if (window.innerWidth < 992) return { main: 300, rsi: 80, cci: 80, vol: 50 };
-        return { main: 400, rsi: 90, cci: 90, vol: 70 };
+        if (window.innerWidth < 576) return { main: 220, rsi: 70,  cci: 90,  vol: 40 };
+        if (window.innerWidth < 992) return { main: 300, rsi: 90,  cci: 110, vol: 60 };
+        return { main: 450, rsi: 110, cci: 120, vol: 80 }; // ขยายให้ใหญ่ขึ้นเทียบเท่า gold
     }
 
     function addFeedMessage(msg, isHighlight = false) {
@@ -1207,6 +1207,51 @@
         const advisorExit    = document.getElementById('tactical-exit-advice');
 
         const activeSignal = globalTactical.signals[activeStrategy === 'SNIPER' ? 'sniper' : (activeStrategy === 'SCALPER' ? 'short' : (activeStrategy === 'SWING' ? 'medium' : 'long'))] || 'WAIT';
+        const n = parseFloat(globalTactical.n) || 500; // ATR used as distance ruler
+
+        // ── Suicide Zone Detection (Price vs SL Safety) ──
+        const isRiskZone = (activeSignal === 'BUY' && lastPrice <= slPrice) ||
+                           (activeSignal === 'SELL' && lastPrice >= slPrice);
+
+        // ── Advisor Widget: R:R Ratio + Safety Analysis (ported from gold) ──
+        const advisorBox = document.getElementById('tactical-advisor-box');
+        if (advisorBox && advisorText && advisorSub) {
+            const slDist = Math.abs(breakoutPrice - slPrice);
+            const tpDist = Math.abs(tpPrice - breakoutPrice);
+            const rr = tpDist / (slDist || 1);
+            const _adStyle = (box, text, sub, bg, border, label, labelColor, subText, subColor) => {
+                box.style.background = bg; box.style.border = `1px solid ${border}`;
+                text.innerText = label; text.style.color = labelColor;
+                text.style.fontSize = '1.1rem'; text.style.fontWeight = '900';
+                sub.innerText = subText; sub.style.color = subColor; sub.style.fontWeight = '700';
+            };
+            if (isRiskZone) {
+                _adStyle(advisorBox, advisorText, advisorSub,
+                    'rgba(239,68,68,0.15)', '#ef4444',
+                    '⚠️ โซนอันตราย (SUICIDE ZONE)', '#ef4444',
+                    'ราคาอยู่เกินจุดตัดขาดทุนแล้ว — หลีกเลี่ยงการเข้าซื้อตอนนี้', '#fca5a5');
+            } else if (slDist < n * 0.3) {
+                _adStyle(advisorBox, advisorText, advisorSub,
+                    'rgba(245,158,11,0.12)', '#f59e0b',
+                    '⚡ SL แคบเกินไป (TIGHT SL)', '#f59e0b',
+                    'มีความเสี่ยงสูงโดนสะบัดกินก่อนทิศทางราคาชัดเจน', '#fcd34d');
+            } else if (slDist > n * 4) {
+                _adStyle(advisorBox, advisorText, advisorSub,
+                    'rgba(245,158,11,0.08)', '#f59e0b',
+                    '📐 SL กว้างเกินไป (WIDE SL)', '#f59e0b',
+                    'ระยะ SL ไกลมาก — อาจเสียทุนสูงหากตลาดสวนทาง', '#fcd34d');
+            } else if (rr >= 1.5) {
+                _adStyle(advisorBox, advisorText, advisorSub,
+                    'rgba(16,185,129,0.12)', '#10b981',
+                    `✅ การตั้งค่าดีเยี่ยม (R:R ${rr.toFixed(1)}x)`, '#10b981',
+                    'อัตราส่วนความเสี่ยง:ผลตอบแทนเหมาะสม — จุดเข้าสไนเปอร์', '#6ee7b7');
+            } else {
+                _adStyle(advisorBox, advisorText, advisorSub,
+                    'rgba(148,163,184,0.08)', '#475569',
+                    `📊 การตั้งค่าทั่วไป (R:R ${rr.toFixed(1)}x)`, '#94a3b8',
+                    'สัดส่วนความเสี่ยงสมดุล ยังพอรับได้', '#64748b');
+            }
+        }
 
         if (activeSignal === 'BUY') {
             if (decisionCenter) decisionCenter.className = 'decision-panel buy risk-warn d-flex align-items-center';
@@ -1215,9 +1260,6 @@
             if (mainSubtext)    mainSubtext.innerText = 'สัญญาณเข้าซื้อได้รับการยืนยันแล้วครับ';
             if (radar)          radar.style.display = 'none';
             if (waitChecklist)  waitChecklist.style.display = 'none';
-            if (advisorText)    advisorText.innerText = 'ยืนยันสัญญาณซื้อ';
-            if (advisorText)    advisorText.style.color = 'var(--green)';
-            if (advisorSub)     advisorSub.innerText = 'เข้าซื้อทันทีตามกรอบเวลา';
             if (advisorExit)    advisorExit.innerText = `คำแนะนำ: วางจุดคัดขาดทุนทันทีใต้แนวรับที่ $${slPrice.toFixed(2)}`;
         } else if (activeSignal === 'SELL') {
             if (decisionCenter) decisionCenter.className = 'decision-panel sell risk-warn d-flex align-items-center';
@@ -1226,59 +1268,72 @@
             if (mainSubtext)    mainSubtext.innerText = 'สัญญาณขายได้รับการยืนยันแล้ว';
             if (radar)          radar.style.display = 'none';
             if (waitChecklist)  waitChecklist.style.display = 'none';
-            if (advisorText)    advisorText.innerText = 'ยืนยันสัญญาณขาย';
-            if (advisorText)    advisorText.style.color = 'var(--red)';
-            if (advisorSub)     advisorSub.innerText = 'หลีกเลี่ยงการเปิด Long หรือเปิดคำสั่ง Sell';
             if (advisorExit)    advisorExit.innerText = `คำแนะนำ: ตั้งเป้าหมายกำไรระยะยาวที่ $${tpPrice.toFixed(2)}`;
         } else {
             if (decisionCenter) decisionCenter.className = 'decision-panel wait d-flex align-items-center';
             if (mainText)       mainText.innerText = 'เฝ้าระวังจุดเข้า';
             if (mainText)       mainText.style.color = 'var(--text-hi)';
             if (mainSubtext)    mainSubtext.innerText = `รอราคาทำตลาดตัดขึ้นแนว Breakout ที่ $${breakoutPrice.toFixed(2)}`;
-            if (radar)          radar.style.display = 'block';
 
-            // Radar points calculation
-            const dist = breakoutPrice - lastPrice;
-            if (dist > 0) {
-                if (radarPts) radarPts.innerText = dist.toFixed(1) + ' USD';
-                // Progress percentage bar (max $1000 distance alert range)
-                const pct = Math.max(0, Math.min(100, (1 - (dist / 1000)) * 100));
-                if (radarBar) radarBar.style.width = pct + '%';
+            // ── Proximity Radar (ATR-based — ปรับตาม volatility จริงของตลาด) ──
+            const distToEntry = Math.abs(breakoutPrice - lastPrice);
+            const maxRadarDist = n * 1.5; // ใช้ 1.5 เท่าของ ATR เป็นระยะสูงสุด
+            let proxPct = Math.max(0, Math.min(100, 100 - (distToEntry / maxRadarDist * 100)));
+            if (lastPrice >= breakoutPrice) proxPct = 100;
+
+            if (distToEntry < n * 3) {
+                if (radar) radar.style.display = 'block';
+                if (radarPts) radarPts.innerText = distToEntry.toFixed(1) + ' USD';
+                if (radarBar) {
+                    radarBar.style.width = proxPct + '%';
+                    // สีเปลี่ยนตามความใกล้: แดง → เหลือง → เขียว
+                    radarBar.style.background = proxPct > 85 ? 'var(--green)'
+                                              : proxPct > 50 ? 'var(--warning)'
+                                              : 'var(--red)';
+                }
+
+                // แสดง STRIKE ZONE เมื่อใกล้มาก
+                if (proxPct > 85 && advisorText && advisorSub) {
+                    advisorText.innerText = '🎯 โซนเริ่มเทรด (STRIKE ZONE)!';
+                    advisorText.style.color = 'var(--crypto-accent)';
+                    advisorSub.innerText = 'ราคากำลังเข้าใกล้ระดับสัญญาณเข้าซื้อ';
+                    advisorSub.style.color = '#fcd34d';
+                }
             } else {
-                if (radarPts) radarPts.innerText = '0.0 USD';
-                if (radarBar) radarBar.style.width = '100%';
+                if (radar) radar.style.display = 'none';
             }
 
-            if (waitChecklist) waitChecklist.style.display = 'block';
-            
-            // Checklist update
-            const condPriceIcon = document.getElementById('cond-price-icon');
-            const condPriceVal  = document.getElementById('cond-price-val');
-            const condTrendIcon = document.getElementById('cond-trend-icon');
-            const condTrendVal  = document.getElementById('cond-trend-val');
-            const condMomIcon   = document.getElementById('cond-mom-icon');
-            const condMomVal    = document.getElementById('cond-mom-val');
+            // แสดง Checklist เฉพาะเมื่อใกล้ (proxPct > 60) หรือผ่านแล้ว
+            if (waitChecklist) waitChecklist.style.display = (proxPct > 60) ? 'block' : 'none';
 
-            const isPriceCondMet = lastPrice >= breakoutPrice;
-            const rsi = globalTactical.rsi || 50;
-            const isRsiCondMet = rsi > 45 && rsi < 70;
+            if (waitChecklist && proxPct > 60) {
+                const condPriceIcon = document.getElementById('cond-price-icon');
+                const condPriceVal  = document.getElementById('cond-price-val');
+                const condTrendIcon = document.getElementById('cond-trend-icon');
+                const condTrendVal  = document.getElementById('cond-trend-val');
+                const condMomIcon   = document.getElementById('cond-mom-icon');
+                const condMomVal    = document.getElementById('cond-mom-val');
 
-            if (condPriceIcon && condPriceVal) {
-                condPriceIcon.className = isPriceCondMet ? "fas fa-check-circle text-success me-2" : "fas fa-circle-notch text-muted me-2";
-                condPriceVal.innerText = isPriceCondMet ? 'ผ่านเงื่อนไข' : 'ยังไม่ทะลุแนวต้าน';
-            }
-            if (condTrendIcon && condTrendVal) {
-                condTrendIcon.className = isUpTrend ? "fas fa-check-circle text-success me-2" : "fas fa-times-circle text-danger me-2";
-                condTrendVal.innerText = isUpTrend ? 'ขาขึ้นหลัก (ผ่าน)' : 'ตลาดเป็นขาลง (ระวัง)';
-            }
-            if (condMomIcon && condMomVal) {
-                condMomIcon.className = isRsiCondMet ? "fas fa-check-circle text-success me-2" : "fas fa-circle-notch text-muted me-2";
-                condMomVal.innerText = `${rsi.toFixed(1)} (${isRsiCondMet ? 'เหมาะสม' : 'ไม่สอดคล้อง'})`;
+                const isPriceCondMet = lastPrice >= breakoutPrice;
+                const rsi = globalTactical.rsi || 50;
+                const isRsiCondMet = rsi > 45 && rsi < 70;
+
+                if (condPriceIcon && condPriceVal) {
+                    condPriceIcon.className = isPriceCondMet ? 'fas fa-check-circle text-success me-2' : 'fas fa-circle-notch fa-spin text-warning me-2';
+                    condPriceVal.innerText = isPriceCondMet ? 'พร้อม' : 'ยังไม่ทะลุแนวต้าน';
+                    if (condPriceVal.className !== undefined) condPriceVal.className = isPriceCondMet ? 'text-success' : 'text-warning';
+                }
+                if (condTrendIcon && condTrendVal) {
+                    condTrendIcon.className = isUpTrend ? 'fas fa-check-circle text-success me-2' : 'fas fa-times-circle text-danger me-2';
+                    condTrendVal.innerText = isUpTrend ? 'ขาขึ้นหลัก (ผ่าน)' : 'ตลาดเป็นขาลง (ระวัง)';
+                    if (condTrendVal.className !== undefined) condTrendVal.className = isUpTrend ? 'text-success' : 'text-danger';
+                }
+                if (condMomIcon && condMomVal) {
+                    condMomIcon.className = isRsiCondMet ? 'fas fa-check-circle text-success me-2' : 'fas fa-circle-notch text-muted me-2';
+                    condMomVal.innerText = `RSI ${rsi.toFixed(1)} (${isRsiCondMet ? 'เหมาะสม' : 'ไม่สอดคล้อง'})`;
+                }
             }
 
-            if (advisorText) advisorText.innerText = 'รอความชัดเจน';
-            if (advisorText) advisorText.style.color = '#94a3b8';
-            if (advisorSub)  advisorSub.innerText = 'ราคาอยู่ในช่วงพักตัวสะสมแรง';
             if (advisorExit) advisorExit.innerText = 'แนะนำ: ตั้ง Alert แจ้งเตือนเมื่อราคาย่อใกล้แนวรับเพื่อเข้าซื้อ';
         }
     }
