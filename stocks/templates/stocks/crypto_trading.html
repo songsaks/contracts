@@ -1207,7 +1207,7 @@
         const advisorExit    = document.getElementById('tactical-exit-advice');
 
         const activeSignal = globalTactical.signals[activeStrategy === 'SNIPER' ? 'sniper' : (activeStrategy === 'SCALPER' ? 'short' : (activeStrategy === 'SWING' ? 'medium' : 'long'))] || 'WAIT';
-        const n = parseFloat(globalTactical.n) || 500; // ATR used as distance ruler
+        // n (ATR) is already declared at line 1124 above — reuse it here
 
         // ── Suicide Zone Detection (Price vs SL Safety) ──
         const isRiskZone = (activeSignal === 'BUY' && lastPrice <= slPrice) ||
