@@ -2,7 +2,7 @@
 {% load static %}
 {% load humanize %}
 
-{% block title %}Gold Command Center · XAU/USD{% endblock %}
+{% block title %}ศูนย์บัญชาการบอททองคำ · XAU/USD{% endblock %}
 
 {% block container_class %}container-fluid px-0{% endblock %}
 
@@ -479,22 +479,22 @@
 <!-- ══ FLASH NEWS ══ -->
 <div class="news-ticker-container">
     <div class="news-label"><i class="fas fa-broadcast-tower me-1"></i> LIVE</div>
-    <div id="news-flash-box" class="news-fade-in">Loading market news...</div>
+    <div id="news-flash-box" class="news-fade-in">กำลังโหลดข่าวสารตลาดทองคำ...</div>
 </div>
 
 <!-- ══════ HEADER ══════ -->
 <div class="gcc-header d-flex flex-wrap justify-content-between align-items-center gap-2">
     <div>
-        <h1><i class="fas fa-coins me-2"></i>GOLD COMMAND CENTER <span style="font-size: 0.5em; background: rgba(16, 185, 129, 0.2); color: #34d399; padding: 2px 8px; border-radius: 4px; vertical-align: middle;">v2.1 SafeMode</span></h1>
-        <div class="gcc-subtitle d-none d-sm-block">XAU/USD · Turtle Breakout Strategy · Spot Gold</div>
+        <h1><i class="fas fa-coins me-2"></i>ศูนย์บัญชาการบอททองคำ <span style="font-size: 0.5em; background: rgba(16, 185, 129, 0.2); color: #34d399; padding: 2px 8px; border-radius: 4px; vertical-align: middle;">v2.1 SafeMode</span></h1>
+        <div class="gcc-subtitle d-none d-sm-block">XAU/USD · กลยุทธ์ Turtle Breakout · Spot Gold</div>
     </div>
     <div class="d-flex align-items-center gap-2">
         <span class="status-pill pill-standby" id="bot-status-indicator">● STANDBY</span>
         <button class="btn btn-sm btn-outline-warning fw-bold rounded-pill" onclick="toggleAiStrategist()">
-            <i class="fas fa-robot me-1"></i><span class="d-none d-sm-inline"> Robot</span>
+            <i class="fas fa-robot me-1"></i><span class="d-none d-sm-inline"> โรบอทวิเคราะห์</span>
         </button>
         <button class="btn btn-sm fw-bold rounded-pill d-none d-lg-inline-flex" style="background:var(--gold);color:#000;" onclick="toggleFullscreen()">
-            <i class="fas fa-expand me-1"></i> Fullscreen
+            <i class="fas fa-expand me-1"></i> เต็มหน้าจอ
         </button>
     </div>
 </div>
@@ -506,7 +506,7 @@
         <span style="font-size:0.85rem;font-weight:700;" class="text-success" id="m-chg">+0.00%</span>
     </div>
     <div class="d-flex align-items-center gap-2">
-        <span id="m-signal" class="signal-badge" style="background:#334155;color:#94a3b8;font-size:0.78rem;padding:5px 12px;">NEUTRAL</span>
+        <span id="m-signal" class="signal-badge" style="background:#334155;color:#94a3b8;font-size:0.78rem;padding:5px 12px;">รอยืนยันสัญญาณ</span>
     </div>
 </div>
 
@@ -519,20 +519,20 @@
         <!-- ORDER EXECUTION -->
         <div class="g-card g-card-dark">
             <div class="g-card-header">
-                <i class="fas fa-bolt" style="color:var(--gold)"></i> ORDER EXECUTION
+                <i class="fas fa-bolt" style="color:var(--gold)"></i> ส่งคำสั่งซื้อขาย (MANUAL)
             </div>
             <div class="p-3 d-flex flex-column gap-2">
                 <div class="d-flex gap-2">
                     <button class="btn-execute-buy flex-grow-1" onclick="executeTrade('BUY')">
-                        <i class="fas fa-arrow-trend-up me-2"></i> BUY
+                        <i class="fas fa-arrow-trend-up me-2"></i> ซื้อ (BUY)
                     </button>
                     <button class="btn-execute-sell flex-grow-1" onclick="executeTrade('SELL')">
-                        <i class="fas fa-arrow-trend-down me-2"></i> SELL
+                        <i class="fas fa-arrow-trend-down me-2"></i> ขาย (SELL)
                     </button>
                 </div>
                 <button class="btn btn-sm w-100 fw-bold" onclick="closeAllPositions()"
                     style="background:transparent;border:1px solid rgba(248,81,73,0.35);color:rgba(248,81,73,0.8);border-radius:8px;padding:8px;font-size:0.78rem;cursor:pointer;">
-                    <i class="fas fa-times-circle me-1"></i> CLOSE ALL POSITIONS
+                    <i class="fas fa-times-circle me-1"></i> ปิดสถานะทั้งหมด (CLOSE ALL)
                 </button>
             </div>
         </div>
@@ -550,12 +550,12 @@
                     <div class="flex-grow-1">
                         <div class="d-flex justify-content-between align-items-start">
                             <div>
-                                <div style="font-size:0.58rem;color:var(--text-lo);text-transform:uppercase;letter-spacing:1px;margin-bottom:2px;">Decision Support</div>
-                                <div class="signal-status" id="signal-main-text">SCANNING...</div>
-                                <div class="signal-message" id="signal-main-subtext">Monitoring breakout levels.</div>
+                                <div style="font-size:0.58rem;color:var(--text-lo);text-transform:uppercase;letter-spacing:1px;margin-bottom:2px;">ระบบช่วยตัดสินใจ</div>
+                                <div class="signal-status" id="signal-main-text">กำลังสแกน...</div>
+                                <div class="signal-message" id="signal-main-subtext">เฝ้าระวังจุด Breakout</div>
                             </div>
                             <span class="badge" id="active-strategy-badge" style="background:rgba(255,255,255,0.05);border:1px solid var(--border);font-size:0.58rem;padding:3px 8px;">
-                                MODE: <span id="display-strategy">SNIPER</span>
+                                กลยุทธ์: <span id="display-strategy">SNIPER</span>
                             </span>
                         </div>
                     </div>
@@ -563,47 +563,47 @@
 
                 <div class="row g-2 mt-1">
                     <div class="col-6">
-                        <label class="matrix-label d-block mb-1">CAPITAL ($)</label>
+                        <label class="matrix-label d-block mb-1">เงินทุน ($)</label>
                         <input type="number" id="capital-input" class="form-control form-control-sm fw-bold text-center" value="{{ capital|floatformat:2 }}"
                             style="background:var(--bg-input);color:var(--text-hi);border-color:var(--border);">
                     </div>
                     <div class="col-6">
-                        <label class="matrix-label d-block mb-1">RISK (%)</label>
+                        <label class="matrix-label d-block mb-1">ความเสี่ยง (%)</label>
                         <input type="number" id="risk-pct" class="form-control form-control-sm fw-bold text-center" value="1"
                             style="background:var(--bg-input);color:var(--text-hi);border-color:var(--border);">
                     </div>
                 </div>
 
                 <div class="sizer-suggested">
-                    <div class="sizer-label">SUGGESTED SIZE</div>
+                    <div class="sizer-label">ขนาดไม้แนะนำ</div>
                     <div class="sizer-value" id="tac-suggest-size">0.00 Lots</div>
                 </div>
 
                 <div class="mt-2">
-                    <label class="matrix-label d-block mb-1">MANUAL OVERRIDE (LOTS)</label>
+                    <label class="matrix-label d-block mb-1">ระบุเอง (MANUAL LOTS)</label>
                     <input type="number" id="manual-lot-input" class="form-control form-control-sm fw-bold text-center"
-                        placeholder="Leave empty for suggested" step="0.01"
+                        placeholder="ปล่อยว่างไว้เพื่อใช้ค่าคำนวณข้างต้น" step="0.01"
                         style="background:rgba(240,183,47,0.05);color:var(--gold);border-color:rgba(240,183,47,0.3);">
-                    <div class="text-center mt-1" style="font-size:0.6rem;color:var(--text-lo);">*Max safety cap: 0.05 (Default)</div>
+                    <div class="text-center mt-1" style="font-size:0.6rem;color:var(--text-lo);">*จำกัดความปลอดภัยสูงสุด: 0.05 Lots</div>
                 </div>
 
                 <div class="d-flex justify-content-between mt-2 pt-2" style="border-top:1px solid var(--border);">
                     <div class="text-center flex-grow-1">
-                        <div class="matrix-label" style="font-size:0.58rem;">TREND (EMA200)</div>
+                        <div class="matrix-label" style="font-size:0.58rem;">แนวโน้ม (EMA200)</div>
                         <div id="trend-status-display" class="fw-bold" style="font-size:0.8rem;color:var(--green);">BULLISH</div>
                     </div>
                     <div class="text-center flex-grow-1" style="border-left:1px solid var(--border);">
-                        <div class="matrix-label" style="font-size:0.58rem;">RSI (14)</div>
+                        <div class="matrix-label" style="font-size:0.58rem;">ดัชนี RSI (14)</div>
                         <div id="rsi-display" class="fw-bold" style="font-size:0.8rem;color:var(--blue);">--</div>
                     </div>
                 </div>
 
                 <div class="mt-3">
                     <div style="font-size:0.6rem;font-weight:800;color:var(--text-lo);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">
-                        <i class="fas fa-comment-alt me-1"></i> SIGNAL FEED
+                        <i class="fas fa-comment-alt me-1"></i> ฟีดสัญญาณ Breakout
                     </div>
                     <div id="signal-feed" class="message-feed">
-                        <div class="feed-entry"><span class="feed-time">[SYSTEM]</span> <span class="feed-msg">Initializing...</span></div>
+                        <div class="feed-entry"><span class="feed-time">[ระบบ]</span> <span class="feed-msg">กำลังเริ่มต้นระบบ...</span></div>
                     </div>
                 </div>
             </div>
@@ -612,22 +612,22 @@
         <!-- SIGNAL MATRIX -->
         <div class="g-card g-card-dark" id="strategic-matrix-box">
             <div class="g-card-header">
-                <i class="fas fa-satellite-dish" style="color:var(--blue)"></i> SIGNAL MATRIX
+                <i class="fas fa-satellite-dish" style="color:var(--blue)"></i> ตารางสัญญาณ Breakout
             </div>
             <div class="matrix-row">
-                <span class="matrix-label">SNIPER (DC10)</span>
+                <span class="matrix-label">สไนเปอร์ (DC10)</span>
                 <span id="sig-sniper" class="matrix-btn wait">WAIT</span>
             </div>
             <div class="matrix-row">
-                <span class="matrix-label">SCALPER (DC10)</span>
+                <span class="matrix-label">สแคลเปอร์ (DC10)</span>
                 <span id="sig-short" class="matrix-btn wait">WAIT</span>
             </div>
             <div class="matrix-row">
-                <span class="matrix-label">SWING (DC20)</span>
+                <span class="matrix-label">สวิงเทรด (DC20)</span>
                 <span id="sig-medium" class="matrix-btn wait">WAIT</span>
             </div>
             <div class="matrix-row">
-                <span class="matrix-label">TURTLE (DC55)</span>
+                <span class="matrix-label">เทอร์เทิล (DC55)</span>
                 <span id="sig-long" class="matrix-btn wait">WAIT</span>
             </div>
         </div>
@@ -635,7 +635,7 @@
         <!-- VOLUME CONFIRMATION -->
         <div class="g-card g-card-dark" id="vol-confirm-card">
             <div class="g-card-header">
-                <i class="fas fa-chart-bar" style="color:var(--gold)"></i> VOLUME BREAKOUT
+                <i class="fas fa-chart-bar" style="color:var(--gold)"></i> ปริมาณการซื้อขาย (VOLUME BREAKOUT)
             </div>
             <div class="p-3">
                 <div class="text-center mb-2">
@@ -666,14 +666,14 @@
         <!-- MARKET SENTIMENT -->
         <div class="g-card g-card-dark">
             <div class="g-card-header">
-                <i class="fas fa-globe-americas" style="color:var(--blue)"></i> MARKET SENTIMENT
+                <i class="fas fa-globe-americas" style="color:var(--blue)"></i> อารมณ์ตลาด (SENTIMENT)
             </div>
             <div class="matrix-row">
-                <span class="matrix-label">DXY INDEX</span>
+                <span class="matrix-label">ดัชนีดอลลาร์ (DXY)</span>
                 <span id="dxy-status" class="status-pill pill-standby">WAIT</span>
             </div>
             <div class="matrix-row">
-                <span class="matrix-label">MTF ALIGNMENT</span>
+                <span class="matrix-label">แนวโน้มหลายกรอบเวลา (MTF)</span>
                 <div class="d-flex gap-1">
                     <span id="pill-m15" class="badge rounded-1" style="width:32px;font-size:0.58rem;background:#1c2333;">M15</span>
                     <span id="pill-h1"  class="badge rounded-1" style="width:32px;font-size:0.58rem;background:#1c2333;">H1</span>
@@ -681,18 +681,18 @@
                     <span id="pill-d1"  class="badge rounded-1" style="width:32px;font-size:0.58rem;background:#1c2333;">D1</span>
                 </div>
             </div>
-            <div class="p-3" style="background:rgba(0,0,0,0.2);border-top:1px solid var(--border);">
+            <div class="p-3" style="background:rgba(0,0,0,0.25);border-top:1px solid var(--border);">
                 <div class="d-flex align-items-center mb-2">
                     <i class="fas fa-robot me-2" style="color:var(--blue);font-size:0.75rem;"></i>
-                    <span style="font-size:0.62rem;font-weight:800;color:var(--blue);letter-spacing:1px;text-transform:uppercase;">AI STRATEGIST</span>
+                    <span style="font-size:0.62rem;font-weight:800;color:var(--blue);letter-spacing:1px;text-transform:uppercase;">วิเคราะห์ด้วย AI</span>
                 </div>
-                <div id="ai-sentiment-advice" style="font-size:0.78rem;color:var(--text-hi);line-height:1.55;font-family:'Outfit',sans-serif;">กำลังประมวลผล...</div>
+                <div id="ai-sentiment-advice" style="font-size:0.78rem;color:var(--text-hi);line-height:1.55;font-family:'Outfit',sans-serif;">กำลังวิเคราะห์แนวโน้มราคาทองคำ...</div>
             </div>
         </div>
 
         <!-- ACTIVITY LOG -->
         <div class="g-card g-card-dark">
-            <div class="g-card-header"><i class="fas fa-terminal" style="color:var(--text-lo)"></i> ACTIVITY LOG</div>
+            <div class="g-card-header"><i class="fas fa-terminal" style="color:var(--text-lo)"></i> บันทึกระบบ (ACTIVITY LOG)</div>
             <div class="log-box" id="bot-logs"></div>
         </div>
 
@@ -740,7 +740,7 @@
                 </div>
             </div>
             <div class="position-relative">
-                <div style="position:absolute;top:8px;left:12px;font-size:10px;font-weight:900;color:#64748b;z-index:10;background:rgba(255,255,255,0.85);padding:2px 6px;border-radius:4px;pointer-events:none;">MAIN CHART</div>
+                <div style="position:absolute;top:8px;left:12px;font-size:10px;font-weight:900;color:#64748b;z-index:10;background:rgba(255,255,255,0.85);padding:2px 6px;border-radius:4px;pointer-events:none;">กราฟราคาทองคำ</div>
                 <div id="chart-container"></div>
             </div>
             <div class="position-relative" style="border-top:1px solid #e8edf2;">
@@ -766,7 +766,7 @@
         <div class="price-panel">
             <div class="d-flex justify-content-between align-items-center mb-1">
                 <span class="price-symbol">GOLD · XAU/USD</span>
-                <span class="price-time" id="last-update-time">Updated: --:--:--</span>
+                <span class="price-time" id="last-update-time">อัปเดตเมื่อ: --:--:--</span>
             </div>
             <div class="d-flex align-items-baseline">
                 <span class="price-value" id="gold-price-display">----.-</span>
@@ -777,13 +777,13 @@
                     <div class="bot-dot" id="bot-status-lamp"></div>
                     <span id="bot-status-text" style="font-size:0.7rem;">SERVER BOT: OFFLINE</span>
                 </div>
-                <button id="btn-stop-bot" class="btn-stop-bot">STOP</button>
-                <button id="btn-start-bot" class="btn-stop-bot d-none" style="border-color:var(--green);color:var(--green);">START</button>
+                <button id="btn-stop-bot" class="btn-stop-bot">หยุดระบบ</button>
+                <button id="btn-start-bot" class="btn-stop-bot d-none" style="border-color:var(--green);color:var(--green);">เริ่มระบบ</button>
             </div>
             <div id="tactical-signal" class="tactical-signal-badge">── NEUTRAL ──</div>
             <button class="btn w-100 mt-2" onclick="executeTrade('BUY', false, 0.01)"
                 style="border:1px dashed rgba(88,166,255,0.4);color:var(--blue);background:rgba(88,166,255,0.04);font-weight:800;border-radius:8px;font-size:0.78rem;padding:0.5rem;">
-                <i class="fas fa-vial me-1"></i> TEST ORDER (0.01 Lot)
+                <i class="fas fa-vial me-1"></i> ส่งคำสั่งทดสอบ (0.01 Lot)
             </button>
         </div>
 
@@ -791,7 +791,7 @@
         <div class="g-card g-card-dark" style="border-color:rgba(240,183,47,0.35);">
             <div class="g-card-header d-flex justify-content-between align-items-center" style="padding:0.55rem 0.85rem;">
                 <span style="color:var(--gold);font-weight:900;font-size:0.68rem;text-transform:uppercase;letter-spacing:0.5px;">
-                    <i class="fas fa-satellite me-1"></i> LIVE POSITIONS
+                    <i class="fas fa-satellite me-1"></i> ออเดอร์ที่เปิดอยู่
                 </span>
                 <div class="d-flex align-items-center gap-2">
                     <span id="pos-count-badge" class="badge rounded-pill" style="background:rgba(240,183,47,0.15);color:var(--gold);border:1px solid rgba(240,183,47,0.3);font-size:0.62rem;">0</span>
@@ -802,18 +802,18 @@
                 <table class="pos-table" style="min-width:460px;">
                     <thead>
                         <tr>
-                            <th class="ps-2">TYPE</th>
-                            <th>SIZE</th>
-                            <th>ENTRY</th>
-                            <th>CURRENT (BROKER)</th>
-                            <th>TARGET</th>
-                            <th>STOP</th>
-                            <th>P/L ($)</th>
-                            <th class="pe-2">EDIT</th>
+                            <th class="ps-2">ประเภท</th>
+                            <th>ขนาด</th>
+                            <th>เปิด</th>
+                            <th>ปัจจุบัน (BROKER)</th>
+                            <th>TP</th>
+                            <th>SL</th>
+                            <th>กำไร ($)</th>
+                            <th class="pe-2">แก้ไข</th>
                         </tr>
                     </thead>
                     <tbody id="positions-list-body">
-                        <tr><td colspan="8" class="text-center py-4" style="color:var(--text-lo);">No open positions</td></tr>
+                        <tr><td colspan="8" class="text-center py-4" style="color:var(--text-lo);">ไม่มีออเดอร์เปิดค้างอยู่</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -822,32 +822,32 @@
         <!-- TACTICAL LEVELS -->
         <div class="g-card g-card-dark">
             <div class="g-card-header">
-                <i class="fas fa-crosshairs" style="color:var(--red)"></i> TACTICAL LEVELS
+                <i class="fas fa-crosshairs" style="color:var(--red)"></i> ระดับราคาสำคัญ (TACTICAL LEVELS)
             </div>
             <div class="p-2 pb-0">
                 <div class="tactical-tabs mb-2">
-                    <button class="t-tab sniper" onclick="setStrategy('SNIPER')" id="btn-strat-sniper">SNIPER</button>
-                    <button class="t-tab scalper active" onclick="setStrategy('SCALPER')" id="btn-strat-scalper">SCALPER</button>
-                    <button class="t-tab swing" onclick="setStrategy('SWING')" id="btn-strat-swing">SWING</button>
-                    <button class="t-tab turtle" onclick="setStrategy('TURTLE')" id="btn-strat-turtle">TURTLE</button>
+                    <button class="t-tab sniper" onclick="setStrategy('SNIPER')" id="btn-strat-sniper">สไนเปอร์</button>
+                    <button class="t-tab scalper active" onclick="setStrategy('SCALPER')" id="btn-strat-scalper">สแคลเปอร์</button>
+                    <button class="t-tab swing" onclick="setStrategy('SWING')" id="btn-strat-swing">สวิงเทรด</button>
+                    <button class="t-tab turtle" onclick="setStrategy('TURTLE')" id="btn-strat-turtle">เทอร์เทิล</button>
                 </div>
                 <div class="text-center mb-2">
                     <span id="strategy-label" class="badge" style="background:rgba(248,81,73,0.12);color:#f85149;font-weight:800;font-size:0.65rem;padding:3px 12px;border-radius:4px;border:1px solid rgba(248,81,73,0.3);">LEVERAGE 1:200 (SNIPER)</span>
                 </div>
             </div>
-            <div class="t-row"><span class="t-label">Breakout (Trigger)</span><span class="t-value" style="color:var(--red)" id="breakout-level-display">----.-</span></div>
-            <div class="t-row"><span class="t-label" id="label-tactical-tp">Target (TP)</span><span class="t-value" style="color:var(--green)" id="tactical-tp">----.-</span></div>
-            <div class="t-row"><span class="t-label" id="label-tactical-sl">Stop Loss (SL)</span><span class="t-value" style="color:var(--red)" id="tactical-sl">----.-</span></div>
-            <div class="t-row"><span class="t-label">Volatility ATR(20)</span><span class="t-value" style="color:var(--gold)" id="live-n-val">-.--</span></div>
+            <div class="t-row"><span class="t-label">จุดเกิดสัญญาณ (Breakout)</span><span class="t-value" style="color:var(--red)" id="breakout-level-display">----.-</span></div>
+            <div class="t-row"><span class="t-label" id="label-tactical-tp">เป้าหมายทำกำไร (TP)</span><span class="t-value" style="color:var(--green)" id="tactical-tp">----.-</span></div>
+            <div class="t-row"><span class="t-label" id="label-tactical-sl">จุดตัดขาดทุน (SL)</span><span class="t-value" style="color:var(--red)" id="tactical-sl">----.-</span></div>
+            <div class="t-row"><span class="t-label">ความผันผวน ATR (20)</span><span class="t-value" style="color:var(--gold)" id="live-n-val">-.--</span></div>
 
             <!-- TACTICAL ADVISOR -->
             <div id="tactical-advisor-box" class="m-2 p-3 rounded text-center" style="transition:all 0.3s;position:relative;overflow:hidden;">
-                <div style="font-size:0.6rem;color:#475569;text-transform:uppercase;letter-spacing:2px;margin-bottom:4px;font-weight:800;">Tactical Advisor</div>
-                <div id="tactical-advisor-text" class="fw-bold" style="font-size:1.05rem;color:var(--text-hi);letter-spacing:0.5px;font-weight:900;">Analyzing...</div>
-                <div id="tactical-advisor-sub" style="font-size:0.68rem;color:#475569;margin-bottom:10px;font-weight:600;">Ready for execution</div>
+                <div style="font-size:0.6rem;color:#475569;text-transform:uppercase;letter-spacing:2px;margin-bottom:4px;font-weight:800;">ผู้ช่วยวิเคราะห์กลยุทธ์</div>
+                <div id="tactical-advisor-text" class="fw-bold" style="font-size:1.05rem;color:var(--text-hi);letter-spacing:0.5px;font-weight:900;">กำลังวิเคราะห์...</div>
+                <div id="tactical-advisor-sub" style="font-size:0.68rem;color:#475569;margin-bottom:10px;font-weight:600;">ระบบพร้อมส่งคำสั่ง</div>
                 <div id="prox-radar-container" class="mt-2 p-2" style="display:none;background:rgba(0,0,0,0.3);border-radius:10px;border:1px solid var(--border);">
                     <div class="d-flex justify-content-between mb-2" style="font-size:0.72rem;font-weight:900;">
-                        <span style="color:#1e40af;letter-spacing:0.5px;">DISTANCE TO BREAKOUT</span>
+                        <span style="color:#1e40af;letter-spacing:0.5px;">ระยะห่างจากจุด BREAKOUT</span>
                         <span id="prox-radar-pts" style="color:#b45309;font-weight:900;">0.00 PTS</span>
                     </div>
                     <div class="progress" style="height:8px;background:rgba(255,255,255,0.08);border-radius:8px;overflow:visible;">
@@ -855,24 +855,24 @@
                              style="width:0%;border-radius:8px;background:var(--gold);"></div>
                     </div>
                     <div id="wait-checklist" class="mt-2 text-start" style="display:none;font-size:0.82rem;background:#f1f5f9;padding:12px;border-radius:8px;border:1px solid #cbd5e1;color:#0f172a;">
-                        <div style="font-size:0.62rem;color:#334155;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;border-bottom:1px solid #cbd5e1;padding-bottom:4px;font-weight:900;">Entry Conditions</div>
+                        <div style="font-size:0.62rem;color:#334155;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;border-bottom:1px solid #cbd5e1;padding-bottom:4px;font-weight:900;">เงื่อนไขการเข้าซื้อขาย</div>
                         <div class="mb-2 d-flex justify-content-between align-items-center">
-                            <span style="color:#1e293b;font-weight:600;"><i id="cond-price-icon" class="fas fa-circle-notch fa-spin me-2" style="color:#64748b;"></i> Price Trigger</span>
+                            <span style="color:#1e293b;font-weight:600;"><i id="cond-price-icon" class="fas fa-circle-notch fa-spin me-2" style="color:#64748b;"></i> สัญญาณราคา (Price Trigger)</span>
                             <span id="cond-price-val" style="font-weight:800;color:#0f172a;">...</span>
                         </div>
                         <div class="mb-2 d-flex justify-content-between align-items-center">
-                            <span style="color:#1e293b;font-weight:600;"><i id="cond-trend-icon" class="fas fa-circle-notch fa-spin me-2" style="color:#64748b;"></i> Trend Filter</span>
+                            <span style="color:#1e293b;font-weight:600;"><i id="cond-trend-icon" class="fas fa-circle-notch fa-spin me-2" style="color:#64748b;"></i> ตัวกรองแนวโน้ม (Trend Filter)</span>
                             <span id="cond-trend-val" style="font-weight:800;color:#0f172a;">...</span>
                         </div>
                         <div class="d-flex justify-content-between align-items-center">
-                            <span style="color:#1e293b;font-weight:600;"><i id="cond-mom-icon" class="fas fa-circle-notch fa-spin me-2" style="color:#64748b;"></i> Momentum (RSI)</span>
+                            <span style="color:#1e293b;font-weight:600;"><i id="cond-mom-icon" class="fas fa-circle-notch fa-spin me-2" style="color:#64748b;"></i> โมเมนตัม (RSI)</span>
                             <span id="cond-mom-val" style="font-weight:800;color:#0f172a;">...</span>
                         </div>
                     </div>
                 </div>
             </div>
             <div id="tactical-exit-advice" style="font-size:0.65rem;color:var(--text-lo);font-style:italic;padding:8px 12px;border-top:1px dashed var(--border);text-align:center;">
-                Loading strategy advice...
+                กำลังโหลดคำแนะนำกลยุทธ์...
             </div>
         </div>
 
@@ -880,7 +880,7 @@
         <div class="alert-panel" id="alert-master-panel">
             <div class="alert-active-bg" id="alert-visual-signal"></div>
             <div class="d-flex justify-content-between align-items-center mb-2">
-                <span class="matrix-label"><i class="fas fa-bell me-1" style="color:var(--gold)"></i> SMART ALERTS</span>
+                <span class="matrix-label"><i class="fas fa-bell me-1" style="color:var(--gold)"></i> ระบบแจ้งเตือนอัจฉริยะ (SMART ALERTS)</span>
                 <div class="d-flex align-items-center gap-2">
                     <span id="alert-status-text" style="font-size:0.6rem;color:var(--text-lo);">OFF</span>
                     <div class="form-check form-switch m-0">
@@ -889,7 +889,7 @@
                 </div>
             </div>
             <div class="mb-2">
-                <label class="matrix-label d-block mb-1" style="font-size:0.58rem;text-align:center;">HIGH TARGET (TP)</label>
+                <label class="matrix-label d-block mb-1" style="font-size:0.58rem;text-align:center;">ราคาสูงสุดที่ตั้งเตือน (TP)</label>
                 <div class="d-flex gap-1 align-items-center">
                     <button class="btn btn-sm px-2" onclick="adjustAlert('high',-10)" style="background:rgba(255,255,255,0.05);color:var(--text-lo);border:1px solid var(--border);border-radius:6px;font-size:0.7rem;">-10</button>
                     <input type="number" id="alert-high" class="alert-input flex-grow-1" placeholder="----.--" step="0.1">
@@ -897,7 +897,7 @@
                 </div>
             </div>
             <div class="mb-2">
-                <label class="matrix-label d-block mb-1" style="font-size:0.58rem;text-align:center;">LOW TARGET (SL)</label>
+                <label class="matrix-label d-block mb-1" style="font-size:0.58rem;text-align:center;">ราคาต่ำสุดที่ตั้งเตือน (SL)</label>
                 <div class="d-flex gap-1 align-items-center">
                     <button class="btn btn-sm px-2" onclick="adjustAlert('low',-10)" style="background:rgba(255,255,255,0.05);color:var(--text-lo);border:1px solid var(--border);border-radius:6px;font-size:0.7rem;">-10</button>
                     <input type="number" id="alert-low" class="alert-input flex-grow-1" placeholder="----.--" step="0.1">
@@ -906,10 +906,10 @@
             </div>
             <div class="d-flex gap-2">
                 <button class="btn btn-sm rounded-pill flex-grow-1 btn-test-sound" onclick="testAlertSound()" style="border:1px solid var(--border);font-size:0.62rem;">
-                    <i class="fas fa-volume-up me-1"></i> Test
+                    <i class="fas fa-volume-up me-1"></i> ทดสอบเสียง
                 </button>
                 <button class="btn btn-sm rounded-pill flex-grow-1 btn-test-sound" onclick="syncAlertsToEntry()" style="border:1px solid rgba(88,166,255,0.3);color:var(--blue);font-size:0.62rem;">
-                    <i class="fas fa-sync-alt me-1"></i> Sync ±20
+                    <i class="fas fa-sync-alt me-1"></i> ซิงก์ราคา ±20
                 </button>
             </div>
             <div id="alert-sound-blocked" class="d-none mt-2 text-center">
@@ -919,10 +919,10 @@
             </div>
             <div id="alert-trigger-msg" class="mt-2 d-none">
                 <div class="text-danger fw-bold text-center mb-2" style="font-size:0.78rem;animation:blink 0.5s infinite;">
-                    <i class="fas fa-exclamation-triangle"></i> PRICE REACHED!
+                    <i class="fas fa-exclamation-triangle"></i> ราคาถึงเป้าหมายแล้ว!
                 </div>
                 <button class="btn btn-danger w-100 fw-bold" onclick="silenceAlarm()" style="border-radius:8px;font-size:0.85rem;position:relative;z-index:9999;">
-                    <i class="fas fa-volume-mute me-2"></i> STOP ALARM
+                    <i class="fas fa-volume-mute me-2"></i> ปิดเสียงเตือน
                 </button>
             </div>
 
@@ -930,10 +930,10 @@
             <div style="margin-top:0.7rem; border-top:1px solid var(--border); padding-top:0.6rem;">
                 <div class="d-flex justify-content-between align-items-center mb-1">
                     <span style="font-size:0.72rem; color:var(--text-hi); font-weight:700;">
-                        <i class="fas fa-arrow-down me-1" style="color:var(--gold);"></i> PULLBACK ALERT
+                        <i class="fas fa-arrow-down me-1" style="color:var(--gold);"></i> แจ้งเตือนจุดย่อตัว (PULLBACK)
                     </span>
                     <div class="d-flex align-items-center gap-2">
-                        <span id="pb-status" style="font-size:0.65rem; color:#94a3b8;">WATCHING</span>
+                        <span id="pb-status" style="font-size:0.65rem; color:#94a3b8;">กำลังเฝ้าระวัง</span>
                         <div class="form-check form-switch mb-0" style="transform:scale(0.8); transform-origin:right;">
                             <input class="form-check-input" type="checkbox" id="pullback-alert-toggle" style="cursor:pointer;"
                                 onchange="localStorage.setItem('pb_alert_on', this.checked ? '1' : '0')">
@@ -945,7 +945,7 @@
                     <input type="number" id="pullback-threshold" value="15" min="1" max="100" step="1"
                         style="width:55px; background:var(--bg-input); border:1px solid var(--border); border-radius:6px; color:var(--text-hi); font-size:0.75rem; padding:2px 6px; text-align:center;"
                         onchange="localStorage.setItem('pb_threshold', this.value)">
-                    <span style="font-size:0.65rem; color:var(--text-lo);">pts จาก Breakout</span>
+                    <span style="font-size:0.65rem; color:var(--text-lo);">จุด (pts) จาก Breakout</span>
                 </div>
                 <div style="font-size:0.65rem; color:var(--text-lo); margin-top:0.3rem;">
                     Breakout: <span style="color:var(--gold); font-family:'JetBrains Mono';" id="pb-breakout-disp">—</span>
@@ -969,7 +969,7 @@
             <div class="g-card">
                 <div class="g-card-header d-flex justify-content-between align-items-center flex-wrap gap-2" style="padding: 0.7rem 1rem;">
                     <span style="color:var(--text-hi); font-weight: 800; font-size: 0.85rem;">
-                        <i class="fas fa-history me-2" style="color:var(--gold)"></i> TRADE HISTORY
+                        <i class="fas fa-history me-2" style="color:var(--gold)"></i> ประวัติการเทรด (TRADE HISTORY)
                     </span>
                     <div class="d-flex align-items-center gap-2">
                         <div class="btn-group btn-group-sm" role="group">
@@ -979,40 +979,40 @@
                             <button id="hist-btn-all" type="button" class="btn"  onclick="setHistRange('all')" style="font-size:0.72rem; border:1px solid var(--border); color:var(--text-hi); background:rgba(255,255,255,0.05);">ALL</button>
                         </div>
                         <button class="btn btn-sm rounded-pill px-3" onclick="updateTradeHistory()" style="font-size: 0.72rem; border: 1px solid var(--border); color: var(--text-hi); background: rgba(255,255,255,0.05);">
-                            <i class="fas fa-sync-alt me-1"></i> Refresh
+                            <i class="fas fa-sync-alt me-1"></i> รีเฟรช
                         </button>
                     </div>
                 </div>
                 <!-- Stats Bar -->
                 <div id="hist-stats-bar" style="display:flex; gap:1.5rem; padding:0.45rem 1rem; background:rgba(255,255,255,0.03); border-bottom:1px solid var(--border); font-size:0.75rem; flex-wrap:wrap;">
-                    <span style="color:var(--text-lo);">Trades: <strong id="hs-total" style="color:var(--text-hi);">—</strong></span>
-                    <span style="color:var(--text-lo);">Win Rate: <strong id="hs-wr" style="color:#22c55e;">—</strong></span>
-                    <span style="color:var(--text-lo);">Net P/L: <strong id="hs-pl" style="color:var(--text-hi);">—</strong></span>
-                    <span style="color:var(--text-lo);">Comm+Swap: <strong id="hs-fee" style="color:#f59e0b;">—</strong></span>
-                    <span style="color:var(--text-lo);">Wins: <strong id="hs-wins" style="color:#22c55e;">—</strong></span>
-                    <span style="color:var(--text-lo);">Losses: <strong id="hs-loss" style="color:#ef4444;">—</strong></span>
+                    <span style="color:var(--text-lo);">จำนวนไม้: <strong id="hs-total" style="color:var(--text-hi);">—</strong></span>
+                    <span style="color:var(--text-lo);">อัตราการชนะ (Win Rate): <strong id="hs-wr" style="color:#22c55e;">—</strong></span>
+                    <span style="color:var(--text-lo);">กำไร/ขาดทุนสุทธิ: <strong id="hs-pl" style="color:var(--text-hi);">—</strong></span>
+                    <span style="color:var(--text-lo);">ค่าธรรมเนียม/สวอป: <strong id="hs-fee" style="color:#f59e0b;">—</strong></span>
+                    <span style="color:var(--text-lo);">ชนะ: <strong id="hs-wins" style="color:#22c55e;">—</strong></span>
+                    <span style="color:var(--text-lo);">แพ้: <strong id="hs-loss" style="color:#ef4444;">—</strong></span>
                 </div>
                 <div class="table-responsive" style="max-height: 520px; overflow-y: auto;">
                     <table class="pos-table" style="font-size:0.78rem; min-width:960px;">
                         <thead>
                             <tr>
-                                <th class="ps-3" style="white-space:nowrap;">OPENED</th>
-                                <th style="white-space:nowrap;">EXIT REASON</th>
-                                <th>TYPE</th>
-                                <th>LOTS</th>
-                                <th>ENTRY</th>
-                                <th>EXIT</th>
-                                <th style="color:#ef4444;">SL SET</th>
-                                <th title="Distance: exit price vs SL at close">DIST↔SL</th>
-                                <th>PIPS</th>
-                                <th>COMM+SWAP</th>
-                                <th>NET P/L</th>
+                                <th class="ps-3" style="white-space:nowrap;">เวลาเปิด</th>
+                                <th style="white-space:nowrap;">เหตุผลที่ปิด</th>
+                                <th>ประเภท</th>
+                                <th>ขนาด (Lots)</th>
+                                <th>ราคาเข้า</th>
+                                <th>ราคาปิด</th>
+                                <th style="color:#ef4444;">SL ที่ตั้งไว้</th>
+                                <th title="Distance: exit price vs SL at close">ระยะห่าง SL</th>
+                                <th>Pips</th>
+                                <th>ค่าธรรมเนียม</th>
+                                <th>กำไร/ขาดทุน</th>
                                 <th>R:R</th>
-                                <th class="pe-3" style="white-space:nowrap;">CLOSED AT ▼</th>
+                                <th class="pe-3" style="white-space:nowrap;">เวลาปิด ▼</th>
                             </tr>
                         </thead>
                         <tbody id="trade-history-body">
-                            <tr><td colspan="13" class="text-center py-5" style="color:var(--text-lo);">Loading trade history...</td></tr>
+                            <tr><td colspan="13" class="text-center py-5" style="color:var(--text-lo);">กำลังโหลดประวัติการเทรด...</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -1102,13 +1102,13 @@
         if (dlbl) dlbl.innerText = s;
 
         if (s === 'SNIPER') {
-            lbl.innerText = 'ULTRA-SHORT (SNIPER)';
+            lbl.innerText = 'ยุทธวิธีระยะสั้นพิเศษ (SNIPER)';
             lbl.style.background = '#ef4444'; lbl.style.color = '#fff';
         } else if (s === 'SCALPER') {
-            lbl.innerText = 'SHORT-TERM (SCALPER)';
+            lbl.innerText = 'ยุทธวิธีระยะสั้น (SCALPER)';
             lbl.style.background = '#38bdf8'; lbl.style.color = '#fff';
         } else {
-            lbl.innerText = 'MEDIUM-TERM (SWING)';
+            lbl.innerText = 'ยุทธวิธีระยะกลาง (SWING)';
             lbl.style.background = '#fbbf24'; lbl.style.color = '#fff';
         }
         updateTacticalUI();
@@ -1169,7 +1169,7 @@
             
             if (breakoutEl) breakoutEl.className = 't-value text-danger fw-bold';
             if (stratBadge) {
-                stratBadge.innerText = 'LEVERAGE 1:200 (SNIPER)';
+                stratBadge.innerText = 'เลเวอเรจ 1:200 (SNIPER)';
                 stratBadge.style.background = '#0ea5e9'; 
             }
             exitMsg = "Sniper: เก็บกำไรที่ Target | SL ยึดฐาน Trigger (0.5N) เพื่อกันสะบัด";
@@ -1187,7 +1187,7 @@
 
             if (breakoutEl) breakoutEl.className = 't-value text-primary';
             if (stratBadge) {
-                stratBadge.innerText = 'ULTRA-PRECISION (SCALPER)';
+                stratBadge.innerText = 'ยุทธวิธีความแม่นยำสูง (SCALPER)';
                 stratBadge.style.background = '#22c55e';
             }
             exitMsg = "Scalper: เน้นจบไว ไม่รอรอบ | SL ยึดฐาน Trigger (0.3N) กันโดนสะบัดกิน";
@@ -1199,7 +1199,7 @@
             if (lblSL) lblSL.innerText = "Stop (-2.0N)";
             if (breakoutEl) breakoutEl.className = 't-value text-info';
             if (stratBadge) {
-                stratBadge.innerText = 'MEDIUM-TERM (SWING)';
+                stratBadge.innerText = 'ยุทธวิธีระยะกลาง (SWING)';
                 stratBadge.style.background = '#0891b2';
             }
             exitMsg = "Swing: ถือรอกินรอบใหญ่ | ใช้ 10D Low เป็นจุด Trailing Stop";
@@ -1211,7 +1211,7 @@
             if (lblSL) lblSL.innerText = "Stop (-2.0N)";
             if (breakoutEl) breakoutEl.className = 't-value text-warning';
             if (stratBadge) {
-                stratBadge.innerText = 'LONG-TERM (TURTLE)';
+                stratBadge.innerText = 'ยุทธวิธีรันเทรนด์ยาว (TURTLE)';
                 stratBadge.style.background = '#d97706';
             }
             exitMsg = "Turtle: รันเทรนด์ยาว | ออกเมื่อหลุด 20D Low หรือถึงเป้าใหญ่";
@@ -1253,24 +1253,24 @@
                 };
                 if (isRiskZone) {
                     _adStyle(advisorBox, advisorText, advisorSub,
-                        '#fee2e2','#ef4444','AVOID: SUICIDE ZONE','#7f1d1d',
-                        'Price is beyond Safety Stop','#991b1b');
+                        '#fee2e2','#ef4444','หลีกเลี่ยง: โซนอันตราย (SUICIDE ZONE)','#7f1d1d',
+                        'ราคาอยู่เกินจุดตัดขาดทุนเพื่อความปลอดภัย','#991b1b');
                 } else if (slDist < 5) {
                     _adStyle(advisorBox, advisorText, advisorSub,
-                        '#fef3c7','#f59e0b','DANGEROUS: TIGHT SL','#78350f',
-                        'High risk of immediate stop-out','#92400e');
+                        '#fef3c7','#f59e0b','อันตราย: จุดยอมแพ้แคบเกินไป (TIGHT SL)','#78350f',
+                        'มีความเสี่ยงสูงที่จะโดนสะบัดชนคัททันที','#92400e');
                 } else if (slDist > 100) {
                     _adStyle(advisorBox, advisorText, advisorSub,
-                        '#fffbeb','#f59e0b','CAUTION: WIDE SL','#78350f',
-                        'Capital at risk due to distance','#92400e');
+                        '#fffbeb','#f59e0b','ระวัง: จุดยอมแพ้กว้างเกินไป (WIDE SL)','#78350f',
+                        'มีความเสี่ยงที่จะเสียเงินทุนปริมาณมากเนื่องจากระยะ SL ไกล','#92400e');
                 } else if (rr >= 1.5) {
                     _adStyle(advisorBox, advisorText, advisorSub,
-                        '#d1fae5','#10b981','EXCELLENT SETUP','#064e3b',
-                        `R:R is ${rr.toFixed(1)}x — Surgical Entry`,'#065f46');
+                        '#d1fae5','#10b981','การตั้งค่าไม้ดีเยี่ยม (EXCELLENT)','#064e3b',
+                        `อัตราส่วน R:R อยู่ที่ ${rr.toFixed(1)}x — จุดเข้าเทรดสไนเปอร์`,'#065f46');
                 } else {
                     _adStyle(advisorBox, advisorText, advisorSub,
-                        '#f1f5f9','#94a3b8','STANDARD SETUP','#0f172a',
-                        'Balanced risk profile','#334155');
+                        '#f1f5f9','#94a3b8','การตั้งค่าไม้ทั่วไป (STANDARD)','#0f172a',
+                        'สัดส่วนความเสี่ยงสมดุล','#334155');
                 }
 
                 // --- Proximity Radar Engine ---
@@ -1285,7 +1285,7 @@
 
                     if (distToEntry < n * 3) {
                         proxContainer.style.display = 'block';
-                        proxPts.innerText = `${distToEntry.toFixed(2)} PTS REMAINING`;
+                        proxPts.innerText = `${distToEntry.toFixed(2)} จุด (PTS) ที่เหลือ`;
                         proxBar.style.width = `${proxPct}%`;
                         
                         // Update Bar Color based on proximity
@@ -1315,7 +1315,7 @@
                             if (radarCont && radarPts && radarBar) {
                                 radarCont.style.display = 'block';
                                 const dist = Math.abs(breakoutPrice - lastPrice);
-                                radarPts.innerText = dist.toFixed(2) + ' PTS';
+                                radarPts.innerText = dist.toFixed(2) + ' จุด (PTS)';
                                 
                                 // คำนวณความใกล้ (ใช้ 5.0 pts หรือ 2N เป็นเกณฑ์ 100%)
                                 const threshold = Math.max(5.0, n * 2);
@@ -1329,9 +1329,9 @@
                                 if (proxPct > 60 || lastPrice > breakoutPrice) {
                                     checklist.style.display = 'block';
                                     if (proxPct > 85 && !(lastPrice > breakoutPrice)) {
-                                        advisorText.innerText = 'STRIKE ZONE!';
+                                        advisorText.innerText = 'โซนเริ่มเทรด (STRIKE ZONE)!';
                                         advisorText.style.color = 'var(--gold)';
-                                        advisorSub.innerText = 'Price is approaching trigger level.';
+                                        advisorSub.innerText = 'ราคากำลังเข้าใกล้ระดับสัญญาณเข้าซื้อ';
                                     }
                                 } else {
                                     checklist.style.display = 'none';
@@ -1344,7 +1344,7 @@
                             const pVal = document.getElementById('cond-price-val');
                             if (pIcon) pIcon.className = priceOk ? 'fas fa-check-circle me-2 text-success' : 'fas fa-circle-notch fa-spin me-2 text-warning';
                             if (pVal) {
-                                pVal.innerText = priceOk ? 'READY' : (lastPrice < breakoutPrice ? 'BELOW' : 'READY');
+                                pVal.innerText = priceOk ? 'พร้อม' : (lastPrice < breakoutPrice ? 'ต่ำกว่า' : 'พร้อม');
                                 pVal.className = priceOk ? 'text-success' : 'text-warning';
                             }
 
@@ -1354,7 +1354,7 @@
                             const tVal = document.getElementById('cond-trend-val');
                             if (tIcon) tIcon.className = trendOk ? 'fas fa-check-circle me-2 text-success' : 'fas fa-circle-notch fa-spin me-2 text-danger';
                             if (tVal) {
-                                tVal.innerText = trendOk ? 'BULLISH' : 'BEARISH';
+                                tVal.innerText = trendOk ? 'ขาขึ้น (BULLISH)' : 'ขาลง (BEARISH)';
                                 tVal.className = trendOk ? 'text-success' : 'text-danger';
                             }
 
@@ -1382,27 +1382,27 @@
                 if (isRiskZone) {
                     decisionCenter.className = 'decision-panel wait d-flex align-items-center risk-warn';
                     signalIcon.innerHTML = '<i class="fas fa-biohazard text-danger animate-pulse"></i>';
-                    signalText.innerText = 'CRITICAL RISK!';
+                    signalText.innerText = 'ความเสี่ยงวิกฤต (CRITICAL)!';
                     signalText.className = 'signal-status text-danger';
-                    signalSubtext.innerText = `Price in STOP ZONE ($${stopPrice.toFixed(2)}). DO NOT ENTRY.`;
+                    signalSubtext.innerText = `ราคาอยู่ในเขต Stop Zone ($${stopPrice.toFixed(2)}) ห้ามเปิดออเดอร์เด็ดขาด`;
                 } else if (mainSignal === 'BUY') {
                     decisionCenter.className = 'decision-panel buy d-flex align-items-center';
                     signalIcon.innerHTML = '<i class="fas fa-arrow-circle-up text-success"></i>';
-                    signalText.innerText = 'BUY SIGNAL!';
+                    signalText.innerText = 'สัญญาณเข้าซื้อ (BUY)!';
                     signalText.className = 'signal-status text-success';
-                    signalSubtext.innerText = `Price above ${breakoutPrice.toFixed(2)}. Consider LONG.`;
+                    signalSubtext.innerText = `ราคาอยู่เหนือ ${breakoutPrice.toFixed(2)} พิจารณาเปิดสถานะ BUY`;
                 } else if (mainSignal === 'SELL') {
                     decisionCenter.className = 'decision-panel sell d-flex align-items-center';
                     signalIcon.innerHTML = '<i class="fas fa-arrow-circle-down text-danger"></i>';
-                    signalText.innerText = 'SELL SIGNAL!';
+                    signalText.innerText = 'สัญญาณเข้าขาย (SELL)!';
                     signalText.className = 'signal-status text-danger';
-                    signalSubtext.innerText = `Price below ${breakoutPrice.toFixed(2)}. Consider SHORT.`;
+                    signalSubtext.innerText = `ราคาอยู่ต่ำกว่า ${breakoutPrice.toFixed(2)} พิจารณาเปิดสถานะ SELL`;
                 } else {
                     decisionCenter.className = 'decision-panel wait d-flex align-items-center';
                     signalIcon.innerHTML = '<i class="fas fa-hourglass-half text-muted"></i>';
-                    signalText.innerText = 'WAITING...';
+                    signalText.innerText = 'กำลังรอสัญญาณ...';
                     signalText.className = 'signal-status text-muted';
-                    signalSubtext.innerText = `Monitoring ${activeStrategy} at ${breakoutPrice.toFixed(2)}.`;
+                    signalSubtext.innerText = `กำลังเฝ้าสัญญาณ ${activeStrategy} ที่ระดับ ${breakoutPrice.toFixed(2)}`;
                 }
             }
         } catch (e) {
@@ -1446,7 +1446,7 @@
         }
 
         if (lotSize > 0.05) {
-            alert(`🚨 SAFETY LIMIT: Cannot exceed 0.05 Lots. Adjusted to 0.05.`);
+            alert(`🚨 ข้อจำกัดความปลอดภัย: ไม่สามารถเปิดไม้เกิน 0.05 Lots ระบบได้ปรับเป็น 0.05 ให้แล้ว`);
             lotSize = 0.05;
         }
 
@@ -1523,7 +1523,7 @@
             if (!confirmed) return;
         }
         
-        logMessage(`REQUEST: ${type} ${lotSize} Lots`, 'text-warning');
+        logMessage(`ขอเปิดออเดอร์: ${type} ${lotSize} Lots`, 'text-warning');
         
         if (!tpValue || !slValue || isNaN(tpValue) || isNaN(slValue)) {
             console.error("Tactical levels not ready. Using defaults.");
@@ -1577,21 +1577,21 @@
                 sl: slValue, 
                 tp: tpValue, 
                 volume: lotSize, 
-                strategy: (customLot ? 'Test Order' : 'Manual') + ` (${activeStrategy})`
+                strategy: (customLot ? 'คำสั่งทดสอบ' : 'สั่งการเอง') + ` (${activeStrategy})`
             })
         })
         .then(r => r.json())
         .then(d => {
             if (d.success) {
-                logMessage(`SUCCESS: Order ${d.order_id}`, 'text-info fw-bold');
+                logMessage(`ส่งคำสั่งสำเร็จ: ออเดอร์ ${d.order_id}`, 'text-info fw-bold');
                 setTimeout(() => {
                     updateTradeHistory();
                     fetchPositions();
                 }, 1500);
             }
-            else logMessage(`FAILED: ${d.error}`, 'text-danger');
+            else logMessage(`ส่งคำสั่งล้มเหลว: ${d.error}`, 'text-danger');
         })
-        .catch(() => logMessage('ERROR: Connection failure.', 'text-danger'));
+        .catch(() => logMessage('ข้อผิดพลาด: การเชื่อมต่อระบบขัดข้อง', 'text-danger'));
     }
 
     function cleanData(arr) {
@@ -1853,7 +1853,7 @@
                     }
                 });
                 
-                document.getElementById('last-update-time').innerText = 'Updated: ' + new Date().toTimeString().slice(0,8);
+                document.getElementById('last-update-time').innerText = 'อัปเดตเมื่อ: ' + new Date().toTimeString().slice(0,8);
 
                 checkPriceAlerts(lastPrice);
             })
@@ -1982,7 +1982,7 @@
             statusText.className = "text-muted";
         }
         
-        addFeedMessage("Alarm Silenced & Monitoring Disabled.");
+        addFeedMessage("ปิดเสียงเตือนและระบบเฝ้าระวังชั่วคราว");
     }
 
     function handleToggleChange() {
@@ -2207,7 +2207,7 @@
                 const dot = document.getElementById('rt-blink');
                 if (dot) { dot.style.background = '#fff'; setTimeout(() => { dot.style.background = 'var(--green)'; }, 200); }
 
-                document.getElementById('last-update-time').innerText = 'Updated: ' + now.toTimeString().slice(0,8);
+                document.getElementById('last-update-time').innerText = 'อัปเดตเมื่อ: ' + now.toTimeString().slice(0,8);
                 checkPriceAlerts(p);
             })
             .catch(() => {});
@@ -2289,7 +2289,7 @@
                 document.getElementById('pos-count-badge').innerText = '0';
                 totalPlEl.innerText = '+0.00';
                 totalPlEl.className = 'fs-4 fw-900 text-muted';
-                body.innerHTML = '<tr><td colspan="8" class="text-center py-4" style="color:var(--text-lo);"><i class="fas fa-inbox d-block mb-2" style="font-size:1.5rem;"></i>No open positions</td></tr>';
+                body.innerHTML = '<tr><td colspan="8" class="text-center py-4" style="color:var(--text-lo);"><i class="fas fa-inbox d-block mb-2" style="font-size:1.5rem;"></i>ไม่มีออเดอร์เปิดค้างอยู่</td></tr>';
             }
         } catch(e) {}
     }
@@ -2298,19 +2298,19 @@
         if (window.lastAvgEntry) {
             document.getElementById('alert-high').value = (window.lastAvgEntry + 20).toFixed(2);
             document.getElementById('alert-low').value = (window.lastAvgEntry - 20).toFixed(2);
-            addFeedMessage("Alerts synced to Entry ±$20");
+            addFeedMessage("ซิงก์ระดับราคาตั้งเตือนเรียบร้อยแล้ว (อ้างอิงราคาเปิด ±$20)");
         } else {
-            alert("No active positions found to sync with.");
+            alert("ไม่พบสถานะออเดอร์ที่เปิดอยู่เพื่อทำการซิงก์");
         }
     }
 
     async function closeAllPositions() {
-        if (!confirm('Close all positions?')) return;
+        if (!confirm('ยืนยันการปิดสถานะทั้งหมด?')) return;
         fetch('{% url "stocks:close_all_gold_positions" %}', {
             method:'POST', headers:{'X-CSRFToken':'{{ csrf_token }}'}
         }).then(r => r.json()).then(d => {
-            if (d.success) { logMessage('All positions closed', 'text-info'); fetchPositions(); }
-            else logMessage('Close failed: ' + d.error, 'text-danger');
+            if (d.success) { logMessage('ปิดสถานะออเดอร์ทั้งหมดเรียบร้อยแล้ว', 'text-info'); fetchPositions(); }
+            else logMessage('ปิดออเดอร์ไม่สำเร็จ: ' + d.error, 'text-danger');
         });
     }
 
@@ -2320,7 +2320,7 @@
         content.innerHTML = `<div class="text-center py-5"><div class="spinner-border text-warning mb-3"></div><h5 class="text-white-50">Analyzing...</h5></div>`;
         fetch(`/stocks/momentum/quick-ai/${currentSymbol}/?market=US`).then(r => r.json()).then(data => {
             if (data.state === 'running' || data.state === 'done') pollAiStatus();
-            else content.innerHTML = `<div class="alert alert-danger">Failed to start AI</div>`;
+            else content.innerHTML = `<div class="alert alert-danger">เริ่มการทำงาน AI ล้มเหลว</div>`;
         });
 
         function pollAiStatus() {
@@ -2405,7 +2405,7 @@
             }
 
             if (!data.success || !data.history || data.history.length === 0) {
-                body.innerHTML = `<tr><td colspan="13" class="text-center py-4" style="color:var(--text-lo);">No trades found for this period</td></tr>`;
+                body.innerHTML = `<tr><td colspan="13" class="text-center py-4" style="color:var(--text-lo);">ไม่พบประวัติการเทรดในช่วงเวลานี้</td></tr>`;
                 return;
             }
 
@@ -2491,7 +2491,7 @@
             }).join('');
         } catch(e) {
             console.error("History Error:", e);
-            body.innerHTML = `<tr><td colspan="13" class="text-center py-4" style="color:#ef4444;">Error loading history</td></tr>`;
+            body.innerHTML = `<tr><td colspan="13" class="text-center py-4" style="color:#ef4444;">เกิดข้อผิดพลาดในการโหลดประวัติ</td></tr>`;
         }
     }
 
@@ -3071,16 +3071,16 @@
             <div class="modal-body p-4">
                 <input type="hidden" id="edit-pos-id">
                 <div class="mb-3">
-                    <label class="form-label text-success fw-bold" style="font-size:0.75rem;">TARGET (TP)</label>
+                    <label class="form-label text-success fw-bold" style="font-size:0.75rem;">เป้าหมายกำไร (TP PRICE)</label>
                     <input type="number" id="edit-pos-tp" class="form-control text-center fw-bold"
                         style="background:#0f172a; color:#22c55e; border-color:#334155; font-family:'JetBrains Mono';"
-                        step="0.1" placeholder="ราคา Take Profit">
+                        step="0.1" placeholder="ระบุราคาเป้าหมายกำไร">
                 </div>
                 <div class="mb-3">
-                    <label class="form-label text-danger fw-bold" style="font-size:0.75rem;">STOP LOSS (SL)</label>
+                    <label class="form-label text-danger fw-bold" style="font-size:0.75rem;">ตัดขาดทุนอัตโนมัติ (SL PRICE)</label>
                     <input type="number" id="edit-pos-sl" class="form-control text-center fw-bold"
                         style="background:#0f172a; color:#ef4444; border-color:#334155; font-family:'JetBrains Mono';"
-                        step="0.1" placeholder="ราคา Stop Loss">
+                        step="0.1" placeholder="ระบุราคาจุดยอมแพ้">
                 </div>
                 <div id="edit-pos-result" class="text-center mt-2" style="font-size:0.8rem; min-height:20px;"></div>
             </div>
@@ -3099,14 +3099,14 @@
     <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content border-0 shadow-lg" style="background:#0f172a;border-radius:20px;">
             <div class="modal-header border-0 pb-0">
-                <h5 class="modal-title text-warning fw-bold"><i class="fas fa-robot me-2"></i> GOLD AI STRATEGIST</h5>
+                <h5 class="modal-title text-warning fw-bold"><i class="fas fa-robot me-2"></i> GOLD AI STRATEGIST (วิเคราะห์ราคาทองคำ)</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body p-4">
                 <div id="ai-bot-content" style="max-height:60vh;overflow-y:auto;scrollbar-width:thin;"></div>
             </div>
             <div class="modal-footer border-0 pt-0">
-                <button type="button" class="btn btn-outline-secondary rounded-pill px-4" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-outline-secondary rounded-pill px-4" data-bs-dismiss="modal">ปิดหน้าต่าง</button>
             </div>
         </div>
     </div>
@@ -3115,43 +3115,43 @@
 <div class="trade-modal-overlay" id="trade-confirm-modal">
     <div class="trade-modal">
         <div class="tm-header">
-            <div class="tm-title"><i class="fas fa-shield-alt me-2"></i>CONFIRM ORDER</div>
-            <div style="font-size: 0.7rem; color: #64748b; text-transform: uppercase; margin-top: 5px;">Institutional Grade Execution</div>
+            <div class="tm-title"><i class="fas fa-shield-alt me-2"></i> ยืนยันเปิดออเดอร์</div>
+            <div style="font-size: 0.7rem; color: #64748b; text-transform: uppercase; margin-top: 5px;">การซื้อขายผ่านโบรกเกอร์ที่ได้รับการรับรองความปลอดภัย</div>
         </div>
         <div class="tm-body">
             <div class="tm-row">
-                <span class="tm-label">Strategy Mode</span>
+                <span class="tm-label">ยุทธวิธีอ้างอิง</span>
                 <span class="tm-value" id="tm-mode">SNIPER</span>
             </div>
             <div class="tm-row">
-                <span class="tm-label">Order Type</span>
+                <span class="tm-label">ประเภทออเดอร์</span>
                 <span id="tm-type" class="tm-badge">BUY</span>
             </div>
             <div class="tm-row">
-                <span class="tm-label">Market Price</span>
+                <span class="tm-label">ราคาตลาดล่าสุด</span>
                 <span class="tm-value" id="tm-price" style="color:var(--gold);">$0.00</span>
             </div>
             <div class="tm-row">
-                <span class="tm-label">Position Size</span>
+                <span class="tm-label">ขนาดออเดอร์ (Lots)</span>
                 <span class="tm-value" id="tm-lots">0.01 Lots</span>
             </div>
             <div class="tm-row" style="border-top: 1px dashed rgba(255,255,255,0.1); padding-top: 10px;">
-                <span class="tm-label">Take Profit</span>
+                <span class="tm-label">เป้าหมายกำไร (TP)</span>
                 <span class="tm-value text-success" id="tm-tp">$0.00</span>
             </div>
             <div class="tm-row">
-                <span class="tm-label">Stop Loss</span>
+                <span class="tm-label">ตัดขาดทุน (SL)</span>
                 <span class="tm-value text-danger" id="tm-sl">$0.00</span>
             </div>
 
             <!-- Risk Auditor -->
             <div class="tm-risk-box" id="tm-risk-box">
-                <div class="tm-risk-text" id="tm-risk-text">Warning message goes here...</div>
+                <div class="tm-risk-text" id="tm-risk-text">ข้อมูลการตรวจสอบความเสี่ยงไม้...</div>
             </div>
         </div>
         <div class="tm-footer">
-            <button class="btn-tm-cancel" id="btn-tm-cancel">CANCEL</button>
-            <button class="btn-tm-confirm" id="btn-tm-confirm">CONFIRM LIVE ORDER</button>
+            <button class="btn-tm-cancel" id="btn-tm-cancel">ยกเลิก</button>
+            <button class="btn-tm-confirm" id="btn-tm-confirm">ส่งคำสั่งเข้าพอร์ตจริง</button>
         </div>
     </div>
 </div>
