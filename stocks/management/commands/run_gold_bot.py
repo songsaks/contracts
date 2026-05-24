@@ -73,7 +73,7 @@ class Command(BaseCommand):
                     df = yf.download(self.SYMBOL, period='1y', interval='1d', progress=False, auto_adjust=True, timeout=15)
                     
                     if df.empty:
-                        self.update_heartbeat(status="ACTIVE", message="กำลังรอข้อมูลราคาจาก Yahoo...")
+                        self.update_heartbeat(user_id, status="ACTIVE", message="กำลังรอข้อมูลราคาจาก Yahoo...")
                         time.sleep(30)
                         continue
                     
