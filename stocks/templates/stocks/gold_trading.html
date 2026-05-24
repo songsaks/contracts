@@ -1246,8 +1246,9 @@
             const advisorSub = document.getElementById('tactical-advisor-sub');
             
             if (advisorBox && advisorText && advisorSub) {
-                const slDist = Math.abs(lastPrice - stopPrice);
-                const tpDist = Math.abs(lastPrice - targetPrice);
+                const entryRef = breakoutPrice || lastPrice;
+                const slDist = Math.abs(entryRef - stopPrice);
+                const tpDist = Math.abs(entryRef - targetPrice);
                 const rr = tpDist / (slDist || 1);
 
                 const _adStyle = (box, text, sub, bg, border, label, labelColor, subText, subColor) => {
