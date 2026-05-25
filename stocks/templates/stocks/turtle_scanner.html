@@ -137,7 +137,7 @@
                 </div>
                 <div class="d-flex flex-wrap align-items-center gap-2 bg-white px-2 px-md-3 py-2 rounded-pill shadow-sm border">
                     <span class="text-secondary fw-bold mb-0 d-none d-lg-inline" style="font-size: 0.82rem;"><i class="fas fa-calculator text-primary me-1"></i> ความเสี่ยง 1% จากทุน:</span>
-                    <input type="number" id="totalCapitalInput" class="form-control form-control-sm text-end border-0 bg-light rounded-pill px-3 fw-bold text-dark" style="width: 100px; font-size: 0.85rem;" value="1000000">
+                    <input type="text" id="totalCapitalInput" class="form-control form-control-sm text-end border-0 bg-light rounded-pill px-3 fw-bold text-dark" style="width: 150px; font-size: 0.85rem;" value="1,000,000.00" oninput="formatCurrencyInput(this)">
                     <button class="btn btn-sm btn-primary rounded-pill px-3 fw-bold shadow-sm" onclick="calculateTurtleUnits()">คำนวณไม้</button>
                     <button class="btn btn-sm btn-outline-purple rounded-pill px-2 fw-bold shadow-sm" onclick="sortLauncher()" title="เรียงลำดับ Launcher" style="border-color: #7c3aed; color: #7c3aed;">
                         <i class="fas fa-sort-amount-down"></i>
@@ -149,7 +149,10 @@
                 <table class="table table-hover table-turtle table-sm-compact mb-0">
                     <thead>
                         <tr>
-                            <th class="ps-3 ps-md-4">Symbol</th>
+                            <th class="text-center" style="width: 45px; vertical-align: middle;">
+                                <input type="checkbox" id="selectAllCandidates" class="form-check-input shadow-sm" onchange="toggleSelectAll(this)" checked>
+                            </th>
+                            <th class="ps-2">Symbol</th>
                             <th>Price</th>
                             <th>Score</th>
                             <th>Trend Analysis</th>
@@ -171,7 +174,10 @@
                             data-stage2="{{ c.stage2|yesno:'1,0' }}"
                             data-price="{{ c.price|default:0 }}" 
                             data-atr="{{ c.atr_20d|default:0 }}">
-                            <td class="ps-4">
+                            <td class="text-center" style="vertical-align: middle;">
+                                <input type="checkbox" class="form-check-input candidate-select shadow-sm" onchange="applyRowSelection(this)" checked>
+                            </td>
+                            <td class="ps-2">
                                 <a href="{% url 'stocks:stock_chart' c.symbol %}?market={{ c.market }}" target="_blank" class="fw-bold fs-5 text-dark text-decoration-none" title="View Chart">{{ c.symbol }} <i class="fas fa-chart-line fa-xs text-primary ms-1"></i></a>
                                 {% if c.market == 'US' %}
                                     <span class="badge bg-primary-subtle text-primary ms-1">US</span>
@@ -439,9 +445,59 @@
         rows.forEach(row => tbody.appendChild(row));
     }
 
+    function formatCurrencyInput(input) {
+        let cursorPosition = input.selectionStart;
+        let originalLength = input.value.length;
+        
+        let value = input.value.replace(/[^\d.]/g, '');
+        let parts = value.split('.');
+        
+        if (parts.length > 2) {
+            value = parts[0] + '.' + parts.slice(1).join('');
+        }
+        
+        if (parts[0]) {
+            let num = parseFloat(parts[0]);
+            if (!isNaN(num)) {
+                parts[0] = num.toLocaleString('en-US', { maximumFractionDigits: 0 });
+            }
+        }
+        
+        let formatted = parts.join('.');
+        input.value = formatted;
+        
+        let newLength = formatted.length;
+        input.setSelectionRange(cursorPosition + (newLength - originalLength), cursorPosition + (newLength - originalLength));
+    }
+
+    function toggleSelectAll(selectAllCb) {
+        const checkboxes = document.querySelectorAll('.candidate-select');
+        checkboxes.forEach(cb => {
+            cb.checked = selectAllCb.checked;
+            applyRowSelection(cb);
+        });
+        calculateTurtleUnits();
+    }
+
+    function applyRowSelection(cb) {
+        const row = cb.closest('.turtle-row');
+        if (cb.checked) {
+            row.classList.remove('opacity-50');
+        } else {
+            row.classList.add('opacity-50');
+            const resultDiv = row.querySelector('.position-calc-result');
+            const nextResultDiv = row.querySelector('.next-unit-result');
+            const nextPlaceholder = row.querySelector('.next-unit-placeholder');
+            if (resultDiv) resultDiv.classList.add('d-none');
+            if (nextResultDiv) nextResultDiv.classList.add('d-none');
+            if (nextPlaceholder) nextPlaceholder.classList.remove('d-none');
+        }
+    }
+
     function calculateTurtleUnits() {
         const capitalInput = document.getElementById('totalCapitalInput').value;
-        const totalCapital = parseFloat(capitalInput) || 0;
+        const cleanCapitalStr = capitalInput.replace(/,/g, '');
+        const totalCapital = parseFloat(cleanCapitalStr) || 0;
         
         if (totalCapital <= 0) {
             alert('กรุณาระบุเงินทุนหน้าตักที่ถูกต้อง');
@@ -452,10 +508,22 @@
 
         const rows = document.querySelectorAll('.turtle-row');
         rows.forEach(row => {
+            const cb = row.querySelector('.candidate-select');
+            const resultDiv = row.querySelector('.position-calc-result');
+            const nextResultDiv = row.querySelector('.next-unit-result');
+            const nextPlaceholder = row.querySelector('.next-unit-placeholder');
+            
+            if (!cb || !cb.checked) {
+                if (resultDiv) resultDiv.classList.add('d-none');
+                if (nextResultDiv) nextResultDiv.classList.add('d-none');
+                if (nextPlaceholder) nextPlaceholder.classList.remove('d-none');
+                row.classList.add('opacity-50');
+                return;
+            }
+            
+            row.classList.remove('opacity-50');
             const price = parseFloat(row.getAttribute('data-price')) || 0;
             const atr = parseFloat(row.getAttribute('data-atr')) || 0;
-            
-            const resultDiv = row.querySelector('.position-calc-result');
             const sharesSpan = row.querySelector('.unit-shares');
             const costSpan = row.querySelector('.unit-cost');
 
@@ -478,8 +546,6 @@
                     
                     // --- Pyramiding Calc ---
                     const nextPrice = price + (atr * 0.5);
-                    const nextResultDiv = row.querySelector('.next-unit-result');
-                    const nextPlaceholder = row.querySelector('.next-unit-placeholder');
                     const nextPriceSpan = row.querySelector('.next-price');
                     const nextSharesSpan = row.querySelector('.next-shares');
                     
@@ -493,13 +559,13 @@
                     sharesSpan.innerText = "ทุนไม่พอเปรียบเทียบ";
                     costSpan.innerText = "-";
                     resultDiv.classList.remove('d-none');
-                    row.querySelector('.next-unit-result').classList.add('d-none');
-                    row.querySelector('.next-unit-placeholder').classList.remove('d-none');
+                    if (nextResultDiv) nextResultDiv.classList.add('d-none');
+                    if (nextPlaceholder) nextPlaceholder.classList.remove('d-none');
                 }
             } else {
-                resultDiv.classList.add('d-none');
-                row.querySelector('.next-unit-result').classList.add('d-none');
-                row.querySelector('.next-unit-placeholder').classList.remove('d-none');
+                if (resultDiv) resultDiv.classList.add('d-none');
+                if (nextResultDiv) nextResultDiv.classList.add('d-none');
+                if (nextPlaceholder) nextPlaceholder.classList.remove('d-none');
             }
         });
     }
