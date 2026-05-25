@@ -121,7 +121,7 @@
                     </div>
                     <div class="card-body p-4 p-md-5 bg-white">
                         <textarea id="aiRawMarkdown" style="display: none;">{{ insight.ai_strategy }}</textarea>
-                        <div id="aiAnalysisContent" class="markdown-body-light" style="opacity: 0; transition: opacity 0.3s ease;">
+                        <div id="aiAnalysisContent" class="markdown-body-light">
                             <!-- Rendered Markdown goes here -->
                         </div>
                     </div>
@@ -564,14 +564,32 @@
             rawText = rawText.replace(/^#+(?=[^\s#])/gm, '$& '); 
             
             if (rawText.length > 5) {
-                marked.setOptions({
-                    breaks: true,
-                    gfm: true,
-                    headerIds: false,
-                    mangle: false
-                });
-                contentDiv.innerHTML = marked.parse(rawText);
-                contentDiv.style.opacity = '1';
+                try {
+                    if (typeof marked !== 'undefined') {
+                        marked.setOptions({
+                            breaks: true,
+                            gfm: true,
+                            headerIds: false,
+                            mangle: false
+                        });
+                        contentDiv.innerHTML = marked.parse(rawText);
+                    } else {
+                        console.warn("Marked.js is not loaded. Using fallback plain text formatting.");
+                        let formatted = rawText
+                            .replace(/&/g, "&amp;")
+                            .replace(/</g, "&lt;")
+                            .replace(/>/g, "&gt;")
+                            .replace(/\n/g, "<br>")
+                            .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+                            .replace(/`([^`]+)`/g, "<code>$1</code>");
+                        contentDiv.innerHTML = formatted;
+                    }
+                } catch (e) {
+                    console.error("Markdown parsing failed, rendering raw text:", e);
+                    contentDiv.innerText = rawText;
+                }
+            } else {
+                contentDiv.innerText = rawText || "ไม่มีข้อมูลการวิเคราะห์";
             }
         }
     });
