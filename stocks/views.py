@@ -12015,11 +12015,34 @@ def investment_dashboard(request):
         latest_insight = insights[0] if insights else None
 
     # Fetch user's watchlist for toggle state
-    from .models import ScanWatchlistItem, PrecisionScanCandidate as _PSC, CupHandleCandidate as _CHC
+    from .models import ScanWatchlistItem, PrecisionScanCandidate as _PSC, CupHandleCandidate as _CHC, Portfolio, MarketType, AssetCategory
     from django.utils import timezone as _tz
     from datetime import timedelta as _td
 
     watchlist_set = set(ScanWatchlistItem.objects.filter(user=request.user).values_list('symbol', flat=True))
+
+    # Fetch user's portfolio items as a dictionary for details and check membership
+    portfolio_items = Portfolio.objects.filter(user=request.user)
+    portfolio_map = {}
+    for item in portfolio_items:
+        clean_sym = item.symbol.split('.')[0].upper()
+        original_sym = item.symbol.upper()
+        item_data = {
+            'id': item.id,
+            'symbol': item.symbol,
+            'name': item.name,
+            'quantity': float(item.quantity),
+            'entry_price': float(item.entry_price),
+            'market': item.market,
+            'category': item.category,
+            'strategy': item.strategy or '',
+            'trail_multiplier': item.trail_multiplier,
+        }
+        portfolio_map[clean_sym] = item_data
+        portfolio_map[original_sym] = item_data
+
+    market_types = MarketType.choices
+    categories = AssetCategory.choices
 
     # Check scanner freshness (threshold: 12 hours)
     latest_prec_run = _PSC.objects.filter(user=request.user, market='SET').values_list('scan_run', flat=True).order_by('-scan_run').first()
@@ -12038,6 +12061,9 @@ def investment_dashboard(request):
         'insight': latest_insight,
         'insights_history': insights,
         'watchlist_set': watchlist_set,
+        'portfolio_map': portfolio_map,
+        'market_types': market_types,
+        'categories': categories,
         'latest_prec_run': latest_prec_run,
         'latest_us_prec_run': latest_us_prec_run,
         'latest_cup_run':  latest_cup_run,

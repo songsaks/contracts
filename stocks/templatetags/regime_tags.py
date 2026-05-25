@@ -31,6 +31,15 @@ def split(value, arg):
     return str(value).split(arg)
 
 
+@register.filter
+def get_item(dictionary, key):
+    """Get value from dictionary using key"""
+    if not dictionary:
+        return None
+    return dictionary.get(key)
+
+
+
 @register.inclusion_tag('stocks/includes/_regime_bar.html')
 def regime_bar(market='SET'):
     from stocks.utils import calculate_markov_regime
