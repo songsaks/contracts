@@ -671,6 +671,19 @@
         font-weight: 600;
         color: #1e293b;
     }
+    /* Responsive table wrapper */
+    .ai-table-wrap {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        margin: 1.8rem 0;
+        border-radius: 12px;
+        box-shadow: 0 2px 16px rgba(79,70,229,0.08), 0 1px 4px rgba(0,0,0,0.05);
+    }
+    .ai-table-wrap table {
+        margin: 0 !important;
+        box-shadow: none !important;
+    }
+
     
     /* Loading Animation */
     .loading-overlay-light {
@@ -753,15 +766,12 @@
             if (rawText.length > 5) {
                 try {
                     if (typeof marked !== 'undefined') {
-                        marked.setOptions({
-                            breaks: true,
-                            gfm: true,
-                            headerIds: false,
-                            mangle: false
-                        });
+                        marked.setOptions({ breaks: true, gfm: true, headerIds: false, mangle: false });
                         contentDiv.innerHTML = marked.parse(rawText);
+                        // ── Post-process: enhance tables ──────────────────────
+                        enhanceAITables(contentDiv);
                     } else {
-                        console.warn("Marked.js is not loaded. Preserving server-side linebreaksbr formatting.");
+                        console.warn("Marked.js is not loaded.");
                     }
                 } catch (e) {
                     console.error("Markdown parsing failed:", e);
@@ -771,6 +781,94 @@
             }
         }
     });
+
+    function enhanceAITables(container) {
+        const tables = container.querySelectorAll('table');
+        tables.forEach(table => {
+            // Wrap table for horizontal scroll on mobile
+            if (!table.parentElement.classList.contains('ai-table-wrap')) {
+                const wrap = document.createElement('div');
+                wrap.className = 'ai-table-wrap';
+                table.parentNode.insertBefore(wrap, table);
+                wrap.appendChild(table);
+            }
+
+            // Detect column roles from header
+            const headers = table.querySelectorAll('thead th');
+            const colRoles = [];
+            headers.forEach(th => {
+                const t = th.textContent.trim().toLowerCase();
+                if (t.includes('ตลาด') || t === 'market') colRoles.push('market');
+                else if (t.includes('หุ้น') || t.includes('symbol') || t.includes('stock')) colRoles.push('stock');
+                else if (t.includes('เหตุผล') || t.includes('reason')) colRoles.push('reason');
+                else if (t.includes('เชื่อมั่น') || t.includes('confidence') || t.includes('ความเชื่อ')) colRoles.push('confidence');
+                else colRoles.push('other');
+            });
+
+            // Style header cells
+            headers.forEach((th, i) => {
+                th.style.whiteSpace = 'nowrap';
+                th.style.fontSize = '0.78rem';
+                th.style.letterSpacing = '0.05em';
+            });
+
+            // Process each data row
+            const rows = table.querySelectorAll('tbody tr');
+            rows.forEach((row, rowIdx) => {
+                const cells = row.querySelectorAll('td');
+                cells.forEach((td, i) => {
+                    const role = colRoles[i] || 'other';
+                    const raw = td.textContent.trim();
+
+                    if (role === 'market') {
+                        td.innerHTML = renderMarketBadge(raw);
+                        td.style.textAlign = 'center';
+                        td.style.whiteSpace = 'nowrap';
+                    } else if (role === 'stock') {
+                        td.innerHTML = renderStockCell(td.innerHTML);
+                        td.style.whiteSpace = 'nowrap';
+                        td.style.minWidth = '90px';
+                    } else if (role === 'confidence') {
+                        td.innerHTML = renderConfidenceBadge(raw);
+                        td.style.textAlign = 'center';
+                        td.style.whiteSpace = 'nowrap';
+                    } else if (role === 'reason') {
+                        // Reason column: make it readable, don't truncate
+                        td.style.fontSize = '0.85rem';
+                        td.style.lineHeight = '1.6';
+                        td.style.minWidth = '220px';
+                    }
+                });
+            });
+        });
+    }
+
+    function renderMarketBadge(text) {
+        const t = text.toUpperCase();
+        if (t.includes('SET')) return '<span style="display:inline-flex;align-items:center;gap:4px;background:linear-gradient(135deg,#ecfdf5,#d1fae5);color:#065f46;border:1px solid #a7f3d0;border-radius:20px;padding:3px 10px;font-size:0.75rem;font-weight:800;letter-spacing:0.04em;"><i class=\'fas fa-chart-line\' style=\'font-size:0.65rem\'></i> SET</span>';
+        if (t.includes('US'))  return '<span style="display:inline-flex;align-items:center;gap:4px;background:linear-gradient(135deg,#eef2ff,#e0e7ff);color:#3730a3;border:1px solid #c7d2fe;border-radius:20px;padding:3px 10px;font-size:0.75rem;font-weight:800;letter-spacing:0.04em;"><i class=\'fas fa-flag\' style=\'font-size:0.65rem\'></i> US</span>';
+        return '<span style="background:#f1f5f9;color:#475569;border-radius:20px;padding:3px 10px;font-size:0.75rem;font-weight:700;">' + text + '</span>';
+    }
+
+    function renderStockCell(html) {
+        // Bold symbol, keep any existing <strong> but wrap bare text
+        return '<span style="font-family:\'Inter\',monospace;font-weight:800;font-size:1.0rem;color:#1e293b;letter-spacing:-0.01em;">' + html + '</span>';
+    }
+
+    function renderConfidenceBadge(text) {
+        const t = text.trim();
+        if (t.includes('สูง') || t.toLowerCase().includes('high')) {
+            return '<span style="display:inline-flex;align-items:center;gap:4px;background:linear-gradient(135deg,#dcfce7,#bbf7d0);color:#14532d;border:1px solid #86efac;border-radius:20px;padding:4px 12px;font-size:0.78rem;font-weight:800;"><i class=\'fas fa-arrow-trend-up\' style=\'font-size:0.65rem\'></i> ' + t + '</span>';
+        }
+        if (t.includes('ปานกลาง') || t.toLowerCase().includes('medium') || t.toLowerCase().includes('moderate')) {
+            return '<span style="display:inline-flex;align-items:center;gap:4px;background:linear-gradient(135deg,#fef9c3,#fef08a);color:#713f12;border:1px solid #fde047;border-radius:20px;padding:4px 12px;font-size:0.78rem;font-weight:800;"><i class=\'fas fa-minus\' style=\'font-size:0.65rem\'></i> ' + t + '</span>';
+        }
+        if (t.includes('ต่ำ') || t.toLowerCase().includes('low')) {
+            return '<span style="display:inline-flex;align-items:center;gap:4px;background:linear-gradient(135deg,#fee2e2,#fecaca);color:#7f1d1d;border:1px solid #fca5a5;border-radius:20px;padding:4px 12px;font-size:0.78rem;font-weight:800;"><i class=\'fas fa-arrow-trend-down\' style=\'font-size:0.65rem\'></i> ' + t + '</span>';
+        }
+        return '<span style="background:#f1f5f9;color:#475569;border-radius:20px;padding:4px 12px;font-size:0.78rem;font-weight:700;">' + t + '</span>';
+    }
+
 
     function exportDashboardToPDF() {
         const element = document.querySelector('.container-fluid');
