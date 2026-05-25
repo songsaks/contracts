@@ -2889,20 +2889,33 @@ def portfolio_exit_plan_ai_analysis(request):
         clean_symbol = item.symbol.split('.')[0].upper()
         from .models import PrecisionScanCandidate
         prec_data = PrecisionScanCandidate.objects.filter(user=request.user, symbol=clean_symbol).order_by('-scan_run').first()
-        port_str += f"- Symbol: {item.symbol}, Qty: {item.quantity}, Entry Price: {item.entry_price}\n"
+        port_str += f"- Symbol: {item.symbol}, Qty: {item.quantity}, Entry Price: {item.entry_price}, Strategy: {item.strategy or 'Precision/Breakout'}\n"
         if prec_data:
-            port_str += f"  RSI: {prec_data.rsi}, ADX: {prec_data.adx}, RVOL: {prec_data.rvol}, Rel Mom 3m: {prec_data.rel_momentum_3m}, Stop Loss: {prec_data.stop_loss}, Take Profit: {prec_data.supply_zone_start}\n"
+            port_str += f"  RSI: {prec_data.rsi}, ADX: {prec_data.adx}, RVOL: {prec_data.rvol}, Rel Mom 3m: {prec_data.rel_momentum_3m}, Stop Loss: {prec_data.stop_loss}, Take Profit (Resistance/High): {prec_data.supply_zone_start}\n"
     
     prompt = f"""
-    You are an expert Stock Portfolio Analyst specializing in "Precision Momentum Trading" and Exit Strategies.
-    The user has the following assets in their portfolio (with Entry Price, Stop Loss, Take Profit, and Momentum metrics):
+    You are an expert Stock Portfolio Analyst specializing in "Precision Momentum Trading", "Stage 2 Breakout Trading (Minervini/O'Neil style)", and advanced exit strategies.
+    The user has the following assets in their portfolio (with Entry Price, Stop Loss, Take Profit target, and Momentum metrics):
     {port_str}
 
-    Please provide a DEEP analysis of each asset's status and its current trend.
-    Include actionable insights and strategic recommendations for EACH stock.
-    Should they hold, trail stop, cut loss, or take profit? Use the metrics provided.
+    CRITICAL RULES FOR RECOMMENDATIONS:
+    1. **Do not recommend selling just because the price reaches the Take Profit target (which is typically the previous 52-week high or resistance zone)**. The user's primary objective is **Breakout Trading** (waiting for the price to break out to new highs and ride the trend).
+    2. **Look at Momentum (ADX, CMF, Rel Mom, and EMA Alignment)**:
+       - If a stock has a strong trend (ADX > 25, positive CMF, strong Rel Mom), recommend **HOLDing to wait for a Breakout** and using a **Trailing Stop** (e.g., 10-day Low or 2.5x ATR) to protect profits rather than selling immediately.
+       - Tell them: "ถือลุ้นเบรกเอาต์ (Hold for Breakout) และใช้ Trailing Stop รันเทรนด์" instead of recommending "ขายทำกำไร (Take Profit)".
+    3. **Only recommend Take Profit (ขายทำกำไร) if there is clear evidence of trend exhaustion**, such as:
+       - RSI is extremely overbought (> 80-85) with bearish divergence.
+       - CMF is negative (below -0.05 or -0.10) indicating heavy institutional distribution.
+       - A clear bearish price pattern has occurred.
+       - RVOL shows a massive blow-off top (extreme volume on a massive green/red day with price reversing).
+    4. **Tailor recommendations based on the stock's Strategy**:
+       - If the strategy is "VCP" or "Cup & Handle", emphasize waiting for the pivot breakout and using trailing stops.
+       - If "Turtle S1/S2", emphasize exiting only when the 10-day or 20-day low is breached.
 
-    Format your response beautifully in Markdown using Thai Language (Sarabun professional tone).
+    Please provide a DEEP analysis of each asset's status and its current trend.
+    Include actionable insights and strategic recommendations for EACH stock in Thai Language (Sarabun professional tone).
+
+    Format your response beautifully in Markdown.
     IMPORTANT RULES:
     1. Output ONLY the raw markdown text. Do not wrap in ```markdown blocks.
     2. Analyze each stock one by one.
