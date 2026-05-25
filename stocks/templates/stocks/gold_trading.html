@@ -1033,6 +1033,44 @@
     let alertSound = new Audio('https://assets.mixkit.co/active_storage/sfx/951/951-preview.mp3');
     alertSound.loop = true;
     let isAlertRinging = false;
+    let webAudioInterval = null;
+
+    // Web Audio Synthesizer Beep - 100% Client-Side, Works Offline/No CDN Blocks
+    function playSynthBeep(frequency = 880, duration = 0.3) {
+        try {
+            const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+            if (!AudioContextClass) return;
+            const audioCtx = new AudioContextClass();
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.frequency.value = frequency;
+            osc.type = 'sine';
+            gain.gain.setValueAtTime(0.35, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + duration);
+            osc.start();
+            osc.stop(audioCtx.currentTime + duration);
+        } catch (err) {
+            console.log("Web Audio synth failed", err);
+        }
+    }
+
+    // Auto-unlock audio context on first click interaction
+    document.addEventListener('click', function unlockAudio() {
+        if (alertSound) {
+            const origMuted = alertSound.muted;
+            alertSound.muted = true;
+            alertSound.play().then(() => {
+                alertSound.pause();
+                alertSound.currentTime = 0;
+                alertSound.muted = origMuted;
+                console.log("Audio context successfully unlocked on user interaction.");
+                document.removeEventListener('click', unlockAudio);
+            }).catch(e => console.log("Audio unlock retry:", e));
+        }
+    }, { once: true, capture: true });
+
     let _histRange = '7d';
     let _globalBreakout = 0;
     let _pullbackFired = false;
@@ -1072,8 +1110,11 @@
                     addFeedMessage(`🟢 SIGNAL DETECTED: ${strat} at ${price}`, true);
                     
                     if (!window.lastSignalTime || Date.now() - window.lastSignalTime > 60000) {
+                        playSynthBeep(660, 0.15);
+                        setTimeout(() => playSynthBeep(880, 0.15), 180);
+
                         const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
-                        audio.play();
+                        audio.play().catch(e => console.log("Audio asset blocked: ", e));
                         window.lastSignalTime = Date.now();
                     }
                 } else {
@@ -2059,25 +2100,45 @@
     }
 
     function startAlertSound() {
-        if (!alertSound) return;
-        alertSound.muted = false;
-        alertSound.play().catch(e => {
-            console.log("Audio play blocked: ", e);
-            addFeedMessage("⚠️ Sound blocked by browser. Click anywhere to enable.", true);
-            // Visual fallback: blink page title and show badge
-            if (!window._titleBlink) {
-                const origTitle = document.title;
-                window._titleBlink = setInterval(() => {
-                    document.title = document.title.startsWith('🔔') ? origTitle : '🔔 ALERT! ' + origTitle;
-                }, 800);
-            }
-            const badge = document.getElementById('alert-sound-blocked');
-            if (badge) badge.classList.remove('d-none');
-        });
         isAlertRinging = true;
+
+        // 1. Play Web Audio synth loop (runs locally, unaffected by CDN blocks)
+        if (webAudioInterval) clearInterval(webAudioInterval);
+        playSynthBeep(880, 0.45);
+        webAudioInterval = setInterval(() => {
+            if (isAlertRinging) {
+                playSynthBeep(880, 0.45);
+            } else {
+                clearInterval(webAudioInterval);
+            }
+        }, 1000);
+
+        // 2. Play Audio asset as fallback/enrichment
+        if (alertSound) {
+            alertSound.muted = false;
+            alertSound.play().catch(e => {
+                console.log("Audio play blocked: ", e);
+            });
+        }
+
+        // 3. Visual alerts & messages
+        addFeedMessage("🔔 ALERT DETECTED! (คลิกที่ไหนก็ได้เพื่อเปิดเสียง)", true);
+        if (!window._titleBlink) {
+            const origTitle = document.title;
+            window._titleBlink = setInterval(() => {
+                document.title = document.title.startsWith('🔔') ? origTitle : '🔔 ALERT! ' + origTitle;
+            }, 800);
+        }
+        const badge = document.getElementById('alert-sound-blocked');
+        if (badge) badge.classList.remove('d-none');
     }
 
     function stopAlertSound() {
+        isAlertRinging = false;
+        if (webAudioInterval) {
+            clearInterval(webAudioInterval);
+            webAudioInterval = null;
+        }
         // Clear title blink
         if (window._titleBlink) { clearInterval(window._titleBlink); window._titleBlink = null; document.title = document.title.replace(/^🔔 ALERT! /, ''); }
         const badge = document.getElementById('alert-sound-blocked');
@@ -2087,22 +2148,25 @@
             alertSound.muted = true;
             alertSound.currentTime = 0;
         }
-        isAlertRinging = false;
     }
 
     function testAlertSound() {
-        if (!alertSound) return;
-        alertSound.muted = false;
-        alertSound.loop = false;
-        alertSound.play().then(() => {
-            setTimeout(() => {
-                if (!isAlertRinging) {
-                    alertSound.pause();
-                    alertSound.currentTime = 0;
-                    alertSound.loop = true;
-                }
-            }, 2000);
-        }).catch(e => alert("Please interact with the page first to enable sound."));
+        playSynthBeep(880, 0.5);
+        if (alertSound) {
+            alertSound.muted = false;
+            alertSound.loop = false;
+            alertSound.play().then(() => {
+                setTimeout(() => {
+                    if (!isAlertRinging) {
+                        alertSound.pause();
+                        alertSound.currentTime = 0;
+                        alertSound.loop = true;
+                    }
+                }, 2000);
+            }).catch(e => {
+                console.log("Audio asset blocked on test:", e);
+            });
+        }
     }
 
     function calculateSize() {
