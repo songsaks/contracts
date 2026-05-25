@@ -120,8 +120,9 @@
                         </div>
                     </div>
                     <div class="card-body p-4 p-md-5 bg-white">
-                        <div id="aiAnalysisContent" class="markdown-body-light">
-                            {{ insight.ai_strategy }}
+                        <textarea id="aiRawMarkdown" style="display: none;">{{ insight.ai_strategy }}</textarea>
+                        <div id="aiAnalysisContent" class="markdown-body-light" style="opacity: 0; transition: opacity 0.3s ease;">
+                            <!-- Rendered Markdown goes here -->
                         </div>
                     </div>
                 </div>
@@ -554,10 +555,10 @@
     }
 
     document.addEventListener('DOMContentLoaded', function() {
+        const markdownEl = document.getElementById('aiRawMarkdown');
         const contentDiv = document.getElementById('aiAnalysisContent');
-        if (contentDiv) {
-            // Use textContent to preserve newlines from the server
-            let rawText = contentDiv.textContent.trim();
+        if (markdownEl && contentDiv) {
+            let rawText = markdownEl.value.trim();
             
             // Clean up common AI artifacts
             rawText = rawText.replace(/^#+(?=[^\s#])/gm, '$& '); 
