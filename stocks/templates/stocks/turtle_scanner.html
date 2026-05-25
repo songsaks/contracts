@@ -260,12 +260,32 @@
                                             {% with days=c.sys1_days_ago|default:c.sys2_days_ago %}{{ days }} วันที่แล้ว{% endwith %}
                                         </div>
                                     {% endif %}
+                                    
+                                    {% if not c.is_elite %}
+                                        {% if not c.technical_score or c.technical_score < 75 or c.rs_rating < 80 %}
+                                            <div class="mt-1">
+                                                <span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25 rounded-pill px-2 py-1" style="font-size:0.65rem;" title="คะแนนเทคนิค < 75 หรือ RS < 80 (เสี่ยงต่อการเบรคหลอกเนื่องจากความแรงสะสมไม่พอ)">
+                                                    <i class="fas fa-exclamation-triangle me-1"></i> เสี่ยงเบรคหลอก
+                                                </span>
+                                            </div>
+                                        {% endif %}
+                                    {% endif %}
                                 {% elif c.sys1_near or c.sys2_near %}
                                     <span class="badge bg-warning text-dark fw-bold px-2 py-1">⚡ Near Break</span>
                                     <div class="text-muted" style="font-size:0.7rem;">
                                         {% if c.pct_to_20d %}{{ c.pct_to_20d|floatformat:1 }}% to 20D{% endif %}
                                         {% if c.pct_to_55d %} / {{ c.pct_to_55d|floatformat:1 }}% to 55D{% endif %}
                                     </div>
+                                    
+                                    {% if not c.is_elite %}
+                                        {% if not c.technical_score or c.technical_score < 75 or c.rs_rating < 80 %}
+                                            <div class="mt-1">
+                                                <span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary border-opacity-25 rounded-pill px-2 py-1" style="font-size:0.65rem;" title="หุ้นจ่อเบรคแต่มีคะแนนเทคนิคหรือ RS ต่ำกว่าเกณฑ์มาตรฐาน">
+                                                    ⚠️ จ่อเบรคแต่เทรนด์อ่อน
+                                                </span>
+                                            </div>
+                                        {% endif %}
+                                    {% endif %}
                                 {% else %}
                                     <span class="text-muted small">-</span>
                                 {% endif %}
