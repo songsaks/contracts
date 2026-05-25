@@ -344,7 +344,7 @@
                 <div class="form-check form-switch mb-0 d-flex align-items-center gap-2">
                     <input class="form-check-input" type="checkbox" id="ccetFilterUS" onchange="_applyFiltersUS()" style="cursor:pointer;">
                     <label class="form-check-label small fw-semibold" for="ccetFilterUS" style="cursor:pointer;color:#10b981;">🔥 CCET Setup</label>
-                    <span style="font-size:0.85rem; color:#94a3b8; cursor:pointer;" title="CCET Setup: EMA Align (20 > 50 > 200) + Volume Dry-up (RVol <= 0.6) + Near Breakout (Turtle Dist <= 10%) + RS Rating >= 80 + CMF >= -0.10"><i class="fas fa-question-circle"></i></span>
+                    <span style="font-size:0.85rem; color:#94a3b8; cursor:pointer;" title="CCET Setup: EMA Align (20 > 50 > 200) + Volume Dry-up (RVol <= 0.6) + Near Breakout (Turtle Dist <= 10%) + RS Rating >= 80 + CMF >= -0.10 + R:R >= 1.5"><i class="fas fa-question-circle"></i></span>
                 </div>
                 <select id="sectorFilterUS" onchange="_applyFiltersUS()" class="form-select form-select-sm rounded-pill" style="width:auto;font-size:0.72rem;border:1px solid #e2e8f0;color:#374151;cursor:pointer;">
                     <option value="">All Sectors</option>
@@ -1595,11 +1595,12 @@ function _applyFiltersUS() {
         var rvol = parseFloat(row.dataset.rvol || '0');
         var emaAligned = row.dataset.emaAligned === 'true';
         var turtleDist = parseFloat(row.dataset.turtleDist || '99.0');
+        var rr   = parseFloat(row.dataset.rr || '0');
         var sec  = row.dataset.sector    || '';
 
         var rsiOn     = document.getElementById('rsiFilter70US') && document.getElementById('rsiFilter70US').checked;
 
-        var isCcet = emaAligned && (rvol <= 0.6) && (turtleDist <= 10.0) && (rs >= 80) && (cmf >= -0.10);
+        var isCcet = emaAligned && (rvol <= 0.6) && (turtleDist <= 10.0) && (rs >= 80) && (cmf >= -0.10) && (rr >= 1.5);
 
         var show = (!rsiOn || rsi < 70) &&
                    (!s2On || s2) && 
