@@ -122,7 +122,7 @@
                     <div class="card-body p-4 p-md-5 bg-white">
                         <textarea id="aiRawMarkdown" style="display: none;">{{ insight.ai_strategy }}</textarea>
                         <div id="aiAnalysisContent" class="markdown-body-light">
-                            <!-- Rendered Markdown goes here -->
+                            {{ insight.ai_strategy|linebreaksbr }}
                         </div>
                     </div>
                 </div>
@@ -559,10 +559,6 @@
         const contentDiv = document.getElementById('aiAnalysisContent');
         if (markdownEl && contentDiv) {
             let rawText = markdownEl.value.trim();
-            
-            // Clean up common AI artifacts
-            rawText = rawText.replace(/^#+(?=[^\s#])/gm, '$& '); 
-            
             if (rawText.length > 5) {
                 try {
                     if (typeof marked !== 'undefined') {
@@ -574,22 +570,13 @@
                         });
                         contentDiv.innerHTML = marked.parse(rawText);
                     } else {
-                        console.warn("Marked.js is not loaded. Using fallback plain text formatting.");
-                        let formatted = rawText
-                            .replace(/&/g, "&amp;")
-                            .replace(/</g, "&lt;")
-                            .replace(/>/g, "&gt;")
-                            .replace(/\n/g, "<br>")
-                            .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
-                            .replace(/`([^`]+)`/g, "<code>$1</code>");
-                        contentDiv.innerHTML = formatted;
+                        console.warn("Marked.js is not loaded. Preserving server-side linebreaksbr formatting.");
                     }
                 } catch (e) {
-                    console.error("Markdown parsing failed, rendering raw text:", e);
-                    contentDiv.innerText = rawText;
+                    console.error("Markdown parsing failed:", e);
                 }
-            } else {
-                contentDiv.innerText = rawText || "ไม่มีข้อมูลการวิเคราะห์";
+            } else if (rawText.length === 0) {
+                contentDiv.innerText = "ไม่มีข้อมูลการวิเคราะห์";
             }
         }
     });
