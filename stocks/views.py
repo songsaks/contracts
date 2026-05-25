@@ -10193,7 +10193,32 @@ def macro_playbook_view(request):
     หน้าแสดงรายงาน Daily Mastermind Briefing (Playbook)
     โครงสร้างแบบ AJAX Loading เหมือนหน้า Crew Analysis อื่นๆ
     """
-    return render(request, 'stocks/macro_playbook.html')
+    from .models import PrecisionScanCandidate as _PSC, CupHandleCandidate as _CHC
+    from django.utils import timezone as _tz
+    from datetime import timedelta as _td
+
+    # Check scanner freshness (threshold: 12 hours)
+    latest_prec_run = _PSC.objects.filter(user=request.user, market='SET').values_list('scan_run', flat=True).order_by('-scan_run').first()
+    latest_us_prec_run = _PSC.objects.filter(user=request.user, market='US').values_list('scan_run', flat=True).order_by('-scan_run').first()
+    latest_cup_run = _CHC.objects.filter(user=request.user).values_list('scan_run', flat=True).order_by('-scan_run').first()
+
+    now = _tz.now()
+    threshold = now - _td(hours=12)
+
+    prec_is_old = latest_prec_run is None or latest_prec_run < threshold
+    us_prec_is_old = latest_us_prec_run is None or latest_us_prec_run < threshold
+    cup_is_old = latest_cup_run is None or latest_cup_run < threshold
+    any_scanner_old = prec_is_old or us_prec_is_old or cup_is_old
+
+    return render(request, 'stocks/macro_playbook.html', {
+        'latest_prec_run': latest_prec_run,
+        'latest_us_prec_run': latest_us_prec_run,
+        'latest_cup_run':  latest_cup_run,
+        'prec_is_old':     prec_is_old,
+        'us_prec_is_old':  us_prec_is_old,
+        'cup_is_old':      cup_is_old,
+        'any_scanner_old': any_scanner_old,
+    })
 
 
 @login_required
@@ -11990,13 +12015,36 @@ def investment_dashboard(request):
         latest_insight = insights[0] if insights else None
 
     # Fetch user's watchlist for toggle state
-    from .models import ScanWatchlistItem
+    from .models import ScanWatchlistItem, PrecisionScanCandidate as _PSC, CupHandleCandidate as _CHC
+    from django.utils import timezone as _tz
+    from datetime import timedelta as _td
+
     watchlist_set = set(ScanWatchlistItem.objects.filter(user=request.user).values_list('symbol', flat=True))
+
+    # Check scanner freshness (threshold: 12 hours)
+    latest_prec_run = _PSC.objects.filter(user=request.user, market='SET').values_list('scan_run', flat=True).order_by('-scan_run').first()
+    latest_us_prec_run = _PSC.objects.filter(user=request.user, market='US').values_list('scan_run', flat=True).order_by('-scan_run').first()
+    latest_cup_run = _CHC.objects.filter(user=request.user).values_list('scan_run', flat=True).order_by('-scan_run').first()
+
+    now = _tz.now()
+    threshold = now - _td(hours=12)
+
+    prec_is_old = latest_prec_run is None or latest_prec_run < threshold
+    us_prec_is_old = latest_us_prec_run is None or latest_us_prec_run < threshold
+    cup_is_old = latest_cup_run is None or latest_cup_run < threshold
+    any_scanner_old = prec_is_old or us_prec_is_old or cup_is_old
 
     return render(request, 'stocks/investment_dashboard.html', {
         'insight': latest_insight,
         'insights_history': insights,
         'watchlist_set': watchlist_set,
+        'latest_prec_run': latest_prec_run,
+        'latest_us_prec_run': latest_us_prec_run,
+        'latest_cup_run':  latest_cup_run,
+        'prec_is_old':     prec_is_old,
+        'us_prec_is_old':  us_prec_is_old,
+        'cup_is_old':      cup_is_old,
+        'any_scanner_old': any_scanner_old,
     })
 
 @login_required

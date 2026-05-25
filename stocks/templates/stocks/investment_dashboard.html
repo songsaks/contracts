@@ -56,6 +56,40 @@
             </div>
         </div>
 
+        <!-- ── SCANNER FRESHNESS WARNING ────────────────────────────── -->
+        {% if any_scanner_old %}
+        <div class="card border-0 shadow-sm rounded-4 mb-4" style="background: linear-gradient(135deg, #fffbeb, #fef3c7); border-left: 5px solid #d97706 !important;">
+            <div class="card-body p-3 p-md-4">
+                <div class="d-flex align-items-start gap-3">
+                    <span style="font-size: 1.5rem; line-height: 1; color: #d97706;">⚠️</span>
+                    <div class="flex-grow-1">
+                        <h5 class="fw-bold mb-1" style="color: #92400e; font-size: 0.95rem;">ตรวจพบข้อมูลการสแกนหุ้นที่ล้าสมัย (แนะนำให้รันก่อนเพื่อให้รายงานสอดคล้องกับปัจจุบัน)</h5>
+                        <p class="mb-2 text-muted" style="font-size: 0.8rem; line-height: 1.5;">
+                            ระบบจะรวมข้อมูลจากการรันสแกนเนอร์ครั้งล่าสุดมาให้ AI วิเคราะห์สภาวะตลาด หากข้อมูลการสแกนเก่าเกินไป คำแนะนำแผนพอร์ตและหุ้นเด่นใน Dashboard อาจไม่สอดคล้องกับราคาจริงในปัจจุบัน แนะนำให้เข้าไปรันสแกนใหม่ก่อนกด Refresh Insights:
+                        </p>
+                        <div class="d-flex flex-wrap gap-2 mt-1">
+                            {% if prec_is_old %}
+                            <a href="{% url 'stocks:minervini_sepa_scanner' %}" class="btn btn-sm fw-semibold rounded-pill px-3 py-1 text-white" style="font-size: 0.72rem; background-color: #f59e0b; border: none;">
+                                <i class="fas fa-crosshairs me-1"></i> รัน Precision / SEPA (SET) {% if latest_prec_run %}(ล่าสุด: {{ latest_prec_run|date:"d M H:i" }}){% else %}(ยังไม่เคยสแกน){% endif %}
+                            </a>
+                            {% endif %}
+                            {% if us_prec_is_old %}
+                            <a href="{% url 'stocks:us_precision_scanner' %}" class="btn btn-sm fw-semibold rounded-pill px-3 py-1 text-white" style="font-size: 0.72rem; background-color: #d97706; border: none;">
+                                <i class="fas fa-flag-usa me-1"></i> รัน Precision Scan (US) {% if latest_us_prec_run %}(ล่าสุด: {{ latest_us_prec_run|date:"d M H:i" }}){% else %}(ยังไม่เคยสแกน){% endif %}
+                            </a>
+                            {% endif %}
+                            {% if cup_is_old %}
+                            <a href="{% url 'stocks:cup_handle_scanner' %}" class="btn btn-sm fw-semibold rounded-pill px-3 py-1 text-white" style="font-size: 0.72rem; background-color: #b45309; border: none;">
+                                <i class="fas fa-circle-notch me-1"></i> รัน Cup & Handle (SET) {% if latest_cup_run %}(ล่าสุด: {{ latest_cup_run|date:"d M H:i" }}){% else %}(ยังไม่เคยสแกน){% endif %}
+                            </a>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
         {% if not insight %}
         <!-- Initial State / Placeholder -->
         <div class="row justify-content-center py-5">
