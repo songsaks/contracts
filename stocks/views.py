@@ -245,7 +245,78 @@ def _compute_signals(prec, current_price=None, is_turtle=False, turtle_stop=None
     elif sell_score >= 30: exit_signal = 'WATCH'
     else:                  exit_signal = ''
 
-    return {'buy_score': buy_score, 'sell_score': sell_score, 'exit_signal': exit_signal}
+    # ── REVERSAL SCORE (0-5): ตรวจจับการเปลี่ยนแปลงจากขาขึ้น → Distribution/ขาลง ──
+    # แต่ละเงื่อนไขให้ 1 คะแนน รวม 5 คะแนน (≥3 = REVERSAL ALERT)
+    rev_pts = 0
+    rev_reasons = []
+
+    # 1. Stage ไม่ใช่ Stage 2 (Weinstein Stage 3/4)
+    if not stage2:
+        rev_pts += 1
+        rev_reasons.append('Stage ≠ 2')
+
+    # 2. EMA20 หักลง (Trend สั้นเริ่มพัง)
+    if not ema20_rising:
+        rev_pts += 1
+        rev_reasons.append('EMA20 ↓')
+
+    # 3. MACD Histogram ติดลบ (Momentum กลับทิศ)
+    if macd_hist < 0 and not macd_cross:
+        rev_pts += 1
+        rev_reasons.append('MACD ↓')
+
+    # 4. CMF ติดลบ (Institutional Distribution)
+    if cmf is not None and cmf < -0.05:
+        rev_pts += 1
+        rev_reasons.append('CMF ↓')
+
+    # 5. RSI ร่วงใต้ 50 + ไม่มี HH/HL structure
+    if rsi < 50 and not hh_hl:
+        rev_pts += 1
+        rev_reasons.append('RSI<50 + LL')
+
+    # ── Stage Label ──
+    if stage2 and ema20_rising and hh_hl:
+        stage_label = 'Stage 2 ✅'
+        stage_color = 'success'
+    elif stage2 and (not ema20_rising or not hh_hl):
+        stage_label = 'Stage 2⚠️'
+        stage_color = 'warning'
+    elif not stage2 and rev_pts >= 3:
+        stage_label = 'Stage 3/4 ❌'
+        stage_color = 'danger'
+    elif not stage2:
+        stage_label = 'Stage 1/3'
+        stage_color = 'secondary'
+    else:
+        stage_label = 'Unknown'
+        stage_color = 'secondary'
+
+    # ── Reversal Alert ──
+    if rev_pts >= 4:
+        reversal_alert = 'DISTRIBUTION 🔴'
+        reversal_color = 'danger'
+    elif rev_pts == 3:
+        reversal_alert = 'REVERSAL ⚠️'
+        reversal_color = 'warning'
+    elif rev_pts == 2:
+        reversal_alert = 'CAUTION 🟡'
+        reversal_color = 'warning'
+    else:
+        reversal_alert = ''
+        reversal_color = 'success'
+
+    return {
+        'buy_score':      buy_score,
+        'sell_score':     sell_score,
+        'exit_signal':    exit_signal,
+        'reversal_score': rev_pts,
+        'reversal_alert': reversal_alert,
+        'reversal_color': reversal_color,
+        'reversal_reasons': rev_reasons,
+        'stage_label':    stage_label,
+        'stage_color':    stage_color,
+    }
 
 
 # ====== Dashboard - หน้าแสดง Watchlist พร้อมราคาและ RSI แบบ Real-time ======
@@ -1557,6 +1628,7 @@ def portfolio_list(request):
                 mom_data.hh_hl_structure   = prec_data.hh_hl_structure
                 mom_data.cmf               = prec_data.cmf
                 mom_data.is_52w_breakout   = prec_data.is_52w_breakout
+                mom_data.stage2            = prec_data.stage2  # Weinstein Stage 2 flag
                 mom_data.ehlers_supersmoother = prec_data.ehlers_supersmoother
                 mom_data.ehlers_laguerre_rsi  = prec_data.ehlers_laguerre_rsi
                 mom_data.ehlers_fisher        = prec_data.ehlers_fisher
@@ -1638,7 +1710,11 @@ def portfolio_list(request):
                 current_price, 
                 is_turtle=is_turtle, 
                 turtle_stop=(current_stop if is_turtle else None)
-            ) if mom_data else {'buy_score': 0, 'sell_score': 0, 'exit_signal': ''}
+            ) if mom_data else {
+                'buy_score': 0, 'sell_score': 0, 'exit_signal': '',
+                'reversal_score': 0, 'reversal_alert': '', 'reversal_color': 'success',
+                'reversal_reasons': [], 'stage_label': '—', 'stage_color': 'secondary',
+            }
 
             items.append({
                 'obj': item,
@@ -1650,9 +1726,15 @@ def portfolio_list(request):
                 'rsi': rsi_val,
                 'trailing_stop_data': ts_data,
                 'mom_data': mom_data,
-                'buy_score': signals['buy_score'],
-                'sell_score': signals['sell_score'],
-                'exit_signal': signals['exit_signal'],
+                'buy_score':       signals['buy_score'],
+                'sell_score':      signals['sell_score'],
+                'exit_signal':     signals['exit_signal'],
+                'reversal_score':  signals['reversal_score'],
+                'reversal_alert':  signals['reversal_alert'],
+                'reversal_color':  signals['reversal_color'],
+                'reversal_reasons': signals['reversal_reasons'],
+                'stage_label':     signals['stage_label'],
+                'stage_color':     signals['stage_color'],
                 'in_scan': prec_data is not None,
                 'scan_score': prec_data.technical_score if prec_data else None,
                 'is_us': is_us,

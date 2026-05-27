@@ -454,6 +454,29 @@
                     <div class="px-4 pb-3 position-relative" style="z-index:2;">
                         <div class="rounded-3 p-2" style="background:#f8fafc; border:1px solid #e2e8f0;">
                             <div class="d-flex flex-wrap align-items-center gap-2 justify-content-between">
+                                <!-- Stage Badge + Reversal Alert (NEW) -->
+                                <div class="d-flex gap-1 align-items-center flex-wrap">
+                                    {% if item.stage_label %}
+                                    <span class="badge rounded-pill px-2"
+                                          style="font-size:0.63rem;font-weight:700;
+                                          {% if item.stage_color == 'success' %}background:rgba(22,163,74,0.12);color:#15803d;border:1px solid rgba(22,163,74,0.3);
+                                          {% elif item.stage_color == 'warning' %}background:rgba(245,158,11,0.12);color:#b45309;border:1px solid rgba(245,158,11,0.35);
+                                          {% elif item.stage_color == 'danger' %}background:rgba(220,38,38,0.10);color:#dc2626;border:1px solid rgba(220,38,38,0.3);
+                                          {% else %}background:rgba(100,116,139,0.10);color:#64748b;border:1px solid rgba(100,116,139,0.25);{% endif %}"
+                                          title="Weinstein Stage Analysis">
+                                        {{ item.stage_label }}
+                                    </span>
+                                    {% endif %}
+                                    {% if item.reversal_alert %}
+                                    <span class="badge rounded-pill px-2"
+                                          style="font-size:0.63rem;font-weight:700;
+                                          {% if item.reversal_color == 'danger' %}background:#dc2626;color:white;animation:pulse-red 1.5s infinite;
+                                          {% else %}background:rgba(245,158,11,0.15);color:#b45309;border:1px solid #f59e0b;{% endif %}"
+                                          title="Reversal Score: {{ item.reversal_score }}/5 — {{ item.reversal_reasons|join:', ' }}">
+                                        {{ item.reversal_alert }}
+                                    </span>
+                                    {% endif %}
+                                </div>
                                 <!-- BUY / SELL Score -->
                                 <div class="d-flex gap-2 align-items-center">
                                     <span class="badge rounded-pill px-2" style="background:rgba(22,163,74,0.12);color:#15803d;border:1px solid rgba(22,163,74,0.3);font-size:0.65rem;">
@@ -525,6 +548,15 @@
                                 <span style="font-size:0.62rem;color:#dc2626;font-weight:600;">💸CMF {{ item.mom_data.cmf|floatformat:2 }}</span>
                                 {% endif %}
                                 <a href="{% url 'stocks:portfolio_exit_plan' %}" style="font-size:0.62rem;color:#7c3aed;margin-left:auto;">ดูแผน →</a>
+                            </div>
+                            {% endif %}
+                            <!-- Reversal Breakdown (shown when reversal_score >= 2) -->
+                            {% if item.reversal_score >= 2 %}
+                            <div class="d-flex flex-wrap gap-1 mt-1 p-2 rounded-3" style="background:rgba(245,158,11,0.04);border:1px solid rgba(245,158,11,0.2);">
+                                <span style="font-size:0.6rem;color:#92400e;font-weight:700;">⚠️ Reversal {{ item.reversal_score }}/5:</span>
+                                {% for reason in item.reversal_reasons %}
+                                <span style="font-size:0.6rem;color:#b45309;background:rgba(245,158,11,0.1);padding:1px 6px;border-radius:999px;border:1px solid rgba(245,158,11,0.3);">{{ reason }}</span>
+                                {% endfor %}
                             </div>
                             {% endif %}
                         </div>
