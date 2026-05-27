@@ -4605,6 +4605,11 @@ def vcp_manual(request):
     return render(request, 'stocks/vcp_manual.html')
 
 @login_required
+def sepa_manual(request):
+    """SEPA Complete Manual — Minervini Superperformance System guide"""
+    return render(request, 'stocks/sepa_manual.html')
+
+@login_required
 def ehlers_manual(request):
     return render(request, 'stocks/ehlers_manual.html')
 
@@ -4650,6 +4655,11 @@ def minervini_sepa_scanner(request):
     if hide_at_tp:
         candidates = [c for c in candidates if c.upside_to_high >= 5.0]
 
+    # earnings_filter: กรองเฉพาะหุ้นที่ผ่านเกณฑ์ Minervini Earnings (EPS ≥ 25% หรือ Rev ≥ 25%)
+    earnings_filter = request.GET.get('earnings_filter') == '1'
+    if earnings_filter:
+        candidates = [c for c in candidates if (getattr(c, 'eps_growth', 0) or 0) >= 25 or (getattr(c, 'rev_growth', 0) or 0) >= 25]
+
     # คำนวณ field เพิ่มเติมสำหรับแสดงผล + SEPA Score
     for c in candidates:
         # % ห่างจาก Pivot (52w High)
@@ -4661,7 +4671,14 @@ def minervini_sepa_scanner(request):
             c.tp_status = 'near_tp'
         else:
             c.tp_status = None
-        # SEPA Score
+
+        # Earnings badge helper attrs
+        eps_g = getattr(c, 'eps_growth', 0.0) or 0.0
+        rev_g = getattr(c, 'rev_growth', 0.0) or 0.0
+        c.eps_badge = 'strong' if eps_g >= 50 else ('pass' if eps_g >= 25 else ('warn' if eps_g >= 0 else 'fail'))
+        c.rev_badge = 'strong' if rev_g >= 50 else ('pass' if rev_g >= 25 else ('warn' if rev_g >= 0 else 'fail'))
+
+        # SEPA Score (รวม Earnings bonus)
         sc = 0
         if c.vcp_setup:
             sc += 30
@@ -4683,6 +4700,12 @@ def minervini_sepa_scanner(request):
                 sc += 5
             elif c.dist_from_pivot > 15:
                 sc -= 5
+        # ── Earnings bonus (Minervini) ──────────────────────────
+        if eps_g >= 50:  sc += 20
+        elif eps_g >= 25: sc += 12
+        elif eps_g >= 10: sc += 5
+        if rev_g >= 50:  sc += 10
+        elif rev_g >= 25: sc += 6
         c.sepa_score = sc
 
     # Sort by SEPA Score descending
@@ -4699,6 +4722,7 @@ def minervini_sepa_scanner(request):
         'selected_run_idx': selected_run_idx,
         'vcp_only': vcp_only,
         'hide_at_tp': hide_at_tp,
+        'earnings_filter': earnings_filter,
     }
     return render(request, 'stocks/sepa_scanner.html', context)
 
@@ -9405,6 +9429,26 @@ def us_sepa_scanner(request):
                         except Exception as _e:
                             _sepa_log.debug(f'[US SEPA] PocketPivot {symbol}: {_e}')
 
+                        # ── Minervini Earnings Criteria ────────────────────
+                        eps_g = 0.0
+                        rev_g = 0.0
+                        roe_v = 0.0
+                        eps_accel = False
+                        earnings_pass = False
+                        try:
+                            _info = yf.Ticker(symbol).info
+                            eps_g = float(_info.get('earningsQuarterlyGrowth', 0) or 0) * 100
+                            rev_g = float(_info.get('revenueGrowth', 0) or 0) * 100
+                            roe_v = float(_info.get('returnOnEquity', 0) or 0) * 100
+                            # EPS Acceleration: check trailing EPS vs forward EPS estimate
+                            eps_trailing = float(_info.get('trailingEps', 0) or 0)
+                            eps_forward  = float(_info.get('forwardEps', 0) or 0)
+                            if eps_trailing > 0 and eps_forward > eps_trailing:
+                                eps_accel = True
+                            earnings_pass = (eps_g >= 25) or (rev_g >= 25)
+                        except Exception as _e:
+                            _sepa_log.debug(f'[US SEPA] Earnings {symbol}: {_e}')
+
                         return {
                             'symbol': symbol,
                             'price': round(curr, 2),
@@ -9421,6 +9465,11 @@ def us_sepa_scanner(request):
                             'rvol': rvol_v,
                             'year_high': round(year_h, 2),
                             'upside_to_high': round((year_h - curr) / curr * 100, 2),
+                            'eps_growth': round(eps_g, 1),
+                            'rev_growth': round(rev_g, 1),
+                            'roe': round(roe_v, 1),
+                            'eps_accel': eps_accel,
+                            'earnings_pass': earnings_pass,
                         }
                     except Exception as _e:
                         _sepa_log.debug(f'[US SEPA] scan {symbol}: {_e}')
@@ -9473,6 +9522,11 @@ def us_sepa_scanner(request):
                         rvol=r['rvol'],
                         year_high=r['year_high'],
                         upside_to_high=r['upside_to_high'],
+                        eps_growth=r.get('eps_growth', 0.0),
+                        rev_growth=r.get('rev_growth', 0.0),
+                        roe=r.get('roe', 0.0),
+                        eps_accel=r.get('eps_accel', False),
+                        earnings_pass=r.get('earnings_pass', False),
                     ) for r in results]
                     _USC.objects.bulk_create(bulk)
 
@@ -9505,8 +9559,9 @@ def us_sepa_scanner(request):
         last_updated = run_time
 
     # Filters
-    vcp_only     = request.GET.get('vcp_only') == '1'
-    hide_at_tp   = request.GET.get('hide_at_tp', '1') == '1'
+    vcp_only        = request.GET.get('vcp_only') == '1'
+    hide_at_tp      = request.GET.get('hide_at_tp', '1') == '1'
+    earnings_filter = request.GET.get('earnings_filter') == '1'
 
     if vcp_only:
         candidates = [c for c in candidates if c.vcp_setup]
@@ -9515,6 +9570,10 @@ def us_sepa_scanner(request):
 
     # RS filter: enforce ≥70 (scan saves down to 60 for flexibility)
     candidates = [c for c in candidates if c.rs_rating >= 70]
+
+    # Earnings filter: EPS Growth ≥ 25% หรือ Revenue Growth ≥ 25% (Minervini criteria)
+    if earnings_filter:
+        candidates = [c for c in candidates if getattr(c, 'earnings_pass', False) or getattr(c, 'eps_growth', 0) >= 25 or getattr(c, 'rev_growth', 0) >= 25]
 
     # Computed display fields + SEPA Score
     for c in candidates:
@@ -9526,27 +9585,29 @@ def us_sepa_scanner(request):
         else:
             c.tp_status = None
 
-        # ── SEPA Score (0-200) ─────────────────────────────────
-        # VCP Setup quality (0-65 pts)
+        # Earnings badge helper attrs
+        eps_g = getattr(c, 'eps_growth', 0.0) or 0.0
+        rev_g = getattr(c, 'rev_growth', 0.0) or 0.0
+        roe_v = getattr(c, 'roe', 0.0) or 0.0
+        c.eps_badge = 'strong' if eps_g >= 50 else ('pass' if eps_g >= 25 else ('warn' if eps_g >= 0 else 'fail'))
+        c.rev_badge = 'strong' if rev_g >= 50 else ('pass' if rev_g >= 25 else ('warn' if rev_g >= 0 else 'fail'))
+        c.roe_badge = 'pass' if roe_v >= 17 else 'warn'
+
+        # ── SEPA Score (0-220 incl. earnings bonus) ────────────
         sc = 0
         if c.vcp_setup:
             sc += 30
-            sc += int(max(0, (10 - min(c.vcp_tightness, 10)) * 2))  # tighter = better (max 20)
-            sc += min(c.vcp_contractions, 5) * 3                     # more contractions = better (max 15)
-        # Volume Dry-Up confirmed (20 pts)
+            sc += int(max(0, (10 - min(c.vcp_tightness, 10)) * 2))
+            sc += min(c.vcp_contractions, 5) * 3
         if c.vcp_vdu or c.vdu_near_zone:
             sc += 20
-        # Pocket Pivot (10 pts)
         if c.pocket_pivot:
             sc += 10
-        # RS Rating (weight 0.7, max ~69 pts)
         sc += int(c.rs_rating * 0.7)
-        # ADX strength (0-10 pts)
         if c.adx >= 25:
             sc += 10
         elif c.adx >= 15:
             sc += 5
-        # Proximity to pivot bonus (only for VCP stocks)
         if c.vcp_setup:
             dist = c.dist_from_pivot
             if dist <= 5:
@@ -9555,6 +9616,15 @@ def us_sepa_scanner(request):
                 sc += 5
             elif dist > 15:
                 sc -= 5
+        # ── Earnings bonus (Minervini) ──────────────────────────
+        if eps_g >= 50:  sc += 20
+        elif eps_g >= 25: sc += 12
+        elif eps_g >= 10: sc += 5
+        if rev_g >= 50:  sc += 10
+        elif rev_g >= 25: sc += 6
+        if roe_v >= 17:   sc += 8
+        elif roe_v >= 10: sc += 3
+        if getattr(c, 'eps_accel', False): sc += 10
         c.sepa_score = sc
 
     # Sort by SEPA Score descending
@@ -9567,12 +9637,13 @@ def us_sepa_scanner(request):
     watchlist_symbols = set(ScanWatchlistItem.objects.filter(user=request.user).values_list('symbol', flat=True))
 
     context = {
-        'candidates':    candidates,
-        'last_updated':  last_updated,
-        'all_runs':      all_runs,
+        'candidates':       candidates,
+        'last_updated':     last_updated,
+        'all_runs':         all_runs,
         'selected_run_idx': run_idx,
-        'vcp_only':      vcp_only,
-        'hide_at_tp':    hide_at_tp,
+        'vcp_only':         vcp_only,
+        'hide_at_tp':       hide_at_tp,
+        'earnings_filter':  earnings_filter,
         'watchlist_symbols': watchlist_symbols,
     }
     return render(request, 'stocks/us_sepa_scanner.html', context)

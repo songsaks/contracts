@@ -10,28 +10,32 @@
                 <span style="font-size:1.5rem;">🦅</span>
                 <h2 class="fw-bold mb-0" style="color:#0f172a;letter-spacing:-0.025em;">
                     US SEPA Scanner
-                    <span class="badge ms-2 align-middle" style="background:#1e40af;font-size:0.6rem;vertical-align:middle;">Nasdaq · S&amp;P 500</span>
                 </h2>
+                <span class="badge rounded-pill px-3 py-1 ms-1"
+                      style="background:linear-gradient(135deg,#1e40af,#3b82f6);color:#fff;font-size:0.7rem;letter-spacing:.05em;">
+                    Nasdaq · S&amp;P 500
+                </span>
             </div>
             <p class="text-muted small mb-0">
                 <i class="fas fa-shield-alt me-1"></i>
-                Institutional-Grade: <strong>Stage 2 Trend + VCP Pattern + Volume Dry-Up</strong>
-                <span class="ms-2 text-muted" style="font-size:0.7rem;">(แยกต่างหากจาก US Precision Scanner)</span>
+                Institutional-Grade: <strong>Stage 2 Trend + VCP + Minervini Earnings Criteria</strong>
             </p>
         </div>
-        <div class="d-flex gap-2">
+        <div class="d-flex gap-2 flex-wrap">
             <a href="{% url 'stocks:us_precision_scanner' %}" class="btn btn-outline-secondary btn-sm rounded-pill px-3">
                 <i class="fas fa-chart-bar me-1"></i> US Precision
             </a>
             <form method="GET" action="" class="d-inline">
                 <input type="hidden" name="scan" value="true">
-                <button type="submit" class="btn btn-primary btn-sm rounded-pill px-4 shadow-sm fw-bold"
+                <button type="submit" class="btn btn-sm rounded-pill px-4 fw-bold shadow-sm"
+                        style="background:linear-gradient(135deg,#1e40af,#3b82f6);color:#fff;border:none;"
                         onclick="document.getElementById('usSepaOverlay').style.display='flex'">
                     <i class="fas fa-satellite-dish me-1"></i> Run US SEPA Scan
                 </button>
             </form>
             {% if candidates %}
-            <form method="post" action="{% url 'stocks:clear_scan_data' %}" class="d-inline" onsubmit="return confirm('ลบข้อมูลสแกน US SEPA ทั้งหมด?')">
+            <form method="post" action="{% url 'stocks:clear_scan_data' %}" class="d-inline"
+                  onsubmit="return confirm('ลบข้อมูลสแกน US SEPA ทั้งหมด?')">
                 {% csrf_token %}
                 <input type="hidden" name="scanner" value="us_sepa">
                 <input type="hidden" name="next" value="{% url 'stocks:us_sepa_scanner' %}">
@@ -44,41 +48,40 @@
     </div>
 
     <!-- LOADING OVERLAY -->
-    <div id="usSepaOverlay" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,0.88);z-index:9999;flex-direction:column;align-items:center;justify-content:center;gap:1rem;">
-        <div class="spinner-border text-primary" style="width:3rem;height:3rem;"></div>
+    <div id="usSepaOverlay" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,0.9);z-index:9999;flex-direction:column;align-items:center;justify-content:center;gap:1rem;">
+        <div class="spinner-border" style="width:3rem;height:3rem;color:#3b82f6;"></div>
         <div class="text-white fw-bold fs-5">US SEPA Scan กำลังทำงาน…</div>
         <div id="usSepaProgress" class="text-white-50 small">เริ่มต้น…</div>
-        <div style="width:340px;background:rgba(255,255,255,0.1);border-radius:999px;height:8px;">
-            <div id="usSepaBar" style="width:0%;height:100%;background:#3b82f6;border-radius:999px;transition:width 0.3s;"></div>
+        <div style="width:340px;background:rgba(255,255,255,.12);border-radius:999px;height:8px;">
+            <div id="usSepaBar" style="width:0%;height:100%;background:linear-gradient(90deg,#3b82f6,#6366f1);border-radius:999px;transition:width .3s;"></div>
         </div>
-        <div class="text-white-50 small">Scanning ~500 US stocks · ใช้เวลา 5-10 นาที</div>
+        <div class="text-white-50 small">Scanning ~500 US stocks · ใช้เวลา 5-10 นาที (รวม Earnings data)</div>
     </div>
 
     <!-- CRITERIA QUICK BAR -->
     <div class="row g-3 mb-4">
-        {% for icon, label, sub, bg, color in criteria_cards %}{% endfor %}
-        <div class="col-md-3">
-            <div class="bg-white p-3 rounded-4 shadow-sm d-flex align-items-center gap-3">
-                <div class="rounded-circle d-flex align-items-center justify-content-center" style="width:40px;height:40px;background:#dcfce7;color:#15803d;"><i class="fas fa-chart-line"></i></div>
-                <div><div class="small fw-bold text-dark">Stage 2 Trend</div><div class="text-muted" style="font-size:0.7rem;">SMA150 Rising</div></div>
+        <div class="col-6 col-md-3">
+            <div class="criteria-card">
+                <div class="criteria-icon" style="background:#dcfce7;color:#15803d;"><i class="fas fa-chart-line"></i></div>
+                <div><div class="criteria-title">Stage 2 Trend</div><div class="criteria-sub">SMA150 Rising</div></div>
             </div>
         </div>
-        <div class="col-md-3">
-            <div class="bg-white p-3 rounded-4 shadow-sm d-flex align-items-center gap-3">
-                <div class="rounded-circle d-flex align-items-center justify-content-center" style="width:40px;height:40px;background:#fee2e2;color:#dc2626;"><i class="fas fa-bullseye"></i></div>
-                <div><div class="small fw-bold text-dark">VCP Setup</div><div class="text-muted" style="font-size:0.7rem;">Volatility Contraction</div></div>
+        <div class="col-6 col-md-3">
+            <div class="criteria-card">
+                <div class="criteria-icon" style="background:#fee2e2;color:#dc2626;"><i class="fas fa-bullseye"></i></div>
+                <div><div class="criteria-title">VCP Setup</div><div class="criteria-sub">Volatility Contraction</div></div>
             </div>
         </div>
-        <div class="col-md-3">
-            <div class="bg-white p-3 rounded-4 shadow-sm d-flex align-items-center gap-3">
-                <div class="rounded-circle d-flex align-items-center justify-content-center" style="width:40px;height:40px;background:#f3e8ff;color:#7c3aed;"><i class="fas fa-tint-slash"></i></div>
-                <div><div class="small fw-bold text-dark">Volume Dry-Up</div><div class="text-muted" style="font-size:0.7rem;">Institutional Exhaustion</div></div>
+        <div class="col-6 col-md-3">
+            <div class="criteria-card">
+                <div class="criteria-icon" style="background:#e0f2fe;color:#0ea5e9;"><i class="fas fa-trophy"></i></div>
+                <div><div class="criteria-title">RS Rating 70+</div><div class="criteria-sub">Outperforms Market</div></div>
             </div>
         </div>
-        <div class="col-md-3">
-            <div class="bg-white p-3 rounded-4 shadow-sm d-flex align-items-center gap-3">
-                <div class="rounded-circle d-flex align-items-center justify-content-center" style="width:40px;height:40px;background:#e0f2fe;color:#0ea5e9;"><i class="fas fa-trophy"></i></div>
-                <div><div class="small fw-bold text-dark">RS Rating 70+</div><div class="text-muted" style="font-size:0.7rem;">Outperforms Market</div></div>
+        <div class="col-6 col-md-3">
+            <div class="criteria-card">
+                <div class="criteria-icon" style="background:#fef3c7;color:#b45309;"><i class="fas fa-chart-bar"></i></div>
+                <div><div class="criteria-title">Earnings Growth</div><div class="criteria-sub">EPS ≥ 25% | Rev ≥ 25%</div></div>
             </div>
         </div>
     </div>
@@ -89,116 +92,163 @@
     <div class="bg-white rounded-4 shadow-sm overflow-hidden">
 
         <!-- FILTER BAR -->
-        <div class="p-3 border-bottom d-flex align-items-center justify-content-between flex-wrap gap-3">
-            <div class="d-flex align-items-center gap-3 flex-wrap">
-                <span class="small text-muted fw-bold"><i class="fas fa-filter me-1"></i> FILTERS:</span>
-                <div class="form-check form-switch mb-0">
-                    <input class="form-check-input" type="checkbox" id="vcpOnlyToggle" {% if vcp_only %}checked{% endif %}
-                           onchange="applyUsSepaFilters()">
-                    <label class="form-check-label small fw-semibold" for="vcpOnlyToggle">🎯 VCP Only</label>
+        <div class="p-3 border-bottom" style="background:linear-gradient(135deg,#f8fafc,#f1f5f9);">
+            <div class="d-flex align-items-center justify-content-between flex-wrap gap-3">
+                <div class="d-flex align-items-center gap-3 flex-wrap">
+                    <span class="small fw-bold text-muted"><i class="fas fa-filter me-1"></i>FILTERS:</span>
+
+                    <div class="filter-toggle">
+                        <input class="form-check-input" type="checkbox" id="vcpOnlyToggle"
+                               {% if vcp_only %}checked{% endif %} onchange="applyUsSepaFilters()">
+                        <label class="form-check-label small fw-semibold" for="vcpOnlyToggle">🎯 VCP Only</label>
+                    </div>
+
+                    <div class="filter-toggle">
+                        <input class="form-check-input" type="checkbox" id="hideAtTpToggle"
+                               {% if hide_at_tp %}checked{% endif %} onchange="applyUsSepaFilters()">
+                        <label class="form-check-label small fw-semibold" for="hideAtTpToggle">🚫 ซ่อน AT/NEAR TP</label>
+                    </div>
+
+                    <!-- Earnings Filter — Minervini -->
+                    <div class="filter-toggle earnings-toggle">
+                        <input class="form-check-input" type="checkbox" id="earningsFilterToggle"
+                               {% if earnings_filter %}checked{% endif %} onchange="applyUsSepaFilters()">
+                        <label class="form-check-label small fw-semibold" for="earningsFilterToggle">
+                            📊 EPS/Rev ≥ 25%
+                            <span class="badge rounded-pill ms-1"
+                                  style="background:#fef3c7;color:#b45309;font-size:0.6rem;font-weight:700;border:1px solid #fde68a;">
+                                MINERVINI
+                            </span>
+                        </label>
+                    </div>
                 </div>
-                <div class="form-check form-switch mb-0">
-                    <input class="form-check-input" type="checkbox" id="hideAtTpToggle" {% if hide_at_tp %}checked{% endif %}
-                           onchange="applyUsSepaFilters()">
-                    <label class="form-check-label small fw-semibold" for="hideAtTpToggle">🚫 ซ่อน AT/NEAR TP</label>
+
+                <div class="d-flex align-items-center gap-3 flex-wrap">
+                    {% if last_updated %}
+                    <span class="small text-muted">
+                        <i class="fas fa-clock me-1"></i>
+                        Data as of <strong>{{ last_updated|date:"d M Y H:i" }} UTC</strong>
+                    </span>
+                    {% endif %}
+                    {% if all_runs %}
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="small text-muted fw-bold">History:</span>
+                        <select class="form-select form-select-sm rounded-pill" style="width:auto;font-size:0.75rem;"
+                                onchange="location.href='?run_idx='+this.value+'&vcp_only={{ vcp_only|yesno:'1,0' }}&hide_at_tp={{ hide_at_tp|yesno:'1,0' }}&earnings_filter={{ earnings_filter|yesno:'1,0' }}'">
+                            {% for run in all_runs %}
+                            <option value="{{ forloop.counter0 }}" {% if forloop.counter0 == selected_run_idx %}selected{% endif %}>
+                                {{ run|date:"d/m H:i" }}{% if forloop.first %} (Latest){% endif %}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    {% endif %}
                 </div>
-            </div>
-            <div class="d-flex align-items-center gap-3 flex-wrap">
-                {% if last_updated %}
-                <span class="small text-muted">
-                    <i class="fas fa-clock me-1"></i>
-                    Data as of <strong>{{ last_updated|date:"d M Y H:i" }} UTC</strong>
-                </span>
-                {% endif %}
-                {% if all_runs %}
-                <div class="d-flex align-items-center gap-2">
-                    <span class="small text-muted fw-bold">History:</span>
-                    <select class="form-select form-select-sm rounded-pill" style="width:auto;font-size:0.75rem;"
-                            onchange="location.href='?run_idx='+this.value+'&vcp_only={{ vcp_only|yesno:'1,0' }}&hide_at_tp={{ hide_at_tp|yesno:'1,0' }}'">
-                        {% for run in all_runs %}
-                        <option value="{{ forloop.counter0 }}" {% if forloop.counter0 == selected_run_idx %}selected{% endif %}>
-                            {{ run|date:"d/m H:i" }}{% if forloop.first %} (Latest){% endif %}
-                        </option>
-                        {% endfor %}
-                    </select>
-                </div>
-                {% endif %}
             </div>
         </div>
 
         <!-- TABLE -->
-        <div class="table-responsive table-sticky-action">
-            <table class="table table-hover align-middle mb-0 table-sm-compact" style="font-size:0.82rem;">
-                <thead class="bg-light text-muted small text-uppercase">
-                    <tr>
-                        <th class="ps-4 border-0 py-3" style="width:140px;">Symbol</th>
-                        <th class="border-0 py-3">Price</th>
-                        <th class="border-0 py-3 text-center col-hide-md">Trend Stage</th>
-                        <th class="border-0 py-3 text-center col-hide-sm">VCP Base</th>
-                        <th class="border-0 py-3 text-center col-hide-sm">% from Pivot</th>
-                        <th class="border-0 py-3 text-center col-hide-md">Institutional Signal</th>
-                        <th class="border-0 py-3 text-center col-hide-sm">RS</th>
-                        <th class="border-0 py-3 text-center col-hide-md">ADX/RSI</th>
-                        <th class="border-0 py-3 text-center">Score</th>
-                        <th class="pe-4 border-0 py-3 text-end">Action</th>
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0" style="font-size:0.81rem;">
+                <thead style="background:#f8fafc;">
+                    <tr class="text-muted small text-uppercase" style="letter-spacing:.04em;">
+                        <th class="ps-4 py-3" style="width:145px;">Symbol</th>
+                        <th class="py-3">Price</th>
+                        <th class="py-3 text-center col-hide-md">Trend Stage</th>
+                        <th class="py-3 text-center col-hide-sm">VCP Base</th>
+                        <th class="py-3 text-center col-hide-sm">% from Pivot</th>
+                        <th class="py-3 text-center col-hide-md">Signals</th>
+                        <th class="py-3 text-center col-hide-sm">RS</th>
+                        <th class="py-3 text-center col-hide-md">ADX/RSI</th>
+                        <!-- NEW: Earnings Columns -->
+                        <th class="py-3 text-center col-hide-lg earnings-col">
+                            <span class="d-flex align-items-center justify-content-center gap-1">
+                                EPS Growth
+                                <i class="fas fa-info-circle text-muted" style="cursor:pointer;font-size:0.65rem;"
+                                   data-bs-toggle="tooltip"
+                                   title="EPS Quarterly Growth YoY — Minervini requires ≥25%. ⚡ = Acceleration (Forward EPS > Trailing EPS)"></i>
+                            </span>
+                        </th>
+                        <th class="py-3 text-center col-hide-lg earnings-col">
+                            <span class="d-flex align-items-center justify-content-center gap-1">
+                                Rev Growth
+                                <i class="fas fa-info-circle text-muted" style="cursor:pointer;font-size:0.65rem;"
+                                   data-bs-toggle="tooltip" title="Revenue Growth YoY — Minervini requires ≥25%"></i>
+                            </span>
+                        </th>
+                        <th class="py-3 text-center col-hide-xl earnings-col">ROE</th>
+                        <th class="py-3 text-center">
+                            Score
+                            <i class="fas fa-info-circle ms-1 text-muted d-none d-md-inline"
+                               style="cursor:pointer;font-size:0.65rem;"
+                               data-bs-toggle="tooltip"
+                               title="SEPA Score v2: VCP(65)+VDU(20)+RS×0.7+ADX(10)+Proximity(10)+EPS bonus(30)+Rev bonus(10)+ROE(8)+Accel(10)"></i>
+                        </th>
+                        <th class="pe-4 py-3 text-end">Action</th>
                     </tr>
                 </thead>
-                <tbody>
+                <tbody class="border-0">
                     {% for item in candidates %}
-                    <tr class="border-bottom border-light">
+                    <tr class="border-bottom border-light sepa-row {% if item.eps_badge == 'strong' or item.rev_badge == 'strong' %}earnings-highlight{% endif %}">
+
                         <!-- Symbol + Rank -->
                         <td class="ps-4 py-3">
                             <div class="d-flex align-items-center gap-2">
-                                <!-- Rank Badge -->
-                                <div class="rounded-circle d-flex align-items-center justify-content-center fw-bold flex-shrink-0"
-                                     style="width:26px;height:26px;font-size:0.65rem;
-                                     {% if item.sepa_rank == 1 %}background:#fef3c7;color:#92400e;border:1.5px solid #f59e0b;
-                                     {% elif item.sepa_rank == 2 %}background:#f1f5f9;color:#334155;border:1.5px solid #94a3b8;
-                                     {% elif item.sepa_rank == 3 %}background:#fff7ed;color:#9a3412;border:1.5px solid #fb923c;
-                                     {% else %}background:#f8fafc;color:#94a3b8;border:1px solid #e2e8f0;{% endif %}">
+                                <div class="rank-badge
+                                    {% if item.sepa_rank == 1 %}rank-gold
+                                    {% elif item.sepa_rank == 2 %}rank-silver
+                                    {% elif item.sepa_rank == 3 %}rank-bronze
+                                    {% else %}rank-default{% endif %}">
                                     #{{ item.sepa_rank }}
                                 </div>
                                 <div>
                                     <div class="fw-bold text-dark" style="font-size:0.95rem;">{{ item.symbol }}</div>
-                                    <div class="text-muted" style="font-size:0.68rem;">{{ item.sector|default:"N/A" }}</div>
-                                    {% if item.name %}<div class="text-muted" style="font-size:0.62rem;max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ item.name }}</div>{% endif %}
+                                    <div class="text-muted" style="font-size:0.65rem;">{{ item.sector|default:"N/A" }}</div>
+                                    {% if item.name %}
+                                    <div class="text-muted" style="font-size:0.6rem;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ item.name }}</div>
+                                    {% endif %}
                                 </div>
                             </div>
                         </td>
+
                         <!-- Price -->
                         <td class="py-3">
                             <div class="fw-bold text-dark">${{ item.price|floatformat:2 }}</div>
                             {% if item.tp_status == 'at_tp' %}
-                            <span class="badge rounded-pill px-2 mt-1 d-inline-block" style="background:#fef2f2;color:#dc2626;border:1px solid #fecdd3;font-size:0.6rem;">AT TP</span>
+                            <span class="tp-badge tp-at">AT TP</span>
                             {% elif item.tp_status == 'near_tp' %}
-                            <span class="badge rounded-pill px-2 mt-1 d-inline-block" style="background:#fffbeb;color:#d97706;border:1px solid #fde68a;font-size:0.6rem;">NEAR TP</span>
+                            <span class="tp-badge tp-near">NEAR TP</span>
                             {% endif %}
                         </td>
+
                         <!-- Stage -->
                         <td class="py-3 text-center col-hide-md">
                             {% if item.stage2 %}
-                                <span class="badge rounded-pill px-3 py-1" style="background:#dcfce7;color:#15803d;border:1px solid #86efac;">
-                                    <i class="fas fa-check-circle me-1"></i> STAGE 2
-                                </span>
+                            <span class="badge rounded-pill px-3 py-1" style="background:#dcfce7;color:#15803d;border:1px solid #86efac;">
+                                <i class="fas fa-check-circle me-1"></i> STAGE 2
+                            </span>
                             {% else %}
-                                <span class="badge rounded-pill px-3 py-1" style="background:#f1f5f9;color:#64748b;">Other</span>
+                            <span class="badge rounded-pill px-3 py-1" style="background:#f1f5f9;color:#64748b;">Other</span>
                             {% endif %}
                         </td>
+
                         <!-- VCP Base -->
                         <td class="py-3 text-center col-hide-sm">
                             {% if item.vcp_setup %}
-                                <div class="d-inline-block text-start">
-                                    <span class="badge rounded-pill px-3 py-1 mb-1 d-block text-center" style="background:#fee2e2;color:#dc2626;border:1px solid #fecdd3;">
-                                        🎯 {{ item.vcp_contractions }}T
-                                    </span>
-                                    <div class="text-muted text-center" style="font-size:0.65rem;">
-                                        <strong>{{ item.vcp_tightness }}%</strong>
-                                    </div>
+                            <div class="d-inline-block text-start">
+                                <span class="badge rounded-pill px-3 py-1 mb-1 d-block text-center"
+                                      style="background:#fee2e2;color:#dc2626;border:1px solid #fecdd3;">
+                                    🎯 {{ item.vcp_contractions }}T
+                                </span>
+                                <div class="text-muted text-center" style="font-size:0.65rem;">
+                                    <strong>{{ item.vcp_tightness }}%</strong> tight
                                 </div>
+                            </div>
                             {% else %}
-                                <span class="badge rounded-pill px-2 py-1" style="background:#f8fafc;color:#94a3b8;border:1px solid #e2e8f0;font-size:0.68rem;">—</span>
+                            <span class="text-muted" style="font-size:0.8rem;">—</span>
                             {% endif %}
                         </td>
+
                         <!-- % from Pivot -->
                         <td class="py-3 text-center col-hide-sm">
                             <div class="fw-bold" style="font-size:0.9rem;
@@ -207,74 +257,121 @@
                             </div>
                             <div class="val-hint">ห่างจุดเข้า</div>
                         </td>
+
                         <!-- Signals -->
                         <td class="py-3 text-center col-hide-md">
                             <div class="d-flex justify-content-center gap-1 flex-wrap">
                                 {% if item.vcp_vdu or item.vdu_near_zone %}
-                                    <span class="badge rounded-pill px-2 py-1" style="background:#f3e8ff;color:#7c3aed;border:1px solid #e9d5ff;">VDU ✅</span>
+                                <span class="badge rounded-pill px-2 py-1" style="background:#f3e8ff;color:#7c3aed;border:1px solid #e9d5ff;">VDU ✅</span>
                                 {% endif %}
                                 {% if item.pocket_pivot %}
-                                    <span class="badge rounded-pill px-2 py-1" style="background:#e0f2fe;color:#0369a1;border:1px solid #bae6fd;">PP 🔥</span>
+                                <span class="badge rounded-pill px-2 py-1" style="background:#e0f2fe;color:#0369a1;border:1px solid #bae6fd;">PP 🔥</span>
                                 {% endif %}
                                 {% if not item.vcp_vdu and not item.vdu_near_zone and not item.pocket_pivot %}
-                                    <span class="text-muted">—</span>
+                                <span class="text-muted">—</span>
                                 {% endif %}
                             </div>
                         </td>
+
                         <!-- RS Rating -->
                         <td class="py-3 text-center col-hide-sm">
-                            <div class="fw-bold" style="color:{% if item.rs_rating >= 80 %}#15803d{% elif item.rs_rating >= 70 %}#2563eb{% else %}#1e293b{% endif %};font-size:1rem;">
+                            <div class="fw-bold"
+                                 style="color:{% if item.rs_rating >= 80 %}#15803d{% elif item.rs_rating >= 70 %}#2563eb{% else %}#1e293b{% endif %};font-size:1rem;">
                                 {{ item.rs_rating }}
                             </div>
-                            <div class="val-hint">เทียบตลาด</div>
+                            <div class="val-hint">vs Market</div>
                         </td>
+
                         <!-- ADX / RSI -->
                         <td class="py-3 text-center col-hide-md">
                             <div class="small">
-                                <span class="{% if item.adx >= 25 %}text-success{% elif item.adx >= 15 %}text-warning{% else %}text-danger{% endif %}">A:{{ item.adx|floatformat:0 }}</span>
+                                <span class="{% if item.adx >= 25 %}text-success{% elif item.adx >= 15 %}text-warning{% else %}text-danger{% endif %}">
+                                    A:{{ item.adx|floatformat:0 }}
+                                </span>
                                 <span class="text-muted">|</span>
-                                <span class="{% if 40 <= item.rsi <= 70 %}text-success{% elif item.rsi > 80 %}text-danger{% else %}text-muted{% endif %}">R:{{ item.rsi|floatformat:0 }}</span>
+                                <span class="{% if 40 <= item.rsi and item.rsi <= 70 %}text-success{% elif item.rsi > 80 %}text-danger{% else %}text-muted{% endif %}">
+                                    R:{{ item.rsi|floatformat:0 }}
+                                </span>
                             </div>
-                            <div class="val-hint">แรงเทรนด์ | โมเมนตัม</div>
+                            <div class="val-hint">Trend | Momentum</div>
                         </td>
+
+                        <!-- EPS Growth — NEW -->
+                        <td class="py-3 text-center col-hide-lg earnings-col">
+                            {% with eps=item.eps_growth|default:0 %}
+                            <div class="earnings-pill earnings-pill--{{ item.eps_badge }}">
+                                {% if eps >= 0 %}+{% endif %}{{ eps|floatformat:0 }}%
+                            </div>
+                            <div class="val-hint">EPS QoQ YoY</div>
+                            {% if item.eps_accel %}
+                            <div style="font-size:0.58rem;color:#7c3aed;font-weight:700;margin-top:2px;">⚡ ACCEL</div>
+                            {% endif %}
+                            {% endwith %}
+                        </td>
+
+                        <!-- Revenue Growth — NEW -->
+                        <td class="py-3 text-center col-hide-lg earnings-col">
+                            {% with rev=item.rev_growth|default:0 %}
+                            <div class="earnings-pill earnings-pill--{{ item.rev_badge }}">
+                                {% if rev >= 0 %}+{% endif %}{{ rev|floatformat:0 }}%
+                            </div>
+                            <div class="val-hint">Revenue YoY</div>
+                            {% endwith %}
+                        </td>
+
+                        <!-- ROE — NEW -->
+                        <td class="py-3 text-center col-hide-xl earnings-col">
+                            {% with roe=item.roe|default:0 %}
+                            <div class="earnings-pill earnings-pill--{{ item.roe_badge }}">
+                                {{ roe|floatformat:0 }}%
+                            </div>
+                            <div class="val-hint">ROE (≥17% ✅)</div>
+                            {% endwith %}
+                        </td>
+
                         <!-- SEPA Score -->
                         <td class="py-3 text-center">
                             <div class="fw-bold" style="font-size:1rem;
-                                color:{% if item.sepa_score >= 120 %}#15803d{% elif item.sepa_score >= 90 %}#2563eb{% elif item.sepa_score >= 60 %}#d97706{% else %}#64748b{% endif %};">
+                                color:{% if item.sepa_score >= 140 %}#15803d{% elif item.sepa_score >= 100 %}#2563eb{% elif item.sepa_score >= 70 %}#d97706{% else %}#64748b{% endif %};">
                                 {{ item.sepa_score }}
                             </div>
-                            <div class="text-muted" style="font-size:0.62rem;">
-                                {% if item.sepa_score >= 120 %}Elite Setup
-                                {% elif item.sepa_score >= 90 %}Strong Setup
-                                {% elif item.sepa_score >= 60 %}Developing
-                                {% else %}Weak{% endif %}
+                            <div class="text-muted" style="font-size:0.6rem;">
+                                {% if item.sepa_score >= 140 %}⭐ Elite
+                                {% elif item.sepa_score >= 100 %}💪 Strong
+                                {% elif item.sepa_score >= 70 %}📈 Developing
+                                {% else %}📉 Weak{% endif %}
                             </div>
-                            <div class="val-hint">คะแนน SEPA</div>
+                            <div class="val-hint">SEPA Score</div>
                         </td>
+
                         <!-- Action -->
                         <td class="pe-4 py-3 text-end">
                             <div class="d-flex gap-1 justify-content-end">
-                                <a href="{% url 'stocks:stock_chart' item.symbol %}?market=US" class="btn btn-sm rounded-pill px-3" style="font-size:0.72rem;background:#0ea5e9;color:white;" target="_blank" title="ดูกราฟ"><i class="fas fa-chart-line me-1"></i>Chart</a>
+                                <a href="{% url 'stocks:stock_chart' item.symbol %}?market=US"
+                                   class="btn btn-sm rounded-pill px-3"
+                                   style="font-size:0.72rem;background:#0ea5e9;color:white;" target="_blank">
+                                    <i class="fas fa-chart-line me-1"></i>Chart
+                                </a>
                                 <a href="https://finance.yahoo.com/quote/{{ item.symbol }}" target="_blank"
                                    class="btn btn-sm btn-light rounded-pill px-3" style="font-size:0.72rem;">
-                                    <i class="fas fa-external-link-alt me-1 text-primary"></i> Yahoo
+                                    <i class="fas fa-external-link-alt me-1 text-primary"></i>Yahoo
                                 </a>
                             </div>
                         </td>
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="10" class="text-center py-5">
+                        <td colspan="13" class="text-center py-5">
                             {% if not all_runs %}
                             <div class="text-muted">
-                                <i class="fas fa-satellite-dish mb-2 d-block" style="font-size:2rem;opacity:0.4;"></i>
+                                <i class="fas fa-satellite-dish mb-2 d-block" style="font-size:2rem;opacity:.4;"></i>
                                 <div class="fw-semibold mb-1">ยังไม่มีผลสแกน</div>
                                 <div class="small">กด "Run US SEPA Scan" เพื่อเริ่มสแกน Nasdaq &amp; S&P 500</div>
                             </div>
                             {% else %}
                             <div class="text-muted">
-                                <i class="fas fa-search mb-2 d-block" style="font-size:2rem;opacity:0.4;"></i>
-                                ไม่พบ SEPA Setup ในรอบนี้ — ลองปิด Filter หรือ Run Scan ใหม่
+                                <i class="fas fa-search mb-2 d-block" style="font-size:2rem;opacity:.4;"></i>
+                                ไม่พบ SEPA Setup — ลองปิด Filter หรือ Run Scan ใหม่
                             </div>
                             {% endif %}
                         </td>
@@ -285,13 +382,19 @@
         </div>
 
         <!-- FOOTER -->
-        <div class="p-3 bg-light border-top text-center">
-            <p class="mb-0 text-muted" style="font-size:0.73rem;">
-                <i class="fas fa-info-circle me-1"></i>
-                <strong>US SEPA Scanner</strong> — Stage 2 (SMA150 rising) + VCP + RS ≥70.
-                Database แยกต่างหากจาก US Precision Scanner อย่างสมบูรณ์.
-                Data source: Yahoo Finance.
-            </p>
+        <div class="p-3 border-top" style="background:#f8fafc;">
+            <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+                <p class="mb-0 text-muted" style="font-size:0.72rem;">
+                    <i class="fas fa-info-circle me-1"></i>
+                    <strong>SEPA Score v2</strong> — Earnings Bonus: EPS≥50%(+20), EPS≥25%(+12), Rev≥25%(+6), ROE≥17%(+8), Accel(+10)
+                </p>
+                <div class="d-flex gap-3" style="font-size:0.7rem;">
+                    <span><span class="earnings-pill earnings-pill--strong d-inline-block" style="padding:1px 6px;">+50%</span> Strong</span>
+                    <span><span class="earnings-pill earnings-pill--pass d-inline-block" style="padding:1px 6px;">+25%</span> Pass ✅</span>
+                    <span><span class="earnings-pill earnings-pill--warn d-inline-block" style="padding:1px 6px;">+5%</span> Weak</span>
+                    <span><span class="earnings-pill earnings-pill--fail d-inline-block" style="padding:1px 6px;">-10%</span> Neg ❌</span>
+                </div>
+            </div>
         </div>
     </div>
 </div>
@@ -299,19 +402,19 @@
 <!-- PROGRESS POLLING -->
 <script>
 (function() {
-    var overlay  = document.getElementById('usSepaOverlay');
-    var bar      = document.getElementById('usSepaBar');
-    var prog     = document.getElementById('usSepaProgress');
+    const overlay = document.getElementById('usSepaOverlay');
+    const bar     = document.getElementById('usSepaBar');
+    const prog    = document.getElementById('usSepaProgress');
 
     function poll() {
         fetch('?scan_status=1')
-            .then(function(r) { return r.json(); })
-            .then(function(data) {
+            .then(r => r.json())
+            .then(data => {
                 if (data.state === 'running') {
                     overlay.style.display = 'flex';
-                    var pct = data.total > 0 ? Math.round(data.progress / data.total * 100) : 0;
+                    const pct = data.total > 0 ? Math.round(data.progress / data.total * 100) : 0;
                     bar.style.width  = pct + '%';
-                    prog.textContent = data.phase || ('Scanning ' + data.progress + '/' + data.total);
+                    prog.textContent = data.phase || `Scanning ${data.progress}/${data.total}`;
                     setTimeout(poll, 1500);
                 } else if (data.state === 'done') {
                     overlay.style.display = 'none';
@@ -320,32 +423,86 @@
                     overlay.style.display = 'none';
                 }
             })
-            .catch(function() { overlay.style.display = 'none'; });
+            .catch(() => { overlay.style.display = 'none'; });
     }
 
     if (overlay && overlay.style.display === 'flex') {
         setTimeout(poll, 1000);
     } else {
         fetch('?scan_status=1')
-            .then(function(r) { return r.json(); })
-            .then(function(data) {
-                if (data.state === 'running') {
-                    overlay.style.display = 'flex';
-                    poll();
-                }
-            }).catch(function() {});
+            .then(r => r.json())
+            .then(data => { if (data.state === 'running') { overlay.style.display = 'flex'; poll(); } })
+            .catch(() => {});
     }
 })();
 
 function applyUsSepaFilters() {
-    var vcpOnly  = document.getElementById('vcpOnlyToggle').checked  ? '1' : '0';
-    var hideAtTp = document.getElementById('hideAtTpToggle').checked ? '1' : '0';
-    location.href = '?run_idx={{ selected_run_idx }}&vcp_only=' + vcpOnly + '&hide_at_tp=' + hideAtTp;
+    const vcp      = document.getElementById('vcpOnlyToggle').checked      ? '1' : '0';
+    const tp       = document.getElementById('hideAtTpToggle').checked     ? '1' : '0';
+    const earnings = document.getElementById('earningsFilterToggle').checked ? '1' : '0';
+    location.href = `?run_idx={{ selected_run_idx }}&vcp_only=${vcp}&hide_at_tp=${tp}&earnings_filter=${earnings}`;
 }
+
+document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el => new bootstrap.Tooltip(el));
+});
 </script>
 
 <style>
+/* ── Layout ── */
+.criteria-card {
+    background:#fff;padding:12px 16px;border-radius:16px;
+    box-shadow:0 1px 4px rgba(0,0,0,.06);
+    display:flex;align-items:center;gap:12px;border:1px solid #f1f5f9;
+}
+.criteria-icon {
+    width:40px;height:40px;border-radius:50%;
+    display:flex;align-items:center;justify-content:center;
+    flex-shrink:0;font-size:0.9rem;
+}
+.criteria-title { font-size:0.82rem;font-weight:700;color:#0f172a; }
+.criteria-sub   { font-size:0.68rem;color:#94a3b8; }
+
+/* ── Rank Badges ── */
+.rank-badge {
+    width:26px;height:26px;border-radius:50%;
+    display:flex;align-items:center;justify-content:center;
+    font-weight:700;font-size:0.62rem;flex-shrink:0;
+}
+.rank-gold   { background:#fef3c7;color:#92400e;border:1.5px solid #f59e0b; }
+.rank-silver { background:#f1f5f9;color:#334155;border:1.5px solid #94a3b8; }
+.rank-bronze { background:#fff7ed;color:#9a3412;border:1.5px solid #fb923c; }
+.rank-default{ background:#f8fafc;color:#94a3b8;border:1px solid #e2e8f0; }
+
+/* ── TP Badges ── */
+.tp-badge { display:inline-block;border-radius:999px;padding:1px 7px;font-size:0.58rem;font-weight:700;margin-top:2px; }
+.tp-at    { background:#fef2f2;color:#dc2626;border:1px solid #fecdd3; }
+.tp-near  { background:#fffbeb;color:#d97706;border:1px solid #fde68a; }
+
+/* ── Earnings Pills ── */
+.earnings-pill {
+    display:inline-block;border-radius:999px;
+    padding:2px 10px;font-size:0.72rem;font-weight:700;letter-spacing:.01em;
+}
+.earnings-pill--strong { background:linear-gradient(135deg,#bbf7d0,#86efac);color:#14532d;border:1px solid #4ade80; }
+.earnings-pill--pass   { background:#dcfce7;color:#15803d;border:1px solid #86efac; }
+.earnings-pill--warn   { background:#fffbeb;color:#b45309;border:1px solid #fde68a; }
+.earnings-pill--fail   { background:#fef2f2;color:#b91c1c;border:1px solid #fecaca; }
+
+/* ── Earnings row highlight ── */
+.earnings-highlight td:first-child { border-left:3px solid #22c55e !important; }
+
+/* ── Filter toggles ── */
+.filter-toggle { display:flex;align-items:center;gap:6px; }
+.earnings-toggle .form-check-input:checked { background-color:#b45309;border-color:#b45309; }
+
+/* ── Misc ── */
+.val-hint { font-size:0.56rem;color:#94a3b8;line-height:1.2;margin-top:1px; }
 .table-hover tbody tr:hover { background-color:#f8fafc; }
-.val-hint { font-size: 0.56rem; color: #94a3b8; line-height: 1.2; margin-top: 1px; letter-spacing: .01em; }
+.sepa-row { transition:background .15s; }
+@media (max-width:1400px) { .col-hide-xl { display:none !important; } }
+@media (max-width:1200px) { .col-hide-lg { display:none !important; } }
+@media (max-width:900px)  { .col-hide-md { display:none !important; } }
+@media (max-width:640px)  { .col-hide-sm { display:none !important; } }
 </style>
 {% endblock %}

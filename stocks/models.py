@@ -659,6 +659,13 @@ class USSepaCandidate(models.Model):
     year_high      = models.FloatField(default=0.0)
     upside_to_high = models.FloatField(default=0.0)     # (year_high - price) / price * 100
 
+    # ── Minervini Earnings Criteria (v2) ────────────────────────
+    eps_growth     = models.FloatField(default=0.0)    # EPS Quarterly Growth YoY (%)
+    rev_growth     = models.FloatField(default=0.0)    # Revenue Growth YoY (%)
+    roe            = models.FloatField(default=0.0)    # Return on Equity (%)
+    eps_accel      = models.BooleanField(default=False) # EPS Acceleration: Q ล่าสุด > Q ก่อน
+    earnings_pass  = models.BooleanField(default=False) # ผ่านเกณฑ์ Minervini Earnings (EPS≥25 OR Rev≥25)
+
     class Meta:
         ordering = ['-scan_run', '-rs_rating']
         indexes  = [models.Index(fields=['user', 'scan_run'])]

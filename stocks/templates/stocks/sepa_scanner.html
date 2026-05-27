@@ -2,26 +2,30 @@
 {% load regime_tags %}
 {% block content %}
 <div class="container-fluid py-4" style="background-color: #f8fafc; min-height: 100vh;">
-    <!-- HEADER SECTION -->
+
+    <!-- HEADER -->
     <div class="d-flex align-items-center justify-content-between mb-4 px-2">
         <div>
             <div class="d-flex align-items-center gap-2 mb-1">
-                <span style="font-size: 1.5rem;">🦅</span>
-                <h2 class="fw-bold mb-0" style="color: #0f172a; letter-spacing: -0.025em;">Minervini SEPA Scanner</h2>
+                <span style="font-size:1.5rem;">🦅</span>
+                <h2 class="fw-bold mb-0" style="color:#0f172a;letter-spacing:-0.025em;">Minervini SEPA Scanner</h2>
+                <span class="badge rounded-pill px-3 py-1 ms-1" style="background:linear-gradient(135deg,#7c3aed,#4f46e5);color:#fff;font-size:0.7rem;letter-spacing:.05em;">SET</span>
             </div>
             <p class="text-muted small mb-0">
-                <i class="fas fa-shield-alt me-1"></i> Institutional-Grade Filtering: <strong>Stage 2 Trend + VCP Pattern + Volume Dry-Up</strong>
+                <i class="fas fa-shield-alt me-1"></i>
+                Institutional-Grade: <strong>Stage 2 Trend + VCP + Minervini Earnings Criteria</strong>
             </p>
         </div>
         <div class="d-flex gap-2">
-            <a href="{% url 'stocks:vcp_manual' %}" class="btn btn-outline-secondary btn-sm rounded-pill px-3">
+            <a href="{% url 'stocks:sepa_manual' %}" class="btn btn-outline-secondary btn-sm rounded-pill px-3">
                 <i class="fas fa-book-open me-1"></i> SEPA Manual
             </a>
             <form action="{% url 'stocks:precision_momentum_scanner' %}" method="POST" class="d-inline">
                 {% csrf_token %}
                 <input type="hidden" name="action" value="scan">
                 <input type="hidden" name="next_url" value="sepa">
-                <button type="submit" class="btn btn-primary btn-sm rounded-pill px-4 shadow-sm fw-bold">
+                <button type="submit" class="btn btn-sm rounded-pill px-4 fw-bold shadow-sm"
+                        style="background:linear-gradient(135deg,#6366f1,#4f46e5);color:#fff;border:none;">
                     <i class="fas fa-satellite-dish me-1"></i> Run New SEPA Scan
                 </button>
             </form>
@@ -32,239 +36,276 @@
 
     <!-- CRITERIA QUICK BAR -->
     <div class="row g-3 mb-4">
-        <div class="col-md-3">
-            <div class="bg-white p-3 rounded-4 shadow-sm border-0 d-flex align-items-center gap-3">
-                <div class="rounded-circle d-flex align-items-center justify-content-center" style="width:40px;height:40px;background:#dcfce7;color:#15803d;">
-                    <i class="fas fa-chart-line"></i>
-                </div>
-                <div>
-                    <div class="small fw-bold text-dark">Stage 2 Trend</div>
-                    <div class="text-muted" style="font-size:0.7rem;">Trend Template Only</div>
-                </div>
+        <div class="col-6 col-md-3">
+            <div class="criteria-card">
+                <div class="criteria-icon" style="background:#dcfce7;color:#15803d;"><i class="fas fa-chart-line"></i></div>
+                <div><div class="criteria-title">Stage 2 Trend</div><div class="criteria-sub">Trend Template Only</div></div>
             </div>
         </div>
-        <div class="col-md-3">
-            <div class="bg-white p-3 rounded-4 shadow-sm border-0 d-flex align-items-center gap-3">
-                <div class="rounded-circle d-flex align-items-center justify-content-center" style="width:40px;height:40px;background:#fee2e2;color:#dc2626;">
-                    <i class="fas fa-bullseye"></i>
-                </div>
-                <div>
-                    <div class="small fw-bold text-dark">VCP Setup</div>
-                    <div class="text-muted" style="font-size:0.7rem;">Volatility Contraction</div>
-                </div>
+        <div class="col-6 col-md-3">
+            <div class="criteria-card">
+                <div class="criteria-icon" style="background:#fee2e2;color:#dc2626;"><i class="fas fa-bullseye"></i></div>
+                <div><div class="criteria-title">VCP Setup</div><div class="criteria-sub">Volatility Contraction</div></div>
             </div>
         </div>
-        <div class="col-md-3">
-            <div class="bg-white p-3 rounded-4 shadow-sm border-0 d-flex align-items-center gap-3">
-                <div class="rounded-circle d-flex align-items-center justify-content-center" style="width:40px;height:40px;background:#f3e8ff;color:#7c3aed;">
-                    <i class="fas fa-tint-slash"></i>
-                </div>
-                <div>
-                    <div class="small fw-bold text-dark">Volume Dry-Up</div>
-                    <div class="text-muted" style="font-size:0.7rem;">Institutional Exhaustion</div>
-                </div>
+        <div class="col-6 col-md-3">
+            <div class="criteria-card">
+                <div class="criteria-icon" style="background:#f3e8ff;color:#7c3aed;"><i class="fas fa-tint-slash"></i></div>
+                <div><div class="criteria-title">Volume Dry-Up</div><div class="criteria-sub">Institutional Exhaustion</div></div>
             </div>
         </div>
-        <div class="col-md-3">
-            <div class="bg-white p-3 rounded-4 shadow-sm border-0 d-flex align-items-center gap-3">
-                <div class="rounded-circle d-flex align-items-center justify-content-center" style="width:40px;height:40px;background:#e0f2fe;color:#0ea5e9;">
-                    <i class="fas fa-trophy"></i>
-                </div>
-                <div>
-                    <div class="small fw-bold text-dark">RS Rating 70+</div>
-                    <div class="text-muted" style="font-size:0.7rem;">Strength vs Market</div>
-                </div>
+        <div class="col-6 col-md-3">
+            <div class="criteria-card">
+                <div class="criteria-icon" style="background:#fef3c7;color:#b45309;"><i class="fas fa-chart-bar"></i></div>
+                <div><div class="criteria-title">Earnings Growth</div><div class="criteria-sub">EPS ≥ 25% | Rev ≥ 25%</div></div>
             </div>
         </div>
     </div>
 
-    <!-- MAIN TABLE SECTION -->
+    <!-- MAIN TABLE -->
     <div class="bg-white rounded-4 shadow-sm border-0 overflow-hidden">
-        <!-- FILTER BAR -->
-        <div class="p-3 border-bottom d-flex align-items-center justify-content-between flex-wrap gap-3">
-            <div class="d-flex align-items-center gap-3 flex-wrap">
-                <span class="small text-muted fw-bold"><i class="fas fa-filter me-1"></i> FILTERS:</span>
-                <div class="form-check form-switch mb-0">
-                    <input class="form-check-input" type="checkbox" id="vcpOnlyToggle" {% if vcp_only %}checked{% endif %}
-                           onchange="applyFilters()">
-                    <label class="form-check-label small fw-semibold" for="vcpOnlyToggle">🎯 VCP Only</label>
-                </div>
-                <div class="form-check form-switch mb-0">
-                    <input class="form-check-input" type="checkbox" id="hideAtTpToggle" {% if hide_at_tp %}checked{% endif %}
-                           onchange="applyFilters()">
-                    <label class="form-check-label small fw-semibold" for="hideAtTpToggle">🚫 ซ่อน AT/NEAR TP</label>
-                </div>
-            </div>
 
-            <div class="d-flex align-items-center gap-3 flex-wrap">
-                {% if last_updated %}
-                <span class="small text-muted">
-                    <i class="fas fa-clock me-1"></i>
-                    ข้อมูล ณ <strong>{{ last_updated|date:"d M Y H:i" }}</strong>
-                </span>
-                {% endif %}
-                {% if all_runs %}
-                <div class="d-flex align-items-center gap-2">
-                    <span class="small text-muted fw-bold">History:</span>
-                    <select class="form-select form-select-sm rounded-pill" style="width: auto; font-size: 0.75rem;"
-                            onchange="location.href='?run_idx=' + this.value + '&vcp_only={{ vcp_only|yesno:'1,0' }}&hide_at_tp={{ hide_at_tp|yesno:'1,0' }}'">
-                        {% for run in all_runs %}
-                        <option value="{{ forloop.counter0 }}" {% if forloop.counter0 == selected_run_idx %}selected{% endif %}>
-                            {{ run|date:"d/m H:i" }}{% if forloop.first %} (Latest){% endif %}
-                        </option>
-                        {% endfor %}
-                    </select>
+        <!-- FILTER BAR -->
+        <div class="p-3 border-bottom" style="background:linear-gradient(135deg,#f8fafc,#f1f5f9);">
+            <div class="d-flex align-items-center justify-content-between flex-wrap gap-3">
+                <div class="d-flex align-items-center gap-3 flex-wrap">
+                    <span class="small fw-bold text-muted"><i class="fas fa-filter me-1"></i>FILTERS:</span>
+
+                    <div class="filter-toggle">
+                        <input class="form-check-input" type="checkbox" id="vcpOnlyToggle"
+                               {% if vcp_only %}checked{% endif %} onchange="applyFilters()">
+                        <label class="form-check-label small fw-semibold" for="vcpOnlyToggle">🎯 VCP Only</label>
+                    </div>
+
+                    <div class="filter-toggle">
+                        <input class="form-check-input" type="checkbox" id="hideAtTpToggle"
+                               {% if hide_at_tp %}checked{% endif %} onchange="applyFilters()">
+                        <label class="form-check-label small fw-semibold" for="hideAtTpToggle">🚫 ซ่อน AT/NEAR TP</label>
+                    </div>
+
+                    <!-- Earnings Filter — Minervini EPS/Rev ≥25% -->
+                    <div class="filter-toggle earnings-toggle">
+                        <input class="form-check-input" type="checkbox" id="earningsFilterToggle"
+                               {% if earnings_filter %}checked{% endif %} onchange="applyFilters()">
+                        <label class="form-check-label small fw-semibold" for="earningsFilterToggle">
+                            📊 EPS/Rev ≥ 25%
+                            <span class="badge rounded-pill ms-1" style="background:#fef3c7;color:#b45309;font-size:0.6rem;font-weight:700;border:1px solid #fde68a;">MINERVINI</span>
+                        </label>
+                    </div>
                 </div>
-                {% endif %}
+
+                <div class="d-flex align-items-center gap-3 flex-wrap">
+                    {% if last_updated %}
+                    <span class="small text-muted">
+                        <i class="fas fa-clock me-1"></i>
+                        ข้อมูล ณ <strong>{{ last_updated|date:"d M Y H:i" }}</strong>
+                    </span>
+                    {% endif %}
+                    {% if all_runs %}
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="small text-muted fw-bold">History:</span>
+                        <select class="form-select form-select-sm rounded-pill" style="width:auto;font-size:0.75rem;"
+                                onchange="location.href='?run_idx='+this.value+'&vcp_only={{ vcp_only|yesno:'1,0' }}&hide_at_tp={{ hide_at_tp|yesno:'1,0' }}&earnings_filter={{ earnings_filter|yesno:'1,0' }}'">
+                            {% for run in all_runs %}
+                            <option value="{{ forloop.counter0 }}" {% if forloop.counter0 == selected_run_idx %}selected{% endif %}>
+                                {{ run|date:"d/m H:i" }}{% if forloop.first %} (Latest){% endif %}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    {% endif %}
+                </div>
             </div>
         </div>
 
-        <div class="table-responsive table-sticky-action">
-            <table class="table table-hover align-middle mb-0 table-sm-compact" style="font-size: 0.82rem;">
-                <thead class="bg-light text-muted small text-uppercase">
-                    <tr>
-                        <th class="ps-4 border-0 py-3" style="width: 140px;">Symbol</th>
-                        <th class="border-0 py-3">Price / Chg</th>
-                        <th class="border-0 py-3 text-center col-hide-md">Trend Stage</th>
-                        <th class="border-0 py-3 text-center col-hide-sm">VCP Base</th>
-                        <th class="border-0 py-3 text-center col-hide-sm">% from Pivot</th>
-                        <th class="border-0 py-3 text-center col-hide-md">Institutional Signal</th>
-                        <th class="border-0 py-3 text-center col-hide-sm">RS</th>
-                        <th class="border-0 py-3 text-center">
-                            Score
-                            <i class="fas fa-info-circle ms-1 text-muted d-none d-md-inline" style="cursor:pointer;"
-                               data-bs-toggle="tooltip"
-                               title="คะแนนรวม: VCP quality(65) + VDU(20) + RS×0.7(~69) + ADX(10) + Proximity(10)"></i>
+        <!-- TABLE -->
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0" style="font-size:0.81rem;">
+                <thead style="background:#f8fafc;">
+                    <tr class="text-muted small text-uppercase" style="letter-spacing:.04em;">
+                        <th class="ps-4 py-3" style="width:145px;">Symbol</th>
+                        <th class="py-3">Price / Chg</th>
+                        <th class="py-3 text-center col-hide-md">Trend Stage</th>
+                        <th class="py-3 text-center col-hide-sm">VCP Base</th>
+                        <th class="py-3 text-center col-hide-sm">% from Pivot</th>
+                        <th class="py-3 text-center col-hide-md">Signals</th>
+                        <th class="py-3 text-center col-hide-sm">RS</th>
+                        <!-- NEW: Earnings Columns -->
+                        <th class="py-3 text-center col-hide-lg earnings-col">
+                            <span class="d-flex align-items-center justify-content-center gap-1">
+                                EPS Growth
+                                <i class="fas fa-info-circle text-muted" style="cursor:pointer;font-size:0.65rem;"
+                                   data-bs-toggle="tooltip" title="EPS Quarterly Growth YoY — Minervini requires ≥25%"></i>
+                            </span>
                         </th>
-                        <th class="pe-4 border-0 py-3 text-end">Action</th>
+                        <th class="py-3 text-center col-hide-lg earnings-col">Rev Growth</th>
+                        <th class="py-3 text-center">
+                            Score
+                            <i class="fas fa-info-circle ms-1 text-muted d-none d-md-inline" style="cursor:pointer;font-size:0.65rem;"
+                               data-bs-toggle="tooltip"
+                               title="คะแนนรวม: VCP(65) + VDU(20) + RS×0.7 + ADX(10) + Proximity(10) + EPS bonus(30) + Rev bonus(10)"></i>
+                        </th>
+                        <th class="pe-4 py-3 text-end">Action</th>
                     </tr>
                 </thead>
                 <tbody class="border-0">
                     {% for item in candidates %}
-                    <tr class="border-bottom border-light">
+                    <tr class="border-bottom border-light sepa-row {% if item.eps_badge == 'strong' or item.rev_badge == 'strong' %}earnings-highlight{% endif %}">
+
                         <!-- Symbol + Rank -->
                         <td class="ps-4 py-3">
                             <div class="d-flex align-items-center gap-2">
-                                <!-- Rank Badge -->
-                                <div class="rounded-circle d-flex align-items-center justify-content-center fw-bold flex-shrink-0"
-                                     style="width:26px;height:26px;font-size:0.65rem;
-                                     {% if item.sepa_rank == 1 %}background:#fef3c7;color:#92400e;border:1.5px solid #f59e0b;
-                                     {% elif item.sepa_rank == 2 %}background:#f1f5f9;color:#334155;border:1.5px solid #94a3b8;
-                                     {% elif item.sepa_rank == 3 %}background:#fff7ed;color:#9a3412;border:1.5px solid #fb923c;
-                                     {% else %}background:#f8fafc;color:#94a3b8;border:1px solid #e2e8f0;{% endif %}">
+                                <div class="rank-badge
+                                    {% if item.sepa_rank == 1 %}rank-gold
+                                    {% elif item.sepa_rank == 2 %}rank-silver
+                                    {% elif item.sepa_rank == 3 %}rank-bronze
+                                    {% else %}rank-default{% endif %}">
                                     #{{ item.sepa_rank }}
                                 </div>
                                 <div>
-                                    <div class="fw-bold text-dark" style="font-size: 0.95rem;">{{ item.symbol }}</div>
-                                    <div class="text-muted" style="font-size: 0.68rem;">{{ item.sector|default:"N/A" }}</div>
+                                    <div class="fw-bold text-dark" style="font-size:0.95rem;">{{ item.symbol }}</div>
+                                    <div class="text-muted" style="font-size:0.65rem;">{{ item.sector|default:"N/A" }}</div>
                                 </div>
                             </div>
                         </td>
+
                         <!-- Price -->
                         <td class="py-3">
-                            <div class="fw-bold text-dark">{% if item.market == 'US' %}${% else %}฿{% endif %}{{ item.live_price|default:item.price|floatformat:2 }}</div>
-                            <div class="{% if item.live_change_pct >= 0 %}text-success{% else %}text-danger{% endif %} fw-semibold" style="font-size: 0.72rem;">
+                            <div class="fw-bold text-dark">฿{{ item.live_price|default:item.price|floatformat:2 }}</div>
+                            <div class="{% if item.live_change_pct >= 0 %}text-success{% else %}text-danger{% endif %} fw-semibold" style="font-size:0.72rem;">
                                 {% if item.live_change_pct >= 0 %}+{% endif %}{{ item.live_change_pct|floatformat:1 }}%
                             </div>
                             {% if item.tp_status == 'at_tp' %}
-                            <span class="badge rounded-pill px-2 mt-1 d-inline-block" style="background:#fef2f2;color:#dc2626;border:1px solid #fecdd3;font-size:0.6rem;">AT TP</span>
+                            <span class="tp-badge tp-at">AT TP</span>
                             {% elif item.tp_status == 'near_tp' %}
-                            <span class="badge rounded-pill px-2 mt-1 d-inline-block" style="background:#fffbeb;color:#d97706;border:1px solid #fde68a;font-size:0.6rem;">NEAR TP</span>
+                            <span class="tp-badge tp-near">NEAR TP</span>
                             {% endif %}
                         </td>
+
                         <!-- Trend Stage -->
                         <td class="py-3 text-center col-hide-md">
                             {% if item.stage2 %}
-                                <span class="badge rounded-pill px-3 py-1" style="background:#dcfce7; color:#15803d; border:1px solid #86efac;">
-                                    <i class="fas fa-check-circle me-1"></i> STAGE 2
-                                </span>
+                            <span class="badge rounded-pill px-3 py-1" style="background:#dcfce7;color:#15803d;border:1px solid #86efac;">
+                                <i class="fas fa-check-circle me-1"></i> STAGE 2
+                            </span>
                             {% else %}
-                                <span class="badge rounded-pill px-3 py-1" style="background:#f1f5f9; color:#64748b;">
-                                    STAGE 1/3
-                                </span>
+                            <span class="badge rounded-pill px-3 py-1" style="background:#f1f5f9;color:#64748b;">STAGE 1/3</span>
                             {% endif %}
                         </td>
+
                         <!-- VCP Base -->
                         <td class="py-3 text-center col-hide-sm">
                             {% if item.vcp_setup %}
-                                <div class="d-inline-block text-start">
-                                    <span class="badge rounded-pill px-3 py-1 mb-1 d-block text-center" style="background:#fee2e2; color:#dc2626; border:1px solid #fecdd3;">
-                                        🎯 {{ item.vcp_contractions }}T
-                                    </span>
-                                    <div class="text-muted text-center" style="font-size: 0.65rem;">
-                                        <strong>{{ item.vcp_tightness }}%</strong>
-                                    </div>
-                                </div>
-                            {% else %}
-                                <span class="badge rounded-pill px-2 py-1" style="background:#f8fafc;color:#94a3b8;border:1px solid #e2e8f0;font-size:0.68rem;">
-                                    —
+                            <div class="d-inline-block text-start">
+                                <span class="badge rounded-pill px-3 py-1 mb-1 d-block text-center"
+                                      style="background:#fee2e2;color:#dc2626;border:1px solid #fecdd3;">
+                                    🎯 {{ item.vcp_contractions }}T
                                 </span>
+                                <div class="text-muted text-center" style="font-size:0.65rem;">
+                                    <strong>{{ item.vcp_tightness }}%</strong> tight
+                                </div>
+                            </div>
+                            {% else %}
+                            <span class="text-muted" style="font-size:0.8rem;">—</span>
                             {% endif %}
                         </td>
+
                         <!-- % from Pivot -->
                         <td class="py-3 text-center col-hide-sm">
                             {% if item.dist_from_pivot is not None %}
-                                <div class="fw-bold" style="font-size:0.9rem;
-                                    color:{% if item.dist_from_pivot <= 5 %}#15803d{% elif item.dist_from_pivot <= 10 %}#2563eb{% else %}#64748b{% endif %};">
-                                    {{ item.dist_from_pivot }}%
-                                </div>
-                                <div class="val-hint">ห่างจุดเข้า</div>
+                            <div class="fw-bold" style="font-size:0.9rem;
+                                color:{% if item.dist_from_pivot <= 5 %}#15803d{% elif item.dist_from_pivot <= 10 %}#2563eb{% else %}#64748b{% endif %};">
+                                {{ item.dist_from_pivot }}%
+                            </div>
+                            <div class="val-hint">ห่างจุดเข้า</div>
                             {% else %}
-                                <span class="text-muted">—</span>
+                            <span class="text-muted">—</span>
                             {% endif %}
                         </td>
+
                         <!-- Signals -->
                         <td class="py-3 text-center col-hide-md">
-                            <div class="d-flex justify-content-center gap-1">
+                            <div class="d-flex justify-content-center gap-1 flex-wrap">
                                 {% if item.vcp_vdu or item.vdu_near_zone %}
-                                    <span class="badge rounded-pill px-2 py-1" style="background:#f3e8ff; color:#7c3aed; border:1px solid #e9d5ff;">VDU ✅</span>
+                                <span class="badge rounded-pill px-2 py-1" style="background:#f3e8ff;color:#7c3aed;border:1px solid #e9d5ff;">VDU ✅</span>
                                 {% endif %}
                                 {% if item.pocket_pivot %}
-                                    <span class="badge rounded-pill px-2 py-1" style="background:#e0f2fe; color:#0369a1; border:1px solid #bae6fd;">PP 🔥</span>
+                                <span class="badge rounded-pill px-2 py-1" style="background:#e0f2fe;color:#0369a1;border:1px solid #bae6fd;">PP 🔥</span>
                                 {% endif %}
                                 {% if not item.vcp_vdu and not item.vdu_near_zone and not item.pocket_pivot %}
-                                    <span class="text-muted">—</span>
+                                <span class="text-muted">—</span>
                                 {% endif %}
                             </div>
                         </td>
+
                         <!-- RS Rating -->
                         <td class="py-3 text-center col-hide-sm">
-                            <div class="fw-bold" style="color: {% if item.rs_rating >= 80 %}#15803d{% elif item.rs_rating >= 70 %}#2563eb{% else %}#1e293b{% endif %}; font-size: 1rem;">
+                            <div class="fw-bold" style="color:{% if item.rs_rating >= 80 %}#15803d{% elif item.rs_rating >= 70 %}#2563eb{% else %}#1e293b{% endif %};font-size:1rem;">
                                 {{ item.rs_rating }}
                             </div>
-                            <div class="val-hint">เทียบตลาด</div>
+                            <div class="val-hint">vs SET</div>
                         </td>
+
+                        <!-- EPS Growth — NEW -->
+                        <td class="py-3 text-center col-hide-lg earnings-col">
+                            {% with eps=item.eps_growth|default:0 %}
+                            <div class="earnings-pill earnings-pill--{{ item.eps_badge }}">
+                                {% if eps >= 0 %}+{% endif %}{{ eps|floatformat:0 }}%
+                            </div>
+                            <div class="val-hint">EPS QoQ</div>
+                            {% if item.eps_accel %}
+                            <div style="font-size:0.58rem;color:#7c3aed;font-weight:700;margin-top:2px;">⚡ ACCEL</div>
+                            {% endif %}
+                            {% endwith %}
+                        </td>
+
+                        <!-- Revenue Growth — NEW -->
+                        <td class="py-3 text-center col-hide-lg earnings-col">
+                            {% with rev=item.rev_growth|default:0 %}
+                            <div class="earnings-pill earnings-pill--{{ item.rev_badge }}">
+                                {% if rev >= 0 %}+{% endif %}{{ rev|floatformat:0 }}%
+                            </div>
+                            <div class="val-hint">Revenue</div>
+                            {% endwith %}
+                        </td>
+
                         <!-- SEPA Score -->
                         <td class="py-3 text-center">
                             <div class="fw-bold" style="font-size:1rem;
-                                color:{% if item.sepa_score >= 120 %}#15803d{% elif item.sepa_score >= 90 %}#2563eb{% elif item.sepa_score >= 60 %}#d97706{% else %}#64748b{% endif %};">
+                                color:{% if item.sepa_score >= 140 %}#15803d{% elif item.sepa_score >= 100 %}#2563eb{% elif item.sepa_score >= 70 %}#d97706{% else %}#64748b{% endif %};">
                                 {{ item.sepa_score }}
                             </div>
-                            <div class="text-muted" style="font-size:0.62rem;">
-                                {% if item.sepa_score >= 120 %}Elite Setup
-                                {% elif item.sepa_score >= 90 %}Strong Setup
-                                {% elif item.sepa_score >= 60 %}Developing
-                                {% else %}Weak{% endif %}
+                            <div class="text-muted" style="font-size:0.6rem;">
+                                {% if item.sepa_score >= 140 %}⭐ Elite
+                                {% elif item.sepa_score >= 100 %}💪 Strong
+                                {% elif item.sepa_score >= 70 %}📈 Developing
+                                {% else %}📉 Weak{% endif %}
                             </div>
-                            <div class="val-hint">คะแนน SEPA</div>
+                            <div class="val-hint">SEPA Score</div>
                         </td>
+
                         <!-- Action -->
                         <td class="pe-4 py-3 text-end">
                             <div class="d-flex gap-1 justify-content-end">
-                                <a href="{% url 'stocks:stock_chart' item.symbol %}?market=SET" class="btn btn-sm rounded-pill px-3" style="font-size:0.72rem;background:#0ea5e9;color:white;" target="_blank" title="ดูกราฟ"><i class="fas fa-chart-line me-1"></i>Chart</a>
-                                <a href="{% url 'stocks:entry_finder' item.symbol %}" class="btn btn-sm btn-light rounded-pill px-3" style="font-size: 0.72rem;">
-                                    <i class="fas fa-crosshairs me-1 text-primary"></i> Sniper
+                                <a href="{% url 'stocks:stock_chart' item.symbol %}?market=SET"
+                                   class="btn btn-sm rounded-pill px-3"
+                                   style="font-size:0.72rem;background:#0ea5e9;color:white;" target="_blank">
+                                    <i class="fas fa-chart-line me-1"></i>Chart
+                                </a>
+                                <a href="{% url 'stocks:entry_finder' item.symbol %}"
+                                   class="btn btn-sm btn-light rounded-pill px-3" style="font-size:0.72rem;">
+                                    <i class="fas fa-crosshairs me-1 text-primary"></i>Sniper
                                 </a>
                             </div>
                         </td>
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="9" class="text-center py-5">
+                        <td colspan="11" class="text-center py-5">
                             <div class="text-muted">
-                                <i class="fas fa-search mb-2 d-block" style="font-size: 2rem; opacity: 0.5;"></i>
-                                No high-potential SEPA setups found in this scan.<br>
-                                Try running a new session or check the previous runs.
+                                <i class="fas fa-search mb-2 d-block" style="font-size:2rem;opacity:.4;"></i>
+                                No high-potential SEPA setups found.<br>
+                                <span class="small">Try running a new scan or adjust your filters.</span>
                             </div>
                         </td>
                     </tr>
@@ -272,28 +313,102 @@
                 </tbody>
             </table>
         </div>
-        
+
         <!-- FOOTER INFO -->
-        <div class="p-3 bg-light-subtle border-top text-center">
-            <p class="mb-0 text-muted" style="font-size: 0.73rem;">
-                <i class="fas fa-info-circle me-1"></i> <strong>Minervini SEPA Scanner</strong> matches stocks against strict institutional supply/demand criteria. High RS Rating + VCP + Stage 2 creates the highest probability for explosive breakouts.
-            </p>
+        <div class="p-3 border-top" style="background:#f8fafc;">
+            <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+                <p class="mb-0 text-muted" style="font-size:0.72rem;">
+                    <i class="fas fa-info-circle me-1"></i>
+                    <strong>SEPA Score v2</strong> รวม Earnings Bonus: EPS≥50%(+20), EPS≥25%(+12), Rev≥25%(+6), EPS Accel(+10)
+                </p>
+                <div class="d-flex gap-3" style="font-size:0.7rem;">
+                    <span><span class="earnings-pill earnings-pill--strong d-inline-block" style="padding:1px 6px;">+50%</span> ≥50% Strong</span>
+                    <span><span class="earnings-pill earnings-pill--pass d-inline-block" style="padding:1px 6px;">+25%</span> ≥25% Pass</span>
+                    <span><span class="earnings-pill earnings-pill--warn d-inline-block" style="padding:1px 6px;">+5%</span> &lt;25% Weak</span>
+                    <span><span class="earnings-pill earnings-pill--fail d-inline-block" style="padding:1px 6px;">-10%</span> Negative</span>
+                </div>
+            </div>
         </div>
     </div>
 </div>
 
 <style>
-    .bg-purple { background-color: #7c3aed; }
-    .text-purple { color: #7c3aed; }
-    .table-hover tbody tr:hover { background-color: #f8fafc; }
-    .val-hint { font-size: 0.56rem; color: #94a3b8; line-height: 1.2; margin-top: 1px; letter-spacing: .01em; }
+/* ── Layout ── */
+.criteria-card {
+    background:#fff;
+    padding:12px 16px;
+    border-radius:16px;
+    box-shadow:0 1px 4px rgba(0,0,0,.06);
+    display:flex;
+    align-items:center;
+    gap:12px;
+    border:1px solid #f1f5f9;
+}
+.criteria-icon {
+    width:40px;height:40px;border-radius:50%;
+    display:flex;align-items:center;justify-content:center;
+    flex-shrink:0;font-size:0.9rem;
+}
+.criteria-title { font-size:0.82rem;font-weight:700;color:#0f172a; }
+.criteria-sub   { font-size:0.68rem;color:#94a3b8; }
+
+/* ── Rank Badges ── */
+.rank-badge {
+    width:26px;height:26px;border-radius:50%;
+    display:flex;align-items:center;justify-content:center;
+    font-weight:700;font-size:0.62rem;flex-shrink:0;
+}
+.rank-gold   { background:#fef3c7;color:#92400e;border:1.5px solid #f59e0b; }
+.rank-silver { background:#f1f5f9;color:#334155;border:1.5px solid #94a3b8; }
+.rank-bronze { background:#fff7ed;color:#9a3412;border:1.5px solid #fb923c; }
+.rank-default{ background:#f8fafc;color:#94a3b8;border:1px solid #e2e8f0; }
+
+/* ── TP Badges ── */
+.tp-badge { display:inline-block;border-radius:999px;padding:1px 7px;font-size:0.58rem;font-weight:700;margin-top:2px; }
+.tp-at    { background:#fef2f2;color:#dc2626;border:1px solid #fecdd3; }
+.tp-near  { background:#fffbeb;color:#d97706;border:1px solid #fde68a; }
+
+/* ── Earnings Pills — NEW ── */
+.earnings-pill {
+    display:inline-block;
+    border-radius:999px;
+    padding:2px 10px;
+    font-size:0.72rem;
+    font-weight:700;
+    letter-spacing:.01em;
+}
+.earnings-pill--strong { background:linear-gradient(135deg,#bbf7d0,#86efac);color:#14532d;border:1px solid #4ade80; }
+.earnings-pill--pass   { background:#dcfce7;color:#15803d;border:1px solid #86efac; }
+.earnings-pill--warn   { background:#fffbeb;color:#b45309;border:1px solid #fde68a; }
+.earnings-pill--fail   { background:#fef2f2;color:#b91c1c;border:1px solid #fecaca; }
+
+/* ── Earnings row highlight ── */
+.earnings-highlight td:first-child { border-left:3px solid #22c55e !important; }
+
+/* ── Filter toggles ── */
+.filter-toggle { display:flex;align-items:center;gap:6px; }
+.earnings-toggle .form-check-input:checked { background-color:#b45309;border-color:#b45309; }
+
+/* ── Misc ── */
+.val-hint { font-size:0.56rem;color:#94a3b8;line-height:1.2;margin-top:1px; }
+.table-hover tbody tr:hover { background-color:#f8fafc; }
+.sepa-row { transition:background .15s; }
+@media (max-width:1200px) { .col-hide-lg { display:none !important; } }
+@media (max-width:900px)  { .col-hide-md { display:none !important; } }
+@media (max-width:640px)  { .col-hide-sm { display:none !important; } }
 </style>
+
 <script>
 function applyFilters() {
-    var vcpOnly   = document.getElementById('vcpOnlyToggle').checked   ? '1' : '0';
-    var hideAtTp  = document.getElementById('hideAtTpToggle').checked  ? '1' : '0';
-    var runIdx    = {{ selected_run_idx }};
-    location.href = '?run_idx=' + runIdx + '&vcp_only=' + vcpOnly + '&hide_at_tp=' + hideAtTp;
+    const vcp      = document.getElementById('vcpOnlyToggle').checked     ? '1' : '0';
+    const tp       = document.getElementById('hideAtTpToggle').checked    ? '1' : '0';
+    const earnings = document.getElementById('earningsFilterToggle').checked ? '1' : '0';
+    const runIdx   = {{ selected_run_idx }};
+    location.href = `?run_idx=${runIdx}&vcp_only=${vcp}&hide_at_tp=${tp}&earnings_filter=${earnings}`;
 }
+// Init tooltips
+document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el => new bootstrap.Tooltip(el));
+});
 </script>
 {% endblock %}
