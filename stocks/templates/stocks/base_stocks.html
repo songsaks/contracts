@@ -389,6 +389,23 @@
                                     🇺🇸 US Precision
                                 </a>
                             </li>
+                            <li><hr class="dropdown-divider opacity-25 my-1"></li>
+                            <!-- SEPA Scanners -->
+                            <li>
+                                <a class="dropdown-item rounded-3 py-2 fw-bold {% if request.resolver_match.url_name == 'minervini_sepa_scanner' %}active{% endif %}"
+                                   href="{% url 'stocks:minervini_sepa_scanner' %}"
+                                   style="color:#7c3aed;">
+                                    🦅 SEPA Scanner (SET)
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item rounded-3 py-2 fw-bold {% if request.resolver_match.url_name == 'us_sepa_scanner' %}active{% endif %}"
+                                   href="{% url 'stocks:us_sepa_scanner' %}"
+                                   style="color:#1e40af;">
+                                    🦅🇺🇸 SEPA Scanner (US)
+                                </a>
+                            </li>
+                            <li><hr class="dropdown-divider opacity-25 my-1"></li>
                             <li>
                                 <a class="dropdown-item rounded-3 py-2 {% if request.resolver_match.url_name == 'cup_handle_scanner' %}active{% endif %}"
                                    href="{% url 'stocks:cup_handle_scanner' %}">
@@ -428,6 +445,13 @@
                                 </a>
                             </li>
                             <li><hr class="dropdown-divider opacity-25 my-1"></li>
+                            <li>
+                                <a class="dropdown-item rounded-3 py-2 fw-bold {% if request.resolver_match.url_name == 'sepa_manual' %}active{% endif %}"
+                                   href="{% url 'stocks:sepa_manual' %}"
+                                   style="color:#6366f1;">
+                                    <i class="fas fa-book-open me-2"></i> SEPA Manual 🦅
+                                </a>
+                            </li>
                             <li>
                                 <a class="dropdown-item rounded-3 py-2 text-primary fw-bold"
                                    href="{% url 'stocks:scanner_guide' %}">
