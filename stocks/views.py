@@ -10772,18 +10772,76 @@ def chart_ai_analyze_ajax(request, symbol):
         
         signal_text = ", ".join([s.get('type', '') for s in signals]) if signals else "ไม่มีสัญญาณซื้อขายล่าสุด"
 
+        # ====== Fetch SEPA Data ======
+        sepa_info = ""
+        try:
+            from .models import PrecisionScanCandidate, USSepaCandidate
+            if market == 'US':
+                sepa_cand = USSepaCandidate.objects.filter(user=request.user, symbol=symbol).order_by('-scan_run').first()
+            else:
+                sepa_cand = PrecisionScanCandidate.objects.filter(user=request.user, symbol=symbol, market='SET').order_by('-scan_run').first()
+                
+            if sepa_cand:
+                eps_g = getattr(sepa_cand, 'eps_growth', 0.0) or 0.0
+                rev_g = getattr(sepa_cand, 'rev_growth', 0.0) or 0.0
+                rs_rt = getattr(sepa_cand, 'rs_rating', 0) or 0
+                vcp   = getattr(sepa_cand, 'vcp_setup', False)
+                stg2  = getattr(sepa_cand, 'stage2', False)
+                adx_v = getattr(sepa_cand, 'adx', 0) or 0
+                dist  = getattr(sepa_cand, 'upside_to_high', 0.0) or 0.0
+
+                # Calculate roughly SEPA Score as in minervini_sepa_scanner
+                sc = 0
+                if vcp:
+                    sc += 30
+                    sc += int(max(0, (10 - min(getattr(sepa_cand, 'vcp_tightness', 0) or 0, 10)) * 2))
+                    sc += min(getattr(sepa_cand, 'vcp_contractions', 0) or 0, 5) * 3
+                if getattr(sepa_cand, 'vcp_vdu', False) or getattr(sepa_cand, 'vdu_near_zone', False):
+                    sc += 20
+                if getattr(sepa_cand, 'pocket_pivot', False):
+                    sc += 10
+                sc += int(rs_rt * 0.7)
+                if adx_v >= 25: sc += 10
+                elif adx_v >= 15: sc += 5
+                
+                if vcp:
+                    if dist <= 5: sc += 10
+                    elif dist <= 10: sc += 5
+                    elif dist > 15: sc -= 5
+                        
+                if eps_g >= 50: sc += 20
+                elif eps_g >= 25: sc += 12
+                elif eps_g >= 10: sc += 5
+                
+                if rev_g >= 50: sc += 10
+                elif rev_g >= 25: sc += 6
+                
+                sepa_info = f"""
+ข้อมูล SEPA Scanner (Minervini) ปัจจุบัน:
+- Stage 2 Trend: {'Yes' if stg2 else 'No'}
+- VCP Setup: {'Yes' if vcp else 'No'}
+- RS Rating: {rs_rt}
+- EPS Growth: {eps_g}% / Rev Growth: {rev_g}%
+- SEPA Score: {sc}
+"""
+        except Exception as e:
+            sepa_info = f"<!-- SEPA Fetch Error: {e} -->"
+
         prompt = f"""
-คุณคือ AI ผู้ช่วยนักเทรดหุ้นมืออาชีพสาย Momentum และ Turtle Trading
+คุณคือ AI ผู้ช่วยนักเทรดหุ้นมืออาชีพสาย Momentum, Turtle Trading และ Minervini SEPA
 โปรดวิเคราะห์กราฟหุ้น {symbol} (ตลาด: {market}) โดยสรุปสั้นๆ ให้กระชับ (ไม่เกิน 10-15 บรรทัด)
+
 ข้อมูลทางเทคนิคปัจจุบัน (จากหน้ากราฟของผู้ใช้):
 - ราคาล่าสุด: {price}
 - ทิศทางเทรนด์: {trend}
 - RSI: {rsi}
 - MACD/Signal state: {macd}
 - สัญญาณที่เกิดขึ้นล่าสุด: {signal_text}
+{sepa_info}
 
 ช่วยวิเคราะห์แนวโน้ม ทิศทาง และให้คำแนะนำที่ชัดเจนว่าควรทำอย่างไร (ซื้อเพิ่ม / ถือ / ขายตัดขาดทุน / รอจังหวะ) 
-อธิบายเหตุผลสั้นๆ ด้วยข้อมูลทางเทคนิคด้านบนให้เข้าใจง่ายที่สุด จัดรูปแบบเป็น Markdown เพื่อให้อ่านง่าย
+หากหุ้นตัวนี้มีคะแนน SEPA Score สูง และอยู่ใน Stage 2 โปรดนำมาพิจารณาประกอบกับสัญญาณกราฟด้วยเพื่อไม่ให้ขัดแย้งกัน
+อธิบายเหตุผลสั้นๆ ให้เข้าใจง่ายที่สุด จัดรูปแบบเป็น Markdown เพื่อให้อ่านง่าย
 """
 
         api_key = getattr(settings, "GEMINI_API_KEY", None)
