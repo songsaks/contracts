@@ -482,6 +482,17 @@
     <div id="news-flash-box" class="news-fade-in">กำลังโหลดข่าวสารตลาดทองคำ...</div>
 </div>
 
+<!-- ══════ TREND ALERT BANNERS ══════ -->
+<div id="trend-warning-banner" class="alert-panel text-center d-none" style="margin: 0.8rem 1rem; border: 2px solid var(--red); background: rgba(248,81,73,0.15); border-radius: 8px; padding: 1rem;">
+    <h3 style="color: #f85149; font-weight: 900; margin-bottom: 0.5rem;"><i class="fas fa-exclamation-triangle"></i> DOWNTREND ALERT - ราคาต่ำกว่า EMA200 อันตราย!</h3>
+    <p style="color: #fca5a5; font-size: 0.95rem; margin-bottom: 0; font-weight: 700;">ระบบตรวจพบแนวโน้มขาลง (Bearish) <span style="text-decoration: underline;">ไม่ควรเข้าไปเล่นฝั่งซื้อ (BUY)</span> จนกว่าราคาจะกลับตัวยืนเหนือ EMA200 ได้</p>
+</div>
+
+<div id="trend-safe-banner" class="alert-panel text-center d-none" style="margin: 0.8rem 1rem; border: 2px solid var(--green); background: rgba(63,185,80,0.15); border-radius: 8px; padding: 1rem;">
+    <h3 style="color: #3fb950; font-weight: 900; margin-bottom: 0.5rem;"><i class="fas fa-check-circle"></i> UPTREND CONFIRMED - ปลอดภัย เทรดได้!</h3>
+    <p style="color: #86efac; font-size: 0.95rem; margin-bottom: 0; font-weight: 700;">แนวโน้มอยู่ในขาขึ้น (Bullish) ยืนเหนือ EMA200 สามารถเข้าทำกำไรได้ตามกลยุทธ์ตามปกติ</p>
+</div>
+
 <!-- ══════ HEADER ══════ -->
 <div class="gcc-header d-flex flex-wrap justify-content-between align-items-center gap-2">
     <div>
@@ -1855,6 +1866,17 @@
                     const isUp = lastPrice > data.tactical.ema200;
                     tEl.innerText = isUp ? 'BULLISH' : 'BEARISH';
                     tEl.className = 'fw-bold ' + (isUp ? 'text-success' : 'text-danger');
+                    
+                    // Update main alert banners
+                    const warnBanner = document.getElementById('trend-warning-banner');
+                    const safeBanner = document.getElementById('trend-safe-banner');
+                    if (isUp) {
+                        warnBanner.classList.add('d-none');
+                        safeBanner.classList.remove('d-none');
+                    } else {
+                        safeBanner.classList.add('d-none');
+                        warnBanner.classList.remove('d-none');
+                    }
                 }
                 
                 const rEl = document.getElementById('rsi-display');
