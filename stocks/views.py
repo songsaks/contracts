@@ -6562,11 +6562,12 @@ def multi_factor_scanner(request):
                         is_active=True, market='SET'
                     ).values_list('symbol', flat=True).distinct()
 
-                # Delete any existing SET records for these symbols
-                MultiFactorCandidate.objects.filter(user=user, symbol__in=sym_list).delete()
                 # deduplicate while preserving order
                 seen = set()
                 sym_list = [s for s in scan_symbols if not (s in seen or seen.add(s))]
+
+                # Delete any existing SET records for these symbols
+                MultiFactorCandidate.objects.filter(user=user, symbol__in=sym_list).delete()
 
                 _cache.set(cache_key, {'state': 'running', 'progress': 0, 'total': len(sym_list)}, timeout=600)
 
