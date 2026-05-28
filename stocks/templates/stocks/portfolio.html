@@ -237,6 +237,24 @@
                     {% endif %}
 
                     <div class="p-4 flex-grow-1 position-relative" style="z-index: 1;">
+                        <!-- Top Indicator Badges (Moved from Icon to prevent overlap) -->
+                        <div class="d-flex gap-2 mb-3">
+                            <span class="badge rounded-pill {% if item.trailing_stop_data.color == 'danger' %}bg-danger{% else %}bg-success{% endif %} border border-white" style="font-size: 0.68rem; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+                                {% if item.trailing_stop_data.color == 'danger' %}<i class="fas fa-exclamation-triangle"></i> CUT{% else %}<i class="fas fa-shield-alt"></i> SAFE{% endif %}
+                            </span>
+                            {% if item.mom_data %}
+                                {% if item.mom_data.demand_zone_start and item.current_price <= item.mom_data.demand_zone_start and item.current_price >= item.mom_data.demand_zone_end %}
+                                <span class="badge rounded-pill bg-success border border-white animate-pulse-green" style="font-size: 0.68rem; box-shadow: 0 0 10px rgba(34, 197, 94, 0.4);">
+                                    <i class="fas fa-shopping-cart"></i> BUY ZONE
+                                </span>
+                                {% elif item.mom_data.supply_zone_start and item.current_price >= item.mom_data.supply_zone_start %}
+                                <span class="badge rounded-pill bg-danger border border-white animate-pulse-red" style="font-size: 0.68rem; box-shadow: 0 0 10px rgba(239, 68, 68, 0.4);">
+                                    <i class="fas fa-bullseye"></i> TP ZONE
+                                </span>
+                                {% endif %}
+                            {% endif %}
+                        </div>
+
                         <div class="d-flex justify-content-between align-items-start mb-4 card-item-header">
                             <!-- Left: Icon and Title -->
                             <div class="d-flex align-items-center gap-3">
@@ -246,34 +264,6 @@
                                         {% elif item.obj.category == 'CRYPTO' %}<i class="fab fa-bitcoin fa-lg"></i>
                                         {% else %}<i class="fas fa-coins fa-lg"></i>{% endif %}
                                     </div>
-                                    <!-- Status Badge (Top Left) -->
-                                    <div class="position-absolute top-0 start-0 translate-middle">
-                                        <span class="badge rounded-pill {% if item.trailing_stop_data.color == 'danger' %}bg-danger{% else %}bg-success{% endif %} border border-white d-flex align-items-center gap-1" 
-                                              style="padding: 0.35em 0.6em; box-shadow: 0 2px 4px rgba(0,0,0,0.1); font-size: 0.55rem; letter-spacing: 0.5px;"
-                                              title="{% if item.trailing_stop_data.color == 'danger' %}SELL NOW! (หลุดจุดคัท){% else %}{% if item.obj.strategy == 'Turtle S1' or item.obj.strategy == 'Turtle S2' %}RIDE TREND (รันเทรนด์){% else %}HOLDING (ถือครอง){% endif %}{% endif %}">
-                                            {% if item.trailing_stop_data.color == 'danger' %}
-                                                <i class="fas fa-exclamation-triangle"></i> CUT
-                                            {% else %}
-                                                <i class="fas fa-shield-alt"></i> SAFE
-                                            {% endif %}
-                                        </span>
-                                    </div>
-                                    <!-- Zone Alert (Top Right) -->
-                                    {% if item.mom_data %}
-                                        {% if item.mom_data.demand_zone_start and item.current_price <= item.mom_data.demand_zone_start and item.current_price >= item.mom_data.demand_zone_end %}
-                                        <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-success border border-white d-flex align-items-center gap-1" 
-                                              style="padding: 0.35em 0.6em; animation: pulse-green 1.5s infinite; box-shadow: 0 0 10px rgba(34, 197, 94, 0.5); font-size: 0.55rem; letter-spacing: 0.5px;" 
-                                              title="{% if item.obj.strategy == 'Precision' %}BUY ZONE{% else %}DEMAND ZONE (โซนซื้อ){% endif %}">
-                                            <i class="fas fa-shopping-cart"></i> BUY ZONE
-                                        </span>
-                                        {% elif item.mom_data.supply_zone_start and item.current_price >= item.mom_data.supply_zone_start %}
-                                        <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger border border-white d-flex align-items-center gap-1" 
-                                              style="padding: 0.35em 0.6em; animation: pulse-red 1.5s infinite; box-shadow: 0 0 10px rgba(239, 68, 68, 0.5); font-size: 0.55rem; letter-spacing: 0.5px;" 
-                                              title="{% if item.obj.strategy == 'Precision' %}TAKE PROFIT (ถึงเป้าหมาย){% else %}SUPPLY ZONE (โซนขาย){% endif %}">
-                                            <i class="fas fa-bullseye"></i> TP ZONE
-                                        </span>
-                                        {% endif %}
-                                    {% endif %}
                                 </div>
                                 <div>
                                     <h4 class="fw-bold mb-0 text-dark">
@@ -459,9 +449,17 @@
 
                         <!-- Strategy Guidance Banner (Simplified) -->
                         <div class="mb-4 text-center py-1 border-top border-bottom border-light" style="font-size: 0.75rem; font-weight: 700; letter-spacing: 0.5px;">
-                            <span class="{% if item.trailing_stop_data.color == 'danger' %}text-danger{% elif item.trailing_stop_data.color == 'warning' %}text-warning{% else %}text-primary{% endif %}">
-                                {{ item.trailing_stop_data.status|default:"MONITORING — กำลังติดตามสถานะ" }}
-                            </span>
+                            {% if item.mom_data and item.mom_data.supply_zone_start and item.current_price >= item.mom_data.supply_zone_start %}
+                                <span class="text-danger"><i class="fas fa-bullseye me-1"></i> TAKE PROFIT ZONE — ถึงเป้าหมายทำกำไร</span>
+                            {% elif item.reversal_score >= 4 %}
+                                <span class="text-danger"><i class="fas fa-exclamation-triangle me-1"></i> DISTRIBUTION — ลดพอร์ต (Stage 3/4)</span>
+                            {% elif item.reversal_score == 3 %}
+                                <span class="text-warning"><i class="fas fa-exclamation-triangle me-1"></i> REVERSAL WARNING — ระวังการกลับตัว</span>
+                            {% else %}
+                                <span class="{% if item.trailing_stop_data.color == 'danger' %}text-danger{% elif item.trailing_stop_data.color == 'warning' %}text-warning{% else %}text-primary{% endif %}">
+                                    {{ item.trailing_stop_data.status|default:"MONITORING — กำลังติดตามสถานะ" }}
+                                </span>
+                            {% endif %}
                         </div>
 
                         <!-- PROFIT/LOSS BANNER -->
