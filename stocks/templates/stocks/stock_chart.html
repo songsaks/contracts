@@ -453,6 +453,9 @@
       <button class="period-btn" id="p-2y" onclick="loadPeriod('2y')">2y</button>
       
       <div class="vr mx-1 opacity-20 text-white"></div>
+      <button class="btn btn-sm rounded-pill px-3 fw-bold" onclick="analyzeChartWithAI()" id="btn-ai-analyze" style="background: linear-gradient(135deg, #a855f7 0%, #ec4899 100%); color: #fff; border: none; box-shadow: 0 0 10px rgba(236,72,153,0.5);">
+        <i class="fas fa-robot"></i> AI วิเคราะห์กราฟ
+      </button>
       <button class="btn btn-sm btn-outline-info rounded-pill px-3" onclick="toggleFullscreen()" title="ขยายเต็มหน้าจอ">
         <i class="fas fa-expand"></i> เต็มจอ
       </button>
@@ -613,10 +616,36 @@
     </div>
   </div>
 
+  <!-- AI Analysis Modal -->
+  <div class="modal fade" id="aiChartModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-lg">
+      <div class="modal-content" style="background: rgba(15, 23, 42, 0.95); border: 1px solid rgba(236,72,153,0.3); backdrop-filter: blur(20px); color: #f1f5f9;">
+        <div class="modal-header border-bottom-0 pb-0">
+          <h5 class="modal-title fw-bold" style="background: linear-gradient(135deg, #a855f7, #ec4899); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+            <i class="fas fa-robot text-pink-400"></i> AI Chart Analysis
+          </h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <div id="ai-loading" class="text-center py-5">
+            <div class="spinner-border" style="color: #ec4899;" role="status">
+              <span class="visually-hidden">Loading...</span>
+            </div>
+            <p class="mt-3 text-muted">AI กำลังวิเคราะห์กราฟและคำนวณกลยุทธ์...</p>
+          </div>
+          <div id="ai-result-content" class="d-none" style="line-height: 1.6;">
+            <!-- Markdown goes here -->
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
 </div>
 {% endblock %}
 
 {% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/lightweight-charts@3.8.0/dist/lightweight-charts.standalone.production.js"></script>
 <script>
 let currentSymbol = "{{ symbol }}";
@@ -1005,6 +1034,78 @@ function handleResize() {
 
 window.onresize = handleResize;
 document.addEventListener('fullscreenchange', () => setTimeout(handleResize, 150));
+
+function analyzeChartWithAI() {
+    if (!currentData || !currentData.candles || currentData.candles.length === 0) {
+        alert("ยังไม่มีข้อมูลกราฟให้วิเคราะห์ กรุณารอสักครู่");
+        return;
+    }
+    
+    // Extract context for AI
+    const latestCandle = currentData.candles[currentData.candles.length - 1];
+    const price = latestCandle.close;
+    
+    let rsi = "N/A";
+    if (currentData.rsi && currentData.rsi.length > 0) {
+        rsi = currentData.rsi[currentData.rsi.length - 1].value.toFixed(2);
+    }
+    
+    let macd = "N/A";
+    if (currentData.macd && currentData.macd.length > 0) {
+        const lastMacd = currentData.macd[currentData.macd.length - 1];
+        macd = `MACD: ${lastMacd.macd?.toFixed(2)}, Signal: ${lastMacd.signal?.toFixed(2)}`;
+    }
+    
+    // Get recent signals (last 3)
+    let recentSignals = [];
+    if (currentData.signals && currentData.signals.length > 0) {
+        recentSignals = currentData.signals.slice(-3);
+    }
+    
+    let trend = document.getElementById('chart-status').textContent;
+
+    // Show modal
+    const modal = new bootstrap.Modal(document.getElementById('aiChartModal'));
+    modal.show();
+    
+    document.getElementById('ai-loading').classList.remove('d-none');
+    document.getElementById('ai-result-content').classList.add('d-none');
+    
+    fetch(`/stocks/chart/${currentSymbol}/ai_analyze/`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token }}' // We can just use django csrf
+        },
+        body: JSON.stringify({
+            symbol: currentSymbol,
+            market: currentMarket,
+            price: price,
+            rsi: rsi,
+            macd: macd,
+            trend: trend,
+            signals: recentSignals
+        })
+    })
+    .then(r => r.json())
+    .then(res => {
+        document.getElementById('ai-loading').classList.add('d-none');
+        const contentDiv = document.getElementById('ai-result-content');
+        contentDiv.classList.remove('d-none');
+        
+        if (res.error) {
+            contentDiv.innerHTML = `<div class="alert alert-danger">${res.error}</div>`;
+        } else {
+            contentDiv.innerHTML = marked.parse(res.result);
+        }
+    })
+    .catch(err => {
+        document.getElementById('ai-loading').classList.add('d-none');
+        const contentDiv = document.getElementById('ai-result-content');
+        contentDiv.classList.remove('d-none');
+        contentDiv.innerHTML = `<div class="alert alert-danger">Error: ${err}</div>`;
+    });
+}
 
 window.addEventListener('load', () => loadData(currentSymbol, currentMarket, currentPeriod));
 </script>

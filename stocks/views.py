@@ -10749,6 +10749,57 @@ def stock_chart(request, symbol):
     }
     return render(request, 'stocks/stock_chart.html', context)
 
+@login_required
+def chart_ai_analyze_ajax(request, symbol):
+    import json
+    from django.http import JsonResponse
+    from django.conf import settings
+    from google import genai
+    from django.views.decorators.csrf import csrf_exempt
+
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Invalid request method'}, status=400)
+
+    try:
+        data = json.loads(request.body)
+        market = data.get('market', '')
+        price = data.get('price', 'N/A')
+        rsi = data.get('rsi', 'N/A')
+        macd = data.get('macd', 'N/A')
+        trend = data.get('trend', 'N/A')
+        signals = data.get('signals', [])
+        
+        signal_text = ", ".join([s.get('type', '') for s in signals]) if signals else "ไม่มีสัญญาณซื้อขายล่าสุด"
+
+        prompt = f"""
+คุณคือ AI ผู้ช่วยนักเทรดหุ้นมืออาชีพสาย Momentum และ Turtle Trading
+โปรดวิเคราะห์กราฟหุ้น {symbol} (ตลาด: {market}) โดยสรุปสั้นๆ ให้กระชับ (ไม่เกิน 10-15 บรรทัด)
+ข้อมูลทางเทคนิคปัจจุบัน (จากหน้ากราฟของผู้ใช้):
+- ราคาล่าสุด: {price}
+- ทิศทางเทรนด์: {trend}
+- RSI: {rsi}
+- MACD/Signal state: {macd}
+- สัญญาณที่เกิดขึ้นล่าสุด: {signal_text}
+
+ช่วยวิเคราะห์แนวโน้ม ทิศทาง และให้คำแนะนำที่ชัดเจนว่าควรทำอย่างไร (ซื้อเพิ่ม / ถือ / ขายตัดขาดทุน / รอจังหวะ) 
+อธิบายเหตุผลสั้นๆ ด้วยข้อมูลทางเทคนิคด้านบนให้เข้าใจง่ายที่สุด จัดรูปแบบเป็น Markdown เพื่อให้อ่านง่าย
+"""
+
+        api_key = getattr(settings, "GEMINI_API_KEY", None)
+        if not api_key:
+            return JsonResponse({'error': 'No GEMINI_API_KEY configured'}, status=500)
+
+        client = genai.Client(api_key=api_key)
+        response = client.models.generate_content(
+            model='gemini-2.5-flash',
+            contents=prompt
+        )
+
+        return JsonResponse({'result': response.text})
+
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
 
 @login_required
 def stock_chart_data(request, symbol):
