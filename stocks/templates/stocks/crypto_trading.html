@@ -537,26 +537,7 @@
     <!-- ════ LEFT PANEL: Signals & Sentiment ════ -->
     <div class="gcc-left">
 
-        <!-- ORDER EXECUTION -->
-        <div class="g-card g-card-dark">
-            <div class="g-card-header">
-                <i class="fas fa-bolt" style="color:var(--crypto-accent)"></i> ส่งคำสั่งซื้อขาย (MANUAL)
-            </div>
-            <div class="p-3 d-flex flex-column gap-2">
-                <div class="d-flex gap-2">
-                    <button class="btn-execute-buy flex-grow-1" onclick="executeTrade('BUY')">
-                        <i class="fas fa-arrow-trend-up me-2"></i> ซื้อ (BUY)
-                    </button>
-                    <button class="btn-execute-sell flex-grow-1" onclick="executeTrade('SELL')">
-                        <i class="fas fa-arrow-trend-down me-2"></i> ขาย (SELL)
-                    </button>
-                </div>
-                <button class="btn btn-sm w-100 fw-bold" onclick="closeAllPositions()"
-                    style="background:transparent;border:1px solid rgba(239,68,68,0.35);color:rgba(239,68,68,0.8);border-radius:8px;padding:8px;font-size:0.78rem;cursor:pointer;">
-                    <i class="fas fa-times-circle me-1"></i> ปิดสถานะทั้งหมด (CLOSE ALL)
-                </button>
-            </div>
-        </div>
+
 
         <!-- POSITION SIZER -->
         <div class="g-card g-card-dark">
@@ -806,6 +787,27 @@
                 style="border:1px dashed rgba(247,147,26,0.4);color:var(--crypto-accent);background:rgba(247,147,26,0.04);font-weight:800;border-radius:8px;font-size:0.78rem;padding:0.5rem;">
                 <i class="fas fa-vial me-1"></i> ส่งคำสั่งทดสอบ (0.01 Lot)
             </button>
+        </div>
+
+        <!-- ORDER EXECUTION -->
+        <div class="g-card g-card-dark">
+            <div class="g-card-header">
+                <i class="fas fa-bolt" style="color:var(--crypto-accent)"></i> ส่งคำสั่งซื้อขาย (MANUAL)
+            </div>
+            <div class="p-3 d-flex flex-column gap-2">
+                <div class="d-flex gap-2">
+                    <button class="btn-execute-buy flex-grow-1" onclick="executeTrade('BUY')">
+                        <i class="fas fa-arrow-trend-up me-2"></i> ซื้อ (BUY)
+                    </button>
+                    <button class="btn-execute-sell flex-grow-1" onclick="executeTrade('SELL')">
+                        <i class="fas fa-arrow-trend-down me-2"></i> ขาย (SELL)
+                    </button>
+                </div>
+                <button class="btn btn-sm w-100 fw-bold" onclick="closeAllPositions()"
+                    style="background:transparent;border:1px solid rgba(239,68,68,0.35);color:rgba(239,68,68,0.8);border-radius:8px;padding:8px;font-size:0.78rem;cursor:pointer;">
+                    <i class="fas fa-times-circle me-1"></i> ปิดสถานะทั้งหมด (CLOSE ALL)
+                </button>
+            </div>
         </div>
 
         <!-- LIVE POSITIONS -->
