@@ -185,26 +185,16 @@ function getMarketPrefix(market, symbol) {
 }
 
 async function runAIScan(market) {
-    const btnSET = document.getElementById('btnScanSET');
-    const btnUS = document.getElementById('btnScanUS');
+    const btnScan = document.getElementById('btnScan');
     const loadingState = document.getElementById('loadingState');
     const resultsContainer = document.getElementById('resultsContainer');
     const errorState = document.getElementById('errorState');
     
     // UI Updates
-    btnSET.disabled = true;
-    btnUS.disabled = true;
+    if(btnScan) btnScan.disabled = true;
     loadingState.style.display = 'block';
     resultsContainer.style.display = 'none';
     errorState.style.display = 'none';
-    
-    if (market === 'SET') {
-        btnSET.classList.replace('btn-outline-primary', 'btn-primary');
-        btnUS.classList.replace('btn-primary', 'btn-outline-primary');
-    } else {
-        btnUS.classList.replace('btn-outline-primary', 'btn-primary');
-        btnSET.classList.replace('btn-primary', 'btn-outline-primary');
-    }
 
     try {
         const response = await fetch("{% url 'stocks:api_ai_manual_scan' %}", {
@@ -289,8 +279,7 @@ async function runAIScan(market) {
         document.getElementById('errorMessage').innerText = err.toString();
         errorState.style.display = 'block';
     } finally {
-        btnSET.disabled = false;
-        btnUS.disabled = false;
+        if(btnScan) btnScan.disabled = false;
         loadingState.style.display = 'none';
     }
 }
