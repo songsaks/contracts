@@ -154,6 +154,21 @@
                 <div class="wl-alert-banner banner-emerald">
                     <span class="pulse-dot bg-success"></span> 🚨 ถึงจุดยิง! (อยู่ในโซนซื้อ)
                 </div>
+            {% elif s.stop_loss and s.price < s.stop_loss %}
+                <div class="wl-glow-ring ring-rose"></div>
+                <div class="wl-alert-banner banner-rose">
+                    <span class="pulse-dot bg-danger"></span> ❌ หลุด Stop Loss (Setup พัง - ควรลบ)
+                </div>
+            {% elif s.cmf and s.cmf < -0.15 %}
+                <div class="wl-glow-ring ring-rose"></div>
+                <div class="wl-alert-banner banner-rose">
+                    <span class="pulse-dot bg-danger"></span> ⚠️ รายใหญ่เทขายหนัก (ควรลบ)
+                </div>
+            {% elif s.win_probability < 50 %}
+                <div class="wl-glow-ring ring-rose"></div>
+                <div class="wl-alert-banner banner-rose">
+                    <span class="pulse-dot bg-danger"></span> 📉 ทรงกราฟเสีย (ควรลบ)
+                </div>
             {% elif entry.near_buy_zone %}
                 <div class="wl-glow-ring ring-amber"></div>
                 <div class="wl-alert-banner banner-amber">
@@ -183,7 +198,7 @@
                     </div>
                 </div>
                 <div class="d-flex align-items-center gap-1">
-                    <button class="wl-remove-btn" onclick="removeFromWatchlist(this,'{{ w.symbol }}')" title="ลบออกจากระบบ">
+                    <button class="wl-remove-btn {% if s.stop_loss and s.price < s.stop_loss or s.cmf and s.cmf < -0.15 or s.win_probability < 50 %}animation-pulse-trash{% endif %}" onclick="removeFromWatchlist(this,'{{ w.symbol }}')" title="ลบออกจากระบบ">
                         <i class="fas fa-trash-alt"></i>
                     </button>
                 </div>
@@ -529,6 +544,13 @@
     
     @keyframes pulseGreen { 0%,100%{opacity:1} 50%{opacity:0.6} }
     @keyframes pulseAmber { 0%,100%{opacity:1} 50%{opacity:0.6} }
+
+    /* TRASH PULSE FOR INVALID SETUP */
+    @keyframes pulseTrash { 
+        0%,100% {transform: scale(1); opacity: 0.8;} 
+        50% {transform: scale(1.3); opacity: 1; color: var(--rose-neon);} 
+    }
+    .animation-pulse-trash { animation: pulseTrash 1.5s infinite; color: var(--rose-neon) !important; background: rgba(244,63,94,0.1); }
 
     /* ALERT BANNER */
     .wl-alert-banner {
