@@ -453,9 +453,16 @@
                                 </a>
                             </li>
                             <li>
-                                <a class="dropdown-item rounded-3 py-2 text-primary fw-bold"
+                                <a class="dropdown-item rounded-3 py-2 text-primary fw-bold {% if request.resolver_match.url_name == 'scanner_guide' %}active{% endif %}"
                                    href="{% url 'stocks:scanner_guide' %}">
                                     <i class="fas fa-book-reader me-2"></i> Scanner Guide (คู่มือ)
+                                </a>
+                            </li>
+                            <li><hr class="dropdown-divider opacity-25 my-1"></li>
+                            <li>
+                                <a class="dropdown-item rounded-3 py-2 text-danger fw-bold {% if request.resolver_match.url_name == 'ai_manual_scanner' %}active{% endif %}"
+                                   href="{% url 'stocks:ai_manual_scanner' %}">
+                                    <i class="fas fa-robot me-2"></i> AI Manual Scanner (AI คัดตามคู่มือ)
                                 </a>
                             </li>
                         </ul>

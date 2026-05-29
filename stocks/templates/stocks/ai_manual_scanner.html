@@ -1,0 +1,184 @@
+{% extends "stocks/base_stocks.html" %}
+
+{% block title %}AI Manual Scanner (SEPA & Guide) - Antigravity{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="row mb-4 align-items-center">
+        <div class="col-lg-8">
+            <h1 class="h3 mb-0 text-gray-800 fw-bold">
+                <i class="fas fa-robot text-primary me-2"></i>AI Manual Scanner
+            </h1>
+            <p class="text-muted mt-2 mb-0">ระบบสแกนหุ้นด้วย AI โดยยึดตามหลักการ SEPA และ Scanner Guide แบบ 100%</p>
+        </div>
+        <div class="col-lg-4 text-lg-end mt-3 mt-lg-0">
+            <div class="btn-group shadow-sm" role="group">
+                <button type="button" class="btn btn-primary fw-bold" onclick="runAIScan('SET')" id="btnScanSET">
+                    <i class="fas fa-search me-1"></i> Scan SET
+                </button>
+                <button type="button" class="btn btn-outline-primary fw-bold" onclick="runAIScan('US')" id="btnScanUS">
+                    <i class="fas fa-flag-usa me-1"></i> Scan US
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading State -->
+    <div id="loadingState" class="text-center py-5" style="display: none;">
+        <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem;">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+        <h4 class="mt-3 text-muted">AI กำลังวิเคราะห์ข้อมูลตามคู่มือ...</h4>
+        <p class="small text-muted">ขั้นตอนนี้อาจใช้เวลา 10-20 วินาที</p>
+    </div>
+
+    <!-- Error State -->
+    <div id="errorState" class="alert alert-danger" style="display: none;">
+        <i class="fas fa-exclamation-triangle me-2"></i> <span id="errorMessage">เกิดข้อผิดพลาด</span>
+    </div>
+
+    <!-- Results Container -->
+    <div id="resultsContainer" style="display: none;">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5 class="fw-bold mb-0">
+                <i class="fas fa-check-circle text-success me-2"></i>ผลลัพธ์การคัดกรอง (<span id="resultMarket"></span>)
+            </h5>
+            <span class="badge bg-success" id="resultCount">0 หุ้น</span>
+        </div>
+        
+        <div class="row" id="stocksList">
+            <!-- Stock cards will be injected here -->
+        </div>
+    </div>
+</div>
+
+<script>
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+const csrftoken = getCookie('csrftoken');
+
+function getMarketPrefix(market, symbol) {
+    if(market === 'SET') return symbol + '.BK';
+    return symbol;
+}
+
+async function runAIScan(market) {
+    const btnSET = document.getElementById('btnScanSET');
+    const btnUS = document.getElementById('btnScanUS');
+    const loadingState = document.getElementById('loadingState');
+    const resultsContainer = document.getElementById('resultsContainer');
+    const errorState = document.getElementById('errorState');
+    
+    // UI Updates
+    btnSET.disabled = true;
+    btnUS.disabled = true;
+    loadingState.style.display = 'block';
+    resultsContainer.style.display = 'none';
+    errorState.style.display = 'none';
+    
+    if (market === 'SET') {
+        btnSET.classList.replace('btn-outline-primary', 'btn-primary');
+        btnUS.classList.replace('btn-primary', 'btn-outline-primary');
+    } else {
+        btnUS.classList.replace('btn-outline-primary', 'btn-primary');
+        btnSET.classList.replace('btn-primary', 'btn-outline-primary');
+    }
+
+    try {
+        const response = await fetch("{% url 'stocks:api_ai_manual_scan' %}", {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrftoken
+            },
+            body: JSON.stringify({ market: market })
+        });
+        
+        const data = await response.json();
+        
+        if (data.status === 'success') {
+            document.getElementById('resultMarket').innerText = data.market;
+            document.getElementById('resultCount').innerText = data.selected_stocks.length + ' หุ้น';
+            
+            const stocksList = document.getElementById('stocksList');
+            stocksList.innerHTML = ''; // Clear previous
+            
+            if (data.selected_stocks.length === 0) {
+                stocksList.innerHTML = '<div class="col-12"><div class="alert alert-info">AI ไม่พบหุ้นที่ผ่านเกณฑ์คู่มืออย่างสมบูรณ์แบบในขณะนี้</div></div>';
+            } else {
+                data.selected_stocks.forEach(stock => {
+                    let badgeClass = 'bg-secondary';
+                    if (stock.grade === 'A') badgeClass = 'bg-success';
+                    if (stock.grade === 'B') badgeClass = 'bg-primary';
+                    if (stock.grade === 'C') badgeClass = 'bg-warning text-dark';
+                    
+                    const tvSymbol = getMarketPrefix(data.market, stock.symbol);
+                    const tvUrl = `https://www.tradingview.com/chart/?symbol=${tvSymbol}`;
+                    
+                    const card = `
+                    <div class="col-md-6 col-lg-4 mb-4">
+                        <div class="card h-100 shadow-sm border-0 rounded-4 hover-lift">
+                            <div class="card-body p-4">
+                                <div class="d-flex justify-content-between align-items-start mb-3">
+                                    <h4 class="fw-bold mb-0 text-primary">${stock.symbol}</h4>
+                                    <span class="badge ${badgeClass} rounded-pill px-3 py-2">Grade ${stock.grade}</span>
+                                </div>
+                                
+                                <h6 class="fw-bold text-dark mt-3"><i class="fas fa-brain text-info me-2"></i>AI Reasoning:</h6>
+                                <p class="small text-muted mb-4" style="line-height: 1.6;">
+                                    ${stock.reasoning}
+                                </p>
+                                
+                                <div class="mt-auto text-end">
+                                    <a href="/stocks/momentum/quick-ai/${stock.symbol}/" class="btn btn-sm btn-light text-primary fw-bold" target="_blank">
+                                        <i class="fas fa-robot"></i> Quick AI
+                                    </a>
+                                    <a href="${tvUrl}" target="_blank" class="btn btn-sm btn-primary fw-bold px-3 rounded-pill shadow-sm ms-2">
+                                        <i class="fas fa-chart-line me-1"></i> Chart
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    `;
+                    stocksList.innerHTML += card;
+                });
+            }
+            resultsContainer.style.display = 'block';
+        } else {
+            document.getElementById('errorMessage').innerText = data.message || 'Error executing scan.';
+            errorState.style.display = 'block';
+        }
+    } catch (err) {
+        document.getElementById('errorMessage').innerText = err.toString();
+        errorState.style.display = 'block';
+    } finally {
+        btnSET.disabled = false;
+        btnUS.disabled = false;
+        loadingState.style.display = 'none';
+    }
+}
+
+// Hover lift style
+const style = document.createElement('style');
+style.innerHTML = `
+    .hover-lift { transition: transform 0.2s ease, box-shadow 0.2s ease; }
+    .hover-lift:hover { transform: translateY(-5px); box-shadow: 0 .5rem 1rem rgba(0,0,0,.15)!important; }
+`;
+document.head.appendChild(style);
+</script>
+{% endblock %}

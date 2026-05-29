@@ -12754,3 +12754,98 @@ def manual_update_trade_exit(request):
         return JsonResponse({'success': False, 'error': 'Order not found'})
     except (InvalidOperation, ValueError) as e:
         return JsonResponse({'success': False, 'error': f'Invalid price: {e}'})
+
+
+# ==============================================================================
+# AI Manual Scanner (SEPA & Scanner Guide)
+# ==============================================================================
+
+@login_required
+def ai_manual_scanner(request):
+    """
+    Render the UI for the AI Manual Scanner.
+    """
+    return render(request, 'stocks/ai_manual_scanner.html')
+
+@login_required
+def api_ai_manual_scan(request):
+    """
+    AJAX endpoint to run the AI scan based on the manuals.
+    """
+    if request.method != 'POST':
+        return JsonResponse({'status': 'error', 'message': 'Invalid request method.'}, status=400)
+
+    import json
+    from google import genai
+    from django.conf import settings
+    from .models import PrecisionScanCandidate
+
+    try:
+        data = json.loads(request.body)
+        market = data.get('market', 'SET')
+        
+        # Fetch top candidates from PrecisionScanCandidate to use as a base
+        # Filter by RS > 70 and Stage 2 if possible, to save tokens
+        candidates = PrecisionScanCandidate.objects.filter(
+            user=request.user, 
+            market=market,
+            rs_rating__gte=70,
+            is_stage_2=True
+        ).order_by('-technical_score')[:40]
+
+        if not candidates.exists():
+            return JsonResponse({
+                'status': 'error', 
+                'message': f'ไม่พบหุ้นที่ผ่านเกณฑ์เบื้องต้น (RS > 70, Stage 2) ในตลาด {market} กรุณารัน Precision Scan ก่อน'
+            })
+
+        # Prepare data for AI
+        stocks_data = []
+        for c in candidates:
+            stocks_data.append({
+                'symbol': c.symbol,
+                'price': c.price,
+                'rs_rating': c.rs_rating,
+                'vcp_status': c.vcp_status,
+                'adx': c.adx,
+                'is_stage_2': c.is_stage_2,
+                'technical_score': c.technical_score,
+            })
+
+        client = genai.Client(api_key=settings.GEMINI_API_KEY)
+        
+        prompt = f"""คุณคือ AI Analyst ระดับโลก ที่เชี่ยวชาญระบบ SEPA ของ Mark Minervini และ Ehlers Engineering
+อ้างอิงจากคู่มือของระบบ:
+1. SEPA System: คัดเลือกหุ้นที่มี Stage 2 (Uptrend), RS Rating > 70, มีรูปแบบ VCP (Volatility Contraction Pattern), และ Fundamental แข็งแกร่ง
+2. 3-Step Formula: หาหุ้นที่มีการพักตัวสร้างฐาน (VCP/Cup & Handle) -> มีพลัง (Momentum/RS สูง) -> คุณภาพเกรดสถาบัน (SEPA)
+
+วิเคราะห์ข้อมูลหุ้น {market} จำนวน {len(stocks_data)} ตัวด้านล่างนี้ และคัดเลือกหุ้น "ที่ดีที่สุด" ตามหลักการในคู่มือ (เลือกมา 5-10 ตัวที่สวยที่สุด)
+
+ข้อมูลหุ้น (JSON):
+{json.dumps(stocks_data)}
+
+รูปแบบที่ต้องตอบกลับ (JSON เท่านั้น ห้ามมีข้อความอื่น):
+{{
+    "status": "success",
+    "market": "{market}",
+    "selected_stocks": [
+        {{
+            "symbol": "ชื่อหุ้น",
+            "reasoning": "คำอธิบายโดยละเอียดว่าทำไมถึงเลือกหุ้นตัวนี้ โดยอิงจากกฎในคู่มือ เช่น การเกิด VCP, RS สูง, หรือ Stage 2",
+            "grade": "A, B, หรือ C"
+        }}
+    ]
+}}
+"""
+        response = client.models.generate_content(
+            model='gemini-2.5-flash',
+            contents=prompt,
+            config={'response_mime_type': 'application/json'}
+        )
+        
+        result_json = json.loads(response.text)
+        return JsonResponse(result_json)
+        
+    except Exception as e:
+        import traceback
+        return JsonResponse({'status': 'error', 'message': str(e), 'trace': traceback.format_exc()}, status=500)
