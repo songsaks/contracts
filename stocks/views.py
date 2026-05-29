@@ -11744,7 +11744,7 @@ def api_ai_manual_scan(request):
             market=market,
             rs_rating__gte=60,
             stage2=True
-        ).order_by('-technical_score')[:60]
+        ).order_by('-technical_score')[:30]
 
         if not candidates.exists():
             return JsonResponse({
