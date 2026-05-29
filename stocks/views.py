@@ -11832,7 +11832,7 @@ def api_ai_manual_scan(request):
 
         return JsonResponse(result_json)
     except Exception as e:
-        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=200)
 
 
 @login_required
