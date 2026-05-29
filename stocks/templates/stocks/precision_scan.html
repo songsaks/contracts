@@ -936,6 +936,17 @@
                     <option value="">All Sectors</option>
                     {% for item in candidates %}<option value="{{ item.sector }}">{{ item.sector }}</option>{% endfor %}
                 </select>
+                <!-- Mobile Sort Dropdown (Visible on mobile/tablet) -->
+                <select class="form-select form-select-sm rounded-pill d-md-none" style="width:auto;font-size:0.72rem;border:1px solid #0ea5e9;color:#0ea5e9;cursor:pointer;background-color:#f0f9ff;" onchange="location.href='?run_idx={{ selected_run_idx }}&sort=' + this.value">
+                    <option value="" disabled selected>เรียงลำดับ...</option>
+                    <option value="symbol" {% if current_sort == 'symbol' %}selected{% endif %}>Symbol</option>
+                    <option value="win" {% if current_sort == 'win' %}selected{% endif %}>Win Prob</option>
+                    <option value="buy" {% if current_sort == 'buy' %}selected{% endif %}>Buy Score</option>
+                    <option value="rs" {% if current_sort == 'rs' %}selected{% endif %}>RS Rating</option>
+                    <option value="launcher" {% if current_sort == 'launcher' %}selected{% endif %}>Launcher</option>
+                    <option value="score" {% if current_sort == 'score' %}selected{% endif %}>Total Score</option>
+                    <option value="prox" {% if current_sort == 'prox' %}selected{% endif %}>Zone Prox</option>
+                </select>
                 <button onclick="exportScanCSV('scanTableSET','precision_set')" class="btn btn-sm rounded-pill px-3" style="border:1px solid #e2e8f0;background:white;color:#374151;font-size:0.72rem;">
                     <i class="fas fa-download me-1"></i>CSV
                 </button>
