@@ -12,15 +12,18 @@
             </h1>
             <p class="text-muted mt-2 mb-0">ระบบสแกนหุ้นด้วย AI โดยยึดตามหลักการ SEPA และ Scanner Guide แบบ 100%</p>
         </div>
-        <div class="col-lg-4 text-lg-end mt-3 mt-lg-0">
-            <div class="btn-group shadow-sm" role="group">
-                <button type="button" class="btn btn-primary fw-bold" onclick="runAIScan('SET')" id="btnScanSET">
-                    <i class="fas fa-search me-1"></i> Scan SET
-                </button>
-                <button type="button" class="btn btn-outline-primary fw-bold" onclick="runAIScan('US')" id="btnScanUS">
-                    <i class="fas fa-flag-usa me-1"></i> Scan US
-                </button>
+        <div class="col-lg-5 text-lg-end mt-3 mt-lg-0">
+            <div class="btn-group shadow-sm me-2" role="group">
+                <a href="?market=SET" class="btn {% if current_market == 'SET' %}btn-primary{% else %}btn-outline-primary{% endif %} fw-bold">
+                    <i class="fas fa-flag-thailand me-1"></i> SET
+                </a>
+                <a href="?market=US" class="btn {% if current_market == 'US' %}btn-primary{% else %}btn-outline-primary{% endif %} fw-bold">
+                    <i class="fas fa-flag-usa me-1"></i> US
+                </a>
             </div>
+            <button type="button" class="btn btn-success fw-bold shadow-sm" onclick="runAIScan('{{ current_market }}')" id="btnScan">
+                <i class="fas fa-robot me-1"></i> Scan New {{ current_market }}
+            </button>
         </div>
     </div>
 
@@ -54,10 +57,21 @@
                         <div class="card h-100 shadow-sm border-0 rounded-4 hover-lift">
                             <div class="card-body p-4">
                                 <div class="d-flex justify-content-between align-items-start mb-3">
-                                    <h4 class="fw-bold mb-0 text-primary">
-                                        <span class="badge bg-dark me-2 rounded-circle fs-6" style="width: 32px; height: 32px; display: inline-flex; align-items: center; justify-content: center;">{{ stock.rank }}</span>
-                                        {{ stock.symbol }}
-                                    </h4>
+                                    <div class="d-flex align-items-center">
+                                        <h4 class="fw-bold mb-0 text-primary">
+                                            <span class="badge bg-dark me-2 rounded-circle fs-6" style="width: 32px; height: 32px; display: inline-flex; align-items: center; justify-content: center;">{{ stock.rank }}</span>
+                                            {{ stock.symbol }}
+                                        </h4>
+                                        <button onclick="toggleWatchlist(this)" 
+                                                data-symbol="{{ stock.symbol }}" 
+                                                data-sector=""
+                                                data-in-watchlist="{% if stock.symbol in watchlisted_symbols %}true{% else %}false{% endif %}"
+                                                class="btn btn-sm px-2 ms-2 rounded-circle" 
+                                                style="width:28px;height:28px;display:inline-flex;align-items:center;justify-content:center;{% if stock.symbol in watchlisted_symbols %}font-size:0.65rem;background:#fef9c3;color:#b45309;border:1px solid #fde68a;{% else %}font-size:0.65rem;background:#f8fafc;color:#94a3b8;border:1px solid #e2e8f0;{% endif %}"
+                                                title="{% if stock.symbol in watchlisted_symbols %}ลบออกจาก Alert Watchlist{% else %}เพิ่มใน Alert Watchlist{% endif %}">
+                                            {% if stock.symbol in watchlisted_symbols %}<i class="fas fa-bell"></i>{% else %}<i class="far fa-bell"></i>{% endif %}
+                                        </button>
+                                    </div>
                                     <span class="badge {% if stock.grade == 'A' %}bg-success{% elif stock.grade == 'B' %}bg-primary{% else %}bg-warning text-dark{% endif %} rounded-pill px-3 py-2">Grade {{ stock.grade }}</span>
                                 </div>
                                 
@@ -227,10 +241,22 @@ async function runAIScan(market) {
                         <div class="card h-100 shadow-sm border-0 rounded-4 hover-lift">
                             <div class="card-body p-4">
                                 <div class="d-flex justify-content-between align-items-start mb-3">
-                                    <h4 class="fw-bold mb-0 text-primary">
-                                        <span class="badge bg-dark me-2 rounded-circle fs-6" style="width: 32px; height: 32px; display: inline-flex; align-items: center; justify-content: center;">${rank}</span>
-                                        ${stock.symbol}
-                                    </h4>
+                                    <div class="d-flex align-items-center">
+                                        <h4 class="fw-bold mb-0 text-primary">
+                                            <span class="badge bg-dark me-2 rounded-circle fs-6" style="width: 32px; height: 32px; display: inline-flex; align-items: center; justify-content: center;">${rank}</span>
+                                            ${stock.symbol}
+                                        </h4>
+                                        <!-- Note: AJAX loaded cards won't know if they are watchlisted immediately, so we default to not watchlisted -->
+                                        <button onclick="toggleWatchlist(this)" 
+                                                data-symbol="${stock.symbol}" 
+                                                data-sector=""
+                                                data-in-watchlist="false"
+                                                class="btn btn-sm px-2 ms-2 rounded-circle" 
+                                                style="width:28px;height:28px;display:inline-flex;align-items:center;justify-content:center;font-size:0.65rem;background:#f8fafc;color:#94a3b8;border:1px solid #e2e8f0;"
+                                                title="เพิ่มใน Alert Watchlist">
+                                            <i class="far fa-bell"></i>
+                                        </button>
+                                    </div>
                                     <span class="badge ${badgeClass} rounded-pill px-3 py-2">Grade ${stock.grade}</span>
                                 </div>
                                 
@@ -267,6 +293,80 @@ async function runAIScan(market) {
         btnUS.disabled = false;
         loadingState.style.display = 'none';
     }
+}
+
+function toggleWatchlist(btn) {
+    const inWl = btn.dataset.inWatchlist === 'true';
+    if (inWl) {
+        // Remove directly
+        performToggle(btn, {symbol: btn.dataset.symbol, sector: '', strategy: '', note: ''});
+    } else {
+        // Open modal to add
+        openWatchlistModal(btn);
+    }
+}
+
+function openWatchlistModal(btn) {
+    window._currentWlBtn = btn;
+    document.getElementById('watchlistModalSymbol').textContent = btn.dataset.symbol;
+    document.getElementById('watchlistSymbolInput').value = btn.dataset.symbol;
+    document.getElementById('watchlistNote').value = "";
+    document.getElementById('watchlistStrategy').value = "SEPA";
+    
+    const myModal = new bootstrap.Modal(document.getElementById('watchlistModal'));
+    myModal.show();
+}
+
+function submitWatchlist() {
+    const btn = window._currentWlBtn;
+    if (!btn) return;
+    
+    const data = {
+        symbol: document.getElementById('watchlistSymbolInput').value,
+        sector: '',
+        strategy: document.getElementById('watchlistStrategy').value,
+        note: document.getElementById('watchlistNote').value,
+        market: '{{ current_market }}'
+    };
+    
+    const submitBtn = document.getElementById('watchlistSubmitBtn');
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>กำลังบันทึก...';
+
+    performToggle(btn, data, () => {
+        const modalEl = document.getElementById('watchlistModal');
+        const modalInstance = bootstrap.Modal.getInstance(modalEl);
+        if (modalInstance) modalInstance.hide();
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = 'บันทึกรายการ';
+    });
+}
+
+function performToggle(btn, payload, callback) {
+    fetch("{% url 'stocks:watchlist_item_toggle' %}", {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrftoken},
+        body: JSON.stringify(payload)
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.status === 'added') {
+            btn.dataset.inWatchlist = 'true';
+            btn.innerHTML = '<i class="fas fa-bell"></i>';
+            btn.style.cssText = 'width:28px;height:28px;display:inline-flex;align-items:center;justify-content:center;font-size:0.65rem;background:#fef9c3;color:#b45309;border:1px solid #fde68a;';
+            btn.title = 'ลบออกจาก Alert Watchlist';
+        } else {
+            btn.dataset.inWatchlist = 'false';
+            btn.innerHTML = '<i class="far fa-bell"></i>';
+            btn.style.cssText = 'width:28px;height:28px;display:inline-flex;align-items:center;justify-content:center;font-size:0.65rem;background:#f8fafc;color:#94a3b8;border:1px solid #e2e8f0;';
+            btn.title = 'เพิ่มใน Alert Watchlist';
+        }
+        if (callback) callback();
+    })
+    .catch(e => {
+        console.error('Watchlist toggle error:', e);
+        if (callback) callback();
+    });
 }
 
 // Hover lift style
@@ -373,4 +473,41 @@ document.head.appendChild(style);
     });
 })();
 </script>
+
+<!-- ====== Watchlist Modal ====== -->
+<div class="modal fade" id="watchlistModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header" style="background:#1e293b; color:white;">
+                <h5 class="modal-title fw-bold"><i class="fas fa-bell me-2"></i>เฝ้าติดตาม: <span id="watchlistModalSymbol"></span></h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4">
+                <input type="hidden" id="watchlistSymbolInput">
+                
+                <div class="mb-3">
+                    <label class="form-label fw-bold small text-muted">เลือกกลยุทธ์ (Pattern)</label>
+                    <select class="form-select" id="watchlistStrategy">
+                        <option value="PRECISION">Precision (Demand Zone)</option>
+                        <option value="TURTLE_S1">Turtle S1 (Breakout 20D / Exit 10D Low)</option>
+                        <option value="TURTLE_S2">Turtle S2 (Breakout 55D / Exit 20D Low)</option>
+                        <option value="SEPA">SEPA (Minervini Stage 2)</option>
+                        <option value="CUP_HANDLE">Cup & Handle</option>
+                        <option value="OTHER">อื่นๆ</option>
+                    </select>
+                </div>
+
+                <div class="mb-0">
+                    <label class="form-label fw-bold small text-muted">บันทึกเพิ่มเติม (Note)</label>
+                    <textarea class="form-control" id="watchlistNote" rows="2" placeholder="เช่น รอย่อเข้าโซน, รอลุ้น Breakout..."></textarea>
+                </div>
+            </div>
+            <div class="modal-footer border-0">
+                <button type="button" class="btn btn-outline-secondary btn-sm px-3" data-bs-dismiss="modal">ยกเลิก</button>
+                <button type="button" class="btn btn-primary btn-sm px-4" id="watchlistSubmitBtn" onclick="submitWatchlist()">บันทึกรายการ</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 {% endblock %}
