@@ -1288,7 +1288,7 @@
                             <td class="col-hide-md" {% if item.demand_zone_start and item.price <= item.demand_zone_start and item.price >= item.demand_zone_end %}style="background:rgba(34,197,94,0.05);"{% endif %}>
                                 {% if item.demand_zone_start %}
                                 <div style="line-height:1.3;">
-                                    <span class="fw-bold text-success">{{ item.demand_zone_start|floatformat:2 }}</span>
+                                    <span class="fw-bold text-success" title="Pivot Point">{{ item.demand_zone_start|floatformat:2 }} (PP)</span>
                                     <span class="text-muted"> / {{ item.demand_zone_end|floatformat:2 }}</span>
                                     {% if item.stop_loss %}
                                     <br><span class="text-danger" title="Stop Loss">SL:{{ item.stop_loss|floatformat:2 }}</span>
@@ -1455,7 +1455,7 @@
                                         {% endif %}
                                     </div>
                                     <div class="text-muted" style="font-size:0.6rem;">
-                                        <i class="fas fa-bullseye"></i> รอที่: <b>{{ item.demand_zone_end|floatformat:2 }}-{{ item.demand_zone_start|floatformat:2 }}</b><br>
+                                        <i class="fas fa-bullseye"></i> รอที่: <b>{{ item.demand_zone_end|floatformat:2 }}-{{ item.demand_zone_start|floatformat:2 }} <span class="text-success" style="font-size:0.6rem;">(PP)</span></b><br>
                                         <i class="fas fa-shield-alt"></i> หนีที่: <b class="text-danger">{{ item.stop_loss|floatformat:2 }}</b>
                                     </div>
                                 {% else %}
