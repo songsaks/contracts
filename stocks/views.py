@@ -11733,18 +11733,18 @@ def api_ai_manual_scan(request):
         data = json.loads(request.body)
         market = data.get('market', 'SET')
         
-        # Filter by RS > 70 and Stage 2 if possible, to save tokens
+        # Filter by RS > 60 and Stage 2 if possible, to save tokens (lowered RS to find early runners)
         candidates = PrecisionScanCandidate.objects.filter(
             user=request.user, 
             market=market,
-            rs_rating__gte=70,
+            rs_rating__gte=60,
             stage2=True
-        ).order_by('-technical_score')[:40]
+        ).order_by('-technical_score')[:60]
 
         if not candidates.exists():
             return JsonResponse({
                 'status': 'error', 
-                'message': f'ไม่พบหุ้นที่ผ่านเกณฑ์เบื้องต้น (RS > 70, Stage 2) ในตลาด {market} กรุณารัน Precision Scan ก่อน'
+                'message': f'ไม่พบหุ้นที่ผ่านเกณฑ์เบื้องต้น (RS > 60, Stage 2) ในตลาด {market} กรุณารัน Precision Scan ก่อน'
             })
 
         # Prepare data for AI
@@ -11754,6 +11754,7 @@ def api_ai_manual_scan(request):
                 'symbol': c.symbol,
                 'price': float(c.price) if c.price else 0,
                 'rs_rating': float(c.rs_rating) if c.rs_rating else 0,
+                'rsi': float(c.rsi) if c.rsi else 50.0,
                 'vcp_setup': c.vcp_setup,
                 'adx': float(c.adx) if c.adx else 0,
                 'stage2': c.stage2,
@@ -11764,11 +11765,14 @@ def api_ai_manual_scan(request):
         
         prompt = f"""คุณคือ AI Analyst ระดับโลก ที่เชี่ยวชาญระบบ SEPA ของ Mark Minervini และ Ehlers Engineering
 อ้างอิงจากคู่มือของระบบ:
-1. SEPA System: คัดเลือกหุ้นที่มี Stage 2 (Uptrend), RS Rating > 70, มีรูปแบบ VCP (Volatility Contraction Pattern), และ Fundamental แข็งแกร่ง
+1. SEPA System: คัดเลือกหุ้นที่มี Stage 2 (Uptrend), RS Rating > 60, มีรูปแบบ VCP (Volatility Contraction Pattern), และ Fundamental แข็งแกร่ง
 2. 3-Step Formula: หาหุ้นที่มีการพักตัวสร้างฐาน (VCP/Cup & Handle) -> มีพลัง (Momentum/RS สูง) -> คุณภาพเกรดสถาบัน (SEPA)
 
-วิเคราะห์ข้อมูลหุ้น {market} จำนวน {len(stocks_data)} ตัวด้านล่างนี้ และคัดเลือกหุ้น "ที่ดีที่สุด" ตามหลักการในคู่มือ (เลือกมา 5-10 ตัวที่สวยที่สุด)
-สำคัญมาก: โปรดจัดอันดับ (rank) จากหุ้นที่สวยที่สุดอันดับ 1 ไล่ลงไปเรื่อยๆ (โดยตัวที่สวยที่สุดต้องได้ Grade A)
+**เงื่อนไขพิเศษจากผู้ใช้งาน**: 
+ผู้ใช้ต้องการ "หุ้นเริ่มต้นวิ่ง" (Early Stage Momentum) ที่เพิ่งเริ่มเบรค หรือกำลังฟอร์มตัวสวยๆ โดยที่ **ค่า RSI ยังไม่สูงจนเกินไป** (ควรหลีกเลี่ยงหุ้นที่ RSI สูงมากเกิน 70-75 หรือ Overbought ไปไกลแล้ว) ให้เน้นหุ้นที่ RSI กำลังสวย (เช่น 50-65) เป็นพิเศษเพื่อรับความเสี่ยงที่ต่ำกว่า (Asymmetric Risk/Reward)
+
+วิเคราะห์ข้อมูลหุ้น {market} จำนวน {len(stocks_data)} ตัวด้านล่างนี้ และคัดเลือกหุ้น "ที่ดีที่สุด" ตามหลักการในคู่มือ และเงื่อนไขพิเศษ (เลือกมา 5-10 ตัวที่สวยที่สุด)
+สำค้ญมาก: โปรดจัดอันดับ (rank) จากหุ้นที่สวยที่สุดอันดับ 1 ไล่ลงไปเรื่อยๆ (โดยตัวที่สวยที่สุดต้องได้ Grade A)
 
 ข้อมูลหุ้น (JSON):
 {json.dumps(stocks_data)}
@@ -11781,7 +11785,7 @@ def api_ai_manual_scan(request):
         {{
             "rank": 1,
             "symbol": "ชื่อหุ้น",
-            "reasoning": "คำอธิบายโดยละเอียดว่าทำไมถึงเลือกหุ้นตัวนี้ โดยอิงจากกฎในคู่มือ เช่น การเกิด VCP, RS สูง, หรือ Stage 2",
+            "reasoning": "คำอธิบายโดยละเอียดว่าทำไมถึงเลือกหุ้นตัวนี้ (เช่น RSI อยู่ในโซนเริ่มต้นวิ่ง, VCP, Stage 2 ฯลฯ)",
             "grade": "A, B, หรือ C"
         }}
     ]
