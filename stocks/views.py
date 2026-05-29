@@ -4017,11 +4017,11 @@ def momentum_scanner(request):
     if request.GET.get('scan') == 'true' or request.method == 'POST':
         from .utils import refresh_all_thai_symbols, get_top_ranked_symbols
         # ใช้ Top 300 หุ้นใหญ่เท่านั้นเพื่อความเร็วและคุณภาพ
-        scan_symbols = get_top_ranked_symbols(market='SET', limit=200, auto_refresh=True)
+        scan_symbols = get_top_ranked_symbols(market='SET', limit=300, auto_refresh=True)
         
         if not scan_symbols:
             refresh_all_thai_symbols()
-            scan_symbols = get_top_ranked_symbols(market='SET', limit=200, auto_refresh=True)
+            scan_symbols = get_top_ranked_symbols(market='SET', limit=300, auto_refresh=True)
 
         already = _cp.get(cache_key, {})
         if already.get('state') != 'running':
@@ -4041,7 +4041,7 @@ def momentum_scanner(request):
                     User = get_user_model()
                     user = User.objects.get(pk=uid)
                     
-                    sym_list = _GTRS(market='SET', limit=200, auto_refresh=True)
+                    sym_list = _GTRS(market='SET', limit=300, auto_refresh=True)
                     _MC.objects.filter(user=user, market='SET').delete()
                     
                     # --- STAGE 1: Fast Screening (The Radar) ---
@@ -10525,7 +10525,7 @@ def turtle_scanner_run_ajax(request):
             return _JR({'state': 'done', 'error': 'ไม่พบหุ้นที่มีคะแนน > 75 ในฐานข้อมูล Precision ล่าสุด'})
     else:
         from .utils import get_top_ranked_symbols
-        sym_list = get_top_ranked_symbols(market=market_param, limit=200)
+        sym_list = get_top_ranked_symbols(market=market_param, limit=300)
         
     if not sym_list:
         return _JR({'state': 'done', 'error': f'ไม่พบหุ้นใน watchlist สำหรับตลาด {market_param}'})
@@ -10539,7 +10539,7 @@ def turtle_scanner_run_ajax(request):
         if market == 'SET':
             try:
                 from .utils import get_top_ranked_symbols as _GTRS
-                new_syms = _GTRS(market='SET', limit=200, auto_refresh=True)
+                new_syms = _GTRS(market='SET', limit=300, auto_refresh=True)
                 if new_syms: # ป้องกันกรณี refresh แล้วได้ค่าว่าง
                     syms = new_syms
             except Exception:
