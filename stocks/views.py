@@ -11702,12 +11702,12 @@ def ai_manual_scanner(request):
     """
     Render the UI for the AI Manual Scanner.
     """
-    from .models import AIManualScanResult, WatchlistItem
+    from .models import AIManualScanResult, ScanWatchlistItem
     market = request.GET.get('market', 'SET')
     results = AIManualScanResult.objects.filter(user=request.user, market=market).order_by('rank', 'grade', 'symbol')
     
     # Get watchlisted symbols
-    watchlisted = WatchlistItem.objects.filter(user=request.user, is_active=True).values_list('symbol', flat=True)
+    watchlisted = ScanWatchlistItem.objects.filter(user=request.user).values_list('symbol', flat=True)
     watchlisted_symbols = set(watchlisted)
     
     return render(request, 'stocks/ai_manual_scanner.html', {
