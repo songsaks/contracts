@@ -12790,7 +12790,7 @@ def api_ai_manual_scan(request):
             user=request.user, 
             market=market,
             rs_rating__gte=70,
-            is_stage_2=True
+            stage2=True
         ).order_by('-technical_score')[:40]
 
         if not candidates.exists():
@@ -12804,12 +12804,12 @@ def api_ai_manual_scan(request):
         for c in candidates:
             stocks_data.append({
                 'symbol': c.symbol,
-                'price': c.price,
-                'rs_rating': c.rs_rating,
-                'vcp_status': c.vcp_status,
-                'adx': c.adx,
-                'is_stage_2': c.is_stage_2,
-                'technical_score': c.technical_score,
+                'price': float(c.price) if c.price else 0,
+                'rs_rating': float(c.rs_rating) if c.rs_rating else 0,
+                'vcp_setup': c.vcp_setup,
+                'adx': float(c.adx) if c.adx else 0,
+                'stage2': c.stage2,
+                'technical_score': float(c.technical_score) if c.technical_score else 0,
             })
 
         client = genai.Client(api_key=settings.GEMINI_API_KEY)
