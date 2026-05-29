@@ -2417,7 +2417,7 @@ def mean_reversion_scanner(request):
 
         if market == 'SET':
             from .utils import get_top_ranked_symbols
-            sym_list = get_top_ranked_symbols(market='SET', limit=400, auto_refresh=True)
+            sym_list = get_top_ranked_symbols(market='SET', limit=300, auto_refresh=True)
         else:
             from .models import ScannableSymbol as _SS
             sym_list = list(_SS.objects.filter(is_active=True, market='US').values_list('symbol', flat=True))
@@ -4827,10 +4827,10 @@ def precision_momentum_scanner(request):
     from django.utils import timezone as tz
     from yahooquery import Ticker as YQTicker
 
-    scan_symbols = get_top_ranked_symbols(market='SET', limit=400, auto_refresh=True)
+    scan_symbols = get_top_ranked_symbols(market='SET', limit=300, auto_refresh=True)
     if not scan_symbols:
         refresh_all_thai_symbols()
-        scan_symbols = get_top_ranked_symbols(market='SET', limit=400, auto_refresh=True)
+        scan_symbols = get_top_ranked_symbols(market='SET', limit=300, auto_refresh=True)
 
     # ====== AJAX Status Poll ======
     if request.GET.get('scan_status') == '1':
@@ -4873,7 +4873,7 @@ def precision_momentum_scanner(request):
                 from yahooquery import Ticker as YQTicker
                 from .models import PrecisionScanCandidate
                 from .utils import analyze_momentum_technical_v2, get_top_ranked_symbols as _GTRS
-                sym_list = _GTRS(market='SET', limit=400, auto_refresh=True)
+                sym_list = _GTRS(market='SET', limit=300, auto_refresh=True)
 
                 User = get_user_model()
                 user = User.objects.get(pk=uid)
@@ -9749,11 +9749,11 @@ def cup_handle_scanner(request):
 
     if request.GET.get('scan') == 'true' or request.method == 'POST':
         from .utils import refresh_all_thai_symbols, get_top_ranked_symbols
-        scan_symbols = get_top_ranked_symbols(market='SET', limit=400, auto_refresh=True)
+        scan_symbols = get_top_ranked_symbols(market='SET', limit=300, auto_refresh=True)
 
         if not scan_symbols:
             refresh_all_thai_symbols()
-            scan_symbols = get_top_ranked_symbols(market='SET', limit=400, auto_refresh=True)
+            scan_symbols = get_top_ranked_symbols(market='SET', limit=300, auto_refresh=True)
 
         already = _cp.get(cache_key, {})
         if already.get('state') != 'running':
@@ -9775,7 +9775,7 @@ def cup_handle_scanner(request):
                     from yahooquery import Ticker as _TQ
                     import logging as _log
                     _ch_log = _log.getLogger('stocks.cup_handle')
-                    sym_list = _GTRS(market='SET', limit=400, auto_refresh=True)
+                    sym_list = _GTRS(market='SET', limit=300, auto_refresh=True)
 
                     User      = get_user_model()
                     user      = User.objects.get(pk=uid)
