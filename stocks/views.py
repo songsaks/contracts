@@ -11693,6 +11693,123 @@ def crypto_price_tick_ajax(request):
         return _JR({'ok': False, 'error': str(e)}, status=500)
 
 
+# ==============================================================================
+# AI Manual Scanner (SEPA & Scanner Guide)
+# ==============================================================================
+
+@login_required
+def ai_manual_scanner(request):
+    """
+    Render the UI for the AI Manual Scanner.
+    """
+    from .models import AIManualScanResult
+    market = request.GET.get('market', 'SET')
+    results = AIManualScanResult.objects.filter(user=request.user, market=market).order_by('rank', 'grade', 'symbol')
+    return render(request, 'stocks/ai_manual_scanner.html', {
+        'results': results,
+        'current_market': market
+    })
+
+@login_required
+def api_ai_manual_scan(request):
+    """
+    AJAX endpoint to run the AI scan based on the manuals.
+    """
+    if request.method != 'POST':
+        return JsonResponse({'status': 'error', 'message': 'Invalid request method.'}, status=400)
+
+    import json
+    from google import genai
+    from django.conf import settings
+    from .models import PrecisionScanCandidate, AIManualScanResult
+
+    try:
+        data = json.loads(request.body)
+        market = data.get('market', 'SET')
+        
+        # Filter by RS > 70 and Stage 2 if possible, to save tokens
+        candidates = PrecisionScanCandidate.objects.filter(
+            user=request.user, 
+            market=market,
+            rs_rating__gte=70,
+            stage2=True
+        ).order_by('-technical_score')[:40]
+
+        if not candidates.exists():
+            return JsonResponse({
+                'status': 'error', 
+                'message': f'ไม่พบหุ้นที่ผ่านเกณฑ์เบื้องต้น (RS > 70, Stage 2) ในตลาด {market} กรุณารัน Precision Scan ก่อน'
+            })
+
+        # Prepare data for AI
+        stocks_data = []
+        for c in candidates:
+            stocks_data.append({
+                'symbol': c.symbol,
+                'price': float(c.price) if c.price else 0,
+                'rs_rating': float(c.rs_rating) if c.rs_rating else 0,
+                'vcp_setup': c.vcp_setup,
+                'adx': float(c.adx) if c.adx else 0,
+                'stage2': c.stage2,
+                'technical_score': float(c.technical_score) if c.technical_score else 0,
+            })
+
+        client = genai.Client(api_key=settings.GEMINI_API_KEY)
+        
+        prompt = f"""คุณคือ AI Analyst ระดับโลก ที่เชี่ยวชาญระบบ SEPA ของ Mark Minervini และ Ehlers Engineering
+อ้างอิงจากคู่มือของระบบ:
+1. SEPA System: คัดเลือกหุ้นที่มี Stage 2 (Uptrend), RS Rating > 70, มีรูปแบบ VCP (Volatility Contraction Pattern), และ Fundamental แข็งแกร่ง
+2. 3-Step Formula: หาหุ้นที่มีการพักตัวสร้างฐาน (VCP/Cup & Handle) -> มีพลัง (Momentum/RS สูง) -> คุณภาพเกรดสถาบัน (SEPA)
+
+วิเคราะห์ข้อมูลหุ้น {market} จำนวน {len(stocks_data)} ตัวด้านล่างนี้ และคัดเลือกหุ้น "ที่ดีที่สุด" ตามหลักการในคู่มือ (เลือกมา 5-10 ตัวที่สวยที่สุด)
+สำคัญมาก: โปรดจัดอันดับ (rank) จากหุ้นที่สวยที่สุดอันดับ 1 ไล่ลงไปเรื่อยๆ (โดยตัวที่สวยที่สุดต้องได้ Grade A)
+
+ข้อมูลหุ้น (JSON):
+{json.dumps(stocks_data)}
+
+รูปแบบที่ต้องตอบกลับ (JSON เท่านั้น ห้ามมีข้อความอื่น):
+{{
+    "status": "success",
+    "market": "{market}",
+    "selected_stocks": [
+        {{
+            "rank": 1,
+            "symbol": "ชื่อหุ้น",
+            "reasoning": "คำอธิบายโดยละเอียดว่าทำไมถึงเลือกหุ้นตัวนี้ โดยอิงจากกฎในคู่มือ เช่น การเกิด VCP, RS สูง, หรือ Stage 2",
+            "grade": "A, B, หรือ C"
+        }}
+    ]
+}}
+"""
+        response = client.models.generate_content(
+            model='gemini-2.5-flash',
+            contents=prompt,
+            config={'response_mime_type': 'application/json'}
+        )
+        
+        result_json = json.loads(response.text)
+        
+        # Save to database
+        if result_json.get('status') == 'success':
+            # Clear old results for this user and market
+            AIManualScanResult.objects.filter(user=request.user, market=market).delete()
+            
+            # Insert new results
+            for idx, stock in enumerate(result_json.get('selected_stocks', [])):
+                AIManualScanResult.objects.create(
+                    user=request.user,
+                    market=market,
+                    symbol=stock.get('symbol'),
+                    grade=stock.get('grade', 'C'),
+                    reasoning=stock.get('reasoning', ''),
+                    rank=stock.get('rank', idx + 1)
+                )
+
+        return JsonResponse(result_json)
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+
+
 @login_required
 def get_crypto_bot_status_ajax(request):
     """

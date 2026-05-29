@@ -1086,3 +1086,23 @@ class PortfolioFund(models.Model):
 
     def __str__(self):
         return f"{self.name} ({self.user.username})"
+
+class AIManualScanResult(models.Model):
+    """
+    เก็บผลลัพธ์การสแกนด้วย AI Manual Scanner
+    """
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    market = models.CharField(max_length=10)
+    symbol = models.CharField(max_length=20)
+    grade = models.CharField(max_length=5)
+    reasoning = models.TextField()
+    rank = models.IntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['rank', 'grade', 'symbol']
+        verbose_name = "AI Manual Scan Result"
+        verbose_name_plural = "AI Manual Scan Results"
+
+    def __str__(self):
+        return f"AI Rank {self.rank}: {self.symbol} (Grade {self.grade})"

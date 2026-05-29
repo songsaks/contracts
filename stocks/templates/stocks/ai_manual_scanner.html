@@ -39,16 +39,52 @@
     </div>
 
     <!-- Results Container -->
-    <div id="resultsContainer" style="display: none;">
+    <div id="resultsContainer" style="{% if not results %}display: none;{% endif %}">
         <div class="d-flex justify-content-between align-items-center mb-3">
             <h5 class="fw-bold mb-0">
-                <i class="fas fa-check-circle text-success me-2"></i>ผลลัพธ์การคัดกรอง (<span id="resultMarket"></span>)
+                <i class="fas fa-check-circle text-success me-2"></i>ผลลัพธ์การคัดกรอง (<span id="resultMarket">{{ current_market }}</span>)
             </h5>
-            <span class="badge bg-success" id="resultCount">0 หุ้น</span>
+            <span class="badge bg-success" id="resultCount">{{ results|length }} หุ้น</span>
         </div>
         
         <div class="row" id="stocksList">
-            <!-- Stock cards will be injected here -->
+            {% if results %}
+                {% for stock in results %}
+                    <div class="col-md-6 col-lg-4 mb-4">
+                        <div class="card h-100 shadow-sm border-0 rounded-4 hover-lift">
+                            <div class="card-body p-4">
+                                <div class="d-flex justify-content-between align-items-start mb-3">
+                                    <h4 class="fw-bold mb-0 text-primary">
+                                        <span class="badge bg-dark me-2 rounded-circle fs-6" style="width: 32px; height: 32px; display: inline-flex; align-items: center; justify-content: center;">{{ stock.rank }}</span>
+                                        {{ stock.symbol }}
+                                    </h4>
+                                    <span class="badge {% if stock.grade == 'A' %}bg-success{% elif stock.grade == 'B' %}bg-primary{% else %}bg-warning text-dark{% endif %} rounded-pill px-3 py-2">Grade {{ stock.grade }}</span>
+                                </div>
+                                
+                                <h6 class="fw-bold text-dark mt-3"><i class="fas fa-brain text-info me-2"></i>AI Reasoning:</h6>
+                                <p class="small text-muted mb-4" style="line-height: 1.6;">
+                                    {{ stock.reasoning }}
+                                </p>
+                                
+                                <div class="mt-auto text-end">
+                                    <a href="/stocks/momentum/quick-ai/{{ stock.symbol }}/" class="btn btn-sm btn-light text-primary fw-bold" target="_blank">
+                                        <i class="fas fa-robot"></i> Quick AI
+                                    </a>
+                                    {% if stock.market == 'SET' %}
+                                        <a href="https://www.tradingview.com/chart/?symbol={{ stock.symbol }}.BK" target="_blank" class="btn btn-sm btn-primary fw-bold px-3 rounded-pill shadow-sm ms-2">
+                                            <i class="fas fa-chart-line me-1"></i> Chart
+                                        </a>
+                                    {% else %}
+                                        <a href="https://www.tradingview.com/chart/?symbol={{ stock.symbol }}" target="_blank" class="btn btn-sm btn-primary fw-bold px-3 rounded-pill shadow-sm ms-2">
+                                            <i class="fas fa-chart-line me-1"></i> Chart
+                                        </a>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                {% endfor %}
+            {% endif %}
         </div>
     </div>
 </div>
@@ -120,7 +156,7 @@ async function runAIScan(market) {
             if (data.selected_stocks.length === 0) {
                 stocksList.innerHTML = '<div class="col-12"><div class="alert alert-info">AI ไม่พบหุ้นที่ผ่านเกณฑ์คู่มืออย่างสมบูรณ์แบบในขณะนี้</div></div>';
             } else {
-                data.selected_stocks.forEach(stock => {
+                data.selected_stocks.forEach((stock, index) => {
                     let badgeClass = 'bg-secondary';
                     if (stock.grade === 'A') badgeClass = 'bg-success';
                     if (stock.grade === 'B') badgeClass = 'bg-primary';
@@ -128,13 +164,17 @@ async function runAIScan(market) {
                     
                     const tvSymbol = getMarketPrefix(data.market, stock.symbol);
                     const tvUrl = `https://www.tradingview.com/chart/?symbol=${tvSymbol}`;
+                    const rank = stock.rank || (index + 1);
                     
                     const card = `
                     <div class="col-md-6 col-lg-4 mb-4">
                         <div class="card h-100 shadow-sm border-0 rounded-4 hover-lift">
                             <div class="card-body p-4">
                                 <div class="d-flex justify-content-between align-items-start mb-3">
-                                    <h4 class="fw-bold mb-0 text-primary">${stock.symbol}</h4>
+                                    <h4 class="fw-bold mb-0 text-primary">
+                                        <span class="badge bg-dark me-2 rounded-circle fs-6" style="width: 32px; height: 32px; display: inline-flex; align-items: center; justify-content: center;">${rank}</span>
+                                        ${stock.symbol}
+                                    </h4>
                                     <span class="badge ${badgeClass} rounded-pill px-3 py-2">Grade ${stock.grade}</span>
                                 </div>
                                 
