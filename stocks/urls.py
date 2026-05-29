@@ -52,6 +52,7 @@ urlpatterns = [
     path('vcp-manual/', views.vcp_manual, name='vcp_manual'),
     path('sepa-manual/', views.sepa_manual, name='sepa_manual'),
     path('ehlers-manual/', views.ehlers_manual, name='ehlers_manual'),
+    path('mm-manual/', views.mm_manual, name='mm_manual'),
     path('scanner-guide/', views.scanner_guide, name='scanner_guide'),
     path('ai-manual-scanner/', views.ai_manual_scanner, name='ai_manual_scanner'),
     path('api/ai-manual-scan/', views.api_ai_manual_scan, name='api_ai_manual_scan'),

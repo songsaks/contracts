@@ -4695,6 +4695,11 @@ def sepa_manual(request):
 def ehlers_manual(request):
     return render(request, 'stocks/ehlers_manual.html')
 
+@login_required
+def mm_manual(request):
+    """Trading with Market Makers (MM) Manual"""
+    return render(request, 'stocks/mm_manual.html')
+
 
 @login_required
 def minervini_sepa_scanner(request):
@@ -11759,6 +11764,10 @@ def api_ai_manual_scan(request):
                 'adx': float(c.adx) if c.adx else 0,
                 'stage2': c.stage2,
                 'technical_score': float(c.technical_score) if c.technical_score else 0,
+                'cmf': float(c.cmf) if c.cmf else 0.0,
+                'volume_surge': float(c.volume_surge) if c.volume_surge else 0.0,
+                'pocket_pivot': c.pocket_pivot,
+                'vdu': c.vdu_near_zone,
             })
 
         client = genai.Client(api_key=settings.GEMINI_API_KEY)
@@ -11769,9 +11778,15 @@ def api_ai_manual_scan(request):
 2. 3-Step Formula: หาหุ้นที่มีการพักตัวสร้างฐาน (VCP/Cup & Handle) -> มีพลัง (Momentum/RS สูง) -> คุณภาพเกรดสถาบัน (SEPA)
 
 **เงื่อนไขพิเศษจากผู้ใช้งาน**: 
-ผู้ใช้ต้องการ "หุ้นเริ่มต้นวิ่ง" (Early Stage Momentum) ที่เพิ่งเริ่มเบรค หรือกำลังฟอร์มตัวสวยๆ โดยที่ **ค่า RSI ยังไม่สูงจนเกินไป** (ควรหลีกเลี่ยงหุ้นที่ RSI สูงมากเกิน 70-75 หรือ Overbought ไปไกลแล้ว) ให้เน้นหุ้นที่ RSI กำลังสวย (เช่น 50-65) เป็นพิเศษเพื่อรับความเสี่ยงที่ต่ำกว่า (Asymmetric Risk/Reward)
+1. **Early Stage Momentum**: ผู้ใช้ต้องการ "หุ้นเริ่มต้นวิ่ง" ที่เพิ่งเริ่มเบรค หรือกำลังฟอร์มตัวสวยๆ โดยที่ **ค่า RSI ยังไม่สูงจนเกินไป** (หลีกเลี่ยงหุ้น RSI สูงกว่า 70-75 หรือ Overbought ไปไกล) เน้น RSI ระดับ 50-65
+2. **Trade with Market Maker (Smart Money Footprints)**: เราต้องการเทรดอยู่ฝั่งเดียวกับรายใหญ่ (MM) ให้วิเคราะห์ร่องรอยการสะสมของสถาบัน (Accumulation) จากข้อมูลต่อไปนี้:
+   - มีการบีบตัว (vcp_setup) และวอลุ่มแห้ง (vdu) ก่อนจะลากขึ้น
+   - มีค่า CMF เป็นบวก (cmf > 0) แปลว่ามีเม็ดเงินสถาบันไหลเข้าสุทธิ
+   - มีวอลุ่มซื้อพุ่งผิดปกติ (volume_surge > 1.2)
+   - มีสัญญาณ Pocket Pivot (pocket_pivot) วันที่แรงซื้อชนะแรงขาย 10 วันย้อนหลัง
+ให้พิจารณาค่าเหล่านี้ประกอบเพื่อคัดเลือก "หุ้นที่รายใหญ่กำลังแอบเก็บสะสม" ก่อนที่รายย่อย (Retail) จะรู้ตัว!
 
-วิเคราะห์ข้อมูลหุ้น {market} จำนวน {len(stocks_data)} ตัวด้านล่างนี้ และคัดเลือกหุ้น "ที่ดีที่สุด" ตามหลักการในคู่มือ และเงื่อนไขพิเศษ (เลือกมา 5-10 ตัวที่สวยที่สุด)
+วิเคราะห์ข้อมูลหุ้น {market} จำนวน {len(stocks_data)} ตัวด้านล่างนี้ และคัดเลือกหุ้น "ที่ดีที่สุด" ตามหลักการในคู่มือ และเงื่อนไขพิเศษด้านบน (เลือกมา 5-10 ตัวที่สวยที่สุด)
 สำค้ญมาก: โปรดจัดอันดับ (rank) จากหุ้นที่สวยที่สุดอันดับ 1 ไล่ลงไปเรื่อยๆ (โดยตัวที่สวยที่สุดต้องได้ Grade A)
 
 ข้อมูลหุ้น (JSON):

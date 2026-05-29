@@ -1,0 +1,190 @@
+{% extends "stocks/base_stocks.html" %}
+
+{% block title %}คู่มือ Trading with Market Makers (MM){% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-10 col-xl-9">
+            
+            <div class="mb-4">
+                <a href="javascript:history.back()" class="btn btn-sm btn-outline-secondary rounded-pill px-3">
+                    <i class="fas fa-arrow-left me-1"></i> ย้อนกลับ
+                </a>
+            </div>
+
+            <div class="card border-0 shadow-sm" style="border-radius:1rem; overflow:hidden;">
+                <!-- Header -->
+                <div class="p-4 p-md-5 text-white position-relative" style="background:linear-gradient(135deg,#0f172a 0%,#1e293b 100%);">
+                    <div class="position-absolute" style="top:-20px;right:-20px;font-size:12rem;opacity:0.03;transform:rotate(15deg);">
+                        <i class="fas fa-user-tie"></i>
+                    </div>
+                    <div class="position-relative z-1">
+                        <span class="badge rounded-pill px-3 py-2 mb-3" style="background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);font-size:0.75rem;letter-spacing:0.5px;">
+                            <i class="fas fa-book-open me-1"></i> TRADING MANUAL
+                        </span>
+                        <h1 class="display-6 fw-bold mb-3">Trading with Market Makers (MM)</h1>
+                        <p class="lead mb-0 text-white-50" style="font-size:1.1rem; max-width:800px;">
+                            ทำอย่างไรถึงจะอยู่ฝั่งเดียวกับ "รายใหญ่" (Smart Money) และไม่ตกเป็นเหยื่อของรายย่อย (Retail) เรียนรู้วิธีตามรอย Footprints จากระบบ Scanner ของเรา
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Content -->
+                <div class="card-body p-4 p-md-5">
+                    
+                    <div class="alert mb-5" style="background:#f8fafc; border-left:4px solid #3b82f6; border-radius:0.5rem;">
+                        <h5 class="fw-bold" style="color:#0f172a;"><i class="fas fa-info-circle text-primary me-2"></i>ทำไมต้องเล่นตาม MM?</h5>
+                        <p class="mb-0 text-muted" style="line-height:1.7;">
+                            Market Maker (MM) หรือ "รายใหญ่/สถาบัน" มีเงินทุนมหาศาลมากจนไม่สามารถซื้อขายรวดเดียวโดยไม่ทิ้งร่องรอยไว้บนกราฟได้ ระบบ Precision Scanner ถูกออกแบบมาเพื่อ "ดักจับร่องรอย" เหล่านี้ โดยเฉพาะพฤติกรรมการสะสมหุ้นก่อนที่จะลากราคาขึ้น (Markup Phase)
+                        </p>
+                    </div>
+
+                    <h4 class="fw-bold mb-4" style="color:#1e293b;">4 หลักการเทรดแบบ Smart Money</h4>
+
+                    <!-- Rule 1 -->
+                    <div class="d-flex mb-5">
+                        <div class="flex-shrink-0">
+                            <div class="rounded-circle d-flex align-items-center justify-content-center text-white fw-bold shadow-sm" 
+                                 style="width:48px;height:48px;background:linear-gradient(135deg,#10b981,#059669);font-size:1.2rem;">
+                                1
+                            </div>
+                        </div>
+                        <div class="ms-4">
+                            <h5 class="fw-bold text-dark mb-2">มองหา "การสะสมของ" (Accumulation Footprints)</h5>
+                            <p class="text-muted mb-3" style="line-height:1.7;">
+                                รายย่อยไม่สามารถทำให้วอลุ่มตลาดพุ่งปรี๊ดได้ มีแต่ MM เท่านั้น ร่องรอยที่ชัดเจนที่สุดคือ วอลุ่มซื้อที่สูงผิดปกติ
+                            </p>
+                            <div class="p-3 rounded" style="background:#f0fdf4; border:1px solid #bbf7d0;">
+                                <div class="fw-bold text-success mb-1"><i class="fas fa-search me-1"></i> สิ่งที่ต้องดูใน Scanner:</div>
+                                <ul class="mb-0 text-muted small" style="line-height:1.6;">
+                                    <li><strong>Vol Surge:</strong> มองหาป้าย ⚡(เช่น > 1.5x) ในวันที่แท่งเทียนเป็นสีเขียว (ปิดบวก)</li>
+                                    <li><strong>CMF (Chaikin Money Flow):</strong> ถ้าระบบขึ้นป้าย <span class="badge" style="background:#10b981;">CMF↑</span> แปลว่าเงินไหลเข้าสุทธิ MM กำลังแอบเก็บของ แต่ถ้าเห็น <span class="badge" style="background:#f59e0b;">CMF↓</span> ระวัง! รายใหญ่อาจกำลัง "รินขาย" ใส่รายย่อย</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Rule 2 -->
+                    <div class="d-flex mb-5">
+                        <div class="flex-shrink-0">
+                            <div class="rounded-circle d-flex align-items-center justify-content-center text-white fw-bold shadow-sm" 
+                                 style="width:48px;height:48px;background:linear-gradient(135deg,#7c3aed,#4f46e5);font-size:1.2rem;">
+                                2
+                            </div>
+                        </div>
+                        <div class="ms-4">
+                            <h5 class="fw-bold text-dark mb-2">ซื้อตอน "รายย่อยเบื่อและยอมแพ้" (Volume Dry-Up)</h5>
+                            <p class="text-muted mb-3" style="line-height:1.7;">
+                                ก่อนที่ MM จะลากหุ้นขึ้น พวกเขาจะเช็คก่อนว่ายังมีรายย่อยพร้อมขายใส่หน้าพวกเขาไหม วิธีเช็คคือการปล่อยให้กราฟซึมๆ แกว่งแคบๆ (VCP) จนรายย่อยเบื่อแล้วคายของออกมาให้หมด 
+                                <br><strong class="text-dark">Mindset:</strong> รายย่อยชอบซื้อตอนวอลุ่มเข้าเยอะๆ ข่าวออกดังๆ แต่ MM ซื้อสะสมตอนที่ตลาดเงียบสงัดที่สุด
+                            </p>
+                            <div class="p-3 rounded" style="background:#f5f3ff; border:1px solid #ddd6fe;">
+                                <div class="fw-bold" style="color:#6d28d9; margin-bottom:4px;"><i class="fas fa-search me-1"></i> สิ่งที่ต้องดูใน Scanner:</div>
+                                <ul class="mb-0 text-muted small" style="line-height:1.6;">
+                                    <li>ป้าย <strong>VCP 🎯</strong> บ่งบอกว่าราคากำลังบีบตัวแคบลงเรื่อยๆ</li>
+                                    <li>ป้าย <strong>VDU (Volume Dry-Up)</strong> วอลุ่มขายแห้งสนิท สัญญาณพร้อมวิ่ง</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Rule 3 -->
+                    <div class="d-flex mb-5">
+                        <div class="flex-shrink-0">
+                            <div class="rounded-circle d-flex align-items-center justify-content-center text-white fw-bold shadow-sm" 
+                                 style="width:48px;height:48px;background:linear-gradient(135deg,#f59e0b,#ea580c);font-size:1.2rem;">
+                                3
+                            </div>
+                        </div>
+                        <div class="ms-4">
+                            <h5 class="fw-bold text-dark mb-2">ซื้อใกล้ฐาน (Demand Zone) ไม่ไล่ราคา (No FOMO)</h5>
+                            <p class="text-muted mb-3" style="line-height:1.7;">
+                                รายย่อยมักจะซื้อเพราะ FOMO (กลัวตกรถ) ตอนที่หุ้นวิ่งขึ้นไปแรงๆ แล้ว (Overextended) ซึ่งจุดนั้นคือจุดที่ MM กำลังรอขายทำกำไรใส่
+                            </p>
+                            <div class="p-3 rounded" style="background:#fffbeb; border:1px solid #fde68a;">
+                                <div class="fw-bold text-warning mb-1" style="color:#d97706 !important;"><i class="fas fa-search me-1"></i> สิ่งที่ต้องดูใน Scanner:</div>
+                                <ul class="mb-0 text-muted small" style="line-height:1.6;">
+                                    <li><strong>ZONE:</strong> ซื้อเฉพาะตอนที่สถานะเป็น <span class="badge" style="background:#16a34a;">IN ZONE</span> หรือห่างจากโซนไม่เกิน 5% </li>
+                                    <li><strong>Stop Loss:</strong> ถ้า MM ตั้งใจทำราคาจริงๆ ราคาจะต้องไม่หลุด Demand Zone ถ้าหลุดแปลว่า MM เลิกเล่น ต้อง Cut Loss เด็ดขาด</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Rule 4 -->
+                    <div class="d-flex mb-5">
+                        <div class="flex-shrink-0">
+                            <div class="rounded-circle d-flex align-items-center justify-content-center text-white fw-bold shadow-sm" 
+                                 style="width:48px;height:48px;background:linear-gradient(135deg,#06b6d4,#0891b2);font-size:1.2rem;">
+                                4
+                            </div>
+                        </div>
+                        <div class="ms-4">
+                            <h5 class="fw-bold text-dark mb-2">Pocket Pivot (PP) จุดสตาร์ทเครื่องของรายใหญ่</h5>
+                            <p class="text-muted mb-3" style="line-height:1.7;">
+                                คือสัญญาณที่บ่งบอกว่า วันนี้มี "แรงซื้อลึกลับ" ที่มีวอลุ่มชนะแรงขายของทุกๆ วันในรอบ 10 วันที่ผ่านมา โผล่ขึ้นมาจากฐานราคา นี่คือพฤติกรรมของ MM ที่เริ่ม "เคาะขวา" กวาดของ
+                            </p>
+                            <div class="p-3 rounded" style="background:#ecfeff; border:1px solid #a5f3fc;">
+                                <div class="fw-bold text-info mb-1" style="color:#0891b2 !important;"><i class="fas fa-search me-1"></i> สิ่งที่ต้องดูใน Scanner:</div>
+                                <ul class="mb-0 text-muted small" style="line-height:1.6;">
+                                    <li>มองหาป้าย <strong>PP</strong> หรือเปิดใช้ฟิลเตอร์ <strong>PP only</strong> เพื่อหาหุ้นที่เพิ่งมีแรงซื้อก้อนแรกเข้า</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <hr class="my-5">
+
+                    <!-- Action Plan -->
+                    <div class="card border-0" style="background:#1e293b; color:white; border-radius:1rem;">
+                        <div class="card-body p-4 p-md-5">
+                            <h4 class="fw-bold mb-4 text-center" style="color:#38bdf8;"><i class="fas fa-rocket me-2"></i> Action Plan สรุปขั้นตอนเทรดตาม MM</h4>
+                            <div class="row g-4">
+                                <div class="col-md-6">
+                                    <div class="d-flex align-items-start">
+                                        <i class="fas fa-check-circle text-success mt-1 me-2"></i>
+                                        <div>
+                                            <strong class="d-block mb-1">1. กรองหาหุ้นที่กำลังฟอร์มตัว</strong>
+                                            <span class="text-white-50 small">เปิด Filter `VCP Only` หรือ `Launcher Only` เพื่อหาหุ้นที่รายย่อยกำลังเบื่อ แต่มันกำลังบีบตัวแน่น</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="d-flex align-items-start">
+                                        <i class="fas fa-check-circle text-success mt-1 me-2"></i>
+                                        <div>
+                                            <strong class="d-block mb-1">2. เช็คร่องรอยเงินเข้า</strong>
+                                            <span class="text-white-50 small">ดูว่าตัวนั้นมีป้าย CMF↑ หรือเคยมี Vol Surge แฝงตัวอยู่ไหม</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="d-flex align-items-start">
+                                        <i class="fas fa-check-circle text-success mt-1 me-2"></i>
+                                        <div>
+                                            <strong class="d-block mb-1">3. เข้าซื้อในโซนเท่านั้น</strong>
+                                            <span class="text-white-50 small">ซื้อเมื่อ IN ZONE (ห้ามไล่ราคาตอนขึ้น AT TP หรือ ห่างโซนเกิน 10% เด็ดขาด เพราะนั่นคือจุดที่ MM รอขายให้คุณ)</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="d-flex align-items-start">
+                                        <i class="fas fa-check-circle text-success mt-1 me-2"></i>
+                                        <div>
+                                            <strong class="d-block mb-1">4. หนีให้เป็น (Stop Loss)</strong>
+                                            <span class="text-white-50 small">ถ้าราคาหลุดขอบล่างของ Demand Zone ต้องคัทลอสทันที ไม่ถือทน ไม่สวดมนต์</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+            
+        </div>
+    </div>
+</div>
+{% endblock %}

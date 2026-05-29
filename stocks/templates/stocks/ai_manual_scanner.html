@@ -10,7 +10,9 @@
             <h1 class="h3 mb-0 text-gray-800 fw-bold">
                 <i class="fas fa-robot text-primary me-2"></i>AI Manual Scanner
             </h1>
-            <p class="text-muted mt-2 mb-0">ระบบสแกนหุ้นด้วย AI โดยยึดตามหลักการ SEPA และ Scanner Guide แบบ 100%</p>
+            <p class="text-muted mt-2 mb-0">
+                ระบบสแกนหุ้นด้วย AI โดยยึดตามหลักการ <a href="{% url 'stocks:sepa_manual' %}" target="_blank">SEPA</a> และการเทรดแบบ <a href="{% url 'stocks:mm_manual' %}" target="_blank" style="color:#10b981;font-weight:bold;">Smart Money (MM)</a> 100%
+            </p>
         </div>
         <div class="col-lg-5 text-lg-end mt-3 mt-lg-0">
             <div class="btn-group shadow-sm me-2" role="group">
