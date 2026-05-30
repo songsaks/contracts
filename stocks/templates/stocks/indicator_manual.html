@@ -1,0 +1,458 @@
+{% extends 'stocks/base_stocks.html' %}
+{% load static %}
+
+{% block title %}📘 คู่มือการใช้งาน Indicators{% endblock %}
+
+{% block extra_css %}
+<style>
+    body {
+        background-color: #090d16 !important;
+        background-image: radial-gradient(at 50% 0%, #1e293b 0%, #0f172a 50%, #090d16 100%) !important;
+        color: #f1f5f9 !important;
+        font-family: 'Outfit', 'Sarabun', sans-serif;
+    }
+
+    /* Navbar Override */
+    .navbar-stocks {
+        background: rgba(9, 13, 22, 0.85) !important;
+        backdrop-filter: blur(20px) !important;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
+    }
+
+    .hero-section {
+        background: rgba(15, 23, 42, 0.5);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 24px;
+        padding: 3rem 2rem;
+        margin-bottom: 2rem;
+        backdrop-filter: blur(20px);
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+        text-align: center;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .hero-section::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        left: -50%;
+        width: 200%;
+        height: 200%;
+        background: radial-gradient(circle, rgba(59, 130, 246, 0.05) 0%, transparent 60%);
+        z-index: 0;
+    }
+
+    .hero-content {
+        position: relative;
+        z-index: 1;
+    }
+
+    .hero-title {
+        font-size: 2.5rem;
+        font-weight: 800;
+        margin-bottom: 1rem;
+        background: linear-gradient(135deg, #60a5fa 0%, #a78bfa 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+    }
+
+    /* Sidebar Navigation */
+    .sticky-sidebar {
+        position: sticky;
+        top: 100px;
+        background: rgba(15, 23, 42, 0.6);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 20px;
+        padding: 1.5rem;
+        backdrop-filter: blur(15px);
+        box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+    }
+    
+    .nav-pills .nav-link {
+        color: #94a3b8;
+        border-radius: 12px;
+        padding: 0.75rem 1rem;
+        margin-bottom: 0.5rem;
+        font-weight: 500;
+        transition: all 0.3s ease;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    
+    .nav-pills .nav-link:hover {
+        background: rgba(255, 255, 255, 0.05);
+        color: #f1f5f9;
+        transform: translateX(5px);
+    }
+    
+    .nav-pills .nav-link.active {
+        background: rgba(59, 130, 246, 0.15);
+        color: #60a5fa;
+        border-left: 4px solid #3b82f6;
+        border-radius: 0 12px 12px 0;
+        font-weight: 600;
+    }
+
+    /* Content Cards */
+    .indicator-card {
+        background: rgba(15, 23, 42, 0.4);
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        border-radius: 20px;
+        padding: 2.5rem;
+        margin-bottom: 2rem;
+        backdrop-filter: blur(12px);
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+
+    .indicator-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 15px 40px rgba(0, 0, 0, 0.3);
+        border-color: rgba(255, 255, 255, 0.1);
+    }
+
+    .indicator-header {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+        padding-bottom: 1rem;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    .indicator-icon {
+        width: 50px;
+        height: 50px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.5rem;
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .indicator-title {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: #ffffff;
+        margin: 0;
+    }
+    
+    .indicator-subtitle {
+        color: #64748b;
+        font-size: 0.9rem;
+        font-weight: 500;
+    }
+
+    .info-box {
+        background: rgba(255, 255, 255, 0.02);
+        border-left: 4px solid #3b82f6;
+        padding: 1.25rem;
+        border-radius: 0 12px 12px 0;
+        margin: 1.5rem 0;
+        font-size: 0.95rem;
+        line-height: 1.7;
+    }
+
+    .info-box.warning { border-left-color: #f59e0b; }
+    .info-box.success { border-left-color: #10b981; }
+    
+    .parameter-badge {
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        padding: 0.25rem 0.75rem;
+        border-radius: 6px;
+        font-family: monospace;
+        color: #cbd5e1;
+        font-size: 0.85rem;
+    }
+
+    ul.custom-list {
+        list-style: none;
+        padding-left: 0;
+    }
+
+    ul.custom-list li {
+        position: relative;
+        padding-left: 1.75rem;
+        margin-bottom: 0.75rem;
+        line-height: 1.6;
+    }
+
+    ul.custom-list li::before {
+        content: '▹';
+        position: absolute;
+        left: 0;
+        color: #3b82f6;
+        font-weight: bold;
+        font-size: 1.2rem;
+        top: -2px;
+    }
+
+    .signal-tag {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 4px;
+        font-size: 0.75rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        margin-right: 5px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-5" style="max-width: 1400px;">
+    
+    <!-- Hero Section -->
+    <div class="hero-section">
+        <div class="hero-content">
+            <h1 class="hero-title">คู่มือการใช้งาน Technical Indicators</h1>
+            <p class="text-muted fs-5 mb-0" style="max-width: 700px; margin: 0 auto;">
+                เจาะลึกเครื่องมือวิเคราะห์กราฟเทคนิคทั้งหมดที่ใช้ในระบบ เพื่อให้คุณเข้าใจและสามารถจับจังหวะการเทรดได้อย่างแม่นยำดุจมืออาชีพ
+            </p>
+        </div>
+    </div>
+
+    <div class="row g-4 position-relative">
+        
+        <!-- Sidebar -->
+        <div class="col-lg-3 d-none d-lg-block">
+            <div class="sticky-sidebar">
+                <h5 class="text-white mb-3 fw-bold ps-2">สารบัญ (Index)</h5>
+                <nav id="indicator-navbar" class="nav nav-pills flex-column">
+                    <a class="nav-link" href="#smart-candles"><i class="fas fa-magic text-pink-400"></i> Smart Candles</a>
+                    <a class="nav-link" href="#donchian"><i class="fas fa-layer-group text-success"></i> Donchian Channels</a>
+                    <a class="nav-link" href="#bb"><i class="fas fa-wave-square text-info"></i> Bollinger Bands</a>
+                    <a class="nav-link" href="#ema"><i class="fas fa-chart-line text-primary"></i> EMA (Moving Average)</a>
+                    <a class="nav-link" href="#itl"><i class="fas fa-water text-warning"></i> ITL (Ehlers Trendline)</a>
+                    <a class="nav-link" href="#macd"><i class="fas fa-chart-bar text-primary"></i> MACD</a>
+                    <a class="nav-link" href="#rsi"><i class="fas fa-tachometer-alt text-indigo-400"></i> RSI</a>
+                    <a class="nav-link" href="#stoch"><i class="fas fa-bolt text-warning"></i> Stochastic</a>
+                </nav>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="col-lg-9">
+            <div data-bs-spy="scroll" data-bs-target="#indicator-navbar" data-bs-smooth-scroll="true" tabindex="0">
+                
+                <!-- Smart Candles -->
+                <div id="smart-candles" class="indicator-card">
+                    <div class="indicator-header">
+                        <div class="indicator-icon text-pink-400" style="border-color: rgba(236,72,153,0.3);"><i class="fas fa-magic"></i></div>
+                        <div>
+                            <h2 class="indicator-title">Smart Candles (สัญญาณแท่งเทียนอัจฉริยะ)</h2>
+                            <div class="indicator-subtitle">จุดเข้า-ออกที่ดูง่ายที่สุด (Tactical Signals)</div>
+                        </div>
+                    </div>
+                    <div class="content-body text-light">
+                        <p>Smart Candles เป็นระบบที่นำเอาสัญญาณ Turtle Breakout มาแสดงผลบนแท่งเทียนโดยตรง เพื่อให้ผู้ใช้สามารถรับรู้จุดเข้าซื้อและจุดขายทำกำไร/ตัดขาดทุนได้อย่างรวดเร็ว โดยไม่ต้องพึ่งพา Indicator ตัวอื่นให้ลายตา</p>
+                        
+                        <div class="row mt-4">
+                            <div class="col-md-6">
+                                <div class="p-3 rounded bg-dark border border-secondary mb-3">
+                                    <h5 class="text-info fw-bold mb-2">🔵 แท่งสีฟ้า (Smart Buy)</h5>
+                                    <p class="text-muted text-sm mb-0">แสดงถึง <b>สัญญาณเข้าซื้อ (Buy Signal)</b> เกิดขึ้นเมื่อราคาทะลุกรอบด้านบนของ Donchian Channel (Breakout) เป็นจุดเริ่มต้นของเทรนด์ขาขึ้น</p>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="p-3 rounded bg-dark border border-secondary mb-3">
+                                    <h5 class="text-pink-400 fw-bold mb-2" style="color: #ff007f;">🔴 แท่งสีชมพู (Smart Sell)</h5>
+                                    <p class="text-muted text-sm mb-0">แสดงถึง <b>สัญญาณขาย (Exit / Stop Loss)</b> เกิดขึ้นเมื่อราคาหลุดกรอบด้านล่าง เป็นจุดบังคับให้ตัดจบออเดอร์เพื่อล็อคกำไรหรือตัดขาดทุน</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="info-box mt-3">
+                            <b>💡 วิธีใช้งาน:</b> เมื่อเห็นแท่งเทียนเปลี่ยนเป็นสีฟ้า คือจังหวะพิจารณาเข้าซื้อ และให้ถือรันเทรนด์ (Let Profit Run) ไปเรื่อยๆ จนกว่าจะปรากฏแท่งเทียนสีชมพู จึงค่อยทำการขายออกทั้งหมด
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Donchian Channels -->
+                <div id="donchian" class="indicator-card">
+                    <div class="indicator-header">
+                        <div class="indicator-icon text-success"><i class="fas fa-layer-group"></i></div>
+                        <div>
+                            <h2 class="indicator-title">Donchian Channels (กรอบราคาทะลวงเทรนด์)</h2>
+                            <div class="indicator-subtitle">หัวใจหลักของระบบ Turtle Trading</div>
+                        </div>
+                    </div>
+                    <div class="content-body text-light">
+                        <p>Donchian Channel คือเครื่องมือตีกรอบราคาจุดสูงสุดและต่ำสุดในช่วงเวลาที่กำหนด ใช้สำหรับดักจับการเกิดแนวโน้มใหม่ (Breakout) ซึ่งเป็นเคล็ดลับที่สร้างตำนานกลุ่มเทรดเดอร์ "เต่า" (Turtle Traders)</p>
+                        
+                        <h5 class="text-white mt-4 mb-3">เส้นที่แสดงบนกราฟ:</h5>
+                        <ul class="custom-list">
+                            <li><span class="signal-tag" style="background: rgba(0, 192, 118, 0.2); color: #00c076;">DC20 Upper (เส้นทึบสีเขียว)</span> <span class="parameter-badge">20 วัน</span> — จุดราคาสูงสุดในรอบ 20 วัน หากราคาทะลุเส้นนี้ได้ จะเกิดสัญญาณ <b>Sys1 Buy</b> (เข้าซื้อไม้แรก)</li>
+                            <li><span class="signal-tag" style="background: rgba(255, 149, 0, 0.2); color: #ff9500;">DC55 Upper (เส้นทึบสีส้ม)</span> <span class="parameter-badge">55 วัน</span> — จุดราคาสูงสุดในรอบ 55 วัน หากทะลุได้ จะเกิดสัญญาณ <b>Sys2 Buy</b> (เข้าซื้อยืนยันเทรนด์ใหญ่)</li>
+                            <li><span class="signal-tag" style="background: rgba(0, 192, 118, 0.1); color: #00c076; border: 1px dashed #00c076;">DC10 Lower (เส้นประสีเขียว)</span> <span class="parameter-badge">10 วัน</span> — ใช้เป็นจุด <b>Exit</b> หรือจุดตัดขาดทุนแบบเลื่อนตามราคา (Trailing Stop) สำหรับไม้ Sys1</li>
+                        </ul>
+
+                        <div class="info-box success mt-4">
+                            <b>🎯 เคล็ดลับการเทรด:</b> ระบบ Turtle เน้นการ "ซื้อแพงเพื่อไปขายแพงกว่า" เมื่อเกิด Breakout ทะลุเส้นทึบด้านบน ให้เข้าซื้อ และตั้ง Stop Loss ไว้ที่เส้นประด้านล่าง (DC10 Lower) หากราคาขึ้นไปเรื่อยๆ เส้นประจะขยับตามขึ้นไปเอง
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Bollinger Bands -->
+                <div id="bb" class="indicator-card">
+                    <div class="indicator-header">
+                        <div class="indicator-icon text-info"><i class="fas fa-wave-square"></i></div>
+                        <div>
+                            <h2 class="indicator-title">Bollinger Bands (แถบความผันผวน)</h2>
+                            <div class="indicator-subtitle">วัดระดับความแกว่งตัวของราคา (Volatility)</div>
+                        </div>
+                    </div>
+                    <div class="content-body text-light">
+                        <p>Bollinger Bands (BB) เป็นแถบสีฟ้าอ่อนที่ครอบทับราคาอยู่ สร้างขึ้นจากเส้นค่าเฉลี่ย 20 วัน (SMA20) บวก/ลบ ด้วยค่าเบี่ยงเบนมาตรฐาน (Standard Deviation) 2 เท่า ใช้ดูว่าราคาในปัจจุบัน "ถูก" หรือ "แพง" เมื่อเทียบกับความผันผวนปกติ</p>
+                        
+                        <ul class="custom-list mt-3">
+                            <li><b>กรอบแคบ (Squeeze):</b> เมื่อแถบบนและล่างบีบตัวเข้าหากัน แปลว่าตลาดกำลังสะสมพลัง เตรียมที่จะระเบิดเลือกทาง (Breakout)</li>
+                            <li><b>แตะขอบบน/ล่าง:</b> หากราคาพุ่งไปแตะขอบบน มักหมายถึงภาวะ Overbought (ซื้อมากเกินไปในระยะสั้น) หรือถ้าแตะขอบล่างคือ Oversold (ขายมากเกินไป)</li>
+                            <li><b>การเกาะขอบ (Riding the Bands):</b> ในเทรนด์ขาขึ้นที่แข็งแกร่ง ราคาจะเกาะเส้นขอบบนไปเรื่อยๆ (ไม่ใช่สัญญาณให้ขาย แต่เป็นสัญญาณความแข็งแกร่ง)</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- EMA -->
+                <div id="ema" class="indicator-card">
+                    <div class="indicator-header">
+                        <div class="indicator-icon text-primary"><i class="fas fa-chart-line"></i></div>
+                        <div>
+                            <h2 class="indicator-title">EMA (Exponential Moving Average)</h2>
+                            <div class="indicator-subtitle">เส้นค่าเฉลี่ยเคลื่อนที่แบบถ่วงน้ำหนัก</div>
+                        </div>
+                    </div>
+                    <div class="content-body text-light">
+                        <p>EMA เป็นเส้นค่าเฉลี่ยที่ให้น้ำหนักกับราคาล่าสุดมากกว่าอดีต ทำให้ตอบสนองต่อการเปลี่ยนเทรนด์ได้รวดเร็วกว่า SMA</p>
+                        
+                        <div class="row mt-3">
+                            <div class="col-md-4 mb-3">
+                                <div class="p-3 bg-dark rounded border h-100" style="border-color: rgba(96, 165, 250, 0.3) !important;">
+                                    <h6 style="color: #60a5fa;"><i class="fas fa-minus"></i> EMA 20</h6>
+                                    <p class="text-muted text-sm mb-0">ใช้ดูแนวรับ/แนวต้านใน<b>ระยะสั้น</b> หุ้นที่แข็งแกร่งมักจะพักตัวไม่หลุดเส้นนี้</p>
+                                </div>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <div class="p-3 bg-dark rounded border h-100" style="border-color: rgba(167, 139, 250, 0.3) !important;">
+                                    <h6 style="color: #a78bfa;"><i class="fas fa-minus"></i> EMA 50</h6>
+                                    <p class="text-muted text-sm mb-0">เส้นประคองเทรนด์<b>ระยะกลาง</b> เป็นจุดรับสำคัญสำหรับรอบการย่อตัวใหญ่</p>
+                                </div>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <div class="p-3 bg-dark rounded border h-100" style="border-color: rgba(248, 113, 113, 0.3) !important;">
+                                    <h6 style="color: #f87171;"><i class="fas fa-minus"></i> EMA 200</h6>
+                                    <p class="text-muted text-sm mb-0">เส้นแบ่งแยก<b>กระทิง-หมี</b> ถ้าราคาอยู่ใต้เส้นนี้ควรงดการเทรดฝั่งซื้อ (Buy)</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ITL -->
+                <div id="itl" class="indicator-card">
+                    <div class="indicator-header">
+                        <div class="indicator-icon text-warning"><i class="fas fa-water"></i></div>
+                        <div>
+                            <h2 class="indicator-title">ITL (Ehlers Instantaneous Trendline)</h2>
+                            <div class="indicator-subtitle">เส้นเทรนด์ไร้สัญญาณรบกวน (Zero-Lag Trendline)</div>
+                        </div>
+                    </div>
+                    <div class="content-body text-light">
+                        <p>ITL คือเส้นสมการคณิตศาสตร์ขั้นสูง (Digital Signal Processing) คิดค้นโดย John Ehlers มีคุณสมบัติพิเศษคือ <b>"กำจัดสัญญาณหลอก (Noise)"</b> และ <b>"ไม่มีความหน่วง (Zero-Lag)"</b></p>
+                        
+                        <p>ลักษณะคือ <span style="color: #fb923c; font-weight:bold;">เส้นสีส้มหนา</span> ที่วิ่งตามราคา หากราคาอยู่เหนือเส้นนี้แสดงถึงเทรนด์ขาขึ้นที่สมูท หากแท่งเทียนตัดเส้นนี้ลงมาแบบมีนัยยะ มักจะเป็นสัญญาณสิ้นสุดรอบของเทรนด์นั้นๆ อย่างแม่นยำ เหมาะสำหรับใช้ควบคู่กับเส้น EMA เพื่อยืนยันเทรนด์</p>
+                    </div>
+                </div>
+
+                <!-- MACD -->
+                <div id="macd" class="indicator-card">
+                    <div class="indicator-header">
+                        <div class="indicator-icon text-primary"><i class="fas fa-chart-bar"></i></div>
+                        <div>
+                            <h2 class="indicator-title">MACD (Moving Average Convergence Divergence)</h2>
+                            <div class="indicator-subtitle">มาตรวัดแรงเหวี่ยงของราคา (Momentum)</div>
+                        </div>
+                    </div>
+                    <div class="content-body text-light">
+                        <p>MACD <span class="parameter-badge">12, 26, 9</span> ประกอบด้วย 3 ส่วนหลักในหน้าจอ Panel ด้านล่างสุด:</p>
+                        <ul class="custom-list mt-3">
+                            <li><span style="color: #60a5fa;">เส้น MACD (สีฟ้า)</span>: ความต่างระหว่าง EMA12 และ EMA26</li>
+                            <li><span style="color: #fb923c;">เส้น Signal (สีส้ม)</span>: ค่าเฉลี่ย EMA9 ของเส้น MACD</li>
+                            <li><b>Histogram (แท่งสีเขียว/แดง)</b>: ความห่างระหว่างเส้นฟ้ากับเส้นส้ม</li>
+                        </ul>
+                        
+                        <div class="info-box mt-3">
+                            <b>🚀 การใช้งาน:</b> 
+                            <br>1. ตัดขึ้น: เส้นฟ้าตัดส้มขึ้นไป = โมเมนตัมเป็นบวก (สัญญาณซื้อ)
+                            <br>2. พ้นเส้นศูนย์ (Zero-line): เส้นคู่ทะลุ 0 ขึ้นไป = ยืนยันเทรนด์ขาขึ้น
+                            <br>3. Divergence: ราคาทำจุดสูงสุดใหม่ แต่ MACD ทำจุดสูงสุดต่ำลง = สัญญาณเตือนระวังการกลับตัวลงแรง
+                        </div>
+                    </div>
+                </div>
+
+                <!-- RSI -->
+                <div id="rsi" class="indicator-card">
+                    <div class="indicator-header">
+                        <div class="indicator-icon" style="color: #818cf8;"><i class="fas fa-tachometer-alt"></i></div>
+                        <div>
+                            <h2 class="indicator-title">RSI (Relative Strength Index)</h2>
+                            <div class="indicator-subtitle">ดัชนีชี้วัดความร้อนแรง (Overbought / Oversold)</div>
+                        </div>
+                    </div>
+                    <div class="content-body text-light">
+                        <p>RSI <span class="parameter-badge">14</span> มีค่าแกว่งตั้งแต่ 0 ถึง 100 ใช้ดูว่าหุ้นตัวนั้นถูก "ซื้อมากเกินไป" หรือ "ขายมากเกินไป" ในระยะสั้น</p>
+                        
+                        <ul class="custom-list mt-3">
+                            <li><b>โซนเกิน 70 (เส้นประสีแดง):</b> ภาวะ Overbought (ซื้อมากเกินไป) อาจมีการพักตัว แต่ในหุ้นที่เป็น Superstock RSI สามารถค้างอยู่เหนือ 70 ได้เป็นเวลานาน</li>
+                            <li><b>โซนต่ำกว่า 30 (เส้นประสีเขียว):</b> ภาวะ Oversold (ขายมากเกินไป) เป็นจุดที่น่าสนใจในการหาจังหวะรับของ (Buy on Dip) สำหรับหุ้นที่เป็นเทรนด์ขาขึ้น</li>
+                            <li><b>ระดับ 50:</b> ใช้เป็นเส้นแบ่งแยกโซนกระทิงและหมี</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Stochastic -->
+                <div id="stoch" class="indicator-card">
+                    <div class="indicator-header">
+                        <div class="indicator-icon text-warning"><i class="fas fa-bolt"></i></div>
+                        <div>
+                            <h2 class="indicator-title">Stochastic Oscillator</h2>
+                            <div class="indicator-subtitle">เครื่องมือหาจังหวะสวิงเทรดระยะสั้น</div>
+                        </div>
+                    </div>
+                    <div class="content-body text-light">
+                        <p>Stochastic <span class="parameter-badge">14, 3, 3</span> เป็นเครื่องมือ Oscillator ที่ไวต่อการเปลี่ยนแปลงของราคาระยะสั้น เหมาะสำหรับการเล่นรอบสั้น (Swing Trade) ในกรอบพักตัว</p>
+                        
+                        <ul class="custom-list mt-3">
+                            <li><span style="color: #3b82f6;">เส้น %K (สีฟ้า)</span>: เส้นหลักที่ตอบสนองต่อราคาอย่างรวดเร็ว</li>
+                            <li><span style="color: #f59e0b;">เส้น %D (สีส้ม)</span>: เส้นค่าเฉลี่ยของ %K ช่วยกรองสัญญาณหลอก</li>
+                        </ul>
+                        
+                        <div class="info-box warning mt-3">
+                            <b>⚡ กลยุทธ์ สวิงเทรด:</b>
+                            <br>รอให้เส้นทั้งสองลงมาต่ำกว่าระดับ 20 (Oversold) และเมื่อ <span style="color:#3b82f6">เส้นสีฟ้า (%K)</span> ตัด <span style="color:#f59e0b">เส้นสีส้ม (%D)</span> ขึ้นไป ให้ถือเป็น <b>สัญญาณซื้อ (Buy Trigger)</b>
+                            <br>ทำตรงกันข้ามเมื่อราคาขึ้นไปโซน Overbought (เหนือ 80)
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Initialize Scrollspy manually if needed
+    document.addEventListener('DOMContentLoaded', function () {
+        var scrollSpy = new bootstrap.ScrollSpy(document.body, {
+            target: '#indicator-navbar'
+        });
+    });
+</script>
+{% endblock %}

@@ -4707,6 +4707,10 @@ def scan_watchlist_view(request):
 
 
 # ====== Precision Momentum Scanner - เวอร์ชันกรองคุณภาพสูง ======
+@login_required
+def indicator_manual(request):
+    """Complete guide for all indicators used in the system."""
+    return render(request, 'stocks/indicator_manual.html')
 
 @login_required
 def vcp_manual(request):

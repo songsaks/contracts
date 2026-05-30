@@ -55,6 +55,7 @@ urlpatterns = [
     path('mm-manual/', views.mm_manual, name='mm_manual'),
     path('scanner-guide/', views.scanner_guide, name='scanner_guide'),
     path('ai-manual-scanner/', views.ai_manual_scanner, name='ai_manual_scanner'),
+    path('indicator-manual/', views.indicator_manual, name='indicator_manual'),
     path('api/ai-manual-scan/', views.api_ai_manual_scan, name='api_ai_manual_scan'),
     path('scan/turtle/', views.turtle_scanner, name='turtle_scanner'),
     path('scan/turtle/run/', views.turtle_scanner_run_ajax, name='turtle_scanner_run'),
