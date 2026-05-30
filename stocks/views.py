@@ -10999,6 +10999,13 @@ def stock_chart_data(request, symbol):
         rs = gain / loss.replace(0, _np.nan)
         df['rsi'] = 100 - (100 / (1 + rs))
 
+        # Stochastic (14, 3, 3)
+        low_min = df['Low'].rolling(window=14).min()
+        high_max = df['High'].rolling(window=14).max()
+        df['stoch_k_fast'] = 100 * (df['Close'] - low_min) / (high_max - low_min)
+        df['stoch_k'] = df['stoch_k_fast'].rolling(window=3).mean()
+        df['stoch_d'] = df['stoch_k'].rolling(window=3).mean()
+
         # --- Trend Following: EMA ---
         df['ema9']   = df['Close'].ewm(span=9, adjust=False).mean()
         df['ema20']  = df['Close'].ewm(span=20, adjust=False).mean()
@@ -11207,6 +11214,7 @@ def stock_chart_data(request, symbol):
         ema20, ema50, ema200 = [], [], []
         bbu, bbl = [], []
         macd, macd_sig, macd_hist = [], [], []
+        stoch_k, stoch_d = [], []
         itl_data = []
         signals = []
 
@@ -11230,6 +11238,10 @@ def stock_chart_data(request, symbol):
             
             if _pd.notna(row['rsi']):
                 rsi_data.append({'time': t, 'value': round(float(row['rsi']), 2)})
+            
+            if _pd.notna(row['stoch_k']) and _pd.notna(row['stoch_d']):
+                stoch_k.append({'time': t, 'value': round(float(row['stoch_k']), 2)})
+                stoch_d.append({'time': t, 'value': round(float(row['stoch_d']), 2)})
             
             if _pd.notna(row['ema20']):
                 ema20.append({'time': t, 'value': round(float(row['ema20']), 2)})
@@ -11265,6 +11277,7 @@ def stock_chart_data(request, symbol):
             'ema20': ema20, 'ema50': ema50, 'ema200': ema200,
             'bb_upper': bbu, 'bb_lower': bbl,
             'macd': macd, 'macd_sig': macd_sig, 'macd_hist': macd_hist,
+            'stoch_k': stoch_k, 'stoch_d': stoch_d,
             'itl': itl_data,
             'signals': signals,
             'is_intraday': is_intraday,

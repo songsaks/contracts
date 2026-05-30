@@ -350,6 +350,7 @@
   #chart-container { position: relative; width: 100%; height: 600px; }
   #macd-container  { position: relative; width: 100%; height: 160px; }
   #rsi-container   { position: relative; width: 100%; height: 160px; }
+  #stoch-container { position: relative; width: 100%; height: 160px; }
   #vol-container   { position: relative; width: 100%; height: 120px; }
 
   /* Sleek Signal Table Widget */
@@ -489,7 +490,7 @@
     <div class="indicator-group flex-grow-1">
       <span class="indicator-section-title"><i class="fa-solid fa-layer-group"></i> Overlays:</span>
       <label class="indicator-pill"><input type="checkbox" id="check-dc" checked onchange="toggleIndicators()"> Donchian</label>
-      <label class="indicator-pill"><input type="checkbox" id="check-bb" onchange="toggleIndicators()"> BB</label>
+      <label class="indicator-pill"><input type="checkbox" id="check-bb" checked onchange="toggleIndicators()"> BB</label>
       <label class="indicator-pill"><input type="checkbox" id="check-ema20" onchange="toggleIndicators()"> EMA 20</label>
       <label class="indicator-pill"><input type="checkbox" id="check-ema50" onchange="toggleIndicators()"> EMA 50</label>
       <label class="indicator-pill"><input type="checkbox" id="check-ema200" onchange="toggleIndicators()"> EMA 200</label>
@@ -500,6 +501,7 @@
       <span class="indicator-section-title"><i class="fa-solid fa-chart-bar"></i> Panels:</span>
       <label class="indicator-pill"><input type="checkbox" id="check-macd" onchange="toggleIndicators()"> MACD</label>
       <label class="indicator-pill"><input type="checkbox" id="check-rsi" checked onchange="toggleIndicators()"> RSI</label>
+      <label class="indicator-pill"><input type="checkbox" id="check-stoch" checked onchange="toggleIndicators()"> Stoch</label>
       <label class="indicator-pill"><input type="checkbox" id="check-vol" checked onchange="toggleIndicators()"> Vol</label>
       
       <div class="indicator-divider"></div>
@@ -567,6 +569,12 @@
     <div id="rsi-container"></div>
   </div>
 
+  <!-- Stochastic panel -->
+  <div class="chart-panel-wrapper" id="stoch-wrapper" style="position:relative;">
+    <div class="panel-label">STOCH (14, 3, 3)</div>
+    <div id="stoch-container"></div>
+  </div>
+
   <!-- Volume panel -->
   <div class="chart-panel-wrapper" id="vol-wrapper" style="position:relative;">
     <div class="panel-label">VOLUME</div>
@@ -630,7 +638,7 @@ let currentSymbol = "{{ symbol }}";
 let currentMarket = "{{ market }}";
 let currentPeriod = "1y";
 let currentInterval = "1d";
-let mainChart = null, macdChart = null, rsiChart = null, volChart = null;
+let mainChart = null, macdChart = null, rsiChart = null, stochChart = null, volChart = null;
 let candleSeries = null;
 let currentData = null;
 let globalTacticalData = null;
@@ -704,13 +712,13 @@ function mkChart(elId, height) {
 }
 
 function destroyAll() {
-  [mainChart, macdChart, rsiChart, volChart].forEach(c => { if (c) c.remove(); });
-  mainChart = macdChart = rsiChart = volChart = null;
+  [mainChart, macdChart, rsiChart, stochChart, volChart].forEach(c => { if (c) c.remove(); });
+  mainChart = macdChart = rsiChart = stochChart = volChart = null;
   dcSeries = []; bbSeries = []; emaSeries = {e20:null, e50:null, e200:null}; itlSeries = null;
 }
 
 function syncCharts() {
-    const charts = [mainChart, macdChart, rsiChart, volChart].filter(c => c !== null);
+    const charts = [mainChart, macdChart, rsiChart, stochChart, volChart].filter(c => c !== null);
     charts.forEach(c => {
         c.timeScale().subscribeVisibleLogicalRangeChange(r => {
             charts.forEach(other => {
@@ -730,17 +738,20 @@ function renderCharts(data) {
 
   mainChart = mkChart('chart-container', hMain);
   
-  const showMACD = document.getElementById('check-macd').checked;
-  const showRSI  = document.getElementById('check-rsi').checked;
-  const showVol  = document.getElementById('check-vol').checked;
+  const showMACD  = document.getElementById('check-macd').checked;
+  const showRSI   = document.getElementById('check-rsi').checked;
+  const showStoch = document.getElementById('check-stoch').checked;
+  const showVol   = document.getElementById('check-vol').checked;
 
   document.getElementById('macd-wrapper').style.display = showMACD ? 'block' : 'none';
   document.getElementById('rsi-wrapper').style.display  = showRSI ? 'block' : 'none';
+  document.getElementById('stoch-wrapper').style.display = showStoch ? 'block' : 'none';
   document.getElementById('vol-wrapper').style.display  = showVol ? 'block' : 'none';
 
-  if (showMACD) macdChart = mkChart('macd-container', hSub);
-  if (showRSI)  rsiChart  = mkChart('rsi-container', hSub);
-  if (showVol)  volChart  = mkChart('vol-container', hVol);
+  if (showMACD)  macdChart  = mkChart('macd-container', hSub);
+  if (showRSI)   rsiChart   = mkChart('rsi-container', hSub);
+  if (showStoch) stochChart = mkChart('stoch-container', hSub);
+  if (showVol)   volChart   = mkChart('vol-container', hVol);
 
   // --- Main Panel: Candles ---
   // We do not specify global colors here because we explicitly color every single bar object
@@ -888,6 +899,21 @@ function renderCharts(data) {
     rsiChart.addLineSeries({ color: 'rgba(0, 192, 118, 0.4)', lineWidth: 1, lineStyle: 1, priceLineVisible: false }).setData([{ time: t0, value: 30 }, { time: t1, value: 30 }]);
   }
 
+  // --- Stochastic Panel ---
+  if (showStoch && stochChart) {
+    const stochKSeries = stochChart.addLineSeries({ color: '#3b82f6', lineWidth: 2, priceLineVisible: false, lastValueVisible: true, title: '%K' });
+    const stochDSeries = stochChart.addLineSeries({ color: '#f59e0b', lineWidth: 1.5, priceLineVisible: false, lastValueVisible: true, title: '%D' });
+    stochKSeries.setData(data.stoch_k || []);
+    stochDSeries.setData(data.stoch_d || []);
+    
+    if (data.stoch_k && data.stoch_k.length > 0) {
+      const t0 = data.stoch_k[0].time;
+      const t1 = data.stoch_k[data.stoch_k.length - 1].time;
+      stochChart.addLineSeries({ color: 'rgba(255, 59, 48, 0.4)', lineWidth: 1, lineStyle: 1, priceLineVisible: false }).setData([{ time: t0, value: 80 }, { time: t1, value: 80 }]);
+      stochChart.addLineSeries({ color: 'rgba(0, 192, 118, 0.4)', lineWidth: 1, lineStyle: 1, priceLineVisible: false }).setData([{ time: t0, value: 20 }, { time: t1, value: 20 }]);
+    }
+  }
+
   // --- Volume Panel ---
   if (showVol && volChart) {
     const volData = data.volume.map((v, index) => {
@@ -1005,9 +1031,10 @@ function handleResize() {
     const hSub = 160;
     const hVol = 120;
     if (mainChart) mainChart.resize(w, hMain);
-    if (macdChart) macdChart.resize(w, hSub);
-    if (rsiChart)  rsiChart.resize(w, hSub);
-    if (volChart)  volChart.resize(w, hVol);
+    if (macdChart)  macdChart.resize(w, hSub);
+    if (rsiChart)   rsiChart.resize(w, hSub);
+    if (stochChart) stochChart.resize(w, hSub);
+    if (volChart)   volChart.resize(w, hVol);
 }
 
 window.onresize = handleResize;
