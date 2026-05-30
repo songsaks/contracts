@@ -143,6 +143,8 @@ Relative Strength vs {self.benchmark_name}: {sd.get('rs_rating', 'N/A')}
 ADX (14): {sd.get('adx', 'N/A')}
 MFI (14): {sd.get('mfi', 'N/A')}
 RVOL: {sd.get('rvol', 'N/A')}x
+CMF (Chaikin Money Flow): {sd.get('cmf', 'N/A')}
+Volume Surge: {sd.get('volume_surge', 'N/A')}
 
 Demand Zone: {sd.get('demand_zone_end', 'N/A')} – {sd.get('demand_zone_start', 'N/A')} บาท
 Supply Zone: {sd.get('supply_zone_end', 'N/A')} – {sd.get('supply_zone_start', 'N/A')} บาท
@@ -211,7 +213,7 @@ Volume Acceleration (5d/20d): {extra.get('vol_5v20', 'N/A')}x
                 "คุณเป็นผู้เชี่ยวชาญด้านการอ่านเงิน Smart Money, Sector Rotation "
                 "และการหา Catalyst ที่ซ่อนอยู่ "
                 "เชี่ยวชาญ Volume Accumulation vs Distribution, Relative Strength vs SET Index "
-                "คุณอ่าน RVOL และ Volume Acceleration เพื่อบอกว่าเงินใหญ่กำลังสะสมหรือกระจายหุ้น "
+                "คุณอ่าน RVOL, Volume Surge และ CMF (Chaikin Money Flow) เพื่อบอกว่าเงินใหญ่กำลังสะสมหรือกระจายหุ้น "
                 "และสรุป Final Verdict ที่ชัดเจน Action-oriented พร้อมเหตุผล"
             ),
             llm=llm,
@@ -259,7 +261,7 @@ Volume Acceleration (5d/20d): {extra.get('vol_5v20', 'N/A')}x
 {context}
 
 เขียนรายงานสุดท้ายเป็นภาษาไทย:
-1. **Smart Money Signal**: RVOL {sd.get('rvol','N/A')}x และ Volume 5d/20d = {extra.get('vol_5v20','N/A')}x → เงินใหญ่สะสม หรือกระจายหุ้น?
+1. **Smart Money Signal**: RVOL {sd.get('rvol','N/A')}x, Volume Surge {sd.get('volume_surge','N/A')}, CMF {sd.get('cmf','N/A')}, และ Volume 5d/20d = {extra.get('vol_5v20','N/A')}x → เงินใหญ่สะสม หรือกระจายหุ้น?
 2. **Sector Momentum**: Sector {sd.get('sector','N/A')} ตอนนี้ร้อนแรงหรืออ่อนแรง?
 3. **Catalyst**: Catalyst อะไรที่อาจขับเคลื่อนราคาใน 2-6 สัปดาห์ข้างหน้า? (EPS Growth {sd.get('eps_growth','N/A')}%, Rev Growth {sd.get('rev_growth','N/A')}%)
 4. **⚠️ Key Risks**: 3 ปัจจัยเสี่ยงสำคัญ

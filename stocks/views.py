@@ -1026,18 +1026,30 @@ def momentum_quick_analysis(request, symbol):
         _cp.delete(cache_key)
         return _JR({'state': 'done', 'result': cached.get('result', '')})
 
-    # ── Collect scan data from MomentumCandidate model ───────────────
+    # ── Collect scan data from Candidate models ───────────────
     scan_data = {}
     try:
-        from .models import MomentumCandidate as _MCM
-
         def _sf(val):
             try:
                 return float(val) if val is not None else None
             except (TypeError, ValueError):
                 return None
 
-        cand = _MCM.objects.filter(user=request.user, symbol=symbol).first()
+        cand = None
+        from .models import PrecisionScanCandidate as _PCM
+        from .models import USSepaCandidate as _USC
+        from .models import MomentumCandidate as _MCM
+        
+        p_cand = _PCM.objects.filter(user=request.user, symbol=symbol).order_by('-scan_run').first()
+        if p_cand:
+            cand = p_cand
+        else:
+            u_cand = _USC.objects.filter(user=request.user, symbol=symbol).order_by('-scan_run').first()
+            if u_cand:
+                cand = u_cand
+            else:
+                cand = _MCM.objects.filter(user=request.user, symbol=symbol).order_by('-id').first()
+        
         if cand:
             scan_data = {
                 'price':             _sf(cand.price),
@@ -1057,6 +1069,8 @@ def momentum_quick_analysis(request, symbol):
                 'sector':            cand.sector or 'N/A',
                 'year_high':         _sf(cand.year_high),
                 'upside_to_high':    _sf(cand.upside_to_high),
+                'cmf':               _sf(getattr(cand, 'cmf', None)),
+                'volume_surge':      _sf(getattr(cand, 'volume_surge', None)),
             }
     except Exception:
         pass
