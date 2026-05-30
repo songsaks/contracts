@@ -482,12 +482,14 @@
   <!-- Status -->
   <div id="chart-status" class="fw-bold mb-2 ps-4" style="min-height:24px; color: #60a5fa !important;"></div>
 
-  <!-- Indicator Toggles -->
-  <div class="indicator-panel">
-    <div class="indicator-group">
+  <!-- Unified Toolbar (Indicator + Tactical) -->
+  <div class="indicator-panel d-flex flex-wrap align-items-center justify-content-between gap-3">
+    
+    <!-- Left: Indicator Toggles -->
+    <div class="indicator-group flex-grow-1">
       <span class="indicator-section-title"><i class="fa-solid fa-layer-group"></i> Overlays:</span>
       <label class="indicator-pill"><input type="checkbox" id="check-dc" checked onchange="toggleIndicators()"> Donchian</label>
-      <label class="indicator-pill"><input type="checkbox" id="check-bb" onchange="toggleIndicators()"> Bollinger Bands</label>
+      <label class="indicator-pill"><input type="checkbox" id="check-bb" onchange="toggleIndicators()"> BB</label>
       <label class="indicator-pill"><input type="checkbox" id="check-ema20" onchange="toggleIndicators()"> EMA 20</label>
       <label class="indicator-pill"><input type="checkbox" id="check-ema50" onchange="toggleIndicators()"> EMA 50</label>
       <label class="indicator-pill"><input type="checkbox" id="check-ema200" onchange="toggleIndicators()"> EMA 200</label>
@@ -498,76 +500,52 @@
       <span class="indicator-section-title"><i class="fa-solid fa-chart-bar"></i> Panels:</span>
       <label class="indicator-pill"><input type="checkbox" id="check-macd" onchange="toggleIndicators()"> MACD</label>
       <label class="indicator-pill"><input type="checkbox" id="check-rsi" checked onchange="toggleIndicators()"> RSI</label>
-      <label class="indicator-pill"><input type="checkbox" id="check-vol" checked onchange="toggleIndicators()"> Volume</label>
+      <label class="indicator-pill"><input type="checkbox" id="check-vol" checked onchange="toggleIndicators()"> Vol</label>
       
       <div class="indicator-divider"></div>
       
       <span class="indicator-section-title"><i class="fa-solid fa-bolt"></i> Signals:</span>
-      <label class="indicator-pill"><input type="checkbox" id="check-markers" checked onchange="toggleIndicators()"> Show Signals</label>
-      <label class="indicator-pill indicator-pill-special"><input type="checkbox" id="check-smart-candles" checked onchange="toggleIndicators()"> Smart Candles</label>
+      <label class="indicator-pill"><input type="checkbox" id="check-markers" checked onchange="toggleIndicators()"> Show</label>
+      <label class="indicator-pill indicator-pill-special"><input type="checkbox" id="check-smart-candles" checked onchange="toggleIndicators()"> Smart</label>
     </div>
-  </div>
 
-  <!-- Tactical Command Center (NEW) -->
-  <div class="row g-3 mb-3" id="tactical-panel" style="display: none;">
-    <div class="col-md-3">
-      <div class="card h-100 tactical-card tactical-card-volatility border-0 shadow-sm">
-        <div class="card-body py-3">
-          <small class="text-info fw-bold text-uppercase d-block mb-1" title="Average True Range (20D): ค่าความผันผวนเฉลี่ย 20 วันล่าสุด ใช้คำนวณระยะ Stop Loss และขนาดไม้">
-            <i class="fas fa-wave-square"></i> Volatility (N) <i class="fas fa-info-circle ms-1 opacity-50"></i>
-          </small>
-          <div class="d-flex align-items-baseline gap-2">
-            <h3 class="fw-bold mb-0 text-info" id="tac-n">0.00</h3>
-            <span class="text-muted small">ATR(20)</span>
-          </div>
+    <!-- Right: Tactical Command Center -->
+    <div class="d-flex align-items-center gap-3" id="tactical-panel" style="display: none;">
+      
+      <!-- Volatility -->
+      <div class="d-flex align-items-center gap-2" title="Average True Range (20D)">
+        <span class="indicator-section-title text-info"><i class="fas fa-wave-square"></i> VOL (N):</span>
+        <span class="fw-bold text-info" id="tac-n" style="font-size: 0.85rem;">0.00</span>
+      </div>
+
+      <div class="indicator-divider"></div>
+
+      <!-- Next Unit -->
+      <div class="d-flex align-items-center gap-2" title="Next Unit (+0.5N)">
+        <span class="indicator-section-title text-warning"><i class="fas fa-plus-circle"></i> NEXT:</span>
+        <span class="fw-bold text-warning" id="tac-next-price" style="font-size: 0.85rem;">0.00</span>
+        <span class="badge bg-warning text-dark ms-1 px-2" id="tac-suggest-shares" title="Suggest Shares (1% Risk)">-</span>
+      </div>
+
+      <div class="indicator-divider"></div>
+
+      <!-- Dynamic Exit -->
+      <div class="d-flex align-items-center gap-2" title="Dynamic Exit (Trailing)">
+        <span class="indicator-section-title text-danger"><i class="fas fa-shield-alt"></i> EXIT:</span>
+        <div class="d-flex gap-2 fw-bold" style="font-size: 0.85rem;">
+          <span class="text-muted" title="S1 (10D Low)">S1: <span id="tac-exit-10" class="text-danger">0.00</span></span>
+          <span class="text-muted" title="S2 (20D Low)">S2: <span id="tac-exit-20" class="text-danger">0.00</span></span>
         </div>
       </div>
-    </div>
-    <div class="col-md-5">
-      <div class="card h-100 tactical-card tactical-card-pyramid border-0 shadow-sm">
-        <div class="card-body py-3">
-          <div class="d-flex justify-content-between align-items-start">
-            <div>
-              <small class="text-warning fw-bold text-uppercase d-block mb-1" title="ราคาเป้าหมายที่จะซื้อเพิ่ม (Pyramiding) เมื่อราคาวิ่งขึ้นไปอีก 0.5N จากราคาทุนเดิม">
-                <i class="fas fa-plus-circle"></i> Next Unit (+0.5N) <i class="fas fa-info-circle ms-1 opacity-50"></i>
-              </small>
-              <h3 class="fw-bold mb-0 text-warning" id="tac-next-price">0.00</h3>
-            </div>
-            <div class="text-end">
-              <small class="text-muted d-block" title="จำนวนหุ้นที่แนะนำให้ซื้อเพิ่มเพื่อให้ความเสี่ยงรวมไม่เกิน 1% ของพอร์ต โดยอิงจากระยะ 2N Stop Loss">Suggest Shares <i class="fas fa-question-circle opacity-50"></i></small>
-              <span class="badge bg-warning text-dark fw-bold" id="tac-suggest-shares">Calculating…</span>
-            </div>
-          </div>
-          <div class="mt-2 text-muted d-flex align-items-center gap-1" style="font-size: 0.75rem;">
-            *อิงความเสี่ยง 1% จากทุน: 
-            <input type="number" id="tac-capital-input" class="form-control form-control-sm text-end border-0 fw-bold" style="width: 100px; font-size: 0.75rem;" value="1000000" onchange="updateTacticalWithCapital()">
-            {% if market == 'SET' %}฿{% else %}${% endif %}
-          </div>
-        </div>
+
+      <div class="indicator-divider"></div>
+
+      <!-- Capital Setup -->
+      <div class="d-flex align-items-center gap-2" title="ทุนตั้งต้น สำหรับคำนวณความเสี่ยง 1%">
+        <i class="fas fa-wallet text-muted" style="font-size: 0.8rem;"></i>
+        <input type="number" id="tac-capital-input" class="form-control form-control-sm text-end fw-bold px-2 py-1" style="width: 85px; font-size: 0.75rem; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1); color: #fff; border-radius: 6px;" value="1000000" onchange="updateTacticalWithCapital()">
       </div>
-    </div>
-    <div class="col-md-4">
-      <div class="card h-100 tactical-card tactical-card-exit border-0 shadow-sm">
-        <div class="card-body py-3">
-          <small class="text-danger fw-bold text-uppercase d-block mb-1" title="จุดขายตัดขาดทุนหรือขายทำกำไร (Trailing Stop) ซึ่งจะขยับขึ้นตามราคาที่ทำจุดสูงสุดใหม่">
-            <i class="fas fa-shield-alt"></i> Dynamic Exit (Trailing) <i class="fas fa-info-circle ms-1 opacity-50"></i>
-          </small>
-          <div class="row g-2">
-            <div class="col-6">
-              <div class="p-2 rounded-2" style="background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.06);" title="System 1 Exit: จุดขายเมื่อราคาหลุดจุดต่ำสุดในรอบ 10 วัน (เหมาะสำหรับรอบสั้น)">
-                <small class="text-muted d-block" style="font-size:0.65rem;">S1 (10D Low)</small>
-                <span class="fw-bold text-danger" id="tac-exit-10">0.00</span>
-              </div>
-            </div>
-            <div class="col-6">
-              <div class="p-2 rounded-2" style="background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.06);" title="System 2 Exit: จุดขายเมื่อราคาหลุดจุดต่ำสุดในรอบ 20 วัน (เหมาะสำหรับการรันเทรนด์ยาว)">
-                <small class="text-muted d-block" style="font-size:0.65rem;">S2 (20D Low)</small>
-                <span class="fw-bold text-danger" id="tac-exit-20">0.00</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+
     </div>
   </div>
 
