@@ -858,6 +858,12 @@
                 <div style="font-size:0.6rem;color:#475569;text-transform:uppercase;letter-spacing:2px;margin-bottom:4px;font-weight:800;">ผู้ช่วยวิเคราะห์กลยุทธ์</div>
                 <div id="tactical-advisor-text" class="fw-bold" style="font-size:1.05rem;color:var(--text-hi);letter-spacing:0.5px;font-weight:900;">กำลังวิเคราะห์...</div>
                 <div id="tactical-advisor-sub" style="font-size:0.68rem;color:#475569;margin-bottom:10px;font-weight:600;">ระบบพร้อมส่งคำสั่ง</div>
+                <!-- Macro Divergence Alert -->
+                <div id="macro-divergence-alert" style="display:none; margin-bottom:10px; animation: pulse 2s infinite;">
+                    <div class="badge" style="background:#fee2e2;color:#b91c1c;border:1px solid #fca5a5;padding:6px 12px;font-size:0.75rem;border-radius:6px;width:100%;text-wrap:wrap;line-height:1.4;">
+                        <i class="fas fa-exclamation-triangle me-1"></i> <span id="macro-divergence-text">ระวังจุดกลับตัว (Macro Divergence)</span>
+                    </div>
+                </div>
                 <div id="prox-radar-container" class="mt-2 p-2" style="display:none;background:rgba(0,0,0,0.3);border-radius:10px;border:1px solid var(--border);">
                     <div class="d-flex justify-content-between mb-2" style="font-size:0.72rem;font-weight:900;">
                         <span style="color:#1e40af;letter-spacing:0.5px;">ระยะห่างจากจุด BREAKOUT</span>
@@ -1331,6 +1337,27 @@
                     _adStyle(advisorBox, advisorText, advisorSub,
                         '#f1f5f9','#94a3b8','การตั้งค่าไม้ทั่วไป (STANDARD)','#0f172a',
                         'สัดส่วนความเสี่ยงสมดุล','#334155');
+                }
+
+                // --- Macro Divergence Engine ---
+                const dxy = globalTactical.dxy;
+                const macroAlert = document.getElementById('macro-divergence-alert');
+                const macroAlertText = document.getElementById('macro-divergence-text');
+                if (macroAlert && macroAlertText && dxy) {
+                    const goldRsi = parseFloat(globalTactical.rsi) || 50;
+                    const dxyChg = parseFloat(dxy.change) || 0;
+                    
+                    if (goldRsi > 65 && dxyChg > 0.05) {
+                        // Bearish Divergence (Gold up, DXY up)
+                        macroAlert.style.display = 'block';
+                        macroAlertText.innerHTML = `<strong>ระวังจุดกลับตัวลง (Top)</strong><br><small>ทองขึ้นชนโซน Overbought (RSI ${goldRsi.toFixed(1)}) แต่ DXY แข็งค่าขัดแย้งกัน!</small>`;
+                    } else if (goldRsi < 35 && dxyChg < -0.05) {
+                        // Bullish Divergence (Gold down, DXY down)
+                        macroAlert.style.display = 'block';
+                        macroAlertText.innerHTML = `<strong>ระวังจุดกลับตัวขึ้น (Bottom)</strong><br><small>ทองลงชนโซน Oversold (RSI ${goldRsi.toFixed(1)}) แต่ DXY อ่อนค่าขัดแย้งกัน!</small>`;
+                    } else {
+                        macroAlert.style.display = 'none';
+                    }
                 }
 
                 // --- Proximity Radar Engine ---
