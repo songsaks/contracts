@@ -1062,7 +1062,7 @@ def momentum_quick_analysis(request, symbol):
         pass
 
     # ── Background worker ─────────────────────────────────────────────
-    def _run_bg(ckey, sym, sd, mkt):
+    def _run_bg(ckey, sym, sd, mkt, u_id):
         from django.core.cache import cache as _c
         try:
             _c.set(ckey, {'state': 'running', 'phase': 'กำลังวิเคราะห์ด้วย 3 Expert Agents…'}, timeout=600)
@@ -1076,13 +1076,26 @@ def momentum_quick_analysis(request, symbol):
                 except _cf.TimeoutError:
                     result = '## หมดเวลาวิเคราะห์\n\nกรุณาลองใหม่อีกครั้ง'
             _c.set(ckey, {'state': 'done', 'result': result}, timeout=900)
+            
+            # Save to Database for persistence
+            try:
+                from django.contrib.auth.models import User
+                from .models import AnalysisCache
+                usr = User.objects.get(id=u_id)
+                AnalysisCache.objects.update_or_create(
+                    user=usr, symbol=f'crewai_{sym}',
+                    defaults={'analysis_data': result}
+                )
+            except Exception as e:
+                pass
+                
         except Exception as exc:
             from django.core.cache import cache as _c2
             _c2.set(ckey, {'state': 'done', 'result': f'## เกิดข้อผิดพลาด\n\n{exc}'}, timeout=60)
 
     market = cand.market if cand else 'SET'
     _cp.set(cache_key, {'state': 'running'}, timeout=600)
-    _th.Thread(target=_run_bg, args=(cache_key, symbol, scan_data, market), daemon=True).start()
+    _th.Thread(target=_run_bg, args=(cache_key, symbol, scan_data, market, user_id), daemon=True).start()
     return _JR({'state': 'running', 'cache_key': cache_key})
 
 
@@ -11714,10 +11727,21 @@ def ai_manual_scanner(request):
     watchlisted = ScanWatchlistItem.objects.filter(user=request.user).values_list('symbol', flat=True)
     watchlisted_symbols = set(watchlisted)
     
+    # Get cached Quick AI results
+    from .models import AnalysisCache
+    import json
+    crewai_caches = AnalysisCache.objects.filter(user=request.user, symbol__startswith='crewai_')
+    crewai_dict = {}
+    for c in crewai_caches:
+        sym = c.symbol.replace('crewai_', '')
+        crewai_dict[sym] = c.analysis_data
+    crewai_json = json.dumps(crewai_dict)
+    
     return render(request, 'stocks/ai_manual_scanner.html', {
         'results': results,
         'current_market': market,
-        'watchlisted_symbols': watchlisted_symbols
+        'watchlisted_symbols': watchlisted_symbols,
+        'crewai_json': crewai_json
     })
 
 @login_required

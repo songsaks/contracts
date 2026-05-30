@@ -82,6 +82,8 @@
                                     {{ stock.reasoning }}
                                 </p>
                                 
+                                <div class="mt-3 bg-light rounded p-3 d-none crewai-inline-result" id="crewai-inline-{{ stock.symbol }}" style="font-size: 0.85rem; border-left: 4px solid #6366f1;"></div>
+                                
                                 <div class="mt-auto text-end">
                                     <button onclick="runMomentumCrewAI('{{ stock.symbol }}')" class="btn btn-sm btn-light text-primary fw-bold">
                                         <i class="fas fa-robot"></i> Quick AI
@@ -257,6 +259,8 @@ async function runAIScan(market) {
                                     ${stock.reasoning}
                                 </p>
                                 
+                                <div class="mt-3 bg-light rounded p-3 d-none crewai-inline-result" id="crewai-inline-${stock.symbol}" style="font-size: 0.85rem; border-left: 4px solid #6366f1;"></div>
+                                
                                 <div class="mt-auto text-end">
                                     <button onclick="runMomentumCrewAI('${stock.symbol}')" class="btn btn-sm btn-light text-primary fw-bold">
                                         <i class="fas fa-robot"></i> Quick AI
@@ -370,6 +374,7 @@ document.head.appendChild(style);
 </script>
 
 <!-- CrewAI Modal Script -->
+<script id="crewai-cached-data" type="application/json">{{ crewai_json|safe }}</script>
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <script>
 (function() {
@@ -437,11 +442,23 @@ document.head.appendChild(style);
         document.getElementById('crewAIError').classList.add('d-none');
         var resultDiv = document.getElementById('crewAIResult');
         var contentDiv = document.getElementById('crewAIContent');
+        
+        var parsedMarkdown = '';
         if (typeof marked !== 'undefined') {
-            contentDiv.innerHTML = marked.parse(markdown || '');
+            parsedMarkdown = marked.parse(markdown || '');
+            contentDiv.innerHTML = parsedMarkdown;
         } else {
-            contentDiv.innerText = markdown || '';
+            parsedMarkdown = markdown || '';
+            contentDiv.innerText = parsedMarkdown;
         }
+        
+        // Also show inline
+        var inlineDiv = document.getElementById('crewai-inline-' + _crewSymbol);
+        if (inlineDiv) {
+            inlineDiv.innerHTML = parsedMarkdown;
+            inlineDiv.classList.remove('d-none');
+        }
+        
         resultDiv.classList.remove('d-none');
         document.getElementById('crewAIFooter').classList.remove('d-none');
     }
@@ -461,6 +478,22 @@ document.head.appendChild(style);
                 if (_crewPollTimer) { clearTimeout(_crewPollTimer); _crewPollTimer = null; }
             });
         }
+        
+        // Render cached data on load
+        try {
+            var cachedData = JSON.parse(document.getElementById('crewai-cached-data').textContent || '{}');
+            for (var sym in cachedData) {
+                var inlineDiv = document.getElementById('crewai-inline-' + sym);
+                if (inlineDiv) {
+                    if (typeof marked !== 'undefined') {
+                        inlineDiv.innerHTML = marked.parse(cachedData[sym]);
+                    } else {
+                        inlineDiv.innerText = cachedData[sym];
+                    }
+                    inlineDiv.classList.remove('d-none');
+                }
+            }
+        } catch (e) { console.error('Error parsing cached crewai data', e); }
     });
 })();
 </script>
