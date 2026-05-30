@@ -845,9 +845,8 @@ def crew_analyze(request, symbol):
     
     # ── Auto-Detect Market if not provided ──────────────────────────
     if not market_param:
-        # รายชื่อหุ้น US ยอดนิยมที่มักจะถูกถามถึง
-        common_us = ['AAPL','TSLA','NVDA','MSFT','GOOG','META','AMZN','TSM','MO','COIN','BTC','GOLD']
-        if symbol.upper() in common_us or len(symbol) <= 3:
+        us_set = _build_us_symbol_set(request.user)
+        if _is_us_symbol(symbol, us_set):
             market_param = 'US'
         else:
             market_param = 'SET'
