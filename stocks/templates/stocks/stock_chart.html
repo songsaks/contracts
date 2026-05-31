@@ -1201,6 +1201,9 @@ function analyzeChartWithAI(forceRefresh = false) {
         if (currentData.dc20_upper && currentData.dc20_lower) {
             activeIndicatorsText += `- Donchian Channel (20): Upper=${currentData.dc20_upper[currentData.dc20_upper.length - 1].value.toFixed(2)}, Lower=${currentData.dc20_lower[currentData.dc20_lower.length - 1].value.toFixed(2)}\n`;
         }
+        if (currentData.dc55_upper && currentData.dc55_lower) {
+            activeIndicatorsText += `- Donchian Channel (55): Upper=${currentData.dc55_upper[currentData.dc55_upper.length - 1].value.toFixed(2)}, Lower=${currentData.dc55_lower[currentData.dc55_lower.length - 1].value.toFixed(2)}\n`;
+        }
     }
     
     if (document.getElementById('check-bb') && document.getElementById('check-bb').checked) {
@@ -1225,7 +1228,11 @@ function analyzeChartWithAI(forceRefresh = false) {
     if (document.getElementById('check-macd') && document.getElementById('check-macd').checked) {
         if (currentData.macd && currentData.macd.length > 0) {
             const lastMacd = currentData.macd[currentData.macd.length - 1];
-            activeIndicatorsText += `- MACD: Value=${lastMacd.macd?.toFixed(2)}, Signal=${lastMacd.signal?.toFixed(2)}\n`;
+            let histText = "";
+            if (currentData.macd_hist && currentData.macd_hist.length > 0) {
+                histText = `, Histogram=${currentData.macd_hist[currentData.macd_hist.length - 1].value.toFixed(2)}`;
+            }
+            activeIndicatorsText += `- MACD: Value=${lastMacd.value?.toFixed(2) || lastMacd.macd?.toFixed(2)}, Signal=${currentData.macd_sig ? currentData.macd_sig[currentData.macd_sig.length - 1].value.toFixed(2) : lastMacd.signal?.toFixed(2)}${histText}\n`;
         }
     }
     
@@ -1236,8 +1243,15 @@ function analyzeChartWithAI(forceRefresh = false) {
     }
     
     if (document.getElementById('check-stoch') && document.getElementById('check-stoch').checked) {
-        // We only have stoch toggle, but we might not have the explicit stoch data saved in currentData in the same way, 
-        // if not we skip it.
+        if (currentData.stoch_k && currentData.stoch_d) {
+            activeIndicatorsText += `- Stochastic (14,3,3): %K=${currentData.stoch_k[currentData.stoch_k.length - 1].value.toFixed(2)}, %D=${currentData.stoch_d[currentData.stoch_d.length - 1].value.toFixed(2)}\n`;
+        }
+    }
+    
+    if (document.getElementById('check-vol') && document.getElementById('check-vol').checked) {
+        if (currentData.volume && currentData.volume.length > 0) {
+            activeIndicatorsText += `- Volume: ${currentData.volume[currentData.volume.length - 1].value.toLocaleString()}\n`;
+        }
     }
     
     if (!activeIndicatorsText) {
