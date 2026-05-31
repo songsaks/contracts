@@ -1,0 +1,195 @@
+<style>
+    /* ══════════════════════════════════════════════
+       PRECISION SCANNER — FULL DARK MODE OVERRIDE
+       ══════════════════════════════════════════════ */
+
+    /* ── Core text ── */
+    body, p, span, div, li, td, th, label, small { color: #e2e8f0; }
+    h1, h2, h3, h4, h5, h6 { color: #f1f5f9 !important; }
+    .text-dark  { color: #f1f5f9 !important; }
+    .text-muted, .text-secondary { color: #94a3b8 !important; }
+    strong { color: #e2e8f0; }
+
+    /* ── Cards / panels ── */
+    .card {
+        background: rgba(15,23,42,0.7) !important;
+        border: 1px solid rgba(255,255,255,0.07) !important;
+        backdrop-filter: blur(12px);
+    }
+    .card-body, .card-header { background: transparent !important; }
+    .card-header.bg-white, .card-header.bg-light { background: rgba(15,23,42,0.8) !important; border-color: rgba(255,255,255,0.06) !important; }
+
+    /* ── Leading Sectors bar ── */
+    .p-3.bg-white, .p-3.bg-light { background: rgba(15,23,42,0.6) !important; border-color: rgba(255,255,255,0.07) !important; }
+
+    /* ── Automated Insights outer box ── */
+    [style*="background:linear-gradient(135deg,#f8faff"],
+    [style*="background: linear-gradient(135deg,#f8faff"] {
+        background: rgba(15,23,42,0.65) !important;
+        border-color: rgba(255,255,255,0.07) !important;
+    }
+
+    /* ── Insight inner card (bg-white) ── */
+    .p-3.bg-white.h-100.rounded-3 {
+        background: rgba(20,28,50,0.7) !important;
+        border-color: rgba(255,255,255,0.07) !important;
+    }
+
+    /* ── Generic light bg boxes ── */
+    [style*="background:#f8fafc"],   [style*="background: #f8fafc"],
+    [style*="background:#f8faff"],   [style*="background: #f8faff"],
+    [style*="background:#f1f5f9"],   [style*="background: #f1f5f9"],
+    [style*="background:#eff6ff"],   [style*="background: #eff6ff"],
+    [style*="background:#f0fdf4"],   [style*="background: #f0fdf4"],
+    [style*="background:#fff1f2"],   [style*="background: #fff1f2"],
+    [style*="background:#f0f9ff"],   [style*="background: #f0f9ff"],
+    [style*="background:#fff5f5"],   [style*="background: #fff5f5"],
+    [style*="background:#fef2f2"],   [style*="background: #fef2f2"],
+    [style*="background:#fff"],
+    [style*="background:white"],     [style*="background: white"],
+    [style*="background: #fff"] {
+        background: rgba(20,30,55,0.6) !important;
+        border-color: rgba(255,255,255,0.07) !important;
+    }
+    /* Amber warning box */
+    [style*="background:#fef3c7"], [style*="background: #fef3c7"] {
+        background: rgba(245,158,11,0.1) !important;
+        border-color: rgba(245,158,11,0.2) !important;
+    }
+
+    /* ── Dark text on inline style ── */
+    [style*="color:#374151"],  [style*="color: #374151"],
+    [style*="color:#1e293b"],  [style*="color: #1e293b"],
+    [style*="color:#334155"],  [style*="color: #334155"],
+    [style*="color:#0f172a"],  [style*="color: #0f172a"],
+    [style*="color:#92400e"],  [style*="color: #92400e"] {
+        color: #cbd5e1 !important;
+    }
+
+    /* ── Badges light ── */
+    .badge.bg-light, .bg-light.text-muted {
+        background: rgba(30,41,59,0.6) !important;
+        color: #94a3b8 !important;
+        border-color: rgba(255,255,255,0.08) !important;
+    }
+    [style*="background:#f1f5f9"][class*="badge"],
+    [style*="background: #f1f5f9"][class*="badge"] {
+        background: rgba(30,41,59,0.7) !important;
+        color: #94a3b8 !important;
+    }
+    [style*="background:#eff6ff"][class*="badge"] {
+        background: rgba(79,70,229,0.15) !important;
+        color: #a5b4fc !important;
+        border-color: rgba(79,70,229,0.3) !important;
+    }
+    /* Badge bg-light in date */
+    span.badge.bg-light { background: rgba(30,41,59,0.6) !important; }
+
+    /* ── Badge colors that are too dark ── */
+    [style*="color:#15803d"] { color: #4ade80 !important; }
+    [style*="color:#0e7490"] { color: #22d3ee !important; }
+    [style*="color:#059669"] { color: #34d399 !important; }
+
+    /* ── Table ── */
+    table { color: #e2e8f0 !important; background-color: transparent !important; --bs-table-bg: transparent; --bs-table-accent-bg: transparent; --bs-table-striped-bg: transparent; }
+    table * { --bs-table-bg: transparent; }
+    thead th {
+        color: #94a3b8 !important;
+        background-color: rgba(9,13,22,0.9) !important;
+        border-color: rgba(255,255,255,0.06) !important;
+        white-space: nowrap;
+    }
+    tbody tr { background-color: transparent !important; border-color: rgba(255,255,255,0.04) !important; }
+    tbody tr:hover td { background-color: rgba(99,102,241,0.1) !important; }
+    tbody td { background-color: transparent; color: #e2e8f0 !important; border-color: rgba(255,255,255,0.04) !important; }
+    .table-striped > tbody > tr:nth-of-type(odd) > td {
+        background-color: rgba(9,13,22,0.25) !important;
+    }
+
+    /* ── Form controls & selects ── */
+    .form-select, .form-control, select {
+        background: rgba(15,23,42,0.8) !important;
+        color: #e2e8f0 !important;
+        border-color: rgba(255,255,255,0.12) !important;
+    }
+    .form-select option, select option {
+        background: #0f172a !important;
+        color: #e2e8f0 !important;
+    }
+    [style*="color:#374151"][class*="form-select"],
+    [style*="color:#374151"][class*="form-control"] {
+        color: #e2e8f0 !important;
+    }
+    /* Mobile sort select */
+    [style*="background-color:#f0f9ff"] {
+        background-color: rgba(9,13,22,0.8) !important;
+        color: #22d3ee !important;
+        border-color: #0ea5e9 !important;
+    }
+
+    /* ── Form switch ── */
+    .form-check-input { background-color: rgba(255,255,255,0.1) !important; border-color: rgba(255,255,255,0.2) !important; }
+    .form-check-input:checked { background-color: #7c3aed !important; border-color: #7c3aed !important; }
+
+    /* ── Buttons ── */
+    .btn-outline-secondary {
+        color: #94a3b8 !important;
+        border-color: rgba(255,255,255,0.15) !important;
+        background: rgba(255,255,255,0.04) !important;
+    }
+    .btn-outline-secondary:hover {
+        background: rgba(255,255,255,0.08) !important;
+        color: #e2e8f0 !important;
+    }
+    .btn-outline-warning {
+        color: #fbbf24 !important;
+        border-color: rgba(251,191,36,0.4) !important;
+    }
+
+    /* ── Progress bar ── */
+    .progress { background: rgba(255,255,255,0.08) !important; }
+
+    /* ── Border light ── */
+    .border, .border-bottom { border-color: rgba(255,255,255,0.07) !important; }
+
+    /* ── Collapse guide cards ── */
+    .collapse .card, #diffGuide .card, #buyGuide .card { backdrop-filter: blur(16px); }
+    h6.fw-bold[style*="color:#1e293b"] { color: #e2e8f0 !important; }
+
+    /* ── Market Condition card ── */
+    .fw-bold.text-dark { color: #f1f5f9 !important; }
+    .list-unstyled.small.text-secondary li { color: #94a3b8 !important; }
+
+    /* ── Scan result table badge / bg stripe ── */
+    .bg-success.bg-opacity-10 { background: rgba(22,163,74,0.15) !important; }
+    .bg-danger.bg-opacity-10  { background: rgba(220,38,38,0.15) !important; }
+    .bg-warning.bg-opacity-10 { background: rgba(245,158,11,0.15) !important; }
+    .bg-primary.bg-opacity-10 { background: rgba(99,102,241,0.15) !important; }
+
+    /* ── Scrollbar ── */
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: rgba(255,255,255,0.02); }
+    ::-webkit-scrollbar-thumb { background: rgba(99,102,241,0.3); border-radius: 4px; }
+
+    /* ── Spinner / misc ── */
+    .launcher-rocket { font-size: 1.2rem; transition: transform 0.3s ease; }
+    .launcher-rocket.fire {
+        animation: launcher-fire 1.5s infinite alternate;
+        filter: drop-shadow(0 0 5px #ef4444);
+    }
+    @keyframes launcher-fire {
+        from { transform: translateY(0) scale(1); filter: drop-shadow(0 0 2px #f59e0b); }
+        to   { transform: translateY(-3px) scale(1.2); filter: drop-shadow(0 0 8px #ef4444); }
+    }
+    .val-hint { font-size: 0.56rem; color: #64748b; line-height: 1.2; margin-top: 1px; letter-spacing: .01em; }
+
+    /* ── Inline accent text keep vivid ── */
+    [style*="color:#7c3aed"], [style*="color: #7c3aed"] { color: #a78bfa !important; }
+    [style*="color:#4f46e5"], [style*="color: #4f46e5"] { color: #818cf8 !important; }
+    [style*="color:#4f46e5"] { color: #818cf8 !important; }
+    [style*="color:#1d4ed8"], [style*="color: #1d4ed8"] { color: #93c5fd !important; }
+    [style*="color:#0369a1"], [style*="color: #0369a1"] { color: #38bdf8 !important; }
+    [style*="color:#9f1239"], [style*="color: #9f1239"] { color: #fda4af !important; }
+    [style*="color:#15803d"], [style*="color: #15803d"] { color: #4ade80 !important; }
+    [style*="color:#dc2626"], [style*="color: #dc2626"] { color: #f87171 !important; }
+</style>

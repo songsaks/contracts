@@ -1,6 +1,7 @@
 {% extends "stocks/base_stocks.html" %}
 {% load regime_tags %}
 {% block content %}
+{% include "stocks/includes/dark_mode_scanner.html" %}
 <div class="container-fluid py-4" style="background-color: #f8fafc; min-height: 100vh;">
 
     <!-- HEADER -->
@@ -412,3 +413,4 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 </script>
 {% endblock %}
+

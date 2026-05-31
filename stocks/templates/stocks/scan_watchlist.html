@@ -5,6 +5,7 @@
 {% block container_class %}container-fluid px-0{% endblock %}
 
 {% block content %}
+{% include "stocks/includes/dark_mode_scanner.html" %}
 <!-- Google Fonts for elite fintech typography -->
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700;800&family=Prompt:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 
@@ -745,3 +746,4 @@ function removeFromWatchlist(btn, symbol) {
 }
 </script>
 {% endblock %}
+

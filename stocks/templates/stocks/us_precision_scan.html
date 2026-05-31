@@ -6,6 +6,7 @@
 {% block container_class %}container-fluid px-2 px-md-3{% endblock %}
 
 {% block content %}
+{% include "stocks/includes/dark_mode_scanner.html" %}
 
 <!-- Loading Overlay -->
 <div class="loading-overlay" id="precisionLoadingOverlay" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.82);z-index:9999;flex-direction:column;align-items:center;justify-content:center;gap:1rem;">
@@ -1857,3 +1858,4 @@ function exportScanCSV(tableId, filename) {
 </div>
 
 {% endblock %}
+

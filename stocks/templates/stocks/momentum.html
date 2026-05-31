@@ -4,6 +4,7 @@
 {% block title %}Momentum Scanner — 9Com{% endblock %}
 
 {% block content %}
+{% include "stocks/includes/dark_mode_scanner.html" %}
 {% if is_scanning %}
 <div id="momentumLoadingOverlay" style="position:fixed;inset:0;background:rgba(15,23,42,0.92);
      z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1.2rem;">
@@ -654,3 +655,4 @@
 })();
 </script>
 {% endblock %}
+
