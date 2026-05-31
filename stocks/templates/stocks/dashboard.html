@@ -4,6 +4,7 @@
 {% block title %}Dashboard — 9Com Stock Analyst{% endblock %}
 
 {% block content %}
+{% include 'stocks/includes/dark_mode_scanner.html' %}
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
 <div class="db-hero mb-4 animate-in">
@@ -310,6 +311,40 @@ body { font-family: var(--font); background-color: var(--slate-50); }
 .text-emerald { color: var(--emerald) !important; }
 .text-red { color: var(--red) !important; }
 .text-amber { color: var(--amber) !important; }
+
+/* ═══════ DARK MODE OVERRIDES ═══════ */
+[data-bs-theme="dark"] {
+    --indigo-light: rgba(79, 70, 229, 0.15);
+    --emerald-light: rgba(5, 150, 105, 0.15);
+    --amber-light: rgba(217, 119, 6, 0.15);
+    --red-light: rgba(220, 38, 38, 0.15);
+    --slate-50: #0f172a;
+    --slate-100: rgba(255,255,255,0.05);
+    --slate-200: rgba(255,255,255,0.07);
+    --slate-700: #94a3b8;
+    --slate-900: #f1f5f9;
+}
+[data-bs-theme="dark"] .db-metric-card,
+[data-bs-theme="dark"] .db-panel {
+    background: rgba(15,23,42,0.7) !important;
+    border-color: rgba(255,255,255,0.07) !important;
+    backdrop-filter: blur(12px);
+}
+[data-bs-theme="dark"] .bg-light { background: rgba(255,255,255,0.05) !important; }
+[data-bs-theme="dark"] .bg-white { background: rgba(255,255,255,0.1) !important; color: #f1f5f9 !important; }
+[data-bs-theme="dark"] .text-dark,
+[data-bs-theme="dark"] .db-page-title,
+[data-bs-theme="dark"] .alloc-center-num,
+[data-bs-theme="dark"] .alloc-val { color: #f1f5f9 !important; }
+[data-bs-theme="dark"] .db-metric-sub,
+[data-bs-theme="dark"] .db-page-sub,
+[data-bs-theme="dark"] .text-muted,
+[data-bs-theme="dark"] .alloc-label,
+[data-bs-theme="dark"] .movers-section-label { color: #94a3b8 !important; }
+[data-bs-theme="dark"] .db-metric-bar,
+[data-bs-theme="dark"] .alloc-track { background: rgba(255,255,255,0.1) !important; }
+[data-bs-theme="dark"] .db-count-badge,
+[data-bs-theme="dark"] .db-time-badge { background: rgba(255,255,255,0.1) !important; color: #cbd5e1 !important; }
 </style>
 
 <!-- ═══════ SCRIPTS ═══════ -->
