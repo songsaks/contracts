@@ -104,6 +104,17 @@
     .markdown-content strong { color: #334155; }
     .markdown-content ul { padding-left: 1.5rem; margin-bottom: 1.5rem; }
     .markdown-content li { margin-bottom: 0.5rem; }
+
+    /* ═══════ DARK MODE OVERRIDES ═══════ */
+    [data-bs-theme="dark"] .markdown-content { color: #e2e8f0; }
+    [data-bs-theme="dark"] .markdown-content h1, 
+    [data-bs-theme="dark"] .markdown-content h2, 
+    [data-bs-theme="dark"] .markdown-content h3 { 
+        color: #f8fafc !important; 
+        border-bottom-color: rgba(255,255,255,0.1) !important; 
+    }
+    [data-bs-theme="dark"] .markdown-content h1 { color: #818cf8 !important; border-bottom-color: rgba(99, 102, 241, 0.3) !important; }
+    [data-bs-theme="dark"] .markdown-content strong { color: #f1f5f9 !important; }
 </style>
 {% endblock %}
 
