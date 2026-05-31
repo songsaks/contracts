@@ -455,13 +455,13 @@
 <div class="container-fluid px-4 py-4 stock-chart-dark-theme">
 
   <!-- Header -->
-  <div class="chart-header mb-3 d-flex flex-wrap align-items-center justify-content-between gap-3">
-    <div class="d-flex align-items-center gap-3">
+  <div class="chart-header mb-3 d-flex flex-nowrap align-items-center justify-content-between gap-3 overflow-x-auto" style="scrollbar-width: none;">
+    <div class="d-flex align-items-center gap-3 flex-shrink-0">
       <div>
-        <h4 class="fw-bold mb-0">📈 <span id="display-symbol">{{ symbol }}</span></h4>
-        <small class="opacity-60">Turtle Breakout + Momentum Chart</small>
+        <h4 class="fw-bold mb-0" style="white-space: nowrap;">📈 <span id="display-symbol">{{ symbol }}</span></h4>
+        <small class="opacity-60" style="white-space: nowrap;">Turtle Breakout + Momentum Chart</small>
       </div>
-      <form id="symbol-form" class="d-flex gap-2 align-items-center" onsubmit="changeSymbol(event)">
+      <form id="symbol-form" class="d-flex gap-2 align-items-center flex-shrink-0" onsubmit="changeSymbol(event)">
         <div class="symbol-input-wrap">
           <input type="text" id="symbol-input" placeholder="Symbol…" value="{{ symbol }}">
         </div>
@@ -474,7 +474,7 @@
       </form>
     </div>
 
-    <div class="d-flex gap-2 flex-wrap align-items-center">
+    <div class="d-flex gap-2 flex-nowrap align-items-center flex-shrink-0">
       <!-- Timeframe Buttons -->
       <button class="period-btn active" id="tf-1d" onclick="changeInterval('1d')">วัน</button>
       <button class="period-btn" id="tf-1wk" onclick="changeInterval('1wk')">สัปดาห์</button>
