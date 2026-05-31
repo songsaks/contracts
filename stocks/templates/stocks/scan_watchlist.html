@@ -650,8 +650,9 @@
     .wl-empty-title { font-family: var(--font-outfit); font-weight: 700; font-size: 1.25rem; color: #0f172a; }
 
     /* ═══════ DARK MODE OVERRIDES ═══════ */
+    [data-bs-theme="dark"] body { background-color: #0f172a !important; }
     [data-bs-theme="dark"] {
-        --card-bg: rgba(15,23,42,0.7);
+        --card-bg: rgba(30,41,59,0.7);
         --card-border: rgba(255,255,255,0.07);
     }
     [data-bs-theme="dark"] .wl-control-bar {
@@ -675,7 +676,7 @@
     [data-bs-theme="dark"] .blueprint-title { color: #94a3b8 !important; }
     
     [data-bs-theme="dark"] .price-label { color: #cbd5e1 !important; }
-    [data-bs-theme="dark"] .wl-empty { background: rgba(15,23,42,0.7); }
+    [data-bs-theme="dark"] .wl-empty { background: rgba(30,41,59,0.7); }
     [data-bs-theme="dark"] .wl-empty-title { color: #f8fafc; }
     
     [data-bs-theme="dark"] .progress { background: rgba(255,255,255,0.1) !important; }
@@ -696,10 +697,20 @@
     }
     [data-bs-theme="dark"] .stat-box { background: transparent; }
     [data-bs-theme="dark"] .badge.bg-white { 
-        background: rgba(15,23,42,0.9) !important; color: #f1f5f9 !important; border: 1px solid rgba(255,255,255,0.1); 
+        background: rgba(30,41,59,0.9) !important; color: #f1f5f9 !important; border: 1px solid rgba(255,255,255,0.1); 
     }
     [data-bs-theme="dark"] .wl-remove-btn { color: #64748b; }
     [data-bs-theme="dark"] .wl-remove-btn:hover { background: rgba(244,63,94,0.15); color: #f43f5e; }
+
+    /* Bootstrap text color overrides for dark mode */
+    [data-bs-theme="dark"] .text-success { color: #34d399 !important; }
+    [data-bs-theme="dark"] .text-danger { color: #fb7185 !important; }
+    [data-bs-theme="dark"] .text-warning { color: #fbbf24 !important; }
+    [data-bs-theme="dark"] .text-primary { color: #60a5fa !important; }
+    [data-bs-theme="dark"] .text-info { color: #38bdf8 !important; }
+    [data-bs-theme="dark"] .bg-light-success { background-color: rgba(52, 211, 153, 0.15) !important; color: #34d399 !important; }
+    [data-bs-theme="dark"] .bg-light-danger { background-color: rgba(251, 113, 133, 0.15) !important; color: #fb7185 !important; }
+
 </style>
 
 <!-- ===== INTERACTIVE JAVASCRIPT LOGIC ===== -->
