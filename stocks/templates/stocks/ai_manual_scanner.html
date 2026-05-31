@@ -1,161 +1,444 @@
 {% extends "stocks/base_stocks.html" %}
 
-{% block title %}AI Manual Scanner (SEPA & Guide) - Antigravity{% endblock %}
+{% block title %}AI Manual Scanner — Antigravity{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* ───── Base ───── */
+    body { background: #090d16 !important; font-family: 'Outfit', 'Sarabun', sans-serif; }
+
+    .page-wrapper { padding: 2rem 1.5rem; }
+
+    /* ───── Hero Header ───── */
+    .hero-banner {
+        background: linear-gradient(135deg, rgba(99,102,241,.12) 0%, rgba(16,185,129,.06) 100%);
+        border: 1px solid rgba(255,255,255,.07);
+        border-radius: 20px;
+        padding: 1.75rem 2rem;
+        margin-bottom: 1.75rem;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        flex-wrap: wrap;
+        backdrop-filter: blur(12px);
+    }
+    .hero-title { font-size: 1.75rem; font-weight: 800; color: #fff; margin: 0; }
+    .hero-sub   { color: #64748b; font-size: .9rem; margin-top: .25rem; }
+    .hero-sub a { color: #818cf8; text-decoration: none; font-weight: 600; }
+    .hero-sub a:hover { color: #a5b4fc; }
+
+    /* ───── Market Switcher ───── */
+    .market-btn { 
+        padding: .5rem 1.25rem; 
+        border-radius: 10px; 
+        font-weight: 700; 
+        font-size: .875rem;
+        border: 1px solid rgba(255,255,255,.08);
+        color: #94a3b8;
+        background: rgba(255,255,255,.03);
+        text-decoration: none;
+        transition: all .2s;
+    }
+    .market-btn.active { background: rgba(99,102,241,.25); color: #818cf8; border-color: rgba(99,102,241,.5); }
+    .market-btn:hover:not(.active) { background: rgba(255,255,255,.06); color: #f1f5f9; }
+
+    /* ───── Scan Button ───── */
+    .btn-scan {
+        background: linear-gradient(135deg, #10b981, #059669);
+        border: none; border-radius: 12px;
+        color: #fff; font-weight: 700;
+        padding: .65rem 1.5rem;
+        box-shadow: 0 0 18px rgba(16,185,129,.35);
+        transition: all .25s;
+    }
+    .btn-scan:hover { transform: translateY(-2px); box-shadow: 0 0 28px rgba(16,185,129,.5); color: #fff; }
+    .btn-scan:disabled { opacity: .6; transform: none; }
+
+    /* ───── Summary Stats ───── */
+    .stats-bar {
+        display: flex; gap: .75rem; flex-wrap: wrap;
+        align-items: center; margin-bottom: 1.5rem;
+    }
+    .stat-chip {
+        padding: .35rem .9rem; border-radius: 8px;
+        font-size: .8rem; font-weight: 600;
+        display: flex; align-items: center; gap: .4rem;
+    }
+    .chip-total  { background: rgba(255,255,255,.05); color: #94a3b8; border: 1px solid rgba(255,255,255,.07); }
+    .chip-a      { background: rgba(16,185,129,.12);  color: #34d399; border: 1px solid rgba(16,185,129,.25); }
+    .chip-b      { background: rgba(99,102,241,.12);  color: #818cf8; border: 1px solid rgba(99,102,241,.25); }
+    .chip-c      { background: rgba(245,158,11,.12);  color: #fbbf24; border: 1px solid rgba(245,158,11,.25); }
+    .stat-ts     { color: #475569; font-size: .75rem; margin-left: auto; }
+
+    /* ───── Filter Pills ───── */
+    .filter-bar { display: flex; gap: .5rem; flex-wrap: wrap; margin-bottom: 1.5rem; }
+    .filter-pill {
+        padding: .4rem 1rem; border-radius: 20px; font-size: .8rem; font-weight: 600;
+        cursor: pointer; border: 1px solid rgba(255,255,255,.08);
+        background: rgba(255,255,255,.03); color: #64748b; transition: all .2s;
+    }
+    .filter-pill.active { background: rgba(99,102,241,.2); color: #818cf8; border-color: rgba(99,102,241,.4); }
+    .filter-pill:hover:not(.active) { background: rgba(255,255,255,.06); color: #cbd5e1; }
+
+    /* ───── Stock Card ───── */
+    .stock-card {
+        background: rgba(15,23,42,.55);
+        border: 1px solid rgba(255,255,255,.07);
+        border-radius: 18px;
+        padding: 1.5rem;
+        height: 100%;
+        transition: transform .25s ease, box-shadow .25s ease, border-color .25s ease;
+        position: relative;
+        overflow: hidden;
+    }
+    .stock-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 20px 50px rgba(0,0,0,.4);
+        border-color: rgba(99,102,241,.35);
+    }
+    .stock-card::before {
+        content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+        opacity: 0; transition: opacity .25s;
+    }
+    .stock-card:hover::before { opacity: 1; }
+    .card-grade-a::before { background: linear-gradient(90deg, #10b981, #34d399); }
+    .card-grade-b::before { background: linear-gradient(90deg, #6366f1, #818cf8); }
+    .card-grade-c::before { background: linear-gradient(90deg, #f59e0b, #fbbf24); }
+
+    /* Card Header */
+    .card-header-row { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem; }
+    .symbol-row { display: flex; align-items: center; gap: .6rem; }
+    .rank-badge {
+        width: 30px; height: 30px; border-radius: 50%;
+        background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.1);
+        display: flex; align-items: center; justify-content: center;
+        font-size: .75rem; font-weight: 700; color: #64748b;
+    }
+    .symbol-name { font-size: 1.2rem; font-weight: 800; color: #f1f5f9; }
+
+    .grade-pill {
+        padding: .3rem .85rem; border-radius: 20px; font-size: .8rem; font-weight: 800;
+    }
+    .grade-a { background: rgba(16,185,129,.15);  color: #34d399; border: 1px solid rgba(16,185,129,.3); }
+    .grade-b { background: rgba(99,102,241,.15);  color: #818cf8; border: 1px solid rgba(99,102,241,.3); }
+    .grade-c { background: rgba(245,158,11,.15);  color: #fbbf24; border: 1px solid rgba(245,158,11,.3); }
+
+    /* Metrics Grid */
+    .metrics-grid {
+        display: grid; grid-template-columns: repeat(3, 1fr);
+        gap: .5rem; margin: 1rem 0;
+        background: rgba(255,255,255,.02); border-radius: 12px; padding: .75rem;
+        border: 1px solid rgba(255,255,255,.04);
+    }
+    .metric-cell { text-align: center; }
+    .metric-label { font-size: .65rem; color: #475569; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
+    .metric-value { font-size: .95rem; font-weight: 700; color: #e2e8f0; margin-top: .1rem; }
+    .metric-value.pos { color: #34d399; }
+    .metric-value.neg { color: #f87171; }
+
+    /* Signal badges */
+    .signal-badges { display: flex; flex-wrap: wrap; gap: .4rem; margin: .75rem 0; }
+    .sig-badge {
+        padding: .2rem .55rem; border-radius: 5px; font-size: .68rem; font-weight: 700;
+    }
+    .sig-vcp    { background: rgba(16,185,129,.15);  color: #34d399; }
+    .sig-pivot  { background: rgba(139,92,246,.15);  color: #a78bfa; }
+    .sig-vdu    { background: rgba(245,158,11,.15);  color: #fbbf24; }
+    .sig-cmf    { background: rgba(59,130,246,.15);  color: #60a5fa; }
+    .sig-52w    { background: rgba(236,72,153,.15);  color: #f9a8d4; }
+
+    /* AI Reasoning */
+    .reasoning-box {
+        border-top: 1px solid rgba(255,255,255,.05);
+        padding-top: .9rem; margin-top: .75rem;
+        font-size: .82rem; color: #94a3b8; line-height: 1.6;
+    }
+    .reasoning-label { font-size: .7rem; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: .05em; margin-bottom: .35rem; }
+
+    /* Card Actions */
+    .card-actions { display: flex; gap: .5rem; margin-top: 1rem; align-items: center; }
+    .btn-chart {
+        background: rgba(99,102,241,.15); color: #818cf8;
+        border: 1px solid rgba(99,102,241,.3); border-radius: 9px;
+        padding: .45rem .9rem; font-size: .8rem; font-weight: 700;
+        text-decoration: none; transition: all .2s;
+    }
+    .btn-chart:hover { background: rgba(99,102,241,.3); color: #a5b4fc; }
+    .btn-quick-ai {
+        background: rgba(245,158,11,.1); color: #fbbf24;
+        border: 1px solid rgba(245,158,11,.25); border-radius: 9px;
+        padding: .45rem .9rem; font-size: .8rem; font-weight: 700;
+        transition: all .2s; cursor: pointer;
+    }
+    .btn-quick-ai:hover { background: rgba(245,158,11,.2); }
+    .btn-watch {
+        width: 34px; height: 34px; border-radius: 9px;
+        display: flex; align-items: center; justify-content: center; 
+        font-size: .8rem; transition: all .2s; cursor: pointer;
+        border: 1px solid rgba(255,255,255,.08); background: rgba(255,255,255,.03); color: #475569;
+        margin-left: auto;
+    }
+    .btn-watch.active { background: rgba(251,191,36,.12); color: #fbbf24; border-color: rgba(251,191,36,.3); }
+    .btn-watch:hover { border-color: rgba(251,191,36,.4); color: #fbbf24; }
+
+    /* CrewAI Inline */
+    .crewai-inline {
+        background: rgba(99,102,241,.05); border-left: 3px solid #6366f1;
+        border-radius: 0 10px 10px 0; padding: .8rem 1rem;
+        font-size: .8rem; color: #94a3b8; line-height: 1.6; margin-top: .75rem;
+    }
+    .crewai-inline h1, .crewai-inline h2, .crewai-inline h3 { font-size: .9rem; color: #e2e8f0; margin-top: .5rem; }
+    .crewai-inline ul { padding-left: 1.25rem; }
+
+    /* ───── Loading & Error States ───── */
+    .loading-overlay {
+        background: rgba(9,13,22,.95); border: 1px solid rgba(255,255,255,.07);
+        border-radius: 20px; padding: 3rem; text-align: center; display: none;
+    }
+    .loading-spinner {
+        width: 56px; height: 56px; border-radius: 50%;
+        border: 4px solid rgba(16,185,129,.15); border-top-color: #10b981;
+        animation: spin 1s linear infinite; margin: 0 auto 1.25rem;
+    }
+    .loading-steps { display: flex; flex-direction: column; gap: .5rem; max-width: 280px; margin: 1.5rem auto 0; }
+    .loading-step { 
+        display: flex; align-items: center; gap: .6rem;
+        padding: .5rem .75rem; border-radius: 10px; 
+        background: rgba(255,255,255,.03); color: #475569;
+        font-size: .8rem; transition: all .4s;
+    }
+    .loading-step.active { background: rgba(16,185,129,.08); color: #34d399; }
+    .loading-step i { width: 16px; text-align: center; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .error-box {
+        background: rgba(239,68,68,.08); border: 1px solid rgba(239,68,68,.25);
+        border-radius: 16px; padding: 1.5rem; color: #fca5a5;
+        display: none; align-items: center; gap: 1rem;
+    }
+
+    /* ───── Empty State ───── */
+    .empty-state {
+        text-align: center; padding: 4rem 2rem;
+        background: rgba(15,23,42,.4); border: 1px dashed rgba(255,255,255,.08);
+        border-radius: 20px;
+    }
+    .empty-state i { font-size: 3rem; color: #1e293b; margin-bottom: 1rem; }
+    .empty-state h5 { color: #475569; }
+    .empty-state p  { color: #334155; font-size: .875rem; }
+
+    /* ───── CrewAI Modal ───── */
+    #crewAIModal .modal-content { background: #0f172a; border: 1px solid rgba(255,255,255,.08); border-radius: 16px; }
+    #crewAIModal .modal-header  { background: linear-gradient(135deg, #1e1b4b, #312e81); border-bottom: 1px solid rgba(255,255,255,.07); }
+    #crewAIModal .agent-badges  { background: rgba(255,255,255,.02); border-bottom: 1px solid rgba(255,255,255,.05); padding: .75rem 1.5rem; display: flex; flex-wrap: wrap; gap: .5rem; }
+    #crewAIModal .modal-body    { background: #0f172a; padding: 1.5rem; }
+    #crewAIModal .analysis-content { color: #94a3b8; font-size: .9rem; line-height: 1.7; }
+    #crewAIModal .analysis-content h1, #crewAIModal .analysis-content h2, #crewAIModal .analysis-content h3 { color: #e2e8f0; }
+    #crewAIModal .modal-footer  { background: rgba(255,255,255,.02); border-top: 1px solid rgba(255,255,255,.05); }
+
+    /* ───── Watchlist Modal ───── */
+    #watchlistModal .modal-content { background: #0f172a; border: 1px solid rgba(255,255,255,.1); border-radius: 16px; }
+    #watchlistModal .modal-header  { background: #1e293b; }
+    #watchlistModal .form-control, #watchlistModal .form-select {
+        background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.1); color: #e2e8f0;
+    }
+    #watchlistModal .form-control:focus, #watchlistModal .form-select:focus {
+        background: rgba(255,255,255,.08); border-color: rgba(99,102,241,.5); box-shadow: none; color: #f1f5f9;
+    }
+    #watchlistModal .modal-footer { border-top: 1px solid rgba(255,255,255,.06); }
+</style>
+{% endblock %}
 
 {% block content %}
-<div class="container-fluid py-4">
-    <!-- Header -->
-    <div class="row mb-4 align-items-center">
-        <div class="col-lg-8">
-            <h1 class="h3 mb-0 text-gray-800 fw-bold">
-                <i class="fas fa-robot text-primary me-2"></i>AI Manual Scanner
-            </h1>
-            <p class="text-muted mt-2 mb-0">
-                ระบบสแกนหุ้นด้วย AI โดยยึดตามหลักการ <a href="{% url 'stocks:sepa_manual' %}" target="_blank">SEPA</a> และการเทรดแบบ <a href="{% url 'stocks:mm_manual' %}" target="_blank" style="color:#10b981;font-weight:bold;">Smart Money (MM)</a> 100%
+<div class="page-wrapper" style="max-width:1400px;margin:0 auto;">
+
+    <!-- ════ Hero Banner ════ -->
+    <div class="hero-banner">
+        <div>
+            <h1 class="hero-title"><i class="fas fa-robot me-2" style="color:#818cf8;"></i>AI Manual Scanner</h1>
+            <p class="hero-sub mt-1">
+                ระบบ AI คัดกรองหุ้นตามคู่มือ
+                <a href="{% url 'stocks:sepa_manual' %}" target="_blank">SEPA</a>,
+                <a href="{% url 'stocks:mm_manual' %}" target="_blank">Smart Money (MM)</a> &amp;
+                <a href="{% url 'stocks:indicator_manual' %}" target="_blank">Indicator Manual</a>
             </p>
         </div>
-        <div class="col-lg-5 text-lg-end mt-3 mt-lg-0">
-            <div class="btn-group shadow-sm me-2" role="group">
-                <a href="?market=SET" class="btn {% if current_market == 'SET' %}btn-primary{% else %}btn-outline-primary{% endif %} fw-bold">
-                    <i class="fas fa-flag-thailand me-1"></i> SET
-                </a>
-                <a href="?market=US" class="btn {% if current_market == 'US' %}btn-primary{% else %}btn-outline-primary{% endif %} fw-bold">
-                    <i class="fas fa-flag-usa me-1"></i> US
-                </a>
-            </div>
-            <button type="button" class="btn btn-success fw-bold shadow-sm" onclick="runAIScan('{{ current_market }}')" id="btnScan">
-                <i class="fas fa-robot me-1"></i> Scan New {{ current_market }}
+        <div class="d-flex align-items-center gap-2 flex-wrap">
+            <a href="?market=SET" class="market-btn {% if current_market == 'SET' %}active{% endif %}">
+                🇹🇭 SET
+            </a>
+            <a href="?market=US" class="market-btn {% if current_market == 'US' %}active{% endif %}">
+                🇺🇸 US
+            </a>
+            <button class="btn-scan" onclick="runAIScan('{{ current_market }}')" id="btnScan">
+                <i class="fas fa-robot me-1"></i> Scan {{ current_market }} Now
             </button>
         </div>
     </div>
 
-    <!-- Loading State -->
-    <div id="loadingState" class="text-center py-5" style="display: none;">
-        <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem;">
-            <span class="visually-hidden">Loading...</span>
+    <!-- ════ Loading State ════ -->
+    <div id="loadingState" class="loading-overlay">
+        <div class="loading-spinner"></div>
+        <h5 class="text-white fw-bold mb-1">AI กำลังวิเคราะห์...</h5>
+        <p style="color:#475569;font-size:.85rem;">ขั้นตอนนี้ใช้เวลาประมาณ 15–30 วินาที</p>
+        <div class="loading-steps">
+            <div class="loading-step active" id="step1"><i class="fas fa-database"></i> โหลดข้อมูลหุ้นจาก Precision Scanner</div>
+            <div class="loading-step" id="step2"><i class="fas fa-brain"></i> AI วิเคราะห์ด้วยหลัก SEPA + Smart Money</div>
+            <div class="loading-step" id="step3"><i class="fas fa-sort-amount-down"></i> จัดอันดับและคัดเกรด A, B, C</div>
+            <div class="loading-step" id="step4"><i class="fas fa-check-circle"></i> บันทึกผลลัพธ์</div>
         </div>
-        <h4 class="mt-3 text-muted">AI กำลังวิเคราะห์ข้อมูลตามคู่มือ...</h4>
-        <p class="small text-muted">ขั้นตอนนี้อาจใช้เวลา 10-20 วินาที</p>
     </div>
 
-    <!-- Error State -->
-    <div id="errorState" class="alert alert-danger" style="display: none;">
-        <i class="fas fa-exclamation-triangle me-2"></i> <span id="errorMessage">เกิดข้อผิดพลาด</span>
+    <!-- ════ Error State ════ -->
+    <div id="errorState" class="error-box">
+        <i class="fas fa-exclamation-triangle fa-2x"></i>
+        <div>
+            <div class="fw-bold">เกิดข้อผิดพลาด</div>
+            <div id="errorMessage" style="font-size:.85rem;"></div>
+        </div>
     </div>
 
-    <!-- Results Container -->
-    <div id="resultsContainer" style="{% if not results %}display: none;{% endif %}">
-        <div class="d-flex justify-content-between align-items-center mb-3">
-            <h5 class="fw-bold mb-0">
-                <i class="fas fa-check-circle text-success me-2"></i>ผลลัพธ์การคัดกรอง (<span id="resultMarket">{{ current_market }}</span>)
-            </h5>
-            <span class="badge bg-success" id="resultCount">{{ results|length }} หุ้น</span>
+    <!-- ════ Results Container ════ -->
+    <div id="resultsContainer" {% if not results %}style="display:none;"{% endif %}>
+
+        <!-- Stats Bar -->
+        <div class="stats-bar" id="statsBar">
+            <div class="stat-chip chip-total"><i class="fas fa-list"></i> ทั้งหมด <strong id="cntTotal">{{ results|length }}</strong> หุ้น</div>
+            <div class="stat-chip chip-a"><i class="fas fa-star"></i> Grade A: <strong id="cntA">{% with a_count=0 %}{% for r in results %}{% if r.grade == 'A' %}{% with a_count=a_count|add:1 %}{% endwith %}{% endif %}{% endfor %}{{ results|dictsort:"grade"|first }}{% endwith %}</strong></div>
+            <div class="stat-chip chip-b"><i class="fas fa-thumbs-up"></i> Grade B: <strong id="cntB">0</strong></div>
+            <div class="stat-chip chip-c"><i class="fas fa-minus-circle"></i> Grade C: <strong id="cntC">0</strong></div>
+            {% if results %}
+            <div class="stat-ts"><i class="fas fa-clock me-1"></i>อัปเดต: {{ results.0.created_at|date:"d M Y H:i" }}</div>
+            {% endif %}
         </div>
-        
-        <div class="row" id="stocksList">
+
+        <!-- Filter Pills -->
+        <div class="filter-bar">
+            <span class="filter-pill active" data-grade="all" onclick="filterGrade(this)">ทั้งหมด</span>
+            <span class="filter-pill" data-grade="A" onclick="filterGrade(this)">⭐ Grade A</span>
+            <span class="filter-pill" data-grade="B" onclick="filterGrade(this)">👍 Grade B</span>
+            <span class="filter-pill" data-grade="C" onclick="filterGrade(this)">🟡 Grade C</span>
+        </div>
+
+        <!-- Stock Grid -->
+        <div class="row g-3" id="stocksList">
             {% if results %}
                 {% for stock in results %}
-                    <div class="col-md-6 col-lg-4 mb-4">
-                        <div class="card h-100 shadow-sm border-0 rounded-4 hover-lift">
-                            <div class="card-body p-4">
-                                <div class="d-flex justify-content-between align-items-start mb-3">
-                                    <div class="d-flex align-items-center">
-                                        <h4 class="fw-bold mb-0 text-primary">
-                                            <span class="badge bg-dark me-2 rounded-circle fs-6" style="width: 32px; height: 32px; display: inline-flex; align-items: center; justify-content: center;">{{ stock.rank }}</span>
-                                            {{ stock.symbol }}
-                                        </h4>
-                                        <button onclick="toggleWatchlist(this)" 
-                                                data-symbol="{{ stock.symbol }}" 
-                                                data-sector=""
-                                                data-in-watchlist="{% if stock.symbol in watchlisted_symbols %}true{% else %}false{% endif %}"
-                                                class="btn btn-sm px-2 ms-2 rounded-circle" 
-                                                style="width:28px;height:28px;display:inline-flex;align-items:center;justify-content:center;{% if stock.symbol in watchlisted_symbols %}font-size:0.65rem;background:#fef9c3;color:#b45309;border:1px solid #fde68a;{% else %}font-size:0.65rem;background:#f8fafc;color:#94a3b8;border:1px solid #e2e8f0;{% endif %}"
-                                                title="{% if stock.symbol in watchlisted_symbols %}ลบออกจาก Alert Watchlist{% else %}เพิ่มใน Alert Watchlist{% endif %}">
-                                            {% if stock.symbol in watchlisted_symbols %}<i class="fas fa-bell"></i>{% else %}<i class="far fa-bell"></i>{% endif %}
-                                        </button>
-                                    </div>
-                                    <span class="badge {% if stock.grade == 'A' %}bg-success{% elif stock.grade == 'B' %}bg-primary{% else %}bg-warning text-dark{% endif %} rounded-pill px-3 py-2">Grade {{ stock.grade }}</span>
-                                </div>
-                                
-                                <h6 class="fw-bold text-dark mt-3"><i class="fas fa-brain text-info me-2"></i>AI Reasoning:</h6>
-                                <p class="small text-muted mb-4" style="line-height: 1.6;">
-                                    {{ stock.reasoning }}
-                                </p>
-                                
-                                <div class="mt-3 bg-light rounded p-3 d-none crewai-inline-result" id="crewai-inline-{{ stock.symbol }}" style="font-size: 0.85rem; border-left: 4px solid #6366f1;"></div>
-                                
-                                <div class="mt-auto text-end">
-                                    <button onclick="runMomentumCrewAI('{{ stock.symbol }}')" class="btn btn-sm btn-light text-primary fw-bold">
-                                        <i class="fas fa-robot"></i> Quick AI
-                                    </button>
-                                    <a href="/stocks/chart/{{ stock.symbol }}/?market={{ stock.market }}" target="_blank" class="btn btn-sm btn-primary fw-bold px-3 rounded-pill shadow-sm ms-2">
-                                        <i class="fas fa-chart-line me-1"></i> Chart
-                                    </a>
-                                </div>
+                <div class="col-md-6 col-xl-4 stock-item" data-grade="{{ stock.grade }}">
+                    <div class="stock-card card-grade-{{ stock.grade|lower }}">
+                        <!-- Header -->
+                        <div class="card-header-row">
+                            <div class="symbol-row">
+                                <div class="rank-badge">#{{ stock.rank }}</div>
+                                <div class="symbol-name">{{ stock.symbol }}</div>
+                                <button class="btn-watch {% if stock.symbol in watchlisted_symbols %}active{% endif %}"
+                                        onclick="toggleWatchlist(this)"
+                                        data-symbol="{{ stock.symbol }}"
+                                        data-sector=""
+                                        data-in-watchlist="{% if stock.symbol in watchlisted_symbols %}true{% else %}false{% endif %}"
+                                        title="Watchlist">
+                                    {% if stock.symbol in watchlisted_symbols %}<i class="fas fa-bell"></i>{% else %}<i class="far fa-bell"></i>{% endif %}
+                                </button>
                             </div>
+                            <div class="grade-pill grade-{{ stock.grade|lower }}">Grade {{ stock.grade }}</div>
+                        </div>
+
+                        <!-- Signal Badges -->
+                        <div class="signal-badges">
+                            <span class="sig-badge sig-vcp">✦ Stage 2</span>
+                            <span class="sig-badge sig-cmf">📈 AI Selected</span>
+                        </div>
+
+                        <!-- AI Reasoning -->
+                        <div class="reasoning-box">
+                            <div class="reasoning-label"><i class="fas fa-brain me-1"></i>AI Reasoning</div>
+                            {{ stock.reasoning }}
+                        </div>
+
+                        <!-- Cached CrewAI inline -->
+                        <div class="crewai-inline d-none" id="crewai-inline-{{ stock.symbol }}"></div>
+
+                        <!-- Actions -->
+                        <div class="card-actions">
+                            <button class="btn-quick-ai" onclick="runMomentumCrewAI('{{ stock.symbol }}')">
+                                <i class="fas fa-bolt me-1"></i>Quick AI
+                            </button>
+                            <a href="/stocks/chart/{{ stock.symbol }}/?market={{ stock.market }}" target="_blank" class="btn-chart">
+                                <i class="fas fa-chart-line me-1"></i>Chart
+                            </a>
                         </div>
                     </div>
+                </div>
                 {% endfor %}
             {% endif %}
         </div>
+
+        <!-- Empty State (hidden by default) -->
+        <div id="emptyState" class="empty-state" {% if results %}style="display:none;"{% endif %}>
+            <i class="fas fa-search-dollar"></i>
+            <h5>ยังไม่มีผลการสแกน</h5>
+            <p>กดปุ่ม <strong>"Scan Now"</strong> เพื่อให้ AI วิเคราะห์หุ้นตามเกณฑ์คู่มือ SEPA + Smart Money<br>
+            หากเกิดข้อผิดพลาด กรุณารัน <a href="/stocks/scan/precision/" style="color:#818cf8;">Precision Scan</a> ก่อน</p>
+        </div>
     </div>
+
 </div>
 
-<!-- ====== CrewAI Short-Term Expert Modal ====== -->
-<div class="modal fade" id="crewAIModal" tabindex="-1" aria-labelledby="crewAIModalLabel" aria-hidden="true">
+<!-- ════ CrewAI Expert Modal ════ -->
+<div class="modal fade" id="crewAIModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-xl modal-dialog-scrollable">
-        <div class="modal-content border-0 shadow-lg" style="border-radius:1rem;overflow:hidden;">
-            <div class="modal-header border-0 py-3 px-4" style="background:linear-gradient(135deg,#1e1b4b,#312e81);">
+        <div class="modal-content">
+            <div class="modal-header border-0 py-3 px-4">
                 <div>
                     <h5 class="modal-title text-white fw-bold mb-0" id="crewAIModalLabel">
                         <i class="fas fa-bolt me-2" style="color:#f59e0b;"></i>
-                        CrewAI Expert Analysis — <span id="crewAISymbolLabel">...</span>
+                        Expert Analysis — <span id="crewAISymbolLabel">...</span>
                     </h5>
-                    <small class="text-indigo-200" style="color:#a5b4fc;font-size:0.72rem;">
-                        3 Specialized Agents: Technical Momentum · Risk Management · Smart Money &amp; Catalyst
+                    <small style="color:#a5b4fc;font-size:.72rem;">
+                        3 Specialized Agents: Technical · Risk · Smart Money
                     </small>
                 </div>
                 <button type="button" class="btn-close btn-close-white ms-auto" data-bs-dismiss="modal"></button>
             </div>
 
-            <!-- Loading state -->
+            <!-- Loading -->
             <div id="crewAILoading" class="d-none text-center py-5 px-4" style="background:#0f172a;">
-                <div style="width:52px;height:52px;border-radius:50%;border:5px solid rgba(245,158,11,0.2);border-top-color:#f59e0b;animation:mSpin 1s linear infinite;margin:0 auto 1.2rem;"></div>
+                <div style="width:52px;height:52px;border-radius:50%;border:4px solid rgba(245,158,11,.15);border-top-color:#f59e0b;animation:spin 1s linear infinite;margin:0 auto 1.2rem;"></div>
                 <div class="fw-bold mb-1" style="color:#f59e0b;font-size:1rem;">กำลังวิเคราะห์ด้วย 3 Expert Agents…</div>
-                <div id="crewAIPhase" style="color:#64748b;font-size:0.8rem;">เริ่มต้น…</div>
-                <div class="mt-3 d-flex justify-content-center gap-3" style="font-size:0.72rem;color:#475569;">
+                <div id="crewAIPhase" style="color:#475569;font-size:.8rem;">เริ่มต้น…</div>
+                <div class="mt-3 d-flex justify-content-center gap-3" style="font-size:.72rem;color:#475569;">
                     <span><i class="fas fa-chart-line me-1" style="color:#f59e0b;"></i>Technical Analyst</span>
                     <span><i class="fas fa-shield-alt me-1" style="color:#10b981;"></i>Risk Expert</span>
                     <span><i class="fas fa-eye me-1" style="color:#6366f1;"></i>Smart Money Scout</span>
                 </div>
             </div>
 
-            <!-- Result state -->
-            <div id="crewAIResult" class="d-none modal-body p-0">
-                <!-- Agent badges bar -->
-                <div class="d-flex gap-2 flex-wrap px-4 py-3 border-bottom" style="background:#f8fafc;">
-                    <span class="badge rounded-pill px-3 py-2" style="background:#fef3c7;color:#92400e;font-size:0.7rem;">
-                        <i class="fas fa-chart-line me-1"></i> Agent 1 · Technical Momentum
+            <!-- Result -->
+            <div id="crewAIResult" class="d-none">
+                <div class="agent-badges">
+                    <span class="badge rounded-pill px-3 py-2" style="background:#1c1917;color:#fbbf24;font-size:.7rem;border:1px solid rgba(245,158,11,.2);">
+                        <i class="fas fa-chart-line me-1"></i>Agent 1 · Technical Momentum
                     </span>
-                    <span class="badge rounded-pill px-3 py-2" style="background:#d1fae5;color:#065f46;font-size:0.7rem;">
-                        <i class="fas fa-shield-alt me-1"></i> Agent 2 · Risk &amp; Entry
+                    <span class="badge rounded-pill px-3 py-2" style="background:#052e16;color:#34d399;font-size:.7rem;border:1px solid rgba(16,185,129,.2);">
+                        <i class="fas fa-shield-alt me-1"></i>Agent 2 · Risk &amp; Entry
                     </span>
-                    <span class="badge rounded-pill px-3 py-2" style="background:#ede9fe;color:#4c1d95;font-size:0.7rem;">
-                        <i class="fas fa-eye me-1"></i> Agent 3 · Smart Money &amp; Final Verdict
+                    <span class="badge rounded-pill px-3 py-2" style="background:#1e1b4b;color:#a78bfa;font-size:.7rem;border:1px solid rgba(99,102,241,.2);">
+                        <i class="fas fa-eye me-1"></i>Agent 3 · Smart Money &amp; Final Verdict
                     </span>
                 </div>
-                <div class="p-4 p-md-5 analysis-content" id="crewAIContent" style="background:#fff;"></div>
+                <div class="modal-body"><div class="analysis-content" id="crewAIContent"></div></div>
             </div>
 
-            <!-- Error state -->
-            <div id="crewAIError" class="d-none text-center py-5 px-4">
+            <!-- Error -->
+            <div id="crewAIError" class="d-none text-center py-5 px-4" style="background:#0f172a;">
                 <i class="fas fa-exclamation-triangle fa-2x text-warning mb-3"></i>
-                <div class="text-muted" id="crewAIErrorMsg">เกิดข้อผิดพลาด กรุณาลองใหม่</div>
+                <div style="color:#94a3b8;" id="crewAIErrorMsg">เกิดข้อผิดพลาด กรุณาลองใหม่</div>
             </div>
 
-            <div class="modal-footer border-top py-2 px-4 d-none" id="crewAIFooter" style="background:#f8fafc;">
-                <small class="text-muted me-auto" style="font-size:0.7rem;">
-                    <i class="fas fa-robot me-1"></i> วิเคราะห์โดย CrewAI + Gemini 2.5 Flash · เพื่อการศึกษาเท่านั้น
+            <div class="modal-footer d-none py-2 px-4" id="crewAIFooter">
+                <small class="me-auto" style="color:#475569;font-size:.7rem;">
+                    <i class="fas fa-robot me-1"></i>วิเคราะห์โดย CrewAI + Gemini · เพื่อการศึกษาเท่านั้น
                 </small>
                 <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">ปิด</button>
             </div>
@@ -163,184 +446,250 @@
     </div>
 </div>
 
-<style>@keyframes mSpin { to { transform: rotate(360deg); } }</style>
+<!-- ════ Watchlist Modal ════ -->
+<div class="modal fade" id="watchlistModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold text-white"><i class="fas fa-bell me-2" style="color:#fbbf24;"></i>ติดตาม: <span id="watchlistModalSymbol"></span></h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4">
+                <input type="hidden" id="watchlistSymbolInput">
+                <div class="mb-3">
+                    <label class="form-label fw-bold small" style="color:#64748b;">กลยุทธ์ (Pattern)</label>
+                    <select class="form-select" id="watchlistStrategy">
+                        <option value="SEPA">SEPA (Minervini Stage 2)</option>
+                        <option value="TURTLE_S1">Turtle S1 (Breakout 20D)</option>
+                        <option value="TURTLE_S2">Turtle S2 (Breakout 55D)</option>
+                        <option value="PRECISION">Precision (Demand Zone)</option>
+                        <option value="CUP_HANDLE">Cup &amp; Handle</option>
+                        <option value="OTHER">อื่นๆ</option>
+                    </select>
+                </div>
+                <div class="mb-0">
+                    <label class="form-label fw-bold small" style="color:#64748b;">บันทึกเพิ่มเติม</label>
+                    <textarea class="form-control" id="watchlistNote" rows="2" placeholder="เช่น รอย่อเข้าโซน, รอ Breakout..."></textarea>
+                </div>
+            </div>
+            <div class="modal-footer border-0">
+                <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">ยกเลิก</button>
+                <button type="button" class="btn btn-primary btn-sm px-4" id="watchlistSubmitBtn" onclick="submitWatchlist()">บันทึก</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script id="crewai-cached-data" type="application/json">{{ crewai_json|safe }}</script>
 
 <script>
+// ── CSRF ─────────────────────────────────────────────────────────────────
 function getCookie(name) {
-    let cookieValue = null;
-    if (document.cookie && document.cookie !== '') {
-        const cookies = document.cookie.split(';');
-        for (let i = 0; i < cookies.length; i++) {
-            const cookie = cookies[i].trim();
-            if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                break;
-            }
-        }
-    }
-    return cookieValue;
+    const match = document.cookie.match(new RegExp('(?:^|;\\s*)' + name + '=([^;]*)'));
+    return match ? decodeURIComponent(match[1]) : null;
 }
-
 const csrftoken = getCookie('csrftoken');
 
-function getMarketPrefix(market, symbol) {
-    if(market === 'SET') return symbol + '.BK';
-    return symbol;
+// ── Count & Stats ─────────────────────────────────────────────────────────
+function updateStats(stocks) {
+    const total = stocks.length;
+    const a = stocks.filter(s => s.grade === 'A').length;
+    const b = stocks.filter(s => s.grade === 'B').length;
+    const c = stocks.filter(s => s.grade === 'C').length;
+    document.getElementById('cntTotal').textContent = total;
+    document.getElementById('cntA').textContent = a;
+    document.getElementById('cntB').textContent = b;
+    document.getElementById('cntC').textContent = c;
 }
 
+// Init stats from server-rendered data
+document.addEventListener('DOMContentLoaded', () => {
+    const items = document.querySelectorAll('.stock-item');
+    let a=0,b=0,c=0;
+    items.forEach(el => {
+        const g = el.dataset.grade;
+        if(g==='A') a++; else if(g==='B') b++; else c++;
+    });
+    document.getElementById('cntTotal').textContent = items.length;
+    document.getElementById('cntA').textContent = a;
+    document.getElementById('cntB').textContent = b;
+    document.getElementById('cntC').textContent = c;
+
+    // Render cached CrewAI
+    try {
+        const cachedData = JSON.parse(document.getElementById('crewai-cached-data').textContent || '{}');
+        for (const sym in cachedData) {
+            const div = document.getElementById('crewai-inline-' + sym);
+            if (div) {
+                div.innerHTML = marked.parse(cachedData[sym]);
+                div.classList.remove('d-none');
+            }
+        }
+    } catch(e) { console.warn('CrewAI cache parse error', e); }
+});
+
+// ── Filter by Grade ────────────────────────────────────────────────────────
+function filterGrade(el) {
+    document.querySelectorAll('.filter-pill').forEach(p => p.classList.remove('active'));
+    el.classList.add('active');
+    const grade = el.dataset.grade;
+    document.querySelectorAll('.stock-item').forEach(card => {
+        card.style.display = (grade === 'all' || card.dataset.grade === grade) ? '' : 'none';
+    });
+}
+
+// ── Loading Steps Animation ────────────────────────────────────────────────
+let stepTimer;
+function animateSteps() {
+    let i = 0;
+    const steps = ['step1','step2','step3','step4'];
+    steps.forEach(id => document.getElementById(id)?.classList.remove('active'));
+    document.getElementById('step1')?.classList.add('active');
+    stepTimer = setInterval(() => {
+        i = Math.min(i + 1, steps.length - 1);
+        steps.forEach((id,idx) => {
+            const el = document.getElementById(id);
+            if(el) el.classList.toggle('active', idx === i);
+        });
+        if(i >= steps.length - 1) clearInterval(stepTimer);
+    }, 5000);
+}
+
+// ── Run AI Scan ────────────────────────────────────────────────────────────
 async function runAIScan(market) {
-    const btnScan = document.getElementById('btnScan');
-    const loadingState = document.getElementById('loadingState');
-    const resultsContainer = document.getElementById('resultsContainer');
-    const errorState = document.getElementById('errorState');
-    
-    // UI Updates
-    if(btnScan) btnScan.disabled = true;
-    loadingState.style.display = 'block';
-    resultsContainer.style.display = 'none';
-    errorState.style.display = 'none';
+    const btn     = document.getElementById('btnScan');
+    const loading = document.getElementById('loadingState');
+    const results = document.getElementById('resultsContainer');
+    const errBox  = document.getElementById('errorState');
+
+    btn.disabled = true;
+    loading.style.display = 'block';
+    results.style.display = 'none';
+    errBox.style.display  = 'none';
+    animateSteps();
 
     try {
-        const response = await fetch("{% url 'stocks:api_ai_manual_scan' %}", {
+        const res  = await fetch("{% url 'stocks:api_ai_manual_scan' %}", {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': csrftoken
-            },
-            body: JSON.stringify({ market: market })
+            headers: {'Content-Type':'application/json','X-CSRFToken':csrftoken},
+            body: JSON.stringify({market})
         });
-        
-        const data = await response.json();
-        
+        const data = await res.json();
+
         if (data.status === 'success') {
-            document.getElementById('resultMarket').innerText = data.market;
-            document.getElementById('resultCount').innerText = data.selected_stocks.length + ' หุ้น';
-            
-            const stocksList = document.getElementById('stocksList');
-            stocksList.innerHTML = ''; // Clear previous
-            
-            if (data.selected_stocks.length === 0) {
-                stocksList.innerHTML = '<div class="col-12"><div class="alert alert-info">AI ไม่พบหุ้นที่ผ่านเกณฑ์คู่มืออย่างสมบูรณ์แบบในขณะนี้</div></div>';
-            } else {
-                data.selected_stocks.forEach((stock, index) => {
-                    let badgeClass = 'bg-secondary';
-                    if (stock.grade === 'A') badgeClass = 'bg-success';
-                    if (stock.grade === 'B') badgeClass = 'bg-primary';
-                    if (stock.grade === 'C') badgeClass = 'bg-warning text-dark';
-                    const chartUrl = `/stocks/chart/${stock.symbol}/?market=${data.market}`;
-                    const rank = stock.rank || (index + 1);
-                    
-                    const card = `
-                    <div class="col-md-6 col-lg-4 mb-4">
-                        <div class="card h-100 shadow-sm border-0 rounded-4 hover-lift">
-                            <div class="card-body p-4">
-                                <div class="d-flex justify-content-between align-items-start mb-3">
-                                    <div class="d-flex align-items-center">
-                                        <h4 class="fw-bold mb-0 text-primary">
-                                            <span class="badge bg-dark me-2 rounded-circle fs-6" style="width: 32px; height: 32px; display: inline-flex; align-items: center; justify-content: center;">${rank}</span>
-                                            ${stock.symbol}
-                                        </h4>
-                                        <!-- Note: AJAX loaded cards won't know if they are watchlisted immediately, so we default to not watchlisted -->
-                                        <button onclick="toggleWatchlist(this)" 
-                                                data-symbol="${stock.symbol}" 
-                                                data-sector=""
-                                                data-in-watchlist="false"
-                                                class="btn btn-sm px-2 ms-2 rounded-circle" 
-                                                style="width:28px;height:28px;display:inline-flex;align-items:center;justify-content:center;font-size:0.65rem;background:#f8fafc;color:#94a3b8;border:1px solid #e2e8f0;"
-                                                title="เพิ่มใน Alert Watchlist">
-                                            <i class="far fa-bell"></i>
-                                        </button>
-                                    </div>
-                                    <span class="badge ${badgeClass} rounded-pill px-3 py-2">Grade ${stock.grade}</span>
-                                </div>
-                                
-                                <h6 class="fw-bold text-dark mt-3"><i class="fas fa-brain text-info me-2"></i>AI Reasoning:</h6>
-                                <p class="small text-muted mb-4" style="line-height: 1.6;">
-                                    ${stock.reasoning}
-                                </p>
-                                
-                                <div class="mt-3 bg-light rounded p-3 d-none crewai-inline-result" id="crewai-inline-${stock.symbol}" style="font-size: 0.85rem; border-left: 4px solid #6366f1;"></div>
-                                
-                                <div class="mt-auto text-end">
-                                    <button onclick="runMomentumCrewAI('${stock.symbol}')" class="btn btn-sm btn-light text-primary fw-bold">
-                                        <i class="fas fa-robot"></i> Quick AI
-                                    </button>
-                                    <a href="${chartUrl}" target="_blank" class="btn btn-sm btn-primary fw-bold px-3 rounded-pill shadow-sm ms-2">
-                                        <i class="fas fa-chart-line me-1"></i> Chart
-                                    </a>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    `;
-                    stocksList.innerHTML += card;
-                });
-            }
-            resultsContainer.style.display = 'block';
+            clearInterval(stepTimer);
+            renderCards(data.selected_stocks || [], data.market);
+            updateStats(data.selected_stocks || []);
+            results.style.display = 'block';
         } else {
-            document.getElementById('errorMessage').innerText = data.message || 'Error executing scan.';
-            errorState.style.display = 'block';
+            showError(data.message || 'Scan failed');
         }
-    } catch (err) {
-        document.getElementById('errorMessage').innerText = err.toString();
-        errorState.style.display = 'block';
+    } catch(err) {
+        showError(err.toString());
     } finally {
-        if(btnScan) btnScan.disabled = false;
-        loadingState.style.display = 'none';
+        btn.disabled     = false;
+        loading.style.display = 'none';
     }
 }
 
+function showError(msg) {
+    const errBox = document.getElementById('errorState');
+    document.getElementById('errorMessage').textContent = msg;
+    errBox.style.display = 'flex';
+}
+
+// ── Render Cards ────────────────────────────────────────────────────────────
+function renderCards(stocks, market) {
+    const list  = document.getElementById('stocksList');
+    const empty = document.getElementById('emptyState');
+    const statsTs = document.querySelector('.stat-ts');
+
+    list.innerHTML = '';
+
+    if (!stocks.length) {
+        if(empty) empty.style.display = '';
+        return;
+    }
+    if(empty) empty.style.display = 'none';
+    if(statsTs) statsTs.innerHTML = `<i class="fas fa-clock me-1"></i>อัปเดต: เมื่อกี้นี้`;
+
+    stocks.forEach(stock => {
+        const grade   = stock.grade || 'C';
+        const rank    = stock.rank || '';
+        const chartUrl = `/stocks/chart/${stock.symbol}/?market=${market}`;
+
+        list.innerHTML += `
+        <div class="col-md-6 col-xl-4 stock-item" data-grade="${grade}">
+            <div class="stock-card card-grade-${grade.toLowerCase()}">
+                <div class="card-header-row">
+                    <div class="symbol-row">
+                        <div class="rank-badge">#${rank}</div>
+                        <div class="symbol-name">${stock.symbol}</div>
+                        <button class="btn-watch" onclick="toggleWatchlist(this)"
+                                data-symbol="${stock.symbol}" data-sector="" data-in-watchlist="false"
+                                title="Watchlist"><i class="far fa-bell"></i></button>
+                    </div>
+                    <div class="grade-pill grade-${grade.toLowerCase()}">Grade ${grade}</div>
+                </div>
+                <div class="signal-badges">
+                    <span class="sig-badge sig-vcp">✦ Stage 2</span>
+                    <span class="sig-badge sig-cmf">📈 AI Selected</span>
+                </div>
+                <div class="reasoning-box">
+                    <div class="reasoning-label"><i class="fas fa-brain me-1"></i>AI Reasoning</div>
+                    ${stock.reasoning || '–'}
+                </div>
+                <div class="crewai-inline d-none" id="crewai-inline-${stock.symbol}"></div>
+                <div class="card-actions">
+                    <button class="btn-quick-ai" onclick="runMomentumCrewAI('${stock.symbol}')">
+                        <i class="fas fa-bolt me-1"></i>Quick AI
+                    </button>
+                    <a href="${chartUrl}" target="_blank" class="btn-chart">
+                        <i class="fas fa-chart-line me-1"></i>Chart
+                    </a>
+                </div>
+            </div>
+        </div>`;
+    });
+}
+
+// ── Watchlist ────────────────────────────────────────────────────────────────
 function toggleWatchlist(btn) {
     const inWl = btn.dataset.inWatchlist === 'true';
-    if (inWl) {
-        // Remove directly
-        performToggle(btn, {symbol: btn.dataset.symbol, sector: '', strategy: '', note: ''});
-    } else {
-        // Open modal to add
-        openWatchlistModal(btn);
-    }
+    if (inWl) performToggle(btn, {symbol:btn.dataset.symbol, sector:'', strategy:'', note:''});
+    else openWatchlistModal(btn);
 }
-
 function openWatchlistModal(btn) {
     window._currentWlBtn = btn;
     document.getElementById('watchlistModalSymbol').textContent = btn.dataset.symbol;
     document.getElementById('watchlistSymbolInput').value = btn.dataset.symbol;
-    document.getElementById('watchlistNote').value = "";
-    document.getElementById('watchlistStrategy').value = "SEPA";
-    
-    const myModal = new bootstrap.Modal(document.getElementById('watchlistModal'));
-    myModal.show();
+    document.getElementById('watchlistNote').value = '';
+    document.getElementById('watchlistStrategy').value = 'SEPA';
+    new bootstrap.Modal(document.getElementById('watchlistModal')).show();
 }
-
 function submitWatchlist() {
     const btn = window._currentWlBtn;
     if (!btn) return;
-    
-    const data = {
-        symbol: document.getElementById('watchlistSymbolInput').value,
-        sector: '',
-        strategy: document.getElementById('watchlistStrategy').value,
-        note: document.getElementById('watchlistNote').value,
-        market: '{{ current_market }}'
-    };
-    
     const submitBtn = document.getElementById('watchlistSubmitBtn');
     submitBtn.disabled = true;
     submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>กำลังบันทึก...';
-
-    performToggle(btn, data, () => {
-        const modalEl = document.getElementById('watchlistModal');
-        const modalInstance = bootstrap.Modal.getInstance(modalEl);
-        if (modalInstance) modalInstance.hide();
+    performToggle(btn, {
+        symbol:   document.getElementById('watchlistSymbolInput').value,
+        sector:   '',
+        strategy: document.getElementById('watchlistStrategy').value,
+        note:     document.getElementById('watchlistNote').value,
+        market:   '{{ current_market }}'
+    }, () => {
+        bootstrap.Modal.getInstance(document.getElementById('watchlistModal'))?.hide();
         submitBtn.disabled = false;
-        submitBtn.innerHTML = 'บันทึกรายการ';
+        submitBtn.innerHTML = 'บันทึก';
     });
 }
-
 function performToggle(btn, payload, callback) {
     fetch("{% url 'stocks:watchlist_item_toggle' %}", {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrftoken},
+        method:'POST',
+        headers:{'Content-Type':'application/json','X-CSRFToken':csrftoken},
         body: JSON.stringify(payload)
     })
     .then(r => r.json())
@@ -348,43 +697,25 @@ function performToggle(btn, payload, callback) {
         if (data.status === 'added') {
             btn.dataset.inWatchlist = 'true';
             btn.innerHTML = '<i class="fas fa-bell"></i>';
-            btn.style.cssText = 'width:28px;height:28px;display:inline-flex;align-items:center;justify-content:center;font-size:0.65rem;background:#fef9c3;color:#b45309;border:1px solid #fde68a;';
-            btn.title = 'ลบออกจาก Alert Watchlist';
+            btn.classList.add('active');
+            btn.title = 'ลบออกจาก Watchlist';
         } else {
             btn.dataset.inWatchlist = 'false';
             btn.innerHTML = '<i class="far fa-bell"></i>';
-            btn.style.cssText = 'width:28px;height:28px;display:inline-flex;align-items:center;justify-content:center;font-size:0.65rem;background:#f8fafc;color:#94a3b8;border:1px solid #e2e8f0;';
-            btn.title = 'เพิ่มใน Alert Watchlist';
+            btn.classList.remove('active');
+            btn.title = 'Watchlist';
         }
-        if (callback) callback();
+        if(callback) callback();
     })
-    .catch(e => {
-        console.error('Watchlist toggle error:', e);
-        if (callback) callback();
-    });
+    .catch(e => { console.error(e); if(callback) callback(); });
 }
 
-// Hover lift style
-const style = document.createElement('style');
-style.innerHTML = `
-    .hover-lift { transition: transform 0.2s ease, box-shadow 0.2s ease; }
-    .hover-lift:hover { transform: translateY(-5px); box-shadow: 0 .5rem 1rem rgba(0,0,0,.15)!important; }
-`;
-document.head.appendChild(style);
-</script>
-
-<!-- CrewAI Modal Script -->
-<script id="crewai-cached-data" type="application/json">{{ crewai_json|safe }}</script>
-<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-<script>
+// ── CrewAI Quick Analysis ─────────────────────────────────────────────────
 (function() {
-    var _crewPollTimer = null;
-    var _crewSymbol   = null;
+    let _pollTimer = null, _sym = null;
 
     window.runMomentumCrewAI = function(symbol) {
-        _crewSymbol = symbol;
-
-        // Reset modal state
+        _sym = symbol;
         document.getElementById('crewAISymbolLabel').textContent = symbol;
         document.getElementById('crewAILoading').classList.remove('d-none');
         document.getElementById('crewAIResult').classList.add('d-none');
@@ -392,146 +723,53 @@ document.head.appendChild(style);
         document.getElementById('crewAIFooter').classList.add('d-none');
         document.getElementById('crewAIPhase').textContent = 'กำลังเริ่มต้น…';
 
-        // Open modal
-        var modal = new bootstrap.Modal(document.getElementById('crewAIModal'));
-        modal.show();
+        new bootstrap.Modal(document.getElementById('crewAIModal')).show();
+        if(_pollTimer) { clearTimeout(_pollTimer); _pollTimer = null; }
 
-        // Stop previous poll if any
-        if (_crewPollTimer) { clearTimeout(_crewPollTimer); _crewPollTimer = null; }
-
-        // Start analysis
         fetch('/stocks/momentum/quick-ai/' + encodeURIComponent(symbol) + '/', {
-            credentials: 'same-origin',
-            headers: { 'X-CSRFToken': csrftoken }
+            credentials:'same-origin', headers:{'X-CSRFToken':csrftoken}
         })
-        .then(function(r) { return r.json(); })
-        .then(function(data) {
-            if (data.state === 'done') {
-                _showCrewResult(data.result);
-            } else {
-                _pollCrew(symbol, 3000);
-            }
-        })
-        .catch(function(err) { _showCrewError('ไม่สามารถเชื่อมต่อ Server ได้'); });
+        .then(r => r.json())
+        .then(d => { d.state === 'done' ? _showResult(d.result) : _poll(symbol, 3000); })
+        .catch(() => _showError('ไม่สามารถเชื่อมต่อ Server'));
     };
 
-    function _pollCrew(symbol, delay) {
-        _crewPollTimer = setTimeout(function() {
-            fetch('/stocks/momentum/quick-ai/' + encodeURIComponent(symbol) + '/?mq_status=1', {
-                credentials: 'same-origin'
+    function _poll(symbol, delay) {
+        _pollTimer = setTimeout(() => {
+            fetch('/stocks/momentum/quick-ai/' + encodeURIComponent(symbol) + '/?mq_status=1', {credentials:'same-origin'})
+            .then(r => r.json())
+            .then(d => {
+                if(d.phase) document.getElementById('crewAIPhase').textContent = d.phase;
+                if(d.state === 'done') _showResult(d.result);
+                else if(d.state === 'running' || d.state === 'idle') _poll(symbol, 3500);
+                else _showError('ไม่ได้รับข้อมูลจาก Server');
             })
-            .then(function(r) { return r.json(); })
-            .then(function(data) {
-                if (data.phase) {
-                    document.getElementById('crewAIPhase').textContent = data.phase;
-                }
-                if (data.state === 'done') {
-                    _showCrewResult(data.result);
-                } else if (data.state === 'running' || data.state === 'idle') {
-                    _pollCrew(symbol, 3500);
-                } else {
-                    _showCrewError('ไม่ได้รับข้อมูลจาก Server');
-                }
-            })
-            .catch(function() { _pollCrew(symbol, 4000); });
+            .catch(() => _poll(symbol, 4000));
         }, delay);
     }
 
-    function _showCrewResult(markdown) {
+    function _showResult(markdown) {
         document.getElementById('crewAILoading').classList.add('d-none');
-        document.getElementById('crewAIError').classList.add('d-none');
-        var resultDiv = document.getElementById('crewAIResult');
-        var contentDiv = document.getElementById('crewAIContent');
-        
-        var parsedMarkdown = '';
-        if (typeof marked !== 'undefined') {
-            parsedMarkdown = marked.parse(markdown || '');
-            contentDiv.innerHTML = parsedMarkdown;
-        } else {
-            parsedMarkdown = markdown || '';
-            contentDiv.innerText = parsedMarkdown;
-        }
-        
-        // Also show inline
-        var inlineDiv = document.getElementById('crewai-inline-' + _crewSymbol);
-        if (inlineDiv) {
-            inlineDiv.innerHTML = parsedMarkdown;
-            inlineDiv.classList.remove('d-none');
-        }
-        
-        resultDiv.classList.remove('d-none');
+        const parsed = typeof marked !== 'undefined' ? marked.parse(markdown||'') : (markdown||'');
+        document.getElementById('crewAIContent').innerHTML = parsed;
+        document.getElementById('crewAIResult').classList.remove('d-none');
         document.getElementById('crewAIFooter').classList.remove('d-none');
+        // Also render inline
+        const inlineDiv = document.getElementById('crewai-inline-' + _sym);
+        if(inlineDiv) { inlineDiv.innerHTML = parsed; inlineDiv.classList.remove('d-none'); }
     }
 
-    function _showCrewError(msg) {
+    function _showError(msg) {
         document.getElementById('crewAILoading').classList.add('d-none');
-        document.getElementById('crewAIResult').classList.add('d-none');
         document.getElementById('crewAIErrorMsg').textContent = msg;
         document.getElementById('crewAIError').classList.remove('d-none');
     }
 
-    // Stop polling when modal closes
-    document.addEventListener('DOMContentLoaded', function() {
-        var el = document.getElementById('crewAIModal');
-        if (el) {
-            el.addEventListener('hidden.bs.modal', function() {
-                if (_crewPollTimer) { clearTimeout(_crewPollTimer); _crewPollTimer = null; }
-            });
-        }
-        
-        // Render cached data on load
-        try {
-            var cachedData = JSON.parse(document.getElementById('crewai-cached-data').textContent || '{}');
-            for (var sym in cachedData) {
-                var inlineDiv = document.getElementById('crewai-inline-' + sym);
-                if (inlineDiv) {
-                    if (typeof marked !== 'undefined') {
-                        inlineDiv.innerHTML = marked.parse(cachedData[sym]);
-                    } else {
-                        inlineDiv.innerText = cachedData[sym];
-                    }
-                    inlineDiv.classList.remove('d-none');
-                }
-            }
-        } catch (e) { console.error('Error parsing cached crewai data', e); }
+    document.addEventListener('DOMContentLoaded', () => {
+        document.getElementById('crewAIModal')?.addEventListener('hidden.bs.modal', () => {
+            if(_pollTimer) { clearTimeout(_pollTimer); _pollTimer = null; }
+        });
     });
 })();
 </script>
-
-<!-- ====== Watchlist Modal ====== -->
-<div class="modal fade" id="watchlistModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content border-0 shadow">
-            <div class="modal-header" style="background:#1e293b; color:white;">
-                <h5 class="modal-title fw-bold"><i class="fas fa-bell me-2"></i>เฝ้าติดตาม: <span id="watchlistModalSymbol"></span></h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body p-4">
-                <input type="hidden" id="watchlistSymbolInput">
-                
-                <div class="mb-3">
-                    <label class="form-label fw-bold small text-muted">เลือกกลยุทธ์ (Pattern)</label>
-                    <select class="form-select" id="watchlistStrategy">
-                        <option value="PRECISION">Precision (Demand Zone)</option>
-                        <option value="TURTLE_S1">Turtle S1 (Breakout 20D / Exit 10D Low)</option>
-                        <option value="TURTLE_S2">Turtle S2 (Breakout 55D / Exit 20D Low)</option>
-                        <option value="SEPA">SEPA (Minervini Stage 2)</option>
-                        <option value="CUP_HANDLE">Cup & Handle</option>
-                        <option value="OTHER">อื่นๆ</option>
-                    </select>
-                </div>
-
-                <div class="mb-0">
-                    <label class="form-label fw-bold small text-muted">บันทึกเพิ่มเติม (Note)</label>
-                    <textarea class="form-control" id="watchlistNote" rows="2" placeholder="เช่น รอย่อเข้าโซน, รอลุ้น Breakout..."></textarea>
-                </div>
-            </div>
-            <div class="modal-footer border-0">
-                <button type="button" class="btn btn-outline-secondary btn-sm px-3" data-bs-dismiss="modal">ยกเลิก</button>
-                <button type="button" class="btn btn-primary btn-sm px-4" id="watchlistSubmitBtn" onclick="submitWatchlist()">บันทึกรายการ</button>
-            </div>
-        </div>
-    </div>
-</div>
-
 {% endblock %}
