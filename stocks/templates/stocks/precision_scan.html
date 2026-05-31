@@ -25,6 +25,112 @@
 </div>
 
 <style>
+    /* ── Dark Mode Overrides for Precision Scanner ── */
+    :root {
+        --dm-card: rgba(15,23,42,0.6);
+        --dm-card-hover: rgba(20,30,55,0.75);
+        --dm-border: rgba(255,255,255,0.08);
+        --dm-text: #e2e8f0;
+        --dm-muted: #94a3b8;
+        --dm-accent: #a5b4fc;
+    }
+
+    /* Header text */
+    h1, h2, h3, h4, h5, h6 { color: var(--dm-text) !important; }
+    .text-dark { color: var(--dm-text) !important; }
+    .text-muted, .text-secondary { color: var(--dm-muted) !important; }
+
+    /* Cards — force dark */
+    .card {
+        background: var(--dm-card) !important;
+        border: 1px solid var(--dm-border) !important;
+        backdrop-filter: blur(12px);
+    }
+    .card-body { background: transparent !important; }
+
+    /* Inner bg boxes (f8fafc, eff6ff, f0fdf4, fff1f2, f0f9ff, fef3c7 etc.) */
+    [style*="background:#f8fafc"],
+    [style*="background: #f8fafc"],
+    [style*="background:#eff6ff"],
+    [style*="background: #eff6ff"],
+    [style*="background:#f0fdf4"],
+    [style*="background: #f0fdf4"],
+    [style*="background:#fff1f2"],
+    [style*="background: #fff1f2"],
+    [style*="background:#f0f9ff"],
+    [style*="background: #f0f9ff"],
+    [style*="background:#fff5f5"],
+    [style*="background: #fff5f5"],
+    [style*="background:#fef3c7"],
+    [style*="background: #fef3c7"],
+    [style*="background:white"],
+    [style*="background: white"] {
+        background: rgba(30,41,59,0.6) !important;
+        border-color: rgba(255,255,255,0.07) !important;
+    }
+
+    /* Fix inline color:#374151 dark text on dark bg */
+    [style*="color:#374151"],
+    [style*="color: #374151"],
+    [style*="color:#1e293b"],
+    [style*="color: #1e293b"],
+    [style*="color:#92400e"],
+    [style*="color: #92400e"] {
+        color: #cbd5e1 !important;
+    }
+
+    /* Warning/info boxes */
+    [style*="background:#fef3c7"] { background: rgba(245,158,11,0.1) !important; }
+    [style*="background:#fef2f2"],
+    [style*="background: #fef2f2"] { background: rgba(239,68,68,0.08) !important; }
+
+    /* Tables */
+    table { color: var(--dm-text) !important; }
+    thead th { color: #94a3b8 !important; background: rgba(15,23,42,0.8) !important; border-color: rgba(255,255,255,0.06) !important; }
+    tbody tr { border-color: rgba(255,255,255,0.04) !important; }
+    tbody tr:hover td { background: rgba(99,102,241,0.06) !important; }
+    tbody td { color: var(--dm-text) !important; border-color: rgba(255,255,255,0.04) !important; }
+    .table-striped tbody tr:nth-of-type(odd) td { background: rgba(15,23,42,0.3) !important; }
+
+    /* Buttons */
+    .btn-outline-secondary {
+        color: #94a3b8 !important;
+        border-color: rgba(255,255,255,0.15) !important;
+        background: rgba(255,255,255,0.04) !important;
+    }
+    .btn-outline-secondary:hover {
+        background: rgba(255,255,255,0.08) !important;
+        color: #e2e8f0 !important;
+    }
+
+    /* Collapse guide card inner */
+    .collapse .card, #diffGuide .card, #buyGuide .card { backdrop-filter: blur(16px); }
+
+    /* Text overrides for labels inside cards */
+    .fw-bold.small[style*="color:#7c3aed"],
+    .fw-bold.small[style*="color:#4f46e5"],
+    .fw-bold.small[style*="color:#0891b2"],
+    .fw-bold.small[style*="color:#15803d"],
+    .fw-bold.small[style*="color:#9f1239"],
+    .fw-bold.small[style*="color:#0369a1"],
+    .fw-bold.small[style*="color:#1d4ed8"],
+    .fw-bold.small[style*="color:#dc2626"] { opacity: 1; }
+
+    /* Progress bar track */
+    .progress { background: rgba(255,255,255,0.08) !important; }
+
+    /* Section step circle labels */
+    h6.fw-bold[style*="color:#1e293b"] { color: #e2e8f0 !important; }
+
+    /* Markov card white bg */
+    .card[style*="background: white"], .card[style*="background:white"] {
+        background: rgba(15,23,42,0.7) !important;
+    }
+
+    /* Market condition card */
+    .card.border-0.shadow-sm { border: 1px solid rgba(255,255,255,0.07) !important; }
+
+    /* Spinner */
     .launcher-rocket { font-size: 1.2rem; transition: transform 0.3s ease; }
     .launcher-rocket.fire {
         animation: launcher-fire 1.5s infinite alternate;
@@ -34,15 +140,26 @@
         from { transform: translateY(0) scale(1); filter: drop-shadow(0 0 2px #f59e0b); }
         to { transform: translateY(-3px) scale(1.2); filter: drop-shadow(0 0 8px #ef4444); }
     }
-    /* micro-label ใต้ตัวเลข */
-    .val-hint { font-size: 0.56rem; color: #94a3b8; line-height: 1.2; margin-top: 1px; letter-spacing: .01em; }
+    .val-hint { font-size: 0.56rem; color: #64748b; line-height: 1.2; margin-top: 1px; letter-spacing: .01em; }
+
+    /* Inline text-dark overrides in market condition */
+    .fw-bold.text-dark { color: #f1f5f9 !important; }
+
+    /* List text */
+    .list-unstyled.small.text-secondary li { color: #94a3b8 !important; }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: rgba(255,255,255,0.03); }
+    ::-webkit-scrollbar-thumb { background: rgba(99,102,241,0.3); border-radius: 4px; }
 </style>
+
 
 <div>
 <div class="row align-items-end mb-4">
     <div class="col-md-7">
-        <h1 class="fw-bold mb-1" style="color: #7c3aed;"><i class="fas fa-crosshairs me-2"></i> Precision Momentum Scanner</h1>
-        <p class="text-muted mb-0">
+        <h1 class="fw-bold mb-1" style="color: #a78bfa;"><i class="fas fa-crosshairs me-2"></i> Precision Momentum Scanner</h1>
+        <p style="color:#94a3b8; margin-bottom:0;">
             กรองคุณภาพสูง: ERC ต้องยืนยันด้วย Volume + ADX ≥ 20 + Liquidity ≥ 500k หุ้น/วัน<br>
             Supply Target = 52-Week High | Stop Loss คำนวณจาก ATR | RVOL แยกทิศทาง Bull/Bear
         </p>
@@ -95,9 +212,9 @@
 <!-- สรุปการอัปเดตระบบ Precision v3 (Pure Momentum) -->
 <div class="row mb-4">
     <div class="col-12">
-        <button class="btn btn-sm rounded-pill px-4 shadow-sm" type="button"
+        <button class="btn btn-sm rounded-pill px-4" type="button"
                 data-bs-toggle="collapse" data-bs-target="#diffGuide" aria-expanded="false"
-                style="border: 1px solid #7c3aed; color: #7c3aed;">
+                style="border: 1px solid rgba(167,139,250,0.4); color: #a78bfa; background: rgba(124,58,237,0.1);">
             <i class="fas fa-info-circle me-2"></i> สรุประบบ Precision v7 — ดูว่าคำนวณอะไรบ้าง
         </button>
         <div class="collapse mt-3" id="diffGuide">
