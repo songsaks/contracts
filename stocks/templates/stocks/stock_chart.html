@@ -87,8 +87,8 @@
     border: 1px solid rgba(255, 255, 255, 0.08);
     backdrop-filter: blur(20px);
     color: #ffffff;
-    border-radius: 20px;
-    padding: 1.25rem 1.75rem;
+    border-radius: 16px;
+    padding: 1rem 1.25rem;
     box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
   }
   .chart-header h4 {
@@ -101,9 +101,9 @@
     background: rgba(255, 255, 255, 0.04);
     color: #94a3b8;
     border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: 10px;
-    padding: 6px 16px;
-    font-size: 0.85rem;
+    border-radius: 8px;
+    padding: 5px 12px;
+    font-size: 0.8rem;
     font-weight: 600;
     cursor: pointer;
     transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
@@ -120,6 +120,7 @@
     box-shadow: 0 0 15px rgba(59, 130, 246, 0.45);
     transform: translateY(-1px);
   }
+
 
   /* Legend Dot & HUD */
   .legend-dot {
@@ -455,26 +456,26 @@
 <div class="container-fluid px-4 py-4 stock-chart-dark-theme">
 
   <!-- Header -->
-  <div class="chart-header mb-3 d-flex flex-nowrap align-items-center justify-content-between gap-3 overflow-x-auto" style="scrollbar-width: none;">
-    <div class="d-flex align-items-center gap-3 flex-shrink-0">
+  <div class="chart-header mb-3 d-flex flex-nowrap align-items-center justify-content-between gap-2 overflow-x-auto" style="scrollbar-width: none;">
+    <div class="d-flex align-items-center gap-2 flex-shrink-0">
       <div>
         <h4 class="fw-bold mb-0" style="white-space: nowrap;">📈 <span id="display-symbol">{{ symbol }}</span></h4>
         <small class="opacity-60" style="white-space: nowrap;">Turtle Breakout + Momentum Chart</small>
       </div>
-      <form id="symbol-form" class="d-flex gap-2 align-items-center flex-shrink-0" onsubmit="changeSymbol(event)">
+      <form id="symbol-form" class="d-flex gap-1 align-items-center flex-shrink-0" onsubmit="changeSymbol(event)">
         <div class="symbol-input-wrap">
-          <input type="text" id="symbol-input" placeholder="Symbol…" value="{{ symbol }}">
+          <input type="text" id="symbol-input" placeholder="Symbol…" value="{{ symbol }}" style="width: 100px;">
         </div>
-        <select id="market-select" class="form-select form-select-sm market-select-custom" style="width:auto;">
+        <select id="market-select" class="form-select form-select-sm market-select-custom" style="width:auto; padding: 4px 8px; font-size: 0.8rem;">
           <option value="SET" {% if market == 'SET' %}selected{% endif %}>🇹🇭 SET</option>
           <option value="US"  {% if market == 'US'  %}selected{% endif %}>🇺🇸 US</option>
           <option value="CRYPTO" {% if market == 'CRYPTO' %}selected{% endif %}>🪙 Crypto</option>
         </select>
-        <button type="submit" class="period-btn">Go</button>
+        <button type="submit" class="period-btn px-2">Go</button>
       </form>
     </div>
 
-    <div class="d-flex gap-2 flex-nowrap align-items-center flex-shrink-0">
+    <div class="d-flex gap-1 flex-nowrap align-items-center flex-shrink-0">
       <!-- Timeframe Buttons -->
       <button class="period-btn active" id="tf-1d" onclick="changeInterval('1d')">วัน</button>
       <button class="period-btn" id="tf-1wk" onclick="changeInterval('1wk')">สัปดาห์</button>
