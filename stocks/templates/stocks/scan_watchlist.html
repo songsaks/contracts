@@ -648,6 +648,58 @@
         margin: 0 auto; font-size: 2.2rem; color: #94a3b8;
     }
     .wl-empty-title { font-family: var(--font-outfit); font-weight: 700; font-size: 1.25rem; color: #0f172a; }
+
+    /* ═══════ DARK MODE OVERRIDES ═══════ */
+    [data-bs-theme="dark"] {
+        --card-bg: rgba(15,23,42,0.7);
+        --card-border: rgba(255,255,255,0.07);
+    }
+    [data-bs-theme="dark"] .wl-control-bar {
+        background: rgba(15,23,42,0.95) !important;
+        border-bottom-color: rgba(255,255,255,0.05) !important;
+    }
+    [data-bs-theme="dark"] .wl-card { backdrop-filter: blur(12px); }
+    [data-bs-theme="dark"] .bg-white { background-color: rgba(255,255,255,0.02) !important; }
+    [data-bs-theme="dark"] .bg-light { background-color: rgba(255,255,255,0.05) !important; }
+    [data-bs-theme="dark"] .border-top,
+    [data-bs-theme="dark"] .border-bottom { border-color: rgba(255,255,255,0.05) !important; }
+    
+    [data-bs-theme="dark"] .text-dark,
+    [data-bs-theme="dark"] .wl-symbol { color: #f8fafc !important; }
+    
+    [data-bs-theme="dark"] .text-muted,
+    [data-bs-theme="dark"] .wl-sector,
+    [data-bs-theme="dark"] .gauge-label,
+    [data-bs-theme="dark"] .block-label,
+    [data-bs-theme="dark"] .stat-label,
+    [data-bs-theme="dark"] .blueprint-title { color: #94a3b8 !important; }
+    
+    [data-bs-theme="dark"] .price-label { color: #cbd5e1 !important; }
+    [data-bs-theme="dark"] .wl-empty { background: rgba(15,23,42,0.7); }
+    [data-bs-theme="dark"] .wl-empty-title { color: #f8fafc; }
+    
+    [data-bs-theme="dark"] .progress { background: rgba(255,255,255,0.1) !important; }
+    
+    [data-bs-theme="dark"] .wl-btn-entry { 
+        background: rgba(255,255,255,0.1); color: #f1f5f9; border-color: rgba(255,255,255,0.1); 
+    }
+    [data-bs-theme="dark"] .wl-btn-entry:hover { background: rgba(255,255,255,0.2); }
+    
+    [data-bs-theme="dark"] .wl-card-footer { 
+        background: rgba(255,255,255,0.02); border-color: rgba(255,255,255,0.05); 
+    }
+    [data-bs-theme="dark"] .blueprint-block { 
+        background: rgba(255,255,255,0.03); border-color: rgba(255,255,255,0.05); 
+    }
+    [data-bs-theme="dark"] .wl-stats-grid { 
+        background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.05); 
+    }
+    [data-bs-theme="dark"] .stat-box { background: transparent; }
+    [data-bs-theme="dark"] .badge.bg-white { 
+        background: rgba(15,23,42,0.9) !important; color: #f1f5f9 !important; border: 1px solid rgba(255,255,255,0.1); 
+    }
+    [data-bs-theme="dark"] .wl-remove-btn { color: #64748b; }
+    [data-bs-theme="dark"] .wl-remove-btn:hover { background: rgba(244,63,94,0.15); color: #f43f5e; }
 </style>
 
 <!-- ===== INTERACTIVE JAVASCRIPT LOGIC ===== -->
