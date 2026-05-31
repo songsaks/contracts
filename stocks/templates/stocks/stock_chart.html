@@ -347,8 +347,43 @@
     letter-spacing: 0.07em;
     text-transform: uppercase;
   }
+
+  /* Drawing Toolbar */
+  .drawing-toolbar {
+    position: absolute;
+    top: 50px;
+    left: 10px;
+    z-index: 100;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    background: rgba(15, 23, 42, 0.7);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    padding: 6px;
+  }
+  .drawing-btn {
+    background: transparent;
+    color: #94a3b8;
+    border: none;
+    border-radius: 6px;
+    width: 32px; height: 32px;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .drawing-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: #ffffff;
+  }
+  .drawing-btn.active {
+    background: rgba(59, 130, 246, 0.2);
+    color: #60a5fa;
+    border: 1px solid rgba(59, 130, 246, 0.4);
+  }
+
   #chart-container { position: relative; width: 100%; height: 600px; }
-  #macd-container  { position: relative; width: 100%; height: 160px; }
   #rsi-container   { position: relative; width: 100%; height: 160px; }
   #stoch-container { position: relative; width: 100%; height: 160px; }
   #vol-container   { position: relative; width: 100%; height: 120px; }
@@ -557,6 +592,14 @@
   <!-- Main chart -->
   <div class="chart-panel-wrapper">
     <div class="panel-label" id="main-panel-label">OHLCV — PRICE CHART</div>
+    
+    <!-- Drawing Toolbar -->
+    <div class="drawing-toolbar">
+       <button class="drawing-btn" id="btn-draw-horizontal" title="วาดเส้นแนวนอน (Support/Resistance)" onclick="setDrawingMode('horizontal')"><i class="fas fa-minus"></i></button>
+       <button class="drawing-btn" id="btn-draw-trend" title="วาดเส้น Trend Line" onclick="setDrawingMode('trend')"><i class="fas fa-slash"></i></button>
+       <button class="drawing-btn" title="ลบเส้นทั้งหมด" onclick="clearDrawings()"><i class="fas fa-trash"></i></button>
+    </div>
+
     <div id="chart-container"></div>
   </div>
 
@@ -651,6 +694,38 @@ let dcSeries = [], bbSeries = [], emaSeries = {e20:null, e50:null, e200:null};
 let macdSeries = {macd:null, signal:null, hist:null};
 let itlSeries = null;
 
+// Drawing State
+let currentDrawingMode = null; 
+let trendStartPoint = null;
+let currentTrendSeries = null;
+let customPriceLines = [];
+let customTrendSeries = [];
+
+function setDrawingMode(mode) {
+    currentDrawingMode = currentDrawingMode === mode ? null : mode;
+    trendStartPoint = null;
+    currentTrendSeries = null;
+    
+    document.querySelectorAll('.drawing-btn').forEach(btn => btn.classList.remove('active'));
+    if (currentDrawingMode) {
+        document.getElementById('btn-draw-' + mode).classList.add('active');
+        mainChart.applyOptions({ crosshair: { mode: 0 } }); // Normal mode (free drawing)
+    } else {
+        mainChart.applyOptions({ crosshair: { mode: 1 } }); // Magnet mode
+    }
+}
+
+function clearDrawings() {
+    customPriceLines.forEach(pl => {
+      try { candleSeries.removePriceLine(pl); } catch(e){}
+    });
+    customPriceLines = [];
+    customTrendSeries.forEach(ts => {
+      try { mainChart.removeSeries(ts); } catch(e){}
+    });
+    customTrendSeries = [];
+}
+
 function updateTacticalWithCapital() {
     if (!globalTacticalData) return;
     const capital = parseFloat(document.getElementById('tac-capital-input').value) || 0;
@@ -718,6 +793,9 @@ function destroyAll() {
   [mainChart, macdChart, rsiChart, stochChart, volChart].forEach(c => { if (c) c.remove(); });
   mainChart = macdChart = rsiChart = stochChart = volChart = null;
   dcSeries = []; bbSeries = []; emaSeries = {e20:null, e50:null, e200:null}; itlSeries = null;
+  customPriceLines = []; customTrendSeries = [];
+  currentDrawingMode = null; trendStartPoint = null; currentTrendSeries = null;
+  document.querySelectorAll('.drawing-btn').forEach(btn => btn.classList.remove('active'));
 }
 
 function syncCharts() {
@@ -931,6 +1009,64 @@ function renderCharts(data) {
     const volumeSeries = volChart.addHistogramSeries({ priceFormat: { type: 'volume' }, priceScaleId: '' });
     volumeSeries.setData(volData);
   }
+
+  // --- Drawing Events ---
+  mainChart.subscribeClick(param => {
+    if (!currentDrawingMode || !param.point || !param.time) return;
+    const price = candleSeries.coordinateToPrice(param.point.y);
+    const time = param.time;
+    if (currentDrawingMode === 'horizontal') {
+        const pl = candleSeries.createPriceLine({
+            price: price,
+            color: '#38bdf8',
+            lineWidth: 2,
+            lineStyle: 0, 
+            axisLabelVisible: true,
+            title: 'Line'
+        });
+        customPriceLines.push(pl);
+        setDrawingMode(null);
+    } 
+    else if (currentDrawingMode === 'trend') {
+        if (!trendStartPoint) {
+            trendStartPoint = { time: time, value: price };
+            currentTrendSeries = mainChart.addLineSeries({
+                color: '#f59e0b',
+                lineWidth: 2,
+                crosshairMarkerVisible: false,
+                lastValueVisible: false,
+                priceLineVisible: false
+            });
+            customTrendSeries.push(currentTrendSeries);
+            currentTrendSeries.setData([trendStartPoint]);
+        } else {
+            const trendEndPoint = { time: time, value: price };
+            const sorted = [trendStartPoint, trendEndPoint].sort((a,b) => {
+                const tA = typeof a.time === 'object' ? (a.time.year*10000 + a.time.month*100 + a.time.day) : a.time;
+                const tB = typeof b.time === 'object' ? (b.time.year*10000 + b.time.month*100 + b.time.day) : b.time;
+                return tA - tB;
+            });
+            currentTrendSeries.setData(sorted);
+            trendStartPoint = null;
+            currentTrendSeries = null;
+            setDrawingMode(null);
+        }
+    }
+  });
+
+  mainChart.subscribeCrosshairMove(param => {
+    if (currentDrawingMode === 'trend' && trendStartPoint && currentTrendSeries && param.point && param.time) {
+        const price = candleSeries.coordinateToPrice(param.point.y);
+        const time = param.time;
+        const trendEndPoint = { time: time, value: price };
+        const sorted = [trendStartPoint, trendEndPoint].sort((a,b) => {
+            const tA = typeof a.time === 'object' ? (a.time.year*10000 + a.time.month*100 + a.time.day) : a.time;
+            const tB = typeof b.time === 'object' ? (b.time.year*10000 + b.time.month*100 + b.time.day) : b.time;
+            return tA - tB;
+        });
+        currentTrendSeries.setData(sorted);
+    }
+  });
 
   syncCharts();
   mainChart.timeScale().fitContent();
