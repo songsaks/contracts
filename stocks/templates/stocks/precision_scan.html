@@ -25,74 +25,138 @@
 </div>
 
 <style>
-    /* ── Dark Mode Overrides for Precision Scanner ── */
-    :root {
-        --dm-card: rgba(15,23,42,0.6);
-        --dm-card-hover: rgba(20,30,55,0.75);
-        --dm-border: rgba(255,255,255,0.08);
-        --dm-text: #e2e8f0;
-        --dm-muted: #94a3b8;
-        --dm-accent: #a5b4fc;
-    }
+    /* ══════════════════════════════════════════════
+       PRECISION SCANNER — FULL DARK MODE OVERRIDE
+       ══════════════════════════════════════════════ */
 
-    /* Header text */
-    h1, h2, h3, h4, h5, h6 { color: var(--dm-text) !important; }
-    .text-dark { color: var(--dm-text) !important; }
-    .text-muted, .text-secondary { color: var(--dm-muted) !important; }
+    /* ── Core text ── */
+    body, p, span, div, li, td, th, label, small { color: #e2e8f0; }
+    h1, h2, h3, h4, h5, h6 { color: #f1f5f9 !important; }
+    .text-dark  { color: #f1f5f9 !important; }
+    .text-muted, .text-secondary { color: #94a3b8 !important; }
+    strong { color: #e2e8f0; }
 
-    /* Cards — force dark */
+    /* ── Cards / panels ── */
     .card {
-        background: var(--dm-card) !important;
-        border: 1px solid var(--dm-border) !important;
+        background: rgba(15,23,42,0.7) !important;
+        border: 1px solid rgba(255,255,255,0.07) !important;
         backdrop-filter: blur(12px);
     }
-    .card-body { background: transparent !important; }
+    .card-body, .card-header { background: transparent !important; }
+    .card-header.bg-white, .card-header.bg-light { background: rgba(15,23,42,0.8) !important; border-color: rgba(255,255,255,0.06) !important; }
 
-    /* Inner bg boxes (f8fafc, eff6ff, f0fdf4, fff1f2, f0f9ff, fef3c7 etc.) */
-    [style*="background:#f8fafc"],
-    [style*="background: #f8fafc"],
-    [style*="background:#eff6ff"],
-    [style*="background: #eff6ff"],
-    [style*="background:#f0fdf4"],
-    [style*="background: #f0fdf4"],
-    [style*="background:#fff1f2"],
-    [style*="background: #fff1f2"],
-    [style*="background:#f0f9ff"],
-    [style*="background: #f0f9ff"],
-    [style*="background:#fff5f5"],
-    [style*="background: #fff5f5"],
-    [style*="background:#fef3c7"],
-    [style*="background: #fef3c7"],
-    [style*="background:white"],
-    [style*="background: white"] {
-        background: rgba(30,41,59,0.6) !important;
+    /* ── Leading Sectors bar ── */
+    .p-3.bg-white, .p-3.bg-light { background: rgba(15,23,42,0.6) !important; border-color: rgba(255,255,255,0.07) !important; }
+
+    /* ── Automated Insights outer box ── */
+    [style*="background:linear-gradient(135deg,#f8faff"],
+    [style*="background: linear-gradient(135deg,#f8faff"] {
+        background: rgba(15,23,42,0.65) !important;
         border-color: rgba(255,255,255,0.07) !important;
     }
 
-    /* Fix inline color:#374151 dark text on dark bg */
-    [style*="color:#374151"],
-    [style*="color: #374151"],
-    [style*="color:#1e293b"],
-    [style*="color: #1e293b"],
-    [style*="color:#92400e"],
-    [style*="color: #92400e"] {
+    /* ── Insight inner card (bg-white) ── */
+    .p-3.bg-white.h-100.rounded-3 {
+        background: rgba(20,28,50,0.7) !important;
+        border-color: rgba(255,255,255,0.07) !important;
+    }
+
+    /* ── Generic light bg boxes ── */
+    [style*="background:#f8fafc"],   [style*="background: #f8fafc"],
+    [style*="background:#f8faff"],   [style*="background: #f8faff"],
+    [style*="background:#f1f5f9"],   [style*="background: #f1f5f9"],
+    [style*="background:#eff6ff"],   [style*="background: #eff6ff"],
+    [style*="background:#f0fdf4"],   [style*="background: #f0fdf4"],
+    [style*="background:#fff1f2"],   [style*="background: #fff1f2"],
+    [style*="background:#f0f9ff"],   [style*="background: #f0f9ff"],
+    [style*="background:#fff5f5"],   [style*="background: #fff5f5"],
+    [style*="background:#fef2f2"],   [style*="background: #fef2f2"],
+    [style*="background:#fff"],
+    [style*="background:white"],     [style*="background: white"],
+    [style*="background: #fff"] {
+        background: rgba(20,30,55,0.6) !important;
+        border-color: rgba(255,255,255,0.07) !important;
+    }
+    /* Amber warning box */
+    [style*="background:#fef3c7"], [style*="background: #fef3c7"] {
+        background: rgba(245,158,11,0.1) !important;
+        border-color: rgba(245,158,11,0.2) !important;
+    }
+
+    /* ── Dark text on inline style ── */
+    [style*="color:#374151"],  [style*="color: #374151"],
+    [style*="color:#1e293b"],  [style*="color: #1e293b"],
+    [style*="color:#334155"],  [style*="color: #334155"],
+    [style*="color:#0f172a"],  [style*="color: #0f172a"],
+    [style*="color:#92400e"],  [style*="color: #92400e"] {
         color: #cbd5e1 !important;
     }
 
-    /* Warning/info boxes */
-    [style*="background:#fef3c7"] { background: rgba(245,158,11,0.1) !important; }
-    [style*="background:#fef2f2"],
-    [style*="background: #fef2f2"] { background: rgba(239,68,68,0.08) !important; }
+    /* ── Badges light ── */
+    .badge.bg-light, .bg-light.text-muted {
+        background: rgba(30,41,59,0.6) !important;
+        color: #94a3b8 !important;
+        border-color: rgba(255,255,255,0.08) !important;
+    }
+    [style*="background:#f1f5f9"][class*="badge"],
+    [style*="background: #f1f5f9"][class*="badge"] {
+        background: rgba(30,41,59,0.7) !important;
+        color: #94a3b8 !important;
+    }
+    [style*="background:#eff6ff"][class*="badge"] {
+        background: rgba(79,70,229,0.15) !important;
+        color: #a5b4fc !important;
+        border-color: rgba(79,70,229,0.3) !important;
+    }
+    /* Badge bg-light in date */
+    span.badge.bg-light { background: rgba(30,41,59,0.6) !important; }
 
-    /* Tables */
-    table { color: var(--dm-text) !important; }
-    thead th { color: #94a3b8 !important; background: rgba(15,23,42,0.8) !important; border-color: rgba(255,255,255,0.06) !important; }
+    /* ── Badge colors that are too dark ── */
+    [style*="color:#15803d"] { color: #4ade80 !important; }
+    [style*="color:#0e7490"] { color: #22d3ee !important; }
+    [style*="color:#059669"] { color: #34d399 !important; }
+
+    /* ── Table ── */
+    table { color: #e2e8f0 !important; }
+    thead th {
+        color: #94a3b8 !important;
+        background: rgba(9,13,22,0.9) !important;
+        border-color: rgba(255,255,255,0.06) !important;
+        white-space: nowrap;
+    }
     tbody tr { border-color: rgba(255,255,255,0.04) !important; }
-    tbody tr:hover td { background: rgba(99,102,241,0.06) !important; }
-    tbody td { color: var(--dm-text) !important; border-color: rgba(255,255,255,0.04) !important; }
-    .table-striped tbody tr:nth-of-type(odd) td { background: rgba(15,23,42,0.3) !important; }
+    tbody tr:hover td { background: rgba(99,102,241,0.07) !important; }
+    tbody td { color: #e2e8f0 !important; border-color: rgba(255,255,255,0.04) !important; }
+    .table-striped > tbody > tr:nth-of-type(odd) > td {
+        background: rgba(9,13,22,0.25) !important;
+    }
 
-    /* Buttons */
+    /* ── Form controls & selects ── */
+    .form-select, .form-control, select {
+        background: rgba(15,23,42,0.8) !important;
+        color: #e2e8f0 !important;
+        border-color: rgba(255,255,255,0.12) !important;
+    }
+    .form-select option, select option {
+        background: #0f172a !important;
+        color: #e2e8f0 !important;
+    }
+    [style*="color:#374151"][class*="form-select"],
+    [style*="color:#374151"][class*="form-control"] {
+        color: #e2e8f0 !important;
+    }
+    /* Mobile sort select */
+    [style*="background-color:#f0f9ff"] {
+        background-color: rgba(9,13,22,0.8) !important;
+        color: #22d3ee !important;
+        border-color: #0ea5e9 !important;
+    }
+
+    /* ── Form switch ── */
+    .form-check-input { background-color: rgba(255,255,255,0.1) !important; border-color: rgba(255,255,255,0.2) !important; }
+    .form-check-input:checked { background-color: #7c3aed !important; border-color: #7c3aed !important; }
+
+    /* ── Buttons ── */
     .btn-outline-secondary {
         color: #94a3b8 !important;
         border-color: rgba(255,255,255,0.15) !important;
@@ -102,35 +166,37 @@
         background: rgba(255,255,255,0.08) !important;
         color: #e2e8f0 !important;
     }
-
-    /* Collapse guide card inner */
-    .collapse .card, #diffGuide .card, #buyGuide .card { backdrop-filter: blur(16px); }
-
-    /* Text overrides for labels inside cards */
-    .fw-bold.small[style*="color:#7c3aed"],
-    .fw-bold.small[style*="color:#4f46e5"],
-    .fw-bold.small[style*="color:#0891b2"],
-    .fw-bold.small[style*="color:#15803d"],
-    .fw-bold.small[style*="color:#9f1239"],
-    .fw-bold.small[style*="color:#0369a1"],
-    .fw-bold.small[style*="color:#1d4ed8"],
-    .fw-bold.small[style*="color:#dc2626"] { opacity: 1; }
-
-    /* Progress bar track */
-    .progress { background: rgba(255,255,255,0.08) !important; }
-
-    /* Section step circle labels */
-    h6.fw-bold[style*="color:#1e293b"] { color: #e2e8f0 !important; }
-
-    /* Markov card white bg */
-    .card[style*="background: white"], .card[style*="background:white"] {
-        background: rgba(15,23,42,0.7) !important;
+    .btn-outline-warning {
+        color: #fbbf24 !important;
+        border-color: rgba(251,191,36,0.4) !important;
     }
 
-    /* Market condition card */
-    .card.border-0.shadow-sm { border: 1px solid rgba(255,255,255,0.07) !important; }
+    /* ── Progress bar ── */
+    .progress { background: rgba(255,255,255,0.08) !important; }
 
-    /* Spinner */
+    /* ── Border light ── */
+    .border, .border-bottom { border-color: rgba(255,255,255,0.07) !important; }
+
+    /* ── Collapse guide cards ── */
+    .collapse .card, #diffGuide .card, #buyGuide .card { backdrop-filter: blur(16px); }
+    h6.fw-bold[style*="color:#1e293b"] { color: #e2e8f0 !important; }
+
+    /* ── Market Condition card ── */
+    .fw-bold.text-dark { color: #f1f5f9 !important; }
+    .list-unstyled.small.text-secondary li { color: #94a3b8 !important; }
+
+    /* ── Scan result table badge / bg stripe ── */
+    .bg-success.bg-opacity-10 { background: rgba(22,163,74,0.15) !important; }
+    .bg-danger.bg-opacity-10  { background: rgba(220,38,38,0.15) !important; }
+    .bg-warning.bg-opacity-10 { background: rgba(245,158,11,0.15) !important; }
+    .bg-primary.bg-opacity-10 { background: rgba(99,102,241,0.15) !important; }
+
+    /* ── Scrollbar ── */
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: rgba(255,255,255,0.02); }
+    ::-webkit-scrollbar-thumb { background: rgba(99,102,241,0.3); border-radius: 4px; }
+
+    /* ── Spinner / misc ── */
     .launcher-rocket { font-size: 1.2rem; transition: transform 0.3s ease; }
     .launcher-rocket.fire {
         animation: launcher-fire 1.5s infinite alternate;
@@ -138,20 +204,19 @@
     }
     @keyframes launcher-fire {
         from { transform: translateY(0) scale(1); filter: drop-shadow(0 0 2px #f59e0b); }
-        to { transform: translateY(-3px) scale(1.2); filter: drop-shadow(0 0 8px #ef4444); }
+        to   { transform: translateY(-3px) scale(1.2); filter: drop-shadow(0 0 8px #ef4444); }
     }
     .val-hint { font-size: 0.56rem; color: #64748b; line-height: 1.2; margin-top: 1px; letter-spacing: .01em; }
 
-    /* Inline text-dark overrides in market condition */
-    .fw-bold.text-dark { color: #f1f5f9 !important; }
-
-    /* List text */
-    .list-unstyled.small.text-secondary li { color: #94a3b8 !important; }
-
-    /* Scrollbar */
-    ::-webkit-scrollbar { width: 6px; height: 6px; }
-    ::-webkit-scrollbar-track { background: rgba(255,255,255,0.03); }
-    ::-webkit-scrollbar-thumb { background: rgba(99,102,241,0.3); border-radius: 4px; }
+    /* ── Inline accent text keep vivid ── */
+    [style*="color:#7c3aed"], [style*="color: #7c3aed"] { color: #a78bfa !important; }
+    [style*="color:#4f46e5"], [style*="color: #4f46e5"] { color: #818cf8 !important; }
+    [style*="color:#4f46e5"] { color: #818cf8 !important; }
+    [style*="color:#1d4ed8"], [style*="color: #1d4ed8"] { color: #93c5fd !important; }
+    [style*="color:#0369a1"], [style*="color: #0369a1"] { color: #38bdf8 !important; }
+    [style*="color:#9f1239"], [style*="color: #9f1239"] { color: #fda4af !important; }
+    [style*="color:#15803d"], [style*="color: #15803d"] { color: #4ade80 !important; }
+    [style*="color:#dc2626"], [style*="color: #dc2626"] { color: #f87171 !important; }
 </style>
 
 
@@ -937,12 +1002,12 @@
 <!-- LEADING SECTORS BAR (v3) -->
 {% if top_sectors %}
 <div class="col-12 mb-3">
-    <div class="p-3 bg-white shadow-sm border" style="border-radius:1rem;">
+    <div class="p-3 shadow-sm" style="border-radius:1rem; background:rgba(15,23,42,0.7); border:1px solid rgba(255,255,255,0.07);">
         <div class="d-flex align-items-center gap-3 overflow-auto no-scrollbar">
             <span class="small fw-bold text-muted flex-shrink-0"><i class="fas fa-chart-pie me-1"></i> Leading Sectors:</span>
             {% for sec in top_sectors %}
             <div class="d-flex align-items-center gap-1 flex-shrink-0">
-                <span class="badge" style="background:#f1f5f9; color:#475569; border:1px solid #e2e8f0; font-size:0.75rem;">{{ sec.name }} ({{ sec.count }})</span>
+                <span class="badge" style="background:rgba(30,40,70,0.8); color:#94a3b8; border:1px solid rgba(255,255,255,0.1); font-size:0.75rem;">{{ sec.name }} ({{ sec.count }})</span>
                 {% if not forloop.last %}<i class="fas fa-chevron-right text-muted opacity-25 px-1" style="font-size:0.6rem;"></i>{% endif %}
             </div>
             {% endfor %}
@@ -955,15 +1020,15 @@
 <!-- AUTOMATED AI INSIGHTS (v3) -->
 {% if scan_insights %}
 <div class="col-12 mb-4">
-    <div class="p-4 shadow-sm border" style="border-radius:1rem; background:linear-gradient(135deg,#f8faff,#f1f5f9); border-color:#e2e8f0 !important;">
-        <h5 class="fw-bold mb-3" style="color:#334155;"><i class="fas fa-robot text-primary me-2"></i> สรุปคำแนะนำจากระบบ (Automated Insights)</h5>
+    <div class="p-4 shadow-sm" style="border-radius:1rem; background:rgba(13,19,35,0.75); border:1px solid rgba(255,255,255,0.08);">
+        <h5 class="fw-bold mb-3" style="color:#a78bfa;"><i class="fas fa-robot me-2" style="color:#818cf8;"></i> สรุปคำแนะนำจากระบบ (Automated Insights)</h5>
         <div class="row g-3">
             {% for insight in scan_insights %}
             <div class="col-md-{% if scan_insights|length == 1 %}12{% elif scan_insights|length == 2 %}6{% else %}4{% endif %}">
-                <div class="p-3 bg-white h-100 rounded-3 border" style="border-color:#e2e8f0 !important; box-shadow:0 2px 4px rgba(0,0,0,0.02);">
+                <div class="p-3 h-100 rounded-3" style="background:rgba(20,30,55,0.65); border:1px solid rgba(255,255,255,0.08);">
                     <div class="d-flex align-items-center gap-2 mb-2">
                         <span style="font-size:1.2rem;">{{ insight.icon }}</span>
-                        <span class="fw-bold" style="color:#0f172a; font-size:0.95rem;">{{ insight.title }}</span>
+                        <span class="fw-bold" style="color:#e2e8f0; font-size:0.95rem;">{{ insight.title }}</span>
                     </div>
                     <p class="mb-0 text-muted" style="font-size:0.85rem; line-height:1.5;">{{ insight.desc }}</p>
                 </div>
@@ -977,7 +1042,7 @@
 <!-- SCAN RESULT TABLE -->
 <div class="col-12">
     <div class="card border-0 mb-4 shadow-sm" style="border-radius: 1rem;">
-        <div class="card-header bg-white border-bottom p-3">
+        <div class="card-header border-bottom p-3" style="background:rgba(9,13,22,0.8);">
             <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
                 <h5 class="mb-0 fw-bold d-flex align-items-center gap-2">
                     <i class="fas fa-crosshairs" style="color: #7c3aed;"></i>
@@ -995,7 +1060,7 @@
                 </span>
                 {% endif %}
                 {% if scan_data_date %}
-                <span class="badge fw-normal" style="background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;" title="ข้อมูลราคา/indicator ทุกตัวในรอบนี้ใช้ข้อมูล ณ วันที่นี้เดียวกัน — ป้องกันผล Scan ที่ไม่สอดคล้องกัน">
+                <span class="badge fw-normal" style="background:rgba(79,70,229,0.15);color:#a5b4fc;border:1px solid rgba(79,70,229,0.3);" title="ข้อมูลราคา/indicator ทุกตัวในรอบนี้ใช้ข้อมูล ณ วันที่นี้เดียวกัน — ป้องกันผล Scan ที่ไม่สอดคล้องกัน">
                     <i class="fas fa-database me-1"></i> ข้อมูล ณ {{ scan_data_date|date:"d/m/Y" }}
                 </span>
                 {% endif %}
@@ -1049,7 +1114,7 @@
                     <label class="form-check-label small fw-semibold" for="ccetFilterSET" style="cursor:pointer;color:#10b981;">🔥 CCET Setup</label>
                     <span style="font-size:0.85rem; color:#94a3b8; cursor:pointer;" title="CCET Setup: EMA Align (20 > 50 > 200) + Volume Dry-up (RVol <= 0.6) + Near Breakout (Turtle Dist <= 10%) + RS Rating >= 80 + CMF >= -0.10 + R:R >= 1.5"><i class="fas fa-question-circle"></i></span>
                 </div>
-                <select id="sectorFilterSET" onchange="_applyFiltersSET()" class="form-select form-select-sm rounded-pill" style="width:auto;font-size:0.72rem;border:1px solid #e2e8f0;color:#374151;cursor:pointer;">
+                <select id="sectorFilterSET" onchange="_applyFiltersSET()" class="form-select form-select-sm rounded-pill" style="width:auto;font-size:0.72rem;border:1px solid rgba(255,255,255,0.15);color:#e2e8f0;cursor:pointer;background:rgba(15,23,42,0.8);">
                     <option value="">All Sectors</option>
                     {% for item in candidates %}<option value="{{ item.sector }}">{{ item.sector }}</option>{% endfor %}
                 </select>
