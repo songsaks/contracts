@@ -12,7 +12,7 @@
     strong { color: #e2e8f0; }
 
     /* ── Cards / panels ── */
-    .card {
+    .card, .criteria-card, .bg-white.rounded-4 {
         background: rgba(15,23,42,0.7) !important;
         border: 1px solid rgba(255,255,255,0.07) !important;
         backdrop-filter: blur(12px);
@@ -20,8 +20,19 @@
     .card-body, .card-header { background: transparent !important; }
     .card-header.bg-white, .card-header.bg-light { background: rgba(15,23,42,0.8) !important; border-color: rgba(255,255,255,0.06) !important; }
 
-    /* ── Leading Sectors bar ── */
-    .p-3.bg-white, .p-3.bg-light { background: rgba(15,23,42,0.6) !important; border-color: rgba(255,255,255,0.07) !important; }
+    /* ── Leading Sectors bar & SEPA Filters ── */
+    .p-3.bg-white, .p-3.bg-light, .p-3.border-bottom[style*="background:linear-gradient"] { background: rgba(15,23,42,0.6) !important; border-color: rgba(255,255,255,0.07) !important; }
+    .p-3.border-top[style*="background:#f8fafc"] { background: transparent !important; border-color: rgba(255,255,255,0.07) !important; }
+    [style*="background-color: #f8fafc"], [style*="background-color:#f8fafc"] { background-color: transparent !important; }
+    
+    /* ── Inline Dark Text Fixes ── */
+    [style*="color:#0f172a"], [style*="color: #0f172a"],
+    [style*="color:#334155"], [style*="color: #334155"],
+    [style*="color:#374151"], [style*="color: #374151"],
+    [style*="color:#1e293b"], [style*="color: #1e293b"] {
+        color: #f1f5f9 !important;
+    }
+    .criteria-title { color: #f1f5f9 !important; }
 
     /* ── Automated Insights outer box ── */
     [style*="background:linear-gradient(135deg,#f8faff"],
@@ -93,14 +104,20 @@
 
     /* ── Table ── */
     table { color: #e2e8f0 !important; background-color: transparent !important; --bs-table-bg: transparent; --bs-table-accent-bg: transparent; --bs-table-striped-bg: transparent; }
-    table * { --bs-table-bg: transparent; }
-    thead th {
-        color: #94a3b8 !important;
-        background-color: rgba(9,13,22,0.9) !important;
-        border-color: rgba(255,255,255,0.06) !important;
-        white-space: nowrap;
+    table thead, thead[style*="background:#f8fafc"], thead.bg-light { background: rgba(15,23,42,0.5) !important; }
+    table th { 
+        color: #94a3b8 !important; 
+        border-bottom: 1px solid rgba(255,255,255,0.1) !important; 
+        background: transparent !important; 
     }
-    tbody tr { background-color: transparent !important; border-color: rgba(255,255,255,0.04) !important; }
+    table td { border-bottom: 1px solid rgba(255,255,255,0.05) !important; background: transparent !important; }
+    table tbody tr:hover { background: rgba(255,255,255,0.03) !important; }
+    table tbody tr.sepa-row:hover { background: rgba(255,255,255,0.03) !important; }
+    
+    /* ── SEPA Specific Ranks ── */
+    .rank-silver { background: rgba(255,255,255,0.1) !important; color: #cbd5e1 !important; border-color: rgba(255,255,255,0.2) !important; }
+    .rank-bronze { background: rgba(217,119,6,0.2) !important; color: #fcd34d !important; border-color: rgba(217,119,6,0.3) !important; }
+    .rank-default { background: rgba(255,255,255,0.05) !important; color: #94a3b8 !important; border-color: rgba(255,255,255,0.1) !important; }
     tbody tr:hover td { background-color: rgba(99,102,241,0.1) !important; }
     tbody td { background-color: transparent; color: #e2e8f0 !important; border-color: rgba(255,255,255,0.04) !important; }
     .table-striped > tbody > tr:nth-of-type(odd) > td {
