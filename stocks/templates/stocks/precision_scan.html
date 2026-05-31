@@ -117,18 +117,19 @@
     [style*="color:#059669"] { color: #34d399 !important; }
 
     /* ── Table ── */
-    table { color: #e2e8f0 !important; }
+    table { color: #e2e8f0 !important; background-color: transparent !important; --bs-table-bg: transparent; --bs-table-accent-bg: transparent; --bs-table-striped-bg: transparent; }
+    table * { --bs-table-bg: transparent; }
     thead th {
         color: #94a3b8 !important;
-        background: rgba(9,13,22,0.9) !important;
+        background-color: rgba(9,13,22,0.9) !important;
         border-color: rgba(255,255,255,0.06) !important;
         white-space: nowrap;
     }
-    tbody tr { border-color: rgba(255,255,255,0.04) !important; }
-    tbody tr:hover td { background: rgba(99,102,241,0.07) !important; }
-    tbody td { color: #e2e8f0 !important; border-color: rgba(255,255,255,0.04) !important; }
+    tbody tr { background-color: transparent !important; border-color: rgba(255,255,255,0.04) !important; }
+    tbody tr:hover td { background-color: rgba(99,102,241,0.1) !important; }
+    tbody td { background-color: transparent; color: #e2e8f0 !important; border-color: rgba(255,255,255,0.04) !important; }
     .table-striped > tbody > tr:nth-of-type(odd) > td {
-        background: rgba(9,13,22,0.25) !important;
+        background-color: rgba(9,13,22,0.25) !important;
     }
 
     /* ── Form controls & selects ── */
