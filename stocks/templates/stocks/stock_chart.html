@@ -477,27 +477,27 @@
 
     <div class="d-flex gap-1 flex-nowrap align-items-center flex-shrink-0">
       <!-- Timeframe Buttons -->
-      <button class="period-btn active" id="tf-1d" onclick="changeInterval('1d')">วัน</button>
-      <button class="period-btn" id="tf-1wk" onclick="changeInterval('1wk')">สัปดาห์</button>
-      <button class="period-btn" id="tf-1mo" onclick="changeInterval('1mo')">เดือน</button>
+      <button class="period-btn active" id="tf-1d" onclick="changeInterval('1d')">1D</button>
+      <button class="period-btn" id="tf-1wk" onclick="changeInterval('1wk')">1W</button>
+      <button class="period-btn" id="tf-1mo" onclick="changeInterval('1mo')">1M</button>
       
       <div class="vr mx-1 opacity-20 text-white" id="timeframe-divider"></div>
       
       <!-- Period Buttons (Only relevant for Daily timeframe) -->
-      <button class="period-btn" id="p-3mo" onclick="loadPeriod('3mo')">3mo</button>
-      <button class="period-btn" id="p-6mo" onclick="loadPeriod('6mo')">6mo</button>
-      <button class="period-btn active" id="p-1y" onclick="loadPeriod('1y')">1y</button>
-      <button class="period-btn" id="p-2y" onclick="loadPeriod('2y')">2y</button>
+      <button class="period-btn" id="p-3mo" onclick="loadPeriod('3mo')">3M</button>
+      <button class="period-btn" id="p-6mo" onclick="loadPeriod('6mo')">6M</button>
+      <button class="period-btn active" id="p-1y" onclick="loadPeriod('1y')">1Y</button>
+      <button class="period-btn" id="p-2y" onclick="loadPeriod('2y')">2Y</button>
       
       <div class="vr mx-1 opacity-20 text-white"></div>
-      <button class="btn btn-sm rounded-pill px-3 fw-bold" onclick="analyzeChartWithAI()" id="btn-ai-analyze" style="background: linear-gradient(135deg, #a855f7 0%, #ec4899 100%); color: #fff; border: none; box-shadow: 0 0 10px rgba(236,72,153,0.5);">
-        <i class="fas fa-robot"></i> AI วิเคราะห์กราฟ
+      <button class="btn btn-sm rounded-pill px-3 fw-bold" onclick="analyzeChartWithAI()" id="btn-ai-analyze" style="background: linear-gradient(135deg, #a855f7 0%, #ec4899 100%); color: #fff; border: none; box-shadow: 0 0 10px rgba(236,72,153,0.5);" title="AI วิเคราะห์กราฟ">
+        <i class="fas fa-robot"></i> AI
       </button>
-      <a href="{% url 'stocks:indicator_manual' %}" target="_blank" class="btn btn-sm rounded-pill px-3 fw-bold" style="background: rgba(59, 130, 246, 0.15); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.4);">
-        <i class="fas fa-book"></i> คู่มือ Indicators
+      <a href="{% url 'stocks:indicator_manual' %}" target="_blank" class="btn btn-sm rounded-pill px-3 fw-bold" style="background: rgba(59, 130, 246, 0.15); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.4);" title="คู่มือ Indicators">
+        <i class="fas fa-book"></i> คู่มือ
       </a>
       <button class="btn btn-sm btn-outline-info rounded-pill px-3" onclick="toggleFullscreen()" title="ขยายเต็มหน้าจอ">
-        <i class="fas fa-expand"></i> เต็มจอ
+        <i class="fas fa-expand"></i>
       </button>
     </div>
   </div>
