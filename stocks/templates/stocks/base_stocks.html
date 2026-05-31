@@ -11,311 +11,306 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <!-- Font Awesome CSS -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- Google Fonts: Sarabun (Professional Thai) & Outfit (English) -->
-    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     
     <style>
         :root {
-            --bg-light: #f4f7fe;
-            --card-white: #ffffff;
-            --accent-primary: #4338ca;
-            --accent-secondary: #6366f1;
-            --text-main: #1e293b;
-            --text-muted: #64748b;
-            --positive: #10b981;
-            --negative: #ef4444;
-            --border-soft: #e2e8f0;
-            --shadow-premium: 0 10px 30px rgba(0, 0, 0, 0.04);
+            --bg-dark:      #090d16;
+            --bg-card:      rgba(15, 23, 42, 0.55);
+            --bg-nav:       rgba(9, 13, 22, 0.92);
+            --accent-primary:   #6366f1;
+            --accent-secondary: #818cf8;
+            --text-main:    #f1f5f9;
+            --text-muted:   #64748b;
+            --text-lo:      #334155;
+            --positive:     #10b981;
+            --negative:     #ef4444;
+            --border-soft:  rgba(255,255,255,0.07);
+            --shadow-premium: 0 10px 40px rgba(0,0,0,0.4);
         }
 
         body {
             font-family: 'Outfit', 'Sarabun', sans-serif;
-            background-color: var(--bg-light);
-            background-image: radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.05) 0, transparent 50%), 
-                              radial-gradient(at 50% 0%, rgba(56, 189, 248, 0.05) 0, transparent 50%);
+            background-color: var(--bg-dark);
+            background-image:
+                radial-gradient(at 20% 0%,  rgba(99,102,241,0.08) 0, transparent 55%),
+                radial-gradient(at 80% 0%,  rgba(16,185,129,0.05) 0, transparent 55%),
+                radial-gradient(at 50% 80%, rgba(139,92,246,0.04) 0, transparent 55%);
             color: var(--text-main);
             min-height: 100vh;
-            font-size: 0.95rem; 
+            font-size: 0.95rem;
         }
 
         @keyframes pulse {
-            0% { box-shadow: 0 0 0 0 rgba(251, 191, 36, 0.4); }
-            70% { box-shadow: 0 0 0 10px rgba(251, 191, 36, 0); }
-            100% { box-shadow: 0 0 0 0 rgba(251, 191, 36, 0); }
+            0%   { box-shadow: 0 0 0 0   rgba(251,191,36,0.4); }
+            70%  { box-shadow: 0 0 0 10px rgba(251,191,36,0); }
+            100% { box-shadow: 0 0 0 0   rgba(251,191,36,0); }
         }
-        .animate-pulse {
-            animation: pulse 2s infinite;
-        }
+        .animate-pulse { animation: pulse 2s infinite; }
     </style>
     <style>
+        /* ════ NAVBAR ════ */
         .navbar-stocks {
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(15px);
+            background: var(--bg-nav);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
             border-bottom: 1px solid var(--border-soft);
-            padding: 0.8rem 0;
+            padding: 0.6rem 0;
             transition: all 0.3s ease;
         }
         
         .navbar-stocks .navbar-brand {
-            font-size: 1.35rem;
-            color: var(--accent-primary) !important;
+            font-size: 1.2rem;
             font-weight: 800;
+            color: #fff !important;
+            letter-spacing: -0.5px;
+        }
+        .navbar-brand-sub {
+            font-size: 0.6rem;
+            font-weight: 700;
+            color: #475569;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            line-height: 1;
+        }
+        .brand-icon {
+            width: 34px; height: 34px; border-radius: 10px;
+            background: linear-gradient(135deg, #6366f1, #818cf8);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1rem; color: #fff;
+            box-shadow: 0 4px 12px rgba(99,102,241,0.4);
+            flex-shrink: 0;
         }
 
         .navbar-stocks .nav-link {
-            color: var(--text-muted) !important;
+            color: #94a3b8 !important;
             font-weight: 600;
-            font-size: 0.9rem;
+            font-size: 0.875rem;
+            padding: 0.5rem 0.85rem;
+            border-radius: 10px;
             transition: all 0.2s ease;
             display: flex;
             align-items: center;
-            gap: 0.5rem;
+            gap: 0.4rem;
+            white-space: nowrap;
         }
-
+        .navbar-stocks .nav-link i { font-size: 0.85rem; opacity: 0.75; }
         .navbar-stocks .nav-link:hover {
-            color: var(--accent-primary) !important;
-            background: rgba(99, 102, 241, 0.05);
+            color: #f1f5f9 !important;
+            background: rgba(255,255,255,0.06);
         }
-
         .navbar-stocks .nav-link.active {
-            color: var(--accent-primary) !important;
-            background: rgba(99, 102, 241, 0.1);
+            color: #818cf8 !important;
+            background: rgba(99,102,241,0.12);
         }
-        
-        .navbar-stocks .nav-link i {
-            font-size: 1rem;
-            opacity: 0.7;
+        .navbar-stocks .nav-link.dropdown-toggle::after { opacity: 0.45; }
+
+        /* Premium Insight pill */
+        .nav-premium-pill {
+            background: linear-gradient(135deg, rgba(245,158,11,0.15), rgba(251,191,36,0.08)) !important;
+            border: 1px solid rgba(245,158,11,0.3) !important;
+            color: #fbbf24 !important;
+        }
+        .nav-premium-pill:hover {
+            background: linear-gradient(135deg, rgba(245,158,11,0.25), rgba(251,191,36,0.15)) !important;
+            color: #fde68a !important;
         }
 
-        /* Dropdown premium style */
+        /* Auto Trade pill */
+        .nav-trade-pill {
+            background: linear-gradient(135deg, rgba(16,185,129,0.12), rgba(245,158,11,0.08)) !important;
+            border: 1px solid rgba(16,185,129,0.25) !important;
+            color: #34d399 !important;
+        }
+        .nav-trade-pill:hover {
+            background: linear-gradient(135deg, rgba(16,185,129,0.2), rgba(245,158,11,0.12)) !important;
+            color: #6ee7b7 !important;
+        }
+
+        /* Dropdown */
         .navbar-stocks .dropdown-menu {
-            background: rgba(255, 255, 255, 0.98);
-            backdrop-filter: blur(20px);
-            border: 1px solid var(--border-soft) !important;
-            min-width: 200px;
+            background: rgba(13,19,35,0.98);
+            backdrop-filter: blur(24px);
+            border: 1px solid rgba(255,255,255,0.08) !important;
+            border-radius: 16px !important;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+            padding: 0.5rem !important;
+            min-width: 220px;
         }
-
         .navbar-stocks .dropdown-item {
-            color: var(--text-muted);
+            color: #94a3b8;
             font-weight: 600;
-            font-size: 0.88rem;
+            font-size: 0.85rem;
+            border-radius: 10px;
+            padding: 0.55rem 0.85rem;
             display: flex;
             align-items: center;
-            transition: all 0.2s ease;
+            transition: all 0.2s;
         }
-
-        .navbar-stocks .dropdown-item:hover,
+        .navbar-stocks .dropdown-item:hover {
+            background: rgba(99,102,241,0.1);
+            color: #c7d2fe;
+        }
         .navbar-stocks .dropdown-item.active {
-            background: rgba(99, 102, 241, 0.08);
-            color: var(--accent-primary);
+            background: rgba(99,102,241,0.15);
+            color: #818cf8;
+        }
+        .navbar-stocks .dropdown-divider {
+            border-color: rgba(255,255,255,0.06) !important;
+            margin: 0.3rem 0 !important;
+        }
+        .dropdown-section-label {
+            font-size: 0.65rem; font-weight: 800;
+            text-transform: uppercase; letter-spacing: 0.08em;
+            color: #334155; padding: 0.4rem 0.85rem 0.2rem;
         }
 
-        .navbar-stocks .nav-link.dropdown-toggle::after {
-            opacity: 0.5;
-        }
-
+        /* ════ CARDS & COMMON ════ */
         .card-premium {
-            background: var(--card-white);
-            border: 1px solid rgba(255, 255, 255, 0.7);
-            border-radius: 20px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-soft);
+            border-radius: 18px;
             box-shadow: var(--shadow-premium);
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            backdrop-filter: blur(12px);
+            transition: all 0.3s cubic-bezier(0.4,0,0.2,1);
         }
-
         .card-premium:hover {
             transform: translateY(-3px);
-            box-shadow: 0 15px 30px rgba(0, 0, 0, 0.05);
+            box-shadow: 0 20px 50px rgba(0,0,0,0.45);
+            border-color: rgba(99,102,241,0.25);
         }
 
         .btn-premium {
-            background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
-            color: white;
-            border: none;
-            border-radius: 12px;
-            font-weight: 500;
-            padding: 0.75rem 1.5rem;
-            font-size: 0.95rem;
+            background: linear-gradient(135deg, #6366f1, #818cf8);
+            color: white; border: none; border-radius: 12px;
+            font-weight: 600; padding: 0.65rem 1.5rem; font-size: 0.9rem;
             transition: all 0.3s ease;
         }
-
         .btn-premium:hover {
             transform: translateY(-1px);
-            box-shadow: 0 8px 16px rgba(67, 56, 202, 0.15);
-            color: white;
-            filter: brightness(1.1);
+            box-shadow: 0 8px 20px rgba(99,102,241,0.35);
+            color: white; filter: brightness(1.1);
         }
 
         .stock-positive { color: var(--positive); font-weight: 600; }
         .stock-negative { color: var(--negative); font-weight: 600; }
 
-        h1, h2, h3, h4, .h1, .h2, .h3, .h4 {
-            font-weight: 600; 
-            letter-spacing: -0.01em;
-        }
-        
-        h1 { font-size: 2.2rem; }
-        h3 { font-size: 1.5rem; }
+        h1, h2, h3, h4, .h1, .h2, .h3, .h4 { font-weight: 700; letter-spacing: -0.01em; }
+        h1 { font-size: 2rem; }
+        h3 { font-size: 1.4rem; }
 
-        /* AI Analysis Content - Refined Typography */
-        .analysis-content {
-            font-family: 'Sarabun', sans-serif;
-            font-weight: 400; /* Regular weight for main content */
-        }
-        
+        /* AI Analysis Content */
+        .analysis-content { font-family: 'Sarabun', sans-serif; }
         .analysis-content h1, .analysis-content h2, .analysis-content h3 {
-            color: var(--accent-primary);
-            margin-top: 2rem;
-            margin-bottom: 1rem;
-            font-size: 1.35rem;
-            font-weight: 600; /* Semi-bold headlines only */
+            color: #a5b4fc; margin-top: 1.5rem; margin-bottom: 0.75rem;
+            font-size: 1.2rem; font-weight: 700;
         }
-
         .analysis-content p {
-            line-height: 1.9; /* Increased line spacing */
-            color: #334155;
-            font-size: 1.05rem; 
-            margin-bottom: 1.5rem;
-            text-align: justify;
+            line-height: 1.85; color: #94a3b8;
+            font-size: 0.95rem; margin-bottom: 1.2rem;
         }
+        .analysis-content ul, .analysis-content ol { padding-left: 1.75rem; margin-bottom: 1.2rem; }
+        .analysis-content li { font-size: 0.95rem; line-height: 1.8; margin-bottom: 0.5rem; color: #94a3b8; }
 
-        .analysis-content ul, .analysis-content ol {
-            padding-left: 2rem;
-            margin-bottom: 1.5rem;
-        }
-
-        .analysis-content li {
-            font-size: 1.05rem;
-            line-height: 1.9;
-            margin-bottom: 0.75rem;
-            color: #334155;
-        }
-        
-        .breadcrumb-item a {
-            font-weight: 500;
-        }
-
+        /* User Button */
         .user-btn {
-            background: var(--text-main) !important;
-            color: white !important;
-            border: none !important;
-            padding: 0.5rem 1.25rem !important;
+            background: rgba(99,102,241,0.15) !important;
+            color: #a5b4fc !important;
+            border: 1px solid rgba(99,102,241,0.3) !important;
+            padding: 0.45rem 1rem !important;
             font-weight: 600 !important;
-            border-radius: 12px !important;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1) !important;
+            border-radius: 10px !important;
+            font-size: 0.85rem !important;
+            transition: all 0.2s !important;
+        }
+        .user-btn:hover {
+            background: rgba(99,102,241,0.25) !important;
+            color: #c7d2fe !important;
         }
 
         .home-btn {
-            width: 40px;
-            height: 40px;
-            border-radius: 12px;
-            background: var(--bg-light);
-            color: var(--text-main);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: all 0.3s ease;
-            border: 1px solid var(--border-soft);
+            width: 36px; height: 36px; border-radius: 10px;
+            background: rgba(255,255,255,0.04);
+            color: #64748b;
+            display: flex; align-items: center; justify-content: center;
+            transition: all 0.25s; border: 1px solid var(--border-soft);
+            text-decoration: none;
         }
-
         .home-btn:hover {
-            background: white;
-            color: var(--accent-primary);
-            box-shadow: 0 4px 12px rgba(67, 56, 202, 0.1);
+            background: rgba(99,102,241,0.12);
+            color: #818cf8;
+            border-color: rgba(99,102,241,0.3);
         }
 
-        /* ── Responsive Utilities ─────────────────────────────── */
+        /* Navbar Toggler */
+        .navbar-toggler-icon-custom {
+            display: inline-flex; flex-direction: column; gap: 4px; padding: 4px;
+        }
+        .navbar-toggler-icon-custom span {
+            display: block; width: 20px; height: 2px;
+            background: #94a3b8; border-radius: 2px;
+            transition: all 0.3s;
+        }
 
-        /* ตาราง: ซ่อน/แสดงคอลัมน์ตาม breakpoint */
+        /* ════ RESPONSIVE ════ */
         .col-hide-xs  { display: none !important; }
         @media (min-width: 576px)  { .col-hide-xs  { display: table-cell !important; } }
         @media (max-width: 575px)  { .col-hide-sm  { display: none !important; } }
         @media (max-width: 767px)  { .col-hide-md  { display: none !important; } }
         @media (max-width: 991px)  { .col-hide-lg  { display: none !important; } }
 
-        /* ปรับ font size บนมือถือ */
         @media (max-width: 767px) {
             h1, .h1 { font-size: 1.5rem !important; }
             h3, .h3 { font-size: 1.2rem !important; }
             h4, .h4 { font-size: 1rem !important; }
-            body     { font-size: 0.88rem; }
-
-            .navbar-stocks .navbar-brand { font-size: 1.1rem; }
-
-            /* ลด padding ใน card บนมือถือ */
-            .p-4-mobile-3 { padding: 0.75rem !important; }
+            body { font-size: 0.88rem; }
             .card-premium .p-4 { padding: 1rem !important; }
-
-            /* ปุ่มใน header stack ได้ดี */
             .btn-premium { padding: 0.5rem 1rem; font-size: 0.85rem; }
         }
-
         @media (max-width: 575px) {
-            /* ลด container padding ด้านข้าง */
             .container, .container-fluid { padding-left: 0.5rem !important; padding-right: 0.5rem !important; }
-
-            /* ลด padding ใน card เพิ่มเติม */
-            .card-premium .p-4 { padding: 0.75rem !important; }
             .card-body.p-4  { padding: 0.75rem !important; }
             .card-body.p-3  { padding: 0.6rem !important; }
-
-            /* ข้อความ loading */
-            #loading-overlay h3 { font-size: 1.1rem; }
-            #loading-overlay p  { font-size: 0.78rem; }
         }
-
-        /* ── Card price header: ป้องกัน symbol + price ชนกัน ── */
         @media (max-width: 400px) {
             .card-header-flex { flex-direction: column !important; align-items: flex-start !important; }
-            .card-header-flex .text-end { text-align: left !important; }
         }
-
-        /* ── ตาราง: ลด font ทุกตาราง ── */
         @media (max-width: 767px) {
             .table-sm-compact { font-size: 0.72rem !important; }
             .table-sm-compact td, .table-sm-compact th { padding: 0.35rem 0.4rem !important; }
         }
-
-        /* ── Sticky action column in tables ── */
         .table-sticky-action th:last-child,
         .table-sticky-action td:last-child {
-            position: sticky;
-            right: 0;
-            background: white;
-            box-shadow: -2px 0 4px rgba(0,0,0,0.06);
-            z-index: 1;
+            position: sticky; right: 0;
+            background: var(--bg-card);
+            box-shadow: -2px 0 8px rgba(0,0,0,0.3); z-index: 1;
         }
-        .table-sticky-action tr:nth-child(even) td:last-child { background: #f9fafb; }
-        .table-sticky-action tr:hover td:last-child { background: rgba(99,102,241,0.04); }
-
-        /* ── chart responsive height ── */
-        @media (max-width: 575px) {
-            .chart-responsive { height: 260px !important; }
-        }
-        @media (min-width: 576px) and (max-width: 991px) {
-            .chart-responsive { height: 340px !important; }
-        }
+        @media (max-width: 575px) { .chart-responsive { height: 260px !important; } }
+        @media (min-width: 576px) and (max-width: 991px) { .chart-responsive { height: 340px !important; } }
     </style>
     {% block extra_css %}{% endblock %}
 </head>
 <body>
 
     <nav class="navbar navbar-expand-lg sticky-top navbar-stocks">
-        <div class="container">
+        <div class="container-fluid px-3 px-lg-4">
+            <!-- Brand -->
             <a class="navbar-brand d-flex align-items-center gap-2" href="{% url 'stocks:dashboard' %}">
-                <i class="fas fa-chart-line fs-3"></i>
+                <div class="brand-icon"><i class="fas fa-chart-line"></i></div>
                 <div class="d-flex flex-column">
-                    <span style="letter-spacing: -0.5px; line-height: 1;">STOCK ANALYST</span>
-                    <span class="text-muted small fw-normal" style="font-size: 0.65rem; font-weight: 700 !important;">POWERED BY AI</span>
+                    <span style="font-size:1.05rem;font-weight:800;color:#f1f5f9;letter-spacing:-0.5px;line-height:1;">STOCK ANALYST</span>
+                    <span class="navbar-brand-sub">POWERED BY AI</span>
                 </div>
             </a>
 
-            <button class="navbar-toggler border-0 shadow-none" type="button" data-bs-toggle="collapse" data-bs-target="#stocksNavbar">
-                <i class="fas fa-bars text-dark"></i>
+            <button class="navbar-toggler border-0 shadow-none p-1" type="button" data-bs-toggle="collapse" data-bs-target="#stocksNavbar" style="background:rgba(255,255,255,0.05);border-radius:8px;">
+                <div class="navbar-toggler-icon-custom"><span></span><span></span><span></span></div>
             </button>
 
             <div class="collapse navbar-collapse" id="stocksNavbar">
-                <ul class="navbar-nav me-auto mb-2 mb-lg-0 ms-lg-4 gap-0 gap-lg-1">
-                    <!-- Portfolio Dropdown (Frontmost) -->
+                <ul class="navbar-nav me-auto mb-2 mb-lg-0 ms-lg-3 gap-0 gap-lg-1 align-items-lg-center">
+                    <!-- Portfolio -->
                     <li class="nav-item dropdown">
                         <a class="nav-link px-3 py-2 rounded-xl dropdown-toggle {% if request.resolver_match.url_name in 'portfolio_list,dashboard,scan_watchlist_view' %}active{% endif %}" 
                            href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
@@ -351,9 +346,9 @@
                     </li>
 
                     <li class="nav-item">
-                        <a class="nav-link px-3 py-2 rounded-xl border border-warning border-opacity-25 bg-warning bg-opacity-10 {% if request.resolver_match.url_name == 'investment_dashboard' %}active{% endif %}" 
-                           href="{% url 'stocks:investment_dashboard' %}" style="color: #b45309 !important; white-space: nowrap !important;">
-                            <i class="fas fa-gem text-warning"></i> Premium Insight
+                        <a class="nav-link nav-premium-pill {% if request.resolver_match.url_name == 'investment_dashboard' %}active{% endif %}"
+                           href="{% url 'stocks:investment_dashboard' %}">
+                            <i class="fas fa-gem"></i> Premium Insight
                         </a>
                     </li>
 
@@ -503,15 +498,14 @@
                         </ul>
                     </li>
                     <!-- Macro + Morning Briefing Dropdown -->
-                    <!-- Auto Trading & Crypto Dropdown -->
+                    <!-- Auto Trade & Crypto -->
                     <li class="nav-item dropdown">
-                        <a class="nav-link px-3 py-2 rounded-xl dropdown-toggle {% if request.resolver_match.url_name in 'gold_trading,trading_accounts,crypto_hub,crypto_trading' %}active{% endif %}"
-                           href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false"
-                           style="background: linear-gradient(135deg, rgba(245, 158, 11, 0.1), rgba(16, 185, 129, 0.1)); border: 1px solid rgba(245, 158, 11, 0.2);">
-                            <i class="fas fa-robot text-warning"></i> Auto Trade &amp; Crypto
+                        <a class="nav-link nav-trade-pill dropdown-toggle {% if request.resolver_match.url_name in 'gold_trading,trading_accounts,crypto_hub,crypto_trading' %}active{% endif %}"
+                           href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="fas fa-robot"></i> Auto Trade &amp; Crypto
                         </a>
                         <ul class="dropdown-menu border-0 shadow-lg p-2 rounded-4 mt-1">
-                            <li class="px-3 py-1 text-muted" style="font-size: 0.7rem; font-weight: 800; text-transform: uppercase;">🪙 Gold Systems</li>
+                            <li class="dropdown-section-label">🪙 Gold Systems</li>
                             <li>
                                 <a class="dropdown-item rounded-3 py-2 {% if request.resolver_match.url_name == 'gold_trading' %}active{% endif %}" 
                                    href="{% url 'stocks:gold_trading' %}">
@@ -519,8 +513,8 @@
                                 </a>
                             </li>
                             
-                            <li><hr class="dropdown-divider opacity-25 my-2"></li>
-                            <li class="px-3 py-1 text-muted" style="font-size: 0.7rem; font-weight: 800; text-transform: uppercase;">₿ Crypto Systems</li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li class="dropdown-section-label">₿ Crypto Systems</li>
                             <li>
                                 <a class="dropdown-item rounded-3 py-2 {% if request.resolver_match.url_name == 'crypto_hub' %}active{% endif %}"
                                    href="{% url 'stocks:crypto_hub' %}">
@@ -534,8 +528,8 @@
                                 </a>
                             </li>
                             
-                            <li><hr class="dropdown-divider opacity-25 my-2"></li>
-                            <li class="px-3 py-1 text-muted" style="font-size: 0.7rem; font-weight: 800; text-transform: uppercase;">⚙️ Configurations</li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li class="dropdown-section-label">⚙️ Configurations</li>
                             <li>
                                 <a class="dropdown-item rounded-3 py-2 {% if request.resolver_match.url_name == 'trading_accounts' %}active{% endif %}" 
                                    href="{% url 'stocks:trading_accounts' %}">
@@ -546,9 +540,8 @@
                     </li>
 
                     <li class="nav-item dropdown">
-                        <a class="nav-link px-3 py-2 rounded-xl dropdown-toggle {% if request.resolver_match.url_name in 'macro,morning_briefing,stock_chart,macro_playbook' %}active{% endif %}"
-                           href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false"
-                           style="{% if request.resolver_match.url_name not in 'macro,morning_briefing,stock_chart,macro_playbook' %}background:linear-gradient(135deg,rgba(245,158,11,0.08),rgba(239,68,68,0.08));{% endif %}">
+                        <a class="nav-link dropdown-toggle {% if request.resolver_match.url_name in 'macro,morning_briefing,stock_chart,macro_playbook' %}active{% endif %}"
+                           href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                             <i class="fas fa-globe" style="color:#f59e0b;"></i> Macro
                         </a>
                         <ul class="dropdown-menu border-0 shadow-lg p-2 rounded-4 mt-1">
@@ -583,35 +576,34 @@
 
 
 
-                <div class="d-flex align-items-center gap-3">
+                <div class="d-flex align-items-center gap-2 ms-2">
                     {% if user.is_authenticated %}
                     <div class="dropdown">
                         <button class="btn user-btn dropdown-toggle d-flex align-items-center gap-2" type="button" data-bs-toggle="dropdown">
-                            <div class="rounded-circle bg-indigo-500 d-flex align-items-center justify-content-center" style="width: 20px; height: 20px; background: #6366f1;">
-                                <i class="fas fa-user text-white" style="font-size: 0.65rem;"></i>
+                            <div style="width:20px;height:20px;border-radius:6px;background:linear-gradient(135deg,#6366f1,#818cf8);display:flex;align-items:center;justify-content:center;">
+                                <i class="fas fa-user text-white" style="font-size:0.6rem;"></i>
                             </div>
-                            <span class="small">{{ user.username }}</span>
+                            <span>{{ user.username }}</span>
                         </button>
-                        <ul class="dropdown-menu dropdown-menu-end border-0 shadow-lg p-2 rounded-4 mt-3">
-                            <li class="px-3 py-2 text-muted small fw-bold text-uppercase italic">User Settings</li>
-                            <li><hr class="dropdown-divider opacity-50"></li>
+                        <ul class="dropdown-menu dropdown-menu-end border-0 shadow-lg p-2 mt-2" style="background:rgba(13,19,35,0.98);backdrop-filter:blur(24px);border:1px solid rgba(255,255,255,0.08)!important;border-radius:14px;min-width:180px;">
+                            <li class="dropdown-section-label">User Settings</li>
+                            <li><hr class="dropdown-divider"></li>
                             <li>
-                                <form action="{% url 'logout' %}" method="post" class="px-2">
+                                <form action="{% url 'logout' %}" method="post">
                                     {% csrf_token %}
-                                    <button type="submit" class="dropdown-item rounded-3 py-2 text-danger d-flex align-items-center gap-2 font-semibold">
-                                        <i class="fas fa-sign-out-alt"></i> Logout
+                                    <button type="submit" class="dropdown-item" style="color:#f87171;">
+                                        <i class="fas fa-sign-out-alt me-2"></i>Logout
                                     </button>
                                 </form>
                             </li>
                         </ul>
                     </div>
                     {% else %}
-                        <a href="{% url 'login' %}" class="btn btn-link text-decoration-none text-slate-600 fw-bold small">Login</a>
-                        <a href="{% url 'stocks:signup' %}" class="btn btn-premium btn-sm px-4">Sign Up</a>
+                        <a href="{% url 'login' %}" class="btn btn-sm" style="color:#94a3b8;font-weight:600;">Login</a>
+                        <a href="{% url 'stocks:signup' %}" class="btn btn-premium btn-sm px-3">Sign Up</a>
                     {% endif %}
-                    
                     <a href="/" class="home-btn" title="กลับหน้าหลัก">
-                        <i class="fas fa-home"></i>
+                        <i class="fas fa-home" style="font-size:0.9rem;"></i>
                     </a>
                 </div>
             </div>
