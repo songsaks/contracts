@@ -10792,6 +10792,8 @@ def chart_ai_analyze_ajax(request, symbol):
     from django.conf import settings
     from google import genai
     from django.views.decorators.csrf import csrf_exempt
+    from django.utils import timezone
+    from .models import AnalysisCache, PrecisionScanCandidate, USSepaCandidate
 
     if request.method != 'POST':
         return JsonResponse({'error': 'Invalid request method'}, status=400)
@@ -10800,17 +10802,22 @@ def chart_ai_analyze_ajax(request, symbol):
         data = json.loads(request.body)
         market = data.get('market', '')
         price = data.get('price', 'N/A')
-        rsi = data.get('rsi', 'N/A')
-        macd = data.get('macd', 'N/A')
         trend = data.get('trend', 'N/A')
         signals = data.get('signals', [])
+        force_refresh = data.get('force_refresh', False)
+        active_indicators_data = data.get('active_indicators_data', 'ไม่มีข้อมูล (ผู้ใช้ปิด Indicator ทั้งหมด)')
         
+        # Check cache if not forcing refresh
+        if not force_refresh:
+            cache_entry = AnalysisCache.objects.filter(user=request.user, symbol=symbol).first()
+            if cache_entry and cache_entry.last_updated.date() == timezone.now().date():
+                return JsonResponse({'result': cache_entry.analysis_data, 'cached': True})
+
         signal_text = ", ".join([s.get('type', '') for s in signals]) if signals else "ไม่มีสัญญาณซื้อขายล่าสุด"
 
         # ====== Fetch SEPA Data ======
         sepa_info = ""
         try:
-            from .models import PrecisionScanCandidate, USSepaCandidate
             if market == 'US':
                 sepa_cand = USSepaCandidate.objects.filter(user=request.user, symbol=symbol).order_by('-scan_run').first()
             else:
@@ -10869,12 +10876,14 @@ def chart_ai_analyze_ajax(request, symbol):
 ข้อมูลทางเทคนิคปัจจุบัน (จากหน้ากราฟของผู้ใช้):
 - ราคาล่าสุด: {price}
 - ทิศทางเทรนด์: {trend}
-- RSI: {rsi}
-- MACD/Signal state: {macd}
 - สัญญาณที่เกิดขึ้นล่าสุด: {signal_text}
+- ข้อมูล Indicator ที่ผู้ใช้เปิดดูในขณะนี้: 
+{active_indicators_data}
+
 {sepa_info}
 
 ช่วยวิเคราะห์แนวโน้ม ทิศทาง และให้คำแนะนำที่ชัดเจนว่าควรทำอย่างไร (ซื้อเพิ่ม / ถือ / ขายตัดขาดทุน / รอจังหวะ) 
+(หมายเหตุ: โปรดวิเคราะห์โดยอ้างอิงจาก Indicator ที่ผู้ใช้เปิดดูอยู่เป็นหลัก หากไม่มีให้อ้างอิงจาก Price Action)
 หากหุ้นตัวนี้มีคะแนน SEPA Score สูง และอยู่ใน Stage 2 โปรดนำมาพิจารณาประกอบกับสัญญาณกราฟด้วยเพื่อไม่ให้ขัดแย้งกัน
 อธิบายเหตุผลสั้นๆ ให้เข้าใจง่ายที่สุด จัดรูปแบบเป็น Markdown เพื่อให้อ่านง่าย
 """
@@ -10889,10 +10898,23 @@ def chart_ai_analyze_ajax(request, symbol):
             contents=prompt
         )
 
-        return JsonResponse({'result': response.text})
+        analysis_result = response.text
+        
+        # Save to Cache
+        cache_entry, created = AnalysisCache.objects.get_or_create(
+            user=request.user,
+            symbol=symbol,
+            defaults={'analysis_data': analysis_result}
+        )
+        if not created:
+            cache_entry.analysis_data = analysis_result
+            cache_entry.save()
+
+        return JsonResponse({'result': analysis_result, 'cached': False})
 
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
+
 
 
 @login_required

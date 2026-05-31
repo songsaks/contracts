@@ -670,6 +670,11 @@
             <!-- Markdown goes here -->
           </div>
         </div>
+        <div class="modal-footer border-top-0 pt-0">
+          <button type="button" class="btn btn-sm rounded-pill px-3" style="background: rgba(236, 72, 153, 0.15); color: #ec4899; border: 1px solid rgba(236, 72, 153, 0.4);" onclick="analyzeChartWithAI(true)">
+            <i class="fas fa-sync-alt"></i> วิเคราะห์ใหม่ (Refresh)
+          </button>
+        </div>
       </div>
     </div>
   </div>
@@ -1180,7 +1185,7 @@ function handleResize() {
 window.onresize = handleResize;
 document.addEventListener('fullscreenchange', () => setTimeout(handleResize, 150));
 
-function analyzeChartWithAI() {
+function analyzeChartWithAI(forceRefresh = false) {
     if (!currentData || !currentData.candles || currentData.candles.length === 0) {
         alert("ยังไม่มีข้อมูลกราฟให้วิเคราะห์ กรุณารอสักครู่");
         return;
@@ -1190,15 +1195,53 @@ function analyzeChartWithAI() {
     const latestCandle = currentData.candles[currentData.candles.length - 1];
     const price = latestCandle.close;
     
-    let rsi = "N/A";
-    if (currentData.rsi && currentData.rsi.length > 0) {
-        rsi = currentData.rsi[currentData.rsi.length - 1].value.toFixed(2);
+    let activeIndicatorsText = "";
+    
+    if (document.getElementById('check-dc') && document.getElementById('check-dc').checked) {
+        if (currentData.dc20_upper && currentData.dc20_lower) {
+            activeIndicatorsText += `- Donchian Channel (20): Upper=${currentData.dc20_upper[currentData.dc20_upper.length - 1].value.toFixed(2)}, Lower=${currentData.dc20_lower[currentData.dc20_lower.length - 1].value.toFixed(2)}\n`;
+        }
     }
     
-    let macd = "N/A";
-    if (currentData.macd && currentData.macd.length > 0) {
-        const lastMacd = currentData.macd[currentData.macd.length - 1];
-        macd = `MACD: ${lastMacd.macd?.toFixed(2)}, Signal: ${lastMacd.signal?.toFixed(2)}`;
+    if (document.getElementById('check-bb') && document.getElementById('check-bb').checked) {
+        if (currentData.bb_upper && currentData.bb_lower) {
+            activeIndicatorsText += `- Bollinger Bands (20): Upper=${currentData.bb_upper[currentData.bb_upper.length - 1].value.toFixed(2)}, Lower=${currentData.bb_lower[currentData.bb_lower.length - 1].value.toFixed(2)}\n`;
+        }
+    }
+    
+    if (document.getElementById('check-ema20') && document.getElementById('check-ema20').checked) {
+        if (currentData.ema20) activeIndicatorsText += `- EMA 20: ${currentData.ema20[currentData.ema20.length - 1].value.toFixed(2)}\n`;
+    }
+    if (document.getElementById('check-ema50') && document.getElementById('check-ema50').checked) {
+        if (currentData.ema50) activeIndicatorsText += `- EMA 50: ${currentData.ema50[currentData.ema50.length - 1].value.toFixed(2)}\n`;
+    }
+    if (document.getElementById('check-ema200') && document.getElementById('check-ema200').checked) {
+        if (currentData.ema200) activeIndicatorsText += `- EMA 200: ${currentData.ema200[currentData.ema200.length - 1].value.toFixed(2)}\n`;
+    }
+    if (document.getElementById('check-itl') && document.getElementById('check-itl').checked) {
+        if (currentData.itl) activeIndicatorsText += `- ITL (Ehlers): ${currentData.itl[currentData.itl.length - 1].value.toFixed(2)}\n`;
+    }
+    
+    if (document.getElementById('check-macd') && document.getElementById('check-macd').checked) {
+        if (currentData.macd && currentData.macd.length > 0) {
+            const lastMacd = currentData.macd[currentData.macd.length - 1];
+            activeIndicatorsText += `- MACD: Value=${lastMacd.macd?.toFixed(2)}, Signal=${lastMacd.signal?.toFixed(2)}\n`;
+        }
+    }
+    
+    if (document.getElementById('check-rsi') && document.getElementById('check-rsi').checked) {
+        if (currentData.rsi && currentData.rsi.length > 0) {
+            activeIndicatorsText += `- RSI (14): ${currentData.rsi[currentData.rsi.length - 1].value.toFixed(2)}\n`;
+        }
+    }
+    
+    if (document.getElementById('check-stoch') && document.getElementById('check-stoch').checked) {
+        // We only have stoch toggle, but we might not have the explicit stoch data saved in currentData in the same way, 
+        // if not we skip it.
+    }
+    
+    if (!activeIndicatorsText) {
+        activeIndicatorsText = "ผู้ใช้ไม่ได้เปิด Indicator ใดๆ เพิ่มเติม (ใช้เพียง Price Action)";
     }
     
     // Get recent signals (last 3)
@@ -1209,8 +1252,9 @@ function analyzeChartWithAI() {
     
     let trend = document.getElementById('chart-status').textContent;
 
-    // Show modal
-    const modal = new bootstrap.Modal(document.getElementById('aiChartModal'));
+    // Show modal if not already open
+    const modalEl = document.getElementById('aiChartModal');
+    const modal = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
     modal.show();
     
     document.getElementById('ai-loading').classList.remove('d-none');
@@ -1226,10 +1270,10 @@ function analyzeChartWithAI() {
             symbol: currentSymbol,
             market: currentMarket,
             price: price,
-            rsi: rsi,
-            macd: macd,
             trend: trend,
-            signals: recentSignals
+            signals: recentSignals,
+            active_indicators_data: activeIndicatorsText,
+            force_refresh: forceRefresh
         })
     })
     .then(r => r.json())
