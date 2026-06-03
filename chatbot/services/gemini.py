@@ -3,14 +3,15 @@
 # รับผิดชอบ: การตั้งค่า API, การกำหนด system instruction, การเรียก function tools
 # และการประมวลผลคำถาม-คำตอบระหว่างผู้ใช้กับ AI
 
-import os
-from google import genai                  # Google GenAI SDK สำหรับเรียกใช้ Gemini API
-from google.genai import types            # types สำหรับกำหนด config ของ Gemini
-from django.conf import settings          # อ่านค่า config จาก Django settings
-from django.utils import timezone         # utility สำหรับจัดการเวลาใน timezone ที่ถูกต้อง
-from datetime import timedelta            # สำหรับคำนวณช่วงเวลา เช่น 3 วันที่ผ่านมา
-from django.db.models import Q, Count     # Q สำหรับ complex query, Count สำหรับนับจำนวน
 import json
+import os
+from datetime import timedelta  # สำหรับคำนวณช่วงเวลา เช่น 3 วันที่ผ่านมา
+
+import google.genai as genai  # Google GenAI SDK สำหรับเรียกใช้ Gemini API
+from django.conf import settings  # อ่านค่า config จาก Django settings
+from django.db.models import Count, Q  # Q สำหรับ complex query, Count สำหรับนับจำนวน
+from django.utils import timezone  # utility สำหรับจัดการเวลาใน timezone ที่ถูกต้อง
+from google.genai import types  # types สำหรับกำหนด config ของ Gemini
 
 # ====== API Key Configuration ======
 # อ่าน Gemini API Key จาก Django settings ก่อน ถ้าไม่มีให้อ่านจาก environment variable

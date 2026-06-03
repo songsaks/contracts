@@ -7,14 +7,15 @@
 - จัดกลุ่มงานตามวันที่นัดหมายและคำนวณช่วงเวลา
 - ส่งการแจ้งเตือนไปยัง Google Chat และ LINE
 """
-import logging
 import datetime
-import math
-from django.utils import timezone
-from django.db import models, transaction
-from django.conf import settings
-import requests
 import json
+import logging
+import math
+
+import requests
+from django.conf import settings
+from django.db import models, transaction
+from django.utils import timezone
 
 # ใช้ logger เพื่อบันทึกข้อความ error/warning ของ module นี้
 logger = logging.getLogger(__name__)
@@ -83,7 +84,7 @@ def _ai_suggest_team(task_type, teams):
         ServiceTeam ที่ AI แนะนำ หรือผลลัพธ์จาก _fallback_suggest_team
     """
     try:
-        from google import genai
+        import google.genai as genai
         api_key = settings.GEMINI_API_KEY
         # สร้าง Gemini client ด้วย API key จาก settings
         client = genai.Client(api_key=api_key)
@@ -199,8 +200,9 @@ def sync_projects_to_queue():
     Returns:
         int: จำนวน ServiceQueueItem ที่สร้างใหม่
     """
-    from pms.models import Project, ServiceQueueItem, ServiceTeam, JobStatus
     from django.db.models import Q
+
+    from pms.models import JobStatus, Project, ServiceQueueItem, ServiceTeam
 
     active_statuses = ['PENDING', 'SCHEDULED', 'IN_PROGRESS', 'INCOMPLETE']
     teams = list(ServiceTeam.objects.filter(is_active=True))
@@ -415,8 +417,9 @@ def _send_schedule_messages(items):
     สร้างและส่ง TeamMessage เพื่อแจ้งรายการงานประจำวันให้แต่ละทีม
     จัดกลุ่มงานตาม (team, date) เพื่อส่งข้อความรวมครั้งเดียวต่อทีมต่อวัน
     """
-    from pms.models import ServiceTeam, TeamMessage
     from collections import defaultdict
+
+    from pms.models import ServiceTeam, TeamMessage
 
     _PRIORITY = {'CRITICAL': ' 🚨', 'HIGH': ' ⚡', 'NORMAL': '', 'LOW': ''}
 

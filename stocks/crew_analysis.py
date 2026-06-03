@@ -1,11 +1,11 @@
-import os
 import concurrent.futures
+import os
+
 import pandas as pd
 import pandas_ta as ta
 import yfinance as yf
-from yahooquery import Ticker as YQTicker
 from django.conf import settings
-
+from yahooquery import Ticker as YQTicker
 
 # ======================================================================
 # MomentumShortTermCrew — CrewAI Multi-Agent (Short-Term Focus)
@@ -126,7 +126,7 @@ class MomentumShortTermCrew:
         Run CrewAI sequential 3-agent analysis.
         Returns a combined markdown string (Thai language).
         """
-        from crewai import Agent, Task, Crew, Process
+        from crewai import Agent, Crew, Process, Task
         from crewai.llm import LLM
 
         llm   = LLM(model="gemini/gemini-2.5-flash", api_key=settings.GEMINI_API_KEY)
@@ -406,7 +406,7 @@ class USMomentumShortTermCrew:
     # ------------------------------------------------------------------
     def run_analysis(self):
         """Run CrewAI sequential 3-agent analysis for US market. Returns markdown (Thai)."""
-        from crewai import Agent, Task, Crew, Process
+        from crewai import Agent, Crew, Process, Task
         from crewai.llm import LLM
 
         llm   = LLM(model="gemini/gemini-2.5-flash", api_key=settings.GEMINI_API_KEY)
@@ -601,9 +601,14 @@ class TheCoreCrew:
         os.environ["GEMINI_API_KEY"] = settings.GEMINI_API_KEY
 
     def run_analysis(self):
-        from crewai import Agent, Task, Crew, Process
+        from crewai import Agent, Crew, Process, Task
         from crewai.llm import LLM
-        from .utils import get_stock_data, calculate_valuation_metrics, auto_backtest_strategy
+
+        from .utils import (
+            auto_backtest_strategy,
+            calculate_valuation_metrics,
+            get_stock_data,
+        )
 
         llm = LLM(model="gemini/gemini-2.5-flash", api_key=settings.GEMINI_API_KEY)
         
@@ -1208,9 +1213,10 @@ Swing (2-8 สัปดาห์) หรือ Position (3-6 เดือน) �
 
         # ── Call Gemini directly via new google-genai SDK ───────────
         try:
-            from google import genai as _genai
-            from google.genai import types as _gtypes
             import os as _os
+
+            import google.genai as _genai
+            from google.genai import types as _gtypes
 
             # Ensure only GEMINI_API_KEY is used (suppress GOOGLE_API_KEY conflict)
             _os.environ.pop('GOOGLE_API_KEY', None)
@@ -1274,8 +1280,8 @@ class MacroPlaybookCrew:
                 
         # Fear & Greed Index
         try:
-            import urllib.request
             import json
+            import urllib.request
             req = urllib.request.Request("https://api.alternative.me/fng/?limit=1", headers={'User-Agent': 'Mozilla'})
             with urllib.request.urlopen(req, timeout=3) as resp:
                 data = json.loads(resp.read().decode())
@@ -1289,7 +1295,7 @@ class MacroPlaybookCrew:
         return prices
 
     def run_analysis(self):
-        from crewai import Agent, Task, Crew, Process
+        from crewai import Agent, Crew, Process, Task
         from crewai.llm import LLM
 
         llm = LLM(model="gemini/gemini-2.5-flash", api_key=settings.GEMINI_API_KEY)

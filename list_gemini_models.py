@@ -1,6 +1,7 @@
 import os
+
 import django
-from google import genai
+import google.genai as genai
 from django.conf import settings
 
 # Setup Django environment

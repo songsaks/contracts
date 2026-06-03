@@ -1,15 +1,24 @@
-from django.shortcuts import render, get_object_or_404, redirect
+import json
+
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
-from django.http import JsonResponse
-from .models import (
-    WeeklyGoal, DailyProgress, Department, Employee,
-    Meeting, MeetingParticipant, MeetingIdea, ActionTask
-)
-from django.utils import timezone
 from django.db.models import Sum
-import json
+from django.http import JsonResponse
+from django.shortcuts import get_object_or_404, redirect, render
+from django.utils import timezone
+
+from .models import (
+    ActionTask,
+    DailyProgress,
+    Department,
+    Employee,
+    Meeting,
+    MeetingIdea,
+    MeetingParticipant,
+    WeeklyGoal,
+)
+
 
 @login_required
 def dashboard(request):
@@ -193,7 +202,7 @@ def employee_create(request):
 
 @login_required
 def ai_analysis(request):
-    from google import genai
+    import google.genai as genai
     from django.conf import settings
     
     today = timezone.now().date()

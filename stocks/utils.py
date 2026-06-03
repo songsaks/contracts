@@ -1,12 +1,12 @@
+import google.genai as genai
+import numpy as np
 import pandas as pd
+import pandas_ta as ta
 import requests
 import yfinance as yf
-from google import genai
 from django.conf import settings
-from yahooquery import Ticker as YQTicker
-import pandas_ta as ta
-import numpy as np
 from scipy.signal import argrelextrema
+from yahooquery import Ticker as YQTicker
 
 # ======================================================================
 # stocks/utils.py — ฟังก์ชันหลักสำหรับวิเคราะห์หุ้นและดึงข้อมูลตลาด
@@ -1759,11 +1759,6 @@ def refresh_all_thai_symbols():
         )
     return len(all_symbols)
 
-    # ปิดการใช้งานหุ้นที่ไม่ได้อยู่ใน list นี้ และเป็นตลาดไทย (SET)
-    known = set(set100_symbols) | set(set200_symbols) | set(mai_symbols)
-    ScannableSymbol.objects.filter(market='SET').exclude(symbol__in=known).update(is_active=False)
-
-    print(f"Refreshed {len(set100_symbols)} SET100 + {len(set200_symbols)} SET200 + {len(mai_symbols)} MAI symbols. Others deactivated.")
 
 
 # ======================================================================
@@ -2030,9 +2025,11 @@ def detect_cup_and_handle(df):
 # เพื่อนำมาใช้จัดอันดับ Top 300 สำหรับการสแกนแบบ High Performance
 # ----------------------------------------------------------------------
 def refresh_market_caps():
-    from .models import ScannableSymbol
-    from django.utils import timezone
     import logging
+
+    from django.utils import timezone
+
+    from .models import ScannableSymbol
     logger = logging.getLogger('stocks')
 
     symbols = ScannableSymbol.objects.filter(is_active=True, market='SET')
@@ -2079,8 +2076,9 @@ def get_top_ranked_symbols(market='SET', limit=200, auto_refresh=False):
     คืนค่ารายชื่อหุ้น Top Ranked ตาม Market Cap 
     ถ้า auto_refresh=True และตั้งค่าการอัปเดตไว้นานกว่า 1 วัน จะเริ่มกระบวนการอัปเดตก่อนส่งคืนค่า
     """
-    from .models import ScannableSymbol
     from django.utils import timezone
+
+    from .models import ScannableSymbol
     
     if market == 'SET' and auto_refresh:
         # เช็คว่าข้อมูลเก่าเกิน 1 วันหรือไม่ (แปลง UTC → Bangkok ก่อนเปรียบเทียบ)
@@ -2206,6 +2204,7 @@ def calculate_ehlers_supersmoother(prices, period=15):
     Grants superior noise filtering compared to standard EMA or SMA with minimal lag.
     """
     import math
+
     import numpy as np
     prices = np.asarray(prices, dtype=float)
     n = len(prices)

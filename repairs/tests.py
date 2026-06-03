@@ -1,11 +1,16 @@
 from django.test import TestCase, Client
 from django.urls import reverse
-from .models import Customer, Device, RepairJob, RepairItem, Technician
+from django.contrib.auth.models import User
+from .models import Customer, Device, RepairJob, RepairItem, Technician, Brand, DeviceType
 
 class RepairSystemTest(TestCase):
     def setUp(self):
         self.client = Client()
+        self.user = User.objects.create_user(username="testuser", password="password")
+        self.client.login(username="testuser", password="password")
         self.technician = Technician.objects.create(name="Tech User", expertise="General")
+        self.brand = Brand.objects.create(name="Samsung")
+        self.device_type = DeviceType.objects.create(name="Mobile")
 
     def test_customer_creation(self):
         """Test if customer is created correctly"""
@@ -21,10 +26,10 @@ class RepairSystemTest(TestCase):
             'customer-contact_number': '0987654321',
             'customer-address': 'Jane Address',
             'job-fix_id': 'FIX123',
-            'device-brand': 'Samsung',
+            'device-brand': self.brand.id,
             'device-model': 'Galaxy S23',
             'device-serial_number': 'SN12345',
-            'device-device_type': 'Mobile',
+            'device-device_type': self.device_type.id,
             'item-issue_description': 'Screen broken',
             'item-status': 'RECEIVED',
             'item-price': '500.00',
@@ -56,7 +61,7 @@ class RepairSystemTest(TestCase):
         """Test detail view"""
         customer = Customer.objects.create(name="John Test", contact_number="0812345678")
         job = RepairJob.objects.create(customer=customer)
-        device = Device.objects.create(customer=customer, brand="Test", model="Phone", device_type="Mobile")
+        device = Device.objects.create(customer=customer, brand=self.brand, model="Phone", device_type=self.device_type)
         RepairItem.objects.create(job=job, device=device, issue_description="Broken", status="RECEIVED")
 
         url = reverse('repairs:repair_detail', args=[job.pk])
@@ -69,7 +74,7 @@ class RepairSystemTest(TestCase):
         """Test updating item status"""
         customer = Customer.objects.create(name="John Test", contact_number="0812345678")
         job = RepairJob.objects.create(customer=customer)
-        device = Device.objects.create(customer=customer, brand="Test", model="Phone", device_type="Mobile")
+        device = Device.objects.create(customer=customer, brand=self.brand, model="Phone", device_type=self.device_type)
         item = RepairItem.objects.create(job=job, device=device, issue_description="Broken", status="RECEIVED")
         
         url = reverse('repairs:repair_update_status', args=[item.id])
