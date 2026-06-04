@@ -2,8 +2,30 @@
 <!DOCTYPE html>
 <html lang="th">
 <head>
-    <!-- ① Theme Manager — load FIRST to prevent FOUC -->
-    <script src="{% static 'js/theme.js' %}"></script>
+    <!-- ① Theme Manager — INLINE for guaranteed execution (no 404 risk) -->
+    <script>
+    (function(){
+        var K='9com-theme',D='dark',L='light';
+        var t=localStorage.getItem(K)||localStorage.getItem('stocks-theme')||D;
+        if(t!==D&&t!==L)t=D;
+        document.documentElement.setAttribute('data-theme',t);
+        document.documentElement.setAttribute('data-bs-theme',t);
+        window._themeApply=function(v){
+            document.documentElement.setAttribute('data-theme',v);
+            document.documentElement.setAttribute('data-bs-theme',v);
+            localStorage.setItem(K,v);
+            document.querySelectorAll('[data-t-toggle] i').forEach(function(el){
+                el.className=v===D?'fas fa-sun':'fas fa-moon';
+            });
+        };
+        window._themeToggle=function(){
+            var c=document.documentElement.getAttribute('data-theme')||D;
+            window._themeApply(c===D?L:D);
+        };
+        window.ThemeManager={toggle:window._themeToggle,set:window._themeApply,
+            get:function(){return document.documentElement.getAttribute('data-theme')||D;}};
+    })();
+    </script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}AI Stock Analyst — 9Com{% endblock %}</title>
@@ -11,8 +33,8 @@
     <link rel="shortcut icon" type="image/svg+xml" href="{% static 'images/favicon.svg' %}?v=2">
     <!-- ② Bootstrap 5 CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <!-- ③ 9Com Design System (before any page styles) -->
-    <link rel="stylesheet" href="{% static 'css/theme.css' %}">
+    <!-- ③ 9Com Design System -->
+    <link rel="stylesheet" href="{% static 'css/theme.css' %}?v=2">
     <!-- ④ Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
@@ -609,8 +631,10 @@
                     </a>
                     
                     <!-- Theme Toggle -->
-                    <button class="home-btn border-0 shadow-sm ms-1" id="themeToggleBtn"
+                    <button class="home-btn border-0 shadow-sm ms-1"
+                            id="themeToggleBtn"
                             data-t-toggle
+                            onclick="window._themeToggle()"
                             title="สลับโหมด Light/Dark"
                             style="cursor:pointer; width:36px; height:36px;">
                         <i class="fas fa-moon" id="themeToggleIcon" style="font-size:1rem;"></i>
@@ -663,9 +687,14 @@
     {% block scripts %}{% endblock %}
     
     <script>
-        /* Re-wire any late-rendered [data-t-toggle] buttons after page scripts run */
+        /* Sync toggle icon with active theme after DOM is ready */
+        document.addEventListener('DOMContentLoaded', function () {
+            var theme = document.documentElement.getAttribute('data-theme') || 'dark';
+            var icon  = document.getElementById('themeToggleIcon');
+            if (icon) icon.className = theme === 'dark' ? 'fas fa-sun' : 'fas fa-moon';
+        });
         window.addEventListener('load', function () {
-            if (window.ThemeManager) window.ThemeManager.rewire();
+            if (window.ThemeManager && window.ThemeManager.rewire) window.ThemeManager.rewire();
         });
     </script>
 </body>
