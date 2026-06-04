@@ -1,0 +1,18 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="512" height="512" rx="100" fill="#3B82F6"/>
+  
+  <g stroke="white" stroke-width="80" stroke-linecap="round" fill="none">
+    
+    <!-- 9 -->
+    <!-- Circle centered at 150, 200, radius 60 -->
+    <path d="M 210 200 A 60 60 0 1 1 90 200 A 60 60 0 0 1 210 200" />
+    <!-- Tail down and hook left -->
+    <path d="M 210 200 V 320 Q 210 400 130 400" />
+    
+    <!-- C -->
+    <!-- Curve from Top Right to Bottom Right -->
+    <path d="M 430 170 C 410 100 290 100 290 260 C 290 420 410 420 430 350" />
+    
+  </g>
+</svg>

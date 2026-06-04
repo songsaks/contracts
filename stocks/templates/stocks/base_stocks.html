@@ -609,7 +609,10 @@
                     </a>
                     
                     <!-- Theme Toggle -->
-                    <button class="home-btn border-0 shadow-sm ms-1" id="themeToggleBtn" title="สลับโหมด Light/Dark" style="cursor:pointer; width:36px; height:36px;">
+                    <button class="home-btn border-0 shadow-sm ms-1" id="themeToggleBtn"
+                            data-t-toggle
+                            title="สลับโหมด Light/Dark"
+                            style="cursor:pointer; width:36px; height:36px;">
                         <i class="fas fa-moon" id="themeToggleIcon" style="font-size:1rem;"></i>
                     </button>
                 </div>
@@ -660,10 +663,9 @@
     {% block scripts %}{% endblock %}
     
     <script>
-        /* stocks theme toggle — delegates to global ThemeManager (theme.js) */
-        document.addEventListener('DOMContentLoaded', function () {
-            var btn = document.getElementById('themeToggleBtn');
-            if (btn) { btn.setAttribute('data-t-toggle', ''); }
+        /* Re-wire any late-rendered [data-t-toggle] buttons after page scripts run */
+        window.addEventListener('load', function () {
+            if (window.ThemeManager) window.ThemeManager.rewire();
         });
     </script>
 </body>
