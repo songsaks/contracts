@@ -4844,10 +4844,10 @@ def minervini_sepa_scanner(request):
     if vcp_only:
         candidates = [c for c in candidates if c.vcp_setup]
 
-    # hide_at_tp: ซ่อนหุ้นที่ราคาอยู่ใกล้/ถึง Target (upside_to_high < 5%)
+    # hide_at_tp: ซ่อนหุ้นที่ราคาอยู่ใกล้/ถึง Target (upside_to_high < 10%)
     hide_at_tp = request.GET.get('hide_at_tp', '1') == '1'
     if hide_at_tp:
-        candidates = [c for c in candidates if c.upside_to_high >= 5.0]
+        candidates = [c for c in candidates if c.upside_to_high >= 10.0]
 
     # earnings_filter: กรองเฉพาะหุ้นที่ผ่านเกณฑ์ Minervini Earnings (EPS ≥ 25% หรือ Rev ≥ 25%)
     earnings_filter = request.GET.get('earnings_filter') == '1'
@@ -9826,7 +9826,7 @@ def us_sepa_scanner(request):
     if vcp_only:
         candidates = [c for c in candidates if c.vcp_setup]
     if hide_at_tp:
-        candidates = [c for c in candidates if c.upside_to_high >= 5.0]
+        candidates = [c for c in candidates if c.upside_to_high >= 10.0]
 
     # RS filter: enforce ≥70 (scan saves down to 60 for flexibility)
     candidates = [c for c in candidates if c.rs_rating >= 70]
