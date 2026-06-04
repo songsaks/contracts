@@ -12022,6 +12022,8 @@ def api_ai_manual_scan(request):
                 'volume_surge': float(c.volume_surge) if c.volume_surge else 0.0,
                 'pocket_pivot': c.pocket_pivot,
                 'vdu': c.vdu_near_zone,
+                'eps_growth': float(c.eps_growth) if c.eps_growth else 0.0,
+                'rev_growth': float(c.rev_growth) if c.rev_growth else 0.0,
             })
 
         client = genai.Client(api_key=settings.GEMINI_API_KEY)
@@ -12038,7 +12040,9 @@ def api_ai_manual_scan(request):
    - มีค่า CMF เป็นบวก (cmf > 0) แปลว่ามีเม็ดเงินสถาบันไหลเข้าสุทธิ
    - มีวอลุ่มซื้อพุ่งผิดปกติ (volume_surge > 1.2)
    - มีสัญญาณ Pocket Pivot (pocket_pivot) วันที่แรงซื้อชนะแรงขาย 10 วันย้อนหลัง
-ให้พิจารณาค่าเหล่านี้ประกอบเพื่อคัดเลือก "หุ้นที่รายใหญ่กำลังแอบเก็บสะสม" ก่อนที่รายย่อย (Retail) จะรู้ตัว!
+3. **SEPA Fundamental (Earnings Growth)**: พิจารณาการเติบโตของกำไรและรายได้ (`eps_growth` และ `rev_growth`) โดยอ้างอิงเกณฑ์ของระบบ SEPA (ต้องการกำไรหรือรายได้เติบโตอย่างแข็งแกร่ง โดยเฉพาะระดับ ≥ 25% ขึ้นไป) เพื่อให้มีความสอดคล้องกับหน้าเกณฑ์หลัก (SEPA Manual)
+
+ให้พิจารณาค่าเหล่านี้ประกอบเพื่อคัดเลือก "หุ้นที่รายใหญ่กำลังแอบเก็บสะสมและมีงบการเงินสนับสนุนตามหลัก SEPA" ก่อนที่รายย่อย (Retail) จะรู้ตัว!
 
 วิเคราะห์ข้อมูลหุ้น {market} จำนวน {len(stocks_data)} ตัวด้านล่างนี้ และคัดเลือกหุ้น "ที่ดีที่สุด" ตามหลักการในคู่มือ และเงื่อนไขพิเศษด้านบน (เลือกมา 5-10 ตัวที่สวยที่สุด)
 สำค้ญมาก: โปรดจัดอันดับ (rank) จากหุ้นที่สวยที่สุดอันดับ 1 ไล่ลงไปเรื่อยๆ (โดยตัวที่สวยที่สุดต้องได้ Grade A)

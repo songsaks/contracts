@@ -290,19 +290,19 @@ class RepairItem(models.Model):
         return RepairStatus.objects.filter(sequence__gt=current.sequence).order_by('sequence').first()
 
     def get_status_bg_light(self):
-        """คืนค่า CSS class (Tailwind) สำหรับสีพื้นหลังอ่อนของแถวตามสถานะ"""
+        """คืนค่า inline style CSS สำหรับสีพื้นหลังตามสถานะที่รองรับทั้ง light/dark mode"""
         colors = {
-            'RECEIVED': 'bg-red-50',
-            'FIXING': 'bg-orange-50',
-            'WAITING_APPROVAL': 'bg-purple-50',
-            'WAITING': 'bg-yellow-50',
-            'OUTSOURCE': 'bg-indigo-50',
-            'RECEIVED_FROM_VENDOR': 'bg-blue-50',
-            'FINISHED': 'bg-green-50',
-            'CANCELLED': 'bg-gray-50',
-            'COMPLETED': 'bg-secondary-subtle',
+            'RECEIVED': 'background-color: rgba(239, 68, 68, 0.08) !important;',
+            'FIXING': 'background-color: rgba(249, 115, 22, 0.08) !important;',
+            'WAITING_APPROVAL': 'background-color: rgba(168, 85, 247, 0.08) !important;',
+            'WAITING': 'background-color: rgba(234, 179, 8, 0.08) !important;',
+            'OUTSOURCE': 'background-color: rgba(99, 102, 241, 0.08) !important;',
+            'RECEIVED_FROM_VENDOR': 'background-color: rgba(59, 130, 246, 0.08) !important;',
+            'FINISHED': 'background-color: rgba(34, 197, 94, 0.08) !important;',
+            'CANCELLED': 'background-color: rgba(107, 114, 128, 0.08) !important;',
+            'COMPLETED': 'background-color: rgba(31, 41, 55, 0.08) !important;',
         }
-        return colors.get(self.status, 'bg-gray-50')
+        return colors.get(self.status, 'background-color: transparent;')
 
     def clean(self):
         """ตรวจสอบ validation พิเศษ:

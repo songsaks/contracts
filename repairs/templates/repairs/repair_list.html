@@ -70,7 +70,7 @@
 
         <!-- Filters -->
         <div class="card shadow-sm mb-4 border-0">
-            <div class="card-body bg-white rounded">
+            <div class="card-body rounded">
                 <form method="get" class="row g-2 align-items-end compact-filter">
                     <div class="col-6 col-md-3">
                         <label class="form-label text-muted small mb-1">ค้นหา</label>
@@ -118,7 +118,7 @@
             <div class="card-body p-0">
                 <div class="table-responsive">
                     <table class="table table-hover align-middle mb-0">
-                        <thead class="table-light">
+                        <thead>
                             <tr>
                                 <th class="ps-4">รหัสงาน</th>
                                 <th>ลูกค้า</th>
@@ -197,7 +197,7 @@
         <!-- Mobile Layout (Cards) -->
         <div class="job-cards-container">
             {% for item in items %}
-            <div class="job-card shadow-sm mb-3" style="border-left: 5px solid {% if item.status == 'RECEIVED' %}#ff4d4f{% elif item.status == 'FIXING' %}#f97316{% elif item.status == 'WAITING_APPROVAL' %}#a855f7{% elif item.status == 'WAITING' %}#eab308{% elif item.status == 'OUTSOURCE' %}#6366f1{% elif item.status == 'RECEIVED_FROM_VENDOR' %}#38bdf8{% else %}#10b981{% endif %}; background: white;">
+            <div class="job-card shadow-sm mb-3" style="border-left: 5px solid {% if item.status == 'RECEIVED' %}#ff4d4f{% elif item.status == 'FIXING' %}#f97316{% elif item.status == 'WAITING_APPROVAL' %}#a855f7{% elif item.status == 'WAITING' %}#eab308{% elif item.status == 'OUTSOURCE' %}#6366f1{% elif item.status == 'RECEIVED_FROM_VENDOR' %}#38bdf8{% else %}#10b981{% endif %}; background: var(--t-card-bg);">
                 <div class="d-flex justify-content-between align-items-start mb-2">
                     <div>
                         <a href="{% url 'repairs:repair_detail' item.job.pk %}" class="fw-bold fs-6 text-indigo text-decoration-none">
@@ -210,9 +210,9 @@
                     </span>
                 </div>
                 <div class="mb-2">
-                    <div class="fw-bold text-dark small">{{ item.job.customer.name }}</div>
+                    <div class="fw-bold text-dark small" style="color: var(--t-text) !important;">{{ item.job.customer.name }}</div>
                 </div>
-                <div class="p-2 rounded bg-light mb-2">
+                <div class="p-2 rounded mb-2" style="background: var(--t-bg-alt);">
                     <div class="fw-bold x-small text-indigo">{{ item.device.brand }} {{ item.device.model }}</div>
                     <div class="x-small text-muted text-truncate">{{ item.issue_description }}</div>
                 </div>
