@@ -1,0 +1,934 @@
+{% extends "ops/base_ops.html" %}
+{% load static %}
+
+{% block title %}ศูนย์ปฏิบัติการเพื่อนร่วมงาน AI — Ops{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Dark Premium Styling inspired by the user mock */
+    .coworker-board {
+        background-color: #0b0f19;
+        color: #f8fafc;
+        border-radius: 24px;
+        padding: 2.5rem;
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        box-shadow: 0 20px 40px rgba(0,0,0,0.4);
+    }
+    
+    .board-title {
+        font-family: 'Outfit', sans-serif;
+        color: #f59e0b; /* Gold/Amber */
+        font-weight: 800;
+        letter-spacing: -0.5px;
+    }
+
+    .card-agent {
+        background: linear-gradient(145deg, #131b2e 0%, #0c1020 100%);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 20px;
+        padding: 1.8rem;
+        height: 100%;
+        transition: all 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);
+        cursor: pointer;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .card-agent::before {
+        content: '';
+        position: absolute;
+        top: 0; left: 0; width: 100%; height: 4px;
+        background: transparent;
+        transition: all 0.3s;
+    }
+
+    .card-agent.marketing::before { background: linear-gradient(90deg, #f59e0b, #ec4899); }
+    .card-agent.sales::before { background: linear-gradient(90deg, #3b82f6, #06b6d4); }
+    .card-agent.executive::before { background: linear-gradient(90deg, #10b981, #84cc16); }
+
+    .card-agent:hover {
+        transform: translateY(-8px);
+        border-color: rgba(255, 255, 255, 0.2);
+        box-shadow: 0 15px 30px rgba(0,0,0,0.5);
+    }
+
+    .card-agent.active {
+        background: linear-gradient(145deg, #1a2542 0%, #0f142b 100%);
+        border-color: rgba(245, 158, 11, 0.5);
+        box-shadow: 0 0 25px rgba(245, 158, 11, 0.15);
+    }
+
+    .agent-icon-wrapper {
+        width: 50px; height: 50px;
+        border-radius: 12px;
+        display: flex; align-items: center; justify-content: center;
+        background: rgba(255, 255, 255, 0.05);
+        margin-bottom: 1.5rem;
+        transition: all 0.3s;
+    }
+
+    .card-agent:hover .agent-icon-wrapper {
+        transform: scale(1.1) rotate(5deg);
+        background: rgba(255, 255, 255, 0.1);
+    }
+
+    .agent-title {
+        font-size: 1.25rem;
+        font-weight: 700;
+        margin-bottom: 0.5rem;
+        color: #ffffff;
+    }
+
+    .agent-desc {
+        color: #94a3b8;
+        font-size: 0.9rem;
+        line-height: 1.6;
+    }
+
+    .btn-execute {
+        background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+        color: #0b0f19;
+        font-weight: 700;
+        border: none;
+        border-radius: 12px;
+        padding: 0.8rem 2rem;
+        transition: all 0.3s;
+    }
+    
+    .btn-execute:hover {
+        background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(245, 158, 11, 0.4);
+        color: #0b0f19;
+    }
+
+    /* Input Form and Outputs Styling */
+    .glass-form-card {
+        background: rgba(20, 26, 46, 0.6);
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        border-radius: 20px;
+        backdrop-filter: blur(10px);
+    }
+
+    .form-control-dark {
+        background-color: #0d1222 !important;
+        border: 1px solid rgba(255, 255, 255, 0.1) !important;
+        color: #f8fafc !important;
+        border-radius: 12px !important;
+        padding: 0.8rem 1.2rem;
+    }
+
+    .form-control-dark:focus {
+        border-color: #f59e0b !important;
+        box-shadow: 0 0 10px rgba(245, 158, 11, 0.2) !important;
+    }
+
+    /* Stepper Styling */
+    .stepper-container {
+        display: flex;
+        justify-content: space-between;
+        position: relative;
+        margin-bottom: 2rem;
+    }
+    
+    .stepper-container::before {
+        content: '';
+        position: absolute;
+        top: 25px; left: 0; width: 100%; height: 2px;
+        background: rgba(255, 255, 255, 0.1);
+        z-index: 1;
+    }
+
+    .step-progress-bar {
+        position: absolute;
+        top: 25px; left: 0; width: 0%; height: 2px;
+        background: #f59e0b;
+        z-index: 2;
+        transition: width 0.5s ease;
+    }
+
+    .step-item {
+        position: relative;
+        z-index: 3;
+        text-align: center;
+        width: 30%;
+    }
+
+    .step-icon {
+        width: 50px; height: 50px;
+        border-radius: 50%;
+        background: #1e293b;
+        border: 2px solid rgba(255, 255, 255, 0.1);
+        display: flex; align-items: center; justify-content: center;
+        margin: 0 auto 0.5rem auto;
+        color: #64748b;
+        transition: all 0.3s;
+    }
+
+    .step-item.active .step-icon {
+        background: #0f172a;
+        border-color: #f59e0b;
+        color: #f59e0b;
+        box-shadow: 0 0 15px rgba(245, 158, 11, 0.4);
+        animation: pulse 1.5s infinite;
+    }
+
+    .step-item.completed .step-icon {
+        background: #f59e0b;
+        border-color: #f59e0b;
+        color: #0b0f19;
+    }
+
+    .step-text {
+        font-size: 0.8rem;
+        font-weight: 600;
+        color: #64748b;
+        transition: color 0.3s;
+    }
+
+    .step-item.active .step-text, .step-item.completed .step-text {
+        color: #ffffff;
+    }
+
+    /* Result styling */
+    .tab-btn-dark {
+        background-color: #131b2e !important;
+        border: 1px solid rgba(255, 255, 255, 0.08) !important;
+        color: #94a3b8 !important;
+        border-radius: 10px !important;
+        padding: 0.6rem 1.2rem !important;
+        margin-right: 0.5rem;
+        font-weight: 600;
+        transition: all 0.3s;
+    }
+
+    .tab-btn-dark.active {
+        background: #f59e0b !important;
+        color: #0b0f19 !important;
+        border-color: #f59e0b !important;
+    }
+
+    .output-box {
+        background-color: #0d1222;
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        border-radius: 16px;
+        padding: 2rem;
+        min-height: 250px;
+        color: #e2e8f0;
+        font-size: 1rem;
+        line-height: 1.8;
+    }
+
+    .history-table {
+        background-color: #0d1222;
+        border-radius: 16px;
+        overflow: hidden;
+        border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+    
+    .history-table th {
+        background-color: #131b2e;
+        color: #f59e0b;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        font-weight: 700;
+        padding: 1rem;
+    }
+
+    .history-table td {
+        border-bottom: 1px solid rgba(255, 255, 255, 0.02);
+        padding: 1rem;
+        color: #e2e8f0;
+    }
+
+    .history-table tr:hover td {
+        background-color: rgba(255, 255, 255, 0.02);
+    }
+
+    @keyframes pulse {
+        0% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.4); }
+        70% { box-shadow: 0 0 0 10px rgba(245, 158, 11, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); }
+    }
+
+    .copy-btn {
+        background-color: rgba(255, 255, 255, 0.05);
+        color: #e2e8f0;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 8px;
+        padding: 0.3rem 0.8rem;
+        font-size: 0.8rem;
+        transition: all 0.3s;
+    }
+    
+    .copy-btn:hover {
+        background-color: #f59e0b;
+        color: #0b0f19;
+        border-color: #f59e0b;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row coworker-board mb-5 mx-0">
+    <div class="col-12 text-center mb-5">
+        <span class="badge bg-warning text-dark px-3 py-2 rounded-pill fw-bold mb-2">INTELLIGENT AI WORKERS</span>
+        <h1 class="board-title d-flex align-items-center justify-content-center gap-3">
+            <i class="fas fa-users-cog"></i> ศูนย์ปฏิบัติการเพื่อนร่วมงาน AI (Co-workers Hub)
+        </h1>
+        <p class="text-muted mb-0">เซตงานจริงทั้ง 3 ตำแหน่ง สั่งงานให้ AI ช่วยทำงานที่ซับซ้อนให้คุณแบบหลายขั้นตอนในคลิกเดียว</p>
+    </div>
+
+    <!-- Agent Cards Container (Exactly 3 Cards matching design) -->
+    <div class="row g-4 justify-content-center mb-5">
+        <!-- 1. Marketing Automation Card -->
+        <div class="col-md-4">
+            <div class="card-agent marketing active" id="agent-marketing" onclick="selectAgent('marketing')">
+                <div class="agent-icon-wrapper">
+                    <i class="fas fa-bullhorn fs-3 text-warning"></i>
+                </div>
+                <h3 class="agent-title">Marketing Automation</h3>
+                <p class="agent-desc">วาง content plan ทั้งเดือน + วิเคราะห์ performance + รายงาน manager — ในคำสั่งเดียว</p>
+            </div>
+        </div>
+
+        <!-- 2. Sales Intelligence Card -->
+        <div class="col-md-4">
+            <div class="card-agent sales" id="agent-sales" onclick="selectAgent('sales')">
+                <div class="agent-icon-wrapper">
+                    <i class="fas fa-briefcase fs-3 text-info"></i>
+                </div>
+                <h3 class="agent-title">Sales Intelligence</h3>
+                <p class="agent-desc">ดึงข้อมูล lead จากแชต/อีเมล -> สรุปเป็นแดชบอร์ดข้อมูลลูกค้า -> draft reply แบบมืออาชีพ</p>
+            </div>
+        </div>
+
+        <!-- 3. Executive Reporting Card -->
+        <div class="col-md-4">
+            <div class="card-agent executive" id="agent-executive" onclick="selectAgent('executive')">
+                <div class="agent-icon-wrapper">
+                    <i class="fas fa-file-invoice fs-3 text-success"></i>
+                </div>
+                <h3 class="agent-title">Executive Reporting</h3>
+                <p class="agent-desc">อ่านข้อมูลความคืบหน้าและอุปสรรค -> สรุปเป็นรายงานรายสัปดาห์บริษัท -> ร่างส่ง Slack/Email อัตโนมัติ</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Interactive Execution Form Section -->
+    <div class="row justify-content-center">
+        <div class="col-lg-10">
+            <div class="card glass-form-card p-5 shadow-lg">
+                <h4 class="mb-4 text-white pb-3 border-bottom border-secondary d-flex align-items-center gap-2">
+                    <i class="fas fa-cog text-warning" id="form-icon"></i> 
+                    <span id="form-title">สั่งงาน Marketing Automation Agent</span>
+                </h4>
+                
+                <!-- Forms for different agents -->
+                <div class="mb-4">
+                    <!-- Marketing form -->
+                    <div id="input-container-marketing">
+                        <label class="form-label text-muted small text-uppercase fw-bold mb-2">หัวข้อแคมเปญ / สินค้าที่ต้องการวางแผนการตลาด</label>
+                        <textarea id="input-marketing" class="form-control form-control-dark" rows="3" placeholder="ตัวอย่าง: แคมเปญโปรโมตโปรแกรมสาย LAN ความเร็วสูง สำหรับลูกค้าออฟฟิศขนาดกลาง หรือ บริการซ่อมคอมพิวเตอร์แบบถึงบ้าน"></textarea>
+                    </div>
+                    <!-- Sales form -->
+                    <div id="input-container-sales" class="d-none">
+                        <label class="form-label text-muted small text-uppercase fw-bold mb-2">วางข้อความอีเมลหรือแชตดิบจากลูกค้า</label>
+                        <textarea id="input-sales" class="form-control form-control-dark" rows="5" placeholder="ตัวอย่าง: สวัสดีครับ ผมสมศักดิ์ จากบริษัท ABC สนใจติดต่อขอเช่าคอมพิวเตอร์จำนวน 10 เครื่อง เป็นเวลา 6 เดือน ด่วนเลยครับ โทร 081-2345678 หวังว่าจะเสนอราคาและติดต่อกลับภายในวันนี้ครับ ขอบคุณครับ"></textarea>
+                    </div>
+                    <!-- Executive form -->
+                    <div id="input-container-executive" class="d-none">
+                        <div class="alert alert-info border-0 rounded-4 bg-opacity-10 bg-info text-info p-4">
+                            <i class="fas fa-info-circle me-2 fs-5"></i> 
+                            <strong>ข้อมูลระบบอัตโนมัติ:</strong> สำหรับตำแหน่ง <strong>Executive Reporting</strong> คุณไม่จำเป็นต้องระบุข้อมูลนำเข้า AI จะทำการสืบค้นเป้าหมายประจำสัปดาห์ (Weekly Goals), บันทึกอุปสรรคพนักงานประจำวัน (Obstacles) และสถานะโครงการปัจจุบัน (Action Tasks) จากฐานข้อมูลโดยอัตโนมัติเพื่อนำมาวิเคราะห์และจัดทำรายงานสรุป
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Run button -->
+                <div class="text-end">
+                    <button class="btn btn-execute btn-lg" onclick="triggerWorkflow()" id="btn-submit">
+                        <i class="fas fa-paper-plane me-2"></i> สั่งให้บอทเริ่มทำงาน (Run Workflow)
+                    </button>
+                </div>
+
+                <!-- Live Progress Stepper Container (Hidden by default) -->
+                <div class="mt-5 d-none" id="stepper-section">
+                    <h5 class="text-center text-muted mb-4">เพื่อนร่วมงาน AI กำลังดำเนินการตามขั้นตอน (Multi-step Agent Run)</h5>
+                    <div class="stepper-container">
+                        <div class="step-progress-bar" id="step-bar"></div>
+                        
+                        <div class="step-item active" id="step-1">
+                            <div class="step-icon"><i class="fas fa-search"></i></div>
+                            <div class="step-text" id="step-text-1">วิเคราะห์ความต้องการ</div>
+                        </div>
+                        <div class="step-item" id="step-2">
+                            <div class="step-icon"><i class="fas fa-database"></i></div>
+                            <div class="step-text" id="step-text-2">สืบค้น & วิเคราะห์เชิงลึก</div>
+                        </div>
+                        <div class="step-item" id="step-3">
+                            <div class="step-icon"><i class="fas fa-file-signature"></i></div>
+                            <div class="step-text" id="step-text-3">ร่างเอกสารเสร็จสิ้น</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Workflow Execution Result Container (Hidden by default) -->
+                <div class="mt-5 d-none" id="result-section">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h5 class="text-warning fw-bold mb-0"><i class="fas fa-magic me-2"></i> ผลลัพธ์จากการปฏิบัติงานสำเร็จแล้ว</h5>
+                        <button class="btn btn-outline-light btn-sm rounded-pill" onclick="resetResult()"><i class="fas fa-redo me-1"></i> สั่งงานใหม่</button>
+                    </div>
+
+                    <!-- Result Navigation Tabs -->
+                    <ul class="nav nav-pills mb-4" id="result-tabs" role="tablist">
+                        <!-- Rendered by JS dynamically based on active agent -->
+                    </ul>
+
+                    <!-- Tab Content Panels -->
+                    <div class="tab-content" id="result-tab-content">
+                        <!-- Rendered by JS dynamically -->
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Execution History Section -->
+<div class="row mx-0">
+    <div class="col-12">
+        <div class="card bg-dark text-white p-5 border-0 rounded-4 shadow-lg mb-5">
+            <h4 class="fw-bold mb-4 text-warning d-flex align-items-center gap-2">
+                <i class="fas fa-history"></i> ประวัติการสั่งงานบอท AI ย้อนหลัง (Log History)
+            </h4>
+            <div class="table-responsive">
+                <table class="table history-table mb-0">
+                    <thead>
+                        <tr>
+                            <th style="width: 25%">วันเวลาที่บันทึก</th>
+                            <th style="width: 25%">เพื่อนร่วมงาน AI</th>
+                            <th style="width: 35%">ข้อมูลนำเข้า (Prompt)</th>
+                            <th style="width: 15%" class="text-center">การจัดการ</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for log in logs %}
+                        <tr id="log-row-{{ log.id }}">
+                            <td>{{ log.created_at|date:"d/m/Y H:i" }}</td>
+                            <td>
+                                {% if log.agent_type == 'marketing' %}
+                                <span class="badge bg-warning text-dark px-3 rounded-pill fw-bold">Marketing Automation</span>
+                                {% elif log.agent_type == 'sales' %}
+                                <span class="badge bg-info text-dark px-3 rounded-pill fw-bold">Sales Intelligence</span>
+                                {% else %}
+                                <span class="badge bg-success text-dark px-3 rounded-pill fw-bold">Executive Reporting</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-truncate" style="max-width: 300px;">{{ log.input_data }}</td>
+                            <td class="text-center">
+                                <button class="btn btn-xs btn-outline-warning rounded-pill px-3 py-1" style="font-size:0.75rem;" onclick="loadLogHistory({{ log.id }})">
+                                    <i class="fas fa-eye me-1"></i>ดูรายงาน
+                                </button>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="4" class="text-center text-muted p-5">
+                                <i class="fas fa-folder-open fa-2x mb-3 opacity-25"></i>
+                                <p class="mb-0">ยังไม่มีบันทึกประวัติการรันในฐานข้อมูล</p>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- History Detail Modal -->
+<div class="modal fade" id="historyModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content bg-dark text-white border-secondary rounded-4 shadow-lg">
+            <div class="modal-header border-secondary p-4">
+                <h5 class="modal-title fw-bold text-warning" id="modal-agent-name">ประวัติการทำงานของบอท</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4" id="modal-content-body">
+                <!-- Loaded dynamically by JS -->
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let currentAgent = 'marketing';
+    let isExecuting = false;
+
+    // เลือกตัวเอเจนต์และอัปเดต UI หน้าฟอร์ม
+    function selectAgent(agent) {
+        if (isExecuting) return; // ล็อกปุ่มไว้เมื่อแชตบอทกำลังรันอยู่
+
+        currentAgent = agent;
+        
+        // อัปเดต Active status ของการ์ด
+        document.querySelectorAll('.card-agent').forEach(card => card.classList.remove('active'));
+        document.getElementById(`agent-${agent}`).classList.add('active');
+
+        // จัดการฟอร์มนำเข้าข้อมูล
+        document.getElementById('input-container-marketing').classList.add('d-none');
+        document.getElementById('input-container-sales').classList.add('d-none');
+        document.getElementById('input-container-executive').classList.add('d-none');
+
+        document.getElementById(`input-container-${agent}`).classList.remove('d-none');
+
+        // อัปเดตข้อความหัวข้อในฟอร์ม
+        const formTitle = document.getElementById('form-title');
+        const formIcon = document.getElementById('form-icon');
+        const submitBtn = document.getElementById('btn-submit');
+
+        if (agent === 'marketing') {
+            formTitle.textContent = "สั่งงาน Marketing Automation Agent";
+            formIcon.className = "fas fa-bullhorn text-warning";
+            formIcon.style.color = "#f59e0b";
+            submitBtn.innerHTML = '<i class="fas fa-paper-plane me-2"></i> สั่งให้บอทเริ่มทำงาน (Run Workflow)';
+        } else if (agent === 'sales') {
+            formTitle.textContent = "สั่งงาน Sales Intelligence Agent";
+            formIcon.className = "fas fa-briefcase text-info";
+            submitBtn.innerHTML = '<i class="fas fa-paper-plane me-2"></i> สกัด Lead & ร่างคำตอบเมลลูกค้า';
+        } else if (agent === 'executive') {
+            formTitle.textContent = "สั่งงาน Executive Reporting Agent";
+            formIcon.className = "fas fa-file-invoice text-success";
+            submitBtn.innerHTML = '<i class="fas fa-sync fa-spin me-2"></i> สรุปผลงาน & ร่างรายงานส่งผู้บริหาร';
+        }
+    }
+
+    // ฟังก์ชันสั่งงาน AI ดึงข้อมูล
+    function triggerWorkflow() {
+        if (isExecuting) return;
+
+        let inputText = '';
+        if (currentAgent === 'marketing') {
+            inputText = document.getElementById('input-marketing').value.trim();
+            if (!inputText) {
+                alert('กรุณากรอกหัวข้อแคมเปญการตลาดที่ต้องการวางแผน');
+                return;
+            }
+        } else if (currentAgent === 'sales') {
+            inputText = document.getElementById('input-sales').value.trim();
+            if (!inputText) {
+                alert('กรุณาวางข้อความแชตหรืออีเมลดิบของลูกค้า');
+                return;
+            }
+        }
+
+        isExecuting = true;
+        
+        // จัดการหน้าตาโหลดงาน
+        document.getElementById('btn-submit').disabled = true;
+        document.getElementById('stepper-section').classList.remove('d-none');
+        document.getElementById('result-section').classList.add('d-none');
+        
+        // เริ่มแอนิเมชันของ Stepper
+        runStepperAnimation(3, function() {
+            // ส่ง API คุยกับหลังบ้านหลังจากจำลองสเต็ปแรก
+            callCoworkerAPI(inputText);
+        });
+    }
+
+    // ทำแอนิเมชันจำลองการคิดวิเคราะห์ของ Co-worker (ให้ดูเหมือนเพื่อนร่วมงานกำลังคิดทีละเป้าหมาย)
+    function runStepperAnimation(targetStep, callback) {
+        const stepBar = document.getElementById('step-bar');
+        const step1 = document.getElementById('step-1');
+        const step2 = document.getElementById('step-2');
+        const step3 = document.getElementById('step-3');
+
+        // ตั้งสเต็ปเริ่มต้นขึ้นใหม่
+        stepBar.style.width = '0%';
+        step1.className = 'step-item active';
+        step2.className = 'step-item';
+        step3.className = 'step-item';
+
+        // ปรับสเต็ปของงานแต่ละบอทให้เข้ากับ context ของตำแหน่ง
+        if (currentAgent === 'marketing') {
+            document.getElementById('step-text-1').textContent = "วางแผน Content ทั้งเดือน";
+            document.getElementById('step-text-2').textContent = "วิเคราะห์ Performance ช่องทาง";
+            document.getElementById('step-text-3').textContent = "ร่างจดหมายส่งหัวหน้า";
+        } else if (currentAgent === 'sales') {
+            document.getElementById('step-text-1').textContent = "สกัด Lead & ข้อมูลติดต่อ";
+            document.getElementById('step-text-2').textContent = "ลงสถิติ Dashboard ลูกค้า";
+            document.getElementById('step-text-3').textContent = "ร่างเมลตอบกลับปิดการขาย";
+        } else if (currentAgent === 'executive') {
+            document.getElementById('step-text-1').textContent = "สืบค้นและรวบรวมข้อมูลบริษัท";
+            document.getElementById('step-text-2').textContent = "วิเคราะห์ภาพรวม & บล็อกเกอร์";
+            document.getElementById('step-text-3').textContent = "เขียนร่างจดหมายแจ้ง Slack/Email";
+        }
+
+        // สเต็ปที่ 1 ไป 2 (จำลองความเร็วการทำงาน)
+        setTimeout(() => {
+            step1.className = 'step-item completed';
+            step2.className = 'step-item active';
+            stepBar.style.width = '50%';
+            
+            // สเต็ปที่ 2 ไป 3
+            setTimeout(() => {
+                step2.className = 'step-item completed';
+                step3.className = 'step-item active';
+                stepBar.style.width = '100%';
+                
+                // สเต็ปสุดท้าย (รอรับค่าจริงจาก API)
+                if (callback) callback();
+            }, 2500);
+
+        }, 2000);
+    }
+
+    // ยิง API หลังบ้านคุยกับ Gemini
+    function callCoworkerAPI(inputText) {
+        fetch("{% url 'ops:execute_coworker' %}", {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify({
+                agent_type: currentAgent,
+                input_text: inputText
+            })
+        })
+        .then(response => {
+            if (!response.ok) {
+                return response.json().then(err => { throw new Error(err.message || 'เกิดข้อผิดพลาดในการรันงาน') });
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.status === 'success') {
+                // อัปเดตสเต็ปที่ 3 ให้ completed
+                document.getElementById('step-3').className = 'step-item completed';
+                
+                setTimeout(() => {
+                    renderResultTabs(data.result);
+                    document.getElementById('result-section').classList.remove('d-none');
+                    document.getElementById('stepper-section').classList.add('d-none');
+                    
+                    // ปลดล็อกฟอร์มและปุ่มรันงาน
+                    isExecuting = false;
+                    document.getElementById('btn-submit').disabled = false;
+                    
+                    // โหลดหน้าจอใหม่ในส่วนประวัติ เพื่ออัปเดตแถวตารางล่าสุด
+                    refreshHistoryList();
+                }, 800);
+            }
+        })
+        .catch(err => {
+            alert('เกิดข้อผิดพลาด: ' + err.message);
+            isExecuting = false;
+            document.getElementById('btn-submit').disabled = false;
+            document.getElementById('stepper-section').classList.add('d-none');
+        });
+    }
+
+    // แสดงแท็บผลงานของบอทอย่างละเอียด
+    function renderResultTabs(result) {
+        const tabList = document.getElementById('result-tabs');
+        const tabContent = document.getElementById('result-tab-content');
+        
+        tabList.innerHTML = '';
+        tabContent.innerHTML = '';
+
+        if (currentAgent === 'marketing') {
+            const tabs = [
+                { id: 'marketing-plan', label: '1. Content Plan 1 เดือน', content: result.content_plan, format: 'html' },
+                { id: 'marketing-perf', label: '2. แผนวิเคราะห์ Performance', content: result.performance_analysis, format: 'text' },
+                { id: 'marketing-report', label: '3. ร่างรายงานขออนุมัติผู้จัดการ', content: result.manager_report, format: 'text' }
+            ];
+            buildTabs(tabs, tabList, tabContent);
+        } else if (currentAgent === 'sales') {
+            const dashboardHTML = `
+                <div class="row text-center mt-3">
+                    <div class="col-md-3 mb-3">
+                        <div class="p-3 bg-dark rounded-3 border border-secondary">
+                            <h6 class="text-muted small">ชื่อลูกค้า</h6>
+                            <h5 class="text-info font-monospace">${result.dashboard_data.customer_name || 'N/A'}</h5>
+                        </div>
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <div class="p-3 bg-dark rounded-3 border border-secondary">
+                            <h6 class="text-muted small">ข้อมูลติดต่อ</h6>
+                            <h5 class="text-info font-monospace">${result.dashboard_data.contact || 'N/A'}</h5>
+                        </div>
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <div class="p-3 bg-dark rounded-3 border border-secondary">
+                            <h6 class="text-muted small">สินค้าที่สนใจ</h6>
+                            <h5 class="text-warning font-monospace">${result.dashboard_data.interest || 'N/A'}</h5>
+                        </div>
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <div class="p-3 bg-dark rounded-3 border border-secondary">
+                            <h6 class="text-muted small">ระดับความสำคัญ/มูลค่า</h6>
+                            <h5 class="text-success font-monospace">Urgency: ${result.dashboard_data.urgency || 'N/A'} | งบ: ${result.dashboard_data.estimated_value || 'N/A'}</h5>
+                        </div>
+                    </div>
+                </div>
+                <div class="mt-4">
+                    <h6 class="text-warning">รายละเอียด Lead ข้อมูลดิบที่ AI สรุป:</h6>
+                    <div class="mt-2">${result.lead_summary}</div>
+                </div>
+            `;
+            const tabs = [
+                { id: 'sales-summary', label: '1. ข้อมูล Lead จากลูกค้า', content: result.lead_summary, format: 'html' },
+                { id: 'sales-dash', label: '2. ข้อมูลลงบอร์ด Dashboard', content: dashboardHTML, format: 'raw' },
+                { id: 'sales-reply', label: '3. ร่างอีเมลตอบกลับปิดการขาย', content: result.draft_reply, format: 'text' }
+            ];
+            buildTabs(tabs, tabList, tabContent);
+        } else if (currentAgent === 'executive') {
+            const statsHTML = `
+                <div class="row text-center mt-3 mb-4">
+                    <div class="col-md-3 mb-3">
+                        <div class="p-3 bg-dark rounded-3 border border-secondary">
+                            <h6 class="text-muted small">เป้าหมายทั้งหมด</h6>
+                            <h4 class="text-info">${result.stats_grid.เป้าหมายทั้งหมด || result.stats_grid.total_goals || '0'}</h4>
+                        </div>
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <div class="p-3 bg-dark rounded-3 border border-secondary">
+                            <h6 class="text-muted small">เป้าหมายที่ Done</h6>
+                            <h4 class="text-success">${result.stats_grid.เป้าหมายที่เสร็จสิ้น || result.stats_grid.completed_goals || '0'}</h4>
+                        </div>
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <div class="p-3 bg-dark rounded-3 border border-secondary">
+                            <h6 class="text-muted small">เป้าหมายที่ Blocked</h6>
+                            <h4 class="text-danger">${result.stats_grid.เป้าหมายที่ติดขัด || result.stats_grid.blocked_goals || '0'}</h4>
+                        </div>
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <div class="p-3 bg-dark rounded-3 border border-secondary">
+                            <h6 class="text-muted small">อัตราความสำเร็จเฉลี่ย</h6>
+                            <h4 class="text-warning">${result.stats_grid.อัตราความสำเร็จเฉลี่ย || result.stats_grid.avg_success_pct || '0%'}</h4>
+                        </div>
+                    </div>
+                </div>
+            `;
+            const tabs = [
+                { id: 'exec-summary', label: '1. Executive Report', content: result.executive_summary, format: 'markdown' },
+                { id: 'exec-stats', label: '2. สถิติตัวเลขรายฝ่าย', content: statsHTML + result.executive_summary, format: 'raw' },
+                { id: 'exec-slack', label: '3. ร่างแจ้งเตือนใน Slack', content: `<div class="bg-dark p-3 text-info font-monospace rounded-3 border border-secondary" style="white-space: pre-wrap;">${result.slack_draft}</div>`, format: 'raw', copyText: result.slack_draft },
+                { id: 'exec-email', label: '4. ร่างอีเมลสรุปถึงผู้บริหาร', content: result.email_draft, format: 'text' }
+            ];
+            buildTabs(tabs, tabList, tabContent);
+        }
+    }
+
+    // สร้างเมนูแท็บย่อย
+    function buildTabs(tabs, listEl, contentEl) {
+        tabs.forEach((tab, index) => {
+            const isActive = index === 0 ? 'active' : '';
+            
+            // สร้างปุ่มแท็บ
+            const li = document.createElement('li');
+            li.className = 'nav-item';
+            li.innerHTML = `
+                <button class="nav-link tab-btn-dark ${isActive}" id="${tab.id}-tab" data-bs-toggle="tab" data-bs-target="#${tab.id}" type="button" role="tab" aria-selected="${index === 0}">
+                    ${tab.label}
+                </button>
+            `;
+            listEl.appendChild(li);
+
+            // สร้างพาเนลเนื้อหา
+            const panel = document.createElement('div');
+            panel.className = `tab-pane fade show ${isActive}`;
+            panel.id = tab.id;
+            panel.setAttribute('role', 'tabpanel');
+            
+            let formattedContent = '';
+            let rawText = tab.copyText || tab.content;
+            if (tab.format === 'html') {
+                formattedContent = `<div>${tab.content}</div>`;
+            } else if (tab.format === 'markdown') {
+                // จำลองการแสดงผลแปลงหัวข้อ Markdown เป็น HTML อย่างง่าย
+                let html = tab.content
+                    .replace(/\n\n/g, '<br><br>')
+                    .replace(/\n/g, '<br>')
+                    .replace(/### (.*?)(?:<br>|$)/g, '<h5 class="text-warning mt-4 mb-2">$1</h5>')
+                    .replace(/## (.*?)(?:<br>|$)/g, '<h4 class="text-warning mt-4 mb-3 pb-2 border-bottom border-secondary">$1</h4>')
+                    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+                    .replace(/- (.*?)(?:<br>|$)/g, '<li>$1</li>');
+                formattedContent = `<div>${html}</div>`;
+            } else if (tab.format === 'raw') {
+                formattedContent = tab.content;
+            } else {
+                formattedContent = `<div style="white-space: pre-wrap;">${tab.content}</div>`;
+            }
+
+            panel.innerHTML = `
+                <div class="position-relative">
+                    <div class="text-end mb-3">
+                        <button class="btn copy-btn" onclick="copyTextToClipboard(this, \`${rawText.replace(/`/g, '\\`').replace(/\$/g, '\\$')}\`)">
+                            <i class="far fa-copy me-1"></i> คัดลอกผลลัพธ์
+                        </button>
+                    </div>
+                    <div class="output-box">${formattedContent}</div>
+                </div>
+            `;
+            contentEl.appendChild(panel);
+        });
+    }
+
+    // รีเซ็ตการทำงาน
+    function resetResult() {
+        document.getElementById('result-section').classList.add('d-none');
+        // เคลียร์ค่าฟอร์มนำเข้าข้อมูล
+        document.getElementById('input-marketing').value = '';
+        document.getElementById('input-sales').value = '';
+    }
+
+    // ฟังก์ชันช่วยคัดลอกข้อความ
+    function copyTextToClipboard(btn, text) {
+        navigator.clipboard.writeText(text).then(function() {
+            const originalHTML = btn.innerHTML;
+            btn.innerHTML = '<i class="fas fa-check text-success"></i> คัดลอกแล้ว!';
+            btn.classList.add('btn-success');
+            setTimeout(() => {
+                btn.innerHTML = originalHTML;
+                btn.classList.remove('btn-success');
+            }, 2000);
+        }).catch(err => {
+            console.error('คัดลอกไม่สำเร็จ', err);
+        });
+    }
+
+    // ดึงประวัติการรันงานจากฐานข้อมูลและแสดงใน Modal
+    function loadLogHistory(logId) {
+        fetch(`/ops/coworkers/history/${logId}/`)
+        .then(response => response.json())
+        .then(data => {
+            const modalTitle = document.getElementById('modal-agent-name');
+            const modalBody = document.getElementById('modal-content-body');
+            
+            modalTitle.textContent = `${data.agent_display} — ดำเนินงานโดย ${data.user} (${data.created_at})`;
+            
+            let outputHTML = '';
+            const res = data.output_data;
+            
+            if (data.agent_type === 'marketing') {
+                outputHTML = `
+                    <div class="mb-4">
+                        <h6 class="text-muted small text-uppercase">แคมเปญนำเข้า:</h6>
+                        <blockquote class="blockquote bg-dark p-3 rounded text-info small border-start border-warning border-4">${data.input_data}</blockquote>
+                    </div>
+                    
+                    <h6 class="text-warning fw-bold border-bottom pb-2 mt-4"><i class="fas fa-calendar-alt me-1"></i> 1. แผนงานคอนเทนต์ 4 สัปดาห์:</h6>
+                    <div class="bg-dark p-3 rounded mb-4 overflow-auto border border-secondary">${res.content_plan}</div>
+                    
+                    <h6 class="text-warning fw-bold border-bottom pb-2 mt-4"><i class="fas fa-chart-line me-1"></i> 2. บทวิเคราะห์ Performance:</h6>
+                    <div class="bg-dark p-3 rounded mb-4 border border-secondary" style="white-space: pre-wrap;">${res.performance_analysis}</div>
+                    
+                    <h6 class="text-warning fw-bold border-bottom pb-2 mt-4"><i class="fas fa-file-alt me-1"></i> 3. ร่างรายงานส่งหัวหน้า:</h6>
+                    <div class="bg-dark p-3 rounded border border-secondary" style="white-space: pre-wrap;">${res.manager_report}</div>
+                `;
+            } else if (data.agent_type === 'sales') {
+                outputHTML = `
+                    <div class="mb-4">
+                        <h6 class="text-muted small text-uppercase">ข้อความดิบลูกค้า:</h6>
+                        <blockquote class="blockquote bg-dark p-3 rounded text-info small border-start border-info border-4" style="white-space: pre-wrap;">${data.input_data}</blockquote>
+                    </div>
+                    
+                    <h6 class="text-warning fw-bold border-bottom pb-2"><i class="fas fa-info-circle me-1"></i> 1. สรุปข้อมูลลูกค้า (Lead Summary):</h6>
+                    <div class="bg-dark p-3 rounded mb-4 border border-secondary">${res.lead_summary}</div>
+                    
+                    <h6 class="text-warning fw-bold border-bottom pb-2 mt-4"><i class="fas fa-tachometer-alt me-1"></i> 2. ข้อมูลสำหรับ Dashboard:</h6>
+                    <div class="row text-center mb-4 mt-2">
+                        <div class="col-6 col-md-3 mb-2">
+                            <div class="bg-dark p-2 rounded border border-secondary">
+                                <span class="text-muted small">ชื่อลูกค้า</span><br>
+                                <strong class="text-info font-monospace">${res.dashboard_data.customer_name || 'N/A'}</strong>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-3 mb-2">
+                            <div class="bg-dark p-2 rounded border border-secondary">
+                                <span class="text-muted small">ติดต่อ</span><br>
+                                <strong class="text-info font-monospace">${res.dashboard_data.contact || 'N/A'}</strong>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-3 mb-2">
+                            <div class="bg-dark p-2 rounded border border-secondary">
+                                <span class="text-muted small">ความสนใจ</span><br>
+                                <strong class="text-warning font-monospace">${res.dashboard_data.interest || 'N/A'}</strong>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-3 mb-2">
+                            <div class="bg-dark p-2 rounded border border-secondary">
+                                <span class="text-muted small">ด่วน/มูลค่า</span><br>
+                                <strong class="text-success font-monospace">Urgency: ${res.dashboard_data.urgency || 'N/A'}</strong>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <h6 class="text-warning fw-bold border-bottom pb-2 mt-4"><i class="fas fa-reply me-1"></i> 3. ร่างคำตอบปิดการขาย:</h6>
+                    <div class="bg-dark p-3 rounded border border-secondary" style="white-space: pre-wrap;">${res.draft_reply}</div>
+                `;
+            } else if (data.agent_type === 'executive') {
+                outputHTML = `
+                    <h6 class="text-warning fw-bold border-bottom pb-2"><i class="fas fa-file-alt me-1"></i> 1. บทสรุปรายงานประจำสัปดาห์ (Executive Summary):</h6>
+                    <div class="bg-dark p-3 rounded mb-4 border border-secondary" style="white-space: pre-wrap;">${res.executive_summary}</div>
+                    
+                    <h6 class="text-warning fw-bold border-bottom pb-2 mt-4"><i class="fas fa-chart-pie me-1"></i> 2. สถิติภาพรวม:</h6>
+                    <div class="row text-center mb-4 mt-2">
+                        <div class="col-3">
+                            <div class="bg-dark p-2 rounded border border-secondary">
+                                <span class="text-muted small">เป้าหมายทั้งหมด</span><br>
+                                <strong class="text-info">${res.stats_grid.เป้าหมายทั้งหมด || res.stats_grid.total_goals || '0'}</strong>
+                            </div>
+                        </div>
+                        <div class="col-3">
+                            <div class="bg-dark p-2 rounded border border-secondary">
+                                <span class="text-muted small"> Done</span><br>
+                                <strong class="text-success">${res.stats_grid.เป้าหมายที่เสร็จสิ้น || res.stats_grid.completed_goals || '0'}</strong>
+                            </div>
+                        </div>
+                        <div class="col-3">
+                            <div class="bg-dark p-2 rounded border border-secondary">
+                                <span class="text-muted small"> Blocked</span><br>
+                                <strong class="text-danger">${res.stats_grid.เป้าหมายที่ติดขัด || res.stats_grid.blocked_goals || '0'}</strong>
+                            </div>
+                        </div>
+                        <div class="col-3">
+                            <div class="bg-dark p-2 rounded border border-secondary">
+                                <span class="text-muted small">ความสำเร็จเฉลี่ย</span><br>
+                                <strong class="text-warning">${res.stats_grid.อัตราความสำเร็จเฉลี่ย || res.stats_grid.avg_success_pct || '0%'}</strong>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <h6 class="text-warning fw-bold border-bottom pb-2 mt-4"><i class="fab fa-slack me-1"></i> 3. ข้อความแชร์ในกลุ่ม Slack:</h6>
+                    <div class="bg-dark p-3 text-info font-monospace rounded mb-4 border border-secondary" style="white-space: pre-wrap;">${res.slack_draft}</div>
+                    
+                    <h6 class="text-warning fw-bold border-bottom pb-2 mt-4"><i class="fas fa-envelope me-1"></i> 4. ร่างอีเมลส่งผู้บริหาร:</h6>
+                    <div class="bg-dark p-3 rounded border border-secondary" style="white-space: pre-wrap;">${res.email_draft}</div>
+                `;
+            }
+            
+            modalBody.innerHTML = outputHTML;
+            
+            // เปิดแสดง Modal
+            const myModal = new bootstrap.Modal(document.getElementById('historyModal'));
+            myModal.show();
+        })
+        .catch(err => {
+            alert('ไม่สามารถดึงข้อมูลประวัติได้: ' + err.message);
+        });
+    }
+
+    // รีเฟรชตารางประวัติล่าลุด (ดึงข้อมูลแบบ AJAX ด่วนมาอัปเดตตารางโดยไม่ต้องโหลดทั้งหน้า)
+    function refreshHistoryList() {
+        // ใช้ Location Reload เพื่อความแม่นยำในการอัปเดตตารางประวัติจาก View ดั้งเดิม
+        window.location.reload();
+    }
+</script>
+{% endblock %}

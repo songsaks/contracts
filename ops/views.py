@@ -17,6 +17,7 @@ from .models import (
     MeetingIdea,
     MeetingParticipant,
     WeeklyGoal,
+    AICoworkerLog,
 )
 
 
@@ -474,3 +475,188 @@ def task_kanban(request):
         'done': done,
         'blocked': blocked
     })
+
+
+# ====== AI Co-workers Views ======
+
+@login_required
+def coworker_hub(request):
+    """ศูนย์ปฏิบัติการเพื่อนร่วมงาน AI"""
+    logs = AICoworkerLog.objects.filter(user=request.user).order_by('-created_at')[:15]
+    all_logs = AICoworkerLog.objects.all().order_by('-created_at')[:30] # สำหรับประวัติทั้งหมด
+    
+    # สถิติง่ายๆ แสดงในแดชบอร์ด
+    goals_count = WeeklyGoal.objects.count()
+    tasks_count = ActionTask.objects.count()
+    
+    return render(request, 'ops/coworker_hub.html', {
+        'logs': logs,
+        'all_logs': all_logs,
+        'goals_count': goals_count,
+        'tasks_count': tasks_count,
+    })
+
+
+@login_required
+def coworker_history_detail(request, log_id):
+    """ดึงข้อมูลรายละเอียดและผลลัพธ์ประวัติการรันในอดีต (AJAX)"""
+    log = get_object_or_404(AICoworkerLog, id=log_id)
+    return JsonResponse({
+        'id': log.id,
+        'agent_type': log.agent_type,
+        'agent_display': log.get_agent_type_display(),
+        'input_data': log.input_data,
+        'output_data': log.output_data,
+        'created_at': log.created_at.strftime('%d/%m/%Y %H:%M'),
+        'user': log.user.username
+    })
+
+
+@login_required
+def execute_coworker(request):
+    """ส่งคำสั่งให้เอเจนต์ AI เพื่อนร่วมงานประมวลผลงานแบบหลายขั้นตอน (AJAX)"""
+    if request.method != 'POST':
+        return JsonResponse({'status': 'error', 'message': 'Method not allowed'}, status=405)
+        
+    try:
+        import os
+        import google.genai as genai
+        from google.genai import types
+        from django.conf import settings
+        
+        # ดึง API Key
+        api_key = getattr(settings, "GEMINI_API_KEY", os.environ.get('GEMINI_API_KEY', None))
+        if not api_key:
+            return JsonResponse({
+                'status': 'error', 
+                'message': 'กรุณาตั้งค่า GEMINI_API_KEY ในระบบก่อนใช้งาน'
+            }, status=400)
+            
+        data = json.loads(request.body)
+        agent_type = data.get('agent_type')
+        input_text = data.get('input_text', '').strip()
+        
+        if agent_type not in ['marketing', 'sales', 'executive']:
+            return JsonResponse({'status': 'error', 'message': 'ระบุประเภทเอเจนต์ไม่ถูกต้อง'}, status=400)
+            
+        if agent_type != 'executive' and not input_text:
+            return JsonResponse({'status': 'error', 'message': 'กรุณากรอกข้อมูลนำเข้าสำหรับเอเจนต์'}, status=400)
+            
+        client = genai.Client(api_key=api_key)
+        
+        # 1. จัดเตรียม System Instruction และ Prompt ตามเอเจนต์
+        if agent_type == 'marketing':
+            system_instruction = (
+                "คุณคือ 'Marketing Automation Agent' เพื่อนร่วมงาน AI ผู้เชี่ยวชาญด้านการวางแผนการตลาดดิจิทัลและสร้างสรรค์คอนเทนต์.\n"
+                "คุณมีหน้าที่ทำงาน 3 ขั้นตอนดังนี้:\n"
+                "1. วางแผน Content Plan สำหรับ 1 เดือน (4 สัปดาห์ สัปดาห์ละ 2 โพสต์ รวม 8 โพสต์) สำหรับหัวข้อหรือแคมเปญที่ได้รับ โดยแสดงรายละเอียดในแต่ละโพสต์\n"
+                "2. วิเคราะห์ช่องทางการโปรโมทและกลยุทธ์เพื่อให้แคมเปญนี้มีประสิทธิภาพสูงสุด (Performance Analysis)\n"
+                "3. ร่างรายงานสรุปแคมเปญและตารางเวลาสำหรับส่งต่อให้ผู้จัดการฝ่ายการตลาด (Manager Report)\n\n"
+                "โปรดตอบกลับเป็นข้อมูลรูปแบบ JSON เท่านั้น ห้ามใส่ข้อความนอก JSON ห้ามมี markdown wrap เช่น ```json ... ``` โดยตรงในผลลัพธ์ (หรือถ้ามี ต้องเป็น JSON ที่สมบูรณ์แบบ)\n"
+                "โครงสร้าง JSON ต้องประกอบด้วย key ดังนี้:\n"
+                "- 'content_plan': โครงสร้างเนื้อหาแผนงานรายสัปดาห์ (สัปดาห์ที่ 1-4, หัวข้อโพสต์, แคปชั่น/คำบรรยาย, แฮชแท็ก, ไอเดียภาพประกอบ) ในรูปแบบ Markdown หรือ HTML\n"
+                "- 'performance_analysis': สรุปกลยุทธ์การวิเคราะห์ช่องทางการตลาดที่คุ้มค่าและแนะนำการวัดผลการเข้าถึง\n"
+                "- 'manager_report': ร่างจดหมายหรือบันทึกข้อความเพื่อขออนุมัติแคมเปญการตลาดนี้ต่อผู้จัดการ\n\n"
+                "ตอบเป็นภาษาไทยทั้งหมด"
+            )
+            prompt = f"หัวข้อแคมเปญการตลาด: {input_text}"
+            
+        elif agent_type == 'sales':
+            system_instruction = (
+                "คุณคือ 'Sales Intelligence Agent' เพื่อนร่วมงาน AI ด้านการขายและจัดการข้อมูลลูกค้า.\n"
+                "คุณมีหน้าที่ทำงาน 3 ขั้นตอนดังนี้:\n"
+                "1. อ่านสกัดข้อมูลและประเมิน Lead (ชื่อลูกค้า, ข้อมูลติดต่อ, สินค้าที่สนใจ, ระดับความเร่งด่วน [High/Medium/Low], งบประมาณโดยประมาณ) จากข้อความดิบที่ได้รับ\n"
+                "2. แปลงข้อมูลลงตารางวิเคราะห์เพื่อเข้าแดชบอร์ด\n"
+                "3. ร่างข้อความตอบกลับเพื่อส่งให้ลูกค้า (Professional Draft Reply) ทั้งในภาษาไทยและภาษาอังกฤษ\n\n"
+                "โปรดตอบกลับเป็นข้อมูลรูปแบบ JSON เท่านั้น\n"
+                "โครงสร้าง JSON ต้องประกอบด้วย key ดังนี้:\n"
+                "- 'lead_summary': สรุปข้อมูลที่ได้ในรูปแบบตารางสวยงาม (HTML หรือ Markdown)\n"
+                "- 'dashboard_data': ออบเจกต์ JSON ย่อยที่มีฟิลด์ (customer_name, contact, interest, urgency, estimated_value)\n"
+                "- 'draft_reply': ข้อความคำตอบของแอดมินหรือเซลส์ที่สุภาพ เป็นมืออาชีพ พร้อมส่ง\n\n"
+                "ตอบเป็นภาษาไทยในส่วนสรุปและวิเคราะห์ และแสดงร่างอีเมลอย่างเป็นทางการ"
+            )
+            prompt = f"ข้อความแชตหรืออีเมลดิบของลูกค้า:\n{input_text}"
+            
+        elif agent_type == 'executive':
+            # ดึงข้อมูลจากฐานข้อมูลของสัปดาห์นี้
+            today = timezone.now().date()
+            start_of_week = today - timezone.timedelta(days=today.weekday())
+            
+            goals = WeeklyGoal.objects.filter(end_date__gte=start_of_week)
+            tasks = ActionTask.objects.filter(due_date__gte=start_of_week)
+            progress_entries = DailyProgress.objects.filter(date__gte=start_of_week)
+            
+            # รวมบริบทข้อมูล
+            context_data = "ข้อมูลปฏิบัติงานจริงสัปดาห์นี้:\n"
+            context_data += "--- เป้าหมายประจำสัปดาห์ (Weekly Goals) ---\n"
+            for g in goals:
+                context_data += f"- [{g.department.name}] {g.title} | สถานะ: {g.get_status_display()} | เป้าหมาย: {g.target_value} {g.unit} | ทำได้จริง: {g.total_actual} {g.unit} (สำเร็จ {g.success_percentage:.1f}%)\n"
+                
+            context_data += "\n--- ปัญหาอุปสรรครายวัน (Obstacles) ---\n"
+            obstacles = progress_entries.exclude(note='').values_list('goal__department__name', 'goal__title', 'employee__username', 'note')
+            for dept, goal_title, emp, note in obstacles:
+                context_data += f"- ฝ่าย: {dept} | งาน: {goal_title} | บันทึกโดย {emp}: {note}\n"
+                
+            context_data += "\n--- งานโครงการย่อย (Action Tasks) ---\n"
+            for t in tasks:
+                context_data += f"- [{t.department.name if t.department else 'ไม่มีฝ่าย'}] {t.title} | ผู้รับผิดชอบ: {t.assigned_to.username if t.assigned_to else 'ยังไม่มอบหมาย'} | สถานะ: {t.get_status_display()} | คืบหน้า: {t.progress_pct}%\n"
+
+            system_instruction = (
+                "คุณคือ 'Executive Reporting Agent' เพื่อนร่วมงาน AI ฝ่ายบริหารจัดการรายงานระดับสูง.\n"
+                "คุณมีหน้าที่ทำงาน 3 ขั้นตอนดังนี้:\n"
+                "1. วิเคราะห์ข้อมูลผลสัมฤทธิ์ สถิติตัวเลข ปัญหาอุปสรรครายวัน และสถานะโครงการทั้งหมดจากบริบทที่ได้รับในสัปดาห์นี้\n"
+                "2. จัดทำรายงานสรุปประจำสัปดาห์ของบริษัท (Executive Weekly Report) โดยวิเคราะห์เปรียบเทียบจุดเด่น คอขวด และข้อเสนอแนะในการปรับปรุง\n"
+                "3. ร่างข้อความสั้นกระชับพร้อม Emoji สำหรับแชร์ใน Slack ทีมบริหาร และร่างอีเมลสรุปแบบเป็นทางการส่งคณะกรรมการบริหาร\n\n"
+                "โปรดตอบกลับเป็นข้อมูลรูปแบบ JSON เท่านั้น\n"
+                "โครงสร้าง JSON ต้องประกอบด้วย key ดังนี้:\n"
+                "- 'executive_summary': บทวิเคราะห์สรุปผลงานระดับผู้บริหารในรูปแบบ Markdown\n"
+                "- 'stats_grid': ข้อมูลสถิติเชิงปริมาณ (เป้าหมายทั้งหมด, เป้าหมายที่เสร็จสิ้น, เป้าหมายที่ติดขัด/Blocked, อัตราความสำเร็จเฉลี่ยในสัปดาห์นี้)\n"
+                "- 'slack_draft': ร่างข้อความสั้นพร้อม Emoji สำหรับแชร์แจ้งข่าวในช่อง Slack ของบริษัท\n"
+                "- 'email_draft': ร่างอีเมลสรุปสัปดาห์อย่างเป็นทางการ\n\n"
+                "ตอบเป็นภาษาไทยทั้งหมด"
+            )
+            prompt = f"ข้อมูลดิบปฏิบัติงานจริงของสัปดาห์นี้:\n{context_data}"
+
+        # เรียกใช้โมเดล Gemini API
+        response = client.models.generate_content(
+            model='gemini-2.0-flash',
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                response_mime_type="application/json",
+                system_instruction=system_instruction,
+                temperature=0.2
+            )
+        )
+        
+        # แกะแปลงข้อมูล JSON
+        text_cleaned = response.text.strip()
+        if text_cleaned.startswith("```json"):
+            text_cleaned = text_cleaned.replace("```json", "", 1)
+        if text_cleaned.endswith("```"):
+            text_cleaned = text_cleaned[:-3].strip()
+        text_cleaned = text_cleaned.strip()
+            
+        result_json = json.loads(text_cleaned)
+            
+        # บันทึกข้อมูลลงฐานข้อมูล
+        log = AICoworkerLog.objects.create(
+            agent_type=agent_type,
+            user=request.user,
+            input_data=input_text if agent_type != 'executive' else "ออโต้สรุปข้อมูลระบบปฏิบัติการประจำสัปดาห์",
+            output_data=result_json
+        )
+        
+        return JsonResponse({
+            'status': 'success',
+            'log_id': log.id,
+            'result': result_json
+        })
+        
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return JsonResponse({
+            'status': 'error', 
+            'message': f"เกิดข้อผิดพลาดในการประมวลผล: {str(e)}"
+        }, status=500)
+

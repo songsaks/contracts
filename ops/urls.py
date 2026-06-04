@@ -33,4 +33,10 @@ urlpatterns = [
     path('tasks/', views.task_list, name='task_list'),
     path('tasks/gantt/', views.task_gantt, name='task_gantt'),
     path('tasks/kanban/', views.task_kanban, name='task_kanban'),
+
+    # --- AI Co-workers ---
+    path('coworkers/', views.coworker_hub, name='coworker_hub'),
+    path('coworkers/execute/', views.execute_coworker, name='execute_coworker'),
+    path('coworkers/history/<int:log_id>/', views.coworker_history_detail, name='coworker_history_detail'),
 ]
+

@@ -150,3 +150,25 @@ class ActionTask(models.Model):
 
     def __str__(self):
         return self.title
+
+
+class AICoworkerLog(models.Model):
+    AGENT_CHOICES = (
+        ('marketing', 'Marketing Automation'),
+        ('sales', 'Sales Intelligence'),
+        ('executive', 'Executive Reporting'),
+    )
+    agent_type = models.CharField(max_length=20, choices=AGENT_CHOICES, verbose_name="ประเภทเอเจนต์")
+    user = models.ForeignKey(User, on_delete=models.CASCADE, verbose_name="ผู้สั่งงาน")
+    input_data = models.TextField(verbose_name="ข้อมูลนำเข้า")
+    output_data = models.JSONField(verbose_name="ผลลัพธ์การทำงาน", blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="วันเวลาที่บันทึก")
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = "บันทึกประวัติเพื่อนร่วมงาน AI"
+        verbose_name_plural = "บันทึกประวัติเพื่อนร่วมงาน AI"
+
+    def __str__(self):
+        return f"{self.get_agent_type_display()} - {self.user.username} ({self.created_at.strftime('%d/%m/%Y %H:%M')})"
+

@@ -4936,17 +4936,7 @@ def precision_momentum_scanner(request):
     """
     from django.utils import timezone as tz
     from yahooquery import Ticker as YQTicker
-
-
-    scan_symbols = get_top_ranked_symbols(market='SET', limit=300, auto_refresh=True)
-    from .models import PrecisionScanCandidate
     from .utils import analyze_momentum_technical_v2, get_top_ranked_symbols
-
-    scan_symbols = get_top_ranked_symbols(market='SET', limit=400, auto_refresh=True)
-
-    if not scan_symbols:
-        refresh_all_thai_symbols()
-        scan_symbols = get_top_ranked_symbols(market='SET', limit=300, auto_refresh=True)
 
     # ====== AJAX Status Poll ======
     if request.GET.get('scan_status') == '1':
@@ -4973,6 +4963,12 @@ def precision_momentum_scanner(request):
         _cur = _cache_bg.get(cache_key, {})
         if _cur.get('state') == 'running':
             return redirect(next_url)
+
+        # โหลด symbols สำหรับสแกนเฉพาะใน POST block ป้องกัน UnboundLocalError และเพิ่มความเร็ว GET
+        scan_symbols = get_top_ranked_symbols(market='SET', limit=400, auto_refresh=True)
+        if not scan_symbols:
+            refresh_all_thai_symbols()
+            scan_symbols = get_top_ranked_symbols(market='SET', limit=400, auto_refresh=True)
 
         _cache_bg.set(cache_key, {'state': 'running', 'progress': 0, 'total': 0, 'phase': 'เตรียมข้อมูล…'}, timeout=900)
 
