@@ -8,7 +8,11 @@
       "Read(//d/DjangoProjects/contracts/**)",
       "Bash(ls -lh /d/DjangoProjects/contracts/stocks/templates/stocks/*.html)",
       "Bash(awk '{print $9, \"\\(\" $5 \"\\)\"}')",
-      "Bash(grep -E \"\\\\.py$\")"
+      "Bash(grep -E \"\\\\.py$\")",
+      "Bash(git rm *)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)"
     ]
   }
 }
