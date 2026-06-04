@@ -4938,6 +4938,9 @@ def precision_momentum_scanner(request):
     from yahooquery import Ticker as YQTicker
     from .utils import analyze_momentum_technical_v2, get_top_ranked_symbols
 
+    # โหลด symbols เบื้องต้นแบบรวดเร็ว (ดึงจาก Cache/DB เดิม) สำหรับใช้ใน context ของ GET request
+    scan_symbols = get_top_ranked_symbols(market='SET', limit=400, auto_refresh=False)
+
     # ====== AJAX Status Poll ======
     if request.GET.get('scan_status') == '1':
         from django.core.cache import cache as _cp
