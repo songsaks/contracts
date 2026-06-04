@@ -72,7 +72,7 @@ def _ai_suggest_team(task_type, teams):
 
     กระบวนการ:
     1. สร้าง prompt ที่มีข้อมูลทีมทั้งหมด (ทักษะ + ภาระงานปัจจุบัน)
-    2. ส่ง prompt ไปยัง Gemini API (model: gemini-2.0-flash)
+    2. ส่ง prompt ไปยัง Gemini API (model: gemini-3-flash-preview)
     3. รับชื่อทีมที่ AI แนะนำมา แล้วจับคู่กับ object ทีมในระบบ
     4. หาก Gemini ล้มเหลว ให้ fallback ไปใช้ _fallback_suggest_team
 

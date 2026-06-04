@@ -12063,7 +12063,7 @@ def api_ai_manual_scan(request):
         response = client.models.generate_content(
             model='gemini-2.5-flash',
             contents=prompt,
-            config={'response_mime_type': 'application/json'}
+            config={'response_mime_type': 'application/json', 'temperature': 0.0}
         )
         
         result_json = json.loads(response.text)

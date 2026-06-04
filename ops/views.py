@@ -236,7 +236,7 @@ def ai_analysis(request):
 
     try:
         client = genai.Client(api_key=api_key)
-        response = client.models.generate_content(model="gemini-2.0-flash", contents=prompt)
+        response = client.models.generate_content(model="gemini-2.5-flash", contents=prompt)
         analysis = response.text
     except Exception as e:
         analysis = f"เกิดข้อผิดพลาดในการติดต่อ AI: {str(e)}"
@@ -601,15 +601,165 @@ def execute_coworker(request):
             for t in tasks:
                 context_data += f"- [{t.department.name if t.department else 'ไม่มีฝ่าย'}] {t.title} | ผู้รับผิดชอบ: {t.assigned_to.username if t.assigned_to else 'ยังไม่มอบหมาย'} | สถานะ: {t.get_status_display()} | คืบหน้า: {t.progress_pct}%\n"
 
+            # ดึงข้อมูลระบบสัญญาเช่า (Contracts System) - ดูอย่างเดียว ไม่มีการแก้ไข
+            contracts_context = "\n--- ข้อมูลสัญญาเช่าและทรัพย์สิน (Contracts & Assets Summary) ---\n"
+            try:
+                from django.db.models import F
+                from rentals.models import Contract, Asset
+                
+                # สถิติสัญญา
+                total_contracts = Contract.objects.count()
+                active_contracts_cnt = Contract.objects.filter(status='ACTIVE').count()
+                completed_contracts_cnt = Contract.objects.filter(status='COMPLETED').count()
+                cancelled_contracts_cnt = Contract.objects.filter(status='CANCELLED').count()
+                
+                # การเงิน
+                total_revenue = Contract.objects.aggregate(Sum('paid_amount'))['paid_amount__sum'] or 0
+                total_receivable = Contract.objects.filter(status='ACTIVE').aggregate(
+                    debt=Sum(F('total_amount') - F('paid_amount'))
+                )['debt'] or 0
+                
+                # สินทรัพย์
+                total_assets = Asset.objects.count()
+                available_assets = Asset.objects.filter(status='AVAILABLE').count()
+                rented_assets = Asset.objects.filter(status='RENTED').count()
+                maintenance_assets = Asset.objects.filter(status='MAINTENANCE').count()
+                
+                contracts_context += f"- สัญญาเช่าทั้งหมด: {total_contracts} ฉบับ (Active: {active_contracts_cnt} | Completed: {completed_contracts_cnt} | Cancelled: {cancelled_contracts_cnt})\n"
+                contracts_context += f"- รายรับรวมทั้งหมด (Total Revenue): {total_revenue:,.2f} บาท\n"
+                contracts_context += f"- ยอดค้างชำระรวม (Total Receivable): {total_receivable:,.2f} บาท\n"
+                contracts_context += f"- ทรัพย์สินทั้งหมด: {total_assets} ชิ้น (Available: {available_assets} | Rented: {rented_assets} | Maintenance: {maintenance_assets})\n"
+                
+                # รายชื่อสัญญาล่าสุด 10 รายการที่เป็น ACTIVE
+                contracts_context += "\n--- รายการสัญญาเช่าที่กำลังดำเนินอยู่ (Active Contracts - Top 10) ---\n"
+                active_list = Contract.objects.filter(status='ACTIVE').order_by('-created_at')[:10]
+                if active_list.exists():
+                    for c in active_list:
+                        contracts_context += f"- สัญญา {c.contract_number} | ผู้เช่า: {c.tenant.agency_name} | ยอดรวม: {c.total_amount:,.2f} บาท | ชำระแล้ว: {c.paid_amount:,.2f} บาท | ค้างชำระ: {c.remaining_amount:,.2f} บาท | สิ้นสุดสัญญา: {c.end_date.strftime('%d/%m/%Y')}\n"
+                else:
+                    contracts_context += "- ไม่มีสัญญาที่กำลังดำเนินอยู่ในขณะนี้\n"
+            except Exception as ex:
+                contracts_context += f"(ไม่สามารถดึงข้อมูลระบบสัญญาเช่าได้: {str(ex)})\n"
+
+            context_data += contracts_context
+
+            # ดึงข้อมูลจากระบบบริหารโครงการ (PMS/Projects) - ดูอย่างเดียว
+            pms_context = "\n--- ข้อมูลบริหารโครงการ (Project Management - PMS) ---\n"
+            try:
+                from pms.models import Project, Customer, Lead
+                
+                total_projects = Project.objects.count()
+                project_types = {}
+                for t_code, t_name in Project.JobType.choices:
+                    project_types[t_name] = Project.objects.filter(job_type=t_code).count()
+                
+                project_status_counts = {}
+                for s_code, s_name in Project.Status.choices:
+                    project_status_counts[s_name] = Project.objects.filter(status=s_code).count()
+                
+                total_leads = Lead.objects.count()
+                lead_status_counts = {}
+                for l_code, l_name in Lead.Status.choices:
+                    lead_status_counts[l_name] = Lead.objects.filter(status=l_code).count()
+                
+                total_customers = Customer.objects.count()
+                
+                pms_context += f"- โครงการทั้งหมด: {total_projects} รายการ\n"
+                pms_context += "  แยกตามประเภทงาน: " + ", ".join([f"{k}: {v}" for k, v in project_types.items() if v > 0]) + "\n"
+                pms_context += "  แยกตามสถานะโครงการ: " + ", ".join([f"{k}: {v}" for k, v in project_status_counts.items() if v > 0]) + "\n"
+                pms_context += f"- ลูกค้าทั้งหมด: {total_customers} ราย\n"
+                pms_context += f"- Leads/ผู้มุ่งหวังทั้งหมด: {total_leads} ราย (สถานะ: " + ", ".join([f"{k}: {v}" for k, v in lead_status_counts.items() if v > 0]) + ")\n"
+                
+                # รายการโครงการล่าสุด 5 รายการ
+                pms_context += "\n--- รายการโครงการล่าสุด (Top 5 Projects) ---\n"
+                recent_projects = Project.objects.order_by('-created_at')[:5]
+                if recent_projects.exists():
+                    for p in recent_projects:
+                        pms_context += f"- งาน: {p.name} | ลูกค้า: {p.customer.name} | ประเภท: {p.get_job_type_display()} | สถานะ: {p.get_status_display()} | กำหนดส่ง: {p.deadline.strftime('%d/%m/%Y') if p.deadline else '—'}\n"
+                else:
+                    pms_context += "- ไม่มีโครงการล่าสุด\n"
+            except Exception as ex:
+                pms_context += f"(ไม่สามารถดึงข้อมูลระบบบริหารโครงการได้: {str(ex)})\n"
+
+            context_data += pms_context
+
+            # ดึงข้อมูลจากระบบวิเคราะห์หุ้น AI (Stocks App) - ดูอย่างเดียว
+            stocks_context = "\n--- ข้อมูลระบบวิเคราะห์หุ้นและพอร์ตการลงทุน (Stocks & Portfolio) ---\n"
+            try:
+                from django.db.models import Count
+                from stocks.models import Portfolio, Watchlist, SoldStock
+                
+                total_portfolio_items = Portfolio.objects.count()
+                total_watchlist_items = Watchlist.objects.count()
+                total_sold_stocks = SoldStock.objects.count()
+                
+                # สรุปกำไร/ขาดทุนสะสม
+                total_profit_loss_thb = SoldStock.objects.aggregate(total=Sum('profit_loss_thb'))['total'] or 0
+                
+                # นับประเภทตลาดในพอร์ต
+                market_counts = {}
+                for m in Portfolio.objects.values('market').annotate(count=Count('market')):
+                    market_counts[m['market']] = m['count']
+                
+                stocks_context += f"- หุ้นในพอร์ตการลงทุน (Portfolio): ถือครอง {total_portfolio_items} รายการ\n"
+                stocks_context += "  แยกตามตลาด: " + ", ".join([f"{k}: {v}" for k, v in market_counts.items()]) + "\n"
+                stocks_context += f"- หุ้นที่ผู้ติดตาม (Watchlist): ติดตาม {total_watchlist_items} รายการ\n"
+                stocks_context += f"- ประวัติการขายหุ้น (Sold History): ขายไปแล้ว {total_sold_stocks} รายการ\n"
+                stocks_context += f"- ผลกำไร/ขาดทุนสะสมจากการเทรด: {total_profit_loss_thb:,.2f} บาท\n"
+                
+                # รายชื่อหุ้นในพอร์ตที่ถืออยู่ (Top 5)
+                stocks_context += "\n--- หุ้นในพอร์ตปัจจุบัน (Top 5 Holdings) ---\n"
+                holdings = Portfolio.objects.order_by('-added_at')[:5]
+                if holdings.exists():
+                    for h in holdings:
+                        stocks_context += f"- หุ้น: {h.symbol} | ตลาด: {h.get_market_display()} | จำนวน: {h.quantity:,.4f} | ราคาทุน: {h.entry_price:,.2f}\n"
+                else:
+                    stocks_context += "- ไม่มีหุ้นในพอร์ตขณะนี้\n"
+            except Exception as ex:
+                stocks_context += f"(ไม่สามารถดึงข้อมูลระบบวิเคราะห์หุ้นได้: {str(ex)})\n"
+
+            context_data += stocks_context
+
+            # ดึงข้อมูลจากระบบรับซ่อม (Repairs App) - ดูอย่างเดียว
+            repairs_context = "\n--- ข้อมูลระบบรับงานซ่อมอุปกรณ์ (Repairs & Maintenance) ---\n"
+            try:
+                from repairs.models import RepairJob, RepairItem, Customer as RepairCustomer
+                
+                total_repair_jobs = RepairJob.objects.count()
+                total_repair_items = RepairItem.objects.count()
+                
+                repair_status_counts = {}
+                for r_code, r_name in RepairItem.STATUS_CHOICES:
+                    repair_status_counts[r_name] = RepairItem.objects.filter(status=r_code).count()
+                    
+                total_repair_customers = RepairCustomer.objects.count()
+                
+                repairs_context += f"- ใบรับงานซ่อมทั้งหมด: {total_repair_jobs} ใบ (ลูกค้าซ่อม: {total_repair_customers} ราย)\n"
+                repairs_context += f"- รายการอุปกรณ์ส่งซ่อมสะสม: {total_repair_items} ชิ้น\n"
+                repairs_context += "  แยกตามสถานะงานซ่อม: " + ", ".join([f"{k}: {v}" for k, v in repair_status_counts.items() if v > 0]) + "\n"
+                
+                # รายการงานซ่อมล่าสุดที่กำลังดำเนินการอยู่ (ไม่ใช่ COMPLETED/CANCELLED)
+                repairs_context += "\n--- รายการงานซ่อมที่กำลังดำเนินการ (Active Repair Items - Top 5) ---\n"
+                active_repairs = RepairItem.objects.exclude(status__in=['COMPLETED', 'CANCELLED']).order_by('-created_at')[:5]
+                if active_repairs.exists():
+                    for item in active_repairs:
+                        repairs_context += f"- ใบงาน: {item.job.job_code} | อุปกรณ์: {item.device.brand.name} {item.device.model} | อาการเสีย: {item.issue_description} | สถานะ: {item.get_status_display()} | ประเมินราคา: {item.price:,.2f} บาท\n"
+                else:
+                    repairs_context += "- ไม่มีงานซ่อมค้างในขณะนี้\n"
+            except Exception as ex:
+                repairs_context += f"(ไม่สามารถดึงข้อมูลระบบรับซ่อมได้: {str(ex)})\n"
+
+            context_data += repairs_context
+
             system_instruction = (
                 "คุณคือ 'Executive Reporting Agent' เพื่อนร่วมงาน AI ฝ่ายบริหารจัดการรายงานระดับสูง.\n"
                 "คุณมีหน้าที่ทำงาน 3 ขั้นตอนดังนี้:\n"
-                "1. วิเคราะห์ข้อมูลผลสัมฤทธิ์ สถิติตัวเลข ปัญหาอุปสรรครายวัน และสถานะโครงการทั้งหมดจากบริบทที่ได้รับในสัปดาห์นี้\n"
-                "2. จัดทำรายงานสรุปประจำสัปดาห์ของบริษัท (Executive Weekly Report) โดยวิเคราะห์เปรียบเทียบจุดเด่น คอขวด และข้อเสนอแนะในการปรับปรุง\n"
+                "1. วิเคราะห์ข้อมูลผลสัมฤทธิ์ สถิติตัวเลข ปัญหาอุปสรรครายวัน สถานะโครงการทั้งหมด สรุปของระบบสัญญาเช่า/การเงินของบริษัท ตลอดจนข้อมูลระบบบริหารโครงการ (PMS) ระบบวิเคราะห์หุ้น/พอร์ตลงทุน (Stocks) และระบบงานรับซ่อม (Repairs) จากบริบทที่ได้รับในสัปดาห์นี้ (วิเคราะห์อย่างเดียวโดยห้ามแก้ไขข้อมูลใดๆ ในระบบ)\n"
+                "2. จัดทำรายงานสรุปประจำสัปดาห์ของบริษัท (Executive Weekly Report) โดยวิเคราะห์เปรียบเทียบจุดเด่น คอขวด และข้อเสนอแนะในการปรับปรุง ทั้งในมุมปฏิบัติงาน (Weekly Goals/Obstacles), โครงการ (PMS), งานรับซ่อม (Repairs), การเงินจากสัญญาเช่า (Rentals) และพอร์ตโฟลิโอการลงทุน (Stocks)\n"
                 "3. ร่างข้อความสั้นกระชับพร้อม Emoji สำหรับแชร์ใน Slack ทีมบริหาร และร่างอีเมลสรุปแบบเป็นทางการส่งคณะกรรมการบริหาร\n\n"
                 "โปรดตอบกลับเป็นข้อมูลรูปแบบ JSON เท่านั้น\n"
                 "โครงสร้าง JSON ต้องประกอบด้วย key ดังนี้:\n"
-                "- 'executive_summary': บทวิเคราะห์สรุปผลงานระดับผู้บริหารในรูปแบบ Markdown\n"
+                "- 'executive_summary': บทวิเคราะห์สรุปผลงานระดับผู้บริหารในรูปแบบ Markdown (รวมถึงวิเคราะห์สรุปผลงานโครงการ PMS, การเงินสัญญาเช่า, งานรับซ่อม และพอร์ตการลงทุน)\n"
                 "- 'stats_grid': ข้อมูลสถิติเชิงปริมาณ (เป้าหมายทั้งหมด, เป้าหมายที่เสร็จสิ้น, เป้าหมายที่ติดขัด/Blocked, อัตราความสำเร็จเฉลี่ยในสัปดาห์นี้)\n"
                 "- 'slack_draft': ร่างข้อความสั้นพร้อม Emoji สำหรับแชร์แจ้งข่าวในช่อง Slack ของบริษัท\n"
                 "- 'email_draft': ร่างอีเมลสรุปสัปดาห์อย่างเป็นทางการ\n\n"
@@ -619,7 +769,7 @@ def execute_coworker(request):
 
         # เรียกใช้โมเดล Gemini API
         response = client.models.generate_content(
-            model='gemini-2.0-flash',
+            model='gemini-2.5-flash',
             contents=prompt,
             config=types.GenerateContentConfig(
                 response_mime_type="application/json",
