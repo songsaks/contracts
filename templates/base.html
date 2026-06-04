@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="th">
 
 <head>
     <meta charset="UTF-8">
@@ -8,27 +8,35 @@
     {% load static %}
     <link rel="icon" type="image/svg+xml" href="{% static 'images/favicon.svg' %}?v=2">
     <link rel="shortcut icon" type="image/svg+xml" href="{% static 'images/favicon.svg' %}?v=2">
+
+    <!-- ① Theme Manager — load FIRST to prevent flash of unstyled content -->
+    <script src="{% static 'js/theme.js' %}"></script>
+
+    <!-- ② Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script>
         tailwind.config = {
+            darkMode: ['selector', '[data-theme="dark"]'],
             theme: {
                 extend: {
                     colors: {
-                        primary: '#3b82f6',
-                        secondary: '#64748b',
+                        primary:   'var(--t-primary)',
+                        secondary: 'var(--t-secondary)',
+                        surface:   'var(--t-surface)',
+                        ttext:     'var(--t-text)',
+                        muted:     'var(--t-text-muted)',
+                        tborder:   'var(--t-border)',
                     }
                 }
             }
         }
     </script>
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700&display=swap');
 
-        body {
-            font-family: 'Inter', sans-serif;
-        }
-    </style>
+    <!-- ③ 9Com Design System -->
+    <link rel="stylesheet" href="{% static 'css/theme.css' %}">
+
+    <!-- ④ Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
     <meta name="mobile-web-app-capable" content="yes">
     
@@ -41,7 +49,7 @@
 
 </head>
 
-<body class="bg-slate-50 text-slate-900 min-h-screen flex flex-col {% if request.resolver_match.app_name == 'repairs' %}font-['Outfit']{% endif %}">
+<body style="background-color:var(--t-bg);color:var(--t-text);" class="min-h-screen flex flex-col font-['Outfit']">
     {% if request.path != '/' and request.resolver_match.url_name != 'login' %}
     <nav class="{% if request.resolver_match.app_name == 'repairs' %}bg-gradient-to-r from-[#2c3e50] to-[#34495e] text-white shadow-md{% elif request.resolver_match.app_name == 'chat' %}bg-gradient-to-r from-indigo-700 to-[#1e1b4b] text-white shadow-md{% elif request.resolver_match.app_name == 'stocks' %}bg-gradient-to-r from-[#1e293b] to-[#0f172a] text-white shadow-md{% else %}bg-gradient-to-r from-[#4e73df] to-[#224abe] text-white shadow-md{% endif %} sticky top-0 z-50">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -178,7 +186,11 @@
                         {% endif %}
                     </div>
                 </div>
-                <div class="flex items-center space-x-4">
+                <div class="flex items-center space-x-3">
+                    <!-- Theme Toggle -->
+                    <button id="t-theme-toggle" data-t-toggle title="Switch Theme" aria-label="Switch Theme">
+                        <i class="fas fa-moon"></i>
+                    </button>
                     {% if user.is_authenticated %}
                     {% if user.is_superuser or user.profile.role in 'admin,manager,hr_payroll' %}
                     <a href="{% url 'accounts:user_list' %}" class="hidden md:flex items-center gap-1.5 text-white/90 hover:text-white px-3 py-1.5 bg-white/10 hover:bg-white/20 rounded-lg text-sm font-medium transition-all mr-2">
@@ -222,9 +234,9 @@
         </div>
     </main>
 
-    <footer class="bg-white border-t border-slate-200 mt-auto">
+    <footer style="background:var(--t-surface);border-top:1px solid var(--t-border);" class="mt-auto">
         <div class="max-w-7xl mx-auto py-6 px-4 overflow-hidden sm:px-6 lg:px-8">
-            <p class="mt-1 text-center text-sm text-slate-400">&copy; 2025 RentalCtrl. All rights reserved.</p>
+            <p class="mt-1 text-center text-sm" style="color:var(--t-text-faint);">&copy; 2025 9Com. All rights reserved.</p>
         </div>
     </footer>
     {% include "pms/chatbot_ui.html" %}

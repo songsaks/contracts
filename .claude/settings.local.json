@@ -7,7 +7,8 @@
       "Bash(xargs grep:*)",
       "Read(//d/DjangoProjects/contracts/**)",
       "Bash(ls -lh /d/DjangoProjects/contracts/stocks/templates/stocks/*.html)",
-      "Bash(awk '{print $9, \"\\(\" $5 \"\\)\"}')"
+      "Bash(awk '{print $9, \"\\(\" $5 \"\\)\"}')",
+      "Bash(grep -E \"\\\\.py$\")"
     ]
   }
 }

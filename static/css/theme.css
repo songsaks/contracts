@@ -1,0 +1,618 @@
+/*
+ * ═══════════════════════════════════════════════════════
+ *  9Com Design System — theme.css  v1.0
+ *  Single source of truth for all Django apps
+ *  Light + Dark mode via [data-theme] on <html>
+ * ═══════════════════════════════════════════════════════
+ */
+
+/* ── 1. Google Fonts ── */
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Noto+Sans+Thai:wght@300;400;500;600;700&display=swap');
+
+/* ══════════════════════════════════════════════════════
+   2. DESIGN TOKENS — Light (default)
+══════════════════════════════════════════════════════ */
+:root,
+[data-theme="light"] {
+    /* ── Backgrounds ── */
+    --t-bg:           #f4f7fe;
+    --t-bg-alt:       #eef1f8;
+    --t-surface:      #ffffff;
+    --t-surface-alt:  #f8faff;
+
+    /* ── Text ── */
+    --t-text:         #1e293b;
+    --t-text-muted:   #64748b;
+    --t-text-faint:   #94a3b8;
+    --t-text-on-accent: #ffffff;
+
+    /* ── Brand / Accent ── */
+    --t-primary:      #4f46e5;
+    --t-primary-hover:#4338ca;
+    --t-primary-dim:  #e0e7ff;
+    --t-secondary:    #7c3aed;
+
+    /* ── Semantic ── */
+    --t-success:      #059669;
+    --t-success-dim:  #d1fae5;
+    --t-danger:       #dc2626;
+    --t-danger-dim:   #fee2e2;
+    --t-warning:      #d97706;
+    --t-warning-dim:  #fef3c7;
+    --t-info:         #0284c7;
+    --t-info-dim:     #e0f2fe;
+
+    /* ── Stocks / Finance ── */
+    --t-positive:     #059669;
+    --t-negative:     #dc2626;
+
+    /* ── Borders ── */
+    --t-border:       #e2e8f0;
+    --t-border-soft:  rgba(0, 0, 0, 0.06);
+
+    /* ── Shadows ── */
+    --t-shadow-sm:    0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.04);
+    --t-shadow-md:    0 4px 15px rgba(0, 0, 0, 0.06);
+    --t-shadow-lg:    0 10px 30px rgba(0, 0, 0, 0.08);
+
+    /* ── Navbar ── */
+    --t-nav-bg:       rgba(255, 255, 255, 0.95);
+    --t-nav-text:     #1e293b;
+    --t-nav-link:     #64748b;
+    --t-nav-link-hover: #1e293b;
+    --t-nav-border:   rgba(0, 0, 0, 0.06);
+
+    /* ── Sidebar ── */
+    --t-sidebar-bg:   linear-gradient(160deg, #1e1b4b 0%, #312e81 50%, #4338ca 100%);
+
+    /* ── Card ── */
+    --t-card-bg:      #ffffff;
+    --t-card-border:  rgba(0, 0, 0, 0.06);
+    --t-card-shadow:  var(--t-shadow-md);
+
+    /* ── Input ── */
+    --t-input-bg:     #ffffff;
+    --t-input-border: #d1d5db;
+    --t-input-text:   #1e293b;
+    --t-input-placeholder: #9ca3af;
+    --t-input-focus:  #4f46e5;
+
+    /* ── Table ── */
+    --t-table-head-bg:  #f1f5f9;
+    --t-table-row-hover: rgba(79, 70, 229, 0.04);
+    --t-table-border:   #e2e8f0;
+
+    /* ── Badge / Chip ── */
+    --t-badge-text:   #1e293b;
+
+    /* ── Misc ── */
+    --t-radius:       0.75rem;
+    --t-radius-sm:    0.5rem;
+    --t-radius-lg:    1rem;
+    --t-transition:   all 0.2s ease;
+}
+
+/* ══════════════════════════════════════════════════════
+   3. DESIGN TOKENS — Dark
+══════════════════════════════════════════════════════ */
+[data-theme="dark"] {
+    /* ── Backgrounds ── */
+    --t-bg:           #090d16;
+    --t-bg-alt:       #0d1117;
+    --t-surface:      rgba(15, 23, 42, 0.85);
+    --t-surface-alt:  rgba(15, 23, 42, 0.55);
+
+    /* ── Text ── */
+    --t-text:         #f1f5f9;
+    --t-text-muted:   #94a3b8;
+    --t-text-faint:   #475569;
+    --t-text-on-accent: #ffffff;
+
+    /* ── Brand / Accent ── */
+    --t-primary:      #6366f1;
+    --t-primary-hover:#818cf8;
+    --t-primary-dim:  rgba(99, 102, 241, 0.15);
+    --t-secondary:    #8b5cf6;
+
+    /* ── Semantic ── */
+    --t-success:      #10b981;
+    --t-success-dim:  rgba(16, 185, 129, 0.12);
+    --t-danger:       #ef4444;
+    --t-danger-dim:   rgba(239, 68, 68, 0.12);
+    --t-warning:      #f59e0b;
+    --t-warning-dim:  rgba(245, 158, 11, 0.12);
+    --t-info:         #38bdf8;
+    --t-info-dim:     rgba(56, 189, 248, 0.12);
+
+    /* ── Stocks / Finance ── */
+    --t-positive:     #10b981;
+    --t-negative:     #ef4444;
+
+    /* ── Borders ── */
+    --t-border:       rgba(255, 255, 255, 0.08);
+    --t-border-soft:  rgba(255, 255, 255, 0.05);
+
+    /* ── Shadows ── */
+    --t-shadow-sm:    0 1px 3px rgba(0, 0, 0, 0.4);
+    --t-shadow-md:    0 4px 20px rgba(0, 0, 0, 0.3);
+    --t-shadow-lg:    0 10px 40px rgba(0, 0, 0, 0.5);
+
+    /* ── Navbar ── */
+    --t-nav-bg:       rgba(9, 13, 22, 0.92);
+    --t-nav-text:     #f1f5f9;
+    --t-nav-link:     #94a3b8;
+    --t-nav-link-hover: #f1f5f9;
+    --t-nav-border:   rgba(255, 255, 255, 0.07);
+
+    /* ── Sidebar ── */
+    --t-sidebar-bg:   linear-gradient(160deg, #030712 0%, #0f172a 50%, #1e293b 100%);
+
+    /* ── Card ── */
+    --t-card-bg:      rgba(15, 23, 42, 0.6);
+    --t-card-border:  rgba(255, 255, 255, 0.07);
+    --t-card-shadow:  var(--t-shadow-lg);
+
+    /* ── Input ── */
+    --t-input-bg:     rgba(15, 23, 42, 0.8);
+    --t-input-border: rgba(255, 255, 255, 0.12);
+    --t-input-text:   #f1f5f9;
+    --t-input-placeholder: #475569;
+    --t-input-focus:  #6366f1;
+
+    /* ── Table ── */
+    --t-table-head-bg:  rgba(15, 23, 42, 0.8);
+    --t-table-row-hover: rgba(99, 102, 241, 0.06);
+    --t-table-border:   rgba(255, 255, 255, 0.07);
+
+    /* ── Badge / Chip ── */
+    --t-badge-text:   #f1f5f9;
+
+    /* ── Misc: unchanged ── */
+    --t-radius:       0.75rem;
+    --t-radius-sm:    0.5rem;
+    --t-radius-lg:    1rem;
+    --t-transition:   all 0.2s ease;
+}
+
+/* ══════════════════════════════════════════════════════
+   4. BACKWARD COMPATIBILITY ALIASES
+   Maps old per-app variable names → new tokens
+══════════════════════════════════════════════════════ */
+:root {
+    /* stocks app old names */
+    --bg-dark:          var(--t-bg);
+    --bg-card:          var(--t-card-bg);
+    --bg-nav:           var(--t-nav-bg);
+    --accent-primary:   var(--t-primary);
+    --accent-secondary: var(--t-secondary);
+    --text-main:        var(--t-text);
+    --text-muted:       var(--t-text-muted);
+    --text-lo:          var(--t-text-faint);
+    --positive:         var(--t-positive);
+    --negative:         var(--t-negative);
+    --border-soft:      var(--t-border);
+    --shadow-premium:   var(--t-shadow-lg);
+
+    /* ops / repairs / pms old names */
+    --bg-light:         var(--t-bg);
+    --card-white:       var(--t-surface);
+    --text-color:       var(--t-text);
+    --border-color:     var(--t-border);
+    --primary-color:    var(--t-primary);
+    --secondary-color:  var(--t-secondary);
+    --primary-light:    var(--t-primary-hover);
+    --primary-dark:     var(--t-primary-hover);
+    --accent-color:     var(--t-primary);
+
+    /* board app old names */
+    --board-bg:         var(--t-bg);
+    --board-primary:    var(--t-primary);
+    --board-dark:       var(--t-primary-hover);
+    --board-light:      var(--t-primary-dim);
+
+    /* payroll app old names */
+    --em:               var(--t-success);
+    --em-d:             var(--t-success);
+    --em-l:             var(--t-success-dim);
+}
+
+/* ══════════════════════════════════════════════════════
+   5. BOOTSTRAP 5 DARK MODE OVERRIDE
+   (applies when data-theme="dark" is also data-bs-theme="dark")
+══════════════════════════════════════════════════════ */
+[data-theme="dark"] {
+    --bs-body-bg:             var(--t-bg);
+    --bs-body-color:          var(--t-text);
+    --bs-border-color:        var(--t-border);
+    --bs-card-bg:             var(--t-card-bg);
+    --bs-card-border-color:   var(--t-card-border);
+    --bs-table-bg:            transparent;
+    --bs-table-border-color:  var(--t-table-border);
+    --bs-table-color:         var(--t-text);
+    --bs-table-striped-bg:    rgba(255, 255, 255, 0.02);
+    --bs-table-hover-bg:      var(--t-table-row-hover);
+    --bs-input-bg:            var(--t-input-bg);
+    --bs-input-color:         var(--t-input-text);
+    --bs-input-border-color:  var(--t-input-border);
+    --bs-modal-bg:            #0f172a;
+    --bs-modal-header-border-color: var(--t-border);
+    --bs-dropdown-bg:         #0f172a;
+    --bs-dropdown-border-color: var(--t-border);
+    --bs-dropdown-link-color: var(--t-text);
+    --bs-dropdown-link-hover-bg: rgba(99,102,241,0.1);
+    --bs-dropdown-link-hover-color: var(--t-text);
+    --bs-nav-tabs-border-color: var(--t-border);
+    --bs-nav-link-color:      var(--t-text-muted);
+    --bs-secondary-color:     var(--t-text-muted);
+    --bs-tertiary-color:      var(--t-text-faint);
+    --bs-secondary-bg:        rgba(255, 255, 255, 0.04);
+    --bs-tertiary-bg:         rgba(255, 255, 255, 0.02);
+    --bs-emphasis-color:      var(--t-text);
+    --bs-link-color:          var(--t-primary);
+    --bs-link-hover-color:    var(--t-primary-hover);
+    --bs-primary-rgb:         99, 102, 241;
+    --bs-success-rgb:         16, 185, 129;
+    --bs-danger-rgb:          239, 68, 68;
+    --bs-warning-rgb:         245, 158, 11;
+    --bs-info-rgb:            56, 189, 248;
+}
+
+/* ══════════════════════════════════════════════════════
+   6. UNIVERSAL BASE STYLES
+   Applied on every page regardless of app
+══════════════════════════════════════════════════════ */
+*, *::before, *::after {
+    box-sizing: border-box;
+}
+
+html {
+    scroll-behavior: smooth;
+    -webkit-text-size-adjust: 100%;
+}
+
+body {
+    font-family: 'Outfit', 'Noto Sans Thai', system-ui, sans-serif;
+    background-color: var(--t-bg);
+    color: var(--t-text);
+    min-height: 100vh;
+    transition: background-color 0.25s ease, color 0.25s ease;
+    -webkit-font-smoothing: antialiased;
+}
+
+/* ══════════════════════════════════════════════════════
+   7. UTILITY CLASSES  (prefix: t-)
+   Works in both Bootstrap and Tailwind pages
+══════════════════════════════════════════════════════ */
+
+/* Backgrounds */
+.t-bg         { background-color: var(--t-bg) !important; }
+.t-surface    { background-color: var(--t-surface) !important; }
+
+/* Text */
+.t-text       { color: var(--t-text) !important; }
+.t-text-muted { color: var(--t-text-muted) !important; }
+.t-text-pos   { color: var(--t-positive) !important; }
+.t-text-neg   { color: var(--t-negative) !important; }
+
+/* Border */
+.t-border     { border-color: var(--t-border) !important; }
+
+/* ── Card ── */
+.t-card {
+    background: var(--t-card-bg);
+    border: 1px solid var(--t-card-border);
+    border-radius: var(--t-radius);
+    box-shadow: var(--t-shadow-md);
+    transition: var(--t-transition);
+}
+.t-card:hover {
+    box-shadow: var(--t-shadow-lg);
+    transform: translateY(-1px);
+}
+
+/* ── Table ── */
+.t-table {
+    color: var(--t-text);
+    border-color: var(--t-table-border);
+}
+.t-table thead th {
+    background: var(--t-table-head-bg);
+    color: var(--t-text-muted);
+    border-bottom-color: var(--t-border);
+    font-weight: 600;
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+.t-table tbody tr {
+    border-bottom: 1px solid var(--t-table-border);
+    transition: background 0.15s ease;
+}
+.t-table tbody tr:hover {
+    background: var(--t-table-row-hover);
+}
+.t-table td, .t-table th {
+    color: var(--t-text);
+    border-color: var(--t-table-border);
+}
+
+/* ── Badge (visible on both themes) ── */
+.t-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.2em 0.65em;
+    font-size: 0.75rem;
+    font-weight: 600;
+    border-radius: 999px;
+    color: var(--t-badge-text);
+}
+.t-badge-success { background: var(--t-success-dim); color: var(--t-success); }
+.t-badge-danger  { background: var(--t-danger-dim);  color: var(--t-danger); }
+.t-badge-warning { background: var(--t-warning-dim); color: var(--t-warning); }
+.t-badge-info    { background: var(--t-info-dim);    color: var(--t-info); }
+.t-badge-primary { background: var(--t-primary-dim); color: var(--t-primary); }
+
+/* ── Form controls ── */
+.t-input {
+    background: var(--t-input-bg);
+    border: 1px solid var(--t-input-border);
+    color: var(--t-input-text);
+    border-radius: var(--t-radius-sm);
+    padding: 0.5rem 0.85rem;
+    width: 100%;
+    font-size: 0.9rem;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.t-input::placeholder { color: var(--t-input-placeholder); }
+.t-input:focus {
+    outline: none;
+    border-color: var(--t-input-focus);
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+}
+
+/* ── Button ── */
+.t-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4em;
+    padding: 0.5rem 1.1rem;
+    border-radius: var(--t-radius-sm);
+    font-size: 0.875rem;
+    font-weight: 600;
+    border: none;
+    cursor: pointer;
+    transition: var(--t-transition);
+    text-decoration: none;
+}
+.t-btn-primary {
+    background: var(--t-primary);
+    color: var(--t-text-on-accent);
+}
+.t-btn-primary:hover {
+    background: var(--t-primary-hover);
+    color: var(--t-text-on-accent);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.35);
+}
+.t-btn-outline {
+    background: transparent;
+    border: 1.5px solid var(--t-border);
+    color: var(--t-text);
+}
+.t-btn-outline:hover {
+    border-color: var(--t-primary);
+    color: var(--t-primary);
+}
+
+/* ── Theme Toggle Button ── */
+#t-theme-toggle {
+    background: transparent;
+    border: 1.5px solid var(--t-border);
+    color: var(--t-text-muted);
+    border-radius: 999px;
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: var(--t-transition);
+    flex-shrink: 0;
+}
+#t-theme-toggle:hover {
+    border-color: var(--t-primary);
+    color: var(--t-primary);
+    background: var(--t-primary-dim);
+}
+
+/* ══════════════════════════════════════════════════════
+   8. BOOTSTRAP 5 COMPONENT OVERRIDES (theme-aware)
+   Applied when Bootstrap is loaded
+══════════════════════════════════════════════════════ */
+
+/* Card */
+.card {
+    background-color: var(--t-card-bg);
+    border-color: var(--t-card-border);
+    box-shadow: var(--t-shadow-sm);
+    border-radius: var(--t-radius) !important;
+}
+.card-header, .card-footer {
+    background-color: transparent;
+    border-color: var(--t-border);
+}
+.card-body { color: var(--t-text); }
+
+/* Form controls */
+.form-control, .form-select {
+    background-color: var(--t-input-bg);
+    border-color: var(--t-input-border);
+    color: var(--t-input-text);
+    border-radius: var(--t-radius-sm) !important;
+}
+.form-control::placeholder { color: var(--t-input-placeholder); }
+.form-control:focus, .form-select:focus {
+    background-color: var(--t-input-bg);
+    color: var(--t-input-text);
+    border-color: var(--t-input-focus);
+    box-shadow: 0 0 0 0.2rem rgba(99, 102, 241, 0.2);
+}
+.form-label { color: var(--t-text); font-weight: 500; }
+
+/* Table */
+.table {
+    color: var(--t-text);
+    border-color: var(--t-table-border);
+}
+.table thead th {
+    background-color: var(--t-table-head-bg);
+    color: var(--t-text-muted);
+    border-bottom-color: var(--t-border);
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    font-weight: 600;
+}
+.table > :not(caption) > * > * {
+    border-bottom-color: var(--t-table-border);
+    color: var(--t-text);
+    background-color: transparent;
+}
+.table-hover > tbody > tr:hover > * {
+    background-color: var(--t-table-row-hover);
+    color: var(--t-text);
+}
+.table-striped > tbody > tr:nth-of-type(odd) > * {
+    background-color: rgba(0,0,0,0.015);
+}
+[data-theme="dark"] .table-striped > tbody > tr:nth-of-type(odd) > * {
+    background-color: rgba(255,255,255,0.015);
+}
+
+/* Modal */
+.modal-content {
+    background-color: var(--t-surface);
+    border-color: var(--t-border);
+    border-radius: var(--t-radius-lg) !important;
+    box-shadow: var(--t-shadow-lg);
+}
+.modal-header {
+    border-bottom-color: var(--t-border);
+    color: var(--t-text);
+}
+.modal-footer { border-top-color: var(--t-border); }
+.modal-title { color: var(--t-text); }
+
+/* Dropdown */
+.dropdown-menu {
+    background-color: var(--t-surface);
+    border-color: var(--t-border);
+    border-radius: var(--t-radius);
+    box-shadow: var(--t-shadow-lg);
+}
+.dropdown-item {
+    color: var(--t-text);
+    border-radius: calc(var(--t-radius) - 4px);
+}
+.dropdown-item:hover, .dropdown-item:focus {
+    background-color: var(--t-primary-dim);
+    color: var(--t-primary);
+}
+.dropdown-divider { border-color: var(--t-border); }
+
+/* Nav / Tabs */
+.nav-tabs { border-bottom-color: var(--t-border); }
+.nav-tabs .nav-link { color: var(--t-text-muted); border-radius: var(--t-radius-sm) var(--t-radius-sm) 0 0; }
+.nav-tabs .nav-link:hover { color: var(--t-text); border-color: var(--t-border); }
+.nav-tabs .nav-link.active {
+    background-color: var(--t-surface);
+    border-color: var(--t-border);
+    color: var(--t-primary);
+}
+.nav-pills .nav-link { color: var(--t-text-muted); border-radius: var(--t-radius-sm); }
+.nav-pills .nav-link.active {
+    background-color: var(--t-primary);
+    color: var(--t-text-on-accent);
+}
+
+/* Alert */
+.alert {
+    border-radius: var(--t-radius) !important;
+    border: 1px solid transparent;
+}
+.alert-success { background: var(--t-success-dim); color: var(--t-success); border-color: var(--t-success-dim); }
+.alert-danger  { background: var(--t-danger-dim);  color: var(--t-danger);  border-color: var(--t-danger-dim); }
+.alert-warning { background: var(--t-warning-dim); color: var(--t-warning); border-color: var(--t-warning-dim); }
+.alert-info    { background: var(--t-info-dim);    color: var(--t-info);    border-color: var(--t-info-dim); }
+
+/* Badge (Bootstrap) */
+.badge {
+    font-weight: 600;
+    padding: 0.3em 0.65em;
+    border-radius: 999px;
+}
+
+/* List group */
+.list-group-item {
+    background-color: var(--t-surface);
+    border-color: var(--t-border);
+    color: var(--t-text);
+}
+.list-group-item:hover { background-color: var(--t-surface-alt); }
+.list-group-item.active {
+    background-color: var(--t-primary);
+    border-color: var(--t-primary);
+    color: var(--t-text-on-accent);
+}
+
+/* Breadcrumb */
+.breadcrumb-item { color: var(--t-text-muted); }
+.breadcrumb-item.active { color: var(--t-text); }
+.breadcrumb-item + .breadcrumb-item::before { color: var(--t-text-faint); }
+
+/* Progress */
+.progress {
+    background-color: var(--t-border);
+    border-radius: 999px;
+}
+
+/* Pagination */
+.page-link {
+    background-color: var(--t-surface);
+    border-color: var(--t-border);
+    color: var(--t-text);
+    border-radius: var(--t-radius-sm) !important;
+}
+.page-link:hover {
+    background-color: var(--t-primary-dim);
+    color: var(--t-primary);
+    border-color: var(--t-primary);
+}
+.page-item.active .page-link {
+    background-color: var(--t-primary);
+    border-color: var(--t-primary);
+}
+
+/* ══════════════════════════════════════════════════════
+   9. SCROLLBAR (theme-aware, WebKit)
+══════════════════════════════════════════════════════ */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+    background: var(--t-border);
+    border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover { background: var(--t-text-faint); }
+
+/* ══════════════════════════════════════════════════════
+   10. TRANSITION (smooth theme switch)
+══════════════════════════════════════════════════════ */
+body, .card, .modal-content, .dropdown-menu,
+.navbar, nav, .list-group-item, .form-control,
+.form-select, .table, .alert {
+    transition: background-color 0.25s ease,
+                border-color 0.25s ease,
+                color 0.2s ease,
+                box-shadow 0.25s ease;
+}

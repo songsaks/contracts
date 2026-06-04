@@ -1,20 +1,28 @@
 <!DOCTYPE html>
 <html lang="th">
 <head>
+  {% load static %}
+  <!-- ① Theme Manager -->
+  <script src="{% static 'js/theme.js' %}"></script>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{% block title %}Payroll System{% endblock %}</title>
+  <!-- ② Tailwind -->
   <script src="https://cdn.tailwindcss.com"></script>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;500;600;700;800;900&family=Outfit:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+  <!-- ③ 9Com Design System -->
+  <link rel="stylesheet" href="{% static 'css/theme.css' %}">
+  <!-- ④ Font Awesome -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
   <style>
     * { font-family: 'Noto Sans Thai', 'Outfit', sans-serif; }
     :root {
-      --em: #10b981; --em-d: #059669; --em-l: #d1fae5;
+      /* payroll uses green accent; base tokens come from theme.css */
+      --t-primary:   #059669;
+      --t-primary-hover: #047857;
+      --t-primary-dim: #d1fae5;
       --sidebar-w: 260px;
     }
-    body { background: #f0fdf4; min-height: 100vh; }
+    body { background: var(--t-bg); color: var(--t-text); min-height: 100vh; }
 
     /* ── Sidebar ── */
     #sidebar {
