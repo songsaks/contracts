@@ -198,10 +198,10 @@
                         </div>
                         <!-- Chart type toggle -->
                         <div class="btn-group btn-group-sm">
-                            <button class="btn btn-primary active" id="btnLine" title="Line Chart">
+                            <button class="btn btn-outline-secondary" id="btnLine" title="Line Chart">
                                 <i class="fas fa-chart-line"></i>
                             </button>
-                            <button class="btn btn-outline-secondary" id="btnCandle" title="Candlestick">
+                            <button class="btn btn-primary active" id="btnCandle" title="Candlestick">
                                 <i class="fas fa-chart-bar"></i>
                             </button>
                         </div>
@@ -406,12 +406,14 @@
         ];
 
         function buildLineConfig() {
+            const isDark = document.documentElement.getAttribute('data-bs-theme') === 'dark';
+            const priceColor = isDark ? '#f1f5f9' : '#0f172a';
             return {
                 type: 'line',
                 data: {
                     labels: labels,
                     datasets: [
-                        { label:'Price', data:prices, borderColor:'#0f172a', borderWidth:2, pointRadius:0, fill:false, tension:0.1 },
+                        { label:'Price', data:prices, borderColor:priceColor, borderWidth:2, pointRadius:0, fill:false, tension:0.1 },
                         ...emaLine
                     ]
                 },
@@ -466,8 +468,8 @@
             };
         }
 
-        let chart = new Chart(ctx, buildLineConfig());
-        let chartMode = 'line'; // 'line' | 'candle'
+        let chart = new Chart(ctx, buildCandleConfig());
+        let chartMode = 'candle'; // 'line' | 'candle'
 
         // ── Chart type toggle ─────────────────────────────────────────────
         const btnLine   = document.getElementById('btnLine');
@@ -512,6 +514,21 @@
                 expandBtn.click();
             }
         });
+
+        // ── Theme toggle reactive chart update ─────────────────────────────
+        const themeToggleBtn = document.getElementById('themeToggleBtn');
+        if (themeToggleBtn) {
+            themeToggleBtn.addEventListener('click', () => {
+                setTimeout(() => {
+                    const isDarkNew = document.documentElement.getAttribute('data-bs-theme') === 'dark';
+                    const newColor = isDarkNew ? '#f1f5f9' : '#0f172a';
+                    if (chartMode === 'line') {
+                        chart.data.datasets[0].borderColor = newColor;
+                        chart.update();
+                    }
+                }, 50);
+            });
+        }
 
     });
 </script>

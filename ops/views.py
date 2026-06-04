@@ -553,10 +553,10 @@ def execute_coworker(request):
                 "2. วิเคราะห์ช่องทางการโปรโมทและกลยุทธ์เพื่อให้แคมเปญนี้มีประสิทธิภาพสูงสุด (Performance Analysis)\n"
                 "3. ร่างรายงานสรุปแคมเปญและตารางเวลาสำหรับส่งต่อให้ผู้จัดการฝ่ายการตลาด (Manager Report)\n\n"
                 "โปรดตอบกลับเป็นข้อมูลรูปแบบ JSON เท่านั้น ห้ามใส่ข้อความนอก JSON ห้ามมี markdown wrap เช่น ```json ... ``` โดยตรงในผลลัพธ์ (หรือถ้ามี ต้องเป็น JSON ที่สมบูรณ์แบบ)\n"
-                "โครงสร้าง JSON ต้องประกอบด้วย key ดังนี้:\n"
-                "- 'content_plan': โครงสร้างเนื้อหาแผนงานรายสัปดาห์ (สัปดาห์ที่ 1-4, หัวข้อโพสต์, แคปชั่น/คำบรรยาย, แฮชแท็ก, ไอเดียภาพประกอบ) ในรูปแบบ Markdown หรือ HTML\n"
-                "- 'performance_analysis': สรุปกลยุทธ์การวิเคราะห์ช่องทางการตลาดที่คุ้มค่าและแนะนำการวัดผลการเข้าถึง\n"
-                "- 'manager_report': ร่างจดหมายหรือบันทึกข้อความเพื่อขออนุมัติแคมเปญการตลาดนี้ต่อผู้จัดการ\n\n"
+                "โครงสร้าง JSON ต้องประกอบด้วย key ดังนี้ (ค่าทุก key ต้องเป็น STRING เท่านั้น ห้ามเป็น array หรือ object ซ้อน):\n"
+                "- 'content_plan': ข้อความ HTML ที่แสดงแผนงานคอนเทนต์ 4 สัปดาห์ครบถ้วน (string HTML ยาวๆ ที่ใช้ <h4>, <ul>, <li>, <strong> ฯลฯ)\n"
+                "- 'performance_analysis': ข้อความ plain text หรือ Markdown สรุปกลยุทธ์ช่องทางการตลาดและการวัดผล (string)\n"
+                "- 'manager_report': ข้อความ plain text ร่างจดหมายหรือบันทึกข้อความถึงผู้จัดการ (string)\n\n"
                 "ตอบเป็นภาษาไทยทั้งหมด"
             )
             prompt = f"หัวข้อแคมเปญการตลาด: {input_text}"
@@ -787,7 +787,17 @@ def execute_coworker(request):
         text_cleaned = text_cleaned.strip()
             
         result_json = json.loads(text_cleaned)
-            
+
+        # Normalize: ถ้าค่าใดใน result_json เป็น dict/list ให้แปลงเป็น string เพื่อป้องกัน [object Object] ใน frontend
+        string_keys = {
+            'marketing': ['content_plan', 'performance_analysis', 'manager_report'],
+            'sales': ['lead_summary', 'draft_reply'],
+            'executive': ['executive_summary', 'slack_draft', 'email_draft'],
+        }
+        for key in string_keys.get(agent_type, []):
+            if key in result_json and not isinstance(result_json[key], str):
+                result_json[key] = json.dumps(result_json[key], ensure_ascii=False, indent=2)
+
         # บันทึกข้อมูลลงฐานข้อมูล
         log = AICoworkerLog.objects.create(
             agent_type=agent_type,

@@ -725,6 +725,34 @@
         }
     }
 
+    // ฟังก์ชันจัดรูปแบบข้อมูลกรณี AI คืนค่ามาเป็น Object/Array แทนที่จะเป็น String
+    function formatValue(val) {
+        if (val === undefined || val === null) return '';
+        if (typeof val === 'string') return val;
+        try {
+            if (Array.isArray(val)) {
+                return val.map(item => {
+                    if (typeof item === 'object') {
+                        return `<div class="p-3 mb-3 bg-opacity-25 bg-secondary rounded border border-secondary" style="background-color: rgba(255,255,255,0.02);">${formatValue(item)}</div>`;
+                    }
+                    return `<li>${item}</li>`;
+                }).join('');
+            }
+            if (typeof val === 'object') {
+                return Object.entries(val).map(([key, value]) => {
+                    const cleanKey = key.replace(/_/g, ' ').toUpperCase();
+                    if (typeof value === 'object') {
+                        return `<div class="mb-2"><strong>${cleanKey}:</strong> ${formatValue(value)}</div>`;
+                    }
+                    return `<div class="mb-1"><strong>${cleanKey}:</strong> ${value}</div>`;
+                }).join('');
+            }
+            return String(val);
+        } catch (e) {
+            return JSON.stringify(val, null, 2);
+        }
+    }
+
     // สร้างเมนูแท็บย่อย
     function buildTabs(tabs, listEl, contentEl) {
         tabs.forEach((tab, index) => {
@@ -746,13 +774,14 @@
             panel.id = tab.id;
             panel.setAttribute('role', 'tabpanel');
             
+            let contentStr = typeof tab.content === 'object' ? formatValue(tab.content) : (tab.content || '');
             let formattedContent = '';
-            let rawText = tab.copyText || tab.content;
+            let rawText = tab.copyText || (typeof tab.content === 'object' ? JSON.stringify(tab.content, null, 2) : tab.content);
             if (tab.format === 'html') {
-                formattedContent = `<div>${tab.content}</div>`;
+                formattedContent = `<div>${contentStr}</div>`;
             } else if (tab.format === 'markdown') {
                 // จำลองการแสดงผลแปลงหัวข้อ Markdown เป็น HTML อย่างง่าย
-                let html = tab.content
+                let html = contentStr
                     .replace(/\n\n/g, '<br><br>')
                     .replace(/\n/g, '<br>')
                     .replace(/### (.*?)(?:<br>|$)/g, '<h5 class="text-warning mt-4 mb-2">$1</h5>')
@@ -761,9 +790,9 @@
                     .replace(/- (.*?)(?:<br>|$)/g, '<li>$1</li>');
                 formattedContent = `<div>${html}</div>`;
             } else if (tab.format === 'raw') {
-                formattedContent = tab.content;
+                formattedContent = contentStr;
             } else {
-                formattedContent = `<div style="white-space: pre-wrap;">${tab.content}</div>`;
+                formattedContent = `<div style="white-space: pre-wrap;">${contentStr}</div>`;
             }
 
             panel.innerHTML = `
@@ -824,13 +853,13 @@
                     </div>
                     
                     <h6 class="text-warning fw-bold border-bottom pb-2 mt-4"><i class="fas fa-calendar-alt me-1"></i> 1. แผนงานคอนเทนต์ 4 สัปดาห์:</h6>
-                    <div class="bg-dark p-3 rounded mb-4 overflow-auto border border-secondary">${res.content_plan}</div>
+                    <div class="bg-dark p-3 rounded mb-4 overflow-auto border border-secondary">${formatValue(res.content_plan)}</div>
                     
                     <h6 class="text-warning fw-bold border-bottom pb-2 mt-4"><i class="fas fa-chart-line me-1"></i> 2. บทวิเคราะห์ Performance:</h6>
-                    <div class="bg-dark p-3 rounded mb-4 border border-secondary" style="white-space: pre-wrap;">${res.performance_analysis}</div>
+                    <div class="bg-dark p-3 rounded mb-4 border border-secondary" style="white-space: pre-wrap;">${formatValue(res.performance_analysis)}</div>
                     
                     <h6 class="text-warning fw-bold border-bottom pb-2 mt-4"><i class="fas fa-file-alt me-1"></i> 3. ร่างรายงานส่งหัวหน้า:</h6>
-                    <div class="bg-dark p-3 rounded border border-secondary" style="white-space: pre-wrap;">${res.manager_report}</div>
+                    <div class="bg-dark p-3 rounded border border-secondary" style="white-space: pre-wrap;">${formatValue(res.manager_report)}</div>
                 `;
             } else if (data.agent_type === 'sales') {
                 outputHTML = `
@@ -840,7 +869,7 @@
                     </div>
                     
                     <h6 class="text-warning fw-bold border-bottom pb-2"><i class="fas fa-info-circle me-1"></i> 1. สรุปข้อมูลลูกค้า (Lead Summary):</h6>
-                    <div class="bg-dark p-3 rounded mb-4 border border-secondary">${res.lead_summary}</div>
+                    <div class="bg-dark p-3 rounded mb-4 border border-secondary">${formatValue(res.lead_summary)}</div>
                     
                     <h6 class="text-warning fw-bold border-bottom pb-2 mt-4"><i class="fas fa-tachometer-alt me-1"></i> 2. ข้อมูลสำหรับ Dashboard:</h6>
                     <div class="row text-center mb-4 mt-2">
@@ -871,12 +900,12 @@
                     </div>
                     
                     <h6 class="text-warning fw-bold border-bottom pb-2 mt-4"><i class="fas fa-reply me-1"></i> 3. ร่างคำตอบปิดการขาย:</h6>
-                    <div class="bg-dark p-3 rounded border border-secondary" style="white-space: pre-wrap;">${res.draft_reply}</div>
+                    <div class="bg-dark p-3 rounded border border-secondary" style="white-space: pre-wrap;">${formatValue(res.draft_reply)}</div>
                 `;
             } else if (data.agent_type === 'executive') {
                 outputHTML = `
                     <h6 class="text-warning fw-bold border-bottom pb-2"><i class="fas fa-file-alt me-1"></i> 1. บทสรุปรายงานประจำสัปดาห์ (Executive Summary):</h6>
-                    <div class="bg-dark p-3 rounded mb-4 border border-secondary" style="white-space: pre-wrap;">${res.executive_summary}</div>
+                    <div class="bg-dark p-3 rounded mb-4 border border-secondary" style="white-space: pre-wrap;">${formatValue(res.executive_summary)}</div>
                     
                     <h6 class="text-warning fw-bold border-bottom pb-2 mt-4"><i class="fas fa-chart-pie me-1"></i> 2. สถิติภาพรวม:</h6>
                     <div class="row text-center mb-4 mt-2">
@@ -907,10 +936,10 @@
                     </div>
                     
                     <h6 class="text-warning fw-bold border-bottom pb-2 mt-4"><i class="fab fa-slack me-1"></i> 3. ข้อความแชร์ในกลุ่ม Slack:</h6>
-                    <div class="bg-dark p-3 text-info font-monospace rounded mb-4 border border-secondary" style="white-space: pre-wrap;">${res.slack_draft}</div>
+                    <div class="bg-dark p-3 text-info font-monospace rounded mb-4 border border-secondary" style="white-space: pre-wrap;">${formatValue(res.slack_draft)}</div>
                     
                     <h6 class="text-warning fw-bold border-bottom pb-2 mt-4"><i class="fas fa-envelope me-1"></i> 4. ร่างอีเมลส่งผู้บริหาร:</h6>
-                    <div class="bg-dark p-3 rounded border border-secondary" style="white-space: pre-wrap;">${res.email_draft}</div>
+                    <div class="bg-dark p-3 rounded border border-secondary" style="white-space: pre-wrap;">${formatValue(res.email_draft)}</div>
                 `;
             }
             
