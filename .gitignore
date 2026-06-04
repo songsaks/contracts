@@ -1,4 +1,5 @@
 venv/
+.venv/
 __pycache__/
 db.sqlite3
 .env
@@ -9,3 +10,10 @@ gold_bot.pid
 *.log
 bot_stdout.log
 bot_stderr.log
+
+# Django collectstatic output — never commit this
+static_root/
+
+# Python cache
+*.pyo
+*.pyd
