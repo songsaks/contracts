@@ -1,6 +1,10 @@
 {% load i18n %}
 {% if regime and regime.state != 'ERROR' and regime.state != 'UNKNOWN' %}
-<div class="card border-0 shadow-sm mb-4" style="border-radius:14px;background:rgba(248,250,252,0.9);backdrop-filter:blur(8px);">
+<div class="card border-0 shadow-sm mb-4"
+     style="border-radius:14px;
+            background:var(--t-surface);
+            border:1px solid var(--t-border) !important;
+            backdrop-filter:blur(8px);">
   <div class="card-body py-3 px-4">
     <div class="d-flex align-items-center flex-wrap gap-3">
 
@@ -11,13 +15,15 @@
           <i class="fas fa-brain fa-lg text-{{ regime.color }}"></i>
         </div>
         <div>
-          <div class="text-muted fw-bold text-uppercase" style="font-size:.65rem;letter-spacing:.06em;">
+          <div class="fw-bold text-uppercase" style="font-size:.65rem;letter-spacing:.06em;color:var(--t-text-muted);">
             Markov Regime Pulse · {{ market }}
           </div>
           <div class="d-flex align-items-center gap-2">
             <span class="fw-bold fs-6 text-{{ regime.color }}">{{ regime.label }}</span>
-            <span class="badge bg-{{ regime.color }} bg-opacity-15 text-{{ regime.color }} border border-{{ regime.color }} border-opacity-25 rounded-pill"
-                  style="font-size:.7rem;">
+            <span class="badge rounded-pill border border-{{ regime.color }} border-opacity-50"
+                  style="font-size:.7rem;
+                         background:var(--t-{{ regime.color|default:'primary' }}-dim, rgba(99,102,241,0.15));
+                         color:var(--t-text);">
               Stability {{ regime.prob }}%
             </span>
           </div>
@@ -27,11 +33,11 @@
       {# --- Stability Bar --- #}
       <div class="flex-grow-1" style="min-width:140px;max-width:200px;">
         <div class="d-flex justify-content-between mb-1" style="font-size:.7rem;">
-          <span class="text-muted">0%</span>
+          <span style="color:var(--t-text-muted);">0%</span>
           <span class="fw-bold text-{{ regime.color }}">{{ regime.prob }}%</span>
-          <span class="text-muted">100%</span>
+          <span style="color:var(--t-text-muted);">100%</span>
         </div>
-        <div class="progress" style="height:6px;border-radius:4px;">
+        <div class="progress" style="height:6px;border-radius:4px;background:var(--t-border);">
           <div class="progress-bar bg-{{ regime.color }}"
                role="progressbar"
                style="width:{{ regime.prob }}%;"
@@ -40,25 +46,39 @@
       </div>
 
       {# --- Strategy Recommendation --- #}
-      <div class="ms-md-auto border-start border-2 ps-4" style="border-color:#e2e8f0!important;">
-        <div class="text-muted fw-bold text-uppercase mb-1" style="font-size:.65rem;">แนะนำ Strategy</div>
+      <div class="ms-md-auto ps-4" style="border-left:2px solid var(--t-border);">
+        <div class="fw-bold text-uppercase mb-1" style="font-size:.65rem;color:var(--t-text-muted);">
+          แนะนำ Strategy
+        </div>
         <div class="d-flex align-items-center gap-2 flex-wrap">
-          <span class="badge bg-{{ strategy.color }} bg-opacity-15 text-{{ strategy.color }} border border-{{ strategy.color }} border-opacity-25 px-3 py-2"
-                style="font-size:.82rem;border-radius:8px;">
-            <i class="fas {{ strategy.icon }} me-1"></i>
+
+          {# Strategy badge — always readable on both themes #}
+          <span class="px-3 py-2 fw-bold d-inline-flex align-items-center gap-1"
+                style="font-size:.82rem;
+                       border-radius:8px;
+                       border:1.5px solid;
+                       background: {% if strategy.color == 'warning' %}rgba(245,158,11,0.18){% elif strategy.color == 'success' %}rgba(16,185,129,0.18){% elif strategy.color == 'danger' %}rgba(239,68,68,0.18){% elif strategy.color == 'info' %}rgba(56,189,248,0.18){% else %}rgba(99,102,241,0.18){% endif %};
+                       border-color: {% if strategy.color == 'warning' %}rgba(245,158,11,0.5){% elif strategy.color == 'success' %}rgba(16,185,129,0.5){% elif strategy.color == 'danger' %}rgba(239,68,68,0.5){% elif strategy.color == 'info' %}rgba(56,189,248,0.5){% else %}rgba(99,102,241,0.5){% endif %};
+                       color: {% if strategy.color == 'warning' %}#f59e0b{% elif strategy.color == 'success' %}#10b981{% elif strategy.color == 'danger' %}#ef4444{% elif strategy.color == 'info' %}#38bdf8{% else %}#6366f1{% endif %};">
+            <i class="fas {{ strategy.icon }}"></i>
             {{ strategy.label }}
           </span>
+
           {% if regime.state == 'TRENDING' and regime.prob < 60 %}
-          <span class="text-warning" style="font-size:.8rem;">
+          <span style="font-size:.8rem;color:#f59e0b;">
             <i class="fas fa-exclamation-triangle me-1"></i>ลด Size ลงครึ่งหนึ่ง
           </span>
           {% elif regime.state == 'CHOPPY' or regime.state == 'DISTRIBUTING' %}
           <a href="{% url 'stocks:mean_reversion_scanner' %}"
-             class="btn btn-sm btn-outline-warning px-3" style="border-radius:8px;font-size:.8rem;">
+             class="btn btn-sm px-3"
+             style="border-radius:8px;font-size:.8rem;
+                    background:rgba(245,158,11,0.15);
+                    border:1px solid rgba(245,158,11,0.4);
+                    color:#f59e0b;">
             <i class="fas fa-magnifying-glass me-1"></i>เปิด MR Scanner
           </a>
           {% elif regime.state == 'BEARISH' %}
-          <span class="text-danger" style="font-size:.8rem;">
+          <span style="font-size:.8rem;color:#ef4444;">
             <i class="fas fa-shield-halved me-1"></i>ปกป้องทุน
           </span>
           {% endif %}
