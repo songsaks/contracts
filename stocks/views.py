@@ -11966,13 +11966,15 @@ def ai_manual_scanner(request):
         'crewai_json': crewai_json
     })
 
-@login_required
 @require_POST
 def api_ai_manual_scan(request):
     """
     AJAX endpoint to run the AI scan based on the manuals.
     Requires login and POST method.
     """
+    if not request.user.is_authenticated:
+        return JsonResponse({'status': 'error', 'message': 'กรุณาเข้าสู่ระบบก่อนใช้งาน'}, status=401)
+
     if request.method != 'POST':
         return JsonResponse({'status': 'error', 'message': 'Invalid request method.'}, status=400)
 
