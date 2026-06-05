@@ -1079,7 +1079,7 @@ function renderCharts(data) {
   }
 
   // --- MACD Panel ---
-  if (showMACD && macdChart) {
+  if (showMACD && macdChart && data.macd && data.macd.length > 0 && data.macd_sig && data.macd_sig.length > 0 && data.macd_hist && data.macd_hist.length > 0) {
     macdSeries.macd   = macdChart.addLineSeries({ color: '#60a5fa', lineWidth: 1.5, priceLineVisible: false });
     macdSeries.signal = macdChart.addLineSeries({ color: '#fb923c', lineWidth: 1.5, priceLineVisible: false });
     macdSeries.hist   = macdChart.addHistogramSeries({ priceLineVisible: false });
@@ -1092,7 +1092,7 @@ function renderCharts(data) {
   }
 
   // --- RSI Panel ---
-  if (showRSI && rsiChart) {
+  if (showRSI && rsiChart && data.rsi && data.rsi.length > 0) {
     const rsiS = rsiChart.addLineSeries({ color: '#818cf8', lineWidth: 2, priceLineVisible: false, lastValueVisible: true });
     rsiS.setData(data.rsi);
     const t0 = data.rsi[0].time, t1 = data.rsi[data.rsi.length - 1].time;
@@ -1101,22 +1101,20 @@ function renderCharts(data) {
   }
 
   // --- Stochastic Panel ---
-  if (showStoch && stochChart) {
+  if (showStoch && stochChart && data.stoch_k && data.stoch_k.length > 0 && data.stoch_d && data.stoch_d.length > 0) {
     const stochKSeries = stochChart.addLineSeries({ color: '#3b82f6', lineWidth: 2, priceLineVisible: false, lastValueVisible: true, title: '%K' });
     const stochDSeries = stochChart.addLineSeries({ color: '#f59e0b', lineWidth: 1.5, priceLineVisible: false, lastValueVisible: true, title: '%D' });
-    stochKSeries.setData(data.stoch_k || []);
-    stochDSeries.setData(data.stoch_d || []);
+    stochKSeries.setData(data.stoch_k);
+    stochDSeries.setData(data.stoch_d);
     
-    if (data.stoch_k && data.stoch_k.length > 0) {
-      const t0 = data.stoch_k[0].time;
-      const t1 = data.stoch_k[data.stoch_k.length - 1].time;
-      stochChart.addLineSeries({ color: 'rgba(255, 59, 48, 0.4)', lineWidth: 1, lineStyle: 1, priceLineVisible: false }).setData([{ time: t0, value: 80 }, { time: t1, value: 80 }]);
-      stochChart.addLineSeries({ color: 'rgba(0, 192, 118, 0.4)', lineWidth: 1, lineStyle: 1, priceLineVisible: false }).setData([{ time: t0, value: 20 }, { time: t1, value: 20 }]);
-    }
+    const t0 = data.stoch_k[0].time;
+    const t1 = data.stoch_k[data.stoch_k.length - 1].time;
+    stochChart.addLineSeries({ color: 'rgba(255, 59, 48, 0.4)', lineWidth: 1, lineStyle: 1, priceLineVisible: false }).setData([{ time: t0, value: 80 }, { time: t1, value: 80 }]);
+    stochChart.addLineSeries({ color: 'rgba(0, 192, 118, 0.4)', lineWidth: 1, lineStyle: 1, priceLineVisible: false }).setData([{ time: t0, value: 20 }, { time: t1, value: 20 }]);
   }
 
   // --- Volume Panel ---
-  if (showVol && volChart) {
+  if (showVol && volChart && data.volume && data.volume.length > 0 && data.candles && data.candles.length > 0) {
     const volData = data.volume.map((v, index) => {
       const c = data.candles.find(cand => cand.time === v.time) || data.candles[index] || {};
       const isBullish = c.close >= c.open;
