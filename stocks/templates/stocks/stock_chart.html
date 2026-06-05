@@ -582,6 +582,17 @@
 
       <div class="indicator-divider"></div>
 
+      <!-- Fibonacci targets text display -->
+      <div class="d-flex align-items-center gap-2" title="เป้าหมายราคาตามสัดส่วน Fibonacci (เมื่อทะลุแนวต้าน 52W High)">
+        <span class="indicator-section-title text-warning"><i class="fas fa-bullseye"></i> เป้า FIB:</span>
+        <div class="d-flex gap-2 fw-bold" style="font-size: 0.85rem;">
+          <span class="text-muted" title="เป้าหมายยืดตัว 161.8%">F1 (161.8%): <span id="tac-fib-1618-val" class="text-warning">0.00</span></span>
+          <span class="text-muted" title="เป้าหมายยืดตัว 261.8%">F2 (261.8%): <span id="tac-fib-2618-val" class="text-warning">0.00</span></span>
+        </div>
+      </div>
+
+      <div class="indicator-divider"></div>
+
       <!-- Institutional Accumulation (CMF) -->
       <div class="d-flex align-items-center gap-2" title="Chaikin Money Flow (20D)">
         <span class="indicator-section-title text-success"><i class="fas fa-university"></i> CMF:</span>
@@ -1189,6 +1200,12 @@ function loadData(sym, mkt, period) {
         document.getElementById('tac-next-price').textContent = data.tactical.next_unit.toFixed(2);
         document.getElementById('tac-exit-10').textContent = data.tactical.exit_10d_low.toFixed(2);
         document.getElementById('tac-exit-20').textContent = data.tactical.exit_20d_low.toFixed(2);
+        
+        // Update Fib target values
+        const fib1618Val = data.tactical.fib_1618 || 0;
+        const fib2618Val = data.tactical.fib_2618 || 0;
+        document.getElementById('tac-fib-1618-val').textContent = fib1618Val > 0 ? fib1618Val.toFixed(2) : '-';
+        document.getElementById('tac-fib-2618-val').textContent = fib2618Val > 0 ? fib2618Val.toFixed(2) : '-';
         
         // Update CMF, Pocket Pivot, and VDU
         const cmfVal = data.tactical.cmf || 0;
