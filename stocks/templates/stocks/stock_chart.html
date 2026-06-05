@@ -1078,9 +1078,11 @@ function renderCharts(data) {
 
   // --- Drawing Events ---
   mainChart.subscribeClick(param => {
-    if (!currentDrawingMode || !param.point || !param.time) return;
+    if (!currentDrawingMode || !param.point) return;
     const price = candleSeries.coordinateToPrice(param.point.y);
-    const time = param.time;
+    const time = param.time || mainChart.timeScale().coordinateToTime(param.point.x);
+    if (!time || !price) return;
+
     if (currentDrawingMode === 'horizontal') {
         const pl = candleSeries.createPriceLine({
             price: price,
@@ -1107,11 +1109,12 @@ function renderCharts(data) {
             currentTrendSeries.setData([trendStartPoint]);
         } else {
             const trendEndPoint = { time: time, value: price };
-            const sorted = [trendStartPoint, trendEndPoint].sort((a,b) => {
-                const tA = typeof a.time === 'object' ? (a.time.year*10000 + a.time.month*100 + a.time.day) : a.time;
-                const tB = typeof b.time === 'object' ? (b.time.year*10000 + b.time.month*100 + b.time.day) : b.time;
-                return tA - tB;
-            });
+            const getTimeVal = t => {
+                if (typeof t === 'object' && t !== null) return t.year * 10000 + t.month * 100 + t.day;
+                if (typeof t === 'string') return parseInt(t.replace(/-/g, ''), 10);
+                return Number(t);
+            };
+            const sorted = [trendStartPoint, trendEndPoint].sort((a,b) => getTimeVal(a.time) - getTimeVal(b.time));
             currentTrendSeries.setData(sorted);
             trendStartPoint = null;
             currentTrendSeries = null;
@@ -1121,15 +1124,17 @@ function renderCharts(data) {
   });
 
   mainChart.subscribeCrosshairMove(param => {
-    if (currentDrawingMode === 'trend' && trendStartPoint && currentTrendSeries && param.point && param.time) {
+    if (currentDrawingMode === 'trend' && trendStartPoint && currentTrendSeries && param.point) {
         const price = candleSeries.coordinateToPrice(param.point.y);
-        const time = param.time;
+        const time = param.time || mainChart.timeScale().coordinateToTime(param.point.x);
+        if (!time || !price) return;
         const trendEndPoint = { time: time, value: price };
-        const sorted = [trendStartPoint, trendEndPoint].sort((a,b) => {
-            const tA = typeof a.time === 'object' ? (a.time.year*10000 + a.time.month*100 + a.time.day) : a.time;
-            const tB = typeof b.time === 'object' ? (b.time.year*10000 + b.time.month*100 + b.time.day) : b.time;
-            return tA - tB;
-        });
+        const getTimeVal = t => {
+            if (typeof t === 'object' && t !== null) return t.year * 10000 + t.month * 100 + t.day;
+            if (typeof t === 'string') return parseInt(t.replace(/-/g, ''), 10);
+            return Number(t);
+        };
+        const sorted = [trendStartPoint, trendEndPoint].sort((a,b) => getTimeVal(a.time) - getTimeVal(b.time));
         currentTrendSeries.setData(sorted);
     }
   });
