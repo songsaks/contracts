@@ -973,7 +973,7 @@ function renderCharts(data) {
         lineWidth: 1.5,
         lineStyle: 1,
         axisLabelVisible: true,
-        title: `Demand Zone Start (${tac.demand_zone_start.toFixed(2)})`
+        title: `แนวรับสถาบัน (บน) - ${tac.demand_zone_start.toFixed(2)}`
       });
       customPriceLines.push(plStart);
     }
@@ -984,7 +984,7 @@ function renderCharts(data) {
         lineWidth: 1.5,
         lineStyle: 1,
         axisLabelVisible: true,
-        title: `Demand Zone End (${tac.demand_zone_end.toFixed(2)})`
+        title: `แนวรับสถาบัน (ล่าง) - ${tac.demand_zone_end.toFixed(2)}`
       });
       customPriceLines.push(plEnd);
     }
@@ -995,7 +995,7 @@ function renderCharts(data) {
         lineWidth: 1.5,
         lineStyle: 1,
         axisLabelVisible: true,
-        title: `Stop Loss (${tac.stop_loss.toFixed(2)})`
+        title: `จุดตัดขาดทุน (SL) - ${tac.stop_loss.toFixed(2)}`
       });
       customPriceLines.push(plStop);
     }
@@ -1006,7 +1006,7 @@ function renderCharts(data) {
         lineWidth: 1.5,
         lineStyle: 1,
         axisLabelVisible: true,
-        title: `Supply Target (${tac.supply_zone_start.toFixed(2)})`
+        title: `แนวต้านหลัก (52W High) - ${tac.supply_zone_start.toFixed(2)}`
       });
       customPriceLines.push(plTarget);
     }
@@ -1017,7 +1017,7 @@ function renderCharts(data) {
         lineWidth: 1.5,
         lineStyle: 1,
         axisLabelVisible: true,
-        title: `Fib Target 161.8% (${tac.fib_1618.toFixed(2)})`
+        title: `เป้าขาย Fib 161.8% (เมื่อเบรก) - ${tac.fib_1618.toFixed(2)}`
       });
       customPriceLines.push(plFib1618);
     }
@@ -1028,7 +1028,7 @@ function renderCharts(data) {
         lineWidth: 1.5,
         lineStyle: 1,
         axisLabelVisible: true,
-        title: `Fib Target 261.8% (${tac.fib_2618.toFixed(2)})`
+        title: `เป้าขาย Fib 261.8% (เมื่อเบรก) - ${tac.fib_2618.toFixed(2)}`
       });
       customPriceLines.push(plFib2618);
     }

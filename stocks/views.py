@@ -11394,14 +11394,21 @@ def stock_chart_data(request, symbol):
             tactical['pocket_pivot'] = False
             tactical['vdu_near_zone'] = False
 
-        # Calculate Fibonacci Extension targets (161.8% and 261.8%) from Demand Zone depth
-        dz_start = tactical.get('demand_zone_start', 0.0)
+        # Calculate Major Fibonacci Extension targets projected from the 52-week High (Supply Target)
+        sz_start = tactical.get('supply_zone_start', 0.0)
         dz_end = tactical.get('demand_zone_end', 0.0)
-        if dz_start > 0.0 and dz_end > 0.0:
-            dz_depth = dz_start - dz_end
-            if dz_depth > 0.0:
-                tactical['fib_1618'] = round(dz_start + (1.618 * dz_depth), 2)
-                tactical['fib_2618'] = round(dz_start + (2.618 * dz_depth), 2)
+        dz_start = tactical.get('demand_zone_start', 0.0)
+        
+        # Determine breakout high and base low for projection
+        # If we have a supply zone (52w high), use it as breakout high. Else use demand zone start.
+        breakout_high = sz_start if sz_start > 0.0 else dz_start
+        base_low = dz_end if dz_end > 0.0 else (dz_start * 0.95 if dz_start > 0.0 else 0.0)
+        
+        if breakout_high > 0.0 and base_low > 0.0:
+            base_depth = breakout_high - base_low
+            if base_depth > 0.0:
+                tactical['fib_1618'] = round(breakout_high + (1.618 * base_depth), 2)
+                tactical['fib_2618'] = round(breakout_high + (2.618 * base_depth), 2)
             else:
                 tactical['fib_1618'] = 0.0
                 tactical['fib_2618'] = 0.0
