@@ -936,6 +936,7 @@
                     <option value="launcher" {% if current_sort == 'launcher' %}selected{% endif %}>Launcher</option>
                     <option value="score" {% if current_sort == 'score' %}selected{% endif %}>Total Score</option>
                     <option value="prox" {% if current_sort == 'prox' %}selected{% endif %}>Zone Prox</option>
+                    <option value="cmf" {% if current_sort == 'cmf' %}selected{% endif %}>CMF (Accumulation)</option>
                 </select>
                 <button onclick="exportScanCSV('scanTableSET','precision_set')" class="btn btn-sm rounded-pill px-3" style="border:1px solid rgba(255,255,255,0.15);background:rgba(15,23,42,0.7);color:#cbd5e1;font-size:0.72rem;">
                     <i class="fas fa-download me-1"></i>CSV
@@ -975,7 +976,7 @@
                             </th>
                             <th class="col-hide-lg">ERC</th>
                             <th class="col-hide-md">
-                                SIGNAL
+                                <a href="?sort=cmf&run_idx={{ selected_run_idx }}" class="text-decoration-none {% if current_sort == 'cmf' %}fw-bold{% else %}text-muted{% endif %}" style="{% if current_sort == 'cmf' %}color:#10b981;{% endif %}" title="เรียงตาม Chaikin Money Flow (การสะสมของสถาบัน)">SIGNAL</a>
                                 <span onclick="document.getElementById('signalPatternModal').style.display='flex'"
                                       style="cursor:pointer;display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;background:#fef2f2;color:#dc2626;border-radius:50%;font-size:0.55rem;font-weight:700;margin-left:2px;vertical-align:middle;"
                                       title="คู่มือ Signals">?</span>

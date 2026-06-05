@@ -5661,6 +5661,7 @@ def precision_momentum_scanner(request):
         'round_rr': '-risk_reward_ratio',
         'rs': '-rs_rating',          # RS Rating (Minervini Relative Strength)
         'launcher': '-launcher_score', # Explosive Launcher Score
+        'cmf': '-cmf',                # Chaikin Money Flow (Institutional Accumulation)
     }
     use_db_sort = sort_by in valid_db_sorts
     order_field = valid_db_sorts.get(sort_by, '-technical_score')
@@ -8903,6 +8904,7 @@ def us_precision_scanner(request):
         'symbol':'symbol','score':'-technical_score','price':'-price',
         'rsi':'-rsi','rvol':'-rvol','adx':'-adx','prox':'zone_proximity','rs':'-rs_rating',
         'launcher': '-launcher_score',
+        'cmf': '-cmf',
     }
     order = valid_sorts.get(sort_by, '-technical_score')
     
