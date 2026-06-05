@@ -1010,6 +1010,28 @@ function renderCharts(data) {
       });
       customPriceLines.push(plTarget);
     }
+    if (tac.fib_1618 > 0) {
+      const plFib1618 = candleSeries.createPriceLine({
+        price: tac.fib_1618,
+        color: '#eab308',
+        lineWidth: 1.5,
+        lineStyle: 1,
+        axisLabelVisible: true,
+        title: `Fib Target 161.8% (${tac.fib_1618.toFixed(2)})`
+      });
+      customPriceLines.push(plFib1618);
+    }
+    if (tac.fib_2618 > 0) {
+      const plFib2618 = candleSeries.createPriceLine({
+        price: tac.fib_2618,
+        color: '#d97706',
+        lineWidth: 1.5,
+        lineStyle: 1,
+        axisLabelVisible: true,
+        title: `Fib Target 261.8% (${tac.fib_2618.toFixed(2)})`
+      });
+      customPriceLines.push(plFib2618);
+    }
   }
 
   // --- Markers ---

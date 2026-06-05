@@ -11394,6 +11394,21 @@ def stock_chart_data(request, symbol):
             tactical['pocket_pivot'] = False
             tactical['vdu_near_zone'] = False
 
+        # Calculate Fibonacci Extension targets (161.8% and 261.8%) from Demand Zone depth
+        dz_start = tactical.get('demand_zone_start', 0.0)
+        dz_end = tactical.get('demand_zone_end', 0.0)
+        if dz_start > 0.0 and dz_end > 0.0:
+            dz_depth = dz_start - dz_end
+            if dz_depth > 0.0:
+                tactical['fib_1618'] = round(dz_start + (1.618 * dz_depth), 2)
+                tactical['fib_2618'] = round(dz_start + (2.618 * dz_depth), 2)
+            else:
+                tactical['fib_1618'] = 0.0
+                tactical['fib_2618'] = 0.0
+        else:
+            tactical['fib_1618'] = 0.0
+            tactical['fib_2618'] = 0.0
+
         # --- Enhanced Intermarket Analysis (DXY & MTF) ---
         if symbol == 'GC=F':
             try:
