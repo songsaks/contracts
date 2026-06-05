@@ -129,7 +129,12 @@ class MomentumShortTermCrew:
         from crewai import Agent, Crew, Process, Task
         from crewai.llm import LLM
 
-        llm   = LLM(model="gemini/gemini-2.5-flash", api_key=settings.GEMINI_API_KEY)
+        # flash-lite + thinking=0: ~3x faster per agent = ~9x overall for 3 agents
+        llm = LLM(
+            model="gemini/gemini-2.5-flash-lite",
+            api_key=settings.GEMINI_API_KEY,
+            thinking={"budget": 0},
+        )
         extra = self._get_extra_data()
         sd    = self.scan_data
 
@@ -409,7 +414,12 @@ class USMomentumShortTermCrew:
         from crewai import Agent, Crew, Process, Task
         from crewai.llm import LLM
 
-        llm   = LLM(model="gemini/gemini-2.5-flash", api_key=settings.GEMINI_API_KEY)
+        # flash-lite + thinking=0: ~3x faster per agent = ~9x overall for 3 agents
+        llm = LLM(
+            model="gemini/gemini-2.5-flash-lite",
+            api_key=settings.GEMINI_API_KEY,
+            thinking={"budget": 0},
+        )
         extra = self._get_extra_data()
         sd    = self.scan_data
 
