@@ -569,7 +569,17 @@
         <span class="badge bg-warning text-dark ms-1 px-2" id="tac-suggest-shares" title="Suggest Shares (1% Risk)">-</span>
       </div>
 
-      <div class="indicator-divider"></div>
+      <!-- Portfolio Info Section (Conditional) -->
+      <div class="d-flex align-items-center gap-2 d-none" id="tac-portfolio-section">
+        <span class="indicator-section-title text-info"><i class="fas fa-briefcase"></i> พอร์ตของเรา:</span>
+        <div class="d-flex gap-2 fw-bold" style="font-size: 0.85rem;">
+          <span class="text-muted" title="ราคาทุนเฉลี่ย ของเรา">ทุน: <span id="tac-port-cost" class="text-info">0.00</span></span>
+          <span class="text-muted" title="กำไร / ขาดทุน ณ ราคาปัจจุบัน">P/L: <span id="tac-port-pl" class="text-white">0.00%</span></span>
+          <span class="text-muted" title="ส่วนต่างระหว่างราคาทุนเรากับแนวรับสถาบันขอบบน (เริ่มสะสม)">เทียบทุนสถาบัน: <span id="tac-port-dist" class="text-white">0.00%</span></span>
+        </div>
+      </div>
+
+      <div class="indicator-divider d-none" id="tac-portfolio-divider"></div>
 
       <!-- Dynamic Exit -->
       <div class="d-flex align-items-center gap-2" title="Dynamic Exit (Trailing)">
@@ -1043,6 +1053,17 @@ function renderCharts(data) {
       });
       customPriceLines.push(plFib2618);
     }
+    if (tac.portfolio_entry_price > 0) {
+      const plMyCost = candleSeries.createPriceLine({
+        price: tac.portfolio_entry_price,
+        color: '#38bdf8',
+        lineWidth: 2,
+        lineStyle: 1,
+        axisLabelVisible: true,
+        title: `ราคาต้นทุนของเรา - ${tac.portfolio_entry_price.toFixed(2)}`
+      });
+      customPriceLines.push(plMyCost);
+    }
   }
 
   // --- Markers ---
@@ -1206,6 +1227,43 @@ function loadData(sym, mkt, period) {
         const fib2618Val = data.tactical.fib_2618 || 0;
         document.getElementById('tac-fib-1618-val').textContent = fib1618Val > 0 ? fib1618Val.toFixed(2) : '-';
         document.getElementById('tac-fib-2618-val').textContent = fib2618Val > 0 ? fib2618Val.toFixed(2) : '-';
+        
+        // Update Portfolio Info Section
+        const portEntry = data.tactical.portfolio_entry_price || 0;
+        const portSection = document.getElementById('tac-portfolio-section');
+        const portDivider = document.getElementById('tac-portfolio-divider');
+        if (portSection && portDivider) {
+          if (portEntry > 0) {
+            portSection.classList.remove('d-none');
+            portDivider.classList.remove('d-none');
+            document.getElementById('tac-port-cost').textContent = portEntry.toFixed(2);
+            
+            const currPrice = data.tactical.price;
+            const plPct = ((currPrice - portEntry) / portEntry) * 100;
+            const plElem = document.getElementById('tac-port-pl');
+            if (plElem) {
+              plElem.textContent = (plPct >= 0 ? '+' : '') + plPct.toFixed(2) + '%';
+              plElem.className = plPct >= 0 ? 'text-success fw-bold' : 'text-danger fw-bold';
+            }
+            
+            const dzStart = data.tactical.demand_zone_start || 0;
+            const distElem = document.getElementById('tac-port-dist');
+            if (distElem) {
+              if (dzStart > 0) {
+                const distPct = ((portEntry - dzStart) / dzStart) * 100;
+                distElem.textContent = (distPct >= 0 ? '+' : '') + distPct.toFixed(2) + '%';
+                distElem.className = distPct >= 0 ? 'text-warning fw-bold' : 'text-success fw-bold';
+                distElem.title = distPct >= 0 ? "ต้นทุนเราแพงกว่าแนวรับสถาบัน" : "ต้นทุนเราถูกกว่าแนวรับสถาบัน (ได้เปรียบ)";
+              } else {
+                distElem.textContent = '-';
+                distElem.className = 'text-muted fw-bold';
+              }
+            }
+          } else {
+            portSection.classList.add('d-none');
+            portDivider.classList.add('d-none');
+          }
+        }
         
         // Update CMF, Pocket Pivot, and VDU
         const cmfVal = data.tactical.cmf || 0;

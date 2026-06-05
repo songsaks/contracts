@@ -11412,9 +11412,23 @@ def stock_chart_data(request, symbol):
             else:
                 tactical['fib_1618'] = 0.0
                 tactical['fib_2618'] = 0.0
-        else:
             tactical['fib_1618'] = 0.0
             tactical['fib_2618'] = 0.0
+
+        # Check if the user holds this stock in their portfolio
+        portfolio_entry = 0.0
+        portfolio_qty = 0.0
+        try:
+            from .models import Portfolio
+            p_item = Portfolio.objects.filter(user=request.user, symbol__icontains=symbol).first()
+            if p_item:
+                portfolio_entry = _safe_val(p_item.entry_price)
+                portfolio_qty = _safe_val(p_item.quantity)
+        except Exception as p_ex:
+            print(f"Error querying portfolio for chart: {p_ex}")
+
+        tactical['portfolio_entry_price'] = portfolio_entry
+        tactical['portfolio_quantity'] = portfolio_qty
 
         # --- Enhanced Intermarket Analysis (DXY & MTF) ---
         if symbol == 'GC=F':
