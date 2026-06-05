@@ -666,7 +666,7 @@
                             {% endwith %}
                         </div>
                         <!-- เกณฑ์ที่ผ่าน -->
-                        <div class="mb-2 scan-checklist-text" style="font-size:0.75rem;line-height:1.8;">
+                        <div class="mb-2 scan-checklist-text" data-vcp-vdu="{{ item.vcp_vdu|yesno:'true,false' }}">
                             <div><span class="checkmark-green">✓</span> RR 1:{{ item.risk_reward_ratio|floatformat:1 }}</div>
                             <div><span class="checkmark-green">✓</span> RS Rating {{ item.rs_rating }} · ADX {{ item.adx|floatformat:0 }}</div>
                             <div><span class="checkmark-green">✓</span> RVOL {{ item.rvol|floatformat:1 }}x ▲</div>
@@ -708,17 +708,17 @@
 <!-- TOP 5 BEST BUY RECOMMENDATIONS -->
 {% if top5_buy %}
 <div class="col-12 mb-2">
-    <div class="card border-0 shadow-sm" style="border-radius:1rem; background:linear-gradient(135deg,rgba(9,35,15,0.6) 0%,rgba(9,17,42,0.6) 100%); border:1px solid rgba(74,222,128,0.2) !important;">
+    <div class="card border-0 shadow-sm recommendation-container">
         <div class="card-body p-3">
             <div class="d-flex align-items-center gap-2 mb-3">
                 <span style="font-size:1.3rem;">🏆</span>
-                <span class="fw-bold" style="font-size:1rem; color:#4ade80;">Top 5 หุ้นแนะนำซื้อตอนนี้</span>
+                <span class="fw-bold recommendation-title" style="font-size:1rem;">Top 5 หุ้นแนะนำซื้อตอนนี้</span>
                 <span class="text-muted" style="font-size:0.8rem;">— เรียงตาม BUY Score (คะแนนรวมหลายปัจจัย)</span>
             </div>
             <div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-xl-5 g-2">
                 {% for item in top5_buy %}
                 <div class="col">
-                    <div class="h-100 p-3 position-relative" 
+                    <div class="h-100 p-3 position-relative recommendation-card {% if item.buy_score >= 80 %}recommendation-high{% elif item.buy_score >= 65 %}recommendation-medium{% else %}recommendation-low{% endif %}" 
                          data-symbol="{{ item.symbol }}"
                          data-price="{{ item.live_price|default:item.price }}"
                          data-zone-start="{{ item.demand_zone_start|default:0 }}"
@@ -741,23 +741,23 @@
                          data-vcp-t="{{ item.vcp_contractions|default:0 }}"
                          data-vcp-tight="{{ item.vcp_tightness|default:0 }}"
                          data-vcp-vdu="{{ item.vcp_vdu|yesno:'true,false' }}"
-                         style="background:rgba(15,23,42,0.8); border-radius:0.85rem; border:2px solid {% if item.buy_score >= 80 %}rgba(74,222,128,0.4){% elif item.buy_score >= 65 %}rgba(147,197,253,0.3){% else %}rgba(255,255,255,0.08){% endif %}; box-shadow:0 2px 12px rgba(0,0,0,0.3); cursor:pointer;">
+                         >
                         <!-- Rank badge -->
                         <span class="position-absolute" style="top:-10px; left:12px; background:{% if forloop.first %}#f59e0b{% elif forloop.counter == 2 %}#94a3b8{% elif forloop.counter == 3 %}#b45309{% else %}#6366f1{% endif %}; color:white; border-radius:999px; font-size:0.65rem; font-weight:700; padding:1px 8px;">#{{ forloop.counter }}</span>
                         <!-- Symbol & BUY score -->
                         <div class="d-flex align-items-center justify-content-between mb-1 mt-1">
-                            <span class="fw-bold" style="font-size:1rem; color:#f1f5f9;">{{ item.symbol }}</span>
-                            <span class="fw-bold px-2 rounded-pill" style="background:{% if item.buy_score >= 80 %}rgba(74,222,128,0.15); color:#4ade80{% elif item.buy_score >= 65 %}rgba(147,197,253,0.15); color:#93c5fd{% else %}rgba(255,255,255,0.08); color:#94a3b8{% endif %}; font-size:0.82rem; border:1px solid {% if item.buy_score >= 80 %}rgba(74,222,128,0.3){% elif item.buy_score >= 65 %}rgba(147,197,253,0.3){% else %}rgba(255,255,255,0.12){% endif %};">BUY {{ item.buy_score }}</span>
+                            <span class="fw-bold" style="font-size:1rem; color: inherit;">{{ item.symbol }}</span>
+                            <span class="fw-bold px-2 rounded-pill buy-badge {% if item.buy_score >= 80 %}buy-badge-high{% elif item.buy_score >= 65 %}buy-badge-medium{% else %}buy-badge-low{% endif %}" style="font-size:0.82rem;">BUY {{ item.buy_score }}</span>
                         </div>
                         <!-- Price + zone label (Live price when available) -->
                         <div class="mb-2 d-flex align-items-center gap-1 flex-wrap">
                             {% if item.live_price %}
-                            <span style="font-size:0.88rem; font-weight:600; color:#f1f5f9;">{% if item.market == 'US' %}${% else %}฿{% endif %}{{ item.live_price|floatformat:2 }}</span>
+                            <span style="font-size:0.88rem; font-weight:600; color: inherit;">{% if item.market == 'US' %}${% else %}฿{% endif %}{{ item.live_price|floatformat:2 }}</span>
                             {% if item.live_change_pct is not None %}
                             <span style="font-size:0.7rem;font-weight:600;color:{% if item.live_change_pct >= 0 %}#16a34a{% else %}#dc2626{% endif %};">{% if item.live_change_pct >= 0 %}+{% endif %}{{ item.live_change_pct|floatformat:1 }}%</span>
                             {% endif %}
                             {% else %}
-                            <span style="font-size:0.88rem; font-weight:600; color:#f1f5f9;">{% if item.market == 'US' %}${% else %}฿{% endif %}{{ item.price }}</span>
+                            <span style="font-size:0.88rem; font-weight:600; color: inherit;">{% if item.market == 'US' %}${% else %}฿{% endif %}{{ item.price }}</span>
                             {% endif %}
                             {% with prox=item.live_zone_prox|default:item.zone_proximity %}
                             {% if item.live_at_tp %}
@@ -778,24 +778,24 @@
                             {% endwith %}
                         </div>
                         <!-- Reasons -->
-                        <ul class="mb-2 ps-0" style="list-style:none; font-size:0.75rem; color:#94a3b8; line-height:1.75;">
+                        <ul class="mb-2 ps-0 recommendation-reasons" style="">
                             {% for reason in item.top_reasons %}
-                            <li><span style="color:#16a34a; font-weight:700;">✓</span> {{ reason }}</li>
+                            <li><span class="checkmark-green">✓</span> {{ reason }}</li>
                             {% endfor %}
                         </ul>
                         <!-- Mini stats row -->
                         <div class="d-flex gap-2 flex-wrap mb-2" style="font-size:0.72rem;">
                             {% if item.risk_reward_ratio %}
-                            <span class="fw-semibold" style="color:{% if item.risk_reward_ratio >= 3 %}#16a34a{% elif item.risk_reward_ratio >= 2 %}#2563eb{% else %}#64748b{% endif %};">RR 1:{{ item.risk_reward_ratio|floatformat:1 }}</span>
+                            <span class="fw-semibold {% if item.risk_reward_ratio >= 3 %}stats-rr-high{% elif item.risk_reward_ratio >= 2 %}stats-rr-med{% else %}stats-rr-low{% endif %}">RR 1:{{ item.risk_reward_ratio|floatformat:1 }}</span>
                             {% endif %}
-                            <span class="fw-bold" title="RS Rating 0-99" style="color:#0891b2;">RS {{ item.rs_rating }}</span>
-                            <span style="color:{% if item.rvol >= 1.5 %}#16a34a{% elif item.rvol >= 1.0 %}#2563eb{% else %}#94a3b8{% endif %}; font-weight:600;">{{ item.rvol|floatformat:1 }}x {% if item.rvol_bullish %}▲{% else %}▼{% endif %}</span>
-                            <span class="fw-bold" style="color:#059669;">Win {{ item.win_probability }}%</span>
-                            <span style="color:#64748b;">ADX {{ item.adx|floatformat:0 }}</span>
-                            <span style="color:#64748b;">RSI {{ item.rsi|floatformat:0 }}</span>
+                            <span class="fw-bold stats-rs" title="RS Rating 0-99">RS {{ item.rs_rating }}</span>
+                            <span class="fw-semibold {% if item.rvol >= 1.5 %}stats-rvol-high{% elif item.rvol >= 1.0 %}stats-rvol-med{% else %}stats-rvol-low{% endif %}">{{ item.rvol|floatformat:1 }}x {% if item.rvol_bullish %}▲{% else %}▼{% endif %}</span>
+                            <span class="fw-bold stats-win">Win {{ item.win_probability }}%</span>
+                            <span class="stats-neutral">ADX {{ item.adx|floatformat:0 }}</span>
+                            <span class="stats-neutral">RSI {{ item.rsi|floatformat:0 }}</span>
                         </div>
                         <!-- Sniper chart link -->
-                        <a href="{% url 'stocks:entry_finder' item.symbol %}" class="btn btn-sm w-100" style="background:rgba(20,83,45,0.3); color:#4ade80; border:1px solid rgba(74,222,128,0.3); font-size:0.73rem; padding:3px 8px; border-radius:0.5rem;">
+                        <a href="{% url 'stocks:entry_finder' item.symbol %}" class="btn btn-sm w-100" class="btn btn-sm w-100 recommendation-btn" style="">
                             <i class="fas fa-crosshairs me-1"></i>Sniper Chart
                         </a>
                     </div>
@@ -850,7 +850,7 @@
 <!-- SCAN RESULT TABLE -->
 <div class="col-12">
     <div class="card border-0 mb-4 shadow-sm" style="border-radius: 1rem;">
-        <div class="card-header border-bottom p-3" style="background:rgba(9,13,22,0.8);">
+        <div class="card-header border-bottom p-3 scan-header">
             <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
                 <h5 class="mb-0 fw-bold d-flex align-items-center gap-2">
                     <i class="fas fa-crosshairs" style="color: #7c3aed;"></i>
@@ -877,52 +877,52 @@
             <div class="px-3 pb-2 d-flex flex-wrap gap-2 align-items-center">
                 <div class="form-check form-switch mb-0 d-flex align-items-center gap-2">
                     <input class="form-check-input" type="checkbox" id="rsiFilter70SET" onchange="_applyFiltersSET()" style="cursor:pointer;">
-                    <label class="form-check-label small fw-semibold" for="rsiFilter70SET" style="cursor:pointer;color:#ef4444;">🔥 RSI < 70</label>
+                    <label class="form-check-label small fw-semibold filter-label-rsi" for="rsiFilter70SET" style="cursor:pointer;">🔥 RSI < 70</label>
                 </div>
                 <div class="form-check form-switch mb-0 d-flex align-items-center gap-2">
                     <input class="form-check-input" type="checkbox" id="stage2FilterSET" onchange="filterByStage2('SET', this.checked)" style="cursor:pointer;">
-                    <label class="form-check-label small fw-semibold" for="stage2FilterSET" style="cursor:pointer;color:#16a34a;">Stage 2 Only</label>
+                    <label class="form-check-label small fw-semibold filter-label-stage2" for="stage2FilterSET" style="cursor:pointer;">Stage 2 Only</label>
                 </div>
                 <div class="form-check form-switch mb-0 d-flex align-items-center gap-2">
                     <input class="form-check-input" type="checkbox" id="ppFilterSET" onchange="filterByPP('SET', this.checked)" style="cursor:pointer;">
-                    <label class="form-check-label small fw-semibold" for="ppFilterSET" style="cursor:pointer;color:#0e7490;">PP only</label>
+                    <label class="form-check-label small fw-semibold filter-label-pp" for="ppFilterSET" style="cursor:pointer;">PP only</label>
                 </div>
                 <div class="form-check form-switch mb-0 d-flex align-items-center gap-2">
                     <input class="form-check-input" type="checkbox" id="hideCmfDistSET" onchange="filterByCMFDist('SET', this.checked)" style="cursor:pointer;">
-                    <label class="form-check-label small fw-semibold" for="hideCmfDistSET" style="cursor:pointer;color:#d97706;">ซ่อน CMF ↓</label>
+                    <label class="form-check-label small fw-semibold filter-label-cmf" for="hideCmfDistSET" style="cursor:pointer;">ซ่อน CMF ↓</label>
                 </div>
                 <div class="form-check form-switch mb-0 d-flex align-items-center gap-2">
                     <input class="form-check-input" type="checkbox" id="volSurgeFilterSET" onchange="_applyFiltersSET()" style="cursor:pointer;">
-                    <label class="form-check-label small fw-semibold" for="volSurgeFilterSET" style="cursor:pointer;color:#f59e0b;">⚡ Vol Surge ≥1.5x</label>
+                    <label class="form-check-label small fw-semibold filter-label-volsurge" for="volSurgeFilterSET" style="cursor:pointer;">⚡ Vol Surge ≥1.5x</label>
                 </div>
                 <div class="form-check form-switch mb-0 d-flex align-items-center gap-2">
                     <input class="form-check-input" type="checkbox" id="ichiFilterSET" onchange="_applyFiltersSET()" style="cursor:pointer;">
-                    <label class="form-check-label small fw-semibold" for="ichiFilterSET" style="cursor:pointer;color:#059669;">☁ Ichi ≥ 3</label>
+                    <label class="form-check-label small fw-semibold filter-label-ichi" for="ichiFilterSET" style="cursor:pointer;">☁ Ichi ≥ 3</label>
                 </div>
                 <!-- Launcher Filter -->
                 <div class="form-check form-switch mb-0 d-flex align-items-center gap-2">
                     <input class="form-check-input" type="checkbox" id="launcherFilterSET" onchange="_applyFiltersSET()" style="cursor:pointer;">
-                    <label class="form-check-label small fw-semibold" for="launcherFilterSET" style="cursor:pointer;color:#7c3aed;">🚀 Launcher Only</label>
+                    <label class="form-check-label small fw-semibold filter-label-launcher" for="launcherFilterSET" style="cursor:pointer;">🚀 Launcher Only</label>
                 </div>
                 <!-- VCP Filter -->
                 <div class="form-check form-switch mb-0 d-flex align-items-center gap-2">
                     <input class="form-check-input" type="checkbox" id="vcpFilterSET" onchange="_applyFiltersSET()" style="cursor:pointer;">
-                    <label class="form-check-label small fw-semibold" for="vcpFilterSET" style="cursor:pointer;color:#dc2626;">🎯 VCP Only</label>
+                    <label class="form-check-label small fw-semibold filter-label-vcp" for="vcpFilterSET" style="cursor:pointer;">🎯 VCP Only</label>
                     <a href="{% url 'stocks:vcp_manual' %}" target="_blank" class="text-decoration-none" title="วิธีดู VCP" style="font-size:0.85rem; color:#94a3b8; margin-top:-2px;"><i class="fas fa-question-circle"></i></a>
                 </div>
                 <!-- ITL Filter -->
                 <div class="form-check form-switch mb-0 d-flex align-items-center gap-2">
                     <input class="form-check-input" type="checkbox" id="itlFilterSET" onchange="_applyFiltersSET()" style="cursor:pointer;">
-                    <label class="form-check-label small fw-semibold" for="itlFilterSET" style="cursor:pointer;color:#f97316;">📈 ITL Bullish</label>
+                    <label class="form-check-label small fw-semibold filter-label-itl" for="itlFilterSET" style="cursor:pointer;">📈 ITL Bullish</label>
                     <a href="{% url 'stocks:ehlers_manual' %}" target="_blank" class="text-decoration-none" title="Ehlers ITL: ราคา > ITL Daily > ITL Weekly" style="font-size:0.85rem; color:#94a3b8; margin-top:-2px;"><i class="fas fa-question-circle"></i></a>
                 </div>
                 <!-- CCET Filter -->
                 <div class="form-check form-switch mb-0 d-flex align-items-center gap-2">
                     <input class="form-check-input" type="checkbox" id="ccetFilterSET" onchange="_applyFiltersSET()" style="cursor:pointer;">
-                    <label class="form-check-label small fw-semibold" for="ccetFilterSET" style="cursor:pointer;color:#10b981;">🔥 CCET Setup</label>
+                    <label class="form-check-label small fw-semibold filter-label-ccet" for="ccetFilterSET" style="cursor:pointer;">🔥 CCET Setup</label>
                     <span style="font-size:0.85rem; color:#94a3b8; cursor:pointer;" title="CCET Setup: EMA Align (20 > 50 > 200) + Volume Dry-up (RVol <= 0.6) + Near Breakout (Turtle Dist <= 10%) + RS Rating >= 80 + CMF >= -0.10 + R:R >= 1.5"><i class="fas fa-question-circle"></i></span>
                 </div>
-                <select id="sectorFilterSET" onchange="_applyFiltersSET()" class="form-select form-select-sm rounded-pill" style="width:auto;font-size:0.72rem;border:1px solid rgba(255,255,255,0.15);color:#e2e8f0;cursor:pointer;background:rgba(15,23,42,0.8);">
+                <select id="sectorFilterSET" onchange="_applyFiltersSET()" class="form-select form-select-sm rounded-pill" style="width:auto;font-size:0.72rem;cursor:pointer;">
                     <option value="">All Sectors</option>
                     {% for item in candidates %}<option value="{{ item.sector }}">{{ item.sector }}</option>{% endfor %}
                 </select>
@@ -938,7 +938,7 @@
                     <option value="prox" {% if current_sort == 'prox' %}selected{% endif %}>Zone Prox</option>
                     <option value="cmf" {% if current_sort == 'cmf' %}selected{% endif %}>CMF (Accumulation)</option>
                 </select>
-                <button onclick="exportScanCSV('scanTableSET','precision_set')" class="btn btn-sm rounded-pill px-3" style="border:1px solid rgba(255,255,255,0.15);background:rgba(15,23,42,0.7);color:#cbd5e1;font-size:0.72rem;">
+                <button onclick="exportScanCSV('scanTableSET','precision_set')" class="btn btn-sm rounded-pill px-3" style="font-size:0.72rem;">
                     <i class="fas fa-download me-1"></i>CSV
                 </button>
                 <span class="text-muted small ms-auto" id="visibleCount-SET"></span>
@@ -1733,6 +1733,153 @@
     .checkmark-orange { color: #b45309 !important; font-weight: 700; }
     .checkmark-teal { color: #065f46 !important; font-weight: 700; }
 
+    /* ── Leading Sectors ── */
+    .sectors-container {
+        border-radius: 1rem;
+        background: #f8fafc !important;
+        border: 1px solid #e2e8f0 !important;
+    }
+    .sector-badge {
+        background: #f1f5f9 !important;
+        color: #475569 !important;
+        border: 1px solid #cbd5e1 !important;
+        font-size: 0.75rem;
+    }
+
+    /* ── Bottom Row Recommendations ── */
+    .recommendation-container {
+        border-radius:1rem;
+        background: linear-gradient(135deg, #eff6ff 0%, #f5f3ff 100%);
+        border: 1px solid #bfdbfe !important;
+    }
+    .recommendation-card {
+        background: white !important;
+        border-radius: 0.85rem;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05) !important;
+        cursor: pointer;
+        border: 2px solid transparent !important;
+    }
+    .recommendation-high { border-color: #4ade80 !important; }
+    .recommendation-medium { border-color: #93c5fd !important; }
+    .recommendation-low { border-color: #e2e8f0 !important; }
+
+    .recommendation-symbol {
+        color: #1e293b !important;
+    }
+    .recommendation-price {
+        color: #1e293b !important;
+    }
+    .recommendation-reasons {
+        list-style: none;
+        font-size: 0.75rem;
+        color: #475569 !important;
+        line-height: 1.75;
+    }
+
+    /* ── Badges & Buttons inside recommendations ── */
+    .buy-badge {
+        border-width: 1px;
+        border-style: solid;
+    }
+    .buy-badge-high {
+        background: rgba(22, 163, 74, 0.1) !important;
+        color: #15803d !important;
+        border-color: rgba(22, 163, 74, 0.3) !important;
+    }
+    .buy-badge-medium {
+        background: rgba(37, 99, 235, 0.1) !important;
+        color: #1d4ed8 !important;
+        border-color: rgba(37, 99, 235, 0.3) !important;
+    }
+    .buy-badge-low {
+        background: rgba(100, 116, 139, 0.1) !important;
+        color: #475569 !important;
+        border-color: rgba(100, 116, 139, 0.3) !important;
+    }
+    .recommendation-btn {
+        background: #f0fdf4 !important;
+        color: #16a34a !important;
+        border: 1px solid #bbf7d0 !important;
+        font-size: 0.73rem;
+        padding: 3px 8px;
+        border-radius: 0.5rem;
+    }
+    .recommendation-btn:hover {
+        background: #dcfce7 !important;
+        color: #15803d !important;
+    }
+
+    /* ── Recommendation Stats text ── */
+    .stats-rr-high { color: #16a34a !important; }
+    .stats-rr-med { color: #2563eb !important; }
+    .stats-rr-low { color: #64748b !important; }
+    .stats-rs { color: #0891b2 !important; }
+    .stats-rvol-high { color: #16a34a !important; }
+    .stats-rvol-med { color: #2563eb !important; }
+    .stats-rvol-low { color: #64748b !important; }
+    .stats-win { color: #059669 !important; }
+    .stats-neutral { color: #64748b !important; }
+
+    /* ── Automated Insights ── */
+    .insights-outer {
+        border-radius: 1rem;
+        background: linear-gradient(135deg, #f8faff, #f1f5f9) !important;
+        border: 1px solid #e2e8f0 !important;
+    }
+    .insights-card {
+        background: white !important;
+        border: 1px solid #e2e8f0 !important;
+    }
+    .insights-main-title {
+        color: #334155 !important;
+    }
+    .insights-title {
+        color: #0f172a !important;
+        font-size: 0.95rem;
+    }
+    .insights-desc {
+        color: #475569 !important;
+    }
+
+    /* ── Scan Results Card Header ── */
+    .scan-header {
+        background: #f8fafc !important;
+        border-color: #e2e8f0 !important;
+    }
+    .scan-header h5 {
+        color: #0f172a !important;
+    }
+    .scan-header .text-muted {
+        color: #64748b !important;
+    }
+    .scan-header .badge.bg-light {
+        background: #f1f5f9 !important;
+        color: #475569 !important;
+        border-color: #cbd5e1 !important;
+    }
+    .scan-header select {
+        background: white !important;
+        color: #334155 !important;
+        border: 1px solid #cbd5e1 !important;
+    }
+    .scan-header button {
+        background: white !important;
+        color: #475569 !important;
+        border: 1px solid #cbd5e1 !important;
+    }
+
+    /* ── Filter label colors ── */
+    .filter-label-rsi { color: #dc2626 !important; }
+    .filter-label-stage2 { color: #16a34a !important; }
+    .filter-label-pp { color: #0ea5e9 !important; }
+    .filter-label-cmf { color: #d97706 !important; }
+    .filter-label-volsurge { color: #ea580c !important; }
+    .filter-label-ichi { color: #059669 !important; }
+    .filter-label-launcher { color: #7c3aed !important; }
+    .filter-label-vcp { color: #e11d48 !important; }
+    .filter-label-itl { color: #f97316 !important; }
+    .filter-label-ccet { color: #0d9488 !important; }
+
     /* Dark mode overrides */
     [data-theme="dark"] .scan-checklist-text,
     [data-bs-theme="dark"] .scan-checklist-text {
@@ -1754,6 +1901,153 @@
     [data-bs-theme="dark"] .checkmark-teal {
         color: #2dd4bf !important;
     }
+
+    /* Dark mode overrides for recommendations, insights & filters */
+    [data-theme="dark"] .sectors-container,
+    [data-bs-theme="dark"] .sectors-container {
+        background: rgba(15, 23, 42, 0.7) !important;
+        border: 1px solid rgba(255, 255, 255, 0.07) !important;
+    }
+    [data-theme="dark"] .sector-badge,
+    [data-bs-theme="dark"] .sector-badge {
+        background: rgba(30, 40, 70, 0.8) !important;
+        color: #94a3b8 !important;
+        border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    }
+
+    [data-theme="dark"] .recommendation-container,
+    [data-bs-theme="dark"] .recommendation-container {
+        background: linear-gradient(135deg, rgba(9,35,15,0.6) 0%, rgba(9,17,42,0.6) 100%) !important;
+        border: 1px solid rgba(74,222,128,0.2) !important;
+    }
+    [data-theme="dark"] .recommendation-card,
+    [data-bs-theme="dark"] .recommendation-card {
+        background: rgba(15, 23, 42, 0.8) !important;
+        box-shadow: 0 2px 12px rgba(0, 0, 0, 0.3) !important;
+    }
+    [data-theme="dark"] .recommendation-high,
+    [data-bs-theme="dark"] .recommendation-high { border-color: rgba(74,222,128,0.4) !important; }
+    [data-theme="dark"] .recommendation-medium,
+    [data-bs-theme="dark"] .recommendation-medium { border-color: rgba(147,197,253,0.3) !important; }
+    [data-theme="dark"] .recommendation-low,
+    [data-bs-theme="dark"] .recommendation-low { border-color: rgba(255, 255, 255, 0.08) !important; }
+
+    [data-theme="dark"] .recommendation-symbol,
+    [data-bs-theme="dark"] .recommendation-symbol,
+    [data-theme="dark"] .recommendation-price,
+    [data-bs-theme="dark"] .recommendation-price {
+        color: #f1f5f9 !important;
+    }
+    [data-theme="dark"] .recommendation-reasons,
+    [data-bs-theme="dark"] .recommendation-reasons {
+        color: #94a3b8 !important;
+    }
+
+    [data-theme="dark"] .buy-badge-high,
+    [data-bs-theme="dark"] .buy-badge-high {
+        background: rgba(74, 222, 128, 0.15) !important;
+        color: #4ade80 !important;
+        border-color: rgba(74, 222, 128, 0.3) !important;
+    }
+    [data-theme="dark"] .buy-badge-medium,
+    [data-bs-theme="dark"] .buy-badge-medium {
+        background: rgba(147, 197, 253, 0.15) !important;
+        color: #93c5fd !important;
+        border-color: rgba(147, 197, 253, 0.3) !important;
+    }
+    [data-theme="dark"] .buy-badge-low,
+    [data-bs-theme="dark"] .buy-badge-low {
+        background: rgba(255, 255, 255, 0.08) !important;
+        color: #94a3b8 !important;
+        border-color: rgba(255, 255, 255, 0.12) !important;
+    }
+
+    [data-theme="dark"] .recommendation-btn,
+    [data-bs-theme="dark"] .recommendation-btn {
+        background: rgba(20, 83, 45, 0.3) !important;
+        color: #4ade80 !important;
+        border: 1px solid rgba(74, 222, 128, 0.3) !important;
+    }
+    [data-theme="dark"] .recommendation-btn:hover,
+    [data-bs-theme="dark"] .recommendation-btn:hover {
+        background: rgba(22, 101, 52, 0.4) !important;
+        color: #4ade80 !important;
+    }
+
+    [data-theme="dark"] .stats-rr-low,
+    [data-bs-theme="dark"] .stats-rr-low,
+    [data-theme="dark"] .stats-rvol-low,
+    [data-bs-theme="dark"] .stats-rvol-low,
+    [data-theme="dark"] .stats-neutral,
+    [data-bs-theme="dark"] .stats-neutral {
+        color: #94a3b8 !important;
+    }
+
+    [data-theme="dark"] .insights-outer,
+    [data-bs-theme="dark"] .insights-outer {
+        background: rgba(13, 19, 35, 0.75) !important;
+        border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    }
+    [data-theme="dark"] .insights-card,
+    [data-bs-theme="dark"] .insights-card {
+        background: rgba(20, 30, 55, 0.65) !important;
+        border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    }
+    [data-theme="dark"] .insights-main-title,
+    [data-bs-theme="dark"] .insights-main-title {
+        color: #a78bfa !important;
+    }
+    [data-theme="dark"] .insights-title,
+    [data-bs-theme="dark"] .insights-title {
+        color: #e2e8f0 !important;
+    }
+    [data-theme="dark"] .insights-desc,
+    [data-bs-theme="dark"] .insights-desc {
+        color: #94a3b8 !important;
+    }
+
+    [data-theme="dark"] .scan-header,
+    [data-bs-theme="dark"] .scan-header {
+        background: rgba(9, 13, 22, 0.8) !important;
+        border-color: rgba(255, 255, 255, 0.08) !important;
+    }
+    [data-theme="dark"] .scan-header h5,
+    [data-bs-theme="dark"] .scan-header h5 {
+        color: #f1f5f9 !important;
+    }
+    [data-theme="dark"] .scan-header .text-muted,
+    [data-bs-theme="dark"] .scan-header .text-muted {
+        color: #94a3b8 !important;
+    }
+    [data-theme="dark"] .scan-header .badge.bg-light,
+    [data-bs-theme="dark"] .scan-header .badge.bg-light {
+        background: rgba(30, 41, 59, 0.5) !important;
+        color: #94a3b8 !important;
+        border-color: rgba(255, 255, 255, 0.1) !important;
+    }
+    [data-theme="dark"] .scan-header select,
+    [data-bs-theme="dark"] .scan-header select {
+        background: rgba(15, 23, 42, 0.8) !important;
+        color: #e2e8f0 !important;
+        border: 1px solid rgba(255, 255, 255, 0.15) !important;
+    }
+    [data-theme="dark"] .scan-header button,
+    [data-bs-theme="dark"] .scan-header button {
+        background: rgba(15, 23, 42, 0.7) !important;
+        color: #cbd5e1 !important;
+        border: 1px solid rgba(255, 255, 255, 0.15) !important;
+    }
+
+    [data-theme="dark"] .filter-label-rsi, [data-bs-theme="dark"] .filter-label-rsi { color: #ef4444 !important; }
+    [data-theme="dark"] .filter-label-stage2, [data-bs-theme="dark"] .filter-label-stage2 { color: #4ade80 !important; }
+    [data-theme="dark"] .filter-label-pp, [data-bs-theme="dark"] .filter-label-pp { color: #38bdf8 !important; }
+    [data-theme="dark"] .filter-label-cmf, [data-bs-theme="dark"] .filter-label-cmf { color: #fbbf24 !important; }
+    [data-theme="dark"] .filter-label-volsurge, [data-bs-theme="dark"] .filter-label-volsurge { color: #fb923c !important; }
+    [data-theme="dark"] .filter-label-ichi, [data-bs-theme="dark"] .filter-label-ichi { color: #34d399 !important; }
+    [data-theme="dark"] .filter-label-launcher, [data-bs-theme="dark"] .filter-label-launcher { color: #c084fc !important; }
+    [data-theme="dark"] .filter-label-vcp, [data-bs-theme="dark"] .filter-label-vcp { color: #fb7185 !important; }
+    [data-theme="dark"] .filter-label-itl, [data-bs-theme="dark"] .filter-label-itl { color: #ffedd5 !important; }
+    [data-theme="dark"] .filter-label-ccet, [data-bs-theme="dark"] .filter-label-ccet { color: #2dd4bf !important; }
 
     /* ── Row highlights ─────────────────────────────────── */
     tr.row-entry-zone  { background: rgba(34, 197, 94, 0.07) !important; border-left: 4px solid #22c55e; }

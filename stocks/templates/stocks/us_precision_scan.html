@@ -44,6 +44,161 @@
     .checkmark-green { color: #16a34a !important; font-weight: 700; }
     .checkmark-red { color: #dc2626 !important; font-weight: 700; }
 
+    /* ── Leading Sectors ── */
+    .sectors-container {
+        border-radius: 1rem;
+        background: #f8fafc !important;
+        border: 1px solid #e2e8f0 !important;
+    }
+    .sector-badge {
+        background: #f1f5f9 !important;
+        color: #475569 !important;
+        border: 1px solid #cbd5e1 !important;
+        font-size: 0.75rem;
+    }
+
+    /* ── Bottom Row Recommendations ── */
+    .recommendation-container {
+        border-radius:1rem;
+        background: linear-gradient(135deg, #eff6ff 0%, #f5f3ff 100%);
+        border: 1px solid #bfdbfe !important;
+    }
+    .recommendation-card {
+        background: white !important;
+        border-radius: 0.85rem;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05) !important;
+        cursor: pointer;
+        border: 2px solid transparent !important;
+    }
+    .recommendation-high { border-color: #4ade80 !important; }
+    .recommendation-medium { border-color: #93c5fd !important; }
+    .recommendation-low { border-color: #e2e8f0 !important; }
+
+    .recommendation-title {
+        color: #1e3a8a !important;
+    }
+    [data-theme="dark"] .recommendation-title,
+    [data-bs-theme="dark"] .recommendation-title {
+        color: #4ade80 !important;
+    }
+
+    .recommendation-symbol {
+        color: #1e293b !important;
+    }
+    .recommendation-price {
+        color: #1e293b !important;
+    }
+    .recommendation-reasons {
+        list-style: none;
+        font-size: 0.75rem;
+        color: #475569 !important;
+        line-height: 1.75;
+    }
+
+    /* ── Badges & Buttons inside recommendations ── */
+    .buy-badge {
+        border-width: 1px;
+        border-style: solid;
+    }
+    .buy-badge-high {
+        background: rgba(22, 163, 74, 0.1) !important;
+        color: #15803d !important;
+        border-color: rgba(22, 163, 74, 0.3) !important;
+    }
+    .buy-badge-medium {
+        background: rgba(37, 99, 235, 0.1) !important;
+        color: #1d4ed8 !important;
+        border-color: rgba(37, 99, 235, 0.3) !important;
+    }
+    .buy-badge-low {
+        background: rgba(100, 116, 139, 0.1) !important;
+        color: #475569 !important;
+        border-color: rgba(100, 116, 139, 0.3) !important;
+    }
+    .recommendation-btn {
+        background: #dbeafe !important;
+        color: #1e40af !important;
+        border: 1px solid #bfdbfe !important;
+        font-size: 0.75rem;
+        border-radius: 0.5rem;
+        padding: 3px 8px;
+    }
+    .recommendation-btn:hover {
+        background: #bfdbfe !important;
+        color: #1e3a8a !important;
+    }
+
+    /* ── Recommendation Stats text ── */
+    .stats-rr-high { color: #16a34a !important; }
+    .stats-rr-med { color: #2563eb !important; }
+    .stats-rr-low { color: #64748b !important; }
+    .stats-rs { color: #0891b2 !important; }
+    .stats-rvol-high { color: #16a34a !important; }
+    .stats-rvol-med { color: #2563eb !important; }
+    .stats-rvol-low { color: #64748b !important; }
+    .stats-win { color: #059669 !important; }
+    .stats-neutral { color: #64748b !important; }
+
+    /* ── Automated Insights ── */
+    .insights-outer {
+        border-radius: 1rem;
+        background: linear-gradient(135deg, #f8faff, #f1f5f9) !important;
+        border: 1px solid #e2e8f0 !important;
+    }
+    .insights-card {
+        background: white !important;
+        border: 1px solid #e2e8f0 !important;
+    }
+    .insights-main-title {
+        color: #334155 !important;
+    }
+    .insights-title {
+        color: #0f172a !important;
+        font-size: 0.95rem;
+    }
+    .insights-desc {
+        color: #475569 !important;
+    }
+
+    /* ── Scan Results Card Header ── */
+    .scan-header {
+        background: #f8fafc !important;
+        border-color: #e2e8f0 !important;
+    }
+    .scan-header h5 {
+        color: #0f172a !important;
+    }
+    .scan-header .text-muted {
+        color: #64748b !important;
+    }
+    .scan-header .badge.bg-light {
+        background: #f1f5f9 !important;
+        color: #475569 !important;
+        border-color: #cbd5e1 !important;
+    }
+    .scan-header select {
+        background: white !important;
+        color: #334155 !important;
+        border: 1px solid #cbd5e1 !important;
+    }
+    .scan-header button {
+        background: white !important;
+        color: #475569 !important;
+        border: 1px solid #cbd5e1 !important;
+    }
+
+    /* ── Filter label colors ── */
+    .filter-label-rsi { color: #dc2626 !important; }
+    .filter-label-stage2 { color: #16a34a !important; }
+    .filter-label-pp { color: #0ea5e9 !important; }
+    .filter-label-cmf { color: #d97706 !important; }
+    .filter-label-volsurge { color: #ea580c !important; }
+    .filter-label-ichi { color: #059669 !important; }
+    .filter-label-launcher { color: #7c3aed !important; }
+    .filter-label-vcp { color: #e11d48 !important; }
+    .filter-label-itl { color: #f97316 !important; }
+    .filter-label-ccet { color: #0d9488 !important; }
+
     /* Dark mode overrides */
     [data-theme="dark"] .scan-checklist-text,
     [data-bs-theme="dark"] .scan-checklist-text {
@@ -57,6 +212,153 @@
     [data-bs-theme="dark"] .checkmark-red {
         color: #f87171 !important;
     }
+
+    /* Dark mode overrides for recommendations, insights & filters */
+    [data-theme="dark"] .sectors-container,
+    [data-bs-theme="dark"] .sectors-container {
+        background: rgba(15, 23, 42, 0.7) !important;
+        border: 1px solid rgba(255, 255, 255, 0.07) !important;
+    }
+    [data-theme="dark"] .sector-badge,
+    [data-bs-theme="dark"] .sector-badge {
+        background: rgba(30, 40, 70, 0.8) !important;
+        color: #94a3b8 !important;
+        border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    }
+
+    [data-theme="dark"] .recommendation-container,
+    [data-bs-theme="dark"] .recommendation-container {
+        background: linear-gradient(135deg, rgba(9,35,15,0.6) 0%, rgba(9,17,42,0.6) 100%) !important;
+        border: 1px solid rgba(74,222,128,0.2) !important;
+    }
+    [data-theme="dark"] .recommendation-card,
+    [data-bs-theme="dark"] .recommendation-card {
+        background: rgba(15, 23, 42, 0.8) !important;
+        box-shadow: 0 2px 12px rgba(0, 0, 0, 0.3) !important;
+    }
+    [data-theme="dark"] .recommendation-high,
+    [data-bs-theme="dark"] .recommendation-high { border-color: rgba(74,222,128,0.4) !important; }
+    [data-theme="dark"] .recommendation-medium,
+    [data-bs-theme="dark"] .recommendation-medium { border-color: rgba(147,197,253,0.3) !important; }
+    [data-theme="dark"] .recommendation-low,
+    [data-bs-theme="dark"] .recommendation-low { border-color: rgba(255, 255, 255, 0.08) !important; }
+
+    [data-theme="dark"] .recommendation-symbol,
+    [data-bs-theme="dark"] .recommendation-symbol,
+    [data-theme="dark"] .recommendation-price,
+    [data-bs-theme="dark"] .recommendation-price {
+        color: #f1f5f9 !important;
+    }
+    [data-theme="dark"] .recommendation-reasons,
+    [data-bs-theme="dark"] .recommendation-reasons {
+        color: #94a3b8 !important;
+    }
+
+    [data-theme="dark"] .buy-badge-high,
+    [data-bs-theme="dark"] .buy-badge-high {
+        background: rgba(74, 222, 128, 0.15) !important;
+        color: #4ade80 !important;
+        border-color: rgba(74, 222, 128, 0.3) !important;
+    }
+    [data-theme="dark"] .buy-badge-medium,
+    [data-bs-theme="dark"] .buy-badge-medium {
+        background: rgba(147, 197, 253, 0.15) !important;
+        color: #93c5fd !important;
+        border-color: rgba(147, 197, 253, 0.3) !important;
+    }
+    [data-theme="dark"] .buy-badge-low,
+    [data-bs-theme="dark"] .buy-badge-low {
+        background: rgba(255, 255, 255, 0.08) !important;
+        color: #94a3b8 !important;
+        border-color: rgba(255, 255, 255, 0.12) !important;
+    }
+
+    [data-theme="dark"] .recommendation-btn,
+    [data-bs-theme="dark"] .recommendation-btn {
+        background: rgba(20, 83, 45, 0.3) !important;
+        color: #4ade80 !important;
+        border: 1px solid rgba(74, 222, 128, 0.3) !important;
+    }
+    [data-theme="dark"] .recommendation-btn:hover,
+    [data-bs-theme="dark"] .recommendation-btn:hover {
+        background: rgba(22, 101, 52, 0.4) !important;
+        color: #4ade80 !important;
+    }
+
+    [data-theme="dark"] .stats-rr-low,
+    [data-bs-theme="dark"] .stats-rr-low,
+    [data-theme="dark"] .stats-rvol-low,
+    [data-bs-theme="dark"] .stats-rvol-low,
+    [data-theme="dark"] .stats-neutral,
+    [data-bs-theme="dark"] .stats-neutral {
+        color: #94a3b8 !important;
+    }
+
+    [data-theme="dark"] .insights-outer,
+    [data-bs-theme="dark"] .insights-outer {
+        background: rgba(13, 19, 35, 0.75) !important;
+        border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    }
+    [data-theme="dark"] .insights-card,
+    [data-bs-theme="dark"] .insights-card {
+        background: rgba(20, 30, 55, 0.65) !important;
+        border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    }
+    [data-theme="dark"] .insights-main-title,
+    [data-bs-theme="dark"] .insights-main-title {
+        color: #a78bfa !important;
+    }
+    [data-theme="dark"] .insights-title,
+    [data-bs-theme="dark"] .insights-title {
+        color: #e2e8f0 !important;
+    }
+    [data-theme="dark"] .insights-desc,
+    [data-bs-theme="dark"] .insights-desc {
+        color: #94a3b8 !important;
+    }
+
+    [data-theme="dark"] .scan-header,
+    [data-bs-theme="dark"] .scan-header {
+        background: rgba(9, 13, 22, 0.8) !important;
+        border-color: rgba(255, 255, 255, 0.08) !important;
+    }
+    [data-theme="dark"] .scan-header h5,
+    [data-bs-theme="dark"] .scan-header h5 {
+        color: #f1f5f9 !important;
+    }
+    [data-theme="dark"] .scan-header .text-muted,
+    [data-bs-theme="dark"] .scan-header .text-muted {
+        color: #94a3b8 !important;
+    }
+    [data-theme="dark"] .scan-header .badge.bg-light,
+    [data-bs-theme="dark"] .scan-header .badge.bg-light {
+        background: rgba(30, 41, 59, 0.5) !important;
+        color: #94a3b8 !important;
+        border-color: rgba(255, 255, 255, 0.1) !important;
+    }
+    [data-theme="dark"] .scan-header select,
+    [data-bs-theme="dark"] .scan-header select {
+        background: rgba(15, 23, 42, 0.8) !important;
+        color: #e2e8f0 !important;
+        border: 1px solid rgba(255, 255, 255, 0.15) !important;
+    }
+    [data-theme="dark"] .scan-header button,
+    [data-bs-theme="dark"] .scan-header button {
+        background: rgba(15, 23, 42, 0.7) !important;
+        color: #cbd5e1 !important;
+        border: 1px solid rgba(255, 255, 255, 0.15) !important;
+    }
+
+    [data-theme="dark"] .filter-label-rsi, [data-bs-theme="dark"] .filter-label-rsi { color: #ef4444 !important; }
+    [data-theme="dark"] .filter-label-stage2, [data-bs-theme="dark"] .filter-label-stage2 { color: #4ade80 !important; }
+    [data-theme="dark"] .filter-label-pp, [data-bs-theme="dark"] .filter-label-pp { color: #38bdf8 !important; }
+    [data-theme="dark"] .filter-label-cmf, [data-bs-theme="dark"] .filter-label-cmf { color: #fbbf24 !important; }
+    [data-theme="dark"] .filter-label-volsurge, [data-bs-theme="dark"] .filter-label-volsurge { color: #fb923c !important; }
+    [data-theme="dark"] .filter-label-ichi, [data-bs-theme="dark"] .filter-label-ichi { color: #34d399 !important; }
+    [data-theme="dark"] .filter-label-launcher, [data-bs-theme="dark"] .filter-label-launcher { color: #c084fc !important; }
+    [data-theme="dark"] .filter-label-vcp, [data-bs-theme="dark"] .filter-label-vcp { color: #fb7185 !important; }
+    [data-theme="dark"] .filter-label-itl, [data-bs-theme="dark"] .filter-label-itl { color: #ffedd5 !important; }
+    [data-theme="dark"] .filter-label-ccet, [data-bs-theme="dark"] .filter-label-ccet { color: #2dd4bf !important; }
 </style>
 
 <div>
@@ -205,11 +507,11 @@
                     <div class="h-100 p-3 position-relative" style="background:white; border-radius:0.85rem; border:2px solid #86efac; box-shadow:0 2px 8px rgba(34,197,94,0.12);">
                         <span class="position-absolute" style="top:-10px;left:12px;background:#16a34a;color:white;border-radius:999px;font-size:0.65rem;font-weight:700;padding:1px 8px;">#{{ forloop.counter }}</span>
                         <div class="d-flex align-items-center justify-content-between mb-1 mt-1">
-                            <span class="fw-bold" style="font-size:1.1rem;color:#1e293b;">{{ item.symbol }}</span>
+                            <span class="fw-bold recommendation-symbol" style="font-size:1.1rem;">{{ item.symbol }}</span>
                             <span class="fw-bold px-2 rounded-pill" style="background:#dcfce7;color:#15803d;font-size:0.82rem;border:1px solid #86efac;">BUY {{ item.buy_score }}</span>
                         </div>
                         <div class="mb-2 d-flex align-items-center gap-1 flex-wrap">
-                            <span style="font-size:0.95rem;font-weight:600;color:#0f172a;">${{ item.live_price|default:item.price|floatformat:2 }}</span>
+                            <span class="recommendation-price" style="font-size:0.95rem;font-weight:600;">${{ item.live_price|default:item.price|floatformat:2 }}</span>
                             {% if item.live_change_pct is not None %}
                             <span style="font-size:0.75rem;font-weight:600;color:{% if item.live_change_pct >= 0 %}#16a34a{% else %}#dc2626{% endif %};">{% if item.live_change_pct >= 0 %}+{% endif %}{{ item.live_change_pct|floatformat:1 }}%</span>
                             {% endif %}
@@ -233,35 +535,35 @@
 <!-- TOP 5 BUY SCORES -->
 {% if top5_buy %}
 <div class="col-12 mb-3">
-    <div class="card border-0 shadow-sm" style="border-radius:1rem; background:linear-gradient(135deg,#eff6ff 0%,#f5f3ff 100%); border:2px solid #bfdbfe !important;">
+    <div class="card border-0 shadow-sm recommendation-container">
         <div class="card-body p-3">
             <div class="d-flex align-items-center gap-2 mb-3">
                 <span style="font-size:1.3rem;">🏆</span>
-                <span class="fw-bold" style="font-size:1rem; color:#1e40af;">Top 5 Momentum Leaders (By Score)</span>
+                <span class="fw-bold recommendation-title" style="font-size:1rem;">Top 5 Momentum Leaders (By Score)</span>
                 <span class="text-muted" style="font-size:0.8rem;">— Highest momentum scores</span>
             </div>
             <div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-xl-5 g-2">
                 {% for item in top5_buy %}
                 <div class="col">
-                    <div class="h-100 p-3 position-relative" style="background:white; border-radius:0.85rem; border:2px solid #bfdbfe; box-shadow:0 2px 8px rgba(59,130,246,0.12);">
+                    <div class="h-100 p-3 position-relative recommendation-card {% if item.buy_score >= 80 %}recommendation-high{% elif item.buy_score >= 65 %}recommendation-medium{% else %}recommendation-low{% endif %}">
                         <span class="position-absolute" style="top:-10px;left:12px;background:#3b82f6;color:white;border-radius:999px;font-size:0.65rem;font-weight:700;padding:1px 8px;">#{{ forloop.counter }}</span>
                         <div class="d-flex align-items-center justify-content-between mb-1 mt-1">
-                            <span class="fw-bold" style="font-size:1.1rem;color:#1e293b;">{{ item.symbol }}</span>
-                            <span class="fw-bold px-2 rounded-pill" style="background:#dbeafe;color:#1e40af;font-size:0.82rem;border:1px solid #bfdbfe;">BUY {{ item.buy_score }}</span>
+                            <span class="fw-bold recommendation-symbol" style="font-size:1.1rem;">{{ item.symbol }}</span>
+                            <span class="fw-bold px-2 rounded-pill buy-badge {% if item.buy_score >= 80 %}buy-badge-high{% elif item.buy_score >= 65 %}buy-badge-medium{% else %}buy-badge-low{% endif %}" style="font-size:0.82rem;">BUY {{ item.buy_score }}</span>
                         </div>
                         <div class="mb-2 d-flex align-items-center gap-1 flex-wrap">
-                            <span style="font-size:0.95rem;font-weight:600;color:#0f172a;">${{ item.live_price|default:item.price|floatformat:2 }}</span>
+                            <span class="recommendation-price" style="font-size:0.95rem;font-weight:600;">${{ item.live_price|default:item.price|floatformat:2 }}</span>
                             {% if item.live_change_pct is not None %}
                             <span style="font-size:0.75rem;font-weight:600;color:{% if item.live_change_pct >= 0 %}#16a34a{% else %}#dc2626{% endif %};">{% if item.live_change_pct >= 0 %}+{% endif %}{{ item.live_change_pct|floatformat:1 }}%</span>
                             {% endif %}
                         </div>
-                        <div class="mb-2" style="font-size:0.75rem;color:#374151;line-height:1.7;">
-                            <div><span style="color:#3b82f6;font-weight:700;">✓</span> RS Rating {{ item.rs_rating }}</div>
-                            <div><span style="color:#3b82f6;font-weight:700;">✓</span> Vol Surge {{ item.rvol|floatformat:1 }}x</div>
-                            <div><span style="color:#3b82f6;font-weight:700;">✓</span> ADX {{ item.adx|floatformat:0 }}</div>
+                        <div class="mb-2 recommendation-reasons" style="font-size:0.75rem;line-height:1.7;">
+                            <div><span class="checkmark-green">✓</span> RS Rating {{ item.rs_rating }}</div>
+                            <div><span class="checkmark-green">✓</span> Vol Surge {{ item.rvol|floatformat:1 }}x</div>
+                            <div><span class="checkmark-green">✓</span> ADX {{ item.adx|floatformat:0 }}</div>
                             {% if item.launcher_score > 0 %}<div><span style="color:#dc2626;font-weight:700;">🚀</span> L Score {{ item.launcher_score }}</div>{% endif %}
                         </div>
-                        <a href="{% url 'stocks:entry_finder' item.symbol %}" class="btn btn-sm w-100" style="background:#dbeafe;color:#1e40af;border:1px solid #bfdbfe;font-size:0.75rem;border-radius:0.5rem;">Sniper Chart</a>
+                        <a href="{% url 'stocks:entry_finder' item.symbol %}" class="btn btn-sm w-100 recommendation-btn">Sniper Chart</a>
                     </div>
                 </div>
                 {% endfor %}
@@ -274,17 +576,17 @@
 <!-- Automated AI Insights -->
 {% if scan_insights %}
 <div class="col-12 mb-4">
-    <div class="p-4 shadow-sm border" style="border-radius:1rem; background:linear-gradient(135deg,#f8faff,#f1f5f9); border-color:#e2e8f0 !important;">
-        <h5 class="fw-bold mb-3" style="color:#334155;"><i class="fas fa-robot text-primary me-2"></i> US Market Insights (Automated)</h5>
+    <div class="p-4 shadow-sm insights-outer">
+        <h5 class="fw-bold mb-3 insights-main-title"><i class="fas fa-robot text-primary me-2"></i> US Market Insights (Automated)</h5>
         <div class="row g-3">
             {% for insight in scan_insights %}
             <div class="col-md-{% if scan_insights|length == 1 %}12{% elif scan_insights|length == 2 %}6{% else %}4{% endif %}">
-                <div class="p-3 bg-white h-100 rounded-3 border" style="border-color:#e2e8f0 !important;">
+                <div class="p-3 h-100 rounded-3 insights-card">
                     <div class="d-flex align-items-center gap-2 mb-2">
                         <span style="font-size:1.2rem;">{{ insight.icon }}</span>
-                        <span class="fw-bold" style="color:#0f172a;">{{ insight.title }}</span>
+                        <span class="fw-bold insights-title">{{ insight.title }}</span>
                     </div>
-                    <p class="mb-0 text-muted small" style="line-height:1.5;">{{ insight.desc }}</p>
+                    <p class="mb-0 insights-desc small" style="line-height:1.5;">{{ insight.desc }}</p>
                 </div>
             </div>
             {% endfor %}
@@ -296,7 +598,7 @@
 <!-- SCAN RESULT TABLE -->
 <div class="col-12">
     <div class="card border-0 mb-4 shadow-sm" style="border-radius: 1rem;">
-        <div class="card-header bg-white border-bottom p-3">
+        <div class="card-header border-bottom p-3 scan-header">
             <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
                 <h5 class="mb-0 fw-bold d-flex align-items-center gap-2">
                     <i class="fas fa-crosshairs" style="color: #7c3aed;"></i>
@@ -323,52 +625,52 @@
             <div class="px-3 pb-2 d-flex flex-wrap gap-2 align-items-center">
                 <div class="form-check form-switch mb-0 d-flex align-items-center gap-2">
                     <input class="form-check-input" type="checkbox" id="rsiFilter70US" onchange="_applyFiltersUS()" style="cursor:pointer;">
-                    <label class="form-check-label small fw-semibold" for="rsiFilter70US" style="cursor:pointer;color:#ef4444;">🔥 RSI < 70</label>
+                    <label class="form-check-label small fw-semibold filter-label-rsi" for="rsiFilter70US" style="cursor:pointer;">🔥 RSI < 70</label>
                 </div>
                 <div class="form-check form-switch mb-0 d-flex align-items-center gap-2">
                     <input class="form-check-input" type="checkbox" id="stage2FilterUS" onchange="filterByStage2('US', this.checked)" style="cursor:pointer;">
-                    <label class="form-check-label small fw-semibold" for="stage2FilterUS" style="cursor:pointer;color:#16a34a;">Stage 2 Only</label>
+                    <label class="form-check-label small fw-semibold filter-label-stage2" for="stage2FilterUS" style="cursor:pointer;">Stage 2 Only</label>
                 </div>
                 <div class="form-check form-switch mb-0 d-flex align-items-center gap-2">
                     <input class="form-check-input" type="checkbox" id="ppFilterUS" onchange="filterByPP('US', this.checked)" style="cursor:pointer;">
-                    <label class="form-check-label small fw-semibold" for="ppFilterUS" style="cursor:pointer;color:#0e7490;">PP only</label>
+                    <label class="form-check-label small fw-semibold filter-label-pp" for="ppFilterUS" style="cursor:pointer;">PP only</label>
                 </div>
                 <div class="form-check form-switch mb-0 d-flex align-items-center gap-2">
                     <input class="form-check-input" type="checkbox" id="hideCmfDistUS" onchange="filterByCMFDist('US', this.checked)" style="cursor:pointer;">
-                    <label class="form-check-label small fw-semibold" for="hideCmfDistUS" style="cursor:pointer;color:#d97706;">ซ่อน CMF ↓</label>
+                    <label class="form-check-label small fw-semibold filter-label-cmf" for="hideCmfDistUS" style="cursor:pointer;">ซ่อน CMF ↓</label>
                 </div>
                 <div class="form-check form-switch mb-0 d-flex align-items-center gap-2">
                     <input class="form-check-input" type="checkbox" id="volSurgeFilterUS" onchange="_applyFiltersUS()" style="cursor:pointer;">
-                    <label class="form-check-label small fw-semibold" for="volSurgeFilterUS" style="cursor:pointer;color:#f59e0b;">⚡ Vol Surge ≥1.5x</label>
+                    <label class="form-check-label small fw-semibold filter-label-volsurge" for="volSurgeFilterUS" style="cursor:pointer;">⚡ Vol Surge ≥1.5x</label>
                 </div>
                 <div class="form-check form-switch mb-0 d-flex align-items-center gap-2">
                     <input class="form-check-input" type="checkbox" id="ichiFilterUS" onchange="_applyFiltersUS()" style="cursor:pointer;">
-                    <label class="form-check-label small fw-semibold" for="ichiFilterUS" style="cursor:pointer;color:#059669;">☁ Ichi ≥ 3</label>
+                    <label class="form-check-label small fw-semibold filter-label-ichi" for="ichiFilterUS" style="cursor:pointer;">☁ Ichi ≥ 3</label>
                 </div>
                 <!-- Launcher Filter -->
                 <div class="form-check form-switch mb-0 d-flex align-items-center gap-2">
                     <input class="form-check-input" type="checkbox" id="launcherFilterUS" onchange="_applyFiltersUS()" style="cursor:pointer;">
-                    <label class="form-check-label small fw-semibold" for="launcherFilterUS" style="cursor:pointer;color:#7c3aed;">🚀 Launcher Only</label>
+                    <label class="form-check-label small fw-semibold filter-label-launcher" for="launcherFilterUS" style="cursor:pointer;">🚀 Launcher Only</label>
                 </div>
                 <!-- VCP Filter -->
                 <div class="form-check form-switch mb-0 d-flex align-items-center gap-2">
                     <input class="form-check-input" type="checkbox" id="vcpFilterUS" onchange="_applyFiltersUS()" style="cursor:pointer;">
-                    <label class="form-check-label small fw-semibold" for="vcpFilterUS" style="cursor:pointer;color:#dc2626;">🎯 VCP Only</label>
+                    <label class="form-check-label small fw-semibold filter-label-vcp" for="vcpFilterUS" style="cursor:pointer;">🎯 VCP Only</label>
                     <a href="{% url 'stocks:vcp_manual' %}" target="_blank" class="text-decoration-none" title="วิธีดู VCP" style="font-size:0.85rem; color:#94a3b8; margin-top:-2px;"><i class="fas fa-question-circle"></i></a>
                 </div>
                 <!-- ITL Filter -->
                 <div class="form-check form-switch mb-0 d-flex align-items-center gap-2">
                     <input class="form-check-input" type="checkbox" id="itlFilterUS" onchange="_applyFiltersUS()" style="cursor:pointer;">
-                    <label class="form-check-label small fw-semibold" for="itlFilterUS" style="cursor:pointer;color:#f97316;">📈 ITL Bullish</label>
+                    <label class="form-check-label small fw-semibold filter-label-itl" for="itlFilterUS" style="cursor:pointer;">📈 ITL Bullish</label>
                     <a href="{% url 'stocks:ehlers_manual' %}" target="_blank" class="text-decoration-none" title="Ehlers ITL: ราคา > ITL Daily > ITL Weekly" style="font-size:0.85rem; color:#94a3b8; margin-top:-2px;"><i class="fas fa-question-circle"></i></a>
                 </div>
                 <!-- CCET Filter -->
                 <div class="form-check form-switch mb-0 d-flex align-items-center gap-2">
                     <input class="form-check-input" type="checkbox" id="ccetFilterUS" onchange="_applyFiltersUS()" style="cursor:pointer;">
-                    <label class="form-check-label small fw-semibold" for="ccetFilterUS" style="cursor:pointer;color:#10b981;">🔥 CCET Setup</label>
+                    <label class="form-check-label small fw-semibold filter-label-ccet" for="ccetFilterUS" style="cursor:pointer;">🔥 CCET Setup</label>
                     <span style="font-size:0.85rem; color:#94a3b8; cursor:pointer;" title="CCET Setup: EMA Align (20 > 50 > 200) + Volume Dry-up (RVol <= 0.6) + Near Breakout (Turtle Dist <= 10%) + RS Rating >= 80 + CMF >= -0.10 + R:R >= 1.5"><i class="fas fa-question-circle"></i></span>
                 </div>
-                <select id="sectorFilterUS" onchange="_applyFiltersUS()" class="form-select form-select-sm rounded-pill" style="width:auto;font-size:0.72rem;border:1px solid #e2e8f0;color:#374151;cursor:pointer;">
+                <select id="sectorFilterUS" onchange="_applyFiltersUS()" class="form-select form-select-sm rounded-pill" style="width:auto;font-size:0.72rem;cursor:pointer;">
                     <option value="">All Sectors</option>
                     {% for item in candidates %}<option value="{{ item.sector }}">{{ item.sector }}</option>{% endfor %}
                 </select>
@@ -383,7 +685,7 @@
                     <option value="prox" {% if current_sort == 'prox' %}selected{% endif %}>Zone Prox</option>
                     <option value="cmf" {% if current_sort == 'cmf' %}selected{% endif %}>CMF (Accumulation)</option>
                 </select>
-                <button onclick="exportScanCSV('scanTableUS','precision_us')" class="btn btn-sm rounded-pill px-3" style="border:1px solid #e2e8f0;background:white;color:#374151;font-size:0.72rem;">
+                <button onclick="exportScanCSV('scanTableUS','precision_us')" class="btn btn-sm rounded-pill px-3" style="font-size:0.72rem;">
                     <i class="fas fa-download me-1"></i>CSV
                 </button>
                 <span class="text-muted small ms-auto" id="visibleCount-US"></span>
