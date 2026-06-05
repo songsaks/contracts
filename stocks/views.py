@@ -12209,12 +12209,13 @@ JSON:{{"status":"success","market":"{market}","selected_stocks":[{{"rank":1,"sym
 
         def _call_gemini():
             return client.models.generate_content(
-                model='gemini-2.0-flash',
+                model='gemini-2.5-flash-lite',
                 contents=prompt,
                 config=types.GenerateContentConfig(
                     response_mime_type='application/json',
                     temperature=0.0,
                     max_output_tokens=1200,
+                    thinking_config=types.ThinkingConfig(thinking_budget=0),
                 )
             )
 
