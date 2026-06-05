@@ -12201,11 +12201,21 @@ def _run_ai_manual_scan_bg(user_id, cache_key, market, scan_run_time):
 
         client = genai.Client(api_key=settings.GEMINI_API_KEY)
 
-        prompt = f"""SEPA+SmartMoney screener. Pick 5-8 best {market} stocks. Grade A=top.
-Rules: RS>=65, RSI 50-65 ideal, cmf>0, vcp/vdu/pp bonus, eps/rev>=25% bonus.
-Keys: s=symbol rs=RSrating rsi adx sc=score cmf vsurge=volSurge pp=pocketPivot vdu eps rev
-Data:{json.dumps(stocks_data, separators=(',',':'))}
-JSON:{{"status":"success","market":"{market}","selected_stocks":[{{"rank":1,"symbol":"X","grade":"A","reasoning":"Thai 1-2 sentences"}}]}}"""
+        prompt = f"""คุณคือ AI Analyst ผู้เชี่ยวชาญระบบ SEPA (Minervini) และ Smart Money
+คัดเลือก 5-8 หุ้นที่ดีที่สุดจากตลาด {market} ตามเกณฑ์ด้านล่าง แล้วตอบเป็น JSON
+
+เกณฑ์การให้คะแนน (ใช้ทุกข้อประกอบกัน):
+- RS >= 65 ✓ | RSI อยู่ในช่วง 50-65 = เริ่มวิ่ง (ดีที่สุด), หลีกเลี่ยง RSI > 75
+- vcp=true หรือ vdu=true = หุ้นกำลังบีบตัวสะสม (สัญญาณรายใหญ่)
+- pp=true (Pocket Pivot) = วันที่แรงซื้อชนะแรงขาย = สัญญาณเข้าซื้อ
+- cmf > 0 = เงินสถาบันไหลเข้าสุทธิ | vsurge > 1.2 = volume พุ่งผิดปกติ
+- eps >= 25 และ/หรือ rev >= 25 = กำไร/รายได้เติบโตตามมาตรฐาน SEPA
+
+ข้อมูลหุ้น (s=symbol, rs=RS, rsi, vcp, adx, sc=score, cmf, vsurge, pp, vdu, eps=EPSgrowth%, rev=Revgrowth%):
+{json.dumps(stocks_data, separators=(',',':'))}
+
+ตอบ JSON เท่านั้น ห้ามมีข้อความอื่น reasoning ต้องเป็น **ภาษาไทยเท่านั้น** อธิบายเหตุผล 3-4 ประโยค โดยระบุตัวเลขสำคัญ เช่น RS=X, RSI=X, สัญญาณ VCP/PP/VDU, CMF, EPS/Rev growth:
+{{"status":"success","market":"{market}","selected_stocks":[{{"rank":1,"symbol":"X","grade":"A","reasoning":"อธิบายเป็นภาษาไทย 3-4 ประโยค พร้อมตัวเลข"}}]}}"""
 
         def _call_gemini():
             return client.models.generate_content(
@@ -12214,7 +12224,7 @@ JSON:{{"status":"success","market":"{market}","selected_stocks":[{{"rank":1,"sym
                 config=types.GenerateContentConfig(
                     response_mime_type='application/json',
                     temperature=0.0,
-                    max_output_tokens=1200,
+                    max_output_tokens=2500,
                     thinking_config=types.ThinkingConfig(thinking_budget=0),
                 )
             )
