@@ -12234,20 +12234,28 @@ JSON:{{"status":"success","market":"{market}","selected_stocks":[{{"rank":1,"sym
         result_json = json.loads(response.text)
         
         if result_json.get('status') == 'success':
-            # Step 4: Save results with scan_run_time
+            # Step 4: Save results — delete AFTER new ones are ready (safe swap)
             cache.set(cache_key, {'state': 'running', 'progress': 85, 'phase': 'บันทึกผลลัพธ์และสถิติ...'}, timeout=600)
-            
+
             selected_list = result_json.get('selected_stocks', [])
-            for idx, stock in enumerate(selected_list):
-                AIManualScanResult.objects.create(
-                    user=user,
-                    market=market,
-                    symbol=stock.get('symbol'),
-                    grade=stock.get('grade', 'C'),
-                    reasoning=stock.get('reasoning', ''),
-                    rank=stock.get('rank', idx + 1),
-                    scan_run=scan_run_time
-                )
+            if selected_list:
+                # Build new records first
+                new_objs = [
+                    AIManualScanResult(
+                        user=user, market=market,
+                        symbol=stock.get('symbol'),
+                        grade=stock.get('grade', 'C'),
+                        reasoning=stock.get('reasoning', ''),
+                        rank=stock.get('rank', idx + 1),
+                        scan_run=scan_run_time,
+                    )
+                    for idx, stock in enumerate(selected_list)
+                ]
+                # Atomic: delete old → insert new (no window with 0 records)
+                from django.db import transaction
+                with transaction.atomic():
+                    AIManualScanResult.objects.filter(user=user, market=market).delete()
+                    AIManualScanResult.objects.bulk_create(new_objs)
             
             cache.set(cache_key, {
                 'state': 'done',
