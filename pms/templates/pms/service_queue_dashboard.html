@@ -19,11 +19,12 @@
     }
 
     .queue-stat-card {
-        background: white;
+        background: var(--t-card-bg);
+        color: var(--t-text);
         border-radius: var(--radius-md);
         padding: 1rem;
-        box-shadow: var(--shadow-sm);
-        border: 1px solid var(--border-color);
+        box-shadow: var(--t-card-shadow);
+        border: 1px solid var(--t-card-border);
         text-align: center;
         transition: transform 0.2s;
     }
@@ -49,7 +50,9 @@
     .team-pill {
         display: inline-flex; align-items: center; gap: 4px;
         padding: 3px 10px; border-radius: 20px; font-size: 0.75rem;
-        background: #f1f5f9; border: 1px solid #e2e8f0;
+        background: var(--t-surface-alt);
+        border: 1px solid var(--t-border);
+        color: var(--t-text);
     }
 
     .date-block { margin-bottom: 1.25rem; }
@@ -68,11 +71,12 @@
 
     /* Mobile Task Card */
     .task-card-mobile {
-        border: 1px solid var(--border-color);
+        border: 1px solid var(--t-card-border);
         border-radius: var(--radius-md);
         padding: 0.875rem;
         margin-bottom: 0.625rem;
-        background: white;
+        background: var(--t-card-bg);
+        color: var(--t-text);
     }
 
     .task-card-mobile .task-title {
@@ -83,7 +87,7 @@
 
     .task-card-mobile .task-meta {
         font-size: 0.75rem;
-        color: var(--text-muted);
+        color: var(--t-text-muted);
     }
 
     /* Responsive */
@@ -96,7 +100,9 @@
         cursor: pointer;
         transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
         border-width: 2px !important;
-        background-color: #fff;
+        background-color: var(--t-input-bg);
+        color: var(--t-input-text);
+        border-color: var(--t-input-border);
         box-shadow: 0 2px 5px rgba(0,0,0,0.08);
         min-width: 130px;
         height: 36px;
@@ -110,11 +116,19 @@
         box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.2) !important;
     }
 
+    /* Statuses - Light Theme */
     .st-scheduled { border-color: #cbd5e1 !important; color: #475569 !important; background: #f8fafc !important; }
     .st-in-progress { border-color: #93c5fd !important; color: #1d4ed8 !important; background: #eff6ff !important; }
     .st-completed { border-color: #86efac !important; color: #15803d !important; background: #f0fdf4 !important; }
     .st-incomplete { border-color: #fca5a5 !important; color: #dc2626 !important; background: #fef2f2 !important; }
     .st-cancelled { border-color: #e2e8f0 !important; color: #94a3b8 !important; background: #f1f5f9 !important; }
+
+    /* Statuses - Dark Theme Override */
+    [data-theme="dark"] .st-scheduled { border-color: #475569 !important; color: #cbd5e1 !important; background: #1e293b !important; }
+    [data-theme="dark"] .st-in-progress { border-color: #1d4ed8 !important; color: #93c5fd !important; background: rgba(29, 78, 216, 0.2) !important; }
+    [data-theme="dark"] .st-completed { border-color: #15803d !important; color: #86efac !important; background: rgba(21, 128, 61, 0.2) !important; }
+    [data-theme="dark"] .st-incomplete { border-color: #dc2626 !important; color: #fca5a5 !important; background: rgba(220, 38, 38, 0.2) !important; }
+    [data-theme="dark"] .st-cancelled { border-color: #475569 !important; color: #94a3b8 !important; background: rgba(71, 85, 105, 0.2) !important; }
 
     @media (max-width: 767.98px) {
         .queue-header {

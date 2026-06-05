@@ -1,6 +1,6 @@
 {% load static %}
 <!DOCTYPE html>
-<html lang="th">
+<html lang="th" data-default-theme="light">
 <head>
     <!-- การตั้งค่าพื้นฐานของเว็บไซต์ (Meta Tags) -->
     <meta charset="UTF-8">
@@ -24,7 +24,7 @@
     <!-- ② Bootstrap 5 -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <!-- ③ 9Com Design System -->
-    <link rel="stylesheet" href="{% static 'css/theme.css' %}">
+    <link rel="stylesheet" href="{% static 'css/theme.css' %}?v=1.3">
     <!-- ④ Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- Tom Select -->
@@ -62,19 +62,20 @@
             border: none;
         }
         .ts-control {
-            border: 1.5px solid #e2e8f0 !important;
+            border: 1.5px solid var(--t-input-border) !important;
             border-radius: 10px !important;
-            background: #fff !important;
+            background: var(--t-input-bg) !important;
+            color: var(--t-input-text) !important;
             box-shadow: 0 1px 3px rgba(79,70,229,.06) !important;
             padding: 0.45rem 0.9rem !important;
             font-size: 0.92rem;
             font-family: 'Inter','Noto Sans Thai',sans-serif;
-            transition: border-color .18s, box-shadow .18s;
+            transition: border-color .18s, box-shadow .18s, background-color 0.2s, color 0.2s;
             min-height: 42px;
         }
         .ts-control:focus-within,
         .ts-wrapper.focus .ts-control {
-            border-color: #4f46e5 !important;
+            border-color: var(--t-input-focus) !important;
             box-shadow: 0 0 0 3px rgba(79,70,229,.13) !important;
             outline: none !important;
         }
@@ -90,8 +91,10 @@
         }
         .ts-dropdown {
             z-index: 9999 !important;
-            border: 1.5px solid #e2e8f0;
+            border: 1.5px solid var(--t-border);
             border-radius: 14px !important;
+            background: var(--t-surface) !important;
+            color: var(--t-text) !important;
             box-shadow: 0 16px 40px rgba(15,23,42,.13), 0 4px 8px rgba(79,70,229,.08);
             overflow: hidden;
             margin-top: 4px;
@@ -110,45 +113,46 @@
             border-radius: 8px;
             padding: 8px 12px;
             font-size: 0.88rem;
-            color: #334155;
+            color: var(--t-text) !important;
             transition: background .1s, color .1s;
         }
         .ts-dropdown .option:hover,
         .ts-dropdown .option.active {
-            background: linear-gradient(90deg,#ede9ff,#eef2ff) !important;
-            color: #4f46e5 !important;
+            background: var(--t-primary-dim) !important;
+            color: var(--t-primary) !important;
         }
         .ts-dropdown .option.selected {
-            background: #ede9ff;
-            color: #4f46e5;
+            background: var(--t-primary-dim);
+            color: var(--t-primary);
             font-weight: 600;
         }
         /* Search input inside dropdown */
         .ts-wrapper .ts-control input {
             font-family: 'Inter','Noto Sans Thai',sans-serif;
             font-size: 0.88rem;
-            color: #0f172a;
+            color: var(--t-input-text) !important;
+            background: transparent !important;
         }
         .ts-wrapper .ts-control input::placeholder {
-            color: #94a3b8;
+            color: var(--t-input-placeholder) !important;
         }
         /* Opened caret */
         .ts-wrapper.single .ts-control::after {
-            border-color: #94a3b8 transparent transparent;
+            border-color: var(--t-text-muted) transparent transparent;
         }
         .ts-wrapper.single.focus .ts-control::after {
-            border-color: #4f46e5 transparent transparent;
+            border-color: var(--t-primary) transparent transparent;
         }
         /* Option highlight match */
         .ts-dropdown .highlight {
             background: transparent;
-            color: #4f46e5;
+            color: var(--t-primary);
             font-weight: 700;
         }
         /* No results */
         .ts-dropdown .no-results {
             padding: 12px;
-            color: #94a3b8;
+            color: var(--t-text-faint);
             font-size: 0.82rem;
             text-align: center;
         }
@@ -157,7 +161,7 @@
             border-radius: 8px;
             padding: 8px 12px;
             font-size: 0.82rem;
-            color: #4f46e5;
+            color: var(--t-primary);
             font-weight: 600;
         }
         .filter-card {
@@ -168,12 +172,34 @@
         
         body {
             font-family: 'Inter', 'Noto Sans Thai', -apple-system, sans-serif;
-            background: radial-gradient(circle at top right, #f8fafc, #f1f5f9);
-            color: var(--text-color);
+            background-color: var(--t-bg);
+            background-image: radial-gradient(circle at top right, var(--t-surface-alt), transparent 60%);
+            color: var(--t-text);
             min-height: 100vh;
             display: flex;
             flex-direction: column;
             -webkit-font-smoothing: antialiased;
+            transition: background-color 0.25s ease, color 0.25s ease;
+        }
+
+        /* ── Theme Toggle Button Styles ── */
+        .theme-toggle-btn {
+            background: rgba(255, 255, 255, 0.1) !important;
+            border: 1px solid rgba(255, 255, 255, 0.15) !important;
+            color: rgba(255, 255, 255, 0.9) !important;
+            border-radius: 10px;
+            width: 36px;
+            height: 36px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .theme-toggle-btn:hover {
+            background: rgba(255, 255, 255, 0.2) !important;
+            transform: scale(1.05);
+            color: white !important;
         }
 
         /* ========================================
@@ -226,21 +252,21 @@
            CARDS — Premium Softness
            ======================================== */
         .card {
-            border: 1px solid var(--border-color);
+            border: 1px solid var(--t-card-border);
             border-radius: var(--radius-lg);
-            background: #ffffff;
-            box-shadow: var(--shadow-sm);
+            background: var(--t-card-bg);
+            box-shadow: var(--t-card-shadow);
             transition: all 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);
         }
 
         .card:hover {
-            box-shadow: var(--shadow-md);
+            box-shadow: var(--t-shadow-lg);
             transform: translateY(-2px);
         }
 
         .card-header {
             background-color: transparent;
-            border-bottom: 1px solid var(--border-light);
+            border-bottom: 1px solid var(--t-border);
             padding: 1.25rem 1.5rem;
             font-weight: 700;
         }
@@ -565,6 +591,14 @@
                          <a href="/" class="nav-link text-white-50" style="font-size: 0.85rem;">
                             <i class="fas fa-home me-1"></i><span class="ms-1">หน้าหลัก</span>
                         </a>
+                    </li>
+                    <li class="nav-item me-2">
+                        <button class="theme-toggle-btn"
+                                id="themeToggleBtn"
+                                data-t-toggle
+                                title="สลับโหมด Light/Dark">
+                            <i class="fas fa-moon" id="themeToggleIcon" style="font-size: 0.9rem;"></i>
+                        </button>
                     </li>
                     {% if user.is_authenticated %}
                     <li class="nav-item dropdown">

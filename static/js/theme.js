@@ -33,6 +33,11 @@
         migrateLegacy();
         var saved = localStorage.getItem(STORAGE_KEY);
         if (saved === DARK || saved === LIGHT) return saved;
+        
+        // Read default fallback from html tag if specified, e.g. <html data-default-theme="light">
+        var htmlDefault = document.documentElement.getAttribute('data-default-theme');
+        if (htmlDefault === DARK || htmlDefault === LIGHT) return htmlDefault;
+
         if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
             return DARK;
         }
