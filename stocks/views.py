@@ -12157,14 +12157,14 @@ def _run_ai_manual_scan_bg(user_id, cache_key, market, scan_run_time):
             }, timeout=300)
             return
 
-        # Fetch candidate stocks (top 30)
+        # Fetch candidate stocks (top 15 — fewer tokens = faster AI response)
         candidates = PrecisionScanCandidate.objects.filter(
-            user=user, 
+            user=user,
             market=market,
             scan_run=latest_run,
-            rs_rating__gte=60,
+            rs_rating__gte=65,
             stage2=True
-        ).order_by('-technical_score')[:30]
+        ).order_by('-technical_score')[:15]
 
         if not candidates.exists():
             cache.set(cache_key, {
@@ -12179,20 +12179,18 @@ def _run_ai_manual_scan_bg(user_id, cache_key, market, scan_run_time):
         stocks_data = []
         for c in candidates:
             stocks_data.append({
-                'symbol': c.symbol,
-                'price': float(c.price) if c.price else 0,
-                'rs_rating': float(c.rs_rating) if c.rs_rating else 0,
-                'rsi': float(c.rsi) if c.rsi else 50.0,
-                'vcp_setup': c.vcp_setup,
-                'adx': float(c.adx) if c.adx else 0,
-                'stage2': c.stage2,
-                'technical_score': float(c.technical_score) if c.technical_score else 0,
-                'cmf': float(c.cmf) if c.cmf else 0.0,
-                'volume_surge': float(c.volume_surge) if c.volume_surge else 0.0,
-                'pocket_pivot': c.pocket_pivot,
+                's': c.symbol,
+                'rs': round(float(c.rs_rating) if c.rs_rating else 0, 1),
+                'rsi': round(float(c.rsi) if c.rsi else 50.0, 1),
+                'vcp': c.vcp_setup,
+                'adx': round(float(c.adx) if c.adx else 0, 1),
+                'sc': round(float(c.technical_score) if c.technical_score else 0, 1),
+                'cmf': round(float(c.cmf) if c.cmf else 0.0, 2),
+                'vsurge': round(float(c.volume_surge) if c.volume_surge else 0.0, 2),
+                'pp': c.pocket_pivot,
                 'vdu': c.vdu_near_zone,
-                'eps_growth': float(c.eps_growth) if c.eps_growth else 0.0,
-                'rev_growth': float(c.rev_growth) if c.rev_growth else 0.0,
+                'eps': round(float(c.eps_growth) if c.eps_growth else 0.0, 1),
+                'rev': round(float(c.rev_growth) if c.rev_growth else 0.0, 1),
             })
 
         # Step 3: Call Gemini API
@@ -12201,49 +12199,30 @@ def _run_ai_manual_scan_bg(user_id, cache_key, market, scan_run_time):
         from google.genai import types
         client = genai.Client(
             api_key=settings.GEMINI_API_KEY,
-            http_options=types.HttpOptions(timeout=45_000)  # 45 seconds timeout
+            http_options=types.HttpOptions(timeout=30_000)
         )
-        
-        prompt = f"""คุณคือ AI Analyst ระดับโลก ที่เชี่ยวชาญระบบ SEPA ของ Mark Minervini และ Ehlers Engineering
-อ้างอิงจากคู่มือของระบบ:
-1. SEPA System: คัดเลือกหุ้นที่มี Stage 2 (Uptrend), RS Rating > 60, มีรูปแบบ VCP (Volatility Contraction Pattern), และ Fundamental แข็งแกร่ง
-2. 3-Step Formula: หาหุ้นที่มีการพักตัวสร้างฐาน (VCP/Cup & Handle) -> มีพลัง (Momentum/RS สูง) -> คุณภาพเกรดสถาบัน (SEPA)
 
-**เงื่อนไขพิเศษจากผู้ใช้งาน**: 
-1. **Early Stage Momentum**: ผู้ใช้ต้องการ "หุ้นเริ่มต้นวิ่ง" ที่เพิ่งเริ่มเบรค หรือกำลังฟอร์มตัวสวยๆ โดยที่ **ค่า RSI ยังไม่สูงจนเกินไป** (หลีกเลี่ยงหุ้น RSI สูงกว่า 70-75 หรือ Overbought ไปไกล) เน้น RSI ระดับ 50-65
-2. **Trade with Market Maker (Smart Money Footprints)**: เราต้องการเทรดอยู่ฝั่งเดียวกับรายใหญ่ (MM) ให้วิเคราะห์ร่องรอยการสะสมของสถาบัน (Accumulation) จากข้อมูลต่อไปนี้:
-   - มีการบีบตัว (vcp_setup) และวอลุ่มแห้ง (vdu) ก่อนจะลากขึ้น
-   - มีค่า CMF เป็นบวก (cmf > 0) แปลว่ามีเม็ดเงินสถาบันไหลเข้าสุทธิ
-   - มีวอลุ่มซื้อพุ่งผิดปกติ (volume_surge > 1.2)
-   - มีสัญญาณ Pocket Pivot (pocket_pivot) วันที่แรงซื้อชนะแรงขาย 10 วันย้อนหลัง
-3. **SEPA Fundamental (Earnings Growth)**: พิจารณาการเติบโตของกำไรและรายได้ (`eps_growth` และ `rev_growth`) โดยอ้างอิงเกณฑ์ของระบบ SEPA (ต้องการกำไรหรือรายได้เติบโตอย่างแข็งแกร่ง โดยเฉพาะระดับ ≥ 25% ขึ้นไป) เพื่อให้มีความสอดคล้องกับหน้าเกณฑ์หลัก (SEPA Manual)
+        # Field key legend (short keys reduce token count)
+        # s=symbol, rs=RS rating, rsi=RSI, vcp=VCP setup, adx=ADX,
+        # sc=technical_score, cmf=CMF, vsurge=volume_surge,
+        # pp=pocket_pivot, vdu=volume_dry_up, eps=eps_growth, rev=rev_growth
+        prompt = f"""SEPA+SmartMoney stock screener. Select 5-8 best stocks from {market} data below.
 
-ให้พิจารณาค่าเหล่านี้ประกอบเพื่อคัดเลือก "หุ้นที่รายใหญ่กำลังแอบเก็บสะสมและมีงบการเงินสนับสนุนตามหลัก SEPA" ก่อนที่รายย่อย (Retail) จะรู้ตัว!
+RULES: Stage2+RS>=65+RSI 50-65 preferred, cmf>0, vcp/vdu/pp signals preferred, eps/rev>=25% bonus. Grade A=best.
 
-วิเคราะห์ข้อมูลหุ้น {market} จำนวน {len(stocks_data)} ตัวด้านล่างนี้ และคัดเลือกหุ้น "ที่ดีที่สุด" ตามหลักการในคู่มือ และเงื่อนไขพิเศษด้านบน (เลือกมา 5-10 ตัวที่สวยที่สุด)
-สำค้ญมาก: โปรดจัดอันดับ (rank) จากหุ้นที่สวยที่สุดอันดับ 1 ไล่ลงไปเรื่อยๆ (โดยตัวที่สวยที่สุดต้องได้ Grade A)
+DATA: {json.dumps(stocks_data, separators=(',',':'))}
 
-ข้อมูลหุ้น (JSON):
-{json.dumps(stocks_data)}
+Respond JSON only:
+{{"status":"success","market":"{market}","selected_stocks":[{{"rank":1,"symbol":"X","grade":"A","reasoning":"2-3 sentences Thai"}}]}}"""
 
-รูปแบบที่ต้องตอบกลับ (JSON เท่านั้น ห้ามมีข้อความอื่น):
-{{
-    "status": "success",
-    "market": "{market}",
-    "selected_stocks": [
-        {{
-            "rank": 1,
-            "symbol": "ชื่อหุ้น",
-            "reasoning": "คำอธิบายโดยละเอียดว่าทำไมถึงเลือกหุ้นตัวนี้ (เช่น RSI อยู่ในโซนเริ่มต้นวิ่ง, VCP, Stage 2 ฯลฯ)",
-            "grade": "A, B, หรือ C"
-        }}
-    ]
-}}
-"""
         response = client.models.generate_content(
-            model='gemini-2.5-flash-lite',
+            model='gemini-2.0-flash',
             contents=prompt,
-            config={'response_mime_type': 'application/json', 'temperature': 0.0}
+            config=types.GenerateContentConfig(
+                response_mime_type='application/json',
+                temperature=0.0,
+                max_output_tokens=1500,
+            )
         )
         
         result_json = json.loads(response.text)
