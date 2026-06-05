@@ -36,6 +36,27 @@
         to { transform: translateY(-3px) scale(1.2); filter: drop-shadow(0 0 8px #ef4444); }
     }
     .val-hint { font-size: 0.56rem; color: #94a3b8; line-height: 1.2; margin-top: 1px; letter-spacing: .01em; }
+
+    /* ── Criteria Checklist Text Contrast ── */
+    .scan-checklist-text {
+        color: #374151;
+    }
+    .checkmark-green { color: #16a34a !important; font-weight: 700; }
+    .checkmark-red { color: #dc2626 !important; font-weight: 700; }
+
+    /* Dark mode overrides */
+    [data-theme="dark"] .scan-checklist-text,
+    [data-bs-theme="dark"] .scan-checklist-text {
+        color: #cbd5e1 !important;
+    }
+    [data-theme="dark"] .checkmark-green,
+    [data-bs-theme="dark"] .checkmark-green {
+        color: #4ade80 !important;
+    }
+    [data-theme="dark"] .checkmark-red,
+    [data-bs-theme="dark"] .checkmark-red {
+        color: #f87171 !important;
+    }
 </style>
 
 <div>
@@ -193,11 +214,11 @@
                             <span style="font-size:0.75rem;font-weight:600;color:{% if item.live_change_pct >= 0 %}#16a34a{% else %}#dc2626{% endif %};">{% if item.live_change_pct >= 0 %}+{% endif %}{{ item.live_change_pct|floatformat:1 }}%</span>
                             {% endif %}
                         </div>
-                        <div class="mb-2" style="font-size:0.75rem;color:#374151;line-height:1.7;">
-                            <div><span style="color:#16a34a;font-weight:700;">✓</span> RS Rating {{ item.rs_rating }}</div>
-                            <div><span style="color:#16a34a;font-weight:700;">✓</span> RR 1:{{ item.risk_reward_ratio|floatformat:1 }}</div>
-                            <div><span style="color:#16a34a;font-weight:700;">✓</span> Vol Surge {{ item.rvol|floatformat:1 }}x</div>
-                            {% if item.vcp_setup %}<div><span style="color:#dc2626;font-weight:700;">✓</span> VCP {{ item.vcp_contractions }}T (Tight)</div>{% endif %}
+                        <div class="mb-2 scan-checklist-text" style="font-size:0.75rem;line-height:1.7;">
+                            <div><span class="checkmark-green">✓</span> RS Rating {{ item.rs_rating }}</div>
+                            <div><span class="checkmark-green">✓</span> RR 1:{{ item.risk_reward_ratio|floatformat:1 }}</div>
+                            <div><span class="checkmark-green">✓</span> Vol Surge {{ item.rvol|floatformat:1 }}x</div>
+                            {% if item.vcp_setup %}<div><span class="checkmark-red">✓</span> VCP {{ item.vcp_contractions }}T (Tight)</div>{% endif %}
                         </div>
                         <a href="{% url 'stocks:entry_finder' item.symbol %}" class="btn btn-sm w-100" style="background:#dcfce7;color:#15803d;border:1px solid #86efac;font-size:0.75rem;border-radius:0.5rem;">Sniper Chart</a>
                     </div>

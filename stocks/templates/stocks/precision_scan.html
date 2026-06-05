@@ -666,15 +666,15 @@
                             {% endwith %}
                         </div>
                         <!-- เกณฑ์ที่ผ่าน -->
-                        <div class="mb-2" style="font-size:0.75rem;color:#374151;line-height:1.8;">
-                            <div><span style="color:#16a34a;font-weight:700;">✓</span> RR 1:{{ item.risk_reward_ratio|floatformat:1 }}</div>
-                            <div><span style="color:#16a34a;font-weight:700;">✓</span> RS Rating {{ item.rs_rating }} · ADX {{ item.adx|floatformat:0 }}</div>
-                            <div><span style="color:#16a34a;font-weight:700;">✓</span> RVOL {{ item.rvol|floatformat:1 }}x ▲</div>
-                            <div><span style="color:#16a34a;font-weight:700;">✓</span> Win Prob: <strong class="text-primary">{{ item.win_probability }}%</strong></div>
-                            {% if item.macd_crossover %}<div><span style="color:#16a34a;font-weight:700;">✓</span> MACD ✕ crossover</div>{% endif %}
-                            {% if item.ema20_aligned %}<div><span style="color:#4f46e5;font-weight:700;">✓</span> EMA20 aligned</div>{% endif %}
-                            {% if item.bb_squeeze %}<div><span style="color:#b45309;font-weight:700;">✓</span> BB Squeeze ⚡</div>{% endif %}
-                            {% if item.ema20_rising and item.hh_hl_structure %}<div><span style="color:#065f46;font-weight:700;">✓</span> Trend confirmed (EMA↑ + HH/HL)</div>{% elif item.ema20_rising %}<div><span style="color:#047857;font-weight:700;">✓</span> EMA20 rising</div>{% elif item.hh_hl_structure %}<div><span style="color:#0f766e;font-weight:700;">✓</span> HH/HL structure</div>{% endif %}
+                        <div class="mb-2 scan-checklist-text" style="font-size:0.75rem;line-height:1.8;">
+                            <div><span class="checkmark-green">✓</span> RR 1:{{ item.risk_reward_ratio|floatformat:1 }}</div>
+                            <div><span class="checkmark-green">✓</span> RS Rating {{ item.rs_rating }} · ADX {{ item.adx|floatformat:0 }}</div>
+                            <div><span class="checkmark-green">✓</span> RVOL {{ item.rvol|floatformat:1 }}x ▲</div>
+                            <div><span class="checkmark-green">✓</span> Win Prob: <strong class="text-primary">{{ item.win_probability }}%</strong></div>
+                            {% if item.macd_crossover %}<div><span class="checkmark-green">✓</span> MACD ✕ crossover</div>{% endif %}
+                            {% if item.ema20_aligned %}<div><span class="checkmark-blue">✓</span> EMA20 aligned</div>{% endif %}
+                            {% if item.bb_squeeze %}<div><span class="checkmark-orange">✓</span> BB Squeeze ⚡</div>{% endif %}
+                            {% if item.ema20_rising and item.hh_hl_structure %}<div><span class="checkmark-teal">✓</span> Trend confirmed (EMA↑ + HH/HL)</div>{% elif item.ema20_rising %}<div><span class="checkmark-teal">✓</span> EMA20 rising</div>{% elif item.hh_hl_structure %}<div><span class="checkmark-teal">✓</span> HH/HL structure</div>{% endif %}
                         </div>
                         <a href="{% url 'stocks:entry_finder' item.symbol %}" class="btn btn-sm w-100" style="background:#dcfce7;color:#15803d;border:1px solid #86efac;font-size:0.73rem;padding:3px 8px;border-radius:0.5rem;">
                             <i class="fas fa-crosshairs me-1"></i>Sniper Chart
@@ -1723,6 +1723,37 @@
 <style>
     .extra-small { font-size: 0.78rem; line-height: 1.4; }
     .extra-extra-small { font-size: 0.72rem; line-height: 1.3; }
+
+    /* ── Criteria Checklist Text Contrast ── */
+    .scan-checklist-text {
+        color: #374151;
+    }
+    .checkmark-green { color: #16a34a !important; font-weight: 700; }
+    .checkmark-blue { color: #4f46e5 !important; font-weight: 700; }
+    .checkmark-orange { color: #b45309 !important; font-weight: 700; }
+    .checkmark-teal { color: #065f46 !important; font-weight: 700; }
+
+    /* Dark mode overrides */
+    [data-theme="dark"] .scan-checklist-text,
+    [data-bs-theme="dark"] .scan-checklist-text {
+        color: #cbd5e1 !important;
+    }
+    [data-theme="dark"] .checkmark-green,
+    [data-bs-theme="dark"] .checkmark-green {
+        color: #4ade80 !important;
+    }
+    [data-theme="dark"] .checkmark-blue,
+    [data-bs-theme="dark"] .checkmark-blue {
+        color: #818cf8 !important;
+    }
+    [data-theme="dark"] .checkmark-orange,
+    [data-bs-theme="dark"] .checkmark-orange {
+        color: #fbbf24 !important;
+    }
+    [data-theme="dark"] .checkmark-teal,
+    [data-bs-theme="dark"] .checkmark-teal {
+        color: #2dd4bf !important;
+    }
 
     /* ── Row highlights ─────────────────────────────────── */
     tr.row-entry-zone  { background: rgba(34, 197, 94, 0.07) !important; border-left: 4px solid #22c55e; }
