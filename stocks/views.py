@@ -11412,8 +11412,6 @@ def stock_chart_data(request, symbol):
             else:
                 tactical['fib_1618'] = 0.0
                 tactical['fib_2618'] = 0.0
-            tactical['fib_1618'] = 0.0
-            tactical['fib_2618'] = 0.0
 
         # Check if the user holds this stock in their portfolio
         portfolio_entry = 0.0
