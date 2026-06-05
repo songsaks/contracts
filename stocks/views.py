@@ -1105,14 +1105,13 @@ def momentum_quick_analysis(request, symbol):
         from django.core.cache import cache as _c
         try:
             _c.set(ckey, {'state': 'running', 'phase': 'กำลังวิเคราะห์ด้วย 3 Expert Agents…'}, timeout=600)
-            import concurrent.futures as _cf
 
-            from .crew_analysis import MomentumShortTermCrew as _STC
-            crew = _STC(sym, scan_data=sd, market=mkt)
+            from .crew_analysis import run_single_call_analysis as _rsc
+            import concurrent.futures as _cf
             with _cf.ThreadPoolExecutor(max_workers=1) as ex:
-                future = ex.submit(crew.run_analysis)
+                future = ex.submit(_rsc, sym, sd, mkt)
                 try:
-                    result = future.result(timeout=180)
+                    result = future.result(timeout=60)   # 1 call = 60s max
                 except _cf.TimeoutError:
                     result = '## หมดเวลาวิเคราะห์\n\nกรุณาลองใหม่อีกครั้ง'
             _c.set(ckey, {'state': 'done', 'result': result}, timeout=900)

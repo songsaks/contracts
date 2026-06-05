@@ -1403,3 +1403,111 @@ class MacroPlaybookCrew:
         result = crew.kickoff()
         return str(result)
 
+
+# ======================================================================
+# run_single_call_analysis — Fast single Gemini call (replaces 3-agent CrewAI)
+# Same 3-section output but ~3x faster (1 API call vs 3)
+# ======================================================================
+
+def run_single_call_analysis(symbol: str, scan_data: dict, market: str = 'SET') -> str:
+    """
+    Single Gemini call that emulates 3-agent sequential output.
+    Returns markdown string matching the MomentumShortTermCrew format.
+    """
+    from google import genai
+    from google.genai import types
+
+    sd       = scan_data or {}
+    currency = 'บาท' if market == 'SET' else 'USD'
+    curr_sym = '฿' if market == 'SET' else '$'
+    benchmark = 'SET Index' if market == 'SET' else 'S&P 500'
+    yf_sym   = f"{symbol}.BK" if market == 'SET' and '.' not in symbol else symbol
+
+    # Fetch lightweight extra data
+    extra = {}
+    try:
+        import yfinance as yf, pandas as pd, pandas_ta as ta
+        ticker = yf.Ticker(yf_sym)
+        hist   = ticker.history(period="3mo")
+        if not hist.empty:
+            if isinstance(hist.columns, pd.MultiIndex):
+                hist.columns = [col[0] for col in hist.columns]
+            closes = hist['Close'].dropna()
+            n = len(closes)
+            # MACD
+            try:
+                m = ta.macd(closes)
+                if m is not None and not m.empty:
+                    mc = next((c for c in m.columns if c.startswith('MACD_') and 'MACDs' not in c and 'MACDh' not in c), None)
+                    sc = next((c for c in m.columns if c.startswith('MACDs_')), None)
+                    if mc and sc:
+                        mv, sv = float(m[mc].iloc[-1]), float(m[sc].iloc[-1])
+                        extra['macd'] = round(mv, 3)
+                        extra['macd_bullish'] = mv > sv
+            except Exception:
+                pass
+            # Momentum
+            if n >= 22:
+                extra['mom_1m'] = round((closes.iloc[-1]-closes.iloc[-22])/closes.iloc[-22]*100, 1)
+            if n >= 60:
+                extra['mom_3m'] = round((closes.iloc[-1]-closes.iloc[-60])/closes.iloc[-60]*100, 1)
+            # Vol acceleration
+            vols = hist['Volume'].dropna()
+            if len(vols) >= 20:
+                extra['vol_5v20'] = round(float(vols.tail(5).mean())/float(vols.tail(20).mean()), 2)
+            # News
+            try:
+                raw = ticker.news or []
+                extra['news'] = [
+                    (n.get('content',n) if isinstance(n.get('content',n), dict) else n).get('title','')
+                    for n in raw[:3] if n
+                ]
+            except Exception:
+                pass
+    except Exception:
+        pass
+
+    news_txt = '; '.join([t for t in extra.get('news', []) if t]) or 'ไม่มีข้อมูล'
+
+    prompt = f"""คุณคือ Expert Stock Analyst ที่เชี่ยวชาญ SEPA (Minervini) และ Smart Money
+วิเคราะห์หุ้น {symbol} ตลาด {market} อย่างละเอียด แบ่งเป็น 3 ส่วน:
+
+ข้อมูลหุ้น:
+- ราคา: {sd.get('price','N/A')} {currency}
+- RS Rating vs {benchmark}: {sd.get('rs_rating','N/A')}
+- Technical Score: {sd.get('technical_score','N/A')}/100
+- RSI: {sd.get('rsi','N/A')} | ADX: {sd.get('adx','N/A')} | MFI: {sd.get('mfi','N/A')}
+- RVOL: {sd.get('rvol','N/A')}x | CMF: {sd.get('cmf','N/A')} | Volume Surge: {sd.get('volume_surge','N/A')}
+- Demand Zone: {sd.get('demand_zone_end','N/A')}–{sd.get('demand_zone_start','N/A')} {currency}
+- Supply Zone: {sd.get('supply_zone_end','N/A')}–{sd.get('supply_zone_start','N/A')} {currency}
+- 52W High: {sd.get('year_high','N/A')} | Upside to High: {sd.get('upside_to_high','N/A')}%
+- EPS Growth: {sd.get('eps_growth','N/A')}% | Rev Growth: {sd.get('rev_growth','N/A')}%
+- Sector: {sd.get('sector','N/A')}
+- MACD: {extra.get('macd','N/A')} {'🟢 Bullish' if extra.get('macd_bullish') else '🔴 Bearish'}
+- Momentum 1M/3M: {extra.get('mom_1m','N/A')}% / {extra.get('mom_3m','N/A')}%
+- Vol Acceleration (5d/20d): {extra.get('vol_5v20','N/A')}x
+- ข่าวล่าสุด: {news_txt}
+
+เขียนรายงานภาษาไทยเป็น Markdown แบ่ง 3 ส่วนชัดเจน:
+
+## 📊 Agent 1 — Technical Momentum
+วิเคราะห์: Stage (1/2/3/4), คุณภาพ Breakout, RSI/ADX/MACD, จังหวะ Entry, Breakout Score (0-100)
+
+## 🛡️ Agent 2 — Risk & Entry
+ระบุ: Best Entry Zone, Stop Loss (ไม่เกิน 7-8% จาก Entry), Target 1 (Conservative), Target 2 (Aggressive), Position Size (พอร์ต {('100,000 บาท' if market=='SET' else '$10,000 USD')} risk 1%), สรุป R:R
+
+## 🎯 Agent 3 — Smart Money & Final Verdict
+วิเคราะห์: Smart Money signal (RVOL/CMF/Volume), Sector Momentum, Catalyst, Key Risks (3 ข้อ)
+สรุปสุดท้าย: **BUY NOW** / **WAIT FOR PULLBACK** / **AVOID** พร้อมเหตุผล 3 ข้อและระยะเวลาที่คาดหวัง"""
+
+    client = genai.Client(api_key=settings.GEMINI_API_KEY)
+    response = client.models.generate_content(
+        model='gemini-2.5-flash-lite',
+        contents=prompt,
+        config=types.GenerateContentConfig(
+            temperature=0.2,
+            max_output_tokens=3000,
+            thinking_config=types.ThinkingConfig(thinking_budget=0),
+        )
+    )
+    return response.text
