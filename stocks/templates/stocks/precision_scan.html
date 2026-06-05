@@ -810,12 +810,12 @@
 <!-- LEADING SECTORS BAR (v3) -->
 {% if top_sectors %}
 <div class="col-12 mb-3">
-    <div class="p-3 shadow-sm" style="border-radius:1rem; background:rgba(15,23,42,0.7); border:1px solid rgba(255,255,255,0.07);">
+    <div class="p-3 shadow-sm sectors-container">
         <div class="d-flex align-items-center gap-3 overflow-auto no-scrollbar">
             <span class="small fw-bold text-muted flex-shrink-0"><i class="fas fa-chart-pie me-1"></i> Leading Sectors:</span>
             {% for sec in top_sectors %}
             <div class="d-flex align-items-center gap-1 flex-shrink-0">
-                <span class="badge" style="background:rgba(30,40,70,0.8); color:#94a3b8; border:1px solid rgba(255,255,255,0.1); font-size:0.75rem;">{{ sec.name }} ({{ sec.count }})</span>
+                <span class="badge sector-badge">{{ sec.name }} ({{ sec.count }})</span>
                 {% if not forloop.last %}<i class="fas fa-chevron-right text-muted opacity-25 px-1" style="font-size:0.6rem;"></i>{% endif %}
             </div>
             {% endfor %}
@@ -828,17 +828,17 @@
 <!-- AUTOMATED AI INSIGHTS (v3) -->
 {% if scan_insights %}
 <div class="col-12 mb-4">
-    <div class="p-4 shadow-sm" style="border-radius:1rem; background:rgba(13,19,35,0.75); border:1px solid rgba(255,255,255,0.08);">
-        <h5 class="fw-bold mb-3" style="color:#a78bfa;"><i class="fas fa-robot me-2" style="color:#818cf8;"></i> สรุปคำแนะนำจากระบบ (Automated Insights)</h5>
+    <div class="p-4 shadow-sm insights-outer">
+        <h5 class="fw-bold mb-3 insights-main-title"><i class="fas fa-robot me-2" style="color:#818cf8;"></i> สรุปคำแนะนำจากระบบ (Automated Insights)</h5>
         <div class="row g-3">
             {% for insight in scan_insights %}
             <div class="col-md-{% if scan_insights|length == 1 %}12{% elif scan_insights|length == 2 %}6{% else %}4{% endif %}">
-                <div class="p-3 h-100 rounded-3" style="background:rgba(20,30,55,0.65); border:1px solid rgba(255,255,255,0.08);">
+                <div class="p-3 h-100 rounded-3 insights-card">
                     <div class="d-flex align-items-center gap-2 mb-2">
                         <span style="font-size:1.2rem;">{{ insight.icon }}</span>
-                        <span class="fw-bold" style="color:#e2e8f0; font-size:0.95rem;">{{ insight.title }}</span>
+                        <span class="fw-bold insights-title" style="font-size:0.95rem;">{{ insight.title }}</span>
                     </div>
-                    <p class="mb-0 text-muted" style="font-size:0.85rem; line-height:1.5;">{{ insight.desc }}</p>
+                    <p class="mb-0 insights-desc" style="font-size:0.85rem; line-height:1.5;">{{ insight.desc }}</p>
                 </div>
             </div>
             {% endfor %}
