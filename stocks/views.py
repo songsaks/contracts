@@ -11330,13 +11330,13 @@ def stock_chart_data(request, symbol):
             # --- Extreme Precision CFD Levels (Stabilized for 1:200 Leverage) ---
             'levels': {
                 'sniper': {
-                    'target': round(curr_price + (0.5 * n_val), 2),
-                    'stop': round(float(last_row['ema9']) - (0.5 * n_val), 2),  # Anchored to EMA9
+                    'target': _safe_val(round(curr_price + (0.5 * n_val), 2)),
+                    'stop': _safe_val(round(_safe_val(last_row['ema9']) - (0.5 * n_val), 2)),  # Anchored to EMA9
                     'label': 'SNIPER (0.5N SL)'
                 },
                 'scalper': {
-                    'target': round(curr_price + (0.3 * n_val), 2),
-                    'stop': round(float(last_row['dc10_upper']) - (0.3 * n_val), 2), # Anchored to DC10 High
+                    'target': _safe_val(round(curr_price + (0.3 * n_val), 2)),
+                    'stop': _safe_val(round(_safe_val(last_row['dc10_upper']) - (0.3 * n_val), 2)), # Anchored to DC10 High
                     'label': 'SCALPER (0.3N SL)'
                 }
             }
@@ -11410,8 +11410,8 @@ def stock_chart_data(request, symbol):
         if breakout_high > 0.0 and base_low > 0.0:
             base_depth = breakout_high - base_low
             if base_depth > 0.0:
-                tactical['fib_1618'] = round(breakout_high + (1.618 * base_depth), 2)
-                tactical['fib_2618'] = round(breakout_high + (2.618 * base_depth), 2)
+                tactical['fib_1618'] = _safe_val(round(breakout_high + (1.618 * base_depth), 2))
+                tactical['fib_2618'] = _safe_val(round(breakout_high + (2.618 * base_depth), 2))
             else:
                 tactical['fib_1618'] = 0.0
                 tactical['fib_2618'] = 0.0
