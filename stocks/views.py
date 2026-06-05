@@ -12178,10 +12178,14 @@ def _run_ai_manual_scan_bg(user_id, cache_key, market, scan_run_time):
         
         stocks_data = []
         for c in candidates:
+            # dist_piv = % ห่างจากจุด Pivot (52W high / supply zone)
+            # ยิ่งน้อยยิ่งดี: ≤5% = AT pivot, ≤10% = near, >20% = extended
+            dist_piv = round(float(c.upside_to_high) if c.upside_to_high else 99.0, 1)
             stocks_data.append({
                 's': c.symbol,
                 'rs': round(float(c.rs_rating) if c.rs_rating else 0, 1),
                 'rsi': round(float(c.rsi) if c.rsi else 50.0, 1),
+                'dist_piv': dist_piv,   # % ห่างจุด pivot (ยิ่งน้อยยิ่งดี)
                 'vcp': c.vcp_setup,
                 'adx': round(float(c.adx) if c.adx else 0, 1),
                 'sc': round(float(c.technical_score) if c.technical_score else 0, 1),
@@ -12204,18 +12208,27 @@ def _run_ai_manual_scan_bg(user_id, cache_key, market, scan_run_time):
         prompt = f"""คุณคือ AI Analyst ผู้เชี่ยวชาญระบบ SEPA (Minervini) และ Smart Money
 คัดเลือก 5-8 หุ้นที่ดีที่สุดจากตลาด {market} ตามเกณฑ์ด้านล่าง แล้วตอบเป็น JSON
 
-เกณฑ์การให้คะแนน (ใช้ทุกข้อประกอบกัน):
-- RS >= 65 ✓ | RSI อยู่ในช่วง 50-65 = เริ่มวิ่ง (ดีที่สุด), หลีกเลี่ยง RSI > 75
-- vcp=true หรือ vdu=true = หุ้นกำลังบีบตัวสะสม (สัญญาณรายใหญ่)
-- pp=true (Pocket Pivot) = วันที่แรงซื้อชนะแรงขาย = สัญญาณเข้าซื้อ
-- cmf > 0 = เงินสถาบันไหลเข้าสุทธิ | vsurge > 1.2 = volume พุ่งผิดปกติ
-- eps >= 25 และ/หรือ rev >= 25 = กำไร/รายได้เติบโตตามมาตรฐาน SEPA
+เกณฑ์การให้คะแนน (dist_piv มีน้ำหนักพิเศษ):
 
-ข้อมูลหุ้น (s=symbol, rs=RS, rsi, vcp, adx, sc=score, cmf, vsurge, pp, vdu, eps=EPSgrowth%, rev=Revgrowth%):
+[ระยะห่างจากจุด Pivot (dist_piv) สำคัญมาก]:
+- dist_piv คือ %% ที่ราคาปัจจุบันห่างจาก Pivot/52W-high (ยิ่งน้อยยิ่งดี)
+- dist_piv <= 5 = ideal (AT pivot ตามหลัก SEPA) เพิ่มอันดับ
+- dist_piv 5-15 = อยู่ใน buy zone ปกติ
+- dist_piv > 20 = Extended เกินไป ลดอันดับ
+- dist_piv > 35 = หลีกเลี่ยง เว้นแต่สัญญาณอื่นแข็งมากๆ
+
+[SEPA + Smart Money]:
+- RS >= 65 | RSI 50-65 = เริ่มวิ่ง (ดีที่สุด) หลีกเลี่ยง RSI > 75
+- vcp=true หรือ vdu=true = หุ้นบีบตัวสะสม (รายใหญ่กำลังเก็บ)
+- pp=true (Pocket Pivot) = แรงซื้อชนะแรงขาย = สัญญาณเข้าซื้อ
+- cmf > 0 = เงินสถาบันไหลเข้าสุทธิ | vsurge > 1.2 = volume พุ่งผิดปกติ
+- eps >= 25 และ/หรือ rev >= 25 = กำไรเติบโตตาม SEPA
+
+ข้อมูลหุ้น (s=symbol, rs=RS, rsi, dist_piv=%%จากPivot, vcp, adx, sc=score, cmf, vsurge, pp, vdu, eps=EPSgrowth%%, rev=Revgrowth%%):
 {json.dumps(stocks_data, separators=(',',':'))}
 
-ตอบ JSON เท่านั้น ห้ามมีข้อความอื่น reasoning ต้องเป็น **ภาษาไทยเท่านั้น** อธิบายเหตุผล 3-4 ประโยค โดยระบุตัวเลขสำคัญ เช่น RS=X, RSI=X, สัญญาณ VCP/PP/VDU, CMF, EPS/Rev growth:
-{{"status":"success","market":"{market}","selected_stocks":[{{"rank":1,"symbol":"X","grade":"A","reasoning":"อธิบายเป็นภาษาไทย 3-4 ประโยค พร้อมตัวเลข"}}]}}"""
+ตอบ JSON เท่านั้น ห้ามมีข้อความอื่น reasoning ภาษาไทย 3-4 ประโยค ระบุ dist_piv, RS, RSI, CMF, สัญญาณที่พบ, EPS/Rev:
+{{"status":"success","market":"{market}","selected_stocks":[{{"rank":1,"symbol":"X","grade":"A","reasoning":"ภาษาไทย 3-4 ประโยค ระบุ dist_piv=X%%, RS=X, RSI=X"}}]}}"""
 
         def _call_gemini():
             return client.models.generate_content(
