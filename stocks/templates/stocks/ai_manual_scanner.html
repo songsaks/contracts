@@ -413,7 +413,7 @@
                 {% if results %}
                     {% for stock in results %}
                     <div class="col-md-6 col-xl-4 stock-item" data-grade="{{ stock.grade }}">
-                        <div class="stock-card card-grade-{{ stock.grade|lower }}">
+                        <div class="stock-card card-grade-{{ stock.grade|slice:":1"|lower }}">
                             <!-- Header -->
                             <div class="card-header-row">
                                 <div class="symbol-row">
@@ -428,7 +428,7 @@
                                         {% if stock.symbol in watchlisted_symbols %}<i class="fas fa-bell"></i>{% else %}<i class="far fa-bell"></i>{% endif %}
                                     </button>
                                 </div>
-                                <div class="grade-pill grade-{{ stock.grade|lower }}">Grade {{ stock.grade }}</div>
+                                <div class="grade-pill grade-{{ stock.grade|slice:":1"|lower }}">Grade {{ stock.grade }}</div>
                             </div>
 
                             <!-- Signal Badges -->
@@ -576,13 +576,13 @@
                         <div class="row g-2">
                             {% for stock in history_results %}
                             <div class="col-md-6">
-                                <div class="stock-card card-grade-{{ stock.grade|lower }}" style="padding: 1.25rem;">
+                                <div class="stock-card card-grade-{{ stock.grade|slice:":1"|lower }}" style="padding: 1.25rem;">
                                     <div class="card-header-row" style="margin-bottom: 0.5rem;">
                                         <div class="symbol-row">
                                             <div class="rank-badge" style="width: 26px; height: 26px; font-size: 0.7rem;">#{{ stock.rank }}</div>
                                             <div class="symbol-name" style="font-size: 1.05rem;">{{ stock.symbol }}</div>
                                         </div>
-                                        <div class="grade-pill grade-{{ stock.grade|lower }}" style="font-size: 0.75rem; padding: 0.2rem 0.6rem;">Grade {{ stock.grade }}</div>
+                                        <div class="grade-pill grade-{{ stock.grade|slice:":1"|lower }}" style="font-size: 0.75rem; padding: 0.2rem 0.6rem;">Grade {{ stock.grade }}</div>
                                     </div>
                                     <div class="reasoning-box" style="margin-top: 0.5rem; font-size: 0.78rem; line-height: 1.5;">
                                         {{ stock.reasoning }}
@@ -913,12 +913,13 @@ function renderCards(stocks, market) {
 
     stocks.forEach(stock => {
         const grade   = stock.grade || 'C';
+        const baseGrade = grade.trim().charAt(0).toLowerCase();
         const rank    = stock.rank || '';
         const chartUrl = `/stocks/chart/${stock.symbol}/?market=${market}`;
 
         list.innerHTML += `
         <div class="col-md-6 col-xl-4 stock-item" data-grade="${grade}">
-            <div class="stock-card card-grade-${grade.toLowerCase()}">
+            <div class="stock-card card-grade-${baseGrade}">
                 <div class="card-header-row">
                     <div class="symbol-row">
                         <div class="rank-badge">#${rank}</div>
@@ -927,7 +928,7 @@ function renderCards(stocks, market) {
                                 data-symbol="${stock.symbol}" data-sector="" data-in-watchlist="false"
                                 title="Watchlist"><i class="far fa-bell"></i></button>
                     </div>
-                    <div class="grade-pill grade-${grade.toLowerCase()}">Grade ${grade}</div>
+                    <div class="grade-pill grade-${baseGrade}">Grade ${grade}</div>
                 </div>
                 <div class="signal-badges">
                     <span class="sig-badge sig-vcp">✦ Stage 2</span>
