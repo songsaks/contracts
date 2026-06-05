@@ -849,35 +849,53 @@ async function runAIScan(market) {
 
 function pollAIScan(market) {
     const pollUrl = `{% url 'stocks:api_ai_manual_scan' %}?status=1&market=${market}`;
-    
+    let elapsed = 0;
+    const MAX_WAIT_MS = 90_000;   // 90 seconds hard stop
+
     pollInterval = setInterval(async () => {
+        elapsed += 2500;
+
+        // Hard timeout — stop waiting after 90s and let user retry
+        if (elapsed >= MAX_WAIT_MS) {
+            clearInterval(pollInterval);
+            showError('AI ใช้เวลานานเกินไป (>90 วินาที) — กรุณากด Scan อีกครั้ง หรือลด RS filter ใน Precision Scan ก่อน');
+            document.getElementById('btnScan').disabled = false;
+            document.getElementById('loadingState').style.display = 'none';
+            return;
+        }
+
         try {
             const res = await fetch(pollUrl, { credentials: 'same-origin' });
             if (!res.ok) return;
-            
+
             const data = await res.json();
-            
+
             if (data.state === 'running') {
                 if (data.phase) {
-                    document.querySelector('#loadingState h5').innerHTML = `<i class="fas fa-cog fa-spin me-2"></i>${data.phase}`;
+                    document.querySelector('#loadingState h5').innerHTML =
+                        `<i class="fas fa-cog fa-spin me-2"></i>${data.phase}`;
                 }
-                
+                // Show elapsed time hint after 20s
+                if (elapsed >= 20_000) {
+                    const sec = Math.round(elapsed / 1000);
+                    const hint = document.getElementById('loadingHint');
+                    if (hint) hint.textContent = `รอ ${sec} วินาที...`;
+                }
+
                 const steps = ['step1', 'step2', 'step3', 'step4'];
                 let activeIndex = 0;
                 if (data.progress >= 85) activeIndex = 3;
                 else if (data.progress >= 50) activeIndex = 2;
                 else if (data.progress >= 30) activeIndex = 1;
-                else activeIndex = 0;
-                
                 steps.forEach((id, idx) => {
                     const el = document.getElementById(id);
                     if (el) el.classList.toggle('active', idx === activeIndex);
                 });
-            } 
+            }
             else if (data.state === 'done') {
                 clearInterval(pollInterval);
                 window.location.href = `?market=${market}`;
-            } 
+            }
             else if (data.state === 'failed') {
                 clearInterval(pollInterval);
                 showError(data.message || 'AI สแกนเกิดข้อผิดพลาด');

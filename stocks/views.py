@@ -12197,33 +12197,38 @@ def _run_ai_manual_scan_bg(user_id, cache_key, market, scan_run_time):
         cache.set(cache_key, {'state': 'running', 'progress': 50, 'phase': 'AI (Gemini) กำลังประเมินผล...'}, timeout=600)
         
         from google.genai import types
-        client = genai.Client(
-            api_key=settings.GEMINI_API_KEY,
-            http_options=types.HttpOptions(timeout=30_000)
-        )
+        import concurrent.futures
 
-        # Field key legend (short keys reduce token count)
-        # s=symbol, rs=RS rating, rsi=RSI, vcp=VCP setup, adx=ADX,
-        # sc=technical_score, cmf=CMF, vsurge=volume_surge,
-        # pp=pocket_pivot, vdu=volume_dry_up, eps=eps_growth, rev=rev_growth
-        prompt = f"""SEPA+SmartMoney stock screener. Select 5-8 best stocks from {market} data below.
+        client = genai.Client(api_key=settings.GEMINI_API_KEY)
 
-RULES: Stage2+RS>=65+RSI 50-65 preferred, cmf>0, vcp/vdu/pp signals preferred, eps/rev>=25% bonus. Grade A=best.
+        prompt = f"""SEPA+SmartMoney screener. Pick 5-8 best {market} stocks. Grade A=top.
+Rules: RS>=65, RSI 50-65 ideal, cmf>0, vcp/vdu/pp bonus, eps/rev>=25% bonus.
+Keys: s=symbol rs=RSrating rsi adx sc=score cmf vsurge=volSurge pp=pocketPivot vdu eps rev
+Data:{json.dumps(stocks_data, separators=(',',':'))}
+JSON:{{"status":"success","market":"{market}","selected_stocks":[{{"rank":1,"symbol":"X","grade":"A","reasoning":"Thai 1-2 sentences"}}]}}"""
 
-DATA: {json.dumps(stocks_data, separators=(',',':'))}
-
-Respond JSON only:
-{{"status":"success","market":"{market}","selected_stocks":[{{"rank":1,"symbol":"X","grade":"A","reasoning":"2-3 sentences Thai"}}]}}"""
-
-        response = client.models.generate_content(
-            model='gemini-2.0-flash',
-            contents=prompt,
-            config=types.GenerateContentConfig(
-                response_mime_type='application/json',
-                temperature=0.0,
-                max_output_tokens=1500,
+        def _call_gemini():
+            return client.models.generate_content(
+                model='gemini-2.0-flash',
+                contents=prompt,
+                config=types.GenerateContentConfig(
+                    response_mime_type='application/json',
+                    temperature=0.0,
+                    max_output_tokens=1200,
+                )
             )
-        )
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+            future = executor.submit(_call_gemini)
+            try:
+                response = future.result(timeout=25)   # hard 25s cap
+            except concurrent.futures.TimeoutError:
+                future.cancel()
+                cache.set(cache_key, {
+                    'state': 'failed',
+                    'message': 'AI (Gemini) ไม่ตอบสนองใน 25 วินาที — กรุณาลองใหม่ หรือตรวจสอบ API quota'
+                }, timeout=300)
+                return
         
         result_json = json.loads(response.text)
         
