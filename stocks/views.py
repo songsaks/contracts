@@ -12198,7 +12198,11 @@ def _run_ai_manual_scan_bg(user_id, cache_key, market, scan_run_time):
         # Step 3: Call Gemini API
         cache.set(cache_key, {'state': 'running', 'progress': 50, 'phase': 'AI (Gemini) กำลังประเมินผล...'}, timeout=600)
         
-        client = genai.Client(api_key=settings.GEMINI_API_KEY)
+        from google.genai import types
+        client = genai.Client(
+            api_key=settings.GEMINI_API_KEY,
+            http_options=types.HttpOptions(timeout=45_000)  # 45 seconds timeout
+        )
         
         prompt = f"""คุณคือ AI Analyst ระดับโลก ที่เชี่ยวชาญระบบ SEPA ของ Mark Minervini และ Ehlers Engineering
 อ้างอิงจากคู่มือของระบบ:
@@ -12237,7 +12241,7 @@ def _run_ai_manual_scan_bg(user_id, cache_key, market, scan_run_time):
 }}
 """
         response = client.models.generate_content(
-            model='gemini-2.5-flash',
+            model='gemini-2.5-flash-lite',
             contents=prompt,
             config={'response_mime_type': 'application/json', 'temperature': 0.0}
         )
@@ -12278,9 +12282,14 @@ def _run_ai_manual_scan_bg(user_id, cache_key, market, scan_run_time):
         tb = traceback.format_exc()
         import logging
         logging.getLogger('stocks').error(f"AI Manual Scan BG Error: {e}\n{tb}")
+        
+        err_msg = str(e)
+        if "timeout" in err_msg.lower() or "deadline" in err_msg.lower() or "timed out" in err_msg.lower():
+            err_msg = "การเชื่อมต่อกับ AI (Gemini) หมดเวลา (Timeout) กรุณาลองใหม่อีกครั้ง"
+            
         cache.set(cache_key, {
             'state': 'failed',
-            'message': f"เกิดข้อผิดพลาดในการรันสแกน: {str(e)}"
+            'message': f"เกิดข้อผิดพลาดในการรันสแกน: {err_msg}"
         }, timeout=300)
 
 @login_required
