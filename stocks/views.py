@@ -2698,7 +2698,7 @@ def mean_reversion_scanner(request):
     _regime_key = f'markov_regime_global_{market}'
     regime = _cp.get(_regime_key)
     if not regime:
-        regime = calculate_markov_regime('^SET' if market == 'SET' else '^GSPC')
+        regime = calculate_markov_regime('^SET.BK' if market == 'SET' else '^GSPC')
         _cp.set(_regime_key, regime, 1800)
 
     return render(request, 'stocks/mean_reversion_scanner.html', {
@@ -3003,7 +3003,7 @@ def portfolio_exit_plan(request):
         _mc_now   = _mcdt.now(_mc_bkk)
         _mc_end   = _mc_now.date().strftime('%Y-%m-%d')
         _mc_start = (_mc_now.date() - _mctd(days=430)).strftime('%Y-%m-%d')
-        _mc_df = yf.download("^SET", start=_mc_start, end=_mc_end, interval="1d", progress=False)
+        _mc_df = yf.download("^SET.BK", start=_mc_start, end=_mc_end, interval="1d", progress=False)
         if _mc_df is not None and not _mc_df.empty:
             if isinstance(_mc_df.columns, pd.MultiIndex):
                 _mc_df.columns = _mc_df.columns.droplevel(1)
@@ -3778,7 +3778,7 @@ def morning_briefing(request):
                 # ── 8. Macro data ───────────────────────────────
                 _c.set(ckey, {'state': 'running', 'phase': 'ดึงข้อมูล Macro…'}, timeout=600)
                 macro_symbols = {
-                    'SET Index': '^SET', 'S&P 500': '^GSPC', 'Nasdaq': '^IXIC',
+                    'SET Index': '^SET.BK', 'S&P 500': '^GSPC', 'Nasdaq': '^IXIC',
                     'USD/THB': 'USDTHB=X', 'DXY': 'DX-Y.NYB', 'US 10Y Yield': '^TNX',
                     'Gold': 'GC=F', 'WTI Oil': 'CL=F', 'Bitcoin': 'BTC-USD',
                 }
@@ -3948,7 +3948,7 @@ def macro_economy(request):
     """
     # รายการข้อมูลมหภาคที่ต้องดึงพร้อม symbol Yahoo Finance
     macro_items = [
-        {'id': 'set', 'name': 'SET Index (ดัชนีหุ้นไทย)', 'symbol': '^SET', 'unit': 'Points', 'desc': 'ดัชนีตลาดหลักทรัพย์แห่งประเทศไทย บ่งบอกสภาวะตลาดโดยรวม'},
+        {'id': 'set', 'name': 'SET Index (ดัชนีหุ้นไทย)', 'symbol': '^SET.BK', 'unit': 'Points', 'desc': 'ดัชนีตลาดหลักทรัพย์แห่งประเทศไทย บ่งบอกสภาวะตลาดโดยรวม'},
         {'id': 'spx', 'name': 'S&P 500 (ตลาดหุ้นสหรัฐฯ)', 'symbol': '^GSPC', 'unit': 'Points', 'desc': 'ดัชนีหุ้นใหญ่ 500 ตัวของสหรัฐฯ สะท้อนภาพรวมตลาดโลก'},
         {'id': 'usdthb', 'name': 'USD/THB (อัตราแลกเปลี่ยน)', 'symbol': 'USDTHB=X', 'unit': 'THB', 'desc': 'ค่าเงินบาทเทียบดอลลาร์สิงคโปร์/สหรัฐฯ'},
         {'id': 'dxy', 'name': 'Dollar Index (DXY)', 'symbol': 'DX-Y.NYB', 'unit': 'Points', 'desc': 'ดัชนีดอลลาร์สหรัฐ บ่งบอกถึงกระแสเงินทุน (Fund Flow)'},
@@ -4093,7 +4093,7 @@ def momentum_scanner(request):
     regime_cache_key = 'markov_regime_SET' # Momentum mainly for SET
     regime = cache.get(regime_cache_key)
     if not regime:
-        regime = calculate_markov_regime('^SET')
+        regime = calculate_markov_regime('^SET.BK')
         cache.set(regime_cache_key, regime, timeout=1800)
 
     # ── AJAX status poll ──────────────────────────────────────────────
@@ -4691,7 +4691,7 @@ def scan_watchlist_view(request):
             _regime_key = 'markov_regime_set' if market == 'SET' else 'markov_regime_us'
             markov_regime = _regime_cache.get(_regime_key)
             if not markov_regime:
-                index_symbol = '^SET' if market == 'SET' else '^GSPC'
+                index_symbol = '^SET.BK' if market == 'SET' else '^GSPC'
                 markov_regime = calculate_markov_regime(index_symbol, window=60)
                 _regime_cache.set(_regime_key, markov_regime, 1800) # 30 min cache
                 
@@ -5040,7 +5040,7 @@ def precision_momentum_scanner(request):
                 set_1m_return = 0.0
                 set_3m_return = 0.0
                 try:
-                    set_df = yf.download("^SET", start=set_start_str, end=scan_end_str, interval="1d", progress=False)
+                    set_df = yf.download("^SET.BK", start=set_start_str, end=scan_end_str, interval="1d", progress=False)
                     if set_df is not None and not set_df.empty:
                         if isinstance(set_df.columns, pd.MultiIndex):
                             set_df.columns = set_df.columns.droplevel(1)
@@ -5816,7 +5816,7 @@ def precision_momentum_scanner(request):
     markov_regime = _regime_cache.get(_regime_key)
     
     if not markov_regime:
-        markov_regime = calculate_markov_regime("^SET", window=60)
+        markov_regime = calculate_markov_regime("^SET.BK", window=60)
         _regime_cache.set(_regime_key, markov_regime, 1800) # 30 min cache
 
     # ====== Win Probability Calculation (v11.1) ======
@@ -6071,7 +6071,7 @@ def precision_momentum_scanner(request):
         _mc_now   = _mcdt.now(_mc_bkk)
         _mc_end   = _mc_now.date().strftime('%Y-%m-%d')
         _mc_start = (_mc_now.date() - _mctd(days=430)).strftime('%Y-%m-%d')
-        _mc_df = yf.download("^SET", start=_mc_start, end=_mc_end, interval="1d", progress=False)
+        _mc_df = yf.download("^SET.BK", start=_mc_start, end=_mc_end, interval="1d", progress=False)
         if _mc_df is not None and not _mc_df.empty:
             if isinstance(_mc_df.columns, pd.MultiIndex):
                 _mc_df.columns = _mc_df.columns.droplevel(1)
@@ -6445,7 +6445,7 @@ def entry_finder(request, symbol):
         # ====== RS Line (Relative Strength vs SET) ======
         rs_line_vals = []
         try:
-            set_df = yf.download("^SET", start=_ef_start_str, end=_ef_end_str, interval='1d', progress=False)
+            set_df = yf.download("^SET.BK", start=_ef_start_str, end=_ef_end_str, interval='1d', progress=False)
             if set_df is not None and not set_df.empty:
                 if isinstance(set_df.columns, pd.MultiIndex):
                     set_df.columns = set_df.columns.droplevel(1)
@@ -10659,7 +10659,7 @@ def turtle_scanner(request):
     regime_cache_key = f'markov_regime_{market}'
     regime = cache.get(regime_cache_key)
     if not regime:
-        index_sym = '^SET' if market == 'SET' else '^GSPC'
+        index_sym = '^SET.BK' if market == 'SET' else '^GSPC'
         regime = calculate_markov_regime(index_sym)
         cache.set(regime_cache_key, regime, timeout=1800) # 30 mins
 
@@ -11098,7 +11098,7 @@ def stock_chart_data(request, symbol):
 
     # Append .BK for SET stocks, mapping index SET to ^SET
     if market == 'SET':
-        yf_symbol = '^SET' if symbol == 'SET' else symbol + '.BK'
+        yf_symbol = '^SET.BK' if symbol == 'SET' else symbol + '.BK'
     else:
         yf_symbol = symbol
 
