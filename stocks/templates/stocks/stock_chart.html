@@ -534,6 +534,7 @@
       <label class="indicator-pill"><input type="checkbox" id="check-ema50" onchange="toggleIndicators()"> EMA 50</label>
       <label class="indicator-pill"><input type="checkbox" id="check-ema200" onchange="toggleIndicators()"> EMA 200</label>
       <label class="indicator-pill"><input type="checkbox" id="check-itl" checked onchange="toggleIndicators()"> ITL</label>
+      <label class="indicator-pill"><input type="checkbox" id="check-zones" checked onchange="toggleIndicators()"> โซนสะสมสถาบัน</label>
       
       <div class="indicator-divider"></div>
       
@@ -577,6 +578,16 @@
           <span class="text-muted" title="S1 (10D Low)">S1: <span id="tac-exit-10" class="text-danger">0.00</span></span>
           <span class="text-muted" title="S2 (20D Low)">S2: <span id="tac-exit-20" class="text-danger">0.00</span></span>
         </div>
+      </div>
+
+      <div class="indicator-divider"></div>
+
+      <!-- Institutional Accumulation (CMF) -->
+      <div class="d-flex align-items-center gap-2" title="Chaikin Money Flow (20D)">
+        <span class="indicator-section-title text-success"><i class="fas fa-university"></i> CMF:</span>
+        <span class="fw-bold text-success" id="tac-cmf" style="font-size: 0.85rem;">0.00</span>
+        <span class="badge d-none ms-1" id="tac-pp" style="background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.4);" title="Pocket Pivot detected">PP</span>
+        <span class="badge d-none ms-1" id="tac-vdu" style="background: rgba(59, 130, 246, 0.15); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.4);" title="Volume Dry-Up detected">VDU</span>
       </div>
 
       <div class="indicator-divider"></div>
@@ -952,6 +963,55 @@ function renderCharts(data) {
     itlSeries.setData(data.itl);
   }
 
+  // --- Institutional Accumulation Zones ---
+  if (document.getElementById('check-zones') && document.getElementById('check-zones').checked && data.tactical) {
+    const tac = data.tactical;
+    if (tac.demand_zone_start > 0) {
+      const plStart = candleSeries.createPriceLine({
+        price: tac.demand_zone_start,
+        color: '#10b981',
+        lineWidth: 1.5,
+        lineStyle: 1,
+        axisLabelVisible: true,
+        title: `Demand Zone Start (${tac.demand_zone_start.toFixed(2)})`
+      });
+      customPriceLines.push(plStart);
+    }
+    if (tac.demand_zone_end > 0) {
+      const plEnd = candleSeries.createPriceLine({
+        price: tac.demand_zone_end,
+        color: '#059669',
+        lineWidth: 1.5,
+        lineStyle: 1,
+        axisLabelVisible: true,
+        title: `Demand Zone End (${tac.demand_zone_end.toFixed(2)})`
+      });
+      customPriceLines.push(plEnd);
+    }
+    if (tac.stop_loss > 0) {
+      const plStop = candleSeries.createPriceLine({
+        price: tac.stop_loss,
+        color: '#ef4444',
+        lineWidth: 1.5,
+        lineStyle: 1,
+        axisLabelVisible: true,
+        title: `Stop Loss (${tac.stop_loss.toFixed(2)})`
+      });
+      customPriceLines.push(plStop);
+    }
+    if (tac.supply_zone_start > 0) {
+      const plTarget = candleSeries.createPriceLine({
+        price: tac.supply_zone_start,
+        color: '#8b5cf6',
+        lineWidth: 1.5,
+        lineStyle: 1,
+        axisLabelVisible: true,
+        title: `Supply Target (${tac.supply_zone_start.toFixed(2)})`
+      });
+      customPriceLines.push(plTarget);
+    }
+  }
+
   // --- Markers ---
   if (document.getElementById('check-markers').checked) {
     const markers = data.signals.map(s => ({
@@ -1102,6 +1162,39 @@ function loadData(sym, mkt, period) {
         document.getElementById('tac-next-price').textContent = data.tactical.next_unit.toFixed(2);
         document.getElementById('tac-exit-10').textContent = data.tactical.exit_10d_low.toFixed(2);
         document.getElementById('tac-exit-20').textContent = data.tactical.exit_20d_low.toFixed(2);
+        
+        // Update CMF, Pocket Pivot, and VDU
+        const cmfVal = data.tactical.cmf || 0;
+        const cmfElem = document.getElementById('tac-cmf');
+        if (cmfElem) {
+          cmfElem.textContent = cmfVal.toFixed(2);
+          if (cmfVal >= 0.1) {
+            cmfElem.className = 'fw-bold text-success';
+          } else if (cmfVal <= -0.1) {
+            cmfElem.className = 'fw-bold text-danger';
+          } else {
+            cmfElem.className = 'fw-bold text-muted';
+          }
+        }
+        
+        const ppElem = document.getElementById('tac-pp');
+        if (ppElem) {
+          if (data.tactical.pocket_pivot) {
+            ppElem.classList.remove('d-none');
+          } else {
+            ppElem.classList.add('d-none');
+          }
+        }
+
+        const vduElem = document.getElementById('tac-vdu');
+        if (vduElem) {
+          if (data.tactical.vdu_near_zone) {
+            vduElem.classList.remove('d-none');
+          } else {
+            vduElem.classList.add('d-none');
+          }
+        }
+        
         updateTacticalWithCapital();
       }
 

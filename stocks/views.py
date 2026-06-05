@@ -11339,6 +11339,61 @@ def stock_chart_data(request, symbol):
             }
         }
 
+        # ====== Fetch or dynamically compute Institutional Accumulation Zones ======
+        try:
+            from .models import PrecisionScanCandidate
+            prec_data = PrecisionScanCandidate.objects.filter(symbol=symbol, market=market).order_by('-scan_run').first()
+            if prec_data:
+                tactical['demand_zone_start'] = _safe_val(prec_data.demand_zone_start)
+                tactical['demand_zone_end'] = _safe_val(prec_data.demand_zone_end)
+                tactical['stop_loss'] = _safe_val(prec_data.stop_loss)
+                tactical['supply_zone_start'] = _safe_val(prec_data.supply_zone_start)
+                tactical['supply_zone_end'] = _safe_val(prec_data.supply_zone_end)
+                tactical['cmf'] = _safe_val(prec_data.cmf)
+                tactical['pocket_pivot'] = bool(prec_data.pocket_pivot)
+                tactical['vdu_near_zone'] = bool(prec_data.vdu_near_zone)
+            else:
+                # Calculate dynamically from historical data if possible
+                from .utils import find_supply_demand_zones_v2
+                sd = find_supply_demand_zones_v2(df)
+                if sd:
+                    tactical['demand_zone_start'] = _safe_val(sd.get('start'))
+                    tactical['demand_zone_end'] = _safe_val(sd.get('end'))
+                    tactical['stop_loss'] = _safe_val(sd.get('stop_loss'))
+                    tactical['supply_zone_start'] = _safe_val(sd.get('target'))
+                    tactical['supply_zone_end'] = _safe_val(sd.get('target'))
+                    # Calculate CMF 20d dynamically
+                    try:
+                        high_low = df['High'] - df['Low']
+                        clv = ((df['Close'] - df['Low']) - (df['High'] - df['Close'])) / high_low.replace(0, _np.nan)
+                        clv = clv.fillna(0)
+                        clv_vol = clv * df['Volume']
+                        cmf_series = clv_vol.rolling(20).sum() / df['Volume'].rolling(20).sum().replace(0, _np.nan)
+                        tactical['cmf'] = _safe_val(cmf_series.iloc[-1]) if not cmf_series.empty else 0.0
+                    except Exception:
+                        tactical['cmf'] = 0.0
+                    tactical['pocket_pivot'] = False
+                    tactical['vdu_near_zone'] = False
+                else:
+                    tactical['demand_zone_start'] = 0.0
+                    tactical['demand_zone_end'] = 0.0
+                    tactical['stop_loss'] = 0.0
+                    tactical['supply_zone_start'] = 0.0
+                    tactical['supply_zone_end'] = 0.0
+                    tactical['cmf'] = 0.0
+                    tactical['pocket_pivot'] = False
+                    tactical['vdu_near_zone'] = False
+        except Exception as ex:
+            print(f"Error fetching/calculating zones for {symbol}: {ex}")
+            tactical['demand_zone_start'] = 0.0
+            tactical['demand_zone_end'] = 0.0
+            tactical['stop_loss'] = 0.0
+            tactical['supply_zone_start'] = 0.0
+            tactical['supply_zone_end'] = 0.0
+            tactical['cmf'] = 0.0
+            tactical['pocket_pivot'] = False
+            tactical['vdu_near_zone'] = False
+
         # --- Enhanced Intermarket Analysis (DXY & MTF) ---
         if symbol == 'GC=F':
             try:
