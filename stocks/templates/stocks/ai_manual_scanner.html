@@ -248,6 +248,77 @@
         background: rgba(255,255,255,.08); border-color: rgba(99,102,241,.5); box-shadow: none; color: #f1f5f9;
     }
     #watchlistModal .modal-footer { border-top: 1px solid rgba(255,255,255,.06); }
+
+    /* ───── Scanner Tabs ───── */
+    .scan-tabs {
+        display: flex;
+        gap: .5rem;
+        margin-bottom: 1.5rem;
+        border-bottom: 1px solid rgba(255,255,255,.08);
+        padding-bottom: .5rem;
+    }
+    .scan-tab-btn {
+        padding: .6rem 1.25rem;
+        border-radius: 8px;
+        font-weight: 700;
+        font-size: .9rem;
+        border: none;
+        color: #64748b;
+        background: transparent;
+        transition: all .2s;
+        cursor: pointer;
+    }
+    .scan-tab-btn.active {
+        background: rgba(99,102,241,.15);
+        color: #818cf8;
+    }
+    .scan-tab-btn:hover:not(.active) {
+        color: #f1f5f9;
+        background: rgba(255,255,255,.02);
+    }
+    .tab-content-panel {
+        display: none;
+    }
+    .tab-content-panel.active {
+        display: block;
+    }
+
+    /* ───── Premium Table Styles ───── */
+    .stats-table-wrapper {
+        background: rgba(15,23,42,.35);
+        border: 1px solid rgba(255,255,255,.06);
+        border-radius: 16px;
+        overflow: hidden;
+        margin-bottom: 2rem;
+    }
+    .premium-table {
+        width: 100%;
+        border-collapse: collapse;
+        color: #cbd5e1;
+        font-size: .875rem;
+    }
+    .premium-table th {
+        background: rgba(15,23,42,.7);
+        padding: 1rem 1.25rem;
+        font-weight: 700;
+        text-align: left;
+        color: #94a3b8;
+        border-bottom: 1px solid rgba(255,255,255,.08);
+        text-transform: uppercase;
+        font-size: .75rem;
+        letter-spacing: .05em;
+    }
+    .premium-table td {
+        padding: 1rem 1.25rem;
+        border-bottom: 1px solid rgba(255,255,255,.04);
+        vertical-align: middle;
+    }
+    .premium-table tr:hover td {
+        background: rgba(255,255,255,.02);
+    }
+    .premium-table tr:last-child td {
+        border-bottom: none;
+    }
 </style>
 {% endblock %}
 
@@ -301,86 +372,238 @@
     </div>
 
     <!-- ════ Results Container ════ -->
-    <div id="resultsContainer" {% if not results %}style="display:none;"{% endif %}>
+    <div id="resultsContainer" {% if not results and not stats_data %}style="display:none;"{% endif %}>
 
-        <!-- Stats Bar -->
-        <div class="stats-bar" id="statsBar">
-            <div class="stat-chip chip-total"><i class="fas fa-list"></i> ทั้งหมด <strong id="cntTotal">{{ results|length }}</strong> หุ้น</div>
-            <div class="stat-chip chip-a"><i class="fas fa-star"></i> Grade A: <strong id="cntA">{% with a_count=0 %}{% for r in results %}{% if r.grade == 'A' %}{% with a_count=a_count|add:1 %}{% endwith %}{% endif %}{% endfor %}{{ results|dictsort:"grade"|first }}{% endwith %}</strong></div>
-            <div class="stat-chip chip-b"><i class="fas fa-thumbs-up"></i> Grade B: <strong id="cntB">0</strong></div>
-            <div class="stat-chip chip-c"><i class="fas fa-minus-circle"></i> Grade C: <strong id="cntC">0</strong></div>
-            {% if results %}
-            <div class="stat-ts"><i class="fas fa-clock me-1"></i>อัปเดต: {{ results.0.created_at|date:"d M Y H:i" }}</div>
-            {% endif %}
+        <!-- ── Navigation Tabs ── -->
+        <div class="scan-tabs">
+            <button class="scan-tab-btn active" onclick="switchScanTab('results')">
+                <i class="fas fa-poll me-1"></i> ผลสแกนล่าสุด
+            </button>
+            <button class="scan-tab-btn" onclick="switchScanTab('stats')">
+                <i class="fas fa-chart-pie me-1"></i> สถิติหุ้นแนะนำ (AI Top Picks)
+            </button>
+            <button class="scan-tab-btn" onclick="switchScanTab('history')">
+                <i class="fas fa-history me-1"></i> ประวัติการรันย้อนหลัง
+            </button>
         </div>
 
-        <!-- Filter Pills -->
-        <div class="filter-bar">
-            <span class="filter-pill active" data-grade="all" onclick="filterGrade(this)">ทั้งหมด</span>
-            <span class="filter-pill" data-grade="A" onclick="filterGrade(this)">⭐ Grade A</span>
-            <span class="filter-pill" data-grade="B" onclick="filterGrade(this)">👍 Grade B</span>
-            <span class="filter-pill" data-grade="C" onclick="filterGrade(this)">🟡 Grade C</span>
-        </div>
+        <!-- ── TAB PANEL 1: LATEST RESULTS ── -->
+        <div id="tabPanelResults" class="tab-content-panel active">
+            <!-- Stats Bar -->
+            <div class="stats-bar" id="statsBar">
+                <div class="stat-chip chip-total"><i class="fas fa-list"></i> ทั้งหมด <strong id="cntTotal">{{ results|length }}</strong> หุ้น</div>
+                <div class="stat-chip chip-a"><i class="fas fa-star"></i> Grade A: <strong id="cntA">0</strong></div>
+                <div class="stat-chip chip-b"><i class="fas fa-thumbs-up"></i> Grade B: <strong id="cntB">0</strong></div>
+                <div class="stat-chip chip-c"><i class="fas fa-minus-circle"></i> Grade C: <strong id="cntC">0</strong></div>
+                {% if results %}
+                <div class="stat-ts"><i class="fas fa-clock me-1"></i>อัปเดตล่าสุด: {{ results.0.created_at|date:"d M Y H:i" }}</div>
+                {% endif %}
+            </div>
 
-        <!-- Stock Grid -->
-        <div class="row g-3" id="stocksList">
-            {% if results %}
-                {% for stock in results %}
-                <div class="col-md-6 col-xl-4 stock-item" data-grade="{{ stock.grade }}">
-                    <div class="stock-card card-grade-{{ stock.grade|lower }}">
-                        <!-- Header -->
-                        <div class="card-header-row">
-                            <div class="symbol-row">
-                                <div class="rank-badge">#{{ stock.rank }}</div>
-                                <div class="symbol-name">{{ stock.symbol }}</div>
-                                <button class="btn-watch {% if stock.symbol in watchlisted_symbols %}active{% endif %}"
-                                        onclick="toggleWatchlist(this)"
-                                        data-symbol="{{ stock.symbol }}"
-                                        data-sector=""
-                                        data-in-watchlist="{% if stock.symbol in watchlisted_symbols %}true{% else %}false{% endif %}"
-                                        title="Watchlist">
-                                    {% if stock.symbol in watchlisted_symbols %}<i class="fas fa-bell"></i>{% else %}<i class="far fa-bell"></i>{% endif %}
-                                </button>
+            <!-- Filter Pills -->
+            <div class="filter-bar">
+                <span class="filter-pill active" data-grade="all" onclick="filterGrade(this)">ทั้งหมด</span>
+                <span class="filter-pill" data-grade="A" onclick="filterGrade(this)">⭐ Grade A</span>
+                <span class="filter-pill" data-grade="B" onclick="filterGrade(this)">👍 Grade B</span>
+                <span class="filter-pill" data-grade="C" onclick="filterGrade(this)">🟡 Grade C</span>
+            </div>
+
+            <!-- Stock Grid -->
+            <div class="row g-3" id="stocksList">
+                {% if results %}
+                    {% for stock in results %}
+                    <div class="col-md-6 col-xl-4 stock-item" data-grade="{{ stock.grade }}">
+                        <div class="stock-card card-grade-{{ stock.grade|lower }}">
+                            <!-- Header -->
+                            <div class="card-header-row">
+                                <div class="symbol-row">
+                                    <div class="rank-badge">#{{ stock.rank }}</div>
+                                    <div class="symbol-name">{{ stock.symbol }}</div>
+                                    <button class="btn-watch {% if stock.symbol in watchlisted_symbols %}active{% endif %}"
+                                            onclick="toggleWatchlist(this)"
+                                            data-symbol="{{ stock.symbol }}"
+                                            data-sector=""
+                                            data-in-watchlist="{% if stock.symbol in watchlisted_symbols %}true{% else %}false{% endif %}"
+                                            title="Watchlist">
+                                        {% if stock.symbol in watchlisted_symbols %}<i class="fas fa-bell"></i>{% else %}<i class="far fa-bell"></i>{% endif %}
+                                    </button>
+                                </div>
+                                <div class="grade-pill grade-{{ stock.grade|lower }}">Grade {{ stock.grade }}</div>
                             </div>
-                            <div class="grade-pill grade-{{ stock.grade|lower }}">Grade {{ stock.grade }}</div>
-                        </div>
 
-                        <!-- Signal Badges -->
-                        <div class="signal-badges">
-                            <span class="sig-badge sig-vcp">✦ Stage 2</span>
-                            <span class="sig-badge sig-cmf">📈 AI Selected</span>
-                        </div>
+                            <!-- Signal Badges -->
+                            <div class="signal-badges">
+                                <span class="sig-badge sig-vcp">✦ Stage 2</span>
+                                <span class="sig-badge sig-cmf">📈 AI Selected</span>
+                            </div>
 
-                        <!-- AI Reasoning -->
-                        <div class="reasoning-box">
-                            <div class="reasoning-label"><i class="fas fa-brain me-1"></i>AI Reasoning</div>
-                            {{ stock.reasoning }}
-                        </div>
+                            <!-- AI Reasoning -->
+                            <div class="reasoning-box">
+                                <div class="reasoning-label"><i class="fas fa-brain me-1"></i>AI Reasoning</div>
+                                {{ stock.reasoning }}
+                            </div>
 
-                        <!-- Cached CrewAI inline -->
-                        <div class="crewai-inline d-none" id="crewai-inline-{{ stock.symbol }}"></div>
+                            <!-- Cached CrewAI inline -->
+                            <div class="crewai-inline d-none" id="crewai-inline-{{ stock.symbol }}"></div>
 
-                        <!-- Actions -->
-                        <div class="card-actions">
-                            <button class="btn-quick-ai" onclick="runMomentumCrewAI('{{ stock.symbol }}')">
-                                <i class="fas fa-bolt me-1"></i>Quick AI
-                            </button>
-                            <a href="/stocks/chart/{{ stock.symbol }}/?market={{ stock.market }}" target="_blank" class="btn-chart">
-                                <i class="fas fa-chart-line me-1"></i>Chart
-                            </a>
+                            <!-- Actions -->
+                            <div class="card-actions">
+                                <button class="btn-quick-ai" onclick="runMomentumCrewAI('{{ stock.symbol }}')">
+                                    <i class="fas fa-bolt me-1"></i>Quick AI
+                                </button>
+                                <a href="/stocks/chart/{{ stock.symbol }}/?market={{ stock.market }}" target="_blank" class="btn-chart">
+                                    <i class="fas fa-chart-line me-1"></i>Chart
+                                </a>
+                            </div>
                         </div>
                     </div>
-                </div>
-                {% endfor %}
-            {% endif %}
+                    {% endfor %}
+                {% endif %}
+            </div>
+
+            <!-- Empty State (hidden by default) -->
+            <div id="emptyState" class="empty-state" {% if results %}style="display:none;"{% endif %}>
+                <i class="fas fa-search-dollar"></i>
+                <h5>ยังไม่มีผลการสแกน</h5>
+                <p>กดปุ่ม <strong>"Scan Now"</strong> เพื่อให้ AI วิเคราะห์หุ้นตามเกณฑ์คู่มือ SEPA + Smart Money<br>
+                หากเกิดข้อผิดพลาด กรุณารัน <a href="/stocks/scan/precision/" style="color:#818cf8;">Precision Scan</a> ก่อน</p>
+            </div>
         </div>
 
-        <!-- Empty State (hidden by default) -->
-        <div id="emptyState" class="empty-state" {% if results %}style="display:none;"{% endif %}>
-            <i class="fas fa-search-dollar"></i>
-            <h5>ยังไม่มีผลการสแกน</h5>
-            <p>กดปุ่ม <strong>"Scan Now"</strong> เพื่อให้ AI วิเคราะห์หุ้นตามเกณฑ์คู่มือ SEPA + Smart Money<br>
-            หากเกิดข้อผิดพลาด กรุณารัน <a href="/stocks/scan/precision/" style="color:#818cf8;">Precision Scan</a> ก่อน</p>
+        <!-- ── TAB PANEL 2: AI TOP PICKS STATS ── -->
+        <div id="tabPanelStats" class="tab-content-panel">
+            <h5 class="text-white fw-bold mb-3"><i class="fas fa-award me-2 text-warning"></i>สถิติการคัดเลือกหุ้นยอดนิยมโดย AI (Top Picks)</h5>
+            <div class="stats-table-wrapper">
+                <table class="premium-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 80px;">ลำดับ</th>
+                            <th>ชื่อหุ้น</th>
+                            <th>จำนวนครั้งที่แนะนำทั้งหมด</th>
+                            <th>แนะนำเป็น Grade A</th>
+                            <th>แนะนำเป็น Grade B</th>
+                            <th>แนะนำเป็น Grade C</th>
+                            <th>สแกนเจอล่าสุด</th>
+                            <th>ดูข้อมูล</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if stats_data %}
+                            {% for stat in stats_data %}
+                            <tr>
+                                <td><span class="rank-badge">#{{ forloop.counter }}</span></td>
+                                <td><strong class="text-white fs-6">{{ stat.symbol }}</strong></td>
+                                <td><span class="badge bg-indigo px-3 py-2 rounded-pill fw-bold" style="background:#4f46e5;">{{ stat.total_scans }} ครั้ง</span></td>
+                                <td><span class="text-success fw-bold">⭐ {{ stat.grade_a_count }}</span></td>
+                                <td><span class="text-indigo fw-bold" style="color:#818cf8 !important;">👍 {{ stat.grade_b_count }}</span></td>
+                                <td><span class="text-warning fw-bold">🟡 {{ stat.grade_c_count }}</span></td>
+                                <td class="text-muted">{{ stat.last_scanned|date:"d M Y H:i"|default:"-" }}</td>
+                                <td>
+                                    <a href="/stocks/chart/{{ stat.symbol }}/?market={{ current_market }}" target="_blank" class="btn-chart py-1 px-2" style="font-size: 0.75rem;">
+                                        <i class="fas fa-chart-line"></i> Chart
+                                    </a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        {% else %}
+                            <tr>
+                                <td colspan="8" class="text-center py-4 text-muted">ยังไม่มีข้อมูลสถิติหุ้น กรุณาเริ่มรันการสแกน</td>
+                            </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- ── TAB PANEL 3: SCAN LOG HISTORY ── -->
+        <div id="tabPanelHistory" class="tab-content-panel">
+            <h5 class="text-white fw-bold mb-3"><i class="fas fa-history me-2 text-indigo"></i>ประวัติการบันทึกการสแกนย้อนหลัง</h5>
+            <div class="row">
+                <div class="col-lg-4">
+                    <div class="stats-table-wrapper">
+                        <table class="premium-table">
+                            <thead>
+                                <tr>
+                                    <th>รอบเวลาสแกน</th>
+                                    <th>จำนวนหุ้น</th>
+                                    <th>เรียกดู</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% if history_runs %}
+                                    {% for run in history_runs %}
+                                    <tr {% if history_selected_run == run.scan_run_iso %}style="background: rgba(99,102,241,0.08);"{% endif %}>
+                                        <td>
+                                            <div class="text-white fw-semibold">{{ run.scan_run_str }}</div>
+                                            <small class="text-muted" style="font-size: 0.7rem;">{{ run.scan_date|date:"d M Y H:i" }}</small>
+                                        </td>
+                                        <td><span class="badge bg-secondary">{{ run.stock_count }} ตัว</span></td>
+                                        <td>
+                                            <a href="?market={{ current_market }}&history_run={{ run.scan_run_iso }}#tabPanelHistory" class="btn-chart py-1 px-2" style="font-size: 0.75rem; {% if history_selected_run == run.scan_run_iso %}background: #6366f1; color: white;{% endif %}">
+                                                <i class="fas fa-eye"></i> โหลด
+                                            </a>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                {% else %}
+                                    <tr>
+                                        <td colspan="3" class="text-center py-4 text-muted">ไม่พบประวัติการบันทึกข้อมูล</td>
+                                    </tr>
+                                {% endif %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                
+                <div class="col-lg-8">
+                    {% if history_results %}
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h6 class="text-indigo fw-bold mb-0" style="color:#818cf8 !important;">
+                                <i class="fas fa-folder-open me-2"></i>ผลลัพธ์รอบการรัน: 
+                                <span class="text-white">
+                                    {% for r in history_runs %}
+                                        {% if r.scan_run_iso == history_selected_run %}
+                                            {{ r.scan_run_str }}
+                                        {% endif %}
+                                    {% endfor %}
+                                    {% if history_selected_run == 'legacy' %}Legacy (เก่า){% endif %}
+                                </span>
+                            </h6>
+                            <a href="?market={{ current_market }}" class="btn btn-sm btn-outline-secondary" style="font-size: 0.75rem;">
+                                <i class="fas fa-times me-1"></i> ปิดหน้านี้
+                            </a>
+                        </div>
+                        <div class="row g-2">
+                            {% for stock in history_results %}
+                            <div class="col-md-6">
+                                <div class="stock-card card-grade-{{ stock.grade|lower }}" style="padding: 1.25rem;">
+                                    <div class="card-header-row" style="margin-bottom: 0.5rem;">
+                                        <div class="symbol-row">
+                                            <div class="rank-badge" style="width: 26px; height: 26px; font-size: 0.7rem;">#{{ stock.rank }}</div>
+                                            <div class="symbol-name" style="font-size: 1.05rem;">{{ stock.symbol }}</div>
+                                        </div>
+                                        <div class="grade-pill grade-{{ stock.grade|lower }}" style="font-size: 0.75rem; padding: 0.2rem 0.6rem;">Grade {{ stock.grade }}</div>
+                                    </div>
+                                    <div class="reasoning-box" style="margin-top: 0.5rem; font-size: 0.78rem; line-height: 1.5;">
+                                        {{ stock.reasoning }}
+                                    </div>
+                                    <div class="card-actions" style="margin-top: 0.75rem;">
+                                        <a href="/stocks/chart/{{ stock.symbol }}/?market={{ current_market }}" target="_blank" class="btn-chart py-1 px-2" style="font-size: 0.75rem;">
+                                            <i class="fas fa-chart-line me-1"></i> Chart
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="empty-state py-5" style="border: 1px dashed rgba(255,255,255,0.05);">
+                            <i class="fas fa-arrow-left text-muted mb-2"></i>
+                            <h6 class="text-muted">โปรดคลิกปุ่ม "โหลด" เพื่อดูรายชื่อหุ้นที่คัดเลือกในแต่ละรอบเวลา</h6>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
         </div>
     </div>
 
@@ -506,6 +729,12 @@ function updateStats(stocks) {
 
 // Init stats from server-rendered data
 document.addEventListener('DOMContentLoaded', () => {
+    // If we loaded a history run, switch to history tab automatically
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.has('history_run')) {
+        switchScanTab('history');
+    }
+
     const items = document.querySelectorAll('.stock-item');
     let a=0,b=0,c=0;
     items.forEach(el => {
@@ -540,6 +769,28 @@ function filterGrade(el) {
     });
 }
 
+// ── Switch Tabs ──────────────────────────────────────────────────────────
+function switchScanTab(tabName) {
+    document.querySelectorAll('.scan-tab-btn').forEach(btn => {
+        btn.classList.remove('active');
+        if (btn.getAttribute('onclick').includes(tabName)) {
+            btn.classList.add('active');
+        }
+    });
+
+    document.querySelectorAll('.tab-content-panel').forEach(panel => {
+        panel.classList.remove('active');
+    });
+
+    if (tabName === 'results') {
+        document.getElementById('tabPanelResults').classList.add('active');
+    } else if (tabName === 'stats') {
+        document.getElementById('tabPanelStats').classList.add('active');
+    } else if (tabName === 'history') {
+        document.getElementById('tabPanelHistory').classList.add('active');
+    }
+}
+
 // ── Loading Steps Animation ────────────────────────────────────────────────
 let stepTimer;
 function animateSteps() {
@@ -547,17 +798,11 @@ function animateSteps() {
     const steps = ['step1','step2','step3','step4'];
     steps.forEach(id => document.getElementById(id)?.classList.remove('active'));
     document.getElementById('step1')?.classList.add('active');
-    stepTimer = setInterval(() => {
-        i = Math.min(i + 1, steps.length - 1);
-        steps.forEach((id,idx) => {
-            const el = document.getElementById(id);
-            if(el) el.classList.toggle('active', idx === i);
-        });
-        if(i >= steps.length - 1) clearInterval(stepTimer);
-    }, 5000);
 }
 
-// ── Run AI Scan ────────────────────────────────────────────────────────────
+// ── Run AI Scan (Asynchronous Polling) ─────────────────────────────────────
+let pollInterval;
+
 async function runAIScan(market) {
     const btn     = document.getElementById('btnScan');
     const loading = document.getElementById('loadingState');
@@ -579,42 +824,70 @@ async function runAIScan(market) {
 
         if (!res.ok) {
             let errorText = "";
-            try {
-                errorText = await res.text();
-            } catch(e) {}
-            
-            if (res.status === 504 || errorText.toLowerCase().includes("timeout")) {
-                showError("ขออภัย ระบบเชื่อมต่อหมดเวลา (Timeout) ขณะรอการตอบสนองจาก Gemini API กรุณากดสแกนใหม่อีกครั้ง");
-            } else if (res.status === 403) {
-                showError("ข้อผิดพลาด 403 (Forbidden): เซสชั่นของคุณอาจหมดอายุหรือข้อมูลความปลอดภัย CSRF ไม่ถูกต้อง กรุณารีเฟรชหน้าจอนี้แล้วลองใหม่อีกครั้ง");
-            } else {
-                showError(`เซิร์ฟเวอร์เกิดข้อผิดพลาด (Status: ${res.status}). กรุณาลองใหม่อีกครั้ง`);
-            }
-            return;
-        }
-
-        const contentType = res.headers.get("content-type");
-        if (!contentType || !contentType.includes("application/json")) {
-            showError("เซิร์ฟเวอร์ส่งคืนข้อมูลในรูปแบบที่ไม่ถูกต้อง (ไม่ใช่ JSON) กรุณารีเฟรชหน้าและลองใหม่อีกครั้ง");
+            try { errorText = await res.text(); } catch(e) {}
+            showError(`เซิร์ฟเวอร์เกิดข้อผิดพลาดในการเริ่มต้นสแกน (Status: ${res.status}).`);
+            btn.disabled = false;
+            loading.style.display = 'none';
             return;
         }
 
         const data = await res.json();
-
-        if (data.status === 'success') {
-            clearInterval(stepTimer);
-            renderCards(data.selected_stocks || [], data.market);
-            updateStats(data.selected_stocks || []);
-            results.style.display = 'block';
+        
+        if (data.status === 'started' || data.status === 'running') {
+            pollAIScan(market);
         } else {
-            showError(data.message || 'Scan failed');
+            showError(data.message || 'ไม่สามารถเริ่มต้นการสแกนได้');
+            btn.disabled = false;
+            loading.style.display = 'none';
         }
     } catch(err) {
         showError("เกิดข้อผิดพลาดในการเชื่อมต่อเครือข่าย: " + err.toString());
-    } finally {
-        btn.disabled     = false;
+        btn.disabled = false;
         loading.style.display = 'none';
     }
+}
+
+function pollAIScan(market) {
+    const pollUrl = `{% url 'stocks:api_ai_manual_scan' %}?status=1&market=${market}`;
+    
+    pollInterval = setInterval(async () => {
+        try {
+            const res = await fetch(pollUrl, { credentials: 'same-origin' });
+            if (!res.ok) return;
+            
+            const data = await res.json();
+            
+            if (data.state === 'running') {
+                if (data.phase) {
+                    document.querySelector('#loadingState h5').innerHTML = `<i class="fas fa-cog fa-spin me-2"></i>${data.phase}`;
+                }
+                
+                const steps = ['step1', 'step2', 'step3', 'step4'];
+                let activeIndex = 0;
+                if (data.progress >= 85) activeIndex = 3;
+                else if (data.progress >= 50) activeIndex = 2;
+                else if (data.progress >= 30) activeIndex = 1;
+                else activeIndex = 0;
+                
+                steps.forEach((id, idx) => {
+                    const el = document.getElementById(id);
+                    if (el) el.classList.toggle('active', idx === activeIndex);
+                });
+            } 
+            else if (data.state === 'done') {
+                clearInterval(pollInterval);
+                window.location.href = `?market=${market}`;
+            } 
+            else if (data.state === 'failed') {
+                clearInterval(pollInterval);
+                showError(data.message || 'AI สแกนเกิดข้อผิดพลาด');
+                document.getElementById('btnScan').disabled = false;
+                document.getElementById('loadingState').style.display = 'none';
+            }
+        } catch(err) {
+            console.error('Polling status error:', err);
+        }
+    }, 2500);
 }
 
 function showError(msg) {

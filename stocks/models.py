@@ -1098,6 +1098,7 @@ class AIManualScanResult(models.Model):
     reasoning = models.TextField()
     rank = models.IntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
+    scan_run = models.DateTimeField(db_index=True, null=True, blank=True)
 
     class Meta:
         ordering = ['rank', 'grade', 'symbol']

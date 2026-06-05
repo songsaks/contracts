@@ -12036,16 +12036,27 @@ def ai_manual_scanner(request):
     Render the UI for the AI Manual Scanner.
     """
     from .models import AIManualScanResult, ScanWatchlistItem
-    market = request.GET.get('market', 'SET')
-    results = AIManualScanResult.objects.filter(user=request.user, market=market).order_by('rank', 'grade', 'symbol')
+    from django.db.models import Count, Q, Max
+    import json
     
+    market = request.GET.get('market', 'SET')
+    
+    # Get the latest scan run timestamp
+    latest_run = AIManualScanResult.objects.filter(user=request.user, market=market)\
+        .order_by('-scan_run').values_list('scan_run', flat=True).first()
+        
+    if latest_run:
+        results = AIManualScanResult.objects.filter(user=request.user, market=market, scan_run=latest_run)\
+            .order_by('rank', 'grade', 'symbol')
+    else:
+        results = AIManualScanResult.objects.none()
+        
     # Get watchlisted symbols
     watchlisted = ScanWatchlistItem.objects.filter(user=request.user).values_list('symbol', flat=True)
     watchlisted_symbols = set(watchlisted)
     
     # Get cached Quick AI results
     from .models import AnalysisCache
-    import json
     crewai_caches = AnalysisCache.objects.filter(user=request.user, symbol__startswith='crewai_')
     crewai_dict = {}
     for c in crewai_caches:
@@ -12053,56 +12064,118 @@ def ai_manual_scanner(request):
         crewai_dict[sym] = c.analysis_data
     crewai_json = json.dumps(crewai_dict)
     
+    # ------ Statistics & History Datasets ------
+    # 1. Top Recommended Stocks (Top AI Picks)
+    stats_qs = AIManualScanResult.objects.filter(user=request.user, market=market)\
+        .values('symbol')\
+        .annotate(
+            total_scans=Count('id'),
+            grade_a_count=Count('id', filter=Q(grade='A')),
+            grade_b_count=Count('id', filter=Q(grade='B')),
+            grade_c_count=Count('id', filter=Q(grade='C')),
+            last_scanned=Max('scan_run')
+        ).order_by('-total_scans', '-grade_a_count', 'symbol')
+    stats_data = list(stats_qs)
+    
+    # 2. History of Scan Runs
+    history_runs_qs = AIManualScanResult.objects.filter(user=request.user, market=market)\
+        .values('scan_run')\
+        .annotate(
+            scan_date=Max('created_at'),
+            stock_count=Count('id')
+        ).order_by('-scan_run')
+        
+    history_runs = []
+    for r in history_runs_qs:
+        s_run = r['scan_run']
+        s_date = r['scan_date']
+        if s_run is None:
+            s_run_str = "Legacy (No Run ID)"
+            s_run_iso = "legacy"
+        else:
+            s_run_str = s_run.strftime('%Y-%m-%d %H:%M')
+            s_run_iso = s_run.isoformat()
+            
+        history_runs.append({
+            'scan_run_str': s_run_str,
+            'scan_run_iso': s_run_iso,
+            'scan_date': s_date,
+            'stock_count': r['stock_count']
+        })
+    
+    # ------ Fetch Specific Historical Run if requested ------
+    history_selected_run = request.GET.get('history_run')
+    history_results = None
+    if history_selected_run:
+        if history_selected_run == 'legacy':
+            history_results = AIManualScanResult.objects.filter(user=request.user, market=market, scan_run__isnull=True)\
+                .order_by('rank', 'grade', 'symbol')
+        else:
+            history_results = AIManualScanResult.objects.filter(user=request.user, market=market, scan_run=history_selected_run)\
+                .order_by('rank', 'grade', 'symbol')
+    
     return render(request, 'stocks/ai_manual_scanner.html', {
         'results': results,
         'current_market': market,
         'watchlisted_symbols': watchlisted_symbols,
-        'crewai_json': crewai_json
+        'crewai_json': crewai_json,
+        'stats_data': stats_data,
+        'history_runs': history_runs,
+        'history_results': history_results,
+        'history_selected_run': history_selected_run
     })
 
-@require_POST
-def api_ai_manual_scan(request):
-    """
-    AJAX endpoint to run the AI scan based on the manuals.
-    Requires login and POST method.
-    """
-    if not request.user.is_authenticated:
-        return JsonResponse({'status': 'error', 'message': 'กรุณาเข้าสู่ระบบก่อนใช้งาน'}, status=401)
-
-    if request.method != 'POST':
-        return JsonResponse({'status': 'error', 'message': 'Invalid request method.'}, status=400)
-
+def _run_ai_manual_scan_bg(user_id, cache_key, market, scan_run_time):
+    from django.core.cache import cache
+    from django.contrib.auth import get_user_model
+    from django.conf import settings
     import json
     from google import genai
-    from django.conf import settings
     from .models import PrecisionScanCandidate, AIManualScanResult
 
     try:
-        data = json.loads(request.body)
-        market = data.get('market', 'SET')
+        # Step 1: Initialize status
+        cache.set(cache_key, {'state': 'running', 'progress': 15, 'phase': 'ดึงข้อมูลจาก Precision Scanner...'}, timeout=600)
         
-        # Get the latest scan run first to avoid duplicate records from older scan runs
+        User = get_user_model()
+        try:
+            user = User.objects.get(pk=user_id)
+        except User.DoesNotExist:
+            cache.set(cache_key, {'state': 'failed', 'message': 'ไม่พบบัญชีผู้ใช้งาน'}, timeout=300)
+            return
+
+        # Get latest scan run
         latest_run = PrecisionScanCandidate.objects.filter(
-            user=request.user,
+            user=user,
             market=market
         ).order_by('-scan_run').values_list('scan_run', flat=True).first()
 
         if not latest_run:
-            return JsonResponse({
-                'status': 'error', 
+            cache.set(cache_key, {
+                'state': 'failed', 
                 'message': f'ไม่พบหุ้นที่ผ่านเกณฑ์เบื้องต้น (RS > 60, Stage 2) ในตลาด {market} กรุณารัน Precision Scan ก่อน'
-            })
+            }, timeout=300)
+            return
 
-        # Filter by RS > 60 and Stage 2 if possible, to save tokens (lowered RS to find early runners)
+        # Fetch candidate stocks (top 30)
         candidates = PrecisionScanCandidate.objects.filter(
-            user=request.user, 
+            user=user, 
             market=market,
             scan_run=latest_run,
             rs_rating__gte=60,
             stage2=True
         ).order_by('-technical_score')[:30]
 
-        # Prepare data for AI
+        if not candidates.exists():
+            cache.set(cache_key, {
+                'state': 'failed',
+                'message': f'ไม่พบหุ้นที่มีค่า RS >= 60 และเป็น Stage 2 ในฐานข้อมูลตลาด {market} ล่าสุด'
+            }, timeout=300)
+            return
+
+        # Step 2: Prepare data for AI
+        cache.set(cache_key, {'state': 'running', 'progress': 30, 'phase': 'จัดเตรียมข้อมูลส่งให้ AI...'}, timeout=600)
+        
         stocks_data = []
         for c in candidates:
             stocks_data.append({
@@ -12122,6 +12195,9 @@ def api_ai_manual_scan(request):
                 'rev_growth': float(c.rev_growth) if c.rev_growth else 0.0,
             })
 
+        # Step 3: Call Gemini API
+        cache.set(cache_key, {'state': 'running', 'progress': 50, 'phase': 'AI (Gemini) กำลังประเมินผล...'}, timeout=600)
+        
         client = genai.Client(api_key=settings.GEMINI_API_KEY)
         
         prompt = f"""คุณคือ AI Analyst ระดับโลก ที่เชี่ยวชาญระบบ SEPA ของ Mark Minervini และ Ehlers Engineering
@@ -12168,25 +12244,88 @@ def api_ai_manual_scan(request):
         
         result_json = json.loads(response.text)
         
-        # Save to database
         if result_json.get('status') == 'success':
-            # Clear old results for this user and market
-            AIManualScanResult.objects.filter(user=request.user, market=market).delete()
+            # Step 4: Save results with scan_run_time
+            cache.set(cache_key, {'state': 'running', 'progress': 85, 'phase': 'บันทึกผลลัพธ์และสถิติ...'}, timeout=600)
             
-            # Insert new results
-            for idx, stock in enumerate(result_json.get('selected_stocks', [])):
+            selected_list = result_json.get('selected_stocks', [])
+            for idx, stock in enumerate(selected_list):
                 AIManualScanResult.objects.create(
-                    user=request.user,
+                    user=user,
                     market=market,
                     symbol=stock.get('symbol'),
                     grade=stock.get('grade', 'C'),
                     reasoning=stock.get('reasoning', ''),
-                    rank=stock.get('rank', idx + 1)
+                    rank=stock.get('rank', idx + 1),
+                    scan_run=scan_run_time
                 )
+            
+            cache.set(cache_key, {
+                'state': 'done',
+                'progress': 100,
+                'phase': 'เสร็จสิ้น',
+                'selected_stocks': selected_list,
+                'market': market
+            }, timeout=300)
+        else:
+            cache.set(cache_key, {
+                'state': 'failed',
+                'message': result_json.get('message', 'AI สแกนล้มเหลว')
+            }, timeout=300)
 
-        return JsonResponse(result_json)
     except Exception as e:
-        return JsonResponse({'status': 'error', 'message': str(e)}, status=200)
+        import traceback
+        tb = traceback.format_exc()
+        import logging
+        logging.getLogger('stocks').error(f"AI Manual Scan BG Error: {e}\n{tb}")
+        cache.set(cache_key, {
+            'state': 'failed',
+            'message': f"เกิดข้อผิดพลาดในการรันสแกน: {str(e)}"
+        }, timeout=300)
+
+@login_required
+def api_ai_manual_scan(request):
+    """
+    AJAX endpoint to run the AI scan based on the manuals.
+    """
+    import json
+    from django.core.cache import cache
+    
+    # Handle GET request for status check
+    if request.method == 'GET' or request.GET.get('status') == '1':
+        market = request.GET.get('market', 'SET')
+        cache_key = f'ai_manual_scan_{request.user.id}_{market}'
+        st = cache.get(cache_key, {'state': 'idle'})
+        return JsonResponse(st)
+
+    if request.method != 'POST':
+        return JsonResponse({'status': 'error', 'message': 'Invalid request method.'}, status=400)
+
+    try:
+        data = json.loads(request.body)
+        market = data.get('market', 'SET')
+    except Exception:
+        market = 'SET'
+
+    cache_key = f'ai_manual_scan_{request.user.id}_{market}'
+    
+    # Check if already running
+    current_status = cache.get(cache_key, {})
+    if current_status.get('state') == 'running':
+        return JsonResponse({'status': 'running', 'message': 'การสแกนกำลังทำงานอยู่เบื้องหลัง กรุณารอสักครู่...'})
+
+    # Start Asynchronous Scan in a background thread
+    from django.utils import timezone
+    scan_run_time = timezone.now()
+    
+    import threading
+    threading.Thread(
+        target=_run_ai_manual_scan_bg,
+        args=(request.user.id, cache_key, market, scan_run_time),
+        daemon=True
+    ).start()
+
+    return JsonResponse({'status': 'started', 'message': 'ระบบเริ่มการสแกนเบื้องหลังแล้ว'})
 
 
 @login_required
