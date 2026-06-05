@@ -11096,8 +11096,11 @@ def stock_chart_data(request, symbol):
     period = request.GET.get('period', '1y')
     interval = request.GET.get('interval', '')
 
-    # Append .BK for SET stocks
-    yf_symbol = symbol + '.BK' if market == 'SET' else symbol
+    # Append .BK for SET stocks, mapping index SET to ^SET
+    if market == 'SET':
+        yf_symbol = '^SET' if symbol == 'SET' else symbol + '.BK'
+    else:
+        yf_symbol = symbol
 
     # ── Intraday / Custom interval mapping ─────────────────────────
     if interval == '1wk':
