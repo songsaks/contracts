@@ -1,0 +1,91 @@
+{% extends "ops/base_ops.html" %}
+
+{% block title %}แก้ไขงานโครงการ — Ops Manager{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-7">
+        <a href="{% url 'ops:task_kanban' %}" class="btn btn-link text-muted mb-3 px-0">
+            <i class="fas fa-arrow-left me-2"></i> กลับหน้า Kanban
+        </a>
+        
+        <div class="card card-premium p-5 border-0 shadow-lg">
+            <div class="d-flex align-items-center gap-3 mb-4">
+                <div class="bg-primary bg-opacity-10 p-3 rounded-4">
+                    <i class="fas fa-tasks text-primary fs-3"></i>
+                </div>
+                <div>
+                    <h3 class="fw-bold mb-0">Edit Action Task</h3>
+                    <p class="text-muted mb-0">แก้ไขรายละเอียดงานโครงการ</p>
+                </div>
+            </div>
+            
+            <form action="" method="POST">
+                {% csrf_token %}
+                
+                <div class="mb-4">
+                    <label class="form-label fw-bold text-muted small">ชื่องาน (Task Title)</label>
+                    <input type="text" name="title" class="form-control form-control-lg rounded-3 border-light bg-light" value="{{ task.title }}" required>
+                </div>
+
+                <div class="row mb-4">
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold text-muted small">ผู้รับผิดชอบ (Assignee)</label>
+                        <select name="assigned_to" class="form-select form-select-lg rounded-3 border-light bg-light">
+                            <option value="">-- ไม่มีผู้รับผิดชอบ --</option>
+                            {% for u in users %}
+                            <option value="{{ u.id }}" {% if task.assigned_to_id == u.id %}selected{% endif %}>{{ u.get_full_name|default:u.username }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold text-muted small">ฝ่าย (Department)</label>
+                        <select name="department" class="form-select form-select-lg rounded-3 border-light bg-light">
+                            <option value="">-- ไม่มีฝ่าย --</option>
+                            {% for dept in depts %}
+                            <option value="{{ dept.id }}" {% if task.department_id == dept.id %}selected{% endif %}>{{ dept.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+
+                <div class="row mb-4">
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold text-muted small">วันที่เริ่ม</label>
+                        <input type="date" name="start_date" class="form-control form-control-lg rounded-3 border-light bg-light" value="{{ task.start_date|date:'Y-m-d' }}" required>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold text-muted small">วันที่ครบกำหนด (Due Date)</label>
+                        <input type="date" name="due_date" class="form-control form-control-lg rounded-3 border-light bg-light" value="{{ task.due_date|date:'Y-m-d' }}" required>
+                    </div>
+                </div>
+
+                <div class="row mb-4">
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold text-muted small">สถานะ</label>
+                        <select name="status" class="form-select form-select-lg rounded-3 border-light bg-light" required>
+                            {% for val, name in task.STATUS_CHOICES %}
+                            <option value="{{ val }}" {% if task.status == val %}selected{% endif %}>{{ name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold text-muted small">ความสำคัญ (Priority)</label>
+                        <select name="priority" class="form-select form-select-lg rounded-3 border-light bg-light" required>
+                            {% for val, name in task.PRIORITY_CHOICES %}
+                            <option value="{{ val }}" {% if task.priority == val %}selected{% endif %}>{{ name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+
+                <hr class="my-4 opacity-10">
+
+                <button type="submit" class="btn btn-premium w-100 py-3 shadow">
+                    <i class="fas fa-save me-2"></i> บันทึกการแก้ไขงาน
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

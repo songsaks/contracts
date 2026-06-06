@@ -1,0 +1,92 @@
+{% extends "ops/base_ops.html" %}
+
+{% block title %}แก้ไขเป้าหมาย — Ops Manager{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-7">
+        <a href="{% url 'ops:dashboard' %}" class="btn btn-link text-muted mb-3 px-0">
+            <i class="fas fa-arrow-left me-2"></i> กลับหน้า Dashboard
+        </a>
+        
+        <div class="card card-premium p-5 border-0 shadow-lg">
+            <div class="d-flex align-items-center gap-3 mb-4">
+                <div class="bg-primary bg-opacity-10 p-3 rounded-4">
+                    <i class="fas fa-edit text-primary fs-3"></i>
+                </div>
+                <div>
+                    <h3 class="fw-bold mb-0">Edit Weekly Goal</h3>
+                    <p class="text-muted mb-0">แก้ไขเป้าหมายเชิงปริมาณรายฝ่ายประจำสัปดาห์</p>
+                </div>
+            </div>
+            
+            <form action="" method="POST">
+                {% csrf_token %}
+                
+                <div class="mb-4">
+                    <label class="form-label fw-bold text-muted small">หัวข้อเป้าหมาย</label>
+                    <input type="text" name="title" class="form-control form-control-lg rounded-3 border-light bg-light" value="{{ goal.title }}" required>
+                </div>
+
+                <div class="row mb-4">
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold text-muted small">เลือกฝ่ายที่รับผิดชอบ</label>
+                        <select name="department" class="form-select form-select-lg rounded-3 border-light bg-light" required>
+                            {% for dept in depts %}
+                            <option value="{{ dept.id }}" {% if goal.department_id == dept.id %}selected{% endif %}>{{ dept.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold text-muted small">หน่วยวัด</label>
+                        <input type="text" name="unit" class="form-control form-control-lg rounded-3 border-light bg-light" value="{{ goal.unit }}" required>
+                    </div>
+                </div>
+
+                <div class="mb-4">
+                    <label class="form-label fw-bold text-muted small">เป้าหมายที่ต้องทำให้ได้ (Target Value)</label>
+                    <input type="number" step="0.01" name="target_value" class="form-control form-control-lg rounded-3 border-light bg-light font-monospace" value="{{ goal.target_value }}" required>
+                </div>
+
+                <div class="row mb-4">
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold text-muted small">วันที่เริ่ม (จันทร์)</label>
+                        <input type="date" name="start_date" class="form-control form-control-lg rounded-3 border-light bg-light" value="{{ goal.start_date|date:'Y-m-d' }}" required>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold text-muted small">วันที่สิ้นสุด (เสาร์)</label>
+                        <input type="date" name="end_date" class="form-control form-control-lg rounded-3 border-light bg-light" value="{{ goal.end_date|date:'Y-m-d' }}" required>
+                    </div>
+                </div>
+
+                <div class="mb-4">
+                    <label class="form-label fw-bold text-muted small">รายละเอียด / วิธีการปฏิบัติ</label>
+                    <textarea name="description" rows="3" class="form-control rounded-3 border-light bg-light">{{ goal.description }}</textarea>
+                </div>
+
+                <hr class="my-4 opacity-10">
+
+                <div class="mb-4">
+                    <h5 class="fw-bold text-primary"><i class="fas fa-chess-knight me-2"></i>การวางแผนกลยุทธ์ (Strategic Planning)</h5>
+                </div>
+
+                <div class="mb-4">
+                    <label class="form-label fw-bold text-muted small">กลยุทธ์หลัก (Strategy / Action Plan)</label>
+                    <textarea name="strategy" rows="2" class="form-control rounded-3 border-light bg-light">{{ goal.strategy }}</textarea>
+                </div>
+
+                <div class="mb-4">
+                    <label class="form-label fw-bold text-muted small">ความเสี่ยง / อุปสรรคที่คาดการณ์</label>
+                    <textarea name="expected_challenges" rows="2" class="form-control rounded-3 border-light bg-light">{{ goal.expected_challenges }}</textarea>
+                </div>
+
+                <hr class="my-4 opacity-10">
+
+                <button type="submit" class="btn btn-premium w-100 py-3 shadow">
+                    <i class="fas fa-save me-2"></i> บันทึกการแก้ไขเป้าหมาย
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -12,12 +12,12 @@
         </a>
     </div>
 
-    <div class="row g-4 flex-grow-1 overflow-hidden pb-4" style="min-height: 600px;">
+    <div class="row g-4 flex-nowrap overflow-auto pb-4" style="min-height: 600px; padding-bottom: 2rem;">
         <!-- To Do -->
-        <div class="col-md-3 h-100">
-            <div class="kanban-column d-flex flex-column h-100 bg-light rounded-4 p-3 border">
+        <div class="col-12 col-md-4 col-lg-3 h-100" style="min-width: 300px;">
+            <div class="kanban-column d-flex flex-column h-100 t-card p-3">
                 <div class="d-flex justify-content-between align-items-center mb-3 px-2">
-                    <h6 class="fw-bold text-dark mb-0"><i class="fas fa-thumbtack text-secondary me-2"></i>TO DO</h6>
+                    <h6 class="fw-bold t-text-muted mb-0"><i class="fas fa-thumbtack text-secondary me-2"></i>TO DO</h6>
                     <span class="badge bg-secondary rounded-pill">{{ todo.count }}</span>
                 </div>
                 <div class="kanban-list flex-grow-1 overflow-auto pe-1">
@@ -29,11 +29,11 @@
         </div>
 
         <!-- In Progress -->
-        <div class="col-md-3 h-100">
-            <div class="kanban-column d-flex flex-column h-100 bg-light rounded-4 p-3 border border-primary-subtle shadow-sm" style="background-color: #f0f7ff !important;">
+        <div class="col-12 col-md-4 col-lg-3 h-100" style="min-width: 300px;">
+            <div class="kanban-column d-flex flex-column h-100 t-card p-3 border-top border-4 border-info">
                 <div class="d-flex justify-content-between align-items-center mb-3 px-2">
-                    <h6 class="fw-bold text-primary mb-0"><i class="fas fa-spinner fa-spin-pulse me-2"></i>DOING</h6>
-                    <span class="badge bg-primary rounded-pill">{{ doing.count }}</span>
+                    <h6 class="fw-bold text-info mb-0"><i class="fas fa-spinner fa-spin-pulse me-2"></i>DOING</h6>
+                    <span class="badge bg-info rounded-pill text-dark">{{ doing.count }}</span>
                 </div>
                 <div class="kanban-list flex-grow-1 overflow-auto pe-1">
                     {% for task in doing %}
@@ -43,9 +43,24 @@
             </div>
         </div>
 
+        <!-- Reviewing -->
+        <div class="col-12 col-md-4 col-lg-3 h-100" style="min-width: 300px;">
+            <div class="kanban-column d-flex flex-column h-100 t-card p-3 border-top border-4 border-warning">
+                <div class="d-flex justify-content-between align-items-center mb-3 px-2">
+                    <h6 class="fw-bold text-warning mb-0"><i class="fas fa-search me-2"></i>REVIEWING</h6>
+                    <span class="badge bg-warning rounded-pill text-dark">{{ reviewing.count }}</span>
+                </div>
+                <div class="kanban-list flex-grow-1 overflow-auto pe-1">
+                    {% for task in reviewing %}
+                    {% include 'ops/partials/kanban_task_card.html' with task=task %}
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
         <!-- Done -->
-        <div class="col-md-3 h-100">
-            <div class="kanban-column d-flex flex-column h-100 bg-light rounded-4 p-3 border border-success-subtle" style="background-color: #f0fdf4 !important;">
+        <div class="col-12 col-md-4 col-lg-3 h-100" style="min-width: 300px;">
+            <div class="kanban-column d-flex flex-column h-100 t-card p-3 border-top border-4 border-success">
                 <div class="d-flex justify-content-between align-items-center mb-3 px-2">
                     <h6 class="fw-bold text-success mb-0"><i class="fas fa-check-circle me-2"></i>DONE</h6>
                     <span class="badge bg-success rounded-pill">{{ done.count }}</span>
@@ -59,8 +74,8 @@
         </div>
 
         <!-- Blocked -->
-        <div class="col-md-3 h-100">
-            <div class="kanban-column d-flex flex-column h-100 bg-light rounded-4 p-3 border border-danger-subtle" style="background-color: #fef2f2 !important;">
+        <div class="col-12 col-md-4 col-lg-3 h-100" style="min-width: 300px;">
+            <div class="kanban-column d-flex flex-column h-100 t-card p-3 border-top border-4 border-danger">
                 <div class="d-flex justify-content-between align-items-center mb-3 px-2">
                     <h6 class="fw-bold text-danger mb-0"><i class="fas fa-exclamation-triangle me-2"></i>BLOCKED</h6>
                     <span class="badge bg-danger rounded-pill">{{ blocked.count }}</span>

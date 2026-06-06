@@ -21,7 +21,7 @@
                 <span class="text-muted" style="font-size: 0.65rem;">{{ task.assigned_to.username }}</span>
             </div>
             <div class="btn-group">
-                <button class="btn btn-link btn-sm p-0 text-muted"><i class="fas fa-edit" style="font-size: 0.7rem;"></i></button>
+                <a href="{% url 'ops:task_update' task.id %}" class="btn btn-link btn-sm p-0 text-muted"><i class="fas fa-edit" style="font-size: 0.7rem;"></i></a>
             </div>
         </div>
     </div>

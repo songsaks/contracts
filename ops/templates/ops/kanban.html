@@ -18,11 +18,11 @@
 
     .kanban-column {
         flex: 0 0 320px;
-        background: #f1f5f9;
+        background: var(--t-surface-alt);
         border-radius: 16px;
         display: flex;
         flex-direction: column;
-        border: 1px solid #e2e8f0;
+        border: 1px solid var(--t-border);
         scroll-snap-align: start;
     }
 
@@ -47,12 +47,12 @@
         font-size: 0.95rem;
         text-transform: uppercase;
         letter-spacing: 0.5px;
-        color: #475569;
+        color: var(--t-text-muted);
     }
 
     .count-badge {
-        background: #cbd5e1;
-        color: #475569;
+        background: var(--t-border);
+        color: var(--t-text-muted);
         font-size: 0.75rem;
         padding: 0.2rem 0.6rem;
         border-radius: 20px;
@@ -67,12 +67,12 @@
 
     /* Card Styling */
     .kanban-card {
-        background: white;
+        background: var(--t-card-bg);
         border-radius: 12px;
         padding: 1rem;
         margin-bottom: 0.75rem;
-        border: 1px solid #e2e8f0;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        border: 1px solid var(--t-card-border);
+        box-shadow: var(--t-shadow-sm);
         cursor: grab;
         transition: transform 0.15s, box-shadow 0.15s;
     }
@@ -93,7 +93,7 @@
     .card-title {
         font-weight: 600;
         font-size: 0.9rem;
-        color: #1e293b;
+        color: var(--t-text);
         margin-bottom: 0.75rem;
         line-height: 1.4;
     }
@@ -102,7 +102,7 @@
         display: flex;
         justify-content: space-between;
         align-items: center;
-        border-top: 1px solid #f1f5f9;
+        border-top: 1px solid var(--t-border);
         padding-top: 0.75rem;
         margin-top: 0.75rem;
     }
@@ -110,7 +110,7 @@
     .progress-mini {
         height: 6px;
         width: 100%;
-        background: #f1f5f9;
+        background: var(--t-border);
         border-radius: 10px;
         overflow: hidden;
     }
@@ -121,10 +121,11 @@
     }
 
     /* Column colors */
-    .col-todo { border-top: 4px solid #94a3b8; }
-    .col-doing { border-top: 4px solid #3b82f6; }
-    .col-done { border-top: 4px solid #10b981; }
-    .col-blocked { border-top: 4px solid #ef4444; }
+    .col-todo { border-top: 4px solid var(--t-text-muted); }
+    .col-doing { border-top: 4px solid var(--t-info); }
+    .col-reviewing { border-top: 4px solid var(--t-warning); }
+    .col-done { border-top: 4px solid var(--t-success); }
+    .col-blocked { border-top: 4px solid var(--t-danger); }
 
     /* Dept Colors */
     .dept-sales { background: #dbeafe; color: #1e40af; }
@@ -176,6 +177,19 @@
         </div>
     </div>
 
+    <!-- Reviewing -->
+    <div class="kanban-column col-reviewing">
+        <div class="column-header">
+            <span class="column-title text-warning">รอตรวจสอบ (Reviewing)</span>
+            <span class="count-badge bg-warning text-dark" id="reviewing-count">{{ reviewing.count }}</span>
+        </div>
+        <div class="kanban-items" id="reviewing" data-status="reviewing">
+            {% for goal in reviewing %}
+                {% include "ops/partials/kanban_card.html" with goal=goal %}
+            {% endfor %}
+        </div>
+    </div>
+
     <!-- Blocked -->
     <div class="kanban-column col-blocked">
         <div class="column-header">
@@ -208,7 +222,7 @@
 {% block scripts %}
 <script>
     document.addEventListener('DOMContentLoaded', function() {
-        const columns = ['todo', 'doing', 'done', 'blocked'];
+        const columns = ['todo', 'doing', 'reviewing', 'done', 'blocked'];
         
         columns.forEach(status => {
             const el = document.getElementById(status);

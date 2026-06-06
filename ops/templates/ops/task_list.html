@@ -70,7 +70,7 @@
                             </span>
                         </td>
                         <td class="pe-4 text-end">
-                            <button class="btn btn-light btn-sm rounded-circle"><i class="fas fa-ellipsis-v"></i></button>
+                            <a href="{% url 'ops:task_update' task.id %}" class="btn btn-light btn-sm rounded-circle"><i class="fas fa-edit text-secondary"></i></a>
                         </td>
                     </tr>
                     {% empty %}

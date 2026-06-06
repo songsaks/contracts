@@ -1,0 +1,70 @@
+{% extends "ops/base_ops.html" %}
+
+{% block title %}คู่มือการใช้งานระบบ Operations{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-10">
+        <div class="card-premium p-4 p-md-5">
+            <h2 class="fw-bold mb-4 text-primary"><i class="fas fa-book me-2"></i>คู่มือมาตรฐานการปฏิบัติงาน (SOP)</h2>
+            <hr class="mb-4 text-muted">
+            
+            <div class="mb-5">
+                <h4 class="fw-bold"><i class="fas fa-sitemap me-2 text-info"></i>1. วัตถุประสงค์และโครงสร้างระบบ</h4>
+                <p class="text-muted">ระบบ OPS ถูกออกแบบมาให้รองรับการทำงานในรอบ 1 สัปดาห์ (Weekly Cycle) โดยแบ่งเป็น 4 ขั้นตอนหลักตามวงจร PDCA (Plan-Do-Check-Act):</p>
+                <ul>
+                    <li><strong>Plan (วางแผน)</strong> - การตั้งเป้าหมายประจำสัปดาห์ (Weekly Goals / OKRs)</li>
+                    <li><strong>Do (ลงมือทำ)</strong> - การติดตามความคืบหน้ารายวัน (Daily Tracking)</li>
+                    <li><strong>Check (ตรวจสอบ)</strong> - การตรวจสอบคุณภาพ (Maker-Checker) และนำเสนอในที่ประชุม</li>
+                    <li><strong>Act (แก้ไข/พัฒนา)</strong> - การรับไอเดียใหม่ แปลงเป็น Action Task และมอบหมายงาน</li>
+                </ul>
+            </div>
+
+            <div class="mb-5">
+                <h4 class="fw-bold"><i class="fas fa-tasks me-2 text-success"></i>2. ขั้นตอนปฏิบัติงาน</h4>
+                
+                <h6 class="fw-bold mt-4">2.1 การตั้งเป้าหมายและ KPIs (Planning Phase)</h6>
+                <p class="text-muted">ทุกวันจันทร์ หรือสิ้นสุดสัปดาห์ก่อนหน้า หัวหน้าฝ่ายจะต้องตั้ง <strong>Weekly Goal</strong></p>
+                <div class="alert alert-info border-0 rounded-3">
+                    <strong>หลักการ SMART Goal:</strong><br>
+                    เป้าหมายที่ดีต้อง Specific (เฉพาะเจาะจง), Measurable (วัดผลได้), Achievable (ทำได้จริง), Relevant (เกี่ยวข้องกับทิศทางบริษัท) และ Time-bound (มีกรอบเวลาชัดเจน)
+                </div>
+                <ol class="text-muted">
+                    <li>เข้าไปที่เมนู <strong>หน้าหลัก (Dashboard)</strong></li>
+                    <li>กดปุ่ม <strong>[ + เพิ่มเป้าหมายใหม่ ]</strong></li>
+                    <li>ระบุรายละเอียด หัวข้อ, ตัวชี้วัดเป้าหมาย และระยะเวลา</li>
+                </ol>
+
+                <h6 class="fw-bold mt-4">2.2 การอัปเดตงานประจำวัน (Daily Execution)</h6>
+                <p class="text-muted">พนักงานในฝ่ายมีหน้าที่ต้องอัปเดตงานในระบบ <strong>ทุกวันก่อนเลิกงาน</strong></p>
+                <ol class="text-muted">
+                    <li>ในหน้า Dashboard ของพนักงาน จะเห็นเป้าหมายของฝ่าย</li>
+                    <li>กดปุ่ม <strong>รายงานความคืบหน้า</strong></li>
+                    <li>กรอกตัวเลขที่ <strong>"ทำได้จริง"</strong> ในวันนั้น</li>
+                    <li>หากมีปัญหา/อุปสรรค: ต้องกรอกในช่องหมายเหตุเสมอ ระบบ AI จะนำไปวิเคราะห์ในภายหลัง</li>
+                </ol>
+
+                <h6 class="fw-bold mt-4">2.3 การประเมินคุณภาพและอนุมัติงาน (The Maker-Checker Process)</h6>
+                <ol class="text-muted">
+                    <li>เมื่องานย่อย (Action Task) ถูกทำเสร็จแล้ว พนักงาน (Maker) จะลากการ์ดไปยังช่อง <strong>"รอตรวจสอบ (Review)"</strong> ในหน้า Kanban</li>
+                    <li>ผู้ที่มีสิทธิ์ (Checker/QA) จะทำการตรวจสอบงาน</li>
+                    <li>หากงานผ่านเกณฑ์: ลากการ์ดไปที่ <strong>"เสร็จสิ้น (Done)"</strong></li>
+                    <li>หากงานไม่ผ่าน: ลากการ์ดกลับไปที่ <strong>"กำลังทำ (Doing)"</strong> พร้อมแจ้งแก้ไข</li>
+                </ol>
+            </div>
+
+            <div class="mb-5">
+                <h4 class="fw-bold"><i class="fas fa-robot me-2 text-secondary"></i>3. การใช้งานเพื่อนร่วมงาน AI (AI Co-workers)</h4>
+                <p class="text-muted">ระบบมี AI ช่วยเหลือ 3 รูปแบบ เพื่อเพิ่มประสิทธิภาพการทำงาน:</p>
+                <ul class="text-muted">
+                    <li><strong>Marketing Automation:</strong> ช่วยคิดคอนเทนต์ 4 สัปดาห์ และวางแผนช่องทางการโปรโมท</li>
+                    <li><strong>Sales Intelligence:</strong> อ่านอีเมลลูกค้า, สกัดเป็น Lead Data, และร่างอีเมลตอบกลับ</li>
+                    <li><strong>Executive Reporting:</strong> วิเคราะห์ภาพรวมบริษัท ดึงจุดเด่น ปัญหา และเสนอ Action Plan</li>
+                </ul>
+                <p class="text-muted"><strong>วิธีใช้งาน:</strong> ไปที่เมนู <strong>เพื่อนร่วมงาน AI</strong> -> เลือกประเภท AI -> ใส่บริบท (เช่น พิมพ์ข้อความลูกค้า) -> รอผลลัพธ์</p>
+            </div>
+
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -5,14 +5,14 @@
 
 {% block extra_css %}
 <style>
-    /* Dark Premium Styling inspired by the user mock */
+    /* Light Premium Styling */
     .coworker-board {
-        background-color: #0b0f19;
-        color: #f8fafc;
+        background-color: var(--card-white, #ffffff);
+        color: var(--text-dark, #1e293b);
         border-radius: 24px;
         padding: 2.5rem;
-        border: 1px solid rgba(255, 255, 255, 0.05);
-        box-shadow: 0 20px 40px rgba(0,0,0,0.4);
+        border: 1px solid var(--border-soft, #e2e8f0);
+        box-shadow: 0 20px 40px rgba(0,0,0,0.05);
     }
     
     .board-title {
@@ -23,8 +23,8 @@
     }
 
     .card-agent {
-        background: linear-gradient(145deg, #131b2e 0%, #0c1020 100%);
-        border: 1px solid rgba(255, 255, 255, 0.08);
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
         border-radius: 20px;
         padding: 1.8rem;
         height: 100%;
@@ -48,13 +48,13 @@
 
     .card-agent:hover {
         transform: translateY(-8px);
-        border-color: rgba(255, 255, 255, 0.2);
-        box-shadow: 0 15px 30px rgba(0,0,0,0.5);
+        border-color: #cbd5e1;
+        box-shadow: 0 15px 30px rgba(0,0,0,0.08);
     }
 
     .card-agent.active {
-        background: linear-gradient(145deg, #1a2542 0%, #0f142b 100%);
-        border-color: rgba(245, 158, 11, 0.5);
+        background: #ffffff;
+        border-color: #f59e0b;
         box-shadow: 0 0 25px rgba(245, 158, 11, 0.15);
     }
 
@@ -62,25 +62,25 @@
         width: 50px; height: 50px;
         border-radius: 12px;
         display: flex; align-items: center; justify-content: center;
-        background: rgba(255, 255, 255, 0.05);
+        background: #f1f5f9;
         margin-bottom: 1.5rem;
         transition: all 0.3s;
     }
 
     .card-agent:hover .agent-icon-wrapper {
         transform: scale(1.1) rotate(5deg);
-        background: rgba(255, 255, 255, 0.1);
+        background: #e2e8f0;
     }
 
     .agent-title {
         font-size: 1.25rem;
         font-weight: 700;
         margin-bottom: 0.5rem;
-        color: #ffffff;
+        color: #0f172a;
     }
 
     .agent-desc {
-        color: #94a3b8;
+        color: #64748b;
         font-size: 0.9rem;
         line-height: 1.6;
     }
@@ -104,16 +104,15 @@
 
     /* Input Form and Outputs Styling */
     .glass-form-card {
-        background: rgba(20, 26, 46, 0.6);
-        border: 1px solid rgba(255, 255, 255, 0.05);
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
         border-radius: 20px;
-        backdrop-filter: blur(10px);
     }
 
     .form-control-dark {
-        background-color: #0d1222 !important;
-        border: 1px solid rgba(255, 255, 255, 0.1) !important;
-        color: #f8fafc !important;
+        background-color: #ffffff !important;
+        border: 1px solid #cbd5e1 !important;
+        color: #1e293b !important;
         border-radius: 12px !important;
         padding: 0.8rem 1.2rem;
     }
@@ -135,7 +134,7 @@
         content: '';
         position: absolute;
         top: 25px; left: 0; width: 100%; height: 2px;
-        background: rgba(255, 255, 255, 0.1);
+        background: #e2e8f0;
         z-index: 1;
     }
 
@@ -157,26 +156,26 @@
     .step-icon {
         width: 50px; height: 50px;
         border-radius: 50%;
-        background: #1e293b;
-        border: 2px solid rgba(255, 255, 255, 0.1);
+        background: #f8fafc;
+        border: 2px solid #e2e8f0;
         display: flex; align-items: center; justify-content: center;
         margin: 0 auto 0.5rem auto;
-        color: #64748b;
+        color: #94a3b8;
         transition: all 0.3s;
     }
 
     .step-item.active .step-icon {
-        background: #0f172a;
+        background: #ffffff;
         border-color: #f59e0b;
         color: #f59e0b;
-        box-shadow: 0 0 15px rgba(245, 158, 11, 0.4);
+        box-shadow: 0 0 15px rgba(245, 158, 11, 0.2);
         animation: pulse 1.5s infinite;
     }
 
     .step-item.completed .step-icon {
         background: #f59e0b;
         border-color: #f59e0b;
-        color: #0b0f19;
+        color: #ffffff;
     }
 
     .step-text {
@@ -187,14 +186,14 @@
     }
 
     .step-item.active .step-text, .step-item.completed .step-text {
-        color: #ffffff;
+        color: #0f172a;
     }
 
     /* Result styling */
     .tab-btn-dark {
-        background-color: #131b2e !important;
-        border: 1px solid rgba(255, 255, 255, 0.08) !important;
-        color: #94a3b8 !important;
+        background-color: #f1f5f9 !important;
+        border: 1px solid #e2e8f0 !important;
+        color: #64748b !important;
         border-radius: 10px !important;
         padding: 0.6rem 1.2rem !important;
         margin-right: 0.5rem;
@@ -204,44 +203,44 @@
 
     .tab-btn-dark.active {
         background: #f59e0b !important;
-        color: #0b0f19 !important;
+        color: #ffffff !important;
         border-color: #f59e0b !important;
     }
 
     .output-box {
-        background-color: #0d1222;
-        border: 1px solid rgba(255, 255, 255, 0.05);
+        background-color: #ffffff;
+        border: 1px solid #e2e8f0;
         border-radius: 16px;
         padding: 2rem;
         min-height: 250px;
-        color: #e2e8f0;
+        color: #1e293b;
         font-size: 1rem;
         line-height: 1.8;
     }
 
     .history-table {
-        background-color: #0d1222;
+        background-color: #ffffff;
         border-radius: 16px;
         overflow: hidden;
-        border: 1px solid rgba(255, 255, 255, 0.05);
+        border: 1px solid #e2e8f0;
     }
     
     .history-table th {
-        background-color: #131b2e;
-        color: #f59e0b;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        background-color: #f8fafc;
+        color: #0f172a;
+        border-bottom: 1px solid #e2e8f0;
         font-weight: 700;
         padding: 1rem;
     }
 
     .history-table td {
-        border-bottom: 1px solid rgba(255, 255, 255, 0.02);
+        border-bottom: 1px solid #f1f5f9;
         padding: 1rem;
-        color: #e2e8f0;
+        color: #1e293b;
     }
 
     .history-table tr:hover td {
-        background-color: rgba(255, 255, 255, 0.02);
+        background-color: #f8fafc;
     }
 
     @keyframes pulse {
@@ -251,9 +250,9 @@
     }
 
     .copy-btn {
-        background-color: rgba(255, 255, 255, 0.05);
-        color: #e2e8f0;
-        border: 1px solid rgba(255, 255, 255, 0.1);
+        background-color: #f1f5f9;
+        color: #475569;
+        border: 1px solid #cbd5e1;
         border-radius: 8px;
         padding: 0.3rem 0.8rem;
         font-size: 0.8rem;
@@ -262,7 +261,7 @@
     
     .copy-btn:hover {
         background-color: #f59e0b;
-        color: #0b0f19;
+        color: #ffffff;
         border-color: #f59e0b;
     }
 </style>
@@ -318,7 +317,7 @@
     <div class="row justify-content-center">
         <div class="col-lg-10">
             <div class="card glass-form-card p-5 shadow-lg">
-                <h4 class="mb-4 text-white pb-3 border-bottom border-secondary d-flex align-items-center gap-2">
+                <h4 class="mb-4 text-dark pb-3 border-bottom border-secondary d-flex align-items-center gap-2">
                     <i class="fas fa-cog text-warning" id="form-icon"></i> 
                     <span id="form-title">สั่งงาน Marketing Automation Agent</span>
                 </h4>
@@ -398,8 +397,8 @@
 <!-- Execution History Section -->
 <div class="row mx-0">
     <div class="col-12">
-        <div class="card bg-dark text-white p-5 border-0 rounded-4 shadow-lg mb-5">
-            <h4 class="fw-bold mb-4 text-warning d-flex align-items-center gap-2">
+        <div class="card bg-white text-dark p-5 border-0 rounded-4 shadow-lg mb-5">
+            <h4 class="fw-bold mb-4 text-dark d-flex align-items-center gap-2">
                 <i class="fas fa-history"></i> ประวัติการสั่งงานบอท AI ย้อนหลัง (Log History)
             </h4>
             <div class="table-responsive">

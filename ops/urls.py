@@ -5,8 +5,10 @@ app_name = 'ops'
 
 urlpatterns = [
     path('', views.dashboard, name='dashboard'),
+    path('manual/', views.manual_view, name='manual'),
     path('report/<int:goal_id>/', views.report_progress, name='report_progress'),
     path('goal/create/', views.goal_create, name='goal_create'),
+    path('goal/update/<int:goal_id>/', views.goal_update, name='goal_update'),
     path('goal/delete/<int:goal_id>/', views.goal_delete, name='goal_delete'),
     path('management/', views.management_view, name='management'),
     path('dept/create/', views.dept_create, name='dept_create'),
@@ -31,6 +33,7 @@ urlpatterns = [
     path('ideas/<int:idea_id>/score/', views.idea_score, name='idea_score'),
     path('ideas/<int:idea_id>/approve/', views.idea_approve, name='idea_approve'),
     path('tasks/', views.task_list, name='task_list'),
+    path('tasks/update/<int:task_id>/', views.task_update, name='task_update'),
     path('tasks/gantt/', views.task_gantt, name='task_gantt'),
     path('tasks/kanban/', views.task_kanban, name='task_kanban'),
 

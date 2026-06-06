@@ -20,6 +20,8 @@ class Employee(models.Model):
 class WeeklyGoal(models.Model):
     title = models.CharField(max_length=200, verbose_name="หัวข้อเป้าหมาย")
     description = models.TextField(blank=True, verbose_name="รายละเอียด/วิธีปฏิบัติ")
+    strategy = models.TextField(blank=True, verbose_name="กลยุทธ์หลัก (Action Plan)")
+    expected_challenges = models.TextField(blank=True, verbose_name="อุปสรรคความเสี่ยงที่คาดการณ์")
     department = models.ForeignKey(Department, on_delete=models.CASCADE, related_name='weekly_goals')
     start_date = models.DateField(verbose_name="วันที่เริ่ม (จันทร์)")
     end_date = models.DateField(verbose_name="วันที่สิ้นสุด (เสาร์)")
@@ -29,10 +31,11 @@ class WeeklyGoal(models.Model):
     STATUS_CHOICES = (
         ('todo', 'รอดำเนินการ (To Do)'),
         ('doing', 'กำลังทำ (In Progress)'),
+        ('reviewing', 'รอตรวจสอบ (Reviewing)'),
         ('done', 'เสร็จสิ้น (Done)'),
         ('blocked', 'ติดปัญหา (Blocked)'),
     )
-    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='todo', verbose_name="สถานะ")
+    status = models.CharField(max_length=15, choices=STATUS_CHOICES, default='todo', verbose_name="สถานะ")
     created_at = models.DateTimeField(auto_now_add=True)
 
     @property
@@ -127,6 +130,7 @@ class ActionTask(models.Model):
     STATUS_CHOICES = (
         ('todo', 'To Do'),
         ('doing', 'In Progress'),
+        ('reviewing', 'Reviewing'),
         ('done', 'Done'),
         ('blocked', 'Blocked'),
     )
@@ -136,14 +140,16 @@ class ActionTask(models.Model):
         ('high', 'High'),
         ('critical', 'Critical'),
     )
-    idea = models.OneToOneField(MeetingIdea, on_delete=models.CASCADE, related_name='action_task', verbose_name="ไอเดียต้นฉบับ")
+    idea = models.OneToOneField(MeetingIdea, on_delete=models.CASCADE, related_name='action_task', verbose_name="ไอเดียต้นฉบับ", null=True, blank=True)
+    goal = models.ForeignKey(WeeklyGoal, on_delete=models.CASCADE, related_name='action_tasks', verbose_name="เป้าหมาย (Goal)", null=True, blank=True)
     title = models.CharField(max_length=200, verbose_name="ชื่องาน")
-    assigned_to = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='action_tasks', verbose_name="ผู้รับผิดชอบ")
+    assigned_to = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='action_tasks', verbose_name="ผู้รับผิดชอบ")
     department = models.ForeignKey(Department, on_delete=models.SET_NULL, null=True, verbose_name="ฝ่าย")
     start_date = models.DateField(verbose_name="วันที่เริ่ม")
     due_date = models.DateField(verbose_name="วันครบกำหนด")
-    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='todo', verbose_name="สถานะ")
+    status = models.CharField(max_length=15, choices=STATUS_CHOICES, default='todo', verbose_name="สถานะ")
     priority = models.CharField(max_length=10, choices=PRIORITY_CHOICES, default='medium', verbose_name="ความสำคัญ")
+    reviewer = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='reviewed_tasks', verbose_name="ผู้ตรวจสอบ (QA)")
     dependencies = models.ManyToManyField('self', symmetrical=False, blank=True, related_name='dependents', verbose_name="งานที่ต้องทำก่อน")
     progress_pct = models.IntegerField(default=0, verbose_name="ความคืบหน้า (%)")
     created_at = models.DateTimeField(auto_now_add=True)

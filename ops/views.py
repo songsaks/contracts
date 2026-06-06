@@ -22,6 +22,11 @@ from .models import (
 
 
 @login_required
+def manual_view(request):
+    """หน้าต่างแสดงคู่มือการใช้งาน"""
+    return render(request, 'ops/manual.html')
+
+@login_required
 def dashboard(request):
     is_admin = request.user.is_superuser
     today = timezone.now().date()
@@ -97,18 +102,37 @@ def goal_create(request):
         start = request.POST.get('start_date')
         end = request.POST.get('end_date')
         desc = request.POST.get('description')
+        strategy = request.POST.get('strategy', '')
+        expected_challenges = request.POST.get('expected_challenges', '')
         
         if title and dept_id:
             dept = Department.objects.get(id=dept_id)
-            WeeklyGoal.objects.create(
+            goal = WeeklyGoal.objects.create(
                 title=title, 
                 department=dept, 
                 unit=unit, 
                 target_value=target,
                 start_date=start,
                 end_date=end,
-                description=desc
+                description=desc,
+                strategy=strategy,
+                expected_challenges=expected_challenges
             )
+            
+            # Create Initial Tasks if provided
+            for i in range(1, 4):
+                task_title = request.POST.get(f'task_title_{i}')
+                if task_title and task_title.strip():
+                    ActionTask.objects.create(
+                        title=task_title.strip(),
+                        goal=goal,
+                        department=dept,
+                        start_date=start,
+                        due_date=end,
+                        status='todo',
+                        priority='medium'
+                    )
+                    
             return redirect('ops:dashboard')
             
     depts = Department.objects.all()
@@ -120,6 +144,31 @@ def goal_delete(request, goal_id):
         goal = get_object_or_404(WeeklyGoal, id=goal_id)
         goal.delete()
     return redirect('ops:dashboard')
+
+@login_required
+def goal_update(request, goal_id):
+    if not request.user.is_superuser:
+        return redirect('ops:dashboard')
+        
+    goal = get_object_or_404(WeeklyGoal, id=goal_id)
+    
+    if request.method == 'POST':
+        goal.title = request.POST.get('title')
+        dept_id = request.POST.get('department')
+        if dept_id:
+            goal.department = Department.objects.get(id=dept_id)
+        goal.unit = request.POST.get('unit')
+        goal.target_value = request.POST.get('target_value')
+        goal.start_date = request.POST.get('start_date')
+        goal.end_date = request.POST.get('end_date')
+        goal.description = request.POST.get('description', '')
+        goal.strategy = request.POST.get('strategy', '')
+        goal.expected_challenges = request.POST.get('expected_challenges', '')
+        goal.save()
+        return redirect('ops:dashboard')
+        
+    depts = Department.objects.all()
+    return render(request, 'ops/goal_update.html', {'goal': goal, 'depts': depts})
 
 @login_required
 def management_view(request):
@@ -300,12 +349,14 @@ def kanban_view(request):
     # จัดกลุ่มเป้าหมายตามสถานะ
     todo = goals.filter(status='todo')
     doing = goals.filter(status='doing')
+    reviewing = goals.filter(status='reviewing')
     done = goals.filter(status='done')
     blocked = goals.filter(status='blocked')
     
     return render(request, 'ops/kanban.html', {
         'todo': todo,
         'doing': doing,
+        'reviewing': reviewing,
         'done': done,
         'blocked': blocked,
     })
@@ -452,8 +503,38 @@ def idea_approve(request, idea_id):
 
 @login_required
 def task_list(request):
-    tasks = ActionTask.objects.all().order_by('-created_at')
+    tasks = ActionTask.objects.all().order_by('due_date')
     return render(request, 'ops/task_list.html', {'tasks': tasks})
+
+@login_required
+def task_update(request, task_id):
+    task = get_object_or_404(ActionTask, id=task_id)
+    
+    if request.method == 'POST':
+        task.title = request.POST.get('title')
+        assigned_id = request.POST.get('assigned_to')
+        if assigned_id:
+            task.assigned_to_id = assigned_id
+        else:
+            task.assigned_to = None
+            
+        dept_id = request.POST.get('department')
+        if dept_id:
+            task.department_id = dept_id
+        else:
+            task.department = None
+            
+        task.start_date = request.POST.get('start_date')
+        task.due_date = request.POST.get('due_date')
+        task.status = request.POST.get('status')
+        task.priority = request.POST.get('priority')
+        task.save()
+        
+        return redirect('ops:task_kanban')
+        
+    users = User.objects.all().order_by('username')
+    depts = Department.objects.all()
+    return render(request, 'ops/task_form.html', {'task': task, 'users': users, 'depts': depts})
 
 @login_required
 def task_gantt(request):
@@ -467,11 +548,13 @@ def task_kanban(request):
     tasks = ActionTask.objects.all()
     todo = tasks.filter(status='todo')
     doing = tasks.filter(status='doing')
+    reviewing = tasks.filter(status='reviewing')
     done = tasks.filter(status='done')
     blocked = tasks.filter(status='blocked')
     return render(request, 'ops/task_kanban.html', {
         'todo': todo,
         'doing': doing,
+        'reviewing': reviewing,
         'done': done,
         'blocked': blocked
     })
