@@ -6,9 +6,22 @@
             </span>
             <small class="text-muted" style="font-size: 0.65rem;"><i class="far fa-calendar-alt me-1"></i>{{ task.due_date|date:"d M" }}</small>
         </div>
-        <h6 class="fw-bold text-dark small mb-2">{{ task.title }}</h6>
-        <p class="text-muted mb-3" style="font-size: 0.75rem; line-height: 1.4;">{{ task.idea.description|truncatewords:15 }}</p>
+        <a href="{% url 'ops:task_detail' task.id %}" class="text-decoration-none"><h6 class="fw-bold text-dark small mb-2 text-hover-primary">{{ task.title }}</h6></a>
         
+        <div class="mb-2">
+            {% for tag in task.tags.all %}
+                <span class="badge bg-{{ tag.color }} me-1" style="font-size: 0.55rem;">{{ tag.name }}</span>
+            {% endfor %}
+        </div>
+        
+        <p class="text-muted mb-2" style="font-size: 0.75rem; line-height: 1.4;">{{ task.idea.description|truncatewords:15 }}</p>
+        
+        <div class="d-flex gap-2 text-muted mb-2" style="font-size: 0.65rem;">
+            {% if task.comments.count %}<span title="Comments"><i class="far fa-comment-alt"></i> {{ task.comments.count }}</span>{% endif %}
+            {% if task.checklists.count %}<span title="Checklists"><i class="fas fa-tasks"></i> {{ task.checklists.count }}</span>{% endif %}
+            {% if task.attachments.count %}<span title="Attachments"><i class="fas fa-paperclip"></i> {{ task.attachments.count }}</span>{% endif %}
+        </div>
+
         <div class="progress rounded-pill mb-3" style="height: 4px;">
             <div class="progress-bar bg-primary" style="width: {{ task.progress_pct }}%"></div>
         </div>

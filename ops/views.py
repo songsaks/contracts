@@ -18,6 +18,10 @@ from .models import (
     MeetingParticipant,
     WeeklyGoal,
     AICoworkerLog,
+    TaskTag,
+    ActionTaskChecklist,
+    TaskComment,
+    TaskAttachment,
 )
 
 
@@ -530,13 +534,61 @@ def task_update(request, task_id):
         task.due_date = request.POST.get('due_date')
         task.status = request.POST.get('status')
         task.priority = request.POST.get('priority')
+        task.estimated_hours = request.POST.get('estimated_hours') or 0
+        task.actual_hours = request.POST.get('actual_hours') or 0
         task.save()
+        
+        tags = request.POST.getlist('tags')
+        if tags:
+            task.tags.set(tags)
+        else:
+            task.tags.clear()
         
         return redirect('ops:task_kanban')
         
     users = User.objects.all().order_by('username')
     depts = Department.objects.all()
-    return render(request, 'ops/task_form.html', {'task': task, 'users': users, 'depts': depts})
+    all_tags = TaskTag.objects.all()
+    return render(request, 'ops/task_form.html', {'task': task, 'users': users, 'depts': depts, 'all_tags': all_tags})
+
+@login_required
+def task_detail(request, task_id):
+    task = get_object_or_404(ActionTask, id=task_id)
+    return render(request, 'ops/task_detail.html', {'task': task})
+
+@login_required
+def task_add_comment(request, task_id):
+    if request.method == 'POST':
+        task = get_object_or_404(ActionTask, id=task_id)
+        content = request.POST.get('content')
+        if content:
+            TaskComment.objects.create(task=task, user=request.user, content=content)
+    return redirect('ops:task_detail', task_id=task_id)
+
+@login_required
+def task_add_checklist(request, task_id):
+    if request.method == 'POST':
+        task = get_object_or_404(ActionTask, id=task_id)
+        title = request.POST.get('title')
+        if title:
+            ActionTaskChecklist.objects.create(task=task, title=title)
+    return redirect('ops:task_detail', task_id=task_id)
+
+@login_required
+def task_toggle_checklist(request, checklist_id):
+    item = get_object_or_404(ActionTaskChecklist, id=checklist_id)
+    item.is_completed = not item.is_completed
+    item.save()
+    return redirect('ops:task_detail', task_id=item.task.id)
+
+@login_required
+def task_upload_attachment(request, task_id):
+    if request.method == 'POST':
+        task = get_object_or_404(ActionTask, id=task_id)
+        file = request.FILES.get('file')
+        if file:
+            TaskAttachment.objects.create(task=task, uploaded_by=request.user, file=file)
+    return redirect('ops:task_detail', task_id=task_id)
 
 @login_required
 def task_gantt(request):

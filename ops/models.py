@@ -126,6 +126,13 @@ class MeetingIdea(models.Model):
     def __str__(self):
         return self.title
 
+class TaskTag(models.Model):
+    name = models.CharField(max_length=50, verbose_name="ชื่อป้ายกำกับ")
+    color = models.CharField(max_length=20, default="primary", verbose_name="สี (Bootstrap class)")
+
+    def __str__(self):
+        return self.name
+
 class ActionTask(models.Model):
     STATUS_CHOICES = (
         ('todo', 'To Do'),
@@ -151,11 +158,41 @@ class ActionTask(models.Model):
     priority = models.CharField(max_length=10, choices=PRIORITY_CHOICES, default='medium', verbose_name="ความสำคัญ")
     reviewer = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='reviewed_tasks', verbose_name="ผู้ตรวจสอบ (QA)")
     dependencies = models.ManyToManyField('self', symmetrical=False, blank=True, related_name='dependents', verbose_name="งานที่ต้องทำก่อน")
+    tags = models.ManyToManyField(TaskTag, blank=True, related_name='tasks', verbose_name="ป้ายกำกับ")
+    estimated_hours = models.FloatField(default=0, verbose_name="เวลาที่คาดหวัง (ชั่วโมง)")
+    actual_hours = models.FloatField(default=0, verbose_name="เวลาที่ใช้จริง (ชั่วโมง)")
     progress_pct = models.IntegerField(default=0, verbose_name="ความคืบหน้า (%)")
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         return self.title
+
+class ActionTaskChecklist(models.Model):
+    task = models.ForeignKey(ActionTask, on_delete=models.CASCADE, related_name='checklists')
+    title = models.CharField(max_length=200, verbose_name="ชื่องานย่อย")
+    is_completed = models.BooleanField(default=False, verbose_name="เสร็จสิ้นแล้ว")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"[{'X' if self.is_completed else ' '}] {self.title}"
+
+class TaskComment(models.Model):
+    task = models.ForeignKey(ActionTask, on_delete=models.CASCADE, related_name='comments')
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    content = models.TextField(verbose_name="ความคิดเห็น")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.user.username} on {self.task.title}"
+
+class TaskAttachment(models.Model):
+    task = models.ForeignKey(ActionTask, on_delete=models.CASCADE, related_name='attachments')
+    file = models.FileField(upload_to='ops/tasks/attachments/', verbose_name="ไฟล์แนบ")
+    uploaded_by = models.ForeignKey(User, on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Attachment for {self.task.title}"
 
 
 class AICoworkerLog(models.Model):
