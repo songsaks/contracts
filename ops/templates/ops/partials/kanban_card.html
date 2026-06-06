@@ -1,3 +1,4 @@
+{% load humanize %}
 <div class="kanban-card" data-id="{{ goal.id }}">
     <span class="card-dept 
         {% if goal.department.name == 'Sales' %}dept-sales
@@ -15,7 +16,7 @@
     
     <div class="card-footer">
         <span class="text-muted" style="font-size: 0.75rem;">
-            <i class="fas fa-bullseye me-1"></i>{{ goal.target_value }} {{ goal.unit }}
+            <i class="fas fa-bullseye me-1"></i>{{ goal.target_value|floatformat:0|intcomma }} {{ goal.unit }}
         </span>
         <span class="fw-bold text-dark" style="font-size: 0.8rem;">
             {{ goal.success_percentage|floatformat:0 }}%

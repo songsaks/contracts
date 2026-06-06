@@ -1,4 +1,5 @@
 {% extends "ops/base_ops.html" %}
+{% load humanize %}
 
 {% block title %}Weekly Assessment Report — Ops{% endblock %}
 
@@ -38,8 +39,8 @@
                                 <div class="small text-muted">{{ item.goal.department.name }}</div>
                             </td>
                             <td>
-                                <span class="fw-bold">{{ item.total_actual|floatformat:0 }}</span> 
-                                <span class="text-muted">/ {{ item.goal.target_value|floatformat:0 }} {{ item.goal.unit }}</span>
+                                <span class="fw-bold">{{ item.total_actual|floatformat:0|intcomma }}</span> 
+                                <span class="text-muted">/ {{ item.goal.target_value|floatformat:0|intcomma }} {{ item.goal.unit }}</span>
                             </td>
                             <td class="text-center">
                                 <span class="badge bg-{{ item.goal.status_color }} rounded-pill px-3">

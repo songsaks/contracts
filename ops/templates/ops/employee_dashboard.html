@@ -1,4 +1,5 @@
 {% extends "ops/base_ops.html" %}
+{% load humanize %}
 
 {% block title %}My Goals — Ops Manager{% endblock %}
 
@@ -30,7 +31,7 @@
 
             <div class="my-3">
                 <div class="d-flex justify-content-between mb-1">
-                    <span class="small fw-bold">{{ goal.total_actual|floatformat:0 }} / {{ goal.target_value|floatformat:0 }} {{ goal.unit }}</span>
+                    <span class="small fw-bold">{{ goal.total_actual|floatformat:0|intcomma }} / {{ goal.target_value|floatformat:0|intcomma }} {{ goal.unit }}</span>
                     <span class="small fw-bold text-{{ goal.status_color }}">{{ goal.success_percentage|floatformat:1 }}%</span>
                 </div>
                 <div class="progress rounded-pill" style="height: 8px;">
