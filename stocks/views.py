@@ -11033,23 +11033,74 @@ def chart_ai_analyze_ajax(request, symbol):
         except Exception as e:
             sepa_info = f"<!-- SEPA Fetch Error: {e} -->"
 
-        prompt = f"""
-คุณคือ AI ผู้ช่วยนักเทรดหุ้นมืออาชีพสาย Momentum, Turtle Trading และ Minervini SEPA
-โปรดวิเคราะห์กราฟหุ้น {symbol} (ตลาด: {market}) โดยสรุปสั้นๆ ให้กระชับ (ไม่เกิน 10-15 บรรทัด)
+        # ====== Fetch Fundamental & Business Data ======
+        fundamentals_info = ""
+        try:
+            import yfinance as yf
+            yf_symbol = '^SET.BK' if symbol == 'SET' else (symbol + '.BK' if market == 'SET' else symbol)
+            ticker = yf.Ticker(yf_symbol)
+            info = ticker.info
+            
+            biz_summary = info.get('longBusinessSummary', 'ไม่มีข้อมูลคำอธิบายธุรกิจ')
+            sector = info.get('sector', 'N/A')
+            industry = info.get('industry', 'N/A')
+            
+            roe = info.get('returnOnEquity', None)
+            roe_str = f"{roe * 100:.2f}%" if roe is not None else "N/A"
+            
+            roa = info.get('returnOnAssets', None)
+            roa_str = f"{roa * 100:.2f}%" if roa is not None else "N/A"
+            
+            pe = info.get('trailingPE', 'N/A')
+            pb = info.get('priceToBook', 'N/A')
+            
+            div_yield = info.get('dividendYield', None)
+            div_str = f"{div_yield * 100:.2f}%" if div_yield is not None else "N/A"
+            
+            rev_latest = "N/A"
+            net_income_latest = "N/A"
+            try:
+                financials = ticker.financials
+                if financials is not None and not financials.empty:
+                    rev_row = [r for r in financials.index if 'Revenue' in r or 'Total Revenue' in r]
+                    if rev_row:
+                        val = financials.loc[rev_row[0]].iloc[0]
+                        rev_latest = f"{val:,.2f}" if not isinstance(val, str) else val
+                    
+                    net_inc_row = [r for r in financials.index if 'Net Income' in r]
+                    if net_inc_row:
+                        val = financials.loc[net_inc_row[0]].iloc[0]
+                        net_income_latest = f"{val:,.2f}" if not isinstance(val, str) else val
+            except Exception:
+                pass
+                
+            fundamentals_info = f"""
+ข้อมูลปัจจัยพื้นฐาน (Fundamental Data) จาก yfinance:
+- กลุ่มอุตสาหกรรม/หมวดธุรกิจ: {sector} / {industry}
+- คำอธิบายธุรกิจหลัก: {biz_summary}
+- ROE (Return on Equity): {roe_str}
+- ROA (Return on Assets): {roa_str}
+- P/E Ratio: {pe} | P/BV Ratio: {pb}
+- อัตราปันผล (Dividend Yield): {div_str}
+- ผลประกอบการล่าสุด: รายได้รวม ~ {rev_latest} | กำไรสุทธิ ~ {net_income_latest}
+"""
+        except Exception as e:
+            fundamentals_info = f"<!-- Fundamentals Fetch Error: {e} -->"
 
-ข้อมูลทางเทคนิคปัจจุบัน (จากหน้ากราฟของผู้ใช้):
-- ราคาล่าสุด: {price}
-- ทิศทางเทรนด์: {trend}
-- สัญญาณที่เกิดขึ้นล่าสุด: {signal_text}
-- ข้อมูล Indicator ที่ผู้ใช้เปิดดูในขณะนี้: 
+        prompt = f"""
+คุณคือ AI ผู้ช่วยนักวิเคราะห์หุ้นระดับสากลและผู้เชี่ยวชาญด้านกลยุทธ์การลงทุน (ทั้งด้าน Technical, Quantitative และ Fundamental)
+โปรดทำการวิเคราะห์เชิงลึกเกี่ยวกับหุ้น {symbol} (ตลาด: {market}) โดยสรุปเป็นภาษาไทยให้สวยงาม กระชับ ครอบคลุมหัวข้อต่อไปนี้:
+
+1. **แนะนำบริษัทและการวิเคราะห์เชิงธุรกิจ (Business Overview & Profile)**: อธิบายสั้นๆ ว่าบริษัททำอะไร วิเคราะห์ความแข็งแกร่งเชิงธุรกิจ ปัจจัยบวก/ลบ
+2. **การวิเคราะห์ทางเทคนิค (Technical & Indicator Analysis)**: วิเคราะห์จากราคาล่าสุด ({price}), แนวโน้ม ({trend}), สัญญาณที่เกิดขึ้น ({signal_text}) และข้อมูล Indicator ที่เปิดอยู่ตอนนี้:
 {active_indicators_data}
+3. **การวิเคราะห์ปัจจัยพื้นฐานและเศรษฐกิจ (Fundamental, Financial & Economic)**: วิเคราะห์รายได้ กำไร อัตราผลตอบแทนอย่าง ROE, ROI/ROA และความเสี่ยงหรือโอกาสจากสภาวะเศรษฐกิจในปัจจุบัน
+4. **คำแนะนำเชิงกลยุทธ์ (Strategic Recommendations)**: สรุปคำแนะนำที่ชัดเจน (ซื้อเพิ่ม / ถือ / ขายตัดขาดทุน / รอจังหวะ) พร้อมอธิบายเหตุผลประกอบ
 
 {sepa_info}
+{fundamentals_info}
 
-ช่วยวิเคราะห์แนวโน้ม ทิศทาง และให้คำแนะนำที่ชัดเจนว่าควรทำอย่างไร (ซื้อเพิ่ม / ถือ / ขายตัดขาดทุน / รอจังหวะ) 
-(หมายเหตุ: โปรดวิเคราะห์โดยอ้างอิงจาก Indicator ที่ผู้ใช้เปิดดูอยู่เป็นหลัก หากไม่มีให้อ้างอิงจาก Price Action)
-หากหุ้นตัวนี้มีคะแนน SEPA Score สูง และอยู่ใน Stage 2 โปรดนำมาพิจารณาประกอบกับสัญญาณกราฟด้วยเพื่อไม่ให้ขัดแย้งกัน
-อธิบายเหตุผลสั้นๆ ให้เข้าใจง่ายที่สุด จัดรูปแบบเป็น Markdown เพื่อให้อ่านง่าย
+จัดรูปแบบผลลัพธ์ด้วย Markdown ที่อ่านง่าย สวยงาม น่าเชื่อถือ และจำกัดความยาวของเนื้อหาแต่ละส่วนให้สั้นกระชับเข้าใจง่าย
 """
 
         api_key = getattr(settings, "GEMINI_API_KEY", None)
