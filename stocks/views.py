@@ -11039,8 +11039,11 @@ def chart_ai_analyze_ajax(request, symbol):
 
         # ====== Fetch Fundamental & Business Data ======
         fundamentals_info = ""
+        volume_profile_info = ""
+        price_pattern_info = ""
         try:
             import yfinance as yf
+            import numpy as np
             yf_symbol = '^SET.BK' if symbol == 'SET' else (symbol + '.BK' if market == 'SET' else symbol)
             ticker = yf.Ticker(yf_symbol)
             info = ticker.info
@@ -11098,6 +11101,122 @@ def chart_ai_analyze_ajax(request, symbol):
 - อัตราปันผล (Dividend Yield): {div_str}
 - ผลประกอบการล่าสุด: รายได้รวม ~ {rev_latest} | กำไรสุทธิ ~ {net_income_latest}
 """
+            
+            # --- Calculate Volume Profile & Price Patterns ---
+            try:
+                df = ticker.history(period="1y", interval="1d")
+                if df is not None and not df.empty:
+                    # Resolve MultiIndex if any
+                    if isinstance(df.columns, np.ndarray) or isinstance(df.columns, list) or hasattr(df.columns, 'levels'):
+                        if hasattr(df.columns, 'get_level_values'):
+                            df.columns = df.columns.get_level_values(0)
+                    df.columns = [str(c).capitalize() for c in df.columns]
+                    df = df.dropna(subset=['Close', 'Volume'])
+                    
+                    if len(df) >= 30:
+                        hist_len = min(len(df), 120)
+                        sub_df = df.tail(hist_len)
+                        closes = sub_df['Close'].values
+                        volumes = sub_df['Volume'].values
+                        
+                        min_p = float(closes.min())
+                        max_p = float(closes.max())
+                        
+                        # Calculate POC, VAH, VAL
+                        bins = np.linspace(min_p, max_p, 11)
+                        bin_vols = np.zeros(10)
+                        for i in range(10):
+                            mask = (closes >= bins[i]) & (closes < bins[i+1])
+                            bin_vols[i] = volumes[mask].sum()
+                        mask_max = (closes == max_p)
+                        if mask_max.any() and len(bin_vols) > 0:
+                            bin_vols[-1] += volumes[mask_max].sum()
+                            
+                        max_vol_idx = int(np.argmax(bin_vols))
+                        poc_price = (bins[max_vol_idx] + bins[max_vol_idx+1]) / 2.0
+                        
+                        total_volume = bin_vols.sum()
+                        target_va_vol = total_volume * 0.70
+                        va_indices = {max_vol_idx}
+                        current_va_vol = bin_vols[max_vol_idx]
+                        
+                        while current_va_vol < target_va_vol and len(va_indices) < 10:
+                            next_left = min(va_indices) - 1
+                            next_right = max(va_indices) + 1
+                            left_vol = bin_vols[next_left] if next_left >= 0 else -1
+                            right_vol = bin_vols[next_right] if next_right < 10 else -1
+                            
+                            if left_vol > right_vol:
+                                va_indices.add(next_left)
+                                current_va_vol += left_vol
+                            elif right_vol >= 0:
+                                va_indices.add(next_right)
+                                current_va_vol += right_vol
+                            else:
+                                break
+                                
+                        vah_price = bins[max(va_indices) + 1]
+                        val_price = bins[min(va_indices)]
+                        
+                        volume_profile_info = f"""
+ข้อมูล Volume Profile (ย้อนหลัง {hist_len} วันทำการ):
+- Point of Control (POC): {poc_price:.2f} (ระดับราคาที่มีปริมาณการซื้อขายหนาแน่นสะสมมากที่สุด)
+- Value Area High (VAH): {vah_price:.2f}
+- Value Area Low (VAL): {val_price:.2f}
+"""
+
+                        # Price Patterns
+                        detected_patterns = []
+                        
+                        # 1. VCP Detection
+                        if len(df) >= 60:
+                            p3 = df['Close'].tail(20)
+                            p2 = df['Close'].iloc[-40:-20]
+                            p1 = df['Close'].iloc[-60:-40]
+                            
+                            rng3 = (p3.max() - p3.min()) / p3.mean()
+                            rng2 = (p2.max() - p2.min()) / p2.mean()
+                            rng1 = (p1.max() - p1.min()) / p1.mean()
+                            
+                            if rng1 > rng2 > rng3 and rng3 < 0.10:
+                                detected_patterns.append("Volatility Contraction Pattern (VCP) - ตรวจพบรูปแบบการบีบอัดของความผันผวนของราคา (Contractions)")
+                                
+                        # 2. Double Bottom Detection
+                        if len(df) >= 40:
+                            mins = []
+                            for idx in range(5, len(closes)-5):
+                                if closes[idx] == min(closes[idx-5:idx+6]):
+                                    mins.append((idx, closes[idx]))
+                            
+                            db_found = False
+                            support_level = 0.0
+                            for i in range(len(mins)):
+                                for j in range(i+1, len(mins)):
+                                    idx1, val1 = mins[i]
+                                    idx2, val2 = mins[j]
+                                    if abs(idx1 - idx2) >= 10 and abs(val1 - val2) / val1 <= 0.03:
+                                        db_found = True
+                                        support_level = (val1 + val2) / 2.0
+                                        break
+                                if db_found:
+                                    break
+                                    
+                            if db_found:
+                                detected_patterns.append(f"Double Bottom / Support Zone - ตรวจพบแนวรับสำคัญแบบคู่ฐาน (Double Bottom / Support Zone) แถวๆ ระดับราคา {support_level:.2f}")
+                                
+                        recent_max = float(df['High'].tail(20).max())
+                        if float(closes[-1]) >= recent_max * 0.98:
+                            detected_patterns.append("ราคาเคลื่อนไหวใกล้ระดับสูงสุดของรอบ 20 วัน (20-day High Breakout Setup)")
+                        elif float(closes[-1]) <= float(df['Low'].tail(20).min()) * 1.02:
+                            detected_patterns.append("ราคาลงมาเคลี่อนไหวใกล้ระดับต่ำสุดของรอบ 20 วัน (20-day Low Breakdown Risk)")
+
+                        if not detected_patterns:
+                            detected_patterns.append("ไม่พบรูปแบบราคา Pattern เด่นชัดในระยะสั้น (ราคากำลังสร้างฐานสะสมกำลัง)")
+                            
+                        price_pattern_info = "รูปแบบราคาที่ตรวจพบ (Price Pattern Detection):\n" + "\n".join([f"- {pat}" for pat in detected_patterns])
+            except Exception as e_calc:
+                volume_profile_info = f"<!-- Volume Profile Calc Error: {e_calc} -->"
+
         except Exception as e:
             fundamentals_info = f"<!-- Fundamentals Fetch Error: {e} -->"
 
@@ -11108,6 +11227,11 @@ def chart_ai_analyze_ajax(request, symbol):
 1. **แนะนำบริษัทและการวิเคราะห์เชิงธุรกิจ (Business Overview & Profile)**: อธิบายสั้นๆ ว่าบริษัททำอะไร วิเคราะห์ความแข็งแกร่งเชิงธุรกิจ ปัจจัยบวก/ลบ
 2. **การวิเคราะห์ทางเทคนิค (Technical & Indicator Analysis)**: วิเคราะห์จากราคาล่าสุด ({price}), แนวโน้ม ({trend}), สัญญาณที่เกิดขึ้น ({signal_text}) และข้อมูล Indicator ที่เปิดอยู่ตอนนี้:
 {active_indicators_data}
+
+โปรดรวมข้อมูลเชิงลึกเหล่านี้ในการวิเคราะห์ทางเทคนิคด้วย:
+{volume_profile_info}
+{price_pattern_info}
+
 3. **การวิเคราะห์ปัจจัยพื้นฐานและเศรษฐกิจ (Fundamental, Financial & Economic)**: วิเคราะห์รายได้ กำไร อัตราผลตอบแทนอย่าง ROE, ROI/ROA และความเสี่ยงหรือโอกาสจากสภาวะเศรษฐกิจในปัจจุบัน
 4. **คำแนะนำเชิงกลยุทธ์ (Strategic Recommendations)**: สรุปคำแนะนำที่ชัดเจน (ซื้อเพิ่ม / ถือ / ขายตัดขาดทุน / รอจังหวะ) พร้อมอธิบายเหตุผลประกอบ
 
