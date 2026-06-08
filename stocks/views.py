@@ -4269,15 +4269,17 @@ def momentum_scanner(request):
                         match_bk = [f"{r['symbol']}.BK" for r in pre_results]
                         try:
                             yq_all = YQTicker(match_bk)
-                            modules = yq_all.get_modules('financialData summaryProfile')
+                            modules = yq_all.get_modules('financialData summaryProfile defaultKeyStatistics')
                             for s_bk, val in modules.items():
                                 if not isinstance(val, dict): continue
                                 sym_clean = s_bk.replace('.BK','')
                                 prof = val.get('summaryProfile', {})
                                 fin  = val.get('financialData', {})
+                                keystat = val.get('defaultKeyStatistics', {})
+                                eps_g = keystat.get('earningsQuarterlyGrowth') or fin.get('earningsGrowth') or 0.0
                                 fund_data[sym_clean] = {
                                     'sector': prof.get('sector', 'Other'),
-                                    'eps_growth': float(fin.get('earningsQuarterlyGrowth', 0) or 0) * 100,
+                                    'eps_growth': float(eps_g) * 100,
                                     'rev_growth': float(fin.get('revenueGrowth', 0) or 0) * 100
                                 }
                         except Exception: pass
@@ -5511,19 +5513,21 @@ def precision_momentum_scanner(request):
                     fund_data = {}
                     try:
                         yq_all = YQTicker(symbols_bk)
-                        modules = yq_all.get_modules('financialData summaryProfile')
+                        modules = yq_all.get_modules('financialData summaryProfile defaultKeyStatistics')
                         for sym_bk, data in modules.items():
                             if not isinstance(data, dict):
                                 continue
                             clean_sym = sym_bk.replace('.BK', '')
                             profile  = data.get('summaryProfile', {})
                             fin_data = data.get('financialData', {})
+                            keystat  = data.get('defaultKeyStatistics', {})
                             sector   = (
                                 profile.get('sector')
                                 or data.get('assetProfile', {}).get('sector')
                                 or 'Unknown'
                             )
-                            eps_growth = float(fin_data.get('earningsQuarterlyGrowth', 0) or 0) * 100
+                            eps_g = keystat.get('earningsQuarterlyGrowth') or fin_data.get('earningsGrowth') or 0.0
+                            eps_growth = float(eps_g) * 100
                             rev_growth = float(fin_data.get('revenueGrowth', 0) or 0) * 100
                             fund_data[clean_sym] = {'sector': sector, 'eps_growth': eps_growth, 'rev_growth': rev_growth}
                     except Exception as e:
@@ -6253,7 +6257,7 @@ def portfolio_scan(request):
                         info = ticker_yf.info
                         if isinstance(info, dict) and len(info) >= 5:
                             sector = info.get('sector', 'Other')
-                            eps_growth = float(info.get('earningsQuarterlyGrowth', 0) or 0) * 100
+                            eps_growth = float(info.get('earningsQuarterlyGrowth') or info.get('earningsGrowth') or 0) * 100
                             rev_growth = float(info.get('revenueGrowth', 0) or 0) * 100
                         else:
                             sector = "N/A"
@@ -11055,7 +11059,17 @@ def chart_ai_analyze_ajax(request, symbol):
             pb = info.get('priceToBook', 'N/A')
             
             div_yield = info.get('dividendYield', None)
-            div_str = f"{div_yield * 100:.2f}%" if div_yield is not None else "N/A"
+            div_str = "N/A"
+            if div_yield is not None:
+                try:
+                    val = float(div_yield)
+                    if val > 100.0:
+                        val = val / 100.0
+                    elif val < 1.0:
+                        val = val * 100.0
+                    div_str = f"{val:.2f}%"
+                except Exception:
+                    div_str = f"{div_yield}"
             
             rev_latest = "N/A"
             net_income_latest = "N/A"
