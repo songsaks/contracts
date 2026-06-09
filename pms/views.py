@@ -1942,10 +1942,25 @@ def service_queue_dashboard(request):
     except Exception as e:
         messages.warning(request, f"⚠️ ไม่สามารถดึงงานใหม่: {str(e)}")
 
-    # Block 1: Pending tasks (not yet scheduled)
+    # Block 1: Pending tasks (not yet scheduled) — จัดเรียงตามทีม แล้วตาม deadline
     pending_tasks = ServiceQueueItem.objects.filter(
         status__in=['PENDING', 'INCOMPLETE']
-    ).select_related('project').prefetch_related('assigned_teams').order_by('deadline', 'created_at')
+    ).select_related('project').prefetch_related('assigned_teams').order_by('assigned_teams__name', 'deadline', 'created_at')
+
+    # จัดกลุ่ม pending_tasks ตามทีม เพื่อให้ทีมเดียวกันอยู่ติดกัน
+    from collections import OrderedDict as _OD
+    _seen_ids = set()
+    pending_by_team = _OD()
+    for _t in pending_tasks:
+        if _t.pk in _seen_ids:
+            continue
+        _seen_ids.add(_t.pk)
+        _team_names = ', '.join(_t.assigned_teams.values_list('name', flat=True)) or 'ยังไม่มีทีม'
+        if _team_names not in pending_by_team:
+            pending_by_team[_team_names] = []
+        pending_by_team[_team_names].append(_t)
+    # flatten กลับเป็น list เรียงตามทีม (ใช้ใน template เดิมได้ด้วย)
+    pending_tasks = [_t for _group in pending_by_team.values() for _t in _group]
 
     # Block 2+: Scheduled/In-progress tasks grouped by date
     scheduled_tasks = ServiceQueueItem.objects.filter(
@@ -1971,11 +1986,12 @@ def service_queue_dashboard(request):
 
     context = {
         'pending_tasks': pending_tasks,
+        'pending_by_team': pending_by_team,
         'date_groups': date_groups,
         'incomplete_tasks': incomplete_tasks,
         'teams': teams,
         'today': today,
-        'pending_count': pending_tasks.count(),
+        'pending_count': len(pending_tasks),
         'scheduled_count': scheduled_tasks.count(),
         'incomplete_count': incomplete_tasks.count(),
         'completed_count': completed_count,

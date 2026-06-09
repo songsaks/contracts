@@ -262,7 +262,17 @@
                 </tr>
             </thead>
             <tbody>
-                {% for task in pending_tasks %}
+                {% for team_name, team_tasks in pending_by_team.items %}
+                <!-- ===== Team Group Header ===== -->
+                <tr class="table-secondary">
+                    <td colspan="8" class="px-3 py-2">
+                        <span class="fw-bold text-dark">
+                            <i class="fas fa-users me-2 text-primary"></i>{{ team_name }}
+                        </span>
+                        <span class="badge bg-primary ms-2">{{ team_tasks|length }} งาน</span>
+                    </td>
+                </tr>
+                {% for task in team_tasks %}
                 <tr>
                     <td class="px-3 py-3">
                         <div class="fw-semibold">{{ task.title }}</div>
@@ -354,13 +364,24 @@
                     </td>
                 </tr>
                 {% endfor %}
+                {% endfor %}
             </tbody>
         </table>
     </div>
 
     <!-- Mobile Pending Cards -->
     <div class="d-md-none p-3">
-        {% for task in pending_tasks %}
+        {% for team_name, team_tasks in pending_by_team.items %}
+        <!-- Team Label -->
+        <div class="d-flex align-items-center gap-2 mb-2 mt-3">
+            <div class="flex-grow-1" style="border-top: 2px solid #e5e7eb;"></div>
+            <span class="badge bg-primary px-3 py-1" style="font-size:0.8rem;">
+                <i class="fas fa-users me-1"></i>{{ team_name }}
+                <span class="ms-1 badge bg-white text-primary" style="font-size:0.7rem;">{{ team_tasks|length }}</span>
+            </span>
+            <div class="flex-grow-1" style="border-top: 2px solid #e5e7eb;"></div>
+        </div>
+        {% for task in team_tasks %}
         <div class="task-card-mobile">
             <div class="d-flex justify-content-between align-items-start mb-2">
                 <div>
@@ -426,6 +447,7 @@
             {% endif %}
             {% endwith %}
         </div>
+        {% endfor %}
         {% endfor %}
     </div>
 
