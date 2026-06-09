@@ -843,8 +843,17 @@ def download_item_template(request):
 # รายการลูกค้าทั้งหมดในระบบ (Customer List)
 @login_required
 def customer_list(request):
+    q = request.GET.get('q', '').strip()
     customers = Customer.objects.all().select_related('sla_plan').order_by('name')
-    return render(request, 'pms/customer_list.html', {'customers': customers})
+    if q:
+        from django.db.models import Q
+        customers = customers.filter(
+            Q(name__icontains=q) |
+            Q(phone__icontains=q) |
+            Q(email__icontains=q) |
+            Q(address__icontains=q)
+        )
+    return render(request, 'pms/customer_list.html', {'customers': customers, 'q': q})
 
 # เพิ่มข้อมูลลูกค้าใหม่ (Create Customer)
 @login_required
