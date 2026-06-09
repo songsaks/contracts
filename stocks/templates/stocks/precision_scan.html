@@ -1094,9 +1094,9 @@
                                         {% endif %}
                                         {% if item.ehlers_itl_bullish %}
                                         <span class="badge px-1 py-0" style="background:#15803d;color:white;font-size:0.55rem;" title="Ehlers ITL MTF Bullish: Price > Daily ITL ({{ item.ehlers_itl_daily|floatformat:2 }}) > Weekly ITL ({{ item.ehlers_itl_weekly|floatformat:2 }})">📈 ITL</span>
+                                        {% endif %}
                                         {% if item.is_canslim %}
                                         <span class="badge text-dark ms-1" style="font-size:0.55rem; background: linear-gradient(135deg, #f59e0b, #d97706); border:none;" title="{{ item.canslim_reasons }}">CAN SLIM 🌟</span>
-                                        {% endif %}
                                         {% endif %}
                                     </div>
                                 </div>
@@ -2595,69 +2595,94 @@
 <script>
 // ── Table Filter Helpers ──────────────────────────────────────────────
 function _applyFiltersSET() {
-    var rows = document.querySelectorAll('#scanTableSET tbody tr');
-    var s2On       = document.getElementById('stage2FilterSET')  && document.getElementById('stage2FilterSET').checked;
-    var ppOn       = document.getElementById('ppFilterSET')      && document.getElementById('ppFilterSET').checked;
-    var hideCMFOn  = document.getElementById('hideCmfDistSET')   && document.getElementById('hideCmfDistSET').checked;
-    var volSurgeOn = document.getElementById('volSurgeFilterSET') && document.getElementById('volSurgeFilterSET').checked;
-    var ichiOn     = document.getElementById('ichiFilterSET')    && document.getElementById('ichiFilterSET').checked;
-    var vcpOn      = document.getElementById('vcpFilterSET')     && document.getElementById('vcpFilterSET').checked;
-    var launcherOn = document.getElementById('launcherFilterSET') && document.getElementById('launcherFilterSET').checked;
-    var itlOn      = document.getElementById('itlFilterSET')     && document.getElementById('itlFilterSET').checked;
-    var ccetOn     = document.getElementById('ccetFilterSET')    && document.getElementById('ccetFilterSET').checked;
-    var canslimOn  = document.getElementById('canslimFilterSET')   && document.getElementById('canslimFilterSET').checked;
-    var secEl  = document.getElementById('sectorFilterSET');
-    var secVal = secEl ? secEl.value : '';
-    var visible = 0;
-    rows.forEach(function(row) {
-        var rs   = parseInt(row.dataset.rs || '0');
-        var rsi  = parseFloat(row.dataset.rsi || '0');
-        var s2   = row.dataset.stage2   === 'true';
-        var pp   = row.dataset.pp        === 'true';
-        var cmf  = parseFloat(row.dataset.cmf || '0');
-        var cmfd = row.dataset.cmfdist   === 'true';
-        var vsrg = row.dataset.volsurge  === 'true';
-        var ichi = parseInt(row.dataset.ichi || '0');
-        var vcp  = row.dataset.vcp       === 'true';
-        var launcher = parseInt(row.dataset.launcher || '0');
-        var itl  = row.dataset.itl       === 'true';
-        var canslim = row.dataset.canslim === 'true';
-        var rvol = parseFloat(row.dataset.rvol || '0');
-        var emaAligned = row.dataset.emaAligned === 'true';
-        var turtleDist = parseFloat(row.dataset.turtleDist || '99.0');
-        var rr   = parseFloat(row.dataset.rr || '0');
-        var sec  = row.dataset.sector    || '';
+    try {
+        console.log("--- _applyFiltersSET() Triggered ---");
+        var rows = document.querySelectorAll('#scanTableSET tbody tr');
+        var s2On       = document.getElementById('stage2FilterSET')  && document.getElementById('stage2FilterSET').checked;
+        var ppOn       = document.getElementById('ppFilterSET')      && document.getElementById('ppFilterSET').checked;
+        var hideCMFOn  = document.getElementById('hideCmfDistSET')   && document.getElementById('hideCmfDistSET').checked;
+        var volSurgeOn = document.getElementById('volSurgeFilterSET') && document.getElementById('volSurgeFilterSET').checked;
+        var ichiOn     = document.getElementById('ichiFilterSET')    && document.getElementById('ichiFilterSET').checked;
+        var vcpOn      = document.getElementById('vcpFilterSET')     && document.getElementById('vcpFilterSET').checked;
+        var launcherOn = document.getElementById('launcherFilterSET') && document.getElementById('launcherFilterSET').checked;
+        var itlOn      = document.getElementById('itlFilterSET')     && document.getElementById('itlFilterSET').checked;
+        var ccetOn     = document.getElementById('ccetFilterSET')    && document.getElementById('ccetFilterSET').checked;
+        var canslimOn  = document.getElementById('canslimFilterSET')   && document.getElementById('canslimFilterSET').checked;
+        var secEl  = document.getElementById('sectorFilterSET');
+        var secVal = secEl ? secEl.value : '';
+        
+        console.log("Filter States:", {
+            s2On: !!s2On, ppOn: !!ppOn, hideCMFOn: !!hideCMFOn, volSurgeOn: !!volSurgeOn, 
+            ichiOn: !!ichiOn, vcpOn: !!vcpOn, launcherOn: !!launcherOn, itlOn: !!itlOn, 
+            ccetOn: !!ccetOn, canslimOn: !!canslimOn, secVal: secVal
+        });
 
-        var rsiOn     = document.getElementById('rsiFilter70SET') && document.getElementById('rsiFilter70SET').checked;
+        var visible = 0;
+        rows.forEach(function(row) {
+            var symbol = row.dataset.symbol || '';
+            var rs   = parseInt(row.dataset.rs || '0');
+            var rsi  = parseFloat(row.dataset.rsi || '0');
+            var s2   = row.dataset.stage2   === 'true';
+            var pp   = row.dataset.pp        === 'true';
+            var cmf  = parseFloat(row.dataset.cmf || '0');
+            var cmfd = row.dataset.cmfdist   === 'true';
+            var vsrg = row.dataset.volsurge  === 'true';
+            var ichi = parseInt(row.dataset.ichi || '0');
+            var vcp  = row.dataset.vcp       === 'true';
+            var launcher = parseInt(row.dataset.launcher || '0');
+            var itl  = row.dataset.itl       === 'true';
+            var canslim = row.dataset.canslim === 'true';
+            var rvol = parseFloat(row.dataset.rvol || '0');
+            var emaAligned = row.dataset.emaAligned === 'true';
+            var turtleDist = parseFloat(row.dataset.turtleDist || '99.0');
+            var rr   = parseFloat(row.dataset.rr || '0');
+            var sec  = row.dataset.sector    || '';
 
-        var isCcet = emaAligned && (rvol <= 0.6) && (turtleDist <= 10.0) && (rs >= 80) && (cmf >= -0.10) && (rr >= 1.5);
+            var rsiOn     = document.getElementById('rsiFilter70SET') && document.getElementById('rsiFilter70SET').checked;
 
-        var show = (!rsiOn || rsi < 70) &&
-                   (!s2On || s2) && 
-                   (!ppOn || pp) && 
-                   (!secVal || sec === secVal) && 
-                   (!hideCMFOn || !cmfd) && 
-                   (!volSurgeOn || vsrg) && 
-                   (!vcpOn || vcp) &&
-                   (!launcherOn || launcher >= 70) &&
-                   (!ichiOn || ichi >= 3) &&
-                   (!itlOn || itl) &&
-                   (!ccetOn || isCcet) &&
-                   (!canslimOn || canslim);
-        row.style.display = show ? '' : 'none';
-        if (show) visible++;
-    });
-    var el = document.getElementById('visibleCount-SET');
-    if (el) el.textContent = visible + ' stocks shown';
+            var isCcet = emaAligned && (rvol <= 0.6) && (turtleDist <= 10.0) && (rs >= 80) && (cmf >= -0.10) && (rr >= 1.5);
 
-    // Update badge/count elements dynamically
-    var badgeEl = document.getElementById('candidateBadgeSET');
-    if (badgeEl) {
-        badgeEl.textContent = visible + ' ตัว';
-    }
-    var passedTextEl = document.getElementById('candidatePassedTextSET');
-    if (passedTextEl) {
-        passedTextEl.textContent = 'ผ่าน ' + visible + '/' + {{ scan_total|default:0 }} + ' ตัว';
+            var show = (!rsiOn || rsi < 70) &&
+                       (!s2On || s2) && 
+                       (!ppOn || pp) && 
+                       (!secVal || sec === secVal) && 
+                       (!hideCMFOn || !cmfd) && 
+                       (!volSurgeOn || vsrg) && 
+                       (!vcpOn || vcp) &&
+                       (!launcherOn || launcher >= 70) &&
+                       (!ichiOn || ichi >= 3) &&
+                       (!itlOn || itl) &&
+                       (!ccetOn || isCcet) &&
+                       (!canslimOn || canslim);
+
+            console.log(`Row ${symbol} Evaluation:`, {
+                data: {
+                    rs, rsi, s2, pp, cmf, cmfd, vsrg, ichi, vcp, launcher, itl, canslim, rvol, emaAligned, turtleDist, rr, sec
+                },
+                isCcet,
+                show
+            });
+
+            row.style.display = show ? '' : 'none';
+            if (show) visible++;
+        });
+        
+        console.log("Filtered visible count:", visible);
+
+        var el = document.getElementById('visibleCount-SET');
+        if (el) el.textContent = visible + ' stocks shown';
+
+        // Update badge/count elements dynamically
+        var badgeEl = document.getElementById('candidateBadgeSET');
+        if (badgeEl) {
+            badgeEl.textContent = visible + ' ตัว';
+        }
+        var passedTextEl = document.getElementById('candidatePassedTextSET');
+        if (passedTextEl) {
+            passedTextEl.textContent = 'ผ่าน ' + visible + '/' + {{ scan_total|default:0 }} + ' ตัว';
+        }
+    } catch (e) {
+        console.error("Error in _applyFiltersSET:", e);
     }
 }
 function filterByRS(id, v)       { _applyFiltersSET(); }
