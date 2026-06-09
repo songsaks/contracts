@@ -1,6 +1,6 @@
 {% extends "stocks/base_stocks.html" %}
 
-{% block title %}AI Manual Scanner — Antigravity{% endblock %}
+{% block title %}AI Precision Portfolio Scanner — Antigravity{% endblock %}
 
 {% block extra_css %}
 {% include "stocks/includes/dark_mode_scanner.html" %}
@@ -328,12 +328,12 @@
     <!-- ════ Hero Banner ════ -->
     <div class="hero-banner">
         <div>
-            <h1 class="hero-title"><i class="fas fa-robot me-2" style="color:#818cf8;"></i>AI Manual Scanner</h1>
+            <h1 class="hero-title"><i class="fas fa-robot me-2" style="color:#818cf8;"></i>AI Precision Portfolio Scanner</h1>
             <p class="hero-sub mt-1">
-                ระบบ AI คัดกรองหุ้นตามคู่มือ
-                <a href="{% url 'stocks:sepa_manual' %}" target="_blank">SEPA</a>,
-                <a href="{% url 'stocks:mm_manual' %}" target="_blank">Smart Money (MM)</a> &amp;
-                <a href="{% url 'stocks:indicator_manual' %}" target="_blank">Indicator Manual</a>
+                ระบบ AI วิเคราะห์และจัดสรรพอร์ตหุ้นตามกลยุทธ์ 
+                <a href="{% url 'stocks:sepa_manual' %}" target="_blank">SEPA (สั้น)</a>,
+                <a href="{% url 'stocks:precision_momentum_scanner' %}" target="_blank">CAN SLIM (กลาง)</a> &amp;
+                <a href="{% url 'stocks:turtle_scanner' %}?market=SET" target="_blank">Turtle (ยาว)</a>
             </p>
         </div>
         <div class="d-flex align-items-center gap-2 flex-wrap">
@@ -356,7 +356,7 @@
         <p style="color:#475569;font-size:.85rem;">ขั้นตอนนี้ใช้เวลาประมาณ 15–30 วินาที</p>
         <div class="loading-steps">
             <div class="loading-step active" id="step1"><i class="fas fa-database"></i> โหลดข้อมูลหุ้นจาก Precision Scanner</div>
-            <div class="loading-step" id="step2"><i class="fas fa-brain"></i> AI วิเคราะห์ด้วยหลัก SEPA + Smart Money</div>
+            <div class="loading-step" id="step2"><i class="fas fa-brain"></i> AI วิเคราะห์กลยุทธ์ SEPA, CAN SLIM & Turtle</div>
             <div class="loading-step" id="step3"><i class="fas fa-sort-amount-down"></i> จัดอันดับและคัดเกรด A, B, C</div>
             <div class="loading-step" id="step4"><i class="fas fa-check-circle"></i> บันทึกผลลัพธ์</div>
         </div>
