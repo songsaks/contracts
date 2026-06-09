@@ -6149,11 +6149,18 @@ def precision_momentum_scanner(request):
     }
     context['ai_scan_json'] = _scan_json.dumps(_ai_data, ensure_ascii=False, default=str)
 
-    # Watchlist symbols for toggle button state
-    from .models import ScanWatchlistItem
-    context['watchlist_symbols'] = set(
-        ScanWatchlistItem.objects.filter(user=request.user).values_list('symbol', flat=True)
-    )
+    # Fetch latest Cup & Handle and Turtle breakout symbols for horizon classification
+    from .models import CupHandleCandidate, TurtleScanCandidate
+    
+    # Latest Cup & Handle
+    latest_ch_run = CupHandleCandidate.objects.filter(user=request.user, market='SET').values_list('scan_run', flat=True).order_by('-scan_run').first()
+    ch_symbols = set(CupHandleCandidate.objects.filter(user=request.user, market='SET', scan_run=latest_ch_run).values_list('symbol', flat=True)) if latest_ch_run else set()
+    context['cup_handle_symbols'] = ch_symbols
+
+    # Latest Turtle Breakout
+    latest_turtle_run = TurtleScanCandidate.objects.filter(user=request.user, market='SET').values_list('scan_run', flat=True).order_by('-scan_run').first()
+    turtle_symbols = set(TurtleScanCandidate.objects.filter(user=request.user, market='SET', scan_run=latest_turtle_run).values_list('symbol', flat=True)) if latest_turtle_run else set()
+    context['turtle_symbols'] = turtle_symbols
 
     return render(request, 'stocks/precision_scan.html', context)
 
@@ -9019,6 +9026,14 @@ def us_precision_scanner(request):
         "top_sectors": top_sectors,
     }, ensure_ascii=False, default=str)
 
+    # Fetch latest Cup & Handle and Turtle breakout symbols for US
+    from .models import CupHandleCandidate, TurtleScanCandidate
+    latest_ch_run = CupHandleCandidate.objects.filter(user=request.user, market='US').values_list('scan_run', flat=True).order_by('-scan_run').first()
+    ch_symbols = set(CupHandleCandidate.objects.filter(user=request.user, market='US', scan_run=latest_ch_run).values_list('symbol', flat=True)) if latest_ch_run else set()
+
+    latest_turtle_run = TurtleScanCandidate.objects.filter(user=request.user, market='US').values_list('scan_run', flat=True).order_by('-scan_run').first()
+    turtle_symbols = set(TurtleScanCandidate.objects.filter(user=request.user, market='US', scan_run=latest_turtle_run).values_list('symbol', flat=True)) if latest_turtle_run else set()
+
     return render(request, 'stocks/us_precision_scan.html', {
         'title': 'US Precision Momentum Scanner - Nasdaq & S&P 500',
         'candidates': candidates, 'scanned_at': scanned_at, 'current_sort': sort_by,
@@ -9028,6 +9043,8 @@ def us_precision_scanner(request):
         'top_sectors': top_sectors, 'scan_insights': scan_insights,
         'scan_data_date': scan_data_date, 'watchlist_symbols': watchlist_symbols,
         'ai_scan_json': ai_scan_json,
+        'cup_handle_symbols': ch_symbols,
+        'turtle_symbols': turtle_symbols,
     })
 
 

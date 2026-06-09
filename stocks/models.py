@@ -415,6 +415,31 @@ class PrecisionScanCandidate(models.Model):
         )
 
     @property
+    def is_short_term(self):
+        return (
+            self.launcher_score >= 70 or
+            self.is_volume_surge or
+            self.pocket_pivot or
+            self.macd_crossover
+        )
+
+    @property
+    def is_medium_term(self):
+        return (
+            self.is_canslim or
+            self.vcp_setup or
+            self.is_52w_breakout
+        )
+
+    @property
+    def is_long_term(self):
+        return (
+            self.stage2 and
+            self.ema20_aligned and
+            self.ehlers_itl_bullish
+        )
+
+    @property
     def is_canslim(self):
         # CAN SLIM Core Criteria:
         # C: Current Earnings (EPS/Rev growth >= 20%)
