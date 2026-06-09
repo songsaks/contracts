@@ -4995,10 +4995,6 @@ def precision_momentum_scanner(request):
                 from .models import PrecisionScanCandidate
 
                 from .utils import analyze_momentum_technical_v2, get_top_ranked_symbols as _GTRS
-                sym_list = _GTRS(market='SET', limit=300, auto_refresh=True)
-
-                from .utils import analyze_momentum_technical_v2
-                from .utils import get_top_ranked_symbols as _GTRS
                 sym_list = _GTRS(market='SET', limit=400, auto_refresh=True)
 
 
@@ -5013,7 +5009,7 @@ def precision_momentum_scanner(request):
                 _market_open = (
                     _now_bkk.weekday() < 5 and
                     (_dtime(10, 0) <= _t <= _dtime(12, 30) or
-                     _dtime(12, 30) < _t < _dtime(16, 30))
+                     _dtime(12, 30) < _t <= _dtime(16, 30))
                 )
                 # yfinance download end= is exclusive. To include today's data, use tomorrow.
                 scan_end_date  = _now_bkk.date() + _td(days=1)
@@ -5100,7 +5096,9 @@ def precision_momentum_scanner(request):
                 # Phase 2: เจาะลึกหุ้นที่เข้ารอบ (ผ่อนปรนให้หุ้นที่มี RS >= 45 หลุดเข้าประเมินเชิงลึก เพื่อความยืดหยุ่นของ Early Accumulation)
                 results_to_process = [s for s in sym_list if rs_ratings_map.get(s, 0) >= 45]
                 if not results_to_process:
-                    results_to_process = sym_list[:30] # Safety fallback
+                    # Fallback: ถ้าไม่มีข้อมูล RS เพียงพอ ให้ใช้ทุกหุ้นที่อยู่ใน rs_ratings_map หรือ top 50
+                    results_to_process = [s for s in sym_list if s in rs_ratings_map] or sym_list[:50]
+                    import logging; logging.getLogger('stocks').warning(f"[Precision] RS filter returned 0 — fallback to {len(results_to_process)} symbols")
 
                 def _process_precision_scan(symbol):
                     try:
