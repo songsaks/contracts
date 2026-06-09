@@ -46,13 +46,16 @@
         --table-bg: rgba(255, 255, 255, 0.85);
         --table-border: rgba(0, 0, 0, 0.08);
         --table-header-bg: rgba(0, 0, 0, 0.03);
-        --table-header-text: #475569;
+        --table-header-text: #334155;
         --table-text: #334155;
         --table-hover-bg: rgba(0, 0, 0, 0.02);
         
         --tab-btn-text: #64748b;
         --tab-btn-hover-bg: rgba(0, 0, 0, 0.02);
         --tab-btn-hover-text: #0f172a;
+        --chip-a-text: #10b981;
+        --chip-b-text: #4f46e5;
+        --chip-c-text: #d97706;
     }
 
     [data-theme="dark"] {
@@ -104,6 +107,9 @@
         --tab-btn-text: #64748b;
         --tab-btn-hover-bg: rgba(255, 255, 255, 0.02);
         --tab-btn-hover-text: #f1f5f9;
+        --chip-a-text: #34d399;
+        --chip-b-text: #818cf8;
+        --chip-c-text: #fbbf24;
     }
 
     /* ───── Base ───── */
@@ -483,8 +489,8 @@
     <!-- ════ Loading State ════ -->
     <div id="loadingState" class="loading-overlay">
         <div class="loading-spinner"></div>
-        <h5 class="text-white fw-bold mb-1">AI กำลังวิเคราะห์...</h5>
-        <p style="color:#475569;font-size:.85rem;">ขั้นตอนนี้ใช้เวลาประมาณ 15–30 วินาที</p>
+        <h5 class="fw-bold mb-1" style="color: var(--card-text);">AI กำลังวิเคราะห์...</h5>
+        <p style="color: var(--card-text-muted); font-size: .85rem;">ขั้นตอนนี้ใช้เวลาประมาณ 15–30 วินาที</p>
         <div class="loading-steps">
             <div class="loading-step active" id="step1"><i class="fas fa-database"></i> โหลดข้อมูลหุ้นจาก Precision Scanner</div>
             <div class="loading-step" id="step2"><i class="fas fa-brain"></i> AI วิเคราะห์กลยุทธ์ SEPA, CAN SLIM & Turtle</div>
@@ -630,7 +636,7 @@
 
         <!-- ── TAB PANEL 2: AI TOP PICKS STATS ── -->
         <div id="tabPanelStats" class="tab-content-panel">
-            <h5 class="text-white fw-bold mb-3"><i class="fas fa-award me-2 text-warning"></i>สถิติการคัดเลือกหุ้นยอดนิยมโดย AI (Top Picks)</h5>
+            <h5 class="fw-bold mb-3" style="color: var(--card-text);"><i class="fas fa-award me-2 text-warning"></i>สถิติการคัดเลือกหุ้นยอดนิยมโดย AI (Top Picks)</h5>
             <div class="stats-table-wrapper">
                 <table class="premium-table">
                     <thead>
@@ -650,11 +656,11 @@
                             {% for stat in stats_data %}
                             <tr>
                                 <td><span class="rank-badge">#{{ forloop.counter }}</span></td>
-                                <td><strong class="text-white fs-6">{{ stat.symbol }}</strong></td>
+                                <td><strong class="fs-6" style="color: var(--card-text);">{{ stat.symbol }}</strong></td>
                                 <td><span class="badge bg-indigo px-3 py-2 rounded-pill fw-bold" style="background:#4f46e5;">{{ stat.total_scans }} ครั้ง</span></td>
-                                <td><span class="text-success fw-bold">⭐ {{ stat.grade_a_count }}</span></td>
-                                <td><span class="text-indigo fw-bold" style="color:#818cf8 !important;">👍 {{ stat.grade_b_count }}</span></td>
-                                <td><span class="text-warning fw-bold">🟡 {{ stat.grade_c_count }}</span></td>
+                                <td><span class="fw-bold" style="color: var(--chip-a-text);">⭐ {{ stat.grade_a_count }}</span></td>
+                                <td><span class="fw-bold" style="color: var(--chip-b-text);">👍 {{ stat.grade_b_count }}</span></td>
+                                <td><span class="fw-bold" style="color: var(--chip-c-text);">🟡 {{ stat.grade_c_count }}</span></td>
                                 <td class="text-muted">{{ stat.last_scanned|date:"d M Y H:i"|default:"-" }}</td>
                                 <td>
                                     <a href="/stocks/chart/{{ stat.symbol }}/?market={{ current_market }}" target="_blank" class="btn-chart py-1 px-2" style="font-size: 0.75rem;">
@@ -675,7 +681,7 @@
 
         <!-- ── TAB PANEL 3: SCAN LOG HISTORY ── -->
         <div id="tabPanelHistory" class="tab-content-panel">
-            <h5 class="text-white fw-bold mb-3"><i class="fas fa-history me-2 text-indigo"></i>ประวัติการบันทึกการสแกนย้อนหลัง</h5>
+            <h5 class="fw-bold mb-3" style="color: var(--card-text);"><i class="fas fa-history me-2 text-indigo"></i>ประวัติการบันทึกการสแกนย้อนหลัง</h5>
             <div class="row">
                 <div class="col-lg-4">
                     <div class="stats-table-wrapper">
@@ -692,7 +698,7 @@
                                     {% for run in history_runs %}
                                     <tr {% if history_selected_run == run.scan_run_iso %}style="background: rgba(99,102,241,0.08);"{% endif %}>
                                         <td>
-                                            <div class="text-white fw-semibold">{{ run.scan_run_str }}</div>
+                                            <div class="fw-semibold" style="color: var(--card-text);">{{ run.scan_run_str }}</div>
                                             <small class="text-muted" style="font-size: 0.7rem;">{{ run.scan_date|date:"d M Y H:i" }}</small>
                                         </td>
                                         <td><span class="badge bg-secondary">{{ run.stock_count }} ตัว</span></td>
@@ -718,7 +724,7 @@
                         <div class="d-flex justify-content-between align-items-center mb-3">
                             <h6 class="text-indigo fw-bold mb-0" style="color:#818cf8 !important;">
                                 <i class="fas fa-folder-open me-2"></i>ผลลัพธ์รอบการรัน: 
-                                <span class="text-white">
+                                <span style="color: var(--card-text);">
                                     {% for r in history_runs %}
                                         {% if r.scan_run_iso == history_selected_run %}
                                             {{ r.scan_run_str }}
@@ -865,8 +871,8 @@
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title fw-bold text-white"><i class="fas fa-bell me-2" style="color:#fbbf24;"></i>ติดตาม: <span id="watchlistModalSymbol"></span></h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                <h5 class="modal-title fw-bold" style="color: var(--card-text);"><i class="fas fa-bell me-2" style="color:#fbbf24;"></i>ติดตาม: <span id="watchlistModalSymbol"></span></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body p-4">
                 <input type="hidden" id="watchlistSymbolInput">
