@@ -12238,7 +12238,7 @@ def ai_manual_scanner(request):
     """
     Render the UI for the AI Manual Scanner.
     """
-    from .models import AIManualScanResult, ScanWatchlistItem
+    from .models import AIManualScanResult, ScanWatchlistItem, PrecisionScanCandidate
     from django.db.models import Count, Q, Max
     import json
     
@@ -12316,6 +12316,80 @@ def ai_manual_scanner(request):
         else:
             history_results = AIManualScanResult.objects.filter(user=request.user, market=market, scan_run=history_selected_run)\
                 .order_by('rank', 'grade', 'symbol')
+
+    # ------ Pre-fetch latest PrecisionScanCandidate details to attach as properties ------
+    latest_prec_run = PrecisionScanCandidate.objects.filter(user=request.user, market=market)\
+        .order_by('-scan_run').values_list('scan_run', flat=True).first()
+    
+    prec_map = {}
+    if latest_prec_run:
+        prec_qs = PrecisionScanCandidate.objects.filter(
+            user=request.user,
+            market=market,
+            scan_run=latest_prec_run
+        )
+        for cand in prec_qs:
+            prec_map[cand.symbol] = cand
+
+    # Map precision candidates to latest results
+    results_list = list(results)
+    for r in results_list:
+        cand = prec_map.get(r.symbol)
+        if cand:
+            r.is_short_term = cand.is_short_term
+            r.is_medium_term = cand.is_medium_term
+            r.is_long_term = cand.is_long_term
+            r.is_canslim = cand.is_canslim
+            r.rs_rating = cand.rs_rating
+            r.rsi = cand.rsi
+            r.technical_score = cand.technical_score
+            r.eps_growth = cand.eps_growth
+            r.rev_growth = cand.rev_growth
+            r.cmf = cand.cmf
+        else:
+            r.is_short_term = False
+            r.is_medium_term = False
+            r.is_long_term = False
+            r.is_canslim = False
+            r.rs_rating = 0
+            r.rsi = 50
+            r.technical_score = 0
+            r.eps_growth = 0
+            r.rev_growth = 0
+            r.cmf = 0.0
+
+    # Also map to historical results if selected
+    if history_results:
+        history_results_list = list(history_results)
+        for r in history_results_list:
+            cand = prec_map.get(r.symbol)
+            if cand:
+                r.is_short_term = cand.is_short_term
+                r.is_medium_term = cand.is_medium_term
+                r.is_long_term = cand.is_long_term
+                r.is_canslim = cand.is_canslim
+                r.rs_rating = cand.rs_rating
+                r.rsi = cand.rsi
+                r.technical_score = cand.technical_score
+                r.eps_growth = cand.eps_growth
+                r.rev_growth = cand.rev_growth
+                r.cmf = cand.cmf
+            else:
+                r.is_short_term = False
+                r.is_medium_term = False
+                r.is_long_term = False
+                r.is_canslim = False
+                r.rs_rating = 0
+                r.rsi = 50
+                r.technical_score = 0
+                r.eps_growth = 0
+                r.rev_growth = 0
+                r.cmf = 0.0
+        history_results = history_results_list
+    else:
+        history_results = []
+
+    results = results_list
     
     return render(request, 'stocks/ai_manual_scanner.html', {
         'results': results,
@@ -12398,6 +12472,10 @@ def _run_ai_manual_scan_bg(user_id, cache_key, market, scan_run_time):
                 'vdu': c.vdu_near_zone,
                 'eps': round(float(c.eps_growth) if c.eps_growth else 0.0, 1),
                 'rev': round(float(c.rev_growth) if c.rev_growth else 0.0, 1),
+                'is_short': c.is_short_term,
+                'is_medium': c.is_medium_term,
+                'is_long': c.is_long_term,
+                'is_canslim': c.is_canslim
             })
 
         # Step 3: Call Gemini API
@@ -12408,30 +12486,24 @@ def _run_ai_manual_scan_bg(user_id, cache_key, market, scan_run_time):
 
         client = genai.Client(api_key=settings.GEMINI_API_KEY)
 
-        prompt = f"""คุณคือ AI Analyst ผู้เชี่ยวชาญระบบ SEPA (Minervini) และ Smart Money
-คัดเลือก 5-8 หุ้นที่ดีที่สุดจากตลาด {market} ตามเกณฑ์ด้านล่าง แล้วตอบเป็น JSON
+        prompt = f"""คุณคือ AI Analyst ผู้เชี่ยวชาญระบบ SEPA (Minervini), CAN SLIM และ Turtle Breakout
+คัดเลือก 5-8 หุ้นที่ดีที่สุดจากตลาด {market} โดยประเมินการจัดสรรพอร์ตการลงทุน 3 ระยะ (สั้น SEPA, กลาง CAN SLIM, ยาว Turtle) ตามเกณฑ์ด้านล่าง แล้วตอบเป็น JSON
 
-เกณฑ์การให้คะแนน (dist_piv มีน้ำหนักพิเศษ):
+กรอบการวิเคราะห์เชิงกลยุทธ์ (Horizon Groups):
+1. ระยะสั้น (SEPA / Momentum): เน้นหุ้นที่มี Pocket Pivot (pp=true), Volume Surge (vsurge > 1.5) หรือ Launcher score >= 70
+2. ระยะกลาง (CAN SLIM / VCP / Cup & Handle): เน้นหุ้นที่มีพื้นฐานเติบโตโดดเด่น (eps >= 20% หรือ rev >= 20%), ระดับความแข็งแกร่งของราคา RS >= 80, หรือมีการฟอร์มตัวของราคาแบบ VCP (vcp=true)
+3. ระยะยาว (Turtle / Stage 2 Trend): เน้นการรันเทรนด์บน Weinstein Stage 2 ขาขึ้นหลัก และสัญญาณแนวโน้มที่สอดคล้อง
 
-[ระยะห่างจากจุด Pivot (dist_piv) สำคัญมาก]:
-- dist_piv คือ %% ที่ราคาปัจจุบันห่างจาก Pivot/52W-high (ยิ่งน้อยยิ่งดี)
-- dist_piv <= 5 = ideal (AT pivot ตามหลัก SEPA) เพิ่มอันดับ
-- dist_piv 5-15 = อยู่ใน buy zone ปกติ
-- dist_piv > 20 = Extended เกินไป ลดอันดับ
-- dist_piv > 35 = หลีกเลี่ยง เว้นแต่สัญญาณอื่นแข็งมากๆ
+เกณฑ์การคัดเลือกและวิเคราะห์:
+- พิจารณาและจัดอันดับหุ้นที่ผ่านการบูรณาการทั้ง 3 กลยุทธ์ (โดยเฉพาะหุ้นที่สอดคล้องกันข้ามขอบเวลา เช่น มีคุณสมบัติทั้งระยะสั้นและระยะกลาง/ยาวร่วมกัน)
+- dist_piv คือ %% ที่ราคาปัจจุบันห่างจาก Pivot/52W-high (ยิ่งน้อยยิ่งดี: <= 5%% = AT pivot, <= 15%% = buy zone)
+- RS ยิ่งสูงยิ่งดี, RSI 50-70 กำลังวิ่ง (หลีกเลี่ยง RSI > 75)
 
-[SEPA + Smart Money]:
-- RS >= 65 | RSI 50-65 = เริ่มวิ่ง (ดีที่สุด) หลีกเลี่ยง RSI > 75
-- vcp=true หรือ vdu=true = หุ้นบีบตัวสะสม (รายใหญ่กำลังเก็บ)
-- pp=true (Pocket Pivot) = แรงซื้อชนะแรงขาย = สัญญาณเข้าซื้อ
-- cmf > 0 = เงินสถาบันไหลเข้าสุทธิ | vsurge > 1.2 = volume พุ่งผิดปกติ
-- eps >= 25 และ/หรือ rev >= 25 = กำไรเติบโตตาม SEPA
-
-ข้อมูลหุ้น (s=symbol, rs=RS, rsi, dist_piv=%%จากPivot, vcp, adx, sc=score, cmf, vsurge, pp, vdu, eps=EPSgrowth%%, rev=Revgrowth%%):
+ข้อมูลหุ้น (s=symbol, rs=RS, rsi, dist_piv=%%จากPivot, vcp, adx, sc=score, cmf, vsurge, pp, vdu, eps=EPSgrowth%%, rev=Revgrowth%%, is_short=ระยะสั้น, is_medium=ระยะกลาง, is_long=ระยะยาว, is_canslim=CANSLIM):
 {json.dumps(stocks_data, separators=(',',':'))}
 
-ตอบ JSON เท่านั้น ห้ามมีข้อความอื่น reasoning ภาษาไทย 3-4 ประโยค ระบุ dist_piv, RS, RSI, CMF, สัญญาณที่พบ, EPS/Rev:
-{{"status":"success","market":"{market}","selected_stocks":[{{"rank":1,"symbol":"X","grade":"A","reasoning":"ภาษาไทย 3-4 ประโยค ระบุ dist_piv=X%%, RS=X, RSI=X"}}]}}"""
+ตอบ JSON เท่านั้น ห้ามมีข้อความอื่น reasoning ภาษาไทย 3-4 ประโยค วิเคราะห์ทิศทางและจุดแข็งตามกลยุทธ์ SEPA, CAN SLIM และ/หรือ Turtle พร้อมระบุเกรด:
+{{"status":"success","market":"{market}","selected_stocks":[{{"rank":1,"symbol":"X","grade":"A","reasoning":"ภาษาไทย 3-4 ประโยค วิเคราะห์เชิงกลยุทธ์ของตัวหุ้นให้สอดคล้องกับขอบเวลาและสัญญาณเทคนิคัล/พื้นฐาน"}}]}}"""
 
         def _call_gemini():
             return client.models.generate_content(

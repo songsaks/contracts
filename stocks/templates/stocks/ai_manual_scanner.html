@@ -433,13 +433,40 @@
 
                             <!-- Signal Badges -->
                             <div class="signal-badges">
-                                <span class="sig-badge sig-vcp">✦ Stage 2</span>
-                                <span class="sig-badge sig-cmf">📈 AI Selected</span>
+                                {% if stock.is_short_term %}
+                                    <span class="sig-badge" style="background:rgba(239,68,68,0.15); color:#f87171; border:1px solid rgba(239,68,68,0.25);">⚡ สั้น (SEPA)</span>
+                                {% endif %}
+                                {% if stock.is_medium_term %}
+                                    <span class="sig-badge" style="background:rgba(217,119,6,0.15); color:#fbbf24; border:1px solid rgba(217,119,6,0.25);">📅 กลาง (CAN SLIM)</span>
+                                {% endif %}
+                                {% if stock.is_long_term %}
+                                    <span class="sig-badge" style="background:rgba(59,130,246,0.15); color:#60a5fa; border:1px solid rgba(59,130,246,0.25);">⏳ ยาว (Turtle)</span>
+                                {% endif %}
+                                {% if stock.is_canslim %}
+                                    <span class="sig-badge" style="background:rgba(16,185,129,0.15); color:#34d399; border:1px solid rgba(16,185,129,0.25);">⭐ CAN SLIM</span>
+                                {% endif %}
+                                <span class="sig-badge sig-cmf"><i class="fas fa-robot"></i> AI Picked</span>
+                            </div>
+
+                            <!-- Metrics Grid -->
+                            <div class="metrics-grid">
+                                <div class="metric-cell">
+                                    <div class="metric-label">Score</div>
+                                    <div class="metric-value text-info fw-bold">{{ stock.technical_score|default:"-" }}</div>
+                                </div>
+                                <div class="metric-cell">
+                                    <div class="metric-label">RS Rating</div>
+                                    <div class="metric-value text-success fw-bold">{{ stock.rs_rating|default:"-" }}</div>
+                                </div>
+                                <div class="metric-cell">
+                                    <div class="metric-label">RSI (14)</div>
+                                    <div class="metric-value fw-bold {% if stock.rsi >= 70 %}text-danger{% elif stock.rsi >= 50 %}text-warning{% else %}text-muted{% endif %}">{{ stock.rsi|floatformat:0|default:"-" }}</div>
+                                </div>
                             </div>
 
                             <!-- AI Reasoning -->
                             <div class="reasoning-box">
-                                <div class="reasoning-label"><i class="fas fa-brain me-1"></i>AI Reasoning</div>
+                                <div class="reasoning-label"><i class="fas fa-brain me-1"></i>AI Reasoning & Analysis</div>
                                 {{ stock.reasoning }}
                             </div>
 
@@ -584,7 +611,39 @@
                                         </div>
                                         <div class="grade-pill grade-{{ stock.grade|slice:":1"|lower }}" style="font-size: 0.75rem; padding: 0.2rem 0.6rem;">Grade {{ stock.grade }}</div>
                                     </div>
+                                    <!-- Signal Badges -->
+                                    <div class="signal-badges" style="margin-bottom: 0.5rem;">
+                                        {% if stock.is_short_term %}
+                                            <span class="sig-badge" style="background:rgba(239,68,68,0.15); color:#f87171; border:1px solid rgba(239,68,68,0.25); font-size:0.6rem; padding:1px 4px;">⚡ สั้น (SEPA)</span>
+                                        {% endif %}
+                                        {% if stock.is_medium_term %}
+                                            <span class="sig-badge" style="background:rgba(217,119,6,0.15); color:#fbbf24; border:1px solid rgba(217,119,6,0.25); font-size:0.6rem; padding:1px 4px;">📅 กลาง (CAN SLIM)</span>
+                                        {% endif %}
+                                        {% if stock.is_long_term %}
+                                            <span class="sig-badge" style="background:rgba(59,130,246,0.15); color:#60a5fa; border:1px solid rgba(59,130,246,0.25); font-size:0.6rem; padding:1px 4px;">⏳ ยาว (Turtle)</span>
+                                        {% endif %}
+                                        {% if stock.is_canslim %}
+                                            <span class="sig-badge" style="background:rgba(16,185,129,0.15); color:#34d399; border:1px solid rgba(16,185,129,0.25); font-size:0.6rem; padding:1px 4px;">⭐ CAN SLIM</span>
+                                        {% endif %}
+                                        <span class="sig-badge sig-cmf" style="font-size:0.6rem; padding:1px 4px;"><i class="fas fa-robot"></i> AI Picked</span>
+                                    </div>
+                                    <!-- Metrics Grid -->
+                                    <div class="metrics-grid" style="margin: 0.5rem 0; padding: 0.5rem;">
+                                        <div class="metric-cell">
+                                            <div class="metric-label" style="font-size: 0.55rem;">Score</div>
+                                            <div class="metric-value text-info fw-bold" style="font-size: 0.8rem;">{{ stock.technical_score|default:"-" }}</div>
+                                        </div>
+                                        <div class="metric-cell">
+                                            <div class="metric-label" style="font-size: 0.55rem;">RS Rating</div>
+                                            <div class="metric-value text-success fw-bold" style="font-size: 0.8rem;">{{ stock.rs_rating|default:"-" }}</div>
+                                        </div>
+                                        <div class="metric-cell">
+                                            <div class="metric-label" style="font-size: 0.55rem;">RSI (14)</div>
+                                            <div class="metric-value fw-bold {% if stock.rsi >= 70 %}text-danger{% elif stock.rsi >= 50 %}text-warning{% else %}text-muted{% endif %}" style="font-size: 0.8rem;">{{ stock.rsi|floatformat:0|default:"-" }}</div>
+                                        </div>
+                                    </div>
                                     <div class="reasoning-box" style="margin-top: 0.5rem; font-size: 0.78rem; line-height: 1.5;">
+                                        <div class="reasoning-label" style="font-size: 0.62rem; margin-bottom: 0.2rem;"><i class="fas fa-brain me-1"></i>AI Reasoning & Analysis</div>
                                         {{ stock.reasoning }}
                                     </div>
                                     <div class="card-actions" style="margin-top: 0.75rem;">
