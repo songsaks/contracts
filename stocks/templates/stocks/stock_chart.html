@@ -5,37 +5,79 @@
 
 {% block extra_css %}
 <style>
+  :root {
+    --chart-bg: #ffffff;
+    --chart-bg-gradient: radial-gradient(at 50% 0%, #f8fafc 0%, #f1f5f9 50%, #e2e8f0 100%);
+    --chart-text: #1e293b;
+    --chart-text-muted: #64748b;
+    
+    --card-bg: rgba(255, 255, 255, 0.85);
+    --card-border: rgba(0, 0, 0, 0.08);
+    --card-header-bg: rgba(0, 0, 0, 0.03);
+    
+    --btn-bg: rgba(0, 0, 0, 0.04);
+    --btn-border: rgba(0, 0, 0, 0.08);
+    --btn-text: #64748b;
+    --btn-hover-bg: rgba(0, 0, 0, 0.06);
+    --btn-hover-text: #0f172a;
+    
+    --navbar-bg: rgba(255, 255, 255, 0.85);
+    --navbar-border: rgba(0, 0, 0, 0.06);
+    --navbar-text: #1e293b;
+  }
+
+  [data-theme="dark"] {
+    --chart-bg: #090d16;
+    --chart-bg-gradient: radial-gradient(at 50% 0%, #1e293b 0%, #0f172a 50%, #090d16 100%);
+    --chart-text: #f1f5f9;
+    --chart-text-muted: #94a3b8;
+    
+    --card-bg: rgba(15, 23, 42, 0.55);
+    --card-border: rgba(255, 255, 255, 0.08);
+    --card-header-bg: rgba(15, 23, 42, 0.6);
+    
+    --btn-bg: rgba(255, 255, 255, 0.04);
+    --btn-border: rgba(255, 255, 255, 0.08);
+    --btn-text: #94a3b8;
+    --btn-hover-bg: rgba(255, 255, 255, 0.08);
+    --btn-hover-text: #ffffff;
+    
+    --navbar-bg: rgba(9, 13, 22, 0.85);
+    --navbar-border: rgba(255, 255, 255, 0.06);
+    --navbar-text: #ffffff;
+  }
+
   /* Premium Page-level Dark Theme Overrides */
   body {
-    background-color: #090d16 !important;
-    background-image: radial-gradient(at 50% 0%, #1e293b 0%, #0f172a 50%, #090d16 100%) !important;
-    color: #f1f5f9 !important;
+    background-color: var(--chart-bg) !important;
+    background-image: var(--chart-bg-gradient) !important;
+    color: var(--chart-text) !important;
     font-family: 'Outfit', 'Sarabun', sans-serif;
   }
 
   /* Immersion for base navbar */
   .navbar-stocks {
-    background: rgba(9, 13, 22, 0.85) !important;
+    background: var(--navbar-bg) !important;
     backdrop-filter: blur(20px) !important;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
+    border-bottom: 1px solid var(--navbar-border) !important;
   }
   .navbar-stocks .navbar-brand,
   .navbar-stocks .navbar-brand span {
-    color: #ffffff !important;
+    color: var(--navbar-text) !important;
     text-shadow: 0 0 10px rgba(96, 165, 250, 0.3);
   }
   .navbar-stocks .navbar-brand .text-muted {
-    color: #64748b !important;
+    color: var(--chart-text-muted) !important;
   }
   .navbar-stocks .nav-link {
-    color: #94a3b8 !important;
+    color: var(--chart-text-muted) !important;
     border-radius: 12px;
     padding: 0.5rem 1rem !important;
     transition: all 0.25s ease;
   }
   .navbar-stocks .nav-link:hover {
-    color: #ffffff !important;
-    background: rgba(255, 255, 255, 0.05) !important;
+    color: var(--navbar-text) !important;
+    background: rgba(128, 128, 128, 0.08) !important;
   }
   .navbar-stocks .nav-link.active {
     color: #3b82f6 !important;
@@ -43,13 +85,16 @@
     box-shadow: 0 0 12px rgba(59, 130, 246, 0.15);
   }
   .navbar-stocks .dropdown-menu {
-    background: rgba(15, 23, 42, 0.95) !important;
+    background: var(--card-bg) !important;
     backdrop-filter: blur(20px) !important;
-    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    border: 1px solid var(--card-border) !important;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.15) !important;
+  }
+  [data-theme="dark"] .navbar-stocks .dropdown-menu {
     box-shadow: 0 10px 30px rgba(0,0,0,0.5) !important;
   }
   .navbar-stocks .dropdown-item {
-    color: #cbd5e1 !important;
+    color: var(--chart-text) !important;
   }
   .navbar-stocks .dropdown-item:hover,
   .navbar-stocks .dropdown-item.active {
@@ -57,38 +102,41 @@
     color: #60a5fa !important;
   }
   .navbar-stocks .dropdown-divider {
-    border-color: rgba(255, 255, 255, 0.08) !important;
+    border-color: var(--card-border) !important;
   }
   .navbar-stocks .navbar-toggler i {
-    color: #ffffff !important;
+    color: var(--navbar-text) !important;
   }
   
   /* Home button styling */
   .home-btn {
-    background: rgba(255, 255, 255, 0.04) !important;
-    border: 1px solid rgba(255, 255, 255, 0.08) !important;
-    color: #94a3b8 !important;
+    background: var(--btn-bg) !important;
+    border: 1px solid var(--btn-border) !important;
+    color: var(--btn-text) !important;
   }
   .home-btn:hover {
-    background: rgba(255, 255, 255, 0.1) !important;
-    color: #ffffff !important;
-    box-shadow: 0 0 10px rgba(255, 255, 255, 0.15);
+    background: var(--btn-hover-bg) !important;
+    color: var(--btn-hover-text) !important;
+    box-shadow: 0 0 10px rgba(128, 128, 128, 0.15);
   }
 
   /* Main Container */
   .stock-chart-dark-theme {
     background: transparent;
-    color: #f1f5f9;
+    color: var(--chart-text);
   }
 
   /* Glassmorphic Chart Header */
   .chart-header {
-    background: rgba(15, 23, 42, 0.55);
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
     backdrop-filter: blur(20px);
-    color: #ffffff;
+    color: var(--chart-text);
     border-radius: 16px;
     padding: 1rem 1.25rem;
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.1);
+  }
+  [data-theme="dark"] .chart-header {
     box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
   }
   .chart-header h4 {
@@ -98,9 +146,9 @@
 
   /* Glowing Period Buttons */
   .period-btn {
-    background: rgba(255, 255, 255, 0.04);
-    color: #94a3b8;
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: var(--btn-bg);
+    color: var(--btn-text);
+    border: 1px solid var(--btn-border);
     border-radius: 8px;
     padding: 5px 12px;
     font-size: 0.8rem;
@@ -109,9 +157,9 @@
     transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   }
   .period-btn:hover {
-    background: rgba(255, 255, 255, 0.08);
-    color: #ffffff;
-    border-color: rgba(255, 255, 255, 0.15);
+    background: var(--btn-hover-bg);
+    color: var(--btn-hover-text);
+    border-color: var(--btn-border);
   }
   .period-btn.active {
     background: #3b82f6;
@@ -121,7 +169,6 @@
     transform: translateY(-1px);
   }
 
-
   /* Legend Dot & HUD */
   .legend-dot {
     display: inline-block;
@@ -130,14 +177,14 @@
     margin-right: 6px;
   }
   #crosshair-info {
-    background: rgba(15, 23, 42, 0.45);
-    border: 1px solid rgba(255, 255, 255, 0.05);
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
     backdrop-filter: blur(12px);
     border-radius: 14px;
     padding: 12px 24px;
     margin-bottom: 1.25rem;
     font-size: 0.82rem;
-    color: #94a3b8;
+    color: var(--chart-text-muted);
     display: flex;
     flex-wrap: wrap;
     gap: 18px;
@@ -151,9 +198,9 @@
 
   /* Custom Search Controls */
   .symbol-input-wrap input {
-    background: rgba(255, 255, 255, 0.05) !important;
-    border: 1px solid rgba(255, 255, 255, 0.1) !important;
-    color: #ffffff !important;
+    background: var(--btn-bg) !important;
+    border: 1px solid var(--btn-border) !important;
+    color: var(--chart-text) !important;
     border-radius: 10px;
     padding: 8px 16px;
     font-weight: 700;
@@ -167,9 +214,9 @@
     outline: none;
   }
   .market-select-custom {
-    background: rgba(255, 255, 255, 0.05) !important;
-    color: #ffffff !important;
-    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    background: var(--btn-bg) !important;
+    color: var(--chart-text) !important;
+    border: 1px solid var(--btn-border) !important;
     border-radius: 10px;
     padding: 8px 12px;
     font-weight: 600;
@@ -182,14 +229,14 @@
     outline: none;
   }
   .market-select-custom option {
-    background: #0f172a;
-    color: #ffffff;
+    background: var(--chart-bg);
+    color: var(--chart-text);
   }
 
   /* Interactive Pill Buttons for Indicators */
   .indicator-panel {
-    background: rgba(15, 23, 42, 0.25);
-    border: 1px solid rgba(255, 255, 255, 0.04);
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
     backdrop-filter: blur(12px);
     border-radius: 10px;
     padding: 8px 16px;
@@ -204,7 +251,7 @@
   .indicator-section-title {
     font-size: 0.72rem;
     font-weight: 700;
-    color: #64748b;
+    color: var(--chart-text-muted);
     text-transform: uppercase;
     letter-spacing: 0.05em;
     display: inline-flex;
@@ -214,13 +261,13 @@
   .indicator-divider {
     width: 1px;
     height: 14px;
-    background: rgba(255, 255, 255, 0.08);
+    background: var(--card-border);
     margin: 0 6px;
   }
   .indicator-pill {
-    background: rgba(255, 255, 255, 0.02);
-    border: 1px solid rgba(255, 255, 255, 0.06);
-    color: #64748b;
+    background: var(--btn-bg);
+    border: 1px solid var(--btn-border);
+    color: var(--btn-text);
     border-radius: 6px;
     padding: 4px 10px;
     font-size: 0.72rem;
@@ -233,9 +280,9 @@
     user-select: none;
   }
   .indicator-pill:hover {
-    background: rgba(255, 255, 255, 0.05);
-    color: #94a3b8;
-    border-color: rgba(255, 255, 255, 0.1);
+    background: var(--btn-hover-bg);
+    color: var(--btn-hover-text);
+    border-color: var(--btn-border);
   }
   .indicator-pill input[type="checkbox"] {
     appearance: none;
@@ -243,7 +290,7 @@
     width: 6px;
     height: 6px;
     border-radius: 50%;
-    background: #475569;
+    background: var(--btn-text);
     margin: 0;
     transition: all 0.2s;
   }
@@ -259,8 +306,8 @@
   
   /* Smart Candle Special Indicator Glow */
   .indicator-pill-special {
-    background: rgba(255, 255, 255, 0.02);
-    border: 1px solid rgba(255, 255, 255, 0.06);
+    background: var(--btn-bg);
+    border: 1px solid var(--btn-border);
   }
   .indicator-pill-special:has(input:checked) {
     background: rgba(236, 72, 153, 0.08);
@@ -274,16 +321,19 @@
 
   /* Tactical Dashboard Cards */
   .tactical-card {
-    background: rgba(15, 23, 42, 0.5) !important;
-    border: 1px solid rgba(255, 255, 255, 0.06) !important;
+    background: var(--card-bg) !important;
+    border: 1px solid var(--card-border) !important;
     backdrop-filter: blur(20px);
     border-radius: 18px !important;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     overflow: hidden;
-    color: #f1f5f9;
+    color: var(--chart-text);
   }
   .tactical-card:hover {
     transform: translateY(-3px);
+    box-shadow: 0 15px 30px rgba(0, 0, 0, 0.15);
+  }
+  [data-theme="dark"] .tactical-card:hover {
     box-shadow: 0 15px 30px rgba(0, 0, 0, 0.45);
   }
   .tactical-card-volatility {
@@ -308,9 +358,9 @@
     border-left-color: #f87171 !important;
   }
   #tac-capital-input {
-    background: rgba(255, 255, 255, 0.06) !important;
-    color: #ffffff !important;
-    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    background: var(--btn-bg) !important;
+    color: var(--chart-text) !important;
+    border: 1px solid var(--btn-border) !important;
     border-radius: 8px;
     padding: 3px 10px;
     font-weight: 700;
@@ -324,12 +374,15 @@
 
   /* Chart Containers & HUD Labels */
   .chart-panel-wrapper {
-    background: rgba(9, 13, 22, 0.45);
-    border: 1px solid rgba(255, 255, 255, 0.06);
+    background: var(--chart-bg);
+    border: 1px solid var(--card-border);
     border-radius: 20px;
     margin-bottom: 1.5rem;
     overflow: hidden;
     position: relative;
+    box-shadow: 0 12px 36px rgba(0, 0, 0, 0.08);
+  }
+  [data-theme="dark"] .chart-panel-wrapper {
     box-shadow: 0 12px 36px rgba(0, 0, 0, 0.35);
   }
   .panel-label {
@@ -338,13 +391,13 @@
     left: 18px;
     font-size: 0.72rem;
     font-weight: 800;
-    color: #64748b;
+    color: var(--chart-text-muted);
     z-index: 10;
     pointer-events: none;
-    background: rgba(9, 13, 22, 0.8);
+    background: var(--chart-bg);
     padding: 3px 10px;
     border-radius: 6px;
-    border: 1px solid rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--card-border);
     letter-spacing: 0.07em;
     text-transform: uppercase;
   }
@@ -358,15 +411,15 @@
     display: flex;
     flex-direction: column;
     gap: 8px;
-    background: rgba(15, 23, 42, 0.7);
+    background: var(--card-bg);
     backdrop-filter: blur(8px);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    border: 1px solid var(--card-border);
     border-radius: 8px;
     padding: 6px;
   }
   .drawing-btn {
     background: transparent;
-    color: #94a3b8;
+    color: var(--chart-text-muted);
     border: none;
     border-radius: 6px;
     width: 32px; height: 32px;
@@ -375,8 +428,8 @@
     transition: all 0.2s;
   }
   .drawing-btn:hover {
-    background: rgba(255, 255, 255, 0.1);
-    color: #ffffff;
+    background: var(--btn-hover-bg);
+    color: var(--btn-hover-text);
   }
   .drawing-btn.active {
     background: rgba(59, 130, 246, 0.2);
@@ -391,38 +444,41 @@
 
   /* Sleek Signal Table Widget */
   .signal-card {
-    background: rgba(15, 23, 42, 0.45) !important;
-    border: 1px solid rgba(255, 255, 255, 0.06) !important;
+    background: var(--card-bg) !important;
+    border: 1px solid var(--card-border) !important;
     border-radius: 20px !important;
     overflow: hidden;
+    box-shadow: 0 12px 36px rgba(0, 0, 0, 0.08);
+  }
+  [data-theme="dark"] .signal-card {
     box-shadow: 0 12px 36px rgba(0, 0, 0, 0.3);
   }
   .signal-card .card-header {
-    background: rgba(15, 23, 42, 0.6) !important;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
-    color: #ffffff !important;
+    background: var(--card-header-bg) !important;
+    border-bottom: 1px solid var(--card-border) !important;
+    color: var(--chart-text) !important;
     font-weight: 700;
     padding: 16px 24px;
     font-size: 0.98rem;
   }
   .signal-table {
     background: transparent !important;
-    color: #cbd5e1 !important;
+    color: var(--chart-text) !important;
   }
   .signal-table thead th {
-    background: rgba(9, 13, 22, 0.5) !important;
-    color: #94a3b8 !important;
+    background: var(--card-header-bg) !important;
+    color: var(--chart-text-muted) !important;
     font-weight: 600;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+    border-bottom: 1px solid var(--card-border) !important;
     padding: 12px 20px !important;
     font-size: 0.85rem;
   }
   .signal-table tbody tr {
-    border-bottom: 1px solid rgba(255, 255, 255, 0.04) !important;
+    border-bottom: 1px solid var(--card-border) !important;
     transition: all 0.2s ease;
   }
   .signal-table tbody tr:hover {
-    background: rgba(255, 255, 255, 0.02) !important;
+    background: var(--btn-hover-bg) !important;
   }
   .signal-table tbody td {
     padding: 12px 20px !important;
@@ -432,20 +488,20 @@
 
   /* Enhance readability of labels/muted text in the tactical cards on dark theme */
   .tactical-card .text-muted {
-    color: #cbd5e1 !important;
+    color: var(--chart-text-muted) !important;
     opacity: 0.85;
   }
 
   /* Fullscreen Styles */
   #chart-fullscreen-wrapper:-webkit-full-screen {
     width: 100% !important; height: 100% !important;
-    background: #090d16 !important;
+    background: var(--chart-bg) !important;
     padding: 20px !important;
     overflow-y: auto !important;
   }
   #chart-fullscreen-wrapper:fullscreen {
     width: 100% !important; height: 100% !important;
-    background: #090d16 !important;
+    background: var(--chart-bg) !important;
     padding: 20px !important;
     overflow-y: auto !important;
   }
@@ -481,7 +537,7 @@
       <button class="period-btn" id="tf-1wk" onclick="changeInterval('1wk')">1W</button>
       <button class="period-btn" id="tf-1mo" onclick="changeInterval('1mo')">1M</button>
       
-      <div class="vr mx-1 opacity-20 text-white" id="timeframe-divider"></div>
+      <div class="vr mx-1 opacity-20" id="timeframe-divider" style="background-color: var(--card-border);"></div>
       
       <!-- Period Buttons (Only relevant for Daily timeframe) -->
       <button class="period-btn" id="p-3mo" onclick="loadPeriod('3mo')">3M</button>
@@ -489,7 +545,7 @@
       <button class="period-btn active" id="p-1y" onclick="loadPeriod('1y')">1Y</button>
       <button class="period-btn" id="p-2y" onclick="loadPeriod('2y')">2Y</button>
       
-      <div class="vr mx-1 opacity-20 text-white"></div>
+      <div class="vr mx-1 opacity-20" style="background-color: var(--card-border);"></div>
       <button class="btn btn-sm rounded-pill px-3 fw-bold" onclick="analyzeChartWithAI()" id="btn-ai-analyze" style="background: linear-gradient(135deg, #a855f7 0%, #ec4899 100%); color: #fff; border: none; box-shadow: 0 0 10px rgba(236,72,153,0.5);" title="AI วิเคราะห์กราฟ">
         <i class="fas fa-robot"></i> AI
       </button>
@@ -684,12 +740,12 @@
   <!-- AI Analysis Modal -->
   <div class="modal fade" id="aiChartModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-lg">
-      <div class="modal-content" style="background: rgba(15, 23, 42, 0.95); border: 1px solid rgba(236,72,153,0.3); backdrop-filter: blur(20px); color: #f1f5f9;">
+      <div class="modal-content" style="background: var(--card-bg); border: 1px solid var(--card-border); backdrop-filter: blur(20px); color: var(--chart-text);">
         <div class="modal-header border-bottom-0 pb-0">
           <h5 class="modal-title fw-bold" style="background: linear-gradient(135deg, #a855f7, #ec4899); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
             <i class="fas fa-robot text-pink-400"></i> AI Chart Analysis
           </h5>
-          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
         <div class="modal-body">
           <div id="ai-loading" class="text-center py-5">
@@ -787,29 +843,37 @@ function mkChart(elId, height) {
   const el = document.getElementById(elId);
   const w = el.clientWidth || el.offsetWidth || el.parentElement.clientWidth || 800;
   console.log(`Creating chart in ${elId} with width: ${w}`);
+  
+  const isDark = (document.documentElement.getAttribute('data-theme') || 'dark') === 'dark';
+  const bgColor = isDark ? '#090d16' : '#ffffff';
+  const textColor = isDark ? '#94a3b8' : '#334155';
+  const gridColor = isDark ? 'rgba(255, 255, 255, 0.03)' : 'rgba(0, 0, 0, 0.05)';
+  const crosshairColor = isDark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.2)';
+  const borderColor = isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.1)';
+
   return LightweightCharts.createChart(el, {
     width: w, height,
     layout: { 
-      backgroundColor: '#090d16', 
-      textColor: '#94a3b8',
+      backgroundColor: bgColor, 
+      textColor: textColor,
       fontSize: 11,
       fontFamily: "'Outfit', 'Sarabun', sans-serif"
     },
     grid: { 
-      vertLines: { color: 'rgba(255, 255, 255, 0.03)' }, 
-      horzLines: { color: 'rgba(255, 255, 255, 0.03)' } 
+      vertLines: { color: gridColor }, 
+      horzLines: { color: gridColor } 
     },
     crosshair: { 
       mode: 1,
       vertLine: {
-        color: 'rgba(255, 255, 255, 0.15)',
+        color: crosshairColor,
         width: 1,
         style: 1, // Dotted
         visible: true,
         labelVisible: true,
       },
       horzLine: {
-        color: 'rgba(255, 255, 255, 0.15)',
+        color: crosshairColor,
         width: 1,
         style: 1, // Dotted
         visible: true,
@@ -817,10 +881,10 @@ function mkChart(elId, height) {
       }
     },
     rightPriceScale: { 
-      borderColor: 'rgba(255, 255, 255, 0.08)' 
+      borderColor: borderColor 
     },
     timeScale: { 
-      borderColor: 'rgba(255, 255, 255, 0.08)', 
+      borderColor: borderColor, 
       timeVisible: true, 
       secondsVisible: false 
     },
@@ -1502,6 +1566,40 @@ function analyzeChartWithAI(forceRefresh = false) {
         contentDiv.innerHTML = `<div class="alert alert-danger">Error: ${err}</div>`;
     });
 }
+
+// MutationObserver to detect theme changes and update chart styles dynamically
+const themeObserver = new MutationObserver((mutations) => {
+  mutations.forEach((mutation) => {
+    if (mutation.attributeName === 'data-theme') {
+      const isDark = (document.documentElement.getAttribute('data-theme') || 'dark') === 'dark';
+      const bgColor = isDark ? '#090d16' : '#ffffff';
+      const textColor = isDark ? '#94a3b8' : '#334155';
+      const gridColor = isDark ? 'rgba(255, 255, 255, 0.03)' : 'rgba(0, 0, 0, 0.05)';
+      const crosshairColor = isDark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.2)';
+      const borderColor = isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.1)';
+
+      const applyThemeToChart = (chart) => {
+        if (!chart) return;
+        chart.applyOptions({
+          layout: { backgroundColor: bgColor, textColor: textColor },
+          grid: {
+            vertLines: { color: gridColor },
+            horzLines: { color: gridColor }
+          },
+          crosshair: {
+            vertLine: { color: crosshairColor },
+            horzLine: { color: crosshairColor }
+          },
+          rightPriceScale: { borderColor: borderColor },
+          timeScale: { borderColor: borderColor }
+        });
+      };
+
+      [mainChart, macdChart, rsiChart, stochChart, volChart].forEach(applyThemeToChart);
+    }
+  });
+});
+themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
 
 window.addEventListener('load', () => loadData(currentSymbol, currentMarket, currentPeriod));
 </script>
