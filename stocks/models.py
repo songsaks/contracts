@@ -414,6 +414,66 @@ class PrecisionScanCandidate(models.Model):
             self.ehlers_supersmoother
         )
 
+    @property
+    def is_canslim(self):
+        # CAN SLIM Core Criteria:
+        # C: Current Earnings (EPS/Rev growth >= 20%)
+        # L: Leader (Relative Strength rating >= 80)
+        # I: Institutional support (CMF >= 0.1 or Pocket Pivot)
+        # M: Market direction (Stage 2 Uptrend)
+        return (
+            self.stage2 and 
+            self.rs_rating >= 80 and 
+            (self.eps_growth >= 20.0 or self.rev_growth >= 20.0) and 
+            ((self.cmf is not None and self.cmf >= 0.1) or self.pocket_pivot)
+        )
+
+    @property
+    def canslim_reasons(self):
+        reasons = []
+        # C - Current Earnings
+        if self.eps_growth >= 20.0 or self.rev_growth >= 20.0:
+            reasons.append(f"C: ผ่าน (EPS {self.eps_growth:+.1f}%, Rev {self.rev_growth:+.1f}%)")
+        else:
+            reasons.append(f"C: ไม่ผ่าน (EPS {self.eps_growth:+.1f}%, Rev {self.rev_growth:+.1f}%)")
+            
+        # N - New price high
+        if self.is_52w_breakout:
+            reasons.append("N: ผ่าน (เบรคไฮ 52w)")
+        elif self.zone_proximity <= 10.0:
+            reasons.append(f"N: ผ่าน (ใกล้จุดซื้อ ห่าง {self.zone_proximity:.1f}%)")
+        else:
+            reasons.append("N: ยังไม่เบรคไฮ")
+            
+        # S - Supply & Demand (Volume)
+        if self.is_volume_surge:
+            reasons.append(f"S: ผ่าน (วอลุ่มพุ่ง {self.volume_surge:.1f}x)")
+        else:
+            reasons.append(f"S: วอลุ่มปกติ ({self.volume_surge:.1f}x)")
+            
+        # L - Leader
+        if self.rs_rating >= 80:
+            reasons.append(f"L: ผ่าน (หุ้นผู้นำ RS {self.rs_rating})")
+        else:
+            reasons.append(f"L: ไม่ผ่าน (หุ้นล้าหลัง RS {self.rs_rating})")
+            
+        # I - Institutional support
+        if self.cmf is not None and self.cmf >= 0.1:
+            reasons.append(f"I: ผ่าน (รายใหญ่ช้อน CMF {self.cmf:.2f})")
+        elif self.pocket_pivot:
+            reasons.append("I: ผ่าน (เกิด Pocket Pivot)")
+        else:
+            reasons.append("I: ไม่มีสะสมเด่น")
+            
+        # M - Market Direction
+        if self.stage2:
+            reasons.append("M: ผ่าน (ขาขึ้น Stage 2)")
+        else:
+            reasons.append("M: ไม่ผ่าน (ไม่ใช่ Stage 2)")
+            
+        return " | ".join(reasons)
+
+
 
 
 # ====== ScanWatchlistItem — ติดตามหุ้นจาก Precision Scanner ======

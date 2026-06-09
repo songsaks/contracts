@@ -922,6 +922,11 @@
                     <label class="form-check-label small fw-semibold filter-label-ccet" for="ccetFilterSET" style="cursor:pointer;">🔥 CCET Setup</label>
                     <span style="font-size:0.85rem; color:#94a3b8; cursor:pointer;" title="CCET Setup: EMA Align (20 > 50 > 200) + Volume Dry-up (RVol <= 0.6) + Near Breakout (Turtle Dist <= 10%) + RS Rating >= 80 + CMF >= -0.10 + R:R >= 1.5"><i class="fas fa-question-circle"></i></span>
                 </div>
+                <!-- CAN SLIM Filter -->
+                <div class="form-check form-switch mb-0 d-flex align-items-center gap-2">
+                    <input class="form-check-input" type="checkbox" id="canslimFilterSET" onchange="_applyFiltersSET()" style="cursor:pointer;">
+                    <label class="form-check-label small fw-semibold" for="canslimFilterSET" style="cursor:pointer; color:#d97706;">⭐ CAN SLIM เท่านั้น</label>
+                </div>
                 <select id="sectorFilterSET" onchange="_applyFiltersSET()" class="form-select form-select-sm rounded-pill" style="width:auto;font-size:0.72rem;cursor:pointer;">
                     <option value="">All Sectors</option>
                     {% for item in candidates %}<option value="{{ item.sector }}">{{ item.sector }}</option>{% endfor %}
@@ -1039,6 +1044,7 @@
     data-itl="{{ item.ehlers_itl_bullish|yesno:'true,false' }}"
     data-rvol="{{ item.rvol|default:0 }}"
     data-ema-aligned="{{ item.ema20_aligned|yesno:'true,false' }}"
+    data-canslim="{{ item.is_canslim|yesno:'true,false' }}"
     id="row-{{ item.symbol }}">
                             <!-- SYMBOL -->
                             <td class="ps-2">
@@ -1087,6 +1093,9 @@
                                         {% endif %}
                                         {% if item.ehlers_itl_bullish %}
                                         <span class="badge px-1 py-0" style="background:#15803d;color:white;font-size:0.55rem;" title="Ehlers ITL MTF Bullish: Price > Daily ITL ({{ item.ehlers_itl_daily|floatformat:2 }}) > Weekly ITL ({{ item.ehlers_itl_weekly|floatformat:2 }})">📈 ITL</span>
+                                        {% if item.is_canslim %}
+                                        <span class="badge text-dark ms-1" style="font-size:0.55rem; background: linear-gradient(135deg, #f59e0b, #d97706); border:none;" title="{{ item.canslim_reasons }}">CAN SLIM 🌟</span>
+                                        {% endif %}
                                         {% endif %}
                                     </div>
                                 </div>
@@ -2595,6 +2604,7 @@ function _applyFiltersSET() {
     var launcherOn = document.getElementById('launcherFilterSET') && document.getElementById('launcherFilterSET').checked;
     var itlOn      = document.getElementById('itlFilterSET')     && document.getElementById('itlFilterSET').checked;
     var ccetOn     = document.getElementById('ccetFilterSET')    && document.getElementById('ccetFilterSET').checked;
+    var canslimOn  = document.getElementById('canslimFilterSET')   && document.getElementById('canslimFilterSET').checked;
     var secEl  = document.getElementById('sectorFilterSET');
     var secVal = secEl ? secEl.value : '';
     var visible = 0;
@@ -2610,6 +2620,7 @@ function _applyFiltersSET() {
         var vcp  = row.dataset.vcp       === 'true';
         var launcher = parseInt(row.dataset.launcher || '0');
         var itl  = row.dataset.itl       === 'true';
+        var canslim = row.dataset.canslim === 'true';
         var rvol = parseFloat(row.dataset.rvol || '0');
         var emaAligned = row.dataset.emaAligned === 'true';
         var turtleDist = parseFloat(row.dataset.turtleDist || '99.0');
@@ -2630,7 +2641,8 @@ function _applyFiltersSET() {
                    (!launcherOn || launcher >= 70) &&
                    (!ichiOn || ichi >= 3) &&
                    (!itlOn || itl) &&
-                   (!ccetOn || isCcet);
+                   (!ccetOn || isCcet) &&
+                   (!canslimOn || canslim);
         row.style.display = show ? '' : 'none';
         if (show) visible++;
     });
