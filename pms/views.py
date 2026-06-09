@@ -855,6 +855,31 @@ def customer_list(request):
         )
     return render(request, 'pms/customer_list.html', {'customers': customers, 'q': q})
 
+
+@login_required
+def customer_autocomplete(request):
+    """AJAX endpoint: ค้นหาลูกค้าแบบ autocomplete (คืน JSON)"""
+    from django.db.models import Q
+    from django.http import JsonResponse
+    q = request.GET.get('q', '').strip()
+    results = []
+    if len(q) >= 1:
+        qs = Customer.objects.select_related('sla_plan').filter(
+            Q(name__icontains=q) |
+            Q(phone__icontains=q) |
+            Q(email__icontains=q) |
+            Q(address__icontains=q)
+        ).order_by('name')[:10]
+        for c in qs:
+            results.append({
+                'id':    c.pk,
+                'name':  c.name,
+                'phone': c.phone or '',
+                'email': c.email or '',
+            })
+    return JsonResponse({'results': results})
+
+
 # เพิ่มข้อมูลลูกค้าใหม่ (Create Customer)
 @login_required
 def customer_create(request):

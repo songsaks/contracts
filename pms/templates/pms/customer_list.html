@@ -14,27 +14,34 @@
             </a>
         </div>
 
-        <!-- ช่องค้นหาลูกค้า (Search Bar) -->
-        <form method="get" class="mb-3">
-            <div class="input-group">
+        <!-- ช่องค้นหาลูกค้า (Autocomplete Search Bar) -->
+        <form method="get" class="mb-3 position-relative" id="customer-search-form" autocomplete="off">
+            <div class="input-group position-relative">
                 <span class="input-group-text bg-white border-end-0">
-                    <i class="fas fa-search text-muted"></i>
+                    <i class="fas fa-search text-muted" id="search-icon"></i>
+                    <span id="search-spinner" class="spinner-border spinner-border-sm text-primary d-none" role="status"></span>
                 </span>
                 <input
                     type="text"
                     name="q"
+                    id="customer-search-input"
                     value="{{ q }}"
                     class="form-control border-start-0 ps-0"
                     placeholder="ค้นหาลูกค้า (ชื่อ, เบอร์โทร, อีเมล, ที่อยู่)..."
                     autofocus
                 >
                 {% if q %}
-                <a href="{% url 'pms:customer_list' %}" class="btn btn-outline-secondary" title="ล้างค้นหา">
+                <a href="{% url 'pms:customer_list' %}" class="btn btn-outline-secondary" title="ล้างค้นหา" id="clear-btn">
                     <i class="fas fa-times"></i>
                 </a>
                 {% endif %}
                 <button type="submit" class="btn btn-primary">ค้นหา</button>
             </div>
+            <!-- Autocomplete Dropdown -->
+            <ul id="autocomplete-dropdown"
+                class="list-group shadow position-absolute w-100 d-none"
+                style="z-index: 1050; top: 100%; left: 0; max-height: 320px; overflow-y: auto; border-radius: 0 0 8px 8px;">
+            </ul>
         </form>
         {% if q %}
         <div class="mb-2 text-muted small">
@@ -42,6 +49,97 @@
             ผลการค้นหา "<strong>{{ q }}</strong>" — พบ {{ customers|length }} รายการ
         </div>
         {% endif %}
+
+        <script>
+        (function () {
+            const input      = document.getElementById('customer-search-input');
+            const dropdown   = document.getElementById('autocomplete-dropdown');
+            const icon       = document.getElementById('search-icon');
+            const spinner    = document.getElementById('search-spinner');
+            const AUTOCOMPLETE_URL = "{% url 'pms:customer_autocomplete' %}";
+            let debounceTimer = null;
+            let currentFocus  = -1;
+
+            function showSpinner(on) {
+                icon.classList.toggle('d-none', on);
+                spinner.classList.toggle('d-none', !on);
+            }
+
+            function renderDropdown(results) {
+                dropdown.innerHTML = '';
+                if (!results.length) {
+                    dropdown.classList.add('d-none');
+                    return;
+                }
+                results.forEach((c, idx) => {
+                    const li = document.createElement('li');
+                    li.className = 'list-group-item list-group-item-action px-3 py-2';
+                    li.style.cursor = 'pointer';
+                    li.dataset.idx = idx;
+                    li.innerHTML = `
+                        <div class="d-flex align-items-center gap-2">
+                            <div class="rounded-circle bg-primary bg-opacity-10 text-primary flex-shrink-0 d-flex align-items-center justify-content-center fw-bold"
+                                 style="width:32px;height:32px;font-size:0.85rem;">
+                                ${c.name.charAt(0).toUpperCase()}
+                            </div>
+                            <div style="min-width:0;">
+                                <div class="fw-semibold text-dark" style="font-size:0.9rem;">${escapeHtml(c.name)}</div>
+                                <div class="text-muted" style="font-size:0.75rem;">
+                                    ${c.phone ? `<i class="fas fa-phone me-1"></i>${escapeHtml(c.phone)}` : ''}
+                                    ${c.email ? `<span class="ms-2"><i class="fas fa-envelope me-1"></i>${escapeHtml(c.email)}</span>` : ''}
+                                </div>
+                            </div>
+                        </div>`;
+                    li.addEventListener('mousedown', () => {
+                        input.value = c.name;
+                        dropdown.classList.add('d-none');
+                        document.getElementById('customer-search-form').submit();
+                    });
+                    dropdown.appendChild(li);
+                });
+                dropdown.classList.remove('d-none');
+                currentFocus = -1;
+            }
+
+            function escapeHtml(t) {
+                return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+            }
+
+            function highlightItem(idx) {
+                const items = dropdown.querySelectorAll('li');
+                items.forEach(el => el.classList.remove('active'));
+                if (idx >= 0 && idx < items.length) {
+                    items[idx].classList.add('active');
+                    items[idx].scrollIntoView({block: 'nearest'});
+                }
+            }
+
+            input.addEventListener('input', function () {
+                clearTimeout(debounceTimer);
+                const q = this.value.trim();
+                if (!q) { dropdown.classList.add('d-none'); return; }
+                debounceTimer = setTimeout(() => {
+                    showSpinner(true);
+                    fetch(`${AUTOCOMPLETE_URL}?q=${encodeURIComponent(q)}`)
+                        .then(r => r.json())
+                        .then(data => { showSpinner(false); renderDropdown(data.results); })
+                        .catch(() => { showSpinner(false); dropdown.classList.add('d-none'); });
+                }, 250);
+            });
+
+            input.addEventListener('keydown', function (e) {
+                const items = dropdown.querySelectorAll('li');
+                if (e.key === 'ArrowDown')  { e.preventDefault(); currentFocus = Math.min(currentFocus + 1, items.length - 1); highlightItem(currentFocus); }
+                else if (e.key === 'ArrowUp') { e.preventDefault(); currentFocus = Math.max(currentFocus - 1, 0); highlightItem(currentFocus); }
+                else if (e.key === 'Enter' && currentFocus >= 0) { e.preventDefault(); items[currentFocus].dispatchEvent(new Event('mousedown')); }
+                else if (e.key === 'Escape') { dropdown.classList.add('d-none'); }
+            });
+
+            document.addEventListener('click', (e) => {
+                if (!e.target.closest('#customer-search-form')) dropdown.classList.add('d-none');
+            });
+        })();
+        </script>
 
         <!-- ตารางแสดงรายชื่อลูกค้าสำหรับหน้าจอคอมพิวเตอร์ (Desktop Customer Table) -->
         <div class="card shadow-sm d-none d-md-block">
