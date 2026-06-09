@@ -326,6 +326,16 @@
     .crewai-inline h1, .crewai-inline h2, .crewai-inline h3 { font-size: .9rem; color: var(--card-text); margin-top: .5rem; }
     .crewai-inline ul { padding-left: 1.25rem; }
 
+    .btn-toggle-inline {
+        background: rgba(99,102,241,.12); color: #4f46e5;
+        border: 1px solid rgba(99,102,241,.25); border-radius: 9px;
+        padding: .45rem .9rem; font-size: .8rem; font-weight: 700;
+        transition: all .2s; cursor: pointer; text-decoration: none;
+    }
+    [data-theme="dark"] .btn-toggle-inline { color: #818cf8; border-color: rgba(99,102,241,.3); background: rgba(99,102,241,.15); }
+    .btn-toggle-inline:hover { background: rgba(99,102,241,.2); }
+    [data-theme="dark"] .btn-toggle-inline:hover { color: #a5b4fc; background: rgba(99,102,241,.3); }
+
     /* ───── Loading & Error States ───── */
     .loading-overlay {
         background: rgba(255, 255, 255, 0.95); border: 1px solid rgba(0, 0, 0, 0.08);
@@ -618,6 +628,9 @@
                                 <a href="/stocks/chart/{{ stock.symbol }}/?market={{ stock.market }}" target="_blank" class="btn-chart">
                                     <i class="fas fa-chart-line me-1"></i>Chart
                                 </a>
+                                <button class="btn-toggle-inline d-none" id="btn-toggle-{{ stock.symbol }}" onclick="toggleInlineAnalysis('{{ stock.symbol }}')">
+                                    <i class="fas fa-eye me-1"></i>ดูบทวิเคราะห์
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -949,7 +962,12 @@ document.addEventListener('DOMContentLoaded', () => {
             const div = document.getElementById('crewai-inline-' + sym);
             if (div) {
                 div.innerHTML = marked.parse(cachedData[sym]);
-                div.classList.remove('d-none');
+                // Keep collapsed by default, but show the toggle button
+                const toggleBtn = document.getElementById('btn-toggle-' + sym);
+                if (toggleBtn) {
+                    toggleBtn.classList.remove('d-none');
+                    toggleBtn.innerHTML = '<i class="fas fa-eye me-1"></i>ดูบทวิเคราะห์';
+                }
             }
         }
     } catch(e) { console.warn('CrewAI cache parse error', e); }
@@ -1160,6 +1178,9 @@ function renderCards(stocks, market) {
                     <a href="${chartUrl}" target="_blank" class="btn-chart">
                         <i class="fas fa-chart-line me-1"></i>Chart
                     </a>
+                    <button class="btn-toggle-inline d-none" id="btn-toggle-${stock.symbol}" onclick="toggleInlineAnalysis('${stock.symbol}')">
+                        <i class="fas fa-eye me-1"></i>ดูบทวิเคราะห์
+                    </button>
                 </div>
             </div>
         </div>`;
@@ -1269,6 +1290,12 @@ function performToggle(btn, payload, callback) {
         // Also render inline
         const inlineDiv = document.getElementById('crewai-inline-' + _sym);
         if(inlineDiv) { inlineDiv.innerHTML = parsed; inlineDiv.classList.remove('d-none'); }
+        // Show toggle button and set to 'hide' state since it is now expanded
+        const toggleBtn = document.getElementById('btn-toggle-' + _sym);
+        if(toggleBtn) {
+            toggleBtn.classList.remove('d-none');
+            toggleBtn.innerHTML = '<i class="fas fa-eye-slash me-1"></i>ซ่อนบทวิเคราะห์';
+        }
     }
 
     function _showError(msg) {
@@ -1283,5 +1310,19 @@ function performToggle(btn, payload, callback) {
         });
     });
 })();
+
+function toggleInlineAnalysis(symbol) {
+    const inlineDiv = document.getElementById('crewai-inline-' + symbol);
+    const btn = document.getElementById('btn-toggle-' + symbol);
+    if (inlineDiv && btn) {
+        if (inlineDiv.classList.contains('d-none')) {
+            inlineDiv.classList.remove('d-none');
+            btn.innerHTML = '<i class="fas fa-eye-slash me-1"></i>ซ่อนบทวิเคราะห์';
+        } else {
+            inlineDiv.classList.add('d-none');
+            btn.innerHTML = '<i class="fas fa-eye me-1"></i>ดูบทวิเคราะห์';
+        }
+    }
+}
 </script>
 {% endblock %}
