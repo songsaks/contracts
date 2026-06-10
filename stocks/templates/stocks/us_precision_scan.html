@@ -952,6 +952,9 @@
                                     </div>
                                     <div>
                                         <span class="fw-bold">{{ item.symbol }}</span>
+                                        {% if item.rvol >= 1.5 and item.turtle_dist_pct <= 0.5 %}
+                                        <span class="badge px-1 py-0" style="background:#dc2626;color:white;font-size:0.55rem;border:1px solid #b91c1c;animation: pulse 2s infinite;" title="Breakout Alert! Volume เข้าพร้อมราคาทะลุแนวต้าน">🔥 BUY NOW</span>
+                                        {% endif %}
                                         {% if item.is_new_entry %}
                                         <span class="badge px-1 py-0" style="background:#7c3aed;font-size:0.55rem;">NEW</span>
                                         {% endif %}
@@ -1338,7 +1341,9 @@
                             <td class="small" style="font-size:0.65rem;line-height:1.2;min-width:150px;background:rgba(248,250,252,0.5);">
                                 {% if item.technical_score >= 70 %}
                                     <div class="fw-bold mb-1">
-                                        {% if item.demand_zone_start and item.price <= item.demand_zone_start and item.price >= item.demand_zone_end %}
+                                        {% if item.rvol >= 1.5 and item.turtle_dist_pct <= 0.5 %}
+                                            <span class="text-danger"><i class="fas fa-rocket"></i> ทะลุแนวต้าน! (Breakout Buy)</span>
+                                        {% elif item.demand_zone_start and item.price <= item.demand_zone_start and item.price >= item.demand_zone_end %}
                                             <span class="text-success"><i class="fas fa-fire"></i> ถึงจุดยิง! (Buy Zone)</span>
                                         {% elif item.supply_zone_start and item.price >= item.supply_zone_start %}
                                             <span class="text-danger"><i class="fas fa-money-bill-wave"></i> ถึงจุดขาย (Take Profit)</span>
