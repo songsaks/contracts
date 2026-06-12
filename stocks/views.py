@@ -4657,6 +4657,20 @@ def scan_watchlist_view(request):
     latest_map = {c.symbol: c for c in PrecisionScanCandidate.objects.filter(user=request.user, market=market, scan_run=latest_run)} if latest_run else {}
     prev_map   = {c.symbol: c for c in PrecisionScanCandidate.objects.filter(user=request.user, market=market, scan_run=prev_run)}   if prev_run   else {}
 
+    # ดึง Markov Regime ครั้งเดียวนอกลูป - DatabaseCache get = 1 DB query ไม่ควรทำซ้ำต่อ item
+    from django.core.cache import cache as _regime_cache
+
+    from .utils import calculate_markov_regime
+
+    _regime_key = 'markov_regime_set' if market == 'SET' else 'markov_regime_us'
+    markov_regime = _regime_cache.get(_regime_key)
+    if not markov_regime:
+        index_symbol = '^SET.BK' if market == 'SET' else '^GSPC'
+        markov_regime = calculate_markov_regime(index_symbol, window=60)
+        _regime_cache.set(_regime_key, markov_regime, 1800) # 30 min cache
+    m_state = markov_regime.get('state', 'UNKNOWN')
+    m_prob = markov_regime.get('prob', 0) / 100.0
+
     enriched = []
     for item in items:
         latest = latest_map.get(item.symbol)
@@ -4683,22 +4697,8 @@ def scan_watchlist_view(request):
             # Attach dynamically so template and properties access work cleanly
             latest.buy_score = buy_score
             latest.sell_score = sell_score
-            
-            # 2. Get Markov Regime and calculate Win Probability
-            from django.core.cache import cache as _regime_cache
 
-            from .utils import calculate_markov_regime
-            
-            _regime_key = 'markov_regime_set' if market == 'SET' else 'markov_regime_us'
-            markov_regime = _regime_cache.get(_regime_key)
-            if not markov_regime:
-                index_symbol = '^SET.BK' if market == 'SET' else '^GSPC'
-                markov_regime = calculate_markov_regime(index_symbol, window=60)
-                _regime_cache.set(_regime_key, markov_regime, 1800) # 30 min cache
-                
-            m_state = markov_regime.get('state', 'UNKNOWN')
-            m_prob = markov_regime.get('prob', 0) / 100.0
-            
+            # 2. Calculate Win Probability (markov regime ดึงไว้แล้วนอกลูป)
             score = 35.0
             rs_val = getattr(latest, 'rs_rating', 0) or 0
             score += (rs_val / 99.0) * 25.0
@@ -4935,13 +4935,6 @@ def precision_momentum_scanner(request):
     7. เก็บประวัติ scan 3 รอบล่าสุด
     8. is_new_entry flag (หุ้นใหม่ vs ยังอยู่จากรอบก่อน)
     """
-    from django.utils import timezone as tz
-    from yahooquery import Ticker as YQTicker
-    from .utils import analyze_momentum_technical_v2, get_top_ranked_symbols
-
-    # โหลด symbols เบื้องต้นแบบรวดเร็ว (ดึงจาก Cache/DB เดิม) สำหรับใช้ใน context ของ GET request
-    scan_symbols = get_top_ranked_symbols(market='SET', limit=400, auto_refresh=False)
-
     # ====== AJAX Status Poll ======
     if request.GET.get('scan_status') == '1':
         from django.core.cache import cache as _cp
@@ -4951,6 +4944,12 @@ def precision_momentum_scanner(request):
         if _st.get('state') == 'done':
             _cp.delete(_key)
         return _JR(_st)
+    from django.utils import timezone as tz
+    from yahooquery import Ticker as YQTicker
+    from .utils import analyze_momentum_technical_v2, get_top_ranked_symbols
+
+    # โหลด symbols เบื้องต้นแบบรวดเร็ว (ดึงจาก Cache/DB เดิม) สำหรับใช้ใน context ของ GET request
+    scan_symbols = get_top_ranked_symbols(market='SET', limit=400, auto_refresh=False)
 
     if request.method == "POST" and request.POST.get('action') == 'scan':
         import threading
@@ -4964,19 +4963,16 @@ def precision_momentum_scanner(request):
         raw_next = request.POST.get('next_url')
         next_url = 'stocks:minervini_sepa_scanner' if raw_next == 'sepa' else 'stocks:precision_momentum_scanner'
 
-        _cur = _cache_bg.get(cache_key, {})
-        if _cur.get('state') == 'running':
-            return redirect(next_url)
+        # cache.add() เป็น atomic lock - กัน double-submit เปิด background thread ซ้อนกัน
+        _init_status = {'state': 'running', 'progress': 0, 'total': 0, 'phase': 'เตรียมข้อมูล…'}
+        if not _cache_bg.add(cache_key, _init_status, timeout=900):
+            _cur = _cache_bg.get(cache_key) or {}
+            if _cur.get('state') == 'running':
+                return redirect(next_url)
+            # key ค้างจากรอบก่อน (done/idle) - เขียนทับแล้วสแกนต่อ
+            _cache_bg.set(cache_key, _init_status, timeout=900)
 
-        # โหลด symbols สำหรับสแกนเฉพาะใน POST block ป้องกัน UnboundLocalError และเพิ่มความเร็ว GET
-        scan_symbols = get_top_ranked_symbols(market='SET', limit=400, auto_refresh=True)
-        if not scan_symbols:
-            refresh_all_thai_symbols()
-            scan_symbols = get_top_ranked_symbols(market='SET', limit=400, auto_refresh=True)
-
-        _cache_bg.set(cache_key, {'state': 'running', 'progress': 0, 'total': 0, 'phase': 'เตรียมข้อมูล…'}, timeout=900)
-
-        def _run_precision_bg(uid, ckey, sym_list):
+        def _run_precision_bg(uid, ckey):
             try:
                 import django
                 django.setup()
@@ -4994,8 +4990,14 @@ def precision_momentum_scanner(request):
 
                 from .models import PrecisionScanCandidate
 
-                from .utils import analyze_momentum_technical_v2, get_top_ranked_symbols as _GTRS
+                from .utils import analyze_momentum_technical_v2, get_top_ranked_symbols as _GTRS, refresh_all_thai_symbols as _RATS
                 sym_list = _GTRS(market='SET', limit=400, auto_refresh=True)
+                if not sym_list:
+                    try:
+                        _RATS()
+                    except Exception:
+                        pass
+                    sym_list = _GTRS(market='SET', limit=400, auto_refresh=True)
 
 
                 User = get_user_model()
@@ -5005,12 +5007,6 @@ def precision_momentum_scanner(request):
                 # ====== Pin Scan Date ======
                 _bkk_tz = _pytz.timezone('Asia/Bangkok')
                 _now_bkk = _dt.now(_bkk_tz)
-                _t = _now_bkk.time()
-                _market_open = (
-                    _now_bkk.weekday() < 5 and
-                    (_dtime(10, 0) <= _t <= _dtime(12, 30) or
-                     _dtime(12, 30) < _t <= _dtime(16, 30))
-                )
                 # yfinance download end= is exclusive. To include today's data, use tomorrow.
                 scan_end_date  = _now_bkk.date() + _td(days=1)
                 scan_end_str   = scan_end_date.strftime('%Y-%m-%d')
@@ -5459,6 +5455,10 @@ def precision_momentum_scanner(request):
                             'is_52w_breakout': tech.get('is_52w_breakout', False),
                             'volume_surge': tech.get('volume_surge', 1.0),
                             'is_volume_surge': tech.get('is_volume_surge', False),
+                            'ichimoku_above_kumo': ichimoku_above_kumo,
+                            'ichimoku_tk_cross': ichimoku_tk_cross,
+                            'ichimoku_kumo_green': ichimoku_kumo_green,
+                            'ichimoku_chikou_ok': ichimoku_chikou_ok,
                             'ichimoku_score': ichimoku_score_val,
                             # ====== VCP Detection ======
                             'vcp': detect_vcp_pattern(df),
@@ -5503,7 +5503,7 @@ def precision_momentum_scanner(request):
                     if 'rs_rating' not in scan_df.columns:
                         scan_df['rs_rating'] = 0
 
-                    _cache.set(ckey, {'state': 'running', 'progress': done_count, 'total': len(sym_list), 'phase': 'ดึงข้อมูล Fundamental…'}, timeout=900)
+                    _cache.set(ckey, {'state': 'running', 'progress': 95, 'total': 100, 'phase': 'ดึงข้อมูล Fundamental…'}, timeout=900)
 
                     # ====== Bulk Fundamental Enrichment ======
                     matched_symbols = [r['symbol'] for r in results]
@@ -5637,17 +5637,13 @@ def precision_momentum_scanner(request):
         # เปิด background thread แล้ว return ทันที
         _t = threading.Thread(
             target=_run_precision_bg,
-            args=(user_id, cache_key, scan_symbols),
+            args=(user_id, cache_key),
             daemon=True
         )
         _t.start()
-        
-        # Redirect กลับหน้าที่ส่งมา (เช่น SEPA)
-        next_url = request.POST.get('next_url')
-        if next_url == 'sepa':
-            return redirect('stocks:minervini_sepa_scanner')
-            
-        return redirect('stocks:precision_momentum_scanner')
+
+        # Redirect กลับหน้าที่ส่งมา (เช่น SEPA) - next_url resolve ไว้แล้วด้านบน
+        return redirect(next_url)
 
     # ====== จัดเรียงผลลัพธ์ ======
     sort_by = request.GET.get('sort', 'score')
@@ -5710,41 +5706,33 @@ def precision_momentum_scanner(request):
         )
         live_prices = {}
         live_mcaps  = {}
-        live_zones  = {}   # fresh zones - keyed by symbol
         if candidates:
             try:
-                import concurrent.futures as _lcf
-                from datetime import time as _ltime2
-                from datetime import timedelta as _ltd
-                # end date เหมือน entry_finder
-                _prec_market_open = (
-                    _lnow.weekday() < 5 and
-                    (
-                        _lt < _ltime2(10, 0) or
-                        (_ltime2(10, 0) <= _lt <= _ltime2(12, 30)) or
-                        (_ltime2(12, 30) < _lt < _ltime2(14, 30)) or
-                        (_ltime2(14, 30) <= _lt <= _ltime2(16, 30))
-                    )
-                )
-                _prec_end_date  = (_lnow.date() - _ltd(days=1)) if _prec_market_open else _lnow.date()
-                _prec_end_str   = _prec_end_date.strftime('%Y-%m-%d')
-                _prec_start_str = (_prec_end_date - _ltd(days=400)).strftime('%Y-%m-%d')
-
-                def _get_live(sym):
-                    try:
-                        full_sym = f"{sym}.BK"
-                        # Use fast_info for quick price/mcap without downloading full history
-                        fi = yf.Ticker(full_sym).fast_info
-                        p  = getattr(fi, 'last_price', None)
-                        mc = getattr(fi, 'market_cap', None)
-                        return sym, (float(p) if p else None), (round(float(mc)/1e9, 2) if mc else None), None
-                    except Exception:
-                        return sym, None, None, None
-                with _lcf.ThreadPoolExecutor(max_workers=6) as _lex:
-                    for _sym, _p, _mc, _fz in _lex.map(_get_live, [c.symbol for c in candidates]):
-                        if _p:  live_prices[_sym] = _p
-                        if _mc: live_mcaps[_sym]  = _mc
-                        if _fz: live_zones[_sym]  = _fz
+                # แคชผล fetch ไว้ - กันยิง yfinance เท่าจำนวนหุ้นทุกครั้งที่ refresh หน้า
+                # ตลาดเปิด: 60s (ราคาขยับ), ตลาดปิด: 10 นาที (ราคา close ไม่เปลี่ยน)
+                from django.core.cache import cache as _lp_cache
+                _lp_key = f'precision_live_set_{request.user.id}_{run_idx}'
+                _lp_cached = _lp_cache.get(_lp_key)
+                if _lp_cached:
+                    live_prices, live_mcaps = _lp_cached
+                else:
+                    import concurrent.futures as _lcf
+                    def _get_live(sym):
+                        try:
+                            full_sym = f"{sym}.BK"
+                            # Use fast_info for quick price/mcap without downloading full history
+                            fi = yf.Ticker(full_sym).fast_info
+                            p  = getattr(fi, 'last_price', None)
+                            mc = getattr(fi, 'market_cap', None)
+                            return sym, (float(p) if p else None), (round(float(mc)/1e9, 2) if mc else None)
+                        except Exception:
+                            return sym, None, None
+                    with _lcf.ThreadPoolExecutor(max_workers=6) as _lex:
+                        for _sym, _p, _mc in _lex.map(_get_live, [c.symbol for c in candidates]):
+                            if _p:  live_prices[_sym] = _p
+                            if _mc: live_mcaps[_sym]  = _mc
+                    if live_prices:
+                        _lp_cache.set(_lp_key, (live_prices, live_mcaps), 60 if _lmarket_open else 600)
             except Exception:
                 pass
 
@@ -5753,14 +5741,6 @@ def precision_momentum_scanner(request):
             c.live_price      = lp
             c.live_market_cap = live_mcaps.get(c.symbol)
             c.is_live         = _lmarket_open and lp is not None
-
-            # อัปเดต zone ด้วย fresh data ถ้ามี
-            fz = live_zones.get(c.symbol)
-            if fz:
-                c.demand_zone_start = fz.get('start') or c.demand_zone_start
-                c.demand_zone_end   = fz.get('end')   or c.demand_zone_end
-                c.supply_zone_start = fz.get('target') or c.supply_zone_start
-                c.stop_loss         = fz.get('stop_loss') or c.stop_loss
 
             ref_price = lp if lp else float(c.price or 0)
             dz_top = float(c.demand_zone_start or 0)
@@ -5796,6 +5776,9 @@ def precision_momentum_scanner(request):
             c.buy_score  = sigs['buy_score']
             c.sell_score = sigs['sell_score']
             c.exit_signal = sigs['exit_signal']
+            c.reversal_score = sigs['reversal_score']
+            c.reversal_alert = sigs['reversal_alert']
+            c.reversal_color = sigs['reversal_color']
 
         # ====== BUY Score Delta เทียบกับรอบก่อนหน้า ======
         prev_buy_scores = {}
@@ -5841,7 +5824,11 @@ def precision_momentum_scanner(request):
             if m_state == 'TRENDING': score += 10.0 * (0.5 + 0.5 * m_prob)
             elif m_state == 'CHOPPY': score += 4.0
             elif m_state == 'UNKNOWN' and m_prob == 0: score += 5.0
-            prox = getattr(c, 'live_zone_prox', getattr(c, 'zone_proximity', 99))
+            prox = getattr(c, 'live_zone_prox', None)
+            if prox is None:
+                prox = getattr(c, 'zone_proximity', 99.0)
+            if prox is None:
+                prox = 99.0
             if prox > 15 and prox < 100: score -= 10.0
             elif prox > 10 and prox < 100: score -= 5.0
             c.win_probability = round(max(min(score, 98.2), 30.0), 1)
@@ -6033,7 +6020,7 @@ def precision_momentum_scanner(request):
                 })
 
         # หาหุ้นเพิ่งเริ่มกลับตัว (MACD crossover)
-        reversal_stocks = [c for c in top5_buy if any('MACD' in str(r) for r in (c.top_reasons or []))]
+        reversal_stocks = [c for c in top5_buy if getattr(c, 'macd_crossover', False)]
         if reversal_stocks and len(scan_insights) < 3:
             rev = reversal_stocks[0]
             skip = False
@@ -6062,23 +6049,31 @@ def precision_momentum_scanner(request):
         scan_insights = []
 
     # ====== Market Condition - ดึงข้อมูล SET Index สำหรับแสดงผล (GET + POST) ======
-    market_condition = {'phase': 'UNKNOWN', 'label': 'ไม่มีข้อมูล', 'color': 'secondary', 'score': 0}
-    try:
-        from datetime import datetime as _mcdt
-        from datetime import timedelta as _mctd
+    from django.core.cache import cache as _mcache
+    market_condition_key = 'market_condition_set'
+    market_condition = _mcache.get(market_condition_key)
+    if not market_condition:
+        market_condition = {'phase': 'UNKNOWN', 'label': 'ไม่มีข้อมูล', 'color': 'secondary', 'score': 0}
+        try:
+            from datetime import datetime as _mcdt
+            from datetime import timedelta as _mctd
 
-        import pytz as _mcpytz
-        _mc_bkk   = _mcpytz.timezone('Asia/Bangkok')
-        _mc_now   = _mcdt.now(_mc_bkk)
-        _mc_end   = _mc_now.date().strftime('%Y-%m-%d')
-        _mc_start = (_mc_now.date() - _mctd(days=430)).strftime('%Y-%m-%d')
-        _mc_df = yf.download("^SET.BK", start=_mc_start, end=_mc_end, interval="1d", progress=False)
-        if _mc_df is not None and not _mc_df.empty:
-            if isinstance(_mc_df.columns, pd.MultiIndex):
-                _mc_df.columns = _mc_df.columns.droplevel(1)
-            market_condition = _get_market_condition(_mc_df)
-    except Exception:
-        pass
+            import pytz as _mcpytz
+            _mc_bkk   = _mcpytz.timezone('Asia/Bangkok')
+            _mc_now   = _mcdt.now(_mc_bkk)
+            _mc_end   = _mc_now.date().strftime('%Y-%m-%d')
+            _mc_start = (_mc_now.date() - _mctd(days=430)).strftime('%Y-%m-%d')
+            _mc_df = yf.download("^SET.BK", start=_mc_start, end=_mc_end, interval="1d", progress=False)
+            if _mc_df is not None and not _mc_df.empty:
+                if isinstance(_mc_df.columns, pd.MultiIndex):
+                    _mc_df.columns = _mc_df.columns.droplevel(1)
+                market_condition = _get_market_condition(_mc_df)
+                _mcache.set(market_condition_key, market_condition, 1800) # 30 min cache
+        except Exception:
+            pass
+        if market_condition.get('phase') == 'UNKNOWN':
+            # ดึงไม่สำเร็จ - cache ค่า default สั้นๆ กัน yf.download 430 วันซ้ำทุก request
+            _mcache.set(market_condition_key, market_condition, 300)
 
     context = {
         'title': 'Precision Momentum Scanner - กรองคุณภาพ',
@@ -6147,7 +6142,7 @@ def precision_momentum_scanner(request):
         "total_passed": len(candidates),
         "top_sectors": [{"name": s["name"], "count": s["count"]} for s in top_sectors],
     }
-    context['ai_scan_json'] = _scan_json.dumps(_ai_data, ensure_ascii=False, default=str)
+    context['ai_scan_json'] = _scan_json.dumps(_ai_data, ensure_ascii=False, default=str).replace('</script>', '<\\/script>')
 
     # Fetch latest Cup & Handle and Turtle breakout symbols for horizon classification
     from .models import CupHandleCandidate, TurtleScanCandidate
@@ -7270,11 +7265,15 @@ def _get_precision_scan_data(user, market='SET'):
     if not latest_run:
         return None
 
-    candidates = PrecisionScanCandidate.objects.filter(user=user, market=market, scan_run=latest_run)
-    
+    candidates = list(PrecisionScanCandidate.objects.filter(user=user, market=market, scan_run=latest_run))
+
+    # คำนวณ buy_score ด้วย _compute_signals ตัวเดียวกับหน้า Scanner เพื่อให้ตัวเลขในรายงานตรงกัน
+    for c in candidates:
+        c.buy_score = _compute_signals(c)['buy_score']
+
     # Fully Qualified (Technical Score >= 65)
     qualified = [c for c in candidates if c.technical_score >= 65]
-    top_buy = sorted(candidates, key=lambda x: x.technical_score, reverse=True)[:5]
+    top_buy = sorted(candidates, key=lambda x: x.buy_score, reverse=True)[:5]
     
     # Sector analysis
     from collections import Counter
@@ -7285,7 +7284,7 @@ def _get_precision_scan_data(user, market='SET'):
         return {
             "symbol": c.symbol,
             "price": float(c.price),
-            "buy_score": c.technical_score,
+            "buy_score": c.buy_score,
             "rs_rating": c.rs_rating or 0,
             "rsi": float(c.rsi or 0),
             "adx": float(c.adx or 0),
@@ -7364,9 +7363,10 @@ def precision_scan_ai_analysis(request):
     def _fmt_stock(s):
         lines = [
             "  - {sym}: ราคา {price} | BUY {buy} | RS {rs}".format(
-                sym=s["symbol"], price=s["price"], buy=s["buy_score"], rs=s["rs_rating"]),
+                sym=s.get("symbol", "?"), price=s.get("price", "-"),
+                buy=s.get("buy_score", 0), rs=s.get("rs_rating", 0)),
             "    RSI {rsi} | ADX {adx} | RVOL {rvol}x {dir} | RR 1:{rr}".format(
-                rsi=s["rsi"], adx=s["adx"], rvol=s["rvol"],
+                rsi=s.get("rsi", "-"), adx=s.get("adx", "-"), rvol=s.get("rvol", "-"),
                 dir="Bull ▲" if s.get("rvol_bullish") else "Bear ▼",
                 rr=s.get("risk_reward_ratio", "-")),
             "    Zone {z}% | {sec} | RelMom3m {rm}%".format(
@@ -8965,6 +8965,9 @@ def us_precision_scanner(request):
             
             sigs = _compute_signals(c)
             c.buy_score = sigs['buy_score']; c.sell_score = sigs['sell_score']; c.exit_signal = sigs['exit_signal']
+            c.reversal_score = sigs['reversal_score']
+            c.reversal_alert = sigs['reversal_alert']
+            c.reversal_color = sigs['reversal_color']
 
             # Reasons logic
             reasons = []
@@ -9024,7 +9027,7 @@ def us_precision_scanner(request):
         "top_buy_stocks": [_ser_c_us(c) for c in top5_buy],
         "total_passed": len(candidates),
         "top_sectors": top_sectors,
-    }, ensure_ascii=False, default=str)
+    }, ensure_ascii=False, default=str).replace('</script>', '<\\/script>')
 
     # Fetch latest Cup & Handle and Turtle breakout symbols for US
     from .models import CupHandleCandidate, TurtleScanCandidate
@@ -12021,7 +12024,7 @@ def refresh_market_caps_view(request):
         messages.info(request, "ข้อมูลอันดับ Market Cap ของวันนี้อัปเดตเรียบร้อยแล้วครับ สแกนต่อได้ทันที!")
     else:
         count = refresh_market_caps()
-        messages.success(request, f"สำเร็จ! อัปเดตข้อมูล Market Cap หุ้นไทยแล้ว {count} ตัว ระบบพร้อมจัดอันดับ Top 200 เพื่อสแกนแล้วครับ")
+        messages.success(request, f"สำเร็จ! อัปเดตข้อมูล Market Cap หุ้นไทยแล้ว {count} ตัว ระบบพร้อมจัดอันดับเพื่อสแกนแล้วครับ")
     
     next_url = request.GET.get('next') or 'stocks:momentum_scanner'
     return redirect(next_url)

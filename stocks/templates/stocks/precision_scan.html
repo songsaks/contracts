@@ -46,7 +46,7 @@
         </a>
         <a href="{% url 'stocks:refresh_market_caps' %}?next={{ request.path }}" class="btn btn-outline-warning d-inline-flex align-items-center gap-2" 
            style="background: linear-gradient(135deg, #fbbf24, #d97706); color: white; border: none; font-size:0.85rem;">
-            <i class="fas fa-list-ol"></i> อัปเดตอันดับ (Top 300)
+            <i class="fas fa-list-ol"></i> อัปเดตอันดับ Market Cap
         </a>
         <form method="post" id="precisionScanForm" style="display:inline;">
             {% csrf_token %}
@@ -54,12 +54,12 @@
             {% if has_scanned %}
             <button type="button" onclick="confirmRescanPrecision()" class="btn btn-premium d-inline-flex align-items-center gap-2"
                     style="background: linear-gradient(135deg, #7c3aed, #4f46e5);">
-                <i class="fas fa-crosshairs"></i> Precision Scan ใหม่ (Top 300)
+                <i class="fas fa-crosshairs"></i> Precision Scan ใหม่ (Top 400)
             </button>
             {% else %}
             <button type="submit" class="btn btn-premium d-inline-flex align-items-center gap-2"
                     style="background: linear-gradient(135deg, #7c3aed, #4f46e5);">
-                <i class="fas fa-crosshairs"></i> Precision Scan (Top 300)
+                <i class="fas fa-crosshairs"></i> Precision Scan (Top 400)
             </button>
             {% endif %}
         </form>
@@ -1087,7 +1087,6 @@
     data-vol-surge="{{ item.volume_surge|default:0 }}"
     data-pattern="{{ item.price_pattern|default:'' }}"
     data-pattern-score="{{ item.price_pattern_score|default:0 }}"
-    data-vcp-vdu="{{ item.vcp_vdu|yesno:'true,false' }}"
     data-launcher="{{ item.launcher_score|default:0 }}"
     data-turtle-dist="{{ item.turtle_dist_pct|default:99 }}"
     style="{% if item.is_explosive %}background:rgba(124,58,237,0.03);{% endif %}"
@@ -1265,6 +1264,15 @@
                                 <div><span class="badge px-1 mt-1" style="background:rgba(220,38,38,0.15);color:#dc2626;border:1px solid #dc2626;font-size:0.5rem;">⚠️</span></div>
                                 {% elif item.exit_signal == 'WATCH' %}
                                 <div><span class="badge px-1 mt-1" style="background:rgba(245,158,11,0.15);color:#b45309;border:1px solid #f59e0b;font-size:0.5rem;">👁</span></div>
+                                {% endif %}
+                                {% if item.reversal_score and item.reversal_score >= 2 %}
+                                <div>
+                                    <span class="badge px-1 mt-1 {% if item.reversal_score >= 4 %}bg-danger text-white{% elif item.reversal_score == 3 %}bg-warning text-dark{% else %}bg-light text-dark border{% endif %}" 
+                                          style="font-size:0.52rem;" 
+                                          title="Reversal Score: {{ item.reversal_score }}/5 (สัญญาณกลับตัว/พักฐาน)">
+                                        {% if item.reversal_score >= 4 %}🔴 Dist{% elif item.reversal_score == 3 %}⚠️ Rev{% else %}🟡 Caut{% endif %} {{ item.reversal_score }}/5
+                                    </span>
+                                </div>
                                 {% endif %}
                                 <div class="val-hint">แรงขาย</div>
                             </td>
@@ -2809,17 +2817,18 @@ function _applyFiltersSET() {
                        (!ccetOn || isCcet) &&
                        (!canslimOn || canslim);
 
+            // Gather all symbols passing the checkbox filters for the Summary Cards
+            if (show) {
+                if (isShort) shortTermSyms.push(symbol);
+                if (isMedium) mediumTermSyms.push(symbol);
+                if (isLong) longTermSyms.push(symbol);
+            }
+
             // Apply Horizon Filter Tab
             if (show) {
                 if (currentHorizonFilterSET === 'short' && !isShort) show = false;
                 if (currentHorizonFilterSET === 'medium' && !isMedium) show = false;
                 if (currentHorizonFilterSET === 'long' && !isLong) show = false;
-            }
-
-            if (show) {
-                if (isShort) shortTermSyms.push(symbol);
-                if (isMedium) mediumTermSyms.push(symbol);
-                if (isLong) longTermSyms.push(symbol);
             }
 
             row.style.display = show ? '' : 'none';
@@ -3017,7 +3026,7 @@ function exportScanCSV(tableId, filename) {
         var cols = row.querySelectorAll('th, td');
         var data = [];
         cols.forEach(function(col) {
-            var text = (col.innerText || '').replace(/\n/g,' ').replace(/,/g,';').trim();
+            var text = (col.innerText || '').replace(/\n/g,' ').replace(/"/g, '""').trim();
             data.push('"' + text + '"');
         });
         csv.push(data.join(','));
