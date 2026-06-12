@@ -8455,11 +8455,14 @@ def us_precision_scanner(request):
         user_id = request.user.id
         cache_key = f'us_precision_scan_{user_id}'
 
-        _cur = _cache_bg.get(cache_key, {})
-        if _cur.get('state') == 'running':
-            return redirect('stocks:us_precision_scanner')
-
-        _cache_bg.set(cache_key, {'state': 'running', 'progress': 0, 'total': 0, 'phase': 'เตรียมข้อมูล…'}, timeout=1200)
+        # cache.add() เป็น atomic lock - กัน double-submit เปิด background thread ซ้อนกัน
+        _init_status = {'state': 'running', 'progress': 0, 'total': 0, 'phase': 'เตรียมข้อมูล…'}
+        if not _cache_bg.add(cache_key, _init_status, timeout=1200):
+            _cur = _cache_bg.get(cache_key) or {}
+            if _cur.get('state') == 'running':
+                return redirect('stocks:us_precision_scanner')
+            # key ค้างจากรอบก่อน (done/idle) - เขียนทับแล้วสแกนต่อ
+            _cache_bg.set(cache_key, _init_status, timeout=1200)
 
         def _run_us_scan_bg(uid, ckey, sym_list):
             try:
@@ -8946,15 +8949,25 @@ def us_precision_scanner(request):
         lp_map = {}
         if candidates:
             try:
-                import concurrent.futures as lcf
-                def _glp(s):
-                    try: 
-                        fi = yf.Ticker(s).fast_info
-                        return s, float(fi.last_price) if fi.last_price else None
-                    except: return s, None
-                with lcf.ThreadPoolExecutor(max_workers=10) as lex:
-                    for s, p in lex.map(_glp, [c.symbol for c in candidates]):
-                        if p: lp_map[s] = p
+                # แคชผล fetch ไว้ - กันยิง yfinance เท่าจำนวนหุ้นทุกครั้งที่ refresh หน้า
+                # ตลาดเปิด: 60s (ราคาขยับ), ตลาดปิด: 10 นาที (ราคา close ไม่เปลี่ยน)
+                from django.core.cache import cache as _lp_cache
+                _lp_key = f'precision_live_us_{request.user.id}_{run_idx}'
+                _lp_cached = _lp_cache.get(_lp_key)
+                if _lp_cached:
+                    lp_map = _lp_cached
+                else:
+                    import concurrent.futures as lcf
+                    def _glp(s):
+                        try:
+                            fi = yf.Ticker(s).fast_info
+                            return s, float(fi.last_price) if fi.last_price else None
+                        except: return s, None
+                    with lcf.ThreadPoolExecutor(max_workers=10) as lex:
+                        for s, p in lex.map(_glp, [c.symbol for c in candidates]):
+                            if p: lp_map[s] = p
+                    if lp_map:
+                        _lp_cache.set(_lp_key, lp_map, 60 if _lmarket_open else 600)
             except: pass
         
         for c in candidates:
@@ -9082,9 +9095,10 @@ def us_precision_scan_ai_analysis(request):
     def _fmt_stock(s):
         lines = [
             "  - {sym}: Price ${price} | BUY {buy} | RS {rs}".format(
-                sym=s["symbol"], price=s["price"], buy=s["buy_score"], rs=s["rs_rating"]),
+                sym=s.get("symbol", "?"), price=s.get("price", "-"),
+                buy=s.get("buy_score", 0), rs=s.get("rs_rating", 0)),
             "    RSI {rsi} | ADX {adx} | RVOL {rvol}x {dir} | RR 1:{rr}".format(
-                rsi=s["rsi"], adx=s["adx"], rvol=s["rvol"],
+                rsi=s.get("rsi", "-"), adx=s.get("adx", "-"), rvol=s.get("rvol", "-"),
                 dir="Bull ▲" if s.get("rvol_bullish") else "Bear ▼",
                 rr=s.get("risk_reward_ratio", "-")),
             "    Zone {z}% | {sec} | RelMom3m vs SPY {rm}%".format(
