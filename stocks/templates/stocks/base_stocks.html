@@ -582,6 +582,15 @@
                                 </a>
                             </li>
                             <li>
+                                <a class="dropdown-item rounded-3 py-2 {% if request.resolver_match.url_name == 'daily_agent_reports' %}active{% endif %}"
+                                   href="{% url 'stocks:daily_agent_reports' %}">
+                                    <i class="fas fa-robot me-1 text-primary"></i> AI Daily Reports
+                                    {% if unread_reports_count > 0 %}
+                                    <span class="badge bg-danger rounded-pill float-end" style="font-size:0.65rem;margin-top:2px;">{{ unread_reports_count }}</span>
+                                    {% endif %}
+                                </a>
+                            </li>
+                            <li>
                                 <a class="dropdown-item rounded-3 py-2 {% if request.resolver_match.url_name == 'stock_chart' %}active{% endif %}"
                                    href="{% url 'stocks:stock_chart' 'SET' %}?market=SET">
                                     <i class="fas fa-chart-area me-1" style="color:#2563eb;"></i> Market Chart (กราฟเทคนิค)

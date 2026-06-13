@@ -1,0 +1,277 @@
+{% extends 'stocks/base_stocks.html' %}
+{% load humanize %}
+
+{% block title %}AI Daily Agent Reports — 9Com{% endblock %}
+
+{% block content %}
+{% include 'stocks/includes/dark_mode_scanner.html' %}
+
+<div class="container-fluid px-2 px-md-4 py-4" style="max-width:1200px;">
+
+    <!-- ── LOADING OVERLAY ─────────────────────────────────────── -->
+    <div id="loadingOverlay" style="display:{% if is_generating %}flex{% else %}none{% endif %};
+         position:fixed;inset:0;background:rgba(15,23,42,0.92);z-index:9999;
+         flex-direction:column;align-items:center;justify-content:center;gap:1.2rem;">
+        <div style="width:64px;height:64px;border-radius:50%;border:6px solid rgba(59,130,246,0.2);
+                    border-top-color:#3b82f6;animation:spin 1s linear infinite;"></div>
+        <div style="color:white;font-size:1.2rem;font-weight:700;">🤖 AI กำลังสร้างรายงานประจำรอบ...</div>
+        <div id="loadingPhase" style="color:#94a3b8;font-size:0.88rem;">{% if status_data.phase %}{{ status_data.phase }}{% else %}กำลังประมวลผล...{% endif %}</div>
+        <div style="color:#475569;font-size:0.75rem;">AI กำลังดึงข้อมูลสแกนเนอร์และพอร์ตมาเปรียบเทียบเชิงลึก • ใช้เวลาประมาณ 1 นาที</div>
+    </div>
+    <style>@keyframes spin { to { transform: rotate(360deg); } }</style>
+
+    <!-- ── HEADER ──────────────────────────────────────────────── -->
+    <div class="row align-items-center mb-4">
+        <div class="col-md-8">
+            <div class="d-flex align-items-center gap-2 mb-1">
+                <span style="font-size:1.8rem;">🤖</span>
+                <h1 class="fw-bold mb-0" style="color:#1e293b;letter-spacing:-0.025em;">AI Daily Agent Reports</h1>
+            </div>
+            <p class="text-muted mb-0" style="font-size:0.88rem;">
+                รายงานสแกนและเปรียบเทียบพอร์ตโฟลิโอรายวันตามแนวทาง SEPA, CAN SLIM และ Trend Following (รอบ 10:00 / 13:00)
+            </p>
+        </div>
+        <div class="col-md-4 text-md-end mt-3 mt-md-0">
+            {% if missing_slot %}
+            <button onclick="triggerGeneration()" class="btn btn-primary d-inline-flex align-items-center gap-2 fw-semibold rounded-3 shadow-sm px-4 py-2 border-0"
+                    style="background: linear-gradient(135deg, #3b82f6, #1d4ed8);">
+                <i class="fas fa-magic"></i> สร้างรายงานรอบ {{ missing_slot }} น. (สดใหม่)
+            </button>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- ── AUTO TRIGGER NOTIFICATION ───────────────────────────── -->
+    {% if missing_slot and not is_generating %}
+    <div class="alert alert-info border-0 shadow-sm rounded-4 mb-4 d-flex align-items-center justify-content-between p-3" style="background:#eff6ff; border-left: 5px solid #3b82f6 !important;">
+        <div class="d-flex align-items-center gap-3">
+            <span style="font-size: 1.5rem;">📅</span>
+            <div>
+                <strong style="color:#1e40af; font-size:0.9rem;">ตรวจพบว่ายังไม่มีรายงานสำหรับรอบ {{ missing_slot }} น. ของวันนี้</strong>
+                <div class="text-muted" style="font-size:0.8rem;">เพื่อความสดใหม่ของข้อมูล ระบบแนะนำให้รันรายงานรอบนี้ขึ้นมาวิเคราะห์</div>
+            </div>
+        </div>
+        <button onclick="triggerGeneration()" class="btn btn-sm btn-primary rounded-pill px-3 py-1 fw-bold" style="font-size:0.75rem; border:none; background:#3b82f6;">รันทันที</button>
+    </div>
+    {% endif %}
+
+    <!-- ── MAIN DUAL-PANE VIEW ──────────────────────────────────── -->
+    <div class="row g-4">
+        
+        <!-- Left Panel: Reports List -->
+        <div class="col-lg-4">
+            <div class="card border-0 shadow-sm rounded-4 p-3 bg-white h-100" style="min-height: 500px;">
+                <h5 class="fw-bold mb-3 text-slate-800" style="font-size:0.95rem; border-bottom:1px solid #f1f5f9; padding-bottom: 10px;">
+                    <i class="fas fa-list me-1 text-muted"></i> ประวัติรายงานทั้งหมด
+                </h5>
+                <div class="list-group list-group-flush overflow-auto pe-1" style="max-height: 600px;">
+                    {% if reports %}
+                        {% for r in reports %}
+                        <a href="?id={{ r.id }}" class="list-group-item list-group-item-action border-0 rounded-3 p-3 mb-2 d-flex justify-content-between align-items-start gap-2 {% if selected_report and selected_report.id == r.id %}bg-light border-start border-primary border-4{% endif %}"
+                           style="transition: all 0.2s; {% if not r.is_read %}font-weight: 700; background-color: rgba(59,130,246,0.03);{% endif %}">
+                            <div class="flex-grow-1">
+                                <div class="d-flex align-items-center gap-2 mb-1">
+                                    <span class="badge {% if r.time_slot == '10:00' %}bg-warning text-dark{% else %}bg-primary text-white{% endif %} rounded-pill px-2 py-1" style="font-size:0.65rem;">
+                                        รอบ {{ r.time_slot }} น.
+                                    </span>
+                                    {% if not r.is_read %}
+                                    <span class="badge bg-danger rounded-circle p-1" style="width: 6px; height: 6px; min-width: auto; line-height: 1;" title="ยังไม่ได้อ่าน"></span>
+                                    {% endif %}
+                                </div>
+                                <div class="text-slate-800" style="font-size: 0.88rem;">
+                                    รายงานประจำวันที่ {{ r.report_date|date:"d M Y" }}
+                                </div>
+                                <div class="text-muted" style="font-size: 0.72rem; margin-top:2px;">
+                                    สร้างเมื่อ {{ r.created_at|date:"H:i น." }}
+                                </div>
+                            </div>
+                            <i class="fas fa-chevron-right text-muted align-self-center" style="font-size:0.8rem;"></i>
+                        </a>
+                        {% endfor %}
+                    {% else %}
+                        <div class="text-center py-5">
+                            <div style="font-size:3rem; color:#cbd5e1;">📁</div>
+                            <p class="text-muted mt-2 mb-0" style="font-size:0.85rem;">ยังไม่มีรายงานที่สร้างขึ้น</p>
+                            <p class="text-muted" style="font-size:0.75rem;">กดปุ่มด้านบนเพื่อสร้างรายงานแรก</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Panel: Reading Pane -->
+        <div class="col-lg-8">
+            <div class="card border-0 shadow-sm rounded-4 bg-white h-100">
+                {% if selected_report %}
+                    <div class="card-header bg-white border-bottom border-light p-3 p-md-4 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                        <div>
+                            <div class="d-flex align-items-center gap-2 mb-1">
+                                <h4 class="fw-bold mb-0 text-slate-800" style="font-size: 1.15rem;">
+                                    รายงานรอบ {{ selected_report.time_slot }} น.
+                                </h4>
+                                <span class="badge bg-light text-slate-600 rounded-pill border px-2 py-1" style="font-size: 0.7rem;">
+                                    {{ selected_report.report_date|date:"l ที่ d F Y" }}
+                                </span>
+                            </div>
+                            <div class="text-muted" style="font-size:0.75rem;">
+                                ผู้รายงาน: 🤖 AI Quantitative Agent • สร้างเมื่อ {{ selected_report.created_at|date:"d M Y H:i:s" }}
+                            </div>
+                        </div>
+                        <div class="d-flex gap-2">
+                            <button onclick="copyReport()" class="btn btn-sm btn-outline-secondary rounded-pill px-3 py-1" style="font-size:0.75rem;">
+                                <i class="fas fa-copy me-1"></i> คัดลอกรายงาน
+                            </button>
+                            <a href="{% url 'stocks:delete_daily_agent_report' selected_report.id %}" 
+                               onclick="return confirm('ยืนยันที่จะลบรายงานชิ้นนี้หรือไม่?')"
+                               class="btn btn-sm btn-outline-danger rounded-pill px-3 py-1" style="font-size:0.75rem;">
+                                <i class="fas fa-trash-alt me-1"></i> ลบรายงาน
+                            </a>
+                        </div>
+                    </div>
+                    <div class="card-body p-3 p-md-4">
+                        <!-- Raw MD placeholder -->
+                        <div id="rawReportMd" style="display:none;">{{ selected_report.report_md }}</div>
+                        <!-- Rendered HTML -->
+                        <div id="renderedReportHtml" class="markdown-body text-slate-800" style="font-size: 0.95rem; line-height: 1.7;">
+                            <!-- markdown-body is styled nicely by bootstrap + marked.js -->
+                        </div>
+                    </div>
+                {% else %}
+                    <div class="card-body d-flex flex-column align-items-center justify-content-center text-center py-5" style="min-height:450px;">
+                        <div style="font-size:4rem; color:#cbd5e1;">🤖</div>
+                        <h5 class="fw-bold mt-3 text-slate-700">ยินดีต้อนรับสู่ระบบรายงาน AI Daily Agent</h5>
+                        <p class="text-muted" style="max-width: 450px; font-size:0.85rem;">
+                            หน้านี้จะคอยตรวจเช็คและส่งรายงานสแกนหุ้นตามวิถีชั้นนำและเปรียบเทียบพอร์ตของคุณในรอบเวลา 10:00 น. และ 13:00 น. ของวันทำการ
+                        </p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+    </div>
+
+</div>
+
+<!-- CSS style for Markdown render output -->
+<style>
+.markdown-body h1, .markdown-body h2, .markdown-body h3 {
+    font-weight: 700;
+    color: #0f172a;
+    margin-top: 1.5rem;
+    margin-bottom: 0.8rem;
+    border-bottom: 1px solid #f1f5f9;
+    padding-bottom: 6px;
+}
+.markdown-body h2 { font-size: 1.15rem; }
+.markdown-body h3 { font-size: 1.0rem; }
+.markdown-body p { margin-bottom: 1rem; color: #334155; }
+.markdown-body ul, .markdown-body ol { padding-left: 1.5rem; margin-bottom: 1rem; }
+.markdown-body li { margin-bottom: 0.4rem; color: #334155; }
+.markdown-body table {
+    width: 100%;
+    margin-bottom: 1.5rem;
+    border-collapse: collapse;
+    font-size: 0.85rem;
+}
+.markdown-body th {
+    background-color: #f8fafc;
+    font-weight: 700;
+    color: #475569;
+    border: 1px solid #e2e8f0;
+    padding: 8px 10px;
+    text-align: left;
+}
+.markdown-body td {
+    border: 1px solid #e2e8f0;
+    padding: 8px 10px;
+    color: #334155;
+}
+.markdown-body blockquote {
+    border-left: 4px solid #cbd5e1;
+    padding-left: 1rem;
+    color: #64748b;
+    margin: 1rem 0;
+    font-style: italic;
+}
+</style>
+
+<!-- marked library for client-side markdown parsing -->
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Render Markdown
+    var rawMd = document.getElementById('rawReportMd');
+    var targetHtml = document.getElementById('renderedReportHtml');
+    if (rawMd && targetHtml && typeof marked !== 'undefined') {
+        targetHtml.innerHTML = marked.parse(rawMd.textContent);
+    }
+
+    // Auto-trigger if missing slot exists and user has no generated report
+    {% if missing_slot and is_generating %}
+        pollGeneration();
+    {% endif %}
+});
+
+function triggerGeneration() {
+    document.getElementById('loadingOverlay').style.display = 'flex';
+    
+    // Call trigger endpoint
+    fetch("{% url 'stocks:trigger_daily_agent_report_ajax' %}", {
+        method: "POST",
+        headers: {
+            "X-CSRFToken": "{{ csrf_token }}",
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({})
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            pollGeneration();
+        } else {
+            alert("ไม่สามารถรันบอทได้: " + (data.error || "ข้อผิดพลาดระบบ"));
+            document.getElementById('loadingOverlay').style.display = 'none';
+        }
+    })
+    .catch(err => {
+        console.error(err);
+        alert("เกิดข้อผิดพลาดในการเรียกบอท");
+        document.getElementById('loadingOverlay').style.display = 'none';
+    });
+}
+
+function pollGeneration() {
+    var phaseEl = document.getElementById('loadingPhase');
+    var checkTimer = setInterval(function() {
+        // We call the reports status endpoint or just reload on done
+        fetch("{% url 'stocks:trigger_daily_agent_report_ajax' %}", {
+            method: "POST",
+            headers: {
+                "X-CSRFToken": "{{ csrf_token }}",
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({})
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.phase) {
+                phaseEl.textContent = data.phase;
+            }
+            if (data.state === 'done') {
+                clearInterval(checkTimer);
+                window.location.reload();
+            }
+        })
+        .catch(err => console.error(err));
+    }, 2500);
+}
+
+function copyReport() {
+    var el = document.getElementById('renderedReportHtml');
+    if (!el) return;
+    navigator.clipboard.writeText(el.innerText).then(function() {
+        alert("คัดลอกข้อความในรายงานเรียบร้อยแล้ว!");
+    });
+}
+</script>
+{% endblock %}

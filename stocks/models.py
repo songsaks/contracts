@@ -1192,3 +1192,25 @@ class AIManualScanResult(models.Model):
 
     def __str__(self):
         return f"AI Rank {self.rank}: {self.symbol} (Grade {self.grade})"
+
+
+class DailyAgentReport(models.Model):
+    """
+    รายงานวิเคราะห์เทคนิคคอลสแกนเนอร์และเปรียบเทียบพอร์ตของบอทรายวัน (รอบเช้า 10:00 / บ่าย 13:00)
+    """
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='daily_agent_reports')
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    report_date = models.DateField(db_index=True)
+    time_slot = models.CharField(max_length=10)  # '10:00' หรือ '13:00'
+    report_md = models.TextField()
+    is_read = models.BooleanField(default=False)
+
+    class Meta:
+        ordering = ['-report_date', '-time_slot']
+        unique_together = ('user', 'report_date', 'time_slot')
+        verbose_name = "Daily Agent Report"
+        verbose_name_plural = "Daily Agent Reports"
+
+    def __str__(self):
+        return f"Report {self.report_date} {self.time_slot} — {self.user.username}"
+

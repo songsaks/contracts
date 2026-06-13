@@ -4409,7 +4409,9 @@ def momentum_scanner(request):
                     full_sym = f"{sym}.BK" if mkt == 'SET' else sym
                     fi = yf.Ticker(full_sym).fast_info
                     p = getattr(fi, 'last_price', None)
+                    pc = getattr(fi, 'regular_market_previous_close', getattr(fi, 'previous_close', None))
                     live_price = float(p) if p else None
+                    prev_close = float(pc) if pc else None
 
                     # Recompute zone - ใช้ Ticker().history() (thread-safe), end date เหมือน entry_finder
                     _t = yf.Ticker(full_sym)
@@ -4419,22 +4421,26 @@ def momentum_scanner(request):
                         if isinstance(df.columns, pd.MultiIndex):
                             df.columns = df.columns.get_level_values(0)
                         fresh_zone = find_supply_demand_zones_v2(df)
-                    return sym, live_price, fresh_zone
+                    return sym, live_price, fresh_zone, prev_close
                 except Exception:
-                    return sym, None, None
+                    return sym, None, None, None
 
             live_map = {}
             zone_map = {}   # fresh zones - keyed by symbol
+            prev_close_map = {}
             with _mcf.ThreadPoolExecutor(max_workers=6) as _mex:
-                for _s, _p, _z in _mex.map(_mom_live, [(c.symbol, c.market) for c in candidate_list]):
+                for _s, _p, _z, _pc in _mex.map(_mom_live, [(c.symbol, c.market) for c in candidate_list]):
                     if _p: live_map[_s] = _p
                     if _z: zone_map[_s] = _z
+                    if _pc: prev_close_map[_s] = _pc
         except Exception:
             live_map = {}
             zone_map = {}
+            prev_close_map = {}
 
         for c in candidate_list:
             lp  = live_map.get(c.symbol)
+            pc  = prev_close_map.get(c.symbol) or float(c.price or 0)
             c.live_price = lp
             ref = lp if lp else float(c.price or 0)
 
@@ -4459,8 +4465,8 @@ def momentum_scanner(request):
             c.live_above_tp   = sz_s > 0 and ref >= sz_s
             c.live_near_tp    = (not c.live_above_tp) and sz_s > 0 and dz_s > 0 and (sz_s - ref) / (sz_s - dz_s) * 100 <= 15 if (sz_s - dz_s) > 0 else False
             c.live_zone_prox  = 0.0 if ref <= dz_s else round((ref - dz_s) / dz_s * 100, 1) if dz_s > 0 else 999
-            if lp and float(c.price or 0) > 0:
-                c.live_change_pct = round((lp - float(c.price)) / float(c.price) * 100, 2)
+            if lp and pc > 0:
+                c.live_change_pct = round((lp - pc) / pc * 100, 2)
             else:
                 c.live_change_pct = None
 
@@ -5714,7 +5720,13 @@ def precision_momentum_scanner(request):
                 _lp_key = f'precision_live_set_{request.user.id}_{run_idx}'
                 _lp_cached = _lp_cache.get(_lp_key)
                 if _lp_cached:
-                    live_prices, live_mcaps = _lp_cached
+                    if isinstance(_lp_cached, tuple) and len(_lp_cached) == 3:
+                        live_prices, live_mcaps, live_prev_closes = _lp_cached
+                    elif isinstance(_lp_cached, tuple) and len(_lp_cached) == 2:
+                        live_prices, live_mcaps = _lp_cached
+                        live_prev_closes = {}
+                    else:
+                        live_prices, live_mcaps, live_prev_closes = {}, {}, {}
                 else:
                     import concurrent.futures as _lcf
                     def _get_live(sym):
@@ -5724,20 +5736,28 @@ def precision_momentum_scanner(request):
                             fi = yf.Ticker(full_sym).fast_info
                             p  = getattr(fi, 'last_price', None)
                             mc = getattr(fi, 'market_cap', None)
-                            return sym, (float(p) if p else None), (round(float(mc)/1e9, 2) if mc else None)
+                            pc = getattr(fi, 'regular_market_previous_close', getattr(fi, 'previous_close', None))
+                            return (
+                                sym,
+                                (float(p) if p else None),
+                                (round(float(mc)/1e9, 2) if mc else None),
+                                (float(pc) if pc else None)
+                            )
                         except Exception:
-                            return sym, None, None
+                            return sym, None, None, None
                     with _lcf.ThreadPoolExecutor(max_workers=6) as _lex:
-                        for _sym, _p, _mc in _lex.map(_get_live, [c.symbol for c in candidates]):
+                        for _sym, _p, _mc, _pc in _lex.map(_get_live, [c.symbol for c in candidates]):
                             if _p:  live_prices[_sym] = _p
                             if _mc: live_mcaps[_sym]  = _mc
+                            if _pc: live_prev_closes[_sym] = _pc
                     if live_prices:
-                        _lp_cache.set(_lp_key, (live_prices, live_mcaps), 60 if _lmarket_open else 600)
+                        _lp_cache.set(_lp_key, (live_prices, live_mcaps, live_prev_closes), 60 if _lmarket_open else 600)
             except Exception:
                 pass
 
         for c in candidates:
             lp = live_prices.get(c.symbol)
+            pc = live_prev_closes.get(c.symbol) or c.price
             c.live_price      = lp
             c.live_market_cap = live_mcaps.get(c.symbol)
             c.is_live         = _lmarket_open and lp is not None
@@ -5751,8 +5771,8 @@ def precision_momentum_scanner(request):
                 c.live_zone_prox = 0.0 if lp <= dz_top else round(((lp - dz_top) / dz_top) * 100, 1)
             else:
                 c.live_zone_prox = None
-            if lp and c.price and c.price > 0:
-                c.live_change_pct = round(((lp - float(c.price)) / float(c.price)) * 100, 2)
+            if lp and pc and float(pc) > 0:
+                c.live_change_pct = round(((lp - float(pc)) / float(pc)) * 100, 2)
             else:
                 c.live_change_pct = None
 
@@ -8100,20 +8120,26 @@ def us_momentum_scanner(request):
                 try:
                     fi = yf.Ticker(sym).fast_info
                     p  = getattr(fi, 'last_price', None)
-                    return sym, float(p) if p else None
+                    pc = getattr(fi, 'regular_market_previous_close', getattr(fi, 'previous_close', None))
+                    return sym, (float(p) if p else None), (float(pc) if pc else None)
                 except Exception:
-                    return sym, None
+                    return sym, None, None
 
             live_map = {}
+            prev_close_map = {}
             with _mcf.ThreadPoolExecutor(max_workers=6) as ex:
-                for sym, lp in ex.map(_live_us, [c.symbol for c in candidate_list]):
+                for sym, lp, lpc in ex.map(_live_us, [c.symbol for c in candidate_list]):
                     if lp:
                         live_map[sym] = lp
+                    if lpc:
+                        prev_close_map[sym] = lpc
         except Exception:
             live_map = {}
+            prev_close_map = {}
 
         for c in candidate_list:
             lp  = live_map.get(c.symbol)
+            pc  = prev_close_map.get(c.symbol) or float(c.price or 0)
             c.live_price = lp
             ref  = lp if lp else float(c.price or 0)
             dz_s = float(c.demand_zone_start or 0)
@@ -8131,8 +8157,8 @@ def us_momentum_scanner(request):
                 round((ref - dz_s) / dz_s * 100, 1) if dz_s > 0 else 999
             )
             c.live_change_pct = (
-                round((lp - float(c.price)) / float(c.price) * 100, 2)
-                if lp and float(c.price or 0) > 0 else None
+                round((lp - pc) / pc * 100, 2)
+                if lp and pc > 0 else None
             )
 
     # ── AI Superperformance filter ────────────────────────────────────
@@ -8947,6 +8973,7 @@ def us_precision_scanner(request):
         _lmarket_open = _lnow.weekday()<5 and _ldtime(9,30)<=_lt<=_ldtime(16,0)
         
         lp_map = {}
+        lpc_map = {}
         if candidates:
             try:
                 # แคชผล fetch ไว้ - กันยิง yfinance เท่าจำนวนหุ้นทุกครั้งที่ refresh หน้า
@@ -8955,26 +8982,37 @@ def us_precision_scanner(request):
                 _lp_key = f'precision_live_us_{request.user.id}_{run_idx}'
                 _lp_cached = _lp_cache.get(_lp_key)
                 if _lp_cached:
-                    lp_map = _lp_cached
+                    if isinstance(_lp_cached, tuple) and len(_lp_cached) == 2:
+                        lp_map, lpc_map = _lp_cached
+                    elif isinstance(_lp_cached, dict):
+                        lp_map = _lp_cached
+                        lpc_map = {}
+                    else:
+                        lp_map, lpc_map = {}, {}
                 else:
                     import concurrent.futures as lcf
                     def _glp(s):
                         try:
                             fi = yf.Ticker(s).fast_info
-                            return s, float(fi.last_price) if fi.last_price else None
-                        except: return s, None
+                            p = getattr(fi, 'last_price', None)
+                            pc = getattr(fi, 'regular_market_previous_close', getattr(fi, 'previous_close', None))
+                            return s, (float(p) if p else None), (float(pc) if pc else None)
+                        except: return s, None, None
                     with lcf.ThreadPoolExecutor(max_workers=10) as lex:
-                        for s, p in lex.map(_glp, [c.symbol for c in candidates]):
+                        for s, p, pc in lex.map(_glp, [c.symbol for c in candidates]):
                             if p: lp_map[s] = p
+                            if pc: lpc_map[s] = pc
                     if lp_map:
-                        _lp_cache.set(_lp_key, lp_map, 60 if _lmarket_open else 600)
+                        _lp_cache.set(_lp_key, (lp_map, lpc_map), 60 if _lmarket_open else 600)
             except: pass
         
         for c in candidates:
             lp = lp_map.get(c.symbol)
+            pc = lpc_map.get(c.symbol) or c.price
             c.live_price = lp; c.is_live = _lmarket_open and lp is not None
             if lp and c.demand_zone_start: c.live_zone_prox = 0.0 if lp <= c.demand_zone_start else round((lp-c.demand_zone_start)/c.demand_zone_start*100, 1)
-            if lp and c.price: c.live_change_pct = round((lp-c.price)/c.price*100, 2)
+            if lp and pc and float(pc) > 0: c.live_change_pct = round((lp-float(pc))/float(pc)*100, 2)
+            else: c.live_change_pct = None
             
             sigs = _compute_signals(c)
             c.buy_score = sigs['buy_score']; c.sell_score = sigs['sell_score']; c.exit_signal = sigs['exit_signal']
@@ -13731,6 +13769,304 @@ def manual_update_trade_exit(request):
 
 
 # ==============================================================================
-# AI Manual Scanner (SEPA & Scanner Guide)
+# AI Daily Agent Reports (SEPA / CAN SLIM / Trend Following / Momentum + Portfolio comparison)
 # ==============================================================================
+
+@login_required
+def daily_agent_reports(request):
+    """
+    หน้าแสดงรายงาน AI Daily Scanner & Portfolio Analysis รายวัน
+    """
+    import pytz
+    from datetime import datetime
+    from django.utils import timezone as tz
+    from .models import DailyAgentReport
+
+    # เช็คเวลาของไทย
+    bkk_tz = pytz.timezone('Asia/Bangkok')
+    now_bkk = datetime.now(bkk_tz)
+    today_date = now_bkk.date()
+    current_hour = now_bkk.hour
+    is_weekday = now_bkk.weekday() < 5
+
+    missing_slot = None
+    if is_weekday:
+        # เช็ครอบ 10:00 (ถ้าเลย 10 โมงเช้าแล้ว และยังไม่มีรายงานรอบ 10:00)
+        if current_hour >= 10:
+            if not DailyAgentReport.objects.filter(user=request.user, report_date=today_date, time_slot='10:00').exists():
+                missing_slot = '10:00'
+        
+        # เช็ครอบ 13:00 (ถ้าเลย 13:00 แล้ว และรายงานรอบ 10:00 มีแล้ว แต่รอบ 13:00 ยังไม่มี)
+        if current_hour >= 13 and not missing_slot:
+            if not DailyAgentReport.objects.filter(user=request.user, report_date=today_date, time_slot='13:00').exists():
+                missing_slot = '13:00'
+
+    # ตรวจสอบสถานะการสร้างเบื้องหลังผ่าน Cache
+    from django.core.cache import cache as _cp
+    cache_key = f'daily_agent_report_generating_{request.user.id}'
+    status_data = _cp.get(cache_key, {'state': 'idle'})
+    is_generating = (status_data.get('state') == 'running')
+
+    # รายงานทั้งหมดของผู้ใช้
+    reports = list(DailyAgentReport.objects.filter(user=request.user).order_by('-report_date', '-time_slot'))
+    
+    # ดึงรายงานชิ้นล่าสุดเป็น Default
+    selected_report = None
+    report_id = request.GET.get('id')
+    if report_id:
+        try:
+            selected_report = DailyAgentReport.objects.get(id=report_id, user=request.user)
+        except DailyAgentReport.DoesNotExist:
+            pass
+    
+    if not selected_report and reports:
+        selected_report = reports[0]
+
+    # ทำเครื่องหมายว่าอ่านแล้วสำหรับรายงานที่เลือกดูอยู่
+    if selected_report and not selected_report.is_read:
+        selected_report.is_read = True
+        selected_report.save()
+
+    return render(request, 'stocks/daily_agent_reports.html', {
+        'reports': reports,
+        'selected_report': selected_report,
+        'missing_slot': missing_slot,
+        'is_generating': is_generating,
+        'status_data': status_data,
+    })
+
+
+@login_required
+def trigger_daily_agent_report_ajax(request):
+    """
+    API สำหรับเริ่มรันการวิเคราะห์รายงานใน Thread เบื้องหลัง
+    """
+    from django.http import JsonResponse
+    from django.core.cache import cache as _cp
+    import pytz
+    from datetime import datetime
+
+    cache_key = f'daily_agent_report_generating_{request.user.id}'
+    status = _cp.get(cache_key, {'state': 'idle'})
+
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'POST method required'})
+
+    if status.get('state') == 'running':
+        return JsonResponse({'success': True, 'state': 'running', 'phase': status.get('phase')})
+
+    # ระบุ slot ที่ขาดไปจากที่ได้วิเคราะห์ไว้
+    bkk_tz = pytz.timezone('Asia/Bangkok')
+    now_bkk = datetime.now(bkk_tz)
+    today_date = now_bkk.date()
+    current_hour = now_bkk.hour
+
+    time_slot = '10:00'
+    if current_hour >= 13:
+        # ถ้าไม่มี 10:00 ให้สร้าง 10:00 ก่อน แต่ถ้ามีแล้วค่อยสร้าง 13:00
+        from .models import DailyAgentReport
+        if DailyAgentReport.objects.filter(user=request.user, report_date=today_date, time_slot='10:00').exists():
+            time_slot = '13:00'
+
+    # สั่งลุยรัน Thread
+    import threading as _th
+    
+    def _run_bg(uid, slot, r_date, ckey):
+        import django; django.setup()
+        import google.genai as _genai
+        import yfinance as _yf
+        from django.conf import settings as _s
+        from django.contrib.auth import get_user_model
+        from django.core.cache import cache as _c
+        from django.utils import timezone as tz
+        from stocks.models import (
+            Portfolio, MomentumCandidate, PrecisionScanCandidate, 
+            CupHandleCandidate, USSepaCandidate, DailyAgentReport
+        )
+
+        User = get_user_model()
+        user = User.objects.get(pk=uid)
+
+        try:
+            # 1. โหลดข้อมูลพอร์ต
+            _c.set(ckey, {'state': 'running', 'phase': 'ดึงข้อมูล Portfolio...'}, timeout=600)
+            portfolio = list(Portfolio.objects.filter(user=user))
+            port_lines = []
+            for p in portfolio:
+                try:
+                    ticker_sym = p.symbol if not p.symbol.endswith('.BK') else p.symbol
+                    hist = _yf.Ticker(ticker_sym).history(period='5d')
+                    if hist.empty:
+                        hist = _yf.Ticker(f'{p.symbol}.BK').history(period='5d')
+                    if not hist.empty:
+                        cur = float(hist['Close'].iloc[-1])
+                        entry = float(p.entry_price)
+                        pl_pct = (cur - entry) / entry * 100
+                        port_lines.append(f"  - {p.symbol}: ราคาปัจจุบัน {cur:.2f} (ทุน {entry:.2f}, P/L {pl_pct:+.1f}%)")
+                    else:
+                        port_lines.append(f"  - {p.symbol}: ทุน {float(p.entry_price):.2f} (ไม่พบราคาเรียลไทม์)")
+                except Exception:
+                    port_lines.append(f"  - {p.symbol}: ทุน {float(p.entry_price):.2f}")
+
+            # 2. ดึงหุ้นเด่นล่าสุดจากสแกนเนอร์รอบล่าสุด
+            _c.set(ckey, {'state': 'running', 'phase': 'ดึงข้อมูลสแกนเนอร์ล่าสุด (SEPA/Momentum/Trend)...'}, timeout=600)
+            
+            # Momentum SET
+            mom_set = list(MomentumCandidate.objects.filter(user=user, market='SET').order_by('-technical_score')[:8])
+            mom_set_lines = [f"  - {c.symbol}: Score={c.technical_score} RSI={c.rsi:.0f} RS={c.rs_rating} Price={c.price:.2f}" for c in mom_set]
+            
+            # Momentum US
+            mom_us = list(MomentumCandidate.objects.filter(user=user, market='US').order_by('-technical_score')[:8])
+            mom_us_lines = [f"  - {c.symbol}: Score={c.technical_score} RSI={c.rsi:.0f} RS={c.rs_rating} Price={c.price:.2f}" for c in mom_us]
+            
+            # Precision Scan (SET/US)
+            prec_run_set = PrecisionScanCandidate.objects.filter(user=user, market='SET').values_list('scan_run', flat=True).order_by('-scan_run').first()
+            prec_set = list(PrecisionScanCandidate.objects.filter(user=user, market='SET', scan_run=prec_run_set).order_by('-technical_score')[:8]) if prec_run_set else []
+            prec_set_lines = [f"  - {c.symbol}: Score={c.technical_score} RS={c.rs_rating} Stage2={'✓' if c.stage2 else '✗'} RR={c.risk_reward_ratio:.1f} Prox={c.zone_proximity:.1f}%" for c in prec_set]
+
+            # SEPA SET (Stage 2 + RS >= 70)
+            sepa_set = [c for c in prec_set if c.stage2 and c.rs_rating >= 70]
+            sepa_lines = [f"  - {c.symbol}: RS={c.rs_rating} VCP={'✓' if c.vcp_setup else '✗'} Score={c.technical_score}" for c in sepa_set]
+
+            # Cup & Handle (SET)
+            cup_run = CupHandleCandidate.objects.filter(user=user).values_list('scan_run', flat=True).order_by('-scan_run').first()
+            cup_list = list(CupHandleCandidate.objects.filter(user=user, scan_run=cup_run).order_by('-rs_rating')[:8]) if cup_run else []
+            cup_lines = [f"  - {c.symbol}: Price={c.price:.2f} Breakout={c.breakout_price:.2f} RS={c.rs_rating}" for c in cup_list]
+
+            # US SEPA
+            us_sepa_run = USSepaCandidate.objects.filter(user=user).values_list('scan_run', flat=True).order_by('-scan_run').first()
+            us_sepa_list = list(USSepaCandidate.objects.filter(user=user, scan_run=us_sepa_run, stage2=True).order_by('-rs_rating')[:8]) if us_sepa_run else []
+            us_sepa_lines = [f"  - {c.symbol}: RS={c.rs_rating} VCP={'✓' if c.vcp_setup else '✗'} Price={c.price:.2f}" for c in us_sepa_list]
+
+            # 3. ข้อมูลสภาวะตลาด (Macro)
+            _c.set(ckey, {'state': 'running', 'phase': 'ดึงดัชนีตลาดและข้อมูลสินค้าโภคภัณฑ์...'}, timeout=600)
+            macro_symbols = {
+                'SET Index': '^SET.BK', 'S&P 500': '^GSPC', 'Nasdaq': '^IXIC',
+                'USD/THB': 'USDTHB=X', 'US 10Y Yield': '^TNX', 'Gold': 'GC=F'
+            }
+            macro_lines = []
+            for name, sym in macro_symbols.items():
+                try:
+                    h = _yf.Ticker(sym).history(period='5d')
+                    if not h.empty and len(h) >= 2:
+                        cur = float(h['Close'].iloc[-1])
+                        prev = float(h['Close'].iloc[-2])
+                        chg = (cur - prev) / prev * 100
+                        macro_lines.append(f"  - {name}: {cur:.2f} ({chg:+.2f}%)")
+                except:
+                    pass
+
+            # 4. เรียกโมเดล Gemini วิเคราะห์เปรียบเทียบเชิงลึก
+            _c.set(ckey, {'state': 'running', 'phase': 'AI กำลังประกอบข้อมูลและเขียนรายงานเปรียบเทียบพอร์ต...'}, timeout=600)
+            
+            slot_th = "เปิดตลาดเช้า" if slot == '10:00' else "พักตลาดบ่าย"
+            today_str = r_date.strftime('%d/%m/%Y')
+            
+            prompt = f"""คุณคือ AI Quantitative Analyst และ Senior Portfolio Manager 
+หน้าที่ของคุณคือวิเคราะห์รายงานสรุปหุ้นเด่นประจำวันเทียบกับพอร์ตโฟลิโอปัจจุบันของนักลงทุน
+
+ข้อมูลรอบเวลา: {slot} น. ({slot_th})
+วันที่: {today_str}
+
+---
+## 🌍 ดัชนีเศรษฐกิจและทิศทางตลาดล่าสุด
+{chr(10).join(macro_lines) if macro_lines else 'ไม่มีข้อมูล'}
+
+## 💼 พอร์ตโฟลิโอปัจจุบัน (PORTFOLIO)
+{chr(10).join(port_lines) if port_lines else 'ไม่มีข้อมูลการถือครองหุ้นในพอร์ต'}
+
+## 🇹🇭 สัญญาณสแกนหุ้นไทย (SET Scanner Results)
+- **Momentum (Top 8):**
+{chr(10).join(mom_set_lines) if mom_set_lines else 'ไม่มีข้อมูล'}
+- **Precision Zone & Trend Template (Top 8):**
+{chr(10).join(prec_set_lines) if prec_set_lines else 'ไม่มีข้อมูล'}
+- **SEPA (Stage 2 + RS >= 70):**
+{chr(10).join(sepa_lines) if sepa_lines else 'ไม่มีข้อมูล'}
+- **Cup & Handle:**
+{chr(10).join(cup_lines) if cup_lines else 'ไม่มีข้อมูล'}
+
+## 🇺🇸 สัญญาณสแกนหุ้นสหรัฐ (US Scanner Results)
+- **Momentum US (Top 8):**
+{chr(10).join(mom_us_lines) if mom_us_lines else 'ไม่มีข้อมูล'}
+- **US SEPA (Minervini Rules):**
+{chr(10).join(us_sepa_lines) if us_sepa_lines else 'ไม่มีข้อมูล'}
+
+---
+จงสร้างรายงานวิเคราะห์ภาษาไทยด้วยรูปแบบ **Markdown** ระดับมืออาชีพ โดยเน้นการวิเคราะห์เชิงเปรียบเทียบตรงตามระบบ SEPA, CAN SLIM, Trend Following และ Momentum:
+
+### 1. 🔍 บทสรุปภาวะตลาดและการสแกนรอบ {slot} น.
+- สรุปสั้นๆ เกี่ยวกับบรรยากาศตลาด (SET / US) และปริมาณการเกิดสัญญาณซื้อ
+
+### 2. 📊 เปรียบเทียบผลสแกนกับพอร์ตโฟลิโอปัจจุบัน (Portfolio Sync & Action Plan)
+- จับคู่หุ้นในพอร์ตปัจจุบันเทียบกับสัญญาณสแกนล่าสุด:
+  - หุ้นตัวใดในพอร์ตที่ยังมี Momentum แข็งแกร่ง (อยู่ในผลสแกน) แนะนำให้ **✅ Hold** หรือ **➕ Buy More** (ระบุพิกัดราคาที่ได้เปรียบ)
+  - หุ้นตัวใดในพอร์ตที่หลุดจากสัญญาณสแกนเนอร์ทั้งหมด และมีแนวโน้มอ่อนแอ แนะนำให้ **⚠️ Stop Loss / Profit Take / Reduce Position**
+  - วิเคราะห์เปรียบเทียบว่ามีกลุ่มอุตสาหกรรม (Sectors) ใดในผลสแกนที่แข็งแกร่งกว่าหุ้นในพอร์ต เพื่อแนะนำสับเปลี่ยนตัวเล่น (Switching)
+
+### 3. 🎯 คัดเลือกหุ้นเด่น 3 ตัวแรก (Top Picks) ที่มีความเสี่ยงต่ำกำไรสูง (Low-Risk, High-Reward)
+- คัดกรองหุ้นสแกนเนอร์ที่ฟอร์มตัวดีที่สุด (เช่น เข้าเกณฑ์ VCP, เพิ่งเบรคเอาท์ หรือใกล้ยอดโซนซื้อมากที่สุด)
+- แสดงรายละเอียด: หุ้น | แนวคิด (SEPA/VCP/Cup) | แนวรับโซนซื้อ (PP) | จุดตัดขาดทุน (SL) | เป้าหมายกำไร (TP)
+
+### 4. 📈 สรุปตาราง Action Plan ประจำรอบ {slot} น.
+- ทำตารางคอลัมน์: หุ้น | ตลาด | คำแนะนำ (ซื้อเพิ่ม/ถือต่อ/ขายทำกำไร/ขายทิ้ง/เฝ้าดู) | แนวรับ | จุดคัท | เหตุผล
+
+เขียนรายงานออกมาให้น่าอ่าน เข้าใจง่าย ใช้ภาษาไทยที่กระชับและเป็นทางการ
+"""
+
+            client = _genai.Client(api_key=_s.GEMINI_API_KEY)
+            resp = client.models.generate_content(
+                model='gemini-2.5-flash',
+                contents=prompt,
+            )
+            report_text = resp.text or '## ไม่สามารถสร้างรายงานประจำรอบได้เนื่องจากข้อผิดพลาดของ AI'
+
+            # บันทึกลงตาราง (และหลีกเลี่ยงการบันทึกซ้ำโดยใช้ get_or_create หรือ handle unique_together)
+            DailyAgentReport.objects.update_or_create(
+                user=user,
+                report_date=r_date,
+                time_slot=slot,
+                defaults={'report_md': report_text, 'is_read': False}
+            )
+
+            _c.set(ckey, {'state': 'done'}, timeout=300)
+
+        except Exception as e:
+            import logging
+            logging.getLogger('stocks').exception(f'[DailyAgentReport] error in thread: {e}')
+            _c.set(ckey, {'state': 'done', 'error': str(e)}, timeout=60)
+
+    _cp.set(cache_key, {'state': 'running', 'phase': 'เริ่มประมวลผลคำสั่งในเบื้องหลัง...'}, timeout=600)
+    t = _th.Thread(target=_run_bg, args=(request.user.id, time_slot, today_date, cache_key), daemon=True)
+    t.start()
+
+    return JsonResponse({'success': True, 'state': 'running', 'phase': 'กำลังจัดเตรียมการดึงข้อมูล...'})
+
+
+@login_required
+def delete_daily_agent_report(request, pk):
+    """
+    ลบรายงานที่ระบุ
+    """
+    from django.shortcuts import get_object_or_400, redirect
+    from .models import DailyAgentReport
+    
+    report = get_object_or_400(DailyAgentReport, id=pk, user=request.user)
+    report.delete()
+    return redirect('stocks:daily_agent_reports')
+
+
+@login_required
+def mark_daily_agent_report_read(request, pk):
+    """
+    ทำเครื่องหมายว่าอ่านแล้วผ่าน AJAX
+    """
+    from django.shortcuts import get_object_or_400
+    from django.http import JsonResponse
+    from .models import DailyAgentReport
+
+    report = get_object_or_400(DailyAgentReport, id=pk, user=request.user)
+    report.is_read = True
+    report.save()
+    return JsonResponse({'success': True})
+
 

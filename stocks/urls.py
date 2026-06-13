@@ -102,7 +102,13 @@ urlpatterns = [
 
     path('gold-trading/manual-exit/', views.manual_update_trade_exit, name='manual_update_trade_exit'),
 
-    # API for External Integration (Hermes Bot)
     path('api/analysis/<str:symbol>/', views.api_stock_analysis, name='api_stock_analysis'),
+
+    # AI Daily Agent Reports
+    path('daily-reports/', views.daily_agent_reports, name='daily_agent_reports'),
+    path('daily-reports/trigger/', views.trigger_daily_agent_report_ajax, name='trigger_daily_agent_report_ajax'),
+    path('daily-reports/<int:pk>/delete/', views.delete_daily_agent_report, name='delete_daily_agent_report'),
+    path('daily-reports/<int:pk>/read/', views.mark_daily_agent_report_read, name='mark_daily_agent_report_read'),
 ]
+
 

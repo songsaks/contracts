@@ -15,9 +15,18 @@ def pms_context(request):
         new_requests_count = CustomerRequest.objects.filter(status=CustomerRequest.Status.RECEIVED).count()
         # นับจำนวนการแจ้งเตือนงานที่ได้รับมอบหมายล่าสุดแต่ยังไม่ได้เปิดอ่าน
         unread_notifications_count = UserNotification.objects.filter(user=request.user, is_read=False).count()
+        # นับจำนวนรายงาน AI Daily Agent Reports ที่ยังไม่ได้อ่าน
+        try:
+            from stocks.models import DailyAgentReport
+            unread_reports_count = DailyAgentReport.objects.filter(user=request.user, is_read=False).count()
+        except Exception:
+            unread_reports_count = 0
+            
         context.update({
             'unconverted_leads_count': unconverted_leads_count,
             'new_requests_count': new_requests_count,
             'unread_notifications_count': unread_notifications_count,
+            'unread_reports_count': unread_reports_count,
         })
     return context
+
