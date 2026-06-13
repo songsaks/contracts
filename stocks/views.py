@@ -5717,6 +5717,7 @@ def precision_momentum_scanner(request):
         )
         live_prices = {}
         live_mcaps  = {}
+        live_prev_closes = {}
         if candidates:
             try:
                 # แคชผล fetch ไว้ - กันยิง yfinance เท่าจำนวนหุ้นทุกครั้งที่ refresh หน้า
