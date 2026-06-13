@@ -13853,8 +13853,12 @@ def trigger_daily_agent_report_ajax(request):
     cache_key = f'daily_agent_report_generating_{request.user.id}'
     status = _cp.get(cache_key, {'state': 'idle'})
 
+    # GET: สำหรับ Polling เช็คสถานะอย่างเดียว ไม่กระตุ้นการสร้างใหม่
+    if request.method == 'GET':
+        return JsonResponse({'success': True, 'state': status.get('state', 'idle'), 'phase': status.get('phase', '')})
+
     if request.method != 'POST':
-        return JsonResponse({'success': False, 'error': 'POST method required'})
+        return JsonResponse({'success': False, 'error': 'POST or GET method required'})
 
     if status.get('state') == 'running':
         return JsonResponse({'success': True, 'state': 'running', 'phase': status.get('phase')})

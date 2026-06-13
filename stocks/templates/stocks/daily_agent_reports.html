@@ -243,14 +243,10 @@ function triggerGeneration() {
 function pollGeneration() {
     var phaseEl = document.getElementById('loadingPhase');
     var checkTimer = setInterval(function() {
-        // We call the reports status endpoint or just reload on done
+        // Use GET method to poll status without triggering a new run
         fetch("{% url 'stocks:trigger_daily_agent_report_ajax' %}", {
-            method: "POST",
-            headers: {
-                "X-CSRFToken": "{{ csrf_token }}",
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify({})
+            method: "GET",
+            credentials: "same-origin"
         })
         .then(r => r.json())
         .then(data => {
