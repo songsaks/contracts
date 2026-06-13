@@ -13801,14 +13801,18 @@ def daily_agent_reports(request):
             if not DailyAgentReport.objects.filter(user=request.user, report_date=today_date, time_slot='13:00').exists():
                 missing_slot = '13:00'
 
+    # รายงานทั้งหมดของผู้ใช้
+    reports = list(DailyAgentReport.objects.filter(user=request.user).order_by('-report_date', '-time_slot'))
+
+    # หากยังไม่มีรายงานเลยสักชิ้นเดียว ให้เปิดปุ่มสำหรับรันรายงานแรกได้ทันทีเสมอ แม้จะเป็นวันหยุด
+    if not reports and not missing_slot:
+        missing_slot = '10:00'
+
     # ตรวจสอบสถานะการสร้างเบื้องหลังผ่าน Cache
     from django.core.cache import cache as _cp
     cache_key = f'daily_agent_report_generating_{request.user.id}'
     status_data = _cp.get(cache_key, {'state': 'idle'})
     is_generating = (status_data.get('state') == 'running')
-
-    # รายงานทั้งหมดของผู้ใช้
-    reports = list(DailyAgentReport.objects.filter(user=request.user).order_by('-report_date', '-time_slot'))
     
     # ดึงรายงานชิ้นล่าสุดเป็น Default
     selected_report = None
