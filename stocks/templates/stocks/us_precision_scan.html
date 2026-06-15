@@ -754,6 +754,12 @@
                     <label class="form-check-label small fw-semibold" for="canslimFilterUS" style="cursor:pointer; color:#d97706;">⭐ CAN SLIM เท่านั้น</label>
                     <span style="font-size:0.85rem; color:#94a3b8; cursor:pointer;" title="CAN SLIM: กรองหุ้นขาขึ้นหลัก (Stage 2) + หุ้นผู้นำ (RS >= 80) + กำไร/รายได้โตโดดเด่น (EPS/Rev Growth >= 20%) + มีรายใหญ่สะสม (CMF >= 0.1 หรือเกิด Pocket Pivot) | หมายเหตุ: ในช่วงตลาดภาพรวมเป็นขาลง (Bear Market) หุ้นส่วนใหญ่จะหลุดเกณฑ์โดยธรรมชาติ ทำให้ตารางสแกนอาจแสดงผลเป็น 0 ตัว เพื่อแจ้งเตือนให้ถือเงินสดตามหลักตัว M (Market Direction)"><i class="fas fa-question-circle"></i></span>
                 </div>
+                <!-- BUY NOW Filter -->
+                <div class="form-check form-switch mb-0 d-flex align-items-center gap-2">
+                    <input class="form-check-input" type="checkbox" id="buynowFilterUS" onchange="_applyFiltersUS()" style="cursor:pointer;">
+                    <label class="form-check-label small fw-semibold" for="buynowFilterUS" style="cursor:pointer; color:#dc2626;">🔥 BUY NOW เท่านั้น</label>
+                    <span style="font-size:0.85rem; color:#94a3b8; cursor:pointer;" title="BUY NOW: กรองหุ้นที่มีสัญญาณซื้อด่วนที่สุด ณ วันนี้ (RVol >= 1.5x และราคาจ่อเบรค/เพิ่งเบรคเอาท์ไม่เกิน 0.5% ของแนวต้าน)"><i class="fas fa-question-circle"></i></span>
+                </div>
                 <select id="sectorFilterUS" onchange="_applyFiltersUS()" class="form-select form-select-sm rounded-pill" style="width:auto;font-size:0.72rem;cursor:pointer;">
                     <option value="">All Sectors</option>
                     {% for item in candidates %}<option value="{{ item.sector }}">{{ item.sector }}</option>{% endfor %}
@@ -2157,13 +2163,14 @@ function _applyFiltersUS() {
         var itlOn      = document.getElementById('itlFilterUS')     && document.getElementById('itlFilterUS').checked;
         var ccetOn     = document.getElementById('ccetFilterUS')    && document.getElementById('ccetFilterUS').checked;
         var canslimOn  = document.getElementById('canslimFilterUS')   && document.getElementById('canslimFilterUS').checked;
+        var buynowOn   = document.getElementById('buynowFilterUS')    && document.getElementById('buynowFilterUS').checked;
         var secEl  = document.getElementById('sectorFilterUS');
         var secVal = secEl ? secEl.value : '';
         
         console.log("Filter States:", {
             s2On: !!s2On, ppOn: !!ppOn, hideCMFOn: !!hideCMFOn, volSurgeOn: !!volSurgeOn, 
             ichiOn: !!ichiOn, vcpOn: !!vcpOn, launcherOn: !!launcherOn, itlOn: !!itlOn, 
-            ccetOn: !!ccetOn, canslimOn: !!canslimOn, secVal: secVal, horizon: currentHorizonFilterUS
+            ccetOn: !!ccetOn, canslimOn: !!canslimOn, buynowOn: !!buynowOn, secVal: secVal, horizon: currentHorizonFilterUS
         });
 
         var visible = 0;
@@ -2199,6 +2206,8 @@ function _applyFiltersUS() {
 
             var isCcet = emaAligned && (rvol <= 0.6) && (turtleDist <= 10.0) && (rs >= 80) && (cmf >= -0.10) && (rr >= 1.5);
 
+            var isBuyNow = rvol >= 1.5 && turtleDist <= 0.5;
+
             var show = (!rsiOn || rsi < 70) &&
                        (!s2On || s2) && 
                        (!ppOn || pp) && 
@@ -2210,7 +2219,8 @@ function _applyFiltersUS() {
                        (!ichiOn || ichi >= 3) &&
                        (!itlOn || itl) &&
                        (!ccetOn || isCcet) &&
-                       (!canslimOn || canslim);
+                       (!canslimOn || canslim) &&
+                       (!buynowOn || isBuyNow);
 
             // Gather all symbols passing the checkbox filters for the Summary Cards
             if (show) {
