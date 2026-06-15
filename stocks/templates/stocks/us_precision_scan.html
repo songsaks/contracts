@@ -913,7 +913,7 @@
     data-pattern="{{ item.price_pattern|default:'' }}"
     data-pattern-score="{{ item.price_pattern_score|default:0 }}"
     data-launcher="{{ item.launcher_score|default:0 }}"
-    data-turtle-dist="{{ item.turtle_dist_pct|default:99 }}"
+    data-turtle-dist="{{ item.turtle_dist_pct|default_if_none:99 }}"
     style="{% if item.is_explosive %}background:rgba(124,58,237,0.03);{% endif %}"
     data-cmf="{{ item.cmf|default:0 }}"
     data-cmfdist="{% if item.cmf is not None and item.cmf < -0.1 %}true{% else %}false{% endif %}"
