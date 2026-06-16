@@ -566,6 +566,7 @@
                                 <div class="symbol-row">
                                     <div class="rank-badge">#{{ stock.rank }}</div>
                                     <div class="symbol-name">{{ stock.symbol }}</div>
+                                    <div id="ai-rec-{{ stock.symbol }}" class="d-none ms-2"></div>
                                     <button class="btn-watch {% if stock.symbol in watchlisted_symbols %}active{% endif %}"
                                             onclick="toggleWatchlist(this)"
                                             data-symbol="{{ stock.symbol }}"
@@ -758,6 +759,7 @@
                                         <div class="symbol-row">
                                             <div class="rank-badge" style="width: 26px; height: 26px; font-size: 0.7rem;">#{{ stock.rank }}</div>
                                             <div class="symbol-name" style="font-size: 1.05rem;">{{ stock.symbol }}</div>
+                                            <div id="ai-rec-history-{{ stock.symbol }}" class="d-none ms-2"></div>
                                         </div>
                                         <div class="grade-pill grade-{{ stock.grade|slice:":1"|lower }}" style="font-size: 0.75rem; padding: 0.2rem 0.6rem;">Grade {{ stock.grade }}</div>
                                     </div>
@@ -971,7 +973,45 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
     } catch(e) { console.warn('CrewAI cache parse error', e); }
+
+    // Render cached badges on page load
+    renderCachedCrewAIBadges();
 });
+
+function renderCachedCrewAIBadges() {
+    try {
+        const cachedData = JSON.parse(document.getElementById('crewai-cached-data').textContent || '{}');
+        for (const sym in cachedData) {
+            const markdown = cachedData[sym] || '';
+            let rec = '';
+            const match = markdown.match(/(?:สรุปสุดท้าย|สรุป|คำแนะนำ)[:\s]*\*\*?(BUY NOW|WAIT FOR PULLBACK|AVOID)\*\*?/i) || 
+                          markdown.match(/\*\*?(BUY NOW|WAIT FOR PULLBACK|AVOID)\*\*?/i);
+            if (match) {
+                rec = match[1].toUpperCase();
+            }
+            if (rec) {
+                let badgeHtml = '';
+                if (rec === 'BUY NOW') {
+                    badgeHtml = '<span class="badge" style="background: linear-gradient(135deg, #10b981, #059669); color: white; border: none; font-size: 0.65rem; padding: 3px 6px; font-weight: 700; border-radius: 4px; vertical-align: middle;"><i class="fas fa-fire me-1"></i>BUY NOW</span>';
+                } else if (rec === 'WAIT FOR PULLBACK') {
+                    badgeHtml = '<span class="badge" style="background: linear-gradient(135deg, #f59e0b, #d97706); color: white; border: none; font-size: 0.65rem; padding: 3px 6px; font-weight: 700; border-radius: 4px; vertical-align: middle;"><i class="fas fa-clock me-1"></i>WAIT FOR PULLBACK</span>';
+                } else if (rec === 'AVOID') {
+                    badgeHtml = '<span class="badge" style="background: linear-gradient(135deg, #ef4444, #dc2626); color: white; border: none; font-size: 0.65rem; padding: 3px 6px; font-weight: 700; border-radius: 4px; vertical-align: middle;"><i class="fas fa-ban me-1"></i>AVOID</span>';
+                }
+                const recDiv = document.getElementById('ai-rec-' + sym);
+                if (recDiv) {
+                    recDiv.innerHTML = badgeHtml;
+                    recDiv.classList.remove('d-none');
+                }
+                const recHistoryDiv = document.getElementById('ai-rec-history-' + sym);
+                if (recHistoryDiv) {
+                    recHistoryDiv.innerHTML = badgeHtml;
+                    recHistoryDiv.classList.remove('d-none');
+                }
+            }
+        }
+    } catch(e) { console.warn('CrewAI cache badge error', e); }
+}
 
 // ── Filter by Grade ────────────────────────────────────────────────────────
 function filterGrade(el) {
@@ -1156,6 +1196,7 @@ function renderCards(stocks, market) {
                     <div class="symbol-row">
                         <div class="rank-badge">#${rank}</div>
                         <div class="symbol-name">${stock.symbol}</div>
+                        <div id="ai-rec-${stock.symbol}" class="d-none ms-2"></div>
                         <button class="btn-watch" onclick="toggleWatchlist(this)"
                                 data-symbol="${stock.symbol}" data-sector="" data-in-watchlist="false"
                                 title="Watchlist"><i class="far fa-bell"></i></button>
@@ -1185,6 +1226,8 @@ function renderCards(stocks, market) {
             </div>
         </div>`;
     });
+    // Render cached badges on dynamically generated cards
+    renderCachedCrewAIBadges();
 }
 
 // ── Watchlist ────────────────────────────────────────────────────────────────
@@ -1295,6 +1338,34 @@ function performToggle(btn, payload, callback) {
         if(toggleBtn) {
             toggleBtn.classList.remove('d-none');
             toggleBtn.innerHTML = '<i class="fas fa-eye-slash me-1"></i>ซ่อนบทวิเคราะห์';
+        }
+
+        // Dynamically update the card badge
+        let rec = '';
+        const match = markdown.match(/(?:สรุปสุดท้าย|สรุป|คำแนะนำ)[:\s]*\*\*?(BUY NOW|WAIT FOR PULLBACK|AVOID)\*\*?/i) || 
+                      markdown.match(/\*\*?(BUY NOW|WAIT FOR PULLBACK|AVOID)\*\*?/i);
+        if (match) {
+            rec = match[1].toUpperCase();
+        }
+        if (rec) {
+            let badgeHtml = '';
+            if (rec === 'BUY NOW') {
+                badgeHtml = '<span class="badge" style="background: linear-gradient(135deg, #10b981, #059669); color: white; border: none; font-size: 0.65rem; padding: 3px 6px; font-weight: 700; border-radius: 4px; vertical-align: middle;"><i class="fas fa-fire me-1"></i>BUY NOW</span>';
+            } else if (rec === 'WAIT FOR PULLBACK') {
+                badgeHtml = '<span class="badge" style="background: linear-gradient(135deg, #f59e0b, #d97706); color: white; border: none; font-size: 0.65rem; padding: 3px 6px; font-weight: 700; border-radius: 4px; vertical-align: middle;"><i class="fas fa-clock me-1"></i>WAIT FOR PULLBACK</span>';
+            } else if (rec === 'AVOID') {
+                badgeHtml = '<span class="badge" style="background: linear-gradient(135deg, #ef4444, #dc2626); color: white; border: none; font-size: 0.65rem; padding: 3px 6px; font-weight: 700; border-radius: 4px; vertical-align: middle;"><i class="fas fa-ban me-1"></i>AVOID</span>';
+            }
+            const recDiv = document.getElementById('ai-rec-' + _sym);
+            if (recDiv) {
+                recDiv.innerHTML = badgeHtml;
+                recDiv.classList.remove('d-none');
+            }
+            const recHistoryDiv = document.getElementById('ai-rec-history-' + _sym);
+            if (recHistoryDiv) {
+                recHistoryDiv.innerHTML = badgeHtml;
+                recHistoryDiv.classList.remove('d-none');
+            }
         }
     }
 
