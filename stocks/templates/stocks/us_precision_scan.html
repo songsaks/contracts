@@ -37,6 +37,14 @@
     }
     .val-hint { font-size: 0.56rem; color: #94a3b8; line-height: 1.2; margin-top: 1px; letter-spacing: .01em; }
 
+    /* ── Horizon Status Pills (S/M/L) ── */
+    .hpill { display: inline-flex; align-items: center; font-size: 0.56rem; font-weight: 700; letter-spacing: 0.02em; padding: 2px 5px; border-radius: 4px; white-space: nowrap; line-height: 1.3; }
+    .hpill-exit  { background: rgba(220,38,38,0.10);  color: #b91c1c; border: 0.5px solid rgba(220,38,38,0.40); }
+    .hpill-watch { background: rgba(217,119,6,0.12);  color: #92400e; border: 0.5px solid rgba(217,119,6,0.45); }
+    .hpill-hold  { background: rgba(22,163,74,0.10);  color: #166534; border: 0.5px solid rgba(22,163,74,0.30); }
+    .hpill-row   { display: flex; flex-wrap: wrap; gap: 3px; justify-content: center; margin-top: 5px; }
+    .hpill-mobile { justify-content: flex-start !important; margin-top: 3px; }
+
     /* ── Criteria Checklist Text Contrast ── */
     .scan-checklist-text {
         color: #374151;
@@ -1003,6 +1011,35 @@
                                         <span class="badge text-white ms-1" style="font-size:0.55rem; background: linear-gradient(135deg, #3b82f6, #1d4ed8); border:none;" title="พอร์ตระยะยาว (Holding: Months to Quarters) - เน้นรันเทรนด์ระบบ Turtle/Weinstein Stage 2">⏳ยาว (Turtle)</span>
                                         {% endif %}
                                     </div>
+                                    {% if item.is_medium_term or item.symbol in cup_handle_symbols or item.is_long_term or item.symbol in turtle_symbols %}
+                                    <div class="hpill-row hpill-mobile d-flex d-md-none">
+                                        {% if item.exit_signal == 'STRONG EXIT' or item.exit_signal == 'EXIT' %}
+                                        <span class="hpill hpill-exit" title="Swing: TP แตะแล้ว — พิจารณาออก position สั้น">S:EXIT</span>
+                                        {% elif item.exit_signal == 'WATCH' %}
+                                        <span class="hpill hpill-watch" title="Swing: สัญญาณระวัง">S:Watch</span>
+                                        {% else %}
+                                        <span class="hpill hpill-hold" title="Swing: ถือได้ ยังไม่มีสัญญาณขาย">S:ถือ</span>
+                                        {% endif %}
+                                        {% if item.is_medium_term or item.symbol in cup_handle_symbols %}
+                                            {% if item.live_broke_zone or item.reversal_score >= 4 %}
+                                            <span class="hpill hpill-exit" title="ระยะกลาง: หลุด SL หรือ Distribution — ออก&#10;SL: {{ item.stop_loss|floatformat:2 }}">M:EXIT</span>
+                                            {% elif item.reversal_score >= 2 %}
+                                            <span class="hpill hpill-watch" title="ระยะกลาง: Reversal สัญญาณระวัง&#10;SL: {{ item.stop_loss|floatformat:2 }}">M:Watch</span>
+                                            {% else %}
+                                            <span class="hpill hpill-hold" title="ระยะกลาง: ถือต่อ&#10;SL: {{ item.stop_loss|floatformat:2 }}">M:ถือ</span>
+                                            {% endif %}
+                                        {% endif %}
+                                        {% if item.is_long_term or item.symbol in turtle_symbols %}
+                                            {% if not item.stage2 or item.reversal_score >= 4 %}
+                                            <span class="hpill hpill-exit" title="ระยะยาว: Stage 2 สิ้นสุด — ออก">L:EXIT</span>
+                                            {% elif not item.ema20_rising %}
+                                            <span class="hpill hpill-watch" title="ระยะยาว: EMA20 หยุดขึ้น — ติดตาม">L:Watch</span>
+                                            {% else %}
+                                            <span class="hpill hpill-hold" title="ระยะยาว: Stage 2 + EMA ดี — ถือต่อ">L:ถือ</span>
+                                            {% endif %}
+                                        {% endif %}
+                                    </div>
+                                    {% endif %}
                                 </div>
                             </td>
 
@@ -1078,11 +1115,40 @@
                                 {% endif %}
                                 {% if item.reversal_score and item.reversal_score >= 2 %}
                                 <div>
-                                    <span class="badge px-1 mt-1 {% if item.reversal_score >= 4 %}bg-danger text-white{% elif item.reversal_score == 3 %}bg-warning text-dark{% else %}bg-light text-dark border{% endif %}" 
-                                          style="font-size:0.52rem;" 
+                                    <span class="badge px-1 mt-1 {% if item.reversal_score >= 4 %}bg-danger text-white{% elif item.reversal_score == 3 %}bg-warning text-dark{% else %}bg-light text-dark border{% endif %}"
+                                          style="font-size:0.52rem;"
                                           title="Reversal Score: {{ item.reversal_score }}/5 (สัญญาณกลับตัว/พักฐาน)">
                                         {% if item.reversal_score >= 4 %}🔴 Dist{% elif item.reversal_score == 3 %}⚠️ Rev{% else %}🟡 Caut{% endif %} {{ item.reversal_score }}/5
                                     </span>
+                                </div>
+                                {% endif %}
+                                {% if item.is_medium_term or item.symbol in cup_handle_symbols or item.is_long_term or item.symbol in turtle_symbols %}
+                                <div class="hpill-row">
+                                    {% if item.exit_signal == 'STRONG EXIT' or item.exit_signal == 'EXIT' %}
+                                    <span class="hpill hpill-exit" title="Swing: TP แตะแล้ว — พิจารณาออก position สั้น">S:EXIT</span>
+                                    {% elif item.exit_signal == 'WATCH' %}
+                                    <span class="hpill hpill-watch" title="Swing: สัญญาณระวัง">S:Watch</span>
+                                    {% else %}
+                                    <span class="hpill hpill-hold" title="Swing: ถือได้ ยังไม่มีสัญญาณขาย">S:ถือ</span>
+                                    {% endif %}
+                                    {% if item.is_medium_term or item.symbol in cup_handle_symbols %}
+                                        {% if item.live_broke_zone or item.reversal_score >= 4 %}
+                                        <span class="hpill hpill-exit" title="ระยะกลาง: หลุด SL หรือ Distribution {{ item.reversal_score }}/5 — ออก position กลาง&#10;SL: {{ item.stop_loss|floatformat:2 }}">M:EXIT</span>
+                                        {% elif item.reversal_score >= 2 %}
+                                        <span class="hpill hpill-watch" title="ระยะกลาง: Reversal {{ item.reversal_score }}/5 — ติดตามใกล้ชิด&#10;SL: {{ item.stop_loss|floatformat:2 }}">M:Watch</span>
+                                        {% else %}
+                                        <span class="hpill hpill-hold" title="ระยะกลาง: Stage ดี SL ไม่หลุด — ถือต่อ&#10;SL: {{ item.stop_loss|floatformat:2 }}">M:ถือ</span>
+                                        {% endif %}
+                                    {% endif %}
+                                    {% if item.is_long_term or item.symbol in turtle_symbols %}
+                                        {% if not item.stage2 or item.reversal_score >= 4 %}
+                                        <span class="hpill hpill-exit" title="ระยะยาว: Stage 2 สิ้นสุด หรือ Distribution แรง — ออก position ยาว">L:EXIT</span>
+                                        {% elif not item.ema20_rising %}
+                                        <span class="hpill hpill-watch" title="ระยะยาว: EMA20 หยุดขึ้น — ติดตาม Stage 2 ยังอยู่">L:Watch</span>
+                                        {% else %}
+                                        <span class="hpill hpill-hold" title="ระยะยาว: Stage 2 + EMA ยังดี — ถือต่อ">L:ถือ</span>
+                                        {% endif %}
+                                    {% endif %}
                                 </div>
                                 {% endif %}
                                 <div class="val-hint">แรงขาย</div>
