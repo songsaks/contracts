@@ -505,24 +505,99 @@
     padding: 20px !important;
     overflow-y: auto !important;
   }
+
+  /* Premium Glassmorphic Tactical Badge */
+  .tactical-badge {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 8px;
+    padding: 6px 12px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.2s ease;
+  }
+  .tactical-badge:hover {
+    background: var(--btn-hover-bg);
+    border-color: var(--btn-border);
+  }
+  .tactical-badge span {
+    white-space: nowrap;
+  }
+
+  /* Hide vertical dividers globally in tactical panel */
+  #tactical-panel .indicator-divider {
+    display: none !important;
+  }
+
+  /* Responsive Adjustments */
+  @media (max-width: 991px) {
+    .indicator-divider {
+      display: none !important;
+    }
+  }
+
+  @media (max-width: 576px) {
+    #crosshair-info {
+      padding: 8px 12px;
+      gap: 8px 12px;
+      font-size: 0.72rem;
+      margin-bottom: 0.75rem;
+    }
+    .indicator-panel {
+      padding: 8px 12px;
+    }
+    .drawing-toolbar {
+      top: 40px;
+      left: 6px;
+      padding: 4px;
+      gap: 4px;
+    }
+    .drawing-btn {
+      width: 28px;
+      height: 28px;
+      font-size: 0.8rem;
+    }
+    .chart-panel-wrapper {
+      border-radius: 12px;
+      margin-bottom: 1rem;
+    }
+    #chart-status {
+      font-size: 0.8rem;
+      padding-left: 1rem !important;
+      margin-bottom: 0.5rem !important;
+    }
+    .signal-card {
+      border-radius: 12px !important;
+    }
+    .signal-card .card-header {
+      padding: 12px 16px;
+      font-size: 0.88rem;
+    }
+    .signal-table thead th,
+    .signal-table tbody td {
+      padding: 8px 12px !important;
+      font-size: 0.8rem;
+    }
+  }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="container-fluid px-4 py-4 stock-chart-dark-theme">
+<div class="container-fluid px-2 px-sm-3 px-md-4 py-2 py-md-4 stock-chart-dark-theme">
 
   <!-- Header -->
-  <div class="chart-header mb-3 d-flex flex-nowrap align-items-center justify-content-between gap-2 overflow-x-auto" style="scrollbar-width: none;">
-    <div class="d-flex align-items-center gap-2 flex-shrink-0">
+  <div class="chart-header mb-3 d-flex flex-column flex-lg-row align-items-start align-items-lg-center justify-content-between gap-3">
+    <div class="d-flex flex-wrap align-items-center gap-3 w-100 w-lg-auto justify-content-between">
       <div>
         <h4 class="fw-bold mb-0" style="white-space: nowrap;">📈 <span id="display-symbol">{{ symbol }}</span></h4>
         <small class="opacity-60" style="white-space: nowrap;">Turtle Breakout + Momentum Chart</small>
       </div>
       <form id="symbol-form" class="d-flex gap-1 align-items-center flex-shrink-0" onsubmit="changeSymbol(event)">
         <div class="symbol-input-wrap">
-          <input type="text" id="symbol-input" placeholder="Symbol…" value="{{ symbol }}" style="width: 100px;">
+          <input type="text" id="symbol-input" placeholder="Symbol…" value="{{ symbol }}" style="width: 80px; padding: 6px 12px;">
         </div>
-        <select id="market-select" class="form-select form-select-sm market-select-custom" style="width:auto; padding: 4px 8px; font-size: 0.8rem;">
+        <select id="market-select" class="form-select form-select-sm market-select-custom" style="width:auto; padding: 6px 12px; font-size: 0.8rem;">
           <option value="SET" {% if market == 'SET' %}selected{% endif %}>🇹🇭 SET</option>
           <option value="US"  {% if market == 'US'  %}selected{% endif %}>🇺🇸 US</option>
           <option value="CRYPTO" {% if market == 'CRYPTO' %}selected{% endif %}>🪙 Crypto</option>
@@ -531,30 +606,37 @@
       </form>
     </div>
 
-    <div class="d-flex gap-1 flex-nowrap align-items-center flex-shrink-0">
-      <!-- Timeframe Buttons -->
-      <button class="period-btn active" id="tf-1d" onclick="changeInterval('1d')">1D</button>
-      <button class="period-btn" id="tf-1wk" onclick="changeInterval('1wk')">1W</button>
-      <button class="period-btn" id="tf-1mo" onclick="changeInterval('1mo')">1M</button>
+    <div class="d-flex gap-2 flex-wrap align-items-center w-100 w-lg-auto justify-content-start justify-content-lg-end">
+      <div class="d-flex gap-1 align-items-center">
+        <!-- Timeframe Buttons -->
+        <button class="period-btn active" id="tf-1d" onclick="changeInterval('1d')">1D</button>
+        <button class="period-btn" id="tf-1wk" onclick="changeInterval('1wk')">1W</button>
+        <button class="period-btn" id="tf-1mo" onclick="changeInterval('1mo')">1M</button>
+      </div>
       
-      <div class="vr mx-1 opacity-20" id="timeframe-divider" style="background-color: var(--card-border);"></div>
+      <div class="vr opacity-20 d-none d-sm-block" id="timeframe-divider" style="background-color: var(--card-border); height: 20px;"></div>
       
-      <!-- Period Buttons (Only relevant for Daily timeframe) -->
-      <button class="period-btn" id="p-3mo" onclick="loadPeriod('3mo')">3M</button>
-      <button class="period-btn" id="p-6mo" onclick="loadPeriod('6mo')">6M</button>
-      <button class="period-btn active" id="p-1y" onclick="loadPeriod('1y')">1Y</button>
-      <button class="period-btn" id="p-2y" onclick="loadPeriod('2y')">2Y</button>
+      <div class="d-flex gap-1 align-items-center">
+        <!-- Period Buttons (Only relevant for Daily timeframe) -->
+        <button class="period-btn" id="p-3mo" onclick="loadPeriod('3mo')">3M</button>
+        <button class="period-btn" id="p-6mo" onclick="loadPeriod('6mo')">6M</button>
+        <button class="period-btn active" id="p-1y" onclick="loadPeriod('1y')">1Y</button>
+        <button class="period-btn" id="p-2y" onclick="loadPeriod('2y')">2Y</button>
+      </div>
       
-      <div class="vr mx-1 opacity-20" style="background-color: var(--card-border);"></div>
-      <button class="btn btn-sm rounded-pill px-3 fw-bold" onclick="analyzeChartWithAI()" id="btn-ai-analyze" style="background: linear-gradient(135deg, #a855f7 0%, #ec4899 100%); color: #fff; border: none; box-shadow: 0 0 10px rgba(236,72,153,0.5);" title="AI วิเคราะห์กราฟ">
-        <i class="fas fa-robot"></i> AI
-      </button>
-      <a href="{% url 'stocks:indicator_manual' %}" target="_blank" class="btn btn-sm rounded-pill px-3 fw-bold" style="background: rgba(59, 130, 246, 0.15); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.4);" title="คู่มือ Indicators">
-        <i class="fas fa-book"></i> คู่มือ
-      </a>
-      <button class="btn btn-sm btn-outline-info rounded-pill px-3" onclick="toggleFullscreen()" title="ขยายเต็มหน้าจอ">
-        <i class="fas fa-expand"></i>
-      </button>
+      <div class="vr opacity-20 d-none d-sm-block" style="background-color: var(--card-border); height: 20px;"></div>
+      
+      <div class="d-flex gap-1 align-items-center ms-auto ms-lg-0">
+        <button class="btn btn-sm rounded-pill px-3 fw-bold" onclick="analyzeChartWithAI()" id="btn-ai-analyze" style="background: linear-gradient(135deg, #a855f7 0%, #ec4899 100%); color: #fff; border: none; box-shadow: 0 0 10px rgba(236,72,153,0.5);" title="AI วิเคราะห์กราฟ">
+          <i class="fas fa-robot"></i> AI
+        </button>
+        <a href="{% url 'stocks:indicator_manual' %}" target="_blank" class="btn btn-sm rounded-pill px-3 fw-bold" style="background: rgba(59, 130, 246, 0.15); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.4);" title="คู่มือ Indicators">
+          <i class="fas fa-book"></i> คู่มือ
+        </a>
+        <button class="btn btn-sm btn-outline-info rounded-pill px-3" onclick="toggleFullscreen()" title="ขยายเต็มหน้าจอ">
+          <i class="fas fa-expand"></i>
+        </button>
+      </div>
     </div>
   </div>
 
@@ -608,25 +690,27 @@
     </div>
 
     <!-- Right: Tactical Command Center -->
-    <div class="d-flex align-items-center gap-3" id="tactical-panel" style="display: none;">
+    <div class="d-flex flex-wrap align-items-center gap-2 mt-2 mt-lg-0" id="tactical-panel" style="display: none;">
       
       <!-- Volatility -->
-      <div class="d-flex align-items-center gap-2" title="Average True Range (20D)">
+      <div class="d-flex align-items-center gap-2 tactical-badge" title="Average True Range (20D)">
         <span class="indicator-section-title text-info"><i class="fas fa-wave-square"></i> VOL (N):</span>
         <span class="fw-bold text-info" id="tac-n" style="font-size: 0.85rem;">0.00</span>
       </div>
 
-      <div class="indicator-divider"></div>
+      <div class="indicator-divider d-none"></div>
 
       <!-- Next Unit -->
-      <div class="d-flex align-items-center gap-2" title="Next Unit (+0.5N)">
+      <div class="d-flex align-items-center gap-2 tactical-badge" title="Next Unit (+0.5N)">
         <span class="indicator-section-title text-warning"><i class="fas fa-plus-circle"></i> NEXT:</span>
         <span class="fw-bold text-warning" id="tac-next-price" style="font-size: 0.85rem;">0.00</span>
         <span class="badge bg-warning text-dark ms-1 px-2" id="tac-suggest-shares" title="Suggest Shares (1% Risk)">-</span>
       </div>
 
+      <div class="indicator-divider d-none"></div>
+
       <!-- Portfolio Info Section (Conditional) -->
-      <div class="d-flex align-items-center gap-2 d-none" id="tac-portfolio-section">
+      <div class="d-flex align-items-center gap-2 d-none tactical-badge" id="tac-portfolio-section">
         <span class="indicator-section-title text-info"><i class="fas fa-briefcase"></i> พอร์ตของเรา:</span>
         <div class="d-flex gap-2 fw-bold" style="font-size: 0.85rem;">
           <span class="text-muted" title="ราคาทุนเฉลี่ย ของเรา">ทุน: <span id="tac-port-cost" class="text-info">0.00</span></span>
@@ -638,7 +722,7 @@
       <div class="indicator-divider d-none" id="tac-portfolio-divider"></div>
 
       <!-- Dynamic Exit -->
-      <div class="d-flex align-items-center gap-2" title="Dynamic Exit (Trailing)">
+      <div class="d-flex align-items-center gap-2 tactical-badge" title="Dynamic Exit (Trailing)">
         <span class="indicator-section-title text-danger"><i class="fas fa-shield-alt"></i> EXIT:</span>
         <div class="d-flex gap-2 fw-bold" style="font-size: 0.85rem;">
           <span class="text-muted" title="S1 (10D Low)">S1: <span id="tac-exit-10" class="text-danger">0.00</span></span>
@@ -646,10 +730,10 @@
         </div>
       </div>
 
-      <div class="indicator-divider"></div>
+      <div class="indicator-divider d-none"></div>
 
       <!-- Fibonacci targets text display -->
-      <div class="d-flex align-items-center gap-2" title="เป้าหมายราคาตามสัดส่วน Fibonacci (เมื่อทะลุแนวต้าน 52W High)">
+      <div class="d-flex align-items-center gap-2 tactical-badge" title="เป้าหมายราคาตามสัดส่วน Fibonacci (เมื่อทะลุแนวต้าน 52W High)">
         <span class="indicator-section-title text-warning"><i class="fas fa-bullseye"></i> เป้า FIB:</span>
         <div class="d-flex gap-2 fw-bold" style="font-size: 0.85rem;">
           <span class="text-muted" title="เป้าหมายยืดตัว 161.8%">F1 (161.8%): <span id="tac-fib-1618-val" class="text-warning">0.00</span></span>
@@ -657,23 +741,25 @@
         </div>
       </div>
 
-      <div class="indicator-divider"></div>
+      <div class="indicator-divider d-none"></div>
 
       <!-- Institutional Accumulation (CMF) -->
-      <div class="d-flex align-items-center gap-2" title="Chaikin Money Flow (20D)">
+      <div class="d-flex align-items-center gap-2 tactical-badge" title="Chaikin Money Flow (20D)">
         <span class="indicator-section-title text-success"><i class="fas fa-university"></i> CMF:</span>
         <span class="fw-bold text-success" id="tac-cmf" style="font-size: 0.85rem;">0.00</span>
         <span class="badge d-none ms-1" id="tac-pp" style="background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.4);" title="Pocket Pivot detected">PP</span>
         <span class="badge d-none ms-1" id="tac-vdu" style="background: rgba(59, 130, 246, 0.15); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.4);" title="Volume Dry-Up detected">VDU</span>
       </div>
 
-      <div class="indicator-divider"></div>
+      <div class="indicator-divider d-none"></div>
 
       <!-- Capital Setup -->
-      <div class="d-flex align-items-center gap-2" title="ทุนตั้งต้น สำหรับคำนวณความเสี่ยง 1%">
+      <div class="d-flex align-items-center gap-2 tactical-badge" title="ทุนตั้งต้น สำหรับคำนวณความเสี่ยง 1%">
         <i class="fas fa-wallet text-muted" style="font-size: 0.8rem;"></i>
         <input type="number" id="tac-capital-input" class="form-control form-control-sm text-end fw-bold px-2 py-1" style="width: 85px; font-size: 0.75rem; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1); color: #fff; border-radius: 6px;" value="1000000" onchange="updateTacticalWithCapital()">
       </div>
+
+    </div>
 
     </div>
   </div>
@@ -911,13 +997,29 @@ function syncCharts() {
     });
 }
 
+function getResponsiveHeights(w) {
+  let hMain = 600;
+  let hSub = 160;
+  let hVol = 120;
+  if (w < 576) {
+    hMain = 350;
+    hSub = 120;
+    hVol = 100;
+  } else if (w < 992) {
+    hMain = 450;
+    hSub = 140;
+    hVol = 110;
+  }
+  return { hMain, hSub, hVol };
+}
+
 function renderCharts(data) {
   currentData = data;
   destroyAll();
   
-  const hMain = 600;
-  const hSub  = 160;
-  const hVol  = 120;
+  const container = document.getElementById('chart-container');
+  const w = container ? container.offsetWidth : 800;
+  const { hMain, hSub, hVol } = getResponsiveHeights(w);
 
   mainChart = mkChart('chart-container', hMain);
   
@@ -1429,9 +1531,7 @@ function handleResize() {
     const container = document.getElementById('chart-container');
     if (!container) return;
     const w = container.offsetWidth;
-    const hMain = 600;
-    const hSub = 160;
-    const hVol = 120;
+    const { hMain, hSub, hVol } = getResponsiveHeights(w);
     if (mainChart) mainChart.resize(w, hMain);
     if (macdChart)  macdChart.resize(w, hSub);
     if (rsiChart)   rsiChart.resize(w, hSub);
