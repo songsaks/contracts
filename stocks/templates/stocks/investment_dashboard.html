@@ -683,10 +683,13 @@
         background: #eef2ff;
         transition: background 0.15s;
     }
-    /* First column bold for tables */
-    .markdown-body-light td:first-child {
+    /* First column bold + no-wrap for tables */
+    .markdown-body-light td:first-child,
+    .markdown-body-light th:first-child {
         font-weight: 600;
         color: #1e293b;
+        white-space: nowrap;
+        min-width: 70px;
     }
     /* Responsive table wrapper */
     .ai-table-wrap {
@@ -845,8 +848,7 @@
     }
 
     function renderStockCell(html) {
-        // Bold symbol, keep any existing <strong> but wrap bare text
-        return '<span style="font-family:\'Inter\',monospace;font-weight:800;font-size:1.0rem;color:#1e293b;letter-spacing:-0.01em;">' + html + '</span>';
+        return '<span style="font-family:\'Inter\',monospace;font-weight:800;font-size:1.0rem;color:#1e293b;letter-spacing:-0.01em;white-space:nowrap;display:inline-block;">' + html + '</span>';
     }
 
     function renderConfidenceBadge(text) {
