@@ -13329,16 +13329,23 @@ def investment_dashboard(request):
     cup_is_old = latest_cup_run is None or latest_cup_run < threshold
     any_scanner_old = prec_is_old or us_prec_is_old or cup_is_old
 
-    import markdown as _md
     ai_strategy_html = ''
     if latest_insight and latest_insight.ai_strategy:
         try:
-            ai_strategy_html = _md.markdown(
-                latest_insight.ai_strategy,
-                extensions=['tables', 'nl2br', 'sane_lists'],
-            )
+            from markdown_it import MarkdownIt as _MdIt
+            _md = _MdIt().enable('table')
+            ai_strategy_html = _md.render(latest_insight.ai_strategy)
+        except ImportError:
+            try:
+                import markdown as _md2
+                ai_strategy_html = _md2.markdown(
+                    latest_insight.ai_strategy,
+                    extensions=['tables', 'nl2br', 'sane_lists'],
+                )
+            except ImportError:
+                ai_strategy_html = ''
         except Exception:
-            ai_strategy_html = latest_insight.ai_strategy
+            ai_strategy_html = ''
 
     return render(request, 'stocks/investment_dashboard.html', {
         'insight': latest_insight,
