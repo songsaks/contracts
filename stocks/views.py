@@ -13329,6 +13329,17 @@ def investment_dashboard(request):
     cup_is_old = latest_cup_run is None or latest_cup_run < threshold
     any_scanner_old = prec_is_old or us_prec_is_old or cup_is_old
 
+    import markdown as _md
+    ai_strategy_html = ''
+    if latest_insight and latest_insight.ai_strategy:
+        try:
+            ai_strategy_html = _md.markdown(
+                latest_insight.ai_strategy,
+                extensions=['tables', 'nl2br', 'sane_lists'],
+            )
+        except Exception:
+            ai_strategy_html = latest_insight.ai_strategy
+
     return render(request, 'stocks/investment_dashboard.html', {
         'insight': latest_insight,
         'insights_history': insights,
@@ -13343,6 +13354,7 @@ def investment_dashboard(request):
         'us_prec_is_old':  us_prec_is_old,
         'cup_is_old':      cup_is_old,
         'any_scanner_old': any_scanner_old,
+        'ai_strategy_html': ai_strategy_html,
     })
 
 @login_required
@@ -13427,6 +13439,14 @@ def investment_dashboard_refresh(request):
 
             if score < 25: continue
 
+            rs = prec.rs_rating if prec else (getattr(ch, 'rs_rating', 0) or 0)
+            _stage2 = bool(prec and prec.stage2)
+            _ema_aligned = bool(prec and prec.ema20_aligned)
+            _is_canslim = bool(prec and prec.is_canslim)
+            _vcp = bool((prec and prec.vcp_setup) or (ch and ch.handle_vol_dry))
+            _52w = bool(prec and prec.is_52w_breakout)
+            _sepa_pass = _stage2 and rs >= 70 and _ema_aligned
+            _canslim_reasons = (prec.canslim_reasons or '') if prec else ''
             entry = {
                 'symbol':         sym,
                 'price':          float((prec or ch or turtle).price),
@@ -13434,12 +13454,18 @@ def investment_dashboard_refresh(request):
                 'badges':         badges,
                 'sector':         (prec.sector if prec else (ch.sector if ch else (getattr(turtle, 'sector', None) or 'Unknown'))),
                 'technical_score': prec.technical_score if prec else (ch.confidence_score if ch else 0),
-                'rs_rating':      prec.rs_rating if prec else (ch.rs_rating if ch else 0),
+                'rs_rating':      rs,
                 'cup_stage':      ch.stage if ch else "None",
                 'turtle_breakout': "YES" if (turtle and (turtle.sys1_breakout or turtle.sys2_breakout)) else "No",
-                'vdu':  prec.vdu_near_zone if prec else False,
-                'vcp':  bool((prec and prec.vcp_setup) or (ch and ch.handle_vol_dry)),
-                'is_explosive': bool(prec and prec.is_explosive),
+                'vdu':            bool(prec and prec.vdu_near_zone),
+                'vcp':            _vcp,
+                'is_explosive':   bool(prec and prec.is_explosive),
+                'stage2':         _stage2,
+                'ema_aligned':    _ema_aligned,
+                'is_canslim':     _is_canslim,
+                'is_52w_breakout': _52w,
+                'sepa_pass':      _sepa_pass,
+                'canslim_reasons': _canslim_reasons[:120] if _canslim_reasons else '',
             }
 
             if ch:
@@ -13467,36 +13493,83 @@ def investment_dashboard_refresh(request):
     us_summary = json.dumps(us_top, indent=2)
 
     prompt = f"""
-คุณคือ Senior Quantitative Strategist วิเคราะห์หุ้นด้วยระบบ Funnel หลายระบบ
-กฎการวิเคราะห์: Cup & Handle (Radar) -> Precision (Power) -> SEPA (Quality) -> Turtle (Trigger)
+คุณคือ Senior Quantitative Strategist ที่เชี่ยวชาญระบบ Minervini SEPA, O'Neil CAN SLIM และ Turtle Trend-Following
+วิเคราะห์หุ้นที่ผ่านระบบ Funnel หลายขั้นตอน: Cup & Handle (Radar) → Precision Momentum (Power) → SEPA Quality → Turtle Trigger
+
+**เกณฑ์ SEPA Trend Template (Minervini)** ที่ต้องผ่าน:
+1. ราคา > EMA150 และ EMA200 (Price above key MAs)
+2. EMA150 > EMA200 (MA alignment)
+3. EMA200 กำลังขึ้น (Uptrending 200MA)
+4. EMA50 > EMA150 และ EMA200
+5. ราคา > EMA50
+6. ราคาสูงกว่า 52W Low อย่างน้อย 30%
+7. ราคาอยู่ในช่วง 25% จาก 52W High
+8. RS Rating >= 70 (Relative Strength สูง)
+→ `sepa_pass: true` = ผ่านเกณฑ์ SEPA แล้ว
+
+**เกณฑ์ CAN SLIM (O'Neil)** ที่ระบบตรวจสอบ:
+- **C**: Current Earnings growth (กำไรไตรมาสล่าสุด +25%+)
+- **A**: Annual Earnings growth (กำไรต่อเนื่อง)
+- **N**: New product/mgmt/breakout (Catalyst)
+- **S**: Supply & Demand (Volume ยืนยัน Breakout)
+- **L**: Leader (RS Rating >= 80, outperform ตลาด)
+- **I**: Institutional support (Volume Surge)
+- **M**: Market direction (ตลาดอยู่ใน Uptrend)
+→ `is_canslim: true` = ผ่านเกณฑ์ CAN SLIM ของระบบ
 
 ข้อมูลหุ้น TOP 10 ที่ผ่านการคัดกรอง Confluence สูงสุด:
-[SET]: {set_summary}
-[US]: {us_summary}
+[SET Thailand]: {set_summary}
+[US Market]: {us_summary}
 
-เขียนรายงานวิเคราะห์เป็นภาษาไทย โดยใช้โครงสร้าง Markdown ดังนี้:
+เขียนรายงานวิเคราะห์เป็น**ภาษาไทย** โดยใช้โครงสร้าง Markdown ต่อไปนี้อย่างครบถ้วน:
 
 ## 🔍 Funnel Consensus
-สรุปว่ารอบนี้หุ้นส่วนใหญ่ติดสแกนในขั้นตอนไหนมากที่สุด และ Confluence ของตลาดเป็นอย่างไร
+สรุปภาพรวม: หุ้นส่วนใหญ่ติดในขั้นตอนไหน และ Confluence ของตลาด SET กับ US เป็นอย่างไร (3-4 ประโยค)
+
+---
+
+## 📋 SEPA Trend Template
+| หุ้น | ตลาด | Stage 2 | RS | ผ่าน SEPA | VCP/Handle | แนวทางเข้า |
+|------|------|---------|-----|-----------|-----------|-----------|
+
+วิเคราะห์เฉพาะหุ้นที่ `sepa_pass: true` หรือ `stage2: true` — ระบุว่าเหมาะกับ **ระยะสั้น (Swing)** หรือ **ระยะกลาง (Position)**
+
+---
+
+## 📊 CAN SLIM Analysis
+| หุ้น | ตลาด | CAN SLIM | RS Rating | Volume | เหตุผลเด่น | ความเชื่อมั่น |
+|------|------|---------|-----------|--------|-----------|------------|
+
+วิเคราะห์เฉพาะหุ้นที่ `is_canslim: true` — ระบุ Catalyst หลักและจุดแข็ง
 
 ---
 
 ## 💎 High Conviction Picks
-| ตลาด | หุ้น | เหตุผล (ระบุระบบที่ติด) | ความเชื่อมั่น |
-|------|------|-----------------------|------------|
-| SET | ... | ... | สูง/ปานกลาง |
-| US | ... | ... | สูง/ปานกลาง |
+| ตลาด | หุ้น | Funnel | SEPA | CAN SLIM | เหตุผลสำคัญ | Horizon |
+|------|------|--------|------|---------|------------|--------|
+เลือกเฉพาะ **Top 5** ที่มี Confluence สูงสุดจากทั้งสองตลาดรวมกัน ระบุ Horizon: สั้น/กลาง/ยาว
 
 ---
 
-## 🎯 Risk Management
-- **Stop Loss:** ระบุแนวทางตาม ATR/Low ของฐาน
-- **Trailing Stop:** ใช้ระบบ Turtle (10D/20D Low) หรือ Minervini
+## 🎯 Entry & Risk Management
+### Minervini SEPA Style
+- **Entry:** ซื้อที่ Pivot Breakout พร้อม Volume > 40% above average
+- **Stop Loss:** ต่ำกว่า Pivot / Handle Low 7-8% (Hard Stop)
+- **Position Size:** Risk ไม่เกิน 1-2% ของพอร์ตต่อ trade
+
+### CAN SLIM Style
+- **Entry:** Breakout จาก Proper Base (Cup, VCP, Flat Base)
+- **ตัดขาดทุน:** ทันทีถ้าหลุด 7-8% จากราคาซื้อ
+- **Pyramid:** เพิ่ม position เมื่อ +2.5% และ +5% จากจุดซื้อแรก
+
+### Turtle Style
+- **Trailing Stop:** 20-day Low (System 2) สำหรับระยะยาว
+- **ออก:** ทันทีเมื่อราคาปิดต่ำกว่า 20-day low
 
 ---
 
 ## 💡 Strategist's View
-มุมมองรวมของตลาด ควรรุกหรือรับ (2-3 ประโยค)
+มุมมองรวมของตลาดในสัปดาห์นี้: ควรรุก รับ หรือเลือกหุ้น? (2-3 ประโยค กระชับ ตัดสินใจได้ทันที)
 """
     
     ai_strategy = "ระบบ AI ไม่สามารถประมวลผลได้ในขณะนี้"

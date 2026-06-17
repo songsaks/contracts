@@ -133,9 +133,14 @@
                     <!-- Thin accent bar -->
                     <div style="height:3px;background:linear-gradient(90deg,#818cf8,#6366f1,#a5b4fc,#818cf8);background-size:200% 100%;animation:shimmer 3s linear infinite;"></div>
                     <div class="card-body p-4 p-md-5" style="background: linear-gradient(180deg, #fdfdff 0%, #ffffff 100%);">
-                        <textarea id="aiRawMarkdown" style="display: none;">{{ insight.ai_strategy }}</textarea>
                         <div id="aiAnalysisContent" class="markdown-body-light" style="animation: fadeSlideIn 0.6s ease both;">
-                            {{ insight.ai_strategy|linebreaksbr }}
+                            {% if ai_strategy_html %}
+                                {{ ai_strategy_html|safe }}
+                            {% elif insight.ai_strategy %}
+                                {{ insight.ai_strategy|linebreaksbr }}
+                            {% else %}
+                                <p class="text-muted">ไม่มีข้อมูลการวิเคราะห์ กรุณากด Refresh Insights</p>
+                            {% endif %}
                         </div>
                     </div>
                 </div>
@@ -715,12 +720,6 @@
 </style>
 
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/4.3.0/marked.min.js"></script>
-<script>
-    if (typeof marked === 'undefined') {
-        document.write('<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"><\/script>');
-    }
-</script>
 <script>
     function showLoading() {
         const overlay = document.getElementById('loadingOverlay');
@@ -771,26 +770,9 @@
     }
 
     document.addEventListener('DOMContentLoaded', function() {
-        const markdownEl = document.getElementById('aiRawMarkdown');
         const contentDiv = document.getElementById('aiAnalysisContent');
-        if (markdownEl && contentDiv) {
-            let rawText = markdownEl.value.trim();
-            if (rawText.length > 5) {
-                try {
-                    if (typeof marked !== 'undefined') {
-                        marked.setOptions({ breaks: true, gfm: true, headerIds: false, mangle: false });
-                        contentDiv.innerHTML = marked.parse(rawText);
-                        // ── Post-process: enhance tables ──────────────────────
-                        enhanceAITables(contentDiv);
-                    } else {
-                        console.warn("Marked.js is not loaded.");
-                    }
-                } catch (e) {
-                    console.error("Markdown parsing failed:", e);
-                }
-            } else if (rawText.length === 0) {
-                contentDiv.innerText = "ไม่มีข้อมูลการวิเคราะห์";
-            }
+        if (contentDiv && contentDiv.innerHTML.trim().length > 20) {
+            enhanceAITables(contentDiv);
         }
     });
 
