@@ -1213,6 +1213,11 @@
                                         {% endif %}
                                     </div>
                                     {% endif %}
+                                    {% if item.symbol in pyramid_ready %}
+                                    <div class="mt-1">
+                                        <span class="badge" style="background:linear-gradient(135deg,#7c3aed,#5b21b6);color:white;font-size:0.55rem;padding:2px 6px;border-radius:4px;letter-spacing:0.02em;" title="ถือในพอร์ต: ราคาขึ้น ≥3%, Volume surge ≥1.5x, ยังเหลือ upside ≥5% — พิจารณาซื้อเพิ่ม (Pyramid)">🔺 เพิ่มได้</span>
+                                    </div>
+                                    {% endif %}
                                 </div>
                             </td>
 

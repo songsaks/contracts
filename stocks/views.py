@@ -6171,8 +6171,8 @@ def precision_momentum_scanner(request):
     context['ai_scan_json'] = _scan_json.dumps(_ai_data, ensure_ascii=False, default=str).replace('</script>', '<\\/script>')
 
     # Fetch latest Cup & Handle and Turtle breakout symbols for horizon classification
-    from .models import CupHandleCandidate, TurtleScanCandidate
-    
+    from .models import CupHandleCandidate, TurtleScanCandidate, Portfolio as _PortfolioSET
+
     # Latest Cup & Handle
     latest_ch_run = CupHandleCandidate.objects.filter(user=request.user, market='SET').values_list('scan_run', flat=True).order_by('-scan_run').first()
     ch_symbols = set(CupHandleCandidate.objects.filter(user=request.user, market='SET', scan_run=latest_ch_run).values_list('symbol', flat=True)) if latest_ch_run else set()
@@ -6182,6 +6182,32 @@ def precision_momentum_scanner(request):
     latest_turtle_run = TurtleScanCandidate.objects.filter(user=request.user, market='SET').values_list('scan_run', flat=True).order_by('-scan_run').first()
     turtle_symbols = set(TurtleScanCandidate.objects.filter(user=request.user, market='SET', scan_run=latest_turtle_run).values_list('symbol', flat=True)) if latest_turtle_run else set()
     context['turtle_symbols'] = turtle_symbols
+
+    # ── Pyramid Alert ──────────────────────────────────────────────────
+    # แสดง badge เมื่อหุ้นในพอร์ตขึ้น >=3%, Volume >=1.5x, ยังเหลือ upside >=5%, ไม่มี exit signal
+    _port_entry = {}
+    for p in _PortfolioSET.objects.filter(user=request.user, market='SET'):
+        ep = float(p.entry_price or 0)
+        if ep > 0:
+            _port_entry[p.symbol.split('.')[0].upper()] = ep
+
+    pyramid_ready = set()
+    for _c in candidates:
+        _entry = _port_entry.get(_c.symbol.split('.')[0].upper(), 0)
+        if _entry <= 0:
+            continue
+        _curr = float(getattr(_c, 'live_price', None) or _c.price or 0)
+        if _curr <= 0:
+            continue
+        _gain = (_curr - _entry) / _entry * 100
+        if (
+            _gain >= 3.0 and
+            getattr(_c, 'exit_signal', '') not in ('EXIT', 'STRONG EXIT') and
+            float(getattr(_c, 'volume_surge', 0) or 0) >= 1.5 and
+            float(getattr(_c, 'upside_to_tp', 0) or 0) >= 5
+        ):
+            pyramid_ready.add(_c.symbol)
+    context['pyramid_ready'] = pyramid_ready
 
     return render(request, 'stocks/precision_scan.html', context)
 
@@ -9087,12 +9113,36 @@ def us_precision_scanner(request):
     }, ensure_ascii=False, default=str).replace('</script>', '<\\/script>')
 
     # Fetch latest Cup & Handle and Turtle breakout symbols for US
-    from .models import CupHandleCandidate, TurtleScanCandidate
+    from .models import CupHandleCandidate, TurtleScanCandidate, Portfolio as _PortfolioUS
     latest_ch_run = CupHandleCandidate.objects.filter(user=request.user, market='US').values_list('scan_run', flat=True).order_by('-scan_run').first()
     ch_symbols = set(CupHandleCandidate.objects.filter(user=request.user, market='US', scan_run=latest_ch_run).values_list('symbol', flat=True)) if latest_ch_run else set()
 
     latest_turtle_run = TurtleScanCandidate.objects.filter(user=request.user, market='US').values_list('scan_run', flat=True).order_by('-scan_run').first()
     turtle_symbols = set(TurtleScanCandidate.objects.filter(user=request.user, market='US', scan_run=latest_turtle_run).values_list('symbol', flat=True)) if latest_turtle_run else set()
+
+    # ── Pyramid Alert (US) ─────────────────────────────────────────────
+    _port_entry_us = {}
+    for p in _PortfolioUS.objects.filter(user=request.user, market='US'):
+        ep = float(p.entry_price or 0)
+        if ep > 0:
+            _port_entry_us[p.symbol.upper()] = ep
+
+    pyramid_ready_us = set()
+    for _c in candidates:
+        _entry = _port_entry_us.get(_c.symbol.upper(), 0)
+        if _entry <= 0:
+            continue
+        _curr = float(getattr(_c, 'live_price', None) or _c.price or 0)
+        if _curr <= 0:
+            continue
+        _gain = (_curr - _entry) / _entry * 100
+        if (
+            _gain >= 3.0 and
+            getattr(_c, 'exit_signal', '') not in ('EXIT', 'STRONG EXIT') and
+            float(getattr(_c, 'volume_surge', 0) or 0) >= 1.5 and
+            float(getattr(_c, 'upside_to_tp', 0) or 0) >= 5
+        ):
+            pyramid_ready_us.add(_c.symbol)
 
     return render(request, 'stocks/us_precision_scan.html', {
         'title': 'US Precision Momentum Scanner - Nasdaq & S&P 500',
@@ -9105,6 +9155,7 @@ def us_precision_scanner(request):
         'ai_scan_json': ai_scan_json,
         'cup_handle_symbols': ch_symbols,
         'turtle_symbols': turtle_symbols,
+        'pyramid_ready': pyramid_ready_us,
     })
 
 
