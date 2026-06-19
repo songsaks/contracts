@@ -3757,11 +3757,11 @@ def morning_briefing(request):
                 prec_set = []
                 if prec_run:
                     prec_set = list(PrecisionScanCandidate.objects.filter(user=user, market='SET', scan_run=prec_run).order_by('-technical_score')[:8])
-                prec_lines = [f"  - {c.symbol}: Score={c.technical_score} RS={c.rs_rating} Stage2={'✓' if c.stage2 else '✗'} RR={c.risk_reward_ratio:.1f} Prox={c.zone_proximity:.1f}% PP={'✓' if c.pocket_pivot else '✗'} CMF={c.cmf:.2f if c.cmf is not None else 'N/A'} VCP={'✓' if c.vcp_setup else '✗'}({c.vcp_contractions}T, {c.vcp_tightness:.1f}%)" for c in prec_set]
+                prec_lines = [f"  - {c.symbol}: Score={c.technical_score} RS={c.rs_rating} Stage2={'✓' if c.stage2 else '✗'} RR={c.risk_reward_ratio:.1f} Prox={c.zone_proximity:.1f}% PP={'✓' if c.pocket_pivot else '✗'} CMF={f'{c.cmf:.2f}' if c.cmf is not None else 'N/A'} VCP={'✓' if c.vcp_setup else '✗'}({c.vcp_contractions}T, {c.vcp_tightness:.1f}%)" for c in prec_set]
 
                 # ── 5. SEPA SET (from Precision) ────────────────
                 sepa_set = [c for c in prec_set if c.stage2 and c.rs_rating >= 70]
-                sepa_lines = [f"  - {c.symbol}: RS={c.rs_rating} VCP={'✓' if c.vcp_setup else '✗'}({c.vcp_contractions}T, {c.vcp_tightness:.1f}%) PP={'✓' if c.pocket_pivot else '✗'} CMF={c.cmf:.2f if c.cmf is not None else 'N/A'} Score={c.technical_score}" for c in sepa_set]
+                sepa_lines = [f"  - {c.symbol}: RS={c.rs_rating} VCP={'✓' if c.vcp_setup else '✗'}({c.vcp_contractions}T, {c.vcp_tightness:.1f}%) PP={'✓' if c.pocket_pivot else '✗'} CMF={f'{c.cmf:.2f}' if c.cmf is not None else 'N/A'} Score={c.technical_score}" for c in sepa_set]
 
                 # ── 6. Cup & Handle ─────────────────────────────
                 _c.set(ckey, {'state': 'running', 'phase': 'ดึงข้อมูล Cup & Handle…'}, timeout=600)
@@ -4034,7 +4034,7 @@ def macro_economy(request):
         if latest_set_run:
             set_stocks = list(PrecisionScanCandidate.objects.filter(user=request.user, market='SET', scan_run=latest_set_run).order_by('-technical_score')[:5])
         set_stocks_str = "\n".join([
-            f"  - {c.symbol}: Score={c.technical_score}, RS={c.rs_rating}, CMF={c.cmf:.2f if c.cmf is not None else 'N/A'}, PP={'Yes' if c.pocket_pivot else 'No'}, VCP={'Yes' if c.vcp_setup else 'No'} ({c.vcp_contractions}T, {c.vcp_tightness:.1f}%)"
+            f"  - {c.symbol}: Score={c.technical_score}, RS={c.rs_rating}, CMF={f'{c.cmf:.2f}' if c.cmf is not None else 'N/A'}, PP={'Yes' if c.pocket_pivot else 'No'}, VCP={'Yes' if c.vcp_setup else 'No'} ({c.vcp_contractions}T, {c.vcp_tightness:.1f}%)"
             for c in set_stocks
         ]) if set_stocks else "ไม่มีข้อมูลสแกนล่าสุด"
 
@@ -4044,7 +4044,7 @@ def macro_economy(request):
         if latest_us_run:
             us_stocks = list(PrecisionScanCandidate.objects.filter(user=request.user, market='US', scan_run=latest_us_run).order_by('-technical_score')[:5])
         us_stocks_str = "\n".join([
-            f"  - {c.symbol}: Score={c.technical_score}, RS={c.rs_rating}, CMF={c.cmf:.2f if c.cmf is not None else 'N/A'}, PP={'Yes' if c.pocket_pivot else 'No'}, VCP={'Yes' if c.vcp_setup else 'No'} ({c.vcp_contractions}T, {c.vcp_tightness:.1f}%)"
+            f"  - {c.symbol}: Score={c.technical_score}, RS={c.rs_rating}, CMF={f'{c.cmf:.2f}' if c.cmf is not None else 'N/A'}, PP={'Yes' if c.pocket_pivot else 'No'}, VCP={'Yes' if c.vcp_setup else 'No'} ({c.vcp_contractions}T, {c.vcp_tightness:.1f}%)"
             for c in us_stocks
         ]) if us_stocks else "ไม่มีข้อมูลสแกนล่าสุด"
 
@@ -14129,11 +14129,11 @@ def trigger_daily_agent_report_ajax(request):
             # Precision Scan (SET/US)
             prec_run_set = PrecisionScanCandidate.objects.filter(user=user, market='SET').values_list('scan_run', flat=True).order_by('-scan_run').first()
             prec_set = list(PrecisionScanCandidate.objects.filter(user=user, market='SET', scan_run=prec_run_set).order_by('-technical_score')[:8]) if prec_run_set else []
-            prec_set_lines = [f"  - {c.symbol}: Score={c.technical_score} RS={c.rs_rating} Stage2={'✓' if c.stage2 else '✗'} RR={c.risk_reward_ratio:.1f} Prox={c.zone_proximity:.1f}% PP={'✓' if c.pocket_pivot else '✗'} CMF={c.cmf:.2f if c.cmf is not None else 'N/A'} VCP={'✓' if c.vcp_setup else '✗'}({c.vcp_contractions}T, {c.vcp_tightness:.1f}%)" for c in prec_set]
+            prec_set_lines = [f"  - {c.symbol}: Score={c.technical_score} RS={c.rs_rating} Stage2={'✓' if c.stage2 else '✗'} RR={c.risk_reward_ratio:.1f} Prox={c.zone_proximity:.1f}% PP={'✓' if c.pocket_pivot else '✗'} CMF={f'{c.cmf:.2f}' if c.cmf is not None else 'N/A'} VCP={'✓' if c.vcp_setup else '✗'}({c.vcp_contractions}T, {c.vcp_tightness:.1f}%)" for c in prec_set]
 
             # SEPA SET (Stage 2 + RS >= 70)
             sepa_set = [c for c in prec_set if c.stage2 and c.rs_rating >= 70]
-            sepa_lines = [f"  - {c.symbol}: RS={c.rs_rating} VCP={'✓' if c.vcp_setup else '✗'}({c.vcp_contractions}T, {c.vcp_tightness:.1f}%) PP={'✓' if c.pocket_pivot else '✗'} CMF={c.cmf:.2f if c.cmf is not None else 'N/A'} Score={c.technical_score}" for c in sepa_set]
+            sepa_lines = [f"  - {c.symbol}: RS={c.rs_rating} VCP={'✓' if c.vcp_setup else '✗'}({c.vcp_contractions}T, {c.vcp_tightness:.1f}%) PP={'✓' if c.pocket_pivot else '✗'} CMF={f'{c.cmf:.2f}' if c.cmf is not None else 'N/A'} Score={c.technical_score}" for c in sepa_set]
 
             # Cup & Handle (SET)
             cup_run = CupHandleCandidate.objects.filter(user=user).values_list('scan_run', flat=True).order_by('-scan_run').first()
