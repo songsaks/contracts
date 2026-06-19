@@ -1096,6 +1096,11 @@ def momentum_quick_analysis(request, symbol):
                 'upside_to_high':    _sf(cand.upside_to_high),
                 'cmf':               _sf(getattr(cand, 'cmf', None)),
                 'volume_surge':      _sf(getattr(cand, 'volume_surge', None)),
+                'pocket_pivot':      bool(getattr(cand, 'pocket_pivot', False)),
+                'vcp_setup':         bool(getattr(cand, 'vcp_setup', False)),
+                'vcp_contractions':  int(getattr(cand, 'vcp_contractions', 0)),
+                'vcp_tightness':     _sf(getattr(cand, 'vcp_tightness', 0.0)),
+                'vcp_vdu':           bool(getattr(cand, 'vcp_vdu', False)),
             }
     except Exception:
         pass
@@ -3752,11 +3757,11 @@ def morning_briefing(request):
                 prec_set = []
                 if prec_run:
                     prec_set = list(PrecisionScanCandidate.objects.filter(user=user, market='SET', scan_run=prec_run).order_by('-technical_score')[:8])
-                prec_lines = [f"  - {c.symbol}: Score={c.technical_score} RS={c.rs_rating} Stage2={'✓' if c.stage2 else '✗'} RR={c.risk_reward_ratio:.1f} Prox={c.zone_proximity:.1f}%" for c in prec_set]
+                prec_lines = [f"  - {c.symbol}: Score={c.technical_score} RS={c.rs_rating} Stage2={'✓' if c.stage2 else '✗'} RR={c.risk_reward_ratio:.1f} Prox={c.zone_proximity:.1f}% PP={'✓' if c.pocket_pivot else '✗'} CMF={c.cmf:.2f if c.cmf is not None else 'N/A'} VCP={'✓' if c.vcp_setup else '✗'}({c.vcp_contractions}T, {c.vcp_tightness:.1f}%)" for c in prec_set]
 
                 # ── 5. SEPA SET (from Precision) ────────────────
                 sepa_set = [c for c in prec_set if c.stage2 and c.rs_rating >= 70]
-                sepa_lines = [f"  - {c.symbol}: RS={c.rs_rating} VCP={'✓' if c.vcp_setup else '✗'} Score={c.technical_score}" for c in sepa_set]
+                sepa_lines = [f"  - {c.symbol}: RS={c.rs_rating} VCP={'✓' if c.vcp_setup else '✗'}({c.vcp_contractions}T, {c.vcp_tightness:.1f}%) PP={'✓' if c.pocket_pivot else '✗'} CMF={c.cmf:.2f if c.cmf is not None else 'N/A'} Score={c.technical_score}" for c in sepa_set]
 
                 # ── 6. Cup & Handle ─────────────────────────────
                 _c.set(ckey, {'state': 'running', 'phase': 'ดึงข้อมูล Cup & Handle…'}, timeout=600)
@@ -3772,7 +3777,7 @@ def morning_briefing(request):
                 us_sepa_list = []
                 if us_sepa_run:
                     us_sepa_list = list(USSepaCandidate.objects.filter(user=user, scan_run=us_sepa_run, stage2=True).order_by('-rs_rating')[:8])
-                us_sepa_lines = [f"  - {c.symbol}: RS={c.rs_rating} VCP={'✓' if c.vcp_setup else '✗'} ADX={c.adx:.0f} Price={c.price:.2f}" for c in us_sepa_list]
+                us_sepa_lines = [f"  - {c.symbol}: RS={c.rs_rating} VCP={'✓' if c.vcp_setup else '✗'}({c.vcp_contractions}T, {c.vcp_tightness:.1f}%) PP={'✓' if c.pocket_pivot else '✗'} Price={c.price:.2f}" for c in us_sepa_list]
 
                 # ── 8. Macro data ───────────────────────────────
                 _c.set(ckey, {'state': 'running', 'phase': 'ดึงข้อมูล Macro…'}, timeout=600)
@@ -3845,12 +3850,21 @@ def morning_briefing(request):
 Top 3-5 จาก Momentum + Precision + SEPA + Cup&Handle รวมกัน
 พร้อม Entry Zone, Stop Loss, Target และ Priority (🔥 สูง / ⚡ กลาง / 👀 เฝ้าดู)
 
+## 3. 🇹🇭 หุ้น SET น่าสนใจวันนี้
+Top 3-5 จาก Momentum + Precision + SEPA + Cup&Handle รวมกัน
+วิเคราะห์เปรียบเทียบในแง่กลยุทธ์:
+- **Pocket Pivot (PP)**: ดูว่าเป็นจุดซื้อซุ่มเงียบในฐานราคา (Volume ยืนยัน) หรือไม่
+- **CMF (Chaikin Money Flow)**: ประเมินการสะสมหุ้นของสถาบัน/รายใหญ่ (>0.1 คือสะสม)
+- **CAN SLIM / SEPA VCP**: ดูการบีบตัวของราคา (จำนวนครั้ง T และเปอร์เซ็นต์ความลึกที่แคบลง)
+พร้อมระบุ Entry Zone, Stop Loss, Target และ Priority (🔥 สูง / ⚡ กลาง / 👀 เฝ้าดู)
+
 ## 4. 🇺🇸 หุ้น US น่าสนใจวันนี้
 Top 3-5 จาก Momentum US + US SEPA
+วิเคราะห์คุณลักษณะตามเกณฑ์ Minervini SEPA VCP และสัญญาณ Pocket Pivot (PP) รวมทั้งแนวโน้มสถาบันสะสมหุ้น
 พร้อม Entry, Stop, Target และ Priority
 
 ## 5. ⚡ สรุปแผนปฏิบัติการวันนี้
-ตารางสรุป: หุ้น | ตลาด | Action | ราคาเข้า | Stop | เหตุผล
+ตารางสรุป: หุ้น | ตลาด | Action | ราคาเข้า | Stop | เหตุผล (ระบุว่าเด่นด้าน PP / CMF / VCP หรือไม่)
 เรียงตาม Priority สูงสุดก่อน
 
 ## 6. ⚠️ ความเสี่ยงที่ต้องระวังวันนี้
@@ -4011,23 +4025,53 @@ def macro_economy(request):
         client = genai.Client(api_key=settings.GEMINI_API_KEY)
         model_name_to_use = 'gemini-2.5-flash'
 
+        # ดึงผลสแกนล่าสุดมาประกอบการวิเคราะห์กลุ่มอุตสาหกรรมและกลยุทธ์หุ้นรายตัว
+        from stocks.models import PrecisionScanCandidate
+        
+        # หุ้นเด่นไทยล่าสุด
+        latest_set_run = PrecisionScanCandidate.objects.filter(user=request.user, market='SET').values_list('scan_run', flat=True).order_by('-scan_run').first()
+        set_stocks = []
+        if latest_set_run:
+            set_stocks = list(PrecisionScanCandidate.objects.filter(user=request.user, market='SET', scan_run=latest_set_run).order_by('-technical_score')[:5])
+        set_stocks_str = "\n".join([
+            f"  - {c.symbol}: Score={c.technical_score}, RS={c.rs_rating}, CMF={c.cmf:.2f if c.cmf is not None else 'N/A'}, PP={'Yes' if c.pocket_pivot else 'No'}, VCP={'Yes' if c.vcp_setup else 'No'} ({c.vcp_contractions}T, {c.vcp_tightness:.1f}%)"
+            for c in set_stocks
+        ]) if set_stocks else "ไม่มีข้อมูลสแกนล่าสุด"
+
+        # หุ้นเด่นสหรัฐล่าสุด
+        latest_us_run = PrecisionScanCandidate.objects.filter(user=request.user, market='US').values_list('scan_run', flat=True).order_by('-scan_run').first()
+        us_stocks = []
+        if latest_us_run:
+            us_stocks = list(PrecisionScanCandidate.objects.filter(user=request.user, market='US', scan_run=latest_us_run).order_by('-technical_score')[:5])
+        us_stocks_str = "\n".join([
+            f"  - {c.symbol}: Score={c.technical_score}, RS={c.rs_rating}, CMF={c.cmf:.2f if c.cmf is not None else 'N/A'}, PP={'Yes' if c.pocket_pivot else 'No'}, VCP={'Yes' if c.vcp_setup else 'No'} ({c.vcp_contractions}T, {c.vcp_tightness:.1f}%)"
+            for c in us_stocks
+        ]) if us_stocks else "ไม่มีข้อมูลสแกนล่าสุด"
+
         # สร้าง string สรุปข้อมูลมหภาคเพื่อส่งให้ AI
         data_str = "\n".join([f"{d['name']}: {d['price']:.2f} ({d['change']:+.2f}%) - {d['desc']}" for d in data])
         prompt = f"""
         คุณคือผู้เชี่ยวชาญด้านเศรษฐศาสตร์มหาภาค (Senior Economist) และนักกลยุทธ์การลงทุนระดับโลก (Global Investment Strategist) 
-        จงวิเคราะห์ข้อมูลตลาดปัจจุบันด้านล่างนี้ และสรุปภาพรวมเศรษฐกิจและการลงทุนให้มีความลุ่มลึกระดับสถาบัน:
+        จงวิเคราะห์ข้อมูลตลาดปัจจุบันและหุ้นเด่นที่มีการตั้งทรงทางเทคนิคตามกลยุทธ์ด้านล่างนี้ และสรุปภาพรวมเศรษฐกิจและการลงทุนให้มีความลุ่มลึกระดับสถาบัน:
         
         [Market Data Summary]:
         {data_str}
+
+        [Top Scanned Stocks & Setup (ระบบ O'Neil / Minervini)]:
+        **ตลาดหุ้นไทย (SET Top Picks):**
+        {set_stocks_str}
+
+        **ตลาดหุ้นสหรัฐฯ (US Top Picks):**
+        {us_stocks_str}
 
         โปรดเขียนรายงาน "Global Investment Outlook & Asset Allocation" เป็นภาษาไทย โดยมีหัวข้อดังนี้:
         1. **Fund Flow & Risk Appetite**: วิเคราะห์ความสัมพันธ์ของ DXY, Bond Yield เเละ Bitcoin ตอนนี้ตลาดอยู่ในภาวะ Risk-on (กล้าเสี่ยง) หรือ Risk-off (กลัว) เงินกำลังไหลออกจากตลาดหุ้นไปสู่หลุมหลบภัย (Gold) หรือไหลเข้าสู่ระบบใหม่ (Crypto)?
         2. **US vs Thai Market Direction**: วิเคราะห์เปรียบเทียบตลาดหุ้นสหรัฐฯ (S&P 500) และไทย (SET) ทิศทางเป็นอย่างไร? มีปัจจัยอะไรที่สวนทางกันหรือไม่?
         3. **Asset Allocation (การจัดพอร์ตแนะนำ)**: แนะนำสัดส่วนการลงทุนที่เหมาะสมใน 'ตอนนี้' (เช่น หุ้นกี่ %, ทองคำกี่ %, คริปโตกี่ %, เงินสดกี่ %) โดยอ้างอิงจากความเสี่ยงเศรษฐกิจมหาภาค
         4. **Deep Dive: Gold & Crypto**: เจาะลึกทองคำและบิทคอยน์ในฐานะสินทรัพย์ทางเลือก (Alternative Assets) ในสภาวะปัจจุบันควรสะสม, ถือเฉยๆ หรือหาจังหวะขาย?
-        5. **Sector Strategy (US & Thai)**: เจาะกลุ่มอุตสาหกรรมโดดเด่น:
-           - **US Sectors**: แนะนำกลุ่มที่น่าสนใจในตลาดสหรัฐฯ (เช่น Tech, Healthcare, Energy) พร้อมตัวอย่างบริษัทยักษ์ใหญ่
-           - **Thai Sectors**: แนะนำกลุ่ม Winner ในไทย (เช่น Tourism, Export, Banking) พร้อมระบุรายชื่อหุ้น 3-5 ตัว
+        5. **Sector Strategy & Stock Selection (US & Thai)**: เจาะกลุ่มอุตสาหกรรมโดดเด่น:
+           - **US Sectors & Stock Picks**: แนะนำกลุ่มอุตสาหกรรมที่น่าสนใจ พร้อมชี้เป้าหุ้นสหรัฐฯ ที่โดดเด่นจากรายชื่อสแกนข้างต้น โดยวิเคราะห์ปัจจัยสนับสนุนและจุดเด่นด้านเทคนิค เช่น ความแข็งแกร่งของ **Pocket Pivot (PP)**, แรงส่งจากสถาบันการเงินที่ดูจาก **CMF** และลักษณะการบีบตัวของราคา **VCP**
+           - **Thai Sectors & Stock Picks**: แนะนำกลุ่ม Winner ในไทย พร้อมเจาะจงวิเคราะห์หุ้นไทย 3-5 ตัวที่มีสัญญาณซื้อซุ่มเงียบ **Pocket Pivot (PP)**, การสะสมของสถาบันที่ยอดเยี่ยม (**CMF > 0.1**) หรือฟอร์มตัวในรูปแบบ **VCP (Volatility Contraction Pattern)** ที่พร้อมเบรคเอาท์
         6. **Strategic Summary (1-3 Months Outlook)**: สรุปกลยุทธ์สั้นๆ 1-3 เดือนข้างหน้าว่าควรโฟกัสที่จุดใดมากที่สุด
 
         ข้อกำหนดการตอบ:
@@ -13505,6 +13549,14 @@ def investment_dashboard_refresh(request):
             _52w = bool(prec and prec.is_52w_breakout)
             _sepa_pass = _stage2 and rs >= 70 and _ema_aligned
             _canslim_reasons = (prec.canslim_reasons or '') if prec else ''
+            
+            # Additional strategy fields
+            _pocket_pivot = bool((prec and prec.pocket_pivot) or (sepa and sepa.pocket_pivot))
+            _cmf = float(prec.cmf) if (prec and prec.cmf is not None) else None
+            _vcp_c = int(prec.vcp_contractions) if prec else (int(sepa.vcp_contractions) if sepa else 0)
+            _vcp_t = float(prec.vcp_tightness) if prec else (float(sepa.vcp_tightness) if sepa else 0.0)
+            _vcp_vdu = bool(prec and prec.vcp_vdu)
+
             entry = {
                 'symbol':         sym,
                 'price':          float((prec or ch or turtle).price),
@@ -13524,6 +13576,11 @@ def investment_dashboard_refresh(request):
                 'is_52w_breakout': _52w,
                 'sepa_pass':      _sepa_pass,
                 'canslim_reasons': _canslim_reasons[:120] if _canslim_reasons else '',
+                'pocket_pivot':   _pocket_pivot,
+                'cmf':            _cmf,
+                'vcp_contractions': _vcp_c,
+                'vcp_tightness':  _vcp_t,
+                'vcp_vdu':        _vcp_vdu,
             }
 
             if ch:
@@ -13554,7 +13611,12 @@ def investment_dashboard_refresh(request):
 คุณคือ Senior Quantitative Strategist ที่เชี่ยวชาญระบบ Minervini SEPA, O'Neil CAN SLIM และ Turtle Trend-Following
 วิเคราะห์หุ้นที่ผ่านระบบ Funnel หลายขั้นตอน: Cup & Handle (Radar) → Precision Momentum (Power) → SEPA Quality → Turtle Trigger
 
-**เกณฑ์ SEPA Trend Template (Minervini)** ที่ต้องผ่าน:
+**กลยุทธ์สำคัญของระบบที่ต้องเน้นวิเคราะห์:**
+1. **Pocket Pivot (PP)**: จุดซื้อซุ่มเงียบในฐานราคา (Volume สูงยืนยันการไหลเข้าของเงินทุน)
+2. **CMF (Chaikin Money Flow)**: การสะสมหุ้นของสถาบัน/รายใหญ่ (ค่า > 0.1 แสดงถึงแรงสะสมที่แข็งแกร่ง)
+3. **CAN SLIM / SEPA VCP (Volatility Contraction Pattern)**: การบีบตัวของราคาเพื่อกำจัดผู้เล่นระยะสั้น (จดจำจำนวนครั้งการบีบตัว T และเปอร์เซ็นต์ความลึกที่แคบลง)
+
+**เกณฑ์ SEPA Trend Template (Minervini) ที่ต้องผ่าน:**
 1. ราคา > EMA150 และ EMA200 (Price above key MAs)
 2. EMA150 > EMA200 (MA alignment)
 3. EMA200 กำลังขึ้น (Uptrending 200MA)
@@ -13565,13 +13627,13 @@ def investment_dashboard_refresh(request):
 8. RS Rating >= 70 (Relative Strength สูง)
 → `sepa_pass: true` = ผ่านเกณฑ์ SEPA แล้ว
 
-**เกณฑ์ CAN SLIM (O'Neil)** ที่ระบบตรวจสอบ:
+**เกณฑ์ CAN SLIM (O'Neil) ที่ระบบตรวจสอบ:**
 - **C**: Current Earnings growth (กำไรไตรมาสล่าสุด +25%+)
 - **A**: Annual Earnings growth (กำไรต่อเนื่อง)
 - **N**: New product/mgmt/breakout (Catalyst)
 - **S**: Supply & Demand (Volume ยืนยัน Breakout)
 - **L**: Leader (RS Rating >= 80, outperform ตลาด)
-- **I**: Institutional support (Volume Surge)
+- **I**: Institutional support (Volume Surge / CMF สะสม)
 - **M**: Market direction (ตลาดอยู่ใน Uptrend)
 → `is_canslim: true` = ผ่านเกณฑ์ CAN SLIM ของระบบ
 
@@ -13582,29 +13644,29 @@ def investment_dashboard_refresh(request):
 เขียนรายงานวิเคราะห์เป็น**ภาษาไทย** โดยใช้โครงสร้าง Markdown ต่อไปนี้อย่างครบถ้วน:
 
 ## 🔍 Funnel Consensus
-สรุปภาพรวม: หุ้นส่วนใหญ่ติดในขั้นตอนไหน และ Confluence ของตลาด SET กับ US เป็นอย่างไร (3-4 ประโยค)
+สรุปภาพรวม: หุ้นส่วนใหญ่ติดในขั้นตอนไหน และ Confluence ของตลาด SET กับ US เป็นอย่างไร โดยเฉพาะเรื่องสัญญาณการสะสมของสถาบัน (CMF) และจุดซื้อซุ่มเงียบ (PP) ของภาพรวมตลาด (3-4 ประโยค)
 
 ---
 
-## 📋 SEPA Trend Template
-| หุ้น | ตลาด | Stage 2 | RS | ผ่าน SEPA | VCP/Handle | แนวทางเข้า |
-|------|------|---------|-----|-----------|-----------|-----------|
+## 📋 SEPA Trend Template & VCP Deep Dive
+| หุ้น | ตลาด | Stage 2 | RS | ผ่าน SEPA | Pocket Pivot (PP) | VCP Contractions (T) | ความแน่น (Tightness) |
+|------|------|---------|-----|-----------|------------------|----------------------|----------------------|
 
-วิเคราะห์เฉพาะหุ้นที่ `sepa_pass: true` หรือ `stage2: true` — ระบุว่าเหมาะกับ **ระยะสั้น (Swing)** หรือ **ระยะกลาง (Position)**
+วิเคราะห์เฉพาะหุ้นที่ `sepa_pass: true` หรือ `stage2: true` — เจาะลึกสัญญาณ **VCP setup** (จำนวนครั้ง T และความแน่นของการบีบตัวล่าสุด) พร้อมระบุว่าเหมาะกับ **ระยะสั้น (Swing)** หรือ **ระยะกลาง (Position)**
 
 ---
 
-## 📊 CAN SLIM Analysis
-| หุ้น | ตลาด | CAN SLIM | RS Rating | Volume | เหตุผลเด่น | ความเชื่อมั่น |
-|------|------|---------|-----------|--------|-----------|------------|
+## 📊 CAN SLIM & Smart Money Flow
+| หุ้น | ตลาด | CAN SLIM | CMF (สถาบัน) | RS Rating | Volume | สรุปพฤติกรรมสถาบัน |
+|------|------|---------|--------------|-----------|--------|--------------------|
 
-วิเคราะห์เฉพาะหุ้นที่ `is_canslim: true` — ระบุ Catalyst หลักและจุดแข็ง
+วิเคราะห์เฉพาะหุ้นที่ `is_canslim: true` หรือหุ้นที่มี **CMF > 0.1** (สถาบันสะสมหุ้นเด่นชัด) — ระบุจุดแข็งของ Smart Money และสัญญาณของ Pocket Pivot (PP) ถ้ามี
 
 ---
 
 ## 💎 High Conviction Picks
-| ตลาด | หุ้น | Funnel | SEPA | CAN SLIM | เหตุผลสำคัญ | Horizon |
-|------|------|--------|------|---------|------------|--------|
+| ตลาด | หุ้น | Funnel | SEPA | CAN SLIM | ปัจจัยหลักด้าน PP/CMF/VCP | Horizon |
+|------|------|--------|------|---------|-------------------------|--------|
 เลือกเฉพาะ **Top 5** ที่มี Confluence สูงสุดจากทั้งสองตลาดรวมกัน ระบุ Horizon: สั้น/กลาง/ยาว
 
 ---
@@ -14067,11 +14129,11 @@ def trigger_daily_agent_report_ajax(request):
             # Precision Scan (SET/US)
             prec_run_set = PrecisionScanCandidate.objects.filter(user=user, market='SET').values_list('scan_run', flat=True).order_by('-scan_run').first()
             prec_set = list(PrecisionScanCandidate.objects.filter(user=user, market='SET', scan_run=prec_run_set).order_by('-technical_score')[:8]) if prec_run_set else []
-            prec_set_lines = [f"  - {c.symbol}: Score={c.technical_score} RS={c.rs_rating} Stage2={'✓' if c.stage2 else '✗'} RR={c.risk_reward_ratio:.1f} Prox={c.zone_proximity:.1f}%" for c in prec_set]
+            prec_set_lines = [f"  - {c.symbol}: Score={c.technical_score} RS={c.rs_rating} Stage2={'✓' if c.stage2 else '✗'} RR={c.risk_reward_ratio:.1f} Prox={c.zone_proximity:.1f}% PP={'✓' if c.pocket_pivot else '✗'} CMF={c.cmf:.2f if c.cmf is not None else 'N/A'} VCP={'✓' if c.vcp_setup else '✗'}({c.vcp_contractions}T, {c.vcp_tightness:.1f}%)" for c in prec_set]
 
             # SEPA SET (Stage 2 + RS >= 70)
             sepa_set = [c for c in prec_set if c.stage2 and c.rs_rating >= 70]
-            sepa_lines = [f"  - {c.symbol}: RS={c.rs_rating} VCP={'✓' if c.vcp_setup else '✗'} Score={c.technical_score}" for c in sepa_set]
+            sepa_lines = [f"  - {c.symbol}: RS={c.rs_rating} VCP={'✓' if c.vcp_setup else '✗'}({c.vcp_contractions}T, {c.vcp_tightness:.1f}%) PP={'✓' if c.pocket_pivot else '✗'} CMF={c.cmf:.2f if c.cmf is not None else 'N/A'} Score={c.technical_score}" for c in sepa_set]
 
             # Cup & Handle (SET)
             cup_run = CupHandleCandidate.objects.filter(user=user).values_list('scan_run', flat=True).order_by('-scan_run').first()
@@ -14081,7 +14143,7 @@ def trigger_daily_agent_report_ajax(request):
             # US SEPA
             us_sepa_run = USSepaCandidate.objects.filter(user=user).values_list('scan_run', flat=True).order_by('-scan_run').first()
             us_sepa_list = list(USSepaCandidate.objects.filter(user=user, scan_run=us_sepa_run, stage2=True).order_by('-rs_rating')[:8]) if us_sepa_run else []
-            us_sepa_lines = [f"  - {c.symbol}: RS={c.rs_rating} VCP={'✓' if c.vcp_setup else '✗'} Price={c.price:.2f}" for c in us_sepa_list]
+            us_sepa_lines = [f"  - {c.symbol}: RS={c.rs_rating} VCP={'✓' if c.vcp_setup else '✗'}({c.vcp_contractions}T, {c.vcp_tightness:.1f}%) PP={'✓' if c.pocket_pivot else '✗'} Price={c.price:.2f}" for c in us_sepa_list]
 
             # 3. ข้อมูลสภาวะตลาด (Macro)
             _c.set(ckey, {'state': 'running', 'phase': 'ดึงดัชนีตลาดและข้อมูลสินค้าโภคภัณฑ์...'}, timeout=600)
@@ -14140,20 +14202,20 @@ def trigger_daily_agent_report_ajax(request):
 จงสร้างรายงานวิเคราะห์ภาษาไทยด้วยรูปแบบ **Markdown** ระดับมืออาชีพ โดยเน้นการวิเคราะห์เชิงเปรียบเทียบตรงตามระบบ SEPA, CAN SLIM, Trend Following และ Momentum:
 
 ### 1. 🔍 บทสรุปภาวะตลาดและการสแกนรอบ {slot} น.
-- สรุปสั้นๆ เกี่ยวกับบรรยากาศตลาด (SET / US) และปริมาณการเกิดสัญญาณซื้อ
+- สรุปสั้นๆ เกี่ยวกับบรรยากาศตลาด (SET / US) และปริมาณการเกิดสัญญาณซื้อ โดยเน้นวิเคราะห์การสะสมหุ้นของสถาบัน (CMF) และการปรากฏของ Pocket Pivot (PP) ในภาพรวม
 
 ### 2. 📊 เปรียบเทียบผลสแกนกับพอร์ตโฟลิโอปัจจุบัน (Portfolio Sync & Action Plan)
 - จับคู่หุ้นในพอร์ตปัจจุบันเทียบกับสัญญาณสแกนล่าสุด:
-  - หุ้นตัวใดในพอร์ตที่ยังมี Momentum แข็งแกร่ง (อยู่ในผลสแกน) แนะนำให้ **✅ Hold** หรือ **➕ Buy More** (ระบุพิกัดราคาที่ได้เปรียบ)
+  - หุ้นตัวใดในพอร์ตที่ยังมี Momentum แข็งแกร่ง (อยู่ในผลสแกน) แนะนำให้ **✅ Hold** หรือ **➕ Buy More** (ระบุพิกัดราคาที่ได้เปรียบ และสัญญาณสะสมหุ้น CMF / PP)
   - หุ้นตัวใดในพอร์ตที่หลุดจากสัญญาณสแกนเนอร์ทั้งหมด และมีแนวโน้มอ่อนแอ แนะนำให้ **⚠️ Stop Loss / Profit Take / Reduce Position**
-  - วิเคราะห์เปรียบเทียบว่ามีกลุ่มอุตสาหกรรม (Sectors) ใดในผลสแกนที่แข็งแกร่งกว่าหุ้นในพอร์ต เพื่อแนะนำสับเปลี่ยนตัวเล่น (Switching)
+  - วิเคราะห์เปรียบเทียบว่ามีกลุ่มอุตสาหกรรม (Sectors) ใดในผลสแกนที่แข็งแกร่งกว่าหุ้นในพอร์ต เพื่อแนะนำสับเปลี่ยนตัวเล่น (Switching) โดยใช้ VCP / CMF เป็นตัวชี้วัดความแข็งแกร่ง
 
 ### 3. 🎯 คัดเลือกหุ้นเด่น 3 ตัวแรก (Top Picks) ที่มีความเสี่ยงต่ำกำไรสูง (Low-Risk, High-Reward)
-- คัดกรองหุ้นสแกนเนอร์ที่ฟอร์มตัวดีที่สุด (เช่น เข้าเกณฑ์ VCP, เพิ่งเบรคเอาท์ หรือใกล้ยอดโซนซื้อมากที่สุด)
-- แสดงรายละเอียด: หุ้น | แนวคิด (SEPA/VCP/Cup) | แนวรับโซนซื้อ (PP) | จุดตัดขาดทุน (SL) | เป้าหมายกำไร (TP)
+- คัดกรองหุ้นสแกนเนอร์ที่ฟอร์มตัวดีที่สุด (เช่น เข้าเกณฑ์ VCP บีบตัวแน่น, เพิ่งเกิดจุดซื้อซุ่มเงียบ PP หรือมีค่า CMF สะสมสูง)
+- แสดงรายละเอียด: หุ้น | แนวคิด (SEPA/VCP/Cup) | แนวรับโซนซื้อ (PP) | จุดตัดขาดทุน (SL) | เป้าหมายกำไร (TP) | ข้อวิเคราะห์ PP/CMF/VCP
 
 ### 4. 📈 สรุปตาราง Action Plan ประจำรอบ {slot} น.
-- ทำตารางคอลัมน์: หุ้น | ตลาด | คำแนะนำ (ซื้อเพิ่ม/ถือต่อ/ขายทำกำไร/ขายทิ้ง/เฝ้าดู) | แนวรับ | จุดคัท | เหตุผล
+- ทำตารางคอลัมน์: หุ้น | ตลาด | คำแนะนำ (ซื้อเพิ่ม/ถือต่อ/ขายทำกำไร/ขายทิ้ง/เฝ้าดู) | แนวรับ | จุดคัท | เหตุผล (เช่น CMF แข็งแกร่ง, เกิด Pocket Pivot หรือ VCP 3T บีบตัวเสร็จสิ้น)
 
 เขียนรายงานออกมาให้น่าอ่าน เข้าใจง่าย ใช้ภาษาไทยที่กระชับและเป็นทางการ
 """
