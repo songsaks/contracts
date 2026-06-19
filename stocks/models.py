@@ -378,6 +378,39 @@ class PrecisionScanCandidate(models.Model):
     volume_surge     = models.FloatField(default=1.0)             # current vol / avg_vol_20d ratio
     is_volume_surge  = models.BooleanField(default=False)         # True if volume_surge >= 1.5x
 
+    # Properties for real-time Risk/Reward
+    @property
+    def live_price_or_price(self):
+        return getattr(self, 'live_price', None) or self.price or 0.0
+
+    @property
+    def current_rr(self):
+        try:
+            curr_price = float(self.live_price_or_price)
+            if curr_price > 0 and self.stop_loss and self.supply_zone_start:
+                risk = curr_price - float(self.stop_loss)
+                reward = float(self.supply_zone_start) - curr_price
+                if risk > 0:
+                    return reward / risk
+        except Exception:
+            pass
+        return 0.0
+
+    @property
+    def is_current_rr_warning(self):
+        curr_rr = self.current_rr
+        try:
+            curr_price = float(self.live_price_or_price)
+            if curr_price > 0 and self.stop_loss and self.supply_zone_start:
+                risk = curr_price - float(self.stop_loss)
+                if risk <= 0:
+                    return True
+                if curr_rr < 1.0:
+                    return True
+        except Exception:
+            pass
+        return False
+
     # ====== Ichimoku Cloud (v8) ======
     ichimoku_above_kumo = models.BooleanField(default=False)      # ราคาอยู่เหนือ Kumo (SpanA & SpanB)
     ichimoku_tk_cross   = models.BooleanField(default=False)      # Tenkan ตัด Kijun ขึ้น ใน 5 แท่งล่าสุด

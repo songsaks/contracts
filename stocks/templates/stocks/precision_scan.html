@@ -1390,10 +1390,21 @@
                             <!-- RR -->
                             <td>
                                 {% if item.risk_reward_ratio %}
-                                <span class="fw-bold" style="color:{% if item.risk_reward_ratio >= 3 %}#16a34a{% elif item.risk_reward_ratio >= 2 %}#2563eb{% elif item.risk_reward_ratio >= 1.5 %}#92400e{% else %}#dc2626{% endif %};">
-                                    1:{{ item.risk_reward_ratio|floatformat:1 }}{% if item.risk_reward_ratio < 1.5 %} ⚠{% endif %}
-                                </span>
-                                <div class="val-hint">กำไร:เสี่ยง</div>
+                                <div>
+                                    <span class="fw-bold" style="color:{% if item.risk_reward_ratio >= 3 %}#16a34a{% elif item.risk_reward_ratio >= 2 %}#2563eb{% elif item.risk_reward_ratio >= 1.5 %}#92400e{% else %}#dc2626{% endif %};" title="RR ณ จุดเข้าซื้อในอุดมคติ ({{ item.demand_zone_start|floatformat:2 }})">
+                                        1:{{ item.risk_reward_ratio|floatformat:1 }}{% if item.risk_reward_ratio < 1.5 %} ⚠{% endif %}
+                                    </span>
+                                    <div class="val-hint">RR ทฤษฎี</div>
+                                </div>
+                                <div class="mt-1 pt-1" style="border-top:1px dashed #e2e8f0;">
+                                    <span class="fw-bold" style="font-size:0.75rem; color:{% if item.is_current_rr_warning %}#dc2626{% elif item.current_rr >= 1.5 %}#16a34a{% else %}#b45309{% endif %};" title="RR ณ ราคาปัจจุบัน ({{ item.live_price_or_price|floatformat:2 }})เทียบกับ TP ({{ item.supply_zone_start|floatformat:2 }}) และ SL ({{ item.stop_loss|floatformat:2 }})">
+                                        Now 1:{{ item.current_rr|floatformat:1 }}
+                                        {% if item.is_current_rr_warning %}
+                                        <i class="fas fa-exclamation-triangle ms-1" style="color:#dc2626;" title="ระวัง! หน้าเทรดเสียเปรียบ (กำไรน้อยกว่าความเสี่ยง หรือราคาหลุด SL แล้ว)"></i>
+                                        {% endif %}
+                                    </span>
+                                    <div class="val-hint text-muted" style="font-size:0.6rem;">RR ปัจจุบัน</div>
+                                </div>
                                 {% else %}-{% endif %}
                             </td>
 
