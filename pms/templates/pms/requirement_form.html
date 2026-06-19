@@ -356,6 +356,72 @@
             height: 60px;
         }
     }
+
+    /* ===== Dark Mode Overrides ===== */
+    [data-theme="dark"] {
+        --glass-bg: rgba(15, 23, 42, 0.7);
+        --glass-border: rgba(255, 255, 255, 0.1);
+    }
+
+    [data-theme="dark"] textarea#requirement-content {
+        background-color: var(--t-input-bg) !important;
+        color: var(--t-input-text) !important;
+        border-color: var(--t-input-border) !important;
+    }
+
+    [data-theme="dark"] textarea#requirement-content:focus {
+        background-color: var(--t-input-bg) !important;
+        border-color: var(--t-input-focus) !important;
+        box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.2) !important;
+    }
+
+    [data-theme="dark"] .mic-btn-premium {
+        background: rgba(15, 23, 42, 0.8) !important;
+        border-color: rgba(255, 255, 255, 0.1) !important;
+        color: var(--primary-color) !important;
+    }
+
+    [data-theme="dark"] .mic-btn-premium:hover {
+        background: rgba(30, 41, 59, 0.8) !important;
+        border-color: var(--primary-color) !important;
+    }
+
+    [data-theme="dark"] .file-upload-zone-premium {
+        background: rgba(15, 23, 42, 0.4) !important;
+        border-color: rgba(255, 255, 255, 0.15) !important;
+    }
+
+    [data-theme="dark"] .file-upload-zone-premium:hover {
+        background: rgba(15, 23, 42, 0.6) !important;
+        border-color: var(--primary-color) !important;
+    }
+
+    [data-theme="dark"] .upload-icon-box {
+        background: rgba(30, 41, 59, 0.8) !important;
+        color: #94a3b8 !important;
+        border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    }
+
+    [data-theme="dark"] .existing-file-item {
+        background: rgba(15, 23, 42, 0.4) !important;
+        border-color: rgba(255, 255, 255, 0.08) !important;
+    }
+
+    [data-theme="dark"] .existing-file-item .file-icon-box {
+        background: rgba(30, 41, 59, 0.6) !important;
+        color: #94a3b8 !important;
+    }
+
+    [data-theme="dark"] .btn-light {
+        background-color: rgba(30, 41, 59, 0.6) !important;
+        border-color: rgba(255, 255, 255, 0.08) !important;
+        color: var(--t-text-muted) !important;
+    }
+
+    [data-theme="dark"] .btn-light:hover {
+        background-color: rgba(30, 41, 59, 0.9) !important;
+        color: var(--t-text) !important;
+    }
 </style>
 {% endblock %}
 
