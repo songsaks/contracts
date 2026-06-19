@@ -158,7 +158,7 @@
                             <p class="fw-bold small mb-2" style="color:#0891b2;"><i class="fas fa-tags me-1"></i> Badge ที่เห็นในผลสแกน</p>
                             <div class="d-flex flex-wrap gap-1">
                                 <span class="badge px-2 py-1" style="background:rgba(22,163,74,0.15);color:#15803d;border:1px solid rgba(22,163,74,0.4);font-size:0.65rem;">S2 — Stage 2 (SMA150 ↑)</span>
-                                <span class="badge px-2 py-1" style="background:rgba(8,145,178,0.15);color:#0e7490;border:1px solid rgba(8,145,178,0.4);font-size:0.65rem;">PP — Pocket Pivot</span>
+                                <span class="badge px-2 py-1 shadow-sm" style="background: linear-gradient(135deg, #8E2DE2 0%, #4A00E0 100%); color: white; border: 1px solid rgba(255,255,255,0.2); font-size: 0.65rem; border-radius: 4px; font-weight: bold; letter-spacing: 0.5px;">PK — Pocket Pivot <i class="fas fa-bolt ms-1" style="font-size:0.55rem;"></i></span>
                                 <span class="badge px-2 py-1" style="background:rgba(124,58,237,0.12);color:#6d28d9;border:1px solid rgba(124,58,237,0.35);font-size:0.65rem;">VDU — Volume Dry-Up</span>
                                 <span class="badge px-2 py-1" style="background:rgba(245,158,11,0.15);color:#b45309;border:1px solid rgba(245,158,11,0.5);font-size:0.65rem;">🏔 52W Hi — New High</span>
                                 <span class="badge px-2 py-1" style="background:rgba(16,185,129,0.15);color:#059669;border:1px solid rgba(16,185,129,0.4);font-size:0.65rem;">CMF ↑ — สถาบันสะสม</span>
@@ -885,7 +885,7 @@
                 </div>
                 <div class="form-check form-switch mb-0 d-flex align-items-center gap-2">
                     <input class="form-check-input" type="checkbox" id="ppFilterSET" onchange="filterByPP('SET', this.checked)" style="cursor:pointer;">
-                    <label class="form-check-label small fw-semibold filter-label-pp" for="ppFilterSET" style="cursor:pointer;">PP only</label>
+                    <label class="form-check-label small fw-semibold filter-label-pp" for="ppFilterSET" style="cursor:pointer;">PK (Pocket Pivot)</label>
                 </div>
                 <div class="form-check form-switch mb-0 d-flex align-items-center gap-2">
                     <input class="form-check-input" type="checkbox" id="hideCmfDistSET" onchange="filterByCMFDist('SET', this.checked)" style="cursor:pointer;">
@@ -1148,7 +1148,7 @@
                                         <span class="badge px-1 py-0" style="background:#16a34a;font-size:0.55rem;" title="Weinstein Stage 2 — อยู่เหนือ SMA150 ที่กำลังชี้ขึ้น">S2</span>
                                         {% endif %}
                                         {% if item.pocket_pivot %}
-                                        <span class="badge px-1 py-0" style="background:#0891b2;font-size:0.55rem;" title="Pocket Pivot: volume วันขาขึ้น > max volume วันขาลง 10 วันก่อน">PP</span>
+                                        <span class="badge px-1 py-0 shadow-sm" style="background: linear-gradient(135deg, #8E2DE2 0%, #4A00E0 100%); color: white; border: 1px solid rgba(255,255,255,0.2); font-size: 0.6rem; border-radius: 4px; font-weight: bold; letter-spacing: 0.5px;" title="Pocket Pivot: volume วันขาขึ้น > max volume วันขาลง 10 วันก่อน">PK <i class="fas fa-bolt ms-1" style="font-size:0.5rem;"></i></span>
                                         {% endif %}
                                         {% if item.vdu_near_zone %}
                                         <span class="badge px-1 py-0" style="background:#7c3aed;color:white;font-size:0.55rem;" title="Volume Dry-Up: volume ลด 3 วันติด + เงียบกว่า avg — สัญญาณ Accumulation">VDU</span>
