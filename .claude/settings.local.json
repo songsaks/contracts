@@ -12,7 +12,9 @@
       "Bash(git rm *)",
       "Bash(git add *)",
       "Bash(git commit -m ' *)",
-      "Bash(git push *)"
+      "Bash(git push *)",
+      "Read(//c/Users/asus/.ssh/**)",
+      "Bash(ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_ed25519 -p 22 ubuntu@72.62.72.22 \"cd /var/www/contracts && tail -80 logs/django_error.log 2>/dev/null || sudo journalctl -u gunicorn --no-pager -n 50 2>/dev/null | tail -40\")"
     ]
   }
 }
