@@ -67,7 +67,7 @@ def portfolio_exit_plan(request):
 
             # ดึง PrecisionScanCandidate
             clean_symbol = symbol.split('.')[0].upper()
-            from .models import PrecisionScanCandidate
+            from stocks.models import PrecisionScanCandidate
             prec_data = (PrecisionScanCandidate.objects
                          .filter(user=request.user, symbol=clean_symbol)
                          .order_by('-scan_run').first())
@@ -314,7 +314,7 @@ def portfolio_exit_plan_ai_analysis(request):
     port_str = ""
     for item in portfolio_items:
         clean_symbol = item.symbol.split('.')[0].upper()
-        from .models import PrecisionScanCandidate
+        from stocks.models import PrecisionScanCandidate
         prec_data = PrecisionScanCandidate.objects.filter(user=request.user, symbol=clean_symbol).order_by('-scan_run').first()
         port_str += f"- Symbol: {item.symbol}, Qty: {item.quantity}, Entry Price: {item.entry_price}, Strategy: {item.strategy or 'Precision/Breakout'}\n"
         if prec_data:
@@ -377,22 +377,22 @@ def morning_briefing(request):
     from django.core.cache import cache as _cp
     from django.http import JsonResponse as _JR
 
-    from .models import (
+    from stocks.models import (
         CupHandleCandidate as _CHC,
     )
-    from .models import (
+    from stocks.models import (
         MomentumCandidate as _MC,
     )
-    from .models import (
+    from stocks.models import (
         MorningBriefing as _MB,
     )
-    from .models import (
+    from stocks.models import (
         Portfolio as _Port,
     )
-    from .models import (
+    from stocks.models import (
         PrecisionScanCandidate as _PSC,
     )
-    from .models import (
+    from stocks.models import (
         USSepaCandidate as _USC,
     )
 
@@ -419,14 +419,14 @@ def morning_briefing(request):
             from django.core.cache import cache as _c
             from django.utils import timezone as tz
 
-            from .models import (
+            from stocks.models import (
                 CupHandleCandidate,
                 MomentumCandidate,
                 Portfolio,
                 PrecisionScanCandidate,
                 USSepaCandidate,
             )
-            from .models import (
+            from stocks.models import (
                 MorningBriefing as MB,
             )
 
@@ -624,7 +624,7 @@ Macro risks, Earnings, การเมือง หรือสัญญาณ�
 
     # ── GET: display ─────────────────────────────────────────────
     import json as _json
-    from .models import MorningBriefing as _MB, PrecisionScanCandidate as _PSC, CupHandleCandidate as _CHC
+    from stocks.models import MorningBriefing as _MB, PrecisionScanCandidate as _PSC, CupHandleCandidate as _CHC
     from django.utils import timezone as _tz
     from datetime import timedelta as _td
 
@@ -1023,7 +1023,7 @@ def macro_playbook_view(request):
     หน้าแสดงรายงาน Daily Mastermind Briefing (Playbook)
     โครงสร้างแบบ AJAX Loading เหมือนหน้า Crew Analysis อื่นๆ
     """
-    from .models import PrecisionScanCandidate as _PSC, CupHandleCandidate as _CHC
+    from stocks.models import PrecisionScanCandidate as _PSC, CupHandleCandidate as _CHC
     from django.utils import timezone as _tz
     from datetime import timedelta as _td
 
@@ -1062,7 +1062,7 @@ def macro_playbook_run_ajax(request):
     from django.core.cache import cache as _cp
     from django.http import JsonResponse as _JR
 
-    from .models import Portfolio
+    from stocks.models import Portfolio
     
     user_id = request.user.id
     cache_key = f'macro_playbook_{user_id}'
@@ -1079,7 +1079,7 @@ def macro_playbook_run_ajax(request):
         user_portfolio_list = []
 
     def _run_bg(portfolio_data):
-        from .crew_analysis import MacroPlaybookCrew
+        from stocks.crew_analysis import MacroPlaybookCrew
         try:
             _cp.set(cache_key, {'state': 'running', 'phase': 'Agents กำลังประชุมและดึงราคาตลาด...'}, timeout=600)
             crew = MacroPlaybookCrew(portfolio_data=portfolio_data)
@@ -1105,7 +1105,7 @@ def ai_manual_scanner(request):
     """
     Render the UI for the AI Manual Scanner.
     """
-    from .models import AIManualScanResult, ScanWatchlistItem, PrecisionScanCandidate
+    from stocks.models import AIManualScanResult, ScanWatchlistItem, PrecisionScanCandidate
     from django.db.models import Count, Q, Max
     import json
     
@@ -1126,7 +1126,7 @@ def ai_manual_scanner(request):
     watchlisted_symbols = set(watchlisted)
     
     # Get cached Quick AI results
-    from .models import AnalysisCache
+    from stocks.models import AnalysisCache
     crewai_caches = AnalysisCache.objects.filter(user=request.user, symbol__startswith='crewai_')
     crewai_dict = {}
     for c in crewai_caches:
@@ -1275,7 +1275,7 @@ def _run_ai_manual_scan_bg(user_id, cache_key, market, scan_run_time):
     from django.conf import settings
     import json
     from google import genai
-    from .models import PrecisionScanCandidate, AIManualScanResult
+    from stocks.models import PrecisionScanCandidate, AIManualScanResult
 
     try:
         # Step 1: Initialize status
@@ -1510,7 +1510,7 @@ def investment_dashboard(request):
         latest_insight = insights[0] if insights else None
 
     # Fetch user's watchlist for toggle state
-    from .models import ScanWatchlistItem, PrecisionScanCandidate as _PSC, CupHandleCandidate as _CHC, Portfolio, MarketType, AssetCategory
+    from stocks.models import ScanWatchlistItem, PrecisionScanCandidate as _PSC, CupHandleCandidate as _CHC, Portfolio, MarketType, AssetCategory
     from django.utils import timezone as _tz
     from datetime import timedelta as _td
 
@@ -1602,7 +1602,7 @@ def investment_dashboard_refresh(request):
     from django.db.models import Max
     from django.shortcuts import redirect
 
-    from .models import (
+    from stocks.models import (
         CupHandleCandidate,
         InvestmentDashboardInsight,
         PrecisionScanCandidate,
@@ -1860,7 +1860,7 @@ def api_stock_analysis(request, symbol):
     from django.http import JsonResponse
     from django.utils.timezone import localtime
 
-    from .models import MomentumCandidate, PrecisionScanCandidate
+    from stocks.models import MomentumCandidate, PrecisionScanCandidate
     
     # 1. Security Check
     # แนะนำให้กำหนด API_TOKEN ใน settings.py หรือ .env
@@ -1966,7 +1966,7 @@ def daily_agent_reports(request):
     import pytz
     from datetime import datetime
     from django.utils import timezone as tz
-    from .models import DailyAgentReport
+    from stocks.models import DailyAgentReport
 
     # เช็คเวลาของไทย
     bkk_tz = pytz.timezone('Asia/Bangkok')
@@ -2058,7 +2058,7 @@ def trigger_daily_agent_report_ajax(request):
     time_slot = '10:00'
     if current_hour >= 13:
         # ถ้าไม่มี 10:00 ให้สร้าง 10:00 ก่อน แต่ถ้ามีแล้วค่อยสร้าง 13:00
-        from .models import DailyAgentReport
+        from stocks.models import DailyAgentReport
         if DailyAgentReport.objects.filter(user=request.user, report_date=today_date, time_slot='10:00').exists():
             time_slot = '13:00'
 
@@ -2242,7 +2242,7 @@ def delete_daily_agent_report(request, pk):
     ลบรายงานที่ระบุ
     """
     from django.shortcuts import get_object_or_400, redirect
-    from .models import DailyAgentReport
+    from stocks.models import DailyAgentReport
     
     report = get_object_or_400(DailyAgentReport, id=pk, user=request.user)
     report.delete()
@@ -2256,7 +2256,7 @@ def mark_daily_agent_report_read(request, pk):
     """
     from django.shortcuts import get_object_or_400
     from django.http import JsonResponse
-    from .models import DailyAgentReport
+    from stocks.models import DailyAgentReport
 
     report = get_object_or_400(DailyAgentReport, id=pk, user=request.user)
     report.is_read = True

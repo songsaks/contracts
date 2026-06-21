@@ -17,7 +17,7 @@ def chart_ai_analyze_ajax(request, symbol):
     from google import genai
     from django.views.decorators.csrf import csrf_exempt
     from django.utils import timezone
-    from .models import AnalysisCache, PrecisionScanCandidate, USSepaCandidate
+    from stocks.models import AnalysisCache, PrecisionScanCandidate, USSepaCandidate
 
     if request.method != 'POST':
         return JsonResponse({'error': 'Invalid request method'}, status=400)
@@ -465,7 +465,7 @@ def stock_chart_data(request, symbol):
         df['bb_lower'] = ma20 - (std20 * 2)
 
         # --- Ehlers Instantaneous Trendline (ITL) ---
-        from .utils import calculate_ehlers_itl as _calc_itl
+        from stocks.utils import calculate_ehlers_itl as _calc_itl
         _itl_arr = _calc_itl(df['Close'].values, alpha=0.07)
         df['itl'] = _itl_arr
 
@@ -588,7 +588,7 @@ def stock_chart_data(request, symbol):
 
         # ====== Fetch or dynamically compute Institutional Accumulation Zones ======
         try:
-            from .models import PrecisionScanCandidate
+            from stocks.models import PrecisionScanCandidate
             prec_data = PrecisionScanCandidate.objects.filter(symbol=symbol, market=market).order_by('-scan_run').first()
             if prec_data:
                 tactical['demand_zone_start'] = _safe_val(prec_data.demand_zone_start)
@@ -601,7 +601,7 @@ def stock_chart_data(request, symbol):
                 tactical['vdu_near_zone'] = bool(prec_data.vdu_near_zone)
             else:
                 # Calculate dynamically from historical data if possible
-                from .utils import find_supply_demand_zones_v2
+                from stocks.utils import find_supply_demand_zones_v2
                 sd = find_supply_demand_zones_v2(df)
                 if sd:
                     tactical['demand_zone_start'] = _safe_val(sd.get('start'))
@@ -664,7 +664,7 @@ def stock_chart_data(request, symbol):
         portfolio_entry = 0.0
         portfolio_qty = 0.0
         try:
-            from .models import Portfolio
+            from stocks.models import Portfolio
             p_item = Portfolio.objects.filter(user=request.user, symbol__icontains=symbol).first()
             if p_item:
                 portfolio_entry = _safe_val(p_item.entry_price)

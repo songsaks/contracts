@@ -41,7 +41,7 @@ def watchlist_item_toggle(request):
 
     from django.http import JsonResponse
 
-    from .models import ScanWatchlistItem, Watchlist
+    from stocks.models import ScanWatchlistItem, Watchlist
     if request.method != 'POST':
         return JsonResponse({'error': 'POST required'}, status=405)
     try:
@@ -86,7 +86,7 @@ def watchlist_item_toggle(request):
 @login_required
 def scan_watchlist_view(request):
     """แสดง Scan Watchlist พร้อม score ปัจจุบัน / รอบก่อน / delta / alert"""
-    from .models import PrecisionScanCandidate, ScanWatchlistItem
+    from stocks.models import PrecisionScanCandidate, ScanWatchlistItem
     
     market = request.GET.get('market', 'SET')
     items = ScanWatchlistItem.objects.filter(user=request.user, market=market)
@@ -107,7 +107,7 @@ def scan_watchlist_view(request):
     # ดึง Markov Regime ครั้งเดียวนอกลูป - DatabaseCache get = 1 DB query ไม่ควรทำซ้ำต่อ item
     from django.core.cache import cache as _regime_cache
 
-    from .utils import calculate_markov_regime
+    from stocks.utils import calculate_markov_regime
 
     _regime_key = 'markov_regime_set' if market == 'SET' else 'markov_regime_us'
     markov_regime = _regime_cache.get(_regime_key)

@@ -104,7 +104,7 @@ def mean_reversion_scanner(request):
     if request.GET.get('refresh_only') == 'true' or request.GET.get('refresh_only') == '1':
         from django.contrib import messages
 
-        from .models import MeanReversionCandidate as _MRC
+        from stocks.models import MeanReversionCandidate as _MRC
         all_runs = list(
             _MRC.objects.filter(user=request.user, market=market)
             .values_list('scan_run', flat=True).distinct().order_by('-scan_run')
@@ -243,10 +243,10 @@ def mean_reversion_scanner(request):
             return redirect('stocks:mean_reversion_scanner')
 
         if market == 'SET':
-            from .utils import get_top_ranked_symbols
+            from stocks.utils import get_top_ranked_symbols
             sym_list = get_top_ranked_symbols(market='SET', limit=300, auto_refresh=True)
         else:
-            from .models import ScannableSymbol as _SS
+            from stocks.models import ScannableSymbol as _SS
             sym_list = list(_SS.objects.filter(is_active=True, market='US').values_list('symbol', flat=True))
             if len(sym_list) < 100:
                 _seed_us_symbols()
@@ -279,7 +279,7 @@ def mean_reversion_scanner(request):
                 start= (now.date() - _td(days=300)).strftime('%Y-%m-%d')
                 scan_run = tz.now()
 
-                from .models import MeanReversionCandidate as _MRC
+                from stocks.models import MeanReversionCandidate as _MRC
                 old = list(_MRC.objects.filter(user=user, market=mkt)
                            .values_list('scan_run', flat=True).distinct().order_by('-scan_run')[2:])
                 if old:
@@ -429,7 +429,7 @@ def mean_reversion_scanner(request):
         return redirect(f'{request.path}?market={market}')
 
     # ── Display ───────────────────────────────────────────────────────
-    from .models import MeanReversionCandidate as _MRC
+    from stocks.models import MeanReversionCandidate as _MRC
 
     all_runs = list(
         _MRC.objects.filter(user=request.user, market=market)
@@ -462,7 +462,7 @@ def mean_reversion_scanner(request):
     top_score        = max((c.r_score for c in candidates), default=0)
 
     # Regime for recommendation banner
-    from .utils import calculate_markov_regime
+    from stocks.utils import calculate_markov_regime
     _regime_key = f'markov_regime_global_{market}'
     regime = _cp.get(_regime_key)
     if not regime:
@@ -946,7 +946,7 @@ def momentum_scanner(request):
     # --- Markov Market Regime Pulse ---
     from django.core.cache import cache
 
-    from .utils import calculate_markov_regime
+    from stocks.utils import calculate_markov_regime
     regime_cache_key = 'markov_regime_SET' # Momentum mainly for SET
     regime = cache.get(regime_cache_key)
     if not regime:
@@ -962,7 +962,7 @@ def momentum_scanner(request):
 
     # ── Trigger background scan ───────────────────────────────────────
     if request.GET.get('scan') == 'true' or request.method == 'POST':
-        from .utils import get_top_ranked_symbols, refresh_all_thai_symbols
+        from stocks.utils import get_top_ranked_symbols, refresh_all_thai_symbols
         # ใช้ Top 300 หุ้นใหญ่เท่านั้นเพื่อความเร็วและคุณภาพ
         scan_symbols = get_top_ranked_symbols(market='SET', limit=300, auto_refresh=True)
         
@@ -984,12 +984,12 @@ def momentum_scanner(request):
                     from django.contrib.auth import get_user_model
                     from django.core.cache import cache as _c
 
-                    from .models import MomentumCandidate as _MC
-                    from .utils import (
+                    from stocks.models import MomentumCandidate as _MC
+                    from stocks.utils import (
                         analyze_momentum_technical,
                         find_supply_demand_zones,
                     )
-                    from .utils import get_top_ranked_symbols as _GTRS
+                    from stocks.utils import get_top_ranked_symbols as _GTRS
                     User = get_user_model()
                     user = User.objects.get(pk=uid)
                     
@@ -1123,7 +1123,7 @@ def momentum_scanner(request):
                     fund_data = {}
                     if pre_results:
                         _c.set(ckey, {'state': 'running', 'progress': 85, 'phase': 'Stage 3: Fundamental...'}, timeout=900)
-                        from .utils import YQTicker
+                        from stocks.utils import YQTicker
                         match_bk = [f"{r['symbol']}.BK" for r in pre_results]
                         try:
                             yq_all = YQTicker(match_bk)
@@ -1505,7 +1505,7 @@ def precision_momentum_scanner(request):
         return _JR(_st)
     from django.utils import timezone as tz
     from yahooquery import Ticker as YQTicker
-    from .utils import analyze_momentum_technical_v2, get_top_ranked_symbols
+    from stocks.utils import analyze_momentum_technical_v2, get_top_ranked_symbols
 
     # โหลด symbols เบื้องต้นแบบรวดเร็ว (ดึงจาก Cache/DB เดิม) สำหรับใช้ใน context ของ GET request
     scan_symbols = get_top_ranked_symbols(market='SET', limit=400, auto_refresh=False)
@@ -1547,9 +1547,9 @@ def precision_momentum_scanner(request):
                 from django.utils import timezone as tz
                 from yahooquery import Ticker as YQTicker
 
-                from .models import PrecisionScanCandidate
+                from stocks.models import PrecisionScanCandidate
 
-                from .utils import analyze_momentum_technical_v2, get_top_ranked_symbols as _GTRS, refresh_all_thai_symbols as _RATS
+                from stocks.utils import analyze_momentum_technical_v2, get_top_ranked_symbols as _GTRS, refresh_all_thai_symbols as _RATS
                 sym_list = _GTRS(market='SET', limit=400, auto_refresh=True)
                 if not sym_list:
                     try:
@@ -2368,7 +2368,7 @@ def precision_momentum_scanner(request):
     # ====== Markov Market Regime (v11) ======
     from django.core.cache import cache as _regime_cache
 
-    from .utils import calculate_markov_regime
+    from stocks.utils import calculate_markov_regime
     
     _regime_key = 'markov_regime_set'
     markov_regime = _regime_cache.get(_regime_key)
@@ -2719,7 +2719,7 @@ def precision_momentum_scanner(request):
     context['ai_scan_json'] = _scan_json.dumps(_ai_data, ensure_ascii=False, default=str).replace('</script>', '<\\/script>')
 
     # Fetch latest Cup & Handle and Turtle breakout symbols for horizon classification
-    from .models import CupHandleCandidate, TurtleScanCandidate, Portfolio as _PortfolioSET
+    from stocks.models import CupHandleCandidate, TurtleScanCandidate, Portfolio as _PortfolioSET
 
     # Latest Cup & Handle
     latest_ch_run = CupHandleCandidate.objects.filter(user=request.user, market='SET').values_list('scan_run', flat=True).order_by('-scan_run').first()
@@ -2777,7 +2777,7 @@ def entry_finder(request, symbol):
     
     # หากไม่ได้ระบุ market มาใน URL ให้ลองตรวจสอบจากฐานข้อมูลก่อน
     if not market:
-        from .models import MomentumCandidate, PrecisionScanCandidate
+        from stocks.models import MomentumCandidate, PrecisionScanCandidate
         # ลองหาจากรอบสแกนล่าสุด
         cand = PrecisionScanCandidate.objects.filter(symbol=symbol).order_by('-scan_run').first()
         if cand:
@@ -3034,7 +3034,7 @@ def clear_scan_data(request):
     """
     from django.contrib import messages as _msg
 
-    from .models import (
+    from stocks.models import (
         CupHandleCandidate,
         MomentumCandidate,
         MultiFactorCandidate,
@@ -3647,8 +3647,8 @@ def us_momentum_scanner(request):
                     from django.core.cache import cache as _c
                     from django.utils import timezone as _tz
 
-                    from .models import MomentumCandidate as _MCM
-                    from .utils import find_supply_demand_zones_v2
+                    from stocks.models import MomentumCandidate as _MCM
+                    from stocks.utils import find_supply_demand_zones_v2
                     _User = get_user_model()
                     _user = _User.objects.get(pk=uid)
 
@@ -4193,7 +4193,7 @@ def us_momentum_quick_analysis(request, symbol):
             _c.set(ckey, {'state': 'running', 'phase': 'กำลังวิเคราะห์ด้วย 3 US Expert Agents…'}, timeout=600)
             import concurrent.futures as _cf
 
-            from .crew_analysis import USMomentumShortTermCrew as _USC
+            from stocks.crew_analysis import USMomentumShortTermCrew as _USC
             crew = _USC(sym, scan_data=sd)
             with _cf.ThreadPoolExecutor(max_workers=1) as ex:
                 fut = ex.submit(crew.run_analysis)
@@ -4274,7 +4274,7 @@ def us_momentum_crew_page(request, symbol):
                 _c.set(ckey, {'state': 'running', 'phase': 'กำลังวิเคราะห์ด้วย 3 US Expert Agents…'}, timeout=600)
                 import concurrent.futures as _cf
 
-                from .crew_analysis import USMomentumShortTermCrew as _USC
+                from stocks.crew_analysis import USMomentumShortTermCrew as _USC
                 crew = _USC(sym, scan_data=sd)
                 with _cf.ThreadPoolExecutor(max_workers=1) as ex:
                     fut = ex.submit(crew.run_analysis)
@@ -4309,8 +4309,8 @@ def us_precision_scanner(request):
     from django.utils import timezone as tz
     from yahooquery import Ticker as YQTicker
 
-    from .models import PrecisionScanCandidate
-    from .utils import analyze_momentum_technical_v2
+    from stocks.models import PrecisionScanCandidate
+    from stocks.utils import analyze_momentum_technical_v2
 
     # AJAX status polling
     if request.GET.get('scan_status') == '1':
@@ -4908,7 +4908,7 @@ def us_precision_scanner(request):
         elif top5_buy:
             scan_insights.append({'icon': '💡', 'title': f'Watchlist: {top5_buy[0].symbol}', 'desc': 'High momentum buy score. Watch for price consolidation.'})
 
-    from .models import ScanWatchlistItem
+    from stocks.models import ScanWatchlistItem
     watchlist_symbols = set(ScanWatchlistItem.objects.filter(user=request.user).values_list('symbol', flat=True))
 
     scan_data_date = None
@@ -4939,7 +4939,7 @@ def us_precision_scanner(request):
     }, ensure_ascii=False, default=str).replace('</script>', '<\\/script>')
 
     # Fetch latest Cup & Handle and Turtle breakout symbols for US
-    from .models import CupHandleCandidate, TurtleScanCandidate, Portfolio as _PortfolioUS
+    from stocks.models import CupHandleCandidate, TurtleScanCandidate, Portfolio as _PortfolioUS
     latest_ch_run = CupHandleCandidate.objects.filter(user=request.user, market='US').values_list('scan_run', flat=True).order_by('-scan_run').first()
     ch_symbols = set(CupHandleCandidate.objects.filter(user=request.user, market='US', scan_run=latest_ch_run).values_list('symbol', flat=True)) if latest_ch_run else set()
 
@@ -5234,7 +5234,7 @@ def us_sepa_scanner(request):
     import pandas as pd
     import yfinance as yf
 
-    from .models import ScannableSymbol, ScanWatchlistItem, USSepaCandidate
+    from stocks.models import ScannableSymbol, ScanWatchlistItem, USSepaCandidate
 
     # AJAX scan status
     if request.GET.get('scan_status') == '1':
@@ -5277,9 +5277,9 @@ def us_sepa_scanner(request):
                 from django.core.cache import cache as _c
                 from django.utils import timezone as tz
 
-                from .models import ScannableSymbol
-                from .models import USSepaCandidate as _USC
-                from .utils import detect_vcp_pattern
+                from stocks.models import ScannableSymbol
+                from stocks.models import USSepaCandidate as _USC
+                from stocks.utils import detect_vcp_pattern
 
                 User = get_user_model()
                 user = User.objects.get(pk=uid)
@@ -5651,10 +5651,10 @@ def cup_handle_scanner(request):
 
     if request.GET.get('scan') == 'true' or request.method == 'POST':
 
-        from .utils import refresh_all_thai_symbols, get_top_ranked_symbols
+        from stocks.utils import refresh_all_thai_symbols, get_top_ranked_symbols
         scan_symbols = get_top_ranked_symbols(market='SET', limit=300, auto_refresh=True)
 
-        from .utils import get_top_ranked_symbols, refresh_all_thai_symbols
+        from stocks.utils import get_top_ranked_symbols, refresh_all_thai_symbols
         scan_symbols = get_top_ranked_symbols(market='SET', limit=400, auto_refresh=True)
 
 
@@ -5682,9 +5682,9 @@ def cup_handle_scanner(request):
                     from django.utils import timezone as tz
                     from yahooquery import Ticker as _TQ
 
-                    from .models import CupHandleCandidate as _CHC
-                    from .utils import detect_cup_and_handle
-                    from .utils import get_top_ranked_symbols as _GTRS
+                    from stocks.models import CupHandleCandidate as _CHC
+                    from stocks.utils import detect_cup_and_handle
+                    from stocks.utils import get_top_ranked_symbols as _GTRS
                     _ch_log = _log.getLogger('stocks.cup_handle')
                     sym_list = _GTRS(market='SET', limit=300, auto_refresh=True)
 
@@ -5821,8 +5821,8 @@ def cup_handle_scanner(request):
         return _redir('stocks:cup_handle_scanner')
 
     # ── Display results ───────────────────────────────────────────
-    from .models import CupHandleCandidate as _CHC
-    from .models import ScanWatchlistItem as _SWI
+    from stocks.models import CupHandleCandidate as _CHC
+    from stocks.models import ScanWatchlistItem as _SWI
 
     all_runs = list(
         _CHC.objects.filter(user=request.user, market='SET')
@@ -5944,7 +5944,7 @@ def us_cup_handle_scanner(request):
         return _JR(st)
 
     if request.GET.get('scan') == 'true' or request.method == 'POST':
-        from .models import ScannableSymbol as _SS
+        from stocks.models import ScannableSymbol as _SS
         scan_symbols = list(_SS.objects.filter(is_active=True, market='US').values_list('symbol', flat=True))
         if len(scan_symbols) < 100:
             _seed_us_symbols()
@@ -5972,8 +5972,8 @@ def us_cup_handle_scanner(request):
                     from django.contrib.auth import get_user_model
                     from django.core.cache import cache as _c
 
-                    from .models import CupHandleCandidate as _CHC
-                    from .utils import detect_cup_and_handle
+                    from stocks.models import CupHandleCandidate as _CHC
+                    from stocks.utils import detect_cup_and_handle
                     _uch_log = _log.getLogger('stocks.us_cup_handle')
 
                     User      = get_user_model()
@@ -6126,7 +6126,7 @@ def us_cup_handle_scanner(request):
         return _redir('stocks:us_cup_handle_scanner')
 
     # ── Display results ───────────────────────────────────────────
-    from .models import CupHandleCandidate as _CHC
+    from stocks.models import CupHandleCandidate as _CHC
 
     all_runs = list(
         _CHC.objects.filter(user=request.user, market='US')
@@ -6225,7 +6225,7 @@ def turtle_scanner(request):
     - System 1: Breakout 20-day high (Exit: 10-day low)
     - System 2: Breakout 55-day high (Exit: 20-day low)
     """
-    from .models import PrecisionScanCandidate, TurtleScanCandidate
+    from stocks.models import PrecisionScanCandidate, TurtleScanCandidate
     
     market = request.GET.get('market', 'SET')
     candidates_qs = TurtleScanCandidate.objects.filter(user=request.user, market=market)
@@ -6255,7 +6255,7 @@ def turtle_scanner(request):
     # --- Markov Market Regime Pulse ---
     from django.core.cache import cache
 
-    from .utils import calculate_markov_regime
+    from stocks.utils import calculate_markov_regime
     regime_cache_key = f'markov_regime_{market}'
     regime = cache.get(regime_cache_key)
     if not regime:
@@ -6290,7 +6290,7 @@ def turtle_scanner_run_ajax(request):
     from django.http import JsonResponse as _JR
     from django.utils import timezone as _tz
 
-    from .models import ScannableSymbol, TurtleScanCandidate
+    from stocks.models import ScannableSymbol, TurtleScanCandidate
 
     user_id = request.user.id
     market_param = request.GET.get('market', 'SET')
@@ -6307,7 +6307,7 @@ def turtle_scanner_run_ajax(request):
     precision_only = request.GET.get('precision_only') == 'true'
     
     if precision_only:
-        from .models import PrecisionScanCandidate
+        from stocks.models import PrecisionScanCandidate
         # Get latest precision run
         latest_prec = PrecisionScanCandidate.objects.filter(user=request.user, market=market_param).order_by('-scan_run').first()
         if not latest_prec:
@@ -6323,7 +6323,7 @@ def turtle_scanner_run_ajax(request):
         if not sym_list:
             return _JR({'state': 'done', 'error': 'ไม่พบหุ้นที่มีคะแนน > 75 ในฐานข้อมูล Precision ล่าสุด'})
     else:
-        from .utils import get_top_ranked_symbols
+        from stocks.utils import get_top_ranked_symbols
         sym_list = get_top_ranked_symbols(market=market_param, limit=300)
         
     if not sym_list:
@@ -6332,13 +6332,13 @@ def turtle_scanner_run_ajax(request):
     def _bg_task(syms, market):
         from django.contrib.auth import get_user_model as _GUM
 
-        from .models import PrecisionScanCandidate  # ย้ายมาไว้ตรงนี้เพื่อให้ใน Thread มองเห็น
+        from stocks.models import PrecisionScanCandidate  # ย้ายมาไว้ตรงนี้เพื่อให้ใน Thread มองเห็น
         user = _GUM().objects.get(pk=user_id)
 
         # Auto-refresh market cap rankings daily (SET only)
         if market == 'SET':
             try:
-                from .utils import get_top_ranked_symbols as _GTRS
+                from stocks.utils import get_top_ranked_symbols as _GTRS
                 new_syms = _GTRS(market='SET', limit=300, auto_refresh=True)
                 if new_syms: # ป้องกันกรณี refresh แล้วได้ค่าว่าง
                     syms = new_syms
@@ -6557,7 +6557,7 @@ def debug_scan_symbol(request, symbol):
     import pandas_ta as ta
     import yfinance as yf
 
-    from .utils import (
+    from stocks.utils import (
         analyze_momentum_technical_v2,
         find_supply_demand_zones,
         find_supply_demand_zones_v2,

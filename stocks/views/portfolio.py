@@ -98,7 +98,7 @@ def portfolio_list(request):
             is_us = item.market == MarketType.US
 
             # ====== คำนวณ ATR Trailing Stop ======
-            from .utils import calculate_atr_trailing_stop
+            from stocks.utils import calculate_atr_trailing_stop
             atr_ts = calculate_atr_trailing_stop(
                 df=hist if not hist.empty else None,
                 entry_price=float(item.entry_price or 0),
@@ -204,8 +204,8 @@ def portfolio_list(request):
 
             # ====== ดึง/คำนวณ Zone Data - ใช้ PrecisionScanCandidate (v2) เสมอ ======
             clean_symbol = item.symbol.split('.')[0].upper()
-            from .models import PrecisionScanCandidate
-            from .utils import analyze_momentum_technical_v2
+            from stocks.models import PrecisionScanCandidate
+            from stocks.utils import analyze_momentum_technical_v2
 
             # 1. ลองหาผล Precision Scan ล่าสุดก่อน (ตรงกับ Precision Scanner ทุกค่า)
             prec_data = (PrecisionScanCandidate.objects
@@ -279,7 +279,7 @@ def portfolio_list(request):
                     mom_data.ehlers_itl_daily     = tech_analysis.get('ehlers_itl_daily')
                     mom_data.ehlers_itl_weekly    = tech_analysis.get('ehlers_itl_weekly')
                     mom_data.ehlers_itl_bullish   = tech_analysis.get('ehlers_itl_bullish', False)
-                    from .utils import classify_ehlers_pattern
+                    from stocks.utils import classify_ehlers_pattern
                     mom_data.ehlers_pattern_data  = classify_ehlers_pattern(
                         mom_data.ehlers_laguerre_rsi,
                         mom_data.ehlers_fisher,
@@ -638,7 +638,7 @@ def portfolio_list(request):
         })
     
     # ── Portfolio Cash Summary ──
-    from .models import CashTransaction, PortfolioCash
+    from stocks.models import CashTransaction, PortfolioCash
     cash_thb_obj = PortfolioCash.objects.filter(user=request.user, currency='THB').first()
     cash_usd_obj = PortfolioCash.objects.filter(user=request.user, currency='USD').first()
     total_cash_thb = float(cash_thb_obj.balance) if cash_thb_obj else 0.0
@@ -647,7 +647,7 @@ def portfolio_list(request):
     cash_transactions = CashTransaction.objects.filter(user=request.user).order_by('-created_at')[:500]
     
     # ── Portfolio Fund Summary ──
-    from .models import PortfolioFund
+    from stocks.models import PortfolioFund
     funds = PortfolioFund.objects.filter(user=request.user)
     for f in funds:
         f.pl = float(f.market_value) - float(f.cost)
@@ -710,7 +710,7 @@ def add_cash_transaction(request):
     if request.method == 'POST':
         from decimal import Decimal
 
-        from .models import CashTransaction, PortfolioCash
+        from stocks.models import CashTransaction, PortfolioCash
         
         amount = Decimal(request.POST.get('amount', '0'))
         currency = request.POST.get('currency', 'THB')
@@ -753,7 +753,7 @@ def update_portfolio_fund(request):
     if request.method == 'POST':
         from decimal import Decimal
 
-        from .models import PortfolioFund
+        from stocks.models import PortfolioFund
         
         name = request.POST.get('name', 'Total Mutual Funds')
         cost = Decimal(request.POST.get('cost', '0'))
@@ -782,7 +782,7 @@ def update_portfolio_fund(request):
 
 @login_required
 def delete_portfolio_fund(request, fund_id):
-    from .models import PortfolioFund
+    from stocks.models import PortfolioFund
     fund = PortfolioFund.objects.filter(id=fund_id, user=request.user).first()
     if fund:
         name = fund.name
@@ -923,7 +923,7 @@ def portfolio_scan(request):
     """
     from types import SimpleNamespace
 
-    from .utils import analyze_momentum_technical, find_supply_demand_zones
+    from stocks.utils import analyze_momentum_technical, find_supply_demand_zones
 
     portfolio_items = Portfolio.objects.filter(user=request.user, category='STOCK')
 
@@ -1363,7 +1363,7 @@ def manual_update_trade_exit(request):
     import json
     from decimal import Decimal, InvalidOperation
 
-    from .models import TradeOrder
+    from stocks.models import TradeOrder
 
     try:
         data       = json.loads(request.body)

@@ -10,7 +10,7 @@ def dashboard(request):
     items = []
     import pandas_ta as ta
 
-    from .utils import analyze_momentum_technical
+    from stocks.utils import analyze_momentum_technical
     for item in watchlist:
         try:
             t = yf.Ticker(item.symbol)
@@ -52,7 +52,7 @@ def dashboard(request):
 
             # ดึงข้อมูลจาก PrecisionScanCandidate ก่อน (ตรงกับ Scanner ทุกค่า)
             clean_symbol = item.symbol.split('.')[0].upper()
-            from .models import PrecisionScanCandidate
+            from stocks.models import PrecisionScanCandidate
             prec_data = (PrecisionScanCandidate.objects
                          .filter(user=request.user, symbol=clean_symbol)
                          .order_by('-scan_run').first())
@@ -79,7 +79,7 @@ def dashboard(request):
                 mom_data.rel_momentum_3m      = prec_data.rel_momentum_3m
             else:
                 # Fallback: คำนวณ on-the-fly ด้วย v2
-                from .utils import analyze_momentum_technical_v2
+                from stocks.utils import analyze_momentum_technical_v2
                 mom_data = None
                 if not hist.empty:
                     tech_analysis = analyze_momentum_technical_v2(hist)
@@ -142,7 +142,7 @@ def dashboard(request):
             items.append({'obj': item, 'price': 'Error', 'change': 0, 'rsi': None, 'rsi_status': 'Error', 'mom_data': None})
 
     # --- สรุปข้อมูลสำหรับ Real Dashboard ---
-    from .models import Portfolio, SoldStock
+    from stocks.models import Portfolio, SoldStock
     owned_assets = Portfolio.objects.filter(user=request.user)
     sold_assets = SoldStock.objects.filter(user=request.user)
     
@@ -315,7 +315,7 @@ def analyze(request, symbol):
         from_mr = request.GET.get('from_mr') == '1'
         if from_mr:
             try:
-                from .models import MeanReversionCandidate as _MRC_A
+                from stocks.models import MeanReversionCandidate as _MRC_A
                 _clean = symbol.replace('.BK', '')
                 _mr = _MRC_A.objects.filter(user=request.user, symbol=_clean).order_by('-scan_run').first()
                 if _mr:
@@ -553,7 +553,7 @@ def crew_analyze(request, symbol):
 
         from django.core.cache import cache as _c
 
-        from .crew_analysis import MomentumCrew as _MC
+        from stocks.crew_analysis import MomentumCrew as _MC
 
         try:
             phase = 'วิเคราะห์ Portfolio + Technical…' if pctx else 'กำลังวิเคราะห์…'
@@ -643,7 +643,7 @@ def core_analyze(request, symbol):
 
         from django.core.cache import cache as _c
 
-        from .crew_analysis import TheCoreCrew as _TCC
+        from stocks.crew_analysis import TheCoreCrew as _TCC
 
         try:
             _c.set(ckey, {'state': 'running', 'phase': 'Anomaly Hunter กำลังสแกน WACC/PEGY…'}, timeout=600)
@@ -723,9 +723,9 @@ def momentum_quick_analysis(request, symbol):
                 return None
 
         cand = None
-        from .models import PrecisionScanCandidate as _PCM
-        from .models import USSepaCandidate as _USC
-        from .models import MomentumCandidate as _MCM
+        from stocks.models import PrecisionScanCandidate as _PCM
+        from stocks.models import USSepaCandidate as _USC
+        from stocks.models import MomentumCandidate as _MCM
         
         p_cand = _PCM.objects.filter(user=request.user, symbol=symbol).order_by('-scan_run').first()
         if p_cand:
@@ -773,7 +773,7 @@ def momentum_quick_analysis(request, symbol):
         try:
             _c.set(ckey, {'state': 'running', 'phase': 'กำลังวิเคราะห์ด้วย 3 Expert Agents…'}, timeout=600)
 
-            from .crew_analysis import run_single_call_analysis as _rsc
+            from stocks.crew_analysis import run_single_call_analysis as _rsc
             import concurrent.futures as _cf
             with _cf.ThreadPoolExecutor(max_workers=1) as ex:
                 future = ex.submit(_rsc, sym, sd, mkt)
@@ -786,7 +786,7 @@ def momentum_quick_analysis(request, symbol):
             # Save to Database for persistence
             try:
                 from django.contrib.auth.models import User
-                from .models import AnalysisCache
+                from stocks.models import AnalysisCache
                 usr = User.objects.get(id=u_id)
                 AnalysisCache.objects.update_or_create(
                     user=usr, symbol=f'crewai_{sym}',
@@ -1096,7 +1096,7 @@ def trading_accounts_view(request):
     """
     หน้าจอจัดการบัญชีเทรด (List & Add)
     """
-    from .models import BrokerType, TradingAccount
+    from stocks.models import BrokerType, TradingAccount
     
     if request.method == 'POST':
         broker = request.POST.get('broker')
@@ -1121,7 +1121,7 @@ def trading_accounts_view(request):
 
 @login_required
 def delete_trading_account_view(request, pk):
-    from .models import TradingAccount
+    from stocks.models import TradingAccount
     acc = get_object_or_404(TradingAccount, pk=pk, user=request.user)
     acc.delete()
     return redirect('stocks:trading_accounts')
@@ -1132,7 +1132,7 @@ def sync_trading_account_ajax(request, pk):
     """
     ดึงยอดเงินล่าสุดจาก Broker มาอัปเดต (AJAX)
     """
-    from .models import TradingAccount
+    from stocks.models import TradingAccount
     from .trading_bridge import RobotBridge
     
     acc = get_object_or_404(TradingAccount, pk=pk, user=request.user)
@@ -1161,8 +1161,8 @@ def refresh_market_caps_view(request):
     from django.shortcuts import redirect
     from django.utils import timezone
 
-    from .models import ScannableSymbol
-    from .utils import refresh_market_caps
+    from stocks.models import ScannableSymbol
+    from stocks.utils import refresh_market_caps
     
     # ⚡ High-speed check: ดึงแค่ timestamp ล่าสุดมาดูค่าเดียว + แปลงเป็น BKK timezone ก่อนเช็ค
     last_update_dt = ScannableSymbol.objects.filter(is_active=True, market='SET', market_cap__gt=0)\

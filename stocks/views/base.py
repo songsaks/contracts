@@ -70,7 +70,7 @@ def _build_us_symbol_set(user):
     Return a set of stock symbols (uppercase, no .BK) that are US stocks for this user.
     Uses MomentumCandidate(market='US') as the source of truth.
     """
-    from .models import MomentumCandidate
+    from stocks.models import MomentumCandidate
     return set(
         MomentumCandidate.objects.filter(user=user, market='US')
         .values_list('symbol', flat=True)
@@ -448,7 +448,7 @@ def _get_market_condition(set_df):
 
 def _get_precision_scan_data(user, market='SET'):
     """Helper to build the scan_data JSON from the latest database records."""
-    from .models import PrecisionScanCandidate
+    from stocks.models import PrecisionScanCandidate
     latest_run = PrecisionScanCandidate.objects.filter(user=user, market=market).order_by('-scan_run').values_list('scan_run', flat=True).first()
     
     if not latest_run:

@@ -193,7 +193,7 @@ def crypto_trading(request):
     """
     Crypto Trading Command Center (BTC/USD).
     """
-    from .models import TradingAccount, UserTradingConfig
+    from stocks.models import TradingAccount, UserTradingConfig
     account = TradingAccount.objects.filter(user=request.user, is_active=True).first()
     capital = float(account.equity or account.balance) if account else 100.0
     symbol = "BTC-USD"
@@ -402,7 +402,7 @@ def get_crypto_bot_status_ajax(request):
     """
     from django.utils import timezone
 
-    from .models import BotActivity
+    from stocks.models import BotActivity
     
     user_pid_file = get_crypto_pid_file(request.user.id)
     bot_display_name = f"Crypto Bot (User: {request.user.username})"
@@ -489,7 +489,7 @@ def start_crypto_bot_ajax(request):
         with open(user_pid_file, 'w') as f:
             f.write(str(process.pid))
             
-        from .models import BotActivity
+        from stocks.models import BotActivity
         BotActivity.objects.update_or_create(
             bot_name=bot_display_name,
             defaults={'status': 'ACTIVE', 'message': f'Running ({strategy})'}
@@ -505,7 +505,7 @@ def stop_crypto_bot_ajax(request):
     """สั่งหยุดบอทคริปโต (Isolated by User)"""
     import signal
 
-    from .models import BotActivity
+    from stocks.models import BotActivity
     user_pid_file = get_crypto_pid_file(request.user.id)
     bot_display_name = f"Crypto Bot (User: {request.user.username})"
     
@@ -538,7 +538,7 @@ def get_crypto_trade_history_ajax(request):
     from django.db.models import Sum
     from django.utils import timezone
 
-    from .models import TradeOrder, TradingAccount
+    from stocks.models import TradeOrder, TradingAccount
     from .trading_bridge import RobotBridge
 
     # 1. Auto-Sync สถานะออเดอร์ก่อนแสดงผล
@@ -646,7 +646,7 @@ def gold_trading(request):
     """
     Gold Trading & Robot Command Center (XAU/USD).
     """
-    from .models import TradingAccount, UserTradingConfig
+    from stocks.models import TradingAccount, UserTradingConfig
     account = TradingAccount.objects.filter(user=request.user, is_active=True).first()
     capital = float(account.equity or account.balance) if account else 100.0
     symbol = "GC=F"
@@ -675,7 +675,7 @@ def get_bot_status_ajax(request):
     from django.contrib.auth.models import User
     from django.utils import timezone
 
-    from .models import BotActivity, TradingAccount
+    from stocks.models import BotActivity, TradingAccount
     
     user_pid_file = get_user_pid_file(request.user.id)
     bot_display_name = f"Gold Bot (User: {request.user.username})"
@@ -765,7 +765,7 @@ def start_gold_bot_ajax(request):
         with open(user_pid_file, 'w') as f:
             f.write(str(process.pid))
             
-        from .models import BotActivity
+        from stocks.models import BotActivity
         BotActivity.objects.update_or_create(
             bot_name=bot_display_name,
             defaults={'status': 'ACTIVE', 'message': f'Running ({strategy})'}
@@ -781,7 +781,7 @@ def save_gold_config_ajax(request):
     """บันทึกการตั้งค่า UI (Alerts, Targets, Risk) ลงฐานข้อมูลเพื่อ Sync ข้ามเครื่อง"""
     import json
 
-    from .models import UserTradingConfig
+    from stocks.models import UserTradingConfig
     try:
         data = json.loads(request.body)
         config, created = UserTradingConfig.objects.get_or_create(user=request.user)
@@ -805,7 +805,7 @@ def stop_gold_bot_ajax(request):
     """สั่งหยุดบอท (Isolated by User)"""
     import signal
 
-    from .models import BotActivity
+    from stocks.models import BotActivity
     user_pid_file = get_user_pid_file(request.user.id)
     bot_display_name = f"Gold Bot (User: {request.user.username})"
     
@@ -840,7 +840,7 @@ def get_gold_trade_history_ajax(request):
     from django.db.models import Count, Q, Sum
     from django.utils import timezone
 
-    from .models import TradeOrder, TradingAccount
+    from stocks.models import TradeOrder, TradingAccount
     from .trading_bridge import RobotBridge
 
     # 1. Auto-Sync สถานะออเดอร์ก่อนแสดงผล
