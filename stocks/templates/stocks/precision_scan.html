@@ -875,10 +875,13 @@
             </div>
             <!-- Quick Preset Buttons -->
             <div class="px-3 pb-2 d-flex flex-wrap gap-2 align-items-center border-bottom border-light border-opacity-10 mb-2" style="padding-bottom: 0.75rem !important;">
-                <span class="small text-muted fw-bold text-uppercase me-2"><i class="fas fa-bookmark text-indigo"></i> Quick Presets:</span>
-                <button type="button" id="preset-super" class="btn btn-sm btn-outline-primary rounded-pill py-0 px-2 preset-btn" style="font-size: 0.7rem; font-weight: 600;" onclick="applyPreset('super')">🔥 Superperformance</button>
-                <button type="button" id="preset-base" class="btn btn-sm btn-outline-success rounded-pill py-0 px-2 preset-btn" style="font-size: 0.7rem; font-weight: 600;" onclick="applyPreset('base')">💎 Base Accumulation</button>
-                <button type="button" id="preset-safety" class="btn btn-sm btn-outline-warning rounded-pill py-0 px-2 preset-btn" style="font-size: 0.7rem; font-weight: 600;" onclick="applyPreset('safety')">🛡️ Safety First</button>
+                <span class="small text-muted fw-bold text-uppercase me-2"><i class="fas fa-bookmark text-indigo"></i> Quick Presets (เรียงตามลำดับความน่าจะเป็น/ดีที่สุด):</span>
+                <button type="button" id="preset-super" class="btn btn-sm btn-outline-primary rounded-pill py-0 px-2 preset-btn" style="font-size: 0.7rem; font-weight: 600;" onclick="applyPreset('super')">1. 🔥 Superperformance (ดีที่สุด)</button>
+                <button type="button" id="preset-launcher_breakout" class="btn btn-sm btn-outline-info rounded-pill py-0 px-2 preset-btn" style="font-size: 0.7rem; font-weight: 600;" onclick="applyPreset('launcher_breakout')">2. 🚀 Launcher Breakout</button>
+                <button type="button" id="preset-base" class="btn btn-sm btn-outline-success rounded-pill py-0 px-2 preset-btn" style="font-size: 0.7rem; font-weight: 600;" onclick="applyPreset('base')">3. 💎 Base Accumulation</button>
+                <button type="button" id="preset-high_momentum" class="btn btn-sm btn-outline-danger rounded-pill py-0 px-2 preset-btn" style="font-size: 0.7rem; font-weight: 600;" onclick="applyPreset('high_momentum')">4. 🚅 High Momentum</button>
+                <button type="button" id="preset-safety" class="btn btn-sm btn-outline-warning rounded-pill py-0 px-2 preset-btn" style="font-size: 0.7rem; font-weight: 600;" onclick="applyPreset('safety')">5. 🛡️ Safety First</button>
+                <button type="button" id="preset-fast_swing" class="btn btn-sm btn-outline-pink rounded-pill py-0 px-2 preset-btn" style="font-size: 0.7rem; font-weight: 600; color: #ec4899; border-color: #ec4899;" onclick="applyPreset('fast_swing')">6. ⚡ Fast Day/Swing</button>
                 <button type="button" id="preset-clear" class="btn btn-sm btn-outline-secondary rounded-pill py-0 px-2 preset-btn" style="font-size: 0.7rem; font-weight: 600;" onclick="applyPreset('clear')">Clear All</button>
             </div>
 
@@ -2875,14 +2878,26 @@ function applyPreset(presetType) {
         if (cmf) cmf.checked = true;
         if (vcp) vcp.checked = true;
         if (canslim) canslim.checked = true;
+    } else if (presetType === 'launcher_breakout') {
+        if (stage2) stage2.checked = true;
+        if (launcher) launcher.checked = true;
+        if (vcp) vcp.checked = true;
     } else if (presetType === 'base') {
         if (stage2) stage2.checked = true;
         if (pp) pp.checked = true;
+        if (cmf) cmf.checked = true;
+    } else if (presetType === 'high_momentum') {
+        if (stage2) stage2.checked = true;
+        if (vol) vol.checked = true;
+        if (ichi) ichi.checked = true;
         if (cmf) cmf.checked = true;
     } else if (presetType === 'safety') {
         if (rsi) rsi.checked = true;
         if (stage2) stage2.checked = true;
         if (itl) itl.checked = true;
+        if (buynow) buynow.checked = true;
+    } else if (presetType === 'fast_swing') {
+        if (stage2) stage2.checked = true;
         if (buynow) buynow.checked = true;
     }
 
