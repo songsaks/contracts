@@ -1257,11 +1257,15 @@ def detect_vcp_pattern(df):
             # ต้องอยู่ใกล้ไฮ (Pivot point) ไม่เกิน 8%
             near_pivot = curr_price >= base_high * 0.92
             
+            # Base Length: นับจำนวนสัปดาห์ตั้งแต่ Base High จนถึงปัจจุบัน
+            base_length_weeks = max(1, round(len(base_data) / 5))
+
             return {
                 'setup': is_vcp and near_pivot,
                 'contractions': len(swings),
                 'tightness': round(tightness, 1),
-                'vdu_confirmed': vdu_confirmed
+                'vdu_confirmed': vdu_confirmed,
+                'base_length_weeks': base_length_weeks,
             }
             
     except Exception as e:
@@ -1545,6 +1549,28 @@ def analyze_momentum_technical_v2(df):
         has_hl = len(swing_lows)  >= 2 and swing_lows[-1]  > swing_lows[-2]
         hh_hl = has_hh and has_hl
 
+    # 8. Inside Bar — แท่งที่ High < prev High และ Low > prev Low (pre-breakout compression)
+    inside_bar = False
+    if len(df) >= 2:
+        inside_bar = (
+            float(df['High'].iloc[-1]) < float(df['High'].iloc[-2]) and
+            float(df['Low'].iloc[-1])  > float(df['Low'].iloc[-2])
+        )
+
+    # 9. Accumulation / Distribution Days (25 วัน)
+    acc_days = 0
+    dist_days = 0
+    if len(df) >= 26:
+        _avg_vol_25 = float(df['Volume'].tail(25).mean())
+        for _i in range(-25, 0):
+            _c  = float(df['Close'].iloc[_i])
+            _pc = float(df['Close'].iloc[_i - 1])
+            _v  = float(df['Volume'].iloc[_i])
+            if _c > _pc and _v > _avg_vol_25:
+                acc_days += 1
+            elif _c < _pc and _v > _avg_vol_25:
+                dist_days += 1
+
     # ====== 8. Explosive Launcher Logic (Pre-Breakout) ======
     launcher_score = 0
     # A. Price Tightness (5-day standard deviation / Close)
@@ -1631,6 +1657,10 @@ def analyze_momentum_technical_v2(df):
         'turtle_dist_pct': round(turtle_dist, 2),
         'is_explosive': launcher_score >= 70,
         'tightness_idx': round(tightness, 2),
+        # Inside Bar & Accumulation/Distribution
+        'inside_bar': inside_bar,
+        'acc_days': acc_days,
+        'dist_days': dist_days,
         # Ehlers DSP indicators
         'ehlers_supersmoother': round(ehlers_supersmoother_val, 2),
         'ehlers_laguerre_rsi': round(ehlers_laguerre_rsi_val, 2),

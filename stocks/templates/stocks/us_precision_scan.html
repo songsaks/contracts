@@ -734,10 +734,6 @@
                     <label class="form-check-label small fw-semibold filter-label-pp" for="ppFilterUS" style="cursor:pointer;">PK (Pocket Pivot)</label>
                 </div>
                 <div class="form-check form-switch mb-0 d-flex align-items-center gap-2">
-                    <input class="form-check-input" type="checkbox" id="hideCmfDistUS" onchange="filterByCMFDist('US', this.checked)" style="cursor:pointer;">
-                    <label class="form-check-label small fw-semibold filter-label-cmf" for="hideCmfDistUS" style="cursor:pointer;">ซ่อน CMF ↓</label>
-                </div>
-                <div class="form-check form-switch mb-0 d-flex align-items-center gap-2">
                     <input class="form-check-input" type="checkbox" id="volSurgeFilterUS" onchange="_applyFiltersUS()" style="cursor:pointer;">
                     <label class="form-check-label small fw-semibold filter-label-volsurge" for="volSurgeFilterUS" style="cursor:pointer;">⚡ Vol Surge ≥1.5x</label>
                 </div>
@@ -762,11 +758,23 @@
                     <label class="form-check-label small fw-semibold filter-label-itl" for="itlFilterUS" style="cursor:pointer;">📈 ITL Bullish</label>
                     <a href="{% url 'stocks:ehlers_manual' %}" target="_blank" class="text-decoration-none" title="Ehlers ITL: ราคา > ITL Daily > ITL Weekly" style="font-size:0.85rem; color:#94a3b8; margin-top:-2px;"><i class="fas fa-question-circle"></i></a>
                 </div>
-                <!-- CCET Filter -->
+                <!-- CMF Positive Filter -->
                 <div class="form-check form-switch mb-0 d-flex align-items-center gap-2">
-                    <input class="form-check-input" type="checkbox" id="ccetFilterUS" onchange="_applyFiltersUS()" style="cursor:pointer;">
-                    <label class="form-check-label small fw-semibold filter-label-ccet" for="ccetFilterUS" style="cursor:pointer;">🔥 CCET Setup</label>
-                    <span style="font-size:0.85rem; color:#94a3b8; cursor:pointer;" title="CCET Setup: EMA Align (20 > 50 > 200) + Volume Dry-up (RVol <= 0.6) + Near Breakout (Turtle Dist <= 10%) + RS Rating >= 80 + CMF >= -0.10 + R:R >= 1.5"><i class="fas fa-question-circle"></i></span>
+                    <input class="form-check-input" type="checkbox" id="cmfPositiveFilterUS" onchange="_applyFiltersUS()" style="cursor:pointer;">
+                    <label class="form-check-label small fw-semibold" for="cmfPositiveFilterUS" style="cursor:pointer; color:#059669;">💰 CMF+ ≥ 0.1</label>
+                    <span style="font-size:0.85rem;color:#94a3b8;cursor:pointer;" title="CMF+ ≥ 0.1: กรองเฉพาะหุ้นที่สถาบันสะสมชัดเจน (Chaikin Money Flow ≥ 0.1)"><i class="fas fa-question-circle"></i></span>
+                </div>
+                <!-- Inside Bar Filter -->
+                <div class="form-check form-switch mb-0 d-flex align-items-center gap-2">
+                    <input class="form-check-input" type="checkbox" id="insideBarFilterUS" onchange="_applyFiltersUS()" style="cursor:pointer;">
+                    <label class="form-check-label small fw-semibold" for="insideBarFilterUS" style="cursor:pointer; color:#0e7490;">📦 Inside Bar</label>
+                    <span style="font-size:0.85rem;color:#94a3b8;cursor:pointer;" title="Inside Bar: แท่งวันนี้อยู่ภายใน range ของเมื่อวาน (High < prev High AND Low > prev Low) สัญญาณ compression ก่อนเบรก"><i class="fas fa-question-circle"></i></span>
+                </div>
+                <!-- ACC > DIST Filter -->
+                <div class="form-check form-switch mb-0 d-flex align-items-center gap-2">
+                    <input class="form-check-input" type="checkbox" id="accDistFilterUS" onchange="_applyFiltersUS()" style="cursor:pointer;">
+                    <label class="form-check-label small fw-semibold" for="accDistFilterUS" style="cursor:pointer; color:#15803d;">📈 ACC > DIST</label>
+                    <span style="font-size:0.85rem;color:#94a3b8;cursor:pointer;" title="ACC > DIST: วันสะสม (ราคาขึ้น+Volume สูง) มากกว่าวันขาย ใน 25 วัน = สถาบันกำลังเก็บของ"><i class="fas fa-question-circle"></i></span>
                 </div>
                 <!-- CAN SLIM Filter -->
                 <div class="form-check form-switch mb-0 d-flex align-items-center gap-2">
@@ -958,6 +966,9 @@
     data-is-short-term="{{ item.is_short_term|yesno:'true,false' }}"
     data-is-medium-term="{% if item.is_medium_term or item.symbol in cup_handle_symbols %}true{% else %}false{% endif %}"
     data-is-long-term="{% if item.is_long_term or item.symbol in turtle_symbols %}true{% else %}false{% endif %}"
+    data-inside-bar="{{ item.inside_bar|yesno:'true,false' }}"
+    data-acc-days="{{ item.acc_days|default:0 }}"
+    data-dist-days="{{ item.dist_days|default:0 }}"
     id="row-{{ item.symbol }}">
                             <!-- SYMBOL -->
                             <td class="ps-2">
@@ -992,6 +1003,8 @@
                                         {% if item.vdu_near_zone %}
                                         <span class="badge px-1 py-0" style="background:#7c3aed;color:white;font-size:0.55rem;" title="Volume Dry-Up: volume ลด 3 วันติด + เงียบกว่า avg — สัญญาณ Accumulation">VDU</span>
                                         {% endif %}
+                                        {% if item.inside_bar %}<span class="badge" style="background:rgba(8,145,178,0.12);color:#0e7490;border:1px solid rgba(8,145,178,0.3);font-size:0.6rem;">IB</span>{% endif %}
+                                        {% if item.acc_days > item.dist_days and item.acc_days >= 2 %}<span class="badge" style="background:rgba(5,150,105,0.12);color:#047857;border:1px solid rgba(5,150,105,0.3);font-size:0.6rem;">ACC {{ item.acc_days }}d</span>{% elif item.dist_days > item.acc_days and item.dist_days >= 2 %}<span class="badge" style="background:rgba(220,38,38,0.08);color:#dc2626;border:1px solid rgba(220,38,38,0.25);font-size:0.6rem;">DIST {{ item.dist_days }}d</span>{% endif %}
                                         {% if item.is_52w_breakout %}
                                         <span class="badge px-1 py-0" style="background:#f59e0b;color:white;font-size:0.55rem;" title="52-Week High Breakout — ทะลุ/แตะ New High">🏔 HI</span>
                                         {% endif %}
@@ -2247,40 +2260,44 @@ function applyPreset(presetType) {
     const rsi = document.getElementById('rsiFilter70US');
     const stage2 = document.getElementById('stage2FilterUS');
     const pp = document.getElementById('ppFilterUS');
-    const cmf = document.getElementById('hideCmfDistUS');
     const vol = document.getElementById('volSurgeFilterUS');
     const ichi = document.getElementById('ichiFilterUS');
     const launcher = document.getElementById('launcherFilterUS');
     const vcp = document.getElementById('vcpFilterUS');
     const itl = document.getElementById('itlFilterUS');
-    const ccet = document.getElementById('ccetFilterUS');
     const canslim = document.getElementById('canslimFilterUS');
     const buynow = document.getElementById('buynowFilterUS');
+    const cmfPos = document.getElementById('cmfPositiveFilterUS');
+    const insideBar = document.getElementById('insideBarFilterUS');
+    const accDist = document.getElementById('accDistFilterUS');
 
     // Reset all
-    [rsi, stage2, pp, cmf, vol, ichi, launcher, vcp, itl, ccet, canslim, buynow].forEach(el => {
+    [rsi, stage2, pp, vol, ichi, launcher, vcp, itl, canslim, buynow, cmfPos, insideBar, accDist].forEach(el => {
         if (el) el.checked = false;
     });
 
     if (presetType === 'super') {
         if (stage2) stage2.checked = true;
         if (pp) pp.checked = true;
-        if (cmf) cmf.checked = true;
+        if (cmfPos) cmfPos.checked = true;
         if (vcp) vcp.checked = true;
         if (canslim) canslim.checked = true;
+        if (accDist) accDist.checked = true;
     } else if (presetType === 'launcher_breakout') {
         if (stage2) stage2.checked = true;
         if (launcher) launcher.checked = true;
         if (vcp) vcp.checked = true;
+        if (insideBar) insideBar.checked = true;
     } else if (presetType === 'base') {
         if (stage2) stage2.checked = true;
         if (pp) pp.checked = true;
-        if (cmf) cmf.checked = true;
+        if (cmfPos) cmfPos.checked = true;
+        if (accDist) accDist.checked = true;
     } else if (presetType === 'high_momentum') {
         if (stage2) stage2.checked = true;
         if (vol) vol.checked = true;
         if (ichi) ichi.checked = true;
-        if (cmf) cmf.checked = true;
+        if (cmfPos) cmfPos.checked = true;
     } else if (presetType === 'safety') {
         if (rsi) rsi.checked = true;
         if (stage2) stage2.checked = true;
@@ -2305,22 +2322,24 @@ function _applyFiltersUS() {
         var rows = document.querySelectorAll('#scanTableUS tbody tr');
         var s2On       = document.getElementById('stage2FilterUS')  && document.getElementById('stage2FilterUS').checked;
         var ppOn       = document.getElementById('ppFilterUS')      && document.getElementById('ppFilterUS').checked;
-        var hideCMFOn  = document.getElementById('hideCmfDistUS')   && document.getElementById('hideCmfDistUS').checked;
         var volSurgeOn = document.getElementById('volSurgeFilterUS') && document.getElementById('volSurgeFilterUS').checked;
         var ichiOn     = document.getElementById('ichiFilterUS')    && document.getElementById('ichiFilterUS').checked;
         var vcpOn      = document.getElementById('vcpFilterUS')     && document.getElementById('vcpFilterUS').checked;
         var launcherOn = document.getElementById('launcherFilterUS') && document.getElementById('launcherFilterUS').checked;
         var itlOn      = document.getElementById('itlFilterUS')     && document.getElementById('itlFilterUS').checked;
-        var ccetOn     = document.getElementById('ccetFilterUS')    && document.getElementById('ccetFilterUS').checked;
         var canslimOn  = document.getElementById('canslimFilterUS')   && document.getElementById('canslimFilterUS').checked;
         var buynowOn   = document.getElementById('buynowFilterUS')    && document.getElementById('buynowFilterUS').checked;
+        var cmfPosOn   = document.getElementById('cmfPositiveFilterUS') && document.getElementById('cmfPositiveFilterUS').checked;
+        var insideBarOn = document.getElementById('insideBarFilterUS') && document.getElementById('insideBarFilterUS').checked;
+        var accDistOn  = document.getElementById('accDistFilterUS') && document.getElementById('accDistFilterUS').checked;
         var secEl  = document.getElementById('sectorFilterUS');
         var secVal = secEl ? secEl.value : '';
         
         console.log("Filter States:", {
-            s2On: !!s2On, ppOn: !!ppOn, hideCMFOn: !!hideCMFOn, volSurgeOn: !!volSurgeOn, 
-            ichiOn: !!ichiOn, vcpOn: !!vcpOn, launcherOn: !!launcherOn, itlOn: !!itlOn, 
-            ccetOn: !!ccetOn, canslimOn: !!canslimOn, buynowOn: !!buynowOn, secVal: secVal, horizon: currentHorizonFilterUS
+            s2On: !!s2On, ppOn: !!ppOn, volSurgeOn: !!volSurgeOn,
+            ichiOn: !!ichiOn, vcpOn: !!vcpOn, launcherOn: !!launcherOn, itlOn: !!itlOn,
+            canslimOn: !!canslimOn, buynowOn: !!buynowOn, cmfPosOn: !!cmfPosOn,
+            insideBarOn: !!insideBarOn, accDistOn: !!accDistOn, secVal: secVal, horizon: currentHorizonFilterUS
         });
 
         var visible = 0;
@@ -2343,6 +2362,9 @@ function _applyFiltersUS() {
             var itl  = row.dataset.itl       === 'true';
             var canslim = row.dataset.canslim === 'true';
             var rvol = parseFloat(row.dataset.rvol || '0');
+            var insideBar = row.dataset.insideBar === 'true';
+            var accDays = parseInt(row.dataset.accDays || '0');
+            var distDays = parseInt(row.dataset.distDays || '0');
             var emaAligned = row.dataset.emaAligned === 'true';
             var turtleDist = parseFloat(row.dataset.turtleDist || '99.0');
             var rr   = parseFloat(row.dataset.rr || '0');
@@ -2359,18 +2381,19 @@ function _applyFiltersUS() {
             var isBuyNow = rvol >= 1.5 && turtleDist <= 0.5;
 
             var show = (!rsiOn || rsi < 70) &&
-                       (!s2On || s2) && 
-                       (!ppOn || pp) && 
-                       (!secVal || sec === secVal) && 
-                       (!hideCMFOn || !cmfd) && 
-                       (!volSurgeOn || vsrg) && 
+                       (!s2On || s2) &&
+                       (!ppOn || pp) &&
+                       (!secVal || sec === secVal) &&
+                       (!volSurgeOn || vsrg) &&
                        (!vcpOn || vcp) &&
                        (!launcherOn || launcher >= 70) &&
                        (!ichiOn || ichi >= 3) &&
                        (!itlOn || itl) &&
-                       (!ccetOn || isCcet) &&
                        (!canslimOn || canslim) &&
-                       (!buynowOn || isBuyNow);
+                       (!buynowOn || isBuyNow) &&
+                       (!cmfPosOn || cmf >= 0.1) &&
+                       (!insideBarOn || insideBar) &&
+                       (!accDistOn || (accDays > distDays && accDays >= 2));
 
             // Gather all symbols passing the checkbox filters for the Summary Cards
             if (show) {

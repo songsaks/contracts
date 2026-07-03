@@ -429,6 +429,11 @@ class PrecisionScanCandidate(models.Model):
     turtle_dist_pct     = models.FloatField(default=99.0)         # % ระยะห่างจากจุดเบรค Turtle (DC20)
     is_explosive        = models.BooleanField(default=False)      # เป็นหุ้นที่พร้อมระเบิดหรือไม่ (score > 70)
     tightness_idx       = models.FloatField(default=99.0)         # ดัชนีความบีบตัวของราคา (ต่ำยิ่งดี)
+    # ====== Pre-Breakout Signals (v13) ======
+    inside_bar          = models.BooleanField(default=False)      # แท่งที่ High < prev High และ Low > prev Low (compression)
+    acc_days            = models.IntegerField(default=0)          # จำนวนวัน Accumulation ใน 25 วันที่ผ่านมา
+    dist_days           = models.IntegerField(default=0)          # จำนวนวัน Distribution ใน 25 วันที่ผ่านมา
+    base_length_weeks   = models.IntegerField(default=0)          # จำนวนสัปดาห์ที่สร้างฐาน (นับจาก VCP base high)
 
     class Meta:
         ordering = ['-scan_run', '-technical_score']

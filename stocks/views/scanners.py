@@ -2032,6 +2032,11 @@ def precision_momentum_scanner(request):
                             'turtle_dist_pct': tech.get('turtle_dist_pct', 99.0),
                             'is_explosive': tech.get('is_explosive', False),
                             'tightness_idx': tech.get('tightness_idx', 99.0),
+                            # ====== Pre-Breakout Signals (v13) ======
+                            'inside_bar': tech.get('inside_bar', False),
+                            'acc_days': tech.get('acc_days', 0),
+                            'dist_days': tech.get('dist_days', 0),
+
                             # ====== John Ehlers Indicators (v12) ======
                             'ehlers_supersmoother': tech.get('ehlers_supersmoother', current_price),
                             'ehlers_laguerre_rsi': tech.get('ehlers_laguerre_rsi', 0.5),
@@ -2160,11 +2165,16 @@ def precision_momentum_scanner(request):
                             vcp_contractions=r.get('vcp', {}).get('contractions', 0),
                             vcp_tightness=r.get('vcp', {}).get('tightness', 0.0),
                             vcp_vdu=r.get('vcp', {}).get('vdu_confirmed', False),
+                            base_length_weeks=r.get('vcp', {}).get('base_length_weeks', 0),
                             # Launcher v10
                             launcher_score=r.get('launcher_score', 0),
                             turtle_dist_pct=r.get('turtle_dist_pct', 99.0),
                             is_explosive=r.get('is_explosive', False),
                             tightness_idx=r.get('tightness_idx', 99.0),
+                            # Pre-Breakout Signals v13
+                            inside_bar=r.get('inside_bar', False),
+                            acc_days=r.get('acc_days', 0),
+                            dist_days=r.get('dist_days', 0),
                             # Ehlers v12
                             ehlers_supersmoother=r.get('ehlers_supersmoother', None),
                             ehlers_laguerre_rsi=r.get('ehlers_laguerre_rsi', None),
@@ -4690,6 +4700,10 @@ def us_precision_scanner(request):
                             'turtle_dist_pct': tech.get('turtle_dist_pct', 99.0),
                             'is_explosive': tech.get('is_explosive', False),
                             'tightness_idx': tech.get('tightness_idx', 99.0),
+                            # ====== Pre-Breakout Signals (v13) ======
+                            'inside_bar': tech.get('inside_bar', False),
+                            'acc_days': tech.get('acc_days', 0),
+                            'dist_days': tech.get('dist_days', 0),
                             # ====== John Ehlers Indicators (v12) ======
                             'ehlers_supersmoother': tech.get('ehlers_supersmoother', current_p),
                             'ehlers_laguerre_rsi': tech.get('ehlers_laguerre_rsi', 0.5),
@@ -4774,6 +4788,11 @@ def us_precision_scanner(request):
                             turtle_dist_pct=r.get('turtle_dist_pct', 99.0),
                             is_explosive=r.get('is_explosive', False),
                             tightness_idx=r.get('tightness_idx', 99.0),
+                            # Pre-Breakout Signals v13
+                            base_length_weeks=r.get('vcp', {}).get('base_length_weeks', 0),
+                            inside_bar=r.get('inside_bar', False),
+                            acc_days=r.get('acc_days', 0),
+                            dist_days=r.get('dist_days', 0),
                             # Ehlers v12
                             ehlers_supersmoother=r.get('ehlers_supersmoother', None),
                             ehlers_laguerre_rsi=r.get('ehlers_laguerre_rsi', None),
