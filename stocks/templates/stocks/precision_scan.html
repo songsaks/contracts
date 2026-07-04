@@ -3393,37 +3393,43 @@ function applyPreset(presetType) {
     }
     if (presetType === 'clear') {
         document.querySelectorAll('.preset-btn').forEach(btn => btn.style.opacity = '1');
+        var secSel = document.getElementById('sectorFilterSET');
+        if (secSel) secSel.value = '';
     }
+    window._activePresetSET = (presetType === 'clear') ? '' : presetType;
 
-    // Show active condition bar
-    const presetConditions = {
-        'super':            ['S2','Pocket Pivot','CMF+≥0.1','VCP','CAN SLIM','ACC>DIST'],
-        'launcher_breakout':['S2','Launcher≥70','VCP','Inside Bar'],
-        'base':             ['S2','Pocket Pivot','CMF+≥0.1','ACC>DIST'],
-        'high_momentum':    ['S2','Vol Surge≥1.5x','Ichimoku≥3','CMF+≥0.1'],
-        'safety':           ['RSI<70','S2','ITL Bullish','BUY NOW'],
-        'fast_swing':       ['S2','BUY NOW'],
-    };
-    const bar  = document.getElementById('activePresetBar');
-    const tags = document.getElementById('activePresetTags');
-    if (bar && tags) {
-        if (presetType === 'clear' || !presetConditions[presetType]) {
-            bar.style.display = 'none';
-            tags.innerHTML = '';
-        } else {
-            const colors = {
-                'super':'#4f46e5','launcher_breakout':'#0891b2','base':'#059669',
-                'high_momentum':'#dc2626','safety':'#d97706','fast_swing':'#ec4899'
-            };
-            const col = colors[presetType] || '#64748b';
-            tags.innerHTML = presetConditions[presetType].map(c =>
-                `<span style="display:inline-block;background:${col}22;color:${col};border:1px solid ${col}55;border-radius:4px;padding:1px 6px;font-size:0.67rem;font-weight:600;">${c}</span>`
-            ).join(' ');
-            bar.style.display = 'flex';
-        }
-    }
+    _showPresetBarSET(presetType);
 
     _applyFiltersSET();
+}
+
+var PRESET_CONDITIONS_SET = {
+    'super':            ['S2','Pocket Pivot','CMF+≥0.1','VCP','CAN SLIM','ACC>DIST'],
+    'launcher_breakout':['S2','Launcher≥70','VCP','Inside Bar'],
+    'base':             ['S2','Pocket Pivot','CMF+≥0.1','ACC>DIST'],
+    'high_momentum':    ['S2','Vol Surge≥1.5x','Ichimoku≥3','CMF+≥0.1'],
+    'safety':           ['RSI<70','S2','ITL Bullish','BUY NOW'],
+    'fast_swing':       ['S2','BUY NOW'],
+};
+var PRESET_COLORS_SET = {
+    'super':'#4f46e5','launcher_breakout':'#0891b2','base':'#059669',
+    'high_momentum':'#dc2626','safety':'#d97706','fast_swing':'#ec4899'
+};
+
+function _showPresetBarSET(presetType) {
+    const bar  = document.getElementById('activePresetBar');
+    const tags = document.getElementById('activePresetTags');
+    if (!bar || !tags) return;
+    if (presetType === 'clear' || !PRESET_CONDITIONS_SET[presetType]) {
+        bar.style.display = 'none';
+        tags.innerHTML = '';
+    } else {
+        const col = PRESET_COLORS_SET[presetType] || '#64748b';
+        tags.innerHTML = PRESET_CONDITIONS_SET[presetType].map(c =>
+            `<span style="display:inline-block;background:${col}22;color:${col};border:1px solid ${col}55;border-radius:4px;padding:1px 6px;font-size:0.67rem;font-weight:600;">${c}</span>`
+        ).join(' ');
+        bar.style.display = 'flex';
+    }
 }
 
 function _applyFiltersSET() {
@@ -3531,9 +3537,103 @@ function _applyFiltersSET() {
         updateSummaryList('mediumTermSummaryList', mediumTermSyms, 'bg-warning text-dark');
         updateSummaryList('longTermSummaryList', longTermSyms, 'bg-primary text-white');
 
+        _saveFilterStateSET();
+
     } catch (e) {
         console.error("Error in _applyFiltersSET:", e);
     }
+}
+
+// ── Filter persistence (localStorage) ─────────────────────────────────
+var FILTER_IDS_SET = ['rsiFilter70SET','stage2FilterSET','ppFilterSET','cmfPositiveFilterSET',
+                      'volSurgeFilterSET','ichiFilterSET','launcherFilterSET','vcpFilterSET',
+                      'itlFilterSET','canslimFilterSET','buynowFilterSET','insideBarFilterSET','accDistFilterSET'];
+
+function _saveFilterStateSET() {
+    try {
+        var state = { checkboxes: {}, sector: '', preset: window._activePresetSET || '' };
+        FILTER_IDS_SET.forEach(function(id) {
+            var el = document.getElementById(id);
+            if (el) state.checkboxes[id] = el.checked;
+        });
+        var sec = document.getElementById('sectorFilterSET');
+        if (sec) state.sector = sec.value;
+        localStorage.setItem('precisionFilters_SET', JSON.stringify(state));
+    } catch (e) { /* localStorage unavailable — ignore */ }
+}
+
+function _restoreFilterStateSET() {
+    try {
+        var raw = localStorage.getItem('precisionFilters_SET');
+        if (!raw) return;
+        var state = JSON.parse(raw);
+        FILTER_IDS_SET.forEach(function(id) {
+            var el = document.getElementById(id);
+            if (el && typeof state.checkboxes[id] === 'boolean') el.checked = state.checkboxes[id];
+        });
+        var sec = document.getElementById('sectorFilterSET');
+        if (sec && state.sector) {
+            for (var i = 0; i < sec.options.length; i++) {
+                if (sec.options[i].value === state.sector) { sec.value = state.sector; break; }
+            }
+        }
+        if (state.preset) {
+            _highlightPresetSET(state.preset);
+            _showPresetBarSET(state.preset);
+        }
+    } catch (e) { /* corrupt state — ignore */ }
+}
+
+function _highlightPresetSET(presetType) {
+    window._activePresetSET = presetType;
+    document.querySelectorAll('.preset-btn').forEach(function(btn) {
+        btn.classList.remove('active');
+        btn.style.opacity = '0.55';
+    });
+    var activeBtn = document.getElementById('preset-' + presetType);
+    if (activeBtn) {
+        activeBtn.classList.add('active');
+        activeBtn.style.opacity = '1';
+    }
+}
+
+// ── Preset match counts on buttons ────────────────────────────────────
+function _updatePresetCountsSET() {
+    var rows = document.querySelectorAll('#scanTableSET tbody tr');
+    var counts = { super: 0, launcher_breakout: 0, base: 0, high_momentum: 0, safety: 0, fast_swing: 0 };
+    rows.forEach(function(row) {
+        var d = row.dataset;
+        var s2 = d.stage2 === 'true';
+        var pp = d.pp === 'true';
+        var cmf = parseFloat(d.cmf || '0');
+        var vcp = d.vcp === 'true';
+        var canslim = d.canslim === 'true';
+        var accDays = parseInt(d.accDays || '0');
+        var distDays = parseInt(d.distDays || '0');
+        var accPos = accDays > distDays && accDays >= 2;
+        var launcher = parseInt(d.launcher || '0');
+        var insideBar = d.insideBar === 'true';
+        var vsrg = d.volsurge === 'true';
+        var ichi = parseInt(d.ichi || '0');
+        var rsi = parseFloat(d.rsi || '0');
+        var itl = d.itl === 'true';
+        var rvol = parseFloat(d.rvol || '0');
+        var turtleDist = parseFloat(d.turtleDist || '99.0');
+        var buyNow = rvol >= 1.5 && turtleDist <= 0.5;
+
+        if (s2 && pp && cmf >= 0.1 && vcp && canslim && accPos) counts.super++;
+        if (s2 && launcher >= 70 && vcp && insideBar)           counts.launcher_breakout++;
+        if (s2 && pp && cmf >= 0.1 && accPos)                   counts.base++;
+        if (s2 && vsrg && ichi >= 3 && cmf >= 0.1)              counts.high_momentum++;
+        if (rsi < 70 && s2 && itl && buyNow)                    counts.safety++;
+        if (s2 && buyNow)                                       counts.fast_swing++;
+    });
+    Object.keys(counts).forEach(function(k) {
+        var btn = document.getElementById('preset-' + k);
+        if (!btn) return;
+        if (!btn.dataset.baseLabel) btn.dataset.baseLabel = btn.textContent.trim();
+        btn.textContent = btn.dataset.baseLabel + ' (' + counts[k] + ')';
+    });
 }
 function filterByStage2(id, v)   { _applyFiltersSET(); }
 function filterByPP(id, v)       { _applyFiltersSET(); }
@@ -3634,7 +3734,9 @@ document.addEventListener('DOMContentLoaded', function() {
     // Ensure default is All Sectors (empty value)
     sel.value = "";
 
-    // Apply filters immediately (e.g. for automatic RS >= 70)
+    // Restore saved filters/preset from the previous visit, then apply
+    _restoreFilterStateSET();
+    _updatePresetCountsSET();
     _applyFiltersSET();
 });
 
