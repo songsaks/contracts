@@ -927,6 +927,12 @@
                                         </div>
                                     </div>
                                     <div class="col-md-6">
+                                        <div class="d-flex align-items-start gap-2 p-2 rounded-2" style="background:#fef2f2;">
+                                            <span class="badge flex-shrink-0" style="background:rgba(220,38,38,0.18);color:#dc2626;border:1px solid rgba(220,38,38,0.45);font-size:0.62rem;font-weight:700;">🚫 Overextended</span>
+                                            <div><strong>Overextended — รอย่อ</strong> — แสดงที่คอลัมน์ SIGNAL เมื่อ RR ปัจจุบัน &lt; 1 และ RSI &gt; 80 พร้อมกัน หมายถึงราคาวิ่งเลยจุดซื้อไปมากแล้ว อย่าไล่ราคา ให้รอย่อกลับโซนซื้อจน RR กลับมา &ge; 2 ก่อนค่อยพิจารณาเข้า</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
                                         <div class="d-flex align-items-start gap-2 p-2 rounded-2" style="background:#f8fafc;">
                                             <span class="badge flex-shrink-0" style="background:#f1f5f9;color:#475569;border:1px solid #e2e8f0;font-size:0.62rem;">🟡 Caut 2/5</span>
                                             <div><strong>Reversal Score ต่ำ (2/5)</strong> — สัญญาณเตือนเบาๆ 2 ใน 5 indicator ให้เฝ้าระวัง ยังไม่ต้องทำอะไร แต่ควรรู้ว่ามีความเสี่ยงเริ่มสะสม</div>
@@ -1987,6 +1993,11 @@
                             <!-- CLEAN v7 SIGNALS: EMA Stack / 52W Breakout / CMF -->
                             <td class="col-hide-md">
                                 <div class="d-flex flex-column gap-1">
+                                {% if item.current_rr is not None and item.current_rr < 1 and item.rsi > 80 %}
+                                <span class="badge px-1 py-0"
+                                      style="background:rgba(220,38,38,0.18);color:#dc2626;border:1px solid rgba(220,38,38,0.45);font-size:0.56rem;font-weight:700;"
+                                      title="RR ปัจจุบัน 1:{{ item.current_rr|floatformat:1 }} + RSI {{ item.rsi|floatformat:0 }} — ราคาวิ่งเลยจุดซื้อไปมากแล้ว อย่าไล่ราคา รอย่อกลับโซนซื้อให้ RR ≥ 2 ก่อน">🚫 Overextended — รอย่อ</span>
+                                {% endif %}
                                 {% if item.ema20_aligned %}
                                 <span class="badge px-1 py-0"
                                       style="background:rgba(79,70,229,0.12);color:#4f46e5;border:1px solid rgba(79,70,229,0.3);font-size:0.56rem;"
@@ -2096,7 +2107,7 @@
 
 
                             <!-- RECOMMENDATION -->
-                            <td class="small" style="font-size:0.65rem;line-height:1.2;min-width:150px;background:rgba(9,13,22,0.3);">
+                            <td class="small" style="font-size:0.78rem;line-height:1.35;min-width:165px;background:rgba(9,13,22,0.3);">
                                 {% if item.technical_score >= 70 %}
                                     <div class="fw-bold mb-1">
                                         {% if item.rvol >= 1.5 and item.turtle_dist_pct <= 0.5 %}
@@ -2109,8 +2120,8 @@
                                             <span class="text-warning"><i class="fas fa-hourglass-half"></i> รอราคาดรอปเข้าโซน</span>
                                         {% endif %}
                                     </div>
-                                    <div class="text-muted" style="font-size:0.6rem;">
-                                        <i class="fas fa-bullseye"></i> รอที่: <b>{{ item.demand_zone_end|floatformat:2 }}-{{ item.demand_zone_start|floatformat:2 }} <span class="text-success" style="font-size:0.6rem;">(PP)</span></b><br>
+                                    <div class="text-muted" style="font-size:0.72rem;">
+                                        <i class="fas fa-bullseye"></i> รอที่: <b>{{ item.demand_zone_end|floatformat:2 }}-{{ item.demand_zone_start|floatformat:2 }} <span class="text-success" style="font-size:0.72rem;">(PP)</span></b><br>
                                         <i class="fas fa-shield-alt"></i> หนีที่: <b class="text-danger">{{ item.stop_loss|floatformat:2 }}</b>
                                     </div>
                                 {% else %}
