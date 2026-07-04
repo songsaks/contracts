@@ -244,7 +244,6 @@
     .filter-label-launcher { color: #7c3aed !important; }
     .filter-label-vcp { color: #e11d48 !important; }
     .filter-label-itl { color: #f97316 !important; }
-    .filter-label-ccet { color: #0d9488 !important; }
 
     /* Dark mode overrides */
     [data-theme="dark"] .scan-checklist-text,
@@ -444,7 +443,6 @@
     [data-theme="dark"] .filter-label-launcher, [data-bs-theme="dark"] .filter-label-launcher { color: #c084fc !important; }
     [data-theme="dark"] .filter-label-vcp, [data-bs-theme="dark"] .filter-label-vcp { color: #fb7185 !important; }
     [data-theme="dark"] .filter-label-itl, [data-bs-theme="dark"] .filter-label-itl { color: #ffedd5 !important; }
-    [data-theme="dark"] .filter-label-ccet, [data-bs-theme="dark"] .filter-label-ccet { color: #2dd4bf !important; }
 </style>
 
 <div>
@@ -1646,7 +1644,6 @@
     data-turtle-dist="{{ item.turtle_dist_pct|default_if_none:99 }}"
     style="{% if item.is_explosive %}background:rgba(124,58,237,0.03);{% endif %}"
     data-cmf="{{ item.cmf|default:0 }}"
-    data-cmfdist="{% if item.cmf is not None and item.cmf < -0.1 %}true{% else %}false{% endif %}"
     data-rs="{{ item.rs_rating|default:0 }}"
     data-score="{{ item.technical_score|default:0 }}"
     data-volsurge="{% if item.is_volume_surge %}true{% else %}false{% endif %}"
@@ -3051,12 +3048,10 @@ function _applyFiltersUS() {
 
         rows.forEach(function(row) {
             var symbol = row.dataset.symbol || '';
-            var rs   = parseInt(row.dataset.rs || '0');
             var rsi  = parseFloat(row.dataset.rsi || '0');
             var s2   = row.dataset.stage2   === 'true';
             var pp   = row.dataset.pp        === 'true';
             var cmf  = parseFloat(row.dataset.cmf || '0');
-            var cmfd = row.dataset.cmfdist   === 'true';
             var vsrg = row.dataset.volsurge  === 'true';
             var ichi = parseInt(row.dataset.ichi || '0');
             var vcp  = row.dataset.vcp       === 'true';
@@ -3067,9 +3062,7 @@ function _applyFiltersUS() {
             var insideBar = row.dataset.insideBar === 'true';
             var accDays = parseInt(row.dataset.accDays || '0');
             var distDays = parseInt(row.dataset.distDays || '0');
-            var emaAligned = row.dataset.emaAligned === 'true';
             var turtleDist = parseFloat(row.dataset.turtleDist || '99.0');
-            var rr   = parseFloat(row.dataset.rr || '0');
             var sec  = row.dataset.sector    || '';
 
             var isShort = row.dataset.isShortTerm === 'true';
@@ -3077,8 +3070,6 @@ function _applyFiltersUS() {
             var isLong = row.dataset.isLongTerm === 'true';
 
             var rsiOn     = document.getElementById('rsiFilter70US') && document.getElementById('rsiFilter70US').checked;
-
-            var isCcet = emaAligned && (rvol <= 0.6) && (turtleDist <= 10.0) && (rs >= 80) && (cmf >= -0.10) && (rr >= 1.5);
 
             var isBuyNow = rvol >= 1.5 && turtleDist <= 0.5;
 
@@ -3139,10 +3130,8 @@ function _applyFiltersUS() {
         console.error("Error in _applyFiltersUS:", e);
     }
 }
-function filterByRS(id, v)       { _applyFiltersUS(); }
 function filterByStage2(id, v)   { _applyFiltersUS(); }
 function filterByPP(id, v)       { _applyFiltersUS(); }
-function filterByCMFDist(id, v)  { _applyFiltersUS(); }
 
 // ── Watchlist Toggle Logic (Modal-based) ──────────────────────────────
 let _currentWlBtn = null;
