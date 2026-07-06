@@ -48,7 +48,10 @@ class Command(BaseCommand):
         target_strat = options.get('strategy', 'ALL').upper()
         run_once = options.get('once', False)
         user_id = options.get('user_id')
-        session_has_traded = False
+        # โหมด --once: จบงานเมื่อ "ออเดอร์ที่เปิดจริง" ถูกปิดแล้วเท่านั้น
+        # (แค่เจอสัญญาณแต่ผู้ใช้ไม่กดเทรด บอทต้องเฝ้าต่อ ไม่หยุดเอง)
+        session_saw_position = False
+        has_open_position = False
         
         bot_name = self.get_bot_identity(user_id)
         # PID File แยกของ Crypto
@@ -107,8 +110,11 @@ class Command(BaseCommand):
                             has_open_position = True
                             break
                     
-                    # ถ้าใช้โหมด Once และเคยเทรดไปแล้ว และตอนนี้ไม่มีออเดอร์ค้าง = จบงาน
-                    if run_once and session_has_traded and not has_open_position:
+                    if has_open_position:
+                        session_saw_position = True
+
+                    # ถ้าใช้โหมด Once และเคยมีออเดอร์เปิดจริง และตอนนี้ปิดหมดแล้ว = จบงาน
+                    if run_once and session_saw_position and not has_open_position:
                         self.stdout.write(self.style.SUCCESS("--- จบงาน: ออเดอร์ปิดแล้ว หยุดบอทตามโหมด One-Shot ---"))
                         self.update_heartbeat(user_id, status="STOPPED", message="ปิดงานเรียบร้อยแล้ว (รอคุณตัดสินใจรอบถัดไป)")
                         if os.path.exists(user_pid_file): os.remove(user_pid_file)
@@ -150,8 +156,7 @@ class Command(BaseCommand):
                             self.stdout.write(self.style.SUCCESS(f"🚀 SIGNAL DETECTED: {side} {signal_type} at {curr_price}"))
                             # ในโหมดแมนนวล: ส่งสัญญาณไปที่ UI แทนการเปิดออเดอร์
                             self.update_heartbeat(user_id, status="SIGNAL", message=f"SIGNAL_{side}:{signal_type}:{curr_price:.2f}")
-                            session_has_traded = True 
-                    
+
                     if not signal_type:
                         self.update_heartbeat(user_id, status="ACTIVE", message=f"เฝ้าระวัง ({target_strat})... ราคา: {curr_price:.2f} | RSI: {rsi:.1f}")
 
@@ -162,8 +167,9 @@ class Command(BaseCommand):
                     self.update_heartbeat(user_id, status="ERROR", message=str(e)[:200])
                     time.sleep(30)
 
-                # พักการทำงาน 1 นาทีก่อนเช็คดรอบถัดไป
-                time.sleep(60)
+                # สัญญาณคำนวณจากแท่ง Daily — เช็คทุก 5 นาทีพอ (คริปโตเทรด 24 ชม. แต่แท่ง daily เปลี่ยนช้า)
+                # ถ้ามีออเดอร์ค้างอยู่ เช็คถี่ขึ้นเป็นทุก 1 นาทีเพื่อจับจังหวะปิด
+                time.sleep(60 if has_open_position else 300)
                 
         except Exception as e:
             self.stdout.write(self.style.ERROR(f"บอทหยุดการทำงานถาวร: {str(e)}"))
