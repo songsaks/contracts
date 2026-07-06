@@ -488,14 +488,21 @@ def stock_chart_data(request, symbol):
         curr_price = float(last_row['Close'])
         
         # 🚥 Strategic Signal Logic
-        def get_signal(buy_cond, sell_cond):
+        # BUY = เข้า Long / SELL = เข้า Short (มี trend filter สมมาตรกับ BUY)
+        # EXIT_LONG = สัญญาณออกจาก Long ตามกฎ Turtle (หลุด low channel) — ไม่ใช่สัญญาณเข้า Short
+        def get_signal(buy_cond, short_cond, exit_cond):
             if buy_cond: return 'BUY'
-            if sell_cond: return 'SELL'
+            if short_cond: return 'SELL'
+            if exit_cond: return 'EXIT_LONG'
             return 'WAIT'
 
-        # Short: DC10 + RSI
-        short_buy = curr_price >= float(last_row['dc10_upper']) and float(last_row['rsi']) > 50
-        short_sell = curr_price <= float(last_row['dc10_lower'])
+        _rsi_now = float(last_row['rsi'])
+        _ema200_now = float(last_row['ema200'])
+
+        # Short horizon: DC10 + RSI
+        short_buy   = curr_price >= float(last_row['dc10_upper']) and _rsi_now > 50
+        short_short = curr_price <= float(last_row['dc10_lower']) and curr_price < _ema200_now and _rsi_now < 50
+        short_exit  = curr_price <= float(last_row['dc10_lower'])
         
         # ⏱️ Breakout Age Analysis (User Suggestion)
         breakout_age = 0
@@ -510,13 +517,15 @@ def stock_chart_data(request, symbol):
                     break
             dist_from_breakout = round(((curr_price - float(last_row['dc10_upper'])) / float(last_row['dc10_upper'])) * 100, 2)
 
-        # Medium: DC20 + EMA200
-        med_buy = curr_price >= float(last_row['dc20_upper']) and curr_price > float(last_row['ema200'])
-        med_sell = curr_price <= float(last_row['dc10_lower'])
+        # Medium: DC20 + EMA200 (short entry สมมาตร: หลุด DC20 Lower + ต่ำกว่า EMA200)
+        med_buy   = curr_price >= float(last_row['dc20_upper']) and curr_price > _ema200_now
+        med_short = curr_price <= float(last_row['dc20_lower']) and curr_price < _ema200_now
+        med_exit  = curr_price <= float(last_row['dc10_lower'])
 
-        # Long: DC55
-        long_buy = curr_price >= float(last_row['dc55_upper'])
-        long_sell = curr_price <= float(last_row['dc20_lower'])
+        # Long: DC55 (short entry สมมาตร: หลุด DC55 Lower + ต่ำกว่า EMA200)
+        long_buy   = curr_price >= float(last_row['dc55_upper'])
+        long_short = curr_price <= float(last_row['dc55_lower']) and curr_price < _ema200_now
+        long_exit  = curr_price <= float(last_row['dc20_lower'])
 
         # Volume Confirmation — ใช้ 20 bars ล่าสุด, รองรับทั้ง daily และ intraday
         # Contract Roll จริง = หลาย bars ปริมาณต่ำมาก (< 50), ไม่ต่อเนื่อง
@@ -548,9 +557,9 @@ def stock_chart_data(request, symbol):
             'price': round(_safe_val(curr_price), 2),
             'n': _safe_val(n_val),
             'signals': {
-                'short':  get_signal(short_buy,  short_sell),
-                'medium': get_signal(med_buy,     med_sell),
-                'long':   get_signal(long_buy,    long_sell),
+                'short':  get_signal(short_buy,  short_short, short_exit),
+                'medium': get_signal(med_buy,    med_short,   med_exit),
+                'long':   get_signal(long_buy,   long_short,  long_exit),
                 'short_vol_ok':  bool(short_buy  and vol_ratio >= 1.5),
                 'medium_vol_ok': bool(med_buy    and vol_ratio >= 1.5),
                 'long_vol_ok':   bool(long_buy   and vol_ratio >= 1.5),
@@ -569,6 +578,9 @@ def stock_chart_data(request, symbol):
             'short_term_high': round(_safe_val(last_row['dc10_upper']), 2),
             'high_20d': round(_safe_val(last_row['dc20_upper']), 2),
             'high_55d': round(_safe_val(last_row['dc55_upper']), 2),
+            'short_term_low': round(_safe_val(last_row['dc10_lower']), 2),
+            'low_20d': round(_safe_val(last_row['dc20_lower']), 2),
+            'low_55d': round(_safe_val(last_row['dc55_lower']), 2),
             'rsi': round(_safe_val(last_row['rsi']), 2),
             'ema9': round(_safe_val(last_row['ema9']), 2),
             'ema200': round(_safe_val(last_row['ema200']), 2),
@@ -588,6 +600,19 @@ def stock_chart_data(request, symbol):
                     'target': _safe_val(round(curr_price + (0.3 * n_val), 2)),
                     'stop': _safe_val(round(_safe_val(last_row['dc10_upper']) - (0.3 * n_val), 2)), # Anchored to DC10 High
                     'label': 'SCALPER (0.3N SL)'
+                }
+            },
+            # --- Short-side levels (mirror of long: target below price, stop above anchor) ---
+            'levels_short': {
+                'sniper': {
+                    'target': _safe_val(round(curr_price - (0.5 * n_val), 2)),
+                    'stop': _safe_val(round(_safe_val(last_row['ema9']) + (0.5 * n_val), 2)),
+                    'label': 'SNIPER SHORT (0.5N SL)'
+                },
+                'scalper': {
+                    'target': _safe_val(round(curr_price - (0.3 * n_val), 2)),
+                    'stop': _safe_val(round(_safe_val(last_row['dc10_lower']) + (0.3 * n_val), 2)),
+                    'label': 'SCALPER SHORT (0.3N SL)'
                 }
             }
         }

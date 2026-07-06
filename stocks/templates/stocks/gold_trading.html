@@ -203,6 +203,10 @@
         text-align: center;
         letter-spacing: 0.3px;
     }
+    .matrix-btn.buy  { background: rgba(63,185,80,0.15);  color: var(--green); border: 1px solid rgba(63,185,80,0.45); }
+    .matrix-btn.sell { background: rgba(248,81,73,0.15);  color: var(--red);   border: 1px solid rgba(248,81,73,0.45); }
+    .matrix-btn.exit { background: rgba(240,183,47,0.12); color: var(--gold);  border: 1px solid rgba(240,183,47,0.4); }
+    .matrix-btn.wait { background: rgba(139,148,158,0.08);color: var(--text-lo); border: 1px solid var(--border); }
     
     /* ══ Tactical Decision Center ══ */
     .decision-panel {
@@ -607,7 +611,7 @@
                 <i class="fas fa-satellite-dish" style="color:var(--blue)"></i> ตารางสัญญาณ Breakout
             </div>
             <div class="matrix-row">
-                <span class="matrix-label">สไนเปอร์ (DC10)</span>
+                <span class="matrix-label">สไนเปอร์ (EMA9)</span>
                 <span id="sig-sniper" class="matrix-btn wait">WAIT</span>
             </div>
             <div class="matrix-row">
@@ -777,6 +781,38 @@
                 style="border:1px dashed rgba(88,166,255,0.4);color:var(--blue);background:rgba(88,166,255,0.04);font-weight:800;border-radius:8px;font-size:0.78rem;padding:0.5rem;">
                 <i class="fas fa-vial me-1"></i> ส่งคำสั่งทดสอบ (0.01 Lot)
             </button>
+        </div>
+
+        <!-- HERO: DECISION SUMMARY (สรุปการตัดสินใจในการ์ดเดียว) -->
+        <div class="g-card g-card-dark" id="hero-decision-card" style="border-color:rgba(240,183,47,0.4);">
+            <div class="g-card-header">
+                <i class="fas fa-bullseye" style="color:var(--gold)"></i> สรุปการตัดสินใจ (DECISION SUMMARY)
+            </div>
+            <div class="p-3">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <span id="hero-strategy" class="badge" style="background:rgba(88,166,255,0.12);color:var(--blue);border:1px solid rgba(88,166,255,0.3);font-size:0.7rem;padding:4px 12px;">SCALPER</span>
+                    <span id="hero-signal" class="badge" style="background:#1c2333;color:var(--text-lo);font-size:0.85rem;font-weight:900;padding:6px 16px;border-radius:8px;">WAIT</span>
+                </div>
+                <div class="d-flex justify-content-between text-center" style="gap:6px;">
+                    <div class="flex-fill p-2 rounded" style="background:rgba(255,255,255,0.03);border:1px solid var(--border);">
+                        <div style="font-size:0.55rem;color:var(--text-lo);text-transform:uppercase;letter-spacing:1px;">Entry</div>
+                        <div id="hero-entry" style="font-family:'JetBrains Mono';font-size:0.85rem;font-weight:800;color:var(--text-hi);">----.--</div>
+                    </div>
+                    <div class="flex-fill p-2 rounded" style="background:rgba(46,160,67,0.06);border:1px solid rgba(46,160,67,0.25);">
+                        <div style="font-size:0.55rem;color:var(--green);text-transform:uppercase;letter-spacing:1px;">TP</div>
+                        <div id="hero-tp" style="font-family:'JetBrains Mono';font-size:0.85rem;font-weight:800;color:var(--green);">----.--</div>
+                    </div>
+                    <div class="flex-fill p-2 rounded" style="background:rgba(248,81,73,0.06);border:1px solid rgba(248,81,73,0.25);">
+                        <div style="font-size:0.55rem;color:var(--red);text-transform:uppercase;letter-spacing:1px;">SL</div>
+                        <div id="hero-sl" style="font-family:'JetBrains Mono';font-size:0.85rem;font-weight:800;color:var(--red);">----.--</div>
+                    </div>
+                    <div class="flex-fill p-2 rounded" style="background:rgba(240,183,47,0.06);border:1px solid rgba(240,183,47,0.25);">
+                        <div style="font-size:0.55rem;color:var(--gold);text-transform:uppercase;letter-spacing:1px;">R:R</div>
+                        <div id="hero-rr" style="font-family:'JetBrains Mono';font-size:0.85rem;font-weight:800;color:var(--gold);">-.-</div>
+                    </div>
+                </div>
+                <div id="hero-note" class="mt-2 text-center" style="font-size:0.65rem;color:var(--text-lo);">กำลังรอข้อมูลสัญญาณ...</div>
+            </div>
         </div>
 
         <!-- ORDER EXECUTION -->
@@ -1189,18 +1225,36 @@
                 if (h === 'sniper') {
                     const rsi = parseFloat(globalTactical.rsi) || 0;
                     const ema9 = parseFloat(globalTactical.ema9) || 0;
+                    const ema200 = parseFloat(globalTactical.ema200) || 0;
                     const price = parseFloat(lastPrice) || 0;
                     if (price > ema9 && rsi > 50) sig = 'BUY';
-                    else if (price < ema9 && rsi < 50) sig = 'SELL';
+                    // SELL (short) ต้องอยู่ใต้ EMA200 ด้วย — สมมาตรกับ BUY ที่เล่นตามเทรนด์
+                    else if (price < ema9 && rsi < 50 && price < ema200) sig = 'SELL';
                 } else if (globalTactical.signals) {
                     sig = globalTactical.signals[h] || 'WAIT';
                 }
-                el.innerText = sig;
-                el.className = 'matrix-btn ' + (sig === 'BUY' ? 'buy animate-pulse' : sig === 'SELL' ? 'sell' : 'wait');
+                el.innerText = sig === 'EXIT_LONG' ? 'EXIT' : sig;
+                el.className = 'matrix-btn ' + (sig === 'BUY' ? 'buy animate-pulse' : sig === 'SELL' ? 'sell animate-pulse' : sig === 'EXIT_LONG' ? 'exit' : 'wait');
             });
 
         const n = parseFloat(globalTactical.n) || 0;
-        const mainSignal = (globalTactical.signals && globalTactical.signals.short) || 'WAIT'; 
+        // mainSignal ตามกลยุทธ์ที่เลือก (ไม่ fix ที่ short horizon อีกต่อไป)
+        const _stratToHorizon = { 'SNIPER': 'sniper', 'SCALPER': 'short', 'SWING': 'medium', 'TURTLE': 'long' };
+        let mainSignal = 'WAIT';
+        {
+            const _h = _stratToHorizon[activeStrategy] || 'short';
+            if (_h === 'sniper') {
+                const _rsi = parseFloat(globalTactical.rsi) || 0;
+                const _ema9 = parseFloat(globalTactical.ema9) || 0;
+                const _ema200 = parseFloat(globalTactical.ema200) || 0;
+                const _p = parseFloat(lastPrice) || 0;
+                if (_p > _ema9 && _rsi > 50) mainSignal = 'BUY';
+                else if (_p < _ema9 && _rsi < 50 && _p < _ema200) mainSignal = 'SELL';
+            } else {
+                mainSignal = (globalTactical.signals && globalTactical.signals[_h]) || 'WAIT';
+            }
+        }
+        const isShortSide = (mainSignal === 'SELL');
         
         // Context-Aware Base Price Selection
         // If price has already crossed the breakout, we anchor to the Current Market Price for immediate action.
@@ -1220,66 +1274,84 @@
         const exitAdviceEl = document.getElementById('tactical-exit-advice');
         let exitMsg = "";
 
+        // dir = +1 (Long) / -1 (Short) — สูตร TP/SL พลิกด้านตามสัญญาณ
+        const dir = isShortSide ? -1 : 1;
+        const sideTag = isShortSide ? ' [SHORT]' : '';
+
         if (activeStrategy === 'SNIPER') {
             breakoutPrice = parseFloat(globalTactical.ema9) || 0;
-            const inZone = lastPrice > breakoutPrice;
-            basePrice = inZone ? lastPrice : breakoutPrice;
-            priceLabel = inZone ? "(Market)" : "(Trigger)";
-            
-            targetPrice = basePrice + (n * 0.5);
-            stopPrice   = breakoutPrice - (n * 0.5); // Fixed Anchor + Wider Buffer
-            
-            if (lblTP) lblTP.innerText = `Target ${priceLabel}`;
-            if (lblSL) lblSL.innerText = `Stop Loss (Trigger)`;
-            
-            if (breakoutEl) breakoutEl.className = 't-value text-danger fw-bold';
-            if (stratBadge) {
-                stratBadge.innerText = 'เลเวอเรจ 1:200 (SNIPER)';
-                stratBadge.style.background = '#0ea5e9'; 
-            }
-            exitMsg = "Sniper: เก็บกำไรที่ Target | SL ยึดฐาน Trigger (0.5N) เพื่อกันสะบัด";
-        } else if (activeStrategy === 'SCALPER') {
-            breakoutPrice = parseFloat(globalTactical.short_term_high) || 0;
-            const inZone = lastPrice > breakoutPrice;
+            const inZone = isShortSide ? (lastPrice < breakoutPrice) : (lastPrice > breakoutPrice);
             basePrice = inZone ? lastPrice : breakoutPrice;
             priceLabel = inZone ? "(Market)" : "(Trigger)";
 
-            targetPrice = basePrice + (n * 0.3);
-            stopPrice   = breakoutPrice - (n * 0.3); // Fixed Anchor + Wider Buffer
-            
-            if (lblTP) lblTP.innerText = `Target ${priceLabel}`;
-            if (lblSL) lblSL.innerText = `Stop Loss (Trigger)`;
+            targetPrice = basePrice + dir * (n * 0.5);
+            stopPrice   = breakoutPrice - dir * (n * 0.5); // Fixed Anchor + Wider Buffer
+
+            if (lblTP) lblTP.innerText = `Target ${priceLabel}${sideTag}`;
+            if (lblSL) lblSL.innerText = `Stop Loss (Trigger)${sideTag}`;
+
+            if (breakoutEl) breakoutEl.className = 't-value text-danger fw-bold';
+            if (stratBadge) {
+                stratBadge.innerText = 'เลเวอเรจ 1:200 (SNIPER)' + sideTag;
+                stratBadge.style.background = '#0ea5e9';
+            }
+            exitMsg = isShortSide
+                ? "Sniper Short: เก็บกำไรที่ Target ด้านล่าง | SL เหนือ EMA9 (0.5N) กันสะบัด"
+                : "Sniper: เก็บกำไรที่ Target | SL ยึดฐาน Trigger (0.5N) เพื่อกันสะบัด";
+        } else if (activeStrategy === 'SCALPER') {
+            breakoutPrice = isShortSide
+                ? (parseFloat(globalTactical.short_term_low) || 0)
+                : (parseFloat(globalTactical.short_term_high) || 0);
+            const inZone = isShortSide ? (lastPrice < breakoutPrice) : (lastPrice > breakoutPrice);
+            basePrice = inZone ? lastPrice : breakoutPrice;
+            priceLabel = inZone ? "(Market)" : "(Trigger)";
+
+            targetPrice = basePrice + dir * (n * 0.3);
+            stopPrice   = breakoutPrice - dir * (n * 0.3); // Fixed Anchor + Wider Buffer
+
+            if (lblTP) lblTP.innerText = `Target ${priceLabel}${sideTag}`;
+            if (lblSL) lblSL.innerText = `Stop Loss (Trigger)${sideTag}`;
 
             if (breakoutEl) breakoutEl.className = 't-value text-primary';
             if (stratBadge) {
-                stratBadge.innerText = 'ยุทธวิธีความแม่นยำสูง (SCALPER)';
+                stratBadge.innerText = 'ยุทธวิธีความแม่นยำสูง (SCALPER)' + sideTag;
                 stratBadge.style.background = '#22c55e';
             }
-            exitMsg = "Scalper: เน้นจบไว ไม่รอรอบ | SL ยึดฐาน Trigger (0.3N) กันโดนสะบัดกิน";
+            exitMsg = isShortSide
+                ? "Scalper Short: หลุด 10D Low เข้าขาย จบไว | SL เหนือ Trigger (0.3N)"
+                : "Scalper: เน้นจบไว ไม่รอรอบ | SL ยึดฐาน Trigger (0.3N) กันโดนสะบัดกิน";
         } else if (activeStrategy === 'SWING') {
-            breakoutPrice = parseFloat(globalTactical.high_20d) || 0;
-            targetPrice = breakoutPrice + (n * 3.5);
-            stopPrice   = breakoutPrice - (n * 2.0);
-            if (lblTP) lblTP.innerText = "Target (+3.5N)";
-            if (lblSL) lblSL.innerText = "Stop (-2.0N)";
+            breakoutPrice = isShortSide
+                ? (parseFloat(globalTactical.low_20d) || 0)
+                : (parseFloat(globalTactical.high_20d) || 0);
+            targetPrice = breakoutPrice + dir * (n * 3.5);
+            stopPrice   = breakoutPrice - dir * (n * 2.0);
+            if (lblTP) lblTP.innerText = (isShortSide ? "Target (-3.5N)" : "Target (+3.5N)") + sideTag;
+            if (lblSL) lblSL.innerText = (isShortSide ? "Stop (+2.0N)" : "Stop (-2.0N)") + sideTag;
             if (breakoutEl) breakoutEl.className = 't-value text-info';
             if (stratBadge) {
-                stratBadge.innerText = 'ยุทธวิธีระยะกลาง (SWING)';
+                stratBadge.innerText = 'ยุทธวิธีระยะกลาง (SWING)' + sideTag;
                 stratBadge.style.background = '#0891b2';
             }
-            exitMsg = "Swing: ถือรอกินรอบใหญ่ | ใช้ 10D Low เป็นจุด Trailing Stop";
+            exitMsg = isShortSide
+                ? "Swing Short: หลุด 20D Low เข้าขาย | ใช้ 10D High เป็นจุด Trailing Stop"
+                : "Swing: ถือรอกินรอบใหญ่ | ใช้ 10D Low เป็นจุด Trailing Stop";
         } else {
-            breakoutPrice = parseFloat(globalTactical.high_55d) || 0;
-            targetPrice = breakoutPrice + (n * 5.0);
-            stopPrice   = breakoutPrice - (n * 2.0);
-            if (lblTP) lblTP.innerText = "Target (+5.0N)";
-            if (lblSL) lblSL.innerText = "Stop (-2.0N)";
+            breakoutPrice = isShortSide
+                ? (parseFloat(globalTactical.low_55d) || 0)
+                : (parseFloat(globalTactical.high_55d) || 0);
+            targetPrice = breakoutPrice + dir * (n * 5.0);
+            stopPrice   = breakoutPrice - dir * (n * 2.0);
+            if (lblTP) lblTP.innerText = (isShortSide ? "Target (-5.0N)" : "Target (+5.0N)") + sideTag;
+            if (lblSL) lblSL.innerText = (isShortSide ? "Stop (+2.0N)" : "Stop (-2.0N)") + sideTag;
             if (breakoutEl) breakoutEl.className = 't-value text-warning';
             if (stratBadge) {
-                stratBadge.innerText = 'ยุทธวิธีรันเทรนด์ยาว (TURTLE)';
+                stratBadge.innerText = 'ยุทธวิธีรันเทรนด์ยาว (TURTLE)' + sideTag;
                 stratBadge.style.background = '#d97706';
             }
-            exitMsg = "Turtle: รันเทรนด์ยาว | ออกเมื่อหลุด 20D Low หรือถึงเป้าใหญ่";
+            exitMsg = isShortSide
+                ? "Turtle Short: รันเทรนด์ขาลง | ออกเมื่อกลับขึ้นเหนือ 20D High หรือถึงเป้า"
+                : "Turtle: รันเทรนด์ยาว | ออกเมื่อหลุด 20D Low หรือถึงเป้าใหญ่";
         }
 
         if (exitAdviceEl) exitAdviceEl.innerText = exitMsg;
@@ -1296,9 +1368,23 @@
             if (_fibEnabled && _fibCandles.length > 0) drawFib(_fibCandles);
 
             // Suicide Zone Detection (Price vs SL Safety)
+            // BUY: SL อยู่ใต้ราคา → อันตรายเมื่อราคา ≤ SL / SELL: SL อยู่เหนือราคา → อันตรายเมื่อราคา ≥ SL
             let isRiskZone = false;
             if (mainSignal === 'BUY' && lastPrice <= stopPrice) isRiskZone = true;
             if (mainSignal === 'SELL' && lastPrice >= stopPrice) isRiskZone = true;
+
+            // ผูกความเสี่ยงกับปุ่มเทรดโดยตรง: อยู่ในโซนอันตราย → ปิดปุ่มฝั่งที่เสี่ยง
+            const _btnBuy  = document.querySelector('.btn-execute-buy');
+            const _btnSell = document.querySelector('.btn-execute-sell');
+            const _setBtnRisk = (btn, risky, warnText) => {
+                if (!btn) return;
+                btn.disabled = risky;
+                btn.style.opacity = risky ? '0.35' : '';
+                btn.style.filter = risky ? 'grayscale(0.7)' : '';
+                btn.title = risky ? warnText : '';
+            };
+            _setBtnRisk(_btnBuy,  isRiskZone && mainSignal === 'BUY',  '🚫 โซนอันตราย: ราคาต่ำกว่าจุด SL ของสัญญาณ BUY แล้ว');
+            _setBtnRisk(_btnSell, isRiskZone && mainSignal === 'SELL', '🚫 โซนอันตราย: ราคาสูงกว่าจุด SL ของสัญญาณ SELL แล้ว');
 
             // AI Tactical Advisor Logic
             const advisorBox = document.getElementById('tactical-advisor-box');
@@ -1481,9 +1567,15 @@
                 } else if (mainSignal === 'SELL') {
                     decisionCenter.className = 'decision-panel sell d-flex align-items-center';
                     signalIcon.innerHTML = '<i class="fas fa-arrow-circle-down text-danger"></i>';
-                    signalText.innerText = 'สัญญาณเข้าขาย (SELL)!';
+                    signalText.innerText = 'สัญญาณเข้า Short (SELL)!';
                     signalText.className = 'signal-status text-danger';
-                    signalSubtext.innerText = `ราคาอยู่ต่ำกว่า ${breakoutPrice.toFixed(2)} พิจารณาเปิดสถานะ SELL`;
+                    signalSubtext.innerText = `ราคาหลุด ${breakoutPrice.toFixed(2)} + ต่ำกว่า EMA200 พิจารณาเปิดสถานะ SELL (Short)`;
+                } else if (mainSignal === 'EXIT_LONG') {
+                    decisionCenter.className = 'decision-panel wait d-flex align-items-center';
+                    signalIcon.innerHTML = '<i class="fas fa-person-running text-warning"></i>';
+                    signalText.innerText = 'สัญญาณออกจาก Long (EXIT)';
+                    signalText.className = 'signal-status text-warning';
+                    signalSubtext.innerText = `ราคาหลุด Low Channel — ถ้าถือ Long อยู่ให้พิจารณาปิด แต่ยังไม่เข้าเงื่อนไขเปิด Short (ต้องต่ำกว่า EMA200)`;
                 } else {
                     decisionCenter.className = 'decision-panel wait d-flex align-items-center';
                     signalIcon.innerHTML = '<i class="fas fa-hourglass-half text-muted"></i>';
@@ -1498,8 +1590,60 @@
         }
 
         const sigBadge = document.getElementById('tactical-signal');
-        
+
         calculateSize();
+
+        // ── HERO Decision Summary ──
+        try {
+            const _hs = document.getElementById('hero-strategy');
+            const _hg = document.getElementById('hero-signal');
+            const _he = document.getElementById('hero-entry');
+            const _htp = document.getElementById('hero-tp');
+            const _hsl = document.getElementById('hero-sl');
+            const _hrr = document.getElementById('hero-rr');
+            const _hn = document.getElementById('hero-note');
+            if (_hs && _hg) {
+                const _mainSig2 = (function() {
+                    const _m = { 'SNIPER': 'sniper', 'SCALPER': 'short', 'SWING': 'medium', 'TURTLE': 'long' };
+                    const _h = _m[activeStrategy] || 'short';
+                    const el = document.getElementById(`sig-${_h}`);
+                    return el ? el.innerText : 'WAIT';
+                })();
+                _hs.innerText = activeStrategy;
+                _hg.innerText = _mainSig2;
+                const _sigStyle = {
+                    'BUY':  'background:rgba(46,160,67,0.18);color:var(--green);border:1px solid rgba(46,160,67,0.5);',
+                    'SELL': 'background:rgba(248,81,73,0.18);color:var(--red);border:1px solid rgba(248,81,73,0.5);',
+                    'EXIT': 'background:rgba(240,183,47,0.15);color:var(--gold);border:1px solid rgba(240,183,47,0.4);',
+                    'WAIT': 'background:#1c2333;color:var(--text-lo);border:1px solid var(--border);'
+                };
+                _hg.style.cssText = 'font-size:0.85rem;font-weight:900;padding:6px 16px;border-radius:8px;' + (_sigStyle[_mainSig2] || _sigStyle['WAIT']);
+
+                const _bEl = document.getElementById('breakout-level-display');
+                const _tEl = document.getElementById('tactical-tp');
+                const _sEl = document.getElementById('tactical-sl');
+                const _entry = _bEl ? parseFloat(_bEl.innerText) : NaN;
+                const _tp = _tEl ? parseFloat(_tEl.innerText) : NaN;
+                const _sl = _sEl ? parseFloat(_sEl.innerText) : NaN;
+                if (_he) _he.innerText = isNaN(_entry) ? '----.--' : _entry.toFixed(2);
+                if (_htp) _htp.innerText = isNaN(_tp) ? '----.--' : _tp.toFixed(2);
+                if (_hsl) _hsl.innerText = isNaN(_sl) ? '----.--' : _sl.toFixed(2);
+                if (_hrr) {
+                    const _risk = Math.abs(_entry - _sl);
+                    const _reward = Math.abs(_tp - _entry);
+                    const _rr = _risk > 0 ? _reward / _risk : 0;
+                    _hrr.innerText = _rr > 0 ? _rr.toFixed(1) : '-.-';
+                    _hrr.style.color = _rr >= 1.5 ? 'var(--green)' : _rr >= 1 ? 'var(--gold)' : 'var(--red)';
+                }
+                if (_hn) {
+                    const _lotTxt = (document.getElementById('tac-suggest-size') || {}).innerText || '';
+                    if (_mainSig2 === 'BUY')       _hn.innerHTML = `✅ เข้า <b style="color:var(--green)">Long</b> ที่ Entry — Lot แนะนำ: <b>${_lotTxt}</b>`;
+                    else if (_mainSig2 === 'SELL') _hn.innerHTML = `✅ เข้า <b style="color:var(--red)">Short</b> ที่ Entry — Lot แนะนำ: <b>${_lotTxt}</b>`;
+                    else if (_mainSig2 === 'EXIT') _hn.innerHTML = `⚠️ สัญญาณออกจาก Long — ถ้าถืออยู่พิจารณาปิด ยังไม่เข้าเงื่อนไข Short`;
+                    else                           _hn.innerText = `⏳ รอราคา${isShortSide ? 'หลุด' : 'ทะลุ'} ${isNaN(_entry) ? '-' : _entry.toFixed(2)} ก่อนเข้าเทรด`;
+                }
+            }
+        } catch (e) { console.error('Hero card error:', e); }
     }
 
     function logMessage(msg, colorClass) {
@@ -3156,7 +3300,7 @@
             </div>
             <div class="modal-body p-4 text-white">
                 <p class="mb-3 text-info" style="font-size:0.9rem;">
-                    <strong>วิธีการทำงาน:</strong> บอทจะทำการเฝ้ากราฟ 24 ชั่วโมง และจะ <strong class="text-success">"เปิดออเดอร์ BUY เท่านั้น"</strong> (ไม่เล่นฝั่ง Short) เมื่อสัญญาณเข้าเงื่อนไข เช่น ราคาตัดขึ้นเส้น EMA9 หรือทะลุแนวต้าน
+                    <strong>วิธีการทำงาน:</strong> บอทจะเฝ้ากราฟ 24 ชั่วโมง และ<strong class="text-warning">ส่งสัญญาณแจ้งเตือนทั้งฝั่ง BUY (Long) และ SELL (Short)</strong> ขึ้นหน้าจอเมื่อเข้าเงื่อนไข เช่น ราคาตัด EMA9 หรือทะลุ/หลุดแนว High-Low — <strong class="text-success">บอทไม่เปิดออเดอร์เอง</strong> คุณเป็นผู้กดยืนยันเทรดทุกครั้ง (ฝั่ง SELL มีตัวกรอง EMA200 ให้เทรดตามเทรนด์เท่านั้น)
                 </p>
                 <div class="p-3 mb-3 rounded" style="background:rgba(255,255,255,0.05);">
                     <div class="d-flex justify-content-between mb-2">
