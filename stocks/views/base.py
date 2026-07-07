@@ -494,7 +494,7 @@ def _get_precision_scan_data(user, market='SET'):
         "qualified_stocks": [_to_dict(c) for c in qualified],
         "top_buy_stocks": [_to_dict(c) for c in top_buy],
         "scan_date": latest_run.strftime('%Y-%m-%d %H:%M'),
-        "total_passed": candidates.count(),
+        "total_passed": len(candidates),
         "top_sectors": top_sectors
     }
 
