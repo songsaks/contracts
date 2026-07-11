@@ -1297,6 +1297,12 @@
                                         </div>
                                     </div>
                                     <div class="col-md-6">
+                                        <div class="d-flex align-items-start gap-2 p-2 rounded-2" style="background:#f0fdf4;">
+                                            <span class="badge flex-shrink-0" style="background:rgba(5,150,105,0.15);color:#059669;border:1px solid rgba(5,150,105,0.4);font-size:0.62rem;font-weight:700;">🏃 RUN TREND</span>
+                                            <div><strong>RUN TREND — เลิกใช้ TP</strong> — แสดงที่คอลัมน์ REC เมื่อราคาทะลุเป้า TP (52W High) ไปแล้ว แต่เทรนด์ยังแข็งแรง (E1: ขึ้นแรง + ไม่มี Exit signal) หมายถึง <strong>อย่าเพิ่งขาย</strong> ให้เปลี่ยนจากเป้าตายตัวเป็น Trailing Stop: ถือตราบใดที่ราคายืนเหนือเส้น SS (SuperSmoother) หรือยังไม่หลุด Low 10 วัน — ถ้าเงื่อนไขเทรนด์หลุด (E1 หาย/มี Exit signal) จะกลับไปแสดง "ถึงจุดขาย" ตามปกติ</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
                                         <div class="d-flex align-items-start gap-2 p-2 rounded-2" style="background:#fef2f2;">
                                             <span class="badge flex-shrink-0" style="background:rgba(220,38,38,0.18);color:#dc2626;border:1px solid rgba(220,38,38,0.45);font-size:0.62rem;font-weight:700;">🚫 Overextended</span>
                                             <div><strong>Overextended — รอย่อ</strong> — แสดงที่คอลัมน์ SIGNAL เมื่อ RR ปัจจุบัน &lt; 1 และ RSI &gt; 80 พร้อมกัน หมายถึงราคาวิ่งเลยจุดซื้อไปมากแล้ว อย่าไล่ราคา ให้รอย่อกลับโซนซื้อจน RR กลับมา &ge; 2 ก่อนค่อยพิจารณาเข้า</div>
@@ -2186,7 +2192,12 @@
                                         {% elif item.demand_zone_start and item.price <= item.demand_zone_start and item.price >= item.demand_zone_end %}
                                             <span class="text-success"><i class="fas fa-fire"></i> ถึงจุดยิง! (Buy Zone)</span>
                                         {% elif item.supply_zone_start and item.price >= item.supply_zone_start %}
+                                            {% if item.ehlers_pattern_data and item.ehlers_pattern_data.num == 1 and not item.exit_signal %}
+                                            <span style="color:#059669;"><i class="fas fa-person-running"></i> RUN TREND — เลิกใช้ TP</span>
+                                            <div style="font-size:0.7rem;color:#0d9488;font-weight:600;">Trailing: ยืนเหนือ SS {% if item.ehlers_supersmoother %}{{ item.ehlers_supersmoother|floatformat:2 }}{% else %}-{% endif %} / หลุด 10D Low = ออก</div>
+                                            {% else %}
                                             <span class="text-danger"><i class="fas fa-money-bill-wave"></i> ถึงจุดขาย (Take Profit)</span>
+                                            {% endif %}
                                         {% else %}
                                             <span class="text-warning"><i class="fas fa-hourglass-half"></i> รอราคาดรอปเข้าโซน</span>
                                         {% endif %}
