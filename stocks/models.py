@@ -442,6 +442,19 @@ class PrecisionScanCandidate(models.Model):
         return f"{self.symbol} - Score: {self.technical_score} (run: {self.scan_run})"
 
     @property
+    def breakout_price(self):
+        """จุดเบรก Standard Breakout = 20-Day High (Turtle DC20)
+        คำนวณย้อนจาก turtle_dist_pct ที่เก็บไว้ตอน scan: high20 = price × (1 + dist%/100)"""
+        try:
+            p = float(self.price or 0)
+            d = float(self.turtle_dist_pct if self.turtle_dist_pct is not None else 99.0)
+            if p <= 0 or d >= 99.0:
+                return None
+            return round(p * (1 + d / 100.0), 2)
+        except (TypeError, ValueError):
+            return None
+
+    @property
     def ehlers_pattern_data(self):
         from .utils import classify_ehlers_pattern
         return classify_ehlers_pattern(

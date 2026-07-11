@@ -1070,6 +1070,12 @@
                                             <div><strong>สัญญาณซื้อทันที</strong> — RVol ≥ 1.5x และราคาจ่อเบรค/ทะลุแนวต้านไม่เกิน 0.5% นี่คือจังหวะที่ดีที่สุดสำหรับ entry เพราะมีแรงซื้อเข้ามาพร้อมกับราคาที่ใกล้จุดเบรกเอาท์</div>
                                         </div>
                                     </div>
+                                    <div class="col-12">
+                                        <div class="d-flex align-items-start gap-2 p-2 rounded-2" style="background:#faf5ff;">
+                                            <span class="badge flex-shrink-0" style="background:rgba(124,58,237,0.12);color:#7c3aed;border:1px solid rgba(124,58,237,0.35);font-size:0.62rem;font-weight:700;">BO: xx.xx</span>
+                                            <div><strong>Standard Breakout (คอลัมน์ ENTRY)</strong> — จุดเบรก High 20 วัน (Turtle DC20) คือจุดเข้าซื้อแบบทีู่ 2 คู่กับ PP: <strong>PP = รอย่อซื้อในโซน</strong> (ต้นทุนถูก RR สวย) / <strong>BO = รอเบรกซื้อตาม</strong> (ซื้อแล้ววิ่งเลย แต่ต้องมี Volume ≥ 1.5x ยืนยัน มิฉะนั้นเสี่ยง False Breakout) เครื่องหมาย ✓ ท้าย BO = ราคาทะลุจุดเบรกไปแล้ว</div>
+                                        </div>
+                                    </div>
                                     <div class="col-md-6">
                                         <div class="d-flex align-items-start gap-2 p-2 rounded-2" style="background:#f0fdf4;">
                                             <span class="badge flex-shrink-0" style="background:#16a34a;color:white;font-size:0.62rem;">S2</span>
@@ -2000,15 +2006,18 @@
                             <td class="col-hide-md" {% if item.demand_zone_start and item.price <= item.demand_zone_start and item.price >= item.demand_zone_end %}style="background:rgba(34,197,94,0.05);"{% endif %}>
                                 {% if item.demand_zone_start %}
                                 <div style="line-height:1.3;">
-                                    <span class="fw-bold text-success" title="Pivot Point">{{ item.demand_zone_start|floatformat:2 }} (PP)</span>
+                                    <span class="fw-bold text-success" title="Pivot Point — ซื้อภายในฐานที่โซน Demand (รอย่อ)">{{ item.demand_zone_start|floatformat:2 }} (PP)</span>
                                     <span class="text-muted"> / {{ item.demand_zone_end|floatformat:2 }}</span>
+                                    {% if item.breakout_price %}
+                                    <br><span class="fw-bold" style="color:#7c3aed;" title="Standard Breakout — จุดเบรก High 20 วัน (Turtle DC20) ซื้อเมื่อราคาทะลุพร้อม Volume ≥ 1.5x">BO:{{ item.breakout_price|floatformat:2 }}{% if item.turtle_dist_pct <= 0 %} ✓{% endif %}</span>
+                                    {% endif %}
                                     {% if item.stop_loss %}
                                     <br><span class="text-danger" title="Stop Loss">SL:{{ item.stop_loss|floatformat:2 }}</span>
                                     {% endif %}
                                     {% if item.supply_zone_start %}
                                     <br><span class="fw-bold" style="color:{% if item.price >= item.supply_zone_start %}#dc2626{% elif item.upside_to_high <= 5 %}#ea580c{% else %}#2563eb{% endif %};" title="Take Profit">TP:{{ item.supply_zone_start|floatformat:2 }}</span>
                                     {% endif %}
-                                    <div class="val-hint">โซนซื้อ / TP</div>
+                                    <div class="val-hint">โซนซื้อ / BO / TP</div>
                                 </div>
                                 {% else %}-{% endif %}
                             </td>
