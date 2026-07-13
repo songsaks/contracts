@@ -957,6 +957,21 @@
                         </tr>
                         {% endfor %}
                     </tbody>
+                    {% if tx_count %}
+                    <tfoot>
+                        <tr class="fw-bold" style="background:#f8fafc;border-top:2px solid #e2e8f0;">
+                            <td colspan="5" class="py-3">
+                                รวม {{ tx_count }} รายการ
+                                <span class="text-muted fw-normal small ms-2">(ชนะ <span class="text-success fw-bold">{{ tx_win_count }}</span> / แพ้ <span class="text-danger fw-bold">{{ tx_loss_count }}</span>)</span>
+                                <span class="text-muted fw-normal small ms-2">กำไร <span class="text-success">+฿{{ tx_total_profit|floatformat:2|intcomma }}</span> / ขาดทุน <span class="text-danger">-฿{{ tx_total_loss|floatformat:2|intcomma|cut:"-" }}</span></span>
+                            </td>
+                            <td class="text-end py-3 {% if tx_total_pl > 0 %}text-success{% elif tx_total_pl < 0 %}text-danger{% endif %}" style="font-size:1rem;">
+                                {% if tx_total_pl > 0 %}+{% endif %}฿{{ tx_total_pl|floatformat:2|intcomma }}
+                            </td>
+                            <td class="text-end py-3 text-muted small tx-hide-xs">สุทธิ (THB)</td>
+                        </tr>
+                    </tfoot>
+                    {% endif %}
                 </table>
                 </div>
 

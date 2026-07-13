@@ -621,6 +621,24 @@ def portfolio_list(request):
         except:
             sold_stocks = all_sold_stocks[::-1]
 
+    # ── ผลรวม P/L ของช่วงเวลาที่เลือก (แปลง US/Crypto เป็นบาท) ──
+    tx_total_profit = 0.0   # ผลรวมเฉพาะไม้กำไร
+    tx_total_loss = 0.0     # ผลรวมเฉพาะไม้ขาดทุน (ติดลบ)
+    tx_win_count = 0
+    tx_loss_count = 0
+    for s in sold_stocks:
+        val = float(s.profit_loss)
+        if s.market in (MarketType.US, MarketType.CRYPTO):
+            val *= usd_thb
+        if val > 0:
+            tx_total_profit += val
+            tx_win_count += 1
+        elif val < 0:
+            tx_total_loss += val
+            tx_loss_count += 1
+    tx_total_pl = tx_total_profit + tx_total_loss
+    tx_count = len(sold_stocks)
+
     # ── Monthly Summary (Table on the right) ──
     from collections import defaultdict
     monthly_summary_dict = defaultdict(lambda: {'items': [], 'total_pl': 0})
@@ -723,6 +741,12 @@ def portfolio_list(request):
         'sold_stocks': sold_stocks,
         'monthly_summary': monthly_summary,
         'symbol_pl_summary': symbol_pl_summary,
+        'tx_total_profit': tx_total_profit,
+        'tx_total_loss': tx_total_loss,
+        'tx_total_pl': tx_total_pl,
+        'tx_count': tx_count,
+        'tx_win_count': tx_win_count,
+        'tx_loss_count': tx_loss_count,
         'available_months': available_months,
         'selected_month': selected_month,
         'chart_labels': json.dumps(chart_labels),
