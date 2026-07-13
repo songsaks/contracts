@@ -198,12 +198,27 @@
 <!-- marked library for client-side markdown parsing -->
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <script>
+// ── ซ่อม Markdown ตารางจาก AI ก่อนส่งให้ marked.js ──
+// อาการที่พบ: AI เขียนตารางติดกับข้อความโดยไม่มีบรรทัดว่างคั่น → GFM ไม่ parse เป็นตาราง
+// และบางครั้งแทรกบรรทัด ---- ยาวๆ ระหว่างแถว → กลายเป็น <hr> เต็มหน้า
+function _fixMarkdownTables(md) {
+    // 1. ลบบรรทัดที่เป็นเส้นประล้วน (ไม่ใช่ separator ของตาราง เพราะ separator ต้องมี |)
+    md = md.replace(/^\s*-{6,}\s*$/gm, '');
+    // 2. เชื่อมแถวตารางที่ถูกบรรทัดว่างคั่น (เกิดจากการลบเส้นประในข้อ 1) ให้ติดกัน
+    md = md.replace(/(\|[^\n]*\|[ \t]*)\n[ \t]*\n(?=\|)/g, '$1\n');
+    // 3. แทรกบรรทัดว่างก่อนบรรทัดแรกของตาราง ถ้าบรรทัดก่อนหน้าเป็นข้อความธรรมดา
+    md = md.replace(/([^\n|])\n(\|[^\n]*\|)/g, '$1\n\n$2');
+    // 4. กรณี header กับ separator ถูกยำอยู่บรรทัดเดียว: "| a | b | | :--- | :--- |" → แยกออก
+    md = md.replace(/^(\|[^\n]*?\|)\s*(\|\s*:?-{2,}[^\n]*)$/gm, '$1\n$2');
+    return md;
+}
+
 document.addEventListener('DOMContentLoaded', function() {
     // Render Markdown
     var rawMd = document.getElementById('rawReportMd');
     var targetHtml = document.getElementById('renderedReportHtml');
     if (rawMd && targetHtml && typeof marked !== 'undefined') {
-        targetHtml.innerHTML = marked.parse(rawMd.textContent);
+        targetHtml.innerHTML = marked.parse(_fixMarkdownTables(rawMd.textContent));
     }
 
     // Auto-trigger if missing slot exists and user has no generated report
