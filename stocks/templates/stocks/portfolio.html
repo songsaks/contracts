@@ -986,8 +986,8 @@
                     </thead>
                     <tbody id="cf-tbody">
                         {% for tx in cash_transactions %}
-                        <tr class="cf-row" data-month="{{ tx.created_at|date:'Y-m' }}" data-amount="{{ tx.amount }}">
-                            <td class="small">{{ tx.created_at|date:"d/m/Y H:i" }}</td>
+                        <tr class="cf-row" data-month="{{ tx.effective_date|date:'Y-m' }}" data-amount="{{ tx.amount }}">
+                            <td class="small">{{ tx.effective_date|date:"d/m/Y" }}</td>
                             <td>
                                 <span class="badge rounded-pill px-2 py-1" style="font-size:0.65rem;
                                     {% if tx.transaction_type == 'DEPOSIT' or tx.transaction_type == 'SELL' or tx.transaction_type == 'DIVIDEND' %}background:#dcfce7;color:#166534;
@@ -1278,8 +1278,27 @@
             </div>
             <form action="{% url 'stocks:add_cash_transaction' %}" method="POST">
                 {% csrf_token %}
-                <input type="hidden" name="is_absolute" value="true">
                 <div class="modal-body p-4">
+                    <!-- โหมด: ตั้งยอดคงเหลือ vs บันทึกรายการเงินเข้า-ออก -->
+                    <div class="mb-3 d-flex gap-2">
+                        <input type="radio" class="btn-check" name="is_absolute" id="mode_abs" value="true" checked onchange="toggleCashFields()">
+                        <label class="btn btn-outline-success btn-sm rounded-pill px-3 flex-fill" for="mode_abs"><i class="fas fa-equals me-1"></i> ตั้งยอดคงเหลือ</label>
+                        <input type="radio" class="btn-check" name="is_absolute" id="mode_tx" value="false" onchange="toggleCashFields()">
+                        <label class="btn btn-outline-primary btn-sm rounded-pill px-3 flex-fill" for="mode_tx"><i class="fas fa-exchange-alt me-1"></i> บันทึกเงินเข้า-ออก</label>
+                    </div>
+                    <div class="mb-3" id="tx_type_div" style="display:none;">
+                        <label class="form-label small fw-bold text-muted">ประเภทรายการ</label>
+                        <select name="transaction_type" class="form-select rounded-pill px-3" style="background:#f8fafc;">
+                            <option value="DEPOSIT">เงินเข้า (Deposit)</option>
+                            <option value="WITHDRAWAL">เงินออก (Withdrawal)</option>
+                            <option value="DIVIDEND">ปันผล (Dividend)</option>
+                            <option value="FEE">ค่าธรรมเนียม/อื่นๆ (Fee)</option>
+                        </select>
+                    </div>
+                    <div class="mb-3" id="tx_date_div" style="display:none;">
+                        <label class="form-label small fw-bold text-muted">วันที่ทำรายการ</label>
+                        <input type="date" name="transaction_date" id="tx_date_input" class="form-control rounded-pill px-3" style="background:#f8fafc;">
+                    </div>
                     <div class="mb-3">
                         <label id="amount_label" class="form-label small fw-bold text-muted">ยอดเงินคงเหลือปัจจุบัน (Total Balance)</label>
                         <div class="input-group">
@@ -1722,7 +1741,12 @@
     function toggleCashFields() {
         const isAbs = document.getElementById('mode_abs').checked;
         document.getElementById('tx_type_div').style.display = isAbs ? 'none' : 'block';
+        document.getElementById('tx_date_div').style.display = isAbs ? 'none' : 'block';
         document.getElementById('amount_label').textContent = isAbs ? 'ยอดเงินคงเหลือปัจจุบัน (Total Balance)' : 'จำนวนเงิน (Amount)';
+        const dateInput = document.getElementById('tx_date_input');
+        if (dateInput && !dateInput.value) {
+            dateInput.value = new Date().toISOString().slice(0, 10);
+        }
     }
 
     function resetFundModal() {

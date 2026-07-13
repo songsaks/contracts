@@ -1195,7 +1195,14 @@ class CashTransaction(models.Model):
     currency = models.CharField(max_length=10, default='THB')
     transaction_type = models.CharField(max_length=20, choices=TransactionType.choices, default=TransactionType.DEPOSIT)
     note = models.CharField(max_length=255, blank=True)
+    # วันที่ทำรายการจริง (ผู้ใช้ระบุได้ ใช้แสดงผล/กรองรายเดือน) — created_at คือเวลาคีย์ข้อมูลเท่านั้น
+    transaction_date = models.DateField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
+
+    @property
+    def effective_date(self):
+        """วันที่ใช้แสดงผล: วันที่ทำรายการถ้ามี ไม่งั้นใช้วันที่บันทึก"""
+        return self.transaction_date or self.created_at.date()
 
     class Meta:
         verbose_name = "Cash Transaction"

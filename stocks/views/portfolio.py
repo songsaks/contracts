@@ -736,12 +736,22 @@ def add_cash_transaction(request):
             if tx_type in ['WITHDRAWAL', 'BUY', 'FEE']:
                 if amount > 0: amount = -amount
             
+            # วันที่ทำรายการจริง (ถ้าไม่ระบุ ใช้วันนี้)
+            from django.utils import timezone as _tz
+            tx_date_str = request.POST.get('transaction_date', '')
+            try:
+                from datetime import date as _date
+                tx_date = _date.fromisoformat(tx_date_str) if tx_date_str else _tz.localdate()
+            except ValueError:
+                tx_date = _tz.localdate()
+
             CashTransaction.objects.create(
                 user=request.user,
                 amount=amount,
                 currency=currency,
                 transaction_type=tx_type,
-                note=note
+                note=note,
+                transaction_date=tx_date
             )
             cash_obj.balance = Decimal(str(cash_obj.balance)) + amount
             cash_obj.save()
