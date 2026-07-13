@@ -960,12 +960,23 @@
                 </table>
                 </div>
 
-    <!-- Cash Flow History -->
+    <!-- Realized P/L per Symbol + Cash Flow History -->
     <div class="col-12 mt-2">
         <div class="card-premium p-4 border-0 mb-4 bg-white shadow-sm">
             <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
-                <h5 class="fw-bold mb-0 text-dark"><i class="fas fa-exchange-alt me-2 text-success"></i> ประวัติการเงินเข้า-ออก (Cash Flow)</h5>
-                <div class="d-flex align-items-center gap-2">
+                <ul class="nav nav-pills gap-1" id="plCfTabs" style="font-size:0.8rem;">
+                    <li class="nav-item">
+                        <button class="nav-link active rounded-pill px-3 py-1 fw-bold" data-bs-toggle="pill" data-bs-target="#tab-symbol-pl" type="button">
+                            <i class="fas fa-trophy me-1"></i> กำไร/ขาดทุนรายหุ้น
+                        </button>
+                    </li>
+                    <li class="nav-item">
+                        <button class="nav-link rounded-pill px-3 py-1 fw-bold" data-bs-toggle="pill" data-bs-target="#tab-cash-flow" type="button">
+                            <i class="fas fa-exchange-alt me-1"></i> เงินเข้า-ออก (Cash Flow)
+                        </button>
+                    </li>
+                </ul>
+                <div class="align-items-center gap-2 d-none" id="cf-controls">
                     <label class="small text-muted mb-0">เดือน:</label>
                     <select id="cf-month-filter" onchange="filterCashFlow()" class="form-select form-select-sm rounded-3" style="width:auto;min-width:140px;font-size:0.82rem;">
                         <option value="all">ทั้งหมด</option>
@@ -973,6 +984,56 @@
                     <div class="small text-muted" id="cf-summary" style="white-space:nowrap;"></div>
                 </div>
             </div>
+
+            <div class="tab-content">
+            <!-- TAB 1: Realized P/L per Symbol -->
+            <div class="tab-pane fade show active" id="tab-symbol-pl">
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover align-middle">
+                        <thead class="bg-light bg-opacity-50">
+                            <tr class="small text-muted text-uppercase" style="font-size:0.7rem;">
+                                <th style="width:40px;">#</th>
+                                <th>หุ้น</th>
+                                <th class="text-center">ตลาด</th>
+                                <th class="text-center">จำนวนเทรด</th>
+                                <th class="text-center">ชนะ / แพ้</th>
+                                <th class="text-center">Win Rate</th>
+                                <th class="text-end">กำไร/ขาดทุนรวม (฿)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for r in symbol_pl_summary %}
+                            <tr>
+                                <td class="text-muted small">{{ forloop.counter }}</td>
+                                <td>
+                                    <span class="badge bg-primary bg-opacity-10 text-primary fw-bold">{{ r.symbol }}</span>
+                                    {% if forloop.counter == 1 and r.total_pl > 0 %}<span class="ms-1" title="ทำกำไรสูงสุด">🏆</span>{% endif %}
+                                </td>
+                                <td class="text-center"><span class="badge bg-light text-muted border" style="font-size:0.62rem;">{{ r.market }}</span></td>
+                                <td class="text-center small">{{ r.trades }}</td>
+                                <td class="text-center small">
+                                    <span class="text-success fw-bold">{{ r.wins }}</span> / <span class="text-danger fw-bold">{{ r.losses }}</span>
+                                </td>
+                                <td class="text-center small">
+                                    <span class="fw-bold {% if r.win_rate >= 60 %}text-success{% elif r.win_rate >= 40 %}text-warning{% else %}text-danger{% endif %}">{{ r.win_rate }}%</span>
+                                </td>
+                                <td class="text-end fw-bold {% if r.total_pl > 0 %}text-success{% elif r.total_pl < 0 %}text-danger{% endif %}">
+                                    {% if r.total_pl > 0 %}+{% endif %}{{ r.total_pl|floatformat:2|intcomma }}
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr><td colspan="7" class="text-center py-4 text-muted">ยังไม่มีประวัติการขายหุ้น</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                <div class="small text-muted mt-1" style="font-size:0.68rem;">
+                    * กำไร/ขาดทุนที่เกิดขึ้นจริง (Realized) จากประวัติการขาย — หุ้น US/Crypto แปลงเป็นบาทด้วยอัตราแลกเปลี่ยนปัจจุบัน
+                </div>
+            </div>
+
+            <!-- TAB 2: Cash Flow -->
+            <div class="tab-pane fade" id="tab-cash-flow">
             <div class="table-responsive">
                 <table class="table table-sm table-hover align-middle" id="cf-table">
                     <thead class="bg-light bg-opacity-50">
@@ -1011,6 +1072,8 @@
                     </tbody>
                 </table>
             </div>
+            </div><!-- /tab-cash-flow -->
+            </div><!-- /tab-content -->
         </div>
     </div>
 </div>
@@ -1453,6 +1516,15 @@
         sel.value = months.includes(current) || current === 'all' ? current : 'all';
     }
     rebuildCashFlowMonths();
+
+    // แสดงตัวกรองเดือนเฉพาะตอนอยู่แท็บ Cash Flow
+    document.querySelectorAll('#plCfTabs button').forEach(btn => {
+        btn.addEventListener('shown.bs.tab', e => {
+            const isCf = e.target.dataset.bsTarget === '#tab-cash-flow';
+            const ctl = document.getElementById('cf-controls');
+            if (ctl) { ctl.classList.toggle('d-none', !isCf); ctl.classList.toggle('d-flex', isCf); }
+        });
+    });
 
     // ── แก้วันที่ทำรายการย้อนหลัง (คลิกดินสอในตาราง Cash Flow) ──
     function editCfDate(icon) {

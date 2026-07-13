@@ -642,7 +642,28 @@ def portfolio_list(request):
             'items': monthly_summary_dict[m_name]['items'],
             'total_pl': monthly_summary_dict[m_name]['total_pl']
         })
-    
+
+    # ── Realized P/L per Symbol (เรียงกำไรมาก → น้อย) ──
+    symbol_pl_dict = defaultdict(lambda: {'total_pl': 0.0, 'trades': 0, 'wins': 0, 'losses': 0, 'market': ''})
+    for s in all_sold_stocks:
+        val = float(s.profit_loss)
+        if s.market in (MarketType.US, MarketType.CRYPTO):
+            val *= usd_thb
+        d = symbol_pl_dict[s.symbol]
+        d['total_pl'] += val
+        d['trades'] += 1
+        if val > 0: d['wins'] += 1
+        elif val < 0: d['losses'] += 1
+        d['market'] = s.market
+
+    symbol_pl_summary = [
+        {'symbol': sym, **d,
+         'win_rate': round(d['wins'] / d['trades'] * 100) if d['trades'] else 0}
+        for sym, d in symbol_pl_dict.items()
+    ]
+    symbol_pl_summary.sort(key=lambda x: x['total_pl'], reverse=True)
+
+
     # ── Portfolio Cash Summary ──
     from stocks.models import CashTransaction, PortfolioCash
     cash_thb_obj = PortfolioCash.objects.filter(user=request.user, currency='THB').first()
@@ -701,6 +722,7 @@ def portfolio_list(request):
         'ai_analysis': ai_analysis,
         'sold_stocks': sold_stocks,
         'monthly_summary': monthly_summary,
+        'symbol_pl_summary': symbol_pl_summary,
         'available_months': available_months,
         'selected_month': selected_month,
         'chart_labels': json.dumps(chart_labels),
