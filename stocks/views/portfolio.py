@@ -758,8 +758,32 @@ def add_cash_transaction(request):
             messages.success(request, f"บันทึกรายการ {tx_type} เรียบร้อยแล้ว")
         
         return redirect('stocks:portfolio_list')
-    
+
     return redirect('stocks:portfolio_list')
+
+
+@login_required
+def update_cash_transaction_date(request, pk):
+    """แก้ไขวันที่ทำรายการของ CashTransaction ย้อนหลัง (AJAX)
+    ใช้กับรายการเก่าที่ถูกประทับวันที่คีย์ข้อมูลแทนวันที่ทำรายการจริง"""
+    from django.http import JsonResponse
+    from django.shortcuts import get_object_or_404
+    from datetime import date as _date
+    from stocks.models import CashTransaction
+
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'POST required'}, status=400)
+
+    tx = get_object_or_404(CashTransaction, id=pk, user=request.user)
+    date_str = request.POST.get('date', '')
+    try:
+        tx.transaction_date = _date.fromisoformat(date_str)
+    except ValueError:
+        return JsonResponse({'success': False, 'error': 'Invalid date format (ต้องเป็น YYYY-MM-DD)'})
+    tx.save(update_fields=['transaction_date'])
+    return JsonResponse({'success': True, 'date': tx.transaction_date.isoformat(),
+                         'month': tx.transaction_date.strftime('%Y-%m')})
+
 
 @login_required
 def update_portfolio_fund(request):

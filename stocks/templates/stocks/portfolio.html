@@ -986,8 +986,12 @@
                     </thead>
                     <tbody id="cf-tbody">
                         {% for tx in cash_transactions %}
-                        <tr class="cf-row" data-month="{{ tx.effective_date|date:'Y-m' }}" data-amount="{{ tx.amount }}">
-                            <td class="small">{{ tx.effective_date|date:"d/m/Y" }}</td>
+                        <tr class="cf-row" data-month="{{ tx.effective_date|date:'Y-m' }}" data-amount="{{ tx.amount }}" data-id="{{ tx.id }}" data-date="{{ tx.effective_date|date:'Y-m-d' }}">
+                            <td class="small">
+                                <span class="cf-date-text">{{ tx.effective_date|date:"d/m/Y" }}</span>
+                                <i class="fas fa-pencil-alt ms-1 text-muted" style="cursor:pointer;font-size:0.65rem;opacity:0.5;"
+                                   title="แก้วันที่ทำรายการ" onclick="editCfDate(this)"></i>
+                            </td>
                             <td>
                                 <span class="badge rounded-pill px-2 py-1" style="font-size:0.65rem;
                                     {% if tx.transaction_type == 'DEPOSIT' or tx.transaction_type == 'SELL' or tx.transaction_type == 'DIVIDEND' %}background:#dcfce7;color:#166534;
@@ -1432,23 +1436,69 @@
     }
 
     // ── Cash Flow Month Filter ──────────────────────────────────────
-    (function initCashFlowFilter() {
+    function rebuildCashFlowMonths() {
         const rows = document.querySelectorAll('.cf-row');
-        if (!rows.length) return;
         const sel = document.getElementById('cf-month-filter');
-        const seen = new Set();
-        rows.forEach(r => {
-            const m = r.dataset.month;
-            if (m && !seen.has(m)) {
-                seen.add(m);
-                const [y, mo] = m.split('-');
-                const label = new Date(y, mo - 1, 1).toLocaleDateString('th-TH', { year: 'numeric', month: 'long' });
-                const opt = document.createElement('option');
-                opt.value = m; opt.textContent = label;
-                sel.appendChild(opt);
-            }
+        if (!sel) return;
+        const current = sel.value;
+        while (sel.options.length > 1) sel.remove(1); // เหลือแค่ "ทั้งหมด"
+        const months = [...new Set([...rows].map(r => r.dataset.month).filter(Boolean))].sort().reverse();
+        months.forEach(m => {
+            const [y, mo] = m.split('-');
+            const label = new Date(y, mo - 1, 1).toLocaleDateString('th-TH', { year: 'numeric', month: 'long' });
+            const opt = document.createElement('option');
+            opt.value = m; opt.textContent = label;
+            sel.appendChild(opt);
         });
-    })();
+        sel.value = months.includes(current) || current === 'all' ? current : 'all';
+    }
+    rebuildCashFlowMonths();
+
+    // ── แก้วันที่ทำรายการย้อนหลัง (คลิกดินสอในตาราง Cash Flow) ──
+    function editCfDate(icon) {
+        const row = icon.closest('.cf-row');
+        const cell = icon.closest('td');
+        if (!row || cell.querySelector('input')) return;
+        const txt = cell.querySelector('.cf-date-text');
+        const input = document.createElement('input');
+        input.type = 'date';
+        input.value = row.dataset.date || '';
+        input.className = 'form-control form-control-sm d-inline-block';
+        input.style.cssText = 'width:140px;font-size:0.75rem;padding:2px 8px;';
+        txt.style.display = 'none';
+        icon.style.display = 'none';
+        cell.appendChild(input);
+        input.focus();
+
+        const cancel = () => { input.remove(); txt.style.display = ''; icon.style.display = ''; };
+        input.addEventListener('keydown', e => { if (e.key === 'Escape') cancel(); });
+        input.addEventListener('change', () => {
+            const newDate = input.value;
+            if (!newDate || newDate === row.dataset.date) { cancel(); return; }
+            const fd = new FormData();
+            fd.append('date', newDate);
+            fetch(`/stocks/portfolio/cash/${row.dataset.id}/date/`, {
+                method: 'POST',
+                headers: { 'X-CSRFToken': '{{ csrf_token }}' },
+                body: fd
+            })
+            .then(r => r.json())
+            .then(d => {
+                if (d.success) {
+                    row.dataset.date = d.date;
+                    row.dataset.month = d.month;
+                    const [y, m, dd] = d.date.split('-');
+                    txt.textContent = `${dd}/${m}/${y}`;
+                    rebuildCashFlowMonths();
+                    filterCashFlow();
+                } else {
+                    alert('แก้วันที่ไม่สำเร็จ: ' + (d.error || 'unknown'));
+                }
+                cancel();
+            })
+            .catch(() => { alert('การเชื่อมต่อขัดข้อง'); cancel(); });
+        });
+    }
 
     function filterCashFlow() {
         const val = document.getElementById('cf-month-filter').value;

@@ -22,6 +22,7 @@ urlpatterns = [
     path('portfolio/exit-plan/', views.portfolio_exit_plan, name='portfolio_exit_plan'),
     path('portfolio/exit-plan/ai/', views.portfolio_exit_plan_ai_analysis, name='portfolio_exit_plan_ai_analysis'),
     path('portfolio/cash/add/', views.add_cash_transaction, name='add_cash_transaction'),
+    path('portfolio/cash/<int:pk>/date/', views.update_cash_transaction_date, name='update_cash_transaction_date'),
     path('portfolio/fund/update/', views.update_portfolio_fund, name='update_portfolio_fund'),
     path('portfolio/fund/delete/<int:fund_id>/', views.delete_portfolio_fund, name='delete_portfolio_fund'),
     path('recommendations/', views.recommendations, name='recommendations'),
