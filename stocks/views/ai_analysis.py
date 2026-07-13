@@ -2253,10 +2253,10 @@ def delete_daily_agent_report(request, pk):
     """
     ลบรายงานที่ระบุ
     """
-    from django.shortcuts import get_object_or_400, redirect
+    from django.shortcuts import get_object_or_404, redirect
     from stocks.models import DailyAgentReport
     
-    report = get_object_or_400(DailyAgentReport, id=pk, user=request.user)
+    report = get_object_or_404(DailyAgentReport, id=pk, user=request.user)
     report.delete()
     return redirect('stocks:daily_agent_reports')
 
@@ -2266,11 +2266,11 @@ def mark_daily_agent_report_read(request, pk):
     """
     ทำเครื่องหมายว่าอ่านแล้วผ่าน AJAX
     """
-    from django.shortcuts import get_object_or_400
+    from django.shortcuts import get_object_or_404
     from django.http import JsonResponse
     from stocks.models import DailyAgentReport
 
-    report = get_object_or_400(DailyAgentReport, id=pk, user=request.user)
+    report = get_object_or_404(DailyAgentReport, id=pk, user=request.user)
     report.is_read = True
     report.save()
     return JsonResponse({'success': True})
