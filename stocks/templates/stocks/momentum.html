@@ -179,6 +179,64 @@
 </div>
 {% else %}
 
+    <!-- TOP PICKS: คัดอัตโนมัติ 4 ด่าน -->
+    {% if top_picks %}
+    <div class="col-12">
+        <div class="card border-0 mb-4 shadow-sm overflow-hidden" style="border-radius: 1rem;">
+            <div class="card-header border-0 d-flex flex-wrap justify-content-between align-items-center gap-2"
+                 style="background: linear-gradient(135deg,#7f1d1d,#b91c1c); padding: 0.85rem 1.25rem;">
+                <h6 class="mb-0 fw-bold text-white">
+                    <i class="fas fa-trophy me-2" style="color:#fcd34d;"></i> Top Picks — คัดอัตโนมัติ 4 ด่าน
+                    <span class="badge rounded-pill ms-2 d-none d-md-inline" style="background:rgba(255,255,255,0.15);color:#fecaca;font-size:0.6rem;font-weight:600;">ตัดกำไรไม่โต → ตัด RSI ≥ 80 → ตัดไม่มีแรง → เรียง EPS/RR/RVOL</span>
+                </h6>
+                <span class="small text-white-50" style="font-size:0.65rem;">ก่อนซื้อจริง เช็คใน Precision Scanner เสมอ</span>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0" style="font-size:0.8rem;">
+                        <thead class="bg-light text-muted" style="font-size:0.65rem;">
+                            <tr>
+                                <th class="ps-3" style="width:40px;">#</th>
+                                <th>หุ้น</th>
+                                <th class="text-center">EPS Q</th>
+                                <th class="text-center">REV %</th>
+                                <th class="text-center">RR</th>
+                                <th class="text-center">RVOL</th>
+                                <th class="text-center">RSI</th>
+                                <th>บทบาท / รออะไร</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for p in top_picks %}
+                            <tr>
+                                <td class="ps-3 text-muted small">{{ forloop.counter }}</td>
+                                <td>
+                                    <span class="badge rounded-pill fw-bold" style="background:rgba(185,28,28,0.1);color:#b91c1c;font-size:0.75rem;padding:5px 12px;">{{ p.symbol }}</span>
+                                    {% if forloop.counter == 1 %}<span class="ms-1" title="คะแนนรวมสูงสุด">🏆</span>{% endif %}
+                                </td>
+                                <td class="text-center fw-bold {% if p.eps >= 25 %}text-success{% elif p.eps > 0 %}text-dark{% else %}text-muted{% endif %}">{% if p.eps > 0 %}+{% endif %}{{ p.eps|floatformat:0 }}%</td>
+                                <td class="text-center fw-bold {% if p.rev >= 25 %}text-success{% elif p.rev > 0 %}text-dark{% else %}text-muted{% endif %}">{% if p.rev > 0 %}+{% endif %}{{ p.rev|floatformat:0 }}%</td>
+                                <td class="text-center {% if p.rr >= 2 %}fw-bold text-success{% endif %}">1:{{ p.rr|floatformat:1 }}</td>
+                                <td class="text-center {% if p.rvol >= 1.5 %}fw-bold text-danger{% endif %}">{{ p.rvol|floatformat:1 }}x</td>
+                                <td class="text-center"><span class="badge rounded-pill {% if p.rsi >= 75 %}bg-danger bg-opacity-10 text-danger{% elif p.rsi >= 60 %}bg-warning bg-opacity-10 text-warning{% else %}bg-success bg-opacity-10 text-success{% endif %}">{{ p.rsi|floatformat:0 }}</span></td>
+                                <td>
+                                    <span class="badge rounded-pill fw-bold" style="font-size:0.68rem;padding:4px 12px;
+                                        {% if p.status == 'enter' %}background:#dcfce7;color:#15803d;border:1px solid #86efac;
+                                        {% elif p.status == 'skip' %}background:#fee2e2;color:#dc2626;border:1px solid #fca5a5;
+                                        {% else %}background:#fef3c7;color:#b45309;border:1px solid #fcd34d;{% endif %}">
+                                        {{ p.action }}
+                                    </span>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
     <!-- SCAN RESULT TABLE -->
     <div class="col-12">
         <div class="card card-premium border-0 mb-4 shadow-sm" style="border-radius: 1rem;">

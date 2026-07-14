@@ -1359,6 +1359,61 @@ def momentum_scanner(request):
             else:
                 c.live_change_pct = None
 
+    # ── Top Picks: คัดอัตโนมัติ 4 ด่าน (พื้นฐาน → RSI → แรง → จัดลำดับ) ──
+    top_picks = []
+    if candidate_list:
+        _pool = []
+        for c in candidate_list:
+            eps  = float(c.eps_growth or 0)
+            rev  = float(c.rev_growth or 0)
+            rsi  = float(c.rsi or 0)
+            adx  = float(c.adx or 0)
+            # ด่าน 1: พื้นฐานต้องโตจริงอย่างน้อยหนึ่งด้าน (EPS หรือ Revenue ≥ 10%)
+            if eps < 10 and rev < 10:
+                continue
+            # ด่าน 2: ตัดของร้อนจัด (RSI ≥ 80 ไล่ไม่ได้ ถือก็เสียว)
+            if rsi >= 80:
+                continue
+            # ด่าน 3: ต้องมีแรงขับ (ADX ≥ 20 — ถ้าไม่มีข้อมูล ADX ให้ผ่าน)
+            if adx and adx < 20:
+                continue
+            _pool.append(c)
+        # ด่าน 4: เรียงคุณภาพ (EPS+REV) → ความคุ้ม (RR) → ความสด (RVOL)
+        _pool.sort(key=lambda c: (
+            float(c.eps_growth or 0) + float(c.rev_growth or 0),
+            float(c.risk_reward_ratio or 0),
+            float(c.rvol or 0)
+        ), reverse=True)
+
+        for c in _pool[:7]:
+            rsi  = float(c.rsi or 0)
+            rvol = float(c.rvol or 0)
+            dz_s = float(c.demand_zone_start or 0)
+            dz_e = float(c.demand_zone_end or 0)
+            zone_txt = f"{dz_e:.2f}–{dz_s:.2f}" if dz_s > 0 else "-"
+            if getattr(c, 'live_in_zone', False):
+                status, action = 'enter', f'อยู่ในโซนซื้อ {zone_txt} — เข้าได้ (เช็ค Precision ก่อนกด)'
+            elif getattr(c, 'live_above_tp', False):
+                status, action = 'skip', 'ถึง TP แล้ว — ห้ามไล่ รอสร้างฐานใหม่'
+            elif rsi >= 75:
+                status, action = 'wait', f'RSI {rsi:.0f} ร้อน — รอย่อเข้าโซน {zone_txt}'
+            elif rvol < 0.8:
+                status, action = 'wait', f'Volume ยังหลับ ({rvol:.1f}x) — ตั้ง alert โซน {zone_txt}'
+            elif getattr(c, 'live_near_tp', False):
+                status, action = 'wait', f'ใกล้ TP เหลือ upside น้อย — รอย่อโซน {zone_txt}'
+            else:
+                status, action = 'alert', f'ตั้ง alert โซนซื้อ {zone_txt}'
+            top_picks.append({
+                'symbol': c.symbol,
+                'eps': float(c.eps_growth or 0),
+                'rev': float(c.rev_growth or 0),
+                'rr': float(c.risk_reward_ratio or 0),
+                'rvol': rvol,
+                'rsi': rsi,
+                'status': status,
+                'action': action,
+            })
+
     context = {
         'title': 'Global Momentum Scanner (CAN SLIM)',
         'candidates': candidate_list,
@@ -1368,6 +1423,7 @@ def momentum_scanner(request):
         'is_scanning': is_scanning,
         'has_scanned': bool(candidate_list) or (candidates.exists() and not is_scanning),
         'market_regime': regime,
+        'top_picks': top_picks,
     }
     return render(request, 'stocks/momentum.html', context)
 
