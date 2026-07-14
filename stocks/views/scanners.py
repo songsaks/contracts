@@ -1062,7 +1062,10 @@ def momentum_scanner(request):
                     def _analyze_one(symbol):
                         try:
                             s_bk = f"{symbol}.BK"
-                            df = _yf.download(s_bk, period="1y", interval="1d", progress=False, timeout=20)
+                            # ใช้ yf.Ticker().history() แทน yf.download() — yf.download() มีบั๊ก
+                            # thread-safety ทำให้ข้อมูลปนข้าม symbol เมื่อรันใน ThreadPool
+                            # (บั๊กเดียวกับที่เคยแก้ใน Precision scanner แล้ว)
+                            df = _yf.Ticker(s_bk).history(period="1y", interval="1d", timeout=20)
                             if df is None or df.empty or len(df) < 55: return None
                             if isinstance(df.columns, pd.MultiIndex): df.columns = df.columns.droplevel(1)
                             
@@ -1113,6 +1116,12 @@ def momentum_scanner(request):
                                             h['EMA50'] = _ta.ema(h['Close'], length=50)
                                             h['EMA200'] = _ta.ema(h['Close'], length=min(200, len(h)-1))
                                             h['RSI'] = _ta.rsi(h['Close'], length=14)
+                                            # ADX/MFI ต้องคำนวณใน fallback ด้วย ไม่งั้นตัวที่มาทางนี้ได้ 0 เสมอ
+                                            try:
+                                                _adx_fb = _ta.adx(h['High'], h['Low'], h['Close'], length=14)
+                                                if _adx_fb is not None: h = pd.concat([h, _adx_fb], axis=1)
+                                                h['MFI'] = _ta.mfi(h['High'], h['Low'], h['Close'], h['Volume'], length=14)
+                                            except Exception: pass
                                             tech = analyze_momentum_technical_v2(h)
                                             if tech.get('rsi', 0) > 30: 
                                                  res = {
@@ -1146,7 +1155,23 @@ def momentum_scanner(request):
                                     'eps_growth': float(eps_g) * 100,
                                     'rev_growth': float(fin.get('revenueGrowth', 0) or 0) * 100
                                 }
-                        except Exception: pass
+                        except Exception as _fx:
+                            import logging; logging.getLogger('stocks').warning(f"[Momentum] Stage 3 fundamental fetch failed: {_fx}")
+
+                    # ── RS Rating: rank ผลตอบแทน 3 เดือน (66 วัน) แบบเดียวกับ Precision scanner ──
+                    # หมายเหตุ: rank ภายในกลุ่มผู้รอด Stage 2 (~150 ตัวใหญ่) ไม่ใช่ทั้งตลาด
+                    _rs_returns = {}
+                    for r in pre_results:
+                        try:
+                            _cl = r['df']['Close'].dropna()
+                            if len(_cl) >= 66:
+                                _rs_returns[r['symbol']] = float((_cl.iloc[-1] - _cl.iloc[-66]) / abs(_cl.iloc[-66]) * 100)
+                        except Exception:
+                            continue
+                    _rs_map = {}
+                    if _rs_returns:
+                        _rs_ser = _pd.Series(_rs_returns)
+                        _rs_map = (_rs_ser.rank(pct=True) * 99).clip(0, 99).astype(int).to_dict()
 
                     # FINAL: Save to DB
                     _c.set(ckey, {'state': 'running', 'progress': 95, 'phase': 'Saving results...'}, timeout=600)
@@ -1172,8 +1197,8 @@ def momentum_scanner(request):
                             mfi=float(df['MFI'].iloc[-1]) if 'MFI' in df.columns else 0,
                             rvol=tech.get('rvol', 0), 
                             rvol_bullish=tech.get('rvol_bullish', False),
-                            technical_score=tech.get('score', 0), 
-                            rs_rating=0,
+                            technical_score=tech.get('score', 0),
+                            rs_rating=_rs_map.get(sym, 0),
                             entry_strategy=entry_strat, 
                             demand_zone_start=dz_start, 
                             demand_zone_end=dz_end,
