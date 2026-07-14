@@ -1371,6 +1371,9 @@ def momentum_scanner(request):
             # ด่าน 1: พื้นฐานต้องโตจริงอย่างน้อยหนึ่งด้าน (EPS หรือ Revenue ≥ 10%)
             if eps < 10 and rev < 10:
                 continue
+            # ด่าน 1.5: Revenue ห้ามติดลบ — EPS โตแต่รายได้หด = กำไรจากรายการพิเศษ/ฐานต่ำ ไม่ใช่ธุรกิจโต
+            if rev < 0:
+                continue
             # ด่าน 2: ตัดของร้อนจัด (RSI ≥ 80 ไล่ไม่ได้ ถือก็เสียว)
             if rsi >= 80:
                 continue
