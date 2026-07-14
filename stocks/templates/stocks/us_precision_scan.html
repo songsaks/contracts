@@ -235,6 +235,25 @@
     }
 
     /* ── Filter label colors ── */
+    /* == Trade Flow == */
+    .tf-chip { background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:8px 12px; min-width:150px; transition:all 0.25s; }
+    .tf-chip-title { font-size:0.62rem; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:0.3px; }
+    .tf-chip-val { font-size:0.78rem; font-weight:700; color:#94a3b8; margin-top:2px; }
+    .tf-chip.active { border-color:#7c3aed; background:#faf5ff; box-shadow:0 0 0 3px rgba(124,58,237,0.08); }
+    .tf-chip.active .tf-chip-val { color:#7c3aed; }
+    .tf-chip.done { border-color:#86efac; background:#f0fdf4; }
+    .tf-chip.done .tf-chip-title { color:#15803d; }
+    .tf-chip.done .tf-chip-val { color:#166534; }
+    .tf-chip.warn { border-color:#fcd34d; background:#fffbeb; }
+    .tf-chip.warn .tf-chip-val { color:#b45309; }
+    .tf-chip.blocked { border-color:#fca5a5; background:#fef2f2; }
+    .tf-chip.blocked .tf-chip-val { color:#dc2626; }
+    .tf-res-row { display:flex; align-items:center; gap:10px; padding:9px 4px; border-bottom:1px solid #f1f5f9; flex-wrap:wrap; }
+    .tf-res-row:last-child { border-bottom:none; }
+    .tf-star { font-size:0.58rem; font-weight:700; padding:2px 8px; border-radius:10px; background:rgba(124,58,237,0.08); color:#7c3aed; border:1px solid rgba(124,58,237,0.2); }
+    .tf-status { font-size:0.66rem; font-weight:700; padding:3px 10px; border-radius:12px; white-space:nowrap; }
+    .tf-status.enter { background:#dcfce7; color:#15803d; border:1px solid #86efac; }
+    .tf-status.alert { background:#fef3c7; color:#b45309; border:1px solid #fcd34d; }
     .filter-label-rsi { color: #dc2626 !important; }
     .filter-label-stage2 { color: #16a34a !important; }
     .filter-label-pp { color: #0ea5e9 !important; }
@@ -1399,6 +1418,45 @@
     </div>
 </div>
 
+<!-- ===== TRADE FLOW: Guided 5-Step Stock Selection ===== -->
+<div class="row mb-4" id="tradeFlowCardUS">
+    <div class="col-12">
+        <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
+            <div class="card-header border-0 d-flex flex-wrap justify-content-between align-items-center gap-2"
+                 style="background: linear-gradient(135deg,#0f172a,#312e81); padding: 0.85rem 1.25rem;">
+                <h6 class="mb-0 fw-bold text-white d-flex align-items-center">
+                    <i class="fas fa-route me-2" style="color:#a78bfa;"></i> Trade Flow &mdash; หาหุ้นที่ดีที่สุดตามลำดับ 5 ขั้น
+                    <span class="badge rounded-pill ms-2 d-none d-md-inline" style="background:rgba(167,139,250,0.2);color:#c4b5fd;font-size:0.6rem;font-weight:600;">M &rarr; คุณภาพ &rarr; สถาบัน &rarr; จังหวะ &rarr; แผนไม้</span>
+                </h6>
+                <div class="d-flex gap-2">
+                    <button id="tfNextBtnUS" class="btn btn-sm rounded-pill px-3 fw-bold" onclick="tfNextUS()"
+                            style="background:rgba(255,255,255,0.1);color:white;border:1px solid rgba(255,255,255,0.25);font-size:0.72rem;">
+                        <i class="fas fa-forward-step me-1"></i> ทีละขั้น (1/5)
+                    </button>
+                    <button class="btn btn-sm rounded-pill px-3 fw-bold" onclick="tfRunAllUS()"
+                            style="background:linear-gradient(135deg,#7c3aed,#4f46e5);color:white;border:none;font-size:0.72rem;">
+                        <i class="fas fa-bolt me-1"></i> รันทุกขั้นในคลิกเดียว
+                    </button>
+                    <button class="btn btn-sm rounded-pill px-2" onclick="tfResetUS()" title="เริ่มใหม่"
+                            style="background:transparent;color:rgba(255,255,255,0.55);border:1px solid rgba(255,255,255,0.2);font-size:0.72rem;">
+                        <i class="fas fa-rotate-left"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="card-body p-3" style="background:#fafbfd;">
+                <div class="d-flex flex-wrap gap-2" id="tfStepsUS">
+                    <div class="tf-chip flex-fill" id="tfStepUS1"><div class="tf-chip-title"><i class="fas fa-globe me-1"></i>ขั้น 1 &middot; ตลาด (M)</div><div class="tf-chip-val">กด &#9654; เพื่อเริ่ม</div></div>
+                    <div class="tf-chip flex-fill" id="tfStepUS2"><div class="tf-chip-title"><i class="fas fa-gem me-1"></i>ขั้น 2 &middot; คุณภาพ + Confluence</div><div class="tf-chip-val">&mdash;</div></div>
+                    <div class="tf-chip flex-fill" id="tfStepUS3"><div class="tf-chip-title"><i class="fas fa-building-columns me-1"></i>ขั้น 3 &middot; เงินสถาบัน</div><div class="tf-chip-val">&mdash;</div></div>
+                    <div class="tf-chip flex-fill" id="tfStepUS4"><div class="tf-chip-title"><i class="fas fa-stopwatch me-1"></i>ขั้น 4 &middot; จังหวะ</div><div class="tf-chip-val">&mdash;</div></div>
+                    <div class="tf-chip flex-fill" id="tfStepUS5"><div class="tf-chip-title"><i class="fas fa-clipboard-check me-1"></i>ขั้น 5 &middot; แผนไม้</div><div class="tf-chip-val">&mdash;</div></div>
+                </div>
+                <div id="tfResultUS" class="mt-3" style="display:none;"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- SCAN RESULT TABLE -->
 <div class="col-12">
     <div class="card border-0 mb-4 shadow-sm" style="border-radius: 1rem;">
@@ -1686,6 +1744,15 @@
     data-inside-bar="{{ item.inside_bar|yesno:'true,false' }}"
     data-acc-days="{{ item.acc_days|default:0 }}"
     data-dist-days="{{ item.dist_days|default:0 }}"
+    data-cup="{% if item.symbol in cup_handle_symbols %}true{% else %}false{% endif %}"
+    data-turtle-sys="{% if item.symbol in turtle_symbols %}true{% else %}false{% endif %}"
+    data-inzone="{% if item.demand_zone_start and item.price <= item.demand_zone_start and item.price >= item.demand_zone_end %}true{% else %}false{% endif %}"
+    data-prox="{{ item.zone_proximity|default:99 }}"
+    data-pp-price="{{ item.demand_zone_start|default:0 }}"
+    data-zone-low="{{ item.demand_zone_end|default:0 }}"
+    data-sl-price="{{ item.stop_loss|default:0 }}"
+    data-tp-price="{{ item.supply_zone_start|default:0 }}"
+    data-price="{{ item.price|default:0 }}"
     id="row-{{ item.symbol }}">
                             <!-- SYMBOL -->
                             <td class="ps-2">
@@ -3252,6 +3319,190 @@ function _updatePresetCountsUS() {
 }
 function filterByStage2(id, v)   { _applyFiltersUS(); }
 function filterByPP(id, v)       { _applyFiltersUS(); }
+
+// == Trade Flow: 5-step guided selection (US) ==
+const TF_REGIMEUS = {
+    state: '{% if markov_regime %}{{ markov_regime.state|default:"" }}{% endif %}',
+    prob: {% if markov_regime %}{{ markov_regime.prob|default:0 }}{% else %}0{% endif %},
+    phase: '{% if market_condition %}{{ market_condition.phase|default:"UNKNOWN" }}{% endif %}'
+};
+let _tfStepUS = 0;
+let _tfStateUS = {};
+
+function _tfRowsUS() {
+    return [...document.querySelectorAll('#scanTableUS tbody tr[id^="row-"]')].map(function(r) {
+        const d = r.dataset;
+        return {
+            symbol: d.symbol, rs: parseInt(d.rs || 0), rsi: parseFloat(d.rsi || 0),
+            s2: d.stage2 === 'true', pp: d.pp === 'true', cmf: parseFloat(d.cmf || 0),
+            vcp: d.vcp === 'true', canslim: d.canslim === 'true',
+            acc: parseInt(d.accDays || 0), dist: parseInt(d.distDays || 0),
+            rvol: parseFloat(d.rvol || 0), turtleDist: parseFloat(d.turtleDist !== undefined ? d.turtleDist : 99),
+            rr: parseFloat(d.rr || 0), cup: d.cup === 'true', turtleSys: d.turtleSys === 'true',
+            inzone: d.inzone === 'true', prox: parseFloat(d.prox !== undefined ? d.prox : 99),
+            ppPrice: parseFloat(d.ppPrice || 0), zoneLow: parseFloat(d.zoneLow || 0),
+            sl: parseFloat(d.slPrice || 0), tp: parseFloat(d.tpPrice || 0), price: parseFloat(d.price || 0),
+            launcher: parseInt(d.launcher || 0), insideBar: d.insideBar === 'true'
+        };
+    });
+}
+
+function _tfChipUS(n, cls, val) {
+    const el = document.getElementById('tfStepUS' + n);
+    if (!el) return;
+    el.classList.remove('active', 'done', 'warn', 'blocked');
+    if (cls) el.classList.add(cls);
+    el.querySelector('.tf-chip-val').innerHTML = val;
+}
+
+function _tfMarkUS(n) {
+    const el = document.getElementById('tfStepUS' + n);
+    if (el && !el.classList.contains('done') && !el.classList.contains('warn') && !el.classList.contains('blocked')) {
+        el.classList.add('active');
+    }
+}
+
+// STEP 1: Market condition (O'Neil's M) via Markov/Market Condition, fallback = S2 breadth
+function _tfDo1US() {
+    const rows = _tfRowsUS();
+    const breadth = rows.length ? Math.round(rows.filter(r => r.s2).length / rows.length * 100) : 0;
+    let verdict, cls, sizeF;
+    if (TF_REGIMEUS.phase === 'DOWNTREND' || TF_REGIMEUS.phase === 'CORRECTION') {
+        verdict = 'ขาลง — ดูอย่างเดียว'; cls = 'blocked'; sizeF = 0;
+    } else if ((TF_REGIMEUS.state === 'TRENDING' && TF_REGIMEUS.prob >= 60) || (!TF_REGIMEUS.state && breadth >= 60)) {
+        verdict = 'เทรนด์แข็ง — เต็มไม้'; cls = 'done'; sizeF = 1;
+    } else {
+        verdict = 'Sideways — ไม้ครึ่ง'; cls = 'warn'; sizeF = 0.5;
+    }
+    _tfStateUS = { rows: rows, sizeF: sizeF, blocked: sizeF === 0 };
+    _tfChipUS(1, cls, verdict + ' <span style="font-weight:400;opacity:0.7;">(S2 breadth ' + breadth + '%)</span>');
+}
+
+// STEP 2: Quality + cross-system confluence (SEPA / Cup&Handle / Turtle)
+function _tfDo2US() {
+    const all = _tfStateUS.rows;
+    all.forEach(function(r) {
+        r.stars = [];
+        if (r.s2 && r.rs >= 70) r.stars.push('SEPA');
+        if (r.cup) r.stars.push('C&H');
+        if (r.turtleSys) r.stars.push('Turtle');
+    });
+    const pass = all.filter(r => r.s2 && (r.pp || r.vcp || r.canslim || r.stars.length >= 2));
+    _tfStateUS.q = pass;
+    _tfChipUS(2, pass.length ? 'done' : 'blocked', all.length + ' → ' + pass.length + ' ตัว');
+}
+
+// STEP 3: Institutional evidence (PK or CMF >= 0.1, acc days >= dist days)
+function _tfDo3US() {
+    const pass = _tfStateUS.q.filter(r => (r.pp || r.cmf >= 0.1) && r.acc >= r.dist);
+    _tfStateUS.inst = pass;
+    _tfChipUS(3, pass.length ? 'done' : 'blocked', _tfStateUS.q.length + ' → ' + pass.length + ' ตัว');
+}
+
+// STEP 4: Timing buckets (enter / alert / skip)
+function _tfDo4US() {
+    const cur = '$';
+    _tfStateUS.inst.forEach(function(r) {
+        const bo = (r.turtleDist < 90 && r.price > 0) ? (r.price * (1 + r.turtleDist / 100)) : 0;
+        if (r.rsi >= 80) {
+            r.timing = 'skip'; r.action = 'Overextended (RSI ' + Math.round(r.rsi) + ') — รอย่อ';
+        } else if (r.inzone) {
+            r.timing = 'enter'; r.action = 'IN ZONE ' + cur + r.zoneLow.toFixed(2) + '–' + r.ppPrice.toFixed(2) + ' — เข้าได้';
+        } else if (r.turtleDist <= 0.5 && r.rvol >= 1.5) {
+            r.timing = 'enter'; r.action = 'BREAKOUT + Vol ' + r.rvol.toFixed(1) + 'x — เข้าได้';
+        } else if (r.turtleDist <= 3) {
+            r.timing = 'alert'; r.action = 'จ่อเบรก — ตั้ง alert BO ' + cur + bo.toFixed(2) + (r.rvol < 1.5 ? ' (รอ Vol)' : '');
+        } else if (r.prox <= 10 && r.ppPrice > 0) {
+            r.timing = 'alert'; r.action = 'รอย่อเข้าโซน ' + cur + r.zoneLow.toFixed(2) + '–' + r.ppPrice.toFixed(2);
+        } else {
+            r.timing = 'skip'; r.action = 'ราคาอยู่กลางทาง — ไม่มีจุดเข้าชัด';
+        }
+    });
+    const pass = _tfStateUS.inst.filter(r => r.timing !== 'skip');
+    _tfStateUS.timed = pass;
+    const nEnter = pass.filter(r => r.timing === 'enter').length;
+    _tfChipUS(4, pass.length ? 'done' : 'blocked',
+        _tfStateUS.inst.length + ' → ' + pass.length + ' ตัว <span style="font-weight:400;opacity:0.75;">(เข้าได้ ' + nEnter + ')</span>');
+}
+
+// STEP 5: Rank + trade-plan cards
+function _tfDo5US() {
+    const cur = '$';
+    const list = _tfStateUS.timed.slice();
+    list.forEach(function(r) {
+        r.score = r.stars.length * 25 + (r.timing === 'enter' ? 30 : 15)
+                + Math.min(r.rr || 0, 5) * 6 + r.rs / 10 - (r.rsi >= 75 ? 10 : 0);
+    });
+    list.sort((a, b) => b.score - a.score);
+    const top = list.slice(0, 6);
+    _tfChipUS(5, top.length ? 'done' : 'blocked', top.length ? 'พร้อม ' + top.length + ' ตัว' : 'ไม่มีตัวผ่าน');
+
+    const box = document.getElementById('tfResultUS');
+    if (!box) return;
+    if (!top.length) {
+        box.innerHTML = '<div class="text-center py-3 text-muted small rounded-3" style="background:white;border:1px dashed #e2e8f0;">รอบนี้ไม่มีหุ้นผ่านครบ 5 ขั้น — ตลาดอาจยังไม่ให้จังหวะ กลับมาเช็ครอบ scan ถัดไป</div>';
+        box.style.display = 'block';
+        return;
+    }
+    const blockedNote = _tfStateUS.blocked
+        ? '<div class="small fw-bold text-danger mb-2 p-2 rounded-2" style="background:#fef2f2;border:1px solid #fecaca;"><i class="fas fa-triangle-exclamation me-1"></i> ตลาดขาลง — รายชื่อนี้ใช้เป็น Watchlist เท่านั้น ห้ามเปิดไม้ใหม่</div>'
+        : (_tfStateUS.sizeF === 0.5 ? '<div class="small fw-bold mb-2 p-2 rounded-2" style="background:#fffbeb;border:1px solid #fde68a;color:#b45309;"><i class="fas fa-circle-info me-1"></i> ตลาด Sideways — ใช้ขนาดไม้ครึ่งเดียวของปกติ</div>' : '');
+    let html = blockedNote + '<div class="rounded-3 p-2 px-3" style="background:white;border:1px solid #e2e8f0;">';
+    html += '<div class="small text-muted mb-1" style="font-size:0.68rem;">ผลลัพธ์สุดท้าย — เรียงตามคะแนนรวม (Confluence + จังหวะ + RR + RS)</div>';
+    top.forEach(function(r, i) {
+        const stars = r.stars.map(s => '<span class="tf-star">' + s + ' ✓</span>').join(' ');
+        html += '<div class="tf-res-row">'
+            + '<span class="fw-bold text-muted" style="min-width:18px;font-size:0.75rem;">' + (i + 1) + '</span>'
+            + '<a href="javascript:void(0)" onclick="scrollToRow(&quot;' + r.symbol + '&quot;)" class="badge rounded-pill text-decoration-none fw-bold" style="background:rgba(124,58,237,0.1);color:#7c3aed;font-size:0.75rem;padding:5px 12px;">' + r.symbol + (i === 0 ? ' 🏆' : '') + '</a>'
+            + (stars ? '<span class="d-flex gap-1">' + stars + '</span>' : '')
+            + '<span class="tf-status ' + r.timing + '">' + r.action + '</span>'
+            + '<span class="small text-muted ms-auto" style="font-size:0.68rem;white-space:nowrap;">'
+            + 'PP ' + cur + r.ppPrice.toFixed(2) + ' &middot; SL <span class="text-danger">' + cur + r.sl.toFixed(2) + '</span> &middot; TP <span class="text-primary">' + cur + r.tp.toFixed(2) + '</span> &middot; RR 1:' + (r.rr || 0).toFixed(1)
+            + '</span>'
+            + '<button class="btn btn-sm py-0 px-2 rounded-pill" style="font-size:0.62rem;border:1px solid #e2e8f0;color:#64748b;" onclick="scrollToRow(&quot;' + r.symbol + '&quot;)"><i class="fas fa-arrow-down me-1"></i>ไปที่แถว</button>'
+            + '</div>';
+    });
+    html += '</div>';
+    box.innerHTML = html;
+    box.style.display = 'block';
+}
+
+const _tfFnsUS = [_tfDo1US, _tfDo2US, _tfDo3US, _tfDo4US, _tfDo5US];
+
+function tfNextUS() {
+    if (_tfStepUS >= 5) { tfResetUS(); return; }
+    _tfFnsUS[_tfStepUS]();
+    _tfStepUS++;
+    if (_tfStepUS < 5) _tfMarkUS(_tfStepUS + 1);
+    const btn = document.getElementById('tfNextBtnUS');
+    if (btn) btn.innerHTML = _tfStepUS >= 5
+        ? '<i class="fas fa-rotate-left me-1"></i> เริ่มใหม่'
+        : '<i class="fas fa-forward-step me-1"></i> ทีละขั้น (' + (_tfStepUS + 1) + '/5)';
+}
+
+function tfRunAllUS() {
+    tfResetUS();
+    let i = 0;
+    const t = setInterval(function() {
+        _tfFnsUS[i](); i++; _tfStepUS = i;
+        if (i >= 5) {
+            clearInterval(t);
+            const btn = document.getElementById('tfNextBtnUS');
+            if (btn) btn.innerHTML = '<i class="fas fa-rotate-left me-1"></i> เริ่มใหม่';
+        }
+    }, 220);
+}
+
+function tfResetUS() {
+    _tfStepUS = 0;
+    _tfStateUS = {};
+    for (let i = 1; i <= 5; i++) _tfChipUS(i, '', i === 1 ? 'กด &#9654; เพื่อเริ่ม' : '&mdash;');
+    const box = document.getElementById('tfResultUS');
+    if (box) { box.style.display = 'none'; box.innerHTML = ''; }
+    const btn = document.getElementById('tfNextBtnUS');
+    if (btn) btn.innerHTML = '<i class="fas fa-forward-step me-1"></i> ทีละขั้น (1/5)';
+}
+
 
 // ── Watchlist Toggle Logic (Modal-based) ──────────────────────────────
 let _currentWlBtn = null;
