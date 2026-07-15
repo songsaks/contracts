@@ -35,7 +35,8 @@
                     {% for task in tasks %}
                     <tr>
                         <td class="ps-4">
-                            <div class="fw-bold text-dark">{{ task.title }}</div>
+                            <a href="{% url 'ops:task_detail' task.id %}" class="fw-bold text-dark text-decoration-none text-hover-primary">{{ task.title }}</a>
+                            <br>
                             <small class="text-muted">จากไอเดีย: {{ task.idea.title }}</small>
                         </td>
                         <td>
@@ -102,5 +103,7 @@
     .btn-indigo:hover { background: #4338ca; color: white; }
     .btn-outline-indigo { border-color: #4f46e5; color: #4f46e5; }
     .btn-outline-indigo:hover { background: #4f46e5; color: white; }
+    .text-hover-primary { transition: color 0.15s ease-in-out; }
+    .text-hover-primary:hover { color: #4f46e5 !important; }
 </style>
 {% endblock %}
