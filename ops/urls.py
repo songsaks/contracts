@@ -41,6 +41,9 @@ urlpatterns = [
     path('tasks/update/<int:task_id>/', views.task_update, name='task_update'),
     path('tasks/gantt/', views.task_gantt, name='task_gantt'),
     path('tasks/kanban/', views.task_kanban, name='task_kanban'),
+    path('tasks/<int:task_id>/step/add/', views.task_add_step, name='task_add_step'),
+    path('tasks/step/<int:step_id>/update/', views.task_update_step, name='task_update_step'),
+    path('tasks/step/<int:step_id>/delete/', views.task_delete_step, name='task_delete_step'),
 
     # --- AI Co-workers ---
     path('coworkers/', views.coworker_hub, name='coworker_hub'),

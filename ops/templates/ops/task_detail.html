@@ -44,6 +44,107 @@
 
                         <hr>
 
+                        <!-- ขั้นตอนการทำงาน (Workflow Steps) -->
+                        <div class="d-flex justify-content-between align-items-center mb-3 mt-4">
+                            <h5 class="fw-bold mb-0"><i class="fas fa-route me-2 text-primary"></i> ขั้นตอนการทำงาน (Workflow Steps)</h5>
+                            <button type="button" class="btn btn-sm btn-primary rounded-pill px-3" data-bs-toggle="modal" data-bs-target="#addStepModal">
+                                <i class="fas fa-plus me-1"></i> เพิ่มขั้นตอน
+                            </button>
+                        </div>
+
+                        <!-- Visual Progress Stepper -->
+                        {% if task.steps.all %}
+                        <div class="mb-4 p-3 bg-light rounded-3">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <small class="text-muted fw-bold">ภาพรวมขั้นตอนการทำงาน</small>
+                                <span class="badge bg-primary rounded-pill">{{ task.progress_pct }}% เสร็จสิ้น</span>
+                            </div>
+                            <div class="progress rounded-pill mb-2" style="height: 8px;">
+                                <div class="progress-bar bg-success progress-bar-striped progress-bar-animated" style="width: {{ task.progress_pct }}%"></div>
+                            </div>
+                            <div class="d-flex gap-2 overflow-auto py-1">
+                                {% for step in task.steps.all %}
+                                <div class="text-center p-2 rounded-2 border flex-fill bg-white {% if step.status == 'done' %}border-success bg-success bg-opacity-10{% elif step.status == 'doing' %}border-primary bg-primary bg-opacity-10{% elif step.status == 'blocked' %}border-danger bg-danger bg-opacity-10{% endif %}" style="min-width: 120px;">
+                                    <div class="fw-bold small text-truncate" title="{{ step.title }}">{{ step.title }}</div>
+                                    <span class="badge bg-{% if step.status == 'done' %}success{% elif step.status == 'doing' %}primary{% elif step.status == 'blocked' %}danger{% else %}secondary{% endif %} px-2 py-1 mt-1" style="font-size: 0.6rem;">
+                                        {{ step.get_status_display }}
+                                    </span>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        <div class="mb-4">
+                            {% for step in task.steps.all %}
+                            <div class="card border border-light shadow-sm mb-3 rounded-3 card-hover-subtle">
+                                <div class="card-body p-3">
+                                    <form action="{% url 'ops:task_update_step' step.id %}" method="POST" class="row align-items-center g-2">
+                                        {% csrf_token %}
+                                        
+                                        <!-- Step Title & Info -->
+                                        <div class="col-md-5">
+                                            <div class="d-flex align-items-center gap-2">
+                                                <span class="badge bg-secondary rounded-circle" style="width: 24px; height: 24px; display: inline-flex; align-items: center; justify-content: center; font-size: 0.75rem;">
+                                                    {{ step.order|default:forloop.counter }}
+                                                </span>
+                                                <input type="text" name="title" class="form-control form-control-sm border-0 fw-bold bg-transparent p-0 focus-border-bottom" value="{{ step.title }}" required>
+                                            </div>
+                                            <div class="ms-4 mt-1">
+                                                <input type="text" name="description" class="form-control form-control-xs border-0 text-muted bg-transparent p-0 small focus-border-bottom" value="{{ step.description }}" placeholder="เพิ่มรายละเอียด/หมายเหตุ...">
+                                            </div>
+                                        </div>
+
+                                        <!-- Assignee Selection -->
+                                        <div class="col-md-3">
+                                            <div class="input-group input-group-sm">
+                                                <span class="input-group-text bg-white border-0 text-muted p-0 me-1"><i class="fas fa-user-circle"></i></span>
+                                                <select name="assigned_to" class="form-select form-select-sm border-0 bg-transparent ps-0 select-assignee-inline">
+                                                    <option value="">-- ผู้รับผิดชอบ --</option>
+                                                    {% for u in users %}
+                                                    <option value="{{ u.id }}" {% if step.assigned_to_id == u.id %}selected{% endif %}>
+                                                        {{ u.get_full_name|default:u.username }}
+                                                    </option>
+                                                    {% endfor %}
+                                                </select>
+                                            </div>
+                                        </div>
+
+                                        <!-- Status Selection -->
+                                        <div class="col-md-2">
+                                            <select name="status" class="form-select form-select-sm badge-status bg-light border-0" onchange="this.form.submit()">
+                                                {% for val, display in step.STATUS_CHOICES %}
+                                                <option value="{{ val }}" {% if step.status == val %}selected{% endif %}>{{ display }}</option>
+                                                {% endfor %}
+                                            </select>
+                                        </div>
+
+                                        <!-- Actions -->
+                                        <div class="col-md-2 text-end">
+                                            <button type="submit" class="btn btn-sm btn-outline-success border-0 px-2" title="บันทึกการแก้ไข"><i class="fas fa-save"></i></button>
+                                            <button type="button" class="btn btn-sm btn-outline-danger border-0 px-2" onclick="confirmDeleteStep('{{ step.id }}', '{{ step.title }}')" title="ลบขั้นตอน"><i class="fas fa-trash-alt"></i></button>
+                                        </div>
+                                    </form>
+                                    
+                                    <!-- Delete Step Hidden Form -->
+                                    <form id="delete-step-form-{{ step.id }}" action="{% url 'ops:task_delete_step' step.id %}" method="POST" style="display:none;">
+                                        {% csrf_token %}
+                                    </form>
+                                </div>
+                            </div>
+                            {% empty %}
+                            <div class="text-center py-4 border border-dashed rounded-3 bg-light bg-opacity-50">
+                                <i class="fas fa-route fa-2x text-muted mb-2 opacity-50"></i>
+                                <p class="text-muted small mb-0">ยังไม่มีการกำหนดขั้นตอนการทำงานสำหรับงานนี้</p>
+                                <button type="button" class="btn btn-sm btn-link text-primary mt-2 text-decoration-none" data-bs-toggle="modal" data-bs-target="#addStepModal">
+                                    <i class="fas fa-plus me-1"></i> เริ่มสร้างขั้นตอนแรก
+                                </button>
+                            </div>
+                            {% endfor %}
+                        </div>
+
+                        <hr>
+
                         <!-- งานย่อย (Checklist) -->
                         <h5 class="fw-bold mb-3"><i class="fas fa-tasks me-2 text-primary"></i> งานย่อย (Sub-tasks)</h5>
                         
@@ -75,6 +176,28 @@
                             <button type="submit" class="btn btn-sm btn-primary">เพิ่ม</button>
                         </form>
 
+                        <style>
+                            .card-hover-subtle:hover {
+                                border-color: rgba(59, 130, 246, 0.3) !important;
+                                background-color: rgba(59, 130, 246, 0.01);
+                            }
+                            .focus-border-bottom:focus {
+                                outline: none;
+                                border-bottom: 2px solid #3b82f6 !important;
+                                border-radius: 0;
+                            }
+                            .form-control-xs {
+                                font-size: 0.75rem;
+                                padding: 0.1rem 0;
+                            }
+                            .select-assignee-inline:focus, .badge-status:focus {
+                                outline: none;
+                                box-shadow: none;
+                            }
+                            .border-dashed {
+                                border-style: dashed !important;
+                            }
+                        </style>
                     </div>
 
                     <!-- ฝั่งขวา: Activity & Files -->
@@ -139,4 +262,54 @@
         </div>
     </div>
 </div>
+
+<!-- Add Step Modal -->
+<div class="modal fade" id="addStepModal" tabindex="-1" aria-labelledby="addStepModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content rounded-4 border-0 shadow-lg">
+            <div class="modal-header border-light">
+                <h5 class="modal-title fw-bold" id="addStepModalLabel"><i class="fas fa-route text-primary me-2"></i>เพิ่มขั้นตอนการทำงาน</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form action="{% url 'ops:task_add_step' task.id %}" method="POST">
+                {% csrf_token %}
+                <div class="modal-body p-4">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold text-muted small">ชื่อขั้นตอน</label>
+                        <input type="text" name="title" class="form-control rounded-3 border-light bg-light" placeholder="เช่น ร่างสัญญา, ตรวจสอบเอกสาร, ส่งมอบงาน..." required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold text-muted small">ผู้รับผิดชอบ</label>
+                        <select name="assigned_to" class="form-select rounded-3 border-light bg-light">
+                            <option value="">-- ไม่มอบหมาย / ทุกคน --</option>
+                            {% for u in users %}
+                            <option value="{{ u.id }}">{{ u.get_full_name|default:u.username }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold text-muted small">รายละเอียดขั้นตอน (รายละเอียดเพิ่มเติม)</label>
+                        <textarea name="description" class="form-control rounded-3 border-light bg-light" rows="3" placeholder="ระบุสิ่งที่ต้องทำในขั้นตอนนี้..."></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold text-muted small">ลำดับขั้นตอน (Order)</label>
+                        <input type="number" name="order" class="form-control rounded-3 border-light bg-light" value="{{ task.steps.count|add:1 }}">
+                    </div>
+                </div>
+                <div class="modal-footer border-light">
+                    <button type="button" class="btn btn-light rounded-pill px-4" data-bs-dismiss="modal">ยกเลิก</button>
+                    <button type="submit" class="btn btn-primary rounded-pill px-4">บันทึกขั้นตอน</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+function confirmDeleteStep(stepId, stepTitle) {
+    if (confirm(`คุณต้องการลบขั้นตอน "${stepTitle}" ใช่หรือไม่?`)) {
+        document.getElementById(`delete-step-form-${stepId}`).submit();
+    }
+}
+</script>
 {% endblock %}

@@ -195,6 +195,52 @@ class TaskAttachment(models.Model):
         return f"Attachment for {self.task.title}"
 
 
+class TaskStep(models.Model):
+    STATUS_CHOICES = (
+        ('todo', 'รอดำเนินการ (To Do)'),
+        ('doing', 'กำลังทำ (In Progress)'),
+        ('done', 'เสร็จสิ้น (Done)'),
+        ('blocked', 'ติดปัญหา (Blocked)'),
+    )
+    task = models.ForeignKey(ActionTask, on_delete=models.CASCADE, related_name='steps')
+    title = models.CharField(max_length=200, verbose_name="ชื่อขั้นตอน")
+    assigned_to = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='task_steps', verbose_name="ผู้รับผิดชอบ")
+    status = models.CharField(max_length=15, choices=STATUS_CHOICES, default='todo', verbose_name="สถานะ")
+    description = models.TextField(blank=True, verbose_name="รายละเอียดขั้นตอน")
+    order = models.IntegerField(default=0, verbose_name="ลำดับ")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['order', 'created_at']
+
+    def __str__(self):
+        return f"{self.task.title} - Step: {self.title} ({self.get_status_display()})"
+
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        self.update_task_progress()
+
+    def delete(self, *args, **kwargs):
+        task = self.task
+        super().delete(*args, **kwargs)
+        steps = task.steps.all()
+        if steps.exists():
+            done_steps = steps.filter(status='done').count()
+            task.progress_pct = int((done_steps / steps.count()) * 100)
+        else:
+            task.progress_pct = 0
+        task.save()
+
+    def update_task_progress(self):
+        task = self.task
+        steps = task.steps.all()
+        if steps.exists():
+            done_steps = steps.filter(status='done').count()
+            task.progress_pct = int((done_steps / steps.count()) * 100)
+            task.save()
+
+
+
 class AICoworkerLog(models.Model):
     AGENT_CHOICES = (
         ('marketing', 'Marketing Automation'),

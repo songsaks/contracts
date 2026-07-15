@@ -22,6 +22,7 @@ from .models import (
     ActionTaskChecklist,
     TaskComment,
     TaskAttachment,
+    TaskStep,
 )
 
 
@@ -554,7 +555,68 @@ def task_update(request, task_id):
 @login_required
 def task_detail(request, task_id):
     task = get_object_or_404(ActionTask, id=task_id)
-    return render(request, 'ops/task_detail.html', {'task': task})
+    users = User.objects.all().order_by('username')
+    return render(request, 'ops/task_detail.html', {'task': task, 'users': users})
+
+@login_required
+def task_add_step(request, task_id):
+    if request.method == 'POST':
+        task = get_object_or_404(ActionTask, id=task_id)
+        title = request.POST.get('title')
+        assigned_to_id = request.POST.get('assigned_to')
+        description = request.POST.get('description', '')
+        order = request.POST.get('order', 0)
+        
+        assigned_to = None
+        if assigned_to_id:
+            assigned_to = User.objects.filter(id=assigned_to_id).first()
+            
+        if title:
+            TaskStep.objects.create(
+                task=task,
+                title=title,
+                assigned_to=assigned_to,
+                description=description,
+                order=order or 0
+            )
+            messages.success(request, f"เพิ่มขั้นตอน '{title}' เรียบร้อยแล้ว")
+    return redirect('ops:task_detail', task_id=task_id)
+
+@login_required
+def task_update_step(request, step_id):
+    step = get_object_or_404(TaskStep, id=step_id)
+    if request.method == 'POST':
+        title = request.POST.get('title')
+        assigned_to_id = request.POST.get('assigned_to')
+        status = request.POST.get('status')
+        description = request.POST.get('description', '')
+        order = request.POST.get('order', 0)
+        
+        if title:
+            step.title = title
+        if assigned_to_id:
+            step.assigned_to = User.objects.filter(id=assigned_to_id).first()
+        else:
+            step.assigned_to = None
+            
+        if status:
+            step.status = status
+            
+        step.description = description
+        step.order = order or 0
+        step.save()
+        messages.success(request, f"อัปเดตขั้นตอน '{step.title}' เรียบร้อยแล้ว")
+    return redirect('ops:task_detail', task_id=step.task.id)
+
+@login_required
+def task_delete_step(request, step_id):
+    step = get_object_or_404(TaskStep, id=step_id)
+    task_id = step.task.id
+    if request.method == 'POST':
+        title = step.title
+        step.delete()
+        messages.success(request, f"ลบขั้นตอน '{title}' เรียบร้อยแล้ว")
+    return redirect('ops:task_detail', task_id=task_id)
 
 @login_required
 def task_add_comment(request, task_id):
