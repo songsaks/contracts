@@ -40,10 +40,17 @@
                         </td>
                         <td>
                             <div class="d-flex align-items-center">
+                                {% if task.assigned_to %}
                                 <div class="avatar-xs rounded-circle bg-light text-primary text-center fw-bold me-2" style="width:25px; height:25px; line-height:25px; font-size: 0.7rem;">
                                     {{ task.assigned_to.username|make_list|first|upper }}
                                 </div>
                                 <span class="small">{{ task.assigned_to.get_full_name|default:task.assigned_to.username }}</span>
+                                {% else %}
+                                <div class="avatar-xs rounded-circle bg-light text-muted text-center fw-bold me-2" style="width:25px; height:25px; line-height:25px; font-size: 0.7rem;">
+                                    -
+                                </div>
+                                <span class="small text-muted">ยังไม่ระบุ</span>
+                                {% endif %}
                             </div>
                         </td>
                         <td>

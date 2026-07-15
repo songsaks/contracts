@@ -29,7 +29,7 @@
 
                         <div class="row mb-4 text-muted small">
                             <div class="col-sm-6 mb-2">
-                                <i class="fas fa-user-circle me-2"></i> ผู้รับผิดชอบ: <strong>{{ task.assigned_to.get_full_name|default:task.assigned_to.username|default:"-ยังไม่ระบุ-" }}</strong>
+                                <i class="fas fa-user-circle me-2"></i> ผู้รับผิดชอบ: <strong>{% if task.assigned_to %}{{ task.assigned_to.get_full_name|default:task.assigned_to.username }}{% else %}-ยังไม่ระบุ-{% endif %}</strong>
                             </div>
                             <div class="col-sm-6 mb-2">
                                 <i class="far fa-calendar-check me-2"></i> วันที่ครบกำหนด: <strong>{{ task.due_date }}</strong>
