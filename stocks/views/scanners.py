@@ -2003,9 +2003,12 @@ def precision_momentum_scanner(request):
                                     _max_down_vol = float(_prior_v[_down_mask].max())
                                     if float(volumes[_i]) > _max_down_vol and _max_down_vol > 0:
                                         pocket_pivot_flag = True
-                                        # PP-at-MA50: ราคาวันที่เกิดสัญญาณต้องอยู่เหนือ SMA50
-                                        # และไม่ห่างเกิน 8% (เด้งจากแนวรับในฐาน ไม่ใช่ไล่ราคา)
-                                        if ma50_val > 0:
+                                        # PP-at-MA50 (⭐): ต้องครบ 3 เงื่อนไข —
+                                        #   1) ราคายืนเหนือ SMA50 ไม่เกิน 8% (เด้งจากแนวรับในฐาน)
+                                        #   2) CMF ≥ 0 (เงินสถาบันไม่ได้กำลังกระจายของ)
+                                        # ป้องกันดาวหลอกกรณีเด้ง 1 วันในเฟส distribution
+                                        _pp_cmf = tech.get('cmf', 0.0) or 0.0
+                                        if ma50_val > 0 and _pp_cmf >= 0:
                                             _pp_close = float(closes[_i])
                                             if _pp_close >= ma50_val and (_pp_close - ma50_val) / ma50_val <= 0.08:
                                                 pp_at_ma50_flag = True
@@ -4737,7 +4740,10 @@ def us_precision_scanner(request):
                                     _max_down_vol = float(_prior_v[_down_mask].max())
                                     if float(volumes[_i]) > _max_down_vol and _max_down_vol > 0:
                                         pocket_pivot_flag = True
-                                        if ma50_val > 0:
+                                        # PP-at-MA50 (⭐): ยืนเหนือ SMA50 ไม่เกิน 8% + CMF ≥ 0
+                                        # (กันดาวหลอกกรณีเด้ง 1 วันในเฟส distribution)
+                                        _pp_cmf = tech.get('cmf', 0.0) or 0.0
+                                        if ma50_val > 0 and _pp_cmf >= 0:
                                             _pp_close = float(closes[_i])
                                             if _pp_close >= ma50_val and (_pp_close - ma50_val) / ma50_val <= 0.08:
                                                 pp_at_ma50_flag = True
