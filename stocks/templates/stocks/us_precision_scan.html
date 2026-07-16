@@ -1492,6 +1492,7 @@
                 <button type="button" id="preset-high_momentum" class="btn btn-sm btn-outline-danger rounded-pill py-0 px-2 preset-btn" style="font-size: 0.7rem; font-weight: 600;" onclick="applyPreset('high_momentum')">4. 🚅 High Momentum</button>
                 <button type="button" id="preset-safety" class="btn btn-sm btn-outline-warning rounded-pill py-0 px-2 preset-btn" style="font-size: 0.7rem; font-weight: 600;" onclick="applyPreset('safety')">5. 🛡️ Safety First</button>
                 <button type="button" id="preset-fast_swing" class="btn btn-sm btn-outline-pink rounded-pill py-0 px-2 preset-btn" style="font-size: 0.7rem; font-weight: 600; color: #ec4899; border-color: #ec4899;" onclick="applyPreset('fast_swing')">6. ⚡ Fast Day/Swing</button>
+                <button type="button" id="preset-pullback" class="btn btn-sm rounded-pill py-0 px-2 preset-btn" style="font-size: 0.7rem; font-weight: 700; background:#059669; color:white; border:none;" title="S2 + CMF+ + VCP + ซื้อได้ตอนนี้ — หุ้นฐานแน่นที่ย่อมาให้เข้า" onclick="applyPreset('pullback')">7. 🎯 ซื้อตอนย่อ</button>
                 <button type="button" id="preset-clear" class="btn btn-sm btn-outline-secondary rounded-pill py-0 px-2 preset-btn" style="font-size: 0.7rem; font-weight: 600;" onclick="applyPreset('clear')">Clear All</button>
             </div>
 
@@ -3121,6 +3122,11 @@ function applyPreset(presetType) {
     } else if (presetType === 'fast_swing') {
         if (stage2) stage2.checked = true;
         if (buynow) buynow.checked = true;
+    } else if (presetType === 'pullback') {
+        if (stage2)  stage2.checked  = true;
+        if (cmfPos)  cmfPos.checked  = true;
+        if (vcp)     vcp.checked     = true;
+        if (buyable) buyable.checked = true;
     }
 
     // Update active button visual states
@@ -3311,7 +3317,7 @@ function _restoreFilterStateUS() {
 // ── Preset match counts on buttons ────────────────────────────────────
 function _updatePresetCountsUS() {
     var rows = document.querySelectorAll('#scanTableUS tbody tr');
-    var counts = { super: 0, launcher_breakout: 0, base: 0, high_momentum: 0, safety: 0, fast_swing: 0 };
+    var counts = { super: 0, launcher_breakout: 0, base: 0, high_momentum: 0, safety: 0, fast_swing: 0, pullback: 0 };
     rows.forEach(function(row) {
         var d = row.dataset;
         var s2 = d.stage2 === 'true';
@@ -3331,6 +3337,12 @@ function _updatePresetCountsUS() {
         var rvol = parseFloat(d.rvol || '0');
         var turtleDist = parseFloat(d.turtleDist || '99.0');
         var buyNow = rvol >= 1.5 && turtleDist <= 0.5;
+        var inzone = d.inzone === 'true';
+        var prox = parseFloat(d.prox || '99');
+        var price = parseFloat(d.price || '0');
+        var ma50 = parseFloat(d.ma50 || '0');
+        var nearMa50 = ma50 > 0 && price >= ma50 && (price - ma50) / ma50 <= 0.05;
+        var buyable = s2 && (inzone || prox <= 5 || nearMa50 || turtleDist <= 1.0) && rsi <= 68 && cmf >= 0;
 
         if (s2 && pp && cmf >= 0.1 && vcp && canslim && accPos) counts.super++;
         if (s2 && launcher >= 70 && vcp && insideBar)           counts.launcher_breakout++;
@@ -3338,6 +3350,7 @@ function _updatePresetCountsUS() {
         if (s2 && vsrg && ichi >= 3 && cmf >= 0.1)              counts.high_momentum++;
         if (rsi < 70 && s2 && itl && buyNow)                    counts.safety++;
         if (s2 && buyNow)                                       counts.fast_swing++;
+        if (s2 && cmf >= 0.1 && vcp && buyable)                 counts.pullback++;
     });
     Object.keys(counts).forEach(function(k) {
         var btn = document.getElementById('preset-' + k);
@@ -3641,6 +3654,21 @@ document.addEventListener('DOMContentLoaded', function() {
     _restoreFilterStateUS();
     _updatePresetCountsUS();
     _applyFiltersUS();
+
+    // ── Mutual exclusion: "ซื้อได้ตอนนี้" ตัดกับสัญญาณโมเมนตัม ──
+    var _buyable = document.getElementById('buyableFilterUS');
+    var _momIds  = ['ppFilterUS','volSurgeFilterUS','launcherFilterUS','buynowFilterUS'];
+    var _moms    = _momIds.map(function(id){return document.getElementById(id);}).filter(Boolean);
+    if (_buyable) {
+        _buyable.addEventListener('change', function() {
+            if (_buyable.checked) { _moms.forEach(function(m){m.checked=false;}); _applyFiltersUS(); }
+        });
+        _moms.forEach(function(m) {
+            m.addEventListener('change', function() {
+                if (m.checked && _buyable.checked) { _buyable.checked=false; _applyFiltersUS(); }
+            });
+        });
+    }
 });
 
 // ── Background scan polling ───────────────────────────────────────────
