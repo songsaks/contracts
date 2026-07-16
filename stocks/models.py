@@ -368,6 +368,9 @@ class PrecisionScanCandidate(models.Model):
 
     # ====== Institutional Footprint (v6) ======
     pocket_pivot     = models.BooleanField(default=False)         # Pocket Pivot: up-day vol > max down-day vol in prior 10 sessions
+    pp_at_ma50       = models.BooleanField(default=False)         # PP แท้ตามตำรา Dr.K: เกิดขณะราคายืนเหนือ SMA50 ไม่เกิน 8% (เด้งจากแนวรับในฐาน)
+    ma10             = models.FloatField(default=0.0)             # SMA 10 วัน — trailing stop สายสั้น (Kacher/Morales)
+    ma50             = models.FloatField(default=0.0)             # SMA 50 วัน — trailing stop / จุดขายหลักตามตำรา
     vdu_near_zone    = models.BooleanField(default=False)         # Volume Dry-Up: volume declining 3d + below 70% avg (quiet accumulation)
 
     # ====== Money Flow & Breakout (v7) ======

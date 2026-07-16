@@ -1971,7 +1971,18 @@ def precision_momentum_scanner(request):
 
                         # ====== Pocket Pivot (Morales & Kacher) ======
                         # Up-day volume > highest down-day volume in prior 10 sessions
+                        # ====== Moving averages for Kacher/Morales exit rule (SMA10/SMA50) ======
+                        ma10_val = ma50_val = 0.0
+                        try:
+                            _sma10 = ta.sma(df['Close'], length=10)
+                            _sma50 = ta.sma(df['Close'], length=50)
+                            if _sma10 is not None and pd.notna(_sma10.iloc[-1]): ma10_val = float(_sma10.iloc[-1])
+                            if _sma50 is not None and pd.notna(_sma50.iloc[-1]): ma50_val = float(_sma50.iloc[-1])
+                        except Exception:
+                            pass
+
                         pocket_pivot_flag = False
+                        pp_at_ma50_flag = False   # PP แท้ตามตำรา Dr.K: เด้งจากแนวรับ SMA50 ในฐาน
                         try:
                             if len(df) >= 14:
                                 closes = df['Close'].values
@@ -1992,6 +2003,12 @@ def precision_momentum_scanner(request):
                                     _max_down_vol = float(_prior_v[_down_mask].max())
                                     if float(volumes[_i]) > _max_down_vol and _max_down_vol > 0:
                                         pocket_pivot_flag = True
+                                        # PP-at-MA50: ราคาวันที่เกิดสัญญาณต้องอยู่เหนือ SMA50
+                                        # และไม่ห่างเกิน 8% (เด้งจากแนวรับในฐาน ไม่ใช่ไล่ราคา)
+                                        if ma50_val > 0:
+                                            _pp_close = float(closes[_i])
+                                            if _pp_close >= ma50_val and (_pp_close - ma50_val) / ma50_val <= 0.08:
+                                                pp_at_ma50_flag = True
                                         break
                         except Exception:
                             pass
@@ -2102,6 +2119,9 @@ def precision_momentum_scanner(request):
                             'rs_rating': rs_ratings_map.get(symbol, 0),
                             'stage2': stage2_flag,
                             'pocket_pivot': pocket_pivot_flag,
+                            'pp_at_ma50': pp_at_ma50_flag,
+                            'ma10': round(ma10_val, 2),
+                            'ma50': round(ma50_val, 2),
                             'vdu_near_zone': vdu_flag,
                             'cmf': tech.get('cmf', 0.0),
                             'is_52w_breakout': tech.get('is_52w_breakout', False),
@@ -2237,6 +2257,9 @@ def precision_momentum_scanner(request):
                             hh_hl_structure=r.get('hh_hl_structure', False),
                             stage2=r.get('stage2', False),
                             pocket_pivot=r.get('pocket_pivot', False),
+                            pp_at_ma50=r.get('pp_at_ma50', False),
+                            ma10=r.get('ma10', 0.0),
+                            ma50=r.get('ma50', 0.0),
                             vdu_near_zone=r.get('vdu_near_zone', False),
                             cmf=r.get('cmf', None),
                             is_52w_breakout=r.get('is_52w_breakout', False),
@@ -4685,8 +4708,18 @@ def us_precision_scanner(request):
                                     stage2_flag = (current_p > sma150_cur) and (sma150_cur > sma150_4w)
                         except: pass
 
+                        # Moving averages for Kacher/Morales exit rule (SMA10/SMA50)
+                        ma10_val = ma50_val = 0.0
+                        try:
+                            _sma10 = ta.sma(df['Close'], length=10)
+                            _sma50 = ta.sma(df['Close'], length=50)
+                            if _sma10 is not None and pd.notna(_sma10.iloc[-1]): ma10_val = float(_sma10.iloc[-1])
+                            if _sma50 is not None and pd.notna(_sma50.iloc[-1]): ma50_val = float(_sma50.iloc[-1])
+                        except: pass
+
                         # Pocket Pivot
                         pocket_pivot_flag = False
+                        pp_at_ma50_flag = False
                         try:
                             if len(df) >= 14:
                                 closes = df['Close'].values
@@ -4703,7 +4736,12 @@ def us_precision_scanner(request):
                                     if not _down_mask.any(): continue
                                     _max_down_vol = float(_prior_v[_down_mask].max())
                                     if float(volumes[_i]) > _max_down_vol and _max_down_vol > 0:
-                                        pocket_pivot_flag = True; break
+                                        pocket_pivot_flag = True
+                                        if ma50_val > 0:
+                                            _pp_close = float(closes[_i])
+                                            if _pp_close >= ma50_val and (_pp_close - ma50_val) / ma50_val <= 0.08:
+                                                pp_at_ma50_flag = True
+                                        break
                         except: pass
 
                         # Volume Dry-Up (VDU)
@@ -4773,6 +4811,9 @@ def us_precision_scanner(request):
                             'ema20_slope': tech.get('ema20_slope', 0.0),
                             'hh_hl_structure': tech.get('hh_hl_structure', False),
                             'pocket_pivot': pocket_pivot_flag,
+                            'pp_at_ma50': pp_at_ma50_flag,
+                            'ma10': round(ma10_val, 2),
+                            'ma50': round(ma50_val, 2),
                             'vdu_near_zone': vdu_flag,
                             'cmf': tech.get('cmf', 0.0),
                             'is_52w_breakout': tech.get('is_52w_breakout', False),
@@ -4857,6 +4898,9 @@ def us_precision_scanner(request):
                             ema20_aligned=r['ema20_aligned'], ema20_slope=r.get('ema20_slope', 0.0), ema20_rising=r['ema20_rising'],
                             hh_hl_structure=r['hh_hl_structure'], stage2=r['stage2'],
                             pocket_pivot=r.get('pocket_pivot', False),
+                            pp_at_ma50=r.get('pp_at_ma50', False),
+                            ma10=r.get('ma10', 0.0),
+                            ma50=r.get('ma50', 0.0),
                             vdu_near_zone=r.get('vdu_near_zone', False),
                             cmf=r.get('cmf', None),
                             is_52w_breakout=r.get('is_52w_breakout', False),

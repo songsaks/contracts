@@ -1690,7 +1690,11 @@
                                         <span class="badge px-1 py-0" style="background:#16a34a;font-size:0.55rem;" title="Weinstein Stage 2 — อยู่เหนือ SMA150 ที่กำลังชี้ขึ้น">S2</span>
                                         {% endif %}
                                         {% if item.pocket_pivot %}
-                                        <span class="badge px-1 py-0 shadow-sm" style="background: linear-gradient(135deg, #8E2DE2 0%, #4A00E0 100%); color: white; border: 1px solid rgba(255,255,255,0.2); font-size: 0.6rem; border-radius: 4px; font-weight: bold; letter-spacing: 0.5px;" title="Pocket Pivot: volume วันขาขึ้น > max volume วันขาลง 10 วันก่อน">PK <i class="fas fa-bolt ms-1" style="font-size:0.5rem;"></i></span>
+                                        {% if item.pp_at_ma50 %}
+                                        <span class="badge px-1 py-0 shadow-sm" style="background: linear-gradient(135deg, #8E2DE2 0%, #4A00E0 100%); color: white; border: 1px solid #fbbf24; font-size: 0.6rem; border-radius: 4px; font-weight: bold; letter-spacing: 0.5px;" title="Pocket Pivot แท้ (Dr.K): เกิดขณะราคาเด้งจากแนวรับ SMA50 ในฐาน — คุณภาพสูงสุด">PK<i class="fas fa-star ms-1" style="font-size:0.5rem;color:#fbbf24;"></i></span>
+                                        {% else %}
+                                        <span class="badge px-1 py-0 shadow-sm" style="background: linear-gradient(135deg, #8E2DE2 0%, #4A00E0 100%); color: white; border: 1px solid rgba(255,255,255,0.2); font-size: 0.6rem; border-radius: 4px; font-weight: bold; letter-spacing: 0.5px;" title="Pocket Pivot: volume วันขาขึ้น > max volume วันขาลง 10 วันก่อน (ยังไม่ยืน SMA50)">PK <i class="fas fa-bolt ms-1" style="font-size:0.5rem;"></i></span>
+                                        {% endif %}
                                         {% endif %}
                                         {% if item.vdu_near_zone %}
                                         <span class="badge px-1 py-0" style="background:#7c3aed;color:white;font-size:0.55rem;" title="Volume Dry-Up: volume ลด 3 วันติด + เงียบกว่า avg — สัญญาณ Accumulation">VDU</span>
@@ -2192,6 +2196,12 @@
                                         <i class="fas fa-bullseye"></i> รอที่: <b>{{ item.demand_zone_end|floatformat:2 }}-{{ item.demand_zone_start|floatformat:2 }} <span class="text-success" style="font-size:0.72rem;">(PP)</span></b><br>
                                         <i class="fas fa-shield-alt"></i> หนีที่: <b class="text-danger">{{ item.stop_loss|floatformat:2 }}</b>
                                     </div>
+                                    {% if item.ma50 > 0 %}
+                                    <div style="font-size:0.68rem;color:#7c3aed;border-top:1px dashed #e2e8f0;margin-top:3px;padding-top:3px;" title="กฎขายตามตำรา Dr.K / Kacher-Morales: หลังซื้อจาก Pocket Pivot ให้ถือตราบใดที่ราคายืนเหนือเส้นค่าเฉลี่ย — ปิดต่ำกว่า SMA50 = ขายทำกำไร (สายสั้นใช้ SMA10)">
+                                        <i class="fas fa-wave-square"></i> ขายเมื่อหลุด: <b>MA50 {{ item.ma50|floatformat:2 }}</b>{% if item.ma10 > 0 %} <span class="text-muted">/ MA10 {{ item.ma10|floatformat:2 }}</span>{% endif %}
+                                        {% if item.price < item.ma50 %}<span class="badge ms-1" style="background:rgba(220,38,38,0.12);color:#dc2626;font-size:0.55rem;">หลุดแล้ว</span>{% endif %}
+                                    </div>
+                                    {% endif %}
                                 {% else %}
                                     <span class="text-muted italic">คะแนนรอยืนยันเทรนด์...</span>
                                 {% endif %}
