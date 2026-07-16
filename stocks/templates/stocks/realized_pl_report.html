@@ -75,32 +75,47 @@
                     </div>
                     {% endif %}
                     <thead class="bg-light bg-opacity-50">
-                        <tr class="small text-muted text-uppercase">
+                        <tr class="small text-muted text-uppercase" style="font-size: 0.75rem;">
                             <th>ช่วงเวลา</th>
                             <th class="text-center">จำนวนขาย</th>
-                            <th class="text-end">กำไร/ขาดทุน (฿)</th>
+                            <th class="text-end">ค่าคอมฯ+VAT (฿)</th>
+                            <th class="text-end">กำไรสุทธิ (฿)</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for entry in summary_list %}
-                        <tr>
+                        <tr style="font-size: 0.85rem;">
                             <td class="fw-bold">{{ entry.period }}</td>
                             <td class="text-center">{{ entry.count }}</td>
-                            <td class="text-end fw-bold {% if entry.total_pl_thb > 0 %}text-success{% elif entry.total_pl_thb < 0 %}text-danger{% endif %} text-nowrap">
-                                {% if entry.total_pl_thb > 0 %}+{% endif %}฿{{ entry.total_pl_thb|floatformat:2|intcomma }}
+                            <td class="text-end text-muted">
+                                {% if entry.total_commission_fee > 0 %}
+                                ฿{{ entry.total_commission_fee|floatformat:2|intcomma }}
+                                {% else %}-{% endif %}
+                            </td>
+                            <td class="text-end fw-bold {% if entry.net_pl_thb > 0 %}text-success{% elif entry.net_pl_thb < 0 %}text-danger{% endif %} text-nowrap">
+                                {% if entry.net_pl_thb > 0 %}+{% endif %}฿{{ entry.net_pl_thb|floatformat:2|intcomma }}
+                                {% if entry.total_commission_fee > 0 %}
+                                <div class="text-muted fw-normal" style="font-size: 0.65rem;" title="กำไรขั้นต้นก่อนหักค่าคอมฯ">
+                                    (ก่อนหัก: ฿{{ entry.total_pl_thb|floatformat:2|intcomma }})
+                                </div>
+                                {% endif %}
                             </td>
                         </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="3" class="text-center py-4 text-muted">ไม่พบข้อมูล</td>
+                            <td colspan="4" class="text-center py-4 text-muted">ไม่พบข้อมูล</td>
                         </tr>
                         {% endfor %}
                         {% if summary_list %}
-                        <tr style="border-top:2px solid #e2e8f0;background:#f8fafc;">
+                        <tr style="border-top:2px solid #e2e8f0;background:#f8fafc; font-size: 0.85rem;">
                             <td class="fw-bold text-dark">รวมทั้งหมด</td>
                             <td></td>
-                            <td class="text-end fw-black text-nowrap {% if total_pl_thb > 0 %}text-success{% elif total_pl_thb < 0 %}text-danger{% endif %}">
-                                {% if total_pl_thb > 0 %}+{% endif %}฿{{ total_pl_thb|floatformat:2|intcomma }}
+                            <td class="text-end text-muted fw-bold">฿{{ total_fee|floatformat:2|intcomma }}</td>
+                            <td class="text-end fw-black text-nowrap {% if total_net_pl_thb > 0 %}text-success{% elif total_net_pl_thb < 0 %}text-danger{% endif %}">
+                                {% if total_net_pl_thb > 0 %}+{% endif %}฿{{ total_net_pl_thb|floatformat:2|intcomma }}
+                                <div class="text-muted fw-normal" style="font-size: 0.65rem;" title="กำไรรวมก่อนหักค่าคอมฯ">
+                                    (ก่อนหัก: ฿{{ total_pl_thb|floatformat:2|intcomma }})
+                                </div>
                             </td>
                         </tr>
                         {% endif %}

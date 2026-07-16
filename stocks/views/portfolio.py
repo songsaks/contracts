@@ -1242,7 +1242,46 @@ def realized_pl_report(request):
             date_key = s.sold_at.date()
             thai_daily_trades[date_key] += s.trade_value_thb
 
-    summary_dict = defaultdict(lambda: {'items': [], 'total_pl': 0, 'total_pl_thb': 0})
+    # Calculate daily commission details for Asia Plus first
+    daily_comm_list = []
+    total_thai_trade_value = 0.0
+    total_commission = 0.0
+    total_vat = 0.0
+    total_fee = 0.0
+    daily_fees_map = {} # Map date -> total fee
+    
+    for date_key in sorted(thai_daily_trades.keys(), reverse=True):
+        trade_val = thai_daily_trades[date_key]
+        raw_comm = trade_val * 0.00157
+        is_minimum = False
+        if trade_val > 0:
+            if raw_comm < 50.0:
+                comm = 50.0
+                is_minimum = True
+            else:
+                comm = raw_comm
+        else:
+            comm = 0.0
+            
+        vat = comm * 0.07
+        fee_total = comm + vat
+        
+        daily_fees_map[date_key] = fee_total
+        
+        daily_comm_list.append({
+            'date': date_key,
+            'trade_value': trade_val,
+            'commission': comm,
+            'is_minimum': is_minimum,
+            'vat': vat,
+            'total_fee': fee_total
+        })
+        total_thai_trade_value += trade_val
+        total_commission += comm
+        total_vat += vat
+        total_fee += fee_total
+
+    summary_dict = defaultdict(lambda: {'items': [], 'total_pl': 0, 'total_pl_thb': 0, 'total_commission_fee': 0})
     chart_labels = []
     chart_data = []
     running_pl = 0
@@ -1263,51 +1302,29 @@ def realized_pl_report(request):
         chart_labels.append(s.sold_at.strftime('%Y-%m-%d %H:%M'))
         chart_data.append(round(running_pl, 2))
 
+    # Add daily fees to period summaries
+    for date_key, fee in daily_fees_map.items():
+        if group_by == 'day':
+            key = date_key.strftime('%Y-%m-%d')
+        elif group_by == 'year':
+            key = date_key.strftime('%Y')
+        else:
+            key = date_key.strftime('%Y-%m')
+        if key in summary_dict:
+            summary_dict[key]['total_commission_fee'] += fee
+
     summary_list = []
     for k in sorted(summary_dict.keys(), reverse=True):
+        comm_fee = summary_dict[k]['total_commission_fee']
         summary_list.append({
             'period': k,
             'items': summary_dict[k]['items'],
             'total_pl': summary_dict[k]['total_pl'],
             'total_pl_thb': summary_dict[k]['total_pl_thb'],
+            'total_commission_fee': comm_fee,
+            'net_pl_thb': summary_dict[k]['total_pl_thb'] - comm_fee,
             'count': len(summary_dict[k]['items'])
         })
-
-    # Calculate daily commission details for Asia Plus
-    daily_comm_list = []
-    total_thai_trade_value = 0.0
-    total_commission = 0.0
-    total_vat = 0.0
-    total_fee = 0.0
-    
-    for date_key in sorted(thai_daily_trades.keys(), reverse=True):
-        trade_val = thai_daily_trades[date_key]
-        raw_comm = trade_val * 0.00157
-        is_minimum = False
-        if trade_val > 0:
-            if raw_comm < 50.0:
-                comm = 50.0
-                is_minimum = True
-            else:
-                comm = raw_comm
-        else:
-            comm = 0.0
-            
-        vat = comm * 0.07
-        fee_total = comm + vat
-        
-        daily_comm_list.append({
-            'date': date_key,
-            'trade_value': trade_val,
-            'commission': comm,
-            'is_minimum': is_minimum,
-            'vat': vat,
-            'total_fee': fee_total
-        })
-        total_thai_trade_value += trade_val
-        total_commission += comm
-        total_vat += vat
-        total_fee += fee_total
 
     context = {
         'summary_list': summary_list,
@@ -1322,6 +1339,7 @@ def realized_pl_report(request):
         'title': 'Realized P/L Report',
         'usd_thb': round(usd_thb, 2),
         'total_pl_thb': sum(s.pl_thb for s in sold_stocks),
+        'total_net_pl_thb': sum(s.pl_thb for s in sold_stocks) - total_fee,
         'daily_comm_list': daily_comm_list,
         'total_thai_trade_value': total_thai_trade_value,
         'total_commission': total_commission,
