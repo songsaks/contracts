@@ -18,14 +18,23 @@
 
             <form method="GET" class="row g-3 align-items-end">
                 <div class="col-md-3">
+                    <label class="form-label small text-muted">เลือกเดือน (ด่วน)</label>
+                    <select name="month_select" class="form-select rounded-3" onchange="this.form.submit()">
+                        <option value="">-- กรองรายเดือน --</option>
+                        {% for m in available_months %}
+                        <option value="{{ m }}" {% if month_select == m %}selected{% endif %}>{{ m }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2">
                     <label class="form-label small text-muted">เริ่มวันที่</label>
                     <input type="date" name="start_date" class="form-control rounded-3" value="{{ start_date }}">
                 </div>
-                <div class="col-md-3">
+                <div class="col-md-2">
                     <label class="form-label small text-muted">ถึงวันที่</label>
                     <input type="date" name="end_date" class="form-control rounded-3" value="{{ end_date }}">
                 </div>
-                <div class="col-md-3">
+                <div class="col-md-2">
                     <label class="form-label small text-muted">รูปแบบกลุ่ม (Group by)</label>
                     <select name="group_by" class="form-select rounded-3">
                         <option value="day" {% if group_by == 'day' %}selected{% endif %}>รายวัน (Daily)</option>
@@ -99,6 +108,61 @@
                 </table>
             </div>
         </div>
+
+        <!-- Asia Plus Commission Calculator Card -->
+        <div class="card-premium p-4 border-0 mb-4 bg-white shadow-sm mt-4">
+            <h5 class="fw-bold mb-2 text-dark"><i class="fas fa-calculator me-2 text-success"></i> ค่าคอมมิชชัน บล.เอเซีย พลัส (หุ้นไทย)</h5>
+            <p class="text-muted small mb-3">คำนวณที่ 0.157% ของมูลค่าซื้อขายรวมของวัน, ขั้นต่ำ 50 บาท/วัน + VAT 7%</p>
+            
+            <div class="p-3 bg-light rounded-3 mb-4">
+                <div class="row text-center">
+                    <div class="col-6 border-end py-1">
+                        <div class="extra-small text-muted text-uppercase" style="font-size: 0.68rem;">มูลค่าซื้อขายรวม</div>
+                        <div class="fs-6 fw-bold text-dark">฿{{ total_thai_trade_value|floatformat:2|intcomma }}</div>
+                    </div>
+                    <div class="col-6 py-1">
+                        <div class="extra-small text-muted text-uppercase" style="font-size: 0.68rem;">ค่าคอมฯ + VAT รวม</div>
+                        <div class="fs-6 fw-bold text-success">฿{{ total_fee|floatformat:2|intcomma }}</div>
+                    </div>
+                </div>
+                <div class="mt-2 pt-2 border-top extra-small text-muted text-center" style="font-size: 0.65rem;">
+                    (ค่าคอมฯ ฿{{ total_commission|floatformat:2|intcomma }} | VAT 7% ฿{{ total_vat|floatformat:2|intcomma }})
+                </div>
+            </div>
+
+            <h6 class="fw-bold mb-3 small text-muted text-uppercase"><i class="fas fa-list me-1"></i> รายละเอียดรายวัน</h6>
+            <div class="table-responsive" style="max-height: 250px; overflow-y: auto;">
+                <table class="table table-sm table-hover align-middle mb-0" style="font-size: 0.8rem;">
+                    <thead class="bg-light sticky-top">
+                        <tr class="extra-small text-muted text-uppercase" style="font-size: 0.7rem;">
+                            <th>วันที่</th>
+                            <th class="text-end">มูลค่าซื้อขาย</th>
+                            <th class="text-end">ค่าคอมฯ</th>
+                            <th class="text-end">รวม + VAT</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in daily_comm_list %}
+                        <tr>
+                            <td class="fw-bold">{{ item.date|date:"d M Y" }}</td>
+                            <td class="text-end">฿{{ item.trade_value|floatformat:2|intcomma }}</td>
+                            <td class="text-end text-nowrap">
+                                ฿{{ item.commission|floatformat:2|intcomma }}
+                                {% if item.is_minimum %}
+                                <span class="badge bg-warning text-dark" style="font-size:0.55rem; padding:0.15rem 0.25rem;" title="คิดขั้นต่ำ 50 บาท/วัน">Min</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-end fw-bold">฿{{ item.total_fee|floatformat:2|intcomma }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="4" class="text-center py-3 text-muted">ไม่มีการซื้อขายหุ้นไทยในช่วงนี้</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
     </div>
 
     <!-- Detailed List -->
@@ -115,6 +179,7 @@
                             <th class="text-end">จำนวน</th>
                             <th class="text-end">ร.ทุน</th>
                             <th class="text-end">ร.ขาย</th>
+                            <th class="text-end">มูลค่าซื้อขาย (฿)</th>
                             <th class="text-end">กำไร/ขาดทุน (฿)</th>
                         </tr>
                     </thead>
@@ -130,6 +195,7 @@
                             <td class="text-end">{{ s.quantity|floatformat:0|intcomma }}</td>
                             <td class="text-end text-muted">{% if s.is_us %}${% else %}฿{% endif %}{{ s.buy_price|floatformat:2|intcomma }}</td>
                             <td class="text-end fw-bold">{% if s.is_us %}${% else %}฿{% endif %}{{ s.sell_price|floatformat:2|intcomma }}</td>
+                            <td class="text-end text-nowrap text-secondary">฿{{ s.trade_value_thb|floatformat:2|intcomma }}</td>
                             <td class="text-end fw-bold {% if s.pl_thb > 0 %}text-success{% elif s.pl_thb < 0 %}text-danger{% endif %} text-nowrap">
                                 {% if s.pl_thb > 0 %}+{% endif %}฿{{ s.pl_thb|floatformat:2|intcomma }}
                                 {% if s.is_us %}
@@ -144,7 +210,7 @@
                         </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="5" class="text-center py-4 text-muted">ไม่พบประวัติการขายในช่วงนี้</td>
+                            <td colspan="8" class="text-center py-4 text-muted">ไม่พบประวัติการขายในช่วงนี้</td>
                         </tr>
                         {% endfor %}
                     </tbody>

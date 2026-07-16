@@ -1181,8 +1181,25 @@ def realized_pl_report(request):
 
     usd_thb = _get_usd_thb()
 
+    # Get available months from history for dropdown
+    all_history = SoldStock.objects.filter(user=request.user).order_by('-sold_at')
+    available_months = sorted(list(set(s.sold_at.strftime('%Y-%m') for s in all_history)), reverse=True)
+
+    month_select = request.GET.get('month_select')
     start_date = request.GET.get('start_date')
     end_date = request.GET.get('end_date')
+
+    if month_select:
+        import calendar
+        from datetime import datetime as _dt_month
+        try:
+            selected_date = _dt_month.strptime(month_select, '%Y-%m')
+            last_day = calendar.monthrange(selected_date.year, selected_date.month)[1]
+            start_date = f"{month_select}-01"
+            end_date = f"{month_select}-{last_day}"
+        except ValueError:
+            pass
+
     group_by = request.GET.get('group_by', 'month')
 
     sold_stocks = list(SoldStock.objects.filter(user=request.user).order_by('sold_at'))
@@ -1197,6 +1214,10 @@ def realized_pl_report(request):
     # Annotate each record with is_us + pl_thb
     # ใช้ s.market ก่อน (บันทึกตอนขาย) - ถ้าไม่มีหรือ default SET ให้ fallback _is_us_symbol
     us_set = _build_us_symbol_set(request.user)
+    
+    # Group Thai stock trades by date to calculate commissions
+    thai_daily_trades = defaultdict(float)
+    
     for s in sold_stocks:
         if s.market and s.market != MarketType.SET:
             s.is_us = s.market == MarketType.US
@@ -1209,6 +1230,17 @@ def realized_pl_report(request):
             s.pl_thb = float(s.profit_loss_thb)
         else:
             s.pl_thb = float(s.profit_loss) * usd_thb if s.is_us else float(s.profit_loss)
+
+        # Calculate trade value (quantity * (buy_price + sell_price))
+        if s.is_us:
+            # For US stocks, use settlement rate if available
+            rate = float(s.settlement_rate) if (hasattr(s, 'settlement_rate') and s.settlement_rate) else usd_thb
+            s.trade_value_thb = float(s.quantity * (s.buy_price + s.sell_price)) * rate
+        else:
+            s.trade_value_thb = float(s.quantity * (s.buy_price + s.sell_price))
+            # Track daily trade value for Thai stocks to calculate Asia Plus commission
+            date_key = s.sold_at.date()
+            thai_daily_trades[date_key] += s.trade_value_thb
 
     summary_dict = defaultdict(lambda: {'items': [], 'total_pl': 0, 'total_pl_thb': 0})
     chart_labels = []
@@ -1241,6 +1273,42 @@ def realized_pl_report(request):
             'count': len(summary_dict[k]['items'])
         })
 
+    # Calculate daily commission details for Asia Plus
+    daily_comm_list = []
+    total_thai_trade_value = 0.0
+    total_commission = 0.0
+    total_vat = 0.0
+    total_fee = 0.0
+    
+    for date_key in sorted(thai_daily_trades.keys(), reverse=True):
+        trade_val = thai_daily_trades[date_key]
+        raw_comm = trade_val * 0.00157
+        is_minimum = False
+        if trade_val > 0:
+            if raw_comm < 50.0:
+                comm = 50.0
+                is_minimum = True
+            else:
+                comm = raw_comm
+        else:
+            comm = 0.0
+            
+        vat = comm * 0.07
+        fee_total = comm + vat
+        
+        daily_comm_list.append({
+            'date': date_key,
+            'trade_value': trade_val,
+            'commission': comm,
+            'is_minimum': is_minimum,
+            'vat': vat,
+            'total_fee': fee_total
+        })
+        total_thai_trade_value += trade_val
+        total_commission += comm
+        total_vat += vat
+        total_fee += fee_total
+
     context = {
         'summary_list': summary_list,
         'sold_stocks': sold_stocks,
@@ -1248,10 +1316,17 @@ def realized_pl_report(request):
         'chart_data': json.dumps(chart_data),
         'start_date': start_date,
         'end_date': end_date,
+        'month_select': month_select or '',
+        'available_months': available_months,
         'group_by': group_by,
         'title': 'Realized P/L Report',
         'usd_thb': round(usd_thb, 2),
         'total_pl_thb': sum(s.pl_thb for s in sold_stocks),
+        'daily_comm_list': daily_comm_list,
+        'total_thai_trade_value': total_thai_trade_value,
+        'total_commission': total_commission,
+        'total_vat': total_vat,
+        'total_fee': total_fee,
     }
     return render(request, 'stocks/realized_pl_report.html', context)
 
