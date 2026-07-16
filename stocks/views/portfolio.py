@@ -1372,6 +1372,10 @@ def tithe_report(request):
     sold_stocks = SoldStock.objects.filter(user=request.user).order_by('sold_at')
     us_set = _build_us_symbol_set(request.user)
     monthly_raw = defaultdict(Decimal)
+    
+    # Track daily trade values for Thai stocks to calculate commissions
+    thai_daily_trades = defaultdict(Decimal)
+    
     for s in sold_stocks:
         if s.market and s.market != MarketType.SET:
             is_us = s.market == MarketType.US
@@ -1387,6 +1391,23 @@ def tithe_report(request):
             
         key = (s.sold_at.year, s.sold_at.month)
         monthly_raw[key] += pl_thb
+
+        # Calculate daily trade value for Thai stocks
+        if not is_us:
+            trade_val = Decimal(str(s.quantity * (s.buy_price + s.sell_price)))
+            date_key = s.sold_at.date()
+            thai_daily_trades[date_key] += trade_val
+
+    # Calculate daily commission details and subtract from monthly totals
+    for date_key, trade_val in thai_daily_trades.items():
+        raw_comm = trade_val * Decimal('0.00157')
+        comm = max(raw_comm, Decimal('50.0')) if trade_val > 0 else Decimal('0.0')
+        vat = comm * Decimal('0.07')
+        fee_total = comm + vat
+        
+        key = (date_key.year, date_key.month)
+        if key in monthly_raw:
+            monthly_raw[key] -= fee_total
 
     tithe_map = {
         (t.year, t.month): t
