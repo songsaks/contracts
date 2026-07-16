@@ -1465,6 +1465,12 @@
                     <label class="form-check-label small fw-semibold" for="accDistFilterSET" style="cursor:pointer; color:#15803d;">📈 ACC > DIST</label>
                     <span style="font-size:0.85rem;color:#94a3b8;cursor:pointer;" title="Accumulation > Distribution: วัน Acc (ราคาขึ้น+วอลุ่มสูง) มากกว่าวัน Dist ใน 25 วัน — เงินสถาบันไหลเข้าสุทธิ ยืนยันการสะสม"><i class="fas fa-question-circle"></i></span>
                 </div>
+                <!-- Buyable Uptrend Filter (หุ้นขาขึ้นที่ยังไม่ extended) -->
+                <div class="form-check form-switch mb-0 d-flex align-items-center gap-2" style="background:linear-gradient(135deg,rgba(16,185,129,0.08),rgba(5,150,105,0.08));border:1px solid rgba(5,150,105,0.25);border-radius:20px;padding:2px 12px 2px 40px;">
+                    <input class="form-check-input" type="checkbox" id="buyableFilterSET" onchange="_applyFiltersSET()" style="cursor:pointer;">
+                    <label class="form-check-label small fw-bold" for="buyableFilterSET" style="cursor:pointer; color:#059669;">🎯 ซื้อได้ตอนนี้</label>
+                    <span style="font-size:0.85rem;color:#059669;cursor:pointer;" title="Buyable Uptrend: เทรนด์ขาขึ้น (Stage 2) ที่ยังไม่ extended — อยู่ในโซนซื้อ หรือย่อมาใกล้จุดเข้า/MA50 ≤ 5% + RSI ≤ 68 + CMF ≥ 0. กรองทิ้งพวก AT TP / RSI 80 เหลือเฉพาะหุ้นกำลังขึ้นที่ยังซื้อได้"><i class="fas fa-question-circle"></i></span>
+                </div>
                 <select id="sectorFilterSET" onchange="_applyFiltersSET()" class="form-select form-select-sm rounded-pill" style="width:auto;font-size:0.72rem;cursor:pointer;">
                     <option value="">All Sectors</option>
                     {% for item in candidates %}<option value="{{ item.sector }}">{{ item.sector }}</option>{% endfor %}
@@ -1661,6 +1667,7 @@
     data-sl-price="{{ item.stop_loss|default:0 }}"
     data-tp-price="{{ item.supply_zone_start|default:0 }}"
     data-price="{{ item.price|default:0 }}"
+    data-ma50="{{ item.ma50|default:0 }}"
     id="row-{{ item.symbol }}">
                             <!-- SYMBOL -->
                             <td class="ps-2">
@@ -3445,9 +3452,10 @@ function applyPreset(presetType) {
     const buynow     = document.getElementById('buynowFilterSET');
     const insideBar  = document.getElementById('insideBarFilterSET');
     const accDist    = document.getElementById('accDistFilterSET');
+    const buyable    = document.getElementById('buyableFilterSET');
 
     // Reset all
-    [rsi, stage2, pp, cmfPos, vol, ichi, launcher, vcp, itl, canslim, buynow, insideBar, accDist].forEach(el => {
+    [rsi, stage2, pp, cmfPos, vol, ichi, launcher, vcp, itl, canslim, buynow, insideBar, accDist, buyable].forEach(el => {
         if (el) el.checked = false;
     });
 
@@ -3556,6 +3564,7 @@ function _applyFiltersSET() {
         var buynowOn    = document.getElementById('buynowFilterSET')      && document.getElementById('buynowFilterSET').checked;
         var insideBarOn = document.getElementById('insideBarFilterSET')   && document.getElementById('insideBarFilterSET').checked;
         var accDistOn   = document.getElementById('accDistFilterSET')     && document.getElementById('accDistFilterSET').checked;
+        var buyableOn   = document.getElementById('buyableFilterSET')     && document.getElementById('buyableFilterSET').checked;
         var secEl  = document.getElementById('sectorFilterSET');
         var secVal = secEl ? secEl.value : '';
 
@@ -3592,7 +3601,17 @@ function _applyFiltersSET() {
             var isBuyNow = rvol >= 1.5 && turtleDist <= 0.5;
             var isAccPos = accDays > distDays && accDays >= 2;   // Acc days มากกว่า Dist days
 
+            // ── Buyable Uptrend: ขาขึ้น (S2) + ยังไม่ extended + RR/เงินยังดี ──
+            var inzone   = row.dataset.inzone === 'true';
+            var prox     = parseFloat(row.dataset.prox || '99');
+            var price    = parseFloat(row.dataset.price || '0');
+            var ma50     = parseFloat(row.dataset.ma50 || '0');
+            var nearMa50 = ma50 > 0 && price >= ma50 && (price - ma50) / ma50 <= 0.05;
+            var notExtended = inzone || prox <= 5 || nearMa50 || turtleDist <= 1.0;
+            var isBuyable = s2 && notExtended && rsi <= 68 && cmf >= 0;
+
             var show = (!rsiOn       || rsi < 70) &&
+                       (!buyableOn   || isBuyable) &&
                        (!s2On        || s2) &&
                        (!ppOn        || pp) &&
                        (!secVal      || sec === secVal) &&
@@ -3655,7 +3674,7 @@ function _applyFiltersSET() {
 // ── Filter persistence (localStorage) ─────────────────────────────────
 var FILTER_IDS_SET = ['rsiFilter70SET','stage2FilterSET','ppFilterSET','cmfPositiveFilterSET',
                       'volSurgeFilterSET','ichiFilterSET','launcherFilterSET','vcpFilterSET',
-                      'itlFilterSET','canslimFilterSET','buynowFilterSET','insideBarFilterSET','accDistFilterSET'];
+                      'itlFilterSET','canslimFilterSET','buynowFilterSET','insideBarFilterSET','accDistFilterSET','buyableFilterSET'];
 
 function _saveFilterStateSET() {
     try {
