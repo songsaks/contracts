@@ -1406,8 +1406,11 @@ def momentum_scanner(request):
                 status, action = 'wait', f'ใกล้ TP เหลือ upside น้อย — รอย่อโซน {zone_txt}'
             else:
                 status, action = 'alert', f'ตั้ง alert โซนซื้อ {zone_txt}'
+            _lp = getattr(c, 'live_price', None)
             top_picks.append({
                 'symbol': c.symbol,
+                'price': float(_lp) if _lp else float(c.price or 0),
+                'change_pct': getattr(c, 'live_change_pct', None),
                 'eps': float(c.eps_growth or 0),
                 'rev': float(c.rev_growth or 0),
                 'rr': float(c.risk_reward_ratio or 0),

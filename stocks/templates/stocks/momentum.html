@@ -198,6 +198,7 @@
                             <tr>
                                 <th class="ps-3" style="width:40px;">#</th>
                                 <th>หุ้น</th>
+                                <th class="text-end">ราคา</th>
                                 <th class="text-center">EPS Q</th>
                                 <th class="text-center">REV %</th>
                                 <th class="text-center">RR</th>
@@ -213,6 +214,12 @@
                                 <td>
                                     <span class="badge rounded-pill fw-bold" style="background:rgba(185,28,28,0.1);color:#b91c1c;font-size:0.75rem;padding:5px 12px;">{{ p.symbol }}</span>
                                     {% if forloop.counter == 1 %}<span class="ms-1" title="คะแนนรวมสูงสุด">🏆</span>{% endif %}
+                                </td>
+                                <td class="text-end">
+                                    <span class="fw-bold" style="font-size:0.82rem;">฿{{ p.price|floatformat:2 }}</span>
+                                    {% if p.change_pct is not None %}
+                                    <div class="{% if p.change_pct > 0 %}text-success{% elif p.change_pct < 0 %}text-danger{% else %}text-muted{% endif %}" style="font-size:0.62rem;">{% if p.change_pct > 0 %}+{% endif %}{{ p.change_pct|floatformat:2 }}%</div>
+                                    {% endif %}
                                 </td>
                                 <td class="text-center fw-bold {% if p.eps >= 25 %}text-success{% elif p.eps > 0 %}text-dark{% else %}text-muted{% endif %}">{% if p.eps > 0 %}+{% endif %}{{ p.eps|floatformat:0 }}%</td>
                                 <td class="text-center fw-bold {% if p.rev >= 25 %}text-success{% elif p.rev > 0 %}text-dark{% else %}text-muted{% endif %}">{% if p.rev > 0 %}+{% endif %}{{ p.rev|floatformat:0 }}%</td>
