@@ -627,6 +627,13 @@
       <div class="vr opacity-20 d-none d-sm-block" style="background-color: var(--card-border); height: 20px;"></div>
       
       <div class="d-flex gap-1 align-items-center ms-auto ms-lg-0">
+        <div class="form-check form-switch ms-1 me-2 d-flex align-items-center gap-1" title="อัปเดตข้อมูลและราคาล่าสุดทุกๆ 10 วินาทีอัตโนมัติ">
+          <input class="form-check-input" type="checkbox" role="switch" id="auto-refresh-switch" onchange="toggleAutoRefresh(this.checked)">
+          <label class="form-check-label extra-small text-muted text-nowrap" for="auto-refresh-switch" style="font-size: 0.72rem; cursor: pointer; user-select: none;">
+            <i class="fas fa-sync-alt fa-spin text-success d-none" id="auto-refresh-spinner"></i>
+            อัปเดตสด (10s)
+          </label>
+        </div>
         <button class="btn btn-sm rounded-pill px-3 fw-bold" onclick="analyzeChartWithAI()" id="btn-ai-analyze" style="background: linear-gradient(135deg, #a855f7 0%, #ec4899 100%); color: #fff; border: none; box-shadow: 0 0 10px rgba(236,72,153,0.5);" title="AI วิเคราะห์กราฟ">
           <i class="fas fa-robot"></i> AI
         </button>
@@ -1013,7 +1020,7 @@ function getResponsiveHeights(w) {
   return { hMain, hSub, hVol };
 }
 
-function renderCharts(data) {
+function renderCharts(data, isAutoUpdate = false) {
   currentData = data;
   destroyAll();
   
@@ -1358,23 +1365,41 @@ function renderCharts(data) {
   });
 
   syncCharts();
-  mainChart.timeScale().fitContent();
+  if (!isAutoUpdate) {
+    mainChart.timeScale().fitContent();
+  }
 }
 
 function toggleIndicators() {
     if (currentData) renderCharts(currentData);
 }
 
-function loadData(sym, mkt, period) {
-  setStatus(`⏳ กำลังโหลด ${sym}…`);
-  document.getElementById('signal-tbody').innerHTML = '<tr><td colspan="3" class="text-center text-muted">Loading…</td></tr>';
+function loadData(sym, mkt, period, isAutoUpdate = false) {
+  if (!isAutoUpdate) {
+    setStatus(`⏳ กำลังโหลด ${sym}…`);
+    document.getElementById('signal-tbody').innerHTML = '<tr><td colspan="3" class="text-center text-muted">Loading…</td></tr>';
+  }
 
   fetch(`/stocks/chart/${sym}/data/?market=${mkt}&period=${period}&interval=${currentInterval}`)
     .then(r => r.json())
     .then(data => {
-      if (data.error) { setStatus('❌ ' + data.error); return; }
-      setStatus('');
-      renderCharts(data);
+      if (data.error) { 
+        if (!isAutoUpdate) setStatus('❌ ' + data.error); 
+        return; 
+      }
+      if (!isAutoUpdate) setStatus('');
+
+      let savedRange = null;
+      if (isAutoUpdate && mainChart) {
+        savedRange = mainChart.timeScale().getVisibleLogicalRange();
+      }
+
+      renderCharts(data, isAutoUpdate);
+
+      if (isAutoUpdate && savedRange && mainChart) {
+        mainChart.timeScale().setVisibleLogicalRange(savedRange);
+      }
+
       document.getElementById('display-symbol').textContent = data.symbol;
       
       // Update Tactical Panel
@@ -1475,7 +1500,11 @@ function loadData(sym, mkt, period) {
         ? recent.map(s => `<tr><td>${s.time}</td><td>${typeLabel[s.type]||s.type}</td><td>${s.price.toFixed(2)}</td></tr>`).join('')
         : '<tr><td colspan="3" class="text-center text-muted">No signals</td></tr>';
     })
-    .catch(e => setStatus('❌ Error: ' + e.message));
+    .catch(e => {
+      if (!isAutoUpdate) {
+        setStatus('❌ Error: ' + e.message);
+      }
+    });
 }
 
 function changeInterval(tf) {
@@ -1700,6 +1729,36 @@ const themeObserver = new MutationObserver((mutations) => {
   });
 });
 themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+
+let autoRefreshInterval = null;
+
+function toggleAutoRefresh(enabled) {
+  if (autoRefreshInterval) {
+    clearInterval(autoRefreshInterval);
+    autoRefreshInterval = null;
+  }
+  
+  const spinner = document.getElementById('auto-refresh-spinner');
+  if (enabled) {
+    autoRefreshInterval = setInterval(() => {
+      if (spinner) {
+        spinner.classList.remove('d-none');
+      }
+      loadData(currentSymbol, currentMarket, currentPeriod, true);
+    }, 10000);
+  } else {
+    if (spinner) {
+      spinner.classList.add('d-none');
+    }
+  }
+}
+
+// Make sure to clean up interval if page is unloaded/navigated away
+window.addEventListener('beforeunload', () => {
+  if (autoRefreshInterval) {
+    clearInterval(autoRefreshInterval);
+  }
+});
 
 window.addEventListener('load', () => loadData(currentSymbol, currentMarket, currentPeriod));
 </script>
