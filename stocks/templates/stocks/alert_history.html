@@ -13,26 +13,85 @@
     }
     .sa-hero h1 { font-size: 1.5rem; font-weight: 900; color: #fff; margin: 0; }
     .sa-hero p { color: #94a3b8; font-size: 0.82rem; margin: 6px 0 0; }
-    .sa-body { max-width: 720px; margin: -1.5rem auto 2rem; padding: 0 1.5rem; }
-    .sa-toolbar { display: flex; justify-content: flex-end; margin-bottom: 0.75rem; }
+    .sa-unread-pill {
+        background: rgba(239,68,68,.18); color: #fca5a5; border: 1px solid rgba(239,68,68,.35);
+        border-radius: 50px; padding: 2px 10px; font-size: 0.72rem; font-weight: 700; margin-left: 8px;
+    }
+    .sa-body { max-width: 760px; margin: -1.5rem auto 2rem; padding: 0 1.5rem; }
+
+    /* ── Toolbar: filters + mark-all ── */
+    .sa-toolbar {
+        display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap;
+        gap: 0.6rem; margin-bottom: 1.1rem;
+    }
+    .sa-filters { display: flex; gap: 0.4rem; flex-wrap: wrap; }
+    .sa-filter-btn {
+        background: #fff; border: 1.5px solid #e2e8f0; border-radius: 50px;
+        padding: 0.35rem 0.85rem; font-size: 0.76rem; font-weight: 700; color: #64748b;
+        cursor: pointer; transition: all .15s; white-space: nowrap;
+    }
+    .sa-filter-btn:hover { border-color: #cbd5e1; }
+    .sa-filter-btn.active { background: #0f172a; border-color: #0f172a; color: #fff; }
+
+    /* ── Date group header ── */
+    .sa-day-header {
+        font-size: 0.72rem; font-weight: 800; text-transform: uppercase; letter-spacing: .06em;
+        color: #94a3b8; margin: 1.3rem 0 0.6rem; padding-left: 2px;
+    }
+    .sa-day-header:first-of-type { margin-top: 0; }
+
+    /* ── Event card ── */
     .sa-event {
         background: #fff; border-radius: 14px; border: 1px solid #e2e8f0;
-        border-left: 5px solid #94a3b8; box-shadow: 0 2px 12px rgba(0,0,0,.05);
-        padding: 1rem 1.25rem; margin-bottom: 0.75rem;
-        display: flex; align-items: flex-start; gap: 0.85rem;
-        transition: opacity .2s;
+        border-left: 5px solid #94a3b8; box-shadow: 0 2px 10px rgba(0,0,0,.04);
+        padding: 0.9rem 1.1rem; margin-bottom: 0.6rem;
+        display: flex; align-items: flex-start; gap: 0.9rem;
+        transition: opacity .2s, box-shadow .2s;
     }
+    .sa-event:hover { box-shadow: 0 4px 16px rgba(0,0,0,.08); }
     .sa-event.type-SL { border-left-color: #ef4444; }
     .sa-event.type-TP { border-left-color: #f43f5e; }
     .sa-event.type-BREAKOUT { border-left-color: #10b981; }
     .sa-event.type-WATCHLIST_ENTRY { border-left-color: #6366f1; }
-    .sa-event.is-read { opacity: 0.55; }
-    .sa-event-check { margin-top: 3px; flex-shrink: 0; width: 1.1rem; height: 1.1rem; cursor: pointer; }
+    .sa-event.is-read { opacity: 0.5; }
+
+    .sa-event-icon {
+        width: 38px; height: 38px; border-radius: 11px; flex-shrink: 0;
+        display: flex; align-items: center; justify-content: center; font-size: 1.05rem;
+    }
+    .sa-event.type-SL .sa-event-icon { background: rgba(239,68,68,.1); }
+    .sa-event.type-TP .sa-event-icon { background: rgba(244,63,94,.1); }
+    .sa-event.type-BREAKOUT .sa-event-icon { background: rgba(16,185,129,.1); }
+    .sa-event.type-WATCHLIST_ENTRY .sa-event-icon { background: rgba(99,102,241,.1); }
+
     .sa-event-body { flex: 1; min-width: 0; }
-    .sa-event-msg { font-size: 0.88rem; color: #1e293b; }
-    .sa-event.is-read .sa-event-msg { text-decoration: line-through; }
-    .sa-event-meta { font-size: 0.72rem; color: #64748b; margin-top: 4px; }
+    .sa-event-top { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+    .sa-event-symbol { font-weight: 800; font-size: 0.95rem; color: #1e293b; }
+    .sa-event-type-label { font-size: 0.68rem; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: .04em; }
+    .sa-event-strategy {
+        background: #f1f5f9; color: #475569; font-size: 0.68rem; font-weight: 700;
+        border-radius: 6px; padding: 1px 7px;
+    }
+    .sa-event-msg { font-size: 0.83rem; color: #475569; margin-top: 3px; line-height: 1.5; }
+    .sa-event-meta { display: flex; align-items: center; gap: 8px; font-size: 0.7rem; color: #94a3b8; margin-top: 6px; }
+    .sa-read-tag { color: #22c55e; font-weight: 700; display: none; align-items: center; gap: 3px; }
+    .sa-event.is-read .sa-read-tag { display: inline-flex; }
+
+    .sa-event-price { text-align: right; flex-shrink: 0; }
+    .sa-event-price .val { font-family: 'JetBrains Mono', monospace; font-weight: 800; font-size: 0.95rem; color: #1e293b; }
+    .sa-event-price .lbl { font-size: 0.62rem; color: #94a3b8; text-transform: uppercase; }
+
+    .sa-event-check {
+        flex-shrink: 0; width: 26px; height: 26px; border-radius: 50%;
+        border: 2px solid #cbd5e1; background: #fff; cursor: pointer;
+        display: flex; align-items: center; justify-content: center; color: transparent;
+        transition: all .15s; font-size: 0.7rem;
+    }
+    .sa-event-check:hover { border-color: #94a3b8; }
+    .sa-event.is-read .sa-event-check { background: #22c55e; border-color: #22c55e; color: #fff; }
+
     .sa-empty { text-align: center; padding: 3rem; color: #94a3b8; }
+    .sa-empty i { font-size: 2rem; }
 </style>
 {% endblock %}
 
@@ -43,8 +102,8 @@
             <i class="fas fa-history text-warning" style="font-size:1.2rem;"></i>
         </div>
         <div>
-            <h1>ประวัติแจ้งเตือน</h1>
-            <p>รายการแจ้งเตือน Action ของหุ้นในพอร์ต 100 รายการล่าสุด — ติ๊กเมื่ออ่านแล้ว</p>
+            <h1>ประวัติแจ้งเตือน{% if unread_count > 0 %}<span class="sa-unread-pill">{{ unread_count }} ยังไม่อ่าน</span>{% endif %}</h1>
+            <p>รายการแจ้งเตือน Action ของหุ้นในพอร์ต 100 รายการล่าสุด</p>
         </div>
     </div>
     <a href="{% url 'stocks:stock_alert_config' %}" class="btn btn-outline-light btn-sm">
@@ -53,36 +112,70 @@
 </div>
 
 <div class="sa-body">
-    {% if events %}
+    {% if has_events %}
     <div class="sa-toolbar">
+        <div class="sa-filters">
+            <button type="button" class="sa-filter-btn active" data-filter="all">ทั้งหมด</button>
+            <button type="button" class="sa-filter-btn" data-filter="unread">ยังไม่อ่าน</button>
+            <button type="button" class="sa-filter-btn" data-filter="SL">🩸 Stop Loss</button>
+            <button type="button" class="sa-filter-btn" data-filter="TP">💵 Take Profit</button>
+            <button type="button" class="sa-filter-btn" data-filter="BREAKOUT">🚀 Breakout</button>
+            <button type="button" class="sa-filter-btn" data-filter="WATCHLIST_ENTRY">🎯 Watchlist</button>
+        </div>
         <button type="button" id="sa-mark-all-btn" class="btn btn-sm btn-outline-secondary">
-            <i class="fas fa-check-double me-1"></i> ทำเครื่องหมายอ่านแล้วทั้งหมด
+            <i class="fas fa-check-double me-1"></i> อ่านแล้วทั้งหมด
         </button>
     </div>
     {% endif %}
 
-    {% if not events %}
+    {% if not has_events %}
     <div class="sa-empty">
-        <i class="fas fa-bell-slash" style="font-size:2rem;"></i>
+        <i class="fas fa-bell-slash"></i>
         <p class="mt-2 mb-0">ยังไม่มีการแจ้งเตือน</p>
     </div>
     {% else %}
-    {% for e in events %}
-    <div class="sa-event type-{{ e.alert_type }}{% if e.is_read %} is-read{% endif %}" data-event-id="{{ e.id }}">
-        <input type="checkbox" class="sa-event-check" {% if e.is_read %}checked{% endif %}
-               onchange="markStockAlertRead({{ e.id }}, this)">
-        <div class="sa-event-body">
-            <div class="sa-event-msg">{{ e.message }}</div>
-            <div class="sa-event-meta">{{ e.created_at|date:"d M Y H:i" }}</div>
+    {% for group in day_groups %}
+        <div class="sa-day-header">
+            {% if group.day == today %}วันนี้ · {% elif group.day == yesterday %}เมื่อวาน · {% endif %}{{ group.day|date:"d M Y" }}
         </div>
-    </div>
+        {% for e in group.events %}
+        <div class="sa-event type-{{ e.alert_type }}{% if e.is_read %} is-read{% endif %}"
+             data-event-id="{{ e.id }}" data-type="{{ e.alert_type }}" data-read="{{ e.is_read|yesno:'1,0' }}">
+            <div class="sa-event-icon">
+                {% if e.alert_type == 'SL' %}🩸{% elif e.alert_type == 'TP' %}💵{% elif e.alert_type == 'BREAKOUT' %}🚀{% else %}🎯{% endif %}
+            </div>
+            <div class="sa-event-body">
+                <div class="sa-event-top">
+                    <span class="sa-event-symbol">{{ e.symbol }}</span>
+                    <span class="sa-event-type-label">{{ e.get_alert_type_display }}</span>
+                    {% if e.strategy %}<span class="sa-event-strategy">{{ e.strategy }}</span>{% endif %}
+                </div>
+                <div class="sa-event-msg">{{ e.message }}</div>
+                <div class="sa-event-meta">
+                    <span>{{ e.created_at|date:"H:i" }}</span>
+                    <span class="sa-read-tag"><i class="fas fa-check-circle"></i> อ่านแล้ว</span>
+                </div>
+            </div>
+            <div class="sa-event-price">
+                <div class="val">฿{{ e.price|floatformat:2 }}</div>
+                <div class="lbl">ราคา</div>
+            </div>
+            <div class="sa-event-check" onclick="markStockAlertRead({{ e.id }}, this)">
+                <i class="fas fa-check"></i>
+            </div>
+        </div>
+        {% endfor %}
     {% endfor %}
+    <div id="sa-empty-filter" class="sa-empty" style="display:none;">
+        <i class="fas fa-filter"></i>
+        <p class="mt-2 mb-0">ไม่มีรายการที่ตรงกับตัวกรองนี้</p>
+    </div>
     {% endif %}
 </div>
 
 <script>
-function markStockAlertRead(eventId, checkboxEl) {
-    checkboxEl.disabled = true;
+function markStockAlertRead(eventId, btnEl) {
+    btnEl.style.pointerEvents = 'none';
     fetch(`/stocks/alerts/${eventId}/mark-read/`, {
         method: 'POST',
         headers: { 'X-CSRFToken': '{{ csrf_token }}' },
@@ -90,12 +183,13 @@ function markStockAlertRead(eventId, checkboxEl) {
     .then(res => res.json())
     .then(data => {
         if (!data.success) return;
-        const row = checkboxEl.closest('.sa-event');
+        const row = btnEl.closest('.sa-event');
         row.classList.toggle('is-read', data.is_read);
-        checkboxEl.checked = data.is_read;
+        row.dataset.read = data.is_read ? '1' : '0';
         if (window.setStockAlertBadge) window.setStockAlertBadge(data.unread_count);
+        applyFilter(currentFilter);
     })
-    .finally(() => { checkboxEl.disabled = false; });
+    .finally(() => { btnEl.style.pointerEvents = ''; });
 }
 
 document.getElementById('sa-mark-all-btn')?.addEventListener('click', function () {
@@ -110,12 +204,44 @@ document.getElementById('sa-mark-all-btn')?.addEventListener('click', function (
         if (!data.success) return;
         document.querySelectorAll('.sa-event').forEach(row => {
             row.classList.add('is-read');
-            const cb = row.querySelector('.sa-event-check');
-            if (cb) cb.checked = true;
+            row.dataset.read = '1';
         });
         if (window.setStockAlertBadge) window.setStockAlertBadge(0);
+        applyFilter(currentFilter);
     })
     .finally(() => { btn.disabled = false; });
+});
+
+let currentFilter = 'all';
+
+function applyFilter(filter) {
+    currentFilter = filter;
+    let visibleCount = 0;
+    document.querySelectorAll('.sa-event').forEach(row => {
+        let show = true;
+        if (filter === 'unread') show = row.dataset.read === '0';
+        else if (filter !== 'all') show = row.dataset.type === filter;
+        row.style.display = show ? '' : 'none';
+        if (show) visibleCount++;
+    });
+    document.querySelectorAll('.sa-day-header').forEach(hdr => {
+        let sib = hdr.nextElementSibling, anyVisible = false;
+        while (sib && sib.classList.contains('sa-event')) {
+            if (sib.style.display !== 'none') anyVisible = true;
+            sib = sib.nextElementSibling;
+        }
+        hdr.style.display = anyVisible ? '' : 'none';
+    });
+    const emptyEl = document.getElementById('sa-empty-filter');
+    if (emptyEl) emptyEl.style.display = visibleCount === 0 ? '' : 'none';
+}
+
+document.querySelectorAll('.sa-filter-btn').forEach(btn => {
+    btn.addEventListener('click', function () {
+        document.querySelectorAll('.sa-filter-btn').forEach(b => b.classList.remove('active'));
+        this.classList.add('active');
+        applyFilter(this.dataset.filter);
+    });
 });
 </script>
 {% endblock %}

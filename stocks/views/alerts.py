@@ -5,6 +5,7 @@ from django.contrib.auth.decorators import login_required
 from django.core.cache import cache
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from stocks.alert_engine import evaluate_user_alerts
@@ -65,9 +66,29 @@ def stock_alert_config_view(request):
 
 @login_required
 def stock_alert_history(request):
-    """ประวัติการแจ้งเตือน Action ของหุ้นทั้งหมด (ใหม่ไปเก่า)"""
-    events = StockAlertEvent.objects.filter(user=request.user)[:100]
-    return render(request, 'stocks/alert_history.html', {'events': events})
+    """ประวัติการแจ้งเตือน Action ของหุ้นทั้งหมด (ใหม่ไปเก่า) จัดกลุ่มตามวันที่"""
+    events = list(StockAlertEvent.objects.filter(user=request.user)[:100])
+    today = timezone.localdate()
+
+    day_groups = []
+    current_day, current_bucket = None, None
+    for e in events:
+        e_day = timezone.localtime(e.created_at).date()
+        if e_day != current_day:
+            current_day = e_day
+            current_bucket = {'day': e_day, 'events': []}
+            day_groups.append(current_bucket)
+        current_bucket['events'].append(e)
+
+    unread_count = sum(1 for e in events if not e.is_read)
+
+    return render(request, 'stocks/alert_history.html', {
+        'day_groups': day_groups,
+        'today': today,
+        'yesterday': today - timezone.timedelta(days=1),
+        'unread_count': unread_count,
+        'has_events': bool(events),
+    })
 
 
 @require_POST
