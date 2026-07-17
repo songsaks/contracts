@@ -630,6 +630,15 @@
                         </ul>
                     </li>
 
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.resolver_match.url_name in 'stock_alert_config,stock_alert_history' %}active{% endif %}"
+                           href="{% url 'stocks:stock_alert_history' %}">
+                            <i class="fas fa-bell" style="color:#f87171;"></i> แจ้งเตือน
+                            {% if unread_stock_alerts_count > 0 %}
+                            <span class="badge bg-danger rounded-pill" style="font-size:0.65rem;">{{ unread_stock_alerts_count }}</span>
+                            {% endif %}
+                        </a>
+                    </li>
 
 
 
@@ -730,5 +739,65 @@
             if (window.ThemeManager && window.ThemeManager.rewire) window.ThemeManager.rewire();
         });
     </script>
+
+    {% if user.is_authenticated %}
+    <!-- ====== Stock Action Alerts (SL/TP/Breakout/Watchlist) ====== -->
+    <style>
+    @keyframes sa-toast-slide {
+        from { opacity:0; transform:translateX(24px); }
+        to   { opacity:1; transform:translateX(0); }
+    }
+    .sa-toast {
+        animation: sa-toast-slide 0.3s ease;
+        background:#1e293b; color:white; border-radius:14px;
+        padding:12px 16px; width:340px; max-width:90vw;
+        box-shadow:0 16px 32px rgba(0,0,0,0.3); cursor:pointer;
+        border-left:5px solid #ef4444; margin-bottom:10px;
+    }
+    .sa-toast .sa-toast-title { font-weight:700; font-size:0.85rem; color:#fca5a5; margin-bottom:3px; }
+    .sa-toast .sa-toast-body { font-size:0.78rem; color:#cbd5e1; }
+    </style>
+
+    <div id="sa-toast-stack" style="
+        display:flex; flex-direction:column; position:fixed;
+        bottom:24px; right:24px; z-index:99998; align-items:flex-end;
+    "></div>
+
+    <script>
+    (function () {
+        const STOCK_ALERT_CHECK_URL = "{% url 'stocks:check_stock_alerts' %}";
+        const STOCK_ALERT_HISTORY_URL = "{% url 'stocks:stock_alert_history' %}";
+        const POLL_MS = 5 * 60 * 1000;
+        const TOAST_COLORS = { SL: '#ef4444', TP: '#f43f5e', BREAKOUT: '#10b981', WATCHLIST_ENTRY: '#6366f1' };
+        const TOAST_LABELS = { SL: '🩸 Stop Loss', TP: '💵 Take Profit', BREAKOUT: '🚀 Breakout', WATCHLIST_ENTRY: '🎯 โซนเข้าซื้อ' };
+
+        function showStockToast(alertItem) {
+            const stack = document.getElementById('sa-toast-stack');
+            if (!stack) return;
+            const toast = document.createElement('div');
+            toast.className = 'sa-toast';
+            toast.style.borderLeftColor = TOAST_COLORS[alertItem.type] || '#94a3b8';
+            toast.innerHTML =
+                '<div class="sa-toast-title">' + (TOAST_LABELS[alertItem.type] || 'แจ้งเตือน') + ' — ' + alertItem.symbol + '</div>' +
+                '<div class="sa-toast-body">' + alertItem.message + '</div>';
+            toast.onclick = function () { window.location.href = STOCK_ALERT_HISTORY_URL; };
+            stack.appendChild(toast);
+            setTimeout(function () { toast.remove(); }, 15000);
+        }
+
+        function checkStockAlerts() {
+            fetch(STOCK_ALERT_CHECK_URL)
+                .then(function (res) { return res.json(); })
+                .then(function (data) {
+                    (data.alerts || []).forEach(showStockToast);
+                })
+                .catch(function () {});
+        }
+
+        window.addEventListener('load', checkStockAlerts);
+        setInterval(checkStockAlerts, POLL_MS);
+    })();
+    </script>
+    {% endif %}
 </body>
 </html>

@@ -1,0 +1,63 @@
+{% extends 'stocks/base_stocks.html' %}
+{% load static %}
+
+{% block title %}ประวัติแจ้งเตือน · Stock Alerts{% endblock %}
+
+{% block extra_css %}
+<style>
+    body { background: #f1f5f9; }
+    .sa-hero {
+        background: linear-gradient(135deg, #0f172a 0%, #1e293b 60%, #164e63 100%);
+        padding: 2rem; border-radius: 0 0 20px 20px;
+        display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem;
+    }
+    .sa-hero h1 { font-size: 1.5rem; font-weight: 900; color: #fff; margin: 0; }
+    .sa-hero p { color: #94a3b8; font-size: 0.82rem; margin: 6px 0 0; }
+    .sa-body { max-width: 720px; margin: -1.5rem auto 2rem; padding: 0 1.5rem; }
+    .sa-event {
+        background: #fff; border-radius: 14px; border: 1px solid #e2e8f0;
+        border-left: 5px solid #94a3b8; box-shadow: 0 2px 12px rgba(0,0,0,.05);
+        padding: 1rem 1.25rem; margin-bottom: 0.75rem;
+    }
+    .sa-event.type-SL { border-left-color: #ef4444; }
+    .sa-event.type-TP { border-left-color: #f43f5e; }
+    .sa-event.type-BREAKOUT { border-left-color: #10b981; }
+    .sa-event.type-WATCHLIST_ENTRY { border-left-color: #6366f1; }
+    .sa-event-msg { font-size: 0.88rem; color: #1e293b; }
+    .sa-event-meta { font-size: 0.72rem; color: #64748b; margin-top: 4px; }
+    .sa-empty { text-align: center; padding: 3rem; color: #94a3b8; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="sa-hero">
+    <div class="d-flex align-items-center gap-3">
+        <div style="width:44px;height:44px;background:rgba(217,119,6,.2);border-radius:12px;display:flex;align-items:center;justify-content:center;">
+            <i class="fas fa-history text-warning" style="font-size:1.2rem;"></i>
+        </div>
+        <div>
+            <h1>ประวัติแจ้งเตือน</h1>
+            <p>รายการแจ้งเตือน Action ของหุ้นในพอร์ต 100 รายการล่าสุด</p>
+        </div>
+    </div>
+    <a href="{% url 'stocks:stock_alert_config' %}" class="btn btn-outline-light btn-sm">
+        <i class="fas fa-sliders-h me-1"></i> ตั้งค่า
+    </a>
+</div>
+
+<div class="sa-body">
+    {% if not events %}
+    <div class="sa-empty">
+        <i class="fas fa-bell-slash" style="font-size:2rem;"></i>
+        <p class="mt-2 mb-0">ยังไม่มีการแจ้งเตือน</p>
+    </div>
+    {% else %}
+    {% for e in events %}
+    <div class="sa-event type-{{ e.alert_type }}">
+        <div class="sa-event-msg">{{ e.message }}</div>
+        <div class="sa-event-meta">{{ e.created_at|date:"d M Y H:i" }}</div>
+    </div>
+    {% endfor %}
+    {% endif %}
+</div>
+{% endblock %}

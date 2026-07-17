@@ -6,3 +6,4 @@ from .watchlist import *
 from .ai_analysis import *
 from .charts import *
 from .trading_bots import *
+from .alerts import *

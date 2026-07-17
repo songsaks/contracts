@@ -1,0 +1,128 @@
+{% extends 'stocks/base_stocks.html' %}
+{% load static %}
+
+{% block title %}ตั้งค่าแจ้งเตือน · Stock Alerts{% endblock %}
+
+{% block extra_css %}
+<style>
+    body { background: #f1f5f9; }
+    .sa-hero {
+        background: linear-gradient(135deg, #0f172a 0%, #1e293b 60%, #164e63 100%);
+        padding: 2rem; border-radius: 0 0 20px 20px;
+    }
+    .sa-hero h1 { font-size: 1.5rem; font-weight: 900; color: #fff; margin: 0; }
+    .sa-hero p { color: #94a3b8; font-size: 0.82rem; margin: 6px 0 0; }
+    .sa-body { max-width: 640px; margin: -1.5rem auto 2rem; padding: 0 1.5rem; }
+    .sa-card {
+        background: #fff; border-radius: 16px; border: 1px solid #e2e8f0;
+        box-shadow: 0 2px 16px rgba(0,0,0,.07); padding: 1.75rem;
+    }
+    .sa-toggle-row {
+        display: flex; align-items: center; justify-content: space-between;
+        padding: 0.85rem 0; border-bottom: 1px solid #f1f5f9;
+    }
+    .sa-toggle-row:last-of-type { border-bottom: none; }
+    .sa-toggle-label { font-weight: 700; font-size: 0.88rem; color: #1e293b; }
+    .sa-toggle-desc { font-size: 0.72rem; color: #64748b; margin-top: 2px; }
+    .form-check-input:checked { background-color: #0f172a; border-color: #0f172a; }
+    .form-select { border-radius: 10px; border: 2px solid #e2e8f0; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="sa-hero">
+    <div class="d-flex align-items-center gap-3">
+        <div style="width:44px;height:44px;background:rgba(217,119,6,.2);border-radius:12px;display:flex;align-items:center;justify-content:center;">
+            <i class="fas fa-bell text-warning" style="font-size:1.2rem;"></i>
+        </div>
+        <div>
+            <h1>ตั้งค่าแจ้งเตือน</h1>
+            <p>เลือกประเภทการแจ้งเตือน Action ของหุ้นในพอร์ตที่ต้องการให้เด้งขึ้นในหน้าเว็บ</p>
+        </div>
+    </div>
+</div>
+
+<div class="sa-body">
+    {% if messages %}
+        {% for m in messages %}
+        <div class="alert alert-success mt-3">{{ m }}</div>
+        {% endfor %}
+    {% endif %}
+
+    <div class="sa-card mt-3">
+        <form method="POST">
+            {% csrf_token %}
+
+            <div class="sa-toggle-row">
+                <div>
+                    <div class="sa-toggle-label">เปิดใช้งานแจ้งเตือน</div>
+                    <div class="sa-toggle-desc">ปิดสวิตช์นี้เพื่อหยุดแจ้งเตือนทั้งหมดชั่วคราว</div>
+                </div>
+                <div class="form-check form-switch">
+                    {{ form.enabled }}
+                </div>
+            </div>
+
+            <div class="sa-toggle-row">
+                <div>
+                    <div class="sa-toggle-label">ความถี่ในการเช็คราคา</div>
+                    <div class="sa-toggle-desc">เช็คตอนเปิดเว็บ แล้วเตือนซ้ำทุกช่วงเวลานี้ถ้ายังเข้าเงื่อนไข</div>
+                </div>
+                <div style="width:140px;">
+                    {{ form.check_interval_minutes }}
+                </div>
+            </div>
+
+            <hr class="my-2">
+
+            <div class="sa-toggle-row">
+                <div>
+                    <div class="sa-toggle-label">🩸 Stop Loss</div>
+                    <div class="sa-toggle-desc">ราคาหุ้นในพอร์ตหลุดจุดตัดขาดทุน</div>
+                </div>
+                <div class="form-check form-switch">
+                    {{ form.alert_stop_loss }}
+                </div>
+            </div>
+
+            <div class="sa-toggle-row">
+                <div>
+                    <div class="sa-toggle-label">💵 Take Profit</div>
+                    <div class="sa-toggle-desc">ราคาหุ้นในพอร์ตเข้าโซนขายทำกำไร</div>
+                </div>
+                <div class="form-check form-switch">
+                    {{ form.alert_take_profit }}
+                </div>
+            </div>
+
+            <div class="sa-toggle-row">
+                <div>
+                    <div class="sa-toggle-label">🚀 Breakout (ซื้อเพิ่ม)</div>
+                    <div class="sa-toggle-desc">หุ้นในพอร์ตเบรค 52w High หรือเกิด Pocket Pivot</div>
+                </div>
+                <div class="form-check form-switch">
+                    {{ form.alert_breakout_add }}
+                </div>
+            </div>
+
+            <div class="sa-toggle-row">
+                <div>
+                    <div class="sa-toggle-label">🎯 โซนเข้าซื้อ (Watchlist)</div>
+                    <div class="sa-toggle-desc">หุ้นใน Watchlist ราคาย่อลงมาถึงโซนเข้าซื้อ</div>
+                </div>
+                <div class="form-check form-switch">
+                    {{ form.alert_watchlist_entry }}
+                </div>
+            </div>
+
+            <button type="submit" class="btn btn-dark w-100 mt-4 fw-bold" style="border-radius:12px;padding:0.7rem;">
+                <i class="fas fa-save me-1"></i> บันทึกการตั้งค่า
+            </button>
+        </form>
+    </div>
+
+    <a href="{% url 'stocks:stock_alert_history' %}" class="d-block text-center mt-3 text-muted" style="font-size:0.82rem;">
+        <i class="fas fa-history me-1"></i> ดูประวัติการแจ้งเตือนทั้งหมด
+    </a>
+</div>
+{% endblock %}

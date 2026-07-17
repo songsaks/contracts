@@ -1275,3 +1275,58 @@ class DailyAgentReport(models.Model):
     def __str__(self):
         return f"Report {self.report_date} {self.time_slot} — {self.user.username}"
 
+
+# ====== Stock Alert — แจ้งเตือน Action ในหน้าเว็บ (SL/TP/Breakout/Watchlist) ======
+
+class StockAlertConfig(models.Model):
+    """
+    การตั้งค่าแจ้งเตือน Action ของหุ้นในพอร์ต แสดงผลในหน้าเว็บ (ไม่ใช่ Telegram/LINE)
+    """
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='stock_alert_config')
+    enabled = models.BooleanField(default=True)
+    # ความถี่ในการเช็คราคาและแจ้งเตือนซ้ำ (นาที)
+    check_interval_minutes = models.PositiveIntegerField(default=30)
+    alert_stop_loss = models.BooleanField(default=True, verbose_name="แจ้งเตือน Stop Loss")
+    alert_take_profit = models.BooleanField(default=True, verbose_name="แจ้งเตือน Take Profit")
+    alert_breakout_add = models.BooleanField(default=True, verbose_name="แจ้งเตือน Breakout (ซื้อเพิ่ม)")
+    alert_watchlist_entry = models.BooleanField(default=False, verbose_name="แจ้งเตือนโซนเข้าซื้อ (Watchlist)")
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Stock Alert Config"
+        verbose_name_plural = "Stock Alert Configs"
+
+    def __str__(self):
+        return f"AlertConfig: {self.user.username}"
+
+
+class StockAlertEvent(models.Model):
+    """
+    บันทึกการแจ้งเตือน Action ของหุ้นแต่ละครั้งที่เกิดขึ้น (สำหรับแสดง Toast/ประวัติในหน้าเว็บ)
+    """
+    class AlertType(models.TextChoices):
+        STOP_LOSS = 'SL', 'Stop Loss'
+        TAKE_PROFIT = 'TP', 'Take Profit'
+        BREAKOUT = 'BREAKOUT', 'Breakout (ซื้อเพิ่ม)'
+        WATCHLIST_ENTRY = 'WATCHLIST_ENTRY', 'โซนเข้าซื้อ (Watchlist)'
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='stock_alert_events')
+    symbol = models.CharField(max_length=20)
+    alert_type = models.CharField(max_length=20, choices=AlertType.choices)
+    # กลยุทธ์ของ position ณ เวลาที่แจ้งเตือน (ว่างได้สำหรับ Watchlist entry)
+    strategy = models.CharField(max_length=50, blank=True)
+    message = models.TextField()
+    price = models.FloatField()
+    # ระดับราคาที่ใช้เทียบ (SL/TP/zone) ณ เวลาที่แจ้งเตือน
+    reference_level = models.FloatField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    is_read = models.BooleanField(default=False)
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = "Stock Alert Event"
+        verbose_name_plural = "Stock Alert Events"
+
+    def __str__(self):
+        return f"{self.get_alert_type_display()}: {self.symbol} ({self.user.username})"
+

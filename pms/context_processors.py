@@ -21,12 +21,20 @@ def pms_context(request):
             unread_reports_count = DailyAgentReport.objects.filter(user=request.user, is_read=False).count()
         except Exception:
             unread_reports_count = 0
-            
+
+        # นับจำนวนแจ้งเตือน Action ของหุ้นในพอร์ต (SL/TP/Breakout/Watchlist) ที่ยังไม่ได้อ่าน
+        try:
+            from stocks.models import StockAlertEvent
+            unread_stock_alerts_count = StockAlertEvent.objects.filter(user=request.user, is_read=False).count()
+        except Exception:
+            unread_stock_alerts_count = 0
+
         context.update({
             'unconverted_leads_count': unconverted_leads_count,
             'new_requests_count': new_requests_count,
             'unread_notifications_count': unread_notifications_count,
             'unread_reports_count': unread_reports_count,
+            'unread_stock_alerts_count': unread_stock_alerts_count,
         })
     return context
 
