@@ -4,7 +4,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.cache import cache
 from django.http import JsonResponse
-from django.shortcuts import redirect, render
+from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
 from stocks.alert_engine import evaluate_user_alerts
@@ -75,4 +75,15 @@ def stock_alert_history(request):
 def mark_stock_alerts_read(request):
     """ทำเครื่องหมายอ่านแล้วทั้งหมด ผ่าน AJAX"""
     StockAlertEvent.objects.filter(user=request.user, is_read=False).update(is_read=True)
-    return JsonResponse({'success': True})
+    return JsonResponse({'success': True, 'unread_count': 0})
+
+
+@require_POST
+@login_required
+def mark_stock_alert_read(request, pk):
+    """สลับสถานะอ่านแล้ว/ยังไม่อ่านของแจ้งเตือนรายการเดียว ผ่าน AJAX"""
+    event = get_object_or_404(StockAlertEvent, pk=pk, user=request.user)
+    event.is_read = not event.is_read
+    event.save(update_fields=['is_read'])
+    unread_count = StockAlertEvent.objects.filter(user=request.user, is_read=False).count()
+    return JsonResponse({'success': True, 'is_read': event.is_read, 'unread_count': unread_count})

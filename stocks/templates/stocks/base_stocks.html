@@ -634,9 +634,7 @@
                         <a class="nav-link {% if request.resolver_match.url_name in 'stock_alert_config,stock_alert_history' %}active{% endif %}"
                            href="{% url 'stocks:stock_alert_history' %}">
                             <i class="fas fa-bell" style="color:#f87171;"></i> แจ้งเตือน
-                            {% if unread_stock_alerts_count > 0 %}
-                            <span class="badge bg-danger rounded-pill" style="font-size:0.65rem;">{{ unread_stock_alerts_count }}</span>
-                            {% endif %}
+                            <span id="stock-alert-badge" class="badge bg-danger rounded-pill" style="font-size:0.65rem;{% if not unread_stock_alerts_count %}display:none;{% endif %}">{{ unread_stock_alerts_count|default:0 }}</span>
                         </a>
                     </li>
 
@@ -771,6 +769,20 @@
         const TOAST_COLORS = { SL: '#ef4444', TP: '#f43f5e', BREAKOUT: '#10b981', WATCHLIST_ENTRY: '#6366f1' };
         const TOAST_LABELS = { SL: '🩸 Stop Loss', TP: '💵 Take Profit', BREAKOUT: '🚀 Breakout', WATCHLIST_ENTRY: '🎯 โซนเข้าซื้อ' };
 
+        window.setStockAlertBadge = function (count) {
+            const badge = document.getElementById('stock-alert-badge');
+            if (!badge) return;
+            badge.textContent = count;
+            badge.style.display = count > 0 ? '' : 'none';
+        };
+
+        function bumpStockAlertBadge(by) {
+            const badge = document.getElementById('stock-alert-badge');
+            if (!badge) return;
+            const current = parseInt(badge.textContent, 10) || 0;
+            window.setStockAlertBadge(current + by);
+        }
+
         function showStockToast(alertItem) {
             const stack = document.getElementById('sa-toast-stack');
             if (!stack) return;
@@ -782,6 +794,7 @@
                 '<div class="sa-toast-body">' + alertItem.message + '</div>';
             toast.onclick = function () { window.location.href = STOCK_ALERT_HISTORY_URL; };
             stack.appendChild(toast);
+            bumpStockAlertBadge(1);
             setTimeout(function () { toast.remove(); }, 15000);
         }
 

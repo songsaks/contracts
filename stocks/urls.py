@@ -29,6 +29,7 @@ urlpatterns = [
     path('alerts/config/', views.stock_alert_config_view, name='stock_alert_config'),
     path('alerts/history/', views.stock_alert_history, name='stock_alert_history'),
     path('alerts/mark-read/', views.mark_stock_alerts_read, name='mark_stock_alerts_read'),
+    path('alerts/<int:pk>/mark-read/', views.mark_stock_alert_read, name='mark_stock_alert_read'),
     path('recommendations/', views.recommendations, name='recommendations'),
     path('us-recommendations/', views.us_recommendations, name='us_recommendations'),
     path('macro/', views.macro_economy, name='macro'),

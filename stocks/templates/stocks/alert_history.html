@@ -14,16 +14,23 @@
     .sa-hero h1 { font-size: 1.5rem; font-weight: 900; color: #fff; margin: 0; }
     .sa-hero p { color: #94a3b8; font-size: 0.82rem; margin: 6px 0 0; }
     .sa-body { max-width: 720px; margin: -1.5rem auto 2rem; padding: 0 1.5rem; }
+    .sa-toolbar { display: flex; justify-content: flex-end; margin-bottom: 0.75rem; }
     .sa-event {
         background: #fff; border-radius: 14px; border: 1px solid #e2e8f0;
         border-left: 5px solid #94a3b8; box-shadow: 0 2px 12px rgba(0,0,0,.05);
         padding: 1rem 1.25rem; margin-bottom: 0.75rem;
+        display: flex; align-items: flex-start; gap: 0.85rem;
+        transition: opacity .2s;
     }
     .sa-event.type-SL { border-left-color: #ef4444; }
     .sa-event.type-TP { border-left-color: #f43f5e; }
     .sa-event.type-BREAKOUT { border-left-color: #10b981; }
     .sa-event.type-WATCHLIST_ENTRY { border-left-color: #6366f1; }
+    .sa-event.is-read { opacity: 0.55; }
+    .sa-event-check { margin-top: 3px; flex-shrink: 0; width: 1.1rem; height: 1.1rem; cursor: pointer; }
+    .sa-event-body { flex: 1; min-width: 0; }
     .sa-event-msg { font-size: 0.88rem; color: #1e293b; }
+    .sa-event.is-read .sa-event-msg { text-decoration: line-through; }
     .sa-event-meta { font-size: 0.72rem; color: #64748b; margin-top: 4px; }
     .sa-empty { text-align: center; padding: 3rem; color: #94a3b8; }
 </style>
@@ -37,7 +44,7 @@
         </div>
         <div>
             <h1>ประวัติแจ้งเตือน</h1>
-            <p>รายการแจ้งเตือน Action ของหุ้นในพอร์ต 100 รายการล่าสุด</p>
+            <p>รายการแจ้งเตือน Action ของหุ้นในพอร์ต 100 รายการล่าสุด — ติ๊กเมื่ออ่านแล้ว</p>
         </div>
     </div>
     <a href="{% url 'stocks:stock_alert_config' %}" class="btn btn-outline-light btn-sm">
@@ -46,6 +53,14 @@
 </div>
 
 <div class="sa-body">
+    {% if events %}
+    <div class="sa-toolbar">
+        <button type="button" id="sa-mark-all-btn" class="btn btn-sm btn-outline-secondary">
+            <i class="fas fa-check-double me-1"></i> ทำเครื่องหมายอ่านแล้วทั้งหมด
+        </button>
+    </div>
+    {% endif %}
+
     {% if not events %}
     <div class="sa-empty">
         <i class="fas fa-bell-slash" style="font-size:2rem;"></i>
@@ -53,11 +68,54 @@
     </div>
     {% else %}
     {% for e in events %}
-    <div class="sa-event type-{{ e.alert_type }}">
-        <div class="sa-event-msg">{{ e.message }}</div>
-        <div class="sa-event-meta">{{ e.created_at|date:"d M Y H:i" }}</div>
+    <div class="sa-event type-{{ e.alert_type }}{% if e.is_read %} is-read{% endif %}" data-event-id="{{ e.id }}">
+        <input type="checkbox" class="sa-event-check" {% if e.is_read %}checked{% endif %}
+               onchange="markStockAlertRead({{ e.id }}, this)">
+        <div class="sa-event-body">
+            <div class="sa-event-msg">{{ e.message }}</div>
+            <div class="sa-event-meta">{{ e.created_at|date:"d M Y H:i" }}</div>
+        </div>
     </div>
     {% endfor %}
     {% endif %}
 </div>
+
+<script>
+function markStockAlertRead(eventId, checkboxEl) {
+    checkboxEl.disabled = true;
+    fetch(`/stocks/alerts/${eventId}/mark-read/`, {
+        method: 'POST',
+        headers: { 'X-CSRFToken': '{{ csrf_token }}' },
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (!data.success) return;
+        const row = checkboxEl.closest('.sa-event');
+        row.classList.toggle('is-read', data.is_read);
+        checkboxEl.checked = data.is_read;
+        if (window.setStockAlertBadge) window.setStockAlertBadge(data.unread_count);
+    })
+    .finally(() => { checkboxEl.disabled = false; });
+}
+
+document.getElementById('sa-mark-all-btn')?.addEventListener('click', function () {
+    const btn = this;
+    btn.disabled = true;
+    fetch("{% url 'stocks:mark_stock_alerts_read' %}", {
+        method: 'POST',
+        headers: { 'X-CSRFToken': '{{ csrf_token }}' },
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (!data.success) return;
+        document.querySelectorAll('.sa-event').forEach(row => {
+            row.classList.add('is-read');
+            const cb = row.querySelector('.sa-event-check');
+            if (cb) cb.checked = true;
+        });
+        if (window.setStockAlertBadge) window.setStockAlertBadge(0);
+    })
+    .finally(() => { btn.disabled = false; });
+});
+</script>
 {% endblock %}
