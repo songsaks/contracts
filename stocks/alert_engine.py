@@ -4,27 +4,39 @@
 
 import yfinance as yf
 
-from .models import Portfolio, Watchlist, PrecisionScanCandidate, StockAlertEvent
+from .models import AssetCategory, MarketType, Portfolio, Watchlist, PrecisionScanCandidate, StockAlertEvent
+
+# ตลาดที่ไม่ควรเติม .BK (หุ้น US, Crypto, Forex ฯลฯ ใช้ symbol ตามที่กรอกตรงๆ)
+_NON_SET_MARKETS = {MarketType.US, MarketType.CRYPTO, MarketType.FUND, MarketType.CASH, MarketType.OTHER}
+# หมวดที่ไม่มีราคาให้ดึงจาก yfinance (กองทุน/เงินสด บันทึกมูลค่าด้วยมือ)
+_NON_PRICEABLE_CATEGORIES = {AssetCategory.FUND, AssetCategory.CASH}
 
 
-def _to_yf_symbol(symbol):
-    """แปลง symbol เป็นรูปแบบที่ yfinance เข้าใจ (เติม .BK ให้หุ้นไทยถ้ายังไม่มี)"""
+def _to_yf_symbol(symbol, market=None):
+    """แปลง symbol เป็นรูปแบบที่ yfinance เข้าใจ (เติม .BK เฉพาะหุ้นไทย/ตลาด SET เท่านั้น)"""
+    symbol = symbol.strip().upper()
     if symbol.endswith('=F') or '-' in symbol or symbol.endswith('.BK'):
+        return symbol
+    if market in _NON_SET_MARKETS:
         return symbol
     return f"{symbol}.BK"
 
 
-def fetch_live_prices(symbols):
-    """ดึงราคาปัจจุบันแบบ batch สำหรับ symbol ที่ส่งเข้ามา คืนค่าเป็น {original_symbol: price}"""
-    symbols = list(dict.fromkeys(symbols))  # unique, คงลำดับ
-    if not symbols:
+def fetch_live_prices(symbol_market_pairs):
+    """
+    ดึงราคาปัจจุบันแบบ batch
+    symbol_market_pairs: iterable ของ (symbol, market) — market ใช้ตัดสินว่าต้องเติม .BK หรือไม่
+    คืนค่าเป็น {original_symbol: price}
+    """
+    pairs = list(dict.fromkeys(symbol_market_pairs))  # unique, คงลำดับ
+    if not pairs:
         return {}
 
-    yf_symbols = [_to_yf_symbol(s) for s in symbols]
+    yf_symbols = [_to_yf_symbol(sym, mkt) for sym, mkt in pairs]
     live_prices = {}
     try:
         tickers = yf.Tickers(" ".join(yf_symbols))
-        for original_sym, yf_sym in zip(symbols, yf_symbols):
+        for (original_sym, _mkt), yf_sym in zip(pairs, yf_symbols):
             try:
                 t = tickers.tickers[yf_sym]
                 price = t.info.get('currentPrice') or t.fast_info.last_price
@@ -37,9 +49,12 @@ def fetch_live_prices(symbols):
     return live_prices
 
 
-def _latest_scan(symbol):
+def _latest_scan(symbol, market=None):
     clean_symbol = symbol.replace('.BK', '')
-    return PrecisionScanCandidate.objects.filter(symbol=clean_symbol).order_by('-scan_run').first()
+    qs = PrecisionScanCandidate.objects.filter(symbol=clean_symbol)
+    if market:
+        qs = qs.filter(market=market)
+    return qs.order_by('-scan_run').first()
 
 
 def _is_turtle_strategy(strategy):
@@ -52,11 +67,15 @@ def evaluate_user_alerts(user, config):
     ตามการตั้งค่าใน config (StockAlertConfig) แล้วบันทึกเป็น StockAlertEvent
     คืนค่าเป็น list ของ StockAlertEvent ที่เพิ่งสร้าง (เรียงใหม่ไปเก่า)
     """
-    portfolios = list(Portfolio.objects.filter(user=user))
+    portfolios = [
+        p for p in Portfolio.objects.filter(user=user)
+        if p.category not in _NON_PRICEABLE_CATEGORIES
+    ]
     watchlists = list(Watchlist.objects.filter(user=user, is_active=True)) if config.alert_watchlist_entry else []
 
-    symbols = {p.symbol for p in portfolios} | {w.symbol for w in watchlists}
-    live_prices = fetch_live_prices(symbols)
+    # Watchlist ไม่มีฟิลด์ market แยก จึงส่ง market=None ให้ heuristic เดิมตัดสิน (เหมือน monitor_stocks.py)
+    symbol_market_pairs = {(p.symbol, p.market) for p in portfolios} | {(w.symbol, None) for w in watchlists}
+    live_prices = fetch_live_prices(symbol_market_pairs)
 
     new_events = []
 
@@ -81,7 +100,7 @@ def evaluate_user_alerts(user, config):
                     ))
             continue
 
-        latest_scan = _latest_scan(p.symbol)
+        latest_scan = _latest_scan(p.symbol, p.market)
         if not latest_scan:
             continue
 
