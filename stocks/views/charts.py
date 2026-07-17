@@ -106,7 +106,7 @@ def chart_ai_analyze_ajax(request, symbol):
         try:
             import yfinance as yf
             import numpy as np
-            yf_symbol = '^SET.BK' if symbol == 'SET' else (symbol + '.BK' if market == 'SET' else symbol)
+            yf_symbol = '^SET.BK' if symbol == 'SET' else (symbol if symbol.endswith('.BK') or market != 'SET' else symbol + '.BK')
             ticker = yf.Ticker(yf_symbol)
             info = ticker.info
             
@@ -348,7 +348,12 @@ def stock_chart_data(request, symbol):
 
     # Append .BK for SET stocks, mapping index SET to ^SET
     if market == 'SET':
-        yf_symbol = '^SET.BK' if symbol == 'SET' else symbol + '.BK'
+        if symbol == 'SET':
+            yf_symbol = '^SET.BK'
+        elif symbol.endswith('.BK'):
+            yf_symbol = symbol
+        else:
+            yf_symbol = symbol + '.BK'
     else:
         yf_symbol = symbol
 

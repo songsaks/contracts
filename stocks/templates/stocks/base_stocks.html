@@ -764,7 +764,6 @@
     <script>
     (function () {
         const STOCK_ALERT_CHECK_URL = "{% url 'stocks:check_stock_alerts' %}";
-        const STOCK_ALERT_HISTORY_URL = "{% url 'stocks:stock_alert_history' %}";
         const POLL_MS = 5 * 60 * 1000;
         const TOAST_COLORS = { SL: '#ef4444', TP: '#f43f5e', BREAKOUT: '#10b981', WATCHLIST_ENTRY: '#6366f1' };
         const TOAST_LABELS = { SL: '🩸 Stop Loss', TP: '💵 Take Profit', BREAKOUT: '🚀 Breakout', WATCHLIST_ENTRY: '🎯 โซนเข้าซื้อ' };
@@ -783,6 +782,11 @@
             window.setStockAlertBadge(current + by);
         }
 
+        function stockChartUrl(symbol) {
+            const market = symbol.indexOf('.BK') !== -1 ? 'SET' : 'US';
+            return '/stocks/chart/' + encodeURIComponent(symbol) + '/?market=' + market;
+        }
+
         function showStockToast(alertItem) {
             const stack = document.getElementById('sa-toast-stack');
             if (!stack) return;
@@ -792,7 +796,7 @@
             toast.innerHTML =
                 '<div class="sa-toast-title">' + (TOAST_LABELS[alertItem.type] || 'แจ้งเตือน') + ' — ' + alertItem.symbol + '</div>' +
                 '<div class="sa-toast-body">' + alertItem.message + '</div>';
-            toast.onclick = function () { window.location.href = STOCK_ALERT_HISTORY_URL; };
+            toast.onclick = function () { window.location.href = stockChartUrl(alertItem.symbol); };
             stack.appendChild(toast);
             bumpStockAlertBadge(1);
             setTimeout(function () { toast.remove(); }, 15000);

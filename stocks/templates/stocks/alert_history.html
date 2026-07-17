@@ -64,9 +64,11 @@
     .sa-event.type-BREAKOUT .sa-event-icon { background: rgba(16,185,129,.1); }
     .sa-event.type-WATCHLIST_ENTRY .sa-event-icon { background: rgba(99,102,241,.1); }
 
+    .sa-event-link { display: contents; color: inherit; text-decoration: none; cursor: pointer; }
+    .sa-event-link:hover .sa-event-symbol { color: #4f46e5; }
     .sa-event-body { flex: 1; min-width: 0; }
     .sa-event-top { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
-    .sa-event-symbol { font-weight: 800; font-size: 0.95rem; color: #1e293b; }
+    .sa-event-symbol { font-weight: 800; font-size: 0.95rem; color: #1e293b; transition: color .15s; }
     .sa-event-type-label { font-size: 0.68rem; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: .04em; }
     .sa-event-strategy {
         background: #f1f5f9; color: #475569; font-size: 0.68rem; font-weight: 700;
@@ -141,21 +143,24 @@
         {% for e in group.events %}
         <div class="sa-event type-{{ e.alert_type }}{% if e.is_read %} is-read{% endif %}"
              data-event-id="{{ e.id }}" data-type="{{ e.alert_type }}" data-read="{{ e.is_read|yesno:'1,0' }}">
-            <div class="sa-event-icon">
-                {% if e.alert_type == 'SL' %}🩸{% elif e.alert_type == 'TP' %}💵{% elif e.alert_type == 'BREAKOUT' %}🚀{% else %}🎯{% endif %}
-            </div>
-            <div class="sa-event-body">
-                <div class="sa-event-top">
-                    <span class="sa-event-symbol">{{ e.symbol }}</span>
-                    <span class="sa-event-type-label">{{ e.get_alert_type_display }}</span>
-                    {% if e.strategy %}<span class="sa-event-strategy">{{ e.strategy }}</span>{% endif %}
+            <a class="sa-event-link" href="{% url 'stocks:stock_chart' e.symbol %}?market={% if '.BK' in e.symbol %}SET{% else %}US{% endif %}"
+               title="ดูกราฟหุ้น {{ e.symbol }}">
+                <div class="sa-event-icon">
+                    {% if e.alert_type == 'SL' %}🩸{% elif e.alert_type == 'TP' %}💵{% elif e.alert_type == 'BREAKOUT' %}🚀{% else %}🎯{% endif %}
                 </div>
-                <div class="sa-event-msg">{{ e.message }}</div>
-                <div class="sa-event-meta">
-                    <span>{{ e.created_at|date:"H:i" }}</span>
-                    <span class="sa-read-tag"><i class="fas fa-check-circle"></i> อ่านแล้ว</span>
+                <div class="sa-event-body">
+                    <div class="sa-event-top">
+                        <span class="sa-event-symbol">{{ e.symbol }} <i class="fas fa-chart-line" style="font-size:0.65rem;opacity:.5;"></i></span>
+                        <span class="sa-event-type-label">{{ e.get_alert_type_display }}</span>
+                        {% if e.strategy %}<span class="sa-event-strategy">{{ e.strategy }}</span>{% endif %}
+                    </div>
+                    <div class="sa-event-msg">{{ e.message }}</div>
+                    <div class="sa-event-meta">
+                        <span>{{ e.created_at|date:"H:i" }}</span>
+                        <span class="sa-read-tag"><i class="fas fa-check-circle"></i> อ่านแล้ว</span>
+                    </div>
                 </div>
-            </div>
+            </a>
             <div class="sa-event-price">
                 <div class="val">฿{{ e.price|floatformat:2 }}</div>
                 <div class="lbl">ราคา</div>
