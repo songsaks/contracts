@@ -2,7 +2,11 @@
 # ใช้ร่วมกันระหว่าง endpoint เช็คแจ้งเตือนในหน้าเว็บ (stocks/views/alerts.py)
 # แยกจาก management command monitor_stocks.py (ที่ยิง Telegram) เพื่อไม่ให้กระทบของเดิม
 
+from datetime import time as dtime
+
+import pytz
 import yfinance as yf
+from django.utils import timezone as dj_timezone
 
 from .models import AssetCategory, MarketType, Portfolio, Watchlist, PrecisionScanCandidate, StockAlertEvent
 
@@ -10,6 +14,44 @@ from .models import AssetCategory, MarketType, Portfolio, Watchlist, PrecisionSc
 _NON_SET_MARKETS = {MarketType.US, MarketType.CRYPTO, MarketType.FUND, MarketType.CASH, MarketType.OTHER}
 # หมวดที่ไม่มีราคาให้ดึงจาก yfinance (กองทุน/เงินสด บันทึกมูลค่าด้วยมือ)
 _NON_PRICEABLE_CATEGORIES = {AssetCategory.FUND, AssetCategory.CASH}
+
+_BKK_TZ = pytz.timezone('Asia/Bangkok')
+_US_EASTERN_TZ = pytz.timezone('America/New_York')
+
+
+def _is_set_market_open(now_utc):
+    """SET เปิดซื้อขาย จ-ศ 10:00-12:30 และ 14:30-16:30 เวลาไทย (ไม่รวมวันหยุดพิเศษ/นักขัตฤกษ์)"""
+    now_bkk = now_utc.astimezone(_BKK_TZ)
+    if now_bkk.weekday() >= 5:
+        return False
+    t = now_bkk.time()
+    return (dtime(10, 0) <= t <= dtime(12, 30)) or (dtime(14, 30) <= t <= dtime(16, 30))
+
+
+def _is_us_market_open(now_utc):
+    """US (NYSE/Nasdaq) เปิดซื้อขาย จ-ศ 9:30-16:00 เวลา US Eastern (ปรับ DST ให้อัตโนมัติ, ไม่รวมวันหยุดพิเศษ)"""
+    now_et = now_utc.astimezone(_US_EASTERN_TZ)
+    if now_et.weekday() >= 5:
+        return False
+    t = now_et.time()
+    return dtime(9, 30) <= t <= dtime(16, 0)
+
+
+_MARKET_OPEN_CHECKS = {
+    MarketType.SET: _is_set_market_open,
+    MarketType.US: _is_us_market_open,
+}
+
+
+def is_market_open(market):
+    """
+    เช็คว่าตลาดของ market นี้อยู่ในเวลาซื้อขายหรือไม่
+    ตลาดที่ไม่รู้จัก (Crypto/Forex ฯลฯ ซื้อขาย 24/7 หรือไม่มีเวลาตลาดตายตัว) ถือว่าเปิดเสมอ
+    """
+    checker = _MARKET_OPEN_CHECKS.get(market)
+    if not checker:
+        return True
+    return checker(dj_timezone.now())
 
 
 def _to_yf_symbol(symbol, market=None):
@@ -69,7 +111,7 @@ def evaluate_user_alerts(user, config):
     """
     portfolios = [
         p for p in Portfolio.objects.filter(user=user)
-        if p.category not in _NON_PRICEABLE_CATEGORIES
+        if p.category not in _NON_PRICEABLE_CATEGORIES and is_market_open(p.market)
     ]
     watchlists = list(Watchlist.objects.filter(user=user, is_active=True)) if config.alert_watchlist_entry else []
 
