@@ -68,15 +68,15 @@
     <div class="col-12 col-lg-5">
         <div class="card-premium p-4 border-0 mb-4 bg-white shadow-sm h-100">
             <h5 class="fw-bold mb-4 text-dark"><i class="fas fa-table me-2 text-primary"></i> สรุปผลตามช่วงเวลา ({{ group_by|capfirst }})</h5>
+            {% if usd_thb %}
+            <div class="alert mb-2 rounded-2 d-flex align-items-center gap-2"
+                 style="background:#eff6ff;border:1px solid #bfdbfe;color:#1e40af;font-size:0.75rem;padding:0.4rem 0.75rem;">
+              <i class="fas fa-exchange-alt"></i>
+              หุ้น US แปลงเป็น ฿ แล้ว &nbsp;|&nbsp; USD/THB = <strong>{{ usd_thb }}</strong>
+            </div>
+            {% endif %}
             <div class="table-responsive">
                 <table class="table table-hover align-middle">
-                    {% if usd_thb %}
-                    <div class="alert mb-2 rounded-2 d-flex align-items-center gap-2"
-                         style="background:#eff6ff;border:1px solid #bfdbfe;color:#1e40af;font-size:0.75rem;padding:0.4rem 0.75rem;">
-                      <i class="fas fa-exchange-alt"></i>
-                      หุ้น US แปลงเป็น ฿ แล้ว &nbsp;|&nbsp; USD/THB = <strong>{{ usd_thb }}</strong>
-                    </div>
-                    {% endif %}
                     <thead class="bg-light bg-opacity-50">
                         <tr class="small text-muted text-uppercase" style="font-size: 0.75rem;">
                             <th>ช่วงเวลา</th>
