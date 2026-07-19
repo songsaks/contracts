@@ -3146,7 +3146,7 @@ function applyPreset(presetType) {
 function _applyFiltersUS() {
     try {
         console.log("--- _applyFiltersUS() Triggered ---");
-        var rows = document.querySelectorAll('#scanTableUS tbody tr');
+        var rows = document.querySelectorAll('#scanTableUS tbody tr:not(.collapse)');
         var s2On       = document.getElementById('stage2FilterUS')  && document.getElementById('stage2FilterUS').checked;
         var ppOn       = document.getElementById('ppFilterUS')      && document.getElementById('ppFilterUS').checked;
         var volSurgeOn = document.getElementById('volSurgeFilterUS') && document.getElementById('volSurgeFilterUS').checked;

@@ -3562,7 +3562,7 @@ function _showPresetBarSET(presetType) {
 function _applyFiltersSET() {
     try {
         console.log("--- _applyFiltersSET() Triggered ---");
-        var rows = document.querySelectorAll('#scanTableSET tbody tr');
+        var rows = document.querySelectorAll('#scanTableSET tbody tr:not(.collapse)');
         var s2On        = document.getElementById('stage2FilterSET')      && document.getElementById('stage2FilterSET').checked;
         var ppOn        = document.getElementById('ppFilterSET')          && document.getElementById('ppFilterSET').checked;
         var cmfPosOn    = document.getElementById('cmfPositiveFilterSET') && document.getElementById('cmfPositiveFilterSET').checked;
