@@ -44,8 +44,13 @@
                                     <p class="small text-muted mb-0">หน้านี้ออกแบบมาเพื่อหาหุ้นที่ <strong>"หยุดลงแล้วและกำลังสร้างฐาน"</strong> โดยเฉพาะ เพื่อหาจังหวะต้นเทรนด์</p>
                                 </div>
                                 <div class="alert alert-info border-0 rounded-4">
-                                    <h6 class="fw-bold mb-1 small text-uppercase">สิ่งที่ต้องมองหา:</h6>
-                                    <p class="small mb-0">โฟกัสสถานะ <strong>"Ready to Break"</strong> หรือ <strong>"Handle Forming"</strong> เพราะนี่คืออาการของหุ้นที่รวบรวมพลังเสร็จแล้ว</p>
+                                    <h6 class="fw-bold mb-1 small text-uppercase">4 สถานะที่ต้องรู้จัก:</h6>
+                                    <p class="small mb-0">
+                                        <strong>🔄 Cup Forming</strong> — เริ่มสร้างฐาน (เร็วสุด, เฝ้าดูไปก่อน)<br>
+                                        <strong>⏳ Handle Forming</strong> — กำลังสร้างหูจับ (ใกล้พร้อมแล้ว)<br>
+                                        <strong>✅ Ready to Break</strong> — สะสมพลังเสร็จ รอเบรกเอาท์<br>
+                                        <strong>🚀 Breakout</strong> — ทะลุออกมาแล้ว (เข้าทำได้ทันที)
+                                    </p>
                                 </div>
                             </div>
                         </div>
@@ -57,11 +62,11 @@
                                 <p class="text-muted mb-4"><strong>คัดกรองคุณภาพ:</strong> ดูที่ <strong>Momentum / Precision</strong></p>
                                 <div class="bg-light rounded-4 p-4 mb-4">
                                     <h6 class="fw-bold text-dark mb-2"><i class="fas fa-bolt me-2 text-warning"></i>ทำไมต้องดูที่นี่?</h6>
-                                    <p class="small text-muted mb-0">เพื่อเช็คว่าหุ้นที่สะสมกำลังใน Step 1 มี <strong>"พลังจริง"</strong> หรือเปล่า ไม่ใช่แค่การเด้งสั้นๆ</p>
+                                    <p class="small text-muted mb-0">เพื่อเช็คว่าหุ้นที่สะสมกำลังใน Step 1 มี <strong>"พลังจริง"</strong> หรือเปล่า ไม่ใช่แค่การเด้งสั้นๆ — หน้านี้มี Filter ย่อยกว่า 14 ตัว แต่ไม่ต้องกดเองทีละอัน</p>
                                 </div>
                                 <div class="alert alert-success border-0 rounded-4">
-                                    <h6 class="fw-bold mb-1 small text-uppercase">วิธีใช้:</h6>
-                                    <p class="small mb-0">ดูหุ้นที่มี <strong>Score สูงๆ</strong> หรือ <strong>RS > 80</strong> (โซนสีเขียว) หากติดทั้งสองหน้าพร้อมกัน ตัวนั้นคือ <strong>Super Performance</strong></p>
+                                    <h6 class="fw-bold mb-1 small text-uppercase">วิธีใช้ (ทางลัด):</h6>
+                                    <p class="small mb-0">กดปุ่ม <strong>Quick Presets</strong> ด้านบนตาราง เช่น <strong>🔥 Superperformance</strong> หรือ <strong>🚀 Launcher Breakout</strong> ระบบจะติ๊ก Filter ที่เหมาะกับกลยุทธ์นั้นให้อัตโนมัติ ดูรายละเอียด Preset ทั้งหมดด้านล่าง</p>
                                 </div>
                             </div>
                         </div>
@@ -73,15 +78,106 @@
                                 <p class="text-muted mb-4"><strong>เกรดสถาบัน:</strong> ดูที่ <strong>Momentum / SEPA</strong></p>
                                 <div class="bg-light rounded-4 p-4 mb-4">
                                     <h6 class="fw-bold text-dark mb-2"><i class="fas fa-shield-alt me-2 text-purple"></i>ทำไมต้องดูที่นี่?</h6>
-                                    <p class="small text-muted mb-0">เพื่อความปลอดภัย หุ้นที่ติด SEPA คือหุ้นที่ยืนยันแล้วว่าเป็น <strong>ขาขึ้นรอบใหญ่ (Stage 2)</strong> เท่านั้น</p>
+                                    <p class="small text-muted mb-0">เพื่อความปลอดภัย หน้านี้กรองเฉพาะหุ้น <strong>Stage 2 + RS ≥ 70</strong> ก่อน แล้วให้ <strong>SEPA Score</strong> จัดอันดับคุณภาพฐาน (VCP, การสะสมของสถาบัน, ความแข็งแกร่งเทรนด์)</p>
                                 </div>
                                 <div class="alert alert-primary border-0 rounded-4" style="background-color: #eef2ff;">
                                     <h6 class="fw-bold mb-1 small text-uppercase">วิธีใช้:</h6>
-                                    <p class="small mb-0">ถ้าติด SEPA ด้วย แสดงว่าการสะสมกำลังครั้งนี้เป็นการเตรียมวิ่งรอบใหญ่ ไม่ใช่แค่การรีบาวน์ทั่วไป</p>
+                                    <p class="small mb-0">ยิ่ง SEPA Score สูง ยิ่งเป็นฐานที่แน่นและมีสถาบันสะสมชัดเจน <span class="text-danger">⚠ หุ้น US ใช้ข้อมูลคนละชุด (USSepaCandidate) แยกจาก Precision โดยสิ้นเชิง</span> ส่วน SET อ่านมาจากผลสแกน Precision รอบล่าสุด</p>
                                 </div>
                             </div>
                         </div>
                     </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Section: Quick Presets & Horizon Group -->
+    <div class="row g-4 mb-5">
+        <div class="col-lg-7">
+            <div class="card border-0 shadow-sm rounded-5 h-100 overflow-hidden">
+                <div class="card-body p-5">
+                    <div class="d-flex align-items-center mb-4">
+                        <div class="bg-warning text-dark rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 60px; height: 60px; flex-shrink: 0;">
+                            <i class="fas fa-sliders-h fs-3"></i>
+                        </div>
+                        <div>
+                            <h3 class="fw-bold mb-0">Quick Presets ในหน้า Precision</h3>
+                            <p class="text-muted mb-0">กดปุ่มเดียว ระบบติ๊ก Filter ให้ครบตามกลยุทธ์</p>
+                        </div>
+                    </div>
+                    <p class="text-muted small mb-4">ไม่ต้องจำ Filter 14 ตัวเอง ใช้ Preset สำเร็จรูปเหล่านี้แทนได้เลย (กดซ้ำเพื่อยกเลิก):</p>
+                    <div class="table-responsive">
+                        <table class="table table-sm align-middle">
+                            <tbody style="font-size:0.82rem;">
+                                <tr><td class="fw-bold text-nowrap">🔥 Superperformance</td><td class="text-muted">Stage2 + Pocket Pivot + CMF+≥0.1 + VCP + CAN SLIM + ACC>DIST</td></tr>
+                                <tr><td class="fw-bold text-nowrap">🚀 Launcher Breakout</td><td class="text-muted">Stage2 + Launcher Score≥70 + VCP + Inside Bar</td></tr>
+                                <tr><td class="fw-bold text-nowrap">💎 Base Accumulation</td><td class="text-muted">Stage2 + Pocket Pivot + CMF+≥0.1 + ACC>DIST</td></tr>
+                                <tr><td class="fw-bold text-nowrap">🚅 High Momentum</td><td class="text-muted">Stage2 + Vol Surge + Ichimoku≥3 + CMF+≥0.1</td></tr>
+                                <tr><td class="fw-bold text-nowrap">🛡️ Safety First</td><td class="text-muted">RSI<70 + Stage2 + ITL Bullish + BUY NOW</td></tr>
+                                <tr><td class="fw-bold text-nowrap">⚡ Fast Day/Swing</td><td class="text-muted">Stage2 + BUY NOW</td></tr>
+                                <tr><td class="fw-bold text-nowrap">🎯 หุ้นย่อพร้อมซื้อ</td><td class="text-muted">Stage2 + CMF+≥0.1 + VCP + ซื้อได้ตอนนี้ (ยังไม่ Extended)</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="alert alert-warning border-0 rounded-4 mb-0">
+                        <p class="small mb-0"><i class="fas fa-star me-1"></i> <strong>ซื้อได้ตอนนี้ (Buyable Uptrend)</strong> คือ Filter ใหม่ที่กรองเฉพาะหุ้นขาขึ้น (Stage2) ที่ <strong>"ยังไม่วิ่งไกลเกินไป"</strong> — ราคาอยู่ใกล้ MA50 หรือย่อกลับเข้าโซนเข้าซื้อ, RSI≤68, CMF≥0 — ป้องกันการไล่ราคาซื้อยอดดอย</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-5">
+            <div class="card border-0 shadow-lg rounded-5 h-100 overflow-hidden position-relative" style="background: linear-gradient(135deg, #0891b2 0%, #164e63 100%); color: #fff;">
+                <div class="card-body p-5 z-10 position-relative">
+                    <h3 class="fw-bold mb-2"><i class="fas fa-compass me-2"></i>Horizon Group: ทางลัดจบใน 1 หน้า</h3>
+                    <p class="small mb-4" style="color:#cffafe;">ในหน้า Precision เอง มีแท็บให้เลือกดูตามระยะเวลาถือ โดยไม่ต้องสลับไปหน้า Cup&Handle/SEPA/Turtle ทีละหน้าอีกต่อไป:</p>
+                    <ul class="list-unstyled mb-0" style="font-size:0.88rem;">
+                        <li class="mb-3">⚡ <strong>ระยะสั้น (SEPA)</strong> — Launcher≥70 หรือ Vol Surge หรือ Pocket Pivot หรือ MACD Crossover</li>
+                        <li class="mb-3">📅 <strong>ระยะกลาง (CAN SLIM)</strong> — ผ่านเกณฑ์ CAN SLIM หรือ VCP หรือเบรก 52w High (รวมสัญญาณจาก Cup & Handle ด้วย)</li>
+                        <li class="mb-0">⏳ <strong>ระยะยาว (Turtle)</strong> — Stage2 + EMA เรียงตัวสวย + Ehlers ITL ขาขึ้น (รวมสัญญาณจาก Turtle Scanner ด้วย)</li>
+                    </ul>
+                </div>
+                <div class="position-absolute" style="width: 260px; height: 260px; background: rgba(255,255,255,0.08); border-radius: 50%; right: -90px; bottom: -90px;"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Section: AI Precision Portfolio Scanner -->
+    <div class="row g-4 mb-5">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm rounded-5 overflow-hidden" style="background: linear-gradient(135deg, #4c1d95 0%, #1e1b4b 100%); color: #fff;">
+                <div class="card-body p-5">
+                    <div class="d-flex align-items-center mb-3">
+                        <div class="bg-white text-purple rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 60px; height: 60px; flex-shrink: 0;">
+                            <i class="fas fa-robot fs-3"></i>
+                        </div>
+                        <div>
+                            <h3 class="fw-bold mb-0 text-white">🤖 AI Precision Portfolio Scanner — ทางลัดอัตโนมัติ</h3>
+                            <p class="mb-0" style="color:#c4b5fd;">ให้ AI ทำ Step 1-3 แทนคุณ แล้วจัดพอร์ตให้เสร็จในคลิกเดียว</p>
+                        </div>
+                    </div>
+                    <p class="mb-4" style="color:#e2e8f0;">เมนู <strong>Momentum → AI Precision Portfolio Scanner</strong> จะดึงผลสแกน Precision ล่าสุดมาให้ AI วิเคราะห์และจัดกลุ่มหุ้นตาม 3 กลยุทธ์การถือ (เหมือนกับ Horizon Group) พร้อมให้เกรด A/B/C แต่ละตัว:</p>
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <div class="p-3 rounded-4" style="background:rgba(255,255,255,0.06);">
+                                <div class="fw-bold text-danger">⚡ สั้น — SEPA</div>
+                                <p class="small mb-0" style="color:#cbd5e1;">Holding: วัน-สัปดาห์</p>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="p-3 rounded-4" style="background:rgba(255,255,255,0.06);">
+                                <div class="fw-bold text-warning">📅 กลาง — CAN SLIM</div>
+                                <p class="small mb-0" style="color:#cbd5e1;">Holding: สัปดาห์-เดือน</p>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="p-3 rounded-4" style="background:rgba(255,255,255,0.06);">
+                                <div class="fw-bold text-info">⏳ ยาว — Turtle</div>
+                                <p class="small mb-0" style="color:#cbd5e1;">Holding: เดือน-ไตรมาส</p>
+                            </div>
+                        </div>
+                    </div>
+                    <p class="small mt-4 mb-0" style="color:#a78bfa;"><i class="fas fa-lightbulb me-1"></i> ผลลัพธ์ถูกบันทึกทุกรอบสแกน (scan_run) ดูย้อนหลังได้ว่าเกรด A ในอดีตวิ่งจริงไหม — เหมาะกับคนที่ไม่มีเวลาไล่เช็คทีละหน้า</p>
                 </div>
             </div>
         </div>
@@ -224,13 +320,128 @@
                         <ul class="list-unstyled space-y-2 mb-4">
                             <li><i class="fas fa-arrow-right text-primary me-2"></i> <strong>แอคชั่น:</strong> นำไปเช็คใน Precision (RS 94) -> ผ่าน!</li>
                             <li><i class="fas fa-arrow-right text-primary me-2"></i> <strong>แอคชั่น:</strong> นำไปเช็คใน SEPA (Stage 2) -> ผ่าน!</li>
-                            <li><i class="fas fa-arrow-right text-primary me-2"></i> <strong>จุดจบงาน:</strong> ตั้ง Alert ที่ 4.60 เมื่อติดหน้า <strong>Turtle</strong> คือจังหวะ <strong>"เข้าทำ"</strong> ครับ</li>
+                            <li><i class="fas fa-arrow-right text-primary me-2"></i> <strong>จุดจบงาน:</strong> กดกระดิ่ง <i class="fas fa-bell text-warning"></i> เพิ่ม WHA เข้า Alert Watchlist ไว้ เมื่อติดหน้า <strong>Turtle</strong> คือจังหวะ <strong>"เข้าทำ"</strong> ครับ</li>
                         </ul>
                         <div class="bg-primary text-white p-3 rounded-4 d-inline-block">
-                            <i class="fas fa-lightbulb me-2"></i> นี่คือวิธีการใช้งานระบบที่ทรงพลังที่สุด
+                            <i class="fas fa-lightbulb me-2"></i> นี่คือวิธีการใช้งานระบบที่ทรงพลังที่สุด — หรือจะปล่อยให้ระบบ <strong>🔔 แจ้งเตือน</strong> คอยเช็คแทนก็ได้ (ดูด้านล่าง)
                         </div>
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Section: How to read a scan row -->
+    <div class="row g-4 mb-5">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm rounded-5 overflow-hidden">
+                <div class="card-header bg-dark text-white p-4 border-0">
+                    <h3 class="fw-bold mb-0"><i class="fas fa-table-list me-2 text-warning"></i>อ่านแต่ละแถวในตาราง Precision อย่างไร</h3>
+                </div>
+                <div class="card-body p-5">
+                    <div class="row g-4">
+                        <div class="col-md-6">
+                            <h5 class="fw-bold mb-3"><i class="fas fa-sign-in-alt text-success me-2"></i>ปุ่ม "ดูแผนเข้า/ออก" (ขวาสุดของแถว)</h5>
+                            <p class="text-muted small mb-3">กดแล้วขยายเป็น 2 คอลัมน์ในแถวเดียวกัน ไม่ต้องเปิดหน้าใหม่:</p>
+                            <ul class="small text-muted">
+                                <li class="mb-2"><strong>แผนเข้าซื้อ:</strong> BUY Score, ช่วงราคาเข้าซื้อ, Stop Loss, เป้าหมาย, RR Ratio พร้อมเรตติ้ง (ดีเยี่ยม/ดี/พอรับได้/⚠ต่ำ) และเช็คลิสต์เงื่อนไขที่ผ่าน</li>
+                                <li>แผนออก: SELL Score พร้อมสถานะ (ออกทันที! / ออกได้แล้ว / เฝ้าระวัง / ยังถือได้) และสัญญาณออกที่ active อยู่ตอนนี้</li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <h5 class="fw-bold mb-3"><i class="fas fa-icons text-primary me-2"></i>ไอคอนปุ่ม Action ท้ายแถว</h5>
+                            <ul class="small text-muted mb-0">
+                                <li class="mb-2"><i class="fas fa-microchip text-purple me-1"></i> <strong>The Core Project</strong> — วิเคราะห์เจาะลึก 3 มิติ</li>
+                                <li class="mb-2"><i class="fas fa-magic text-primary me-1"></i> <strong>AI Fast Summary</strong> — สรุปเร็วด้วย AI</li>
+                                <li class="mb-2"><i class="fas fa-robot text-warning me-1"></i> <strong>CrewAI Agent Analysis</strong> — AI วิเคราะห์เชิงลึกแบบ Multi-Agent (ใช้เวลานานกว่า)</li>
+                                <li class="mb-2"><i class="fas fa-crosshairs" style="color:#7c3aed;"></i> <strong>Sniper Chart</strong> — กราฟหาจุดเข้าแม่นยำ (Entry Finder)</li>
+                                <li class="mb-2"><i class="fas fa-chart-line" style="color:#0ea5e9;"></i> <strong>ดูกราฟ</strong> — กราฟราคาเต็มรูปแบบ</li>
+                                <li><i class="far fa-bell text-warning me-1"></i> <strong>กระดิ่ง</strong> — เพิ่ม/ลบออกจาก Alert Watchlist (กระดิ่งทึบ = อยู่ใน Watchlist แล้ว)</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Section: Other strategies (non-trend-following) -->
+    <div class="row g-4 mb-5">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm rounded-5 overflow-hidden">
+                <div class="card-header bg-dark text-white p-4 border-0">
+                    <h3 class="fw-bold mb-0"><i class="fas fa-shuffle me-2 text-warning"></i>กลยุทธ์อื่นที่ไม่ใช่ Trend-Following</h3>
+                    <p class="small opacity-75 mb-0 mt-1">Step 1-3 ด้านบนเน้นเทรนด์ตาม (Momentum) ล้วนๆ แต่ในเมนู Value และ Momentum ยังมีสแกนเนอร์แนวคิดต่างออกไป — อย่าใช้ปนกันโดยไม่รู้ตัว</p>
+                </div>
+                <div class="card-body p-5">
+                    <div class="row g-4">
+                        <div class="col-md-4">
+                            <div class="p-4 rounded-4 h-100 border" style="background:rgba(220,38,38,0.03); border-color:rgba(220,38,38,0.15) !important;">
+                                <h5 class="fw-bold text-danger mb-2"><i class="fas fa-left-right me-2"></i>Mean Reversion Scanner</h5>
+                                <p class="small text-muted mb-2"><strong>เกณฑ์:</strong> ADX < 25 (ไม่มีเทรนด์ชัด) + RSI < 35 หรือ > 65</p>
+                                <p class="small text-dark mb-0"><strong>ใช้เมื่อไหร่:</strong> ตลาด <strong>Sideways/Choppy</strong> เท่านั้น — เป็นแนวคิด <strong>ตรงข้าม</strong> กับ CAN SLIM/SEPA ห้ามใช้ปนกันตอนตลาดเป็นเทรนด์ชัดเจน</p>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="p-4 rounded-4 h-100 border" style="background:rgba(99,102,241,0.03); border-color:rgba(99,102,241,0.15) !important;">
+                                <h5 class="fw-bold mb-2" style="color:#4f46e5;"><i class="fas fa-layer-group me-2"></i>Multi-Factor Scanner</h5>
+                                <p class="small text-muted mb-2"><strong>เกณฑ์:</strong> Super Score 100 คะแนน = Momentum(40) + Volume/Flow(30) + Sentiment AI(20) + Fundamental(10)</p>
+                                <p class="small text-dark mb-0"><strong>ใช้เมื่อไหร่:</strong> อยากได้มุมมองแบบองค์รวม ผสมทั้งเทคนิคและปัจจัยพื้นฐานในคะแนนเดียว มีทั้งเวอร์ชัน SET/US</p>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="p-4 rounded-4 h-100 border" style="background:rgba(5,150,105,0.03); border-color:rgba(5,150,105,0.15) !important;">
+                                <h5 class="fw-bold text-success mb-2"><i class="fas fa-gem me-2"></i>Value Scanner</h5>
+                                <p class="small text-muted mb-2"><strong>เกณฑ์:</strong> SET ใช้ 5-Pillar Scoring, US เน้น P/E < 25 + คุณภาพพื้นฐาน</p>
+                                <p class="small text-dark mb-0"><strong>ใช้เมื่อไหร่:</strong> มองหาหุ้นพื้นฐานดีราคาถูก ไม่สนโมเมนตัมระยะสั้น — คนละปรัชญากับหุ้นระเบิดด้านบนโดยสิ้นเชิง</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Section: Portfolio Exit Plan vs inline plan + Stock Alerts -->
+    <div class="row g-4 mb-5">
+        <div class="col-lg-6">
+            <div class="card border-0 shadow-sm rounded-5 h-100 overflow-hidden">
+                <div class="card-body p-5">
+                    <div class="d-flex align-items-center mb-4">
+                        <div class="bg-primary-soft text-primary rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 60px; height: 60px; flex-shrink: 0;">
+                            <i class="fas fa-wallet fs-3"></i>
+                        </div>
+                        <div>
+                            <h3 class="fw-bold mb-0" style="font-size:1.3rem;">แผนออกในตาราง VS Portfolio Exit Plan</h3>
+                        </div>
+                    </div>
+                    <p class="text-muted small mb-3">สองหน้านี้หน้าตาคล้ายกันแต่ตอบคำถามคนละข้อ:</p>
+                    <ul class="small text-muted mb-0">
+                        <li class="mb-2"><strong>"ดูแผนเข้า/ออก" ในตาราง Precision</strong> — ตอบคำถาม <em>"ถ้าจะซื้อ/ถืออยู่แล้ว ควรวางแผนยังไง"</em> คำนวณจากผลสแกนของหุ้นตัวนั้นๆ</li>
+                        <li><strong>หน้า Portfolio Exit Plan</strong> (เมนู Portfolio) — ตอบคำถาม <em>"หุ้นที่ผมถืออยู่จริงตอนนี้ ควรทำอะไรวันนี้"</em> ไล่เช็คทุกตัวในพอร์ตจริง พร้อม Progress Bar SL→ทุน→ราคาปัจจุบัน→เป้าหมาย เรียงตามความเร่งด่วน</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-6">
+            <div class="card border-0 shadow-lg rounded-5 h-100 overflow-hidden position-relative" style="background: linear-gradient(135deg, #7c2d12 0%, #1e293b 100%); color:#fff;">
+                <div class="card-body p-5 z-10 position-relative">
+                    <div class="d-flex align-items-center mb-3">
+                        <div class="bg-warning text-dark rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 50px; height: 50px; flex-shrink: 0;">
+                            <i class="fas fa-bell fs-4"></i>
+                        </div>
+                        <h3 class="fw-bold mb-0" style="font-size:1.3rem;">🔔 ระบบแจ้งเตือนอัตโนมัติ</h3>
+                    </div>
+                    <p class="small mb-3" style="color:#fed7aa;">ไม่ต้องเปิดจอเฝ้าตารางสแกนตลอดเวลาอีกต่อไป กระดิ่ง <strong>"แจ้งเตือน"</strong> บนแถบเมนูจะเช็คให้อัตโนมัติและเด้งแจ้งในแอปเมื่อ:</p>
+                    <ul class="small mb-0" style="color:#fef3c7;">
+                        <li class="mb-1">🩸 หุ้นในพอร์ตหลุด Stop Loss</li>
+                        <li class="mb-1">💵 หุ้นในพอร์ตเข้าโซนขายทำกำไร (Take Profit)</li>
+                        <li class="mb-1">🚀 หุ้นในพอร์ตเกิดสัญญาณ Breakout — ควรพิจารณาซื้อเพิ่ม</li>
+                        <li>🎯 หุ้นใน Alert Watchlist ย่อลงมาถึงโซนเข้าซื้อ</li>
+                    </ul>
+                    <p class="small mt-3 mb-0" style="color:#fdba74;">ตั้งค่าเปิด/ปิดแต่ละประเภทและความถี่การเช็คได้ที่หน้า "ตั้งค่า" ในเมนูแจ้งเตือน</p>
+                </div>
+                <div class="position-absolute" style="width: 220px; height: 220px; background: rgba(255,255,255,0.06); border-radius: 50%; right: -80px; bottom: -80px;"></div>
             </div>
         </div>
     </div>
