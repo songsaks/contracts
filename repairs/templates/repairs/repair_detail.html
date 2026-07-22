@@ -357,6 +357,13 @@
             
             if (status === 'COMPLETED') {
                 costDiv.removeClass('d-none').hide().fadeIn();
+
+                // Prefill actual cost from the estimated price, if not already filled in
+                const costInput = form.find('input[name="final_cost"]');
+                if (!costInput.val()) {
+                    const price = form.find('input[name="price"]').val();
+                    if (price) costInput.val(parseFloat(price).toFixed(2));
+                }
             } else {
                 costDiv.fadeOut(function() {
                     $(this).addClass('d-none');
