@@ -15,6 +15,7 @@ from collections import defaultdict
 from decimal import Decimal
 from django.db.models import Q, Sum, Count
 from django.utils import timezone
+from django.utils.http import url_has_allowed_host_and_scheme
 
 @login_required
 def dashboard(request):
@@ -443,11 +444,17 @@ def repair_detail(request, pk):
     all_repair_types = RepairType.objects.all().order_by('name')
     from .models import RepairStatus
     all_statuses = RepairStatus.objects.all().order_by('sequence')
+
+    next_url = request.GET.get('next')
+    if not (next_url and url_has_allowed_host_and_scheme(next_url, allowed_hosts={request.get_host()})):
+        next_url = reverse('repairs:repair_list')
+
     return render(request, 'repairs/repair_detail.html', {
-        'job': job, 
+        'job': job,
         'all_technicians': all_technicians,
         'all_repair_types': all_repair_types,
-        'all_statuses': all_statuses
+        'all_statuses': all_statuses,
+        'list_url': next_url,
     })
 
 @login_required
@@ -531,7 +538,10 @@ def repair_update_status(request, item_id):
                 changed_by=request.user,
                 note=item.status_note or f"อัปเดตสถานะเป็น {item.get_status_display()}"
             )
-    # Redirect back to the repair list
+    # Redirect back to the page the user came from (preserving filters), if safe
+    next_url = request.POST.get('next')
+    if next_url and url_has_allowed_host_and_scheme(next_url, allowed_hosts={request.get_host()}):
+        return redirect(next_url)
     return redirect('repairs:repair_list')
 
 @login_required

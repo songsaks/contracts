@@ -9,7 +9,7 @@
             <div>
                 <nav aria-label="breadcrumb">
                     <ol class="breadcrumb mb-1 small">
-                        <li class="breadcrumb-item"><a href="{% url 'repairs:repair_list' %}" class="text-muted text-decoration-none">รายการซ่อม</a></li>
+                        <li class="breadcrumb-item"><a href="{{ list_url }}" class="text-muted text-decoration-none">รายการซ่อม</a></li>
                         <li class="breadcrumb-item active" aria-current="page">Job {{ job.job_code }}</li>
                     </ol>
                 </nav>
@@ -30,7 +30,7 @@
                 <a href="{% url 'repairs:repair_print' job.pk %}" target="_blank" class="btn btn-light text-secondary shadow-sm border rounded-circle d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;" title="พิมพ์รายงาน" data-bs-toggle="tooltip">
                     <i class="fas fa-print"></i>
                 </a>
-                <a href="{% url 'repairs:repair_list' %}" class="btn btn-light text-secondary shadow-sm border rounded-circle d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;" title="กลับหน้ารายการ" data-bs-toggle="tooltip">
+                <a href="{{ list_url }}" class="btn btn-light text-secondary shadow-sm border rounded-circle d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;" title="กลับหน้ารายการ" data-bs-toggle="tooltip">
                     <i class="fas fa-arrow-left"></i>
                 </a>
             </div>
@@ -73,7 +73,8 @@
 
                 <form action="{% url 'repairs:repair_update_status' item.id %}" method="post">
                     {% csrf_token %}
-                    
+                    <input type="hidden" name="next" value="{{ list_url }}">
+
                     <div class="bg-light p-3 rounded mb-3">
                         <h6 class="text-uppercase text-muted fw-bold small mb-3">รายละเอียดและสถานะ</h6>
                         
