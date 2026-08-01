@@ -625,8 +625,14 @@
                                     data-bs-toggle="modal" data-bs-target="#sellStockModal">
                                     <i class="fas fa-hand-holding-usd fa-xs"></i>
                                 </button>
+                                <button type="button" class="btn btn-light btn-sm rounded-circle shadow-sm border" style="width: 36px; height: 36px; color:#d97706;"
+                                    title="บันทึกปันผล"
+                                    onclick="openDividendModal('{{ item.obj.symbol }}', '{{ item.obj.market }}', '{{ item.obj.quantity }}')"
+                                    data-bs-toggle="modal" data-bs-target="#addDividendModal">
+                                    <i class="fas fa-coins fa-xs"></i>
+                                </button>
                                 <button type="button" class="btn btn-light btn-sm rounded-circle shadow-sm border" style="width: 36px; height: 36px;"
-                                    onclick="editPortfolio('{{ item.obj.symbol }}', '{{ item.obj.name|default:""|escapejs }}', '{{ item.obj.quantity }}', '{{ item.obj.entry_price }}', '{{ item.obj.category }}', '{{ item.obj.market }}', '{{ item.obj.strategy|default_if_none:""|escapejs }}', '{{ item.obj.trail_multiplier }}')" 
+                                    onclick="editPortfolio('{{ item.obj.symbol }}', '{{ item.obj.name|default:""|escapejs }}', '{{ item.obj.quantity }}', '{{ item.obj.entry_price }}', '{{ item.obj.category }}', '{{ item.obj.market }}', '{{ item.obj.strategy|default_if_none:""|escapejs }}', '{{ item.obj.trail_multiplier }}')"
                                     data-bs-toggle="modal" data-bs-target="#addPortfolioModal">
                                     <i class="fas fa-edit fa-xs"></i>
                                 </button>
@@ -809,6 +815,11 @@
                                         onclick="openSellModal('{% url 'stocks:sell_stock' item.obj.pk %}','{{ item.obj.symbol }}','{{ item.obj.quantity }}','{{ item.current_price }}','{{ item.obj.entry_price }}','{{ item.obj.market }}')"
                                         data-bs-toggle="modal" data-bs-target="#sellStockModal" title="Sell">
                                         <i class="fas fa-hand-holding-usd" style="font-size:0.6rem;"></i>
+                                    </button>
+                                    <button class="btn btn-light btn-xs rounded-circle border" style="width:28px;height:28px;padding:0;color:#d97706;"
+                                        onclick="openDividendModal('{{ item.obj.symbol }}','{{ item.obj.market }}','{{ item.obj.quantity }}')"
+                                        data-bs-toggle="modal" data-bs-target="#addDividendModal" title="บันทึกปันผล">
+                                        <i class="fas fa-coins" style="font-size:0.6rem;"></i>
                                     </button>
                                     <button class="btn btn-light btn-xs rounded-circle border" style="width:28px;height:28px;padding:0;"
                                         onclick="editPortfolio('{{ item.obj.symbol }}','{{ item.obj.name|default:""|escapejs }}','{{ item.obj.quantity }}','{{ item.obj.entry_price }}','{{ item.obj.category }}','{{ item.obj.market }}','{{ item.obj.strategy|default_if_none:""|escapejs }}', '{{ item.obj.trail_multiplier }}')"
@@ -1350,6 +1361,65 @@
     </div>
 </div>
 
+<!-- Modal บันทึกเงินปันผล (จากหุ้นที่ถืออยู่ในพอร์ต) -->
+<div class="modal fade" id="addDividendModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content card-premium border-0">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title fw-bold" style="color:#d97706;">
+                    <i class="fas fa-coins me-2"></i>บันทึกเงินปันผล: <span id="div-symbol-text"></span>
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form action="{% url 'stocks:dividend_create' %}" method="POST">
+                {% csrf_token %}
+                <input type="hidden" name="symbol" id="div-symbol">
+                <input type="hidden" name="market" id="div-market">
+                <input type="hidden" name="next" value="{{ request.get_full_path|urlencode }}">
+                <div class="modal-body pt-3">
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label class="form-label small text-muted">วันที่ได้รับปันผล</label>
+                            <input type="date" name="dividend_date" id="div-date" class="form-control rounded-3" style="background:#f8fafc;" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small text-muted">ปันผลต่อหุ้น (บาท)</label>
+                            <input type="number" step="0.0001" min="0" name="dividend_per_share" id="div-per-share" class="form-control rounded-3" style="background:#f8fafc;" placeholder="0.0000" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small text-muted">จำนวนหุ้น</label>
+                            <input type="number" step="0.01" min="0" name="shares" id="div-shares" class="form-control rounded-3" style="background:#f8fafc;" required>
+                            <div class="form-text small">ค่าเริ่มต้น = จำนวนที่ถืออยู่ในพอร์ตตอนนี้ แก้ไขได้ถ้าถือไม่เท่านี้ตอน XD</div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small text-muted">อัตราภาษีหัก ณ ที่จ่าย (%)</label>
+                            <input type="number" step="0.01" min="0" max="100" name="tax_rate" id="div-tax-rate" class="form-control rounded-3" style="background:#f8fafc;" value="10">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small text-muted">หมายเหตุ (ถ้ามี)</label>
+                            <input type="text" name="note" class="form-control rounded-3" style="background:#f8fafc;" placeholder="เช่น งวดครึ่งปี 2569">
+                        </div>
+                        <div class="col-12">
+                            <div class="p-3 rounded-4" style="background:#fffbeb;border:1px solid #fde68a;font-size:0.85rem;">
+                                <div class="d-flex justify-content-between"><span>รวมก่อนหักภาษี</span><strong id="div-prev-gross">฿0.00</strong></div>
+                                <div class="d-flex justify-content-between text-danger"><span>ภาษีหัก ณ ที่จ่าย</span><strong id="div-prev-tax">-฿0.00</strong></div>
+                                <hr class="my-2">
+                                <div class="d-flex justify-content-between" style="color:#d97706;"><span class="fw-bold">ยอดสุทธิ (นำไปคำนวณทศางค์)</span><strong id="div-prev-net" class="fs-6">฿0.00</strong></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer border-0">
+                    <button type="button" class="btn btn-link text-muted" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn px-4 rounded-pill fw-bold" style="background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#1a1a2e;">
+                        <i class="fas fa-save me-1"></i>บันทึกปันผล
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 <!-- Modal สำหรับจัดการเงินสด -->
 <div class="modal fade" id="addCashModal" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered">
@@ -1648,6 +1718,36 @@
             console.error("openSellModal error:", err);
         }
     }
+
+    // ── บันทึกเงินปันผลจากหุ้นที่ถืออยู่ในพอร์ต ──────────────────
+    function openDividendModal(symbol, market, qty) {
+        document.getElementById('div-symbol-text').innerText = symbol;
+        document.getElementById('div-symbol').value = symbol;
+        document.getElementById('div-market').value = market || 'SET';
+        document.getElementById('div-shares').value = parseFloat(qty || 0);
+        document.getElementById('div-per-share').value = '';
+        document.getElementById('div-date').value = new Date().toISOString().slice(0, 10);
+        updateDividendPreview();
+    }
+
+    function updateDividendPreview() {
+        const perShare = parseFloat(document.getElementById('div-per-share').value) || 0;
+        const shares   = parseFloat(document.getElementById('div-shares').value) || 0;
+        const taxRate  = parseFloat(document.getElementById('div-tax-rate').value) || 0;
+
+        const gross = perShare * shares;
+        const tax   = gross * (taxRate / 100);
+        const net   = gross - tax;
+
+        const fmt = v => '฿' + v.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        document.getElementById('div-prev-gross').textContent = fmt(gross);
+        document.getElementById('div-prev-tax').textContent   = '-' + fmt(tax);
+        document.getElementById('div-prev-net').textContent   = fmt(net);
+    }
+    ['div-per-share', 'div-shares', 'div-tax-rate'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.addEventListener('input', updateDividendPreview);
+    });
 
     function submitSell() {
         const qty   = parseFloat(document.getElementById('sell-quantity').value);

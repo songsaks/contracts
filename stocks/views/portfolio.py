@@ -1404,10 +1404,19 @@ def tithe_report(request):
         comm = max(raw_comm, Decimal('50.0')) if trade_val > 0 else Decimal('0.0')
         vat = comm * Decimal('0.07')
         fee_total = comm + vat
-        
+
         key = (date_key.year, date_key.month)
         if key in monthly_raw:
             monthly_raw[key] -= fee_total
+
+    # ── รวมเงินปันผลสุทธิ (หลังหักภาษี) เข้ากับรายได้รายเดือน (แปลง USD→THB ถ้าเป็นหุ้น US) ──
+    dividends = DividendRecord.objects.filter(user=request.user).order_by('-dividend_date', '-created_at')
+    monthly_dividend = defaultdict(Decimal)
+    for d in dividends:
+        key = (d.dividend_date.year, d.dividend_date.month)
+        net_thb = d.net_amount * usd_thb_d if d.market == MarketType.US else d.net_amount
+        monthly_dividend[key] += net_thb
+        monthly_raw[key] += net_thb
 
     tithe_map = {
         (t.year, t.month): t
@@ -1438,6 +1447,7 @@ def tithe_report(request):
             'month': mo,
             'month_name': calendar.month_abbr[mo],
             'pl': pl,
+            'dividend': monthly_dividend.get((yr, mo), Decimal('0')).quantize(Decimal('0.01')),
             'tithe': tithe,
             'is_paid': is_paid,
             'paid_at': paid_at,
@@ -1451,6 +1461,8 @@ def tithe_report(request):
         'tithe':   [float(m['tithe']) for m in chart_months],
     }, ensure_ascii=False)
 
+    total_dividend_net = sum((d.net_amount for d in dividends), Decimal('0'))
+
     context = {
         'months': months,
         'total_profit': total_profit,
@@ -1459,8 +1471,65 @@ def tithe_report(request):
         'total_tithe_remaining': total_tithe_owed - total_tithe_paid,
         'chart_json': chart_data,
         'usd_thb': round(usd_thb, 2),
+        'dividends': dividends,
+        'total_dividend_net': total_dividend_net,
     }
     return render(request, 'stocks/tithe_report.html', context)
+
+
+@login_required
+def dividend_create(request):
+    """
+    บันทึกเงินปันผลที่ได้รับ — คำนวณภาษีหัก ณ ที่จ่ายและยอดสุทธิ แล้วรวมเข้ากับรายได้รายเดือนสำหรับทศางค์
+    เรียกได้ทั้งจากหน้าทศางค์ (บันทึกแยก เช่น กรณีขายหุ้นไปแล้วแต่ยังไม่ได้บันทึกปันผลตอน XD)
+    และจากหน้า Portfolio โดยตรง (หุ้นที่ถืออยู่ — ใช้ next เพื่อกลับไปหน้าเดิม)
+    """
+    fallback_url = reverse('stocks:tithe_report')
+    next_url = request.POST.get('next')
+    redirect_url = next_url if (next_url and url_has_allowed_host_and_scheme(next_url, allowed_hosts={request.get_host()})) else fallback_url
+
+    if request.method != 'POST':
+        return redirect(redirect_url)
+
+    symbol = (request.POST.get('symbol') or '').strip().upper()
+    dividend_date = request.POST.get('dividend_date')
+    market = request.POST.get('market') or 'SET'
+    note = (request.POST.get('note') or '').strip()
+
+    try:
+        dividend_per_share = Decimal(request.POST.get('dividend_per_share') or '0')
+        shares = Decimal(request.POST.get('shares') or '0')
+        tax_rate = Decimal(request.POST.get('tax_rate') or '10')
+    except InvalidOperation:
+        messages.error(request, 'ข้อมูลตัวเลขไม่ถูกต้อง')
+        return redirect(redirect_url)
+
+    if not symbol or not dividend_date or dividend_per_share <= 0 or shares <= 0:
+        messages.error(request, 'กรุณากรอกข้อมูลให้ครบ: ชื่อหุ้น, วันที่, ปันผลต่อหุ้น, จำนวนหุ้น')
+        return redirect(redirect_url)
+
+    DividendRecord.objects.create(
+        user=request.user,
+        symbol=symbol,
+        market=market,
+        dividend_date=dividend_date,
+        dividend_per_share=dividend_per_share,
+        shares=shares,
+        tax_rate=tax_rate,
+        note=note,
+    )
+    messages.success(request, f'บันทึกเงินปันผล {symbol} เรียบร้อยแล้ว')
+    return redirect(redirect_url)
+
+
+@login_required
+def dividend_delete(request, pk):
+    """ลบรายการเงินปันผล"""
+    record = get_object_or_404(DividendRecord, pk=pk, user=request.user)
+    if request.method == 'POST':
+        record.delete()
+        messages.success(request, 'ลบรายการเงินปันผลแล้ว')
+    return redirect('stocks:tithe_report')
 
 
 @login_required

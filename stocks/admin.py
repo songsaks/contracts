@@ -4,7 +4,7 @@ from .models import (
     MomentumCandidate, MultiFactorCandidate, PrecisionScanCandidate,
     ValueScanCandidate, CupHandleCandidate, USSepaCandidate, MorningBriefing,
     TradingAccount, TradeOrder, BotActivity, 
-    TitheRecord, ScannableSymbol, TurtleScanCandidate,
+    TitheRecord, DividendRecord, ScannableSymbol, TurtleScanCandidate,
     PortfolioCash, CashTransaction
 )
 
@@ -138,3 +138,9 @@ class CashTransactionAdmin(admin.ModelAdmin):
     list_display = ('user', 'transaction_type', 'amount', 'currency', 'created_at')
     list_filter = ('transaction_type', 'currency')
     search_fields = ('note',)
+
+@admin.register(DividendRecord)
+class DividendRecordAdmin(admin.ModelAdmin):
+    list_display = ('user', 'symbol', 'dividend_date', 'dividend_per_share', 'shares', 'tax_rate', 'net_amount')
+    list_filter = ('market', 'dividend_date')
+    search_fields = ('symbol', 'note')

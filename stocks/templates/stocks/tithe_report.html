@@ -96,6 +96,22 @@
         background: linear-gradient(90deg, #7c3aed, #a855f7);
         transition: width 0.6s ease;
     }
+
+    /* ── Dividend section ── */
+    .btn-add-dividend {
+        background: linear-gradient(135deg, #fbbf24, #f59e0b);
+        color: #1a1a2e; font-weight: 700; border: none;
+        border-radius: 999px; padding: 0.55rem 1.3rem;
+        box-shadow: 0 3px 10px rgba(245,158,11,0.35);
+        transition: all 0.2s;
+    }
+    .btn-add-dividend:hover { transform: translateY(-1px); box-shadow: 0 5px 14px rgba(245,158,11,0.45); color: #1a1a2e; }
+    .dividend-net { color: #d97706; font-weight: 700; }
+    .dividend-card { border-radius: 1rem; border: none; box-shadow: 0 2px 12px rgba(0,0,0,0.07); overflow: hidden; }
+    #dividendPreview {
+        background: #fffbeb; border: 1px solid #fde68a; border-radius: 0.75rem;
+        padding: 0.85rem 1rem; font-size: 0.85rem;
+    }
 </style>
 {% endblock %}
 
@@ -234,7 +250,8 @@
                     <thead>
                         <tr>
                             <th>เดือน</th>
-                            <th class="text-end">กำไร/ขาดทุน</th>
+                            <th class="text-end">กำไร/ขาดทุน (รวมปันผล)</th>
+                            <th class="text-end col-hide-md" style="color:#d97706;">ในนั้นเป็นปันผล</th>
                             <th class="text-end" style="color:#7c3aed;">ทศางค์ 10%</th>
                             <th class="text-center">สถานะ</th>
                             <th class="text-center col-hide-md">วันที่ถวาย</th>
@@ -254,6 +271,13 @@
                                 <span class="pl-negative">฿{{ m.pl|floatformat:2|intcomma }}</span>
                                 {% else %}
                                 <span class="text-muted">฿0.00</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-end col-hide-md">
+                                {% if m.dividend > 0 %}
+                                <span class="dividend-net">฿{{ m.dividend|floatformat:2|intcomma }}</span>
+                                {% else %}
+                                <span class="text-muted small">—</span>
                                 {% endif %}
                             </td>
                             <td class="text-end">
@@ -305,8 +329,81 @@
             {% else %}
             <div class="text-center py-5 text-muted">
                 <i class="fas fa-dove fa-3x mb-3 opacity-25"></i>
-                <div class="fw-semibold">ยังไม่มีประวัติการขายหุ้น</div>
-                <div class="small mt-1">ขายหุ้นครั้งแรกแล้วมาคำนวณทศางค์กัน</div>
+                <div class="fw-semibold">ยังไม่มีประวัติการขายหุ้นหรือเงินปันผล</div>
+                <div class="small mt-1">ขายหุ้นหรือบันทึกเงินปันผลครั้งแรกแล้วมาคำนวณทศางค์กัน</div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- ════════════════ DIVIDEND ════════════════ -->
+    <div class="col-12">
+        <div class="dividend-card bg-white">
+            <div class="d-flex align-items-center justify-content-between px-4 py-3 border-bottom flex-wrap gap-2">
+                <div>
+                    <h5 class="fw-bold mb-0 text-dark">
+                        <i class="fas fa-hand-holding-usd me-2" style="color:#d97706;"></i>เงินปันผล
+                    </h5>
+                    <div class="small text-muted mt-1">รายได้จากปันผลถือเป็นรายได้จากหุ้นเช่นเดียวกับกำไรจากการขาย — หักภาษี ณ ที่จ่ายแล้วนำยอดสุทธิไปรวมคำนวณทศางค์</div>
+                </div>
+                <button type="button" class="btn-add-dividend" data-bs-toggle="modal" data-bs-target="#addDividendModal">
+                    <i class="fas fa-plus me-1"></i> บันทึกเงินปันผล
+                </button>
+            </div>
+
+            {% if dividends %}
+            <div class="table-responsive">
+                <table class="table tithe-table mb-0">
+                    <thead>
+                        <tr>
+                            <th>วันที่</th>
+                            <th>หุ้น</th>
+                            <th class="text-end">ปันผล/หุ้น</th>
+                            <th class="text-end">จำนวนหุ้น</th>
+                            <th class="text-end">รวมก่อนหักภาษี</th>
+                            <th class="text-end col-hide-md">ภาษีหัก ณ ที่จ่าย</th>
+                            <th class="text-end">สุทธิ</th>
+                            <th class="text-center">การกระทำ</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for d in dividends %}
+                        <tr>
+                            <td>{{ d.dividend_date|date:"d M Y" }}</td>
+                            <td class="fw-bold text-dark">
+                                {{ d.symbol }}
+                                {% if d.market == 'US' %}<span class="badge bg-light text-dark border ms-1" style="font-size:0.6rem;">US</span>{% endif %}
+                            </td>
+                            <td class="text-end">{% if d.market == 'US' %}${% else %}฿{% endif %}{{ d.dividend_per_share|floatformat:4 }}</td>
+                            <td class="text-end">{{ d.shares|floatformat:2|intcomma }}</td>
+                            <td class="text-end">{% if d.market == 'US' %}${% else %}฿{% endif %}{{ d.gross_amount|floatformat:2|intcomma }}</td>
+                            <td class="text-end col-hide-md text-danger">-{% if d.market == 'US' %}${% else %}฿{% endif %}{{ d.tax_amount|floatformat:2|intcomma }} ({{ d.tax_rate|floatformat:0 }}%)</td>
+                            <td class="text-end dividend-net">{% if d.market == 'US' %}${% else %}฿{% endif %}{{ d.net_amount|floatformat:2|intcomma }}</td>
+                            <td class="text-center">
+                                <form action="{% url 'stocks:dividend_delete' d.pk %}" method="POST" class="d-inline" onsubmit="return confirm('ลบรายการปันผล {{ d.symbol }} วันที่ {{ d.dividend_date|date:"d M Y" }} ใช่หรือไม่?')">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-light btn-sm text-danger rounded-circle" style="width:30px;height:30px;padding:0;" title="ลบ">
+                                        <i class="fas fa-trash-alt" style="font-size:0.75rem;"></i>
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot>
+                        <tr style="background:#fffbeb;">
+                            <td colspan="6" class="text-end fw-bold text-dark">รวมปันผลสุทธิทั้งหมด</td>
+                            <td class="text-end dividend-net fs-6">฿{{ total_dividend_net|floatformat:2|intcomma }}</td>
+                            <td></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-center py-5 text-muted">
+                <i class="fas fa-hand-holding-usd fa-3x mb-3 opacity-25" style="color:#d97706;"></i>
+                <div class="fw-semibold">ยังไม่มีบันทึกเงินปันผล</div>
+                <div class="small mt-1">กดปุ่ม "บันทึกเงินปันผล" ด้านบนเพื่อเริ่มบันทึก</div>
             </div>
             {% endif %}
         </div>
@@ -319,6 +416,74 @@
         </a>
     </div>
 
+</div>
+
+<!-- ════════════════ MODAL: บันทึกเงินปันผล ════════════════ -->
+<div class="modal fade" id="addDividendModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 rounded-4 shadow">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title fw-bold" style="color:#d97706;">
+                    <i class="fas fa-hand-holding-usd me-2"></i>บันทึกเงินปันผล
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form action="{% url 'stocks:dividend_create' %}" method="POST">
+                {% csrf_token %}
+                <input type="hidden" name="next" value="{{ request.get_full_path|urlencode }}">
+                <div class="modal-body pt-2">
+                    <div class="row g-3">
+                        <div class="col-md-7">
+                            <label class="form-label small fw-bold text-muted">ชื่อหุ้น (Symbol)</label>
+                            <input type="text" name="symbol" id="div-symbol" class="form-control rounded-3" placeholder="เช่น PTT.BK" required style="text-transform:uppercase;">
+                        </div>
+                        <div class="col-md-5">
+                            <label class="form-label small fw-bold text-muted">ตลาด</label>
+                            <select name="market" id="div-market" class="form-select rounded-3">
+                                <option value="SET">หุ้นไทย (SET)</option>
+                                <option value="US">US</option>
+                            </select>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label small fw-bold text-muted">วันที่ได้รับปันผล</label>
+                            <input type="date" name="dividend_date" id="div-date" class="form-control rounded-3" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold text-muted">ปันผลต่อหุ้น (บาท)</label>
+                            <input type="number" step="0.0001" min="0" name="dividend_per_share" id="div-per-share" class="form-control rounded-3" placeholder="0.0000" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold text-muted">จำนวนหุ้น</label>
+                            <input type="number" step="0.01" min="0" name="shares" id="div-shares" class="form-control rounded-3" placeholder="0.00" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold text-muted">อัตราภาษีหัก ณ ที่จ่าย (%)</label>
+                            <input type="number" step="0.01" min="0" max="100" name="tax_rate" id="div-tax-rate" class="form-control rounded-3" value="10">
+                            <div class="form-text small">ปันผลหุ้นไทยส่วนใหญ่หัก ณ ที่จ่าย 10%</div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold text-muted">หมายเหตุ (ถ้ามี)</label>
+                            <input type="text" name="note" class="form-control rounded-3" placeholder="เช่น งวดครึ่งปี 2569">
+                        </div>
+                        <div class="col-12">
+                            <div id="dividendPreview">
+                                <div class="d-flex justify-content-between"><span>รวมก่อนหักภาษี</span><strong id="prev-gross">฿0.00</strong></div>
+                                <div class="d-flex justify-content-between text-danger"><span>ภาษีหัก ณ ที่จ่าย</span><strong id="prev-tax">-฿0.00</strong></div>
+                                <hr class="my-2">
+                                <div class="d-flex justify-content-between" style="color:#d97706;"><span class="fw-bold">ยอดสุทธิ (นำไปคำนวณทศางค์)</span><strong id="prev-net" class="fs-6">฿0.00</strong></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer border-0 pt-0">
+                    <button type="button" class="btn btn-light rounded-pill px-4" data-bs-dismiss="modal">ยกเลิก</button>
+                    <button type="submit" class="btn-add-dividend px-4">
+                        <i class="fas fa-save me-1"></i>บันทึก
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
 </div>
 
 <input type="hidden" id="csrf-token" value="{{ csrf_token }}">
@@ -473,5 +638,38 @@ function togglePaid(btn) {
     })
     .catch(() => { btn.disabled = false; });
 }
+
+// ── บันทึกเงินปันผล: preview คำนวณ gross/tax/net แบบ live ──────
+(function () {
+    const perShareEl = document.getElementById('div-per-share');
+    const sharesEl   = document.getElementById('div-shares');
+    const taxRateEl  = document.getElementById('div-tax-rate');
+    const dateEl      = document.getElementById('div-date');
+    if (!perShareEl || !sharesEl || !taxRateEl) return;
+
+    // ตั้งค่าวันที่วันนี้เป็นค่าเริ่มต้นเมื่อยังไม่ได้เลือก
+    if (dateEl && !dateEl.value) {
+        dateEl.value = new Date().toISOString().slice(0, 10);
+    }
+
+    const fmt = v => '฿' + v.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+    function updatePreview() {
+        const perShare = parseFloat(perShareEl.value) || 0;
+        const shares   = parseFloat(sharesEl.value) || 0;
+        const taxRate  = parseFloat(taxRateEl.value) || 0;
+
+        const gross = perShare * shares;
+        const tax   = gross * (taxRate / 100);
+        const net   = gross - tax;
+
+        document.getElementById('prev-gross').textContent = fmt(gross);
+        document.getElementById('prev-tax').textContent   = '-' + fmt(tax);
+        document.getElementById('prev-net').textContent   = fmt(net);
+    }
+
+    [perShareEl, sharesEl, taxRateEl].forEach(el => el.addEventListener('input', updatePreview));
+    updatePreview();
+})();
 </script>
 {% endblock %}

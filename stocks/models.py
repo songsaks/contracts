@@ -2,6 +2,7 @@
 # กำหนดโครงสร้างฐานข้อมูลทั้งหมดของแอป stocks
 # ครอบคลุม Watchlist, AnalysisCache, Portfolio, MomentumCandidate, ScannableSymbol
 
+from decimal import Decimal
 from django.db import models
 from django.contrib.auth import get_user_model
 
@@ -858,6 +859,43 @@ class TitheRecord(models.Model):
 
     def __str__(self):
         return f"Tithe {self.year}/{self.month:02d} — {'paid' if self.is_paid else 'unpaid'}"
+
+
+class DividendRecord(models.Model):
+    """
+    บันทึกเงินปันผลที่ได้รับจากหุ้น — ถือเป็นรายได้จากหุ้นเช่นเดียวกับกำไรจากการขาย
+    หักภาษี ณ ที่จ่ายแล้วได้ยอดสุทธิ นำไปรวมกับกำไรรายเดือนเพื่อคำนวณทศางค์ (ดู tithe_report)
+    """
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='dividend_records')
+    symbol = models.CharField(max_length=20, verbose_name="ชื่อหุ้น")
+    market = models.CharField(max_length=10, default='SET')
+    dividend_date = models.DateField(verbose_name="วันที่ได้รับปันผล")
+    dividend_per_share = models.DecimalField(max_digits=12, decimal_places=4, verbose_name="ปันผลต่อหุ้น")
+    shares = models.DecimalField(max_digits=14, decimal_places=2, verbose_name="จำนวนหุ้น")
+    tax_rate = models.DecimalField(max_digits=5, decimal_places=2, default=Decimal('10.00'),
+                                    verbose_name="อัตราภาษีหัก ณ ที่จ่าย (%)")
+    note = models.CharField(max_length=255, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Dividend Record"
+        verbose_name_plural = "Dividend Records"
+        ordering = ['-dividend_date', '-created_at']
+
+    @property
+    def gross_amount(self):
+        return (self.dividend_per_share * self.shares).quantize(Decimal('0.01'))
+
+    @property
+    def tax_amount(self):
+        return (self.gross_amount * self.tax_rate / Decimal('100')).quantize(Decimal('0.01'))
+
+    @property
+    def net_amount(self):
+        return self.gross_amount - self.tax_amount
+
+    def __str__(self):
+        return f"{self.symbol} {self.dividend_date} — net ฿{self.net_amount} ({self.user.username})"
 
 # ====== TurtleScanCandidate — ผลลัพธ์ Turtle Trader Scanner ======
 

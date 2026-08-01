@@ -6,7 +6,7 @@ import json
 import os
 import subprocess
 import traceback
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 
 import google.genai as genai
 import pandas as pd
@@ -20,6 +20,8 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.forms import UserCreationForm
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 from yahooquery import Ticker as YQTicker
@@ -29,6 +31,7 @@ from stocks.forms import AddPortfolioForm, AddWatchlistForm, SellStockForm
 from stocks.models import (
     AnalysisCache,
     AssetCategory,
+    DividendRecord,
     InvestmentDashboardInsight,
     MarketType,
     MomentumCandidate,
