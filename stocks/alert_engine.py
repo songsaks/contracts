@@ -146,15 +146,26 @@ def evaluate_user_alerts(user, config):
         if not latest_scan:
             continue
 
-        if config.alert_take_profit and latest_scan.supply_zone_start and price >= latest_scan.supply_zone_start:
+        entry_price = float(p.entry_price or 0)
+        # ถือว่า "มีกำไรจริง" ถ้าราคาปัจจุบันสูงกว่าต้นทุนที่ถือ (ไม่ใช่แค่ถึงโซนเทคนิคของสแกนเนอร์)
+        # ถ้าไม่มีต้นทุนบันทึกไว้ (entry_price=0) ให้แจ้งตามโซนเทคนิคไปก่อนเพราะเช็คจริงไม่ได้
+        is_in_profit = entry_price <= 0 or price > entry_price
+        tp_zone_hit = config.alert_take_profit and latest_scan.supply_zone_start and price >= latest_scan.supply_zone_start
+
+        if tp_zone_hit and is_in_profit:
+            pl_pct = ((price - entry_price) / entry_price * 100) if entry_price > 0 else None
             new_events.append(StockAlertEvent(
                 user=user, symbol=p.symbol, alert_type=StockAlertEvent.AlertType.TAKE_PROFIT,
                 strategy=strategy_label, price=price, reference_level=latest_scan.supply_zone_start,
                 message=(
                     f"หุ้น {p.symbol} (กลยุทธ์ {strategy_label or 'N/A'}) เข้าสู่โซนขายทำกำไรที่ "
-                    f"{latest_scan.supply_zone_start:.2f} แล้ว (ราคาปัจจุบัน {price:.2f})"
+                    f"{latest_scan.supply_zone_start:.2f} แล้ว (ราคาปัจจุบัน {price:.2f}"
+                    + (f", กำไร {pl_pct:.1f}% จากต้นทุน {entry_price:.2f}" if pl_pct is not None else "")
+                    + ")"
                 ),
             ))
+        # ราคาถึงโซนขายทำกำไรทางเทคนิคแล้ว แต่จริง ๆ ยังต่ำกว่าต้นทุนที่ถืออยู่ (ยังขาดทุนอยู่)
+        # ไม่ส่งเป็น "ขายทำกำไร" เพราะจะทำให้เข้าใจผิดว่ามีกำไร — ข้ามไปเช็คเงื่อนไข SL ต่อแทน
         elif config.alert_stop_loss and latest_scan.stop_loss and price <= latest_scan.stop_loss:
             new_events.append(StockAlertEvent(
                 user=user, symbol=p.symbol, alert_type=StockAlertEvent.AlertType.STOP_LOSS,
