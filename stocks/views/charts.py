@@ -61,6 +61,7 @@ def chart_ai_analyze_ajax(request, symbol):
                 stg2  = getattr(sepa_cand, 'stage2', False)
                 adx_v = getattr(sepa_cand, 'adx', 0) or 0
                 dist  = getattr(sepa_cand, 'upside_to_high', 0.0) or 0.0
+                pp    = getattr(sepa_cand, 'pocket_pivot', False)
 
                 # Calculate roughly SEPA Score as in minervini_sepa_scanner
                 sc = 0
@@ -70,7 +71,7 @@ def chart_ai_analyze_ajax(request, symbol):
                     sc += min(getattr(sepa_cand, 'vcp_contractions', 0) or 0, 5) * 3
                 if getattr(sepa_cand, 'vcp_vdu', False) or getattr(sepa_cand, 'vdu_near_zone', False):
                     sc += 20
-                if getattr(sepa_cand, 'pocket_pivot', False):
+                if pp:
                     sc += 10
                 sc += int(rs_rt * 0.7)
                 if adx_v >= 25: sc += 10
@@ -90,10 +91,11 @@ def chart_ai_analyze_ajax(request, symbol):
                 
                 sepa_info = f"""
 ข้อมูล SEPA Scanner (Minervini) ปัจจุบัน:
-- Stage 2 Trend: {'Yes' if stg2 else 'No'}
-- VCP Setup: {'Yes' if vcp else 'No'}
-- RS Rating: {rs_rt}
-- EPS Growth: {eps_g}% / Rev Growth: {rev_g}%
+- Stage 2 Trend (M - Market Direction): {'Yes' if stg2 else 'No'}
+- VCP Setup (Volatility Contraction Pattern): {'Yes' if vcp else 'No'}
+- Pocket Pivot (แรงซื้อสถาบันแบบ Volume Spike ตามหลักการของ O'Neil): {'Yes - พบสัญญาณแรงซื้อเข้าเก็บ' if pp else 'No'}
+- RS Rating (L - Leader): {rs_rt}
+- EPS Growth (C - Current Earnings): {eps_g}% / Rev Growth: {rev_g}%
 - SEPA Score: {sc}
 """
         except Exception as e:
@@ -293,6 +295,11 @@ def chart_ai_analyze_ajax(request, symbol):
 โปรดรวมข้อมูลเชิงลึกเหล่านี้ในการวิเคราะห์ทางเทคนิคด้วย:
 {volume_profile_info}
 {price_pattern_info}
+
+นอกจากนี้ ให้วิเคราะห์ร่วมกับหลักการ **CAN SLIM (William O'Neil)** และ **Pocket Pivot** โดยเฉพาะ:
+- ประเมินว่าหุ้นตัวนี้เข้าเกณฑ์ CAN SLIM กี่ข้อจากข้อมูลที่มี (C - Current Quarterly Earnings, A - Annual Earnings, N - New Product/High/Setup, S - Supply & Demand, L - Leader (RS Rating), I - Institutional Sponsorship, M - Market Direction/Stage 2)
+- ถ้าพบสัญญาณ Pocket Pivot (ดูจากข้อมูล SEPA Scanner ด้านล่าง) ให้อธิบายความหมายว่าเป็นจุดที่แรงซื้อสถาบันเข้าเก็บของก่อนราคาจะวิ่ง (low-risk entry point) และควรใช้ประกอบจังหวะเข้าซื้ออย่างไร
+- ถ้าไม่พบ Pocket Pivot หรือยังไม่เข้าเกณฑ์ CAN SLIM ครบ ให้ระบุชัดเจนว่าขาดข้อไหนและควรรอสัญญาณอะไรเพิ่มเติม
 
 3. **การวิเคราะห์ปัจจัยพื้นฐานและเศรษฐกิจ (Fundamental, Financial & Economic)**: วิเคราะห์รายได้ กำไร อัตราผลตอบแทนอย่าง ROE, ROI/ROA และความเสี่ยงหรือโอกาสจากสภาวะเศรษฐกิจในปัจจุบัน
 4. **คำแนะนำเชิงกลยุทธ์ (Strategic Recommendations)**: สรุปคำแนะนำที่ชัดเจน (ซื้อเพิ่ม / ถือ / ขายตัดขาดทุน / รอจังหวะ) พร้อมอธิบายเหตุผลประกอบ
