@@ -1420,6 +1420,21 @@ def momentum_scanner(request):
                 'action': action,
             })
 
+    # ── Let Profit Run ─────────────────────────────────────────────────
+    # แสดง badge เมื่อหุ้นในพอร์ตล็อกกำไรบางส่วนไปแล้วและกำลังเทรลราคาส่วนที่เหลือ (tp1_hit=True)
+    from stocks.models import Portfolio as _PortfolioMomSET
+    from stocks.utils import simple_trailing_stop
+    trailing_status = {}
+    for p in _PortfolioMomSET.objects.filter(user=request.user, market='SET', tp1_hit=True):
+        ep = float(p.entry_price or 0)
+        trail_stop = simple_trailing_stop(p.highest_price, p.atr, p.trail_multiplier)
+        gain_pct = ((float(p.highest_price or 0) - ep) / ep * 100) if ep > 0 and p.highest_price else None
+        trailing_status[p.symbol.split('.')[0].upper()] = {
+            'trail_stop': trail_stop,
+            'tp1_price': p.tp1_price,
+            'gain_pct': gain_pct,
+        }
+
     context = {
         'title': 'Global Momentum Scanner (CAN SLIM)',
         'candidates': candidate_list,
@@ -1430,6 +1445,7 @@ def momentum_scanner(request):
         'has_scanned': bool(candidate_list) or (candidates.exists() and not is_scanning),
         'market_regime': regime,
         'top_picks': top_picks,
+        'trailing_status': trailing_status,
     }
     return render(request, 'stocks/momentum.html', context)
 
@@ -2849,6 +2865,7 @@ def precision_momentum_scanner(request):
 
     # Fetch latest Cup & Handle and Turtle breakout symbols for horizon classification
     from stocks.models import CupHandleCandidate, TurtleScanCandidate, Portfolio as _PortfolioSET
+    from stocks.utils import simple_trailing_stop
 
     # Latest Cup & Handle
     latest_ch_run = CupHandleCandidate.objects.filter(user=request.user, market='SET').values_list('scan_run', flat=True).order_by('-scan_run').first()
@@ -2860,13 +2877,24 @@ def precision_momentum_scanner(request):
     turtle_symbols = set(TurtleScanCandidate.objects.filter(user=request.user, market='SET', scan_run=latest_turtle_run).values_list('symbol', flat=True)) if latest_turtle_run else set()
     context['turtle_symbols'] = turtle_symbols
 
-    # ── Pyramid Alert ──────────────────────────────────────────────────
-    # แสดง badge เมื่อหุ้นในพอร์ตขึ้น >=3%, Volume >=1.5x, ยังเหลือ upside >=5%, ไม่มี exit signal
+    # ── Pyramid Alert + Let Profit Run ───────────────────────────────────
+    # Pyramid: แสดง badge เมื่อหุ้นในพอร์ตขึ้น >=3%, Volume >=1.5x, ยังเหลือ upside >=5%, ไม่มี exit signal
+    # Let Profit Run: แสดง badge เมื่อหุ้นในพอร์ตล็อกกำไรบางส่วนไปแล้วและกำลังเทรลราคาส่วนที่เหลือ (tp1_hit=True)
     _port_entry = {}
+    trailing_status = {}
     for p in _PortfolioSET.objects.filter(user=request.user, market='SET'):
         ep = float(p.entry_price or 0)
         if ep > 0:
             _port_entry[p.symbol.split('.')[0].upper()] = ep
+        if p.tp1_hit:
+            trail_stop = simple_trailing_stop(p.highest_price, p.atr, p.trail_multiplier)
+            gain_pct = ((float(p.highest_price or 0) - ep) / ep * 100) if ep > 0 and p.highest_price else None
+            trailing_status[p.symbol.split('.')[0].upper()] = {
+                'trail_stop': trail_stop,
+                'tp1_price': p.tp1_price,
+                'gain_pct': gain_pct,
+            }
+    context['trailing_status'] = trailing_status
 
     pyramid_ready = set()
     for _c in candidates:
@@ -4243,6 +4271,21 @@ Write in Thai language, markdown format:
     last_scan = MomentumCandidate.objects.filter(user=request.user, market='US').order_by('-scanned_at').first()
     scanned_at = last_scan.scanned_at if last_scan else None
 
+    # ── Let Profit Run ─────────────────────────────────────────────────
+    # แสดง badge เมื่อหุ้นในพอร์ตล็อกกำไรบางส่วนไปแล้วและกำลังเทรลราคาส่วนที่เหลือ (tp1_hit=True)
+    from stocks.models import Portfolio as _PortfolioMomUS
+    from stocks.utils import simple_trailing_stop
+    trailing_status = {}
+    for p in _PortfolioMomUS.objects.filter(user=request.user, market='US', tp1_hit=True):
+        ep = float(p.entry_price or 0)
+        trail_stop = simple_trailing_stop(p.highest_price, p.atr, p.trail_multiplier)
+        gain_pct = ((float(p.highest_price or 0) - ep) / ep * 100) if ep > 0 and p.highest_price else None
+        trailing_status[p.symbol.upper()] = {
+            'trail_stop': trail_stop,
+            'tp1_price': p.tp1_price,
+            'gain_pct': gain_pct,
+        }
+
     return render(request, 'stocks/us_momentum.html', {
         'title':        'US Momentum Scanner',
         'candidates':   candidate_list,
@@ -4251,6 +4294,7 @@ Write in Thai language, markdown format:
         'current_sort': sort_by,
         'is_scanning':  is_scanning,
         'has_scanned':  db_candidates.exists() if not is_scanning else True,
+        'trailing_status': trailing_status,
     })
 
 
@@ -5102,18 +5146,28 @@ def us_precision_scanner(request):
 
     # Fetch latest Cup & Handle and Turtle breakout symbols for US
     from stocks.models import CupHandleCandidate, TurtleScanCandidate, Portfolio as _PortfolioUS
+    from stocks.utils import simple_trailing_stop
     latest_ch_run = CupHandleCandidate.objects.filter(user=request.user, market='US').values_list('scan_run', flat=True).order_by('-scan_run').first()
     ch_symbols = set(CupHandleCandidate.objects.filter(user=request.user, market='US', scan_run=latest_ch_run).values_list('symbol', flat=True)) if latest_ch_run else set()
 
     latest_turtle_run = TurtleScanCandidate.objects.filter(user=request.user, market='US').values_list('scan_run', flat=True).order_by('-scan_run').first()
     turtle_symbols = set(TurtleScanCandidate.objects.filter(user=request.user, market='US', scan_run=latest_turtle_run).values_list('symbol', flat=True)) if latest_turtle_run else set()
 
-    # ── Pyramid Alert (US) ─────────────────────────────────────────────
+    # ── Pyramid Alert (US) + Let Profit Run ──────────────────────────────
     _port_entry_us = {}
+    trailing_status = {}
     for p in _PortfolioUS.objects.filter(user=request.user, market='US'):
         ep = float(p.entry_price or 0)
         if ep > 0:
             _port_entry_us[p.symbol.upper()] = ep
+        if p.tp1_hit:
+            trail_stop = simple_trailing_stop(p.highest_price, p.atr, p.trail_multiplier)
+            gain_pct = ((float(p.highest_price or 0) - ep) / ep * 100) if ep > 0 and p.highest_price else None
+            trailing_status[p.symbol.upper()] = {
+                'trail_stop': trail_stop,
+                'tp1_price': p.tp1_price,
+                'gain_pct': gain_pct,
+            }
 
     pyramid_ready_us = set()
     for _c in candidates:
@@ -5144,6 +5198,7 @@ def us_precision_scanner(request):
         'cup_handle_symbols': ch_symbols,
         'turtle_symbols': turtle_symbols,
         'pyramid_ready': pyramid_ready_us,
+        'trailing_status': trailing_status,
     })
 
 

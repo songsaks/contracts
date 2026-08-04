@@ -3,6 +3,7 @@ from django.utils import timezone
 from django.core.cache import cache
 from stocks.models import Watchlist, Portfolio, UserTelegramProfile, PrecisionScanCandidate
 from stocks.telegram_utils import send_telegram_message
+from stocks.utils import simple_trailing_stop
 import yfinance as yf
 import time
 
@@ -102,17 +103,49 @@ class Command(BaseCommand):
                 if latest_scan:
                     alert_msg = ""
                     cache_key = ""
-                    
-                    # เช็คเป้าหมายทำกำไร (TAKE PROFIT)
-                    if latest_scan.supply_zone_start and price >= latest_scan.supply_zone_start:
-                        cache_key = f"alert_tp_{user.id}_{p.symbol}_{latest_scan.supply_zone_start}"
-                        if not cache.get(cache_key):
+                    entry_price = float(p.entry_price or 0)
+                    is_in_profit = entry_price <= 0 or price > entry_price
+
+                    # ====== Let Profit Run: TP แรกล็อกกำไรบางส่วน แล้วเทรลราคาส่วนที่เหลือแทนการเทขายทันที ======
+                    if p.tp1_hit:
+                        # อยู่ในโหมดเทรลอยู่แล้ว — อัปเดตจุดสูงสุดแล้วเช็คว่าหลุด trailing stop หรือยัง (ไม่ต้อง mute เพราะ state กันการยิงซ้ำอยู่แล้ว)
+                        if price > float(p.highest_price or 0):
+                            p.highest_price = price
+                            p.save(update_fields=['highest_price'])
+                        trail_stop = simple_trailing_stop(p.highest_price, p.atr, p.trail_multiplier)
+                        if trail_stop and price <= trail_stop:
                             alert_msg = (
-                                f"🔴 <b>[TAKE PROFIT ALERT] ชนเป้าหมายกำไร!</b>\n"
+                                f"🏁 <b>[TRAILING STOP EXIT] หลุดแนวเทรล!</b>\n"
                                 f"หุ้น: <b>{p.symbol}</b> (ในพอร์ต)\n"
                                 f"ราคาปัจจุบัน: <b>฿{price:.2f}</b>\n"
-                                f"💵 เข้าสู่โซนเทขายทำกำไรรอบสวิงแล้ว!"
+                                f"หลุด Trailing Stop ที่ ฿{trail_stop:.2f} แล้ว ควรพิจารณาขายส่วนที่เหลือ"
                             )
+                            p.tp1_hit = False
+                            p.tp1_price = None
+                            p.save(update_fields=['tp1_hit', 'tp1_price'])
+                            success = send_telegram_message(chat_id, alert_msg)
+                            if success:
+                                self.stdout.write(self.style.SUCCESS(f"-> Sent Trailing Exit alert for {p.symbol} to {user.username}"))
+                        continue
+                    # เช็คเป้าหมายทำกำไรแรก (TAKE PROFIT) — ล็อกกำไรบางส่วน แล้วเริ่มเทรลราคาส่วนที่เหลือ
+                    elif latest_scan.supply_zone_start and price >= latest_scan.supply_zone_start and is_in_profit:
+                        p.tp1_hit = True
+                        p.tp1_price = price
+                        update_fields = ['tp1_hit', 'tp1_price']
+                        if price > float(p.highest_price or 0):
+                            p.highest_price = price
+                            update_fields.append('highest_price')
+                        p.save(update_fields=update_fields)
+                        alert_msg = (
+                            f"🚀 <b>[LET PROFIT RUN] ถึงเป้าหมายกำไรแรก!</b>\n"
+                            f"หุ้น: <b>{p.symbol}</b> (ในพอร์ต)\n"
+                            f"ราคาปัจจุบัน: <b>฿{price:.2f}</b>\n"
+                            f"💵 แนะนำล็อกกำไรบางส่วน (30-50%) ส่วนที่เหลือปล่อยให้วิ่งต่อ ระบบจะเริ่มเทรลราคาให้อัตโนมัติ"
+                        )
+                        success = send_telegram_message(chat_id, alert_msg)
+                        if success:
+                            self.stdout.write(self.style.SUCCESS(f"-> Sent TP1 Partial alert for {p.symbol} to {user.username}"))
+                        continue
                     # เช็คระวังการดิ่งลงทะลุ SL
                     elif latest_scan.stop_loss and price <= latest_scan.stop_loss:
                          cache_key = f"alert_sl_{user.id}_{p.symbol}_{latest_scan.stop_loss}"
@@ -123,7 +156,7 @@ class Command(BaseCommand):
                                 f"ราคาปัจจุบัน: <b>฿{price:.2f}</b>\n"
                                 f"🩸 ราคาหลุดจุดตัดขาดทุน (SL) ที่ ฿{latest_scan.stop_loss:.2f} ไปแล้ว ควรพิจารณาคัตลอส"
                             )
-                    
+
                     if alert_msg and cache_key:
                         success = send_telegram_message(chat_id, alert_msg)
                         if success:

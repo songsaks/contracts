@@ -1,5 +1,6 @@
 {% extends 'stocks/base_stocks.html' %}
 {% load humanize %}
+{% load regime_tags %}
 
 {% block title %}Precision Scanner — 9Com{% endblock %}
 
@@ -1620,7 +1621,7 @@
                     </thead>
                     <tbody>
                         {% for item in candidates %}
-                        <tr class="{% if item.demand_zone_start and item.price <= item.demand_zone_start and item.price >= item.demand_zone_end %}row-entry-zone{% elif item.supply_zone_start and item.price >= item.supply_zone_start %}row-take-profit{% elif item.is_new_entry %}row-new-entry{% endif %}{% if item.cmf is not None and item.cmf < -0.1 %} row-cmf-dist{% endif %}" 
+                        <tr class="{% if item.symbol in trailing_status %}row-trailing-active{% elif item.demand_zone_start and item.price <= item.demand_zone_start and item.price >= item.demand_zone_end %}row-entry-zone{% elif item.supply_zone_start and item.price >= item.supply_zone_start %}row-take-profit{% elif item.is_new_entry %}row-new-entry{% endif %}{% if item.cmf is not None and item.cmf < -0.1 %} row-cmf-dist{% endif %}"
     data-symbol="{{ item.symbol }}"
     data-price="{{ item.live_price|default:item.price }}"
     data-chg-pct="{{ item.live_change_pct|default:0 }}"
@@ -1783,6 +1784,16 @@
                                         <span class="badge" style="background:linear-gradient(135deg,#7c3aed,#5b21b6);color:white;font-size:0.55rem;padding:2px 6px;border-radius:4px;letter-spacing:0.02em;" title="ถือในพอร์ต: ราคาขึ้น ≥3%, Volume surge ≥1.5x, ยังเหลือ upside ≥5% — พิจารณาซื้อเพิ่ม (Pyramid)">🔺 เพิ่มได้</span>
                                     </div>
                                     {% endif %}
+                                    {% with ts=trailing_status|get_item:item.symbol %}
+                                    {% if ts %}
+                                    <div class="mt-1">
+                                        <span class="badge" style="background:linear-gradient(135deg,#f97316,#db2777);color:white;font-size:0.55rem;padding:2px 6px;border-radius:4px;letter-spacing:0.02em;"
+                                              title="ล็อกกำไรบางส่วนแล้วที่ {{ ts.tp1_price|floatformat:2 }} — ส่วนที่เหลือกำลังเทรล SL ลอยที่ {{ ts.trail_stop|floatformat:2 }}{% if ts.gain_pct %} (กำไรสะสม {{ ts.gain_pct|floatformat:1 }}%){% endif %}">
+                                            🚀 Let Profit Run
+                                        </span>
+                                    </div>
+                                    {% endif %}
+                                    {% endwith %}
                                 </div>
                             </td>
 
@@ -2924,9 +2935,11 @@
     /* ── Row highlights ─────────────────────────────────── */
     tr.row-entry-zone  { background: rgba(34, 197, 94, 0.07) !important; border-left: 4px solid #22c55e; }
     tr.row-take-profit { background: rgba(239, 68, 68, 0.06) !important; border-left: 4px solid #ef4444; }
+    tr.row-trailing-active { background: rgba(249, 115, 22, 0.06) !important; border-left: 4px solid #f97316; }
     tr.row-new-entry   { background: rgba(124, 58, 237, 0.03) !important; }
     tr.row-entry-zone:hover  { background: rgba(34, 197, 94, 0.13) !important; }
     tr.row-take-profit:hover { background: rgba(239, 68, 68, 0.11) !important; }
+    tr.row-trailing-active:hover { background: rgba(249, 115, 22, 0.11) !important; }
 
     /* ── CMF Distribution warning row ──────────────────── */
     tr.row-cmf-dist { opacity: 0.45; filter: grayscale(40%); border-left: 4px solid #f59e0b !important; }

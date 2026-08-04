@@ -765,8 +765,8 @@
     (function () {
         const STOCK_ALERT_CHECK_URL = "{% url 'stocks:check_stock_alerts' %}";
         const POLL_MS = 5 * 60 * 1000;
-        const TOAST_COLORS = { SL: '#ef4444', TP: '#f43f5e', BREAKOUT: '#10b981', WATCHLIST_ENTRY: '#6366f1' };
-        const TOAST_LABELS = { SL: '🩸 Stop Loss', TP: '💵 Take Profit', BREAKOUT: '🚀 Breakout', WATCHLIST_ENTRY: '🎯 โซนเข้าซื้อ' };
+        const TOAST_COLORS = { SL: '#ef4444', TP: '#f43f5e', BREAKOUT: '#10b981', WATCHLIST_ENTRY: '#6366f1', TP_PARTIAL: '#f97316', TRAILING_EXIT: '#dc2626' };
+        const TOAST_LABELS = { SL: '🩸 Stop Loss', TP: '💵 Take Profit', BREAKOUT: '🚀 Breakout', WATCHLIST_ENTRY: '🎯 โซนเข้าซื้อ', TP_PARTIAL: '🚀 ล็อกกำไร (Let Profit Run)', TRAILING_EXIT: '🏁 หลุด Trailing Stop' };
 
         window.setStockAlertBadge = function (count) {
             const badge = document.getElementById('stock-alert-badge');

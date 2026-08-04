@@ -1,5 +1,6 @@
 {% extends 'stocks/base_stocks.html' %}
 {% load humanize %}
+{% load regime_tags %}
 
 {% block title %}US Momentum Scanner — 9Com{% endblock %}
 
@@ -188,12 +189,18 @@
                             <!-- SYMBOL -->
                             <td class="ps-3">
                                 <div class="d-flex align-items-center gap-2">
+                                    {% with ts=trailing_status|get_item:item.symbol %}
                                     <div class="position-relative">
                                         <div class="rounded-circle d-flex align-items-center justify-content-center fw-bold"
                                              style="width:36px;height:36px;background:rgba(59,130,246,0.1);color:#3b82f6;font-size:0.72rem;">
                                             {{ item.symbol|slice:":3" }}
                                         </div>
-                                        {% if item.live_in_zone %}
+                                        {% if ts %}
+                                        <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill border border-light"
+                                              style="padding:0.35em !important;background:linear-gradient(135deg,#f97316,#db2777);" title="ล็อกกำไรบางส่วนแล้ว — Let Profit Run">
+                                            <span class="visually-hidden">Let Profit Run</span>
+                                        </span>
+                                        {% elif item.live_in_zone %}
                                         <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-success border border-light"
                                               style="padding:0.35em !important;animation:pulse-green 2s infinite;" title="อยู่ในโซนเข้าซื้อ!">
                                             <span class="visually-hidden">In Zone</span>
@@ -208,12 +215,18 @@
                                     <div class="d-flex flex-column">
                                         <h6 class="mb-0 fw-bold">{{ item.symbol }}</h6>
                                         <small class="text-muted" style="font-size:0.62rem;">{{ item.sector|default:"—"|slice:":8" }}</small>
-                                        {% if item.live_in_zone %}<span class="extra-extra-small text-success fw-bold">ENTRY ZONE</span>
+                                        {% if ts %}
+                                        <span class="badge" style="width:fit-content;background:linear-gradient(135deg,#f97316,#db2777);color:white;font-size:0.55rem;padding:2px 6px;border-radius:4px;letter-spacing:0.02em;"
+                                              title="ล็อกกำไรบางส่วนแล้วที่ {{ ts.tp1_price|floatformat:2 }} — ส่วนที่เหลือกำลังเทรล SL ลอยที่ {{ ts.trail_stop|floatformat:2 }}{% if ts.gain_pct %} (กำไรสะสม {{ ts.gain_pct|floatformat:1 }}%){% endif %}">
+                                            🚀 Let Profit Run
+                                        </span>
+                                        {% elif item.live_in_zone %}<span class="extra-extra-small text-success fw-bold">ENTRY ZONE</span>
                                         {% elif item.live_above_tp %}<span class="extra-extra-small text-danger fw-bold">TAKE PROFIT</span>
                                         {% elif item.live_broke_zone %}<span class="extra-extra-small text-danger fw-bold">BROKE ZONE</span>
                                         {% endif %}
                                     </div>
                                 </div>
+                                {% endwith %}
                             </td>
 
                             <!-- ZONE STATUS -->

@@ -9,6 +9,7 @@ import yfinance as yf
 from django.utils import timezone as dj_timezone
 
 from .models import AssetCategory, MarketType, Portfolio, Watchlist, PrecisionScanCandidate, StockAlertEvent
+from .utils import simple_trailing_stop
 
 # ตลาดที่ไม่ควรเติม .BK (หุ้น US, Crypto, Forex ฯลฯ ใช้ symbol ตามที่กรอกตรงๆ)
 _NON_SET_MARKETS = {MarketType.US, MarketType.CRYPTO, MarketType.FUND, MarketType.CASH, MarketType.OTHER}
@@ -152,16 +153,46 @@ def evaluate_user_alerts(user, config):
         is_in_profit = entry_price <= 0 or price > entry_price
         tp_zone_hit = config.alert_take_profit and latest_scan.supply_zone_start and price >= latest_scan.supply_zone_start
 
-        if tp_zone_hit and is_in_profit:
+        # ====== Let Profit Run: TP แรกล็อกกำไรบางส่วน แล้วเทรลราคาส่วนที่เหลือแทนการเทขายทั้งหมดทันที ======
+        if p.tp1_hit:
+            # อยู่ในโหมดเทรลอยู่แล้ว (ล็อกกำไรบางส่วนไปรอบก่อนหน้า) — อัปเดตจุดสูงสุดแล้วเช็คว่าหลุด trailing stop หรือยัง
+            if price > float(p.highest_price or 0):
+                p.highest_price = price
+                p.save(update_fields=['highest_price'])
+            trail_stop = simple_trailing_stop(p.highest_price, p.atr, p.trail_multiplier)
+            if config.alert_take_profit and trail_stop and price <= trail_stop:
+                pl_pct = ((price - entry_price) / entry_price * 100) if entry_price > 0 else None
+                new_events.append(StockAlertEvent(
+                    user=user, symbol=p.symbol, alert_type=StockAlertEvent.AlertType.TRAILING_EXIT,
+                    strategy=strategy_label, price=price, reference_level=trail_stop,
+                    message=(
+                        f"หุ้น {p.symbol} (กลยุทธ์ {strategy_label or 'N/A'}) หลุด Trailing Stop ที่ "
+                        f"{trail_stop:.2f} แล้ว (ราคาปัจจุบัน {price:.2f}"
+                        + (f", กำไรสะสม {pl_pct:.1f}% จากต้นทุน {entry_price:.2f}" if pl_pct is not None else "")
+                        + ") ควรพิจารณาขายส่วนที่เหลือ"
+                    ),
+                ))
+                p.tp1_hit = False
+                p.tp1_price = None
+                p.save(update_fields=['tp1_hit', 'tp1_price'])
+        elif tp_zone_hit and is_in_profit:
             pl_pct = ((price - entry_price) / entry_price * 100) if entry_price > 0 else None
+            p.tp1_hit = True
+            p.tp1_price = price
+            update_fields = ['tp1_hit', 'tp1_price']
+            if price > float(p.highest_price or 0):
+                p.highest_price = price
+                update_fields.append('highest_price')
+            p.save(update_fields=update_fields)
             new_events.append(StockAlertEvent(
-                user=user, symbol=p.symbol, alert_type=StockAlertEvent.AlertType.TAKE_PROFIT,
+                user=user, symbol=p.symbol, alert_type=StockAlertEvent.AlertType.TP_PARTIAL,
                 strategy=strategy_label, price=price, reference_level=latest_scan.supply_zone_start,
                 message=(
-                    f"หุ้น {p.symbol} (กลยุทธ์ {strategy_label or 'N/A'}) เข้าสู่โซนขายทำกำไรที่ "
+                    f"หุ้น {p.symbol} (กลยุทธ์ {strategy_label or 'N/A'}) ถึงเป้าหมายกำไรแรกที่ "
                     f"{latest_scan.supply_zone_start:.2f} แล้ว (ราคาปัจจุบัน {price:.2f}"
                     + (f", กำไร {pl_pct:.1f}% จากต้นทุน {entry_price:.2f}" if pl_pct is not None else "")
-                    + ")"
+                    + ") — แนะนำล็อกกำไรบางส่วน (เช่น 30-50%) ส่วนที่เหลือปล่อยให้วิ่งต่อ "
+                    + "(Let Profit Run) ระบบจะเริ่มเทรลราคาให้อัตโนมัติ และแจ้งอีกครั้งถ้าหลุดแนวเทรล"
                 ),
             ))
         # ราคาถึงโซนขายทำกำไรทางเทคนิคแล้ว แต่จริง ๆ ยังต่ำกว่าต้นทุนที่ถืออยู่ (ยังขาดทุนอยู่)

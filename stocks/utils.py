@@ -182,6 +182,20 @@ def calculate_trailing_stop(symbol, current_price, entry_price, highest_price_si
 
 
 # ----------------------------------------------------------------------
+# simple_trailing_stop — Trailing Stop แบบเบา (ไม่ต้องดึงข้อมูลราคาย้อนหลัง)
+# ใช้ค่า highest_price/atr ที่บันทึกไว้ใน DB อยู่แล้ว เหมาะกับ alert engine ที่รันบ่อยๆ
+# ถ้ายังไม่มี ATR (เช่น ยังไม่เคยเปิดหน้า Portfolio scan) จะ fallback เป็น trailing % คงที่
+# ----------------------------------------------------------------------
+def simple_trailing_stop(highest_price, atr, trail_multiplier=2.5, fallback_pct=0.08):
+    highest_price = float(highest_price or 0)
+    if highest_price <= 0:
+        return None
+    if atr:
+        return highest_price - float(trail_multiplier) * float(atr)
+    return highest_price * (1 - fallback_pct)
+
+
+# ----------------------------------------------------------------------
 # calculate_atr_trailing_stop — Trailing Stop แบบ ATR (แม่นกว่า fixed %)
 # trailing_stop = highest_price_since_entry - (ATR × multiplier)
 # ----------------------------------------------------------------------

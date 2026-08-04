@@ -139,6 +139,10 @@ class Portfolio(models.Model):
     atr = models.FloatField(default=0.0, blank=True)
     # ATR multiplier สำหรับ trailing stop (default 2.5x ATR)
     trail_multiplier = models.FloatField(default=2.5, blank=True)
+    # ราคาแตะโซนขายทำกำไรครั้งแรกแล้วหรือยัง (Let Profit Run) — True = ล็อกกำไรบางส่วนแล้ว กำลังเทรลราคาส่วนที่เหลือ
+    tp1_hit = models.BooleanField(default=False, blank=True, verbose_name="ล็อกกำไรบางส่วนแล้ว (TP1)")
+    # ราคา ณ ตอนแตะโซนขายทำกำไรครั้งแรก (สำหรับอ้างอิง/แสดงผล)
+    tp1_price = models.FloatField(null=True, blank=True, verbose_name="ราคา ณ TP1")
 
     class Meta:
         verbose_name = "Portfolio"
@@ -1347,6 +1351,8 @@ class StockAlertEvent(models.Model):
         TAKE_PROFIT = 'TP', 'Take Profit'
         BREAKOUT = 'BREAKOUT', 'Breakout (ซื้อเพิ่ม)'
         WATCHLIST_ENTRY = 'WATCHLIST_ENTRY', 'โซนเข้าซื้อ (Watchlist)'
+        TP_PARTIAL = 'TP_PARTIAL', 'ล็อกกำไรบางส่วน (Let Profit Run)'
+        TRAILING_EXIT = 'TRAILING_EXIT', 'หลุด Trailing Stop (ขายส่วนที่เหลือ)'
 
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='stock_alert_events')
     symbol = models.CharField(max_length=20)
