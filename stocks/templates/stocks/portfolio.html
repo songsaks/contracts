@@ -783,26 +783,52 @@
                                 {% else %}<span class="text-muted">-</span>{% endif %}
                             </td>
                             <!-- Score/Signals -->
-                            <td class="text-center col-hide-lg">
+                            <td class="text-center col-hide-lg" style="min-width:150px;">
                                 {% if item.mom_data %}
-                                <div class="d-flex gap-1 justify-content-center flex-wrap">
-                                    <span class="badge rounded-pill" style="background:rgba(22,163,74,0.12);color:#15803d;border:1px solid rgba(22,163,74,0.3);font-size:0.6rem;">B{{ item.buy_score }}</span>
-                                    <span class="badge rounded-pill" style="background:rgba(220,38,38,0.10);color:#dc2626;border:1px solid rgba(220,38,38,0.25);font-size:0.6rem;">S{{ item.sell_score }}</span>
+                                <div class="d-flex gap-2 justify-content-center">
+                                    <div class="text-center">
+                                        <span class="fw-bold d-block {% if item.mom_data.technical_score >= 80 %}text-success{% elif item.mom_data.technical_score >= 50 %}text-primary{% else %}text-warning{% endif %}" style="font-size:0.85rem;">
+                                            {{ item.mom_data.technical_score }}
+                                        </span>
+                                        <div class="val-hint">เทคนิค</div>
+                                    </div>
+                                    <div class="text-center">
+                                        <span class="fw-bold d-block {% if item.buy_score >= 80 %}text-success{% elif item.buy_score >= 60 %}text-primary{% elif item.buy_score >= 40 %}text-warning{% else %}text-muted{% endif %}" style="font-size:0.85rem;">
+                                            {{ item.buy_score }}
+                                        </span>
+                                        <div class="val-hint">สัญญาณซื้อ</div>
+                                    </div>
+                                    <div class="text-center">
+                                        <span class="fw-bold d-block {% if item.sell_score >= 50 %}text-danger{% elif item.sell_score >= 30 %}text-warning{% else %}text-muted{% endif %}" style="font-size:0.85rem;">
+                                            {{ item.sell_score }}
+                                        </span>
+                                        <div class="val-hint">แรงขาย</div>
+                                    </div>
                                     {% if item.rsi %}
-                                    <span class="badge rounded-pill bg-secondary bg-opacity-10 text-secondary" 
-                                          style="font-size:0.6rem; cursor: help;"
-                                          title="RSI (โมเมนตัม 14 วัน)&#10;Ehlers Indicators:&#10;• SuperSmoother: {% if item.mom_data.ehlers_supersmoother %}{{ item.mom_data.ehlers_supersmoother|floatformat:2 }}{% else %}-{% endif %}&#10;• Laguerre RSI: {% if item.mom_data.ehlers_laguerre_rsi %}{{ item.mom_data.ehlers_laguerre_rsi|floatformat:2 }}{% else %}-{% endif %}&#10;• Fisher: {% if item.mom_data.ehlers_fisher %}{{ item.mom_data.ehlers_fisher|floatformat:2 }}{% else %}-{% endif %} (Trigger: {% if item.mom_data.ehlers_fisher_trigger %}{{ item.mom_data.ehlers_fisher_trigger|floatformat:2 }}{% else %}-{% endif %})">
-                                        RSI{{ item.rsi|floatformat:0 }} ⓘ
-                                    </span>
+                                    <div class="text-center" style="cursor:help;"
+                                         title="RSI (โมเมนตัม 14 วัน)&#10;Ehlers Indicators:&#10;• SuperSmoother: {% if item.mom_data.ehlers_supersmoother %}{{ item.mom_data.ehlers_supersmoother|floatformat:2 }}{% else %}-{% endif %}&#10;• Laguerre RSI: {% if item.mom_data.ehlers_laguerre_rsi %}{{ item.mom_data.ehlers_laguerre_rsi|floatformat:2 }}{% else %}-{% endif %}&#10;• Fisher: {% if item.mom_data.ehlers_fisher %}{{ item.mom_data.ehlers_fisher|floatformat:2 }}{% else %}-{% endif %} (Trigger: {% if item.mom_data.ehlers_fisher_trigger %}{{ item.mom_data.ehlers_fisher_trigger|floatformat:2 }}{% else %}-{% endif %})">
+                                        <span class="fw-bold d-block {% if item.rsi > 70 %}text-danger{% elif item.rsi < 30 %}text-success{% else %}text-secondary{% endif %}" style="font-size:0.85rem;">
+                                            {{ item.rsi|floatformat:0 }} ⓘ
+                                        </span>
+                                        <div class="val-hint">RSI</div>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                                <div class="d-flex gap-1 justify-content-center flex-wrap mt-1">
                                     {% if item.mom_data.ehlers_pattern_data %}
-                                    <span class="badge rounded-pill" 
+                                    <span class="badge rounded-pill"
                                           style="{{ item.mom_data.ehlers_pattern_data.style }} font-size:0.55rem; padding: 2px 6px;"
                                           title="{{ item.mom_data.ehlers_pattern_data.desc }}">
                                         {{ item.mom_data.ehlers_pattern_data.label }}
                                     </span>
                                     {% endif %}
+                                    {% if item.exit_signal == 'STRONG EXIT' %}
+                                    <span class="badge" style="background:#dc2626;color:white;font-size:0.55rem;" title="สัญญาณขายแรง">🚨 STRONG EXIT</span>
+                                    {% elif item.exit_signal == 'EXIT' %}
+                                    <span class="badge" style="background:rgba(220,38,38,0.15);color:#dc2626;border:1px solid #dc2626;font-size:0.55rem;" title="สัญญาณควรขาย">⚠️ EXIT</span>
+                                    {% elif item.exit_signal == 'WATCH' %}
+                                    <span class="badge" style="background:rgba(245,158,11,0.15);color:#b45309;border:1px solid #f59e0b;font-size:0.55rem;" title="เริ่มมีสัญญาณระวัง">👁 WATCH</span>
                                     {% endif %}
-                                    {% if item.mom_data.technical_score %}<span class="badge bg-dark bg-opacity-10 text-dark rounded-pill" style="font-size:0.6rem;">⭐{{ item.mom_data.technical_score }}</span>{% endif %}
                                 </div>
                                 {% else %}<span class="text-muted">-</span>{% endif %}
                             </td>
@@ -1137,6 +1163,7 @@
         .metrics-data-row { gap: 0.25rem !important; margin-bottom: 0.25rem; border-bottom: 1px solid rgba(0,0,0,0.03); padding-bottom: 4px; }
     }
 
+    .val-hint { font-size: 0.56rem; color: #94a3b8; line-height: 1.2; margin-top: 1px; letter-spacing: .01em; }
     .btn-xs { padding: 0.125rem 0.25rem; font-size: 0.75rem; border-radius: 0.2rem; }
     .extra-extra-small { font-size: 0.68rem; line-height: 1.2; }
     .fw-900 { font-weight: 900 !important; }
