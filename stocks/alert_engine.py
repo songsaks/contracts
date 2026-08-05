@@ -120,6 +120,12 @@ def evaluate_user_alerts(user, config):
     symbol_market_pairs = {(p.symbol, p.market) for p in portfolios} | {(w.symbol, None) for w in watchlists}
     live_prices = fetch_live_prices(symbol_market_pairs)
 
+    # มูลค่าพอร์ตหุ้นไทย (SET) รวม — ใช้เป็นฐานคำนวณ "ซื้อเพิ่มกี่บาท" ในสัญญาณ Breakout (เสี่ยง 1% ของพอร์ตนี้ต่อการเพิ่มโพซิชันหนึ่งครั้ง)
+    total_set_value = sum(
+        float(pf.quantity) * float(live_prices.get(pf.symbol) or pf.entry_price or 0)
+        for pf in portfolios if pf.market == MarketType.SET
+    )
+
     new_events = []
 
     for p in portfolios:
@@ -208,13 +214,25 @@ def evaluate_user_alerts(user, config):
             ))
 
         if config.alert_breakout_add and (latest_scan.is_52w_breakout or latest_scan.pocket_pivot):
+            # แนะนำจำนวนเงินซื้อเพิ่ม (SET เท่านั้น) แบบ ATR-based risk sizing:
+            # เสี่ยง 1% ของมูลค่าพอร์ต SET รวม หารด้วยระยะห่างจากราคาปัจจุบันถึง Stop Loss = จำนวนหุ้นที่ซื้อเพิ่มได้
+            add_amount_txt = ""
+            if p.market == MarketType.SET and total_set_value > 0 and latest_scan.stop_loss and price > latest_scan.stop_loss:
+                risk_per_share = price - latest_scan.stop_loss
+                risk_budget = total_set_value * 0.01
+                suggested_shares = risk_budget / risk_per_share
+                suggested_amount = suggested_shares * price
+                add_amount_txt = (
+                    f" — แนะนำซื้อเพิ่มประมาณ {suggested_amount:,.0f} บาท (~{suggested_shares:,.0f} หุ้น, "
+                    f"เสี่ยง 1% ของพอร์ต SET ที่ SL {latest_scan.stop_loss:.2f})"
+                )
             new_events.append(StockAlertEvent(
                 user=user, symbol=p.symbol, alert_type=StockAlertEvent.AlertType.BREAKOUT,
                 strategy=strategy_label, price=price, reference_level=latest_scan.demand_zone_start,
                 message=(
                     f"หุ้น {p.symbol} (กลยุทธ์ {strategy_label or 'N/A'}) เกิดสัญญาณ "
                     f"{'เบรค 52w High' if latest_scan.is_52w_breakout else 'Pocket Pivot'} "
-                    f"ที่ราคา {price:.2f} — ควรพิจารณาซื้อเพิ่ม"
+                    f"ที่ราคา {price:.2f} — ควรพิจารณาซื้อเพิ่ม{add_amount_txt}"
                 ),
             ))
 
