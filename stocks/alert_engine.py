@@ -3,6 +3,7 @@
 # แยกจาก management command monitor_stocks.py (ที่ยิง Telegram) เพื่อไม่ให้กระทบของเดิม
 
 from datetime import time as dtime
+from datetime import timedelta
 
 import pytz
 import yfinance as yf
@@ -18,6 +19,9 @@ _NON_PRICEABLE_CATEGORIES = {AssetCategory.FUND, AssetCategory.CASH}
 
 _BKK_TZ = pytz.timezone('Asia/Bangkok')
 _US_EASTERN_TZ = pytz.timezone('America/New_York')
+
+# ระยะห่างขั้นต่ำก่อนจะแจ้งเตือน Watchlist entry ซ้ำ ตราบใดที่ราคายังแช่อยู่ในโซนเข้าซื้อเดิม (กันสแปมแต่ไม่ให้เงียบไปเลย)
+_WATCHLIST_REALERT_COOLDOWN = timedelta(hours=5)
 
 
 def _is_set_market_open(now_utc):
@@ -244,9 +248,12 @@ def evaluate_user_alerts(user, config):
         if not latest_scan or not latest_scan.demand_zone_start:
             continue
         in_zone = price <= latest_scan.demand_zone_start and price >= latest_scan.demand_zone_end
+        now = dj_timezone.now()
         if in_zone:
-            # แจ้งแค่ครั้งแรกที่ราคาเข้าโซน — ถ้ายังแช่อยู่ในโซนต่อจากรอบก่อนหน้า ไม่ต้องแจ้งซ้ำ
-            if not w.alerted_in_zone:
+            # แจ้งครั้งแรกที่เข้าโซนทันที แล้วถ้ายังแช่อยู่ในโซนต่อ ให้เตือนซ้ำได้เป็นรอบ (ทุก _WATCHLIST_REALERT_COOLDOWN)
+            # ไม่ใช่แจ้งทุกครั้งที่เช็ค (สแปม) แต่ก็ไม่เงียบไปตลอดจนลืมว่ายังมีโอกาสซื้ออยู่
+            due = w.last_alerted_at is None or (now - w.last_alerted_at) >= _WATCHLIST_REALERT_COOLDOWN
+            if due:
                 new_events.append(StockAlertEvent(
                     user=user, symbol=w.symbol, alert_type=StockAlertEvent.AlertType.WATCHLIST_ENTRY,
                     strategy='', price=price, reference_level=latest_scan.demand_zone_start,
@@ -256,12 +263,12 @@ def evaluate_user_alerts(user, config):
                         f"(ราคาปัจจุบัน {price:.2f})"
                     ),
                 ))
-                w.alerted_in_zone = True
-                w.save(update_fields=['alerted_in_zone'])
-        elif w.alerted_in_zone:
-            # ราคาหลุดออกจากโซนแล้ว (วิ่งขึ้นเกินหรือหลุดลงต่ำกว่า) — รีเซ็ตให้พร้อมแจ้งใหม่รอบหน้าที่กลับเข้าโซน
-            w.alerted_in_zone = False
-            w.save(update_fields=['alerted_in_zone'])
+                w.last_alerted_at = now
+                w.save(update_fields=['last_alerted_at'])
+        elif w.last_alerted_at is not None:
+            # ราคาหลุดออกจากโซนแล้ว (วิ่งขึ้นเกินหรือหลุดลงต่ำกว่า) — รีเซ็ตให้แจ้งทันทีรอบหน้าที่กลับเข้าโซนใหม่
+            w.last_alerted_at = None
+            w.save(update_fields=['last_alerted_at'])
 
     if new_events:
         StockAlertEvent.objects.bulk_create(new_events)

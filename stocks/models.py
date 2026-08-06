@@ -74,8 +74,9 @@ class Watchlist(models.Model):
     is_active = models.BooleanField(default=True)
     # วันที่เพิ่มเข้า watchlist
     created_at = models.DateTimeField(auto_now_add=True)
-    # เคยแจ้งเตือน "ราคาเข้าโซนซื้อ" ไปแล้วหรือยัง (ตราบใดที่ยังอยู่ในโซนไม่แจ้งซ้ำ — รีเซ็ตเมื่อราคาหลุดออกจากโซน)
-    alerted_in_zone = models.BooleanField(default=False, blank=True)
+    # เวลาที่แจ้งเตือน "ราคาเข้าโซนซื้อ" ครั้งล่าสุด — ใช้เว้นระยะไม่ให้แจ้งถี่เกินไปตราบใดที่ยังแช่อยู่ในโซนเดิม
+    # (รีเซ็ตเป็น None เมื่อราคาหลุดออกจากโซน เพื่อให้แจ้งทันทีถ้ากลับเข้าโซนใหม่)
+    last_alerted_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         verbose_name = "Watchlist"
