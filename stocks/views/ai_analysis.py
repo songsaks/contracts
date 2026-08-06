@@ -1599,6 +1599,10 @@ def investment_dashboard_refresh(request):
     """
     ระบบคัดกรองหุ้นแบบ Multi-Scanner Funnel:
     Cup & Handle (Setup) -> Precision Momentum (Power) -> Minervini SEPA (Quality) -> Turtle Breakout (Trigger)
+    Top 10 คัดจากคะแนนคุณภาพ Funnel (score >= 25) เหมือนเดิม (เรียงตามคะแนน ไม่เปลี่ยนลำดับ) — ไม่ตัดหุ้น
+    ที่ราคาวิ่งไปไกลจากโซนซื้อแล้วออก เพื่อให้ AI ยังเห็นภาพรวมหุ้นคุณภาพดีทั้งหมดและอธิบายเหตุผลได้ แต่ทุกตัว
+    จะแนบ flag `buyable_now` (ราคาปัจจุบัน ณ รอบสแกนล่าสุดอยู่ในโซนเข้าซื้อ Demand Zone หรือไม่) ให้ AI ใช้
+    แยก "หุ้นน่าซื้อตอนนี้" ออกจาก "หุ้นดีแต่ราคาวิ่งไปแล้ว (ห้ามไล่ราคา)" ในรายงาน
     """
     import json
 
@@ -1675,6 +1679,13 @@ def investment_dashboard_refresh(request):
 
             if score < 25: continue
 
+            # ราคาปัจจุบัน (ณ รอบสแกนล่าสุด) อยู่ในโซนเข้าซื้อได้จริงหรือไม่ (Demand Zone) — ไม่ตัดหุ้นออก
+            # แค่ติด flag ไว้ให้ AI แยกแยะระหว่าง "ซื้อได้ตอนนี้" กับ "หุ้นดีแต่ราคาวิ่งไปแล้ว (extended)"
+            is_buyable_now = bool(
+                prec and prec.demand_zone_start and prec.demand_zone_end and
+                prec.demand_zone_end <= prec.price <= prec.demand_zone_start
+            )
+
             rs = prec.rs_rating if prec else (getattr(ch, 'rs_rating', 0) or 0)
             _stage2 = bool(prec and prec.stage2)
             _ema_aligned = bool(prec and prec.ema20_aligned)
@@ -1696,6 +1707,8 @@ def investment_dashboard_refresh(request):
                 'price':          float((prec or ch or turtle).price),
                 'total_score':    score,
                 'badges':         badges,
+                'buyable_now':    is_buyable_now,
+                'zone_proximity_pct': round(float(prec.zone_proximity), 1) if (prec and prec.zone_proximity is not None) else None,
                 'sector':         (prec.sector if prec else (ch.sector if ch else (getattr(turtle, 'sector', None) or 'Unknown'))),
                 'technical_score': prec.technical_score if prec else (ch.confidence_score if ch else 0),
                 'rs_rating':      rs,
@@ -1775,6 +1788,11 @@ def investment_dashboard_refresh(request):
 [SET Thailand]: {set_summary}
 [US Market]: {us_summary}
 
+**สำคัญ — field `buyable_now` และ `zone_proximity_pct` ในข้อมูลแต่ละตัว:**
+`buyable_now: true` = ราคาปัจจุบัน (ณ รอบสแกนล่าสุด) ยังอยู่ในโซนเข้าซื้อ (Demand Zone) จริง — เข้าซื้อได้เลย
+`buyable_now: false` = หุ้นดีผ่านเกณฑ์คุณภาพ แต่ราคาวิ่งเลยโซนซื้อไปแล้ว (extended) โดย `zone_proximity_pct` บอกว่าห่างจากโซนกี่ % —
+**ทุกครั้งที่พูดถึงหุ้นตัวไหน ต้องระบุด้วยว่า buyable_now หรือไม่ ถ้า false ให้เตือนว่า "ห้ามไล่ราคา" และแนะนำให้รอย่อกลับเข้าโซนก่อน**
+
 เขียนรายงานวิเคราะห์เป็น**ภาษาไทย** โดยใช้โครงสร้าง Markdown ต่อไปนี้อย่างครบถ้วน:
 
 ## 🔍 Funnel Consensus
@@ -1783,10 +1801,11 @@ def investment_dashboard_refresh(request):
 ---
 
 ## 📋 SEPA Trend Template & VCP Deep Dive
-| หุ้น | ตลาด | Stage 2 | RS | ผ่าน SEPA | Pocket Pivot (PP) | VCP Contractions (T) | ความแน่น (Tightness) |
-|------|------|---------|-----|-----------|------------------|----------------------|----------------------|
+| หุ้น | ตลาด | Stage 2 | RS | ผ่าน SEPA | Pocket Pivot (PP) | VCP Contractions (T) | ความแน่น (Tightness) | ซื้อได้ตอนนี้? |
+|------|------|---------|-----|-----------|------------------|----------------------|----------------------|----------------|
 
 วิเคราะห์เฉพาะหุ้นที่ `sepa_pass: true` หรือ `stage2: true` — เจาะลึกสัญญาณ **VCP setup** (จำนวนครั้ง T และความแน่นของการบีบตัวล่าสุด) พร้อมระบุว่าเหมาะกับ **ระยะสั้น (Swing)** หรือ **ระยะกลาง (Position)**
+คอลัมน์ "ซื้อได้ตอนนี้?" ใส่ "✅ ซื้อได้" ถ้า `buyable_now: true` หรือ "⏳ รอย่อ (ห่าง X%)" ถ้า `buyable_now: false` (ใส่ค่า `zone_proximity_pct` แทน X)
 
 ---
 
@@ -1799,9 +1818,10 @@ def investment_dashboard_refresh(request):
 ---
 
 ## 💎 High Conviction Picks
-| ตลาด | หุ้น | Funnel | SEPA | CAN SLIM | ปัจจัยหลักด้าน PP/CMF/VCP | Horizon |
-|------|------|--------|------|---------|-------------------------|--------|
+| ตลาด | หุ้น | Funnel | SEPA | CAN SLIM | ปัจจัยหลักด้าน PP/CMF/VCP | Horizon | ซื้อได้ตอนนี้? |
+|------|------|--------|------|---------|-------------------------|--------|----------------|
 เลือกเฉพาะ **Top 5** ที่มี Confluence สูงสุดจากทั้งสองตลาดรวมกัน ระบุ Horizon: สั้น/กลาง/ยาว
+คอลัมน์ "ซื้อได้ตอนนี้?" ใส่ "✅ ซื้อได้" หรือ "⏳ รอย่อ" ตาม `buyable_now` ของหุ้นนั้น — ถ้าเลือกหุ้นที่ buyable_now=false เข้ามาใน Top 5 เพราะคุณภาพดีมาก ให้ระบุชัดในคำอธิบายว่า "ห้ามไล่ราคา รอย่อก่อน"
 
 ---
 
