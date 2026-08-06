@@ -243,16 +243,25 @@ def evaluate_user_alerts(user, config):
         latest_scan = _latest_scan(w.symbol)
         if not latest_scan or not latest_scan.demand_zone_start:
             continue
-        if price <= latest_scan.demand_zone_start and price >= latest_scan.demand_zone_end:
-            new_events.append(StockAlertEvent(
-                user=user, symbol=w.symbol, alert_type=StockAlertEvent.AlertType.WATCHLIST_ENTRY,
-                strategy='', price=price, reference_level=latest_scan.demand_zone_start,
-                message=(
-                    f"หุ้น {w.symbol} ราคาย่อลงมาถึงโซนเข้าซื้อ "
-                    f"{latest_scan.demand_zone_end:.2f} - {latest_scan.demand_zone_start:.2f} แล้ว "
-                    f"(ราคาปัจจุบัน {price:.2f})"
-                ),
-            ))
+        in_zone = price <= latest_scan.demand_zone_start and price >= latest_scan.demand_zone_end
+        if in_zone:
+            # แจ้งแค่ครั้งแรกที่ราคาเข้าโซน — ถ้ายังแช่อยู่ในโซนต่อจากรอบก่อนหน้า ไม่ต้องแจ้งซ้ำ
+            if not w.alerted_in_zone:
+                new_events.append(StockAlertEvent(
+                    user=user, symbol=w.symbol, alert_type=StockAlertEvent.AlertType.WATCHLIST_ENTRY,
+                    strategy='', price=price, reference_level=latest_scan.demand_zone_start,
+                    message=(
+                        f"หุ้น {w.symbol} ราคาย่อลงมาถึงโซนเข้าซื้อ "
+                        f"{latest_scan.demand_zone_end:.2f} - {latest_scan.demand_zone_start:.2f} แล้ว "
+                        f"(ราคาปัจจุบัน {price:.2f})"
+                    ),
+                ))
+                w.alerted_in_zone = True
+                w.save(update_fields=['alerted_in_zone'])
+        elif w.alerted_in_zone:
+            # ราคาหลุดออกจากโซนแล้ว (วิ่งขึ้นเกินหรือหลุดลงต่ำกว่า) — รีเซ็ตให้พร้อมแจ้งใหม่รอบหน้าที่กลับเข้าโซน
+            w.alerted_in_zone = False
+            w.save(update_fields=['alerted_in_zone'])
 
     if new_events:
         StockAlertEvent.objects.bulk_create(new_events)
