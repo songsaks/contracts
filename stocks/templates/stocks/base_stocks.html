@@ -782,9 +782,8 @@
             window.setStockAlertBadge(current + by);
         }
 
-        function stockChartUrl(symbol) {
-            const market = symbol.indexOf('.BK') !== -1 ? 'SET' : 'US';
-            return '/stocks/chart/' + encodeURIComponent(symbol) + '/?market=' + market;
+        function stockChartUrl(symbol, market) {
+            return '/stocks/chart/' + encodeURIComponent(symbol) + '/?market=' + (market || 'SET');
         }
 
         function showStockToast(alertItem) {
@@ -796,7 +795,7 @@
             toast.innerHTML =
                 '<div class="sa-toast-title">' + (TOAST_LABELS[alertItem.type] || 'แจ้งเตือน') + ' — ' + alertItem.symbol + '</div>' +
                 '<div class="sa-toast-body">' + alertItem.message + '</div>';
-            toast.onclick = function () { window.location.href = stockChartUrl(alertItem.symbol); };
+            toast.onclick = function () { window.location.href = stockChartUrl(alertItem.symbol, alertItem.market); };
             stack.appendChild(toast);
             bumpStockAlertBadge(1);
             setTimeout(function () { toast.remove(); }, 15000);

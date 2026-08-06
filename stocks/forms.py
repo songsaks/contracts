@@ -74,10 +74,14 @@ class StockAlertConfigForm(forms.ModelForm):
     INTERVAL_CHOICES = [(15, '15 นาที'), (30, '30 นาที'), (60, '60 นาที')]
     check_interval_minutes = forms.TypedChoiceField(choices=INTERVAL_CHOICES, coerce=int, initial=30)
 
+    RETENTION_CHOICES = [(7, '7 วัน'), (30, '30 วัน'), (60, '60 วัน'), (90, '90 วัน')]
+    alert_retention_days = forms.TypedChoiceField(choices=RETENTION_CHOICES, coerce=int, initial=30)
+
     class Meta:
         model = StockAlertConfig
         fields = [
             'enabled', 'check_interval_minutes',
             'alert_stop_loss', 'alert_take_profit',
             'alert_breakout_add', 'alert_watchlist_entry',
+            'alert_retention_days',
         ]

@@ -109,7 +109,7 @@
         </div>
         <div>
             <h1>ประวัติแจ้งเตือน{% if unread_count > 0 %}<span class="sa-unread-pill">{{ unread_count }} ยังไม่อ่าน</span>{% endif %}</h1>
-            <p>รายการแจ้งเตือน Action ของหุ้นในพอร์ต 100 รายการล่าสุด</p>
+            <p>รายการแจ้งเตือน Action ของหุ้นในพอร์ต 100 รายการล่าสุด · เก็บย้อนหลัง {{ retention_days }} วัน แล้วลบอัตโนมัติ</p>
         </div>
     </div>
     <a href="{% url 'stocks:stock_alert_config' %}" class="btn btn-outline-light btn-sm">
@@ -149,7 +149,7 @@
         {% for e in group.events %}
         <div class="sa-event type-{{ e.alert_type }}{% if e.is_read %} is-read{% endif %}"
              data-event-id="{{ e.id }}" data-type="{{ e.alert_type }}" data-read="{{ e.is_read|yesno:'1,0' }}">
-            <a class="sa-event-link" href="{% url 'stocks:stock_chart' e.symbol %}?market={% if '.BK' in e.symbol %}SET{% else %}US{% endif %}"
+            <a class="sa-event-link" href="{% url 'stocks:stock_chart' e.symbol %}?market={{ e.market }}"
                title="ดูกราฟหุ้น {{ e.symbol }}">
                 <div class="sa-event-icon">
                     {% if e.alert_type == 'SL' %}🩸{% elif e.alert_type == 'TP' %}💵{% elif e.alert_type == 'BREAKOUT' %}🚀{% elif e.alert_type == 'TP_PARTIAL' %}🚀{% elif e.alert_type == 'TRAILING_EXIT' %}🏁{% else %}🎯{% endif %}

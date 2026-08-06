@@ -37,6 +37,7 @@ def check_stock_alerts(request):
             {
                 'type': e.alert_type,
                 'symbol': e.symbol,
+                'market': e.market,
                 'strategy': e.strategy,
                 'message': e.message,
                 'price': e.price,
@@ -81,6 +82,7 @@ def stock_alert_history(request):
         current_bucket['events'].append(e)
 
     unread_count = sum(1 for e in events if not e.is_read)
+    config, _ = StockAlertConfig.objects.get_or_create(user=request.user)
 
     return render(request, 'stocks/alert_history.html', {
         'day_groups': day_groups,
@@ -88,6 +90,7 @@ def stock_alert_history(request):
         'yesterday': today - timezone.timedelta(days=1),
         'unread_count': unread_count,
         'has_events': bool(events),
+        'retention_days': config.alert_retention_days,
     })
 
 

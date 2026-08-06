@@ -144,7 +144,7 @@ def evaluate_user_alerts(user, config):
                 stop_level = float(p.highest_price) - p.trail_multiplier * p.atr
                 if price <= stop_level:
                     new_events.append(StockAlertEvent(
-                        user=user, symbol=p.symbol, alert_type=StockAlertEvent.AlertType.STOP_LOSS,
+                        user=user, symbol=p.symbol, market=p.market, alert_type=StockAlertEvent.AlertType.STOP_LOSS,
                         strategy=strategy_label, price=price, reference_level=stop_level,
                         message=(
                             f"หุ้น {p.symbol} (กลยุทธ์ {strategy_label}) หลุดแนวรับ Trailing Stop "
@@ -173,7 +173,7 @@ def evaluate_user_alerts(user, config):
             if config.alert_take_profit and trail_stop and price <= trail_stop:
                 pl_pct = ((price - entry_price) / entry_price * 100) if entry_price > 0 else None
                 new_events.append(StockAlertEvent(
-                    user=user, symbol=p.symbol, alert_type=StockAlertEvent.AlertType.TRAILING_EXIT,
+                    user=user, symbol=p.symbol, market=p.market, alert_type=StockAlertEvent.AlertType.TRAILING_EXIT,
                     strategy=strategy_label, price=price, reference_level=trail_stop,
                     message=(
                         f"หุ้น {p.symbol} (กลยุทธ์ {strategy_label or 'N/A'}) หลุด Trailing Stop ที่ "
@@ -195,7 +195,7 @@ def evaluate_user_alerts(user, config):
                 update_fields.append('highest_price')
             p.save(update_fields=update_fields)
             new_events.append(StockAlertEvent(
-                user=user, symbol=p.symbol, alert_type=StockAlertEvent.AlertType.TP_PARTIAL,
+                user=user, symbol=p.symbol, market=p.market, alert_type=StockAlertEvent.AlertType.TP_PARTIAL,
                 strategy=strategy_label, price=price, reference_level=latest_scan.supply_zone_start,
                 message=(
                     f"หุ้น {p.symbol} (กลยุทธ์ {strategy_label or 'N/A'}) ถึงเป้าหมายกำไรแรกที่ "
@@ -209,7 +209,7 @@ def evaluate_user_alerts(user, config):
         # ไม่ส่งเป็น "ขายทำกำไร" เพราะจะทำให้เข้าใจผิดว่ามีกำไร — ข้ามไปเช็คเงื่อนไข SL ต่อแทน
         elif config.alert_stop_loss and latest_scan.stop_loss and price <= latest_scan.stop_loss:
             new_events.append(StockAlertEvent(
-                user=user, symbol=p.symbol, alert_type=StockAlertEvent.AlertType.STOP_LOSS,
+                user=user, symbol=p.symbol, market=p.market, alert_type=StockAlertEvent.AlertType.STOP_LOSS,
                 strategy=strategy_label, price=price, reference_level=latest_scan.stop_loss,
                 message=(
                     f"หุ้น {p.symbol} (กลยุทธ์ {strategy_label or 'N/A'}) หลุดจุดตัดขาดทุน (SL) ที่ "
@@ -246,7 +246,7 @@ def evaluate_user_alerts(user, config):
                         f"เสี่ยง 1% ของพอร์ต SET ที่ SL {latest_scan.stop_loss:.2f}{cap_note})"
                     )
             new_events.append(StockAlertEvent(
-                user=user, symbol=p.symbol, alert_type=StockAlertEvent.AlertType.BREAKOUT,
+                user=user, symbol=p.symbol, market=p.market, alert_type=StockAlertEvent.AlertType.BREAKOUT,
                 strategy=strategy_label, price=price, reference_level=latest_scan.demand_zone_start,
                 message=(
                     f"หุ้น {p.symbol} (กลยุทธ์ {strategy_label or 'N/A'}) เกิดสัญญาณ "
@@ -270,7 +270,7 @@ def evaluate_user_alerts(user, config):
             due = w.last_alerted_at is None or (now - w.last_alerted_at) >= _WATCHLIST_REALERT_COOLDOWN
             if due:
                 new_events.append(StockAlertEvent(
-                    user=user, symbol=w.symbol, alert_type=StockAlertEvent.AlertType.WATCHLIST_ENTRY,
+                    user=user, symbol=w.symbol, market=latest_scan.market, alert_type=StockAlertEvent.AlertType.WATCHLIST_ENTRY,
                     strategy='', price=price, reference_level=latest_scan.demand_zone_start,
                     message=(
                         f"หุ้น {w.symbol} ราคาย่อลงมาถึงโซนเข้าซื้อ "

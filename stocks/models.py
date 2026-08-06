@@ -1335,6 +1335,8 @@ class StockAlertConfig(models.Model):
     alert_take_profit = models.BooleanField(default=True, verbose_name="แจ้งเตือน Take Profit")
     alert_breakout_add = models.BooleanField(default=True, verbose_name="แจ้งเตือน Breakout (ซื้อเพิ่ม)")
     alert_watchlist_entry = models.BooleanField(default=False, verbose_name="แจ้งเตือนโซนเข้าซื้อ (Watchlist)")
+    # จำนวนวันที่เก็บประวัติแจ้งเตือนไว้ — เก่ากว่านี้ถูกลบอัตโนมัติ (ดูที่ check_web_alerts management command)
+    alert_retention_days = models.PositiveIntegerField(default=30, verbose_name="เก็บประวัติแจ้งเตือนกี่วัน")
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
@@ -1359,6 +1361,8 @@ class StockAlertEvent(models.Model):
 
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='stock_alert_events')
     symbol = models.CharField(max_length=20)
+    # ตลาดของหุ้นตัวนี้ ณ เวลาที่แจ้งเตือน — เก็บไว้ตรงๆ กันเดาผิด (symbol เปล่าๆ อย่าง "FSMART" บอกไม่ได้ว่าเป็น SET หรือ US)
+    market = models.CharField(max_length=10, choices=MarketType.choices, default=MarketType.SET)
     alert_type = models.CharField(max_length=20, choices=AlertType.choices)
     # กลยุทธ์ของ position ณ เวลาที่แจ้งเตือน (ว่างได้สำหรับ Watchlist entry)
     strategy = models.CharField(max_length=50, blank=True)
