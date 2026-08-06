@@ -226,10 +226,25 @@ def evaluate_user_alerts(user, config):
                 risk_budget = total_set_value * 0.01
                 suggested_shares = risk_budget / risk_per_share
                 suggested_amount = suggested_shares * price
-                add_amount_txt = (
-                    f" — แนะนำซื้อเพิ่มประมาณ {suggested_amount:,.0f} บาท (~{suggested_shares:,.0f} หุ้น, "
-                    f"เสี่ยง 1% ของพอร์ต SET ที่ SL {latest_scan.stop_loss:.2f})"
-                )
+
+                # เพดานกันถือหุ้นตัวเดียวกระจุกตัวเกินไป — ดูจาก "มูลค่าที่ถืออยู่แล้ว" ของหุ้นตัวนี้ ไม่ใช่แค่ยอดจะซื้อเพิ่มเฉยๆ
+                # (ถ้าดูแค่ยอดซื้อเพิ่มอย่างเดียว คนที่ถืออยู่แล้วเยอะจะยิ่งซื้อเพิ่มได้จนเกินเพดานจริง)
+                current_position_value = float(p.quantity) * price
+                max_position_value = total_set_value * 0.15
+                remaining_room = max_position_value - current_position_value
+
+                if remaining_room <= 0:
+                    add_amount_txt = " — แต่ถือหุ้นตัวนี้เต็มโควต้าแล้ว (เกิน 15% ของพอร์ต SET) ไม่แนะนำซื้อเพิ่ม"
+                else:
+                    capped = suggested_amount > remaining_room
+                    if capped:
+                        suggested_amount = remaining_room
+                        suggested_shares = suggested_amount / price
+                    cap_note = " (จำกัดตามโควต้าคงเหลือของหุ้นตัวนี้ ไม่ให้เกิน 15% ของพอร์ต)" if capped else ""
+                    add_amount_txt = (
+                        f" — แนะนำซื้อเพิ่มประมาณ {suggested_amount:,.0f} บาท (~{suggested_shares:,.0f} หุ้น, "
+                        f"เสี่ยง 1% ของพอร์ต SET ที่ SL {latest_scan.stop_loss:.2f}{cap_note})"
+                    )
             new_events.append(StockAlertEvent(
                 user=user, symbol=p.symbol, alert_type=StockAlertEvent.AlertType.BREAKOUT,
                 strategy=strategy_label, price=price, reference_level=latest_scan.demand_zone_start,
