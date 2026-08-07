@@ -1328,7 +1328,7 @@ def realized_pl_report(request):
 
     context = {
         'summary_list': summary_list,
-        'sold_stocks': sold_stocks,
+        'sold_stocks': list(reversed(sold_stocks)),  # ตารางรายการขายเรียงล่าสุดก่อน (ตัวแปร sold_stocks เดิมเรียงเก่า→ใหม่ไว้ให้กราฟสะสมด้านบน)
         'chart_labels': json.dumps(chart_labels),
         'chart_data': json.dumps(chart_data),
         'start_date': start_date,
