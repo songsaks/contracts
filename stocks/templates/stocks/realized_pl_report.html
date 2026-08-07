@@ -1,6 +1,44 @@
 {% extends 'stocks/base_stocks.html' %}
 {% load humanize %}
 
+{% block extra_css %}
+<style>
+    .pl-filter-panel {
+        display: flex; flex-wrap: wrap; align-items: flex-end; gap: 1rem 0.75rem;
+        background: rgba(99,102,241,0.05);
+        border: 1px solid rgba(99,102,241,0.12);
+        border-radius: 14px;
+        padding: 1.1rem 1.25rem;
+    }
+    .pl-filter-field { display: flex; flex-direction: column; gap: 0.35rem; }
+    .pl-filter-label {
+        display: flex; align-items: center; gap: 0.4rem;
+        font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;
+        color: var(--accent-primary, #6366f1);
+    }
+    .pl-filter-label i { font-size: 0.7rem; opacity: 0.85; }
+    .pl-filter-divider {
+        width: 1px; align-self: stretch; min-height: 44px;
+        background: rgba(99,102,241,0.18);
+        margin: 0 0.15rem;
+    }
+    .pl-filter-actions { flex-direction: row; gap: 0.5rem; margin-left: auto; }
+    .pl-filter-actions .btn-premium { padding: 0.6rem 1.4rem; white-space: nowrap; }
+    .pl-filter-active-hint {
+        display: flex; align-items: center; gap: 0.4rem;
+        font-size: 0.78rem; color: #16a34a;
+        margin-top: 0.75rem;
+    }
+    .pl-filter-active-hint i { font-size: 0.85rem; }
+    @media (max-width: 767px) {
+        .pl-filter-divider { display: none; }
+        .pl-filter-panel { padding: 1rem; }
+        .pl-filter-actions { margin-left: 0; width: 100%; }
+        .pl-filter-actions .btn-premium { flex: 1; }
+    }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="row g-4">
     <!-- Header & Filters -->
@@ -16,40 +54,49 @@
                 </a>
             </div>
 
-            <form method="GET" class="row g-3 align-items-end">
-                <div class="col-md-3">
-                    <label class="form-label small text-muted">เลือกเดือน (ด่วน)</label>
-                    <select name="month_select" class="form-select rounded-3" onchange="this.form.submit()">
-                        <option value="">-- กรองรายเดือน --</option>
-                        {% for m in available_months %}
-                        <option value="{{ m }}" {% if month_select == m %}selected{% endif %}>{{ m }}</option>
-                        {% endfor %}
-                    </select>
+            <form method="GET" class="pl-filter-form">
+                <div class="pl-filter-panel">
+                    <div class="pl-filter-field" style="flex:1.3;min-width:180px;">
+                        <label class="pl-filter-label"><i class="fas fa-bolt"></i> เลือกเดือน (ด่วน)</label>
+                        <select name="month_select" class="form-select rounded-3" onchange="this.form.submit()">
+                            <option value="">-- กรองรายเดือน --</option>
+                            {% for m in available_months %}
+                            <option value="{{ m }}" {% if month_select == m %}selected{% endif %}>{{ m }}{% if m == current_month %} (เดือนนี้){% endif %}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="pl-filter-divider"></div>
+                    <div class="pl-filter-field" style="min-width:150px;">
+                        <label class="pl-filter-label"><i class="fas fa-calendar-day"></i> เริ่มวันที่</label>
+                        <input type="date" name="start_date" class="form-control rounded-3" value="{{ start_date }}">
+                    </div>
+                    <div class="pl-filter-field" style="min-width:150px;">
+                        <label class="pl-filter-label"><i class="fas fa-calendar-check"></i> ถึงวันที่</label>
+                        <input type="date" name="end_date" class="form-control rounded-3" value="{{ end_date }}">
+                    </div>
+                    <div class="pl-filter-divider"></div>
+                    <div class="pl-filter-field" style="min-width:160px;">
+                        <label class="pl-filter-label"><i class="fas fa-layer-group"></i> รูปแบบกลุ่ม</label>
+                        <select name="group_by" class="form-select rounded-3">
+                            <option value="day" {% if group_by == 'day' %}selected{% endif %}>รายวัน (Daily)</option>
+                            <option value="month" {% if group_by == 'month' %}selected{% endif %}>รายเดือน (Monthly)</option>
+                            <option value="year" {% if group_by == 'year' %}selected{% endif %}>รายปี (Yearly)</option>
+                        </select>
+                    </div>
+                    <div class="pl-filter-field pl-filter-actions">
+                        <button type="submit" class="btn btn-premium">
+                            <i class="fas fa-filter me-1"></i> กรองข้อมูล
+                        </button>
+                        <a href="{% url 'stocks:realized_pl_report' %}" class="btn btn-light border" title="กลับไปเดือนปัจจุบัน">
+                            <i class="fas fa-rotate-left"></i>
+                        </a>
+                    </div>
                 </div>
-                <div class="col-md-2">
-                    <label class="form-label small text-muted">เริ่มวันที่</label>
-                    <input type="date" name="start_date" class="form-control rounded-3" value="{{ start_date }}">
+                {% if month_select == current_month %}
+                <div class="pl-filter-active-hint">
+                    <i class="fas fa-circle-check"></i> กำลังแสดงข้อมูลของ <strong>เดือนนี้</strong> โดยอัตโนมัติ
                 </div>
-                <div class="col-md-2">
-                    <label class="form-label small text-muted">ถึงวันที่</label>
-                    <input type="date" name="end_date" class="form-control rounded-3" value="{{ end_date }}">
-                </div>
-                <div class="col-md-2">
-                    <label class="form-label small text-muted">รูปแบบกลุ่ม (Group by)</label>
-                    <select name="group_by" class="form-select rounded-3">
-                        <option value="day" {% if group_by == 'day' %}selected{% endif %}>รายวัน (Daily)</option>
-                        <option value="month" {% if group_by == 'month' %}selected{% endif %}>รายเดือน (Monthly)</option>
-                        <option value="year" {% if group_by == 'year' %}selected{% endif %}>รายปี (Yearly)</option>
-                    </select>
-                </div>
-                <div class="col-md-3 d-flex gap-2">
-                    <button type="submit" class="btn btn-premium flex-grow-1">
-                        <i class="fas fa-filter me-1"></i> กรองข้อมูล
-                    </button>
-                    <a href="{% url 'stocks:realized_pl_report' %}" class="btn btn-light border px-3" title="ล้างตัวกรองทั้งหมด">
-                        <i class="fas fa-undo"></i> ล้าง
-                    </a>
-                </div>
+                {% endif %}
             </form>
         </div>
     </div>

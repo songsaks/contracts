@@ -1181,13 +1181,21 @@ def realized_pl_report(request):
 
     usd_thb = _get_usd_thb()
 
-    # Get available months from history for dropdown
+    # Get available months from history for dropdown (รวมเดือนปัจจุบันไว้เสมอ แม้ยังไม่มีประวัติขายในเดือนนี้)
+    from datetime import date as _cur_date
     all_history = SoldStock.objects.filter(user=request.user).order_by('-sold_at')
-    available_months = sorted(list(set(s.sold_at.strftime('%Y-%m') for s in all_history)), reverse=True)
+    available_months = sorted(
+        set(s.sold_at.strftime('%Y-%m') for s in all_history) | {_cur_date.today().strftime('%Y-%m')},
+        reverse=True,
+    )
 
     month_select = request.GET.get('month_select')
     start_date = request.GET.get('start_date')
     end_date = request.GET.get('end_date')
+
+    # ยังไม่มีตัวกรองใดเลย (เข้าหน้านี้ครั้งแรก หรือกดล้างตัวกรอง) — ให้ default เป็นเดือนปัจจุบัน
+    if not month_select and not start_date and not end_date:
+        month_select = _cur_date.today().strftime('%Y-%m')
 
     if month_select:
         import calendar
@@ -1334,6 +1342,7 @@ def realized_pl_report(request):
         'start_date': start_date,
         'end_date': end_date,
         'month_select': month_select or '',
+        'current_month': _cur_date.today().strftime('%Y-%m'),
         'available_months': available_months,
         'group_by': group_by,
         'title': 'Realized P/L Report',
