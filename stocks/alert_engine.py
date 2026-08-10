@@ -108,6 +108,37 @@ def _is_turtle_strategy(strategy):
     return bool(strategy) and 'turtle' in strategy.lower()
 
 
+# กลยุทธ์ถือระยะยาวเพื่อรอปันผล/มูลค่า — เวลาแตะ TP ให้ทยอยขายทีละน้อยกว่ากลยุทธ์โมเมนตัม เพื่อรักษาสถานะไว้กินปันผล/รอมูลค่าต่อ
+_LONG_HOLD_STRATEGIES = ('dividend', 'value')
+
+# สัดส่วนที่แนะนำให้ขายเมื่อแตะ TP ครั้งแรก (Let Profit Run) แยกตามกลยุทธ์
+_TP_PARTIAL_SELL_PCT_LONG_HOLD = 0.25   # กลยุทธ์ถือยาว (Dividend/Value) — ขายออกแค่บางส่วนน้อยๆ รักษาสถานะหลักไว้
+_TP_PARTIAL_SELL_PCT_DEFAULT = 0.50     # กลยุทธ์อื่นๆ (Precision/SEPA/Cup&Handle ฯลฯ) — ขายครึ่งนึงล็อกกำไร ที่เหลือปล่อยวิ่ง
+
+
+def _recommended_sell_qty(quantity, market, pct=1.0):
+    """
+    คำนวณจำนวนหุ้นที่แนะนำให้ขาย จากสัดส่วนที่กำหนด (pct) ปัดให้เข้า board lot จริง
+    - หุ้นไทย (SET): ปัดเข้า 100 หุ้น/lot (ขั้นต่ำ 100 หุ้นถ้ายังมีเหลือให้ขาย)
+    - ตลาดอื่น (US ฯลฯ): ปัดเป็นจำนวนเต็มหุ้น (ขั้นต่ำ 1 หุ้นถ้ายังมีเหลือให้ขาย)
+    """
+    raw = float(quantity) * pct
+    if raw <= 0:
+        return 0
+    if market == MarketType.SET:
+        qty = round(raw / 100) * 100
+        return int(qty) if qty > 0 else 100
+    qty = round(raw)
+    return int(qty) if qty > 0 else 1
+
+
+def _tp_partial_sell_pct(strategy):
+    strategy_lower = (strategy or '').lower()
+    if any(s in strategy_lower for s in _LONG_HOLD_STRATEGIES):
+        return _TP_PARTIAL_SELL_PCT_LONG_HOLD
+    return _TP_PARTIAL_SELL_PCT_DEFAULT
+
+
 def evaluate_user_alerts(user, config):
     """
     เช็คเงื่อนไข Action (SL/TP/Breakout/Watchlist entry) ของ user คนเดียว
@@ -143,12 +174,14 @@ def evaluate_user_alerts(user, config):
             if config.alert_stop_loss:
                 stop_level = float(p.highest_price) - p.trail_multiplier * p.atr
                 if price <= stop_level:
+                    sell_qty = _recommended_sell_qty(p.quantity, p.market, pct=1.0)
                     new_events.append(StockAlertEvent(
                         user=user, symbol=p.symbol, market=p.market, alert_type=StockAlertEvent.AlertType.STOP_LOSS,
                         strategy=strategy_label, price=price, reference_level=stop_level,
                         message=(
                             f"หุ้น {p.symbol} (กลยุทธ์ {strategy_label}) หลุดแนวรับ Trailing Stop "
-                            f"ที่ {stop_level:.2f} แล้ว (ราคาปัจจุบัน {price:.2f}) ควรพิจารณาคัตลอส"
+                            f"ที่ {stop_level:.2f} แล้ว (ราคาปัจจุบัน {price:.2f}) ควรพิจารณาคัตลอสทั้งหมด "
+                            f"({sell_qty:,} หุ้น)"
                         ),
                     ))
             continue
@@ -172,6 +205,7 @@ def evaluate_user_alerts(user, config):
             trail_stop = simple_trailing_stop(p.highest_price, p.atr, p.trail_multiplier)
             if config.alert_take_profit and trail_stop and price <= trail_stop:
                 pl_pct = ((price - entry_price) / entry_price * 100) if entry_price > 0 else None
+                sell_qty = _recommended_sell_qty(p.quantity, p.market, pct=1.0)
                 new_events.append(StockAlertEvent(
                     user=user, symbol=p.symbol, market=p.market, alert_type=StockAlertEvent.AlertType.TRAILING_EXIT,
                     strategy=strategy_label, price=price, reference_level=trail_stop,
@@ -179,7 +213,7 @@ def evaluate_user_alerts(user, config):
                         f"หุ้น {p.symbol} (กลยุทธ์ {strategy_label or 'N/A'}) หลุด Trailing Stop ที่ "
                         f"{trail_stop:.2f} แล้ว (ราคาปัจจุบัน {price:.2f}"
                         + (f", กำไรสะสม {pl_pct:.1f}% จากต้นทุน {entry_price:.2f}" if pl_pct is not None else "")
-                        + ") ควรพิจารณาขายส่วนที่เหลือ"
+                        + f") ควรพิจารณาขายส่วนที่เหลือทั้งหมด ({sell_qty:,} หุ้น)"
                     ),
                 ))
                 p.tp1_hit = False
@@ -194,6 +228,8 @@ def evaluate_user_alerts(user, config):
                 p.highest_price = price
                 update_fields.append('highest_price')
             p.save(update_fields=update_fields)
+            tp_pct = _tp_partial_sell_pct(strategy_label)
+            sell_qty = _recommended_sell_qty(p.quantity, p.market, pct=tp_pct)
             new_events.append(StockAlertEvent(
                 user=user, symbol=p.symbol, market=p.market, alert_type=StockAlertEvent.AlertType.TP_PARTIAL,
                 strategy=strategy_label, price=price, reference_level=latest_scan.supply_zone_start,
@@ -201,19 +237,21 @@ def evaluate_user_alerts(user, config):
                     f"หุ้น {p.symbol} (กลยุทธ์ {strategy_label or 'N/A'}) ถึงเป้าหมายกำไรแรกที่ "
                     f"{latest_scan.supply_zone_start:.2f} แล้ว (ราคาปัจจุบัน {price:.2f}"
                     + (f", กำไร {pl_pct:.1f}% จากต้นทุน {entry_price:.2f}" if pl_pct is not None else "")
-                    + ") — แนะนำล็อกกำไรบางส่วน (เช่น 30-50%) ส่วนที่เหลือปล่อยให้วิ่งต่อ "
+                    + f") — แนะนำล็อกกำไร {tp_pct*100:.0f}% ({sell_qty:,} หุ้น) ส่วนที่เหลือปล่อยให้วิ่งต่อ "
                     + "(Let Profit Run) ระบบจะเริ่มเทรลราคาให้อัตโนมัติ และแจ้งอีกครั้งถ้าหลุดแนวเทรล"
                 ),
             ))
         # ราคาถึงโซนขายทำกำไรทางเทคนิคแล้ว แต่จริง ๆ ยังต่ำกว่าต้นทุนที่ถืออยู่ (ยังขาดทุนอยู่)
         # ไม่ส่งเป็น "ขายทำกำไร" เพราะจะทำให้เข้าใจผิดว่ามีกำไร — ข้ามไปเช็คเงื่อนไข SL ต่อแทน
         elif config.alert_stop_loss and latest_scan.stop_loss and price <= latest_scan.stop_loss:
+            sell_qty = _recommended_sell_qty(p.quantity, p.market, pct=1.0)
             new_events.append(StockAlertEvent(
                 user=user, symbol=p.symbol, market=p.market, alert_type=StockAlertEvent.AlertType.STOP_LOSS,
                 strategy=strategy_label, price=price, reference_level=latest_scan.stop_loss,
                 message=(
                     f"หุ้น {p.symbol} (กลยุทธ์ {strategy_label or 'N/A'}) หลุดจุดตัดขาดทุน (SL) ที่ "
-                    f"{latest_scan.stop_loss:.2f} แล้ว (ราคาปัจจุบัน {price:.2f}) ควรพิจารณาคัตลอส"
+                    f"{latest_scan.stop_loss:.2f} แล้ว (ราคาปัจจุบัน {price:.2f}) ควรพิจารณาคัตลอสทั้งหมด "
+                    f"({sell_qty:,} หุ้น)"
                 ),
             ))
 
