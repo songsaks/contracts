@@ -1337,6 +1337,10 @@ class StockAlertConfig(models.Model):
     alert_watchlist_entry = models.BooleanField(default=False, verbose_name="แจ้งเตือนโซนเข้าซื้อ (Watchlist)")
     # แจ้งเตือนภาพรวมพอร์ต: ควรขายหุ้นตัวที่สัญญาณอ่อนแอ เพื่อนำเงินไปเพิ่มหุ้นตัวที่สัญญาณแข็งแกร่งกว่าในพอร์ตเดียวกัน
     alert_reallocate = models.BooleanField(default=False, verbose_name="แจ้งเตือนสับเปลี่ยนหุ้นในพอร์ต")
+    # แจ้งเตือนล่วงหน้าก่อนหลุด SL จริง — Reversal Score ≥3/5 (Stage พัง/CMF ติดลบ/MACD กลับทิศ ฯลฯ)
+    alert_distribution_warning = models.BooleanField(default=True, verbose_name="แจ้งเตือนสัญญาณกระจายขาย/กลับตัว (ก่อนหลุด SL)")
+    # แจ้งเตือนก่อน Pocket Pivot จะเกิดจริง — Volume Dry-Up ใกล้โซน (แรงขายเริ่มหมด จับตาใกล้ชิด ยังไม่ใช่สัญญาณซื้อ)
+    alert_vdu_watch = models.BooleanField(default=False, verbose_name="แจ้งเตือน Volume Dry-Up (จับตาก่อนเบรก)")
     # จำนวนวันที่เก็บประวัติแจ้งเตือนไว้ — เก่ากว่านี้ถูกลบอัตโนมัติ (ดูที่ check_web_alerts management command)
     alert_retention_days = models.PositiveIntegerField(default=30, verbose_name="เก็บประวัติแจ้งเตือนกี่วัน")
     updated_at = models.DateTimeField(auto_now=True)
@@ -1361,6 +1365,8 @@ class StockAlertEvent(models.Model):
         TP_PARTIAL = 'TP_PARTIAL', 'ล็อกกำไรบางส่วน (Let Profit Run)'
         TRAILING_EXIT = 'TRAILING_EXIT', 'หลุด Trailing Stop (ขายส่วนที่เหลือ)'
         REALLOCATE = 'REALLOCATE', 'แนะนำสับเปลี่ยนหุ้นในพอร์ต'
+        DISTRIBUTION_WARNING = 'DISTRIBUTION_WARNING', 'สัญญาณกระจายขาย/กลับตัว'
+        VDU_WATCH = 'VDU_WATCH', 'จับตาใกล้ชิด (Volume Dry-Up)'
 
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='stock_alert_events')
     symbol = models.CharField(max_length=20)

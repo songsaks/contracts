@@ -261,6 +261,27 @@ def evaluate_user_alerts(user, config):
                 ),
             ))
             weak_candidates.append({'symbol': p.symbol, 'market': p.market, 'reason': f'หลุดจุดตัดขาดทุน (SL) ที่ {latest_scan.stop_loss:.2f}'})
+        # ====== Distribution / Reversal Warning — เตือนล่วงหน้าก่อนราคาจะหลุด SL จริง ======
+        # ใช้ _compute_signals() ตัวเดียวกับที่หน้า Portfolio ใช้แสดง badge "REVERSAL ⚠️"/"Stage 3/4 ❌"
+        # แค่ยังไม่เคยถูกส่งเป็น alert มาก่อน — reversal_score >= 3/5 ถือว่าน่าเป็นห่วงพอจะเตือน
+        elif config.alert_distribution_warning:
+            from stocks.views.base import _compute_signals
+            signals = _compute_signals(latest_scan, current_price=price)
+            if signals['reversal_score'] >= 3:
+                cache_key = f"stockalert_distwarn_{user.id}_{p.symbol}"
+                if not cache.get(cache_key):
+                    reasons_txt = ', '.join(signals['reversal_reasons'])
+                    new_events.append(StockAlertEvent(
+                        user=user, symbol=p.symbol, market=p.market,
+                        alert_type=StockAlertEvent.AlertType.DISTRIBUTION_WARNING,
+                        strategy=strategy_label, price=price, reference_level=latest_scan.stop_loss,
+                        message=(
+                            f"หุ้น {p.symbol} (กลยุทธ์ {strategy_label or 'N/A'}) เริ่มมีสัญญาณกระจายขาย/กลับตัว "
+                            f"({signals['reversal_score']}/5: {reasons_txt}) — {signals['stage_label']} "
+                            f"ยังไม่ถึงจุดตัดขาดทุน แต่ควรจับตาใกล้ชิด พิจารณาลดสถานะล่วงหน้าถ้ายังไม่มั่นใจ"
+                        ),
+                    ))
+                    cache.set(cache_key, True, timeout=12 * 60 * 60)
 
         if config.alert_breakout_add and (latest_scan.is_52w_breakout or latest_scan.pocket_pivot):
             # แนะนำจำนวนเงินซื้อเพิ่ม (SET เท่านั้น) แบบ ATR-based risk sizing:
@@ -304,6 +325,23 @@ def evaluate_user_alerts(user, config):
                 'reason': 'เบรค 52w High' if latest_scan.is_52w_breakout else 'Pocket Pivot',
                 'score': latest_scan.technical_score,
             })
+        # ====== Volume Dry-Up (VDU) — สัญญาณ "จับตาใกล้ชิด" ก่อน Pocket Pivot จะเกิดจริง ======
+        # เช็คเป็น elif ต่อจาก Breakout/Pocket Pivot เพราะสองเงื่อนไขขัดกันเองในทางคณิตศาสตร์
+        # (VDU=volume ต่ำ/เงียบ ณ ตอนนี้, Pocket Pivot=volume พุ่งสูง ณ ตอนนี้ ไม่เกิดพร้อมกันในวันเดียว)
+        elif config.alert_vdu_watch and getattr(latest_scan, 'vdu_near_zone', False):
+            cache_key = f"stockalert_vdu_{user.id}_{p.symbol}"
+            if not cache.get(cache_key):
+                new_events.append(StockAlertEvent(
+                    user=user, symbol=p.symbol, market=p.market,
+                    alert_type=StockAlertEvent.AlertType.VDU_WATCH,
+                    strategy=strategy_label, price=price, reference_level=latest_scan.demand_zone_start,
+                    message=(
+                        f"หุ้น {p.symbol} (กลยุทธ์ {strategy_label or 'N/A'}) เข้าสู่ภาวะ Volume Dry-Up "
+                        f"(แรงขายเริ่มหมด) ที่ราคา {price:.2f} — สัญญาณ Pocket Pivot อาจเกิดขึ้นได้ทุกเมื่อ "
+                        f"จับตาใกล้ชิด (ยังไม่ใช่สัญญาณซื้อ)"
+                    ),
+                ))
+                cache.set(cache_key, True, timeout=24 * 60 * 60)
 
     # ====== แนะนำสับเปลี่ยนหุ้นในพอร์ต: ขายตัวที่หลุด SL รอบนี้ เพื่อนำเงินไปเพิ่มตัวที่เกิด Breakout รอบนี้ ======
     # แจ้งแค่คู่เดียว (อ่อนแอที่สุด x แข็งแกร่งที่สุดตาม technical_score) กัน spam ถ้ามีหลายคู่พร้อมกัน
