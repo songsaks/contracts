@@ -284,6 +284,17 @@ def evaluate_user_alerts(user, config):
                     cache.set(cache_key, True, timeout=12 * 60 * 60)
 
         if config.alert_breakout_add and (latest_scan.is_52w_breakout or latest_scan.pocket_pivot):
+            # เตือนแฝงถ้าหุ้นตัวเดียวกันมี Reversal Score สูงพร้อมกัน — Pocket Pivot ที่เกิดขณะเทรนด์กำลังอ่อนแอ
+            # เชื่อถือได้น้อยกว่า Pocket Pivot ที่เกิดในเทรนด์ Stage 2 แข็งแรง (อาจเป็นแค่เด้งสั้นๆ ไม่ใช่กลับมาสะสมจริง)
+            from stocks.views.base import _compute_signals
+            _signals = _compute_signals(latest_scan, current_price=price)
+            reversal_caveat = ""
+            if _signals['reversal_score'] >= 3:
+                reversal_caveat = (
+                    f" ⚠️ ระวัง: หุ้นนี้มีสัญญาณกระจายขายร่วมด้วย ({_signals['reversal_score']}/5) — "
+                    f"อาจเป็นการเด้งชั่วคราว ไม่ใช่สัญญาณกลับตัวจริง ควรรอดูยืนยันเพิ่มก่อนซื้อเพิ่ม"
+                )
+
             # แนะนำจำนวนเงินซื้อเพิ่ม (SET เท่านั้น) แบบ ATR-based risk sizing:
             # เสี่ยง 1% ของมูลค่าพอร์ต SET รวม หารด้วยระยะห่างจากราคาปัจจุบันถึง Stop Loss = จำนวนหุ้นที่ซื้อเพิ่มได้
             add_amount_txt = ""
@@ -317,7 +328,7 @@ def evaluate_user_alerts(user, config):
                 message=(
                     f"หุ้น {p.symbol} (กลยุทธ์ {strategy_label or 'N/A'}) เกิดสัญญาณ "
                     f"{'เบรค 52w High' if latest_scan.is_52w_breakout else 'Pocket Pivot'} "
-                    f"ที่ราคา {price:.2f} — ควรพิจารณาซื้อเพิ่ม{add_amount_txt}"
+                    f"ที่ราคา {price:.2f} — ควรพิจารณาซื้อเพิ่ม{add_amount_txt}{reversal_caveat}"
                 ),
             ))
             strong_candidates.append({
