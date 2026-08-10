@@ -7,6 +7,7 @@ from datetime import timedelta
 
 import pytz
 import yfinance as yf
+from django.core.cache import cache
 from django.utils import timezone as dj_timezone
 
 from .models import AssetCategory, MarketType, Portfolio, Watchlist, PrecisionScanCandidate, StockAlertEvent
@@ -162,6 +163,10 @@ def evaluate_user_alerts(user, config):
     )
 
     new_events = []
+    # เก็บหุ้น "อ่อนแอ" (หลุด SL รอบนี้) กับ "แข็งแกร่ง" (เกิด Breakout รอบนี้) ไว้เทียบกันท้ายฟังก์ชัน
+    # สำหรับสัญญาณ "สับเปลี่ยนหุ้นในพอร์ต" — ใช้เงื่อนไขเดียวกับ SL/BREAKOUT alert ที่มีอยู่แล้วเป๊ะๆ ไม่คำนวณเพิ่ม
+    weak_candidates = []
+    strong_candidates = []
 
     for p in portfolios:
         price = live_prices.get(p.symbol)
@@ -184,6 +189,7 @@ def evaluate_user_alerts(user, config):
                             f"({sell_qty:,} หุ้น)"
                         ),
                     ))
+                    weak_candidates.append({'symbol': p.symbol, 'market': p.market, 'reason': f'หลุด Trailing Stop ที่ {stop_level:.2f}'})
             continue
 
         latest_scan = _latest_scan(p.symbol, p.market)
@@ -254,6 +260,7 @@ def evaluate_user_alerts(user, config):
                     f"({sell_qty:,} หุ้น)"
                 ),
             ))
+            weak_candidates.append({'symbol': p.symbol, 'market': p.market, 'reason': f'หลุดจุดตัดขาดทุน (SL) ที่ {latest_scan.stop_loss:.2f}'})
 
         if config.alert_breakout_add and (latest_scan.is_52w_breakout or latest_scan.pocket_pivot):
             # แนะนำจำนวนเงินซื้อเพิ่ม (SET เท่านั้น) แบบ ATR-based risk sizing:
@@ -292,6 +299,32 @@ def evaluate_user_alerts(user, config):
                     f"ที่ราคา {price:.2f} — ควรพิจารณาซื้อเพิ่ม{add_amount_txt}"
                 ),
             ))
+            strong_candidates.append({
+                'symbol': p.symbol, 'market': p.market,
+                'reason': 'เบรค 52w High' if latest_scan.is_52w_breakout else 'Pocket Pivot',
+                'score': latest_scan.technical_score,
+            })
+
+    # ====== แนะนำสับเปลี่ยนหุ้นในพอร์ต: ขายตัวที่หลุด SL รอบนี้ เพื่อนำเงินไปเพิ่มตัวที่เกิด Breakout รอบนี้ ======
+    # แจ้งแค่คู่เดียว (อ่อนแอที่สุด x แข็งแกร่งที่สุดตาม technical_score) กัน spam ถ้ามีหลายคู่พร้อมกัน
+    # และ mute ไว้ 24 ชม.ต่อคู่ กันแจ้งซ้ำถี่เกินไปเพราะเป็นการตัดสินใจระดับภาพรวมพอร์ต ไม่ใช่รายวินาที
+    if config.alert_reallocate and weak_candidates and strong_candidates:
+        weak = weak_candidates[0]
+        strong = max(strong_candidates, key=lambda c: c['score'])
+        if weak['symbol'] != strong['symbol']:
+            cache_key = f"stockalert_reallocate_{user.id}_{weak['symbol']}_{strong['symbol']}"
+            if not cache.get(cache_key):
+                new_events.append(StockAlertEvent(
+                    user=user, symbol=weak['symbol'], market=weak['market'],
+                    alert_type=StockAlertEvent.AlertType.REALLOCATE,
+                    strategy='', price=live_prices.get(weak['symbol']) or 0,
+                    message=(
+                        f"ภาพรวมพอร์ต: หุ้น {weak['symbol']} มีสัญญาณอ่อนแอ ({weak['reason']}) "
+                        f"ขณะที่ {strong['symbol']} เกิดสัญญาณแข็งแกร่งกว่า ({strong['reason']}, คะแนน {strong['score']}) "
+                        f"— พิจารณาขาย {weak['symbol']} เพื่อนำเงินไปเพิ่ม {strong['symbol']} แทน"
+                    ),
+                ))
+                cache.set(cache_key, True, timeout=24 * 60 * 60)
 
     for w in watchlists:
         price = live_prices.get(w.symbol)

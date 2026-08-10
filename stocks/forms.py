@@ -83,5 +83,6 @@ class StockAlertConfigForm(forms.ModelForm):
             'enabled', 'check_interval_minutes',
             'alert_stop_loss', 'alert_take_profit',
             'alert_breakout_add', 'alert_watchlist_entry',
+            'alert_reallocate',
             'alert_retention_days',
         ]

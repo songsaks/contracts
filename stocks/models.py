@@ -1335,6 +1335,8 @@ class StockAlertConfig(models.Model):
     alert_take_profit = models.BooleanField(default=True, verbose_name="แจ้งเตือน Take Profit")
     alert_breakout_add = models.BooleanField(default=True, verbose_name="แจ้งเตือน Breakout (ซื้อเพิ่ม)")
     alert_watchlist_entry = models.BooleanField(default=False, verbose_name="แจ้งเตือนโซนเข้าซื้อ (Watchlist)")
+    # แจ้งเตือนภาพรวมพอร์ต: ควรขายหุ้นตัวที่สัญญาณอ่อนแอ เพื่อนำเงินไปเพิ่มหุ้นตัวที่สัญญาณแข็งแกร่งกว่าในพอร์ตเดียวกัน
+    alert_reallocate = models.BooleanField(default=False, verbose_name="แจ้งเตือนสับเปลี่ยนหุ้นในพอร์ต")
     # จำนวนวันที่เก็บประวัติแจ้งเตือนไว้ — เก่ากว่านี้ถูกลบอัตโนมัติ (ดูที่ check_web_alerts management command)
     alert_retention_days = models.PositiveIntegerField(default=30, verbose_name="เก็บประวัติแจ้งเตือนกี่วัน")
     updated_at = models.DateTimeField(auto_now=True)
@@ -1358,6 +1360,7 @@ class StockAlertEvent(models.Model):
         WATCHLIST_ENTRY = 'WATCHLIST_ENTRY', 'โซนเข้าซื้อ (Watchlist)'
         TP_PARTIAL = 'TP_PARTIAL', 'ล็อกกำไรบางส่วน (Let Profit Run)'
         TRAILING_EXIT = 'TRAILING_EXIT', 'หลุด Trailing Stop (ขายส่วนที่เหลือ)'
+        REALLOCATE = 'REALLOCATE', 'แนะนำสับเปลี่ยนหุ้นในพอร์ต'
 
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='stock_alert_events')
     symbol = models.CharField(max_length=20)
