@@ -1,5 +1,5 @@
 {% extends 'stocks/base_stocks.html' %}
-{% load humanize %}
+{% load humanize regime_tags %}
 
 {% block content %}
 {% include "stocks/includes/dark_mode_scanner.html" %}
@@ -822,7 +822,7 @@
                                     </div>
                                     {% if item.rsi %}
                                     <div class="text-center" style="cursor:help;"
-                                         title="RSI (โมเมนตัม 14 วัน)&#10;Ehlers Indicators:&#10;• SuperSmoother: {% if item.mom_data.ehlers_supersmoother %}{{ item.mom_data.ehlers_supersmoother|floatformat:2 }}{% else %}-{% endif %}&#10;• Laguerre RSI: {% if item.mom_data.ehlers_laguerre_rsi %}{{ item.mom_data.ehlers_laguerre_rsi|floatformat:2 }}{% else %}-{% endif %}&#10;• Fisher: {% if item.mom_data.ehlers_fisher %}{{ item.mom_data.ehlers_fisher|floatformat:2 }}{% else %}-{% endif %} (Trigger: {% if item.mom_data.ehlers_fisher_trigger %}{{ item.mom_data.ehlers_fisher_trigger|floatformat:2 }}{% else %}-{% endif %})">
+                                         title="{{ item|ehlers_tooltip }}">
                                         <span class="fw-bold d-block {% if item.rsi > 70 %}text-danger{% elif item.rsi < 30 %}text-success{% else %}text-secondary{% endif %}" style="font-size:0.85rem;">
                                             {{ item.rsi|floatformat:0 }} ⓘ
                                         </span>
