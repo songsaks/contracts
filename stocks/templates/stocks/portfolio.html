@@ -256,6 +256,16 @@
                             {% endif %}
                         </div>
 
+                        {% if item.sell_status %}
+                        <div class="d-flex align-items-center gap-2 mb-3 px-3 py-2 rounded-3"
+                             style="{% if item.sell_status.color == 'danger' %}background:rgba(239,68,68,0.08);{% elif item.sell_status.color == 'success' %}background:rgba(34,197,94,0.08);{% else %}background:rgba(245,158,11,0.08);{% endif %} font-size:0.78rem;">
+                            <span class="fw-bold {% if item.sell_status.color == 'danger' %}text-danger{% elif item.sell_status.color == 'success' %}text-success{% else %}text-warning{% endif %}">
+                                {{ item.sell_status.label }}
+                            </span>
+                            <span class="text-muted" style="font-size:0.72rem;">{{ item.sell_status.detail }}</span>
+                        </div>
+                        {% endif %}
+
                         <div class="d-flex justify-content-between align-items-start mb-4 card-item-header">
                             <!-- Left: Icon and Title -->
                             <div class="d-flex align-items-center gap-3">
@@ -722,6 +732,12 @@
                                     {% endif %}
                                 </div>
                                 <div class="text-muted col-hide-sm" style="font-size:0.7rem;">{{ item.obj.name|default:item.obj.symbol|truncatechars:20 }}</div>
+                                {% if item.sell_status %}
+                                <div class="fw-bold {% if item.sell_status.color == 'danger' %}text-danger{% elif item.sell_status.color == 'success' %}text-success{% else %}text-warning{% endif %}"
+                                     style="font-size:0.65rem;cursor:help;" title="{{ item.sell_status.detail }}">
+                                    {{ item.sell_status.label }}
+                                </div>
+                                {% endif %}
                             </td>
                             <!-- Price -->
                             <td class="text-end fw-bold {% if item.day_change > 0 %}text-success{% elif item.day_change < 0 %}text-danger{% else %}text-dark{% endif %}" style="font-size:0.9rem;">

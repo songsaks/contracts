@@ -336,6 +336,38 @@ def portfolio_list(request):
                 'reversal_reasons': [], 'stage_label': '—', 'stage_color': 'secondary',
             }
 
+            # ====== สถานะ "ควรขายเมื่อไหร่ / ขายเท่าไหร่" — ใช้ logic เดียวกับ alert_engine.py ======
+            from stocks.alert_engine import _recommended_sell_qty, _tp_partial_sell_pct
+            from stocks.utils import simple_trailing_stop
+            sell_status = None
+            _is_turtle_pos = bool(item.strategy) and 'turtle' in item.strategy.lower()
+            if mom_data and current_price > 0:
+                entry_p = float(item.entry_price or 0)
+                is_in_profit = entry_p <= 0 or current_price > entry_p
+                if not _is_turtle_pos and item.tp1_hit:
+                    trail_stop = simple_trailing_stop(item.highest_price, item.atr, item.trail_multiplier)
+                    if trail_stop:
+                        sell_status = {
+                            'level': 'trailing', 'color': 'warning',
+                            'label': '🔒 ล็อกกำไรแล้ว — กำลังเทรล',
+                            'detail': f"หลุด ฿{trail_stop:.2f} เมื่อไหร่ ขายที่เหลือทั้งหมด {_recommended_sell_qty(item.quantity, item.market, 1.0):,} หุ้น",
+                        }
+                elif getattr(mom_data, 'stop_loss', None) and current_price <= mom_data.stop_loss:
+                    qty = _recommended_sell_qty(item.quantity, item.market, 1.0)
+                    sell_status = {
+                        'level': 'sl', 'color': 'danger',
+                        'label': '🩸 หลุด Stop Loss',
+                        'detail': f"ควรตัดขาดทุนทั้งหมด {qty:,} หุ้น ที่ ฿{mom_data.stop_loss:.2f}",
+                    }
+                elif not _is_turtle_pos and getattr(mom_data, 'supply_zone_start', None) and current_price >= mom_data.supply_zone_start and is_in_profit:
+                    tp_pct = _tp_partial_sell_pct(item.strategy or '')
+                    qty = _recommended_sell_qty(item.quantity, item.market, tp_pct)
+                    sell_status = {
+                        'level': 'tp', 'color': 'success',
+                        'label': '💰 ถึงเป้าหมายกำไรแรก',
+                        'detail': f"แนะนำล็อกกำไร {tp_pct*100:.0f}% ({qty:,} หุ้น) ที่ ฿{mom_data.supply_zone_start:.2f}",
+                    }
+
             items.append({
                 'obj': item,
                 'current_price': current_price,
@@ -346,6 +378,7 @@ def portfolio_list(request):
                 'rsi': rsi_val,
                 'trailing_stop_data': ts_data,
                 'mom_data': mom_data,
+                'sell_status': sell_status,
                 'buy_score':       signals['buy_score'],
                 'sell_score':      signals['sell_score'],
                 'exit_signal':     signals['exit_signal'],
