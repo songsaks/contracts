@@ -43,7 +43,7 @@ def stock_alerts_processor(request):
                     messages.error(request, f"🩸 <strong>{event.get_alert_type_display()}</strong>: {msg_html}")
                 elif event.alert_type == StockAlertEvent.AlertType.DISTRIBUTION_WARNING:
                     messages.warning(request, f"⚠️ <strong>{event.get_alert_type_display()}</strong>: {msg_html}")
-                elif event.alert_type in (StockAlertEvent.AlertType.TP_PARTIAL, StockAlertEvent.AlertType.TP):
+                elif event.alert_type in (StockAlertEvent.AlertType.TP_PARTIAL, StockAlertEvent.AlertType.TAKE_PROFIT):
                     messages.success(request, f"💵 <strong>{event.get_alert_type_display()}</strong>: {msg_html}")
                 elif event.alert_type == StockAlertEvent.AlertType.BREAKOUT:
                     messages.success(request, f"🚀 <strong>{event.get_alert_type_display()}</strong>: {msg_html}")
