@@ -668,7 +668,7 @@
 
         <!-- ══ TABLE VIEW (hidden by default) ═══════════════ -->
         <div id="portfolio-table-view" style="display:none;">
-            <div class="table-responsive table-sticky-action">
+            <div class="table-responsive">
                 <table class="table table-hover align-middle port-table table-sm-compact mb-0">
                     <thead class="bg-light bg-opacity-50">
                         <tr class="small text-muted text-uppercase" style="font-size:0.72rem;letter-spacing:0.4px;">
@@ -683,7 +683,7 @@
                             <th class="text-end col-hide-md">SL</th>
                             <th class="text-end col-hide-lg">TP</th>
                             <th class="text-center col-hide-lg" style="width:140px; min-width:140px; white-space:nowrap;">Score / Signals</th>
-                            <th class="text-end" style="min-width:150px; white-space:nowrap;">Actions</th>
+                            <th class="text-end" style="min-width:210px; white-space:nowrap;">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -853,7 +853,7 @@
                                 {% else %}<span class="text-muted">-</span>{% endif %}
                             </td>
                             <!-- Actions -->
-                            <td class="text-end" style="min-width:160px;">
+                            <td class="text-end" style="min-width:210px;">
                                 <div class="d-flex gap-1 justify-content-end">
                                     <a href="{% url 'stocks:stock_chart' item.obj.symbol %}" class="btn btn-primary btn-xs rounded-pill px-2 py-1" title="Main Chart" style="font-size:0.65rem;"><i class="fas fa-chart-line"></i></a>
                                     <a href="{% url 'stocks:entry_finder' item.obj.symbol %}" class="btn btn-danger btn-xs rounded-pill px-2 py-1" title="Sniper Chart" style="font-size:0.65rem;"><i class="fas fa-crosshairs"></i></a>
