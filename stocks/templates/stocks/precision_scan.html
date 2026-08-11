@@ -1389,8 +1389,8 @@
                             onclick="applyPreset('fast_swing')">6. ⚡ Fast Day/Swing</button>
                     <button type="button" id="preset-pullback" class="btn btn-sm rounded-pill py-0 px-2 preset-btn"
                             style="font-size:0.7rem;font-weight:700;background:#059669;color:white;border:none;"
-                            title="S2 + CMF+ + VCP + ซื้อได้ตอนนี้ — หุ้นฐานแน่นที่ย่อมาให้เข้า ยังไม่ extended"
-                            onclick="applyPreset('pullback')">7. 🎯 หุ้นย่อพร้อมซื้อ</button>
+                            title="S2 + CMF+ + VCP + อยู่ในโซนซื้อ — หุ้นฐานแน่นที่ย่อมาในโซนซื้อยังไม่ extended"
+                            onclick="applyPreset('pullback')">7. 🎯 หุ้นย่อในโซนซื้อ</button>
                     <button type="button" id="preset-clear" class="btn btn-sm btn-outline-secondary rounded-pill py-0 px-2 preset-btn"
                             style="font-size:0.7rem;font-weight:600;"
                             onclick="applyPreset('clear')">✕ Clear</button>
@@ -1450,13 +1450,13 @@
                 <div class="form-check form-switch mb-0 d-flex align-items-center gap-2">
                     <input class="form-check-input" type="checkbox" id="canslimFilterSET" onchange="_applyFiltersSET()" style="cursor:pointer;">
                     <label class="form-check-label small fw-semibold" for="canslimFilterSET" style="cursor:pointer; color:#d97706;">⭐ CAN SLIM เท่านั้น</label>
-                    <span style="font-size:0.85rem; color:#94a3b8; cursor:pointer;" title="CAN SLIM: กรองหุ้นขาขึ้นหลัก (Stage 2) + หุ้นผู้นำ (RS >= 80) + กำไร/รายได้โตโดดเด่น (EPS/Rev Growth >= 20%) + มีรายใหญ่สะสม (CMF >= 0.1 หรือเกิด Pocket Pivot) | หมายเหตุ: ในช่วงตลาดภาพรวมเป็นขาลง (Bear Market) หุ้นส่วนใหญ่จะหลุดเกณฑ์โดยธรรมชาติ ทำให้ตารางสแกนอาจแสดงผลเป็น 0 ตัว เพื่อแจ้งเตือนให้ถือเงินสดตามหลักตัว M (Market Direction)"><i class="fas fa-question-circle"></i></span>
+                    <span style="font-size:0.85rem; color:#94a3b8; cursor:pointer;" title="CAN SLIM: กรองหุ้นขาขึ้นหลัก (Stage 2) + หุ้นผู้นำ (RS >= 80) + กำไร/รายได้โตโดดเด่น (EPS/Rev Growth >= 20%) + มีรายใหญ่สะสม (CMF >= 0.1 หรือเกิด Pocket Pivot)"><i class="fas fa-question-circle"></i></span>
                 </div>
                 <!-- BUY NOW Filter -->
                 <div class="form-check form-switch mb-0 d-flex align-items-center gap-2">
                     <input class="form-check-input" type="checkbox" id="buynowFilterSET" onchange="_applyFiltersSET()" style="cursor:pointer;">
-                    <label class="form-check-label small fw-semibold" for="buynowFilterSET" style="cursor:pointer; color:#dc2626;">🔥 BUY NOW เท่านั้น</label>
-                    <span style="font-size:0.85rem; color:#94a3b8; cursor:pointer;" title="BUY NOW: กรองหุ้นที่มีสัญญาณซื้อด่วนที่สุด ณ วันนี้ (RVol >= 1.5x และราคาจ่อเบรค/เพิ่งเบรคเอาท์ไม่เกิน 0.5% ของแนวต้าน)"><i class="fas fa-question-circle"></i></span>
+                    <label class="form-check-label small fw-semibold" for="buynowFilterSET" style="cursor:pointer; color:#dc2626;">🔥 Breakout วันนี้ (Buy Now)</label>
+                    <span style="font-size:0.85rem; color:#94a3b8; cursor:pointer;" title="Breakout วันนี้ (Buy Now): กรองหุ้นที่มีสัญญาณซื้อด่วนที่สุด ณ วันนี้ (RVol >= 1.5x และราคาจ่อเบรค/เพิ่งเบรคเอาท์ไม่เกิน 0.5% ของแนวต้าน)"><i class="fas fa-question-circle"></i></span>
                 </div>
                 <!-- Inside Bar Filter (Pre-Breakout Compression) -->
                 <div class="form-check form-switch mb-0 d-flex align-items-center gap-2">
@@ -1470,11 +1470,11 @@
                     <label class="form-check-label small fw-semibold" for="accDistFilterSET" style="cursor:pointer; color:#15803d;">📈 ACC > DIST</label>
                     <span style="font-size:0.85rem;color:#94a3b8;cursor:pointer;" title="Accumulation > Distribution: วัน Acc (ราคาขึ้น+วอลุ่มสูง) มากกว่าวัน Dist ใน 25 วัน — เงินสถาบันไหลเข้าสุทธิ ยืนยันการสะสม"><i class="fas fa-question-circle"></i></span>
                 </div>
-                <!-- Buyable Uptrend Filter (หุ้นขาขึ้นที่ยังไม่ extended) -->
+                <!-- Buyable Uptrend Filter (หุ้นขาขึ้นที่ย่ออยู่ในโซนซื้อ) -->
                 <div class="form-check form-switch mb-0 d-flex align-items-center gap-2" style="background:linear-gradient(135deg,rgba(16,185,129,0.08),rgba(5,150,105,0.08));border:1px solid rgba(5,150,105,0.25);border-radius:20px;padding:2px 12px 2px 40px;">
                     <input class="form-check-input" type="checkbox" id="buyableFilterSET" onchange="_applyFiltersSET()" style="cursor:pointer;">
-                    <label class="form-check-label small fw-bold" for="buyableFilterSET" style="cursor:pointer; color:#059669;">🎯 ซื้อได้ตอนนี้</label>
-                    <span style="font-size:0.85rem;color:#059669;cursor:pointer;" title="Buyable Uptrend: เทรนด์ขาขึ้น (Stage 2) ที่ยังไม่ extended — อยู่ในโซนซื้อ หรือย่อมาใกล้จุดเข้า/MA50 ≤ 5% + RSI ≤ 68 + CMF ≥ 0. กรองทิ้งพวก AT TP / RSI 80 เหลือเฉพาะหุ้นกำลังขึ้นที่ยังซื้อได้"><i class="fas fa-question-circle"></i></span>
+                    <label class="form-check-label small fw-bold" for="buyableFilterSET" style="cursor:pointer; color:#059669;">🎯 อยู่ในโซนซื้อ (In Zone)</label>
+                    <span style="font-size:0.85rem;color:#059669;cursor:pointer;" title="อยู่ในโซนซื้อ (In Zone): เทรนด์ขาขึ้น (Stage 2) ที่ยังไม่ extended — อยู่ในโซนซื้อ Demand Zone หรือย่อมาใกล้จุดเข้า MA50 ≤ 5% + RSI ≤ 68 + CMF ≥ 0. กรองทิ้งพวก AT TP เหลือเฉพาะหุ้นย่อในโซนซื้อต้นทุนได้เปรียบ"><i class="fas fa-question-circle"></i></span>
                 </div>
                 <select id="sectorFilterSET" onchange="_applyFiltersSET()" class="form-select form-select-sm rounded-pill" style="width:auto;font-size:0.72rem;cursor:pointer;">
                     <option value="">All Sectors</option>
@@ -3549,7 +3549,7 @@ var PRESET_CONDITIONS_SET = {
     'high_momentum':    ['S2','Vol Surge≥1.5x','Ichimoku≥3','CMF+≥0.1'],
     'safety':           ['RSI<70','S2','ITL Bullish','BUY NOW'],
     'fast_swing':       ['S2','BUY NOW'],
-    'pullback':         ['S2','CMF+≥0.1','VCP','ซื้อได้ตอนนี้'],
+    'pullback':         ['S2','CMF+≥0.1','VCP','อยู่ในโซนซื้อ'],
 };
 var PRESET_COLORS_SET = {
     'super':'#4f46e5','launcher_breakout':'#0891b2','base':'#059669',
