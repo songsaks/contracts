@@ -117,6 +117,7 @@ TEMPLATES = [
                 'django.contrib.auth.context_processors.auth',          # ส่งข้อมูล user เข้า template
                 'django.contrib.messages.context_processors.messages',  # ส่ง flash messages เข้า template
                 'pms.context_processors.pms_context',                   # ส่งข้อมูล PMS เข้าทุก template (custom)
+                'stocks.context_processors.stock_alerts_processor',     # ส่งข้อความแจ้งเตือนหุ้น Realtime เข้า messages ทุกหน้า
             ],
         },
     },
