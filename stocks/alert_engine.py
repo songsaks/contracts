@@ -336,6 +336,48 @@ def evaluate_user_alerts(user, config):
                 'reason': 'เบรค 52w High' if latest_scan.is_52w_breakout else 'Pocket Pivot',
                 'score': latest_scan.technical_score,
             })
+        # ====== Buy Zone Add — เตือนสะสม/ซื้อเพิ่ม เมื่อหุ้นในพอร์ตย่อลงมาอยู่ในโซนได้เปรียบ (IN ZONE) ======
+        elif config.alert_breakout_add and latest_scan.demand_zone_start and latest_scan.demand_zone_end and (latest_scan.demand_zone_end <= price <= latest_scan.demand_zone_start):
+            from stocks.views.base import _compute_signals
+            _sig = _compute_signals(latest_scan, current_price=price)
+            if _sig['buy_score'] >= 75 and _sig['reversal_score'] < 3:
+                cache_key = f"stockalert_buyzone_{user.id}_{p.symbol}"
+                if not cache.get(cache_key):
+                    add_amount_txt = ""
+                    if p.market == MarketType.SET and total_set_value > 0 and latest_scan.stop_loss and price > latest_scan.stop_loss:
+                        risk_per_share = price - latest_scan.stop_loss
+                        risk_budget = total_set_value * 0.01
+                        suggested_shares = risk_budget / risk_per_share
+                        suggested_amount = suggested_shares * price
+
+                        current_position_value = float(p.quantity) * price
+                        max_position_value = total_set_value * 0.15
+                        remaining_room = max_position_value - current_position_value
+
+                        if remaining_room <= 0:
+                            add_amount_txt = " — แต่ถือหุ้นตัวนี้เต็มโควต้าแล้ว (เกิน 15% ของพอร์ต SET)"
+                        else:
+                            capped = suggested_amount > remaining_room
+                            if capped:
+                                suggested_amount = remaining_room
+                                suggested_shares = suggested_amount / price
+                            cap_note = " (จำกัดตามโควต้า 15% ของพอร์ต)" if capped else ""
+                            add_amount_txt = (
+                                f" — แนะนำแบ่งไม้ซื้อเพิ่มประมาณ {suggested_amount:,.0f} บาท (~{suggested_shares:,.0f} หุ้น, "
+                                f"เสี่ยง 1% ของพอร์ต SET ที่ SL {latest_scan.stop_loss:.2f}{cap_note})"
+                            )
+
+                    new_events.append(StockAlertEvent(
+                        user=user, symbol=p.symbol, market=p.market,
+                        alert_type=StockAlertEvent.AlertType.WATCHLIST_ENTRY,
+                        strategy=strategy_label, price=price, reference_level=latest_scan.demand_zone_start,
+                        message=(
+                            f"หุ้น {p.symbol} (กลยุทธ์ {strategy_label or 'N/A'}) ย่อลงมาอยู่ในโซนสะสม/ซื้อเพิ่มที่ได้เปรียบ "
+                            f"{latest_scan.demand_zone_end:.2f} - {latest_scan.demand_zone_start:.2f} แล้ว "
+                            f"(ราคาปัจจุบัน {price:.2f}, สัญญาณซื้อ {_sig['buy_score']}/100){add_amount_txt}"
+                        ),
+                    ))
+                    cache.set(cache_key, True, timeout=12 * 60 * 60)
         # ====== Volume Dry-Up (VDU) — สัญญาณ "จับตาใกล้ชิด" ก่อน Pocket Pivot จะเกิดจริง ======
         # เช็คเป็น elif ต่อจาก Breakout/Pocket Pivot เพราะสองเงื่อนไขขัดกันเองในทางคณิตศาสตร์
         # (VDU=volume ต่ำ/เงียบ ณ ตอนนี้, Pocket Pivot=volume พุ่งสูง ณ ตอนนี้ ไม่เกิดพร้อมกันในวันเดียว)
