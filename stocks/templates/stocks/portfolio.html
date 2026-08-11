@@ -672,7 +672,7 @@
                 <table class="table table-hover align-middle port-table table-sm-compact mb-0">
                     <thead class="bg-light bg-opacity-50">
                         <tr class="small text-muted text-uppercase" style="font-size:0.72rem;letter-spacing:0.4px;">
-                            <th>Symbol</th>
+                            <th style="width:92px; max-width:92px;">Symbol</th>
                             <th class="text-end">Price</th>
                             <th class="text-end">Qty</th>
                             <th class="text-end col-hide-sm">Day%</th>
@@ -683,7 +683,7 @@
                             <th class="text-end col-hide-md">SL</th>
                             <th class="text-end col-hide-lg">TP</th>
                             <th class="text-center col-hide-lg" style="width:140px; min-width:140px; white-space:nowrap;">Score / Signals</th>
-                            <th class="text-end" style="min-width:210px; white-space:nowrap;">Actions</th>
+                            <th class="text-center" style="min-width:104px; width:104px; white-space:nowrap;">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -706,35 +706,35 @@
                         {% endif %}
                         <tr class="border-bottom border-light">
                             <!-- Symbol -->
-                            <td>
-                                <div class="d-flex align-items-center gap-2">
-                                    <a href="{% url 'stocks:analyze' item.obj.symbol %}" class="fw-bold text-dark text-decoration-none hover-primary" style="font-size:0.95rem;">{{ item.obj.symbol }}</a>
+                            <td style="width:92px; max-width:92px; overflow-wrap:break-word;">
+                                <a href="{% url 'stocks:analyze' item.obj.symbol %}" class="d-block fw-bold text-dark text-decoration-none hover-primary" style="font-size:0.8rem; line-height:1.15;">{{ item.obj.symbol }}</a>
+                                <div class="d-flex flex-wrap align-items-center gap-1 mt-1">
                                     {% if item.obj.strategy == 'Turtle S1' %}
-                                    <span class="badge bg-success bg-opacity-10 text-success rounded-pill" style="font-size:0.6rem;border:1px solid #22c55e;">🐢 S1</span>
+                                    <span class="badge bg-success bg-opacity-10 text-success rounded-pill" style="font-size:0.5rem;padding:2px 5px;border:1px solid #22c55e;">🐢 S1</span>
                                     {% elif item.obj.strategy == 'Turtle S2' %}
-                                    <span class="badge bg-danger bg-opacity-10 text-danger rounded-pill" style="font-size:0.6rem;border:1px solid #ef4444;">🐢 S2</span>
+                                    <span class="badge bg-danger bg-opacity-10 text-danger rounded-pill" style="font-size:0.5rem;padding:2px 5px;border:1px solid #ef4444;">🐢 S2</span>
                                     {% elif item.obj.strategy == 'Precision' %}
-                                    <span class="badge bg-info bg-opacity-10 text-info rounded-pill" style="font-size:0.6rem;border:1px solid #0ea5e9;">🎯 PMS</span>
+                                    <span class="badge bg-info bg-opacity-10 text-info rounded-pill" style="font-size:0.5rem;padding:2px 5px;border:1px solid #0ea5e9;">🎯 PMS</span>
                                     {% elif item.obj.strategy == 'Value' %}
-                                    <span class="badge bg-primary bg-opacity-10 text-primary rounded-pill" style="font-size:0.6rem;border:1px solid #6366f1;">💎 Value</span>
+                                    <span class="badge bg-primary bg-opacity-10 text-primary rounded-pill" style="font-size:0.5rem;padding:2px 5px;border:1px solid #6366f1;">💎 Value</span>
                                     {% elif item.obj.strategy == 'Dividend' %}
-                                    <span class="badge bg-warning bg-opacity-10 text-warning rounded-pill" style="font-size:0.6rem;border:1px solid #f59e0b;">💸 Div</span>
+                                    <span class="badge bg-warning bg-opacity-10 text-warning rounded-pill" style="font-size:0.5rem;padding:2px 5px;border:1px solid #f59e0b;">💸 Div</span>
                                     {% endif %}
                                     {% if item.mom_data.ehlers_itl_bullish %}
-                                    <span class="badge badge-outline-itl-bullish rounded-pill" style="font-size:0.6rem;" title="Ehlers ITL MTF Bullish: Price > Daily ITL ({{ item.mom_data.ehlers_itl_daily|floatformat:2 }}) > Weekly ITL ({{ item.mom_data.ehlers_itl_weekly|floatformat:2 }})">📈 ITL</span>
+                                    <span class="badge badge-outline-itl-bullish rounded-pill" style="font-size:0.5rem;padding:2px 5px;" title="Ehlers ITL MTF Bullish: Price > Daily ITL ({{ item.mom_data.ehlers_itl_daily|floatformat:2 }}) > Weekly ITL ({{ item.mom_data.ehlers_itl_weekly|floatformat:2 }})">📈 ITL</span>
                                     {% endif %}
                                     {% if item.mom_data %}
                                         {% if item.mom_data.demand_zone_start and item.current_price <= item.mom_data.demand_zone_start and item.current_price >= item.mom_data.demand_zone_end %}
-                                        <span class="badge bg-success bg-opacity-15 text-success rounded-pill" style="font-size:0.6rem;">IN ZONE</span>
+                                        <span class="badge bg-success bg-opacity-15 text-success rounded-pill" style="font-size:0.5rem;padding:2px 5px;">IN ZONE</span>
                                         {% elif item.mom_data.supply_zone_start and item.current_price >= item.mom_data.supply_zone_start %}
-                                        <span class="badge bg-danger bg-opacity-15 text-danger rounded-pill" style="font-size:0.6rem;">AT TP</span>
+                                        <span class="badge bg-danger bg-opacity-15 text-danger rounded-pill" style="font-size:0.5rem;padding:2px 5px;">AT TP</span>
                                         {% endif %}
                                     {% endif %}
                                 </div>
-                                <div class="text-muted col-hide-sm" style="font-size:0.7rem;">{{ item.obj.name|default:item.obj.symbol|truncatechars:20 }}</div>
+                                <div class="text-muted col-hide-sm text-truncate" style="font-size:0.62rem; max-width:88px;">{{ item.obj.name|default:item.obj.symbol|truncatechars:14 }}</div>
                                 {% if item.sell_status %}
                                 <div class="fw-bold {% if item.sell_status.color == 'danger' %}text-danger{% elif item.sell_status.color == 'success' %}text-success{% else %}text-warning{% endif %}"
-                                     style="font-size:0.65rem;cursor:help;" title="{{ item.sell_status.detail }}">
+                                     style="font-size:0.58rem;cursor:help;line-height:1.15;" title="{{ item.sell_status.detail }}">
                                     {{ item.sell_status.label }}
                                 </div>
                                 {% endif %}
@@ -853,31 +853,43 @@
                                 {% else %}<span class="text-muted">-</span>{% endif %}
                             </td>
                             <!-- Actions -->
-                            <td class="text-end" style="min-width:210px;">
-                                <div class="d-flex gap-1 justify-content-end">
-                                    <a href="{% url 'stocks:stock_chart' item.obj.symbol %}" class="btn btn-primary btn-xs rounded-pill px-2 py-1" title="Main Chart" style="font-size:0.65rem;"><i class="fas fa-chart-line"></i></a>
-                                    <a href="{% url 'stocks:entry_finder' item.obj.symbol %}" class="btn btn-danger btn-xs rounded-pill px-2 py-1" title="Sniper Chart" style="font-size:0.65rem;"><i class="fas fa-crosshairs"></i></a>
-                                    <button class="btn btn-light btn-xs rounded-circle border text-success" style="width:28px;height:28px;padding:0;"
+                            <td class="text-center" style="min-width:104px; width:104px;">
+                                <div class="d-flex gap-1 justify-content-center align-items-center">
+                                    <a href="{% url 'stocks:stock_chart' item.obj.symbol %}" class="btn btn-primary btn-xs rounded-circle" style="width:26px;height:26px;padding:0;display:flex;align-items:center;justify-content:center;" title="Main Chart"><i class="fas fa-chart-line" style="font-size:0.6rem;"></i></a>
+                                    <button class="btn btn-light btn-xs rounded-circle border text-success" style="width:26px;height:26px;padding:0;"
                                         onclick="openSellModal('{% url 'stocks:sell_stock' item.obj.pk %}','{{ item.obj.symbol }}','{{ item.obj.quantity }}','{{ item.current_price }}','{{ item.obj.entry_price }}','{{ item.obj.market }}')"
                                         data-bs-toggle="modal" data-bs-target="#sellStockModal" title="Sell">
-                                        <i class="fas fa-hand-holding-usd" style="font-size:0.6rem;"></i>
+                                        <i class="fas fa-hand-holding-usd" style="font-size:0.58rem;"></i>
                                     </button>
-                                    <button class="btn btn-light btn-xs rounded-circle border" style="width:28px;height:28px;padding:0;color:#d97706;"
-                                        onclick="openDividendModal('{{ item.obj.symbol }}','{{ item.obj.market }}','{{ item.obj.quantity }}')"
-                                        data-bs-toggle="modal" data-bs-target="#addDividendModal" title="บันทึกปันผล">
-                                        <i class="fas fa-coins" style="font-size:0.6rem;"></i>
-                                    </button>
-                                    <button class="btn btn-light btn-xs rounded-circle border" style="width:28px;height:28px;padding:0;"
-                                        onclick="editPortfolio('{{ item.obj.symbol }}','{{ item.obj.name|default:""|escapejs }}','{{ item.obj.quantity }}','{{ item.obj.entry_price }}','{{ item.obj.category }}','{{ item.obj.market }}','{{ item.obj.strategy|default_if_none:""|escapejs }}', '{{ item.obj.trail_multiplier }}')"
-                                        data-bs-toggle="modal" data-bs-target="#addPortfolioModal" title="Edit">
-                                        <i class="fas fa-edit" style="font-size:0.6rem;"></i>
-                                    </button>
-                                    <form action="{% url 'stocks:delete_from_portfolio' item.obj.pk %}" method="POST" class="d-inline" onsubmit="return confirm('ลบจากพอร์ตใช่หรือไม่?')">
-                                        {% csrf_token %}
-                                        <button type="submit" class="btn btn-light btn-xs rounded-circle border text-danger" style="width:28px;height:28px;padding:0;" title="Delete">
-                                            <i class="fas fa-trash-alt" style="font-size:0.6rem;"></i>
+                                    <div class="dropdown">
+                                        <button class="btn btn-light btn-xs rounded-circle border" style="width:26px;height:26px;padding:0;" data-bs-toggle="dropdown" aria-expanded="false" title="เพิ่มเติม">
+                                            <i class="fas fa-ellipsis-v" style="font-size:0.58rem;"></i>
                                         </button>
-                                    </form>
+                                        <ul class="dropdown-menu dropdown-menu-end shadow-sm" style="font-size:0.78rem;">
+                                            <li><a class="dropdown-item" href="{% url 'stocks:entry_finder' item.obj.symbol %}"><i class="fas fa-crosshairs me-2 text-danger"></i>Sniper Chart</a></li>
+                                            <li>
+                                                <button type="button" class="dropdown-item"
+                                                    onclick="openDividendModal('{{ item.obj.symbol }}','{{ item.obj.market }}','{{ item.obj.quantity }}')"
+                                                    data-bs-toggle="modal" data-bs-target="#addDividendModal">
+                                                    <i class="fas fa-coins me-2" style="color:#d97706;"></i>บันทึกปันผล
+                                                </button>
+                                            </li>
+                                            <li>
+                                                <button type="button" class="dropdown-item"
+                                                    onclick="editPortfolio('{{ item.obj.symbol }}','{{ item.obj.name|default:""|escapejs }}','{{ item.obj.quantity }}','{{ item.obj.entry_price }}','{{ item.obj.category }}','{{ item.obj.market }}','{{ item.obj.strategy|default_if_none:""|escapejs }}', '{{ item.obj.trail_multiplier }}')"
+                                                    data-bs-toggle="modal" data-bs-target="#addPortfolioModal">
+                                                    <i class="fas fa-edit me-2 text-primary"></i>แก้ไข
+                                                </button>
+                                            </li>
+                                            <li><hr class="dropdown-divider"></li>
+                                            <li>
+                                                <form action="{% url 'stocks:delete_from_portfolio' item.obj.pk %}" method="POST" onsubmit="return confirm('ลบจากพอร์ตใช่หรือไม่?')">
+                                                    {% csrf_token %}
+                                                    <button type="submit" class="dropdown-item text-danger"><i class="fas fa-trash-alt me-2"></i>ลบ</button>
+                                                </form>
+                                            </li>
+                                        </ul>
+                                    </div>
                                 </div>
                             </td>
                         </tr>
