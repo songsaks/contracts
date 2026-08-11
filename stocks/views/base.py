@@ -227,44 +227,6 @@ def _compute_signals(prec, current_price=None, is_turtle=False, turtle_stop=None
 
     buy_score = max(0, min(100, buy))
 
-    # ── SELL SCORE ────────────────────────────────────────────────────
-    sell = 0
-    if is_turtle:
-        # Turtles only exit on 10D/20D Low (turtle_stop)
-        if turtle_stop and price <= turtle_stop:
-            sell = 100
-        else:
-            sell = 0
-    else:
-        if sz_s and price >= sz_s:              sell += 45
-        # ยกเลิกเงื่อนไขขายเมื่อใกล้วน 52w High เพราะเบรกเอาต์คือสัญญาณโมเมนตัมที่ดี
-        if rsi > 78:    sell += 20
-        elif rsi > 72:  sell += 12
-        elif rsi > 68:  sell += 5
-        # Volume bearish penalty - ผ่อนลงสำหรับ SET เพราะหลายวัน volume เป็น neutral ไม่ใช่ bearish จริง
-        if not rvol_b and rvol >= 2.0:  sell += 18   # volume สูงมากและเป็น bearish = แรงขายจริง
-        elif not rvol_b and rvol >= 1.5: sell += 10  # volume สูงปานกลางและ bearish
-        # rvol_b = False แต่ volume ปกติ → ไม่ penalty
-        if rel1 < -5:   sell += 12
-        elif rel1 < 0:  sell += 6
-        if pat < -5:    sell += 10
-        elif pat < 0:   sell += 5
-        if adx < 15:    sell += 8
-        elif adx < 20:  sell += 4
-        # v3: MACD bearish (histogram negative + no crossover)
-        if not macd_cross and macd_hist < 0 and abs(macd_hist) > 0.01:
-            sell += 8
-        # v7: CMF distribution - เงินไหลออกสุทธิ
-        if cmf is not None:
-            if cmf < -0.1:    sell += 10  # Distribution ชัดเจน
-            elif cmf < -0.05: sell += 5   # เริ่มมีแรงขายสุทธิ
-    sell_score = min(100, sell)
-
-    if sell_score >= 70:   exit_signal = 'STRONG EXIT'
-    elif sell_score >= 50: exit_signal = 'EXIT'
-    elif sell_score >= 30: exit_signal = 'WATCH'
-    else:                  exit_signal = ''
-
     # ── REVERSAL SCORE (0-5): ตรวจจับการเปลี่ยนแปลงจากขาขึ้น → Distribution/ขาลง ──
     # แต่ละเงื่อนไขให้ 1 คะแนน รวม 5 คะแนน (≥3 = REVERSAL ALERT)
     rev_pts = 0
@@ -294,6 +256,58 @@ def _compute_signals(prec, current_price=None, is_turtle=False, turtle_stop=None
     if rsi < 50 and not hh_hl:
         rev_pts += 1
         rev_reasons.append('RSI<50 + LL')
+
+    # ── SELL SCORE ────────────────────────────────────────────────────
+    sell = 0
+    if is_turtle:
+        # Turtles only exit on 10D/20D Low (turtle_stop)
+        if turtle_stop and price <= turtle_stop:
+            sell = 100
+        else:
+            sell = 0
+    else:
+        # ถ้าอยู่ใน Stage 2 ขาขึ้นแข็งแกร่ง และไม่มีสัญญาณกระจายขาย (rev_pts < 3)
+        # การชนเป้าหมาย Supply Zone Start (TP1) ถือเป็นเป้าทำกำไรบางส่วน ไม่ใช่เหตุผลบังคับขายทั้งหมด (ไม่โดน penalty 45 คะแนน)
+        if stage2 and rev_pts < 3:
+            if rsi > 82: sell += 10
+        else:
+            if sz_s and price >= sz_s:      sell += 25   # มีสัญญาณ Reversal ร่วมด้วย ชนโซนต้าน = เสี่ยงโดนกด
+            if rsi > 78:                    sell += 20
+            elif rsi > 72:                  sell += 12
+            elif rsi > 68:                  sell += 5
+
+        # Reversal / Distribution penalty
+        if rev_pts >= 4:
+            sell += 35
+        elif rev_pts == 3:
+            sell += 20
+
+        # Volume bearish penalty - ผ่อนลงสำหรับ SET เพราะหลายวัน volume เป็น neutral ไม่ใช่ bearish จริง
+        if not rvol_b and rvol >= 2.0:  sell += 18   # volume สูงมากและเป็น bearish = แรงขายจริง
+        elif not rvol_b and rvol >= 1.5: sell += 10  # volume สูงปานกลางและ bearish
+        # rvol_b = False แต่ volume ปกติ → ไม่ penalty
+        if rel1 < -5:   sell += 12
+        elif rel1 < 0:  sell += 6
+        if pat < -5:    sell += 10
+        elif pat < 0:   sell += 5
+        if adx < 15:    sell += 8
+        elif adx < 20:  sell += 4
+        # v3: MACD bearish (histogram negative + no crossover)
+        if not macd_cross and macd_hist < 0 and abs(macd_hist) > 0.01:
+            sell += 8
+        # v7: CMF distribution - เงินไหลออกสุทธิ
+        if cmf is not None:
+            if cmf < -0.1:    sell += 10  # Distribution ชัดเจน
+            elif cmf < -0.05: sell += 5   # เริ่มมีแรงขายสุทธิ
+
+    sell_score = min(100, sell)
+
+    if sell_score >= 70:   exit_signal = 'STRONG EXIT'
+    elif sell_score >= 50: exit_signal = 'EXIT'
+    elif sell_score >= 30: exit_signal = 'WATCH'
+    else:                  exit_signal = ''
+
+    # ── Stage Label ──
 
     # ── Stage Label ──
     if stage2 and ema20_rising and hh_hl:

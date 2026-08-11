@@ -135,15 +135,17 @@ def portfolio_exit_plan(request):
             is_laggard = (rel_3m and rel_3m < -5) or (adx_val and adx_val < 18)
 
             # ====== Action Recommendation (Momentum-Aware) ======
+            reversal_score = signals.get('reversal_score', 0)
+            
             if exit_signal == 'STRONG EXIT':
-                if is_leader:
-                    action       = 'ทยอยขาย (Leader)'
-                    action_style = 'warning'
-                    action_detail = f"สัญญาณขายแรง แต่หุ้นยังเป็นผู้นำ (RS สูง) - ขาย 70% เก็บ 30% เผื่อเด้งแรง"
-                else:
+                if reversal_score >= 4 or (not is_leader and reversal_score >= 3):
                     action       = 'ออกทันที'
                     action_style = 'danger'
-                    action_detail = f"ขายทั้งหมด {quantity:.0f} หุ้น - สัญญาณเทคนิคขาลงชัดเจนและหุ้นเริ่มล้าหลัง"
+                    action_detail = f"ขายทั้งหมด {quantity:.0f} หุ้น - มีสัญญาณกระจายขายชัดเจน (Reversal {reversal_score}/5) และแนวโน้มชะลอตัว"
+                else:
+                    action       = 'ทยอยขาย (Leader)'
+                    action_style = 'warning'
+                    action_detail = f"สัญญาณขายเตือน แต่เป็นหุ้นผู้นำ - ขายล็อกกำไร 50% เก็บ 50% เผื่อเด้งรันเทรนด์"
             
             elif sl_hit:
                 if entry_price > 0 and current_price < entry_price:
@@ -154,21 +156,31 @@ def portfolio_exit_plan(request):
                     else:
                         action       = 'ตัดขาดทุน (Cut Loss)'
                         action_style = 'danger'
-                        action_detail = f"ราคาหลุด SL และหุ้นอ่อนแอกว่าตลาด - แนะนำขายทันทีเพื่อปกป้องเงินทุน"
+                        action_detail = f"ราคาหลุด SL ({sl_price:.2f}) และหุ้นอ่อนแอกว่าตลาด - แนะนำขายทันทีเพื่อปกป้องเงินทุน"
                 else:
                     action       = 'ล็อกกำไร (Trailing)'
                     action_style = 'warning'
-                    action_detail = f"ราคาหลุดจุดเฝ้าระวัง (SL) - กำไรยังเหลือ {gain_loss_pct:.1f}% แนะนำขายล็อกกำไร"
+                    action_detail = f"ราคาหลุดจุดเฝ้าระวัง (SL) - กำไรยังเหลือ {gain_loss_pct:.1f}% แนะนำขายล็อกกำไรส่วนนี้"
+
+            elif tp_hit or (tp_price and current_price >= tp_price):
+                if reversal_score < 3:
+                    action       = 'ถึง TP1 (Let Profit Run)'
+                    action_style = 'info'
+                    action_detail = f"ถึงเป้าหมายกำไรแรก ฿{tp_price:.2f} — แนะนำทยอยขายล็อกกำไร 25-50% ส่วนที่เหลือปล่อยวิ่งต่อ (Let Profit Run) ด้วย Trailing Stop"
+                else:
+                    action       = 'ถึง TP1 (ขายล็อกกำไร)'
+                    action_style = 'warning'
+                    action_detail = f"ถึงเป้าหมายกำไร ฿{tp_price:.2f} และเริ่มมีสัญญาณกระจายขาย — แนะนำขายล็อกกำไร 50-70%"
 
             elif exit_signal == 'EXIT':
-                if is_leader:
+                if is_leader or reversal_score < 2:
                     action       = 'ถือต่อ (Leader)'
                     action_style = 'success'
-                    action_detail = "มีสัญญาณขายบ้าง แต่ momentum แข็งแกร่งมาก - ถือต่อเพื่อรันเทรน"
+                    action_detail = "มีสัญญาณชะลอตัวเล็กน้อย แต่แนวโน้มหลัก Stage 2 ยังแข็งแกร่ง - ถือต่อเพื่อรันเทรนด์"
                 else:
                     action       = 'ทยอยขาย 50%'
                     action_style = 'warning'
-                    action_detail = f"หุ้นเริ่มหมดแรงและไม่ใช่ผู้นำ - ขายครึ่งหนึ่งเก็บกำไรไว้ก่อน"
+                    action_detail = f"หุ้นเริ่มหมดแรงและมีสัญญาณกระจายขาย - ขายครึ่งหนึ่งเก็บกำไรไว้ก่อน"
 
             elif is_laggard and gain_loss_pct < 0:
                 action       = 'พิจารณาเปลี่ยนตัว'
@@ -178,19 +190,19 @@ def portfolio_exit_plan(request):
             elif tp_price and current_price >= tp_price * 0.95:
                 action       = 'ใกล้ TP'
                 action_style = 'info'
-                action_detail = f"ราคาใกล้เป้าหมายแล้ว - เตรียมทยอยรับทรัพย์"
+                action_detail = f"ราคาใกล้เป้าหมาย ฿{tp_price:.2f} - เตรียมทยอยขายล็อกกำไรบางส่วน"
 
             else:
                 action       = 'ถือต่อ'
                 action_style = 'success'
-                action_detail = "ยังไม่มีสัญญาณออก และโครงสร้างราคายังดี - ถือรันเทรนต่อไป"
+                action_detail = "ยังไม่มีสัญญาณออก และโครงสร้างราคายังดี - ถือรันเทรนด์ต่อไป"
 
             # ====== Active Exit Triggers ======
             triggers = []
             if sl_hit:
                 triggers.append({'label': 'SL HIT - หลุด Stop Loss', 'level': 'danger'})
             if tp_hit:
-                triggers.append({'label': f'TP Hit - ถึงเป้า ฿{tp_price:.2f}', 'level': 'danger'})
+                triggers.append({'label': f'TP Hit - ถึงเป้า ฿{tp_price:.2f}', 'level': 'info'})
             if rsi_val and rsi_val > 78:
                 triggers.append({'label': f'RSI {rsi_val:.0f} - overbought มาก', 'level': 'danger'})
             elif rsi_val and rsi_val > 72:
