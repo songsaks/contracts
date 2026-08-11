@@ -682,8 +682,8 @@
                             <th class="text-center col-hide-md">Zone</th>
                             <th class="text-end col-hide-md">SL</th>
                             <th class="text-end col-hide-lg">TP</th>
-                            <th class="text-center col-hide-lg" style="min-width:210px; white-space:nowrap;">Score / Signals</th>
-                            <th class="text-end" style="min-width:160px; white-space:nowrap;">Actions</th>
+                            <th class="text-center col-hide-lg" style="width:140px; min-width:140px; white-space:nowrap;">Score / Signals</th>
+                            <th class="text-end" style="min-width:150px; white-space:nowrap;">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -799,51 +799,55 @@
                                 {% else %}<span class="text-muted">-</span>{% endif %}
                             </td>
                             <!-- Score/Signals -->
-                            <td class="text-center col-hide-lg" style="min-width:210px; padding-left:6px; padding-right:6px;">
+                            <td class="text-center col-hide-lg" style="width:140px; min-width:140px; padding: 4px 4px;">
                                 {% if item.mom_data %}
-                                <div class="d-flex gap-1 justify-content-center align-items-center">
-                                    <div class="text-center px-1 py-1 rounded" style="background:rgba(0,0,0,0.03); min-width:44px;">
-                                        <span class="fw-bold d-block {% if item.mom_data.technical_score >= 80 %}text-success{% elif item.mom_data.technical_score >= 50 %}text-primary{% else %}text-warning{% endif %}" style="font-size:0.85rem; line-height:1.1;">
+                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 3px; width: 100%; max-width: 130px; margin: 0 auto;">
+                                    <div class="text-center py-1 rounded" style="background:rgba(0,0,0,0.03);">
+                                        <span class="fw-bold d-block {% if item.mom_data.technical_score >= 80 %}text-success{% elif item.mom_data.technical_score >= 50 %}text-primary{% else %}text-warning{% endif %}" style="font-size:0.8rem; line-height:1;">
                                             {{ item.mom_data.technical_score }}
                                         </span>
-                                        <div class="val-hint" style="font-size:0.58rem; color:#64748b;">เทคนิค</div>
+                                        <div class="val-hint" style="font-size:0.55rem; color:#64748b; margin-top:1px;">เทคนิค</div>
                                     </div>
-                                    <div class="text-center px-1 py-1 rounded" style="background:rgba(16,185,129,0.06); min-width:48px;">
-                                        <span class="fw-bold d-block {% if item.buy_score >= 80 %}text-success{% elif item.buy_score >= 60 %}text-primary{% elif item.buy_score >= 40 %}text-warning{% else %}text-muted{% endif %}" style="font-size:0.85rem; line-height:1.1;">
+                                    <div class="text-center py-1 rounded" style="background:rgba(16,185,129,0.08);">
+                                        <span class="fw-bold d-block {% if item.buy_score >= 80 %}text-success{% elif item.buy_score >= 60 %}text-primary{% elif item.buy_score >= 40 %}text-warning{% else %}text-muted{% endif %}" style="font-size:0.8rem; line-height:1;">
                                             {{ item.buy_score }}
                                         </span>
-                                        <div class="val-hint" style="font-size:0.58rem; color:#059669;">สัญญาณซื้อ</div>
+                                        <div class="val-hint" style="font-size:0.55rem; color:#059669; margin-top:1px;">ซื้อ</div>
                                     </div>
-                                    <div class="text-center px-1 py-1 rounded" style="background:rgba(220,38,38,0.06); min-width:44px;">
-                                        <span class="fw-bold d-block {% if item.sell_score >= 50 %}text-danger{% elif item.sell_score >= 30 %}text-warning{% else %}text-muted{% endif %}" style="font-size:0.85rem; line-height:1.1;">
+                                    <div class="text-center py-1 rounded" style="background:rgba(220,38,38,0.08);">
+                                        <span class="fw-bold d-block {% if item.sell_score >= 50 %}text-danger{% elif item.sell_score >= 30 %}text-warning{% else %}text-muted{% endif %}" style="font-size:0.8rem; line-height:1;">
                                             {{ item.sell_score }}
                                         </span>
-                                        <div class="val-hint" style="font-size:0.58rem; color:#dc2626;">แรงขาย</div>
+                                        <div class="val-hint" style="font-size:0.55rem; color:#dc2626; margin-top:1px;">ขาย</div>
                                     </div>
                                     {% if item.rsi %}
-                                    <div class="text-center px-1 py-1 rounded" style="background:rgba(0,0,0,0.03); min-width:44px; cursor:help;"
-                                         title="{{ item|ehlers_tooltip }}">
-                                        <span class="fw-bold d-block {% if item.rsi > 70 %}text-danger{% elif item.rsi < 30 %}text-success{% else %}text-secondary{% endif %}" style="font-size:0.85rem; line-height:1.1;">
-                                            {{ item.rsi|floatformat:0 }}<span style="font-size:0.6rem; vertical-align:super; opacity:0.7;">ⓘ</span>
+                                    <div class="text-center py-1 rounded" style="background:rgba(0,0,0,0.03); cursor:help;" title="{{ item|ehlers_tooltip }}">
+                                        <span class="fw-bold d-block {% if item.rsi > 70 %}text-danger{% elif item.rsi < 30 %}text-success{% else %}text-secondary{% endif %}" style="font-size:0.8rem; line-height:1;">
+                                            {{ item.rsi|floatformat:0 }}<span style="font-size:0.55rem; vertical-align:super; opacity:0.7;">ⓘ</span>
                                         </span>
-                                        <div class="val-hint" style="font-size:0.58rem; color:#64748b;">RSI</div>
+                                        <div class="val-hint" style="font-size:0.55rem; color:#64748b; margin-top:1px;">RSI</div>
+                                    </div>
+                                    {% else %}
+                                    <div class="text-center py-1 rounded" style="background:rgba(0,0,0,0.02);">
+                                        <span class="text-muted" style="font-size:0.8rem; line-height:1;">-</span>
+                                        <div class="val-hint" style="font-size:0.55rem; color:#94a3b8; margin-top:1px;">RSI</div>
                                     </div>
                                     {% endif %}
                                 </div>
                                 <div class="d-flex gap-1 justify-content-center flex-wrap mt-1">
                                     {% if item.mom_data.ehlers_pattern_data %}
                                     <span class="badge rounded-pill"
-                                          style="{{ item.mom_data.ehlers_pattern_data.style }} font-size:0.58rem; padding: 2px 6px;"
+                                          style="{{ item.mom_data.ehlers_pattern_data.style }} font-size:0.55rem; padding: 2px 5px;"
                                           title="{{ item.mom_data.ehlers_pattern_data.desc }}">
                                         {{ item.mom_data.ehlers_pattern_data.label }}
                                     </span>
                                     {% endif %}
                                     {% if item.exit_signal == 'STRONG EXIT' %}
-                                    <span class="badge" style="background:#dc2626;color:white;font-size:0.58rem;" title="สัญญาณขายแรง">🚨 STRONG EXIT</span>
+                                    <span class="badge" style="background:#dc2626;color:white;font-size:0.55rem;" title="สัญญาณขายแรง">🚨 STRONG EXIT</span>
                                     {% elif item.exit_signal == 'EXIT' %}
-                                    <span class="badge" style="background:rgba(220,38,38,0.15);color:#dc2626;border:1px solid #dc2626;font-size:0.58rem;" title="สัญญาณควรขาย">⚠️ EXIT</span>
+                                    <span class="badge" style="background:rgba(220,38,38,0.15);color:#dc2626;border:1px solid #dc2626;font-size:0.55rem;" title="สัญญาณควรขาย">⚠️ EXIT</span>
                                     {% elif item.exit_signal == 'WATCH' %}
-                                    <span class="badge" style="background:rgba(245,158,11,0.15);color:#b45309;border:1px solid #f59e0b;font-size:0.58rem;" title="เริ่มมีสัญญาณระวัง">👁 WATCH</span>
+                                    <span class="badge" style="background:rgba(245,158,11,0.15);color:#b45309;border:1px solid #f59e0b;font-size:0.55rem;" title="เริ่มมีสัญญาณระวัง">👁 WATCH</span>
                                     {% endif %}
                                 </div>
                                 {% else %}<span class="text-muted">-</span>{% endif %}
