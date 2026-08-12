@@ -964,6 +964,12 @@ def momentum_scanner(request):
         st = _cp.get(cache_key, {'state': 'idle'})
         if st.get('state') == 'done':
             _cp.delete(cache_key)
+        elif st.get('state') == 'running':
+            import time as _tm
+            st_time = st.get('timestamp', 0)
+            if (st.get('total', 0) == 0 and st.get('progress', 0) == 0) or (_tm.time() - st_time > 60):
+                _cp.delete(cache_key)
+                st = {'state': 'idle'}
         return _JR(st)
 
     # ── Trigger background scan ───────────────────────────────────────
@@ -978,8 +984,9 @@ def momentum_scanner(request):
 
         already = _cp.get(cache_key, {})
         if already.get('state') != 'running':
+            import time as _tm
             total_syms = len(scan_symbols)
-            _cp.set(cache_key, {'state': 'running', 'progress': 0, 'total': total_syms, 'phase': 'เริ่มสแกน…'}, timeout=900)
+            _cp.set(cache_key, {'state': 'running', 'progress': 0, 'total': total_syms, 'phase': 'เริ่มสแกน…', 'timestamp': _tm.time()}, timeout=900)
 
             def _run_momentum_bg(uid, ckey, sym_list):
                 try:

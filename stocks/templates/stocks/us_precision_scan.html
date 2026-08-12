@@ -24,6 +24,9 @@
             <div id="precisionProgressBar" style="height:100%;border-radius:4px;background:#7c3aed;width:0%;transition:width .4s;"></div>
         </div>
     </div>
+    <button type="button" class="btn btn-sm btn-outline-light mt-2 rounded-pill px-3" onclick="_hidePrecisionOverlay(); if(_precisionPollTimer) clearTimeout(_precisionPollTimer);" style="font-size:0.75rem; border-color:rgba(255,255,255,0.3); cursor:pointer;">
+        <i class="fas fa-times me-1"></i> Close Overlay
+    </button>
 </div>
 
 <style>
@@ -3793,6 +3796,7 @@ document.addEventListener('DOMContentLoaded', function() {
 // ── Background scan polling ───────────────────────────────────────────
 let _precisionPollTimer = null;
 let _precisionSawRunning = false;
+let _precisionZeroCount = 0;
 
 function _showPrecisionProgress(progress, total, phase) {
     const ov = document.getElementById('precisionLoadingOverlay');
@@ -3813,6 +3817,18 @@ function pollPrecisionStatus() {
         .then(r => r.json())
         .then(data => {
             if (data.state === 'running') {
+                if ((!data.progress || data.progress === 0) && (!data.total || data.total === 0)) {
+                    _precisionZeroCount++;
+                } else {
+                    _precisionZeroCount = 0;
+                }
+
+                if (_precisionZeroCount > 5) {
+                    console.warn("Precision US scan poll stuck at 0/0, auto-hiding overlay.");
+                    _hidePrecisionOverlay();
+                    return;
+                }
+
                 _precisionSawRunning = true;
                 _showPrecisionProgress(data.progress || 0, data.total || 0, data.phase || '');
                 _precisionPollTimer = setTimeout(pollPrecisionStatus, 2000);
@@ -3827,7 +3843,7 @@ function pollPrecisionStatus() {
             }
         })
         .catch(() => {
-            _precisionPollTimer = setTimeout(pollPrecisionStatus, 5000);
+            _hidePrecisionOverlay();
         });
 }
 
