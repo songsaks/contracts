@@ -3058,7 +3058,9 @@ def entry_finder(request, symbol):
         # แปลงข้อมูล chart เป็น JSON สำหรับ JavaScript
         chart_labels_json = json.dumps(chart_labels)
         chart_values_json = json.dumps(chart_values)
-        ema50_vals_json = json.dumps(ema50_vals)
+        ema10_vals_json  = json.dumps(ema10_vals)
+        ema20_vals_json  = json.dumps(ema20_vals)
+        ema50_vals_json  = json.dumps(ema50_vals)
         ema200_vals_json = json.dumps(ema200_vals)
         rs_line_json = json.dumps(rs_line_vals)
         ohlcv_json = json.dumps(ohlcv_data)
@@ -3080,6 +3082,8 @@ def entry_finder(request, symbol):
             _today_str = _ef_now.strftime('%Y-%m-%d')
             chart_labels.append(_today_str)
             chart_values.append(round(curr_price, 2))
+            ema10_vals.append(None)
+            ema20_vals.append(None)
             ema50_vals.append(None)
             ema200_vals.append(None)
             ohlcv_data.append({
@@ -3091,6 +3095,8 @@ def entry_finder(request, symbol):
             })
             chart_labels_json = json.dumps(chart_labels)
             chart_values_json = json.dumps(chart_values)
+            ema10_vals_json   = json.dumps(ema10_vals)
+            ema20_vals_json   = json.dumps(ema20_vals)
             ema50_vals_json   = json.dumps(ema50_vals)
             ema200_vals_json  = json.dumps(ema200_vals)
             ohlcv_json        = json.dumps(ohlcv_data)
@@ -3160,6 +3166,8 @@ def entry_finder(request, symbol):
             'scan_end_date': _ef_end_str,
             'chart_labels': chart_labels_json,
             'chart_values': chart_values_json,
+            'ema10_vals': ema10_vals_json,
+            'ema20_vals': ema20_vals_json,
             'ema50_vals': ema50_vals_json,
             'ema200_vals': ema200_vals_json,
             'rs_line_vals': rs_line_json,

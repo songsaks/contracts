@@ -228,10 +228,59 @@
             <div class="col-md-6">
                 <div class="card border-0 shadow-sm p-4 h-100" style="border-radius: 1.25rem;">
                     <h6 class="fw-bold mb-2">Momentum Support</h6>
-                    <p class="text-muted small mb-0">โซนนี้จะแม่นยำที่�        const labels  = {{ chart_labels|safe }};
+                    <p class="text-muted small mb-0">โซนนี้จะแม่นยำที่สุดหากราคาประคองตัวอยู่เหนือเส้น EMA 200 (Long Term Trend) เพื่อลดความเสี่ยงของการสวนเทรนด์</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .extra-small { font-size: 0.72rem; }
+    
+    .chart-fullscreen {
+        position: fixed !important;
+        top: 0; left: 0;
+        width: 100vw !important;
+        height: 100vh !important;
+        z-index: 9999 !important;
+        margin: 0 !important;
+        border-radius: 0 !important;
+    }
+    .chart-fullscreen #chart-wrapper {
+        height: 80vh !important;
+    }
+
+    /* ── Responsive chart height ── */
+    @media (max-width: 575px) {
+        #chart-wrapper { height: 260px !important; }
+    }
+    @media (min-width: 576px) and (max-width: 991px) {
+        #chart-wrapper { height: 340px !important; }
+    }
+
+    /* ── Header: stack breadcrumb + price on mobile ── */
+    @media (max-width: 575px) {
+        .entry-finder-header { flex-direction: column !important; }
+        .entry-finder-header h1 { font-size: 1.25rem !important; }
+    }
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-chart-financial"></script>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        const ctx = document.getElementById('sniperChart').getContext('2d');
+
+        const labels  = {{ chart_labels|safe }};
         const prices  = {{ chart_values|safe }};
-        const ema10   = {{ ema10_vals|safe }};
-        const ema20   = {{ ema20_vals|safe }};
+        const ema10   = {{ ema10_vals|default:'[]'|safe }};
+        const ema20   = {{ ema20_vals|default:'[]'|safe }};
         const ema50   = {{ ema50_vals|safe }};
         const ema200  = {{ ema200_vals|safe }};
         const rsLine  = {{ rs_line_vals|safe }};
@@ -257,7 +306,7 @@
                         font: { size: 11, weight: 'bold' }
                     }
                 },
-                baseBox: {
+                baseZone: {
                     type: 'box',
                     xMin: sdZone.base_start,
                     xMax: sdZone.base_end,
@@ -331,9 +380,9 @@
         // ── EMA datasets สำหรับ line chart (ใช้ index labels) ────────────
         const emaLine = [
             { label: 'EMA 10',  data: ema10,  borderColor: '#10b981', borderWidth:1.5, pointRadius:0, fill:false, type:'line' },
-            { label: 'EMA 20',  data: ema20,  borderColor: '#06b6d4', borderWidth:1.5, pointRadius:0, fill:false, type:'line' },
-            { label: 'EMA 50',  data: ema50,  borderColor: 'rgba(249,115,22,0.6)', borderWidth:1.5, pointRadius:0, fill:false, type:'line' },
-            { label: 'EMA 200', data: ema200, borderColor: 'rgba(59,130,246,0.6)', borderWidth:1.5, pointRadius:0, fill:false, type:'line' },
+            { label: 'EMA 20',  data: ema20,  borderColor: '#f59e0b', borderWidth:1.5, pointRadius:0, fill:false, type:'line' },
+            { label: 'EMA 50',  data: ema50,  borderColor: 'rgba(249,115,22,0.6)', borderWidth:1, pointRadius:0, fill:false, type:'line' },
+            { label: 'EMA 200', data: ema200, borderColor: 'rgba(59,130,246,0.6)', borderWidth:1, pointRadius:0, fill:false, type:'line' },
             { 
                 label: 'RS Line (vs SET)', 
                 data: rsLine, 
@@ -350,52 +399,14 @@
         const emaCandle = [
             {
                 label: 'EMA 10', type: 'line',
-                data: labels.map((d, i) => ema10 && ema10[i] != null ? { x: new Date(d).getTime(), y: ema10[i] } : null).filter(Boolean),
+                data: labels.map((d, i) => (ema10 && ema10[i] != null) ? { x: new Date(d).getTime(), y: ema10[i] } : null).filter(Boolean),
                 borderColor: '#10b981', borderWidth:1.5, pointRadius:0, fill:false
             },
             {
                 label: 'EMA 20', type: 'line',
-                data: labels.map((d, i) => ema20 && ema20[i] != null ? { x: new Date(d).getTime(), y: ema20[i] } : null).filter(Boolean),
-                borderColor: '#06b6d4', borderWidth:1.5, pointRadius:0, fill:false
+                data: labels.map((d, i) => (ema20 && ema20[i] != null) ? { x: new Date(d).getTime(), y: ema20[i] } : null).filter(Boolean),
+                borderColor: '#f59e0b', borderWidth:1.5, pointRadius:0, fill:false
             },
-            {
-                label: 'EMA 50', type: 'line',
-                data: labels.map((d, i) => ema50 && ema50[i] != null ? { x: new Date(d).getTime(), y: ema50[i] } : null).filter(Boolean),
-                borderColor: 'rgba(249,115,22,0.6)', borderWidth:1.5, pointRadius:0, fill:false
-            },
-            {
-                label: 'EMA 200', type: 'line',
-                data: labels.map((d, i) => ema200 && ema200[i] != null ? { x: new Date(d).getTime(), y: ema200[i] } : null).filter(Boolean),
-                borderColor: 'rgba(59,130,246,0.6)', borderWidth:1.5, pointRadius:0, fill:false
-            }
-        ];              }
-            };
-        }
-
-        // ── shared plugin options (annotation, legend) ───────────────────
-        const sharedPlugins = {
-            legend: { display: true, position: 'top', labels: { boxWidth: 10, font: { size: 11 } } },
-            annotation: { annotations: annotations }
-        };
-
-        // ── EMA datasets สำหรับ line chart (ใช้ index labels) ────────────
-        const emaLine = [
-            { label: 'EMA 50',  data: ema50,  borderColor: 'rgba(249,115,22,0.5)', borderWidth:1, pointRadius:0, fill:false, type:'line' },
-            { label: 'EMA 200', data: ema200, borderColor: 'rgba(59,130,246,0.5)', borderWidth:1, pointRadius:0, fill:false, type:'line' },
-            { 
-                label: 'RS Line (vs SET)', 
-                data: rsLine, 
-                borderColor: '#7c3aed', 
-                borderWidth: 2, 
-                pointRadius: 0, 
-                fill: false, 
-                type: 'line',
-                yAxisID: 'yrs' 
-            }
-        ];
-
-        // ── EMA datasets สำหรับ candlestick chart (x เป็น timestamp) ──────
-        const emaCandle = [
             {
                 label: 'EMA 50', type: 'line',
                 data: labels.map((d, i) => ema50[i] != null ? { x: new Date(d).getTime(), y: ema50[i] } : null).filter(Boolean),
