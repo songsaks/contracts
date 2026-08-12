@@ -107,24 +107,36 @@
             </div>
         </div>
 
-        <!-- Frontend Quick Filters (Instant responsive action) -->
-        <div class="d-flex align-items-center gap-2 flex-wrap">
-            <span class="text-muted small fw-bold text-uppercase"><i class="fas fa-filter me-1 text-success"></i> ตัวกรองด่วน (Instant):</span>
-            <button onclick="filterWatchlist('all')" id="filter-all" class="btn btn-xs rounded-pill px-3 py-1 btn-outline-secondary active">
-                ทั้งหมด
-            </button>
-            <button onclick="filterWatchlist('buy_zone')" id="filter-buy_zone" class="btn btn-xs rounded-pill px-3 py-1 btn-outline-success">
-                🟢 อยู่ในจุดซื้อ (In Buy Zone)
-            </button>
-            <button onclick="filterWatchlist('near_zone')" id="filter-near_zone" class="btn btn-xs rounded-pill px-3 py-1 btn-outline-warning">
-                ⏳ ใกล้โซน (<5%)
-            </button>
-            <button onclick="filterWatchlist('high_win')" id="filter-high_win" class="btn btn-xs rounded-pill px-3 py-1 btn-outline-info">
-                🏆 โอกาสชนะสูง (≥85%)
-            </button>
-            <button onclick="filterWatchlist('launcher')" id="filter-launcher" class="btn btn-xs rounded-pill px-3 py-1 btn-outline-primary">
-                🚀 พร้อมระเบิด (Launcher)
-            </button>
+        <!-- Frontend Quick Filters & View Switcher -->
+        <div class="d-flex align-items-center justify-content-between justify-content-xl-end gap-3 flex-wrap w-100 w-xl-auto">
+            <div class="d-flex align-items-center gap-1 flex-wrap">
+                <span class="text-muted small fw-bold text-uppercase"><i class="fas fa-filter me-1 text-success"></i> ตัวกรองด่วน:</span>
+                <button onclick="filterWatchlist('all')" id="filter-all" class="btn btn-xs rounded-pill px-3 py-1 btn-outline-secondary active">
+                    ทั้งหมด
+                </button>
+                <button onclick="filterWatchlist('buy_zone')" id="filter-buy_zone" class="btn btn-xs rounded-pill px-3 py-1 btn-outline-success">
+                    🟢 อยู่ในจุดซื้อ
+                </button>
+                <button onclick="filterWatchlist('near_zone')" id="filter-near_zone" class="btn btn-xs rounded-pill px-3 py-1 btn-outline-warning">
+                    ⏳ ใกล้โซน (<5%)
+                </button>
+                <button onclick="filterWatchlist('high_win')" id="filter-high_win" class="btn btn-xs rounded-pill px-3 py-1 btn-outline-info">
+                    🏆 โอกาสชนะสูง (≥85%)
+                </button>
+                <button onclick="filterWatchlist('launcher')" id="filter-launcher" class="btn btn-xs rounded-pill px-3 py-1 btn-outline-primary">
+                    🚀 พร้อมระเบิด
+                </button>
+            </div>
+            
+            <!-- View Mode Switcher -->
+            <div class="btn-group btn-group-sm rounded-pill p-1 bg-light">
+                <button id="viewModeCard" onclick="switchWatchlistView('card')" class="btn btn-sm rounded-pill px-3 py-1 btn-primary text-white shadow-sm fw-bold">
+                    <i class="fas fa-th-large me-1"></i> การ์ด (Card)
+                </button>
+                <button id="viewModeTable" onclick="switchWatchlistView('table')" class="btn btn-sm rounded-pill px-3 py-1 btn-outline-secondary border-0 fw-bold">
+                    <i class="fas fa-table me-1"></i> ตาราง (Table)
+                </button>
+            </div>
         </div>
     </div>
 </div>
@@ -386,12 +398,15 @@
             {% endif %}
 
             <!-- BOTTOM QUICK ACTIONS -->
-            <div class="wl-actions px-3 py-3 border-top bg-white">
-                <a href="{% url 'stocks:analyze' w.symbol %}?market={{ market }}" class="wl-btn-analyze">
-                    <i class="fas fa-microchip me-1"></i> วิเคราะห์เจาะลึก AI
+            <div class="wl-actions px-3 py-2 border-top bg-white d-flex gap-2 align-items-center">
+                <a href="{% url 'stocks:entry_finder' w.symbol %}" class="btn btn-sm btn-success flex-fill rounded-pill fw-bold py-1 px-2 text-decoration-none shadow-sm" style="font-size:0.72rem;" target="_blank" title="คำนวณสด 10EMA และ Risk %">
+                    <i class="fas fa-crosshairs me-1"></i> 🎯 Sniper Chart
                 </a>
-                <a href="{% url 'stocks:entry_finder' w.symbol %}" class="wl-btn-entry" target="_blank" title="Sniper Chart - ค้นหาจุดยิง">
-                    <i class="fas fa-crosshairs"></i>
+                <a href="{% url 'stocks:analyze' w.symbol %}?market={{ market }}" class="btn btn-sm btn-outline-primary flex-fill rounded-pill fw-bold py-1 px-2 text-decoration-none" style="font-size:0.72rem;" title="วิเคราะห์เจาะลึกด้วย AI">
+                    <i class="fas fa-microchip me-1"></i> 🧠 AI
+                </a>
+                <a href="{% url 'stocks:portfolio' %}?symbol={{ w.symbol }}&price={{ s.price }}" class="btn btn-sm btn-outline-success rounded-circle p-0 d-flex align-items-center justify-content-center shadow-xs flex-shrink-0" style="width:30px;height:30px;" title="ซื้อแล้ว (บันทึกเข้า Portfolio)">
+                    <i class="fas fa-briefcase" style="font-size:0.75rem;"></i>
                 </a>
             </div>
 
@@ -415,7 +430,92 @@
     {% endfor %}
 </div>
 
-{% else %}
+<!-- COMPACT TABLE VIEW CONTAINER (FOR LARGE WATCHLISTS) -->
+<div id="watchlistTableContainer" class="card border-0 shadow-sm rounded-4 overflow-hidden mb-4" style="display: none;">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0" style="font-size: 0.85rem;">
+            <thead class="bg-light text-muted fw-bold">
+                <tr>
+                    <th class="ps-4">หุ้น (Symbol)</th>
+                    <th>ราคาปัจจุบัน</th>
+                    <th>สถานะ</th>
+                    <th>โอกาสชนะ</th>
+                    <th>BUY Score</th>
+                    <th>โซนซื้อ (Demand)</th>
+                    <th>Stop Loss</th>
+                    <th>Target</th>
+                    <th>R:R</th>
+                    <th class="pe-4 text-end">เครื่องมือ</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for entry in items %}
+                {% with s=entry.scan_data w=entry.watchlist %}
+                <tr class="wl-table-row" data-symbol="{{ w.symbol }}"
+                    data-in-buy-zone="{{ entry.in_buy_zone|yesno:'1,0' }}"
+                    data-near-buy-zone="{{ entry.near_buy_zone|yesno:'1,0' }}"
+                    data-win-prob="{{ entry.win_probability }}"
+                    data-launcher-score="{{ s.launcher_score|default:0 }}">
+                    <td class="ps-4">
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="fw-bold text-dark fs-6">{{ w.symbol }}</span>
+                            {% if entry.in_buy_zone %}
+                            <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill" style="font-size: 0.65rem;">จุดยิง!</span>
+                            {% endif %}
+                        </div>
+                    </td>
+                    <td class="fw-bold {% if s.live_change_pct >= 0 %}text-success{% else %}text-danger{% endif %}">
+                        {% if market == 'US' %}${% else %}฿{% endif %}{{ s.price|floatformat:2|default:"—" }}
+                    </td>
+                    <td>
+                        {% if entry.in_buy_zone %}
+                        <span class="badge bg-success text-white rounded-pill">🟢 อยู่ในจุดซื้อ</span>
+                        {% elif entry.near_buy_zone %}
+                        <span class="badge bg-warning text-dark rounded-pill">⏳ ใกล้โซน (<5%)</span>
+                        {% elif entry.at_tp %}
+                        <span class="badge bg-danger text-white rounded-pill">💰 เป้าขาย</span>
+                        {% else %}
+                        <span class="badge bg-light text-muted border rounded-pill">เฝ้าติดตาม</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <span class="fw-bold text-success">{{ s.win_probability|default:"0" }}%</span>
+                    </td>
+                    <td>
+                        <span class="fw-bold text-primary">{{ s.buy_score|default:"0" }}/100</span>
+                    </td>
+                    <td class="text-success fw-semibold">
+                        {% if s.demand_zone_start and s.demand_zone_end %}{{ s.demand_zone_end|floatformat:1 }}-{{ s.demand_zone_start|floatformat:1 }}{% else %}—{% endif %}
+                    </td>
+                    <td class="text-danger fw-semibold">
+                        {% if s.stop_loss %}{{ s.stop_loss|floatformat:2 }}{% else %}—{% endif %}
+                    </td>
+                    <td class="text-primary fw-semibold">
+                        {% if s.supply_zone_start %}{{ s.supply_zone_start|floatformat:1 }}{% else %}—{% endif %}
+                    </td>
+                    <td class="fw-bold">
+                        {% if s.risk_reward_ratio %}1:{{ s.risk_reward_ratio|floatformat:1 }}{% else %}—{% endif %}
+                    </td>
+                    <td class="pe-4 text-end">
+                        <div class="d-flex gap-1 justify-content-end">
+                            <a href="{% url 'stocks:entry_finder' w.symbol %}" target="_blank" class="btn btn-xs btn-success rounded-pill px-2" title="Sniper Chart (10EMA)">
+                                <i class="fas fa-crosshairs me-1"></i> Sniper
+                            </a>
+                            <a href="{% url 'stocks:analyze' w.symbol %}?market={{ market }}" class="btn btn-xs btn-outline-primary rounded-pill px-2">
+                                AI
+                            </a>
+                            <button onclick="removeFromWatchlist(this,'{{ w.symbol }}')" class="btn btn-xs btn-outline-danger rounded-circle p-0 ms-1" style="width: 24px; height: 24px;">
+                                <i class="fas fa-times" style="font-size: 0.65rem;"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+                {% endwith %}
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
 <!-- EMPTY STATE -->
 <div class="wl-empty card shadow-sm border-0 py-5">
     <div class="card-body text-center">
@@ -740,12 +840,15 @@ function filterWatchlist(criteria) {
     // Set clicked button to active
     document.getElementById('filter-' + criteria).classList.add('active');
 
-    // Filter logic
-    cards.forEach(card => {
-        const inBuyZone = card.getAttribute('data-in-buy-zone') === '1';
-        const nearZone  = card.getAttribute('data-near-buy-zone') === '1';
-        const winProb   = parseInt(card.getAttribute('data-win-prob') || '0', 10);
-        const launcher  = parseInt(card.getAttribute('data-launcher-score') || '0', 10);
+    // Filter logic for both cards and table rows
+    const rows = document.querySelectorAll('.wl-table-row');
+    const items = [...cards, ...rows];
+
+    items.forEach(el => {
+        const inBuyZone = el.getAttribute('data-in-buy-zone') === '1';
+        const nearZone  = el.getAttribute('data-near-buy-zone') === '1';
+        const winProb   = parseInt(el.getAttribute('data-win-prob') || '0', 10);
+        const launcher  = parseInt(el.getAttribute('data-launcher-score') || '0', 10);
         
         let show = false;
         if (criteria === 'all') {
@@ -761,18 +864,31 @@ function filterWatchlist(criteria) {
         }
 
         if (show) {
-            card.style.display = '';
-            card.style.opacity = '0';
-            card.style.transform = 'scale(0.95)';
-            card.style.transition = 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
-            setTimeout(() => {
-                card.style.opacity = '1';
-                card.style.transform = 'scale(1)';
-            }, 50);
+            el.style.display = '';
+            el.style.opacity = '1';
         } else {
-            card.style.display = 'none';
+            el.style.display = 'none';
         }
     });
+}
+
+function switchWatchlistView(mode) {
+    const grid = document.getElementById('watchlistGrid');
+    const table = document.getElementById('watchlistTableContainer');
+    const btnCard = document.getElementById('viewModeCard');
+    const btnTable = document.getElementById('viewModeTable');
+
+    if (mode === 'table') {
+        if (grid) grid.style.display = 'none';
+        if (table) table.style.display = 'block';
+        if (btnCard) { btnCard.classList.remove('btn-primary', 'text-white', 'shadow-sm'); btnCard.classList.add('btn-outline-secondary', 'border-0'); }
+        if (btnTable) { btnTable.classList.remove('btn-outline-secondary', 'border-0'); btnTable.classList.add('btn-primary', 'text-white', 'shadow-sm'); }
+    } else {
+        if (grid) grid.style.display = 'flex';
+        if (table) table.style.display = 'none';
+        if (btnTable) { btnTable.classList.remove('btn-primary', 'text-white', 'shadow-sm'); btnTable.classList.add('btn-outline-secondary', 'border-0'); }
+        if (btnCard) { btnCard.classList.remove('btn-outline-secondary', 'border-0'); btnCard.classList.add('btn-primary', 'text-white', 'shadow-sm'); }
+    }
 }
 
 function removeFromWatchlist(btn, symbol) {
@@ -785,7 +901,7 @@ function removeFromWatchlist(btn, symbol) {
     .then(r => r.json())
     .then(data => {
         if (data.status === 'removed') {
-            const col = btn.closest('.wl-card-col');
+            const col = btn.closest('.wl-card-col') || btn.closest('.wl-table-row');
             col.style.transition = 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)';
             col.style.opacity = '0';
             col.style.transform = 'scale(0.8) translateY(20px)';
