@@ -101,10 +101,11 @@ def watchlist_item_toggle(request):
 @login_required
 def scan_watchlist_view(request):
     """แสดง Scan Watchlist พร้อม score ปัจจุบัน / รอบก่อน / delta / alert"""
-    from stocks.models import PrecisionScanCandidate, ScanWatchlistItem
+    from stocks.models import Portfolio, PrecisionScanCandidate, ScanWatchlistItem
     
     market = request.GET.get('market', 'SET')
     items = ScanWatchlistItem.objects.filter(user=request.user, market=market)
+    portfolio_symbols = set(Portfolio.objects.filter(user=request.user).values_list('symbol', flat=True))
 
     runs = list(
         PrecisionScanCandidate.objects
@@ -222,6 +223,7 @@ def scan_watchlist_view(request):
             'buy_score': buy_score,
             'win_probability': win_prob,
             'zone_proximity': zone_prox,
+            'in_portfolio': item.symbol in portfolio_symbols,
         })
 
     # Sort results
