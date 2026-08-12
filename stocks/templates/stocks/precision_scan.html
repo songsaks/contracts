@@ -3566,10 +3566,8 @@ function applyPreset(presetType) {
         if (stage2) stage2.checked = true;
         if (buynow) buynow.checked = true;
     } else if (presetType === 'pullback') {
-        // Stage 2 + CMF+ + VCP + ซื้อได้ตอนนี้ (ฐานแน่น + ยังไม่ extended)
+        // Stage 2 + อยู่ในโซนซื้อ (ซื้อได้ตอนนี้)
         if (stage2)  stage2.checked  = true;
-        if (cmfPos)  cmfPos.checked  = true;
-        if (vcp)     vcp.checked     = true;
         if (buyable) buyable.checked = true;
     }
 
@@ -3602,7 +3600,7 @@ var PRESET_CONDITIONS_SET = {
     'high_momentum':    ['S2','Vol Surge≥1.5x','Ichimoku≥3','CMF+≥0.1'],
     'safety':           ['RSI<70','S2','ITL Bullish','BUY NOW'],
     'fast_swing':       ['S2','BUY NOW'],
-    'pullback':         ['S2','CMF+≥0.1','VCP','อยู่ในโซนซื้อ'],
+    'pullback':         ['S2','อยู่ในโซนซื้อ'],
 };
 var PRESET_COLORS_SET = {
     'super':'#4f46e5','launcher_breakout':'#0891b2','base':'#059669',
@@ -3685,7 +3683,7 @@ function _applyFiltersSET() {
             var ma50     = parseFloat(row.dataset.ma50 || '0');
             var nearMa50 = ma50 > 0 && price >= ma50 && (price - ma50) / ma50 <= 0.05;
             var notExtended = inzone || prox <= 5 || nearMa50 || turtleDist <= 1.0;
-            var isBuyable = s2 && notExtended && rsi <= 68 && cmf >= 0;
+            var isBuyable = inzone || prox <= 5 || (s2 && notExtended && rsi <= 72 && cmf >= -0.05);
 
             var show = (!rsiOn       || rsi < 70) &&
                        (!buyableOn   || isBuyable) &&

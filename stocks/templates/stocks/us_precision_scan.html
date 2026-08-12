@@ -3151,8 +3151,6 @@ function applyPreset(presetType) {
         if (buynow) buynow.checked = true;
     } else if (presetType === 'pullback') {
         if (stage2)  stage2.checked  = true;
-        if (cmfPos)  cmfPos.checked  = true;
-        if (vcp)     vcp.checked     = true;
         if (buyable) buyable.checked = true;
     }
 
@@ -3236,7 +3234,7 @@ function _applyFiltersUS() {
             var ma50     = parseFloat(row.dataset.ma50 || '0');
             var nearMa50 = ma50 > 0 && price >= ma50 && (price - ma50) / ma50 <= 0.05;
             var notExtended = inzone || prox <= 5 || nearMa50 || turtleDist <= 1.0;
-            var isBuyable = s2 && notExtended && rsi <= 68 && cmf >= 0;
+            var isBuyable = inzone || prox <= 5 || (s2 && notExtended && rsi <= 72 && cmf >= -0.05);
 
             var show = (!rsiOn || rsi < 70) &&
                        (!buyableOn || isBuyable) &&
