@@ -706,8 +706,8 @@
                         {% endif %}
                         <tr class="border-bottom border-light">
                             <!-- Symbol -->
-                            <td style="width:92px; max-width:92px; overflow-wrap:break-word;">
-                                <a href="{% url 'stocks:analyze' item.obj.symbol %}" class="d-block fw-bold text-dark text-decoration-none hover-primary" style="font-size:0.8rem; line-height:1.15;">{{ item.obj.symbol }}</a>
+                            <td style="width:110px; min-width:110px; overflow-wrap:break-word;" class="ps-3 py-2">
+                                <a href="{% url 'stocks:analyze' item.obj.symbol %}" class="d-block fw-extrabold text-dark text-decoration-none hover-primary" style="font-size:0.9rem; line-height:1.1;">{{ item.obj.symbol }}</a>
                                 <div class="d-flex flex-wrap align-items-center gap-1 mt-1">
                                     {% if item.obj.strategy == 'Turtle S1' %}
                                     <span class="badge bg-success bg-opacity-10 text-success rounded-pill" style="font-size:0.5rem;padding:2px 5px;border:1px solid #22c55e;">🐢 S1</span>
@@ -731,49 +731,51 @@
                                         {% endif %}
                                     {% endif %}
                                 </div>
-                                <div class="text-muted col-hide-sm text-truncate" style="font-size:0.62rem; max-width:88px;">{{ item.obj.name|default:item.obj.symbol|truncatechars:14 }}</div>
+                                {% if item.obj.name and item.obj.name != item.obj.symbol and item.obj.name != item.obj.symbol|add:".BK" %}
+                                <div class="text-muted col-hide-sm text-truncate" style="font-size:0.62rem; max-width:100px;" title="{{ item.obj.name }}">{{ item.obj.name }}</div>
+                                {% endif %}
                                 {% if item.sell_status %}
-                                <div class="fw-bold {% if item.sell_status.color == 'danger' %}text-danger{% elif item.sell_status.color == 'success' %}text-success{% else %}text-warning{% endif %}"
-                                     style="font-size:0.58rem;cursor:help;line-height:1.15;" title="{{ item.sell_status.detail }}">
+                                <div class="fw-bold mt-1 {% if item.sell_status.color == 'danger' %}text-danger{% elif item.sell_status.color == 'success' %}text-success{% else %}text-warning{% endif %}"
+                                     style="font-size:0.6rem;cursor:help;line-height:1.15;" title="{{ item.sell_status.detail }}">
                                     {{ item.sell_status.label }}
                                 </div>
                                 {% endif %}
                             </td>
                             <!-- Price -->
-                            <td class="text-end fw-bold {% if item.day_change > 0 %}text-success{% elif item.day_change < 0 %}text-danger{% else %}text-dark{% endif %}" style="font-size:0.9rem;">
+                            <td class="text-end fw-extrabold {% if item.day_change > 0 %}text-success{% elif item.day_change < 0 %}text-danger{% else %}text-dark{% endif %}" style="font-size:0.9rem;">
                                 {% if item.market != 'SET' %}${% else %}฿{% endif %}{{ item.current_price|floatformat:2 }}
                             </td>
                             <!-- Qty -->
-                            <td class="text-end text-muted" style="font-size:0.8rem;">
-                                {% if item.market == 'CRYPTO' %}{{ item.obj.quantity|floatformat:7 }}{% else %}{{ item.obj.quantity|floatformat:2|intcomma }}{% endif %}
+                            <td class="text-end text-muted fw-semibold" style="font-size:0.82rem;">
+                                {% if item.market == 'CRYPTO' %}{{ item.obj.quantity|floatformat:4 }}{% else %}{{ item.obj.quantity|floatformat:"-2"|intcomma }}{% endif %}
                             </td>
                             <!-- Day% -->
                             <td class="text-end col-hide-sm">
-                                <span class="badge rounded-pill {% if item.day_change > 0 %}bg-success{% elif item.day_change < 0 %}bg-danger{% else %}bg-secondary{% endif %} bg-opacity-10 {% if item.day_change > 0 %}text-success{% elif item.day_change < 0 %}text-danger{% else %}text-secondary{% endif %}" style="font-size:0.7rem;">
+                                <span class="badge rounded-pill {% if item.day_change > 0 %}bg-success{% elif item.day_change < 0 %}bg-danger{% else %}bg-secondary{% endif %} bg-opacity-10 {% if item.day_change > 0 %}text-success{% elif item.day_change < 0 %}text-danger{% else %}text-secondary{% endif %}" style="font-size:0.7rem; font-weight:700;">
                                     {% if item.day_change > 0 %}+{% endif %}{{ item.day_change|floatformat:2 }}%
                                 </span>
                             </td>
                             <!-- P/L% -->
-                            <td class="text-end fw-bold {% if item.gain_loss > 0 %}text-success{% elif item.gain_loss < 0 %}text-danger{% else %}text-muted{% endif %}" style="font-size:0.85rem;">
+                            <td class="text-end fw-extrabold {% if item.gain_loss > 0 %}text-success{% elif item.gain_loss < 0 %}text-danger{% else %}text-muted{% endif %}" style="font-size:0.88rem;">
                                 {% if item.obj.entry_price > 0 %}
                                     {% if item.gain_loss > 0 %}+{% endif %}{{ item.gain_loss_pct|floatformat:1 }}%
                                 {% else %}-{% endif %}
                             </td>
                             <!-- P/L -->
-                            <td class="text-end fw-bold col-hide-md {% if item.gain_loss > 0 %}text-success{% elif item.gain_loss < 0 %}text-danger{% else %}text-muted{% endif %}" style="font-size:0.85rem;">
+                            <td class="text-end fw-extrabold col-hide-md {% if item.gain_loss > 0 %}text-success{% elif item.gain_loss < 0 %}text-danger{% else %}text-muted{% endif %}" style="font-size:0.88rem;">
                                 {% if item.obj.entry_price > 0 %}
                                     {% if item.gain_loss > 0 %}+{% endif %}{% if item.market != 'SET' %}${% else %}฿{% endif %}{{ item.gain_loss|floatformat:0|intcomma }}
                                 {% else %}-{% endif %}
                             </td>
                             <!-- Value -->
-                            <td class="text-end fw-bold text-dark" style="font-size:0.85rem;">{% if item.market != 'SET' %}${% else %}฿{% endif %}{{ item.market_value|floatformat:0|intcomma }}</td>
+                            <td class="text-end fw-extrabold text-dark" style="font-size:0.88rem;">{% if item.market != 'SET' %}${% else %}฿{% endif %}{{ item.market_value|floatformat:0|intcomma }}</td>
                             <!-- Zone -->
                             <td class="text-center col-hide-md" style="font-size:0.75rem;">
                                 {% if item.mom_data %}
                                     {% if item.mom_data.zone_proximity == 0 %}
-                                        <span class="text-success fw-bold blink-soft">IN ZONE</span>
+                                        <span class="badge bg-success text-white rounded-pill px-2 py-1" style="font-size:0.6rem;">IN ZONE</span>
                                     {% elif item.mom_data.zone_proximity <= 15 %}
-                                        <span class="text-warning fw-bold">~{{ item.mom_data.zone_proximity|floatformat:0 }}%</span>
+                                        <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle rounded-pill px-2 py-1" style="font-size:0.6rem;">~{{ item.mom_data.zone_proximity|floatformat:0 }}%</span>
                                     {% elif item.mom_data.zone_proximity >= 999 %}
                                         <span class="text-muted">-</span>
                                     {% else %}
@@ -782,7 +784,7 @@
                                 {% else %}-{% endif %}
                             </td>
                             <!-- SL -->
-                            <td class="text-end col-hide-md" style="font-size:0.8rem;">
+                            <td class="text-end col-hide-md" style="font-size:0.82rem;">
                                 {% if item.mom_data and item.mom_data.stop_loss %}
                                 <span title="{% if item.trailing_stop_data.color == 'danger' %}SELL NOW! (หลุดจุดคัท){% else %}{% if item.obj.strategy == 'Turtle S1' or item.obj.strategy == 'Turtle S2' %}RIDE TREND (รันเทรนด์){% else %}HOLDING (ถือครอง){% endif %}{% endif %}" class="fw-bold {% if item.trailing_stop_data.color == 'danger' %}text-danger{% elif item.trailing_stop_data.color == 'warning' %}text-warning{% else %}text-muted{% endif %}">
                                     {% if item.market != 'SET' %}${% else %}฿{% endif %}{{ item.mom_data.stop_loss|floatformat:2 }}
@@ -790,7 +792,7 @@
                                 {% else %}<span class="text-muted">-</span>{% endif %}
                             </td>
                             <!-- TP -->
-                            <td class="text-end col-hide-lg" style="font-size:0.8rem;">
+                            <td class="text-end col-hide-lg" style="font-size:0.82rem;">
                                 {% if item.mom_data and item.mom_data.supply_zone_start %}
                                 <span class="fw-bold text-primary">{% if item.market != 'SET' %}${% else %}฿{% endif %}{{ item.mom_data.supply_zone_start|floatformat:2 }}</span>
                                 {% if item.trailing_stop_data.pyramid_units %}
@@ -801,53 +803,34 @@
                             <!-- Score/Signals -->
                             <td class="text-center col-hide-lg" style="width:140px; min-width:140px; padding: 4px 4px;">
                                 {% if item.mom_data %}
-                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 3px; width: 100%; max-width: 130px; margin: 0 auto;">
-                                    <div class="text-center py-1 rounded" style="background:rgba(0,0,0,0.03);">
-                                        <span class="fw-bold d-block {% if item.mom_data.technical_score >= 80 %}text-success{% elif item.mom_data.technical_score >= 50 %}text-primary{% else %}text-warning{% endif %}" style="font-size:0.8rem; line-height:1;">
-                                            {{ item.mom_data.technical_score }}
-                                        </span>
-                                        <div class="val-hint" style="font-size:0.55rem; color:#64748b; margin-top:1px;">เทคนิค</div>
-                                    </div>
-                                    <div class="text-center py-1 rounded" style="background:rgba(16,185,129,0.08);">
-                                        <span class="fw-bold d-block {% if item.buy_score >= 80 %}text-success{% elif item.buy_score >= 60 %}text-primary{% elif item.buy_score >= 40 %}text-warning{% else %}text-muted{% endif %}" style="font-size:0.8rem; line-height:1;">
-                                            {{ item.buy_score }}
-                                        </span>
-                                        <div class="val-hint" style="font-size:0.55rem; color:#059669; margin-top:1px;">ซื้อ</div>
-                                    </div>
-                                    <div class="text-center py-1 rounded" style="background:rgba(220,38,38,0.08);">
-                                        <span class="fw-bold d-block {% if item.sell_score >= 50 %}text-danger{% elif item.sell_score >= 30 %}text-warning{% else %}text-muted{% endif %}" style="font-size:0.8rem; line-height:1;">
-                                            {{ item.sell_score }}
-                                        </span>
-                                        <div class="val-hint" style="font-size:0.55rem; color:#dc2626; margin-top:1px;">ขาย</div>
-                                    </div>
+                                <div class="d-flex flex-wrap gap-1 justify-content-center" style="max-width: 140px; margin: 0 auto;">
+                                    <span class="badge" style="background:#f1f5f9; color:#475569; font-size:0.68rem; font-weight:700; padding:3px 6px;" title="คะแนนเทคนิค">
+                                        {{ item.mom_data.technical_score }} <span class="fw-normal text-muted" style="font-size:0.55rem;">เทคนิค</span>
+                                    </span>
+                                    <span class="badge" style="background:#ecfdf5; color:#047857; font-size:0.68rem; font-weight:700; padding:3px 6px;" title="สัญญาณซื้อ">
+                                        {{ item.buy_score }} <span class="fw-normal" style="font-size:0.55rem; color:#059669;">ซื้อ</span>
+                                    </span>
+                                    <span class="badge" style="background:#fef2f2; color:#b91c1c; font-size:0.68rem; font-weight:700; padding:3px 6px;" title="สัญญาณขาย">
+                                        {{ item.sell_score }} <span class="fw-normal" style="font-size:0.55rem; color:#dc2626;">ขาย</span>
+                                    </span>
                                     {% if item.rsi %}
-                                    <div class="text-center py-1 rounded" style="background:rgba(0,0,0,0.03); cursor:help;" title="{{ item|ehlers_tooltip }}">
-                                        <span class="fw-bold d-block {% if item.rsi > 70 %}text-danger{% elif item.rsi < 30 %}text-success{% else %}text-secondary{% endif %}" style="font-size:0.8rem; line-height:1;">
-                                            {{ item.rsi|floatformat:0 }}<span style="font-size:0.55rem; vertical-align:super; opacity:0.7;">ⓘ</span>
-                                        </span>
-                                        <div class="val-hint" style="font-size:0.55rem; color:#64748b; margin-top:1px;">RSI</div>
-                                    </div>
-                                    {% else %}
-                                    <div class="text-center py-1 rounded" style="background:rgba(0,0,0,0.02);">
-                                        <span class="text-muted" style="font-size:0.8rem; line-height:1;">-</span>
-                                        <div class="val-hint" style="font-size:0.55rem; color:#94a3b8; margin-top:1px;">RSI</div>
-                                    </div>
+                                    <span class="badge" style="background:#f8fafc; color:#64748b; font-size:0.68rem; font-weight:700; border:1px solid #e2e8f0; padding:2px 5px;" title="{{ item|ehlers_tooltip }}">
+                                        {{ item.rsi|floatformat:0 }} <span class="fw-normal text-muted" style="font-size:0.55rem;">RSI</span>
+                                    </span>
                                     {% endif %}
                                 </div>
                                 <div class="d-flex gap-1 justify-content-center flex-wrap mt-1">
                                     {% if item.mom_data.ehlers_pattern_data %}
-                                    <span class="badge rounded-pill"
-                                          style="{{ item.mom_data.ehlers_pattern_data.style }} font-size:0.55rem; padding: 2px 5px;"
-                                          title="{{ item.mom_data.ehlers_pattern_data.desc }}">
+                                    <span class="badge rounded-pill" style="{{ item.mom_data.ehlers_pattern_data.style }} font-size:0.55rem; padding: 2px 5px;" title="{{ item.mom_data.ehlers_pattern_data.desc }}">
                                         {{ item.mom_data.ehlers_pattern_data.label }}
                                     </span>
                                     {% endif %}
                                     {% if item.exit_signal == 'STRONG EXIT' %}
-                                    <span class="badge" style="background:#dc2626;color:white;font-size:0.55rem;" title="สัญญาณขายแรง">🚨 STRONG EXIT</span>
+                                    <span class="badge bg-danger text-white" style="font-size:0.55rem;" title="สัญญาณขายแรง">🚨 EXIT NOW</span>
                                     {% elif item.exit_signal == 'EXIT' %}
-                                    <span class="badge" style="background:rgba(220,38,38,0.15);color:#dc2626;border:1px solid #dc2626;font-size:0.55rem;" title="สัญญาณควรขาย">⚠️ EXIT</span>
+                                    <span class="badge bg-danger-subtle text-danger border border-danger-subtle" style="font-size:0.55rem;" title="สัญญาณควรขาย">⚠️ EXIT</span>
                                     {% elif item.exit_signal == 'WATCH' %}
-                                    <span class="badge" style="background:rgba(245,158,11,0.15);color:#b45309;border:1px solid #f59e0b;font-size:0.55rem;" title="เริ่มมีสัญญาณระวัง">👁 WATCH</span>
+                                    <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle" style="font-size:0.55rem;" title="เริ่มมีสัญญาณระวัง">👁 WATCH</span>
                                     {% endif %}
                                 </div>
                                 {% else %}<span class="text-muted">-</span>{% endif %}
