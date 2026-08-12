@@ -3827,7 +3827,7 @@ function _updatePresetCountsSET() {
         var price = parseFloat(d.price || '0');
         var ma50 = parseFloat(d.ma50 || '0');
         var nearMa50 = ma50 > 0 && price >= ma50 && (price - ma50) / ma50 <= 0.05;
-        var buyable = s2 && (inzone || prox <= 5 || nearMa50 || turtleDist <= 1.0) && rsi <= 68 && cmf >= 0;
+        var buyable = inzone || prox <= 5 || (s2 && (nearMa50 || turtleDist <= 1.0) && rsi <= 72 && cmf >= -0.05);
 
         if (s2 && pp && cmf >= 0.1 && vcp && canslim && accPos) counts.super++;
         if (s2 && launcher >= 70 && vcp && insideBar)           counts.launcher_breakout++;
@@ -3835,7 +3835,7 @@ function _updatePresetCountsSET() {
         if (s2 && vsrg && ichi >= 3 && cmf >= 0.1)              counts.high_momentum++;
         if (rsi < 70 && s2 && itl && buyNow)                    counts.safety++;
         if (s2 && buyNow)                                       counts.fast_swing++;
-        if (s2 && cmf >= 0.1 && vcp && buyable)                 counts.pullback++;
+        if (s2 && buyable)                                      counts.pullback++;
     });
     Object.keys(counts).forEach(function(k) {
         var btn = document.getElementById('preset-' + k);
