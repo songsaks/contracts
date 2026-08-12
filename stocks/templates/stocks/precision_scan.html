@@ -3960,7 +3960,7 @@ function _tfDo5SET() {
     const cur = '฿';
     const list = _tfStateSET.timed.slice();
     list.forEach(function(r) {
-        r.score = r.stars.length * 25 + (r.timing === 'enter' ? 30 : 15)
+        r.score = r.stars.length * 25 + (r.timing === 'enter' ? 30 : 15) + (r.pp ? 20 : 0)
                 + Math.min(r.rr || 0, 5) * 6 + r.rs / 10 - (r.rsi >= 75 ? 10 : 0);
     });
     // จัดกลุ่มก่อนเรียง: ตัวที่ "เข้าได้ตอนนี้" ขึ้นก่อนเสมอ แล้วค่อยเรียงคะแนนภายในกลุ่ม
