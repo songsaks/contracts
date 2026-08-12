@@ -150,6 +150,12 @@ def scan_watchlist_view(request):
         win_prob = 35.0
         zone_prox = 999.0
         
+        # Enrich sector name if missing or Unknown
+        if item.sector in ('Unknown', '', None, 'N/A'):
+            if latest and latest.sector and latest.sector not in ('Unknown', 'N/A', ''):
+                item.sector = latest.sector
+                ScanWatchlistItem.objects.filter(id=item.id).update(sector=latest.sector)
+
         if latest:
             # 1. Compute dynamic Buy/Sell/Exit signals
             sigs = _compute_signals(latest)

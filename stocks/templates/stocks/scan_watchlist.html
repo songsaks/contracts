@@ -197,7 +197,7 @@
             <!-- CARD HEADER (Symbol and Info) -->
             <div class="wl-card-header">
                 <div class="d-flex align-items-center gap-3">
-                    <div class="wl-avatar {% if s and s.technical_score >= 80 %}avatar-hot{% elif s and s.technical_score >= 60 %}avatar-warm{% else %}avatar-cool{% endif %}">
+                    <div class="wl-avatar {% if entry.win_probability >= 80 %}avatar-hot{% elif entry.win_probability >= 60 %}avatar-warm{% else %}avatar-cool{% endif %}">
                         {{ w.symbol|slice:":3" }}
                     </div>
                     <div class="min-w-0">
@@ -207,7 +207,9 @@
                             <span class="badge bg-purple-neon">NEW</span>
                             {% endif %}
                         </div>
-                        <div class="wl-sector text-truncate" style="max-width:130px;" title="{{ w.sector }}">{{ w.sector|default:"—" }}</div>
+                        <div class="wl-sector text-truncate" style="max-width:130px;" title="{% if w.sector and w.sector != 'Unknown' %}{{ w.sector }}{% elif s.sector and s.sector != 'Unknown' %}{{ s.sector }}{% else %}{% if market == 'US' %}US Market{% else %}SET Index{% endif %}{% endif %}">
+                            {% if w.sector and w.sector != 'Unknown' and w.sector != 'N/A' %}{{ w.sector }}{% elif s.sector and s.sector != 'Unknown' and s.sector != 'N/A' %}{{ s.sector }}{% else %}{% if market == 'US' %}US Market{% else %}SET Index{% endif %}{% endif %}
+                        </div>
                     </div>
                 </div>
                 <div class="d-flex align-items-center gap-1">
@@ -674,8 +676,8 @@
         font-size: 0.72rem; font-weight: 800; color: white;
     }
     .avatar-hot  { background: linear-gradient(135deg, #10b981, #059669); }
-    .avatar-warm { background: linear-gradient(135deg, #3b82f6, #1d4ed8); }
-    .avatar-cool { background: linear-gradient(135deg, #64748b, #475569); }
+    .avatar-warm { background: linear-gradient(135deg, #2563eb, #1d4ed8); }
+    .avatar-cool { background: linear-gradient(135deg, #4f46e5, #3730a3); }
 
     .wl-symbol { font-size: 1.15rem; font-weight: 800; color: #0f172a; letter-spacing: -0.02em; }
     .wl-sector { font-size: 0.65rem; color: #94a3b8; font-weight: 500; }
