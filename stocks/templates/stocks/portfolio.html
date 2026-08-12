@@ -731,9 +731,6 @@
                                         {% endif %}
                                     {% endif %}
                                 </div>
-                                {% if item.obj.name and item.obj.name != item.obj.symbol and item.obj.name != item.obj.symbol|add:".BK" %}
-                                <div class="text-muted col-hide-sm text-truncate" style="font-size:0.62rem; max-width:100px;" title="{{ item.obj.name }}">{{ item.obj.name }}</div>
-                                {% endif %}
                                 {% if item.sell_status %}
                                 <div class="fw-bold mt-1 {% if item.sell_status.color == 'danger' %}text-danger{% elif item.sell_status.color == 'success' %}text-success{% else %}text-warning{% endif %}"
                                      style="font-size:0.6rem;cursor:help;line-height:1.15;" title="{{ item.sell_status.detail }}">
