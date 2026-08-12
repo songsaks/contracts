@@ -59,6 +59,7 @@ def watchlist_item_toggle(request):
     market   = data.get('market', 'SET')
     strategy = data.get('strategy', 'PRECISION')
     note     = data.get('note', '')
+    action   = data.get('action', 'toggle')
 
     if not symbol:
         return JsonResponse({'error': 'symbol required'}, status=400)
@@ -69,21 +70,29 @@ def watchlist_item_toggle(request):
     )
     
     if not created:
-        # หากมีอยู่แล้ว ให้ลบออก (Un-toggle)
-        obj.delete()
-        if market == 'SET':
-            Watchlist.objects.filter(user=request.user, symbol=symbol).delete()
-        return JsonResponse({'status': 'removed', 'symbol': symbol})
+        if action == 'add':
+            # มีอยู่แล้วใน Watchlist และสั่งแบบ force add -> ไม่อัปเดตลบ แต่แจ้งสถานะว่ามีอยู่แล้ว
+            obj.strategy = strategy
+            if note:
+                obj.note = note
+            obj.save()
+            if market == 'SET':
+                Watchlist.objects.get_or_create(user=request.user, symbol=symbol)
+            return JsonResponse({'status': 'already_exists', 'symbol': symbol})
+        else:
+            # หากเป็น toggle และมีอยู่แล้ว ให้ลบออก
+            obj.delete()
+            if market == 'SET':
+                Watchlist.objects.filter(user=request.user, symbol=symbol).delete()
+            return JsonResponse({'status': 'removed', 'symbol': symbol})
         
-    # หากเพิ่มใหม่ ให้อัปเดตค่าหากมีการส่งมา (กรณี get_or_create ใช้ defaults แค่ตอนสร้าง)
+    # หากเพิ่มใหม่ ให้อัปเดตค่าหากมีการส่งมา
     obj.strategy = strategy
     obj.note     = note
     obj.save()
 
     # สำหรับ SET สั่งให้เพิ่มเข้าไปที่ฝั่ง Market Watchlist ด้วย
     if market == 'SET':
-        # เราเก็บข้อมูล Pattern/Strategy ลงในฟิลด์ strategy ของ Portfolio ได้ แต่ Watchlist ปกติไม่มี
-        # ดังนั้นจะเน้นเก็บใน ScanWatchlistItem เป็นหลัก
         Watchlist.objects.get_or_create(user=request.user, symbol=symbol)
     
     return JsonResponse({'status': 'added', 'symbol': symbol})
