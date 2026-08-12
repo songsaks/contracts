@@ -105,7 +105,15 @@ def scan_watchlist_view(request):
     
     market = request.GET.get('market', 'SET')
     items = ScanWatchlistItem.objects.filter(user=request.user, market=market)
-    portfolio_symbols = set(Portfolio.objects.filter(user=request.user).values_list('symbol', flat=True))
+    
+    raw_portfolio_symbols = Portfolio.objects.filter(user=request.user).values_list('symbol', flat=True)
+    portfolio_symbols = set()
+    for ps in raw_portfolio_symbols:
+        p_clean = str(ps).strip().upper()
+        portfolio_symbols.add(p_clean)
+        portfolio_symbols.add(p_clean.replace('.BK', ''))
+        if not p_clean.endswith('.BK'):
+            portfolio_symbols.add(f"{p_clean}.BK")
 
     runs = list(
         PrecisionScanCandidate.objects
@@ -223,7 +231,7 @@ def scan_watchlist_view(request):
             'buy_score': buy_score,
             'win_probability': win_prob,
             'zone_proximity': zone_prox,
-            'in_portfolio': item.symbol in portfolio_symbols,
+            'in_portfolio': item.symbol.strip().upper() in portfolio_symbols,
         })
 
     # Sort results
