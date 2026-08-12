@@ -32,6 +32,7 @@ class MarketType(models.TextChoices):
 class StrategyPattern(models.TextChoices):
     """กลยุทธ์การเทรดที่ใช้เลือกใน Watchlist และ Portfolio"""
     PRECISION = 'PRECISION', 'Precision (Demand Zone)'
+    POCKET_PIVOT = 'POCKET_PIVOT', 'Pocket Pivot (PK)'
     TURTLE_S1 = 'TURTLE_S1', 'Turtle S1 (Breakout 20D / Exit 10D Low)'
     TURTLE_S2 = 'TURTLE_S2', 'Turtle S2 (Breakout 55D / Exit 20D Low)'
     SEPA = 'SEPA', 'SEPA (Minervini)'
