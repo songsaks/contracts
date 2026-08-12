@@ -407,7 +407,7 @@
                 <a href="{% url 'stocks:analyze' w.symbol %}?market={{ market }}" class="btn btn-sm btn-outline-primary flex-fill rounded-pill fw-bold py-1 px-2 text-decoration-none" style="font-size:0.72rem;" title="วิเคราะห์เจาะลึกด้วย AI">
                     <i class="fas fa-microchip me-1"></i> 🧠 AI
                 </a>
-                <a href="{% url 'stocks:portfolio' %}?symbol={{ w.symbol }}&price={{ s.price }}" class="btn btn-sm btn-outline-success rounded-circle p-0 d-flex align-items-center justify-content-center shadow-xs flex-shrink-0" style="width:30px;height:30px;" title="ซื้อแล้ว (บันทึกเข้า Portfolio)">
+                <a href="{% url 'stocks:portfolio_list' %}?symbol={{ w.symbol }}&price={{ s.price }}" class="btn btn-sm btn-outline-success rounded-circle p-0 d-flex align-items-center justify-content-center shadow-xs flex-shrink-0" style="width:30px;height:30px;" title="ซื้อแล้ว (บันทึกเข้า Portfolio)">
                     <i class="fas fa-briefcase" style="font-size:0.75rem;"></i>
                 </a>
             </div>
