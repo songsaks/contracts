@@ -3011,6 +3011,8 @@ def entry_finder(request, symbol):
         # คำนวณ EMA บน df เต็ม (600 วัน) ก่อน เพื่อให้ EMA200 warm-up ครบ
         # ถ้าคำนวณบน subset 120 วัน → EMA200 จะเป็น NaN ทั้งหมด
         import pandas_ta as ta
+        df['EMA10']  = ta.ema(df['Close'], length=10)
+        df['EMA20']  = ta.ema(df['Close'], length=20)
         df['EMA50']  = ta.ema(df['Close'], length=50)
         df['EMA200'] = ta.ema(df['Close'], length=200)
 
@@ -3019,6 +3021,8 @@ def entry_finder(request, symbol):
         chart_labels = [d.strftime('%Y-%m-%d') for d in history_subset.index]
         chart_values = [round(float(v), 2) for v in history_subset['Close'].values]
 
+        ema10_vals  = [round(float(v), 2) if pd.notna(v) else None for v in history_subset['EMA10'].values]
+        ema20_vals  = [round(float(v), 2) if pd.notna(v) else None for v in history_subset['EMA20'].values]
         ema50_vals  = [round(float(v), 2) if pd.notna(v) else None for v in history_subset['EMA50'].values]
         ema200_vals = [round(float(v), 2) if pd.notna(v) else None for v in history_subset['EMA200'].values]
 
