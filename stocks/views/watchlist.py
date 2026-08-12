@@ -199,6 +199,18 @@ def scan_watchlist_view(request):
             if latest.supply_zone_start:
                 at_tp = (price_val >= latest.supply_zone_start)
 
+            # Calculate Risk % & Upside % from current price
+            risk_pct = None
+            upside_pct = None
+            if price_val and price_val > 0:
+                if latest.stop_loss:
+                    risk_pct = round(((price_val - latest.stop_loss) / price_val) * 100, 1)
+                if latest.supply_zone_start:
+                    upside_pct = round(((latest.supply_zone_start - price_val) / price_val) * 100, 1)
+            
+            latest.risk_pct = risk_pct
+            latest.upside_pct = upside_pct
+
         enriched.append({
             'watchlist':   item,
             'scan_data':   latest,

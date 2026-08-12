@@ -266,51 +266,69 @@
                 <div class="blueprint-title text-muted mb-2"><i class="fas fa-drafting-compass me-1"></i> แผนกลยุทธ์ (Trading Blueprint)</div>
                 <div class="row g-2 text-center">
                     <div class="col-4">
-                        <div class="blueprint-block block-buy">
-                            <span class="block-label">โซนซื้อ (Demand)</span>
-                            <span class="block-val text-success">
-                                {% if s.demand_zone_start and s.demand_zone_end %}
-                                    {{ s.demand_zone_end|floatformat:1 }}-{{ s.demand_zone_start|floatformat:1 }}
-                                {% else %}
-                                    —
-                                {% endif %}
-                            </span>
+                        <div class="blueprint-block block-buy" style="background:#ecfdf5; border:1px solid #a7f3d0; border-radius:10px; padding:6px 4px;">
+                            <span class="block-label" style="color:#047857; font-size:0.6rem; font-weight:700;">โซนซื้อ (Demand)</span>
+                            <div class="mt-1">
+                                <span class="block-val text-success fw-extrabold" style="font-size:0.92rem;">
+                                    {% if s.demand_zone_start and s.demand_zone_end %}
+                                        {{ s.demand_zone_end|floatformat:1 }}-{{ s.demand_zone_start|floatformat:1 }}
+                                    {% else %}
+                                        —
+                                    {% endif %}
+                                </span>
+                            </div>
                         </div>
                     </div>
                     <div class="col-4">
-                        <div class="blueprint-block block-sl">
-                            <span class="block-label">หนีที่ (Stop Loss)</span>
-                            <span class="block-val text-danger fw-semibold">
-                                {% if s.stop_loss %}
-                                    {{ s.stop_loss|floatformat:2 }}
-                                {% else %}
-                                    —
+                        <div class="blueprint-block block-sl" style="background:#fef2f2; border:1px solid #fecaca; border-radius:10px; padding:6px 4px;">
+                            <span class="block-label" style="color:#b91c1c; font-size:0.6rem; font-weight:700;">หนีที่ (Stop Loss)</span>
+                            <div class="d-flex align-items-center justify-content-center gap-1 mt-1">
+                                <span class="block-val text-danger fw-extrabold" style="font-size:0.95rem;">
+                                    {% if s.stop_loss %}
+                                        {{ s.stop_loss|floatformat:2 }}
+                                    {% else %}
+                                        —
+                                    {% endif %}
+                                </span>
+                                {% if s.risk_pct %}
+                                <span class="badge bg-danger text-white px-1" style="font-size:0.55rem; font-weight:700;" title="ความเสี่ยงหากหลุด SL">-{{ s.risk_pct }}%</span>
                                 {% endif %}
-                            </span>
+                            </div>
                         </div>
                     </div>
                     <div class="col-4">
-                        <div class="blueprint-block block-tp">
-                            <span class="block-label">เป้าขาย (Target)</span>
-                            <span class="block-val text-primary">
-                                {% if s.supply_zone_start %}
-                                    {{ s.supply_zone_start|floatformat:1 }}
-                                {% else %}
-                                    —
+                        <div class="blueprint-block block-tp" style="background:#eff6ff; border:1px solid #bfdbfe; border-radius:10px; padding:6px 4px;">
+                            <span class="block-label" style="color:#1d4ed8; font-size:0.6rem; font-weight:700;">เป้าขาย (Target)</span>
+                            <div class="d-flex align-items-center justify-content-center gap-1 mt-1">
+                                <span class="block-val text-primary fw-extrabold" style="font-size:0.95rem;">
+                                    {% if s.supply_zone_start %}
+                                        {{ s.supply_zone_start|floatformat:1 }}
+                                    {% else %}
+                                        —
+                                    {% endif %}
+                                </span>
+                                {% if s.upside_pct %}
+                                <span class="badge bg-primary text-white px-1" style="font-size:0.55rem; font-weight:700;" title="กำไรคาดการณ์ถึงเป้าขาย">+{{ s.upside_pct }}%</span>
                                 {% endif %}
-                            </span>
+                            </div>
                         </div>
                     </div>
                 </div>
                 
-                <!-- RR and Proximity Row -->
-                <div class="d-flex justify-content-between align-items-center mt-2 pt-2 border-top border-light-dark">
+                <!-- RR, Risk %, and Proximity Row -->
+                <div class="d-flex justify-content-between align-items-center mt-2 pt-2 border-top border-light-dark" style="font-size:0.68rem;">
                     <span class="blueprint-meta-item">
                         <i class="fas fa-balance-scale-left text-muted me-1"></i> R:R Ratio: 
                         <strong class="text-dark">
                             {% if s.risk_reward_ratio %}1:{{ s.risk_reward_ratio|floatformat:1 }}{% else %}—{% endif %}
                         </strong>
                     </span>
+                    {% if s.risk_pct %}
+                    <span class="blueprint-meta-item">
+                        <i class="fas fa-shield-halved text-danger me-1"></i> เสี่ยงจริง: 
+                        <strong class="text-danger">-{{ s.risk_pct }}%</strong>
+                    </span>
+                    {% endif %}
                     <span class="blueprint-meta-item">
                         <i class="fas fa-route text-muted me-1"></i> ใกล้โซน: 
                         <strong class="{% if s.zone_proximity <= 5 %}text-success{% else %}text-warning{% endif %}">
