@@ -3150,6 +3150,23 @@ def entry_finder(request, symbol):
                 ef_zone_baht  = round(gap, 2)
                 ef_zone_status = 'above'
 
+        # ====== คำนวณตัวเลขสดสำหรับคู่มือ Pocket Pivot (ข้อ 1 และ ข้อ 3) ======
+        latest_ema10 = next((v for v in reversed(ema10_vals) if v is not None), None)
+        if latest_ema10 and latest_ema10 > 0:
+            ema10_diff_pct = round(((curr_price - latest_ema10) / latest_ema10) * 100, 2)
+            ema10_status_ok = (-3.0 <= ema10_diff_pct <= 2.0)
+        else:
+            ema10_diff_pct = None
+            ema10_status_ok = False
+
+        sl_price = float(sd_zone.get('stop_loss') or 0) if sd_zone else 0
+        if curr_price > 0 and sl_price > 0:
+            pk_risk_pct = round(((curr_price - sl_price) / curr_price) * 100, 2)
+            pk_risk_ok = (pk_risk_pct <= 4.5)
+        else:
+            pk_risk_pct = None
+            pk_risk_ok = False
+
         currency = '$' if market == 'US' else '฿'
         context = {
             'symbol': symbol,
@@ -3159,6 +3176,12 @@ def entry_finder(request, symbol):
             'sd_zone': sd_zone,
             'sd_zone_json': sd_zone_json,
             'curr_price': round(curr_price, 2),
+            'latest_ema10': round(latest_ema10, 2) if latest_ema10 else None,
+            'ema10_diff_pct': ema10_diff_pct,
+            'ema10_status_ok': ema10_status_ok,
+            'sl_price': round(sl_price, 2),
+            'pk_risk_pct': pk_risk_pct,
+            'pk_risk_ok': pk_risk_ok,
             'zone_proximity': ef_zone_prox,
             'zone_ticks': ef_zone_ticks,
             'zone_baht': ef_zone_baht,

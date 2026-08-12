@@ -174,18 +174,67 @@
 
         <div class="card card-premium border-0 shadow-sm mb-4" style="border-radius: 1.5rem; background: linear-gradient(135deg, #0f172a, #1e293b); color: white; border: 1px solid rgba(255,255,255,0.08);">
             <div class="card-body p-4">
-                <h6 class="fw-bold mb-3 text-warning d-flex align-items-center gap-2">
-                    <i class="fas fa-crosshairs"></i> คู่มือการเข้าซื้อ Pocket Pivot (PK)
+                <h6 class="fw-bold mb-3 text-warning d-flex align-items-center justify-content-between">
+                    <span><i class="fas fa-crosshairs me-1"></i> คู่มือการเข้าซื้อ Pocket Pivot (PK)</span>
+                    <span class="badge rounded-pill bg-primary" style="font-size:0.62rem; padding: 3px 8px;">วิเคราะห์สดอัตโนมัติ</span>
                 </h6>
                 <ol class="mb-0 ps-3" style="line-height: 1.7; font-size: 0.88rem; color: #cbd5e1;">
-                    <li class="mb-2">
+                    <li class="mb-3">
                         <strong>กดเปิดดูชาร์ต 🎯 Sniper Chart:</strong> เช็กว่าราคาปัจจุบันยังลอยไม่ไกลจากจุดเกิด <span class="badge bg-secondary" style="font-size: 0.72rem; padding: 2px 5px;">PK</span> (ไม่เกิน +1.5% ถึง +2% จากเส้น 10EMA)
+                        
+                        {% if latest_ema10 %}
+                        <div class="mt-2 p-2 rounded-3" style="background: rgba(255,255,255,0.05); border-left: 3px solid {% if ema10_status_ok %}#10b981{% else %}#f59e0b{% endif %}; font-size: 0.78rem;">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <span class="text-white-50">EMA10:</span> <strong>{{ currency }}{{ latest_ema10|floatformat:2 }}</strong>
+                                    <span class="ms-2 text-white-50">ราคาปัจจุบัน:</span> <strong>{{ currency }}{{ curr_price }}</strong>
+                                </div>
+                                <div>
+                                    {% if ema10_diff_pct >= 0 %}
+                                        <span class="fw-bold {% if ema10_status_ok %}text-success{% else %}text-warning{% endif %}">+{{ ema10_diff_pct }}%</span>
+                                    {% else %}
+                                        <span class="fw-bold text-info">{{ ema10_diff_pct }}%</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="mt-1 fw-semibold {% if ema10_status_ok %}text-success{% else %}text-warning{% endif %}">
+                                {% if ema10_status_ok %}
+                                    🟢 <strong>ผ่านเกณฑ์:</strong> ราคาลอยห่างจาก EMA10 เพียง {% if ema10_diff_pct >= 0 %}+{% endif %}{{ ema10_diff_pct }}% (ชิดเส้น 10EMA เหมาะแก่การเข้าซื้อ)
+                                {% else %}
+                                    🟡 <strong>ระวังราคาลอย:</strong> ราคาลอยห่างจาก EMA10 เกิน +2% (ลอยสูง +{{ ema10_diff_pct }}% ควรรอย่อใกล้ 10EMA)
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endif %}
                     </li>
-                    <li class="mb-2">
+                    <li class="mb-3">
                         <strong>เข้าซื้อทันที (Buy Entry):</strong> สั่งซื้อเก็บไม้แรก (50% ของขนาดพอร์ตที่วางไว้) ทันทีในวันนั้น หรือช่วงตลาดเปิดวันถัดไป
                     </li>
                     <li class="mb-0">
                         <strong>วางจุดตัดขาดทุน (Stop Loss) แคบๆ:</strong> วางจุด SL ไว้ที่ ใต้เส้น 10-Day EMA หรือใต้ราคาต่ำสุด (Low) ของแท่งวันเกิด <span class="badge bg-secondary" style="font-size: 0.72rem; padding: 2px 5px;">PK</span> (ความเสี่ยงจะแคบมากเพียง 2% – 4% เท่า นั้น)
+                        
+                        {% if sl_price %}
+                        <div class="mt-2 p-2 rounded-3" style="background: rgba(255,255,255,0.05); border-left: 3px solid {% if pk_risk_ok %}#10b981{% else %}#ef4444{% endif %}; font-size: 0.78rem;">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <span class="text-white-50">จุด SL แนะนำ:</span> <strong class="text-danger">{{ currency }}{{ sl_price|floatformat:2 }}</strong>
+                                    {% if latest_ema10 %}
+                                        <span class="ms-2 text-white-50">(EMA10: {{ currency }}{{ latest_ema10|floatformat:2 }})</span>
+                                    {% endif %}
+                                </div>
+                                <div>
+                                    <span class="fw-bold {% if pk_risk_ok %}text-success{% else %}text-danger{% endif %}">Risk: -{{ pk_risk_pct }}%</span>
+                                </div>
+                            </div>
+                            <div class="mt-1 fw-semibold {% if pk_risk_ok %}text-success{% else %}text-danger{% endif %}">
+                                {% if pk_risk_ok %}
+                                    🟢 <strong>จุดตัดขาดทุนแนะนำ:</strong> ตั้ง SL ที่ <strong>{{ currency }}{{ sl_price|floatformat:2 }}</strong> (ความเสี่ยงเพียง -{{ pk_risk_pct }}% ถือว่าเสี่ยงแคบ คุ้มค่าเสี่ยง)
+                                {% else %}
+                                    🔴 <strong>จุดตัดขาดทุนแนะนำ:</strong> ตั้ง SL ที่ <strong>{{ currency }}{{ sl_price|floatformat:2 }}</strong> (ความเสี่ยง -{{ pk_risk_pct }}% กว้างเกิน 4% ควรรอย่อลึกกว่านี้)
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endif %}
                     </li>
                 </ol>
             </div>
