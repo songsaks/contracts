@@ -6885,3 +6885,36 @@ def debug_scan_symbol(request, symbol):
     return JsonResponse(result, json_dumps_params={'indent': 2})
 
 
+@login_required
+def api_backtest_presets(request):
+    """
+    Backtest ย้อนหลังของเกณฑ์ Trade Flow / Precision Filter presets สำหรับหุ้นตัวเดียว
+    GET params: symbol (required), preset (optional — ถ้าไม่ระบุจะรันทุก preset)
+    """
+    from django.http import JsonResponse as _JR
+    from stocks.utils import run_preset_backtest, run_all_presets_backtest, PRESET_DEFINITIONS
+
+    symbol = (request.GET.get('symbol') or '').strip().upper()
+    preset = (request.GET.get('preset') or '').strip().lower()
+    if not symbol:
+        return _JR({'error': 'symbol is required'}, status=400)
+
+    sym_bk = symbol if (symbol.endswith('.BK') or '.' in symbol) else f"{symbol}.BK"
+    try:
+        df = yf.Ticker(sym_bk).history(period="3y", interval="1d", timeout=20)
+    except Exception as e:
+        return _JR({'error': f'fetch failed: {e}'}, status=502)
+
+    if df is None or df.empty:
+        return _JR({'error': f'no data for {symbol}'}, status=404)
+
+    if preset:
+        if preset not in PRESET_DEFINITIONS:
+            return _JR({'error': f'unknown preset: {preset}', 'valid': list(PRESET_DEFINITIONS)}, status=400)
+        result = run_preset_backtest(df, preset=preset)
+        return _JR({'symbol': symbol, 'result': result})
+
+    results = run_all_presets_backtest(df)
+    return _JR({'symbol': symbol, 'results': results})
+
+

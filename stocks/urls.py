@@ -111,6 +111,7 @@ urlpatterns = [
     path('gold-trading/manual-exit/', views.manual_update_trade_exit, name='manual_update_trade_exit'),
 
     path('api/analysis/<str:symbol>/', views.api_stock_analysis, name='api_stock_analysis'),
+    path('api/backtest-presets/', views.api_backtest_presets, name='api_backtest_presets'),
 
     # AI Daily Agent Reports
     path('daily-reports/', views.daily_agent_reports, name='daily_agent_reports'),

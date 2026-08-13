@@ -4004,11 +4004,42 @@ function _tfDo5SET() {
             + rrWarning
             + '</span>'
             + '<button class="btn btn-sm py-0 px-2 rounded-pill" style="font-size:0.62rem;border:1px solid #e2e8f0;color:#64748b;" onclick="scrollToRow(&quot;' + r.symbol + '&quot;)"><i class="fas fa-arrow-down me-1"></i>ไปที่แถว</button>'
+            + '<button class="btn btn-sm py-0 px-2 rounded-pill" style="font-size:0.62rem;border:1px solid #ddd6fe;color:#7c3aed;" onclick="runTfBacktestSET(&quot;' + r.symbol + '&quot;, this)"><i class="fas fa-clock-rotate-left me-1"></i>Backtest</button>'
+            + '<span class="tf-bt-result small text-muted" data-symbol="' + r.symbol + '" style="font-size:0.65rem;"></span>'
             + '</div>';
     });
     html += '</div>';
     box.innerHTML = html;
     box.style.display = 'block';
+}
+
+function runTfBacktestSET(symbol, btn) {
+    const resultSpan = document.querySelector('.tf-bt-result[data-symbol="' + symbol + '"]');
+    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>'; }
+    if (resultSpan) resultSpan.textContent = ' กำลังทดสอบย้อนหลัง...';
+    fetch('/api/backtest-presets/?symbol=' + encodeURIComponent(symbol))
+        .then(r => r.json())
+        .then(data => {
+            if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-clock-rotate-left me-1"></i>Backtest'; }
+            if (!resultSpan) return;
+            if (data.error || !data.results) {
+                resultSpan.textContent = ' ไม่สามารถทดสอบได้ (' + (data.error || 'unknown') + ')';
+                return;
+            }
+            const withTrades = data.results.filter(x => x.trades_count > 0).sort((a, b) => b.win_rate_pct - a.win_rate_pct);
+            if (!withTrades.length) {
+                resultSpan.textContent = ' ไม่มีสัญญาณย้อนหลังพอสำหรับทดสอบ';
+                return;
+            }
+            const best = withTrades[0];
+            resultSpan.innerHTML = ' &middot; Backtest 3y (' + best.preset + '): Win ' + best.win_rate_pct
+                + '% &middot; ' + best.trades_count + ' trades &middot; avg ' + (best.avg_return_pct >= 0 ? '+' : '') + best.avg_return_pct + '%';
+            resultSpan.title = withTrades.map(x => x.preset + ': win ' + x.win_rate_pct + '%, ' + x.trades_count + ' trades, avg ' + x.avg_return_pct + '%, maxDD ' + x.max_drawdown_pct + '%').join('\n');
+        })
+        .catch(err => {
+            if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-clock-rotate-left me-1"></i>Backtest'; }
+            if (resultSpan) resultSpan.textContent = ' เกิดข้อผิดพลาด';
+        });
 }
 
 const _tfFnsSET = [_tfDo1SET, _tfDo2SET, _tfDo3SET, _tfDo4SET, _tfDo5SET];

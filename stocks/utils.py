@@ -141,6 +141,148 @@ def auto_backtest_strategy(df, strategy_type='momentum_rsi', period_days=250):
     }
 
 
+# ----------------------------------------------------------------------
+# run_preset_backtest — ย้อนทดสอบเกณฑ์ของ Trade Flow / Precision Filter preset หนึ่งตัว
+# จำลองสัญญาณเข้า (ตามเกณฑ์ preset) แล้วจับคู่ SL/TP แบบเดียวกับที่ scanner
+# ใช้แสดงผล (SL = sl_pct ต่ำกว่าราคาเข้า, TP = SL-distance * rr_target)
+# ใช้สำหรับตอบคำถาม "เกณฑ์นี้ win rate จริงเท่าไหร่" ไม่ใช่การยืนยัน order
+# ----------------------------------------------------------------------
+PRESET_DEFINITIONS = {
+    'superformance': 'Stage2 + Pocket Pivot + CMF≥0.1 + VCP',
+    'launcher_breakout': 'Stage2 + Breakout 20 วัน + RVOL≥1.5',
+    'base_accumulation': 'Stage2 + Pocket Pivot + CMF≥0.1',
+    'high_momentum': 'Stage2 + Vol Surge≥1.5x + CMF≥0.1',
+    'safety_first': 'RSI<70 + Stage2',
+}
+
+
+def _build_preset_indicators(df):
+    """เตรียม indicator ที่ใช้ร่วมกันของทุก preset จาก OHLCV ย้อนหลัง"""
+    d = df.copy()
+    d['SMA150'] = d['Close'].rolling(150).mean()
+    d['stage2'] = (d['Close'] > d['SMA150']) & (d['SMA150'] > d['SMA150'].shift(5))
+    d['RSI'] = ta.rsi(d['Close'], length=14)
+    d['EMA200'] = ta.ema(d['Close'], length=200)
+    d['vol_avg50'] = d['Volume'].rolling(50).mean()
+    d['rvol'] = d['Volume'] / d['vol_avg50']
+
+    # Pocket Pivot: วันขึ้นที่ volume > max(volume วันลง) ใน 10 วันก่อนหน้า
+    down_vol = d['Volume'].where(d['Close'] < d['Close'].shift(1))
+    max_down_vol_10 = down_vol.shift(1).rolling(10).max()
+    d['pocket_pivot'] = (d['Close'] > d['Close'].shift(1)) & (d['Volume'] > max_down_vol_10)
+
+    # Chaikin Money Flow (20d)
+    mf_mult = ((d['Close'] - d['Low']) - (d['High'] - d['Close'])) / (d['High'] - d['Low']).replace(0, np.nan)
+    mf_vol = mf_mult * d['Volume']
+    d['cmf'] = mf_vol.rolling(20).sum() / d['Volume'].rolling(20).sum()
+
+    # VCP แบบง่าย: อยู่เหนือ EMA200 และ range 10 วันหดตัวเทียบ 30 วันก่อนหน้า
+    range10 = (d['High'].rolling(10).max() - d['Low'].rolling(10).min())
+    range30_prior = (d['High'].shift(10).rolling(30).max() - d['Low'].shift(10).rolling(30).min())
+    d['vcp'] = (d['Close'] > d['EMA200']) & (range10 < range30_prior * 0.7)
+
+    # Breakout 20 วัน
+    high20_prior = d['High'].shift(1).rolling(20).max()
+    d['breakout20'] = d['Close'] > high20_prior
+
+    return d
+
+
+def _preset_signal(d, preset):
+    if preset == 'superformance':
+        return d['stage2'] & d['pocket_pivot'] & (d['cmf'] >= 0.1) & d['vcp']
+    if preset == 'launcher_breakout':
+        return d['stage2'] & d['breakout20'] & (d['rvol'] >= 1.5)
+    if preset == 'base_accumulation':
+        return d['stage2'] & d['pocket_pivot'] & (d['cmf'] >= 0.1)
+    if preset == 'high_momentum':
+        return d['stage2'] & (d['rvol'] >= 1.5) & (d['cmf'] >= 0.1)
+    if preset == 'safety_first':
+        return d['stage2'] & (d['RSI'] < 70)
+    raise ValueError(f"Unknown preset: {preset}")
+
+
+def run_preset_backtest(df, preset='safety_first', sl_pct=3.0, rr_target=1.5, max_hold_days=20, period_days=750):
+    """
+    รัน backtest ของเกณฑ์ preset หนึ่งตัวย้อนหลัง period_days วัน
+    Entry: วันถัดจากที่สัญญาณ preset เป็นจริง (เปิดที่ราคาปิดวันสัญญาณ ป้องกัน look-ahead)
+    Exit: SL/TP (คำนวณแบบเดียวกับที่ Trade Flow แสดง) หรือหมดเวลาถือ max_hold_days
+    Returns: {preset, trades_count, win_rate_pct, avg_return_pct, expectancy_pct, max_drawdown_pct, avg_hold_days}
+    """
+    if df is None or len(df) < 200:
+        return {'preset': preset, 'error': 'Insufficient data'}
+
+    d = _build_preset_indicators(df).tail(period_days + 200).reset_index(drop=True)
+    signal = _preset_signal(d, preset).fillna(False)
+
+    closes = d['Close'].values
+    highs = d['High'].values
+    lows = d['Low'].values
+    n = len(d)
+
+    trades = []
+    i = 200  # เว้นช่วง warm-up ให้ indicator นิ่งก่อน
+    last_exit_idx = -1
+    while i < n - 1:
+        if signal.iloc[i] and i > last_exit_idx:
+            entry = closes[i]
+            sl = entry * (1 - sl_pct / 100)
+            tp = entry + (entry - sl) * rr_target
+            exit_price = None
+            hold_days = 0
+            for j in range(i + 1, min(i + 1 + max_hold_days, n)):
+                hold_days = j - i
+                if lows[j] <= sl:
+                    exit_price = sl
+                    break
+                if highs[j] >= tp:
+                    exit_price = tp
+                    break
+            if exit_price is None:
+                j = min(i + max_hold_days, n - 1)
+                exit_price = closes[j]
+                hold_days = j - i
+            ret_pct = (exit_price - entry) / entry * 100
+            trades.append({'ret_pct': ret_pct, 'hold_days': hold_days})
+            last_exit_idx = i + hold_days
+        i += 1
+
+    if not trades:
+        return {'preset': preset, 'rule': PRESET_DEFINITIONS.get(preset, ''), 'trades_count': 0,
+                'win_rate_pct': None, 'avg_return_pct': None, 'expectancy_pct': None,
+                'max_drawdown_pct': None, 'avg_hold_days': None}
+
+    rets = [t['ret_pct'] for t in trades]
+    wins = [r for r in rets if r > 0]
+    losses = [r for r in rets if r <= 0]
+    win_rate = len(wins) / len(rets) * 100
+
+    cum = np.cumprod([1 + r / 100 for r in rets])
+    running_max = np.maximum.accumulate(cum)
+    drawdown = (cum - running_max) / running_max
+    max_dd = drawdown.min() * 100 if len(drawdown) else 0
+
+    return {
+        'preset': preset,
+        'rule': PRESET_DEFINITIONS.get(preset, ''),
+        'trades_count': len(rets),
+        'win_rate_pct': round(win_rate, 1),
+        'avg_return_pct': round(float(np.mean(rets)), 2),
+        'avg_win_pct': round(float(np.mean(wins)), 2) if wins else None,
+        'avg_loss_pct': round(float(np.mean(losses)), 2) if losses else None,
+        'expectancy_pct': round(float(np.mean(rets)), 2),
+        'max_drawdown_pct': round(float(max_dd), 2),
+        'avg_hold_days': round(float(np.mean([t['hold_days'] for t in trades])), 1),
+    }
+
+
+def run_all_presets_backtest(df, sl_pct=3.0, rr_target=1.5, max_hold_days=20, period_days=750):
+    """รัน run_preset_backtest กับทุก preset ใน PRESET_DEFINITIONS แล้วคืนเป็น list"""
+    return [
+        run_preset_backtest(df, preset=p, sl_pct=sl_pct, rr_target=rr_target,
+                             max_hold_days=max_hold_days, period_days=period_days)
+        for p in PRESET_DEFINITIONS
+    ]
 
 
 # ----------------------------------------------------------------------
