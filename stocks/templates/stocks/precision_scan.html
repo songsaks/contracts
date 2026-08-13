@@ -4017,7 +4017,7 @@ function runTfBacktestSET(symbol, btn) {
     const resultSpan = document.querySelector('.tf-bt-result[data-symbol="' + symbol + '"]');
     if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>'; }
     if (resultSpan) resultSpan.textContent = ' กำลังทดสอบย้อนหลัง...';
-    fetch('/api/backtest-presets/?symbol=' + encodeURIComponent(symbol))
+    fetch("{% url 'stocks:api_backtest_presets' %}?symbol=" + encodeURIComponent(symbol))
         .then(r => r.json())
         .then(data => {
             if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-clock-rotate-left me-1"></i>Backtest'; }
