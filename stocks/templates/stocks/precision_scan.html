@@ -4022,40 +4022,15 @@ function scrollToPresetStatSET(preset) {
     }
 }
 
-// คำนวณ bonus/penalty จาก Win Rate มาตรฐานของ preset ที่หุ้นตัวนี้เข้าเงื่อนไขวันนี้
-// ใช้เฉพาะ preset ที่มี sample พอเชื่อถือได้ (ไม่ low_sample) — ถ้ายังไม่โหลด backtest จะคืน 0 (ไม่ลงโทษ/ไม่ให้โบนัส)
-function _tfBacktestBonusSET(r) {
-    if (!_tfPresetStatsSET) return { bonus: 0, best: null };
-    const matched = _tfMatchedPresetsSET(r)
-        .map(p => _tfPresetStatsSET[p])
-        .filter(x => x && x.trades_count > 0 && !x.low_sample);
-    if (!matched.length) return { bonus: 0, best: null };
-    const best = matched.sort((a, b) => b.win_rate_pct - a.win_rate_pct)[0];
-    // win rate 50% = จุดกลาง (0 คะแนน), ทุก 1% เหนือ/ใต้ 50 ให้ +/- 0.8 คะแนน คูณน้ำหนักตาม avg_return (เป็นบวก/ลบ)
-    const bonus = (best.win_rate_pct - 50) * 0.8 + best.avg_return_pct * 4;
-    return { bonus: bonus, best: best };
-}
-
 // STEP 5: Rank + trade-plan cards
 function _tfDo5SET() {
     const cur = '฿';
     const list = _tfStateSET.timed.slice();
     list.forEach(function(r) {
-        const bt = _tfBacktestBonusSET(r);
-        r.btBonus = bt.bonus;
-        r.btBest = bt.best;
         r.score = r.stars.length * 25 + (r.timing === 'enter' ? 30 : 15) + (r.pp ? 20 : 0)
-                + Math.min(r.rr || 0, 5) * 6 + r.rs / 10 - (r.rsi >= 75 ? 10 : 0)
-                + bt.bonus;
+                + Math.min(r.rr || 0, 5) * 6 + r.rs / 10 - (r.rsi >= 75 ? 10 : 0);
     });
-    _tfStateSET.ranked = list;
-    _tfRenderRankingSET();
-}
-
-function _tfRenderRankingSET() {
-    const cur = '฿';
-    const list = _tfStateSET.ranked || [];
-    // จัดกลุ่มก่อนเรียง: ตัวที่ "เข้าได้ตอนนี้" ขึ้นก่อนเสมอ แล้วค่อยเรียงคะแนนภายในกลุ่ม (คะแนนรวม backtest แล้วถ้าโหลด)
+    // จัดกลุ่มก่อนเรียง: ตัวที่ "เข้าได้ตอนนี้" ขึ้นก่อนเสมอ แล้วค่อยเรียงคะแนนภายในกลุ่ม
     const enters = list.filter(r => r.timing === 'enter').sort((a, b) => b.score - a.score);
     const alerts = list.filter(r => r.timing === 'alert').sort((a, b) => b.score - a.score);
     const top = enters.concat(alerts.slice(0, Math.max(0, 6 - enters.length)));
@@ -4071,13 +4046,9 @@ function _tfRenderRankingSET() {
     const blockedNote = _tfStateSET.blocked
         ? '<div class="small fw-bold text-danger mb-2 p-2 rounded-2" style="background:#fef2f2;border:1px solid #fecaca;"><i class="fas fa-triangle-exclamation me-1"></i> ตลาดขาลง — รายชื่อนี้ใช้เป็น Watchlist เท่านั้น ห้ามเปิดไม้ใหม่</div>'
         : (_tfStateSET.sizeF === 0.5 ? '<div class="small fw-bold mb-2 p-2 rounded-2" style="background:#fffbeb;border:1px solid #fde68a;color:#b45309;"><i class="fas fa-circle-info me-1"></i> ตลาด Sideways — ใช้ขนาดไม้ครึ่งเดียวของปกติ</div>' : '');
-    let html = blockedNote;
-    html += !_tfPresetStatsSET
-        ? '<div class="small mb-2 p-2 rounded-2" style="background:#fffbeb;border:1px solid #fde68a;color:#b45309;font-size:0.68rem;"><i class="fas fa-circle-info me-1"></i> อันดับนี้ยังไม่รวม Backtest (กด "โหลดผล" ในการ์ดม่วงด้านบน แล้วอันดับจะคำนวณใหม่อัตโนมัติ)</div>'
-        : '';
-    html += '<div class="rounded-3 p-2 px-3" style="background:white;border:1px solid #e2e8f0;">';
+    let html = blockedNote + '<div class="rounded-3 p-2 px-3" style="background:white;border:1px solid #e2e8f0;">';
     html += '<div class="d-flex justify-content-between align-items-center mb-2 pb-1 border-bottom">'
-          + '<span class="small text-muted" style="font-size:0.68rem;">ผลลัพธ์สุดท้าย — เรียงตามคะแนนรวม (Confluence + จังหวะ + RR + RS' + (_tfPresetStatsSET ? ' + Backtest Win Rate' : '') + ')</span>'
+          + '<span class="small text-muted" style="font-size:0.68rem;">ผลลัพธ์สุดท้าย — เรียงตามคะแนนรวม (Confluence + จังหวะ + RR + RS)</span>'
           + '<button class="btn btn-sm py-1 px-3 rounded-pill fw-bold" style="background:linear-gradient(135deg,#059669,#10b981);color:white;border:none;font-size:0.7rem;" onclick="addTfTopToWatchlistSET(this)">'
           + '<i class="fas fa-plus-circle me-1"></i> บันทึก ' + top.length + ' ตัวนี้ลง Watchlist'
           + '</button></div>';
@@ -4102,7 +4073,6 @@ function _tfRenderRankingSET() {
             + '<a href="javascript:void(0)" onclick="scrollToRow(&quot;' + r.symbol + '&quot;)" class="badge rounded-pill text-decoration-none fw-bold" style="background:rgba(124,58,237,0.1);color:#7c3aed;font-size:0.75rem;padding:5px 12px;">' + r.symbol + (i === 0 ? ' 🏆' : '') + '</a>'
             + (stars ? '<span class="d-flex gap-1">' + stars + '</span>' : '')
             + (presetPills ? '<span class="d-flex gap-1 flex-wrap">' + presetPills + '</span>' : '')
-            + (r.btBest ? '<span class="badge rounded-pill" style="background:' + (r.btBonus >= 0 ? 'rgba(5,150,105,0.1);color:#059669' : 'rgba(220,38,38,0.1);color:#dc2626') + ';font-size:0.6rem;padding:2px 6px;" title="อันดับถ่วงน้ำหนักด้วย Win Rate มาตรฐานของ ' + r.btBest.preset + ' (' + r.btBest.win_rate_pct + '%)">' + (r.btBonus >= 0 ? '▲' : '▼') + ' bt ' + r.btBest.win_rate_pct + '%</span>' : '')
             + '<span class="tf-status ' + r.timing + '">' + r.action + '</span>'
             + '<span class="small text-muted ms-auto" style="font-size:0.68rem;white-space:nowrap;">'
             + 'PP ' + cur + r.ppPrice.toFixed(2) + ' &middot; SL <span class="text-danger">' + cur + r.sl.toFixed(2) + '</span> &middot; TP <span class="text-primary">' + cur + r.tp.toFixed(2) + '</span> &middot; RR 1:' + (r.rr || 0).toFixed(1)
@@ -4151,8 +4121,6 @@ function runTfBacktestSET(symbol, btn) {
         });
 }
 
-let _tfPresetStatsSET = null; // {preset: resultObj} — cache หลังโหลด ใช้ถ่วงน้ำหนักอันดับใน _tfDo5SET ด้วย
-
 function loadTfPresetStatsSET(btn) {
     btn = btn || document.getElementById('tfPresetStatsBtnSET');
     const box = document.getElementById('tfPresetStatsBoxSET');
@@ -4181,11 +4149,6 @@ function loadTfPresetStatsSET(btn) {
                     + (x.avg_return_pct >= 0 ? '+' : '') + x.avg_return_pct + '% &middot; maxDD ' + x.max_drawdown_pct + '%</span></div>';
             }).join('');
             box.innerHTML = '<div class="small text-muted mb-1">ทดสอบจากหุ้น ' + data.universe_size + ' ตัว (top market cap)' + (data.cached ? ' &middot; ผลจาก cache (อัปเดตทุก 24 ชม.)' : '') + '</div>' + rows;
-
-            // cache ผลไว้ให้ _tfBacktestBonusSET ใช้ แล้วคำนวณอันดับใหม่ทันทีถ้ามีผล funnel อยู่แล้ว
-            _tfPresetStatsSET = {};
-            data.results.forEach(x => { _tfPresetStatsSET[x.preset] = x; });
-            if (_tfStateSET.timed) { _tfDo5SET(); }
         })
         .catch(err => {
             if (box) box.innerHTML = '<span class="text-danger">เกิดข้อผิดพลาด</span>';
