@@ -322,13 +322,16 @@ def evaluate_user_alerts(user, config):
                         f" — แนะนำซื้อเพิ่มประมาณ {suggested_amount:,.0f} บาท (~{suggested_shares:,.0f} หุ้น, "
                         f"เสี่ยง 1% ของพอร์ต SET ที่ SL {latest_scan.stop_loss:.2f}{cap_note})"
                     )
+            reasons_txt = ", ".join(_signals.get('buy_reasons', []))
+            reasons_msg = f" (ปัจจัยหนุน: {reasons_txt})" if reasons_txt else ""
+
             new_events.append(StockAlertEvent(
                 user=user, symbol=p.symbol, market=p.market, alert_type=StockAlertEvent.AlertType.BREAKOUT,
                 strategy=strategy_label, price=price, reference_level=latest_scan.demand_zone_start,
                 message=(
                     f"หุ้น {p.symbol} (กลยุทธ์ {strategy_label or 'N/A'}) เกิดสัญญาณ "
                     f"{'เบรค 52w High' if latest_scan.is_52w_breakout else 'Pocket Pivot'} "
-                    f"ที่ราคา {price:.2f} — ควรพิจารณาซื้อเพิ่ม{add_amount_txt}{reversal_caveat}"
+                    f"ที่ราคา {price:.2f} — ควรพิจารณาซื้อเพิ่ม{add_amount_txt}{reversal_caveat}{reasons_msg}"
                 ),
             ))
             strong_candidates.append({
@@ -367,6 +370,9 @@ def evaluate_user_alerts(user, config):
                                 f"เสี่ยง 1% ของพอร์ต SET ที่ SL {latest_scan.stop_loss:.2f}{cap_note})"
                             )
 
+                    reasons_txt = ", ".join(_sig.get('buy_reasons', []))
+                    reasons_msg = f" (ปัจจัยหนุน: {reasons_txt})" if reasons_txt else ""
+
                     new_events.append(StockAlertEvent(
                         user=user, symbol=p.symbol, market=p.market,
                         alert_type=StockAlertEvent.AlertType.WATCHLIST_ENTRY,
@@ -374,7 +380,7 @@ def evaluate_user_alerts(user, config):
                         message=(
                             f"หุ้น {p.symbol} (กลยุทธ์ {strategy_label or 'N/A'}) ย่อลงมาอยู่ในโซนสะสม/ซื้อเพิ่มที่ได้เปรียบ "
                             f"{latest_scan.demand_zone_end:.2f} - {latest_scan.demand_zone_start:.2f} แล้ว "
-                            f"(ราคาปัจจุบัน {price:.2f}, สัญญาณซื้อ {_sig['buy_score']}/100){add_amount_txt}"
+                            f"(ราคาปัจจุบัน {price:.2f}, สัญญาณซื้อ {_sig['buy_score']}/100){add_amount_txt}{reasons_msg}"
                         ),
                     ))
                     cache.set(cache_key, True, timeout=12 * 60 * 60)
@@ -427,17 +433,24 @@ def evaluate_user_alerts(user, config):
         in_zone = price <= latest_scan.demand_zone_start and price >= latest_scan.demand_zone_end
         now = dj_timezone.now()
         if in_zone:
+            from stocks.views.base import _compute_signals
+            _sig = _compute_signals(latest_scan, current_price=price)
+            is_qualified = _sig['buy_score'] >= 75 and _sig['reversal_score'] < 3
+
             # แจ้งครั้งแรกที่เข้าโซนทันที แล้วถ้ายังแช่อยู่ในโซนต่อ ให้เตือนซ้ำได้เป็นรอบ (ทุก _WATCHLIST_REALERT_COOLDOWN)
             # ไม่ใช่แจ้งทุกครั้งที่เช็ค (สแปม) แต่ก็ไม่เงียบไปตลอดจนลืมว่ายังมีโอกาสซื้ออยู่
             due = w.last_alerted_at is None or (now - w.last_alerted_at) >= _WATCHLIST_REALERT_COOLDOWN
-            if due:
+            if due and is_qualified:
+                reasons_txt = ", ".join(_sig.get('buy_reasons', []))
+                reasons_msg = f" (ปัจจัยหนุน: {reasons_txt})" if reasons_txt else ""
+
                 new_events.append(StockAlertEvent(
                     user=user, symbol=w.symbol, market=latest_scan.market, alert_type=StockAlertEvent.AlertType.WATCHLIST_ENTRY,
                     strategy='', price=price, reference_level=latest_scan.demand_zone_start,
                     message=(
                         f"หุ้น {w.symbol} ราคาย่อลงมาถึงโซนเข้าซื้อ "
                         f"{latest_scan.demand_zone_end:.2f} - {latest_scan.demand_zone_start:.2f} แล้ว "
-                        f"(ราคาปัจจุบัน {price:.2f})"
+                        f"(ราคาปัจจุบัน {price:.2f}, สัญญาณซื้อ {_sig['buy_score']}/100){reasons_msg}"
                     ),
                 ))
                 w.last_alerted_at = now

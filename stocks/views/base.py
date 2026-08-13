@@ -142,11 +142,15 @@ def _compute_signals(prec, current_price=None, is_turtle=False, turtle_stop=None
     cmf          = getattr(prec, 'cmf', None)
     is_52w_bo    = getattr(prec, 'is_52w_breakout', False)
     stage2       = getattr(prec, 'stage2', False)
+    # v8 Fisher Transform
+    fisher       = getattr(prec, 'ehlers_fisher', None)
+    fisher_trig  = getattr(prec, 'ehlers_fisher_trigger', None)
 
     # ── BUY SCORE ─────────────────────────────────────────────────────
     # base technical: technical_score คือผลลัพธ์จาก tech analyzer (max 100)
     # เราลดน้ำหนักลงเหลือ 0.25 (max 25 pts) เพื่อเปิดทางให้ signals อื่นๆ
-    buy = int(getattr(prec, 'technical_score', 0) * 0.25) 
+    buy = int(getattr(prec, 'technical_score', 0) * 0.25)
+    buy_reasons = []
 
     # Zone proximity (max 25)
     in_zone = dz_s and dz_e and price <= dz_s and price >= dz_e
@@ -156,10 +160,16 @@ def _compute_signals(prec, current_price=None, is_turtle=False, turtle_stop=None
     elif prox <= 60:    buy += 3
 
     # RVOL direction-aware (max 22)
-    if rvol_b and rvol >= 2.0:   buy += 22
-    elif rvol_b and rvol >= 1.5: buy += 17
-    elif rvol_b and rvol >= 1.0: buy += 12
-    elif rvol_b and rvol >= 0.7: buy += 4
+    if rvol_b and rvol >= 2.0:
+        buy += 22
+        buy_reasons.append('Volume หนุนแรง')
+    elif rvol_b and rvol >= 1.5:
+        buy += 17
+        buy_reasons.append('Volume เข้า')
+    elif rvol_b and rvol >= 1.0:
+        buy += 12
+    elif rvol_b and rvol >= 0.7:
+        buy += 4
 
     # R/R ratio (max 15)
     if rr >= 3:     buy += 15
@@ -193,11 +203,17 @@ def _compute_signals(prec, current_price=None, is_turtle=False, turtle_stop=None
 
     # ── v3 new signals ────────────────────────────────────────────────
     # MACD bullish crossover (max 12)
-    if macd_cross:          buy += 12
-    elif macd_hist > 0:     buy += 8   # histogram positive (buying pressure building)
+    if macd_cross:
+        buy += 12
+        buy_reasons.append('MACD ตัดขึ้น')
+    elif macd_hist > 0:
+        buy += 8   # histogram positive (buying pressure building)
+        buy_reasons.append('MACD ขาขึ้น')
 
     # Bollinger Band Squeeze - pending breakout (max 6)
-    if bb_sq: buy += 6
+    if bb_sq:
+        buy += 6
+        buy_reasons.append('บีบตัว (BB Squeeze)')
 
     # EMA20 > EMA50 > EMA200 full 3-layer alignment (max 5)
     if ema20_aln: buy += 5
@@ -209,9 +225,13 @@ def _compute_signals(prec, current_price=None, is_turtle=False, turtle_stop=None
 
     # ── v4 Trend Following quality (max 10 pts) ───────────────────────
     # EMA20 rising = momentum มีโครงสร้างรองรับ ไม่ใช่แค่ spike สั้น
-    if ema20_rising and hh_hl:  buy += 10  # ทั้ง EMA rising + HH/HL = trend สมบูรณ์
-    elif ema20_rising:           buy += 5   # EMA rising เพียงอย่างเดียว
-    elif hh_hl:                  buy += 4   # HH/HL โดยที่ EMA ยังไม่ขึ้นชัด
+    if ema20_rising and hh_hl:
+        buy += 10  # ทั้ง EMA rising + HH/HL = trend สมบูรณ์
+        buy_reasons.append('Trend แข็งแกร่ง')
+    elif ema20_rising:
+        buy += 5   # EMA rising เพียงอย่างเดียว
+    elif hh_hl:
+        buy += 4   # HH/HL โดยที่ EMA ยังไม่ขึ้นชัด
 
     # ── v7 CMF buy bonus (max 6 pts) ─────────────────────────────────
     if cmf is not None:
@@ -224,6 +244,15 @@ def _compute_signals(prec, current_price=None, is_turtle=False, turtle_stop=None
 
     # Stage 2 Weinstein: price > SMA150 AND SMA150 rising (max 8)
     if stage2: buy += 8
+
+    # Fisher Transform Bullish (max 10)
+    if fisher is not None and fisher_trig is not None:
+        if fisher > fisher_trig and fisher > 0:
+            buy += 10
+            buy_reasons.append('Fisher ขาขึ้นแข็งแกร่ง')
+        elif fisher > fisher_trig:
+            buy += 5
+            buy_reasons.append('Fisher ตัดขึ้น')
 
     buy_score = max(0, min(100, buy))
 
@@ -256,6 +285,12 @@ def _compute_signals(prec, current_price=None, is_turtle=False, turtle_stop=None
     if rsi < 50 and not hh_hl:
         rev_pts += 1
         rev_reasons.append('RSI<50 + LL')
+
+    # 6. Fisher Transform ตัดลง (Bearish Crossover) จากโซนบน
+    if fisher is not None and fisher_trig is not None:
+        if fisher < fisher_trig and fisher > 1.0:
+            rev_pts += 1
+            rev_reasons.append('Fisher ↓')
 
     # ── SELL SCORE ────────────────────────────────────────────────────
     sell = 0
@@ -342,6 +377,7 @@ def _compute_signals(prec, current_price=None, is_turtle=False, turtle_stop=None
 
     return {
         'buy_score':      buy_score,
+        'buy_reasons':    buy_reasons,
         'sell_score':     sell_score,
         'exit_signal':    exit_signal,
         'reversal_score': rev_pts,
