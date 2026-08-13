@@ -851,13 +851,13 @@
                                     <div class="col-md-6">
                                         <div class="d-flex align-items-start gap-2 p-2 rounded-2" style="background:#f0fdf4;">
                                             <span class="badge flex-shrink-0" style="background:rgba(5,150,105,0.15);color:#047857;border:1px solid rgba(5,150,105,0.4);font-size:0.62rem;">ACC 6d</span>
-                                            <div><strong>Accumulation Days</strong> — จำนวนวันใน 25 วันที่ราคาขึ้นพร้อม Volume สูงกว่าค่าเฉลี่ย (วันที่สถาบันซื้อ) ยิ่งมากกว่า DIST days ยิ่งดี แสดงว่าเงินสถาบันไหลเข้าสุทธิ</div>
+                                            <div><strong>Accumulation Days</strong> — จำนวนวันใน 10 วันที่ราคาขึ้นพร้อม Volume สูงกว่าค่าเฉลี่ย (วันที่สถาบันซื้อ) ยิ่งมากกว่า DIST days ยิ่งดี แสดงว่าเงินสถาบันไหลเข้าสุทธิ</div>
                                         </div>
                                     </div>
                                     <div class="col-md-6">
                                         <div class="d-flex align-items-start gap-2 p-2 rounded-2" style="background:#fef2f2;">
                                             <span class="badge flex-shrink-0" style="background:rgba(220,38,38,0.08);color:#dc2626;border:1px solid rgba(220,38,38,0.3);font-size:0.62rem;">DIST 5d</span>
-                                            <div><strong>Distribution Days</strong> — จำนวนวันใน 25 วันที่ราคาลงพร้อม Volume สูงกว่าค่าเฉลี่ย (วันที่สถาบันขาย) ถ้า DIST > ACC แสดงว่าเงินสถาบันกำลังไหลออก ระวัง! IBD ใช้ตัวเลขนี้ประกาศ Market Correction</div>
+                                            <div><strong>Distribution Days</strong> — จำนวนวันใน 10 วันที่ราคาลงพร้อม Volume สูงกว่าค่าเฉลี่ย (วันที่สถาบันขาย) ถ้า DIST > ACC แสดงว่าเงินสถาบันกำลังไหลออก ระวัง! IBD ใช้ตัวเลขนี้ประกาศ Market Correction</div>
                                         </div>
                                     </div>
                                 </div>
@@ -1516,7 +1516,7 @@
                 <div class="form-check form-switch mb-0 d-flex align-items-center gap-2">
                     <input class="form-check-input" type="checkbox" id="accDistFilterSET" onchange="_applyFiltersSET()" style="cursor:pointer;">
                     <label class="form-check-label small fw-semibold" for="accDistFilterSET" style="cursor:pointer; color:#15803d;">📈 ACC > DIST</label>
-                    <span style="font-size:0.85rem;color:#94a3b8;cursor:pointer;" title="Accumulation > Distribution: วัน Acc (ราคาขึ้น+วอลุ่มสูง) มากกว่าวัน Dist ใน 25 วัน — เงินสถาบันไหลเข้าสุทธิ ยืนยันการสะสม"><i class="fas fa-question-circle"></i></span>
+                    <span style="font-size:0.85rem;color:#94a3b8;cursor:pointer;" title="Accumulation > Distribution: วัน Acc (ราคาขึ้น+วอลุ่มสูง) มากกว่าวัน Dist ใน 10 วัน — เงินสถาบันไหลเข้าสุทธิ ยืนยันการสะสม"><i class="fas fa-question-circle"></i></span>
                 </div>
                 <!-- Buyable Uptrend Filter (หุ้นขาขึ้นที่ย่ออยู่ในโซนซื้อ) -->
                 <div class="form-check form-switch mb-0 d-flex align-items-center gap-2" style="background:linear-gradient(135deg,rgba(16,185,129,0.08),rgba(5,150,105,0.08));border:1px solid rgba(5,150,105,0.25);border-radius:20px;padding:2px 12px 2px 40px;">
@@ -1778,9 +1778,9 @@
                                         <span class="badge px-1 py-0" style="background:rgba(8,145,178,0.15);color:#0e7490;border:1px solid rgba(8,145,178,0.4);font-size:0.55rem;" title="Inside Bar: แท่งวันนี้อยู่ภายในกรอบแท่งก่อนหน้า — สัญญาณการบีบตัวก่อนเบรก (Pre-Breakout Compression)">IB</span>
                                         {% endif %}
                                         {% if item.acc_days >= 4 and item.acc_days > item.dist_days %}
-                                        <span class="badge px-1 py-0" style="background:rgba(5,150,105,0.15);color:#047857;border:1px solid rgba(5,150,105,0.4);font-size:0.55rem;" title="Accumulation: {{ item.acc_days }} วันสะสม vs {{ item.dist_days }} วันขาย ใน 25 วัน — เงินสถาบันไหลเข้า">ACC {{ item.acc_days }}d</span>
+                                        <span class="badge px-1 py-0" style="background:rgba(5,150,105,0.15);color:#047857;border:1px solid rgba(5,150,105,0.4);font-size:0.55rem;" title="Accumulation: {{ item.acc_days }} วันสะสม vs {{ item.dist_days }} วันขาย ใน 10 วัน — เงินสถาบันไหลเข้า">ACC {{ item.acc_days }}d</span>
                                         {% elif item.dist_days >= 4 and item.dist_days > item.acc_days %}
-                                        <span class="badge px-1 py-0" style="background:rgba(220,38,38,0.08);color:#dc2626;border:1px solid rgba(220,38,38,0.3);font-size:0.55rem;" title="Distribution: {{ item.dist_days }} วันขาย vs {{ item.acc_days }} วันสะสม ใน 25 วัน — เงินสถาบันไหลออก">DIST {{ item.dist_days }}d</span>
+                                        <span class="badge px-1 py-0" style="background:rgba(220,38,38,0.08);color:#dc2626;border:1px solid rgba(220,38,38,0.3);font-size:0.55rem;" title="Distribution: {{ item.dist_days }} วันขาย vs {{ item.acc_days }} วันสะสม ใน 10 วัน — เงินสถาบันไหลออก">DIST {{ item.dist_days }}d</span>
                                         {% endif %}
                                         {% if item.ehlers_itl_bullish %}
                                         <span class="badge px-1 py-0" style="background:#15803d;color:white;font-size:0.55rem;" title="Ehlers ITL MTF Bullish: Price > Daily ITL ({{ item.ehlers_itl_daily|floatformat:2 }}) > Weekly ITL ({{ item.ehlers_itl_weekly|floatformat:2 }})">📈 ITL</span>
@@ -3861,7 +3861,9 @@ function _updatePresetCountsSET() {
         var price = parseFloat(d.price || '0');
         var ma50 = parseFloat(d.ma50 || '0');
         var nearMa50 = ma50 > 0 && price >= ma50 && (price - ma50) / ma50 <= 0.05;
-        var buyable = inzone || prox <= 5 || (s2 && (nearMa50 || turtleDist <= 1.0) && rsi <= 72 && cmf >= -0.05);
+        // ตัดเงื่อนไข catch-all (nearMa50/turtleDist + cmf>=-0.05) ออก เหลือแค่อยู่ในโซนซื้อจริงๆ
+        // และต้องมีแรงซื้อ/เงินไหลเข้ายืนยัน (RVOL≥1.2, CMF≥0) กันสัญญาณหลอกที่ราคาแตะโซนแต่ไม่มี volume รองรับ
+        var buyable = (inzone || prox <= 5) && rvol >= 1.2 && cmf >= 0;
 
         if (s2 && pp && cmf >= 0.1 && vcp && canslim && accPos) counts.super++;
         if (s2 && launcher >= 70 && vcp && insideBar)           counts.launcher_breakout++;
@@ -3965,10 +3967,14 @@ function _tfDo4SET() {
     const cur = '฿';
     _tfStateSET.inst.forEach(function(r) {
         const bo = (r.turtleDist < 90 && r.price > 0) ? (r.price * (1 + r.turtleDist / 100)) : 0;
+        // อยู่ในโซนซื้อ (inzone) อย่างเดียวไม่พอ ต้องมี volume/เงินไหลเข้ายืนยันด้วย ไม่งั้นถือเป็นแค่ alert
+        // (แก้ปัญหาหุ้นเข้าโซนซื้อเยอะเกินไปทั้งที่ไม่มีแรงซื้อรองรับ)
         if (r.rsi >= 80) {
             r.timing = 'skip'; r.action = 'Overextended (RSI ' + Math.round(r.rsi) + ') — รอย่อ';
-        } else if (r.inzone) {
+        } else if (r.inzone && r.rvol >= 1.2 && r.cmf >= 0) {
             r.timing = 'enter'; r.action = 'IN ZONE ' + cur + r.zoneLow.toFixed(2) + '–' + r.ppPrice.toFixed(2) + ' — เข้าได้';
+        } else if (r.inzone) {
+            r.timing = 'alert'; r.action = 'IN ZONE แต่รอ Vol/เงินไหลเข้า (RVOL ' + r.rvol.toFixed(1) + 'x, CMF ' + r.cmf.toFixed(2) + ')';
         } else if (r.turtleDist <= 0.5 && r.rvol >= 1.5) {
             r.timing = 'enter'; r.action = 'BREAKOUT + Vol ' + r.rvol.toFixed(1) + 'x — เข้าได้';
         } else if (r.turtleDist <= 3) {

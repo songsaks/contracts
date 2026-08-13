@@ -1763,18 +1763,18 @@ def analyze_momentum_technical_v2(df):
             float(df['Low'].iloc[-1])  > float(df['Low'].iloc[-2])
         )
 
-    # 9. Accumulation / Distribution Days (25 วัน)
+    # 9. Accumulation / Distribution Days (10 วันล่าสุด — ให้สัญญาณสดใหม่กว่าหน้าต่าง 25 วันเดิม)
     acc_days = 0
     dist_days = 0
-    if len(df) >= 26:
-        _avg_vol_25 = float(df['Volume'].tail(25).mean())
-        for _i in range(-25, 0):
+    if len(df) >= 11:
+        _avg_vol_10 = float(df['Volume'].tail(10).mean())
+        for _i in range(-10, 0):
             _c  = float(df['Close'].iloc[_i])
             _pc = float(df['Close'].iloc[_i - 1])
             _v  = float(df['Volume'].iloc[_i])
-            if _c > _pc and _v > _avg_vol_25:
+            if _c > _pc and _v > _avg_vol_10:
                 acc_days += 1
-            elif _c < _pc and _v > _avg_vol_25:
+            elif _c < _pc and _v > _avg_vol_10:
                 dist_days += 1
 
     # ====== 8. Explosive Launcher Logic (Pre-Breakout) ======
