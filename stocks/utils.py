@@ -202,15 +202,10 @@ def _preset_signal(d, preset):
     raise ValueError(f"Unknown preset: {preset}")
 
 
-def run_preset_backtest(df, preset='safety_first', sl_pct=3.0, rr_target=1.5, max_hold_days=20, period_days=750):
-    """
-    รัน backtest ของเกณฑ์ preset หนึ่งตัวย้อนหลัง period_days วัน
-    Entry: วันถัดจากที่สัญญาณ preset เป็นจริง (เปิดที่ราคาปิดวันสัญญาณ ป้องกัน look-ahead)
-    Exit: SL/TP (คำนวณแบบเดียวกับที่ Trade Flow แสดง) หรือหมดเวลาถือ max_hold_days
-    Returns: {preset, trades_count, win_rate_pct, avg_return_pct, expectancy_pct, max_drawdown_pct, avg_hold_days}
-    """
+def _generate_preset_trades(df, preset, sl_pct=3.0, rr_target=1.5, max_hold_days=20, period_days=750):
+    """คืน list ของ trade dict ({ret_pct, hold_days}) จากสัญญาณ preset หนึ่งตัวบน df เดียว ไม่สรุปผล"""
     if df is None or len(df) < 200:
-        return {'preset': preset, 'error': 'Insufficient data'}
+        return None
 
     d = _build_preset_indicators(df).tail(period_days + 200).reset_index(drop=True)
     signal = _preset_signal(d, preset).fillna(False)
@@ -247,10 +242,15 @@ def run_preset_backtest(df, preset='safety_first', sl_pct=3.0, rr_target=1.5, ma
             last_exit_idx = i + hold_days
         i += 1
 
+    return trades
+
+
+def _summarize_trades(preset, trades):
+    """แปลง list ของ trade dict เป็นสรุปสถิติ (win rate, expectancy, drawdown, ฯลฯ)"""
     if not trades:
         return {'preset': preset, 'rule': PRESET_DEFINITIONS.get(preset, ''), 'trades_count': 0,
                 'win_rate_pct': None, 'avg_return_pct': None, 'expectancy_pct': None,
-                'max_drawdown_pct': None, 'avg_hold_days': None}
+                'max_drawdown_pct': None, 'avg_hold_days': None, 'low_sample': True}
 
     rets = [t['ret_pct'] for t in trades]
     wins = [r for r in rets if r > 0]
@@ -273,14 +273,64 @@ def run_preset_backtest(df, preset='safety_first', sl_pct=3.0, rr_target=1.5, ma
         'expectancy_pct': round(float(np.mean(rets)), 2),
         'max_drawdown_pct': round(float(max_dd), 2),
         'avg_hold_days': round(float(np.mean([t['hold_days'] for t in trades])), 1),
+        # sample size ต่ำกว่า 10 เทรด ถือว่าสถิติยังไม่นิ่งพอให้เชื่อถือ
+        'low_sample': len(rets) < 10,
     }
 
 
+def run_preset_backtest(df, preset='safety_first', sl_pct=3.0, rr_target=1.5, max_hold_days=20, period_days=750):
+    """
+    รัน backtest ของเกณฑ์ preset หนึ่งตัวย้อนหลัง period_days วัน สำหรับหุ้นตัวเดียว
+    Entry: วันถัดจากที่สัญญาณ preset เป็นจริง (เปิดที่ราคาปิดวันสัญญาณ ป้องกัน look-ahead)
+    Exit: SL/TP (คำนวณแบบเดียวกับที่ Trade Flow แสดง) หรือหมดเวลาถือ max_hold_days
+    Returns: {preset, trades_count, win_rate_pct, avg_return_pct, expectancy_pct, max_drawdown_pct,
+              avg_hold_days, low_sample}
+    """
+    trades = _generate_preset_trades(df, preset, sl_pct, rr_target, max_hold_days, period_days)
+    if trades is None:
+        return {'preset': preset, 'error': 'Insufficient data'}
+    return _summarize_trades(preset, trades)
+
+
 def run_all_presets_backtest(df, sl_pct=3.0, rr_target=1.5, max_hold_days=20, period_days=750):
-    """รัน run_preset_backtest กับทุก preset ใน PRESET_DEFINITIONS แล้วคืนเป็น list"""
+    """รัน run_preset_backtest กับทุก preset ใน PRESET_DEFINITIONS แล้วคืนเป็น list (หุ้นตัวเดียว)"""
     return [
         run_preset_backtest(df, preset=p, sl_pct=sl_pct, rr_target=rr_target,
                              max_hold_days=max_hold_days, period_days=period_days)
+        for p in PRESET_DEFINITIONS
+    ]
+
+
+def run_preset_backtest_universe(symbol_dfs, preset, sl_pct=3.0, rr_target=1.5, max_hold_days=20, period_days=750):
+    """
+    รัน backtest ของ preset หนึ่งตัว รวมสัญญาณจากหุ้นหลายตัวเป็น trade pool เดียว
+    เพื่อให้ได้ sample size ที่มากพอสรุปผลได้ (ต่างจาก run_preset_backtest ที่ดูทีละตัว)
+    symbol_dfs: dict {symbol: dataframe ราคาย้อนหลัง}
+    Returns: สรุปผลรวม + symbols_with_signal (หุ้นที่มีอย่างน้อย 1 สัญญาณในช่วงที่ทดสอบ)
+    """
+    all_trades = []
+    symbols_with_signal = []
+    symbols_tested = 0
+    for symbol, df in symbol_dfs.items():
+        trades = _generate_preset_trades(df, preset, sl_pct, rr_target, max_hold_days, period_days)
+        if trades is None:
+            continue
+        symbols_tested += 1
+        if trades:
+            symbols_with_signal.append(symbol)
+            all_trades.extend(trades)
+
+    summary = _summarize_trades(preset, all_trades)
+    summary['symbols_tested'] = symbols_tested
+    summary['symbols_with_signal'] = len(symbols_with_signal)
+    return summary
+
+
+def run_all_presets_backtest_universe(symbol_dfs, sl_pct=3.0, rr_target=1.5, max_hold_days=20, period_days=750):
+    """รัน run_preset_backtest_universe กับทุก preset ใน PRESET_DEFINITIONS"""
+    return [
+        run_preset_backtest_universe(symbol_dfs, preset=p, sl_pct=sl_pct, rr_target=rr_target,
+                                      max_hold_days=max_hold_days, period_days=period_days)
         for p in PRESET_DEFINITIONS
     ]
 

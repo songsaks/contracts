@@ -112,6 +112,7 @@ urlpatterns = [
 
     path('api/analysis/<str:symbol>/', views.api_stock_analysis, name='api_stock_analysis'),
     path('api/backtest-presets/', views.api_backtest_presets, name='api_backtest_presets'),
+    path('api/backtest-presets/universe/', views.api_backtest_presets_universe, name='api_backtest_presets_universe'),
 
     # AI Daily Agent Reports
     path('daily-reports/', views.daily_agent_reports, name='daily_agent_reports'),

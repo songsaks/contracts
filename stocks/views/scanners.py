@@ -6918,3 +6918,54 @@ def api_backtest_presets(request):
     return _JR({'symbol': symbol, 'results': results})
 
 
+@login_required
+def api_backtest_presets_universe(request):
+    """
+    Backtest ย้อนหลังของเกณฑ์ preset รวมสัญญาณจากหุ้นหลายตัว (universe) เป็น trade pool เดียว
+    ให้ sample size มากพอสรุป win rate มาตรฐานของแต่ละ preset ได้ (ต่างจากดูรายตัวที่ sample เล็ก)
+    GET params: limit (จำนวนหุ้น top market cap ที่จะทดสอบ, default 40, max 80)
+    ผลลัพธ์ cache ไว้ 24 ชม. ต่อ limit เพราะดึงข้อมูลราคาหลายสิบตัวจาก yfinance ใช้เวลานาน
+    """
+    from django.core.cache import cache
+    from django.http import JsonResponse as _JR
+    from stocks.models import ScannableSymbol
+    from stocks.utils import run_all_presets_backtest_universe
+
+    try:
+        limit = min(int(request.GET.get('limit', 40)), 80)
+    except (TypeError, ValueError):
+        limit = 40
+
+    cache_key = f'backtest_presets_universe_v1_{limit}'
+    cached = cache.get(cache_key)
+    if cached is not None:
+        cached['cached'] = True
+        return _JR(cached)
+
+    symbols = list(ScannableSymbol.objects.filter(is_active=True, market='SET', market_cap__gt=0)
+                   .order_by('-market_cap')[:limit].values_list('symbol', flat=True))
+    if len(symbols) < 10:
+        symbols = list(ScannableSymbol.objects.filter(is_active=True, market='SET')
+                       .order_by('symbol')[:limit].values_list('symbol', flat=True))
+    if not symbols:
+        return _JR({'error': 'no symbols available to test'}, status=404)
+
+    symbol_dfs = {}
+    for sym in symbols:
+        sym_bk = sym if (sym.endswith('.BK') or '.' in sym) else f"{sym}.BK"
+        try:
+            df = yf.Ticker(sym_bk).history(period="3y", interval="1d", timeout=20)
+            if df is not None and not df.empty:
+                symbol_dfs[sym] = df
+        except Exception:
+            continue
+
+    if not symbol_dfs:
+        return _JR({'error': 'failed to fetch price data for universe symbols'}, status=502)
+
+    results = run_all_presets_backtest_universe(symbol_dfs)
+    payload = {'universe_size': len(symbol_dfs), 'requested_limit': limit, 'results': results, 'cached': False}
+    cache.set(cache_key, payload, timeout=60 * 60 * 24)
+    return _JR(payload)
+
+
