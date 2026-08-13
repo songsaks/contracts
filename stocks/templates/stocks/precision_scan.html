@@ -3979,6 +3979,42 @@ function _tfDo4SET() {
         _tfStateSET.inst.length + ' → ' + pass.length + ' ตัว <span style="font-weight:400;opacity:0.75;">(เข้าได้ ' + nEnter + ')</span>');
 }
 
+// จับคู่แถวหุ้นกับ preset (ชื่อเดียวกับที่ backend ใช้ใน backtest) เพื่อให้กดดู win rate มาตรฐานของ preset นั้นได้ตรงๆ
+function _tfMatchedPresetsSET(r) {
+    const m = [];
+    if (r.s2 && r.pp && r.cmf >= 0.1 && r.vcp && r.canslim) m.push('superformance');
+    if (r.s2 && r.launcher >= 70 && r.vcp && r.insideBar) m.push('launcher_breakout');
+    if (r.s2 && r.pp && r.cmf >= 0.1) m.push('base_accumulation');
+    if (r.s2 && r.rvol >= 1.5 && r.cmf >= 0.1) m.push('high_momentum');
+    if (r.rsi < 70 && r.s2) m.push('safety_first');
+    return m;
+}
+
+function scrollToPresetStatSET(preset) {
+    const box = document.getElementById('tfPresetStatsBoxSET');
+    const doScroll = function() {
+        const row = document.getElementById('tfPresetRow_' + preset);
+        if (!row) return;
+        row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        row.style.transition = 'background-color 0.3s';
+        row.style.backgroundColor = '#ede9fe';
+        setTimeout(function() { row.style.backgroundColor = ''; }, 1800);
+    };
+    if (box && box.querySelector('#tfPresetRow_' + preset)) {
+        doScroll();
+    } else {
+        const btn = document.getElementById('tfPresetStatsBtnSET');
+        loadTfPresetStatsSET(btn);
+        const check = setInterval(function() {
+            if (box && box.querySelector('#tfPresetRow_' + preset)) {
+                clearInterval(check);
+                doScroll();
+            }
+        }, 300);
+        setTimeout(function() { clearInterval(check); }, 90000);
+    }
+}
+
 // STEP 5: Rank + trade-plan cards
 function _tfDo5SET() {
     const cur = '฿';
@@ -4024,10 +4060,18 @@ function _tfDo5SET() {
         }
         const stars = r.stars.map(s => '<span class="tf-star">' + s + ' ✓</span>').join(' ');
         const rrWarning = (r.rr && r.rr < 1.5) ? '<span class="badge bg-warning text-dark ms-1" style="font-size:0.6rem;padding:2px 5px;" title="Risk/Reward ต่ำกว่า 1:1.5 ควรระวัง">⚠️ RR ต่ำ (' + r.rr.toFixed(1) + ')</span>' : '';
+        const matchedPresets = _tfMatchedPresetsSET(r);
+        const presetPills = matchedPresets.map(p =>
+            '<span class="badge rounded-pill" role="button" onclick="scrollToPresetStatSET(&quot;' + p + '&quot;)" '
+            + 'title="ดู Win Rate มาตรฐานของ ' + p + ' (การ์ดสีม่วงด้านบน)" '
+            + 'style="background:rgba(124,58,237,0.08);color:#6d28d9;border:1px solid #ddd6fe;font-size:0.6rem;padding:2px 6px;cursor:pointer;">'
+            + '<i class="fas fa-chart-simple me-1"></i>' + p + '</span>'
+        ).join(' ');
         html += '<div class="tf-res-row">'
             + '<span class="fw-bold text-muted" style="min-width:18px;font-size:0.75rem;">' + (i + 1) + '</span>'
             + '<a href="javascript:void(0)" onclick="scrollToRow(&quot;' + r.symbol + '&quot;)" class="badge rounded-pill text-decoration-none fw-bold" style="background:rgba(124,58,237,0.1);color:#7c3aed;font-size:0.75rem;padding:5px 12px;">' + r.symbol + (i === 0 ? ' 🏆' : '') + '</a>'
             + (stars ? '<span class="d-flex gap-1">' + stars + '</span>' : '')
+            + (presetPills ? '<span class="d-flex gap-1 flex-wrap">' + presetPills + '</span>' : '')
             + '<span class="tf-status ' + r.timing + '">' + r.action + '</span>'
             + '<span class="small text-muted ms-auto" style="font-size:0.68rem;white-space:nowrap;">'
             + 'PP ' + cur + r.ppPrice.toFixed(2) + ' &middot; SL <span class="text-danger">' + cur + r.sl.toFixed(2) + '</span> &middot; TP <span class="text-primary">' + cur + r.tp.toFixed(2) + '</span> &middot; RR 1:' + (r.rr || 0).toFixed(1)
@@ -4093,10 +4137,10 @@ function loadTfPresetStatsSET(btn) {
             const sorted = data.results.slice().sort((a, b) => (b.win_rate_pct || 0) - (a.win_rate_pct || 0));
             let rows = sorted.map(x => {
                 if (!x.trades_count) {
-                    return '<div class="d-flex justify-content-between py-1 border-bottom"><span>' + x.preset + '</span><span class="text-muted">ไม่มีสัญญาณในช่วงทดสอบ</span></div>';
+                    return '<div id="tfPresetRow_' + x.preset + '" class="d-flex justify-content-between py-1 border-bottom" style="border-radius:4px;"><span>' + x.preset + '</span><span class="text-muted">ไม่มีสัญญาณในช่วงทดสอบ</span></div>';
                 }
                 const lowTag = x.low_sample ? ' <span class="badge bg-warning text-dark" style="font-size:0.56rem;padding:1px 4px;">sample น้อย</span>' : '';
-                return '<div class="d-flex justify-content-between py-1 border-bottom">'
+                return '<div id="tfPresetRow_' + x.preset + '" class="d-flex justify-content-between py-1 border-bottom" style="border-radius:4px;">'
                     + '<span>' + x.preset + lowTag + '</span>'
                     + '<span>Win <b>' + x.win_rate_pct + '%</b> &middot; ' + x.trades_count + ' trades ('
                     + x.symbols_with_signal + '/' + x.symbols_tested + ' หุ้น) &middot; avg '
