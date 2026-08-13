@@ -3716,8 +3716,9 @@ function _applyFiltersSET() {
             var price    = parseFloat(row.dataset.price || '0');
             var ma50     = parseFloat(row.dataset.ma50 || '0');
             var nearMa50 = ma50 > 0 && price >= ma50 && (price - ma50) / ma50 <= 0.05;
-            var notExtended = inzone || prox <= 5 || nearMa50 || turtleDist <= 1.0;
-            var isBuyable = inzone || prox <= 5 || (s2 && notExtended && rsi <= 72 && cmf >= -0.05);
+            // ตัดเงื่อนไข catch-all (nearMa50/turtleDist + cmf>=-0.05) ออก ต้องอยู่ในโซนซื้อจริง
+            // และมี RVOL≥1.2 + CMF≥0 ยืนยันแรงซื้อ ถึงจะนับเป็น buyable
+            var isBuyable = (inzone || prox <= 5) && rvol >= 1.2 && cmf >= 0;
 
             var show = (!rsiOn       || rsi < 70) &&
                        (!buyableOn   || isBuyable) &&
