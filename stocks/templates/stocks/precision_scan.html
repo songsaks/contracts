@@ -1790,6 +1790,17 @@
                                         {% if item.wyckoff_effort_result_warning %}
                                         <span class="badge px-1 py-0" style="background:rgba(220,38,38,0.08);color:#dc2626;border:1px solid rgba(220,38,38,0.3);font-size:0.55rem;" title="Effort vs Result: Volume พุ่งขึ้นมากผิดปกติแต่ราคาแทบไม่ขยับ/ลง — อาจมีแรงต้าน/แจกจ่ายเงียบๆ">⚠️ E-R</span>
                                         {% endif %}
+                                        {% if item.trend_template_passed %}
+                                        <span class="badge px-1 py-0" style="background:rgba(15,118,110,0.12);color:#0f766e;border:1px solid rgba(15,118,110,0.4);font-size:0.55rem;" title="Minervini Trend Template: ผ่านครบ 8/8 เงื่อนไข (SMA50>150>200 เรียงชั้น, ราคาห่างจาก 52w low ≥25%, ห่างจาก 52w high ≤25%, RS≥70)">TT 8/8</span>
+                                        {% elif item.trend_template_score >= 6 %}
+                                        <span class="badge px-1 py-0" style="background:rgba(15,118,110,0.08);color:#0f766e;border:1px solid rgba(15,118,110,0.25);font-size:0.55rem;" title="Minervini Trend Template: ผ่าน {{ item.trend_template_score }}/8 เงื่อนไข">TT {{ item.trend_template_score }}/8</span>
+                                        {% endif %}
+                                        {% if item.cheat_entry %}
+                                        <span class="badge px-1 py-0" style="background:rgba(202,138,4,0.12);color:#a16207;border:1px solid rgba(202,138,4,0.4);font-size:0.55rem;" title="Cheat Entry: ทะลุเส้นเทรนด์ขาลงระยะสั้นในฐาน (ก่อนถึง pivot จริง) พร้อม volume สูงกว่าเฉลี่ย — ต้นทุนต่ำกว่า/SL แคบกว่าการรอ breakout มาตรฐาน">⚡ Cheat</span>
+                                        {% endif %}
+                                        {% if item.sector_confirmed %}
+                                        <span class="badge px-1 py-0" style="background:rgba(37,99,235,0.1);color:#2563eb;border:1px solid rgba(37,99,235,0.35);font-size:0.55rem;" title="Sector Confirmation: {{ item.sector_strength_pct }}% ของหุ้นในกลุ่ม {{ item.sector }} อยู่ใน Stage2 ด้วย — ไม่ใช่วิ่งเดี่ยว (Livermore Leading Sisters)">👥 Sector {{ item.sector_strength_pct }}%</span>
+                                        {% endif %}
                                         {% if item.ehlers_itl_bullish %}
                                         <span class="badge px-1 py-0" style="background:#15803d;color:white;font-size:0.55rem;" title="Ehlers ITL MTF Bullish: Price > Daily ITL ({{ item.ehlers_itl_daily|floatformat:2 }}) > Weekly ITL ({{ item.ehlers_itl_weekly|floatformat:2 }})">📈 ITL</span>
                                         {% endif %}

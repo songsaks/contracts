@@ -2049,6 +2049,19 @@ def precision_momentum_scanner(request):
                         except Exception:
                             pass
 
+                        # Minervini Trend Template (8 ข้อเต็ม) + Cheat Entry
+                        tt_score_val = 0
+                        tt_passed_flag = False
+                        cheat_entry_flag = False
+                        try:
+                            from stocks.utils import check_trend_template, detect_cheat_entry
+                            _tt = check_trend_template(df, rs_ratings_map.get(symbol, 0))
+                            tt_score_val = _tt.get('score', 0)
+                            tt_passed_flag = _tt.get('passed', False)
+                            cheat_entry_flag = detect_cheat_entry(df)
+                        except Exception:
+                            pass
+
                         # ====== Volume Dry-Up (VDU): เงียบสะสม - volume ลด 3 วันติด + ต่ำกว่า median 70% (ป้องกัน volume spike) ======
                         vdu_flag = False
                         try:
@@ -2158,6 +2171,9 @@ def precision_momentum_scanner(request):
                             'pp_at_ma50': pp_at_ma50_flag,
                             'wyckoff_spring': wyckoff_spring_flag,
                             'wyckoff_effort_result_warning': wyckoff_er_warning_flag,
+                            'trend_template_score': tt_score_val,
+                            'trend_template_passed': tt_passed_flag,
+                            'cheat_entry': cheat_entry_flag,
                             'ma10': round(ma10_val, 2),
                             'ma50': round(ma50_val, 2),
                             'vdu_near_zone': vdu_flag,
@@ -2246,18 +2262,42 @@ def precision_momentum_scanner(request):
                     except Exception as e:
                         print(f"[Precision] Bulk Fundamental fetch failed: {e}")
 
+                    # ====== Sector Confirmation (Livermore "Leading Sisters") ======
+                    # หุ้นกลุ่มเดียวกันควรขยับไปด้วยกัน — ถ้าหุ้นตัวนำวิ่งเดี่ยวๆ แต่กลุ่มไม่ขยับ มีโอกาสเป็นสัญญาณหลอกสูงขึ้น
+                    sector_stage2_ratio = {}
+                    try:
+                        from collections import defaultdict
+                        _sec_total = defaultdict(int)
+                        _sec_stage2 = defaultdict(int)
+                        for _rec in scan_df.to_dict('records'):
+                            _sec = fund_data.get(_rec['symbol'], {}).get('sector') or 'Unknown'
+                            _sec_total[_sec] += 1
+                            if _rec.get('stage2'):
+                                _sec_stage2[_sec] += 1
+                        for _sec, _tot in _sec_total.items():
+                            sector_stage2_ratio[_sec] = round(_sec_stage2[_sec] / _tot * 100, 1) if _tot else 0.0
+                    except Exception:
+                        pass
+
                     # ====== Bulk Create ======
                     bulk_candidates = []
                     for r in scan_df.to_dict('records'):
                         sym = r['symbol']
                         f = fund_data.get(sym, {'sector': 'N/A', 'eps_growth': 0.0, 'rev_growth': 0.0})
+                        _sec = f.get('sector') or 'Unknown'
+                        _sec_pct = sector_stage2_ratio.get(_sec, 0.0)
                         bulk_candidates.append(PrecisionScanCandidate(
                             user=user,
                             market='SET',
                             scan_run=scan_run_time,
                             symbol=sym,
                             symbol_bk=f"{sym}.BK",
-                            sector=f.get('sector') or 'Unknown',
+                            sector=_sec,
+                            trend_template_score=r.get('trend_template_score', 0),
+                            trend_template_passed=r.get('trend_template_passed', False),
+                            cheat_entry=r.get('cheat_entry', False),
+                            sector_confirmed=_sec_pct >= 30.0,
+                            sector_strength_pct=_sec_pct,
                             price=r['price'],
                             rsi=r['rsi'],
                             adx=r['adx'],

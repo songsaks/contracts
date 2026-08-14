@@ -394,6 +394,13 @@ class PrecisionScanCandidate(models.Model):
     wyckoff_spring          = models.BooleanField(default=False)  # หลุดแนวรับฐานสะสมช่วงสั้นแล้วดีดกลับยืนเหนือแนวรับ (Phase C)
     wyckoff_effort_result_warning = models.BooleanField(default=False)  # Volume พุ่งมากแต่ราคาแทบไม่ขยับ/ลง — สัญญาณอ่อนแรง/แจกจ่าย
 
+    # ====== Minervini / Livermore (v9) ======
+    trend_template_score  = models.IntegerField(default=0)         # 0-8: จำนวนเงื่อนไข Minervini Trend Template ที่ผ่าน
+    trend_template_passed = models.BooleanField(default=False)     # True เมื่อผ่านครบ 8/8
+    cheat_entry            = models.BooleanField(default=False)    # ทะลุเส้นเทรนด์ขาลงในหูถ้วยก่อนถึง pivot จริง (early entry)
+    sector_confirmed        = models.BooleanField(default=False)   # หุ้นกลุ่มเดียวกัน ≥30% อยู่ใน Stage2 ด้วย (ไม่ใช่วิ่งเดี่ยว)
+    sector_strength_pct     = models.FloatField(default=0.0)       # % ของหุ้นในกลุ่มเดียวกันที่อยู่ใน Stage2
+
     # Properties for real-time Risk/Reward
     @property
     def live_price_or_price(self):

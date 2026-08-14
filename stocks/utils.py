@@ -336,6 +336,73 @@ def run_all_presets_backtest_universe(symbol_dfs, sl_pct=3.0, rr_target=1.5, max
 
 
 # ----------------------------------------------------------------------
+# check_trend_template — Minervini Trend Template 8 ข้อเต็มรูปแบบ
+# ก่อนหน้านี้ระบบเช็คแค่ราคา>SMA150 ที่ชันขึ้น (Stage2) จุดนี้เช็คครบทั้ง 8 เงื่อนไข
+# รวม SMA50/150/200 เรียงชั้น, ระยะห่างจาก 52w low/high และ RS Rating
+# ----------------------------------------------------------------------
+def check_trend_template(df, rs_rating=0):
+    empty = {'passed': False, 'score': 0, 'checks': {}}
+    if df is None or len(df) < 210:
+        return empty
+    try:
+        close = df['Close']
+        price = float(close.iloc[-1])
+        sma50 = ta.sma(close, length=50)
+        sma150 = ta.sma(close, length=150)
+        sma200 = ta.sma(close, length=200)
+        if sma50 is None or sma150 is None or sma200 is None:
+            return empty
+        sma200_clean = sma200.dropna()
+        if len(sma200_clean) < 22:
+            return empty
+        sma50_v = float(sma50.iloc[-1])
+        sma150_v = float(sma150.iloc[-1])
+        sma200_v = float(sma200_clean.iloc[-1])
+        sma200_1m_ago = float(sma200_clean.iloc[-22])
+        year_high = float(df['High'].tail(252).max())
+        year_low = float(df['Low'].tail(252).min())
+
+        checks = {
+            'price_above_150_200':    price > sma150_v and price > sma200_v,
+            'sma150_above_sma200':    sma150_v > sma200_v,
+            'sma200_trending_up':     sma200_v > sma200_1m_ago,
+            'sma50_above_150_200':    sma50_v > sma150_v and sma50_v > sma200_v,
+            'price_above_sma50':      price > sma50_v,
+            'price_25pct_above_low':  price >= year_low * 1.25,
+            'price_within_25pct_of_high': price >= year_high * 0.75,
+            'rs_strong':              rs_rating >= 70,
+        }
+        score = sum(1 for v in checks.values() if v)
+        return {'passed': score == 8, 'score': score, 'checks': checks}
+    except Exception:
+        return empty
+
+
+# ----------------------------------------------------------------------
+# detect_cheat_entry — Minervini/Livermore "Cheat Entry" (early entry)
+# ทะลุเส้นเทรนด์ขาลงระยะสั้นภายในฐาน (handle) ก่อนถึง pivot จริง ด้วย volume สูงกว่าเฉลี่ย
+# ให้ต้นทุนต่ำกว่าและวาง SL แคบกว่าการรอ breakout มาตรฐาน — มีประโยชน์เฉพาะกับฐานกว้าง/ลึกแบบตลาดไทย
+# ----------------------------------------------------------------------
+def detect_cheat_entry(df, lookback=15):
+    if df is None or len(df) < lookback + 5:
+        return False
+    try:
+        recent = df.tail(lookback)
+        highs = recent['High'].values
+        x = np.arange(len(highs))
+        slope = np.polyfit(x, highs[:], 1)[0]
+        if slope >= 0:  # ต้องเป็นเส้นโน้มลง ไม่งั้นไม่ใช่ handle/cheat setup
+            return False
+        trendline_today = float(np.polyval(np.polyfit(x[:-1], highs[:-1], 1), x[-1]))
+        price_today = float(df['Close'].iloc[-1])
+        vol_today = float(df['Volume'].iloc[-1])
+        avg_vol = float(df['Volume'].tail(50).mean()) if len(df) >= 50 else float(df['Volume'].mean())
+        return bool(price_today > trendline_today and vol_today > avg_vol)
+    except Exception:
+        return False
+
+
+# ----------------------------------------------------------------------
 # detect_wyckoff_spring — จับสัญญาณ Spring (Wyckoff Phase C)
 # ราคาหลุดต่ำกว่าแนวรับของฐานสะสมช่วงสั้นๆ (false breakdown) แล้วดีดกลับขึ้นมายืนเหนือแนวรับ
 # ภายในไม่กี่วัน — เป็นจุดเข้าที่ SL แคบที่สุดของทฤษฎีนี้ เพราะรู้จุดที่ผิดชัดเจน (หลุดแนวรับซ้ำ)
