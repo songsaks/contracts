@@ -1518,6 +1518,18 @@
                     <label class="form-check-label small fw-semibold" for="accDistFilterSET" style="cursor:pointer; color:#15803d;">📈 ACC > DIST</label>
                     <span style="font-size:0.85rem;color:#94a3b8;cursor:pointer;" title="Accumulation > Distribution: วัน Acc (ราคาขึ้น+วอลุ่มสูง) มากกว่าวัน Dist ใน 10 วัน — เงินสถาบันไหลเข้าสุทธิ ยืนยันการสะสม"><i class="fas fa-question-circle"></i></span>
                 </div>
+                <!-- Trend Template Filter (Minervini 8-point) -->
+                <div class="form-check form-switch mb-0 d-flex align-items-center gap-2">
+                    <input class="form-check-input" type="checkbox" id="trendTemplateFilterSET" onchange="_applyFiltersSET()" style="cursor:pointer;">
+                    <label class="form-check-label small fw-semibold" for="trendTemplateFilterSET" style="cursor:pointer; color:#0f766e;">📐 Trend Template ≥7/8</label>
+                    <span style="font-size:0.85rem;color:#94a3b8;cursor:pointer;" title="Minervini Trend Template: ผ่านอย่างน้อย 7 ใน 8 เงื่อนไข (SMA50>150>200 เรียงชั้น, SMA200 ชันขึ้น, ราคาเหนือทุกเส้น, ห่างจาก 52w low ≥25%, ห่างจาก 52w high ≤25%, RS≥70)"><i class="fas fa-question-circle"></i></span>
+                </div>
+                <!-- Sector Confirmed Filter (Livermore Leading Sisters) -->
+                <div class="form-check form-switch mb-0 d-flex align-items-center gap-2">
+                    <input class="form-check-input" type="checkbox" id="sectorConfirmedFilterSET" onchange="_applyFiltersSET()" style="cursor:pointer;">
+                    <label class="form-check-label small fw-semibold" for="sectorConfirmedFilterSET" style="cursor:pointer; color:#2563eb;">👥 Sector Confirmed</label>
+                    <span style="font-size:0.85rem;color:#94a3b8;cursor:pointer;" title="Sector Confirmation (Livermore Leading Sisters): หุ้นในกลุ่มอุตสาหกรรมเดียวกัน ≥30% อยู่ใน Stage2 ด้วย — ไม่ใช่หุ้นวิ่งเดี่ยวที่เสี่ยง False Breakout"><i class="fas fa-question-circle"></i></span>
+                </div>
                 <!-- Buyable Uptrend Filter (หุ้นขาขึ้นที่ย่ออยู่ในโซนซื้อ) -->
                 <div class="form-check form-switch mb-0 d-flex align-items-center gap-2" style="background:linear-gradient(135deg,rgba(16,185,129,0.08),rgba(5,150,105,0.08));border:1px solid rgba(5,150,105,0.25);border-radius:20px;padding:2px 12px 2px 40px;">
                     <input class="form-check-input" type="checkbox" id="buyableFilterSET" onchange="_applyFiltersSET()" style="cursor:pointer;">
@@ -1701,6 +1713,8 @@
     data-vcp-tight="{{ item.vcp_tightness|default:0 }}"
     data-vcp-vdu="{{ item.vcp_vdu|yesno:'true,false' }}"
     data-sector="{{ item.sector }}"
+    data-tt-score="{{ item.trend_template_score|default:0 }}"
+    data-sector-confirmed="{{ item.sector_confirmed|yesno:'true,false' }}"
     data-itl="{{ item.ehlers_itl_bullish|yesno:'true,false' }}"
     data-rvol="{{ item.rvol|default:0 }}"
     data-ema-aligned="{{ item.ema20_aligned|yesno:'true,false' }}"
@@ -3693,6 +3707,8 @@ function _applyFiltersSET() {
         var insideBarOn = document.getElementById('insideBarFilterSET')   && document.getElementById('insideBarFilterSET').checked;
         var accDistOn   = document.getElementById('accDistFilterSET')     && document.getElementById('accDistFilterSET').checked;
         var buyableOn   = document.getElementById('buyableFilterSET')     && document.getElementById('buyableFilterSET').checked;
+        var trendTemplateOn   = document.getElementById('trendTemplateFilterSET')   && document.getElementById('trendTemplateFilterSET').checked;
+        var sectorConfirmedOn = document.getElementById('sectorConfirmedFilterSET') && document.getElementById('sectorConfirmedFilterSET').checked;
         var secEl  = document.getElementById('sectorFilterSET');
         var secVal = secEl ? secEl.value : '';
 
@@ -3723,6 +3739,8 @@ function _applyFiltersSET() {
             var isShort  = row.dataset.isShortTerm  === 'true';
             var isMedium = row.dataset.isMediumTerm === 'true';
             var isLong   = row.dataset.isLongTerm   === 'true';
+            var ttScore  = parseInt(row.dataset.ttScore || '0');
+            var sectorConfirmed = row.dataset.sectorConfirmed === 'true';
 
             var rsiOn    = document.getElementById('rsiFilter70SET') && document.getElementById('rsiFilter70SET').checked;
 
@@ -3753,7 +3771,9 @@ function _applyFiltersSET() {
                        (!canslimOn   || canslim) &&
                        (!buynowOn    || isBuyNow) &&
                        (!insideBarOn || insideBar) &&
-                       (!accDistOn   || isAccPos);
+                       (!accDistOn   || isAccPos) &&
+                       (!trendTemplateOn   || ttScore >= 7) &&
+                       (!sectorConfirmedOn || sectorConfirmed);
 
             // Gather all symbols passing the checkbox filters for the Summary Cards
             if (show) {
@@ -3803,7 +3823,8 @@ function _applyFiltersSET() {
 // ── Filter persistence (localStorage) ─────────────────────────────────
 var FILTER_IDS_SET = ['rsiFilter70SET','stage2FilterSET','ppFilterSET','cmfPositiveFilterSET',
                       'volSurgeFilterSET','ichiFilterSET','launcherFilterSET','vcpFilterSET',
-                      'itlFilterSET','canslimFilterSET','buynowFilterSET','insideBarFilterSET','accDistFilterSET','buyableFilterSET'];
+                      'itlFilterSET','canslimFilterSET','buynowFilterSET','insideBarFilterSET','accDistFilterSET','buyableFilterSET',
+                      'trendTemplateFilterSET','sectorConfirmedFilterSET'];
 
 function _saveFilterStateSET() {
     try {
@@ -3926,7 +3947,8 @@ function _tfRowsSET() {
             ppPrice: parseFloat(d.ppPrice || 0), zoneLow: parseFloat(d.zoneLow || 0),
             sl: parseFloat(d.slPrice || 0), tp: parseFloat(d.tpPrice || 0), price: parseFloat(d.price || 0),
             launcher: parseInt(d.launcher || 0), insideBar: d.insideBar === 'true',
-            spring: d.wyckoffSpring === 'true', erWarning: d.wyckoffErWarning === 'true'
+            spring: d.wyckoffSpring === 'true', erWarning: d.wyckoffErWarning === 'true',
+            sectorConfirmed: d.sectorConfirmed === 'true'
         };
     });
 }
@@ -4009,6 +4031,9 @@ function _tfDo4SET() {
         } else {
             r.timing = 'skip'; r.action = 'ราคาอยู่กลางทาง — ไม่มีจุดเข้าชัด';
         }
+        // Sector Confirmation (Livermore "Leading Sisters"): ไม่บล็อกการเข้า แค่ทำเป็น soft warning
+        // เพราะหุ้นวิ่งเดี่ยวไม่มีกลุ่มยืนยันเสี่ยง False Breakout สูงกว่าปกติ
+        r.sectorWeak = r.timing !== 'skip' && !r.sectorConfirmed;
     });
     const pass = _tfStateSET.inst.filter(r => r.timing !== 'skip');
     _tfStateSET.timed = pass;
@@ -4093,6 +4118,7 @@ function _tfDo5SET() {
         const stars = r.stars.map(s => '<span class="tf-star">' + s + ' ✓</span>').join(' ');
         const rrWarning = (r.rr && r.rr < 1.5) ? '<span class="badge bg-warning text-dark ms-1" style="font-size:0.6rem;padding:2px 5px;" title="Risk/Reward ต่ำกว่า 1:1.5 ควรระวัง">⚠️ RR ต่ำ (' + r.rr.toFixed(1) + ')</span>' : '';
         const erWarning = r.erWarning ? '<span class="badge ms-1" style="background:rgba(220,38,38,0.1);color:#dc2626;font-size:0.6rem;padding:2px 5px;" title="Effort vs Result: Volume พุ่งขึ้นมากผิดปกติแต่ราคาแทบไม่ขยับ/ลง — อาจมีแรงต้าน/แจกจ่ายเงียบๆ ระวังไว้แม้ผ่านเกณฑ์อื่นครบ">⚠️ E-R Warning</span>' : '';
+        const sectorWarning = r.sectorWeak ? '<span class="badge ms-1" style="background:rgba(217,119,6,0.1);color:#b45309;font-size:0.6rem;padding:2px 5px;" title="Sector Confirmation: หุ้นกลุ่มเดียวกันน้อยกว่า 30% อยู่ใน Stage2 — วิ่งเดี่ยวโดยไม่มีกลุ่มยืนยัน เสี่ยง False Breakout สูงกว่าปกติ (Livermore Leading Sisters)">⚠️ วิ่งเดี่ยว (ไม่มี Sector ยืนยัน)</span>' : '';
         const matchedPresets = _tfMatchedPresetsSET(r);
         const presetPills = matchedPresets.map(p =>
             '<span class="badge rounded-pill" role="button" onclick="scrollToPresetStatSET(&quot;' + p + '&quot;)" '
@@ -4110,6 +4136,7 @@ function _tfDo5SET() {
             + 'PP ' + cur + r.ppPrice.toFixed(2) + ' &middot; SL <span class="text-danger">' + cur + r.sl.toFixed(2) + '</span> &middot; TP <span class="text-primary">' + cur + r.tp.toFixed(2) + '</span> &middot; RR 1:' + (r.rr || 0).toFixed(1)
             + rrWarning
             + erWarning
+            + sectorWarning
             + '</span>'
             + '<button class="btn btn-sm py-0 px-2 rounded-pill" style="font-size:0.62rem;border:1px solid #e2e8f0;color:#64748b;" onclick="scrollToRow(&quot;' + r.symbol + '&quot;)"><i class="fas fa-arrow-down me-1"></i>ไปที่แถว</button>'
             + '<button class="btn btn-sm py-0 px-2 rounded-pill" style="font-size:0.62rem;border:1px solid #ddd6fe;color:#7c3aed;" onclick="runTfBacktestSET(&quot;' + r.symbol + '&quot;, this)"><i class="fas fa-clock-rotate-left me-1"></i>Backtest</button>'
