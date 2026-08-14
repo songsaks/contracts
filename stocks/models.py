@@ -390,6 +390,10 @@ class PrecisionScanCandidate(models.Model):
     volume_surge     = models.FloatField(default=1.0)             # current vol / avg_vol_20d ratio
     is_volume_surge  = models.BooleanField(default=False)         # True if volume_surge >= 1.5x
 
+    # ====== Wyckoff (v8) ======
+    wyckoff_spring          = models.BooleanField(default=False)  # หลุดแนวรับฐานสะสมช่วงสั้นแล้วดีดกลับยืนเหนือแนวรับ (Phase C)
+    wyckoff_effort_result_warning = models.BooleanField(default=False)  # Volume พุ่งมากแต่ราคาแทบไม่ขยับ/ลง — สัญญาณอ่อนแรง/แจกจ่าย
+
     # Properties for real-time Risk/Reward
     @property
     def live_price_or_price(self):

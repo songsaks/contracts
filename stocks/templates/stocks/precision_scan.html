@@ -1711,6 +1711,8 @@
     data-inside-bar="{{ item.inside_bar|yesno:'true,false' }}"
     data-acc-days="{{ item.acc_days|default:0 }}"
     data-dist-days="{{ item.dist_days|default:0 }}"
+    data-wyckoff-spring="{{ item.wyckoff_spring|yesno:'true,false' }}"
+    data-wyckoff-er-warning="{{ item.wyckoff_effort_result_warning|yesno:'true,false' }}"
     data-cup="{% if item.symbol in cup_handle_symbols %}true{% else %}false{% endif %}"
     data-turtle-sys="{% if item.symbol in turtle_symbols %}true{% else %}false{% endif %}"
     data-inzone="{% if item.demand_zone_start and item.price <= item.demand_zone_start and item.price >= item.demand_zone_end %}true{% else %}false{% endif %}"
@@ -1781,6 +1783,12 @@
                                         <span class="badge px-1 py-0" style="background:rgba(5,150,105,0.15);color:#047857;border:1px solid rgba(5,150,105,0.4);font-size:0.55rem;" title="Accumulation: {{ item.acc_days }} วันสะสม vs {{ item.dist_days }} วันขาย ใน 10 วัน — เงินสถาบันไหลเข้า">ACC {{ item.acc_days }}d</span>
                                         {% elif item.dist_days >= 4 and item.dist_days > item.acc_days %}
                                         <span class="badge px-1 py-0" style="background:rgba(220,38,38,0.08);color:#dc2626;border:1px solid rgba(220,38,38,0.3);font-size:0.55rem;" title="Distribution: {{ item.dist_days }} วันขาย vs {{ item.acc_days }} วันสะสม ใน 10 วัน — เงินสถาบันไหลออก">DIST {{ item.dist_days }}d</span>
+                                        {% endif %}
+                                        {% if item.wyckoff_spring %}
+                                        <span class="badge px-1 py-0" style="background:rgba(124,58,237,0.12);color:#6d28d9;border:1px solid rgba(124,58,237,0.4);font-size:0.55rem;" title="Wyckoff Spring: หลุดแนวรับฐานสะสมช่วงสั้นแล้วดีดกลับยืนเหนือแนวรับ — จุดเข้าที่ SL แคบสุด (Phase C)">🌀 Spring</span>
+                                        {% endif %}
+                                        {% if item.wyckoff_effort_result_warning %}
+                                        <span class="badge px-1 py-0" style="background:rgba(220,38,38,0.08);color:#dc2626;border:1px solid rgba(220,38,38,0.3);font-size:0.55rem;" title="Effort vs Result: Volume พุ่งขึ้นมากผิดปกติแต่ราคาแทบไม่ขยับ/ลง — อาจมีแรงต้าน/แจกจ่ายเงียบๆ">⚠️ E-R</span>
                                         {% endif %}
                                         {% if item.ehlers_itl_bullish %}
                                         <span class="badge px-1 py-0" style="background:#15803d;color:white;font-size:0.55rem;" title="Ehlers ITL MTF Bullish: Price > Daily ITL ({{ item.ehlers_itl_daily|floatformat:2 }}) > Weekly ITL ({{ item.ehlers_itl_weekly|floatformat:2 }})">📈 ITL</span>
@@ -3906,7 +3914,8 @@ function _tfRowsSET() {
             inzone: d.inzone === 'true', prox: parseFloat(d.prox !== undefined ? d.prox : 99),
             ppPrice: parseFloat(d.ppPrice || 0), zoneLow: parseFloat(d.zoneLow || 0),
             sl: parseFloat(d.slPrice || 0), tp: parseFloat(d.tpPrice || 0), price: parseFloat(d.price || 0),
-            launcher: parseInt(d.launcher || 0), insideBar: d.insideBar === 'true'
+            launcher: parseInt(d.launcher || 0), insideBar: d.insideBar === 'true',
+            spring: d.wyckoffSpring === 'true', erWarning: d.wyckoffErWarning === 'true'
         };
     });
 }
@@ -3972,6 +3981,10 @@ function _tfDo4SET() {
         // (แก้ปัญหาหุ้นเข้าโซนซื้อเยอะเกินไปทั้งที่ไม่มีแรงซื้อรองรับ)
         if (r.rsi >= 80) {
             r.timing = 'skip'; r.action = 'Overextended (RSI ' + Math.round(r.rsi) + ') — รอย่อ';
+        } else if (r.spring) {
+            // Wyckoff Spring: หลุดแนวรับฐานสะสมช่วงสั้นแล้วดีดกลับยืนเหนือแนวรับ — จุดเข้าที่ SL แคบสุด
+            // ถือเป็นสัญญาณเข้าได้เอง ไม่ต้องรอ RVOL/CMF เหมือนเงื่อนไข inzone ทั่วไป
+            r.timing = 'enter'; r.action = '🌀 Wyckoff Spring — หลุดแนวรับแล้วดีดกลับ (SL แคบ) — เข้าได้';
         } else if (r.inzone && r.rvol >= 1.2 && r.cmf >= 0) {
             r.timing = 'enter'; r.action = 'IN ZONE ' + cur + r.zoneLow.toFixed(2) + '–' + r.ppPrice.toFixed(2) + ' — เข้าได้';
         } else if (r.inzone) {
@@ -4068,6 +4081,7 @@ function _tfDo5SET() {
         }
         const stars = r.stars.map(s => '<span class="tf-star">' + s + ' ✓</span>').join(' ');
         const rrWarning = (r.rr && r.rr < 1.5) ? '<span class="badge bg-warning text-dark ms-1" style="font-size:0.6rem;padding:2px 5px;" title="Risk/Reward ต่ำกว่า 1:1.5 ควรระวัง">⚠️ RR ต่ำ (' + r.rr.toFixed(1) + ')</span>' : '';
+        const erWarning = r.erWarning ? '<span class="badge ms-1" style="background:rgba(220,38,38,0.1);color:#dc2626;font-size:0.6rem;padding:2px 5px;" title="Effort vs Result: Volume พุ่งขึ้นมากผิดปกติแต่ราคาแทบไม่ขยับ/ลง — อาจมีแรงต้าน/แจกจ่ายเงียบๆ ระวังไว้แม้ผ่านเกณฑ์อื่นครบ">⚠️ E-R Warning</span>' : '';
         const matchedPresets = _tfMatchedPresetsSET(r);
         const presetPills = matchedPresets.map(p =>
             '<span class="badge rounded-pill" role="button" onclick="scrollToPresetStatSET(&quot;' + p + '&quot;)" '
@@ -4084,6 +4098,7 @@ function _tfDo5SET() {
             + '<span class="small text-muted ms-auto" style="font-size:0.68rem;white-space:nowrap;">'
             + 'PP ' + cur + r.ppPrice.toFixed(2) + ' &middot; SL <span class="text-danger">' + cur + r.sl.toFixed(2) + '</span> &middot; TP <span class="text-primary">' + cur + r.tp.toFixed(2) + '</span> &middot; RR 1:' + (r.rr || 0).toFixed(1)
             + rrWarning
+            + erWarning
             + '</span>'
             + '<button class="btn btn-sm py-0 px-2 rounded-pill" style="font-size:0.62rem;border:1px solid #e2e8f0;color:#64748b;" onclick="scrollToRow(&quot;' + r.symbol + '&quot;)"><i class="fas fa-arrow-down me-1"></i>ไปที่แถว</button>'
             + '<button class="btn btn-sm py-0 px-2 rounded-pill" style="font-size:0.62rem;border:1px solid #ddd6fe;color:#7c3aed;" onclick="runTfBacktestSET(&quot;' + r.symbol + '&quot;, this)"><i class="fas fa-clock-rotate-left me-1"></i>Backtest</button>'

@@ -336,6 +336,56 @@ def run_all_presets_backtest_universe(symbol_dfs, sl_pct=3.0, rr_target=1.5, max
 
 
 # ----------------------------------------------------------------------
+# detect_wyckoff_spring — จับสัญญาณ Spring (Wyckoff Phase C)
+# ราคาหลุดต่ำกว่าแนวรับของฐานสะสมช่วงสั้นๆ (false breakdown) แล้วดีดกลับขึ้นมายืนเหนือแนวรับ
+# ภายในไม่กี่วัน — เป็นจุดเข้าที่ SL แคบที่สุดของทฤษฎีนี้ เพราะรู้จุดที่ผิดชัดเจน (หลุดแนวรับซ้ำ)
+# ----------------------------------------------------------------------
+def detect_wyckoff_spring(df, lookback=20, recent_days=3):
+    if df is None or len(df) < lookback + recent_days + 5:
+        return False, {}
+    prior = df.iloc[-(lookback + recent_days + 5):-recent_days]
+    support = float(prior['Low'].min())
+    recent = df.tail(recent_days)
+    avg_vol = float(df['Volume'].tail(50).mean()) if len(df) >= 50 else float(df['Volume'].mean())
+
+    broke_below = bool((recent['Low'] < support).any())
+    if not broke_below:
+        return False, {}
+
+    last_close = float(df['Close'].iloc[-1])
+    last_vol = float(df['Volume'].iloc[-1])
+    reclaimed = last_close > support
+    vol_confirm = last_vol > avg_vol
+
+    return bool(reclaimed), {
+        'support': round(support, 4),
+        'reclaimed_close': round(last_close, 4),
+        'vol_confirm': vol_confirm,
+    }
+
+
+# ----------------------------------------------------------------------
+# detect_effort_result_divergence — Effort vs Result (Wyckoff)
+# เทียบ "แรง" (volume เฉลี่ยช่วงล่าสุด) กับ "ผล" (% ที่ราคาขยับได้จริง) — ถ้า volume พุ่งขึ้นมาก
+# แต่ราคาแทบไม่ขยับ/ลง แปลว่ามีแรงต้าน/แจกจ่ายเงียบๆ อยู่ เตือนก่อนที่ SL แบบราคาล้วนจะจับสัญญาณทัน
+# ----------------------------------------------------------------------
+def detect_effort_result_divergence(df, window=5):
+    if df is None or len(df) < window * 2 + 5:
+        return False, {}
+    recent = df.tail(window)
+    prior = df.iloc[-(window * 2):-window]
+    recent_vol = float(recent['Volume'].mean())
+    prior_vol = float(prior['Volume'].mean())
+    price_change_pct = float((recent['Close'].iloc[-1] - recent['Close'].iloc[0]) / recent['Close'].iloc[0] * 100)
+    vol_ratio = recent_vol / prior_vol if prior_vol > 0 else 1.0
+
+    # แรง (volume) มากกว่าปกติ >=40% แต่ผล (ราคา) แทบไม่ขยับ/ติดลบ = สัญญาณเตือน
+    warning = vol_ratio >= 1.4 and price_change_pct < 1.0
+
+    return warning, {'vol_ratio': round(vol_ratio, 2), 'price_change_pct': round(price_change_pct, 2)}
+
+
+# ----------------------------------------------------------------------
 # calculate_trailing_stop — คำนวณ Trailing Stop Loss
 # ใช้ป้องกันความเสี่ยงหลังจากซื้อหุ้น โดยตั้ง stop loss ตาม %
 # ของราคาสูงสุดที่เคยทำได้นับตั้งแต่ซื้อ
