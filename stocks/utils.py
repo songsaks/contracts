@@ -406,6 +406,11 @@ def detect_cheat_entry(df, lookback=15):
 # detect_wyckoff_spring — จับสัญญาณ Spring (Wyckoff Phase C) พร้อมแยกประเภทตาม Volume
 # และตรวจ Secondary Test สำหรับ Type 2
 #
+# breakdown day ต้องมีรูปร่างแท่งเทียนแบบ Spring ด้วย ไม่ใช่แค่ Low หลุดแนวรับเฉยๆ:
+#   - ไส้ล่างยาว (lower wick / total range ≥ wick_ratio_threshold) — มีแรงซื้อดันกลับจากจุดต่ำสุด
+#   - ตัวแท่งเล็ก (body / total range ≤ body_ratio_max) — ลักษณะลังเล/กลับตัว ไม่ใช่แรงขายคุมเต็มแท่ง
+# วันไหนหลุดแนวรับแต่แท่งไม่มีลักษณะนี้ (เช่น แท่งแดงเต็มแท่งไม่มีไส้) จะไม่นับเป็น breakdown day ของ Spring
+#
 # แยกตาม volume วันที่หลุดแนวรับ (breakdown day) เป็น 3 ประเภทตามตำรา Wyckoff:
 #   - Type 3 (low volume, ratio<0.7): แรงขายหมดแล้ว — เชื่อถือได้สูงสุด ถือเป็น Spring ทันทีที่ดีดกลับ
 #     พร้อม volume ยืนยัน ไม่ต้องรอ Secondary Test
@@ -414,7 +419,8 @@ def detect_cheat_entry(df, lookback=15):
 #     (ไม่นับ new low ที่ต่ำกว่า breakdown low เกิน 2%) ถึงจะยืนยันเป็น Spring ได้
 #   - Type 1 (high volume, ratio>1.5): แรงขายหนักจริง (Terminal Shakeout/หลุดจริง) — ไม่ถือเป็น Spring เด็ดขาด
 # ----------------------------------------------------------------------
-def detect_wyckoff_spring(df, lookback=20, recent_days=3, secondary_test_window=15):
+def detect_wyckoff_spring(df, lookback=20, recent_days=3, secondary_test_window=15,
+                           wick_ratio_threshold=0.5, body_ratio_max=0.3):
     total_needed = lookback + secondary_test_window + recent_days + 5
     if df is None or len(df) < total_needed:
         return False, {}
@@ -429,8 +435,24 @@ def detect_wyckoff_spring(df, lookback=20, recent_days=3, secondary_test_window=
     if not bool(broke_below_mask.any()):
         return False, {}
 
-    # breakdown day ตัวแรกสุดที่หลุดแนวรับ (จุดเริ่ม Spring event ตามตำรา)
-    breakdown_idx = search_window.loc[broke_below_mask].index[0]
+    # เลือก breakdown day ตัวแรกสุดที่หลุดแนวรับ "และ" มีรูปร่างแท่งเทียนแบบ Spring (ไส้ล่างยาว+ตัวเล็ก)
+    breakdown_idx = None
+    for _idx in search_window.loc[broke_below_mask].index:
+        _o = float(df.loc[_idx, 'Open'])
+        _c = float(df.loc[_idx, 'Close'])
+        _h = float(df.loc[_idx, 'High'])
+        _l = float(df.loc[_idx, 'Low'])
+        _range = _h - _l
+        if _range <= 0:
+            continue
+        _body = abs(_o - _c)
+        _lower_wick = min(_o, _c) - _l
+        if (_lower_wick / _range) >= wick_ratio_threshold and (_body / _range) <= body_ratio_max:
+            breakdown_idx = _idx
+            break
+    if breakdown_idx is None:
+        return False, {}
+
     breakdown_low = float(df.loc[breakdown_idx, 'Low'])
     breakdown_vol = float(df.loc[breakdown_idx, 'Volume'])
     breakdown_vol_ratio = breakdown_vol / avg_vol if avg_vol > 0 else 1.0
