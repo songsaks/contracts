@@ -505,6 +505,102 @@ def detect_wyckoff_spring(df, lookback=20, recent_days=3, secondary_test_window=
 
 
 # ----------------------------------------------------------------------
+# detect_wyckoff_upthrust — จับสัญญาณ Upthrust (คู่ตรงข้ามของ Spring — สัญญาณเตือนแจกจ่าย/Distribution)
+# ราคาทะลุเหนือแนวต้านของฐานแจกจ่ายหลอกๆ (false breakout ขึ้น) แล้วร่วงกลับต่ำกว่าแนวต้าน
+# ใช้เตือนก่อนราคาจะปรับฐาน/ร่วงจริง เร็วกว่า SL แบบราคาล้วน (ตรงกับปัญหาพอร์ตที่ SL ไม่ทันเตือน)
+#
+# หมายเหตุ: ทิศทางการตีความ Volume "กลับด้าน" จาก Spring — สำหรับ Upthrust, volume สูงตอนทะลุ
+# ขึ้นแล้วร่วงกลับ = หลักฐานว่ามีรายใหญ่ขายดูดซับแรงซื้อไว้เต็มที่ (ยิ่ง volume สูง ยิ่งน่าเชื่อถือว่าเป็น
+# การแจกจ่ายจริง) ต่างจาก Spring ที่ volume สูงตอนหลุดแนวรับ = ยังมีแรงขายจริง (ไม่ใช่ Spring)
+#   - Strong (volume สูง >1.5x): แรงซื้อถูกดูดซับเต็มที่ — ยืนยันทันทีที่ราคาร่วงกลับต่ำกว่าแนวต้าน
+#   - Moderate (0.7-1.5x): ยังไม่ชัดพอ ต้องรอ Secondary Test (ราคาพยายามขึ้นทดสอบแนวต้านซ้ำด้วย
+#     volume ที่แห้งกว่าเดิม แล้วไม่ผ่าน) ถึงจะยืนยันได้
+#   - Weak (volume ต่ำ <0.7x): แค่หมดแรงซื้อไปเฉยๆ ไม่ใช่หลักฐานการแจกจ่ายที่ชัดเจน — ไม่นับเป็น Upthrust
+# ----------------------------------------------------------------------
+def detect_wyckoff_upthrust(df, lookback=20, recent_days=3, secondary_test_window=15,
+                             wick_ratio_threshold=0.5, body_ratio_max=0.3):
+    total_needed = lookback + secondary_test_window + recent_days + 5
+    if df is None or len(df) < total_needed:
+        return False, {}
+
+    prior = df.iloc[-total_needed:-(secondary_test_window + recent_days)]
+    resistance = float(prior['High'].max())
+    avg_vol = float(df['Volume'].tail(50).mean()) if len(df) >= 50 else float(df['Volume'].mean())
+
+    search_window = df.tail(secondary_test_window + recent_days)
+    broke_above_mask = search_window['High'] > resistance
+    if not bool(broke_above_mask.any()):
+        return False, {}
+
+    # เลือก breakout day ตัวแรกสุดที่ทะลุแนวต้าน "และ" มีรูปร่างแท่งเทียนแบบ Upthrust (ไส้บนยาว+ตัวเล็ก)
+    breakout_idx = None
+    for _idx in search_window.loc[broke_above_mask].index:
+        _o = float(df.loc[_idx, 'Open'])
+        _c = float(df.loc[_idx, 'Close'])
+        _h = float(df.loc[_idx, 'High'])
+        _l = float(df.loc[_idx, 'Low'])
+        _range = _h - _l
+        if _range <= 0:
+            continue
+        _body = abs(_o - _c)
+        _upper_wick = _h - max(_o, _c)
+        if (_upper_wick / _range) >= wick_ratio_threshold and (_body / _range) <= body_ratio_max:
+            breakout_idx = _idx
+            break
+    if breakout_idx is None:
+        return False, {}
+
+    breakout_high = float(df.loc[breakout_idx, 'High'])
+    breakout_vol = float(df.loc[breakout_idx, 'Volume'])
+    breakout_vol_ratio = breakout_vol / avg_vol if avg_vol > 0 else 1.0
+
+    if breakout_vol_ratio < 0.7:
+        upthrust_type = 'weak_low_vol'      # แค่หมดแรงซื้อ ไม่ใช่หลักฐานแจกจ่ายชัดเจน
+    elif breakout_vol_ratio > 1.5:
+        upthrust_type = 'strong_high_vol'   # แรงซื้อถูกดูดซับเต็มที่ — น่าเชื่อถือสุด
+    else:
+        upthrust_type = 'moderate'          # ยังไม่ชัดพอ ต้องรอ Secondary Test
+
+    last_close = float(df['Close'].iloc[-1])
+    last_vol = float(df['Volume'].iloc[-1])
+    rejected = last_close < resistance      # ร่วงกลับต่ำกว่าแนวต้านแล้ว
+    vol_confirm = last_vol > avg_vol        # volume ยืนยันว่ามีแรงขายจริงตอนร่วงกลับ
+
+    info = {
+        'resistance': round(resistance, 4),
+        'rejected_close': round(last_close, 4),
+        'vol_confirm': vol_confirm,
+        'upthrust_type': upthrust_type,
+        'breakout_vol_ratio': round(breakout_vol_ratio, 2),
+    }
+
+    if upthrust_type == 'weak_low_vol':
+        return False, info
+
+    if upthrust_type == 'strong_high_vol':
+        is_upthrust = rejected and vol_confirm
+        return bool(is_upthrust), info
+
+    # Moderate: ต้องหา Secondary Test — วันหลัง breakout ที่ราคาพยายามขึ้นทดสอบแนวต้านซ้ำอีกครั้ง
+    # (ไม่เกิน breakout_high ไปมาก) ด้วย volume ที่แห้งกว่า breakout ชัดเจน (<70% ของ breakout volume)
+    after_breakout = df.loc[df.index > breakout_idx]
+    if after_breakout.empty:
+        return False, info
+
+    near_high_mask = after_breakout['High'] >= breakout_high * 0.98        # ขึ้นมาทดสอบใกล้ high เดิม
+    caps_high_mask = after_breakout['High'] <= breakout_high * 1.02        # แต่ไม่ทะลุ high เดิมไปมาก
+    dry_vol_mask = after_breakout['Volume'] < breakout_vol * 0.7           # volume แห้งกว่า breakout ชัดเจน
+    secondary_test_mask = near_high_mask & caps_high_mask & dry_vol_mask
+    secondary_test_found = bool(secondary_test_mask.any())
+    info['secondary_test_found'] = secondary_test_found
+
+    is_upthrust = secondary_test_found and rejected and vol_confirm
+    if is_upthrust:
+        info['upthrust_type'] = 'moderate_secondary_test_confirmed'
+    return bool(is_upthrust), info
+
+
+# ----------------------------------------------------------------------
 # detect_selling_climax — จับสัญญาณ Selling Climax (Wyckoff Phase A)
 # จุดเริ่มต้นของการสะสม (ตรงข้ามกับ Spring ที่เป็นปลาย Phase C) — หาหุ้นที่ "เพิ่งเริ่ม" เข้าเขต
 # สะสม หลังขาลงมานาน ไม่ใช่หุ้นที่พร้อมทะลุแล้ว เหมาะกับผู้ที่มองหาหุ้นสะสมพลังรอ 1-2 เดือนข้างหน้า

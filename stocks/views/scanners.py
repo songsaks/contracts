@@ -2039,8 +2039,9 @@ def precision_momentum_scanner(request):
                         except Exception:
                             pass
 
-                        # Wyckoff Spring + Effort-vs-Result divergence + Selling Climax (Phase A)
+                        # Wyckoff Spring + Upthrust + Effort-vs-Result divergence + Selling Climax (Phase A)
                         wyckoff_spring_flag = False
+                        wyckoff_upthrust_flag = False
                         wyckoff_er_warning_flag = False
                         wyckoff_selling_climax_flag = False
                         try:
@@ -2048,8 +2049,10 @@ def precision_momentum_scanner(request):
                                 detect_effort_result_divergence,
                                 detect_selling_climax,
                                 detect_wyckoff_spring,
+                                detect_wyckoff_upthrust,
                             )
                             wyckoff_spring_flag, _ = detect_wyckoff_spring(df)
+                            wyckoff_upthrust_flag, _ = detect_wyckoff_upthrust(df)
                             wyckoff_er_warning_flag, _ = detect_effort_result_divergence(df)
                             wyckoff_selling_climax_flag, _ = detect_selling_climax(df)
                         except Exception:
@@ -2176,6 +2179,7 @@ def precision_momentum_scanner(request):
                             'pocket_pivot': pocket_pivot_flag,
                             'pp_at_ma50': pp_at_ma50_flag,
                             'wyckoff_spring': wyckoff_spring_flag,
+                            'wyckoff_upthrust': wyckoff_upthrust_flag,
                             'wyckoff_effort_result_warning': wyckoff_er_warning_flag,
                             'wyckoff_selling_climax': wyckoff_selling_climax_flag,
                             'trend_template_score': tt_score_val,
@@ -2344,6 +2348,7 @@ def precision_momentum_scanner(request):
                             pocket_pivot=r.get('pocket_pivot', False),
                             pp_at_ma50=r.get('pp_at_ma50', False),
                             wyckoff_spring=r.get('wyckoff_spring', False),
+                            wyckoff_upthrust=r.get('wyckoff_upthrust', False),
                             wyckoff_effort_result_warning=r.get('wyckoff_effort_result_warning', False),
                             wyckoff_selling_climax=r.get('wyckoff_selling_climax', False),
                             ma10=r.get('ma10', 0.0),

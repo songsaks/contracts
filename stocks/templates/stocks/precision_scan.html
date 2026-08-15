@@ -1807,6 +1807,9 @@
                                         {% if item.wyckoff_effort_result_warning %}
                                         <span class="badge px-1 py-0" style="background:rgba(220,38,38,0.08);color:#dc2626;border:1px solid rgba(220,38,38,0.3);font-size:0.55rem;" title="Effort vs Result: Volume พุ่งขึ้นมากผิดปกติแต่ราคาแทบไม่ขยับ/ลง — อาจมีแรงต้าน/แจกจ่ายเงียบๆ">⚠️ E-R</span>
                                         {% endif %}
+                                        {% if item.wyckoff_upthrust %}
+                                        <span class="badge px-1 py-0" style="background:rgba(220,38,38,0.12);color:#b91c1c;border:1px solid rgba(220,38,38,0.4);font-size:0.55rem;" title="Wyckoff Upthrust: ทะลุแนวต้านของฐานแจกจ่ายหลอกๆ แล้วร่วงกลับต่ำกว่าแนวต้าน พร้อม volume ยืนยันแรงขาย — คู่ตรงข้ามของ Spring สัญญาณเตือนว่ารายใหญ่อาจกำลังแจกจ่ายของ ควรระวังถ้าถืออยู่ ไม่ใช่จุดเข้าซื้อ">⛔ Upthrust</span>
+                                        {% endif %}
                                         {% if item.wyckoff_selling_climax %}
                                         <span class="badge px-1 py-0" style="background:rgba(37,99,235,0.1);color:#1d4ed8;border:1px solid rgba(37,99,235,0.35);font-size:0.55rem;" title="Selling Climax (Phase A): Volume พุ่งผิดปกติพร้อมแท่งแดงยาวหลังขาลงมานาน แล้วมี Automatic Rally ยืนยัน (ราคาเด้งกลับ ไม่ทำนิวโลว์ต่อ) — สัญญาณว่าหุ้นเพิ่งเริ่มเข้าเขตสะสม เหมาะสำหรับดักหุ้นสะสมพลังรอ 1-2 เดือนข้างหน้า ไม่ใช่จุดเข้าซื้อทันที">🅰️ Selling Climax</span>
                                         {% endif %}
