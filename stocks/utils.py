@@ -403,12 +403,15 @@ def detect_cheat_entry(df, lookback=15):
 
 
 # ----------------------------------------------------------------------
-# detect_wyckoff_spring — จับสัญญาณ Spring (Wyckoff Phase C)
+# detect_wyckoff_spring — จับสัญญาณ Spring (Wyckoff Phase C) พร้อมแยกประเภทตาม Volume
 # ราคาหลุดต่ำกว่าแนวรับของฐานสะสมช่วงสั้นๆ (false breakdown) แล้วดีดกลับขึ้นมายืนเหนือแนวรับ
-# ภายในไม่กี่วัน พร้อม volume ยืนยันตอนดีดกลับ (Law of Effort vs Result) — เป็นจุดเข้าที่ SL
-# แคบที่สุดของทฤษฎีนี้ เพราะรู้จุดที่ผิดชัดเจน (หลุดแนวรับซ้ำ)
-# หมายเหตุ: ถ้าดีดกลับได้แต่ไม่มี volume ยืนยัน (vol_confirm=False) ไม่ถือเป็น Spring ที่เชื่อถือได้
-# เพราะไม่มีหลักฐานว่ารายใหญ่เข้ารับซื้อจริง อาจเป็นแค่การเด้งโดยไม่มีแรงหนุน
+# ภายในไม่กี่วัน พร้อม volume ยืนยันตอนดีดกลับ (Law of Effort vs Result)
+#
+# แยกตาม volume วันที่หลุดแนวรับ (breakdown day) เป็น 3 ประเภทตามตำรา Wyckoff:
+#   - Type 3 (low volume, ratio<0.7): แรงขายหมดแล้ว — เชื่อถือได้สูงสุด ถือเป็น Spring ทันที
+#   - Type 2 (moderate, 0.7-1.5): ยังมี floating supply — ต้องรอ Secondary Test ก่อนถึงจะเชื่อได้
+#     (ยังไม่ implement การตรวจ Secondary Test แบบหลายวันในเวอร์ชันนี้ จึงยังไม่ยืนยันเป็น Spring)
+#   - Type 1 (high volume, ratio>1.5): แรงขายหนักจริง (Terminal Shakeout/หลุดจริง) — ไม่ถือเป็น Spring เด็ดขาด
 # ----------------------------------------------------------------------
 def detect_wyckoff_spring(df, lookback=20, recent_days=3):
     if df is None or len(df) < lookback + recent_days + 5:
@@ -418,20 +421,37 @@ def detect_wyckoff_spring(df, lookback=20, recent_days=3):
     recent = df.tail(recent_days)
     avg_vol = float(df['Volume'].tail(50).mean()) if len(df) >= 50 else float(df['Volume'].mean())
 
-    broke_below = bool((recent['Low'] < support).any())
-    if not broke_below:
+    broke_below_mask = recent['Low'] < support
+    if not bool(broke_below_mask.any()):
         return False, {}
+
+    # วันที่ทำ Low ต่ำสุดในช่วงที่หลุดแนวรับ = breakdown day ตามตำรา
+    breakdown_idx = recent.loc[broke_below_mask, 'Low'].idxmin()
+    breakdown_vol = float(recent.loc[breakdown_idx, 'Volume'])
+    breakdown_vol_ratio = breakdown_vol / avg_vol if avg_vol > 0 else 1.0
+
+    if breakdown_vol_ratio > 1.5:
+        spring_type = 'type1_high_vol'   # Terminal Shakeout — แรงขายหนักจริง ไม่ใช่ Spring
+    elif breakdown_vol_ratio < 0.7:
+        spring_type = 'type3_low_vol'    # Supply Exhaustion — เชื่อถือได้สูงสุด
+    else:
+        spring_type = 'type2_moderate'   # ยังมี floating supply — ต้องรอ Secondary Test
 
     last_close = float(df['Close'].iloc[-1])
     last_vol = float(df['Volume'].iloc[-1])
     reclaimed = last_close > support
     vol_confirm = last_vol > avg_vol
-    is_spring = reclaimed and vol_confirm
+
+    # ยืนยันเป็น Spring ที่ใช้เข้าซื้อได้ทันทีเฉพาะ Type 3 เท่านั้น (ตามตำรา ไม่ต้องรอ Secondary Test)
+    # Type 2 ต้องรอ Secondary Test ก่อน (ยังไม่ implement) และ Type 1 ห้ามใช้เป็น Spring เด็ดขาด
+    is_spring = spring_type == 'type3_low_vol' and reclaimed and vol_confirm
 
     return bool(is_spring), {
         'support': round(support, 4),
         'reclaimed_close': round(last_close, 4),
         'vol_confirm': vol_confirm,
+        'spring_type': spring_type,
+        'breakdown_vol_ratio': round(breakdown_vol_ratio, 2),
     }
 
 
