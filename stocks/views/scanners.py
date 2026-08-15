@@ -2039,13 +2039,19 @@ def precision_momentum_scanner(request):
                         except Exception:
                             pass
 
-                        # Wyckoff Spring + Effort-vs-Result divergence
+                        # Wyckoff Spring + Effort-vs-Result divergence + Selling Climax (Phase A)
                         wyckoff_spring_flag = False
                         wyckoff_er_warning_flag = False
+                        wyckoff_selling_climax_flag = False
                         try:
-                            from stocks.utils import detect_wyckoff_spring, detect_effort_result_divergence
+                            from stocks.utils import (
+                                detect_effort_result_divergence,
+                                detect_selling_climax,
+                                detect_wyckoff_spring,
+                            )
                             wyckoff_spring_flag, _ = detect_wyckoff_spring(df)
                             wyckoff_er_warning_flag, _ = detect_effort_result_divergence(df)
+                            wyckoff_selling_climax_flag, _ = detect_selling_climax(df)
                         except Exception:
                             pass
 
@@ -2171,6 +2177,7 @@ def precision_momentum_scanner(request):
                             'pp_at_ma50': pp_at_ma50_flag,
                             'wyckoff_spring': wyckoff_spring_flag,
                             'wyckoff_effort_result_warning': wyckoff_er_warning_flag,
+                            'wyckoff_selling_climax': wyckoff_selling_climax_flag,
                             'trend_template_score': tt_score_val,
                             'trend_template_passed': tt_passed_flag,
                             'cheat_entry': cheat_entry_flag,
@@ -2338,6 +2345,7 @@ def precision_momentum_scanner(request):
                             pp_at_ma50=r.get('pp_at_ma50', False),
                             wyckoff_spring=r.get('wyckoff_spring', False),
                             wyckoff_effort_result_warning=r.get('wyckoff_effort_result_warning', False),
+                            wyckoff_selling_climax=r.get('wyckoff_selling_climax', False),
                             ma10=r.get('ma10', 0.0),
                             ma50=r.get('ma50', 0.0),
                             vdu_near_zone=r.get('vdu_near_zone', False),

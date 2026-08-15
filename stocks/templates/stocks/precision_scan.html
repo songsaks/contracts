@@ -1804,6 +1804,9 @@
                                         {% if item.wyckoff_effort_result_warning %}
                                         <span class="badge px-1 py-0" style="background:rgba(220,38,38,0.08);color:#dc2626;border:1px solid rgba(220,38,38,0.3);font-size:0.55rem;" title="Effort vs Result: Volume พุ่งขึ้นมากผิดปกติแต่ราคาแทบไม่ขยับ/ลง — อาจมีแรงต้าน/แจกจ่ายเงียบๆ">⚠️ E-R</span>
                                         {% endif %}
+                                        {% if item.wyckoff_selling_climax %}
+                                        <span class="badge px-1 py-0" style="background:rgba(37,99,235,0.1);color:#1d4ed8;border:1px solid rgba(37,99,235,0.35);font-size:0.55rem;" title="Selling Climax (Phase A): Volume พุ่งผิดปกติพร้อมแท่งแดงยาวหลังขาลงมานาน แล้วมี Automatic Rally ยืนยัน (ราคาเด้งกลับ ไม่ทำนิวโลว์ต่อ) — สัญญาณว่าหุ้นเพิ่งเริ่มเข้าเขตสะสม เหมาะสำหรับดักหุ้นสะสมพลังรอ 1-2 เดือนข้างหน้า ไม่ใช่จุดเข้าซื้อทันที">🅰️ Selling Climax</span>
+                                        {% endif %}
                                         {% if item.trend_template_passed %}
                                         <span class="badge px-1 py-0" style="background:rgba(15,118,110,0.12);color:#0f766e;border:1px solid rgba(15,118,110,0.4);font-size:0.55rem;" title="Minervini Trend Template: ผ่านครบ 8/8 เงื่อนไข (SMA50>150>200 เรียงชั้น, ราคาห่างจาก 52w low ≥25%, ห่างจาก 52w high ≤25%, RS≥70)">TT 8/8</span>
                                         {% elif item.trend_template_score >= 6 %}

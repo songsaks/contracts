@@ -393,6 +393,7 @@ class PrecisionScanCandidate(models.Model):
     # ====== Wyckoff (v8) ======
     wyckoff_spring          = models.BooleanField(default=False)  # หลุดแนวรับฐานสะสมช่วงสั้นแล้วดีดกลับยืนเหนือแนวรับ (Phase C)
     wyckoff_effort_result_warning = models.BooleanField(default=False)  # Volume พุ่งมากแต่ราคาแทบไม่ขยับ/ลง — สัญญาณอ่อนแรง/แจกจ่าย
+    wyckoff_selling_climax   = models.BooleanField(default=False)  # จุดเริ่ม Phase A: volume พุ่ง+แท่งแดงยาวหลังขาลง แล้วมี Automatic Rally ยืนยัน
 
     # ====== Minervini / Livermore (v9) ======
     trend_template_score  = models.IntegerField(default=0)         # 0-8: จำนวนเงื่อนไข Minervini Trend Template ที่ผ่าน

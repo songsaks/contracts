@@ -483,6 +483,69 @@ def detect_wyckoff_spring(df, lookback=20, recent_days=3, secondary_test_window=
 
 
 # ----------------------------------------------------------------------
+# detect_selling_climax — จับสัญญาณ Selling Climax (Wyckoff Phase A)
+# จุดเริ่มต้นของการสะสม (ตรงข้ามกับ Spring ที่เป็นปลาย Phase C) — หาหุ้นที่ "เพิ่งเริ่ม" เข้าเขต
+# สะสม หลังขาลงมานาน ไม่ใช่หุ้นที่พร้อมทะลุแล้ว เหมาะกับผู้ที่มองหาหุ้นสะสมพลังรอ 1-2 เดือนข้างหน้า
+#
+# เงื่อนไข: (1) มีขาลงมาก่อนอย่างมีนัยสำคัญ (2) วันที่ volume พุ่งสูงผิดปกติ (>=2x เฉลี่ย)
+# พร้อมแท่งแดงยาว (แรงขายทะลัก) (3) ตามด้วย Automatic Rally — ราคาเด้งขึ้นยืนได้ในไม่กี่วันถัดมา
+# (ไม่ทำนิวโลว์ต่อทันที) เป็นสัญญาณว่าแรงซื้อเข้ามารับที่จุดนี้ ไม่ใช่แค่แท่งแดงเดี่ยวๆ
+# ----------------------------------------------------------------------
+def detect_selling_climax(df, downtrend_window=40, downtrend_threshold_pct=-15.0,
+                           vol_ratio_threshold=2.0, search_window=10, rally_check_days=5):
+    total_needed = downtrend_window + search_window + rally_check_days + 5
+    if df is None or len(df) < total_needed:
+        return False, {}
+
+    avg_vol = float(df['Volume'].tail(50).mean()) if len(df) >= 50 else float(df['Volume'].mean())
+
+    # หาแท่งวันในหน้าต่างค้นหาที่มี volume พุ่ง + แท่งแดงยาว + เกิดหลังขาลงมาก่อน
+    search = df.tail(search_window + rally_check_days).iloc[:-rally_check_days] if rally_check_days else df.tail(search_window)
+    best_idx = None
+    for idx in search.index:
+        pos = df.index.get_loc(idx)
+        if pos < downtrend_window:
+            continue
+        vol_ratio = float(df.loc[idx, 'Volume']) / avg_vol if avg_vol > 0 else 0
+        open_p = float(df.loc[idx, 'Open'])
+        close_p = float(df.loc[idx, 'Close'])
+        is_red_candle = close_p < open_p
+        # ขาลงก่อนหน้า: เทียบราคาปิดวันนี้กับราคาปิดเมื่อ downtrend_window วันก่อน
+        prior_close = float(df['Close'].iloc[pos - downtrend_window])
+        decline_pct = (close_p - prior_close) / prior_close * 100 if prior_close > 0 else 0
+
+        if vol_ratio >= vol_ratio_threshold and is_red_candle and decline_pct <= downtrend_threshold_pct:
+            best_idx = idx
+            break  # เอาแท่งแรกสุดที่เข้าเงื่อนไข เป็น climax day
+
+    if best_idx is None:
+        return False, {}
+
+    pos = df.index.get_loc(best_idx)
+    climax_close = float(df.loc[best_idx, 'Close'])
+    climax_low = float(df.loc[best_idx, 'Low'])
+    climax_vol_ratio = float(df.loc[best_idx, 'Volume']) / avg_vol if avg_vol > 0 else 0
+
+    # Automatic Rally: ราคาต้องเด้งขึ้นยืนเหนือ climax close ได้ภายใน rally_check_days วันถัดมา
+    # และไม่ทำนิวโลว์ต่ำกว่า climax_low (ถ้าหลุดต่ำกว่านี้ แปลว่าแรงขายยังไม่หมดจริง ยังไม่ใช่ climax)
+    after = df.iloc[pos + 1: pos + 1 + rally_check_days]
+    if after.empty:
+        return False, {'climax_close': round(climax_close, 4), 'climax_vol_ratio': round(climax_vol_ratio, 2),
+                        'rally_confirmed': False}
+
+    made_new_low = bool((after['Low'] < climax_low).any())
+    rally_confirmed = bool((after['Close'] > climax_close).any()) and not made_new_low
+
+    info = {
+        'climax_close': round(climax_close, 4),
+        'climax_low': round(climax_low, 4),
+        'climax_vol_ratio': round(climax_vol_ratio, 2),
+        'rally_confirmed': rally_confirmed,
+    }
+    return bool(rally_confirmed), info
+
+
+# ----------------------------------------------------------------------
 # detect_effort_result_divergence — Effort vs Result (Wyckoff)
 # เทียบ "แรง" (volume เฉลี่ยช่วงล่าสุด) กับ "ผล" (% ที่ราคาขยับได้จริง) — ถ้า volume พุ่งขึ้นมาก
 # แต่ราคาแทบไม่ขยับ/ลง แปลว่ามีแรงต้าน/แจกจ่ายเงียบๆ อยู่ เตือนก่อนที่ SL แบบราคาล้วนจะจับสัญญาณทัน
