@@ -405,7 +405,10 @@ def detect_cheat_entry(df, lookback=15):
 # ----------------------------------------------------------------------
 # detect_wyckoff_spring — จับสัญญาณ Spring (Wyckoff Phase C)
 # ราคาหลุดต่ำกว่าแนวรับของฐานสะสมช่วงสั้นๆ (false breakdown) แล้วดีดกลับขึ้นมายืนเหนือแนวรับ
-# ภายในไม่กี่วัน — เป็นจุดเข้าที่ SL แคบที่สุดของทฤษฎีนี้ เพราะรู้จุดที่ผิดชัดเจน (หลุดแนวรับซ้ำ)
+# ภายในไม่กี่วัน พร้อม volume ยืนยันตอนดีดกลับ (Law of Effort vs Result) — เป็นจุดเข้าที่ SL
+# แคบที่สุดของทฤษฎีนี้ เพราะรู้จุดที่ผิดชัดเจน (หลุดแนวรับซ้ำ)
+# หมายเหตุ: ถ้าดีดกลับได้แต่ไม่มี volume ยืนยัน (vol_confirm=False) ไม่ถือเป็น Spring ที่เชื่อถือได้
+# เพราะไม่มีหลักฐานว่ารายใหญ่เข้ารับซื้อจริง อาจเป็นแค่การเด้งโดยไม่มีแรงหนุน
 # ----------------------------------------------------------------------
 def detect_wyckoff_spring(df, lookback=20, recent_days=3):
     if df is None or len(df) < lookback + recent_days + 5:
@@ -423,8 +426,9 @@ def detect_wyckoff_spring(df, lookback=20, recent_days=3):
     last_vol = float(df['Volume'].iloc[-1])
     reclaimed = last_close > support
     vol_confirm = last_vol > avg_vol
+    is_spring = reclaimed and vol_confirm
 
-    return bool(reclaimed), {
+    return bool(is_spring), {
         'support': round(support, 4),
         'reclaimed_close': round(last_close, 4),
         'vol_confirm': vol_confirm,
